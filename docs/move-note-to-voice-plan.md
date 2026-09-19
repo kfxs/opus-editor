@@ -329,6 +329,7 @@ two free slots fill, the rest are dropped, no crash, bar still sums correctly.
 
 > ⚠️ **VexFlow guardrail.** A half-formed tuplet (negative/zero bracket width, a
 > filler rest from another voice straddling the span) has crashed VexFlow before
+> (⚠️ 2026-09-19: VexFlow is removed — the tuplet and voice code is our transcription of it, `ScoreTuplet` / `barVoice`, so treat the guardrail as still standing)
 > (see memory: the v0-filler-rest-in-v1-tuplet straddle). After every tuplet move,
 > the bar must be **complete per voice** (each voice's slots sum to bar length)
 > before render. Add a dev-only `validateMeasure` assert (slots-per-voice sum ==

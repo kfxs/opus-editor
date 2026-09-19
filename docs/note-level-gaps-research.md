@@ -43,7 +43,8 @@ the three engines give for the same quantity. Rows are from `docs/engraving-numb
   - LilyPond: `scm/`, `lily/`
   - Verovio: one MEI unit = ½ sp. `m_unit` 9 × `DEFINITION_FACTOR` 10 = 90 drawing units per unit
     (`include/vrv/vrvdef.h:453,455`, `src/options.cpp:1203`).
-- **VexFlow 5.0.0**: `node_modules/vexflow/build/esm/src/`.
+- **VexFlow 5.0.0**: `node_modules/vexflow/build/esm/src/` (⚠️ 2026-09-19: the package is removed —
+  the same build is kept at `~/dev/engine-sources/vexflow-5.0.0-npm/package/build/esm/src/`).
 
 ## 2. Books
 
@@ -188,6 +189,7 @@ the three engines give for the same quantity. Rows are from `docs/engraving-numb
    - the `standoff` handed to `ledgerAccidentalClearance` (`FanPass.ts:156`).
 
    It applies only to fan members k ≥ 1 (`FanPass.ts:514,721`). ⚠️ **Member 0 is a real VexFlow note
+   (⚠️ since 2026-09-19 our `EngravedNote`, VexFlow's rule transcribed)
    and gets 0.30 plus the armed `accidentalGap` row**, so one fanned chord carries two standoffs.
 2. **Cross-system stubs**, from the stem x, not from ink (`VexFlowRenderer.ts:3141-3148`):
    - line start: `startX − 1.2 sp`;

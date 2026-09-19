@@ -304,6 +304,8 @@ drew a full stack for *every* rest. Corrected.)
 `if (this.isRest()) return` (vexflow esm stavenote.js:692) — no option. Structural reason:
 ledger X comes from `getNoteHeadBounds()` over `_noteHeads`, and a rest has none → no anchor X.
 So we draw it ourselves (NOT a subclass — that would need fake notehead bounds).
+(⚠️ 2026-09-19: VexFlow is removed — the note is our `rendering/EngravedNote` now, which transcribes the
+same early return for a rest, so the reason still holds.)
 
 **Editor-specific fact:** this codebase anchors EVERY rest to `b/4` (line 3) regardless of
 duration (NoteBuilder), so `getKeyLine(0)` returns `3 + shift` for all of them — the duration
@@ -322,5 +324,6 @@ own key line (a whole rest hangs from it, a half rest sits on it; both attach AT
   `getGlyphWidth`), styled via `stave.getDefaultLedgerLineStyle()`. Skips
   `renderOptions.draw===false` (co-located merges).
 - **VISUAL-VERIFY pending:** the ledger Y uses `getYForNote(keyLine)` assuming VexFlow draws the
-  whole-rest hang-line / half-rest sit-line AT the key line's Y. If it reads off by a line in
+  whole-rest hang-line / half-rest sit-line AT the key line's Y (⚠️ the rest glyph is drawn by our
+  `EngravedNote` since the removal, 2026-09-19). If it reads off by a line in
   the app, adjust the Y by ±0.5–1 line per the glyph's actual anchor.

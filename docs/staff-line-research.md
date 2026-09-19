@@ -54,7 +54,7 @@ Three questions, one object:
 | LilyPond | `~/dev/engine-sources/lilypond` | `scm/define-grobs.scm` (`StaffSymbol`), `scm/paper.scm` (`calc-line-thickness`) |
 | MuseScore | `~/dev/engine-sources/MuseScore` | `src/engraving/style/styledef.cpp` (`Sid::staffLineWidth`) |
 | Verovio | `~/dev/engine-sources/verovio` | `src/options.cpp` (`staffLineWidth`) |
-| VexFlow 5.0.0 | `node_modules/vexflow/build/esm/src/stave.js` | `Stave.draw()` |
+| VexFlow 5.0.0 | `node_modules/vexflow/build/esm/src/stave.js` (⚠️ 2026-09-19: the package is removed — the same build is kept at `~/dev/engine-sources/vexflow-5.0.0-npm/package/build/esm/src/stave.js`) | `Stave.draw()` |
 | **ours** | `src/engine/engrave/staff/staffLines.ts` (⭐ **moved there by P5a, 2026-09-01**) | `STAVE_LINE_WIDTH_PX` |
 
 ## 2. What each book says — ⛔ and NOT ONE OF THEM GIVES A NUMBER
@@ -391,7 +391,8 @@ these constants do not:
    all `THIN_LINE_SPACES = engravingDefault('thinBarlineThickness')` = **0.16 sp**
    (`rendering/thinLineWeight.ts:60`, `rendering/barlineInk.ts:29`). Their ratio to the staff line
    goes 1.60 → 1.23.
-7. **Stems** — VexFlow's, not ours; a stem is 1.5 px by VexFlow default = 0.15 sp, which is already
+7. **Stems** — VexFlow's, not ours (⚠️ 2026-09-19: ours now — `EngravedNote` draws the stem and its
+   width is the inherited row `STEM_THICKNESS_PX`, same 1.5 px); a stem is 1.5 px by VexFlow default = 0.15 sp, which is already
    *thicker* than our staff line where all four books say it must be **thinner**. 🚨 Raising the staff
    line to 0.13 narrows that inversion; it does not fix it. ⛔ Not researched here — that belongs to
    the stem, `docs/stem-length-research.md` §5.

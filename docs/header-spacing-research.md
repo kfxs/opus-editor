@@ -25,7 +25,9 @@ At the head of a system there is a run of signs:
 ```
 
 Every gap in that run is an engraving decision. Today they are VexFlow's `Stave` defaults on the
-drawing side and `engine/layout/headerInk.ts`'s measurements on the reservation side — the
+drawing side (⚠️ 2026-09-19: VexFlow is removed — the drawing side is now OUR `rendering/EngravedStave`
++ `engrave/staff/signWalk`, `Stave.format()` transcribed, with the inherited numbers as rows in
+`engrave/inheritedDefaults`) and `engine/layout/headerInk.ts`'s measurements on the reservation side — the
 *two-sets-of-numbers* pair `own-engraving-engine.md` §P5 names as the problem's last hiding place.
 Six gaps, plus two internal ones:
 
@@ -49,7 +51,7 @@ Six gaps, plus two internal ones:
 | LilyPond | `~/dev/engine-sources/lilypond` | `scm/define-grobs.scm` — the `space-alist`s on `Clef`, `KeySignature`, `TimeSignature`, `BarLine` |
 | MuseScore | `~/dev/engine-sources/MuseScore` | `src/engraving/style/styledef.cpp` |
 | Verovio | `~/dev/engine-sources/verovio` | `src/options.cpp` |
-| VexFlow 5.0.0 | `node_modules/vexflow/build/esm/src/stave.js` | `Stave.padding`, `formatBegModifiers` |
+| VexFlow 5.0.0 | `~/dev/engine-sources/vexflow-5.0.0-npm/package/build/esm/src/stave.js` (⚠️ no longer in `node_modules` — the package is removed) | `Stave.padding`, `formatBegModifiers` |
 | **ours** | `src/engine/layout/headerInk.ts` + `src/engine/layout/keySignatureLayout.ts` | |
 
 ## 2. What each book says — verbatim
@@ -377,6 +379,11 @@ Two files own the header. **`src/engine/layout/headerInk.ts`** prices it for the
 number in `headerInk.ts` is a **measurement of VexFlow's drawing written down** — its own header says
 so — so it describes the picture rather than choosing it. `e2e/spacing.e2e.ts` re-measures them.
 
+> ⚠️ **2026-09-19: VexFlow is removed.** Wherever this section (a snapshot of 2026-09-01/12) says
+> VexFlow's `Stave` places or pads something, read our own port: `rendering/EngravedStave` +
+> `engrave/staff/signWalk` (`Stave.format()` transcribed), its numbers — `Stave.padding`,
+> `customPadding` — now rows in `engrave/inheritedDefaults`. The history below is kept as written.
+
 ### 4.1 The constants, in staff spaces
 
 | what | constant | value | what it is measured between |
@@ -405,8 +412,8 @@ so — so it describes the picture rather than choosing it. `e2e/spacing.e2e.ts`
 | accidental → accidental | **0.25** gap ⇒ 1.25 / 1.15 pitch | derived so that one gap reproduces Ross's sharp 1¼ and Gould's measured flat; ⚠️ its own comment calls it *"a PREDICTION, and it is owed his eye"* |
 | header → first note | **2.0** | LilyPond `TimeSignature.space-alist (first-note fixed-space . 2.0)` and, cross-checked, `Clef.space-alist (first-note minimum-fixed-space . 5.0)` |
 | **clef → meter, no key** | **1.0** (`BETWEEN_PARTS`) | ⚠️ a MEASUREMENT of VexFlow's drawing, reconciled after the fact to LilyPond's `Clef.space-alist (time-signature . 1.52)` |
-| **the clef's INDENT** | ⛔ **none — we have no constant for it** | it is whatever VexFlow's `Stave` does, absorbed inside `CLEF_FULL`. 🚨 The one gap in the run that nobody here has ever chosen |
-| **inside a time signature** | ⛔ **none** | ⭐ **the INK is ours as of 2026-09-12** (`engrave/header/meter`, P5b) — ⛔ **but not the GAP**: `topLine`/`bottomLine`/`lineShift` stay VexFlow's and arrive resolved, deliberately, because row **H** is UNKNOWN in every book. We still only price the box |
+| **the clef's INDENT** | ⛔ **none — we have no constant for it** | it is whatever VexFlow's `Stave` does, absorbed inside `CLEF_FULL`. 🚨 The one gap in the run that nobody here has ever chosen (⚠️ since chosen — §8 A, `CLEF_INDENT`) |
+| **inside a time signature** | ⛔ **none** | ⭐ **the INK is ours as of 2026-09-12** (`engrave/header/meter`, P5b) — ⛔ **but not the GAP**: `topLine`/`bottomLine`/`lineShift` stay VexFlow's (⚠️ 2026-09-19: VexFlow's VALUES, now rows in our `engrave/header/meterSign`) and arrive resolved, deliberately, because row **H** is UNKNOWN in every book. We still only price the box |
 
 ### 4.3 🚨 Ours against Gould's plate, gap by gap
 
@@ -498,7 +505,9 @@ sheets is **white space**, not an origin distance."*
 
 🚨 **So the SAME GAP is engraved two different ways depending on whether a key signature is present**:
 with one, WE place the meter from ink at a number we chose; without one, VexFlow places it from an
-advance plus a padding nobody chose. ⭐ `BETWEEN_PARTS` is the only gap in the header run still
+advance plus a padding nobody chose. (⚠️ Superseded: the meter after a clef is now PLACED too —
+`rendering/headerPlacementPass` from `layout/clefMeterGap`; and since 2026-09-19 there is no VexFlow
+at all, `customPadding` survives only as a row in `engrave/inheritedDefaults`.) ⭐ `BETWEEN_PARTS` is the only gap in the header run still
 expressed **box to box**, which is the odd-one-out he spotted by eye.
 
 #### ⏭️ What is owed
@@ -733,6 +742,9 @@ implement Gould's distinction were not consulted for it.
 
 ### 5.5 ⭐ VexFlow's header run, in one place — because it is what we draw
 
+> ⚠️ 2026-09-19: VexFlow is removed — this walk is now OUR `engrave/staff/signWalk` (transcribed, same
+> numbers, as rows in `engrave/inheritedDefaults`). The citations below are to VexFlow 5.0.0's source.
+
 At the default 10 px staff space, a stave with barline + clef + key signature + time signature:
 
 | step | px | sp | citation |
@@ -750,7 +762,7 @@ number `layout/measureColumns.ts:312` and `rendering/VexFlowRenderer.ts:5019` al
 ⚠️ **We no longer use VexFlow's key signature** — signatures are ours
 (`rendering/EngravedStave.ts:23`, `rendering/KeySignaturePass.ts`) — so the 1.0 sp clef→key row above
 is VexFlow's and not what we draw. The **barline (5 px), the clef, the time signature's 15 px and the
-12 px `Stave.padding` still are.**
+12 px `Stave.padding` still are.** (⚠️ 2026-09-19: as OUR walk's inherited rows — no VexFlow is left.)
 
 ### 5.6 ⭐⭐ RE-CHECK, 2026-09-12 — **ALL THREE ENGINES SPACE THE CLEF→METER GAP FROM INK**
 
@@ -766,7 +778,7 @@ is VexFlow's and not what we draw. The **barline (5 px), the clef, the time sign
 | *(VexFlow 5)* | *1.5 sp* | ⛔ **ADVANCE edge → next ORIGIN** | `Element.getWidth()` is a `measureText` (`element.js:347–350`) |
 
 🚨🚨 **THE HEADLINE: the ONLY engine in the comparison that spaces this gap from an ADVANCE is
-VexFlow — the dependency we are removing.** ⇒ ⭐ HIS instinct in §4.4 was right about the *design*
+VexFlow — the dependency we were removing** (removed 2026-09-19)**.** ⇒ ⭐ HIS instinct in §4.4 was right about the *design*
 even though the *mechanism* here is a padding rather than a side bearing: an ink-based rule is what
 every real engraver uses, and `BETWEEN_PARTS` is the wrong KIND of number regardless of its value.
 
@@ -904,7 +916,9 @@ the low end already survived one test by the only judge that matters
 ⭐ Three sources say **1**; we draw **1.2**, and `headerInk.ts:59–61` says outright that this is
 VexFlow's floor rather than a choice — *"LilyPond would go TIGHTER than we can draw: `BarLine.space-alist`
 asks `next-note` **0.9** mid-line… against our floor of 1.2, which is VexFlow's `Stave.padding` and
-not a choice"*.
+not a choice"*. (⚠️ 2026-09-19: VexFlow is removed — the 1.2 is now our own row,
+`engrave/inheritedDefaults.NOTE_AREA_PADDING_PX`, so "VexFlow's floor" is no longer a library limit.
+⛔ No new number has been chosen for it.)
 
 ## 8. THE DECISIONS
 
@@ -1008,14 +1022,14 @@ and the one we draw today named honestly.
 
 | # | gap | the options, with provenance | what we do now |
 |---|---|---|---|
-| **A** | **left edge → CLEF** (the indent) | (i) **0.6–0.8 sp** — Gould p. 6 drawn 0.67–0.74, G&L p. 51 drawn 0.62–0.70, Ross p. 144 *"½ to 1 space"*; **LilyPond 0.80 and MuseScore 0.75 land inside it** · (ii) **0.50** — Verovio, and VexFlow's 0.5 by accident (its opening barline's own width) | ⛔ **we have never chosen it.** It is whatever VexFlow's `Stave` does, absorbed inside `CLEF_FULL` |
+| **A** | **left edge → CLEF** (the indent) | (i) **0.6–0.8 sp** — Gould p. 6 drawn 0.67–0.74, G&L p. 51 drawn 0.62–0.70, Ross p. 144 *"½ to 1 space"*; **LilyPond 0.80 and MuseScore 0.75 land inside it** · (ii) **0.50** — Verovio, and VexFlow's 0.5 by accident (its opening barline's own width) | ⛔ **we have never chosen it.** It is whatever VexFlow's `Stave` does, absorbed inside `CLEF_FULL` (⚠️ superseded — chosen in §8 A; and the `Stave` is ours since 2026-09-19, `EngravedStave`) |
 | **B** | **CLEF → KEY SIGNATURE** | (i) **0.82** — LilyPond `Clef.space-alist`, Ross converted, MuseScore 0.75 · (ii) **1.0–1.3** — Gould stated *"1–1½"*, drawn 1.02–1.31 · (iii) **~1.0** — Stone *"one staff-space or a little less"* | ⛔⛔ **NOT OPEN — ALREADY DECIDED, and (i) is the ANSWER, not the default.** It was **1.5 for one commit and HIS EYE rejected it** (*"isn't the first accidental too far from the clef?"*). ⛔ Do not re-open it by re-quoting Gould's drawing: that is the source that LOST. `keySignatureLayout.CLEF_TO_KEY_INK` carries the ruling |
 | **C** | **KEY SIGNATURE → TIME SIGNATURE** | (i) **1.15** — LilyPond · (ii) **1.0** — Stone, MuseScore · (iii) **~1.5** — Ross converted, and Gould's own drawing at 1.57 | ⛔ **NOT OPEN — ALREADY DECIDED**, and decided in answer to HIS OWN REPORT (*"isn't the last accidental too far from the time signature?"* — it was, by half a space, and nobody had chosen the number). `keySignatureLayout.KEY_TO_METER_INK` carries the ruling |
 | **D** | **HEADER → FIRST NOTE** ⭐⭐ the big one | (i) **one number for all three cases** — ours, and LilyPond's `TimeSignature` row read alone · (ii) ⭐⭐ **keyed on what precedes**: **2½** after a clef or key signature, **2** after a time signature — **Gould p. 42 (drawn 2.60/2.59/2.11) AND MuseScore's `systemHeaderDistance 2.5` / `systemHeaderTimeSigDistance 2.0`, the same pair**, and LilyPond's three different `space-alist` tags (§5.3) · (iii) **1½ flat** — Stone p. 44, Ross converted after a meter, and MuseScore's own `absoluteMinHeaderDist` floor | **2.0 for all three.** ✅ right after a meter, 🚨 ~0.5 sp tight after a clef or key signature |
 | **E** | **does an ACCIDENTAL on the first note close the gap?** | (i) yes, by a stated ladder — Gould 2½ → **1½** → **1**, floor *"never closer to a preceding symbol than one stave-space"* · (ii) Ross: the NOTE moves right half a space and the accidental takes the room (p. 146) · (iii) no rule — Verovio, VexFlow | ✅✅ **DECIDED AND BUILT 2026-09-02 — see §8 E.** Yes, and by a TABLE of five sourced rows; **`musescore` is armed** (his choice): 1.5 sp of clear white before the first ink. ⛔ The row is not frozen — `__header.rule(…)` |
-| **F** | **BARLINE → first note, no header** | (i) **1.0** — Gould *"a stave-space on either side of a barline"* (drawn 1.05–1.08), Ross *"one space"*, Verovio · (ii) **0.9** mid-line / **1.3** at a line start — LilyPond's `BarLine.space-alist` · (iii) **1.25** — MuseScore `barNoteDistance`, with **0.65** when the note carries an accidental | ⛔⛔ **NOT A CHOICE — BLOCKED, and the number every source prefers is BELOW the floor.** 1.2 is `Stave.padding` (12 px), which VexFlow adds to every note in `getAbsoluteX` and does **not** expose a setter for (`Metrics` is not exported from the package root). ⇒ drawing Gould's 1.0 would mean pushing the note-start LEFT OF THE BARLINE, so a bar's clickable area would begin outside the bar. ⭐ 1.2 is also defensible on its own: it sits between our trailing 1.0 and MuseScore's `barline↔barline` 1.35, and a leading gap earns more air than a trailing one. ⏳ **Unblocks with P5b/P1e**, when the note-start is ours |
+| **F** | **BARLINE → first note, no header** | (i) **1.0** — Gould *"a stave-space on either side of a barline"* (drawn 1.05–1.08), Ross *"one space"*, Verovio · (ii) **0.9** mid-line / **1.3** at a line start — LilyPond's `BarLine.space-alist` · (iii) **1.25** — MuseScore `barNoteDistance`, with **0.65** when the note carries an accidental | ⛔⛔ **NOT A CHOICE — BLOCKED, and the number every source prefers is BELOW the floor.** 1.2 is `Stave.padding` (12 px), which VexFlow adds to every note in `getAbsoluteX` and does **not** expose a setter for (`Metrics` is not exported from the package root). ⇒ drawing Gould's 1.0 would mean pushing the note-start LEFT OF THE BARLINE, so a bar's clickable area would begin outside the bar. ⭐ 1.2 is also defensible on its own: it sits between our trailing 1.0 and MuseScore's `barline↔barline` 1.35, and a leading gap earns more air than a trailing one. ⏳ **Unblocks with P5b/P1e**, when the note-start is ours. ⚠️ **2026-09-19: VexFlow is removed — the setter limit is GONE**: the 1.2 is our row `inheritedDefaults.NOTE_AREA_PADDING_PX`. The clickable-area point above still stands, and ⛔ nothing has been decided |
 | **G** | **a CRAMPED minimum** | (i) Gould's **½ sp** floor between any two characters (p. 41), with *"reduce the space around clefs and accidentals to ½ space"* and *"stems must never come closer to a barline than one space"* (p. 43) · (ii) none | ⛔ **none** — the spacing solve has no header-specific floor |
-| **H** | **inside a TIME SIGNATURE** | ⛔ **UNKNOWN in every book** (§2.8); the only rule is vertical — *"numerals should exactly fill the height of the stave"* (Gould p. 152). The engines split: **2.0 sp between the rows** (LilyPond `time-signature-settings.scm:902`, Verovio `view_element.cpp:2139`, VexFlow lines 1↔3) vs **a 0.0 clear gap, bboxes touching** (MuseScore `timeSigNormalNumDist`) | VexFlow's — 2.0 sp, or **3.0** when the measured glyph exceeds 30 px (`timesignature.js:82`) |
+| **H** | **inside a TIME SIGNATURE** | ⛔ **UNKNOWN in every book** (§2.8); the only rule is vertical — *"numerals should exactly fill the height of the stave"* (Gould p. 152). The engines split: **2.0 sp between the rows** (LilyPond `time-signature-settings.scm:902`, Verovio `view_element.cpp:2139`, VexFlow lines 1↔3) vs **a 0.0 clear gap, bboxes touching** (MuseScore `timeSigNormalNumDist`) | VexFlow's — 2.0 sp, or **3.0** when the measured glyph exceeds 30 px (`timesignature.js:82`) — ⚠️ VexFlow's rule as OUR rows since 2026-09-19 (`engrave/header/meterSign`) |
 | **I** | **between a signature's ACCIDENTALS** | (i) **one gap + the glyph's advance** — ours · (ii) **0.0 added, side bearings only** — LilyPond · (iii) a **per-kind constant** — MuseScore, Verovio | ⛔⛔ **THE MODEL IS NOT OPEN — decided 2026-08-27**, `key-signature-plan.md` **§4.0b**: *"ONE constant, `KEY_ACCIDENTAL_GAP = 0.25`, **not a per-glyph table**"*. (ii) and (iii) were weighed and rejected there. ⏳ What is outstanding is **only his EYE on the value** (flats come out 1.15 against Gould's 1.12 / Ross's 1.00) — ⭐ **a LOOK, ⛔ not a decision between models** |
 
 🚨🚨🚨 **READ THIS BEFORE PUTTING ANY ROW OF THIS TABLE TO HIM.**
@@ -1045,7 +1059,8 @@ open** — the "what we do now" column has to be read, and where it names a reje
 follow that every row is still a question.
 
 ⭐ **Genuinely open after A, D and E: G alone.** ⛔ **F is BLOCKED by VexFlow** (see its row) — it is
-not a question his eye can settle, and it becomes one only when the note-start is ours. ⏳ **I is a
+not a question his eye can settle, and it becomes one only when the note-start is ours. (⚠️ 2026-09-19:
+it is ours now — VexFlow is removed — so the block is gone; ⛔ F has not been decided.) ⏳ **I is a
 LOOK, not a decision** — its model was settled on 2026-08-27. **H** is ⛔ **UNKNOWN in every book**, so
 there is no rule to adopt: the engines split 2.0 against 0.0 and we already draw the majority answer.
 

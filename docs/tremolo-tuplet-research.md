@@ -53,7 +53,7 @@ Per `reference/README.md` (read first; nothing here was fetched from the web).
 | **MuseScore** `~/dev/engine-sources/MuseScore` @ `929d1e9` | `src/engraving/style/styledef.cpp`; `rendering/score/tremololayout.cpp`, `tupletlayout.cpp`, `stemlayout.cpp`; `dom/tremolosinglechord.cpp` | spatium-relative (`_sp`) |
 | **LilyPond** `~/dev/engine-sources/lilypond` @ `beedbfa` | `scm/define-grobs.scm` (StemTremolo, Beam, TupletBracket, TupletNumber); `lily/stem-tremolo.cc`, `stem.cc`, `tuplet-bracket.cc`, `beam.cc`; `scm/paper.scm` | internal unit = staff space |
 | **Verovio** `~/dev/engine-sources/verovio` @ `efff0bc` | `src/view_tuplet.cpp`, `adjusttupletsyfunctor.cpp`, `view_beam.cpp` (FTrem), `stem.cpp` (BTrem), `options.cpp`, `doc.cpp`; `data/Bravura.xml` + `data/Bravura/E220.xml` (glyph boxes/outline) | `drawingUnit` = **½ sp** |
-| **VexFlow 5.0.0** `node_modules/vexflow/build/esm/src` | `tremolo.js`, `tuplet.js`, `metrics.js` | px at `STAVE_LINE_DISTANCE = 10` (`tables.js:647`) |
+| **VexFlow 5.0.0** `node_modules/vexflow/build/esm/src` (⚠️ 2026-09-19: the package is removed — the same build is kept at `~/dev/engine-sources/vexflow-5.0.0-npm/package/build/esm/src`) | `tremolo.js`, `tuplet.js`, `metrics.js` | px at `STAVE_LINE_DISTANCE = 10` (`tables.js:647`) |
 | **Bravura** | `src/engine/fonts/bravuraMetrics.ts`; glyph units 250 = 1 sp | |
 
 ### How the plates were measured (repeatable)
@@ -296,7 +296,7 @@ Converted at a 10 px staff space (`models/staffSize.ts:37`). Pixel literals do *
 size, except through a small staff's `scale(k)` group.
 
 **Single-note tremolo**
-- **Glyph:** VexFlow `Tremolo` draws N copies of Bravura E220 at fontSize 30 (`metrics.js:63`; `CenteredTremolo.ts:161`). Font facts: vertical thickness **0.5**, width **1.2**, slope **0.207**; bbox `bravuraMetrics.ts:194`.
+- **Glyph:** VexFlow `Tremolo` draws N copies of Bravura E220 at fontSize 30 (⚠️ 2026-09-19: VexFlow is removed — `CenteredTremolo` stamps them itself through `glyphPainter`, same size) (`metrics.js:63`; `CenteredTremolo.ts:161`). Font facts: vertical thickness **0.5**, width **1.2**, slope **0.207**; bbox `bravuraMetrics.ts:194`.
 - **Step:** `Tremolo.spacing` 7 px = **0.70** (`CenteredTremolo.ts:149, 198`).
   - VexFlow's number, not the font's. Bravura's own `tremolo2/3` glyphs step 0.748/0.742.
 - **Placement rule:** the stack's ink centre sits at the middle of the usable stem, from the notehead edge to the tip (`CenteredTremolo.ts:219, 233`).
@@ -479,7 +479,7 @@ Conversion: VexFlow size = 30 × *h* / 1.532, where *h* is the wanted Bravura di
 
 | preset | value | citation |
 |---|---|---|
-| **ours (VexFlow)** | line at stem tip −**1.0** / notehead −**2.0** / top line −**1.5** (above); +**1.0** / +**2.0** / bottom line +**2.0** (below) | `tuplet.js:132-165` |
+| **ours (VexFlow — transcribed as `engrave/marks/tupletPlacement` since S8a)** | line at stem tip −**1.0** / notehead −**2.0** / top line −**1.5** (above); +**1.0** / +**2.0** / bottom line +**2.0** (below) | `tuplet.js:132-165` |
 | Gould (plate) | hook tip **0.50–0.70** clear; line **1.25–1.50** clear; closest to the staff: line **≈0.5** outside it, hooks and numeral edge **0.25–0.30** inside | pp. 194, 199 |
 | Gould (prose) | *"Always place the bracket outside the stave. The bracket ends and the edge of a numeral may intersect a stave-line"* | p. 199 |
 | MuseScore | **0.5** from head and stem; min distance **0.5** | `styledef.cpp:761-762, 2055` |

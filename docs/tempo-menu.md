@@ -30,6 +30,9 @@ Every symbol is an actual SMuFL codepoint from the notation font, written out as
 the `GLYPH` table (VexFlow's `Glyphs` enum is CJS-only → `undefined` in the browser, so it can't be
 imported — same convention `DURATIONS`/`TempoLayout` keep). **The authoritative name→codepoint table
 is `node_modules/vexflow/build/esm/src/glyphs.js`** — grep it before inventing anything.
+(⚠️ 2026-09-19: VexFlow is removed, so there is no `node_modules/vexflow` — the same file is kept at
+`~/dev/engine-sources/vexflow-5.0.0-npm/package/build/esm/src/glyphs.js`; the glyphs we have measured
+are also in `engine/fonts/bravuraMetrics.ts`'s `GLYPH_CODEPOINTS`.)
 
 | element | glyph | codepoint |
 |---|---|---|

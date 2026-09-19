@@ -19,7 +19,7 @@ is quoted rather than a raw constant, the glyph width used for the subtraction i
 | LilyPond | `~/dev/engine-sources/lilypond` | `beedbfa075` (2026-08-03) | the **staff space** itself; `staff-position` = HALF spaces | ×1 (positions ÷2) |
 | MuseScore | `~/dev/engine-sources/MuseScore` | `929d1e99d7` (2026-08-18), 4.x | the **spatium** = one staff space; `0.25_sp` literals | ×1 |
 | Verovio | `~/dev/engine-sources/verovio` | `efff0bc992` (2026-08-18) | `m_drawingUnit` = **half** a staff space (`DEFAULT_UNIT 9.0`, `include/vrv/vrvdef.h:455`); `doubleUnit` = one space | ÷2 |
-| VexFlow | `node_modules/vexflow/build/esm/src` | **5.0.0** | raw **pixels**, `Tables.STAVE_LINE_DISTANCE = 10` (`tables.js:647`) | ÷10 |
+| VexFlow | `node_modules/vexflow/build/esm/src` (⚠️ gone from `node_modules` since S14 — the same build is kept at `~/dev/engine-sources/vexflow-5.0.0-npm/package/build/esm/src`) | **5.0.0** | raw **pixels**, `Tables.STAVE_LINE_DISTANCE = 10` (`tables.js:647`) | ÷10 |
 
 Verovio's unit claim was checked, not assumed: `Doc::GetDrawingStaffSize` = `unit * 8`
 (`src/doc.cpp:2037`) for a 5-line staff = 4 spaces, and `GetDrawingOctaveSize` = `unit * 7`
@@ -27,7 +27,9 @@ Verovio's unit claim was checked, not assumed: `Doc::GetDrawingStaffSize` = `uni
 
 `belle/` and `musxdom/` are on disk and were **not** surveyed (outside the brief).
 
-**Why VexFlow is the fourth witness:** it is the engine this editor runs. As of 2026-09-14 the
+**Why VexFlow is the fourth witness:** it is the engine this editor ran (⚠️ 2026-09-19: VexFlow is REMOVED — its
+placement rules below were transcribed EXACTLY into ours in S9c–f: `engrave/notes/accidentalStack`, `dotStack`,
+`modifierStart`, run by `rendering/modifierColumns` — so its numbers are still what this editor does). As of 2026-09-14 the
 accidental's and the dot's **ink** are ours (`src/engine/engrave/notes/accidental.ts`,
 `src/engine/engrave/notes/augmentationDot.ts`) while their **placement** is still VexFlow's
 (`Accidental.format`, `Dot.format`, `StaveNote.getModifierStartXY`) — with three of our own modules
@@ -396,7 +398,7 @@ the same routine draws a diamond instead (`src/view_element.cpp:2093`).
 
 ---
 
-### 2.4 VexFlow 5.0.0 (what this editor runs today)
+### 2.4 VexFlow 5.0.0 (what this editor runs today — ⚠️ since 2026-09-19 as our own transcription, not the library)
 
 ⚠️ **Check the override chain.** `Modifier.setXShift` (`modifier.js:87-95`) **negates** its argument
 when `position === LEFT` — so an accidental's stored `xShift` is negative while `Element.renderText`
@@ -432,7 +434,7 @@ cases at `accidental.js:110-143`. Groups of **7 or more** fall out of the table 
 repeating pattern whose length grows until no collision remains (`:145-166`).
 
 Note that this editor already **replaces the ORDER** with its own `chordAccidentalColumns`
-(`src/engine/rendering/chordAccidentalColumns.ts`), keeping VexFlow's packing machinery.
+(`src/engine/rendering/chordAccidentalColumns.ts`), keeping VexFlow's packing machinery (⚠️ ported since S9d: `engrave/notes/accidentalStack`).
 
 **A4 — `Accidental.accidentalSpacing = 3` px = 0.30 sp** (`metrics.js:76`), added after each
 accidental within a line (`accidental.js:87`, `:197`); column x-offsets accumulate the widest line

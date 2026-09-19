@@ -190,8 +190,10 @@ src/
                           #   than guess at a glyph we have not measured), a
                           #   `DrawContext` that records instead of painting. ⛔ no DOM, ⛔ no
                           #   vexflow, ⛔ no models. `VexFlowRenderer.recordScene(fn)` tees it onto
-                          #   the real painter ⇒ ⭐ GEOMETRY IS A UNIT TEST. ⭐ Since S13b every
-                          #   ink on the page is ours, so it sees ALL of it; ⛔ not an INK EXTENT.
+                          #   the real painter ⇒ ⭐ GEOMETRY IS A UNIT TEST. ⚠️ It sees what went
+                          #   through the pass's surface — heads, stems, beams, staff lines, signs —
+                          #   ⛔ NOT what is still drawn straight on the painter (the TUPLET's number
+                          #   and bracket, `pointerRect` hit targets), ⛔ nor an INK EXTENT.
                           #   docs/own-engraving-engine.md §7.2, P1d
     paint/                # ⭐⭐ THE SURFACE WE DRAW ON, declared by US — `DrawContext` (20
                           #   primitives; the 20th is `bezierCurveTo`, U1's curve)
@@ -382,6 +384,8 @@ browser suite".
 ⭐⭐ **…except through a SCENE, and that exception is now the preferred route where it reaches.**
 `VexFlowRenderer.recordScene(fn)` renders normally and hands back what was drawn as plain values
 (`engine/scene/`), so *"the barline of bar 3 stands right of bar 2's"* is arithmetic in jsdom —
-see `VexFlowRenderer.scene.test.ts`. ⭐ Since S13b every ink on the page is drawn through our
-primitives — noteheads, stems, beams and the stave's own lines included — so the scene sees all of
-it. ⛔ It never gives an INK EXTENT, which still needs a font. The browser suite stays for that half.
+see `VexFlowRenderer.scene.test.ts`. ⚠️ It sees what was drawn through the pass's surface —
+noteheads, stems, beams, the stave's lines and signs all are (measured 2026-09-19) — ⛔ **not** what
+is still drawn straight on the painter: the TUPLET's number and bracket (`vexTuplet.draw(this.context)`)
+and the `pointerRect` hit targets. ⛔ Nor an INK EXTENT, which still needs a font. The browser suite
+stays for those.

@@ -162,7 +162,8 @@ the right reading of §3's last bullet: 2 px was never the problem, a *separate*
 sign was. A stroke already heavier (a final bar's 0.5-space thick line) is left alone.
 
 ⛔ **What has NOT changed:** never recolour a node VexFlow drew. The rule is about ownership, not
-about the verb.
+about the verb. (⚠️ 2026-09-19: VexFlow is removed, so no node on the page is VexFlow's any more —
+as worded, the rule has no case left.)
 
 ## 4. The three things you can do to a selected barline
 

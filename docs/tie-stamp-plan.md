@@ -60,7 +60,8 @@ trap `editSelectedAccidental` is ordered around.
 A tie is a **relation between two notes, not a glyph**: its shape is derived entirely from its two
 endpoints, and the second is *resolved* (next slot, same voice and staff, preferring the same pitch,
 else a let-ring tie into whatever is there — `MusicEngine.toggleTie`). So there is no VexFlow
-`draw()` to borrow, the way the articulation and accidental ghosts borrow theirs.
+`draw()` to borrow, the way the articulation and accidental ghosts borrow theirs (⚠️ since S11 those are our
+own classes' draws, `MarkGhost` — VexFlow is removed; a tie still has no glyph draw to borrow).
 
 Instead it is **engraved as a real tie**: the same `drawCurveArc` primitive with the same `TIE_BOW` /
 `TIE_THICKNESS` an engraved tie uses (exported from `TieRenderer` for exactly this), so it swells at
@@ -86,7 +87,7 @@ Two things it does differently from the other ghosts:
   ghost shows a blue body with a black outline (the same rule `HighlightController.colorTieGroup`
   carries). The other ghosts' pass sets `fill` only.
 - **No bbox, no transform.** It is positioned by absolute path coordinates, so it needs no measure
-  and no `translate` — unlike the glyph ghosts, whose VexFlow-internal positions must be measured
+  and no `translate` — unlike the glyph ghosts, whose positions internal to the drawn class (VexFlow's then, our `Engraved*` classes' now) must be measured
   and shifted onto the cursor.
 
 Both, like the other ghosts, are painted **through the DOM after the draw, never the context** — see
@@ -116,8 +117,8 @@ Two traps worth naming, because they cost most of the debugging:
    "left thick by the preceding beam/stem passes" is the same bug seen from the other end. Harmless
    enough (a width, not a colour) that it is left alone, but do not read it as a working pattern.
 
-`.vf-ghost-tie` is registered in `GHOST_GROUP_SELECTOR` — VexFlow's `openGroup` prefixes the class
-with `vf-` itself, and the selector that forgets it never takes the ghost down (the tempo ghosts'
+`.vf-ghost-tie` is registered in `GHOST_GROUP_SELECTOR` — the painter's `openGroup` prefixes the class
+with `vf-` itself (VexFlow's then; our `SvgPainter`, which transcribes it, since S13b), and the selector that forgets it never takes the ghost down (the tempo ghosts'
 permanent blue smear).
 
 ## 4. A selected note lights the tie it owns

@@ -142,6 +142,8 @@ entries do have a subject sitting beside them, just not in their name
 6. **Ambiguous files get surfaced, not guessed at.** At least one is already
    known: `rendering/staveGeometry.test.ts` imports `vexflow` and nothing else —
    it is a probe of VexFlow's own behaviour and has no subject in this repo.
+   (⚠️ 2026-09-19: VexFlow is removed — the spec now probes OUR stave, importing
+   `EngravedStave` + `SvgPainter`, so it has a subject; still allowlisted, not renamed.)
 7. **No test *contents* are touched.** This is a layout change only. No
    production code changes, so `dist/` is byte-identical throughout.
 
@@ -320,6 +322,8 @@ Two judgement calls to note:
   is an equally defensible name.
 - `rendering/staveGeometry.test.ts` stays unresolved, per decision 6: it imports `vexflow` and
   nothing else, so it has no subject in this repo to be named after. Allowlisted, not decided.
+  (⚠️ 2026-09-19: no longer true of its imports — since VexFlow's removal it tests `EngravedStave`,
+  which it could be named after; the allowlist entry is unchanged.)
 
 One stale pointer left deliberately: `docs/time-signature-plan.md` §Phase 0 names
 `restFill.baseline.test.ts`, now `ScoreModel.restFill.test.ts`. It sits inside a dated

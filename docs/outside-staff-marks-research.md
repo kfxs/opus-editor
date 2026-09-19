@@ -16,7 +16,8 @@ The question for each number: **what value does each book and engine give, and w
 that value measure?** The second half matters as much as the first. A "distance from the staff" is
 ink-to-staff in one source, baseline-to-staff in another, and a starting offset in a third.
 
-Units. Our glyph sizes are **points** handed to VexFlow. A point draws at 4/3 px
+Units. Our glyph sizes are **points** handed to VexFlow (⚠️ 2026-09-19: VexFlow is removed — to our
+own `rendering/glyphPainter` / `SvgPainter`, which keep its point→pixel factor). A point draws at 4/3 px
 (`rendering/drawnFontSize.ts:43-52`), and our staff space is 10 px. So **1 pt = 0.1333 sp**, and
 **1 SMuFL em = 4 sp = 30 pt** here.
 
@@ -73,7 +74,7 @@ profiles, masking the staff-line rows. The staff space was measured per plate:
 applies to any threshold reader). So at 20 px/sp, heights read about **0.1 sp large** and gaps about
 0.1 sp small. The numbers below are raw.
 
-### Engines (`~/dev/engine-sources`, plus `node_modules/vexflow`)
+### Engines (`~/dev/engine-sources`, plus `node_modules/vexflow` — ⚠️ removed 2026-09-19; the same 5.0.0 build is at `~/dev/engine-sources/vexflow-5.0.0-npm/package`)
 
 - **MuseScore** style defaults are in `src/engraving/style/styledef.cpp`, in spatium.
   - `spatium` = 1.75 mm (`styledef.cpp:797`), so **1 pt = 0.2016 sp**.
@@ -335,7 +336,7 @@ Glyph sizes are `setFont` points (`drawnFontSize.ts:23-29`). The sign and its wi
    number"*. It is now read: **p. 28, "1½ stave-spaces high"**, and Ross p. 203 says the same.
 5. **`DynamicsLayout.ts:152`** says *"0.6 staff-spaces of INK"*, but the row spaces the SVG groups'
    `getBBox()` boxes (`DynamicsLayout.ts:159-163`). Whether that box equals the ink horizontally is
-   **UNVERIFIED**. `dynamicStyle.ts:42-48` records that VexFlow's pointer-rect inflates it vertically.
+   **UNVERIFIED**. `dynamicStyle.ts:42-48` records that VexFlow's pointer-rect inflates it vertically (⚠️ the pointer-rect is drawn by our port of VexFlow's code since the removal, 2026-09-19).
 6. **`tempoStyle.ts:24-27`** says *"Printed metronome marks size the note to roughly the word's own
    height"*, with no source.
    - What was found instead: Gerou & Lusk p. 143, *"The note is cue size or smaller"*.

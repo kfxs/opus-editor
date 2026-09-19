@@ -837,7 +837,7 @@ and warns that every wrong answer is silent. 🔎 The first draft of this sectio
   draft, and `measureRenderRoles.ts:32` is explicit that **the compiler cannot catch this one**
   (spans live on `Score`, hairpins will not). Both endpoint bars must be added to
   `VexFlowRenderer.spanAnchors`, or two things break: a bar that merely MOVED is translated rather
-  than re-engraved and its VexFlow objects keep their stale drawn coordinates
+  than re-engraved and its VexFlow objects (our `Engraved*` objects since the removal) keep their stale drawn coordinates
   (`VexFlowRenderer.replaySnapshot`), and under culling the endpoint bar's `<g>` is deleted outright
   so the wedge draws detached or vanishes on scroll. Ties and slurs are already in there for exactly
   this. (⚠️ It also feeds `forcedSpanGroups`, which is what drags an off-screen anchor back into the
@@ -871,7 +871,7 @@ own content. So either
 rendered mark by writing a `translate(...)` on its `<g>` and calling `elementRegistry.shiftById` so
 hit-testing follows. A line pass is the same move with a different number, run once per
 `(system, staff, placement)` after every bar is standing. Everything downstream keeps working
-unchanged: the mark is still a VexFlow `Annotation`, still registered from its rendered SVG, so the
+unchanged: the mark is still a VexFlow `Annotation` (our `EngravedAnnotation` since the removal, 2026-09-19), still registered from its rendered SVG, so the
 text-edit overlay (§3), the selection hit-box and the dashed anchor line all follow for free.
 
 ⚠️ **Its one condition:** the transform must be recomputed **absolutely** each render — composed from

@@ -91,7 +91,7 @@ div.relative.overflow-hidden            ← positioning context, CLIPS
   div.score-container   (scroll box, fixed height = VIEWPORT_HEIGHT)
     div.score-sizer     (natural size × zoom → gives the scrollbars their range)
       div.score-zoom-layer               ← transform: scale(zoom)
-        div.p-4  (scoreContent — the VexFlow SVG, wiped by innerHTML='' each render)
+        div.p-4  (scoreContent — the score SVG, wiped by innerHTML='' each render)
         div.play-cursor                  (inside the layer on purpose: it SHOULD scale and scroll)
   div.score-gutter                       ← OUTSIDE the scroll box, OUTSIDE the zoom layer
 ```

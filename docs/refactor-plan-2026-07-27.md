@@ -598,7 +598,7 @@ e2e/pdfExport.e2e.ts       a real PDF comes out             (1)
 **⭐ The harness boots the ENGINE, not the app.** No `App`, no controllers, no dev shell —
 so a red test means the renderer, never the wiring (`App.smoke.test.ts` already covers wiring,
 in jsdom, and it exists because that gap once shipped). It also keeps the page to ONE score:
-VexFlow reaches back for what it drew with document-wide `getElementById`, so a second engine
+VexFlow (our port of it, since 2026-09-19) reaches back for what it drew with document-wide `getElementById`, so a second engine
 makes those ids ambiguous — the same trap `scoreSvg.ts` documents for the export render.
 
 **⭐⭐ `getBBox()` IS THE WRONG READER, and it fails quietly.** A music glyph is a `<text>`,
@@ -876,7 +876,7 @@ problems, which is the whole point of the fence.
 | # | Thing | Where | Note |
 |---|---|---|---|
 | 1 | Entry surface | `package.json` | no `main`/`module`/`exports`/`types`/`files`/`sideEffects`/`peerDependencies` — it is an app manifest today |
-| 2 | Library build | `vite.config.ts` | `vite build` emits an app; a package needs `build.lib` + `vexflow`/`jspdf`/`opentype.js`/`svg2pdf.js`/`webaudiofont` as **peer** deps |
+| 2 | Library build | `vite.config.ts` | `vite build` emits an app; a package needs `build.lib` + ~~`vexflow`~~ (removed 2026-09-19) /`jspdf`/`opentype.js`/`svg2pdf.js`/`webaudiofont` as **peer** deps |
 | 3 | `@/` alias | tsconfig + vite | must be resolved at publish time, or consumers cannot resolve imports |
 | 4 | CSS from inside a module | `VexFlowRenderer.ts:11` `import './notation.css'` | a bundler feature, not ESM. Ship a side-car stylesheet, or keep it and document the requirement |
 | 5 | **Tailwind** | `App.ts` (`div('min-h-screen bg-gray-900 …')`) | the biggest one. Consumers would need Tailwind configured with content paths into `node_modules`, or we ship compiled CSS. Decide before the editor is published, not after |

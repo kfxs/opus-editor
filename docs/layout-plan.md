@@ -130,7 +130,8 @@ The whole industry measures layout in staff spaces and converts once: MusicXML c
 in *tenths* (1/10 staff space) plus one `<scaling>` element mapping them to mm; MuseScore's unit is
 `sp` at 1.75 mm; Verovio takes pages in 1/10 mm.
 
-We never override VexFlow's `STAVE_LINE_DISTANCE`, so **1 staff space = 10 px** everywhere. With
+We never override the line distance VexFlow fixed (`STAVE_LINE_DISTANCE`, now our row
+`STAVE_LINE_DISTANCE_PX` in `engrave/inheritedDefaults`), so **1 staff space = 10 px** everywhere. With
 MuseScore's 1.75 mm/sp that is one constant:
 
 ```

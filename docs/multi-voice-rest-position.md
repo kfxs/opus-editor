@@ -30,7 +30,7 @@ document is labelled; ⛔ do not copy a number across a row without converting i
 |---|---|---|
 | **staff position** | half a staff space = one diatonic step = line→adjacent space | Gould, LilyPond (`staff-position`), Verovio (`loc`) |
 | **staff space** | line→adjacent line = 2 staff positions | Ross, Gerou & Lusk, MuseScore (`line`) |
-| ⭐ **our `restShift.steps`** | a VexFlow **key-line**, added in `NoteBuilder` — **= 1 staff SPACE = 2 staff positions** | `types/music.ts`, `docs/rest-shift-plan.md` |
+| ⭐ **our `restShift.steps`** | a **key-line** (VexFlow's unit, kept by our `EngravedNote` since the removal), added in `NoteBuilder` — **= 1 staff SPACE = 2 staff positions** | `types/music.ts`, `docs/rest-shift-plan.md` |
 
 ⭐ **Our unit was verified empirically, not read off a comment** (VexFlow 5, `getKeyLine`):
 
@@ -302,6 +302,8 @@ else if (noteU.minLine <= noteL.maxLine + lineSpacing) {
 ⭐ **And we suppress even that ±1**, by re-asserting `intendedRestLine` after `format()`
 (`VexFlowRenderer.ts:1979-1990`) — correctly, for our voice model. ⛔ **The consequence is that 100%
 of this rule has to come from us. There is no library behaviour to fall back on.**
+(⚠️ 2026-09-19: VexFlow is removed — the ±1 nudge is now our transcription, `engrave/notes/voiceStack`,
+and the re-assert still overrides it.)
 
 ### 4.5 musxdom (Finale) — mechanism named, constants UNKNOWN
 

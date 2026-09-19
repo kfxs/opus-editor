@@ -90,7 +90,7 @@ raw ink figures are given, with the corrected figure where it matters.
 | MuseScore | `929d1e9` (2026-08-18) | `_sp` = staff spaces. A dash pattern is in **line widths** (`distributedDashPattern(dash, gap, length / lineWidth)`, `rendering/score/tdraw.cpp:1587-1593`, used at `:1925`) |
 | LilyPond | `beedbfa` (2026-08-18) | staff spaces |
 | Verovio | `efff0bc` | `unit` = **half** a staff space, `doubleUnit` = 1 sp |
-| VexFlow | `node_modules/vexflow` 5.0.0 | px at `STAVE_LINE_DISTANCE` 10 (`tables.js:647`), so 10 px = 1 sp |
+| VexFlow | `node_modules/vexflow` 5.0.0 (⚠️ removed from the app 2026-09-19; the same build is at `~/dev/engine-sources/vexflow-5.0.0-npm/package`) | px at `STAVE_LINE_DISTANCE` 10 (`tables.js:647`), so 10 px = 1 sp |
 
 ---
 

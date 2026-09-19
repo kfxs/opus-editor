@@ -363,12 +363,15 @@ true, and it is asserted in `staveGeometry.test.ts` rather than assumed — beca
 ever broke it, culling would return stale boxes and hit-testing would fail *silently, only
 off-screen*, which is about the worst failure shape available.
 
+> ⚠️ **2026-09-19: VexFlow is removed** — the stave is ours now (`EngravedStave`, `staveFrame`), so the
+> property is a property of OUR code; `staveGeometry.test.ts` still pins it.
+
 ### 7.0 What each step did
 
 | step | what | proof |
 |---|---|---|
 | **P5.1** | `buildStave` (construct, no context) split from `drawStave`. Tier-1 geometry recorded *before* the draw, so its independence is structural rather than merely true. | `staveGeometry.test.ts` |
-| **P5.2** | Every (measure, staff) draws into its own `<g>`, via VexFlow's own `openGroup`. Keyed by **staff too** — P6 must cull vertically, so a bar of the piccolo must be droppable without the same bar of the cellos. | `measureGroups.test.ts` |
+| **P5.2** | Every (measure, staff) draws into its own `<g>`, via VexFlow's own `openGroup` (since S13b our `SvgPainter`'s, its transcription). Keyed by **staff too** — P6 must cull vertically, so a bar of the piccolo must be droppable without the same bar of the cellos. | `measureGroups.test.ts` |
 | **P5.3** | Tier 1 runs for the whole score without drawing; which measures tier 2 paints is a **parameter** (§7's `draw(measures, surface)`), not an assumption. | `tier1Geometry.test.ts` — renders with **every measure culled** and asserts the tier-1 registry is byte-identical to a full render |
 | **P5.4** | Per-measure **shape key**; a bar whose key is unchanged keeps its `<g>` and its registry entries. | `incrementalRedraw.test.ts` |
 | **P5.4b** | A bar whose key is unchanged but whose **position** moved is **translated**, not re-engraved. | ditto — including a *shifted* render compared to a fresh one **field for field** |
@@ -498,7 +501,8 @@ next time the unit tests are green and that feels like evidence.
   returns — but six comments in the codebase invite `querySelector('.vf-slur')`, which would have
   matched nothing.
 
-**⚠️ VexFlow's `openGroup(cls, id)` prefixes BOTH with `vf-`.** Three bugs from one misunderstanding.
+**⚠️ VexFlow's `openGroup(cls, id)` prefixes BOTH with `vf-`** — and so does our `SvgPainter`, its
+transcription, since S13b. Three bugs from one misunderstanding.
 
 **A latent bug fixed on the way:** `measureBounds` was never cleared, so a deleted measure's bounds
 lingered for the life of the renderer — a click in empty space could still resolve to a bar that no
@@ -1240,7 +1244,7 @@ much**, because whichever region reads first after a write pays for all of it.
 **⭐ Why `hint` did not fall to zero, and why that is CORRECT.** Read the per-cause `redrawn %`:
 `handleTrillBodyDrag` 0, `handleSlurBodyDrag` 0, `nudgeArmedOttavaEnd` 0 — but `handleDynamicDrag`
 **0.8%**, `nudgeArmedHairpinEnd` **0.8%**, `handleTempoDrag` **1.6%**. On those frames a bar really is
-re-engraved, because a dynamic and a tempo mark are VexFlow modifiers living *inside* the measure
+re-engraved, because a dynamic and a tempo mark are modifiers living *inside* the measure
 group and therefore inside its shape key. New rects must be hinted. So the gate now skips exactly the
 frames it should and fires exactly where a bar changed; the remainder only disappears when a mark
 stops being part of its bar's shape key — which is §12.5a.
@@ -1447,7 +1451,7 @@ bar's group — the arrangement the other five have — which is a real change t
 
 ### ⭐⭐ THE DYNAMIC is the same shape — and its family is TWO drawn things
 
-A dynamic's letters are a VexFlow `Annotation` attached to its anchor note, drawn inside its bar's
+A dynamic's letters are an `Annotation` (ours since S9f, `EngravedAnnotation`) attached to its anchor note, drawn inside its bar's
 group and moved by the same kind of composed transform (`dynamicMarkTransform`, four components). So
 its row is the tempo's: no take-down for the letters, a nudge pass (`dynamicNudgePass`) plus the LINE,
 and the same anchor vouch — the annotation hangs off a NOTE, so a walk onto the next slot, or onto the

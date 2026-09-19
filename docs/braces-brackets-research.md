@@ -818,6 +818,9 @@ font.
 
 ## 4.5 ⭐⭐ VexFlow: what we get free, and what we do not
 
+> ⚠️ **2026-09-19: VexFlow is removed** (`docs/vexflow-removal-map.md`) — nothing below comes free any
+> more; it stands as what the library offered, read at source.
+
 - **Nothing usable for the brace.** `StaveConnector` type `BRACE` is a hand-rolled **4-bezier path**
   (`staveconnector.js:81-114`) — it **never touches U+E000**, is **12 px wide at every height and
   every staff size**, and does not thin as it grows.

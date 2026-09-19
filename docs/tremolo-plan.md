@@ -146,7 +146,7 @@ chance.
 That required the stem to become a **fact** rather than a guess. A note registers a box that spans
 head + stem + beam on purpose (`tight-bbox-plan.md` §4a), so from outside "which side is the stem on,
 how far does it reach" is only *inferable* — and inference gets the beamed and multi-voice cases
-wrong. VexFlow knows exactly, so it is now written down: `'stem'` is an `ElementType`, registered by
+wrong. VexFlow knows exactly (since the 2026-09-19 removal, `EngravedNote` does), so it is now written down: `'stem'` is an `ElementType`, registered by
 `VexFlowRenderer.registerStem` from `getStemX()` + `getStemExtents()`.
 
 - **One per slot**, anchored on the chord's lowest pitch — the convention its articulations and dots
@@ -194,7 +194,9 @@ given the mark sits on the stem), P6 a keybinding on a selection that by then ex
 `renderScoreWithArticulationGhost` (`VexFlowRenderer.ts:3890`) is the recipe, verbatim: a
 throwaway `Stave` + `StaveNote`, `setStave` then `Formatter.format` (the modifier's `draw()` reads
 both), draw **only** the modifier into an `openGroup`, measure the bbox, translate to the cursor,
-paint it ghost blue at 0.7.
+paint it ghost blue at 0.7. (⚠️ 2026-09-19: VexFlow is removed — since S11 the ghost is
+`MarkGhost.drawTremoloGhost`, the score's own `CenteredTremolo` drawn on our surface; ⛔ no throwaway
+`Stave`/`StaveNote`/`Formatter`.)
 
 The ghost is the **real mark**, not the palette's picture — the palette draws a note wearing its
 strokes because a button needs to be recognisable; the ghost draws what the click will actually
@@ -225,7 +227,8 @@ never FORMATS one: `Tremolo` is absent from `preFormat`'s dispatch list, which i
 safe). The stroke and Penderecki codepoints are both `utils/tremoloGlyphs`', the one source the
 selection highlight already matched drawn strokes against.
 
-`node_modules/vexflow/build/esm/src/tremolo.js` is still worth reading as the ORIGIN of what this
+`node_modules/vexflow/build/esm/src/tremolo.js` (the package is removed; the same build is kept at
+`~/dev/engine-sources/vexflow-5.0.0-npm/package`) is still worth reading as the ORIGIN of what this
 does — it is fifteen lines and three of them matter:
 
 - It draws **N copies of `tremolo1` (E220)**. It never uses E221–E224. `CenteredTremolo(2)` *is* the
@@ -250,10 +253,11 @@ exists to fix. Each step below was a separate wrong-looking render, in this orde
 
 1. **Centre on the stem, not the tip.** Lay the stack symmetrically about the stem's middle. Only the
    vertical anchor is ours; the step between strokes, the x, the font size and the glyph stay
-   VexFlow's.
+   VexFlow's (its values — today rows of ours, `TREMOLO_STROKE_STEP_PX` / `TREMOLO_FONT_SIZE` in
+   `engrave/inheritedDefaults`).
 2. **`renderText` positions the BASELINE, not the glyph.** So centring the baselines is not centring
    the ink — E220's baseline→ink offset shifts the whole stack down. Measured from `textMetrics`
-   (`setFontSize` FIRST: it is what invalidates the cached metrics, where VexFlow's own
+   (today `glyphPainter.measureGlyphMetrics`, at the size it draws) (`setFontSize` FIRST: it is what invalidates the cached metrics, where VexFlow's own
    `this.fontInfo.size = …` mutates the object behind the getter and does not). When the text canvas
    is unavailable the metrics come back zeroed and the correction is 0 — i.e. the failure mode is
    exactly what a hardcoded 0 would have done, which is why measuring beats a tuned constant.
@@ -276,7 +280,7 @@ exists to fix. Each step below was a separate wrong-looking render, in this orde
 
 ⭐ **5 and 6 are ONE fact with two halves, and it is the same one the two-note pair had to learn:** a
 stemless note has stem **extents** but no stem **ink**. VexFlow builds the `Stem` object for a whole
-note regardless, so `getStemExtents()` reports exactly where a stem *would* run — which is a real
+note regardless (and so does `EngravedNote.buildStem`, its transcription), so `getStemExtents()` reports exactly where a stem *would* run — which is a real
 vertical span the strokes hang off and can overflow, and which `setExtension` moves while drawing
 nothing. What does not exist is anything at the stem's **x**. So: height from the imaginary stem,
 x from the notehead. (docs/two-note-tremolo-plan.md §2 reached the same split from the other side.)
@@ -295,7 +299,8 @@ extension). And it bumps the **Stem's own extension**, not `setStemLength`: that
 `stemExtensionOverride`, which `StaveNote.getStemExtension()` re-reads and then adds its
 octave-distance term to — double-counting for a note far from the middle line. Adding to what the
 Stem already resolved composes with VexFlow's flag-height, beam and octave rules instead of replacing
-them, so a 32nd gets ¼ on top of the longer stem VexFlow already gave its taller flag.
+them, so a 32nd gets ¼ on top of the longer stem VexFlow already gave its taller flag. (⚠️ 2026-09-19:
+those rules are `EngravedNote`'s now — `getStemExtension`, transcribed; the composition is unchanged.)
 
 ### The conventions, and which of them we follow
 
@@ -383,8 +388,9 @@ Everything downstream reads "the stack" and gets the right answer with no specia
 room by itself. The `typeof === 'number'` guards in `NoteBuilder`, `applyTremoloStemStretch` and
 `RenderController` existed only to keep an undrawable mark off the screen, and are gone.
 
-⚠️ The codepoint is written out and pinned by a test. VexFlow's `Glyphs` map is not re-exported, so a
-lookup resolves under Vitest and is `undefined` in the browser — silently.
+⚠️ The codepoint is written out and pinned by a test. VexFlow's `Glyphs` map was not re-exported, so a
+lookup resolved under Vitest and was `undefined` in the browser — silently. (VexFlow is removed
+2026-09-19; the written-out codepoint stays.)
 
 ⏭️ Worth an eye: E22B renders at the same `Tremolo.fontSize` as a stroke, and it is an intrinsically
 taller sign, so it may want its own scale.

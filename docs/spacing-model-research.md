@@ -356,6 +356,11 @@ four quarters at 14sp — twice as wide for four times the events, which is exac
 
 ## 5. What we have, measured
 
+> ⚠️ **2026-09-19: VexFlow is REMOVED.** This section measured the library as the repo ran it on
+> 2026-07-30. What it calls VexFlow's `Formatter` / `TickContext` / `softmax` / glyph measuring is ours
+> now — `rendering/columnFormat`, `rendering/spacingPass`, `layout/softmaxSpacing`, `rendering/glyphPainter`
+> (still canvas-measured, so still 0 wide in jsdom). The findings stand as a record.
+
 ### 5.1 Our width rule is duration-blind
 
 `MeasureLayout.noteSpaceForLane` (`:111`):

@@ -106,7 +106,9 @@ It is drawn the way VexFlow draws a real one: `new Element('Tuplet')` + `renderT
 comes from VexFlow's `Metrics` (Bravura at the Tuplet category's size, which §9 sets) and cannot go
 stale; the text is SMuFL tuplet digits (`tuplet0`…`tuplet9` = U+E880 + d, `tupletColon` = U+E88A) —
 a port of VexFlow's private `Tuplet.resolveGlyphs()`. Codepoints are written as escapes: `Glyphs` is
-CJS-only and `undefined` in the browser build.
+CJS-only and `undefined` in the browser build. (⚠️ 2026-09-19: VexFlow is removed — the mark is drawn
+by our `drawTupletMark` through `rendering/glyphPainter`, the face from `engine/fonts/`; no `Element`,
+no `Metrics`.)
 
 Since §9 it draws the SAME runs, through the same `layoutTupletMark`, and asks for the armed
 `numberStyle` — so what the preview says is what the page will print, at the sizes the page uses.
@@ -218,7 +220,7 @@ tuplets that carry no entry — and those could record one on the way in.
   shape to copy.
 - **One field too many** — `notesOccupied` is derivable from the entry. §6's last part says why it
   stays and what removing it would take.
-- **Nesting** — one `tupletId` per slot cannot express it; VexFlow already has `NESTING_OFFSET`.
+- **Nesting** — one `tupletId` per slot cannot express it; VexFlow already has `NESTING_OFFSET` (ours now: `TUPLET_NESTING_STEP` in `engrave/marks/tupletPlacement`).
 
 ---
 
@@ -264,7 +266,8 @@ The MODEL keeps all three regardless, because the enum is not the dialog's: the 
 draws each, and `beforeNext` waits for the control that suits it (a properties panel for a tuplet
 already engraved, or a document-wide engraving option — where Dorico asks it).
 
-**Drawing.** `ScoreTuplet` (`engine/rendering/`) is VexFlow's `Tuplet` with `draw()` overridden, for
+**Drawing.** `ScoreTuplet` (`engine/rendering/`) is VexFlow's `Tuplet` with `draw()` overridden (⚠️ a
+plain class of ours since S12a — see below), for
 the two things no option reaches: where the bracket ends (handed in as an X, since only the renderer
 knows where the next note was formatted), and a bracket with no number — VexFlow splits the line to
 make room for text that isn't there, leaving a notch cut for nothing. ⭐ **`getYPosition()` is OURS as

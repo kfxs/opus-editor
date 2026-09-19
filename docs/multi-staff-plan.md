@@ -164,7 +164,8 @@ multiplicity exists only as `voice: 0|1|2|3` on each slot. Nothing keys on staff
   Works once geometry is staff-keyed. `CoordinateMapper`'s pitch↔y is treble-hardcoded
   (`:143-153`) but is only the fallback.
 - VexFlow 5 ships `StaveConnector` (`'brace'|'bracket'|…`) and `System` — **not imported
-  today**. (Used later for the deferred brace.)
+  today**. (Used later for the deferred brace.) (⚠️ 2026-09-19: VexFlow is removed — the brace and
+  bracket are ours, `engine/rendering/systemStart` + `layout/systemStartColumn`; docs/braces-brackets-plan.md.)
 
 **Playback (`PlaybackEngine.ts`):** **four** flat passes over `score.measures`
 (`calculateTotalDuration` `:87`, `updatePosition` `:106`, a tie-scan pre-pass `:175-184`,

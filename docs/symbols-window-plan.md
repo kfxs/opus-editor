@@ -149,7 +149,8 @@ promise, fetched once, cached. ~600 KB that costs the editor's startup nothing.
 VexFlow's `Glyphs` enum (2933 entries, `vexflow/build/esm/src/glyphs.js`) is *not* the source — it
 has no descriptions and no grouping. It becomes one line in the detail bar: whether VexFlow has a
 name for this glyph. ⚠️ `reference_vexflow_glyphs_esm_vs_cjs` says importing that enum has bitten us
-before; if the deep import misbehaves, drop the line rather than fight it.
+before; if the deep import misbehaves, drop the line rather than fight it. (⚠️ 2026-09-19: VexFlow is
+removed from the package, so there is no enum to import — the row is DROPPED, see the table above.)
 
 `bravura_metadata.json` (bounding boxes, anchors, optional ligatures) is the obvious next detail
 source. Not now.
@@ -207,7 +208,7 @@ with the picture before wiring anything.
 never quietly pretends to be everything.
 
 **P2 — the detail bar + copy chips.** The dev tool proper: name, codepoint, description, range,
-classes, alternates, VexFlow's name. Hover tooltips land here too.
+classes, alternates, ~~VexFlow's name~~ (dropped — see the table). Hover tooltips land here too.
 
 **P3 — polish, only if P0 says so.** Scale-to-fit cells, keyboard navigation of the grid
 (arrows + Enter), remembering the last range across opens.

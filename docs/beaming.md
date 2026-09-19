@@ -2,7 +2,7 @@
 
 Which notes are joined by a beam. The rules live in `src/utils/beaming.ts` — pure, no VexFlow, no
 DOM: it takes a bar's slots plus a `MeterInfo` and returns slot-index groups, which
-`VexFlowRenderer.createBeamGroups` maps onto its parallel `StaveNote[]`.
+`VexFlowRenderer.buildBeams` maps onto its parallel `EngravedNote[]`.
 
 ## Where a beam lives: on the NOTE
 
@@ -142,7 +142,7 @@ refs. `computeBeamGroups` is now a run of one, so there is one algorithm for bot
 
 ### Through a system break too — the half-beam
 
-One VexFlow `Beam` cannot span two lines, so a group straddling a break is not one beam: it is
+One beam (`EngravedBeam` — VexFlow's `Beam` until the removal) cannot span two lines, so a group straddling a break is not one beam: it is
 **planned whole and drawn as one fragment per system**. Each fragment hangs a short **half-beam** over
 its open end — the end-of-line fragment carries it through the closing barline into the margin, and the
 next line's fragment projects a shorter stub left of its first note. The two read as one beam
@@ -195,9 +195,9 @@ over a run of bars, so a flip on one turns around the half of it that lives in t
 bar — the honest fix needs the renderer's plan, not a guess from one bar.
 
 ⚠️ In a multi-voice bar that collides with the re-assert. `VexFlowRenderer` captures each note's
-intended stem *before* the beams exist (to undo VexFlow's same-tick reshuffling after `format`), so
+intended stem *before* the beams exist (to undo the same-tick reshuffling after `format` — VexFlow's, transcribed into ours), so
 the flipped note's partners were still marked with the voice's own side — and
-`StemmableNote.setStemDirection` **clears `note.beam`**. The partner then drew its own stem *and* a
+`StemmableNote.setStemDirection` **clears `note.beam`** (and so does our `EngravedNote.setStemDirection`, which transcribes it). The partner then drew its own stem *and* a
 flag while the beam went on drawing a stem for it: doubled stems, from one `x` press. Once a note is
 beamed, its intended direction **is** the beam's, and the capture is refreshed to say so
 (`multiVoiceStem.test.ts` pins both halves).
@@ -223,9 +223,9 @@ beamed together*; this says *how many lines join them*. The six notes above are 
 authored their grouping, the meter did — and they are still subdivided. The two are set
 independently, exactly as MusicXML keeps `<beam number="1">` and `<beam number="2">` apart.
 
-Drawing it is VexFlow's own `Beam.breakSecondaryAt`, no geometry of ours. The one wrinkle is an index
+Drawing it is `EngravedBeam.breakSecondaryAt` (VexFlow's `Beam.breakSecondaryAt`, transcribed), no geometry of this feature's. The one wrinkle is an index
 translation, and it lives in `secondaryBreakIndices` (pure, tested) rather than inline in the
-renderer: our flag marks the note the break is **in front of**, VexFlow wants the note the beam
+renderer: our flag marks the note the break is **in front of**, the beam (VexFlow's convention, kept) wants the note the beam
 **ends after** — so a break in front of `i` is `breakSecondaryAt([i - 1])`. A flag on the group's
 first note has nothing in front of it and is dropped.
 
@@ -259,8 +259,8 @@ Two rules make it well-defined (`computeCrossBarBeamGroups`, tested):
   bridge spends itself on the next note, so one rest bridges exactly its own position, and a manual
   `begin…end` group encloses an interior `beamOver` rest the same way.
 
-**The drawing is VexFlow's, for free.** The rest already has its own `StaveNote` in the parallel array;
-once its slot index is in the group, `new Beam([...])` sweeps it in and floats the beam over it (a rest
+**The drawing is the beam's own, for free** (VexFlow's then; `EngravedBeam`, transcribed, since the removal). The rest already has its own note (`EngravedNote`) in the parallel array;
+once its slot index is in the group, `new EngravedBeam([...])` sweeps it in and floats the beam over it (a rest
 has no stem, so nothing connects down to it — the beam simply passes above). No geometry of ours.
 
 The `beam rest` button is **selection-only** and the exact **inverse population** of `subdivide`: it

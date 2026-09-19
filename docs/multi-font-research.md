@@ -11,7 +11,8 @@
 > `docs/vexflow-removal-map.md` §8 for the font faces as a removal step.
 >
 > ⚠️ Read and measured on **2026-09-14**, against: `node_modules/vexflow` **5.0.0**
-> (`package.json` `"version"`), MuseScore `929d1e99` (2026-08-18) and Verovio `efff0bc9` (2026-08-18),
+> (`package.json` `"version"`; ⚠️ 2026-09-19: the package is removed — the same build is kept at
+> `~/dev/engine-sources/vexflow-5.0.0-npm/package`, and the citations below still hold there), MuseScore `929d1e99` (2026-08-18) and Verovio `efff0bc9` (2026-08-18),
 > both in `~/dev/engine-sources`. Every number marked *measured* came from a throwaway opentype.js
 > script run against the font files named in its row. The script is not kept in the repo. The method
 > is described where the numbers are used, so it can be repeated.
@@ -293,7 +294,7 @@ and 18 non-test files import it.
   - the compositions `secondDisplacement`, `flagInkRight` and `ledgerExtension` (`fontMetrics.ts:248–250,271–278,301–303`)
 - ⭐ **Anchors: `anchor()` has no caller outside its own test** (`fontMetrics.test.ts:152–166`; grep of
   `src/` for `anchor(` outside `engine/fonts/`). Stems are still placed by VexFlow's advance-edge rule
-  (§1.1). ⇒ This answers the open question in `smufl-fonts-research.md` §7 (*"which anchors this engine
+  (§1.1) — ⚠️ since the removal (2026-09-19) as OUR transcription of it, `engrave/notes/noteGeometry.stemX`. ⇒ This answers the open question in `smufl-fonts-research.md` §7 (*"which anchors this engine
   actually reads at draw time"*): **none, today.** P3 names them as a prerequisite
   (`docs/font-metrics-plan.md:50,588`).
 - `anchor()` answers `null` for a missing anchor, not `[0,0]` (`fontMetrics.ts:118–127`). That is
@@ -334,12 +335,17 @@ no consumer today but are P3's prerequisite.
 
 ## 6. What must not be lost when VexFlow is removed
 
+> ⚠️ **2026-09-19: VexFlow IS removed** (`docs/vexflow-removal-map.md` §9). This section is kept as
+> the checklist it was: the faces are ours (`fonts/fontFiles` + `rendering/musicFontFaces`), every glyph
+> is resolved, measured and stamped by `rendering/glyphPainter` with faces from `fonts/fontCategories`
+> (the same `'Bravura,Academico'` stack), and the numbers below are rows in `engrave/inheritedDefaults`.
+
 ⭐ **There is no multi-font engraving knowledge in VexFlow 5 to lose** (§1). What is at stake is
 behaviour:
 
 1. **The faces themselves.** VexFlow's import installs six faces (`entry/vexflow.js:12–17`). Ours now
    installs three from `public/fonts/` (`fonts/fontFiles.ts:50–54`, `rendering/musicFontFaces.ts`).
-   **Gonville, Petaluma and Petaluma Script will leave the page with the package.** A grep of `src/`,
+   **Gonville, Petaluma and Petaluma Script will leave the page with the package.** (⚠️ They have.) A grep of `src/`,
    `e2e/` and `index.html` finds those names only in comments (`fontFiles.ts:14–15,23`,
    `BarlineRenderer.ts:132`, `e2e/musicFontFaces.e2e.ts:8`), so nothing draws with them today. A future
    house style needing one needs its own row.
@@ -372,11 +378,11 @@ behaviour:
 | **Whether Gootville's `stemUpSE` 1.18 on a 1.264-wide head is intentional** | measured, not explained |
 | **Gonville** | ⛔ Not measured here. Its only copy on disk is VexFlow's embedded woff2, and no woff2 decoder is installed. MuseScore's "Gonville" is Gootville (`engravingmodule.cpp:188`) |
 | **Which system face a browser picks for a SMuFL codepoint** missing from Bravura and Academico | browser- and OS-dependent, not tested |
-| **Whether any glyph VexFlow draws outside our 71 relies on the CSS stack** | not audited |
+| **Whether any glyph VexFlow draws outside our 71 relies on the CSS stack** | not audited. ⚠️ 2026-09-19: VexFlow draws nothing now — the question passes to `glyphPainter`, which sets glyphs in the same stack |
 | **Whether VexFlow 4 carried per-font metrics files** (e.g. glyph tables for Gonville and Petaluma) | ⛔ Only 5.0.0 is on disk. Not verified, so nothing here claims VexFlow ever had them |
 | **Whether the SMuFL specification defines a provenance or "estimated" field** | the spec was not consulted for this document |
 | **Whether an outline-based derivation of `stemUpSE.y` or cut-outs exists anywhere** | none in MuseScore, Verovio or LilyPond as read. Other engines (Dorico, Finale, Sibelius) are closed source |
 | **Whether `stemUpSE.x` = outline right edge holds beyond `noteheadBlack` in 7 fonts** | measured on one glyph only |
 | **Whether a font's `post` table names its optional glyphs with SMuFL names** | per font, not measured |
 | **Verovio's drawing unit in staff spaces** | `GetDrawingDoubleUnit` (`doc.cpp:2032`) suggests unit = ½ sp. Not confirmed |
-| **Whether the vendored `Bravura.json` 1.481 and VexFlow's embedded Bravura agree** | still open in `vexflow-removal-map.md` §8.1 |
+| **Whether the vendored `Bravura.json` 1.481 and VexFlow's embedded Bravura agree** | still open in `vexflow-removal-map.md` §8.1 (⚠️ answered there since, 2026-09-14 S1a; the embedded face is no longer loaded) |

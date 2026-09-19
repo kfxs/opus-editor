@@ -161,6 +161,10 @@ Sources: [MuseScore Handbook — Time signatures](https://handbook.musescore.org
 
 ## 4. VexFlow 5 constraints (from installed `vexflow@5.0.0` source)
 
+> ⚠️ 2026-09-19: VexFlow is removed. A bar's voice is now ours — `rendering/barVoice` (VexFlow's `Voice`,
+> transcribed; ⛔ `STRICT` not ported, the editor never asked for it) and `rendering/columnFormat` (the
+> `Formatter`). The table below is what the library did when this plan was written.
+
 `Voice` has three modes (`build/types/src/voice.d.ts`):
 
 | Mode | Rule | Over-full | Under-full |

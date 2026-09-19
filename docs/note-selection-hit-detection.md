@@ -3,6 +3,10 @@
 **Status:** Phase 1 (selection) and Phase 2 (highlight bleed) both implemented 2026-06-01.
 **Date:** 2026-06-01
 
+> ⚠️ 2026-09-19: VexFlow is removed. The per-note `<g class="vf-stavenote">` group this doc relies on is now
+> opened by our `EngravedNote` and painted by our `SvgPainter` (same `vf-` name until the S15 renames), and the
+> note's box is `EngravedNote.getBoundingBox` (VexFlow's, transcribed). The history below is kept as written.
+
 ## Update — Phase 2 shipped (highlight bleed)
 
 The bleed lived in `HighlightController` (post-render DOM scans over a synthetic bbox

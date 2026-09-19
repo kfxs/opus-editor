@@ -373,7 +373,8 @@ independently by the engine closest to our shape.
 > our own engine)"* — ⭐ **both halves are right**, and the second one names the cause.
 
 ✅ **FIXED the same day it was diagnosed.** `BarlineRenderer.endBoundaryX()` now asks VexFlow's own
-END BARLINE modifier where it stands instead of deriving the stave's right edge — ⭐ **the number was
+END BARLINE modifier where it stands (⚠️ 2026-09-19: VexFlow is removed — today it asks
+`placedSignRun(…).endBarlineX`, set by our own walk, `engrave/staff/signWalk`) instead of deriving the stave's right edge — ⭐ **the number was
 already computed correctly and we were recomputing it wrongly.** Regression spec:
 `e2e/cautionaryMeter.e2e.ts`, which pins **both** rules (the meter outside, the clef inside) because a
 test for one alone would let the other regress.
@@ -882,6 +883,8 @@ dots stamped** — and it is not a preference to revisit.
 ⚠️ **Two places the build diverged from this section, both deliberate and neither hidden:**
 
 1. **The line at a system's LEFT EDGE stays VexFlow's** (`setBegBarType` inside the measure group).
+   (⚠️ 2026-09-19: VexFlow is removed — `setBegBarType` is `EngravedStave`'s now; "VexFlow's" below
+   means the stave's own begin barline, not this pass's.)
    ⭐ **Half of that ended on 2026-09-13**: P5b took its INK (`EngravedBarline` +
    `engrave/staff/openingBarline`) and `inkBarlines` was deleted with it — but the line is still
    PLACED by `setBegBarType` and is still not this pass's, for the reason that follows. §4.6.7's argument for taking *all* barlines is about END lines — bar *N*'s plain

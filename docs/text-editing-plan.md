@@ -206,7 +206,7 @@ Click-away-to-commit fires a canvas `click` after the overlay closes. Two defens
   then; the **`EditableTextSource` seam is exactly where that lands** — the controller stays put.
 - **Editing the bold `p/mp/mf/f` marks.** Same double-click frame, but the source opens a **level
   picker** widget instead of the text caret (these are fixed music-font symbols + playback meaning, not
-  free text — re-rendered genuinely by VexFlow, so always pixel-perfect). Shares open/commit/close;
+  free text — re-rendered genuinely by the engine, so always pixel-perfect). Shares open/commit/close;
   different widget. (User wants this later.)
 - **Other text types** (lyrics, technique "pizz."/"arco", tempo words): each is a new
   `EditableTextSource`; the `TextEditController` is reused unchanged.

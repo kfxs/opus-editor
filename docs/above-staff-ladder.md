@@ -99,9 +99,9 @@ yet.** We have no such pair today.
 
 | family | today | mechanism it wants | read as a row? | LilyPond priority |
 |---|---|---|---|---|
-| articulations | VexFlow modifier on the note | note-local stacking (VexFlow's) | no | — (in-staff) |
+| articulations | VexFlow modifier on the note (⚠️ ours since the removal: `EngravedArticulation`) | note-local stacking (VexFlow's, transcribed — `engrave/notes/articulationStack`) | no | — (in-staff) |
 | slur, above | `SlurRenderer` | note-anchored curve | no | — (in-staff) |
-| tuplet bracket | VexFlow | note-local | no | — |
+| tuplet bracket | VexFlow (⚠️ ours since the removal: `ScoreTuplet` + `engrave/marks/tupletPlacement`) | note-local | no | — |
 | **trill line** | *this feature* | **skyline over its own span** | **no** | **50 — innermost** |
 | dynamics / hairpins, above | `dynamicsLine.ts` (real) | **baseline** | **yes** | 250 |
 | future: 8va bracket | — | skyline | no | 400 |
@@ -177,7 +177,8 @@ glyphs met with the arithmetic insisting on clear air.
 ### The cause is a UNIT, and every family had it
 
 `Element.setFont(family, size)` takes a bare number as **points** — VexFlow's own
-`Font.scaleToPxFrom.pt = 4/3` — and writes `font-size="26pt"`, which the browser draws at 34.7 user
+`Font.scaleToPxFrom.pt = 4/3` (⚠️ since the removal, 2026-09-19, our `glyphPainter` / `SvgPainter`
+keep the same factor) — and writes `font-size="26pt"`, which the browser draws at 34.7 user
 units. Every `*_GLYPH_SIZE` in `rendering/*Style.ts` is the number handed to `setFont`, and every ink
 table read it as pixels and divided by `STAFF_SPACE_PX`:
 

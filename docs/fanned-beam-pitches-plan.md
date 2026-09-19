@@ -139,13 +139,15 @@ still passed**.
 The rule, now stated in the code: `applyFanStemStretch` (pre-draw) **writes and never reads** — the
 one number it needs comes from the mark, not the page — and everything that MEASURES waits for
 `drawFannedBeams`, after the draw. The stem the real note is missing is simply **drawn by hand**,
-from the tip VexFlow gave it to the beam line, which needs no feedback into VexFlow at all. Nothing
+from the tip VexFlow gave it to the beam line, which needs no feedback into VexFlow at all. (⚠️
+2026-09-19: VexFlow is removed — the tip is `EngravedNote`'s now; the rule is unchanged.) Nothing
 is cached between the passes.
 
 ⭐ And the guard that was missing: jsdom cannot measure a glyph, but every coordinate the fan
 *computes* is real arithmetic that reaches the SVG. `fanRender.test.ts` now asserts the ink is inside
 the page, within a notehead of the note's own stem, and near the staff; `NoteBuilder.test.ts` pins
-`staffLineForSpelling` against VexFlow's own `getKeyProps().line` in all four clefs. Both fail on the
+`staffLineForSpelling` against the note's own `getKeyProps().line` in all four clefs (VexFlow's then;
+`EngravedNote`'s since the removal). Both fail on the
 broken build.
 
 ⚠️ **Two things about ACCIDENTALS that are not drawing:**
@@ -321,7 +323,8 @@ sounding length, so the group's total time is unchanged by construction.
   SPAN between two points, and member 2 → member 5 is a span. So a member CAN anchor one, and the
   dangling-slur sweep counts member ids as live.
   - What made it possible without a `StaveNote`: `drawCurveArc` hands `renderCurve` its endpoints
-    EXPLICITLY, so VexFlow's `Curve` only needs *some* note to be constructed with. A member supplies
+    EXPLICITLY, so VexFlow's `Curve` only needs *some* note to be constructed with. (⚠️ Since U1 not even that:
+    the curve is ours, `engrave/curves/curveInk`, and `curveArc` takes no notes.) A member supplies
     its own geometry through `RenderPass.fanMemberAnchorMap`, recorded where its head was drawn.
   - ⭐ **`s` on ONE note inside a fan slurs to the NEXT MEMBER — including from the note you TYPED,
     which IS member 0.** I first restricted that to members proper, reasoning that the typed note
@@ -369,7 +372,8 @@ sounding length, so the group's total time is unchanged by construction.
 
 **What was left standing after P2:** a member CHORD whose pitches were a second apart drew its heads
 on top of each other, and two signs in one member stacked at one x — the hand-drawn path had no
-displaced heads, which is the same gap the slot's own chord never had (VexFlow displaces those). His
+displaced heads, which is the same gap the slot's own chord never had (VexFlow displaced those; since the removal
+`EngravedNote` runs the same `chordHeadDisplacement` walk). His
 report: *"the fan members showing second interval as a chord... it is not applying the traditional
 engraving rules"*.
 
@@ -382,7 +386,8 @@ not `StaveNote`'s:
   MOVES follows from the stem (up ⇒ the upper, down ⇒ the lower). `chordHeadDisplacement`
   (`engine/rendering/chordHeadLayout.ts`) — deliberately VexFlow's own walk (`buildNoteHeads`), so a
   member and the fan's own note can never disagree about the same three pitches, and the flag is
-  handed to `NoteHead`, which owns the arithmetic that turns it into an x. **Unisons displace too**,
+  handed to `NoteHead`, which owns the arithmetic that turns it into an x (today ours,
+  `EngravedHead`). **Unisons displace too**,
   as VexFlow does; Gould's separate single-voice unison treatment is unbuilt and would be a case of
   its own here.
 - **Accidentals stack into columns** — the zig-zag: highest nearest the chord, then the lowest, then

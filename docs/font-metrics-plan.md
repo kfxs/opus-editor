@@ -273,7 +273,7 @@ Three corrections, because the naive reading of §3.4 is wrong on every one:
    heights are only what makes it safe to add. ⇒ That is the question for §3.6, not the numbers.
 3. ⚠️ **The font gives half the answer, and §3.1's own trap is the other half.** `glyphBBoxes` is
    ink around the glyph's **origin**; the model needs a band below the top stave line. Which line
-   the origin sits on is a *placement*, and placement is VexFlow behaviour, not font data — a whole
+   the origin sits on is a *placement*, and placement is VexFlow behaviour (ours since the 2026-09-19 removal), not font data — a whole
    rest hangs from the 4th line, a half rest sits on the 3rd, the flagged rests centre on the
    middle. That is a three-row table we still have to state and measure, and the numbers above
    read as they do (`restWhole` 0.04/0.54, `restHalf` 0.57/0.01) **because** the origin already
@@ -316,6 +316,7 @@ coming true: *"the one place P2 makes the picture better rather than only better
 
 `rendering/NoteBuilder.ts` gives **every** rest the key `b/4`, and VexFlow puts a rest exactly where
 its key says — `getLineForRest()` returns the key's line unchanged, with no correction of its own.
+(⚠️ 2026-09-19: VexFlow is removed — `EngravedNote.getLineForRest` is that method, transcribed.)
 So all six rests land on the **middle line**. For a minim rest that is right; for a **semibreve rest
 it is one staff space too low**, because that one hangs from the **fourth line** (the second from the
 top). Measured in the browser and confirmed by eye on the case every score shows — an empty bar.
@@ -426,6 +427,10 @@ test (2) is worth writing**: it is the one place where what we measured meets wh
 version skew between the three can only surface there. The generation script should also
 cross-check the JSON's `glyphBBoxes` against the OTF's own boxes and ⭐ **report any disagreement**,
 which is the cheap half of the same question.
+
+> ⚠️ **2026-09-19: VexFlow is removed, and so is its woff2.** Since S1 (2026-09-14) the screen draws in
+> the faces we ship (`engine/fonts/fontFiles` → `rendering/musicFontFaces`) — the same
+> `public/fonts/Bravura.otf` the PDF outlines — so the table's first row (VexFlow's woff2) is history.
 
 ✅ **Answered for two of the three, by F1's cross-check (2026-08-16): the skew is REAL and it is
 harmless.** Our OTF is Bravura **1.392**, the metadata **1.481** — and all 60 glyphs' boxes are
@@ -564,7 +569,9 @@ if anything moves, a transcription was wrong, and that is worth knowing.
 > never sets a stroke width for a stave, so a staff line is the SVG context default — **1 px** — where
 > the font says **0.13 sp**. Draw it ourselves and three things collapse at once: the ledger's ratio
 > becomes the plain `legerLineThickness`, the hairpin's 0.13 becomes literally the staff line
-> (Gould's 1.00, with no conversion anywhere), and `VEXFLOW_STAFF_LINE_PX` disappears. It is visible,
+> (Gould's 1.00, with no conversion anywhere), and `VEXFLOW_STAFF_LINE_PX` disappears. (⚠️ Since P5c we
+> set it ourselves — `engrave/staff/staffLines.STAVE_LINE_WIDTH_PX` — and `VEXFLOW_STAFF_LINE_PX` is gone,
+> `rendering/layoutConfig` says so.) It is visible,
 > so it is not F3's — it belongs with **P5 (the staff)**, and it is now the reason TWO weights are
 > compensated rather than one.
 >
@@ -587,7 +594,9 @@ checks them** — and the real payoffs, in order:
    lookup, and that is what makes the rule cheap enough to keep obeying.
 3. ⭐⭐ **P3's anchors**, which have no other source at all.
 
-The `musicFontReady` gate stays while VexFlow draws — it must, because VexFlow still measures.
+The `musicFontReady` gate stays while VexFlow draws — it must, because VexFlow still measures. (⚠️
+2026-09-19: VexFlow is removed; `rendering/glyphPainter` measures now, off a canvas the same way, so the
+gate still stands.)
 
 ⭐ **Stop after F2 and it was worth it** (payoffs 1 and 2 are both in F2). F3 is tidying. F4 is a
 paragraph in a doc, not a piece of work.
@@ -641,8 +650,8 @@ is worth recording for two reasons:
 
 ## 6. Licence
 
-Bravura and its metadata are **SIL OFL** — the same terms as the font we already load through
-VexFlow, and a *different* licence from VexFlow's own MIT
+Bravura and its metadata are **SIL OFL** — the same terms as the font we then loaded through
+VexFlow (today we ship and load it ourselves, `engine/fonts/fontFiles`), and a *different* licence from VexFlow's own MIT
 (`own-engraving-engine.md` §6.7 condition 3, which is exactly this).
 
 ⭐ **Mostly already done, because we already ship the font** (§1.1): `public/fonts/OFL.txt` sits

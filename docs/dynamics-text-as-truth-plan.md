@@ -16,7 +16,8 @@ matches the user's model — *the dynamic FONT is the flag*:
   (`utils/dynamics` owns the glyph⇄letter maps now, so there's no engine→util cycle). The level is
   `glyphsToLetters(glyphRun)` matched against `DYNAMIC_VELOCITY`. Nothing is inferred from spelling.
 - **Rendering.** One Annotation per mark, drawn at the TEXT size so every mark shares one baseline
-  (VexFlow places "below" by `textHeight`); a post-draw pass (`enlargeDynamicGlyphRuns`) grows the
+  (VexFlow placed "below" by `textHeight` — ours since S9f/S12g, `engrave/notes/annotationStack` +
+  `rendering/EngravedAnnotation`); a post-draw pass (`enlargeDynamicGlyphRuns`) grows the
   glyph runs to the glyph size via `<tspan>`, upward from the fixed baseline. Same helper feeds the
   ghost. `registerDynamics` rebuilds the tight bbox for any glyph-bearing mark.
 - **Editor.** The in-canvas box seeds glyph runs as atomic `contenteditable="false"` chips (big
@@ -256,6 +257,9 @@ up in `sfz` and `fff` and never in `pp`.
 This is an `fi` ligature, and the font would normally apply it — but the Bravura VexFlow bundles has
 NO GSUB table (Bravura *Text* is the one with ligature features). So `composeDynamicGlyphs()`
 substitutes by hand, greedy longest-match, at ONE call site in `enlargeDynamicGlyphRuns`.
+(⚠️ 2026-09-19: VexFlow's bundled copy is gone; the screen now uses our own `public/fonts/Bravura.otf`
+(`fonts/fontFiles`), which DOES carry a GSUB table. Whether it holds these ligatures is unchecked —
+the hand substitution is unchanged.)
 
 **DRAW-TIME ONLY.** The model still stores one char per letter, so `parseDynamicText` is untouched
 and the editor still backspaces a letter at a time. Storing precomposed would make one character mean

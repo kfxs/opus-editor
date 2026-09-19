@@ -222,6 +222,10 @@ table, arriving at `engine/engrave/header/clef.ts` as `ClefAnchor.lineY` already
 `CLEF_MIDDLE_LINE_DIATONIC` (`clefUtils.ts:19`) and `ElementRegistry.CLEF_REFERENCES` agree with it
 independently.
 
+(⚠️ 2026-09-19: VexFlow is removed — `Clef.types` is transcribed as our row `CLEF_LINES` in
+`engine/engrave/header/clefSign.ts`, same lines. The row is ours to change now; which line a clef names
+is unchanged.)
+
 ---
 
 ## 3. ⭐ THE SMALL CLEF — the ratio
@@ -281,7 +285,9 @@ its alignment type is `ALIGNMENT_SCOREDEF_CAUTION_CLEF` and the `*Change` swap n
 **What we do:** `stave.addEndClef(clef, 'small')` — small, before the closing barline, restored full
 size on the next line. ✅ Agrees with the four books. `cautionaryExtent` gives the clef the CUE-size
 branch and the key/meter the full-size one, citing G&L p. 52. ⭐ The **ratio itself is VexFlow's ⅔**,
-inherited rather than chosen.
+inherited rather than chosen. (⚠️ 2026-09-19: VexFlow is removed — the call is
+`stave.addClefSign(clef, 'small', 'closing')` on our `EngravedStave`, and the ⅔ is the row
+`SMALL_CLEF_RATIO` in `engine/engrave/inheritedFonts.ts`, still inherited rather than chosen.)
 
 ---
 
@@ -1012,6 +1018,12 @@ entries — which is what made §9.3's ink-vs-advance comparison possible.
 ## 10. WHAT WE DRAW TODAY — read off the source, ⛔ not intentions
 
 ⭐ The full account is **`docs/clef.md`**. The short version, for §11's last column:
+
+> ⚠️ **2026-09-19: VexFlow is removed**, so the table below is as of 2026-09-02. What it calls
+> VexFlow's is ours now, with the same values: the ⅔ is `SMALL_CLEF_RATIO`
+> (`engrave/inheritedFonts.ts`), the anchor line is `CLEF_LINES` (`engrave/header/clefSign.ts`), a
+> mid-bar change is `EngravedClefChange` (was `ClefNote`), and the PLACEMENT is our `signWalk`
+> (`Stave.format()` transcribed). ⛔ No row changed value.
 
 | | |
 |---|---|

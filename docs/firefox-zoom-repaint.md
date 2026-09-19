@@ -45,7 +45,9 @@ it survives culling and group reuse.
 **2. A barline was 1 px** — the same weight as a staff line, lighter than a stem (`STEM_WIDTH` 1.5),
 where the convention (SMuFL/Bravura `thinBarlineThickness`) is 0.16 staff spaces = 1.6 px. The
 heaviest of the three structural lines was our lightest. VexFlow writes the `1` as a literal in
-`Barline.drawVerticalBar` and offers no seam, so we re-ink the rects it leaves behind.
+`Barline.drawVerticalBar` and offers no seam, so we re-ink the rects it leaves behind. (⚠️ 2026-09-19:
+VexFlow is removed — every barline is drawn by our own `BarlineRenderer` / `EngravedBarline` now, so
+the "no seam" limit is gone.)
 
 **3. ⭐ The barlines did not land on whole pixels — this was the visible one.** Bar-to-bar spacing is
 a musical distance, so on screen it is almost never a whole number of pixels (~71.1 device px at 70%
@@ -146,7 +148,7 @@ no cached bitmap to scale: the browser draws vectors at the final resolution, so
 repair and nothing to be stale.
 
 - **Cost:** per wheel notch, the SVG is invalidated and re-rasterised on the main thread. No
-  engraving work (no VexFlow, no layout, no spacing solve) — rasterisation only.
+  engraving work (no engraving pass, no layout, no spacing solve) — rasterisation only.
 - **⭐ The pivotal unknown:** is that raster bounded by the **viewport** or by the **whole spread**?
   If viewport-bounded (as browsers normally do), cost is roughly constant no matter how many pages
   exist and this is cheap. If not, wheel-zoom will stutter on big scores. Firefox pays this cost
@@ -154,7 +156,7 @@ repair and nothing to be stale.
 - **Knock-ons:** the play cursor lives inside the scaled layer and would need screen-space coords
   (`GutterController` already does this by hand — copy that). `scoreContent`'s `p-4` padding would
   stop scaling, and `ViewportHost.readNaturalSize` currently folds that padding into the natural
-  size, so the two would have to be separated. VexFlow rewrites `width`/`height` on every render, so
+  size, so the two would have to be separated. Every render rewrites `width`/`height` (`SvgPainter.resize`), so
   the scaled values must be re-applied after each one (the existing `MutationObserver` is the hook).
 - Hit-testing needs **nothing**: `MouseController.clientToSvg` goes through
   `getScreenCTM().inverse()`, so it reads wherever the SVG actually is.
@@ -162,7 +164,7 @@ repair and nothing to be stale.
 ### 2. Force a repaint when the gesture settles — the cheap mitigation
 Debounce ~150ms after the last wheel event, then re-render. Turns "takes long" into "a blink".
 
-- **Cost:** zero while zooming, then one full `renderScore()` — the *expensive* path, VexFlow
+- **Cost:** zero while zooming, then one full `renderScore()` — the *expensive* path, the engine
   re-engraving and redrawing. Once per gesture rather than per notch, and it lands when the user has
   stopped moving.
 - **Does not stop the transient**, only shortens it. The flicker remains on every gesture.

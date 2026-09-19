@@ -234,11 +234,12 @@ Present since the join's own first commit (`981c63e`).
 ⭐⭐ A beamed group is not one thickness: **a line runs between two notes where BOTH carry it, and a
 level nobody shares is a fractional beam.** `utils/beamLevels.ts` owns that arithmetic — its own
 module because this is the third caller (`CrossBarBeams.crossingAfter` does the same per-pair min,
-and VexFlow does it internally for ordinary groups). The stem reserve now clears the DEEPEST level
+and VexFlow does it internally for ordinary groups — ours since S7e, `EngravedBeam`). The stem reserve now clears the DEEPEST level
 rather than the collapsed one.
 
 ⚠️ The prefix is drawn by US: a group holding a fan skips `new Beam(…)` and each prefix note wears
-`PLACEHOLDER_BEAM`, so VexFlow's own partial-beam logic never sees it.
+`PLACEHOLDER_BEAM`, so VexFlow's own partial-beam logic never sees it (⚠️ 2026-09-19: that logic is
+`EngravedBeam`'s now — VexFlow is removed).
 
 ### ⭐⭐ Accel into rit is a TRIANGLE, and the apex is a NOTEHEAD
 

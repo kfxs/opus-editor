@@ -12,7 +12,10 @@ scope** for now.
 > no longer *"what VexFlow can and cannot do for us"* — they are **our own module's**, and a Tier-2
 > answer that used to need a rewrite is now a change to one function with a spec around it. ⚠️ The
 > class once still `extended Tuplet` for the note GRAPH — ✅ no longer since S12a of `docs/vexflow-removal-map.md`: a plain class of ours.
-> Read `tuplet.js` below only as the origin of the transcription.
+> Read `tuplet.js` below only as the origin of the transcription. ⚠️ 2026-09-19: VexFlow is REMOVED
+> (`docs/vexflow-removal-map.md` S14) — the tuplet's tick math, its `draw()` and its `options` are all
+> `rendering/ScoreTuplet` now, so every "VexFlow can/cannot" below is a fact about our transcription
+> (⛔ a limit gone, not a decision taken).
 
 This document records *why* tuplet bracket positioning behaves the way it does, what VexFlow
 can and cannot do for us, and the phased path toward professional tuplet control. The
@@ -29,7 +32,7 @@ those slots (a tuplet lives in exactly one voice).
 
 Rendering (`src/engine/rendering/VexFlowRenderer.ts`):
 
-- `buildVexTuplets()` groups slots by `tupletId`, builds a VexFlow `Tuplet`, and chooses the
+- `buildVexTuplets()` groups slots by `tupletId`, builds a `ScoreTuplet` (VexFlow's `Tuplet` until S12a), and chooses the
   bracket side via `resolveTupletLocation()` (`NoteBuilder.ts`):
   - explicit `Tuplet.placement` override (set by the `x` flip) wins;
   - else **multi-voice → voice 0 above, lower voices below** (so the voices' brackets spread
@@ -68,7 +71,7 @@ The drawing side exposes only these knobs (constructor `options`):
 | `textYOffset` | shift just the number vertically         | no          |
 | `ratioed`     | show "3:2" instead of "3"                | no          |
 
-**Hard walls — VexFlow `draw()` cannot do these** (geometry is hardcoded, `tuplet.js:182-199`):
+**Hard walls — VexFlow `draw()` cannot do these** (geometry is hardcoded, `tuplet.js:182-199`; ⚠️ transcribed as-is into `ScoreTuplet.draw`, so they are now our own hardcoding, not a library's):
 
 - horizontal extend / shrink (X = `firstNote.getTieLeftX()-5` → `lastNote.getTieRightX()+5`, fixed)
 - leg length (fixed `location * 10`)
@@ -232,7 +235,7 @@ Documented, not scheduled. When picked up:
 Horizontal extend/shrink, leg length, slope, independent number X, draggable bracket handles,
 self-rendering the bracket, and owning beam/modifier collision-avoidance. If/when needed,
 mirror the slur migration: model as source of truth → low-level draw from `TupletGeometry` →
-handles. VexFlow stays the rhythm/spacing engine regardless.
+handles. ~~VexFlow stays the rhythm/spacing engine regardless.~~ (⚠️ 2026-09-19: VexFlow is removed — the rhythm/spacing engine is ours: `ScoreTuplet`, `rendering/barVoice`, `columnFormat`, `spacingPass`.)
 
 ---
 
@@ -246,6 +249,6 @@ handles. VexFlow stays the rhythm/spacing engine regardless.
   selected group so overlapping brackets don't hide the highlight).
 - `src/engine/engrave/marks/tupletPlacement.ts` — ⭐ **the height rule, ours since S8a**, with its
   `TUPLET_AIR` table and `tupletPlacement.test.ts` beside it.
-- `node_modules/vexflow/build/esm/src/tuplet.js` — `getYPosition()` (lines 125-173) as the ORIGIN of
+- `~/dev/engine-sources/vexflow-5.0.0-npm/package/build/esm/src/tuplet.js` (the package is no longer in `node_modules`) — `getYPosition()` (lines 125-173) as the ORIGIN of
   that transcription, and `draw()` (174-207), which this editor replaced long before.
 - `docs/slur-plan.md` — the precedent for Tier-2-style self-rendering + handles.

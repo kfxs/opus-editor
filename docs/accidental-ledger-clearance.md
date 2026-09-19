@@ -58,7 +58,7 @@ Two measurements closed the other options:
 
 ## The shape
 
-`engine/rendering/ledgerAccidentalClearance.ts` — pure arithmetic plus one VexFlow-facing pass:
+`engine/rendering/ledgerAccidentalClearance.ts` — pure arithmetic plus one VexFlow-facing pass (⚠️ 2026-09-19: facing our `EngravedNote` now — VexFlow is removed):
 
 - `accidentalMeetsLedger(line, headLines)` — does a sign on this line stand beside any of the note's
   ledger lines? An accidental glyph reaches ~1.4 lines either side of its own, so a sign hanging in
@@ -68,7 +68,8 @@ Two measurements closed the other options:
   fan member's hand-drawn sign and ledger have their own.
 - `clearLedgersForAccidentals(notes)` — spent on real notes in `VexFlowRenderer`, **after
   `formatter.format` and before the draw** (the window the multi-voice re-assert and the note
-  offsets already use). It trims that note's `renderOptions.strokePx` and shifts every one of its
+  offsets already use). It trims that note's `renderOptions.strokePx` (today `trimLedgers` →
+  `EngravedNote.setLedgerOverhang`) and shifts every one of its
   signs by the same amount — they are a column, and a per-sign shift would rake it.
 
 `FanPass` spends the same rule on hand-drawn members: the clearance goes into the accidental
@@ -79,13 +80,18 @@ alike on a page that has both.
 ⚠️ **VexFlow gives no per-side control**: `strokePx` is one symmetric number per note, so the trim
 shortens both ends of that note's ledger lines. LilyPond trims the left end only, and that needs the
 lines to be ours to draw. If they ever are, the module should change its mind — trim the left, and
-leave the sign where Gould wants it.
+leave the sign where Gould wants it. (⚠️ 2026-09-19: the lines ARE ours since P3a and VexFlow is
+removed, so this limit is gone — the overhang is one number per note in `EngravedNote` by our own
+choice. ⛔ The symmetric trim is still what runs; nothing has been decided.)
 
 The same page produced the same class of report about augmentation dots — see
 `docs/dot-placement.md`, which reuses this invariant (its rule is uniform per dot, so it may buy its
 room on the width path) and clears the ledger tip as a side effect rather than by reading it.
 
 ## Two VexFlow traps paid for here
+
+(⚠️ 2026-09-19: recorded against VexFlow's classes. The `setXShift` negation is transcribed into our
+`EngravedModifier` and still holds.)
 
 - `Accidental.setWidth()` **before** `addModifier` is silently lost: `addModifier` → `setNote` →
   `reset()` sets the glyph's text, which invalidates the measurement. After, it sticks.

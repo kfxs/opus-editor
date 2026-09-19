@@ -225,6 +225,9 @@ in the same units, so every ratio below is exact whatever Verovio's physical siz
 
 ### 3.4 VexFlow 5.0.0 — `node_modules/vexflow/build/esm/src`
 
+⚠️ 2026-09-19: VexFlow is no longer installed; the same build is kept at
+`~/dev/engine-sources/vexflow-5.0.0-npm/package`, and these line numbers still hold there.
+
 | item | value | in sp | file:line |
 |---|---|---|---|
 | `spaceAboveStaffLn` / `spaceBelowStaffLn` default | 4 / 4 | 4 / 4 | `stave.js:51` |
@@ -303,7 +306,7 @@ today's number, which stays the default.
 
 | preset | sp | what it measures | citation |
 |---|---|---|---|
-| **today (default)** | **1.5** (15 px fixed at 10 px/sp) | subtracted from VexFlow's format width; ⚠️ moves pixels only when `applySpacingPass` returns `null` | `rendering/VexFlowRenderer.ts:2180`; `GhostRenderer.ts:272` |
+| **today (default)** | **1.5** (15 px fixed at 10 px/sp) | subtracted from VexFlow's format width (⚠️ 2026-09-19: ours now, `rendering/columnFormat`); ⚠️ moves pixels only when `applySpacingPass` returns `null` | `rendering/VexFlowRenderer.ts:2180`; `GhostRenderer.ts:272` |
 | VexFlow `formatToStave` | 2.2 | `Stave.defaultPadding` = padding 1.2 + endPaddingMax 1.0 | `formatter.js:603`; `stave.js:33-35`; `metrics.js:132-133` |
 | VexFlow `Stave.rightPadding` | 1.0 | `endPaddingMax` alone | `stave.js:36-38`; `metrics.js:133` |
 | VexFlow minimum end padding | 0.5 | `endPaddingMin` | `metrics.js:134`; `formatter.js:424` |

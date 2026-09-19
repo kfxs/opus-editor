@@ -1,5 +1,16 @@
 # What VexFlow still decides — the boundary, and which bits of it to take
 
+> 🏁 **STATUS, 2026-09-19: THE QUESTION IS CLOSED — VexFlow is REMOVED.** Nothing in `src/` or `e2e/`
+> imports it, it is no longer in `package.json`, and `npm run lint:boundary` refuses the import in every
+> file, specs included. Every decision this document assigns to "their side" — the stave, the note and
+> its stem, flag and heads, beams, the modifiers, the formatter, the fonts, the painter — is OUR code
+> now, mostly transcribed from VexFlow 5 (`NOTICE` carries its MIT licence); the numbers it fixed live
+> as rows in `engrave/inheritedDefaults` / `inheritedFonts`. The step-by-step log is
+> `docs/vexflow-removal-map.md` §9. ⭐ **This file is kept as the record of the reasoning** — §4's test
+> (*take a decision only when there is a rule we want to state and cannot*) is still how a default
+> gets changed; it just no longer has a library on the other side. Where the body below says
+> "VexFlow's" in the present tense, read it as *as of 2026-07-30*.
+
 > ⭐⭐ **The question this answers** (his, 2026-07-30): *"how much of the spacing control do we have
 > now and how much has VexFlow — in terms of fine adjustment we can do without taking into account
 > some constants on the other side?"* and *"we should be working on fixing those constraints little
@@ -27,7 +38,7 @@
 
 ## 1. How to read this
 
-The editor draws through VexFlow, so every decision about the picture is made by one of us. This is
+The editor drew through VexFlow (when this was written), so every decision about the picture was made by one of us. This is
 the inventory of who makes which. It is written after the spacing model (P0–P4), which moved the
 largest single item — where every note sits horizontally — from their side to ours.
 
@@ -68,6 +79,13 @@ Two things worth saying before the list, because they change how it reads:
 | Colour, selection, hidden-element treatment | `utils/*Colors`, `hiddenElements` | ⛔ never `setStyle` |
 
 ### 2.2 VexFlow's, still
+
+> ⚠️ **2026-09-19: every row below is ours now** — the stave `EngravedStave`, the note and its stem
+> `EngravedNote`, flags `EngravedFlag`, beams `EngravedBeam`, accidentals `EngravedAccidental`
+> (stacked by `engrave/notes/accidentalStack`), articulations `EngravedArticulation`, the formatter
+> `rendering/columnFormat` + `modifierColumns`, the fonts `engine/fonts/*` + `rendering/glyphPainter`.
+> `Stave.padding` is the row `NOTE_AREA_PADDING_PX`. The "no setter" limits are gone; ⛔ no number
+> or rule changed with them. The table is the 2026-07-30 inventory.
 
 | what | the constraint | does it cost us anything today? |
 |---|---|---|
@@ -113,9 +131,11 @@ Two things worth saying before the list, because they change how it reads:
 - **A lead-in tighter than 1.2 staff spaces.** Blocked by `Stave.padding` + the invariant that a
   bar's note area may not begin outside the bar. ⚠️ Taking the header did NOT unblock this, as this
   document predicted it might: the 12 px is added to every note by `getAbsoluteX` and there is still
-  no setter.
+  no setter. (⚠️ 2026-09-19: the setter limit is gone — the 12 px is our row
+  `engrave/inheritedDefaults.NOTE_AREA_PADDING_PX`; the invariant, and the 1.2, are unchanged.)
 - ~~The gap after a clef or a meter~~ — ✅ closed 2026-07-30; ours reserves AND places.
-- **Accidental-to-notehead distance inside a column.** `Accidental.format`'s, not ours.
+- **Accidental-to-notehead distance inside a column.** `Accidental.format`'s, not ours. (⚠️ 2026-09-19:
+  ours now — `engrave/notes/accidentalStack`, `Accidental.format` transcribed.)
 - ~~Anything at all inside a fanned bar~~ — ✅ closed 2026-07-30.
 
 ---
@@ -277,7 +297,8 @@ Correctness, not engraving: a ghost should stand where the note will.
 ### ⏭️ Not on this list, deliberately
 - **Stem lengths, beam slopes, articulation placement, glyph choice.** No rule of ours is blocked.
   Revisit only if he reports something specific, which is how every other item here started.
-- **`Stave.padding` itself.** Nothing to take — there is no setter. P2 routes around it.
+- **`Stave.padding` itself.** Nothing to take — there is no setter. P2 routes around it. (⚠️ 2026-09-19:
+  it is our row `NOTE_AREA_PADDING_PX` now; nothing about it was decided by the removal.)
 
 ---
 

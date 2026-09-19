@@ -638,6 +638,10 @@ collision avoidance. So:
 - **Collision avoidance** (MuseScore-style iterative nudging around noteheads/beams/articulations) is a
   large, separate future project; explicitly out of scope.
 
+> ⚠️ 2026-09-19: **the ceiling in this section's title is gone** — `renderCurve` was ported in U1
+> (`engine/engrave/curves/curveInk.ts`) and VexFlow is removed, so the curve's ink is our own code.
+> ⛔ That removes a limit; it decides nothing — the dual-thickness taper is as undone as it was.
+
 ### 9.4 Our current calibration (the only knobs; `rendering/SlurRenderer.ts`)
 
 ⚠️ **This table said `VexFlowRenderer.ts` and listed two constants that no longer exist** — the
@@ -738,7 +742,7 @@ START note's stem alone.
 
 ⭐ MuseScore's first line **is** our whole rule, so ours was theirs minus the scan. ✅ **BUILT
 2026-08-15** as `rendering/slurDirection.ts` (`slurSideFromStems` + `coveredChordIds`), reading the
-stems VexFlow actually DREW (beaming forces a group, so the model's answer differs) and scoped to the
+stems actually DRAWN (by VexFlow then; by our `EngravedNote` since the removal — beaming forces a group, so the model's answer still differs) and scoped to the
 slur's own lane — MuseScore scopes the same scan by `c1->track()`. The voice-parity rule (§10) still
 outranks it. ⚠️ The **mixed → above** tie-break is provisional: three implementations agreeing is not
 a published rule, and the literature agent is still out. One line, one test.
@@ -1042,7 +1046,7 @@ Nothing in this list was decided; it is the analysis input, not a plan.
 | 1 | ~~**Tie arc height**~~ ⛔ **WITHDRAWN — §13.1–13.2 + his call.** Ours is 0.40 sp constant; LilyPond peaks at 0.75, **Verovio is a constant too**, and only MuseScore climbs past 1. Replaced in §12 by the tie-vs-**staff-line** phase, which is what Gould's sentence is actually about | `TieRenderer.TIE_BOW` | — |
 | 2 | **Slant rules** | Gedan p.17 (*must follow the melodic line*; a horizontal slur over a descending melody is a labelled fault) + LilyPond's `same-slope-penalty` / `non-horizontal-penalty` / `steeper-slope-factor`. Ours tilts by `±0.25·dy`, **unbounded and unrelated to the interval** | `slurArchCps` | **small** — three clamps on a number we already compute |
 | 3 | **Broken-slur tilt** | Gould p.112: *"must be **angled in the direction of the final pitch** on the new system"*. Verovio: `pitchDiff × 0.25 sp` per diatonic step. Ours: a flat `SLUR_ARC` 1.4 sp, no pitch input | `SlurRenderer` BEGIN/END segments | **small–medium** |
-| 4 | **Taper** | Bravura: **0.10 sp** at the tip, **0.22 sp** at the middle. Ours: one `CURVE_THICKNESS` 0.27, heavier than the published *midpoint* and with no taper. ⚠️ VexFlow's `Curve` cannot do it (§9.3) — needs a self-rolled tapered cubic | `curveArc.ts` | **medium** |
+| 4 | **Taper** | Bravura: **0.10 sp** at the tip, **0.22 sp** at the middle. Ours: one `CURVE_THICKNESS` 0.27, heavier than the published *midpoint* and with no taper. ⚠️ VexFlow's `Curve` could not do it (§9.3) — needs a self-rolled tapered cubic (⚠️ 2026-09-19: the curve's ink is ours since U1, so no library stands in the way; still undone) | `curveArc.ts` | **medium** |
 | 5 | **Height law + indent** | No consensus: LilyPond `h_inf·(2/π)atan(π·r₀·w/2h_inf)` asymptotic to 2.0; Verovio saturates at 1.5; MuseScore unbounded `sqrt(d/4)`; a working engraver's table saturates at ~3. ⭐ Gould only constrains the *direction*: *"the curve of a long slur is **flattened**"*. Our indent is a fixed `w/4` where **all three vary it with length** | `slurArchCps` | **medium**, and a taste call |
 | 6 | **Constants in pixels** | Hygiene, not engraving: `SLUR_*` and `TIE_*` are px that behave as staff spaces because the draw runs inside the staff's scale group. Every comparison in §11 had to convert them by hand | `SlurRenderer`, `TieRenderer` | **small** |
 | 7 | **Gould's beam exception** | p.110: mixed stems go above *"**except when a beam may be in the way**"*. No engine implements it; nor do we | `slurDirection` | **small–medium** |
@@ -1083,7 +1087,7 @@ opposite stems — a drawn note always reports a direction — which is why it i
 
 | what | measured | size |
 |---|---|---|
-| **A broken tie is drawn by a DIFFERENT primitive** — same-line ties go through `drawCurveArc`, the two cross-system halves are raw VexFlow `StaveTie`s: quadratic, apex `cp1/2` = 4px (which *matches* our 0.40 sp), but a belly of `cp2−cp1` = **4px against our `CURVE_THICKNESS` 2.7**, and a `cp1Short/cp2Short` shape that swaps in silently under the short cutoff. Gould p. 65 wants the open-ended tie to keep the **same** shape. ⚠️ So §11.11 #1 has to land in **two** places | 1.5× weight mismatch | small–medium |
+| ✅ *(closed by §12 Phase 3b: every tie draws through `drawCurveArc`, and VexFlow is removed)* **A broken tie is drawn by a DIFFERENT primitive** — same-line ties go through `drawCurveArc`, the two cross-system halves are raw VexFlow `StaveTie`s: quadratic, apex `cp1/2` = 4px (which *matches* our 0.40 sp), but a belly of `cp2−cp1` = **4px against our `CURVE_THICKNESS` 2.7**, and a `cp1Short/cp2Short` shape that swaps in silently under the short cutoff. Gould p. 65 wants the open-ended tie to keep the **same** shape. ⚠️ So §11.11 #1 has to land in **two** places | 1.5× weight mismatch | small–medium |
 | **A tie's hit-target is a padded RECTANGLE** (`elements/tie.ts`), where a slur registers 16 sampled cubic points. The one span element still selectable by the empty air under its arc | — | small |
 | **A slur attaches to whichever chord note the user anchored**, not the outer one — `slurEndpointY` uses `ys[noteIndex]`, and §11.2b records that all three engines take the top note for an up-slur and the bottom for a down-slur | — | small |
 | ⭐ **The slant faults are reachable only through the STEM-TIP attachment** — and this *replaces* §11.11 #2. `slurArchCps` lifts the arch vertically above the chord line between the endpoints, so the arc always follows the interval between whatever it attaches to: Gedan's [b] and [c] cannot come from the arc math. They come from `slurEndpointY` attaching one end at a stem tip and the other at a notehead, which can tilt a rising melody's slur downwards. That is exactly Gould p. 111 and exactly MuseScore's *float along the stem* (§11.1) — better-sourced and smaller than three clamps on `dy` | — | small |
@@ -1965,7 +1969,7 @@ and three separate approval gates cost three round trips where one side-by-side 
 > `SLUR_EDGE_DISCOUNT_SPACES` **2.5 sp** of either end no longer count at all; the ENDPOINT rules
 > answer there instead (`rendering/slurArticulationEndpoint.ts`).
 >
-> ⚠️ What survives unchanged from the account below: the obstacles are still what VexFlow DREW, the
+> ⚠️ What survives unchanged from the account below: the obstacles are still what was DRAWN (VexFlow's drawing then; `EngravedNote`'s since the removal), the
 > solve is still one feed-forward pass with no loop, it still samples the real (leaning) curve rather
 > than a symmetric idealisation, and a hand-edited shape still opts out.
 
@@ -1977,7 +1981,7 @@ and three separate approval gates cost three round trips where one side-by-side 
 > ✅ **`rendering/slurObstacles.ts` — Verovio's single feed-forward pass**, solving
 > `3(1−t)²·x + 3(1−t)t²·y ≥ intersection` for the control lifts; with our two lifts equal that is
 > `3t(1−t)`, so one division answers each obstacle and the worst one wins. No loop, no search.
-> ✅ **The obstacles are what VexFlow DREW**: `coveredChordIds` (the same scan `slurDirection` uses)
+> ✅ **The obstacles are what VexFlow DREW** (⚠️ 2026-09-19: what `EngravedNote` draws — VexFlow is removed): `coveredChordIds` (the same scan `slurDirection` uses)
 > → each note's own bounding box, which spans head + stem + beam — so a beam over a run is in the
 > list without hunting for `Beam` objects the pass never kept.
 > ✅ **A hand-edited shape opts out**, the rule the nest lift already follows, and the lift is folded
@@ -2282,6 +2286,10 @@ VexFlow's live array, its own `getBoundingBox()` asked, and the array restored f
 `finally`. ⛔ Not re-derived from noteheads + stem + flag: a union cannot be un-merged, and a rebuilt
 copy would have to be kept in step with VexFlow for ever. Both readers in `SlurRenderer` go through
 it — the obstacle scan and `nearestCoveredOuterY` (the broken half's open end).
+
+> ⚠️ 2026-09-19: VexFlow is removed. The dynamic is now our `EngravedAnnotation`, and the note our
+> `EngravedNote`, whose `getBoundingBox()` is `StaveNote.getBoundingBox` transcribed — the union
+> included — so the splice in `noteInkBox` is still what keeps the dynamic out.
 
 ⚠️ **Break-tested through the side that matters**: the fixture is a slur BELOW low notes with a
 `below` dynamic MID-SPAN. An `above` slur reads the box's TOP and would pass either way, and an

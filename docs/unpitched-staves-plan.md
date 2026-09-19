@@ -12,7 +12,9 @@ so the day it is built it is built once, properly.
 ## 1. Why the row was dropped rather than wired up
 
 Drawing it is nearly free — VexFlow already renders a `percussion` clef, and the
-picker draws its own staves anyway. Every real cost is downstream of one line,
+picker draws its own staves anyway. (⚠️ 2026-09-19: VexFlow is removed — the clef is ours now,
+`engrave/header/clefSign` + `fonts/fontMetrics.clefGlyph`, and it has rows for the four pitched clefs
+only; a percussion clef would be one more row there, plus its glyph's metrics.) Every real cost is downstream of one line,
 `src/utils/clefUtils.ts`:
 
 ```ts

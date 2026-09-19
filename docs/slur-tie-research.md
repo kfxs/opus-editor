@@ -711,6 +711,9 @@ spaces → MEI units by ×2). Every option below is therefore doubled to get its
 
 ### 4.4 VexFlow 5.0.0 — `node_modules/vexflow/build/esm/src/`
 
+> ⚠️ 2026-09-19: the package is removed; the same build is kept at
+> `~/dev/engine-sources/vexflow-5.0.0-npm/package/build/esm/src/`, where the citations below still hold.
+
 Numbers are **pixels**; VexFlow's staff space is `Tables.STAVE_LINE_DISTANCE = 10` px, so **1 sp = 10 px**.
 
 | row | value | where |

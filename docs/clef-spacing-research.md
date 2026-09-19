@@ -632,7 +632,8 @@ p. 235).
 > Revisions read: **LilyPond `beedbfa`** · **MuseScore `929d1e9`** (⚠️ self-described 5.0-dev,
 > **shallow clone, no history** ⇒ no MS3-vs-MS4 attribution is possible) · **Verovio `efff0bc`**, all
 > in `~/dev/engine-sources`. Font data: `scripts/vendor/Bravura.json` (**fontName Bravura,
-> fontVersion 1.481**) and `node_modules/vexflow/build/esm/src/*.js`.
+> fontVersion 1.481**) and `node_modules/vexflow/build/esm/src/*.js` (⚠️ 2026-09-19: the package is
+> removed; the same npm build is kept at `~/dev/engine-sources/vexflow-5.0.0-npm/package`).
 
 ## A.1 ⭐⭐ The live question, in the engines: **all three say NO, the bracket does not move the clef**
 
@@ -731,7 +732,11 @@ And the font's bass clef is **3.59 sp** where all four engraved bass clefs measu
 ⛔ `engravingDefaults` has **no key that bears on a clef or on the header** — all 30 are thicknesses
 or line-to-line separations.
 
-## A.7 VexFlow 5, which is what we currently draw through (⛔ library constant)
+## A.7 VexFlow 5, which is what we drew through at the time (⛔ library constant)
+
+> ⚠️ **2026-09-19: VexFlow is removed** (`docs/vexflow-removal-map.md`). What follows describes the
+> library as it was read; the walk is now ours (`engrave/staff/signWalk`, `Stave.format()`
+> transcribed) and so is the line each clef names (`engrave/header/clefSign`, from `Clef.types`).
 
 - `Stave.format()` (`build/esm/src/stave.js:389-404`) walks the BEGIN modifiers in the order
   `Barline 0, Clef 1, KeySignature 2, TimeSignature 3`, and `StaveModifier.getPadding`
@@ -744,7 +749,7 @@ or line-to-line separations.
   line-opening treble bar with `4/4`: `0.5 (barline) + 2.684 (gClef advance) + 1.5 (timeSig padding)
   + 1.88 (timeSig4 advance) + 1.2 (Stave.padding)` = **7.764 sp**, which is the **7.8** recorded as
   *"VexFlow drew"* in `headerInk.ts`.
-- Vertical placement is entirely VexFlow's, from `Clef.types[type].line` (`clef.js:13-65`) +
+- Vertical placement was entirely VexFlow's (at the time of reading), from `Clef.types[type].line` (`clef.js:13-65`) +
   `Stave.getYForLine`; **no file in `src/` sets a clef's y**. Its line indices agree with our own
   `CLEF_REFERENCES` / `CLEF_MIDDLE_LINE_DIATONIC` tables independently.
 

@@ -13,9 +13,11 @@
 > `EngravedStem`. S6e of `docs/vexflow-removal-map.md`.
 >
 > ⏳ **What this document still gates**, and neither is decided by that number: the **ATTACHMENT**
-> point (§4) and the **short-note minimums**. ⛔ Also still VexFlow's: how much EXTENSION a note asks
-> for — a flag's overhang, the per-duration beam table, and the reach to the middle line (§1 rule 2) —
-> which meets `applyStemExtensions` from the other end in `docs/beam-engraving-plan.md`.
+> point (§4) and the **short-note minimums**. ⛔ Also still VexFlow's RULE: how much EXTENSION a note
+> asks for — a flag's overhang, the per-duration beam table, and the reach to the middle line (§1 rule
+> 2) — which meets `applyStemExtensions` from the other end in `docs/beam-engraving-plan.md`.
+> (⚠️ 2026-09-19: VexFlow is removed — that rule is now transcribed as our code,
+> `EngravedNote.getStemExtension` + `engrave/beams/beamedStems`, unchanged.)
 >
 > ⛔ **Beyond that gate, this document proposes nothing and names no file to edit.**
 >

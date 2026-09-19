@@ -34,7 +34,7 @@ books has. (Ross also allows *broken beam*; LilyPond's source calls it a **beaml
 | LilyPond | `~/dev/engine-sources/lilypond` | `lily/beaming-pattern.cc`, `scm/define-grobs.scm` |
 | MuseScore | `~/dev/engine-sources/MuseScore` | `rendering/score/beamlayout.cpp`, `style/styledef.cpp` |
 | Verovio | `~/dev/engine-sources/verovio` | `src/view_beam.cpp` |
-| VexFlow 5.0.0 | `node_modules/vexflow/build/esm/src/beam.js` | `lookupBeamDirection` / `getBeamLines` |
+| VexFlow 5.0.0 | `node_modules/vexflow/build/esm/src/beam.js` (⚠️ package removed 2026-09-19 — same build at `~/dev/engine-sources/vexflow-5.0.0-npm/package/…`) | `lookupBeamDirection` / `getBeamLines` |
 
 ## 2. What each book says
 
@@ -258,12 +258,13 @@ as rules on a shelf, with the one we draw today named honestly.
 | # | question | the options | what we do now |
 |---|---|---|---|
 | **A** | **the LENGTH** | (i) Bravura's `noteheadBlack` **1.18 sp**, read from the font like Verovio · (ii) the engines' **1.1 sp** · (iii) keep **0.9** | **0.9 sp** — ⛔ agreeing with nobody |
-| **B** | **the SIDE** | (i) **the beat rule** (Gould/Ross/Stone; LilyPond's `strict_beat_beaming_`) · (ii) **neighbour counts** (VexFlow's) · (iii) beat rule with neighbour-count as tie-break | ✅ **DECIDED — (i), built.** ⭐ (iii) is what actually ships, since the rule abstains on a tuplet and VexFlow decides those |
+| **B** | **the SIDE** | (i) **the beat rule** (Gould/Ross/Stone; LilyPond's `strict_beat_beaming_`) · (ii) **neighbour counts** (VexFlow's) · (iii) beat rule with neighbour-count as tie-break | ✅ **DECIDED — (i), built.** ⭐ (iii) is what actually ships, since the rule abstains on a tuplet and VexFlow decides those (⚠️ VexFlow's rule, ours since S7d — `engrave/beams/beamLineSpans`) |
 | **C** | **next to a REST** | (i) point **away** (Gould's first, Verovio's) · (ii) point **towards**, to clarify the metre (Gould's *"equally acceptable"*) | falls out of (B); never asked |
 
 ### 8.1 ⭐ One implementation note, so the cost of **B** is not overestimated
 
-`Beam.setPartialBeamSideAt(noteIndex, side)` is **public API** (`beam.js:340`), and
+`Beam.setPartialBeamSideAt(noteIndex, side)` is **public API** (`beam.js:340`; ⚠️ since the removal
+it is our `EngravedBeam.setPartialBeamSideAt`), and
 `lookupBeamDirection` checks `forcedPartialDirections` **first**. So the beat rule can be supplied
 from our side — the meter is ours, `utils/measureCapacity` and the beaming code already know the beat
 groups — without reimplementing `getBeamLines`.

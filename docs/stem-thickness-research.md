@@ -43,7 +43,7 @@
 | MuseScore `main@929d1e9` | `~/dev/engine-sources/MuseScore` | `src/engraving/style/styledef.cpp`, `dom/stem.cpp`, `dom/chord.cpp`, `rendering/score/tlayout.cpp`, `tdraw.cpp` |
 | Verovio `develop@efff0bc` | `~/dev/engine-sources/verovio` | `src/options.cpp`, `src/doc.cpp`, `src/view_element.cpp` |
 | musxdom `@c870522` (Finale) | `~/dev/engine-sources/musxdom` | `src/musx/dom/Options.h`, `Fundamentals.h`, `tests/data/reference/*Default*.enigmaxml` |
-| VexFlow 5.0.0 | `node_modules/vexflow/build/esm/src/` | `tables.js`, `stem.js`, `beam.js` |
+| VexFlow 5.0.0 | `node_modules/vexflow/build/esm/src/` (⚠️ removed from the app 2026-09-19; same build at `~/dev/engine-sources/vexflow-5.0.0-npm/package/build/esm/src/`) | `tables.js`, `stem.js`, `beam.js` |
 | SMuFL metadata | `scripts/vendor/Bravura.json`; `verovio/fonts/*/`; `MuseScore/fonts/*/`; `musxdom/tests/data/font_metadata/` | `engravingDefaults.stemThickness` |
 
 **Plate method** (new here). Pages rendered with `pdftoppm -r 450` (1 sp ≈ 20 px on Gould), measured

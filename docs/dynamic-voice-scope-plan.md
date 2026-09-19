@@ -182,7 +182,7 @@ Three things it turned up that the table did not predict:
   voice. Replaced by `anchorSlotIndex`, which orders by **(beat, then voice)** — the voice being the
   tie-break so two voices striking one beat cannot move the drawn anchor between renders. It is
   exported for `DynamicsLayout.anchor.test.ts`: the trap IS the ordering, and asserting an array
-  index through VexFlow annotations would be theatre.
+  index through VexFlow annotations (our `EngravedAnnotation`s since the removal) would be theatre.
 - ⭐ **The wedge's break for a dynamic is an INK question, not a lane one.** `interiorMarkGaps`
   compared the two voices before asking `inksClash`; there is ONE dynamics line per staff, so a
   voice-2 `f` under a voice-1 wedge sits on it and was drawn straight through. The voice test is

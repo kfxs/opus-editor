@@ -41,7 +41,7 @@
 | LilyPond | `~/dev/engine-sources/lilypond` @ `beedbfa0` | | `scm/define-grobs.scm`, `lily/ledger-line-spanner.cc`, `Documentation/en/essay/engraving.itely` + `Documentation/pictures/baer-ledger.png` |
 | MuseScore | `~/dev/engine-sources/MuseScore` @ `929d1e99` | | `src/engraving/style/styledef.cpp`, `rendering/score/chordlayout.cpp`, `internal/engravingfont.cpp` |
 | Verovio | `~/dev/engine-sources/verovio` @ `efff0bc9` | unit = **½ sp** | `src/options.cpp`, `src/doc.cpp`, `src/calcledgerlinesfunctor.cpp`, `src/staff.cpp` |
-| VexFlow 5.0.0 | `node_modules/vexflow/build/esm/src/` | 10 px = 1 sp (`tables.js:647`) | `stavenote.js`, `gracenote.js` |
+| VexFlow 5.0.0 | `node_modules/vexflow/build/esm/src/` (⚠️ 2026-09-19: the package is removed — the same build is kept at `~/dev/engine-sources/vexflow-5.0.0-npm/package/build/esm/src/`) | 10 px = 1 sp (`tables.js:647`) | `stavenote.js`, `gracenote.js` |
 | SMuFL metadata | `scripts/vendor/Bravura.json`, `~/dev/engine-sources/{verovio,MuseScore}/fonts/*/*.json` | | `engravingDefaults.legerLineExtension` |
 
 ⚠️ **Two page citations elsewhere in `docs/` are off by one half-spread**, found while rendering:
@@ -269,6 +269,8 @@ Finale Broadway 0.19 and MuseJazz 0.20. ⛔ Thickness stays decided; this only f
 - **Fans**: `FAN_LEDGER_OVERHANG = 3` px (`src/engine/rendering/FanPass.ts:120`, chosen at `:165-169`).
 - **Rests**: `PAD = 2` px = **0.20 sp** past the rest glyph (`src/engine/rendering/VexFlowRenderer.ts:2390`).
 - **Ghost preview**: a plain VexFlow `StaveNote`, so 3 px (`src/engine/rendering/GhostRenderer.ts:162-164`).
+  (⚠️ 2026-09-19: VexFlow is removed — the ghost is our `EngravedNote`, whose overhang is the same
+  `LEDGER_OVERHANG_PX` row, still 3 px.)
 - **Spacing reserve**: `INK.ledgerLeft` **0.30**, `INK.ledgerRight` **1.50** from the head anchor, 1.80 sp
   wide (`src/engine/layout/spacingPadding.ts:86-96`, used `layout/measureColumns.ts:151`, `:168`).
   Held as a recorded override against the font's 0.40 / 1.58 in

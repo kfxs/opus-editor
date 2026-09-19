@@ -8,6 +8,12 @@ break too".** This file is the rendering: what a join costs the bars it crosses,
 straddles a system break is drawn in independent per-line fragments, and the things that fail silently
 if it is done any other way.
 
+> ⚠️ **2026-09-19: VexFlow is removed** (`docs/vexflow-removal-map.md` §9). Every class this file
+> names as VexFlow's is now our transcription of it, with the same behaviour — `StemmableNote`/`StaveNote`
+> (the flag and stem gates) → `rendering/EngravedNote`, `Stem` → `EngravedStem`, `Beam` →
+> `EngravedBeam` (the partial-beam walk in `engrave/beams/beamLineSpans`). The mechanics below hold as
+> written; read "VexFlow's" as "the rule we took from VexFlow".
+
 ## The obstacle
 
 A beam is not drawn *on top of* finished notes the way a tie or a slur is. It changes how the notes
@@ -65,7 +71,7 @@ member resolving to a `StaveNote`); an undrawn side simply skips itself.
   (`adjustHeightForBeam` + `drawWithStyle`), flat at its natural tip, plus a flat stub of the note's
   own beam count pointing at the break.
 
-⚠️ **The stem is always VexFlow's `Stem`, never a hand-drawn line.** The selection highlight resolves a
+⚠️ **The stem is always VexFlow's `Stem` (ours now: `EngravedStem`), never a hand-drawn line.** The selection highlight resolves a
 beamed note's stem *by identity* through the `Stem` object's SVG group (a beamed stem is drawn inside
 the beam's group, not the note's), so a hand-drawn stem would leave the note highlighting with a hole in
 it.

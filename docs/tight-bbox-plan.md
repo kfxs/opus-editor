@@ -36,6 +36,12 @@ too (the §6a-ii tripwire already RESULT-polices them, so low priority).
 > described below, and the §6a-ii tripwire still polices all four; the dot and the
 > articulation are the next to migrate.
 
+> ⚠️ **2026-09-19 — VexFlow is REMOVED** (`docs/vexflow-removal-map.md`). Every object this plan
+> reads a box from is ours now (`EngravedNote`, `EngravedHead`, `EngravedAccidental`, `EngravedDot`,
+> `EngravedArticulation`…), their boxes ported exactly from VexFlow 5's. Read
+> "VexFlow's box" below as that ported box; §1's picture of the app (VexFlow 5, Vue) is the one this
+> plan was written against.
+
 When the user clicks the score, the wrong element is sometimes selected, or a
 selection highlight bleeds onto a neighbour. Root cause: some registered clickable
 boxes are much larger than the visible ink of their glyph. The flagship case: a bar
@@ -45,7 +51,7 @@ dynamic (and at visibly empty space).
 
 **Rev 1 diagnosed this as "VexFlow's `getBoundingBox()` is a metrical layout box, not
 ink, for almost every element." That is true of VexFlow 4 but NOT of VexFlow 5**, which
-we use. In VF5, `Element.getBoundingBox()` is an *ink* box (canvas `measureText` with
+we used then. In VF5, `Element.getBoundingBox()` is an *ink* box (canvas `measureText` with
 `actualBoundingBox*` metrics). The inflation we observe has three distinct, verified
 mechanisms (§3):
 

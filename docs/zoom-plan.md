@@ -25,7 +25,7 @@ code** — see §3 and §8. That is the whole point of doing zoom as a clean sca
 
 Let the user scale the rendered score in place, like Sibelius:
 
-- **Crisp at any zoom.** VexFlow draws vector SVG, so a CSS transform scales without blur — no
+- **Crisp at any zoom.** The renderer draws vector SVG (VexFlow's then; our `SvgPainter` since 2026-09-19), so a CSS transform scales without blur — no
   re-render, no recompute, GPU-cheap.
 - **Zoom is a *view* operation, never a *layout* operation.** Zooming must **not** reflow the music
   (line breaks / page breaks are layout, owned by the view mode, independent of zoom).

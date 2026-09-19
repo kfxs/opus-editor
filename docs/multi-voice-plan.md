@@ -35,7 +35,7 @@ collision, rest-fill, rebar, dynamics and playback all key on `voice ?? 0` today
   voice's stem side — **voice 1 → above, lower voices → below** — so the voices' brackets spread to the
   outer edges instead of colliding in the middle (single-voice keeps the stem-derived default). A
   bracket flipped to the *inner* side is nudged next to its own notes (out of VexFlow's staff-edge
-  clamp). Full design in `docs/tuplet-control-plan.md`.
+  clamp — ⚠️ that clamp is ours since S8a, `engrave/marks/tupletPlacement`). Full design in `docs/tuplet-control-plan.md`.
 - **Colours** (Sibelius): **voice 1 = blue, voice 2 = green**. The **selection highlight colour *is* the
   voice colour** (a selected V1 note shows blue, a selected V2 note shows green — not the old uniform
   orange). The **ghost note** and the **keyboard cursor** paint in the **active voice's** colour.
@@ -73,6 +73,12 @@ Both must be scoped to the active voice. `CollisionDetector` itself is fine.
 ---
 
 ## 3. VexFlow 5.0.0 — verified API (read from `node_modules/vexflow`)
+
+> ⚠️ **2026-09-19: VexFlow is removed** (`docs/vexflow-removal-map.md` §9). This section records the
+> API the plan was built on in 2026-06; each piece is now our own transcription — `Voice` →
+> `rendering/barVoice`, `Formatter` → `rendering/columnFormat` + `spacingPass`, the modifier contexts →
+> `rendering/modifierColumns`, `StaveNote` → `rendering/EngravedNote`, `alignRests` →
+> `engrave/notes/restAlign`, the multi-voice collision rule → `engrave/notes/voiceStack`.
 
 The render approach is idiomatic VexFlow and matches our current single-voice calls almost exactly:
 
@@ -234,7 +240,8 @@ Span elements (ties, slurs) brought up to the same multi-voice standard the note
 ---
 
 ## 7. References
-- VexFlow 5.0.0 source: `node_modules/vexflow/build/types/src/{voice,formatter,stem,stavenote}.d.ts`.
+- VexFlow 5.0.0 source: `node_modules/vexflow/build/types/src/{voice,formatter,stem,stavenote}.d.ts`
+  (⚠️ the package is removed; the npm build is kept at `~/dev/engine-sources/vexflow-5.0.0-npm/package`).
 - VexFlow [Tutorial](https://github.com/0xfe/vexflow/wiki/Tutorial),
   [How Formatting Works](https://github.com/0xfe/vexflow/wiki/How-Formatting-Works),
   [grand-staff voices #332](https://github.com/0xfe/vexflow/issues/332).

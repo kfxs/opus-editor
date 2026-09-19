@@ -31,6 +31,9 @@ offset is exactly the offset case.
 
 ### The asymmetry to handle (verified against VexFlow 5 source)
 
+> ⚠️ 2026-09-19: VexFlow is removed. The note is our `EngravedNote` and the modifier start is
+> `engrave/notes/modifierStart` — both transcriptions, so the asymmetry below still holds as written.
+
 A post-format `setXShift(dx)` on a `StaveNote` moves:
 
 | Owned by the note | Follows `setXShift`? | Why |
@@ -62,7 +65,8 @@ Clone the dynamic-offset shape:
 
 - `kind: 'noteOffset'`, payload `{ x }` in **staff-spaces**, anchor-relative (never pixels).
 - **Keyed by SLOT id**, not pitch id. One `StaveNote` = one slot; VexFlow cannot x-shift a
-  single notehead of a chord independently, so a chord moves as a unit. Selection hands us
+  single notehead of a chord independently, so a chord moves as a unit. (⚠️ 2026-09-19: the note is
+  our `EngravedNote` now, so that limit is no longer the library's — the chord-moves-as-a-unit rule is unchanged.) Selection hands us
   pitch ids → one-line pitch→slot resolve via `ScoreModel.findSlot(pitchId)` (returns the
   containing `Chord`/`Rest`; take its `.id`). A rest is a slot too, so a selected rest is
   offsettable by the same key — allow it; `setXShift` works on rests.
@@ -181,6 +185,7 @@ we don't re-derive it.
   amount the notehead moved). Then both the initial placement and `setOrigin`'s re-centering resolve
   to the shifted note. Accidentals keep the raw-`xShift` path (LEFT, no re-centering to fight); dots
   follow via the note's own `xShift`. See `applyNoteOffsets` in `VexFlowRenderer.ts`.
+- (⚠️ Since S5a the override is gone: the offset is the `MarkAnchor` INPUT of `engrave/notes/modifierStart`.)
 - **Reused since.** That `getModifierStartXY` override is now the shared lever for articulation X
   placement: the **articulation stem-align** feature (`docs/articulation-stem-align.md`) rides the
   same hook to snap a stem-side mark onto `getStemX()`. The Properties offset input also grew a

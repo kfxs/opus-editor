@@ -29,7 +29,9 @@ Consequences, and why this is the cheap side:
   treble / bass**. No new arithmetic; a click on the middle line yields B4 as it always did.
 - Note placement is untouched. VexFlow's `'8vb'` annotation is cosmetic — it swaps the clef
   glyph and does not move notes — which is exactly right when the key we hand it is the
-  written pitch.
+  written pitch. (⚠️ 2026-09-19: VexFlow is removed — the clef is drawn by our own
+  `rendering/EngravedClef` + `engrave/header/clefSign`; the point stands: the octave clef is a
+  different GLYPH, not a different note position.)
 - Stem direction, tie/slur side, selection, keyboard navigation, copy/paste: all compare
   written pitches to written pitches, and all keep working with no change at all.
 
@@ -48,6 +50,10 @@ globals: one value must not mean two things depending on who is asking.
 3. The six `addClef` sites pass VexFlow's annotation — `stave.addClef('treble', size, '8vb')`.
    Sites: `VexFlowRenderer.ts:1193, 1196, 2211, 2213, 2865` and `GutterRenderer.ts:96`. A
    `clefToVexflow(clef): [type, annotation]` helper so the mapping exists ONCE.
+   ⚠️ **2026-09-19: this item is stale — VexFlow is removed.** There is no `stave.addClef` or VexFlow
+   annotation any more: a clef is our `rendering/EngravedClef` (added through `addClefSign`), whose
+   glyph and line come from `engrave/header/clefSign`, and it takes no annotation today. The
+   mapping-exists-ONCE point carries over to wherever that module learns the octave glyphs.
 4. **Playback** — the only place the octave is real. `playbackSchedule.ts:112` currently reads
    `spellingToMidi(np.step, np.alter, np.octave)` with no clef in hand; it must resolve the
    effective clef at that chord's (measure, beat, staff) via `effectiveClefAt` and subtract 12

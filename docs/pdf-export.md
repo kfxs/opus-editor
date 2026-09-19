@@ -27,7 +27,10 @@ and place marks by the answer; in a `display: none` subtree every box reads 0×0
 🚨 And the host is inserted **first in the document** for the duration of the render, then moved to
 the end. Some engraving reaches back for the element VexFlow just drew — `applyMixedDynamicRuns`
 re-lays a dynamic's glyph run at music size that way, and the co-location row, the hand-nudged
-offsets and the hit-boxes follow the same path. VexFlow finds it with `document.getElementById`,
+offsets and the hit-boxes follow the same path. VexFlow finds it with `document.getElementById`
+(⚠️ 2026-09-19: VexFlow is removed, and `EngravedAnnotation.getSVGElement` now answers the group it
+opened, with no document lookup — whether anything still needs the host first is unchecked; the
+order is kept),
 and a dynamic's element id **is the model's id**, so while an export render is on the page two
 elements answer to it. `getElementById` returns the first in tree order: a host appended at the end
 loses every one of those lookups to the live score, and the export keeps the un-enlarged glyph — an
@@ -38,7 +41,9 @@ returns, so a live render during the export's async tail still finds the editor'
 ### 2. Why outline instead of embedding the font
 
 Every glyph VexFlow draws is a `<text>` in Bravura, and VexFlow ships Bravura/Academico as base64
-**woff2** installed into `document.fonts`. No PDF writer embeds woff2, and jsPDF cannot embed
+**woff2** installed into `document.fonts`. (⚠️ 2026-09-19: VexFlow is removed — our `SvgPainter` draws
+the `<text>`, and since S1 the page installs the `.otf`s below itself, `rendering/musicFontFaces` +
+`fonts/fontFiles`; no woff2 is involved any more.) No PDF writer embeds woff2, and jsPDF cannot embed
 OTF/CFF outlines as text even given the file. Outlining sidesteps the question entirely: the PDF
 carries no font dependency at all.
 
@@ -59,7 +64,8 @@ Three rules earn their keep:
 - **Whitespace inherits the run.** A lone non-breaking space (the engraving is full of them — a
   tempo mark's word/glyph joins are made of them) is dropped rather than becoming a `<text>` node
   containing one invisible space; a space *inside* a kept run stays, or `p sub.` becomes `psub.`.
-- **Weight is a face, not an effect.** VexFlow registers Academico's bold as a real face and tempo
+- **Weight is a face, not an effect.** Academico's bold is registered as a real face (by VexFlow
+  once; by `fonts/fontFiles` + `rendering/musicFontFaces` since VexFlow's removal) and tempo
   marks are set in it, so `public/fonts/AcademicoBold.otf` is shipped too and the outliner picks by
   the run's weight. Outlining a bold word from the regular file silently un-bolds it.
 

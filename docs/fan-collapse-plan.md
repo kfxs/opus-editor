@@ -19,7 +19,7 @@ out is an ordinary `FanMark` on an ordinary slot, and taking it off leaves one n
 a dotted quarter tied to a sixteenth — and there is no single symbol for it. That was raised as an
 obstacle and it is not one, because **a fanned slot's written symbol is never seen**: `NoteBuilder`
 already draws a fanned slot as a plain quarter head whatever the slot says (§0's "the drawn value ≠
-the written one"), and hands VexFlow the slot's REAL length as a tick multiplier. His answer settled
+the written one"), and hands the note (`EngravedNote` — VexFlow's `StaveNote` before its removal) the slot's REAL length as a tick multiplier. His answer settled
 it — *"that's a duration in time or it isn't"* — and it is. Only the model had to be told.
 
 ## 1. The model: the span rides the MARK

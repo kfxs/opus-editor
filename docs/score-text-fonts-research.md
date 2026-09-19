@@ -6,7 +6,8 @@ its PDF page. Anything that could not be confirmed is marked **UNKNOWN** and lis
 
 Engine checkouts cited: MuseScore `main` @ `929d1e9`, LilyPond `master` @ `beedbfa`, Verovio
 `develop` @ `efff0bc` (all under `~/dev/engine-sources/`, see `reference/README.md`). VexFlow is the
-installed `node_modules/vexflow` 5.0.0 (MIT).
+installed `node_modules/vexflow` 5.0.0 (MIT) — ⚠️ removed from the app 2026-09-19 (S14); the same npm build is
+kept at `~/dev/engine-sources/vexflow-5.0.0-npm/package`, and its `node_modules/vexflow/…` paths below resolve there.
 
 ---
 
@@ -54,13 +55,13 @@ installed `node_modules/vexflow` 5.0.0 (MIT).
 
 | role | face used now | source |
 |---|---|---|
-| tempo words | Academico **bold**, reached through VexFlow's stack `'Bravura,Academico'` and re-ordered text-first | `node_modules/vexflow/build/esm/src/metrics.js:62`; `src/engine/rendering/TempoLayout.ts:155-160`; fallback `src/interactions/TempoTextSource.ts:21` |
+| tempo words | Academico **bold**, reached through VexFlow's stack `'Bravura,Academico'` (⚠️ since S13a our own row, `src/engine/fonts/fontCategories.ts:37`, ported from it) and re-ordered text-first | `node_modules/vexflow/build/esm/src/metrics.js:62`; `src/engine/rendering/TempoLayout.ts:155-160`; fallback `src/interactions/TempoTextSource.ts:21` |
 | expression words (`dolce`), italic | **not Academico**: `DYNAMIC_TEXT_FONT = 'Georgia, "Times New Roman", Times, serif'`, chosen because it *"has a true italic face (the music font doesn't)"* | `src/engine/rendering/dynamicStyle.ts:54-56`; applied italic at `src/interactions/DynamicTextSource.ts:265-267` |
 | italic parentheses (trill, ottava, pedal) | the same Georgia/Times stack | `trillStyle.ts:59`, `ottavaStyle.ts:78`, `pedalStyle.ts:50` (all `src/engine/rendering/`) |
 | title and composer (the 🚧 sketch) | `Georgia, "Times New Roman", Times, serif` | `src/engine/rendering/ScoreHeaderPass.ts:125-128, 202` |
 | menu specimens (italic expression, bold tempo) | Georgia/Times stack | `src/menus/MenuLayer.ts:171-172, 179` |
 | lyrics, chord symbols, rehearsal marks | not implemented (no `lyric` in `src/types/music.ts`) | grep |
-| VexFlow's own italic elements (not ours) | `PedalMarking`, `Stroke`, `TabSlide`, `TextBracket` ask for `fontStyle: 'italic'` in a family with no italic file | `node_modules/vexflow/build/esm/src/metrics.js:111, 181, 192, 204` |
+| VexFlow's own italic elements (not ours — ⚠️ and not in the app at all since VexFlow's removal) | `PedalMarking`, `Stroke`, `TabSlide`, `TextBracket` ask for `fontStyle: 'italic'` in a family with no italic file | `node_modules/vexflow/build/esm/src/metrics.js:111, 181, 192, 204` |
 
 **So the score's text is already split across two families today.** Upright words (tempo) are
 Academico. Italic words, parentheses and the title use a system serif stack, which depends on the

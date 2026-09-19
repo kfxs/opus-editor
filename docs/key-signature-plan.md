@@ -901,7 +901,7 @@ override key built from an ORDINAL needs it.
   and is CLOSED by it, where the key and meter go after and stay open (Gould p. 7, Stone p. 57, G&L
   p. 52 — measured: clef→barline 0.52 sp, then a full-height line). ⚠️ Our courtesy METER is drawn on
   the wrong side of the line (VexFlow's END modifier sits inside the bar) — ⏭️ the meter's own change,
-  not bundled here.
+  not bundled here. (✅ Fixed 2026-09-12 — `docs/barline-types-plan.md` §4.4a.)
 - **Suppressing a cautionary.** ⏭️ His *"everything can be tuned… but this is not priority now"*, and
   ⛔ it must not be built by inverting the other two kinds' override table.
 

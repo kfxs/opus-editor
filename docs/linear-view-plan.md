@@ -75,6 +75,11 @@ That last one is not a limitation they tolerated. It is the correct design, and 
 
 ## 3. What VexFlow gives us: nothing — and that's fine
 
+> ⚠️ **2026-09-19: VexFlow is removed.** The `Formatter` below is ours now (`rendering/columnFormat` +
+> `spacingPass`), and `preCalculateMinTotalWidth` is no longer called — a bar's width comes from
+> `layout/spacing` + `spacingPadding`. Kept as the 2026-07 reasoning; its point, that all wrapping
+> is ours, still holds.
+
 VexFlow 5 has no line-breaking, no pagination, no viewport, no culling. `System` merely
 stacks staves into one system; it does not wrap. All wrapping is ours, which is why
 `MeasureLayout.ts` exists.
@@ -276,7 +281,8 @@ left edge.
 - Draw it into a **second, DOM-pinned SVG**, not into the score SVG at `scrollX` — so
   scrolling never triggers a score re-render.
 - The parts already exist: `getEffectiveClef(measure, staffId)` and the meter in effect.
-  The gutter is a note-less VexFlow `Stave`.
+  The gutter is a note-less VexFlow `Stave`. (⚠️ Not since S4d: a frame of ours, lines from
+  `engrave/staff/staffLines`, signs walked by `engrave/staff/signWalk` — see `GutterRenderer`.)
 - Zoom is a CSS transform on the score surface; the pinned gutter SVG sits **outside**
   that layer, so it must apply the zoom scalar itself.
 

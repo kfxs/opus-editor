@@ -142,6 +142,9 @@ hit-testing/debug parity.)
 > constructs a VexFlow `Curve` and drives many `ctx` calls, so a render test needs a
 > mocked context **plus** `StaveNote` stubs (`getTieRightX/getTieLeftX/getStave/
 > getYs/getStemDirection/getStemExtents`). So we test the **decision**, not the draw.
+>
+> (⚠️ 2026-09-19: no longer so — since U1 `drawCurveArc` is our own ink (`engrave/curves/curveInk`), no
+> VexFlow `Curve`, and VexFlow is removed; a drawn slur can be read off the scene, `recordScene`.)
 
 **Extract the segment planning into a pure function** (do this as part of Phase 1, not
 just for tests — it also keeps `renderSlurs` readable and matches the engine's

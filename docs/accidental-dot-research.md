@@ -42,7 +42,9 @@ Taking the ink did **not** take the placement. Both modules say so in their own 
 
 ⭐ **(2026-09-16) Both rules are now ours as TRANSCRIPTIONS** — `engrave/notes/accidentalStack` (S9d)
 and `engrave/notes/dotStack` (S9c), VexFlow's behaviour kept exactly. Nothing below was acted on; it is
-now the menu for editing those two modules rather than for replacing VexFlow.
+now the menu for editing those two modules rather than for replacing VexFlow. (⚠️ 2026-09-19: VexFlow
+is removed altogether — the point the note offers is ours too, `engrave/notes/modifierStart` (S5a),
+and the inherited numbers below are rows in `engrave/inheritedDefaults`.)
 
 So there are three numbers on the page that nobody in this repo has chosen: the accidental's
 standoff, the gap between two accidental columns, and the dot's standoff. One of them —
@@ -234,6 +236,8 @@ Read from `src/engine/rendering/dotPlacement.ts`, `src/engine/engrave/notes/augm
 `src/engine/engrave/notes/accidental.ts`, `src/engine/rendering/ledgerAccidentalClearance.ts`,
 `src/engine/rendering/chordAccidentalColumns.ts`, and the VexFlow that still owns the placement
 (`Accidental.format`, `Accidental.checkCollision`, `Dot.format`, `Tables.accidentalColumns`).
+⚠️ Since ported exactly — `engrave/notes/accidentalStack` + `dotStack` (§1) — and VexFlow is removed
+(2026-09-19): where the table says *VexFlow*, read *VexFlow's rule, transcribed into ours*.
 One staff space is **10 px** (`STAFF_SPACE_PX`).
 
 | row | what we draw | where it comes from | the books | verdict |
@@ -285,7 +289,7 @@ One staff space is **10 px** (`STAFF_SPACE_PX`).
 
 | # | the question | what makes it a question |
 |---|---|---|
-| **D1** | **Should the accidental's standoff from its notehead become ours, and at what number?** | Today it is VexFlow's 0.3 sp of ink, arrived at as 1 px of metric plus a 2 px literal. Gould's plate draws 0.19–0.38 sp; Ross states 1½ sp left-to-left, which is 0.54 sp of ink. Nobody has chosen between them |
+| **D1** | **Should the accidental's standoff from its notehead become ours, and at what number?** | Today it is VexFlow's 0.3 sp of ink, arrived at as 1 px of metric plus a 2 px literal (⚠️ 2026-09-19: the CODE is ours since the removal — the number is not yet chosen). Gould's plate draws 0.19–0.38 sp; Ross states 1½ sp left-to-left, which is 0.54 sp of ink. Nobody has chosen between them |
 | **D2** | **Does a FLAT stand closer than a sharp or a natural?** | Gould draws it that way consistently (0.19–0.23 vs 0.30–0.38 sp across eleven pairs) and says nothing about it. We draw one number for every glyph |
 | **D3** | **What is the gap between two accidental COLUMNS?** | Ours is 0.3 sp of ink. Gould's *drawn minimum* is zero ink (crossbar edges abutting, 0.98 sp of pitch) and Ross's key-signature figure is 1–1¼ sp of pitch. Both are tighter than what we draw, and neither states a normal-case value |
 | **D4** | **Which threshold should let two accidentals share a column — the octave, the seventh, or the sixth?** | Gould, Ross and Gerou & Lusk each name a different one. VexFlow already does Gould's (7th, relaxed to a 6th under a flat). ⭐ Our own `chordAccidentalColumns` does a flat 6th for every glyph and is the one place where we, not VexFlow, decided |

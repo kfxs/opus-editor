@@ -434,7 +434,7 @@ follows in every respect — but ⚠️ **a branch alone will not do**:
 | per-trill speed | an optional field, read by `trillAttacks` where the constant is now |
 | ~~lengthen / shorten by dragging the end~~ | ✅ **BUILT 2026-08-18** — the two endpoint squares, `Ctrl+Shift+←/→` and the drag. See §11. |
 | ~~the trill sign with no line as its own thing~~ | ✅ **BUILT 2026-08-18, and NOT as a separate mark** — the framing here said the articulation family; what he asked for was one step further left on the END square, which makes it a state of THIS object (`Trill.extension`). See §11. |
-| mordents, turns, pralls | the articulation family; VexFlow's `Ornament` table already has 13 glyphs |
+| mordents, turns, pralls | the articulation family; VexFlow's `Ornament` table already has 13 glyphs (⚠️ 2026-09-19: VexFlow is removed — a table to read in its source, not one we have) |
 | ~~the plain repeated `tr`, or no sign, on continuations~~ | ✅ **BUILT 2026-08-13** — all three are offered as `Trill.continuationLabel`, chosen per trill in Properties. See rule 6. ⏭️ What remains is the score-wide DEFAULT, which is an engraving-preset row, not a trill one. |
 | the above-staff ladder | `docs/above-staff-ladder.md` §4 — its trigger is 8va or technique text, not this |
 

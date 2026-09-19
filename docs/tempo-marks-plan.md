@@ -168,6 +168,10 @@ the clef plan undershot — do not repeat it.
 
 ## 6. Rendering (`VexFlowRenderer` + new `TempoLayout.ts`)
 
+> ⚠️ **2026-09-19: VexFlow is removed.** `TempoLayout` does not use `StaveTempo` (its header says
+> why) and stamps the mark through our `glyphPainter`; the `StaveTempo` reading below is the plan as
+> it was written.
+
 Use the library primitive: **`StaveTempo`** (vexflow 5) — it renders `name`, `♩ = bpm`, and
 auto-parenthesizes the metronome when both are present: **`Allegro (♩ = 120)`**. Its
 `durationToCode` table covers all six of our `Duration` codes (`w h q 8 16 32`) as-is.
@@ -327,8 +331,8 @@ scoped: select a mark and the palette's metronome controls become an inspector).
 causes were found and fixed; a residual offset remains, so this is *better, not right*.
 
 **Fixed already (do not regress):**
-1. *Wrong font.* The overlay hardcoded a serif italic. VexFlow resolves `StaveTempo.name` from its
-   own `Metrics` — **bold**, in its own text font. The overlay now READS the engraved node's
+1. *Wrong font.* The overlay hardcoded a serif italic. VexFlow resolved `StaveTempo.name` from its
+   own `Metrics` — **bold**, in its own text font (today a row of ours, `rendering/tempoStyle`). The overlay now READS the engraved node's
    computed font instead of guessing, and `fontWeight` had to be plumbed through
    `EditableTextSource` / `TextEditMountOptions` / `DomTextEdit` (it did not exist — dynamics only
    ever needed italic).

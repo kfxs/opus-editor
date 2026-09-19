@@ -42,7 +42,7 @@ bands (`src/engine/layout/kerning.ts:1-8`). So for a house-style preset:
 | MuseScore | `~/dev/engine-sources/MuseScore/src/engraving/` | — | source read |
 | LilyPond | `~/dev/engine-sources/lilypond/` | — | source + `input/regression/*.ly` texidocs read (⛔ output not rendered) |
 | Verovio | `~/dev/engine-sources/verovio/` | unit = `drawingUnit` = **half** a staff space (`doc.cpp:2027-2035`) | source read |
-| VexFlow 5.0.0 | `node_modules/vexflow/build/esm/src/` | — | source read |
+| VexFlow 5.0.0 | `node_modules/vexflow/build/esm/src/` (⚠️ 2026-09-19: the package is removed — the same build is kept at `~/dev/engine-sources/vexflow-5.0.0-npm/package/build/esm/src/`) | — | source read |
 
 Scratch renders and crops: `/tmp/claude-1000/rest-kerning-research/` (not kept). No route was found dead.
 

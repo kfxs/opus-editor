@@ -86,7 +86,9 @@ All four items below are closed. Kept for the record.
 
 The offset is applied as an **SVG-transform translate** on the rendered annotation
 group — the same technique `layoutCoLocatedDynamics` uses, because VexFlow's modifier
-shifts are awkward to control for annotations. `applyDynamicOffsets` runs LAST (after
+shifts are awkward to control for annotations. (⚠️ 2026-09-19: VexFlow is removed — the annotation
+is ours, `rendering/EngravedAnnotation`, placed by `engrave/notes/annotationPlacement`; the translate
+is still how the offset is applied.) `applyDynamicOffsets` runs LAST (after
 `registerDynamics` and `layoutCoLocatedDynamics`) and **composes** with any co-location
 transform by prepending its own translate; both are pure translations, so they add
 commutatively and the co-location row layout is preserved. The registry bbox is shifted
@@ -315,7 +317,9 @@ put that origin ON the ink: `xAdj = leftMargin - textBlock.boundingRect().left()
 x = 0 (`textlayout.cpp:221`), the dynamics align is `BASELINE` (`styledef.cpp:1180`), and a dynamic's
 shape comes from the SMuFL outline with cutouts rather than a font line box (`textlayout.cpp:376-383`).
 They need no anti-air trick because there is no air. ⚠️ We cannot renormalise our origin (VexFlow
-places the mark), which is why we derive the ink from the metrics table instead — the same answer
+places the mark — ⚠️ 2026-09-19: not any more, it is our transcription in
+`engrave/notes/annotationPlacement`, so that *cannot* is gone; nothing has been changed because of
+it), which is why we derive the ink from the metrics table instead — the same answer
 from the other side. Their glyph boxes are read from the font **on the fly** and cached per symbol
 (`engravingfont.cpp:853`); ours is a table generated from the shipped OTF, keyed by the seven
 dynamics LETTERS because that is what a level is stored as.

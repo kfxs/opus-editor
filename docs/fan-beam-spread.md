@@ -87,4 +87,4 @@ and `1` are one assertion spelled two ways and the window always publishes a num
 - **A spread that changes the SPEED.** That would be the other feature entirely — see §0. The ratio
   is still `2^(beams-1)`, read off the beam count, which is what the reader counts.
 - **Spreading an ordinary beam group's lines.** This is a fan's field; an ordinary beam is VexFlow's
-  to draw.
+  to draw (⚠️ since the removal, 2026-09-19: our `EngravedBeam`, VexFlow's rule transcribed).

@@ -236,6 +236,8 @@ object itself — and since S7e that is ours too: `EngravedBeam` no longer exten
 
 ⚠️ The stems keep the VexFlow context, deliberately: `drawStems` hands it to each `Stem`, and an
 `EngravedStem` ignores it in favour of its own ink surface anyway (P3c).
+(⚠️ 2026-09-19: VexFlow is removed — there is no VexFlow context left for the stems to keep; every
+context is our `rendering/SvgPainter`.)
 
 ---
 

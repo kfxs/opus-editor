@@ -381,7 +381,7 @@ Ross do.
 | **LilyPond** | ✅ fully — quantised to `sit` / `inter` / `hang` and scored with demerits |
 | **MuseScore** | ✅ snapped — `addMiddleLineSlant`, `add8thSpaceSlant`, quarter-space arithmetic throughout |
 | **Verovio** | ⚠️ partially — a ¼-space nudge in two residues, inside the staff only |
-| **VexFlow (us)** | ⛔ **not at all** — `Beam` never looks at the stave |
+| **VexFlow (us)** | ⛔ **not at all** — `Beam` never looks at the stave (⚠️ 2026-09-19: VexFlow is removed; its rule is ours as transcribed, `engrave/beams/beamSlopeFit`) |
 
 ---
 

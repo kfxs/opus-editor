@@ -153,7 +153,9 @@ glyphs"* — so `tremoloFingered1–5` (E225–E229) are never used here.
 2026-07-25): the stack does not float in the middle of the stems, it hangs **flush from the two stem
 TIPS** and marches toward the noteheads — where a beam over the pair would sit, which for a beamed
 pair it literally is. And a redonda is **not** a separate case: `hasStem()` is false but VexFlow
-still built the `Stem`, so `getStemExtents()` gives the imaginary stem to hang from. Only its
+still built the `Stem`, so `getStemExtents()` gives the imaginary stem to hang from. (⚠️ 2026-09-19:
+VexFlow is removed — the note is ours, `rendering/EngravedNote`, and its `getStemExtents()` answers
+the same imaginary stem.) Only its
 horizontal **span** parts company — with no stem ink at the stem's x, `getStemX()` puts both ends on
 the right edge of each notehead and the bar reads shoved right, so a stemless pair runs notehead to
 notehead (first's right edge → second's left edge).
@@ -245,7 +247,10 @@ the default and the slot field stays as the per-mark override — which is Doric
 **Geometry**, all of it beam arithmetic we already own:
 - slope = the line between the two stem ends (Dorico: "determined by the height of the stems");
 - thickness and the ×1.5 step between strokes = VexFlow's `beamWidth`, via
-  `VexFlowRenderer.fillBeamQuad()` — written for the cross-system half-beams, one quad per stroke;
+  `VexFlowRenderer.fillBeamQuad()` — written for the cross-system half-beams, one quad per stroke
+  (⚠️ 2026-09-19: VexFlow is removed — the width is `beamInk.CROSS_SYSTEM_BEAM_WIDTH` (Bravura's `beamThickness`,
+  the same half space), and the
+  quad is `engrave/beams/beamLines.fillBeamQuad`);
 - ⛔ **stems do NOT stretch.** Gould's rule 2 was built here as a sibling pass and then REMOVED
   (2026-07-25, by eye): *"this is not a tremolo on stem but in between the notes, so we should skip
   the rule here."* That rule is about a mark riding a stem; a pair's strokes ride the gap, so a
@@ -262,7 +267,8 @@ a relation, not a fixed pixel, because if we change scale in the future the pixe
    (`PAIR_STROKE_CLEARANCE_RATIO`) so a narrow pair keeps a real stroke;
 2. a **floor** when the pair is drawn APART: a flag hangs off a stem tip straight into the gap where
    the strokes end, and rule 1 knows nothing about it. The floor is the note's own
-   `getGlyphWidth()` — MEASURED from VexFlow's glyph metrics, so it follows the staff size. Applied
+   `getGlyphWidth()` — MEASURED from VexFlow's glyph metrics, so it follows the staff size (⚠️ 2026-09-19:
+   from the font through our `glyphPainter` now — `EngravedHead.getWidth`). Applied
    at **both** ends, because which end a flag intrudes on flips with the stem direction (stem-up puts
    the first note's flag inside the span, stem-down puts the second's at the far end), and symmetric
    also keeps the strokes centred;
@@ -278,7 +284,8 @@ group (both notes are in one bar), unlike the cross-barline fragments which have
 
 ⚠️ **Ticks — and the doubling lives in `createStaveNotesFromSlots`, with them.** The StaveNote is
 built at the doubled duration, so it carries twice the ticks its slot has.
-`Tickable.applyTickMultiplier(1, 2)` halves them back — the same call VexFlow's own `Tuplet` makes
+`Tickable.applyTickMultiplier(1, 2)` (⚠️ 2026-09-19: ours now — the note is `EngravedNote`, and its
+`applyTickMultiplier` is VexFlow's, transcribed) halves them back — the same call VexFlow's own `Tuplet` makes
 (`setTuplet` → `applyTickMultiplier(notesOccupied, noteCount)`), which is why the formatter then
 spaces the pair over its real length and `pickVoiceMode` still answers FULL.
 

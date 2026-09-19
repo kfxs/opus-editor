@@ -440,6 +440,8 @@ its own header which key owns the indent, so the next element in this family doe
 > fixed with `setEndBarType(NONE)`; **the system's LEFT edge was the one it left out.** ✅ Fixed: a
 > multi-staff system's opening bar suppresses VexFlow's begin barline, and `systemStart` is the ONE
 > OWNER of that line. ⛔ A single-staff score keeps VexFlow's — it has no connector.
+> (⚠️ 2026-09-19: VexFlow is removed — that stave-opening line is ours now,
+> `rendering/EngravedBarline` + `engrave/staff/openingBarline`; the ownership rule is unchanged.)
 >
 > #### 🔧 A CONSOLE TOOL, because P5 does not exist yet
 >

@@ -46,7 +46,9 @@ Result:
 
 ## Why it takes two steps
 
-VexFlow sets a dot's drawn x and its reserved WIDTH in different places, so the fix is in two:
+VexFlow sets a dot's drawn x and its reserved WIDTH in different places, so the fix is in two
+(⚠️ 2026-09-19: VexFlow is removed; `Dot.format` and `getModifierStartXY` are ours, transcribed exactly —
+`engrave/notes/dotStack`, `engrave/notes/modifierStart` — so the split is still there):
 
 - **`reserveDotRoom`** runs in `NoteBuilder` — the draw path *and* the width path — and buys the
   room. Uniform per dot, never a function of where the note sits, so bar width stays
@@ -64,10 +66,10 @@ The cost is real and worth stating: a bar grows ~4px per dot.
 
 ## Deliberately left alone
 
-- **Rests.** A dotted rest keeps VexFlow's placement — the dot follows a glyph of a different shape,
+- **Rests.** A dotted rest keeps VexFlow's placement (ours now, transcribed) — the dot follows a glyph of a different shape,
   and the convention gives it a *smaller* distance than a note's (MuseScore keeps `dotRestDistance`
   below `dotNoteDistance`). He reported notes.
-- **Beamed eighths.** VexFlow applies its flag shift by DURATION, so a beamed eighth gets it too and
+- **Beamed eighths.** VexFlow's rule (ours since S5a, `engrave/notes/modifierStart`) applies its flag shift by DURATION, so a beamed eighth gets it too and
   its dot stands ~7px out with no flag to clear. The rule only ever *opens* a gap, never closes one,
   so those are untouched — wider than the rule wants, narrower than a fault, and pulling them in
   would move ink nobody reported.

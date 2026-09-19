@@ -25,6 +25,18 @@
 > 📄 Read with `docs/vexflow-boundary.md`, which inventories who decides what today. This document
 > is the second question: not *which decision to take next* but *whether the DRAWING should move
 > too*. It also corrects one premise in that doc's §4 — see §4 below.
+>
+> ✅✅ **2026-09-19 (S14 of `docs/vexflow-removal-map.md`): VexFlow is REMOVED.** `vexflow` is not in
+> `package.json`, nothing in `src/` or `e2e/` imports it, and `npm run lint:boundary` refuses the
+> import everywhere, specs included; `NOTICE` carries its MIT licence for the ported code. Every job
+> it did at run time is our code under `src/engine/` — the note, heads, stem, flag, beam, stave,
+> signs, modifiers, tuplet, the `Voice` (`rendering/barVoice`), the `Formatter`
+> (`rendering/columnFormat` + `spacingPass`), the `ModifierContext` (`rendering/modifierColumns`),
+> the ticks (`layout/tickCount`), the fonts (`fonts/fontCategories`, `fontFace`,
+> `rendering/glyphPainter`) and the painter (`rendering/SvgPainter`). ⚠️ **So every *"still
+> VexFlow's"*, *"VexFlow paints / places / measures"* below is a statement about the day it is dated,
+> ⛔ not about today.** Still spelled "VexFlow" until S15: `VexFlowRenderer` and the `vf-` SVG prefix
+> (now emitted by `SvgPainter`). §8's adapter directory `engrave/vexflow/` does not exist.
 
 ---
 
@@ -85,6 +97,7 @@ delaying engraving work by one day.
 > · S6b the room a chord's displaced heads take, and where a tie leaves a note on the left. **→ 1,031 uses.**
 > · S6c each head's y is the staff frame's (`EngravedNote.getYs`). **→ 1,031 uses.**
 > ⏭️ S6d, key lines and the chord displacement walk — our heads, ONE owner with `FanPass` (`docs/vexflow-removal-map.md` §9, S6 row).
+> · ✅✅ S6d–S13 (the map's §9 is the log) · **S14, 2026-09-19: the package is gone — 0 uses, specs included.**
 
 > 🚨 **CORRECTED AGAIN 2026-09-01: P2 ✅ → P1a–P1d ✅ → P3 (a–d ✅, e ⏳) → P4 ✅ → P5 (a ✅, b ⏳,
 > c ✅) → P1e → P6.**
@@ -142,7 +155,8 @@ golden (`engine/scene/`, P1d). ⚠️ Half-lifted, not lifted: the scene sees wh
 and P3 is the work of moving the note into that half — so P3 builds the rest of its own net as it
 goes, element by element. ⛔ **P1e** (a painter of ours) stays after P3, for the reason that demoted
 P1 originally and still holds: while VexFlow objects paint themselves, a replacement painter must
-implement *their* interface too.
+implement *their* interface too. (✅ 2026-09-19: no VexFlow object paints any more, and P1e is done —
+`rendering/SvgPainter`, S13b.)
 
 🚨 §9 still carries the pre-correction sentence *"the one thing to do now: P1"*. It is marked stale
 there — ⚠️ note that its *conclusion* has now come back round to being right, by a different route
@@ -153,16 +167,16 @@ than the one it argued; §5 and this section remain the authority on the order.
 | # | rule | binds | argued in |
 |---|---|---|---|
 | 1 | ⭐⭐ **A new drawn element draws through OUR context and OUR primitives — never by instantiating a VexFlow class.** ⭐ The one sanctioned way to put a music glyph down is `rendering/glyphPainter.ts` (P1a) — ⛔ not `new Element(...)` in your own file. | **now** — ✅ held through 277 commits, re-checked 2026-09-01 (§2.2) | §9, §5 P1a |
-| 2 | **We decide the geometry; we increasingly own the INK.** VexFlow's job shrinks to glyph shapes we do not want to invent. | **now** | §9 |
-| 3 | ⭐ **Where we have no engraving opinion: PORT it, attributed — do not invent.** VexFlow is MIT; the notice travels with the code, and you port the ALGORITHM, not the file. | **now** | §6.7 |
+| 2 | **We decide the geometry; we increasingly own the INK.** VexFlow's job shrinks to glyph shapes we do not want to invent. ✅ *2026-09-19: shrunk to nothing — VexFlow is removed; the glyph shapes are the font's, stamped by `rendering/glyphPainter`.* | **now** | §9 |
+| 3 | ⭐ **Where we have no engraving opinion: PORT it, attributed — do not invent.** VexFlow is MIT; the notice travels with the code (`NOTICE`, at the repo root), and you port the ALGORITHM, not the file. | **now** | §6.7 |
 | 4 | ⭐ **A new drawn element = a MODULE + a ROW in its table + an EXISTING scene primitive.** A new primitive needs a reason. | **now** (the module+row half is already `CLAUDE.md`) | §8.2 |
 | 5 | ⛔ **No inverse mapping written as straight-staff arithmetic.** Ask the placement; never compute `(staffTop − y) / spacing` by hand. | **now** | §7.5.4 |
 | 6 | ⛔⛔ **A staff is a SPINE plus a thickness — not "a y and five lines".** One module owns where the lines go. | **now** — and it is the **hardest of all of these to undo** | §7.5.4 |
 | 7 | ⭐⭐ **The rigid unit is a FRAGMENT.** A bar and a beamed group must be able to be REAL groups carrying their own transform, composed down the stack — ⛔ never flattened into absolute coordinates at build time. **Measured**: *Bike Ride* bends nothing, not even its beams; it rotates whole beamed groups on arc staff lines. ⛔ And therefore no non-affine WARP on spec. | **now** (it is a shape, not work) | §7.5.5 |
 | 8 | ⭐⭐ **A scene primitive carries a PLACEMENT (an affine), not an (x, y).** Identity for every note ever engraved normally; `paint/` composes it down the group stack. | ✅ **LANDED — `paint/Affine.ts` + `DrawGroup.setPlacement`, P1c 2026-09-01.** Every group placement in the engine is now an affine | §7.2, §7.5.4, §5 P1c |
 | 9 | ⭐⭐ **The registry records the SPACE an element was drawn in, beside its box.** `withScale(k)` generalises to `withSpace(affine)`; the AABB fast path stays while the space is a translation. | when the scene lands — or sooner, the next time a coordinate field is added to `ElementInfo` | §7.5.2–7.5.4 |
-| 10 | ⛔ **Only `engrave/vexflow/` imports `vexflow`, and nothing outside it holds a `StaveNote`.** Its LOC is the migration's progress bar. | **P1** | §8.2 |
-| 11 | ⛔ **`layout/` and `engrave/` import no DOM and no `vexflow`** (one named exception). | partly **now** — `engine/layout/` and `engine/fonts/` are already fenced by `lint:boundary` | §8.2, `ARCHITECTURE.md` |
+| 10 | ⛔ **Only `engrave/vexflow/` imports `vexflow`, and nothing outside it holds a `StaveNote`.** Its LOC is the migration's progress bar. ✅ *2026-09-19: superseded by the removal — NOTHING imports `vexflow` (`lint:boundary` refuses it in every file, specs included), and there is no `StaveNote` to hold.* | **P1** | §8.2 |
+| 11 | ⛔ **`layout/` and `engrave/` import no DOM and no `vexflow`** (one named exception — ✅ *none since 2026-09-19: no file anywhere may import `vexflow`*). | partly **now** — `engine/layout/` and `engine/fonts/` are already fenced by `lint:boundary` | §8.2, `ARCHITECTURE.md` |
 | 12 | ⛔ **`paint/` may not import `models/`.** It knows the scene and nothing else — that is what makes a second painter cost nothing. | **P1** | §8.2 |
 | 13 | ⛔⛔ **A NUMBER IS NEVER A BLOCKER.** Every engraving number is one house style's DEFAULT that the user will be able to change, so no default is definitive. When a step needs a number nobody has researched or chosen: **use what runs today** (or the best-sourced option), **build it as a changeable row, not a constant**, record the research as a follow-up, and **keep building**. The research is still wanted — it becomes the preset menu — but ⛔ it never stops a phase. | **now** — his rule, 2026-09-14 | `memory: house style`; `docs/engraving-number-inventory.md` |
 
@@ -189,6 +203,8 @@ the circle work, only to not be the reason it can't.
 
 **A new VexFlow release cannot break us.** It is a build-time dependency pinned in `package.json`
 (`"vexflow": "^5.0.0"`, resolved 5.0.0). We choose when to upgrade, and we may choose never.
+(✅ 2026-09-19: moot — the dependency is gone, S14; what it did at run time is our code, and
+*"an oracle we cannot fix"* below is our own code we can.)
 
 The release history says the pressure is not there either:
 
@@ -335,7 +351,9 @@ Beside it, the standing repairs:
   rule is ours since S9g, 2026-09-18 — `engrave/notes/voiceStack`, transcribed; the re-assert stands.)
 - `Stave.padding` = 12px with **no setter** is why `barline↔note` is 1.2 staff spaces and not the
   1.0 the model wants (LilyPond: 0.9). ⭐ **A stated rule we cannot express**, open since July, and
-  the only item on `vexflow-boundary.md` §3 that survived every other fix.
+  the only item on `vexflow-boundary.md` §3 that survived every other fix. (⚠️ 2026-09-19: the
+  *cannot* is gone — the stave is ours, and the 12 px is the row `inheritedDefaults.NOTE_AREA_PADDING_PX`;
+  ⛔ which number it should be is still open.)
 
 ---
 
@@ -530,7 +548,7 @@ knot, so P1 is cut there.
 | **P1b** | `DrawContext` — our interface, and the signatures retyped | ✅ **DONE 2026-09-01** |
 | **P1c** | the **group handle** — the four things a group is used for | ✅ **DONE 2026-09-01** |
 | **P1d** | ⭐⭐ an **implementation of our own — and it is the RECORDER**: `scene/`, the golden net | ✅ **DONE 2026-09-01** |
-| **P1e** ✅ **2026-09-19 (S13b of `vexflow-removal-map.md`): `rendering/SvgPainter`** — VexFlow's `SVGContext` transcribed, byte-identical; ⏭️ the POINTER RECT question below is still open (kept, as drawn) | the **SVG painter** — `paint/svg/`, closing the four gotchas ⭐ **+ the POINTER RECT question**, deferred here by him 2026-09-01 (`note-engraving-plan.md` §1e: audited, and NOTHING in this repo consumes it — but a painter of ours emits a hit surface only if something asks) | ⛔ **BLOCKED — and by a CONDITION, ⛔ not by a milestone.** See the row below |
+| **P1e** ✅ **2026-09-19 (S13b of `vexflow-removal-map.md`): `rendering/SvgPainter`** — VexFlow's `SVGContext` transcribed, byte-identical; ⏭️ the POINTER RECT question below is still open (kept, as drawn) | the **SVG painter** — `paint/svg/`, closing the four gotchas ⭐ **+ the POINTER RECT question**, deferred here by him 2026-09-01 (`note-engraving-plan.md` §1e: audited, and NOTHING in this repo consumes it — but a painter of ours emits a hit surface only if something asks) | ✅ **done 2026-09-19** — it was ⛔ BLOCKED by a CONDITION, ⛔ not by a milestone; see the row below |
 
 🚨🚨 **WHAT ACTUALLY GATES P1e — corrected 2026-09-01, because the old wording misled a reader.**
 
@@ -1085,6 +1103,9 @@ browser *and* a font the day before.
 | the **inline** clef (a change at `beat > 0`) | ✅ ours since S12j-e — `rendering/EngravedClefChange` (was VexFlow's `ClefNote` + `Clef`) | the header clef's rows at `'small'`, stamped through the pass's surface |
 | the **METER** and the opening **BARLINE** | stave modifiers | the rest of P5b |
 
+(⚠️ 2026-09-19: VexFlow is removed — every row above is ours: the x is our walk, `engrave/staff/signWalk` (S4b1); the clef's line and
+its ⅔ are rows in `engrave/header/clefSign` / `inheritedFonts` (S4b0, S1c).)
+
 ⭐ **Both of the middle two are parameters, deliberately** — P3b's precedent with the flag's font
 reach, stated there: *"the reach is a parameter rather than a `getTextMetrics()` call buried in a
 draw method… P3b did not change where it comes from."* ⛔ Taking a table or a ratio into `engrave/`
@@ -1170,6 +1191,9 @@ placement becomes ours, it FAILS and says why.
 | **which lines** the rows name, and `lineShift` | `TimeSignature.topLine` / `bottomLine` | see the row gap above |
 | the **opening BARLINE** | a stave modifier | ✅ **taken the next day** — the step below |
 
+(⚠️ 2026-09-19: VexFlow is removed — every row above is ours: the x is `engrave/staff/signWalk` (S4b1); the rows, their lines and
+`lineShift` are `engrave/header/meterSign` (S4b0).)
+
 ⚠️ **`drawAt` was overridden too, and the reason is worth keeping.** It is reachable by a second path
 (a `TimeSigNote`'s mid-bar meter change, which this repo does not use today), so overriding `draw`
 alone would have left the same placement arithmetic in two bodies — ⛔ *"the second owner is the
@@ -1217,6 +1241,10 @@ post-pass repairing the very ink it is taking, the repair comes with it.
 | the line's **x** | `Stave.format()`'s BEGIN-modifier walk | the PLACEMENT — what is left of P5b |
 | the **HINTING** of that x onto whole device pixels | `barlineInk.hintBarlines` | a page-wide pass over marks four modules drew, ⛔ not this line's business |
 | every other **TYPE** — `DOUBLE`, `END`, both repeats | `Barline.draw`, via `super.draw()` | ⭐⭐ **porting them would import a rule we have already replaced.** `BarlineRenderer` exists because those rules are unsayable through `Barline` (the 3 px thick line, the fixed pixel layout, the dots' ≈0.1-space fudge, none of it scaling with its staff). A score stave's BEGIN bar is `SINGLE` or `NONE` and its END bar is always `NONE`, so the fall-through is a guard against a future caller, ⛔ not a case that runs |
+
+(⚠️ 2026-09-19: VexFlow is removed — the line's x is our walk, `engrave/staff/signWalk` (S4b1), and
+`rendering/EngravedBarline` has no `Barline` under it: it draws plain or none and refuses any other
+kind, which `BarlineRenderer` draws.)
 
 🚨 **One finding, reported and ⛔ not fixed in that commit — ✅ and then fixed in the next one, which
 is the step below.** `Stave.getBottomLineBottomY()` is `getYForLine(last) + (getStyle().lineWidth ??
@@ -1681,6 +1709,7 @@ never had a complaint about. §6.1 is why that matters more than it sounds.
 ⭐ **(2026-09-16) Both STACKING rules were then ported as exact transcriptions** — removing VexFlow
 needed them — `engrave/notes/accidentalStack` and `engrave/notes/articulationStack` (S9d/S9e,
 `docs/vexflow-removal-map.md` §5.2). No opinion was added; `Articulation.draw` stays VexFlow's.
+(⚠️ 2026-09-19: not any more — it is ours, transcribed, in `rendering/EngravedArticulation`.)
 
 ⚠️ **Read this as PLACEMENT, ⛔ never as the INK** — both marks' glyphs came back to us on
 2026-09-14 (P3f, P3g) without either rule being touched, and the two halves are separable precisely
@@ -1704,6 +1733,8 @@ document's own argument** — the one that demoted P1 in the first place, quoted
 have to satisfy their interface as well as ours, at the highest blast radius in the plan, in
 exchange for four small gotchas. ⛔ So it is **P1e — and after P5, not after P3**: see the corrected
 gate under §5's P1 table. The count is unchanged at **18/18**, and the four gotchas stay open.
+(✅ 2026-09-19: the condition is gone — no VexFlow object paints, and P1e is done as
+`rendering/SvgPainter`, S13b, a byte-identical transcription of VexFlow's `SVGContext`.)
 
 ⭐⭐ **But the OTHER implementation has no such constraint, and it is the one §7.2 has been pointing
 at all along:**
@@ -1723,7 +1754,10 @@ before this file existed.** §7.2's third promise — the golden becoming a diff
 primitive moved* — is now a `toEqual` on a value.
 
 ⚠️ **What the scene does NOT hold, and this is the honest half:** anything a VexFlow object paints
-itself. Noteheads, stems, flags, beams, the stave's own lines. ⭐ **That gap is not a defect of the
+itself. Noteheads, stems, flags, beams, the stave's own lines. (✅ 2026-09-19: that half is empty —
+no VexFlow object paints, and the scene records everything drawn, noteheads, stems, beams and staff
+lines included. ⚠️ What still needs the browser suite is an INK EXTENT: in jsdom a glyph measures
+0 wide.) ⭐ **That gap is not a defect of the
 scene — it is the migration's remaining work, and it is the same number `lint:paint` reports from
 the other side.** Every P3/P4 commit that stops a VexFlow object painting itself adds its ink here
 for free, so **the scene's coverage and the migration's progress are one measurement.**
@@ -1804,7 +1838,9 @@ is unverified.
 ### 6.5 The ghost still runs its own formatter
 `vexflow-boundary.md` §5 P3, still open: the preview ghost formats its own temporary stave and does
 not run the spacing pass. It is the last VexFlow-formatted thing in the app and it moves with
-whichever piece reaches it first.
+whichever piece reaches it first. (⚠️ 2026-09-19: nothing is VexFlow-formatted any more — a ghost's
+note is formatted alone through OUR columns, `rendering/loneNote` (S11); it still does not run the
+spacing pass.)
 
 ### 6.6 ⚠️ The reference sources are gone
 `/tmp` was cleared: the LilyPond / MuseScore / Verovio checkout an earlier session downloaded no
@@ -1819,7 +1855,7 @@ longer exists. P3 and P4 need it re-fetched. (Network is open; 🚨 MuseScore's 
 
 **Both halves are right, and it is the most important correction to this document.**
 
-Confirmed at `node_modules/vexflow/LICENSE`: **MIT.** *"Permission is hereby granted, free of
+Confirmed at `node_modules/vexflow/LICENSE` (⚠️ gone with the package — the text is in `NOTICE` now): **MIT.** *"Permission is hereby granted, free of
 charge… to deal in the Software without restriction, including without limitation the rights to
 use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies."* © 2010–2022 Mohit
 Muthanna Cheppudira; © 2023–present VexFlow contributors.
@@ -1845,7 +1881,8 @@ That is a better position than either alternative: VexFlow's accumulated behavio
 
 1. ⛔ **The notice travels with the code.** MIT's one condition is that the copyright and permission
    notice be included in copies and substantial portions. In practice: `LICENSES/vexflow-MIT.txt` at
-   the repo root, plus a header on every ported module naming it. Not a courtesy — the condition.
+   the repo root, plus a header on every ported module naming it. (⚠️ 2026-09-19: as built, it is
+   `NOTICE` at the repo root, and each ported function names the VexFlow method it transcribes.) Not a courtesy — the condition.
 2. ⚠️ **Port the ALGORITHM, not the FILE.** `Accidental.format` needs `Accidental`s attached to
    `Note`s inside a `Formatter`'s `state`; copying it verbatim drags in `Modifier`,
    `ModifierContext`, `Note` and `Tickable` — **1,813 LOC of infrastructure (§2.2) to avoid writing
@@ -1874,7 +1911,8 @@ suspect this might not be finishable at all.
 
 `VexFlowRenderer.renderScore()` walks the score and, **in one pass**, decides which symbols there
 are, asks VexFlow where they go, and emits SVG. So **the geometry exists only as SVG**, and there is
-no artefact between "the music" and "the DOM".
+no artefact between "the music" and "the DOM". (⚠️ 2026-09-19: VexFlow is removed — *where they go* is answered by our own
+objects now, and every primitive drawn is recorded in the SCENE, `engine/scene/`.)
 
 Four known costs, none of them small, all of them the same cost:
 
@@ -1981,6 +2019,10 @@ measurement rather than by taste.
 > ⭐ **`engrave/vexflow/` is an ADAPTER that returns SCENE primitives.** It is the only directory
 > importing `vexflow`, and **nothing outside it may hold a `StaveNote`.**
 
+✅ **2026-09-19: superseded by the removal.** The adapter was never built; the VexFlow objects were
+replaced by ours one at a time (`rendering/EngravedNote` and its siblings — the map's §9), and now
+no file imports `vexflow`.
+
 That rule ends the 40-signature problem in §2.1, it is checkable by the ratchet we already have, and
 it gives the migration **one number to watch**: the LOC of that directory, falling.
 
@@ -2057,7 +2099,8 @@ today leaves none.
 #### 7.5.2 ⚠️ Where WE would close the door — three places, all measurable today
 
 - 🚨 **There is no stamp space. VexFlow objects place *and* paint themselves in page coordinates.**
-  `new Stave(x, y, width)` then `.draw()`; every pass computes absolute y from `getYForLine`. There
+  (⚠️ 2026-09-19: those objects are ours now — `EngravedStave`, `EngravedNote` — transcribed with the
+  same page-coordinate shape.) `new Stave(x, y, width)` then `.draw()`; every pass computes absolute y from `getYForLine`. There
   is nothing between "which staff line" and "which pixel" that could be given a transform. **This is
   what P1 + `scene/` fix anyway** — §7.5 asks for one extra field while it happens, not for a
   different project.
@@ -2202,6 +2245,7 @@ src/engine/
     text/        #   dynamics, tempo, expression
     staff/       #   staff lines, clefs, meters, barlines
     vexflow/     #   ⏳ THE ADAPTER — the only 'vexflow' import in the repo. Shrinks to zero.
+                 #   ✅ 2026-09-19: never built — VexFlow is removed, nothing imports it.
   paint/         # NEW — scene → ink
     svg/         #   the editor's painter
     pdf/         #   absorbs most of today's export/
@@ -2223,11 +2267,11 @@ has never been a second place to put anything.
 | `HairpinRenderer`, `OttavaRenderer`, `PedalRenderer`, `TrillRenderer`, `*Style`, `dynamicsLine*`, `tempoLinePass` | `engrave/lines/` | already ours outright |
 | `TempoLayout`, `DynamicsLayout`, `drawnText` | `engrave/text/` | |
 | `PagePass`, `GutterRenderer`, `barlineInk`, `staveGeometry`, `staffSpace`, `systemEdges` | `engrave/staff/` | |
-| `GhostRenderer` + `FanGhost` (**1,217**) | ⛔ **mostly deleted** — ⭐ in progress as S11 of `vexflow-removal-map.md` (2026-09-18: clef/meter → `HeaderSignGhost`, marks → `MarkGhost`, each built from the score's own classes) | a ghost is a scene with a style |
+| `GhostRenderer` + `FanGhost` (**1,217**) | ⛔ **mostly deleted** — ⭐ ✅ S11 of `vexflow-removal-map.md` is done: no ghost imports `vexflow` (2026-09-18: clef/meter → `HeaderSignGhost`, marks → `MarkGhost`, each built from the score's own classes) | a ghost is a scene with a style |
 | `MeasureLayout`, `spacingPass`, `MeasureWidthCache`, `measureRenderRoles` | `layout/` | ⚠️ they are layout and always were — misfiled by history, not by design |
 | `MeasureRedrawKey`, `RenderPass`, `MeasureSnapshot` | `scene/` | becomes a scene diff |
 | `hiddenElements`, the colour modules | `paint/` | ⭐ audience (screen vs print) is a PAINT concern, not an engraving one |
-| `ScoreTuplet`, `fanArticulations`, `NoteBuilder`'s VexFlow half | `engrave/vexflow/` | the shrinking pile |
+| `ScoreTuplet`, `fanArticulations`, `NoteBuilder`'s VexFlow half | `engrave/vexflow/` | the shrinking pile — ✅ shrunk to zero, 2026-09-19 (VexFlow removed; `ScoreTuplet` is ours) |
 
 ### 8.2 The rules that keep it clean
 
@@ -2239,6 +2283,9 @@ All four are lint-checkable, in the spirit of the ratchet that already holds the
    a second painter (PDF, canvas) cost nothing.
 3. ⭐ **Only `engrave/vexflow/` imports `vexflow`, and nothing outside it holds a `StaveNote`.**
    ⏭️ Its LOC is the migration's progress bar.
+
+✅ **2026-09-19: rules 1 and 3 are superseded by the removal** — `lint:boundary` now refuses
+`vexflow` in every file, specs included, so there is no exception left to name.
 4. ⭐ **A new drawn element = a MODULE in the right `engrave/` folder + a ROW in its table + an
    EXISTING scene primitive.** A new primitive needs a reason — that is the guard against the scene
    growing into a second DOM.
@@ -2296,7 +2343,7 @@ over a much wider surface, plus the golden net first. P4 is weeks with `beaming.
 ⛔ I would not put a date on the whole thing and I would distrust any plan that does.
 
 ⚠️ **What would change this answer:** if VexFlow 6 ships and it is good, P3–P5 stop being worth it
-and we should upgrade instead. **Nothing about P1–P2 changes either way** — which is a third reason
+and we should upgrade instead. (✅ 2026-09-19: moot — the removal finished first, S14.) **Nothing about P1–P2 changes either way** — which is a third reason
 to start there.
 
 ⭐⭐ **And the licence is why I now think this is finishable** (§6.7). The one argument I could not

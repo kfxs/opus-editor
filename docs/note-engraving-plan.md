@@ -11,6 +11,12 @@
 > asserted, in `VexFlowRenderer.scene.test.ts`. ⏳ **What is left is the stem's LENGTH**, gated on
 > `docs/stem-length-research.md`.
 >
+> ⚠️ **2026-09-19: VexFlow is REMOVED** (S14, `docs/vexflow-removal-map.md` §9). Every piece this
+> plan leaves *"VexFlow's"* — the head objects, the stem's reach, the articulation's placement, the
+> ghost, the fan's marks, the painter itself — is our code now (`EngravedNote`, `EngravedHead`,
+> `engrave/notes/stemLength`, `engrave/notes/articulationPlacement`, `rendering/SvgPainter`…). The
+> sections below are the record of how the ink moved, ⛔ not a description of today's owners.
+>
 > 🚨🚨 **READ §1b.5 BEFORE EMPTYING ANOTHER `draw()`.** VexFlow writes POSITION as a side effect of
 > painting, so an override that takes the ink must reproduce the **write-back** — P3b did not, and an
 > unbeamed flagged note reported a bounding box merged with the origin for thirteen days. ⛔ *"No
@@ -268,6 +274,8 @@ Element(tag)` turning a tag into a `FontInfo`, its own header's *"the tag is not
 selects the font"*. The flag's face is already resolved, so `Element.renderText` is exactly the two
 primitives we own. ⭐ And it has to be that way round: a layer that needed an `Element` to put a
 glyph down could never be painted to PDF or recorded as a scene. Both files now say so.
+(⚠️ 2026-09-19: `glyphPainter` has used no VexFlow since S13a — the resolution is ours too, from
+`fonts/fontCategories` + `fonts/fontFace`.)
 
 ---
 
@@ -359,7 +367,8 @@ The stem got a subclass because `buildStem()` is a one-line factory. `buildNoteH
 overridable too — but its `new NoteHead(…)` sits at the bottom of **forty lines** of VexFlow's own
 second-interval displacement walk, and §6.7's rule cuts both ways: *"port the ALGORITHM, not the
 FILE"* — copying that loop to change one constructor would re-import the dependency under another
-name. ⭐ So the head objects stay VexFlow's and only their **ink** moves.
+name. ⭐ So the head objects stay VexFlow's and only their **ink** moves. (⚠️ Since S12j-a the head
+is ours, `rendering/EngravedHead`, and the displacement walk is `rendering/chordHeadLayout`'s.)
 
 What the override transcribes, from `NoteHead.draw()` inside `Element.drawWithStyle()`:
 
@@ -524,7 +533,7 @@ where an articulation's ink separates.
 |---|---|
 | the ink, and the one thing it says (*an articulation STRADDLES its point — its siblings meet it or sit on it*) | `engine/engrave/notes/articulation.ts` |
 | the seam | `rendering/EngravedArticulation.ts` — `InkSurfaceAware`, so joining `drawNoteInkThrough`'s walk was a ROW and nothing else |
-| the builder | `NoteBuilder` builds ours; ⛔ `GhostRenderer`'s and `fanArticulations`' stay VexFlow's (P3/U2 territory, both allowlisted) |
+| the builder | `NoteBuilder` builds ours; ⛔ `GhostRenderer`'s and `fanArticulations`' stay VexFlow's (P3/U2 territory, both allowlisted) — ⚠️ ours too since S11/S12 |
 
 ⭐ **The census is now COMPLETE for an ordinary bar** — the test that used to assert *"exactly ONE
 glyph the page draws is missing from the scene"* now asserts the page and the scene hold the same
@@ -558,12 +567,14 @@ without a page.
 snap onto a line or into a space. The parent's §"Not on this list" keeps them on a **port-if-needed**
 list for a reason, and no research of ours answers them yet. ⭐ **(2026-09-16) The STACKING —
 `Articulation.format` — is ours as a transcription since S9e** (`engrave/notes/articulationStack`);
-`Articulation.draw`'s placement from the text line is still VexFlow's.
+`Articulation.draw`'s placement from the text line is still VexFlow's. (⚠️ Ours as a transcription
+since S12f — `engrave/notes/articulationPlacement`.)
 ⭐ One part of the placement was ALREADY ours and stays so: notehead-vs-stem alignment on the stem
 side (`docs/articulation-stem-align.md`), which reaches the ink inside the x.
 
 ⛔ **The FAN's marks** (`rendering/fanArticulations`) and ⛔ **the GHOST's**. Both draw inside groups
-opened on VexFlow's context — U2's nesting argument, unchanged by this step.
+opened on VexFlow's context — U2's nesting argument, unchanged by this step. (⚠️ 2026-09-19: there
+is no VexFlow context left — every group is opened on our `DrawContext`, `npm run lint:paint` at 0.)
 
 ### 1g.6 ⭐⭐ …and then he looked at `__bbox.ink()`, and the family grew a GROUP
 
@@ -710,10 +721,10 @@ drawing another.
 | 1 | ledger **overhang** | 0.30 sp | font **0.40**; Gould p. 26 *"just over two spaces long"* — ⚠️ and `INK.ledgerLeft/Right` **already reserve 0.40** | §3.1 |
 | 2 | ledger **weight** | 1.23× a staff line (the font's ratio) | Gould p. 26 *"about **twice** as thick"* | §3.2 |
 | 3 | flag **reach** | the canvas, 1 px | Bravura 0.36 px — ✅ **measured, they agree within a device pixel**, and the table is the finer instrument | §3.3 |
-| 4 | stem **shortening ramp** | nothing (VexFlow never shortens) | 🚨 five sources, **five different slopes** | §3.4 |
+| 4 | stem **shortening ramp** | nothing (VexFlow never shortened, and the port kept that) | 🚨 five sources, **five different slopes** | §3.4 |
 | 5 | stem **thickness** | **1.5× a staff line** | ⭐ three treatises: *thinner*; Bravura 0.12/0.13. **Nothing supports what we draw** | §1c.3 |
 | 6 | `FAN_MIN_STEM_SPACES` | **2.0 sp**, marked *PROVISIONAL* in its own comment | the books' floor is **2.5** (a sixth) | §3.5 |
-| 7 | which **notehead glyph** a duration gets | VexFlow's table | `fonts/noteheadGlyph()` since P2 | §1d.4 |
+| 7 | which **notehead glyph** a duration gets | VexFlow's table (ported as is) | `fonts/noteheadGlyph()` since P2 | §1d.4 |
 
 ⚠️ **#5 is the sharpest**, because it is the only one where no source at all backs the current
 number: three books say a stem is thinner than a staff line, Bravura encodes that, and the two
@@ -787,6 +798,10 @@ still ink that moved. One argument, `EngravedNote.drawFlag`'s `reach`.
    believes a number.
 
 ### 3.4 🚨🚨 THE STEM'S LENGTH — MEASURED 2026-09-01, and VexFlow already does 2½ of the 3 rules
+
+> ⚠️ 2026-09-19: VexFlow is removed — the middle-line override below is ours now, transcribed into
+> `EngravedNote.getStemExtension` (the length itself is `engrave/notes/stemLength`). The measurement
+> and the gap it found are unchanged.
 
 📄 `docs/stem-length-research.md` is the literature. This is what the **running code** does, which is
 a different question and had to be measured rather than read.
@@ -888,7 +903,8 @@ with no source" rather than anything visible on the page.
   five sources disagree about. ⛔ **Nothing to build without HIS slope.**
 - ✅ ~~**The NOTEHEAD.**~~ — done, P3d. ⚠️ Note that `Stave.padding`, which the parent plan hangs on
   P3, is NOT unblocked by owning the head's ink: it is a LAYOUT number (where the note area starts),
-  and that is a different piece of VexFlow.
+  and that is a different piece of VexFlow. (⚠️ 2026-09-19: ours now too — the `NOTE_AREA_PADDING_PX`
+  row of `engrave/inheritedDefaults`; the number is unchanged.)
 
 ---
 
@@ -896,13 +912,15 @@ with no source" rather than anything visible on the page.
 
 1. 🚨 **A `StaveNote` that stops painting must not stop answering.** Seven renderers, the registry
    and six highlight maps read its geometry (§0).
-2. 🚨 **Ink drawn on `checkContext()` is invisible to the scene.** `voice.draw` hands VexFlow the
+2. 🚨 **Ink drawn on `checkContext()` is invisible to the scene.** (⚠️ Moot since S13b: every
+   context is our `SvgPainter` and the scene records it all.) `voice.draw` hands VexFlow the
    real `SVGContext`, so anything we take back has to be pointed at `RenderPass.context` —
    `drawNoteInkThrough` is that line, and forgetting it costs a scene entry silently while the page
    still looks right.
 3. ⚠️ **Draw order is meaning.** `drawLedgerLines` runs before the stem and heads, so the heads paint
    over the line ends. Anything taken out of order changes what covers what.
-4. ⚠️ **The ghost is a second population.** `GhostRenderer` builds plain `StaveNote`s and keeps
+4. ⚠️ **The ghost is a second population.** (⚠️ Since S11 the ghost is drawn by the score's own
+   classes, no VexFlow.) `GhostRenderer` builds plain `StaveNote`s and keeps
    VexFlow's drawing for every part; a number changed on one side must be changed on both until the
    ghost becomes *"a scene with a style"* (§7.2).
 5. ⛔ **jsdom measures every glyph 0 wide.** A scene assertion about a *level*, a *count* or a

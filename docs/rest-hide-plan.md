@@ -122,6 +122,10 @@ hidden (parity with the shift, which already travels this way):
 > (a highlighted stem, a colored accidental, a hidden note). Use the post-render
 > **DOM recolor** pattern instead — the same one ghost notes and the selection
 > highlight already use.
+>
+> (⚠️ 2026-09-19: VexFlow is removed — the note is our `EngravedNote` now. The
+> leak above is VexFlow's `setStyle`; whether our transcription shares it has not
+> been re-checked here.)
 
 Two leak-free pieces, both driven off `restHiddenOf`:
 

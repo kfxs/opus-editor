@@ -4,6 +4,8 @@
 > `docs/own-engraving-engine.md`. A mid-bar clef change or meter change in this editor still sits at
 > **0.5 staff spaces** after the boundary, and that number is not a decision — it is VexFlow's own
 > opening-barline width (`widths[SINGLE] = 5` px) leaking into the modifier walk.
+> (⚠️ 2026-09-19: VexFlow is removed — the walk is ours, `engrave/staff/signWalk`, and the 5 px is a
+> transcribed row in `engrave/staff/barlineMetrics`; still not a decision.)
 
 ⛔ **This document surveys SOURCES. It is not a decision, not a recommendation and not a work list.**
 Every number below is what an engine's own code says, with the file and line that says it. No number

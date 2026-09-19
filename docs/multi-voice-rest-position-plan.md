@@ -43,7 +43,8 @@
   given what else is in the staff?"* — replacing the fixed lane table in the renderer **and** the
   second, quietly disagreeing copy of it in `SelectionController` (§4.2).
 - ⛔ It is **not** a rendering change. VexFlow keeps drawing the glyph; we keep deciding the line, as
-  we already do (`restPlacement.ts`). Nothing in `docs/own-engraving-engine.md`'s P3 is started here,
+  we already do (`restPlacement.ts`). (⚠️ 2026-09-19: VexFlow is removed — the glyph is drawn by our
+  `rendering/EngravedNote` now.) Nothing in `docs/own-engraving-engine.md`'s P3 is started here,
   and its golden-image gate is not touched.
 - ⭐ It is **not** *one* call site, which the first draft claimed. Two modules answer this question
   today and they have never agreed (§4.2); the point of the module is that afterwards only one does.
@@ -156,7 +157,8 @@ than from `getBBox()`, so the whole function stays pure (research §7).
 ⭐ **`others` is what SOUNDS, not what STARTS.** A held half note under a 16th rest is the prelude's
 whole problem. LilyPond says it in a comment — *"Include notes that started any time"*
 (`rest-collision-engraver.cc:75`) — and it is the one thing VexFlow structurally cannot see, since
-its `ModifierContext` is keyed on the start tick.
+its `ModifierContext` is keyed on the start tick. (⚠️ Our `rendering/modifierColumns`, its transcription
+since S9b, keeps the same keying.)
 
 > ⚠️ **The span is `slotLength`, ⛔ never `writtenLength`.** `utils/durations.ts` says so at the
 > function itself — *"WRITTEN, not sounding. Inside a tuplet the two differ"* — and points at
@@ -275,7 +277,8 @@ copy), so its `slots` already hold every voice of this staff and nothing else �
 `restVoiceContext`'s input and the reason `others` needs no cross-staff lookup.
 
 ⚠️ `intendedRestLine` re-assertion after `format()` (`:1979-1990`) stays untouched and still matters:
-it is what stops VexFlow's own ±1 nudge from moving what we decided.
+it is what stops VexFlow's own ±1 nudge from moving what we decided. (⚠️ That nudge is ours since
+S9g — `engrave/notes/voiceStack`, VexFlow's `StaveNote.format` transcribed.)
 
 ⭐ The PDF export is carried by this same seam and needs no second one: `export/scoreSvg.ts:66`
 constructs a `VexFlowRenderer` of its own, which is what research §7 demands of a rule that is layout
@@ -490,8 +493,8 @@ is a single visible commit rather than a quiet refactor.
 
 ## 9. Not in scope
 
-Crossing voices · rest **merging** when two voices rest together (VexFlow hides one; nobody else
-does) · the horizontal alignment Gould p. 37 requires (*"Rests that are part of a beat should align
+Crossing voices · rest **merging** when two voices rest together (VexFlow hides one — ⚠️ now our transcription of it,
+`engrave/notes/voiceStack`; nobody else does) · the horizontal alignment Gould p. 37 requires (*"Rests that are part of a beat should align
 horizontally"*) — we already share one column x per beat (`spacingPass`), so it is satisfied by
 construction, but nothing asserts it.
 

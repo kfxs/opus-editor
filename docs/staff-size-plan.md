@@ -619,7 +619,8 @@ last: until P4 there is nothing to be wrong about.
 
 - **Per-system size** — §3 is the design that keeps it cheap; building it is not owed.
 - **Cue notes** (a small *note* inside a normal staff) — a different feature; VexFlow's per-category
-  `fontScale` is the seam for it, not this.
+  `fontScale` is the seam for it, not this. (⚠️ 2026-09-19: VexFlow is removed, so that seam went
+  with it — a cue size would be a row of ours, e.g. beside `SMALL_CLEF_RATIO` in `engrave/inheritedFonts`.)
 - ~~**The global mm-per-staff-space**~~ — ✅ **settled in P6**, the way this entry predicted: the
   collision was real, and `PX_PER_MM` now *reads* `STAFF_SPACE_PX` rather than spelling the 10 out.
   One of them names the score's base staff size and the other reads it. A *staff's* own size stays

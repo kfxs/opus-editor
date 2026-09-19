@@ -161,7 +161,7 @@ lists it as owed to his eye.
 | `NOTE_GLYPH_SCALE` (note in a ratio mark) | 0.55 × figure size | rendering/ScoreTuplet.ts:32 | "0.55 lands it a little taller than the figures" | tuplet-extension-plan.md §9 |
 | `MARK_SPACE_EM` | 0.15 em | rendering/ScoreTuplet.ts:38 | "About a thin space at 24px" | tuplet-extension-plan.md §9 |
 | `BRACKET_END_GAP` (`beforeNext`) | 6 px @10 | rendering/VexFlowRenderer.ts:3220 | "stops a little short of that note" | tuplet-extension-plan.md §9 (modes only) |
-| `GHOST_TUPLET_NUMBER_GAP` | 1.5 sp | rendering/GhostRenderer.ts:81 | "Tune here." | tuplet-extension-plan.md §"The ghost" — ghost only; the page's number is VexFlow's |
+| `GHOST_TUPLET_NUMBER_GAP` | 1.5 sp | rendering/GhostRenderer.ts:81 | "Tune here." | tuplet-extension-plan.md §"The ghost" — ghost only; the page's number is VexFlow's (⚠️ 2026-09-19: ours since S12a, `ScoreTuplet`) |
 
 ### Accidentals & dots (3) · Ledger lines (3) · Noteheads & stems (1) · Beams (3)
 
