@@ -21,9 +21,7 @@ import { EngravedAccidental } from './EngravedAccidental'
 import { EngravedDot } from './EngravedDot'
 import { CenteredTremolo } from './CenteredTremolo'
 import { ARTICULATION_RENDER_ORDER } from './NoteBuilder'
-import { BarVoice } from './barVoice'
-import { attachModifierColumns } from './modifierColumns'
-import { formatColumns } from './columnFormat'
+import { formatLoneNote } from './loneNote'
 import { drawMarkOn } from './glyphPainter'
 import { buildDynamicAnnotation, enlargeDynamicGlyphRuns } from './DynamicsLayout'
 import { DYNAMIC_ANNOTATION_FONT } from './dynamicStyle'
@@ -46,10 +44,7 @@ function loneQuarter(cursorY: number, attach: (note: EngravedNote) => void): Eng
   const note = new EngravedNote({ keys: ['b/4'], duration: 'q' })
   note.setStave(stave) // the note's ys — what every mark's draw reads for its y
   attach(note)
-  const voices = [new BarVoice({ numerator: 1, denominator: 4 }, 'soft').add(note)]
-  attachModifierColumns(voices)
-  formatColumns(voices, LONE_NOTE_FORMAT_WIDTH) // the note's tick x, and the marks' stacking
-  note.setStave(stave)
+  formatLoneNote(note, stave, { numerator: 1, denominator: 4 }, LONE_NOTE_FORMAT_WIDTH)
   return note
 }
 

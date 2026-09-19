@@ -12,7 +12,8 @@
  *    loose, following the pointer, parked by their own ink box, so they need nothing from the score.
  *    ⭐ S11 (`docs/vexflow-removal-map.md`) is moving them out one family at a time, each drawn by the
  *    score's OWN classes on our surface: the clef + meter (`./HeaderSignGhost`), the marks and the
- *    dynamic (`./MarkGhost`) and the tempo mark (`./TempoGhost`) so far. What is still here builds a throwaway VexFlow stave, note or formatter.
+ *    dynamic (`./MarkGhost`), the tempo mark (`./TempoGhost`), the rest (`./RestGhost`) and the fan head
+ *    (`./FanGhost`) — all of them now; only the NOTE ghost below still builds VexFlow objects (S11e).
  *
  * Every one of them is an **overlay** (docs/render-performance-plan.md §5b): it draws into its own
  * class-tagged `<g>` appended last, so putting one up or taking it down is a DOM append/remove
@@ -26,9 +27,9 @@
  * real context. What each still guards for itself is its own emptiness (a tempo mark with no text,
  * an empty articulation list): that is about the MARK, not about the page.
  */
-import { Stave, StaveNote, Voice, Formatter, Accidental, Articulation, Modifier, Dot, Barline, type SVGContext } from 'vexflow'
+import { Stave, StaveNote, Voice, Formatter, Accidental, Articulation, Modifier, Dot, type SVGContext } from 'vexflow'
 import type { Score, Clef, GhostNote, NoteDuration, PitchStep, ArticulationType } from '@/types/music'
-import type { GhostColor, ToolGhost } from './ghostTypes'
+import type { ToolGhost } from './ghostTypes'
 import { fracToNumber, fracCreate, fracAdd } from '@/utils/fraction'
 import { beatToFrac } from '@/utils/musicUtils'
 import { measureCapacityFrac } from '@/utils/measureCapacity'
@@ -42,7 +43,7 @@ import { resolveStaffSize } from '@/engine/models/staffSize'
 import { staffMeasureView, staffIdAtIndex } from '@/engine/models/staffContent'
 import { layoutTupletMark, drawTupletMark } from './ScoreTuplet'
 import { CenteredTremolo } from './CenteredTremolo'
-import { convertDuration, restKey, restSupportingLedgerLine, drawsTimeSignature, ARTICULATION_RENDER_ORDER } from './NoteBuilder'
+import { convertDuration, restKey, drawsTimeSignature, ARTICULATION_RENDER_ORDER } from './NoteBuilder'
 import { drawCurveArc } from './curveArc'
 import { CURVE_PX } from './curveStyle'
 import { LEDGER_LINE_STYLE, type MeasureWidthInfo, type StaffSpacingLayout } from './layoutConfig'
@@ -56,9 +57,9 @@ import { drawKeySignatureGhost, KEY_SIGNATURE_GHOST_GROUP_CLASS } from './KeySig
 import { drawClefGhost, drawTimeSignatureGhost } from './HeaderSignGhost'
 import { drawArticulationGhost, drawAccidentalGhost, drawTremoloGhost, drawDotGhost, drawDynamicGhost } from './MarkGhost'
 import { drawTempoGhost, TEMPO_GHOST_GROUP_CLASS } from './TempoGhost'
+import { drawRestGhost, REST_GHOST_GROUP_CLASS } from './RestGhost'
 import type { SurfaceMetrics } from '@/engine/layout/surface'
 import { barFrame, staveFrame } from './staveFrame'
-import { noteLineY } from '@/engine/engrave/staff/staffFrame'
 
 /**
  * The preview ghosts (note / clef / time-sig / dynamic / tempo …) each draw into their own
@@ -72,7 +73,7 @@ import { noteLineY } from '@/engine/engrave/staff/staffFrame'
  * full render that used to hide the leak.)
  */
 export const GHOST_GROUP_SELECTOR =
-  `.ghost-note-group, .ghost-rest-group, .${FAN_GHOST_GROUP_CLASS}, .ghost-clef-group, .ghost-timesig-group, .ghost-dynamic-group, .vf-ghost-articulation, .vf-ghost-accidental, .vf-ghost-tie, .vf-ghost-dot, .vf-ghost-tremolo, .${TEMPO_GHOST_GROUP_CLASS}, .${TRILL_GHOST_GROUP_CLASS}, .${OTTAVA_GHOST_GROUP_CLASS}, .${PEDAL_GHOST_GROUP_CLASS}, .${BARLINE_GHOST_GROUP_CLASS}, .${KEY_SIGNATURE_GHOST_GROUP_CLASS}, .${GROUP_SIGN_GHOST_GROUP_CLASS}`
+  `.ghost-note-group, .${REST_GHOST_GROUP_CLASS}, .${FAN_GHOST_GROUP_CLASS}, .ghost-clef-group, .ghost-timesig-group, .ghost-dynamic-group, .vf-ghost-articulation, .vf-ghost-accidental, .vf-ghost-tie, .vf-ghost-dot, .vf-ghost-tremolo, .${TEMPO_GHOST_GROUP_CLASS}, .${TRILL_GHOST_GROUP_CLASS}, .${OTTAVA_GHOST_GROUP_CLASS}, .${PEDAL_GHOST_GROUP_CLASS}, .${BARLINE_GHOST_GROUP_CLASS}, .${KEY_SIGNATURE_GHOST_GROUP_CLASS}, .${GROUP_SIGN_GHOST_GROUP_CLASS}`
 
 /**
  * How far the ghost's tuplet number floats above the note, in STAFF SPACES — measured from the stem
@@ -395,106 +396,6 @@ export function drawNoteGhost(
     return true
   } catch (error) {
     console.error('Could not render ghost note with dynamic widths:', error)
-    return false
-  }
-}
-
-/**
- * Overlay a free-floating translucent ghost REST that follows the cursor — the preview for the
- * armed rest stamp. Drawn as a real rest {@link StaveNote} of the armed duration + dots, on a
- * 0-line stave (so no staff lines come with it), then translated to the cursor: the same trick
- * the clef ghost uses, because both are one glyph shown loose rather than engraved in a bar.
- *
- * A real StaveNote and not a bare glyph, because the ghost must answer "how long, and dotted?" —
- * the two things a rest IS. VexFlow draws the dots at the right offset for each duration; hand-
- * placing them would be inventing a rule the font already knows.
- *
- * THE ATTACH LINE. A whole and a half rest are the same rectangle: what tells them apart is that
- * a whole rest HANGS from a line and a half rest SITS on one. Floating at the cursor, the ghost
- * touches no line at all, so both would read the same — a coin-flip on the most basic choice the
- * tool offers. So for the line-attached rests (whole/half, dotted or not) the ghost draws the ONE
- * line it attaches to, exactly as the score does for a rest a shift has pushed off the staff
- * (drawRestLedgerLines / restSupportingLedgerLine). Shorter rests are not line-attached and get
- * nothing — an eighth rest is unmistakable on its own.
- *
- * @returns true if the ghost rest was drawn
- */
-export function drawRestGhost(ctx: SVGContext, svg: SVGElement, cursorX: number, cursorY: number, duration: NoteDuration, dots: number, color: GhostColor): boolean {
-  try {
-    const childrenBefore = svg.children.length
-
-    // A 0-line stave draws nothing itself, and gives the rest something to be positioned against.
-    const tempStave = new Stave(0, cursorY, 120, { numLines: 0 })
-    tempStave.setBegBarType(Barline.type.NONE)
-    tempStave.setEndBarType(Barline.type.NONE)
-    tempStave.setContext(ctx)
-
-    // ⭐ Placed by `restKey`, the same rule NoteBuilder uses — a whole rest on the fourth line,
-    //   everything shorter on the middle one: the NEUTRAL position, Gould p. 34.
-    // ⚠️ ⛔ It does NOT follow that the ghost lands where the real rest will, and the claim that it
-    //   did is withdrawn. In a multi-voice staff the real rest is DISPLACED from this line by what
-    //   else is in the bar (`engine/layout/restVoicePlacement.ts`), and this preview knows none of
-    //   it — it never knew about the old fixed lanes either, so the gap is older than the derived
-    //   rule and merely wider now. Not fixed here (the plan's §9), but a preview that lies about
-    //   where the mark lands is the same family of fault as a rest the user has to drag.
-    //   (docs/multi-voice-rest-position-plan.md §8.)
-    const rest = new StaveNote({ keys: [restKey(duration)], duration: convertDuration(duration, dots) + 'r' })
-    for (let d = 0; d < dots; d++) Dot.buildAndAttach([rest], { all: true })
-    rest.setStave(tempStave)
-    rest.setContext(ctx)
-
-    // A voice+formatter gives the note a tickcontext (it will not draw without one).
-    const voice = new Voice({ numBeats: 4, beatValue: 4 }).setMode(Voice.Mode.SOFT).addTickable(rest)
-    new Formatter().joinVoices([voice]).format([voice], 100)
-    rest.draw()
-
-    // The attach line, for the two rests that have one — drawn with the glyph so it travels with
-    // it under the transform below.
-    const line = restSupportingLedgerLine(duration, false, rest.getLineForRest())
-    if (line !== null || duration === 'w' || duration === 'h') {
-      const xBegin = rest.getNoteHeadBeginX()
-      const xEnd = rest.getNoteHeadEndX()
-      const PAD = 3 // px the line overhangs the glyph on each side — reads as a staff line, not a strike-through
-      const y = noteLineY(staveFrame(tempStave), rest.getLineForRest())
-      ctx.beginPath()
-      ctx.moveTo(xBegin - PAD, y)
-      ctx.lineTo(xEnd + PAD, y)
-      ctx.stroke()
-    }
-
-    const newElements: Element[] = []
-    for (let i = childrenBefore; i < svg.children.length; i++) newElements.push(svg.children[i])
-    if (newElements.length === 0) return false
-
-    const group = document.createElementNS('http://www.w3.org/2000/svg', 'g')
-    group.setAttribute('class', 'ghost-rest-group')
-    // ⭐ The ACTIVE VOICE's colour, handed down as two CUSTOM PROPERTIES rather than painted onto
-    // each node: `notation.css` already owns this ghost's appearance with `!important` rules (it has
-    // to — VexFlow writes its own fill onto every path it draws), and an inline attribute would lose
-    // to them. A variable the stylesheet reads means the CSS keeps saying WHAT gets coloured and the
-    // caller says WITH WHAT, which is the same split the ghost NOTE has. Absent = the family blue.
-    group.style.setProperty('--ghost-fill', color.fill)
-    group.style.setProperty('--ghost-stroke', color.stroke)
-    for (const el of newElements) svg.removeChild(el)
-    for (const el of newElements) group.appendChild(el)
-    svg.appendChild(group)
-
-    // Park it clear of the pointer — LEFT and UP — rather than centred on it, which buries the
-    // glyph under the arrow (whose body extends down-right from its tip). The same reason the
-    // accidental ghost parks left and the dot ghost right-and-up: a ghost you cannot see is not a
-    // preview. Up matters more here than for those two, because the rest is a solid block and the
-    // arrow sits squarely on it.
-    const gbox = (group as unknown as SVGGraphicsElement).getBBox?.()
-    if (gbox && gbox.width > 0) {
-      const GAP_X = 5
-      const LIFT_Y = 10
-      const dx = cursorX - GAP_X - (gbox.x + gbox.width / 2)
-      const dy = cursorY - LIFT_Y - (gbox.y + gbox.height / 2)
-      group.setAttribute('transform', `translate(${dx}, ${dy})`)
-    }
-
-    return true
-  } catch (_e) {
     return false
   }
 }

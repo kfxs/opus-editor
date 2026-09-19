@@ -21,10 +21,20 @@
  * ⚠️ The alternative — calling `note.drawNoteHeads()` and never `draw()` — is one line shorter and
  * WRONG: `draw()` is what sets each head's x (`setX(getNoteHeadBeginX())`) before drawing, so the
  * heads land at one x and their dots at another.
+ *
+ * ⭐ S11d (`docs/vexflow-removal-map.md` S11): the note is the score's own — `EngravedNote` +
+ * `EngravedDot`, formatted by `./loneNote` and drawn on our surface — where a VexFlow `StaveNote`,
+ * `Voice` and `Formatter` stood on a line-less VexFlow `Stave`. Our heads still open their own
+ * `vf-notehead` group and draw their dots inside it, so the pruning below is unchanged.
  */
-import { Stave, StaveNote, Voice, Formatter, Dot, Barline, type SVGContext } from 'vexflow'
+import type { DrawContext } from '@/engine/paint/DrawContext'
 import type { NoteDuration } from '@/types/music'
 import { convertDuration } from './NoteBuilder'
+import { EngravedNote, drawNoteInkThrough } from './EngravedNote'
+import { EngravedStave } from './EngravedStave'
+import { attachEngravedDots } from './EngravedDot'
+import { formatLoneNote } from './loneNote'
+import { drawMarkOn } from './glyphPainter'
 
 /** The class `VexFlowRenderer.clearGhosts` sweeps this ghost by — it must be in
  *  {@link GHOST_GROUP_SELECTOR}, or the ghost smears one copy per mouse position. */
@@ -43,29 +53,22 @@ const SVG_NS = 'http://www.w3.org/2000/svg'
  * a head that came out empty) — the caller treats that as "no ghost", never as an error.
  */
 export function drawFanGhost(
-  ctx: SVGContext, svg: SVGElement, cursorX: number, cursorY: number, duration: NoteDuration, dots: number,
+  ctx: DrawContext, svg: SVGElement, cursorX: number, cursorY: number, duration: NoteDuration, dots: number,
 ): boolean {
   try {
     const childrenBefore = svg.children.length
 
-    // A 0-line stave draws nothing itself, and gives the note something to be positioned against —
-    // the trick every cursor ghost uses. 'b/4' is the middle line under the default clef, so the
-    // head is the one NoteBuilder would have drawn; WHICH pitch the click takes is the click's
-    // business, and the ghost's y says it (see GAP_X).
-    const tempStave = new Stave(0, cursorY, 120, { numLines: 0 })
-    tempStave.setBegBarType(Barline.type.NONE)
-    tempStave.setEndBarType(Barline.type.NONE)
-    tempStave.setContext(ctx)
-
-    const note = new StaveNote({ keys: ['b/4'], duration: convertDuration(duration, dots) })
-    for (let d = 0; d < dots; d++) Dot.buildAndAttach([note], { all: true })
-    note.setStave(tempStave)
-    note.setContext(ctx)
-
-    // A voice + formatter gives the note a tick context (it will not draw without one).
-    const voice = new Voice({ numBeats: 4, beatValue: 4 }).setMode(Voice.Mode.SOFT).addTickable(note)
-    new Formatter().joinVoices([voice]).format([voice], 100)
-    note.draw()
+    // A stand-in stave, never drawn, gives the note something to be positioned against — the trick
+    // every cursor ghost uses. 'b/4' is the middle line under the default clef, so the head is the one
+    // NoteBuilder would have drawn; WHICH pitch the click takes is the click's business, and the
+    // ghost's y says it (see GAP_X).
+    const stave = new EngravedStave(0, cursorY, 120).setOpeningBarline('none').setClosingBarline('none')
+    const note = new EngravedNote({ keys: ['b/4'], duration: convertDuration(duration, dots) })
+    for (let d = 0; d < dots; d++) attachEngravedDots(note)
+    note.setStave(stave)
+    formatLoneNote(note, stave, { numerator: 4, denominator: 4 }, 100)
+    drawNoteInkThrough([note], ctx)
+    drawMarkOn(ctx, note)
 
     const drawn: Element[] = []
     for (let i = childrenBefore; i < svg.children.length; i++) drawn.push(svg.children[i])

@@ -191,7 +191,9 @@ export function paintElementText(ctx: DrawContext, el: Element): void {
  * through `renderText` — `setFont` and `fillText` — or through its ink surface: `EngravedArticulation`
  * (`renderText` overridden onto the surface; the base `draw` asks the context for nothing else),
  * `EngravedAccidental` and `EngravedDot` (the context is their unset-surface fallback only),
- * `CenteredTremolo` (`Element.renderText`).
+ * `CenteredTremolo` (`Element.renderText`) — and ⭐ since S11d a lone `EngravedNote` (the rest and fan
+ * ghosts): `StaveNote.draw` asks its context only for `openGroup`/`closeGroup`/`pointerRect`, and its
+ * parts are ours, painting on the surfaces `drawNoteInkThrough` handed them.
  */
 export function drawMarkOn(surface: DrawContext, mark: Element & { setInkSurface?: (ctx: DrawContext) => void }): void {
   mark.setInkSurface?.(surface)
