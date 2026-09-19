@@ -6,7 +6,7 @@
  */
 import { describe, it, expect } from 'vitest'
 import type { DrawContext } from '@/engine/paint/DrawContext'
-import { EngravedModifier, MODIFIER_POSITION, type ModifierMetrics } from './EngravedModifier'
+import { EngravedModifier, MODIFIER_POSITION, ModifierBox, type ModifierMetrics } from './EngravedModifier'
 
 class Probe extends EngravedModifier {
   static override get CATEGORY(): string {
@@ -84,5 +84,10 @@ describe('EngravedModifier', () => {
     expect([box.getX(), box.getY(), box.getW(), box.getH()]).toEqual([102, 43, 12, 11])
     // …in the shape `BoundingBox.mergeWith` reads.
     expect([box.x, box.y, box.w, box.h]).toEqual([102, 43, 12, 11])
+  })
+
+  it('⭐ a box grows to cover another — `BoundingBox.mergeWith`, the note\'s hit box is built from it (S12j-d1)', () => {
+    const box = new ModifierBox(10, 20, 5, 5).mergeWith({ x: 12, y: 15, w: 10, h: 2 })
+    expect([box.x, box.y, box.w, box.h]).toEqual([10, 15, 12, 10])
   })
 })

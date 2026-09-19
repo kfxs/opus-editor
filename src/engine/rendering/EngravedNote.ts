@@ -51,7 +51,8 @@
  * ⏭️ the moment a ledger number changes, the ghost has to come with it.
  */
 import { NoteHead, StaveNote, Stem } from 'vexflow'
-import type { Fraction } from 'vexflow'
+import type { BoundingBox, Fraction } from 'vexflow'
+import { ModifierBox } from './EngravedModifier'
 import { NoteTicks, type TickCount } from '@/engine/layout/tickCount'
 import type { ScoreTuplet } from './ScoreTuplet'
 import type { DrawGroup } from '@/engine/paint/DrawGroup'
@@ -637,6 +638,121 @@ export class EngravedNote extends StaveNote {
    * method. ⛔ Not re-sourced: swapping it for `fonts/flagDropFromTip` is a measurement to make
    * first (`docs/note-engraving-plan.md` §3.3), and P3b moved no pixel.
    */
+  /**
+   * ⭐⭐ **S12j-d1 — THE NOTE'S DRAW IS OURS** (`StaveNote.draw`, transcribed): nothing if it is not to be
+   * drawn; every head at the heads' left edge; the stem's x; then, inside the note's own `stavenote`
+   * group (⚠️ the highlight's seam — the id is the note's), the ledger lines, the stem (unless a beam
+   * owns it), the heads, the flag; then the pointer rect over its box. Each part was ours already.
+   */
+  override draw(): void {
+    if (this.renderOptions.draw === false) return
+    if (this.getYs().length === 0) throw new Error("EngravedNote: can't draw a note without y values.")
+    const ctx = this.checkContext()
+    const xBegin = this.getNoteHeadBeginX()
+    const shouldRenderStem = this.hasStem() && !this.beam
+    for (const head of this.heads()) head.setX(xBegin)
+    const stem = stemOf(this)
+    if (stem) {
+      const stemX = this.getStemX()
+      stem.setNoteHeadXBounds(stemX, stemX)
+    }
+    ctx.openGroup('stavenote', this.getAttribute('id'))
+    this.drawLedgerLines()
+    if (shouldRenderStem) this.drawStem()
+    this.drawNoteHeads()
+    this.drawFlag()
+    const bb = this.getBoundingBox()
+    ctx.pointerRect(bb.getX(), bb.getY(), bb.getW(), bb.getH())
+    ctx.closeGroup()
+    this.setRendered()
+  }
+
+  /**
+   * `StaveNote.drawStem`, transcribed — the flag's height fudge when there is a flag to clear, then the
+   * stem. ⛔ A stem built here from options (VexFlow's first branch) is refused: the note builds its own.
+   */
+  override drawStem(stemOptions?: unknown): void {
+    if (stemOptions) throw new Error('EngravedNote.drawStem: a stem from options is not transcribed — the note builds its own.')
+    const ctx = this.checkContext()
+    const stem = stemOf(this)
+    if (this.shouldDrawFlag() && stem) stem.adjustHeightForFlag()
+    stem?.setContext(ctx as unknown as DrawContext).drawWithStyle()
+  }
+
+  /** `StaveNote.drawModifiers`, transcribed: each modifier of THIS head, on the note's context, with its style. */
+  override drawModifiers(noteheadParam: NoteHead): void {
+    const ctx = this.checkContext()
+    const heads = stavePrivates(this)._noteHeads
+    for (const modifier of this.getModifiers()) {
+      const index = modifier.checkIndex()
+      if ((heads[index] as unknown) === (noteheadParam as unknown)) {
+        modifier.setContext(ctx)
+        modifier.drawWithStyle()
+      }
+    }
+  }
+
+  /**
+   * `StaveNote.getNoteHeadBounds`, transcribed: the heads' y span, the first displaced and undisplaced
+   * head's x, and the line extremes — the staff's own lines counted in, as VexFlow seeded them.
+   */
+  override getNoteHeadBounds(): ReturnType<StaveNote['getNoteHeadBounds']> {
+    let yTop = +Infinity
+    let yBottom = -Infinity
+    let nonDisplacedX: number | undefined
+    let displacedX: number | undefined
+    let highestLine = staveOf(this).getNumLines()
+    let lowestLine = 1
+    let highestDisplacedLine: number | undefined
+    let lowestDisplacedLine: number | undefined
+    let highestNonDisplacedLine = highestLine
+    let lowestNonDisplacedLine = lowestLine
+    for (const head of stavePrivates(this)._noteHeads) {
+      const line = head.getLine()
+      const y = head.getY()
+      yTop = Math.min(y, yTop)
+      yBottom = Math.max(y, yBottom)
+      if (displacedX === undefined && head.isDisplaced()) displacedX = head.getAbsoluteX()
+      if (nonDisplacedX === undefined && !head.isDisplaced()) nonDisplacedX = head.getAbsoluteX()
+      highestLine = Math.max(line, highestLine)
+      lowestLine = Math.min(line, lowestLine)
+      if (head.isDisplaced()) {
+        highestDisplacedLine = highestDisplacedLine === undefined ? line : Math.max(line, highestDisplacedLine)
+        lowestDisplacedLine = lowestDisplacedLine === undefined ? line : Math.min(line, lowestDisplacedLine)
+      } else {
+        highestNonDisplacedLine = Math.max(line, highestNonDisplacedLine)
+        lowestNonDisplacedLine = Math.min(line, lowestNonDisplacedLine)
+      }
+    }
+    return {
+      yTop, yBottom, displacedX, nonDisplacedX, highestLine, lowestLine,
+      highestDisplacedLine, lowestDisplacedLine, highestNonDisplacedLine, lowestNonDisplacedLine,
+    } as ReturnType<StaveNote['getNoteHeadBounds']>
+  }
+
+  /**
+   * ⭐ `StaveNote.getBoundingBox`, transcribed — the note's HIT BOX: its origin at its first y, merged with
+   * each head's box, the stem's reach (past the flag's ink), the flag's box, and every modifier's.
+   * ⚠️ In VexFlow's `BoundingBox` shape (`ModifierBox`); the ONE cast is the return type.
+   */
+  override getBoundingBox(): BoundingBox {
+    const box = new ModifierBox(this.getAbsoluteX(), this.getYs()[0], 0, 0)
+    for (const head of stavePrivates(this)._noteHeads) box.mergeWith(head.getBoundingBox())
+    const { yTop, yBottom } = this.getNoteHeadBounds()
+    const stem = stemOf(this)
+    if (!this.isRest() && this.hasStem() && stem) {
+      const noteStemHeight = stem.getHeight()
+      const flagMetrics = this.flag.getTextMetrics()
+      const stemY = this.getStemDirection() === STEM_DOWN
+        ? yTop - noteStemHeight - flagMetrics.actualBoundingBoxDescent
+        : yBottom - noteStemHeight + flagMetrics.actualBoundingBoxAscent
+      box.mergeWith(new ModifierBox(this.getAbsoluteX(), stemY, 0, 0))
+    }
+    if (this.hasFlag()) box.mergeWith(this.flag.getBoundingBox())
+    for (const modifier of this.getModifiers()) box.mergeWith(modifier.getBoundingBox())
+    return box as unknown as BoundingBox
+  }
+
   /**
    * ⭐ **OURS as of P3d — and it is the last of the five drawing calls.**
    *

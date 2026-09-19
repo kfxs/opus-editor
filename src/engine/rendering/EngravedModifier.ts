@@ -33,13 +33,29 @@ const POSITION_OF_STRING: Readonly<Record<string, ModifierPositionValue>> = {
   right: MODIFIER_POSITION.RIGHT,
 }
 
-/** A modifier's box, in the shape `BoundingBox.mergeWith` reads (`x`, `y`, `w`, `h`) and our readers ask. */
+/**
+ * A box in VexFlow's `BoundingBox` shape (`x`, `y`, `w`, `h`, the getters, `mergeWith`) — a modifier's,
+ * and since S12j-d1 a NOTE's (which merges its heads', its flag's and its modifiers' into one).
+ */
 export class ModifierBox {
   constructor(public x: number, public y: number, public w: number, public h: number) {}
   getX(): number { return this.x }
   getY(): number { return this.y }
   getW(): number { return this.w }
   getH(): number { return this.h }
+
+  /** `BoundingBox.mergeWith`, transcribed: grow to cover `that` too. */
+  mergeWith(that: { x: number; y: number; w: number; h: number }): this {
+    const newX = this.x < that.x ? this.x : that.x
+    const newY = this.y < that.y ? this.y : that.y
+    const newW = Math.max(this.x + this.w, that.x + that.w) - newX
+    const newH = Math.max(this.y + this.h, that.y + that.h) - newY
+    this.x = newX
+    this.y = newY
+    this.w = newW
+    this.h = newH
+    return this
+  }
 }
 
 /** What a modifier's own ink measures — the fields of VexFlow's `Element` text metrics its box reads. */
