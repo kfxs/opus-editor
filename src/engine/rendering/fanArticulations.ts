@@ -1,4 +1,5 @@
-import { TickContext, type Stave } from 'vexflow'
+import type { EngravedStave } from './EngravedStave'
+import { TickContext } from 'vexflow'
 import type { ArticulationType, Clef } from '@/types/music'
 import { ARTICULATION_RENDER_ORDER } from './NoteBuilder'
 import type { DrawContext } from '@/engine/paint/DrawContext'
@@ -7,6 +8,7 @@ import { EngravedNote } from './EngravedNote'
 import { EngravedArticulation } from './EngravedArticulation'
 import { attachModifier, MODIFIER_POSITION, type ModifierPositionValue } from './EngravedModifier'
 import { ColumnModifiers } from './modifierColumns'
+import { standOn } from './staveFrame'
 
 /**
  * ⭐ **Every member of a fan wears its OWN articulations.**
@@ -110,7 +112,7 @@ interface FanMemberArticulationTarget {
  */
 export function drawFanMemberArticulations(
   ctx: DrawContext,
-  stave: Stave,
+  stave: EngravedStave,
   target: FanMemberArticulationTarget,
   opts: { position: ModifierPositionValue; stemDirection: number },
 ): PlacedFanArticulation[] {
@@ -131,7 +133,7 @@ export function drawFanMemberArticulations(
   // The stand-in: the member's own pitches, clef, stem direction and stem LENGTH, so everything the
   // formatter reads about this note is true of the head we actually drew.
   const probe = new EngravedNote({ keys: target.keys, duration: 'q', clef: target.clef })
-  probe.setStave(stave)
+  standOn(probe, stave)
   probe.setTickContext(new TickContext())
   // 🚨 LENGTH BEFORE DIRECTION, and it is not a style choice. `setStemLength` only records an
   // extension override on the NOTE (`stemExtensionOverride`); the single line that pushes it into

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi } from 'vitest'
-import type { Stave } from 'vexflow'
+import type { EngravedStave } from './EngravedStave'
 import type { Dynamic, Measure } from '@/types/music'
 import { fracCreate as frac } from '@/utils/fraction'
 import { plainColumn, type Column } from '@/engine/layout/spacing'
@@ -38,11 +38,11 @@ function drawnMark(baselineY: number): { group: SVGGraphicsElement; y: () => num
 }
 
 /** A stave whose top line is at `top`, one staff space = 10px — the same shape the real one answers. */
-const staveAt = (top: number): Stave => ({
+const staveAt = (top: number): EngravedStave => ({
   getYForLine: (line: number) => top + line * 10,
   getSpacingBetweenLines: () => 10,
   getNumLines: () => 5,
-} as unknown as Stave)
+} as unknown as EngravedStave)
 
 const noteBox = (top: number, bottom: number, staff?: string): InkBox =>
   ({ left: 0, right: 1.13, top, bottom, kind: 'note', staff, size: 1 })

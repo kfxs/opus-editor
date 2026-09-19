@@ -1,4 +1,5 @@
 import type { Note, Stave } from 'vexflow'
+import type { EngravedStave } from './EngravedStave'
 import type { BarFrame, StaffFrame } from '@/engine/engrave/staff/staffFrame'
 
 /**
@@ -22,7 +23,7 @@ import type { BarFrame, StaffFrame } from '@/engine/engrave/staff/staffFrame'
  * never corrects one into the other itself: that was `staleShift`, three copies of it and then one, and
  * the trap it guarded (*"the final bar … stolen from the first stave"*) is now a choice of frame.
  */
-export function staveFrame(stave: Stave): StaffFrame {
+export function staveFrame(stave: EngravedStave): StaffFrame {
   return {
     topLineY: stave.getYForLine(0),
     spacePx: stave.getSpacingBetweenLines(),
@@ -35,13 +36,13 @@ export function staveFrame(stave: Stave): StaffFrame {
  * laid out), which every reader already treats as "nothing to convert against".
  */
 export function noteFrame(note: Note): StaffFrame | undefined {
-  const stave = note.getStave()
+  const stave = maybeStaveOf(note)
   return stave ? staveFrame(stave) : undefined
 }
 
 /** …for a reader that cannot run without one: it throws exactly where `Note.checkStave` did. */
 export function requireNoteFrame(note: Note): StaffFrame {
-  return staveFrame(note.checkStave())
+  return staveFrame(staveOf(note))
 }
 
 /**
@@ -53,7 +54,7 @@ export function requireNoteFrame(note: Note): StaffFrame {
  * snapshot taken early would be wrong, and one taken by a reader that only wanted `x` would format a
  * stave nobody had finished building. The getters keep every read exactly where it was.
  */
-export function barFrame(stave: Stave): BarFrame {
+export function barFrame(stave: EngravedStave): BarFrame {
   return {
     get x() { return stave.getX() },
     get width() { return stave.getWidth() },
@@ -72,7 +73,7 @@ export interface PlacedBar {
   y: number
   width: number
   scale: number
-  stave: Stave
+  stave: EngravedStave
 }
 
 /**
@@ -116,7 +117,28 @@ export function carriedBy(placement: PlacedBar): { dx: number; dy: number } {
 }
 
 /** The stave's own box — its x, its y, its width, and down to the room below its last line. */
-export function staveBox(stave: Stave): { x: number; y: number; width: number; height: number } | undefined {
+export function staveBox(stave: EngravedStave): { x: number; y: number; width: number; height: number } | undefined {
   const box = stave.getBoundingBox()
   return box ? { x: box.x, y: box.y, width: box.w, height: box.h } : undefined
+}
+
+/**
+ * ⭐ **Stand a VexFlow note on a stave of ours** — `note.setStave(stave)`. The ONE cast into the note's
+ * API (typed for VexFlow's `Stave`): a stave of ours answers every question the note's code asks of one
+ * (`getYForLine`, `getYForNote`, `getYForTopText`/`BottomText`, `getSpacingBetweenLines`, `getNumLines`,
+ * `getNoteStartX`, `getDefaultLedgerLineStyle`, `getContext`).
+ */
+export function standOn<N extends Note>(note: N, stave: EngravedStave): N {
+  note.setStave(stave as unknown as Stave)
+  return note
+}
+
+/** The stave a note stands on — ours; the ONE cast back out of the note's API. */
+export function staveOf(note: Note): EngravedStave {
+  return note.checkStave() as unknown as EngravedStave
+}
+
+/** The stave a note stands on, if any. */
+export function maybeStaveOf(note: Note): EngravedStave | undefined {
+  return note.getStave() as unknown as EngravedStave | undefined
 }

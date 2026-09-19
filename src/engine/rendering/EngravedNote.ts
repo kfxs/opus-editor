@@ -60,7 +60,7 @@ import { flagPlacement, drawFlag } from '@/engine/engrave/notes/flag'
 import { drawStem } from '@/engine/engrave/notes/stem'
 import { drawNoteHead } from '@/engine/engrave/notes/noteheads'
 import { acceptsInkSurface } from './inkSurface'
-import { requireNoteFrame, staveFrame } from './staveFrame'
+import { requireNoteFrame, staveFrame, staveOf } from './staveFrame'
 import { noteLineY } from '@/engine/engrave/staff/staffFrame'
 import { modifierStart, type MarkAnchor, type ModifierSide } from '@/engine/engrave/notes/modifierStart'
 import {
@@ -392,7 +392,7 @@ export class EngravedNote extends StaveNote {
    */
   override drawLedgerLines(): void {
     if (this.isRest()) return
-    const stave = this.checkStave()
+    const stave = staveOf(this)
     const frame = staveFrame(stave)
     const runs = ledgerLineRuns(
       this.heads().map(head => ({ line: head.getLine(), x: head.getAbsoluteX() })),

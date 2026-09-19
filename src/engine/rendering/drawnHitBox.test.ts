@@ -19,6 +19,7 @@ import { attachModifier } from './EngravedModifier'
 import { formatLoneNote } from './loneNote'
 import { accidentalHitBox } from './drawnHitBox'
 import { glyphBox, glyphNameOf } from '@/engine/fonts/fontMetrics'
+import { standOn } from './staveFrame'
 
 /**
  * One drawn accidental, on a lone note formatted and drawn by the score's own pipeline — ⚠️ it must
@@ -32,7 +33,7 @@ function drawnSign(sign: string): EngravedAccidental {
   const ctx = renderer.getContext()
   const stave = new EngravedStave(10, 40, 400)
   const note = new EngravedNote({ keys: ['c/4'], duration: 'q' })
-  note.setStave(stave)
+  standOn(note, stave)
   const accidental = new EngravedAccidental(sign)
   attachModifier(note, accidental, 0)
   formatLoneNote(note, stave, { numerator: 4, denominator: 4 }, 300)

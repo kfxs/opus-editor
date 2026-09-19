@@ -18,7 +18,9 @@
  * tuplet or a two-note tremolo scales that through `applyTickMultiplier` (`NoteBuilder`). They go when
  * the notes stop being VexFlow tickables (S12).
  */
-import type { RenderContext, Stave, Tickable } from 'vexflow'
+import type { EngravedStave } from './EngravedStave'
+import type { Note, RenderContext, Tickable } from 'vexflow'
+import { standOn } from './staveFrame'
 import {
   TICK_RESOLUTION, addTicks, subtractTicks, ticksEqual, ticksGreaterThan, lcm, type TickCount,
 } from '@/engine/layout/tickCount'
@@ -97,9 +99,9 @@ export function sharedResolution(voices: readonly BarVoice[]): number {
  * ⭐ Draw a voice's tickables on `stave` — `Voice.draw(context, stave)`, transcribed: each one is put on
  * the stave, handed the context, and drawn with its style, in order.
  */
-export function drawBarVoice(voice: BarVoice, context: RenderContext, stave: Stave): void {
+export function drawBarVoice(voice: BarVoice, context: RenderContext, stave: EngravedStave): void {
   for (const tickable of voice.tickables) {
-    tickable.setStave(stave)
+    standOn(tickable as Note, stave)
     tickable.setContext(context)
     tickable.drawWithStyle()
   }

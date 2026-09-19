@@ -35,7 +35,7 @@
  *
  * ⛔ It does not look at pixels. See {@link tempoScope} for the one place that costs something.
  */
-import type { Stave } from 'vexflow'
+import type { EngravedStave } from './EngravedStave'
 import type { Fraction, Measure, TempoMark } from '@/types/music'
 import type { Column } from '@/engine/layout/spacing'
 import { clearanceBaseline, columnsBetween, mergeInkBands, staffInkBand } from '@/engine/layout/inkBand'
@@ -62,7 +62,7 @@ interface TempoLinePlacement {
   line: number
   /** The measure's merged columns, shared by every staff of it. */
   system: { columns: Column[] }
-  stave: Stave
+  stave: EngravedStave
   scale: number
 }
 

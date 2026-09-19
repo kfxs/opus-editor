@@ -10,7 +10,8 @@ import { describe, it, expect } from 'vitest'
 import { applyClefOffsets } from './clefOffsetPass'
 import { setEngravingOverride } from '@/engine/models/overrideOps'
 import type { Measure, Score } from '@/types/music'
-import type { Stave, ClefNote } from 'vexflow'
+import type { EngravedStave } from './EngravedStave'
+import type { ClefNote } from 'vexflow'
 
 const frac = (num: number, den = 1) => ({ num, den })
 /** A staff whose lines are 10 px apart — so one staff-space is 10 px. */
@@ -18,7 +19,7 @@ const stave = {
   getYForLine: (line: number) => line * 10,
   getSpacingBetweenLines: () => 10,
   getNumLines: () => 5,
-} as unknown as Stave
+} as unknown as EngravedStave
 /**
  * The least of a `ClefNote` this pass touches — ⭐ note that it is the INNER `Clef` element that
  * carries the shift, not the note: `ClefNote.draw` positions its glyph from `getAbsoluteX()`, which

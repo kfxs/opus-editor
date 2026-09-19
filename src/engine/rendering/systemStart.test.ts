@@ -14,7 +14,7 @@
  * (`e2e/staffSize.e2e.ts`).
  */
 import { describe, it, expect } from 'vitest'
-import type { Stave } from 'vexflow'
+import type { EngravedStave } from './EngravedStave'
 import { renderSystemStarts, type SystemStartPlacement } from './systemStart'
 import { THIN_BARLINE_PX } from './barlineInk'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
@@ -89,12 +89,12 @@ function recorder() {
  * A stave whose line `n` sits at `top + n * 10`. Five lines, so line 4 is the bottom one —
  * the numbers `getYForLine` would return, with no font in the answer.
  */
-function stave(top: number, numLines = 5): Stave {
+function stave(top: number, numLines = 5): EngravedStave {
   return {
     getYForLine: (line: number) => top + line * 10,
     getSpacingBetweenLines: () => 10,
     getNumLines: () => numLines,
-  } as unknown as Stave
+  } as unknown as EngravedStave
 }
 
 function at(

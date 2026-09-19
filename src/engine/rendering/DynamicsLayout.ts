@@ -15,7 +15,8 @@
 import { EngravedAnnotation } from './EngravedAnnotation'
 import { attachModifier } from './EngravedModifier'
 import { ANNOTATION_ALIGN } from '@/engine/engrave/notes/annotationPlacement'
-import type { StaveNote, Stave } from 'vexflow'
+import type { EngravedStave } from './EngravedStave'
+import type { StaveNote } from 'vexflow'
 import type { ChordRest, Measure, Dynamic, Fraction } from '@/types/music'
 import { fracCompare, fracGte, fracToNumber } from '@/utils/fraction'
 import { splitDynamicRuns, dynamicLabel, composeDynamicGlyphs } from '@/utils/dynamics'
@@ -302,7 +303,7 @@ export function enlargeDynamicGlyphRuns(text: SVGTextElement, dyn: Dynamic): voi
  * the stored delta is unchanged and anchor-relative as it always was, but its origin is finally a
  * rule instead of a side effect (plan §4).
  */
-export function applyDynamicOffsets(pass: RenderPass, measure: Measure, stave: Stave): void {
+export function applyDynamicOffsets(pass: RenderPass, measure: Measure, stave: EngravedStave): void {
   if (!measure.dynamics?.length) return
   for (const dyn of measure.dynamics) {
     const off = dynamicOffsetOverrideOf(pass.score, dyn.id)

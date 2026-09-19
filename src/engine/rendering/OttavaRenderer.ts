@@ -44,7 +44,7 @@
  * the SVG — so it is divided by the scale on the way in, the same conversion `planSlurSegments`
  * makes. `TrillRenderer`'s note, and it applies here verbatim.
  */
-import type { Stave } from 'vexflow'
+import type { EngravedStave } from './EngravedStave'
 import { drawGlyph, drawTextRun } from './glyphPainter'
 import type { Score, Ottava, Measure, Fraction } from '@/types/music'
 import type { Column } from '@/engine/layout/spacing'
@@ -82,7 +82,7 @@ interface OttavaPlacement {
   line: number
   /** The measure's merged columns, shared by every staff of it. */
   system: { columns: Column[] }
-  stave: Stave
+  stave: EngravedStave
   scale: number
 }
 

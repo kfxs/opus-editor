@@ -1,6 +1,5 @@
-import type { Stave } from 'vexflow'
 import type { HeaderSign, SignRun } from '@/engine/engrave/staff/signRun'
-import { staveSigns } from './EngravedStave'
+import { staveSigns, type EngravedStave } from './EngravedStave'
 import type { StaveSign } from './staveSign'
 import { carriedBy, type PlacedBar } from './staveFrame'
 
@@ -12,7 +11,7 @@ import { carriedBy, type PlacedBar } from './staveFrame'
  * ⚠️ Still a getter per field, so a reader sees the positions as they are at the moment it asks — the walk
  * runs when the note area is first asked for, and the placement passes move the signs after that.
  */
-export function signRun(stave: Stave): SignRun {
+export function signRun(stave: EngravedStave): SignRun {
   return {
     get opening() { return staveSigns(stave).opening.map(headerSign) },
     get clef() { return firstOf(staveSigns(stave).opening, 'clef') },

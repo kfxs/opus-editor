@@ -61,7 +61,7 @@ import { drawArticulationGhost, drawAccidentalGhost, drawTremoloGhost, drawDotGh
 import { drawTempoGhost, TEMPO_GHOST_GROUP_CLASS } from './TempoGhost'
 import { drawRestGhost, REST_GHOST_GROUP_CLASS } from './RestGhost'
 import type { SurfaceMetrics } from '@/engine/layout/surface'
-import { barFrame, staveFrame } from './staveFrame'
+import { barFrame, staveFrame, standOn } from './staveFrame'
 import { drawGroupOf, svgNode } from './svgDrawGroup'
 import { EngravedNote, drawNoteInkThrough } from './EngravedNote'
 import { EngravedStave } from './EngravedStave'
@@ -291,7 +291,7 @@ export function drawNoteGhost(
     attachModifierColumns(voices)
     formatColumns(voices, formatWidth)
 
-    staveNote.setStave(tempStave)
+    standOn(staveNote, tempStave)
 
     const ruler = noteRuler(staveNote)
     let targetShiftX: number | null = null

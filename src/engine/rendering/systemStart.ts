@@ -39,7 +39,7 @@
  * scale to put them in. They speak the SVG's coordinates, composing each end through its own staff's
  * scale — the same rule, and the same reason, as `./barlineGap`.
  */
-import type { Stave } from 'vexflow'
+import type { EngravedStave } from './EngravedStave'
 import { drawGlyph } from './glyphPainter'
 import { compose, scaling, translation } from '@/engine/paint/Affine'
 import { drawGroupOf } from './svgDrawGroup'
@@ -67,7 +67,7 @@ import { staffBottomLineY, staffLineY } from '@/engine/engrave/staff/staffFrame'
 export interface SystemStartPlacement {
   measureNumber: number
   staffIndex: number
-  stave: Stave
+  stave: EngravedStave
   /** SVG-space x of the bar's opening boundary. The staves of a system share it (barlines align),
    *  so it is taken from the placement rather than from either scaled stave. */
   x: number

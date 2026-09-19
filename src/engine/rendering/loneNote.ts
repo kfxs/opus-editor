@@ -12,6 +12,7 @@ import type { EngravedStave } from './EngravedStave'
 import { BarVoice } from './barVoice'
 import { attachModifierColumns } from './modifierColumns'
 import { formatColumns } from './columnFormat'
+import { standOn } from './staveFrame'
 
 /**
  * Format `note`, already on `stave` and carrying its modifiers, as the only note of a soft `meter` bar
@@ -23,5 +24,5 @@ export function formatLoneNote(
   const voices = [new BarVoice(meter, 'soft').add(note)]
   attachModifierColumns(voices)
   formatColumns(voices, width)
-  note.setStave(stave)
+  standOn(note, stave)
 }

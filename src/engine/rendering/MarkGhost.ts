@@ -26,6 +26,7 @@ import { formatLoneNote } from './loneNote'
 import { buildDynamicAnnotation, enlargeDynamicGlyphRuns } from './DynamicsLayout'
 import { DYNAMIC_ANNOTATION_FONT } from './dynamicStyle'
 import { centreGhostOnCursor, drawSignGhost, ghostCursorOffset, sweepIntoGhostGroup } from './ghostCursor'
+import { standOn } from './staveFrame'
 
 /** The codes an articulation is built from — the table `NoteBuilder` uses. */
 const ARTICULATION_CODES: Record<ArticulationType, string> = { accent: 'a>', staccato: 'a.', tenuto: 'a-' }
@@ -42,7 +43,7 @@ type Box = { x: number; y: number; width: number; height: number }
 function loneQuarter(cursorY: number, attach: (note: EngravedNote) => void): EngravedNote {
   const stave = new EngravedStave(0, cursorY, 200).setOpeningBarline('none').setClosingBarline('none')
   const note = new EngravedNote({ keys: ['b/4'], duration: 'q' })
-  note.setStave(stave) // the note's ys — what every mark's draw reads for its y
+  standOn(note, stave) // the note's ys — what every mark's draw reads for its y
   attach(note)
   formatLoneNote(note, stave, { numerator: 1, denominator: 4 }, LONE_NOTE_FORMAT_WIDTH)
   return note

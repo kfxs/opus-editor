@@ -1,4 +1,4 @@
-import type { Stave } from 'vexflow'
+import type { EngravedStave } from './EngravedStave'
 import { drawGlyph } from './glyphPainter'
 import type { Clef, KeySignature } from '@/types/music'
 import type { RenderPass } from './RenderPass'
@@ -48,7 +48,7 @@ import { placedSignRun, signRun } from './signRun'
 export interface KeySignaturePlacement {
   measureNumber: number
   staffIndex: number
-  stave: Stave
+  stave: EngravedStave
   /** Where the bar is THIS render (SVG space) — ⛔ not `stave.getX()`. See the header. */
   x: number
   y: number
@@ -146,7 +146,7 @@ export function firstSignX(signs: SignRun, bar: BarFrame, space: number, clef: C
 }
 
 /** {@link firstSignX} where the bar was BUILT — for a width, or for the build itself. */
-function builtFirstSignX(stave: Stave, clef: Clef): number {
+function builtFirstSignX(stave: EngravedStave, clef: Clef): number {
   return firstSignX(signRun(stave), barFrame(stave), staveFrame(stave).spacePx, clef)
 }
 
@@ -177,7 +177,7 @@ function builtFirstSignX(stave: Stave, clef: Clef): number {
  * that is invisible until someone measures it, and it meant the gap a reader sees was not the gap
  * anybody had chosen.
  */
-export function keySignatureInkRight(stave: Stave, clef: Clef, key: KeySignature): number {
+export function keySignatureInkRight(stave: EngravedStave, clef: Clef, key: KeySignature): number {
   const space = staveFrame(stave).spacePx
   let x = builtFirstSignX(stave, clef)
   key.alterations.forEach((alteration, i) => {

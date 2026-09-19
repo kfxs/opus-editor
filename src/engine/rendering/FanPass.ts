@@ -14,7 +14,8 @@
  *  - {@link drawCrossBarFanBeams} — the fans whose beam LEAVES its bar, drawn outside every one.
  * Both build {@link FanSlotDrawing}s and hand them to {@link drawFanGroups}.
  */
-import { Stave, StaveNote, NoteHead, Accidental } from 'vexflow'
+import type { EngravedStave } from './EngravedStave'
+import { StaveNote, NoteHead, Accidental } from 'vexflow'
 import type { DrawContext } from '@/engine/paint/DrawContext'
 import { STEM_THICKNESS_PX } from '@/engine/engrave/inheritedDefaults'
 import type { Score, Clef, Chord, ChordRest, FanMemberChord, Fraction, KeySignature, NotePitch } from '@/types/music'
@@ -65,7 +66,7 @@ import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { followingSpace } from '@/engine/layout/spacing'
 import { MIN_COLUMN_GAP } from '@/engine/layout/spacingPadding'
 import { staffSpacesToPixels } from './staffSpace'
-import { barFrame, staveFrame } from './staveFrame'
+import { barFrame, staveFrame, standOn, maybeStaveOf } from './staveFrame'
 import { noteLineY } from '@/engine/engrave/staff/staffFrame'
 
 /**
@@ -90,7 +91,7 @@ interface FanSlotDrawing {
   slot: Extract<ChordRest, { type: 'chord' }>
   note: StaveNote
   /** The note's OWN stave — a synthetic cross-barline lane (P3) has more than one. */
-  stave: Stave
+  stave: EngravedStave
   /** The clef this fan's pitches are read against — its own bar's. */
   clef: Clef
   /** The multi-voice stem the lane forced, if any — only ever consulted to pick the side a MEMBER's
@@ -250,7 +251,7 @@ function fanTrailingSpacePx(score: Score, measureNumber: number, slot: Chord): n
  *
  * Returns an empty array when nothing in the group is offset, which is the ordinary case.
  */
-function fanMemberOffsetsPx(score: Score, slot: Chord, stave: Stave): number[] {
+function fanMemberOffsetsPx(score: Score, slot: Chord, stave: EngravedStave): number[] {
   if (!slot.fan) return []
   const count = Math.max(1, Math.round(slot.fan.count))
   const out: number[] = []
@@ -538,7 +539,7 @@ function drawFanGroups(pass: RenderPass, drawings: FanSlotDrawing[], fanJoins: F
             const { pitch, line, sign } = memberHeads[h]
             const y = noteLineY(staveFrame(stave), line)
             const head = noteHeads[h]
-            head.setStave(stave) // resolves y from the line
+            standOn(head, stave) // resolves y from the line
             drawFanHead(ctx, head)
             // ⭐ P3: the member becomes CLICKABLE and HIGHLIGHTABLE — but only when it is a member
             // of its own (a fallback head is the slot's pitch, and that id is already the real
@@ -697,7 +698,7 @@ function fanSlotDrawing(input: {
   const { index, slot, score, note, clef, signs, nextNote, measureNumber, staffIndex, joined } = input
   if (slot.type !== 'chord' || !slot.fan) return null
   if (!note) return null
-  const stave = note.getStave()
+  const stave = maybeStaveOf(note)
   if (!stave) return null
 
   const headX = note.getNoteHeadBeginX()
@@ -1023,7 +1024,7 @@ function registerFanInk(
  */
 function drawFanLedgerLines(
   ctx: DrawContext,
-  stave: Stave,
+  stave: EngravedStave,
   heads: { line: number; x: number }[],
   glyphWidth: number,
   overhang: number,

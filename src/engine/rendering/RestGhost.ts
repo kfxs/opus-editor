@@ -28,7 +28,7 @@ import { formatLoneNote } from './loneNote'
 import { drawMarkOn } from './glyphPainter'
 import { sweepIntoGhostGroup } from './ghostCursor'
 import { noteRuler } from './noteRuler'
-import { staveFrame } from './staveFrame'
+import { staveFrame, standOn } from './staveFrame'
 import { noteLineY } from '@/engine/engrave/staff/staffFrame'
 
 /** The class `clearGhosts` sweeps this ghost by — bare, as `notation.css` styles it. */
@@ -56,7 +56,7 @@ export function drawRestGhost(
     //   (docs/multi-voice-rest-position-plan.md §8.)
     const rest = new EngravedNote({ keys: [restKey(duration)], duration: convertDuration(duration, dots) + 'r' })
     for (let d = 0; d < dots; d++) attachEngravedDots(rest)
-    rest.setStave(stave)
+    standOn(rest, stave)
     formatLoneNote(rest, stave, { numerator: 4, denominator: 4 }, 100)
 
     const group = sweepIntoGhostGroup(svg, REST_GHOST_GROUP_CLASS, () => {

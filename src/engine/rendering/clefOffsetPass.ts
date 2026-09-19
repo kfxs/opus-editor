@@ -20,13 +20,13 @@
  * tickables (`VexFlowRenderer.interleaveClefNotes` filters `beat > 0`); the clef at a system's head
  * is a stave modifier laid out by the header, which is precisely the clef he excluded.
  */
-import type { ClefNote, Stave } from 'vexflow'
+import type { ClefNote } from 'vexflow'
 import type { Fraction, Measure, Score } from '@/types/music'
 import { clefOffsetOverrideOf } from '@/engine/models/engravingOverrides'
 import { staffSpacesToPixels } from './staffSpace'
 import { fracEq, fracIsZero } from '@/utils/fraction'
 import { staveFrame } from './staveFrame'
-import { staveSigns } from './EngravedStave'
+import { staveSigns, type EngravedStave } from './EngravedStave'
 
 /** One drawn inline clef: the beat it stands at, and the glyph VexFlow will draw. */
 export interface InlineClef {
@@ -49,7 +49,7 @@ export interface InlineClef {
  *        (the write convention `ClefChange.staffId` records).
  */
 export function applyClefOffsets(
-  measure: Measure, staffId: string | undefined, inlineClefs: readonly InlineClef[], score: Score, stave: Stave,
+  measure: Measure, staffId: string | undefined, inlineClefs: readonly InlineClef[], score: Score, stave: EngravedStave,
 ): void {
   if (inlineClefs.length === 0 || !measure.clefs) return
   for (const { beat, clefNote } of inlineClefs) {
@@ -99,7 +99,7 @@ function shiftClef(clef: { getXShift(): number; setXShift(v: number): void }, px
  * ⚠️ Must run BEFORE `drawStave`: the stave draws its modifiers, and after that the ink is on the page.
  */
 export function applyStaveClefOffset(
-  measure: Measure, staffId: string | undefined, score: Score, stave: Stave, isFirstInLine: boolean,
+  measure: Measure, staffId: string | undefined, score: Score, stave: EngravedStave, isFirstInLine: boolean,
 ): void {
   if (isFirstInLine) return
   const change = measure.clefs?.find(c => fracIsZero(c.beat) && c.staffId === staffId)

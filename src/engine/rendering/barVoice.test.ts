@@ -6,7 +6,8 @@
  * pinned here is what the module promises.
  */
 import { describe, it, expect, vi } from 'vitest'
-import { ClefNote, StaveNote, type RenderContext, type Stave, type Tickable } from 'vexflow'
+import type { EngravedStave } from './EngravedStave'
+import { ClefNote, StaveNote, type RenderContext, type Tickable } from 'vexflow'
 import { TICK_RESOLUTION, ticksValue } from '@/engine/layout/tickCount'
 import { BarVoice, barVoiceOf, drawBarVoice, sharedResolution } from './barVoice'
 
@@ -85,7 +86,7 @@ describe('drawBarVoice', () => {
       drawWithStyle: vi.fn(() => calls.push(`${name}.draw`)),
     }) as unknown as Tickable
     const voice = new BarVoice({ numerator: 4, denominator: 4 }, 'soft').addAll([fake('a'), fake('b')])
-    const stave = {} as Stave
+    const stave = {} as EngravedStave
     const context = {} as RenderContext
     drawBarVoice(voice, context, stave)
     expect(calls).toEqual(['a.stave', 'a.context', 'a.draw', 'b.stave', 'b.context', 'b.draw'])

@@ -60,7 +60,7 @@
  * The exception is a first-in-line bar that OPENS A REPEAT — there the boundary's sign is `|:`, so
  * the stave's begin bar is turned off and this pass draws it.
  */
-import type { Stave } from 'vexflow'
+import type { EngravedStave } from './EngravedStave'
 import { staffBarlineExtent } from './barlineInk'
 import { drawGlyph } from './glyphPainter'
 import type { DrawGroup } from '@/engine/paint/DrawGroup'
@@ -82,7 +82,7 @@ import { placedSignRun } from './signRun'
 export interface BarlinePlacement {
   measureNumber: number
   staffIndex: number
-  stave: Stave
+  stave: EngravedStave
   /**
    * 🚨🚨 **WHERE THE BAR IS THIS RENDER, which is not always where its STAVE says it is.**
    *

@@ -29,7 +29,7 @@
  * is a fact about the mark's system and this is a fact about the mark.
  */
 import type { Measure } from '@/types/music'
-import type { Stave } from 'vexflow'
+import type { EngravedStave } from './EngravedStave'
 import type { Column } from '@/engine/layout/spacing'
 import type { RenderPass } from './RenderPass'
 import { tempoOffsetOverrideOf } from '@/engine/models/engravingOverrides'
@@ -46,7 +46,7 @@ interface TempoNudgePlacement {
   staffIndex: number
   line: number
   system: { columns: Column[] }
-  stave: Stave
+  stave: EngravedStave
   scale: number
 }
 

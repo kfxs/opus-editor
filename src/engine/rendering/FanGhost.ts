@@ -35,6 +35,7 @@ import { EngravedStave } from './EngravedStave'
 import { attachEngravedDots } from './EngravedDot'
 import { formatLoneNote } from './loneNote'
 import { drawMarkOn } from './glyphPainter'
+import { standOn } from './staveFrame'
 
 /** The class `VexFlowRenderer.clearGhosts` sweeps this ghost by — it must be in
  *  {@link GHOST_GROUP_SELECTOR}, or the ghost smears one copy per mouse position. */
@@ -65,7 +66,7 @@ export function drawFanGhost(
     const stave = new EngravedStave(0, cursorY, 120).setOpeningBarline('none').setClosingBarline('none')
     const note = new EngravedNote({ keys: ['b/4'], duration: convertDuration(duration, dots) })
     for (let d = 0; d < dots; d++) attachEngravedDots(note)
-    note.setStave(stave)
+    standOn(note, stave)
     formatLoneNote(note, stave, { numerator: 4, denominator: 4 }, 100)
     drawNoteInkThrough([note], ctx)
     drawMarkOn(ctx, note)

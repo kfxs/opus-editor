@@ -29,7 +29,7 @@
  * one line; a mark over a dip deviates, alone. `columnsUnder` is the scope, and it is why this pass
  * hands the layout module ONE column rather than the system's.
  */
-import type { Stave } from 'vexflow'
+import type { EngravedStave } from './EngravedStave'
 import type { Measure } from '@/types/music'
 import type { Column } from '@/engine/layout/spacing'
 import { type MarkInk } from '@/engine/layout/inkBand'
@@ -57,7 +57,7 @@ export interface DynamicsLinePlacement {
   staffIndex: number
   /** The measure's merged columns, shared by every staff of it (`MeasurePlacement.system`). */
   system: { columns: Column[] }
-  stave: Stave
+  stave: EngravedStave
   scale: number
 }
 

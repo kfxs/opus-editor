@@ -11,7 +11,8 @@
  */
 import { describe, it, expect } from 'vitest'
 import { EngravedStave } from './EngravedStave'
-import { barFrame, placedBarFrame, placedStaffFrame, staveFrame } from './staveFrame'
+import { barFrame, maybeStaveOf, placedBarFrame, placedStaffFrame, standOn, staveFrame, staveOf } from './staveFrame'
+import { EngravedNote } from './EngravedNote'
 
 const X = 30.1
 const Y = 47.3
@@ -56,5 +57,19 @@ describe('staveFrame — the placed frames', () => {
     expect(placedStaffFrame(placement).topLineY).toBeCloseTo(staveFrame(stave).topLineY + 5, 9)
     expect(placedBarFrame(placement).x).toBeCloseTo(X + 10, 9)
     expect(placedBarFrame(placement).width).toBeCloseTo(WIDTH, 9)
+  })
+})
+
+describe('standOn / staveOf — the one cast each way across a VexFlow note\'s API (S12h)', () => {
+  it('⭐ a note stood on a stave of ours hands back THAT stave, and takes its lines from it', () => {
+    const stave = new EngravedStave(10, 40, 300)
+    const note = standOn(new EngravedNote({ keys: ['f/5'], duration: 'q' }), stave)
+    expect(staveOf(note)).toBe(stave)
+    expect(maybeStaveOf(note)).toBe(stave)
+    expect(staveFrame(staveOf(note)).topLineY).toBe(80)
+  })
+
+  it('a note that stands on nothing has no stave', () => {
+    expect(maybeStaveOf(new EngravedNote({ keys: ['f/5'], duration: 'q' }))).toBeUndefined()
   })
 })

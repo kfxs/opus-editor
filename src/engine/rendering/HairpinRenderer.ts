@@ -35,7 +35,7 @@
  * on the way in, which is the same conversion `planSlurSegments` makes and for the same reason
  * (a cross-system slur on a small staff used to stop 30% short of the margin).
  */
-import type { Stave } from 'vexflow'
+import type { EngravedStave } from './EngravedStave'
 import type { Score, Measure, Hairpin, Dynamic, Fraction, HairpinEndpointOffsetOverride } from '@/types/music'
 import type { Column } from '@/engine/layout/spacing'
 import { hairpinSpan, type HairpinSpan } from '@/engine/models/hairpinOps'
@@ -73,7 +73,7 @@ interface HairpinPlacement {
   line: number
   /** The measure's merged columns, shared by every staff of it. */
   system: { columns: Column[] }
-  stave: Stave
+  stave: EngravedStave
   scale: number
 }
 
@@ -512,7 +512,7 @@ function drawWedge(
   from: HairpinPlacement,
   to: HairpinPlacement,
 ): void {
-  const px = (spaces: number, stave: Stave) => staffSpacesToPixels(spaces, staveFrame(stave))
+  const px = (spaces: number, stave: EngravedStave) => staffSpacesToPixels(spaces, staveFrame(stave))
 
   // ⭐⭐ **THE WEDGE SPANS ITS OWN NOTES, and a dynamic does not move it** — his call, 2026-08-31:
   // *"the dynamic is pushing the hairpin… but it should not do it"*.

@@ -1,4 +1,4 @@
-import { Renderer, Stave, StaveNote, type Beam, ClefNote } from 'vexflow'
+import { Renderer, StaveNote, type Beam, ClefNote } from 'vexflow'
 import type { EngravedAnnotation } from './EngravedAnnotation'
 import { ScoreTuplet } from './ScoreTuplet'
 import { tremoloOn, TREMOLO_FLAG_STEM_STRETCH, TREMOLO_STROKE_CLEARANCE, usableStemSpan } from './CenteredTremolo'
@@ -126,7 +126,7 @@ import { dbg } from '@/utils/debug'
 import { voiceOf } from '@/utils/lanes'
 import { restDrawnDuration, restLineInStaff, restNeutralLine } from '@/engine/layout/restVoicePlacement'
 import { applyHiddenTreatment, hiddenTreatment, HIDDEN_ELEMENT_COLOR, type RenderAudience } from './hiddenElements'
-import { barFrame, noteFrame, staveBox, staveFrame } from './staveFrame'
+import { barFrame, noteFrame, staveBox, staveFrame, standOn } from './staveFrame'
 import { noteLineY, staffLineY } from '@/engine/engrave/staff/staffFrame'
 import { noteRuler } from './noteRuler'
 import { signRun } from './signRun'
@@ -396,7 +396,7 @@ export interface MeasurePlacement {
    */
   scale: number
   /** Built by tier 1 when the measure is (re)drawn; restored from the snapshot when it is reused. */
-  stave: Stave
+  stave: EngravedStave
 }
 
 /**
@@ -433,7 +433,7 @@ interface MeasureSnapshot {
   drawnX: number
   drawnY: number
   group: SVGGElement | null
-  stave: Stave
+  stave: EngravedStave
   /** Registry entries — tier 1 AND tier 2 — captured contiguously via `ElementRegistry.sliceFrom`. */
   elements: ElementInfo[]
   staffGeometry?: StaffGeometry
@@ -1919,7 +1919,7 @@ export class VexFlowRenderer {
    * Draws nothing. Run only for measures this render is actually rebuilding; a reused measure
    * replays its snapshot instead, which is the same thing at zero cost.
    */
-  private registerTier1(p: Omit<MeasurePlacement, 'stave'>): Stave {
+  private registerTier1(p: Omit<MeasurePlacement, 'stave'>): EngravedStave {
     // ⭐ The stave is built in the STAFF'S OWN space: at `x/k, y/k, width/k` inside a group that
     // will carry `scale(k)`, so the drawn result lands exactly at (x, y, width) and the whole
     // transform is one multiplication about the origin — no offset term anywhere downstream
@@ -1976,7 +1976,7 @@ export class VexFlowRenderer {
     )
   }
 
-  renderMeasure(pass: RenderPass, placement: MeasurePlacement, beamPlan?: CrossBarBeamPlan): Stave {
+  renderMeasure(pass: RenderPass, placement: MeasurePlacement, beamPlan?: CrossBarBeamPlan): EngravedStave {
     if (!this.context) {
       throw new Error('Renderer not initialized. Call initialize() first.')
     }
@@ -2009,7 +2009,7 @@ export class VexFlowRenderer {
     }
   }
 
-  private drawMeasureContent(pass: RenderPass, placement: MeasurePlacement, beamPlan?: CrossBarBeamPlan): Stave {
+  private drawMeasureContent(pass: RenderPass, placement: MeasurePlacement, beamPlan?: CrossBarBeamPlan): EngravedStave {
     const { view: measure, x, clef, key, ghostClefBeat, staffIndex, stave } = placement
 
     // ⭐ A bar's OPENING clef is a stave modifier, so its hand-nudge has to land BEFORE the stave
@@ -2401,7 +2401,7 @@ export class VexFlowRenderer {
    * X), so we draw it ourselves, centred on the rest glyph and styled like VexFlow's ledgers.
    * `slots` and `staveNotes` are parallel (same order). See docs/rest-shift-plan.md §10.
    */
-  private drawRestLedgerLines(slots: ChordRest[], staveNotes: StaveNote[], stave: Stave, measure: Measure, score: Score): void {
+  private drawRestLedgerLines(slots: ChordRest[], staveNotes: StaveNote[], stave: EngravedStave, measure: Measure, score: Score): void {
     const ctx = this.context
     if (!ctx) return
     const PAD = 2 // px the ledger overhangs the rest glyph on each side
@@ -2475,7 +2475,7 @@ export class VexFlowRenderer {
    * offset into the value both the placement and the re-centering read: this note's ABOVE/BELOW
    * `getModifierStartXY` base x. See docs/note-offset-plan.md.
    */
-  private applyNoteOffsets(slots: ChordRest[], staveNotes: StaveNote[], score: Score, stave: Stave): void {
+  private applyNoteOffsets(slots: ChordRest[], staveNotes: StaveNote[], score: Score, stave: EngravedStave): void {
     for (let i = 0; i < slots.length; i++) {
       const slot = slots[i]
       const off = noteOffsetOverrideOf(score, slot.id)
@@ -2563,7 +2563,7 @@ export class VexFlowRenderer {
     /** The staff's drawn scale — the stave arrives in its OWN space, while the system's lead-in and
      *  header extent are distances on the page. See {@link applyLeadIn}. */
     scale: number = 1,
-  ): Stave {
+  ): EngravedStave {
     const stave = new EngravedStave(x, y, width)
     stave.setDefaultLedgerLineStyle(LEDGER_LINE_STYLE)
 
@@ -2730,7 +2730,7 @@ export class VexFlowRenderer {
    * leaving the systemTop reference Y intact for the whole system.
    */
   private recordMeasureBounds(
-    stave: Stave,
+    stave: EngravedStave,
     measure: Measure,
     x: number,
     y: number,
@@ -2823,7 +2823,7 @@ export class VexFlowRenderer {
    * measures from `GetLeftBarLineRight()`, which the mid-system keySig alignment sits left of.
    */
   private centerMeasureRests(
-    voices: readonly BarVoice[], stave: Stave, clef: Clef, headerKey: KeySignature | undefined,
+    voices: readonly BarVoice[], stave: EngravedStave, clef: Clef, headerKey: KeySignature | undefined,
   ): void {
     // ⚠️ **`getNoteStartX()` and NOT `noteStartOf`, and the difference is 6 px of visible error.**
     //    `noteStartOf` is where a NOTE's ink begins — it carries the `Stave.padding` every note gets
@@ -2867,7 +2867,7 @@ export class VexFlowRenderer {
         const note = tickable as StaveNote
         // `getAbsoluteX()` reads the stave, and the voice does not set it on its tickables until
         // draw time. Setting it here is what draw would do a moment later, verbatim.
-        note.setStave(stave)
+        standOn(note, stave)
         const center = noteRuler(note).originX + noteRuler(note).glyphWidth / 2
         note.setCenterXShift(note.getCenterXShift() + (areaCenter - center))
       }
@@ -2886,7 +2886,7 @@ export class VexFlowRenderer {
    * preceding `Stem.draw()` leaves the context at 1.5) is still real and is still handled — one line
    * later, and by the code that actually needs the number.
    */
-  private drawStave(stave: Stave, ctx: DrawContext): void {
+  private drawStave(stave: EngravedStave, ctx: DrawContext): void {
     drawStaveInkThrough([stave], ctx)
     stave.setContext(this.context!).draw()
   }
@@ -3206,7 +3206,7 @@ export class VexFlowRenderer {
     multiVoice: boolean,
     /** Every voice's notes, in engraved order — for finding what follows a tuplet. */
     voiceNotes: Map<number, StaveNote[]>,
-    stave: Stave,
+    stave: EngravedStave,
   ): void {
     /**
      * Where the bracket's right end goes, or undefined to leave it at the last notehead.
@@ -3556,7 +3556,7 @@ export class VexFlowRenderer {
    * is formatted.
    */
   private registerStaffAndGeometry(
-    stave: Stave,
+    stave: EngravedStave,
     measure: Measure,
     x: number,
     width: number,
@@ -5120,7 +5120,7 @@ export class VexFlowRenderer {
  */
 export { STAVE_LINE_WIDTH_PX } from '@/engine/engrave/staff/staffLines'
 
-function noteStartOf(stave: Stave): number {
+function noteStartOf(stave: EngravedStave): number {
   return barFrame(stave).noteStartX + NOTE_AREA_PADDING_PX
 }
 
@@ -5161,7 +5161,7 @@ function spreadHeaderToSystem(stave: EngravedStave, scale: number): void {
  * a SMALL clef (a mid-line change) which the font table cannot; at full size the two agree to 0.02
  * staff spaces, measured. The key signature is ours and contributes its own ink exactly.
  */
-function headerInkRightX(stave: Stave, clef: Clef, key: KeySignature | undefined): number | undefined {
+function headerInkRightX(stave: EngravedStave, clef: Clef, key: KeySignature | undefined): number | undefined {
   const space = staveFrame(stave).spacePx
   let right = -Infinity
   for (const sign of signRun(stave).opening) {
@@ -5182,7 +5182,7 @@ function headerInkRightX(stave: Stave, clef: Clef, key: KeySignature | undefined
  * same distance engraved two different ways (one PLACED from ink, one a `customPadding` added to
  * `Stave.format()`'s walk), which is exactly the pair P5 is named after. */
 
-function applyLeadIn(stave: Stave, staveX: number, padding: number, header: number, scale: number): void {
+function applyLeadIn(stave: EngravedStave, staveX: number, padding: number, header: number, scale: number): void {
   // ⚠️ `padding` only, never `padding + extent`: VexFlow's formatter already shifts the first tick
   //    context right by that column's own left ink, so adding the extent here pays for the
   //    accidental twice — measured, and it made the blank WIDER than the one it was fixing.

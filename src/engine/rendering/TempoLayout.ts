@@ -20,7 +20,8 @@
  * `./glyphPainter` — the same text/glyph primitive `StaveTempo.draw()` uses internally — so we lose
  * no engraving quality, only its opinions.
  */
-import type { Stave, StaveNote } from 'vexflow'
+import type { EngravedStave } from './EngravedStave'
+import type { StaveNote } from 'vexflow'
 import type { DrawContext } from '@/engine/paint/DrawContext'
 import { drawGlyph, drawTextRun } from './glyphPainter'
 import type { ChordRest, Fraction, Measure, NoteDuration, TempoMark } from '@/types/music'
@@ -195,7 +196,7 @@ export function anchorX(
   mark: TempoMark,
   slots: ChordRest[],
   staveNotes: StaveNote[],
-  stave: Stave,
+  stave: EngravedStave,
   /**
    * ⭐⭐ **THE SYSTEM'S COLUMN GRID** — what the bar's beats were spaced at, over EVERY staff
    * (`./spacingPass`). Optional: without it this rule can only see the staff it is drawn above, and
@@ -351,7 +352,7 @@ function registerTempoAnchors(
   measure: Measure,
   slots: ChordRest[],
   staveNotes: StaveNote[],
-  stave: Stave,
+  stave: EngravedStave,
   scale: number,
 ): void {
   const columns = pass.solvedColumns.get(measure.number)
@@ -379,7 +380,7 @@ function registerTempoAnchors(
 export function drawTempoMarks(
   pass: RenderPass,
   measure: Measure,
-  stave: Stave,
+  stave: EngravedStave,
   staffIndex: number,
   slots: ChordRest[],
   staveNotes: StaveNote[],

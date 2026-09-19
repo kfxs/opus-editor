@@ -38,7 +38,7 @@
  * where a bar landed in the SVG — so it is divided by the scale on the way in, which is the same
  * conversion `planSlurSegments` makes and for the same reason.
  */
-import type { Stave } from 'vexflow'
+import type { EngravedStave } from './EngravedStave'
 import { drawGlyph, drawTextRun, measureGlyph } from './glyphPainter'
 import type { Score, Trill, TrillContinuationLabel, Measure, Fraction } from '@/types/music'
 import type { Column } from '@/engine/layout/spacing'
@@ -105,7 +105,7 @@ interface TrillPlacement {
   line: number
   /** The measure's merged columns, shared by every staff of it. */
   system: { columns: Column[] }
-  stave: Stave
+  stave: EngravedStave
   scale: number
 }
 

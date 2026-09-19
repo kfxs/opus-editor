@@ -28,7 +28,7 @@
  * row is a fact about the mark's SYSTEM and this is a fact about the mark.
  */
 import type { Measure } from '@/types/music'
-import type { Stave } from 'vexflow'
+import type { EngravedStave } from './EngravedStave'
 import type { RenderPass } from './RenderPass'
 import { staffDynamics } from '@/engine/models/staffContent'
 import { dynamicOffsetOverrideOf } from '@/engine/models/engravingOverrides'
@@ -40,7 +40,7 @@ import { staveFrame } from './staveFrame'
 interface DynamicNudgePlacement {
   view: Measure
   staffIndex: number
-  stave: Stave
+  stave: EngravedStave
   scale: number
 }
 

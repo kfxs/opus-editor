@@ -8,7 +8,7 @@ import { drawGroupOf } from './svgDrawGroup'
 import { alignTupletRests } from './columnFormat'
 import { TUPLET_TEXT_Y_OFFSET_PX, TUPLET_Y_OFFSET_PX } from '@/engine/engrave/inheritedDefaults'
 import { tupletMarkY, type TupletNoteReach, type TupletSide } from '@/engine/engrave/marks/tupletPlacement'
-import { staveFrame } from './staveFrame'
+import { staveFrame, staveOf } from './staveFrame'
 
 /**
  * The tuplet mark's font size, in points — THE knob for how big the numbers are.
@@ -258,7 +258,7 @@ export class ScoreTuplet {
     const notes = this.notes
     return tupletMarkY({
       side,
-      frame: staveFrame(notes[0].checkStave()),
+      frame: staveFrame(staveOf(notes[0])),
       notes: notes.map(note => this.reachOf(note, side)),
       nestedDepth: this.getNestedTupletCount(),
       yOffset: this.options.yOffset ?? 0,

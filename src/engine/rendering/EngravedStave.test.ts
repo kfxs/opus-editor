@@ -17,6 +17,7 @@ import { scenePrimitives, sceneGroups } from '@/engine/scene/Scene'
 import { STAVE_LINE_WIDTH_PX } from '@/engine/engrave/staff/staffLines'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { fracCreate as frac } from '@/utils/fraction'
+import { EngravedStave } from './EngravedStave'
 
 function render(bars = 2) {
   const container = document.createElement('div')
@@ -96,5 +97,38 @@ describe('⭐⭐ the stave draws its own five lines, through our primitives', ()
     const [first, second] = staveLines(render(2).scene)
     expect(second[0].x1).toBeGreaterThan(first[0].x1)
     expect(first[0].y).toBeCloseTo(second[0].y, 6) // …and on the same system
+  })
+})
+
+describe('⭐ S12h — the stave object is ours, and answers what a note asks of one', () => {
+  it('takes VexFlow\'s `Stave` defaults: five lines, a space of 10, four spaces of headroom', () => {
+    const stave = new EngravedStave(10, 40, 300)
+    expect(stave.getNumLines()).toBe(5)
+    expect(stave.getSpacingBetweenLines()).toBe(10)
+    expect(stave.getYForLine(0)).toBe(80) // 40 + 4 spaces
+    expect(stave.getTopLineTopY()).toBe(80)
+    expect(stave.options.lineConfig.every(line => line.visible)).toBe(true)
+  })
+
+  it('numbers its text rows as VexFlow did — one space above the top line, one below the bottom', () => {
+    const stave = new EngravedStave(10, 40, 300)
+    expect(stave.getYForTopText(0)).toBe(70)
+    expect(stave.getYForBottomText(0)).toBe(130)
+    expect(stave.getYForNote(5)).toBe(80) // F5, the top line
+  })
+
+  it('⭐ boxes itself from its y to the space below its last line', () => {
+    expect(new EngravedStave(10, 40, 300).getBoundingBox()).toEqual({ x: 10, y: 40, w: 300, h: 130 })
+  })
+
+  it('⭐ lays the ledger style over its own — `getDefaultLedgerLineStyle`', () => {
+    const stave = new EngravedStave(0, 0, 100)
+    expect(stave.getDefaultLedgerLineStyle()).toEqual({ strokeStyle: '#444', lineWidth: 2 })
+    stave.setDefaultLedgerLineStyle({ lineWidth: 1.6 })
+    expect(stave.getDefaultLedgerLineStyle()).toEqual({ strokeStyle: '#999999', lineWidth: 1.6 })
+  })
+
+  it('draws its ids from its own counter', () => {
+    expect(new EngravedStave(0, 0, 100).getAttribute('id')).toMatch(/^stave\d+$/)
   })
 })
