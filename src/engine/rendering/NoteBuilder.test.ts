@@ -8,7 +8,7 @@ import {
   TUPLET_LOCATION_BELOW,
   type TupletNoteStem,
 } from './NoteBuilder'
-import { StaveNote } from 'vexflow'
+import { EngravedNote } from './EngravedNote'
 import { staffLineForSpelling } from '@/utils/clefUtils'
 import { fracCreate as frac } from '@/utils/fraction'
 import type { Chord, ChordRest, PitchStep } from '@/types/music'
@@ -243,14 +243,15 @@ describe('createStaveNotesFromSlots — a FANNED group takes ONE stem direction'
 })
 
 /**
- * ⭐ THE LINE ARITHMETIC AGREES WITH VEXFLOW'S OWN. A fan's member heads are placed by hand, from
- * {@link staffLineForSpelling}; every real notehead is placed by VexFlow from the key string. If the
+ * ⭐ THE LINE ARITHMETIC AGREES WITH THE NOTE'S OWN. A fan's member heads are placed by hand, from
+ * {@link staffLineForSpelling}; every real notehead is placed by the note from its key string
+ * (VexFlow's `StaveNote` until S12j; `EngravedNote` since). If the
  * two ever disagreed, the members would sit at a different height from the note they belong to — and
  * the fan's stem length, which is measured between them, would be wrong too.
  *
  * `getKeyProps().line` is pure table arithmetic, so this is real in jsdom (no glyph is measured).
  */
-describe('staffLineForSpelling matches VexFlow', () => {
+describe('staffLineForSpelling matches the note', () => {
   const CASES: Array<[PitchStep, number]> = [
     ['C', 4], ['E', 4], ['B', 4], ['F', 5], ['A', 5], ['C', 6], ['G', 3], ['C', 3],
   ]
@@ -258,7 +259,7 @@ describe('staffLineForSpelling matches VexFlow', () => {
   for (const clef of ['treble', 'bass', 'alto', 'tenor'] as const) {
     it(`agrees in ${clef}`, () => {
       for (const [step, octave] of CASES) {
-        const note = new StaveNote({ keys: [`${step.toLowerCase()}/${octave}`], duration: 'q', clef })
+        const note = new EngravedNote({ keys: [`${step.toLowerCase()}/${octave}`], duration: 'q', clef })
         expect(note.getKeyProps()[0].line, `${step}${octave} ${clef}`)
           .toBe(staffLineForSpelling(step, octave, clef))
       }

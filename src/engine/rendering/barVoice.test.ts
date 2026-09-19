@@ -7,7 +7,7 @@
  */
 import { describe, it, expect, vi } from 'vitest'
 import type { EngravedStave } from './EngravedStave'
-import type { RenderContext } from 'vexflow'
+import type { DrawContext } from '@/engine/paint/DrawContext'
 import { EngravedClefChange } from './EngravedClefChange'
 import { EngravedNote } from './EngravedNote'
 import { TICK_RESOLUTION, ticksValue } from '@/engine/layout/tickCount'
@@ -89,7 +89,7 @@ describe('drawBarVoice', () => {
     }) as unknown as BarTickable
     const voice = new BarVoice({ numerator: 4, denominator: 4 }, 'soft').addAll([fake('a'), fake('b')])
     const stave = {} as EngravedStave
-    const context = {} as RenderContext
+    const context = {} as DrawContext
     drawBarVoice(voice, context, stave)
     expect(calls).toEqual(['a.stave', 'a.context', 'a.draw', 'b.stave', 'b.context', 'b.draw'])
     expect(voice.tickables[0].setStave).toHaveBeenCalledWith(stave)

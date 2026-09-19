@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "build:check": "npm run lint:boundary && npm run lint:testnames && npm run lint:singletons && npm run lint:tables && npm run lint:paint && npm run lint:vexflow && npm run lint && tsc --noEmit && vite build",
-    "lint:boundary": "eslint --no-eslintrc -c .eslintrc.boundary.json \"src/engine/**/*.ts\" \"src/interactions/**/*.ts\" \"src/windows/**/*.ts\" \"src/menus/**/*.ts\" \"src/bus/**/*.ts\" \"src/dev/**/*.ts\" \"src/utils/**/*.ts\" \"src/types/**/*.ts\"",
+    "lint:boundary": "eslint --no-eslintrc -c .eslintrc.boundary.json \"src/engine/**/*.ts\" \"src/interactions/**/*.ts\" \"src/windows/**/*.ts\" \"src/menus/**/*.ts\" \"src/bus/**/*.ts\" \"src/dev/**/*.ts\" \"src/utils/**/*.ts\" \"src/types/**/*.ts\" \"src/*.ts\" \"e2e/**/*.ts\"",
     "lint:testnames": "node scripts/check-test-names.mjs",
     "lint:singletons": "node scripts/check-singletons.mjs",
     "lint:tables": "node scripts/check-total-tables.mjs",
@@ -24,7 +24,6 @@
     "opentype.js": "^2.0.0",
     "svg2pdf.js": "^2.7.0",
     "uuid": "^13.0.0",
-    "vexflow": "^5.0.0",
     "webaudiofont": "^3.0.4"
   },
   "devDependencies": {

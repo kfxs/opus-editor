@@ -7,6 +7,17 @@
   },
   "plugins": ["@typescript-eslint"],
   "rules": {
+    "@typescript-eslint/no-restricted-imports": [
+      "error",
+      {
+        "patterns": [
+          {
+            "group": ["vexflow", "vexflow/*"],
+            "message": "⛔ VexFlow was REMOVED (docs/vexflow-removal-map.md S14) — in every file, specs included. The engine is ours: engine/engrave, engine/rendering, engine/paint. ⚠️ This is a SEPARATE rule from `no-restricted-imports` on purpose: the overrides below replace that rule's options per folder, and would silently drop a ban written there."
+          }
+        ]
+      }
+    ],
     "no-restricted-imports": [
       "error",
       {

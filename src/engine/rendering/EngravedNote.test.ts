@@ -21,7 +21,7 @@
  * about an origin.
  */
 import { describe, it, expect } from 'vitest'
-import { Renderer } from 'vexflow'
+import { SvgPainter } from './SvgPainter'
 import { EngravedStave } from './EngravedStave'
 import { BarVoice, drawBarVoice } from './barVoice'
 import { attachModifierColumns } from './modifierColumns'
@@ -35,9 +35,7 @@ import { noteLineY } from '@/engine/engrave/staff/staffFrame'
 function drawnNotes(durations: string[], keys = ['c/5']): EngravedNote[] {
   const div = document.createElement('div')
   document.body.appendChild(div)
-  const renderer = new Renderer(div, Renderer.Backends.SVG)
-  renderer.resize(500, 200)
-  const context = renderer.getContext()
+  const context = new SvgPainter(div).resize(500, 200)
   const stave = new EngravedStave(10, 40, 400)
   stave.setContext(context).draw()
   const notes = durations.map(duration => new EngravedNote({ keys, duration }))

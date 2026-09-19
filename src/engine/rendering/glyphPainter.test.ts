@@ -1,19 +1,19 @@
 // @vitest-environment jsdom
 import { describe, it, expect } from 'vitest'
-import { Element } from 'vexflow'
-import type { RenderContext } from 'vexflow'
+import type { DrawContext } from '@/engine/paint/DrawContext'
 import { drawGlyph, drawTextRun, measureGlyph } from './glyphPainter'
 
 /**
  * ⭐⭐ **THE CONTRACT IS EQUIVALENCE**, and that is the only thing worth asserting here.
  *
  * This module was extracted from nine files that each wrote the same four lines by hand
- * (`docs/own-engraving-engine.md` P1). Its whole job is to emit *exactly* what they emitted — so the
- * spec draws through the adapter, draws the same thing through a hand-built `Element`, and compares
- * the calls that reached the context. ⛔ A test that only checked "it called fillText once" would
- * pass just as happily on an adapter that had lost the font, the shift or the baseline.
+ * (`docs/own-engraving-engine.md` P1). Its whole job is to emit *exactly* what they emitted — a
+ * hand-built VexFlow `Element` (`setText` + `setFontSize` + `renderText`). ⭐ Since S14 VexFlow is gone,
+ * so what that `Element` emitted is PINNED as literals ({@link BY_HAND}), recorded from VexFlow 5.0.0
+ * on 2026-09-19 just before the package was removed. ⛔ A test that only checked "it called fillText
+ * once" would pass just as happily on an adapter that had lost the font, the shift or the baseline.
  *
- * ⚠️ **No width is asserted, on purpose.** `Element.getWidth` measures through a canvas jsdom does
+ * ⚠️ **No width is asserted, on purpose.** A glyph's width measures through a canvas jsdom does
  * not have, so every glyph here is 0 wide — see `reference: jsdom cannot measure glyphs`. Asserting
  * a width would be asserting a zero and agreeing with itself. The drawn positions live in the
  * browser suite (`e2e/trill.e2e.ts`, `e2e/keySignature.e2e.ts`, `e2e/barlineTypes.e2e.ts` all cover
@@ -23,30 +23,38 @@ import { drawGlyph, drawTextRun, measureGlyph } from './glyphPainter'
 type Call = { fn: string; args: unknown[] }
 
 /** A context that records rather than paints — `renderText` only ever calls these two. */
-function recorder(): { ctx: RenderContext; calls: Call[] } {
+function recorder(): { ctx: DrawContext; calls: Call[] } {
   const calls: Call[] = []
   const ctx = {
     setFont: (...args: unknown[]) => { calls.push({ fn: 'setFont', args }); return ctx },
     fillText: (...args: unknown[]) => { calls.push({ fn: 'fillText', args }); return ctx },
-  } as unknown as RenderContext
+  } as unknown as DrawContext
   return { ctx, calls }
 }
 
-/** The four lines every call site used to write, kept here as the thing to agree with. */
-function byHand(tag: string, glyph: string, sizePt: number, x: number, y: number): Call[] {
-  const { ctx, calls } = recorder()
-  const el = new Element(tag)
-  el.setText(glyph)
-  el.setFontSize(sizePt)
-  el.renderText(ctx, x, y)
-  return calls
-}
+/**
+ * What the four hand-written lines — `new Element(tag)`, `setText`, `setFontSize(sizePt)`,
+ * `renderText(ctx, x, y)` — sent to the context, recorded from VexFlow 5.0.0. ⚠️ The two tags resolve
+ * to different WEIGHTS: that difference is VexFlow's `Metrics` tree, now `fonts/fontCategories`.
+ */
+const BY_HAND = {
+  /** `('BarlineRenderer.wing', U+E040, 30pt, 12.5, 70)` */
+  wing: [
+    { fn: 'setFont', args: [{ family: 'Bravura,Academico', size: '30pt', weight: 'normal', style: 'normal' }] },
+    { fn: 'fillText', args: ['\ue040', 12.5, 70] },
+  ],
+  /** `('StaveTempo.name', 'Allegro', 14pt, 0, 0)` */
+  tempoName: [
+    { fn: 'setFont', args: [{ family: 'Bravura,Academico', size: '14pt', weight: 'bold', style: 'normal' }] },
+    { fn: 'fillText', args: ['Allegro', 0, 0] },
+  ],
+} satisfies Record<string, Call[]>
 
 describe('drawGlyph', () => {
   it('⭐⭐ emits exactly what the hand-written Element emitted — font AND baseline', () => {
     const { ctx, calls } = recorder()
     drawGlyph(ctx, 'BarlineRenderer.wing', '', 12.5, 70, 30)
-    expect(calls).toEqual(byHand('BarlineRenderer.wing', '', 30, 12.5, 70))
+    expect(calls).toEqual(BY_HAND.wing)
   })
 
   it('puts the glyph at the x and y it was given — the y is the BASELINE', () => {
@@ -56,13 +64,14 @@ describe('drawGlyph', () => {
   })
 
   // 🚨 The break-test for the one above: the tag is not decoration, it resolves the FONT
-  // (`Element` does `Metrics.getFontInfo(tag)`), so two different tags must be able to differ.
-  // Ours all fall through to the same default; a VexFlow category does not.
+  // (VexFlow's `Element` did `Metrics.getFontInfo(tag)`; ours is `categoryFont`), so two different
+  // tags must be able to differ. Ours all fall through to the same default; a VexFlow category does not.
   it('🚨 carries the TAG into the font resolution, not into the ink', () => {
     const { ctx, calls } = recorder()
     drawGlyph(ctx, 'StaveTempo.name', 'Allegro', 0, 0, 14)
     expect(calls[0]?.fn).toBe('setFont')
-    expect(calls[0]?.args).toEqual(byHand('StaveTempo.name', 'Allegro', 14, 0, 0)[0]?.args)
+    expect(calls[0]?.args).toEqual(BY_HAND.tempoName[0].args)
+    expect(calls[0]?.args).not.toEqual(BY_HAND.wing[0].args)
     expect(calls.find(c => c.fn === 'fillText')?.args).toEqual(['Allegro', 0, 0])
   })
 })

@@ -1,16 +1,15 @@
 // @vitest-environment jsdom
 import { describe, it, expect } from 'vitest'
-import { Renderer } from 'vexflow'
-import type { SVGContext } from 'vexflow'
 import type { DrawContext } from './DrawContext'
+import { SvgPainter } from '@/engine/rendering/SvgPainter'
 
 /**
- * ⭐⭐ **THE CLAIM THIS WHOLE STEP RESTS ON: VexFlow's `SVGContext` SATISFIES OUR `DrawContext`.**
+ * ⭐⭐ **THE PAGE'S PAINTER SATISFIES OUR `DrawContext`.**
  *
- * `DrawContext` implements nothing. Its entire value is that the engine can name *our* type while
- * the object flowing through is still VexFlow's — so the retype moved no pixels, and a recording
- * implementation (the SCENE) becomes a drop-in later. ⛔ If that assignability ever stops holding,
- * every renderer silently goes back to needing VexFlow, and nothing else in the suite would say so.
+ * `DrawContext` implements nothing. Its value is that the engine names *our* type, and whatever
+ * flows through — the page's `SvgPainter` (VexFlow's `SVGContext` until S13b), or the SCENE's
+ * recorder — is a drop-in. ⛔ If the painter ever stops satisfying it, nothing else in the suite
+ * would say so.
  *
  * ⚠️ **Which is exactly the kind of claim that rots without a check.** The plan doc measured the
  * cost of the alternative: for 16 days every stated rule was kept while the coupling grew 39%,
@@ -23,12 +22,11 @@ import type { DrawContext } from './DrawContext'
  * drift. ⛔ Neither replaces the other.
  */
 
-/** The interface is the SUBJECT here; the value is VexFlow's. jsdom has SVG DOM but no layout, which
- *  is all `Renderer` needs to hand back a context (`reference: jsdom cannot measure glyphs` is about
- *  MEASURING, not about constructing). */
-function realSvgContext(): SVGContext {
-  const host = document.createElement('div')
-  return new Renderer(host, Renderer.Backends.SVG).getContext() as SVGContext
+/** The interface is the SUBJECT here; the value is the page's painter. jsdom has SVG DOM but no
+ *  layout, which is all the painter needs to be built (`reference: jsdom cannot measure glyphs` is
+ *  about MEASURING, not about constructing). */
+function realSvgContext(): SvgPainter {
+  return new SvgPainter(document.createElement('div'))
 }
 
 /** Every method {@link DrawContext} declares, as data — so the runtime check cannot silently drift
@@ -56,8 +54,8 @@ export type EveryPrimitiveIsListed =
   AssertNever<Exclude<keyof DrawContext, (typeof PRIMITIVES)[number]>>
 
 describe('DrawContext', () => {
-  it("⭐⭐ is satisfied by VexFlow's SVGContext — the premise of the whole retype", () => {
-    // The assertion IS the assignment: if `SVGContext` ever stops satisfying `DrawContext`, this
+  it("⭐⭐ is satisfied by the page's SvgPainter", () => {
+    // The assertion IS the assignment: if `SvgPainter` ever stops satisfying `DrawContext`, this
     // line fails to compile and `npm run build:check` says so.
     const ctx: DrawContext = realSvgContext()
     expect(ctx).toBeDefined()
@@ -71,7 +69,7 @@ describe('DrawContext', () => {
 
   // 🚨 The break-test for the one above: it has to be able to NOTICE a missing method, or it is a
   // loop over a list that agrees with itself.
-  // ⚠️ `Object.create`, ⛔ NOT a spread: `SVGContext`'s methods live on its PROTOTYPE, so
+  // ⚠️ `Object.create`, ⛔ NOT a spread: the painter's methods live on its PROTOTYPE, so
   // `{ ...ctx }` copies none of them and every primitive reads as missing — which is how the first
   // version of this break-test "passed" for the wrong reason and then failed loudly. Shadowing one
   // name on a real prototype chain is the only way to remove exactly one method.

@@ -43,7 +43,8 @@ This file provides guidance to Claude Code when working with this repository.
 
 ## Project Overview
 
-A music score editor built with VexFlow and WebAudioFont, in plain TypeScript (no UI framework —
+A music score editor with its own engraving engine (first built on VexFlow, which was removed —
+docs/vexflow-removal-map.md) and WebAudioFont, in plain TypeScript (no UI framework —
 Vue was removed, see docs/remove-vue-plan.md). Users can add/edit notes on a staff, play back the
 score, and export/import JSON.
 
@@ -54,8 +55,9 @@ score, and export/import JSON.
   coming; `lint:boundary` refuses framework imports. New UI follows `windows/` and `menus/`:
   a module that builds its own elements and subscribes to state.
 - **Notation Rendering**: our own engine (`engine/engrave`, `engine/rendering`, painted by
-  `rendering/SvgPainter`). ⚠️ VexFlow 5 is still in `package.json` for the SPECS only — nothing the
-  app loads imports it since S13b; removing it is S14 of `docs/vexflow-removal-map.md`.
+  `rendering/SvgPainter`). ⭐ VexFlow is GONE from `package.json` (S14 of
+  `docs/vexflow-removal-map.md`), and `lint:boundary` refuses the import in every file, specs and
+  `e2e/` included. The code ported from it is credited in `NOTICE`. What is left is S15: the names.
 - **Audio Playback**: WebAudioFont (sampled General MIDI; samples fetched from CDN at play time)
 - **State Management**: `EditorState` — one plain object behind an emitting Proxy
   (`interactions/EditorState.ts`). `subscribe(fn)` fires once per top-level write, and that IS the
@@ -188,17 +190,17 @@ src/
                           #   than guess at a glyph we have not measured), a
                           #   `DrawContext` that records instead of painting. ⛔ no DOM, ⛔ no
                           #   vexflow, ⛔ no models. `VexFlowRenderer.recordScene(fn)` tees it onto
-                          #   the real painter ⇒ ⭐ GEOMETRY IS A UNIT TEST. ⚠️ It sees OUR
-                          #   primitives only; what VexFlow paints itself is the work LEFT.
+                          #   the real painter ⇒ ⭐ GEOMETRY IS A UNIT TEST. ⭐ Since S13b every
+                          #   ink on the page is ours, so it sees ALL of it; ⛔ not an INK EXTENT.
                           #   docs/own-engraving-engine.md §7.2, P1d
     paint/                # ⭐⭐ THE SURFACE WE DRAW ON, declared by US — `DrawContext` (20
                           #   primitives; the 20th is `bezierCurveTo`, U1's curve)
                           #   + `DrawGroup` (placement/inkBox/discard/tag/tagLast)
                           #   + `Affine` (⭐ a PLACEMENT is a matrix, ⛔ never an x/y).
                           #   ⛔ no DOM, ⛔ no vexflow, ⛔ no models. A pass takes
-                          #   `RenderPass.context`; `RenderPass.vexContext` and `svgNode()` are
-                          #   the VexFlow/DOM that is LEFT, and `npm run lint:paint` holds both
-                          #   ceilings (they may only fall). docs/own-engraving-engine.md P1b/P1c
+                          #   `RenderPass.context`; `RenderPass.painter` (our `SvgPainter`) and
+                          #   `svgNode()` are the DOM that is LEFT, and `npm run lint:paint` holds
+                          #   their ceilings (they may only fall). docs/own-engraving-engine.md P1b/P1c
     engrave/              # ⭐⭐ WHAT SYMBOLS, WHERE — music → ink through `paint/`, and the home
                           #   P3 moves the NOTE into one piece at a time (docs/note-engraving-plan.md).
                           #   ⛔ no DOM, ⛔ no vexflow (lint:boundary). `notes/ledgerLines` (P3a — the
@@ -207,8 +209,8 @@ src/
                           #   `measureText`) + `notes/modifierStart` (S5a — where a note offers its
                           #   modifiers a place to stand; the old monkeypatch is its `MarkAnchor` input)
                           #   + `notes/noteGeometry` (S6 — a note's x's, its displaced heads' room, the
-                          #   tie's left end; `EngravedNote` answers VexFlow's getters from it, so
-                          #   VexFlow's own Beam/Tuplet/StaveTie ask OUR rule)
+                          #   tie's left end; `EngravedNote` answers the beam's, tuplet's and tie's
+                          #   questions from it — VexFlow's getters, transcribed)
                           #   + `notes/keyLines` (S6d — ⭐ WHAT EACH KEY PUTS ON THE STAFF: its LINE
                           #   (`staffLineForSpelling`, the rule the fan already used), its head GLYPH, and
                           #   VexFlow's coarse second-apart flag; ⛔ NOT the displacement walk, which is
@@ -335,7 +337,7 @@ loadJSON(json: string): void
 
 ## Key Implementation Details
 
-- **Stem direction**: Calculated based on pitch relative to middle line (B4 for treble clef). Must use `staveNote.setStemDirection()` after creation - VexFlow ignores constructor option.
+- **Stem direction**: Calculated based on pitch relative to middle line (B4 for treble clef). `NoteBuilder` sets it with `setStemDirection()` after creating the `EngravedNote` — a habit from VexFlow, whose constructor ignored the option; ours honours `stemDirection`.
 - **Coordinate mapping**: VexFlowRenderer stores measure bounds; CoordinateMapper converts between pixels and musical positions.
 - **Collision detection**: CollisionDetector checks for overlapping notes at same beat/pitch.
 - **Rest handling**: Empty beats are filled with rests automatically.
@@ -380,6 +382,6 @@ browser suite".
 ⭐⭐ **…except through a SCENE, and that exception is now the preferred route where it reaches.**
 `VexFlowRenderer.recordScene(fn)` renders normally and hands back what was drawn as plain values
 (`engine/scene/`), so *"the barline of bar 3 stands right of bar 2's"* is arithmetic in jsdom —
-see `VexFlowRenderer.scene.test.ts`. ⚠️ It sees what OUR primitives drew, ⛔ **never** what a
-VexFlow object painted itself (noteheads, stems, beams, the stave's own lines) and ⛔ never an INK
-EXTENT, which still needs a font. The browser suite stays for exactly that half.
+see `VexFlowRenderer.scene.test.ts`. ⭐ Since S13b every ink on the page is drawn through our
+primitives — noteheads, stems, beams and the stave's own lines included — so the scene sees all of
+it. ⛔ It never gives an INK EXTENT, which still needs a font. The browser suite stays for that half.

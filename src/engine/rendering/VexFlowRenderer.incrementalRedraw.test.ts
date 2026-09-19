@@ -17,7 +17,7 @@ import { describe, it, expect, vi } from 'vitest'
 import { levelToGlyphString } from '@/utils/dynamics'
 import { ScoreModel } from '../models/ScoreModel'
 import { VexFlowRenderer } from './VexFlowRenderer'
-import { Renderer } from 'vexflow'
+import { SvgPainter } from './SvgPainter'
 import { laneFingerprint } from './MeasureWidthCache'
 import { measureShapeKey } from './MeasureRedrawKey'
 import type { Measure } from '@/types/music'
@@ -446,22 +446,23 @@ describe('P5.4b — a bar that only moved is translated', () => {
     //
     // Ghosts are overlays (P4), so hovering does NOT re-render: `clearGhosts()` is the ONLY thing
     // that takes the previous one down, and it matches BY CLASS. Four of the five ghosts build
-    // their `<g>` by hand. The tempo ghost is the one that goes through VexFlow's
-    // `openGroup('ghost-tempo')` — **which prefixes the class with `vf-` itself**. The selector
+    // their `<g>` by hand. The tempo ghost is the one that goes through the painter's
+    // `openGroup('ghost-tempo')` — **which prefixes the class with `vf-` itself** (VexFlow's
+    // `SVGContext` did; `SvgPainter` transcribes it, until S15). The selector
     // said `.ghost-tempo`, matched nothing, and so every mouse position left its ghost behind: a
     // permanent blue smear across the score.
     //
-    // So don't assert the class we *think* VexFlow produces — ask VexFlow, then require
+    // So don't assert the class we *think* the painter produces — ask the painter, then require
     // `clearGhosts` to handle exactly that. (The real tempo-ghost draw path can't run here: it
     // needs `getBBox`, which jsdom does not implement.)
     const renderer = makeRenderer()
     renderer.renderScore(buildScore().getScore())
     const svg = renderer.getSVGElement()!
 
-    const probe = new Renderer(document.createElement('div'), Renderer.Backends.SVG).getContext()
+    const probe = new SvgPainter(document.createElement('div'))
     const groupClass = (probe.openGroup('ghost-tempo') as SVGGElement).getAttribute('class')!
     probe.closeGroup()
-    expect(groupClass).toBe('vf-ghost-tempo') // VexFlow's prefix — the whole trap
+    expect(groupClass).toBe('vf-ghost-tempo') // the painter's prefix — the whole trap
 
     // A ghost of exactly that shape must be removable.
     const ghost = document.createElementNS('http://www.w3.org/2000/svg', 'g')

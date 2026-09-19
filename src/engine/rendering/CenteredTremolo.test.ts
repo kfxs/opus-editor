@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect } from 'vitest'
-import { Renderer } from 'vexflow'
+import { SvgPainter } from './SvgPainter'
 import { EngravedNote, drawNoteInkThrough } from './EngravedNote'
 import { EngravedStave } from './EngravedStave'
 import { formatLoneNote } from './loneNote'
@@ -24,7 +24,7 @@ import { attachModifier } from './EngravedModifier'
 /** Format and draw one note, alone in a bar of 1/4, by the score's own pipeline. */
 function drawLoneNote(note: EngravedNote): void {
   const div = document.createElement('div')
-  const ctx = new Renderer(div, Renderer.Backends.SVG).getContext()
+  const ctx = new SvgPainter(div)
   const stave = new EngravedStave(10, 40, 400)
   formatLoneNote(note, stave, { numerator: 1, denominator: 4 }, 300)
   drawNoteInkThrough([note], ctx)

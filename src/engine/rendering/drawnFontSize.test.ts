@@ -1,13 +1,13 @@
 /**
  * {@link drawnFontSize} — **a glyph size is in POINTS and is drawn in PIXELS**.
  *
- * ⭐ The one claim worth a test is the factor itself, and where it comes from: it is VexFlow's, not
- * ours (`Font.scaleToPxFrom.pt = 4/3`), so the day that library changes its mind this is what says
- * so. ⛔ The ink RATIOS are not tested here — they are measured in the browser, and their own files
+ * ⭐ The one claim worth a test is the factor itself, and where it comes from: it is CSS's — a point
+ * is 1/72 in, a pixel 1/96 in — which is what the browser applies to the `font-size="Npt"` the painter
+ * writes (VexFlow's `Font.scaleToPxFrom.pt = 4/3` said the same). ⛔ The ink RATIOS are not tested
+ * here — they are measured in the browser, and their own files
  * carry the numbers.
  */
 import { describe, it, expect } from 'vitest'
-import { Font } from 'vexflow'
 import { drawnFontPx, inkSpaces } from './drawnFontSize'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 
@@ -16,10 +16,10 @@ describe('drawnFontPx', () => {
     expect(drawnFontPx(26)).toBeCloseTo(34.667, 3)
   })
 
-  it('🚨 …and the factor is VEXFLOW’s own, read from it rather than restated', () => {
+  it('🚨 …and the factor is CSS’s own — 72 points to the inch, 96 pixels', () => {
     // The whole bug in one line: every ink table here multiplied a ratio by the bare size and called
     // the answer pixels, which under-modelled every outside-staff mark by a quarter (2026-08-21).
-    expect(drawnFontPx(30)).toBeCloseTo(Font.convertSizeToPixelValue(30), 6)
+    expect(drawnFontPx(72)).toBeCloseTo(96, 6)
   })
 
   it('0 stays 0 — nothing drawn is nothing tall', () => {

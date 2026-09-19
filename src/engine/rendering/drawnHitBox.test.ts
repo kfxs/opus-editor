@@ -11,7 +11,7 @@
  * geometry"*.
  */
 import { describe, it, expect } from 'vitest'
-import { Renderer } from 'vexflow'
+import { SvgPainter } from './SvgPainter'
 import { EngravedAccidental } from './EngravedAccidental'
 import { EngravedNote, drawNoteInkThrough } from './EngravedNote'
 import { EngravedStave } from './EngravedStave'
@@ -28,9 +28,7 @@ import { standOn } from './staveFrame'
 function drawnSign(sign: string): EngravedAccidental {
   const div = document.createElement('div')
   document.body.appendChild(div)
-  const renderer = new Renderer(div, Renderer.Backends.SVG)
-  renderer.resize(500, 200)
-  const ctx = renderer.getContext()
+  const ctx = new SvgPainter(div).resize(500, 200)
   const stave = new EngravedStave(10, 40, 400)
   const note = new EngravedNote({ keys: ['c/4'], duration: 'q' })
   standOn(note, stave)

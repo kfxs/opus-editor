@@ -103,8 +103,11 @@ const CEILINGS = {
   'R6 object graph': 0,
   'R7 numbers+fonts': 0,
 }
-/** The specs' uses, one number: a spec that imports VexFlow has to move with its subject too. */
-const TEST_CEILING = 58
+/** The specs' uses, one number: a spec that imports VexFlow has to move with its subject too.
+ *  ⭐ S14 (2026-09-19): 58 → 0, and the package left `package.json` — so every uses-count here can only
+ *  read 0 from now on (nothing under `node_modules/vexflow` to resolve to), and `lint:boundary`
+ *  refuses the import outright. What this script still guards is the NAMES below, until S15. */
+const TEST_CEILING = 0
 
 /** ⚠️ The NAME ceilings, measured 2026-09-14 (map §9.3); S11e 'identifiers' 113 → 110; S12e 'identifiers in tests' 150 → 147; S12h 'identifiers' 110 → 104. Same rule: lower them as renames land;
  *  ⛔ never raise. 'identifiers in tests' and 'vf- in tests' include `e2e/`, scanned as text.

@@ -1,6 +1,6 @@
 # Opus Score Editor
 
-A music score editor built with VexFlow and WebAudioFont.
+A music score editor with its own engraving engine, and WebAudioFont for playback.
 
 Work in progress — this is an experiment under development.
 
@@ -20,7 +20,7 @@ Work in progress — this is an experiment under development.
 ## Tech Stack
 
 - No UI framework — plain TypeScript and the DOM (Vue was removed; see docs/remove-vue-plan.md)
-- VexFlow 5 — notation rendering
+- Our own engraving engine — notation rendering (first built on VexFlow 5, since removed; its MIT-licensed ports are credited in `NOTICE`)
 - WebAudioFont — sampled General-MIDI audio playback (samples fetched from CDN at play time)
 - Tailwind CSS — styling
 - Vite — build

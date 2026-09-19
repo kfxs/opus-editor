@@ -1,0 +1,44 @@
+NOTICE — third-party code in this project
+
+This project is licensed under the GNU Affero General Public License v3 (see LICENSE).
+Parts of it are ports of code from the projects below, used under their own licences.
+
+--------------------------------------------------------------------------------
+VexFlow 5.0.0 — https://github.com/vexflow/vexflow — MIT licence
+--------------------------------------------------------------------------------
+
+The score engine (src/engine/engrave, src/engine/rendering, src/engine/layout,
+src/engine/fonts) contains code transcribed from VexFlow 5.0.0. Until 2026-09-19 VexFlow
+was a runtime dependency; it was removed step by step (docs/vexflow-removal-map.md). Each
+ported function carries a comment naming the VexFlow method it transcribes.
+
+VexFlow - A JavaScript library for rendering music notation.
+
+Copyright (c) 2023-present VexFlow contributors (see AUTHORS.md).
+Copyright (c) 2010-2022 Mohit Muthanna Cheppudira
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+
+--------------------------------------------------------------------------------
+Music fonts — SIL Open Font License 1.1
+--------------------------------------------------------------------------------
+
+Bravura: see public/fonts/OFL.txt.
+Academico: OFL 1.1 (docs/smufl-fonts-research.md); its own licence file is not yet in
+public/fonts.
