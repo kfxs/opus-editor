@@ -5,7 +5,8 @@ import { CollisionDetector } from './models/CollisionDetector'
 import { CoordinateMapper } from './rendering/CoordinateMapper'
 import { ElementRegistry } from './ElementRegistry'
 import { fracCreate as frac, fracToNumber } from '@/utils/fraction'
-import { durationToFraction } from '@/utils/durations'
+import { durationToFraction, slotLength } from '@/utils/durations'
+import { staffIndexOfId } from './models/staffContent'
 import type { NoteDuration } from '@/types/music'
 import { tupletSpan, tupletSlotDuration } from '@/utils/musicUtils'
 
@@ -595,5 +596,44 @@ describe('NoteEntryCoordinator — a tuplet must fit the bar', () => {
   it('ALLOWS a triplet of halves at beat 0 — the whole bar is exactly its span', () => {
     const rest = scoreModel.addNote({ duration: 'h', measure: 1, beat: frac(0, 1), isRest: true })
     expect(coordinator.applyTupletToNote(rest.id, 3, 2)).not.toBeNull()
+  })
+})
+
+/**
+ * 🐛 `docs/vexflow-removal-map.md` §9.4 #7 — a note entered on one staff JOINED a tuplet on ANOTHER
+ * staff at that beat: the tuplet lookup was scoped to the entry VOICE and never to its STAFF, so a
+ * top-staff triplet claimed a bottom-staff quarter, which then sounded ⅔ of a beat and left its bar
+ * short. Found by S13a's random-score probe (all 18 of its integrity failures were this).
+ */
+describe('NoteEntryCoordinator — a tuplet governs only its own STAFF', () => {
+  let scoreModel: ScoreModel
+  let coordinator: NoteEntryCoordinator
+
+  beforeEach(() => {
+    scoreModel = new ScoreModel('Test')
+    scoreModel.addStaff(0, 'below')
+    const tuplet = scoreModel.createTuplet(1, frac(0, 1), '8', 3, 2, 0, 0)!
+    scoreModel.refillTupletRemainder(1, tuplet)
+    coordinator = makeCoordinator(scoreModel)
+  })
+
+  const bottomStaffNotes = () => scoreModel.getNotesInMeasure(1).filter(n => (n.staff ?? 0) === 1)
+
+  it('⭐ a quarter entered on the BOTTOM staff under a top-staff triplet is a plain quarter', () => {
+    const note = coordinator.addNoteAtBeat({ step: 'C', alter: 0, octave: 3, duration: 'q', measure: 1, beat: frac(0, 1), staff: 1 })
+    expect(note, 'the entry was placed').not.toBeNull()
+    expect(note!.tupletId, 'it must not join the other staff’s triplet').toBeUndefined()
+    // ⚠️ Summed by hand, SOUNDING lengths (`slotLength` — a tuplet member's `actualDuration`):
+    // `validateMeasure` predates staves and lumps both staves' voice 0 together.
+    const score = scoreModel.getScore()
+    const bottomSlots = scoreModel.getMeasure(1)!.slots.filter(sl => staffIndexOfId(score, sl.staffId) === 1)
+    const beats = bottomSlots.reduce((sum, sl) => sum + fracToNumber(slotLength(sl)), 0)
+    expect(beats, 'the bottom staff still fills its bar — before the fix it came ⅔ of a beat short').toBe(4)
+  })
+
+  it('🚨 …while the TOP staff’s own entry still joins its triplet — the scoping, not the feature, changed', () => {
+    const note = coordinator.addNoteAtBeat({ step: 'E', alter: 0, octave: 5, duration: '8', measure: 1, beat: frac(0, 1), staff: 0 })
+    expect(note!.tupletId, 'an entry inside its own staff’s tuplet joins it').toBeDefined()
+    expect(bottomStaffNotes().every(n => n.tupletId === undefined)).toBe(true)
   })
 })

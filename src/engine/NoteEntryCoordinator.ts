@@ -71,7 +71,7 @@ export class NoteEntryCoordinator {
     let tupletId = params.tupletId
     const tupletAtBeat = tupletId
       ? (targetMeasure.tuplets || []).find(t => t.id === tupletId)
-      : this.getScoreModel().getTupletAtBeat(params.measure, params.beat, voiceOf(params))
+      : this.getScoreModel().getTupletAtBeat(params.measure, params.beat, voiceOf(params), staffOf(params))
 
     if (tupletAtBeat && !tupletId) {
       tupletId = tupletAtBeat.id
@@ -347,9 +347,10 @@ export class NoteEntryCoordinator {
     // Check if the final beat falls within a tuplet
     // If so, snap to the nearest tuplet beat and inherit the tuplet ID
     let tupletId: string | undefined
-    // Scope to the entry voice — a tuplet in another voice must not govern this
-    // placement (e.g. a voice-0 triplet must not reject a plain voice-2 note).
-    const tupletAtBeat = this.getScoreModel().getTupletAtBeat(measureNumber, finalBeat, entryVoice)
+    // Scope to the entry voice AND staff — a tuplet in another voice, or on another staff, must not
+    // govern this placement (a voice-0 triplet must not reject a plain voice-2 note; a top-staff
+    // triplet must not claim a bottom-staff note — `vexflow-removal-map.md` §9.4 #7).
+    const tupletAtBeat = this.getScoreModel().getTupletAtBeat(measureNumber, finalBeat, entryVoice, entryStaff)
 
     if (tupletAtBeat) {
       const selectedDurationFrac = durationToFraction(duration, dots)
