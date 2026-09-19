@@ -13,7 +13,8 @@
  *    ⭐ S11 (`docs/vexflow-removal-map.md`) is moving them out one family at a time, each drawn by the
  *    score's OWN classes on our surface: the clef + meter (`./HeaderSignGhost`), the marks and the
  *    dynamic (`./MarkGhost`), the tempo mark (`./TempoGhost`), the rest (`./RestGhost`) and the fan head
- *    (`./FanGhost`) — all of them now; only the NOTE ghost below still builds VexFlow objects (S11e).
+ *    (`./FanGhost`). ⭐ The NOTE ghost below too, since S11e: every ghost is drawn by the score's own
+ *    classes on a `DrawContext`, and no ghost module imports VexFlow.
  *
  * Every one of them is an **overlay** (docs/render-performance-plan.md §5b): it draws into its own
  * class-tagged `<g>` appended last, so putting one up or taking it down is a DOM append/remove
@@ -27,14 +28,14 @@
  * real context. What each still guards for itself is its own emptiness (a tempo mark with no text,
  * an empty articulation list): that is about the MARK, not about the page.
  */
-import { Stave, StaveNote, Voice, Formatter, Accidental, Articulation, Modifier, Dot, type SVGContext } from 'vexflow'
+import type { DrawContext } from '@/engine/paint/DrawContext'
 import type { Score, Clef, GhostNote, NoteDuration, PitchStep, ArticulationType } from '@/types/music'
 import type { ToolGhost } from './ghostTypes'
 import { fracToNumber, fracCreate, fracAdd } from '@/utils/fraction'
 import { beatToFrac } from '@/utils/musicUtils'
 import { measureCapacityFrac } from '@/utils/measureCapacity'
 import { durationToVexflow, writtenLength } from '@/utils/durations'
-import { getMeterInfo, timeSignatureVexKey } from '@/utils/meter'
+import { getMeterInfo } from '@/utils/meter'
 import { fillRests, type RestSlot } from '@/utils/restFill'
 import { measureEndingClef, effectiveClefAt, middleLineDiatonicPos, resolveStaffClefs } from '@/utils/clefUtils'
 import { spellingToVexflowKey, spellingDiatonicPos, alterToString } from '@/utils/pitchSpelling'
@@ -60,6 +61,17 @@ import { drawTempoGhost, TEMPO_GHOST_GROUP_CLASS } from './TempoGhost'
 import { drawRestGhost, REST_GHOST_GROUP_CLASS } from './RestGhost'
 import type { SurfaceMetrics } from '@/engine/layout/surface'
 import { barFrame, staveFrame } from './staveFrame'
+import { drawGroupOf, svgNode } from './svgDrawGroup'
+import { EngravedNote, drawNoteInkThrough } from './EngravedNote'
+import { EngravedStave } from './EngravedStave'
+import { EngravedAccidental } from './EngravedAccidental'
+import { EngravedArticulation } from './EngravedArticulation'
+import { attachEngravedDots } from './EngravedDot'
+import { BarVoice } from './barVoice'
+import { attachModifierColumns } from './modifierColumns'
+import { formatColumns } from './columnFormat'
+import { drawMarkOn } from './glyphPainter'
+import { noteRuler } from './noteRuler'
 
 /**
  * The preview ghosts (note / clef / time-sig / dynamic / tempo …) each draw into their own
@@ -86,7 +98,7 @@ export const GHOST_GROUP_SELECTOR =
 const GHOST_TUPLET_NUMBER_GAP = 1.5
 
 export function drawNoteGhost(
-  ctx: SVGContext,
+  ctx: DrawContext,
   svg: SVGElement,
   ghostNote: GhostNote,
   score: Score,
@@ -165,27 +177,28 @@ export function drawNoteGhost(
     const scale = staffId ? resolveStaffSize(score, staffId) : 1
     const isFirstInLine = measureX === lineLeft
     // The ghost sits at a real pitch, so it gets real ledger lines — same ink as the engraved ones.
-    const tempStave = new Stave(measureX / scale, measureY / scale, staveWidth / scale)
+    // ⭐ S11e: the score's own stave class, given its signs the way `VexFlowRenderer` gives a bar its
+    // own — so the note area the ghost is formatted into is walked by the same rule.
+    const tempStave = new EngravedStave(measureX / scale, measureY / scale, staveWidth / scale)
     tempStave.setDefaultLedgerLineStyle(LEDGER_LINE_STYLE)
     if (ghostNote.measure === 1 || isFirstInLine) {
-      tempStave.addClef(openingClef)
+      tempStave.addClefSign(openingClef, 'default')
     } else if (hasClefChange) {
-      tempStave.addClef(openingClef, 'small')
+      tempStave.addClefSign(openingClef, 'small')
     }
     if (drawsTimeSignature(measure)) {
-      tempStave.addTimeSignature(timeSignatureVexKey(measure.timeSignature))
+      tempStave.addMeter(measure.timeSignature)
     }
     // Match the real stave's note area so the ghost note aligns with where the committed note
     // will land (a cautionary end clef narrows the note area) — and match it on THIS staff, since
     // the courtesy is per staff now and only some staves may carry one.
     const ghostCautionaryClef = widthInfo.cautionaryEndClefs?.[staffIndex]
     if (ghostCautionaryClef) {
-      tempStave.addEndClef(ghostCautionaryClef, 'small')
+      tempStave.addClefSign(ghostCautionaryClef, 'small', 'closing')
     }
     if (widthInfo.cautionaryEndTimeSig) {
-      tempStave.addEndTimeSignature(timeSignatureVexKey(widthInfo.cautionaryEndTimeSig))
+      tempStave.addMeter(widthInfo.cautionaryEndTimeSig, 'closing')
     }
-    tempStave.setContext(ctx)
 
     const vexNote = spellingToVexflowKey(ghostNote.step, ghostNote.alter, ghostNote.octave)
     const vexDuration = convertDuration(ghostNote.duration as NoteDuration, ghostNote.dots || 0)
@@ -209,7 +222,7 @@ export function drawNoteGhost(
     }
     checkDiatonic(ghostNote.step, ghostNote.octave)
 
-    const staveNote = new StaveNote({
+    const staveNote = new EngravedNote({
       keys: [vexNote],
       duration: vexDuration,
       clef,
@@ -219,15 +232,15 @@ export function drawNoteGhost(
 
     const dots = ghostNote.dots || 0
     for (let d = 0; d < dots; d++) {
-      Dot.buildAndAttach([staveNote], { all: true })
+      attachEngravedDots(staveNote)
     }
 
     if (ghostNote.alter !== 0) {
       const sign = alterToString(ghostNote.alter)
-      staveNote.addModifier(new Accidental(sign), 0)
+      staveNote.addModifier(new EngravedAccidental(sign), 0)
     } else if (ghostNote.forceAccidental) {
       // Armed natural: alter 0 has no sign of its own, so draw the ♮ explicitly.
-      staveNote.addModifier(new Accidental('n'), 0)
+      staveNote.addModifier(new EngravedAccidental('n'), 0)
     }
 
     // The armed entry tremolo, through the SAME modifier the engraved mark uses — so the ghost
@@ -240,12 +253,12 @@ export function drawNoteGhost(
 
     if (ghostNote.articulations?.length) {
       const articulationVexCodes: Record<ArticulationType, string> = { accent: 'a>', staccato: 'a.', tenuto: 'a-' }
-      const articulationPosition = stemDirection === 1 ? Modifier.Position.BELOW : Modifier.Position.ABOVE
+      const articulationPosition = stemDirection === 1 ? 'below' : 'above'
       const sortedGhostArticulations = ghostNote.articulations.slice().sort(
         (a, b) => ARTICULATION_RENDER_ORDER.indexOf(a) - ARTICULATION_RENDER_ORDER.indexOf(b)
       )
       for (const art of sortedGhostArticulations) {
-        staveNote.addModifier(new Articulation(articulationVexCodes[art]).setPosition(articulationPosition), 0)
+        staveNote.addModifier(new EngravedArticulation(articulationVexCodes[art]).setPosition(articulationPosition), 0)
       }
     }
 
@@ -256,38 +269,37 @@ export function drawNoteGhost(
     const noteEnd = fracAdd(noteStart, writtenLength(ghostNote))
 
     const makeRest = (r: RestSlot) => {
-      const sn = new StaveNote({ keys: [restKey(r.duration)], duration: durationToVexflow(r.duration, r.dots) + 'r' })
-      if (r.dots) Dot.buildAndAttach([sn], { all: true })
+      const sn = new EngravedNote({ keys: [restKey(r.duration)], duration: durationToVexflow(r.duration, r.dots) + 'r' })
+      if (r.dots) attachEngravedDots(sn)
       return sn
     }
 
-    const tickables: StaveNote[] = []
+    const tickables: EngravedNote[] = []
     for (const r of fillRests(fracCreate(0, 1), noteStart, meter)) tickables.push(makeRest(r))
     tickables.push(staveNote)
     for (const r of fillRests(noteEnd, measureCapacityFrac(measure), meter)) tickables.push(makeRest(r))
 
-    // VexFlow wants the literal time signature, not quarter-beats.
-    const voice = new Voice({
-      numBeats: measure.timeSignature.numerator,
-      beatValue: measure.timeSignature.denominator,
-    }).setMode(Voice.Mode.SOFT)
-    voice.addTickables(tickables)
+    // The voice takes the literal time signature, not quarter-beats.
+    const voices = [new BarVoice(measure.timeSignature, 'soft').addAll(tickables)]
 
     const tempBar = barFrame(tempStave)
     const noteAreaWidth = tempBar.noteEndX - tempBar.noteStartX
     const rightPadding = 15
     const formatWidth = noteAreaWidth > 0 ? Math.max(noteAreaWidth - rightPadding, 50) : staveWidth - 100
-    new Formatter().joinVoices([voice]).format([voice], formatWidth)
+    // ⚠️ Formatted BEFORE the note is put on the stave, as the throwaway VexFlow voice was.
+    attachModifierColumns(voices)
+    formatColumns(voices, formatWidth)
 
     staveNote.setStave(tempStave)
 
+    const ruler = noteRuler(staveNote)
     let targetShiftX: number | null = null
     if (ghostNote.rawX !== undefined) {
       try {
         // `rawX` is the pointer, in SVG coordinates; `getAbsoluteX` answers in the stave's own.
         // The transform below translates in the PARENT's space, so the note's x has to be carried
         // out of the staff's before the two are subtracted.
-        const noteX = staveNote.getAbsoluteX() * scale
+        const noteX = ruler.originX * scale
         targetShiftX = ghostNote.rawX - noteX
       } catch (_e) {
         // getAbsoluteX might not be available before draw
@@ -295,7 +307,8 @@ export function drawNoteGhost(
     }
 
     const childrenBefore = svg.children.length
-    staveNote.setContext(ctx).draw()
+    drawNoteInkThrough([staveNote], ctx)
+    drawMarkOn(ctx, staveNote)
 
     // The armed tuplet's number, over the ghost — "this click STARTS a 5:4", which a notehead
     // alone cannot say. Drawn by the engraved mark's own `layoutTupletMark`, so the font is the
@@ -318,16 +331,15 @@ export function drawNoteGhost(
       // notes needs one height for all of them) and wrong for a ghost, which is ONE note following
       // the cursor — clamped, the number stops tracking and drifts away from the notehead as you
       // move down the staff.
-      const stem = staveNote.getStemExtents()
-      const anchorY = !staveNote.hasStem()
-        ? Math.min(...staveNote.getYs()) // a whole note: the notehead is the whole of it
+      const anchorY = !ruler.hasStem
+        ? Math.min(...ruler.headYs) // a whole note: the notehead is the whole of it
         : stemDirection === 1
-          ? stem.topY // stem up — the tip is the highest point
-          : stem.baseY // stem down — the stem hangs below, so the notehead is
+          ? ruler.stemTipY // stem up — the tip is the highest point
+          : ruler.stemBaseY // stem down — the stem hangs below, so the notehead is
       // Centred on the NOTEHEAD, not on the note's origin: `getAbsoluteX()` is where the note
       // attaches (accidentals and dots push it around), so a number centred there sits off to one
       // side of the head it belongs to. The head's own two edges say where it actually is.
-      const headCenterX = (staveNote.getNoteHeadBeginX() + staveNote.getNoteHeadEndX()) / 2
+      const headCenterX = (ruler.headLeftX + ruler.headRightX) / 2
       // Every run centred as ONE mark, on one baseline — see ScoreTuplet.draw.
       drawTupletMark(
         ctx,
@@ -425,7 +437,7 @@ export function drawNoteGhost(
  * Positioned by absolute path coordinates, so it needs no bbox measure or `translate` either.
  * @returns true if a ghost tie was drawn
  */
-function drawTieGhost(ctx: SVGContext, cursorX: number, cursorY: number): boolean {
+function drawTieGhost(ctx: DrawContext, cursorX: number, cursorY: number): boolean {
   try {
     // The arc BEGINS at the cursor and runs to the right, rather than being centred on it — a tie
     // starts at the note you click and reaches forward to the next, so its head belongs where the
@@ -444,7 +456,7 @@ function drawTieGhost(ctx: SVGContext, cursorX: number, cursorY: number): boolea
       { x: 0, y: CURVE_PX.tieBow },
     ]
 
-    const group = ctx.openGroup('ghost-tie') as SVGGElement
+    const opened = drawGroupOf(ctx.openGroup('ghost-tie'))
     try {
       drawCurveArc(
         { context: ctx },
@@ -459,8 +471,11 @@ function drawTieGhost(ctx: SVGContext, cursorX: number, cursorY: number): boolea
     // the other ghosts), and never through the context: see the note above. An arc emits TWO paths
     // — a stroke-only outline and a fill-only body — so set fill AND stroke on each, or the ghost
     // shows a blue body with a black outline (the same rule as HighlightController.colorTieGroup).
-    group.setAttribute('opacity', '0.7')
-    group.querySelectorAll('path').forEach(p => {
+    if (!opened) return false
+    opened.tag('opacity', '0.7')
+    // ⛔ The NODE: recolouring the drawn shapes is DOM work on ink — the counted escape
+    //   (`npm run lint:paint`), where an uncounted `as SVGGElement` cast of VexFlow's `openGroup` was.
+    svgNode(opened)!.querySelectorAll('path').forEach(p => {
       p.setAttribute('fill', '#3B82F6')
       p.setAttribute('stroke', '#3B82F6')
     })
@@ -481,7 +496,7 @@ function drawTieGhost(ctx: SVGContext, cursorX: number, cursorY: number): boolea
  * ({@link ToolGhost}) travels whole and only this table knows which glyph goes with which kind.
  *
  * ⚠️ The rows are **adapters, not the bare exports**. The drawers above have genuinely different
- * signatures — `drawClefGhost` needs the score's `<svg>` (it hangs a real Stave off it),
+ * signatures — `drawClefGhost` needs the score's `<svg>` (it sweeps what it drew into its own group),
  * `drawTempoGhost` does not — and that difference is each drawer's own business, not something to
  * normalise away by giving five of them a parameter they ignore. The adapter is where the two
  * shapes meet, and it is one line.
@@ -494,7 +509,7 @@ function drawTieGhost(ctx: SVGContext, cursorX: number, cursorY: number): boolea
  */
 export const GHOST_DRAWERS: {
   [K in ToolGhost['kind']]: (
-    ctx: SVGContext, svg: SVGElement, cursorX: number, cursorY: number,
+    ctx: DrawContext, svg: SVGElement, cursorX: number, cursorY: number,
     ghost: Extract<ToolGhost, { kind: K }>,
   ) => boolean
 } = {
@@ -527,10 +542,10 @@ export const GHOST_DRAWERS: {
  * than the lookup being written out at the call site.
  */
 export function drawToolGhost(
-  ctx: SVGContext, svg: SVGElement, cursorX: number, cursorY: number, ghost: ToolGhost,
+  ctx: DrawContext, svg: SVGElement, cursorX: number, cursorY: number, ghost: ToolGhost,
 ): boolean {
   const draw = GHOST_DRAWERS[ghost.kind] as (
-    ctx: SVGContext, svg: SVGElement, x: number, y: number, ghost: ToolGhost,
+    ctx: DrawContext, svg: SVGElement, x: number, y: number, ghost: ToolGhost,
   ) => boolean
   return draw(ctx, svg, cursorX, cursorY, ghost)
 }

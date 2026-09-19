@@ -68,8 +68,6 @@ const ALLOWED = new Map([
   ['engine/rendering/RenderPass.ts', 'declares `vexContext` — the named coupling itself'],
   ['engine/rendering/VexFlowRenderer.ts', 'OWNS the context: it is the one that creates it'],
   ['engine/rendering/glyphPainter.ts', 'THE ADAPTER — the one place VexFlow still paints a glyph'],
-  ['engine/rendering/GhostRenderer.ts', 'P3: ghosts built from VexFlow objects that paint themselves'],
-  ['engine/rendering/FanGhost.ts', 'P3: same, for the fan'],
   ['engine/rendering/barVoice.ts', 'S9i: `Voice.draw` transcribed — hands the notes the context they still paint themselves on (was `voice.draw(this.context!)` in VexFlowRenderer); goes with S12/S13'],
   ['engine/rendering/fanArticulations.ts', 'P3: a stand-in `Articulation` placed on a swallowing probe context — the INK is ours since S10 (`glyphPainter`)'],
   ['engine/rendering/ScoreTuplet.ts', 'holds `Element`s across layout and draw — see glyphPainter'],
@@ -96,10 +94,14 @@ const ALLOWED = new Map([
  *  ⚠️ `svgNode` 10 → **11** in the same step, and it is not growth: the member group was ALREADY handed
  *  to the editor as a DOM node (`fanMemberGroupMap`), through an uncounted `as unknown as SVGGElement`
  *  cast of VexFlow's `openGroup`. Opening it on our surface makes that escape the counted one, like
- *  the hairpin's and the slur's — the map predicted exactly this (S10 row). */
+ *  the hairpin's and the slur's — the map predicted exactly this (S10 row).
+ *  ⭐ S11e (2026-09-19): the ghosts leave the allowlist — every one is built from our own classes and
+ *  takes a `DrawContext`. ⚠️ `svgNode` 11 → **12** for the same reason as S10's: the tie ghost recolours
+ *  its arc's two paths through the page, and used to reach them through an UNCOUNTED `as SVGGElement`
+ *  cast of VexFlow's `openGroup`; on our surface that escape is the counted one. */
 const VEX_CONTEXT_CEILING = 7
 /** ⭐ P1c's number: the group handle's escape hatch to a real DOM node. */
-const SVG_NODE_CEILING = 11
+const SVG_NODE_CEILING = 12
 
 const NAMES = /\b(SVGContext|RenderContext|vexContext)\b/
 
