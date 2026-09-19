@@ -1,6 +1,6 @@
 # Code shape plan — 2026-09-19
 
-**Status: IN PROGRESS — Phase 1 DONE (2026-09-19), bar item 5's two ⏭️ decisions. Phase 2 DONE. Phase 3.1: the hairpin / ottava / pedal body drags done and checked; the trill's too (`cdb7f05`); the slur's done, awaiting his UI check. Eleven gestures are still the controller's.** Phases are ordered by
+**Status: IN PROGRESS — Phase 1 DONE (2026-09-19), bar item 5's two ⏭️ decisions. Phase 2 DONE. Phase 3.1: the hairpin / ottava / pedal body drags done and checked; the trill's too (`cdb7f05`); the slur's too (`69e927c`); the four SQUARE drags done, awaiting his UI check. Ten gestures are still the controller's.** Phases are ordered by
 value over risk; each one stands alone and can be stopped after. A done item carries ✅ and what
 actually happened where that differs from what was planned.
 
@@ -245,10 +245,20 @@ Run the e2e suite either side of each step.
    delta-since-the-last-accepted-cursor IS the position `slurBodyDragStep` converts when measured
    from a fixed origin, so the arithmetic and the refusal rule stay in `slurBodyDrag.ts` and the
    row is one line. The scale is still measured once, at the press. Its first wiring spec.
-   `MouseController` kinds 779 → 742. ⏸️ Awaiting his UI check.*
+   `MouseController` kinds 779 → 742. ✅ His UI check passed (`69e927c`).*
+
+   *Fourth — the four span families' SQUARE drags, `drags/markEnd.ts`: the `MARK_END_DRAGS` table
+   moved whole (its `endsOnWrap` column was `true` four times, so it is now the frame's rule), and
+   `MarkEndSession` + the controller's shared `markHold` became closure state. ⭐ Its frame and the
+   trill body's were the same frame — the hold, the latch, the wrap — so both are now rows of ONE
+   helper, `drags/heldDrag.ts` (`bodyDrag` is that frame without the hold). `trillBody.ts` was
+   ported onto it in the same step; its spec passed unchanged before the frame-level tests moved
+   to `heldDrag.test.ts`. `MouseController.markEndDrag.test.ts` (event-driven, all four families)
+   passed UNCHANGED. `MouseController` kinds 742 → 718, lines 1,891 → 1,792. ⏸️ Awaiting his UI
+   check — the squares, and the trill body again since it was re-seated.*
 
    *Still the controller's own (no `move`): note, barWidth, barlineJoin, clef, staffSpacing,
-   staffGroupSpan, slurHandle, slurEndpoint, dynamic, tempo, markEnd.*
+   staffGroupSpan, slurHandle, slurEndpoint, dynamic, tempo.*
 2. **A `keys` column on `ELEMENT_SPECS`** — `{ nudge, reset }` first — and one dispatcher.
    Replaces the four `||` chains and the 61 closures.
 

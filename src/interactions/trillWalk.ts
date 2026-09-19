@@ -1212,7 +1212,7 @@ export function dragTrillEndpoint(
   // ⭐⭐ **IT WRAPS, exactly as the other three do** — {@link wrapPort} + `markBreakWrap`, ⛔ not a
   // rule of its own. `breakCrossing` reports ARRIVED when the hand passes the line's edge (either
   // edge — the test is symmetric), `leaveSystem` re-anchors the end onto the next system's stop and
-  // lands a `WRAP_STUB_SS` stub inside it, and `MARK_END_DRAGS.trill.endsOnWrap` then ends the
+  // lands a `WRAP_STUB_SS` stub inside it, and `drags/heldDrag` (a wrap ends the gesture) then ends the
   // gesture with the square still armed, so the arrows carry on from over there.
   // ⚠️ The cursor goes in ON THE RIBBON, because everything else this family hands `breakCrossing`
   //   is measured there ({@link cursorOnRibbon}).
