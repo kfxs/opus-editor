@@ -56,3 +56,40 @@ describe('formatColumns', () => {
     expect(new Set(xs).size).toBe(4)
   })
 })
+
+describe('TickColumn — ours since S12j-b (VexFlow\'s `TickContext`, transcribed)', () => {
+  /** A stand-in tickable: its ticks, and the column it is told it stands in. */
+  const tickable = (numerator: number, denominator = 1) => {
+    const t = { ticks: { numerator, denominator }, column: undefined as unknown,
+      shouldIgnoreTicks: () => false, getTicks: () => t.ticks, setTickContext: (c: unknown) => { t.column = c } }
+    return t
+  }
+  type Stand = Parameters<TickColumn['addTickable']>[0]
+
+  it('⭐ keeps the longest and shortest tickables — compared unreduced, kept as copies', () => {
+    const column = new TickColumn({ tickID: 0 })
+    const a = tickable(4096), b = tickable(16384, 2), c = tickable(2048)
+    for (const t of [a, b, c]) column.addTickable(t as unknown as Stand)
+    expect(column.getMaxTicks()).toEqual({ numerator: 16384, denominator: 2 })
+    expect(column.getMaxTicks()).not.toBe(b.ticks)
+    expect(column.getMinTicks()).toEqual({ numerator: 2048, denominator: 1 })
+    expect(column.getMaxTickable()).toBe(b)
+    expect(a.column).toBe(column)
+  })
+
+  it('files each tickable by its voice, and pads its width by one either side', () => {
+    const column = new TickColumn()
+    const t = tickable(4096)
+    column.addTickable(t as unknown as Stand, 1)
+    expect(column.getTickableForVoice(1)).toBe(t)
+    column.width = 10
+    expect(column.getWidth()).toBe(12)
+  })
+
+  it('moves its x by an offset over a base — `setXOffset` after `setX`', () => {
+    const column = new TickColumn()
+    column.setX(100)
+    column.setXOffset(5)
+    expect([column.getX(), column.getXBase(), column.getXOffset()]).toEqual([105, 100, 5])
+  })
+})

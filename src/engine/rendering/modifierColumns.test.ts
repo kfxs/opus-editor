@@ -48,3 +48,22 @@ describe('ColumnModifiers.preFormat', () => {
     expect(() => ctx.preFormat()).not.toThrow()
   })
 })
+
+describe('ColumnModifiers — ours since S12j-b (VexFlow\'s `ModifierContext`, transcribed)', () => {
+  it('⭐ files a member under its CATEGORY and tells it its column', () => {
+    const column = new ColumnModifiers()
+    let told: unknown
+    const member = { getCategory: () => 'Dot', setModifierContext: (c: unknown) => { told = c } }
+    column.addMember(member)
+    expect(column.getMembers('Dot')).toEqual([member])
+    expect(column.getMembers('Accidental')).toEqual([])
+    expect(told).toBe(column)
+  })
+
+  it('answers its running state, and refuses metrics until formatted — as VexFlow did', () => {
+    const column = new ColumnModifiers()
+    column.state.rightShift = 7
+    expect([column.getRightShift(), column.getState().rightShift]).toEqual([7, 7])
+    expect(() => column.getMetrics()).toThrow()
+  })
+})

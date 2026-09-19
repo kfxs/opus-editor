@@ -18,7 +18,7 @@
  * each of their `format`s returns at once on an empty list, so skipping them is exact. A context that ever holds one REFUSES
  * loudly instead of drawing it wrong.
  */
-import { Modifier, ModifierContext } from 'vexflow'
+import { Modifier, type ModifierContext, type Tickable } from 'vexflow'
 import { addTicks } from '@/engine/layout/tickCount'
 import { stackDots } from '@/engine/engrave/notes/dotStack'
 import { stackAccidentals } from '@/engine/engrave/notes/accidentalStack'
@@ -45,14 +45,73 @@ const NO_RULE_KINDS = [
   'StringNumber', 'Ornament', 'ChordSymbol', 'Bend', 'Vibrato',
 ] as const
 
-/** One column's modifier context — the notes that start together, and what they carry. */
-export class ColumnModifiers extends ModifierContext {
+/** A column's running state — `ModifierContextState`: the room either side, the text lines each side. */
+export interface ColumnModifierState {
+  leftShift: number
+  rightShift: number
+  textLine: number
+  topTextLine: number
+}
+
+/**
+ * One column's modifier context — the notes that start together, and what they carry.
+ *
+ * ⭐ S12j-b: no longer VexFlow's `ModifierContext` — it keeps what anything asks of one: the members
+ * filed by CATEGORY (`addMember`), the running `state`, the width, the metrics. ⚠️ A VexFlow NOTE still
+ * files itself and its modifiers here (`Tickable.addToModifierContext` → `addMember`) and asks
+ * `preFormat`, `getWidth`, `getState` and `getRightShift` — every one answered below.
+ */
+export class ColumnModifiers {
+  readonly state: ColumnModifierState = { leftShift: 0, rightShift: 0, textLine: 0, topTextLine: 0 }
+  readonly members: Record<string, unknown[]> = {}
+  preFormatted = false
+  postFormatted = false
+  formatted = false
+  width = 0
+  spacing = 0
+
+  /** `ModifierContext.addMember`: filed under its category, and told its column. */
+  addMember(member: { getCategory(): string; setModifierContext(context: unknown): unknown }): this {
+    const category = member.getCategory()
+    if (!this.members[category]) this.members[category] = []
+    this.members[category].push(member)
+    member.setModifierContext(this)
+    this.preFormatted = false
+    return this
+  }
+
+  getMembers(category: string): unknown[] {
+    return this.members[category] ?? []
+  }
+
+  getWidth(): number {
+    return this.width
+  }
+
+  getLeftShift(): number {
+    return this.state.leftShift
+  }
+
+  getRightShift(): number {
+    return this.state.rightShift
+  }
+
+  getState(): ColumnModifierState {
+    return this.state
+  }
+
+  /** `ModifierContext.getMetrics` — ⚠️ it throws until formatted, as VexFlow's did (nothing sets `formatted`). */
+  getMetrics(): { width: number; spacing: number } {
+    if (!this.formatted) throw new Error('ColumnModifiers: unformatted member has no metrics.')
+    return { width: this.state.leftShift + this.state.rightShift + this.spacing, spacing: this.spacing }
+  }
+
   /**
    * VexFlow's `ModifierContext.preFormat`, in its order: the voices (S9g), then the dots,
    * the accidentals, the articulations, the annotations. Each rule reads and writes the SAME
    * `state` (`leftShift`, `rightShift`, `textLine`, `topTextLine`), so the order is part of it.
    */
-  override preFormat(): void {
+  preFormat(): void {
     if (this.preFormatted) return
     const { state, members } = this
     for (const kind of NO_RULE_KINDS) {
@@ -262,8 +321,17 @@ export function attachModifierColumns(voices: readonly BarVoice[]): void {
         byStave.set(stave, columns)
       }
       if (!columns[tick]) columns[tick] = new ColumnModifiers()
-      tickable.addToModifierContext(columns[tick])
+      fileInColumn(tickable, columns[tick])
       addTicks(ticksUsed, tickable.getTicks())
     }
   }
+}
+
+/**
+ * File a tickable — and every modifier it carries — in a column: `Tickable.addToModifierContext`.
+ * ⭐ The ONE cast: the tickable is typed for VexFlow's `ModifierContext`, and a column of ours answers
+ * every call its code makes of one (`addMember`, `preFormat`, `getWidth`, `getState`, `getRightShift`).
+ */
+export function fileInColumn(tickable: Tickable, column: ColumnModifiers): void {
+  tickable.addToModifierContext(column as unknown as ModifierContext)
 }

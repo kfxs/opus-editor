@@ -1,5 +1,4 @@
 import type { EngravedStave } from './EngravedStave'
-import { TickContext } from 'vexflow'
 import type { ArticulationType, Clef } from '@/types/music'
 import { ARTICULATION_RENDER_ORDER } from './NoteBuilder'
 import type { DrawContext } from '@/engine/paint/DrawContext'
@@ -7,7 +6,8 @@ import { stampGlyph } from '@/engine/engrave/glyph'
 import { EngravedNote } from './EngravedNote'
 import { EngravedArticulation } from './EngravedArticulation'
 import { attachModifier, MODIFIER_POSITION, type ModifierPositionValue } from './EngravedModifier'
-import { ColumnModifiers } from './modifierColumns'
+import { ColumnModifiers, fileInColumn } from './modifierColumns'
+import { TickColumn } from './columnFormat'
 import { standOn } from './staveFrame'
 
 /**
@@ -50,7 +50,7 @@ import { standOn } from './staveFrame'
  * classes and rules as member 0's (`engrave/notes/articulationStack`, `articulationPlacement`), so the
  * placement has ONE owner again. No probe context any more: the mark is PLACED (`place()`), moved onto
  * the member's head, and its glyph stamped with no group of its own, as `paintElementText` did.
- * ⚠️ The tick context is still VexFlow's `TickContext` — it goes with the note (S12j).
+ * ⭐ Its tick column is ours too (S12j-b).
  */
 
 /** VexFlow's articulation codes, by our type — the same table `NoteBuilder` uses. */
@@ -134,7 +134,8 @@ export function drawFanMemberArticulations(
   // formatter reads about this note is true of the head we actually drew.
   const probe = new EngravedNote({ keys: target.keys, duration: 'q', clef: target.clef })
   standOn(probe, stave)
-  probe.setTickContext(new TickContext())
+  // A column of its own to stand in — the probe asks it only its x (0), as VexFlow's empty context answered.
+  new TickColumn().addTickable(probe)
   // 🚨 LENGTH BEFORE DIRECTION, and it is not a style choice. `setStemLength` only records an
   // extension override on the NOTE (`stemExtensionOverride`); the single line that pushes it into
   // the `Stem` object is inside `setStemDirection`. Set it after, and the stem keeps VexFlow's
@@ -159,7 +160,7 @@ export function drawFanMemberArticulations(
   // `UnformattedNote` on a note that was never pre-formatted, and that throw takes the WHOLE
   // measure's render down with it — the bar simply does not draw.
   const mc = new ColumnModifiers()
-  probe.addToModifierContext(mc)
+  fileInColumn(probe, mc)
   probe.preFormat()
 
   // Where the stand-in's head ended up, so the move to the real one is a single delta.

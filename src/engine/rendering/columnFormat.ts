@@ -16,9 +16,9 @@
  * `vexflow-removal-map.md` §9.4 #5); then `layout/softmaxSpacing` is deleted. ⛔ No `Formatter`
  * instance is made any more, and ⭐ S9i: no `Voice` either — a bar's voices are `./barVoice`.
  */
-import { ClefNote, Note, StaveNote, TickContext } from 'vexflow'
-import type { Tickable } from 'vexflow'
-import { addTicks, ticksValue } from '@/engine/layout/tickCount'
+import { ClefNote, Note, StaveNote } from 'vexflow'
+import type { TickContext, Tickable } from 'vexflow'
+import { addTicks, subtractTicks, ticksGreaterThan, ticksValue, type TickCount } from '@/engine/layout/tickCount'
 import { type BarVoice, barVoiceOf, sharedResolution } from './barVoice'
 import { alignRestsToNotes } from '@/engine/engrave/notes/restAlign'
 import {
@@ -29,7 +29,165 @@ import {
  * One tick's context — the tickables of every voice that start there. ⭐ Ours so its METRICS (how
  * wide a column's ink reaches either side of its notes) are computed here.
  */
-export class TickColumn extends TickContext {
+/** The widths a column keeps — `TickContext.getMetrics`. */
+export interface TickColumnMetrics {
+  width: number
+  glyphPx: number
+  notePx: number
+  leftDisplacedHeadPx: number
+  rightDisplacedHeadPx: number
+  modLeftPx: number
+  modRightPx: number
+  totalLeftPx: number
+  totalRightPx: number
+}
+
+/** What a tickable offers a column — the members of VexFlow's `Tickable` a column reads. */
+type ColumnTickable = Tickable
+
+/**
+ * ⭐⭐ **A TICK COLUMN OF OURS — S12j-b** (`docs/vexflow-removal-map.md` S12): the notes that start
+ * together, and the room they take. It used to `extend` VexFlow's `TickContext`; what is kept is
+ * `TickContext` transcribed as far as anything asks — its x (a base and an offset), padding, the
+ * longest and shortest tickables (compared in VexFlow's unreduced tick arithmetic, `layout/tickCount`),
+ * the tickables by voice, the widths, the neighbouring columns. ⚠️ A VexFlow NOTE still stands in it:
+ * `Tickable.getX`/`getAbsoluteX` ask its `getX()`, `setTickContext` hands it over (the one cast).
+ */
+export class TickColumn {
+  readonly tickID: number
+  preFormatted = false
+  postFormatted = false
+  private x = 0
+  private xBase = 0
+  private xOffset = 0
+  private padding = 1
+  private maxTicks: TickCount = { numerator: 0, denominator: 1 }
+  private maxTickable?: ColumnTickable
+  private minTicks?: TickCount
+  private minTickable?: ColumnTickable
+  readonly tickables: ColumnTickable[] = []
+  private readonly tickablesByVoice: Record<number, ColumnTickable> = {}
+  notePx = 0
+  glyphPx = 0
+  leftDisplacedHeadPx = 0
+  rightDisplacedHeadPx = 0
+  modLeftPx = 0
+  modRightPx = 0
+  totalLeftPx = 0
+  totalRightPx = 0
+  width = 0
+  /** Every column of the bar, in order — `TickContext.tContexts`. */
+  tContexts: TickColumn[] = []
+
+  constructor(options: { tickID?: number } = {}) {
+    this.tickID = options.tickID ?? 0
+  }
+
+  getTickID(): number {
+    return this.tickID
+  }
+
+  getX(): number {
+    return this.x
+  }
+
+  setX(x: number): this {
+    this.x = x
+    this.xBase = x
+    this.xOffset = 0
+    return this
+  }
+
+  getXBase(): number {
+    return this.xBase
+  }
+
+  setXBase(xBase: number): void {
+    this.xBase = xBase
+    this.x = xBase + this.xOffset
+  }
+
+  getXOffset(): number {
+    return this.xOffset
+  }
+
+  setXOffset(xOffset: number): void {
+    this.xOffset = xOffset
+    this.x = this.xBase + xOffset
+  }
+
+  /** The column's width with its padding either side. */
+  getWidth(): number {
+    return this.width + this.padding * 2
+  }
+
+  setPadding(padding: number): this {
+    this.padding = padding
+    return this
+  }
+
+  getMaxTicks(): TickCount {
+    return this.maxTicks
+  }
+
+  getMinTicks(): TickCount | undefined {
+    return this.minTicks
+  }
+
+  getMaxTickable(): ColumnTickable | undefined {
+    return this.maxTickable
+  }
+
+  getMinTickable(): ColumnTickable | undefined {
+    return this.minTickable
+  }
+
+  getTickables(): ColumnTickable[] {
+    return this.tickables
+  }
+
+  getTickableForVoice(voiceIndex: number): ColumnTickable | undefined {
+    return this.tickablesByVoice[voiceIndex]
+  }
+
+  getTickablesByVoice(): Record<number, ColumnTickable> {
+    return this.tickablesByVoice
+  }
+
+  getMetrics(): TickColumnMetrics {
+    const { width, glyphPx, notePx, leftDisplacedHeadPx, rightDisplacedHeadPx, modLeftPx, modRightPx, totalLeftPx, totalRightPx } = this
+    return { width, glyphPx, notePx, leftDisplacedHeadPx, rightDisplacedHeadPx, modLeftPx, modRightPx, totalLeftPx, totalRightPx }
+  }
+
+  /**
+   * `TickContext.addTickable`, transcribed: the longest and shortest are kept (copies, unreduced), the
+   * tickable is told its column, and filed by voice.
+   */
+  addTickable(tickable: ColumnTickable, voiceIndex?: number): this {
+    if (!tickable) throw new Error('TickColumn: invalid tickable added.')
+    if (!tickable.shouldIgnoreTicks()) {
+      const ticks = tickable.getTicks()
+      if (ticksGreaterThan(ticks, this.maxTicks)) {
+        this.maxTicks = { numerator: ticks.numerator, denominator: ticks.denominator }
+        this.maxTickable = tickable
+      }
+      if (this.minTicks === undefined) {
+        this.minTicks = { numerator: ticks.numerator, denominator: ticks.denominator }
+        this.minTickable = tickable
+      } else if (subtractTicks({ numerator: ticks.numerator, denominator: ticks.denominator }, this.minTicks).numerator < 0) {
+        this.minTicks = { numerator: ticks.numerator, denominator: ticks.denominator }
+        this.minTickable = tickable
+      }
+    }
+    // ⚠️ The ONE cast: the tickable is typed for VexFlow's `TickContext`, and a column of ours answers
+    // every call its code makes of one (`getX`, and the metrics).
+    tickable.setTickContext(this as unknown as TickContext)
+    this.tickables.push(tickable)
+    this.tickablesByVoice[voiceIndex ?? 0] = tickable
+    this.preFormatted = false
+    return this
+  }
+
   /**
    * `TickContext.preFormat`, transcribed: each tickable pre-formats (its modifier context's rules run
    * here, `./modifierColumns`), and the column keeps the widest of each measure.
@@ -37,7 +195,7 @@ export class TickColumn extends TickContext {
    * ⚠️ Kept exactly, quirk included: it never sets `preFormatted`, so a second call walks again — the
    * maxima make that harmless.
    */
-  override preFormat(): this {
+  preFormat(): this {
     if (this.preFormatted) return this
     for (const tickable of this.tickables) {
       tickable.preFormat()
@@ -54,9 +212,15 @@ export class TickColumn extends TickContext {
     }
     return this
   }
+
+  /** `TickContext.postFormat`. */
+  postFormat(): this {
+    if (this.postFormatted) return this
+    this.postFormatted = true
+    return this
+  }
 }
 
-/** A bar's tick columns: by tick, in creation order, the ticks sorted, and the voices' shared resolution. */
 export interface TickColumns {
   map: Record<number, TickColumn>
   array: TickColumn[]
@@ -179,9 +343,9 @@ function softmaxInputs(voices: readonly BarVoice[], columns: TickColumns) {
       notePx: metrics.notePx,
       totalLeftPx: metrics.totalLeftPx,
       totalRightPx: metrics.totalRightPx,
-      maxTicks: column.getMaxTicks().value(),
+      maxTicks: ticksValue(column.getMaxTicks()),
       maxTickable: maxTickable ? indexOf.get(maxTickable) : undefined,
-      byVoice: Object.keys(byVoice).map(v => [Number(v), indexOf.get(byVoice[v]) as number] as const),
+      byVoice: Object.keys(byVoice).map(v => [Number(v), indexOf.get(byVoice[Number(v)]) as number] as const),
       tickables: own,
     }
   })
