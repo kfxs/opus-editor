@@ -38,13 +38,13 @@ describe('beginBodyDrag', () => {
   const held = () => vi.advanceTimersByTime(DRAG_TIME_THRESHOLD_MS + 1)
 
   it('⛔ a CLICK is still a click — no frame runs inside the time threshold', () => {
-    const drag = beginBodyDrag(host, spec, 'P1', 100, 50)
+    const drag = beginBodyDrag(host, spec, 'P1', { x: 100, y: 50 })
     drag.move!(engine, 160, 90)
     expect(step).not.toHaveBeenCalled()
   })
 
   it('hands the walk the cursor and its delta since the last ACCEPTED frame, and draws the family', () => {
-    const drag = beginBodyDrag(host, spec, 'P1', 100, 50)
+    const drag = beginBodyDrag(host, spec, 'P1', { x: 100, y: 50 })
     held()
     drag.move!(engine, 110, 50)
     drag.move!(engine, 130, 45)
@@ -54,7 +54,7 @@ describe('beginBodyDrag', () => {
 
   it('🚨 a REFUSED frame leaves the anchor put, so the gesture re-synchronises — and draws nothing', () => {
     step.mockReturnValue({ moved: false, jumped: false })
-    const drag = beginBodyDrag(host, spec, 'P1', 100, 50)
+    const drag = beginBodyDrag(host, spec, 'P1', { x: 100, y: 50 })
     held()
     drag.move!(engine, 130, 50)
     drag.move!(engine, 140, 50)
@@ -64,17 +64,26 @@ describe('beginBodyDrag', () => {
 
   it('⛔ a mark that is not drawn (null) drops the frame and leaves the anchor alone', () => {
     step.mockReturnValueOnce(null)
-    const drag = beginBodyDrag(host, spec, 'P1', 100, 50)
+    const drag = beginBodyDrag(host, spec, 'P1', { x: 100, y: 50 })
     held()
     drag.move!(engine, 130, 50)
     drag.move!(engine, 140, 50)
     expect(step.mock.calls.map(c => c[3])).toEqual([30, 40])
   })
 
+  it('⭐ with NO press position the baseline is the first frame PAST the threshold — no opening jump', () => {
+    const drag = beginBodyDrag(host, spec, 'P1')
+    drag.move!(engine, 140, 80) // inside the threshold: charged to nobody
+    held()
+    drag.move!(engine, 150, 85) // the baseline
+    drag.move!(engine, 160, 85)
+    expect(step.mock.calls.map(c => c.slice(1))).toEqual([['P1', 160, 10, 0]])
+  })
+
   it('⭐ `afterFrame` runs after the draw, and a second write is drawn in the same event', () => {
     step.mockReturnValue({ moved: true, jumped: true })
     spec.afterFrame = vi.fn((_e, _id, frame) => { order.push('after'); return frame.jumped })
-    const drag = beginBodyDrag(host, spec, 'P1', 100, 50)
+    const drag = beginBodyDrag(host, spec, 'P1', { x: 100, y: 50 })
     held()
     drag.move!(engine, 110, 50)
     expect(order).toEqual(['preview:pedal:P1', 'after', 'preview:pedal:P1'])
@@ -82,7 +91,7 @@ describe('beginBodyDrag', () => {
 
   it('…and draws once when `afterFrame` wrote nothing', () => {
     spec.afterFrame = () => false
-    const drag = beginBodyDrag(host, spec, 'P1', 100, 50)
+    const drag = beginBodyDrag(host, spec, 'P1', { x: 100, y: 50 })
     held()
     drag.move!(engine, 110, 50)
     expect(order).toEqual(['preview:pedal:P1'])
@@ -90,7 +99,7 @@ describe('beginBodyDrag', () => {
 
   it('⭐ the drop: the settlement, then ONE undo entry, then a REAL render, then the release', () => {
     spec.beforeCommit = vi.fn(() => { order.push('settle') })
-    const drag = beginBodyDrag(host, spec, 'P1', 100, 50)
+    const drag = beginBodyDrag(host, spec, 'P1', { x: 100, y: 50 })
     held()
     drag.move!(engine, 110, 50)
     drag.move!(engine, 120, 50)
@@ -100,14 +109,14 @@ describe('beginBodyDrag', () => {
   })
 
   it('⛔ a press that never became a drag records nothing and renders nothing — but still releases', () => {
-    const drag = beginBodyDrag(host, spec, 'P1', 100, 50)
+    const drag = beginBodyDrag(host, spec, 'P1', { x: 100, y: 50 })
     drag.end()
     expect(order).toEqual(['release'])
   })
 
   it('…and so does a gesture whose every frame was refused', () => {
     step.mockReturnValue({ moved: false, jumped: false })
-    const drag = beginBodyDrag(host, spec, 'P1', 100, 50)
+    const drag = beginBodyDrag(host, spec, 'P1', { x: 100, y: 50 })
     held()
     drag.move!(engine, 130, 50)
     drag.end()

@@ -1,6 +1,6 @@
 # Code shape plan — 2026-09-19
 
-**Status: IN PROGRESS — Phase 1 DONE (2026-09-19), bar item 5's two ⏭️ decisions. Phase 2 DONE. Phase 3.1: the hairpin / ottava / pedal body drags done and checked; the trill's too (`cdb7f05`); the slur's too (`69e927c`); the four SQUARE drags too (`6d903c3`); the slur HANDLE and ENDPOINT drags done, awaiting his UI check. Seven gestures are still the controller's.** Phases are ordered by
+**Status: IN PROGRESS — Phase 1 DONE (2026-09-19), bar item 5's two ⏭️ decisions. Phase 2 DONE. Phase 3.1: the hairpin / ottava / pedal body drags done and checked; the trill's too (`cdb7f05`); the slur's too (`69e927c`); the four SQUARE drags too (`6d903c3`); the slur HANDLE / ENDPOINT and staff-spacing drags too (`8f28f79`); the DYNAMIC and TEMPO drags done, awaiting his UI check. Five gestures are still the controller's.** Phases are ordered by
 value over risk; each one stands alone and can be stopped after. A done item carries ✅ and what
 actually happened where that differs from what was planned.
 
@@ -279,11 +279,17 @@ Run the e2e suite either side of each step.
    measures the GRABBED staff's own line spacing at the press. The stored distance is in that
    staff's own spaces (`staffStride.spacingAbovePx`), so this is what makes a pixel of hand a
    pixel of staff on a small staff too — ⚠️ a deliberate behaviour change there, the only one in
-   this phase. Its first spec. ⏸️ Awaiting his UI check (both slur drags, and this one on a small
-   staff).*
+   this phase. Its first spec. ✅ His UI check passed (`8f28f79`).*
 
-   *Still the controller's own (no `move`): note, barWidth, barlineJoin, clef, staffGroupSpan,
-   dynamic, tempo.*
+   *Sixth — the DYNAMIC and TEMPO drags. `drags/dynamic.ts` is a `bodyDrag` row; `bodyDrag` gained
+   an optional press position, because a mark that is its OWN handle arms on the selecting press
+   and takes its baseline on the first frame PAST the threshold (charging that travel would start
+   the gesture with a jump). `drags/tempo.ts` is its own gesture — a SNAP measured against an
+   absolute hand reference (the grab), ⛔ not a delta — and it took the exploratory `dragTrace`
+   instrument with it; `drawnMarkX`, the one DOM read, is handed in by the controller. First specs
+   for both. `MouseController` kinds 594 → 489, lines 1,606 → 1,478. ⏸️ Awaiting his UI check.*
+
+   *Still the controller's own (no `move`): note, barWidth, barlineJoin, clef, staffGroupSpan.*
 2. **A `keys` column on `ELEMENT_SPECS`** — `{ nudge, reset }` first — and one dispatcher.
    Replaces the four `||` chains and the 61 closures.
 

@@ -23,5 +23,5 @@ const OTTAVA_BODY: BodyDragSpec = {
 export function beginOttavaBodyDrag(host: DragHost, id: string, x: number, y: number): Gesture | null {
   const engine = host.getEngine()
   if (!engine || !ottavaStaffSpacePx(engine.getElementRegistry(), id)) return null
-  return beginBodyDrag(host, OTTAVA_BODY, id, x, y)
+  return beginBodyDrag(host, OTTAVA_BODY, id, { x, y })
 }

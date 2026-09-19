@@ -49,9 +49,17 @@ export interface BodyDragSpec {
   commit(engine: MusicEngine): void
 }
 
-export function beginBodyDrag(host: DragHost, spec: BodyDragSpec, id: string, x: number, y: number): Gesture {
-  let lastX = x
-  let lastY = y
+/**
+ * @param press Where the press landed — the first frame's delta is measured from there. ⚠️ Omit it
+ *   for a mark that is its OWN handle (a dynamic), armed on the very press that selects it: the
+ *   baseline is then taken on the first frame PAST the time threshold, because the travel that
+ *   decided this was a drag rather than a click belongs to neither, and charging it would start
+ *   the gesture with a jump.
+ */
+export function beginBodyDrag(
+  host: DragHost, spec: BodyDragSpec, id: string, press?: { x: number; y: number },
+): Gesture {
+  let last = press ?? null
   let changed = false
   const pressedAt = Date.now()
 
@@ -60,10 +68,10 @@ export function beginBodyDrag(host: DragHost, spec: BodyDragSpec, id: string, x:
 
     move(engine, mx, my) {
       if (Date.now() - pressedAt < DRAG_TIME_THRESHOLD_MS) return
-      const frame = spec.step(engine, id, mx, mx - lastX, my - lastY)
+      if (last === null) { last = { x: mx, y: my }; return }
+      const frame = spec.step(engine, id, mx, mx - last.x, my - last.y)
       if (frame === null || !frame.moved) return
-      lastX = mx
-      lastY = my
+      last = { x: mx, y: my }
       changed = true
       host.render.previewMarks(spec.family, id)
       if (spec.afterFrame?.(engine, id, frame)) host.render.previewMarks(spec.family, id)

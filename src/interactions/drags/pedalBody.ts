@@ -28,5 +28,5 @@ const PEDAL_BODY: BodyDragSpec = {
 export function beginPedalBodyDrag(host: DragHost, id: string, x: number, y: number): Gesture | null {
   const engine = host.getEngine()
   if (!engine || !pedalStaffSpacePx(engine.getElementRegistry(), id)) return null
-  return beginBodyDrag(host, PEDAL_BODY, id, x, y)
+  return beginBodyDrag(host, PEDAL_BODY, id, { x, y })
 }

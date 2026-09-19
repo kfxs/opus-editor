@@ -32,5 +32,5 @@ export function beginSlurBodyDrag(host: DragHost, id: string, x: number, y: numb
     step: (eng, slurId, _cursorX, dxPx, dyPx) =>
       ({ moved: slurBodyDragStep(eng, slurId, origin, dxPx, dyPx) !== null, jumped: false }),
     commit: eng => eng.commitSlurOffsetDrag(),
-  }, id, x, y)
+  }, id, { x, y })
 }

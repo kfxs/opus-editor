@@ -26,5 +26,5 @@ const HAIRPIN_BODY: BodyDragSpec = {
 export function beginHairpinBodyDrag(host: DragHost, id: string, x: number, y: number): Gesture | null {
   const engine = host.getEngine()
   if (!engine || !hairpinStaffSpacePx(engine.getElementRegistry(), id)) return null
-  return beginBodyDrag(host, HAIRPIN_BODY, id, x, y)
+  return beginBodyDrag(host, HAIRPIN_BODY, id, { x, y })
 }
