@@ -1,6 +1,6 @@
 # Code shape plan — 2026-09-19
 
-**Status: IN PROGRESS — Phase 1 DONE (2026-09-19), bar item 5's two ⏭️ decisions. Phase 2 is next.** Phases are ordered by
+**Status: IN PROGRESS — Phase 1 DONE (2026-09-19), bar item 5's two ⏭️ decisions. Phase 2: item 1 done.** Phases are ordered by
 value over risk; each one stands alone and can be stopped after. A done item carries ✅ and what
 actually happened where that differs from what was planned.
 
@@ -154,7 +154,7 @@ The fix is to change the **contract**, not the rule: a row owns its body.
 
 ### Phase 2 — Make the rule mechanical
 
-1. **`npm run lint:hubs`** *(review: the metric changed)*. Hubs: `MusicEngine`, `ScoreModel`,
+1. ✅ **`npm run lint:hubs`** *(review: the metric changed)*. Hubs: `MusicEngine`, `ScoreModel`,
    `ScoreRenderer`, `MouseController`, `PaletteController`, `HighlightController`,
    `shortcutWiring`, `PropertiesWidget`, `selectionSnapshot`. This is the check ARCHITECTURE says
    the rule lacks. Two counts per hub, comments excluded:
@@ -166,6 +166,14 @@ The fix is to change the **contract**, not the rule: a row owns its body.
      plan's own rules: "the facade may gain a one-line delegation" and Phase 4.4 both mean a new
      feature still adds a few lines to `MusicEngine`, and a ceiling that may only fall would block
      the feature until something unrelated was extracted.
+
+   *Done as `scripts/check-hubs.mjs`, in `build:check`. The kind vocabulary is READ OUT of the
+   `SelectedElement` / `MarkingTool` unions rather than listed, so a new kind is counted from the
+   commit that adds it (a fixed list would have been blind to exactly that). `deleteSelected` and
+   `selectionSnapshot.selectedElements` are counted out by name. Day-one ceilings, kind mentions ·
+   code lines: `MusicEngine` 1130 · 2774, `ScoreModel` 1105 · 2012, `ScoreRenderer` 901 · 2293,
+   `MouseController` 970 · 2122, `PaletteController` 504 · 1351, `HighlightController` 316 · 1172,
+   `shortcutWiring` 465 · 806, `PropertiesWidget` 187 · 977, `selectionSnapshot` 7 · 44.*
 2. **`engine/rendering/renderTypes.ts`**: `ScoreRenderer`'s exported types plus
    `measureGroupKey`; move `isEngravedNote` into `EngravedNote.ts`. Removes both runtime cycles
    and dissolves the 35-file import cluster.

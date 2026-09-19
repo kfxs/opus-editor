@@ -15,9 +15,11 @@ This file provides guidance to Claude Code when working with this repository.
   `ELEMENT_SPECS` + `ELEMENT_HIT_ORDER` (`interactions/elements/chain.ts`), `GHOST_DRAWERS` +
   `ToolGhost` (`engine/rendering/`), `MARKING_TOOL_USES_ARMED_LENGTH`. **And a SCORE operation goes
   in the core (`engine/models/**`, `utils/**`, `types/**`), not on `MusicEngine`** — that is the
-  *editor's* facade (`docs/DESIGN-PRINCIPLES.md` §5). Lint cannot check any of this: putting the
-  logic in the wrong layer imports nothing, and a slice in the wrong file imports exactly what it
-  would have imported from the right one. See `docs/ARCHITECTURE.md` §"A new feature adds a MODULE"
+  *editor's* facade (`docs/DESIGN-PRINCIPLES.md` §5). An IMPORT lint cannot check any of this: putting
+  the logic in the wrong layer imports nothing, and a slice in the wrong file imports exactly what it
+  would have imported from the right one. ⭐ So it is COUNTED instead: `npm run lint:hubs` (in
+  `build:check`) holds, per hub, how many identifiers name an element kind, and that number may only
+  FALL — a failing `lint:hubs` means the logic wants its own module, ⛔ not a raised ceiling. See `docs/ARCHITECTURE.md` §"A new feature adds a MODULE"
   for the measurements that made it a rule — extraction without it was undone in nine days, and the
   first version of the rule protected only the three files it named while the growth moved to the
   five it did not.

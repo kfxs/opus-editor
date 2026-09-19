@@ -261,6 +261,7 @@ npm run lint:boundary     # no framework anywhere below App.ts; dev/ out of the 
 npm run lint:testnames    # a spec is named after its sibling subject
 npm run lint:singletons   # the singleton count in DESIGN-PRINCIPLES.md is still true
 npm run lint:tables       # the kind-tables are still TOTAL over their union
+npm run lint:hubs         # ⭐ a hub may not learn more about element KINDS — the module rule, counted
 npm run lint:paint        # the `svgNode` escape — a DrawGroup's way back to the DOM — may not grow
 npm run lint              # the full ESLint pass
 ```
@@ -362,13 +363,24 @@ packaging goal (`docs/refactor-plan-2026-07-27.md` §Context) changes is the **c
 today a score operation on the facade is a style violation; once the core is published it means
 *the feature is not in the package*, and nobody finds out until an ecosystem consumer needs it.
 
-⚠️ **Lint cannot check this one.** `lint:boundary` makes the import *direction* mechanical, but
+⚠️ **An import lint cannot check this one.** `lint:boundary` makes the import *direction* mechanical, but
 putting the logic in the wrong layer imports nothing — a score operation written inside
 `MusicEngine` reaches for exactly the same modules it would reach for from the core. The same is
 true of the slice clause, for the same reason: a twelfth `case` written into `MouseController`
-imports exactly what the twelfth module would have imported. Both are enforced in review, or not
-at all. What the tables buy is that the review has something to point at — "there is a row for
-this" is checkable by eye in a way that "this feels like a slice" is not.
+imports exactly what the twelfth module would have imported. What the tables buy is that a review
+has something to point at — "there is a row for this" is checkable by eye in a way that "this
+feels like a slice" is not.
+
+⭐ **The slice clause is COUNTED, since imports cannot see it: `npm run lint:hubs`**
+(`scripts/check-hubs.mjs`, in `build:check`). For each of the nine hubs — `MusicEngine`,
+`ScoreModel`, `ScoreRenderer`, `MouseController`, `PaletteController`, `HighlightController`,
+`shortcutWiring`, `PropertiesWidget`, `selectionSnapshot` — it counts the identifier and string
+tokens that name an element kind (`previewPedalSlot`, `'hairpin'`), comments excluded, against a
+ceiling that may only fall. The kinds are read out of the editor's own unions, so a NEW kind is
+counted from the commit that adds it. Code lines are reported beside it and get a ceiling only
+once a hub has been emptied (docs/code-shape-plan-2026-09-19.md Phase 2.1 says why). The two
+switches kept on purpose — `deleteSelected` and `selectionSnapshot.selectedElements` — are counted
+out by name. ⚠️ The layer clause (a score operation on `MusicEngine`) is still review's.
 
 **What is NOT a violation:** a one-line delegation on the facade (that is the facade's job); a
 method whose subject genuinely is the class (`ScoreModel.getScore`, `ScoreRenderer.clearGhosts`);
