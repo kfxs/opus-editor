@@ -1,6 +1,8 @@
 /**
- * ⭐⭐ **THE ONE PLACE VEXFLOW STILL PAINTS A GLYPH FOR US** — `docs/own-engraving-engine.md` P1,
- * first step.
+ * ⭐⭐ **THE ONE PLACE A GLYPH IS RESOLVED, MEASURED AND STAMPED** — `docs/own-engraving-engine.md` P1,
+ * first step; ⭐ **no VexFlow since S13a** (`docs/vexflow-removal-map.md`): the `Element` it used is
+ * `GlyphRun` below, the face tree `fonts/fontCategories`, the CSS `fonts/fontFace`. The history that
+ * follows explains why a TAG selects a face and a size is POINTS — both still true, now of our rows.
  *
  * ## What this is, and why it is a module rather than a habit
  *
@@ -66,21 +68,87 @@
  * **points** at 4/3 px each — see `./drawnFontSize`, which exists because five ink tables read it as
  * pixels and under-modelled their own marks by a quarter. ⛔ Do not convert on the way in.
  */
-import { Element } from 'vexflow'
-import type { RenderContext } from 'vexflow'
 import type { DrawContext } from '@/engine/paint/DrawContext'
+import { categoryFont } from '@/engine/fonts/fontCategories'
+import { fontToCss, validateFont, type FontInfo } from '@/engine/fonts/fontFace'
 
 /**
- * ⭐⭐ **THE ONE CAST, AND IT IS THIS MODULE'S WHOLE JOB.**
- *
- * `Element.renderText` asks for a VexFlow `RenderContext`, but — measured above — it only ever calls
- * `setFont` and `fillText`, both of which {@link DrawContext} declares. So the cast is sound by the
- * source, not by hope, and putting it HERE is what lets every caller speak our type instead.
- *
- * ⏭️ It disappears with the `vexflow` import, when `fonts/` can answer *which face, at what size*.
+ * ⭐⭐ **WHAT `new Element(tag)` WAS HERE — S13a** (`docs/vexflow-removal-map.md`): a face resolved from
+ * the tag (`fonts/fontCategories`), a size or a face laid over it (`fonts/fontFace.validateFont`), a
+ * measurement on one shared canvas, and a stamp of two primitives. ⛔ Nothing else of `Element` was
+ * ever asked here, so nothing else is kept. It is private: callers speak tags, glyphs and points.
  */
-function asGlyphPaintContext(ctx: DrawContext): RenderContext {
-  return ctx as unknown as RenderContext
+class GlyphRun {
+  /** `Element._fontInfo` — the face as last set, handed to the painter as it stands. */
+  font: FontInfo
+
+  constructor(private readonly tag: string, readonly text: string) {
+    this.font = categoryFont(tag)
+  }
+
+  /** `Element.setFontSize`: the size replaced, the rest of the face kept — then validated. */
+  setFontSize(sizePt: number): this {
+    return this.setFontFields(this.font.family, sizePt, this.font.weight, this.font.style)
+  }
+
+  /** `Element.setFont(family, size, weight, style)`: each gap filled from the TAG's face, validated. */
+  setFontFields(family?: string, size?: number | string, weight?: number | string, style?: string): this {
+    const tagFont = categoryFont(this.tag)
+    this.font = validateFont(family ?? tagFont.family, size ?? tagFont.size, weight ?? tagFont.weight, style ?? tagFont.style)
+    return this
+  }
+
+  /** `Element.setFont(object)`: the tag's face with `font` laid over it — ⚠️ NOT validated until measured. */
+  setFontObject(font: FontInfo): this {
+    this.font = { ...categoryFont(this.tag), ...font }
+    return this
+  }
+
+  /** `Element.measureText` — see {@link measureOnCanvas}. */
+  metrics(): MeasuredText {
+    return measureOnCanvas(this.text, fontToCss(validateFont(this.font)))
+  }
+
+  /** `Element.renderText(ctx, x, y)` for an element at 0,0 with no shift and no children. */
+  paint(ctx: DrawContext, x: number, y: number): void {
+    ctx.setFont(this.font)
+    ctx.fillText(this.text, x, y)
+  }
+
+  /** `Element.getWidth()`, as `widthOf` asked it: 0 for anything unmeasurable. */
+  width(): number {
+    try {
+      return this.metrics().width || 0
+    } catch {
+      return 0
+    }
+  }
+}
+
+/** The fields of a canvas `TextMetrics` this module reads. */
+type MeasuredText = Pick<TextMetrics, 'width' | 'actualBoundingBoxAscent' | 'actualBoundingBoxDescent' | 'actualBoundingBoxLeft' | 'actualBoundingBoxRight'>
+
+const NOTHING_MEASURED: MeasuredText = {
+  width: 0, actualBoundingBoxAscent: 0, actualBoundingBoxDescent: 0, actualBoundingBoxLeft: 0, actualBoundingBoxRight: 0,
+}
+
+/** `Element.txtCanvas` — ONE canvas every measurement shares, made on first use. */
+let measuringCanvas: HTMLCanvasElement | OffscreenCanvas | undefined
+
+/**
+ * `Element.measureText`, transcribed: the shared canvas told the face, then asked. ⚠️ A canvas keeps
+ * its previous `font` when told one it cannot parse — shared, as VexFlow's was, so that holds too.
+ * ⚠️ No canvas context (jsdom) measures NOTHING — every field 0, as VexFlow's empty metrics were.
+ */
+function measureOnCanvas(text: string, css: string): MeasuredText {
+  if (!measuringCanvas) {
+    if (typeof document !== 'undefined') measuringCanvas = document.createElement('canvas')
+    else if (typeof OffscreenCanvas !== 'undefined') measuringCanvas = new OffscreenCanvas(300, 150)
+  }
+  const context = measuringCanvas?.getContext('2d') as CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D | null | undefined
+  if (!context) return NOTHING_MEASURED
+  context.font = css
+  return context.measureText(text)
 }
 
 /** A text run's face, for the one shape that is TEXT rather than a music glyph — see
@@ -105,20 +173,9 @@ export interface TextRunFont {
  * `OttavaRenderer` — a rule with no home, copied because there was no module to import it from
  * (`docs/own-engraving-engine.md` §3.1's *"the second owner is the tell"*).
  */
-function widthOf(el: Element): number {
-  try {
-    return el.getWidth() || 0
-  } catch {
-    return 0
-  }
-}
-
-/** The element behind one stamp — the two lines every call site used to write for itself. */
-function glyphElement(tag: string, glyph: string, sizePt: number): Element {
-  const el = new Element(tag)
-  el.setText(glyph)
-  el.setFontSize(sizePt)
-  return el
+/** The run behind one stamp — the two lines every call site used to write for itself. */
+function glyphRun(tag: string, glyph: string, sizePt: number): GlyphRun {
+  return new GlyphRun(tag, glyph).setFontSize(sizePt)
 }
 
 /**
@@ -134,9 +191,9 @@ function glyphElement(tag: string, glyph: string, sizePt: number): Element {
 export function drawGlyph(
   ctx: DrawContext, tag: string, glyph: string, x: number, y: number, sizePt: number,
 ): number {
-  const el = glyphElement(tag, glyph, sizePt)
-  el.renderText(asGlyphPaintContext(ctx), x, y)
-  return widthOf(el)
+  const run = glyphRun(tag, glyph, sizePt)
+  run.paint(ctx, x, y)
+  return run.width()
 }
 
 /**
@@ -148,7 +205,7 @@ export function drawGlyph(
  * where to start. ⚠️ 0 in jsdom — see {@link widthOf}.
  */
 export function measureGlyph(tag: string, glyph: string, sizePt: number): number {
-  return widthOf(glyphElement(tag, glyph, sizePt))
+  return glyphRun(tag, glyph, sizePt).width()
 }
 
 /** What the canvas measures of one glyph run — the fields of `TextMetrics` the engraving reads. */
@@ -172,7 +229,7 @@ export interface GlyphMetrics {
  */
 export function measureGlyphMetrics(tag: string, glyph: string, sizePt: number): GlyphMetrics {
   try {
-    const m = glyphElement(tag, glyph, sizePt).textMetrics
+    const m = glyphRun(tag, glyph, sizePt).metrics()
     return {
       width: m.width || 0,
       ascent: m.actualBoundingBoxAscent || 0,
@@ -192,10 +249,7 @@ export function measureGlyphMetrics(tag: string, glyph: string, sizePt: number):
  */
 export function measureTextMetrics(tag: string, text: string, font: TextRunFont | { family: string; size: number | string; weight?: string; style?: string }): GlyphMetrics {
   try {
-    const el = new Element(tag)
-    el.setFont(font as Parameters<Element['setFont']>[0])
-    el.setText(text)
-    const m = el.textMetrics
+    const m = new GlyphRun(tag, text).setFontObject(font).metrics()
     return {
       width: m.width || 0,
       ascent: m.actualBoundingBoxAscent || 0,
@@ -233,27 +287,7 @@ export function measureGlyphAscent(tag: string, glyph: string, sizePt: number): 
 export function drawTextRun(
   ctx: DrawContext, tag: string, text: string, x: number, y: number, font: TextRunFont,
 ): number {
-  const el = new Element(tag)
-  el.setFont(font.family, font.sizePt, font.weight ?? 'normal', font.style ?? 'normal')
-  el.setText(text)
-  el.renderText(asGlyphPaintContext(ctx), x, y)
-  return widthOf(el)
-}
-
-/**
- * ⭐ **DRAW A NOTE'S MARK ON OUR SURFACE, BY ITS OWN `draw()`** — for a mark whose PLACEMENT is still
- * VexFlow's (`Articulation.draw` works out where it stands off its note) but whose ink must land on a
- * {@link DrawContext}: the mark ghosts (S11b). A mark that takes an ink surface is handed this one.
- *
- * ⭐ The same one cast, and sound for the same reason: every mark this is used on only ever paints
- * through `renderText` — `setFont` and `fillText` — or through its ink surface: `EngravedArticulation`
- * (`renderText` overridden onto the surface; the base `draw` asks the context for nothing else),
- * `EngravedAccidental` and `EngravedDot` (the context is their unset-surface fallback only),
- * `CenteredTremolo` (`Element.renderText`) — and ⭐ since S11d a lone `EngravedNote` (the rest and fan
- * ghosts): `StaveNote.draw` asks its context only for `openGroup`/`closeGroup`/`pointerRect`, and its
- * parts are ours, painting on the surfaces `drawNoteInkThrough` handed them.
- */
-export function drawMarkOn(surface: DrawContext, mark: Element & { setInkSurface?: (ctx: DrawContext) => void }): void {
-  mark.setInkSurface?.(surface)
-  mark.setContext(asGlyphPaintContext(surface)).draw()
+  const run = new GlyphRun(tag, text).setFontFields(font.family, font.sizePt, font.weight ?? 'normal', font.style ?? 'normal')
+  run.paint(ctx, x, y)
+  return run.width()
 }

@@ -158,8 +158,9 @@ src/
                           #   + barlineGap (⭐ the JOIN: the same sign's strokes crossing the
                           #   space BETWEEN two staves — ⛔ never inside `inStaffSpace`, and
                           #   ⛔ never the dots. docs/barline-join-plan.md)
-                          #   + glyphPainter (⭐⭐ THE ONE PLACE VexFlow still paints a glyph —
-                          #   ⛔ never `new Element(...)` in your own file)
+                          #   + glyphPainter (⭐⭐ THE ONE PLACE a glyph is resolved, measured and
+                          #   stamped — no VexFlow since S13a: faces from `fonts/fontCategories` +
+                          #   `fonts/fontFace`; ⛔ never measure or stamp a glyph in your own file)
                           #   + EngravedModifier (S12b — ⭐ a note's MODIFIER as ours: the contract the
                           #   note drives, transcribed once; dot/accidental/articulation/
                           #   tremolo/annotation extend it. `attachModifier` is THE way onto a note

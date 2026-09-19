@@ -97,10 +97,10 @@ const VF = `${sep}node_modules${sep}vexflow${sep}`
 const CEILINGS = {
   'R1 staff coords': 0,
   'R2 note ruler': 0,
-  'R3 placement rules': 1,
+  'R3 placement rules': 0,
   'R4 formatter': 0,
-  'R5 paint+leftovers': 50,
-  'R6 object graph': 4,
+  'R5 paint+leftovers': 33,
+  'R6 object graph': 0,
   'R7 numbers+fonts': 0,
 }
 /** The specs' uses, one number: a spec that imports VexFlow has to move with its subject too. */
