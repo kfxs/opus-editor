@@ -1082,7 +1082,7 @@ browser *and* a font the day before.
 | the clef's **x** | `Stave.format()`'s BEGIN-modifier walk, plus `clefIndentPass` and `clefOffsetPass` nudging by `setX`/`setXShift` | this is the *"`headerInk` MEASURES, `Stave` PLACES"* pair P5 is named after — the next step, not this one |
 | **which line** each clef names | `Clef.types` | ⏳ question 2 of the clef research |
 | the **⅔** a mid-score clef is reduced by | `Clef.getPoint` | ⏳ question 3 of the clef research — ⚠️ and nothing in this repo ever chose it. A spec now says the number out loud so a change cannot be quiet |
-| the **inline** clef (a change at `beat > 0`) | `ClefNote`, which builds its own `Clef` | ⏭️ it becomes ours when `ClefNote` does |
+| the **inline** clef (a change at `beat > 0`) | ✅ ours since S12j-e — `rendering/EngravedClefChange` (was VexFlow's `ClefNote` + `Clef`) | the header clef's rows at `'small'`, stamped through the pass's surface |
 | the **METER** and the opening **BARLINE** | stave modifiers | the rest of P5b |
 
 ⭐ **Both of the middle two are parameters, deliberately** — P3b's precedent with the flag's font

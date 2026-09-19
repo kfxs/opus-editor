@@ -95,16 +95,16 @@ const VF = `${sep}node_modules${sep}vexflow${sep}`
  * The removal is done when every one reads 0 and `vexflow` leaves `package.json` (map §9.2).
  */
 const CEILINGS = {
-  'R1 staff coords': 1,
-  'R2 note ruler': 18,
-  'R3 placement rules': 27,
-  'R4 formatter': 39,
+  'R1 staff coords': 0,
+  'R2 note ruler': 0,
+  'R3 placement rules': 25,
+  'R4 formatter': 0,
   'R5 paint+leftovers': 51,
-  'R6 object graph': 18,
+  'R6 object graph': 5,
   'R7 numbers+fonts': 0,
 }
 /** The specs' uses, one number: a spec that imports VexFlow has to move with its subject too. */
-const TEST_CEILING = 69
+const TEST_CEILING = 58
 
 /** ⚠️ The NAME ceilings, measured 2026-09-14 (map §9.3); S11e 'identifiers' 113 → 110; S12e 'identifiers in tests' 150 → 147; S12h 'identifiers' 110 → 104. Same rule: lower them as renames land;
  *  ⛔ never raise. 'identifiers in tests' and 'vf- in tests' include `e2e/`, scanned as text. */

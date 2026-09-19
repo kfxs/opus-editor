@@ -5,15 +5,14 @@
  * page of 60 scores (`docs/vexflow-removal-map.md` §5.2); pinned here is what the module promises.
  */
 import { describe, it, expect } from 'vitest'
-import { ClefNote } from 'vexflow'
 import { EngravedBeam } from './EngravedBeam'
-import { BarVoice } from './barVoice'
+import { BarVoice, type BarTickable } from './barVoice'
 import { EngravedNote } from './EngravedNote'
 import { attachModifierColumns } from './modifierColumns'
 import { TickColumn, alignVoiceRests, createTickColumns, formatColumns } from './columnFormat'
 
 const note = (key: string, duration: string) => new EngravedNote({ keys: [key], duration })
-const voiceOf = (...tickables: (EngravedNote | ClefNote)[]) =>
+const voiceOf = (...tickables: BarTickable[]) =>
   new BarVoice({ numerator: 4, denominator: 4 }, 'soft').addAll(tickables)
 
 describe('createTickColumns', () => {
@@ -41,7 +40,7 @@ describe('alignVoiceRests', () => {
   it('⛔ refuses a tickable it was not written for', () => {
     const voice = voiceOf(note('c/4', 'w'))
     ;(voice.tickables as unknown[]).push({})
-    expect(() => alignVoiceRests([voice])).toThrow(/neither an EngravedNote nor a ClefNote/)
+    expect(() => alignVoiceRests([voice])).toThrow(/neither an EngravedNote nor an EngravedClefChange/)
   })
 })
 

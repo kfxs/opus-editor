@@ -49,7 +49,7 @@ on his say-so, one at a time, with his eye on each — the way decisions A, D an
 | **3** | **The small-clef RATIO** — what fraction a mid-score change is drawn at | ⚠️ the literature contradicts itself: Gould *writes* ⅔ and *draws* ¾ six times; Gerou & Lusk *state* 75%; Ross *draws* 0.65–0.68; the engines span 0.65–0.88; VexFlow uses exactly ⅔, which is what we inherit | ⛔ **No single sourced answer to adopt** ⇒ a house-style choice, and HIS. The table-of-rows pattern (`__header.rule(…)`, `__beams.rule(…)`) is the shape it would take |
 | **4** | **WHICH LINE each clef names** — the anchor table | `clef-research.md` §2; the books state it | Still VexFlow's `Clef.types`. ⛔ Parked as a named parameter in `engrave/header/clef`, deliberately |
 | **5** | **The cramped floor around a clef** — Gould's ½ stave-space | `clef-research.md` §5.2; stated three times by one author | The same question as `header-spacing-research.md` §8 **G**, which is the one row of the header run still open. ⛔ Answer it once, not twice |
-| 🚨 **7** | **A MID-BAR clef COLLIDES with the note it precedes — no room is reserved for it.** HIS report, 2026-09-13, with a score: bar 3 = quarter rest, chord A3 at beat 1, half rest at beat 2, alto clef change at beat 1 ⇒ *"the glyph sometime is over the note"*. ⭐ **The RULE is not missing** — `clef-spacing-research.md` §4.3 has it MEASURED off Gould p. 8: **0.75 sp before the clef, 0.80 sp after** (her *recommended* version; her *"rather than"* version draws 1.25 / 0.55), with Ross p. 167 and Gerou & Lusk pp. 51–52 on WHERE it goes and ⛔ Stone p. 46 refusing to give one (*"there are no specific rules for clef changes within a measure"*) | ⚠️ **Diagnosed by READING, ⛔ not yet measured in a browser** — see §2.3 | ⏭️ Not built. It is a SPACING fix, ⛔ not a drawing one, and it widens the bar |
+| 🚨 **7** | **A MID-BAR clef COLLIDES with the note it precedes — no room is reserved for it.** HIS report, 2026-09-13, with a score: bar 3 = quarter rest, chord A3 at beat 1, half rest at beat 2, alto clef change at beat 1 ⇒ *"the glyph sometime is over the note"*. ⭐ **The RULE is not missing** — `clef-spacing-research.md` §4.3 has it MEASURED off Gould p. 8: **0.75 sp before the clef, 0.80 sp after** (her *recommended* version; her *"rather than"* version draws 1.25 / 0.55), with Ross p. 167 and Gerou & Lusk pp. 51–52 on WHERE it goes and ⛔ Stone p. 46 refusing to give one (*"there are no specific rules for clef changes within a measure"*) | ⚠️ Diagnosed by reading (§2.3) — ✅ **MEASURED in Chromium 2026-09-19** (§2.3a): a change at beat 1 stands **0.36 sp** of white from the note it precedes (Gould 0.80) and **3.69 sp** after the note before it; the same clef at beat 0 (a bar's opening sign) stands **2.84 sp** from its note — ⚠️ the beat-0 side is ROW 1's (header spacing for a clef that belongs before the barline), see §2.3a; beat 1 is this row's (tight, under half of Gould) | ⏭️ Not built. It is a SPACING fix, ⛔ not a drawing one, and it widens the bar |
 | ⏸️ **8** | **A clef change AFTER a bar's last onset is placed by VexFlow's SOFTMAX — the only x the softmax still decides.** It is appended past the last note (the bar's END tick); our spacing (`layout/spacing` via `rendering/spacingPass`) has no column there, and the room the bar reserves for an inline clef (`headerInk.inlineClefExtent`) is not placed between the last note and the barline. Measured in Chromium 2026-09-18: in a bar of quarters it lands between the last note and the barline (254 of 237…282); in a bar of eighths it **crowds the last eighth** (512 against a head at 509). ⛔ No column-derived x fits: the barline column puts it ON the barline, 3.6 sp before it puts it before the last eighth | ⭐ HIS call, 2026-09-18 (S9h-b of `vexflow-removal-map.md`): *keep the picture exactly, review it later* — so VexFlow's softmax was PORTED (`layout/softmaxSpacing`) just for this. ⚠️ Likely the same question as row 1 (Gould p. 8, *"the clef always goes before the barline"*): a change written after the last onset belongs before the NEXT bar's barline, with its room reserved there | ⏭️ A clef RULE, out of the migration. ⭐ **When it is decided, `layout/softmaxSpacing` is DELETED** — nothing else reads its x's (`vexflow-removal-map.md` §9.4 #5) |
 | **6** | **Octave clefs** — the `8`/`15` numeral, and the model behind it | `clef-research.md` §8 | ⏳ unbuilt entirely (`docs/octave-clefs-plan.md`). ⭐ And the research found the model needs widening before it is built — see §0.3 |
 
@@ -337,15 +337,21 @@ row, because the PICTURE depends on it.
 ⚠️ **This section is a DIAGNOSIS from reading the code, ⛔ not a measurement.** It is written down so
 the next person starts from a hypothesis with an address rather than from a screenshot. ⭐ The
 instrument to confirm it is the browser suite (`e2e/`, `h.inkSizes` on `g.vf-clef text` against the
-notehead) — the mid-bar clef is ⛔ **NOT in the scene** and so cannot be measured in jsdom: it is a
-VexFlow `Clef` inside a `ClefNote` (§3.1), and P5b took only the stave-MODIFIER clef.
+notehead). ⭐ Since S12j-e (2026-09-19) the mid-bar clef is ours (`rendering/EngravedClefChange`, which
+replaced VexFlow's `ClefNote`) and stamps through the pass's surface, so its POSITION is in the scene; its
+ink EXTENT still needs a font (the browser).
 
 **The chain, as far as reading gets it:**
 
 1. a mid-bar change is emitted as a `ClefNote` tickable, interleaved into the voice immediately
    before the note at or after its beat (`VexFlowRenderer.interleaveClefNotes`);
-2. at `beat > 0` that `ClefNote` and the note it precedes are **at the same tick**, so they share a
-   tick context;
+2. ~~at `beat > 0` that `ClefNote` and the note it precedes are **at the same tick**, so they share a
+   tick context~~ — 🚨 **corrected 2026-09-19 (S12j-e), measured:** they do NOT. A `ClefNote` is a
+   256th (`duration: 'b'`) whose ticks the VOICE ignores but the column walk ADDS, so the clef takes
+   the key of its beat and the note it precedes files **64 ticks later**, in a column of its own
+   (voice 1 `q, clef, q` against voice 2 `q, q` → keys `0, 4096, 4160`; the clef shares 4096 with
+   voice 2's note). `vexflow-removal-map.md` §9.4 #6. Point 3 stands either way: the column model
+   prices neither;
 3. ⭐⭐ **but the COLUMN model never hears about it.** `layout/measureColumns` builds each column's ink
    from the SLOTS — noteheads, accidentals, dots, ledgers, flags — and reads the clef only to decide
    *where a note sits* (stem direction, ledger lines). ⇒ a column whose tick also carries a clef is
@@ -364,6 +370,46 @@ change with a casting-off consequence, ⛔ not a nudge.
 absent (Ross p. 167 and Gerou & Lusk put the clef before the REST in that case), and whether a
 cautionary clef at a line end is priced correctly — ⛔ neither has been looked at.
 
+### 📏 2.3a MEASURED, 2026-09-19 — the gap after a clef, at beat 0 against beat 1
+
+⭐ **His report, with two scores** (2026-09-19): *"when the clef is in first position there is more
+space between clef and note than when is in other position"* — ⛔ *"we dont have to fix it now, just
+measure and documented"*. Both scores: 4/4, bar 3 = quarters C4 E4 F4 G4, one staff, an **alto** change
+in bar 3 (mid-line); the only difference is the change's beat.
+
+**How it was measured** (a throwaway Chromium probe through `e2e/harness`): the clef's and the heads'
+`<text>` ORIGINS, exact (`headerGap.e2e.ts`'s rule — ⛔ not a rounded `getBoundingClientRect`), plus the
+font's own bearings from `fonts/bravuraMetrics`: the small `cClef` inks 0 → 2.796 sp × ⅔ (drawn at
+26.67 px against the notes' 40 px), a black head from 0. One staff space = 10 px.
+
+| the change | what draws it | white, clef ink → the head AFTER | white, the head BEFORE → clef ink |
+|---|---|---|---|
+| **beat 0** (the bar's opening sign) | a stave SIGN (`EngravedClef`, walked by `signWalk`) | **2.84 sp** | — (the barline) |
+| **beat 1** (mid-bar) | a TICKABLE (`EngravedClefChange`) | **0.36 sp** (before E4) | **3.69 sp** (after C4) |
+| Gould p. 8, measured (`clef-spacing-research.md` §4.3) | — | **0.80** | **0.75** |
+
+🚨 **What he SEES is the beat-0 side: TOO MUCH room there** (his correction, 2026-09-19 — *"i see too much
+room while i think the other problem was that was colliding"*; a first reading here blamed row 7 alone,
+which was wrong). The two positions are off in OPPOSITE directions:
+
+- ⭐⭐ **beat 0 — too roomy, and it is ROW 1.** The 2.84 sp is the **HEADER's** clef → first-note gap
+  (Gould p. 42's table: 2½ after a clef; decision D's 2.5) applied to a bar that is **not a system
+  opening**. For a change at a bar's start, four books put the clef **BEFORE the barline** (row 1,
+  his decision 0.1a), and the note then follows the barline at Ross p. 145's barline → note **1 sp**
+  (origin-to-origin — ⚠️ not converted to a gap here). ⇒ against the rule, the note sits ≈ 2 sp further
+  right than it should, and the clef is on the wrong side of the barline. Even as a header gap it is
+  ≈ 0.34 sp over Gould's 2½ — ⛔ **not explained**; possibly §2.1's +0.3 `CLEF_SMALL` oddity, unverified.
+- **beat 1 — on the tight side, and it is ROW 7.** 0.36 sp before the note against Gould p. 8's
+  0.80 (under half). No overlap in this score; row 7's report (a chord with a lower note, rests either
+  side) did overlap — ⚠️ not re-measured here.
+
+⭐ **Not a regression of the VexFlow removal**: S12j-e's A/B proved the mid-bar clef draws exactly where
+VexFlow's `ClefNote` drew it, and the beat-0 clef is the stave sign S4 already ported exact. ⏭️ Both
+fixes belong to the clef review, ⛔ not to the migration: **row 1** (the side of the barline, AUTHORED
+with BEFORE as the default — a model + layout change; the previous bar pays for the clef) and **row 7**
+(a SPACING change: the clef's ink plus Gould's two gaps become part of the LEAD-IN of the column it
+precedes — it widens the bar).
+
 ## 3. How a clef is DRAWN, and by whom
 
 ### 3.1 ⭐⭐ THE DISTINCTION THAT CATCHES PEOPLE: a modifier or a tickable
@@ -376,7 +422,7 @@ touches one of them draws nothing for the other.** It has already cost one round
 |---|---|---|---|
 | **header clef** | first bar of a system (`measure.number === 1 \|\| isFirstInLine`) | `stave.addClef(clef)` — a **stave MODIFIER**, full size | `Stave.format()` |
 | **a bar's opening change** | `beat === 0`, mid-line, clef differs from the previous bar's ending clef | `stave.addClef(clef, 'small')` — also a **stave MODIFIER** | `Stave.format()` |
-| **a mid-measure change** | `beat > 0` | `new ClefNote(clef, 'small')`, interleaved into the voice immediately **before** the note at or after its beat (`interleaveClefNotes`, `VexFlowRenderer.ts:1348`) | the FORMATTER, as a tickable |
+| **a mid-measure change** | `beat > 0` | `new EngravedClefChange(clef)` (ours since S12j-e; VexFlow's `new ClefNote(clef, 'small')` before), interleaved into the voice immediately **before** the note at or after its beat (`interleaveClefNotes`) | the FORMATTER, as a tickable |
 | **a cautionary clef** | at a line end, when the next line's opening clef differs — **and only if allowed** | `stave.addEndClef(clef, 'small')`, before the closing barline | `Stave` |
 
 ⚠️ `clefOffsetPass` has **two entry points for exactly this reason** — `applyClefOffsets` for the
@@ -522,7 +568,8 @@ the staff group and again by VexFlow's ⅔. `docs/clef-research.md` §9.1.
 
 ## 6. Traps, in one place
 
-1. 🚨 **`ClefNote.setXShift` is INERT** — shift the inner `Clef` element.
+1. 🚨 **`ClefNote.setXShift` is INERT** — shift the inner `Clef` element. (⭐ S12j-e: that shift is
+   now `EngravedClefChange.glyphShift`; the change's own `getXShift()` still answers 0.)
    `reference: vexflow ClefNote setXShift is inert`.
 2. 🚨 **A bar's opening clef is a stave MODIFIER, not a `ClefNote`** — §3.1. A pass that walks
    tickables will miss it entirely.

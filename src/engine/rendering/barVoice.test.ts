@@ -7,7 +7,8 @@
  */
 import { describe, it, expect, vi } from 'vitest'
 import type { EngravedStave } from './EngravedStave'
-import { ClefNote, type RenderContext } from 'vexflow'
+import type { RenderContext } from 'vexflow'
+import { EngravedClefChange } from './EngravedClefChange'
 import { EngravedNote } from './EngravedNote'
 import { TICK_RESOLUTION, ticksValue } from '@/engine/layout/tickCount'
 import { type BarTickable, BarVoice, barVoiceOf, drawBarVoice, sharedResolution } from './barVoice'
@@ -48,7 +49,7 @@ describe('BarVoice', () => {
   })
 
   it('an inline clef joins without counting', () => {
-    const clef = new ClefNote('bass', 'small')
+    const clef = new EngravedClefChange('bass')
     const voice = new BarVoice({ numerator: 4, denominator: 4 }, 'full').addAll([note('h'), clef])
     expect(voice.tickables).toContain(clef)
     expect(ticksValue(voice.ticksUsed)).toBe(TICK_RESOLUTION / 2)

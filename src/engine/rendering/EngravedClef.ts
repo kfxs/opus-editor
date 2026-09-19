@@ -15,9 +15,8 @@
  * ⭐ **A clef is IN THE SCENE** — *"a clef is stamped at this x, on this line, as this codepoint"* is
  * arithmetic in jsdom.
  *
- * ⛔ **The INLINE clef is not this.** A clef change at `beat > 0` is a `ClefNote` tickable that builds
- * VexFlow's own `Clef` internally (`VexFlowRenderer.interleaveClefNotes`). ⏭️ It becomes ours when
- * `ClefNote` does.
+ * ⛔ **The INLINE clef is not this.** A clef change at `beat > 0` is a TICKABLE in the bar's voice —
+ * `./EngravedClefChange` (S12j-e; VexFlow's `ClefNote` until then) — drawing the same rows at `'small'`.
  */
 import type { DrawContext } from '@/engine/paint/DrawContext'
 import type { Clef as ScoreClef } from '@/types/music'

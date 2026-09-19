@@ -165,10 +165,12 @@ src/
                           #   tremolo/annotation extend it. `attachModifier` is THE way onto a note
                           #   (no cast since S12j-d3) — ⛔ never `note.addModifier(ours)` in your own file;
                           #   likewise `staveFrame.standOn`/`staveOf` for a stave, `stemOf` for a stem)
-                          #   + EngravedHead (S12j-a — a notehead as ours, in the note and the fan) —
+                          #   + EngravedHead (S12j-a — a notehead as ours, in the note and the fan)
+                          #   + EngravedClefChange (S12j-e — an INLINE clef change as ours: VexFlow's
+                          #   `ClefNote` transcribed; ⚠️ its ticks are a 256th to the COLUMNS, §9.4 #6) —
                           #   and a note's TICKS are ours (S12j-c, `EngravedNote` over `layout/tickCount`,
                           #   ⛔ unreduced); `columnFormat.TickColumn` / `modifierColumns.ColumnModifiers`
-                          #   are plain classes since S12j-b (`fileInColumn` the one cast in)
+                          #   are plain classes since S12j-b (no cast in since S12j-e)
                           #   + staveFrame / noteRuler / signRun (⭐⭐ THE ONE PLACES a stave (ours since
                           #   S12h) / a `StaveNote` is asked where its lines, bar, heads, stem or signs are —
                           #   docs/vexflow-removal-map.md S2/S3. ⚠️ LIVE getters, ⛔ never a

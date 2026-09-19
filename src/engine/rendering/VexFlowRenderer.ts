@@ -1,4 +1,4 @@
-import { Renderer, ClefNote } from 'vexflow'
+import { Renderer } from 'vexflow'
 import type { EngravedAnnotation } from './EngravedAnnotation'
 import { ScoreTuplet } from './ScoreTuplet'
 import { tremoloOn, TREMOLO_FLAG_STEM_STRETCH, TREMOLO_STROKE_CLEARANCE, usableStemSpan } from './CenteredTremolo'
@@ -103,7 +103,8 @@ import { headerExtent, headerToNoteGap } from '@/engine/layout/headerInk'
 import { applySpacingPass, type SpacedColumns } from './spacingPass'
 import { attachModifierColumns } from './modifierColumns'
 import { formatColumns, type TickColumns } from './columnFormat'
-import { BarVoice, drawBarVoice } from './barVoice'
+import { BarVoice, drawBarVoice, type BarTickable } from './barVoice'
+import { EngravedClefChange } from './EngravedClefChange'
 import { pickVoiceMode } from '@/utils/restFill'
 import { ticksValue } from '@/engine/layout/tickCount'
 import { renderProbe, type RenderLayoutPart } from '@/engine/RenderProbe' // P0 instrument seam — temporary, see §8
@@ -1372,22 +1373,22 @@ export class VexFlowRenderer {
   }
 
   /**
-   * Interleave inline ClefNotes (for mid-measure clef changes) among the slot
-   * StaveNotes. Each change is inserted before the first slot at/after its beat.
-   * ClefNotes ignore ticks, so the voice's tick total is unaffected.
-   * @returns the combined tickable list and a map of beat→ClefNote for registration
+   * Interleave inline clef changes (`./EngravedClefChange`, for mid-measure clef changes) among the
+   * slot notes. Each change is inserted before the first slot at/after its beat.
+   * A clef change ignores ticks, so the voice's tick total is unaffected.
+   * @returns the combined tickable list and a map of beat→clef change for registration
    */
   private interleaveClefNotes(
     sortedSlots: ChordRest[],
     staveNotes: EngravedNote[],
     midChanges: { beat: Fraction; clef: Clef }[],
-  ): { tickables: (EngravedNote | ClefNote)[]; clefNoteByBeat: Array<{ beat: Fraction; clef: Clef; clefNote: ClefNote }> } {
-    const tickables: (EngravedNote | ClefNote)[] = []
-    const clefNoteByBeat: Array<{ beat: Fraction; clef: Clef; clefNote: ClefNote }> = []
+  ): { tickables: BarTickable[]; clefNoteByBeat: Array<{ beat: Fraction; clef: Clef; clefNote: EngravedClefChange }> } {
+    const tickables: BarTickable[] = []
+    const clefNoteByBeat: Array<{ beat: Fraction; clef: Clef; clefNote: EngravedClefChange }> = []
     const remaining = [...midChanges]
 
     const emit = (change: { beat: Fraction; clef: Clef }) => {
-      const clefNote = new ClefNote(change.clef, 'small')
+      const clefNote = new EngravedClefChange(change.clef)
       tickables.push(clefNote)
       clefNoteByBeat.push({ beat: change.beat, clef: change.clef, clefNote })
     }
@@ -1411,7 +1412,7 @@ export class VexFlowRenderer {
    * for hit detection (mid-measure clef removal) and clef-segment lookup.
    */
   private registerMidMeasureClefs(
-    clefNoteByBeat: Array<{ beat: Fraction; clefNote: ClefNote }>,
+    clefNoteByBeat: Array<{ beat: Fraction; clefNote: EngravedClefChange }>,
     measure: Measure,
     staffIndex: number = 0,
   ): void {
@@ -2023,7 +2024,7 @@ export class VexFlowRenderer {
     // Resolve the clef in effect at any beat within this measure: starts from the
     // opening clef and applies each clef change at/after its beat.
     const clefForBeat = makeClefResolver(measure, clef)
-    // Mid-measure changes (beat > 0) render as inline ClefNotes before their slot.
+    // Mid-measure changes (beat > 0) render as inline clef changes (`./EngravedClefChange`) before their slot.
     const midChanges: { beat: Fraction; clef: Clef }[] = (measure.clefs ?? [])
       .filter(c => !fracIsZero(c.beat))
       .sort((a, b) => fracCompare(a.beat, b.beat))
@@ -2121,11 +2122,11 @@ export class VexFlowRenderer {
       const capacity = measureCapacityFrac(measure)
 
       // One voice per group (`./barVoice`). Mid-measure clef glyphs are staff-wide, so only
-      // the primary voice carries the inline ClefNotes (they're tickless, so the
+      // the primary voice carries the inline clef changes (they're tickless, so the
       // voices still share a tick total and `sharedResolution` won't mismatch).
       const built = groups.map((g, gi) => {
-        let tickables: (EngravedNote | ClefNote)[]
-        let clefNoteByBeat: Array<{ beat: Fraction; clef: Clef; clefNote: ClefNote }> = []
+        let tickables: BarTickable[]
+        let clefNoteByBeat: Array<{ beat: Fraction; clef: Clef; clefNote: EngravedClefChange }> = []
         if (gi === 0) {
           const r = this.interleaveClefNotes(g.slots, g.staveNotes, midChanges)
           tickables = r.tickables
@@ -2297,6 +2298,8 @@ export class VexFlowRenderer {
         // VexFlow's objects paint themselves, and a note taking its surface from there would be
         // invisible to `recordScene`. One line, and the ink we have taken back stays in the scene.
         drawNoteInkThrough(staveNotes, pass.context)
+        // ⭐ S12j-e — and the inline clef changes' glyphs, the same way (`./EngravedClefChange`).
+        for (const { clefNote } of built[0]?.clefNoteByBeat ?? []) clefNote.setInkSurface(pass.context)
 
         for (const b of built) {
           drawBarVoice(b.voice, this.context!, stave)

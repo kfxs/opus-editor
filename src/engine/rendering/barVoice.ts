@@ -20,7 +20,8 @@
  */
 import { EngravedNote } from './EngravedNote'
 import type { EngravedStave } from './EngravedStave'
-import type { ClefNote, RenderContext, Stave } from 'vexflow'
+import type { EngravedClefChange } from './EngravedClefChange'
+import type { RenderContext } from 'vexflow'
 import type { DrawContext } from '@/engine/paint/DrawContext'
 import {
   TICK_RESOLUTION, addTicks, subtractTicks, ticksEqual, ticksGreaterThan, lcm, type TickCount,
@@ -34,10 +35,10 @@ export type BarVoiceMode = 'soft' | 'full'
 
 /** Which voice each tickable was added to — VexFlow's `tickable.voice`, kept beside it instead. */
 /**
- * What a bar's voice holds — a note of ours, or VexFlow's `ClefNote` (an inline clef change; ours in
- * S12j-e). ⭐ S12j-d3: VexFlow's `Tickable` type is gone from the voice.
+ * What a bar's voice holds — a note of ours, or an inline clef change of ours (`./EngravedClefChange`).
+ * ⭐ S12j-e: nothing of VexFlow's stands in a voice any more.
  */
-export type BarTickable = EngravedNote | ClefNote
+export type BarTickable = EngravedNote | EngravedClefChange
 
 const voiceOfTickable = new WeakMap<BarTickable, BarVoice>()
 
@@ -108,16 +109,9 @@ export function sharedResolution(voices: readonly BarVoice[]): number {
  */
 export function drawBarVoice(voice: BarVoice, context: RenderContext, stave: EngravedStave): void {
   for (const tickable of voice.tickables) {
-    if (isEngravedNote(tickable)) {
-      tickable.setStave(stave)
-      tickable.setContext(context as unknown as DrawContext)
-      tickable.drawWithStyle()
-    } else {
-      // ⚠️ VexFlow's `ClefNote` still stands on a stave of ours by the one cast (S12j-e makes it ours).
-      tickable.setStave(stave as unknown as Stave)
-      tickable.setContext(context)
-      tickable.drawWithStyle()
-    }
+    tickable.setStave(stave)
+    tickable.setContext(context as unknown as DrawContext)
+    tickable.drawWithStyle()
   }
 }
 

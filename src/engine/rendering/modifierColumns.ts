@@ -18,7 +18,7 @@
  * each of their `format`s returns at once on an empty list, so skipping them is exact. A context that ever holds one REFUSES
  * loudly instead of drawing it wrong.
  */
-import { Modifier, type ModifierContext } from 'vexflow'
+import { Modifier } from 'vexflow'
 import { addTicks } from '@/engine/layout/tickCount'
 import { stackDots } from '@/engine/engrave/notes/dotStack'
 import { stackAccidentals } from '@/engine/engrave/notes/accidentalStack'
@@ -34,7 +34,7 @@ import { EngravedAccidental } from './EngravedAccidental'
 import { EngravedDot } from './EngravedDot'
 import { EngravedNote, columnVoiceNoteOf } from './EngravedNote'
 import { noteFrame } from './staveFrame'
-import { type BarTickable, type BarVoice, isEngravedNote, sharedResolution } from './barVoice'
+import { type BarTickable, type BarVoice, sharedResolution } from './barVoice'
 
 /**
  * The modifier kinds VexFlow formats that this editor never builds (`modifiercontext.js:79–100`).
@@ -329,10 +329,8 @@ export function attachModifierColumns(voices: readonly BarVoice[]): void {
 
 /**
  * File a tickable — and every modifier it carries — in a column: `Tickable.addToModifierContext`.
- * ⭐ The ONE cast: the tickable is typed for VexFlow's `ModifierContext`, and a column of ours answers
- * every call its code makes of one (`addMember`, `preFormat`, `getWidth`, `getState`, `getRightShift`).
+ * ⭐ S12j-e: every tickable is ours, so there is no cast left.
  */
 export function fileInColumn(tickable: BarTickable, column: ColumnModifiers): void {
-  if (isEngravedNote(tickable)) tickable.addToModifierContext(column)
-  else tickable.addToModifierContext(column as unknown as ModifierContext)
+  tickable.addToModifierContext(column)
 }

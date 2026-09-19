@@ -391,6 +391,8 @@ anything changing in the score"*** — the value was stored, logged, and drawn n
    source. **The shift goes on the inner `Clef` element**, whose `Element.renderText` draws at
    `x + xShift` and whose `getBoundingBox` reports it — which is also what makes the hit box and the
    clef's pixel↔pitch segment follow the ink.
+   ⭐ Since S12j-e the carrier is ours (`rendering/EngravedClefChange`) and the inner shift is its
+   `glyphShift` — same rule, drawn and boxed.
 2. ⭐⭐ **A bar's OPENING clef is not an inline glyph at all.** `interleaveClefNotes` filters
    `beat > 0`; a beat-0 clef is a **stave modifier**, so it needs its own pass
    (`applyStaveClefOffset`, run BEFORE `drawStave`) — and that was his actual case, a clef applied to

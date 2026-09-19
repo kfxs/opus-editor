@@ -16,11 +16,10 @@
  * `vexflow-removal-map.md` §9.4 #5); then `layout/softmaxSpacing` is deleted. ⛔ No `Formatter`
  * instance is made any more, and ⭐ S9i: no `Voice` either — a bar's voices are `./barVoice`.
  */
-import { ClefNote } from 'vexflow'
-import type { TickContext } from 'vexflow'
 import { addTicks, subtractTicks, ticksGreaterThan, ticksValue, type TickCount } from '@/engine/layout/tickCount'
 import { type BarTickable, type BarVoice, barVoiceOf, isEngravedNote, sharedResolution } from './barVoice'
 import type { EngravedNote } from './EngravedNote'
+import { EngravedClefChange } from './EngravedClefChange'
 import { alignRestsToNotes } from '@/engine/engrave/notes/restAlign'
 import {
   SOFTMAX_FACTOR, softmaxColumns, type SoftmaxColumn, type SoftmaxTickable, type SoftmaxVoice,
@@ -43,7 +42,7 @@ export interface TickColumnMetrics {
   totalRightPx: number
 }
 
-/** What stands in a column — a note of ours, or VexFlow's `ClefNote` (S12j-e). */
+/** What stands in a column — a note of ours, or an inline clef change of ours (S12j-e). */
 type ColumnTickable = BarTickable
 
 /**
@@ -51,8 +50,8 @@ type ColumnTickable = BarTickable
  * together, and the room they take. It used to `extend` VexFlow's `TickContext`; what is kept is
  * `TickContext` transcribed as far as anything asks — its x (a base and an offset), padding, the
  * longest and shortest tickables (compared in VexFlow's unreduced tick arithmetic, `layout/tickCount`),
- * the tickables by voice, the widths, the neighbouring columns. ⚠️ A VexFlow NOTE still stands in it:
- * `Tickable.getX`/`getAbsoluteX` ask its `getX()`, `setTickContext` hands it over (the one cast).
+ * the tickables by voice, the widths, the neighbouring columns. ⭐ S12j-e: only tickables of ours stand
+ * in it, so `setTickContext` hands it over with no cast.
  */
 export class TickColumn {
   readonly tickID: number
@@ -180,10 +179,7 @@ export class TickColumn {
         this.minTickable = tickable
       }
     }
-    // ⚠️ The ONE cast, for VexFlow's `ClefNote` alone: it is typed for VexFlow's `TickContext`, and a
-    // column of ours answers every call its code makes of one (`getX`, and the metrics).
-    if (isEngravedNote(tickable)) tickable.setTickContext(this)
-    else tickable.setTickContext(this as unknown as TickContext)
+    tickable.setTickContext(this)
     this.tickables.push(tickable)
     this.tickablesByVoice[voiceIndex ?? 0] = tickable
     this.preFormatted = false
@@ -262,9 +258,10 @@ export function createTickColumns(voices: readonly BarVoice[]): TickColumns {
 
 /** What `engrave/notes/restAlign` needs of one tickable. */
 function restAlignInput(tickable: BarTickable) {
-  // As VexFlow asked it: ours is its `StaveNote`, a `ClefNote` a plain `Note`, anything else not a note.
+  // As VexFlow asked it: ours is its `StaveNote`, a clef change its `ClefNote` (a plain `Note`),
+  // anything else not a note.
   if (!isEngravedNote(tickable)) {
-    const isNote = tickable instanceof ClefNote
+    const isNote = tickable instanceof EngravedClefChange
     return {
       isStaveNote: false,
       isNote,
@@ -288,15 +285,15 @@ function restAlignInput(tickable: BarTickable) {
 
 /**
  * ⭐ Every voice's beamed middle-line rests, moved to the notes around them — `Formatter.alignRests`
- * with `alignAllNotes: false`, by `engrave/notes/restAlign`. ⚠️ Only a `StaveNote` or a `ClefNote` is
+ * with `alignAllNotes: false`, by `engrave/notes/restAlign`. ⚠️ Only a note or a clef change is
  * expected in a voice here; anything else is refused rather than guessed at.
  */
 export function alignVoiceRests(voices: readonly BarVoice[]): void {
   for (const voice of voices) {
     const tickables = voice.tickables
     for (const t of tickables) {
-      if (!isEngravedNote(t) && !(t instanceof ClefNote)) {
-        throw new Error('alignVoiceRests: a tickable that is neither an EngravedNote nor a ClefNote')
+      if (!isEngravedNote(t) && !(t instanceof EngravedClefChange)) {
+        throw new Error('alignVoiceRests: a tickable that is neither an EngravedNote nor an EngravedClefChange')
       }
     }
     for (const step of alignRestsToNotes(tickables.map(restAlignInput))) {
