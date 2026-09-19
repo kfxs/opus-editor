@@ -1,9 +1,11 @@
-import { Modifier, Stem } from 'vexflow'
-import type { Note } from 'vexflow'
+import { Stem } from 'vexflow'
+import type { Note, StaveNote } from 'vexflow'
 import { NOTE_GLYPH_SCALE, STEM_THICKNESS_PX, TREMOLO_FONT_SIZE, TREMOLO_STROKE_STEP_PX } from '@/engine/engrave/inheritedDefaults'
 import type { TremoloMark } from '@/types/music'
 import { tremoloGlyph } from '@/utils/tremoloGlyphs'
 import { noteFrame } from './staveFrame'
+import { drawGlyph, measureGlyphMetrics, type GlyphMetrics } from './glyphPainter'
+import { EngravedModifier, MODIFIER_POSITION, type ModifierMetrics } from './EngravedModifier'
 
 /**
  * A single-note tremolo whose strokes sit in the MIDDLE of the stem.
@@ -63,6 +65,9 @@ import { noteFrame } from './staveFrame'
  * stem put them and the flag moves away from them, so the full stretch becomes clearance. Centring
  * them in the longer stem instead would move them up half as far as the flag and gain only half.
  */
+/** Who stamps the strokes — the `Tremolo` category, whose face is the root music face. */
+const STROKE_TAG = 'Tremolo'
+
 export const TREMOLO_FLAG_STEM_STRETCH = 0.25
 
 /**
@@ -103,10 +108,10 @@ export function usableStemSpan(note: Note): { tip: number; noteheadEdge: number;
   return { tip: topY, noteheadEdge, length: Math.abs(topY - noteheadEdge) }
 }
 
-export class CenteredTremolo extends Modifier {
+export class CenteredTremolo extends EngravedModifier {
   /**
    * ⚠️ `'Tremolo'` still, on purpose: it is the string `noteInkBox`'s dynamics-lane filter reads, and
-   * VexFlow buckets members by it. ⛔ Renaming it would silently drop the mark out of that filter.
+   * the columns bucket members by it. ⛔ Renaming it would silently drop the mark out of that filter.
    */
   static override get CATEGORY(): string {
     return 'Tremolo'
@@ -141,8 +146,16 @@ export class CenteredTremolo extends Modifier {
     super()
     this.num = typeof mark === 'number' ? mark : 1
     // ⚠️ CENTER, as `Tremolo`'s constructor set it: the mark rides the stem, ⛔ not a side of the head.
-    this.position = Modifier.Position.CENTER
-    this.text = tremoloGlyph(mark)
+    this.position = MODIFIER_POSITION.CENTER
+    this.glyph = tremoloGlyph(mark)
+  }
+
+  /** The stroke's glyph (E220), or the Penderecki sign's (E22B). */
+  private readonly glyph: string
+
+  /** @see glyph */
+  getGlyph(): string {
+    return this.glyph
   }
 
   /**
@@ -183,9 +196,21 @@ export class CenteredTremolo extends Modifier {
    * `[y − ascent, y + descent]`.
    */
   private measureStroke(scale: number): { ascent: number; descent: number; ink: number } {
-    this.setFontSize(TREMOLO_FONT_SIZE * scale)
-    const { actualBoundingBoxAscent: ascent, actualBoundingBoxDescent: descent } = this.textMetrics
+    const { ascent, descent } = this.strokeMetrics(scale)
     return { ascent, descent, ink: ascent + descent }
+  }
+
+  /**
+   * One stroke measured at the size it draws — the `Tremolo` category's face (the root music face;
+   * VexFlow's `Tremolo` sets none) at {@link TREMOLO_FONT_SIZE}. ⭐ What `Element.textMetrics` held.
+   */
+  private strokeMetrics(scale: number): GlyphMetrics {
+    return measureGlyphMetrics(STROKE_TAG, this.glyph, TREMOLO_FONT_SIZE * scale)
+  }
+
+  /** One stroke's advance and ink — the box VexFlow's `Element.getBoundingBox` built (see {@link inkRect}). */
+  protected inkMetrics(): ModifierMetrics {
+    return this.strokeMetrics(NOTE_GLYPH_SCALE)
   }
 
   /**
@@ -213,7 +238,7 @@ export class CenteredTremolo extends Modifier {
 
   draw(): void {
     const ctx = this.checkContext()
-    const note = this.checkAttachedNote()
+    const note = this.checkAttachedNote() as StaveNote
     this.setRendered()
 
     const stemDirection = note.getStemDirection()
@@ -270,7 +295,8 @@ export class CenteredTremolo extends Modifier {
     this.x = x
     this.y = firstStrokeY
     for (let i = 0; i < this.num; ++i) {
-      this.renderText(ctx, 0, i * ySpacing)
+      // `Element.renderText(ctx, 0, i × ySpacing)`: the stroke at x + xShift, y + yShift, one step down.
+      drawGlyph(ctx, STROKE_TAG, this.glyph, this.x + this.xShift, this.y + this.yShift + i * ySpacing, TREMOLO_FONT_SIZE * scale)
     }
 
     this.recordInkRect(firstStrokeY, ySpacing, ascent, descent)
@@ -285,7 +311,7 @@ export class CenteredTremolo extends Modifier {
    * anchor, which is what puts the box ON the stem instead of beside it.
    */
   private recordInkRect(firstStrokeY: number, ySpacing: number, ascent: number, descent: number): void {
-    const { actualBoundingBoxLeft: left, actualBoundingBoxRight: right } = this.textMetrics
+    const { left, right } = this.strokeMetrics(NOTE_GLYPH_SCALE)
     const lastStrokeY = firstStrokeY + (this.num - 1) * ySpacing
     const top = Math.min(firstStrokeY, lastStrokeY) - ascent
     const bottom = Math.max(firstStrokeY, lastStrokeY) + descent
@@ -296,4 +322,9 @@ export class CenteredTremolo extends Modifier {
       height: bottom - top,
     }
   }
+}
+
+/** The tremolo hung on `note`, if it carries one — asked of its modifier list, where it is filed. */
+export function tremoloOn(note: Note): CenteredTremolo | undefined {
+  return (note.getModifiers() as unknown[]).find((m): m is CenteredTremolo => m instanceof CenteredTremolo)
 }

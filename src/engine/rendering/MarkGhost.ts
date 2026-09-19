@@ -20,6 +20,7 @@ import { EngravedArticulation } from './EngravedArticulation'
 import { EngravedAccidental } from './EngravedAccidental'
 import { EngravedDot } from './EngravedDot'
 import { CenteredTremolo } from './CenteredTremolo'
+import { attachModifier } from './EngravedModifier'
 import { ARTICULATION_RENDER_ORDER } from './NoteBuilder'
 import { formatLoneNote } from './loneNote'
 import { drawMarkOn } from './glyphPainter'
@@ -97,8 +98,9 @@ export function drawAccidentalGhost(ctx: DrawContext, cursorX: number, cursorY: 
 export function drawTremoloGhost(ctx: DrawContext, cursorX: number, cursorY: number, mark: TremoloMark): boolean {
   try {
     const tremolo = new CenteredTremolo(mark)
-    loneQuarter(cursorY, note => note.addModifier(tremolo, 0))
-    return drawSignGhost(ctx, 'ghost-tremolo', cursorX, cursorY, () => drawMarkOn(ctx, tremolo), centred)
+    loneQuarter(cursorY, note => attachModifier(note, tremolo, 0))
+    // Ours since S12b — it draws on our surface itself, with no cast.
+    return drawSignGhost(ctx, 'ghost-tremolo', cursorX, cursorY, () => tremolo.setContext(ctx).draw(), centred)
   } catch (_e) {
     return false
   }

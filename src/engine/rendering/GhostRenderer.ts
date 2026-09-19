@@ -44,6 +44,7 @@ import { resolveStaffSize } from '@/engine/models/staffSize'
 import { staffMeasureView, staffIdAtIndex } from '@/engine/models/staffContent'
 import { layoutTupletMark, drawTupletMark } from './ScoreTuplet'
 import { CenteredTremolo } from './CenteredTremolo'
+import { attachModifier } from './EngravedModifier'
 import { convertDuration, restKey, drawsTimeSignature, ARTICULATION_RENDER_ORDER } from './NoteBuilder'
 import { drawCurveArc } from './curveArc'
 import { CURVE_PX } from './curveStyle'
@@ -248,7 +249,7 @@ export function drawNoteGhost(
     // before the articulations for no reason but reading order; a tremolo is one modifier and
     // stacks with nothing.
     if (ghostNote.tremolo !== undefined) {
-      staveNote.addModifier(new CenteredTremolo(ghostNote.tremolo), 0)
+      attachModifier(staveNote, new CenteredTremolo(ghostNote.tremolo), 0)
     }
 
     if (ghostNote.articulations?.length) {

@@ -4,6 +4,7 @@ import { EngravedAccidental } from './EngravedAccidental'
 import { EngravedArticulation } from './EngravedArticulation'
 import { attachEngravedDots } from './EngravedDot'
 import { CenteredTremolo } from './CenteredTremolo'
+import { attachModifier } from './EngravedModifier'
 import { reserveDotRoom } from './dotPlacement'
 import type { Measure, NoteDuration, Clef, ArticulationType, Chord, ChordRest, Fraction, KeySignature } from '@/types/music'
 import { fracCompare, fracLte } from '@/utils/fraction'
@@ -361,7 +362,7 @@ export function createStaveNotesFromSlots(
     // covers the second slot too: it carries no `tremoloPair`, but a single-note mark left on it
     // from before is part of the same pair now and is not drawn twice.
     if (slot.tremolo && !pairRole) {
-      staveNote.addModifier(new CenteredTremolo(slot.tremolo), 0)
+      attachModifier(staveNote, new CenteredTremolo(slot.tremolo), 0)
     }
 
     staveNotes.push(staveNote)

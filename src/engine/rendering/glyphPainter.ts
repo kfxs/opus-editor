@@ -151,29 +151,52 @@ export function measureGlyph(tag: string, glyph: string, sizePt: number): number
   return widthOf(glyphElement(tag, glyph, sizePt))
 }
 
+/** What the canvas measures of one glyph run — the fields of `TextMetrics` the engraving reads. */
+export interface GlyphMetrics {
+  /** The advance width. */
+  width: number
+  /** Ink above the baseline (`actualBoundingBoxAscent`). */
+  ascent: number
+  /** Ink below the baseline (`actualBoundingBoxDescent`). */
+  descent: number
+  /** Ink left of the origin (`actualBoundingBoxLeft`). */
+  left: number
+  /** Ink right of the origin (`actualBoundingBoxRight`). */
+  right: number
+}
+
 /**
- * ⭐ **HOW TALL A GLYPH RUN WOULD BE DRAWN** — its ink's ascent plus descent, by the same resolution
- * as {@link drawGlyph}. The tuplet mark's baseline is centred on it (S12a: what VexFlow's `Tuplet`
- * kept a `textElement` for). ⚠️ 0 in jsdom, like {@link widthOf}.
+ * ⭐ **WHAT A GLYPH RUN WOULD MEASURE, drawn** — by the same resolution as {@link drawGlyph}: `tag`'s
+ * face at `sizePt`. What an `Element` kept in its `textMetrics` for the objects that are ours now
+ * (S12). ⚠️ All 0 in jsdom, like {@link widthOf}.
  */
-export function measureGlyphHeight(tag: string, glyph: string, sizePt: number): number {
+export function measureGlyphMetrics(tag: string, glyph: string, sizePt: number): GlyphMetrics {
   try {
-    return glyphElement(tag, glyph, sizePt).getHeight() || 0
+    const m = glyphElement(tag, glyph, sizePt).textMetrics
+    return {
+      width: m.width || 0,
+      ascent: m.actualBoundingBoxAscent || 0,
+      descent: m.actualBoundingBoxDescent || 0,
+      left: m.actualBoundingBoxLeft || 0,
+      right: m.actualBoundingBoxRight || 0,
+    }
   } catch {
-    return 0
+    return { width: 0, ascent: 0, descent: 0, left: 0, right: 0 }
   }
 }
 
 /**
- * A run's ink ABOVE its baseline — the canvas's `actualBoundingBoxAscent`, by the same resolution as
- * {@link drawGlyph}. ⚠️ 0 in jsdom, like {@link widthOf}.
+ * ⭐ **HOW TALL A GLYPH RUN WOULD BE DRAWN** — its ink's ascent plus descent (VexFlow's `Element`
+ * height). The tuplet mark's baseline is centred on it (S12a). ⚠️ 0 in jsdom.
  */
+export function measureGlyphHeight(tag: string, glyph: string, sizePt: number): number {
+  const { ascent, descent } = measureGlyphMetrics(tag, glyph, sizePt)
+  return ascent + descent
+}
+
+/** A run's ink ABOVE its baseline — see {@link measureGlyphMetrics}. ⚠️ 0 in jsdom. */
 export function measureGlyphAscent(tag: string, glyph: string, sizePt: number): number {
-  try {
-    return glyphElement(tag, glyph, sizePt).textMetrics.actualBoundingBoxAscent || 0
-  } catch {
-    return 0
-  }
+  return measureGlyphMetrics(tag, glyph, sizePt).ascent
 }
 
 /**

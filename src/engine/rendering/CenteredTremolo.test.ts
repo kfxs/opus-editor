@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 import { describe, it, expect } from 'vitest'
 import { Renderer, Stave, StaveNote, Voice, Formatter } from 'vexflow'
-import type { Modifier } from 'vexflow'
 import { CenteredTremolo } from './CenteredTremolo'
+import { attachModifier } from './EngravedModifier'
 
 /**
  * The tremolo modifier's own BOUNDING BOX — not where its strokes land.
@@ -20,13 +20,13 @@ import { CenteredTremolo } from './CenteredTremolo'
  */
 describe('CenteredTremolo bounding box', () => {
   /** Draw one quarter note carrying `modifier` at a known x, and return the note's merged box. */
-  const drawNoteWithModifier = (modifier?: Modifier) => {
+  const drawNoteWithModifier = (modifier?: CenteredTremolo) => {
     const div = document.createElement('div')
     const ctx = new Renderer(div, Renderer.Backends.SVG).getContext()
     const stave = new Stave(10, 40, 400).setContext(ctx)
 
     const note = new StaveNote({ keys: ['b/4'], duration: 'q' })
-    if (modifier) note.addModifier(modifier, 0)
+    if (modifier) attachModifier(note, modifier, 0)
     note.setStave(stave)
 
     const voice = new Voice({ numBeats: 1, beatValue: 4 })
@@ -81,7 +81,7 @@ describe('CenteredTremolo bounding box', () => {
       const ctx = new Renderer(div, Renderer.Backends.SVG).getContext()
       const stave = new Stave(10, 40, 400).setContext(ctx)
       const note = new StaveNote({ keys: ['c/5'], duration: 'q' })
-      note.addModifier(modifier, 0)
+      attachModifier(note, modifier, 0)
       note.setStave(stave)
       const voice = new Voice({ numBeats: 1, beatValue: 4 })
       voice.setStrict(false)
@@ -117,8 +117,8 @@ describe('CenteredTremolo bounding box', () => {
   it('draws E22B for the Penderecki mark, and E220 for a stroke count', () => {
     // Written-out codepoints, because VexFlow's `Glyphs` map is not re-exported and resolves to
     // `undefined` in the browser — silently. Pinning them here is what makes owning them safe.
-    expect(new CenteredTremolo('penderecki').text).toBe('\uE22B')
-    expect(new CenteredTremolo(3).text).toBe('\uE220')
+    expect(new CenteredTremolo('penderecki').getGlyph()).toBe('\uE22B')
+    expect(new CenteredTremolo(3).getGlyph()).toBe('\uE220')
   })
 })
 
@@ -132,7 +132,7 @@ describe('CenteredTremolo bounding box', () => {
  * ceiling, and the point of the step is that the class is gone.
  */
 describe('CenteredTremolo is its own modifier', () => {
-  const textOf = (m: CenteredTremolo) => (m as unknown as { text: string }).text
+  const textOf = (m: CenteredTremolo) => m.getGlyph()
 
   it('draws strokes with SMuFL tremolo1, the codepoint VexFlow used', () => {
     expect(textOf(new CenteredTremolo(3)).codePointAt(0)).toBe(0xe220)
@@ -146,6 +146,7 @@ describe('CenteredTremolo is its own modifier', () => {
   it('⚠️ keeps the category string "Tremolo" — `noteInkBox` filters the dynamics lane by it', () => {
     // ⚠️ The STATIC is ours; `Element.getCategory()` just reads it off the constructor.
     expect(CenteredTremolo.CATEGORY).toBe('Tremolo')
+    expect(new CenteredTremolo(3).getCategory()).toBe('Tremolo')
   })
 
   it('sits CENTER on the note, so it can ride the stem', () => {

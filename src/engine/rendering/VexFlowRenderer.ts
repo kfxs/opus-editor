@@ -1,6 +1,6 @@
 import { Renderer, Stave, StaveNote, Accidental, Articulation, Annotation, type Beam, ClefNote } from 'vexflow'
 import { ScoreTuplet } from './ScoreTuplet'
-import { CenteredTremolo, TREMOLO_FLAG_STEM_STRETCH, TREMOLO_STROKE_CLEARANCE, usableStemSpan } from './CenteredTremolo'
+import { tremoloOn, TREMOLO_FLAG_STEM_STRETCH, TREMOLO_STROKE_CLEARANCE, usableStemSpan } from './CenteredTremolo'
 import { twoNoteTremoloStrokes } from './TwoNoteTremolo'
 import { TREMOLO_PAIR_GROUP, pairDrawing, pairIsJoined, pairRoleAt, pairStrokesDrawn } from '@/utils/tremoloPair'
 import { fanStemExtension } from './FannedBeam'
@@ -1027,7 +1027,7 @@ export class VexFlowRenderer {
       // (reported by eye) while the same five on a quarter were fine: only the quarter got the fit
       // stretch. Extending an invisible stem draws nothing and moves the imaginary tip, which is
       // exactly the room the stack needs.
-      const mark = staveNote.getModifiers().find(m => m instanceof CenteredTremolo)
+      const mark = tremoloOn(staveNote)
       const stem = staveNote.getStem()
       if (!mark || !stem) continue
 
@@ -1354,7 +1354,7 @@ export class VexFlowRenderer {
     beat: number,
   ): void {
     try {
-      const mark = staveNote.getModifiers().find(m => m instanceof CenteredTremolo)
+      const mark = tremoloOn(staveNote)
       const rect = mark?.inkRect()
       if (!rect || !Number.isFinite(rect.x) || !Number.isFinite(rect.y) || rect.height <= 0) return
       this.elementRegistry.add({
