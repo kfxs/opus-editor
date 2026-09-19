@@ -52,6 +52,8 @@ import type { TrillAuxiliary } from '@/utils/trillPitch'
 import type { TrillSpan } from '@/engine/models/trillOps'
 import { staffOf, voiceOf } from '@/utils/lanes'
 import type { VoiceScope } from '@/utils/dynamicScope'
+import { isTestRun } from '@/utils/env'
+import { installUndoInvariant } from './undoInvariant'
 
 /**
  * Configuration for the MusicEngine
@@ -141,6 +143,8 @@ export class MusicEngine {
 
     // Save initial state for undo/redo
     this.undoRedoManager.saveInitialState(this.scoreModel.getScore())
+
+    if (isTestRun()) installUndoInvariant(this)
   }
 
   // ==================== Undo/Redo ====================

@@ -1269,6 +1269,14 @@ describe('MusicEngine.createSlur — endpoint resolution', () => {
     expect(engine.getNote(b.id)!.tiedTo).toBe(c.id)
   })
 
+  it('the undo invariant is ARMED on a real engine: a mutator that stops asking throws', () => {
+    const a = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
+    // `toggleTie` asks through `commit`; with that silenced it is exactly the bug `tieSelection` had.
+    ;(engine as unknown as { commit: () => void }).commit = () => {}
+    expect(() => engine.toggleTie(a.id)).toThrow(/undo invariant/)
+  })
+
   it('toggleTie ties a chord member with no same pitch ahead to the next slot (let-ring)', () => {
     // Chord C4+C5 at beat 0, then a lone C4 at beat 1 — C5 has no partner.
     const c4 = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
