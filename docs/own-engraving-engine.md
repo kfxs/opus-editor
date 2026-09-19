@@ -80,8 +80,9 @@ delaying engraving work by one day.
 >
 > ⭐⭐ **THE ORDER is `docs/vexflow-removal-map.md` §9 (S0–S14)** — measured with the TypeScript
 > compiler, and it supersedes this document's phase order where §10 of the map says they disagree.
-> ⭐ **THE GAUGE is `npm run lint:vexflow`** (S0, in `build:check`): 1,449 VexFlow uses outside the
-> specs in seven roles, each a ceiling that may only fall.
+> ⭐ **THE GAUGE was `npm run lint:vexflow`** (S0): 1,449 VexFlow uses outside the specs in seven
+> roles, each a ceiling that could only fall. It reached zero with the removal and the script was
+> retired (code-shape plan, Phase 1.8) — `lint:boundary`'s import ban is the guard now.
 >
 > ✅ **Progress (2026-09-14):** S0 the census · S1a the fonts are ours (`engine/fonts/fontFiles` +
 > `rendering/musicFontFaces` — the page no longer depends on VexFlow's import to have Bravura) · S1b the

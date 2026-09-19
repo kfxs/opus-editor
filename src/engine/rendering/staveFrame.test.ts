@@ -7,7 +7,7 @@
  * the built numbers BIT-identically — that is what lets S4e move no pixel.
  *
  * ⚠️ The stave's own position is the constructor's numbers below, ⛔ never asked back through VexFlow's
- * getters — a spec may not add a VexFlow use (`lint:vexflow`).
+ * getters, which no longer exist (`lint:boundary` refuses the import in specs too).
  */
 import { describe, it, expect } from 'vitest'
 import { EngravedStave } from './EngravedStave'

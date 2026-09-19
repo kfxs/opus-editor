@@ -261,15 +261,18 @@ npm run lint:boundary     # no framework anywhere below App.ts; dev/ out of the 
 npm run lint:testnames    # a spec is named after its sibling subject
 npm run lint:singletons   # the singleton count in DESIGN-PRINCIPLES.md is still true
 npm run lint:tables       # the kind-tables are still TOTAL over their union
-npm run lint:paint        # ⭐⭐ no file names VexFlow's context (0/0 since S13b) — and none may again
+npm run lint:paint        # the `svgNode` escape — a DrawGroup's way back to the DOM — may not grow
 npm run lint              # the full ESLint pass
 ```
 
 ⭐⭐ **`lint:paint` was a PROGRESS BAR, and it reached zero** (`docs/own-engraving-engine.md` P1b;
-S13b of `docs/vexflow-removal-map.md`, 2026-09-19). The engine draws through its own
+S13b of `docs/vexflow-removal-map.md`). The engine draws through its own
 `engine/paint/DrawContext`, and behind it on the page is OUR `rendering/SvgPainter`. What needed
-VexFlow's context was spelled `vexContext` or named `SVGContext`/`RenderContext` — a countable residue
-with an allowlist and a ceiling that fell from 24 to **0**, allowlist EMPTY. It stays as a guard.
+VexFlow's context was a countable residue with an allowlist and a ceiling that fell from 24 to 0.
+Those two checks are retired — `lint:boundary` refuses the import outright, so there is nothing
+left to count — and so is `lint:vexflow`, the removal's census (all zeros; its script is in git
+history, its findings in the removal map). What `lint:paint` still holds is its one LIVE ceiling:
+the `svgNode` escape, 16 places where drawn ink is handed back to the page.
 🚨 It exists because of a measurement rather than a worry: in the 16 days after the migration plan
 was written, **every stated rule was kept while the coupling grew 39%**, invisibly, because no
 number was being looked at — and a stated trigger in that same plan fired four times unnoticed.

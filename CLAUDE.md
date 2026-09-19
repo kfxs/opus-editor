@@ -205,7 +205,7 @@ src/
                           #   ⛔ no DOM, ⛔ no vexflow, ⛔ no models. A pass takes
                           #   `RenderPass.context`; `RenderPass.painter` (our `SvgPainter`) and
                           #   `svgNode()` are the DOM that is LEFT, and `npm run lint:paint` holds
-                          #   their ceilings (they may only fall). docs/own-engraving-engine.md P1b/P1c
+                          #   `svgNode`'s ceiling (it may only fall). docs/own-engraving-engine.md P1b/P1c
     engrave/              # ⭐⭐ WHAT SYMBOLS, WHERE — music → ink through `paint/`, and the home
                           #   P3 moves the NOTE into one piece at a time (docs/note-engraving-plan.md).
                           #   ⛔ no DOM, ⛔ no vexflow (lint:boundary). `notes/ledgerLines` (P3a — the

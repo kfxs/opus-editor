@@ -1,6 +1,6 @@
 # Code shape plan — 2026-09-19
 
-**Status: IN PROGRESS — Phase 1 items 1–7 done (2026-09-19), 8 open.** Phases are ordered by
+**Status: IN PROGRESS — Phase 1 DONE (2026-09-19), bar item 5's two ⏭️ decisions. Phase 2 is next.** Phases are ordered by
 value over risk; each one stands alone and can be stopped after. A done item carries ✅ and what
 actually happened where that differs from what was planned.
 
@@ -145,8 +145,12 @@ The fix is to change the **contract**, not the rule: a row owns its body.
    **Prettier REMOVED — decided, not drifted:** measured on a scratch copy it would rewrite 888 of
    1,064 files (~48k diff lines), most of it re-breaking code laid out by hand on purpose. The
    style is held by eslint and by the surrounding code.*
-8. Retire `lint:vexflow` (509 lines, 6.4 s, all zeros; the import ban already guards) and shrink
+8. ✅ Retire `lint:vexflow` (509 lines, 6.4 s, all zeros; the import ban already guards) and shrink
    `lint:paint` to its one live ceiling.
+   *Done: the census script is deleted (git history keeps it) and `lint:paint` is the `svgNode`
+   ceiling alone, 199 → 80 lines, now listing every use when it fails. ⚠️ One thing the census
+   held that nothing holds now: S15's NAMES rule — no identifier or class spelled `vex` / `vf-` in
+   `src/` or `e2e/`. The import ban guards the dependency, not the spelling.*
 
 ### Phase 2 — Make the rule mechanical
 
