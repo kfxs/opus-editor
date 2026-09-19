@@ -8,6 +8,7 @@
 import { dbg } from '@/utils/debug'
 import type { ClickableElementSpec } from './chain'
 import { beginSlurBodyDrag } from '../drags/slurBody'
+import { SLUR_KEYS } from './slurKeys'
 
 /** Shortest distance from point (px,py) to the line segment a→b (clamped to the
  *  segment, so endpoints don't over-grab). Used for arc-proximity slur hit-testing. */
@@ -70,4 +71,5 @@ export const SLUR_ELEMENT: ClickableElementSpec = {
     h.applyArmedSlurAnchorNote()
     h.applyAnchorGuideLine()
   },
+  keys: SLUR_KEYS,
 }

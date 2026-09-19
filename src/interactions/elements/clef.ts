@@ -8,6 +8,7 @@ import { dbg } from '@/utils/debug'
 import { staffOf } from '@/utils/lanes'
 import type { ClickableElementSpec } from './chain'
 import { beginClefDrag } from '../drags/clef'
+import { CLEF_KEYS } from './clefKeys'
 
 export const CLEF_ELEMENT: ClickableElementSpec = {
   kind: 'clef',
@@ -35,4 +36,5 @@ export const CLEF_ELEMENT: ClickableElementSpec = {
   },
 
   highlight: h => h.applyClefSelectionHighlight(),
+  keys: CLEF_KEYS,
 }

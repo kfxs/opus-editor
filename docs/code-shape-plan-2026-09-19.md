@@ -1,6 +1,6 @@
 # Code shape plan — 2026-09-19
 
-**Status: IN PROGRESS — Phase 1 DONE (2026-09-19), bar item 5's two ⏭️ decisions. Phase 2 DONE. Phase 3.1: the hairpin / ottava / pedal body drags done and checked; the trill's too (`cdb7f05`); the slur's too (`69e927c`); the four SQUARE drags too (`6d903c3`); the slur HANDLE / ENDPOINT and staff-spacing drags too (`8f28f79`); the DYNAMIC and TEMPO drags too (`9a04f88`); bar width, barline join, group span and clef too (`ee31698`); the NOTE drag too (`7d2898e`) — every gesture is a module. **Phase 3.1 DONE** (`25f70a6`). 3.2: the `keys` column + dispatcher and the HAIRPIN on it (`e61626a`); OTTAVA / PEDAL / TRILL too (`14e10e7`); DYNAMIC and TEMPO on it, awaiting his UI check. Slur and clef offset are what is left of the chains.** Phases are ordered by
+**Status: IN PROGRESS — Phase 1 DONE (2026-09-19), bar item 5's two ⏭️ decisions. Phase 2 DONE. Phase 3.1: the hairpin / ottava / pedal body drags done and checked; the trill's too (`cdb7f05`); the slur's too (`69e927c`); the four SQUARE drags too (`6d903c3`); the slur HANDLE / ENDPOINT and staff-spacing drags too (`8f28f79`); the DYNAMIC and TEMPO drags too (`9a04f88`); bar width, barline join, group span and clef too (`ee31698`); the NOTE drag too (`7d2898e`) — every gesture is a module. **Phase 3.1 DONE** (`25f70a6`). 3.2: the `keys` column + dispatcher and the HAIRPIN on it (`e61626a`); OTTAVA / PEDAL / TRILL too (`14e10e7`); DYNAMIC and TEMPO too (`943fb64`); SLUR and CLEF on it, awaiting his UI check — **the nudge / reset chains are gone.** What 3.2 has not touched: `Ctrl+Shift+←/→` (re-anchor) and `Tab` (cycle the handles).** Phases are ordered by
 value over risk; each one stands alone and can be stopped after. A done item carries ✅ and what
 actually happened where that differs from what was planned.
 
@@ -357,10 +357,24 @@ Run the e2e suite either side of each step.
    `dy`) becomes a positive OUTWARD — the old chain did it by passing that one closure a flipped
    sign on each of four lines, which is exactly the kind of fact that belongs to the kind. The
    key RUN is still told the SCREEN delta. 4 closures and 15 links gone; `shortcutWiring` kinds
-   310 → 260. ⏸️ Awaiting his UI check.*
-   *Still in the chains: slur, clef offset — and the three
-   that key off the NOTE selection rather than `selectedElement` (rest, note spacing, bar width),
-   which stay where they are.*
+   310 → 260. ✅ Passed (`943fb64`).*
+
+   *Fourth and last of `{ nudge, reset }` — SLUR and CLEF. `elements/slurKeys.ts` holds the one
+   kind with four readings (a true END, an open JOIN of a cross-system slur, a SHAPE handle, the
+   WHOLE curve), mutually exclusive by what is armed, and keeps the one asymmetry the closures
+   had: an armed end or join ALWAYS consumes the key and renders, even on a refusal, while a shape
+   handle and the whole curve decline. ⛔ No key run for the slur — every press is its own write.
+   `elements/clefKeys.ts` is horizontal-only and lets the ENGINE refuse a header clef. 9 closures
+   gone; `shortcutWiring` kinds 260 → 180, lines 638 → 562.*
+
+   *⭐ The nine chains now read as the plan wanted: `pitchUp` is
+   `nudgeSelectedElement(0, −fine) || nudgeSelectedRest(1)`, else the pitch edit; `Ctrl+←/→` is
+   the element, else note spacing, else bar width; `resetMove` likewise. What is left in them keys
+   off the NOTE selection, not `selectedElement`, and stays. Over 3.2: 29 closures and ~100 chain
+   links out of `shortcutWiring`, kinds 465 → 180, lines 806 → 562; eight kinds answer the keys,
+   pinned by name in `chain.test.ts`. Two orphaned doc blocks the deletions had left behind (the
+   ottava's, the pedal reset's) went too — their rules already stood in `spanMarkKeys.ts`.
+   ⏸️ Awaiting his UI check.*
 
    *(review)* **`delete` reverses a recorded decision and is his call.** `chain.ts`'s header (and
    CLAUDE.md, "the two sites that stay switches") says a `delete?` row was sketched and refused:

@@ -23,7 +23,6 @@ import { passageOf, spansStaves } from './measurePassage'
 import { flipSelection } from './flipSelection'
 import { repeatSelectedPassage } from './repeatPassage'
 import { reanchorArmedSlurEndpoint } from './slurReanchor'
-import { walkArmedSlurEndpoint } from './slurEndpointWalk'
 import { cycleSlurHandle } from './slurHandleCycle'
 import { cycleHairpinEndpoint, nudgeArmedHairpinMouth, resetArmedHairpinMouth } from './elements/hairpinHandles'
 import {
@@ -32,7 +31,6 @@ import {
 import { reanchorArmedTrillEndpoint } from './trillReanchor'
 import { keyRunTick } from './keyRun'
 import type { MarkPreviewKind } from '../engine/rendering/markPreviewPass'
-import { nudgeArmedSlurControlPoint, resetArmedSlurHandle } from './slurHandleNudge'
 import { windows } from '../windows'
 import { openClefWindow } from '../windows/clefWindow'
 import { openKeySignatureWindow } from '../windows/keySignatureWindow'
@@ -106,36 +104,6 @@ export function wireShortcuts(
   // Properties input uses the same number.
   const MOUTH_STEP_SS = 0.05
 
-  // Nudge the armed slur endpoint by a staff-space delta (screen-down is +y, so "up arrow
-  // lifts the point" passes a negative dy). Returns true when it consumed the key (an
-  // endpoint was armed), false to DECLINE so the key falls through to its normal action.
-  //
-  // ⭐⭐ The HORIZONTAL goes through the INTERPOLATING WALK (`./slurEndpointWalk`): the same ink
-  // nudge, except that reaching the next note takes the anchor along with it. Vertical stays a pure
-  // offset — an endpoint's y has no anchor to arrive at. See the walk's header for the arithmetic
-  // and `ctrlArrowLeft` below for why this key is allowed to end in a model write at all.
-  const nudgeArmedEndpoint = (dx: number, dy: number): boolean => {
-    const eng = getEngine()
-    const slur = selectedOf(state, 'slur')
-    if (!eng || !slur?.endpoint) return false
-    if (dy === 0 && dx !== 0) walkArmedSlurEndpoint(state, eng, dx)
-    else eng.nudgeSlurEndpoint(slur.id, slur.endpoint, dx, dy)
-    renderer.renderScore()
-    return true
-  }
-
-  // Same, but for an armed OPEN join (orange square) of a cross-system slur. Passes the
-  // captured spanCount as the override's reset signature. See
-  // docs/multisystem-slur-segment-endpoint-offset-plan.md.
-  const nudgeArmedSegmentEndpoint = (dx: number, dy: number): boolean => {
-    const eng = getEngine()
-    const slur = selectedOf(state, 'slur')
-    if (!eng || !slur?.segmentEndpoint) return false
-    eng.nudgeSlurSegmentEndpoint(slur.id, slur.segmentEndpoint, dx, dy, slur.segmentSpanCount ?? 0)
-    renderer.renderScore()
-    return true
-  }
-
   // Tab / Shift+Tab: walk the selected slur's drawn handles. The registry is the list, so this
   // declines wherever none are drawn (no slur selected, or linear view) — see `slurHandleCycle`.
   const walkSlurHandles = (step: 1 | -1): boolean => {
@@ -191,85 +159,6 @@ export function wireShortcuts(
     return true
   }
 
-  // Same again for an armed round SHAPE handle (the amber arc dot) — the module owns the whole
-  // conversion, because unlike the two offsets above its baseline is the DRAWN arc rather than the
-  // stored value. See `slurHandleNudge`.
-  const nudgeArmedControlPoint = (dx: number, dy: number): boolean => {
-    const eng = getEngine()
-    if (!eng || !nudgeArmedSlurControlPoint(state, eng, dx, dy)) return false
-    renderer.renderScore()
-    return true
-  }
-
-  /**
-   * ⭐⭐ **The arrows move the WHOLE CURVE when nothing of the slur is armed** (his ask, 2026-08-18:
-   * *"what we dont have is total slur offset (similar to the hairpin)… and the arc conserve the same
-   * shape, so we dont recalculate"*) — the family's rule, which a hairpin, a bracket, a pedal and a
-   * trill already followed and the slur was the one kind missing from.
-   *
-   * ⚠️ It DECLINES whenever any of the three handle families is armed, so it can only ever run after
-   * `nudgeArmedSlurPoint` has passed: one selection, one meaning per key.
-   *
-   * ⭐ Screen-signed straight through, no conversion — unlike the trill beside it. The offset it writes
-   * is added to the same two endpoints as the per-end nudges, and those speak screen (see
-   * `SlurOffsetOverride`).
-   */
-  const nudgeSelectedSlur = (dx: number, dy: number): boolean => {
-    const eng = getEngine()
-    const slur = selectedOf(state, 'slur')
-    if (!eng || !slur || slur.endpoint || slur.segmentEndpoint || slur.controlPoint) return false
-    if (!eng.nudgeSlur(slur.id, dx, dy)) return false
-    renderer.renderScore()
-    return true
-  }
-
-  /** `Ctrl+Backspace` with a slur selected and nothing armed: the whole curve back where the engraver
-   *  put it. ⚠️ It leaves the per-end nudges and the arc's shape — three statements, three resets. */
-  const resetSelectedSlur = (): boolean => {
-    const eng = getEngine()
-    const slur = selectedOf(state, 'slur')
-    if (!eng || !slur || slur.endpoint || slur.segmentEndpoint || slur.controlPoint) return false
-    if (!eng.resetSlurOffset(slur.id)) return false
-    renderer.renderScore()
-    return true
-  }
-
-  // Ctrl+Backspace on ANY armed slur handle — arc dot, true end or open join: back to the automatic
-  // engraving, the reset half of the three nudges above. Chains ahead of the note-spacing /
-  // bar-width resets on the same key — disjoint, since arming a slur handle clears the note
-  // selection those need — and DECLINEs when there is nothing authored to reset.
-  const resetArmedSlurPoint = (): boolean => {
-    const eng = getEngine()
-    if (!eng || !resetArmedSlurHandle(state, eng)) return false
-    renderer.renderScore()
-    return true
-  }
-
-  /**
-   * ⭐⭐ **Nudge the armed OTTAVA end — the bracket's own INK** (his ask, 2026-08-17: *"the square
-   * points offset"*). Plain arrow fine, `Ctrl`+arrow coarse — the wedge's pair (`elements/hairpinKeys`), on the
-   * squares that already re-anchor with `Ctrl+Shift`. Two chords, two categories, one pair of
-   * handles: the harder chord says which notes are DISPLACED, this one says where the ink goes.
-   *
-   * ⭐⭐ **The horizontal goes through the INTERPOLATING WALK, on EITHER square** (`./ottavaWalk`,
-   * his ask 2026-08-21): the same ink nudge, except that reaching the next onset of the lane takes
-   * that end of the BRACKET along with it — the wedge's and the trill's gesture, sharing their
-   * arithmetic (`./markWalk`). ⚠️ So this key can end in a MODEL write, which is the crossing and
-   * nothing else; every press either side of it is ink. ⭐ Both squares, because both have a
-   * re-anchor AND an offset.
-   *
-   * ⭐⭐ **`↑`/`↓` move the WHOLE bracket, whichever square is armed** — his rule, *"ottava is a
-   * straight line, so offset in y should result in offset the two points in y"*. Nothing here
-   * enforces it: `OttavaOffsetOverride` has ONE vertical, so there is no second height to write. ⛔ Do
-   * not "fix" this into a per-end pair to match the hairpin — a tilted octave bracket is not a shape.
-   *
-   * ⭐⭐ **This is the one place that converts screen to OUTWARD-from-the-staff**, and it converts
-   * because a KEY is a screen direction: `↑` must lift the bracket on both sides of the staff, while
-   * the stored number means "further from the staff" so that flipping 8va↔8vb cannot invert a nudge
-   * the user already made (see `OttavaOffsetOverride`). Above the staff the two agree up to a sign.
-   *
-   * ⚠️ Screen-down is +dy, so "up" arrives negative and becomes a POSITIVE outward for an 8va.
-   */
   /**
    * ⭐⭐ **AFTER AN ACCEPTED ARROW ON A MARK — a WALK is a RUN, anything else renders.** His rule,
    * 2026-08-30: *"we should apply the same solution of the held to all walkings — pedal, ottava,
@@ -320,9 +209,6 @@ export function wireShortcuts(
     return ELEMENT_SPECS[element.kind].keys?.reset?.(keysCtx(eng), element) ?? false
   }
 
-  /** `Ctrl+Backspace` with a pedal selected and nothing armed: every nudge dropped. DECLINEs when it
-   *  carries none — ⚠️ which is the ordinary case, since a pedal's EXTENT edits are model writes
-   *  with nothing to reset. */
   /**
    * ⭐⭐ **RE-ANCHOR THE ARMED TRILL SQUARE BY ONE NOTE** — `Ctrl+Shift+←/→` (his ask, 2026-08-18).
    * The armed square is the gate, exactly as it is for the other four spans; ⭐ what differs is the
@@ -364,13 +250,6 @@ export function wireShortcuts(
     renderer.renderScore()
     return true
   }
-
-  // The arrow keys serve ANY armed slur handle — blue true end, orange open join, or amber arc dot.
-  // The three are mutually exclusive (one `selectedElement`, one field set), so they chain in the
-  // order they were built. Returns true if one consumed the key (so the caller skips its default
-  // action / DECLINEs).
-  const nudgeArmedSlurPoint = (dx: number, dy: number): boolean =>
-    nudgeArmedEndpoint(dx, dy) || nudgeArmedSegmentEndpoint(dx, dy) || nudgeArmedControlPoint(dx, dy)
 
   // ↑/↓ on a SINGLE selected rest = nudge its vertical shift by one staff-step (+up), instead
   // of the pitch edit (which skips rests anyway). One undo per press. See docs/rest-shift-plan.md.
@@ -443,31 +322,6 @@ export function wireShortcuts(
     return true
   }
 
-  // ⭐⭐ The same two chords on a selected INLINE CLEF = nudge it sideways (his ask, 2026-08-28:
-  // *"when the clef is not in the beguining of a line (i mean a header clef) i want to be able to
-  // offset it horizontally either by keys in the keyboard or be the property"*). One more link in
-  // the chain, ⛔ not a new gesture: the same keys the note offset uses, so the hand learns "these
-  // chords nudge whatever is selected" once.
-  //
-  // ⚠️ It DECLINES for a HEADER clef — the one he excluded — and the engine is what says so, from
-  // the INK (`MusicEngine.clefIsOffsettable`): whether a clef stands in a system's header is a fact
-  // about the casting-off, not about the score, so no rule here could know it.
-  // ⚠️ **It rides FOUR chords, not the note offset's two** — his ask, 2026-08-28: *"still waiting for
-  // arrow/control arrow and ctr backspace for clear"*. That is the MARK family's arrangement (a
-  // dynamic, a hairpin end, an ottava): plain ←/→ nudges finely, Ctrl+←/→ coarsely, Ctrl+Backspace
-  // resets — and a clef nudge is a mark's nudge, ⛔ not a note's. The note offset hides on the
-  // deliberate chords for its own reason (*"should not offset that much"* — plain arrows there are
-  // NAVIGATION, which a clef selection has no use for). It keeps the note's two chords as well, so
-  // one hand's habit works on either.
-  const nudgeSelectedClefOffset = (dx: number): boolean => {
-    const eng = getEngine()
-    const clef = selectedOf(state, 'clef')
-    if (!eng || !clef) return false
-    if (!eng.nudgeClefOffset(clef.measure, beatToFrac(clef.beat), clef.staff, dx)) return false
-    renderer.renderScore()
-    return true
-  }
-
   /**
    * ⭐⭐ **Ctrl+Shift+←/→ MOVES a selected clef through the music** — one slot earlier or later, which
    * is what DRAGGING it already does. His ask, 2026-08-28: *"when we drag the cleff we change the
@@ -506,15 +360,6 @@ export function wireShortcuts(
     renderer.renderScore()
     dbg(`[Clef] moved ${direction > 0 ? '→' : '←'} to measure ${target.measureNumber} `
       + `beat ${fracToNumber(target.beat).toFixed(3)} staff ${clef.staff}`)
-    return true
-  }
-
-  const resetSelectedClefOffset = (): boolean => {
-    const eng = getEngine()
-    const clef = selectedOf(state, 'clef')
-    if (!eng || !clef) return false
-    if (!eng.resetClefOffset(clef.measure, beatToFrac(clef.beat), clef.staff)) return false
-    renderer.renderScore()
     return true
   }
 
@@ -1298,11 +1143,8 @@ export function wireShortcuts(
     previousHandle: () => walkSlurHandles(-1) || walkHairpinHandles(-1) || walkOttavaHandles(-1)
       || walkPedalHandles(-1) || walkTrillHandles(-1),
     selectNextNote: () => {
-      // Armed slur point / selected dynamic → fine nudge right instead of navigating.
+      // Whatever ELEMENT is selected answers first (`elements/keys`) — fine nudge right, not navigation.
       if (nudgeSelectedElement(NUDGE_FINE_SS, 0)) return
-      if (nudgeArmedSlurPoint(NUDGE_FINE_SS, 0)) return
-      if (nudgeSelectedSlur(NUDGE_FINE_SS, 0)) return
-      if (nudgeSelectedClefOffset(NUDGE_FINE_SS)) return
       // A selected BARLINE walks to the next one — same dispatch-on-selection as Shift+Alt+←/→.
       if (selection.navigateBarline(1)) return
       if (state.selectedTool === 'entry') {
@@ -1315,11 +1157,8 @@ export function wireShortcuts(
       }
     },
     selectPreviousNote: () => {
-      // Armed slur point / selected dynamic → fine nudge left instead of navigating.
+      // Whatever ELEMENT is selected answers first (`elements/keys`) — fine nudge left, not navigation.
       if (nudgeSelectedElement(-NUDGE_FINE_SS, 0)) return
-      if (nudgeArmedSlurPoint(-NUDGE_FINE_SS, 0)) return
-      if (nudgeSelectedSlur(-NUDGE_FINE_SS, 0)) return
-      if (nudgeSelectedClefOffset(-NUDGE_FINE_SS)) return
       if (selection.navigateBarline(-1)) return
       if (state.selectedTool === 'entry') {
         dbg(`[Nav] ArrowLeft in entry mode → switching to selection`)
@@ -1347,13 +1186,14 @@ export function wireShortcuts(
     resetBarlineGap: () => resetArmedMouth() || resetSelectedBarlineGap(),
     voiceNavUp: () => selection.navigateVoice(1),
     voiceNavDown: () => selection.navigateVoice(-1),
-    // Vertical arrows: nudge the armed slur endpoint, else the normal pitch/octave edit.
+    // Vertical arrows: the selected ELEMENT answers first (`elements/keys`), then a selected REST's
+    // shift, else the normal pitch / octave edit.
     // (These keys are already bound, so they always consume — the nudge branch returns void
     // via the early return, so preventDefault still fires.)
-    pitchUp: () => { if (nudgeSelectedElement(0, -NUDGE_FINE_SS) || nudgeArmedSlurPoint(0, -NUDGE_FINE_SS) || nudgeSelectedSlur(0, -NUDGE_FINE_SS) || nudgeSelectedRest(1)) return; selection.adjustPitch(1) },
-    pitchDown: () => { if (nudgeSelectedElement(0, NUDGE_FINE_SS) || nudgeArmedSlurPoint(0, NUDGE_FINE_SS) || nudgeSelectedSlur(0, NUDGE_FINE_SS) || nudgeSelectedRest(-1)) return; selection.adjustPitch(-1) },
-    octaveUp: () => { if (!(nudgeSelectedElement(0, -NUDGE_COARSE_SS) || nudgeArmedSlurPoint(0, -NUDGE_COARSE_SS) || nudgeSelectedSlur(0, -NUDGE_COARSE_SS))) selection.adjustOctave(1) },
-    octaveDown: () => { if (!(nudgeSelectedElement(0, NUDGE_COARSE_SS) || nudgeArmedSlurPoint(0, NUDGE_COARSE_SS) || nudgeSelectedSlur(0, NUDGE_COARSE_SS))) selection.adjustOctave(-1) },
+    pitchUp: () => { if (nudgeSelectedElement(0, -NUDGE_FINE_SS) || nudgeSelectedRest(1)) return; selection.adjustPitch(1) },
+    pitchDown: () => { if (nudgeSelectedElement(0, NUDGE_FINE_SS) || nudgeSelectedRest(-1)) return; selection.adjustPitch(-1) },
+    octaveUp: () => { if (!nudgeSelectedElement(0, -NUDGE_COARSE_SS)) selection.adjustOctave(1) },
+    octaveDown: () => { if (!nudgeSelectedElement(0, NUDGE_COARSE_SS)) selection.adjustOctave(-1) },
     // ── Ctrl+←/→ = MOVE: change the space before a selected note's column, or a selected barline's
     //    bar width — "move a lot" gets the easy key (docs/note-offset-plan.md §C swap). Joins the
     //    slur-endpoint / dynamic COARSE nudge that already owned Ctrl+←/→ (all selections disjoint).
@@ -1385,17 +1225,12 @@ export function wireShortcuts(
     //    its anchor throughout, so the change is asked for, visible, and one undo press away.
     ctrlArrowLeft: () =>
       nudgeSelectedElement(-NUDGE_COARSE_SS, 0)
-      || nudgeArmedSlurPoint(-NUDGE_COARSE_SS, 0) || nudgeSelectedSlur(-NUDGE_COARSE_SS, 0)
-      || nudgeSelectedClefOffset(-NUDGE_COARSE_SS)
       || nudgeSelectedNoteSpacing(-NOTE_SPACING_STEP_SS) || nudgeSelectedBarWidth(-BAR_WIDTH_STEP_PX),
     ctrlArrowRight: () =>
       nudgeSelectedElement(NUDGE_COARSE_SS, 0)
-      || nudgeArmedSlurPoint(NUDGE_COARSE_SS, 0) || nudgeSelectedSlur(NUDGE_COARSE_SS, 0)
-      || nudgeSelectedClefOffset(NUDGE_COARSE_SS)
       || nudgeSelectedNoteSpacing(NOTE_SPACING_STEP_SS) || nudgeSelectedBarWidth(BAR_WIDTH_STEP_PX),
     // Ctrl+Backspace = reset the MOVE (the space before the note / the bar's width).
-    resetMove: () => resetSelectedElement() || resetArmedSlurPoint() || resetSelectedSlur()
-      || resetSelectedClefOffset()
+    resetMove: () => resetSelectedElement()
       || resetSelectedNoteSpacing() || resetSelectedBarWidth(),
 
     // ── Note OFFSET (the small, deliberate nudge off the natural column) rides the harder chords:
