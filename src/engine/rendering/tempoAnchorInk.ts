@@ -75,7 +75,7 @@ export function onsetInkX(registry: ElementRegistry, measure: number, beat: numb
  *   which would put the mark back on the beat it was engraved at.
  */
 export function tempoAnchorTravelPx(pass: RenderPass, id: string): number | null {
-  const svg = pass.vexContext?.svg as SVGSVGElement | undefined
+  const svg = pass.painter?.svg as SVGSVGElement | undefined
   const el = svg?.querySelector(`#vf-${id}`) as SVGGraphicsElement | null
   const stamp = el?.getAttribute(TEMPO_ANCHOR_ATTR)
   if (!stamp) return null

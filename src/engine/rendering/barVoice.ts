@@ -21,7 +21,6 @@
 import { EngravedNote } from './EngravedNote'
 import type { EngravedStave } from './EngravedStave'
 import type { EngravedClefChange } from './EngravedClefChange'
-import type { RenderContext } from 'vexflow'
 import type { DrawContext } from '@/engine/paint/DrawContext'
 import {
   TICK_RESOLUTION, addTicks, subtractTicks, ticksEqual, ticksGreaterThan, lcm, type TickCount,
@@ -107,10 +106,10 @@ export function sharedResolution(voices: readonly BarVoice[]): number {
  * ⭐ Draw a voice's tickables on `stave` — `Voice.draw(context, stave)`, transcribed: each one is put on
  * the stave, handed the context, and drawn with its style, in order.
  */
-export function drawBarVoice(voice: BarVoice, context: RenderContext, stave: EngravedStave): void {
+export function drawBarVoice(voice: BarVoice, context: DrawContext, stave: EngravedStave): void {
   for (const tickable of voice.tickables) {
     tickable.setStave(stave)
-    tickable.setContext(context as unknown as DrawContext)
+    tickable.setContext(context)
     tickable.drawWithStyle()
   }
 }

@@ -63,16 +63,9 @@ const DOC = 'docs/own-engraving-engine.md'
  * ⛔ Adding a row is not a formality: it says a new piece of drawing could not be expressed through
  * `DrawContext`, which is a finding worth writing down in the plan doc, not a lint fix.
  */
-const ALLOWED = new Map([
-  ['engine/paint/DrawContext.ts', 'declares the interface; names the VexFlow types only in prose'],
-  ['engine/rendering/RenderPass.ts', 'declares `vexContext` — the named coupling itself'],
-  ['engine/rendering/VexFlowRenderer.ts', 'OWNS the context: it is the one that creates it'],
-  ['engine/rendering/barVoice.ts', 'S9i: `Voice.draw` transcribed — hands the notes the context they still paint themselves on (was `voice.draw(this.context!)` in VexFlowRenderer); goes with S12/S13'],
-  ['engine/rendering/markPreviewPass.ts', 'reads the context STATE; prose only, plus one cast'],
-  ['engine/rendering/tempoAnchorInk.ts', 'reads the drawn `.svg` back — a reach into the PAGE'],
-  ['engine/rendering/tempoLinePass.ts', 'reads the drawn `.svg` back — a reach into the PAGE'],
-  ['engine/rendering/tempoNudgePass.ts', 'reads the drawn `.svg` back — a reach into the PAGE'],
-])
+/** ⭐ S13b (2026-09-19): EMPTY — our `rendering/SvgPainter` stands behind every surface, and no file names
+ *  VexFlow's render context any more. The check stays so that none ever does again. */
+const ALLOWED = new Map([])
 
 /** ⚠️ The ceilings, not targets. Lower one when a migration lands; ⛔ never raise either.
  *  ⭐ 24 → 18 when this check stopped counting comment lines (see {@link isComment}) — the residue
@@ -103,7 +96,9 @@ const ALLOWED = new Map([
  *  ⚠️ 14 → **15** with S12i, the same case: the stem's `getSVGElement` (the highlight's stem).
  *  ⚠️ 15 → **16** with S12j-d3, the same case again: the NOTE's `getSVGElement` (the highlight's note —
  *  VexFlow's inherited `Element.getSVGElement` answered it by a `document.getElementById` no count saw). */
-const VEX_CONTEXT_CEILING = 7
+const VEX_CONTEXT_CEILING = 0
+/*  ⭐⭐ 7 → **0** with **S13b** (2026-09-19): `RenderPass.vexContext` became `painter`, our own `SvgPainter`
+ *  — the beam's and stem's draws, the four `.svg` read-backs and the ink rewinds all reach OUR painter. */
 /** ⭐ P1c's number: the group handle's escape hatch to a real DOM node. */
 const SVG_NODE_CEILING = 16
 

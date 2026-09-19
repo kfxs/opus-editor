@@ -1,4 +1,3 @@
-import { Renderer } from 'vexflow'
 import type { EngravedAnnotation } from './EngravedAnnotation'
 import { ScoreTuplet } from './ScoreTuplet'
 import { tremoloOn, TREMOLO_FLAG_STEM_STRETCH, TREMOLO_STROKE_CLEARANCE, usableStemSpan } from './CenteredTremolo'
@@ -33,7 +32,7 @@ import { applyClefOffsets, applyStaveClefOffset } from './clefOffsetPass'
 import { placeHeaderRun } from './headerPlacementPass'
 import { keyStaffId } from '@/engine/models/staffContent'
 import { keySignatureInkRight, renderKeySignatures } from './KeySignaturePass'
-import type { SVGContext } from 'vexflow'
+import { SvgPainter } from './SvgPainter'
 import { NOTE_AREA_PADDING_PX, STEM_THICKNESS_PX } from '@/engine/engrave/inheritedDefaults'
 import { scaling } from '@/engine/paint/Affine'
 import { drawGroupOf, svgNode } from './svgDrawGroup'
@@ -488,8 +487,7 @@ function logSystemChanges(
 }
 
 export class VexFlowRenderer {
-  private renderer: Renderer | null = null
-  private context: SVGContext | null = null
+  private context: SvgPainter | null = null
   /** The scene being recorded this render, or null — see {@link VexFlowRenderer.recordScene}. */
   private recorder: SceneRecorder | null = null
   private readonly svgContainer: HTMLElement
@@ -861,16 +859,16 @@ export class VexFlowRenderer {
     return {
       score,
       // ⭐ ONE object, two names: `context` is what a pass draws through (our own `DrawContext`),
-      // `vexContext` is the same thing spelled as the coupling it still is — see `RenderPass`.
+      // `painter` is the same page, named for what a surface cannot do — see `RenderPass`.
       //
       // ⭐⭐ …and when a SCENE is being recorded, `context` is the recorder TEEING onto it: every
       // pass paints exactly as before and the drawing is written down as values as well
-      // (`engine/scene/`, `docs/own-engraving-engine.md` P1d). ⛔ `vexContext` is never the
-      // recorder — a VexFlow object needs the real thing, and what it paints is invisible to the
-      // scene by construction. That gap IS the migration's remaining work, so it is the same
-      // number `lint:paint` reports.
+      // (`engine/scene/`, `docs/own-engraving-engine.md` P1d). ⛔ `painter` is never the
+      // recorder — what is drawn straight onto it (the notes' own draw, the beams', the stave's)
+      // is invisible to the scene. Until S13b this was VexFlow's context and the count
+      // `lint:paint` reported; the painter is ours now, the scene's gap is engine work.
       context: this.recorder ?? this.context!,
-      vexContext: this.context!,
+      painter: this.context!,
       staveNoteMap: this.staveNoteMap,
       fanMemberAnchorMap: this.fanMemberAnchorMap,
       fanMemberGroupMap: this.fanMemberGroupMap,
@@ -923,10 +921,9 @@ export class VexFlowRenderer {
     // Clear any existing content
     this.svgContainer.innerHTML = ''
 
-    // Create VexFlow SVG renderer
-    this.renderer = new Renderer(this.svgContainer as HTMLDivElement, Renderer.Backends.SVG)
-    this.renderer.resize(width, height)
-    this.context = this.renderer.getContext() as SVGContext
+    // ⭐ S13b: our own SVG painter, where VexFlow's `Renderer` + `SVGContext` stood (`./SvgPainter`).
+    this.context = new SvgPainter(this.svgContainer)
+    this.context.resize(width, height)
 
     // `save()`/`restore()` are LEFT ALONE — they work, and the context depends on them.
     //
@@ -3104,7 +3101,7 @@ export class VexFlowRenderer {
     const beam = new EngravedBeam(staveNotes)
     if (side.secondaryBreaks.length) beam.breakSecondaryAt(side.secondaryBreaks)
     drawBeamInkThrough([beam], pass.context)
-    beam.setContext(pass.vexContext).draw()
+    beam.setContext(pass.painter).draw()
 
     // ⭐ P4d — the overhang continues the group's own slope and levels, and that run is now
     // `engrave/beams`' arithmetic rather than this method's: {@link beamLevelRun} walks the levels and
@@ -3161,7 +3158,7 @@ export class VexFlowRenderer {
     const stem = note.getStem()
     if (!stem) return
     stem.adjustHeightForBeam() // swap the flag's height fudge for the beam's; the tip does not move.
-    stem.setContext(pass.vexContext).drawWithStyle()
+    stem.setContext(pass.painter).drawWithStyle()
 
     const levels = side.members[0].beamCount
     const beamThickness = CROSS_SYSTEM_BEAM_WIDTH * noteRuler(note).stemDirection
@@ -3891,11 +3888,9 @@ export class VexFlowRenderer {
    * whole promise in one method: **geometry becomes a unit test** — a scene is plain values, so
    * *"the barline of bar 3 stands at x"* is arithmetic in jsdom rather than a browser assertion.
    *
-   * ⚠️ **The scene holds what OUR primitives drew, ⛔ not what VexFlow objects painted themselves.**
-   * Noteheads, stems, beams and the stave's own lines go through `vexContext` and are invisible here.
-   * ⭐ That is not a limitation to work around — it is the migration's remaining work, measured:
-   * every P3/P4 commit that stops a VexFlow object painting itself adds its ink to this scene, and
-   * `npm run lint:paint` reports the same number from the other side.
+   * ⚠️ **The scene holds what was drawn through the pass's `context`, ⛔ not what was drawn straight on
+   * the `painter`** — the notes' own draw, the beams' and the stave's go there and are invisible here.
+   * Every commit that hands one of them the pass's surface adds its ink to this scene.
    *
    * ⛔ Not re-entrant, and it restores the previous recorder rather than clearing it — nesting would
    * silently give the inner call an empty scene and the outer one a doubled one.
@@ -3912,7 +3907,7 @@ export class VexFlowRenderer {
   }
 
   renderScore(score: Score, ghostNote?: GhostNote): boolean {
-    if (!this.context || !this.renderer) {
+    if (!this.context) {
       throw new Error('Renderer not initialized. Call initialize() first.')
     }
     renderProbe().beginRender() // P0 instrument — remove with docs/render-performance-plan.md §8
@@ -4041,7 +4036,7 @@ export class VexFlowRenderer {
 
     // Only resize if dimensions changed (following VexFlow best practice)
     if (currentWidth !== contentWidth || currentHeight !== totalHeight) {
-      this.renderer!.resize(contentWidth, totalHeight)
+      this.context!.resize(contentWidth, totalHeight)
     }
 
     // ---- TIER 1 (§7): place every measure. Pure arithmetic over the casting-off; draws nothing. ----
@@ -5038,7 +5033,7 @@ export class VexFlowRenderer {
    * stays on the page forever (see {@link GHOST_GROUP_SELECTOR}). It happens even when the draw then
    * declines — moving the cursor onto somewhere a mark cannot go must still clear the last preview.
    */
-  private ghostOverlay(draw: (ctx: SVGContext, svg: SVGElement) => boolean): boolean {
+  private ghostOverlay(draw: (ctx: SvgPainter, svg: SVGElement) => boolean): boolean {
     this.clearGhosts()
     const svg = this.getSVGElement()
     if (!svg || !this.context) return false

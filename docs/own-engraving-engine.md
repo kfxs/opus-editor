@@ -530,7 +530,7 @@ knot, so P1 is cut there.
 | **P1b** | `DrawContext` — our interface, and the signatures retyped | ✅ **DONE 2026-09-01** |
 | **P1c** | the **group handle** — the four things a group is used for | ✅ **DONE 2026-09-01** |
 | **P1d** | ⭐⭐ an **implementation of our own — and it is the RECORDER**: `scene/`, the golden net | ✅ **DONE 2026-09-01** |
-| **P1e** | the **SVG painter** — `paint/svg/`, closing the four gotchas ⭐ **+ the POINTER RECT question**, deferred here by him 2026-09-01 (`note-engraving-plan.md` §1e: audited, and NOTHING in this repo consumes it — but a painter of ours emits a hit surface only if something asks) | ⛔ **BLOCKED — and by a CONDITION, ⛔ not by a milestone.** See the row below |
+| **P1e** ✅ **2026-09-19 (S13b of `vexflow-removal-map.md`): `rendering/SvgPainter`** — VexFlow's `SVGContext` transcribed, byte-identical; ⏭️ the POINTER RECT question below is still open (kept, as drawn) | the **SVG painter** — `paint/svg/`, closing the four gotchas ⭐ **+ the POINTER RECT question**, deferred here by him 2026-09-01 (`note-engraving-plan.md` §1e: audited, and NOTHING in this repo consumes it — but a painter of ours emits a hit surface only if something asks) | ⛔ **BLOCKED — and by a CONDITION, ⛔ not by a milestone.** See the row below |
 
 🚨🚨 **WHAT ACTUALLY GATES P1e — corrected 2026-09-01, because the old wording misled a reader.**
 

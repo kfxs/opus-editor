@@ -1,4 +1,4 @@
-import { Renderer } from 'vexflow'
+import { SvgPainter } from './SvgPainter'
 import { GUTTER_WIDTH, type GutterState } from './layoutConfig'
 import { INDICATOR_INK } from '../../utils/selectionColors'
 import { THIN_BARLINE_PX, staffBarlineExtent } from './barlineInk'
@@ -58,14 +58,12 @@ const GUTTER_NUMBER_LIFT_PX = 8
  * makes the SVG, until the painter is ours (S13).
  */
 export class GutterRenderer {
-  private renderer: Renderer | null = null
 
   constructor(private container: HTMLElement) {}
 
   /** Tear the gutter down (wrapped view has none). */
   clear(): void {
     this.container.innerHTML = ''
-    this.renderer = null
   }
 
   /**
@@ -82,10 +80,9 @@ export class GutterRenderer {
     // Re-create per draw: there is no partial redraw, and this is a few glyphs. The whole point of
     // the separate SVG is that this cost is nowhere near a score re-layout.
     this.container.innerHTML = ''
-    this.renderer = new Renderer(this.container as HTMLDivElement, Renderer.Backends.SVG)
-    this.renderer.resize(GUTTER_WIDTH * zoom, heightLayout * zoom)
-
-    const ctx = this.renderer.getContext()
+    // ⭐ S13b: our own SVG painter (`./SvgPainter`), where VexFlow's `Renderer` stood.
+    const ctx = new SvgPainter(this.container)
+    ctx.resize(GUTTER_WIDTH * zoom, heightLayout * zoom)
     // Neutered save/restore — DELIBERATE here. The gutter tints its whole context ONCE, below, instead
     // of styling each glyph: this SVG is ours alone and holds nothing else, so there is nothing to bleed
     // onto. A working `restore()` inside a glyph draw would put the default black back and undo the tint
@@ -99,8 +96,7 @@ export class GutterRenderer {
     // lines, fill paints the clef glyph.
     ctx.setStrokeStyle(GUTTER_INK)
     ctx.setFillStyle(GUTTER_INK)
-    // ⭐ The same context as OUR `DrawContext`, for the ink of ours drawn below — VexFlow's SVG context
-    //   satisfies it structurally (P1b).
+    // ⭐ The same painter as OUR `DrawContext`, for the ink of ours drawn below.
     const surface: DrawContext = ctx
 
     const frames: { frame: StaffFrame; size: number }[] = []

@@ -116,7 +116,7 @@ export interface PassEntry {
   /** At the family's PLAN — where the ladder claim is filed. */
   bands: number
   curves: number
-  /** At the family's DRAW. Shallow copies: `SVGContext` mutates these plain objects in place. */
+  /** At the family's DRAW. Shallow copies: the painter (`SvgPainter`, VexFlow's `SVGContext` transcribed) mutates these plain objects in place. */
   state: Record<string, unknown>
   attributes: Record<string, unknown>
 }
@@ -256,7 +256,7 @@ const MARK_PREVIEW_FAMILIES: Record<MarkPreviewKind, MarkPreviewFamily> = {
     //    `try` that `getBBox` throws out of before layout, so the row is a browser-only artifact and
     //    vouching on it would refuse every frame in a spec.
     placed: (pass, id) => {
-      const svg = pass.vexContext?.svg as SVGSVGElement | undefined
+      const svg = pass.painter?.svg as SVGSVGElement | undefined
       const el = svg?.querySelector(`#vf-${id}`)
       if (!el) {
         dbg(`[Preview] tempo ${id}: no glyph in this render's SVG — the frame cannot move it`)

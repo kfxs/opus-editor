@@ -99,7 +99,7 @@ const CEILINGS = {
   'R2 note ruler': 0,
   'R3 placement rules': 0,
   'R4 formatter': 0,
-  'R5 paint+leftovers': 33,
+  'R5 paint+leftovers': 0,
   'R6 object graph': 0,
   'R7 numbers+fonts': 0,
 }
@@ -107,12 +107,16 @@ const CEILINGS = {
 const TEST_CEILING = 58
 
 /** ⚠️ The NAME ceilings, measured 2026-09-14 (map §9.3); S11e 'identifiers' 113 → 110; S12e 'identifiers in tests' 150 → 147; S12h 'identifiers' 110 → 104. Same rule: lower them as renames land;
- *  ⛔ never raise. 'identifiers in tests' and 'vf- in tests' include `e2e/`, scanned as text. */
+ *  ⛔ never raise. 'identifiers in tests' and 'vf- in tests' include `e2e/`, scanned as text.
+ *  🔺 **The one RAISE** — S13b, 'vf- in code' 39 → 40: VexFlow's `prefix()` (`util.js`), which put `vf-` on every
+ *  class and id `openGroup` wrote, is now `rendering/SvgPainter`'s — the SAME prefix, moved out of the library into
+ *  our file, and made visible (rule 3's exception). It stays until S15 renames the page's classes, which every
+ *  selector and spec reads. */
 const NAME_CEILINGS = {
   'files': 8,
-  'identifiers': 104,
+  'identifiers': 96,
   'identifiers in tests': 147,
-  'vf- in code': 39,
+  'vf- in code': 40,
   'vf- in tests': 418,
 }
 const NAME = /vex|Vex|VEX/

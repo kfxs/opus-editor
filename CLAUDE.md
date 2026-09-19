@@ -53,7 +53,9 @@ score, and export/import JSON.
   TypeScript and the DOM. ⚠️ Do not add a UI framework, and do not write UI as if one were
   coming; `lint:boundary` refuses framework imports. New UI follows `windows/` and `menus/`:
   a module that builds its own elements and subscribes to state.
-- **Notation Rendering**: VexFlow 5
+- **Notation Rendering**: our own engine (`engine/engrave`, `engine/rendering`, painted by
+  `rendering/SvgPainter`). ⚠️ VexFlow 5 is still in `package.json` for the SPECS only — nothing the
+  app loads imports it since S13b; removing it is S14 of `docs/vexflow-removal-map.md`.
 - **Audio Playback**: WebAudioFont (sampled General MIDI; samples fetched from CDN at play time)
 - **State Management**: `EditorState` — one plain object behind an emitting Proxy
   (`interactions/EditorState.ts`). `subscribe(fn)` fires once per top-level write, and that IS the
@@ -158,6 +160,9 @@ src/
                           #   + barlineGap (⭐ the JOIN: the same sign's strokes crossing the
                           #   space BETWEEN two staves — ⛔ never inside `inStaffSpace`, and
                           #   ⛔ never the dots. docs/barline-join-plan.md)
+                          #   + SvgPainter (⭐⭐ S13b — THE PAINTER: VexFlow's `SVGContext` transcribed;
+                          #   every `DrawContext` on the page is one. ⚠️ its markup is a contract —
+                          #   attributes diffed against the group, key order, 3-place rounding)
                           #   + glyphPainter (⭐⭐ THE ONE PLACE a glyph is resolved, measured and
                           #   stamped — no VexFlow since S13a: faces from `fonts/fontCategories` +
                           #   `fonts/fontFace`; ⛔ never measure or stamp a glyph in your own file)
