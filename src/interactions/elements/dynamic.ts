@@ -6,6 +6,7 @@
 import { dbg } from '@/utils/debug'
 import type { ClickableElementSpec } from './chain'
 import { beginDynamicDrag } from '../drags/dynamic'
+import { DYNAMIC_KEYS } from './dynamicKeys'
 
 export const DYNAMIC_ELEMENT: ClickableElementSpec = {
   kind: 'dynamic',
@@ -56,4 +57,5 @@ export const DYNAMIC_ELEMENT: ClickableElementSpec = {
   // dynamic"*) — a second kind adds this same call to ITS row, plus the two endpoints in the pass
   // that draws it. Nothing about the line itself is dynamic-shaped any more.
   highlight: h => h.applyAnchorGuideLine(),
+  keys: DYNAMIC_KEYS,
 }

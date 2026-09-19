@@ -41,7 +41,7 @@ describe('ELEMENT_SPECS — the `keys` column', () => {
     // built — an edit dropped `keys:` INSIDE a multi-line `highlight` body, where it parses as a
     // LABELLED STATEMENT: `tsc` accepts it (the lint does not — `no-unused-labels`).
     const answering = Object.values(ELEMENT_SPECS).filter(spec => spec.keys).map(spec => spec.kind).sort()
-    expect(answering).toEqual(['hairpin', 'ottava', 'pedal', 'trill'])
+    expect(answering).toEqual(['dynamic', 'hairpin', 'ottava', 'pedal', 'tempo', 'trill'])
   })
 
   it('every row that answers has BOTH verbs — a nudge with no reset leaves ink nobody can put back', () => {

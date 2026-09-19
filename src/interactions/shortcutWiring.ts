@@ -24,8 +24,6 @@ import { flipSelection } from './flipSelection'
 import { repeatSelectedPassage } from './repeatPassage'
 import { reanchorArmedSlurEndpoint } from './slurReanchor'
 import { walkArmedSlurEndpoint } from './slurEndpointWalk'
-import { walkDynamic } from './dynamicWalk'
-import { walkTempo } from './tempoWalk'
 import { cycleSlurHandle } from './slurHandleCycle'
 import { cycleHairpinEndpoint, nudgeArmedHairpinMouth, resetArmedHairpinMouth } from './elements/hairpinHandles'
 import {
@@ -388,75 +386,6 @@ export function wireShortcuts(
     return true
   }
 
-  // ←→↑↓ (fine) / Ctrl+arrow (coarse) on a selected DYNAMIC = nudge its position offset by a
-  // staff-space delta (screen-down is +y, so "up arrow lifts the mark" passes a negative dy),
-  // instead of the pitch/nav edit (which no-ops on a dynamic anyway). Disjoint from the
-  // slur/rest/box selections, so it just adds another modal branch. One undo per press. Returns
-  // true when it consumed the key, false to DECLINE so it falls through. See docs/dynamic-offset-plan.md.
-  //
-  // ⭐⭐ The HORIZONTAL goes through the INTERPOLATING WALK (`./dynamicWalk`), his ask of 2026-08-19:
-  // the same ink nudge, except that reaching the next slot of the mark's lane takes the anchor along
-  // with it — the slur endpoint's gesture, on the letters. Vertical stays a pure offset (a dynamic's
-  // lane runs sideways, so there is no anchor above to arrive at). See the walk's header for the
-  // arithmetic and `ctrlArrowLeft` below for why this key is allowed to end in a model write.
-  const nudgeSelectedDynamic = (dx: number, dy: number): boolean => {
-    const eng = getEngine()
-    const dynamicId = selectedOf(state, 'dynamic')?.id
-    if (!eng || !dynamicId) return false
-    const moved = dy === 0 && dx !== 0
-      ? walkDynamic(eng, dynamicId, dx)
-      : eng.nudgeDynamicOffset(dynamicId, dx, dy)
-    if (!moved) return false
-    afterMarkPress('dynamic', dynamicId, dx, dy, () => eng.commitDynamicDrag())
-    return true
-  }
-
-  // ←→↑↓ (fine) / Ctrl+arrow (coarse) on a selected TEMPO MARK = nudge its position offset by a
-  // staff-space delta (his ask, 2026-08-19). `nudgeSelectedDynamic`'s twin one branch up, and the
-  // twin is the point: the two marks differ in what they hang off, not in how a hand moves them.
-  //
-  // 🚨 **Its `dy` is OUTWARD (+up), the one offset in the compartment that is** — see
-  // `TempoOffsetOverride`. So ↑ passes a POSITIVE dy here where every branch above passes a negative
-  // one, and that asymmetry is the point rather than a slip: a tempo mark is always above the staff,
-  // so a number about it means *how far from the staff*.
-  //
-  // ⭐⭐ The HORIZONTAL goes through the INTERPOLATING WALK (`./tempoWalk`, 2026-08-19): the same ink
-  // nudge, except that reaching the next ONSET takes the anchor along with it. The dynamic's gesture
-  // on the words, sharing its arithmetic (`./markWalk`) and differing only in where the stops are —
-  // a tempo has no lane, it governs the clock.
-  //
-  // One undo per press. Returns true when it consumed the key, false to DECLINE so it falls through.
-  const nudgeSelectedTempo = (dx: number, dy: number): boolean => {
-    const eng = getEngine()
-    const tempoId = selectedOf(state, 'tempo')?.id
-    if (!eng || !tempoId) return false
-    const moved = dy === 0 && dx !== 0
-      ? walkTempo(eng, tempoId, dx)
-      : eng.nudgeTempoOffset(tempoId, dx, dy)
-    if (!moved) return false
-    afterMarkPress('tempo', tempoId, dx, dy, () => eng.commitTempoDrag())
-    return true
-  }
-
-  /** `Ctrl+Backspace` on a selected DYNAMIC or TEMPO mark: its hand nudge back to the engraver's own
-   *  (his report, 2026-08-19). Both DECLINE when the mark was never nudged, so the key falls through
-   *  to the note spacing / bar width behind them — the chain's standing rule. */
-  const resetSelectedDynamic = (): boolean => {
-    const eng = getEngine()
-    const id = selectedOf(state, 'dynamic')?.id
-    if (!eng || !id || !eng.resetDynamicOffset(id)) return false
-    renderer.renderScore()
-    return true
-  }
-
-  const resetSelectedTempo = (): boolean => {
-    const eng = getEngine()
-    const id = selectedOf(state, 'tempo')?.id
-    if (!eng || !id || !eng.resetTempoOffset(id)) return false
-    renderer.renderScore()
-    return true
-  }
-
   /**
    * ⭐⭐ **RE-ANCHOR THE SELECTED TEMPO MARK BY ONE ONSET** — `Ctrl+Shift+←/→` (his ask, 2026-08-19).
    *
@@ -481,7 +410,7 @@ export function wireShortcuts(
    * The mark walks its own lane and takes the beat it lands on, re-filing across a barline.
    *
    * ⭐ **Two chords, two categories — the last family on the dynamics line to get its musical
-   * half.** `nudgeSelectedDynamic` above owns the plain and `Ctrl` arrows and writes only INK; this
+   * half.** the dynamic's own keys row (`elements/dynamicKeys`) owns the plain and `Ctrl` arrows and writes only INK; this
    * chord means *move it through the music* on the wedge, the bracket, the pedal and the trill, and
    * now says the same thing about the letters. ⛔ No armed-square gate, unlike those four: a
    * dynamic is a point, so there is no end to be pointing at.
@@ -1373,8 +1302,6 @@ export function wireShortcuts(
       if (nudgeSelectedElement(NUDGE_FINE_SS, 0)) return
       if (nudgeArmedSlurPoint(NUDGE_FINE_SS, 0)) return
       if (nudgeSelectedSlur(NUDGE_FINE_SS, 0)) return
-      if (nudgeSelectedDynamic(NUDGE_FINE_SS, 0)) return
-      if (nudgeSelectedTempo(NUDGE_FINE_SS, 0)) return
       if (nudgeSelectedClefOffset(NUDGE_FINE_SS)) return
       // A selected BARLINE walks to the next one — same dispatch-on-selection as Shift+Alt+←/→.
       if (selection.navigateBarline(1)) return
@@ -1392,8 +1319,6 @@ export function wireShortcuts(
       if (nudgeSelectedElement(-NUDGE_FINE_SS, 0)) return
       if (nudgeArmedSlurPoint(-NUDGE_FINE_SS, 0)) return
       if (nudgeSelectedSlur(-NUDGE_FINE_SS, 0)) return
-      if (nudgeSelectedDynamic(-NUDGE_FINE_SS, 0)) return
-      if (nudgeSelectedTempo(-NUDGE_FINE_SS, 0)) return
       if (nudgeSelectedClefOffset(-NUDGE_FINE_SS)) return
       if (selection.navigateBarline(-1)) return
       if (state.selectedTool === 'entry') {
@@ -1425,10 +1350,10 @@ export function wireShortcuts(
     // Vertical arrows: nudge the armed slur endpoint, else the normal pitch/octave edit.
     // (These keys are already bound, so they always consume — the nudge branch returns void
     // via the early return, so preventDefault still fires.)
-    pitchUp: () => { if (nudgeSelectedElement(0, -NUDGE_FINE_SS) || nudgeArmedSlurPoint(0, -NUDGE_FINE_SS) || nudgeSelectedSlur(0, -NUDGE_FINE_SS) || nudgeSelectedRest(1) || nudgeSelectedDynamic(0, -NUDGE_FINE_SS) || nudgeSelectedTempo(0, NUDGE_FINE_SS)) return; selection.adjustPitch(1) },
-    pitchDown: () => { if (nudgeSelectedElement(0, NUDGE_FINE_SS) || nudgeArmedSlurPoint(0, NUDGE_FINE_SS) || nudgeSelectedSlur(0, NUDGE_FINE_SS) || nudgeSelectedRest(-1) || nudgeSelectedDynamic(0, NUDGE_FINE_SS) || nudgeSelectedTempo(0, -NUDGE_FINE_SS)) return; selection.adjustPitch(-1) },
-    octaveUp: () => { if (!(nudgeSelectedElement(0, -NUDGE_COARSE_SS) || nudgeArmedSlurPoint(0, -NUDGE_COARSE_SS) || nudgeSelectedSlur(0, -NUDGE_COARSE_SS) || nudgeSelectedDynamic(0, -NUDGE_COARSE_SS) || nudgeSelectedTempo(0, NUDGE_COARSE_SS))) selection.adjustOctave(1) },
-    octaveDown: () => { if (!(nudgeSelectedElement(0, NUDGE_COARSE_SS) || nudgeArmedSlurPoint(0, NUDGE_COARSE_SS) || nudgeSelectedSlur(0, NUDGE_COARSE_SS) || nudgeSelectedDynamic(0, NUDGE_COARSE_SS) || nudgeSelectedTempo(0, -NUDGE_COARSE_SS))) selection.adjustOctave(-1) },
+    pitchUp: () => { if (nudgeSelectedElement(0, -NUDGE_FINE_SS) || nudgeArmedSlurPoint(0, -NUDGE_FINE_SS) || nudgeSelectedSlur(0, -NUDGE_FINE_SS) || nudgeSelectedRest(1)) return; selection.adjustPitch(1) },
+    pitchDown: () => { if (nudgeSelectedElement(0, NUDGE_FINE_SS) || nudgeArmedSlurPoint(0, NUDGE_FINE_SS) || nudgeSelectedSlur(0, NUDGE_FINE_SS) || nudgeSelectedRest(-1)) return; selection.adjustPitch(-1) },
+    octaveUp: () => { if (!(nudgeSelectedElement(0, -NUDGE_COARSE_SS) || nudgeArmedSlurPoint(0, -NUDGE_COARSE_SS) || nudgeSelectedSlur(0, -NUDGE_COARSE_SS))) selection.adjustOctave(1) },
+    octaveDown: () => { if (!(nudgeSelectedElement(0, NUDGE_COARSE_SS) || nudgeArmedSlurPoint(0, NUDGE_COARSE_SS) || nudgeSelectedSlur(0, NUDGE_COARSE_SS))) selection.adjustOctave(-1) },
     // ── Ctrl+←/→ = MOVE: change the space before a selected note's column, or a selected barline's
     //    bar width — "move a lot" gets the easy key (docs/note-offset-plan.md §C swap). Joins the
     //    slur-endpoint / dynamic COARSE nudge that already owned Ctrl+←/→ (all selections disjoint).
@@ -1461,18 +1386,15 @@ export function wireShortcuts(
     ctrlArrowLeft: () =>
       nudgeSelectedElement(-NUDGE_COARSE_SS, 0)
       || nudgeArmedSlurPoint(-NUDGE_COARSE_SS, 0) || nudgeSelectedSlur(-NUDGE_COARSE_SS, 0)
-      || nudgeSelectedDynamic(-NUDGE_COARSE_SS, 0) || nudgeSelectedTempo(-NUDGE_COARSE_SS, 0)
       || nudgeSelectedClefOffset(-NUDGE_COARSE_SS)
       || nudgeSelectedNoteSpacing(-NOTE_SPACING_STEP_SS) || nudgeSelectedBarWidth(-BAR_WIDTH_STEP_PX),
     ctrlArrowRight: () =>
       nudgeSelectedElement(NUDGE_COARSE_SS, 0)
       || nudgeArmedSlurPoint(NUDGE_COARSE_SS, 0) || nudgeSelectedSlur(NUDGE_COARSE_SS, 0)
-      || nudgeSelectedDynamic(NUDGE_COARSE_SS, 0) || nudgeSelectedTempo(NUDGE_COARSE_SS, 0)
       || nudgeSelectedClefOffset(NUDGE_COARSE_SS)
       || nudgeSelectedNoteSpacing(NOTE_SPACING_STEP_SS) || nudgeSelectedBarWidth(BAR_WIDTH_STEP_PX),
     // Ctrl+Backspace = reset the MOVE (the space before the note / the bar's width).
     resetMove: () => resetSelectedElement() || resetArmedSlurPoint() || resetSelectedSlur()
-      || resetSelectedDynamic() || resetSelectedTempo()
       || resetSelectedClefOffset()
       || resetSelectedNoteSpacing() || resetSelectedBarWidth(),
 

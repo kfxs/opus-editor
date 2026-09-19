@@ -7,6 +7,7 @@
 import { dbg } from '@/utils/debug'
 import type { ClickableElementSpec } from './chain'
 import { beginTempoDrag } from '../drags/tempo'
+import { TEMPO_KEYS } from './tempoKeys'
 
 export const TEMPO_ELEMENT: ClickableElementSpec = {
   kind: 'tempo',
@@ -54,4 +55,5 @@ export const TEMPO_ELEMENT: ClickableElementSpec = {
   // (the dynamic's own arrangement), because a box and a Ctrl-press can now select this kind too
   // and the ink has to paint for every selected one — not only for the one a click picked.
   highlight: h => h.applyAnchorGuideLine(),
+  keys: TEMPO_KEYS,
 }

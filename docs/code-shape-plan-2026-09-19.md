@@ -1,6 +1,6 @@
 # Code shape plan — 2026-09-19
 
-**Status: IN PROGRESS — Phase 1 DONE (2026-09-19), bar item 5's two ⏭️ decisions. Phase 2 DONE. Phase 3.1: the hairpin / ottava / pedal body drags done and checked; the trill's too (`cdb7f05`); the slur's too (`69e927c`); the four SQUARE drags too (`6d903c3`); the slur HANDLE / ENDPOINT and staff-spacing drags too (`8f28f79`); the DYNAMIC and TEMPO drags too (`9a04f88`); bar width, barline join, group span and clef too (`ee31698`); the NOTE drag too (`7d2898e`) — every gesture is a module. **Phase 3.1 DONE** (`25f70a6`). 3.2: the `keys` column + dispatcher and the HAIRPIN on it (`e61626a`); OTTAVA / PEDAL / TRILL on it, awaiting his UI check.** Phases are ordered by
+**Status: IN PROGRESS — Phase 1 DONE (2026-09-19), bar item 5's two ⏭️ decisions. Phase 2 DONE. Phase 3.1: the hairpin / ottava / pedal body drags done and checked; the trill's too (`cdb7f05`); the slur's too (`69e927c`); the four SQUARE drags too (`6d903c3`); the slur HANDLE / ENDPOINT and staff-spacing drags too (`8f28f79`); the DYNAMIC and TEMPO drags too (`9a04f88`); bar width, barline join, group span and clef too (`ee31698`); the NOTE drag too (`7d2898e`) — every gesture is a module. **Phase 3.1 DONE** (`25f70a6`). 3.2: the `keys` column + dispatcher and the HAIRPIN on it (`e61626a`); OTTAVA / PEDAL / TRILL too (`14e10e7`); DYNAMIC and TEMPO on it, awaiting his UI check. Slur and clef offset are what is left of the chains.** Phases are ordered by
 value over risk; each one stands alone and can be stopped after. A done item carries ✅ and what
 actually happened where that differs from what was planned.
 
@@ -350,8 +350,15 @@ Run the e2e suite either side of each step.
    runtime — the dispatcher declines and the key falls through to the pitch edit. The
    event-driven `shortcutWiring.pedalOffset` / `.ottavaOffset` specs caught it (16 red); the lint
    would have too (`no-unused-labels`), had I run it before them. `chain.test.ts` now pins WHICH
-   kinds answer the keys by name, and that every such row has both verbs. ⏸️ Awaiting his UI check.*
-   *Still in the chains: slur, dynamic, tempo, clef offset — and the three
+   kinds answer the keys by name, and that every such row has both verbs. ✅ Passed (`14e10e7`).*
+
+   *Third — DYNAMIC and TEMPO: `elements/dynamicKeys.ts`, `elements/tempoKeys.ts`, a spec each.
+   ⭐ The column speaks SCREEN staff-spaces, so the tempo's row is where `↑` (a negative screen
+   `dy`) becomes a positive OUTWARD — the old chain did it by passing that one closure a flipped
+   sign on each of four lines, which is exactly the kind of fact that belongs to the kind. The
+   key RUN is still told the SCREEN delta. 4 closures and 15 links gone; `shortcutWiring` kinds
+   310 → 260. ⏸️ Awaiting his UI check.*
+   *Still in the chains: slur, clef offset — and the three
    that key off the NOTE selection rather than `selectedElement` (rest, note spacing, bar width),
    which stay where they are.*
 
