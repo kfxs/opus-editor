@@ -61,8 +61,26 @@ jobs:
         with:
           path: dist
 
+  # The unit suite, as its own job beside the build: `build:check` runs no test, so without this a
+  # red suite still published. Separate rather than a step of `build` so the two run in parallel
+  # and a failure names which gate fell. `vitest run`, not `npm run test` — that one is watch mode.
+  # The browser suite stays out, as it does from build:check.
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci --no-audit --no-fund
+
+      - run: npx vitest run
+
   deploy:
-    needs: build
+    needs: [build, test]
     runs-on: ubuntu-latest
     environment:
       name: github-pages
