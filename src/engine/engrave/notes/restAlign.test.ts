@@ -33,6 +33,15 @@ describe('alignRestsToNotes', () => {
     expect(alignRestsToNotes([note(6), rest(4), note(2)])).toEqual([])
   })
 
+  it('⭐ a TUPLET\'s call (both flags) moves an unbeamed rest, and one in a tuplet', () => {
+    const tuplet = { alignAllNotes: true, alignTuplets: true }
+    expect(alignRestsToNotes([note(6), rest(3, { beamed: false }), note(2)], tuplet)).toEqual([{ tickable: 1, line: 4 }])
+    expect(alignRestsToNotes([note(6), rest(3, { inTuplet: true, beamed: false }), note(2)], tuplet))
+      .toEqual([{ tickable: 1, line: 4 }])
+    // …but still never a rest off the middle line.
+    expect(alignRestsToNotes([note(6), rest(4, { beamed: false }), note(2)], tuplet)).toEqual([])
+  })
+
   it('⚠️ a rest after a CLEF keeps its line, but is still rewritten with it', () => {
     expect(alignRestsToNotes([note(6), clef(), rest(), note(2)])).toEqual([{ tickable: 2, line: 3 }])
   })

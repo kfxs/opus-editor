@@ -1,4 +1,5 @@
-import type { StaveNote, Annotation, Tuplet as VexFlowTuplet, SVGContext } from 'vexflow'
+import type { StaveNote, Annotation, SVGContext } from 'vexflow'
+import type { ScoreTuplet } from './ScoreTuplet'
 import type { DrawContext } from '@/engine/paint/DrawContext'
 import type { ElementRegistry } from '@/engine/ElementRegistry'
 import type { Score } from '@/types/music'
@@ -94,7 +95,7 @@ export interface RenderPass {
    */
   fanMemberGroupMap: Map<string, { group: SVGGElement; noteIndex: number }>
   /** Tuplet id → its rendered VexFlow Tuplet, for scoped highlight. */
-  tupletObjectMap: Map<string, VexFlowTuplet>
+  tupletObjectMap: Map<string, ScoreTuplet>
   /** Dynamic id → its rendered VexFlow Annotation, for layout & scoped highlight. */
   dynamicObjectMap: Map<string, Annotation>
   /** Slur id → its `<g class="vf-slur">` SVG group, for scoped highlight. */

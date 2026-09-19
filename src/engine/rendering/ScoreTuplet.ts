@@ -1,8 +1,12 @@
-import { Tuplet } from 'vexflow'
-import type { Note } from 'vexflow'
+import type { Note, StaveNote, Tuplet } from 'vexflow'
 import type { DrawContext } from '@/engine/paint/DrawContext'
+import type { DrawGroup } from '@/engine/paint/DrawGroup'
 import type { TupletMarkRun } from '@/types/music'
-import { drawGlyph, measureGlyph } from './glyphPainter'
+import { drawGlyph, measureGlyph, measureGlyphAscent, measureGlyphHeight } from './glyphPainter'
+import { MUSIC_FONT_SIZE_PT } from '@/engine/engrave/inheritedFonts'
+import { drawGroupOf } from './svgDrawGroup'
+import { alignTupletRests } from './columnFormat'
+import { TUPLET_TEXT_Y_OFFSET_PX, TUPLET_Y_OFFSET_PX } from '@/engine/engrave/inheritedDefaults'
 import { tupletMarkY, type TupletNoteReach, type TupletSide } from '@/engine/engrave/marks/tupletPlacement'
 import { staveFrame } from './staveFrame'
 
@@ -94,15 +98,34 @@ export function drawTupletMark(ctx: DrawContext, mark: LaidOutMark, x: number, b
   }
 }
 
+/** Above the notes, and below — VexFlow's `Tuplet.LOCATION_TOP` / `LOCATION_BOTTOM`. */
+const LOCATION_TOP = 1
+const LOCATION_BOTTOM = -1
+
+/** The tuplet's options — VexFlow's `Tuplet.options`, the fields this editor sets and reads. */
+export interface ScoreTupletOptions {
+  bracketed: boolean
+  /** {@link LOCATION_TOP} or {@link LOCATION_BOTTOM}. */
+  location: number
+  notesOccupied: number
+  numNotes: number
+  ratioed: boolean
+  yOffset: number
+  textYOffset: number
+}
+
+/** The ids our tuplets draw their group under — their own counter, as `beamN` and `signN` are. */
+let nextTupletId = 0
+
 /**
- * VexFlow's `Tuplet` with OUR bracket: it decides where the bracket ends, and it does not cut a hole
- * in the line for a mark that isn't there.
+ * ⭐ **A TUPLET OF OURS — S12a** (`docs/vexflow-removal-map.md` S12): the group, its options and its
+ * mark, drawn with OUR bracket. It used to `extend` VexFlow's `Tuplet`; what it still took from it is
+ * transcribed here — the constructor's defaults, its rest alignment and its `attach`, the note count,
+ * and the nesting count. ⚠️ The NOTES still hold it VexFlow's way: `setTuplet` pushes it on each
+ * note's tuplet stack and scales the note's ticks by {@link getNoteCount}/{@link getNotesOccupied}, and
+ * the stack is read back by {@link getNestedTupletCount} — so those three keep VexFlow's names.
  *
- * A subclass and not a rewrite. ⭐ **As of S8 how far OUT the mark stands is ours too** —
- * `engrave/marks/tupletPlacement`, answered by {@link ScoreTuplet.getYPosition} below; what stays
- * VexFlow's is the note graph the rule reads (which tuplets are nested, what the modifier context has
- * stacked). `draw()` has been ours since the mark was built, and it is VexFlow's own draw with two
- * changes, both of them things its options cannot express:
+ * Two changes from VexFlow's `draw`, both things its options cannot express:
  *
  *   • **Where the bracket ends.** VexFlow always stops at the last notehead
  *     (`lastNote.getTieRightX()`). {@link TupletBracketEnd} has three answers and two of them are
@@ -113,36 +136,109 @@ export function drawTupletMark(ctx: DrawContext, mark: LaidOutMark, x: number, b
  *     out of the middle for nothing. One unbroken line when there is no mark.
  *
  * ⚠️ Kept line-for-line otherwise, including the `'tuplet'` group name (the SVG context prefixes it
- * to `vf-tuplet`, which the hit-testing looks for) and the pointer rect. When VexFlow's own `draw()`
- * changes, this is the file that has to be re-read against it.
+ * to `vf-tuplet`, which the hit-testing looks for) and the pointer rect.
  */
-export class ScoreTuplet extends Tuplet {
+export class ScoreTuplet {
+  readonly options: ScoreTupletOptions
+  /**
+   * The width `draw()` gave the mark — bracket end minus start. The renderer reads it back for the
+   * hit box. (VexFlow's `Element.width`; 0 until drawn.)
+   */
+  width = 0
   /**
    * Absolute X for the bracket's right end, or undefined for VexFlow's own (the last notehead).
    * Set by the renderer before `draw()`, because the answer depends on notes outside the group.
    */
   bracketEndX?: number
 
-  constructor(...args: ConstructorParameters<typeof Tuplet>) {
-    super(...args)
-    // ⚠️ VexFlow's own `textElement` still sets the mark's BASELINE (its height, in `draw`) and the
-    // pointer rect's box. It is built as `new Element('Tuplet')`, which resolves the root size (30),
-    // so it is given the figures' size here — per tuplet, where it used to be a global write.
-    this.textElement.setFontSize(TUPLET_FONT_SIZE)
-  }
-
+  private readonly notes: StaveNote[]
+  private readonly id = `tuplet${++nextTupletId}`
+  /** The group `draw()` opened — what the selection highlight recolours. */
+  private group: DrawGroup | null = null
   /**
-   * The mark's runs — figures and note glyphs, drawn at different sizes (`tupletMarkRuns`).
-   *
-   * Set through {@link setMarkRuns}, which also puts the joined string into VexFlow's own
-   * `textElement`: nothing renders that element any more, but its height still sets the baseline and
-   * its box is what the pointer rect is built from.
+   * The mark's runs — figures and note glyphs, drawn at different sizes (`tupletMarkRuns`). Until
+   * {@link setMarkRuns}, the plain number (or ratio) the constructor spells.
    */
   private markRuns: TupletMarkRun[] = []
+  /** The runs' text, joined — its height sets the mark's baseline. */
+  private markText = ''
+
+  /**
+   * VexFlow's `Tuplet` constructor, transcribed: the options' defaults, the rest alignment over the
+   * group, the spelled number, and the notes told they are in it.
+   */
+  constructor(notes: StaveNote[], options: Partial<ScoreTupletOptions> = {}) {
+    if (!notes.length) throw new Error('ScoreTuplet: no notes provided for tuplet.')
+    this.notes = notes
+    const numNotes = options.numNotes !== undefined ? options.numNotes : notes.length
+    const notesOccupied = options.notesOccupied || 2
+    this.options = {
+      bracketed: options.bracketed !== undefined ? options.bracketed : notes.some(note => !note.hasBeam()),
+      location: options.location || LOCATION_TOP,
+      notesOccupied,
+      numNotes,
+      ratioed: options.ratioed !== undefined ? options.ratioed : Math.abs(notesOccupied - numNotes) > 1,
+      yOffset: options.yOffset || TUPLET_Y_OFFSET_PX,
+      textYOffset: options.textYOffset || TUPLET_TEXT_Y_OFFSET_PX,
+    }
+    if (this.options.location !== LOCATION_TOP && this.options.location !== LOCATION_BOTTOM) {
+      console.warn(`Invalid tuplet location [${this.options.location}]. Using Tuplet.LOCATION_TOP.`)
+      this.options.location = LOCATION_TOP
+    }
+    alignTupletRests(notes)
+    this.markText = this.spelledNumber()
+    // `attach`: each note scales its ticks by this tuplet and keeps it on its stack.
+    for (const note of notes) note.setTuplet(this as unknown as Tuplet)
+  }
+
+  /** VexFlow's `resolveGlyphs`: the count in SMuFL tuplet digits, `:` and the occupied count when ratioed. */
+  private spelledNumber(): string {
+    const digits = (n: number): string => {
+      let out = ''
+      while (n >= 1) {
+        out = String.fromCharCode(0xe880 + (n % 10)) + out
+        n = Math.floor(n / 10)
+      }
+      return out
+    }
+    const { numNotes, notesOccupied, ratioed } = this.options
+    return digits(numNotes) + (ratioed ? '\uE88A' + digits(notesOccupied) : '')
+  }
 
   setMarkRuns(runs: TupletMarkRun[]): void {
     this.markRuns = runs
-    this.textElement.setText(runs.map(r => r.text).join(''))
+    this.markText = runs.map(r => r.text).join('')
+  }
+
+  getNotes(): StaveNote[] {
+    return this.notes
+  }
+
+  /** How many notes are squeezed in — read by each note's `setTuplet` to scale its ticks. */
+  getNoteCount(): number {
+    return this.options.numNotes
+  }
+
+  /** How many they replace — read by each note's `setTuplet` to scale its ticks. */
+  getNotesOccupied(): number {
+    return this.options.notesOccupied
+  }
+
+  /**
+   * How many tuplets on this side some notes of the group are nested in and others are not —
+   * VexFlow's `getNestedTupletCount`, read off each note's tuplet stack.
+   */
+  getNestedTupletCount(): number {
+    const { location } = this.options
+    const count = (note: Note): number =>
+      (note.getTupletStack() as unknown as ScoreTuplet[]).filter(t => t.options.location === location).length
+    const counts = this.notes.map(count)
+    return Math.max(...counts) - Math.min(...counts)
+  }
+
+  /** The group this tuplet drew — null before a draw. */
+  drawnGroup(): DrawGroup | null {
+    return this.group
   }
 
   /**
@@ -194,9 +290,8 @@ export class ScoreTuplet extends Tuplet {
     }
   }
 
-  draw(): void {
+  draw(ctx: DrawContext): void {
     const { location, bracketed, textYOffset } = this.options
-    const ctx = this.checkContext()
     const firstNote = this.notes[0]
     const lastNote = this.notes[this.notes.length - 1]
 
@@ -225,15 +320,13 @@ export class ScoreTuplet extends Tuplet {
     // The MARK, laid out: its width is what the bracket makes room for and what the centring is
     // measured from — all the runs, not just the figures. With no runs set (nothing but VexFlow's
     // own construction has happened) its text is drawn as one, which is VexFlow's own behaviour.
-    const mark = layoutTupletMark(
-      this.markRuns.length ? this.markRuns : [{ text: this.textElement.getText() }],
-    )
+    const mark = layoutTupletMark(this.markRuns.length ? this.markRuns : [{ text: this.markText }])
     const textWidth = mark.width
     const notationStartX = xPos + this.width / 2 - textWidth / 2
 
-    ctx.openGroup('tuplet', this.getAttribute('id'))
+    this.group = drawGroupOf(ctx.openGroup('tuplet', this.id))
     if (bracketed) {
-      const legY = yPos + (location === Tuplet.LOCATION_BOTTOM ? 1 : 0)
+      const legY = yPos + (location === LOCATION_BOTTOM ? 1 : 0)
       if (textWidth <= 0) {
         // Nothing to make room for — one line, and it reads as a span rather than as two dashes.
         ctx.fillRect(xPos, yPos, this.width, 1)
@@ -250,15 +343,24 @@ export class ScoreTuplet extends Tuplet {
       ctx.fillRect(xPos + this.width, legY, 1, location * 10)
     }
 
-    // One baseline for every run — the mark is a line of text, not a stack. The height is still the
-    // figures' (`textElement`), so a note glyph beside them cannot shift the whole mark.
+    // One baseline for every run — the mark is a line of text, not a stack. Its height is the joined
+    // text's, measured in the mark's face at the figures' size (VexFlow's `textElement`), so a note
+    // glyph beside them is measured WITH them, exactly as before.
     const baseline =
-      yPos + this.textElement.getHeight() / 2 + (location === Tuplet.LOCATION_TOP ? -1 : 1) * textYOffset
+      yPos + this.markHeight() / 2 + (location === LOCATION_TOP ? -1 : 1) * textYOffset
     drawTupletMark(ctx, mark, notationStartX, baseline)
 
-    const bb = this.getBoundingBox()
-    ctx.pointerRect(bb.getX(), bb.getY(), bb.getW(), bb.getH())
+    // ⚠️ VexFlow's pointer rect is `Element.getBoundingBox()` of the TUPLET itself — which never has an
+    // x, a y, a shift or a text: so it stands at the origin, `width` wide, and as tall as an EMPTY
+    // string measures in the root music face (`Tuplet` sets no font of its own). Kept as it was
+    // drawn, ⛔ not "fixed" — the hit box is the registry's.
+    const emptyAscent = measureGlyphAscent('Tuplet', '', MUSIC_FONT_SIZE_PT)
+    ctx.pointerRect(0, -emptyAscent, this.width, measureGlyphHeight('Tuplet', '', MUSIC_FONT_SIZE_PT))
     ctx.closeGroup()
-    this.setRendered()
+  }
+
+  /** The figures' height at {@link TUPLET_FONT_SIZE} — what sets the mark's baseline. */
+  markHeight(): number {
+    return measureGlyphHeight(MARK_TAG, this.markText, TUPLET_FONT_SIZE)
   }
 }

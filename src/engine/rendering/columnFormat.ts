@@ -129,6 +129,17 @@ export function alignVoiceRests(voices: readonly BarVoice[]): void {
 }
 
 /**
+ * ⭐ A tuplet's middle-line rests, moved to the notes around them — the `Tuplet` constructor's
+ * `Formatter.AlignRestsToNotes(notes, true, true)` (S12a), by `engrave/notes/restAlign`: over the
+ * tuplet's own notes, beamed or not, in a tuplet or not.
+ */
+export function alignTupletRests(notes: readonly StaveNote[]): void {
+  for (const step of alignRestsToNotes(notes.map(restAlignInput), { alignAllNotes: true, alignTuplets: true })) {
+    notes[step.tickable].setKeyLine(0, step.line)
+  }
+}
+
+/**
  * What `layout/softmaxSpacing` needs of a bar, read AFTER every column's pre-format — the same values
  * `Formatter.preFormat` read live.
  */

@@ -98,10 +98,13 @@ const ALLOWED = new Map([
  *  ⭐ S11e (2026-09-19): the ghosts leave the allowlist — every one is built from our own classes and
  *  takes a `DrawContext`. ⚠️ `svgNode` 11 → **12** for the same reason as S10's: the tie ghost recolours
  *  its arc's two paths through the page, and used to reach them through an UNCOUNTED `as SVGGElement`
- *  cast of VexFlow's `openGroup`; on our surface that escape is the counted one. */
+ *  cast of VexFlow's `openGroup`; on our surface that escape is the counted one.
+ *  ⚠️ 12 → **13** with S12a: the selection highlight found the tuplet's group through VexFlow's
+ *  `getSVGElement` (a document-wide `getElementById`); `ScoreTuplet` now keeps the group it opened, and
+ *  handing that to the editor is this escape. */
 const VEX_CONTEXT_CEILING = 7
 /** ⭐ P1c's number: the group handle's escape hatch to a real DOM node. */
-const SVG_NODE_CEILING = 12
+const SVG_NODE_CEILING = 13
 
 const NAMES = /\b(SVGContext|RenderContext|vexContext)\b/
 

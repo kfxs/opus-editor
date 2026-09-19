@@ -13,11 +13,15 @@
  * midpoint of a chord's first and last keys. A rest that is not on line 3 is left alone — which is
  * why the rule is idempotent: a moved rest no longer answers 3.
  *
- * ## ⚠️ Only the case this editor runs
+ * ## ⚠️ The two cases this editor runs
  *
- * `Formatter.format` calls it with `alignAllNotes: false` and no `alignTuplets`, so here:
+ * `Formatter.format` calls it with `alignAllNotes: false` and no `alignTuplets` — the DEFAULT here:
  * - only a BEAMED rest moves (never an unbeamed one);
  * - a rest in a TUPLET is never moved.
+ *
+ * ⭐ A tuplet's construction calls it over the tuplet's own notes with BOTH set (S12a — the `Tuplet`
+ * constructor's `Formatter.AlignRestsToNotes(notes, true, true)`): every middle-line rest of the
+ * group moves, beamed or not.
  *
  * ⚠️ Transcribed with its quirks intact:
  * - a rest after something that is not a stave note (a mid-bar CLEF) keeps its line — but is still
@@ -61,7 +65,11 @@ const MIDDLE_LINE = 3
  * ⭐ Every beamed middle-line rest of one voice, moved to the notes around it — in order, because a
  * rest after a rest reads the line the earlier one was just given.
  */
-export function alignRestsToNotes(tickables: readonly VoiceTickable[]): RestLineStep[] {
+export function alignRestsToNotes(
+  tickables: readonly VoiceTickable[],
+  /** VexFlow's two flags — both false is `Formatter.format`'s call, both true a tuplet's. */
+  { alignAllNotes = false, alignTuplets = false }: { alignAllNotes?: boolean; alignTuplets?: boolean } = {},
+): RestLineStep[] {
   const steps: RestLineStep[] = []
   // A rest's line as the walk has left it — the later rests read it.
   const lines = tickables.map(t => t.restLine)
@@ -82,9 +90,9 @@ export function alignRestsToNotes(tickables: readonly VoiceTickable[]): RestLine
 
   tickables.forEach((t, index) => {
     if (!t.isStaveNote || !t.isRest) return
-    if (t.inTuplet) return
+    if (t.inTuplet && !alignTuplets) return
     if (lines[index] !== MIDDLE_LINE) return
-    if (!t.beamed) return
+    if (!alignAllNotes && !t.beamed) return
     let line = lines[index]
     if (index === 0) {
       line = nextNoteLine(line, index, false)

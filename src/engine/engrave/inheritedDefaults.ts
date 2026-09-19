@@ -98,6 +98,12 @@ export const REST_MODIFIER_LINE_SHIFT: Readonly<Record<string, number>> = {
 /** One tremolo stroke to the next — `Tremolo.spacing` = 7 (`metrics.js:212`). */
 export const TREMOLO_STROKE_STEP_PX = 7
 
+/** How far a tuplet mark stands off its own reach, in px — `Tuplet.yOffset` = 0 (`metrics.js:215`). */
+export const TUPLET_Y_OFFSET_PX = 0
+
+/** How far the tuplet NUMBER sits past its bracket line, in px — `Tuplet.textYOffset` = 2 (`metrics.js:216`). */
+export const TUPLET_TEXT_Y_OFFSET_PX = 2
+
 /** A tremolo stroke's glyph size, in points — `Tremolo` sets none, so it is the root `fontSize` = 30 (`metrics.js:63`). */
 export const TREMOLO_FONT_SIZE = 30
 

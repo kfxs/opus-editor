@@ -152,6 +152,31 @@ export function measureGlyph(tag: string, glyph: string, sizePt: number): number
 }
 
 /**
+ * ⭐ **HOW TALL A GLYPH RUN WOULD BE DRAWN** — its ink's ascent plus descent, by the same resolution
+ * as {@link drawGlyph}. The tuplet mark's baseline is centred on it (S12a: what VexFlow's `Tuplet`
+ * kept a `textElement` for). ⚠️ 0 in jsdom, like {@link widthOf}.
+ */
+export function measureGlyphHeight(tag: string, glyph: string, sizePt: number): number {
+  try {
+    return glyphElement(tag, glyph, sizePt).getHeight() || 0
+  } catch {
+    return 0
+  }
+}
+
+/**
+ * A run's ink ABOVE its baseline — the canvas's `actualBoundingBoxAscent`, by the same resolution as
+ * {@link drawGlyph}. ⚠️ 0 in jsdom, like {@link widthOf}.
+ */
+export function measureGlyphAscent(tag: string, glyph: string, sizePt: number): number {
+  try {
+    return glyphElement(tag, glyph, sizePt).textMetrics.actualBoundingBoxAscent || 0
+  } catch {
+    return 0
+  }
+}
+
+/**
  * ⭐ **STAMP ONE RUN OF TEXT** in a named face — the shape a music glyph cannot take.
  *
  * ⚠️ The parenthesised trill and ottava are why this is separate: their brackets are TEXT and their

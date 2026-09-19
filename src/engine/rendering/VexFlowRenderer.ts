@@ -3237,12 +3237,8 @@ export class VexFlowRenderer {
         for (const [tupletId, { staveNotes: tStaveNotes, tuplet: tupletData, voice }] of tupletStaveNoteMap) {
           if (!tStaveNotes.includes(tupletNotes[0])) continue
 
-          const vt = vexTuplet as unknown as {
-            notes: StaveNote[]
-            options: { location?: number; bracketed?: boolean; yOffset?: number; textYOffset?: number }
-            textElement?: { getHeight?: () => number; setText?: (text: string) => void }
-          }
-          const notes = vt.notes
+          const vt = vexTuplet
+          const notes = vt.getNotes()
           const firstNote = notes?.[0]
           const lastNote = notes?.[notes.length - 1]
           if (!firstNote || !lastNote) break
@@ -3295,7 +3291,7 @@ export class VexFlowRenderer {
           )
           if (flipOffset !== 0) vt.options.yOffset = (vt.options.yOffset ?? 0) + flipOffset
 
-          vexTuplet.setContext(this.context!).draw()
+          vexTuplet.draw(this.context!)
 
           // Use VexFlow's OWN post-draw geometry so the registered hit-box matches the
           // drawn bracket exactly. VexFlow draws the horizontal bracket line at
@@ -3313,7 +3309,7 @@ export class VexFlowRenderer {
 
           const bracketLineY = vexTuplet.getYPosition() // the horizontal bracket line
           const bracketLegLength = 10
-          const numberHeight = vt.textElement?.getHeight?.() ?? 14
+          const numberHeight = vexTuplet.markHeight()
           // The number sits on the outer side of the line, the legs hang inward. Cover
           // both (plus a little padding) so a click anywhere on the visible bracket or
           // its number registers.
@@ -4986,8 +4982,7 @@ export class VexFlowRenderer {
    * Must be called after a render.
    */
   getTupletSVGGroup(tupletId: string): SVGGElement | null {
-    const group = this.tupletObjectMap.get(tupletId)?.getSVGElement?.()
-    return (group as unknown as SVGGElement) ?? null
+    return svgNode(this.tupletObjectMap.get(tupletId)?.drawnGroup()) ?? null
   }
 
   /**
