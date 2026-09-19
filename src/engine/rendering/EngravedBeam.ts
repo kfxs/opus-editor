@@ -30,7 +30,6 @@
  */
 import type { EngravedNote } from './EngravedNote'
 import { ticksValue } from '@/engine/layout/tickCount'
-import { Stem } from 'vexflow'
 import type { DrawContext } from '@/engine/paint/DrawContext'
 import type { FractionalBeamSide, NoteDuration } from '@/types/music'
 import type { Fraction } from '@/utils/fraction'
@@ -54,6 +53,8 @@ import { CROSS_SYSTEM_BEAM_WIDTH } from './beamInk'
 type StemContext = DrawContext
 
 /** VexFlow's `PartialBeamDirection` letters, for {@link applyFractionalBeamSides}. */
+/** A stem pointing down — VexFlow's `Stem.DOWN`. */
+const STEM_DOWN = -1
 const BEAM_LEFT = 'L'
 const BEAM_RIGHT = 'R'
 
@@ -295,7 +296,7 @@ export class EngravedBeam {
     const last = this.notes[this.notes.length - 1]
     const firstStem = stems[0]
     const lastStem = stems[stems.length - 1]
-    const up = stemDirection !== Stem.DOWN
+    const up = stemDirection !== STEM_DOWN
     return {
       intervalSteps: Math.abs(last.getLineNumber(up) - first.getLineNumber(up)) * 2,
       widthSpaces: Math.abs(lastStem.stemX - firstStem.stemX) / STAFF_SPACE_PX,

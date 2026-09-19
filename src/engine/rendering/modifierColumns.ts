@@ -18,7 +18,6 @@
  * each of their `format`s returns at once on an empty list, so skipping them is exact. A context that ever holds one REFUSES
  * loudly instead of drawing it wrong.
  */
-import { Modifier } from 'vexflow'
 import { addTicks } from '@/engine/layout/tickCount'
 import { stackDots } from '@/engine/engrave/notes/dotStack'
 import { stackAccidentals } from '@/engine/engrave/notes/accidentalStack'
@@ -32,6 +31,7 @@ import { EngravedArticulation } from './EngravedArticulation'
 import { staffLineY } from '@/engine/engrave/staff/staffFrame'
 import { EngravedAccidental } from './EngravedAccidental'
 import { EngravedDot } from './EngravedDot'
+import { MODIFIER_POSITION } from './EngravedModifier'
 import { EngravedNote, columnVoiceNoteOf } from './EngravedNote'
 import { noteFrame } from './staveFrame'
 import { type BarTickable, type BarVoice, sharedResolution } from './barVoice'
@@ -57,7 +57,7 @@ export interface ColumnModifierState {
  * One column's modifier context — the notes that start together, and what they carry.
  *
  * ⭐ S12j-b: no longer VexFlow's `ModifierContext` — it keeps what anything asks of one: the members
- * filed by CATEGORY (`addMember`), the running `state`, the width, the metrics. ⚠️ A VexFlow NOTE still
+ * filed by CATEGORY (`addMember`), the running `state`, the width, the metrics. A note of ours
  * files itself and its modifiers here (`Tickable.addToModifierContext` → `addMember`) and asks
  * `preFormat`, `getWidth`, `getState` and `getRightShift` — every one answered below.
  */
@@ -209,8 +209,8 @@ export class ColumnModifiers {
       if (!(note instanceof EngravedNote)) throw new Error('ColumnModifiers: an articulation on a note that is not an EngravedNote')
       const stem = note.getStem()
       const position = mark.getPosition()
-      const side: ArticulationSide = position === Modifier.Position.ABOVE ? 'above'
-        : position === Modifier.Position.BELOW ? 'below' : 'other'
+      const side: ArticulationSide = position === MODIFIER_POSITION.ABOVE ? 'above'
+        : position === MODIFIER_POSITION.BELOW ? 'below' : 'other'
       return {
         side,
         height: mark.height,

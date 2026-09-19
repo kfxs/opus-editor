@@ -60,11 +60,13 @@
  * `dotRestDistance` below `dotNoteDistance`). He reported notes; this changes notes.
  */
 import type { EngravedNote } from './EngravedNote'
-import { Stem } from 'vexflow'
 import { dotsOn } from './EngravedDot'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { armedDotGap } from '@/engine/layout/dotGap'
 import { MODIFIER_RIGHT_GAP_PX } from '@/engine/engrave/inheritedDefaults'
+
+/** A stem pointing up — VexFlow's `Stem.UP`. */
+const STEM_UP = 1
 
 /**
  * ⭐⭐ **THE TWO GAPS ARE A TABLE NOW** — `engine/layout/dotGap`, armed by `__dots.gap(…)`
@@ -152,7 +154,7 @@ export function placeDots(notes: EngravedNote[]): void {
     if (note.isRest()) continue
     const dots = dotsOn(note)
     if (!dots.length) continue
-    const shift = dotShift(note.hasFlag() && note.getStemDirection() === Stem.UP)
+    const shift = dotShift(note.hasFlag() && note.getStemDirection() === STEM_UP)
     if (shift <= 0) continue
     for (const dot of dots) dot.setXShift(dot.getXShift() + shift)
   }

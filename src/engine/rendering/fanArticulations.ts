@@ -49,7 +49,7 @@ import { standOn } from './staveFrame'
  * `EngravedNote`, the marks `EngravedArticulation`s, the column our `ColumnModifiers` — the same
  * classes and rules as member 0's (`engrave/notes/articulationStack`, `articulationPlacement`), so the
  * placement has ONE owner again. No probe context any more: the mark is PLACED (`place()`), moved onto
- * the member's head, and its glyph stamped with no group of its own, as `paintElementText` did.
+ * the member's head, and its glyph stamped with no group of its own, as VexFlow's `Element.renderText` did.
  * ⭐ Its tick column is ours too (S12j-b).
  */
 

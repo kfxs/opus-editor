@@ -15,7 +15,6 @@
  * Both build {@link FanSlotDrawing}s and hand them to {@link drawFanGroups}.
  */
 import type { EngravedStave } from './EngravedStave'
-import { Accidental } from 'vexflow'
 import { EngravedHead } from './EngravedHead'
 import { headGlyph } from '@/engine/engrave/notes/keyLines'
 import type { DrawContext } from '@/engine/paint/DrawContext'
@@ -45,7 +44,9 @@ import { ledgerLineRuns, drawLedgerLines } from '@/engine/engrave/notes/ledgerLi
 import { drawStem } from '@/engine/engrave/notes/stem'
 import { drawNoteHead } from '@/engine/engrave/notes/noteheads'
 import { drawGroupOf, svgNode } from './svgDrawGroup'
-import { paintElementText } from './glyphPainter'
+import { EngravedAccidental } from './EngravedAccidental'
+import { stampGlyph } from '@/engine/engrave/glyph'
+import { accidentalFont } from '@/engine/engrave/inheritedFonts'
 import { stemOf, EngravedNote } from './EngravedNote'
 import type { CrossBarFanJoin } from './CrossBarBeams'
 import type { ElementRegistry } from '@/engine/ElementRegistry'
@@ -145,7 +146,8 @@ const accidentalWidths = new Map<string, number>()
 function accidentalWidth(sign: string): number {
   const hit = accidentalWidths.get(sign)
   if (hit !== undefined) return hit
-  const width = new Accidental(sign).getWidth() || 0
+  // ⭐ S12k: measured by our sign, in the face and size VexFlow's `Accidental` measured it (S12e).
+  const width = new EngravedAccidental(sign).getWidth() || 0
   accidentalWidths.set(sign, width)
   return width
 }
@@ -583,9 +585,9 @@ function drawFanGroups(pass: RenderPass, drawings: FanSlotDrawing[], fanJoins: F
               // chord, the lowest in the next column out, the rest working inwards (Gould's
               // zig-zag; `chordAccidentalColumns`). One x for all of them printed two signs on top
               // of each other the moment a member became a real chord.
-              const acc = new Accidental(sign)
-              acc.setX(accidentals.xs[signedHeads.indexOf(h)]).setY(y)
-              paintElementText(ctx, acc)
+              // ⭐ S12k: stamped bare, as `Element.renderText` stamped VexFlow's `Accidental` — no group.
+              const glyph = new EngravedAccidental(sign).getText()
+              stampGlyph(ctx, glyph, accidentals.xs[signedHeads.indexOf(h)], y, accidentalFont(glyph))
             }
           }
           // ⭐ P3c — the same ink as every other stem on the page (`engrave/notes/stem`), where

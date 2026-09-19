@@ -1,10 +1,9 @@
-import { Modifier } from 'vexflow'
 import { EngravedNote } from './EngravedNote'
 import { EngravedAccidental } from './EngravedAccidental'
 import { EngravedArticulation } from './EngravedArticulation'
 import { attachEngravedDots } from './EngravedDot'
 import { CenteredTremolo } from './CenteredTremolo'
-import { attachModifier } from './EngravedModifier'
+import { attachModifier, MODIFIER_POSITION } from './EngravedModifier'
 import { reserveDotRoom } from './dotPlacement'
 import type { Measure, NoteDuration, Clef, ArticulationType, Chord, ChordRest, Fraction, KeySignature } from '@/types/music'
 import { fracCompare, fracLte } from '@/utils/fraction'
@@ -323,12 +322,12 @@ export function createStaveNotesFromSlots(
     //    middle. This matches standard engraving (Gould). An explicit slot
     //    placement override (the `x` flip) still wins below.
     const autoArticulationPosition = forcedStemDirection !== undefined
-      ? (forcedStemDirection === 1 ? Modifier.Position.ABOVE : Modifier.Position.BELOW)
-      : (stemDirection === 1 ? Modifier.Position.BELOW : Modifier.Position.ABOVE)
+      ? (forcedStemDirection === 1 ? MODIFIER_POSITION.ABOVE : MODIFIER_POSITION.BELOW)
+      : (stemDirection === 1 ? MODIFIER_POSITION.BELOW : MODIFIER_POSITION.ABOVE)
     const articulationPosition = slot.articulationPlacement === 'above'
-      ? Modifier.Position.ABOVE
+      ? MODIFIER_POSITION.ABOVE
       : slot.articulationPlacement === 'below'
-        ? Modifier.Position.BELOW
+        ? MODIFIER_POSITION.BELOW
         : autoArticulationPosition
     const sortedArticulations = (slot.articulations ?? []).slice().sort(
       (a, b) => ARTICULATION_RENDER_ORDER.indexOf(a) - ARTICULATION_RENDER_ORDER.indexOf(b)
