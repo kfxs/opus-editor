@@ -42,6 +42,9 @@ export interface FontRow {
  */
 export const MUSIC_FONT_STACK = 'Bravura,Academico'
 
+/** A text annotation's size until a face is set on it — `Annotation.fontSize` = 10 (`metrics.js:79`); its family, weight and style are the root's. */
+export const ANNOTATION_FONT_SIZE_PT = 10
+
 /** Every music glyph's size unless a category says otherwise — the root `fontSize` = 30 (`metrics.js:63`). */
 export const MUSIC_FONT_SIZE_PT = 30
 

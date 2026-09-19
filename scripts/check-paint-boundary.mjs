@@ -100,10 +100,12 @@ const ALLOWED = new Map([
  *  cast of VexFlow's `openGroup`; on our surface that escape is the counted one.
  *  ⚠️ 12 → **13** with S12a: the selection highlight found the tuplet's group through VexFlow's
  *  `getSVGElement` (a document-wide `getElementById`); `ScoreTuplet` now keeps the group it opened, and
- *  handing that to the editor is this escape. */
+ *  handing that to the editor is this escape.
+ *  ⚠️ 13 → **14** with S12g, the same case: the dynamics' annotation kept its `getSVGElement` for the
+ *  seven layout passes and the highlight that read it, now answering the group it opened. */
 const VEX_CONTEXT_CEILING = 7
 /** ⭐ P1c's number: the group handle's escape hatch to a real DOM node. */
-const SVG_NODE_CEILING = 13
+const SVG_NODE_CEILING = 14
 
 const NAMES = /\b(SVGContext|RenderContext|vexContext)\b/
 

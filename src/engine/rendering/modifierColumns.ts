@@ -103,7 +103,8 @@ export class ColumnModifiers extends ModifierContext {
    * `EngravedNote`.
    */
   private formatAnnotations(): void {
-    const texts = this.members.Annotation ?? []
+    // Ours since S12g — filed here by the category string, so narrowed back from VexFlow's member type.
+    const texts = (this.members.Annotation ?? []) as unknown[]
     if (texts.length === 0) return
     const ours = texts.map(text => {
       if (!(text instanceof EngravedAnnotation)) throw new Error('ColumnModifiers: an annotation that is not an EngravedAnnotation')

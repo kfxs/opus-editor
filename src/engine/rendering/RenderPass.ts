@@ -1,4 +1,5 @@
-import type { StaveNote, Annotation, SVGContext } from 'vexflow'
+import type { StaveNote, SVGContext } from 'vexflow'
+import type { EngravedAnnotation } from './EngravedAnnotation'
 import type { ScoreTuplet } from './ScoreTuplet'
 import type { DrawContext } from '@/engine/paint/DrawContext'
 import type { ElementRegistry } from '@/engine/ElementRegistry'
@@ -97,7 +98,7 @@ export interface RenderPass {
   /** Tuplet id → its rendered VexFlow Tuplet, for scoped highlight. */
   tupletObjectMap: Map<string, ScoreTuplet>
   /** Dynamic id → its rendered VexFlow Annotation, for layout & scoped highlight. */
-  dynamicObjectMap: Map<string, Annotation>
+  dynamicObjectMap: Map<string, EngravedAnnotation>
   /** Slur id → its `<g class="vf-slur">` SVG group, for scoped highlight. */
   slurGroupMap: Map<string, SVGGElement>
   /** Hairpin id → its `<g class="vf-hairpin">` SVG group, for scoped highlight. Like the slur's,

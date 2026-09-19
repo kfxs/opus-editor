@@ -12,8 +12,9 @@
  * {@link buildDynamicAnnotation} is also used by the renderer's dynamic-ghost preview,
  * so it is exported.
  */
-import { Annotation } from 'vexflow'
 import { EngravedAnnotation } from './EngravedAnnotation'
+import { attachModifier } from './EngravedModifier'
+import { ANNOTATION_ALIGN } from '@/engine/engrave/notes/annotationPlacement'
 import type { StaveNote, Stave } from 'vexflow'
 import type { ChordRest, Measure, Dynamic, Fraction } from '@/types/music'
 import { fracCompare, fracGte, fracToNumber } from '@/utils/fraction'
@@ -124,7 +125,7 @@ export function attachDynamicsToSlots(pass: RenderPass, sortedSlots: ChordRest[]
     if (targetIdx < 0 || targetIdx >= staveNotes.length) continue
 
     const annotation = buildDynamicAnnotation(dyn)
-    staveNotes[targetIdx].addModifier(annotation, 0)
+    attachModifier(staveNotes[targetIdx], annotation, 0)
     pass.dynamicObjectMap.set(dyn.id, annotation)
     const arr = byTarget.get(targetIdx) ?? []
     arr.push(dyn.id)
@@ -201,7 +202,7 @@ export function layoutCoLocatedDynamics(pass: RenderPass, groups: string[][]): v
  * all at the text size gives them ONE baseline; the glyph runs are then enlarged around that fixed
  * baseline by {@link applyMixedDynamicRuns} (a bigger `<tspan>` grows the glyph but not its baseline).
  */
-export function buildDynamicAnnotation(dyn: Dynamic): Annotation {
+export function buildDynamicAnnotation(dyn: Dynamic): EngravedAnnotation {
   // The text IS the display string — glyph runs already hold their SMuFL glyph characters.
   // ⭐ Ours (S9f), so the column rule can read its justification — see `./EngravedAnnotation`.
   const annotation = new EngravedAnnotation(dynamicLabel(dyn))
@@ -209,7 +210,7 @@ export function buildDynamicAnnotation(dyn: Dynamic): Annotation {
   annotation.setVerticalJustification(dyn.placement === 'above' ? 'above' : 'below')
   // Left-justify so the FIRST character anchors on the note (the tick), not the
   // text centre. Dynamics/expression text reads left-to-right from the note.
-  annotation.setJustification(Annotation.HorizontalJustify.LEFT)
+  annotation.setJustification(ANNOTATION_ALIGN.LEFT)
 
   // Italic serif for words, music font appended as the per-character fallback so glyph runs still
   // draw as the SMuFL glyph. Text size for ALL marks so they share one baseline (see above).

@@ -1,4 +1,5 @@
-import { Renderer, Stave, StaveNote, Annotation, type Beam, ClefNote } from 'vexflow'
+import { Renderer, Stave, StaveNote, type Beam, ClefNote } from 'vexflow'
+import type { EngravedAnnotation } from './EngravedAnnotation'
 import { ScoreTuplet } from './ScoreTuplet'
 import { tremoloOn, TREMOLO_FLAG_STEM_STRETCH, TREMOLO_STROKE_CLEARANCE, usableStemSpan } from './CenteredTremolo'
 import { twoNoteTremoloStrokes } from './TwoNoteTremolo'
@@ -445,7 +446,7 @@ interface MeasureSnapshot {
   /** …and where each was DRAWN, so a reused measure can still anchor a slur to one. */
   fanMemberAnchors: [string, FanMemberAnchor][]
   tuplets: [string, ScoreTuplet][]
-  dynamics: [string, Annotation][]
+  dynamics: [string, EngravedAnnotation][]
   /**
    * ⭐ **Where a tempo mark anchored at each of this bar's onsets would be drawn**
    * (`ElementRegistry.tempoAnchorsOf`) — captured for the same reason `elements` is: the map is
@@ -619,7 +620,7 @@ export class VexFlowRenderer {
   /** Map of tuplet IDs to their rendered VexFlow Tuplet objects (for scoped highlight) */
   private tupletObjectMap: Map<string, ScoreTuplet> = new Map()
   /** Map of dynamic IDs to their rendered VexFlow Annotation objects (for scoped highlight) */
-  private dynamicObjectMap: Map<string, Annotation> = new Map()
+  private dynamicObjectMap: Map<string, EngravedAnnotation> = new Map()
   /** Map of slur IDs to their rendered SVG group (`<g class="vf-slur">`) for scoped highlight */
   private slurGroupMap: Map<string, SVGGElement> = new Map()
   private hairpinGroupMap: Map<string, SVGGElement> = new Map()

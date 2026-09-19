@@ -6,7 +6,7 @@
  * mark on it, and draws ONLY the mark. ⭐ That note is built by the SAME classes and the SAME pipeline
  * the score uses (`EngravedNote`, `Engraved*` marks, `BarVoice`, our modifier and tick columns) where a
  * bare VexFlow `StaveNote`, `Voice` and `Formatter` used to be — so a ghost stacks its marks by the
- * page's own rules. The mark is then painted on our surface (`glyphPainter.drawMarkOn`) and parked by
+ * page's own rules. The mark then draws itself on our surface (every mark is ours since S12b–g) and is parked by
  * `ghostCursor.drawSignGhost`, each ghost by its own rule.
  *
  * ⚠️ Only the ink's SHAPE survives the parking — the group is moved by its ink box — so where the lone
@@ -23,7 +23,6 @@ import { CenteredTremolo } from './CenteredTremolo'
 import { attachModifier } from './EngravedModifier'
 import { ARTICULATION_RENDER_ORDER } from './NoteBuilder'
 import { formatLoneNote } from './loneNote'
-import { drawMarkOn } from './glyphPainter'
 import { buildDynamicAnnotation, enlargeDynamicGlyphRuns } from './DynamicsLayout'
 import { DYNAMIC_ANNOTATION_FONT } from './dynamicStyle'
 import { centreGhostOnCursor, drawSignGhost, ghostCursorOffset, sweepIntoGhostGroup } from './ghostCursor'
@@ -136,8 +135,9 @@ export function drawDotGhost(ctx: DrawContext, cursorX: number, cursorY: number)
 export function drawDynamicGhost(ctx: DrawContext, svg: SVGElement, cursorX: number, cursorY: number, dynamic: Dynamic): boolean {
   try {
     const annotation = buildDynamicAnnotation(dynamic)
-    loneQuarter(cursorY, note => note.addModifier(annotation, 0))
-    const group = sweepIntoGhostGroup(svg, 'ghost-dynamic-group', () => drawMarkOn(ctx, annotation))
+    loneQuarter(cursorY, note => attachModifier(note, annotation, 0))
+    // Ours since S12g — it draws on our surface itself, with no cast.
+    const group = sweepIntoGhostGroup(svg, 'ghost-dynamic-group', () => annotation.setContext(ctx).draw())
     if (!group) return false
     // The annotation is drawn at the small text size for a shared baseline; grow its glyph runs the
     // way the score pass does, so the ghost matches what will be placed.

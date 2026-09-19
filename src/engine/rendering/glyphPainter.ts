@@ -186,6 +186,29 @@ export function measureGlyphMetrics(tag: string, glyph: string, sizePt: number):
 }
 
 /**
+ * ⭐ **WHAT A RUN OF TEXT WOULD MEASURE, in a face of its own** — `tag`'s default face with `font`
+ * laid over it (`Element.setFont(object)`), then measured. For the text annotation (S12g), which sets
+ * its whole face rather than a size. ⚠️ All 0 in jsdom.
+ */
+export function measureTextMetrics(tag: string, text: string, font: TextRunFont | { family: string; size: number | string; weight?: string; style?: string }): GlyphMetrics {
+  try {
+    const el = new Element(tag)
+    el.setFont(font as Parameters<Element['setFont']>[0])
+    el.setText(text)
+    const m = el.textMetrics
+    return {
+      width: m.width || 0,
+      ascent: m.actualBoundingBoxAscent || 0,
+      descent: m.actualBoundingBoxDescent || 0,
+      left: m.actualBoundingBoxLeft || 0,
+      right: m.actualBoundingBoxRight || 0,
+    }
+  } catch {
+    return { width: 0, ascent: 0, descent: 0, left: 0, right: 0 }
+  }
+}
+
+/**
  * ⭐ **HOW TALL A GLYPH RUN WOULD BE DRAWN** — its ink's ascent plus descent (VexFlow's `Element`
  * height). The tuplet mark's baseline is centred on it (S12a). ⚠️ 0 in jsdom.
  */
