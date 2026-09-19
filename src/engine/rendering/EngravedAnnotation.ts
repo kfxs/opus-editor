@@ -19,7 +19,7 @@
  * by id across the whole DOCUMENT; the handle is the same live node (no pass clones the page), without
  * the lookup.
  */
-import type { StaveNote } from 'vexflow'
+import type { EngravedNote } from './EngravedNote'
 import type { DrawGroup } from '@/engine/paint/DrawGroup'
 import type { AnnotationAlign, AnnotationSide } from '@/engine/engrave/notes/annotationStack'
 import { ANNOTATION_ALIGN, ANNOTATION_SIDE, placeAnnotation } from '@/engine/engrave/notes/annotationPlacement'
@@ -135,7 +135,7 @@ export class EngravedAnnotation extends EngravedModifier {
   /** ⭐ **OURS** — `Annotation.draw`: where the text stands (`engrave/notes/annotationPlacement`), then its ink. */
   draw(): void {
     const ctx = this.checkContext()
-    const note = this.checkAttachedNote() as StaveNote
+    const note = this.checkAttachedNote() as EngravedNote
     this.setRendered()
     const frame = requireNoteFrame(note)
     const ruler = noteRuler(note)

@@ -71,7 +71,6 @@ import { attachEngravedDots } from './EngravedDot'
 import { BarVoice } from './barVoice'
 import { attachModifierColumns } from './modifierColumns'
 import { formatColumns } from './columnFormat'
-import { drawMarkOn } from './glyphPainter'
 import { noteRuler } from './noteRuler'
 
 /**
@@ -309,7 +308,7 @@ export function drawNoteGhost(
 
     const childrenBefore = svg.children.length
     drawNoteInkThrough([staveNote], ctx)
-    drawMarkOn(ctx, staveNote)
+    staveNote.setContext(ctx).draw()
 
     // The armed tuplet's number, over the ghost — "this click STARTS a 5:4", which a notehead
     // alone cannot say. Drawn by the engraved mark's own `layoutTupletMark`, so the font is the

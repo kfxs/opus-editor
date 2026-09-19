@@ -103,10 +103,12 @@ const ALLOWED = new Map([
  *  handing that to the editor is this escape.
  *  ⚠️ 13 → **14** with S12g, the same case: the dynamics' annotation kept its `getSVGElement` for the
  *  seven layout passes and the highlight that read it, now answering the group it opened.
- *  ⚠️ 14 → **15** with S12i, the same case: the stem's `getSVGElement` (the highlight's stem). */
+ *  ⚠️ 14 → **15** with S12i, the same case: the stem's `getSVGElement` (the highlight's stem).
+ *  ⚠️ 15 → **16** with S12j-d3, the same case again: the NOTE's `getSVGElement` (the highlight's note —
+ *  VexFlow's inherited `Element.getSVGElement` answered it by a `document.getElementById` no count saw). */
 const VEX_CONTEXT_CEILING = 7
 /** ⭐ P1c's number: the group handle's escape hatch to a real DOM node. */
-const SVG_NODE_CEILING = 15
+const SVG_NODE_CEILING = 16
 
 const NAMES = /\b(SVGContext|RenderContext|vexContext)\b/
 

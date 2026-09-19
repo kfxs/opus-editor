@@ -20,8 +20,8 @@
  * `./glyphPainter` — the same text/glyph primitive `StaveTempo.draw()` uses internally — so we lose
  * no engraving quality, only its opinions.
  */
+import type { EngravedNote } from './EngravedNote'
 import type { EngravedStave } from './EngravedStave'
-import type { StaveNote } from 'vexflow'
 import type { DrawContext } from '@/engine/paint/DrawContext'
 import { drawGlyph, drawTextRun } from './glyphPainter'
 import type { ChordRest, Fraction, Measure, NoteDuration, TempoMark } from '@/types/music'
@@ -195,7 +195,7 @@ function keepSpaces(text: string): string {
 export function anchorX(
   mark: TempoMark,
   slots: ChordRest[],
-  staveNotes: StaveNote[],
+  staveNotes: EngravedNote[],
   stave: EngravedStave,
   /**
    * ⭐⭐ **THE SYSTEM'S COLUMN GRID** — what the bar's beats were spaced at, over EVERY staff
@@ -271,7 +271,7 @@ function targetColumn(
 function drawnAtBeat(
   beat: Fraction,
   slots: ChordRest[],
-  staveNotes: StaveNote[],
+  staveNotes: EngravedNote[],
 ): number | 'measure-rest' | undefined {
   for (let i = 0; i < slots.length && i < staveNotes.length; i++) {
     const slot = slots[i]
@@ -302,7 +302,7 @@ function columnXFromNeighbour(
   target: { index: number; beat: Fraction },
   { columns, xs }: SpacedColumns,
   slots: ChordRest[],
-  staveNotes: StaveNote[],
+  staveNotes: EngravedNote[],
   scale: number,
 ): number | undefined {
   if (columns.length !== xs.length || !(scale > 0)) return undefined
@@ -351,7 +351,7 @@ function registerTempoAnchors(
   pass: RenderPass,
   measure: Measure,
   slots: ChordRest[],
-  staveNotes: StaveNote[],
+  staveNotes: EngravedNote[],
   stave: EngravedStave,
   scale: number,
 ): void {
@@ -383,7 +383,7 @@ export function drawTempoMarks(
   stave: EngravedStave,
   staffIndex: number,
   slots: ChordRest[],
-  staveNotes: StaveNote[],
+  staveNotes: EngravedNote[],
   /** This staff's drawn scale — see {@link anchorX}, which resolves the mark's beat against the
    *  SYSTEM's column grid and needs it to come back into the stave's own space. */
   scale = 1,

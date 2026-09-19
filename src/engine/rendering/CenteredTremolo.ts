@@ -1,5 +1,5 @@
+import type { EngravedNote } from './EngravedNote'
 import { Stem } from 'vexflow'
-import type { Note, StaveNote } from 'vexflow'
 import { NOTE_GLYPH_SCALE, STEM_THICKNESS_PX, TREMOLO_FONT_SIZE, TREMOLO_STROKE_STEP_PX } from '@/engine/engrave/inheritedDefaults'
 import type { TremoloMark } from '@/types/music'
 import { tremoloGlyph } from '@/utils/tremoloGlyphs'
@@ -101,7 +101,7 @@ interface TremoloInkRect { x: number; y: number; width: number; height: number }
  * Shared by the draw (which centres in this span) and by the renderer's stretch pass (which asks
  * whether the stack fits in it), so the two cannot drift apart.
  */
-export function usableStemSpan(note: Note): { tip: number; noteheadEdge: number; length: number } {
+export function usableStemSpan(note: EngravedNote): { tip: number; noteheadEdge: number; length: number } {
   const { topY, baseY } = note.getStemExtents()
   const staffSpace = noteFrame(note)?.spacePx ?? 10
   const noteheadEdge = baseY - note.getStemDirection() * (staffSpace / 2)
@@ -238,7 +238,7 @@ export class CenteredTremolo extends EngravedModifier {
 
   draw(): void {
     const ctx = this.checkContext()
-    const note = this.checkAttachedNote() as StaveNote
+    const note = this.checkAttachedNote() as EngravedNote
     this.setRendered()
 
     const stemDirection = note.getStemDirection()
@@ -325,6 +325,6 @@ export class CenteredTremolo extends EngravedModifier {
 }
 
 /** The tremolo hung on `note`, if it carries one — asked of its modifier list, where it is filed. */
-export function tremoloOn(note: Note): CenteredTremolo | undefined {
+export function tremoloOn(note: EngravedNote): CenteredTremolo | undefined {
   return (note.getModifiers() as unknown[]).find((m): m is CenteredTremolo => m instanceof CenteredTremolo)
 }

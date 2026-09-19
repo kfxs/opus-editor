@@ -25,7 +25,6 @@ import { EngravedStave } from './EngravedStave'
 import { attachEngravedDots } from './EngravedDot'
 import { convertDuration, restKey, restSupportingLedgerLine } from './NoteBuilder'
 import { formatLoneNote } from './loneNote'
-import { drawMarkOn } from './glyphPainter'
 import { sweepIntoGhostGroup } from './ghostCursor'
 import { noteRuler } from './noteRuler'
 import { staveFrame, standOn } from './staveFrame'
@@ -61,7 +60,7 @@ export function drawRestGhost(
 
     const group = sweepIntoGhostGroup(svg, REST_GHOST_GROUP_CLASS, () => {
       drawNoteInkThrough([rest], ctx)
-      drawMarkOn(ctx, rest)
+      rest.setContext(ctx).draw()
 
       // The attach line, for the two rests that have one — drawn with the glyph so it travels with
       // it under the transform below.

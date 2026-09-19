@@ -12,11 +12,11 @@
  * {@link buildDynamicAnnotation} is also used by the renderer's dynamic-ghost preview,
  * so it is exported.
  */
+import type { EngravedNote } from './EngravedNote'
 import { EngravedAnnotation } from './EngravedAnnotation'
 import { attachModifier } from './EngravedModifier'
 import { ANNOTATION_ALIGN } from '@/engine/engrave/notes/annotationPlacement'
 import type { EngravedStave } from './EngravedStave'
-import type { StaveNote } from 'vexflow'
 import type { ChordRest, Measure, Dynamic, Fraction } from '@/types/music'
 import { fracCompare, fracGte, fracToNumber } from '@/utils/fraction'
 import { splitDynamicRuns, dynamicLabel, composeDynamicGlyphs } from '@/utils/dynamics'
@@ -113,7 +113,7 @@ export function anchorSlotIndex(slots: readonly ChordRest[], beat: Fraction): nu
  * SVG ({@link registerDynamics}) since the zeroed width would otherwise mis-size it.
  * @returns the dynamic-id groups (size ≥ 2) sharing a note, in placement order.
  */
-export function attachDynamicsToSlots(pass: RenderPass, sortedSlots: ChordRest[], staveNotes: StaveNote[], measure: Measure): string[][] {
+export function attachDynamicsToSlots(pass: RenderPass, sortedSlots: ChordRest[], staveNotes: EngravedNote[], measure: Measure): string[][] {
   const dynamics = measure.dynamics
   if (!dynamics?.length || staveNotes.length === 0) return []
 
@@ -358,7 +358,7 @@ export function registerDynamics(pass: RenderPass, measure: Measure): void {
         // attachment-line visualization when the dynamic is selected
         // (HighlightController.applyAnchorGuideLine) — never hit-testing. The annotation carries
         // its anchor note (VexFlow Modifier.getNote); positions are final here (post-draw).
-        const note = annotation.getNote() as StaveNote | undefined
+        const note = annotation.getNote() as EngravedNote | undefined
         const ys = note ? noteRuler(note).headYs : undefined
         const anchorFrame = note ? noteFrame(note) : undefined
         const anchorY = ys?.length ? Math.max(...ys) : anchorFrame && staffBottomLineY(anchorFrame)

@@ -5,14 +5,15 @@
  * page of 60 scores (`docs/vexflow-removal-map.md` §5.2); pinned here is what the module promises.
  */
 import { describe, it, expect } from 'vitest'
-import { Beam, ClefNote, StaveNote } from 'vexflow'
+import { ClefNote } from 'vexflow'
+import { EngravedBeam } from './EngravedBeam'
 import { BarVoice } from './barVoice'
 import { EngravedNote } from './EngravedNote'
 import { attachModifierColumns } from './modifierColumns'
 import { TickColumn, alignVoiceRests, createTickColumns, formatColumns } from './columnFormat'
 
 const note = (key: string, duration: string) => new EngravedNote({ keys: [key], duration })
-const voiceOf = (...tickables: (StaveNote | ClefNote)[]) =>
+const voiceOf = (...tickables: (EngravedNote | ClefNote)[]) =>
   new BarVoice({ numerator: 4, denominator: 4 }, 'soft').addAll(tickables)
 
 describe('createTickColumns', () => {
@@ -32,7 +33,7 @@ describe('createTickColumns', () => {
 describe('alignVoiceRests', () => {
   it('moves a beamed middle-line rest to the notes around it', () => {
     const group = [note('e/5', '8'), note('b/4', '8r'), note('a/5', '8')]
-    new Beam(group)
+    new EngravedBeam(group)
     alignVoiceRests([voiceOf(...group, note('c/4', 'q'), note('c/4', 'h'))])
     expect(group[1].getKeyLine(0)).not.toBe(3)
   })
@@ -40,7 +41,7 @@ describe('alignVoiceRests', () => {
   it('⛔ refuses a tickable it was not written for', () => {
     const voice = voiceOf(note('c/4', 'w'))
     ;(voice.tickables as unknown[]).push({})
-    expect(() => alignVoiceRests([voice])).toThrow(/neither a StaveNote nor a ClefNote/)
+    expect(() => alignVoiceRests([voice])).toThrow(/neither an EngravedNote nor a ClefNote/)
   })
 })
 

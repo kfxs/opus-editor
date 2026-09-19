@@ -1,4 +1,4 @@
-import type { Note, Stave } from 'vexflow'
+import type { EngravedNote } from './EngravedNote'
 import type { EngravedStave } from './EngravedStave'
 import type { BarFrame, StaffFrame } from '@/engine/engrave/staff/staffFrame'
 
@@ -35,13 +35,13 @@ export function staveFrame(stave: EngravedStave): StaffFrame {
  * ⭐ **The frame of the staff a NOTE is on** — S2c. `undefined` while the note has no stave (not yet
  * laid out), which every reader already treats as "nothing to convert against".
  */
-export function noteFrame(note: Note): StaffFrame | undefined {
+export function noteFrame(note: EngravedNote): StaffFrame | undefined {
   const stave = maybeStaveOf(note)
   return stave ? staveFrame(stave) : undefined
 }
 
 /** …for a reader that cannot run without one: it throws exactly where `Note.checkStave` did. */
-export function requireNoteFrame(note: Note): StaffFrame {
+export function requireNoteFrame(note: EngravedNote): StaffFrame {
   return staveFrame(staveOf(note))
 }
 
@@ -123,22 +123,20 @@ export function staveBox(stave: EngravedStave): { x: number; y: number; width: n
 }
 
 /**
- * ⭐ **Stand a VexFlow note on a stave of ours** — `note.setStave(stave)`. The ONE cast into the note's
- * API (typed for VexFlow's `Stave`): a stave of ours answers every question the note's code asks of one
- * (`getYForLine`, `getYForNote`, `getYForTopText`/`BottomText`, `getSpacingBetweenLines`, `getNumLines`,
- * `getNoteStartX`, `getDefaultLedgerLineStyle`, `getContext`).
+ * ⭐ **Stand a note on a stave** — `note.setStave(stave)`. Since S12j-d3 both are ours, so this is a
+ * plain call (it was the one cast across VexFlow's note API from S12h).
  */
-export function standOn<N extends Note>(note: N, stave: EngravedStave): N {
-  note.setStave(stave as unknown as Stave)
+export function standOn<N extends EngravedNote>(note: N, stave: EngravedStave): N {
+  note.setStave(stave)
   return note
 }
 
-/** The stave a note stands on — ours; the ONE cast back out of the note's API. */
-export function staveOf(note: Note): EngravedStave {
-  return note.checkStave() as unknown as EngravedStave
+/** The stave a note stands on. */
+export function staveOf(note: EngravedNote): EngravedStave {
+  return note.checkStave()
 }
 
 /** The stave a note stands on, if any. */
-export function maybeStaveOf(note: Note): EngravedStave | undefined {
-  return note.getStave() as unknown as EngravedStave | undefined
+export function maybeStaveOf(note: EngravedNote): EngravedStave | undefined {
+  return note.getStave()
 }

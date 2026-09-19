@@ -18,7 +18,7 @@
  * each of their `format`s returns at once on an empty list, so skipping them is exact. A context that ever holds one REFUSES
  * loudly instead of drawing it wrong.
  */
-import { Modifier, type ModifierContext, type Tickable } from 'vexflow'
+import { Modifier, type ModifierContext } from 'vexflow'
 import { addTicks } from '@/engine/layout/tickCount'
 import { stackDots } from '@/engine/engrave/notes/dotStack'
 import { stackAccidentals } from '@/engine/engrave/notes/accidentalStack'
@@ -34,7 +34,7 @@ import { EngravedAccidental } from './EngravedAccidental'
 import { EngravedDot } from './EngravedDot'
 import { EngravedNote, columnVoiceNoteOf } from './EngravedNote'
 import { noteFrame } from './staveFrame'
-import { type BarVoice, sharedResolution } from './barVoice'
+import { type BarTickable, type BarVoice, isEngravedNote, sharedResolution } from './barVoice'
 
 /**
  * The modifier kinds VexFlow formats that this editor never builds (`modifiercontext.js:79–100`).
@@ -147,7 +147,7 @@ export class ColumnModifiers {
     for (const step of steps) {
       const note = notes[step.note]
       switch (step.kind) {
-        case 'hide': (note.renderOptions as { draw?: boolean }).draw = false; break
+        case 'hide': note.renderOptions.draw = false; break
         case 'moveRest': note.setKeyLine(0, note.getKeyLine(0) + step.lines); break
         case 'xShift': note.setXShift(step.px); break
         case 'stem': note.setStemDirection(step.direction); break
@@ -282,7 +282,7 @@ export class ColumnModifiers {
       if (!(note instanceof EngravedNote)) throw new Error('ColumnModifiers: a dot on a note that is not an EngravedNote')
       return {
         line: note.getKeyProps()[dot.checkIndex()].line,
-        noteKey: note.getAttribute('id'),
+        noteKey: note.getAttribute('id') ?? '',
         isRest: note.isRest(),
         // `getFirstDotPx`, less its parenthesis term: this context refuses parentheses (above).
         firstDotPx: note.getRightDisplacedHeadPx(),
@@ -332,6 +332,7 @@ export function attachModifierColumns(voices: readonly BarVoice[]): void {
  * ⭐ The ONE cast: the tickable is typed for VexFlow's `ModifierContext`, and a column of ours answers
  * every call its code makes of one (`addMember`, `preFormat`, `getWidth`, `getState`, `getRightShift`).
  */
-export function fileInColumn(tickable: Tickable, column: ColumnModifiers): void {
-  tickable.addToModifierContext(column as unknown as ModifierContext)
+export function fileInColumn(tickable: BarTickable, column: ColumnModifiers): void {
+  if (isEngravedNote(tickable)) tickable.addToModifierContext(column)
+  else tickable.addToModifierContext(column as unknown as ModifierContext)
 }

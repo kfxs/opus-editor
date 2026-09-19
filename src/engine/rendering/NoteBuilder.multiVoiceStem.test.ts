@@ -1,5 +1,6 @@
+import type { EngravedNote } from './EngravedNote'
 import { describe, it, expect } from 'vitest'
-import { StaveNote, Beam } from 'vexflow'
+import { EngravedBeam } from './EngravedBeam'
 import { createStaveNotesFromSlots } from './NoteBuilder'
 import { attachModifierColumns } from './modifierColumns'
 import { formatColumns } from './columnFormat'
@@ -31,7 +32,7 @@ function buildThreeVoices() {
   return { v0, v1, v2 }
 }
 
-function format(groups: StaveNote[][]) {
+function format(groups: EngravedNote[][]) {
   const voices = groups.map(sn => new BarVoice({ numerator: 4, denominator: 4 }, 'soft').addAll(sn))
   // As the renderer does: OUR contexts (`./modifierColumns`), so the multi-voice rule that runs is
   // ours (`engrave/notes/voiceStack`, S9g), not VexFlow's.
@@ -53,7 +54,7 @@ describe('multi-voice stem direction', () => {
 
   it('re-asserting the captured stem after format restores V3 to up', () => {
     const { v0, v1, v2 } = buildThreeVoices()
-    const intended = new Map<StaveNote, number>()
+    const intended = new Map<EngravedNote, number>()
     for (const sn of [...v0, ...v1, ...v2]) intended.set(sn, sn.getStemDirection())
 
     format([v0, v1, v2])
@@ -84,7 +85,7 @@ describe('multi-voice stem direction', () => {
 
   it('re-asserting the captured X-shift keeps every voice at the shared X', () => {
     const g = buildFourVoices()
-    const intended = new Map<StaveNote, number>()
+    const intended = new Map<EngravedNote, number>()
     for (const sn of g) intended.set(sn[0], sn[0].getXShift())
 
     format(g)
@@ -113,7 +114,7 @@ describe('multi-voice stem direction — a beam owns its group', () => {
   it('setStemDirection clears the note beam (why a stale re-assert is destructive)', () => {
     const notes = createStaveNotesFromSlots(
       [chord('a', 'C', 5, 0), chord('b', 'D', 5, 0)], 'treble', 1)
-    new Beam(notes)
+    new EngravedBeam(notes)
     expect(notes[0].hasBeam()).toBe(true)
 
     notes[0].setStemDirection(-1)
@@ -125,11 +126,11 @@ describe('multi-voice stem direction — a beam owns its group', () => {
     // V1 forced up; the second note carries an `x` flip, so the group's direction is DOWN.
     const notes = createStaveNotesFromSlots(
       [chord('a', 'C', 5, 0), chord('b', 'D', 5, 0)], 'treble', 1)
-    const intended = new Map<StaveNote, number>()
+    const intended = new Map<EngravedNote, number>()
     for (const sn of notes) intended.set(sn, sn.getStemDirection()) // captured BEFORE the beam
 
     for (const sn of notes) sn.setStemDirection(-1) // what buildBeams does to the whole group
-    new Beam(notes)
+    new EngravedBeam(notes)
     // The refresh under test: a beamed note's intention is whatever the beam decided.
     for (const sn of notes) if (intended.has(sn) && sn.hasBeam()) intended.set(sn, sn.getStemDirection())
 

@@ -34,7 +34,6 @@ import { EngravedNote, drawNoteInkThrough } from './EngravedNote'
 import { EngravedStave } from './EngravedStave'
 import { attachEngravedDots } from './EngravedDot'
 import { formatLoneNote } from './loneNote'
-import { drawMarkOn } from './glyphPainter'
 import { standOn } from './staveFrame'
 
 /** The class `VexFlowRenderer.clearGhosts` sweeps this ghost by — it must be in
@@ -69,7 +68,7 @@ export function drawFanGhost(
     standOn(note, stave)
     formatLoneNote(note, stave, { numerator: 4, denominator: 4 }, 100)
     drawNoteInkThrough([note], ctx)
-    drawMarkOn(ctx, note)
+    note.setContext(ctx).draw()
 
     const drawn: Element[] = []
     for (let i = childrenBefore; i < svg.children.length; i++) drawn.push(svg.children[i])

@@ -47,7 +47,7 @@
  * every dot after it is attached, and VexFlow kept that width until the dot's font changed, which only
  * `setNote` does. So: an explicit width that `setNote` clears.
  */
-import type { Note, StaveNote } from 'vexflow'
+import type { EngravedNote } from './EngravedNote'
 import type { DrawContext } from '@/engine/paint/DrawContext'
 import { MUSIC_FONT_SIZE_PT, MUSIC_GLYPH_FONT } from '@/engine/engrave/inheritedFonts'
 import { NOTE_GLYPH_SCALE } from '@/engine/engrave/inheritedDefaults'
@@ -61,7 +61,7 @@ import { EngravedModifier, MODIFIER_POSITION, attachModifier, type ModifierMetri
 const AUGMENTATION_DOT = '\uE1E7'
 
 /** The note's own category, whose face a dot is measured in (`Dot.setNote` copies `note.font`). */
-const NOTE_FACE_TAG = 'StaveNote'
+const NOTE_FACE_TAG = 'EngravedNote'
 
 export class EngravedDot extends EngravedModifier implements InkSurfaceAware {
   static override get CATEGORY(): string {
@@ -92,7 +92,7 @@ export class EngravedDot extends EngravedModifier implements InkSurfaceAware {
   }
 
   /** `Dot.setNote`: the note, whose face the dot is now measured in — so a written width is dropped. */
-  override setNote(note: Note): this {
+  override setNote(note: EngravedNote): this {
     this.widthOverride = null
     return super.setNote(note)
   }
@@ -136,7 +136,7 @@ export class EngravedDot extends EngravedModifier implements InkSurfaceAware {
   /** ⭐ **OURS** — the glyph, through our own primitives, at VexFlow's own point. */
   draw(): void {
     const vex = this.checkContext()
-    const note = this.checkAttachedNote() as StaveNote
+    const note = this.checkAttachedNote() as EngravedNote
     this.setRendered()
 
     // ⚠️ Tablature is VexFlow's path and unreachable in this repo (see the header) — refused, never guessed.
@@ -167,11 +167,11 @@ export class EngravedDot extends EngravedModifier implements InkSurfaceAware {
  * `buildAndAttach`'s `all` branch is this loop, and the two branches this repo never uses (a single
  * index, and the default index 0) are left where they are rather than transcribed unused.
  */
-export function attachEngravedDots(note: StaveNote): void {
+export function attachEngravedDots(note: EngravedNote): void {
   for (let i = 0; i < note.getKeys().length; i++) attachModifier(note, new EngravedDot(), i)
 }
 
 /** The dots hung on `note`, in the order they were attached — `Dot.getDots`. */
-export function dotsOn(note: Note): EngravedDot[] {
+export function dotsOn(note: EngravedNote): EngravedDot[] {
   return (note.getModifiers() as unknown[]).filter((m): m is EngravedDot => m instanceof EngravedDot)
 }

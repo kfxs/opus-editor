@@ -18,9 +18,10 @@
  * tuplet or a two-note tremolo scales that through `applyTickMultiplier` (`NoteBuilder`). They go when
  * the notes stop being VexFlow tickables (S12).
  */
+import { EngravedNote } from './EngravedNote'
 import type { EngravedStave } from './EngravedStave'
-import type { Note, RenderContext, Tickable } from 'vexflow'
-import { standOn } from './staveFrame'
+import type { ClefNote, RenderContext, Stave } from 'vexflow'
+import type { DrawContext } from '@/engine/paint/DrawContext'
 import {
   TICK_RESOLUTION, addTicks, subtractTicks, ticksEqual, ticksGreaterThan, lcm, type TickCount,
 } from '@/engine/layout/tickCount'
@@ -32,16 +33,22 @@ import {
 export type BarVoiceMode = 'soft' | 'full'
 
 /** Which voice each tickable was added to — VexFlow's `tickable.voice`, kept beside it instead. */
-const voiceOfTickable = new WeakMap<Tickable, BarVoice>()
+/**
+ * What a bar's voice holds — a note of ours, or VexFlow's `ClefNote` (an inline clef change; ours in
+ * S12j-e). ⭐ S12j-d3: VexFlow's `Tickable` type is gone from the voice.
+ */
+export type BarTickable = EngravedNote | ClefNote
+
+const voiceOfTickable = new WeakMap<BarTickable, BarVoice>()
 
 /** The {@link BarVoice} a tickable was added to, if any — what `tickable.getVoice()` answered. */
-export function barVoiceOf(tickable: Tickable): BarVoice | undefined {
+export function barVoiceOf(tickable: BarTickable): BarVoice | undefined {
   return voiceOfTickable.get(tickable)
 }
 
 /** One voice of one bar: its tickables, in order, and how many ticks they use of the meter's. */
 export class BarVoice {
-  readonly tickables: Tickable[] = []
+  readonly tickables: BarTickable[] = []
   /** The meter's length in ticks — `numBeats × (resolution ÷ beatValue)`, then re-denominated. */
   readonly totalTicks: TickCount
   /** The ticks the voice's tickables add up to, ⛔ unreduced (`layout/tickCount`). */
@@ -58,7 +65,7 @@ export class BarVoice {
    * ⚠️ `totalTicks` is re-denominated to the running sum's — its VALUE unchanged — exactly as VexFlow
    * does, so a mismatch check between voices compares what it compared there.
    */
-  add(tickable: Tickable): this {
+  add(tickable: BarTickable): this {
     if (!tickable.shouldIgnoreTicks()) {
       const ticks = tickable.getTicks()
       addTicks(this.ticksUsed, ticks)
@@ -74,7 +81,7 @@ export class BarVoice {
     return this
   }
 
-  addAll(tickables: readonly Tickable[]): this {
+  addAll(tickables: readonly BarTickable[]): this {
     for (const tickable of tickables) this.add(tickable)
     return this
   }
@@ -101,8 +108,20 @@ export function sharedResolution(voices: readonly BarVoice[]): number {
  */
 export function drawBarVoice(voice: BarVoice, context: RenderContext, stave: EngravedStave): void {
   for (const tickable of voice.tickables) {
-    standOn(tickable as Note, stave)
-    tickable.setContext(context)
-    tickable.drawWithStyle()
+    if (isEngravedNote(tickable)) {
+      tickable.setStave(stave)
+      tickable.setContext(context as unknown as DrawContext)
+      tickable.drawWithStyle()
+    } else {
+      // ⚠️ VexFlow's `ClefNote` still stands on a stave of ours by the one cast (S12j-e makes it ours).
+      tickable.setStave(stave as unknown as Stave)
+      tickable.setContext(context)
+      tickable.drawWithStyle()
+    }
   }
+}
+
+/** A note of ours, as against an inline clef. */
+export function isEngravedNote(tickable: BarTickable): tickable is EngravedNote {
+  return tickable instanceof EngravedNote
 }

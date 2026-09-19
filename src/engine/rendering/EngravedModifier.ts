@@ -19,7 +19,7 @@
  * ⚠️ Each class draws ids from ITS OWN counter (`tremolo3`), like `beamN` / `signN` / `tupletN`: VexFlow's
  * global `autoN` sequence shifts whenever a class leaves it, so an A/B strips ids.
  */
-import type { Modifier, Note } from 'vexflow'
+import type { EngravedNote } from './EngravedNote'
 import type { DrawContext } from '@/engine/paint/DrawContext'
 
 /** Where a modifier stands on its note — VexFlow's `ModifierPosition`, the same numbers. */
@@ -95,7 +95,7 @@ export abstract class EngravedModifier {
   /** Where it was drawn — written by `draw`, read by {@link getBoundingBox}. */
   protected x = 0
   protected y = 0
-  protected note?: Note
+  protected note?: EngravedNote
   protected index?: number
   /** The column that filed it — held for the note's readers, ⛔ read by nothing of ours. */
   protected modifierContext?: object
@@ -126,12 +126,12 @@ export abstract class EngravedModifier {
 
   // ── the note ──────────────────────────────────────────────────────────────────────────────────
 
-  setNote(note: Note): this {
+  setNote(note: EngravedNote): this {
     this.note = note
     return this
   }
 
-  getNote(): Note {
+  getNote(): EngravedNote {
     if (!this.note) throw new Error(`${this.getCategory()}: modifier has no note.`)
     return this.note
   }
@@ -151,7 +151,7 @@ export abstract class EngravedModifier {
   }
 
   /** The note, and that it has an index — what every draw asks first. */
-  checkAttachedNote(): Note {
+  checkAttachedNote(): EngravedNote {
     this.checkIndex()
     return this.getNote()
   }
@@ -262,6 +262,6 @@ export abstract class EngravedModifier {
  * note is typed for its own `Modifier`, and ours keeps that class's contract (the table above) without
  * extending it.
  */
-export function attachModifier(note: Note, modifier: EngravedModifier, index = 0): void {
-  note.addModifier(modifier as unknown as Modifier, index)
+export function attachModifier(note: EngravedNote, modifier: EngravedModifier, index = 0): void {
+  note.addModifier(modifier, index)
 }

@@ -1,4 +1,4 @@
-import { Renderer, StaveNote, type Beam, ClefNote } from 'vexflow'
+import { Renderer, ClefNote } from 'vexflow'
 import type { EngravedAnnotation } from './EngravedAnnotation'
 import { ScoreTuplet } from './ScoreTuplet'
 import { tremoloOn, TREMOLO_FLAG_STEM_STRETCH, TREMOLO_STROKE_CLEARANCE, usableStemSpan } from './CenteredTremolo'
@@ -8,7 +8,7 @@ import { fanStemExtension } from './FannedBeam'
 import { drawFannedBeams, drawCrossBarFanBeams, type FanJoin } from './FanPass'
 import { clearLedgersForAccidentals } from './ledgerAccidentalClearance'
 import { armedStandoffPx, placeAccidentals } from './accidentalPlacement'
-import { EngravedNote, drawNoteInkThrough } from './EngravedNote'
+import { EngravedNote, drawNoteInkThrough, type NoteBeam } from './EngravedNote'
 import { accidentalHitBox } from './drawnHitBox'
 import { accidentalsOn } from './EngravedAccidental'
 import { hasArticulation } from './EngravedArticulation'
@@ -291,7 +291,7 @@ export function measureGroupKey(measureNumber: number, staffIndex: number): stri
  * A real `Beam` cannot serve: its constructor throws on fewer than two notes, and `♪ | ♪` (one note
  * each side of the barline) is the canonical case this feature exists for.
  */
-const PLACEHOLDER_BEAM = { postFormat: () => {} } as unknown as Beam
+const PLACEHOLDER_BEAM: NoteBeam = { postFormat: () => {} }
 
 /**
  * **Tier 1** — where one (measure, staff) sits, and the `Stave` that knows its geometry
@@ -438,7 +438,7 @@ interface MeasureSnapshot {
   elements: ElementInfo[]
   staffGeometry?: StaffGeometry
   bounds?: MeasureBounds
-  staveNotes: [string, { staveNote: StaveNote; noteIndex: number }][]
+  staveNotes: [string, { staveNote: EngravedNote; noteIndex: number }][]
   /** The FAN MEMBERS' own SVG groups — their answer to `staveNotes`, since a member has no
    *  `StaveNote`. Without them a reused measure loses every member's highlight target (his report:
    *  add a bar elsewhere, and the fan's members select but no longer light up). */
@@ -603,7 +603,7 @@ export class VexFlowRenderer {
    */
   private lastRender: RenderSnapshot | null = null
   /** Map of note IDs to their rendered StaveNotes (for tie rendering) */
-  private staveNoteMap: Map<string, { staveNote: StaveNote; noteIndex: number }> = new Map()
+  private staveNoteMap: Map<string, { staveNote: EngravedNote; noteIndex: number }> = new Map()
   /**
    * Each FANNED MEMBER pitch id → the `<g class="vf-fanhead">` its ink was drawn into, and which
    * head inside it belongs to that pitch. The member's answer to `staveNoteMap`
@@ -961,7 +961,7 @@ export class VexFlowRenderer {
    * a chord" is not expressible in the model, so there is no individual dot to select.
    */
   private registerDots(
-    staveNote: StaveNote,
+    staveNote: EngravedNote,
     anchorNoteId: string,
     measureNumber: number,
     staffIndex: number,
@@ -1019,7 +1019,7 @@ export class VexFlowRenderer {
    * from the middle line. Adding to what the Stem already resolved composes with every VexFlow rule
    * (flag height, beam, octave) instead of replacing them.
    */
-  private applyTremoloStemStretch(sortedSlots: ChordRest[], staveNotes: StaveNote[]): void {
+  private applyTremoloStemStretch(sortedSlots: ChordRest[], staveNotes: EngravedNote[]): void {
     for (let i = 0; i < sortedSlots.length && i < staveNotes.length; i++) {
       const slot = sortedSlots[i]
       if (slot.type !== 'chord' || !slot.tremolo) continue
@@ -1066,7 +1066,7 @@ export class VexFlowRenderer {
    * A one-beam fan asks for nothing and is left exactly where it was — the rule the tremolo stretch
    * follows too: nothing moves unless it has to.
    */
-  private applyFanStemStretch(sortedSlots: ChordRest[], staveNotes: StaveNote[]): void {
+  private applyFanStemStretch(sortedSlots: ChordRest[], staveNotes: EngravedNote[]): void {
     for (let i = 0; i < sortedSlots.length && i < staveNotes.length; i++) {
       const slot = sortedSlots[i]
       if (slot.type !== 'chord' || !slot.fan) continue
@@ -1112,7 +1112,7 @@ export class VexFlowRenderer {
    * lines between the two notes, and it is their total that says the speed, so a three-stroke mark
    * on a beamed pair draws the beam plus two strokes.
    */
-  private buildTwoNoteTremoloBeams(slots: ChordRest[], staveNotes: StaveNote[]): EngravedBeam[] {
+  private buildTwoNoteTremoloBeams(slots: ChordRest[], staveNotes: EngravedNote[]): EngravedBeam[] {
     const beams: EngravedBeam[] = []
     for (const { first, second, beamed } of this.twoNoteTremoloPairs(slots, staveNotes)) {
       if (!beamed) continue
@@ -1159,7 +1159,7 @@ export class VexFlowRenderer {
   private drawTwoNoteTremolos(
     pass: RenderPass,
     slots: ChordRest[],
-    staveNotes: StaveNote[],
+    staveNotes: EngravedNote[],
     measureNumber: number,
     staffIndex: number,
   ): void {
@@ -1254,12 +1254,12 @@ export class VexFlowRenderer {
    * The stroke count comes from the FIRST slot's `tremolo`; `pairIsValid` has already refused the
    * Penderecki sign, so it is a number here.
    */
-  private twoNoteTremoloPairs(slots: ChordRest[], staveNotes: StaveNote[]): Array<{
-    first: StaveNote; second: StaveNote; strokes: number; anchorId: string; slot: ChordRest
+  private twoNoteTremoloPairs(slots: ChordRest[], staveNotes: EngravedNote[]): Array<{
+    first: EngravedNote; second: EngravedNote; strokes: number; anchorId: string; slot: ChordRest
     flags: number; beamed: boolean; joined: boolean
   }> {
     const pairs: Array<{
-      first: StaveNote; second: StaveNote; strokes: number; anchorId: string; slot: ChordRest
+      first: EngravedNote; second: EngravedNote; strokes: number; anchorId: string; slot: ChordRest
       flags: number; beamed: boolean; joined: boolean
     }> = []
     for (let i = 0; i + 1 < slots.length && i + 1 < staveNotes.length; i++) {
@@ -1306,7 +1306,7 @@ export class VexFlowRenderer {
    * see is not a thing to click.
    */
   private registerStem(
-    staveNote: StaveNote,
+    staveNote: EngravedNote,
     anchorNoteId: string,
     measureNumber: number,
     staffIndex: number,
@@ -1350,7 +1350,7 @@ export class VexFlowRenderer {
    * post-draw registration pass rather than at build time.
    */
   private registerTremolo(
-    staveNote: StaveNote,
+    staveNote: EngravedNote,
     anchorNoteId: string,
     measureNumber: number,
     staffIndex: number,
@@ -1379,10 +1379,10 @@ export class VexFlowRenderer {
    */
   private interleaveClefNotes(
     sortedSlots: ChordRest[],
-    staveNotes: StaveNote[],
+    staveNotes: EngravedNote[],
     midChanges: { beat: Fraction; clef: Clef }[],
-  ): { tickables: (StaveNote | ClefNote)[]; clefNoteByBeat: Array<{ beat: Fraction; clef: Clef; clefNote: ClefNote }> } {
-    const tickables: (StaveNote | ClefNote)[] = []
+  ): { tickables: (EngravedNote | ClefNote)[]; clefNoteByBeat: Array<{ beat: Fraction; clef: Clef; clefNote: ClefNote }> } {
+    const tickables: (EngravedNote | ClefNote)[] = []
     const clefNoteByBeat: Array<{ beat: Fraction; clef: Clef; clefNote: ClefNote }> = []
     const remaining = [...midChanges]
 
@@ -1453,7 +1453,7 @@ export class VexFlowRenderer {
    * @param clef - The clef type for pitch reference
    * @returns VexFlow.Tuplet.LOCATION_TOP (1) or VexFlow.Tuplet.LOCATION_BOTTOM (-1)
    */
-  private calculateTupletLocation(staveNotes: StaveNote[], _clef: Clef): number {
+  private calculateTupletLocation(staveNotes: EngravedNote[], _clef: Clef): number {
     // VexFlow constants: LOCATION_TOP = 1, LOCATION_BOTTOM = -1
     const LOCATION_TOP = 1
     const LOCATION_BOTTOM = -1
@@ -2073,9 +2073,9 @@ export class VexFlowRenderer {
       // the user's `x` override with it), and X-SHIFTS a colliding notehead sideways (a voice
       // pushed right of the others). None is right for our voice model — we want the voices
       // stacked and under our control — so we re-assert all three after format.
-      const intendedRestLine = new Map<StaveNote, number>()
-      const intendedStemDir = new Map<StaveNote, number>()
-      const intendedXShift = new Map<StaveNote, number>()
+      const intendedRestLine = new Map<EngravedNote, number>()
+      const intendedStemDir = new Map<EngravedNote, number>()
+      const intendedXShift = new Map<EngravedNote, number>()
       const groups = voiceIds.map(v => {
         const slots = sortedAll.filter(s => voiceOf(s) === v)
         const stemUp = v % 2 === 0
@@ -2124,7 +2124,7 @@ export class VexFlowRenderer {
       // the primary voice carries the inline ClefNotes (they're tickless, so the
       // voices still share a tick total and `sharedResolution` won't mismatch).
       const built = groups.map((g, gi) => {
-        let tickables: (StaveNote | ClefNote)[]
+        let tickables: (EngravedNote | ClefNote)[]
         let clefNoteByBeat: Array<{ beat: Fraction; clef: Clef; clefNote: ClefNote }> = []
         if (gi === 0) {
           const r = this.interleaveClefNotes(g.slots, g.staveNotes, midChanges)
@@ -2253,7 +2253,7 @@ export class VexFlowRenderer {
         if (multiVoice) {
           for (const sn of staveNotes) {
             if (sn.isRest()) {
-              (sn.renderOptions as { draw?: boolean }).draw = true
+              sn.renderOptions.draw = true
               const line = intendedRestLine.get(sn)
               if (line !== undefined && sn.getKeyLine(0) !== line) sn.setKeyLine(0, line)
             } else {
@@ -2401,7 +2401,7 @@ export class VexFlowRenderer {
    * X), so we draw it ourselves, centred on the rest glyph and styled like VexFlow's ledgers.
    * `slots` and `staveNotes` are parallel (same order). See docs/rest-shift-plan.md §10.
    */
-  private drawRestLedgerLines(slots: ChordRest[], staveNotes: StaveNote[], stave: EngravedStave, measure: Measure, score: Score): void {
+  private drawRestLedgerLines(slots: ChordRest[], staveNotes: EngravedNote[], stave: EngravedStave, measure: Measure, score: Score): void {
     const ctx = this.context
     if (!ctx) return
     const PAD = 2 // px the ledger overhangs the rest glyph on each side
@@ -2410,7 +2410,7 @@ export class VexFlowRenderer {
       const sn = staveNotes[i]
       if (!slot || slot.type !== 'rest' || !sn) continue
       // Skip rests VexFlow merged away (renderOptions.draw=false on a co-located duplicate).
-      if ((sn.renderOptions as { draw?: boolean }).draw === false) continue
+      if (sn.renderOptions.draw === false) continue
       const line = restSupportingLedgerLine(slot.duration, !!slot.isMeasureRest, sn.getKeyLine(0))
       if (line === null) continue
 
@@ -2475,7 +2475,7 @@ export class VexFlowRenderer {
    * offset into the value both the placement and the re-centering read: this note's ABOVE/BELOW
    * `getModifierStartXY` base x. See docs/note-offset-plan.md.
    */
-  private applyNoteOffsets(slots: ChordRest[], staveNotes: StaveNote[], score: Score, stave: EngravedStave): void {
+  private applyNoteOffsets(slots: ChordRest[], staveNotes: EngravedNote[], score: Score, stave: EngravedStave): void {
     for (let i = 0; i < slots.length; i++) {
       const slot = slots[i]
       const off = noteOffsetOverrideOf(score, slot.id)
@@ -2485,7 +2485,7 @@ export class VexFlowRenderer {
       if (px === 0 && !stemAlign) continue
       const sn = staveNotes[i]
       if (px !== 0) {
-        sn.setXShift(sn.getXShift() + px) // StaveNote: Element.setXShift is a plain additive setter
+        sn.setXShift(sn.getXShift() + px) // EngravedNote: Element.setXShift is a plain additive setter
         // Accidentals sit LEFT; VexFlow's getModifierStartXY does not fold xShift into the LEFT
         // branch, so shift the accidental glyph directly (this path works — the glyph has no
         // draw-time re-centering to fight).
@@ -2864,7 +2864,7 @@ export class VexFlowRenderer {
     for (const voice of voices) {
       for (const tickable of voice.tickables) {
         if (!tickable.isCenterAligned()) continue
-        const note = tickable as StaveNote
+        const note = tickable as EngravedNote
         // `getAbsoluteX()` reads the stave, and the voice does not set it on its tickables until
         // draw time. Setting it here is what draw would do a moment later, verbatim.
         standOn(note, stave)
@@ -2893,12 +2893,12 @@ export class VexFlowRenderer {
 
   private buildVexTuplets(
     sortedSlots: ChordRest[],
-    staveNotes: StaveNote[],
+    staveNotes: EngravedNote[],
     measure: Measure,
     clef: Clef,
     multiVoice: boolean,
-  ): { vexTuplets: ScoreTuplet[]; tupletStaveNoteMap: Map<string, { staveNotes: StaveNote[]; tuplet: Tuplet; voice: number }> } {
-    const tupletStaveNoteMap = new Map<string, { staveNotes: StaveNote[]; tuplet: Tuplet; voice: number }>()
+  ): { vexTuplets: ScoreTuplet[]; tupletStaveNoteMap: Map<string, { staveNotes: EngravedNote[]; tuplet: Tuplet; voice: number }> } {
+    const tupletStaveNoteMap = new Map<string, { staveNotes: EngravedNote[]; tuplet: Tuplet; voice: number }>()
 
     for (let idx = 0; idx < sortedSlots.length && idx < staveNotes.length; idx++) {
       const slot = sortedSlots[idx]
@@ -2961,7 +2961,7 @@ export class VexFlowRenderer {
    * draws it once the geometry is real.
    */
   private buildBeams(
-    staveNotes: StaveNote[],
+    staveNotes: EngravedNote[],
     sortedSlots: ChordRest[],
     meter: MeterInfo,
     clefForBeat: (beat: Fraction) => Clef,
@@ -3045,7 +3045,7 @@ export class VexFlowRenderer {
    *  - this runs BEFORE `formatter.format`, because `preFormat` reserves a glyph-width for a flagged
    *    stem-up note, and a beamed note must not pay for a flag it will not draw.
    */
-  private applyCrossBarPlaceholders(staveNotes: StaveNote[], crossing: LaneBeamPlan['crossing']): void {
+  private applyCrossBarPlaceholders(staveNotes: EngravedNote[], crossing: LaneBeamPlan['crossing']): void {
     for (const group of crossing) {
       for (const i of group.slots) {
         const staveNote = staveNotes[i]
@@ -3078,7 +3078,7 @@ export class VexFlowRenderer {
         for (const side of join.sides) {
           const staveNotes = side.members
             .map(member => pass.staveNoteMap.get(member.lookupId)?.staveNote)
-            .filter((staveNote): staveNote is StaveNote => staveNote !== undefined)
+            .filter((staveNote): staveNote is EngravedNote => staveNote !== undefined)
           // A bar that was not painted contributes no StaveNote. A side draws iff all its own bars are
           // drawn (`side.drawable`), and this is the runtime proof of it — a fragment over half a side
           // would draw stems in mid-air.
@@ -3097,7 +3097,7 @@ export class VexFlowRenderer {
 
   /** A side of two or more notes: the real `Beam` (VexFlow draws stems, slope and beam), plus a
    *  half-beam stub past the edge note's stem at each open end. */
-  private drawCrossBarSideBeam(pass: RenderPass, side: CrossBarSide, staveNotes: StaveNote[], scale: number): void {
+  private drawCrossBarSideBeam(pass: RenderPass, side: CrossBarSide, staveNotes: EngravedNote[], scale: number): void {
     const beam = new EngravedBeam(staveNotes)
     if (side.secondaryBreaks.length) beam.breakSecondaryAt(side.secondaryBreaks)
     drawBeamInkThrough([beam], pass.context)
@@ -3110,7 +3110,7 @@ export class VexFlowRenderer {
     const firstStemX = noteRuler(staveNotes[0]).stemX
     const beamThickness = beam.beamWidth * beam.getStemDirection()
     const beamY0 = beam.getBeamYToDraw()
-    const overhang = (edge: StaveNote, direction: number, levels: number) => {
+    const overhang = (edge: EngravedNote, direction: number, levels: number) => {
       const startX = beamLineStartX(noteRuler(edge).stemX, STEM_THICKNESS_PX)
       const endX = this.crossSystemOverhangEndX(side, startX, direction, scale)
       fillBeamRun(pass.context, beamLevelRun(
@@ -3154,7 +3154,7 @@ export class VexFlowRenderer {
    * selection highlight resolves a beamed stem by the `Stem` object's SVG group, `getStaveNoteSVGGroup`),
    * flat at its natural tip, plus a flat stub of the note's own beam count pointing at the break.
    */
-  private drawCrossBarLoneFragment(pass: RenderPass, side: CrossBarSide, note: StaveNote, scale: number): void {
+  private drawCrossBarLoneFragment(pass: RenderPass, side: CrossBarSide, note: EngravedNote, scale: number): void {
     const stem = note.getStem()
     if (!stem) return
     stem.adjustHeightForBeam() // swap the flag's height fudge for the beam's; the tip does not move.
@@ -3201,11 +3201,11 @@ export class VexFlowRenderer {
 
   private drawAndRegisterTuplets(
     vexTuplets: ScoreTuplet[],
-    tupletStaveNoteMap: Map<string, { staveNotes: StaveNote[]; tuplet: Tuplet; voice: number }>,
+    tupletStaveNoteMap: Map<string, { staveNotes: EngravedNote[]; tuplet: Tuplet; voice: number }>,
     measure: Measure,
     multiVoice: boolean,
     /** Every voice's notes, in engraved order — for finding what follows a tuplet. */
-    voiceNotes: Map<number, StaveNote[]>,
+    voiceNotes: Map<number, EngravedNote[]>,
     stave: EngravedStave,
   ): void {
     /**
@@ -3219,7 +3219,7 @@ export class VexFlowRenderer {
      * `beforeNext` stops a little short of that note, which is the same line with a gap in it.
      */
     const BRACKET_END_GAP = 6
-    const bracketEndX = (tupletData: Tuplet, voice: number, lastNote: StaveNote): number | undefined => {
+    const bracketEndX = (tupletData: Tuplet, voice: number, lastNote: EngravedNote): number | undefined => {
       const mode = tupletBracketEnd(tupletData)
       if (mode === 'lastNote') return undefined
       const lane = voiceNotes.get(voice) ?? []
@@ -3230,7 +3230,7 @@ export class VexFlowRenderer {
 
     for (const vexTuplet of vexTuplets) {
       try {
-        const tupletNotes = vexTuplet.getNotes() as StaveNote[]
+        const tupletNotes = vexTuplet.getNotes() as EngravedNote[]
         if (tupletNotes.length === 0) continue
 
         for (const [tupletId, { staveNotes: tStaveNotes, tuplet: tupletData, voice }] of tupletStaveNoteMap) {
@@ -3354,7 +3354,7 @@ export class VexFlowRenderer {
 
   private registerSlotElements(
     sortedSlots: ChordRest[],
-    staveNotes: StaveNote[],
+    staveNotes: EngravedNote[],
     measure: Measure,
     staffIndex: number = 0,
   ): void {

@@ -27,7 +27,7 @@
  * stands. ⛔ Run it after, or leave it reading VexFlow's constant, and a wide armed row would buy the
  * clearance twice.
  */
-import type { StaveNote } from 'vexflow'
+import type { EngravedNote } from './EngravedNote'
 import { accidentalsOn } from './EngravedAccidental'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { armedAccidentalGap } from '@/engine/layout/accidentalGap'
@@ -59,7 +59,7 @@ export function armedStandoffPx(): number {
  * Move every accidental of every note to the armed gap. ⚠️ AFTER `formatter.format` — the column rule
  * (`engrave/notes/accidentalStack`) assigns each sign's `xShift` from scratch, so anything written before it is lost.
  */
-export function placeAccidentals(notes: StaveNote[]): void {
+export function placeAccidentals(notes: EngravedNote[]): void {
   const shift = accidentalShiftPx()
   if (shift === 0) return
   for (const note of notes) {

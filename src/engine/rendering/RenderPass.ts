@@ -1,4 +1,5 @@
-import type { StaveNote, SVGContext } from 'vexflow'
+import type { EngravedNote } from './EngravedNote'
+import type { SVGContext } from 'vexflow'
 import type { EngravedAnnotation } from './EngravedAnnotation'
 import type { ScoreTuplet } from './ScoreTuplet'
 import type { DrawContext } from '@/engine/paint/DrawContext'
@@ -35,7 +36,7 @@ import type { MeasureWidthInfo, MeasureBounds } from './VexFlowRenderer'
 /** Where one fanned member's head landed — a slur endpoint's worth of geometry. */
 export interface FanMemberAnchor {
   /** The SLOT's rendered note. Used for the `Curve` object and for `getStave()`, never for x/y. */
-  staveNote: StaveNote
+  staveNote: EngravedNote
   /** Left/right edges of THIS member's notehead (the tie edges a slur springs from). */
   leftX: number
   rightX: number
@@ -79,7 +80,7 @@ export interface RenderPass {
    */
   vexContext: SVGContext
   /** Note/rest id → its rendered StaveNote (+ chord-head index), for ties & slurs. */
-  staveNoteMap: Map<string, { staveNote: StaveNote; noteIndex: number }>
+  staveNoteMap: Map<string, { staveNote: EngravedNote; noteIndex: number }>
   /**
    * FANNED MEMBER pitch id → where its head was actually drawn, so a SLUR can anchor to one
    * (docs/fanned-beam-pitches-plan.md). A member has no `StaveNote` of its own, and everything a

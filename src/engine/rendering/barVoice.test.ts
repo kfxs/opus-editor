@@ -7,11 +7,12 @@
  */
 import { describe, it, expect, vi } from 'vitest'
 import type { EngravedStave } from './EngravedStave'
-import { ClefNote, StaveNote, type RenderContext, type Tickable } from 'vexflow'
+import { ClefNote, type RenderContext } from 'vexflow'
+import { EngravedNote } from './EngravedNote'
 import { TICK_RESOLUTION, ticksValue } from '@/engine/layout/tickCount'
-import { BarVoice, barVoiceOf, drawBarVoice, sharedResolution } from './barVoice'
+import { type BarTickable, BarVoice, barVoiceOf, drawBarVoice, sharedResolution } from './barVoice'
 
-const note = (duration: string) => new StaveNote({ keys: ['c/4'], duration })
+const note = (duration: string) => new EngravedNote({ keys: ['c/4'], duration })
 const triplet = () => {
   const n = note('8')
   n.applyTickMultiplier(2, 3)
@@ -84,7 +85,7 @@ describe('drawBarVoice', () => {
       setStave: vi.fn(() => calls.push(`${name}.stave`)),
       setContext: vi.fn(() => calls.push(`${name}.context`)),
       drawWithStyle: vi.fn(() => calls.push(`${name}.draw`)),
-    }) as unknown as Tickable
+    }) as unknown as BarTickable
     const voice = new BarVoice({ numerator: 4, denominator: 4 }, 'soft').addAll([fake('a'), fake('b')])
     const stave = {} as EngravedStave
     const context = {} as RenderContext

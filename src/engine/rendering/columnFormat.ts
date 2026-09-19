@@ -16,10 +16,11 @@
  * `vexflow-removal-map.md` §9.4 #5); then `layout/softmaxSpacing` is deleted. ⛔ No `Formatter`
  * instance is made any more, and ⭐ S9i: no `Voice` either — a bar's voices are `./barVoice`.
  */
-import { ClefNote, Note, StaveNote } from 'vexflow'
-import type { TickContext, Tickable } from 'vexflow'
+import { ClefNote } from 'vexflow'
+import type { TickContext } from 'vexflow'
 import { addTicks, subtractTicks, ticksGreaterThan, ticksValue, type TickCount } from '@/engine/layout/tickCount'
-import { type BarVoice, barVoiceOf, sharedResolution } from './barVoice'
+import { type BarTickable, type BarVoice, barVoiceOf, isEngravedNote, sharedResolution } from './barVoice'
+import type { EngravedNote } from './EngravedNote'
 import { alignRestsToNotes } from '@/engine/engrave/notes/restAlign'
 import {
   SOFTMAX_FACTOR, softmaxColumns, type SoftmaxColumn, type SoftmaxTickable, type SoftmaxVoice,
@@ -42,8 +43,8 @@ export interface TickColumnMetrics {
   totalRightPx: number
 }
 
-/** What a tickable offers a column — the members of VexFlow's `Tickable` a column reads. */
-type ColumnTickable = Tickable
+/** What stands in a column — a note of ours, or VexFlow's `ClefNote` (S12j-e). */
+type ColumnTickable = BarTickable
 
 /**
  * ⭐⭐ **A TICK COLUMN OF OURS — S12j-b** (`docs/vexflow-removal-map.md` S12): the notes that start
@@ -179,9 +180,10 @@ export class TickColumn {
         this.minTickable = tickable
       }
     }
-    // ⚠️ The ONE cast: the tickable is typed for VexFlow's `TickContext`, and a column of ours answers
-    // every call its code makes of one (`getX`, and the metrics).
-    tickable.setTickContext(this as unknown as TickContext)
+    // ⚠️ The ONE cast, for VexFlow's `ClefNote` alone: it is typed for VexFlow's `TickContext`, and a
+    // column of ours answers every call its code makes of one (`getX`, and the metrics).
+    if (isEngravedNote(tickable)) tickable.setTickContext(this)
+    else tickable.setTickContext(this as unknown as TickContext)
     this.tickables.push(tickable)
     this.tickablesByVoice[voiceIndex ?? 0] = tickable
     this.preFormatted = false
@@ -259,17 +261,28 @@ export function createTickColumns(voices: readonly BarVoice[]): TickColumns {
 }
 
 /** What `engrave/notes/restAlign` needs of one tickable. */
-function restAlignInput(tickable: Tickable) {
-  const isNote = tickable instanceof Note
-  const isStaveNote = tickable instanceof StaveNote
+function restAlignInput(tickable: BarTickable) {
+  // As VexFlow asked it: ours is its `StaveNote`, a `ClefNote` a plain `Note`, anything else not a note.
+  if (!isEngravedNote(tickable)) {
+    const isNote = tickable instanceof ClefNote
+    return {
+      isStaveNote: false,
+      isNote,
+      isRest: isNote && tickable.isRest(),
+      ignoresTicks: tickable.shouldIgnoreTicks(),
+      inTuplet: !!tickable.getTuplet(),
+      beamed: isNote && !!tickable.getBeam(),
+      restLine: isNote ? tickable.getLineForRest() : 0,
+    }
+  }
   return {
-    isStaveNote,
-    isNote,
-    isRest: isNote && tickable.isRest(),
+    isStaveNote: true,
+    isNote: true,
+    isRest: tickable.isRest(),
     ignoresTicks: tickable.shouldIgnoreTicks(),
     inTuplet: !!tickable.getTuplet(),
-    beamed: isNote && !!tickable.getBeam(),
-    restLine: isNote ? tickable.getLineForRest() : 0,
+    beamed: !!tickable.getBeam(),
+    restLine: tickable.getLineForRest(),
   }
 }
 
@@ -282,12 +295,12 @@ export function alignVoiceRests(voices: readonly BarVoice[]): void {
   for (const voice of voices) {
     const tickables = voice.tickables
     for (const t of tickables) {
-      if (!(t instanceof StaveNote) && !(t instanceof ClefNote)) {
-        throw new Error('alignVoiceRests: a tickable that is neither a StaveNote nor a ClefNote')
+      if (!isEngravedNote(t) && !(t instanceof ClefNote)) {
+        throw new Error('alignVoiceRests: a tickable that is neither an EngravedNote nor a ClefNote')
       }
     }
     for (const step of alignRestsToNotes(tickables.map(restAlignInput))) {
-      (tickables[step.tickable] as StaveNote).setKeyLine(0, step.line)
+      (tickables[step.tickable] as EngravedNote).setKeyLine(0, step.line)
     }
   }
 }
@@ -297,7 +310,7 @@ export function alignVoiceRests(voices: readonly BarVoice[]): void {
  * `Formatter.AlignRestsToNotes(notes, true, true)` (S12a), by `engrave/notes/restAlign`: over the
  * tuplet's own notes, beamed or not, in a tuplet or not.
  */
-export function alignTupletRests(notes: readonly StaveNote[]): void {
+export function alignTupletRests(notes: readonly EngravedNote[]): void {
   for (const step of alignRestsToNotes(notes.map(restAlignInput), { alignAllNotes: true, alignTuplets: true })) {
     notes[step.tickable].setKeyLine(0, step.line)
   }
@@ -310,8 +323,8 @@ export function alignTupletRests(notes: readonly StaveNote[]): void {
 function softmaxInputs(voices: readonly BarVoice[], columns: TickColumns) {
   const voiceIndex = new Map<BarVoice | undefined, number>(voices.map((v, i) => [v, i]))
   const tickables: SoftmaxTickable[] = []
-  const order: Tickable[] = []
-  const indexOf = new Map<Tickable, number>()
+  const order: BarTickable[] = []
+  const indexOf = new Map<BarTickable, number>()
   const softmaxColumnsIn: SoftmaxColumn[] = columns.list.map((tick, c) => {
     const column = columns.map[tick]
     const own = column.getTickables().map(t => {

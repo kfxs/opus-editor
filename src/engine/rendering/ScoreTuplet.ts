@@ -1,4 +1,4 @@
-import type { Note, StaveNote, Tuplet } from 'vexflow'
+import type { EngravedNote } from './EngravedNote'
 import type { DrawContext } from '@/engine/paint/DrawContext'
 import type { DrawGroup } from '@/engine/paint/DrawGroup'
 import type { TupletMarkRun } from '@/types/music'
@@ -151,7 +151,7 @@ export class ScoreTuplet {
    */
   bracketEndX?: number
 
-  private readonly notes: StaveNote[]
+  private readonly notes: EngravedNote[]
   private readonly id = `tuplet${++nextTupletId}`
   /** The group `draw()` opened — what the selection highlight recolours. */
   private group: DrawGroup | null = null
@@ -167,7 +167,7 @@ export class ScoreTuplet {
    * VexFlow's `Tuplet` constructor, transcribed: the options' defaults, the rest alignment over the
    * group, the spelled number, and the notes told they are in it.
    */
-  constructor(notes: StaveNote[], options: Partial<ScoreTupletOptions> = {}) {
+  constructor(notes: EngravedNote[], options: Partial<ScoreTupletOptions> = {}) {
     if (!notes.length) throw new Error('ScoreTuplet: no notes provided for tuplet.')
     this.notes = notes
     const numNotes = options.numNotes !== undefined ? options.numNotes : notes.length
@@ -188,7 +188,7 @@ export class ScoreTuplet {
     alignTupletRests(notes)
     this.markText = this.spelledNumber()
     // `attach`: each note scales its ticks by this tuplet and keeps it on its stack.
-    for (const note of notes) note.setTuplet(this as unknown as Tuplet)
+    for (const note of notes) note.setTuplet(this)
   }
 
   /** VexFlow's `resolveGlyphs`: the count in SMuFL tuplet digits, `:` and the occupied count when ratioed. */
@@ -210,7 +210,7 @@ export class ScoreTuplet {
     this.markText = runs.map(r => r.text).join('')
   }
 
-  getNotes(): StaveNote[] {
+  getNotes(): EngravedNote[] {
     return this.notes
   }
 
@@ -230,7 +230,7 @@ export class ScoreTuplet {
    */
   getNestedTupletCount(): number {
     const { location } = this.options
-    const count = (note: Note): number =>
+    const count = (note: EngravedNote): number =>
       (note.getTupletStack() as unknown as ScoreTuplet[]).filter(t => t.options.location === location).length
     const counts = this.notes.map(count)
     return Math.max(...counts) - Math.min(...counts)
@@ -270,7 +270,7 @@ export class ScoreTuplet {
   }
 
   /** What one note of the group contributes — see `engrave/marks/tupletPlacement`. */
-  private reachOf(note: Note, side: TupletSide): TupletNoteReach {
+  private reachOf(note: EngravedNote, side: TupletSide): TupletNoteReach {
     // ⚠️ VexFlow's own predicate: a whole note has no stem but does have extents, and a rest counts too.
     const reaches = note.hasStem() || note.isRest()
     if (!reaches) {

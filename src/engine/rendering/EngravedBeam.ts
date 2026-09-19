@@ -28,9 +28,9 @@
  * ⛔ VexFlow's `flatBeams`, stemlets, `secondaryBreakTicks`, `autoStem` and tablature branches are not
  * carried: nothing in this editor reaches them.
  */
+import type { EngravedNote } from './EngravedNote'
 import { ticksValue } from '@/engine/layout/tickCount'
 import { Stem } from 'vexflow'
-import type { Beam, StaveNote } from 'vexflow'
 import type { DrawContext } from '@/engine/paint/DrawContext'
 import type { FractionalBeamSide, NoteDuration } from '@/types/music'
 import type { Fraction } from '@/utils/fraction'
@@ -51,7 +51,7 @@ import { CROSS_SYSTEM_BEAM_WIDTH } from './beamInk'
  * The context VexFlow's own stems still draw on — named through the note's own `setContext`, so this
  * file never spells VexFlow's context type (`npm run lint:paint`).
  */
-type StemContext = Parameters<StaveNote['setContext']>[0]
+type StemContext = DrawContext
 
 /** VexFlow's `PartialBeamDirection` letters, for {@link applyFractionalBeamSides}. */
 const BEAM_LEFT = 'L'
@@ -77,7 +77,7 @@ let lastBeamId = 0
 
 export class EngravedBeam {
   /** The beamed notes, in order. */
-  readonly notes: readonly StaveNote[]
+  readonly notes: readonly EngravedNote[]
 
   /** Its SVG group is `vf-<id>` (the painter adds the prefix) — ours, ⛔ not VexFlow's id counter. */
   readonly id: string
@@ -118,7 +118,7 @@ export class EngravedBeam {
    * VexFlow's three refusals, kept — the renderer catches them and draws the notes unbeamed.
    * ⚠️ Every note is told it is beamed BEFORE anything else reads it, as VexFlow did.
    */
-  constructor(notes: StaveNote[]) {
+  constructor(notes: EngravedNote[]) {
     if (!notes || notes.length === 0) throw new Error('BadArguments: No notes provided for beam.')
     if (notes.length === 1) throw new Error('BadArguments: Too few notes for beam.')
     if (notes[0].getIntrinsicTicks() >= TICKS_PER_WHOLE / 4) {
@@ -127,7 +127,7 @@ export class EngravedBeam {
     this.stemDirection = notes[0].getStemDirection()
     // ⚠️ The cast is the note's signature, ⛔ not a claim: VexFlow reads only truthiness and
     // `postFormat()` off it (see the header).
-    for (const note of notes) note.setBeam(this as unknown as Beam)
+    for (const note of notes) note.setBeam(this)
     this.notes = notes
     lastBeamId += 1
     this.id = `beam${lastBeamId}`
@@ -274,7 +274,7 @@ export class EngravedBeam {
       tipY: note.getStemExtents().topY,
       counts: note.hasStem() || note.isRest(),
       stemDirection: note.getStemDirection(),
-      beamLevels: note.getGlyphProps().beamCount,
+      beamLevels: note.getBeamCount(),
     }))
   }
 

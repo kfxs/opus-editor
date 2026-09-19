@@ -60,7 +60,7 @@
  * are REFUSED, not transcribed: a CAUTIONARY sign (brackets, 20 pt) and a GRACE note's (20 pt) —
  * neither is ever built here, and a refusal keeps that a fact rather than a silent wrong size.
  */
-import type { Note, StaveNote } from 'vexflow'
+import type { EngravedNote } from './EngravedNote'
 import type { DrawContext } from '@/engine/paint/DrawContext'
 import { MUSIC_FONT_SIZE_PT, accidentalFont } from '@/engine/engrave/inheritedFonts'
 import { accidentalOriginX, drawAccidental, type AccidentalInk } from '@/engine/engrave/notes/accidental'
@@ -106,7 +106,7 @@ export class EngravedAccidental extends EngravedModifier implements InkSurfaceAw
   }
 
   /** `Accidental.setNote`: its `reset` picks a grace note's size — refused, as no grace note is built. */
-  override setNote(note: Note): this {
+  override setNote(note: EngravedNote): this {
     if (note.getCategory() === 'GraceNote') throw new Error('EngravedAccidental: a grace note\'s accidental is not transcribed.')
     return super.setNote(note)
   }
@@ -159,7 +159,7 @@ export class EngravedAccidental extends EngravedModifier implements InkSurfaceAw
   /** ⭐ **OURS** — the glyph, through our own primitives, at VexFlow's own point. */
   draw(): void {
     const vex = this.checkContext()
-    const note = this.checkAttachedNote() as StaveNote
+    const note = this.checkAttachedNote() as EngravedNote
     this.setRendered()
 
     this.ink = null
@@ -181,6 +181,6 @@ export class EngravedAccidental extends EngravedModifier implements InkSurfaceAw
 }
 
 /** The accidentals hung on `note`, in the order they were attached. */
-export function accidentalsOn(note: Note): EngravedAccidental[] {
+export function accidentalsOn(note: EngravedNote): EngravedAccidental[] {
   return (note.getModifiers() as unknown[]).filter((m): m is EngravedAccidental => m instanceof EngravedAccidental)
 }

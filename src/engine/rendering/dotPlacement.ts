@@ -59,7 +59,8 @@
  * different shape, and the convention gives it a *smaller* distance than a note's (MuseScore keeps
  * `dotRestDistance` below `dotNoteDistance`). He reported notes; this changes notes.
  */
-import { Stem, StaveNote } from 'vexflow'
+import type { EngravedNote } from './EngravedNote'
+import { Stem } from 'vexflow'
 import { dotsOn } from './EngravedDot'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { armedDotGap } from '@/engine/layout/dotGap'
@@ -115,7 +116,7 @@ export function dotReservationPx(): number {
  * note may re-measure itself from its glyph, and a width written first is silently lost (the same
  * trap `ledgerAccidentalClearance` documents for accidentals).
  */
-export function reserveDotRoom(note: StaveNote): void {
+export function reserveDotRoom(note: EngravedNote): void {
   const extra = dotReservationPx()
   for (const dot of dotsOn(note)) dot.setWidth(dot.getWidth() + extra)
 }
@@ -146,7 +147,7 @@ export function dotShift(clearsFlag: boolean): number {
  * Move the ink, after the format. Every dot of a note moves by the SAME amount: `Dot.format` has
  * already spaced them relative to each other, and shifting them apart would undo that.
  */
-export function placeDots(notes: StaveNote[]): void {
+export function placeDots(notes: EngravedNote[]): void {
   for (const note of notes) {
     if (note.isRest()) continue
     const dots = dotsOn(note)

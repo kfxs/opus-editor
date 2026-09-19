@@ -1,4 +1,4 @@
-import type { StaveNote } from 'vexflow'
+import type { EngravedNote } from './EngravedNote'
 import type { NoteRuler } from '@/engine/engrave/notes/noteRuler'
 
 /**
@@ -10,7 +10,7 @@ import type { NoteRuler } from '@/engine/engrave/notes/noteRuler'
  * where it was: a note's positions are written while it is formatted and drawn, and a snapshot taken
  * any earlier would be wrong (`reference: taking a draw must keep its write-back`).
  */
-export function noteRuler(note: StaveNote): NoteRuler {
+export function noteRuler(note: EngravedNote): NoteRuler {
   return {
     get stemDirection() { return note.getStemDirection() },
     get hasStem() { return note.hasStem() },

@@ -1,6 +1,9 @@
 // @vitest-environment jsdom
 import { describe, it, expect } from 'vitest'
-import { Renderer, Stave, StaveNote, Voice, Formatter } from 'vexflow'
+import { Renderer } from 'vexflow'
+import { EngravedNote, drawNoteInkThrough } from './EngravedNote'
+import { EngravedStave } from './EngravedStave'
+import { formatLoneNote } from './loneNote'
 import { CenteredTremolo } from './CenteredTremolo'
 import { attachModifier } from './EngravedModifier'
 
@@ -18,24 +21,22 @@ import { attachModifier } from './EngravedModifier'
  * x = 0, the registry stores that, and every hit-test reading `bbox.x + bbox.width / 2` measures to a
  * point halfway across the system: Ctrl/Shift-click on a tremolo note silently did nothing.
  */
+/** Format and draw one note, alone in a bar of 1/4, by the score's own pipeline. */
+function drawLoneNote(note: EngravedNote): void {
+  const div = document.createElement('div')
+  const ctx = new Renderer(div, Renderer.Backends.SVG).getContext()
+  const stave = new EngravedStave(10, 40, 400)
+  formatLoneNote(note, stave, { numerator: 1, denominator: 4 }, 300)
+  drawNoteInkThrough([note], ctx)
+  note.setContext(ctx).draw()
+}
+
 describe('CenteredTremolo bounding box', () => {
   /** Draw one quarter note carrying `modifier` at a known x, and return the note's merged box. */
   const drawNoteWithModifier = (modifier?: CenteredTremolo) => {
-    const div = document.createElement('div')
-    const ctx = new Renderer(div, Renderer.Backends.SVG).getContext()
-    const stave = new Stave(10, 40, 400).setContext(ctx)
-
-    const note = new StaveNote({ keys: ['b/4'], duration: 'q' })
+    const note = new EngravedNote({ keys: ['b/4'], duration: 'q' })
     if (modifier) attachModifier(note, modifier, 0)
-    note.setStave(stave)
-
-    const voice = new Voice({ numBeats: 1, beatValue: 4 })
-    voice.setStrict(false)
-    voice.addTickables([note])
-    new Formatter().joinVoices([voice]).format([voice], 300)
-    note.setStave(stave)
-
-    voice.draw(ctx, stave)
+    drawLoneNote(note)
     return { box: note.getBoundingBox(), noteX: note.getAbsoluteX() }
   }
 
@@ -77,18 +78,9 @@ describe('CenteredTremolo bounding box', () => {
     /** Draw a note carrying `mark` and hand back the mark's rect plus the note's stem geometry. */
     const drawMark = (mark: 1 | 2 | 3 | 4 | 5 | 'penderecki') => {
       const modifier = new CenteredTremolo(mark)
-      const div = document.createElement('div')
-      const ctx = new Renderer(div, Renderer.Backends.SVG).getContext()
-      const stave = new Stave(10, 40, 400).setContext(ctx)
-      const note = new StaveNote({ keys: ['c/5'], duration: 'q' })
+      const note = new EngravedNote({ keys: ['c/5'], duration: 'q' })
       attachModifier(note, modifier, 0)
-      note.setStave(stave)
-      const voice = new Voice({ numBeats: 1, beatValue: 4 })
-      voice.setStrict(false)
-      voice.addTickables([note])
-      new Formatter().joinVoices([voice]).format([voice], 300)
-      note.setStave(stave)
-      voice.draw(ctx, stave)
+      drawLoneNote(note)
       return { rect: modifier.inkRect(), stem: note.getStemExtents(), stemX: note.getStemX() }
     }
 

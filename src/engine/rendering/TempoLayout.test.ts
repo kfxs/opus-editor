@@ -1,9 +1,9 @@
+import type { EngravedNote } from './EngravedNote'
 import { describe, it, expect } from 'vitest'
 import { anchorX, splitRuns } from './TempoLayout'
 import { fracCreate as frac } from '@/utils/fraction'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import type { ChordRest, TempoMark } from '@/types/music'
-import type { StaveNote } from 'vexflow'
 import { EngravedStave } from './EngravedStave'
 
 const mark = (extra: Partial<TempoMark>): TempoMark => ({ id: 't', beat: frac(0, 1), ...extra })
@@ -24,7 +24,7 @@ const fakeStave = (timeSigX: number | null = 60, x = 20, noteStartX = 100) => {
   if (meter && timeSigX !== null) meter.signX = timeSigX
   return stave
 }
-const fakeNotes = (...xs: number[]) => xs.map(x => ({ getAbsoluteX: () => x })) as unknown as StaveNote[]
+const fakeNotes = (...xs: number[]) => xs.map(x => ({ getAbsoluteX: () => x })) as unknown as EngravedNote[]
 const slotsAt = (...beats: number[]) => beats.map(b => ({ beat: frac(b, 1) })) as unknown as ChordRest[]
 
 /**

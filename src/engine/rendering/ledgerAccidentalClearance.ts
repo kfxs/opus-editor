@@ -46,10 +46,9 @@
  * now a choice rather than a limit; ⛔ still not taken, because the symmetric trim is what is on his
  * screen and nobody has reported it. `docs/note-engraving-plan.md` §4 holds the question.
  */
-import { StaveNote } from 'vexflow'
 import { accidentalsOn } from './EngravedAccidental'
 import { ACCIDENTAL_NOTEHEAD_PADDING_PX, MODIFIER_LEFT_OFFSET_PX } from '@/engine/engrave/inheritedDefaults'
-import { trimLedgers } from './EngravedNote'
+import { trimLedgers, EngravedNote } from './EngravedNote'
 
 /**
  * The clear air left between the end of the ledger line and the accidental — 0.2 of a staff space,
@@ -139,7 +138,7 @@ export function accidentalMeetsLedger(accidentalLine: number, headLines: number[
  * Every sign of an affected note moves by the SAME amount — they are a column, and a per-sign shift
  * would rake it.
  */
-export function clearLedgersForAccidentals(notes: StaveNote[], standoffPx = ACCIDENTAL_STANDOFF_PX): void {
+export function clearLedgersForAccidentals(notes: EngravedNote[], standoffPx = ACCIDENTAL_STANDOFF_PX): void {
   for (const note of notes) {
     if (note.isRest()) continue
     const accidentals = accidentalsOn(note)

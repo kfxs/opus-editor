@@ -161,9 +161,9 @@ src/
                           #   + glyphPainter (⭐⭐ THE ONE PLACE VexFlow still paints a glyph —
                           #   ⛔ never `new Element(...)` in your own file)
                           #   + EngravedModifier (S12b — ⭐ a note's MODIFIER as ours: the contract the
-                          #   VexFlow note still drives, transcribed once; dot/accidental/articulation/
-                          #   tremolo/annotation extend it. `attachModifier` is the ONE cast into
-                          #   `note.addModifier` — ⛔ never `note.addModifier(ours)` in your own file;
+                          #   note drives, transcribed once; dot/accidental/articulation/
+                          #   tremolo/annotation extend it. `attachModifier` is THE way onto a note
+                          #   (no cast since S12j-d3) — ⛔ never `note.addModifier(ours)` in your own file;
                           #   likewise `staveFrame.standOn`/`staveOf` for a stave, `stemOf` for a stem)
                           #   + EngravedHead (S12j-a — a notehead as ours, in the note and the fan) —
                           #   and a note's TICKS are ours (S12j-c, `EngravedNote` over `layout/tickCount`,
@@ -217,9 +217,9 @@ src/
                           #   `annotationStack` (S9c–g — ⭐ the RULES a column runs: VexFlow's `StaveNote/
                           #   Dot/Accidental/Articulation/Annotation.format` transcribed EXACTLY, run by
                           #   `rendering/modifierColumns` — ⛔ no opinion added; the research docs are
-                          #   their menu). ⚠️ A `StaveNote` keeps ANSWERING while it
-                          #   stops PAINTING — `rendering/EngravedNote` is that seam, and its
-                          #   override list is the progress bar.
+                          #   their menu). ⭐ `rendering/EngravedNote` WAS the seam where a
+                          #   `StaveNote` kept answering while it stopped painting; since S12j-d3
+                          #   it is a plain class of ours, importing nothing of VexFlow's.
                           #   + `staff/staffFrame` (⭐⭐ THE ONE module that does staff-line
                           #   arithmetic — `StaffFrame` + `BarFrame`; ⛔ never `top + n × space`
                           #   in a reader, rule 5) + `notes/noteRuler` (the questions a reader asks

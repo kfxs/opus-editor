@@ -8,7 +8,7 @@
  * ties). Nesting and the auto arch shape live here; WHICH SIDE the slur sits on is
  * `./slurDirection` and WHERE IT ATTACHES at each end is `./slurStemEndpoint`.
  */
-import { StaveNote } from 'vexflow'
+import type { EngravedNote } from './EngravedNote'
 import type { Score, CurveControlPointDeltas, SlurEndpointOffsetOverride } from '@/types/music'
 import { slurNestDepths } from '@/utils/slurs'
 import type { ElementInfo, GuideLine } from '@/engine/ElementRegistry'
@@ -81,7 +81,7 @@ function measureOfNoteId(score: Score, noteId: string): number | undefined {
  * makes anchoring to something VexFlow never drew possible at all.
  */
 interface SlurEnd {
-  staveNote: StaveNote
+  staveNote: EngravedNote
   /**
    * ⭐ Where the arc springs from / lands: the **CENTRE of the notehead** (docs/slur-plan.md §12
    * Phase 2). It used to be the note's tie EDGES — `getTieRightX()`/`getTieLeftX()` — which made a

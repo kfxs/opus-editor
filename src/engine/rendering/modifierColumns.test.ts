@@ -5,12 +5,27 @@
  * the seam promises: which notes share a column, and that a kind with no rule is refused.
  */
 import { describe, it, expect } from 'vitest'
-import { Modifier, Parenthesis, StaveNote } from 'vexflow'
+import { EngravedModifier, type ModifierMetrics } from './EngravedModifier'
+import { EngravedNote } from './EngravedNote'
 import { BarVoice } from './barVoice'
 import { ColumnModifiers, attachModifierColumns } from './modifierColumns'
 
-const note = (key: string, duration: string) => new StaveNote({ keys: [key], duration })
-const voiceOf = (...notes: StaveNote[]) =>
+/** A kind the column has no rule for — VexFlow's `Parenthesis` stood here while the note was VexFlow's. */
+class Parenthesis extends EngravedModifier {
+  static override get CATEGORY(): string {
+    return 'Parenthesis'
+  }
+  draw(): void {}
+  protected inkMetrics(): ModifierMetrics {
+    return { width: 0, ascent: 0, descent: 0 }
+  }
+  place(): this {
+    return this
+  }
+}
+
+const note = (key: string, duration: string) => new EngravedNote({ keys: [key], duration })
+const voiceOf = (...notes: EngravedNote[]) =>
   new BarVoice({ numerator: 4, denominator: 4 }, 'soft').addAll(notes)
 
 describe('attachModifierColumns', () => {
@@ -19,7 +34,7 @@ describe('attachModifierColumns', () => {
     const lower = [note('c/4', 'q'), note('d/4', 'q'), note('e/4', 'h')]
     attachModifierColumns([voiceOf(...upper), voiceOf(...lower)])
 
-    const ctx = (n: StaveNote) => n.getModifierContext()
+    const ctx = (n: EngravedNote) => n.getModifierContext()
     expect(ctx(upper[0])).toBeInstanceOf(ColumnModifiers)
     expect(ctx(upper[0]), 'beat 0').toBe(ctx(lower[0]))
     expect(ctx(upper[1]), 'beat 2').toBe(ctx(lower[2]))
@@ -35,7 +50,7 @@ describe('attachModifierColumns', () => {
 describe('ColumnModifiers.preFormat', () => {
   it('⛔ refuses a modifier kind it has no rule for, rather than drawing it unformatted', () => {
     const n = note('c/4', 'q')
-    n.addModifier(new Parenthesis(Modifier.Position.LEFT), 0)
+    n.addModifier(new Parenthesis(), 0)
     attachModifierColumns([voiceOf(n)])
     expect(() => n.getModifierContext()!.preFormat()).toThrow(/no rule for a Parenthesis/)
   })

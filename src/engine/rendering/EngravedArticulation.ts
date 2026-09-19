@@ -55,7 +55,7 @@
  * glyph's width (NaN in jsdom, where nothing measures). ⛔ Not "fixed" — it is what the page shows.
  * ⚠️ Until S12f2 the FAN's stand-in (`./fanArticulations`) still runs VexFlow's own copy.
  */
-import type { StaveNote } from 'vexflow'
+import type { EngravedNote } from './EngravedNote'
 import type { DrawContext } from '@/engine/paint/DrawContext'
 import { MUSIC_FONT_SIZE_PT, MUSIC_GLYPH_FONT } from '@/engine/engrave/inheritedFonts'
 import { drawArticulation, type ArticulationInk } from '@/engine/engrave/notes/articulation'
@@ -173,7 +173,7 @@ export class EngravedArticulation extends EngravedModifier implements InkSurface
    * {@link draw}, and alone by the fan's stand-in (`./fanArticulations`), which paints the ink itself.
    */
   place(): void {
-    const note = this.checkAttachedNote() as StaveNote
+    const note = this.checkAttachedNote() as EngravedNote
     const index = this.checkIndex()
     if (note.getCategory() === 'TabNote') throw new Error('EngravedArticulation: a mark on a TabNote is not transcribed.')
     const side = this.position === MODIFIER_POSITION.ABOVE ? 'above' : this.position === MODIFIER_POSITION.BELOW ? 'below' : null

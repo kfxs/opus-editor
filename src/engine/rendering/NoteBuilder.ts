@@ -1,4 +1,4 @@
-import { StaveNote, Modifier } from 'vexflow'
+import { Modifier } from 'vexflow'
 import { EngravedNote } from './EngravedNote'
 import { EngravedAccidental } from './EngravedAccidental'
 import { EngravedArticulation } from './EngravedArticulation'
@@ -142,12 +142,12 @@ export function createStaveNotesFromSlots(
   forcedStemDirection?: number,
   restLineShift: number | ((slot: ChordRest) => number) = 0,
   key: KeySignature = C_MAJOR,
-): StaveNote[] {
+): EngravedNote[] {
   const resolveClef: (beat: Fraction) => Clef =
     typeof clefForBeat === 'function' ? clefForBeat : () => clefForBeat
   const resolveRestShift: (slot: ChordRest) => number =
     typeof restLineShift === 'function' ? restLineShift : () => restLineShift
-  const staveNotes: StaveNote[] = []
+  const staveNotes: EngravedNote[] = []
 
   // Which sign each pitch of this lane displays, decided ONCE by the forward walk in
   // utils/accidentalState (`displayedAccidentals`) — the same rule `prevailingAlterations` states

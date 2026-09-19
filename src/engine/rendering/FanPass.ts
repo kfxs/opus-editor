@@ -15,7 +15,7 @@
  * Both build {@link FanSlotDrawing}s and hand them to {@link drawFanGroups}.
  */
 import type { EngravedStave } from './EngravedStave'
-import { StaveNote, Accidental } from 'vexflow'
+import { Accidental } from 'vexflow'
 import { EngravedHead } from './EngravedHead'
 import { headGlyph } from '@/engine/engrave/notes/keyLines'
 import type { DrawContext } from '@/engine/paint/DrawContext'
@@ -46,7 +46,7 @@ import { drawStem } from '@/engine/engrave/notes/stem'
 import { drawNoteHead } from '@/engine/engrave/notes/noteheads'
 import { drawGroupOf, svgNode } from './svgDrawGroup'
 import { paintElementText } from './glyphPainter'
-import { stemOf } from './EngravedNote'
+import { stemOf, EngravedNote } from './EngravedNote'
 import type { CrossBarFanJoin } from './CrossBarBeams'
 import type { ElementRegistry } from '@/engine/ElementRegistry'
 import type { RenderPass } from './RenderPass'
@@ -91,7 +91,7 @@ export interface FanJoin {
 interface FanSlotDrawing {
   index: number
   slot: Extract<ChordRest, { type: 'chord' }>
-  note: StaveNote
+  note: EngravedNote
   /** The note's OWN stave — a synthetic cross-barline lane (P3) has more than one. */
   stave: EngravedStave
   /** The clef this fan's pitches are read against — its own bar's. */
@@ -109,7 +109,7 @@ interface FanSlotDrawing {
   heads: { pitch: NotePitch; line: number; sign: string | null }[][]
   /** The mark's stored MEMBERS — `stored[k - 1]` is member k, member 0 being the note itself. */
   stored: FanMemberChord[]
-  prefixNotes: StaveNote[]
+  prefixNotes: EngravedNote[]
   options: FanGeometryOptions
 }
 
@@ -294,7 +294,7 @@ function fanMemberOffsetsPx(score: Score, slot: Chord, stave: EngravedStave): nu
 export function drawFannedBeams(
   pass: RenderPass,
   slots: ChordRest[],
-  staveNotes: StaveNote[],
+  staveNotes: EngravedNote[],
   measureNumber: number,
   staffIndex: number,
   clefForBeat: (beat: Fraction) => Clef,
@@ -402,7 +402,7 @@ export function drawCrossBarFanBeams(pass: RenderPass, joins: CrossBarFanJoin[])
         signs: displayedAccidentals(member.laneSlots, member.key),
         prefixNotes: i === fanIndices[0]
           ? join.members.map((m, k) => (!m.fan && k < i ? staveNotes[k]! : null))
-            .filter((n): n is StaveNote => n !== null)
+            .filter((n): n is EngravedNote => n !== null)
           : [],
         // ⚠️ The next note in the fan's OWN bar, not in the synthetic lane — the fan may be the
         // last thing on this beam while its bar carries on past it, and the ramp must not spread
@@ -681,15 +681,15 @@ function fanSlotDrawing(input: {
   scale: number
   /** The score being drawn — read for the members' own authored spaces (client #10, §7). */
   score: Score
-  note: StaveNote | undefined
+  note: EngravedNote | undefined
   /** The clef this member's pitches are read against — its own bar's. */
   clef: Clef
   /** `displayedAccidentals` for this member's own bar: which pitch ids show a sign. */
   signs: Map<string, string | null>
   /** The group this fan is joined to on its left; empty for anything but a chain's first fan. */
-  prefixNotes: StaveNote[]
+  prefixNotes: EngravedNote[]
   /** The next note in the fan's OWN bar — where its room ends. Absent ⇒ the note area's end. */
-  nextNote: StaveNote | undefined
+  nextNote: EngravedNote | undefined
   measureNumber: number
   staffIndex: number
   /** This fan is on a joined beam, so its line is flat even where it has no prefix (a chain). */
@@ -931,7 +931,7 @@ function drawFanHead(ctx: DrawContext, head: EngravedHead): void {
  * With `tips`, each stem is re-aimed onto the joined line first. Without (the fan drew nothing),
  * they keep the length they were formatted with.
  */
-function drawFanPrefixStems(ctx: DrawContext, prefixNotes: StaveNote[], tips: { tipY: number }[]): void {
+function drawFanPrefixStems(ctx: DrawContext, prefixNotes: EngravedNote[], tips: { tipY: number }[]): void {
   for (let k = 0; k < prefixNotes.length; k++) {
     const prefixNote = prefixNotes[k]
     // ⛔ A stem that is not ours has no way onto our surface, and every prefix note is an
@@ -969,7 +969,7 @@ function registerFanInk(
   measureNumber: number,
   staffIndex: number,
   /** The joined group in front of it, if any — the rect reaches back over their stems too. */
-  prefixNotes: StaveNote[] = [],
+  prefixNotes: EngravedNote[] = [],
   /** The quads bridging the gap to the fan behind it (P2) — its ink as much as the ramp is. */
   joinQuads: FanQuad[] = [],
 ): void {
