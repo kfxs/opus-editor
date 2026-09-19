@@ -33,6 +33,7 @@
 import { dbg } from '@/utils/debug'
 import type { ClickableElementSpec } from './chain'
 import { pedalTetherAt } from './pedalTether'
+import { beginPedalBodyDrag } from '../drags/pedalBody'
 
 /** A few px of grace at the edges — the pad the slur, hairpin, trill and ottava already share. */
 const PAD = 7
@@ -79,7 +80,7 @@ export const PEDAL_ELEMENT: ClickableElementSpec = {
     dbg(`✓ Pedal selected | id:${id}`)
     return deps.pick(
       { kind: 'pedal', id },
-      () => deps.armPedalOffsetDrag(id, x, y, event),
+      () => deps.arm(door => beginPedalBodyDrag(door.host, id, x, y), event),
     )
   },
 

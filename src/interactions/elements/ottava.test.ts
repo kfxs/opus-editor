@@ -2,7 +2,19 @@ import { describe, it, expect, vi } from 'vitest'
 import { OTTAVA_ELEMENT } from './ottava'
 import { ELEMENT_HIT_ORDER } from './chain'
 import type { ElementInfo, ElementRegistry } from '../../engine/ElementRegistry'
-import type { MouseDownCtx, ElementChainDeps } from './chain'
+import type { MouseDownCtx, ElementChainDeps, GestureDoor } from './chain'
+
+const drag = vi.hoisted(() => ({ beginOttavaBodyDrag: vi.fn((..._args: unknown[]) => null) }))
+vi.mock('../drags/ottavaBody', () => drag)
+
+/** The gesture the press would arm: run the builder `deps.arm` was handed, through a door whose
+ *  host is {@link HOST}. */
+const HOST = { host: 'the drag host' } as unknown as GestureDoor
+function armedWith(d: ElementChainDeps): unknown[] {
+  const [build] = (d.arm as unknown as { mock: { calls: [(door: GestureDoor) => unknown, unknown][] } }).mock.calls.slice(-1)[0]
+  build(HOST)
+  return drag.beginOttavaBodyDrag.mock.calls.slice(-1)[0]
+}
 
 /**
  * Which octave line a press resolves to — the decision, on a stubbed registry.
@@ -40,7 +52,7 @@ function ctx(bands: ElementInfo[], x: number, y: number): MouseDownCtx {
 function deps(): ElementChainDeps {
   return {
     pick: vi.fn(() => true as const),
-    armOttavaOffsetDrag: vi.fn(),
+    arm: vi.fn(),
   } as unknown as ElementChainDeps
 }
 
@@ -53,9 +65,9 @@ describe('OTTAVA_ELEMENT.hit', () => {
     expect(OTTAVA_ELEMENT.hit(ctx([band('o1', 100, 200)], 150, 6), d)).toBe(true)
     expect(d.pick).toHaveBeenCalledWith({ kind: 'ottava', id: 'o1' }, expect.any(Function))
     // The arm runs only if the chain calls back — the drag is not started by the press itself.
-    expect(d.armOttavaOffsetDrag).not.toHaveBeenCalled()
+    expect(d.arm).not.toHaveBeenCalled()
     ;(d.pick as unknown as { mock: { calls: [unknown, () => void][] } }).mock.calls[0][1]()
-    expect(d.armOttavaOffsetDrag).toHaveBeenCalledWith('o1', 150, 6, undefined)
+    expect(armedWith(d)).toEqual([HOST.host, 'o1', 150, 6])
   })
 
   it('⭐ a press in a GAP BETWEEN DASHES hits — the band is the target, not the ink', () => {

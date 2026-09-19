@@ -7,6 +7,7 @@
  */
 import { dbg } from '@/utils/debug'
 import type { ClickableElementSpec } from './chain'
+import { beginBarWidthDrag } from '../drags/barWidth'
 
 /**
  * ⭐⭐ **HOW FAR OUTSIDE ITS INK A BARLINE ANSWERS A PRESS**, in px, on BOTH axes.
@@ -49,7 +50,7 @@ export const BARLINE_ELEMENT: ClickableElementSpec = {
    * system-wide thing (the `barline` element kind), so whichever staff the click lands on, the
    * whole line is what gets picked. See {@link SelectedElement} for why that is the identity.
    */
-  hit({ registry, x, y, closestElement }, deps) {
+  hit({ engine, registry, x, y, closestElement }, deps) {
     // The registered box straddles the drawn line by 2px each way — not a clickable target on its
     // own, so it is padded to be one at all ({@link BARLINE_PRESS_PAD_PX}, both axes).
     const pad = BARLINE_PRESS_PAD_PX
@@ -133,7 +134,7 @@ export const BARLINE_ELEMENT: ClickableElementSpec = {
     const pressedAt = hit.inGap ? 'gap' : above ? 'top' : 'bottom'
     return deps.pick(
       { kind: 'barline', measure, staff: barlineAt.staff ?? 0, pressedAt },
-      () => deps.armBarWidthDrag(measure, x),
+      () => deps.arm(door => beginBarWidthDrag(door.host, engine, measure, x)),
     )
   },
 

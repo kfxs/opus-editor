@@ -5,6 +5,7 @@
  */
 import { dbg } from '@/utils/debug'
 import type { ClickableElementSpec } from './chain'
+import { beginDynamicDrag } from '../drags/dynamic'
 
 export const DYNAMIC_ELEMENT: ClickableElementSpec = {
   kind: 'dynamic',
@@ -46,7 +47,7 @@ export const DYNAMIC_ELEMENT: ClickableElementSpec = {
     dbg(`✓ Dynamic selected | id:${dynamicAt.id}`)
     return deps.pick(
       { kind: 'dynamic', id: dynamicAt.id },
-      () => deps.armDynamicDrag(dynamicAt.id!, event),
+      () => deps.arm(door => beginDynamicDrag(door.host, dynamicAt.id!), event),
     )
   },
 

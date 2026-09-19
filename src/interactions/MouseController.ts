@@ -29,25 +29,16 @@ import { stampHairpinAtClick } from './hairpinStamp'
 import { stampBarlineAtClick } from './barlineStamp'
 import { stampKeySignatureAtClick } from './keySignatureStamp'
 import { STAFF_BAND_PAD_PX } from './staffBand'
-import { ELEMENT_HIT_ORDER, type DoubleClickMark, type ElementChainDeps, type MouseDownCtx } from './elements/chain'
+import { ELEMENT_HIT_ORDER, type DoubleClickMark, type ElementChainDeps, type GestureDoor, type MouseDownCtx } from './elements/chain'
 import { armHairpinEndpointAt } from './elements/hairpinHandles'
 import type { DragHost, Gesture } from './drags/gesture'
 import { beginBarlineJoinDrag } from './drags/barlineJoin'
-import { beginBarWidthDrag } from './drags/barWidth'
-import { beginClefDrag } from './drags/clef'
-import { beginDynamicDrag } from './drags/dynamic'
-import { beginHairpinBodyDrag } from './drags/hairpinBody'
 import { beginMarkEndDrag, type MarkEndKind } from './drags/markEnd'
 import { beginNoteDrag } from './drags/note'
-import { beginOttavaBodyDrag } from './drags/ottavaBody'
-import { beginPedalBodyDrag } from './drags/pedalBody'
-import { beginSlurBodyDrag } from './drags/slurBody'
 import { beginSlurEndpointDrag } from './drags/slurEndpoint'
 import { beginSlurHandleDrag } from './drags/slurHandle'
 import { beginStaffGroupSpanDrag } from './drags/staffGroupSpan'
 import { beginStaffSpacingDrag } from './drags/staffSpacing'
-import { beginTempoDrag } from './drags/tempo'
-import { beginTrillBodyDrag } from './drags/trillBody'
 import { armOttavaEndpointAt } from './elements/ottavaHandles'
 import { barlineJoinGrabAt } from './elements/barlineJoinHandles'
 import { armPedalEndpointAt } from './elements/pedalHandles'
@@ -91,11 +82,22 @@ export class MouseController {
     release: () => { this.activeDrag = null },
     setCursor: cursor => { const canvas = this.getScoreCanvas(); if (canvas) canvas.style.cursor = cursor },
   }
+  /** What an element's gesture builder is handed (`elements/chain.ElementChainDeps.arm`). */
+  private get gestureDoor(): GestureDoor {
+    // ⚠️ A getter, not a field: `state` is a constructor parameter property, and a field
+    //    initializer may run before it is assigned.
+    return {
+      host: this.dragHost,
+      state: this.state,
+      slotBeatAt: (engine, x, measure) => this.resolveSlotBeat(engine, x, measure),
+      drawnMarkX: id => this.drawnMarkX(id),
+    }
+  }
   /** Hold the gesture a press armed. ⛔ null = it declined, and the press goes on being a click. */
-  private begin(gesture: Gesture | null, event: MouseEvent): void {
+  private begin(gesture: Gesture | null, event?: MouseEvent): void {
     if (!gesture) return
     this.activeDrag = gesture
-    event.preventDefault()
+    event?.preventDefault()
   }
   // --- Staff-spacing vertical drag (Sibelius "space above staff" — Client #7) ---
   /** ⭐ The measure box that was showing when THIS press began, remembered across the element
@@ -480,23 +482,10 @@ export class MouseController {
       this.render.renderScore()
       return true
     },
-    armClefDrag: (clef, event) =>
-      this.begin(beginClefDrag(this.dragHost, this.state, clef, (eng, x, m) => this.resolveSlotBeat(eng, x, m)), event),
     // ⭐ The SCORE's answer, asked at press time — see `ElementChainDeps.groupSymbolOf`.
     groupSymbolOf: (groupId) =>
       this.getEngine()?.getScore().staffGroups?.find(g => g.id === groupId)?.symbol,
-    armBarWidthDrag: (measure, x) => {
-      const engine = this.getEngine()
-      const gesture = engine && beginBarWidthDrag(this.dragHost, engine, measure, x)
-      if (gesture) this.activeDrag = gesture
-    },
-    armDynamicDrag: (dynamicId, event) => this.armDynamicDrag(dynamicId, event),
-    armTempoDrag: (tempoId, event) => this.armTempoDrag(tempoId, event),
-    armHairpinOffsetDrag: (hairpinId, x, y, event) => this.armHairpinOffsetDrag(hairpinId, x, y, event),
-    armTrillOffsetDrag: (trillId, x, y, event) => this.armTrillOffsetDrag(trillId, x, y, event),
-    armOttavaOffsetDrag: (ottavaId, x, y, event) => this.armOttavaOffsetDrag(ottavaId, x, y, event),
-    armPedalOffsetDrag: (pedalId, x, y, event) => this.armPedalOffsetDrag(pedalId, x, y, event),
-    armSlurOffsetDrag: (slurId, x, y, event) => this.armSlurOffsetDrag(slurId, x, y, event),
+    arm: (build, event) => this.begin(build(this.gestureDoor), event),
     isDoubleClick: (mark, id) => this.pressIsDoubleClick(mark, id),
     openEditor: (mark, id) => {
       if (mark === 'tempo') this.openTempoTextEditor(id, false)
@@ -512,74 +501,6 @@ export class MouseController {
       const score = this.getEngine()?.getScore()
       openScoreTextWindow(windows, field, score ? scoreText(score, field) : undefined)
     },
-  }
-
-  /**
-   * ⭐ Arm the drag that walks a selected dynamic along its lane — the mouse twin of
-   * `Ctrl+Shift+←/→` (his ask, 2026-08-18).
-   *
-   * ⚠️ **It arms on the SELECTING press, where the four span families arm on a press of an already
-   * drawn square.** A dynamic has no handle but itself, so there is nothing to click first; what
-   * separates a click from a drag is the same time threshold every other handle uses, applied on
-   * MOVE. ⛔ That is also why this must not consume the press: the double-click that opens the text
-   * editor has already been decided one branch above, and a plain click still selects.
-   */
-  /** ⭐ Arm the drag that snaps a tempo mark from anchor to anchor (`./tempoDrag`) — armed on the
-   *  SELECTING press, because the mark has no handle but itself. ⛔ It must not consume the press, or
-   *  the double-click that opens the text editor (decided one branch above) would break. */
-  private armTempoDrag(tempoId: string, event: MouseEvent): void {
-    this.begin(beginTempoDrag(this.dragHost, tempoId, id => this.drawnMarkX(id)), event)
-  }
-
-  private armDynamicDrag(dynamicId: string, event: MouseEvent): void {
-    this.begin(beginDynamicDrag(this.dragHost, dynamicId), event)
-  }
-
-  /**
-   * ⭐⭐ Arm the drag that moves a whole hairpin's INK — a press on the wedge's BODY (his ask,
-   * 2026-08-18: *"we are not doing drag offset on the hairpin when no endpoint active"*).
-   *
-   * ⭐ **One wedge, two gestures, told apart by WHERE you grabbed it**: a square moves that end
-   * through the music (a model write, audible), the body moves the drawing (an override, silent).
-   * That is the arrows' own split arriving on the mouse — `Ctrl+Shift+←/→` versus the plain arrows,
-   * and `nudgeSelectedHairpin`'s *nothing armed → the whole thing*.
-   *
-   * ⚠️ DECLINES to arm when the wedge's staff has no measured geometry: with no picture there is no
-   * px→staff-space scale, and a guessed one would move a small staff's hairpin by the wrong amount.
-   * The press stays an ordinary selection.
-   */
-  private armTrillOffsetDrag(trillId: string, x: number, y: number, event: MouseEvent): void {
-    this.begin(beginTrillBodyDrag(this.dragHost, trillId, x, y), event)
-  }
-
-  /** ⭐ Arm the drag that moves a whole OTTAVA — a press on the numeral or its dashed line (his ask,
-   *  2026-08-21). ⛔ Declines when the bracket is not measurably drawn, exactly as the wedge's does:
-   *  a gesture in pixels needs a staff-space size to convert them with. */
-  private armOttavaOffsetDrag(ottavaId: string, x: number, y: number, event: MouseEvent): void {
-    this.begin(beginOttavaBodyDrag(this.dragHost, ottavaId, x, y), event)
-  }
-
-  /**
-   * ⭐⭐ Arm the drag that moves a whole PEDAL — a press on either sign (his ask, 2026-08-21: *"lets do
-   * the pedal shape drag walking, taking into account the y so we jump system"*).
-   *
-   * ⭐ **One pedal, two gestures, told apart by WHERE you grabbed it**: a SQUARE moves that sign
-   * through the music, the BODY moves the pair — sideways, and onto another system vertically. The
-   * arrows' own split arriving on the mouse.
-   *
-   * ⚠️ DECLINES to arm when the pedal's staff has no measured geometry: with no picture there is no
-   * px→staff-space scale, and a guessed one would move a small staff's pedal by the wrong amount.
-   */
-  private armPedalOffsetDrag(pedalId: string, x: number, y: number, event: MouseEvent): void {
-    this.begin(beginPedalBodyDrag(this.dragHost, pedalId, x, y), event)
-  }
-
-  private armHairpinOffsetDrag(hairpinId: string, x: number, y: number, event: MouseEvent): void {
-    this.begin(beginHairpinBodyDrag(this.dragHost, hairpinId, x, y), event)
-  }
-
-  private armSlurOffsetDrag(slurId: string, x: number, y: number, event: MouseEvent): void {
-    this.begin(beginSlurBodyDrag(this.dragHost, slurId, x, y), event)
   }
 
   /**

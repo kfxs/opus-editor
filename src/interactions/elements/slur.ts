@@ -7,6 +7,7 @@
  */
 import { dbg } from '@/utils/debug'
 import type { ClickableElementSpec } from './chain'
+import { beginSlurBodyDrag } from '../drags/slurBody'
 
 /** Shortest distance from point (px,py) to the line segment a→b (clamped to the
  *  segment, so endpoints don't over-grab). Used for arc-proximity slur hit-testing. */
@@ -54,7 +55,7 @@ export const SLUR_ELEMENT: ClickableElementSpec = {
     // `pickSlurHandleAt` is a pre-step in `MouseController` and consumes it.
     return deps.pick(
       { kind: 'slur', id: slurAt.id },
-      () => deps.armSlurOffsetDrag(slurAt.id!, x, y, event),
+      () => deps.arm(door => beginSlurBodyDrag(door.host, slurAt.id!, x, y), event),
     )
   },
 

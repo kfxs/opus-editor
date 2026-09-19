@@ -2,7 +2,19 @@ import { describe, it, expect, vi } from 'vitest'
 import { PEDAL_ELEMENT } from './pedal'
 import { ELEMENT_HIT_ORDER } from './chain'
 import type { ElementInfo, ElementRegistry } from '../../engine/ElementRegistry'
-import type { MouseDownCtx, ElementChainDeps } from './chain'
+import type { MouseDownCtx, ElementChainDeps, GestureDoor } from './chain'
+
+const drag = vi.hoisted(() => ({ beginPedalBodyDrag: vi.fn((..._args: unknown[]) => null) }))
+vi.mock('../drags/pedalBody', () => drag)
+
+/** The gesture the press would arm: run the builder `deps.arm` was handed, through a door whose
+ *  host is {@link HOST}. */
+const HOST = { host: 'the drag host' } as unknown as GestureDoor
+function armedWith(d: ElementChainDeps): unknown[] {
+  const [build] = (d.arm as unknown as { mock: { calls: [(door: GestureDoor) => unknown, unknown][] } }).mock.calls.slice(-1)[0]
+  build(HOST)
+  return drag.beginPedalBodyDrag.mock.calls.slice(-1)[0]
+}
 
 /**
  * Which pedal a press resolves to — the decision, on a stubbed registry.
@@ -40,7 +52,7 @@ function ctx(entries: ElementInfo[], x: number, y: number): MouseDownCtx {
 function deps(): ElementChainDeps {
   return {
     pick: vi.fn(() => true as const),
-    armPedalOffsetDrag: vi.fn(),
+    arm: vi.fn(),
   } as unknown as ElementChainDeps
 }
 
@@ -56,9 +68,9 @@ describe('PEDAL_ELEMENT.hit', () => {
     const d = deps()
     expect(PEDAL_ELEMENT.hit(ctx([PED, STAR], 120, 46), d)).toBe(true)
     // The arm runs only if the chain calls back — the drag is not started by the press itself.
-    expect(d.armPedalOffsetDrag).not.toHaveBeenCalled()
+    expect(d.arm).not.toHaveBeenCalled()
     ;(d.pick as unknown as { mock: { calls: [unknown, () => void][] } }).mock.calls[0][1]()
-    expect(d.armPedalOffsetDrag).toHaveBeenCalledWith('p1', 120, 46, undefined)
+    expect(armedWith(d)).toEqual([HOST.host, 'p1', 120, 46])
     expect(d.pick).toHaveBeenCalledWith({ kind: 'pedal', id: 'p1' }, expect.any(Function))
   })
 
@@ -153,7 +165,7 @@ describe('PEDAL_ELEMENT.hit — the tether', () => {
     expect(PEDAL_ELEMENT.hit(ctx([PED, STAR, tether()], 260, 46), d)).toBe(true)
     expect(d.pick).toHaveBeenCalledWith({ kind: 'pedal', id: 'p1' }, expect.any(Function))
     ;(d.pick as unknown as { mock: { calls: [unknown, () => void][] } }).mock.calls[0][1]()
-    expect(d.armPedalOffsetDrag).toHaveBeenCalledWith('p1', 260, 46, undefined)
+    expect(armedWith(d)).toEqual([HOST.host, 'p1', 260, 46])
   })
 
   it('⛔⛔ …and with NO tether drawn the same press reaches nothing', () => {

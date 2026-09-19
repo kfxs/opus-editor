@@ -16,6 +16,7 @@
 import { dbg } from '@/utils/debug'
 import type { ClickableElementSpec } from './chain'
 import { distToSegment } from './slur'
+import { beginOttavaBodyDrag } from '../drags/ottavaBody'
 
 /** A few px of grace at the edges — the pad the slur, hairpin and trill already share. */
 const PAD = 7
@@ -48,7 +49,7 @@ export const OTTAVA_ELEMENT: ClickableElementSpec = {
     dbg(`✓ Ottava selected | id:${ottavaAt.id}`)
     return deps.pick(
       { kind: 'ottava', id: ottavaAt.id },
-      () => deps.armOttavaOffsetDrag(ottavaAt.id!, x, y, event),
+      () => deps.arm(door => beginOttavaBodyDrag(door.host, ottavaAt.id!, x, y), event),
     )
   },
 

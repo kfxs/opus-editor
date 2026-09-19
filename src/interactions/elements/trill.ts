@@ -16,6 +16,7 @@
 import { dbg } from '@/utils/debug'
 import type { ClickableElementSpec } from './chain'
 import { distToSegment } from './slur'
+import { beginTrillBodyDrag } from '../drags/trillBody'
 
 /** A few px of grace at the edges — the pad the slur and hairpin already share, for the same
  *  reason: a pointer cannot be aimed to the pixel, and the wiggle is a thin wave inside its band. */
@@ -50,7 +51,7 @@ export const TRILL_ELEMENT: ClickableElementSpec = {
     dbg(`✓ Trill selected | id:${trillAt.id}`)
     return deps.pick(
       { kind: 'trill', id: trillAt.id },
-      () => deps.armTrillOffsetDrag(trillAt.id!, x, y, event),
+      () => deps.arm(door => beginTrillBodyDrag(door.host, trillAt.id!, x, y), event),
     )
   },
 

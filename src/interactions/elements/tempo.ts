@@ -6,6 +6,7 @@
  */
 import { dbg } from '@/utils/debug'
 import type { ClickableElementSpec } from './chain'
+import { beginTempoDrag } from '../drags/tempo'
 
 export const TEMPO_ELEMENT: ClickableElementSpec = {
   kind: 'tempo',
@@ -41,7 +42,7 @@ export const TEMPO_ELEMENT: ClickableElementSpec = {
     dbg(`✓ Tempo mark selected | id:${tempoAt.id}`)
     return deps.pick(
       { kind: 'tempo', id: tempoAt.id },
-      () => deps.armTempoDrag(tempoAt.id!, event),
+      () => deps.arm(door => beginTempoDrag(door.host, tempoAt.id!, door.drawnMarkX), event),
     )
   },
 

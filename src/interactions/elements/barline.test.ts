@@ -1,7 +1,21 @@
 import { describe, it, expect, vi } from 'vitest'
 import { BARLINE_ELEMENT } from './barline'
 import type { ElementInfo, ElementRegistry } from '../../engine/ElementRegistry'
-import type { MouseDownCtx, ElementChainDeps } from './chain'
+import type { MouseDownCtx, ElementChainDeps, GestureDoor } from './chain'
+
+const drag = vi.hoisted(() => ({ beginBarWidthDrag: vi.fn((..._args: unknown[]) => null) }))
+vi.mock('../drags/barWidth', () => drag)
+
+/** The gesture the press would arm: run the builder `deps.arm` was handed, through a door whose
+ *  host is {@link HOST}. */
+const HOST = { host: 'the drag host' } as unknown as GestureDoor
+/** The press context's engine — the bar-width gesture measures its room off it. */
+const ENGINE = { engine: 'the engine' }
+function armedWith(d: ElementChainDeps): unknown[] {
+  const [build] = (d.arm as unknown as { mock: { calls: [(door: GestureDoor) => unknown, unknown][] } }).mock.calls.slice(-1)[0]
+  build(HOST)
+  return drag.beginBarWidthDrag.mock.calls.slice(-1)[0]
+}
 
 /**
  * Which barline a press resolves to — the decision, on a stubbed registry.
@@ -28,14 +42,14 @@ function ctx(boxes: ElementInfo[], painted: number[], x: number, y = 20, gaps: E
     isPainted: (measure: number) => painted.includes(measure),
     hitsNoteOrRestBody: () => false,
   } as unknown as ElementRegistry
-  return { registry, x, y, closestElement: null } as unknown as MouseDownCtx
+  return { engine: ENGINE, registry, x, y, closestElement: null } as unknown as MouseDownCtx
 }
 
 function deps(): ElementChainDeps & { picked: (() => void)[] } {
   const picked: (() => void)[] = []
   return {
     pick: vi.fn((_element, arm?: () => void) => { if (arm) picked.push(arm); return true as const }),
-    armBarWidthDrag: vi.fn(),
+    arm: vi.fn(),
     picked,
   } as unknown as ElementChainDeps & { picked: (() => void)[] }
 }
@@ -149,7 +163,7 @@ describe('BARLINE_ELEMENT.hit', () => {
     const d = deps()
     BARLINE_ELEMENT.hit(ctx([], [], 102, 100, [gapBox(5, 100)]), d)
     d.picked[0]()
-    expect(d.armBarWidthDrag).toHaveBeenCalledWith(5, 102)
+    expect(armedWith(d)).toEqual([HOST.host, ENGINE, 5, 102])
   })
 
   it('⛔ an UNJOINED gap answers nothing — nothing is drawn there, so nothing is registered', () => {
@@ -162,7 +176,7 @@ describe('BARLINE_ELEMENT.hit', () => {
     const d = deps()
     BARLINE_ELEMENT.hit(ctx([box(9, 100), box(40, 101)], [40], 102), d)
     d.picked[0]()
-    expect(d.armBarWidthDrag).toHaveBeenCalledWith(40, 102)
+    expect(armedWith(d)).toEqual([HOST.host, ENGINE, 40, 102])
   })
 
   it('declines when nothing is in range at all', () => {

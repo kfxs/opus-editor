@@ -11,6 +11,7 @@
 import { dbg } from '@/utils/debug'
 import type { ClickableElementSpec } from './chain'
 import { distToSegment } from './slur'
+import { beginHairpinBodyDrag } from '../drags/hairpinBody'
 
 export const HAIRPIN_ELEMENT: ClickableElementSpec = {
   kind: 'hairpin',
@@ -38,7 +39,7 @@ export const HAIRPIN_ELEMENT: ClickableElementSpec = {
     dbg(`✓ Hairpin selected | id:${hairpinAt.id}`)
     return deps.pick(
       { kind: 'hairpin', id: hairpinAt.id },
-      () => deps.armHairpinOffsetDrag(hairpinAt.id!, x, y, event),
+      () => deps.arm(door => beginHairpinBodyDrag(door.host, hairpinAt.id!, x, y), event),
     )
   },
 

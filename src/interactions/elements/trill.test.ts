@@ -1,7 +1,19 @@
 import { describe, it, expect, vi } from 'vitest'
 import { TRILL_ELEMENT } from './trill'
 import type { ElementInfo, ElementRegistry } from '../../engine/ElementRegistry'
-import type { MouseDownCtx, ElementChainDeps } from './chain'
+import type { MouseDownCtx, ElementChainDeps, GestureDoor } from './chain'
+
+const drag = vi.hoisted(() => ({ beginTrillBodyDrag: vi.fn((..._args: unknown[]) => null) }))
+vi.mock('../drags/trillBody', () => drag)
+
+/** The gesture the press would arm: run the builder `deps.arm` was handed, through a door whose
+ *  host is {@link HOST}. */
+const HOST = { host: 'the drag host' } as unknown as GestureDoor
+function armedWith(d: ElementChainDeps): unknown[] {
+  const [build] = (d.arm as unknown as { mock: { calls: [(door: GestureDoor) => unknown, unknown][] } }).mock.calls.slice(-1)[0]
+  build(HOST)
+  return drag.beginTrillBodyDrag.mock.calls.slice(-1)[0]
+}
 
 /**
  * Which trill a press resolves to — the decision, on a stubbed registry.
@@ -37,7 +49,7 @@ function ctx(bands: ElementInfo[], x: number, y: number): MouseDownCtx {
 function deps(): ElementChainDeps {
   return {
     pick: vi.fn(() => true as const),
-    armTrillOffsetDrag: vi.fn(),
+    arm: vi.fn(),
   } as unknown as ElementChainDeps
 }
 
@@ -91,6 +103,6 @@ describe('TRILL_ELEMENT.hit', () => {
     TRILL_ELEMENT.hit!(ctx([band('t1', 100, 300)], 200, 6), d)
     const arm = (d.pick as unknown as { mock: { calls: unknown[][] } }).mock.calls[0][1] as () => void
     arm()
-    expect(d.armTrillOffsetDrag).toHaveBeenCalledWith('t1', 200, 6, undefined)
+    expect(armedWith(d)).toEqual([HOST.host, 't1', 200, 6])
   })
 })

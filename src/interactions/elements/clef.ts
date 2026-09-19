@@ -7,6 +7,7 @@
 import { dbg } from '@/utils/debug'
 import { staffOf } from '@/utils/lanes'
 import type { ClickableElementSpec } from './chain'
+import { beginClefDrag } from '../drags/clef'
 
 export const CLEF_ELEMENT: ClickableElementSpec = {
   kind: 'clef',
@@ -29,7 +30,7 @@ export const CLEF_ELEMENT: ClickableElementSpec = {
 
     return deps.pick(
       { kind: 'clef', measure: clefAt.measure, beat: clefAt.beat ?? 0, staff: staffOf(clefAt) },
-      () => deps.armClefDrag(clefAt, event),
+      () => deps.arm(door => beginClefDrag(door.host, door.state, clefAt, door.slotBeatAt), event),
     )
   },
 

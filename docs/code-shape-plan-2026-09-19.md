@@ -1,6 +1,6 @@
 # Code shape plan — 2026-09-19
 
-**Status: IN PROGRESS — Phase 1 DONE (2026-09-19), bar item 5's two ⏭️ decisions. Phase 2 DONE. Phase 3.1: the hairpin / ottava / pedal body drags done and checked; the trill's too (`cdb7f05`); the slur's too (`69e927c`); the four SQUARE drags too (`6d903c3`); the slur HANDLE / ENDPOINT and staff-spacing drags too (`8f28f79`); the DYNAMIC and TEMPO drags too (`9a04f88`); bar width, barline join, group span and clef too (`ee31698`); the NOTE drag done, awaiting his UI check — every gesture is now a module. 3.1's one leftover: `ElementChainDeps`' nine `arm*Drag` members.** Phases are ordered by
+**Status: IN PROGRESS — Phase 1 DONE (2026-09-19), bar item 5's two ⏭️ decisions. Phase 2 DONE. Phase 3.1: the hairpin / ottava / pedal body drags done and checked; the trill's too (`cdb7f05`); the slur's too (`69e927c`); the four SQUARE drags too (`6d903c3`); the slur HANDLE / ENDPOINT and staff-spacing drags too (`8f28f79`); the DYNAMIC and TEMPO drags too (`9a04f88`); bar width, barline join, group span and clef too (`ee31698`); the NOTE drag too (`7d2898e`) — every gesture is a module. **Phase 3.1 DONE**, bar his UI check of the `ElementChainDeps` collapse. 3.2 (the `keys` column) is next.** Phases are ordered by
 value over risk; each one stands alone and can be stopped after. A done item carries ✅ and what
 actually happened where that differs from what was planned.
 
@@ -306,15 +306,22 @@ Run the e2e suite either side of each step.
    axes, rests, a fanned member) passed UNCHANGED. With it `handleMouseMove`'s chain of sixteen
    `handle*Drag` probes is ONE line, `Gesture.move` is required, and the controller holds no
    per-gesture state at all. `MouseController` lines 1,228 → 1,135 — and its code-line ceiling
-   STARTS here, as §2.1 said it would once the hub's step was done. ⏸️ Awaiting his UI check.*
+   STARTS here, as §2.1 said it would once the hub's step was done. ✅ Passed (`7d2898e`).*
 
    *⚠️ Noticed, not changed: a PITCH drag files one undo entry per pitch it passes through
    (`updateNote` each frame), where every other gesture files one for the whole drag. It always
    did; whether that is wanted is his call.*
 
-   *Left of 3.1: `ElementChainDeps` still carries nine `arm*Drag` members that are now one-line
-   forwards to `begin<Kind>Drag`. Collapsing them into one `begin(gesture)` touches
-   `interactions/elements/chain.ts` and every element module that arms a drag — its own step.*
+   *Ninth — `ElementChainDeps`' nine `arm*Drag` members are ONE: `arm(build, event?)`. The element
+   module hands over a BUILDER (`door => beginHairpinBodyDrag(door.host, id, x, y)`) and whoever
+   holds the door decides whether the gesture is built at all — so `markGroupSelect`'s Ctrl-press,
+   which arms nothing, shuts every kind's drag with one no-op where it stubbed nine. The builder
+   is handed a `GestureDoor` (`host`, `state`, `slotBeatAt`, `drawnMarkX`): generic capabilities,
+   ⛔ none per kind, so a new draggable kind adds nothing to `chain.ts` or to `MouseController`.
+   ⚠️ The plan said `begin(gesture)`; a builder rather than a built gesture is what lets a closed
+   door cost nothing. The seven one-line `arm…Drag` forwarders left the controller; the four
+   element specs that asserted `arm<Kind>Drag(id, x, y)` now assert what the builder builds.
+   `MouseController` kinds 383 → 307, lines 1,135 → 1,100. ⏸️ Awaiting his UI check.*
 
 2. **A `keys` column on `ELEMENT_SPECS`** — `{ nudge, reset }` first — and one dispatcher.
    Replaces the four `||` chains and the 61 closures.

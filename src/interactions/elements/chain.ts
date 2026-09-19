@@ -38,7 +38,9 @@
  */
 import type { MusicEngine } from '../../engine/MusicEngine'
 import type { ElementInfo, ElementRegistry } from '../../engine/ElementRegistry'
-import type { SelectedElement } from '../EditorState'
+import type { EditorState, SelectedElement } from '../EditorState'
+import type { DragHost, Gesture } from '../drags/gesture'
+import type { Fraction } from '../../types/music'
 import type { ScoreTextField } from '@/engine/models/scoreTextOps'
 import type { HighlightController } from '../HighlightController'
 
@@ -79,6 +81,19 @@ export interface MouseDownCtx {
   tupletAtClick: ElementInfo | null
 }
 
+/** What a kind's gesture builder is handed — everything a `begin<Kind>Drag` may need of the
+ *  controller that will hold the gesture. */
+export interface GestureDoor {
+  /** What a gesture may ask of the controller — every `begin<Kind>Drag` takes it first. */
+  host: DragHost
+  /** The editor's state, for the gestures that move the SELECTION along with what they drag. */
+  state: EditorState
+  /** The slot boundary under an x in a measure — the resolver the marking tools share. */
+  slotBeatAt(engine: MusicEngine, x: number, measure: number): Fraction
+  /** Where a mark's glyph really is on the page, off the DOM — the tempo drag's trace reads it. */
+  drawnMarkX(id: string): number | null
+}
+
 /**
  * What a hit-test may do BESIDES answering "mine" — all of it owned by `MouseController`, which is
  * where the gesture state and the controllers live. Handed down rather than reached for, so a kind
@@ -103,9 +118,18 @@ export interface ElementChainDeps {
    * `pick`. Always returns true, for the same reason.
    */
   pickArticulationGroup(noteId: string): true
-  /** Arm the horizontal drag that slides a movable clef along its bar. The event travels because
-   *  arming must also `preventDefault` — and only when it really arms. */
-  armClefDrag(clef: ElementInfo, event: MouseEvent): void
+  /**
+   * ⭐ **ARM THE GESTURE THIS PRESS STARTS** — the one door a draggable kind needs. The kind's module
+   * says how its own gesture is built (`interactions/drags/<kind>`), and whoever holds the door
+   * decides whether it is built at all. ⛔ There is no per-kind `arm…Drag` here, so a new draggable
+   * kind adds nothing to this interface — and a caller that arms nothing (`markGroupSelect`'s
+   * Ctrl-press, which picks membership and never a gesture) shuts every kind's drag with one no-op.
+   *
+   * ⛔ A builder answering `null` has DECLINED (the mark is not measurably drawn, the clef is the
+   * immovable one…) and the press goes on being a plain selection. The `event`, when given, is
+   * `preventDefault`ed — and only when the gesture really armed.
+   */
+  arm(build: (door: GestureDoor) => Gesture | null, event?: MouseEvent): void
   /**
    * ⭐ Which sign a grouping-sign hit-box belongs to — the SCORE's answer, ⛔ not the registry's.
    *
@@ -114,35 +138,6 @@ export interface ElementChainDeps {
    * model no longer has. Undefined when the group is gone (a stale box after a staff removal).
    */
   groupSymbolOf(groupId: string): 'brace' | 'bracket' | 'subBracket' | undefined
-  /** Arm the drag that stretches the bar to the LEFT of the grabbed barline. */
-  armBarWidthDrag(measure: number, x: number): void
-  /** Arm the drag that walks a dynamic along its lane. ⚠️ The mark is its own handle, so this arms
-   *  on the SELECTING press — the time threshold, not a second click, is what separates a drag from
-   *  a click. The event travels because arming must also `preventDefault`. */
-  armDynamicDrag(dynamicId: string, event: MouseEvent): void
-  /** Arm the drag that walks a tempo mark through the music — the mark is its own handle, exactly as
-   *  a dynamic is (`interactions/tempoWalk`). */
-  armTempoDrag(tempoId: string, event: MouseEvent): void
-  /** Arm the drag that moves a whole hairpin's INK — a press on the wedge's BODY, where a press on
-   *  one of its squares moves that end through the music instead. Takes the press point because the
-   *  gesture is a pixel delta from it, not a snap to anything. */
-  armHairpinOffsetDrag(hairpinId: string, x: number, y: number, event: MouseEvent): void
-  /** ⭐ The same again for a TRILL's own ink (2026-08-20): a press on the `tr` or its wiggle drags
-   *  the whole ornament — through the music horizontally, up the LADDER vertically — where a press
-   *  on one of its squares moves that end alone. */
-  armTrillOffsetDrag(trillId: string, x: number, y: number, event: MouseEvent): void
-  /** ⭐ The same again for an OTTAVA's own ink (2026-08-21): a press on the numeral or its dashed
-   *  line drags the whole bracket — through the music horizontally, and DOWN ONTO ANOTHER SYSTEM
-   *  vertically — where a press on one of its squares moves that end alone. */
-  armOttavaOffsetDrag(ottavaId: string, x: number, y: number, event: MouseEvent): void
-  /** ⭐ The same again for a PEDAL's own ink (2026-08-21): a press on either sign drags the whole
-   *  pedal — through the music horizontally, and DOWN ONTO ANOTHER SYSTEM vertically — where a press
-   *  on one of its squares moves that sign alone. */
-  armPedalOffsetDrag(pedalId: string, x: number, y: number, event: MouseEvent): void
-  /** ⭐ The same again for a slur's ARC BODY (2026-08-18): a press on the curve away from its handles
-   *  moves the whole drawing, where a press on a handle moves that one point. Takes the press point
-   *  for the hairpin's reason — a pixel delta, not a snap. */
-  armSlurOffsetDrag(slurId: string, x: number, y: number, event: MouseEvent): void
   /**
    * Record this press and answer whether it was the SECOND on the same mark inside the double-click
    * window — consuming it when it was, so a third click is not another double.
