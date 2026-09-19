@@ -30,7 +30,7 @@ A tuplet is a first-class object on `Measure.tuplets[]` (`src/types/music.ts`). 
 that belongs to it carries the `tupletId` on its slot, and the tuplet's voice is derived from
 those slots (a tuplet lives in exactly one voice).
 
-Rendering (`src/engine/rendering/VexFlowRenderer.ts`):
+Rendering (`src/engine/rendering/ScoreRenderer.ts`):
 
 - `buildVexTuplets()` groups slots by `tupletId`, builds a `ScoreTuplet` (VexFlow's `Tuplet` until S12a), and chooses the
   bracket side via `resolveTupletLocation()` (`NoteBuilder.ts`):
@@ -88,7 +88,7 @@ The drawing side exposes only these knobs (constructor `options`):
 ## 3. Tiers & scope decision
 
 **Tier 1 — feed VexFlow options (NO self-rendering).** Achievable by adding model fields and
-threading them into the options at `VexFlowRenderer.ts`. Low risk, incremental.
+threading them into the options at `ScoreRenderer.ts`. Low risk, incremental.
 
 - hide bracket (`bracketed`)
 - nudge number Y (`textYOffset`)
@@ -241,7 +241,7 @@ handles. ~~VexFlow stays the rhythm/spacing engine regardless.~~ (⚠️ 2026-09
 
 ## 7. Code references
 
-- `src/engine/rendering/VexFlowRenderer.ts` — `buildVexTuplets`, `drawAndRegisterTuplets`,
+- `src/engine/rendering/ScoreRenderer.ts` — `buildVexTuplets`, `drawAndRegisterTuplets`,
   `resolveTupletLocation` call site.
 - `src/engine/rendering/NoteBuilder.ts` — `resolveTupletLocation`, `TUPLET_LOCATION_*`.
 - `src/engine/ElementRegistry.ts` — `TupletGeometry`, `getTupletAt`.

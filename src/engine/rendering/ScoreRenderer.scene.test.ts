@@ -35,7 +35,7 @@
  */
 import { describe, it, expect } from 'vitest'
 import { ScoreModel } from '../models/ScoreModel'
-import { VexFlowRenderer } from './VexFlowRenderer'
+import { ScoreRenderer } from './ScoreRenderer'
 import { scenePrimitives, sceneGroups, walkScene } from '@/engine/scene/Scene'
 import { LEDGER_LINE_STYLE } from './layoutConfig'
 import { THIN_BARLINE_PX } from './barlineInk'
@@ -50,7 +50,7 @@ import { resetBeamSlope, setBeamSlopeRule } from './beamSlopeExperiment'
 function makeRenderer() {
   const container = document.createElement('div')
   document.body.appendChild(container)
-  const renderer = new VexFlowRenderer(container)
+  const renderer = new ScoreRenderer(container)
   renderer.initialize(1200, 800)
   return renderer
 }
@@ -535,7 +535,7 @@ describe('⭐⭐ P5b — the CLEF in the scene, the first symbol of the HEADER t
 
   it('⭐⭐ a treble system draws ONE clef — a SMuFL gClef, in its own group', () => {
     // Four bars, one system, one header clef: VexFlow's `addClef` runs on bar 1 only
-    // (`VexFlowRenderer.buildStave`), and nothing else in the score stamps one.
+    // (`ScoreRenderer.buildStave`), and nothing else in the score stamps one.
     const drawn = clefs(render(4).scene)
     expect(drawn.length, 'one system, one clef').toBe(1)
     expect(drawn[0].code, 'SMuFL gClef, U+E050').toBe(0xe050)
@@ -882,7 +882,7 @@ describe('⭐⭐ the note’s MODIFIERS — the accidental, the dot and the arti
   }
 
   /** Every glyph the PAGE holds — the other side of the same census. */
-  function pageGlyphs(renderer: VexFlowRenderer): string[] {
+  function pageGlyphs(renderer: ScoreRenderer): string[] {
     const svg = renderer.getSVGElement()
     return [...(svg?.querySelectorAll('text') ?? [])].map(t => t.textContent ?? '')
   }

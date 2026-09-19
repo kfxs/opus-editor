@@ -286,7 +286,7 @@ Lusk — three hits, none about barlines), so its rules would have to come from 
   … stolen from the first stave"*). Top of the gap = the upper placement's bottom line, bottom = the
   lower placement's top line, both shifted by `staleShift`.
   ⭐⭐ **AND THE NEIGHBOUR IS NO PRECEDENT — ITS EXEMPTION IS EXACTLY WHERE THIS MODULE'S SHELTER
-  ENDS.** `VexFlowRenderer.drawSystemConnector` is the closest thing on disk to this module and it
+  ENDS.** `ScoreRenderer.drawSystemConnector` is the closest thing on disk to this module and it
   reads its y straight off the stave — `top.stave.getYForLine(0) * top.scale`, **no `staleShift`** —
   the placement for x, the stave for y. ⚠️ **CHECKED, 2026-08-28, and it is correct**, for a reason
   worth knowing before this module is written:

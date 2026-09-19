@@ -184,7 +184,7 @@ export interface CrossBarBeamPlan {
   descriptorFor(measureNumber: number, staffIndex: number): string
   /**
    * ⭐⭐ **Did ANY group span more than one bar?** — false for most real scores, and the licence to
-   * run this planner **once instead of twice** (`VexFlowRenderer.renderScore`, measured at 14% of a
+   * run this planner **once instead of twice** (`ScoreRenderer.renderScore`, measured at 14% of a
    * render before it existed: docs/render-performance-plan.md §12.7).
    *
    * ⚠️ It is NOT `joins.length > 0`: a crossing group can be REFUSED — a fan across a system break,
@@ -274,7 +274,7 @@ export function computeSides(
 /**
  * Plan every staff's beams for one render.
  *
- * `bars` is every (measure, staff) of the score in measure order — `VexFlowRenderer`'s tier-1
+ * `bars` is every (measure, staff) of the score in measure order — `ScoreRenderer`'s tier-1
  * plans. `stemDirectionFor` resolves one group's shared direction; it is a callback because the
  * rule (explicit override, then the multi-voice lane, then the pitch furthest from the middle line)
  * needs the clef, and clefs are the renderer's business.

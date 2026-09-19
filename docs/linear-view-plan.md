@@ -85,7 +85,7 @@ stacks staves into one system; it does not wrap. All wrapping is ours, which is 
 `MeasureLayout.ts` exists.
 
 The one useful primitive: **`Formatter.format(voices, justifyWidth?)` takes the justify
-width as optional.** We always pass one today (`VexFlowRenderer.ts:495`) because we are
+width as optional.** We always pass one today (`ScoreRenderer.ts:495`) because we are
 justifying to a line. Omit it and VexFlow gives natural, unjustified spacing — exactly
 linear-view spacing. And `Formatter.preCalculateMinTotalWidth`, which `MeasureLayout.ts:88`
 already calls, *is* the intrinsic width we want to lay out at. The primitive we need is

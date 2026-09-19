@@ -30,7 +30,7 @@ that cost the rule **does not** reach.
 
 | file | lines | comment | blank | **code** |
 |---|---|---|---|---|
-| `rendering/VexFlowRenderer.ts` | 3,744 | 1,508 | 269 | **1,967** |
+| `rendering/ScoreRenderer.ts` | 3,744 | 1,508 | 269 | **1,967** |
 | `models/ScoreModel.ts` | 3,637 | 1,310 | 287 | **2,040** |
 | `MusicEngine.ts` | 3,256 | 1,392 | 294 | **1,570** |
 | `interactions/MouseController.ts` | 2,566 | 786 | 180 | **1,600** |
@@ -62,7 +62,7 @@ But look at what one feature costs. `A fanned beam is one note, drawn as many` �
 NEW MODULES — the rule working:     utils/fannedBeam.ts   +184
                                     rendering/FannedBeam.ts +173
 
-THE SPINE — the tax:                VexFlowRenderer  +141    ScoreModel   +54
+THE SPINE — the tax:                ScoreRenderer  +141    ScoreModel   +54
                                     PaletteController +46    types/music  +44
                                     NoteBuilder       +39    devToolbar   +32
                                     keypadSync        +24    MusicEngine  +20
@@ -76,7 +76,7 @@ choice` (13 files) has the same anatomy at half the size.
 The co-change record over 120 commits says it is systemic, not a one-off:
 
 ```
-43× VexFlowRenderer   34× ScoreModel        33× MusicEngine
+43× ScoreRenderer   34× ScoreModel        33× MusicEngine
 26× PaletteController 22× devToolbar        19× keypadSync
 14× keypadLayouts     14× beaming           14× types/music
 12× shortcutWiring    10× MouseController   10× rebarOps
@@ -88,14 +88,14 @@ Measured across the window that contains the whole 2026-07-27 pass:
 
 | file | HEAD~100 | HEAD~30 | HEAD | verdict |
 |---|---|---|---|---|
-| `VexFlowRenderer.ts` | 3,781 | 4,769 | **3,744** | ✅ named by the rule — P6 cut it |
+| `ScoreRenderer.ts` | 3,781 | 4,769 | **3,744** | ✅ named by the rule — P6 cut it |
 | `MusicEngine.ts` | 3,363 | 3,510 | **3,256** | ✅ named by the rule — P6 cut it |
 | `ScoreModel.ts` | 3,009 | 3,367 | **3,637** | ⚠️ named by the rule, **grew anyway (+628)** |
 | `PaletteController.ts` | 1,676 | 2,169 | **2,201** | ⚠️ not named — **+525** |
 | `MouseController.ts` | 2,430 | 2,556 | **2,566** | ⚠️ not named — +136 |
 
 And against the *first* split plan's own baseline (`docs/split-plan-2026-06-22.md`, five weeks ago):
-`ScoreModel` 2,208 → 3,637. `VexFlowRenderer` 2,798 → 3,744. That plan's Tier C verdict for
+`ScoreModel` 2,208 → 3,637. `ScoreRenderer` 2,798 → 3,744. That plan's Tier C verdict for
 `MouseController` was *"tool-strategy split — defer to next tool"*; it was 1,293 then and is 2,566
 now. **The next tool arrived several times.**
 
@@ -112,7 +112,7 @@ slice across five or six files:
 | family | kinds | the slices |
 |---|---|---|
 | `SelectedElement` | **14** | `handle*MouseDown` ×17, `apply*Highlight` ×13, the `RenderController` switch, `selectionSnapshot`, Delete in `shortcutWiring` |
-| `MarkingTool` ghost | **12** | `render*Ghost` ×11 → `MusicEngine.renderScoreWith*Ghost` ×10 → `VexFlowRenderer.renderScoreWith*Ghost` ×10 → `draw*Ghost` ×11 |
+| `MarkingTool` ghost | **12** | `render*Ghost` ×11 → `MusicEngine.renderScoreWith*Ghost` ×10 → `ScoreRenderer.renderScoreWith*Ghost` ×10 → `draw*Ghost` ×11 |
 | palette press | 8 tools | `press*` / `arm*Tool` / `editSelected*` / `apply*ToSelection` / `refresh*Selection` ×9 |
 | click placement | 13 | `place*AtClick` ×7 + `stamp*AtClick` ×6 |
 | authored adjustment | **13** override kinds | key + accessor in `engravingOverrides`, setter on `ScoreModel`, `set/get/preview/commit/reset/room` on `MusicEngine`, `arm/drag/end` in `MouseController`, a read in the renderer |
@@ -120,7 +120,7 @@ slice across five or six files:
 Three of these are worth stating precisely, because they are where the plan's phases come from.
 
 **The ghost pipeline is three layers of forwarding.** `RenderController.renderTieGhost` →
-`MusicEngine.renderScoreWithTieGhost` → `VexFlowRenderer.renderScoreWithTieGhost` →
+`MusicEngine.renderScoreWithTieGhost` → `ScoreRenderer.renderScoreWithTieGhost` →
 `ghostOverlay(drawTieGhost)`. That is **42 methods across four layers**, and the **20 in the middle
 two carry no logic whatsoever** — every one is a single delegating statement. Adding a thirteenth
 ghost means editing four files in order to add nothing.
@@ -201,7 +201,7 @@ side effect, which is the point: **the parent spec is what keeps pulling the par
   which also **shrinks the `lint:testnames` allowlist by one**: it was listed as unable to satisfy
   the rule by renaming because its subject was read as `MusicEngine` one directory up. Its subject
   was sitting beside it.
-- **`FanPass`** (746) — `VexFlowRenderer.fan.test.ts` → `FanPass.test.ts`. Same reasoning: the
+- **`FanPass`** (746) — `ScoreRenderer.fan.test.ts` → `FanPass.test.ts`. Same reasoning: the
   renderer is the only way to build a `RenderPass`, so it is the fixture; every assertion is on ink
   the pass draws.
 
@@ -332,7 +332,7 @@ exhaustive at one site via `assertNeverElement`. Both stay switches; `chain.ts` 
 ## Phase 2 — Collapse the ghost pipeline *(≈half a day)*
 
 Four layers, twelve kinds, 42 methods, 20 of them empty. Re-counted: `RenderController` 11 →
-`MusicEngine` 10 → `VexFlowRenderer` 10 → `GhostRenderer`'s 11 exported drawers, and the twenty in
+`MusicEngine` 10 → `ScoreRenderer` 10 → `GhostRenderer`'s 11 exported drawers, and the twenty in
 the middle two are single delegating statements exactly as claimed.
 
 🚨 **`AMENDED` — the payload type may NOT be `MarkingTool`, and no lint would tell you.**
@@ -341,7 +341,7 @@ from `interactions/` (verified: zero hits outside one test file) — that clean 
 `App.ts → interactions → engine`, and it is what the npm-package goal rests on. But
 `.eslintrc.boundary.json` fences only `utils/`, `types/` and `engine/models/` off from
 `@/interactions`; the `src/engine/**` override bans a framework and `@/dev`, and nothing else. So
-`drawToolGhost(tool: MarkingTool, …)` in `VexFlowRenderer` would pass all four `build:check` gates,
+`drawToolGhost(tool: MarkingTool, …)` in `ScoreRenderer` would pass all four `build:check` gates,
 invert the arrow, and be invisible until someone tried to publish the engine.
 
 The fix is one type, and it costs nothing: the ghost payload is **engine-owned**.
@@ -357,7 +357,7 @@ The fix is one type, and it costs nothing: the ghost payload is **engine-owned**
   `draw*Ghost` functions it already exports (they do not change). ⚠️ The rows are thin **adapters**,
   not the bare exports: the signatures genuinely differ — `drawClefGhost(ctx, svg, x, y, clef)` takes
   the SVG element, `drawTempoGhost(ctx, x, y, mark)` does not.
-- `VexFlowRenderer` keeps **one** `drawToolGhost(ghost, coords)` over `ghostOverlay` — the ten
+- `ScoreRenderer` keeps **one** `drawToolGhost(ghost, coords)` over `ghostOverlay` — the ten
   `renderScoreWith*Ghost` one-liners go.
 - `MusicEngine` keeps **one** delegation — its ten go.
 - `RenderController.renderToolGhost`'s switch becomes the table lookup, keeping `ensureScoreDrawn`
@@ -387,7 +387,7 @@ clean. Four layers of forwarding are now two, and **31 methods are gone**:
 |---|---|---|
 | `RenderController` | 11 `render*Ghost` + a 12-case switch | **1** `renderToolGhost` |
 | `MusicEngine` | 10 one-line delegations | **1** `renderScoreWithToolGhost` |
-| `VexFlowRenderer` | 10 one-line `ghostOverlay` wrappers | **1** `renderScoreWithToolGhost` |
+| `ScoreRenderer` | 10 one-line `ghostOverlay` wrappers | **1** `renderScoreWithToolGhost` |
 | `GhostRenderer` | 11 exported drawers | the same 11, **unchanged**, + `GHOST_DRAWERS` |
 
 Adding a ghost is now a `ToolGhost` member, a `GHOST_DRAWERS` row and a `toolGhost` case — three
@@ -400,7 +400,7 @@ edits in three files that each *say something*, instead of four files of which t
   CLAUDE.md applied to this phase's own new code.
 - ⭐ **The boundary lint landed with it** (`.eslintrc.boundary.json`): `src/engine/**` may not import
   `@/interactions` or `@/bus`, tests excluded. **Break-tested both ways** — a `MarkingTool` import in
-  `VexFlowRenderer` and an `EditorState` import in `ScoreModel` both fail, with the engine rule and
+  `ScoreRenderer` and an `EditorState` import in `ScoreModel` both fail, with the engine rule and
   the score-layer rule reporting separately — then reverted. Documented in `CLAUDE.md` and
   `ARCHITECTURE.md`, which now say four arrows are enforced, not three.
 - ⚠️ **The census labels are kept verbatim** in `GHOST_CAUSE` rather than derived: the time
@@ -601,11 +601,11 @@ shape — a scalar room, a value delta — the thing to share is that pair, not 
 ## Phase 5 — Extend the rule to name the real spine *(15 min, do last)*
 
 `CLAUDE.md` and `ARCHITECTURE.md` name three files: `MusicEngine`, `ScoreModel`,
-`VexFlowRenderer`. §3 above shows the growth has moved. The clause gains the files it is actually
+`ScoreRenderer`. §3 above shows the growth has moved. The clause gains the files it is actually
 about:
 
 > **A new feature adds a MODULE.** It does not add methods to `MusicEngine`, `ScoreModel` or
-> `VexFlowRenderer` — nor a per-kind slice to `PaletteController`, `MouseController`,
+> `ScoreRenderer` — nor a per-kind slice to `PaletteController`, `MouseController`,
 > `HighlightController`, `keypadSync` or `devToolbar`. **A slice too thin to be logic is still a
 > slice**: if what you are adding is the twelfth `case` in a family, add the twelfth *module* and a
 > row in its table.
@@ -652,7 +652,7 @@ whether the clause gets read, and the obvious first candidate if a further pass 
 
 **✅ ALL PHASES CLOSED 2026-07-28.** 0 `18a9aee` → 2 `8971f09` → 1 `7a8bc4d` → 3 `a48c75f` →
 4 `47d2b13` (spiked to "no") → 5. Net: `ScoreModel` 3,637 → 2,699, `MouseController` 2,566 → 2,198,
-`RenderController` 360 → 222, `VexFlowRenderer` 3,744 → 3,696, `MusicEngine` 3,256 → 3,218; 31
+`RenderController` 360 → 222, `ScoreRenderer` 3,744 → 3,696, `MusicEngine` 3,256 → 3,218; 31
 forwarding methods and 12 mousedown handlers gone; 24 new modules. 2,564 tests green throughout
 (2,546 at the baseline + 18 new), 23 E2E green, `build:check` clean at every phase.
 

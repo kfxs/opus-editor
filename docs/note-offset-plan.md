@@ -24,9 +24,9 @@ beamed — that is visibly broken.
 
 `StaveNote.setXShift(px)` moves the note's **reported geometry**, so beams, stems, ties,
 slurs and hit-testing (`headX`) all recompute around the new position. It is the same lever
-the renderer already uses for multi-voice collision centering (`VexFlowRenderer.ts:1219`), and
+the renderer already uses for multi-voice collision centering (`ScoreRenderer.ts:1219`), and
 it is the *offset* tool the note-spacing feature was explicitly told to avoid (spacing must
-move the whole column; an offset must not — see the ⛔ note at `VexFlowRenderer.ts:90`). A note
+move the whole column; an offset must not — see the ⛔ note at `ScoreRenderer.ts:90`). A note
 offset is exactly the offset case.
 
 ### The asymmetry to handle (verified against VexFlow 5 source)
@@ -85,7 +85,7 @@ Clone the dynamic-offset shape:
 | Read (`noteOffsetOverrideOf`) | `src/engine/models/engravingOverrides.ts` |
 | Mutator (`nudgeNoteOffset`, accumulate + clear-at-0) | `src/engine/models/ScoreModel.ts` |
 | Facade (`nudgeNoteOffset` + `resetNoteOffset`, one `saveOnly` undo each) | `src/engine/MusicEngine.ts` |
-| Render apply (`setXShift` compose + modifier shift) | `src/engine/rendering/VexFlowRenderer.ts` |
+| Render apply (`setXShift` compose + modifier shift) | `src/engine/rendering/ScoreRenderer.ts` |
 | Redraw-key inclusion | `src/engine/rendering/MeasureRedrawKey.ts` |
 | Keyboard surface (C) | `src/interactions/shortcutWiring.ts` |
 | Properties surface (B) | `src/windows/properties/` + a channel + a controller |
@@ -137,7 +137,7 @@ Both call the same `MusicEngine.nudgeNoteOffset(slotId, dx)`.
    shape key, mirroring the dynamics line at `MeasureRedrawKey.ts:160`. When unsure, INCLUDE —
    a wrong answer here is a stale picture, not a crash.
 2. **The multi-voice re-assert WIPES a naïve post-format `setXShift` — the offset must BE the
-   captured value.** The re-assert loop (`VexFlowRenderer.ts:~1229`) does **not** preserve a
+   captured value.** The re-assert loop (`ScoreRenderer.ts:~1229`) does **not** preserve a
    "centering" shift: this codebase stacks voices with *forced stems*, and the loop *clobbers*
    VexFlow's auto sideways shift back to the **captured pre-format value** (`intendedXShift`,
    captured at `:1153`, which is `0`). So a `setXShift(userPx)` applied *after* format is
@@ -184,7 +184,7 @@ we don't re-derive it.
   override that note's `getModifierStartXY` so the ABOVE/BELOW base x includes the offset px (the same
   amount the notehead moved). Then both the initial placement and `setOrigin`'s re-centering resolve
   to the shifted note. Accidentals keep the raw-`xShift` path (LEFT, no re-centering to fight); dots
-  follow via the note's own `xShift`. See `applyNoteOffsets` in `VexFlowRenderer.ts`.
+  follow via the note's own `xShift`. See `applyNoteOffsets` in `ScoreRenderer.ts`.
 - (⚠️ Since S5a the override is gone: the offset is the `MarkAnchor` INPUT of `engrave/notes/modifierStart`.)
 - **Reused since.** That `getModifierStartXY` override is now the shared lever for articulation X
   placement: the **articulation stem-align** feature (`docs/articulation-stem-align.md`) rides the
@@ -240,7 +240,7 @@ the address resolves to the owner, and there is nothing at the member end to shi
 
   ✅ **A fallback member is not a case.** A mark that never went through `normalizeFan` has no
   `fan.members`, so `findSlot` cannot reach it (`ScoreModel.ts:1497`) and the renderer never registers
-  it (`stored[k - 1]`, `VexFlowRenderer.ts:1252`) — it is unselectable, and its id IS the slot's own
+  it (`stored[k - 1]`, `ScoreRenderer.ts:1252`) — it is unselectable, and its id IS the slot's own
   pitch, which resolves to the slot key. Nothing to decide, and saying so keeps the
   "member resolves to its owner" trap from being reopened here as a bug.
 - **No floor.** Member gaps are floored at `minHeadGap` because two heads on one spot say nothing;
@@ -253,10 +253,10 @@ the address resolves to the owner, and there is nothing at the member end to shi
 proportional/floor/scale pass and **before** `sx` is derived (`FannedBeam.ts:309`). Then everything
 downstream follows for free, because everything downstream is computed from `stems[k]`: the stem
 (`stemX`), the beam quads and their slope, the registry entry, the member's highlight group, the slur
-anchor, the hand-drawn accidental and the ledger lines (`VexFlowRenderer.ts:1240-1275`).
+anchor, the hand-drawn accidental and the ledger lines (`ScoreRenderer.ts:1240-1275`).
 
 ⭐ **Entry 0 is REAL, and it is SUBTRACTED, not added.** VexFlow's `getNoteHeadBeginX()` is
-`getAbsoluteX() + xShift`, so the owner's px are **already inside `headX`** (`VexFlowRenderer.ts:1342`)
+`getAbsoluteX() + xShift`, so the owner's px are **already inside `headX`** (`ScoreRenderer.ts:1342`)
 — and `headX` is where the ramp starts. The whole of "the owner moves alone" is therefore one line:
 
 ```

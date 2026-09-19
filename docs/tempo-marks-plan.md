@@ -166,7 +166,7 @@ the clef plan undershot — do not repeat it.
 
 ---
 
-## 6. Rendering (`VexFlowRenderer` + new `TempoLayout.ts`)
+## 6. Rendering (`ScoreRenderer` + new `TempoLayout.ts`)
 
 > ⚠️ **2026-09-19: VexFlow is removed.** `TempoLayout` does not use `StaveTempo` (its header says
 > why) and stamps the mark through our `glyphPainter`; the `StaveTempo` reading below is the plan as
@@ -184,7 +184,7 @@ writing `TempoLayout.ts`. Four facts about it drive the design below:
 `Stave.setTempo()` hardcodes `x = stave.x` (`stave.js:172`), so it can only mark the **start of a
 bar**. Worse, two things make the modifier path unusable for us even for bar-start marks:
 
-- **`buildAndDrawStave()` (`VexFlowRenderer.ts:404`) draws the stave BEFORE the notes are
+- **`buildAndDrawStave()` (`ScoreRenderer.ts:404`) draws the stave BEFORE the notes are
   formatted.** At `stave.draw()` time no note X exists, so a mid-measure anchor is unknowable there.
 - **`StaveTempo.draw()` never calls `ctx.openGroup()`.** It emits bare `<text>` nodes into whatever
   group is open — and `Stave.draw()` has them all inside one `openGroup('stave', …)` (`stave.js`).
@@ -235,7 +235,7 @@ const opts = {
 ### 6.3 Draw it ONCE — `renderMeasure` runs per staff
 
 `renderMeasure` is called inside `staffList.forEach((staff, staffIndex) => …)`
-(`VexFlowRenderer.ts:1310`). Without a gate, a grand staff prints `Allegro` above **every** staff and
+(`ScoreRenderer.ts:1310`). Without a gate, a grand staff prints `Allegro` above **every** staff and
 registers duplicate ids. Gate on the mark's **scope's top staff** — which in v1 (one scope) resolves
 to `staffIndex === 0`, but write the *call* in terms of the scope, per rule 2.
 

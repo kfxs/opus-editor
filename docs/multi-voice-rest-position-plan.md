@@ -261,7 +261,7 @@ export function restVoiceContext(
 
 ### 4.1 Seam ONE — the drawing
 
-`VexFlowRenderer.ts:1993`, one line:
+`ScoreRenderer.ts:1993`, one line:
 
 ```ts
 -  const restShift = multiVoice ? (REST_LANE[v] ?? 0) * REST_LINE_STEP : 0
@@ -281,7 +281,7 @@ it is what stops VexFlow's own ±1 nudge from moving what we decided. (⚠️ Th
 S9g — `engrave/notes/voiceStack`, VexFlow's `StaveNote.format` transcribed.)
 
 ⭐ The PDF export is carried by this same seam and needs no second one: `export/scoreSvg.ts:66`
-constructs a `VexFlowRenderer` of its own, which is what research §7 demands of a rule that is layout
+constructs a `ScoreRenderer` of its own, which is what research §7 demands of a rule that is layout
 rather than paint.
 
 ### 4.2 🚨 Seam TWO — voice navigation, and it was never in lockstep
@@ -292,7 +292,7 @@ time, for the Alt+Shift+↑/↓ voice hop:
 
 ```ts
 const lane = voice === 0 ? 2 : -2
-// Mirror VexFlowRenderer.restShiftFor: voice lane + the rest's own manual shift.
+// Mirror ScoreRenderer.restShiftFor: voice lane + the rest's own manual shift.
 const shift = restShiftOverrideOf(...)?.steps ?? 0
 return middleLineDiatonicPos(clef) + lane + shift + voiceRank
 ```
@@ -329,7 +329,7 @@ half-resolution would silently drop every staff-0 note that stores no id — a g
 gets believed. §4.1 already says the input is one staff's LANE, so the filter was redundant.
 
 **P1 — BOTH seams. ✅ DONE 2026-08-31 — ⏳ awaiting HIS EYE on the prelude.** §4.1 wired in
-`VexFlowRenderer` (`REST_LANE`/`REST_LINE_STEP` deleted); §4.2 wired in `SelectionController` (its
+`ScoreRenderer` (`REST_LANE`/`REST_LINE_STEP` deleted); §4.2 wired in `SelectionController` (its
 private lane deleted). Gates run: `npm run build:check` green, `npx vitest run` **5881 green**,
 `npm run test:e2e` **271 green** (a renderer change, so the browser net was run either side).
 ⭐ **The §4.2 conversion became a named inverse** — `clefUtils.diatonicPosForStaffLine`, written

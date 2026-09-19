@@ -12,9 +12,9 @@ import { DEFAULT_SOUND } from './models/soundOps'
  */
 // The `MusicEngine.test.ts` stub, whole: `loadJSON` renders, so the mock has to satisfy the render
 // path as well as the edit path.
-vi.mock('./rendering/VexFlowRenderer', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('./rendering/VexFlowRenderer')>()),
-  VexFlowRenderer: class {
+vi.mock('./rendering/ScoreRenderer', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('./rendering/ScoreRenderer')>()),
+  ScoreRenderer: class {
     initialize = vi.fn(); renderScore = vi.fn(); clearGhosts = vi.fn()
     setViewMode = vi.fn(); setLinearStaffSpacing = vi.fn(); setCullWindow = vi.fn()
     setLayoutReusable = vi.fn(); viewStateKey = vi.fn(() => 'stub-view-state')

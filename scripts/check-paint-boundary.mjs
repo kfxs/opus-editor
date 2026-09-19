@@ -43,7 +43,7 @@
  * all three back moved it by ZERO, which is the same statement from the other side.
  *
  * ⭐ The measure of INK is the SCENE: render, and diff the page's primitives against the recorded
- * ones. That census lives in `VexFlowRenderer.scene.test.ts` and it is the number to trust for
+ * ones. That census lives in `ScoreRenderer.scene.test.ts` and it is the number to trust for
  * *"how much is left"*. ⇒ **this file measures COUPLING** — how many places still need VexFlow's own
  * context — which is what a ratchet can enforce, and it is the only claim it makes.
  *

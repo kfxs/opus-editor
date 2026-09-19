@@ -87,7 +87,7 @@ slur included since it is the fifth member of the same idea):
 | `interactions/shortcutWiring.ts` | 117 | 104 | 125 | 93 | 118 | **557** |
 | **`engine/models/rebarOps.ts`** | 40 | 41 | 50 | 84 | 111 | **326** |
 | `interactions/HighlightController.ts` | 36 | 29 | 68 | 39 | 131 | **303** |
-| `engine/rendering/VexFlowRenderer.ts` | 38 | 38 | 34 | 47 | 55 | **212** |
+| `engine/rendering/ScoreRenderer.ts` | 38 | 38 | 34 | 47 | 55 | **212** |
 | `engine/ElementRegistry.ts` | 19 | 28 | 34 | 15 | 61 | **157** |
 | `windows/properties/PropertiesWidget.ts` | 35 | 16 | 20 | 42 | 30 | **143** |
 | `interactions/PaletteController.ts` | 24 | 17 | 18 | 26 | 37 | **122** |
@@ -403,10 +403,10 @@ or by whoever is not on Phase 1.
 | lines | function | what to do |
 |---|---|---|
 | 767 | `App.ts:113` · `createEditorApp` | Split the two phases it already is: `buildScoreDom()` returning the element bag, then `wireControllers(dom, state)` (22 constructions), then a short composer. 767 of `App.ts`'s 879 lines. |
-| 555 | `VexFlowRenderer.ts:3463` · `renderScore` | ⭐ **Flat, not nested** — 353 of 555 lines at one indent. A straight-line pipeline whose phases are *already marked by comment blocks*: resolve surface → resolve clefs per staff → compute widths → cast off → size the SVG → draw measures → post-passes. Extract each against the existing `RenderPass` state object. |
+| 555 | `ScoreRenderer.ts:3463` · `renderScore` | ⭐ **Flat, not nested** — 353 of 555 lines at one indent. A straight-line pipeline whose phases are *already marked by comment blocks*: resolve surface → resolve clefs per staff → compute widths → cast off → size the SVG → draw measures → post-passes. Extract each against the existing `RenderPass` state object. |
 | 438 | `SlurRenderer.ts:541` · `renderSlurs` | Assess only. Slur geometry is the most-revised area in the repo (`project_slur_plan` §12); do not touch it in the same pass as everything else. |
 | **375** | **`[A2]` `rebarOps.ts:320` · `pasteEvents`** | **⛔ Assess only — do NOT extract in this pass.** See below. |
-| 337 | `VexFlowRenderer.ts:1873` · `drawMeasureContent` | ⚠️ `measure` here is **the LANE**, not the bar (`reference_drawmeasurecontent_measure_is_the_lane`). Assess only; extract in a later pass if `renderScore` goes well. |
+| 337 | `ScoreRenderer.ts:1873` · `drawMeasureContent` | ⚠️ `measure` here is **the LANE**, not the bar (`reference_drawmeasurecontent_measure_is_the_lane`). Assess only; extract in a later pass if `renderScore` goes well. |
 
 **`[A2]` On `pasteEvents` — the 4th-largest function in the repo, and missing from the first draft.**
 It is an outlier function *and* a per-kind span site: **40 span-kind mentions across 8 distinct

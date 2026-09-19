@@ -10,8 +10,8 @@ import { fracCreate as frac, fracToNumber } from '../utils/fraction'
  * Subject: {@link tempoInsertAnchor}, beside this file. The `MusicEngine` is real (the score and its
  * onsets are its answers) and nothing here is drawn: the question is an address, ⛔ not a pixel.
  */
-vi.mock('../engine/rendering/VexFlowRenderer', () => ({
-  VexFlowRenderer: class {
+vi.mock('../engine/rendering/ScoreRenderer', () => ({
+  ScoreRenderer: class {
     initialize = vi.fn(); renderScore = vi.fn()
     getElementRegistry = vi.fn(() => ({
       clear: vi.fn(), register: vi.fn(), getAll: vi.fn(() => []),

@@ -6,7 +6,7 @@ import { drawGroupOf, svgNode } from './svgDrawGroup'
 /**
  * ⭐⭐ **THE SHORTHAND IS THE CONTRACT HERE**, not a formatting preference.
  *
- * Two things in this repo read a group's `transform` as TEXT — `VexFlowRenderer.moveMeasureGroup`,
+ * Two things in this repo read a group's `transform` as TEXT — `ScoreRenderer.moveMeasureGroup`,
  * which re-composes it by string when a bar moves without being re-engraved, and four specs that
  * assert it exactly. So `setPlacement(scaling(k))` must come out as `scale(k)` and nothing else, or
  * one bar's transform ends up in a different dialect from its neighbour's.

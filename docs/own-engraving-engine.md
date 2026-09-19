@@ -35,7 +35,7 @@
 > the ticks (`layout/tickCount`), the fonts (`fonts/fontCategories`, `fontFace`,
 > `rendering/glyphPainter`) and the painter (`rendering/SvgPainter`). ⚠️ **So every *"still
 > VexFlow's"*, *"VexFlow paints / places / measures"* below is a statement about the day it is dated,
-> ⛔ not about today.** Still spelled "VexFlow" until S15: `VexFlowRenderer` and the `vf-` SVG prefix
+> ⛔ not about today.** Still spelled "VexFlow" until S15: `ScoreRenderer` and the `vf-` SVG prefix
 > (now emitted by `SvgPainter`). §8's adapter directory `engrave/vexflow/` does not exist.
 
 ---
@@ -336,7 +336,7 @@ music goes is above it.**
 | Distinct drawing primitives our own renderers use | **20** |
 
 The monkeypatch is worth naming because it is the shape of the whole problem.
-`VexFlowRenderer.applyNoteOffsets` **replaces `sn.getModifierStartXY` per note at render time**,
+`ScoreRenderer.applyNoteOffsets` **replaces `sn.getModifierStartXY` per note at render time**,
 because `Articulation.draw()` re-centres any within-staff mark with `setOrigin(0.5, 0.5)` and
 `Element.setOriginX` **overwrites** `xShift` — so a manual shift is silently discarded. The fix had
 to reach the one value both the placement and the re-centring read. None of that is public
@@ -429,7 +429,7 @@ matter to *this* audit, and each is an argument the rest of this document makes 
    amount of reaching past the public type fixes that; only owning the layer does. That is a
    sharper version of §2.3's finding: VexFlow is a ruler, and a ruler cannot be told about time.
 2. ⭐ **It yields a LINE, not a pixel** — the exact shape §7.2's SCENE wants, and the reason the PDF
-   export (`export/scoreSvg.ts`, its own `VexFlowRenderer`) is carried by the same seam with nothing
+   export (`export/scoreSvg.ts`, its own `ScoreRenderer`) is carried by the same seam with nothing
    added. §0.4's one-line test decides that much: a headless export needs the identical position, so
    the rule cannot live where only the editor's renderer can reach it. ⭐⭐ **But *which stage* it
    belongs to is the sharper question, and it is the best probe this project has yet had for the
@@ -565,7 +565,7 @@ and the beam's lines did not reduce it, because the objects still painting thems
 
 | still paints itself | where | which phase takes it |
 |---|---|---|
-| **`Stave`** — ⛔ no longer for INK, ⭐ but it still PLACES the clef/meter `headerInk` already measures | `VexFlowRenderer` | ✅ **P5 took all of it**: the LINES (2026-09-01), the CLEF's glyph (09-02), the METER's (09-12), the opening BARLINE's (09-13) and the header's PLACEMENT (09-13) |
+| **`Stave`** — ⛔ no longer for INK, ⭐ but it still PLACES the clef/meter `headerInk` already measures | `ScoreRenderer` | ✅ **P5 took all of it**: the LINES (2026-09-01), the CLEF's glyph (09-02), the METER's (09-12), the opening BARLINE's (09-13) and the header's PLACEMENT (09-13) |
 | ~~**`Curve`** — the tie's and slur's arc~~ | ~~`rendering/curveArc` (4), `TieRenderer` (1)~~ | ✅ **U1, 2026-09-14** — `engine/engrave/curves/curveInk` |
 | ~~**`NoteHead` / `Accidental`** painted directly, ⛔ not through an `EngravedNote`~~ | ~~`rendering/FanPass` (2)~~ | ✅ **S10, 2026-09-18** — on our surface; see U2 |
 
@@ -627,7 +627,7 @@ slur). `rendering/curveArc` keeps the WEIGHT (the outline pin + `curveFillGap`);
    edges**. ⛔ `quadraticCurveTo` and `arc` stayed out.
 
 ⭐ **The dividend:** a slur's and a tie's arc are in the SCENE, so *"the tie runs between its
-noteheads and bows clear of the stems"* is a jsdom assertion (`VexFlowRenderer.scene.test.ts`), and
+noteheads and bows clear of the stems"* is a jsdom assertion (`ScoreRenderer.scene.test.ts`), and
 the arch's shape is arithmetic on the control points (`curveInk.test.ts`). ⛔ Still not an ink
 extent.
 
@@ -794,7 +794,7 @@ do exactly three things with it.
 
 | use | sites | what it asks the scene for |
 |---|---|---|
-| `setAttribute('transform', 'scale(k)')` | `VexFlowRenderer.renderMeasure`, `GutterRenderer`, `GroupSignGhost`, `staffScaleGroup.inStaffSpace` (serving 6 passes) | ⭐⭐ **rule 8's PLACEMENT**, already needed today |
+| `setAttribute('transform', 'scale(k)')` | `ScoreRenderer.renderMeasure`, `GutterRenderer`, `GroupSignGhost`, `staffScaleGroup.inStaffSpace` (serving 6 passes) | ⭐⭐ **rule 8's PLACEMENT**, already needed today |
 | `getBBox()` → `remove()` when empty | 6 ghosts | *"what did this group draw, and drop it if nothing"* |
 | `group.lastElementChild.setAttribute('data-half', …)` | `BarlineRenderer`, `barlineGap` | tag the last primitive |
 
@@ -822,7 +822,7 @@ singular placement rather than guessing an identity. It is pure arithmetic, so i
 in jsdom — §7.2.1's *"grow the testable half of the engine"*, arriving for free.
 
 🚨 **The one thing that made this more than mechanical: the transform string is OBSERVED.**
-`VexFlowRenderer.moveMeasureGroup` re-composes it by text when a bar moves without being
+`ScoreRenderer.moveMeasureGroup` re-composes it by text when a bar moves without being
 re-engraved, and four specs assert it exactly (`'scale(0.7)'`). So `svgDrawGroup` emits the SVG
 **shorthand wherever it is exactly equivalent** and a `matrix(...)` otherwise — which keeps every
 byte this renderer used to write. ⚠️ The brace is the one placement with no shorthand (a scale
@@ -881,7 +881,7 @@ order they come back in, what each one costs, and the research per piece.
 >
 > ✅ **P3a — the ledger lines (2026-09-01).** Chosen first because it was the only piece with
 > **three owners already** — VexFlow's `StaveNote.drawLedgerLines`, `FanPass.drawFanLedgerLines` and
-> `VexFlowRenderer.drawRestLedgerLines`, the last two written from VexFlow's source and kept in
+> `ScoreRenderer.drawRestLedgerLines`, the last two written from VexFlow's source and kept in
 > agreement by hand. 🚨 §3.1's *"the second owner is the tell"*, three times inside one element.
 > ⭐ `engine/engrave/notes/ledgerLines.ts` now owns the rule **and** the ink; **`engrave/` exists**,
 > fenced by `lint:boundary` (rule 11) and arriving on the commit that touched it, ⛔ never as a
@@ -889,7 +889,7 @@ order they come back in, what each one costs, and the research per piece.
 >
 > ⭐⭐ **And the gate of §6.3 moved for the first time from the inside:** ledger lines draw through a
 > `DrawContext`, so they are in the SCENE — *"one ledger line per bar, at this y, marching left to
-> right"* is now a jsdom assertion in `VexFlowRenderer.scene.test.ts`. ⛔ No pixel moved: the generic
+> right"* is now a jsdom assertion in `ScoreRenderer.scene.test.ts`. ⛔ No pixel moved: the generic
 > rule reproduces VexFlow's `doubleWidth` case exactly, and that equivalence is a spec rather than an
 > assumption.
 >
@@ -1059,7 +1059,7 @@ themselves keep the VexFlow context, and **no pixel moves**.
 derives the offset from the thickness instead (`y + t/2`), which is identical at 1 and correct above
 it — so **P5c cannot silently break P5a**.
 
-⭐ `STAVE_LINE_WIDTH_PX` moved from `rendering/VexFlowRenderer` to the new module, which is exactly
+⭐ `STAVE_LINE_WIDTH_PX` moved from `rendering/ScoreRenderer` to the new module, which is exactly
 what its own comment had been waiting for (*"when the engine draws its own staves…"*), and the
 renderer's `setLineWidth` pin is gone: `drawStaffLines` sets the width from the same constant that
 positions the stroke.
@@ -1088,7 +1088,7 @@ at 18/18.
 line* and the font does the rest. ⛔ Which is why nothing in the module nudges.
 
 ⭐⭐ **The dividend, and it is the P5a one again: a clef's geometry is a UNIT TEST.**
-`VexFlowRenderer.scene.test.ts` now asserts, in jsdom, that the treble clef's baseline lands
+`ScoreRenderer.scene.test.ts` now asserts, in jsdom, that the treble clef's baseline lands
 **exactly on the second line up** — ⭐ checked against P5a's own staff lines read back out of the same
 scene, so it is a statement about the RULE rather than about the number 55. That assertion needed a
 browser *and* a font the day before.
@@ -1157,7 +1157,7 @@ VexFlow's unsourced `lineShift` arrive at the ink as resolved ys, and the module
 loud that nothing may be added there. ⭐ The same call P5b made for `Clef.types`.
 
 ⭐⭐ **The dividend, and it is P5a's again: a meter's geometry is a UNIT TEST.**
-`VexFlowRenderer.scene.test.ts` now asserts in jsdom that the two numerals land on the 2nd and 4th
+`ScoreRenderer.scene.test.ts` now asserts in jsdom that the two numerals land on the 2nd and 4th
 staff lines — ⭐ read back out of P5a's own staff lines in the same scene, so it is a statement about
 the RULE — and that the pair is symmetric about the middle line as a RATIO of the staff's height,
 ⛔ not in pixels.
@@ -1249,7 +1249,7 @@ kind, which `BarlineRenderer` draws.)
 🚨 **One finding, reported and ⛔ not fixed in that commit — ✅ and then fixed in the next one, which
 is the step below.** `Stave.getBottomLineBottomY()` is `getYForLine(last) + (getStyle().lineWidth ??
 1)`; nothing sets a stave style, so it added **1** while **P5c** had made a staff line's ink **1.1
-px**. It was pinned as a **passing** assertion in `VexFlowRenderer.scene.test.ts` so that the day the
+px**. It was pinned as a **passing** assertion in `ScoreRenderer.scene.test.ts` so that the day the
 edge got an owner the spec would fail and say why. ⭐ It did.
 
 #### ✅ P5b, fourth step — WHERE A BARLINE STOPS (2026-09-13), and it is a RULE rather than a repair
@@ -1318,7 +1318,7 @@ cause. Full workings in `docs/header-spacing-research.md` **§4.4**; the conclus
   ⭐ `BETWEEN_PARTS` is the only header gap still expressed **box to box**; `CLEF_TO_KEY_INK` and
   `KEY_TO_METER_INK` are both ink to ink.
 
-⭐⭐ **The template already exists and ships**: `VexFlowRenderer.placeMeterAfterKeySignature()` asks
+⭐⭐ **The template already exists and ships**: `ScoreRenderer.placeMeterAfterKeySignature()` asks
 the previous sign where its INK ends, adds a named staff-space constant, converts that ink target to
 an ORIGIN through `glyphBox('timeSig4').left`, and `setX`es the modifier — *"PLACED, not shifted…
 the number in the style sheets is WHITE SPACE, not an origin distance."* ⇒ 🚨 **the same gap is
@@ -1353,7 +1353,7 @@ baseline.
 
 ⭐⭐ **THE DIVIDEND, and it is the one this phase was named for: the header's horizontal ORDER is a
 jsdom assertion.** The meter's x came from `Stave.format()`'s walk — `x += clef.getWidth()`, a
-runtime `measureText` — plus the gap as `customPadding`. `VexFlowRenderer.scene.test.ts` held that as
+runtime `measureText` — plus the gap as `customPadding`. `ScoreRenderer.scene.test.ts` held that as
 a **passing** assertion of the limit (*"a zero-width clef advances the walk by nothing"*, clef and
 meter at the same x), written so it would fail the day the placement became ours. ⭐ **It failed in
 the run that landed this**, and now states the rule instead: the meter stands right of the clef, at
@@ -1554,7 +1554,7 @@ the same shift.
 
 🚨 **And a fourth, about the scene itself: `recordScene` on an unchanged score records almost
 nothing.** A render that follows no edit REUSES its measures (P5.4) and a reused bar draws nothing —
-measured, ONE barline out of a whole page. ⇒ `VexFlowRenderer.forgetReuse()` + the
+measured, ONE barline out of a whole page. ⇒ `ScoreRenderer.forgetReuse()` + the
 `MusicEngine.recordFullScene()` pair, and ⭐ **anything that wants "the scene of what is on screen"
 must say so explicitly.**
 
@@ -1747,7 +1747,7 @@ tees it onto the real painter, so a render paints exactly as before *and* hands 
 of plain typed values — glyph, text, rect, path, group — with **no DOM and no VexFlow**
 (`lint:boundary` fences `scene/` the way it fences `paint/` and `fonts/`).
 
-⭐⭐ **The payoff, demonstrated rather than promised:** `VexFlowRenderer.scene.test.ts` renders a real
+⭐⭐ **The payoff, demonstrated rather than promised:** `ScoreRenderer.scene.test.ts` renders a real
 four-bar score **in jsdom** and asserts that every bar's barline stands at an ascending x, that each
 is taller than it is wide, and that none is at the origin. ⚠️ **Every one of those needed a browser
 before this file existed.** §7.2's third promise — the golden becoming a diff that names *which
@@ -1909,7 +1909,7 @@ suspect this might not be finishable at all.
 
 ### 7.1 What today's shape actually costs
 
-`VexFlowRenderer.renderScore()` walks the score and, **in one pass**, decides which symbols there
+`ScoreRenderer.renderScore()` walks the score and, **in one pass**, decides which symbols there
 are, asks VexFlow where they go, and emits SVG. So **the geometry exists only as SVG**, and there is
 no artefact between "the music" and "the DOM". (⚠️ 2026-09-19: VexFlow is removed — *where they go* is answered by our own
 objects now, and every primitive drawn is recorded in the SCENE, `engine/scene/`.)
@@ -2260,7 +2260,7 @@ has never been a second place to put anything.
 
 | today | goes to | note |
 |---|---|---|
-| `VexFlowRenderer.ts` (**4,467**) | splits across `engrave/*`, `paint/svg/`, `engrave/vexflow/` | ⭐ this split IS the project |
+| `ScoreRenderer.ts` (**4,467**) | splits across `engrave/*`, `paint/svg/`, `engrave/vexflow/` | ⭐ this split IS the project |
 | `NoteBuilder`, `chordHeadLayout`, `chordAccidentalColumns`, `dotPlacement`, `ledgerAccidentalClearance` | `engrave/notes/` | P3's home; three of the five are already ours |
 | `FanPass`, `FannedBeam`, `CrossBarBeams`, `beamInk`, `CenteredTremolo`, `TwoNoteTremolo` | `engrave/beams/` | already ours outright |
 | `SlurRenderer`, `TieRenderer`, `curveArc`, `curveStyle`, `slur*`, `tie*`, `brokenSlurTilt` | `engrave/curves/` | already ours outright |

@@ -19,8 +19,8 @@ import { staffOf } from '@/utils/lanes'
  * — whatever the box encloses is what Delete clears. So the assertions are about the RECTANGLE, on
  * both axes, and the single-cell case is just a rectangle of one.
  */
-vi.mock('../engine/rendering/VexFlowRenderer', () => ({
-  VexFlowRenderer: class {
+vi.mock('../engine/rendering/ScoreRenderer', () => ({
+  ScoreRenderer: class {
     initialize = vi.fn(); renderScore = vi.fn()
     getElementRegistry = vi.fn(() => ({
       clear: vi.fn(), register: vi.fn(), getAll: vi.fn(() => []),

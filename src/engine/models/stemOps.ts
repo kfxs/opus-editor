@@ -26,7 +26,7 @@
  * not beamed is a group of one, which is the same rule and the behaviour that was always there.
  *
  * ⭐ **And the group's own rule lives HERE, once** ({@link beamGroupStemDirection}) — moved out of
- * `VexFlowRenderer`, which now calls it to draw. Two answers to *"which way does this group point?"*
+ * `ScoreRenderer`, which now calls it to draw. Two answers to *"which way does this group point?"*
  * is precisely the bug above: the flip had its own, and it disagreed with the ink.
  */
 import type { Chord, ChordRest, Clef, Measure, Score, StemDirection } from '@/types/music'
@@ -40,7 +40,7 @@ import { staffSlots } from './staffContent'
 
 /**
  * ⭐⭐ **THE SIDE A BEAM GROUP'S STEMS TAKE** — the drawing's rule, and since 2026-08-31 the flip's
- * too. Moved here from `VexFlowRenderer.calculateBeamGroupStemDirection` unchanged.
+ * too. Moved here from `ScoreRenderer.calculateBeamGroupStemDirection` unchanged.
  *
  * In order: an explicit `stemDirection` on ANY slot of the group wins (one member's flip is the
  * group's, which is what makes {@link flipStems}' write legible); then the multi-voice default the
@@ -160,7 +160,7 @@ function beamGroupOf(score: Score, measure: Measure, staffId: string | undefined
 
 /**
  * The stem this LANE is forced to by the multi-voice convention (V1/V3 up, V2/V4 down), or undefined
- * on a staff with one voice in this bar — the renderer's own gate, mirrored (`VexFlowRenderer`:
+ * on a staff with one voice in this bar — the renderer's own gate, mirrored (`ScoreRenderer`:
  * `stemUp = voice % 2 === 0`).
  *
  * 🚨 It is why this is not a pitch question: in a two-voice bar the shown stem is the voice's, so a

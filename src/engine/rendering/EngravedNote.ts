@@ -1473,7 +1473,7 @@ export class EngravedNote {
 
   /**
    * ⭐ S5a — the editor's hold on this note's marks above and below: its hand offset and stem alignment
-   * (`engrave/notes/modifierStart`'s {@link MarkAnchor}). Set by `VexFlowRenderer.applyNoteOffsets`
+   * (`engrave/notes/modifierStart`'s {@link MarkAnchor}). Set by `ScoreRenderer.applyNoteOffsets`
    * after the format; absent on every note that needs neither.
    */
   private markAnchor: MarkAnchor | undefined

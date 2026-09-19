@@ -7,7 +7,7 @@ import {
   segmentEndpointOffsetPx,
   type SlurSegment,
 } from './SlurRenderer'
-import type { MeasureWidthInfo, MeasureBounds } from './VexFlowRenderer'
+import type { MeasureWidthInfo, MeasureBounds } from './ScoreRenderer'
 import { type SystemEdgeLookup } from './systemEdges'
 import type { StaffFrame } from '@/engine/engrave/staff/staffFrame'
 import { slurArchHeight } from './slurArchHeight'

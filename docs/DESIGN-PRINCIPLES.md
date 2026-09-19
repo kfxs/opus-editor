@@ -67,7 +67,7 @@ render/viewport layer.
 - Layout results (positions, breaks, spacing) are derived/cached **views** over
   content — never stored back into `ScoreModel` or its JSON.
 
-This is the existing `ScoreModel` ↔ `VexFlowRenderer` / `ViewportModel` /
+This is the existing `ScoreModel` ↔ `ScoreRenderer` / `ViewportModel` /
 `CoordinateMapper` split; the constraint is to **hold the line** as engraving grows.
 
 ⭐ **There are THREE compartments, not two, and the third is saved too.** *Content* is what the music

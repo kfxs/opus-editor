@@ -48,7 +48,7 @@ globals: one value must not mean two things depending on who is asking.
 1. `Clef` union in `src/types/music.ts` gains `'treble8vb'` and `'bass8vb'`.
 2. Both clef tables gain entries copied from their base clef (see §1).
 3. The six `addClef` sites pass VexFlow's annotation — `stave.addClef('treble', size, '8vb')`.
-   Sites: `VexFlowRenderer.ts:1193, 1196, 2211, 2213, 2865` and `GutterRenderer.ts:96`. A
+   Sites: `ScoreRenderer.ts:1193, 1196, 2211, 2213, 2865` and `GutterRenderer.ts:96`. A
    `clefToVexflow(clef): [type, annotation]` helper so the mapping exists ONCE.
    ⚠️ **2026-09-19: this item is stale — VexFlow is removed.** There is no `stave.addClef` or VexFlow
    annotation any more: a clef is our `rendering/EngravedClef` (added through `addClefSign`), whose

@@ -24,12 +24,12 @@ The rows come from `docs/engraving-number-inventory.md`: §2 "Page / system layo
 | R2 | `LAYOUT_CONFIG.STAVE_HEIGHT` | 12 sp | `rendering/layoutConfig.ts:125` | T |
 | R3 | `LAYOUT_CONFIG.MAX_MEASURE_WIDTH` | 40 sp | `rendering/layoutConfig.ts:100` | T |
 | R4 | `USER_SPACE_LINE_FRACTION` | 0.6 of the line | `rendering/MeasureLayout.ts:514` (read at `:547`) | T |
-| R5 | format-width right reserve | 15 px = 1.5 sp (fixed at 10 px/sp) | `rendering/VexFlowRenderer.ts:2180` | T |
+| R5 | format-width right reserve | 15 px = 1.5 sp (fixed at 10 px/sp) | `rendering/ScoreRenderer.ts:2180` | T |
 | R5′ | ⚠️ its ghost duplicate: reserve, floor, fallback | 15 px / 50 px / `staveWidth − 100` | `rendering/GhostRenderer.ts:272-273` | ? (the inventory calls it a duplicate) |
 | R6 | `SKETCH_CANVAS` | 1000 px wide with a 20 px margin (100 sp, 2 sp margin, 96 sp of content) | `layout/surface.ts:104` | T |
 | R7 | `A4_NORMAL` margins | 15 mm on every side = 8.57 sp | `layout/surface.ts:111` | ⭐ already answered (§1) |
 | R8 | staff size on the page | 1.75 mm per sp | `layout/surface.ts:73` | S (already sourced) |
-| R9 | page top margin → first staff's top line | 4 sp — VexFlow's default headroom, never chosen here | `layout/pageCastOff.ts:78` + `rendering/VexFlowRenderer.ts:2566` | not in the inventory; found while tracing R1/R7 |
+| R9 | page top margin → first staff's top line | 4 sp — VexFlow's default headroom, never chosen here | `layout/pageCastOff.ts:78` + `rendering/ScoreRenderer.ts:2566` | not in the inventory; found while tracing R1/R7 |
 
 **Out of scope**, recorded here only as the armed default with a pointer:
 
@@ -55,7 +55,7 @@ The rows come from `docs/engraving-number-inventory.md`: §2 "Page / system layo
 | R3 | `bar-width-plan.md` §3; `MeasureLayout.ts:261-270` | **The cap is a preference; the floor is the music.** A bar whose incompressible demand exceeds 40 sp takes the room it needs. | — |
 | R4 | `bar-width-plan.md` §3 | The 0.6 cap applies to **dead gaps** (leading spaces) only. The stretch pool was uncapped after a report from use. | the 0.6 itself has no source |
 | R4 | `note-spacing-plan.md` §3 | Option B: "the gap you drag is the gap you get". | — |
-| R5 | `note-spacing-plan.md` §4 and Review record R6 | Records the literal and its 50 px floor. ⚠️ It cites `VexFlowRenderer.ts:1053`; the line is now `:2180`. | no source |
+| R5 | `note-spacing-plan.md` §4 and Review record R6 | Records the literal and its 50 px floor. ⚠️ It cites `ScoreRenderer.ts:1053`; the line is now `:2180`. | no source |
 | R6 | `layout-plan.md` §1 and §2 | *"1000 px isn't any paper size"*. ⭐ The invariant: **a canvas has no physical size**, so "how many mm wide is the canvas?" must have no answer. | — |
 | R7 | ⭐ `vertical-spacing-research.md` §2.6 | **Gould p. 481**: *"at least 15mm/½" for all borders around the printed area"*. **Ross**: *"at least one-half inch on all sides"*. The printed area includes titles and page numbers. | ⚠️ page correction in §2.3 below |
 | R7 | same doc, §5 | System → page-margin distance is a **residual** in the books: UNKNOWN as a number. | — |
@@ -245,15 +245,15 @@ in the same units, so every ratio below is exact whatever Verovio's physical siz
 | row | what it actually does | file:line | decided? |
 |---|---|---|---|
 | R1 | A one-staff system = 4 sp of lines + **11 sp** to the next system's top line (`systemStaffTops`) | `layout/staffStride.ts:221` | T — *"still arbitrary"* (`:105-106`) |
-| R2 | ⚠️ **No longer the stride.** It is read in only four places. **(a)** The cull-window box (`rendering/VexFlowRenderer.ts:4093`). **(b)** The height of a measure's and a system's highlight box (`MusicEngine.ts:6301, 6318`). **(c)** `VIEWPORT_HEIGHT` = 3.5 × (12 + `VERTICAL_SPACING` 3) + 40 px (`rendering/layoutConfig.ts:153-155`). **(d)** The export's initial SVG size, which the render overwrites (`export/scoreSvg.ts:72`). Its 12 sp equals VexFlow's default stave box, 4 above + 4 lines + 4 below (§3.4). No comment says it came from there. | `rendering/layoutConfig.ts:125` | T |
+| R2 | ⚠️ **No longer the stride.** It is read in only four places. **(a)** The cull-window box (`rendering/ScoreRenderer.ts:4093`). **(b)** The height of a measure's and a system's highlight box (`MusicEngine.ts:6301, 6318`). **(c)** `VIEWPORT_HEIGHT` = 3.5 × (12 + `VERTICAL_SPACING` 3) + 40 px (`rendering/layoutConfig.ts:153-155`). **(d)** The export's initial SVG size, which the render overwrites (`export/scoreSvg.ts:72`). Its 12 sp equals VexFlow's default stave box, 4 above + 4 lines + 4 below (§3.4). No comment says it came from there. | `rendering/layoutConfig.ts:125` | T |
 | R3 | `min(max(natural, MIN + signRoom), MAX + signRoom)`, then max'ed with the incompressible floor | `rendering/MeasureLayout.ts:326-333` | T (the cap); the floor-over-cap was reported by him (`bar-width-plan.md`) |
 | R4 | The authored leading space on a line is scaled down once it exceeds 0.6 × the available width. The stretch pool is not capped. | `rendering/MeasureLayout.ts:547` | T; the uncapping was reported from use (`bar-width-plan.md` §3) |
-| R5 | `formatWidth = max(noteAreaWidth − 15 − userSpacePx, 50)` feeds `formatter.format`. ⚠️ Then `applySpacingPass` **overwrites every tick x** from `room`, which contains **no 15 px term** (`:2202-2203`). The 15 px decides placement only when that pass returns `null`: fewer than 2 columns, no contexts, or a bad meter (`rendering/spacingPass.ts:114-125`). It came from commit `4e4295b` (2025-12-19), *"Padding before barline"*, with no source. | `rendering/VexFlowRenderer.ts:2180` | T |
+| R5 | `formatWidth = max(noteAreaWidth − 15 − userSpacePx, 50)` feeds `formatter.format`. ⚠️ Then `applySpacingPass` **overwrites every tick x** from `room`, which contains **no 15 px term** (`:2202-2203`). The 15 px decides placement only when that pass returns `null`: fewer than 2 columns, no contexts, or a bad meter (`rendering/spacingPass.ts:114-125`). It came from commit `4e4295b` (2025-12-19), *"Padding before barline"*, with no source. | `rendering/ScoreRenderer.ts:2180` | T |
 | R5′ | The same 15 px and 50 px, but **without** subtracting user space, and with a separate `staveWidth − 100` fallback when the note area is ≤ 0. Nothing ties it to R5. | `rendering/GhostRenderer.ts:272-273` | T |
 | R6 | `{ kind: 'canvas', widthPx: 1000, marginPx: 20 }`: 100 sp wide, 2 sp on every side, 96 sp of content. It is the non-layout surface in `PaletteController.ts:307`. | `layout/surface.ts:104` | T (called *"historical"*) |
 | R7 | A4 with 15 mm on every side. At 1.75 mm/sp that is a 120 × 169.7 sp page, 8.57 sp margins and 102.86 sp of content (1028.6 px). It is the app's default surface (`App.ts:716`). | `layout/surface.ts:107-113` | sourced (§1) |
 | R8 | `PX_PER_MM = STAFF_SPACE_PX / 1.75` | `layout/surface.ts:73, 94` | S (MuseScore `spatium`) |
-| R9 | A system's top is placed at `marginTopPx + used` (`layout/pageCastOff.ts:78`). The stave is a default-option `EngravedStave` (`rendering/VexFlowRenderer.ts:2566`), so its top line sits VexFlow's **4 sp** of headroom below that (plus the first page's header head). | as listed | inherited from VexFlow, never chosen |
+| R9 | A system's top is placed at `marginTopPx + used` (`layout/pageCastOff.ts:78`). The stave is a default-option `EngravedStave` (`rendering/ScoreRenderer.ts:2566`), so its top line sits VexFlow's **4 sp** of headroom below that (plus the first page's header head). | as listed | inherited from VexFlow, never chosen |
 
 ---
 
@@ -306,11 +306,11 @@ today's number, which stays the default.
 
 | preset | sp | what it measures | citation |
 |---|---|---|---|
-| **today (default)** | **1.5** (15 px fixed at 10 px/sp) | subtracted from VexFlow's format width (⚠️ 2026-09-19: ours now, `rendering/columnFormat`); ⚠️ moves pixels only when `applySpacingPass` returns `null` | `rendering/VexFlowRenderer.ts:2180`; `GhostRenderer.ts:272` |
+| **today (default)** | **1.5** (15 px fixed at 10 px/sp) | subtracted from VexFlow's format width (⚠️ 2026-09-19: ours now, `rendering/columnFormat`); ⚠️ moves pixels only when `applySpacingPass` returns `null` | `rendering/ScoreRenderer.ts:2180`; `GhostRenderer.ts:272` |
 | VexFlow `formatToStave` | 2.2 | `Stave.defaultPadding` = padding 1.2 + endPaddingMax 1.0 | `formatter.js:603`; `stave.js:33-35`; `metrics.js:132-133` |
 | VexFlow `Stave.rightPadding` | 1.0 | `endPaddingMax` alone | `stave.js:36-38`; `metrics.js:133` |
 | VexFlow minimum end padding | 0.5 | `endPaddingMin` | `metrics.js:134`; `formatter.js:424` |
-| 0 | 0 | the spacing model's `room` (it already carries the run-out row) | `VexFlowRenderer.ts:2202-2203`; the rows in `layout/spacingPadding.ts` |
+| 0 | 0 | the spacing model's `room` (it already carries the run-out row) | `ScoreRenderer.ts:2202-2203`; the rows in `layout/spacingPadding.ts` |
 | the ghost's floor / fallback | 5 sp (50 px) / `staveWidth − 10 sp` | a clamp, not a gap | `GhostRenderer.ts:273` |
 
 ### R6 — the sketch canvas (no physical size, `layout-plan.md` §2)
@@ -352,7 +352,7 @@ millimetres (`layout-plan.md` §2).
 
 | preset | sp | citation |
 |---|---|---|
-| **today (default)** | **4** (VexFlow headroom) | `layout/pageCastOff.ts:78`; `VexFlowRenderer.ts:2566`; `stave.js:51, 194-198` |
+| **today (default)** | **4** (VexFlow headroom) | `layout/pageCastOff.ts:78`; `ScoreRenderer.ts:2566`; `stave.js:51, 194-198` |
 | MuseScore | 7 | `styledef.cpp:52`; `pagelayout.cpp:193` |
 | LilyPond | 4 basic (6 to the middle line), + 1 sp ink padding | `paper-defaults-init.ly:78-80` |
 | books | residual of the ink: *"leave room for leger line notes"* | Ross p. 61; Gould p. 488 |
@@ -399,11 +399,11 @@ Found in passing. ⛔ Nothing was edited.
    holds (11 > 6.5), but the figure is stale. Also, `:46` still reads *"**5**, and here is where it
    comes from"* above the 6.5 constant.
 4. `layout/staffStride.ts:15-16` calls `STAVE_HEIGHT` *"the room one staff's own ink occupies"*, and
-   `rendering/VexFlowRenderer.ts:3607-3608` calls it *"the per-line vertical allocation (staff + gap
+   `rendering/ScoreRenderer.ts:3607-3608` calls it *"the per-line vertical allocation (staff + gap
    to the next system)"*. Neither is what it does any more (§4, R2).
 5. `rendering/layoutConfig.ts:126-128` still describes `VERTICAL_SPACING` 3 sp as *"the clearance
    below a staff, to the next one"*. Its only reader is `VIEWPORT_HEIGHT` (`:154`). The comment at
    `:150` calls `STAVE_HEIGHT + VERTICAL_SPACING` *"the per-line content height"*; the real one-staff
    stride is 4 + 11 = 15 sp. The two sums agree by coincidence.
-6. `note-spacing-plan.md` §4 cites `VexFlowRenderer.ts:1053` for `formatWidth`; it is now `:2180`.
+6. `note-spacing-plan.md` §4 cites `ScoreRenderer.ts:1053` for `formatWidth`; it is now `:2180`.
    ⚠️ And since spacing-model P4, `applySpacingPass` makes the 15 px moot wherever it succeeds (§4, R5).

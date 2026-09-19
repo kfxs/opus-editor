@@ -49,7 +49,7 @@ project and **preserving the framework-agnostic boundary**.
 - **`ScoreModel` has exactly one instance field: `score`.** Every method is a function
   over `this.score`. Sub-modules just take `score` (or a `measure`) as a parameter →
   **ScoreModel is the safest file to split.**
-- **`VexFlowRenderer` has 13 instance fields**; its sub-renderers *write* into shared
+- **`ScoreRenderer` has 13 instance fields**; its sub-renderers *write* into shared
   per-render maps (`staveNoteMap`, `slurGroupMap`, `dynamicObjectMap`, `tupletObjectMap`,
   `measureBounds`) and draw to a `context` rebuilt each render → extractions need a
   per-render context object first (step B0). **Caveat:** those maps are not purely
@@ -63,7 +63,7 @@ project and **preserving the framework-agnostic boundary**.
 
 - **Stateful orchestration over the score** → `src/engine/models/` (next to `ScoreModel`).
 - **Genuinely pure helpers** (no mutation, inputs → output) → `src/utils/` (with `rebar`/`restFill`).
-- **Rendering collaborators** → `src/engine/rendering/` (next to `VexFlowRenderer`).
+- **Rendering collaborators** → `src/engine/rendering/` (next to `ScoreRenderer`).
 
 ---
 
@@ -72,7 +72,7 @@ project and **preserving the framework-agnostic boundary**.
 | Target | Lines | Splittability | Risk | Value | Verdict |
 |---|---|---|---|---|---|
 | **ScoreModel** | 2208 | High (1 field) | Low | High | **Tier A — do first** |
-| **VexFlowRenderer** | 2798 | Medium (needs render-context) | Medium | High | **Tier B — second, selective** |
+| **ScoreRenderer** | 2798 | Medium (needs render-context) | Medium | High | **Tier B — second, selective** |
 | **MouseController** | 1293 | Medium (tool-strategy) | Medium-High | Medium | Tier C — defer to next tool |
 | **MusicEngine** | 1393 | Low (already a facade) | Low | Low | Opportunistic only |
 | **App.vue** | 935 | High (Vue components) | Low | Medium | Separate Vue track |
@@ -138,7 +138,7 @@ high-clarity win at near-zero risk; the deeper ~1300 target needs A4.
 
 ---
 
-# Tier B — VexFlowRenderer (second; selective; one enabling step first)
+# Tier B — ScoreRenderer (second; selective; one enabling step first)
 
 Separable, but only after the per-render state is bundled.
 
@@ -202,7 +202,7 @@ Separable, but only after the per-render state is bundled.
 **Leave whole:** the core `renderMeasure` / `buildAndDrawStave` / voice-mode /
 cautionary-clef-and-TS path — the tightly-coupled heart of one render.
 
-**Net:** VexFlowRenderer ~2798 → ~1800–1900 core + 4 focused renderers. Visual-regression
+**Net:** ScoreRenderer ~2798 → ~1800–1900 core + 4 focused renderers. Visual-regression
 surface is real → this tier leans hardest on the manual verify.
 
 ---
@@ -250,7 +250,7 @@ surface is real → this tier leans hardest on the manual verify.
 2. **A2, A3** — finish the easy ScoreModel wins.
 3. **Pause & reassess.** ScoreModel at ~1870 (A1–A3 done; A4 not yet) may already be
    comfortable → a legitimate stop. (Reaching ~1300 requires A4; see Tier A net.)
-4. **B0 → B1 → B2 → B3 → B4** if VexFlowRenderer is still the file that hurts.
+4. **B0 → B1 → B2 → B3 → B4** if ScoreRenderer is still the file that hurts.
 5. **A4 (rebar orchestration)** only if you want ScoreModel under ~1000 and accept the care.
 6. **Tier C** — only when a feature forces it.
 

@@ -13,7 +13,7 @@
  */
 import { describe, it, expect } from 'vitest'
 import { ScoreModel } from '../models/ScoreModel'
-import { VexFlowRenderer } from './VexFlowRenderer'
+import { ScoreRenderer } from './ScoreRenderer'
 import { staffLinesPx } from '@/engine/layout/staffStride'
 import { fracCreate as frac } from '@/utils/fraction'
 
@@ -49,26 +49,26 @@ function buildScore(): ScoreModel {
  * bar that moves without looking different. A fresh renderer would draw everything from scratch
  * and prove nothing about the path the app actually takes (docs/staff-size-plan.md §7).
  */
-function makeRenderer(): VexFlowRenderer {
+function makeRenderer(): ScoreRenderer {
   const container = document.createElement('div')
   document.body.appendChild(container)
-  const renderer = new VexFlowRenderer(container)
+  const renderer = new ScoreRenderer(container)
   renderer.initialize(1200, 600)
   return renderer
 }
 
-function render(model: ScoreModel, renderer: VexFlowRenderer): VexFlowRenderer {
+function render(model: ScoreModel, renderer: ScoreRenderer): ScoreRenderer {
   renderer.renderScore(model.getScore())
   return renderer
 }
 
 /** How tall the drawn SVG came out (the sketching canvas grows with the music). */
-function svgHeight(renderer: VexFlowRenderer): number {
+function svgHeight(renderer: ScoreRenderer): number {
   return Number(renderer.getSVGElement()?.getAttribute('height'))
 }
 
 /** The top staff line of a measure's staff, as tier 1 registered it. */
-function staffTop(renderer: VexFlowRenderer, measure: number, staff: number): number {
+function staffTop(renderer: ScoreRenderer, measure: number, staff: number): number {
   const geo = renderer.getElementRegistry().getStaffGeometry(measure, staff)
   expect(geo).not.toBeNull()
   return geo!.lineYPositions[0]
@@ -77,7 +77,7 @@ function staffTop(renderer: VexFlowRenderer, measure: number, staff: number): nu
 /** The top of staff 0's SLOT — where the casting-off put the bar, before the staff's own ink
  *  arranges itself inside it. Distinct from {@link staffTop} since P4: a staff drawn small sits its
  *  five lines closer to the top of its slot, because the room above them is ink too. */
-function slotTop(renderer: VexFlowRenderer, measure: number): number {
+function slotTop(renderer: ScoreRenderer, measure: number): number {
   return renderer.getAllMeasureBounds().get(measure)!.measureY
 }
 

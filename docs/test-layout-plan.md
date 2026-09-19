@@ -88,7 +88,7 @@ set is smaller than the raw 46 — many of the `interactions/` and `rendering/`
 entries do have a subject sitting beside them, just not in their name
 (`barWidthDrag`/`stemSelection`/`noteSpacingDrag` → `MouseController`;
 `barlineHighlight` → `HighlightController`; `tier1Geometry`/`culling`/`fanRender`
-→ `VexFlowRenderer`).
+→ `ScoreRenderer`).
 
 ## Settled decisions
 
@@ -202,7 +202,7 @@ was written about and the one with no judgement calls left in it.
 ### Phase 2 — Rename the remaining topic-split specs in place
 
 The ~18 elsewhere, using the Phase 0 table: `rendering/barWidthLayout` →
-`MeasureLayout.barWidth`, `rendering/tier1Geometry` → `VexFlowRenderer.tier1Geometry`,
+`MeasureLayout.barWidth`, `rendering/tier1Geometry` → `ScoreRenderer.tier1Geometry`,
 `interactions/stemSelection` → `MouseController.stemSelection`, and so on. Still
 same-directory `git mv`, still zero import rewrites — but each name is a judgement
 made in Phase 0 rather than a mechanical transform.
@@ -300,7 +300,7 @@ Phases 0–3 done; 2436 tests green and unchanged at every step, `build:check` c
   split across the directories as tabulated above.
 - **Phase 1** — 7 `engine/models/` chapters → `ScoreModel.<topic>.test.ts`.
 - **Phase 2** — 27 renames, each after the module its `expect(...)` identifiers name:
-  `MeasureLayout` ×6, `VexFlowRenderer` ×5, `MusicEngine` ×3, `MouseController` ×3, and one each
+  `MeasureLayout` ×6, `ScoreRenderer` ×5, `MusicEngine` ×3, `MouseController` ×3, and one each
   for `ElementRegistry`, `playbackSchedule`, `NoteBuilder`, `HighlightController`,
   `SelectionController`, `FanEditController`, `keypadSync`, `ShortcutConfig`, `keypadPress`.
   `rendering/crossBarBeams.test.ts` turned out not to be homeless at all — its subject
@@ -352,10 +352,10 @@ with no local contract between them:
 |---|---|---|
 | `models/rebarOps.ts` (1,387) | `rebarOps.anchors` / `.spans` / `.voices` / `.timeSignature.test.ts` | 28 `it`s moved out of `ScoreModel.test.ts` (2,518 → 1,967 lines) |
 | `rendering/GhostRenderer.ts` (1,017) | `GhostRenderer.contextLeak.test.ts` | renamed from `ghostContextLeak.test.ts`, and off the `lint:testnames` allowlist |
-| `rendering/FanPass.ts` (746) | `FanPass.test.ts` | renamed from `VexFlowRenderer.fan.test.ts` |
+| `rendering/FanPass.ts` (746) | `FanPass.test.ts` | renamed from `ScoreRenderer.fan.test.ts` |
 
 Both renames are decision 4 applied one level further in: the file builds a `MusicEngine` / a
-`VexFlowRenderer` because that is the only way to reach the code, but every assertion is on ink the
+`ScoreRenderer` because that is the only way to reach the code, but every assertion is on ink the
 *extracted* module draws. The engine is the fixture. Note this shrinks the 3b allowlist by one —
 `ghostContextLeak` was listed there as unable to satisfy the rule by renaming, because its subject
 was read as `MusicEngine` one directory up. Its subject was sitting beside it the whole time.

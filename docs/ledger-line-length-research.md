@@ -267,7 +267,7 @@ Finale Broadway 0.19 and MuseJazz 0.20. ⛔ Thickness stays decided; this only f
   to the rightmost head's right edge, ± overhang. That covers Gould p. 27's full-width and
   single-width cases in one sentence.
 - **Fans**: `FAN_LEDGER_OVERHANG = 3` px (`src/engine/rendering/FanPass.ts:120`, chosen at `:165-169`).
-- **Rests**: `PAD = 2` px = **0.20 sp** past the rest glyph (`src/engine/rendering/VexFlowRenderer.ts:2390`).
+- **Rests**: `PAD = 2` px = **0.20 sp** past the rest glyph (`src/engine/rendering/ScoreRenderer.ts:2390`).
 - **Ghost preview**: a plain VexFlow `StaveNote`, so 3 px (`src/engine/rendering/GhostRenderer.ts:162-164`).
   (⚠️ 2026-09-19: VexFlow is removed — the ghost is our `EngravedNote`, whose overhang is the same
   `LEDGER_OVERHANG_PX` row, still 3 px.)

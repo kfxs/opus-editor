@@ -20,7 +20,7 @@ A throwaway Vitest benchmark (jsdom), since deleted. For each score size:
 - **Score:** N measures, single staff, **4 quarter notes per bar** — an ordinary density, not empty
   bars (empty bars would flatter the layout numbers, since the formatter has nothing to format).
 - **Layout** = `calculateMeasureWidths(score, clefs, mode)` alone. Median of 5.
-- **Full render** = `VexFlowRenderer.renderScore(score)`, after one warm-up render so glyph/font
+- **Full render** = `ScoreRenderer.renderScore(score)`, after one warm-up render so glyph/font
   caches are primed. Median of 3.
 - **Draw only** = full render − layout.
 - **SVG nodes** = every element under the render container.

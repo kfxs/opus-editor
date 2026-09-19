@@ -44,8 +44,8 @@ The other principles shape it too:
 
 ## 3. Where it lands in the code (one render seam + three mirror sites)
 
-Today every stave Y is fully deterministic (`VexFlowRenderer.renderScore`,
-`VexFlowRenderer.ts:1214-1223`):
+Today every stave Y is fully deterministic (`ScoreRenderer.renderScore`,
+`ScoreRenderer.ts:1214-1223`):
 
 ```
 staffStride = STAVE_HEIGHT(120) + VERTICAL_SPACING(30) = 150
@@ -55,8 +55,8 @@ y           = systemTop + staffIndex * staffStride        // ← the primary sea
 
 There is **no per-staff vertical offset hook anywhere** — every gap is uniform. VexFlow has
 no concept of staff spacing: a stave sits wherever we pass `y` to `new Stave(x, y, w)`
-(`VexFlowRenderer.ts:1335`). The core render change is **one added term** at
-`VexFlowRenderer.ts:1222`:
+(`ScoreRenderer.ts:1335`). The core render change is **one added term** at
+`ScoreRenderer.ts:1222`:
 
 ```
 const above = staffSpacesToPixels(staffSpacingAbove(score, staff.id), someStaveForSpacing)
@@ -69,10 +69,10 @@ Sibelius default (staves below ride along).
 **But "one added term" is only true for the *authoritative* paths — the Y math is duplicated
 in four places, three of which need the same offset:**
 
-1. **`VexFlowRenderer.ts:1222`** — the primary seam above. ✅ the real fix.
-2. **`totalHeight` (`VexFlowRenderer.ts:1179`)** — must add the per-system accumulated `above`
+1. **`ScoreRenderer.ts:1222`** — the primary seam above. ✅ the real fix.
+2. **`totalHeight` (`ScoreRenderer.ts:1179`)** — must add the per-system accumulated `above`
    (sum over all staves, × numLines) so the SVG grows to fit.
-3. **Ghost-note preview (`VexFlowRenderer.ts:1322-1323`)** — the entry preview recomputes
+3. **Ghost-note preview (`ScoreRenderer.ts:1322-1323`)** — the entry preview recomputes
    `systemTop`/`measureY` by hand. If it's *not* patched, the translucent ghost note floats at
    the old staff position while the committed note lands at the new one, for any staff with
    spacing ≠ 0. **Functional gap, not cosmetic — must get the same accumulated `above`.**
@@ -84,7 +84,7 @@ in four places, three of which need the same offset:**
 
 **Why the reverse (hit-test / click-to-pitch) paths need NO manual offset — the load-bearing
 fact that keeps the seam count small:** `ElementRegistry` captures each staff's real
-`lineYPositions` from the *actual drawn* stave (`VexFlowRenderer.ts:1005-1016`), and
+`lineYPositions` from the *actual drawn* stave (`ScoreRenderer.ts:1005-1016`), and
 click-to-place pitch resolves through `registry.pixelYToPitch` (`MusicEngine.ts:1586`), not
 `CoordinateMapper`. So the moment a stave is drawn lower, hit-testing existing elements and
 resolving a click's pitch/staff **auto-follow the offset for free**. The one caveat:
@@ -255,8 +255,8 @@ bottom-margin term later if it ever matters; additive, no teardown).
   writes. Unit tests: write/clear-on-zero, absent=0, round-trips through toJSON/undo. No
   render change yet.
 - **Phase 1 — render + keyboard nudge. DONE (not yet committed).** Accumulated `above` term
-  wired into all four Y sites (`VexFlowRenderer` primary seam + `totalHeight` + ghost-note
-  preview; `MusicEngine.getMeasureRect`) via `VexFlowRenderer.staffAboveOffsets` (inclusive
+  wired into all four Y sites (`ScoreRenderer` primary seam + `totalHeight` + ghost-note
+  preview; `MusicEngine.getMeasureRect`) via `ScoreRenderer.staffAboveOffsets` (inclusive
   prefix sums, converted with `VEXFLOW_DEFAULT_STAFF_SPACE_PX`). `Alt+↑/↓` fine (overloads
   `chordNoteUp/Down` by selection kind) + `Ctrl+Alt+↑/↓` coarse (new bindings), gated to a
   single measure-box selection → `MusicEngine.nudgeStaffSpacing(index→id)` → model, one undo
@@ -279,7 +279,7 @@ bottom-margin term later if it ever matters; additive, no teardown).
   time via `resolveStaffSpacingAbove` (per-system value, else the global-per-staff fallback,
   else 0). The renderer computes spacing PER LINE (`staffSpacingLayout`: `lineTopPx` / `cumPx` /
   `contentHeightPx`), so systems with different spacing stack correctly; the ghost preview +
-  `getMeasureRect` resolve per-system too. `VexFlowRenderer.getSystemOpeningMeasureNumber` maps a
+  `getMeasureRect` resolve per-system too. `ScoreRenderer.getSystemOpeningMeasureNumber` maps a
   bar → its system's opener; `MusicEngine.staffSpacingTarget` maps that → the durable key. The
   **reset-on-reflow rule is automatic**: an override whose anchor measure no longer opens a
   system is never looked up (self-heals; orphaned entry lingers harmlessly in JSON). No stored
@@ -291,7 +291,7 @@ bottom-margin term later if it ever matters; additive, no teardown).
 - `src/types/music.ts` — `StaffSpacingOverride`.
 - `src/engine/models/engravingOverrides.ts` — `staffSpacingOverrideOf` / `staffSpacingAbove`.
 - `src/engine/models/ScoreModel.ts` — nudge/set/reset write path.
-- `src/engine/rendering/VexFlowRenderer.ts` — accumulated `above` term in **three** sites:
+- `src/engine/rendering/ScoreRenderer.ts` — accumulated `above` term in **three** sites:
   the primary Y seam (`:1222`), `totalHeight` (`:1179`), AND the ghost-note preview's duplicate
   `systemTop`/`measureY` (`:1322-1323`, else the entry preview drifts from where notes land).
 - `src/engine/MusicEngine.ts` — `getMeasureRect` (`:1780`) system-height formula, so the

@@ -3,7 +3,7 @@
  *
  * Decides which consecutive notes are beamed together, driven by the meter's
  * metric hierarchy ({@link MeterInfo}) plus any explicit per-note {@link BeamMode}
- * overrides. The renderer (`VexFlowRenderer`) maps the returned slot-index groups
+ * overrides. The renderer (`ScoreRenderer`) maps the returned slot-index groups
  * onto its VexFlow `StaveNote`s; nothing here depends on VexFlow or the DOM, so
  * the grouping is unit-testable in isolation.
  *
@@ -180,7 +180,7 @@ export function computeCrossBarBeamGroups(bars: BeamBar[]): BeamSlotRef[][] {
 
       // ⚠️ A TWO-NOTE TREMOLO PAIR is never a member of an automatic group — it owns its own beam or
       // none (docs/two-note-tremolo-plan.md §2). The exclusion belongs HERE, in the pure grouper, and
-      // not in `VexFlowRenderer.buildBeams`: the cross-barline planner feeds the renderer its own
+      // not in `ScoreRenderer.buildBeams`: the cross-barline planner feeds the renderer its own
       // `inBarGroups`, so a pair excluded only at the renderer would still be dragged into a group
       // ACROSS A BARLINE by the plan. Both members break, exactly as a plain rest does.
       //

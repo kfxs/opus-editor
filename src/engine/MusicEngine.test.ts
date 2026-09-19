@@ -6,17 +6,17 @@ import { fracCreate as frac, fracToNumber } from '@/utils/fraction'
 import { buildBeatMap, navBeatMap } from '@/utils/beatMap'
 import { DEFAULT_TEMPO } from '@/utils/tempoMap'
 
-// Stub VexFlowRenderer (needs canvas/SVG) and PlaybackEngine (needs Web Audio)
+// Stub ScoreRenderer (needs canvas/SVG) and PlaybackEngine (needs Web Audio)
 const fakeRegistry = {
   clear: vi.fn(), register: vi.fn(), getAll: vi.fn(() => []),
   findAt: vi.fn(() => null), getByNoteId: vi.fn(() => null),
   registerStaffGeometry: vi.fn(), getStaffGeometry: vi.fn(() => null),
 }
-vi.mock('./rendering/VexFlowRenderer', async (importOriginal) => ({
+vi.mock('./rendering/ScoreRenderer', async (importOriginal) => ({
   // Keep the module's real constants (LAYOUT_CONFIG — the staff-spacing clamp reads it); only the
   // renderer class needs stubbing, since it wants a canvas/SVG.
-  ...(await importOriginal<typeof import('./rendering/VexFlowRenderer')>()),
-  VexFlowRenderer: class {
+  ...(await importOriginal<typeof import('./rendering/ScoreRenderer')>()),
+  ScoreRenderer: class {
     initialize = vi.fn()
     renderScore = vi.fn()
     getElementRegistry = vi.fn(() => fakeRegistry)

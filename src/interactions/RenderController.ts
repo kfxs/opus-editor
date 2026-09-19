@@ -269,7 +269,7 @@ export class RenderController {
    * this render was for, and make sure the score under the overlay is current before drawing on it.
    * WHICH glyph is {@link toolGhost}'s answer and HOW it is drawn is `GHOST_DRAWERS`'s — this used
    * to be a twelve-case switch over eleven `render*Ghost` methods of my own, each forwarding to a
-   * one-liner on `MusicEngine` and another on `VexFlowRenderer`
+   * one-liner on `MusicEngine` and another on `ScoreRenderer`
    * (docs/modularity-plan-2026-07-28.md Phase 2).
    */
   renderToolGhost(coords: { x: number; y: number }): void {

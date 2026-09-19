@@ -20,8 +20,8 @@ import { fracCreate as frac, fracToNumber } from '@/utils/fraction'
  * Everything is asserted in SOUND (`soundingShiftAt`) rather than in beats — it is what an octave
  * line is for, and a length that reads correctly can still cover the wrong notes.
  */
-vi.mock('./rendering/VexFlowRenderer', () => ({
-  VexFlowRenderer: class {
+vi.mock('./rendering/ScoreRenderer', () => ({
+  ScoreRenderer: class {
     initialize = vi.fn(); renderScore = vi.fn()
     getElementRegistry = vi.fn(() => ({
       clear: vi.fn(), register: vi.fn(), getAll: vi.fn(() => []),

@@ -96,7 +96,7 @@ export interface DrawGroup {
    *
    * Two callers, both the same shape: the drawn node is handed to the EDITOR, which later recolours
    * it for a selection highlight (`hairpinGroupMap` and its five siblings, read back through
-   * `VexFlowRenderer.get*SVGGroup`), and the cursor ghosts, which recolour their own ink.
+   * `ScoreRenderer.get*SVGGroup`), and the cursor ghosts, which recolour their own ink.
    *
    * ⚠️ **That is a real seam, not a leftover** — `ARCHITECTURE.md` says the renderer is the source
    * of truth for geometry, and highlighting is the editor reading drawn ink. ⛔ But it is out of

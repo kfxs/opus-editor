@@ -20,7 +20,7 @@
  */
 import { describe, it, expect } from 'vitest'
 import { ScoreModel } from '../models/ScoreModel'
-import { VexFlowRenderer } from './VexFlowRenderer'
+import { ScoreRenderer } from './ScoreRenderer'
 import { CLEF_INDENT } from '@/engine/layout/headerInk'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { fracCreate as frac } from '@/utils/fraction'
@@ -29,7 +29,7 @@ import { fracCreate as frac } from '@/utils/fraction'
 function indents(bars = 12) {
   const container = document.createElement('div')
   document.body.appendChild(container)
-  const renderer = new VexFlowRenderer(container)
+  const renderer = new ScoreRenderer(container)
   renderer.initialize(700, 900)
 
   const model = new ScoreModel()

@@ -82,7 +82,7 @@ import { noteRuler } from './noteRuler'
  * not derivable from columns and beats — it exists only once drawn — so the plan now runs after
  * `renderTies`/`renderSlurs` and takes the full {@link TrillPlacement}, stave and all. ⚠️ The
  * pixel-freeness bought exactly one thing, the hoist; the hoist bought exactly one thing, an early
- * plan for a family drawn inside the measure loop — and no such family ever existed (`VexFlowRenderer`
+ * plan for a family drawn inside the measure loop — and no such family ever existed (`ScoreRenderer`
  * records the measurement). What it cost was the `tr` drawn through the arc, which is a picture he
  * can see.
  *
@@ -560,7 +560,7 @@ export function renderTrills(
       p.measureNumber === span.startMeasure && p.view.slots.some(s => s.id === span.slotIds[0]))
     const to = from && placements.find(p =>
       p.measureNumber === span.endMeasure && p.staffIndex === from.staffIndex)
-    // Both endpoint bars are span anchors (`VexFlowRenderer.spanAnchors`), so a missing one means
+    // Both endpoint bars are span anchors (`ScoreRenderer.spanAnchors`), so a missing one means
     // the bar genuinely was not rendered — not that it was translated with stale coordinates.
     if (!from || !to) continue
 

@@ -119,7 +119,7 @@ Sources: [MuseScore Handbook — Time signatures](https://handbook.musescore.org
   - `MusicEngine:749`, `:914` (assign `= numerator`); `:1014/:1026/:1071` thread the value.
   - `MouseController:476` (assigns `= numerator`). **`MouseController:371` is already CORRECT**
     (`(4/denominator)*numerator`) — do **not** "fix" it.
-  - **`VexFlowRenderer:1688`** — the ghost-note **preview** path: `totalBeats =
+  - **`ScoreRenderer:1688`** — the ghost-note **preview** path: `totalBeats =
     timeSignature.numerator`. Missed by earlier drafts; real bug in non-`/4` preview rest-fill.
   - `CoordinateMapper.beatToPixelX/noteToPixel/pixelXToBeat/pixelToPosition` (param-threaded).
   - `KeyboardController:208` duplicates the *correct* inline `numerator × 4/denominator`; not a
@@ -133,7 +133,7 @@ Sources: [MuseScore Handbook — Time signatures](https://handbook.musescore.org
   a hacky `fracCreate(Math.round(totalBeats*8), 8)`. `createMusicalRests` also has **dead
   unreachable branches** (the trailing `q`/`8`/`16` cases after the `else` chain can never
   fire) — they vanish when this is replaced.
-- **⚠️ There is a SECOND float-based 4/4-biased rest filler:** `VexFlowRenderer.beatsToRestDurations`
+- **⚠️ There is a SECOND float-based 4/4-biased rest filler:** `ScoreRenderer.beatsToRestDurations`
   (`~:400`), used by the ghost-note **preview** path. It is fully parallel to
   `createMusicalRests` and is **not** in `ScoreModel`, so deleting the model's float filler
   leaves it alive — previews would still be wrong in non-`/4`. It must also be migrated onto
@@ -148,7 +148,7 @@ Sources: [MuseScore Handbook — Time signatures](https://handbook.musescore.org
   All fill/collision/render treat `measure.slots` as one flat stream.
 
 ### 3.6 Beaming hardcoded to quarter beats
-- `getBeatGroup` is `Math.floor(beat)` (`VexFlowRenderer.ts:428`) with a comment that it
+- `getBeatGroup` is `Math.floor(beat)` (`ScoreRenderer.ts:428`) with a comment that it
   should become meter-aware.
 
 ### 3.7 Clef feature is the UI template
@@ -181,7 +181,7 @@ Three throw points:
 3. **`Formatter.format` cross-voice** (`formatter.js:254`): all joined voices must share the
    same `getTotalTicks()` (nominal capacity) or `RuntimeError('TickMismatch', …)`.
 
-Current code: both real render voices (`VexFlowRenderer.ts:738` width-calc, `:981` draw) use
+Current code: both real render voices (`ScoreRenderer.ts:738` width-calc, `:981` draw) use
 **default STRICT**, wrapped in `try/catch` that just warns and falls back to
 `MIN_MEASURE_WIDTH`. So today over/under-full bars **don't render**. The drag-preview path
 already uses `.setMode(Voice.Mode.SOFT)` (`:1710`).
@@ -255,7 +255,7 @@ for presets at Phase 6, and fully open-ended at Phase 6b.
   - **Fix** (assigns `= numerator` as a beat count): `NoteEntryCoordinator` (×2, the `:161`/
     `:418`-style assignments — their downstream `beatsInMeasure` uses come along for free),
     `MusicEngine` (the `= numerator` assignments feeding `noteToPixel`/`getPositionFromPixels`),
-    `MouseController` (the `= numerator` site), and **`VexFlowRenderer` ghost-preview** (the
+    `MouseController` (the `= numerator` site), and **`ScoreRenderer` ghost-preview** (the
     `totalBeats = numerator` at the preview voice — easy to miss; wrong for non-`/4`).
   - **Centralize but already correct** (computes `numerator × 4/denominator` inline):
     `MouseController` other site, `KeyboardController`. Swap to `getMeasureDuration` for
@@ -321,7 +321,7 @@ function fillRests(start: Fraction, end: Fraction, meter: MeterInfo):
   tuplet spans and splits a gap at a tuplet boundary (`ScoreModel.ts:600-624`) **must be kept**;
   `fillRests` is only ever called on spans already free of tuplets. Do not move tuplet logic
   into `fillRests`.
-- **Second filler:** migrate `VexFlowRenderer.beatsToRestDurations` (the ghost-preview filler,
+- **Second filler:** migrate `ScoreRenderer.beatsToRestDurations` (the ghost-preview filler,
   §3.3) onto `fillRests` too, or the preview stays float/4-4-biased after the model is fixed.
 - **Tests (heaviest):** every meter — empty bar, off-beat gap, gap crossing the 4/4 middle, gap
   across a compound beat boundary, 5/8 & 7/8 partials, gaps adjacent to tuplets, measure-rest
@@ -489,7 +489,7 @@ Beyond the 3 preset test meters, Phases 2/2b must pass: `32/16`, `16/4`, `15/8`,
     importers in CollisionDetector/MusicEngine/NoteEntryCoordinator/ScoreModel
     repointed). `musicUtils.ts` re-exports the duration helpers for back-compat
     and gains `getMeasureDurationFrac(ts): Fraction`.
-  - `VexFlowRenderer.convertDuration` → `durationToVexflow`; its private float
+  - `ScoreRenderer.convertDuration` → `durationToVexflow`; its private float
     `durationToBeats` map removed. `beatsToRestDurations` left for Phase 2b.
   - `ScoreModel.fillGapsWithRests` uses `getMeasureDurationFrac` (was the lossy
     `Math.round(totalBeats*8)/8`).
@@ -505,7 +505,7 @@ Beyond the 3 preset test meters, Phases 2/2b must pass: `32/16`, `16/4`, `15/8`,
   - **Fixed (were bugs for non-/4):** `NoteEntryCoordinator` ×2 (addNoteAtPosition,
     createTupletAtPosition), `MusicEngine` ×2 (`getNoteAtPosition`, ghost-preview
     `previewNoteAtPosition`) + its `pixelToPosition`/`getPositionFromPixels`/`noteToPixel`
-    param rename, `MouseController` drag-pitch site, and **`VexFlowRenderer` ghost-preview**
+    param rename, `MouseController` drag-pitch site, and **`ScoreRenderer` ghost-preview**
     rest-fill (`totalBeats → barQuarters`; the VexFlow `Voice` keeps the literal
     `numBeats: numerator`/`beatValue: denominator` signature — only the rest math is quarters).
   - **Centralized (were already correct inline):** `MusicEngine.updateNote` overflow check,
@@ -558,7 +558,7 @@ Beyond the 3 preset test meters, Phases 2/2b must pass: `32/16`, `16/4`, `15/8`,
     `fillGapsWithRests` is now **per-voice** (groups slots by `voice ?? 0`, gap-fills each
     independently, records `voice` only when ≠ 0). Tuplet-gap skip/trim logic kept in the
     caller (fillRests stays tuplet-unaware).
-  - **Second filler migrated:** `VexFlowRenderer.beatsToRestDurations` deleted; the ghost-note
+  - **Second filler migrated:** `ScoreRenderer.beatsToRestDurations` deleted; the ghost-note
     preview now builds its surrounding rests via `fillRests` (and correctly accounts for the
     ghost note's dots — a latent 4/4 over-fill on dotted-note previews is now fixed).
   - Tests: `restFill.test.ts` — measure rest per meter, 4/4 no-cross-middle, off-beat realign,
@@ -573,7 +573,7 @@ Beyond the 3 preset test meters, Phases 2/2b must pass: `32/16`, `16/4`, `15/8`,
     `restFill.ts` — SOFT when a measure rest is present or the bar is over-full (keep notes,
     render crowded), else FULL (normal + under-full/pickup render; a true over-tick still
     surfaces). Applied at BOTH render voices (width-calc ~:701 and draw ~:944) via a thin
-    `VexFlowRenderer.chooseVoiceMode` wrapper. STRICT (the old default that silently swallowed
+    `ScoreRenderer.chooseVoiceMode` wrapper. STRICT (the old default that silently swallowed
     irregular bars into the MIN_MEASURE_WIDTH fallback) is no longer used.
   - **Measure rest rendered:** `createStaveNotesFromSlots` emits the centred whole rest for an
     `isMeasureRest` slot. (Visible 4/4 change: an empty bar's whole rest is now centred.)
@@ -596,7 +596,7 @@ Beyond the 3 preset test meters, Phases 2/2b must pass: `32/16`, `16/4`, `15/8`,
     merge overflow notes into the last in-bar group). Exact (Fraction-based, no float epsilon).
   - `computeBeamGroups` lifts the full grouping logic out of the renderer verbatim (rest break,
     non-beamable break, explicit `BeamMode` begin/continue/end/single overrides, auto
-    beat-boundary grouping) — now pure and unit-testable. `VexFlowRenderer.createBeamGroups` is a
+    beat-boundary grouping) — now pure and unit-testable. `ScoreRenderer.createBeamGroups` is a
     thin wrapper that maps the returned indices back onto its parallel `StaveNote[]`;
     `buildBeams`/`createBeamGroups` now thread `MeterInfo` (built once per measure, shared with
     `chooseVoiceMode`) instead of `numBeats`. Deleted the renderer's private `getBeatGroup` +
@@ -757,7 +757,7 @@ Beyond the 3 preset test meters, Phases 2/2b must pass: `32/16`, `16/4`, `15/8`,
     `measureCapacityFrac`/`measureCapacityQuarters` (utils/musicUtils.ts). Routed ~12 capacity reads
     through them across `ScoreModel` (fill/measure-rest length), `CollisionDetector`,
     `PlaybackEngine`, `MouseController`, `MusicEngine`, `NoteEntryCoordinator`, `KeyboardController`,
-    `VexFlowRenderer` (`chooseVoiceMode` now takes a capacity `Fraction`; ghost trailing rest-fill).
+    `ScoreRenderer` (`chooseVoiceMode` now takes a capacity `Fraction`; ghost trailing rest-fill).
     Note-entry coordinate capacity now uses the *clicked* measure (was always measure 1).
     `ScoreModel.setMeasureActualDuration(n, frac|null)` + `getMeasureCapacityFrac`; clears on
     `null`/≥-nominal, keeps over-capacity notes, re-fills rests; `rebarRegion` deletes the override
@@ -767,7 +767,7 @@ Beyond the 3 preset test meters, Phases 2/2b must pass: `32/16`, `16/4`, `15/8`,
   - **9b** — App.vue "Pickup…" button + dialog (measure + length num/den, Apply/Clear, live
     validation that the pickup is shorter than the full bar). UI = manual.
   - 493 tests pass; build:check clean.
-- [x] Phase 10 — Cautionary (courtesy) time signature at line breaks (`VexFlowRenderer.ts`)
+- [x] Phase 10 — Cautionary (courtesy) time signature at line breaks (`ScoreRenderer.ts`)
   - **Rule:** when the measure that opens the *next* system begins a meter change, the previous
     line's last measure shows a courtesy time signature after its final barline. Unlike the
     cautionary **clef** (drawn `'small'`), the courtesy **time signature is full size** — standard

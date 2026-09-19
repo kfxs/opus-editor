@@ -14,7 +14,7 @@
 import { describe, it, expect } from 'vitest'
 import { C_MAJOR } from '@/utils/keySignature'
 import { ScoreModel } from '../models/ScoreModel'
-import { VexFlowRenderer } from './VexFlowRenderer'
+import { ScoreRenderer } from './ScoreRenderer'
 import { planCrossBarBeams, computeSides, type CrossBarBar, type CrossBarJoinMember } from './CrossBarBeams'
 import { measureShapeKey } from './MeasureRedrawKey'
 import { fracCreate as frac } from '@/utils/fraction'
@@ -25,7 +25,7 @@ import type { Measure } from '@/types/music'
 function makeRenderer() {
   const container = document.createElement('div')
   document.body.appendChild(container)
-  const renderer = new VexFlowRenderer(container)
+  const renderer = new ScoreRenderer(container)
   renderer.initialize(1200, 800)
   return renderer
 }
@@ -43,7 +43,7 @@ function twoBarsOfEighths(): ScoreModel {
 }
 
 /** The beams drawn OUTSIDE every measure group — i.e. the ones that cross a barline. */
-function crossBarBeamNodes(renderer: VexFlowRenderer): Element[] {
+function crossBarBeamNodes(renderer: ScoreRenderer): Element[] {
   const svg = renderer.getSVGElement()!
   // …or one level deeper, inside the `vf-scaled` wrapper a beam on a small staff is drawn in.
   return [...svg.children]

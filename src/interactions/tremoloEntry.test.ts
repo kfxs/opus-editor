@@ -24,8 +24,8 @@ const fakeRegistry = {
   registerStaffGeometry: vi.fn(), getStaffGeometry: vi.fn(() => null),
   getByMeasure: vi.fn(() => []),
 }
-vi.mock('../engine/rendering/VexFlowRenderer', () => ({
-  VexFlowRenderer: class {
+vi.mock('../engine/rendering/ScoreRenderer', () => ({
+  ScoreRenderer: class {
     initialize = vi.fn(); renderScore = vi.fn(); getElementRegistry = vi.fn(() => fakeRegistry)
   },
 }))

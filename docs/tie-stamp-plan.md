@@ -95,7 +95,7 @@ below for why that is not optional.
 
 ### ⚠️ `context.save()`/`restore()` are NO-OPS — the trap this feature fell into
 
-`VexFlowRenderer.initialize()` replaces them with `() => {}` (structuredClone throws on Vue's
+`ScoreRenderer.initialize()` replaces them with `() => {}` (structuredClone throws on Vue's
 reactive proxies). The consequence is app-wide and silent: **every context style change is
 permanent**. `setStrokeStyle` repaints the shared context; `openGroup` then copies the context's
 attributes onto every group it opens; and children with no style of their own inherit it — staff

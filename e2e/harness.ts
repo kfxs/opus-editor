@@ -3,7 +3,7 @@
  *
  * Unit tests run in jsdom, which has no layout and no fonts: every glyph measures 0×0, so an
  * assertion about where the ink landed agrees with itself and proves nothing
- * (`docs/ARCHITECTURE.md`, and the comment at the head of `VexFlowRenderer.fan.test.ts` saying so
+ * (`docs/ARCHITECTURE.md`, and the comment at the head of `ScoreRenderer.fan.test.ts` saying so
  * in as many words). This page exists to run the SAME engine in a REAL browser, with the real
  * Bravura metrics, so the numbers are real.
  *

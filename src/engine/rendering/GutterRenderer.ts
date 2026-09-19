@@ -150,7 +150,7 @@ export class GutterRenderer {
     // is the only thing still saying "these staves are one system".
     //
     // ⛔ Drawn by hand rather than with `StaveConnector`, exactly as the score draws its own
-    // (`VexFlowRenderer.drawSystemConnector`): it runs from the top staff's first line to the
+    // (`ScoreRenderer.drawSystemConnector`): it runs from the top staff's first line to the
     // bottom staff's last, and those two may be drawn at DIFFERENT SIZES, so there is no single
     // scale to put it in — each end has to be composed through its own staff's.
     if (frames.length > 1) {

@@ -13,7 +13,7 @@ import {
 import { followingSpace, spacingGeneration } from './spacing'
 import { fracCreate as frac } from '@/utils/fraction'
 import { ScoreModel } from '@/engine/models/ScoreModel'
-import { VexFlowRenderer } from '@/engine/rendering/VexFlowRenderer'
+import { ScoreRenderer } from '@/engine/rendering/ScoreRenderer'
 import { sceneGroups } from '@/engine/scene/Scene'
 
 afterEach(() => resetSpacingLaw())
@@ -155,7 +155,7 @@ describe('🚨🚨 the regression that the WIDTH CACHE would otherwise hide', ()
     return model
   }
 
-  function headXs(renderer: VexFlowRenderer, model: ScoreModel): number[] {
+  function headXs(renderer: ScoreRenderer, model: ScoreModel): number[] {
     const { scene } = renderer.recordScene(() => renderer.renderScore(model.getScore()))
     return sceneGroups(scene, 'notehead')
       .flatMap(g => g.children.filter(c => c.kind === 'text'))
@@ -171,7 +171,7 @@ describe('🚨🚨 the regression that the WIDTH CACHE would otherwise hide', ()
     const model = fixture()
     const container = document.createElement('div')
     document.body.appendChild(container)
-    const renderer = new VexFlowRenderer(container)
+    const renderer = new ScoreRenderer(container)
     renderer.initialize(1200, 800)
 
     const before = headXs(renderer, model)

@@ -16,7 +16,7 @@ import { C_MAJOR } from '@/utils/keySignature'
 import { describe, it, expect, vi } from 'vitest'
 import { levelToGlyphString } from '@/utils/dynamics'
 import { ScoreModel } from '../models/ScoreModel'
-import { VexFlowRenderer } from './VexFlowRenderer'
+import { ScoreRenderer } from './ScoreRenderer'
 import { SvgPainter } from './SvgPainter'
 import { laneFingerprint } from './MeasureWidthCache'
 import { measureShapeKey } from './MeasureRedrawKey'
@@ -48,7 +48,7 @@ function keyInputs(view: Measure) {
 function makeRenderer() {
   const container = document.createElement('div')
   document.body.appendChild(container)
-  const renderer = new VexFlowRenderer(container)
+  const renderer = new ScoreRenderer(container)
   renderer.initialize(1200, 800)
   return renderer
 }
@@ -65,7 +65,7 @@ function buildScore(bars = 12): ScoreModel {
 }
 
 /** The identity of every drawn measure group, so we can see which survived a render. */
-function groupNodes(renderer: VexFlowRenderer, bars: number): Map<number, SVGGElement | null> {
+function groupNodes(renderer: ScoreRenderer, bars: number): Map<number, SVGGElement | null> {
   const nodes = new Map<number, SVGGElement | null>()
   for (let m = 1; m <= bars; m++) nodes.set(m, renderer.getMeasureSVGGroup(m, 0))
   return nodes
@@ -108,7 +108,7 @@ function redrawnMeasures(before: Map<number, SVGGElement | null>, after: Map<num
 const roundCoords = (_key: string, value: unknown): unknown =>
   typeof value === 'number' ? Math.round(value * 1e9) / 1e9 : value
 
-function registrySnapshot(renderer: VexFlowRenderer, bars: number, staves = 1) {
+function registrySnapshot(renderer: ScoreRenderer, bars: number, staves = 1) {
   const registry = renderer.getElementRegistry()
   const geometry: string[] = []
   for (let m = 1; m <= bars; m++) {

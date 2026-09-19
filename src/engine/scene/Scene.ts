@@ -31,7 +31,7 @@
  * `StaveNote.drawModifiers` hands it `checkContext()`. So every accidental and every dot sat outside
  * this scene through four migration steps while that number fell 24 → 9, and nothing said so
  * (`docs/note-engraving-plan.md` §1f). ⇒ ⭐ **the honest measure of what is missing is a CENSUS**
- * against the page — `VexFlowRenderer.scene.test.ts` — and `lint:paint` measures COUPLING.
+ * against the page — `ScoreRenderer.scene.test.ts` — and `lint:paint` measures COUPLING.
  *
  * ✅ What IS in it today: barlines and their joins, key signatures, the grouping signs and the
  * systemic barline, the staff's own five lines and the whole header run (clef, meter, opening

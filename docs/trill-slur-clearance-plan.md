@@ -64,7 +64,7 @@ measure loop (`docs/ottava-plan.md`; *"an ottava's VERTICAL is PIXEL-FREE, so no
 split is what makes the below-staff order come out right at all.
 
 🚨🚨 **AND THE SPLIT IS UNEVEN — this is the table the whole plan turns on** (verified against
-`VexFlowRenderer.renderScore`, 2026-08-18). Two families read the ladder at DRAW time and can still
+`ScoreRenderer.renderScore`, 2026-08-18). Two families read the ladder at DRAW time and can still
 be told; three cannot, and two of those three are already ink by 3766:
 
 | family | its y is DECIDED at | it is DRAWN at | can it see a lift applied at 3766? |
@@ -370,7 +370,7 @@ UNKNOWN. ⭐ **That is the wrong requirement.** It requires only that the ladder
 **after the slurs are drawn** — and nothing prevents that today:
 
 - `dynamicsPlan` has exactly **two** consumers, `placeDynamicsOnLine` (3747) and `renderHairpins`
-  (3759), both after the measure loop. The comment at `VexFlowRenderer.ts:3631-3636` justifying the
+  (3759), both after the measure loop. The comment at `ScoreRenderer.ts:3631-3636` justifying the
   hoist — *"early enough for a family drawn INSIDE the loop to read it (P0b: the tempo mark)"* —
   describes a capability with **no live client**;
 - the three plan calls take `plans`; `placements` is `plans` + a stave pushed one-for-one in the same
@@ -387,7 +387,7 @@ of its repair path.
 which is the property `docs/ottava-plan.md` chose deliberately; the hoist comment must be checked
 against what the tempo mark actually does rather than against what it says; and the render-reuse path
 (`replaySnapshot`) has to be re-read for whether a REUSED measure can reach this. ⛔ Do not reorder
-those five calls on the strength of this paragraph — `VexFlowRenderer` says *"move this call and you
+those five calls on the strength of this paragraph — `ScoreRenderer` says *"move this call and you
 change the engraving"* over three of them, and it is right.
 
 ### ⚠️ One caution against over-simplifying either road

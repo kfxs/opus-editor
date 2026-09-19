@@ -51,10 +51,10 @@ One `<div>` currently does two jobs at once:
 1. the **scroll viewport** (`class="... overflow-auto"`), and
 2. the **VexFlow mount target** — it is passed straight into
    `new MusicEngine({ container: scoreCanvas.value })` (`App.vue:687`), which hands it to
-   `VexFlowRenderer` as `svgContainer` (`VexFlowRenderer.ts:152-153`).
+   `ScoreRenderer` as `svgContainer` (`ScoreRenderer.ts:152-153`).
 
 So VexFlow's `<svg>` is a **direct child of the scroll box**. The SVG size is set in `renderScore`
-(`VexFlowRenderer.ts:1663-1678`):
+(`ScoreRenderer.ts:1663-1678`):
 
 - **Width** is hard-pinned to `LAYOUT_CONFIG.CONTAINER_WIDTH = 1000`; the score wraps to a new line
   at 1000px and never gets wider → fixed horizontal extent, horizontal scrollbar when needed. ✅
@@ -161,8 +161,8 @@ fixes the visible problem.
     **both** the scroll consumers and the querySelector consumers; that's why the ref goes there.
   - Add a **new `scoreContent` ref on the INNER div** and pass *that* to `MusicEngine` as `container`
     (`App.vue:684-690`), not the outer one, and not `scoreCanvas`.
-- **`innerHTML = ''` footgun — do not get the container backwards.** `VexFlowRenderer` calls
-  `this.svgContainer.innerHTML = ''` on every render (`VexFlowRenderer.ts:184`). The engine container
+- **`innerHTML = ''` footgun — do not get the container backwards.** `ScoreRenderer` calls
+  `this.svgContainer.innerHTML = ''` on every render (`ScoreRenderer.ts:184`). The engine container
   must be the **inner** div so it only wipes itself. If the outer viewport were ever passed as
   container, every render would nuke the inner content-surface div.
 - **Padding stays on the inner surface, not the outer viewport.** `scrollSelectedNoteIntoView`
@@ -179,7 +179,7 @@ fixes the visible problem.
   ignoring presses whose `event.target` is the scroll container itself (`MouseController`).
 - **Height must be an inline `:style`, not a Tailwind class.** Express it as a derived value
   (`≈ 2 * (STAVE_HEIGHT + VERTICAL_SPACING) + MARGIN*2`), but note that `LAYOUT_CONFIG` lives in the
-  engine (`VexFlowRenderer.ts`) and a Tailwind utility class can't read a JS constant — bind it via
+  engine (`ScoreRenderer.ts`) and a Tailwind utility class can't read a JS constant — bind it via
   `:style="{ height: ... }"` to an exported constant or a renderer getter.
 - **Verify:** vertical scroll appears past 2 lines; horizontal scroll still works; JSON panel stays
   put; clicking/note-entry still lands on the right note (CTM makes this free, but confirm);
@@ -262,11 +262,11 @@ Phase 1 separation of viewport from content surface. That is the point of doing 
   OUTER viewport; add a new `scoreContent` ref for the inner div.
 - `App.vue:684-690` — `onMounted`: engine construction + `container` wiring (pass the inner div here).
 - `App.vue:749-779` — `.score-container` scrollbar styling (moves to the outer viewport).
-- `VexFlowRenderer.ts:60-83` — `LAYOUT_CONFIG` (STAVE_HEIGHT 120, VERTICAL_SPACING 30, MARGIN 20,
+- `ScoreRenderer.ts:60-83` — `LAYOUT_CONFIG` (STAVE_HEIGHT 120, VERTICAL_SPACING 30, MARGIN 20,
   CONTAINER_WIDTH 1000). Engine-side constant → height must be an inline `:style`, not a class.
-- `VexFlowRenderer.ts:184` — `this.svgContainer.innerHTML = ''` on every render (the `innerHTML`
+- `ScoreRenderer.ts:184` — `this.svgContainer.innerHTML = ''` on every render (the `innerHTML`
   footgun: container must be the inner div).
-- `VexFlowRenderer.ts:1663-1678` — where SVG width (fixed 1000) and height (unbounded) are set.
+- `ScoreRenderer.ts:1663-1678` — where SVG width (fixed 1000) and height (unbounded) are set.
 - `MouseController.ts:100-108` — `clientToSvg` via `getScreenCTM().inverse()` (scroll/zoom-proof).
 - `SelectionController.ts:347-380` — `scrollSelectedNoteIntoView` (existing both-axis scroll-into-view;
   Phase 4 migrates this into `ViewportModel.ensureVisible`). Called at `SelectionController.ts:232`.

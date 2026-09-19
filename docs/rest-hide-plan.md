@@ -110,7 +110,7 @@ hidden (parity with the shift, which already travels this way):
   parity second. Flag for the reviewer; rest-shift shipped clipboard parity in
   one go, so prefer doing the same.
 
-### 6. Render gray — `src/engine/rendering/VexFlowRenderer.ts`
+### 6. Render gray — `src/engine/rendering/ScoreRenderer.ts`
 
 > ⚠️ **DO NOT use `StaveNote.setStyle` for this.** The first attempt did
 > (`staveNotes[i].setStyle({ fillStyle, strokeStyle: HIDDEN_REST_COLOR })`) and

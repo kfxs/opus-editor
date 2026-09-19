@@ -16,7 +16,7 @@
  *
  * ## ⚠️ Most of what it decides is UNDONE — and it is ported anyway
  *
- * `VexFlowRenderer.drawMeasureContent` re-asserts every multi-voice note after `format()` — each rest
+ * `ScoreRenderer.drawMeasureContent` re-asserts every multi-voice note after `format()` — each rest
  * drawn again, back on its lane line, each stem back to the voice's side, each x-shift back to what it
  * was built with — because this editor stacks its voices itself (`layout/restVoicePlacement`). But
  * three things survive the re-assert, and they are why this is a port and not a deletion:

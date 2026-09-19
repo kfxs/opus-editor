@@ -34,7 +34,7 @@ So this is **client #5** of `score.engravingOverrides`, alongside `curveShape`,
 
 ## 2. The default stays
 
-The automatic multi-voice placement is unchanged: `VexFlowRenderer.ts:402`
+The automatic multi-voice placement is unchanged: `ScoreRenderer.ts:402`
 keeps `REST_LINE_SHIFT` and the per-voice `restShift` (V1 up, V2 down). The
 per-rest override is a **delta added on top of** that base. With no override a
 rest renders exactly as today.
@@ -248,8 +248,8 @@ existing chain *after* the armed-slur-point check (`useShortcuts.ts:240-241`).
 Safe — `adjustPitch` (`SelectionController.ts:439`) skips rests in its loop and
 reports nothing moved for a lone rest, so no existing behavior is taken.
 
-### 6.8 Render — `VexFlowRenderer.ts` + `NoteBuilder.ts`
-At `VexFlowRenderer.ts:402` keep the per-voice base `restShift`. Widen
+### 6.8 Render — `ScoreRenderer.ts` + `NoteBuilder.ts`
+At `ScoreRenderer.ts:402` keep the per-voice base `restShift`. Widen
 `createStaveNotesFromSlots`'s `restLineShift` from `number` to
 `number | ((slot: ChordRest) => number)` — mirroring the `clefForBeat:
 ((beat) => Clef) | Clef` overload right above it. The renderer passes a resolver
@@ -279,7 +279,7 @@ the score lookup lives in the renderer's resolver closure.
 + wiring into `rebarRegion` & `pasteEvents`), `engine/MusicEngine.ts`,
 `interactions/clipboard.ts` (+ paste threading in `ClipboardController` /
 `MusicEngine`), `composables/useShortcuts.ts`,
-`engine/rendering/VexFlowRenderer.ts`, `engine/rendering/NoteBuilder.ts`
+`engine/rendering/ScoreRenderer.ts`, `engine/rendering/NoteBuilder.ts`
 (+ co-located tests). `lint:boundary` and `build:check` must stay green.
 
 ## 9. What option 3 does NOT solve
@@ -317,7 +317,7 @@ own key line (a whole rest hangs from it, a half rest sits on it; both attach AT
   returns the single line (= `restLine`) only for a line-attached rest (`w`/`h`/measure) that
   is off-staff (`restLine ≥ 6` above or `≤ 0` below; staff = lines 1–5), else `null`.
   Unit-tested (shorter rests → null; inside staff → null; off-staff → exactly one line).
-- `VexFlowRenderer.drawRestLedgerLines(slots, staveNotes, stave)` (parallel arrays) called in
+- `ScoreRenderer.drawRestLedgerLines(slots, staveNotes, stave)` (parallel arrays) called in
   the per-measure draw loop after `voice.draw`. For each rest slot it reads the live line from
   `sn.getKeyLine(0)`, asks the pure helper, and if non-null strokes ONE line at
   `stave.getYForNote(line)`, centred on the rest's bounding box (fallback `getAbsoluteX` +

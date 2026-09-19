@@ -30,7 +30,7 @@ import type { Measure } from '@/types/music'
  * ## The third question this map does NOT cover
  *
  * **Does your element SPAN bars?** (a slur, a tie, an 8va bracket, a hairpin, a trill extension.)
- * Then it also needs to be a **span anchor** in `VexFlowRenderer.spanAnchors` — otherwise culling
+ * Then it also needs to be a **span anchor** in `ScoreRenderer.spanAnchors` — otherwise culling
  * deletes the bar its endpoint lives in and your element draws detached, or vanishes when the user
  * scrolls. Spans live on `Score`, not on `Measure`, so the compiler cannot catch that one for you.
  */
@@ -120,7 +120,7 @@ export const MEASURE_RENDER_ROLE: Record<keyof Measure, MeasureRenderRole> = {
    *
    *  ⚠️ 'shape' is the *sufficient* answer, not the whole one: a hairpin SPANS bars, and the bar
    *  holding the far end is not named by any key here. Both endpoint bars must also be
-   *  `VexFlowRenderer.spanAnchors` — the third question this file's header describes and the one
+   *  `ScoreRenderer.spanAnchors` — the third question this file's header describes and the one
    *  the compiler cannot ask. */
   hairpins: 'shape',
 
@@ -142,7 +142,7 @@ export const MEASURE_RENDER_ROLE: Record<keyof Measure, MeasureRenderRole> = {
    * the bracket is ever drawn inside a measure group, this becomes 'shape'; if an ottava is ever
    * allowed to move a notehead, it becomes 'width'. And 'ignored' does NOT excuse it from the third
    * question in this file's header — an octave line spans bars, so both endpoint bars must be
-   * `VexFlowRenderer.spanAnchors` or culling will drop the ink.
+   * `ScoreRenderer.spanAnchors` or culling will drop the ink.
    */
   ottavas: 'ignored',
 
@@ -161,7 +161,7 @@ export const MEASURE_RENDER_ROLE: Record<keyof Measure, MeasureRenderRole> = {
    * rather than wrong.
    *
    * ⚠️ And 'ignored' does NOT excuse it from the third question in this file's header — a pedal
-   * spans bars, so both endpoint bars must be `VexFlowRenderer.spanAnchors` or culling will drop the
+   * spans bars, so both endpoint bars must be `ScoreRenderer.spanAnchors` or culling will drop the
    * ink. The end bar matters more here than for an ottava: the `✻`'s x is read from that bar.
    */
   pedals: 'ignored',

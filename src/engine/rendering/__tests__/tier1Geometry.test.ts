@@ -3,7 +3,7 @@
  * ⭐⭐ **A BAR'S NOTE AREA MAY NOT BEGIN OUTSIDE THE BAR** — the tier-1 geometry invariant that two
  * files already cite by this filename, and which until 2026-09-01 **did not exist**.
  *
- * `spacingPadding.ts` and `VexFlowRenderer.ts` both point here:
+ * `spacingPadding.ts` and `ScoreRenderer.ts` both point here:
  *
  * > *"a lead-in under 1.2 spaces can only be drawn by pushing the note-start LEFT OF THE BARLINE, and
  * > then the bar's clickable area begins outside the bar (`tier1Geometry.test.ts` pins that it may
@@ -16,13 +16,13 @@
  * (`reference_a_false_warning_teaches_readers_to_skip`).
  *
  * A **feature test**, in `__tests__/`, because it names no single module: the claim spans
- * `layout/spacingPadding`'s pair table, `VexFlowRenderer.applyLeadIn`'s clamp and VexFlow's own
+ * `layout/spacingPadding`'s pair table, `ScoreRenderer.applyLeadIn`'s clamp and VexFlow's own
  * `Stave.padding` (`docs/test-layout-plan.md`'s rule for a test that drives several modules).
  */
 import { describe, it, expect } from 'vitest'
 import { NOTE_AREA_PADDING_PX } from '@/engine/engrave/inheritedDefaults'
 import { ScoreModel } from '@/engine/models/ScoreModel'
-import { VexFlowRenderer } from '../VexFlowRenderer'
+import { ScoreRenderer } from '../ScoreRenderer'
 import { pairPadding } from '@/engine/layout/spacingPadding'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { fracCreate as frac } from '@/utils/fraction'
@@ -35,7 +35,7 @@ const STAVE_PADDING_SPACES = NOTE_AREA_PADDING_PX / STAFF_SPACE_PX
 function bars(opts: { key?: boolean; smallStaff?: boolean } = {}) {
   const container = document.createElement('div')
   document.body.appendChild(container)
-  const renderer = new VexFlowRenderer(container)
+  const renderer = new ScoreRenderer(container)
   renderer.initialize(700, 900)
 
   const model = new ScoreModel()

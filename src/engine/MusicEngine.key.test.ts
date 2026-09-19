@@ -13,8 +13,8 @@ import { fracCreate as frac } from '@/utils/fraction'
  * the score never repaints, because the same call is what tells the app the model moved. `keyOps`'
  * own spec proves the write; only this one proves it was COMMITTED.
  */
-vi.mock('./rendering/VexFlowRenderer', () => ({
-  VexFlowRenderer: class {
+vi.mock('./rendering/ScoreRenderer', () => ({
+  ScoreRenderer: class {
     initialize = vi.fn(); renderScore = vi.fn()
     getElementRegistry = vi.fn(() => ({
       clear: vi.fn(), register: vi.fn(), getAll: vi.fn(() => []),

@@ -3,7 +3,7 @@ import { test, expect } from './fixtures'
 /**
  * Fanned (feathered) beams (docs/fanned-beams-plan.md), measured for real.
  *
- * `VexFlowRenderer.fan.test.ts` says at its head that it is *"deliberately not a geometry suite —
+ * `ScoreRenderer.fan.test.ts` says at its head that it is *"deliberately not a geometry suite —
  * jsdom stubs glyph measurement, so an assertion about where the ink landed would pass vacuously"*.
  * This is that missing half. The fan is the feature most exposed to a renderer refactor: it draws
  * its own noteheads, its own stems and its own beam lines, none of it VexFlow's.

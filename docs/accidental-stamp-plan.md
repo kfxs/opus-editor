@@ -64,7 +64,7 @@ notehead in the column), scoped to the note's own `vf-stavenote` group, via the 
 C5 — *"i selected C and the natural is highlighted, but C is not the owner of the natural"*.
 
 ⭐ **Nothing above is at fault.** The bbox match did exactly what it promised; it was handed a box
-filed under the wrong pitch. `VexFlowRenderer`'s registration loop decided which pitch an accidental
+filed under the wrong pitch. `ScoreRenderer`'s registration loop decided which pitch an accidental
 belonged to like this:
 
 ```js
@@ -87,7 +87,7 @@ sharp(C5)]`, so accidental **#0 — the natural — was filed under pitch #0, C4
 
 ⇒ The loop now asks the modifier which pitch it belongs to (`Accidental.getIndex()`, **public API** —
 the `as unknown as` cast was never needed either) and registers nothing when the answer is no.
-Regression spec: `VexFlowRenderer.accidentalRegistry.test.ts`, which builds his chord and asserts the
+Regression spec: `ScoreRenderer.accidentalRegistry.test.ts`, which builds his chord and asserts the
 natural and the sharp are filed under G4 and C5 while C4/E4/A4 own none.
 
 ## 4. Same for articulations (they're additive)
@@ -114,7 +114,7 @@ not one sign):
   `vf-articulation`), nested in that same `vf-notehead` group, so P6's ruler can measure a mark on
   its own — `docs/note-engraving-plan.md` §1g.6. ⭐ Nothing here changes because every selector in
   this family is a DESCENDANT search and **index 0 is still the head**; that is asserted in
-  `VexFlowRenderer.scene.test.ts` so the day a group nests differently, it fails and says so.
+  `ScoreRenderer.scene.test.ts` so the day a group nests differently, it fails and says so.
 
 ## 5. Keypad Select arrow clears the whole selection
 

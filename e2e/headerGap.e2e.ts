@@ -6,7 +6,7 @@
  * `padding = modifier.getPadding(i + offset)` and then `if (padding + width === 0) offset--`. In
  * jsdom every glyph measures 0×0, so a zero-width clef decremented the offset and the meter was
  * asked for `getPadding(1)` — which is 0. ⚠️ Since P5b's placement step the meter no longer depends
- * on that walk at all, so the ORDER is now a unit test (`VexFlowRenderer.scene.test.ts`); what still
+ * on that walk at all, so the ORDER is now a unit test (`ScoreRenderer.scene.test.ts`); what still
  * needs a browser is the INK, because jsdom has no font.
  *
  * ## 🚨🚨 WHAT THIS SPEC GOT WRONG, AND WHY IT IS WRITTEN THIS WAY NOW (2026-09-13)

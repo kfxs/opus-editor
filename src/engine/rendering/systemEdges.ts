@@ -70,7 +70,7 @@ function lineLeftHeaderGap(pass: SystemEdgeLookup, line: number): number | undef
  *
  * ⭐ **The header's ink edge is already published, and needs no glyph measuring**:
  * `applyLeadIn` sets `noteStartX = staveX + (HEADER_TO_NOTE + headerExtent) × STAFF_SPACE_PX`
- * (`VexFlowRenderer.ts`), and a line-opening bar always draws a clef, so its lead-in is always
+ * (`ScoreRenderer.ts`), and a line-opening bar always draws a clef, so its lead-in is always
  * `HEADER_TO_NOTE`. Subtracting it lands exactly on `headerInk.ts`'s measured extent — the same
  * number two ways, which is the promise that file makes about every measurement in it.
  *

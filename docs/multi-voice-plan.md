@@ -15,7 +15,7 @@ stem-defaults and the renderer caveat all favour proving it with two first; 3–
 The headline finding from the code dig: **the model layer is already voice-ready.** Types, note entry,
 collision, rest-fill, rebar, dynamics and playback all key on `voice ?? 0` today. What was deliberately
 **deferred** is the **multi-voice render loop** — there is a scaffolding comment marking the exact spot
-(`VexFlowRenderer.renderMeasure`). This document is the authoritative plan and cross-session checklist.
+(`ScoreRenderer.renderMeasure`). This document is the authoritative plan and cross-session checklist.
 
 ---
 
@@ -141,7 +141,7 @@ delete-one-of-many keeps the voice). Not committed. **Nav caveat:** keyboard cur
 voice-blind `buildBeatMap` (mouse is the reliable voice-2 entry path) — nav refinement is Phase 5.
 **Still invisible** until Phase 2 renders the second stream.
 
-### Phase 2 — Multi-voice render loop (headline — `VexFlowRenderer.renderMeasure`) — ✅ DONE 2026-06-22
+### Phase 2 — Multi-voice render loop (headline — `ScoreRenderer.renderMeasure`) — ✅ DONE 2026-06-22
 - Group sorted slots by `voice ?? 0`; one `Voice` per group; `joinVoices(all)`, `format(all, width)`, draw
   each. ✅ — combined parallel arrays (group order) feed the once-per-measure passes that already key on
   voice/tupletId internally (`attachDynamicsToSlots`, `buildVexTuplets`, `registerSlotElements`,
@@ -275,7 +275,7 @@ rule.
 - `shortcuts/ShortcutConfig.ts` + `interactions/shortcutWiring.ts` — `Alt+3`/`Alt+4` →
   `palette.setActiveVoice(3|4)` (same enter-into / move-selection-to-voice path as Alt+1/2).
 - `interactions/PaletteController.ts` — `setActiveVoice(voice: 1|2|3|4)`.
-- `engine/rendering/VexFlowRenderer.ts` — `forcedStem`/`restShift` key on `v % 2` (stems-up = even
+- `engine/rendering/ScoreRenderer.ts` — `forcedStem`/`restShift` key on `v % 2` (stems-up = even
   model index).
 - `engine/rendering/NoteBuilder.ts` (tuplet bracket side), `TieRenderer.ts`, `SlurRenderer.ts` —
   direction defaults flipped from `voice === 0` to `voice % 2 === 0`.
@@ -288,7 +288,7 @@ history.** The rule it describes is gone; the live one is
 `engine/layout/restVoicePlacement.ts` (`docs/multi-voice-rest-position-plan.md`).
 
 Each voice got its own fixed vertical rest lane, so same-parity voices could not overlap — a table
-in `VexFlowRenderer.renderMeasure`:
+in `ScoreRenderer.renderMeasure`:
 
 ```js
 const REST_LINE_STEP = 3                     // the one knob — lines between adjacent lanes

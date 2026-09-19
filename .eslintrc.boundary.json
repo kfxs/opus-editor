@@ -154,7 +154,7 @@
             "patterns": [
               {
                 "group": ["vexflow", "@/engine/rendering/*", "**/rendering/*", "@/engine/models/*", "**/models/*"],
-                "message": "src/engine/scene knows `paint/` and nothing else — no VexFlow, no renderer, no model. ⚠️ It needs a way to wrap the real painter's groups; that arrives as the `wrapGroup` CONSTRUCTOR PARAMETER (VexFlowRenderer passes `rendering/svgDrawGroup`), never as an import."
+                "message": "src/engine/scene knows `paint/` and nothing else — no VexFlow, no renderer, no model. ⚠️ It needs a way to wrap the real painter's groups; that arrives as the `wrapGroup` CONSTRUCTOR PARAMETER (ScoreRenderer passes `rendering/svgDrawGroup`), never as an import."
               }
             ]
           }

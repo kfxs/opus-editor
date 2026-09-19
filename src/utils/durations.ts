@@ -8,7 +8,7 @@
  *   - **vex**       — the VexFlow duration token used when drawing.
  *
  * These used to live in three different files (fraction.ts, musicUtils.ts,
- * VexFlowRenderer.ts) and could silently drift. They are now derived from the
+ * ScoreRenderer.ts) and could silently drift. They are now derived from the
  * one {@link DURATION_INFO} table below.
  *
  * IMPORTANT — extending the duration set (adding '64', '128', a breve, …):

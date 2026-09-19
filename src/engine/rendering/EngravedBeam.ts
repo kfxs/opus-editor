@@ -19,7 +19,7 @@
  * - **The NOTES are VexFlow's** (`StaveNote`, until S12), and a note must be TOLD it is beamed:
  *   `StaveNote.draw` skips its stem and flag while `note.beam` is set, and `StemmableNote.postFormat`
  *   calls `beam.postFormat()`. Those two — truthiness and `postFormat` — are all VexFlow asks of a beam
- *   (`VexFlowRenderer`'s `PLACEHOLDER_BEAM` has relied on exactly that since the fan), so the note is
+ *   (`ScoreRenderer`'s `PLACEHOLDER_BEAM` has relied on exactly that since the fan), so the note is
  *   handed THIS object through `setBeam`, cast to the type its signature names.
  * - **The STEMS are drawn here, as VexFlow's beam drew them**: a beamed note's stem belongs to the beam.
  *   Each is an `EngravedStem` whose ink is ours (P3c); it still takes VexFlow's context to hang its

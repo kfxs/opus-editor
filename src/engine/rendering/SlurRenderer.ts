@@ -1,5 +1,5 @@
 /**
- * Slur (phrasing) rendering — extracted from {@link VexFlowRenderer}. Operates on
+ * Slur (phrasing) rendering — extracted from {@link ScoreRenderer}. Operates on
  * the passed-in {@link RenderPass} + score (no renderer-instance state), matching the
  * engine's free-function module idiom.
  *

@@ -7,7 +7,7 @@
  * import the editor, and the score layer's package boundary (docs/DESIGN-PRINCIPLES.md §5) would be
  * quietly gone. Nothing would have said so — `.eslintrc.boundary.json` fenced only `utils/`,
  * `types/` and `engine/models/` off from `@/interactions` when this was written, so a
- * `tool: MarkingTool` parameter in `VexFlowRenderer` passed all four `build:check` gates. The fence
+ * `tool: MarkingTool` parameter in `ScoreRenderer` passed all four `build:check` gates. The fence
  * now covers `src/engine/**` too; this union is the other half of the fix.
  *
  * And the two really are different vocabularies, which is why the fence costs nothing:

@@ -66,7 +66,7 @@ describe('the indent, and the render key', () => {
 
   it('🚨🚨 every accepted write bumps the GENERATION — or the console call draws nothing', () => {
     // `reference_only_a_stale_render_runs`: a law is a picture change with no model change, so it
-    // reaches the page only through `VexFlowRenderer.viewStateKey`.
+    // reaches the page only through `ScoreRenderer.viewStateKey`.
     const before = slurShapeGeneration()
     setSlurHeightLaw('verovio')
     expect(slurShapeGeneration()).toBeGreaterThan(before)

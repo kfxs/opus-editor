@@ -95,7 +95,7 @@ element bounding boxes that is rebuilt on every render.
 Layering (dependencies point rightward): `App.vue → composables → interactions →
 engine`. The relevant players:
 
-- **`engine/rendering/VexFlowRenderer.ts`** — draws the score with VexFlow and, as it
+- **`engine/rendering/ScoreRenderer.ts`** — draws the score with VexFlow and, as it
   draws, **registers** each element's pixel box into the registry.
 - **`engine/ElementRegistry.ts`** — the authoritative store of "what is where."
   Every rendered element becomes an `ElementInfo { type, id, bbox, … }`. Hit-testing
@@ -210,7 +210,7 @@ Two further, separate mechanisms complete the picture:
 
 - **Hand-built region boxes**: the line-start clef and time signature are registered
   with our own `CLEF_WIDTH × STAVE_HEIGHT` / clamped `TIME_SIG_WIDTH × STAVE_HEIGHT`
-  rectangles (`VexFlowRenderer.ts:1649-1696`) — no VexFlow box involved. As *click
+  rectangles (`ScoreRenderer.ts:1649-1696`) — no VexFlow box involved. As *click
   targets* these are arguably fine (a clef is a tall glyph and a generous target is
   friendly); as *highlight regions* they misfire (§5b).
 - **DOM `getBBox()` pointer-rect union**: every VexFlow-drawn group also contains an
@@ -242,7 +242,7 @@ The codebase already distrusts container-level boxes in two places, via **two di
 strategies**:
 
 ### 4a. Notes — *semantic* hit geometry (ignore the bbox at hit time)
-Notes still **register** the StaveNote union box (`VexFlowRenderer.ts:1495`), but
+Notes still **register** the StaveNote union box (`ScoreRenderer.ts:1495`), but
 hit-testing does **not** use it. `hitsNoteOrRestBody` for a note rebuilds a tight box
 around the **notehead**, from the note's **pitch → pixel-Y** (`pitchToPixelY`) and a
 true notehead-center X (`headX`, captured from VexFlow's notehead span, excluding a
@@ -413,7 +413,7 @@ concern, and **`ElementRegistry` is framework-agnostic — it imports no VexFlow
 stay that way** (`lint:boundary` enforces this). So the choke point lives in the
 rendering layer, next to the VexFlow calls, not in the registry.
 
-Introduce one helper in `VexFlowRenderer` (or a small sibling in `engine/rendering/`):
+Introduce one helper in `ScoreRenderer` (or a small sibling in `engine/rendering/`):
 
 ```ts
 // Register a GLYPH element by its OWN VexFlow object's ink box. Pass the leaf glyph
@@ -523,7 +523,7 @@ independently-committable steps:
 
 **1a — Introduce the SOURCE choke point + rerouting (rendering layer).** Add
 `addGlyphElement(glyph, info)` (§6a-i) and route the rest and every other audit-confirmed
-glyph type through it. For the rest (`VexFlowRenderer.ts:1441`, `registerSlotElements`):
+glyph type through it. For the rest (`ScoreRenderer.ts:1441`, `registerSlotElements`):
 
 ```ts
 // Register the rest by its OWN glyph's ink box, not the StaveNote container box:
@@ -639,7 +639,7 @@ later.
 - Registry data model: `engine/ElementRegistry.ts` — `ElementType` (17),
   `ElementInfo` (131), `getAt` (454), `getInRect` (490), `findClosestNoteOrRest` (803),
   `noteOrRestHitDistance` (852), `hitsNoteOrRestBody` (877), `pitchToPixelY` (597).
-- Registration: `engine/rendering/VexFlowRenderer.ts` — registerDots (452),
+- Registration: `engine/rendering/ScoreRenderer.ts` — registerDots (452),
   mid-measure clef (515), rest (1441), note (1467/1495), articulation (1515),
   accidental (1552), beam (1583), stave (1617), line-start clef (1649),
   timeSignature (1669), barline (1698), tuplet (1409).

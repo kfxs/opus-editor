@@ -1,5 +1,5 @@
 /**
- * THE GHOSTS — every translucent preview the editor draws, extracted from {@link VexFlowRenderer}
+ * THE GHOSTS — every translucent preview the editor draws, extracted from {@link ScoreRenderer}
  * (docs/refactor-plan-2026-07-27.md Phase 6a). Free functions over the drawing context and the
  * score's `<svg>`, like {@link FanPass} and the tie / slur / dynamics passes.
  *
@@ -18,13 +18,13 @@
  *
  * Every one of them is an **overlay** (docs/render-performance-plan.md §5b): it draws into its own
  * class-tagged `<g>` appended last, so putting one up or taking it down is a DOM append/remove
- * against the already-drawn score — never a re-layout. `VexFlowRenderer.clearGhosts` is the
+ * against the already-drawn score — never a re-layout. `ScoreRenderer.clearGhosts` is the
  * take-down, and it sweeps exactly the groups named in {@link GHOST_GROUP_SELECTOR}. ⚠️ **A group
  * whose class is not in that list is never removed** — the ghost then smears a trail across the
  * score, one copy per mouse position. Add the class there in the same breath as drawing it.
  *
  * ⚠️ Each takes the previous ghost's take-down and the "is there a page to draw on" check from its
- * caller — `VexFlowRenderer.ghostOverlay` — so every function here starts with a real page and a
+ * caller — `ScoreRenderer.ghostOverlay` — so every function here starts with a real page and a
  * real context. What each still guards for itself is its own emptiness (a tempo mark with no text,
  * an empty articulation list): that is about the MARK, not about the page.
  */
@@ -75,7 +75,7 @@ import { noteRuler } from './noteRuler'
 
 /**
  * The preview ghosts (note / clef / time-sig / dynamic / tempo …) each draw into their own
- * class-tagged `<g>`, appended last — this is the list `VexFlowRenderer.clearGhosts` sweeps.
+ * class-tagged `<g>`, appended last — this is the list `ScoreRenderer.clearGhosts` sweeps.
  *
  * ⚠️ `vf-ghost-tempo`, not `ghost-tempo`. The hand-built groups below say
  * `setAttribute('class', 'ghost-…-group')`; the ones that go through VexFlow's `openGroup(…)` get
@@ -177,7 +177,7 @@ export function drawNoteGhost(
     const scale = staffId ? resolveStaffSize(score, staffId) : 1
     const isFirstInLine = measureX === lineLeft
     // The ghost sits at a real pitch, so it gets real ledger lines — same ink as the engraved ones.
-    // ⭐ S11e: the score's own stave class, given its signs the way `VexFlowRenderer` gives a bar its
+    // ⭐ S11e: the score's own stave class, given its signs the way `ScoreRenderer` gives a bar its
     // own — so the note area the ghost is formatted into is walked by the same rule.
     const tempStave = new EngravedStave(measureX / scale, measureY / scale, staveWidth / scale)
     tempStave.setDefaultLedgerLineStyle(LEDGER_LINE_STYLE)
@@ -442,7 +442,7 @@ function drawTieGhost(ctx: DrawContext, cursorX: number, cursorY: number): boole
     // The arc BEGINS at the cursor and runs to the right, rather than being centred on it — a tie
     // starts at the note you click and reaches forward to the next, so its head belongs where the
     // click will land. Nudged clear of the pointer on both axes so the arrow doesn't cover it.
-    // Shared with the PENDING tie's stub (`VexFlowRenderer.renderPendingTie`), so the armed
+    // Shared with the PENDING tie's stub (`ScoreRenderer.renderPendingTie`), so the armed
     // preview and the committed-but-unfinished one are one shape (§12 Phase 3b).
     const WIDTH = CURVE_PX.tieStubLength
     const START_GAP_PX = 4
@@ -489,7 +489,7 @@ function drawTieGhost(ctx: DrawContext, cursorX: number, cursorY: number): boole
  * ONE ROW PER GHOST — the table that replaced four layers of forwarding.
  *
  * Drawing a clef ghost used to be `RenderController.renderClefGhost` → `MusicEngine.
- * renderScoreWithClefGhost` → `VexFlowRenderer.renderScoreWithClefGhost` → `drawClefGhost`: 42
+ * renderScoreWithClefGhost` → `ScoreRenderer.renderScoreWithClefGhost` → `drawClefGhost`: 42
  * methods across four layers for twelve kinds, and the **twenty in the middle two carried no logic
  * at all** — each was a single delegating statement, so a thirteenth ghost meant editing four files
  * in order to add nothing (docs/modularity-plan-2026-07-28.md §4, Phase 2). Now the payload
@@ -533,7 +533,7 @@ export const GHOST_DRAWERS: {
 }
 
 /**
- * Draw whatever ghost the editor asked for, at the cursor. The one dispatch point — `VexFlowRenderer`
+ * Draw whatever ghost the editor asked for, at the cursor. The one dispatch point — `ScoreRenderer`
  * wraps this in `ghostOverlay` (which takes the last ghost down and refuses when there is no page).
  *
  * The cast is the known TypeScript hole in a keyed-dispatch table: `GHOST_DRAWERS[ghost.kind]` widens

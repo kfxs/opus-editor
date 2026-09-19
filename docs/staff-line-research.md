@@ -317,7 +317,7 @@ engraved music. **⛔ UNKNOWN whether Ross's line weight scaled with his staff s
 ### 4.1 The staff line itself
 
 ```ts
-// src/engine/engrave/staff/staffLines.ts:133   (⭐ moved here from VexFlowRenderer by P5a, 2026-09-01)
+// src/engine/engrave/staff/staffLines.ts:133   (⭐ moved here from ScoreRenderer by P5a, 2026-09-01)
 export const STAVE_LINE_WIDTH_PX = 1
 // src/engine/models/staffSize.ts:37
 export const STAFF_SPACE_PX = 10
@@ -331,7 +331,7 @@ export const STAFF_SPACE_PX = 10
 the number can move without the two owners coming apart.
 
 ✅ **It DOES scale with staff size, by construction.** A small staff is painted inside an SVG
-`<g transform="scale(k)">` (`rendering/staffScaleGroup.ts`, `VexFlowRenderer.ts:359, 4627`), and the
+`<g transform="scale(k)">` (`rendering/staffScaleGroup.ts`, `ScoreRenderer.ts:359, 4627`), and the
 constant lives in that group's own coordinates where a space is always 10 units. So a 0.7-size staff
 renders its lines at 0.7 px, and the ratio stays **0.10 sp at every staff size** — which is the
 behaviour §3.2 measured on Gould's rastral table. ⚠️ The *value* is a pixel literal against

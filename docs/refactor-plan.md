@@ -113,7 +113,7 @@ and NoteBuilder's render-time pass.
 
 ### 3c. Renderer bookkeeping — one list of per-render maps
 
-`VexFlowRenderer.clear()` and `clearForRender()` each enumerate the same maps; adding a
+`ScoreRenderer.clear()` and `clearForRender()` each enumerate the same maps; adding a
 ninth map means remembering both sites (the N² trap this codebase deletes elsewhere).
 
 - Extract `private resetPerRenderState()` holding the shared map-clears; each caller keeps
@@ -214,7 +214,7 @@ grow the file further.
   `updateNonTupletNote` internals (the thinnest spot of the Fraction invariant; works
   today, epsilon-guarded, but a candidate once touched for other reasons).
 - Extracting the ghost family into `rendering/GhostRenderer.ts` (~900 lines) — worthwhile
-  only if VexFlowRenderer keeps growing.
+  only if ScoreRenderer keeps growing.
 - App.vue's repeated palette markup — resolved by the planned Vue-palette DELETION, not by
   refactoring; don't polish what is scheduled to go.
 

@@ -14,8 +14,8 @@ import { fracCreate as frac } from '../utils/fraction'
  * suite"). Where a click lands is `ElementRegistry`'s question and has its own tests; what is asked
  * here is what the stamp does with the note it is handed.
  */
-vi.mock('../engine/rendering/VexFlowRenderer', () => ({
-  VexFlowRenderer: class {
+vi.mock('../engine/rendering/ScoreRenderer', () => ({
+  ScoreRenderer: class {
     initialize = vi.fn(); renderScore = vi.fn()
     getElementRegistry = vi.fn(() => ({
       clear: vi.fn(), register: vi.fn(), getAll: vi.fn(() => []),

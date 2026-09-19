@@ -549,7 +549,7 @@ export interface ElementInfo {
   /** Type of accidental: '#', 'b', 'n', '##', 'bb' (for accidentals) */
   accidentalType?: string
   /** ID of the note this accidental belongs to (for accidentals) — and, for a 'dot', the ANCHOR the
-   *  slot's dots hang off (see VexFlowRenderer.registerDots): EVERY dot glyph of one chord/rest
+   *  slot's dots hang off (see ScoreRenderer.registerDots): EVERY dot glyph of one chord/rest
    *  shares it, because `dots` is one value on the slot.
    *
    *  Also carried by a **'stem'**, for the same "one per slot" reason: a chord has one stem, anchored
@@ -889,7 +889,7 @@ export class ElementRegistry {
    * ⭐ The cause is not the walk — its rule is his own (*"till the beginning of the ink doesn't reach
    * the next anchor point, nothing; when it reaches it, re-anchor"*) and it needs the next anchor's
    * x to test it. A bar whose shape key is unchanged is REUSED rather than redrawn
-   * (`VexFlowRenderer.replaySnapshot`), so `TempoLayout.registerTempoAnchors` never runs for it and
+   * (`ScoreRenderer.replaySnapshot`), so `TempoLayout.registerTempoAnchors` never runs for it and
    * this map answered null for every bar but the one being edited. ⛔ Null then means *"the picture
    * cannot say"* and the walk correctly declines — for ever, because the next full render reuses
    * that bar too.

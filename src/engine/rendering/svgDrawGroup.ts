@@ -16,11 +16,11 @@ import type { DrawBox, DrawGroup, OpenedGroup } from '@/engine/paint/DrawGroup'
  * `matrix(k 0 0 k 0 0)` and `scale(k)` place ink identically, and the browser does not care — but
  * two things in this repo read the attribute as TEXT:
  *
- * 1. 🚨 **`VexFlowRenderer.moveMeasureGroup` re-composes it by string**: a bar that moves without
+ * 1. 🚨 **`ScoreRenderer.moveMeasureGroup` re-composes it by string**: a bar that moves without
  *    being re-engraved gets `translate(dx, dy) scale(k)` written over whatever was there. Emitting a
  *    matrix here and a shorthand there would leave one bar's transform in each dialect.
  * 2. **Specs assert it exactly** — `GutterRenderer.staffSize.test.ts` expects `'scale(0.7)'`,
- *    `VexFlowRenderer.staffSize.test.ts` and `systemStart.test.ts` the same shape.
+ *    `ScoreRenderer.staffSize.test.ts` and `systemStart.test.ts` the same shape.
  *
  * ⭐ So: emit the shorthand wherever it is *exactly* equivalent, and a matrix otherwise. That keeps
  * every byte this renderer used to write, while the CALLERS have moved to speaking in placements.

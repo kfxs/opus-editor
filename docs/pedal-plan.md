@@ -353,7 +353,7 @@ pedal is ever drawn inside a measure group, this becomes `'shape'`.
 ### 5.5 ⚠️⚠️ SPAN ANCHORS — the third question, and the one nothing checks
 
 `measureRenderRoles`' own header names it: a per-measure key only ever sees one bar, so a thing that
-SPANS bars must ALSO be listed in `VexFlowRenderer.spanAnchors`. A pedal spans bars. Without a block
+SPANS bars must ALSO be listed in `ScoreRenderer.spanAnchors`. A pedal spans bars. Without a block
 there — beside the hairpin's and the ottava's, positional in the same way, walking the capacities via
 `pedalSpan` rather than looking up note ids — there are **two silent failures, and neither throws**:
 
@@ -393,7 +393,7 @@ the same note.
 
 - **`pedalGroupMap`** — six sites, because a highlight recolours a drawn `<g>` and something has to
   remember which one: the field on `RenderPass`, the private map + the `pass` literal + the `clear()`
-  + the `getPedalSVGGroup` accessor in `VexFlowRenderer`, and the one-line delegation on
+  + the `getPedalSVGGroup` accessor in `ScoreRenderer`, and the one-line delegation on
   `MusicEngine`. `PedalRenderer` opens ONE group per pedal (outside the fragment loop, so a split
   pedal is one group), exactly as `renderOttavas` does — ⚠️ and `openGroup` prefixes with `vf-`
   itself, so the name passed is `'pedal'`, never `'vf-pedal'`.

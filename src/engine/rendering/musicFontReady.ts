@@ -20,7 +20,7 @@
  * | before the face loads (fallback `.notdef` box) | **30.3 px** |
  * | after `document.fonts.ready` | **11.0 px** |
  *
- * `VexFlowRenderer.centerMeasureRests` centres a whole-bar rest on `getAbsoluteX() +
+ * `ScoreRenderer.centerMeasureRests` centres a whole-bar rest on `getAbsoluteX() +
  * getGlyphWidth() / 2`, so a first render that loses the race puts every empty bar's rest
  * `(11 − 30.3) / 2` ≈ **9.7 px LEFT of its bar's centre** — his report, and the reason it showed
  * "once in a while, particularly on first open": whether an early resize/scroll re-render happened

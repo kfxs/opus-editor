@@ -156,7 +156,7 @@ export function fillStaffLine(ctx: DrawContext, line: StaffLineInk): void {
  * so 0.13 is the TOP of the range, ⛔ not its middle. ⭐ Gould's own engraved staves measure
  * **0.110–0.111 sp**, which is MuseScore's number.
  *
- * ⭐ **P5a moved it here, from `rendering/VexFlowRenderer`**, which is what the old ⏭️ note was
+ * ⭐ **P5a moved it here, from `rendering/ScoreRenderer`**, which is what the old ⏭️ note was
  * waiting for: the engine now draws the lines, so the number lives beside them.
  *
  * ## ✅ HIS DECISION, 2026-09-01: **GOULD — 0.11 staff spaces**

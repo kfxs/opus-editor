@@ -34,7 +34,7 @@ export function curveFillGap(nominalThickness: number): number {
  * {@link curveFillGap}; the outline is pinned around the call because the fill tapers on its own
  * (it pinches to a point at each endpoint) and a thick stroke would blunt those tips and
  * over-weight the whole curve. `save`/`restore` scopes it — worth a note, because for a long time
- * it did NOT: `VexFlowRenderer.initialize()` stubbed both to no-ops, so this had to capture and
+ * it did NOT: `ScoreRenderer.initialize()` stubbed both to no-ops, so this had to capture and
  * re-set `stroke-width` by hand, and any code that "restored" a style was quietly doing nothing.
  * The stubs are gone — see the history in `initialize()` — so the idiom means what it says again.
  * It matters here because the ghost tie draws through this on every mouse move.

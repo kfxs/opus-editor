@@ -247,7 +247,7 @@ the default and the slot field stays as the per-mark override — which is Doric
 **Geometry**, all of it beam arithmetic we already own:
 - slope = the line between the two stem ends (Dorico: "determined by the height of the stems");
 - thickness and the ×1.5 step between strokes = VexFlow's `beamWidth`, via
-  `VexFlowRenderer.fillBeamQuad()` — written for the cross-system half-beams, one quad per stroke
+  `ScoreRenderer.fillBeamQuad()` — written for the cross-system half-beams, one quad per stroke
   (⚠️ 2026-09-19: VexFlow is removed — the width is `beamInk.CROSS_SYSTEM_BEAM_WIDTH` (Bravura's `beamThickness`,
   the same half space), and the
   quad is `engrave/beams/beamLines.fillBeamQuad`);
@@ -276,7 +276,7 @@ a relation, not a fixed pixel, because if we change scale in the future the pixe
    to nothing keeping clear of something.
 
 **Where the drawing runs.** In the bar's own render, after the voices and their beams are drawn and
-before `registerSlotElements` (`VexFlowRenderer.drawMeasureContent`) — the strokes read stem geometry
+before `registerSlotElements` (`ScoreRenderer.drawMeasureContent`) — the strokes read stem geometry
 that is only settled once the beams have applied their extensions, and they belong to the measure
 group (both notes are in one bar), unlike the cross-barline fragments which have no bar to live in.
 
@@ -299,7 +299,7 @@ throws. There is no `doubleDuration()` in `utils/durations` yet — `'w'` has no
 ⚠️ **Beam grouping — the exclusion goes in the PURE grouper, not in `buildBeams`.**
 `computeBeamGroups` is a one-bar call into `computeCrossBarBeamGroups` (`utils/beaming.ts`), and the
 cross-barline planner feeds the renderer its own `inBarGroups` — so a pair excluded only in
-`VexFlowRenderer.buildBeams` would still be dragged into a group *across a barline* by the plan. The
+`ScoreRenderer.buildBeams` would still be dragged into a group *across a barline* by the plan. The
 break belongs beside the rest/`beamOver` rules in `computeCrossBarBeamGroups`: a paired slot and its
 partner are never members of an automatic group. The pair owns its own `Beam` (P2) or none.
 

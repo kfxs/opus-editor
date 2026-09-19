@@ -244,7 +244,7 @@ const REPEAT_DOT_GLYPH = '\uE044'
  * position the hit-testing tier cannot work out.
  *
  * 🚨 **HIS REPORT, 2026-08-26** — *"I can not highlight open repeat on the beginning of the score"*,
- * and the ⏭️ note this closes was already standing in `VexFlowRenderer`'s tier-1 registration: *"the
+ * and the ⏭️ note this closes was already standing in `ScoreRenderer`'s tier-1 registration: *"the
  * one sign this does NOT cover is the neighbour's `|:`, whose ink is to the RIGHT of this boundary
  * … this function is handed a LANE and no score"*. Two things put it out of reach there:
  *

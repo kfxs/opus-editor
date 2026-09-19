@@ -199,7 +199,7 @@ function dotsAt(edge: number, direction: 1 | -1): SignDots {
  * ⭐ **HOW FAR A BARLINE'S REGISTERED HIT BOX STRADDLES THE BOUNDARY**, on each side, in px.
  *
  * A barline box is `[boundary − straddle − extent.left, boundary + straddle]`
- * (`VexFlowRenderer.registerMeasureElements`): it grows LEFTWARD with the sign's ink
+ * (`ScoreRenderer.registerMeasureElements`): it grows LEFTWARD with the sign's ink
  * ({@link barlineSignExtent}) and straddles the line itself by this much either way, because the
  * drawn stroke sits ON the boundary and a box that started there would be un-clickable from the left.
  *

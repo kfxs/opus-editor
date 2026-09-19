@@ -21,8 +21,8 @@ import { fracCreate as frac, fracToNumber } from '../utils/fraction'
  *  - a second press over a pedal already down LIFTS the first rather than stacking on it — the
  *    pianist's re-take, and the entry door's truncation rule surfacing as a gesture.
  */
-vi.mock('../engine/rendering/VexFlowRenderer', () => ({
-  VexFlowRenderer: class {
+vi.mock('../engine/rendering/ScoreRenderer', () => ({
+  ScoreRenderer: class {
     initialize = vi.fn(); renderScore = vi.fn()
     getElementRegistry = vi.fn(() => ({
       clear: vi.fn(), register: vi.fn(), getAll: vi.fn(() => []),

@@ -19,8 +19,8 @@ import { fracCreate as frac } from '../utils/fraction'
  * ⚠️ The stamped trill still DRAWS a wavy line — the line always shows (his call, 2026-08-13; see
  * the note on `TrillSpan`). What "one note" changes is the SPAN, not whether there is a line.
  */
-vi.mock('../engine/rendering/VexFlowRenderer', () => ({
-  VexFlowRenderer: class {
+vi.mock('../engine/rendering/ScoreRenderer', () => ({
+  ScoreRenderer: class {
     initialize = vi.fn(); renderScore = vi.fn()
     getElementRegistry = vi.fn(() => ({
       clear: vi.fn(), register: vi.fn(), getAll: vi.fn(() => []),

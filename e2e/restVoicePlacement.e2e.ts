@@ -10,7 +10,7 @@ import type { Glyph, StaveBox } from './harness'
  * every glyph measures 0×0 there and an assertion about where the ink landed agrees with itself.
  *
  * ⚠️ **What it does NOT cover, stated so nobody trusts it for this**: the `intendedRestLine`
- * re-assertion after `format()` (`VexFlowRenderer`, the guard against VexFlow's own ±1 same-tick
+ * re-assertion after `format()` (`ScoreRenderer`, the guard against VexFlow's own ±1 same-tick
  * nudge). Disabling that line leaves both cases below GREEN — checked, 2026-08-31 — because
  * VexFlow's nudge does not fire on this texture and is one line even where it does, which is inside
  * the tolerances here. A fixture that pins it would need two voices RESTING at one tick, and the

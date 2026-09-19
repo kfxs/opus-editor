@@ -79,7 +79,7 @@ if (debugEnabled()) console.log(`… ${JSON.stringify(measure)} …`)
 ```
 
 Candidates already noted: `src/dev/renderCensus.ts` dumps, and the full-measure `JSON.stringify` in
-`VexFlowRenderer`'s render-failure `console.error`. (Not yet converted — do it if/when they show up
+`ScoreRenderer`'s render-failure `console.error`. (Not yet converted — do it if/when they show up
 on a profile.)
 
 ## Not done yet / follow-ups

@@ -27,8 +27,8 @@ const drawn = vi.hoisted(() => ({
   systemTop: {} as Record<number, number>,
 }))
 
-vi.mock('./rendering/VexFlowRenderer', () => ({
-  VexFlowRenderer: class {
+vi.mock('./rendering/ScoreRenderer', () => ({
+  ScoreRenderer: class {
     initialize = vi.fn(); renderScore = vi.fn()
     getElementRegistry = vi.fn(() => ({
       clear: vi.fn(), register: vi.fn(), getAll: vi.fn(() => []),

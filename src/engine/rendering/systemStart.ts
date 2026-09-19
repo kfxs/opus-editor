@@ -6,7 +6,7 @@
  * top and bottom staves (the grand-staff look). ⏭️ The **brace** and the **bracket** join it here
  * (P3/P4 of the plan), which is why this module exists before either of them is drawn — the family
  * gets **ONE OWNER** the way the barlines did (`docs/barline-types-plan.md` §4.6), rather than the
- * second member arriving as a second slice in `VexFlowRenderer`.
+ * second member arriving as a second slice in `ScoreRenderer`.
  *
  * ⛔ **A new left-edge sign is a row in THIS module, never a `case` in the facade** (CLAUDE.md's
  * rule). What moved here is not only the drawing but the family's **selection rule** — *which*
@@ -56,7 +56,7 @@ import {
 } from '@/engine/layout/systemStartColumn'
 import { ENGRAVING_DEFAULTS } from '@/engine/fonts/bravuraMetrics'
 import type { RenderPass } from './RenderPass'
-import { measureGroupKey } from './VexFlowRenderer'
+import { measureGroupKey } from './ScoreRenderer'
 import { staveFrame } from './staveFrame'
 import { staffBottomLineY, staffLineY } from '@/engine/engrave/staff/staffFrame'
 

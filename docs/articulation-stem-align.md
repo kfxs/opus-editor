@@ -37,7 +37,7 @@ has a visible effect on marks that land on the stem side; notehead-side marks ig
 ## Render — reuses the note-offset lever
 
 The horizontal placement is driven through the **same `getModifierStartXY` override** that the
-note-offset fix installs (`applyNoteOffsets` in `VexFlowRenderer.ts` — see
+note-offset fix installs (`applyNoteOffsets` in `ScoreRenderer.ts` — see
 `docs/note-offset-plan.md`). That override is now the single lever for an articulation's X placement:
 
 - **note offset** → adds `px` to the ABOVE/BELOW base x, for both sides.

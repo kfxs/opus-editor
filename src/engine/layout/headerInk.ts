@@ -254,7 +254,7 @@ export function inlineClefExtent(clef: Clef): number {
  * ⭐⭐ **The room a key signature takes at the head of a bar, INCLUDING the padding that separates it
  * from whatever is drawn next** — and **0** when it draws nothing.
  *
- * Exported because the DRAWING needs the same number the width reserved: `VexFlowRenderer` pushes
+ * Exported because the DRAWING needs the same number the width reserved: `ScoreRenderer` pushes
  * VexFlow's own time-signature modifier right by exactly this, so the meter lands one
  * {@link keyToMeterGap} past the signature's last sign — which is where {@link headerExtent} has already
  * charged for it. ⛔ Two numbers here would be the two-sets-of-numbers problem this file exists to

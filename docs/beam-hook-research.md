@@ -134,7 +134,7 @@ are the length of a notehead"*) and Ross's, Gerou & Lusk's and Stone's identical
 ## 4. 🚨 WHAT WE DRAW TODAY — measured through the SCENE, ⛔ not read
 
 P4a made the beam's quads ours, so the stub x's are real numbers in jsdom. Gould's ⅜ pair, rendered
-through `VexFlowRenderer` and read back off the beam group's filled paths:
+through `ScoreRenderer` and read back off the beam group's filled paths:
 
 | bar | rhythm | stems (x) | primary | stub | ours | **Gould** |
 |---|---|---|---|---|---|---|

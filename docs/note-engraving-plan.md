@@ -8,7 +8,7 @@
 > P3f ✅ the ACCIDENTAL + the DOT · P3g ✅ the ARTICULATION — both 2026-09-14.**
 > ⭐⭐ **All five of `StaveNote.draw()`'s drawing calls are ours** (the pointer rect is the RULER, not
 > ink), ⭐⭐ **and with P3g every glyph an ordinary bar draws is in the SCENE** — that is the census,
-> asserted, in `VexFlowRenderer.scene.test.ts`. ⏳ **What is left is the stem's LENGTH**, gated on
+> asserted, in `ScoreRenderer.scene.test.ts`. ⏳ **What is left is the stem's LENGTH**, gated on
 > `docs/stem-length-research.md`.
 >
 > ⚠️ **2026-09-19: VexFlow is REMOVED** (S14, `docs/vexflow-removal-map.md` §9). Every piece this
@@ -88,7 +88,7 @@ moves, which is **P5**. ⭐ The residue of P3 that could reach it is the *ruler*
 |---|---|---|
 | `StaveNote.drawLedgerLines` | every real note | (VexFlow's) |
 | `FanPass.drawFanLedgerLines` | a fanned member's hand-drawn head | *"🚨 LEDGER LINES BY HAND. `drawLedgerLines` belongs to `StaveNote`; a bare `NoteHead` only swaps to the ledger glyph"* |
-| `VexFlowRenderer.drawRestLedgerLines` | a rest a manual shift pushed off the staff | *"VexFlow's `StaveNote.drawLedgerLines()` hard-returns for rests… so we draw it ourselves"* |
+| `ScoreRenderer.drawRestLedgerLines` | a rest a manual shift pushed off the staff | *"VexFlow's `StaveNote.drawLedgerLines()` hard-returns for rests… so we draw it ourselves"* |
 
 🚨 That is `own-engraving-engine.md` §3.1's **"the second owner is the tell"** — *a rule with no
 home, copied because there was no module to import* — found three times inside one element. And the
@@ -121,7 +121,7 @@ hand and by nobody in particular.
 - ⭐ **One `renderOptions` poke retired.** `clearLedgersForAccidentals` used to write
   `note.renderOptions.strokePx` — one of §2.4's *"`renderOptions` written as a field, not an API"*
   repairs. It calls `trimLedgers` now.
-- ⭐⭐ **The first note ink in the scene.** `VexFlowRenderer.scene.test.ts` gained a chapter that
+- ⭐⭐ **The first note ink in the scene.** `ScoreRenderer.scene.test.ts` gained a chapter that
   renders four real bars in jsdom and asserts *one ledger line per bar, all at the same y, marching
   left to right, black, at the pinned weight, overhanging its head at both ends*. ⚠️ Every one of
   those needed a browser the day before.
@@ -132,7 +132,7 @@ hand and by nobody in particular.
 
 ### 1.3 🚨 The one thing this cost, and it is worth naming
 
-`VexFlowRenderer.scene.test.ts`'s break-test read `primitives.every(p => 'x' in p …)`. That was true
+`ScoreRenderer.scene.test.ts`'s break-test read `primitives.every(p => 'x' in p …)`. That was true
 only while nothing in that fixture drew a **path** — a path keeps its coordinates in `ops`. The
 first note ink to arrive broke it, which is the correct signal and not a flake: ⭐ **an assertion
 over "every primitive" is an assertion about what the renderer currently draws**, and P3 changes
@@ -441,7 +441,7 @@ step that drove the residue from 24 to 9 — every accidental and every dot on e
 ink, uncounted and unrecorded. ⇒ ⭐⭐ **a ceiling nobody re-measured reads as coverage**, and the
 answer is to count the INK rather than the identifier.
 
-⭐ That census is now a test (`VexFlowRenderer.scene.test.ts`): *"every glyph the page draws is in
+⭐ That census is now a test (`ScoreRenderer.scene.test.ts`): *"every glyph the page draws is in
 the scene, and in the same order"*, beside a second one that states the boundary — an ARTICULATION is
 still VexFlow's, asserted as a passing fact so the day it moves, it fails and says so.
 
@@ -467,12 +467,12 @@ itself, so substituting the class means substituting the builder (`attachEngrave
 natural on G4 and a sharp on C5, selected **C4**, and the **natural** lit up.
 
 ⛔ Nothing in P3f caused it: the DOM order, the groups and the glyphs are byte-identical (284 e2e).
-The fault was in `VexFlowRenderer`'s registration loop, which decided which pitch an accidental
+The fault was in `ScoreRenderer`'s registration loop, which decided which pitch an accidental
 belonged to with a three-clause `||` ending in a **guess** — *"the Nth accidental belongs to the Nth
 pitch"* — so the natural was filed under C4. ⇒ 🚨 **an `||` fallback only runs when the true answer
 said NO, which makes a guess an override, not a fallback.** Now it asks `Accidental.getIndex()`
 (public API) and registers nothing when the answer is no. Written up in
-`docs/accidental-stamp-plan.md` §2; spec `VexFlowRenderer.accidentalRegistry.test.ts`.
+`docs/accidental-stamp-plan.md` §2; spec `ScoreRenderer.accidentalRegistry.test.ts`.
 
 ### 1f.3 ⛔ What P3f did NOT take
 
@@ -606,7 +606,7 @@ because its VexFlow box is the one that goes NaN in jsdom (§1g.4 above).
 selector that reaches these glyphs is a DESCENDANT search — `group.querySelectorAll('text')` for the
 accidental and the dots, and the articulation's `'text, path'` walk **whose index 0 is still the
 head** — so document order and every index are unchanged. Asserted in
-`VexFlowRenderer.scene.test.ts` rather than assumed, and 291 e2e agree.
+`ScoreRenderer.scene.test.ts` rather than assumed, and 291 e2e agree.
 ⚠️ The FACE is unaffected too, and that needed checking: `SVGContext.applyAttributes` omits an
 attribute equal to the enclosing group's, so the worry was that a new group would swallow the font.
 It does not — `fillText` writes the font onto the `<text>` whenever it differs from the group's.

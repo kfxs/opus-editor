@@ -53,7 +53,7 @@ StaffGroup { … }                       // ~line 2305
 ```
 
 - The grouping **SYMBOL is deliberately deferred** (`docs/multi-staff-plan.md` §0, §1): the model
-  exists, the drawing does not. `VexFlowRenderer.ts:4046` says so at the draw site.
+  exists, the drawing does not. `ScoreRenderer.ts:4046` says so at the draw site.
 - 🚨 `types/music.ts` ~line 2287 states outright that **the bracket does not own the join** — ⛔ not
   a boolean on `StaffGroup`.
 - ⭐ **Everything that can change mid-score is POSITIONAL in this codebase**, never a `Score` field
@@ -1023,7 +1023,7 @@ join* — ⛔ and it means the lossiness is on **export**, which `docs/json-io-p
 
 ## 7.1 The DRAWING is the easy half, and precedented TWICE
 
-`VexFlowRenderer.drawSystemConnector` (`:4390`) already draws the vertical line joining a system's
+`ScoreRenderer.drawSystemConnector` (`:4390`) already draws the vertical line joining a system's
 staves, and its own comment states the rule this feature needs: *"a system bracket belongs to the
 system, not to either staff's ink"*. `engine/rendering/barlineGap.ts` then made that rule a **module**,
 with the sharper reason:
@@ -1034,9 +1034,9 @@ with the sharper reason:
 
 ⭐ A brace or bracket spanning staves has **exactly** that property, so the answer is already written
 down. Both existing left-edge signs are drawn at the **SVG's top level** and torn down every render
-(the connector already is, `VexFlowRenderer.ts:4046-4062`).
+(the connector already is, `ScoreRenderer.ts:4046-4062`).
 
-⭐⭐ **And by CLAUDE.md's rule this is a MODULE, not a method on `VexFlowRenderer`.** The honest first
+⭐⭐ **And by CLAUDE.md's rule this is a MODULE, not a method on `ScoreRenderer`.** The honest first
 act is to **move the existing connector into that module**, so the left-edge family — the systemic
 line, the brace, the bracket, the sub-bracket — has **ONE OWNER**, the same rule
 `docs/barline-types-plan.md` §4.6 landed for the barlines.
@@ -1070,7 +1070,7 @@ measuring the glyph we actually ship.**
 ## 7.3 ⭐⭐ THE HARD PART IS HORIZONTAL ROOM, and it is genuinely new
 
 ```
-const lineLeftPx = origins.map(at => at.x + surface.marginLeftPx)   // VexFlowRenderer.ts:3694
+const lineLeftPx = origins.map(at => at.x + surface.marginLeftPx)   // ScoreRenderer.ts:3694
 ```
 
 **Every system starts at the left margin, and nothing reserves a pixel to the LEFT of a staff.** A

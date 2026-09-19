@@ -19,8 +19,8 @@ const fakeRegistry = {
   getByMeasure: vi.fn(() => []),
   staffIndexAtY: vi.fn(() => 1),
 }
-vi.mock('../engine/rendering/VexFlowRenderer', () => ({
-  VexFlowRenderer: class {
+vi.mock('../engine/rendering/ScoreRenderer', () => ({
+  ScoreRenderer: class {
     initialize = vi.fn(); renderScore = vi.fn(); getElementRegistry = vi.fn(() => fakeRegistry)
   },
 }))

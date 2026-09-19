@@ -39,7 +39,7 @@ const STEM_DOWN = -1
 
 /**
  * ⭐ The editor's hold on a mark ABOVE or BELOW a note. Absent for every note that has neither — and
- * today it is set only on a note that carries an ARTICULATION (`VexFlowRenderer.applyNoteOffsets`), which
+ * today it is set only on a note that carries an ARTICULATION (`ScoreRenderer.applyNoteOffsets`), which
  * is the condition the monkeypatch it replaced ran under.
  */
 export interface MarkAnchor {

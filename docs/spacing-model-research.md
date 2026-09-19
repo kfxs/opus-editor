@@ -446,7 +446,7 @@ have to be vendored; the otf route needs nothing.
 
 ### 5.5 The seam that takes over x already exists and is proven
 
-`applyLeadingSpaces` (`VexFlowRenderer.ts:96`) walks `formatter.getTickContexts().array` **after**
+`applyLeadingSpaces` (`ScoreRenderer.ts:96`) walks `formatter.getTickContexts().array` **after**
 `format()` and rewrites `context.setX(...)`. It works because `note.getAbsoluteX()` reads its tick
 context lazily at draw time — so beams, ties, tuplets, accidentals and the `ElementRegistry` all
 follow with no extra work. That is exactly the mechanism a "the model decides the x's" step needs,
@@ -454,7 +454,7 @@ already built, already tested (client #10).
 
 ⚠️ **Corrected 2026-07-30 (review).** This used to credit "`postFormat()` runs *inside* `format()`".
 It does not: `Formatter.format` calls it only `if (opts.stave)` (formatter.js:600) and we format
-without a stave — the renderer's own comment at `VexFlowRenderer.ts:725` already said so. Nor would
+without a stave — the renderer's own comment at `ScoreRenderer.ts:725` already said so. Nor would
 it matter, since `TickContext.postFormat` is a no-op latch. The load-bearing fact is that **nothing
 between `format()` and `draw()` reads or rewrites `TickContext.x`**, so the last `setX` wins. Two
 further numbers the same read turned up: `getAbsoluteX()` adds `Metrics.get('Stave.padding')` = **12

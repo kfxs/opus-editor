@@ -17,7 +17,7 @@ We take Finale's gesture and MuseScore's model.
 
 **It is not more `leadingSpace`.** That client (docs/note-spacing-plan.md) exists to open a *dead
 gap* before one column: the renderer formats the music into `noteAreaWidth − userSpacePx`
-(`VexFlowRenderer.ts:1130`) and then walks the tick contexts to shift everything right of the
+(`ScoreRenderer.ts:1130`) and then walks the tick contexts to shift everything right of the
 anchor. It fights the formatter on purpose.
 
 Bar width is the opposite gesture and therefore much cheaper: **hand the formatter a bigger box and
@@ -258,8 +258,8 @@ the *music* needs, and leaving authored width inside them kills the drag silentl
 `MeasureWidthInfo` carries `stretchSpace?: number` beside `userSpace`.
 
 **The one line where they differ is in the renderer.** `userSpace` is a dead gap and is subtracted
-before formatting (`VexFlowRenderer.ts:1131`); `stretchSpace` is live and is **not**. That single
-omission is the whole of §0's "hand the formatter a bigger box". Nothing else in `VexFlowRenderer`
+before formatting (`ScoreRenderer.ts:1131`); `stretchSpace` is live and is **not**. That single
+omission is the whole of §0's "hand the formatter a bigger box". Nothing else in `ScoreRenderer`
 changes — `applyLeadingSpaces` keeps working on top, untouched.
 
 ---
@@ -314,7 +314,7 @@ finalWidth(m) = [ I(m)·(A − U₀)/T + u₀ ]  +  e·(1 − I(m)/T)
 ```
 
 **But `finalWidth(m)` is not where the barline is.** The barline that ends bar *m* sits at
-`margin + Σ_{k≤m} finalWidth(k)` (`VexFlowRenderer.ts:822`), and the same stretch shrinks every bar
+`margin + Σ_{k≤m} finalWidth(k)` (`ScoreRenderer.ts:822`), and the same stretch shrinks every bar
 *before* it on the line by `e·I(k)/T` — so those barlines slide **left** while you drag **right**,
 and they carry the grabbed one back with them. Summing the deltas:
 
@@ -329,8 +329,8 @@ which inverts exactly, in both the stretch and the compression branch:
 to move the barline by d px:   Δ = d / (1 − P(m)/T)
 ```
 
-`I(k)` and `T` come from the **last render** — `VexFlowRenderer.measureLayoutInfo`
-(`VexFlowRenderer.ts:350`) keeps the `MeasureWidthInfo` map with `lineNumber`, so `P` and `T` are
+`I(k)` and `T` come from the **last render** — `ScoreRenderer.measureLayoutInfo`
+(`ScoreRenderer.ts:350`) keeps the `MeasureWidthInfo` map with `lineNumber`, so `P` and `T` are
 sums over the bars sharing the grabbed bar's line (`intrinsic = minWidth − userSpace − stretchSpace`,
 which is why §2 puts `stretchSpace` on the info). The map is private; P1 adds the accessor. Read
 once at grab — none of these terms move during the drag, because a stretch changes no bar's
@@ -388,7 +388,7 @@ Either way the line's membership changes, so `T` changes, so §4's slope changes
 barline teleports out from under the cursor — the one thing that would make this feel broken. The
 guard is therefore "the line keeps the same set of bars", clamped at both ends. Sibelius avoids the
 same by keeping "make into system" a separate command rather than something you can fall into with
-the mouse. (`setLayoutFrozen` — `VexFlowRenderer.ts:1944`, built for the clef drag — is *not* the
+the mouse. (`setLayoutFrozen` — `ScoreRenderer.ts:1944`, built for the clef drag — is *not* the
 answer here: it freezes widths, which is the thing that must change.)
 
 Whichever limit bites first wins; the `U` cap of §3 is a third, and the absolute clamp of §1 a
@@ -429,7 +429,7 @@ Captured **once** at grab, all from the last render: `P(m)` and `T` (§4), the c
 current stretch, the measured shrink floor and both reflow limits (§5). Model dirty at grab ⇒
 decline. So does a grab on a line-ending barline, which cannot move at all (§4).
 
-⚠️ **The barline hit box is the bar's END, and only that.** `VexFlowRenderer.ts:1922` registers one
+⚠️ **The barline hit box is the bar's END, and only that.** `ScoreRenderer.ts:1922` registers one
 `barline` element per (measure, staff) at `x + width − 2` — bar N's closing line, never bar N+1's
 opening one. So "the bar to the left" is `barlineAt.measure` with nothing to disambiguate, and the
 "one barline = two rects" trap (which is about the drawn SVG) does not reach the registry.

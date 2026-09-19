@@ -80,7 +80,7 @@ describe('frameName — one V8 stack line', () => {
 
   it('reads past the decorations V8 adds', () => {
     expect(frameName('    at async loadScore (http://x/src/a.ts:1:1)')).toBe('loadScore')
-    expect(frameName('    at new VexFlowRenderer (http://x/src/b.ts:2:2)')).toBe('VexFlowRenderer')
+    expect(frameName('    at new ScoreRenderer (http://x/src/b.ts:2:2)')).toBe('ScoreRenderer')
   })
 
   it("⛔ answers null on anything it does not recognise, rather than inventing a row", () => {

@@ -83,8 +83,8 @@ we chose as the default, `docs/dynamic-voice-scope-plan.md`); keep a
   ⚠️ but NOT the same default: absent on a note means voice 0, absent on a dynamic means *all voices
   of its staff*. That inversion is the one thing this family does not share (`utils/dynamicScope`).
 - **Articulations are the rendering precedent:** stored per-chord on the slot, added as VexFlow
-  **modifiers** to the `StaveNote` (`VexFlowRenderer.ts:309-318`), and **registered** into the
-  `ElementRegistry` with a bbox (`VexFlowRenderer.ts:1219-1240`). Dynamics can follow the same
+  **modifiers** to the `StaveNote` (`ScoreRenderer.ts:309-318`), and **registered** into the
+  `ElementRegistry` with a bbox (`ScoreRenderer.ts:1219-1240`). Dynamics can follow the same
   modifier + registry path.
 - **Selection/delete precedent: Phase 11 of the time-signature work** — the TS glyph is a registered
   `ElementType`, hit-tested, selectable, and `Delete`-able via `useShortcuts.ts` + `state.selected…`.
@@ -276,7 +276,7 @@ visible by **Phase 4**, user-placeable by **Phase 5**, and editable/deletable by
 ### Phase 4 — Rendering (modifier path)
 - Add `'dynamic'` to the `ElementType` union (`ElementRegistry.ts:17`) **here** — registration in this
   phase needs it (the Phase 5 palette work also references it, but the type must exist first).
-- In the slot loop (`VexFlowRenderer.ts:~309`), for each dynamic whose beat matches the slot beat and
+- In the slot loop (`ScoreRenderer.ts:~309`), for each dynamic whose beat matches the slot beat and
   voice, attach an **`Annotation` modifier** to that `StaveNote`/rest (see §4 — **not** `TextDynamics`,
   which isn't a modifier):
   - `kind==='level'` → `Annotation` whose text is the SMuFL codepoint(s) from `TextDynamics.GLYPHS` /
@@ -290,7 +290,7 @@ visible by **Phase 4**, user-placeable by **Phase 5**, and editable/deletable by
   that voice (document the rule). Avoid adding a tickable to the music voice.
 - **Register** each rendered dynamic into `ElementRegistry` with `type:'dynamic'`, the `Dynamic.id`,
   and the `Annotation`'s `getBoundingBox()` — mirror the articulation registration at
-  `VexFlowRenderer.ts:1219-1240`. The bbox is for **hit-testing** (Phase 6 selection); highlight uses
+  `ScoreRenderer.ts:1219-1240`. The bbox is for **hit-testing** (Phase 6 selection); highlight uses
   the SVG group, not the bbox. **Do not duplicate `kind`/`level`/`text` onto `ElementInfo`**; the
   registry entry carries `id` + bbox, and edit/highlight look the rest up from the model. (If a
   dynamic-specific field is unavoidable later, add it to `ElementInfo` then — `ElementRegistry.ts:122`.)
@@ -313,13 +313,13 @@ visible by **Phase 4**, user-placeable by **Phase 5**, and editable/deletable by
     wrapper group. This is pure SVG/VexFlow behaviour — **not** framework-related; it would reproduce in
     React/Svelte/vanilla identically.
   - **DONE (cross-cutting, framework-agnostic): notation CSS extracted out of `App.vue`.** The ghost +
-    selection styling now lives in `src/engine/rendering/notation.css`, imported by `VexFlowRenderer.ts`
+    selection styling now lives in `src/engine/rendering/notation.css`, imported by `ScoreRenderer.ts`
     so it travels with the engine — any host (Vue/React/Svelte/vanilla) gets it for free, with no
     `<style>` wiring. Previously these rules sat in `App.vue`'s **global** `<style>` block and only worked
     because it wasn't `scoped` (making it `scoped` would have silently broken every ghost/highlight, since
     Vue rewrites selectors with a `data-v-*` attribute the engine-created SVG nodes don't carry). Note:
     the dead `.ghost-note-preview` rules were dropped — the ghost *note* is styled inline in code
-    (`VexFlowRenderer.applyGhostStyle`), not via a class, so it has no stylesheet dependency.
+    (`ScoreRenderer.applyGhostStyle`), not via a class, so it has no stylesheet dependency.
 
 ### Phase 5 — Palette UI + arm/click placement
 - (`ElementType` union already added in Phase 4.)
@@ -346,7 +346,7 @@ visible by **Phase 4**, user-placeable by **Phase 5**, and editable/deletable by
 - **Highlight via the annotation's own SVG group** — the robust path, confirmed against VexFlow 5.
   `Annotation.draw()` wraps its glyphs in `<g class="vf-annotation" id="vf-<id>">`, so add a
   `getDynamicSVGGroup(id)` that returns `annotation.getSVGElement()` from the `dynamicObjectMap`
-  (mirror `getTupletSVGGroup` at `VexFlowRenderer.ts:2060`), then recolor that group's `text`/`path`
+  (mirror `getTupletSVGGroup` at `ScoreRenderer.ts:2060`), then recolor that group's `text`/`path`
   children. **This supersedes the bbox-coordinate scan** that clef/TS use (`HighlightController.ts:288`)
   — that scan exists only because those glyphs aren't individually grouped; a dynamic *is*, so the
   fragile `width > 40` heuristic and document-wide scan are unnecessary. (Hit-testing for *selection*

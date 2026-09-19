@@ -322,7 +322,7 @@ right-aligns the change clef against whatever follows (`adjustclefchangesfunctor
 | p. 93, bass change | **0.80 sp** | 0.20 sp | **0.80 sp** to the new key signature |
 
 🚨🚨 **WE DRAW IT AFTER THE BARLINE.** A bar-opening change is `stave.addClef(clef, 'small')` at the
-head of the new bar (`VexFlowRenderer.ts:2604`). ⛔ **This is a drawing question, it was first
+head of the new bar (`ScoreRenderer.ts:2604`). ⛔ **This is a drawing question, it was first
 recorded on 2026-08-29, and ⛔ nothing here says how to fix it or that it should be fixed.**
 
 ### 4.2 A clef change MID-BAR
@@ -341,7 +341,7 @@ recorded on 2026-08-29, and ⛔ nothing here says how to fix it or that it shoul
 | her *"rather than"* version | 1.25 sp | 0.55 sp |
 
 ✅ **We agree**: `interleaveClefNotes` emits the `ClefNote` immediately before the note at or after
-its beat (`VexFlowRenderer.ts:1348–1372`).
+its beat (`ScoreRenderer.ts:1348–1372`).
 
 ### 4.3 At a SYSTEM BREAK — ✅ four books, one shape
 

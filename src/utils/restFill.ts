@@ -4,7 +4,7 @@
  * Given a silent span `[start, end)` (in quarter-note beats) and the bar's
  * {@link MeterInfo}, produce the engraving-correct sequence of rests that fills
  * it. This replaces the two former float-based, 4/4-biased fillers
- * (`ScoreModel.createMusicalRests` and `VexFlowRenderer.beatsToRestDurations`).
+ * (`ScoreModel.createMusicalRests` and `ScoreRenderer.beatsToRestDurations`).
  *
  * Governing rule ("show each beat" / Gould): a single rest may span `[p, q)`
  * only when no metric boundary strictly inside it is **stronger than the weaker

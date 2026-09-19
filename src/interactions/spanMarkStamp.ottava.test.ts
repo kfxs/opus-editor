@@ -19,8 +19,8 @@ import { fracCreate as frac, fracToNumber } from '../utils/fraction'
  *  - pressing the other direction on the same note REPLACES the line rather than stacking, which is
  *    the model's per-(beat, staff) upsert surfacing as a gesture.
  */
-vi.mock('../engine/rendering/VexFlowRenderer', () => ({
-  VexFlowRenderer: class {
+vi.mock('../engine/rendering/ScoreRenderer', () => ({
+  ScoreRenderer: class {
     initialize = vi.fn(); renderScore = vi.fn()
     getElementRegistry = vi.fn(() => ({
       clear: vi.fn(), register: vi.fn(), getAll: vi.fn(() => []),

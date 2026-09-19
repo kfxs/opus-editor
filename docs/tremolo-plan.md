@@ -134,7 +134,7 @@ get forgotten:
 | 3 | `ScoreModel.setTremolo` + the `MusicEngine` facade method | ❌ |
 | 4 | `PaletteController.pressTremolo()` (was `armTremolo`, until it stopped only arming — §10) — **reassign** the field, never mutate (the Proxy traps the SET) | ❌ |
 | 5 | `MouseController.stampTremoloAtClick()` — a near-copy of `stampAccidentalAtClick` (`:1903`): same note-body test, one `runBatch` = one undo entry. **Plus the stem** — see below | ❌ |
-| 6 | `GHOST_GROUP_SELECTOR` (`VexFlowRenderer.ts:449`) — see §3 | ❌ |
+| 6 | `GHOST_GROUP_SELECTOR` (`ScoreRenderer.ts:449`) — see §3 | ❌ |
 
 ### ⭐ The one stamp with TWO targets — and the `'stem'` element it needed
 
@@ -147,7 +147,7 @@ That required the stem to become a **fact** rather than a guess. A note register
 head + stem + beam on purpose (`tight-bbox-plan.md` §4a), so from outside "which side is the stem on,
 how far does it reach" is only *inferable* — and inference gets the beamed and multi-voice cases
 wrong. VexFlow knows exactly (since the 2026-09-19 removal, `EngravedNote` does), so it is now written down: `'stem'` is an `ElementType`, registered by
-`VexFlowRenderer.registerStem` from `getStemX()` + `getStemExtents()`.
+`ScoreRenderer.registerStem` from `getStemX()` + `getStemExtents()`.
 
 - **One per slot**, anchored on the chord's lowest pitch — the convention its articulations and dots
   already use. A chord has one stem.
@@ -191,7 +191,7 @@ given the mark sits on the stem), P6 a keybinding on a selection that by then ex
 
 ## 3. The ghost
 
-`renderScoreWithArticulationGhost` (`VexFlowRenderer.ts:3890`) is the recipe, verbatim: a
+`renderScoreWithArticulationGhost` (`ScoreRenderer.ts:3890`) is the recipe, verbatim: a
 throwaway `Stave` + `StaveNote`, `setStave` then `Formatter.format` (the modifier's `draw()` reads
 both), draw **only** the modifier into an `openGroup`, measure the bbox, translate to the cursor,
 paint it ghost blue at 0.7. (⚠️ 2026-09-19: VexFlow is removed — since S11 the ghost is
@@ -203,7 +203,7 @@ strokes because a button needs to be recognisable; the ghost draws what the clic
 add. Since P2 it takes the {@link TremoloMark} rather than a stroke count, so strokes and the
 Penderecki sign go through one modifier and the preview cannot disagree with what gets engraved.
 
-⚠️ **Add the group to `GHOST_GROUP_SELECTOR`** (`VexFlowRenderer.ts:449`). `clearGhosts()` removes
+⚠️ **Add the group to `GHOST_GROUP_SELECTOR`** (`ScoreRenderer.ts:449`). `clearGhosts()` removes
 only what is listed there; a group that is missing is never taken down, and the ghost smears a
 trail of strokes across the score as the pointer moves.
 

@@ -19,8 +19,8 @@
  * |---|---|
  * | `Beam.drawBeamLines` (VexFlow) | every ordinary beam |
  * | `FanPass` | a feathered beam's levels |
- * | `VexFlowRenderer.drawCrossBarSideBeam` | the half-beam hung over a system break |
- * | `VexFlowRenderer.drawCrossBarLoneFragment` | the same, for a side of one note |
+ * | `ScoreRenderer.drawCrossBarSideBeam` | the half-beam hung over a system break |
+ * | `ScoreRenderer.drawCrossBarLoneFragment` | the same, for a side of one note |
  *
  * ⭐ The last three already shared {@link fillBeamQuad} — it was extracted from the renderer for
  * exactly that reason — so the tell (§3.1's *"the second owner is the tell"*) was the odd one out:
@@ -111,7 +111,7 @@ export function drawBeamLines(
  * stem's own x, so the beam's edge is flush with the stem's edge rather than with its centre.
  *
  * ⚠️ It is VexFlow's number (`beam.js:515`) and P4a kept it, but the rule had **three owners**: theirs,
- * inside `getBeamLines`, and both cross-system fragments in `VexFlowRenderer`, each spelling
+ * inside `getBeamLines`, and both cross-system fragments in `ScoreRenderer`, each spelling
  * `getStemX() - Stem.WIDTH / 2` by hand. ⭐ This is the one owner now: theirs went when the x's did
  * (S7d — `./beamLineSpans` is fed this).
  *
@@ -125,7 +125,7 @@ export function beamLineStartX(stemX: number, stemWidth: number): number {
 /**
  * ⭐⭐ **A RUN OF BEAM LINES BETWEEN TWO X'S — every level of a fragment, at one slope** (P4d).
  *
- * The two cross-system fragments (`VexFlowRenderer.drawCrossBarSideBeam` and
+ * The two cross-system fragments (`ScoreRenderer.drawCrossBarSideBeam` and
  * `…LoneFragment`) each walked their own level loop, differing only in whether there was a slope to
  * continue. ⭐ That loop is this function, and the difference is the `levelY` argument: a side beam
  * passes its group's slope, a lone note passes the identity because it has no slope to continue.

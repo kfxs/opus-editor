@@ -110,7 +110,7 @@ this plan was written:
 - **Its own head per pitch, and an accidental where the spelling asks for one.** The hand-drawn
   heads carry no modifiers today.
 - 🚨 **LEDGER LINES, which is an EXISTING BUG this phase makes routine.** The members are bare
-  `NoteHead`s (`engine/rendering/VexFlowRenderer.ts:969-977`) and `drawLedgerLines()` belongs to
+  `NoteHead`s (`engine/rendering/ScoreRenderer.ts:969-977`) and `drawLedgerLines()` belongs to
   `StaveNote` (`vexflow/build/esm/src/stavenote.js:686`) — `NoteHead` only swaps to the ledger glyph
   code. So a fan on a note above or below the staff **already draws floating heads**, and per-note
   pitch makes off-staff members the normal case rather than the exception. The same hand-drawn path

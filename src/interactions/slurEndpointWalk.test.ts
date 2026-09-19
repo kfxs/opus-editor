@@ -17,8 +17,8 @@ import { fracCreate as frac } from '../utils/fraction'
  */
 const drawn = vi.hoisted(() => ({ entries: [] as { type: string; id?: string; bbox: { x: number; y: number; width: number; height: number }; slurId?: string; staffSpacePx?: number }[] }))
 
-vi.mock('../engine/rendering/VexFlowRenderer', () => ({
-  VexFlowRenderer: class {
+vi.mock('../engine/rendering/ScoreRenderer', () => ({
+  ScoreRenderer: class {
     initialize = vi.fn(); renderScore = vi.fn()
     getElementRegistry = vi.fn(() => ({
       clear: vi.fn(), register: vi.fn(), getAll: vi.fn(() => []),

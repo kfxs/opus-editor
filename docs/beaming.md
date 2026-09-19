@@ -2,7 +2,7 @@
 
 Which notes are joined by a beam. The rules live in `src/utils/beaming.ts` — pure, no VexFlow, no
 DOM: it takes a bar's slots plus a `MeterInfo` and returns slot-index groups, which
-`VexFlowRenderer.buildBeams` maps onto its parallel `EngravedNote[]`.
+`ScoreRenderer.buildBeams` maps onto its parallel `EngravedNote[]`.
 
 ## Where a beam lives: on the NOTE
 
@@ -188,13 +188,13 @@ to auto; a group only *half* pinned (the state the old per-note flip could leave
 rather than released. A note that is not beamed is a group of one — the behaviour that was always
 there.
 
-⭐ **And the group's rule moved into that module, so there is ONE of it.** `VexFlowRenderer` keeps a
+⭐ **And the group's rule moved into that module, so there is ONE of it.** `ScoreRenderer` keeps a
 one-line delegation and draws with the same answer `x` decides against; two answers to *"which way
 does this group point?"* is exactly the bug that cost. ⏭️ A beam that crosses a BARLINE is planned
 over a run of bars, so a flip on one turns around the half of it that lives in the pressed note's
 bar — the honest fix needs the renderer's plan, not a guess from one bar.
 
-⚠️ In a multi-voice bar that collides with the re-assert. `VexFlowRenderer` captures each note's
+⚠️ In a multi-voice bar that collides with the re-assert. `ScoreRenderer` captures each note's
 intended stem *before* the beams exist (to undo the same-tick reshuffling after `format` — VexFlow's, transcribed into ours), so
 the flipped note's partners were still marked with the voice's own side — and
 `StemmableNote.setStemDirection` **clears `note.beam`** (and so does our `EngravedNote.setStemDirection`, which transcribes it). The partner then drew its own stem *and* a

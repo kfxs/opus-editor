@@ -13,8 +13,8 @@ import { fracCreate as frac } from '../utils/fraction'
  * renderer: the walk reads the BEAT MAP, not pixels. (The mouse's version of the same gesture snaps
  * to a notehead and so does need one; that is `MouseController`'s, not this module's.)
  */
-vi.mock('../engine/rendering/VexFlowRenderer', () => ({
-  VexFlowRenderer: class {
+vi.mock('../engine/rendering/ScoreRenderer', () => ({
+  ScoreRenderer: class {
     initialize = vi.fn(); renderScore = vi.fn()
     getElementRegistry = vi.fn(() => ({
       clear: vi.fn(), register: vi.fn(), getAll: vi.fn(() => []),

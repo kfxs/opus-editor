@@ -36,7 +36,7 @@ import { attachEngravedDots } from './EngravedDot'
 import { formatLoneNote } from './loneNote'
 import { standOn } from './staveFrame'
 
-/** The class `VexFlowRenderer.clearGhosts` sweeps this ghost by — it must be in
+/** The class `ScoreRenderer.clearGhosts` sweeps this ghost by — it must be in
  *  {@link GHOST_GROUP_SELECTOR}, or the ghost smears one copy per mouse position. */
 export const FAN_GHOST_GROUP_CLASS = 'ghost-fan-group'
 

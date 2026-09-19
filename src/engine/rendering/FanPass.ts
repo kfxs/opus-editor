@@ -1,5 +1,5 @@
 /**
- * FANNED BEAMS, drawn — the whole family, extracted from {@link VexFlowRenderer}
+ * FANNED BEAMS, drawn — the whole family, extracted from {@link ScoreRenderer}
  * (docs/refactor-plan-2026-07-27.md Phase 6a). Free functions over the passed-in {@link RenderPass},
  * like {@link TieRenderer} / {@link SlurRenderer} / {@link DynamicsLayout}: nothing here reads
  * renderer-instance state, and the two maps it fills (`fanMemberGroupMap`, `fanMemberAnchorMap`) are
@@ -76,7 +76,7 @@ import { noteLineY } from '@/engine/engrave/staff/staffFrame'
  * A fanned slot JOINED to the group on its left (docs/fan-beam-join-plan.md), as INDICES into one
  * lane's parallel `slots` / `staveNotes` arrays.
  *
- * The one fact the pre-format pass (`VexFlowRenderer.buildBeams`) learns and the post-draw pass
+ * The one fact the pre-format pass (`ScoreRenderer.buildBeams`) learns and the post-draw pass
  * ({@link drawFannedBeams}) needs: which notes the fan's beam has to reach back over. Computed once,
  * because re-deriving it in the second pass would mean re-grouping the lane and two answers that
  * could drift apart.
@@ -926,7 +926,7 @@ function drawFanHead(ctx: DrawContext, head: EngravedHead): void {
 /**
  * 🚨 The PREFIX's stems — the notes a fan is joined to — drawn as each note's OWN `Stem` object,
  * never as a hand-drawn line whatever it costs: the selection highlight resolves a stem by that
- * object's SVG element (`VexFlowRenderer.getStaveNoteSVGGroup`), so ink drawn any other way could
+ * object's SVG element (`ScoreRenderer.getStaveNoteSVGGroup`), so ink drawn any other way could
  * never be selected. `StaveNote.draw` skipped them (they wear the placeholder beam), so this is
  * their only drawing — the same pattern `drawCrossBarLoneFragment` spells out.
  *

@@ -191,7 +191,7 @@ the three engines give for the same quantity. Rows are from `docs/engraving-numb
    It applies only to fan members k ≥ 1 (`FanPass.ts:514,721`). ⚠️ **Member 0 is a real VexFlow note
    (⚠️ since 2026-09-19 our `EngravedNote`, VexFlow's rule transcribed)
    and gets 0.30 plus the armed `accidentalGap` row**, so one fanned chord carries two standoffs.
-2. **Cross-system stubs**, from the stem x, not from ink (`VexFlowRenderer.ts:3141-3148`):
+2. **Cross-system stubs**, from the stem x, not from ink (`ScoreRenderer.ts:3141-3148`):
    - line start: `startX − 1.2 sp`;
    - line end: `max(barlineX, startX) + 1.0 sp`;
    - line end, when the bar's bounds are unknown: `startX + 2.2 sp`.
@@ -245,7 +245,7 @@ Each row: value · what it measures · citation. **house** = today's default.
 
 | row | line START | line END | measures | citation |
 |---|---|---|---|---|
-| **house** | 1.2 left of the first stem | barline + 1.0 (2.2 past the stem if bounds unknown) | stem x / barline x | `beamInk.ts:36-38`, `VexFlowRenderer.ts:3141-3148` |
+| **house** | 1.2 left of the first stem | barline + 1.0 (2.2 past the stem if bounds unknown) | stem x / barline x | `beamInk.ts:36-38`, `ScoreRenderer.ts:3141-3148` |
 | lilypond | header column's right edge + 0.5 | break column's right edge + 0.0 | column extent | `beam.cc:533-534,590-599` |
 | verovio | ½ the mean note distance before the first note (1.5 for a lone note) | right barline x + 0 | element x / barline x | `beam.cpp:1784-1803` |
 | musescore | no extension found | no extension found | — | `beamlayout.cpp:74-110,304` |

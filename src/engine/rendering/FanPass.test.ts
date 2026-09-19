@@ -2,9 +2,9 @@
 /**
  * The fan actually RENDERS (docs/fanned-beams-plan.md §3, P1).
  *
- * Subject: {@link FanPass}. It is driven through `VexFlowRenderer.renderScore` because that is the
+ * Subject: {@link FanPass}. It is driven through `ScoreRenderer.renderScore` because that is the
  * only way to build a `RenderPass` — the renderer is the FIXTURE, the ink is the pass's (test-layout
- * plan decision 4). Named `VexFlowRenderer.fan.test.ts` until 2026-07-28, when the modularity plan's
+ * plan decision 4). Named `ScoreRenderer.fan.test.ts` until 2026-07-28, when the modularity plan's
  * Phase 0 gave the extracted pass a spec under its own name.
  *
  * ⚠️ Deliberately not a geometry suite — jsdom stubs glyph measurement, so an assertion about where
@@ -18,7 +18,7 @@
  */
 import { describe, it, expect } from 'vitest'
 import { ScoreModel } from '../models/ScoreModel'
-import { VexFlowRenderer } from './VexFlowRenderer'
+import { ScoreRenderer } from './ScoreRenderer'
 import { FAN_GROUP } from '@/utils/fannedBeam'
 import { fracCreate as frac } from '@/utils/fraction'
 import { spacingPositionKey } from '../models/engravingOverrides'
@@ -30,7 +30,7 @@ const FAN: FanMark = { direction: 'accel', count: 6, beams: 3 }
 function makeRenderer() {
   const container = document.createElement('div')
   document.body.appendChild(container)
-  const renderer = new VexFlowRenderer(container)
+  const renderer = new ScoreRenderer(container)
   renderer.initialize(1200, 400)
   return { renderer, container }
 }
@@ -450,7 +450,7 @@ describe('the space before the note after a fan', () => {
     return { model, slot, note, memberIds: slot.fan!.members!.map(m => m.pitches[0].id) }
   }
 
-  const headsOf = (renderer: VexFlowRenderer, ids: string[]) =>
+  const headsOf = (renderer: ScoreRenderer, ids: string[]) =>
     ids.map(id => renderer.getElementRegistry().getById(id)!.headX!)
 
   it('⭐ leaves every member where it was — the room is the GAP’s, not the ramp’s', () => {
@@ -620,7 +620,7 @@ describe('a fan joined to the group on its left', () => {
   })
 
   /** The fan's own `beam` hit rect — the one `registerFanInk` filed, the widest in the bar. */
-  function fanInkRect(built: { renderer: VexFlowRenderer }): { x: number; width: number } | null {
+  function fanInkRect(built: { renderer: ScoreRenderer }): { x: number; width: number } | null {
     const beams = built.renderer.getElementRegistry().getAll().filter(e => e.type === 'beam')
     if (!beams.length) return null
     return { x: beams[0].bbox.x, width: beams[0].bbox.width }
@@ -688,7 +688,7 @@ describe('two fans joined to each other', () => {
   }
 
   /** Each fan's registered `beam` hit rect, in registration (left-to-right) order. */
-  function fanRects(built: { renderer: VexFlowRenderer }): { x: number }[] {
+  function fanRects(built: { renderer: ScoreRenderer }): { x: number }[] {
     return built.renderer.getElementRegistry().getAll()
       .filter(e => e.type === 'beam')
       .map(e => ({ x: e.bbox.x }))
@@ -717,7 +717,7 @@ describe('a fan joined across a barline', () => {
   }
 
   it('⭐ draws the fan OUTSIDE every measure group once it crosses', () => {
-    const svg = (b: { renderer: VexFlowRenderer }) => b.renderer.getSVGElement()!
+    const svg = (b: { renderer: ScoreRenderer }) => b.renderer.getSVGElement()!
     // Unjoined, the fan belongs to its bar and is drawn inside that bar's group.
     const alone = acrossBarline(false)
     expect([...svg(alone).children].filter(el => el.getAttribute('class') === `vf-${FAN_GROUP}`)).toHaveLength(0)

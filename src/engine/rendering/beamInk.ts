@@ -1,5 +1,5 @@
 /**
- * The sizes a beam that leaves its bar is drawn at. Extracted from {@link VexFlowRenderer}
+ * The sizes a beam that leaves its bar is drawn at. Extracted from {@link ScoreRenderer}
  * (docs/refactor-plan-2026-07-27.md Phase 6a) because three drawing passes share them and no two of
  * them live in the same module any more: the cross-barline beams (still in the renderer), the
  * two-note tremolo's strokes, and {@link FanPass}. A constant reached for from three places is not

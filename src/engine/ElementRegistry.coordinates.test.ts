@@ -13,7 +13,7 @@
  * coordinates. Found by auditing the type against the code (his ask), NOT by a test.
  *
  * ⚠️⚠️ **And there WAS a guard — it just never saw the field.**
- * `VexFlowRenderer.incrementalRedraw.test.ts` compares a translated bar against a freshly drawn one
+ * `ScoreRenderer.incrementalRedraw.test.ts` compares a translated bar against a freshly drawn one
  * *element for element*, which would have caught it — except that its fixture renders in **linear**
  * view, where there is one system and therefore no cross-system slur, so no entry in it has ever
  * carried a `segmentEndpoints`. A whole-object comparison is only as total as the FIXTURE that feeds

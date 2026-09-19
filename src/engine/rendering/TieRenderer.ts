@@ -1,5 +1,5 @@
 /**
- * Tie rendering — extracted from {@link VexFlowRenderer}. Operates entirely on the
+ * Tie rendering — extracted from {@link ScoreRenderer}. Operates entirely on the
  * passed-in {@link RenderPass} + score (no renderer-instance state), matching the
  * engine's free-function module idiom.
  *

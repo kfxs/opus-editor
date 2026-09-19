@@ -83,7 +83,7 @@ load-bearing:
 - **The selection names a boundary** — `{ kind: 'barline', measure: N }`, *the line that ENDS bar N*
   (`interactions/elements/barline.ts`, `docs/barline-selection.md` §1).
 - **It is staff-less on purpose** — stated once for the system, drawn once per staff, like a meter.
-- **The drawing agrees**: a bar draws only the line that ENDS it (`VexFlowRenderer.ts:2409` turns the
+- **The drawing agrees**: a bar draws only the line that ENDS it (`ScoreRenderer.ts:2409` turns the
   opening line off except at bar 1 and a line start). That rule is a bug fix — two coincident lines
   cover their shared anti-aliased edge twice, and every interior barline read heavier than the ones
   opening and closing a system (`engine/rendering/barlineInk.ts`).
@@ -390,7 +390,7 @@ re-derive them.
 > barline**."*
 
 ⭐ Her figure draws it: notes → **barline** → **2/4** → the staff ends. **Full size**, ⛔ not reduced —
-which is what `VexFlowRenderer`'s own comment already says (*"Drawn full size (no 'small')"*).
+which is what `ScoreRenderer`'s own comment already says (*"Drawn full size (no 'small')"*).
 ⚠️ Contrast `docs/clef-research.md` §4.3, where four books put a cautionary **clef** *before* the
 barline. ⇒ the two cautionaries go on opposite sides, and any code that treats them as one family is
 wrong about one of them.
@@ -517,8 +517,8 @@ The barline is already half ours, and the half we still take from VexFlow is one
 plain barline currently costs three passes:
 
 1. VexFlow `fillRect(x, topY, 1, height)` — 1 px, a literal, inside the measure's `<g>`;
-2. `inkBarlines(group)` (`VexFlowRenderer.ts:1863`) rewrites that rect's width to `THIN_BARLINE_PX`;
-3. `hintBarlines(svg)` (gated at `VexFlowRenderer.ts:4001`) rewrites its `x` onto the device grid.
+2. `inkBarlines(group)` (`ScoreRenderer.ts:1863`) rewrites that rect's width to `THIN_BARLINE_PX`;
+3. `hintBarlines(svg)` (gated at `ScoreRenderer.ts:4001`) rewrites its `x` onto the device grid.
 
 We already overrule VexFlow on both the **weight** and the **position** of every barline on the page.
 ⛔ And the usual argument against taking a piece — `vexflow-boundary.md` §4's *"years of accumulated
@@ -528,7 +528,7 @@ dots. There is no accumulated correctness in `fillRect(x, topY, 1, height)`.
 #### 4.6.3 ⭐⭐ The pass, and what it DISSOLVES
 
 `engine/rendering/BarlineRenderer.ts` — a **score-level pass**, taking the shape the four beside it
-already take (`VexFlowRenderer.ts:3922–3954`):
+already take (`ScoreRenderer.ts:3922–3954`):
 
 ```ts
 renderBarlines(pass, score, placements, staffIds)   // beside renderHairpins / renderTrills /
@@ -536,7 +536,7 @@ renderBarlines(pass, score, placements, staffIds)   // beside renderHairpins / r
 ```
 
 Every stave gets `setEndBarType(Barline.type.NONE)` alongside the `setBegBarType` already at
-`VexFlowRenderer.ts:2409`, and the pass draws every barline in the score — plain ones included.
+`ScoreRenderer.ts:2409`, and the pass draws every barline in the score — plain ones included.
 
 ⭐⭐ **Rebuilt from scratch each render, it dissolves the hardest problem in this plan.** §3.2's *ONE
 OWNER PER LINE* settles the model; it does **not** settle the picture, because bar *N* draws a line
@@ -764,7 +764,7 @@ from outside.
    selection highlight. ⚠️ It must be a pure function of the score and **not** a lookup into the pass:
    `ElementRegistry` registers a barline box for **every bar in the score, painted or not**
    (`ElementRegistry.ts:692`), so registration happens for bars the pass never draws.
-2. **The HIT-BOX.** `VexFlowRenderer` registers `{ x: boundary − straddle − signExtent.left,
+2. **The HIT-BOX.** `ScoreRenderer` registers `{ x: boundary − straddle − signExtent.left,
    width: 2·straddle + signExtent.left }` (`BARLINE_BOX_STRADDLE_PX` = 2), padded by
    `BARLINE_PRESS_PAD_PX` = 6 **on both axes** in `interactions/elements/barline.ts` (2026-08-28: it
    was ±4 horizontal and none vertical — his *"the area should be le[s]s tight… i mean in general"*).
@@ -789,7 +789,7 @@ that one sign is several rects — see §4.6.4.
 ⛔ **One stale citation removed.** An earlier draft cited a known bug — *"the final bar draws a thick
 end-bar slightly left of where the hit-box assumes the line is"* — as precedent for (2). It is not
 observable: no score bar sets an end barline type today (the only `Barline.type` write in the
-renderer is the `NONE` at `VexFlowRenderer.ts:2409`; every other `setEndBarType` is a ghost's temp
+renderer is the `NONE` at `ScoreRenderer.ts:2409`; every other `setEndBarType` is a ghost's temp
 stave). The hit-box still has to grow; it just has no prior offence on record.
 
 ---
@@ -900,7 +900,7 @@ dots stamped** — and it is not a preference to revisit.
    of agreement with itself in every bar that has one.
    ⚠️ **And the hint GATE is spent.** `redrawn > 0 || barlinesMoved` is gone: a pass rebuilt every
    render makes every barline rect new, so the answer is always yes. That is §12.7's 9% back on the
-   table, and `VexFlowRenderer.incrementalRedraw.test.ts` now asserts the new truth. ⏭️ Buying it back
+   table, and `ScoreRenderer.incrementalRedraw.test.ts` now asserts the new truth. ⏭️ Buying it back
    means hinting at draw time, which needs a device scale the pass would have to be handed.
 
 ⭐⭐ **AND A SECOND CATCH OF HIS, which fixed a bug P2 shipped with:** *"what about the first bar open
@@ -963,10 +963,10 @@ whether §4.6.3's silent stale-picture bug can exist at all.
 
 - `engine/rendering/BarlineRenderer.ts` — a **score-level pass**, `renderBarlines(pass, score,
   placements, staffIds)`, beside `renderHairpins` / `renderTrills` / `renderOttavas` /
-  `renderPedals` (`VexFlowRenderer.ts:3922–3954`). ⛔ Not a VexFlow `Barline`; our context, our
+  `renderPedals` (`ScoreRenderer.ts:3922–3954`). ⛔ Not a VexFlow `Barline`; our context, our
   primitives (`own-engraving-engine.md`'s rule).
 - `setEndBarType(Barline.type.NONE)` on every stave, beside the `setBegBarType` at
-  `VexFlowRenderer.ts:2409` — ⚠️ **and every barline moves, plain ones included** (§4.6.7). The pass
+  `ScoreRenderer.ts:2409` — ⚠️ **and every barline moves, plain ones included** (§4.6.7). The pass
   absorbs `inkBarlines` and `hintBarlines`; `barlineInk.ts`'s hinting *rule* survives, its DOM
   rewrite does not (§4.6.4).
   - ⚠️ **One thing to VERIFY, not assume, when that line lands.** `Stave.format()` ends with
@@ -1193,7 +1193,7 @@ first is not a missing hit-box but a missing identity:
 
 ⭐ So the model's *ONE OWNER PER LINE* became a selection rule: the sign is owned by the bar it
 OPENS. The hit-box is registered **by the drawing pass** (`BarlineRenderer.registerRepeatStart`),
-which closes the ⏭️ note left in `VexFlowRenderer`'s tier-1 registration — that function is handed a
+which closes the ⏭️ note left in `ScoreRenderer`'s tier-1 registration — that function is handed a
 lane and no score, and cannot know either where a displaced sign went or whose it is. ⚠️ It sits
 AFTER the barline in `ELEMENT_HIT_ORDER`: the two boxes grow away from the boundary and overlap only
 where the barline's ±4 px pad crosses it, and that ink is the shared divider — the line itself, and

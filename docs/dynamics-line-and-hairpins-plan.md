@@ -85,7 +85,7 @@ decides for us, and why each one is wrong here:
 Against the boundary test (*take VexFlow's decision only when the rule is unsayable* —
 `docs/vexflow-boundary` in the memory index): every rule a hairpin needs is sayable and ours. What
 we would inherit is three `lineTo`s. **Draw it ourselves**, in a score-level pass like
-`renderSlurs(pass, score)` (`VexFlowRenderer.ts:3612`).
+`renderSlurs(pass, score)` (`ScoreRenderer.ts:3612`).
 
 ### 2.2 Our dynamics do not sit on a line today, and it is a defect
 
@@ -836,9 +836,9 @@ and warns that every wrong answer is silent. 🔎 The first draft of this sectio
 - **3. Does it SPAN bars? YES — so it must be a span anchor.** 🔎 Missing entirely from the first
   draft, and `measureRenderRoles.ts:32` is explicit that **the compiler cannot catch this one**
   (spans live on `Score`, hairpins will not). Both endpoint bars must be added to
-  `VexFlowRenderer.spanAnchors`, or two things break: a bar that merely MOVED is translated rather
+  `ScoreRenderer.spanAnchors`, or two things break: a bar that merely MOVED is translated rather
   than re-engraved and its VexFlow objects (our `Engraved*` objects since the removal) keep their stale drawn coordinates
-  (`VexFlowRenderer.replaySnapshot`), and under culling the endpoint bar's `<g>` is deleted outright
+  (`ScoreRenderer.replaySnapshot`), and under culling the endpoint bar's `<g>` is deleted outright
   so the wedge draws detached or vanishes on scroll. Ties and slurs are already in there for exactly
   this. (⚠️ It also feeds `forcedSpanGroups`, which is what drags an off-screen anchor back into the
   drawn set for a span crossing the window.)
@@ -981,7 +981,7 @@ Each is separately visible and separately testable.
   other derived-view arithmetic. In, the system's ink + the staff's ratio; out, one baseline y per
   `(system, staff, placement)`. Unit-testable without a renderer, and 🔎 **its input already exists,
   which the first draft did not know**: `MeasurePlacement.system.columns` is `measureColumns(...)`
-  (`VexFlowRenderer.ts:1409`), a per-column list of located `InkBox`es carrying `top`/`bottom` **in
+  (`ScoreRenderer.ts:1409`), a per-column list of located `InkBox`es carrying `top`/`bottom` **in
   staff spaces below the top stave line, tagged per staff** — noteheads, ledgers, dots, accidentals,
   stems and flags. The line is `max(bottom)` over the boxes of one `(line, staffIndex)`, plus padding,
   floored at a minimum. Pure, pre-draw, already on the right axis for a small staff, and no new
@@ -1736,7 +1736,7 @@ the break existed, the hole closed straight through the editor.
 
 **The fix, in three parts:**
 
-1. **The renderer remembers.** `RenderPass.markInkMemory` (owned by `VexFlowRenderer`, so it lives
+1. **The renderer remembers.** `RenderPass.markInkMemory` (owned by `ScoreRenderer`, so it lives
    ACROSS renders) keeps each mark's last measured ink; `HairpinRenderer.suppressedInk` answers from
    it for the mark that is hidden. ⛔ No white background, no colour, nothing that breaks the day the
    page is cream or textured — the engine simply stops throwing away what it knew.
@@ -1757,7 +1757,7 @@ the break existed, the hole closed straight through the editor.
 ⚠️ **The browser suite could not have caught part 3**, and that is worth knowing: `e2e/harness.ts`
 drives the ENGINE and re-renders by hand, so it never runs the staleness check that skipped the
 render. The guard for it is therefore a unit test on `viewStateKey`
-(`VexFlowRenderer.incrementalRedraw.test.ts`), not an e2e.
+(`ScoreRenderer.incrementalRedraw.test.ts`), not an e2e.
 
 ⚠️ Known limits, both inherited: a long enough word makes the hole swallow a whole fragment (correct
 — the editor really is covering that much wedge), and programmatic insertions (glyph chips, the word

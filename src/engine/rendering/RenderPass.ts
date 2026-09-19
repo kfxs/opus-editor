@@ -8,10 +8,10 @@ import type { Score } from '@/types/music'
 import type { SpacedColumns } from './spacingPass'
 import type { OccupiedSpan } from '@/engine/layout/outsideStaffBand'
 import type { DrawnCurve } from '@/engine/layout/curveObstacleBand'
-import type { MeasureWidthInfo, MeasureBounds } from './VexFlowRenderer'
+import type { MeasureWidthInfo, MeasureBounds } from './ScoreRenderer'
 
 /**
- * The per-render state of a single `VexFlowRenderer.renderScore` pass, bundled into
+ * The per-render state of a single `ScoreRenderer.renderScore` pass, bundled into
  * one object so the sub-renderers (ties, slurs, dynamics, …) can be extracted into
  * their own modules without each reaching back into the renderer instance.
  *
@@ -83,7 +83,7 @@ export interface RenderPass {
    * FANNED MEMBER pitch id → the `<g class="vf-fanhead">` its ink was drawn into, and which head
    * inside it belongs to that pitch — the member's answer to `staveNoteMap`, since a member has no
    * `StaveNote` of its own and a highlight has to resolve through something. Filled by
-   * {@link FanPass}, read back by `VexFlowRenderer.getFanMemberSVGGroup`.
+   * {@link FanPass}, read back by `ScoreRenderer.getFanMemberSVGGroup`.
    */
   fanMemberGroupMap: Map<string, { group: SVGGElement; noteIndex: number }>
   /** Tuplet id → its rendered VexFlow Tuplet, for scoped highlight. */

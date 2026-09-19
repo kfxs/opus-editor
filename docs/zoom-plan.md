@@ -94,7 +94,7 @@ SVG.**
 
 > Note: `scoreContent` (the current engine container with `p-4`) becomes the `<svg>`'s host inside
 > the `zoomLayer`. The renderer still wipes only its own container (`innerHTML=''`,
-> `VexFlowRenderer.ts:193`); the `sizer`/`zoomLayer` are siblings/ancestors it never touches.
+> `ScoreRenderer.ts:193`); the `sizer`/`zoomLayer` are siblings/ancestors it never touches.
 >
 > **Move the play-cursor inside `zoomLayer`** — as a *sibling of* `scoreContent`, not a child of it
 > (the `innerHTML=''` wipe only clears `scoreContent`, so a sibling survives). Today the cursor is a
@@ -215,10 +215,10 @@ constant `16·z` of non-scrollable margin, which is negligible and harmless.
     box (RO ignores ancestor transforms) = the SVG's `width`/`height` attributes, giving the base
     size for free on both score growth and layout changes, with no render-callsite coupling (keeps the
     Phase-3 nav philosophy). The `<svg>` node is recreated on renderer `initialize()`
-    (`VexFlowRenderer.ts:191-198`), so the observer must **re-bind** when the SVG element changes
+    (`ScoreRenderer.ts:191-198`), so the observer must **re-bind** when the SVG element changes
     (observe the stable host and re-resolve the child, or re-attach on render).
   - **Option B (fallback):** read the SVG `width`/`height` attributes directly (the renderer sets
-    them unscaled at `VexFlowRenderer.ts:1686`) in the size observer + on `setZoom`.
+    them unscaled at `ScoreRenderer.ts:1686`) in the size observer + on `setZoom`.
 
 ### Phase 3 — Input handling (and suppressing the browser) — **DONE 2026-06-19 (committed 26133bb)**
 - **Ctrl+wheel** (also trackpad pinch): a `window` listener registered `{ passive: false }` so
@@ -349,7 +349,7 @@ worse.
   (add the natural-SVG observer here).
 - `MouseController.ts:209-217` — `clientToSvg` via `getScreenCTM().inverse()` (zoom-proof, do not
   change).
-- `VexFlowRenderer.ts:59-82` — `LAYOUT_CONFIG`. `:191-198` — `initialize` (SVG (re)created here →
+- `ScoreRenderer.ts:59-82` — `LAYOUT_CONFIG`. `:191-198` — `initialize` (SVG (re)created here →
   observer re-bind). `:1672-1687` — natural SVG width/height set (the base size to scale).
 - `ShortcutManager.ts:90-93` (Ctrl-combo matching) + `:123` (`preventDefault` before dispatch) —
   Ctrl+=/-/0 can be plain `SHORTCUTS` entries handled fully inside `ShortcutManager`; only the wheel

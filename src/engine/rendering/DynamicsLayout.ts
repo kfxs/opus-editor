@@ -1,5 +1,5 @@
 /**
- * Dynamics rendering & layout — extracted from {@link VexFlowRenderer}. Operates on
+ * Dynamics rendering & layout — extracted from {@link ScoreRenderer}. Operates on
  * the passed-in {@link RenderPass} + measure (no renderer-instance state), matching the
  * engine's free-function module idiom.
  *

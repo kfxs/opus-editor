@@ -11,7 +11,7 @@ building a ladder for it).
 > had it backwards, and the belt alone would delete trills on every meter change);
 > **§2.3** it travels in the `Clip`, as slurs and hairpins already do;
 > **§4** the y rule is `dynamicsLineBaseline` with two other constants — parameterise it, do not copy
-> it — and `VexFlowRenderer.spanAnchors` needs a trill loop or the trill draws detached and vanishes
+> it — and `ScoreRenderer.spanAnchors` needs a trill loop or the trill draws detached and vanishes
 > on scroll;
 > **§7** playback needs a prepass map, and a stated precedence against the fan and the tremolo.
 
@@ -287,7 +287,7 @@ is CJS-only and resolves to `undefined` in the browser).
   glyph size, stated in the rendering layer, passed in — never measured in `inkBand.ts`.
 - **Registration**: each fragment registers a polyline in `ElementRegistry` under `'trill'` with the
   same `points` shape the hairpin uses, and each carries the same trill id.
-- ⚠️⚠️ **`VexFlowRenderer.spanAnchors` gets a trill loop** — and getting this wrong is silent.
+- ⚠️⚠️ **`ScoreRenderer.spanAnchors` gets a trill loop** — and getting this wrong is silent.
   A span's far bar is the one question `MEASURE_RENDER_ROLE` cannot ask, so ties (`:1540`), slurs
   (`:1556`), hairpins (`:1568`) and cross-bar beams each pin their bars there. The hairpin's comment
   names both failures: the endpoint bar is **translated** rather than re-engraved, so the span

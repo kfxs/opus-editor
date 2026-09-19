@@ -39,7 +39,7 @@
  * ## ⭐⭐ …and since 2026-09-14 it is also the RULER for its own sign (P6b)
  *
  * {@link EngravedAccidental.drawnInk} answers what the stamp covered, computed from the stamp —
- * and `VexFlowRenderer` files THAT as the accidental's hit box. ⇒ *"a click here selects that
+ * and `ScoreRenderer` files THAT as the accidental's hit box. ⇒ *"a click here selects that
  * sharp"* is arithmetic in jsdom for the first time.
  *
  * ⚠️ **The SIZE is ours; the PLACE is still VexFlow's, and the two now come from different
@@ -126,7 +126,7 @@ export class EngravedAccidental extends EngravedModifier implements InkSurfaceAw
     return this.measured().width
   }
 
-  /** Move it by `px` on top of the shift it has — the note offset's nudge (`VexFlowRenderer`). */
+  /** Move it by `px` on top of the shift it has — the note offset's nudge (`ScoreRenderer`). */
   nudgeX(px: number): this {
     this.xShift += px
     return this

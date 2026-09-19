@@ -66,7 +66,7 @@ Two measurements closed the other options:
 - `ledgerAccidentalClearance(line, headLines, overhang, standoff)` — how far the sign moves:
   `overhang + gap - standoff`, or 0 when it meets nothing. Both numbers are the caller's, because a
   fan member's hand-drawn sign and ledger have their own.
-- `clearLedgersForAccidentals(notes)` — spent on real notes in `VexFlowRenderer`, **after
+- `clearLedgersForAccidentals(notes)` — spent on real notes in `ScoreRenderer`, **after
   `formatter.format` and before the draw** (the window the multi-voice re-assert and the note
   offsets already use). It trims that note's `renderOptions.strokePx` (today `trimLedgers` →
   `EngravedNote.setLedgerOverhang`) and shifts every one of its

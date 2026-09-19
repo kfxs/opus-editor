@@ -97,7 +97,7 @@ never a painting one. Four of them, all reported from use:
 2. **The second rect is not always in the next measure's group.** Reaching in there for it found
    nothing, and the black half stayed black.
 3. **⚠️ The coordinates lie.** A render that REUSES a measure it did not redraw moves it with a
-   `translate` on the group (`VexFlowRenderer.replaySnapshot`) — the rects keep the numbers they were
+   `translate` on the group (`ScoreRenderer.replaySnapshot`) — the rects keep the numbers they were
    drawn with. So the two halves of one barline could compare *hundreds of pixels apart*. This is why
    it only misbehaved on bars whose width had been changed (exactly when neighbours are moved without
    being redrawn), and why an export/import round-trip appeared to cure it: a fresh score redraws

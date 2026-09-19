@@ -225,12 +225,12 @@ per-staff `Formatter` is a property of `drawMeasureContent` running per (measure
 not of the library. So P4 evaluates the primitive FIRST, before building a parallel column list
 (`docs/DESIGN-PRINCIPLES.md`, and the standing "check whether VexFlow already does it" rule). It also
 retires `applyLeadingSpaces`'s "**the anchor is a TICK, not a slot**" workaround
-(`VexFlowRenderer.ts:82-89`), which exists only because a staff with no event at the anchor beat has
+(`ScoreRenderer.ts:82-89`), which exists only because a staff with no event at the anchor beat has
 no context of its own to shift. What it costs is real and must be priced in P4: culling, the
 per-staff scale groups and `openGroup` identity are all per-placement today.
 
 ⚠️ **REVIEW — "one x per column" is FALSE once staves have different SIZES.** A small staff draws
-inside a `<g transform="scale(k)">` and `localPlacement` (`VexFlowRenderer.ts:174`) divides x by that
+inside a `<g transform="scale(k)">` and `localPlacement` (`ScoreRenderer.ts:174`) divides x by that
 scale, so one column is one x **in each staff's own drawing space**: the pass writes `x / sizeₛ` per
 staff or every small staff drifts sideways from the system. Same fact on the width side — extents and
 the padding table are in staff spaces, so a small staff's are `× sizeₛ` at width time. This is the
@@ -639,14 +639,14 @@ width across a system"*.
 
 ### P4 — the renderer takes over x ✅ DONE 2026-07-30
 Format at minimum width, then write our x's onto the tick contexts. The seam exists and is proven:
-`applyLeadingSpaces` (`VexFlowRenderer.ts:96`) already walks `formatter.getTickContexts()` and calls
+`applyLeadingSpaces` (`ScoreRenderer.ts:96`) already walks `formatter.getTickContexts()` and calls
 `setX`, and `getAbsoluteX()` reads the context lazily at draw — so beams, ties, tuplets, accidentals
 and the `ElementRegistry` all follow. `applyLeadingSpaces` stops being a feature and becomes one term
 in the pass.
 
 ⚠️ **REVIEW — the seam is real but its stated REASON was wrong, and the true one is stronger.**
 `postFormat()` does **not** run inside our `format()`: `Formatter.format` calls it only
-`if (opts.stave)` (formatter.js:600) and we format without a stave (`VexFlowRenderer.ts:1781` — the
+`if (opts.stave)` (formatter.js:600) and we format without a stave (`ScoreRenderer.ts:1781` — the
 renderer's own comment at `:725` already knew this, while `applyLeadingSpaces`'s doc-comment at `:72`
 and research §5.5 say the opposite. Research §5.5 is corrected; ⏭️ **the code comment at `:72` is
 still wrong and is owed a one-line fix** — a repo fact that rotted, cf.
@@ -657,7 +657,7 @@ still wrong and is owed a one-line fix** — a repo fact that rotted, cf.
 ⚠️ **REVIEW — three arithmetic facts the pass needs, from the source:**
 - `getAbsoluteX() = tickContext.getX() + stave.getNoteStartX() + Metrics.get('Stave.padding')`, and
   `Stave.padding` is **12** (metrics.js:132). Every note carries that inset. It is also what the
-  unexplained `− 15` at `VexFlowRenderer.ts:1774` has been approximating.
+  unexplained `− 15` at `ScoreRenderer.ts:1774` has been approximating.
 - `format(voices, 0)` is the "minimum width" call: `preFormat` returns straight after laying the
   contexts at their minimums when `justifyWidth <= 0` (formatter.js:338) — cheaper than formatting to
   a width we are about to overwrite. ⚠️ It also skips `shiftToIdealDistances`, which is where VexFlow

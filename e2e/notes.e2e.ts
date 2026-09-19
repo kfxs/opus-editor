@@ -4,7 +4,7 @@ import { test, expect } from './fixtures'
  * The staple of every render: noteheads, stems, beams — measured in a real browser.
  *
  * This is the floor of the net. Nothing here is subtle; the point is that a code-motion refactor of
- * `VexFlowRenderer` (docs/refactor-plan-2026-07-27.md Phase 6) cannot quietly move the ink. Every
+ * `ScoreRenderer` (docs/refactor-plan-2026-07-27.md Phase 6) cannot quietly move the ink. Every
  * assertion below is either a COUNT, a RELATION between two drawn things, or an absolute number with
  * a tolerance — never a bare pixel golden, which would be a diff to re-bless on every VexFlow bump.
  */

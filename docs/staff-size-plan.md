@@ -149,12 +149,12 @@ they clone `state` and `attributes` and never re-apply the viewBox. `GutterRende
 ⭐ **The right spelling is a `transform` attribute on a `<g>`** — what VexFlow itself does for
 rotation (`svgcontext.js:86`, `openRotation` = `openGroup()` plus a transform), and what this
 codebase already does in `GhostRenderer`, `DynamicsLayout:118` and `replaySnapshot`. **And the group
-already exists at exactly the right granularity**: `VexFlowRenderer.ts:1537` opens
+already exists at exactly the right granularity**: `ScoreRenderer.ts:1537` opens
 `openGroup('measure', measureGroupKey(measureNumber, staffIndex))` — one group per measure **per
 staff**. Set its transform, build its stave at `x/k, y/k, width/k`, and that staff's bar is small.
 
 ⚠️ **`replaySnapshot` overwrites that attribute**, and this is the trap that would be found late.
-`VexFlowRenderer.ts:3539` writes `transform = translate(dx, dy)` on a group it is moving rather than
+`ScoreRenderer.ts:3539` writes `transform = translate(dx, dy)` on a group it is moving rather than
 redrawing, and `:3542` *removes* the attribute when the bar returns to where it was painted. A
 scaled staff would snap to full size the first time a bar moves — so never in a fresh render, and
 always mid-drag. Both branches must carry the scale: `translate(dx, dy) scale(k)`, translate first,
@@ -168,7 +168,7 @@ A scaled staff would register hit-boxes in the wrong place.
 
 ⭐ **There is exactly one seam, and it already exists.** Every registration in the codebase funnels
 through `ElementRegistry.add()` / `setStaffGeometry()` — 28 production `add` sites across 7 modules
-plus 2 `setStaffGeometry` calls, both in `VexFlowRenderer`. Compose the staff's transform there
+plus 2 `setStaffGeometry` calls, both in `ScoreRenderer`. Compose the staff's transform there
 (`× k`, plus the staff origin) and every hit-box, every glyph rect and every staff geometry lands
 right, with no call site touched. `StaffGeometry.lineSpacing` becomes `10 × k` in the same stroke,
 which is what makes `measuredRoom`'s two fallbacks (§1) start telling the truth.
@@ -193,7 +193,7 @@ coordinates read off the drawn (pre-transform) VexFlow objects:
 
 | Pass | Site |
 | --- | --- |
-| cross-barline beams | `VexFlowRenderer.ts:3329` |
+| cross-barline beams | `ScoreRenderer.ts:3329` |
 | cross-barline fan beams | `:3332` |
 | ties | `:3335` (`renderTies`) |
 | slurs | `:3338` (`renderSlurs`) |
@@ -215,7 +215,7 @@ This is independent of glyph scaling and can land first: the stride becomes per-
 (`staff-lines × sizeₛ + clearance`), summed instead of multiplied. In the same function,
 `acc += above * VEXFLOW_DEFAULT_STAFF_SPACE_PX` becomes `× that staff's space`.
 
-⚠️ The stride is computed in **three** places, not one — `VexFlowRenderer.ts:2955` and `:3044`, and
+⚠️ The stride is computed in **three** places, not one — `ScoreRenderer.ts:2955` and `:3044`, and
 `MusicEngine.ts:1656` (the minimum-spacing clamp) and `:3153`. All of them read the same two
 `LAYOUT_CONFIG` constants, so all of them go per-staff together or the drag clamp fights the layout.
 
@@ -386,7 +386,7 @@ one of its keys** — it lives on `score.staves[i]`, and the keys hash measures.
   slots. A size change touches no slot ⇒ the memoized width comes back, at the old size.
 - `measureShapeKey` (`MeasureRedrawKey.ts`) — "does this bar still *look* the same?" Same blindness
   ⇒ the drawn `<g>` is reused verbatim, and §4's transform is never applied to it.
-- `layoutStateKey` (`VexFlowRenderer.ts:491`) — "may this render reuse the last casting-off?" Holds
+- `layoutStateKey` (`ScoreRenderer.ts:491`) — "may this render reuse the last casting-off?" Holds
   view mode, surface, justification, linear spacing. Size changes the casting-off (§5, §6) and is
   not in it.
 
@@ -466,7 +466,7 @@ staff gets a small slot. Still no glyph scaling.
 predicted P1's button would "appear not to work at all" without them. It works: the vertical
 casting-off is recomputed on every render (it is not memoized at all), and a bar that only *moved*
 is translated by design — `measureShapeKey` deliberately excludes x/y, which is exactly the case a
-size change is at P2. `VexFlowRenderer.staffSize.test.ts` pins it on the real path (one renderer,
+size change is at P2. `ScoreRenderer.staffSize.test.ts` pins it on the real path (one renderer,
 re-rendered, asserting a mid-line bar that takes the translate branch).
 
 Each key becomes true in the phase that makes it true, and the trap is real in both:
@@ -640,7 +640,7 @@ different layout.
 
 ## 11. One comment that this work makes false ✅ done in P2
 
-`VexFlowRenderer.ts:2948` justifies computing Y from the constant with "this editor never builds a
+`ScoreRenderer.ts:2948` justifies computing Y from the constant with "this editor never builds a
 stave with custom spacing — zoom is a CSS transform". True today, false from P2. It is a **repo
 fact**, not a design fact, so it rots (`docs/ARCHITECTURE.md` on comments that need a check) — update
 it in the same commit that makes it wrong.

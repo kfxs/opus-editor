@@ -300,7 +300,7 @@ else if (noteU.minLine <= noteL.maxLine + lineSpacing) {
 `noteL.note.renderOptions.draw = false` (`:19303`) — the only merge rule found anywhere.
 
 ⭐ **And we suppress even that ±1**, by re-asserting `intendedRestLine` after `format()`
-(`VexFlowRenderer.ts:1979-1990`) — correctly, for our voice model. ⛔ **The consequence is that 100%
+(`ScoreRenderer.ts:1979-1990`) — correctly, for our voice model. ⛔ **The consequence is that 100%
 of this rule has to come from us. There is no library behaviour to fall back on.**
 (⚠️ 2026-09-19: VexFlow is removed — the ±1 nudge is now our transcription, `engrave/notes/voiceStack`,
 and the re-assert still overrides it.)
@@ -338,7 +338,7 @@ source**. `NoteRestOptions::drop8thRest…drop128thRest` (`Options.h:968-972`) a
 
 ## 6. What our code does today, measured against the above
 
-`VexFlowRenderer.ts:1972-1998`:
+`ScoreRenderer.ts:1972-1998`:
 
 ```ts
 const REST_LINE_STEP = 3

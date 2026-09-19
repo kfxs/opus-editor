@@ -12,7 +12,7 @@
  */
 import { describe, it, expect } from 'vitest'
 import { ScoreModel } from '../models/ScoreModel'
-import { VexFlowRenderer } from './VexFlowRenderer'
+import { ScoreRenderer } from './ScoreRenderer'
 import { scenePrimitives, sceneGroups } from '@/engine/scene/Scene'
 import { STAVE_LINE_WIDTH_PX } from '@/engine/engrave/staff/staffLines'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
@@ -22,7 +22,7 @@ import { EngravedStave } from './EngravedStave'
 function render(bars = 2) {
   const container = document.createElement('div')
   document.body.appendChild(container)
-  const renderer = new VexFlowRenderer(container)
+  const renderer = new ScoreRenderer(container)
   renderer.initialize(1200, 400)
   const model = new ScoreModel()
   for (let i = 1; i < bars; i++) model.addMeasure()

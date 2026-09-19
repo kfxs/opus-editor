@@ -20,8 +20,8 @@ import { fracCreate as frac, fracToNumber } from '@/utils/fraction'
  * Assertions are in SOUND (what the scheduled events actually do) wherever the point is audible —
  * a length that reads correctly can still hold the wrong notes.
  */
-vi.mock('./rendering/VexFlowRenderer', () => ({
-  VexFlowRenderer: class {
+vi.mock('./rendering/ScoreRenderer', () => ({
+  ScoreRenderer: class {
     initialize = vi.fn(); renderScore = vi.fn()
     getElementRegistry = vi.fn(() => ({
       clear: vi.fn(), register: vi.fn(), getAll: vi.fn(() => []),

@@ -84,7 +84,7 @@ const KNOWN_SCORE_KEYS = Object.keys({
  * shape the boundary case predicts the real object will take anyway.
  *
  * ⚠️ **Named `view`, ⛔ not `engraving` or `layout`**, on purpose: these are the settings the code
- * already calls *view state* (`EditorState.justifyLastLine`, `VexFlowRenderer.justifyLastLine` —
+ * already calls *view state* (`EditorState.justifyLastLine`, `ScoreRenderer.justifyLastLine` —
  * *"view state, not a score field"*), and a bolder name would be a claim about the future.
  *
  * ⚠️ Absent means **nothing was stated**, ⛔ never "false" — a file written before this existed must

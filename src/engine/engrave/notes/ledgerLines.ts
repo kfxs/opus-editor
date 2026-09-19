@@ -11,7 +11,7 @@
  * |---|---|
  * | `StaveNote.drawLedgerLines` (VexFlow) | every real note |
  * | `FanPass.drawFanLedgerLines` | a fanned member's hand-drawn head — *"`drawLedgerLines` belongs to `StaveNote`; a bare `NoteHead` only swaps to the ledger glyph"* |
- * | `VexFlowRenderer.drawRestLedgerLines` | a rest a manual shift pushed off the staff |
+ * | `ScoreRenderer.drawRestLedgerLines` | a rest a manual shift pushed off the staff |
  *
  * 🚨 That is `docs/own-engraving-engine.md` §3.1's *"the second owner is the tell"*, found three
  * times in one element: **a rule with no home, copied because there was no module to import.** The

@@ -18,7 +18,7 @@
  */
 import { describe, it, expect } from 'vitest'
 import { ScoreModel } from '../models/ScoreModel'
-import { VexFlowRenderer, type MeasureBounds } from './VexFlowRenderer'
+import { ScoreRenderer, type MeasureBounds } from './ScoreRenderer'
 import { fracCreate as frac } from '@/utils/fraction'
 
 /** A score with two staves, three bars, notes, an accidental and a mid-measure clef change. */
@@ -37,13 +37,13 @@ function buildScore(): ScoreModel {
 function makeRenderer() {
   const container = document.createElement('div')
   document.body.appendChild(container)
-  const renderer = new VexFlowRenderer(container)
+  const renderer = new ScoreRenderer(container)
   renderer.initialize(1200, 600)
   return renderer
 }
 
 /** Everything tier 1 is responsible for, in a comparable shape. */
-function tier1Snapshot(renderer: VexFlowRenderer) {
+function tier1Snapshot(renderer: ScoreRenderer) {
   const registry = renderer.getElementRegistry()
   const bounds: Record<number, MeasureBounds> = {}
   for (const [n, b] of renderer.getAllMeasureBounds()) bounds[n] = { ...b }

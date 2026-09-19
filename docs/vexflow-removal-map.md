@@ -446,6 +446,12 @@ VexFlow classes, and the maps hold our `NoteGeometry` and our groups.
   text. Census specs 58 → **0**. Unit 6736 pass, e2e 300 pass, `build:check` green. ⏭️ NOT done in S14:
   the ≈1,200-line sweep of comments that explain VexFlow (row S14 / §8 "comments"), which is left for
   when each file is touched. Left: S15, the names.
+  ✅ **S15a the renderer's name** (2026-09-19): `VexFlowRenderer` → **`ScoreRenderer`** (his pick) — the
+  file and its 7 specs by `git mv`, in a commit of their own, and the name everywhere else, docs
+  included, ⛔ except this log (its history reads as it happened). Names census: files 8 → **0**,
+  identifiers 96 → 90, in tests 147 → 36. ⏭️ S15b the other identifiers · S15c the `vf-` prefix — his
+  call: **dropped, not replaced** (it was VexFlow's namespace for living inside a host page; we own
+  the page).
 
 ---
 

@@ -11,14 +11,14 @@ import { fracCreate as frac, fracEq } from '@/utils/fraction'
 // Tier 2 decomposition can lean on them. They assert observable outcomes (engine
 // state, cursor advance, tool transitions), not internals.
 
-// Stub VexFlowRenderer (needs canvas/SVG) and PlaybackEngine (needs Web Audio).
+// Stub ScoreRenderer (needs canvas/SVG) and PlaybackEngine (needs Web Audio).
 const fakeRegistry = {
   clear: vi.fn(), register: vi.fn(), getAll: vi.fn(() => []),
   findAt: vi.fn(() => null), getByNoteId: vi.fn(() => null),
   registerStaffGeometry: vi.fn(), getStaffGeometry: vi.fn(() => null),
 }
-vi.mock('../engine/rendering/VexFlowRenderer', () => ({
-  VexFlowRenderer: class {
+vi.mock('../engine/rendering/ScoreRenderer', () => ({
+  ScoreRenderer: class {
     initialize = vi.fn()
     renderScore = vi.fn()
     getElementRegistry = vi.fn(() => fakeRegistry)

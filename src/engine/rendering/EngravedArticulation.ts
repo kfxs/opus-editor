@@ -3,7 +3,7 @@
  * (`docs/own-engraving-engine.md` P3; the ink itself is `engrave/notes/articulation`).
  * The third member of the family {@link EngravedAccidental} and {@link EngravedDot} opened — and the
  * one the CENSUS named: *"the articulation, and nothing else, is still a VexFlow modifier"*
- * (`VexFlowRenderer.scene.test.ts`) was a passing assertion written so that the day it moved, it
+ * (`ScoreRenderer.scene.test.ts`) was a passing assertion written so that the day it moved, it
  * failed and said so. This is that day.
  *
  * ## ⭐⭐ Why this one overrides `renderText` and its two siblings override `draw`

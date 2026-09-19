@@ -20,7 +20,7 @@
 ## 0. The FOUR things already settled — ⛔ do not re-open
 
 > 🔎 **VERIFIED AGAINST THE TREE 2026-08-29 — ⛔ do not re-check these, they hold as written:**
-> `drawSystemConnector` at `VexFlowRenderer.ts:4390`, called from `:4061`, and it runs on
+> `drawSystemConnector` at `ScoreRenderer.ts:4390`, called from `:4061`, and it runs on
 > `staffList.length > 1` — **staff COUNT, never `staffGroups`**, so §0.0's *"the bracket is added
 > beside the systemic barline"* is already how the code is shaped · `StaffInfo.barlineJoinBelow`
 > per-gap at `types/music.ts:2295` with the ⛔-no-flag-on-`StaffGroup` reasoning at `:2287` ·
@@ -182,7 +182,7 @@ that rule, with the comment explaining the rule sitting a few lines above it.
 `Measure`: each group carries the measure range it is live for.
 
 ⭐ **Why the drawing does not care** (and this is what made it cheap): the sign is drawn once per
-system, **at that system's opening bar** (`VexFlowRenderer.ts:4048-4063`), so the renderer already
+system, **at that system's opening bar** (`ScoreRenderer.ts:4048-4063`), so the renderer already
 has a measure number in its hand. `groupsAt(score, measureNumber)` costs the same as reading a field.
 ⇒ **P1–P4 are unaffected — only the READER changes**, which is what §3's first bullet predicted.
 
@@ -220,12 +220,12 @@ content. See the question put on 2026-08-29.
 
 > ✅ `engine/rendering/systemStart.ts` + `systemStart.test.ts` (11 specs, all four mutations caught).
 > The **pass** moved, not just the method — `renderSystemStarts(pass, placements, staffCount,
-> drawnKeys)`, with `drawnKeys: null` meaning culling is off. `VexFlowRenderer` keeps a four-line
+> drawnKeys)`, with `drawnKeys: null` meaning culling is off. `ScoreRenderer` keeps a four-line
 > call and lost `drawSystemConnector`, `systemIsDrawn` and its `THIN_BARLINE_PX` import.
 > The `barlineGap.ts:101` reuse exemption is now stated in `systemStart.ts`'s header, on both sides.
 > **Green: 5627 unit + 265 e2e, `build:check` clean, picture unchanged.**
 
-`VexFlowRenderer.drawSystemConnector` (`:4390`) is the **first member of the left-edge family**.
+`ScoreRenderer.drawSystemConnector` (`:4390`) is the **first member of the left-edge family**.
 Move it to `engine/rendering/systemStart.ts`.
 
 - ⭐ Why first: CLAUDE.md's rule — the family gets **ONE OWNER**, the way the barlines did
@@ -290,7 +290,7 @@ landmine that says nothing about itself.
 > shrink when a brace is added; what shrinks is the room the *music* is cast off into. So
 > `musicSurface(surface, score)` is the page minus the indent — margin gaining exactly what the
 > content width loses, so the right edge never moves and nothing reaches the margin — and the table
-> of who reads which lives in its doc comment. `VexFlowRenderer.surfaceMetrics()` stays the PAGE's,
+> of who reads which lives in its doc comment. `ScoreRenderer.surfaceMetrics()` stays the PAGE's,
 > which is what keeps `ScoreHeaderPass` centring the title on the sheet.
 >
 > **🚨🚨 AND THE INDENT IS A MAXIMUM OVER BARS, because per-system is CIRCULAR** — this was not in
@@ -315,7 +315,7 @@ spaces**, and the indent that implies.
 
 #### 🔎 🚨 THE CONSUMER LIST WAS SHORT, AND IT POINTED AT THE WRONG PLACE
 
-The draft said *"Consumers: `lineLeftPx` (`VexFlowRenderer.ts:3694`) and the per-line content
+The draft said *"Consumers: `lineLeftPx` (`ScoreRenderer.ts:3694`) and the per-line content
 width."* `lineLeftPx` is downstream **cosmetics**. The number that decides the layout is
 `MeasureLayout.ts:1023`:
 
@@ -331,7 +331,7 @@ justified to the un-indented width: every system overflows its own right margin 
 | site | needs the indent? |
 |---|---|
 | `MeasureLayout.ts:1023` `availableWidth` | ✅ **YES — and it is the one the draft missed.** Casting-off *and* justification |
-| `VexFlowRenderer.ts:3694` `lineLeftPx` | ✅ yes — where the staves start |
+| `ScoreRenderer.ts:3694` `lineLeftPx` | ✅ yes — where the staves start |
 | `layout/barWidthRoom.ts:155` `lineTotal = surface.contentWidthPx` | ✅ yes — or the DERIVED VIEW disagrees with the layout it describes |
 | `GhostRenderer.ts:116` `?? surface.marginLeftPx` fallback | ✅ yes |
 | `ScoreHeaderPass.ts:199` centring on `contentWidthPx` | ⛔ **NO** — the title centres on the PAGE, not on the music |
@@ -354,7 +354,7 @@ and the honest one.
 reduced and `marginLeftPx` raised — because it threads to four of the five sites through the value
 they already read, and the fifth (`ScoreHeaderPass`) keeps the raw one.
 
-⚠️ **And name the render keys, which the draft never does.** `VexFlowRenderer.layoutStateKey`
+⚠️ **And name the render keys, which the draft never does.** `ScoreRenderer.layoutStateKey`
 (`:678`) stamps `this.surface` — the **raw** one. A group's `symbol` is score *content*, so
 `MusicEngine.modelDirty` already covers staleness today and nothing is broken; but
 `docs/render-performance-plan.md` §7a's width-key-vs-shape-key split is exactly the trap here, and
@@ -454,7 +454,7 @@ its own header which key owns the indent, so the next element in this family doe
   reasoning in `drawnFontSize.ts`), and `ENGRAVING_DEFAULTS.bracketThickness = 0.5` is already there.
   🔎 ⚠️ **`bracketThickness` COLLIDES, and grep will find both**: `ENGRAVING_DEFAULTS.bracketThickness`
   (`fonts/bravuraMetrics.ts:229`) is **0.5 STAFF SPACES**, the system bracket's; `ElementRegistry.ts:322`
-  `bracketThickness` is **PIXELS**, and it is the **TUPLET** bracket's (`VexFlowRenderer.ts:3166` sets
+  `bracketThickness` is **PIXELS**, and it is the **TUPLET** bracket's (`ScoreRenderer.ts:3166` sets
   it to 1). Different modules, different units, no shared reader — but P3 reads one of them and the
   wrong hit costs a debugging session, so name the unit at the use site.
 - ✅ **The numbers are now settled** (research §3.3, measured off Gould and Ross):

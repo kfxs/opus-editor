@@ -213,7 +213,7 @@ export function measureShapeKey(
     // width does not know what a note is called.
     //
     // A DRAWN measure does. Reusing a measure reuses its `<g>` *and replays its ElementRegistry
-    // entries and staveNoteMap* (VexFlowRenderer.replaySnapshot), both keyed by note id. Let a
+    // entries and staveNoteMap* (ScoreRenderer.replaySnapshot), both keyed by note id. Let a
     // renumbered-but-identical bar reuse its group and every hit-test in it resolves to ids the model
     // no longer contains: the notes are visibly right there and unclickable.
     //
@@ -258,7 +258,7 @@ export function measureShapeKey(
     view.tempos?.map(t => score.engravingOverrides?.[t.id] ?? null) ?? null,
     // A hairpin is drawn and weightless, exactly like a dynamic — and this covers only the bar the
     // wedge STARTS in, which is all a per-measure key can cover. The bar holding the far end is
-    // pulled in by `VexFlowRenderer.spanAnchors` instead: a span's other end is not a fact about
+    // pulled in by `ScoreRenderer.spanAnchors` instead: a span's other end is not a fact about
     // this bar's content, so no key here can ask about it (see measureRenderRoles' header).
     view.hairpins ?? null,
     // 🚨 …and the wedge's own OVERRIDES — its two end nudges and its hand-set mouth — which are
@@ -268,7 +268,7 @@ export function measureShapeKey(
     // position-keyed `{measureId}:…` entries, so without this line the bar reads clean, keeps its
     // group, and the wedge sits still while the model moves. WIDTH≠PICTURE, silently.
     // ⭐ Keying it on the bar the wedge STARTS in is enough for both ends: a span is drawn in one
-    // piece from there, and `VexFlowRenderer.spanAnchors` pulls its far bar in.
+    // piece from there, and `ScoreRenderer.spanAnchors` pulls its far bar in.
     view.hairpins?.map(h => score.engravingOverrides?.[h.id] ?? null) ?? null,
     view.timeSignatureChange ?? false,
     view.timeSignatureHidden ?? false,

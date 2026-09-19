@@ -75,7 +75,7 @@ Two things worth saying before the list, because they change how it reads:
 | Chord head displacement and accidental columns **for hand-drawn heads** | `chordHeadLayout`, `chordAccidentalColumns` | fan members |
 | Augmentation dot distance | `dotPlacement` (overrides VexFlow's 2px) | reported by eye |
 | Accidental ↔ ledger-line clearance | `ledgerAccidentalClearance` | reported by eye |
-| Stem direction; multi-voice rest lines; measure-rest centring | `VexFlowRenderer`, re-asserted after `format()` | the voice plans |
+| Stem direction; multi-voice rest lines; measure-rest centring | `ScoreRenderer`, re-asserted after `format()` | the voice plans |
 | Colour, selection, hidden-element treatment | `utils/*Colors`, `hiddenElements` | ⛔ never `setStyle` |
 
 ### 2.2 VexFlow's, still

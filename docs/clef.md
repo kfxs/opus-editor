@@ -344,7 +344,7 @@ ink EXTENT still needs a font (the browser).
 **The chain, as far as reading gets it:**
 
 1. a mid-bar change is emitted as a `ClefNote` tickable (our `EngravedClefChange` since S12j-e), interleaved into the voice immediately
-   before the note at or after its beat (`VexFlowRenderer.interleaveClefNotes`);
+   before the note at or after its beat (`ScoreRenderer.interleaveClefNotes`);
 2. ~~at `beat > 0` that `ClefNote` and the note it precedes are **at the same tick**, so they share a
    tick context~~ — 🚨 **corrected 2026-09-19 (S12j-e), measured:** they do NOT. A `ClefNote` is a
    256th (`duration: 'b'`) whose ticks the VOICE ignores but the column walk ADDS, so the clef takes

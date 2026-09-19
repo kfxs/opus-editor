@@ -398,7 +398,7 @@ real trap.** It collects the drawn parts into an array and returns
 every score today. ⭐ The rule is `alterations.length === 0 ⇒ push nothing`, and §6 already guarantees
 it gets exercised: **C is in the dev palette on purpose.**
 
-⚠️ And "one new row" is one row plus **three call sites** (`MeasureLayout`, and `VexFlowRenderer`
+⚠️ And "one new row" is one row plus **three call sites** (`MeasureLayout`, and `ScoreRenderer`
 twice — the second reading a per-system cached `headerExtent`), plus `cautionaryExtent`'s union. The
 `Header` interface is where the compiler will start asking.
 

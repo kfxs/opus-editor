@@ -10,14 +10,14 @@ import { fracCreate as frac, fracEq } from '@/utils/fraction'
 import { getMeasureNotes, measureFanMemberNotes } from '@/utils/musicUtils'
 import { DEFAULT_FAN_COUNT, DEFAULT_FAN_BEAMS } from '@/utils/fannedBeam'
 
-// Stub VexFlowRenderer (needs canvas/SVG) and PlaybackEngine (needs Web Audio).
+// Stub ScoreRenderer (needs canvas/SVG) and PlaybackEngine (needs Web Audio).
 const fakeRegistry = {
   clear: vi.fn(), register: vi.fn(), getAll: vi.fn(() => []),
   findAt: vi.fn(() => null), getByNoteId: vi.fn(() => null),
   registerStaffGeometry: vi.fn(), getStaffGeometry: vi.fn(() => null),
 }
-vi.mock('../engine/rendering/VexFlowRenderer', () => ({
-  VexFlowRenderer: class {
+vi.mock('../engine/rendering/ScoreRenderer', () => ({
+  ScoreRenderer: class {
     initialize = vi.fn()
     renderScore = vi.fn()
     getElementRegistry = vi.fn(() => fakeRegistry)

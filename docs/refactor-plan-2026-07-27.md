@@ -19,7 +19,7 @@ Nine days and 211 commits later:
 
 | file | after 2026-07-18 refactor | now | Δ |
 |---|---|---|---|
-| `rendering/VexFlowRenderer.ts` | 3,324 | 5,491 | **+2,167** |
+| `rendering/ScoreRenderer.ts` | 3,324 | 5,491 | **+2,167** |
 | `MusicEngine.ts` | 2,424 | 3,696 | **+1,272** |
 | `models/ScoreModel.ts` | 2,817 | 3,663 | **+846** |
 | `interactions/PaletteController.ts` | 1,423 | 2,211 | +788 |
@@ -284,7 +284,7 @@ don't. Both are pure moves.
 **3a. `engine/` imports `dev/`.**
 
 ```
-engine/rendering/VexFlowRenderer.ts:45   import { renderCensus } from '@/dev/renderCensus'
+engine/rendering/ScoreRenderer.ts:45   import { renderCensus } from '@/dev/renderCensus'
 engine/rendering/MeasureLayout.ts:11     import { renderCensus } from '@/dev/renderCensus'
 interactions/RenderController.ts:9       import { renderCensus } from '../dev/renderCensus'
 ```
@@ -375,7 +375,7 @@ line, and it is what keeps the core publishable by accident rather than by vigil
 at module init if bundling order ever shifts. Move `measureCapacityQuarters` and its
 immediate neighbours to a small `utils/measureCapacity.ts`.
 
-*(The other two cycles — `VexFlowRenderer↔RenderPass`, `PaletteController↔keypadSync` — are
+*(The other two cycles — `ScoreRenderer↔RenderPass`, `PaletteController↔keypadSync` — are
 `import type` on the back edge. Harmless, leave them.)*
 
 *Verify:* `build:check`. Pure code motion; `git diff --stat` should show imports only.
@@ -388,7 +388,7 @@ which is the point: not one line of behaviour changed.
 **3a — the probe.** `engine/RenderProbe.ts` declares the interface, defaults it to `NO_RENDER_PROBE`,
 and `App.ts` calls `setRenderProbe(renderCensus)` inside `installPerfInstruments()` (dev builds only,
 after the first render — the census is opt-in from the console, so nothing is missed). 26 call sites
-across `VexFlowRenderer` / `MeasureLayout` / `RenderController` now read `renderProbe()`, and
+across `ScoreRenderer` / `MeasureLayout` / `RenderController` now read `renderProbe()`, and
 `RenderCensus implements RenderProbe` so a drift in either signature fails to BUILD. **`dev/` now
 really does delete cleanly.**
 
@@ -665,7 +665,7 @@ Three files absorb every feature:
 
 | file | lines | members |
 |---|---|---|
-| `rendering/VexFlowRenderer.ts` | 5,491 | 104 |
+| `rendering/ScoreRenderer.ts` | 5,491 | 104 |
 | `MusicEngine.ts` | 3,696 | **203** |
 | `models/ScoreModel.ts` | 3,663 | 139 |
 
@@ -681,7 +681,7 @@ the renderer.
 `DynamicsLayout`.
 
 Then the ghost family (~900 lines). The previous plan parked this as *"worthwhile only if
-VexFlowRenderer keeps growing"* — it grew **+2,167 lines in nine days**, so the condition is
+ScoreRenderer keeps growing"* — it grew **+2,167 lines in nine days**, so the condition is
 met. → `rendering/GhostRenderer.ts`.
 
 **6b. Facade.** `MusicEngine.barWidthRoom:1584` is **217 lines** with a 160-line branch — a
@@ -693,7 +693,7 @@ and `engine/layout/barWidthRoom.ts`.
 **6c. The rule** — the actual deliverable of this plan:
 
 > **A new feature adds a module. It does not add methods to `MusicEngine`,
-> `ScoreModel` or `VexFlowRenderer`.**
+> `ScoreModel` or `ScoreRenderer`.**
 >
 > The facade may gain a one-line delegation. The logic lives in a feature module, in the
 > style of `clefOps` / `tupletOps` / `rebarOps` / `TieRenderer` / `SlurRenderer`.
@@ -725,7 +725,7 @@ new ghost specs). No behaviour changed anywhere.
 
 | file | before | after |
 |---|---|---|
-| `rendering/VexFlowRenderer.ts` | 5,491 | **3,744** |
+| `rendering/ScoreRenderer.ts` | 5,491 | **3,744** |
 | `MusicEngine.ts` | 3,696 | **3,256** |
 | new: `rendering/GhostRenderer.ts` | — | 1,017 |
 | new: `rendering/FanPass.ts` | — | 746 |
@@ -878,7 +878,7 @@ problems, which is the whole point of the fence.
 | 1 | Entry surface | `package.json` | no `main`/`module`/`exports`/`types`/`files`/`sideEffects`/`peerDependencies` — it is an app manifest today |
 | 2 | Library build | `vite.config.ts` | `vite build` emits an app; a package needs `build.lib` + ~~`vexflow`~~ (removed 2026-09-19) /`jspdf`/`opentype.js`/`svg2pdf.js`/`webaudiofont` as **peer** deps |
 | 3 | `@/` alias | tsconfig + vite | must be resolved at publish time, or consumers cannot resolve imports |
-| 4 | CSS from inside a module | `VexFlowRenderer.ts:11` `import './notation.css'` | a bundler feature, not ESM. Ship a side-car stylesheet, or keep it and document the requirement |
+| 4 | CSS from inside a module | `ScoreRenderer.ts:11` `import './notation.css'` | a bundler feature, not ESM. Ship a side-car stylesheet, or keep it and document the requirement |
 | 5 | **Tailwind** | `App.ts` (`div('min-h-screen bg-gray-900 …')`) | the biggest one. Consumers would need Tailwind configured with content paths into `node_modules`, or we ship compiled CSS. Decide before the editor is published, not after |
 | 6 | Music font | `public/fonts/Bravura.otf` | ship it, or document it as a host responsibility |
 | 7 | Asset base | `exportFonts.ts:51`, `smufl.ts:69` | `import.meta.env.BASE_URL` → needs an injectable asset base |

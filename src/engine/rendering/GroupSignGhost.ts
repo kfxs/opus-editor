@@ -41,7 +41,7 @@ import { drawSignGhost } from './ghostCursor'
 import { glyphBox } from '@/engine/fonts/fontMetrics'
 import { BRACE_DEPTH_SPACES } from '@/engine/layout/systemStartColumn'
 
-/** The class `VexFlowRenderer.clearGhosts` sweeps this ghost by — it must be in
+/** The class `ScoreRenderer.clearGhosts` sweeps this ghost by — it must be in
  *  `GHOST_GROUP_SELECTOR`, or the ghost smears one copy per mouse position.
  *  ⚠️ `vf-`-prefixed, because `openGroup` prefixes every class it is given. */
 export const GROUP_SIGN_GHOST_GROUP_CLASS = 'vf-ghost-groupsign'

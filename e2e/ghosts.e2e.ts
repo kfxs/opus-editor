@@ -3,7 +3,7 @@ import { test, expect } from './fixtures'
 /**
  * THE GHOSTS — the translucent previews that follow the cursor, measured in a real browser.
  *
- * They are here because Phase 6a moved ~900 lines of them out of `VexFlowRenderer` into
+ * They are here because Phase 6a moved ~900 lines of them out of `ScoreRenderer` into
  * `GhostRenderer`, and Phase 5's net did not cover a single one: every ghost had been verified by
  * eye only. They are also the one family that jsdom cannot check even in principle — most of them
  * decide whether to draw at all by asking `getBBox()` for their own size, which answers `undefined`

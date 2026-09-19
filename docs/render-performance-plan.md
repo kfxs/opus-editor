@@ -217,7 +217,7 @@ clef placement, meter change, add-staff and paste — exactly the operations tha
 
 ### 4c. Where the cache lives
 
-A `MeasureWidthCache` owned by `VexFlowRenderer` and passed *into* `calculateMeasureWidths` as a
+A `MeasureWidthCache` owned by `ScoreRenderer` and passed *into* `calculateMeasureWidths` as a
 parameter — not a module singleton (Principle 1: no ambient state; it would break multi-document and
 leak between tests), not on `ScoreModel` (Principle 3: no layout in the model). `MeasureLayout` stays
 pure over its inputs; tests can pass no cache at all. The map is capped (clear-when-full) because a
@@ -531,8 +531,8 @@ addressable. The window replaced the parameter, and four things had to be true a
 |---|---|
 | **The window.** `ViewportModel.getVisibleRect()` — the one place screen px are divided back into layout px by `zoom`. | `ViewportModel.ts` |
 | **The overscan.** `MusicEngine.setVisibleRect()` draws a window *larger* than the viewport and only re-cuts it when the viewport escapes what was already drawn. It **returns whether a render is owed** — and for almost every scroll event the answer is *no*. | `MusicEngine.ts` |
-| **The cull.** `VexFlowRenderer.setCullWindow()` + `inCullWindow()`. Gates the draw, the reuse, and the system connectors. | `VexFlowRenderer.ts` |
-| **The trigger.** The cull window joins `viewStateKey()`, so `isRenderStale()` answers *yes* when the window moves — scrolling changes no content, and without this the bars newly scrolled into view would never be painted. | `VexFlowRenderer.viewStateKey` |
+| **The cull.** `ScoreRenderer.setCullWindow()` + `inCullWindow()`. Gates the draw, the reuse, and the system connectors. | `ScoreRenderer.ts` |
+| **The trigger.** The cull window joins `viewStateKey()`, so `isRenderStale()` answers *yes* when the window moves — scrolling changes no content, and without this the bars newly scrolled into view would never be painted. | `ScoreRenderer.viewStateKey` |
 
 Culling is a **removal**, not a skipped repaint: a bar that leaves the window is excluded from the
 reuse set, which is exactly what makes `clearForRender` take its `<g>` back out of the DOM. Leaving
@@ -602,7 +602,7 @@ Culling had turned a walk that used to happen on edits into one that happened on
 Two things were being re-derived for bars nobody could see and nothing had touched, and **the window
 cannot change either of them**:
 
-- **The casting-off.** Cached across renders (`VexFlowRenderer.layoutCache`) and reused when the
+- **The casting-off.** Cached across renders (`ScoreRenderer.layoutCache`) and reused when the
   model is unchanged and the *layout-relevant* view state is unchanged. That second half is why
   `viewStateKey` was split: `layoutStateKey` is the same key **minus the cull window**, because the
   window is the one piece of view state that cannot move a barline. Only `MusicEngine` may license
@@ -1050,7 +1050,7 @@ number out of it was to look at a console — which is why all three are arithme
 3. **`width cache: 0 hits / 0 misses` was quoted in §12.6 as if it meant the cache was cold.**
    `layoutCacheProbe` had **no call site anywhere in `engine/`**, and the `MeasureWidthCache` it would
    have measured is *deliberately* not consulted (`MeasureLayout.ts` says so in prose). ⚠️ `cache:` is
-   still passed at `VexFlowRenderer.ts:3473` and still never read. The line is deleted; the probe is
+   still passed at `ScoreRenderer.ts:3473` and still never read. The line is deleted; the probe is
    deleted; the seam method is gone from `RenderProbe`.
 
 Two more corrections that came with them:
@@ -1160,7 +1160,7 @@ Now `force = redrawn > 0 || barlinesMoved`. ⚠️ **The second term is not opti
 MOVED keeps its shape key (x and y are deliberately out of it, §7a) but its rects land on a different
 device pixel. A `redrawn`-only gate would leave a staff-spacing drag mis-hinted — the exact gesture
 §7a names as having cost 53% of all render time. Both halves were break-tested in
-`VexFlowRenderer.incrementalRedraw.test.ts`.
+`ScoreRenderer.incrementalRedraw.test.ts`.
 ⛔ Passing `false` is **not** "skip it": the pass keeps its own gate on the measured scale, so a zoom
 still re-hints and a first render still hints.
 

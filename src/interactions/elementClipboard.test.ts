@@ -16,8 +16,8 @@ const fakeRegistry = {
   findAt: vi.fn(() => null), getByNoteId: vi.fn(() => null),
   registerStaffGeometry: vi.fn(), getStaffGeometry: vi.fn(() => null),
 }
-vi.mock('../engine/rendering/VexFlowRenderer', () => ({
-  VexFlowRenderer: class {
+vi.mock('../engine/rendering/ScoreRenderer', () => ({
+  ScoreRenderer: class {
     initialize = vi.fn(); renderScore = vi.fn(); getElementRegistry = vi.fn(() => fakeRegistry)
   },
 }))

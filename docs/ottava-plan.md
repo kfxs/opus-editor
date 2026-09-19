@@ -40,7 +40,7 @@ line"* as a future row · `planSlurSegments(pass, fromLine, toLine, firstX, last
 as claimed.
 
 **⭐⭐ §5's ordering inversion is REAL, and here is the proof**: `drawTempoMarks` is called from
-`VexFlowRenderer.ts:2065`, inside the measure loop; `planDynamicsLines` runs at `:3666` and
+`ScoreRenderer.ts:2065`, inside the measure loop; `planDynamicsLines` runs at `:3666` and
 `renderTrills` at `:3686`. The outermost family is placed first, before either inner family exists.
 
 **Four things the research got wrong or left short**, each now folded into the section it belongs to:
@@ -357,7 +357,7 @@ ottava dip between two bars of one system.
 
 LilyPond puts TrillSpanner at **50** and OttavaBracket at **400**, so an 8va over a trilled passage
 must clear the `tr` and its wavy line. Today the trill contributes an extent to nothing: `renderTrills`
-(`VexFlowRenderer.ts:3686`) computes its own baseline, draws, and tells no one.
+(`ScoreRenderer.ts:3686`) computes its own baseline, draws, and tells no one.
 
 So P0 has **two producers, not one** — the dynamics line *and* the trill — and the ottava is the
 first consumer. ⭐ This does not contradict `docs/above-staff-ladder.md` §3's "the trill is the
@@ -384,7 +384,7 @@ work:
   `minFromStaff` of the four. One row in the same table.
 - ⚠️ **But tempo is drawn INSIDE the measure pass, and the ottava is a score-level pass after it** —
   so today the outermost family is placed FIRST. ✅ **Verified**: `drawTempoMarks` at
-  `VexFlowRenderer.ts:2065` (in the measure loop), `planDynamicsLines` at `:3666`, `renderTrills` at
+  `ScoreRenderer.ts:2065` (in the measure loop), `planDynamicsLines` at `:3666`, `renderTrills` at
   `:3686`. That inversion is what actually has to be fixed: either the above-staff band becomes a
   **layout** answer computed before the measure pass (it nearly is already — `staffInkBand` is a
   layout module), or tempo moves out to a score-level pass beside

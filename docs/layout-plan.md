@@ -28,8 +28,8 @@ five modules** (named by symbol, not line — line numbers rot):
 |---|---|---|
 | `MeasureLayout` | `calculateMeasureWidths` | `margin` + `availableWidth` — **the casting-off** |
 | `engine/layout/barWidthRoom` | ×3 (`lineFills`, the alone/can't-pay branch, `authoredScales`) | the justified line's total |
-| `VexFlowRenderer` | `renderScore`'s `contentWidth` (×2 — the linear floor and the wrapped width) | the surface width |
-| `VexFlowRenderer` | `renderScore`'s `margin`, `staffSpacingLayout`'s `margin` | left/top origin, total height |
+| `ScoreRenderer` | `renderScore`'s `contentWidth` (×2 — the linear floor and the wrapped width) | the surface width |
+| `ScoreRenderer` | `renderScore`'s `margin`, `staffSpacingLayout`'s `margin` | left/top origin, total height |
 | `GhostRenderer` | `drawNoteGhost` | the ghost's origin (the **only** ghost drawer that reads one) |
 | `engine/export/scoreSvg` | `renderScoreSvg` ×2 (host style, `initialize`) | the export's surface |
 
@@ -223,7 +223,7 @@ pair (§5). One pre-existing failure is untouched and unrelated: `lint:testnames
    mechanically. `staffSpacingLayout` reads the renderer's own surface rather than growing a third
    parameter — the ghost path calls it independently.)
 3. **The export gets the surface as an argument, not by threading.** `renderScoreSvg` builds its
-   *own* `VexFlowRenderer` and hard-codes `initialize(CONTAINER_WIDTH, …)`, so it is not downstream
+   *own* `ScoreRenderer` and hard-codes `initialize(CONTAINER_WIDTH, …)`, so it is not downstream
    of the engine's renderer and P2 has no way in unless P0 makes the surface a parameter of it.
    It passes `SKETCH_CANVAS` today, which is the no-op.
 4. `CONTAINER_WIDTH` and `MARGIN` leave `LAYOUT_CONFIG` for `surface.ts`, so nobody can read a page

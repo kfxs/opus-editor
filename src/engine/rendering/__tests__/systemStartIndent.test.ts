@@ -4,7 +4,7 @@
  *
  * A **feature test** rather than one module's: the claim spans `models/staffGroups` (which signs
  * stand), `layout/systemStartColumn` (what they take), `MeasureLayout` (the casting-off that gets
- * less room) and `VexFlowRenderer` (which surface each reader is handed), and belongs to none of
+ * less room) and `ScoreRenderer` (which surface each reader is handed), and belongs to none of
  * them. Each of those has its own spec for its own arithmetic; ⛔ **none of them can catch a wire
  * that was never connected**, which is the only thing this file is here for.
  *
@@ -19,7 +19,7 @@
  */
 import { describe, it, expect } from 'vitest'
 import { ScoreModel } from '@/engine/models/ScoreModel'
-import { VexFlowRenderer } from '../VexFlowRenderer'
+import { ScoreRenderer } from '../ScoreRenderer'
 import { scoreSystemStartIndentPx } from '@/engine/layout/systemStartColumn'
 import { fracCreate as frac } from '@/utils/fraction'
 import type { Score } from '@/types/music'
@@ -47,21 +47,21 @@ function brace(score: Score): Score {
   return score
 }
 
-function makeRenderer(): VexFlowRenderer {
+function makeRenderer(): ScoreRenderer {
   const container = document.createElement('div')
   document.body.appendChild(container)
-  const renderer = new VexFlowRenderer(container)
+  const renderer = new ScoreRenderer(container)
   renderer.initialize(1200, 600)
   return renderer
 }
 
 /** Where bar 1's staff actually starts, as tier 1 registered it. */
-function firstBarX(renderer: VexFlowRenderer): number {
+function firstBarX(renderer: ScoreRenderer): number {
   return renderer.getAllMeasureBounds().get(1)!.measureX
 }
 
 /** The justified widths of every bar on the first system. */
-function firstLineWidths(renderer: VexFlowRenderer): number[] {
+function firstLineWidths(renderer: ScoreRenderer): number[] {
   return [...renderer.getMeasureLayoutInfo().values()]
     .filter(info => info.lineNumber === 0)
     .map(info => info.finalWidth)
@@ -129,7 +129,7 @@ describe('a score with a brace — 🚨 the wire this file exists to prove', () 
     const plain = makeRenderer()
     plain.renderScore(buildScore().getScore())
 
-    const rightEdge = (renderer: VexFlowRenderer) =>
+    const rightEdge = (renderer: ScoreRenderer) =>
       firstBarX(renderer) + firstLineWidths(renderer).reduce((a, b) => a + b, 0)
     expect(rightEdge(r)).toBeCloseTo(rightEdge(plain), 6)
   })

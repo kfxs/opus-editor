@@ -18,15 +18,15 @@ the plates and the engines would put in its place. Values are in staff spaces (*
 | `PAIR_STROKE_CLEARANCE_SPACES` 1 sp | :152 | `rendering/TwoNoteTremolo.ts:34` |
 | `PAIR_STROKE_CLEARANCE_RATIO` 0.25 × gap | :153 | `TwoNoteTremolo.ts:35` |
 | `PAIR_STROKE_MAX_CLEARANCE_RATIO` 0.35 × gap | :154 | `TwoNoteTremolo.ts:42` |
-| two-note tip offset ×1.5 | §5b, :287 | `rendering/VexFlowRenderer.ts:1226-1227` |
+| two-note tip offset ×1.5 | §5b, :287 | `rendering/ScoreRenderer.ts:1226-1227` |
 | `TUPLET_FONT_SIZE` 26 | §2 Tuplets, :160 | `rendering/ScoreTuplet.ts:20` |
 | `NOTE_GLYPH_SCALE` 0.55 | :161 | `ScoreTuplet.ts:32` |
 | `MARK_SPACE_EM` 0.15 | :162 | `ScoreTuplet.ts:38` |
-| `BRACKET_END_GAP` 6 px | :163 | `VexFlowRenderer.ts:3220` |
+| `BRACKET_END_GAP` 6 px | :163 | `ScoreRenderer.ts:3220` |
 | `GHOST_TUPLET_NUMBER_GAP` 1.5 sp | :164 | `rendering/GhostRenderer.ts:81` |
-| bracket air 5 px | §5b, :288 | `ScoreTuplet.ts:147-148`, `VexFlowRenderer.ts:3304` |
+| bracket air 5 px | §5b, :288 | `ScoreTuplet.ts:147-148`, `ScoreRenderer.ts:3304` |
 | bracket leg 10 px | :289 | `ScoreTuplet.ts:180-181` |
-| bracket thickness 1 px ⚠️ conflict | :290 | `ScoreTuplet.ts:170-181`, `VexFlowRenderer.ts:3331` |
+| bracket thickness 1 px ⚠️ conflict | :290 | `ScoreTuplet.ts:170-181`, `ScoreRenderer.ts:3331` |
 
 It also gives rows for four numbers the inventory counts as sourced or as font facts but which a preset
 will expose anyway: stroke step, stroke thickness, slope and width, and the two-note stroke weight.
@@ -301,34 +301,34 @@ size, except through a small staff's `scale(k)` group.
   - VexFlow's number, not the font's. Bravura's own `tremolo2/3` glyphs step 0.748/0.742.
 - **Placement rule:** the stack's ink centre sits at the middle of the usable stem, from the notehead edge to the tip (`CenteredTremolo.ts:219, 233`).
   - The x is the stem's; a stemless note uses the notehead's centre (`:207-209`).
-  - ⭐ Decided behaviour, not a number: centring and *"nothing moves unless it has to"* are his rules (`tremolo-plan.md` §4, `VexFlowRenderer.ts` comment at `:1032-1034`).
-- **FIT stretch:** the shortfall plus `TREMOLO_STROKE_CLEARANCE` **0.25** at each end (`VexFlowRenderer.ts:1028`).
+  - ⭐ Decided behaviour, not a number: centring and *"nothing moves unless it has to"* are his rules (`tremolo-plan.md` §4, `ScoreRenderer.ts` comment at `:1032-1034`).
+- **FIT stretch:** the shortfall plus `TREMOLO_STROKE_CLEARANCE` **0.25** at each end (`ScoreRenderer.ts:1028`).
 - **FLAG stretch:** `TREMOLO_FLAG_STEM_STRETCH` **0.25 × stem length** (`:1031`), ≈0.875 sp on a 3.5 sp stem. The strokes do not follow it.
 - **Within the stave** (Gould's rule 3): ⛔ not implemented (`CenteredTremolo.ts:35-36`).
 
 **Two-note tremolo**
-- **Stroke:** a beam quad, thickness Bravura `beamThickness` **0.5** (`bravuraMetrics.ts:343`, `beamInk.ts:48`, `VexFlowRenderer.ts:1176`).
+- **Stroke:** a beam quad, thickness Bravura `beamThickness` **0.5** (`bravuraMetrics.ts:343`, `beamInk.ts:48`, `ScoreRenderer.ts:1176`).
 - **Step:** ×1.5 = **0.75** (`TwoNoteTremolo.ts:52, 142`).
-- **End clearance:** min(**1 sp**, **0.25 × gap**), with a floor of the notehead glyph width when the pair is drawn apart with flags (`VexFlowRenderer.ts:1173`), capped at **0.35 × gap** (`TwoNoteTremolo.ts:129-133`). The joined style uses 0.
-- **Tip offset:** drawn-value flags × 0.5 × 1.5 = **0.75 per beam level** (`VexFlowRenderer.ts:1226-1227`).
+- **End clearance:** min(**1 sp**, **0.25 × gap**), with a floor of the notehead glyph width when the pair is drawn apart with flags (`ScoreRenderer.ts:1173`), capped at **0.35 × gap** (`TwoNoteTremolo.ts:129-133`). The joined style uses 0.
+- **Tip offset:** drawn-value flags × 0.5 × 1.5 = **0.75 per beam level** (`ScoreRenderer.ts:1226-1227`).
 - ⭐ Decided: no stem stretch for a pair (his call, `two-note-tremolo-plan.md` §2, 2026-07-25); joined/open is a user setting on the drawn minim (same §).
 
 **Tuplets**
 - **Digits:** `TUPLET_FONT_SIZE` 26 (`ScoreTuplet.ts:20`) gives a digit **1.33 sp** tall (26/30 × 1.532).
 - **Ratio-mark note:** `NOTE_GLYPH_SCALE` 0.55 (`:32`) on `metNoteQuarterUp`, which is 3.316 sp tall at full size (`data/Bravura.xml`, ECA5, 829 u), comes to **1.58 sp**.
 - **Mark space:** `MARK_SPACE_EM` 0.15 × 26 is added as px (`ScoreTuplet.ts:70`): 3.9 px = **0.39 sp**.
-- **Bracket horizontal:** 5 px = **0.5** beyond the tie-left/right x at each end (`:147-148`; mirrored `VexFlowRenderer.ts:3304`).
+- **Bracket horizontal:** 5 px = **0.5** beyond the tie-left/right x at each end (`:147-148`; mirrored `ScoreRenderer.ts:3304`).
 - **Gap around the number:** 5 px = **0.5** per side (`ScoreTuplet.ts:172-175`).
 - **Line:** **1 px = 0.10** (`ScoreTuplet.ts:170, 174-175`); legs 1 px wide.
-- **Legs:** 10 px = **1.0** (`:180-181`; mirrored `VexFlowRenderer.ts:3313`).
+- **Legs:** 10 px = **1.0** (`:180-181`; mirrored `ScoreRenderer.ts:3313`).
 - **Height:** ⭐ **ours as of S8a** — `engrave/marks/tupletPlacement`, a transcription of VexFlow's `getYPosition()` (§3.3) including the 1.5 sp nesting step (`tuplet.js:19`). ⭐ **U4–U6 below are now this module's preset menu**: the airs are its named `TUPLET_AIR` table, and Gould's two disagreements (U4's stave-line intersection, U5's flush bracket) are written into its header awaiting HIS call.
   - The inner-flip correction reuses VexFlow's per-note terms of 1 and 2 lines (`NoteBuilder.ts:477, 483`).
-- **`beforeNext` end:** 6 px = **0.6** (`VexFlowRenderer.ts:3220`).
+- **`beforeNext` end:** 6 px = **0.6** (`ScoreRenderer.ts:3220`).
 - **Ghost number:** **1.5 sp** above the tip or head to the baseline (`GhostRenderer.ts:81`).
 
 ### 🚨 The bracket-thickness conflict (reported, not resolved)
 
-1. **Drawn:** 1 px. `ScoreTuplet.ts:170` `ctx.fillRect(xPos, yPos, this.width, 1)`, `:174-175` the two halves at height 1, `:180-181` legs 1 wide. The registry records `bracketThickness: 1` (`VexFlowRenderer.ts:3331`). At 10 px/sp that is **0.10 sp**.
+1. **Drawn:** 1 px. `ScoreTuplet.ts:170` `ctx.fillRect(xPos, yPos, this.width, 1)`, `:174-175` the two halves at height 1, `:180-181` legs 1 wide. The registry records `bracketThickness: 1` (`ScoreRenderer.ts:3331`). At 10 px/sp that is **0.10 sp**.
 2. **Claimed:** `rendering/thinLineWeight.ts:6` and `:23` name `tupletBracketThickness` and *"tuplet brackets"* as members of the one weight. `:84` says *"`THIN_LINE_SPACES` remains the one weight for barlines, ledger lines, octave lines and tuplet brackets"*, and `:60` sets that weight to the font's **0.16 sp**. `docs/staff-line-research.md:390-391` repeats the claim.
 3. Nothing in `ScoreTuplet.ts` imports `THIN_LINE_SPACES`. Its importers are `OttavaRenderer.ts`, `barlineSign.ts` and `barlineInk.ts`.
 4. **The two families of evidence split the same way:**
@@ -371,7 +371,7 @@ with the stated method bias. A row marked *(prose)* states a rule and gives no n
 
 | preset | value | citation |
 |---|---|---|
-| **ours** | **0.25 × stem length**; the strokes stay put | `CenteredTremolo.ts:55`; `VexFlowRenderer.ts:1031` |
+| **ours** | **0.25 × stem length**; the strokes stay put | `CenteredTremolo.ts:55`; `ScoreRenderer.ts:1031` |
 | Gould (prose) | *"extend a stem if necessary"*, no number | p. 222 |
 | Gould (plate) | 3 strokes **+0.65–0.75**, 4 strokes **+1.2–1.25** over 3.5 (unflagged quarters; a flagged single note was not measured) | p. 222 |
 | MuseScore | strokes pulled **1.5** (up flag) / **1.0** (down) / **0.75** (straight flags) from the tip, **+0.5** with ≥2 beams | `tremololayout.cpp:132-139` |
@@ -432,7 +432,7 @@ with the stated method bias. A row marked *(prose)* states a rule and gives no n
 
 | preset | value | citation |
 |---|---|---|
-| **ours** | **0.75 per beam level** (flags × 0.5 × 1.5) | `VexFlowRenderer.ts:1226-1227` |
+| **ours** | **0.75 per beam level** (flags × 0.5 × 1.5) | `ScoreRenderer.ts:1226-1227` |
 | Gould (prose) | *"as if they were joined to the stems. However, the detached beams may move slightly closer to the noteheads"* (amount **UNKNOWN**) | p. 226 |
 | MuseScore / Verovio | the same beam stride, **0.75** | `tremololayout.cpp:384`; `doc.cpp:2395-2396` |
 
@@ -539,7 +539,7 @@ Conversion: VexFlow size = 30 × *h* / 1.532, where *h* is the wanted Bravura di
 
 | preset | value | citation |
 |---|---|---|
-| **ours** | **0.6** before the next note | `VexFlowRenderer.ts:3220` |
+| **ours** | **0.6** before the next note | `ScoreRenderer.ts:3220` |
 | MuseScore | **0.6** before the next segment (end-of-duration mode) — same number | `tupletlayout.cpp:767` |
 | Gould (prose) | extend to *"the hypothetical final division"*; no gap stated | p. 195 |
 | G&L (prose) | *"include the entire allotted space"* | p. 157 |

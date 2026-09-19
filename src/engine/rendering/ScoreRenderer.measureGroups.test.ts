@@ -12,7 +12,7 @@
  */
 import { describe, it, expect } from 'vitest'
 import { ScoreModel } from '../models/ScoreModel'
-import { VexFlowRenderer } from './VexFlowRenderer'
+import { ScoreRenderer } from './ScoreRenderer'
 import { fracCreate as frac } from '@/utils/fraction'
 
 function render(build: (m: ScoreModel) => void, staves = 1) {
@@ -22,7 +22,7 @@ function render(build: (m: ScoreModel) => void, staves = 1) {
 
   const container = document.createElement('div')
   document.body.appendChild(container)
-  const renderer = new VexFlowRenderer(container)
+  const renderer = new ScoreRenderer(container)
   renderer.initialize(1200, 600)
   renderer.renderScore(model.getScore())
 
@@ -110,7 +110,7 @@ describe('P5.2 — measures as addressable groups', () => {
 
     const container = document.createElement('div')
     document.body.appendChild(container)
-    const renderer = new VexFlowRenderer(container)
+    const renderer = new ScoreRenderer(container)
     renderer.initialize(1200, 600)
 
     renderer.renderScore(model.getScore())

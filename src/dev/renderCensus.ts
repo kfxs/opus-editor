@@ -82,7 +82,7 @@ class RenderCensus implements RenderProbe {
     this.cause = cause ?? callerFrame({ skip: 4, ignore: /^RenderCensus|renderScore/ })
   }
 
-  /** Called at the top of VexFlowRenderer.renderScore. */
+  /** Called at the top of ScoreRenderer.renderScore. */
   beginRender(): void {
     if (!this.on) return
     this.layoutMs = 0
@@ -153,7 +153,7 @@ class RenderCensus implements RenderProbe {
     return this.on
   }
 
-  /** Called at the bottom of VexFlowRenderer.renderScore. */
+  /** Called at the bottom of ScoreRenderer.renderScore. */
   endRender(): void {
     if (!this.on) return
     const total = now() - this.t0

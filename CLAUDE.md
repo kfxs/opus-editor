@@ -6,7 +6,7 @@ This file provides guidance to Claude Code when working with this repository.
 
 - **Never commit or push without explicit permission.** Wait for the user to say "commit" or "push" before running git commit or git push commands.
 - **⭐ A new feature adds a MODULE. It does not add methods to `MusicEngine`, `ScoreModel` or
-  `VexFlowRenderer` — nor a per-kind slice to `PaletteController`, `MouseController`,
+  `ScoreRenderer` — nor a per-kind slice to `PaletteController`, `MouseController`,
   `HighlightController`, `RenderController`, `keypadSync` or `devToolbar`.** The facade may gain a
   one-line delegation; the logic lives in a feature module, in the style of `clefOps` / `markOps` /
   `voiceOps` / `rebarOps` / `TieRenderer` / `FanPass` / `GhostRenderer` / `layout/barWidthRoom` /
@@ -139,7 +139,7 @@ src/
                           #   + ⏸️ softmaxSpacing (VexFlow's softmax, PORTED only because a clef change
                           #   after a bar's last onset still stands where it puts it — his call;
                           #   ⛔ don't build on it: it goes with the clef review, map §9.4 #5)
-    rendering/            # VexFlowRenderer, CoordinateMapper, FanPass, GhostRenderer
+    rendering/            # ScoreRenderer, CoordinateMapper, FanPass, GhostRenderer
                           #   (+ HeaderSignGhost / MarkGhost — S11: a ghost drawn by the score's OWN
                           #   classes on our surface, ⛔ never a throwaway VexFlow stave/voice/formatter),
                           #   PagePass (the sheets, drawn behind the music)
@@ -189,7 +189,7 @@ src/
                           #   the page nor asked of a VexFlow object — P6a; it answers NULL rather
                           #   than guess at a glyph we have not measured), a
                           #   `DrawContext` that records instead of painting. ⛔ no DOM, ⛔ no
-                          #   vexflow, ⛔ no models. `VexFlowRenderer.recordScene(fn)` tees it onto
+                          #   vexflow, ⛔ no models. `ScoreRenderer.recordScene(fn)` tees it onto
                           #   the real painter ⇒ ⭐ GEOMETRY IS A UNIT TEST. ⚠️ It sees what went
                           #   through the pass's surface — heads, stems, beams, staff lines, signs —
                           #   ⛔ NOT what is still drawn straight on the painter (the TUPLET's number
@@ -259,7 +259,7 @@ now also holds the layer arrows: `engine/`/`interactions/`/`bus/` may not import
 `engine/RenderProbe.ts`, and `App.ts` injects the census), and **`engine/` as a whole**
 — not just the score layer (`utils/`, `types/`, `engine/models/`) — may not import
 `interactions/` or `bus/`. ⚠️ That last arrow was documented in three places and checked
-in none until 2026-07-28: a `tool: MarkingTool` parameter in `VexFlowRenderer` passed all
+in none until 2026-07-28: a `tool: MarkingTool` parameter in `ScoreRenderer` passed all
 four gates. When the engine needs to be told what the editor has armed, the ENGINE
 declares the vocabulary and the editor translates into it — `engine/rendering/ghostTypes.ts`
 + `interactions/toolGhost.ts`, the same shape as `engine/RenderProbe.ts`.
@@ -340,7 +340,7 @@ loadJSON(json: string): void
 ## Key Implementation Details
 
 - **Stem direction**: Calculated based on pitch relative to middle line (B4 for treble clef). `NoteBuilder` sets it with `setStemDirection()` after creating the `EngravedNote` — a habit from VexFlow, whose constructor ignored the option; ours honours `stemDirection`.
-- **Coordinate mapping**: VexFlowRenderer stores measure bounds; CoordinateMapper converts between pixels and musical positions.
+- **Coordinate mapping**: ScoreRenderer stores measure bounds; CoordinateMapper converts between pixels and musical positions.
 - **Collision detection**: CollisionDetector checks for overlapping notes at same beat/pitch.
 - **Rest handling**: Empty beats are filled with rests automatically.
 - **The selection is TWO things, deliberately**: `selectedItems`/`selectedNoteId` is the multi-select of NOTES (an anchor and a pivot), and `selectedElement` is the ONE on-score element picked for edit/delete — a discriminated union (`SelectedElement`) covering clef, meter, barline, dynamic, tempo, tuplet, slur, tie, articulation, accidental, dot, stem, tremolo and measure-range. Selecting IS clearing, so there is no clear-list to keep in sync, and every new element kind MUST join the union. Each kind is then ONE module in `interactions/elements/` — its hit-test and how it paints — plus a row in `ELEMENT_SPECS` (total over the union) and, if a press can land on it, a position in `ELEMENT_HIT_ORDER` (⭐ that array's ORDER is the answer to "who wins a press two glyphs both cover"). `assertNeverElement` still names the two sites that stay switches: Delete (`shortcutWiring`) and the Properties report (`selectionSnapshot`). Always *reassign* the field, never mutate it in place.
@@ -382,9 +382,9 @@ so run it either side of any renderer change. See `docs/ARCHITECTURE.md` §"The
 browser suite".
 
 ⭐⭐ **…except through a SCENE, and that exception is now the preferred route where it reaches.**
-`VexFlowRenderer.recordScene(fn)` renders normally and hands back what was drawn as plain values
+`ScoreRenderer.recordScene(fn)` renders normally and hands back what was drawn as plain values
 (`engine/scene/`), so *"the barline of bar 3 stands right of bar 2's"* is arithmetic in jsdom —
-see `VexFlowRenderer.scene.test.ts`. ⚠️ It sees what was drawn through the pass's surface —
+see `ScoreRenderer.scene.test.ts`. ⚠️ It sees what was drawn through the pass's surface —
 noteheads, stems, beams, the stave's lines and signs all are (measured 2026-09-19) — ⛔ **not** what
 is still drawn straight on the painter: the TUPLET's number and bracket (`vexTuplet.draw(this.context)`)
 and the `pointerRect` hit targets. ⛔ Nor an INK EXTENT, which still needs a font. The browser suite

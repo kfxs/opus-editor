@@ -334,7 +334,7 @@ export function barlineSpaceOf(score: Score, measureId: string): number {
  *
  * ⭐ The barline gap is summed in here **and nowhere else**, which is the whole of its plumbing: the
  * bar grows by it (`MeasureLayout`), the music is formatted into the area MINUS it
- * (`VexFlowRenderer`), and the shift pass finds no column to move — so the room it bought lands
+ * (`ScoreRenderer`), and the shift pass finds no column to move — so the room it bought lands
  * where it was asked for, between the last element and the barline.
  */
 export function measureUserSpacePx(score: Score, measureId: string): number {

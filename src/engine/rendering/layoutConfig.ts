@@ -6,10 +6,10 @@ import { STAVE_LINE_WIDTH_PX } from '@/engine/engrave/staff/staffLines'
 /**
  * Layout configuration for proportional measure spacing.
  *
- * Lives in its own module (rather than on VexFlowRenderer) so the width-math
+ * Lives in its own module (rather than on ScoreRenderer) so the width-math
  * collaborators (MeasureLayout) can share these constants and the
  * `MeasureWidthInfo` shape without importing the renderer — which would create a
- * circular dependency, since the renderer imports MeasureLayout. VexFlowRenderer
+ * circular dependency, since the renderer imports MeasureLayout. ScoreRenderer
  * re-exports these names for backward compatibility with existing importers.
  *
  * ⭐ **These are ENGRAVING constants — how music is set *on a line* — and nothing here is a
@@ -267,7 +267,7 @@ export const LEDGER_LINE_STYLE = {
 
 /**
  * Where every SYSTEM starts vertically, once the per-system staff-spacing overrides (Client #7 —
- * docs/staff-spacing-plan.md) have been resolved. Computed by `VexFlowRenderer.staffSpacingLayout`,
+ * docs/staff-spacing-plan.md) have been resolved. Computed by `ScoreRenderer.staffSpacingLayout`,
  * which is the only thing that can: the answer depends on the view mode and linear view's own
  * spacing knob, and those are the renderer's. Declared here so anything drawing INTO that layout —
  * the note ghost, notably — can be handed the result instead of recomputing it.

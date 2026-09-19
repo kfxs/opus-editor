@@ -885,7 +885,7 @@ Gerou & Lusk say the same thing in one line, with a figure:
 ⭐ **This is the single most important distinction in the whole survey.** The line at the LEFT EDGE
 always joins everything, unconditionally, and is not the same object as the barlines inside the
 system. Every program below keeps the two separate (LilyPond most explicitly: `SystemStartBar` vs
-`SpanBar`), and so do we (`VexFlowRenderer.drawSystemConnector` vs `BarlineRenderer`).
+`SpanBar`), and so do we (`ScoreRenderer.drawSystemConnector` vs `BarlineRenderer`).
 
 Ross states it the same way and gives it the same name:
 
@@ -1021,7 +1021,7 @@ the authorities say.
 |---|---|---|
 | `StaffGroup { id, staffIds, symbol?: 'brace' \| 'bracket' }` | `src/types/music.ts:2258` | grouping exists; **no barline-join field**, and `symbol` rendering is deferred (`docs/multi-staff-plan.md` §11) |
 | `Score.staffGroups?: StaffGroup[]` | `src/types/music.ts:2307` | a list, length 1 today; written in exactly one place (`ScoreModel.ts:284–293`) |
-| the **systemic barline** | `VexFlowRenderer.drawSystemConnector` (`:4369`), called at `:4040` | drawn by hand, top staff line 0 → bottom staff's last line, at **every** system's first measure, `if (staffList.length > 1)` — **unconditional, and it does not consult `StaffGroup` at all** |
+| the **systemic barline** | `ScoreRenderer.drawSystemConnector` (`:4369`), called at `:4040` | drawn by hand, top staff line 0 → bottom staff's last line, at **every** system's first measure, `if (staffList.length > 1)` — **unconditional, and it does not consult `StaffGroup` at all** |
 | every **interior** barline | `engine/rendering/BarlineRenderer.ts` | one line **per placement**, i.e. per measure per staff, in a group keyed `barline-{measure}-{staffIndex}-{side}` (`:327`). There is no between-staff segment and no span object. |
 | the sign's **extent** | `engine/layout/barlineSign.ts` | ⭐ "ONE OWNER FOR THE SIGN'S EXTENT" — but it is the **horizontal** extent (strokes and dots in staff spaces). The **vertical** extent is not modelled anywhere; each drawn line simply takes its own stave's height. |
 | the **per-staff scope** field | `docs/barline-types-plan.md` §2 | already stored, **absent = the whole system**, *"Nothing in P1 reads it"* |
@@ -1201,7 +1201,7 @@ Short, and it is not a plan.
     (`Measure.barline` / `repeatStart` / `repeatEnd`), `:2256–2264` (`StaffGroup`), `:2307`
     (`Score.staffGroups`); `src/engine/layout/barlineSign.ts` (header);
     `src/engine/rendering/BarlineRenderer.ts` (header, `:311–330`, `:442–470`);
-    `src/engine/rendering/VexFlowRenderer.ts:4022–4041, 4360–4389` (`drawSystemConnector`);
+    `src/engine/rendering/ScoreRenderer.ts:4022–4041, 4360–4389` (`drawSystemConnector`);
     `src/interactions/elements/barline.ts`; `docs/barline-types-plan.md` §0.1, §2, §3.1, §4.5;
     `docs/multi-staff-plan.md` §11.
 
@@ -2651,7 +2651,7 @@ score expressed as local overrides.
 | `TDraw::draw(BarLine)` — one `drawLine(y1,y2)` | `ctx.fillRect(x + stroke.x*space, topY, stroke.width*space, botY - topY)` (`BarlineRenderer.ts:198`) | ours is a fillRect per stroke per staff |
 | `barlineSign` equivalent (stroke/dot geometry) | `src/engine/layout/barlineSign.ts` — **x-geometry only, deliberately**: *"The vertical position is NOT here: it is read off the STAFF"* (`:163-164`) | MuseScore has no analogue; its stroke offsets are inline in `TDraw` |
 | `drawTips` guarded by `isTop()`/`isBottom()` (`tdraw.cpp:695-712`) | our wings are drawn on **every** staff — `BarlineRenderer.ts:453-460` records this as a deliberate divergence, on his instruction, *"⭐ Both of those follow from a barline that SPANS the staves, and ours does not"* | |
-| `MeasureLayout::createSystemBeginBarLine` (`measurelayout.cpp:2058`, `bl->setSpanStaff(true)` **hardcoded** at `:2087`) + `Staff::m_hideSystemBarLine` | `VexFlowRenderer.drawSystemConnector` (`:4369-4387`) — a hand-drawn `fillRect` from staff 0's line 0 to the last staff's bottom, only at `isFirstInLine && staffIndex === 0` | **our closest analogue, and the only cross-staff stroke we draw.** MuseScore's is a real `BarLine` item with span forced true; ours is a bare rect. Neither consults a group |
+| `MeasureLayout::createSystemBeginBarLine` (`measurelayout.cpp:2058`, `bl->setSpanStaff(true)` **hardcoded** at `:2087`) + `Staff::m_hideSystemBarLine` | `ScoreRenderer.drawSystemConnector` (`:4369-4387`) — a hand-drawn `fillRect` from staff 0's line 0 to the last staff's bottom, only at `isFirstInLine && staffIndex === 0` | **our closest analogue, and the only cross-staff stroke we draw.** MuseScore's is a real `BarLine` item with span forced true; ours is a bare rect. Neither consults a group |
 | `hitShape()` = the full-span rect (`tlayout.cpp:1280` + `engravingitem.cpp:2813`), so a click in the gap selects the barline | nothing — our barline hit boxes are per-staff (`BarlineRenderer.ts:280`) and the gap is dead | |
 | `Sid::scaleBarlines` (false by default: a barline divides the SYSTEM) | we DO scale per staff — `BarlineRenderer.ts:296-299` records the divergence | |
 | `Staff::setProperty(STAFF_BARLINE_SPAN)` walking every measure | nothing | |
@@ -2666,7 +2666,7 @@ score expressed as local overrides.
 2. **No ink between two staves at any bar end.** Every stroke is `topY → botY` of one stave
    (`BarlineRenderer.ts:198,312-322`). The inter-staff gap is bare at every interior barline.
 3. **The system connector is not a barline and knows no groups** — always plain, always thin, always
-   at system-open x, always top-staff-to-bottom-staff (`VexFlowRenderer.ts:4022-4041`).
+   at system-open x, always top-staff-to-bottom-staff (`ScoreRenderer.ts:4022-4041`).
 4. **No brace/bracket rendering.** `StaffGroup.symbol` has no writer and no renderer.
 5. **The stored per-staff SCOPE is unread.** `BarlineStatement.staffId?`, `RepeatStart.staffId?`,
    `RepeatEnd.staffId?` (`src/types/music.ts:2021-2029, 2043-2045, 2084-2094`) are written by

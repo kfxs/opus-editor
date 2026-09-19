@@ -16,8 +16,8 @@ import { fracCreate as frac } from '../utils/fraction'
  * refusing; and stepping forward from a trill with no end starts from where the LINE stops — the end
  * of the tie chain — not from the start note.
  */
-vi.mock('../engine/rendering/VexFlowRenderer', () => ({
-  VexFlowRenderer: class {
+vi.mock('../engine/rendering/ScoreRenderer', () => ({
+  ScoreRenderer: class {
     initialize = vi.fn(); renderScore = vi.fn()
     getElementRegistry = vi.fn(() => ({
       clear: vi.fn(), register: vi.fn(), getAll: vi.fn(() => []),

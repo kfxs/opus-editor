@@ -285,7 +285,7 @@ export function mountDevToolbar(host: HTMLElement, deps: DevToolbarDeps): DevToo
    * one line each, and they touch neither the score nor the render.
    *
    * ⛔ **DO NOT GROW THEM INTO THE FEATURE.** `Score.staffGroups` exists already and the grouping
-   * SYMBOL is deliberately deferred (docs/multi-staff-plan.md §0/§1, and `VexFlowRenderer`'s note at
+   * SYMBOL is deliberately deferred (docs/multi-staff-plan.md §0/§1, and `ScoreRenderer`'s note at
    * its draw site). The research under `docs/braces-brackets-research.md` is still landing, and the
    * question it is answering — **span vs container, and whether a group can change mid-score** — is
    * exactly the one a button wired up in a hurry would decide by accident.

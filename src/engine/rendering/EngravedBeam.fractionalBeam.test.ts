@@ -8,14 +8,14 @@
  * `lookupBeamDirection(duration, prevTick, tick, nextTick, noteIndex)` has **no beat and no metre in
  * its signature**, so the two bars are literally indistinguishable to it.
  *
- * ⭐ This is a scene-adjacent assertion of the kind `VexFlowRenderer.scene.test.ts` opened up: the
+ * ⭐ This is a scene-adjacent assertion of the kind `ScoreRenderer.scene.test.ts` opened up: the
  * beam's quads have been OUR ink since P4a, so their x's are real numbers in jsdom. ⛔ Note it reads
  * the FILLED paths only — `fillBeamQuad` ends in `fill()` while a stem strokes — which is the same
  * honest discrimination `FanPass.test.ts` uses.
  */
 import { describe, it, expect } from 'vitest'
 import { ScoreModel } from '../models/ScoreModel'
-import { VexFlowRenderer } from './VexFlowRenderer'
+import { ScoreRenderer } from './ScoreRenderer'
 import { fracCreate as frac } from '@/utils/fraction'
 import type { NoteDuration, TimeSignature } from '@/types/music'
 
@@ -28,7 +28,7 @@ interface Slot { duration: NoteDuration, dots?: number, beat: [number, number] }
 function beamInk(timeSignature: TimeSignature, slots: Slot[], override?: (m: ScoreModel, ids: string[]) => void) {
   const container = document.createElement('div')
   document.body.appendChild(container)
-  const renderer = new VexFlowRenderer(container)
+  const renderer = new ScoreRenderer(container)
   renderer.initialize(1600, 400)
 
   const model = new ScoreModel()

@@ -127,7 +127,7 @@ gets, and an inset range does not change that.
   `Σ quarters` still the slot's total, a range past the end of a hand-written `count` reads as the
   whole group instead of throwing, and a range equal to the default comes back out absent.
 - **P1 — the wedge.** The level loop spans the range; `startLevels`/`endLevels` report an inset end
-  as 1. Tests in `FannedBeam.test.ts` (quad x's) and `VexFlowRenderer.fan.test.ts`.
+  as 1. Tests in `FannedBeam.test.ts` (quad x's) and `ScoreRenderer.fan.test.ts`.
 - **P2 — Properties.** Two more inputs on the fan row (`from`/`to`), two more optional fields on
   `FanEditRequest`, merged in `FanEditController` beside `count`/`beams`. Displayed **1-based** —
   "note 1" is the note he typed — and converted at the widget, so the seam and the model stay 0-based

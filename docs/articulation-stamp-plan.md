@@ -49,7 +49,7 @@ Tenuto}` → `pressArticulation`) routes to one of three behaviours by context:
   note in one `runBatch` → one undo entry. Same note-body hit-test as selection clicks
   (`hitsNoteOrRestBody`), so a near-miss does nothing.
 - Ghost: `renderToolGhost` → `RenderController.renderArticulationGhost` →
-  `MusicEngine` → `VexFlowRenderer.renderScoreWithArticulationGhost`. The articulation is
+  `MusicEngine` → `ScoreRenderer.renderScoreWithArticulationGhost`. The articulation is
   drawn **standalone into its own `openGroup`** (no note drawn) — `setStave` gives it its Y and
   `Formatter.format` its X, which is everything `Articulation.draw()` reads. It does **not**
   reuse the dynamic-ghost's `getSVGElement()` trick, because `Articulation.draw()` opens no

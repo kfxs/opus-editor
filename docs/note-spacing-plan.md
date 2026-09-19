@@ -85,7 +85,7 @@ Three things to get right:
 **Why the memo boundary is the whole cost story.** Unlike the other four drags, this one cannot use
 the cheap previewed path. `commitPreviewed` (`MusicEngine.ts:280`) pointedly does *not* set
 `modelDirty`, and `layoutCache` is bypassed only when the model is dirty
-(`VexFlowRenderer.ts:2012-2018`) — a spacing change *must* re-run the casting-off, so every drag
+(`ScoreRenderer.ts:2012-2018`) — a spacing change *must* re-run the casting-off, so every drag
 frame recomputes widths for the whole score. That is affordable only because the expensive half
 (`noteSpaceForLane`'s formatter call) stays memoized on lane content, which the override cannot
 touch. Break that boundary and the drag stutters.
@@ -142,15 +142,15 @@ still carry `userSpace`, since `calculateLinearMeasureWidths` sets `finalWidth =
 
 `note.getAbsoluteX()` is `tickContext.getX() + stave.getNoteStartX()`
 (`vexflow/build/esm/src/note.js:339`), read lazily at draw time; and `Formatter.joinVoices` gives all
-voices in a lane **one shared TickContext per tick** (`VexFlowRenderer.ts:1054`). That is already
+voices in a lane **one shared TickContext per tick** (`ScoreRenderer.ts:1054`). That is already
 how V1 and V2 stay aligned. `Formatter.postFormat()` runs *inside* `format()`
 (`formatter.js:598`), so a shift applied after `format()` returns is the last word on x.
 
-So, per lane, in `VexFlowRenderer`:
+So, per lane, in `ScoreRenderer`:
 
 1. Format to `formatWidth − (this measure's user space in px)`. Without this the notes spread across
    the *widened* bar and the shift below pushes the last one through the barline. ⚠️ `formatWidth`
-   is `Math.max(noteAreaWidth − 15, 50)` (`VexFlowRenderer.ts:1053`) — subtract user space *before*
+   is `Math.max(noteAreaWidth − 15, 50)` (`ScoreRenderer.ts:1053`) — subtract user space *before*
    that floor, or a large space hits the 50px clamp and the bar's music crams into the left edge
    before shifting.
 2. After `format()` and **before** `voice.draw()`, walk `formatter.getTickContexts().array` (already
@@ -195,7 +195,7 @@ gap must never drop below the ink floor — `MIN_COLUMN_GAP` (⚠️ was `MIN_NO
 decides how wide a bar is. But the clamp is applied **at the write site, not here** — see §1. Render
 trusts the stored number.
 
-**The preview ghost** formats its own temporary stave (`VexFlowRenderer.ts:2254-2340`) and will
+**The preview ghost** formats its own temporary stave (`ScoreRenderer.ts:2254-2340`) and will
 ignore the shift until it runs the same walk. P0 can leave it; note it so the drift is not read as
 a bug in the model.
 
@@ -343,7 +343,7 @@ the whole ramp instead of opening the one gap that was authored. **The one subst
 logic:** take the authored member spaces off the top, share what remains by the ramp, then add each
 authored amount back into its own gap — §3's justification rule (*"justify the intrinsic part, hand
 the user space back whole"*) restated at ramp scale. It stays a pure function; the caller
-(`VexFlowRenderer`'s fan-slot builder, which holds `score`, `measure` and `slot.beat`) matches
+(`ScoreRenderer`'s fan-slot builder, which holds `score`, `measure` and `slot.beat`) matches
 `measureLeadingSpaces` against `fanMemberEntries` beats and passes a `memberSpaces: number[]` in px.
 
 ### 7.3 The three decisions
@@ -393,7 +393,7 @@ px. Inside `usable`, the proportional ramp shares them out over **every** gap in
 grows and the one gap being widened does not move at all.
 
 ⭐ **The room a group may spread into ends before the space someone authored after it.**
-`fanTrailingSpacePx` (`VexFlowRenderer`) reads the leading space at the group's own end
+`fanTrailingSpacePx` (`ScoreRenderer`) reads the leading space at the group's own end
 (`slot.beat + its full duration`, the column the next note starts at) and takes it back off
 `spanEndX`. The ramp then keeps exactly the shape it had and the whole of the space lands where it
 was asked for. Measured in `VEXFLOW_DEFAULT_STAFF_SPACE_PX` because it undoes precisely the shift
@@ -401,7 +401,7 @@ was asked for. Measured in `VEXFLOW_DEFAULT_STAFF_SPACE_PX` because it undoes pr
 
 ⚠️ The same lever from the other end as `memberSpaces`: a space authored INSIDE the group opens one
 member's gap (off the top, ramp shares the rest); a space authored just AFTER it opens the gap the
-group does not own. Pinned in `VexFlowRenderer.fan.test.ts` — the member heads do not move, the gap
+group does not own. Pinned in `ScoreRenderer.fan.test.ts` — the member heads do not move, the gap
 after the last one does — and verified to fail against the old code.
 
 ### 7.6 What it touched
@@ -412,7 +412,7 @@ instead of reading `getNote().beat`, so **the drag moves one member too**) · th
 `fanMemberBeats` (`utils/fannedBeam.ts`, now the one owner of that arithmetic, with
 `fanMemberEntries` reading through it) · the floor `MusicEngine.fanMemberShrinkRoom` + the optional
 `anchorNoteId` on `noteSpacingRoom`/`nudgeNoteSpacing` · the drawing `FanGeometryOptions.memberSpaces`
-consumed in `fannedBeamGeometry` and filled by `fanMemberSpacesPx` (`VexFlowRenderer`) · the travel
+consumed in `fannedBeamGeometry` and filled by `fanMemberSpacesPx` (`ScoreRenderer`) · the travel
 `columnExistsAt` (`rebarOps`). Tests: `FannedBeam.test.ts` (the gap opens by exactly the authored
 amount and the ramp's other gaps do not move; member 0 is inert; the floor still holds; an unspaced
 fan is byte-for-byte what it was), `fanMemberCommands.test.ts` (the address), `noteSpacingTravel.test.ts`
@@ -469,7 +469,7 @@ only, so the overrides genuinely cannot be seen from inside the memo (`MeasureWi
 (`MeasureLayout.ts:176-179`); `Formatter.getTickContexts()` (`formatter.js:304`),
 `TickContext.setX`, `postFormat()` running *inside* `format()` (`formatter.js:598`) so a
 post-format shift is the last word, and `getAbsoluteX()` reading the tick context lazily at draw
-(`note.js:339`); one shared TickContext per tick from `joinVoices` (`VexFlowRenderer.ts:1054`);
+(`note.js:339`); one shared TickContext per tick from `joinVoices` (`ScoreRenderer.ts:1054`);
 `Shift+Alt+←/→` was unbound (only ↑/↓ taken by voice nav) when this shipped — since rebound to the
 note offset's fine step by the §5 swap; linear view justifying nothing (`MeasureLayout.ts:332`).
 
@@ -485,4 +485,4 @@ note offset's fine step by the §5 swap; linear view justifying nothing (`Measur
 | R6 | `formatWidth`'s 50px floor; clipboard capture/restore; `pixelXToBeat`'s linear interpolation; the preview ghost's own stave | §4.1, §6, §4 |
 
 **Citation nits fixed:** `setRestShift` does not exist (`nudgeRestShift`, `ScoreModel.ts:843`);
-the `format()` call is `VexFlowRenderer.ts:1054`.
+the `format()` call is `ScoreRenderer.ts:1054`.

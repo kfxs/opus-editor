@@ -1,5 +1,5 @@
 /**
- * ⭐⭐ **THE BEAM'S INK, MEASURED IN A REAL BROWSER** — the half `VexFlowRenderer.scene.test.ts`
+ * ⭐⭐ **THE BEAM'S INK, MEASURED IN A REAL BROWSER** — the half `ScoreRenderer.scene.test.ts`
  * structurally cannot reach.
  *
  * ## 🚨 Why this file exists: a change moved 85% of beams and the browser suite stayed green

@@ -57,7 +57,7 @@ substitution while typing.
   (a–g, r, t, x, …) are automatically suppressed** with *no new code*. Same mechanism the custom-TS
   dialog relies on.
 - **Position is known; font must be sourced deliberately.** Each placed dynamic is registered in
-  `ElementRegistry` with an SVG-space `bbox` (`VexFlowRenderer.registerDynamics`, `:1448`; the click
+  `ElementRegistry` with an SVG-space `bbox` (`ScoreRenderer.registerDynamics`, `:1448`; the click
   hit-test that reuses it is `MouseController.ts:214`). **Caveat:** `getDynamicSVGGroup(id)` (`:2261`)
   returns only the SVG *group* — the annotation's resolved `fontInfo` is **not** publicly exposed (it's
   read internally in the ghost path, `:2428`). So `getFontCSS()` cannot just "copy the annotation font."

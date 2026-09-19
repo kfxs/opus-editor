@@ -18,7 +18,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import type { MarkPreviewKind } from './markPreviewPass'
 import { ScoreModel } from '../models/ScoreModel'
-import { VexFlowRenderer } from './VexFlowRenderer'
+import { ScoreRenderer } from './ScoreRenderer'
 import { addOttava } from '../models/ottavaOps'
 import { addPedal } from '../models/pedalOps'
 import { addHairpin, setHairpinAtStaffSlot } from '../models/hairpinOps'
@@ -28,7 +28,7 @@ import { setTempoAtSlot } from '../models/tempoOps'
 import { setDynamicAtSlot } from '../models/dynamicOps'
 import { fracCreate as frac } from '@/utils/fraction'
 
-let renderer: VexFlowRenderer
+let renderer: ScoreRenderer
 let model: ScoreModel
 let ottavaId: string
 
@@ -36,7 +36,7 @@ let ottavaId: string
 beforeEach(() => {
   const container = document.createElement('div')
   document.body.appendChild(container)
-  renderer = new VexFlowRenderer(container)
+  renderer = new ScoreRenderer(container)
   renderer.initialize(1200, 800)
 
   model = new ScoreModel()
@@ -133,7 +133,7 @@ describe('🚨 repeating a preview changes nothing — the accumulation traps', 
 
 describe('it refuses rather than drawing a lie', () => {
   it('⛔ answers false before any render, so the caller falls back to a real one', () => {
-    const fresh = new VexFlowRenderer(document.createElement('div'))
+    const fresh = new ScoreRenderer(document.createElement('div'))
     fresh.initialize(600, 400)
 
     expect(fresh.previewMarks('ottava')).toBe(false)
@@ -317,7 +317,7 @@ describe('🚨 a mark that crossed to the OTHER STAFF is previewed on the staff 
  * travel is horizontal and a row is not.
  */
 describe('the TEMPO family is moved, not redrawn', () => {
-  let tempoRenderer: VexFlowRenderer
+  let tempoRenderer: ScoreRenderer
   let tempoModel: ScoreModel
   let tempoId: string
 
@@ -326,7 +326,7 @@ describe('the TEMPO family is moved, not redrawn', () => {
   beforeEach(() => {
     const container = document.createElement('div')
     document.body.appendChild(container)
-    tempoRenderer = new VexFlowRenderer(container)
+    tempoRenderer = new ScoreRenderer(container)
     tempoRenderer.initialize(1200, 800)
 
     tempoModel = new ScoreModel()
@@ -440,7 +440,7 @@ describe('the TEMPO family is moved, not redrawn', () => {
  * of a sum.
  */
 describe('the DYNAMIC family is moved, not redrawn', () => {
-  let dynRenderer: VexFlowRenderer
+  let dynRenderer: ScoreRenderer
   let dynModel: ScoreModel
   let dynId: string
 
@@ -451,7 +451,7 @@ describe('the DYNAMIC family is moved, not redrawn', () => {
   beforeEach(() => {
     const container = document.createElement('div')
     document.body.appendChild(container)
-    dynRenderer = new VexFlowRenderer(container)
+    dynRenderer = new ScoreRenderer(container)
     dynRenderer.initialize(1200, 800)
 
     dynModel = new ScoreModel()

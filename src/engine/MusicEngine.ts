@@ -13,7 +13,7 @@ import type { OttavaDragWrite, OttavaSlotTarget, OttavaStaffSlotTarget } from '.
 import type { PedalLiftTarget, PedalSlotTarget, PedalStaffSlotTarget } from './models/pedalOps'
 import { PEDAL_SIGN_GAP } from './rendering/pedalStyle'
 import { staveHeightPx, systemStaffTops, minSpacingAboveSpaces, spacingAbovePx, MIN_SPACING_ABOVE_AT_PAGE_TOP } from './layout/staffStride'
-import { VexFlowRenderer } from './rendering/VexFlowRenderer'
+import { ScoreRenderer } from './rendering/ScoreRenderer'
 import type { Scene } from './scene/Scene'
 import type { MarkPreviewKind } from './rendering/markPreviewPass'
 import type { ViewMode, GutterState, GutterStaffState } from './rendering/layoutConfig'
@@ -83,7 +83,7 @@ export type { BarWidthRoom }
  */
 export class MusicEngine {
   private scoreModel: ScoreModel
-  private renderer: VexFlowRenderer
+  private renderer: ScoreRenderer
   private coordinateMapper: CoordinateMapper
   private collisionDetector: CollisionDetector
   private playbackEngine: PlaybackEngine
@@ -92,7 +92,7 @@ export class MusicEngine {
 
   constructor(config: MusicEngineConfig) {
     this.scoreModel = new ScoreModel()
-    this.renderer = new VexFlowRenderer(config.container)
+    this.renderer = new ScoreRenderer(config.container)
 
     // Calculate coordinate mapper config based on container size. ⚠️ These size the *DOM element*
     // before anything is engraved — `renderScore` resizes the SVG to whatever surface it cast off
@@ -215,7 +215,7 @@ export class MusicEngine {
    *  1. **Content** — {@link modelDirty}. Every edit funnels through `commit`/`saveUndoState`
    *     (the ARCHITECTURE invariant), which sets it. A direct write to `scoreModel` that bypasses
    *     the facade would defeat this — but that write is already a bug.
-   *  2. **View state** — {@link VexFlowRenderer.viewStateKey}: view mode, the linear staff-spacing
+   *  2. **View state** — {@link ScoreRenderer.viewStateKey}: view mode, the linear staff-spacing
    *     knob, a suppressed (being-text-edited) dynamic/tempo, a frozen layout, a dragged clef.
    *
    * A ghost on the canvas is deliberately NOT a third reason: since P4 the preview is an overlay,
@@ -225,20 +225,20 @@ export class MusicEngine {
     return this.modelDirty || this.renderer.viewStateKey(this.scoreModel.getScore()) !== this.lastViewStateKey
   }
 
-  /** Take down the preview ghost, if any. O(1) — see {@link VexFlowRenderer.clearGhosts}. */
+  /** Take down the preview ghost, if any. O(1) — see {@link ScoreRenderer.clearGhosts}. */
   clearGhosts(): void {
     this.renderer.clearGhosts()
   }
 
   /** ⭐ Redraw ONE mark family against the last render instead of the whole score — the cheap frame
    *  of a mark gesture. False = no usable snapshot, and the caller owes a real render.
-   *  See {@link VexFlowRenderer.previewMarks} and `rendering/markPreviewPass`. */
+   *  See {@link ScoreRenderer.previewMarks} and `rendering/markPreviewPass`. */
   previewMarks(kind: MarkPreviewKind, markId?: string): boolean {
     return this.renderer.previewMarks(kind, markId)
   }
 
   /** Re-place the barline ink on the pixel grid after a ZOOM — two attributes per barline, no
-   *  re-engraving. See {@link VexFlowRenderer.hintBarlines}. */
+   *  re-engraving. See {@link ScoreRenderer.hintBarlines}. */
   hintBarlines(force = false): void {
     this.renderer.hintBarlines(force)
   }
@@ -5787,7 +5787,7 @@ export class MusicEngine {
     // The engine is the ONLY thing that can vouch for "the model did not change", so it is the only
     // thing that may license the renderer to reuse the last render's casting-off. Under P6 this is
     // what makes scrolling free again: a scroll moves the window, the window cannot change a bar's
-    // width, and recomputing all of them cost 13 ms a frame at 200 bars (VexFlowRenderer.layoutCache).
+    // width, and recomputing all of them cost 13 ms a frame at 200 bars (ScoreRenderer.layoutCache).
     this.renderer.setLayoutReusable(!contentChanged)
     this.renderer.renderScore(this.scoreModel.getScore())
     // The SVG now matches the model AND this view state — record the latter so the next
@@ -5992,7 +5992,7 @@ export class MusicEngine {
    *
    * ⚠️ ONE method, and it stays one. This was ten (`renderScoreWithClefGhost`,
    * `…TimeSignatureGhost`, …), each a single delegating statement to a matching one-liner on
-   * `VexFlowRenderer` — twenty methods of pure forwarding, so a new ghost was four files' work to
+   * `ScoreRenderer` — twenty methods of pure forwarding, so a new ghost was four files' work to
    * add nothing (docs/modularity-plan-2026-07-28.md Phase 2). A new ghost is now a {@link ToolGhost}
    * member and a `GHOST_DRAWERS` row; this facade does not learn about it.
    *
@@ -6217,7 +6217,7 @@ export class MusicEngine {
 
   /**
    * ⭐⭐ **RENDER, AND HAND BACK WHAT WAS DRAWN** — a one-line delegation to
-   * {@link VexFlowRenderer.recordScene}, which TEES: the page paints exactly as normal and a
+   * {@link ScoreRenderer.recordScene}, which TEES: the page paints exactly as normal and a
    * {@link Scene} of plain values comes back as well (`docs/own-engraving-engine.md` P1d).
    *
    * ⛔ **Not a feature, and nothing in the editor's own flow calls it.** It exists because the two
@@ -6237,7 +6237,7 @@ export class MusicEngine {
    *
    * 🚨 A render that follows no change REUSES its measures, and a reused bar draws nothing — so
    * `recordScene(() => renderScore())` on an unchanged score hands back a nearly EMPTY scene
-   * (measured: one barline out of a page). {@link VexFlowRenderer.forgetReuse} is the lever, and
+   * (measured: one barline out of a page). {@link ScoreRenderer.forgetReuse} is the lever, and
    * this is the two calls in the right order so no caller has to know that.
    *
    * ⚠️ Costs a full redraw. ⛔ For instruments and specs, never the editor's own flow.
@@ -6445,7 +6445,7 @@ export class MusicEngine {
    * ⭐ `liveInkWidth` (the score's own pixels) is how much room the OPEN EDITOR is taking, which the
    * engine cannot see: a suppressed mark is not drawn and therefore measures nothing, so a hairpin
    * broken for it would close its hole and draw through the editor. See
-   * `VexFlowRenderer.setSuppressedDynamicId`.
+   * `ScoreRenderer.setSuppressedDynamicId`.
    */
   setSuppressedDynamicId(dynamicId: string | null, liveInkWidth?: number): void {
     this.renderer.setSuppressedDynamicId(dynamicId, liveInkWidth)

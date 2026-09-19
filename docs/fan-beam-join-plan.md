@@ -53,7 +53,7 @@ own `Stem` object, re-aimed and drawn — see P1.
   so the key would never light what it just wrote — the same gate has to let `continue` through. Left
   as it is, the only feedback is the ROLE, which reads `begin` while the field says `continue` on an
   inert mark: the press that did nothing and the press that unjoins then look identical.
-- `VexFlowRenderer.buildBeams`: strip a fanned slot out of any group before handing it to `new Beam`
+- `ScoreRenderer.buildBeams`: strip a fanned slot out of any group before handing it to `new Beam`
   — **before `calculateBeamGroupStemDirection`**, or the prefix takes a direction the fan helped
   decide and P0 stops being invisible — and **drop what is left if it is under two notes**. A lone
   eighth in front of a fan now forms a group of 2, and `new Beam` of one throws; the throw is caught

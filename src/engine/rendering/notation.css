@@ -1,15 +1,15 @@
 /*
  * Notation rendering styles — OWNED BY THE ENGINE, not the UI framework.
  *
- * VexFlowRenderer creates SVG nodes and tags them with these class names; the
+ * ScoreRenderer creates SVG nodes and tags them with these class names; the
  * rules below give them their appearance (translucent blue cursor ghosts, amber
- * selection highlight). They live here — imported by VexFlowRenderer.ts so they
+ * selection highlight). They live here — imported by ScoreRenderer.ts so they
  * travel with the engine — rather than in App.vue, so the rendering layer's
  * visuals are decoupled from Vue. A port to React/Svelte/vanilla needs no change:
  * importing the renderer pulls these styles in automatically.
  *
  * NOTE: the ghost *note* preview is styled with inline attributes in code
- * (VexFlowRenderer.applyGhostStyle), not via a class, so it has no rules here.
+ * (ScoreRenderer.applyGhostStyle), not via a class, so it has no rules here.
  * Only the clef/time-signature/dynamic ghosts and the note selection highlight
  * depend on CSS.
  */

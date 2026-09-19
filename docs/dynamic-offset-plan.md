@@ -295,7 +295,7 @@ had: a cross-system slur's segment handles at **full-size coordinates on a reduc
 `slurEndpoints`', `direction` carried across untouched because it is a SIGN and not a length.
 
 ⚠️⚠️ **AND THERE WAS ALREADY A GUARD THAT SHOULD HAVE CAUGHT IT.**
-`VexFlowRenderer.incrementalRedraw.test.ts` compares a translated bar against a freshly drawn one
+`ScoreRenderer.incrementalRedraw.test.ts` compares a translated bar against a freshly drawn one
 **element for element** — exactly the shape of check this needed. It never fired because its fixture
 renders in **linear** view: one system, therefore no cross-system slur, therefore no entry in it has
 ever carried a `segmentEndpoints`. ⭐ **A whole-object comparison is only as total as the fixture

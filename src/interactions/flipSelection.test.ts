@@ -16,8 +16,8 @@ import { fracCreate as frac } from '../utils/fraction'
  * DECLINES rather than doing something else, and the two tails — articulations, then the note stem —
  * are tried only when the table has no answer.
  */
-vi.mock('../engine/rendering/VexFlowRenderer', () => ({
-  VexFlowRenderer: class {
+vi.mock('../engine/rendering/ScoreRenderer', () => ({
+  ScoreRenderer: class {
     initialize = vi.fn(); renderScore = vi.fn()
     getElementRegistry = vi.fn(() => ({
       clear: vi.fn(), register: vi.fn(), getAll: vi.fn(() => []),

@@ -255,7 +255,7 @@ function calculateMinimumMeasureWidth(
   // ⭐ **…and it CLOSES UP when that first note carries an accidental** — 1½ with one, 1 with more
   //   (Gould p. 42, decision E, and her own plate measured at 1.65 / 1.15). ⚠️ `leadIn.accidentals`,
   //   ⛔ never `leadIn.extent`: her table is keyed on a COUNT, and the extent is already the term
-  //   beside it. The drawing reads the same pair (`VexFlowRenderer`'s `system.headerToNote`).
+  //   beside it. The drawing reads the same pair (`ScoreRenderer`'s `system.headerToNote`).
   const sharedOverhead = ((widestOverhead > 0 ? headerToNoteGap({ meter }, leadIn.accidentals) : leadIn.padding) + leadIn.extent + repeatStartRoom(measure)) * STAFF_SPACE_PX
   const totalWidth = noteSpace + widestOverhead + sharedOverhead
   // ⭐ **THE CAP IS A PREFERENCE; THE FLOOR IS THE MUSIC.** `MAX_MEASURE_WIDTH` says "one measure
@@ -1110,7 +1110,7 @@ export function calculateMeasureWidths(
   // Sibelius do and what this always did. LilyPond's `ragged-last` is true by default and MuseScore
   // makes it a setting, because a last system of one bar spread over the whole width reads as a
   // mistake rather than as music. Both are legitimate; which one you want is a matter of taste, so
-  // it is a knob (view state — see `VexFlowRenderer.layoutStateKey`).
+  // it is a knob (view state — see `ScoreRenderer.layoutStateKey`).
   //
   // ⚠️ Ragged means ragged-RIGHT, never ragged past the margin. A last line whose bars already ask
   // for more than the page has (a stretched bar, an authored space) is still distributed — the

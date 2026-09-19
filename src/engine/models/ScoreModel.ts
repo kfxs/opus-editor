@@ -2789,7 +2789,7 @@ export class ScoreModel {
    * What the note's beam ACTUALLY is — begin / continue / end / single — as opposed to what was
    * authored on it (`getNote().beam`, absent when nobody decided). See {@link beamRoleAt}.
    *
-   * The slice matters: beams are built per VOICE of one STAFF, sorted by beat (VexFlowRenderer's
+   * The slice matters: beams are built per VOICE of one STAFF, sorted by beat (ScoreRenderer's
    * `groups`), so the role is computed against that same run. Read it against the whole measure and
    * a voice-2 note is scored against voice 1's grouping — an answer about a beam that was never
    * engraved. Returns null for an unknown id, and for a REST — you cannot beam silence, so a rest

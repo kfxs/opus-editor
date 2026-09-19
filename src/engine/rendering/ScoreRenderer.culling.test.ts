@@ -20,7 +20,7 @@
  */
 import { describe, it, expect, vi } from 'vitest'
 import { ScoreModel } from '../models/ScoreModel'
-import { VexFlowRenderer, LAYOUT_CONFIG } from './VexFlowRenderer'
+import { ScoreRenderer, LAYOUT_CONFIG } from './ScoreRenderer'
 import * as MeasureLayout from './MeasureLayout'
 import type { Rect } from '@/engine/ViewportModel'
 import { fracCreate as frac } from '@/utils/fraction'
@@ -28,7 +28,7 @@ import { fracCreate as frac } from '@/utils/fraction'
 function makeRenderer() {
   const container = document.createElement('div')
   document.body.appendChild(container)
-  const renderer = new VexFlowRenderer(container)
+  const renderer = new ScoreRenderer(container)
   renderer.initialize(1200, 4000)
   return renderer
 }
@@ -44,7 +44,7 @@ function longScore(bars: number): ScoreModel {
 }
 
 /** Which of `measures` were painted on staff `staff`. */
-function drawn(renderer: VexFlowRenderer, measures: number[], staff = 0): number[] {
+function drawn(renderer: ScoreRenderer, measures: number[], staff = 0): number[] {
   return measures.filter(m => renderer.getMeasureSVGGroup(m, staff) !== null)
 }
 

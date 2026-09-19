@@ -446,7 +446,7 @@ export function renderHairpins(
       const staffIndex = staffIndexOfId(score, hairpin.staffId)
       const from = byMeasureStaff.get(`${span.startMeasure}:${staffIndex}`)
       const to = byMeasureStaff.get(`${span.endMeasure}:${staffIndex}`)
-      // Both endpoint bars are span anchors (`VexFlowRenderer.spanAnchors`), so a missing one means
+      // Both endpoint bars are span anchors (`ScoreRenderer.spanAnchors`), so a missing one means
       // the bar genuinely was not rendered — not that it was translated with stale coordinates.
       if (!from || !to) continue
 

@@ -1,6 +1,6 @@
 /*
  * Notation rendering styles (cursor ghosts, selection highlight) now live with
- * the engine in src/engine/rendering/notation.css, imported by VexFlowRenderer.
+ * the engine in src/engine/rendering/notation.css, imported by ScoreRenderer.
  * Keep only app-layout styles here.
  */
 

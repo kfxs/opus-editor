@@ -426,7 +426,7 @@ export function renderOttavas(
           && p.measureNumber >= span.startMeasure
           && p.measureNumber <= span.endMeasure)
         .sort((a, b) => a.measureNumber - b.measureNumber)
-      // Both endpoint bars are span anchors (`VexFlowRenderer.spanAnchors`), so an empty list means
+      // Both endpoint bars are span anchors (`ScoreRenderer.spanAnchors`), so an empty list means
       // the bars genuinely were not rendered — not that they were translated with stale coordinates.
       const from = covered[0]
       const to = covered[covered.length - 1]

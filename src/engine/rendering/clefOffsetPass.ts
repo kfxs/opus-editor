@@ -17,7 +17,7 @@
  * the group would move the picture and leave both behind.
  *
  * ⛔ **A HEADER clef is never here to be moved.** Only mid-measure changes are drawn as
- * `EngravedClefChange` tickables (`VexFlowRenderer.interleaveClefNotes` filters `beat > 0`); the clef at a system's head
+ * `EngravedClefChange` tickables (`ScoreRenderer.interleaveClefNotes` filters `beat > 0`); the clef at a system's head
  * is a stave modifier laid out by the header, which is precisely the clef he excluded.
  */
 import type { EngravedClefChange } from './EngravedClefChange'

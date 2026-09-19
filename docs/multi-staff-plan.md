@@ -139,13 +139,13 @@ multiplicity exists only as `voice: 0|1|2|3` on each slot. Nothing keys on staff
   `toFlatNote`/`restToFlatNote` (`noteProjection.ts:13,38`) copy no staff.
 - `toJSON`/`fromJSON` mirror `Score` verbatim (`ScoreModel.ts:2944,2951`).
 
-**Renderer (`VexFlowRenderer.ts`, `MeasureLayout.ts`, `CoordinateMapper.ts`,
+**Renderer (`ScoreRenderer.ts`, `MeasureLayout.ts`, `CoordinateMapper.ts`,
 `ElementRegistry.ts`):**
 
 - Exactly one `Stave` per measure (`buildAndDrawStave` `:585-633`, `new Stave` `:596`).
 - The forward vertical formula is one scalar:
   `y = margin + currentLine * (staveHeight + verticalSpacing)`
-  (`VexFlowRenderer.ts:1163`; height/`resize` math `:1129/:1143`; ghost-note **dup of the
+  (`ScoreRenderer.ts:1163`; height/`resize` math `:1129/:1143`; ghost-note **dup of the
   same formula** `:1240`). **But it is NOT a single choke point** (earlier drafts said so —
   wrong): there is a **second, independent encoding of the per-line stride** that must also
   become staff-aware —
@@ -291,7 +291,7 @@ Stack N staves per system, sharing barlines. **No brace yet.**
 
 - The forward scalar becomes a function of `(line, staffIndex)`:
   `y = systemTop(line) + Σ(staffHeight + interStaffGap for staves above this one)`
-  — at both `VexFlowRenderer.ts:1163` and its ghost-note dup `:1240`.
+  — at both `ScoreRenderer.ts:1163` and its ghost-note dup `:1240`.
 - **The reverse map must change too (not just the forward one).** `CoordinateMapper.ts`
   turns a click-Y back into a line (`:187/:192`, hit-band `:179-180`) using a stride that
   is **hardcoded** as `staffHeight: 120 + 30` in `MusicEngine.ts:61-63`. Multi-staff makes
@@ -302,7 +302,7 @@ Stack N staves per system, sharing barlines. **No brace yet.**
 - `buildAndDrawStave` loops per staff within each measure; each `(measure, staff)` draws
   its own `Stave` at its computed `y` with **that staff's** clef/slots/voices/tuplets.
 - Per-system height becomes `Σ staffHeights + Σ interStaffGaps + interSystemGap`; the
-  canvas height / `renderer.resize` math (`VexFlowRenderer.ts:1128-1129`) and the
+  canvas height / `renderer.resize` math (`ScoreRenderer.ts:1128-1129`) and the
   ghost-note vertical paths (`:1240`, `:1201-1270`) follow.
 - Barlines: each staff draws its own; shared `x` aligns them into one visual barline.
   (A single joined barline via `StaveConnector` is deferred with the brace.)

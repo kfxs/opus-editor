@@ -13,7 +13,7 @@ import { fracCreate } from '@/utils/fraction'
 // When three voices collide at one tick, the multi-voice rule (VexFlow's StaveNote.format, ours
 // since S9g as `engrave/notes/voiceStack`) REASSIGNS
 // stem directions to spread the noteheads — overriding both our voice-parity default
-// AND the user's `x` stem override. VexFlowRenderer defeats this by capturing each
+// AND the user's `x` stem override. ScoreRenderer defeats this by capturing each
 // note's intended stem BEFORE format and re-asserting it after. These tests pin both
 // halves: that VexFlow really does flip it, and that the re-assert restores it.
 

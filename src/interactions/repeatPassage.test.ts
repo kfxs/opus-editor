@@ -13,8 +13,8 @@ import { formatPitch } from '../utils/pitchSpelling'
  * `rebarOps.pasteEvents`'s — what is asserted here is the repeat's own three answers: which passage,
  * which destination bar, and that nothing was inserted.
  */
-vi.mock('../engine/rendering/VexFlowRenderer', () => ({
-  VexFlowRenderer: class {
+vi.mock('../engine/rendering/ScoreRenderer', () => ({
+  ScoreRenderer: class {
     initialize = vi.fn(); renderScore = vi.fn()
     getElementRegistry = vi.fn(() => ({
       clear: vi.fn(), register: vi.fn(), getAll: vi.fn(() => []),

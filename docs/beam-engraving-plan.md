@@ -192,8 +192,8 @@ baseline every future comparison is measured against.
 |---|---|
 | `Beam.drawBeamLines` (VexFlow) | every ordinary beam |
 | `FanPass` | a feathered beam's levels |
-| `VexFlowRenderer.drawCrossBarSideBeam` | the half-beam hung over a system break |
-| `VexFlowRenderer.drawCrossBarLoneFragment` | the same, for a side of one note |
+| `ScoreRenderer.drawCrossBarSideBeam` | the half-beam hung over a system break |
+| `ScoreRenderer.drawCrossBarLoneFragment` | the same, for a side of one note |
 
 🚨 This is §3.1's *"the second owner is the tell"* with the sign reversed. The last three had **already
 been given one owner** — `beamInk.fillBeamQuad`, extracted for exactly that reason — so the finding
@@ -213,7 +213,7 @@ appears in VexFlow's loop and twice more in the cross-barline fragments. It has 
 - ⭐ `rendering/beamInk.ts` keeps only what is genuinely the renderer's: the cross-**system** stub
   lengths and the fragment's width, which are measured against `measureBounds` rather than drawn by
   anyone else.
-- ⭐⭐ **The first beam ink in the SCENE.** `VexFlowRenderer.scene.test.ts` gained a chapter that
+- ⭐⭐ **The first beam ink in the SCENE.** `ScoreRenderer.scene.test.ts` gained a chapter that
   renders beamed eighths and sixteenths in jsdom and asserts *one filled quad per beam line, five
   vertices, 0.5 staff spaces thick, two levels exactly one stride apart, four stems still drawn under
   four beamed notes, and a group carrying its id*. ⚠️ Every one of those needed a browser the day
@@ -293,7 +293,7 @@ reproducing it would mean casting to read a field that is always `undefined`. Re
   lives in `engrave/beams/fractionalBeam` as a two-row table; `EngravedBeam.applyFractionalBeamSides`
   supplies it through `setPartialBeamSideAt`, and a per-note override rides the slot
   (`models/beamOps`, Properties). ⏳ What is still open in §8 is **A the LENGTH** and **C the rests**.
-- **The cross-system fragments (P4d).** Two places in `VexFlowRenderer` continue a beam's slope and
+- **The cross-system fragments (P4d).** Two places in `ScoreRenderer` continue a beam's slope and
   levels by hand. They are correct and they are copies; they fold in once the slope has an owner.
 - **`Stave.padding`** is ⛔ **not** here. It is a LAYOUT number and it moves with **P5**
   (`docs/note-engraving-plan.md` §0.1 carries the correction).

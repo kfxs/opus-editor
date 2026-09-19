@@ -66,7 +66,7 @@ describe('CenteredTremolo bounding box', () => {
 
   /**
    * The ink rect the SELECTION hit-test is built on (`ElementRegistry` type `'tremolo'`, registered
-   * by `VexFlowRenderer.registerTremolo`).
+   * by `ScoreRenderer.registerTremolo`).
    *
    * What can honestly be pinned here is the part that is arithmetic rather than glyph measurement:
    * it only exists once the mark has drawn, it is anchored ON the stem, and it grows with the stack.

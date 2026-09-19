@@ -412,10 +412,10 @@ export interface MeasurePlacement {
  * Every tie and slur in the score, in the two shapes the render loop needs them:
  *
  *  - `measures` — the bars holding an anchor. **P5.4b** may not translate one of these (see
- *    {@link VexFlowRenderer.spanAnchors}).
+ *    {@link ScoreRenderer.spanAnchors}).
  *  - `list` — each span as a measure range plus its two anchor `<g>` keys. **P6** uses this to force
  *    the anchors of a window-crossing span to be drawn (see
- *    {@link VexFlowRenderer.forcedSpanGroups}).
+ *    {@link ScoreRenderer.forcedSpanGroups}).
  */
 interface SpanAnchors {
   measures: Set<number>
@@ -486,9 +486,9 @@ function logSystemChanges(
   }
 }
 
-export class VexFlowRenderer {
+export class ScoreRenderer {
   private context: SvgPainter | null = null
-  /** The scene being recorded this render, or null — see {@link VexFlowRenderer.recordScene}. */
+  /** The scene being recorded this render, or null — see {@link ScoreRenderer.recordScene}. */
   private recorder: SceneRecorder | null = null
   private readonly svgContainer: HTMLElement
   /** Stored bounds for each rendered measure (keyed by measure number) */

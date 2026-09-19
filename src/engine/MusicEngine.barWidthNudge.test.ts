@@ -384,7 +384,7 @@ describe('shrinking an EMPTY bar', () => {
     // Reported by eye: a shrunk empty bar looked like it had lost its room from the right, because
     // VexFlow centres the measure rest on the box the formatter was handed (`formatWidth`) rather
     // than on the bar's note area. The two differ by a constant ~4px — nothing in a wide bar, plainly
-    // off-centre in an 87px one. See VexFlowRenderer.centerMeasureRests.
+    // off-centre in an 87px one. See ScoreRenderer.centerMeasureRests.
     //
     // ⚠️ Under jsdom a glyph measures 0 wide, so `bbox.width` is 0 and this compares the rest's
     // ANCHOR against the area centre. That is still exactly what the fix moves, and the offset it

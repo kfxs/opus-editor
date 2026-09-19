@@ -16,7 +16,7 @@ scales and prints at any size.
 
 The on-screen SVG is not the score. It **culls** — only the bars in the viewport are painted
 (`setCullWindow`) — and it carries the editor's marks: selection colours, the armed tool's ghost,
-the caret, the gutter, the play cursor. So an export gets its own `VexFlowRenderer` on its own
+the caret, the gutter, the play cursor. So an export gets its own `ScoreRenderer` on its own
 container: no cull window (⇒ every bar drawn), wrapped view, nothing selected, no ghost. Zoom needs
 no undoing — it is a CSS transform on the app's layer, so the SVG is always at scale 1.
 

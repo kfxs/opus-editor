@@ -89,7 +89,7 @@ When a slur crosses a **system break** (the music wraps to the next row), it is 
 as one arc. It is drawn as **two half-arcs**: the first **trails off** the right end of the upper
 system; the second begins at the **left** of the next system and curves into the end note. This is
 exactly the convention — and exactly the two-partial mechanism the tie renderer already implements
-for cross-line ties (`VexFlowRenderer.ts:2094`). Sibelius creates this by selecting the run and
+for cross-line ties (`ScoreRenderer.ts:2094`). Sibelius creates this by selecting the run and
 pressing **`s`** (same gesture we're adopting) and exposes six draggable handles afterward (deferred).
 
 ---
@@ -100,7 +100,7 @@ pressing **`s`** (same gesture we're adopting) and exposes six draggable handles
   precedent.** Ties live on the note (`tiedTo`/`tiedFrom`, `types/music.ts:174`) because they connect
   same-pitch heads. Slurs must **not** copy that — they get a dedicated object. But the *machinery*
   around ties is reusable verbatim:
-  - **Rendering:** `VexFlowRenderer.renderTies` (`:2032`) is called once after all measures draw
+  - **Rendering:** `ScoreRenderer.renderTies` (`:2032`) is called once after all measures draw
     (`:1703`); it walks the score, looks up endpoints in `staveNoteMap` (keyed by **NotePitch id and
     rest id** — so a head id resolves straight to its chord's StaveNote), draws arcs, and **registers**
     each in the `ElementRegistry` as a `'tie'` element with a bbox. `renderSlurs` mirrors the *walk +
@@ -296,7 +296,7 @@ Each phase is independently shippable and ends green (unit tests + manual check 
 ## 7. VexFlow `Curve` — the rendering primitive we migrate to
 
 We currently hand-draw the arc with raw canvas calls in `strokeSlurCrescent`
-(`VexFlowRenderer.ts:2295`): a single-control-point **quadratic** Bézier (`ctx.quadraticCurveTo`)
+(`ScoreRenderer.ts:2295`): a single-control-point **quadratic** Bézier (`ctx.quadraticCurveTo`)
 with the bow height baked into the `SLUR_ARC = 14` constant — **no per-slur shape data anywhere**.
 That is the thing blocking draggable/editable slurs.
 
@@ -355,7 +355,7 @@ Our `ElementRegistry` needs a bbox + sampled `points` for arc-proximity hit-test
 (`MouseController.ts:359`). So **hit-test geometry stays ours**: we sample the *cubic* B(t) using the
 P0/C0/C1/P3 from §7.2 (replacing the current quadratic sampling in `strokeSlurCrescent:2308–2317`),
 and we keep wrapping the `renderCurve` call in our `<g class="vf-slur">` group (`openGroup`/
-`closeGroup`, `VexFlowRenderer.ts:2242`,`2279`) so `applySlurSelectionHighlight` still recolors
+`closeGroup`, `ScoreRenderer.ts:2242`,`2279`) so `applySlurSelectionHighlight` still recolors
 exactly one slur.
 
 Three gaps to handle when we migrate (verified against `curve.js` + the current renderer):
@@ -430,7 +430,7 @@ our own Bézier** — same endpoints, same above/below logic, same two-half syst
 > coordinates; we do **not** use `Curve.draw()`/`isPartial()`. Ties will later migrate the same way via
 > `StaveTie.renderTie`.
 
-- [x] In `renderSlurs` (`VexFlowRenderer.ts:2195`), replaced `strokeSlurCrescent` with `drawSlurArc`,
+- [x] In `renderSlurs` (`ScoreRenderer.ts:2195`), replaced `strokeSlurCrescent` with `drawSlurArc`,
       which instantiates a `Curve(fromNote, toNote, { cps, thickness, xShift:0, yShift:0 })` and calls
       `curve.setContext(ctx).renderCurve({ firstX, firstY, lastX, lastY, direction })` with the
       endpoints we already compute (`getTieRightX()`/`getTieLeftX()`, per-chord-head `getYs()` + `LIFT`).
@@ -644,7 +644,7 @@ collision avoidance. So:
 
 ### 9.4 Our current calibration (the only knobs; `rendering/SlurRenderer.ts`)
 
-⚠️ **This table said `VexFlowRenderer.ts` and listed two constants that no longer exist** — the
+⚠️ **This table said `ScoreRenderer.ts` and listed two constants that no longer exist** — the
 slur code moved to its own module and the weight moved again, to `rendering/curveArc.ts`, shared
 with ties. Corrected 2026-08-15.
 
@@ -1153,7 +1153,7 @@ bites when a test *measures* glyphs, not when it feeds a pure function known coo
 |---|---|---|
 | same-line tie | `TieRenderer.drawFlatTie` → `drawCurveArc` | ✅ |
 | the two cross-system halves | raw `StaveTie` (`TieRenderer.ts:167, :195`) | ✅ Phase 3b |
-| **the PENDING-tie preview** | raw `StaveTie` (`VexFlowRenderer.ts:4189`) | ❌ **missed** |
+| **the PENDING-tie preview** | raw `StaveTie` (`ScoreRenderer.ts:4189`) | ❌ **missed** |
 | the armed tool's GHOST | `drawCurveArc`, same `TIE_BOW`/`CURVE_THICKNESS` (`GhostRenderer.ts:932`) | ❌ **missed** |
 
 So a tie **changes shape at the moment you commit it** — the pending preview is the same defect as
@@ -1361,7 +1361,7 @@ reads the result, so the blue squares follow the ink for free.
 beam, so the rule *can* apply — but the phase must say whether it does. Unstated means it gets found
 by a slur that behaves differently over a fan.
 
-✅ **Timing is not a risk:** ties and slurs render at `VexFlowRenderer.ts:3734/3737`, after every
+✅ **Timing is not a risk:** ties and slurs render at `ScoreRenderer.ts:3734/3737`, after every
 `Beam.draw`, so `getStemExtents().topY` is already the post-format tip of a beamed group.
 
 **Verify:** the *rule* headless — `slurStemEndpoint.test.ts`, fed the four (stem, stem, direction)
@@ -1618,7 +1618,7 @@ this in its own Phase 3 and the tie was left behind.
 
 ⭐ **A THIRD `StaveTie` was missed, and it is the one the user sees first** (§12.0 #2): the
 **pending-tie preview** — the arc hanging off a selected note while the tie is being made
-(`VexFlowRenderer.ts:4189`) — is a raw `StaveTie` too. So **a tie changes shape at the moment you
+(`ScoreRenderer.ts:4189`) — is a raw `StaveTie` too. So **a tie changes shape at the moment you
 commit it**, which is the same defect as the broken tie's, in the same primitive, and it belongs in
 this phase. ✅ The armed tool's ghost is already on `drawCurveArc` and needs nothing.
 
@@ -1749,7 +1749,7 @@ the stroke of the slur)"* — and it settled at **0.16 sp**. Thinning the slur's
 > space.** His finding, 2026-08-16: *"i checked the bbox of the clef and on the right side it is not
 > tight to the clef, so if you are taking that as space it is wrong — it is stealing empty space."*
 > Confirmed in code: `noteStartOf(stave) = stave.getNoteStartX() + Metrics.get('Stave.padding')`
-> (`VexFlowRenderer.ts:4414`), i.e. VexFlow's modifier-box width plus stave padding — and the clef's
+> (`ScoreRenderer.ts:4414`), i.e. VexFlow's modifier-box width plus stave padding — and the clef's
 > own registered box is `CLEF_HIT_WIDTH = 4.5 sp` (`layoutConfig.ts:108`), a HIT box, wider still.
 > The clef's INK ends well before either. ⭐ Gould's rule is *"after the clef"* — the glyph, not the
 > box — so a fragment may legitimately begin where the clef's ink ends, which is the room this figure

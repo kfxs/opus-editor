@@ -484,7 +484,7 @@ of the run that was never converted.
 
 #### ⭐⭐ THE ANSWER TO HIS QUESTION: every piece already exists, and the neighbouring gap already does it
 
-`VexFlowRenderer.placeMeterAfterKeySignature()` (line ~5150) is the mechanism, built and shipping:
+`ScoreRenderer.placeMeterAfterKeySignature()` (line ~5150) is the mechanism, built and shipping:
 
 ```ts
 const inkLeft = keySignatureInkRight(stave, clef, key) + KEY_TO_METER_INK * space
@@ -757,7 +757,7 @@ At the default 10 px staff space, a stave with barline + clef + key signature + 
 | **every note adds `Stave.padding` on top** | +12 | **+1.2** | `note.js:343`; `metrics.js:132` |
 
 ⇒ a headerless bar puts its first note **17 px = 1.7 sp** from the stave's left edge, which is the
-number `layout/measureColumns.ts:312` and `rendering/VexFlowRenderer.ts:5019` already record.
+number `layout/measureColumns.ts:312` and `rendering/ScoreRenderer.ts:5019` already record.
 
 ⚠️ **We no longer use VexFlow's key signature** — signatures are ours
 (`rendering/EngravedStave.ts:23`, `rendering/KeySignaturePass.ts`) — so the 1.0 sp clef→key row above
@@ -929,7 +929,7 @@ not a choice"*. (⚠️ 2026-09-19: VexFlow is removed — the 1.2 is now our ow
 > pair, and LilyPond's three `space-alist` tags.
 
 ⭐ Built as `headerToNoteGap()` in `engine/layout/headerInk.ts`, wired into **both** paths — the width
-path (`MeasureLayout`'s `sharedOverhead`) and the drawing path (`VexFlowRenderer.applyLeadIn`) — so
+path (`MeasureLayout`'s `sharedOverhead`) and the drawing path (`ScoreRenderer.applyLeadIn`) — so
 the room reserved and the room taken agree by construction.
 
 🚨 **And a third caller had to follow, which is the finding worth keeping.** `systemEdges.lineLeftCurveX`
@@ -1005,7 +1005,7 @@ rule suppresses. It is summed across every slot at the bar's first beat, so it s
 system exactly as the header extent does.
 
 🚨 **Wired through both paths, and into both render keys.** The width path (`MeasureLayout`'s
-`sharedOverhead`) and the drawing path (`VexFlowRenderer`'s `system.headerToNote`) read the same pair
+`sharedOverhead`) and the drawing path (`ScoreRenderer`'s `system.headerToNote`) read the same pair
 of arguments — D's lesson, applied. And because closing this gap makes a bar NARROWER,
 `headerGapGeneration()` is in `laneFingerprint` **and** `layoutStateKey`, like `spacingGeneration`:
 leave it out of either and arming a row hands back memoised widths while the console reports success.

@@ -14,8 +14,8 @@ import { fracCreate as frac } from '@/utils/fraction'
  * `p` is Sibelius's own key for playback (it plays from the selected note there; Space is its
  * play/stop). Space is not available here — it is note entry's typewriter key.
  */
-vi.mock('../engine/rendering/VexFlowRenderer', () => ({
-  VexFlowRenderer: class {
+vi.mock('../engine/rendering/ScoreRenderer', () => ({
+  ScoreRenderer: class {
     initialize = vi.fn(); renderScore = vi.fn()
     getElementRegistry = vi.fn(() => ({
       clear: vi.fn(), register: vi.fn(), getAll: vi.fn(() => []),

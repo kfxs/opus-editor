@@ -209,7 +209,7 @@ export function laneOfSlot(measureSlots: ChordRest[], slot: ChordRest): ChordRes
  * glyphs to recolour.
  *
  * Lives HERE, in the pure module both sides already import, rather than in the renderer: a name
- * exported from `VexFlowRenderer` would force every test that mocks that module to stub the constant
+ * exported from `ScoreRenderer` would force every test that mocks that module to stub the constant
  * too.
  */
 export const TREMOLO_PAIR_GROUP = 'tremolo-pair'

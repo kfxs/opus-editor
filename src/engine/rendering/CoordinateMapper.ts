@@ -1,5 +1,5 @@
 import type { PixelCoordinates, PitchStep, PitchSpelling } from '@/types/music'
-import type { MeasureBounds } from './VexFlowRenderer'
+import type { MeasureBounds } from './ScoreRenderer'
 import { spellingToMidi, midiToSpelling } from '@/utils/pitchSpelling'
 
 /** Treble-clef reference: F5 sits on staff line 0 (top line). diatonicPos = 5*7+3 = 38 */
@@ -64,7 +64,7 @@ export class CoordinateMapper {
    * This should be called after each render
    */
   setMeasureBounds(bounds: Map<number, MeasureBounds>): void {
-    // Copy the map to avoid sharing reference with VexFlowRenderer
+    // Copy the map to avoid sharing reference with ScoreRenderer
     // (otherwise clear() in renderer would also clear our bounds)
     this.measureBounds = new Map(bounds)
   }

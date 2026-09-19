@@ -5,7 +5,7 @@
  *
  * 🚨 **This file exists because nothing failed when the rule changed.** The single `HEADER_TO_NOTE`
  * was applied by two paths — the width path (`MeasureLayout`'s `sharedOverhead`) and the drawing path
- * (`VexFlowRenderer.applyLeadIn`) — and no spec at any level asserted the result, so replacing one
+ * (`ScoreRenderer.applyLeadIn`) — and no spec at any level asserted the result, so replacing one
  * constant with two broke not one test in 6187. ⛔ A pure test of `headerToNoteGap` would not have
  * caught it either: the risk was never the arithmetic, it was whether both paths were WIRED to it.
  *
@@ -16,7 +16,7 @@
  */
 import { describe, it, expect } from 'vitest'
 import { ScoreModel } from '../models/ScoreModel'
-import { VexFlowRenderer } from './VexFlowRenderer'
+import { ScoreRenderer } from './ScoreRenderer'
 import { CLEF_INDENT_SHIFT, HEADER_TO_NOTE, HEADER_TO_NOTE_AFTER_SIGN } from '@/engine/layout/headerInk'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { fracCreate as frac } from '@/utils/fraction'
@@ -30,7 +30,7 @@ import { armedHeaderGapRule } from '@/engine/layout/headerAccidentalLadder'
 function leadIns(bars = 12, alter?: 1 | -1) {
   const container = document.createElement('div')
   document.body.appendChild(container)
-  const renderer = new VexFlowRenderer(container)
+  const renderer = new ScoreRenderer(container)
   renderer.initialize(700, 900)
 
   const model = new ScoreModel()

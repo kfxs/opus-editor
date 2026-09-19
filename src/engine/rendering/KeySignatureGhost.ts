@@ -36,7 +36,7 @@ import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { SIGN_CHARS, SIGN_FONT_SIZE } from './KeySignaturePass'
 import { drawSignGhost } from './ghostCursor'
 
-/** The class `VexFlowRenderer.clearGhosts` sweeps this ghost by — it must be in
+/** The class `ScoreRenderer.clearGhosts` sweeps this ghost by — it must be in
  *  `GHOST_GROUP_SELECTOR`, or the ghost smears one copy per mouse position.
  *  ⚠️ `vf-`-prefixed, because `openGroup` prefixes every class it is given
  *  (`reference_vexflow_opengroup_prefix`). */

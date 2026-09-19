@@ -43,7 +43,7 @@ import { placedStaffFrame } from './staveFrame'
  *
  * The question this settles has no other answer available: every part of a sign is stated in staff
  * spaces (thin 0.16, gap 0.32, thick 0.50), and between a size-1 and a size-0.7 staff there are two
- * staff-spaces and no third. ⭐ `VexFlowRenderer.drawSystemConnector` already decided it for the
+ * staff-spaces and no third. ⭐ `ScoreRenderer.drawSystemConnector` already decided it for the
  * line that joins the same two staves at the system's left edge — *"its width is deliberately NOT
  * scaled; a system bracket belongs to the system, not to either staff's ink"* — and that is
  * MuseScore's `Sid::scaleBarlines = false` in one sentence.
