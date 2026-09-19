@@ -1,4 +1,4 @@
-import type { SurfaceMetrics } from '@/engine/layout/surface'
+import { PAGE_FLOW, PAGE_GAP_PX, type SurfaceMetrics } from '@/engine/layout/surface'
 import type { RenderAudience } from './hiddenElements'
 
 /**
@@ -19,22 +19,6 @@ import type { RenderAudience } from './hiddenElements'
  * you WHERE the paper is; on paper, the paper is the paper — a printed page carrying a gray
  * rectangle of desk and a hairline rule around its own border is nobody's engraving.
  */
-
-/**
- * How the pages are arranged: **side by side**, as Sibelius and Finale show a score, so you read
- * across a spread instead of scrolling down a roll of sheets.
- *
- * A knob rather than a hard-coded axis, because `'vertical'` is a real preference (MuseScore's
- * default, and what a tall narrow score wants) and is expected to become a user choice. Every piece
- * of arithmetic that depends on the axis reads it HERE — {@link pageOriginPx} and
- * {@link surfaceSizePx} between them are the whole of it — so making it a setting later is a
- * parameter, not a search. ⛔ Do not branch on the direction anywhere else.
- */
-export const PAGE_FLOW: 'horizontal' | 'vertical' = 'horizontal'
-
-/** The gutter between two drawn sheets. Big enough to read as a gap, small enough not to waste
- *  scrolling: this is the same order as Sibelius/MuseScore's page separation. */
-export const PAGE_GAP_PX = 24
 
 /**
  * Paper white, the desk it lies on, and the sheet's edge.

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { LAYOUT_CONFIG } from '@/engine/rendering/layoutConfig'
+import { LAYOUT_CONFIG } from './layoutConfig'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import {
   staveHeightPx, staffStridePx, staffLinesPx, minStaffStridePx, minSpacingAboveSpaces, spacingAbovePx,

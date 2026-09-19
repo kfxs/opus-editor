@@ -123,7 +123,9 @@ src/
                           #     and ⛔ never past the region's edge),
                           #   🚧 scoreTextOps (the title + composer as ONE table — SKETCH)
     layout/               # WHAT the music is drawn on, HOW MUCH ROOM the music earns, and
-                          #   derived-view arithmetic off the LAST RENDER: surface (canvas
+                          #   derived-view arithmetic off the LAST RENDER (⛔ layout/ may not import
+                          #   rendering/ — lint:boundary; MeasureLayout, the HORIZONTAL casting-off,
+                          #   + MeasureWidthCache + layoutConfig + thinLineWeight live HERE): surface (canvas
                           #   vs page — authored input, the one member here that isn't
                           #   derived) + pageCastOff (the VERTICAL casting-off) + spacing
                           #   (⭐ THE SPACING RULE — Gould's 3.5×√t + the spring solve, pure)

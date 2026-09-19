@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect } from 'vitest'
-import { drawPages, pageOriginPx, surfaceSizePx, PAGE_GAP_PX, PAGE_SHEET_CLASS } from './PagePass'
+import { drawPages, pageOriginPx, surfaceSizePx, PAGE_SHEET_CLASS } from './PagePass'
+import { PAGE_GAP_PX } from '@/engine/layout/surface'
 import { resolveSurface, SKETCH_CANVAS, A4_NORMAL } from '@/engine/layout/surface'
 
 /**

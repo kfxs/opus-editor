@@ -16,7 +16,7 @@
  */
 import { describe, it, expect } from 'vitest'
 import { ScoreModel } from '../models/ScoreModel'
-import { ScoreRenderer } from './ScoreRenderer'
+import { ScoreRenderer } from '@/engine/rendering/ScoreRenderer'
 import { CLEF_INDENT_SHIFT, HEADER_TO_NOTE, HEADER_TO_NOTE_AFTER_SIGN } from '@/engine/layout/headerInk'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { fracCreate as frac } from '@/utils/fraction'

@@ -2,7 +2,7 @@ import type { Accidental, NoteDuration, BeamMode, Clef, TimeSignature, KeySignat
 import type { StaffGroup } from '@/types/music'
 import { deriveTupletM } from '../utils/musicUtils'
 import type { SelectionItem } from './selection'
-import type { ViewMode } from '../engine/rendering/layoutConfig'
+import type { ViewMode } from '@/engine/layout/layoutConfig'
 // TYPE-ONLY, and it has to be: `barlineStamp` imports this file for `selectedOf`, so a value import
 // here would close a runtime cycle. The sign vocabulary lives with the gesture that places it.
 import type { BarlineSign } from './barlineStamp'

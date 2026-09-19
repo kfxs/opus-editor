@@ -20,8 +20,9 @@
  */
 import { describe, it, expect, vi } from 'vitest'
 import { ScoreModel } from '../models/ScoreModel'
-import { ScoreRenderer, LAYOUT_CONFIG } from './ScoreRenderer'
-import * as MeasureLayout from './MeasureLayout'
+import { ScoreRenderer } from './ScoreRenderer'
+import { LAYOUT_CONFIG } from '@/engine/layout/layoutConfig'
+import * as MeasureLayout from '@/engine/layout/MeasureLayout'
 import type { Rect } from '@/engine/ViewportModel'
 import { fracCreate as frac } from '@/utils/fraction'
 

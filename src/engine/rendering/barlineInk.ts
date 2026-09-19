@@ -1,6 +1,6 @@
 import { staffBottomLineY, staffLineY, type StaffFrame } from '@/engine/engrave/staff/staffFrame'
 import { STAFF_SPACE_PX } from '../models/staffSize'
-import { THIN_LINE_SPACES } from './thinLineWeight'
+import { THIN_LINE_SPACES } from '@/engine/layout/thinLineWeight'
 import { STAVE_LINE_WIDTH_PX } from '@/engine/engrave/staff/staffLines'
 import { barlineExtent, type BarlineExtent } from '@/engine/engrave/staff/barlineExtent'
 

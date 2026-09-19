@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach } from 'vitest'
 import { GutterRenderer } from './GutterRenderer'
-import { GUTTER_WIDTH, type GutterState } from './layoutConfig'
+import { GUTTER_WIDTH, type GutterState } from '@/engine/layout/layoutConfig'
 
 /**
  * A SMALL staff must be repeated small. The gutter says "this is the clef in force on this staff",

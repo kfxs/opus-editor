@@ -8,7 +8,7 @@ import type { Score } from '@/types/music'
 import type { SpacedColumns } from './spacingPass'
 import type { OccupiedSpan } from '@/engine/layout/outsideStaffBand'
 import type { DrawnCurve } from '@/engine/layout/curveObstacleBand'
-import type { MeasureWidthInfo } from './ScoreRenderer'
+import type { MeasureWidthInfo } from '@/engine/layout/layoutConfig'
 import type { MeasureBounds } from './renderTypes'
 
 /**

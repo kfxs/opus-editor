@@ -48,7 +48,7 @@
  * and that falls out of the surface model rather than needing a view-mode flag.
  */
 import type { SurfaceMetrics } from './surface'
-import { PAGE_FLOW, PAGE_GAP_PX } from '../rendering/PagePass'
+import { PAGE_FLOW, PAGE_GAP_PX } from './surface'
 
 /** A sheet's own rectangle in the drawing's coordinates. */
 export interface PageBox {

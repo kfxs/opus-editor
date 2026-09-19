@@ -17,7 +17,7 @@ import { cautionaryKeyGapOf } from '@/engine/models/engravingOverrides'
 import { naturalWidth, minimumWidth } from '@/engine/layout/spacing'
 import { EMPTY_BAR_FLOOR_PX } from '@/engine/layout/spacingPadding'
 import { renderProbe } from '@/engine/RenderProbe' // TEMPORARY — the §9 layout-breakdown probes
-import { drawsTimeSignature } from './NoteBuilder'
+import { drawsTimeSignature } from './headerInk'
 
 /**
  * Measure-width math — the two-pass proportional layout that decides each measure's

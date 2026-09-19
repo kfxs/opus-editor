@@ -218,7 +218,11 @@
             "patterns": [
               {
                 "group": ["vexflow"],
-                "message": "The ink half must not consult the drawing library to decide how much room ink needs — that is the coupling docs/font-metrics-plan.md §3.1 is about (a table calibrated to VexFlow's BEHAVIOUR describes nothing the day VexFlow stops drawing). Measure the font instead: src/engine/fonts/. ⚠️ Importing engine/rendering/layoutConfig is still allowed and is a separate, older arrow."
+                "message": "The ink half must not consult the drawing library to decide how much room ink needs — that is the coupling docs/font-metrics-plan.md §3.1 is about (a table calibrated to VexFlow's BEHAVIOUR describes nothing the day VexFlow stops drawing). Measure the font instead: src/engine/fonts/."
+              },
+              {
+                "group": ["@/engine/rendering/*", "**/rendering/*"],
+                "message": "The arrow is rendering -> layout, never back: layout decides HOW MUCH ROOM and WHERE from the score and the font's metrics, and a renderer reads its answer. A layout module that imports a renderer cannot be tested or reused without one. What used to be imported backwards now lives here — MeasureLayout, MeasureWidthCache, layoutConfig, thinLineWeight, headerInk.drawsTimeSignature, surface's page constants (docs/code-shape-plan-2026-09-19.md Phase 2.3)."
               }
             ]
           }

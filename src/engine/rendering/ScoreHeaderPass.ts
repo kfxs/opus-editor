@@ -4,7 +4,7 @@ import type { SurfaceMetrics } from '@/engine/layout/surface'
 import type { ElementRegistry } from '@/engine/ElementRegistry'
 import type { Score } from '@/types/music'
 import { dbg } from '@/utils/debug'
-import type { ViewMode } from './layoutConfig'
+import type { ViewMode } from '@/engine/layout/layoutConfig'
 import { pageOriginPx } from './PagePass'
 
 /**

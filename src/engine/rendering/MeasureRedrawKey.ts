@@ -1,6 +1,6 @@
 import type { Clef, KeySignature, Measure, Score, TimeSignature } from '@/types/music'
 import type { Fraction } from '@/utils/fraction'
-import { laneFingerprint } from './MeasureWidthCache'
+import { laneFingerprint } from '@/engine/layout/MeasureWidthCache'
 
 /**
  * **The shape key** (docs/render-performance-plan.md §7a) — "does this measure still *look* the

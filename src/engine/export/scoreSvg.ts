@@ -1,4 +1,5 @@
-import { ScoreRenderer, LAYOUT_CONFIG } from '../rendering/ScoreRenderer'
+import { ScoreRenderer } from '../rendering/ScoreRenderer'
+import { LAYOUT_CONFIG } from '@/engine/layout/layoutConfig'
 import { musicFontReady } from '../rendering/musicFontReady'
 import { resolveSurface, SKETCH_CANVAS, type Surface } from '@/engine/layout/surface'
 import type { Score } from '@/types/music'

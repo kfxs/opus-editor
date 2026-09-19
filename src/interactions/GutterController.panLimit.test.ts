@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { overhangFor } from './GutterController'
-import { GUTTER_WIDTH, GUTTER_METER_AIR } from '../engine/rendering/layoutConfig'
+import { GUTTER_WIDTH, GUTTER_METER_AIR } from '@/engine/layout/layoutConfig'
 
 /**
  * How far left linear view may be panned — the gutter's half of the answer (the viewport turns the

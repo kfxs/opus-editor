@@ -15,7 +15,7 @@
 import { describe, it, expect } from 'vitest'
 import type { Clef, Measure } from '@/types/music'
 import { ScoreModel } from '../models/ScoreModel'
-import { laneFingerprint } from './MeasureWidthCache'
+import { laneFingerprint } from '@/engine/layout/MeasureWidthCache'
 import { measureShapeKey } from './MeasureRedrawKey'
 import { C_MAJOR, keyAt, keyFromFifths } from '@/utils/keySignature'
 import { fracCreate as frac } from '@/utils/fraction'

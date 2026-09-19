@@ -12,12 +12,12 @@
  * This is LAYOUT, not the model — it lives outside the core fence (`engine/models/**`, `utils/**`)
  * because it reasons about a drawing (docs/DESIGN-PRINCIPLES.md principle 3).
  */
-import type { MeasureWidthInfo, ViewMode } from '@/engine/rendering/layoutConfig'
+import type { MeasureWidthInfo, ViewMode } from './layoutConfig'
 import { lineOpeningClefPremium } from './headerInk'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { EMPTY_BAR_FLOOR_PX } from './spacingPadding'
 import type { SurfaceMetrics } from './surface'
-import { authoredScales, growthPayerShares, squeezedWidth } from '@/engine/rendering/MeasureLayout'
+import { authoredScales, growthPayerShares, squeezedWidth } from './MeasureLayout'
 import { BAR_STRETCH_MIN, BAR_STRETCH_MAX } from '@/engine/models/engravingOverrides'
 
 /**

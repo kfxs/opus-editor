@@ -16,7 +16,7 @@ import { staveHeightPx, systemStaffTops, minSpacingAboveSpaces, spacingAbovePx, 
 import { ScoreRenderer } from './rendering/ScoreRenderer'
 import type { Scene } from './scene/Scene'
 import type { MarkPreviewKind } from './rendering/markPreviewPass'
-import type { ViewMode, GutterState, GutterStaffState } from './rendering/layoutConfig'
+import type { ViewMode, GutterState, GutterStaffState } from '@/engine/layout/layoutConfig'
 import type { ToolGhost } from './rendering/ghostTypes'
 import { measuredShrinkRoom, fanMemberShrinkRoom, measuredBarShrinkPx, measuredBarlineGapRoom } from './layout/measuredRoom'
 import type { BarlineSignKind } from './models/boundarySign'

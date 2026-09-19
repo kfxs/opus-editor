@@ -1,5 +1,5 @@
 import { SvgPainter } from './SvgPainter'
-import { GUTTER_WIDTH, type GutterState } from './layoutConfig'
+import { GUTTER_WIDTH, type GutterState } from '@/engine/layout/layoutConfig'
 import { INDICATOR_INK } from '../../utils/selectionColors'
 import { THIN_BARLINE_PX, staffBarlineExtent } from './barlineInk'
 import { scaling } from '@/engine/paint/Affine'

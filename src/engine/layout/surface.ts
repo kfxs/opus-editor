@@ -146,3 +146,19 @@ export function resolveSurface(surface: Surface): SurfaceMetrics {
     contentHeightPx: heightPx - marginTopPx - marginBottomPx,
   }
 }
+
+/**
+ * How the pages are arranged: **side by side**, as Sibelius and Finale show a score, so you read
+ * across a spread instead of scrolling down a roll of sheets.
+ *
+ * A knob rather than a hard-coded axis, because `'vertical'` is a real preference (MuseScore's
+ * default, and what a tall narrow score wants) and is expected to become a user choice. Every piece
+ * of arithmetic that depends on the axis reads it HERE — {@link pageOriginPx} and
+ * {@link surfaceSizePx} between them are the whole of it — so making it a setting later is a
+ * parameter, not a search. ⛔ Do not branch on the direction anywhere else.
+ */
+export const PAGE_FLOW: 'horizontal' | 'vertical' = 'horizontal'
+
+/** The gutter between two drawn sheets. Big enough to read as a gap, small enough not to waste
+ *  scrolling: this is the same order as Sibelius/MuseScore's page separation. */
+export const PAGE_GAP_PX = 24

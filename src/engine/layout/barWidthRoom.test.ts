@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { barWidthRoom } from './barWidthRoom'
-import type { MeasureWidthInfo } from '@/engine/rendering/layoutConfig'
+import type { MeasureWidthInfo } from './layoutConfig'
 import { resolveSurface, SKETCH_CANVAS } from './surface'
 import { BAR_STRETCH_MIN } from '@/engine/models/engravingOverrides'
 

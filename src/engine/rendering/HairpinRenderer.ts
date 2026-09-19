@@ -50,7 +50,7 @@ import { HAIRPIN, fragmentOpening, resolveHairpinShape, type WedgeRole } from '.
 import { breakWedgeAtGaps, inksClash, rampAt, type InkBand, type WedgeGap } from './hairpinBreaks'
 import { dynamicInkReachSpaces } from './dynamicMarkInk'
 import { dynamicLabel } from '@/utils/dynamics'
-import { HAIRPIN_LINE_SPACES } from './thinLineWeight'
+import { HAIRPIN_LINE_SPACES } from '@/engine/layout/thinLineWeight'
 import { planSlurSegments } from './SlurRenderer'
 import { staffIndexOfId } from '@/engine/models/staffContent'
 import { inStaffSpace } from './staffScaleGroup'

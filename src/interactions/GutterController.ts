@@ -1,6 +1,6 @@
 import type { MusicEngine } from '../engine/MusicEngine'
 import { GutterRenderer } from '../engine/rendering/GutterRenderer'
-import { GUTTER_WIDTH, GUTTER_METER_AIR } from '../engine/rendering/layoutConfig'
+import { GUTTER_WIDTH, GUTTER_METER_AIR } from '@/engine/layout/layoutConfig'
 import type { PinnedGutter, ViewportModel } from '../engine/ViewportModel'
 
 /**

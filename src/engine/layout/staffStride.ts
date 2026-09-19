@@ -20,7 +20,7 @@
  * ⛔ Not a *renderer* concern despite reading `LAYOUT_CONFIG`: this is the vertical half of the
  * casting-off, and `pageCastOff` next door is the other half of the same question.
  */
-import { LAYOUT_CONFIG } from '@/engine/rendering/layoutConfig'
+import { LAYOUT_CONFIG } from './layoutConfig'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 
 /** The vertical room one staff's own ink occupies, at `size` (1 = full size). */

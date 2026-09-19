@@ -17,7 +17,7 @@
  */
 import { describe, it, expect } from 'vitest'
 import { ScoreModel } from '../models/ScoreModel'
-import { laneFingerprint } from './MeasureWidthCache'
+import { laneFingerprint } from '@/engine/layout/MeasureWidthCache'
 import { C_MAJOR } from '@/utils/keySignature'
 import { measureShapeKey } from './MeasureRedrawKey'
 import { MEASURE_RENDER_ROLE } from './measureRenderRoles'

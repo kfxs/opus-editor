@@ -1,4 +1,4 @@
-import type { Clef, KeySignature, TimeSignature } from '@/types/music'
+import type { Clef, KeySignature, Measure, TimeSignature } from '@/types/music'
 import { armedClefMeterInk } from './clefMeterGap'
 import { armedBarlineMeterInk } from './barlineMeterGap'
 import {
@@ -404,4 +404,17 @@ export function headerExtent(header: Header): number {
   // ({@link barlineToMeterGap}). A clef never pays here: its distance from the edge is its INDENT.
   return parts.reduce(
     (sum, part, i) => sum + part.extent + (i > 0 || part.paysWhenFirst ? part.gap : 0), 0)
+}
+
+/**
+ * Whether a time-signature glyph is drawn at the start of this measure:
+ * measure 1 always, plus any measure that begins an explicit TS change
+ * (engraving standard) — UNLESS the glyph has been explicitly hidden
+ * (`timeSignatureHidden`, e.g. the deleted default on measure 1; the meter
+ * still applies, only the glyph is suppressed). Drives the drawing, its width
+ * reservation, AND the clickable registry element.
+ */
+export function drawsTimeSignature(measure: Measure): boolean {
+  if (measure.timeSignatureHidden === true) return false
+  return measure.number === 1 || measure.timeSignatureChange === true
 }

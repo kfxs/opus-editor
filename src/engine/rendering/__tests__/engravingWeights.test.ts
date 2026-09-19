@@ -1,11 +1,11 @@
 import { describe, it, expect } from 'vitest'
 import { engravingDefault } from '@/engine/fonts/fontMetrics'
 import { STAVE_LINE_WIDTH_PX } from '@/engine/engrave/staff/staffLines'
-import { THIN_LINE_SPACES, HAIRPIN_LINE_SPACES } from '../thinLineWeight'
+import { THIN_LINE_SPACES, HAIRPIN_LINE_SPACES } from '@/engine/layout/thinLineWeight'
 import { THIN_BARLINE_SPACES } from '../barlineInk'
 import { CURVE } from '../curveStyle'
 import { CROSS_SYSTEM_BEAM_WIDTH } from '../beamInk'
-import { LEDGER_LINE_STYLE } from '../layoutConfig'
+import { LEDGER_LINE_STYLE } from '@/engine/layout/layoutConfig'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 
 /**

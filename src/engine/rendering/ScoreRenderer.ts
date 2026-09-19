@@ -85,17 +85,16 @@ import {
   createStaveNotesFromSlots,
   restSupportingLedgerLine,
   makeClefResolver,
-  drawsTimeSignature,
   ARTICULATION_RENDER_ORDER,
   resolveTupletLocation,
   innerFlipTupletYOffset,
   type TupletNoteStem,
 } from './NoteBuilder'
-import { calculateMeasureWidths } from './MeasureLayout'
-import { MeasureWidthCache } from './MeasureWidthCache'
+import { calculateMeasureWidths } from '@/engine/layout/MeasureLayout'
+import { MeasureWidthCache } from '@/engine/layout/MeasureWidthCache'
 import { clefResolverFor, keyResolverFor, measureColumns, measureLeadIn, type StaffSizeResolver } from '@/engine/layout/measureColumns'
 import { BARLINE_BOX_STRADDLE_PX, barlineSignExtent, ownEndSignKind, repeatStartRoom } from '@/engine/layout/barlineSign'
-import { headerExtent, headerToNoteGap } from '@/engine/layout/headerInk'
+import { drawsTimeSignature, headerExtent, headerToNoteGap } from '@/engine/layout/headerInk'
 import { applySpacingPass, type SpacedColumns } from './spacingPass'
 import { attachModifierColumns } from './modifierColumns'
 import { formatColumns, type TickColumns } from './columnFormat'
@@ -111,7 +110,7 @@ import { restShiftOverrideOf, restHiddenOf, restPositionKey, resolveStaffSpacing
 import { STAFF_SPACE_PX, resolveStaffSize } from '@/engine/models/staffSize'
 import { staffSpacesToPixels } from './staffSpace'
 import { getStaves, staffMeasureView, firstStaffId, staffIndexOfId, staffIdAtIndex } from '@/engine/models/staffContent'
-import { LAYOUT_CONFIG, VIEWPORT_HEIGHT, LEDGER_LINE_STYLE, type MeasureWidthInfo, type StaffSpacingLayout, type ViewMode } from './layoutConfig'
+import { LAYOUT_CONFIG, LEDGER_LINE_STYLE, type MeasureWidthInfo, type StaffSpacingLayout, type ViewMode } from '@/engine/layout/layoutConfig'
 import { resolveSurface, SKETCH_CANVAS, type Surface, type SurfaceMetrics } from '@/engine/layout/surface'
 import { pageCastOff, opensPage } from '@/engine/layout/pageCastOff'
 import { inScaledStaffGroup } from './staffScaleGroup'
@@ -127,10 +126,6 @@ import { barFrame, noteFrame, staveBox, staveFrame, standOn } from './staveFrame
 import { noteLineY, staffLineY } from '@/engine/engrave/staff/staffFrame'
 import { noteRuler } from './noteRuler'
 import { signRun } from './signRun'
-
-// Re-exported for existing importers (MusicEngine, App.ts, RenderPass) that referenced
-// these from the renderer before they moved to ./layoutConfig.
-export { LAYOUT_CONFIG, VIEWPORT_HEIGHT, type MeasureWidthInfo }
 
 /**
  * Apply the bar's user-authored horizontal space (client #10 — docs/note-spacing-plan.md §4) by

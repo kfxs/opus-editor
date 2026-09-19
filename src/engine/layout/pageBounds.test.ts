@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { pageBoxAt, stepLeavesPage, nudgeFitsOnPage, edgeStepFitsOnPage, type PageBox } from './pageBounds'
 import { resolveSurface, A4_NORMAL, SKETCH_CANVAS } from './surface'
-import { PAGE_GAP_PX } from '../rendering/PagePass'
+import { PAGE_GAP_PX } from './surface'
 
 /**
  * {@link pageBounds} — how far a hand-nudged object may be pushed before the paper runs out.

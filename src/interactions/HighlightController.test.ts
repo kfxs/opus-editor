@@ -4,7 +4,7 @@ import { HighlightController } from './HighlightController'
 import { createEditorState, type SlurSegmentEndpoint, type SlurControlPointHandle } from './EditorState'
 import { ElementRegistry, type ElementInfo } from '../engine/ElementRegistry'
 import type { MusicEngine } from '../engine/MusicEngine'
-import type { ViewMode } from '../engine/rendering/layoutConfig'
+import type { ViewMode } from '@/engine/layout/layoutConfig'
 import type { TremoloMark } from '../types/music'
 
 /**

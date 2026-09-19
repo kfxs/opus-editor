@@ -57,7 +57,7 @@ import { fracAdd, fracCompare } from '@/utils/fraction'
 import { planSlurSegments } from './SlurRenderer'
 import { inStaffSpace } from './staffScaleGroup'
 import { staffSpacesToPixels } from './staffSpace'
-import { THIN_LINE_SPACES } from './thinLineWeight'
+import { THIN_LINE_SPACES } from '@/engine/layout/thinLineWeight'
 import {
   OTTAVA_CONTINUATION_INSET, OTTAVA_DASH_GAP, OTTAVA_DASH_LENGTH, OTTAVA_END_AIR, OTTAVA_GLYPH_SIZE,
   OTTAVA_HOOK, OTTAVA_LINE,

@@ -67,19 +67,6 @@ export function convertDuration(duration: NoteDuration, dots: number = 0): strin
 }
 
 /**
- * Whether a time-signature glyph is drawn at the start of this measure:
- * measure 1 always, plus any measure that begins an explicit TS change
- * (engraving standard) — UNLESS the glyph has been explicitly hidden
- * (`timeSignatureHidden`, e.g. the deleted default on measure 1; the meter
- * still applies, only the glyph is suppressed). Drives the drawing, its width
- * reservation, AND the clickable registry element.
- */
-export function drawsTimeSignature(measure: Measure): boolean {
-  if (measure.timeSignatureHidden === true) return false
-  return measure.number === 1 || measure.timeSignatureChange === true
-}
-
-/**
  * Build a resolver for the clef in effect at any beat within a measure.
  * Starts from the measure's opening clef and applies each clef change whose
  * beat is at/before the queried beat.

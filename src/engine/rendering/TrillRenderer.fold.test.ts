@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { coveredPlacements, foldPastSystemEnd } from './TrillRenderer'
 import type { SystemEdgeLookup } from './systemEdges'
-import type { MeasureWidthInfo } from './ScoreRenderer'
+import type { MeasureWidthInfo } from '@/engine/layout/layoutConfig'
 import type { MeasureBounds } from './renderTypes'
 
 /**

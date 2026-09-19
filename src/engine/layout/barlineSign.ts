@@ -43,7 +43,7 @@
 import type { Measure } from '@/types/music'
 import type { BarlineSignKind } from '@/engine/models/boundarySign'
 import { engravingDefault, glyphBox } from '@/engine/fonts/fontMetrics'
-import { THIN_LINE_SPACES } from '@/engine/rendering/thinLineWeight'
+import { THIN_LINE_SPACES } from './thinLineWeight'
 
 /**
  * The thin stroke — **0.16 spaces**, the weight every thin structural line in this score shares

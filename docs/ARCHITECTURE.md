@@ -222,9 +222,12 @@ Two import arrows come with it:
 - **`engine/fonts/` may not import `engine/rendering/*`** (nor `vexflow` — which no file anywhere
   may import since S14). The font is data and must not know who draws with it — it is the one
   module that stays unchanged when the drawing moves (docs/own-engraving-engine.md P2/P3).
-- **`engine/layout/` may not import `vexflow`** (redundant since S14, when the ban became global). ⚠️ It *may* still import
-  `engine/rendering/layoutConfig` and `MeasureLayout` (`barWidthRoom`, `staffStride` do), which is
-  an older arrow this rule deliberately does not touch.
+- **`engine/layout/` may not import `engine/rendering/*`** — the arrow is rendering → layout, never
+  back: layout decides how much room and where from the score and the font's metrics, and a
+  renderer reads its answer. Five imports used to point backwards; what they reached for now
+  LIVES in `layout/` — `MeasureLayout` (the horizontal casting-off), `MeasureWidthCache`,
+  `layoutConfig`, `thinLineWeight`, `headerInk.drawsTimeSignature`, and `surface`'s `PAGE_FLOW` /
+  `PAGE_GAP_PX` — with their specs (docs/code-shape-plan-2026-09-19.md Phase 2.3).
 
 ---
 

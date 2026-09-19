@@ -1,6 +1,6 @@
 # Code shape plan — 2026-09-19
 
-**Status: IN PROGRESS — Phase 1 DONE (2026-09-19), bar item 5's two ⏭️ decisions. Phase 2: items 1–2 done.** Phases are ordered by
+**Status: IN PROGRESS — Phase 1 DONE (2026-09-19), bar item 5's two ⏭️ decisions. Phase 2 DONE. Phase 3 is next.** Phases are ordered by
 value over risk; each one stands alone and can be stopped after. A done item carries ✅ and what
 actually happened where that differs from what was planned.
 
@@ -183,10 +183,15 @@ The fix is to change the **contract**, not the rule: a row owns its body.
    importing it back would only re-draw the loop as a type one. The `LAYOUT_CONFIG` /
    `VIEWPORT_HEIGHT` / `MeasureWidthInfo` re-export stays until item 3 moves `layoutConfig`, so
    its importers are repointed once. `ScoreRenderer`'s kind ceiling 901 → 891.*
-3. **Move `MeasureLayout`, `MeasureWidthCache`, `layoutConfig`, `thinLineWeight` to
+3. ✅ **Move `MeasureLayout`, `MeasureWidthCache`, `layoutConfig`, `thinLineWeight` to
    `engine/layout/`** (with `drawsTimeSignature` and `PagePass`'s two constants). All five
    backwards `layout → rendering` imports go, and the arrow becomes lintable. Specs move with
    their modules.
+   *Done: the four modules and their ten specs are in `engine/layout/`; `drawsTimeSignature` is
+   `headerInk`'s, the page constants `surface`'s; `ScoreRenderer`'s re-export of `LAYOUT_CONFIG` &
+   co. is gone and its importers name `layoutConfig`. `layout → rendering` imports 5 → 0 and
+   `lint:boundary` holds it (proved to bite). Unit suite and all 300 e2e green. ⚠️ `perf/` is
+   outside `tsc`'s include — a moved path there fails only when vitest loads it.*
 
 ### Phase 3 — A row owns its body (the main structural change)
 
