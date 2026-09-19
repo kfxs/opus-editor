@@ -1247,6 +1247,28 @@ describe('MusicEngine.createSlur — endpoint resolution', () => {
     expect(engine.getNote(b.id)!.tiedFrom).toBeUndefined()
   })
 
+  it('tieSelection is ONE undo step of its own: undo takes the ties and leaves the notes', () => {
+    const a = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const b = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
+    const c = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(2, 1) })
+
+    engine.renderScore()
+    engine.tieSelection([a.id, b.id, c.id])
+    expect(engine.isRenderStale()).toBe(true) // the next render may not be skipped
+
+    expect(engine.undo()).toBe(true)
+    // The ties went…
+    expect(engine.getNote(a.id)!.tiedTo).toBeUndefined()
+    expect(engine.getNote(b.id)!.tiedTo).toBeUndefined()
+    expect(engine.getNote(b.id)!.tiedFrom).toBeUndefined()
+    // …and the undo did not take the edit BEFORE them instead.
+    expect(engine.getNote(c.id)).toBeTruthy()
+
+    expect(engine.redo()).toBe(true)
+    expect(engine.getNote(a.id)!.tiedTo).toBe(b.id)
+    expect(engine.getNote(b.id)!.tiedTo).toBe(c.id)
+  })
+
   it('toggleTie ties a chord member with no same pitch ahead to the next slot (let-ring)', () => {
     // Chord C4+C5 at beat 0, then a lone C4 at beat 1 — C5 has no partner.
     const c4 = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })

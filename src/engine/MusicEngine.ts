@@ -3255,6 +3255,9 @@ export class MusicEngine {
           this.scoreModel.updateNote(target.id, { tiedFrom: source.id })
         }
       }
+      // `updateNote` asks for no undo entry, and a batch that counted no request pushes none —
+      // so the ask is made here, as `toggleTie` makes it.
+      this.commit(allTied ? 'Remove ties' : 'Add ties')
     })
     return !allTied
   }
