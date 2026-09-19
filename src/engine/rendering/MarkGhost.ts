@@ -1,6 +1,6 @@
 /**
  * ⭐ **THE MARK GHOSTS — S11b** (`docs/vexflow-removal-map.md` S11): the armed articulation(s),
- * accidental, augmentation dot and tremolo, shown loose at the pointer.
+ * accidental, augmentation dot and tremolo — and, since S11c, the dynamic — shown loose at the pointer.
  *
  * A mark stands where its NOTE puts it, so each ghost builds ONE lone note — a B4 quarter — hangs the
  * mark on it, and draws ONLY the mark. ⭐ That note is built by the SAME classes and the SAME pipeline
@@ -13,7 +13,7 @@
  * note stands is irrelevant: a stand-in stave at the pointer's y, 200 px wide, no barlines, as before.
  */
 import type { DrawContext } from '@/engine/paint/DrawContext'
-import type { Accidental as ScoreAccidental, ArticulationType, TremoloMark } from '@/types/music'
+import type { Accidental as ScoreAccidental, ArticulationType, Dynamic, TremoloMark } from '@/types/music'
 import { EngravedNote } from './EngravedNote'
 import { EngravedStave } from './EngravedStave'
 import { EngravedArticulation } from './EngravedArticulation'
@@ -25,7 +25,9 @@ import { BarVoice } from './barVoice'
 import { attachModifierColumns } from './modifierColumns'
 import { formatColumns } from './columnFormat'
 import { drawMarkOn } from './glyphPainter'
-import { drawSignGhost, ghostCursorOffset } from './ghostCursor'
+import { buildDynamicAnnotation, enlargeDynamicGlyphRuns } from './DynamicsLayout'
+import { DYNAMIC_ANNOTATION_FONT } from './dynamicStyle'
+import { centreGhostOnCursor, drawSignGhost, ghostCursorOffset, sweepIntoGhostGroup } from './ghostCursor'
 
 /** The codes an articulation is built from — the table `NoteBuilder` uses. */
 const ARTICULATION_CODES: Record<ArticulationType, string> = { accent: 'a>', staccato: 'a.', tenuto: 'a-' }
@@ -119,6 +121,36 @@ export function drawDotGhost(ctx: DrawContext, cursorX: number, cursorY: number)
     const LIFT_Y = 4
     return drawSignGhost(ctx, 'ghost-dot', cursorX, cursorY, () => drawMarkOn(ctx, dot),
       (box, x, y) => ({ dx: x + GAP_X - (box.x + box.width / 2), dy: y - LIFT_Y - (box.y + box.height / 2) }))
+  } catch (_e) {
+    return false
+  }
+}
+
+/**
+ * ONE dynamic (S11c) — the page's own annotation (`buildDynamicAnnotation`), hung on the lone note and
+ * drawn alone, its glyph runs grown as the score grows them. Centred on the pointer.
+ *
+ * ⚠️ Not a {@link drawSignGhost}: its colour and opacity are `notation.css`'s (`.ghost-dynamic-group`),
+ * and it is swept into that bare-class group, as before.
+ */
+export function drawDynamicGhost(ctx: DrawContext, svg: SVGElement, cursorX: number, cursorY: number, dynamic: Dynamic): boolean {
+  try {
+    const annotation = buildDynamicAnnotation(dynamic)
+    loneQuarter(cursorY, note => note.addModifier(annotation, 0))
+    const group = sweepIntoGhostGroup(svg, 'ghost-dynamic-group', () => drawMarkOn(ctx, annotation))
+    if (!group) return false
+    // The annotation is drawn at the small text size for a shared baseline; grow its glyph runs the
+    // way the score pass does, so the ghost matches what will be placed.
+    const text = group.querySelector('text')
+    if (text) enlargeDynamicGlyphRuns(text, dynamic)
+    // Re-apply the annotation's face on the group — the one `buildDynamicAnnotation` set — for the
+    // text to inherit, as it would from its ancestors in the score.
+    const f = DYNAMIC_ANNOTATION_FONT
+    group.setAttribute('font-family', f.family)
+    group.setAttribute('font-size', `${f.size}pt`)
+    group.setAttribute('font-style', f.style)
+    centreGhostOnCursor(group, cursorX, cursorY)
+    return true
   } catch (_e) {
     return false
   }

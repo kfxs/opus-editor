@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * The mark ghosts (S11b): the armed articulation(s), accidental, dot and tremolo, each hung on a lone
+ * The mark ghosts (S11b, the dynamic S11c): the armed articulation(s), accidental, dot, tremolo and dynamic, each hung on a lone
  * note built by the score's own classes and pipeline, and drawn alone.
  *
  * ⚠️ jsdom has no `getBBox`, so a sign ghost there measures nothing and takes itself down. This spec
@@ -66,5 +66,22 @@ describe('MarkGhost', () => {
     const ink = group.querySelectorAll('text, path, rect, line')
     expect(ink).toHaveLength(1)
     expect(ink[0].getAttribute('fill')).toBe('#3B82F6')
+  })
+
+  it('draws the armed dynamic ALONE, its glyph run grown to the glyph size, in the bare-class group', () => {
+    const dynamic = { id: 'ghost-dynamic', beat: { num: 0, den: 1 }, text: '\uE521\uE520 dolce' }
+    expect(engine.renderScoreWithToolGhost({ x: 200, y: 100 }, { kind: 'dynamic', dynamic })).toBe(true)
+    const groups = container.querySelectorAll(GHOST_GROUP_SELECTOR)
+    expect(groups).toHaveLength(1)
+    // Bare: `notation.css` colours it by this class, not the painter's prefixed one.
+    expect(groups[0].getAttribute('class')).toBe('ghost-dynamic-group')
+    expect(groups[0].getAttribute('font-style')).toBe('italic')
+    // One text — no head, no stem of the lone note — laid out as the score lays it: the level as one
+    // precomposed Bravura glyph (`mp`), then the words.
+    const texts = groups[0].querySelectorAll('text')
+    expect(texts).toHaveLength(1)
+    const runs = [...texts[0].querySelectorAll('tspan')]
+    expect(runs.map(r => r.getAttribute('font-family'))).toEqual(['Bravura', expect.stringContaining('Georgia')])
+    expect(runs[0].textContent!.codePointAt(0)!.toString(16)).toBe('e52c') // dynamicMP
   })
 })

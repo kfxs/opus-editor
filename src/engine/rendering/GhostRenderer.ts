@@ -11,8 +11,8 @@
  *  - the cursor ghosts (`drawClefGhost`, `drawRestGhost`, `drawDynamicGhost`, …) — ONE glyph shown
  *    loose, following the pointer, parked by their own ink box, so they need nothing from the score.
  *    ⭐ S11 (`docs/vexflow-removal-map.md`) is moving them out one family at a time, each drawn by the
- *    score's OWN classes on our surface: the clef + meter (`./HeaderSignGhost`) and the marks
- *    (`./MarkGhost`) so far. What is still here builds a throwaway VexFlow stave, note or formatter.
+ *    score's OWN classes on our surface: the clef + meter (`./HeaderSignGhost`), the marks and the
+ *    dynamic (`./MarkGhost`) and the tempo mark (`./TempoGhost`) so far. What is still here builds a throwaway VexFlow stave, note or formatter.
  *
  * Every one of them is an **overlay** (docs/render-performance-plan.md §5b): it draws into its own
  * class-tagged `<g>` appended last, so putting one up or taking it down is a DOM append/remove
@@ -27,7 +27,7 @@
  * an empty articulation list): that is about the MARK, not about the page.
  */
 import { Stave, StaveNote, Voice, Formatter, Accidental, Articulation, Modifier, Dot, Barline, type SVGContext } from 'vexflow'
-import type { Score, Clef, GhostNote, Dynamic, TempoMark, NoteDuration, PitchStep, ArticulationType } from '@/types/music'
+import type { Score, Clef, GhostNote, NoteDuration, PitchStep, ArticulationType } from '@/types/music'
 import type { GhostColor, ToolGhost } from './ghostTypes'
 import { fracToNumber, fracCreate, fracAdd } from '@/utils/fraction'
 import { beatToFrac } from '@/utils/musicUtils'
@@ -42,9 +42,6 @@ import { resolveStaffSize } from '@/engine/models/staffSize'
 import { staffMeasureView, staffIdAtIndex } from '@/engine/models/staffContent'
 import { layoutTupletMark, drawTupletMark } from './ScoreTuplet'
 import { CenteredTremolo } from './CenteredTremolo'
-import { buildDynamicAnnotation, enlargeDynamicGlyphRuns } from './DynamicsLayout'
-import { DYNAMIC_ANNOTATION_FONT } from './dynamicStyle'
-import { drawTempoText } from './TempoLayout'
 import { convertDuration, restKey, restSupportingLedgerLine, drawsTimeSignature, ARTICULATION_RENDER_ORDER } from './NoteBuilder'
 import { drawCurveArc } from './curveArc'
 import { CURVE_PX } from './curveStyle'
@@ -57,7 +54,8 @@ import { drawBarlineGhost, BARLINE_GHOST_GROUP_CLASS } from './BarlineGhost'
 import { drawGroupSignGhost, GROUP_SIGN_GHOST_GROUP_CLASS } from './GroupSignGhost'
 import { drawKeySignatureGhost, KEY_SIGNATURE_GHOST_GROUP_CLASS } from './KeySignatureGhost'
 import { drawClefGhost, drawTimeSignatureGhost } from './HeaderSignGhost'
-import { drawArticulationGhost, drawAccidentalGhost, drawTremoloGhost, drawDotGhost } from './MarkGhost'
+import { drawArticulationGhost, drawAccidentalGhost, drawTremoloGhost, drawDotGhost, drawDynamicGhost } from './MarkGhost'
+import { drawTempoGhost, TEMPO_GHOST_GROUP_CLASS } from './TempoGhost'
 import type { SurfaceMetrics } from '@/engine/layout/surface'
 import { barFrame, staveFrame } from './staveFrame'
 import { noteLineY } from '@/engine/engrave/staff/staffFrame'
@@ -74,7 +72,7 @@ import { noteLineY } from '@/engine/engrave/staff/staffFrame'
  * full render that used to hide the leak.)
  */
 export const GHOST_GROUP_SELECTOR =
-  `.ghost-note-group, .ghost-rest-group, .${FAN_GHOST_GROUP_CLASS}, .ghost-clef-group, .ghost-timesig-group, .ghost-dynamic-group, .vf-ghost-articulation, .vf-ghost-accidental, .vf-ghost-tie, .vf-ghost-dot, .vf-ghost-tremolo, .vf-ghost-tempo, .${TRILL_GHOST_GROUP_CLASS}, .${OTTAVA_GHOST_GROUP_CLASS}, .${PEDAL_GHOST_GROUP_CLASS}, .${BARLINE_GHOST_GROUP_CLASS}, .${KEY_SIGNATURE_GHOST_GROUP_CLASS}, .${GROUP_SIGN_GHOST_GROUP_CLASS}`
+  `.ghost-note-group, .ghost-rest-group, .${FAN_GHOST_GROUP_CLASS}, .ghost-clef-group, .ghost-timesig-group, .ghost-dynamic-group, .vf-ghost-articulation, .vf-ghost-accidental, .vf-ghost-tie, .vf-ghost-dot, .vf-ghost-tremolo, .${TEMPO_GHOST_GROUP_CLASS}, .${TRILL_GHOST_GROUP_CLASS}, .${OTTAVA_GHOST_GROUP_CLASS}, .${PEDAL_GHOST_GROUP_CLASS}, .${BARLINE_GHOST_GROUP_CLASS}, .${KEY_SIGNATURE_GHOST_GROUP_CLASS}, .${GROUP_SIGN_GHOST_GROUP_CLASS}`
 
 /**
  * How far the ghost's tuplet number floats above the note, in STAFF SPACES — measured from the stem
@@ -492,109 +490,6 @@ export function drawRestGhost(ctx: SVGContext, svg: SVGElement, cursorX: number,
       const LIFT_Y = 10
       const dx = cursorX - GAP_X - (gbox.x + gbox.width / 2)
       const dy = cursorY - LIFT_Y - (gbox.y + gbox.height / 2)
-      group.setAttribute('transform', `translate(${dx}, ${dy})`)
-    }
-
-    return true
-  } catch (_e) {
-    return false
-  }
-}
-
-function drawTempoGhost(ctx: SVGContext, cursorX: number, cursorY: number, mark: TempoMark): boolean {
-  if (!mark.text) return false // nothing to preview (a mark that only sounds)
-
-  try {
-    const group = ctx.openGroup('ghost-tempo') as SVGGElement
-    try {
-      // Drawn at the origin and translated into place below, once its real size is known.
-      drawTempoText(ctx, mark.text, 0, cursorY)
-    } finally {
-      ctx.closeGroup()
-    }
-
-    const gbox = (group as unknown as SVGGraphicsElement).getBBox?.()
-    if (!gbox || gbox.width === 0) {
-      group.remove()
-      return false
-    }
-
-    // Paint it in the ghost blue (the same colour the ghost note uses) at 0.7 opacity —
-    // it is a preview, not yet content.
-    group.setAttribute('opacity', '0.7')
-    group.querySelectorAll('text, path').forEach(el => {
-      if (el.getAttribute('fill') !== 'none') el.setAttribute('fill', '#3B82F6')
-    })
-
-    // Start at the cursor horizontally (that is where the mark will anchor) and center
-    // it vertically on the pointer, so the preview reads as "this lands here".
-    const dx = cursorX - gbox.x
-    const dy = cursorY - (gbox.y + gbox.height / 2)
-    group.setAttribute('transform', `translate(${dx}, ${dy})`)
-    return true
-  } catch {
-    return false
-  }
-}
-
-function drawDynamicGhost(ctx: SVGContext, svg: SVGElement, cursorX: number, cursorY: number, dynamic: Dynamic): boolean {
-  try {
-    const childrenBefore = svg.children.length
-
-    // Draw the annotation on a throwaway quarter note. The note/stave glyphs are
-    // discarded below; we keep only the annotation's SVG group.
-    const tempStave = new Stave(0, cursorY, 200)
-    tempStave.setBegBarType(Barline.type.NONE)
-    tempStave.setEndBarType(Barline.type.NONE)
-    tempStave.setContext(ctx)
-
-    const annotation = buildDynamicAnnotation(dynamic)
-    const note = new StaveNote({ keys: ['b/4'], duration: 'q' })
-    note.setStave(tempStave)
-    note.addModifier(annotation, 0)
-
-    const voice = new Voice({ numBeats: 1, beatValue: 4 })
-    voice.setStrict(false)
-    voice.addTickables([note])
-    new Formatter().joinVoices([voice]).format([voice], 150)
-    voice.draw(ctx, tempStave)
-
-    const annoEl = annotation.getSVGElement?.() as SVGGElement | undefined
-    // Enlarge the glyph run(s) just like the score pass does (the annotation is drawn at the
-    // small text size for a shared baseline), so the ghost matches what will be placed.
-    const annoText = annoEl?.querySelector?.('text') as SVGTextElement | null
-    if (annoText) enlargeDynamicGlyphRuns(annoText, dynamic)
-
-    const newElements: Element[] = []
-    for (let i = childrenBefore; i < svg.children.length; i++) {
-      newElements.push(svg.children[i])
-    }
-
-    const group = document.createElementNS('http://www.w3.org/2000/svg', 'g')
-    group.setAttribute('class', 'ghost-dynamic-group')
-    // The dynamic glyph's <text> carries no explicit font-size — it inherits it
-    // from its ancestors in the score. Extracting it to the SVG root breaks that
-    // chain (the glyph would shrink to the browser default), so re-apply the
-    // annotation's font — the one `buildDynamicAnnotation` set — on the group for the <text> to inherit.
-    const f = DYNAMIC_ANNOTATION_FONT
-    group.setAttribute('font-family', f.family)
-    group.setAttribute('font-size', `${f.size}pt`)
-    group.setAttribute('font-style', f.style)
-    // Move just the annotation group out (detaches it from the note's group)…
-    if (annoEl) group.appendChild(annoEl)
-    // …then discard the leftover temp stave/notehead/stem elements.
-    for (const el of newElements) {
-      if (el.parentNode === svg) svg.removeChild(el)
-    }
-    if (!annoEl) return false
-
-    svg.appendChild(group)
-
-    // Centre the glyph on the cursor so it tracks the mouse freely.
-    const gbox = (group as unknown as SVGGraphicsElement).getBBox?.()
-    if (gbox && gbox.width > 0) {
-      const dx = cursorX - (gbox.x + gbox.width / 2)
-      const dy = cursorY - (gbox.y + gbox.height / 2)
       group.setAttribute('transform', `translate(${dx}, ${dy})`)
     }
 
