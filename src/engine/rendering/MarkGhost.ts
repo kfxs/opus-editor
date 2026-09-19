@@ -64,12 +64,13 @@ export function drawArticulationGhost(ctx: DrawContext, cursorX: number, cursorY
   try {
     const sorted = types.slice().sort((a, b) => ARTICULATION_RENDER_ORDER.indexOf(a) - ARTICULATION_RENDER_ORDER.indexOf(b))
     const marks = sorted.map(t => new EngravedArticulation(ARTICULATION_CODES[t]).setPosition('above'))
-    loneQuarter(cursorY, note => marks.forEach(m => note.addModifier(m, 0)))
+    loneQuarter(cursorY, note => marks.forEach(m => attachModifier(note, m, 0)))
     // Lift it a few px so the lowest glyph (staccato) doesn't sit right under the pointer.
     const CURSOR_GAP_PX = 8
     return drawSignGhost(ctx, 'ghost-articulation', cursorX, cursorY,
       // An explicit text line per glyph, so the marks stack one line apart.
-      () => marks.forEach((m, i) => drawMarkOn(ctx, m.setTextLine(i))),
+      // Ours since S12f — each draws on our surface itself, with no cast.
+      () => marks.forEach((m, i) => { m.setInkSurface(ctx); m.setTextLine(i).setContext(ctx).draw() }),
       (box, x, y) => { const c = centred(box, x, y); return { dx: c.dx, dy: c.dy - CURSOR_GAP_PX } })
   } catch (_e) {
     return false

@@ -137,7 +137,8 @@ export class ColumnModifiers extends ModifierContext {
    * mark's shifts from its own box.
    */
   private formatArticulations(): void {
-    const marks = this.members.Articulation ?? []
+    // Ours since S12f — filed here by the category string, so narrowed back from VexFlow's member type.
+    const marks = (this.members.Articulation ?? []) as unknown[]
     if (marks.length === 0) return
     const ours = marks.map(mark => {
       if (!(mark instanceof EngravedArticulation)) throw new Error('ColumnModifiers: an articulation that is not an EngravedArticulation')

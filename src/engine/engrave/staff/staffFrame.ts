@@ -80,3 +80,11 @@ export function noteLineY(frame: StaffFrame, line: number): number {
 export function textRowAboveY(frame: StaffFrame, row: number): number {
   return staffLineY(frame, -row - 1)
 }
+
+/**
+ * The baseline of text row `row` below the staff — row 0 one space below the bottom line, each further
+ * row a space lower (`Stave.getYForBottomText`, whose `bottomTextPosition` is the line count).
+ */
+export function textRowBelowY(frame: StaffFrame, row: number): number {
+  return staffLineY(frame, frame.lineCount + row)
+}

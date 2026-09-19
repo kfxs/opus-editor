@@ -259,7 +259,7 @@ export function drawNoteGhost(
         (a, b) => ARTICULATION_RENDER_ORDER.indexOf(a) - ARTICULATION_RENDER_ORDER.indexOf(b)
       )
       for (const art of sortedGhostArticulations) {
-        staveNote.addModifier(new EngravedArticulation(articulationVexCodes[art]).setPosition(articulationPosition), 0)
+        attachModifier(staveNote, new EngravedArticulation(articulationVexCodes[art]).setPosition(articulationPosition), 0)
       }
     }
 

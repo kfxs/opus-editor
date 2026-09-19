@@ -1,4 +1,4 @@
-import { Renderer, Stave, StaveNote, Articulation, Annotation, type Beam, ClefNote } from 'vexflow'
+import { Renderer, Stave, StaveNote, Annotation, type Beam, ClefNote } from 'vexflow'
 import { ScoreTuplet } from './ScoreTuplet'
 import { tremoloOn, TREMOLO_FLAG_STEM_STRETCH, TREMOLO_STROKE_CLEARANCE, usableStemSpan } from './CenteredTremolo'
 import { twoNoteTremoloStrokes } from './TwoNoteTremolo'
@@ -10,6 +10,7 @@ import { armedStandoffPx, placeAccidentals } from './accidentalPlacement'
 import { EngravedNote, drawNoteInkThrough } from './EngravedNote'
 import { accidentalHitBox } from './drawnHitBox'
 import { accidentalsOn } from './EngravedAccidental'
+import { hasArticulation } from './EngravedArticulation'
 import { drawLedgerLines } from '@/engine/engrave/notes/ledgerLines'
 import { placeDots } from './dotPlacement'
 import { GHOST_GROUP_SELECTOR, drawNoteGhost, drawToolGhost } from './GhostRenderer'
@@ -2501,7 +2502,7 @@ export class VexFlowRenderer {
       // ⚠️ Still only on a note that CARRIES an articulation — the condition the patch ran under — so any
       //   other mark above/below an offset note without one keeps the unshifted centre, as it always has.
       if ((px !== 0 || stemAlign) && sn instanceof EngravedNote
-        && sn.getModifiers().some(m => m instanceof Articulation)) {
+        && hasArticulation(sn)) {
         sn.setMarkAnchor({ offsetPx: px, stemAlign })
       }
       if (px !== 0 || stemAlign) dbg(`[NoteOffset] slot ${slot.id} px=${px.toFixed(1)} stemAlign=${stemAlign}`)

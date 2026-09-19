@@ -44,14 +44,53 @@
  * calls `this.renderText(this.checkContext(), 0, 0)`, and `fanArticulations` calls `setContext(ctx)`
  * immediately before — so the parameter is genuinely unused, and typing it as anything narrower
  * would be claiming a coupling that is not here. ⛔ The allowlist did not grow for this.
+  *
+ * ## ⭐⭐ S12f — and now the PLACEMENT too, transcribed, ONE owner
+ *
+ * No longer VexFlow's `Articulation`: it keeps the modifier contract (`./EngravedModifier`), and
+ * `Articulation.draw`'s placement is `engrave/notes/articulationPlacement` — transcribed EXACTLY, and
+ * proved byte-identical on the page, which is the difference from the fan's hand-rolled rule above.
+ * ⚠️ `setOrigin` is VexFlow's `Element.setOrigin`, quirk and all: `draw` calls it BEFORE writing the
+ * new `x`/`y`, so the centring reads the box at the mark's PREVIOUS position, and it divides by the
+ * glyph's width (NaN in jsdom, where nothing measures). ⛔ Not "fixed" — it is what the page shows.
+ * ⚠️ Until S12f2 the FAN's stand-in (`./fanArticulations`) still runs VexFlow's own copy.
  */
-import { Articulation } from 'vexflow'
+import type { StaveNote } from 'vexflow'
 import type { DrawContext } from '@/engine/paint/DrawContext'
-import { MUSIC_GLYPH_FONT } from '@/engine/engrave/inheritedFonts'
+import { MUSIC_FONT_SIZE_PT, MUSIC_GLYPH_FONT } from '@/engine/engrave/inheritedFonts'
 import { drawArticulation } from '@/engine/engrave/notes/articulation'
+import { ARTICULATION_OUTSIDE_ROW, placeArticulation } from '@/engine/engrave/notes/articulationPlacement'
+import { textRowAboveY, textRowBelowY } from '@/engine/engrave/staff/staffFrame'
+import { GLYPH_CODEPOINTS, type GlyphName } from '@/engine/fonts/bravuraMetrics'
 import type { InkSurfaceAware } from './inkSurface'
+import { measureGlyphMetrics } from './glyphPainter'
+import { requireNoteFrame } from './staveFrame'
+import { noteRuler } from './noteRuler'
+import { EngravedModifier, MODIFIER_POSITION, type ModifierMetrics } from './EngravedModifier'
 
-export class EngravedArticulation extends Articulation implements InkSurfaceAware {
+/**
+ * The marks this editor writes — VexFlow's `Tables.articulationCodes` rows for them: the glyph above
+ * and below the note, and whether it may sit between the staff lines (all three may).
+ */
+const ARTICULATION_ROWS: Readonly<Record<string, { above: GlyphName; below: GlyphName; betweenLines: boolean }>> = {
+  'a.': { above: 'augmentationDot', below: 'augmentationDot', betweenLines: true },
+  'a>': { above: 'articAccentAbove', below: 'articAccentBelow', betweenLines: true },
+  'a-': { above: 'articTenutoAbove', below: 'articTenutoBelow', betweenLines: true },
+}
+
+/** The category whose face a mark is measured in — `Articulation`, which walks up to the root. */
+const MARK_TAG = 'Articulation'
+
+export class EngravedArticulation extends EngravedModifier implements InkSurfaceAware {
+  static override get CATEGORY(): string {
+    return 'Articulation'
+  }
+
+  /** The code it was built from — `'a.'`, `'a>'`, `'a-'`. */
+  readonly type: string
+
+  private readonly row: { above: GlyphName; below: GlyphName; betweenLines: boolean }
+
   /**
    * The surface this mark's glyph draws on — the note's own, handed over by `drawNoteInkThrough`
    * before the voices are drawn. Null until then, and then it falls back to VexFlow's context: an
@@ -59,42 +98,119 @@ export class EngravedArticulation extends Articulation implements InkSurfaceAwar
    */
   private inkSurface: DrawContext | null = null
 
+  constructor(type: string) {
+    super()
+    const row = ARTICULATION_ROWS[type]
+    if (!row) throw new Error(`EngravedArticulation: no row for "${type}" — only a. a> a- are written here.`)
+    this.type = type
+    this.row = row
+    this.position = MODIFIER_POSITION.ABOVE
+  }
+
   /** @see EngravedArticulation.inkSurface */
   setInkSurface(ctx: DrawContext): void {
     this.inkSurface = ctx
   }
 
   /**
-   * Whether this mark may sit between the staff lines — VexFlow's protected `articulation.betweenLines`,
-   * read by the column rule (`engrave/notes/articulationStack`, S9e).
+   * Whether this mark may sit between the staff lines — read by the column rule
+   * (`engrave/notes/articulationStack`, S9e) and by the placement.
    */
   canSitBetweenLines(): boolean {
-    return this.articulation.betweenLines ?? false
+    return this.row.betweenLines
+  }
+
+  /** The glyph it stamps — its row's ABOVE glyph when above, else its BELOW one (`Articulation.reset`). */
+  getText(): string {
+    return String.fromCodePoint(GLYPH_CODEPOINTS[this.position === MODIFIER_POSITION.ABOVE ? this.row.above : this.row.below])
+  }
+
+  private measured() {
+    return measureGlyphMetrics(MARK_TAG, this.getText(), MUSIC_FONT_SIZE_PT)
+  }
+
+  getWidth(): number {
+    return this.measured().width
+  }
+
+  /** The glyph's ink height — what the column steps the next mark by (`Element.height`). */
+  get height(): number {
+    const { ascent, descent } = this.measured()
+    return ascent + descent
+  }
+
+  protected inkMetrics(): ModifierMetrics {
+    const { width, ascent, descent } = this.measured()
+    return { width, ascent, descent }
+  }
+
+  getX(): number {
+    return this.x
+  }
+
+  getY(): number {
+    return this.y
   }
 
   /**
-   * ⭐ **OURS** — the glyph, through our own primitives, at VexFlow's own point.
-   *
-   * ⚠️ `x`/`y` were written by `Articulation.draw` a line earlier and the origin shifts by
-   * `setOrigin`; this reads them exactly as the base does (`element.js:331`), so ⛔ no pixel moves.
+   * `Element.setOrigin`, transcribed: re-express the shifts so the point `(x, y)` of the box — as a
+   * fraction of its width and height — is where it is drawn from. ⚠️ Reads the box at the CURRENT
+   * `x`/`y` (see the header).
    */
-  override renderText(_ctx: unknown, xPos: number, yPos: number): void {
-    // ⚠️ `children` are extra glyphs the base stamps after the sign itself. Nothing in this repo
-    // gives an articulation one, and this guard is what keeps that a statement about today rather
-    // than a silently missing mark the day something does.
-    if (!this.inkSurface || this.children.length > 0) {
-      super.renderText(this.checkContext(), xPos, yPos)
-      return
-    }
+  setOrigin(x: number, y: number): this {
+    const bx = this.getBoundingBox()
+    const originX = Math.abs((bx.getX() - this.xShift) / bx.getW())
+    this.xShift = -((x - originX) * bx.getW())
+    const by = this.getBoundingBox()
+    const originY = Math.abs((by.getY() - this.yShift) / by.getH())
+    this.yShift = -((y - originY) * by.getH())
+    return this
+  }
 
-    drawArticulation(this.inkSurface, {
+  /** ⭐ **OURS** — `Articulation.draw`: where the mark stands (`engrave/notes/articulationPlacement`), then its ink. */
+  draw(): void {
+    const context = this.checkContext()
+    const note = this.checkAttachedNote() as StaveNote
+    this.setRendered()
+    const index = this.checkIndex()
+    if (note.getCategory() === 'TabNote') throw new Error('EngravedArticulation: a mark on a TabNote is not transcribed.')
+    const side = this.position === MODIFIER_POSITION.ABOVE ? 'above' : this.position === MODIFIER_POSITION.BELOW ? 'below' : null
+    // VexFlow's draw looked the side up in a two-row table — any other position threw there too.
+    if (!side) throw new Error('EngravedArticulation: a mark must stand above or below its note.')
+
+    const frame = requireNoteFrame(note)
+    const ruler = noteRuler(note)
+    const { x } = note.getModifierStartXY(this.position, index)
+    const { y, centred } = placeArticulation({
+      side,
+      textLine: this.textLine,
+      canSitBetweenLines: this.row.betweenLines,
+      staffSpace: frame.spacePx,
+      hasStem: ruler.hasStem,
+      stemDirection: ruler.stemDirection,
+      stemTipY: ruler.stemTipY,
+      stemBaseY: ruler.stemBaseY,
+      headYs: ruler.headYs,
+      headY: ruler.headYs[index],
+      headLine: Number(note.getKeyProps()[index].line),
+      outsideStaffY: side === 'above' ? textRowAboveY(frame, ARTICULATION_OUTSIDE_ROW) : textRowBelowY(frame, ARTICULATION_OUTSIDE_ROW),
+    })
+    // ⚠️ BEFORE the new x/y, as VexFlow ordered it (see the header).
+    if (centred) this.setOrigin(0.5, 0.5)
+    this.x = x
+    this.y = y
+
+    drawArticulation(this.inkSurface ?? context, {
       glyph: this.getText(),
-      x: xPos + this.getX() + this.getXShift(),
-      y: yPos + this.getY() + this.getYShift(),
+      x: this.x + this.xShift,
+      y: this.y + this.yShift,
       font: MUSIC_GLYPH_FONT,
-      // ⭐ The sign's own id, so its GROUP can be matched back to the hit box the registry
-      //   files for it — P6b's seam (`docs/own-engraving-engine.md` §5 P6).
-      id: this.getAttribute('id'),
+      id: this.getAttribute('id')!,
     })
   }
+}
+
+/** Whether `note` carries an articulation — asked of its modifier list. */
+export function hasArticulation(note: { getModifiers(): unknown[] }): boolean {
+  return note.getModifiers().some(m => m instanceof EngravedArticulation)
 }

@@ -337,7 +337,7 @@ export function createStaveNotesFromSlots(
       // ⭐ OURS since 2026-09-14 — the glyph draws through our own primitives (`EngravedArticulation`);
       // everything about WHERE it lands is still `Articulation`'s, which is what that class takes care
       // not to touch.
-      staveNote.addModifier(new EngravedArticulation(articulationVexCodes[art]).setPosition(articulationPosition), 0)
+      attachModifier(staveNote, new EngravedArticulation(articulationVexCodes[art]).setPosition(articulationPosition), 0)
     }
 
     // Single-note tremolo — per-chord like the articulations, and for the same reason (the mark

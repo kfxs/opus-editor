@@ -5,6 +5,7 @@ import {
   staffLineAtY,
   staffLineY,
   textRowAboveY,
+  textRowBelowY,
   type StaffFrame,
 } from './staffFrame'
 
@@ -41,5 +42,11 @@ describe('the staff frame', () => {
   it('puts text row 0 one space above the top line, each further row a space higher', () => {
     expect(textRowAboveY(frame, 0)).toBe(70)
     expect(textRowAboveY(frame, 1)).toBe(60)
+  })
+
+  it('puts text row 0 one space BELOW the bottom line (`Stave.getYForBottomText`), and follows the line count', () => {
+    expect(textRowBelowY(frame, 0)).toBe(130)
+    expect(textRowBelowY(frame, -0.5)).toBe(125) // an articulation's floor: half a space outside
+    expect(textRowBelowY({ ...frame, lineCount: 1 }, 0)).toBe(90)
   })
 })

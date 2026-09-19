@@ -16,8 +16,7 @@
  *
  * ## ⛔ What is NOT here
  *
- * - **Where the mark is drawn from its text line** — `Articulation.draw`'s placement (the snap to a
- *   line or a space, the initial offset) is still VexFlow's; see `rendering/EngravedArticulation`.
+ * - **Where the mark is drawn from its text line** — `./articulationPlacement` (S12f).
  * - **The ink** — `./articulation`.
  * - **Which side a mark goes on** — the note builder decides it and it arrives as `side`.
  *
@@ -26,6 +25,7 @@
  * from the first mark.
  */
 import { STAVE_LINE_DISTANCE_PX } from '@/engine/engrave/inheritedDefaults'
+import { roundToNearestHalf, roundingFor } from './articulationLines'
 
 /** Which side of the note a mark stands on — VexFlow's `Modifier.Position` ABOVE/BELOW, or neither. */
 export type ArticulationSide = 'above' | 'below' | 'other'
@@ -74,14 +74,6 @@ export const ARTICULATION_STEP_MARGIN = 0.5
 const UP = 1
 const DOWN = -1
 
-const roundToNearestHalf = (fn: (x: number) => number, value: number): number => fn(value / 0.5) * 0.5
-
-/** Inside the staff: at or below line 5 above it, at or above line 1 below it. */
-const isWithinLines = (line: number, side: 'above' | 'below'): boolean =>
-  side === 'above' ? line <= 5 : line >= 1
-
-const roundingFor = (line: number, side: 'above' | 'below'): ((x: number) => number) =>
-  isWithinLines(line, side) ? (side === 'above' ? Math.ceil : Math.floor) : Math.round
 
 /** ⭐ Every mark of one column — `placed[i]` answers `marks[i]` — and the column state after. */
 export function stackArticulations(
