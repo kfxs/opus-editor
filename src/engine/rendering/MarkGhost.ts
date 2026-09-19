@@ -113,10 +113,11 @@ export function drawTremoloGhost(ctx: DrawContext, cursorX: number, cursorY: num
 export function drawDotGhost(ctx: DrawContext, cursorX: number, cursorY: number): boolean {
   try {
     const dot = new EngravedDot()
-    loneQuarter(cursorY, note => note.addModifier(dot, 0))
+    loneQuarter(cursorY, note => attachModifier(note, dot, 0))
     const GAP_X = 10
     const LIFT_Y = 4
-    return drawSignGhost(ctx, 'ghost-dot', cursorX, cursorY, () => drawMarkOn(ctx, dot),
+    // Ours since S12c — it draws on our surface itself, with no cast.
+    return drawSignGhost(ctx, 'ghost-dot', cursorX, cursorY, () => { dot.setInkSurface(ctx); dot.setContext(ctx).draw() },
       (box, x, y) => ({ dx: x + GAP_X - (box.x + box.width / 2), dy: y - LIFT_Y - (box.y + box.height / 2) }))
   } catch (_e) {
     return false

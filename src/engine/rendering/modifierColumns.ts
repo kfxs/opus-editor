@@ -208,7 +208,8 @@ export class ColumnModifiers extends ModifierContext {
    * anything else is refused rather than placed by a rule that was not written for it.
    */
   private formatDots(): void {
-    const dots = this.members.Dot ?? []
+    // Ours since S12c — filed here by the category string, so narrowed back from VexFlow's member type.
+    const dots = (this.members.Dot ?? []) as unknown[]
     if (dots.length === 0) return
     const ours = dots.map(dot => {
       if (!(dot instanceof EngravedDot)) throw new Error('ColumnModifiers: a dot that is not an EngravedDot')

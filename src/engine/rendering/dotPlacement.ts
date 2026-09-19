@@ -59,7 +59,8 @@
  * different shape, and the convention gives it a *smaller* distance than a note's (MuseScore keeps
  * `dotRestDistance` below `dotNoteDistance`). He reported notes; this changes notes.
  */
-import { Dot, Stem, StaveNote } from 'vexflow'
+import { Stem, StaveNote } from 'vexflow'
+import { dotsOn } from './EngravedDot'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { armedDotGap } from '@/engine/layout/dotGap'
 import { MODIFIER_RIGHT_GAP_PX } from '@/engine/engrave/inheritedDefaults'
@@ -116,7 +117,7 @@ export function dotReservationPx(): number {
  */
 export function reserveDotRoom(note: StaveNote): void {
   const extra = dotReservationPx()
-  for (const dot of Dot.getDots(note)) dot.setWidth(dot.getWidth() + extra)
+  for (const dot of dotsOn(note)) dot.setWidth(dot.getWidth() + extra)
 }
 
 /**
@@ -148,7 +149,7 @@ export function dotShift(clearsFlag: boolean): number {
 export function placeDots(notes: StaveNote[]): void {
   for (const note of notes) {
     if (note.isRest()) continue
-    const dots = Dot.getDots(note)
+    const dots = dotsOn(note)
     if (!dots.length) continue
     const shift = dotShift(note.hasFlag() && note.getStemDirection() === Stem.UP)
     if (shift <= 0) continue

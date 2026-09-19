@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, afterEach } from 'vitest'
-import { StaveNote, Dot } from 'vexflow'
+import { StaveNote } from 'vexflow'
 import {
   dotShift,
   dotReservationPx,
@@ -8,6 +8,7 @@ import {
   VEXFLOW_DOT_BASE_GAP,
   VEXFLOW_DOT_SPACING,
 } from './dotPlacement'
+import { attachEngravedDots, dotsOn } from './EngravedDot'
 import { armedDotGap, resetDotGapRule, setDotGapRule } from '@/engine/layout/dotGap'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 
@@ -42,11 +43,11 @@ describe('reserveDotRoom', () => {
     // ⚠️ jsdom cannot measure a glyph, so the dots start at width 0 — what this asserts is the
     // DELTA, which is the whole of what the reservation is. Where the ink lands is `e2e/notes`.
     const note = new StaveNote({ keys: ['g/4'], duration: 'q' })
-    Dot.buildAndAttach([note], { all: true })
-    Dot.buildAndAttach([note], { all: true })
-    const before = Dot.getDots(note).map(d => d.getWidth())
+    attachEngravedDots(note)
+    attachEngravedDots(note)
+    const before = dotsOn(note).map(d => d.getWidth())
     reserveDotRoom(note)
-    const after = Dot.getDots(note).map(d => d.getWidth())
+    const after = dotsOn(note).map(d => d.getWidth())
     expect(after).toHaveLength(2)
     expect(after.map((w, i) => w - before[i])).toEqual([dotReservationPx(), dotReservationPx()])
   })
@@ -60,7 +61,7 @@ describe('reserveDotRoom', () => {
   it('does nothing to a note with no dots', () => {
     const note = new StaveNote({ keys: ['g/4'], duration: 'q' })
     expect(() => reserveDotRoom(note)).not.toThrow()
-    expect(Dot.getDots(note)).toHaveLength(0)
+    expect(dotsOn(note)).toHaveLength(0)
   })
 })
 

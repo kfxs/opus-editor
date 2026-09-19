@@ -37,16 +37,37 @@
  * ⚠️ **The TAB branch is not transcribed.** VexFlow's `draw` re-reads `start.y` from
  * `note.getStemExtents().baseY` when the note is a `TabNote`; this editor has no tablature and no
  * `TabNote` is constructed anywhere in it. ⭐ Stated so the omission is a fact about this repo rather
- * than an oversight — and guarded below, so it can never become a silently missing dot.
+ * than an oversight — and REFUSED below, so it can never become a silently misplaced dot.
+ *
+ * ## ⭐ S12c — no longer VexFlow's `Dot`
+ *
+ * It keeps the modifier contract (`./EngravedModifier`) and what `Dot` itself added: RIGHT of its
+ * note, the SMuFL `augmentationDot`, `dotShiftY`, and the WIDTH. ⚠️ The width is the glyph measured
+ * in the NOTE's face (`Dot.setNote` copies `note.font`), and it can be WRITTEN — `dotPlacement` widens
+ * every dot after it is attached, and VexFlow kept that width until the dot's font changed, which only
+ * `setNote` does. So: an explicit width that `setNote` clears.
  */
-import { Dot, isTabNote, type StaveNote } from 'vexflow'
+import type { Note, StaveNote } from 'vexflow'
 import type { DrawContext } from '@/engine/paint/DrawContext'
-import { MUSIC_GLYPH_FONT } from '@/engine/engrave/inheritedFonts'
+import { MUSIC_FONT_SIZE_PT, MUSIC_GLYPH_FONT } from '@/engine/engrave/inheritedFonts'
+import { NOTE_GLYPH_SCALE } from '@/engine/engrave/inheritedDefaults'
 import { dotBaselineY, drawAugmentationDot } from '@/engine/engrave/notes/augmentationDot'
 import type { InkSurfaceAware } from './inkSurface'
 import { requireNoteFrame } from './staveFrame'
+import { measureGlyphMetrics } from './glyphPainter'
+import { EngravedModifier, MODIFIER_POSITION, attachModifier, type ModifierMetrics } from './EngravedModifier'
 
-export class EngravedDot extends Dot implements InkSurfaceAware {
+/** SMuFL `augmentationDot` — VexFlow's `Glyphs.augmentationDot`. */
+const AUGMENTATION_DOT = '\uE1E7'
+
+/** The note's own category, whose face a dot is measured in (`Dot.setNote` copies `note.font`). */
+const NOTE_FACE_TAG = 'StaveNote'
+
+export class EngravedDot extends EngravedModifier implements InkSurfaceAware {
+  static override get CATEGORY(): string {
+    return 'Dot'
+  }
+
   /**
    * The surface this dot's glyph draws on — the note's own, handed over by `drawNoteInkThrough`
    * before the voices are drawn. Null until then, and then it falls back to `checkContext()`: an
@@ -54,14 +75,31 @@ export class EngravedDot extends Dot implements InkSurfaceAware {
    */
   private inkSurface: DrawContext | null = null
 
+  /** The vertical shift, in staff spaces (negative is up) — `Dot`'s `dotShiftY`. */
+  private dotShiftY = 0
+
+  /** A width written over the measured one — see the header. Cleared by {@link setNote}. */
+  private widthOverride: number | null = null
+
+  constructor() {
+    super()
+    this.position = MODIFIER_POSITION.RIGHT
+  }
+
   /** @see EngravedDot.inkSurface */
   setInkSurface(ctx: DrawContext): void {
     this.inkSurface = ctx
   }
 
+  /** `Dot.setNote`: the note, whose face the dot is now measured in — so a written width is dropped. */
+  override setNote(note: Note): this {
+    this.widthOverride = null
+    return super.setNote(note)
+  }
+
   /**
-   * The dot's vertical shift, in staff spaces (negative is up) — VexFlow's protected `dotShiftY`,
-   * read and written by the column rule (`engrave/notes/dotStack`, S9c) and read by {@link draw}.
+   * The dot's vertical shift, in staff spaces (negative is up) — read and written by the column rule
+   * (`engrave/notes/dotStack`, S9c) and read by {@link draw}.
    */
   getShiftY(): number {
     return this.dotShiftY
@@ -71,18 +109,38 @@ export class EngravedDot extends Dot implements InkSurfaceAware {
     this.dotShiftY = spaces
   }
 
+  /** The glyph it stamps. */
+  getText(): string {
+    return AUGMENTATION_DOT
+  }
+
+  /** How much room it takes — the glyph's advance in the note's face, unless {@link setWidth} wrote one. */
+  getWidth(): number {
+    return this.widthOverride ?? this.measured().width
+  }
+
+  setWidth(width: number): this {
+    this.widthOverride = width
+    return this
+  }
+
+  private measured() {
+    return measureGlyphMetrics(NOTE_FACE_TAG, AUGMENTATION_DOT, MUSIC_FONT_SIZE_PT * NOTE_GLYPH_SCALE)
+  }
+
+  protected inkMetrics(): ModifierMetrics {
+    const { ascent, descent } = this.measured()
+    return { width: this.getWidth(), ascent, descent }
+  }
+
   /** ⭐ **OURS** — the glyph, through our own primitives, at VexFlow's own point. */
-  override draw(): void {
+  draw(): void {
     const vex = this.checkContext()
-    const note = this.checkAttachedNote()
+    const note = this.checkAttachedNote() as StaveNote
     this.setRendered()
 
-    // ⚠️ Tablature and a cautionary dot's children are both VexFlow's paths, neither reachable in
-    // this repo today (see the header). Handing them back keeps "not transcribed" honest.
-    if (isTabNote(note) || this.children.length > 0) {
-      super.draw()
-      return
-    }
+    // ⚠️ Tablature is VexFlow's path and unreachable in this repo (see the header) — refused, never guessed.
+    if (note.getCategory() === 'TabNote') throw new Error('EngravedDot: a dot on a TabNote is not transcribed.')
 
     const start = note.getModifierStartXY(this.position, this.checkIndex(), { forceFlagRight: true })
     // ⚠️ THE WRITE-BACK: `this.x`/`this.y` are what anything asking this dot where it landed reads.
@@ -90,13 +148,13 @@ export class EngravedDot extends Dot implements InkSurfaceAware {
     this.y = dotBaselineY(start.y, this.dotShiftY, requireNoteFrame(note).spacePx)
 
     drawAugmentationDot(this.inkSurface ?? vex, {
-      glyph: this.getText(),
+      glyph: AUGMENTATION_DOT,
       x: this.x + this.getXShift(),
-      y: this.y + this.getYShift(),
+      y: this.y + this.yShift,
       font: MUSIC_GLYPH_FONT,
       // ⭐ The sign's own id, so its GROUP can be matched back to the hit box the registry
       //   files for it — P6b's seam (`docs/own-engraving-engine.md` §5 P6).
-      id: this.getAttribute('id'),
+      id: this.getAttribute('id')!,
     })
   }
 }
@@ -110,5 +168,10 @@ export class EngravedDot extends Dot implements InkSurfaceAware {
  * index, and the default index 0) are left where they are rather than transcribed unused.
  */
 export function attachEngravedDots(note: StaveNote): void {
-  for (let i = 0; i < note.getKeys().length; i++) note.addModifier(new EngravedDot(), i)
+  for (let i = 0; i < note.getKeys().length; i++) attachModifier(note, new EngravedDot(), i)
+}
+
+/** The dots hung on `note`, in the order they were attached — `Dot.getDots`. */
+export function dotsOn(note: Note): EngravedDot[] {
+  return (note.getModifiers() as unknown[]).filter((m): m is EngravedDot => m instanceof EngravedDot)
 }
