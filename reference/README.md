@@ -364,7 +364,7 @@ index points at it. (2) **Gould's ¾ stave-space for the thin double is contradi
 engraved thin doubles** (≈0.5 sp left-to-left, ≈0.30 sp gap), and every engine draws what she drew
 rather than what she wrote — the third time the SCAN has beaten the sentence in this directory.
 
-## ⭐⭐ THE FIVE ENGINE SOURCES — on disk, and NOT in this directory
+## ⭐⭐ THE ENGINE SOURCES — on disk, and NOT in this directory
 
 **`~/dev/engine-sources/{MuseScore,lilypond,verovio,inkscape,musxdom}`** — shallow clones; the three
 engraving engines re-fetched 2026-08-18, Inkscape added 2026-08-22, **`musxdom` added 2026-08-28**.
@@ -384,6 +384,17 @@ the three above remain the whole list. Belle is asked only what none of them can
 score gets to be a bicycle. Everything about it, including the four ICMC papers now on disk, is in
 the `belle/` section above.
 
+⭐⭐ **VexFlow 5.0.0, TWO copies since 2026-09-19 — the library this editor was built on and REMOVED**
+(`docs/vexflow-removal-map.md`). Kept because much of our engine is a TRANSCRIPTION of it: a port's
+comment says *"`Clef.getPoint` (`clef.js:98`)"*, and once the package leaves `package.json` (S14) that
+citation must still resolve. ⛔ **Not an engraving opinion either** — it is where OUR inherited defaults
+came from, asked *"what did the code we replaced do, exactly?"*, never *"what is right?"*.
+- `~/dev/engine-sources/vexflow-5.0.0-npm/package` — ⭐ **the published npm build, byte-identical to what
+  `node_modules/vexflow` held** (checked with `diff -rq`). ⭐ **This is the one the port comments cite**:
+  their line numbers are `build/esm/src/*.js`, the compiled JavaScript we read and transcribed.
+- `~/dev/engine-sources/vexflow` — the TypeScript source at tag `5.0.0` (`8879d09`, "Release VexFlow
+  5.0.0"), for history, tests and types. ⚠️ Its line numbers are NOT the ones the comments cite.
+
 ⚠️ **Inkscape answers a DIFFERENT KIND of question** and is filed here only because it lives in the
 same directory. The other three are asked *what did they engrave*; Inkscape is asked **how does an
 interactive vector editor stay fast while you drag something** — see
@@ -400,6 +411,8 @@ The split is this README's own: **the manifest is committed, the bytes are not.*
 | **LilyPond** (92 MB) | `~/dev/engine-sources/lilypond` | `master` @ `beedbfa` | `git clone --depth 1 https://gitlab.com/lilypond/lilypond.git` |
 | **Verovio** (109 MB) | `~/dev/engine-sources/verovio` | `develop` @ `efff0bc` | `git clone --depth 1 https://github.com/rism-digital/verovio.git` |
 | **Inkscape** — ⚠️ not an engraver | `~/dev/engine-sources/inkscape` | `e1e8684` (2026-08-22) | `git clone --depth 1 https://gitlab.com/inkscape/inkscape.git` |
+| **VexFlow** source — ⚠️ the REMOVED library | `~/dev/engine-sources/vexflow` (32 MB) | tag `5.0.0` @ `8879d09` (2026-09-19) | `git clone --depth 1 --branch 5.0.0 https://github.com/vexflow/vexflow.git` |
+| **VexFlow** npm build — ⭐ what the port comments cite | `~/dev/engine-sources/vexflow-5.0.0-npm/package` (22 MB) | `vexflow@5.0.0` | `mkdir vexflow-5.0.0-npm && cd $_ && npm pack vexflow@5.0.0 && tar xzf vexflow-5.0.0.tgz` |
 
 ⚠️ **Where the layout logic actually lives**, since all three moved it at some point:
 
