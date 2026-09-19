@@ -29,8 +29,11 @@ export type DragKind =
 
 export interface Gesture {
   kind: DragKind
-  /** One mouse move, in SVG px. Absent on a gesture `MouseController` still drives itself. */
-  move?: (engine: MusicEngine, x: number, y: number) => void
+  /** One mouse move, in SVG px. Absent on a gesture `MouseController` still drives itself.
+   *  ⚠️ Answer `false` for a move that is NOT YET the gesture's — a press still inside its dead zone
+   *  is a click, and the controller carries on with what a plain move does (the hover, the ghost).
+   *  Anything else, nothing included, means the gesture owns the move. */
+  move?: (engine: MusicEngine, x: number, y: number) => boolean | void
   /** Commit what the gesture wrote, and release the host. */
   end: () => void
 }
@@ -38,10 +41,15 @@ export interface Gesture {
 /** A press is a click until it has been held this long; a gesture ignores moves before that. */
 export const DRAG_TIME_THRESHOLD_MS = 150
 
+/** …or, for a gesture told from a click by DISTANCE, until the pointer has travelled this far. */
+export const DRAG_DISTANCE_THRESHOLD_PX = 6
+
 /** What a gesture may ask of the controller that holds it. */
 export interface DragHost {
   getEngine(): MusicEngine | null
   render: Pick<RenderController, 'previewMarks' | 'renderScore'>
   /** The gesture is over: the controller forgets it. */
   release(): void
+  /** The score canvas's CSS cursor; `''` hands it back to the stylesheet. */
+  setCursor(cursor: string): void
 }

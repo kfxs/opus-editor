@@ -29,6 +29,7 @@ describe('beginHeldDrag', () => {
         renderScore: vi.fn(() => { order.push('render') }),
       },
       release: vi.fn(() => { order.push('release') }),
+      setCursor: vi.fn(),
     }
     spec = {
       kind: 'markEnd', family: 'ottava', label: 'Ottava end', id: 'O1', step,

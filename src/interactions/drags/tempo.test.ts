@@ -25,7 +25,7 @@ describe('beginTempoDrag', () => {
     vi.clearAllMocks()
     snap.tempoAnchorXOf.mockReturnValue(160)
     snap.dragTempo.mockReturnValue({ moved: true, inkPx: 0 })
-    host = { getEngine: () => engine, render: { previewMarks: vi.fn(), renderScore: vi.fn() }, release: vi.fn() }
+    host = { getEngine: () => engine, render: { previewMarks: vi.fn(), renderScore: vi.fn() }, release: vi.fn(), setCursor: vi.fn() }
   })
   afterEach(() => vi.useRealTimers())
 

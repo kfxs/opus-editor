@@ -44,6 +44,7 @@ describe('beginTrillBodyDrag', () => {
         renderScore: vi.fn(() => { order.push('render') }),
       },
       release: vi.fn(() => { order.push('release') }),
+      setCursor: vi.fn(),
     }
   })
   afterEach(() => vi.useRealTimers())

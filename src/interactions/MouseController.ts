@@ -3,8 +3,8 @@ import { windows } from '../windows'
 import { openScoreTextWindow } from '../windows/scoreTextWindow'
 import { scoreText } from '../engine/models/scoreTextOps'
 import type { ArticulationType, PitchSpelling, Fraction, Note } from '../types/music'
-import type { MusicEngine, BarWidthRoom } from '../engine/MusicEngine'
-import type { ElementInfo, ElementRegistry, ElementType } from '../engine/ElementRegistry'
+import type { MusicEngine } from '../engine/MusicEngine'
+import type { ElementRegistry, ElementType } from '../engine/ElementRegistry'
 import type { EditorState, SelectedElement } from './EditorState'
 import { activeVoiceToModel, armedTool, armedNormalSide, armedTupletM, selectedOf, spendArmedTuplet } from './EditorState'
 import { tempoLabel } from '../utils/tempoMap'
@@ -15,7 +15,7 @@ import type { RenderController } from './RenderController'
 import type { TextEditController } from './TextEditController'
 import type { ClipboardController } from './ClipboardController'
 import { DynamicTextSource } from './DynamicTextSource'
-import { fracToNumber, fracEq } from '../utils/fraction'
+import { fracToNumber } from '../utils/fraction'
 import { dynamicTextFromTool, DEFAULT_DYNAMIC_TEXT } from '../utils/dynamics'
 import { staffOf } from '@/utils/lanes'
 import { nearestSlotBoundaryBeat } from '../engine/layout/slotBoundary'
@@ -32,7 +32,10 @@ import { stampKeySignatureAtClick } from './keySignatureStamp'
 import { STAFF_BAND_PAD_PX } from './staffBand'
 import { ELEMENT_HIT_ORDER, type DoubleClickMark, type ElementChainDeps, type MouseDownCtx } from './elements/chain'
 import { armHairpinEndpointAt } from './elements/hairpinHandles'
-import { DRAG_TIME_THRESHOLD_MS, type DragHost, type Gesture } from './drags/gesture'
+import { DRAG_DISTANCE_THRESHOLD_PX, type DragHost, type Gesture } from './drags/gesture'
+import { beginBarlineJoinDrag } from './drags/barlineJoin'
+import { beginBarWidthDrag } from './drags/barWidth'
+import { beginClefDrag } from './drags/clef'
 import { beginDynamicDrag } from './drags/dynamic'
 import { beginHairpinBodyDrag } from './drags/hairpinBody'
 import { beginMarkEndDrag, type MarkEndKind } from './drags/markEnd'
@@ -41,12 +44,12 @@ import { beginPedalBodyDrag } from './drags/pedalBody'
 import { beginSlurBodyDrag } from './drags/slurBody'
 import { beginSlurEndpointDrag } from './drags/slurEndpoint'
 import { beginSlurHandleDrag } from './drags/slurHandle'
+import { beginStaffGroupSpanDrag } from './drags/staffGroupSpan'
 import { beginStaffSpacingDrag } from './drags/staffSpacing'
 import { beginTempoDrag } from './drags/tempo'
 import { beginTrillBodyDrag } from './drags/trillBody'
 import { armOttavaEndpointAt } from './elements/ottavaHandles'
-import { barlineJoinGrabAt, joinedAtPointer, squareAtPointer, type BarlineJoinGrab,
-  type BarlineJoinSquareEnd } from './elements/barlineJoinHandles'
+import { barlineJoinGrabAt } from './elements/barlineJoinHandles'
 import { armPedalEndpointAt } from './elements/pedalHandles'
 import { armTrillEndpointAt } from './elements/trillHandles'
 import { articulationHit } from './elements/articulation'
@@ -57,7 +60,6 @@ const DEFAULT_TEMPO_TEXT = 'Tempo'
 import { beatToFrac } from '../utils/musicUtils'
 import { passageOf, passageNoteIds, spansStaves } from './measurePassage'
 import { stampGroupAtClick } from './groupStamp'
-import { staffAtPointer, spanAfterDrag, type StaffGroupHandleEnd } from './elements/staffGroupHandles'
 import { measureCapacityQuarters } from '../utils/measureCapacity'
 import { spellingToMidi, accidentalToAlter, formatPitch } from '../utils/pitchSpelling'
 
@@ -87,6 +89,7 @@ export class MouseController {
     getEngine: () => this.getEngine(),
     render: { previewMarks: (kind, id) => this.render.previewMarks(kind, id), renderScore: () => this.render.renderScore() },
     release: () => { this.activeDrag = null },
+    setCursor: cursor => { const canvas = this.getScoreCanvas(); if (canvas) canvas.style.cursor = cursor },
   }
   /** Hold the gesture a press armed. ⛔ null = it declined, and the press goes on being a click. */
   private begin(gesture: Gesture | null, event: MouseEvent): void {
@@ -124,71 +127,16 @@ export class MouseController {
   private spacingDragStaffSpacePx = 10
   private spacingDragChanged = false
 
-  // --- Bar-width drag (docs/bar-width-plan.md P2) ---
-  /** The bar whose ENDING barline is being dragged, with everything the gesture needs — captured
-   *  ONCE at the grab, off the picture the user actually grabbed. Null when no drag is live: the
-   *  press stays a plain barline selection. */
-  private barWidthDrag: { measure: number; room: BarWidthRoom } | null = null
-  /** SVG x at the grab. The gesture is horizontal only — the target is a barline, so unlike the
-   *  note drag there is no axis contest and no dominant-axis rule to run. */
-  private barWidthDragStartX = 0
-  private barWidthDragChanged = false
-  /** True while the drag is tracking but the bar is refusing the value — logged on the transition
-   *  in, not per frame. Reset on every accepted move and when the drag ends. */
-  private barWidthDragBlocked = false
-  /** The casting-off the captured room describes (`MusicEngine.barWidthLineKey`). When the drag
-   *  re-wraps the system this changes, and the room has to be re-taken — see the drag handler. */
-  private barWidthDragLineKey: string | null = null
-  /** True once the press has left the dead zone; until then it is still just a click. */
-  private isDraggingBarWidth = false
-
-  // --- Barline JOIN drag (docs/barline-join-plan.md P3) ---
-  /**
-   * The gap being joined or disjoined, captured ONCE at the grab ({@link BarlineJoinGrab}) — plus
-   * what it was when the press landed and what is applied right now.
-   *
-   * ⭐ **`baseline` and `current` are what keep the drop honest**: a gesture that crosses the gap's
-   * middle and comes back has written twice and changed nothing, and committing that would file an
-   * undo entry for a score that never moved. ⛔ Not `changed`-on-any-write, which is what the two
-   * drags beside this one can afford because their values are continuous.
-   */
-  private barlineJoinDrag: (BarlineJoinGrab & { baseline: boolean; current: boolean }) | null = null
-
-  // --- GROUPING-SIGN span drag (his ask, 2026-08-29: the two squares that resize a group) ---
-  /**
-   * The group being resized, captured ONCE at the grab — which END was grabbed, the span the press
-   * started from, and the span applied right now.
-   *
-   * ⭐ `baseline` and `current` are what keep the drop honest, the join drag's rule: a gesture that
-   * wanders and comes back has written and changed nothing, and committing that would file an undo
-   * entry for a score that never moved.
-   */
-  private staffGroupSpanDrag: {
-    groupId: string
-    end: StaffGroupHandleEnd
-    measure: number
-    baseline: { fromStaff: number; toStaff: number }
-    current: { fromStaff: number; toStaff: number }
-  } | null = null
-
-  // --- Clef drag state (selection-tool drag, across slots and measures) ---
-  private draggedClefMeasure: number | null = null      // current measure (updates during drag)
-  private draggedClefBeat: Fraction | null = null        // current beat (updates during drag)
-  private draggedClefStartMeasure: number | null = null  // measure at drag start (no-op check)
-  private draggedClefStartBeat: Fraction | null = null   // beat at drag start (no-op check)
-  private clefDragStartTime: number | null = null
-
   // --- Staff-spacing vertical drag (Sibelius "space above staff" — Client #7) ---
   /** ⭐ The measure box that was showing when THIS press began, remembered across the element
    *  clear so the empty-space fallback can re-grab it ({@link grabSelectedBox}). ⛔ Not state the
    *  app can read: it is alive for the length of one mousedown and means nothing after it. */
   private boxBeforePress: Extract<SelectedElement, { kind: 'measureRange' }> | null = null
-  private readonly DRAG_TIME_THRESHOLD_MS = DRAG_TIME_THRESHOLD_MS
 
   /** Min cursor travel (px) before a note/rest press becomes a drag AND picks its axis. The same
    *  dead-zone idea as {@link PAN_THRESHOLD_PX}, a little wider: this one also has to tell two
    *  gestures apart, and 4px of jitter is a coin toss between them. */
-  private readonly NOTE_DRAG_THRESHOLD_PX = 6
+  private readonly NOTE_DRAG_THRESHOLD_PX = DRAG_DISTANCE_THRESHOLD_PX
 
   // --- Hand / grab-to-pan gesture (tool-agnostic navigation) ---
   // A press on empty space ARMS a possible pan but changes nothing yet; we decide
@@ -566,13 +514,15 @@ export class MouseController {
       this.render.renderScore()
       return true
     },
-    armClefDrag: (clef, event) => this.armClefDrag(clef, event),
+    armClefDrag: (clef, event) =>
+      this.begin(beginClefDrag(this.dragHost, this.state, clef, (eng, x, m) => this.resolveSlotBeat(eng, x, m)), event),
     // ⭐ The SCORE's answer, asked at press time — see `ElementChainDeps.groupSymbolOf`.
     groupSymbolOf: (groupId) =>
       this.getEngine()?.getScore().staffGroups?.find(g => g.id === groupId)?.symbol,
     armBarWidthDrag: (measure, x) => {
       const engine = this.getEngine()
-      if (engine) this.armBarWidthDrag(engine, measure, x)
+      const gesture = engine && beginBarWidthDrag(this.dragHost, engine, measure, x)
+      if (gesture) this.activeDrag = gesture
     },
     armDynamicDrag: (dynamicId, event) => this.armDynamicDrag(dynamicId, event),
     armTempoDrag: (tempoId, event) => this.armTempoDrag(tempoId, event),
@@ -596,33 +546,6 @@ export class MouseController {
       const score = this.getEngine()?.getScore()
       openScoreTextWindow(windows, field, score ? scoreText(score, field) : undefined)
     },
-  }
-
-  /**
-   * Arm the horizontal drag for a MOVABLE clef (every clef except the big line-start one),
-   * recovering the exact `Fraction` beat from the model — the pixel beat on the registry entry is
-   * rounded, and a drag has to move the real change.
-   *
-   * Freezes line breaks so sliding the clef re-pitches notes without reflowing the score; we settle
-   * the layout on drop.
-   */
-  private armClefDrag(clefAt: ElementInfo, event: MouseEvent): void {
-    if (clefAt.immovable || clefAt.measure === undefined) return
-    const engine = this.getEngine()
-    if (!engine) return
-    const measure = engine.getScore().measures.find(m => m.number === clefAt.measure)
-    const approxBeat = clefAt.beat ?? 0
-    const change = measure?.clefs?.find(c => Math.abs(fracToNumber(c.beat) - approxBeat) < 1e-6)
-    if (!change) return
-    this.activeDrag = { kind: 'clef', end: () => this.endClefDrag() }
-    this.draggedClefMeasure = clefAt.measure
-    this.draggedClefBeat = change.beat
-    this.draggedClefStartMeasure = clefAt.measure
-    this.draggedClefStartBeat = change.beat
-    this.clefDragStartTime = Date.now()
-    engine.setLayoutFrozen(true)
-    engine.setDraggingClef({ measure: clefAt.measure, beat: change.beat })
-    event.preventDefault()
   }
 
   /**
@@ -829,13 +752,15 @@ export class MouseController {
     //   ⚠️ Before the join square and the staff-spacing drag, for the join square's reason: a handle
     //   you can SEE has to win the press over whatever band it happens to sit in. ⭐ It selects
     //   NOTHING — the sign stays selected through the drag, which keeps its squares painted.
-    if (this.armStaffGroupSpanDrag(registry, coords.x, coords.y)) {
+    const groupResize = beginStaffGroupSpanDrag(this.dragHost, this.state, registry, coords.x, coords.y)
+    if (groupResize) {
+      this.activeDrag = groupResize
       event.preventDefault()
       return
     }
     const joinGrab = barlineJoinGrabAt(registry, coords.x, coords.y)
     if (joinGrab) {
-      this.armBarlineJoinDrag(joinGrab)
+      this.activeDrag = beginBarlineJoinDrag(this.dragHost, this.state, joinGrab)
       event.preventDefault()
       return
     }
@@ -1304,153 +1229,6 @@ export class MouseController {
     return gesture !== null
   }
 
-  /**
-   * Arm a bar-width drag on the grabbed barline: capture the room ONCE, off the last render
-   * (docs/bar-width-plan.md §4–§6). Everything the gesture needs is fixed at this moment — the
-   * slope, the measured floor, the ceiling — because a stretch changes no bar's *intrinsic* width,
-   * so none of those terms move while the drag runs. That is what makes one capture correct rather
-   * than merely cheap.
-   *
-   * **Declines silently** (leaving a plain selection) only when the room cannot be measured at all.
-   *
-   * ⚠️ It used to decline on a PINNED barline too — the one ending a system, held at the right
-   * margin by justification, which cannot follow the pointer by any amount — on the reasoning that
-   * a drag unable to track its own cursor should not start. Reported from use: stretch a bar until
-   * it fills its system and it becomes **unshrinkable**, because from then on its barline is pinned
-   * and no drag would arm. A gesture you can get into and not out of is worse than one that lags.
-   * So it arms anyway and the room answers continuously (by the bar's own music rather than by its
-   * immovable barline); the moment that shrink re-wraps the system, `reanchorIfRewrapped` picks the
-   * tracking back up. Hiding the pointer for the gesture is what makes the untracked stretch
-   * unnoticeable rather than wrong-feeling.
-   */
-  private armBarWidthDrag(engine: MusicEngine, measure: number, x: number): void {
-    this.barWidthDrag = null
-    this.barWidthDragChanged = false
-    this.isDraggingBarWidth = false
-    const room = engine.barWidthRoom(measure)
-    if (!room) {
-      // ⚠️ Was a silent return, and silence is the wrong answer here: from the outside a refusal
-      // and a working drag that happens to have no room look identical — the barline lights up and
-      // will not move. `barWidthRoom` declines on a dirty model, on a bar with nothing DRAWN (a
-      // culled bar still has a hit-box: tier 1 registers every bar in the score), and on a bar with
-      // no note space. `__barlines.boxes()` says which of those it is, for every bar at once.
-      // ⚠️ Say WHICH of the three reasons it was. `barWidthRoom` returns a bare null — "I don't
-      // know", by design — and the three causes are indistinguishable from the outside while
-      // looking identical to the user: the barline lights up and will not move. Naming them here is
-      // what turned "sometimes the drag dies" into a one-line diagnosis twice over.
-      const registry = engine.getElementRegistry()
-      const columns = registry.getByMeasure(measure)
-        .filter(el => (el.type === 'note' || el.type === 'rest') && el.beat !== undefined).length
-      dbg(`Bar width | bar ${measure} REFUSES the drag — no room. `
-        + `painted:${registry.isPainted(measure, 0)} · drawn columns:${columns} · `
-        + `geometry:${!!registry.getStaffGeometry(measure, 0)} · render stale:${engine.isRenderStale()} `
-        + '— Try __barlines.boxes()')
-      return
-    }
-    if (room.barlineSlope <= 0) {
-      dbg(`Bar width | bar ${measure} ends its system — its barline is pinned, so the drag moves the bar's own music`)
-    }
-    // ⚠️ Armed from the PRESS, before the dead zone — see {@link Gesture}: `isDraggingBarWidth` is
-    // the past-the-threshold bit, so a press that never moves still has this state to clear.
-    this.activeDrag = { kind: 'barWidth', end: () => this.endBarWidthDrag() }
-    this.barWidthDrag = { measure, room }
-    this.barWidthDragStartX = x
-    this.barWidthDragLineKey = engine.barWidthLineKey(measure)
-    dbg(`Bar width | armed on bar ${measure} · now ×${engine.getBarWidth(measure).toFixed(3)} · `
-      + `room ×${room.minStretch.toFixed(2)}…×${room.maxStretch.toFixed(2)} · `
-      + `barline slope ${room.barlineSlope.toFixed(3)} · line ${this.barWidthDragLineKey}`)
-  }
-
-  /**
-   * Bar-width drag: the grabbed barline follows the cursor, and the bar to its LEFT takes or gives
-   * up the room — with its music re-spaced proportionally, not pushed to one end.
-   *
-   * The px→stretch conversion is the room's own (`stretchForBarlineDelta`), which is why the
-   * barline lands under the pointer instead of somewhere short of it: widening a bar also shrinks
-   * its own justified share AND every bar's before it on the line. Continuous by contract — never
-   * the keyboard's `stretchForStep`, which is allowed to jump the casting-off.
-   *
-   * Returns true while the drag owns the move.
-   */
-  private handleBarWidthDrag(engine: MusicEngine, x: number): boolean {
-    // ⚠️ The session says WHICH gesture is live ({@link Gesture}); `barWidthDrag` is this one's
-    // captured room, and the second half of the test is what narrows it for the read below.
-    if (this.activeDrag?.kind !== 'barWidth' || !this.barWidthDrag) return false
-    const dx = x - this.barWidthDragStartX
-    if (!this.isDraggingBarWidth) {
-      if (Math.abs(dx) < this.NOTE_DRAG_THRESHOLD_PX) return false // still a click
-      this.isDraggingBarWidth = true
-      // Hide the pointer for the gesture. The barline follows it exactly until the system
-      // re-wraps, and at that boundary the layout genuinely moves discontinuously — no arithmetic
-      // can keep the line under a cursor that is still visible beside it. With the pointer gone the
-      // barline IS the cursor, and the jump reads as the music re-flowing rather than as a slip.
-      const canvas = this.getScoreCanvas()
-      if (canvas) canvas.style.cursor = 'none'
-    }
-    const { measure, room } = this.barWidthDrag
-    const target = room.stretchForBarlineDelta(dx)
-    if (engine.previewBarWidth(measure, target, room.minStretch, room.maxStretch)) {
-      this.barWidthDragBlocked = false
-      this.barWidthDragChanged = true
-      this.render.renderScore()
-      this.reanchorIfRewrapped(engine, measure, x)
-    } else if (!this.barWidthDragBlocked) {
-      // Once per stall, not once per frame: a mousemove fires ~60×/s and the interesting event is
-      // the TRANSITION into "the drag is armed and tracking, but the bar will not take the value".
-      this.barWidthDragBlocked = true
-      dbg(`Bar width | bar ${measure} not moving · asked ×${target.toFixed(3)} · `
-        + `clamp ×${room.minStretch.toFixed(2)}…×${room.maxStretch.toFixed(2)} · `
-        + `now ×${engine.getBarWidth(measure).toFixed(3)} · dx ${dx.toFixed(1)}px`)
-    }
-    return true
-  }
-
-  /**
-   * Re-take the room when the drag has RE-WRAPPED the system, and re-anchor to the pointer's
-   * current x.
-   *
-   * The captured room describes one casting-off: `T`, `P` and the slope are sums over the bars
-   * sharing the grabbed bar's line, and they hold only while that line holds the same bars. Push
-   * one onto the next system and the formula stops describing the picture — measured, the barline
-   * tracked the cursor to the pixel and then ran 21px ahead of it and stayed there, gaining more on
-   * every further re-wrap.
-   *
-   * The plan (§5) avoided this by refusing to re-wrap at all. A key press showed that to be the
-   * wrong trade — a gesture that seizes up at a boundary reads as broken — so the drag re-anchors
-   * instead: one jump at the boundary, which is honest (the layout really did change
-   * discontinuously, and every editor does it), then exact tracking again from wherever the barline
-   * landed. Cheap, too: this only re-reads on the frames where the system actually re-wrapped.
-   */
-  private reanchorIfRewrapped(engine: MusicEngine, measure: number, x: number): void {
-    const key = engine.barWidthLineKey(measure)
-    if (key === null || key === this.barWidthDragLineKey) return
-    const fresh = engine.barWidthRoom(measure)
-    if (!fresh) return
-    this.barWidthDrag = { measure, room: fresh }
-    this.barWidthDragStartX = x
-    this.barWidthDragLineKey = key
-    dbg(`Bar width | system re-wrapped mid-drag — re-anchored on bar ${measure} (slope ${fresh.barlineSlope.toFixed(3)})`)
-  }
-
-  /** Finish a bar-width drag: one undo entry if the barline actually moved, then reset. */
-  private endBarWidthDrag(): void {
-    if (this.barWidthDragChanged) {
-      const engine = this.getEngine()
-      if (engine && this.barWidthDrag) {
-        engine.commitBarWidth()
-        dbg(`Bar width set | bar ${this.barWidthDrag.measure} → ×${engine.getBarWidth(this.barWidthDrag.measure).toFixed(3)}`)
-      }
-    }
-    const canvas = this.getScoreCanvas()
-    if (canvas) canvas.style.cursor = ''
-    this.activeDrag = null
-    this.barWidthDrag = null
-    this.barWidthDragChanged = false
-    this.barWidthDragBlocked = false
-    this.isDraggingBarWidth = false
-    this.barWidthDragLineKey = null
-  }
-
   /** Open the in-canvas text overlay over a tempo mark — the WHOLE mark, `Allegro (♩ = 144)`,
    *  as one editable string (TempoTextSource parses the model back out of it). `seedText` opens the
    *  box with different initial text than the model holds — `''` for the blank Ctrl+Alt+T flow. */
@@ -1601,207 +1379,6 @@ export class MouseController {
   handleMouseUp(_event: MouseEvent): void {
     if (this.activeDrag?.kind === 'note') dbg(`Drag ended | note:${this.state.selectedNoteId}`)
     this.activeDrag?.end()
-  }
-
-  /** Finish a clef drag: record one undo entry if it actually moved, then reset. */
-  private endClefDrag(): void {
-    const engine = this.getEngine()
-    const moved = this.draggedClefMeasure !== null && this.draggedClefBeat !== null
-      && (this.draggedClefMeasure !== this.draggedClefStartMeasure
-        || (this.draggedClefStartBeat !== null && !fracEq(this.draggedClefBeat, this.draggedClefStartBeat)))
-    if (engine && moved && this.draggedClefMeasure !== null && this.draggedClefBeat !== null) {
-      engine.commitClefMove(this.draggedClefMeasure, this.draggedClefBeat)
-      dbg(`Clef moved | measure:${this.draggedClefMeasure} beat:${fracToNumber(this.draggedClefBeat)}`)
-    }
-    this.activeDrag = null
-    this.draggedClefMeasure = null
-    this.draggedClefBeat = null
-    this.draggedClefStartMeasure = null
-    this.draggedClefStartBeat = null
-    this.clefDragStartTime = null
-    // Clear the ghost, unfreeze, and re-render once so the layout settles (and a
-    // redundant clef, now removed by commitClefMove, is gone) at its final spot.
-    if (engine) {
-      engine.setDraggingClef(null)
-      engine.setLayoutFrozen(false)
-      this.render.renderScore()
-    }
-  }
-
-  /**
-   * ⭐⭐ **ARM THE JOIN DRAG** — a press on a selected barline's blue square, in the gap between two
-   * staves (docs/barline-join-plan.md P3). Everything the gesture needs is fixed at this moment
-   * (`barlineJoinGrabAt`), the bar-width drag's rule: the picture moves under the gesture, so a
-   * geometry re-measured per frame would be judging the drag against a score the drag is changing.
-   *
-   * ⛔ **No selection change, and no time threshold.** The barline stays selected (that is what keeps
-   * the square on screen), and there is no dead zone to tune because the decision is a POSITION and
-   * not a delta: a press that never moves is still on its own side of the gap's middle, so a click
-   * cannot flip anything.
-   */
-  /**
-   * ⭐ Arm the group-resize drag if this press landed on one of the two squares.
-   *
-   * ⚠️ The square's registered `staff` carries WHICH END it is (0 = top, 1 = bottom) — the registry
-   * has no field of its own for that, and the press has to know which end it grabbed.
-   *
-   * @returns whether the press was consumed.
-   */
-  private armStaffGroupSpanDrag(registry: ElementRegistry, x: number, y: number): boolean {
-    const selected = selectedOf(this.state, 'staffGroup')
-    if (!selected) return false
-    const hit = registry.getByType('staff-group-handle').find(el => {
-      const b = el.bbox
-      return el.id === selected.groupId
-        && x >= b.x && x <= b.x + b.width && y >= b.y && y <= b.y + b.height
-    })
-    if (!hit) return false
-
-    const engine = this.getEngine()
-    const group = engine?.getScore().staffGroups?.find(g => g.id === selected.groupId)
-    if (!engine || !group) return false
-    const staves = engine.getScore().staves ?? []
-    const indices = group.staffIds.map(id => staves.findIndex(s => s.id === id)).filter(i => i >= 0)
-    if (indices.length === 0) return false
-    const span = { fromStaff: Math.min(...indices), toStaff: Math.max(...indices) }
-
-    this.activeDrag = { kind: 'staffGroupSpan', end: () => this.endStaffGroupSpanDrag() }
-    this.staffGroupSpanDrag = {
-      groupId: selected.groupId,
-      end: (hit.staff ?? 0) === 0 ? 'top' : 'bottom',
-      measure: hit.measure ?? 1,
-      baseline: span,
-      current: span,
-    }
-    dbg(`Group resize ready | ${selected.symbol} · staves ${span.fromStaff}–${span.toStaff} · `
-      + `grabbed the ${(hit.staff ?? 0) === 0 ? 'top' : 'bottom'} square`)
-    return true
-  }
-
-  /**
-   * ⭐⭐ **THE GROUP-RESIZE DRAG** — the grabbed end follows the pointer to whichever STAFF it is
-   * over, and the other end stays put.
-   *
-   * ⭐ **The staff, ⛔ never a pixel delta**: a group spans whole staves, so the only positions the
-   * gesture can reach are staff indices — and `staffAtPointer` answers by BAND rather than by a
-   * stride, because staves may be drawn at different sizes.
-   *
-   * ⭐ **The preview IS the picture** — `previewStaffGroupSpan` writes the model without undo and the
-   * render draws the sign at its new span, so what you see mid-drag is what the drop keeps.
-   */
-  private handleStaffGroupSpanDrag(engine: MusicEngine, y: number): boolean {
-    const drag = this.staffGroupSpanDrag
-    if (this.activeDrag?.kind !== 'staffGroupSpan' || !drag) return false
-    const registry = engine.getElementRegistry()
-    const staffCount = engine.getScore().staves?.length ?? 1
-    const staff = staffAtPointer(registry, drag.measure, staffCount, y)
-    if (staff === null) return true
-    const want = spanAfterDrag(drag.current, drag.end, staff)
-    if (want.fromStaff === drag.current.fromStaff && want.toStaff === drag.current.toStaff) return true
-    if (engine.previewStaffGroupSpan(drag.groupId, want.fromStaff, want.toStaff)) {
-      drag.current = want
-      this.render.renderScore()
-    }
-    return true
-  }
-
-  /**
-   * Finish a group-resize drag: ONE undo entry, and only if the span ended up different from how it
-   * started — the join drag's rule, and for its reason.
-   */
-  private endStaffGroupSpanDrag(): void {
-    const engine = this.getEngine()
-    const drag = this.staffGroupSpanDrag
-    if (engine && drag
-      && (drag.current.fromStaff !== drag.baseline.fromStaff
-        || drag.current.toStaff !== drag.baseline.toStaff)) {
-      engine.commitStaffGroupSpan()
-      dbg(`Group resized | staves ${drag.current.fromStaff}–${drag.current.toStaff}`)
-    }
-    this.activeDrag = null
-    this.staffGroupSpanDrag = null
-  }
-
-  private armBarlineJoinDrag(grab: BarlineJoinGrab): void {
-    const engine = this.getEngine()
-    const baseline = engine?.barlineJoinsBelow(grab.staffAbove, grab.measure) ?? false
-    this.activeDrag = { kind: 'barlineJoin', end: () => this.endBarlineJoinDrag() }
-    this.barlineJoinDrag = { ...grab, baseline, current: baseline }
-    dbg(`Barline join drag ready | bar ${grab.measure} · gap below staff ${grab.staffAbove} · `
-      + `${baseline ? 'joined' : 'not joined'} · middle of the gap at y ${grab.gapMidY.toFixed(1)} · `
-      + `away is ${grab.awayIsDown ? 'down' : 'up'}`)
-  }
-
-  /**
-   * ⭐⭐ **THE JOIN DRAG** — pull the grabbed end PAST THE MIDDLE of the gap and the gap **flips**:
-   * an unjoined one joins, a joined one comes apart. Come back before the middle and it is as it was.
-   *
-   * ⭐ **The gesture is relative to the STATE, ⛔ not an absolute position** — his rule, 2026-08-28:
-   * *"the gesture should be oposite to the state"*, reported from exactly the case that proves it
-   * (grab the lower staff's square on an already-joined gap, pull away, and the absolute reading had
-   * nothing to do). {@link joinedAtPointer} carries the table.
-   *
-   * ⭐ **The preview IS the picture.** `previewBarlineJoinBelow` writes the model without undo and
-   * `renderScore` redraws, so what you see mid-drag is drawn by exactly the code that will draw it
-   * after the drop (`previewBarWidth`'s pattern — ⛔ never `GhostRenderer`, which is the table of what
-   * an armed MARKING TOOL will do to the next click).
-   *
-   * ⚠️ Writes only on a CHANGE of the boolean, so a drag that wanders inside one half of the gap
-   * costs no renders at all.
-   */
-  private handleBarlineJoinDrag(engine: MusicEngine, y: number): boolean {
-    const drag = this.barlineJoinDrag
-    if (this.activeDrag?.kind !== 'barlineJoin' || !drag) return false
-    const want = joinedAtPointer(drag, y, drag.baseline)
-    if (want === drag.current) return true
-    if (engine.previewBarlineJoinBelow(drag.staffAbove, want)) {
-      drag.current = want
-      this.moveJoinSquare(squareAtPointer(drag, y))
-      this.render.renderScore()
-    }
-    return true
-  }
-
-  /**
-   * ⭐⭐ **THE SQUARE JUMPS TO THE END THE DRAG REACHED** — his call, 2026-08-28: *"the idea is that
-   * this square teleport in the direction the user drag so is clear visually of the gesture"*.
-   *
-   * ⭐ **The selection's own `staff` + `pressedAt` ARE the lever** — they are what the highlight
-   * filters the gap's two squares by (`barlineJoinHandles`'s `offeredAt`), so moving the pair turns
-   * the grabbed square off and the far one on with ⛔ no new state, no second square drawn and no
-   * extra render: this runs on the one frame that was already re-rendering for the flip.
-   *
-   * ⚠️ **REASSIGN, never mutate** — `EditorState`'s Proxy traps the SET of a top-level field only, so
-   * `selectedElement.staff = …` would move nothing on screen.
-   *
-   * ⚠️ It does not change WHAT is selected: the barline is one system-wide boundary and this pair was
-   * never part of its identity (`EditorState`'s note on the field). Which is also why the drag may
-   * write it at all — the square stays grabbed, because the press armed a drag rather than a
-   * selection.
-   */
-  private moveJoinSquare({ staff, end }: BarlineJoinSquareEnd): void {
-    const selected = this.state.selectedElement
-    if (selected?.kind !== 'barline') return
-    if (selected.staff === staff && selected.pressedAt === end) return
-    this.state.selectedElement = { ...selected, staff, pressedAt: end }
-  }
-
-  /**
-   * Finish a join drag: ONE undo entry, and only if the gap ended up different from how it started.
-   *
-   * ⭐ A gesture that crossed the middle and came back wrote twice and changed nothing — committing
-   * that would file an undo step for a score that never moved. ⛔ So the test is `current !==
-   * baseline`, never "did anything get written".
-   */
-  private endBarlineJoinDrag(): void {
-    const engine = this.getEngine()
-    const drag = this.barlineJoinDrag
-    if (engine && drag && drag.current !== drag.baseline) {
-      engine.commitBarlineJoin()
-      dbg(`Barline join ${drag.current ? 'made' : 'removed'} | gap below staff ${drag.staffAbove}`)
-    }
-    this.activeDrag = null
-    this.barlineJoinDrag = null
   }
 
   handleClick(event: MouseEvent): void {
@@ -2407,14 +1984,10 @@ export class MouseController {
 
     // A gesture that owns its own state takes every move (`./drags/`); the chain below is the
     // gestures this controller still drives itself, one family at a time on their way out.
-    if (this.activeDrag?.move) { this.activeDrag.move(engine, x, y); return }
+    if (this.activeDrag?.move && this.activeDrag.move(engine, x, y) !== false) return
 
     // Live drag gestures — each returns true if it owns the move.
-    if (this.handleBarWidthDrag(engine, x)) return
     if (this.handleNoteDrag(engine, x, y)) return
-    if (this.handleStaffGroupSpanDrag(engine, y)) return
-    if (this.handleBarlineJoinDrag(engine, y)) return
-    if (this.handleClefDrag(engine, x, y)) return
 
     // A hand/grab pan is armed: bail before the ghost/preview logic. The pan itself is
     // driven by the document-level handlers (handleDocPanMove) so it keeps working when
@@ -2578,38 +2151,6 @@ export class MouseController {
   private armMarkEndDrag(kind: MarkEndKind, coords: { x: number; y: number }): void {
     const gesture = beginMarkEndDrag(this.dragHost, kind, selectedOf(this.state, kind), coords.x, coords.y)
     if (gesture) this.activeDrag = gesture
-  }
-
-  /**
-   * Clef drag: snap the cursor to a slot boundary in whatever measure it's over and
-   * relocate the clef there (raw move, across measures; undo on drop). Returns true
-   * while a clef drag is active.
-   */
-  private handleClefDrag(engine: MusicEngine, x: number, y: number): boolean {
-    if (!(this.activeDrag?.kind === 'clef' && this.draggedClefMeasure !== null && this.draggedClefBeat !== null)) return false
-    if (this.clefDragStartTime !== null) {
-      const elapsed = Date.now() - this.clefDragStartTime
-      if (elapsed < this.DRAG_TIME_THRESHOLD_MS) return true
-    }
-    const targetMeasure = engine.pixelToMeasure({ x, y })
-    const targetBeat = this.resolveSlotBeat(engine, x, targetMeasure)
-    if (targetMeasure !== this.draggedClefMeasure || !fracEq(targetBeat, this.draggedClefBeat)) {
-      if (engine.moveClef(this.draggedClefMeasure, this.draggedClefBeat, targetMeasure, targetBeat)) {
-        this.draggedClefMeasure = targetMeasure
-        this.draggedClefBeat = targetBeat
-        this.state.selectedElement = {
-          kind: 'clef',
-          measure: targetMeasure,
-          beat: fracToNumber(targetBeat),
-          // The staff does not move with the drag — a clef slides along its own staff.
-          staff: selectedOf(this.state, 'clef')?.staff ?? 0,
-        }
-        engine.setDraggingClef({ measure: targetMeasure, beat: targetBeat })
-        dbg(`Clef drag | measure:${targetMeasure} beat:${fracToNumber(targetBeat)}`)
-        this.render.renderScore()
-      }
-    }
-    return true
   }
 
   /**

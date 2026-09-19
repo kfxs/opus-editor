@@ -25,7 +25,7 @@ describe('beginSlurHandleDrag', () => {
     vi.useFakeTimers()
     vi.clearAllMocks()
     preview.mockReturnValue(true)
-    host = { getEngine: () => engine, render: { previewMarks: vi.fn(), renderScore: vi.fn() }, release: vi.fn() }
+    host = { getEngine: () => engine, render: { previewMarks: vi.fn(), renderScore: vi.fn() }, release: vi.fn(), setCursor: vi.fn() }
   })
   afterEach(() => vi.useRealTimers())
 

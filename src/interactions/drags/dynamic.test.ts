@@ -31,6 +31,7 @@ describe('beginDynamicDrag', () => {
       getEngine: () => engine,
       render: { previewMarks: vi.fn(() => { previews++ }), renderScore: vi.fn() },
       release: vi.fn(),
+      setCursor: vi.fn(),
     }
   })
   afterEach(() => vi.useRealTimers())

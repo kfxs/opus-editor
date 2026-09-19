@@ -1,6 +1,6 @@
 # Code shape plan — 2026-09-19
 
-**Status: IN PROGRESS — Phase 1 DONE (2026-09-19), bar item 5's two ⏭️ decisions. Phase 2 DONE. Phase 3.1: the hairpin / ottava / pedal body drags done and checked; the trill's too (`cdb7f05`); the slur's too (`69e927c`); the four SQUARE drags too (`6d903c3`); the slur HANDLE / ENDPOINT and staff-spacing drags too (`8f28f79`); the DYNAMIC and TEMPO drags done, awaiting his UI check. Five gestures are still the controller's.** Phases are ordered by
+**Status: IN PROGRESS — Phase 1 DONE (2026-09-19), bar item 5's two ⏭️ decisions. Phase 2 DONE. Phase 3.1: the hairpin / ottava / pedal body drags done and checked; the trill's too (`cdb7f05`); the slur's too (`69e927c`); the four SQUARE drags too (`6d903c3`); the slur HANDLE / ENDPOINT and staff-spacing drags too (`8f28f79`); the DYNAMIC and TEMPO drags too (`9a04f88`); bar width, barline join, group span and clef done, awaiting his UI check. Only the NOTE drag is still the controller's.** Phases are ordered by
 value over risk; each one stands alone and can be stopped after. A done item carries ✅ and what
 actually happened where that differs from what was planned.
 
@@ -287,9 +287,20 @@ Run the e2e suite either side of each step.
    the gesture with a jump). `drags/tempo.ts` is its own gesture — a SNAP measured against an
    absolute hand reference (the grab), ⛔ not a delta — and it took the exploratory `dragTrace`
    instrument with it; `drawnMarkX`, the one DOM read, is handed in by the controller. First specs
-   for both. `MouseController` kinds 594 → 489, lines 1,606 → 1,478. ⏸️ Awaiting his UI check.*
+   for both. `MouseController` kinds 594 → 489, lines 1,606 → 1,478. ✅ Passed (`9a04f88`).*
 
-   *Still the controller's own (no `move`): note, barWidth, barlineJoin, clef, staffGroupSpan.*
+   *Seventh — the four STRUCTURAL drags: `drags/barWidth.ts`, `barlineJoin.ts`,
+   `staffGroupSpan.ts`, `clef.ts`, each its own gesture (none is a delta-through-the-music walk,
+   so neither helper fits). The contract grew twice for them: `Gesture.move` may answer `false` —
+   "not mine yet" — so a bar-width press still inside its dead zone lets the plain move carry on
+   (the hover, the ghost), as it always did; and `DragHost.setCursor`, for the bar-width drag's
+   hidden pointer. The clef's slot resolver is the controller's (the marking tools share it) and is
+   handed in. The event-driven `MouseController.barWidthDrag` / `.barlineJoinDrag` /
+   `.dragRelease` specs passed UNCHANGED; clef and group span had no spec and got their first.
+   `MouseController` kinds 489 → 383, lines 1,478 → 1,228. ⏸️ Awaiting his UI check.*
+
+   *Still the controller's own (no `move`): the NOTE drag — the biggest, entangled with pitch
+   preview and the note-spacing axis.*
 2. **A `keys` column on `ELEMENT_SPECS`** — `{ nudge, reset }` first — and one dispatcher.
    Replaces the four `||` chains and the 61 closures.
 

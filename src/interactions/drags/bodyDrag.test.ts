@@ -27,6 +27,7 @@ describe('beginBodyDrag', () => {
         renderScore: vi.fn(() => { order.push('render') }),
       },
       release: vi.fn(() => { order.push('release') }),
+      setCursor: vi.fn(),
     }
     spec = {
       kind: 'pedalBody', family: 'pedal', label: 'Pedal', step,

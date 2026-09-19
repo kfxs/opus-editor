@@ -23,7 +23,7 @@ describe('beginSlurEndpointDrag', () => {
     vi.useFakeTimers()
     vi.clearAllMocks()
     walk.dragArmedSlurEndpoint.mockReturnValue({ crossings: 0, gapAhead: 0, latched: false, discarded: 0 })
-    host = { getEngine: () => engine, render: { previewMarks: vi.fn(), renderScore: vi.fn() }, release: vi.fn() }
+    host = { getEngine: () => engine, render: { previewMarks: vi.fn(), renderScore: vi.fn() }, release: vi.fn(), setCursor: vi.fn() }
   })
   afterEach(() => vi.useRealTimers())
 

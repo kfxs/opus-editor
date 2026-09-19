@@ -32,7 +32,7 @@ describe('beginStaffSpacingDrag', () => {
     preview.mockReturnValue(true)
     lineSpacing = 10
     stored = 2
-    host = { getEngine: () => engine, render: { previewMarks: vi.fn(), renderScore: vi.fn() }, release: vi.fn() }
+    host = { getEngine: () => engine, render: { previewMarks: vi.fn(), renderScore: vi.fn() }, release: vi.fn(), setCursor: vi.fn() }
   })
   afterEach(() => vi.useRealTimers())
 
