@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect } from 'vitest'
-import { Modifier } from 'vexflow'
+import { MODIFIER_POSITION } from './EngravedModifier'
 import { fanArticulationPosition } from './fanArticulations'
 
 /**
@@ -14,8 +14,8 @@ import { fanArticulationPosition } from './fanArticulations'
  * The side is different: it is a decision, not a measurement.
  */
 
-const BELOW = Modifier.Position.BELOW
-const ABOVE = Modifier.Position.ABOVE
+const BELOW = MODIFIER_POSITION.BELOW
+const ABOVE = MODIFIER_POSITION.ABOVE
 
 describe('fanArticulationPosition', () => {
   it('takes the NOTE-HEAD side — opposite the stem', () => {

@@ -69,7 +69,6 @@ const ALLOWED = new Map([
   ['engine/rendering/VexFlowRenderer.ts', 'OWNS the context: it is the one that creates it'],
   ['engine/rendering/glyphPainter.ts', 'THE ADAPTER — the one place VexFlow still paints a glyph'],
   ['engine/rendering/barVoice.ts', 'S9i: `Voice.draw` transcribed — hands the notes the context they still paint themselves on (was `voice.draw(this.context!)` in VexFlowRenderer); goes with S12/S13'],
-  ['engine/rendering/fanArticulations.ts', 'P3: a stand-in `Articulation` placed on a swallowing probe context — the INK is ours since S10 (`glyphPainter`)'],
   ['engine/rendering/ScoreTuplet.ts', 'holds `Element`s across layout and draw — see glyphPainter'],
   ['engine/rendering/markPreviewPass.ts', 'reads the context STATE; prose only, plus one cast'],
   ['engine/rendering/TempoLayout.ts', 'its runs resolve two font categories — see glyphPainter'],

@@ -36,4 +36,13 @@ describe('EngravedArticulation', () => {
     mark.setOrigin(0.5, 0.5)
     expect(Number.isNaN(mark.getXShift())).toBe(true)
   })
+
+  it('⭐ its ink is the placed point with the shifts folded in — and `moveX` carries it along the staff (the fan)', () => {
+    const mark = new EngravedArticulation('a-').setPosition('right')
+    mark.setXShift(2).setYShift(3)
+    mark.moveX(10)
+    const ink = mark.inkAt()
+    expect([ink.x, ink.y]).toEqual([12, 3])
+    expect(ink.glyph.codePointAt(0)!.toString(16)).toBe('e4a5') // not ABOVE ⇒ its below glyph
+  })
 })

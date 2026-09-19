@@ -58,7 +58,7 @@
 import type { StaveNote } from 'vexflow'
 import type { DrawContext } from '@/engine/paint/DrawContext'
 import { MUSIC_FONT_SIZE_PT, MUSIC_GLYPH_FONT } from '@/engine/engrave/inheritedFonts'
-import { drawArticulation } from '@/engine/engrave/notes/articulation'
+import { drawArticulation, type ArticulationInk } from '@/engine/engrave/notes/articulation'
 import { ARTICULATION_OUTSIDE_ROW, placeArticulation } from '@/engine/engrave/notes/articulationPlacement'
 import { textRowAboveY, textRowBelowY } from '@/engine/engrave/staff/staffFrame'
 import { GLYPH_CODEPOINTS, type GlyphName } from '@/engine/fonts/bravuraMetrics'
@@ -167,11 +167,13 @@ export class EngravedArticulation extends EngravedModifier implements InkSurface
     return this
   }
 
-  /** ⭐ **OURS** — `Articulation.draw`: where the mark stands (`engrave/notes/articulationPlacement`), then its ink. */
-  draw(): void {
-    const context = this.checkContext()
+  /**
+   * ⭐ **WHERE IT STANDS** — `Articulation.draw` up to its ink: the placement
+   * (`engrave/notes/articulationPlacement`), the centring, and the write-back of `x`/`y`. Called by
+   * {@link draw}, and alone by the fan's stand-in (`./fanArticulations`), which paints the ink itself.
+   */
+  place(): void {
     const note = this.checkAttachedNote() as StaveNote
-    this.setRendered()
     const index = this.checkIndex()
     if (note.getCategory() === 'TabNote') throw new Error('EngravedArticulation: a mark on a TabNote is not transcribed.')
     const side = this.position === MODIFIER_POSITION.ABOVE ? 'above' : this.position === MODIFIER_POSITION.BELOW ? 'below' : null
@@ -199,14 +201,31 @@ export class EngravedArticulation extends EngravedModifier implements InkSurface
     if (centred) this.setOrigin(0.5, 0.5)
     this.x = x
     this.y = y
+  }
 
-    drawArticulation(this.inkSurface ?? context, {
+  /** Move the placed mark along the staff — the fan's stand-in, carried onto the head it stands for. */
+  moveX(dx: number): this {
+    this.x += dx
+    return this
+  }
+
+  /** The ink the mark makes where it was placed — the stamp point with its shifts folded in. */
+  inkAt(): ArticulationInk {
+    return {
       glyph: this.getText(),
       x: this.x + this.xShift,
       y: this.y + this.yShift,
       font: MUSIC_GLYPH_FONT,
       id: this.getAttribute('id')!,
-    })
+    }
+  }
+
+  /** ⭐ **OURS** — `Articulation.draw`: {@link place}, then the ink in a group of its own. */
+  draw(): void {
+    const context = this.checkContext()
+    this.setRendered()
+    this.place()
+    drawArticulation(this.inkSurface ?? context, this.inkAt())
   }
 }
 

@@ -1,11 +1,12 @@
-import {
-  Articulation, Modifier, ModifierContext, StaveNote, TickContext,
-  type RenderContext, type Stave,
-} from 'vexflow'
+import { TickContext, type Stave } from 'vexflow'
 import type { ArticulationType, Clef } from '@/types/music'
 import { ARTICULATION_RENDER_ORDER } from './NoteBuilder'
 import type { DrawContext } from '@/engine/paint/DrawContext'
-import { paintElementText } from './glyphPainter'
+import { stampGlyph } from '@/engine/engrave/glyph'
+import { EngravedNote } from './EngravedNote'
+import { EngravedArticulation } from './EngravedArticulation'
+import { attachModifier, MODIFIER_POSITION, type ModifierPositionValue } from './EngravedModifier'
+import { ColumnModifiers } from './modifierColumns'
 
 /**
  * ⭐ **Every member of a fan wears its OWN articulations.**
@@ -41,6 +42,13 @@ import { paintElementText } from './glyphPainter'
  * ⚠️ `setX` before the real render is not optional — a `Modifier` drawn at explicit coordinates
  * without its own x/y set drags the note's bounding box to zero, silently
  * (reference_vexflow_modifier_bbox_needs_x_y).
+ *
+ * ⭐ **S12f2 — the stand-in is OURS now, and so is the rule it runs.** The throwaway note is an
+ * `EngravedNote`, the marks `EngravedArticulation`s, the column our `ColumnModifiers` — the same
+ * classes and rules as member 0's (`engrave/notes/articulationStack`, `articulationPlacement`), so the
+ * placement has ONE owner again. No probe context any more: the mark is PLACED (`place()`), moved onto
+ * the member's head, and its glyph stamped with no group of its own, as `paintElementText` did.
+ * ⚠️ The tick context is still VexFlow's `TickContext` — it goes with the note (S12j).
  */
 
 /** VexFlow's articulation codes, by our type — the same table `NoteBuilder` uses. */
@@ -49,12 +57,6 @@ const ARTICULATION_VEX_CODES: Record<ArticulationType, string> = {
   staccato: 'a.',
   tenuto: 'a-',
 }
-
-/** Swallows the ink while `Articulation.draw` works out where it would have gone. */
-const PROBE_CONTEXT = {
-  setFont: () => PROBE_CONTEXT,
-  fillText: () => {},
-} as unknown as RenderContext
 
 /**
  * The side a member's marks sit on when the member has not been flipped itself — the AUTO rule, and
@@ -74,10 +76,10 @@ const PROBE_CONTEXT = {
 export function fanArticulationPosition(
   stemDirection: number,
   forcedStemDirection?: number,
-): number {
+): ModifierPositionValue {
   return forcedStemDirection !== undefined
-    ? (forcedStemDirection === 1 ? Modifier.Position.ABOVE : Modifier.Position.BELOW)
-    : (stemDirection === 1 ? Modifier.Position.BELOW : Modifier.Position.ABOVE)
+    ? (forcedStemDirection === 1 ? MODIFIER_POSITION.ABOVE : MODIFIER_POSITION.BELOW)
+    : (stemDirection === 1 ? MODIFIER_POSITION.BELOW : MODIFIER_POSITION.ABOVE)
 }
 
 /** One drawn member mark, for the caller to register — its kind and the ink it occupies. */
@@ -110,14 +112,14 @@ export function drawFanMemberArticulations(
   ctx: DrawContext,
   stave: Stave,
   target: FanMemberArticulationTarget,
-  opts: { position: number; stemDirection: number },
+  opts: { position: ModifierPositionValue; stemDirection: number },
 ): PlacedFanArticulation[] {
   if (!target.types.length || !target.keys.length) return []
 
   // ⭐ The member's OWN side wins over the group's. Flipping the owner used to flip all six, which
   // is what one side per gesture means and not what a fan is.
-  const position = target.placement === 'above' ? Modifier.Position.ABOVE
-    : target.placement === 'below' ? Modifier.Position.BELOW
+  const position = target.placement === 'above' ? MODIFIER_POSITION.ABOVE
+    : target.placement === 'below' ? MODIFIER_POSITION.BELOW
       : opts.position
 
   // Closest-to-the-head first, the order `NoteBuilder` adds them in — so a member's stack reads the
@@ -128,7 +130,7 @@ export function drawFanMemberArticulations(
 
   // The stand-in: the member's own pitches, clef, stem direction and stem LENGTH, so everything the
   // formatter reads about this note is true of the head we actually drew.
-  const probe = new StaveNote({ keys: target.keys, duration: 'q', clef: target.clef })
+  const probe = new EngravedNote({ keys: target.keys, duration: 'q', clef: target.clef })
   probe.setStave(stave)
   probe.setTickContext(new TickContext())
   // 🚨 LENGTH BEFORE DIRECTION, and it is not a style choice. `setStemLength` only records an
@@ -140,21 +142,21 @@ export function drawFanMemberArticulations(
   probe.setStemDirection(opts.stemDirection)
 
   const marks = sorted.map((t) => {
-    const art = new Articulation(ARTICULATION_VEX_CODES[t])
+    const art = new EngravedArticulation(ARTICULATION_VEX_CODES[t])
     // BEFORE the note sees it: this is what swaps `aboveCode`/`belowCode` (`setPosition` calls
     // `reset`), so the mark wears the glyph of the side it is actually on and not its mirror.
     art.setPosition(position)
-    probe.addModifier(art, 0)
+    attachModifier(probe, art, 0)
     return art
   })
 
-  // The library's own stacking — `StaveNote.preFormat` runs the modifier context's, which runs
-  // `Articulation.format`, which spaces the marks off each glyph's measured height.
+  // The column's stacking — `StaveNote.preFormat` runs our column's, which runs the articulation rule
+  // (`engrave/notes/articulationStack`), which spaces the marks off each glyph's measured height.
   //
   // ⚠️ ORDER. The modifiers go on FIRST and the note is formatted LAST: `getModifierStartXY` throws
   // `UnformattedNote` on a note that was never pre-formatted, and that throw takes the WHOLE
   // measure's render down with it — the bar simply does not draw.
-  const mc = new ModifierContext()
+  const mc = new ColumnModifiers()
   probe.addToModifierContext(mc)
   probe.preFormat()
 
@@ -164,10 +166,11 @@ export function drawFanMemberArticulations(
   const placed: PlacedFanArticulation[] = []
   for (let i = 0; i < marks.length; i++) {
     const art = marks[i]
-    art.setContext(PROBE_CONTEXT).draw() // computes x/y (and the origin shifts) — ink discarded
-    art.setX(art.getX() + dx)
-    // ⭐ S10 — the ink on OUR surface, the mark's own glyph, face and shifts (`glyphPainter`).
-    paintElementText(ctx, art)
+    art.place() // x/y and the origin shifts — the placement member 0 got
+    art.moveX(dx)
+    // The ink on OUR surface, the mark's own glyph, face and shifts — ⚠️ with no group of its own.
+    const ink = art.inkAt()
+    stampGlyph(ctx, ink.glyph, ink.x, ink.y, ink.font)
     // The rect the CALLER registers, so a member's mark can be clicked like the owner's. Taken from
     // the glyph the same way the owner's is (`modifier.getBoundingBox()`), and only after the draw —
     // geometry is only real once the ink is down.
