@@ -78,3 +78,16 @@ export function ticksEqual(a: TickCount, b: TickCount): boolean {
 export function ticksValue(count: TickCount): number {
   return count.numerator / count.denominator
 }
+
+/**
+ * A note's ticks as a value — the count, ⛔ unreduced, and what it comes to (`value()`, as VexFlow's
+ * `Fraction.value`). ⭐ S12j-c: what `EngravedNote.getTicks` hands out, so a reader that still asks
+ * `.value()` gets the same answer it got from VexFlow's `Fraction`.
+ */
+export class NoteTicks implements TickCount {
+  constructor(public numerator: number, public denominator: number) {}
+
+  value(): number {
+    return this.numerator / this.denominator
+  }
+}

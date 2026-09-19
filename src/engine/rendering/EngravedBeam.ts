@@ -28,6 +28,7 @@
  * ⛔ VexFlow's `flatBeams`, stemlets, `secondaryBreakTicks`, `autoStem` and tablature branches are not
  * carried: nothing in this editor reaches them.
  */
+import { ticksValue } from '@/engine/layout/tickCount'
 import { Stem } from 'vexflow'
 import type { Beam, StaveNote } from 'vexflow'
 import type { DrawContext } from '@/engine/paint/DrawContext'
@@ -243,7 +244,7 @@ export class EngravedBeam {
     return beamLineSpans({
       notes: this.notes.map(note => ({
         lineX: beamLineStartX(note.getStemX(), STEM_THICKNESS_PX),
-        ticks: note.getTicks().value(),
+        ticks: ticksValue(note.getTicks()),
         intrinsicTicks: note.getIntrinsicTicks(),
       })),
       levelDenominator: Number(duration),

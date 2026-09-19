@@ -321,7 +321,7 @@ function softmaxInputs(voices: readonly BarVoice[], columns: TickColumns) {
       const i = tickables.push({
         column: c,
         voice,
-        ticks: t.getTicks().value(),
+        ticks: ticksValue(t.getTicks()),
         xShift: t.getXShift(),
         notePx: metrics.notePx,
         modLeftPx: metrics.modLeftPx,
@@ -353,7 +353,7 @@ function softmaxInputs(voices: readonly BarVoice[], columns: TickColumns) {
     const ticksUsed = ticksValue(voice.ticksUsed)
     // `Voice.reCalculateExpTicksUsed`, in its order — a sum is not associative in floating point.
     const expTicksUsed = voice.tickables
-      .map(t => Math.pow(SOFTMAX_FACTOR, t.getTicks().value() / ticksUsed))
+      .map(t => Math.pow(SOFTMAX_FACTOR, ticksValue(t.getTicks()) / ticksUsed))
       .reduce((a, b) => a + b, 0)
     return { ticksUsed, totalTicks: ticksValue(voice.totalTicks), expTicksUsed }
   })

@@ -51,6 +51,9 @@
  * ⏭️ the moment a ledger number changes, the ghost has to come with it.
  */
 import { NoteHead, StaveNote, Stem } from 'vexflow'
+import type { Fraction } from 'vexflow'
+import { NoteTicks, type TickCount } from '@/engine/layout/tickCount'
+import type { ScoreTuplet } from './ScoreTuplet'
 import type { DrawGroup } from '@/engine/paint/DrawGroup'
 import { drawGroupOf, svgNode } from './svgDrawGroup'
 import { EngravedHead } from './EngravedHead'
@@ -128,6 +131,9 @@ export function columnVoiceNoteOf(note: EngravedNote): ColumnVoiceNote {
     voiceKey: barVoiceOf(note),
   }
 }
+
+/** The tuplet type VexFlow's note signatures speak — ONE name for the seam (S12j-c); ours is `ScoreTuplet`. */
+type NoteTuplet = NonNullable<ReturnType<StaveNote['getTuplet']>>
 
 /** One entry of the sorted list: a key row and the place it has in the note's own key order. */
 type SortedKeyRow = { keyProps: KeyRow & { line: number }; index: number }
@@ -396,6 +402,89 @@ export class EngravedNote extends StaveNote {
   private ledgerOverhang: number = LEDGER_OVERHANG_PX
 
   /**
+   * ⭐⭐ **S12j-c — THE NOTE'S TICKS ARE OURS.** How long it counts in the bar: its intrinsic length (the
+   * duration and dots, `Note.parseNoteStruct`'s), times a MULTIPLIER that tuplets and two-note tremolos
+   * scale — VexFlow's `Tickable` bookkeeping, transcribed in the unreduced arithmetic of
+   * `layout/tickCount` (VexFlow's `Fraction.multiply` never reduces either: a column is keyed by a
+   * numerator). ⚠️ `declare`d, never initialised: VexFlow's `Note` constructor calls
+   * {@link setIntrinsicTicks} BEFORE this class's fields exist, and an initialiser would wipe it.
+   */
+  declare private intrinsicTicksOurs: number | undefined
+  declare private tickMultiplierOurs: TickCount | undefined
+  declare private ticksOurs: NoteTicks | undefined
+  declare private tupletStackOurs: ScoreTuplet[] | undefined
+  declare private tupletOurs: ScoreTuplet | undefined
+
+  /** `Tickable.setIntrinsicTicks`: the length before any tuplet, and the ticks it now comes to. */
+  override setIntrinsicTicks(intrinsicTicks: number): void {
+    this.intrinsicTicksOurs = intrinsicTicks
+    this.recountTicks()
+  }
+
+  override getIntrinsicTicks(): number {
+    return this.intrinsicTicksOurs ?? 0
+  }
+
+  /** `Tickable.applyTickMultiplier`: scale by `numerator / denominator`, ⛔ unreduced. */
+  override applyTickMultiplier(numerator: number, denominator: number): void {
+    const multiplier = this.tickMultiplierOurs ?? { numerator: 1, denominator: 1 }
+    this.tickMultiplierOurs = { numerator: multiplier.numerator * numerator, denominator: multiplier.denominator * denominator }
+    this.recountTicks()
+  }
+
+  override getTickMultiplier(): Fraction {
+    const { numerator, denominator } = this.tickMultiplierOurs ?? { numerator: 1, denominator: 1 }
+    return new NoteTicks(numerator, denominator) as unknown as Fraction
+  }
+
+  /** The note's ticks — `numerator`/`denominator` unreduced, and `value()`. ⚠️ The ONE cast to VexFlow's type. */
+  override getTicks(): Fraction {
+    return (this.ticksOurs ?? new NoteTicks(0, 1)) as unknown as Fraction
+  }
+
+  private recountTicks(): void {
+    const multiplier = this.tickMultiplierOurs ?? { numerator: 1, denominator: 1 }
+    this.ticksOurs = new NoteTicks(multiplier.numerator * (this.intrinsicTicksOurs ?? 0), multiplier.denominator)
+  }
+
+  /** `Tickable.setTuplet`: onto the stack, and the ticks scaled by it (`notesOccupied / noteCount`). */
+  override setTuplet(tuplet: NoteTuplet): this {
+    const ours = tuplet as unknown as ScoreTuplet | undefined
+    if (ours) {
+      const stack = (this.tupletStackOurs ??= [])
+      stack.push(ours)
+      this.applyTickMultiplier(ours.getNotesOccupied(), ours.getNoteCount())
+    }
+    this.tupletOurs = ours
+    return this
+  }
+
+  override getTuplet(): NoteTuplet | undefined {
+    return this.tupletOurs as unknown as NoteTuplet | undefined
+  }
+
+  override getTupletStack(): NoteTuplet[] {
+    return (this.tupletStackOurs ??= []) as unknown as NoteTuplet[]
+  }
+
+  /** `Tickable.resetTuplet` — ⚠️ nothing in this editor calls it; transcribed so an inherited copy never runs. */
+  override resetTuplet(tuplet?: NoteTuplet): this {
+    const stack = (this.tupletStackOurs ??= [])
+    const unscale = (t: ScoreTuplet) => this.applyTickMultiplier(t.getNoteCount(), t.getNotesOccupied())
+    if (tuplet) {
+      const ours = tuplet as unknown as ScoreTuplet
+      const i = stack.indexOf(ours)
+      if (i !== -1) {
+        stack.splice(i, 1)
+        unscale(ours)
+      }
+      return this
+    }
+    while (stack.length) unscale(stack.pop()!)
+    return this
+  }
+
+  /**
    * ⭐ P3c — the note's stem is one of ours, so its ink comes back with the rest.
    *
    * ⚠️ Called from `StaveNote`'s CONSTRUCTOR, before this subclass's own field initialisers have
@@ -452,11 +541,10 @@ export class EngravedNote extends StaveNote {
    * fan's own note can never disagree about the same three pitches"*. ⭐ They cannot disagree now
    * because there is only one walk: this override is the second caller it was waiting for.
    *
-   * ⚠️ **The head OBJECTS stay VexFlow's, and only the RULE moved.** P3d's note against overriding
-   * this method was about taking the head's INK — *"copying that loop to change one constructor would
-   * re-import the dependency under another name"*. That still holds and is still not done: the ink is
-   * {@link EngravedNote.drawNoteHeads}'s, the rule is the module's, and the forty lines in between are
-   * gone rather than copied.
+   * ⭐ **And since S12j-a the head OBJECTS are ours too** (`./EngravedHead`) — P3d's worry, *"copying
+   * that loop to change one constructor would re-import the dependency under another name"*, is
+   * answered by the head being a small class of ours rather than VexFlow's `NoteHead` re-created: the
+   * ink is {@link EngravedNote.drawNoteHeads}'s, the rule is the module's, the object is `EngravedHead`.
    *
    * ⚠️ **Called from `StaveNote`'s CONSTRUCTOR** (through `reset()`), so it reads only the base's state.
    * It also runs again on every `reset()` — after `setKeyLine` moves a voice's rest, or `setBeam` —

@@ -21,7 +21,11 @@
  * about an origin.
  */
 import { describe, it, expect } from 'vitest'
-import { Formatter, Renderer, Stave, Voice } from 'vexflow'
+import { Renderer } from 'vexflow'
+import { EngravedStave } from './EngravedStave'
+import { BarVoice, drawBarVoice } from './barVoice'
+import { attachModifierColumns } from './modifierColumns'
+import { formatColumns } from './columnFormat'
 import { EngravedNote } from './EngravedNote'
 import { noteRuler } from './noteRuler'
 import { requireNoteFrame } from './staveFrame'
@@ -34,13 +38,14 @@ function drawnNotes(durations: string[], keys = ['c/5']): EngravedNote[] {
   const renderer = new Renderer(div, Renderer.Backends.SVG)
   renderer.resize(500, 200)
   const context = renderer.getContext()
-  const stave = new Stave(10, 40, 400)
+  const stave = new EngravedStave(10, 40, 400)
   stave.setContext(context).draw()
   const notes = durations.map(duration => new EngravedNote({ keys, duration }))
-  const voice = new Voice({ numBeats: durations.length, beatValue: 4 }).setStrict(false)
-  voice.addTickables(notes)
-  new Formatter().joinVoices([voice]).format([voice], 300)
-  voice.draw(context, stave)
+  // ⭐ The score's own pipeline (S9–S12): our voice, columns and formatter — not VexFlow's.
+  const voice = new BarVoice({ numerator: durations.length, denominator: 4 }, 'soft').addAll(notes)
+  attachModifierColumns([voice])
+  formatColumns([voice], 300)
+  drawBarVoice(voice, context, stave)
   return notes
 }
 

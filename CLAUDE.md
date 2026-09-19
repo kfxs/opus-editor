@@ -165,6 +165,10 @@ src/
                           #   tremolo/annotation extend it. `attachModifier` is the ONE cast into
                           #   `note.addModifier` — ⛔ never `note.addModifier(ours)` in your own file;
                           #   likewise `staveFrame.standOn`/`staveOf` for a stave, `stemOf` for a stem)
+                          #   + EngravedHead (S12j-a — a notehead as ours, in the note and the fan) —
+                          #   and a note's TICKS are ours (S12j-c, `EngravedNote` over `layout/tickCount`,
+                          #   ⛔ unreduced); `columnFormat.TickColumn` / `modifierColumns.ColumnModifiers`
+                          #   are plain classes since S12j-b (`fileInColumn` the one cast in)
                           #   + staveFrame / noteRuler / signRun (⭐⭐ THE ONE PLACES a stave (ours since
                           #   S12h) / a `StaveNote` is asked where its lines, bar, heads, stem or signs are —
                           #   docs/vexflow-removal-map.md S2/S3. ⚠️ LIVE getters, ⛔ never a
