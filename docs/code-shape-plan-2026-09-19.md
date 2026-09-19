@@ -1,6 +1,6 @@
 # Code shape plan — 2026-09-19
 
-**Status: IN PROGRESS — Phase 1 DONE (2026-09-19), bar item 5's two ⏭️ decisions. Phase 2 DONE. Phase 3.1: the hairpin / ottava / pedal body drags done and checked; the trill's too (`cdb7f05`); the slur's too (`69e927c`); the four SQUARE drags too (`6d903c3`); the slur HANDLE / ENDPOINT and staff-spacing drags too (`8f28f79`); the DYNAMIC and TEMPO drags too (`9a04f88`); bar width, barline join, group span and clef too (`ee31698`); the NOTE drag too (`7d2898e`) — every gesture is a module. **Phase 3.1 DONE** (`25f70a6`). 3.2 started: the `keys` column + dispatcher, and the HAIRPIN family on it — awaiting his UI check.** Phases are ordered by
+**Status: IN PROGRESS — Phase 1 DONE (2026-09-19), bar item 5's two ⏭️ decisions. Phase 2 DONE. Phase 3.1: the hairpin / ottava / pedal body drags done and checked; the trill's too (`cdb7f05`); the slur's too (`69e927c`); the four SQUARE drags too (`6d903c3`); the slur HANDLE / ENDPOINT and staff-spacing drags too (`8f28f79`); the DYNAMIC and TEMPO drags too (`9a04f88`); bar width, barline join, group span and clef too (`ee31698`); the NOTE drag too (`7d2898e`) — every gesture is a module. **Phase 3.1 DONE** (`25f70a6`). 3.2: the `keys` column + dispatcher and the HAIRPIN on it (`e61626a`); OTTAVA / PEDAL / TRILL on it, awaiting his UI check.** Phases are ordered by
 value over risk; each one stands alone and can be stopped after. A done item carries ✅ and what
 actually happened where that differs from what was planned.
 
@@ -335,8 +335,23 @@ Run the e2e suite either side of each step.
    not disjoint (an armed square against the whole mark) is one kind, and its module decides.
    `dx`/`dy` are SCREEN staff-spaces, so a kind with its own convention (the tempo's outward `y`)
    converts inside its row. First family: the HAIRPIN — `elements/hairpinKeys.ts` replaced four
-   closures and 17 chain links. `shortcutWiring` kinds 465 → 406. ⏸️ Awaiting his UI check.*
-   *Still in the chains: slur, ottava, pedal, trill, dynamic, tempo, clef offset — and the three
+   closures and 17 chain links. `shortcutWiring` kinds 465 → 406. ✅ Passed (`e61626a`).*
+
+   *Second — OTTAVA, PEDAL and TRILL, and ⛔ not three modules: their twelve closures were already
+   thin wrappers over `spanMarkKeys.ts`'s generic verbs reading `SPAN_MARK_TOOLS`, so the family
+   gets ONE factory, `spanMarkKeys(kind)`, and each element row is `keys: spanMarkKeys('pedal')`.
+   The one thing the closures knew that the table did not — which commit a key RUN settles with —
+   became two columns, `commitEnd` / `commitWhole` (⚠️ a trill's whole-mark run commits through
+   its START). 12 closures and 54 chain links gone; `shortcutWiring` kinds 406 → 310, lines
+   781 → 683.*
+
+   *🚨 A slip worth keeping: my scripted edit dropped `keys:` INSIDE a multi-line `highlight` body,
+   where it parses as a LABELLED STATEMENT. `tsc` accepts that, and a lost row is silent at
+   runtime — the dispatcher declines and the key falls through to the pitch edit. The
+   event-driven `shortcutWiring.pedalOffset` / `.ottavaOffset` specs caught it (16 red); the lint
+   would have too (`no-unused-labels`), had I run it before them. `chain.test.ts` now pins WHICH
+   kinds answer the keys by name, and that every such row has both verbs. ⏸️ Awaiting his UI check.*
+   *Still in the chains: slur, dynamic, tempo, clef offset — and the three
    that key off the NOTE selection rather than `selectedElement` (rest, note spacing, bar width),
    which stay where they are.*
 

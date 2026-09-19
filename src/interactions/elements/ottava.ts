@@ -17,6 +17,7 @@ import { dbg } from '@/utils/debug'
 import type { ClickableElementSpec } from './chain'
 import { distToSegment } from './slur'
 import { beginOttavaBodyDrag } from '../drags/ottavaBody'
+import { spanMarkKeys } from '../spanMarkKeys'
 
 /** A few px of grace at the edges — the pad the slur, hairpin and trill already share. */
 const PAD = 7
@@ -64,4 +65,5 @@ export const OTTAVA_ELEMENT: ClickableElementSpec = {
     h.applyAnchorGuideLine()
     h.applyOttavaHandles()
   },
+  keys: spanMarkKeys('ottava'),
 }

@@ -1,7 +1,8 @@
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { SpanMarkKind } from '../engine/models/spanMarkModel'
-import { selectedOf, type EditorState } from './EditorState'
+import { selectedOf, type EditorState, type SelectedElement } from './EditorState'
 import { SPAN_MARK_TOOLS } from './spanMarkTools'
+import type { ElementKeys } from './elements/keys'
 
 /**
  * ⭐⭐ **THE KEYS THAT MOVE A SELECTED SPAN MARK** — the arrows, `Ctrl+Backspace` and `Tab`, for the
@@ -116,4 +117,32 @@ export function cycleSpanMarkEnd(
 ): boolean {
   if (!engine) return false
   return SPAN_MARK_TOOLS[kind].cycleEnd(state, engine.getElementRegistry(), step)
+}
+
+/**
+ * ⭐ **A span mark's row of the `keys` column** (`./elements/keys`) — the verbs above, asked by the
+ * arrows through the selected element's own spec. One factory for the family: what a kind adds is
+ * its row of {@link SPAN_MARK_TOOLS}, ⛔ not a module of its own.
+ *
+ * A HORIZONTAL press that landed is a key RUN — previewed, settled once with the row's commit
+ * (`KeysCtx.afterMarkPress`); a vertical one renders at once.
+ */
+export function spanMarkKeys(kind: SpanMarkKind): ElementKeys<Extract<SelectedElement, { kind: SpanMarkKind }>> {
+  const tools = SPAN_MARK_TOOLS[kind]
+  return {
+    nudge({ engine, state, afterMarkPress }, { id, endpoint }, dx, dy) {
+      const moved = endpoint
+        ? nudgeArmedSpanMarkEnd(kind, state, engine, dx, dy)
+        : nudgeSelectedSpanMark(kind, state, engine, dx, dy)
+      if (moved) {
+        afterMarkPress(kind, id, dx, dy, () => (endpoint ? tools.commitEnd(engine, endpoint) : tools.commitWhole(engine)))
+      }
+      return moved
+    },
+    reset({ engine, state, render }, { endpoint }) {
+      const was = endpoint ? resetArmedSpanMarkEnd(kind, state, engine) : resetSelectedSpanMark(kind, state, engine)
+      if (was) render()
+      return was
+    },
+  }
 }

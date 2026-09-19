@@ -98,6 +98,14 @@ export interface SpanMarkToolSpec {
 
   /** Drop every nudge the mark carries. DECLINEs when it carries none. */
   resetWhole(engine: MusicEngine, id: string): boolean
+  /**
+   * Record the ONE undo entry a key RUN owes — a held arrow previews each repeat and settles once
+   * (`./keyRun`), and these are what the settle calls: for an armed square, and for the whole mark.
+   * ⚠️ A trill's whole-mark run commits through its START: the ornament has one drag commit, which
+   * takes the end that was held.
+   */
+  commitEnd(engine: MusicEngine, which: SpanMarkEnd): void
+  commitWhole(engine: MusicEngine): void
 
   /** `Tab` / `Shift+Tab`: arm the next drawn square. DECLINEs when this kind is not the selected one
    *  or its squares are not drawn — the caller CHAINS on a false. */
@@ -145,6 +153,8 @@ export const SPAN_MARK_TOOLS: { [K in SpanMarkKind]: SpanMarkToolSpec } = {
     walkWhole: (engine, id, dx) => walkPedalBody(engine, id, dx),
     resetEnd: (engine, id, which) => engine.resetPedalEndpointOffset(id, which),
     resetWhole: (engine, id) => engine.resetPedalOffset(id),
+    commitEnd: (engine, which) => engine.commitPedalDrag(which),
+    commitWhole: engine => engine.commitPedalOffsetDrag(),
     cycleEnd: (state, registry, step) => cyclePedalEndpoint(state, registry, step),
 
     // ⛔ No conversion, ever: a pedal has one side permanently, so `+ down` means the same thing
@@ -184,6 +194,8 @@ export const SPAN_MARK_TOOLS: { [K in SpanMarkKind]: SpanMarkToolSpec } = {
     walkWhole: (engine, id, dx) => walkOttavaBody(engine, id, dx),
     resetEnd: (engine, id, which) => engine.resetOttavaEndpointOffset(id, which),
     resetWhole: (engine, id) => engine.resetOttavaOffset(id),
+    commitEnd: (engine, which) => engine.commitOttavaDrag(which),
+    commitWhole: engine => engine.commitOttavaOffsetDrag(),
     cycleEnd: (state, registry, step) => cycleOttavaEndpoint(state, registry, step),
 
     // ⭐⭐ THE ONE ROW THAT FLIPS. Screen-up arrives as a NEGATIVE `dy`, and above the staff "up" IS
@@ -215,6 +227,8 @@ export const SPAN_MARK_TOOLS: { [K in SpanMarkKind]: SpanMarkToolSpec } = {
     walkWhole: (engine, id, dx) => walkTrillBody(engine, id, dx),
     resetEnd: (engine, id, which) => engine.resetTrillEndpointOffset(id, which),
     resetWhole: (engine, id) => engine.resetTrillOffset(id),
+    commitEnd: (engine, which) => engine.commitTrillDrag(which),
+    commitWhole: engine => engine.commitTrillDrag('start'),
     cycleEnd: (state, registry, step) => cycleTrillEndpoint(state, registry, step),
 
     // ⭐ The bracket's flip, read off `placement` rather than `shift` — an ornament changes sides too.

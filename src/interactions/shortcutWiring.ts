@@ -29,8 +29,7 @@ import { walkTempo } from './tempoWalk'
 import { cycleSlurHandle } from './slurHandleCycle'
 import { cycleHairpinEndpoint, nudgeArmedHairpinMouth, resetArmedHairpinMouth } from './elements/hairpinHandles'
 import {
-  cycleSpanMarkEnd, nudgeArmedSpanMarkEnd, nudgeSelectedSpanMark, resetArmedSpanMarkEnd,
-  resetSelectedSpanMark,
+  cycleSpanMarkEnd,
 } from './spanMarkKeys'
 import { reanchorArmedTrillEndpoint } from './trillReanchor'
 import { keyRunTick } from './keyRun'
@@ -323,92 +322,6 @@ export function wireShortcuts(
     return ELEMENT_SPECS[element.kind].keys?.reset?.(keysCtx(eng), element) ?? false
   }
 
-  const nudgeArmedOttavaEnd = (dx: number, dy: number): boolean => {
-    const eng = getEngine()
-    const mark = selectedOf(state, 'ottava')
-    const endpoint = mark?.endpoint
-    if (!eng || !endpoint || !nudgeArmedSpanMarkEnd('ottava', state, eng, dx, dy)) return false
-    afterMarkPress('ottava', mark.id, dx, dy, () => eng.commitOttavaDrag(endpoint))
-    return true
-  }
-
-  /**
-   * ⭐⭐ **The arrows move the WHOLE bracket when no square is armed** (his ask, 2026-08-17) — plain
-   * arrow fine, `Ctrl`+arrow coarse, the same pair that moves ONE end when one is armed. The wedge's
-   * the wedge's whole-mark nudge (`elements/hairpinKeys`) verbatim, and for its reason: **something armed → that end; nothing armed
-   * → the whole thing**, one chord read by what you picked.
-   *
-   * ⚠️ Screen → OUTWARD, the same conversion the armed version makes and for the same reason: a key
-   * is a screen direction, the stored number is a distance from the staff.
-   *
-   * ⭐⭐ **And the horizontal WALKS, exactly as an armed square's does** (`./ottavaWalk.walkOttavaBody`,
-   * his ask 2026-08-21) — the ink moves, and when it reaches the next onset the WHOLE bracket goes
-   * with it, length and all. ⚠️ So this key too can end in a MODEL write, which is the crossing and
-   * nothing else; ⭐ the far end is NOT held here, which is the whole difference between moving a
-   * mark and reshaping it.
-   */
-  const nudgeSelectedOttava = (dx: number, dy: number): boolean => {
-    const eng = getEngine()
-    const mark = selectedOf(state, 'ottava')
-    if (!eng || !mark || mark.endpoint) return false
-    if (!nudgeSelectedSpanMark('ottava', state, eng, dx, dy)) return false
-    afterMarkPress('ottava', mark.id, dx, dy, () => eng.commitOttavaOffsetDrag())
-    return true
-  }
-
-  /**
-   * ⭐⭐ **Nudge the armed PEDAL sign — its INK** (his ask, 2026-08-18: *"now lets do the arrow ctr
-   * arrow offset similar to ottava"*). Plain arrow fine, `Ctrl`+arrow coarse — the squares that
-   * already move the press and the lift with `Ctrl+Shift`. Two chords, two categories, one pair of
-   * handles: the harder chord says when the damper moves (audible), this one says where the glyph
-   * sits.
-   *
-   * ⭐⭐ **`↑`/`↓` move BOTH signs, whichever square is armed** — the bracket's rule arriving for a
-   * different reason: an octave line's vertical is shared because a straight line cannot tilt, while
-   * a pedal's is shared because *an individual pedal-and-release instruction should always align*
-   * (Gould p. 333). Nothing here enforces it; `PedalOffsetOverride` has ONE vertical.
-   *
-   * ⚠️ **And no screen→outward conversion, unlike the ottava's** — this is the whole of what the two
-   * families disagree about. A pedal has one side permanently, so `↑` is up wherever it is drawn.
-   *
-   * ⭐⭐ **The horizontal goes through the INTERPOLATING WALK, on EITHER square** (`./pedalWalk`, his
-   * ask 2026-08-21): the same ink nudge, except that reaching the next stop of the lane takes the
-   * FOOT along with it — the wedge's, the trill's and the bracket's gesture, sharing their arithmetic
-   * (`./markWalk`). ⚠️ So this key can end in a MODEL write, which is the crossing and nothing else,
-   * and on a pedal that write is AUDIBLE: it says how long the notes ring. ⭐ Both squares, because
-   * both have a re-anchor AND an offset.
-   */
-  const nudgeArmedPedalEnd = (dx: number, dy: number): boolean => {
-    const eng = getEngine()
-    const mark = selectedOf(state, 'pedal')
-    const endpoint = mark?.endpoint
-    if (!eng || !endpoint || !nudgeArmedSpanMarkEnd('pedal', state, eng, dx, dy)) return false
-    afterMarkPress('pedal', mark.id, dx, dy, () => eng.commitPedalDrag(endpoint))
-    return true
-  }
-
-  /**
-   * ⭐⭐ **The arrows move the WHOLE pedal when no square is armed** — the bracket's and the wedge's
-   * rule: **something armed → that sign; nothing armed → the pair.** One chord read by what you
-   * picked.
-   *
-   * ⭐⭐ **And the horizontal WALKS, exactly as an armed square's does** (`./pedalWalk.walkPedalBody`,
-   * his ask 2026-08-21) — the ink moves, and when it reaches the next onset the WHOLE pedal goes with
-   * it, span and all. ⚠️ So this key too can end in a MODEL write, which is the crossing and nothing
-   * else, and on a pedal that write is AUDIBLE: it says which notes ring. ⭐ The LIFT is not held
-   * here, which is the whole difference between moving a mark and reshaping it.
-   *
-   * ⚠️ ⛔ No screen→outward conversion, unlike the bracket's twin: a pedal has one side permanently.
-   */
-  const nudgeSelectedPedal = (dx: number, dy: number): boolean => {
-    const eng = getEngine()
-    const mark = selectedOf(state, 'pedal')
-    if (!eng || !mark || mark.endpoint) return false
-    if (!nudgeSelectedSpanMark('pedal', state, eng, dx, dy)) return false
-    afterMarkPress('pedal', mark.id, dx, dy, () => eng.commitPedalOffsetDrag())
-    return true
-  }
-
   /** `Ctrl+Backspace` with a pedal selected and nothing armed: every nudge dropped. DECLINEs when it
    *  carries none — ⚠️ which is the ordinary case, since a pedal's EXTENT edits are model writes
    *  with nothing to reset. */
@@ -421,101 +334,6 @@ export function wireShortcuts(
   const reanchorArmedTrill = (direction: 1 | -1): boolean => {
     const eng = getEngine()
     if (!eng || !reanchorArmedTrillEndpoint(state, eng, direction)) return false
-    renderer.renderScore()
-    return true
-  }
-
-  const resetSelectedPedal = (): boolean => {
-    if (!resetSelectedSpanMark('pedal', state, getEngine())) return false
-    renderer.renderScore()
-    return true
-  }
-
-  /** `Ctrl+Backspace` on an armed pedal square: that sign's `x` and the pair's shared `y` back to the
-   *  engraver's own. DECLINEs when it was never nudged, so the key falls through. */
-  const resetArmedPedalEnd = (): boolean => {
-    if (!resetArmedSpanMarkEnd('pedal', state, getEngine())) return false
-    renderer.renderScore()
-    return true
-  }
-
-  /**
-   * ⭐⭐ **Nudge the armed TRILL end — the ornament's INK** (his ask, 2026-08-18). Plain arrow fine,
-   * `Ctrl`+arrow coarse, on the squares that already re-anchor with `Ctrl+Shift`. Two chords, two
-   * categories: the harder one says which notes are TRILLED (audible — the repeats come from the
-   * span), this one says where the ink goes.
-   *
-   * ⭐⭐ **`↑`/`↓` move the WHOLE ornament, whichever square is armed** — the sign and the wiggle sit
-   * on one baseline, so `TrillOffsetOverride` has ONE vertical and there is no second height to
-   * write.
-   *
-   * ⭐⭐ **It converts SCREEN → OUTWARD-from-the-staff, the bracket's rule and ⛔ not the pedal's.** A
-   * trill's side is stored and `x` FLIPS it, so a screen-signed field would turn a nudge that meant
-   * "clear of the music" into a shove toward it. ⚠️ Screen-down is +dy, so `↑` arrives negative and
-   * becomes a POSITIVE outward for an `above` trill.
-   *
-   * ⭐⭐ **The horizontal goes through the INTERPOLATING WALK** (`./trillWalk`, his ask 2026-08-20):
-   * the same ink nudge, except that reaching the next note of the lane takes that end of the
-   * ORNAMENT along with it — the wedge's gesture on the squares that already re-anchor with
-   * `Ctrl+Shift`, by the rule that square set: a handle with BOTH a re-anchor and an offset owes the
-   * walk that joins them. ⚠️ So this key can end in a MODEL write, which is the crossing and nothing
-   * else; every press either side of it is ink.
-   */
-  const nudgeArmedTrillEnd = (dx: number, dy: number): boolean => {
-    const eng = getEngine()
-    const mark = selectedOf(state, 'trill')
-    const endpoint = mark?.endpoint
-    if (!eng || !endpoint || !nudgeArmedSpanMarkEnd('trill', state, eng, dx, dy)) return false
-    afterMarkPress('trill', mark.id, dx, dy, () => eng.commitTrillDrag(endpoint))
-    return true
-  }
-
-  /**
-   * ⭐⭐ **The arrows move the WHOLE ornament when no square is armed** — the family's rule:
-   * something armed → that end; nothing armed → the whole mark. Same screen→outward conversion.
-   *
-   * ⭐⭐ **…and the horizontal WALKS, exactly as an armed square's does** (`./trillWalk`, his ask
-   * 2026-08-20: *"now we should do the `tr` shape walking — trill selected but not endpoints"*). The
-   * ornament's ink moves by the step, and when it reaches the next note the ORNAMENT goes with it,
-   * EXTENT AND ALL. ⚠️ So this key can end in a MODEL write, which is AUDIBLE; every press either
-   * side of the crossing is ink.
-   */
-  const nudgeSelectedTrill = (dx: number, dy: number): boolean => {
-    const eng = getEngine()
-    const mark = selectedOf(state, 'trill')
-    if (!eng || !mark || mark.endpoint) return false
-    if (!nudgeSelectedSpanMark('trill', state, eng, dx, dy)) return false
-    afterMarkPress('trill', mark.id, dx, dy, () => eng.commitTrillDrag('start'))
-    return true
-  }
-
-  /** `Ctrl+Backspace` with a trill selected and nothing armed: every nudge dropped. */
-  const resetSelectedTrill = (): boolean => {
-    if (!resetSelectedSpanMark('trill', state, getEngine())) return false
-    renderer.renderScore()
-    return true
-  }
-
-  /** `Ctrl+Backspace` on an armed trill square: that end's `x` and the ornament's shared vertical
-   *  back to the engraver's own. DECLINEs when it was never nudged, so the key falls through. */
-  const resetArmedTrillEnd = (): boolean => {
-    if (!resetArmedSpanMarkEnd('trill', state, getEngine())) return false
-    renderer.renderScore()
-    return true
-  }
-
-  /** `Ctrl+Backspace` with a bracket selected and nothing armed: every nudge dropped. DECLINEs when
-   *  it carries none. */
-  const resetSelectedOttava = (): boolean => {
-    if (!resetSelectedSpanMark('ottava', state, getEngine())) return false
-    renderer.renderScore()
-    return true
-  }
-
-  /** `Ctrl+Backspace` on an armed ottava square: that end's `x` and the bracket's shared `y` back to
-   *  the engraver's own. DECLINEs when it was never nudged, so the key falls through. */
-  const resetArmedOttavaEnd = (): boolean => {
-    if (!resetArmedSpanMarkEnd('ottava', state, getEngine())) return false
     renderer.renderScore()
     return true
   }
@@ -1555,12 +1373,6 @@ export function wireShortcuts(
       if (nudgeSelectedElement(NUDGE_FINE_SS, 0)) return
       if (nudgeArmedSlurPoint(NUDGE_FINE_SS, 0)) return
       if (nudgeSelectedSlur(NUDGE_FINE_SS, 0)) return
-      if (nudgeArmedOttavaEnd(NUDGE_FINE_SS, 0)) return
-      if (nudgeSelectedOttava(NUDGE_FINE_SS, 0)) return
-      if (nudgeArmedPedalEnd(NUDGE_FINE_SS, 0)) return
-      if (nudgeSelectedPedal(NUDGE_FINE_SS, 0)) return
-      if (nudgeArmedTrillEnd(NUDGE_FINE_SS, 0)) return
-      if (nudgeSelectedTrill(NUDGE_FINE_SS, 0)) return
       if (nudgeSelectedDynamic(NUDGE_FINE_SS, 0)) return
       if (nudgeSelectedTempo(NUDGE_FINE_SS, 0)) return
       if (nudgeSelectedClefOffset(NUDGE_FINE_SS)) return
@@ -1580,12 +1392,6 @@ export function wireShortcuts(
       if (nudgeSelectedElement(-NUDGE_FINE_SS, 0)) return
       if (nudgeArmedSlurPoint(-NUDGE_FINE_SS, 0)) return
       if (nudgeSelectedSlur(-NUDGE_FINE_SS, 0)) return
-      if (nudgeArmedOttavaEnd(-NUDGE_FINE_SS, 0)) return
-      if (nudgeSelectedOttava(-NUDGE_FINE_SS, 0)) return
-      if (nudgeArmedPedalEnd(-NUDGE_FINE_SS, 0)) return
-      if (nudgeSelectedPedal(-NUDGE_FINE_SS, 0)) return
-      if (nudgeArmedTrillEnd(-NUDGE_FINE_SS, 0)) return
-      if (nudgeSelectedTrill(-NUDGE_FINE_SS, 0)) return
       if (nudgeSelectedDynamic(-NUDGE_FINE_SS, 0)) return
       if (nudgeSelectedTempo(-NUDGE_FINE_SS, 0)) return
       if (nudgeSelectedClefOffset(-NUDGE_FINE_SS)) return
@@ -1619,10 +1425,10 @@ export function wireShortcuts(
     // Vertical arrows: nudge the armed slur endpoint, else the normal pitch/octave edit.
     // (These keys are already bound, so they always consume — the nudge branch returns void
     // via the early return, so preventDefault still fires.)
-    pitchUp: () => { if (nudgeSelectedElement(0, -NUDGE_FINE_SS) || nudgeArmedSlurPoint(0, -NUDGE_FINE_SS) || nudgeSelectedSlur(0, -NUDGE_FINE_SS) || nudgeArmedOttavaEnd(0, -NUDGE_FINE_SS) || nudgeSelectedOttava(0, -NUDGE_FINE_SS) || nudgeArmedPedalEnd(0, -NUDGE_FINE_SS) || nudgeSelectedPedal(0, -NUDGE_FINE_SS) || nudgeArmedTrillEnd(0, -NUDGE_FINE_SS) || nudgeSelectedTrill(0, -NUDGE_FINE_SS) || nudgeSelectedRest(1) || nudgeSelectedDynamic(0, -NUDGE_FINE_SS) || nudgeSelectedTempo(0, NUDGE_FINE_SS)) return; selection.adjustPitch(1) },
-    pitchDown: () => { if (nudgeSelectedElement(0, NUDGE_FINE_SS) || nudgeArmedSlurPoint(0, NUDGE_FINE_SS) || nudgeSelectedSlur(0, NUDGE_FINE_SS) || nudgeArmedOttavaEnd(0, NUDGE_FINE_SS) || nudgeSelectedOttava(0, NUDGE_FINE_SS) || nudgeArmedPedalEnd(0, NUDGE_FINE_SS) || nudgeSelectedPedal(0, NUDGE_FINE_SS) || nudgeArmedTrillEnd(0, NUDGE_FINE_SS) || nudgeSelectedTrill(0, NUDGE_FINE_SS) || nudgeSelectedRest(-1) || nudgeSelectedDynamic(0, NUDGE_FINE_SS) || nudgeSelectedTempo(0, -NUDGE_FINE_SS)) return; selection.adjustPitch(-1) },
-    octaveUp: () => { if (!(nudgeSelectedElement(0, -NUDGE_COARSE_SS) || nudgeArmedSlurPoint(0, -NUDGE_COARSE_SS) || nudgeSelectedSlur(0, -NUDGE_COARSE_SS) || nudgeArmedOttavaEnd(0, -NUDGE_COARSE_SS) || nudgeSelectedOttava(0, -NUDGE_COARSE_SS) || nudgeArmedPedalEnd(0, -NUDGE_COARSE_SS) || nudgeSelectedPedal(0, -NUDGE_COARSE_SS) || nudgeArmedTrillEnd(0, -NUDGE_COARSE_SS) || nudgeSelectedTrill(0, -NUDGE_COARSE_SS) || nudgeSelectedDynamic(0, -NUDGE_COARSE_SS) || nudgeSelectedTempo(0, NUDGE_COARSE_SS))) selection.adjustOctave(1) },
-    octaveDown: () => { if (!(nudgeSelectedElement(0, NUDGE_COARSE_SS) || nudgeArmedSlurPoint(0, NUDGE_COARSE_SS) || nudgeSelectedSlur(0, NUDGE_COARSE_SS) || nudgeArmedOttavaEnd(0, NUDGE_COARSE_SS) || nudgeSelectedOttava(0, NUDGE_COARSE_SS) || nudgeArmedPedalEnd(0, NUDGE_COARSE_SS) || nudgeSelectedPedal(0, NUDGE_COARSE_SS) || nudgeArmedTrillEnd(0, NUDGE_COARSE_SS) || nudgeSelectedTrill(0, NUDGE_COARSE_SS) || nudgeSelectedDynamic(0, NUDGE_COARSE_SS) || nudgeSelectedTempo(0, -NUDGE_COARSE_SS))) selection.adjustOctave(-1) },
+    pitchUp: () => { if (nudgeSelectedElement(0, -NUDGE_FINE_SS) || nudgeArmedSlurPoint(0, -NUDGE_FINE_SS) || nudgeSelectedSlur(0, -NUDGE_FINE_SS) || nudgeSelectedRest(1) || nudgeSelectedDynamic(0, -NUDGE_FINE_SS) || nudgeSelectedTempo(0, NUDGE_FINE_SS)) return; selection.adjustPitch(1) },
+    pitchDown: () => { if (nudgeSelectedElement(0, NUDGE_FINE_SS) || nudgeArmedSlurPoint(0, NUDGE_FINE_SS) || nudgeSelectedSlur(0, NUDGE_FINE_SS) || nudgeSelectedRest(-1) || nudgeSelectedDynamic(0, NUDGE_FINE_SS) || nudgeSelectedTempo(0, -NUDGE_FINE_SS)) return; selection.adjustPitch(-1) },
+    octaveUp: () => { if (!(nudgeSelectedElement(0, -NUDGE_COARSE_SS) || nudgeArmedSlurPoint(0, -NUDGE_COARSE_SS) || nudgeSelectedSlur(0, -NUDGE_COARSE_SS) || nudgeSelectedDynamic(0, -NUDGE_COARSE_SS) || nudgeSelectedTempo(0, NUDGE_COARSE_SS))) selection.adjustOctave(1) },
+    octaveDown: () => { if (!(nudgeSelectedElement(0, NUDGE_COARSE_SS) || nudgeArmedSlurPoint(0, NUDGE_COARSE_SS) || nudgeSelectedSlur(0, NUDGE_COARSE_SS) || nudgeSelectedDynamic(0, NUDGE_COARSE_SS) || nudgeSelectedTempo(0, -NUDGE_COARSE_SS))) selection.adjustOctave(-1) },
     // ── Ctrl+←/→ = MOVE: change the space before a selected note's column, or a selected barline's
     //    bar width — "move a lot" gets the easy key (docs/note-offset-plan.md §C swap). Joins the
     //    slur-endpoint / dynamic COARSE nudge that already owned Ctrl+←/→ (all selections disjoint).
@@ -1655,24 +1461,17 @@ export function wireShortcuts(
     ctrlArrowLeft: () =>
       nudgeSelectedElement(-NUDGE_COARSE_SS, 0)
       || nudgeArmedSlurPoint(-NUDGE_COARSE_SS, 0) || nudgeSelectedSlur(-NUDGE_COARSE_SS, 0)
-      || nudgeArmedOttavaEnd(-NUDGE_COARSE_SS, 0) || nudgeSelectedOttava(-NUDGE_COARSE_SS, 0)
       || nudgeSelectedDynamic(-NUDGE_COARSE_SS, 0) || nudgeSelectedTempo(-NUDGE_COARSE_SS, 0)
-      || nudgeArmedPedalEnd(-NUDGE_COARSE_SS, 0) || nudgeSelectedPedal(-NUDGE_COARSE_SS, 0)
-      || nudgeArmedTrillEnd(-NUDGE_COARSE_SS, 0) || nudgeSelectedTrill(-NUDGE_COARSE_SS, 0)
       || nudgeSelectedClefOffset(-NUDGE_COARSE_SS)
       || nudgeSelectedNoteSpacing(-NOTE_SPACING_STEP_SS) || nudgeSelectedBarWidth(-BAR_WIDTH_STEP_PX),
     ctrlArrowRight: () =>
       nudgeSelectedElement(NUDGE_COARSE_SS, 0)
       || nudgeArmedSlurPoint(NUDGE_COARSE_SS, 0) || nudgeSelectedSlur(NUDGE_COARSE_SS, 0)
-      || nudgeArmedOttavaEnd(NUDGE_COARSE_SS, 0) || nudgeSelectedOttava(NUDGE_COARSE_SS, 0)
       || nudgeSelectedDynamic(NUDGE_COARSE_SS, 0) || nudgeSelectedTempo(NUDGE_COARSE_SS, 0)
-      || nudgeArmedPedalEnd(NUDGE_COARSE_SS, 0) || nudgeSelectedPedal(NUDGE_COARSE_SS, 0)
-      || nudgeArmedTrillEnd(NUDGE_COARSE_SS, 0) || nudgeSelectedTrill(NUDGE_COARSE_SS, 0)
       || nudgeSelectedClefOffset(NUDGE_COARSE_SS)
       || nudgeSelectedNoteSpacing(NOTE_SPACING_STEP_SS) || nudgeSelectedBarWidth(BAR_WIDTH_STEP_PX),
     // Ctrl+Backspace = reset the MOVE (the space before the note / the bar's width).
-    resetMove: () => resetSelectedElement() || resetArmedSlurPoint() || resetSelectedSlur() || resetArmedOttavaEnd() || resetSelectedOttava() || resetArmedPedalEnd() || resetSelectedPedal()
-      || resetArmedTrillEnd() || resetSelectedTrill()
+    resetMove: () => resetSelectedElement() || resetArmedSlurPoint() || resetSelectedSlur()
       || resetSelectedDynamic() || resetSelectedTempo()
       || resetSelectedClefOffset()
       || resetSelectedNoteSpacing() || resetSelectedBarWidth(),

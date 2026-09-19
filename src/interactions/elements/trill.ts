@@ -17,6 +17,7 @@ import { dbg } from '@/utils/debug'
 import type { ClickableElementSpec } from './chain'
 import { distToSegment } from './slur'
 import { beginTrillBodyDrag } from '../drags/trillBody'
+import { spanMarkKeys } from '../spanMarkKeys'
 
 /** A few px of grace at the edges — the pad the slur and hairpin already share, for the same
  *  reason: a pointer cannot be aimed to the pixel, and the wiggle is a thin wave inside its band. */
@@ -67,4 +68,5 @@ export const TRILL_ELEMENT: ClickableElementSpec = {
     h.applyAnchorGuideLine()
     h.applyTrillHandles()
   },
+  keys: spanMarkKeys('trill'),
 }

@@ -1,10 +1,12 @@
 import { describe, it, expect, beforeEach, vi, type Mock } from 'vitest'
 import {
   cycleSpanMarkEnd, nudgeArmedSpanMarkEnd, nudgeSelectedSpanMark, resetArmedSpanMarkEnd,
-  resetSelectedSpanMark,
+  resetSelectedSpanMark, spanMarkKeys,
 } from './spanMarkKeys'
 import { createEditorState, type EditorState } from './EditorState'
 import type { MusicEngine } from '../engine/MusicEngine'
+import type { KeysCtx } from './elements/keys'
+import { SPAN_MARK_TOOLS } from './spanMarkTools'
 
 /**
  * ⭐⭐ **THE FAMILY'S KEY VERBS** — {@link spanMarkKeys}, sitting beside this file, driven at the
@@ -261,5 +263,71 @@ describe("the span-mark key verbs, at the trill row — screen → outward", () 
     placement = 'below'
     nudgeSelectedSpanMark('trill', state, engineFor(), 0, -1)
     expect(whole, 'below → −outward').toHaveBeenCalledWith('T1', 0, -1)
+  })
+})
+
+/**
+ * **The family's row of the `keys` column** — the verbs above reached through the selected
+ * element's own spec, plus what the row adds: the key RUN's commit, read off `SPAN_MARK_TOOLS`.
+ */
+describe('spanMarkKeys — a span mark\'s row of the keys column', () => {
+  const engine = {
+    nudgeOttavaEndpoint: vi.fn(() => true),
+    nudgeOttava: vi.fn(() => true),
+    getOttavaById: () => ({ id: 'O1', shift: 1 }),
+    resetOttavaEndpointOffset: vi.fn(() => true),
+    resetOttavaOffset: vi.fn(() => false),
+    commitOttavaDrag: vi.fn(),
+    commitOttavaOffsetDrag: vi.fn(),
+    commitTrillDrag: vi.fn(),
+  }
+  let ctx: KeysCtx
+  let state: EditorState
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    state = createEditorState()
+    ctx = { engine: engine as unknown as MusicEngine, state, render: vi.fn(), afterMarkPress: vi.fn() }
+  })
+
+  const select = (endpoint?: 'start' | 'end') => {
+    const element = { kind: 'ottava', id: 'O1', endpoint } as const
+    state.selectedElement = element
+    return element
+  }
+  const commitOf = () => (ctx.afterMarkPress as Mock).mock.calls[0][4] as () => void
+
+  it('an ARMED square nudges that end, and the run commits THAT end', () => {
+    expect(spanMarkKeys('ottava').nudge!(ctx, select('end'), 0, -0.25)).toBe(true)
+    expect(engine.nudgeOttavaEndpoint).toHaveBeenCalled()
+    expect((ctx.afterMarkPress as Mock).mock.calls[0].slice(0, 4)).toEqual(['ottava', 'O1', 0, -0.25])
+    commitOf()()
+    expect(engine.commitOttavaDrag).toHaveBeenCalledWith('end')
+  })
+
+  it('NOTHING armed nudges the whole mark, and the run commits the WHOLE-mark drag', () => {
+    expect(spanMarkKeys('ottava').nudge!(ctx, select(), 0, 0.25)).toBe(true)
+    expect(engine.nudgeOttava).toHaveBeenCalled()
+    commitOf()()
+    expect(engine.commitOttavaOffsetDrag).toHaveBeenCalledTimes(1)
+  })
+
+  it('⚠️ a TRILL\'s whole-mark run commits through its START — the ornament has one drag commit', () => {
+    SPAN_MARK_TOOLS.trill.commitWhole(engine as unknown as MusicEngine)
+    expect(engine.commitTrillDrag).toHaveBeenCalledWith('start')
+  })
+
+  it('🚨 a REFUSED press DECLINES, and hands nothing to the run', () => {
+    engine.nudgeOttava.mockReturnValueOnce(false)
+    expect(spanMarkKeys('ottava').nudge!(ctx, select(), 0, 0.25)).toBe(false)
+    expect(ctx.afterMarkPress).not.toHaveBeenCalled()
+  })
+
+  it('reset: armed → that end, and it renders; nothing to take back → DECLINES, and does not', () => {
+    expect(spanMarkKeys('ottava').reset!(ctx, select('start'))).toBe(true)
+    expect(engine.resetOttavaEndpointOffset).toHaveBeenCalledWith('O1', 'start')
+    expect(ctx.render).toHaveBeenCalledTimes(1)
+    expect(spanMarkKeys('ottava').reset!(ctx, select())).toBe(false)
+    expect(ctx.render).toHaveBeenCalledTimes(1)
   })
 })

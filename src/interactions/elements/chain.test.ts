@@ -34,6 +34,25 @@ describe('ELEMENT_SPECS — total over the union', () => {
   })
 })
 
+describe('ELEMENT_SPECS — the `keys` column', () => {
+  it('⭐ is exactly these kinds — the arrows answer for them through their own row', () => {
+    // 🚨 Pinned by NAME because a lost row is SILENT at runtime: the dispatcher declines, the key
+    // falls through to the pitch edit, and nothing throws. It happened while this column was being
+    // built — an edit dropped `keys:` INSIDE a multi-line `highlight` body, where it parses as a
+    // LABELLED STATEMENT: `tsc` accepts it (the lint does not — `no-unused-labels`).
+    const answering = Object.values(ELEMENT_SPECS).filter(spec => spec.keys).map(spec => spec.kind).sort()
+    expect(answering).toEqual(['hairpin', 'ottava', 'pedal', 'trill'])
+  })
+
+  it('every row that answers has BOTH verbs — a nudge with no reset leaves ink nobody can put back', () => {
+    for (const spec of Object.values(ELEMENT_SPECS)) {
+      if (!spec.keys) continue
+      expect(typeof spec.keys.nudge, `${spec.kind}.nudge`).toBe('function')
+      expect(typeof spec.keys.reset, `${spec.kind}.reset`).toBe('function')
+    }
+  })
+})
+
 describe('ELEMENT_HIT_ORDER — the priority chain', () => {
   it('⭐ is exactly this order, and the order is the argument', () => {
     expect(ELEMENT_HIT_ORDER.map(e => e.kind)).toEqual([
