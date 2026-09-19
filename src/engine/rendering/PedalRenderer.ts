@@ -368,8 +368,6 @@ export function renderPedals(
       const endX = wrapped?.endX ?? x.endX
 
       try {
-        // ⚠️ `openGroup` prefixes both class and id with `vf-` itself — passing 'vf-pedal' here
-        // would yield `class="vf-vf-pedal"`, the mistake the slur's comment records.
         const group = drawGroupOf(pass.context.openGroup?.('pedal', `pedal-${pedal.id}`))
         inStaffSpace(pass, staffIndex, group, () => {
           drawPedal(pass, pedal, span, { startX: x.startX, endX }, reach, from, endLine,

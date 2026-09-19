@@ -143,7 +143,7 @@ export function stampMeter(ctx: DrawContext, rows: readonly MeterRow[]): void {
 /**
  * ⭐ The sign as a stave modifier draws it: the rows inside their own group.
  *
- * 🚨 **The group is load-bearing and must keep its id.** `.vf-timesignature text` is what
+ * 🚨 **The group is load-bearing and must keep its id.** `.timesignature text` is what
  * `e2e/barlineTypes.e2e.ts` measures a meter's ink with and what `e2e/staffSize.e2e.ts` reads a
  * meter's x from (`h.placed(...)[0].x` — ⚠️ **the UPPER row is index 0**, so the rows must stay in
  * their drawing order), and the ID is how `ElementRegistry`'s box resolves back to this ink.

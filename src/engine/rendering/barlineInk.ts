@@ -63,7 +63,7 @@ export function staffBarlineExtent(frame: StaffFrame): BarlineExtent {
  * now DRAWN at this width rather than widened afterwards.**
  *
  * `inkBarlines(group)` walked each measure's `<g>` and rewrote the `width` of any 1 px rect inside a
- * `g.vf-stavebarline` — which was VexFlow's opening barline and, by then, nothing else: this repo's
+ * `g.stavebarline` — which was VexFlow's opening barline and, by then, nothing else: this repo's
  * own signs (`BarlineRenderer`, `barlineGap`, `systemStart`, `GutterRenderer`) have all drawn at
  * {@link THIN_BARLINE_PX} from the start. ⇒ when P5b took that last line's ink
  * (`engine/engrave/staff/openingBarline`, through `rendering/EngravedBarline`), the pass had no
@@ -142,7 +142,7 @@ export function hintBarlines(
   if (!force && svg.dataset[HINTED_AT] === String(k0)) return
   svg.dataset[HINTED_AT] = String(k0)
 
-  const rects = [...svg.querySelectorAll<SVGRectElement>('g.vf-stavebarline rect')]
+  const rects = [...svg.querySelectorAll<SVGRectElement>('g.stavebarline rect')]
 
   // ⚠️ READ EVERYTHING FIRST. `getScreenCTM` is a layout read and the writes below invalidate
   // layout, so interleaving them would force one reflow PER BARLINE.

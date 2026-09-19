@@ -100,7 +100,7 @@ export interface Harness {
   /**
    * The stems, left to right. `y1` is the notehead end, `y2` the tip (VexFlow draws them so), and a
    * BEAMED note's stem is already at the length its beam gave it — the beam group nests the same
-   * `vf-stem` elements rather than drawing its own.
+   * `stem` elements rather than drawing its own.
    */
   stems(): Segment[]
   /** Straight lines drawn inside `selector` — ledger lines, stems, stave lines. */
@@ -215,7 +215,7 @@ export interface Harness {
 /** Every class a ghost overlay is drawn under. Mirrors `GhostRenderer.GHOST_GROUP_SELECTOR`, which
  *  is what `clearGhosts` sweeps — the spec asserting on this is what notices if the two part. */
 const GHOST_SELECTOR =
-  '.ghost-note-group, .ghost-rest-group, .ghost-fan-group, .ghost-clef-group, .ghost-timesig-group, .ghost-dynamic-group, .vf-ghost-articulation, .vf-ghost-accidental, .vf-ghost-tie, .vf-ghost-dot, .vf-ghost-tremolo, .vf-ghost-tempo, .vf-ghost-trill, .vf-ghost-ottava, .vf-ghost-pedal, .vf-ghost-barline'
+  '.ghost-note-group, .ghost-rest-group, .ghost-fan-group, .ghost-clef-group, .ghost-timesig-group, .ghost-dynamic-group, .ghost-articulation, .ghost-accidental, .ghost-tie, .ghost-dot, .ghost-tremolo, .ghost-tempo, .ghost-trill, .ghost-ottava, .ghost-pedal, .ghost-barline'
 
 declare global {
   interface Window {
@@ -303,12 +303,12 @@ const harness: Harness = {
       .sort(byX)
   },
 
-  // ⚠️ A rest is drawn as a `vf-notehead` too — VexFlow gives a rest a StaveNote and its glyph goes
+  // ⚠️ A rest is drawn as a `notehead` too — VexFlow gives a rest a StaveNote and its glyph goes
   // in the same group — so the two are told apart by SMuFL's own ranges (noteheads U+E0A0–E0FF,
   // rests U+E4E0–E4FF) and not by the DOM. Without that, "the noteheads" silently includes the
   // rests the model fills the rest of the bar with.
-  noteheads: () => harness.glyphs('g.vf-notehead text').filter(inRange(0xe0a0, 0xe0ff)),
-  rests: () => harness.glyphs('g.vf-notehead text').filter(inRange(0xe4e0, 0xe4ff)),
+  noteheads: () => harness.glyphs('g.notehead text').filter(inRange(0xe0a0, 0xe0ff)),
+  rests: () => harness.glyphs('g.notehead text').filter(inRange(0xe4e0, 0xe4ff)),
 
   segments(selector: string): Segment[] {
     return all<SVGPathElement>(selector)
@@ -318,16 +318,16 @@ const harness: Harness = {
       .sort((a, b) => a.x1 - b.x1 || a.y1 - b.y1)
   },
 
-  stems: () => harness.segments('g.vf-stem path'),
+  stems: () => harness.segments('g.stem path'),
 
   quads: (selector: string) => quadsOf(all<SVGPathElement>(selector)),
 
   crossBarBeams: () =>
-    // Direct children of the <svg> — plus one level deeper through a `vf-scaled` wrapper, which is
+    // Direct children of the <svg> — plus one level deeper through a `scaled` wrapper, which is
     // what a beam on a staff drawn small is drawn inside (docs/staff-size-plan.md §4.3).
     [...svg().children]
-      .flatMap(el => (el.getAttribute('class') === 'vf-scaled' ? [...el.children] : [el]))
-      .filter(el => el.getAttribute('class') === 'vf-beam')
+      .flatMap(el => (el.getAttribute('class') === 'scaled' ? [...el.children] : [el]))
+      .filter(el => el.getAttribute('class') === 'beam')
       .map(group => quadsOf([...group.querySelectorAll<SVGPathElement>('path')]))
       .filter(quads => quads.length > 0)
       .sort((a, b) => a[0].yLeft - b[0].yLeft || a[0].left - b[0].left),
@@ -335,10 +335,10 @@ const harness: Harness = {
   // ⚠️ **ONE ROW PER RECT, and a sign is not always one rect.** Since `BarlineRenderer` took the
   // drawing, a plain line is one rect but a final bar is two and a back-to-back repeat is three —
   // and a repeat's DOTS are not rects at all: they are `repeatDot` glyphs, so they come back through
-  // `glyphs('g.vf-stavebarline text')` instead. A test that counts barlines by counting rows here is
+  // `glyphs('g.stavebarline text')` instead. A test that counts barlines by counting rows here is
   // counting STROKES (see `barlineTypes.e2e.ts`, which does exactly that on purpose).
   barlines: () =>
-    all<SVGRectElement>('g.vf-stavebarline rect')
+    all<SVGRectElement>('g.stavebarline rect')
       .map(r => ({
         // `data-baseline-x` is the asked-for boundary, latched by the hinting pass before it moved
         // the ink; absent until that pass has run, when the drawn x IS the asked one.
@@ -366,10 +366,10 @@ const harness: Harness = {
       return point.matrixTransform((el as SVGGraphicsElement).getScreenCTM()!).matrixTransform(toScore)
     }
 
-    return all<SVGGElement>('g.vf-measure[id]').flatMap(g => {
-      // The group id is the renderer's own measure key: `vf-m<measure>-s<staff>`.
-      const key = /^vf-m(\d+)-s(\d+)$/.exec(g.getAttribute('id') ?? '')
-      const lines = [...g.querySelectorAll<SVGPathElement>('g.vf-stave path')]
+    return all<SVGGElement>('g.measure[id]').flatMap(g => {
+      // The group id is the renderer's own measure key: `m<measure>-s<staff>`.
+      const key = /^m(\d+)-s(\d+)$/.exec(g.getAttribute('id') ?? '')
+      const lines = [...g.querySelectorAll<SVGPathElement>('g.stave path')]
         .map(p => ({ path: p, pts: pathPoints(p.getAttribute('d') ?? '') }))
         .filter(({ pts }) => pts.length === 2 && Math.abs(pts[0].y - pts[1].y) < 0.001)
         .map(({ path, pts }) => pts.map(pt => placedAt(path, pt.x, pt.y)))

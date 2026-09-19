@@ -177,7 +177,7 @@ test('⭐ a bar of ACCIDENTALS: the ink is a MINIMUM under the rule, not a repla
       h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: 'q', measure: 2, beat: h.frac(beat, 1) })
     }
     await h.render()
-    return { census: h.columnGaps(), sharps: h.glyphs('g.vf-notehead text').filter(g => g.code === 'e262').length }
+    return { census: h.columnGaps(), sharps: h.glyphs('g.notehead text').filter(g => g.code === 'e262').length }
   })
 
   expect(drawn.sharps, 'four sharps really are drawn').toBe(4)
@@ -212,7 +212,7 @@ test('⭐ …and the ink WINS where the rule runs out: sharpened 16ths buy their
       h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: '16', measure: 2, beat: h.frac(i, 4) })
     }
     await h.render()
-    return { census: h.columnGaps(), signs: h.glyphs('g.vf-notehead text').filter(g => g.code === 'e262' || g.code === 'e260').length }
+    return { census: h.columnGaps(), signs: h.glyphs('g.notehead text').filter(g => g.code === 'e262' || g.code === 'e260').length }
   })
 
   expect(drawn.signs, 'the bar really is full of accidentals').toBeGreaterThan(8)
@@ -272,7 +272,7 @@ test('⭐⭐ the INK TABLE still matches the drawing — the anti-drift gate', a
       }
       await h.render()
       const head = h.noteheads()[0].x
-      const leftmost = Math.min(...h.glyphs('g.vf-notehead text').filter(g => g.code === 'e262').map(g => g.x))
+      const leftmost = Math.min(...h.glyphs('g.notehead text').filter(g => g.code === 'e262').map(g => g.x))
       const reach = (head - leftmost) / space()
       clear()
       return reach
@@ -284,7 +284,7 @@ test('⭐⭐ the INK TABLE still matches the drawing — the anti-drift gate', a
     h.engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: h.frac(0, 1), dots: 2 })
     await h.render()
     const head = h.noteheads()[0].x
-    const dots = h.glyphs('g.vf-notehead text').filter(g => g.code === 'e1e7').map(g => (g.x - head) / space())
+    const dots = h.glyphs('g.notehead text').filter(g => g.code === 'e1e7').map(g => (g.x - head) / space())
 
     return { table: { notehead: table.notehead, one: table.sharps(1), two: table.sharps(2), dot1: table.dots(1), dot2: table.dots(2) }, notehead, one, two, dots }
   })
@@ -364,7 +364,7 @@ test('⭐⭐ LEDGER LINES no longer draw on top of each other (P3.1)', async ({ 
     await h.render()
     const stave = h.staves()[0]
     const space = (stave.bottom - stave.top) / 4
-    const ledgers = h.segments('g.vf-notehead path, g.vf-stavenote path')
+    const ledgers = h.segments('g.notehead path, g.stavenote path')
       .filter(line => Math.abs(line.y1 - line.y2) < 0.01)
       .map(line => ({ x1: line.x1 / space, x2: line.x2 / space, y: Math.round(line.y1) }))
 
@@ -457,7 +457,7 @@ test('⭐ a whole-bar REST is centred between its own barlines', async ({ score 
       const rest = rests.find(glyph => glyph.x > stave.x1 && glyph.x < stave.x2)!
       // ⚠️ `inkSizes` is a text layout box, so its WIDTH is used as a size and never as a position —
       //    which is exactly what centring needs (half a glyph), and why it is safe here.
-      const box = h.inkSizes('g.vf-notehead text').find(b => b.x > stave.x1 && b.x < stave.x2)!
+      const box = h.inkSizes('g.notehead text').find(b => b.x > stave.x1 && b.x < stave.x2)!
       const centre = rest.x + box.width / 2
       return { measure: stave.measure, off: (centre - (stave.x1 + stave.x2) / 2) / space }
     })

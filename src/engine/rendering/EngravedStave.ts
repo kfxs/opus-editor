@@ -22,7 +22,7 @@
  * frame (`./staveFrame`'s header), so this object's x and y are only ever where the bar was BUILT.
  * ⚠️ The key signature was never among the signs — `KeySignaturePass` draws it, through our own context.
  *
- * 🚨🚨 **The group is load-bearing and its class is the seam.** `g.vf-stave path` is what the browser
+ * 🚨🚨 **The group is load-bearing and its class is the seam.** `g.stave path` is what the browser
  * harness (`e2e/harness.ts`) and the spacing census read to find staff lines, and both filter for a
  * `<path>` with exactly two points at equal y. ⛔ So the lines must stay STROKED PATHS inside a group
  * opened as `openGroup('stave', …)` — which is why {@link drawStaffLines} strokes rather than filling.

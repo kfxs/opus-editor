@@ -136,7 +136,7 @@ let nextTupletId = 0
  *     out of the middle for nothing. One unbroken line when there is no mark.
  *
  * ⚠️ Kept line-for-line otherwise, including the `'tuplet'` group name (the SVG context prefixes it
- * to `vf-tuplet`, which the hit-testing looks for) and the pointer rect.
+ * to `tuplet`, which the hit-testing looks for) and the pointer rect.
  */
 export class ScoreTuplet {
   readonly options: ScoreTupletOptions

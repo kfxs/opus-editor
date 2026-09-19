@@ -106,7 +106,7 @@ we chose as the default, `docs/dynamic-voice-scope-plan.md`); keep a
 
 > ⚠️ **2026-09-19: VexFlow is REMOVED** (`docs/vexflow-removal-map.md` §9). What follows is what the
 > library did when this was written. Today the annotation is ours (`rendering/EngravedAnnotation`, its
-> stacking `engrave/notes/annotationStack`), the `vf-` group ids come from our `rendering/SvgPainter`,
+> stacking `engrave/notes/annotationStack`), the group ids come from our `rendering/SvgPainter` (bare since S15c),
 > and faces resolve through `engine/fonts/fontCategories` + `rendering/glyphPainter`, not a VexFlow
 > font stack. The VexFlow source is kept at `~/dev/engine-sources/vexflow-5.0.0-npm/package`.
 
@@ -127,8 +127,8 @@ we chose as the default, `docs/dynamic-voice-scope-plan.md`); keep a
 - **`Annotation`** (`annotation.js`) is a `Modifier` and is the right vehicle for both kinds. Verified
   capabilities that matter here:
   - **It opens its own SVG group:** `draw()` calls `ctx.openGroup('annotation', this.getAttribute('id'))`,
-    producing `<g class="vf-annotation" id="vf-<id>">`. Because every VexFlow `Element` exposes
-    `getSVGElement()` (→ `document.getElementById('vf-'+id)`), a dynamic **is individually addressable
+    producing `<g class="annotation" id="<id>">`. Because every VexFlow `Element` exposes
+    `getSVGElement()` (→ `document.getElementById(''+id)`), a dynamic **is individually addressable
     by group** — exactly like notes/tuplets. This supersedes the bbox-scan highlight idea (see Phase 6).
   - **It participates in `ModifierContext` formatting** (`Annotation.format` — ours as a transcription since S9f, `engrave/notes/annotationStack`): it reserves text lines
     and stacks below the staff alongside articulations, so dynamics + articulations **auto-avoid each
@@ -344,7 +344,7 @@ visible by **Phase 4**, user-placeable by **Phase 5**, and editable/deletable by
   `updateDynamic`). Double-click a level dynamic → cycle/choose level (or just re-arm + replace).
   (Recover `kind`/`level`/`text` from the model by the registered `id` — they're not on `ElementInfo`.)
 - **Highlight via the annotation's own SVG group** — the robust path, confirmed against VexFlow 5.
-  `Annotation.draw()` wraps its glyphs in `<g class="vf-annotation" id="vf-<id>">`, so add a
+  `Annotation.draw()` wraps its glyphs in `<g class="annotation" id="<id>">`, so add a
   `getDynamicSVGGroup(id)` that returns `annotation.getSVGElement()` from the `dynamicObjectMap`
   (mirror `getTupletSVGGroup` at `ScoreRenderer.ts:2060`), then recolor that group's `text`/`path`
   children. **This supersedes the bbox-coordinate scan** that clef/TS use (`HighlightController.ts:288`)

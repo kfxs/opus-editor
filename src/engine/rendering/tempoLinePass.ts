@@ -134,7 +134,7 @@ export function placeTempoMarksOnLine(
         // Scoped to THIS render's root, not `document`: ids repeat across a torn-down SVG, and a
         // document-wide lookup answers with the first in tree order
         // (`reference_vexflow_getsvgelement_is_document_wide`).
-        const el = svg.querySelector(`#vf-${mark.id}`) as SVGGraphicsElement | null
+        const el = svg.querySelector(`[id="${mark.id}"]`) as SVGGraphicsElement | null
         // ⭐ Read off the `<text>`'s own baseline, not its bbox — the runs are laid left to right at
         //   one baseline, and the bbox of `Allegro` and of `Allegro (♩ = 120)` differ while the
         //   baseline does not. It is also the quantity the row is stated in.

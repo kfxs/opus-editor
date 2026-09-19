@@ -52,7 +52,7 @@ async function rod(score: Page) {
   return score.evaluate(() => {
     const svg = document.querySelector('svg')!
     const toScore = svg.getScreenCTM()!.inverse()
-    const rects = [...svg.querySelectorAll<SVGRectElement>('g.vf-systemsign rect')]
+    const rects = [...svg.querySelectorAll<SVGRectElement>('g.systemsign rect')]
     return rects.map(r => {
       const box = r.getBoundingClientRect()
       const p = svg.createSVGPoint()
@@ -139,7 +139,7 @@ test('🚨 the serifs hook RIGHT, over the barline — ⛔ not left, and not mer
     const svg = document.querySelector('svg')!
     const toScore = svg.getScreenCTM()!.inverse()
     const ctm = svg.getScreenCTM()!
-    return [...svg.querySelectorAll<SVGTextElement>('g.vf-systemsign text')].map(t => {
+    return [...svg.querySelectorAll<SVGTextElement>('g.systemsign text')].map(t => {
       const box = t.getBoundingClientRect()
       const p = svg.createSVGPoint()
       p.x = box.left; p.y = box.top

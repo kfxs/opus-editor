@@ -28,7 +28,7 @@ async function sharp(score: import('@playwright/test').Page) {
       .find(e => e.noteId === note.id)!
     // ⭐ The group the ink opens is named for the REGISTRY's kind and carries the sign's own id —
     //   the seam this whole step is built on (`engrave/notes/accidental`).
-    const group = document.querySelector<SVGGElement>('svg .vf-accidental')!
+    const group = document.querySelector<SVGGElement>('svg .accidental')!
     const page = group.getBBox()
     return {
       box: entry.bbox,

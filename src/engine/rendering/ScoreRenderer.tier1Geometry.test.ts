@@ -78,7 +78,7 @@ describe('P5.3 — tier 1 stands without tier 2', () => {
     const culledSnapshot = tier1Snapshot(culled)
 
     // Nothing was painted...
-    expect(culled.getSVGElement()!.querySelectorAll('g.vf-measure')).toHaveLength(0)
+    expect(culled.getSVGElement()!.querySelectorAll('g.measure')).toHaveLength(0)
     expect(culled.getMeasureSVGGroup(1, 0)).toBeNull()
 
     // ...and yet every measure still knows exactly where it is.

@@ -607,7 +607,7 @@ whole score. Every reader therefore parses the drawing's own numbers — a `<tex
 (and the baseline of a notehead IS its line or space), a `<path>`'s `d`. Those come out exact
 and stable, which is why almost nothing here needs a fuzzy tolerance.
 
-**⭐ A rest is drawn as a `vf-notehead`.** There is no class that separates them, so
+**⭐ A rest is drawn as a `notehead`.** There is no class that separates them, so
 `noteheads()` and `rests()` split on SMuFL's own ranges (U+E0A0–E0FF vs U+E4E0–E4FF). Found by
 a spec that asked for "the noteheads" of a one-note bar and got three — the note plus the two
 rests the model fills the bar with. A DOM-shaped reader would have been silently wrong in
@@ -620,7 +620,7 @@ every spec with a part-full bar.
    the same right margin and every later bar on the line gives width up. That is bar-width's
    whole definition (§4's inversion) and it is a measured pixel — unavailable in jsdom, where
    the room is measured off zeros.
-3. **A `continue` across a system break really does draw on both lines** — two `vf-beam`
+3. **A `continue` across a system break really does draw on both lines** — two `beam`
    groups outside every measure group, one in each system's y band, 150px apart.
 
 **Also true and now pinned:** the default two-note tremolo style is `'open'` (strokes float

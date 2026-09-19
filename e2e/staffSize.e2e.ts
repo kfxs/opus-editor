@@ -46,9 +46,9 @@ async function shrinkTopStaff(score: Page) {
     const h = window.__h
     const read = () => ({
       staves: h.staves(),
-      heads: h.placed('g.vf-measure[id="vf-m1-s0"] .vf-notehead text'),
-      lowerHeads: h.placed('g.vf-measure[id="vf-m1-s1"] .vf-notehead text'),
-      stems: h.inkSizes('g.vf-measure[id="vf-m1-s0"] .vf-stem'),
+      heads: h.placed('g.measure[id="m1-s0"] .notehead text'),
+      lowerHeads: h.placed('g.measure[id="m1-s1"] .notehead text'),
+      stems: h.inkSizes('g.measure[id="m1-s0"] .stem'),
     })
     const before = read()
     h.engine.setStaffSize(0, 0.7)
@@ -166,12 +166,12 @@ test('a tie and a slur on a small staff are drawn AT that staff, at its size', a
     const h = window.__h
     const read = () => ({
       staves: h.staves(),
-      ties: h.paths('g.vf-tie path').length,
+      ties: h.paths('g.tie path').length,
       // The BOX of the ink, composed through its own CTM — the question is where it landed and how
       // big it is, and both change together under a scale.
-      tie: h.inkSizes('g.vf-tie')[0],
-      slur: h.inkSizes('g.vf-slur')[0],
-      lowerSlur: h.inkSizes('g.vf-slur')[1],
+      tie: h.inkSizes('g.tie')[0],
+      slur: h.inkSizes('g.slur')[0],
+      lowerSlur: h.inkSizes('g.slur')[1],
     })
     const before = read()
     h.engine.setStaffSize(0, 0.7)
@@ -233,7 +233,7 @@ test('the STAVE CONNECTOR still joins the two staves when they are different siz
     // cannot live in either staff's scale, because it runs between two of them. It is drawn inside
     // a top-level `stavebarline` group so the barline hinting pass collects it with the lines it
     // joins (`engine/rendering/barlineInk.ts`).
-    const rects = [...document.querySelectorAll<SVGRectElement>('svg > g.vf-stavebarline > rect')]
+    const rects = [...document.querySelectorAll<SVGRectElement>('svg > g.stavebarline > rect')]
       .map(r => ({ x: Number(r.getAttribute('x')), y: Number(r.getAttribute('y')), h: Number(r.getAttribute('height')) }))
     return { top: staves.find(s => s.staff === 0)!, bottom: staves.find(s => s.staff === 1)!, rects }
   })
@@ -263,13 +263,13 @@ test('a beam through a barline is drawn in its staff’s space too', async ({ sc
     // Mark the group across the barline: the last note of bar 1 continues into bar 2.
     h.engine.updateNote(ids[7], { beam: 'continue' })
     await h.render()
-    const before = h.inkSizes('svg > g.vf-beam')
+    const before = h.inkSizes('svg > g.beam')
 
     h.engine.setStaffSize(0, 0.7)
     await h.render()
     // One level deeper: on a small staff the beam is drawn inside the scale wrapper.
-    const after = h.inkSizes('svg > g.vf-scaled > g.vf-beam')
-    return { before, after, loose: h.inkSizes('svg > g.vf-beam').length }
+    const after = h.inkSizes('svg > g.scaled > g.beam')
+    return { before, after, loose: h.inkSizes('svg > g.beam').length }
   })
 
   expect(beams.before.length, 'a beam really does cross the barline').toBeGreaterThan(0)
@@ -288,16 +288,16 @@ test('the NOTE GHOST previews at the size the note will actually be', async ({ s
     // ⚠️ `placed`, not `noteheads`: the cursor is in SVG coordinates, and once the staff is scaled a
     // notehead's own `y` attribute is in the staff's space — hovering there aims well below the
     // staff and previews a ledger-line pitch with a long stem.
-    const real = h.placed('.vf-notehead text')
+    const real = h.placed('.notehead text')
 
     h.engine.renderScoreWithPreview({ x: real[0].x + 80, y: real[0].y }, 'q')
-    const before = { stems: h.inkSizes('.ghost-note-group g.vf-stem'), groups: h.ghosts() }
+    const before = { stems: h.inkSizes('.ghost-note-group g.stem'), groups: h.ghosts() }
 
     h.engine.setStaffSize(0, 0.7)
     await h.render()
-    const scaledReal = h.placed('.vf-notehead text')
+    const scaledReal = h.placed('.notehead text')
     h.engine.renderScoreWithPreview({ x: scaledReal[0].x + 56, y: scaledReal[0].y }, 'q')
-    return { before, after: { stems: h.inkSizes('.ghost-note-group g.vf-stem'), groups: h.ghosts() } }
+    return { before, after: { stems: h.inkSizes('.ghost-note-group g.stem'), groups: h.ghosts() } }
   })
 
   expect(ghost.before.groups, 'a ghost was drawn').toEqual(['ghost-note-group'])
@@ -329,7 +329,7 @@ test('a slur ACROSS A SYSTEM BREAK still reaches the margin on a small staff', a
       const firstSystemTop = Math.min(...staves.map(s => s.top))
       return {
         systemRight: Math.max(...staves.filter(s => s.top === firstSystemTop).map(s => s.x2)),
-        slur: h.inkSizes('g.vf-slur')[0],
+        slur: h.inkSizes('g.slur')[0],
       }
     }
     const before = read()
@@ -362,7 +362,7 @@ test('the HEADER is laid out in the SYSTEM’s space — the two meters line up'
     // ⚠️ `placed`, not the raw attribute: inside a scaled group the two differ by exactly the factor
     // this test is about.
     const at = (staffIndex: number, part: string) =>
-      h.placed(`g.vf-measure[id="vf-m1-s${staffIndex}"] .vf-${part} text`).map(g => g.x)
+      h.placed(`g.measure[id="m1-s${staffIndex}"] .${part} text`).map(g => g.x)
     return {
       clef: [at(0, 'clef')[0], at(1, 'clef')[0]],
       meter: [at(0, 'timesignature')[0], at(1, 'timesignature')[0]],
@@ -394,7 +394,7 @@ test('…and the header’s HIT BOXES follow the ink, so what reads them is not 
     const box = (staff: number) =>
       reg.getByType('timeSignature').filter(e => e.measure === 1 && e.staff === staff).map(e => e.bbox.x)[0]
     const glyph = (staff: number) =>
-      h.placed(`g.vf-measure[id="vf-m1-s${staff}"] .vf-timesignature text`)[0].x
+      h.placed(`g.measure[id="m1-s${staff}"] .timesignature text`)[0].x
     return { boxes: [box(0), box(1)], glyphs: [glyph(0), glyph(1)] }
   })
 

@@ -40,11 +40,11 @@ async function threeFamilies(score: import('@playwright/test').Page, octave = 6)
     await h.render()
     const stave = h.staves()[0]
     return {
-      trill: h.placed('g.vf-trill text')[0],
-      dynamic: h.placed('g.vf-annotation text')[0],
-      tempo: h.placed('g.vf-tempo text')[0],
-      tempoBox: h.inkSizes('g.vf-tempo text')[0],
-      dynamicBox: h.inkSizes('g.vf-annotation text')[0],
+      trill: h.placed('g.trill text')[0],
+      dynamic: h.placed('g.annotation text')[0],
+      tempo: h.placed('g.tempo text')[0],
+      tempoBox: h.inkSizes('g.tempo text')[0],
+      dynamicBox: h.inkSizes('g.annotation text')[0],
       top: stave.top,
       spacing: (stave.bottom - stave.top) / 4,
     }
@@ -88,11 +88,11 @@ test('⭐⭐ a tempo mark CLEARS a dynamic placed above the staff — the consta
     h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: 'w', measure: 1, beat: h.frac(0, 1) })
     h.engine.addTempoMark(1, { beat: h.frac(0, 1), text: 'Allegro' })
     await h.render()
-    const alone = h.placed('g.vf-tempo text')[0].y
+    const alone = h.placed('g.tempo text')[0].y
 
     h.engine.addDynamic(1, { beat: h.frac(0, 1), text: 'p', placement: 'above' })
     await h.render()
-    return { withDynamic: h.placed('g.vf-tempo text')[0].y, alone, top: h.staves()[0].top }
+    return { withDynamic: h.placed('g.tempo text')[0].y, alone, top: h.staves()[0].top }
   })
 
   expect(above(alone, top)).toBe(true)
@@ -107,12 +107,12 @@ test('⭐ …and it clears LEDGER LINES, which the constant was also blind to', 
     const id = h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: 'w', measure: 1, beat: h.frac(0, 1) })!.id
     h.engine.addTempoMark(1, { beat: h.frac(0, 1), text: 'Allegro' })
     await h.render()
-    const low = h.placed('g.vf-tempo text')[0].y
+    const low = h.placed('g.tempo text')[0].y
 
     // The same bar, its one note moved four ledger lines up.
     h.engine.updateNote(id, { step: 'C', octave: 7 })
     await h.render()
-    return { high: h.placed('g.vf-tempo text')[0].y, low, top: h.staves()[0].top }
+    return { high: h.placed('g.tempo text')[0].y, low, top: h.staves()[0].top }
   })
 
   expect(above(low, top)).toBe(true)
@@ -169,11 +169,11 @@ test('⚠️ rendering again does not move the mark — the translate is idempot
     h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: 'w', measure: 1, beat: h.frac(0, 1) })
     h.engine.addTempoMark(1, { beat: h.frac(0, 1), text: 'Allegro' })
     await h.render()
-    const first = h.placed('g.vf-tempo text')[0].y
+    const first = h.placed('g.tempo text')[0].y
     await h.render()
-    const second = h.placed('g.vf-tempo text')[0].y
+    const second = h.placed('g.tempo text')[0].y
     await h.render()
-    return { first, second, third: h.placed('g.vf-tempo text')[0].y }
+    return { first, second, third: h.placed('g.tempo text')[0].y }
   })
 
   expect(second).toBeCloseTo(first, 3)
@@ -216,8 +216,8 @@ async function belowStaffPair(score: import('@playwright/test').Page) {
     const stave = h.staves()[0]
     const flat = (seg: { x1: number; y1: number; x2: number; y2: number }) => Math.abs(seg.y2 - seg.y1) < 1
     return {
-      ottavaLine: h.segments('g.vf-ottava path').filter(flat)[0],
-      dynamic: h.placed('g.vf-annotation text')[0],
+      ottavaLine: h.segments('g.ottava path').filter(flat)[0],
+      dynamic: h.placed('g.annotation text')[0],
       bottom: stave.bottom,
       spacing: (stave.bottom - stave.top) / 4,
     }
@@ -263,8 +263,8 @@ test('⭐ …and on ordinary music the FLOORS keep the same order', async ({ sco
     const stave = h.staves()[0]
     const flat = (seg: { x1: number; y1: number; x2: number; y2: number }) => Math.abs(seg.y2 - seg.y1) < 1
     return {
-      ottavaLine: h.segments('g.vf-ottava path').filter(flat)[0],
-      dynamic: h.placed('g.vf-annotation text')[0],
+      ottavaLine: h.segments('g.ottava path').filter(flat)[0],
+      dynamic: h.placed('g.annotation text')[0],
       bottom: stave.bottom,
     }
   })
@@ -303,12 +303,12 @@ test('⭐⭐ a POSITIVE tempo offset lifts the mark AWAY from the staff', async 
       h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: 'w', measure: m, beat: h.frac(0, 1) })
     }
     await h.render()
-    const heads = h.placed('g.vf-notehead text')
+    const heads = h.placed('g.notehead text')
     const firstRowY = Math.min(...heads.map(g => g.y))
     const onFirstRow = heads.filter(g => Math.abs(g.y - firstRowY) < 5).length
     const mark = h.engine.addTempoMark(onFirstRow + 1, { beat: h.frac(0, 1), text: 'Allegro' })!
     await h.render()
-    const y = () => h.placed('g.vf-tempo text')[0].y
+    const y = () => h.placed('g.tempo text')[0].y
 
     const before = y()
     h.engine.nudgeTempoOffset(mark.id, 0, 2)   // +2 staff-spaces OUTWARD

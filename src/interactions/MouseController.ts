@@ -3299,7 +3299,7 @@ export class MouseController {
    * glyph is not in this render's SVG — which is itself an answer.
    */
   private drawnMarkX(id: string): number | null {
-    const el = this.getScoreCanvas()?.querySelector(`#vf-${id}`) as SVGGraphicsElement | null
+    const el = this.getScoreCanvas()?.querySelector(`[id="${id}"]`) as SVGGraphicsElement | null
     return el ? el.getBoundingClientRect().x : null
   }
 

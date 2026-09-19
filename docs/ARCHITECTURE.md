@@ -529,7 +529,7 @@ Two consequences, and the first is the dangerous one:
 
 - **An assertion about glyph geometry passes vacuously** — it measures zeros and agrees with itself.
   This is why the render tests assert **node identity and counts** (`getMeasureSVGGroup`, counting
-  `g.vf-beam`) and stave-derived numbers, never a drawn position. That convention is load-bearing.
+  `g.beam`) and stave-derived numbers, never a drawn position. That convention is load-bearing.
 - ⭐ **Bar width is no longer one of them.** It used to be `max(minNoteWidth × 1.15, slots ×
   MIN_NOTE_SPACING)`, and with `minNoteWidth ≈ 0` headless only the flat floor was ever exercised.
   The spacing model made the whole width path **pure arithmetic over durations and a measured ink

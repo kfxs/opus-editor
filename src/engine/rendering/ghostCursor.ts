@@ -70,7 +70,7 @@ export function ghostCursorOffset(
  * which is why the group is opened before anything is painted, and why a drawer must not park its
  * own glyph.
  *
- * @param groupName the `openGroup` class, ⚠️ which VexFlow prefixes with `vf-`
+ * @param groupName the `openGroup` class
  *   (`reference_vexflow_opengroup_prefix`) — so the constant a drawer exports for
  *   `GHOST_GROUP_SELECTOR` carries that prefix and this argument does not. Get it wrong and the
  *   ghost smears one copy per mouse position, because `clearGhosts` never sweeps it.
@@ -135,7 +135,7 @@ export function drawSignGhost(
  * (clef, meter, rest, fan, dynamic) each wrote out for themselves: remember how many children the
  * `<svg>` had, let `draw` paint, then move everything new into `<g class="{cls}">`, appended last.
  *
- * ⚠️ The class is set BARE, ⛔ without `openGroup`'s `vf-` prefix — `.ghost-clef-group` and its
+ * The class is set by hand — `.ghost-clef-group` and its
  * siblings are named that way in `GHOST_GROUP_SELECTOR` and styled that way in `notation.css`. Placing
  * the group is the caller's: each of these ghosts parks itself its own way.
  *

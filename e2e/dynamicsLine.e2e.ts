@@ -16,7 +16,7 @@ import { test, expect } from './fixtures'
 
 /** Every dynamic mark as drawn, left to right — its baseline point, composed through the CTM. */
 const marksOf = (score: import('@playwright/test').Page) =>
-  score.evaluate(() => window.__h.placed('g.vf-annotation text'))
+  score.evaluate(() => window.__h.placed('g.annotation text'))
 
 /** The first staff as drawn: its two outer lines, and what one staff space measures. */
 const staffOf = (score: import('@playwright/test').Page) =>
@@ -76,7 +76,7 @@ test('⭐⭐ a low note in a LATER bar leaves the earlier bar\'s mark where it w
     h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: 'w', measure: 2, beat: h.frac(0, 1) })
     h.engine.addDynamic(1, { beat: h.frac(0, 1), text: 'p' })
     await h.render()
-    return window.__h.placed('g.vf-annotation text')[0].y
+    return window.__h.placed('g.annotation text')[0].y
   })
 
   const after = await score.evaluate(async () => {
@@ -86,7 +86,7 @@ test('⭐⭐ a low note in a LATER bar leaves the earlier bar\'s mark where it w
     // marks (of which there are none here).
     h.engine.updateNote(h.engine.getScore().measures[1].slots[0].notes[0].id, { step: 'A', octave: 2 })
     await h.render()
-    return window.__h.placed('g.vf-annotation text')[0].y
+    return window.__h.placed('g.annotation text')[0].y
   })
 
   expect(after).toBeCloseTo(before, 3)
@@ -101,7 +101,7 @@ test('⭐ …but a mark standing OVER the dip deviates, alone', async ({ score }
     h.engine.addDynamic(1, { beat: h.frac(0, 1), text: 'p' })
     h.engine.addDynamic(1, { beat: h.frac(2, 1), text: 'f' })
     await h.render()
-    return window.__h.placed('g.vf-annotation text')
+    return window.__h.placed('g.annotation text')
   })
   const staff = await staffOf(score)
 
@@ -116,9 +116,9 @@ test('a second render moves nothing — the pass is idempotent on a reused bar',
     h.engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'w', measure: 1, beat: h.frac(0, 1) })
     h.engine.addDynamic(1, { beat: h.frac(0, 1), text: 'ff' })
     await h.render()
-    const one = window.__h.placed('g.vf-annotation text')[0].y
+    const one = window.__h.placed('g.annotation text')[0].y
     await h.render()
-    return [one, window.__h.placed('g.vf-annotation text')[0].y]
+    return [one, window.__h.placed('g.annotation text')[0].y]
   })
   const staff = await staffOf(score)
 
@@ -146,7 +146,7 @@ test('⭐ a LEVEL straddles its notehead; a WORD is anchored to it', async ({ sc
     h.engine.addDynamic(1, { beat: h.frac(2, 1), text: 'dolce' })
     await h.render()
     // Each mark's drawn ink box, and the notehead it belongs to.
-    const marks = [...document.querySelectorAll('g.vf-annotation text')].map(t => {
+    const marks = [...document.querySelectorAll('g.annotation text')].map(t => {
       const box = (t as SVGGraphicsElement).getBoundingClientRect()
       return { left: box.left, centre: box.left + box.width / 2 }
     })
@@ -170,7 +170,7 @@ test('⭐ `p dolce` shares a baseline — the co-located pair is no longer centr
     h.engine.addDynamic(1, { beat: h.frac(0, 1), text: 'p' })
     h.engine.addDynamic(1, { beat: h.frac(0, 1), text: 'dolce' })
     await h.render()
-    return window.__h.placed('g.vf-annotation text')
+    return window.__h.placed('g.annotation text')
   })
 
   expect(marks.length, 'the glyph and the word').toBe(2)

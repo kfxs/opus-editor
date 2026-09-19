@@ -123,7 +123,7 @@ this plan was written:
   applied to the real note too, because a beam is one line. ⚠️ Single voice only: in a multi-voice
   lane `createStaveNotesFromSlots`'s `forcedStemDirection` already answers this (V1 up, V2 down) and
   the group follows the voice, not its own pitches.
-- ⭐ **One SVG group per member** (`openGroup('fanhead', …)` — the bare name, `vf-` is prefixed).
+- ⭐ **One SVG group per member** (`openGroup('fanhead', …)` — the bare name; until S15c `vf-` was prefixed).
   Cheap here, and it is what turns P3's highlight from a painted rectangle into an ordinary
   recolour: the barline's "paint, don't recolour" lesson is about ink you do not own, and this ink
   is ours. The accidental and the ledger lines come along for free.
@@ -316,7 +316,7 @@ sounding length, so the group's total time is unchanged by construction.
     the hit-test could not see them and the owner's was the only articulation in a fan that could be
     picked. They register on the member's own first pitch id — the id `selectArticulation`, delete
     and flip already take — so all three arrived together. The highlight needed the member's
-    `vf-fanhead` group: there is no `vf-notehead` for a head VexFlow never drew.
+    `fanhead` group: there is no `notehead` for a head VexFlow never drew.
 - ⭐ **SLURS ARE THE EXCEPTION, and this list was wrong to group them with ties** (his ask, after
   using it). A tie is a pitch-to-pitch CONTINUATION, and a member has no length of its own to
   continue into — that refusal stands. A slur is not an attachment to the event's rhythm: it is a

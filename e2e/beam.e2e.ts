@@ -37,12 +37,12 @@ test('a beamed pair draws ONE quad, half a staff space thick, spanning stem to s
     }
     await h.render()
     // ⚠️ The quad reader hands back the MIDDLE of each edge, so thickness needs the raw path — and
-    // ⚠️ `g.vf-beam` holds the STEMS too, because `Beam.drawStems` draws them inside the beam's own
+    // ⚠️ `g.beam` holds the STEMS too, because `Beam.drawStems` draws them inside the beam's own
     // group (which is also why `stems()` finds them there). The beam is the CLOSED path.
-    const raw = [...document.querySelectorAll('g.vf-beam path')]
+    const raw = [...document.querySelectorAll('g.beam path')]
       .map(p => p.getAttribute('d') ?? '')
       .filter(d => d.trim().endsWith('Z'))
-    return { beams: h.quads('g.vf-beam path'), stems: h.stems(), staves: h.staves(), raw }
+    return { beams: h.quads('g.beam path'), stems: h.stems(), staves: h.staves(), raw }
   })
 
   expect(drawn.beams).toHaveLength(1)
@@ -85,7 +85,7 @@ test('sixteenths draw TWO beam lines, one stride apart, in real staff spaces', a
       h.engine.addNoteAtBeat({ step: 'C', octave: 4, duration: '16', measure: 1, beat: h.frac(i, 4) })
     }
     await h.render()
-    return { beams: h.quads('g.vf-beam path'), staves: h.staves() }
+    return { beams: h.quads('g.beam path'), staves: h.staves() }
   })
 
   expect(drawn.beams, 'a primary beam and a secondary').toHaveLength(2)
@@ -114,7 +114,7 @@ test('an octave leap rises the amount the ARMED slope rule allows — not more, 
     h.engine.addNoteAtBeat({ step: 'C', octave: 4, duration: '8', measure: 1, beat: h.frac(0, 1) })
     h.engine.addNoteAtBeat({ step: 'C', octave: 5, duration: '8', measure: 1, beat: h.frac(1, 2) })
     await h.render()
-    return { beams: h.quads('g.vf-beam path'), staves: h.staves() }
+    return { beams: h.quads('g.beam path'), staves: h.staves() }
   })
 
   expect(drawn.beams).toHaveLength(1)

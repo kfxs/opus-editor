@@ -21,9 +21,9 @@ import type { BeamMode, Chord, FanMark, FanMemberChord, NotePitch } from '@/type
 import { type Fraction, fracCreate, fracFromInt, fracAdd, fracMul, fracDiv, fracSub, fracToNumber } from './fraction'
 
 /**
- * The SVG group a fan's ink is painted into — class `vf-fan`, id `vf-fan-<slotId>`.
+ * The SVG group a fan's ink is painted into — class `fan`, id `fan-<slotId>`.
  *
- * ⚠️ `openGroup` PREFIXES both with `vf-`, so the bare name is what goes in. The id carries the name
+ * The id carries the name
  * as well as the slot because `getElementById` is document-wide
  * (reference_vexflow_getsvgelement_is_document_wide) and a bare slot id would collide.
  */

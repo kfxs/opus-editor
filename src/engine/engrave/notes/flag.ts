@@ -9,7 +9,7 @@
  *
  * - ⭐ **Eight lines, one glyph, one placement.** Nothing downstream reads it: no `selectedElement`
  *   kind, no anchor map, no registry entry, no highlight map. It draws inside the note's own
- *   `vf-stavenote` group, so the selection recolour keeps working untouched — the same free ride the
+ *   `stavenote` group, so the selection recolour keeps working untouched — the same free ride the
  *   ledger lines got.
  * - 🚨🚨 **And it is §3's BUG CLASS, sitting in the open.** VexFlow places the flag vertically with
  *   `this.flag.getTextMetrics().actualBoundingBoxDescent` — a **runtime `measureText`** on a canvas.
@@ -84,8 +84,8 @@ export function flagPlacement(stem: FlagStem, stemWidth: number, glyphReach: num
 /**
  * ⭐ **THE INK** — one glyph, in the face it was handed, inside its own group.
  *
- * ⚠️ The `flag` group is kept because VexFlow drew one (`Flag.draw` opens `vf-flag`): the note's
- * selection highlight walks the `vf-stavenote` group's descendants, and changing the DOM's shape
+ * ⚠️ The `flag` group is kept because VexFlow drew one (`Flag.draw` opens `flag`): the note's
+ * selection highlight walks the `stavenote` group's descendants, and changing the DOM's shape
  * under it is a change nobody asked for. ⭐ It also gives the SCENE a named group to assert on.
  *
  * ⛔ No style is applied. VexFlow's `drawWithStyle` would apply the flag's own, and in this editor a

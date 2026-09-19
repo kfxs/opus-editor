@@ -6351,7 +6351,7 @@ export class MusicEngine {
   }
 
   /**
-   * Get the rendered SVG group (`<g class="vf-annotation">`) for a dynamic, to
+   * Get the rendered SVG group (`<g class="annotation">`) for a dynamic, to
    * recolor exactly one dynamic for the selection highlight (no document scan).
    */
   /** The `<g>` a tempo mark was drawn into (TempoLayout opens it — StaveTempo does not).
@@ -6370,7 +6370,7 @@ export class MusicEngine {
     return this.renderer.getDynamicSVGGroup(dynamicId)
   }
 
-  /** The `<g id="vf-mN-sX">` a measure-on-staff was drawn into. The clef and time
+  /** The `<g id="mN-sX">` a measure-on-staff was drawn into. The clef and time
    *  signature glyphs render inside it (VexFlow draws them as part of `stave.draw()` and
    *  wraps no finer group), so the selection highlight scopes its glyph scan to this
    *  group instead of the whole document — a neighbouring system's clef lives in a
@@ -6380,15 +6380,15 @@ export class MusicEngine {
   }
 
   /**
-   * Get the rendered SVG group (`<g class="vf-slur">`) for a slur, to recolor
+   * Get the rendered SVG group (`<g class="slur">`) for a slur, to recolor
    * exactly one slur for the selection highlight (no document-wide bbox scan).
    */
-  /** The `<g class="vf-hairpin">` of one hairpin, for a scoped highlight. */
+  /** The `<g class="hairpin">` of one hairpin, for a scoped highlight. */
   getHairpinSVGGroup(hairpinId: string): SVGGElement | null {
     return this.renderer.getHairpinSVGGroup(hairpinId)
   }
 
-  /** The rendered `<g class="vf-trill">` for a trill, or null — scoped highlight's target. One group
+  /** The rendered `<g class="trill">` for a trill, or null — scoped highlight's target. One group
    *  per trill even when it repeats on a later system, so colouring it colours the whole ornament. */
   getTrillSVGGroup(trillId: string): SVGGElement | null {
     return this.renderer.getTrillSVGGroup(trillId)
@@ -6431,7 +6431,7 @@ export class MusicEngine {
     return this.renderer.getSlurSVGGroup(slurId)
   }
 
-  /** The rendered SVG group (`<g class="vf-tie">`) for a tie, keyed by its from-note id.
+  /** The rendered SVG group (`<g class="tie">`) for a tie, keyed by its from-note id.
    *  Lets the highlight recolor exactly one tie for the selection highlight (no
    *  document-wide bbox scan, which bled onto staff lines). */
   getTieSVGGroup(fromNoteId: string): SVGGElement | null {

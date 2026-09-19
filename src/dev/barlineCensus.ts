@@ -42,7 +42,7 @@ function barlinesOnScreen(
   dpr: number = typeof window === 'undefined' ? 1 : window.devicePixelRatio || 1,
 ): BarlineOnScreen[] {
   const out: BarlineOnScreen[] = []
-  for (const rect of root.querySelectorAll<SVGRectElement>('g.vf-stavebarline rect')) {
+  for (const rect of root.querySelectorAll<SVGRectElement>('g.stavebarline rect')) {
     // ⭐ **Composite signs are not measured here, because they are deliberately not HINTED.** A final
     // bar and the two repeats opt out of the device-grid pass (`rendering/BarlineRenderer` marks
     // their group `data-no-hint`: a sign is aligned as a whole or not at all, or its own white gap
@@ -125,7 +125,7 @@ export function barlineBoxes(engine: BarlineEngine, root: ParentNode = document)
 
   // Where ink actually is, by its asked-for x (the hinting pass moves the drawn x, never this one).
   const ink = new Set(
-    [...root.querySelectorAll<SVGRectElement>('g.vf-stavebarline rect')].map(r =>
+    [...root.querySelectorAll<SVGRectElement>('g.stavebarline rect')].map(r =>
       Math.round(parseFloat(r.dataset.baselineX ?? r.getAttribute('x') ?? '0')),
     ),
   )

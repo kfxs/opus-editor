@@ -395,8 +395,8 @@ the same note.
   remember which one: the field on `RenderPass`, the private map + the `pass` literal + the `clear()`
   + the `getPedalSVGGroup` accessor in `ScoreRenderer`, and the one-line delegation on
   `MusicEngine`. `PedalRenderer` opens ONE group per pedal (outside the fragment loop, so a split
-  pedal is one group), exactly as `renderOttavas` does — ⚠️ and `openGroup` prefixes with `vf-`
-  itself, so the name passed is `'pedal'`, never `'vf-pedal'`.
+  pedal is one group), exactly as `renderOttavas` does — ⚠️ and `openGroup` prefixed with `vf-` (until S15c)
+  itself, so the name passed is `'pedal'`, never `'pedal'`.
 - **`HighlightController.applyPedalSelectionHighlight()`** — what the `ELEMENT_SPECS` row's
   `highlight` calls. ⭐ PAINT, don't RECOLOUR (`docs/barline-selection.md`).
 

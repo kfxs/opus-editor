@@ -23,7 +23,7 @@ import type { Glyph, StaveBox } from './harness'
  * `addNoteAtBeat` calls, or it was never about the file.
  *
  * ⚠️ The `rests()` reader tells rests from noteheads by **SMuFL range**, not by the DOM: VexFlow
- * draws both into `g.vf-notehead` groups, so without that filter "the noteheads" would silently
+ * draws both into `g.notehead` groups, so without that filter "the noteheads" would silently
  * include every rest the model fills the rest of the bar with.
  */
 

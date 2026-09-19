@@ -92,7 +92,7 @@ test('two beamed pairs: one beam each, flat over a repeated pitch', async ({ sco
       h.engine.addNoteAtBeat({ step: 'C', octave: 4, duration: '8', measure: 1, beat: h.frac(eighth, 2) })
     }
     await h.render()
-    return { beams: h.quads('g.vf-beam path'), heads: h.noteheads() }
+    return { beams: h.quads('g.beam path'), heads: h.noteheads() }
   })
 
   expect(drawn.beams, 'four eighths beam as 2 + 2').toHaveLength(2)
@@ -110,7 +110,7 @@ test('a beam over rising pitches slopes up, and never past the `vexflow` rule’
     h.engine.addNoteAtBeat({ step: 'C', octave: 4, duration: '8', measure: 1, beat: h.frac(0, 1) })
     h.engine.addNoteAtBeat({ step: 'C', octave: 5, duration: '8', measure: 1, beat: h.frac(1, 2) })
     await h.render()
-    return h.quads('g.vf-beam path')
+    return h.quads('g.beam path')
   })
 
   expect(drawn).toHaveLength(1)
@@ -144,14 +144,14 @@ test('an accidental below the staff clears its own ledger lines', async ({ score
     await h.render()
     // The sign's own ADVANCE width — the same measurement VexFlow places it by. (Not `getBBox`,
     // which on a music glyph is the text LAYOUT box and reports a height the ink never had.)
-    const signs = [...document.querySelectorAll<SVGTextElement>('g.vf-stavenote text')]
+    const signs = [...document.querySelectorAll<SVGTextElement>('g.stavenote text')]
       .filter(t => {
         const c = (t.textContent ?? '').codePointAt(0) ?? 0
         return c >= 0xe260 && c <= 0xe26f
       })
       .map(t => ({ left: t.x.baseVal[0].value, right: t.x.baseVal[0].value + t.getComputedTextLength() }))
       .sort((a, b) => a.left - b.left)
-    const ledgers = h.segments('g.vf-stavenote path').filter(s => Math.abs(s.y1 - s.y2) < 0.01)
+    const ledgers = h.segments('g.stavenote path').filter(s => Math.abs(s.y1 - s.y2) < 0.01)
     return { signs, ledgers }
   })
 
@@ -184,13 +184,13 @@ test('a dot stands half a space off the notehead, and the next dot half a space 
     h.engine.addMeasure()
     h.engine.addNoteAtBeat({ step: 'A', octave: 4, duration: 'q', dots: 2, measure: 2, beat: h.frac(0, 1) })
     await h.render()
-    const dotWidth = [...document.querySelectorAll<SVGTextElement>('g.vf-stavenote text')]
+    const dotWidth = [...document.querySelectorAll<SVGTextElement>('g.stavenote text')]
       .filter(t => ((t.textContent ?? '').codePointAt(0) ?? 0) === 0xe1e7)
       .map(t => t.getComputedTextLength())[0]
     return {
       heads: h.noteheads().map(n => ({ x: n.x, y: n.y })),
-      dots: h.glyphs('g.vf-stavenote text').filter(g => g.code === 'e1e7').map(d => ({ x: d.x, y: d.y })),
-      ledgers: h.segments('g.vf-stavenote path').filter(s => Math.abs(s.y1 - s.y2) < 0.01),
+      dots: h.glyphs('g.stavenote text').filter(g => g.code === 'e1e7').map(d => ({ x: d.x, y: d.y })),
+      ledgers: h.segments('g.stavenote path').filter(s => Math.abs(s.y1 - s.y2) < 0.01),
       headWidth: 12,
       dotWidth,
     }

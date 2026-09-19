@@ -570,7 +570,7 @@ repeat at the beginning of the new line and nothing at the end of the previous o
   **0.50** and `engravingDefault('barlineSeparation')` **0.40** in `engine/fonts/bravuraMetrics.ts`,
   beside the `thinBarlineThickness` **0.16** that `thinLineWeight.ts` already reads.
 - ⚠️ **Three followers, all mechanical, none optional:** `e2e/harness.ts:314`'s `barlines()` reader
-  selects `g.vf-stavebarline rect` and returns one row per rect — it must move to the pass's own group
+  selects `g.stavebarline rect` and returns one row per rect — it must move to the pass's own group
   and cope with a sign being 2–3 rects plus dots; `e2e/barWidth.e2e.ts` reads it; and the
   `__barlines` census in `App.ts:827`.
 - ⏭️ **The selection highlight becomes answerable.** `HighlightController.applyBarlineSelectionHighlight`

@@ -347,7 +347,7 @@ selection, scroll-into-view and playback-follow for anything off-screen. It is n
   **never drawn**, so it is correct for a measure nobody paints.
 - **Tier 2 — drawn measures only.** Noteheads, accidentals, beams, tuplets, dynamics, and the inline
   clef segments — everything whose position only exists once the voice is *formatted and drawn*, each
-  measure inside its own addressable `<g id="vf-m7-s2">`.
+  measure inside its own addressable `<g id="m7-s2">`.
 
 The rule the split runs on, and the one that settled every judgement call:
 
@@ -498,10 +498,10 @@ next time the unit tests are green and that feels like evidence.
   the leak; it stopped hiding it.*
 - **`vf-vf-slur`.** Same trap, opposite direction: `SlurRenderer` passed `'vf-slur'` to `openGroup`,
   which prefixes again. Latent only because every consumer holds the node reference `openGroup`
-  returns — but six comments in the codebase invite `querySelector('.vf-slur')`, which would have
+  returns — but six comments in the codebase invite `querySelector('.slur')`, which would have
   matched nothing.
 
-**⚠️ VexFlow's `openGroup(cls, id)` prefixes BOTH with `vf-`** — and so does our `SvgPainter`, its
+**⚠️ VexFlow's `openGroup(cls, id)` prefixed BOTH with `vf-`** (⭐ since S15c our `SvgPainter` writes the bare names) — and so did our `SvgPainter`, its
 transcription, since S13b. Three bugs from one misunderstanding.
 
 **A latent bug fixed on the way:** `measureBounds` was never cleared, so a deleted measure's bounds
@@ -1367,7 +1367,7 @@ rects 14 · distinctParents 14 · rectsPerParent 1.00 · histogram {1: 14} · wi
 ⭐ The inference that there were "several rects per group" came from dividing read counts, and was
 never checked — the fourth prediction in this section to die that way.
 
-What remains, with honest sizes: memoizing by *measure group* instead (the `vf-stavebarline` groups
+What remains, with honest sizes: memoizing by *measure group* instead (the `stavebarline` groups
 carry no transform, so those rects do share a CTM) is ~1.2 rects per group ≈ **0.15 ms/frame**;
 composing the CTM from `transform` attributes — which are not layout reads — collapses 35 reads to 1
 for the full ≈0.8 ms, but hand-multiplies matrices inside the one pass whose whole job is landing ink
@@ -1412,7 +1412,7 @@ hand and only the paint was behind. All four endpoint walks print it now.
 ### ⭐⭐ REDRAWN families and the two MOVED ones
 
 The five above are drawn as their own top-level `<g>`s, so a preview takes the ink down and draws it
-again. **A tempo mark is not**: its glyph is drawn *inside its bar's* `<g class="vf-measure">` by
+again. **A tempo mark is not**: its glyph is drawn *inside its bar's* `<g class="measure">` by
 `TempoLayout.drawTempoMarks`, and two later passes reposition it through one composed, idempotent
 transform whose components live on the element (`tempoMarkTransform`). So its row in
 `MARK_PREVIEW_FAMILIES` has **no `redrawn`** — nothing to remove, and its registry box is MOVED by

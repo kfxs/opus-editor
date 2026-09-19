@@ -89,7 +89,7 @@ export type ScenePrimitive =
  */
 export interface SceneGroup {
   kind: 'group'
-  /** The class the pass asked for — ⚠️ the BARE name, without the `vf-` prefix the SVG painter adds. */
+  /** The class the pass asked for — the same name the SVG painter writes (since S15c). */
   cls?: string
   id?: string
   placement: Affine
@@ -121,8 +121,7 @@ export function scenePrimitives(scene: Scene | SceneGroup): ScenePrimitive[] {
   return [...walkScene(scene)].filter((n): n is ScenePrimitive => n.kind !== 'group')
 }
 
-/** Every group with this bare class, in draw order. ⚠️ The BARE name — `'stavebarline'`, ⛔ not
- *  `'vf-stavebarline'`: the prefix is the SVG painter's, and a scene has no painter. */
+/** Every group with this class, in draw order — e.g. `'stavebarline'`. */
 export function sceneGroups(scene: Scene | SceneGroup, cls: string): SceneGroup[] {
   return [...walkScene(scene)].filter((n): n is SceneGroup => n.kind === 'group' && n.cls === cls)
 }

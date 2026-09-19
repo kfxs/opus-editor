@@ -115,16 +115,15 @@ interface FanSlotDrawing {
 }
 
 /**
- * The SVG group ONE fanned member's ink is painted into — class `vf-fanhead`, id
- * `vf-fanhead-<slotId>-<k>`, nested inside the group's own `vf-fan`.
+ * The SVG group ONE fanned member's ink is painted into — class `fanhead`, id
+ * `fanhead-<slotId>-<k>`, nested inside the group's own `fan`.
  *
  * ⭐ Cheap to open here, and it is what turns a member into a thing on the page: the head, its
  * accidental and its ledger lines land in one group, so P3 can highlight a member by an ordinary
  * recolour instead of painting a rectangle over it. (The barline's "paint, don't recolour" lesson is
  * about ink you do not own; this ink is ours.)
  *
- * ⚠️ `openGroup` PREFIXES both with `vf-`, so the bare name is what goes in, and the id carries the
- * name because `getElementById` is document-wide.
+ * The id carries the name because `getElementById` is document-wide.
  */
 const FAN_HEAD_GROUP = 'fanhead'
 
@@ -305,7 +304,7 @@ export function drawFannedBeams(
   /**
    * ⚠️ The slots of this lane whose fan belongs to a group that LEAVES the bar (P3) — skipped
    * here, because {@link drawCrossBarFanBeams} draws those and drawing one twice paints two
-   * `vf-fan` groups under ONE id. `getElementById` is document-wide and the first in tree order
+   * `fan` groups under ONE id. `getElementById` is document-wide and the first in tree order
    * wins, so the second copy is not merely wasted ink: it steals every lookup the first one owns.
    */
   crossingFans: number[] = [],
@@ -430,7 +429,7 @@ export function drawCrossBarFanBeams(pass: RenderPass, joins: CrossBarFanJoin[])
  * The shared body of both fan passes: settle each joined group's ONE line, then draw every fan —
  * its prefix's stems, its members, its ramp, and the gap back to the fan behind it.
  *
- * ⚠️ `openGroup` PREFIXES the class with `vf-`, so the bare name goes in, and `closeGroup()` lives
+ * ⚠️ `closeGroup()` lives
  * in a `finally` — an unbalanced pair swallows the rest of the render.
  */
 function drawFanGroups(pass: RenderPass, drawings: FanSlotDrawing[], fanJoins: FanJoin[]): void {
@@ -504,7 +503,7 @@ function drawFanGroups(pass: RenderPass, drawings: FanSlotDrawing[], fanJoins: F
         const member = geometry.stems[k]
         // ⭐ ONE GROUP PER MEMBER, so a member is a thing on the page and not a rectangle of
         // painted ink: the head, its sign and its ledger lines land inside it together, which is
-        // what lets P3 highlight one by an ordinary recolour. ⚠️ `openGroup` prefixes `vf-`.
+        // what lets P3 highlight one by an ordinary recolour.
         // ⚠️ The highlight and the incremental redraw read this group back as a DOM node
         // (`fanMemberGroupMap`) — the counted `svgNode` escape, like the hairpin's and the slur's.
         const memberGroup = svgNode(drawGroupOf(ctx.openGroup(FAN_HEAD_GROUP, `${FAN_HEAD_GROUP}-${slot.id}-${k}`)))

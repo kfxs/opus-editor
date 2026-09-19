@@ -32,7 +32,7 @@ function render(build: (m: ScoreModel) => void, staves = 1) {
 
 /** Every measure group in the document, in document order. */
 function groups(svg: SVGElement): SVGGElement[] {
-  return Array.from(svg.querySelectorAll('g.vf-measure')) as SVGGElement[]
+  return Array.from(svg.querySelectorAll('g.measure')) as SVGGElement[]
 }
 
 describe('P5.2 — measures as addressable groups', () => {
@@ -50,9 +50,9 @@ describe('P5.2 — measures as addressable groups', () => {
       for (const staff of [0, 1]) {
         const group = renderer.getMeasureSVGGroup(measure, staff)
         expect(group, `measure ${measure}, staff ${staff}`).not.toBeNull()
-        expect(group!.getAttribute('id')).toBe(`vf-m${measure}-s${staff}`)
+        expect(group!.getAttribute('id')).toBe(`m${measure}-s${staff}`)
         // It is in the document, and it is the same node the SVG exposes.
-        expect(svg.querySelector(`#vf-m${measure}-s${staff}`)).toBe(group)
+        expect(svg.querySelector(`#m${measure}-s${staff}`)).toBe(group)
       }
     }
   })
@@ -65,7 +65,7 @@ describe('P5.2 — measures as addressable groups', () => {
     const group = renderer.getMeasureSVGGroup(1, 0)!
     // The staff lines, the clef, and the notehead all drew inside it.
     expect(group.querySelectorAll('path, text, rect').length).toBeGreaterThan(0)
-    expect(group.querySelector('g.vf-stavenote')).not.toBeNull()
+    expect(group.querySelector('g.stavenote')).not.toBeNull()
   })
 
   it('measure groups are SIBLINGS, never nested — an unclosed group would swallow the score', () => {
@@ -82,9 +82,9 @@ describe('P5.2 — measures as addressable groups', () => {
 
     for (const group of all) {
       // No measure group may contain another.
-      expect(group.querySelector('g.vf-measure')).toBeNull()
+      expect(group.querySelector('g.measure')).toBeNull()
       // Nor may any of them sit inside one.
-      expect(group.parentElement!.closest('g.vf-measure')).toBeNull()
+      expect(group.parentElement!.closest('g.measure')).toBeNull()
     }
   })
 
@@ -98,9 +98,9 @@ describe('P5.2 — measures as addressable groups', () => {
       m.addSlur({ startNoteId: a!.id, endNoteId: b!.id, voice: 0 })
     })
 
-    const slur = svg.querySelector('g.vf-slur')
+    const slur = svg.querySelector('g.slur')
     expect(slur, 'the slur drew').not.toBeNull()
-    expect(slur!.closest('g.vf-measure'), 'slur must not be trapped inside a measure').toBeNull()
+    expect(slur!.closest('g.measure'), 'slur must not be trapped inside a measure').toBeNull()
   })
 
   it('a re-render rebuilds the groups rather than accumulating them', () => {

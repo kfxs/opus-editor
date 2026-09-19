@@ -24,9 +24,9 @@
  *    on the boundary would be the engraver's reading of 'where the line is', and it would put every
  *    one of those 0.3 px out of agreement with the ink for no visible gain."*
  * 3. **It is a FILLED BAR** of {@link OpeningBarlineInk.thickness}, ⛔ not a stroked path — which is
- *    the opposite choice from the staff lines beside it, and deliberate: `g.vf-stavebarline rect` is
+ *    the opposite choice from the staff lines beside it, and deliberate: `g.stavebarline rect` is
  *    what `barlineInk.hintBarlines`, `dev/barlineCensus` and three e2e specs read a barline back out
- *    of, exactly as `g.vf-stave path` is what they read a staff line out of.
+ *    of, exactly as `g.stave path` is what they read a staff line out of.
  *
  * ⚠️ **The THICKNESS is an ARGUMENT, ⛔ not a number chosen here** — P3b's flag-reach precedent. Its
  * owner is the thin-line family (`rendering/thinLineWeight.THIN_LINE_SPACES`, read from the font's
@@ -96,7 +96,7 @@ export function stampOpeningBarline(ctx: DrawContext, ink: OpeningBarlineInk): v
 /**
  * ⭐ The line as a stave modifier draws it: the bar inside its own group.
  *
- * 🚨 **The group is load-bearing and must keep its id and class.** `g.vf-stavebarline rect` is what
+ * 🚨 **The group is load-bearing and must keep its id and class.** `g.stavebarline rect` is what
  * `barlineInk.hintBarlines` snaps onto the device-pixel grid, what `dev/barlineCensus` counts, and
  * what `e2e/harness.ts`'s barline reader returns; the id is how `ElementRegistry`'s box resolves back
  * to this ink. ⇒ this reproduces `Barline.draw`'s `openGroup('stavebarline', id)` exactly.

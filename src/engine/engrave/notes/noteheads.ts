@@ -46,8 +46,8 @@ import { stampGlyph, type GlyphFont } from '../glyph'
 /** One notehead, as the ink it makes — ⛔ no `NoteHead`, no stave, no duration. */
 export interface NoteHeadInk {
   /**
-   * 🚨 **The group's id, and it is a seam**: `g.vf-notehead` is read by the selection highlight and
-   * by a dozen browser specs (`glyphs('g.vf-notehead text')`), and the registry resolves a head's
+   * 🚨 **The group's id, and it is a seam**: `g.notehead` is read by the selection highlight and
+   * by a dozen browser specs (`glyphs('g.notehead text')`), and the registry resolves a head's
    * ink through `getElementById`. ⛔ Never invent one — pass the head's own.
    */
   id?: string

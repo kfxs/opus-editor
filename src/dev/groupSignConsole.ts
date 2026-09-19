@@ -37,8 +37,8 @@ import { groupTargetFromSelection } from '@/interactions/groupStamp'
 import type { EditorState } from '@/interactions/EditorState'
 import { systemStartColumn, scoreSystemStartIndentSpaces, scoreSystemStartIndentPx } from '@/engine/layout/systemStartColumn'
 
-/** The class `systemStart` draws its signs into, once VexFlow's `openGroup` has prefixed it. */
-const SIGN_SELECTOR = 'g.vf-systemsign'
+/** The class `systemStart` draws its signs into. */
+const SIGN_SELECTOR = 'g.systemsign'
 
 export interface GroupSignConsole {
   brace(): void

@@ -73,7 +73,7 @@ async function flagMetrics(score: Parameters<Parameters<typeof test>[1]>[0]['sco
     })
     await h.render()
 
-    const text = document.querySelector('g.vf-flag text')
+    const text = document.querySelector('g.flag text')
     if (!text) return null
     const style = getComputedStyle(text)
     const font = `${style.fontSize} ${style.fontFamily}`
@@ -100,7 +100,7 @@ test('⭐⭐ §3.3 — Bravura’s own table and the canvas agree about the flag
   // ⇒ stem DOWN, flag rising from the tip. The two use opposite sides of their own glyph.
   const up = await flagMetrics(score, 'C', 4)
   const down = await flagMetrics(score, 'A', 5)
-  expect(up, 'an eighth wears a flag, and it is a `<text>` in a `vf-flag` group').not.toBeNull()
+  expect(up, 'an eighth wears a flag, and it is a `<text>` in a `flag` group').not.toBeNull()
   expect(down).not.toBeNull()
 
   // 🚨 Without this the whole spec is measuring a fallback face and agreeing with itself — which is

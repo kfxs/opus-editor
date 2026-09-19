@@ -68,7 +68,7 @@ test('a two-note tremolo draws three strokes between the stems, sloping with the
     h.engine.addNoteAtBeat({ step: 'G', octave: 4, duration: 'q', measure: 1, beat: h.frac(1, 1) })
     h.engine.setTremoloPair(first!.id, true)
     await h.render()
-    return { strokes: h.quads('g.vf-tremolo-pair path'), stems: h.stems() }
+    return { strokes: h.quads('g.tremolo-pair path'), stems: h.stems() }
   })
 
   // A pair of quarters draws as two blancas with no beam, so all three lines are strokes
@@ -92,10 +92,10 @@ test('the JOINED style takes the strokes out to both stem tips', async ({ score 
     h.engine.addNoteAtBeat({ step: 'G', octave: 4, duration: 'q', measure: 1, beat: h.frac(1, 1) })
     h.engine.setTremoloPair(first!.id, true)
     await h.render()
-    const open = h.quads('g.vf-tremolo-pair path')
+    const open = h.quads('g.tremolo-pair path')
     h.engine.setTremoloPairStyle(first!.id, 'joined')
     await h.render()
-    return { open, joined: h.quads('g.vf-tremolo-pair path'), stems: h.stems() }
+    return { open, joined: h.quads('g.tremolo-pair path'), stems: h.stems() }
   })
 
   expect(drawn.joined, 'still three strokes').toHaveLength(3)

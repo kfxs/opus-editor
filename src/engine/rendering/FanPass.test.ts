@@ -35,9 +35,9 @@ function makeRenderer() {
   return { renderer, container }
 }
 
-/** `vf-` is prefixed by `openGroup`, so this is what the fan's group is called in the DOM. */
+/** What the fan's group is called in the DOM — the bare name `openGroup` was given. */
 const fanGroups = (container: HTMLElement) =>
-  container.querySelectorAll(`g.vf-${FAN_GROUP}`)
+  container.querySelectorAll(`g.${FAN_GROUP}`)
 
 describe('a fanned slot renders', () => {
   it('paints one fan group for the marked note, and none for a plain one', () => {
@@ -53,7 +53,7 @@ describe('a fanned slot renders', () => {
     expect(fanGroups(container)).toHaveLength(1)
     // The id carries the name AND the slot — `getElementById` is document-wide.
     const slot = model.getMeasure(1)!.slots.find(s => s.type === 'chord')!
-    expect(container.querySelector(`#vf-${FAN_GROUP}-${slot.id}`)).not.toBeNull()
+    expect(container.querySelector(`[id="${FAN_GROUP}-${slot.id}"]`)).not.toBeNull()
   })
 
   it('the note itself is still there — member 0 is the real StaveNote', () => {
@@ -66,7 +66,7 @@ describe('a fanned slot renders', () => {
     // The whole point of not suppressing it: the registry still knows the note, so selection,
     // ties, articulations and the dynamic anchor all keep working.
     expect(renderer.getElementRegistry().getById(note.id)).not.toBeNull()
-    expect(container.querySelectorAll('g.vf-stavenote').length).toBeGreaterThan(0)
+    expect(container.querySelectorAll('g.stavenote').length).toBeGreaterThan(0)
   })
 
   it('survives every direction, count and beam setting', () => {
@@ -94,7 +94,7 @@ describe('a fanned slot renders', () => {
    * ends in `fill()`, the rest in `stroke()`), which is the only honest way to tell them apart.
    */
   const beamSpans = (container: HTMLElement): number[] =>
-    [...container.querySelectorAll(`g.vf-${FAN_GROUP} path`)]
+    [...container.querySelectorAll(`g.${FAN_GROUP} path`)]
       .filter(p => p.getAttribute('stroke') === 'none')
       .map((p) => {
         const xs = [...(p.getAttribute('d') ?? '').matchAll(/[ML]\s*(-?[\d.]+)/g)].map(m => Number(m[1]))
@@ -194,16 +194,16 @@ describe('the members are drawn as themselves', () => {
     return { model, slot, note }
   }
 
-  const headGroups = (container: HTMLElement) => container.querySelectorAll('g.vf-fanhead')
+  const headGroups = (container: HTMLElement) => container.querySelectorAll('g.fanhead')
 
   it('⭐ gives every member its OWN group — one per member, member 0 excepted (it is the note)', () => {
     const { model, slot } = risingFan(4)
     const { renderer, container } = makeRenderer()
     renderer.renderScore(model.getScore())
     expect(headGroups(container)).toHaveLength(3)
-    // Named and addressable, so a highlight can find one: `openGroup` prefixes `vf-`.
-    expect(container.querySelector(`#vf-fanhead-${slot.id}-1`)).not.toBeNull()
-    expect(container.querySelector(`#vf-fanhead-${slot.id}-3`)).not.toBeNull()
+    // Named and addressable, so a highlight can find one.
+    expect(container.querySelector(`#fanhead-${slot.id}-1`)).not.toBeNull()
+    expect(container.querySelector(`#fanhead-${slot.id}-3`)).not.toBeNull()
   })
 
   it('draws a notehead inside each member group', () => {
@@ -211,7 +211,7 @@ describe('the members are drawn as themselves', () => {
     const { renderer, container } = makeRenderer()
     renderer.renderScore(model.getScore())
     for (const g of headGroups(container)) {
-      expect(g.querySelector('g.vf-notehead')).not.toBeNull()
+      expect(g.querySelector('g.notehead')).not.toBeNull()
     }
   })
 
@@ -221,7 +221,7 @@ describe('the members are drawn as themselves', () => {
     const { renderer, container } = makeRenderer()
     renderer.renderScore(model.getScore())
     // Three member groups: the first F♯ shows its sign, the two repeats do not. The head's own glyph
-    // is a `<text>` too, but nested in its `vf-notehead` group — the SIGN is drawn directly into the
+    // is a `<text>` too, but nested in its `notehead` group — the SIGN is drawn directly into the
     // member's group, so a direct child text IS an accidental.
     const withSign = [...headGroups(container)].filter(g => g.querySelector(':scope > text') !== null)
     expect(withSign).toHaveLength(1)
@@ -263,7 +263,7 @@ describe('the fan is drawn where the note is', () => {
   function coordinates(container: HTMLElement): { xs: number[]; ys: number[] } {
     const xs: number[] = []
     const ys: number[] = []
-    for (const g of container.querySelectorAll(`g.vf-${FAN_GROUP}`)) {
+    for (const g of container.querySelectorAll(`g.${FAN_GROUP}`)) {
       for (const path of g.querySelectorAll('path')) {
         const d = path.getAttribute('d') ?? ''
         const nums = [...d.matchAll(/-?\d+(?:\.\d+)?/g)].map(m => Number(m[0]))
@@ -385,8 +385,8 @@ describe('the members are selectable', () => {
     for (const member of slot.fan!.members!) {
       const info = renderer.getFanMemberSVGGroup(member.pitches[0].id)
       expect(info).not.toBeNull()
-      expect(info!.group.getAttribute('class')).toBe('vf-fanhead')
-      expect(info!.group.querySelector('g.vf-notehead')).not.toBeNull()
+      expect(info!.group.getAttribute('class')).toBe('fanhead')
+      expect(info!.group.querySelector('g.notehead')).not.toBeNull()
     }
     // The real note is NOT a member — it keeps its own StaveNote group.
     expect(renderer.getFanMemberSVGGroup(note.id)).toBeNull()
@@ -519,7 +519,7 @@ describe('a slur anchored inside a fan', () => {
     const { renderer, container } = makeRenderer()
     renderer.renderScore(model.getScore())
 
-    expect(container.querySelector(`#vf-slur-${slur.id}`)).not.toBeNull()
+    expect(container.querySelector(`#slur-${slur.id}`)).not.toBeNull()
     const registered = renderer.getElementRegistry().getAll().filter(el => el.type === 'slur')
     expect(registered).toHaveLength(1)
     expect(registered[0].fromNoteId).toBe(slur.startNoteId)
@@ -574,7 +574,7 @@ describe('a fan joined to the group on its left', () => {
 
   it('⭐ draws the prefix’s stem INSIDE the fan’s group — the join is the fan’s ink', () => {
     const { renderer, container, first, slot } = joinedPair(true)
-    const fanGroup = container.querySelector(`#vf-${FAN_GROUP}-${slot.id}`)
+    const fanGroup = container.querySelector(`[id="${FAN_GROUP}-${slot.id}"]`)
     expect(fanGroup).not.toBeNull()
     const stem = renderer.getStaveNoteSVGGroup(first.id)?.stem
     expect(stem).not.toBeNull()
@@ -592,7 +592,7 @@ describe('a fan joined to the group on its left', () => {
 
   it('leaves the prefix’s stem where VexFlow drew it when the fan is NOT joined', () => {
     const { renderer, container, first, slot } = joinedPair(false)
-    const fanGroup = container.querySelector(`#vf-${FAN_GROUP}-${slot.id}`)
+    const fanGroup = container.querySelector(`[id="${FAN_GROUP}-${slot.id}"]`)
     const stem = renderer.getStaveNoteSVGGroup(first.id)?.stem
     expect(stem).not.toBeNull()
     expect(fanGroup!.contains(stem!)).toBe(false)
@@ -600,7 +600,7 @@ describe('a fan joined to the group on its left', () => {
 
   it('builds no VexFlow Beam over the joined group — the line is entirely ours', () => {
     const { container } = joinedPair(true)
-    expect(container.querySelectorAll('g.vf-beam')).toHaveLength(0)
+    expect(container.querySelectorAll('g.beam')).toHaveLength(0)
   })
 
   it('⭐ the fan’s ink rect reaches BACK over the prefix, so the joined beam selects the fan', () => {
@@ -616,7 +616,7 @@ describe('a fan joined to the group on its left', () => {
     model.addNote({ step: 'G', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
     renderer.renderScore(model.getScore())
     expect(renderer.getElementRegistry().getById(fanned.id)).not.toBeNull()
-    expect(container.querySelectorAll('g.vf-stavenote').length).toBeGreaterThan(2)
+    expect(container.querySelectorAll('g.stavenote').length).toBeGreaterThan(2)
   })
 
   /** The fan's own `beam` hit rect — the one `registerFanInk` filed, the widest in the bar. */
@@ -664,7 +664,7 @@ describe('two fans joined to each other', () => {
   })
 
   it('builds no VexFlow Beam for the chain either', () => {
-    expect(twoFans(true).container.querySelectorAll('g.vf-beam')).toHaveLength(0)
+    expect(twoFans(true).container.querySelectorAll('g.beam')).toHaveLength(0)
   })
 
   it('the rest of the score still draws after it — both groups are balanced', () => {
@@ -672,12 +672,12 @@ describe('two fans joined to each other', () => {
     model.addNote({ step: 'A', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
     renderer.renderScore(model.getScore())
     expect(renderer.getElementRegistry().getById(right.id)).not.toBeNull()
-    expect(container.querySelectorAll('g.vf-stavenote').length).toBeGreaterThan(2)
+    expect(container.querySelectorAll('g.stavenote').length).toBeGreaterThan(2)
   })
 
   /** The topmost y of each fan group's beam ink, left group first. */
   function beamTops(built: { container: HTMLElement }): number[] {
-    return [...built.container.querySelectorAll(`g.vf-${FAN_GROUP}`)].map(g => {
+    return [...built.container.querySelectorAll(`g.${FAN_GROUP}`)].map(g => {
       const ys: number[] = []
       for (const path of g.querySelectorAll('path')) {
         const nums = [...(path.getAttribute('d') ?? '').matchAll(/-?\d+(?:\.\d+)?/g)].map(m => Number(m[0]))
@@ -720,18 +720,18 @@ describe('a fan joined across a barline', () => {
     const svg = (b: { renderer: ScoreRenderer }) => b.renderer.getSVGElement()!
     // Unjoined, the fan belongs to its bar and is drawn inside that bar's group.
     const alone = acrossBarline(false)
-    expect([...svg(alone).children].filter(el => el.getAttribute('class') === `vf-${FAN_GROUP}`)).toHaveLength(0)
+    expect([...svg(alone).children].filter(el => el.getAttribute('class') === `${FAN_GROUP}`)).toHaveLength(0)
     expect(fanGroups(alone.container)).toHaveLength(1)
 
     // Joined, it belongs to no bar — like a tie or a slur.
     const crossed = acrossBarline(true)
-    expect([...svg(crossed).children].filter(el => el.getAttribute('class') === `vf-${FAN_GROUP}`)).toHaveLength(1)
+    expect([...svg(crossed).children].filter(el => el.getAttribute('class') === `${FAN_GROUP}`)).toHaveLength(1)
     expect(fanGroups(crossed.container)).toHaveLength(1)
   })
 
   it('⭐ pulls the PREFIX’s stem across with it — drawn by us, still the note’s own object', () => {
     const { renderer, container, before, slot } = acrossBarline(true)
-    const fanGroup = container.querySelector(`#vf-${FAN_GROUP}-${slot.id}`)
+    const fanGroup = container.querySelector(`[id="${FAN_GROUP}-${slot.id}"]`)
     expect(fanGroup).not.toBeNull()
     const stem = renderer.getStaveNoteSVGGroup(before.id)?.stem
     expect(stem).not.toBeNull()
@@ -740,7 +740,7 @@ describe('a fan joined across a barline', () => {
 
   it('builds no cross-barline `Beam` over it — the line is the fan’s', () => {
     const { container } = acrossBarline(true)
-    expect(container.querySelectorAll('g.vf-beam')).toHaveLength(0)
+    expect(container.querySelectorAll('g.beam')).toHaveLength(0)
   })
 
   it('the fan keeps its own stem — the one the joined line is anchored to', () => {
@@ -764,11 +764,11 @@ describe('a fan joined across a barline', () => {
     // Both fans draw, both outside every measure group — the whole group left its bars together.
     expect(fanGroups(container)).toHaveLength(2)
     const svg = renderer.getSVGElement()!
-    expect([...svg.children].filter(el => el.getAttribute('class') === `vf-${FAN_GROUP}`)).toHaveLength(2)
+    expect([...svg.children].filter(el => el.getAttribute('class') === `${FAN_GROUP}`)).toHaveLength(2)
     // Neither owner lost its stem, and no `Beam` was built over the pair.
     expect(renderer.getStaveNoteSVGGroup(left.id)?.stem).not.toBeNull()
     expect(renderer.getStaveNoteSVGGroup(right.id)?.stem).not.toBeNull()
-    expect(container.querySelectorAll('g.vf-beam')).toHaveLength(0)
+    expect(container.querySelectorAll('g.beam')).toHaveLength(0)
   })
 
   it('survives a re-render, and the rest of the score still draws', () => {

@@ -104,7 +104,7 @@ hand and by nobody in particular.
    its way out of that at 47% of layout time).
 3. **Nothing downstream reads it.** ⛔ Not the registry, not a highlight map, not an anchor.
 4. **It draws inside the note's own group already**, because VexFlow's `draw()` opens
-   `vf-stavenote` *before* calling `drawLedgerLines()` — so the selection highlight keeps working
+   `stavenote` *before* calling `drawLedgerLines()` — so the selection highlight keeps working
    for free, with no new seam.
 
 ### 1.2 What landed
@@ -146,9 +146,9 @@ that by design. It is generalised now, not weakened.
 
 **Because it has no owner at all, and because of what it exposes.**
 
-- ⭐ **Eight lines, one glyph, one placement.** Grepped: `vf-flag` is read by nothing in `src/`, the
+- ⭐ **Eight lines, one glyph, one placement.** Grepped: `flag` is read by nothing in `src/`, the
   flag is not a kind in the `selectedElement` union, and no anchor or highlight map holds one. It
-  draws inside the note's own `vf-stavenote` group, so the selection recolour keeps working
+  draws inside the note's own `stavenote` group, so the selection recolour keeps working
   untouched — the same free ride P3a got.
 - 🚨🚨 **It is `own-engraving-engine.md` §3's BUG CLASS, sitting in the open.** VexFlow places the
   flag vertically with `this.flag.getTextMetrics().actualBoundingBoxDescent` — a **runtime
@@ -386,8 +386,8 @@ What the override transcribes, from `NoteHead.draw()` inside `Element.drawWithSt
    `draw` → `restore`, and `applyStyle` can reach for shadow primitives {@link DrawContext}
    deliberately does not declare. Nothing here styles a notehead (`setStyle` is unused in this
    editor — every recolour goes through the DOM afterwards), so this is fidelity, not need.
-5. 🚨 **The group's id is the seam**, exactly as for the stem: `g.vf-notehead` is read by the
-   highlight *and* by a dozen browser specs (`glyphs('g.vf-notehead text')`). That coverage is why
+5. 🚨 **The group's id is the seam**, exactly as for the stem: `g.notehead` is read by the
+   highlight *and* by a dozen browser specs (`glyphs('g.notehead text')`). That coverage is why
    this was a safe piece to take: **276 browser tests are watching where noteheads land.**
 
 ### 1d.3 ⭐ The stamp got a home, because it had a second owner
@@ -641,7 +641,7 @@ note plus its accidentals, dots and articulations (this codebase already met tha
 ### 1e.2 ⭐ The audit — measured and grepped, 2026-09-01
 
 **Emitted:** one per drawn `StaveNote`, rests included — counted **6 for 6** in a real render, each a
-direct child of its own `g.vf-stavenote`.
+direct child of its own `g.stavenote`.
 
 **Consumed by: NOTHING in this repo.**
 
@@ -651,8 +651,8 @@ direct child of its own `g.vf-stavenote`.
 | `event.target` on the score | the only three reads are `MouseController`'s, and all ask *"is the target the scroll CONTAINER (scrollbar/gutter)?"* — a click anywhere on the SVG targets the `<svg>`, so its contents are irrelevant to the guard |
 | the note's selection highlight | sweeps `text, path` — ⛔ never `rect` |
 | the stem's highlight | `querySelectorAll('path, line')` — ⛔ never `rect` |
-| the one highlight that DOES sweep rects | scoped to `g.vf-systemsign` (braces/brackets) — never reaches a note |
-| the browser harness's rect readers | scoped: `g.vf-stavebarline rect`, `rect.score-page-sheet` |
+| the one highlight that DOES sweep rects | scoped to `g.systemsign` (braces/brackets) — never reaches a note |
+| the browser harness's rect readers | scoped: `g.stavebarline rect`, `rect.score-page-sheet` |
 | CSS | no rule targets them |
 
 ⇒ **inert DOM: one extra element per note, per render**, plus a copy in every exported SVG/PDF
@@ -670,7 +670,7 @@ without a font. In a browser they carry the note's real box.
 ⭐ **And it is not merely deferral — it is the correct owner.** The pointer rect cannot be dropped
 from where P3 stands anyway: `ctx.pointerRect(...)` is called by `StaveNote.draw()` itself, not by
 any of the four methods P3a–P3d override, so removing it means overriding **`draw()`** — and that
-method also opens the note's own `vf-stavenote` group, which is **P1e's** territory (it is the last
+method also opens the note's own `stavenote` group, which is **P1e's** territory (it is the last
 thing keeping a whole note out of the scene).
 
 ⭐⭐ **So the question resolves itself at P1e rather than being answered twice**: a painter of ours

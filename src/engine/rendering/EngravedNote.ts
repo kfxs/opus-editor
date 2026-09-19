@@ -1231,7 +1231,7 @@ export class EngravedNote {
    * this override does is hand that module what only a `StaveNote` can answer — where its heads
    * landed, how wide its glyph is, and which y a staff line is at.
    *
-   * ⚠️ Called from inside VexFlow's `draw()`, **after** it has opened the note's own `vf-stavenote`
+   * ⚠️ Called from inside VexFlow's `draw()`, **after** it has opened the note's own `stavenote`
    * group and set every head's x. Both matter: the group is what the selection highlight recolours,
    * so ink drawn here is highlighted with the note for free, and the head x's are only settled at
    * that moment (`reference: vexflow geometry is only real after draw`).
@@ -1406,8 +1406,8 @@ export class EngravedNote {
    *    → `draw` → `restore`, and `applyStyle` can reach for shadow primitives that {@link DrawContext}
    *    deliberately does not declare. Nothing in this editor styles a notehead (`setStyle` is unused
    *    here — every recolour goes through the DOM afterwards), so this is fidelity rather than need.
-   * 4. 🚨 **The group's id is the seam**, exactly as it was for the stem: `g.vf-notehead` is read by
-   *    the highlight and by a dozen browser specs (`glyphs('g.vf-notehead text')`).
+   * 4. 🚨 **The group's id is the seam**, exactly as it was for the stem: `g.notehead` is read by
+   *    the highlight and by a dozen browser specs (`glyphs('g.notehead text')`).
    *
    * ⛔ **What is NOT taken**: which glyph a duration gets. `fonts/noteheadGlyph()` has answered that
    * from Bravura since P2, so it is a fourth *"the room reserved and the ink drawn come from two

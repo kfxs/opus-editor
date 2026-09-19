@@ -63,7 +63,7 @@ export function accidentalOriginX(modifierStartX: number, width: number): number
  * note's box silently swallowed its accidental and the sign itself had no box at all — his report,
  * 2026-09-14 (`docs/own-engraving-engine.md` §5 P6).
  *
- * ⚠️ It is a DOM change and the only one this family has made: an extra `<g class="vf-accidental">`
+ * ⚠️ It is a DOM change and the only one this family has made: an extra `<g class="accidental">`
  * INSIDE the notehead group, in the same place in draw order. ⭐ Every highlight selector that reaches
  * these glyphs is a DESCENDANT search (`group.querySelectorAll('text')`, and the articulation's
  * `'text, path'` walk whose index 0 is still the head) ⇒ document order and every index are

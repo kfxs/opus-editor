@@ -189,7 +189,7 @@ bar**. Worse, two things make the modifier path unusable for us even for bar-sta
 - **`StaveTempo.draw()` never calls `ctx.openGroup()`.** It emits bare `<text>` nodes into whatever
   group is open — and `Stave.draw()` has them all inside one `openGroup('stave', …)` (`stave.js`).
   So there is **no `<g>` carrying the mark's id**, and `getSVGElement()` (which is just
-  `document.getElementById('vf-' + id)`) returns nothing.
+  `document.getElementById('' + id)`) returns nothing.
 
   ⚠️ This silently breaks the "register the bbox like `registerDynamics`" plan: `registerDynamics`
   works *only* because `Annotation.draw()` opens a group with the annotation's id. `StaveTempo`
@@ -200,7 +200,7 @@ X is known — the same point `DynamicsLayout` reads it), draw the mark by hand 
 
 ```ts
 const ctx = pass.context
-ctx.openGroup('tempo', mark.id)            // ← THE fix: gives us '#vf-<id>' for bbox + highlight
+ctx.openGroup('tempo', mark.id)            // ← THE fix: gives us '#<id>' for bbox + highlight
 new StaveTempo(opts, x, shiftY).setStave(stave).setContext(ctx).draw()
 ctx.closeGroup()
 ```
@@ -490,7 +490,7 @@ same port the wedge, the bracket, the pedal and the dynamic use.
 
 docs/render-performance-plan.md §12.5a wired the mark drags to a preview that redraws one family
 instead of the score. The tempo mark is the one family that is **MOVED rather than redrawn**: its
-glyph is drawn inside its bar's `<g class="vf-measure">` and repositioned afterwards by the composed
+glyph is drawn inside its bar's `<g class="measure">` and repositioned afterwards by the composed
 transform (`rendering/tempoMarkTransform`), so a frame re-applies two idempotent passes and draws
 nothing —
 

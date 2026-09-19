@@ -188,7 +188,7 @@ cost; the raster cost needs `performance` timings around the zoom step.
 
 > Two measurements since (2026-07-31), because the barline hinting above had to decide whether to
 > use it. **A staff is five `<path>`s and a barline is a `<rect>`** — so a rule scoped to
-> `g.vf-stavebarline rect` cannot reach a staff line at all, and the recorded unevenness must have
+> `g.stavebarline rect` cannot reach a staff line at all, and the recorded unevenness must have
 > come from something wider than the selector as written. It was rejected anyway, for a reason that
 > has nothing to do with staff lines: **at 25% zoom it erases 9 of 12 barlines**, because it rounds
 > a sub-pixel line down to nothing. Hinting in our own code can floor the width at one pixel;

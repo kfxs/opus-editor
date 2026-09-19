@@ -447,8 +447,8 @@ describe('P5.4b — a bar that only moved is translated', () => {
     // Ghosts are overlays (P4), so hovering does NOT re-render: `clearGhosts()` is the ONLY thing
     // that takes the previous one down, and it matches BY CLASS. Four of the five ghosts build
     // their `<g>` by hand. The tempo ghost is the one that goes through the painter's
-    // `openGroup('ghost-tempo')` — **which prefixes the class with `vf-` itself** (VexFlow's
-    // `SVGContext` did; `SvgPainter` transcribes it, until S15). The selector
+    // `openGroup('ghost-tempo')` — **which, until S15c, prefixed the class with `vf-` itself**
+    // (VexFlow's `SVGContext` did, and `SvgPainter` transcribed it). The selector
     // said `.ghost-tempo`, matched nothing, and so every mouse position left its ghost behind: a
     // permanent blue smear across the score.
     //
@@ -462,7 +462,7 @@ describe('P5.4b — a bar that only moved is translated', () => {
     const probe = new SvgPainter(document.createElement('div'))
     const groupClass = (probe.openGroup('ghost-tempo') as SVGGElement).getAttribute('class')!
     probe.closeGroup()
-    expect(groupClass).toBe('vf-ghost-tempo') // the painter's prefix — the whole trap
+    expect(groupClass).toBe('ghost-tempo') // what the painter writes — the whole trap
 
     // A ghost of exactly that shape must be removable.
     const ghost = document.createElementNS('http://www.w3.org/2000/svg', 'g')
@@ -486,7 +486,7 @@ describe('P5.4b — a bar that only moved is translated', () => {
 
     expect(renderer.getMeasureBounds(4)).toBeUndefined()
     expect(renderer.getMeasureSVGGroup(4, 0)).toBeNull()
-    expect(renderer.getSVGElement()!.querySelector('#vf-m4-s0')).toBeNull()
+    expect(renderer.getSVGElement()!.querySelector('#m4-s0')).toBeNull()
   })
 })
 

@@ -14,7 +14,7 @@ import type { WalkSign } from '@/engine/engrave/staff/signWalk'
 export interface StaveSign {
   /** What the sign is. */
   readonly signKind: SignKind
-  /** The sign's id — its SVG group is `vf-<id>` (the painter adds the prefix). */
+  /** The sign's id — its SVG group's id. */
   readonly id: string
   /** The walk's inputs — padding, width, and a barline's metrics. */
   walkInput(): WalkSign

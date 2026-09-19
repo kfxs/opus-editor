@@ -41,9 +41,9 @@ async function overQuarters(
     await h.render()
     const stave = h.staves()[0]
     return {
-      glyphs: h.placed('g.vf-ottava text'),
-      segments: h.segments('g.vf-ottava path'),
-      heads: h.inkSizes('g.vf-notehead text'),
+      glyphs: h.placed('g.ottava text'),
+      segments: h.segments('g.ottava path'),
+      heads: h.inkSizes('g.notehead text'),
       // ⚠️ The bar's CLOSING barline — `barlines()[0]` is the opening one, which is left of
       // every note and would make this assertion pass on any geometry at all.
       barline: Math.max(...h.barlines().map(b => b.x)),
@@ -111,11 +111,11 @@ test('the dashed line is DASHED, and the numeral comes before it', async ({ scor
     }
     h.engine.addOttava(1, { beat: h.frac(0, 1), length: h.frac(4, 1), shift: 1 })
     await h.render()
-    const paths = [...document.querySelectorAll('g.vf-ottava path')]
+    const paths = [...document.querySelectorAll('g.ottava path')]
     return {
       dasharrays: paths.map(p => p.getAttribute('stroke-dasharray') ?? ''),
-      glyphX: h.placed('g.vf-ottava text')[0]?.x ?? 0,
-      lineX1: h.segments('g.vf-ottava path').find(s => Math.abs(s.y2 - s.y1) < 1)?.x1 ?? 0,
+      glyphX: h.placed('g.ottava text')[0]?.x ?? 0,
+      lineX1: h.segments('g.ottava path').find(s => Math.abs(s.y2 - s.y1) < 1)?.x1 ?? 0,
     }
   })
   expect(dash.dasharrays.some(d => d.length > 0), 'the horizontal carries a dash pattern').toBe(true)
@@ -202,17 +202,17 @@ async function acrossABreak(score: import('@playwright/test').Page) {
       h.engine.addNoteAtBeat({ step: 'A', octave: 4, duration: 'w', measure: m, beat: h.frac(0, 1) })
     }
     await h.render()
-    const heads = h.placed('g.vf-notehead text')
+    const heads = h.placed('g.notehead text')
     const firstRowY = Math.min(...heads.map(g => g.y))
     const onFirstRow = heads.filter(g => Math.abs(g.y - firstRowY) < 5).length
     // From the LAST bar of system 1, through the first of system 2.
     h.engine.addOttava(onFirstRow, { beat: h.frac(0, 1), length: h.frac(8, 1), shift: 1 })
     await h.render()
-    const heads2 = h.placed('g.vf-notehead text').filter(g => g.y > firstRowY + 5)
+    const heads2 = h.placed('g.notehead text').filter(g => g.y > firstRowY + 5)
     const staves2 = h.staves().filter(s => s.measure > onFirstRow)
     return {
-      glyphs: h.placed('g.vf-ottava text'),
-      segments: h.segments('g.vf-ottava path'),
+      glyphs: h.placed('g.ottava text'),
+      segments: h.segments('g.ottava path'),
       row1Y: firstRowY,
       /** The first notehead of system 2 — what the continuation must sit LEFT of. */
       firstNoteOfRow2: Math.min(...heads2.map(g => g.x)),
@@ -272,8 +272,8 @@ test('⭐⭐ an 8va clears a TRILL under it — LilyPond\'s 400 against 50', asy
     h.engine.addOttava(1, { beat: h.frac(0, 1), length: h.frac(4, 1), shift: 1 })
     await h.render()
     return {
-      trill: h.placed('g.vf-trill text')[0],
-      ottava: h.placed('g.vf-ottava text')[0],
+      trill: h.placed('g.trill text')[0],
+      ottava: h.placed('g.ottava text')[0],
     }
   })
   expect(ottava, 'the bracket drew').toBeDefined()
@@ -288,8 +288,8 @@ test('⭐⭐ …and the TEMPO mark clears the 8va in turn — the rung above it'
     h.engine.addTempoMark(1, { beat: h.frac(0, 1), text: 'Allegro' })
     await h.render()
     return {
-      ottava: h.placed('g.vf-ottava text')[0],
-      tempo: h.placed('g.vf-tempo text')[0],
+      ottava: h.placed('g.ottava text')[0],
+      tempo: h.placed('g.tempo text')[0],
     }
   })
   expect(tempo.y, 'tempo is the outermost family').toBeLessThan(ottava.y)
@@ -302,10 +302,10 @@ test('an 8va does NOT move a notehead — written pitch, so no bar gets wider', 
       h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: 'q', measure: 1, beat: h.frac(beat, 1) })
     }
     await h.render()
-    const before = h.placed('g.vf-notehead text').map(g => ({ x: g.x, y: g.y }))
+    const before = h.placed('g.notehead text').map(g => ({ x: g.x, y: g.y }))
     h.engine.addOttava(1, { beat: h.frac(0, 1), length: h.frac(4, 1), shift: 1 })
     await h.render()
-    return { before, after: h.placed('g.vf-notehead text').map(g => ({ x: g.x, y: g.y })) }
+    return { before, after: h.placed('g.notehead text').map(g => ({ x: g.x, y: g.y })) }
   })
   // The claim `MEASURE_RENDER_ROLE`'s `'ignored'` row makes, checked where it is actually true:
   // an octave line changes what a note SOUNDS, never where its head sits.
@@ -334,8 +334,8 @@ async function nudgedBracket(
     const ottava = h.engine.addOttava(1, { beat: h.frac(0, 1), length: h.frac(4, 1), shift: offset.shift ?? 1 })!
     await h.render()
     const before = {
-      glyphs: h.placed('g.vf-ottava text'),
-      segments: h.segments('g.vf-ottava path'),
+      glyphs: h.placed('g.ottava text'),
+      segments: h.segments('g.ottava path'),
     }
     // The two squares' own writes, through the same door the arrow keys use.
     if (offset.startX) h.engine.nudgeOttavaEndpoint(ottava.id, 'start', offset.startX, 0)
@@ -346,8 +346,8 @@ async function nudgedBracket(
     return {
       before,
       after: {
-        glyphs: h.placed('g.vf-ottava text'),
-        segments: h.segments('g.vf-ottava path'),
+        glyphs: h.placed('g.ottava text'),
+        segments: h.segments('g.ottava path'),
       },
       spacing: (h.staves()[0].bottom - h.staves()[0].top) / 4,
     }
@@ -420,14 +420,14 @@ test('⭐⭐ a big nudge is NOT clamped at the barline — the hand overrules th
     }
     const ottava = h.engine.addOttava(2, { beat: h.frac(0, 1), length: h.frac(4, 1), shift: 1 })!
     await h.render()
-    const before = { glyphs: h.placed('g.vf-ottava text'), segments: h.segments('g.vf-ottava path') }
+    const before = { glyphs: h.placed('g.ottava text'), segments: h.segments('g.ottava path') }
     // Six presses of `←`, one staff space each — the gesture, not one big write.
     for (let i = 0; i < 6; i++) h.engine.nudgeOttavaEndpoint(ottava.id, 'start', -1, 0)
     await h.render()
     const stave = h.staves()[0]
     return {
       before,
-      after: { glyphs: h.placed('g.vf-ottava text'), segments: h.segments('g.vf-ottava path') },
+      after: { glyphs: h.placed('g.ottava text'), segments: h.segments('g.ottava path') },
       spacing: (stave.bottom - stave.top) / 4,
       // Bar 2's own left edge — the clamp that used to freeze the numeral.
       barLeft: h.barlines().map(b => b.x).sort((a, b) => a - b)[1],

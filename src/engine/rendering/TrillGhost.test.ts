@@ -57,6 +57,6 @@ describe('TrillGhost', () => {
   it('never throws, whatever the font situation — a preview is not allowed to break the render', () => {
     expect(() => draw()).not.toThrow()
     // …and the score under it is untouched: the ghost is an overlay, so the music survives it.
-    expect(svg().querySelectorAll('.vf-stavenote').length).toBeGreaterThan(0)
+    expect(svg().querySelectorAll('.stavenote').length).toBeGreaterThan(0)
   })
 })

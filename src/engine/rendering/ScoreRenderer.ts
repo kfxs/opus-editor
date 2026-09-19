@@ -261,8 +261,7 @@ export interface MeasureBounds {
  */
 
 /**
- * The identity of one drawn measure-on-a-staff. VexFlow's `openGroup` prefixes it, so this becomes
- * `id="vf-m7-s2"` in the SVG — measure 7, staff 2.
+ * The identity of one drawn measure-on-a-staff — `id="m7-s2"` in the SVG, measure 7, staff 2.
  */
 /**
  * The same placement, in the staff's OWN drawing space — what tier 2 works in, because that is
@@ -604,7 +603,7 @@ export class ScoreRenderer {
   /** Map of note IDs to their rendered StaveNotes (for tie rendering) */
   private staveNoteMap: Map<string, { staveNote: EngravedNote; noteIndex: number }> = new Map()
   /**
-   * Each FANNED MEMBER pitch id → the `<g class="vf-fanhead">` its ink was drawn into, and which
+   * Each FANNED MEMBER pitch id → the `<g class="fanhead">` its ink was drawn into, and which
    * head inside it belongs to that pitch. The member's answer to `staveNoteMap`
    * (docs/fanned-beam-pitches-plan.md §2 P3) — a member has no `StaveNote`, so a highlight resolves
    * through here instead. Rebuilt every render, like the note map.
@@ -620,13 +619,13 @@ export class ScoreRenderer {
   private tupletObjectMap: Map<string, ScoreTuplet> = new Map()
   /** Map of dynamic IDs to their rendered VexFlow Annotation objects (for scoped highlight) */
   private dynamicObjectMap: Map<string, EngravedAnnotation> = new Map()
-  /** Map of slur IDs to their rendered SVG group (`<g class="vf-slur">`) for scoped highlight */
+  /** Map of slur IDs to their rendered SVG group (`<g class="slur">`) for scoped highlight */
   private slurGroupMap: Map<string, SVGGElement> = new Map()
   private hairpinGroupMap: Map<string, SVGGElement> = new Map()
   private trillGroupMap: Map<string, SVGGElement> = new Map()
   private ottavaGroupMap: Map<string, SVGGElement> = new Map()
   private pedalGroupMap: Map<string, SVGGElement> = new Map()
-  /** Map of tie from-note IDs to their rendered SVG group (`<g class="vf-tie">`) for scoped highlight */
+  /** Map of tie from-note IDs to their rendered SVG group (`<g class="tie">`) for scoped highlight */
   private tieGroupMap: Map<string, SVGGElement> = new Map()
   /** Dynamic currently being edited in the in-canvas text overlay — skipped while
    *  rendering so the engraved glyph doesn't show doubled under the editor. */
@@ -1132,11 +1131,11 @@ export class ScoreRenderer {
    * no bar to live in.
    *
    * Each pair paints inside its OWN named group. That is the seam the highlight needs (§4):
-   * `HighlightController.colorNoteTremolo` finds `<text>` nodes inside the note's `vf-stavenote`
+   * `HighlightController.colorNoteTremolo` finds `<text>` nodes inside the note's `stavenote`
    * group whose content is the tremolo codepoint, and these are paths outside every note group — the
    * lookup would find nothing. Paint the highlight, do not go hunting for glyphs to recolour.
    *
-   * ⚠️ `openGroup` PREFIXES the class with `vf-`, so the bare name goes in, and `closeGroup()` lives
+   * ⚠️ `closeGroup()` lives
    * in a `finally` — it pushes the context's append target and an unbalanced pair swallows the rest
    * of the render.
    *
@@ -1185,8 +1184,7 @@ export class ScoreRenderer {
       })
       if (quads.length === 0) continue
 
-      // ⚠️ `openGroup` PREFIXES both, so this lands as class `vf-tremolo-pair`, id
-      // `vf-tremolo-pair-<noteId>`. The id carries the name as well as the note, because
+      // This lands as class `tremolo-pair`, id `tremolo-pair-<noteId>`. The id carries the name as well as the note, because
       // `getElementById` is document-wide (reference_vexflow_getsvgelement_is_document_wide) and a
       // bare note id would collide with whatever else keys off the same note.
       pass.context.openGroup('tremolo-pair', `${TREMOLO_PAIR_GROUP}-${anchorId}`)
@@ -1511,7 +1509,7 @@ export class ScoreRenderer {
   /**
    * The addressable unit of the drawn score (docs/render-performance-plan.md §7).
    *
-   * One `<g class="vf-measure" id="vf-m{n}-s{i}">` per **(measure, staff)** — not per measure. The
+   * One `<g class="measure" id="m{n}-s{i}">` per **(measure, staff)** — not per measure. The
    * staff axis is addressable because P6 must cull **vertically** too: you cannot see forty staves
    * at once, so a bar of the piccolo line must be droppable without dropping the same bar of the
    * cellos.
@@ -2515,7 +2513,7 @@ export class ScoreRenderer {
    * the editor, gone for print. The decision and both treatments live in `./hiddenElements`; this
    * only finds the ink.
    *
-   * Each rest is a single glyph in its own `vf-stavenote` group, so the group IS the rest — tinting
+   * Each rest is a single glyph in its own `stavenote` group, so the group IS the rest — tinting
    * it catches the augmentation dots too, and removing it takes the whole rest and nothing else.
    * The one part of a hidden rest that is not in here is its supporting ledger line, which is a bare
    * stroke and so is skipped at draw time instead (see `drawRestLedgerLines`).
@@ -4647,8 +4645,8 @@ export class ScoreRenderer {
     if (svg) {
       for (const child of Array.from(svg.children)) {
         const id = child.getAttribute('id') ?? ''
-        // `openGroup` prefixed it: 'vf-m7-s2' → 'm7-s2'.
-        const groupKey = id.startsWith('vf-m') ? id.slice(3) : null
+        // A measure-on-staff group's id IS its key: 'm7-s2'.
+        const groupKey = /^m\d+-s\d+$/.test(id) ? id : null
         if (groupKey && reusable.has(groupKey)) continue
         svg.removeChild(child)
       }
@@ -4798,25 +4796,25 @@ export class ScoreRenderer {
     return captured
   }
 
-  /** The rendered SVG group (`<g class="vf-slur">`) for a slur, or null. Scoped
+  /** The rendered SVG group (`<g class="slur">`) for a slur, or null. Scoped
    *  highlight uses this to recolor exactly one slur. Must be called after a render. */
   getHairpinSVGGroup(hairpinId: string): SVGGElement | null {
     return this.hairpinGroupMap.get(hairpinId) ?? null
   }
 
-  /** The rendered SVG group (`<g class="vf-trill">`) for a trill, or null. Must be called after a
+  /** The rendered SVG group (`<g class="trill">`) for a trill, or null. Must be called after a
    *  render. Like the hairpin's, ONE group per trill even when it repeats on a later system. */
   getTrillSVGGroup(trillId: string): SVGGElement | null {
     return this.trillGroupMap.get(trillId) ?? null
   }
 
-  /** The rendered SVG group (`<g class="vf-ottava">`) for an octave line, or null. Must be called
+  /** The rendered SVG group (`<g class="ottava">`) for an octave line, or null. Must be called
    *  after a render. ONE group per line even when the bracket is split across systems. */
   getOttavaSVGGroup(ottavaId: string): SVGGElement | null {
     return this.ottavaGroupMap.get(ottavaId) ?? null
   }
 
-  /** The rendered SVG group (`<g class="vf-pedal">`) for a sustain pedal, or null. Must be called
+  /** The rendered SVG group (`<g class="pedal">`) for a sustain pedal, or null. Must be called
    *  after a render. ONE group per pedal, holding every sign it drew — `Ped.`, any `(Ped.)`
    *  resumption, and the `✻`. */
   getPedalSVGGroup(pedalId: string): SVGGElement | null {
@@ -4827,7 +4825,7 @@ export class ScoreRenderer {
     return this.slurGroupMap.get(slurId) ?? null
   }
 
-  /** The rendered SVG group (`<g class="vf-tie">`) for a tie, keyed by its from-note id,
+  /** The rendered SVG group (`<g class="tie">`) for a tie, keyed by its from-note id,
    *  or null. Scoped highlight uses this to recolor exactly one tie without a document-wide
    *  bbox path-scan (which bled onto staff lines). Must be called after a render. */
   getTieSVGGroup(fromNoteId: string): SVGGElement | null {
@@ -4937,12 +4935,12 @@ export class ScoreRenderer {
    * (the basis for a bleed-free selection highlight). Must be called after a render
    * (the map and DOM ids are rebuilt each render).
    *
-   * - `group`: the note's `<g class="vf-stavenote">` — VexFlow draws its ledger lines,
+   * - `group`: the note's `<g class="stavenote">` — VexFlow draws its ledger lines,
    *   noteheads and flag inside it (and its stem too, when the note is NOT beamed).
    * - `noteIndex`: the selected pitch's key index within the chord (low→high), matching
    *   the DOM order of the notehead subgroups.
    * - `stem`: the note's stem group, resolved by identity via the Stem object. A beamed
-   *   note's stem is drawn by the Beam (inside `<g class="vf-beam">`, NOT the note's
+   *   note's stem is drawn by the Beam (inside `<g class="beam">`, NOT the note's
    *   group), so this is the only reliable way to recolor a beamed note's stem.
    */
   /**
@@ -4972,7 +4970,7 @@ export class ScoreRenderer {
   }
 
   /**
-   * Get the rendered SVG group (`<g class="vf-tuplet">`) for a tuplet, containing its
+   * Get the rendered SVG group (`<g class="tuplet">`) for a tuplet, containing its
    * bracket and number. Lets the selection highlight recolor exactly this tuplet
    * without a document-wide scan (which bled into neighbouring systems).
    * Must be called after a render.
@@ -4982,7 +4980,7 @@ export class ScoreRenderer {
   }
 
   /**
-   * Get the rendered SVG group (`<g class="vf-annotation">`) for a dynamic, so the
+   * Get the rendered SVG group (`<g class="annotation">`) for a dynamic, so the
    * selection highlight (Phase 6) can recolor exactly this dynamic without a
    * document-wide scan. Must be called after a render. Mirrors getTupletSVGGroup.
    */
@@ -4998,7 +4996,7 @@ export class ScoreRenderer {
    *  StaveTempo opens none). Used by the selection highlight. */
   getTempoSVGGroup(tempoId: string): SVGGElement | null {
     const svg = this.context?.svg as SVGSVGElement | undefined
-    return (svg?.querySelector(`#vf-${tempoId}`) as SVGGElement | null) ?? null
+    return (svg?.querySelector(`[id="${tempoId}"]`) as SVGGElement | null) ?? null
   }
 
   /** Suppress one tempo mark from the next renders (pass null to restore) — the text-edit

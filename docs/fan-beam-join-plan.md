@@ -145,7 +145,7 @@ As built:
   note PER MEMBER, since a synthetic two-bar lane has no single answer to any of them.
   ⚠️ The `nextNote` is the next slot in the fan's OWN bar, not in the synthetic lane: a fan may be
   the last thing on the beam while its bar carries on past it.
-- ⚠️ **The measure pass must SKIP a fan a crossing join owns.** Drawing one twice paints two `vf-fan`
+- ⚠️ **The measure pass must SKIP a fan a crossing join owns.** Drawing one twice paints two `fan`
   groups under ONE id, and `getElementById` is document-wide with the first in tree order winning —
   so the copy does not merely waste ink, it steals every lookup the original owns.
 - **`spanAnchors` pins a fan join's bars** like any other span, or culling deletes the bar holding
@@ -187,7 +187,7 @@ smaller than a placeholder waiting for a beam that never comes (a note with no f
   `setExtension` waits for the post-draw pass, after the last `setStemDirection` anyone will run.
 - **The multi-voice re-assert** runs over notes that "have a beam", so a placeholder-beamed prefix
   note is safe by construction — and the fan's OWNER is not, because it has none. See P1.
-- **`fillBeamQuad` and `openGroup`**: the join's ink belongs inside the fan's own `vf-fan` group, and
+- **`fillBeamQuad` and `openGroup`**: the join's ink belongs inside the fan's own `fan` group, and
   `closeGroup` stays in a `finally`.
 
 ## 4. Deliberately not here

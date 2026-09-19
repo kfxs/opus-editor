@@ -38,7 +38,7 @@ test('⭐⭐ the cautionary meter stands AFTER the closing barline — Gould p. 
       lastBar: last.measure,
       staveEnd: stave.x2,
       // The cautionary's two digits, drawn on the FIRST system (not the new line's own meter).
-      meterX: h.placed('.vf-timesignature text')
+      meterX: h.placed('.timesignature text')
         .filter(g => near(g.x) && Math.abs(g.y - stave.top) < 80)
         .map(g => g.x),
       barlineX: h.barlines()
@@ -79,7 +79,7 @@ test('⛔ …and a cautionary CLEF stays INSIDE the bar — the opposite rule, f
     const stave = h.staves().find(s => s.measure === last.measure)!
     const near = (x: number) => x >= stave.x1 - 5 && x <= stave.x2 + 80
     return {
-      clefX: h.placed('g.vf-clef text')
+      clefX: h.placed('g.clef text')
         .filter(g => near(g.x) && Math.abs(g.y - stave.top) < 80).map(g => g.x),
       barlineX: h.barlines()
         .filter(b => near(b.x) && Math.abs(b.y - stave.top) < 80).map(b => b.x),

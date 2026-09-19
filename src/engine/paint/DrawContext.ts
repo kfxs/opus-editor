@@ -100,8 +100,8 @@ export interface DrawContext {
   scale(x: number, y: number): void
 
   // ── Grouping + hit surface ───────────────────────────────────────────────────────────────────
-  /** ⚠️ VexFlow PREFIXES the class with `vf-`, so the bare name goes in — and `closeGroup()` must
-   *  always run, or an open group swallows the whole rest of the render. */
+  /** The class and id go onto the group as given (VexFlow's `vf-` prefix is gone since S15c) — and
+   *  `closeGroup()` must always run, or an open group swallows the whole rest of the render. */
   openGroup(cls?: string, id?: string): OpenedGroup
   closeGroup(): void
   /** An invisible rect that only exists to be hit — the pointer's target, not ink. */

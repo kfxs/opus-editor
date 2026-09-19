@@ -33,7 +33,7 @@ async function scrolledScore(score: import('@playwright/test').Page) {
         painted: registry.isPainted(bar, 0),
         hasBox: registry.getByType('barline').some(el => el.measure === bar),
         canDrag: h.engine.barWidthRoom(bar) !== null,
-        drawn: !!document.querySelector(`g#vf-m${bar}-s0`),
+        drawn: !!document.querySelector(`g#m${bar}-s0`),
       })
     }
     return bars

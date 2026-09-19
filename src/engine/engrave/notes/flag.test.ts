@@ -72,7 +72,7 @@ describe('drawFlag — the ink', () => {
     drawFlag(recorder, FLAG_8TH_UP, at, font)
 
     const group = recorder.scene.children[0]
-    expect(group.kind === 'group' && group.cls, 'VexFlow drew a `vf-flag` group, so we draw one').toBe('flag')
+    expect(group.kind === 'group' && group.cls, 'VexFlow drew a `flag` group, so we draw one').toBe('flag')
     expect(texts(recorder.scene)).toEqual([{
       kind: 'text', text: FLAG_8TH_UP, x: 99.25, y: 48, font, style: {},
     }])

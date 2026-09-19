@@ -34,9 +34,9 @@ describe('barline selection highlight', () => {
   const marked = () => [...container.querySelectorAll('.selected-barline')]
   const blue = () => marked().filter(el => el.getAttribute('fill') === ELEMENT_SELECTION_FILL)
   /** The pass's own group for the sign ending `measure` on staff 0. */
-  const sign = (measure: number) => container.querySelector(`[id="vf-barline-${measure}-0-end"]`)
+  const sign = (measure: number) => container.querySelector(`[id="barline-${measure}-0-end"]`)
   /** …and for one a bar drew at its own START — a displaced `|:`, or a system-opening one. */
-  const startSign = (measure: number) => container.querySelector(`[id="vf-barline-${measure}-0-start"]`)
+  const startSign = (measure: number) => container.querySelector(`[id="barline-${measure}-0-start"]`)
 
   const select = (measure: number) => {
     highlight.clearHighlights()

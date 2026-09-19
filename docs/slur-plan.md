@@ -236,7 +236,7 @@ Each phase is independently shippable and ends green (unit tests + manual check 
       the coarse rectangle swallowing clicks on the spanned notes. (`MouseController`, after the tie
       hit-test.) Note: routed through the scalar `selectedSlurId`, not `selectedItems`, matching the
       other non-note marks (ties/dynamics/clefs) — multi-select migration is a later phase.
-- [x] `HighlightController.applySlurSelectionHighlight` — colors **the slur's own `<g class="vf-slur">`
+- [x] `HighlightController.applySlurSelectionHighlight` — colors **the slur's own `<g class="slur">`
       group** (via `getSlurSVGGroup`), not a bbox path-scan, so no bleed onto beams/arcs in the span.
       Wired into `RenderController.applyHighlights`.
 - [x] Delete removes the `Slur` object (not the notes) via `removeSlur`; one undo step. Wired into
@@ -254,7 +254,7 @@ Each phase is independently shippable and ends green (unit tests + manual check 
       p1, dir)`; `renderSlurs` computes same-line vs cross-line geometry and calls it once (full) or
       twice (halves). Both partials registered as `'slur'` with `isPartial`/`partialType`.
 - [x] Highlight + hit-test both halves as one logical slur: both halves are drawn inside the **same**
-      `<g class="vf-slur">` group (recolored together) and each carries arc `points` under the same
+      `<g class="slur">` group (recolored together) and each carries arc `points` under the same
       slur `id` (clicking either half selects the slur; Delete removes the one `Slur`).
 - [ ] Visual check with a wrapped phrase (manual — renderer geometry isn't unit-testable; 613 unit
       tests + `build:check` green).
@@ -354,7 +354,7 @@ Two consequences that make this the right primitive:
 Our `ElementRegistry` needs a bbox + sampled `points` for arc-proximity hit-testing
 (`MouseController.ts:359`). So **hit-test geometry stays ours**: we sample the *cubic* B(t) using the
 P0/C0/C1/P3 from §7.2 (replacing the current quadratic sampling in `strokeSlurCrescent:2308–2317`),
-and we keep wrapping the `renderCurve` call in our `<g class="vf-slur">` group (`openGroup`/
+and we keep wrapping the `renderCurve` call in our `<g class="slur">` group (`openGroup`/
 `closeGroup`, `ScoreRenderer.ts:2242`,`2279`) so `applySlurSelectionHighlight` still recolors
 exactly one slur.
 
@@ -467,7 +467,7 @@ our own Bézier** — same endpoints, same above/below logic, same two-half syst
 - [x] **System break (5c):** kept our two-half split (`fromStave.getNoteEndX()` /
       `toStave.getNoteStartX()`); calls `drawSlurArc` twice with each half's endpoints. Did **not** switch
       to `Curve.isPartial()` native partials.
-- [x] Kept the `<g class="vf-slur">` group wrap + `slurGroupMap`. Updated
+- [x] Kept the `<g class="slur">` group wrap + `slurGroupMap`. Updated
       `applySlurSelectionHighlight` to override **both `fill` and `stroke`** (renderCurve strokes+fills),
       so a selected slur is fully orange (no dark outline). Re-render resets to black on deselect.
 - [x] Deleted the quadratic `strokeSlurCrescent`; replaced by `drawSlurArc(p0, p1, cps, direction,

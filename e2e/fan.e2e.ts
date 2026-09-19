@@ -28,7 +28,7 @@ test('an accelerando fan: heads crowd together, beams feather OUT to the right',
     await h.render()
     return {
       heads: h.noteheads(),
-      ramps: h.quads('g.vf-fan path'),
+      ramps: h.quads('g.fan path'),
       slots: h.engine.getScore().measures[0].slots.filter(s => s.type === 'chord').length,
     }
   })
@@ -55,7 +55,7 @@ test('a ritardando fan is its mirror', async ({ score }) => {
     const note = h.engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'h', measure: 1, beat: h.frac(0, 1) })
     h.engine.setFan(note!.id, { direction: 'rit', count: 6, beams: 3 })
     await h.render()
-    return { heads: h.noteheads(), ramps: h.quads('g.vf-fan path') }
+    return { heads: h.noteheads(), ramps: h.quads('g.fan path') }
   })
 
   const gaps = drawn.heads.slice(1).map((head, i) => head.x - drawn.heads[i].x)
@@ -76,8 +76,8 @@ test('every drawn member gets its own stem up to the beam', async ({ score }) =>
     await h.render()
     // Vertical lines inside the fan group: the prefix stems the fan draws for the members it
     // invents (the first member is the REAL StaveNote and keeps its own stem, outside the group).
-    const vertical = h.segments('g.vf-fan path').filter(s => Math.abs(s.x1 - s.x2) < 0.01)
-    return { vertical, ownStem: h.stems(), heads: h.noteheads(), ramps: h.quads('g.vf-fan path') }
+    const vertical = h.segments('g.fan path').filter(s => Math.abs(s.x1 - s.x2) < 0.01)
+    return { vertical, ownStem: h.stems(), heads: h.noteheads(), ramps: h.quads('g.fan path') }
   })
 
   expect(drawn.ownStem, 'the real note keeps its own stem').toHaveLength(1)
@@ -95,7 +95,7 @@ test('the number of beam lines is the number asked for', async ({ score }) => {
     const note = h.engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'h', measure: 1, beat: h.frac(0, 1) })
     h.engine.setFan(note!.id, { direction: 'accel', count: 4, beams: 2 })
     await h.render()
-    return { ramps: h.quads('g.vf-fan path'), heads: h.noteheads() }
+    return { ramps: h.quads('g.fan path'), heads: h.noteheads() }
   })
 
   expect(drawn.heads).toHaveLength(4)
@@ -136,8 +136,8 @@ test('a mark on the fan OWNER stays on the owner — it is not spread over the m
     await h.render()
     return {
       heads: h.noteheads(),
-      onOwner: h.glyphs('g.vf-stavenote text'),
-      onMembers: h.glyphs('g.vf-fanhead text'),
+      onOwner: h.glyphs('g.stavenote text'),
+      onMembers: h.glyphs('g.fanhead text'),
     }
   })
 
@@ -158,8 +158,8 @@ test('a mark on ONE member appears on that member and nowhere else', async ({ sc
     await h.render()
     return {
       heads: h.noteheads(),
-      onOwner: h.glyphs('g.vf-stavenote text'),
-      onMembers: h.glyphs('g.vf-fanhead text'),
+      onOwner: h.glyphs('g.stavenote text'),
+      onMembers: h.glyphs('g.fanhead text'),
     }
   })
 
@@ -186,8 +186,8 @@ test('a member’s mark is engraved exactly like the owner’s — same glyph, s
     h.engine.toggleArticulation(memberIds[1], 'staccato')
     await h.render()
     return {
-      onOwner: h.glyphs('g.vf-stavenote text'),
-      onMembers: h.glyphs('g.vf-fanhead text'),
+      onOwner: h.glyphs('g.stavenote text'),
+      onMembers: h.glyphs('g.fanhead text'),
     }
   })
 
@@ -214,8 +214,8 @@ test('two marks on one member stack the way two marks on any note stack', async 
     }
     await h.render()
     return {
-      onOwner: h.glyphs('g.vf-stavenote text'),
-      onMembers: h.glyphs('g.vf-fanhead text'),
+      onOwner: h.glyphs('g.stavenote text'),
+      onMembers: h.glyphs('g.fanhead text'),
     }
   })
 
@@ -259,7 +259,7 @@ test('a flipped mark on a member clears the ramp, level with the owner’s', asy
     return {
       all: h.glyphs('text'),
       heads: h.noteheads(),
-      ramps: h.quads('g.vf-fan path'),
+      ramps: h.quads('g.fan path'),
     }
   })
 
@@ -300,7 +300,7 @@ test('a SECOND inside a fan member crosses the stem — upper head right, stem u
     const slot = h.engine.getScore().measures[0].slots[0]
     h.engine.addFanMemberPitch(slot.fan!.members![0].pitches[0].id, { step: 'D', alter: 0, octave: 4 })
     await h.render()
-    return { member: h.glyphs('g.vf-fanhead g.vf-notehead text') }
+    return { member: h.glyphs('g.fanhead g.notehead text') }
   })
 
   expect(drawn.member, 'the member draws both of its heads').toHaveLength(2)
@@ -320,7 +320,7 @@ test('…and the stem-down chord mirrors it: the LOWER head crosses', async ({ s
     const slot = h.engine.getScore().measures[0].slots[0]
     h.engine.addFanMemberPitch(slot.fan!.members![0].pitches[0].id, { step: 'A', alter: 0, octave: 5 })
     await h.render()
-    return { member: h.glyphs('g.vf-fanhead g.vf-notehead text'), stems: h.stems() }
+    return { member: h.glyphs('g.fanhead g.notehead text'), stems: h.stems() }
   })
 
   expect(drawn.member).toHaveLength(2)
@@ -341,7 +341,7 @@ test('two accidentals in one member stack into columns, the higher one nearest t
     h.engine.addFanMemberPitch(memberId, { step: 'F', alter: 1, octave: 4 })
     h.engine.addFanMemberPitch(memberId, { step: 'G', alter: 1, octave: 4 })
     await h.render()
-    return { member: h.glyphs('g.vf-fanhead text') }
+    return { member: h.glyphs('g.fanhead text') }
   })
 
   const signs = drawn.member.filter(g => {
@@ -364,8 +364,8 @@ test('a member chord’s ledger line reaches under BOTH of its columns', async (
     h.engine.addFanMemberPitch(slot.fan!.members![0].pitches[0].id, { step: 'B', alter: 0, octave: 3 })
     await h.render()
     return {
-      member: h.glyphs('g.vf-fanhead g.vf-notehead text'),
-      lines: h.segments('g.vf-fanhead path').filter(s => Math.abs(s.y1 - s.y2) < 0.01),
+      member: h.glyphs('g.fanhead g.notehead text'),
+      lines: h.segments('g.fanhead path').filter(s => Math.abs(s.y1 - s.y2) < 0.01),
     }
   })
 
@@ -388,13 +388,13 @@ test('a fan member’s accidental clears the member’s own ledger lines', async
     // A♯3 — below the staff, so the member draws a ledger line of its own beside the sign.
     h.engine.addFanMemberPitch(slot.fan!.members![0].pitches[0].id, { step: 'A', alter: 1, octave: 3 })
     await h.render()
-    const signs = [...document.querySelectorAll<SVGTextElement>('g.vf-fanhead text')]
+    const signs = [...document.querySelectorAll<SVGTextElement>('g.fanhead text')]
       .filter(t => {
         const c = (t.textContent ?? '').codePointAt(0) ?? 0
         return c >= 0xe260 && c <= 0xe26f
       })
       .map(t => ({ left: t.x.baseVal[0].value, right: t.x.baseVal[0].value + t.getComputedTextLength() }))
-    const ledgers = h.segments('g.vf-fanhead path').filter(s => Math.abs(s.y1 - s.y2) < 0.01)
+    const ledgers = h.segments('g.fanhead path').filter(s => Math.abs(s.y1 - s.y2) < 0.01)
     return { signs, ledgers }
   })
 
@@ -558,7 +558,7 @@ test('a dense fan stays INSIDE its own bar — and no longer needs to outgrow th
     return {
       bar: { x1: bar.x1, x2: bar.x2 },
       // Every glyph the bar draws — heads, and the rests filling the time after the group.
-      glyphs: h.glyphs('g.vf-stavenote text').concat(h.noteheads()).map(g => g.x),
+      glyphs: h.glyphs('g.stavenote text').concat(h.noteheads()).map(g => g.x),
       heads: h.noteheads().map(g => g.x),
     }
   })
@@ -652,13 +652,13 @@ test('⭐ A JOINED FAN SUBDIVIDES: the secondary beam breaks where the gesture s
     h.engine.setFan(owner.id, { direction: 'accel', count: 6, beams: 3 })
     h.engine.updateNote(owner.id, { beam: 'continue' })
     await h.render()
-    const quads = h.quads('g.vf-fan path')
+    const quads = h.quads('g.fan path')
     const heads = h.noteheads().map(n => n.x)
 
     // The subdivide key's answer, stored on the mark (PaletteController.toggleSecondaryBreak).
     h.engine.setFan(owner.id, { ...h.engine.getNote(owner.id)!.fan!, joinSubdivide: false })
     await h.render()
-    return { quads, heads, band: h.quads('g.vf-fan path') }
+    return { quads, heads, band: h.quads('g.fan path') }
   })
 
   // Ten heads: the four typed sixteenths and the fan's six.
@@ -705,7 +705,7 @@ test('⭐ A MIXED PREFIX KEEPS ITS FUSAS — 16 16 16 32 32 into a fan draws thr
     h.engine.setFan(owner.id, { direction: 'accel', count: 6, beams: 3 })
     h.engine.updateNote(owner.id, { beam: 'continue' })
     await h.render()
-    return { quads: h.quads('g.vf-fan path'), heads: h.noteheads().map(n => n.x) }
+    return { quads: h.quads('g.fan path'), heads: h.noteheads().map(n => n.x) }
   })
 
   // Five prefix heads, then the fan's six.
@@ -747,7 +747,7 @@ test('⭐⭐ ACCEL INTO RIT IS A TRIANGLE, not a band with a flat top', async ({
     h.engine.setFan(b.id, { direction: 'rit', count: 6, beams: 3, joinSubdivide: false })
     h.engine.updateNote(b.id, { beam: 'continue' })
     await h.render()
-    return { quads: h.quads('g.vf-fan path'), heads: h.noteheads().map(n => n.x) }
+    return { quads: h.quads('g.fan path'), heads: h.noteheads().map(n => n.x) }
   })
 
   expect(drawn.heads, 'six members each').toHaveLength(12)

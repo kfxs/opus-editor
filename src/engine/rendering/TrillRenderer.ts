@@ -574,8 +574,6 @@ export function renderTrills(
     const covered = coveredPlacements(placements, span, from, geometry.fromLine, geometry.toLine)
 
     try {
-      // ⚠️ `openGroup` prefixes both class and id with `vf-` itself — passing 'vf-trill' here
-      // would yield `class="vf-vf-trill"`, the mistake the slur's comment records.
       const group = drawGroupOf(pass.context.openGroup?.('trill', `trill-${trill.id}`))
       inStaffSpace(pass, from.staffIndex, group, () => {
         drawTrill(pass, trill, span, voice, geometry, covered, from, staffIds[from.staffIndex], staffIds[0], bands)

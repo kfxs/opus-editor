@@ -582,7 +582,7 @@ export function segmentEndpointOffsetPx(
  * draw **two half-arcs** (Gould / Sibelius): the first trails off the right edge
  * of the start note's system, the second leads in from the left edge of the end
  * note's system. Each slur (and both its partials) is wrapped in one
- * `<g class="vf-slur">` group for scoped highlight, and registered in the
+ * `<g class="slur">` group for scoped highlight, and registered in the
  * ElementRegistry with sampled arc `points` for proximity hit-testing.
  */
 export function renderSlurs(pass: RenderPass, score: Score): void {
@@ -690,8 +690,6 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
     try {
       // One SVG group per slur (both partials live inside it) so the selection
       // highlight can recolor exactly this slur without a bbox path-scan.
-      // `openGroup` prefixes both class and id with `vf-` itself — passing 'vf-slur' here would
-      // yield `class="vf-vf-slur"`, which is what this used to do.
       const group = drawGroupOf(pass.context.openGroup?.('slur', `slur-${slur.id}`))
       const slurStaffIndex = staffIndexOfId(score, startSlot?.staffId)
 

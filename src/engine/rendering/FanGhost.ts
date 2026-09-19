@@ -9,7 +9,7 @@
  * ⭐ **HOW A HEAD IS DRAWN ALONE.** VexFlow has no "notehead only" note: a `StaveNote` of a half or
  * an eighth builds a stem, and `shouldDrawFlag()` asks only whether a stem OBJECT exists — hiding
  * the stem (`Stem.setVisibility(false)`) still leaves an eighth's flag hanging in mid-air. So the
- * note is drawn WHOLE and then PRUNED IN PLACE: VexFlow puts each head in its own `vf-notehead`
+ * note is drawn WHOLE and then PRUNED IN PLACE: VexFlow puts each head in its own `notehead`
  * group (`NoteHead.draw` opens it), and — the reason this works — it draws that head's MODIFIERS
  * inside that same group (`parent.drawModifiers(this)`, the fact
  * `reference_vexflow_articulation_notehead_group` records). Deleting every OTHER child of the note's
@@ -25,7 +25,7 @@
  * ⭐ S11d (`docs/vexflow-removal-map.md` S11): the note is the score's own — `EngravedNote` +
  * `EngravedDot`, formatted by `./loneNote` and drawn on our surface — where a VexFlow `StaveNote`,
  * `Voice` and `Formatter` stood on a line-less VexFlow `Stave`. Our heads still open their own
- * `vf-notehead` group and draw their dots inside it, so the pruning below is unchanged.
+ * `notehead` group and draw their dots inside it, so the pruning below is unchanged.
  */
 import type { DrawContext } from '@/engine/paint/DrawContext'
 import type { NoteDuration } from '@/types/music'
@@ -81,16 +81,14 @@ export function drawFanGhost(
     // attribute the enclosing group already states. So whether the head's own node carries
     // `font-size` depends on what the context's font happened to be when the group opened — and
     // after a score render has left it at glyph size, the head carries NOTHING and inherits from
-    // `vf-stavenote`. Lifting the head out of that group therefore dropped it to the SVG root's 10pt:
+    // `stavenote`. Lifting the head out of that group therefore dropped it to the SVG root's 10pt:
     // his report — *"the note was so tiny that it seems a dot"* — and it appeared only AFTER a stamp,
     // because that is what left the context at 30pt for the next ghost. Keeping the container is the
     // fix; it is also why the whole family draws through `openGroup` in the first place.
-    //
-    // `vf-`, because `openGroup` prefixes every class it is given (`reference_vexflow_opengroup_prefix`).
     let heads = 0
     for (const el of drawn) {
       for (const child of Array.from(el.children)) {
-        if (child.classList?.contains('vf-notehead')) heads++
+        if (child.classList?.contains('notehead')) heads++
         else child.remove()
       }
     }

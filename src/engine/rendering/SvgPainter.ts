@@ -45,11 +45,6 @@ const ATTRIBUTES_TO_IGNORE: Record<string, Record<string, true>> = {
 
 type Attributes = Record<string, string | number | undefined>
 
-/** `prefix` — every class and id VexFlow wrote carried it, and the editor's selectors read it. */
-function prefix(text: string): string {
-  return `vf-${text}`
-}
-
 /** `Font.fromCSSString`: a CSS shorthand parsed by the page, as VexFlow did it (one reused `<span>`). */
 let fontParser: HTMLSpanElement | undefined
 function fontFromCss(css: string): Required<Pick<FontInfo, 'family' | 'size' | 'weight' | 'style'>> {
@@ -115,8 +110,9 @@ export class SvgPainter implements DrawContext {
     this.groups.push(group)
     this.parent.appendChild(group)
     this.parent = group
-    if (cls) group.setAttribute('class', prefix(cls))
-    if (id) group.setAttribute('id', prefix(id))
+    // ⭐ S15c: the BARE class and id — VexFlow's `vf-` prefix (its namespace inside a host page) is gone.
+    if (cls) group.setAttribute('class', cls)
+    if (id) group.setAttribute('id', id)
     this.applyAttributes(group, this.attributes)
     this.groupAttributes.push({ ...this.groupAttributes[this.groupAttributes.length - 1], ...this.attributes })
     return group

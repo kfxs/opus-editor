@@ -193,7 +193,7 @@ for (let i = 0; i < this.modifiers.length; i++) {
 **It unions every attached modifier — and our dynamics ARE modifiers.**
 `attachDynamicsToSlots` (`DynamicsLayout.ts`) attaches each dynamic to its anchor
 StaveNote as an `Annotation` (which is also why the dynamic's glyph renders *nested
-inside* the rest's `vf-stavenote` SVG group). The arithmetic confirms it to the pixel:
+inside* the rest's `stavenote` SVG group). The arithmetic confirms it to the pixel:
 
 | quantity | value |
 |---|---|
@@ -226,8 +226,8 @@ Two narrower fixes already landed in the working tree while diagnosing this:
    *inside the dynamic's own tight box* now selects the dynamic even though the rest's
    oversized box also covers the point. (A local compensator for the inflated rest box.)
 2. **Highlight bleed** (`HighlightController.ts`, `highlightNote` rest branch): a rest's
-   recolor now skips `.vf-annotation` children, because the attached dynamic's glyph is
-   rendered *nested inside* the rest's `vf-stavenote` SVG group.
+   recolor now skips `.annotation` children, because the attached dynamic's glyph is
+   rendered *nested inside* the rest's `stavenote` SVG group.
 
 Both are band-aids over the same root cause (the dynamic riding inside the rest's
 container — as bbox in #1, as DOM in #2). This plan removes the root cause; #1 then
@@ -355,8 +355,8 @@ VF5 source resolves it:
   pointer-rect but **still union the dynamic's `<text>` ink**, because the annotation
   renders *nested inside the rest's own group* (§3b). The "tight" rest box would still
   reach the dynamic. Making it correct requires excluding nested modifier sub-groups
-  per type (`.vf-annotation`; and articulation/accidental/dot glyphs render inside
-  `vf-notehead`, not as siblings) — exactly the fragile DOM-shape knowledge rev 1
+  per type (`.annotation`; and articulation/accidental/dot glyphs render inside
+  `notehead`, not as siblings) — exactly the fragile DOM-shape knowledge rev 1
   worried about, now confirmed as unavoidable on this path. Additionally, a group's
   `getBBox()` is *always ≥ the native box* (pointer-rects), so the DOM can never beat
   the native metrics it was drawn from.
@@ -572,7 +572,7 @@ blind-delete:
 - re-check `findClosestNoteOrRest`'s rest center: with a tight box the center lands on
   the glyph and the proximity tie-breaks (articulation-vs-rest, dot-vs-rest) shift
   slightly — hand-test those.
-- the `.vf-annotation` highlight skip **stays** (it guards DOM nesting, not the bbox).
+- the `.annotation` highlight skip **stays** (it guards DOM nesting, not the bbox).
 
 ### Phase 4 — Verify (hand-test matrix)
 Because neither jsdom path exercises real metrics, the **manual** matrix is the net:

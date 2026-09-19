@@ -415,7 +415,7 @@ its own header which key owns the indent, so the next element in this family doe
 > staff span. And: **a composed measurement must be composed the way it is DRAWN** — matching a total
 > while distributing it differently gives the same number and a different picture.
 >
-> #### ✅ THE GROUP: its own `vf-systemsign`, ⛔ not `stavebarline`
+> #### ✅ THE GROUP: its own `systemsign`, ⛔ not `stavebarline`
 >
 > 🚨 `stavebarline` is a **collector** — `hintBarlines` snaps every rect in it onto whole device
 > pixels, which would round the sourced **0.50 sp** rod at every zoom. ⭐ Hinting earns its keep on
@@ -775,7 +775,7 @@ glyph-vs-curve question is genuinely open rather than a formality.
 > known — so it never goes through `ElementRegistry.withScale` and never needs unscaling.
 > `staffGroup` joins the union (22 kinds), gets its module, a row in `ELEMENT_SPECS`, a place in
 > `ELEMENT_HIT_ORDER` (⭐ **first**, and free: nothing else has ink in the indent), a highlight that
-> recolours the sign's own `vf-systemsign` group **on every system**, and **Delete** →
+> recolours the sign's own `systemsign` group **on every system**, and **Delete** →
 > `MusicEngine.removeStaffGroup`.
 > 🚨 *"It's a little difficult to select, i have to click very accurate"* ⇒ **`GROUP_SIGN_PRESS_PAD_PX`
 > = 8**, on both axes — the barline's *"six pixels of forgiveness"* scaled to a taller target, and

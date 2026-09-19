@@ -53,7 +53,7 @@ function grayInk(root: ParentNode): Element[] {
   })
 }
 
-const staveNotes = (root: ParentNode) => root.querySelectorAll('g.vf-stavenote').length
+const staveNotes = (root: ParentNode) => root.querySelectorAll('g.stavenote').length
 
 beforeEach(() => {
   container = document.createElement('div')

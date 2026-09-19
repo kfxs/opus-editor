@@ -33,7 +33,7 @@ async function drawTie(score: import('@playwright/test').Page, spec: TieSpec) {
     h.engine.toggleTie(ids[spec.tieFrom])
     await h.render()
 
-    const d = [...document.querySelectorAll('g.vf-tie path')]
+    const d = [...document.querySelectorAll('g.tie path')]
       .map(p => p.getAttribute('d') ?? '').join(' ')
     const ys = [...d.matchAll(/-?\d+(?:\.\d+)?\s+(-?\d+(?:\.\d+)?)/g)].map(m => parseFloat(m[1]))
     const head = h.noteheads()[spec.tieFrom]
@@ -116,7 +116,7 @@ async function tieInk(score: import('@playwright/test').Page, step: string, octa
     // reaches, which is how the first version of this test "found" the apex on a staff line when it
     // was a quarter space clear. Sample the cubic at its midpoint instead: `drawCurveArc` emits one
     // closed lens — M P0, C c1 c2 P1 (the OUTER edge), C c3 c4 P0 (the return, the INNER edge).
-    const d = document.querySelector('g.vf-tie path')?.getAttribute('d') ?? ''
+    const d = document.querySelector('g.tie path')?.getAttribute('d') ?? ''
     const p = [...d.matchAll(/(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)/g)].map(m => ({ x: +m[1], y: +m[2] }))
     const midY = (a: number, b: number, c: number, dd: number) => 0.125 * a + 0.375 * b + 0.375 * c + 0.125 * dd
     const outer = midY(p[0].y, p[1].y, p[2].y, p[3].y)
@@ -183,7 +183,7 @@ test('⭐⭐ a tie ACROSS a system break is drawn by our own primitive, in two h
     if (broken < 1) return { halves: -1 }
     h.engine.toggleTie(ids[broken - 1])
     await h.render()
-    return { halves: document.querySelectorAll('g.vf-tie path').length }
+    return { halves: document.querySelectorAll('g.tie path').length }
   })
   // ⚠️ TWO <path> per arc, not one: `renderCurve` strokes AND fills, and VexFlow's SVG context
   // emits an element for each. A same-line tie gives 2; two halves give 4.

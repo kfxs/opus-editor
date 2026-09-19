@@ -117,8 +117,8 @@ Two traps worth naming, because they cost most of the debugging:
    "left thick by the preceding beam/stem passes" is the same bug seen from the other end. Harmless
    enough (a width, not a colour) that it is left alone, but do not read it as a working pattern.
 
-`.vf-ghost-tie` is registered in `GHOST_GROUP_SELECTOR` — the painter's `openGroup` prefixes the class
-with `vf-` itself (VexFlow's then; our `SvgPainter`, which transcribes it, since S13b), and the selector that forgets it never takes the ghost down (the tempo ghosts'
+`.ghost-tie` is registered in `GHOST_GROUP_SELECTOR` — the painter's `openGroup` prefixed the class
+with `vf-` itself (VexFlow's then; our `SvgPainter`, which transcribed it, from S13b until S15c dropped it — the class is `ghost-tie` now), and the selector that forgets it never takes the ghost down (the tempo ghosts'
 permanent blue smear).
 
 ## 4. A selected note lights the tie it owns

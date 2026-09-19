@@ -68,7 +68,7 @@ test('🚨 the Bravura the BROWSER draws with is the Bravura we MEASURED', async
     const space = (stave.bottom - stave.top) / 4
 
     // The font the score is actually drawn in, read off a real music glyph rather than assumed.
-    const glyph = document.querySelector('g.vf-notehead text') as SVGTextElement
+    const glyph = document.querySelector('g.notehead text') as SVGTextElement
     const style = window.getComputedStyle(glyph)
     const context = document.createElement('canvas').getContext('2d')!
     context.font = `${style.fontStyle} ${style.fontWeight} ${style.fontSize} ${style.fontFamily}`
@@ -211,7 +211,7 @@ test('⭐⭐ a LEFT-HAND accidental buys no room in the RIGHT hand — the piano
     const bars = h.columnGaps()
     return {
       right: bars.find(b => b.staff === 0)!.columns.map(c => c.gap),
-      signs: h.glyphs('g.vf-notehead text').filter(g => g.code === 'e262').length,
+      signs: h.glyphs('g.notehead text').filter(g => g.code === 'e262').length,
       width: bars[0].width,
     }
   })
@@ -292,8 +292,8 @@ test('⭐⭐ a FLAG no longer draws through the next notehead — and a beamed n
       const stave = h.staves()[0]
       const space = (stave.bottom - stave.top) / 4
       const heads = h.noteheads()
-      const codes = h.glyphs('g.vf-notehead text, g.vf-stavenote text')
-      const boxes = h.inkSizes('g.vf-notehead text, g.vf-stavenote text')
+      const codes = h.glyphs('g.notehead text, g.stavenote text')
+      const boxes = h.inkSizes('g.notehead text, g.stavenote text')
       const flags = boxes.filter((_, i) => codes[i].code === 'e244' || codes[i].code === 'e245')
       return {
         gaps: h.columnGaps()[0].columns.map(column => column.gap),

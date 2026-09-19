@@ -120,7 +120,7 @@ describe('ghost renders must not leak paint into the shared context', () => {
     // group means the context was already dirty when the ghost opened it.
     for (let i = 0; i < 4; i++) {
       engine.renderScoreWithToolGhost({ x: 100 + i * 10, y: 100 } as PixelCoordinates, { kind: 'tie' })
-      const group = svgOf(container).querySelector('g.vf-ghost-tie')
+      const group = svgOf(container).querySelector('g.ghost-tie')
       expect(group, 'the ghost arc should be drawn').not.toBeNull()
       expect(group!.getAttribute('stroke')).toBeNull()
       expect(group!.getAttribute('fill')).toBeNull()

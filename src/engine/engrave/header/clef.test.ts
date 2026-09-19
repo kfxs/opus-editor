@@ -5,7 +5,7 @@
  * the spec is really pinning is the two things around it — that the y is a BASELINE rather than a
  * top or a centre (the mistake `CenteredTremolo`'s header is the cautionary tale for), and that the
  * `clef` GROUP and its id survive, because `headerPlacementPass.test.ts` finds a drawn clef by
- * `g.vf-clef text` and `ElementRegistry` resolves its hit box by that id.
+ * `g.clef text` and `ElementRegistry` resolves its hit box by that id.
  */
 import { describe, it, expect } from 'vitest'
 import { clefPlacement, drawClef } from './clef'
@@ -52,12 +52,12 @@ describe('drawClef — the ink', () => {
 
   it('⭐ one glyph, in the face it was handed, inside a `clef` group that keeps its id', () => {
     const recorder = new SceneRecorder()
-    drawClef(recorder, G_CLEF, at, FONT, 'vf-auto-1234')
+    drawClef(recorder, G_CLEF, at, FONT, 'auto-1234')
 
     const group = recorder.scene.children[0]
-    expect(group.kind === 'group' && group.cls, 'VexFlow drew a `vf-clef` group, so we draw one').toBe('clef')
+    expect(group.kind === 'group' && group.cls, 'VexFlow drew a `clef` group, so we draw one').toBe('clef')
     // 🚨 The id is not decoration — see the module header.
-    expect(group.kind === 'group' && group.id).toBe('vf-auto-1234')
+    expect(group.kind === 'group' && group.id).toBe('auto-1234')
     expect(texts(recorder.scene)).toEqual([{
       kind: 'text', text: G_CLEF, x: 12, y: 80, font: FONT, style: {},
     }])

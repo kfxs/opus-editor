@@ -297,7 +297,7 @@ export class HighlightController {
 
     // Recolor the note's OWN rendered SVG group, never a document-wide region. VexFlow
     // draws each StaveNote's ledger lines, stem and noteheads inside one
-    // `<g class="vf-stavenote">`, so confining the recolor to that group makes the
+    // `<g class="stavenote">`, so confining the recolor to that group makes the
     // selection highlight bleed-free in both directions (the old approach scanned a
     // synthetic band that overlapped the staff line above or below).
     const SELECTION_COLOR = fillColor
@@ -326,7 +326,7 @@ export class HighlightController {
     // `colorStroke`.
     const memberInfo = engine.getFanMemberSVGGroup(noteId)
     if (memberInfo) {
-      const heads = memberInfo.group.querySelectorAll('g.vf-notehead')
+      const heads = memberInfo.group.querySelectorAll('g.notehead')
       // A member with several pitches shares one stem, exactly as a chord does: this pitch's head,
       // plus the ink that belongs to the member as a whole.
       const head = heads[memberInfo.noteIndex] ?? heads[0]
@@ -348,12 +348,12 @@ export class HighlightController {
 
     if (isRest) {
       // A rest is a single glyph — color every glyph in its group, EXCEPT a dynamic attached to
-      // this rest: an Annotation modifier renders its `<g class="vf-annotation">` glyph NESTED
-      // inside the rest's `vf-stavenote` group, so the broad `text, path` sweep would recolor the
+      // this rest: an Annotation modifier renders its `<g class="annotation">` glyph NESTED
+      // inside the rest's `stavenote` group, so the broad `text, path` sweep would recolor the
       // (unselected) dynamic too — the bleed the user saw when selecting a rest that carries a
       // dynamic. The dynamic owns its own selection highlight (applyDynamicSelectionHighlight).
       group.querySelectorAll('text, path').forEach(el => {
-        if (el.closest('.vf-annotation')) return
+        if (el.closest('.annotation')) return
         colorFill(el)
       })
       // Two voices' rests can be vertically nudged to the same spot; whichever group
@@ -379,11 +379,11 @@ export class HighlightController {
     // Notehead: noteheads draw in key order (low→high), matching the stored noteIndex,
     // so in a chord we color exactly the selected head. Color only its first glyph (the
     // head), not any accidental/dots drawn in the same group.
-    const noteheads = group.querySelectorAll('g.vf-notehead')
+    const noteheads = group.querySelectorAll('g.notehead')
     const target = noteheads[noteIndex] ?? (noteheads.length === 1 ? noteheads[0] : null)
     const head = target
       ? target.querySelector('text, path')
-      : group.querySelector('g.vf-notehead text, g.vf-notehead path')
+      : group.querySelector('g.notehead text, g.notehead path')
     if (head) colorFill(head)
 
     // Also light this note's accidental (♯/♭/♮), articulations, dots, tie and tremolo, so a selected
@@ -395,7 +395,7 @@ export class HighlightController {
     this.colorNoteTremolo(noteId, SELECTION_COLOR)
 
     // Multi-voice unison: the other voice draws a notehead at the SAME pixel spot in a
-    // sibling `vf-stavenote` group. Whichever is later in the DOM paints on top, so the
+    // sibling `stavenote` group. Whichever is later in the DOM paints on top, so the
     // recolored head can be hidden behind the other voice. Raise this note's group to
     // the front of its parent so its (now coloured) head is the one that shows;
     // clearHighlights restores the original sibling order.
@@ -404,7 +404,7 @@ export class HighlightController {
 
   /**
    * Colour the accidental(s) belonging to a selected note in the note's selection colour. The
-   * accidental glyph lives inside the note's own `vf-stavenote` group, so we scope the search there
+   * accidental glyph lives inside the note's own `stavenote` group, so we scope the search there
    * (cheaper than a full-SVG scan) and match it to the registered `accidental` element by bbox on
    * BOTH axes — an X-only match would catch a chord neighbour's accidental or a notehead sharing the
    * column (same reasoning as {@link applyAccidentalHighlight}). Uses the logged setAttr/addClass, so
@@ -463,9 +463,9 @@ export class HighlightController {
    * articulations). Uses the logged setAttr so {@link clearHighlights} reverts it.
    *
    * KEY DOM FACT: VexFlow renders a note's articulation glyphs INSIDE that note's own
-   * `vf-notehead` group — NoteHead.draw() opens the group, draws the head, then calls
+   * `notehead` group — NoteHead.draw() opens the group, draws the head, then calls
    * stavenote.drawModifiers(this) before closing it. So an articulation lives at
-   * `vf-stavenote > vf-notehead[noteIndex] > <text>`, scoped to the very note it belongs to;
+   * `stavenote > notehead[noteIndex] > <text>`, scoped to the very note it belongs to;
    * searching ONLY within that notehead sub-group avoids grabbing a stacked voice's glyph (a
    * document-wide nearest-glyph scan was the old bug). Within the group, the notehead glyph is
    * drawn FIRST (skip index 0); geometry then picks the glyph whose centre is closest to the
@@ -477,22 +477,22 @@ export class HighlightController {
     const artElements = engine.getElementRegistry().getByType('articulation').filter(el => el.noteId === noteId)
     if (!artElements.length) return
 
-    // ⭐ A FANNED MEMBER's marks are not in a `vf-notehead` at all — VexFlow never drew that head, so
+    // ⭐ A FANNED MEMBER's marks are not in a `notehead` at all — VexFlow never drew that head, so
     // `FanPass` paints the whole member (head, sign, ledgers, stem AND its articulations) into its
-    // own `vf-fanhead` group. Same search, one group over; without this a member's mark was drawn
+    // own `fanhead` group. Same search, one group over; without this a member's mark was drawn
     // and registered and selectable but never lit up.
     const memberGroup = engine.getFanMemberSVGGroup(noteId)?.group
     let scope: Element | null = memberGroup ?? null
     if (!scope) {
       const groupInfo = engine.getStaveNoteSVGGroup(noteId)
       if (!groupInfo) return
-      const noteheadGroups = groupInfo.group.querySelectorAll('g.vf-notehead')
+      const noteheadGroups = groupInfo.group.querySelectorAll('g.notehead')
       scope = noteheadGroups[groupInfo.noteIndex] ?? noteheadGroups[0] ?? null
     }
     if (!scope) return
 
     const glyphEls = scope.querySelectorAll<SVGGraphicsElement>('text, path')
-    // In a `vf-notehead` the head is drawn FIRST and is skipped by index; a member's group has its
+    // In a `notehead` the head is drawn FIRST and is skipped by index; a member's group has its
     // ledgers before the head, so there is no fixed index to skip and the nearest-centre match below
     // does the work on its own (a mark sits a staff space clear of the head it belongs to).
     const skipFirst = !memberGroup
@@ -525,7 +525,7 @@ export class HighlightController {
    * exactly as {@link colorNoteArticulations} is shared — so a dotted note reads as fully selected
    * and clicking one dot lights them all.
    *
-   * Scoped to the whole `vf-stavenote` group, NOT to one `vf-notehead` like articulations are: a
+   * Scoped to the whole `stavenote` group, NOT to one `notehead` like articulations are: a
    * chord's dots are spread across EVERY notehead group (VexFlow attaches one Dot per head, drawn
    * inside that head's group), yet they are one model value on the slot. Each registered dot bbox
    * then claims the nearest glyph in the group; a dot sits clear to the right of the head it belongs
@@ -576,7 +576,7 @@ export class HighlightController {
   }
 
   /**
-   * Highlight the selected STEM — its own paths inside the note's `vf-stavenote` group, in the
+   * Highlight the selected STEM — its own paths inside the note's `stavenote` group, in the
    * slot's voice colour like every other sub-element highlight.
    *
    * Resolved by IDENTITY (`getStaveNoteSVGGroup` hands back the stem element), so it works whether
@@ -609,7 +609,7 @@ export class HighlightController {
    * it, and selecting the mark lights just the mark. No-op on a note without one.
    *
    * Found by GLYPH, not by geometry: the strokes are `<text>` elements inside the note's own
-   * `vf-stavenote` group whose content is the tremolo codepoint, so matching the character picks all
+   * `stavenote` group whose content is the tremolo codepoint, so matching the character picks all
    * N of them and nothing else. The nearest-glyph matching the accidental and the articulations use
    * would be wrong here — the stack sits along the stem, where a chord's upper noteheads are, and it
    * is one registered rect covering N glyphs rather than one box per glyph.
@@ -645,7 +645,7 @@ export class HighlightController {
    *
    * Its strokes are our own beam quads (`<path>`s), drawn outside every note group, so
    * {@link colorNoteTremolo}'s glyph search has nothing to match: no `<text>`, no codepoint, and not
-   * in the note's `vf-stavenote` group to begin with. So the renderer PAINTS them into a named group
+   * in the note's `stavenote` group to begin with. So the renderer PAINTS them into a named group
    * (`TREMOLO_PAIR_GROUP`) and this colours that group whole — the barline lesson again: paint a
    * highlight, do not go hunting for glyphs to recolour.
    *
@@ -660,8 +660,8 @@ export class HighlightController {
   private colorTremoloPairGroup(noteId: string, color: string): void {
     const scoreCanvas = this.getScoreCanvas()
     if (!scoreCanvas) return
-    const wanted = `vf-${TREMOLO_PAIR_GROUP}-${noteId}`
-    for (const group of scoreCanvas.querySelectorAll(`.vf-${TREMOLO_PAIR_GROUP}`)) {
+    const wanted = `${TREMOLO_PAIR_GROUP}-${noteId}`
+    for (const group of scoreCanvas.querySelectorAll(`.${TREMOLO_PAIR_GROUP}`)) {
       if (group.getAttribute('id') !== wanted) continue
       group.querySelectorAll('path').forEach(el => {
         const svgEl = el as SVGElement
@@ -755,7 +755,7 @@ export class HighlightController {
     this.colorTieGroup(group, color)
   }
 
-  /** Colour the tie inside its OWN `<g class="vf-tie">` group — never a document-wide
+  /** Colour the tie inside its OWN `<g class="tie">` group — never a document-wide
    *  bbox path-scan, which bled onto staff lines whose bbox fell inside the tie's
    *  rectangle (mirrors the slur fix). An arc emits TWO paths — a stroke-only outline
    *  and a fill-only body (`engrave/curves/curveInk`) — so set fill AND stroke on each,
@@ -777,7 +777,7 @@ export class HighlightController {
    * on it and select."*
    *
    * ⭐ Every part of the sign — the bracket's rod and its two serif glyphs, the brace's single
-   * stretched glyph, the sub-bracket's three rectangles — is drawn inside ONE `vf-systemsign` group
+   * stretched glyph, the sub-bracket's three rectangles — is drawn inside ONE `systemsign` group
    * carrying the group's id (`rendering/systemStart`). So the highlight is a sweep of that group's
    * `rect` and `text` children, ⛔ not a box drawn over the top.
    *
@@ -793,7 +793,7 @@ export class HighlightController {
 
     // ⭐ Every system's copy of the sign, not just one: a group spans the whole score, so selecting
     //   it lights it on every system it is drawn on — the way a selected slur lights both halves.
-    for (const group of svg.querySelectorAll(`g.vf-systemsign[id*="${CSS.escape(selected.groupId)}"]`)) {
+    for (const group of svg.querySelectorAll(`g.systemsign[id*="${CSS.escape(selected.groupId)}"]`)) {
       for (const ink of group.querySelectorAll('rect, text, path')) {
         const el = ink as SVGElement
         this.setAttr(el, 'fill', ELEMENT_SELECTION_FILL)
@@ -1125,8 +1125,8 @@ export class HighlightController {
       // ⭐ The group's existence IS the "was this painted?" test — the pass draws one only for ink it
       //    actually put on the page (`ElementRegistry`'s `keySignature` note).
       const groups = [
-        svg.querySelector<SVGGElement>(`[id="vf-keysig-${selected.measure}-${staff}"]`),
-        svg.querySelector<SVGGElement>(`[id="vf-keysig-caution-${selected.measure - 1}-${staff}"]`),
+        svg.querySelector<SVGGElement>(`[id="keysig-${selected.measure}-${staff}"]`),
+        svg.querySelector<SVGGElement>(`[id="keysig-caution-${selected.measure - 1}-${staff}"]`),
       ]
       for (const group of groups) {
         if (!group) continue
@@ -1262,8 +1262,7 @@ export class HighlightController {
 
   /** The `<g>` holding the sign drawn at the boundary that ends `measure` on `staff` — bar N's own
    *  end sign, or the start repeat its neighbour drew there instead. Null when nothing was drawn
-   *  (the bar is culled, or off the last system). The ids are `BarlineRenderer`'s, `vf-`-prefixed by
-   *  `openGroup` (`reference_vexflow_opengroup_prefix`). */
+   *  (the bar is culled, or off the last system). The ids are `BarlineRenderer`'s. */
   private barlineSignGroup(svg: Element, measure: number, staff: number): SVGGElement | null {
     return this.signGroupById(svg, `${measure}-${staff}-end`)
       ?? this.signGroupById(svg, `${measure + 1}-${staff}-start`)
@@ -1284,14 +1283,13 @@ export class HighlightController {
       ?? this.signGroupById(svg, `gap-${measure + 1}-${staff}-start`)
   }
 
-  /** One drawn sign's `<g>` by the tail of its id. The ids are `BarlineRenderer`'s, `vf-`-prefixed by
-   *  `openGroup` (`reference_vexflow_opengroup_prefix`).
+  /** One drawn sign's `<g>` by the tail of its id. The ids are `BarlineRenderer`'s.
    *
    *  ⚠️ `[id="…"]`, not `#…`: an id SELECTOR takes a `getElementById` fast path that answers for the
    *  FIRST match in the DOCUMENT and then checks containment — so with two scores mounted (or two
    *  test fixtures left in the body) it returns null for a group that is right here. */
   private signGroupById(svg: Element, id: string): SVGGElement | null {
-    return svg.querySelector<SVGGElement>(`[id="vf-barline-${id}"]`)
+    return svg.querySelector<SVGGElement>(`[id="barline-${id}"]`)
   }
 
   applyTupletSelectionHighlight(): void {
@@ -1339,7 +1337,7 @@ export class HighlightController {
 
   /**
    * Highlight the selected tempo mark. Recolors inside the mark's OWN `<g>` — the one
-   * TempoLayout opens (`#vf-<id>`), since VexFlow's StaveTempo opens none — so the colour
+   * TempoLayout opens (`#<id>`), since VexFlow's StaveTempo opens none — so the colour
    * can't bleed onto neighbouring marks. DOM `fill`, never VexFlow `setStyle`: setStyle
    * leaks the colour into the shared draw context and grays the rest of the score.
    */
@@ -1392,7 +1390,7 @@ export class HighlightController {
       // sweep up a staff-wide `p` and a voice-2 `f` together, and they do not paint alike
       // (`markSelectionColor`, P2 of docs/dynamic-voice-scope-plan.md).
       const SELECTION_COLOR = markSelectionColor(engine.getDynamicById(id) ?? {})
-      // Recolor inside the dynamic's OWN <g class="vf-annotation"> group only, so it
+      // Recolor inside the dynamic's OWN <g class="annotation"> group only, so it
       // can't bleed onto neighbouring marks. The group holds the glyph/text as <text>
       // and/or <path> children (level glyphs render as paths in the music font;
       // custom text renders as <text>).
@@ -1485,7 +1483,7 @@ export class HighlightController {
   }
 
   /**
-   * Paint the selected hairpin in the voice's colour, inside its OWN `<g class="vf-hairpin">` group.
+   * Paint the selected hairpin in the voice's colour, inside its OWN `<g class="hairpin">` group.
    *
    * ⭐ Simpler than the slur's twin above in exactly two ways, both of them real rather than
    * accidental. There is no multi-select branch: a Shift-click box pulls dynamics and slurs into
@@ -1499,7 +1497,7 @@ export class HighlightController {
   }
 
   /**
-   * Paint one hairpin inside its OWN `<g class="vf-hairpin">` group, **in the colour its SCOPE
+   * Paint one hairpin inside its OWN `<g class="hairpin">` group, **in the colour its SCOPE
    * says**: the element ink for a wedge governing the whole staff, that voice's colour for one
    * narrowed to a voice (`utils/selectionColors.markSelectionColor`, P2 of
    * docs/dynamic-voice-scope-plan.md).
@@ -1932,11 +1930,11 @@ export class HighlightController {
     for (const id of this.selectedIdsOf('slur')) this.recolorSlur(id)
   }
 
-  /** Paint one slur in its voice's colour, inside its OWN `<g class="vf-slur">` group only. */
+  /** Paint one slur in its voice's colour, inside its OWN `<g class="slur">` group only. */
   private recolorSlur(slurId: string): void {
     const engine = this.getEngine()
     if (!engine) return
-    // Recolor inside the slur's OWN <g class="vf-slur"> group only — never a
+    // Recolor inside the slur's OWN <g class="slur"> group only — never a
     // document-wide bbox path-scan, which would bleed onto beams/ties/other arcs
     // sitting inside a long slur's bounding rectangle (see docs/slur-plan.md §3).
     const group = engine.getSlurSVGGroup(slurId)

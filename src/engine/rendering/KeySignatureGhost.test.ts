@@ -54,7 +54,7 @@ describe('KeySignatureGhost', () => {
       expect(() => draw(fifths), `${fifths} fifths`).not.toThrow()
     }
     // …and the score under it is untouched: the ghost is an overlay, so the music survives it.
-    expect(svg().querySelectorAll('.vf-stavenote').length).toBeGreaterThan(0)
+    expect(svg().querySelectorAll('.stavenote').length).toBeGreaterThan(0)
   })
 
   it('⛔ an EMPTY signature draws nothing and says so — C major has no ink to preview', () => {

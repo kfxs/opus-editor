@@ -19,7 +19,7 @@
  *   `getTicks()` to the running key — and a `ClefNote`'s duration is `'b'`, a 256th (64 ticks). So the
  *   note after a clef change files 64 ticks later than the same beat in another voice. Kept exactly;
  *   ⛔ not fixed during the removal (logged in `vexflow-removal-map.md` §9.4).
- * - ⛔ **No group.** `ClefNote.draw` stamps the glyph bare (a header clef opens `g.vf-clef`; this does
+ * - ⛔ **No group.** `ClefNote.draw` stamps the glyph bare (a header clef opens `g.clef`; this does
  *   not). The highlight finds it by the registry's box (`HighlightController.highlightGlyphsInBBox`).
  * - The draw is wrapped in `save`/`restore`, as `Element.drawWithStyle` did — a `Clef` carries no style.
  *

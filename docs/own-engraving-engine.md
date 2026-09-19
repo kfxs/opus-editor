@@ -35,7 +35,7 @@
 > the ticks (`layout/tickCount`), the fonts (`fonts/fontCategories`, `fontFace`,
 > `rendering/glyphPainter`) and the painter (`rendering/SvgPainter`). ⚠️ **So every *"still
 > VexFlow's"*, *"VexFlow paints / places / measures"* below is a statement about the day it is dated,
-> ⛔ not about today.** Still spelled "VexFlow" until S15: `ScoreRenderer` and the `vf-` SVG prefix
+> ⛔ not about today.** Still spelled "VexFlow" until S15: `ScoreRenderer` and the `vf-` SVG prefix (⚠️ both gone since S15a/S15c)
 > (now emitted by `SvgPainter`). §8's adapter directory `engrave/vexflow/` does not exist.
 
 ---
@@ -894,7 +894,7 @@ order they come back in, what each one costs, and the research per piece.
 > assumption.
 >
 > ✅ **P3b — the FLAG (2026-09-01).** Chosen next because it has the **opposite** property to P3a:
-> ⛔ **no owner at all** — `vf-flag` is read by nothing, it is not a kind in the `selectedElement`
+> ⛔ **no owner at all** — `flag` is read by nothing, it is not a kind in the `selectedElement`
 > union, no anchor or highlight map holds one — 🚨 **and it is §3's bug class sitting in the open.**
 > VexFlow places a flag vertically with `getTextMetrics().actualBoundingBoxDescent`, a **runtime
 > `measureText`**: the identical mechanism that put every whole rest ~9.7 px off-centre until
@@ -1217,7 +1217,7 @@ staff's full ink (top line's top to bottom line's bottom, so the five lines it c
 **`x` IS the boundary and the ink grows RIGHTWARD from it**, ⛔ never centred — because the spacing
 model measures the lead-in from that x, the registry's `noteEndX` hit box sits at it and
 `barWidth.e2e` asserts a drawn barline stands at the stave's own `x2`; and it is a **filled rect**
-rather than a stroked path, because `g.vf-stavebarline rect` is what four readers find a barline by.
+rather than a stroked path, because `g.stavebarline rect` is what four readers find a barline by.
 
 ⭐⭐ **AND IT DELETED A PASS — the first step of this migration that removed code rather than moving
 it.** `barlineInk.inkBarlines` walked every measure's `<g>` after every render and rewrote the

@@ -336,7 +336,7 @@ row, because the PICTURE depends on it.
 
 ⚠️ **This section is a DIAGNOSIS from reading the code, ⛔ not a measurement.** It is written down so
 the next person starts from a hypothesis with an address rather than from a screenshot. ⭐ The
-instrument to confirm it is the browser suite (`e2e/`, `h.inkSizes` on `g.vf-clef text` against the
+instrument to confirm it is the browser suite (`e2e/`, `h.inkSizes` on `g.clef text` against the
 notehead). ⭐ Since S12j-e (2026-09-19) the mid-bar clef is ours (`rendering/EngravedClefChange`, which
 replaced VexFlow's `ClefNote`) and stamps through the pass's surface, so its POSITION is in the scene; its
 ink EXTENT still needs a font (the browser).
@@ -452,7 +452,7 @@ Width is charged **once** per measure even when several staves warn (`MeasureLay
 > ⚠️ **2026-09-19: VexFlow is removed**, so this seam is history. The placement is our `signWalk`
 > (`engrave/staff/signWalk`, `Stave.format()` transcribed); which line a clef names is the row
 > `CLEF_LINES` and its size the rows in `engrave/header/clefSign` + `SMALL_CLEF_RATIO`
-> (`engrave/inheritedFonts`) — ⛔ same values, unchosen. The `g.vf-clef` group id stands (`engrave/header/clef`).
+> (`engrave/inheritedFonts`) — ⛔ same values, unchosen. The `g.clef` group id stands (`engrave/header/clef`).
 
 - ⭐ **The INK is becoming ours** — `src/engine/engrave/header/clef.ts` (+ its adapter
   `rendering/EngravedClef.ts`): `clefPlacement()` states the one vertical rule and `drawClef()`
@@ -463,7 +463,7 @@ Width is charged **once** per measure even when several staves warn (`MeasureLay
 - ⛔ **WHICH LINE each clef names is still VexFlow's `Clef.types` table**, arriving as
   `ClefAnchor.lineY` already resolved. ⛔ **How big a clef is drawn** — including the **⅔** reduction
   for a change clef (`Clef.getPoint`) — is still VexFlow's, arriving as a resolved font.
-- 🚨 **The group id `g.vf-clef` is load-bearing** — `clefIndentPass.test.ts` and `e2e/slur.e2e.ts`
+- 🚨 **The group id `g.clef` is load-bearing** — `clefIndentPass.test.ts` and `e2e/slur.e2e.ts`
   both find clefs by it, and the registry's box resolves back to that ink.
 
 ⚠️ **A drawn POSITION is not a unit test** — jsdom measures every glyph at 0×0. Clef geometry belongs

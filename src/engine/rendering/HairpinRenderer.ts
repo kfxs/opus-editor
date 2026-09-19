@@ -461,8 +461,6 @@ export function renderHairpins(
         && p.measureNumber <= span.endMeasure)
 
       try {
-        // ⚠️ `openGroup` prefixes both class and id with `vf-` itself — passing 'vf-hairpin' here
-        // would yield `class="vf-vf-hairpin"`, the mistake the slur's comment records.
         const group = drawGroupOf(pass.context.openGroup?.('hairpin', `hairpin-${hairpin.id}`))
         inStaffSpace(pass, staffIndex, group, () => {
           drawWedge(pass, hairpin, x, covered, plan, from, to)

@@ -123,7 +123,7 @@ Per line, build a segment with explicit endpoint geometry, draw it with the shar
   - draw `(leftX,apex) → (lastX,endY)`; register `partialType: 'start'`.
   - (Today's "leading half", anchored to the **system** edge.)
 
-All segments stay inside the one `openGroup('vf-slur', …)` wrapper (scoped
+All segments stay inside the one `openGroup('slur', …)` wrapper (scoped
 highlight) — unchanged. `direction`, voice logic, `nestLift`, stem-aware endpoint
 Y (`slurEndpointY`) all stay as-is.
 
@@ -188,7 +188,7 @@ Tests:
 **Manual check (no code change):** click a **middle-line** bow of a 3+ system slur and
 confirm it selects the whole slur and highlights all segments. The design already
 supports it — every segment registers under the same `slur.id` and lives in one
-`slurGroupMap` `<g class="vf-slur">` group — but middle segments are new, so it's
+`slurGroupMap` `<g class="slur">` group — but middle segments are new, so it's
 worth eyeballing once.
 
 ## 6. Deferred (Phase 2, optional polish)

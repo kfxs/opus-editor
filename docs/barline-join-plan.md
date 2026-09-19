@@ -315,7 +315,7 @@ Lusk — three hits, none about barlines), so its rules would have to come from 
   weight from a small staff's own line, which `drawSign` DOES scale. `BarlineRenderer.drawSign`'s
   closing note names this as the day to revisit that; the honest answer for now is that the two
   disagree and the disagreement is recorded here.
-- 🚨 **THE HINTING PASS HAS TO BE TOLD ABOUT IT.** `hintBarlines` collects `g.vf-stavebarline rect`,
+- 🚨 **THE HINTING PASS HAS TO BE TOLD ABOUT IT.** `hintBarlines` collects `g.stavebarline rect`,
   rounds each onto whole device pixels, skips any rect whose parent carries `data-no-hint`, and on
   first sight skips any rect that is not exactly `THIN_BARLINE_PX` wide. ⇒ the gap segment must join
   that scheme **deliberately, matching the sign above it**: hinted for a plain line — or the gap
@@ -359,7 +359,7 @@ Lusk — three hits, none about barlines), so its rules would have to come from 
 - The `barline` element keeps its current meaning (one system-wide selection per boundary); ⛔ nothing
   about `interactions/elements/barline.ts` changes in P1.
   ⚠️ **True, and misleading on its own: `HighlightController` DOES change, in P1.**
-  `recolourBarlineHalf` finds a sign's ink by group id — `vf-barline-<measure>-<staff>-<end|start>`,
+  `recolourBarlineHalf` finds a sign's ink by group id — `barline-<measure>-<staff>-<end|start>`,
   looped over staves `0…N−1` — so a gap segment drawn in a group of its own is **invisible to it**,
   and a selected barline on a joined system lights blue on the staves and stays black through the
   gaps. 🚨 That is the *"are we overlapping the blue to another black barline?"* report of
@@ -388,7 +388,7 @@ Lusk — three hits, none about barlines), so its rules would have to come from 
 - **JSON:** one optional field, absence legal, ⛔ no migration — `docs/no-json-migration.md`.
 - **Geometry is not a unit test.** The gap ink is browser geometry: `e2e/*.e2e.ts` asserts the strokes
   cross the gap and the dots do not; jsdom asserts the resolver and the handle POSITIONS' arithmetic.
-  ⚠️ **And P1 moves an existing count.** The harness's `barlines()` reads `g.vf-stavebarline rect`,
+  ⚠️ **And P1 moves an existing count.** The harness's `barlines()` reads `g.stavebarline rect`,
   which is STROKES and not lines (its own note) — so joining by default adds rows to it on every
   multi-staff fixture. Those counts change **deliberately, in the same commit**, or "each phase
   independently green" is not true of P1.

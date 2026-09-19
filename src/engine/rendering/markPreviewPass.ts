@@ -242,7 +242,7 @@ const MARK_PREVIEW_FAMILIES: Record<MarkPreviewKind, MarkPreviewFamily> = {
     // His report, 2026-08-22: *"while dragging tempo refuses to move and after mouse release it
     // lands in the cursor"*. A tempo drag's horizontal is a RE-ANCHOR, not an offset — his trace is
     // `[Tempo] walked onto its next stop` on every frame, with the latch dropping the offset back to
-    // ~0 each time. The mark's glyph is drawn INSIDE its bar's `<g class="vf-measure">`, so a mark
+    // ~0 each time. The mark's glyph is drawn INSIDE its bar's `<g class="measure">`, so a mark
     // that has walked into the next bar cannot be taken there by a transform: the two passes below
     // would move it by an offset of nothing and leave it in the bar it came from. It sat still for
     // the whole gesture and jumped on the drop, which is the full render finally drawing it where it
@@ -257,7 +257,7 @@ const MARK_PREVIEW_FAMILIES: Record<MarkPreviewKind, MarkPreviewFamily> = {
     //    vouching on it would refuse every frame in a spec.
     placed: (pass, id) => {
       const svg = pass.painter?.svg as SVGSVGElement | undefined
-      const el = svg?.querySelector(`#vf-${id}`)
+      const el = svg?.querySelector(`[id="${id}"]`)
       if (!el) {
         dbg(`[Preview] tempo ${id}: no glyph in this render's SVG — the frame cannot move it`)
         return false

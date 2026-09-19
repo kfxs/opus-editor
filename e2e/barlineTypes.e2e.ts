@@ -37,7 +37,7 @@ async function drawn(score: import('@playwright/test').Page, bars: number, setUp
       staves: h.staves(),
       // The repeat dots are GLYPHS (`repeatDot`, U+E044) — the same code point MuseScore, Verovio
       // and LilyPond each draw — so they are counted as text, never as rects.
-      dots: h.glyphs('g.vf-stavebarline text'),
+      dots: h.glyphs('g.stavebarline text'),
     }
   }, { bars, setUp })
 }
@@ -235,13 +235,13 @@ test('⭐⭐ a displaced repeat stands ONE SPACE after the header — never on t
     h.engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: h.frac(0, 1) })
     h.engine.setRepeatStart(1, true)
     await h.render()
-    const meter = h.inkSizes('.vf-timesignature text')
-    const head = h.inkSizes('.vf-notehead')
+    const meter = h.inkSizes('.timesignature text')
+    const head = h.inkSizes('.notehead')
     return {
       meterRight: Math.max(...meter.map(m => m.x + m.width)),
       headLeft: Math.min(...head.map(n => n.x)),
       rects: h.barlines(),
-      dots: h.glyphs('g.vf-stavebarline text'),
+      dots: h.glyphs('g.stavebarline text'),
     }
   })
 

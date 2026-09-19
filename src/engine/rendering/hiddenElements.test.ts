@@ -17,7 +17,7 @@ function isHiddenGray(value: string): boolean {
   return value.toLowerCase() === HIDDEN_ELEMENT_COLOR.toLowerCase() || value === `rgb(${r}, ${g}, ${b})`
 }
 
-/** A stand-in for a rendered `vf-stavenote` group: a glyph `<text>` and a dot `<path>`, in a
+/** A stand-in for a rendered `stavenote` group: a glyph `<text>` and a dot `<path>`, in a
  *  parent, so removal is observable from the parent's side. */
 function stubGroup(): { parent: SVGSVGElement; group: SVGGElement } {
   const parent = document.createElementNS(SVG_NS, 'svg')

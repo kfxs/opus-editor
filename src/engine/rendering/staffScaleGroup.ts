@@ -25,8 +25,7 @@ import { drawGroupOf } from './svgDrawGroup'
  * for it. That one maps its coordinates explicitly instead.
  */
 /**
- * The class of the wrapper {@link inScaledStaffGroup} opens — `vf-scaled` once VexFlow's
- * `openGroup` has prefixed it. Exported because it changes the DOM's shape for a small staff, and
+ * The class of the wrapper {@link inScaledStaffGroup} opens — `scaled`. Exported because it changes the DOM's shape for a small staff, and
  * anything that identifies top-level ink by being a direct child of the `<svg>` (the cross-barline
  * beams, in the tests and the e2e harness) has to look one level deeper for it.
  */
@@ -43,7 +42,7 @@ const STAFF_SCALE_GROUP = 'scaled'
 export function inScaledStaffGroup<T>(
   pass: RenderPass,
   staffIndex: number,
-  /** Distinguishes this pass's wrapper in the DOM; prefixed `vf-` by `openGroup`. */
+  /** Distinguishes this pass's wrapper in the DOM. */
   id: string,
   draw: () => T,
 ): T {

@@ -76,7 +76,7 @@ export function onsetInkX(registry: ElementRegistry, measure: number, beat: numb
  */
 export function tempoAnchorTravelPx(pass: RenderPass, id: string): number | null {
   const svg = pass.painter?.svg as SVGSVGElement | undefined
-  const el = svg?.querySelector(`#vf-${id}`) as SVGGraphicsElement | null
+  const el = svg?.querySelector(`[id="${id}"]`) as SVGGraphicsElement | null
   const stamp = el?.getAttribute(TEMPO_ANCHOR_ATTR)
   if (!stamp) return null
 

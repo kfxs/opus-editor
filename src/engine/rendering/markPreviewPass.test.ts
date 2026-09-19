@@ -65,7 +65,7 @@ beforeEach(() => {
 /** What the octave lines look like right now — the family's whole drawn contribution. */
 function ottavaInk(): string {
   const svg = renderer.getSVGElement()!
-  return [...svg.querySelectorAll('.vf-ottava')].map(g => g.outerHTML).join('|')
+  return [...svg.querySelectorAll('.ottava')].map(g => g.outerHTML).join('|')
 }
 
 /**
@@ -111,7 +111,7 @@ describe('the preview draws what a full render would', () => {
  */
 describe('🚨 repeating a preview changes nothing — the accumulation traps', () => {
   it('🚨 the DOM does not accumulate copies of the family', () => {
-    const groups = () => renderer.getSVGElement()!.querySelectorAll('.vf-ottava').length
+    const groups = () => renderer.getSVGElement()!.querySelectorAll('.ottava').length
     const once = groups()
 
     for (let i = 0; i < 5; i++) renderer.previewMarks('ottava')
@@ -179,7 +179,7 @@ describe('the table covers every family it declares', () => {
     const svg = renderer.getSVGElement()!
     const registry = renderer.getElementRegistry()
     const shape = () => KINDS.map(k =>
-      `${k}:${svg.querySelectorAll(`.vf-${k}`).length}/${registry.getByType(k).length}`).join(' ')
+      `${k}:${svg.querySelectorAll(`.${k}`).length}/${registry.getByType(k).length}`).join(' ')
 
     for (const kind of KINDS) {
       renderer.renderScore(model.getScore())
@@ -192,7 +192,7 @@ describe('the table covers every family it declares', () => {
   it('⭐⭐ …and with nothing changed, every family redraws to exactly what was there', () => {
     const svg = renderer.getSVGElement()!
     const ink = (k: MarkPreviewKind) =>
-      [...svg.querySelectorAll(`.vf-${k}`)].map(g => g.outerHTML).join('|')
+      [...svg.querySelectorAll(`.${k}`)].map(g => g.outerHTML).join('|')
 
     for (const kind of KINDS) {
       renderer.renderScore(model.getScore())
@@ -304,7 +304,7 @@ describe('🚨 a mark that crossed to the OTHER STAFF is previewed on the staff 
  * ⭐⭐ **THE ONE FAMILY THAT IS MOVED RATHER THAN REDRAWN**, and the one whose refusal is load-bearing
  * rather than a safety net.
  *
- * A tempo mark's glyph is drawn *inside its bar's* `<g class="vf-measure">` and repositioned
+ * A tempo mark's glyph is drawn *inside its bar's* `<g class="measure">` and repositioned
  * afterwards by one composed, idempotent transform (`./tempoMarkTransform`). So a preview draws
  * nothing: it re-applies the composer's nudge (`./tempoNudgePass`) and re-runs the ladder
  * (`./tempoLinePass`), both of which the full render runs anyway.
@@ -321,7 +321,7 @@ describe('the TEMPO family is moved, not redrawn', () => {
   let tempoModel: ScoreModel
   let tempoId: string
 
-  const mark = () => tempoRenderer.getSVGElement()!.querySelector(`#vf-${tempoId}`)!
+  const mark = () => tempoRenderer.getSVGElement()!.querySelector(`[id="${tempoId}"]`)!
 
   beforeEach(() => {
     const container = document.createElement('div')
@@ -389,7 +389,7 @@ describe('the TEMPO family is moved, not redrawn', () => {
   })
 
   it('⭐ …and another BAR of the same system is the same move — a translate is not clipped', () => {
-    expect(mark().closest('.vf-measure')?.id, 'drawn in bar 1 to begin with').toMatch(/^vf-m1-s/)
+    expect(mark().closest('.measure')?.id, 'drawn in bar 1 to begin with').toMatch(/^m1-s/)
     const before = mark().getAttribute('transform')!
     setTempoAtSlot(tempoModel.getScore(), tempoId, { measure: 3, beat: frac(0, 1) })
 
@@ -498,7 +498,7 @@ describe('the DYNAMIC family is moved, not redrawn', () => {
     // behind"*. The letters are MOVED and the wedges are REDRAWN, so the row take them down — and a
     // frame that forgot to draw them again would leave the score with no hairpin at all, which is
     // what this counts. ⛔ Break-tested: without `renderHairpins` in the row's `draw`, this is 0.
-    const wedges = () => dynRenderer.getSVGElement()!.querySelectorAll('.vf-hairpin').length
+    const wedges = () => dynRenderer.getSVGElement()!.querySelectorAll('.hairpin').length
     const before = wedges()
     expect(before, 'the fixture draws a wedge to begin with').toBeGreaterThan(0)
 
@@ -509,7 +509,7 @@ describe('the DYNAMIC family is moved, not redrawn', () => {
   })
 
   it('🚨 …and five frames leave five wedges\' worth of nothing behind', () => {
-    const wedges = () => dynRenderer.getSVGElement()!.querySelectorAll('.vf-hairpin').length
+    const wedges = () => dynRenderer.getSVGElement()!.querySelectorAll('.hairpin').length
     const once = wedges()
 
     for (let i = 0; i < 5; i++) dynRenderer.previewMarks('dynamic', dynId)

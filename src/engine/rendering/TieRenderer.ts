@@ -167,7 +167,6 @@ export function renderTies(pass: RenderPass, score: Score): void {
             // live inside it) so the selection highlight can recolor exactly this tie
             // without a document-wide bbox path-scan — that scan bled onto staff lines
             // whose bbox fell inside the tie's rectangle (mirrors the slur fix).
-            // `openGroup` prefixes class and id with `vf-` itself (see SlurRenderer).
             const tieGroup = drawGroupOf(pass.context.openGroup?.('tie', `tie-${pitch.id}`))
 
             // A tie is drawn from the two notes' own coordinates, and those are in their staff's

@@ -43,7 +43,7 @@ test('a barline is heavier than the stems and staff lines it divides', async ({ 
     const h = window.__h
     h.engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: h.frac(0, 1) })
     await h.render()
-    const stem = document.querySelector<SVGPathElement>('g.vf-stem path')
+    const stem = document.querySelector<SVGPathElement>('g.stem path')
     return {
       barline: h.barlines()[0].width,
       stem: stem ? parseFloat(getComputedStyle(stem).strokeWidth) : NaN,
@@ -62,7 +62,7 @@ test('one boundary is ONE line: no bar draws a barline its neighbour already dre
     while (h.engine.getScore().measures.length < 6) h.engine.addMeasure()
     await h.render()
     const at = new Map<string, number>()
-    for (const r of document.querySelectorAll<SVGRectElement>('g.vf-stavebarline rect')) {
+    for (const r of document.querySelectorAll<SVGRectElement>('g.stavebarline rect')) {
       // Group by (x, y): two systems' opening barlines share an x at different heights, and those
       // are two different lines, not a duplicate.
       const key = `${r.getAttribute('x')}@${r.getAttribute('y')}`

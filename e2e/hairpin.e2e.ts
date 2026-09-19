@@ -13,7 +13,7 @@ import { test, expect } from './fixtures'
 
 /** The wedge's two arms, as drawn. Each is a straight `<path>` inside the hairpin's own group. */
 const armsOf = (score: import('@playwright/test').Page) =>
-  score.evaluate(() => window.__h.segments('g.vf-hairpin path'))
+  score.evaluate(() => window.__h.segments('g.hairpin path'))
 
 /**
  * The AXIS of each drawn wedge — the horizontal line its two arms are mirrored about.
@@ -104,7 +104,7 @@ test('⭐⭐ the wedge is stroked at a STAFF LINE\'s weight — Gould p. 103, st
     }
     h.engine.addHairpin(1, { type: 'cresc', beat: h.frac(0, 1), length: h.frac(4, 1) })
     await h.render()
-    const arm = document.querySelector('g.vf-hairpin path') as SVGPathElement
+    const arm = document.querySelector('g.hairpin path') as SVGPathElement
     const first = window.__h.staves()[0]
     return {
       strokePx: parseFloat(getComputedStyle(arm).strokeWidth),
@@ -139,7 +139,7 @@ test('⭐⭐ a LONG wedge opens wider than an ordinary one — measured in STAFF
     await h.render()
     const first = window.__h.staves()[0]
     return {
-      arms: window.__h.segments('g.vf-hairpin path'),
+      arms: window.__h.segments('g.hairpin path'),
       spacing: (first.bottom - first.top) / 4,
     }
   })
@@ -177,7 +177,7 @@ test('⭐⭐ the wedge sits on the DYNAMICS LINE — level with the letters besi
 
   const arms = await armsOf(score)
   const staff = await staffOf(score)
-  const mark = (await score.evaluate(() => window.__h.placed('g.vf-annotation text')))[0]
+  const mark = (await score.evaluate(() => window.__h.placed('g.annotation text')))[0]
 
   // The wedge's axis: midway between its two arms at the open end.
   const axis = (arms[0].y2 + arms[1].y2) / 2
@@ -212,7 +212,7 @@ test('🚨🚨 a NUDGED dynamic moves ITSELF and not the wedge — no pushing', 
     }
     h.engine.addHairpin(1, { type: 'cresc', beat: h.frac(0, 1), length: h.frac(3, 1) })
     await h.render()
-    const segs = window.__h.segments('g.vf-hairpin path')
+    const segs = window.__h.segments('g.hairpin path')
     return { x1: segs[0].x1, x2: segs[segs.length - 1].x2 }
   })
 
@@ -226,7 +226,7 @@ test('🚨🚨 a NUDGED dynamic moves ITSELF and not the wedge — no pushing', 
     // His gesture exactly, and where the old rule started eating the wedge.
     h.engine.nudgeDynamicOffset(mark.id, -4, 0)
     await h.render()
-    const segs = window.__h.segments('g.vf-hairpin path')
+    const segs = window.__h.segments('g.hairpin path')
     return { x1: segs[0].x1, x2: segs[segs.length - 1].x2, count: segs.length }
   })
 
@@ -251,7 +251,7 @@ test('⭐⭐ a wedge crossing a system break is SPLIT, and it STEPS at the break
     await h.render()
     const first = window.__h.staves()[0]
     return {
-      arms: window.__h.segments('g.vf-hairpin path'),
+      arms: window.__h.segments('g.hairpin path'),
       spacing: (first.bottom - first.top) / 4,
     }
   })
@@ -319,7 +319,7 @@ test('⭐⭐ a wedge starting LATE in a system does not drag its continuation ac
     await h.render()
     const first = window.__h.staves()[0]
     return {
-      arms: window.__h.segments('g.vf-hairpin path'),
+      arms: window.__h.segments('g.hairpin path'),
       spacing: (first.bottom - first.top) / 4,
     }
   }, layout.firstOfSecondSystem)
@@ -346,7 +346,7 @@ test('⭐ P4: a wedge registers its OUTLINE, so it is clickable on its own ink',
     }
     h.engine.addHairpin(1, { type: 'cresc', beat: h.frac(0, 1), length: h.frac(4, 1) })
     await h.render()
-    return window.__h.segments('g.vf-hairpin path')
+    return window.__h.segments('g.hairpin path')
   })
 
   // ⚠️ What is checked is the REGISTRY, not a click: this harness drives the engine alone, so the
@@ -396,7 +396,7 @@ test('⭐⭐ CHAINING: a `< >` pair over a LOW note levels with itself, not per-
     h.engine.addHairpin(2, { type: 'dim', beat: h.frac(2, 1), length: h.frac(2, 1) })
     await h.render()
     const first = window.__h.staves()[0]
-    return { arms: window.__h.segments('g.vf-hairpin path'), spacing: (first.bottom - first.top) / 4 }
+    return { arms: window.__h.segments('g.hairpin path'), spacing: (first.bottom - first.top) / 4 }
   })
 
   expect(drawn.arms.length, 'two wedges, two arms each').toBe(4)
@@ -420,7 +420,7 @@ test('⭐ …and a wedge that touches NOTHING keeps the local rule', async ({ sc
     h.engine.addHairpin(3, { type: 'cresc', beat: h.frac(0, 1), length: h.frac(4, 1) })
     await h.render()
     const first = window.__h.staves()[0]
-    return { arms: window.__h.segments('g.vf-hairpin path'), spacing: (first.bottom - first.top) / 4 }
+    return { arms: window.__h.segments('g.hairpin path'), spacing: (first.bottom - first.top) / 4 }
   })
 
   expect(drawn.arms.length).toBe(4)
@@ -442,7 +442,7 @@ test('⭐⭐ two wedges that MEET leave a gap — they must not touch at a point
     h.engine.addHairpin(2, { type: 'dim', beat: h.frac(2, 1), length: h.frac(2, 1) })
     await h.render()
     const first = window.__h.staves()[0]
-    const arms = window.__h.segments('g.vf-hairpin path')
+    const arms = window.__h.segments('g.hairpin path')
     return { arms, spacing: (first.bottom - first.top) / 4 }
   })
 
@@ -556,7 +556,7 @@ test('⭐⭐ the hole is a WINDOW, not a gap — a small padding either side of 
 
   const arms = await armsOf(score)
   const { spacing } = await staffOf(score)
-  const mark = (await score.evaluate(() => window.__h.inkSizes('g.vf-annotation text')))[0]
+  const mark = (await score.evaluate(() => window.__h.inkSizes('g.annotation text')))[0]
   expect(mark, 'the mark was drawn').toBeTruthy()
 
   const starts = [...new Set(arms.map(a => Math.round(a.x1)))].sort((a, b) => a - b)
@@ -591,7 +591,7 @@ test('🚨🚨 a NUDGED wedge that is also broken stays straight — it does not
     const hp = h.engine.addHairpin(1, { type: 'cresc', beat: h.frac(0, 1), length: h.frac(4, 1) })!
     h.engine.addDynamic(1, { beat: h.frac(2, 1), text: '\ue522' })
     await h.render()
-    const was = h.segments('g.vf-hairpin path').map(a => a.y1)
+    const was = h.segments('g.hairpin path').map(a => a.y1)
     // ⚠️ Both ends lifted by the same SMALL amount — his JSON's shape (`{start: {y}, end: {y}}`) but
     // not its size: three spaces would lift the wedge clear of the letter and it would be drawn
     // whole (the test below), leaving nothing broken to check for a zigzag.
@@ -689,7 +689,7 @@ test('⭐⭐ a mark hidden behind its editor KEEPS its hole', async ({ score }) 
     // …and now the editor opens on it.
     h.engine.setSuppressedDynamicId(dyn.id)
     await h.render()
-    return window.__h.segments('g.vf-hairpin path').length
+    return window.__h.segments('g.hairpin path').length
   })
 
   expect(arms, 'still two fragments × two arms').toBe(4)
@@ -707,7 +707,7 @@ test('⭐⭐ …and the hole GROWS with what is being typed', async ({ score }) 
 
     /** The empty span between the two fragments, in px. */
     const hole = () => {
-      const arms = window.__h.segments('g.vf-hairpin path')
+      const arms = window.__h.segments('g.hairpin path')
       const starts = [...new Set(arms.map(a => Math.round(a.x1)))].sort((a, b) => a - b)
       const firstEnd = Math.max(...arms.filter(a => Math.round(a.x1) === starts[0]).map(a => a.x2))
       return starts[1] - firstEnd

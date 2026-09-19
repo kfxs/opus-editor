@@ -19,16 +19,16 @@ import { createEditorState, type EditorState } from './EditorState'
 import { ElementRegistry } from '../engine/ElementRegistry'
 import type { MusicEngine } from '../engine/MusicEngine'
 
-/** One `vf-stavenote` group per note id, and the head inside it we assert the colour on. */
+/** One `stavenote` group per note id, and the head inside it we assert the colour on. */
 function fabricateScore() {
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
   const heads = new Map<string, SVGElement>()
   const groups = new Map<string, SVGElement>()
   for (const id of ['N1', 'N2', 'N3']) {
     const group = document.createElementNS('http://www.w3.org/2000/svg', 'g')
-    group.setAttribute('class', 'vf-stavenote')
+    group.setAttribute('class', 'stavenote')
     const head = document.createElementNS('http://www.w3.org/2000/svg', 'g')
-    head.setAttribute('class', 'vf-notehead')
+    head.setAttribute('class', 'notehead')
     const path = document.createElementNS('http://www.w3.org/2000/svg', 'path')
     head.appendChild(path)
     group.appendChild(head)

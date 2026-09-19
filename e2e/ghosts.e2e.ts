@@ -56,7 +56,7 @@ test('the NOTE ghost is engraved in the bar it will land in, at the pitch under 
       real,
       groups: h.ghosts(),
       heads: h.placed('.ghost-note-group text'),
-      stems: h.segments('.ghost-note-group g.vf-stem path'),
+      stems: h.segments('.ghost-note-group g.stem path'),
     }
   })
 
@@ -119,17 +119,17 @@ test('the ACCIDENTAL, DOT and ARTICULATION ghosts each park clear of the pointer
 
     const at = { x: 200, y: 100 }
     h.engine.renderScoreWithToolGhost(at, { kind: 'accidental', accidental: '#' })
-    const accidental = { groups: h.ghosts(), glyphs: h.placed('.vf-ghost-accidental text') }
+    const accidental = { groups: h.ghosts(), glyphs: h.placed('.ghost-accidental text') }
     h.engine.renderScoreWithToolGhost(at, { kind: 'dot' })
-    const dot = { groups: h.ghosts(), glyphs: h.placed('.vf-ghost-dot text') }
+    const dot = { groups: h.ghosts(), glyphs: h.placed('.ghost-dot text') }
     h.engine.renderScoreWithToolGhost(at, { kind: 'articulation', types: ['accent'] })
-    const articulation = { groups: h.ghosts(), glyphs: h.placed('.vf-ghost-articulation text') }
+    const articulation = { groups: h.ghosts(), glyphs: h.placed('.ghost-articulation text') }
     return { accidental, dot, articulation }
   })
 
-  expect(drawn.accidental.groups).toEqual(['vf-ghost-accidental'])
-  expect(drawn.dot.groups).toEqual(['vf-ghost-dot'])
-  expect(drawn.articulation.groups).toEqual(['vf-ghost-articulation'])
+  expect(drawn.accidental.groups).toEqual(['ghost-accidental'])
+  expect(drawn.dot.groups).toEqual(['ghost-dot'])
+  expect(drawn.articulation.groups).toEqual(['ghost-articulation'])
 
   for (const [name, ghost] of Object.entries(drawn)) {
     expect(ghost.glyphs.length, `${name}: something was drawn`).toBeGreaterThan(0)
@@ -153,18 +153,18 @@ test('the TIE ghost draws a real arc, and the TEMPO ghost its own words', async 
     await h.render()
 
     h.engine.renderScoreWithToolGhost({ x: 200, y: 100 }, { kind: 'tie' })
-    const tie = { groups: h.ghosts(), curves: h.paths('.vf-ghost-tie path') }
+    const tie = { groups: h.ghosts(), curves: h.paths('.ghost-tie path') }
     h.engine.renderScoreWithToolGhost({ x: 200, y: 100 }, { kind: 'tempo', mark: { id: 't1', measure: 1, beat: h.frac(0, 1), text: 'Allegro' } })
-    const tempo = { groups: h.ghosts(), texts: h.texts('.vf-ghost-tempo text') }
+    const tempo = { groups: h.ghosts(), texts: h.texts('.ghost-tempo text') }
     return { tie, tempo }
   })
 
-  expect(drawn.tie.groups).toEqual(['vf-ghost-tie'])
+  expect(drawn.tie.groups).toEqual(['ghost-tie'])
   expect(drawn.tie.curves.length, 'the tie ghost is a filled curve, not a glyph').toBeGreaterThan(0)
   // A tie is a CURVE: its path has to carry a bezier, or what is drawn is a straight line.
   expect(drawn.tie.curves.some(d => d.includes('C')), 'and it bows').toBe(true)
 
-  expect(drawn.tempo.groups).toEqual(['vf-ghost-tempo'])
+  expect(drawn.tempo.groups).toEqual(['ghost-tempo'])
   expect(drawn.tempo.texts.join(''), 'the tempo ghost previews the mark’s own text').toContain('Allegro')
 })
 
@@ -175,10 +175,10 @@ test('the TRILL ghost is the `tr` itself, parked clear of the pointer', async ({
     await h.render()
 
     h.engine.renderScoreWithToolGhost({ x: 200, y: 100 }, { kind: 'trill' })
-    return { groups: h.ghosts(), glyphs: h.placed('.vf-ghost-trill text') }
+    return { groups: h.ghosts(), glyphs: h.placed('.ghost-trill text') }
   })
 
-  expect(drawn.groups).toEqual(['vf-ghost-trill'])
+  expect(drawn.groups).toEqual(['ghost-trill'])
   // U+E566 is SMuFL's `ornamentTrill` — the sign the pass itself draws (`drawTrillSign`), which is
   // the point of sharing it: the preview cannot become a different glyph from the engraved mark.
   expect(drawn.glyphs.map(g => g.code), 'the tr glyph').toEqual(['e566'])
@@ -203,14 +203,14 @@ test('the OTTAVA ghost is the NUMERAL — and 8va and 8vb park IDENTICALLY, diff
 
     const at = { x: 200, y: 100 }
     h.engine.renderScoreWithToolGhost(at, { kind: 'ottava', shift: 1 })
-    const alta = { groups: h.ghosts(), glyphs: h.placed('.vf-ghost-ottava text') }
+    const alta = { groups: h.ghosts(), glyphs: h.placed('.ghost-ottava text') }
     h.engine.renderScoreWithToolGhost(at, { kind: 'ottava', shift: -1 })
-    const bassa = { groups: h.ghosts(), glyphs: h.placed('.vf-ghost-ottava text') }
+    const bassa = { groups: h.ghosts(), glyphs: h.placed('.ghost-ottava text') }
     return { alta, bassa }
   })
 
-  expect(drawn.alta.groups).toEqual(['vf-ghost-ottava'])
-  expect(drawn.bassa.groups).toEqual(['vf-ghost-ottava'])
+  expect(drawn.alta.groups).toEqual(['ghost-ottava'])
+  expect(drawn.bassa.groups).toEqual(['ghost-ottava'])
 
   // ⭐⭐ The two are DIFFERENT GLYPHS, which is the whole reason this tool wanted a ghost: `8va` and
   // `8vb` are two palette rows differing in one signed number, and behind a blue caret they armed
@@ -248,15 +248,15 @@ test('⭐⭐ the PEDAL ghost is `Ped.` alone — and the three LADDER ghosts sha
 
     const at = { x: 200, y: 100 }
     h.engine.renderScoreWithToolGhost(at, { kind: 'pedal' })
-    const pedal = { groups: h.ghosts(), glyphs: h.placed('.vf-ghost-pedal text') }
+    const pedal = { groups: h.ghosts(), glyphs: h.placed('.ghost-pedal text') }
     h.engine.renderScoreWithToolGhost(at, { kind: 'trill' })
-    const trill = h.placed('.vf-ghost-trill text')
+    const trill = h.placed('.ghost-trill text')
     h.engine.renderScoreWithToolGhost(at, { kind: 'ottava', shift: -1 })
-    const ottava = h.placed('.vf-ghost-ottava text')
+    const ottava = h.placed('.ghost-ottava text')
     return { pedal, trill, ottava }
   })
 
-  expect(drawn.pedal.groups).toEqual(['vf-ghost-pedal'])
+  expect(drawn.pedal.groups).toEqual(['ghost-pedal'])
   // U+E650 is SMuFL's `keyboardPedalPed` — the sign the pass itself draws (`drawPedalSign`).
   expect(drawn.pedal.glyphs.map(g => g.code), 'the Ped. glyph').toEqual(['e650'])
   // ⛔ ONE glyph: no lift (`✻`, U+E655) and no parentheses. A pedalling's length is not the click's
@@ -287,12 +287,12 @@ test('⭐⭐ the BARLINE ghost is the PRECOMPOSED sign — three glyphs, one pos
     const at = { x: 200, y: 100 }
     const sign = (s: 'final' | 'repeatStart' | 'repeatEnd') => {
       h.engine.renderScoreWithToolGhost(at, { kind: 'barline', sign: s })
-      return { groups: h.ghosts(), glyphs: h.placed('.vf-ghost-barline text') }
+      return { groups: h.ghosts(), glyphs: h.placed('.ghost-barline text') }
     }
     return { final: sign('final'), start: sign('repeatStart'), end: sign('repeatEnd') }
   })
 
-  expect(drawn.final.groups).toEqual(['vf-ghost-barline'])
+  expect(drawn.final.groups).toEqual(['ghost-barline'])
 
   // ⭐⭐ HIS CALL, 2026-08-26: *"isn't it easy to use the bravura glyphs for ghost?"* — E032 is
   // `barlineFinal`, E040 `repeatLeft` ( `|:` ), E041 `repeatRight` ( `:|` ). ⚠️ ONE `<text>` each,
@@ -326,7 +326,7 @@ test('the FEATHER ghost is a bare notehead — dot included, stem and flag dropp
       return {
         groups: h.ghosts(),
         glyphs: h.placed('.ghost-fan-group text'),
-        stems: h.segments('.ghost-fan-group g.vf-stem path'),
+        stems: h.segments('.ghost-fan-group g.stem path'),
       }
     }
     return { plain: at('h', 0), dotted: at('h', 1), eighth: at('8', 0) }
@@ -371,7 +371,7 @@ test('⭐ the FEATHER ghost keeps its SIZE across a stamp — it is a notehead, 
       return {
         groups: h.ghosts(),
         glyphs: h.placed('.ghost-fan-group text'),
-        head: h.inkSizes('.ghost-fan-group .vf-notehead text')[0],
+        head: h.inkSizes('.ghost-fan-group .notehead text')[0],
       }
     }
     // ⚠️ The fonts first — and WITHOUT rendering the score, which is the condition this regression
@@ -385,7 +385,7 @@ test('⭐ the FEATHER ghost keeps its SIZE across a stamp — it is a notehead, 
     const note = h.engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'h', dots: 1, measure: 1, beat: h.frac(0, 1) })!
     h.engine.setFan(note.id, { direction: 'accel', count: 6, beams: 3 })
     await h.render()
-    const scoreHead = h.inkSizes('.vf-stavenote .vf-notehead text')[0]
+    const scoreHead = h.inkSizes('.stavenote .notehead text')[0]
 
     return { before, after: ghost(), scoreHead }
   })

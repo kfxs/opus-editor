@@ -26,7 +26,7 @@ const PAREN_R = '29'   // ')'
 
 /** Every glyph drawn inside a trill's own group, with where it landed. */
 const trillGlyphs = (score: import('@playwright/test').Page) =>
-  score.evaluate(() => window.__h.placed('g.vf-trill text'))
+  score.evaluate(() => window.__h.placed('g.trill text'))
 
 // ⭐⭐ HIS CALL, 2026-08-13, and it inverted this test: the line ALWAYS draws, including on a single
 // note. docs/trill-plan.md §1 rule 5 said the opposite (LilyPond's and Gould's "a single note needs
@@ -81,8 +81,8 @@ test('⭐⭐ the line STOPS SHORT of the next notehead — air at the end (his c
     await h.render()
     const staff = h.staves()[0]
     return {
-      wiggles: h.placed('g.vf-trill text').filter(g => g.code === 'eaa4'),
-      heads: h.placed('g.vf-notehead text'),
+      wiggles: h.placed('g.trill text').filter(g => g.code === 'eaa4'),
+      heads: h.placed('g.notehead text'),
       spacing: (staff.bottom - staff.top) / 4,
     }
   })
@@ -105,7 +105,7 @@ test('⭐ the sign LEFT-aligns to the left edge of its notehead (rule 4)', async
       h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: 'q', measure: 1, beat: h.frac(beat, 1) })!.id)
     h.engine.addTrill({ startNoteId: ids[1] })
     await h.render()
-    return h.placed('g.vf-notehead text')
+    return h.placed('g.notehead text')
   })
 
   const glyphs = await trillGlyphs(score)
@@ -125,7 +125,7 @@ const signOver = (score: import('@playwright/test').Page, octave: number) =>
     const id = h.engine.addNoteAtBeat({ step: 'C', octave: oct, duration: 'w', measure: 1, beat: h.frac(0, 1) })!.id
     h.engine.addTrill({ startNoteId: id })
     await h.render()
-    return { y: h.placed('g.vf-trill text')[0].y, top: h.staves()[0].top, spacing: (h.staves()[0].bottom - h.staves()[0].top) / 4 }
+    return { y: h.placed('g.trill text')[0].y, top: h.staves()[0].top, spacing: (h.staves()[0].bottom - h.staves()[0].top) / 4 }
   }, octave)
 
 test('⭐ the trill sits ABOVE the staff even over staff-resident music — the floor guarantees it', async ({ score }) => {
@@ -148,8 +148,8 @@ test('⭐ the trill sits NEARER the staff than a dynamic would — it is the inn
     h.engine.addDynamic(1, { beat: h.frac(0, 1), text: 'p', placement: 'above' })
     await h.render()
     return {
-      trillY: h.placed('g.vf-trill text')[0].y,
-      dynY: h.placed('g.vf-annotation text')[0]?.y ?? h.placed('text')[0].y,
+      trillY: h.placed('g.trill text')[0].y,
+      dynY: h.placed('g.annotation text')[0]?.y ?? h.placed('text')[0].y,
       top: window.__h.staves()[0].top,
     }
   })
@@ -187,14 +187,14 @@ test('⭐⭐ a trill ENDING on the next system still draws — the x\'s are in d
     // ⭐ FIND THE BREAK, rather than guessing where it falls. Noteheads come back sorted by x, so
     // group them by ROW: the count on the first row is how many bars that system holds. The trill
     // then runs from the LAST bar of system 1 to the FIRST of system 2 — the reversed geometry.
-    const heads = h.placed('g.vf-notehead text')
+    const heads = h.placed('g.notehead text')
     const firstRowY = Math.min(...heads.map(g => g.y))
     const onFirstRow = heads.filter(g => Math.abs(g.y - firstRowY) < 5).length
     if (onFirstRow >= ids.length) return { glyphs: [], staves: h.staves().length, broke: false }
 
     h.engine.addTrill({ startNoteId: ids[onFirstRow - 1], endNoteId: ids[onFirstRow] })
     await h.render()
-    return { glyphs: h.placed('g.vf-trill text'), staves: h.staves().length, broke: true }
+    return { glyphs: h.placed('g.trill text'), staves: h.staves().length, broke: true }
   })
 
   expect(staves, 'the fixture must actually break into systems').toBeGreaterThan(1)
@@ -219,7 +219,7 @@ test('⭐⭐ a trill ENDING on the next system still draws — the x\'s are in d
   // that assertion passed while the picture rendered bolt upright, because the family in force had
   // no italic FACE. So the family is checked too — it must be the serif stack that owns one.
   const parenFonts = await score.evaluate(() =>
-    Array.from(document.querySelectorAll('g.vf-trill text'))
+    Array.from(document.querySelectorAll('g.trill text'))
       .filter(t => t.textContent === '(' || t.textContent === ')')
       .map(t => ({ style: getComputedStyle(t).fontStyle, family: getComputedStyle(t).fontFamily, size: parseFloat(getComputedStyle(t).fontSize) })))
   expect(parenFonts.length, 'both parens found in the DOM').toBe(2)
@@ -229,7 +229,7 @@ test('⭐⭐ a trill ENDING on the next system still draws — the x\'s are in d
   // ⭐ …and SMALLER than the sign (his: 0.85 was "definitely too big"), and RAISED off its baseline,
   // because a text paren descends where a `tr` does not.
   const signSize = await score.evaluate(() => {
-    const t = Array.from(document.querySelectorAll('g.vf-trill text')).find(e => e.textContent === '\ue566')
+    const t = Array.from(document.querySelectorAll('g.trill text')).find(e => e.textContent === '\ue566')
     return parseFloat(getComputedStyle(t!).fontSize)
   })
   expect(parenFonts[0].size).toBeLessThan(signSize)
@@ -258,17 +258,17 @@ async function continuationOf(score: import('@playwright/test').Page, label: 'pa
       ids.push(h.engine.addNoteAtBeat({ step: 'A', octave: 3, duration: 'w', measure: m, beat: h.frac(0, 1) })!.id)
     }
     await h.render()
-    const heads = h.placed('g.vf-notehead text')
+    const heads = h.placed('g.notehead text')
     const firstRowY = Math.min(...heads.map(g => g.y))
     const onFirstRow = heads.filter(g => Math.abs(g.y - firstRowY) < 5).length
     const trill = h.engine.addTrill({ startNoteId: ids[onFirstRow - 1], endNoteId: ids[onFirstRow] })!
     if (lab !== 'parenthesised') h.engine.setTrillContinuationLabel(trill.id, lab)
     await h.render()
     // The second row's first notehead — what a plain restart must sit on.
-    const after = h.placed('g.vf-notehead text')
+    const after = h.placed('g.notehead text')
     const secondRow = after.filter(g => g.y > firstRowY + 5)
     return {
-      glyphs: h.placed('g.vf-trill text'),
+      glyphs: h.placed('g.trill text'),
       firstNoteOfRow2: Math.min(...secondRow.map(g => g.x)),
       /** The second system's stave left edge — what a reminder must never reach back past. */
       staveLeftOfRow2: Math.min(...h.staves().filter(s => s.measure > onFirstRow).map(s => s.x1)),
@@ -332,7 +332,7 @@ test('⭐⭐ a trill crossing a system break repeats its SIGN on the new system 
     }
     h.engine.addTrill({ startNoteId: ids[0], endNoteId: ids[ids.length - 1] })
     await h.render()
-    return { staves: h.staves().length, glyphs: h.placed('g.vf-trill text') }
+    return { staves: h.staves().length, glyphs: h.placed('g.trill text') }
   })
 
   expect(lines.staves, 'the fixture must actually break into systems').toBeGreaterThan(1)
@@ -362,7 +362,7 @@ test('🚨 nudging the START moves the sign AND its hit-box together', async ({ 
   const read = async () => score.evaluate(() => {
     const h = window.__h
     const box = h.engine.getElementRegistry().getByType('trill')[0]
-    const sign = h.placed('g.vf-trill text')[0]
+    const sign = h.placed('g.trill text')[0]
     return { boxX: box.bbox.x, signX: sign.x }
   })
 
@@ -393,7 +393,7 @@ test('⭐ …and nudging the END moves the line\'s end, leaving the sign where i
   const read = async () => score.evaluate(() => {
     const h = window.__h
     const box = h.engine.getElementRegistry().getByType('trill')[0]
-    const sign = h.placed('g.vf-trill text')[0]
+    const sign = h.placed('g.trill text')[0]
     return { right: box.bbox.x + box.bbox.width, signX: sign.x }
   })
 
@@ -427,7 +427,7 @@ test('🚨🚨 a BIG NEGATIVE end nudge leaves the SIGN standing — his report,
   // there was. ⭐ The cut is now floored at the sign, and `drawsLine` alone decides the wiggle.
   const read = async () => score.evaluate(() => {
     const h = window.__h
-    const marks = h.placed('g.vf-trill text')
+    const marks = h.placed('g.trill text')
     const box = h.engine.getElementRegistry().getByType('trill')[0]
     return { signs: marks.length, signX: marks[0]?.x ?? null, hasBox: !!box }
   })
@@ -461,7 +461,7 @@ test('⭐⭐ the vertical is OUTWARD: + lifts an `above` trill, and LOWERS a `be
   // 🚨 THE BREAK-TEST FOR THE WHOLE CONVERSION. Every case above uses an `above` trill, where
   // outward-from-the-staff and "up the screen" agree up to a sign — so they would all pass with the
   // conversion deleted. A `below` trill is the one that bites, exactly as the ottava's 8vb did.
-  const signY = async () => score.evaluate(() => window.__h.placed('g.vf-trill text')[0].y)
+  const signY = async () => score.evaluate(() => window.__h.placed('g.trill text')[0].y)
 
   await score.evaluate(async () => {
     const h = window.__h
@@ -554,7 +554,7 @@ async function slurOverTrill(
     await h.render()
 
     const stave = h.staves()[0]
-    const marks = h.placed('g.vf-trill text')
+    const marks = h.placed('g.trill text')
     const xs = marks.map(m => m.x)
     return {
       nudged,
@@ -563,8 +563,8 @@ async function slurOverTrill(
       //   layout pass looked for a curve over.
       from: Math.min(...xs),
       to: Math.max(...xs),
-      arcs: h.curveSamples('g.vf-slur path'),
-      dynamic: h.placed('g.vf-annotation text')[0],
+      arcs: h.curveSamples('g.slur path'),
+      dynamic: h.placed('g.annotation text')[0],
       top: stave.top,
       spacing: (stave.bottom - stave.top) / 4,
     }
@@ -660,13 +660,13 @@ test('⭐ the ENDPOINT case: a slur STARTING on the trilled note — Gould p. 13
     h.engine.createSlur([ids[0], ids[3]])   // the slur STARTS on the note that is trilled
     h.engine.addTrill({ startNoteId: ids[0] })
     await h.render()
-    const marks = h.placed('g.vf-trill text')
+    const marks = h.placed('g.trill text')
     const xs = marks.map(m => m.x)
     return {
       sign: marks[0],
       from: Math.min(...xs),
       to: Math.max(...xs),
-      arcs: h.curveSamples('g.vf-slur path'),
+      arcs: h.curveSamples('g.slur path'),
     }
   })
 
@@ -689,13 +689,13 @@ test('⭐ a TIE under the wavy line is an obstacle too — Gould p. 139', async 
     if (tie) h.engine.updateNote(first, { tiedTo: second })
     h.engine.addTrill({ startNoteId: first })
     await h.render()
-    const marks = h.placed('g.vf-trill text')
+    const marks = h.placed('g.trill text')
     const xs = marks.map(m => m.x)
     return {
       sign: marks[0],
       from: Math.min(...xs),
       to: Math.max(...xs),
-      arcs: h.curveSamples('g.vf-tie path'),
+      arcs: h.curveSamples('g.tie path'),
     }
   }, tied)
 
@@ -725,13 +725,13 @@ test('🚨🚨 the BELOW mirror: flip both, and the `tr` goes UNDER the arc', as
     h.engine.toggleTrillPlacement(trill.id)
     await h.render()
     const stave = h.staves()[0]
-    const marks = h.placed('g.vf-trill text')
+    const marks = h.placed('g.trill text')
     const xs = marks.map(m => m.x)
     return {
       sign: marks[0],
       from: Math.min(...xs),
       to: Math.max(...xs),
-      arcs: h.curveSamples('g.vf-slur path'),
+      arcs: h.curveSamples('g.slur path'),
       bottom: stave.bottom,
     }
   })

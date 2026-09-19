@@ -31,9 +31,9 @@ async function overQuarters(score: import('@playwright/test').Page, covers: numb
     await h.render()
     const stave = h.staves()[0]
     return {
-      glyphs: h.placed('g.vf-pedal text'),
-      sizes: h.inkSizes('g.vf-pedal text'),
-      heads: h.inkSizes('g.vf-notehead text'),
+      glyphs: h.placed('g.pedal text'),
+      sizes: h.inkSizes('g.pedal text'),
+      heads: h.inkSizes('g.notehead text'),
       // ⚠️ The bar's CLOSING barline — `barlines()[0]` is the opening one, which is left of every
       // note and would make the release assertion pass on any geometry at all.
       barline: Math.max(...h.barlines().map(b => b.x)),
@@ -64,7 +64,7 @@ test('⛔ draws NO line between the signs — the style is not the feature', asy
     }
     h.engine.addPedal(1, { beat: h.frac(0, 1), length: h.frac(4, 1) })
     await h.render()
-    return document.querySelectorAll('g.vf-pedal path').length
+    return document.querySelectorAll('g.pedal path').length
   })
   expect(paths).toBe(0)
 })
@@ -128,8 +128,8 @@ test('⭐ a very short pedal still reads as two separate signs', async ({ score 
     await h.render()
     const stave = h.staves()[0]
     return {
-      glyphs: h.placed('g.vf-pedal text'),
-      sizes: h.inkSizes('g.vf-pedal text'),
+      glyphs: h.placed('g.pedal text'),
+      sizes: h.inkSizes('g.pedal text'),
       spacing: (stave.bottom - stave.top) / 4,
     }
   })
@@ -158,9 +158,9 @@ test('⭐⭐ clears a dynamic and a hairpin in the same bars', async ({ score })
     h.engine.addPedal(1, { beat: h.frac(0, 1), length: h.frac(4, 1) })
     await h.render()
     return {
-      pedals: h.placed('g.vf-pedal text'),
-      dynamics: h.inkSizes('g.vf-dynamics text, g.vf-annotation text'),
-      hairpins: h.segments('g.vf-hairpin path'),
+      pedals: h.placed('g.pedal text'),
+      dynamics: h.inkSizes('g.dynamics text, g.annotation text'),
+      hairpins: h.segments('g.hairpin path'),
     }
   })
   const pedalTop = Math.min(...pedals.map(g => g.y))
@@ -180,13 +180,13 @@ async function acrossABreak(score: import('@playwright/test').Page) {
       h.engine.addNoteAtBeat({ step: 'A', octave: 4, duration: 'w', measure: m, beat: h.frac(0, 1) })
     }
     await h.render()
-    const heads = h.placed('g.vf-notehead text')
+    const heads = h.placed('g.notehead text')
     const firstRowY = Math.min(...heads.map(g => g.y))
     const onFirstRow = heads.filter(g => Math.abs(g.y - firstRowY) < 5).length
     // From the LAST bar of system 1, through the first of system 2.
     h.engine.addPedal(onFirstRow, { beat: h.frac(0, 1), length: h.frac(8, 1) })
     await h.render()
-    const glyphs = h.placed('g.vf-pedal text')
+    const glyphs = h.placed('g.pedal text')
     return {
       firstRow: glyphs.filter(g => Math.abs(g.y - Math.min(...glyphs.map(x => x.y))) < 40),
       glyphs,
@@ -228,15 +228,15 @@ test('the resumed `(Ped.)` sits LEFT of the music, in the clef\'s space', async 
       h.engine.addNoteAtBeat({ step: 'A', octave: 4, duration: 'w', measure: m, beat: h.frac(0, 1) })
     }
     await h.render()
-    const heads = h.placed('g.vf-notehead text')
+    const heads = h.placed('g.notehead text')
     const firstRowY = Math.min(...heads.map(g => g.y))
     const onFirstRow = heads.filter(g => Math.abs(g.y - firstRowY) < 5).length
     h.engine.addPedal(onFirstRow, { beat: h.frac(0, 1), length: h.frac(8, 1) })
     await h.render()
-    const glyphs = h.placed('g.vf-pedal text')
+    const glyphs = h.placed('g.pedal text')
     const lastRowY = Math.max(...glyphs.map(g => g.y))
     const resumed = glyphs.filter(g => Math.abs(g.y - lastRowY) < 5)
-    const secondRowHeads = h.placed('g.vf-notehead text').filter(g => g.y > firstRowY + 5)
+    const secondRowHeads = h.placed('g.notehead text').filter(g => g.y > firstRowY + 5)
     return {
       signX: Math.min(...resumed.map(g => g.x)),
       firstHeadX: Math.min(...secondRowHeads.map(g => g.x)),
@@ -278,14 +278,14 @@ test('🚨 a pedal on a bar of RESTS begins where the bar does, ⛔ not at the c
     const bar2 = registry.getStaffGeometry(2, 0)!
     // ⚠️ The codepoints are inlined: `page.evaluate` runs in the BROWSER, where this file's
     // module-level constants do not exist.
-    const glyphs = h.placed('g.vf-pedal text')
+    const glyphs = h.placed('g.pedal text')
     return {
       ped: glyphs.find(g => g.code === 'e650')!.x,
       star: glyphs.find(g => g.code === 'e655')!.x,
       barStart: bar2.noteStartX,
       barEnd: bar2.noteEndX,
       // The rest's own glyph, which is what the press used to follow.
-      rest: h.inkSizes('g.vf-notehead text').map(r => r.x).sort((a, b) => b - a)[0],
+      rest: h.inkSizes('g.notehead text').map(r => r.x).sort((a, b) => b - a)[0],
     }
   })
   // ⭐ THE CLAIM: the press stands at the bar's own beginning, within a space of it.

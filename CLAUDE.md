@@ -57,7 +57,8 @@ score, and export/import JSON.
 - **Notation Rendering**: our own engine (`engine/engrave`, `engine/rendering`, painted by
   `rendering/SvgPainter`). ⭐ VexFlow is GONE from `package.json` (S14 of
   `docs/vexflow-removal-map.md`), and `lint:boundary` refuses the import in every file, specs and
-  `e2e/` included. The code ported from it is credited in `NOTICE`. What is left is S15: the names.
+  `e2e/` included. The code ported from it is credited in `NOTICE`. S15 took the names too (`ScoreRenderer`; the
+  SVG's groups carry their BARE class and id — no `vf-` prefix).
 - **Audio Playback**: WebAudioFont (sampled General MIDI; samples fetched from CDN at play time)
 - **State Management**: `EditorState` — one plain object behind an emitting Proxy
   (`interactions/EditorState.ts`). `subscribe(fn)` fires once per top-level write, and that IS the

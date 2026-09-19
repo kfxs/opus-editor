@@ -90,7 +90,7 @@ export async function renderScoreSvg(score: Score, surface: Surface = SKETCH_CAN
  * `applyMixedDynamicRuns` re-lays a dynamic's glyph run at music size that way, and the co-location
  * row, the hand-nudged offsets and the registered hit-boxes all follow the same path. VexFlow finds
  * that element with **`document.getElementById`** (`Element.getSVGElement`), and the id it looks up
- * is `vf-` + the element's id — which for a dynamic IS THE MODEL'S OWN ID (`DynamicsLayout` calls
+ * is the element's id (VexFlow put `vf-` in front; since S15c nothing does) — which for a dynamic IS THE MODEL'S OWN ID (`DynamicsLayout` calls
  * `annotation.setAttribute('id', dyn.id)`).
  *
  * So while an export render is on the page there are two elements with that id: the editor's and

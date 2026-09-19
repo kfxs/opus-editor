@@ -464,7 +464,7 @@ is the only one that bites, and it is **−0.08 sp** (`timeSig4.left`), i.e. a d
 the meter is `TimeSignature`'s **`customPadding`, default 15 px = 1.5 sp**. The meter's ink then starts
 0.08 sp before its origin ⇒ **1.42 sp of white**.
 
-✅ **Measured on our own render** (`inkSizes` on `g.vf-clef text` vs `.vf-timesignature text`, the
+✅ **Measured on our own render** (`inkSizes` on `g.clef text` vs `.timesignature text`, the
 browser, default score):
 
 | clef | drawn white gap |

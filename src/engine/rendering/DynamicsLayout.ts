@@ -96,7 +96,7 @@ export function anchorSlotIndex(slots: readonly ChordRest[], beat: Fraction): nu
  * if there is no slot exactly there it falls forward to the next one, else the last one, else the
  * last note — this keeps a dynamic visible even when it sits under an empty/rest beat.
  *
- * Each Annotation's DOM id is set to the Dynamic.id so its `<g class="vf-annotation">`
+ * Each Annotation's DOM id is set to the Dynamic.id so its `<g class="annotation">`
  * group is individually addressable (Phase 6 highlight); the object is stashed
  * in `dynamicObjectMap` for that lookup.
  *

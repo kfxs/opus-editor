@@ -3,8 +3,8 @@
 **Status:** Phase 1 (selection) and Phase 2 (highlight bleed) both implemented 2026-06-01.
 **Date:** 2026-06-01
 
-> ⚠️ 2026-09-19: VexFlow is removed. The per-note `<g class="vf-stavenote">` group this doc relies on is now
-> opened by our `EngravedNote` and painted by our `SvgPainter` (same `vf-` name until the S15 renames), and the
+> ⚠️ 2026-09-19: VexFlow is removed. The per-note `<g class="stavenote">` group this doc relies on is now
+> opened by our `EngravedNote` and painted by our `SvgPainter` (named `stavenote` since S15c dropped the `vf-` prefix), and the
 > note's box is `EngravedNote.getBoundingBox` (VexFlow's, transcribed). The history below is kept as written.
 
 ## Update — Phase 2 shipped (highlight bleed)
@@ -14,7 +14,7 @@ band), NOT the renderer. Both the note highlight and the tuplet highlight bled i
 neighbouring systems. Fix: recolor inside each element's OWN VexFlow SVG group instead
 of scanning the document, so the recolor physically cannot reach another system.
 
-- **Notes** (`applySelectionHighlight`): recolor inside the note's `<g class="vf-stavenote">`.
+- **Notes** (`applySelectionHighlight`): recolor inside the note's `<g class="stavenote">`.
   Color rule = "what belongs solely to the note": the selected **notehead** (picked by the
   stored chord `noteIndex`, which matches notehead DOM order low→high) and its **stem**.
   The stem is resolved by identity via `staveNote.getStem().getSVGElement()` so it's found
@@ -23,7 +23,7 @@ of scanning the document, so the recolor physically cannot reach another system.
   NOT colored (reserved as a future separate selectable element, like accidentals/ties);
   shared structure (beam bar, staff lines, barlines) is never colored.
 - **Tuplets** (`applyTupletSelectionHighlight`): recolor inside the tuplet's
-  `<g class="vf-tuplet">` — the bracket (thin `<rect>`s, 1px in one dimension) and the
+  `<g class="tuplet">` — the bracket (thin `<rect>`s, 1px in one dimension) and the
   number `<text>`. The full-size transparent pointer hit-area (`opacity:0`) is skipped.
 - Renderer accessors: `getStaveNoteSVGGroup(noteId)` (group + noteIndex + stem) and
   `getTupletSVGGroup(tupletId)`, backed by `staveNoteMap` and a new `tupletObjectMap`.
@@ -61,7 +61,7 @@ Confirmed safe: deriving measure from the matched element does not affect drag-t
 
 **Still open — Phase 2 (highlight bleed).** Correction to the proposal below: the bleed
 lives in `HighlightController.applySelectionHighlight` (a post-render DOM band-scan), NOT
-in the renderer. VexFlow 5 wraps each StaveNote in `<g class="vf-stavenote">` with ledger
+in the renderer. VexFlow 5 wraps each StaveNote in `<g class="stavenote">` with ledger
 lines drawn *inside* it (verified in `node_modules/vexflow`), and the renderer already
 keeps each `staveNote` in `staveNoteMap` — so we can capture the group id and recolor
 exactly that group. Cleaner still: color at render time via VexFlow's

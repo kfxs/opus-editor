@@ -357,10 +357,10 @@ anything added later agree for free. *Changing* the count leaves the pair alone 
 mark re-read.
 
 ⚠️ **The HIGHLIGHT does not come free — it is the one seam that does not transfer.**
-`HighlightController.colorNoteTremolo` finds `<text>` nodes *inside the note's `vf-stavenote` group*
+`HighlightController.colorNoteTremolo` finds `<text>` nodes *inside the note's `stavenote` group*
 whose content is the tremolo codepoint. A pair's strokes are our own quads, drawn outside every note
 group and made of paths, not text: that lookup finds nothing. So the pair paints through its own
-named group — `openGroup` at draw time (⚠️ it PREFIXES with `vf-`; pass the bare name and
+named group — `openGroup` at draw time (⚠️ it PREFIXED with `vf-` until S15c; pass the bare name and
 `closeGroup()` in a `finally`), then colour that group. It is the barline lesson again: paint the
 highlight, do not go hunting for glyphs to recolour.
 

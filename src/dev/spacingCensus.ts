@@ -170,11 +170,11 @@ function readDrawing(svg: SVGSVGElement): { staves: CensusStave[]; glyphs: Censu
   }
 
   const staves: CensusStave[] = []
-  for (const group of svg.querySelectorAll<SVGGElement>('g.vf-measure[id]')) {
-    // The group id is the renderer's own measure key: `vf-m<measure>-s<staff>`.
-    const key = /^vf-m(\d+)-s(\d+)$/.exec(group.getAttribute('id') ?? '')
+  for (const group of svg.querySelectorAll<SVGGElement>('g.measure[id]')) {
+    // The group id is the renderer's own measure key: `m<measure>-s<staff>`.
+    const key = /^m(\d+)-s(\d+)$/.exec(group.getAttribute('id') ?? '')
     if (!key) continue
-    const lines = [...group.querySelectorAll<SVGPathElement>('g.vf-stave path')]
+    const lines = [...group.querySelectorAll<SVGPathElement>('g.stave path')]
       .map(path => ({ path, points: horizontalLine(path.getAttribute('d') ?? '') }))
       .filter((line): line is { path: SVGPathElement; points: number[] } => line.points !== null)
       .map(({ path, points }) => [placedAt(path, points[0], points[1]), placedAt(path, points[2], points[3])])
@@ -190,7 +190,7 @@ function readDrawing(svg: SVGSVGElement): { staves: CensusStave[]; glyphs: Censu
   }
 
   const glyphs: CensusGlyph[] = []
-  for (const text of svg.querySelectorAll<SVGTextElement>('g.vf-notehead text')) {
+  for (const text of svg.querySelectorAll<SVGTextElement>('g.notehead text')) {
     const content = text.textContent ?? ''
     if (content.length === 0) continue
     const code = content.codePointAt(0)!.toString(16)

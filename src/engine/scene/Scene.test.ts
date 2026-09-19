@@ -50,10 +50,4 @@ describe('sceneGroups', () => {
     expect(sceneGroups(scene, 'bar')).toHaveLength(2)
     expect(sceneGroups(scene, 'inner')).toHaveLength(1)
   })
-
-  // ⚠️ The BARE name. `openGroup` prefixes `vf-` on the way to the SVG, and a scene has no painter,
-  // so a spec that searched for the prefixed name would silently find nothing.
-  it('⛔ matches the BARE class — the `vf-` prefix is the SVG painter’s, not the scene’s', () => {
-    expect(sceneGroups(scene, 'vf-bar')).toEqual([])
-  })
 })

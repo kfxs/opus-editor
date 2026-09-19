@@ -103,8 +103,8 @@ export function clefOriginX(
 /**
  * ⭐ **THE INK** — one glyph, in the face it was handed, inside its own group.
  *
- * 🚨 **The group is load-bearing and must keep its id.** `g.vf-clef` is what
- * `headerPlacementPass.test.ts` reads to find a drawn clef (`g.vf-clef text` — a looser selector falls
+ * 🚨 **The group is load-bearing and must keep its id.** `g.clef` is what
+ * `headerPlacementPass.test.ts` reads to find a drawn clef (`g.clef text` — a looser selector falls
  * through to the first notehead) and what `e2e/slur.e2e.ts` measures clefs with, and the ID is how
  * `ElementRegistry`'s box resolves back to ink. ⇒ this reproduces `Clef.draw`'s
  * `openGroup('clef', id)` exactly.

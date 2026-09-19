@@ -40,29 +40,29 @@ describe('FanGhost', () => {
     expect(draw('h')).toBe(true)
     const g = ghost()
     expect(g).not.toBeNull()
-    expect(g!.querySelectorAll('.vf-notehead').length).toBeGreaterThan(0)
+    expect(g!.querySelectorAll('.notehead').length).toBeGreaterThan(0)
   })
 
   it('⭐ keeps NO stem and NO flag — an eighth is a bare head at the cursor', () => {
     draw('8')
     const g = ghost()!
-    expect(g.querySelector('.vf-stem')).toBeNull()
+    expect(g.querySelector('.stem')).toBeNull()
     // The note's own group is KEPT (it carries the font the head inherits — see FanGhost's header);
     // what is pruned is everything INSIDE it that is not a head. The flag is the `<text>` a stemmed
     // note draws beside its notehead group, so nothing may be left in there but heads.
     for (const container of Array.from(g.children)) {
       for (const child of Array.from(container.children)) {
-        expect(child.getAttribute('class')).toContain('vf-notehead')
+        expect(child.getAttribute('class')).toContain('notehead')
       }
     }
   })
 
   it('the dot travels with the head — it is drawn INSIDE the notehead group', () => {
     draw('h', 1)
-    const head = ghost()!.querySelector('.vf-notehead')!
+    const head = ghost()!.querySelector('.notehead')!
     const dotted = head.querySelectorAll('text, path, circle, ellipse').length
     draw('h', 0)
-    const plain = ghost()!.querySelector('.vf-notehead')!.querySelectorAll('text, path, circle, ellipse').length
+    const plain = ghost()!.querySelector('.notehead')!.querySelectorAll('text, path, circle, ellipse').length
     expect(dotted).toBeGreaterThan(plain)
   })
 

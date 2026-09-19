@@ -227,7 +227,7 @@ test('⭐ …and a staff drawn SMALL keeps the system’s columns — the full-s
     // construction, which is the trap this whole test is about.
     const space = (lower.bottom - lower.top) / 4
     const headsOf = (staffIndex: number) =>
-      h.placed(`g.vf-measure[id="vf-m2-s${staffIndex}"] .vf-notehead text`)
+      h.placed(`g.measure[id="m2-s${staffIndex}"] .notehead text`)
         .map(g => (g.x - upper.x1) / space)
         .sort((a, b) => a - b)
     const noteStart = (staff: number) =>

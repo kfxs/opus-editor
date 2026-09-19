@@ -109,7 +109,7 @@ const CEILINGS = {
  *  refuses the import outright. What this script still guards is the NAMES below, until S15. */
 const TEST_CEILING = 0
 
-/** ⚠️ The NAME ceilings, measured 2026-09-14 (map §9.3); S11e 'identifiers' 113 → 110; S12e 'identifiers in tests' 150 → 147; S12h 'identifiers' 110 → 104. S15a (`VexFlowRenderer` → `ScoreRenderer`, 2026-09-19) 'files' 8 → 0, 'identifiers' 96 → 90, 'identifiers in tests' 147 → 36. S15b (the names that were VexFlow's FORMATS or locals — `spellingToNoteKey`, `noteDurationToken`, `scoreTuplet`, `context`…) 'identifiers' 90 → 14, 'identifiers in tests' 36 → 8; what is left names a number's SOURCE (`VEXFLOW_MAX_SLOPE`, the `vexflow` rule rows), beside `GOULD_SPACING` / `'lilypond'`. ⭐ KEPT (his call) and listed in `SOURCE_NAMES`, so both fall to 0. Same rule: lower them as renames land;
+/** ⚠️ The NAME ceilings, measured 2026-09-14 (map §9.3); S11e 'identifiers' 113 → 110; S12e 'identifiers in tests' 150 → 147; S12h 'identifiers' 110 → 104. S15a (`VexFlowRenderer` → `ScoreRenderer`, 2026-09-19) 'files' 8 → 0, 'identifiers' 96 → 90, 'identifiers in tests' 147 → 36. S15c (the `vf-` prefix DROPPED, his call) 'vf- in code' 40 → 0, 'vf- in tests' 418 → 0. S15b (the names that were VexFlow's FORMATS or locals — `spellingToNoteKey`, `noteDurationToken`, `scoreTuplet`, `context`…) 'identifiers' 90 → 14, 'identifiers in tests' 36 → 8; what is left names a number's SOURCE (`VEXFLOW_MAX_SLOPE`, the `vexflow` rule rows), beside `GOULD_SPACING` / `'lilypond'`. ⭐ KEPT (his call) and listed in `SOURCE_NAMES`, so both fall to 0. Same rule: lower them as renames land;
  *  ⛔ never raise. 'identifiers in tests' and 'vf- in tests' include `e2e/`, scanned as text.
  *  🔺 **The one RAISE** — S13b, 'vf- in code' 39 → 40: VexFlow's `prefix()` (`util.js`), which put `vf-` on every
  *  class and id `openGroup` wrote, is now `rendering/SvgPainter`'s — the SAME prefix, moved out of the library into
@@ -119,8 +119,8 @@ const NAME_CEILINGS = {
   'files': 0,
   'identifiers': 0,
   'identifiers in tests': 0,
-  'vf- in code': 40,
-  'vf- in tests': 418,
+  'vf- in code': 0,
+  'vf- in tests': 0,
 }
 const NAME = /vex|Vex|VEX/
 /**

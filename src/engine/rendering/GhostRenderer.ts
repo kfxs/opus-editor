@@ -77,15 +77,15 @@ import { noteRuler } from './noteRuler'
  * The preview ghosts (note / clef / time-sig / dynamic / tempo …) each draw into their own
  * class-tagged `<g>`, appended last — this is the list `ScoreRenderer.clearGhosts` sweeps.
  *
- * ⚠️ `vf-ghost-tempo`, not `ghost-tempo`. The hand-built groups below say
- * `setAttribute('class', 'ghost-…-group')`; the ones that go through VexFlow's `openGroup(…)` get
- * the `vf-` prefix from VexFlow itself. The selector used to say `.ghost-tempo`, matched nothing,
+ * ⚠️ History worth keeping: until S15c the groups that go through `openGroup(…)` got VexFlow's `vf-`
+ * prefix (`vf-ghost-tempo`), unlike the hand-built `setAttribute('class', 'ghost-…-group')` ones below,
+ * and a selector must name what is actually written. The selector once said `.ghost-tempo`, matched nothing,
  * and so never took a tempo ghost down: they piled up, one per mouse position, as a permanent blue
  * smear. (Nothing swept them either, since P4 made ghosts overlays — hovering no longer forces the
  * full render that used to hide the leak.)
  */
 export const GHOST_GROUP_SELECTOR =
-  `.ghost-note-group, .${REST_GHOST_GROUP_CLASS}, .${FAN_GHOST_GROUP_CLASS}, .ghost-clef-group, .ghost-timesig-group, .ghost-dynamic-group, .vf-ghost-articulation, .vf-ghost-accidental, .vf-ghost-tie, .vf-ghost-dot, .vf-ghost-tremolo, .${TEMPO_GHOST_GROUP_CLASS}, .${TRILL_GHOST_GROUP_CLASS}, .${OTTAVA_GHOST_GROUP_CLASS}, .${PEDAL_GHOST_GROUP_CLASS}, .${BARLINE_GHOST_GROUP_CLASS}, .${KEY_SIGNATURE_GHOST_GROUP_CLASS}, .${GROUP_SIGN_GHOST_GROUP_CLASS}`
+  `.ghost-note-group, .${REST_GHOST_GROUP_CLASS}, .${FAN_GHOST_GROUP_CLASS}, .ghost-clef-group, .ghost-timesig-group, .ghost-dynamic-group, .ghost-articulation, .ghost-accidental, .ghost-tie, .ghost-dot, .ghost-tremolo, .${TEMPO_GHOST_GROUP_CLASS}, .${TRILL_GHOST_GROUP_CLASS}, .${OTTAVA_GHOST_GROUP_CLASS}, .${PEDAL_GHOST_GROUP_CLASS}, .${BARLINE_GHOST_GROUP_CLASS}, .${KEY_SIGNATURE_GHOST_GROUP_CLASS}, .${GROUP_SIGN_GHOST_GROUP_CLASS}`
 
 /**
  * How far the ghost's tuplet number floats above the note, in STAFF SPACES — measured from the stem

@@ -40,7 +40,7 @@ async function drawn(score: import('@playwright/test').Page, setUp: string) {
     await h.render()
 
     const bar = h.staves().sort((a, b) => a.measure - b.measure)[0]
-    const heads = h.placed('g.vf-notehead text')
+    const heads = h.placed('g.notehead text')
       .filter(g => {
         const n = parseInt((g.code || '').toLowerCase(), 16)
         return n >= 0xe0a0 && n <= 0xe0ff && g.x > bar.x1 && g.x < bar.x2
@@ -54,7 +54,7 @@ async function drawn(score: import('@playwright/test').Page, setUp: string) {
     // leftmost ink — which is exactly the dots. Reading only the rects made an end repeat and a
     // final bar measure identically (9.8 both), because what differs between them is the half this
     // reader was blind to.
-    const dots = h.glyphs('g.vf-stavebarline text')
+    const dots = h.glyphs('g.stavebarline text')
       .filter(g => g.x > bar.x2 - 3 * 10 && g.x <= bar.x2 + 1)
       .sort((a, b) => a.x - b.x)
     const leftmost = Math.min(ink[0]?.x ?? bar.x2, dots[0]?.x ?? bar.x2)
@@ -107,14 +107,14 @@ test('⭐ a bar that OPENS a repeat starts its music after the sign, not under i
   // (Gould p. 234) — a different case, pinned in `barlineTypes.e2e.ts`.
   const read = `
     const bar = h.staves().find(s => s.measure === 2)
-    const heads = h.placed('g.vf-notehead text')
+    const heads = h.placed('g.notehead text')
       .filter(g => {
         const n = parseInt((g.code || '').toLowerCase(), 16)
         return n >= 0xe0a0 && n <= 0xe0ff && g.x > bar.x1 && g.x < bar.x2
           && g.y > bar.top - 40 && g.y < bar.bottom + 40
       })
       .map(g => g.x).sort((a, b) => a - b)
-    return { x1: bar.x1, firstHead: heads[0], dots: h.glyphs('g.vf-stavebarline text').filter(g => g.x > bar.x1 && g.x < bar.x2) }`
+    return { x1: bar.x1, firstHead: heads[0], dots: h.glyphs('g.stavebarline text').filter(g => g.x > bar.x1 && g.x < bar.x2) }`
 
   const build = async (setUp: string) => score.evaluate(async ({ setUp, read }) => {
     const h = window.__h

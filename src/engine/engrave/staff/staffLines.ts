@@ -131,7 +131,7 @@ export function drawStaffLines(ctx: DrawContext, lines: readonly StaffLineInk[])
  *
  * ⛔ Kept as a second entry point rather than being converted to a stroke: the tail is inside the key
  * signature's own group and a `<rect>` there is what ships today, while the stave's lines are read as
- * `g.vf-stave path` by the browser harness and the spacing census. ⭐ The POINT is that both now take
+ * `g.stave path` by the browser harness and the spacing census. ⭐ The POINT is that both now take
  * their y and their extent from this module, so the accident described in the header becomes an
  * agreement by construction.
  */

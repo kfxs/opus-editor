@@ -60,7 +60,7 @@ async function compare(score: import('@playwright/test').Page, cls: string) {
     for (const node of h.walkScene(scene)) {
       if (node.kind !== 'group' || node.cls !== cls || !node.id) continue
       const ours = h.drawnInkBox({ ...node, placement: { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 } })
-      const el = svg.querySelector(`#vf-${CSS.escape(node.id)}`) as SVGGraphicsElement | null
+      const el = svg.querySelector(`[id="${node.id}"]`) as SVGGraphicsElement | null
       if (!ours || !el) continue
       const page = el.getBBox()
       // The widest pen any child of this group was stroked with — what `getBBox()` leaves out.

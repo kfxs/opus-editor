@@ -38,11 +38,11 @@ async function drawn(score: Page) {
     const h = window.__h
     return {
       staves: h.staves().map(s => ({ measure: s.measure, staff: s.staff, x2: s.x2, top: s.top, bottom: s.bottom })),
-      gap: h.inkSizes('g[id^="vf-barline-gap-"] rect'),
-      gapDots: h.glyphs('g[id^="vf-barline-gap-"] text').length,
+      gap: h.inkSizes('g[id^="barline-gap-"] rect'),
+      gapDots: h.glyphs('g[id^="barline-gap-"] text').length,
       // The two staves' OWN signs at that boundary — what the gap segment has to be continuous with.
-      upperSign: h.inkSizes('g[id="vf-barline-1-0-end"] rect'),
-      lowerSign: h.inkSizes('g[id="vf-barline-1-1-end"] rect'),
+      upperSign: h.inkSizes('g[id="barline-1-0-end"] rect'),
+      lowerSign: h.inkSizes('g[id="barline-1-1-end"] rect'),
     }
   })
 }
@@ -144,7 +144,7 @@ test('⭐ an INVISIBLE barline is invisible in the gap too', async ({ score }) =
     const h = window.__h
     h.engine.setBarlineStyle(1, 'invisible')
     await h.render()
-    const gap = [...document.querySelectorAll('g[id^="vf-barline-gap-"] rect')]
+    const gap = [...document.querySelectorAll('g[id^="barline-gap-"] rect')]
     return { count: gap.length, fills: gap.map(r => r.getAttribute('fill') ?? '') }
   })
   // Still DRAWN — hiding must never re-space the music, so the ink is taken away after the draw.
@@ -158,8 +158,8 @@ test('⭐ a joined barline is SELECTED as one line — the gap ink lights with t
   const lit = await score.evaluate(() => {
     // The selection lives in the editor, not the engine; the harness runs the engine alone, so the
     // highlight is exercised through the DOM the way `HighlightController` finds it: by group id.
-    const gap = document.querySelector('g[id^="vf-barline-gap-1-0-"]')
-    const sign = document.querySelector('g[id="vf-barline-1-0-end"]')
+    const gap = document.querySelector('g[id^="barline-gap-1-0-"]')
+    const sign = document.querySelector('g[id="barline-1-0-end"]')
     return {
       // Both pieces exist and are findable by the ids the highlight looks up.
       gapFound: gap !== null,
@@ -188,7 +188,7 @@ test('⭐ a joined gap registers a hit box, exactly on its own ink', async ({ sc
   const { boxes, gap } = await score.evaluate(() => ({
     boxes: window.__h.engine.getElementRegistry().getByType('barline-gap')
       .map(el => ({ measure: el.measure, staff: el.staff, ...el.bbox })),
-    gap: window.__h.inkSizes('g[id^="vf-barline-gap-"] rect'),
+    gap: window.__h.inkSizes('g[id^="barline-gap-"] rect'),
   }))
   expect(boxes.length, 'one box for the one joined gap').toBe(1)
   // The bar it ENDS, and the staff ABOVE the gap — `barlineJoinBelow`'s own key.

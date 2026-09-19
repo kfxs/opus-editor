@@ -28,7 +28,7 @@ test('⭐ G major draws ONE sharp, and it is on the top line — F♯5', async (
     h.engine.setKeyAt(1, { alterations: [{ step: 'F', alter: 1 }], mode: 'major' })
     await h.render()
     const staves = h.staves()
-    return { signs: h.glyphs('g.vf-keysig text'), top: staves[0].top }
+    return { signs: h.glyphs('g.keysig text'), top: staves[0].top }
   })
 
   expect(drawn.signs, 'one sign').toHaveLength(1)
@@ -45,7 +45,7 @@ test('⭐⭐ two sharps stand 1.25 spaces apart — Ross\'s number, stated and e
       alterations: [{ step: 'F', alter: 1 }, { step: 'C', alter: 1 }], mode: 'major',
     })
     await h.render()
-    return h.glyphs('g.vf-keysig text')
+    return h.glyphs('g.keysig text')
   })
 
   expect(signs).toHaveLength(2)
@@ -62,12 +62,12 @@ test('⭐ a FLAT signature is NARROWER than the same count of sharps, from the g
       alterations: [{ step: 'F', alter: 1 }, { step: 'C', alter: 1 }], mode: 'major',
     })
     await h.render()
-    const sharps = h.glyphs('g.vf-keysig text').map(g => g.x)
+    const sharps = h.glyphs('g.keysig text').map(g => g.x)
     h.engine.setKeyAt(1, {
       alterations: [{ step: 'B', alter: -1 }, { step: 'E', alter: -1 }], mode: 'major',
     })
     await h.render()
-    const flats = h.glyphs('g.vf-keysig text')
+    const flats = h.glyphs('g.keysig text')
     return { sharpPitch: sharps[1] - sharps[0], flats }
   })
 
@@ -88,7 +88,7 @@ test('🚨🚨 C MAJOR DRAWS NOTHING AND COSTS NOTHING — the bar is identical 
     // where it IS a change, and check the bar in front of it is untouched.
     h.engine.setKeyAt(1, { alterations: [], mode: 'open' })
     await h.render()
-    return { before, after: h.noteheads()[0].x, signs: h.glyphs('g.vf-keysig text').length }
+    return { before, after: h.noteheads()[0].x, signs: h.glyphs('g.keysig text').length }
   })
 
   expect(both.signs, 'an open key draws no glyph').toBe(0)
@@ -112,7 +112,7 @@ test('⭐⭐ the METER moved over for the signature — the room reserved is the
       alterations: [{ step: 'F', alter: 1 }, { step: 'C', alter: 1 }], mode: 'major',
     })
     await h.render()
-    const signs = h.glyphs('g.vf-keysig text')
+    const signs = h.glyphs('g.keysig text')
     return {
       meterBefore,
       meterAfter: meterX(),
@@ -160,7 +160,7 @@ test('⭐⭐ BOTH GAPS around the signature are the ENGINES\' numbers, measured 
       alterations: [{ step: 'F', alter: 1 }, { step: 'C', alter: 1 }], mode: 'major',
     })
     await h.render()
-    const signs = h.glyphs('g.vf-keysig text')
+    const signs = h.glyphs('g.keysig text')
     const clef = h.glyphs('text').find(g => g.code === 'e050')!
     const meter = Math.min(...h.glyphs('text')
       .filter(g => g.code >= 'e080' && g.code <= 'e089').map(g => g.x))
@@ -192,7 +192,7 @@ test('⭐ a mid-score key change draws its signature at THAT bar, and nowhere be
     h.engine.setKeyAt(3, { alterations: [{ step: 'B', alter: -1 }], mode: 'major' })
     await h.render()
     const bars = h.staves()
-    return { signs: h.glyphs('g.vf-keysig text'), bar3X: bars.length > 0 ? bars[0].x1 : 0 }
+    return { signs: h.glyphs('g.keysig text'), bar3X: bars.length > 0 ? bars[0].x1 : 0 }
   })
 
   // ⭐ ONE signature: bar 3's. Bars 1 and 2 are in C and draw nothing, and bar 4 INHERITS B♭ major —
@@ -253,7 +253,7 @@ test('⭐⭐ a bar whose header ends in a SIGNATURE centres its rest in the room
     const s = staves.find(v => v.measure === 3)!
     const inBar = (g: { x: number; y: number }) =>
       Math.abs(g.y - s.top) < 60 && g.x >= s.x1 - 2 && g.x < s.x2
-    const signs = h.glyphs('g.vf-keysig text').filter(inBar)
+    const signs = h.glyphs('g.keysig text').filter(inBar)
     const rest = h.rests().filter(inBar)[0]
     return {
       // ⚠️ INK, both of them: the last flat's own right edge (`accidentalFlat.right` = 0.904 sp past
@@ -301,7 +301,7 @@ test('🚨🚨 the three HEADER HIT BOXES are each on their own glyph — clef, 
     }
     return {
       clef: box('clef'), key: box('keySignature'), meter: box('timeSignature'),
-      signs: h.glyphs('g.vf-keysig text').map(g => g.x),
+      signs: h.glyphs('g.keysig text').map(g => g.x),
       // The meter's DIGITS as drawn — any of them names the column.
       digits: h.glyphs('text').filter(g => g.code >= 'e080' && g.code <= 'e089').map(g => g.x).sort((a, b) => a - b),
     }
@@ -331,7 +331,7 @@ test('🚨🚨 the three HEADER HIT BOXES are each on their own glyph — clef, 
 
 // ⚠️ The selector and the codepoints are written out INSIDE each `evaluate` below: the closure is
 // serialised into the page, so a module-level const here is not in scope there — a note's own
-// accidental glyphs are `g.vf-notehead text`, sharp `e262` and natural `e261`.
+// accidental glyphs are `g.notehead text`, sharp `e262` and natural `e261`.
 
 test('⭐⭐ an F♯ in G major draws NO sign, and an F♮ draws a natural — the whole of P4, on the page', async ({ score }) => {
   const drawn = await score.evaluate(async () => {
@@ -343,7 +343,7 @@ test('⭐⭐ an F♯ in G major draws NO sign, and an F♮ draws a natural — t
     h.engine.addNoteAtBeat({ step: 'F', alter: 0, octave: 4, duration: 'w', measure: 2, beat: h.frac(0, 1) })
 
     await h.render()
-    const signs = () => h.glyphs('g.vf-notehead text')
+    const signs = () => h.glyphs('g.notehead text')
       .filter(g => g.code === 'e262' || g.code === 'e261').map(g => g.code)
     const inC = signs()
 
@@ -367,7 +367,7 @@ test('🚨 setting the key at bar 1 REPAINTS a far bar — the governing-key row
     for (let i = 0; i < 12; i++) h.engine.addMeasure()
     h.engine.addNoteAtBeat({ step: 'F', alter: 0, octave: 4, duration: 'w', measure: 12, beat: h.frac(0, 1) })
     await h.render()
-    const naturals = () => h.glyphs('g.vf-notehead text').filter(g => g.code === 'e261').length
+    const naturals = () => h.glyphs('g.notehead text').filter(g => g.code === 'e261').length
     const before = naturals()
 
     h.engine.setKeyAt(1, { alterations: [{ step: 'F' as const, alter: 1 as const }], mode: 'major' as const })
@@ -389,7 +389,7 @@ test('⭐⭐ a COURTESY survives the key agreeing with it — Gould p. 81, and h
     h.engine.addNoteAtBeat({ step: 'F', alter: 1, octave: 4, duration: 'h', measure: 1, beat: h.frac(0, 1), forceAccidental: true })
     h.engine.addNoteAtBeat({ step: 'F', alter: 1, octave: 5, duration: 'h', measure: 1, beat: h.frac(2, 1) })
     await h.render()
-    return h.glyphs('g.vf-notehead text').filter(g => g.code === 'e262').length
+    return h.glyphs('g.notehead text').filter(g => g.code === 'e262').length
   })
 
   expect(signs, 'the FORCED one only — the other is silent under the signature').toBe(1)
@@ -417,7 +417,7 @@ test('⭐⭐ a change to C MAJOR draws cancelling naturals, where the old signs 
     await h.render()
     const at = (m: number) => {
       const s = h.staves().find(v => v.measure === m)!
-      return h.glyphs('g.vf-keysig text')
+      return h.glyphs('g.keysig text')
         .filter(g => g.x >= s.x1 - 2 && g.x < s.x2 && Math.abs(g.y - s.top) < 60)
         .map(g => ({ code: g.code, y: Math.round(g.y) }))
     }
@@ -464,9 +464,9 @@ test('⭐⭐ a key change ON a system break is engraved at the END of the previo
       endsLine: {
         measure: last.measure,
         barlineX: endsLine.x2,
-        signs: h.glyphs('g.vf-keysig text').filter(band(endsLine)).map(g => g.x),
+        signs: h.glyphs('g.keysig text').filter(band(endsLine)).map(g => g.x),
         // The OPEN STAFF the courtesy stands on — five rects drawn by the pass that owns the tail.
-        tail: [...document.querySelectorAll('[id^="vf-keysig-caution"] rect')].map(r => ({
+        tail: [...document.querySelectorAll('[id^="keysig-caution"] rect')].map(r => ({
           x: +(r.getAttribute('x') ?? 0),
           right: +(r.getAttribute('x') ?? 0) + +(r.getAttribute('width') ?? 0),
         })),
@@ -475,7 +475,7 @@ test('⭐⭐ a key change ON a system break is engraved at the END of the previo
       },
       opensNext: {
         measure: opensNext.measure,
-        signs: h.glyphs('g.vf-keysig text').filter(band(opensNext)).filter(g => g.x < opensNext.x2).length,
+        signs: h.glyphs('g.keysig text').filter(band(opensNext)).filter(g => g.x < opensNext.x2).length,
       },
     }
   })
@@ -530,8 +530,8 @@ test('⭐ …and when the break lands on a change to C major, the NATURALS are w
     const band = (s: { top: number; x1: number }) => (g: { y: number; x: number }) =>
       Math.abs(g.y - s.top) < 60 && g.x > s.x1
     return {
-      courtesy: h.glyphs('g.vf-keysig text').filter(band(endsLine)).map(g => g.code),
-      newLine: h.glyphs('g.vf-keysig text').filter(band(opensNext)).filter(g => g.x < opensNext.x2).length,
+      courtesy: h.glyphs('g.keysig text').filter(band(endsLine)).map(g => g.code),
+      newLine: h.glyphs('g.keysig text').filter(band(opensNext)).filter(g => g.x < opensNext.x2).length,
     }
   })
 

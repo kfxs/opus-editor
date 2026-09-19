@@ -70,13 +70,13 @@ describe('⭐ THE RULE — x is the BOUNDARY and the ink grows RIGHTWARD from it
 describe('drawOpeningBarline — the group', () => {
   it('🚨 opens `stavebarline` and keeps the id it was given', () => {
     const recorder = new SceneRecorder()
-    drawOpeningBarline(recorder, INK, 'vf-auto-4242')
+    drawOpeningBarline(recorder, INK, 'auto-4242')
 
     const group = recorder.scene.children[0]
     // ⚠️ The BARE class: `hintBarlines`, `dev/barlineCensus` and three e2e specs all find a barline
-    // by `g.vf-stavebarline rect`, and `ElementRegistry` resolves its box by the id.
+    // by `g.stavebarline rect`, and `ElementRegistry` resolves its box by the id.
     expect(group.kind === 'group' && group.cls).toBe('stavebarline')
-    expect(group.kind === 'group' && group.id).toBe('vf-auto-4242')
+    expect(group.kind === 'group' && group.id).toBe('auto-4242')
     expect(rects(recorder.scene)).toHaveLength(1)
   })
 

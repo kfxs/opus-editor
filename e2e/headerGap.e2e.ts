@@ -66,8 +66,8 @@ test('⭐⭐ the clef→meter gap is the ARMED rule — asserted on the ORIGIN, 
       h.engine.setClef(1, clef)
       await h.render()
       // ⭐ The `x` ATTRIBUTE — what our placement wrote, ⛔ not a measured box.
-      const clefGlyph = h.glyphs('g.vf-clef text')[0]
-      const meterGlyphs = h.glyphs('.vf-timesignature text')
+      const clefGlyph = h.glyphs('g.clef text')[0]
+      const meterGlyphs = h.glyphs('.timesignature text')
       const stave = h.staves().find(s => s.measure === 1 && s.staff === 0)!
       out.push({
         clef,
@@ -131,8 +131,8 @@ test('⭐ readerInflation — the ink reader is within half a pixel of the fonts
       const sp = (stave.bottom - stave.top) / 4
       out.push({
         size,
-        headWidthSp: h.inkSizes('g.vf-notehead text')[0].width / sp,
-        clefWidthSp: h.inkSizes('g.vf-clef text')[0].width / sp,
+        headWidthSp: h.inkSizes('g.notehead text')[0].width / sp,
+        clefWidthSp: h.inkSizes('g.clef text')[0].width / sp,
       })
     }
     return out
@@ -171,7 +171,7 @@ test('⭐⭐ a mid-line meter change stands the ARMED distance after the barline
     h.engine.setTimeSignature(3, { numerator: 3, denominator: 4 })
     await h.render()
     const stave = h.staves().find(s => s.measure === 3 && s.staff === 0)!
-    const meters = h.glyphs('.vf-timesignature text')
+    const meters = h.glyphs('.timesignature text')
     // The bar-3 meter is the one whose origin lies inside bar 3.
     const mine = meters.filter(g => g.x >= stave.x1 - 1 && g.x <= stave.x2)
     return { staveX: stave.x1, meterOriginX: Math.min(...mine.map(g => g.x)), count: mine.length }

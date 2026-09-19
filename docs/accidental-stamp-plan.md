@@ -55,7 +55,7 @@ score. Now:
 Selecting a **note** now also highlights its accidental (`HighlightController.highlightNoteAccidental`),
 so a selected note reads as fully selected (head + stem + sign). It matches the registered accidental
 element by bbox on **both** axes (an X-only match would grab a chord neighbour's accidental or a
-notehead in the column), scoped to the note's own `vf-stavenote` group, via the logged `setAttr` so
+notehead in the column), scoped to the note's own `stavenote` group, via the logged `setAttr` so
 `clearHighlights` reverts it.
 
 ### 🚨🚨 2026-09-14 — the highlight was right and the REGISTRY was wrong
@@ -107,11 +107,11 @@ not one sign):
   articulation glyphs, so a selected note reads as fully selected (head + stem + accidental +
   articulations). The glyph-finding is shared with the group highlight via
   `HighlightController.colorNoteArticulations(noteId, color)` — find each registered articulation
-  element, colour the closest glyph inside the note's own `vf-notehead` group (skip the notehead at
+  element, colour the closest glyph inside the note's own `notehead` group (skip the notehead at
   index 0). `applyArticulationHighlight` was refactored to call it too.
   ⚠️ **Still true after 2026-09-14, and it was checked rather than assumed.** Each accidental, dot
-  and articulation now draws inside a `<g>` of its own (`vf-accidental` / `vf-dot` /
-  `vf-articulation`), nested in that same `vf-notehead` group, so P6's ruler can measure a mark on
+  and articulation now draws inside a `<g>` of its own (`accidental` / `dot` /
+  `articulation`), nested in that same `notehead` group, so P6's ruler can measure a mark on
   its own — `docs/note-engraving-plan.md` §1g.6. ⭐ Nothing here changes because every selector in
   this family is a DESCENDANT search and **index 0 is still the head**; that is asserted in
   `ScoreRenderer.scene.test.ts` so the day a group nests differently, it fails and says so.

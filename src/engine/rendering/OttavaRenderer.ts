@@ -436,8 +436,6 @@ export function renderOttavas(
       if (!x) continue
 
       try {
-        // ⚠️ `openGroup` prefixes both class and id with `vf-` itself — passing 'vf-ottava' here
-        // would yield `class="vf-vf-ottava"`, the mistake the slur's comment records.
         const group = drawGroupOf(pass.context.openGroup?.('ottava', `ottava-${ottava.id}`))
         inStaffSpace(pass, staffIndex, group, () => {
           drawOttava(pass, ottava, span, x, covered, from, to, staffIds[staffIndex], staffIds[0], starts, bands)

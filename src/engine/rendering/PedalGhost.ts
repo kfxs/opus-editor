@@ -42,9 +42,8 @@ import { drawSignGhost } from './ghostCursor'
 
 /** The class `ScoreRenderer.clearGhosts` sweeps this ghost by — it must be in
  *  `GHOST_GROUP_SELECTOR`, or the ghost smears one copy per mouse position.
- *  ⚠️ `vf-`-prefixed, because `openGroup` prefixes every class it is given
- *  (`reference_vexflow_opengroup_prefix`). */
-export const PEDAL_GHOST_GROUP_CLASS = 'vf-ghost-pedal'
+ *  The bare name `openGroup` writes (VexFlow's `vf-` prefix is gone since S15c). */
+export const PEDAL_GHOST_GROUP_CLASS = 'ghost-pedal'
 
 /**
  * Draw `Ped.` at the cursor. Returns false when nothing measurable was drawn — see

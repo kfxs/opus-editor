@@ -9,7 +9,7 @@
  * header wrong.
  *
  * ⚠️ What this spec must also pin is the two things around the ink: the `timesignature` GROUP and its
- * id (`e2e/barlineTypes.e2e.ts` measures `.vf-timesignature text`, `ElementRegistry` resolves the hit
+ * id (`e2e/barlineTypes.e2e.ts` measures `.timesignature text`, `ElementRegistry` resolves the hit
  * box by that id), and the ROW ORDER, because `e2e/staffSize.e2e.ts` reads a meter's x as
  * `h.placed(…)[0].x` and means the UPPER row by it.
  */
@@ -80,13 +80,13 @@ describe('meterRowBaseline — a numeral is CENTRED on the line it names', () =>
 describe('drawMeter — the ink', () => {
   it('⭐ one glyph per row, in the face it was handed, inside a group that keeps its id', () => {
     const recorder = new SceneRecorder()
-    drawMeter(recorder, ROWS, 'vf-auto-9001')
+    drawMeter(recorder, ROWS, 'auto-9001')
 
     const group = recorder.scene.children[0]
-    expect(group.kind === 'group' && group.cls, 'VexFlow drew a `vf-timesignature` group, so we do')
+    expect(group.kind === 'group' && group.cls, 'VexFlow drew a `timesignature` group, so we do')
       .toBe('timesignature')
     // 🚨 The id is not decoration — see the module header.
-    expect(group.kind === 'group' && group.id).toBe('vf-auto-9001')
+    expect(group.kind === 'group' && group.id).toBe('auto-9001')
     expect(texts(recorder.scene)).toEqual([
       { kind: 'text', text: THREE, x: 30, y: 50, font: FONT, style: {} },
       { kind: 'text', text: FOUR, x: 30, y: 70, font: FONT, style: {} },
@@ -112,9 +112,9 @@ describe('drawMeter — the ink', () => {
 
   it('⚠️ an empty row stamps nothing — ⛔ but the GROUP is still opened, as VexFlow opens it', () => {
     const recorder = new SceneRecorder()
-    drawMeter(recorder, [{ glyph: '', x: 30, lineY: 50, font: FONT }], 'vf-auto-9002')
+    drawMeter(recorder, [{ glyph: '', x: 30, lineY: 50, font: FONT }], 'auto-9002')
     const group = recorder.scene.children[0]
-    expect(group.kind === 'group' && group.id).toBe('vf-auto-9002')
+    expect(group.kind === 'group' && group.id).toBe('auto-9002')
     expect(texts(recorder.scene), 'no empty `<text>` node').toEqual([])
   })
 

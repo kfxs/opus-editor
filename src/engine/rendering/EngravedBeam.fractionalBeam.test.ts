@@ -44,9 +44,9 @@ function beamInk(timeSignature: TimeSignature, slots: Slot[], override?: (m: Sco
   override?.(model, ids)
   renderer.renderScore(model.getScore())
 
-  const stems = [...container.querySelectorAll('g.vf-stem path')]
+  const stems = [...container.querySelectorAll('g.stem path')]
     .map(xsOf).filter(v => v.length).map(v => Math.min(...v))
-  const quads = [...container.querySelectorAll('g.vf-beam path')]
+  const quads = [...container.querySelectorAll('g.beam path')]
     .filter(p => p.getAttribute('stroke') === 'none')
     .map(xsOf).filter(v => v.length)
     .map(v => ({ lo: Math.min(...v), hi: Math.max(...v) }))

@@ -3,8 +3,8 @@
  * **Cross-barline beams** (docs/cross-barline-beaming-plan.md) — P1.
  *
  * The join is observable without any test-only API: the one `Beam` that spans two bars is drawn
- * OUTSIDE both measure groups, so it is a direct child of the `<svg>` (`g.vf-beam`), exactly where a
- * tie or a slur lives. A bar's own beams are inside its `<g class="vf-measure">` and never show up
+ * OUTSIDE both measure groups, so it is a direct child of the `<svg>` (`g.beam`), exactly where a
+ * tie or a slur lives. A bar's own beams are inside its `<g class="measure">` and never show up
  * there.
  *
  * The tests below are in the order the feature can fail: does it join at all, does it survive the
@@ -45,10 +45,10 @@ function twoBarsOfEighths(): ScoreModel {
 /** The beams drawn OUTSIDE every measure group — i.e. the ones that cross a barline. */
 function crossBarBeamNodes(renderer: ScoreRenderer): Element[] {
   const svg = renderer.getSVGElement()!
-  // …or one level deeper, inside the `vf-scaled` wrapper a beam on a small staff is drawn in.
+  // …or one level deeper, inside the `scaled` wrapper a beam on a small staff is drawn in.
   return [...svg.children]
-    .flatMap(el => (el.getAttribute('class') === 'vf-scaled' ? [...el.children] : [el]))
-    .filter(el => el.getAttribute('class') === 'vf-beam')
+    .flatMap(el => (el.getAttribute('class') === 'scaled' ? [...el.children] : [el]))
+    .filter(el => el.getAttribute('class') === 'beam')
 }
 
 /** The LAST note of a bar in one voice, by its pitch id — `slots` interleaves the voices. */

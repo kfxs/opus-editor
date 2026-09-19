@@ -40,11 +40,11 @@ function indents(bars = 12) {
   renderer.renderScore(model.getScore())
 
   const rows: { id: string; indent: number }[] = []
-  for (const group of container.querySelectorAll('g.vf-measure[id]')) {
-    // ⛔ `g.vf-clef text` ONLY — a looser selector falls through to the first notehead in bars that
+  for (const group of container.querySelectorAll('g.measure[id]')) {
+    // ⛔ `g.clef text` ONLY — a looser selector falls through to the first notehead in bars that
     //    draw no clef, which reads as a plausible-but-meaningless indent.
-    const clef = group.querySelector('g.vf-clef text')
-    const staveLine = group.querySelector('g.vf-stave path')
+    const clef = group.querySelector('g.clef text')
+    const staveLine = group.querySelector('g.stave path')
     if (!clef || !staveLine) continue
     const staveX = Number((staveLine.getAttribute('d') ?? '').match(/M\s*(-?[\d.]+)/)?.[1])
     const clefX = Number(clef.getAttribute('x'))

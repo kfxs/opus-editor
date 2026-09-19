@@ -39,7 +39,7 @@ let engine: MusicEngine
 function ledgerLines(): SVGElement[] {
   const svg = container.querySelector('svg')
   if (!svg) throw new Error('no <svg> rendered')
-  return [...svg.querySelectorAll('g.vf-stavenote path')]
+  return [...svg.querySelectorAll('g.stavenote path')]
     .filter(p => p.getAttribute('stroke') !== null && p.getAttribute('stroke') !== 'none') as SVGElement[]
 }
 

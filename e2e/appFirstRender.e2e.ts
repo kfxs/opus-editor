@@ -39,7 +39,7 @@ test("⭐ the app's FIRST render centres a whole-bar rest — it does not beat t
   // The real editor, not the harness. `/opus-editor/` is vite.config.ts's `base`.
   await page.goto('/opus-editor/index.html')
   // The score's SVG appearing IS the first render finishing — the app draws once at boot.
-  await page.waitForSelector('.score-zoom-layer svg g.vf-measure')
+  await page.waitForSelector('.score-zoom-layer svg g.measure')
 
   const bars = await page.evaluate(async () => {
     // Only so the drawn glyph is Bravura by the time we measure its width. It changes nothing about
@@ -57,10 +57,10 @@ test("⭐ the app's FIRST render centres a whole-bar rest — it does not beat t
       return point.matrixTransform((el as SVGGraphicsElement).getScreenCTM()!).matrixTransform(toScore)
     }
 
-    return [...root.querySelectorAll<SVGGElement>('g.vf-measure[id]')].flatMap(group => {
+    return [...root.querySelectorAll<SVGGElement>('g.measure[id]')].flatMap(group => {
       // A stave line is a two-point horizontal path; the outer pair gives the staff space and the
       // run gives the bar's own extent.
-      const ends = [...group.querySelectorAll<SVGPathElement>('g.vf-stave path')].flatMap(path => {
+      const ends = [...group.querySelectorAll<SVGPathElement>('g.stave path')].flatMap(path => {
         const d = /M\s*([\d.-]+)[\s,]+([\d.-]+)\s*L\s*([\d.-]+)[\s,]+([\d.-]+)/.exec(path.getAttribute('d') ?? '')
         if (!d) return []
         const a = inScoreSpace(path, parseFloat(d[1]), parseFloat(d[2]))
@@ -73,9 +73,9 @@ test("⭐ the app's FIRST render centres a whole-bar rest — it does not beat t
       const top = Math.min(...ends.map(e => e.a.y))
       const bottom = Math.max(...ends.map(e => e.a.y))
 
-      // A rest is drawn as a `vf-notehead` too, so SMuFL's own range is the only thing that tells one
+      // A rest is drawn as a `notehead` too, so SMuFL's own range is the only thing that tells one
       // from the other (`harness.rests()`): rests are U+E4E0–E4FF.
-      const rest = [...group.querySelectorAll<SVGTextElement>('g.vf-notehead text')].find(t => {
+      const rest = [...group.querySelectorAll<SVGTextElement>('g.notehead text')].find(t => {
         const code = (t.textContent ?? '').codePointAt(0) ?? 0
         return code >= 0xe4e0 && code <= 0xe4ff
       })
@@ -86,8 +86,8 @@ test("⭐ the app's FIRST render centres a whole-bar rest — it does not beat t
       const width = rest.getComputedTextLength()
 
       return [{
-        // The group id is the renderer's own measure key: `vf-m<measure>-s<staff>`.
-        measure: Number(/^vf-m(\d+)-s\d+$/.exec(group.getAttribute('id') ?? '')?.[1] ?? -1),
+        // The group id is the renderer's own measure key: `m<measure>-s<staff>`.
+        measure: Number(/^m(\d+)-s\d+$/.exec(group.getAttribute('id') ?? '')?.[1] ?? -1),
         top,
         x1,
         space: (bottom - top) / 4,

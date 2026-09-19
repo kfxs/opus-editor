@@ -262,11 +262,11 @@ describe('HighlightController orange open-join squares', () => {
  * so deleting `fill` would blacken it).
  */
 describe('clearHighlights — the inverse of a highlight pass', () => {
-  /** A minimal note-shaped SVG: `<g>` (the stavenote) → `<g class="vf-notehead">` → `<text>`. */
+  /** A minimal note-shaped SVG: `<g>` (the stavenote) → `<g class="notehead">` → `<text>`. */
   function noteGroup(svg: SVGSVGElement, fill: string | null): SVGGElement {
     const group = document.createElementNS('http://www.w3.org/2000/svg', 'g')
     const head = document.createElementNS('http://www.w3.org/2000/svg', 'g')
-    head.setAttribute('class', 'vf-notehead')
+    head.setAttribute('class', 'notehead')
     const glyph = document.createElementNS('http://www.w3.org/2000/svg', 'text')
     if (fill !== null) glyph.setAttribute('fill', fill)
     head.appendChild(glyph)
@@ -353,10 +353,10 @@ describe('clearHighlights — the inverse of a highlight pass', () => {
    * so it takes its own pass — and `clearHighlights` still has to be an exact inverse of it.
    */
   describe('a selected note lights the tie it owns', () => {
-    /** `<g class="vf-tie">` → the two paths renderCurve emits (it strokes AND fills). */
+    /** `<g class="tie">` → the two paths renderCurve emits (it strokes AND fills). */
     function tieGroup(svg: SVGSVGElement): SVGGElement {
       const g = document.createElementNS('http://www.w3.org/2000/svg', 'g')
-      g.setAttribute('class', 'vf-tie')
+      g.setAttribute('class', 'tie')
       for (const [attr, value] of [['fill', 'none'], ['stroke', 'none']] as const) {
         const path = document.createElementNS('http://www.w3.org/2000/svg', 'path')
         path.setAttribute(attr, value)
@@ -545,9 +545,9 @@ describe('the fanned-member highlight', () => {
     // What `drawFannedBeams` paints into one member's group: a notehead subgroup, the accidental
     // glyph as a direct `<text>`, and the stem + ledger line as direct `<path>`s.
     const group = document.createElementNS('http://www.w3.org/2000/svg', 'g')
-    group.setAttribute('class', 'vf-fanhead')
+    group.setAttribute('class', 'fanhead')
     const headGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g')
-    headGroup.setAttribute('class', 'vf-notehead')
+    headGroup.setAttribute('class', 'notehead')
     const headGlyph = document.createElementNS('http://www.w3.org/2000/svg', 'text')
     headGroup.appendChild(headGlyph)
     const accidental = document.createElementNS('http://www.w3.org/2000/svg', 'text')

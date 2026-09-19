@@ -323,7 +323,7 @@ describe('⭐⭐ P3d — the NOTEHEAD in the scene, and the note is complete', (
   it('⭐⭐ every note draws its head — a SMuFL notehead glyph, in its own group', () => {
     const drawn = heads(render(2).scene)
     // ⚠️ A REST comes through this group too — VexFlow gives a rest a `StaveNote`, and its glyph is
-    // that note's single "head" (`harness.ts` carries the same warning about `g.vf-notehead text`).
+    // that note's single "head" (`harness.ts` carries the same warning about `g.notehead text`).
     // Two quarters and one half rest a bar, two bars.
     expect(drawn.length, 'four heads and two rests').toBe(6)
     const noteheads = drawn.filter(h => h.code >= 0xe0a0 && h.code <= 0xe0ff)
@@ -346,7 +346,7 @@ describe('⭐⭐ P3d — the NOTEHEAD in the scene, and the note is complete', (
   })
 
   // 🚨 The seam, same shape as the stem's: the highlight and a dozen browser specs find a head by
-  // `g.vf-notehead`, and its id is how `getSVGElement` resolves one.
+  // `g.notehead`, and its id is how `getSVGElement` resolves one.
   it('🚨 each head’s group carries its own ID — the highlight resolves ink by it', () => {
     const groups = sceneGroups(render(1).scene, 'notehead')
     expect(groups.length).toBeGreaterThan(0)
@@ -951,15 +951,15 @@ describe('⭐⭐ the note’s MODIFIERS — the accidental, the dot and the arti
     // the articulation walk whose index 0 is still the head), so wrapping a glyph in a `<g>` moves
     // nothing in document order. The assertion below is that fact, stated where it can fail.
     const { renderer } = renderModel(marked('accent'))
-    const heads = [...(renderer.getSVGElement()?.querySelectorAll('g.vf-notehead') ?? [])]
+    const heads = [...(renderer.getSVGElement()?.querySelectorAll('g.notehead') ?? [])]
     expect(heads.length, 'the bar drew a head group per note').toBeGreaterThanOrEqual(3)
     // ⚠️ The sharp is on the FIRST note and the dot and the mark on the SECOND — a modifier belongs
     // to the head it hangs off, so each one nests in its own head's group. ⚠️ A REST draws as a
-    // `vf-notehead` too (the harness records the same surprise), so this counts rather than indexes.
+    // `notehead` too (the harness records the same surprise), so this counts rather than indexes.
     expect(
       heads.map(h => [...h.querySelectorAll('g')].map(g => g.getAttribute('class'))).filter(cs => cs.length),
       'each mark nests in the head it belongs to, and no head holds a mark that is not its own',
-    ).toEqual([['vf-accidental'], ['vf-dot', 'vf-articulation']])
+    ).toEqual([['accidental'], ['dot', 'articulation']])
     for (const head of heads) {
       const first = head.querySelector('text')?.textContent ?? ''
       expect(
@@ -981,13 +981,17 @@ describe('the scene’s SHAPE', () => {
     }
   })
 
-  it('⭐ a group keeps the BARE class the pass asked for — ⛔ not VexFlow’s `vf-` prefix', () => {
-    const { scene } = render(2)
+  it('⭐ the scene and the page name a group ALIKE — the class the pass asked for is the SVG’s (S15c)', () => {
+    const { renderer, scene } = render(2)
     const classes = [...walkScene(scene)]
       .filter(n => n.kind === 'group')
       .map(g => (g as { cls?: string }).cls)
+      .filter((c): c is string => !!c)
     expect(classes).toContain('stavebarline')
-    expect(classes.filter(c => c?.startsWith('vf-')), 'the prefix is the painter’s').toEqual([])
+    // 🚨 Until S15c the painter wrote VexFlow's prefix on every class, so these two lists disagreed
+    // and a reader had to know which one it held. Now a scene's class finds the page's group as is.
+    const onPage = new Set([...renderer.getSVGElement()!.querySelectorAll('g')].map(g => g.getAttribute('class')))
+    expect(classes.filter(c => !onPage.has(c)), 'a scene class the page does not carry').toEqual([])
   })
 
   it('⭐⭐ the note’s five drawing calls are OURS — only its own GROUP is still VexFlow’s', () => {

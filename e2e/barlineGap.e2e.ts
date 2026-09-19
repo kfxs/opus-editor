@@ -40,7 +40,7 @@ const READ = `() => {
   const h = window.__h
   const line = h.staves().filter(s => s.top === h.staves()[0].top).sort((a, b) => a.measure - b.measure)
   const bar = line[0]
-  const heads = h.placed('g.vf-notehead text')
+  const heads = h.placed('g.notehead text')
     .filter(g => {
       const n = parseInt((g.code || '').toLowerCase(), 16)
       return n >= 0xe0a0 && n <= 0xe0ff

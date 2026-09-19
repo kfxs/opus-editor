@@ -14,11 +14,11 @@ import { THIN_BARLINE_PX, hintBarlines } from './barlineInk'
  */
 const NS = 'http://www.w3.org/2000/svg'
 
-/** A measure group as VexFlow leaves it: barline rects inside a `vf-stavebarline` group. */
+/** A measure group as VexFlow leaves it: barline rects inside a `stavebarline` group. */
 function measureGroup(rects: { x: number; width: number }[]): SVGGElement {
   const group = document.createElementNS(NS, 'g')
   const barline = document.createElementNS(NS, 'g')
-  barline.setAttribute('class', 'vf-stavebarline')
+  barline.setAttribute('class', 'stavebarline')
   for (const r of rects) {
     const rect = document.createElementNS(NS, 'rect')
     rect.setAttribute('x', String(r.x))

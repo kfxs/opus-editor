@@ -55,6 +55,6 @@ describe('OttavaGhost', () => {
     expect(() => draw(1)).not.toThrow()
     expect(() => draw(-1)).not.toThrow()
     // …and the score under it is untouched: the ghost is an overlay, so the music survives it.
-    expect(svg().querySelectorAll('.vf-stavenote').length).toBeGreaterThan(0)
+    expect(svg().querySelectorAll('.stavenote').length).toBeGreaterThan(0)
   })
 })

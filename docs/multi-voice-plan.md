@@ -221,7 +221,7 @@ Span elements (ties, slurs) brought up to the same multi-voice standard the note
 - **Tie highlight no longer bleeds onto staff lines** (`d7a9d88`). Root cause: ties (unlike slurs)
   weren't wrapped in an SVG group, so the highlight did a document-wide `<path>` bbox-scan that
   caught staff-line segments. Fix mirrors the slur group approach: wrap each tie's arc (both
-  cross-line partials) in its own `<g class="vf-tie">` (`tieGroupMap` → `getTieSVGGroup`) and
+  cross-line partials) in its own `<g class="tie">` (`tieGroupMap` → `getTieSVGGroup`) and
   recolor only inside it.
 - **Multi-voice tie direction** (`85e30da`) and **slur direction** (`9b1b46d`): default now follows
   the **voice's outer side** (V1 above, V2 below) instead of the single-voice pitch/stem rule, so

@@ -59,7 +59,7 @@ export class EngravedBarline implements StaveSign {
    * thinner opening line — `BarlineRenderer.drawSign`'s note is the argument for keeping it so.
    *
    * ⚠️ **A `none` line still opens and closes its group, on the PAGE's context**: VexFlow's `Barline.draw`
-   * did exactly that — an empty `<g class="vf-stavebarline">` on the context it painted with — so the SVG
+   * did exactly that — an empty `<g class="stavebarline">` on the context it painted with — so the SVG
    * keeps that group where it has always been, and the scene records nothing it never recorded.
    */
   drawSign(surface: DrawContext, frame: StaffFrame, page: DrawContext): void {

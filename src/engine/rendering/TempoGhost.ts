@@ -11,8 +11,8 @@ import type { TempoMark } from '@/types/music'
 import { drawTempoText } from './TempoLayout'
 import { drawSignGhost } from './ghostCursor'
 
-/** The class `clearGhosts` sweeps this ghost by — ⚠️ `vf-`-prefixed by `openGroup`. */
-export const TEMPO_GHOST_GROUP_CLASS = 'vf-ghost-tempo'
+/** The class `clearGhosts` sweeps this ghost by — the bare name `openGroup` writes. */
+export const TEMPO_GHOST_GROUP_CLASS = 'ghost-tempo'
 
 /** Draw the armed tempo mark at the cursor. False for a mark with no text (one that only sounds). */
 export function drawTempoGhost(ctx: DrawContext, cursorX: number, cursorY: number, mark: TempoMark): boolean {

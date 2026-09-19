@@ -43,9 +43,8 @@ import { drawSignGhost } from './ghostCursor'
 
 /** The class `ScoreRenderer.clearGhosts` sweeps this ghost by — it must be in
  *  `GHOST_GROUP_SELECTOR`, or the ghost smears one copy per mouse position.
- *  ⚠️ `vf-`-prefixed, because `openGroup` prefixes every class it is given
- *  (`reference_vexflow_opengroup_prefix`). */
-export const BARLINE_GHOST_GROUP_CLASS = 'vf-ghost-barline'
+ *  The bare name `openGroup` writes (VexFlow's `vf-` prefix is gone since S15c). */
+export const BARLINE_GHOST_GROUP_CLASS = 'ghost-barline'
 
 /**
  * The precomposed SMuFL glyph for each placeable sign, as a table the compiler keeps TOTAL.

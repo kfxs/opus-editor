@@ -199,10 +199,10 @@ export function laneOfSlot(measureSlots: ChordRest[], slot: ChordRest): ChordRes
 
 /**
  * The SVG group a two-note tremolo's strokes paint into. `openGroup` PREFIXES both, so the class ends
- * up `vf-tremolo-pair` and the id `vf-tremolo-pair-<noteId>`.
+ * up `tremolo-pair` and the id `tremolo-pair-<noteId>`.
  *
  * It exists for the HIGHLIGHT, the one selection seam the pair could not inherit:
- * `HighlightController.colorNoteTremolo` finds `<text>` nodes inside the note's own `vf-stavenote`
+ * `HighlightController.colorNoteTremolo` finds `<text>` nodes inside the note's own `stavenote`
  * group whose content is the tremolo codepoint, and a pair's strokes are our own PATHS drawn outside
  * every note group — that lookup finds nothing. So the renderer paints a named group and the
  * highlight colours it whole. The barline lesson again: PAINT a highlight, do not go hunting for

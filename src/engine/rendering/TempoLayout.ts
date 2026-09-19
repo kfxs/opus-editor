@@ -423,7 +423,7 @@ export function drawTempoMarks(
     const y = textRowAboveY(staveFrame(stave), 1)
     const x = anchorX(mark, slots, staveNotes, stave, columns, scale)
 
-    // OUR group, carrying the mark's id → '#vf-<id>', which is what the registry bbox, the
+    // OUR group, carrying the mark's id → '#<id>', which is what the registry bbox, the
     // selection highlight and the text-edit overlay all address it by.
     const group = ctx.openGroup('tempo', mark.id) as SVGGElement
     try {

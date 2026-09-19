@@ -80,7 +80,7 @@ export class EngravedBeam {
   /** The beamed notes, in order. */
   readonly notes: readonly EngravedNote[]
 
-  /** Its SVG group is `vf-<id>` (the painter adds the prefix) — ours, ⛔ not VexFlow's id counter. */
+  /** Its SVG group's id — ours, ⛔ not VexFlow's id counter. */
   readonly id: string
 
   /**
@@ -313,7 +313,7 @@ export class EngravedBeam {
    * ⭐ The stems, then the lines, inside the beam's own group.
    *
    * 🚨 **The group is load-bearing**: the browser suite and the renderer find a beam's ink — and the
-   * beamed stems inside it — as `g.vf-beam`, so keep `openGroup('beam', id)`.
+   * beamed stems inside it — as `g.beam`, so keep `openGroup('beam', id)`.
    *
    * ⚠️ **The stems keep the VexFlow context and that is deliberate**: each is handed it, and an
    * `EngravedStem` draws on its own ink surface anyway (P3c).

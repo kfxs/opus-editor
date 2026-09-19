@@ -82,7 +82,7 @@ export function applyTempoNudges(
         // Scoped to THIS render's root, ⛔ not `document`: ids repeat across a torn-down SVG and a
         // document-wide lookup answers with the first in tree order
         // (`reference_vexflow_getsvgelement_is_document_wide`).
-        const el = svg.querySelector(`#vf-${mark.id}`) as SVGGraphicsElement | null
+        const el = svg.querySelector(`[id="${mark.id}"]`) as SVGGraphicsElement | null
         if (!el) continue
 
         // ⭐⭐ **THE ANCHOR'S OWN TRAVEL, and it is the half this pass used to be missing**

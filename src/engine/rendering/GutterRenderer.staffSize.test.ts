@@ -22,8 +22,8 @@ describe('GutterRenderer — a staff is repeated at its own size', () => {
     clef: 'treble' as const,
   })
   const draw = (state: GutterState) => gutter.render(state, 1, 400)
-  /** The per-staff groups, in the order they were drawn. (`openGroup` prefixes the class `vf-`.) */
-  const staffGroups = () => [...host.querySelectorAll('g.vf-gutterstaff')]
+  /** The per-staff groups, in the order they were drawn. */
+  const staffGroups = () => [...host.querySelectorAll('g.gutterstaff')]
 
   beforeEach(() => {
     host = document.createElement('div')

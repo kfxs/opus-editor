@@ -556,7 +556,7 @@ with the other.
 > ⭐ **`inScaledStaffGroup` opens its wrapper ONLY when the staff is not full size**, so a
 > full-size score's DOM is unchanged — the cross-barline beams are identified by being direct
 > children of the `<svg>`, in a unit test and in the e2e harness, and both now look one level
-> deeper through `vf-scaled` as well.
+> deeper through `scaled` as well.
 >
 > **The note ghost** builds its throwaway stave at `x/k, y/k, width/k` and composes
 > `translate(shift) scale(k)` on the overlay group it already had — with the pointer-to-note shift

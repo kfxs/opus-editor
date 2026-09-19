@@ -213,7 +213,7 @@ assume — and further still now that the placement is ours (§4) rather than Ve
 bbox-translate step absorbs that on purpose: it measures where the glyphs ACTUALLY landed and moves
 the whole group from there, so the offset never has to be known.
 
-⚠️ `openGroup` silently prefixes `vf-` (pass the bare name), and `closeGroup()` goes in a
+⚠️ `openGroup` silently prefixed `vf-` until S15c (pass the bare name), and `closeGroup()` goes in a
 `finally`.
 
 ## 4. Render

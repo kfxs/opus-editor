@@ -31,12 +31,12 @@ describe('SvgPainter', () => {
     expect(painter.svg.getAttribute('viewBox')).toBe('0 0 100 50')
   })
 
-  it('⭐ writes an attribute only where it DIFFERS from the enclosing group, and prefixes class and id', () => {
+  it('⭐ writes an attribute only where it DIFFERS from the enclosing group, and the class and id AS GIVEN', () => {
     painter.setFillStyle('red')
     const group = painter.openGroup('note', 'n1')
-    // The prefix every selector reads — checked by its TAIL, so this spec names no VexFlow prefix (S15's rename).
-    expect(group.getAttribute('class')).toMatch(/^[a-z]+-note$/)
-    expect(group.getAttribute('id')).toMatch(/^[a-z]+-n1$/)
+    // ⭐ S15c: exactly what was asked for — VexFlow's namespace prefix is gone, and every selector reads the bare name.
+    expect(group.getAttribute('class')).toBe('note')
+    expect(group.getAttribute('id')).toBe('n1')
     expect(group.getAttribute('fill')).toBe('red')
     painter.fillText('x', 1, 2)
     const text = group.querySelector('text')!

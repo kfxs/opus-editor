@@ -35,7 +35,7 @@ async function drawSlur(
     h.engine.createSlur([ids[0], ids[ids.length - 1]])
     await h.render()
     const staff = window.__h.staves()[0]
-    const d = [...document.querySelectorAll('g.vf-slur path')]
+    const d = [...document.querySelectorAll('g.slur path')]
       .map(p => p.getAttribute('d') ?? '').join(' ')
     const ys = [...d.matchAll(/-?\d+(?:\.\d+)?\s+(-?\d+(?:\.\d+)?)/g)].map(m => parseFloat(m[1]))
     return { top: staff.top, bottom: staff.bottom, minY: Math.min(...ys), maxY: Math.max(...ys) }
@@ -122,7 +122,7 @@ async function slurTilt(
     await h.render()
     // `renderCurve` emits ONE closed path: `M p0 … C c0 c1 p1 …` — so the first coordinate pair is
     // the start endpoint and the fourth is the end endpoint (the return pass follows).
-    const d = document.querySelector('g.vf-slur path')?.getAttribute('d') ?? ''
+    const d = document.querySelector('g.slur path')?.getAttribute('d') ?? ''
     const pairs = [...d.matchAll(/(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)/g)]
       .map(m => ({ x: parseFloat(m[1]), y: parseFloat(m[2]) }))
     const staffSpace = (window.__h.staves()[0].bottom - window.__h.staves()[0].top) / 4
@@ -195,7 +195,7 @@ test('⭐⭐ the arc leaves BEYOND the stem, not across it (§12.1)', async ({ s
     const c = h.engine.addNoteAtBeat({ step: 'C', octave: 5, duration: 'h', measure: 1, beat: h.frac(2, 1) })!
     h.engine.createSlur([a.id, c.id])
     await h.render()
-    const d = document.querySelector('g.vf-slur path')?.getAttribute('d') ?? ''
+    const d = document.querySelector('g.slur path')?.getAttribute('d') ?? ''
     const first = [...d.matchAll(/(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)/g)][0]
     const startX = parseFloat(first[1]), startY = parseFloat(first[2])
     const staff = h.staves()[0]
@@ -224,7 +224,7 @@ test('⭐⭐ the arc starts OVER the notehead, not past it (§12 Phase 2)', asyn
     const b = h.engine.addNoteAtBeat({ step: 'G', octave: 5, duration: 'h', measure: 1, beat: h.frac(2, 1) })!
     h.engine.createSlur([a.id, b.id])
     await h.render()
-    const d = document.querySelector('g.vf-slur path')?.getAttribute('d') ?? ''
+    const d = document.querySelector('g.slur path')?.getAttribute('d') ?? ''
     const pts = [...d.matchAll(/(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)/g)]
       .map(m => ({ x: parseFloat(m[1]), y: parseFloat(m[2]) }))
     const heads = h.noteheads().sort((p, q) => p.x - q.x)
@@ -253,7 +253,7 @@ test('⭐ a slur from a CHORD springs from its outer note, not the one you click
     // Anchor the slur to the chord's MIDDLE note — the case that used to spring from inside it.
     h.engine.createSlur([middle?.id ?? top.id, next.id])
     await h.render()
-    const d = document.querySelector('g.vf-slur path')?.getAttribute('d') ?? ''
+    const d = document.querySelector('g.slur path')?.getAttribute('d') ?? ''
     const p = [...d.matchAll(/(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)/g)].map(m => ({ x: +m[1], y: +m[2] }))
     const heads = h.noteheads().filter(n => n.x < p[3].x - 5).map(n => n.y).sort((a, b) => a - b)
     return { startY: p[0].y, topHeadY: heads[0], bottomHeadY: heads[heads.length - 1] }
@@ -278,7 +278,7 @@ test('⭐⭐ a slur over a rising RUN clears the notes it covers (§12 Phase 8, 
     h.engine.createSlur([ids[0], last.id])
     await h.render()
 
-    const d = document.querySelector('g.vf-slur path')?.getAttribute('d') ?? ''
+    const d = document.querySelector('g.slur path')?.getAttribute('d') ?? ''
     const p = [...d.matchAll(/(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)/g)].map(m => ({ x: +m[1], y: +m[2] }))
     const at = (t: number) => {
       const mt = 1 - t
@@ -323,18 +323,18 @@ test('🚨🚨 a DYNAMIC under a covered note does not touch the arch — his re
     })!.id)
     h.engine.createSlur([ids[0], ids[3]])
     await h.render()
-    const before = h.curveSamples('g.vf-slur path', 40)
+    const before = h.curveSamples('g.slur path', 40)
     // ⚠️ A `p` under a note MID-SPAN, not under an endpoint: an obstacle within a whisker of an end
     // is deliberately left uncleared (`slurObstacles`, SLUR_OBSTACLE_MAX_LIFT_RATIO), so a mark on
     // the first note proves nothing either way.
     h.engine.addDynamic(1, { beat: h.frac(2, 1), text: 'p', placement: 'below' })
     await h.render()
-    const after = h.curveSamples('g.vf-slur path', 40)
+    const after = h.curveSamples('g.slur path', 40)
     const staff = h.staves()[0]
     return {
       moved: Math.max(...before.map((b, i) => Math.abs(b.y - after[i].y))),
       spacing: (staff.bottom - staff.top) / 4,
-      dynamics: h.placed('g.vf-annotation text').length,
+      dynamics: h.placed('g.annotation text').length,
     }
   })
   expect(r.dynamics, 'the dynamic drew — otherwise nothing was tested').toBe(1)
@@ -357,7 +357,7 @@ test('⭐ …and a run that ENDS in a rest keeps the same air over its peak', as
     const last = h.engine.addNoteAtBeat({ step: 'G', octave: 5, duration: 'q', measure: 2, beat: h.frac(0, 1) })!
     h.engine.createSlur([ids[0], last.id])
     await h.render()
-    const d = document.querySelector('g.vf-slur path')?.getAttribute('d') ?? ''
+    const d = document.querySelector('g.slur path')?.getAttribute('d') ?? ''
     const p = [...d.matchAll(/(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)/g)].map(m => ({ x: +m[1], y: +m[2] }))
     const at = (t: number) => {
       const mt = 1 - t
@@ -401,7 +401,7 @@ test('⭐⭐ a slur broken by a system break leans toward its own music (§12 Ph
     h.engine.createSlur([ids[broken - 1], ids[broken]])
     await h.render()
     // The BEGIN half is the one whose path starts on the earlier system (smaller y overall).
-    const paths = [...document.querySelectorAll('g.vf-slur path')].map(p => p.getAttribute('d') ?? '')
+    const paths = [...document.querySelectorAll('g.slur path')].map(p => p.getAttribute('d') ?? '')
     const parsed = paths.map(d => [...d.matchAll(/(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)/g)].map(m => ({ x: +m[1], y: +m[2] })))
     const begin = parsed.reduce((best, p) => (p[0].y < best[0].y ? p : best), parsed[0])
     const sp = (h.staves()[0].bottom - h.staves()[0].top) / 4
@@ -451,7 +451,7 @@ test('⭐⭐ a continuation starts AFTER the clef, key and meter (Gould p. 112, 
     h.engine.updateNote(ids[broken], { step: 'G', octave: 4 })
     h.engine.createSlur([ids[broken - 1], ids[broken]])
     await h.render()
-    const parsed = [...document.querySelectorAll('g.vf-slur path')]
+    const parsed = [...document.querySelectorAll('g.slur path')]
       .map(p => [...(p.getAttribute('d') ?? '').matchAll(/(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)/g)].map(m => ({ x: +m[1], y: +m[2] })))
     // The END half is the one on the LOWER system — compare by the ANCHORED end, which sits on its
     // own note (the open end is the one that moves).
@@ -459,7 +459,7 @@ test('⭐⭐ a continuation starts AFTER the clef, key and meter (Gould p. 112, 
     const onLine = (y: number) => y > tops[broken] - 40 && y < tops[broken] + 60
     // ⭐ The clef's INK, not its box: `inkSizes` reads the drawn `<g>`, whose width is the glyph's
     // own advance — the number `noteStartX` pads and this rule does not.
-    const clefs = h.inkSizes('g.vf-clef').filter(b => onLine(b.y + b.height / 2))
+    const clefs = h.inkSizes('g.clef').filter(b => onLine(b.y + b.height / 2))
     const sp = (h.staves()[0].bottom - h.staves()[0].top) / 4
     // The note the fragment runs TO — the first on the new system.
     const head = h.noteheads().filter(g => onLine(g.y)).sort((a, b) => a.x - b.x)[0]
@@ -502,7 +502,7 @@ test('⭐⭐ the WHOLE curve moves RIGIDLY — its shape is not re-solved (his a
       h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: 'w', measure: m, beat: h.frac(0, 1) })
     }
     await h.render()
-    const heads = h.placed('g.vf-notehead text')
+    const heads = h.placed('g.notehead text')
     const firstRowY = Math.min(...heads.map(g => g.y))
     const runBar = heads.filter(g => Math.abs(g.y - firstRowY) < 5).length + 1
 
@@ -518,7 +518,7 @@ test('⭐⭐ the WHOLE curve moves RIGIDLY — its shape is not re-solved (his a
     await h.render()
 
     const sp = (h.staves()[0].bottom - h.staves()[0].top) / 4
-    const sample = () => h.curveSamples('g.vf-slur path', 60)
+    const sample = () => h.curveSamples('g.slur path', 60)
     const before = sample()
     // How far the samples deviate from a pure translation by (dx, dy) staff-spaces.
     const deviation = (after: { x: number; y: number }[], dx: number, dy: number) =>
@@ -538,7 +538,7 @@ test('⭐⭐ the WHOLE curve moves RIGIDLY — its shape is not re-solved (his a
     const asEndpoints = deviation(sample(), 1.5, -2)
     // ⭐ The fixture's own check: if the run did NOT land below the first row, the lift below is
     // being refused again and every number here means nothing.
-    const arcTop = Math.min(...h.curveSamples('g.vf-slur path', 20).map(p => p.y))
+    const arcTop = Math.min(...h.curveSamples('g.slur path', 20).map(p => p.y))
     return { rigid, asEndpoints, sp, samples: before.length, arcTop, firstRowY }
   })
   expect(r.samples, 'the arc was sampled').toBeGreaterThan(50)
@@ -586,7 +586,7 @@ test('🚨 pushing one end DOWN must not send the arc UP off the sheet', async (
     })!.id)
     const slur = h.engine.createSlur([ids[0], ids[3]])!
     await h.render()
-    const top = () => Math.round(h.inkSizes('g.vf-slur path')[0].y)
+    const top = () => Math.round(h.inkSizes('g.slur path')[0].y)
     const before = top()
     const tops: number[] = []
     for (const steps of [10, 20, 20]) {
@@ -634,7 +634,7 @@ async function slurDepthBelow(
     const g = h.engine.addNoteAtBeat({ step: 'G', octave: 4, alter, duration: '8', measure: 1, beat: h.frac(1, 2) })!
     h.engine.createSlur([b.id, g.id])
     await h.render()
-    const ys = h.curveSamples('g.vf-slur path', 40).map(p => p.y)
+    const ys = h.curveSamples('g.slur path', 40).map(p => p.y)
     return { deepest: Math.max(...ys), staffBottom: h.staves()[0].bottom }
   }, alter)
 }
@@ -682,7 +682,7 @@ test('🚨🚨 five sixteenths, the last one FLAGGED — the arch stays on the p
       })!.id)
     h.engine.createSlur(ids)
     await h.render()
-    const ys = h.curveSamples('g.vf-slur path', 40).map(p => p.y)
+    const ys = h.curveSamples('g.slur path', 40).map(p => p.y)
     const staff = h.staves().find(s => s.measure === 2)!
     return { highest: Math.min(...ys), top: staff.top, bottom: staff.bottom }
   })
@@ -719,7 +719,7 @@ async function slurShape(score: import('@playwright/test').Page, staccato: boole
     })
     h.engine.createSlur(ids)
     await h.render()
-    const d = document.querySelector('g.vf-slur path')!.getAttribute('d')!
+    const d = document.querySelector('g.slur path')!.getAttribute('d')!
     const n = [...d.matchAll(/-?\d+(?:\.\d+)?/g)].map(m => parseFloat(m[0]))
     // M p0 C c0 , c1 , p1 — the first eight numbers.
     return { h0: n[1] - n[3], h1: n[7] - n[5] }

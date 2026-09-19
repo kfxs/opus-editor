@@ -80,7 +80,7 @@ export interface RenderPass {
    */
   fanMemberAnchorMap: Map<string, FanMemberAnchor>
   /**
-   * FANNED MEMBER pitch id → the `<g class="vf-fanhead">` its ink was drawn into, and which head
+   * FANNED MEMBER pitch id → the `<g class="fanhead">` its ink was drawn into, and which head
    * inside it belongs to that pitch — the member's answer to `staveNoteMap`, since a member has no
    * `StaveNote` of its own and a highlight has to resolve through something. Filled by
    * {@link FanPass}, read back by `ScoreRenderer.getFanMemberSVGGroup`.
@@ -90,26 +90,26 @@ export interface RenderPass {
   tupletObjectMap: Map<string, ScoreTuplet>
   /** Dynamic id → its rendered VexFlow Annotation, for layout & scoped highlight. */
   dynamicObjectMap: Map<string, EngravedAnnotation>
-  /** Slur id → its `<g class="vf-slur">` SVG group, for scoped highlight. */
+  /** Slur id → its `<g class="slur">` SVG group, for scoped highlight. */
   slurGroupMap: Map<string, SVGGElement>
-  /** Hairpin id → its `<g class="vf-hairpin">` SVG group, for scoped highlight. Like the slur's,
+  /** Hairpin id → its `<g class="hairpin">` SVG group, for scoped highlight. Like the slur's,
    *  one group per hairpin even when the wedge is split across systems — the fragments are drawn
    *  into the same group, so recolouring it colours the whole wedge. */
   hairpinGroupMap: Map<string, SVGGElement>
-  /** Trill id → its `<g class="vf-trill">` SVG group, for scoped highlight. One group per trill even
+  /** Trill id → its `<g class="trill">` SVG group, for scoped highlight. One group per trill even
    *  when the ornament repeats on a continuation system — the fragments are drawn into the same
    *  group, so recolouring it colours the whole trill (`hairpinGroupMap`'s arrangement). */
   trillGroupMap: Map<string, SVGGElement>
-  /** Ottava id → its `<g class="vf-ottava">` SVG group, for scoped highlight. One group per octave
+  /** Ottava id → its `<g class="ottava">` SVG group, for scoped highlight. One group per octave
    *  line even when the bracket is split across systems, so recolouring it colours every fragment
    *  including the parenthesised continuation numeral (`trillGroupMap`'s arrangement). */
   ottavaGroupMap: Map<string, SVGGElement>
-  /** Pedal id → its `<g class="vf-pedal">` SVG group, for scoped highlight. One group per pedal even
+  /** Pedal id → its `<g class="pedal">` SVG group, for scoped highlight. One group per pedal even
    *  when it is split across systems — every fragment's signs are drawn into it, so recolouring the
    *  group colours the `Ped.`, its `(Ped.)` resumptions and the `✻` together
    *  (`ottavaGroupMap`'s arrangement). */
   pedalGroupMap: Map<string, SVGGElement>
-  /** Tie from-note id → its `<g class="vf-tie">` SVG group, for scoped highlight. */
+  /** Tie from-note id → its `<g class="tie">` SVG group, for scoped highlight. */
   tieGroupMap: Map<string, SVGGElement>
   /** Measure number → computed width/line info (which line a measure landed on, etc.). */
   measureLayoutInfo: Map<number, MeasureWidthInfo>
