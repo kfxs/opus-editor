@@ -15,7 +15,9 @@
  * Both build {@link FanSlotDrawing}s and hand them to {@link drawFanGroups}.
  */
 import type { EngravedStave } from './EngravedStave'
-import { StaveNote, NoteHead, Accidental } from 'vexflow'
+import { StaveNote, Accidental } from 'vexflow'
+import { EngravedHead } from './EngravedHead'
+import { headGlyph } from '@/engine/engrave/notes/keyLines'
 import type { DrawContext } from '@/engine/paint/DrawContext'
 import { STEM_THICKNESS_PX } from '@/engine/engrave/inheritedDefaults'
 import type { Score, Clef, Chord, ChordRest, FanMemberChord, Fraction, KeySignature, NotePitch } from '@/types/music'
@@ -66,7 +68,7 @@ import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { followingSpace } from '@/engine/layout/spacing'
 import { MIN_COLUMN_GAP } from '@/engine/layout/spacingPadding'
 import { staffSpacesToPixels } from './staffSpace'
-import { barFrame, staveFrame, standOn, maybeStaveOf } from './staveFrame'
+import { barFrame, staveFrame, maybeStaveOf } from './staveFrame'
 import { noteLineY } from '@/engine/engrave/staff/staffFrame'
 
 /**
@@ -513,8 +515,8 @@ function drawFanGroups(pass: RenderPass, drawings: FanSlotDrawing[], fanJoins: F
           // are ours. `displaced` is handed to `NoteHead`, which owns the arithmetic that turns it
           // into an x; we only ask where it landed.
           const displaced = chordHeadDisplacement(memberHeads.map(mh => mh.line), stemDirection)
-          const noteHeads = memberHeads.map((mh, h) => new NoteHead({
-            duration: 'q', line: mh.line, stemDirection, displaced: displaced[h], x: member.headX,
+          const noteHeads = memberHeads.map((mh, h) => new EngravedHead({
+            glyph: headGlyph('q', false), line: mh.line, stemDirection, displaced: displaced[h], x: member.headX,
           }))
           // ⚠️ READ BEFORE THE DRAW: `NoteHead.draw` writes its own absolute x back into `x`, so a
           // displaced head asked twice displaces twice.
@@ -539,7 +541,7 @@ function drawFanGroups(pass: RenderPass, drawings: FanSlotDrawing[], fanJoins: F
             const { pitch, line, sign } = memberHeads[h]
             const y = noteLineY(staveFrame(stave), line)
             const head = noteHeads[h]
-            standOn(head, stave) // resolves y from the line
+            head.setStave(stave) // resolves y from the line
             drawFanHead(ctx, head)
             // ⭐ P3: the member becomes CLICKABLE and HIGHLIGHTABLE — but only when it is a member
             // of its own (a fallback head is the slot's pitch, and that id is already the real
@@ -901,13 +903,10 @@ function setFanJoinApexes(members: FanSlotDrawing[], tentative: FanGeometry[]): 
  * 🚨 The x WRITE-BACK is kept, once, exactly where `NoteHead.draw` did it: the registry's hit box
  * for the head (`addGlyph` → `getBoundingBox`) reads `x` afterwards. The caller already read its
  * `getAbsoluteX()` BEFORE this, for the ledgers and the signs — the same order as before.
- * ⛔ No `drawModifiers`: a bare member head has no parent. ⚠️ A head with `children` (extra glyphs
- * `renderText` would stamp) is refused loudly — nothing gives one any, and the ink here is ONE glyph.
+ * ⛔ No `drawModifiers`: a bare member head has no parent. ⭐ Since S12j-a the head is ours
+ * (`./EngravedHead`) — one glyph, no children to refuse.
  */
-function drawFanHead(ctx: DrawContext, head: NoteHead): void {
-  if ((head as unknown as { children: unknown[] }).children.length) {
-    throw new Error('drawFanHead: a notehead with child glyphs')
-  }
+function drawFanHead(ctx: DrawContext, head: EngravedHead): void {
   head.setRendered()
   // ⚠️ KEPT, not read back with `getX()`: a `NoteHead` is a `Tickable`, whose `getX()` throws
   // `NoTickContext` — why `NoteHead.draw` reads the raw field (and `EngravedNote.drawNoteHeads` too).

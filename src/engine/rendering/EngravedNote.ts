@@ -53,6 +53,7 @@
 import { NoteHead, StaveNote, Stem } from 'vexflow'
 import type { DrawGroup } from '@/engine/paint/DrawGroup'
 import { drawGroupOf, svgNode } from './svgDrawGroup'
+import { EngravedHead } from './EngravedHead'
 import { LEDGER_OVERHANG_PX, STEM_THICKNESS_PX } from '@/engine/engrave/inheritedDefaults'
 import { stemExtents, stemLineHeight, type StemSpan } from '@/engine/engrave/notes/stemLength'
 import { NOTE_FONT } from '@/engine/engrave/inheritedFonts'
@@ -90,8 +91,8 @@ import { barVoiceOf } from './barVoice'
  * the note ends up with no heads at all — `getGlyphWidth()` then throws on `noteHeads[0]` inside the
  * constructor. VexFlow assigns the field, and so does this.
  */
-function stavePrivates(note: EngravedNote): { sortedKeyProps: SortedKeyRow[]; _noteHeads: NoteHead[] } {
-  return note as unknown as { sortedKeyProps: SortedKeyRow[]; _noteHeads: NoteHead[] }
+function stavePrivates(note: EngravedNote): { sortedKeyProps: SortedKeyRow[]; _noteHeads: EngravedHead[] } {
+  return note as unknown as { sortedKeyProps: SortedKeyRow[]; _noteHeads: EngravedHead[] }
 }
 
 /**
@@ -476,23 +477,22 @@ export class EngravedNote extends StaveNote {
     const { sortedKeyProps: rows } = stavePrivates(this)
     // ⭐ In the sorted order the walk expects — bottom-to-top, the stem's base first.
     const crosses = chordHeadDisplacement(rows.map(row => row.keyProps.line), stemDirection)
-    const heads: NoteHead[] = new Array(rows.length)
+    const heads: EngravedHead[] = new Array(rows.length)
     rows.forEach((row, i) => {
-      const head = new NoteHead({
-        duration: this.duration,
-        noteType: this.noteType,
+      // ⭐ S12j-a: a head of OURS (`./EngravedHead`) — its glyph the key row's, its face the note's.
+      const head = new EngravedHead({
+        glyph: row.keyProps.code,
         displaced: crosses[i],
         stemDirection,
-        customGlyphCode: row.keyProps.code,
         line: row.keyProps.line,
+        font: NOTE_FONT,
       })
-      head.fontInfo = this.fontInfo
-      this.addChild(head)
       // ⚠️ Back into the note's OWN key order — `keys[2]` is `noteHeads[2]`, whatever line it is on.
       heads[row.index] = head
     })
     stavePrivates(this)._noteHeads = heads
-    return heads
+    // ⚠️ The ONE cast: VexFlow's signature says `NoteHead[]`; ours answer every call its code makes of one.
+    return heads as unknown as NoteHead[]
   }
 
   /** @see EngravedNote.ledgerOverhang — the accidental clearance's one lever. */
@@ -605,7 +605,7 @@ export class EngravedNote extends StaveNote {
           x: originX,
           y: ys[index] + head.getYShift(),
           font: NOTE_FONT,
-        }, () => this.drawModifiers(head))
+        }, () => this.drawModifiers(head as unknown as NoteHead))
       } finally {
         vex.restore()
       }
@@ -743,8 +743,8 @@ export class EngravedNote extends StaveNote {
   }
 
   /** The note's heads, in key order — ONE read of VexFlow's list, for the ledger lines, the stamps and the glyphs. */
-  private heads() {
-    return this.noteHeads
+  private heads(): EngravedHead[] {
+    return this.noteHeads as unknown as EngravedHead[]
   }
 
   /**
