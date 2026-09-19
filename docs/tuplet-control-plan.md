@@ -11,7 +11,7 @@ scope** for now.
 > that causes the multi-voice problem in §4. ⛔ What that means for this plan: the constraints below are
 > no longer *"what VexFlow can and cannot do for us"* — they are **our own module's**, and a Tier-2
 > answer that used to need a rewrite is now a change to one function with a spec around it. ⚠️ The
-> class still `extends Tuplet`, but for the note GRAPH (`setTuplet`/`getTupletStack`), not the height.
+> class once still `extended Tuplet` for the note GRAPH — ✅ no longer since S12a of `docs/vexflow-removal-map.md`: a plain class of ours.
 > Read `tuplet.js` below only as the origin of the transcription.
 
 This document records *why* tuplet bracket positioning behaves the way it does, what VexFlow

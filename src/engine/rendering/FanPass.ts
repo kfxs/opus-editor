@@ -44,7 +44,7 @@ import { drawStem } from '@/engine/engrave/notes/stem'
 import { drawNoteHead } from '@/engine/engrave/notes/noteheads'
 import { drawGroupOf, svgNode } from './svgDrawGroup'
 import { paintElementText } from './glyphPainter'
-import { EngravedStem } from './EngravedNote'
+import { stemOf } from './EngravedNote'
 import type { CrossBarFanJoin } from './CrossBarBeams'
 import type { ElementRegistry } from '@/engine/ElementRegistry'
 import type { RenderPass } from './RenderPass'
@@ -935,7 +935,9 @@ function drawFanHead(ctx: DrawContext, head: NoteHead): void {
 function drawFanPrefixStems(ctx: DrawContext, prefixNotes: StaveNote[], tips: { tipY: number }[]): void {
   for (let k = 0; k < prefixNotes.length; k++) {
     const prefixNote = prefixNotes[k]
-    const stem = prefixNote.getStem()
+    // ⛔ A stem that is not ours has no way onto our surface, and every prefix note is an
+    // `EngravedNote` — `stemOf` refuses one loudly.
+    const stem = stemOf(prefixNote)
     if (!stem) continue
     const target = tips[k]
     if (target) {
@@ -946,9 +948,7 @@ function drawFanPrefixStems(ctx: DrawContext, prefixNotes: StaveNote[], tips: { 
       stem.setExtension(stem.getExtension() + grow)
     }
     stem.adjustHeightForBeam() // the flag's height fudge swapped for the beam's; the tip stays put.
-    // ⭐ S10 — on OUR surface, style wrapper and all (`EngravedStem.drawWithStyleOn`). ⛔ A stem that
-    // is not ours has no way onto it, and every prefix note is an `EngravedNote` — refused loudly.
-    if (!(stem instanceof EngravedStem)) throw new Error('drawFanPrefixStems: a prefix stem that is not an EngravedStem')
+    // ⭐ S10 — on OUR surface, style wrapper and all (`EngravedStem.drawWithStyleOn`).
     stem.drawWithStyleOn(ctx)
   }
 }

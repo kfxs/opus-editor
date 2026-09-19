@@ -102,10 +102,11 @@ const ALLOWED = new Map([
  *  `getSVGElement` (a document-wide `getElementById`); `ScoreTuplet` now keeps the group it opened, and
  *  handing that to the editor is this escape.
  *  ⚠️ 13 → **14** with S12g, the same case: the dynamics' annotation kept its `getSVGElement` for the
- *  seven layout passes and the highlight that read it, now answering the group it opened. */
+ *  seven layout passes and the highlight that read it, now answering the group it opened.
+ *  ⚠️ 14 → **15** with S12i, the same case: the stem's `getSVGElement` (the highlight's stem). */
 const VEX_CONTEXT_CEILING = 7
 /** ⭐ P1c's number: the group handle's escape hatch to a real DOM node. */
-const SVG_NODE_CEILING = 14
+const SVG_NODE_CEILING = 15
 
 const NAMES = /\b(SVGContext|RenderContext|vexContext)\b/
 

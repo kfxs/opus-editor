@@ -51,6 +51,8 @@
  * ⏭️ the moment a ledger number changes, the ghost has to come with it.
  */
 import { NoteHead, StaveNote, Stem } from 'vexflow'
+import type { DrawGroup } from '@/engine/paint/DrawGroup'
+import { drawGroupOf, svgNode } from './svgDrawGroup'
 import { LEDGER_OVERHANG_PX, STEM_THICKNESS_PX } from '@/engine/engrave/inheritedDefaults'
 import { stemExtents, stemLineHeight, type StemSpan } from '@/engine/engrave/notes/stemLength'
 import { NOTE_FONT } from '@/engine/engrave/inheritedFonts'
@@ -151,16 +153,150 @@ const SIDE_OF_POSITION: Readonly<Record<number, ModifierSide>> = {
  *
  * ⭐ **And as of S6e the LENGTH is ours too** — `engrave/notes/stemLength`, answered by
  * {@link EngravedStem.getHeight} and {@link EngravedStem.getExtents}. P3c was the ink; this is the reach.
+ *
+ * ⭐ **S12i — no longer VexFlow's `Stem`.** A plain class keeping what the VexFlow NOTE still calls on
+ * its stem (`setDirection`, `setExtension`, `setYBounds`, `setNoteHeadXBounds`, `getHeight`,
+ * `getExtents`, `adjustHeightForFlag`, `setStyle`, `setContext` → `drawWithStyle`) and what our beam
+ * and fan call (`getExtension`, `adjustHeightForBeam`, `drawWithStyleOn`). ⚠️ Its STYLE is `Stem`'s
+ * `{ strokeStyle: 'black' }` (`Metrics.getStyle('Stem')`) — `drawWithStyle` sets it before every
+ * stroke, so it stays. The four y-offsets and the stemlet pair are VexFlow's fields that nothing in
+ * this editor sets (only VexFlow's own `Beam` made stemlets): kept at their constructor's 0/false.
+ * `getSVGElement` answers the group the last draw opened (the highlight's stem).
  */
-export class EngravedStem extends Stem {
-  /** @see EngravedNote.inkSurface — set by {@link drawNoteInkThrough}, via the note that owns it. */
+
+/**
+ * A stem's style — `Metrics.getStyle('Stem')`, set before every stroke by `drawWithStyle`. ⚠️ Measured
+ * (S12i): it changes nothing on the page — the stroke sets its own colour — kept as VexFlow's, cheap.
+ */
+const STEM_STYLE: StemStyle = { strokeStyle: 'black' }
+
+/** How far a FLAGGED stem's drawn line is shortened — `Metrics.get('Stem.heightAdjustmentForFlag', -3)`'s default. */
+const STEM_FLAG_HEIGHT_ADJUSTMENT_PX = -3
+
+/** A stem pointing DOWN — VexFlow's `Stem.DOWN`. */
+const STEM_DOWN = -1
+
+/** A stroke style — `Element`'s `ElementStyle`, the fields a stem's draw can take. */
+export interface StemStyle {
+  fillStyle?: string
+  strokeStyle?: string
+  lineWidth?: number
+  lineDash?: string
+  shadowColor?: string
+  shadowBlur?: number
+}
+
+/** Our stems' ids — their own counter. */
+let nextStemId = 0
+
+export class EngravedStem {
+  private xBegin = 0
+  private xEnd = 0
+  private yTop = 0
+  private yBottom = 0
+  private stemExtension = 0
+  private stemDirection = 0
+  private readonly hide: boolean
+  private readonly isStemlet = false
+  private readonly stemletHeight = 0
+  private readonly stemUpYOffset = 0
+  private readonly stemDownYOffset = 0
+  private readonly stemUpYBaseOffset = 0
+  private readonly stemDownYBaseOffset = 0
+  private renderHeightAdjustment = 0
+  private style: StemStyle = { ...STEM_STYLE }
+  private context?: DrawContext
+  private rendered = false
+  private readonly id = `stem${++nextStemId}`
+  private group: DrawGroup | null = null
+
+  constructor(options: { hide?: boolean } = {}) {
+    this.hide = options.hide || false
+  }
+
+  /**
+   * The surface this stem's line draws on — the note's own, handed over by {@link drawNoteInkThrough}.
+   * Null until then, and then it falls back to its context: an unset surface is a lost SCENE entry
+   * and ⛔ never a lost pixel.
+   */
   private inkSurface: DrawContext | null = null
 
   setInkSurface(ctx: DrawContext): void {
     this.inkSurface = ctx
   }
 
-  /** What this stem has to work with, read fresh — the formatter and the beam both move these. */
+  getCategory(): string {
+    return 'Stem'
+  }
+
+  getAttribute(name: string): string | undefined {
+    return name === 'id' ? this.id : undefined
+  }
+
+  setNoteHeadXBounds(xBegin: number, xEnd: number): this {
+    this.xBegin = xBegin
+    this.xEnd = xEnd
+    return this
+  }
+
+  setDirection(direction: number): void {
+    this.stemDirection = direction
+  }
+
+  setExtension(ext: number): void {
+    this.stemExtension = ext
+  }
+
+  getExtension(): number {
+    return this.stemExtension
+  }
+
+  setYBounds(yTop: number, yBottom: number): void {
+    this.yTop = yTop
+    this.yBottom = yBottom
+  }
+
+  adjustHeightForFlag(): void {
+    this.renderHeightAdjustment = STEM_FLAG_HEIGHT_ADJUSTMENT_PX
+  }
+
+  adjustHeightForBeam(): void {
+    this.renderHeightAdjustment = -STEM_THICKNESS_PX / 2
+  }
+
+  getStyle(): StemStyle {
+    return this.style
+  }
+
+  setStyle(style: StemStyle): this {
+    this.style = style
+    return this
+  }
+
+  setContext(context: DrawContext): this {
+    this.context = context
+    return this
+  }
+
+  checkContext(): DrawContext {
+    if (!this.context) throw new Error('EngravedStem: no rendering context attached.')
+    return this.context
+  }
+
+  setRendered(rendered = true): this {
+    this.rendered = rendered
+    return this
+  }
+
+  isRendered(): boolean {
+    return this.rendered
+  }
+
+  /** The group the last draw opened, as a DOM node — the highlight's stem. */
+  getSVGElement(): SVGGElement | undefined {
+    return svgNode(this.group)
+  }
+
   private span(): StemSpan {
     return {
       yTop: this.yTop,
@@ -170,63 +306,51 @@ export class EngravedStem extends Stem {
     }
   }
 
-  /**
-   * ⭐⭐ **OURS as of S6e — how long the stroke is.** `engrave/notes/stemLength`, and with it
-   * {@link STEM_LENGTH_PX}: 3½ staff spaces, the number VexFlow drew with and the number all four
-   * treatises state (`docs/stem-length-research.md` §1).
-   *
-   * ⚠️ The y-offset branch is kept: it is 0 for every note this editor draws (it is non-zero only for a
-   * head the drawing library replaces, which is tablature), ⛔ but a dropped offset would be silent.
-   */
-  override getHeight(): number {
-    const up = this.stemDirection !== Stem.DOWN
+  /** ⭐ OURS since S6e — `engrave/notes/stemLength`. */
+  getHeight(): number {
+    const up = this.stemDirection !== STEM_DOWN
     return stemLineHeight(this.span(), up ? this.stemUpYOffset : this.stemDownYOffset)
   }
 
-  /**
-   * ⭐⭐ **OURS as of S6e — where the stem's two ends are.** Every reader of a note's stem tip in this
-   * editor comes through here: slurs, ties, trills, ottavas, pedals, hairpins, the dynamics and tempo
-   * lanes, tuplet brackets and both tremolos, all via `noteRuler`'s `stemTipY` / `stemBaseY`.
-   *
-   * ⚠️ **`topY` is the drawing library's name for the TIP**, not the smaller y — for a stem down it is
-   * below `baseY`. The module says `tipY`; this seam keeps the old key so no reader changes.
-   */
-  override getExtents(): { topY: number; baseY: number } {
+  /** ⭐ OURS since S6e — `engrave/notes/stemLength`. */
+  getExtents(): { topY: number; baseY: number } {
     const { tipY, baseY } = stemExtents(this.span())
     return { topY: tipY, baseY }
   }
 
-  /**
-   * ⭐ S10 — `Element.drawWithStyle()`, transcribed onto OUR surface: `save`, the style, {@link draw},
-   * `restore`. For a stem drawn by someone other than its note — the fan's PREFIX, whose stems
-   * `StaveNote.draw` skipped — so the caller no longer hands this stem VexFlow's context to get the
-   * style wrapper. The ink already went to the ink surface; this puts it on `surface` too.
-   *
-   * ⚠️ `applyStyle` transcribed with its branches, ⛔ except the SHADOW, which `DrawContext` does not
-   * declare — refused loudly rather than dropped: nothing in this editor styles a stem, so a style
-   * with a shadow here is a new fact to decide about, ⛔ not ink to lose.
-   */
-  drawWithStyleOn(surface: DrawContext): void {
-    this.setInkSurface(surface)
-    surface.save()
-    const style = this.getStyle()
-    if (style.shadowColor || style.shadowBlur) throw new Error('EngravedStem: a shadow has no primitive on DrawContext')
-    if (style.fillStyle) surface.setFillStyle(style.fillStyle)
-    if (style.strokeStyle) surface.setStrokeStyle(style.strokeStyle)
-    if (style.lineWidth) surface.setLineWidth(style.lineWidth)
-    if (style.lineDash) surface.setLineDash(style.lineDash.split(' ').map(Number))
-    this.draw()
-    surface.restore()
+  /** `Element.drawWithStyle` — save, the style, the draw, restore — on the stem's own context. */
+  drawWithStyle(): this {
+    const ctx = this.checkContext()
+    this.withStyle(ctx, () => this.draw())
+    return this
   }
 
-  override draw(): void {
+  /** `Element.drawWithStyle` transcribed onto OUR surface — the fan's prefix stems (S10). */
+  drawWithStyleOn(surface: DrawContext): void {
+    this.setInkSurface(surface)
+    this.withStyle(surface, () => this.draw())
+  }
+
+  private withStyle(ctx: DrawContext, draw: () => void): void {
+    ctx.save()
+    const style = this.style
+    if (style.shadowColor || style.shadowBlur) throw new Error('EngravedStem: a shadow has no primitive on DrawContext')
+    if (style.fillStyle) ctx.setFillStyle(style.fillStyle)
+    if (style.strokeStyle) ctx.setStrokeStyle(style.strokeStyle)
+    if (style.lineWidth) ctx.setLineWidth(style.lineWidth)
+    if (style.lineDash) ctx.setLineDash(style.lineDash.split(' ').map(Number))
+    draw()
+    ctx.restore()
+  }
+
+  draw(): void {
     this.setRendered()
     if (this.hide) return
     const ctx = this.inkSurface ?? this.checkContext()
 
     // ⚠️ VexFlow's own arithmetic for WHICH x and WHICH y the stroke starts from, transcribed with its
     // branches intact. ⭐ The LENGTH is no longer among them — `getHeight()` above is ours.
-    const down = this.stemDirection === Stem.DOWN
+    const down = this.stemDirection === STEM_DOWN
     const x = down ? this.xBegin : this.xEnd
     const from = down ? this.yTop + this.stemDownYOffset : this.yBottom - this.stemUpYOffset
     const baseOffset = down ? this.stemDownYBaseOffset : this.stemUpYBaseOffset
@@ -234,7 +358,7 @@ export class EngravedStem extends Stem {
     // A STEMLET is the stub a beamed rest hangs off — it starts short of the noteheads.
     const stemletOffset = this.isStemlet ? height - this.stemletHeight * this.stemDirection : 0
 
-    ctx.openGroup('stem', this.getAttribute('id'))
+    this.group = drawGroupOf(ctx.openGroup('stem', this.id))
     try {
       drawStem(ctx, {
         x,
@@ -278,7 +402,8 @@ export class EngravedNote extends StaveNote {
    * {@link EngravedStem.setInkSurface} is a later call rather than a constructor argument.
    */
   override buildStem(): this {
-    this.setStem(new EngravedStem({ hide: this.isRest() }))
+    // ⚠️ The ONE cast: the note is typed for VexFlow's `Stem`, and ours keeps every call it makes of one.
+    this.setStem(new EngravedStem({ hide: this.isRest() }) as unknown as Stem)
     return this
   }
 
@@ -713,11 +838,21 @@ export class EngravedNote extends StaveNote {
  * Takes `StaveNote[]` because that is what every caller holds; a plain one (a ghost's) is skipped and
  * keeps drawing its own ledgers.
  */
+/**
+ * The stem a note carries — ours, or none. ⭐ The ONE cast back out of the note's API (typed for
+ * VexFlow's `Stem`, S12i); a stem that is not ours is refused loudly rather than half-served.
+ */
+export function stemOf(note: { getStem(): unknown }): EngravedStem | undefined {
+  const stem = note.getStem()
+  if (stem === undefined || stem === null) return undefined
+  if (!(stem instanceof EngravedStem)) throw new Error('stemOf: a stem that is not an EngravedStem')
+  return stem
+}
+
 export function drawNoteInkThrough(notes: readonly StaveNote[], ctx: DrawContext): void {
   for (const note of notes) {
     if (note instanceof EngravedNote) note.setInkSurface(ctx)
-    const stem = note.getStem()
-    if (stem instanceof EngravedStem) stem.setInkSurface(ctx)
+    stemOf(note)?.setInkSurface(ctx)
     // ⭐ …and every MODIFIER that can take one — the accidental, the augmentation dot and the
     // ARTICULATION (all 2026-09-14). ⚠️ Asked as a MEMBERSHIP, ⛔ not as a third, fourth and fifth
     // `instanceof`: that is the family `./inkSurface` exists for, and joining it is what a new one

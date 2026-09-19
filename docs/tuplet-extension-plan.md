@@ -270,7 +270,7 @@ knows where the next note was formatted), and a bracket with no number — VexFl
 make room for text that isn't there, leaving a notch cut for nothing. ⭐ **`getYPosition()` is OURS as
 of S8a** (2026-09-16): the rule moved to `engine/engrave/marks/tupletPlacement` — *outside everything on
 one side, pushed by whichever note reaches furthest* — and the subclass hands it the reaches. ⚠️ The
-class still `extends Tuplet`, for the note GRAPH (`setTuplet`/`getTupletStack`), not for the height.
+class then still extended `Tuplet` for the note GRAPH — ✅ no longer since S12a of `docs/vexflow-removal-map.md`: a plain class of ours.
 
 A mark is a list of RUNS (`tupletMarkRuns` → `TupletMarkRun[]`), not a string: the figures are cut
 small inside their em and a `metNote…` fills its own, so they cannot share a font size — the glyphs

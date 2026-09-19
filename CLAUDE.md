@@ -160,8 +160,13 @@ src/
                           #   ⛔ never the dots. docs/barline-join-plan.md)
                           #   + glyphPainter (⭐⭐ THE ONE PLACE VexFlow still paints a glyph —
                           #   ⛔ never `new Element(...)` in your own file)
-                          #   + staveFrame / noteRuler / signRun (⭐⭐ THE ONE PLACES a VexFlow `Stave`
-                          #   / `StaveNote` is asked where its lines, bar, heads, stem or signs are —
+                          #   + EngravedModifier (S12b — ⭐ a note's MODIFIER as ours: the contract the
+                          #   VexFlow note still drives, transcribed once; dot/accidental/articulation/
+                          #   tremolo/annotation extend it. `attachModifier` is the ONE cast into
+                          #   `note.addModifier` — ⛔ never `note.addModifier(ours)` in your own file;
+                          #   likewise `staveFrame.standOn`/`staveOf` for a stave, `stemOf` for a stem)
+                          #   + staveFrame / noteRuler / signRun (⭐⭐ THE ONE PLACES a stave (ours since
+                          #   S12h) / a `StaveNote` is asked where its lines, bar, heads, stem or signs are —
                           #   docs/vexflow-removal-map.md S2/S3. ⚠️ LIVE getters, ⛔ never a
                           #   snapshot: `getNoteStartX` formats the stave, and readers ask a note
                           #   BEFORE its draw too. ⛔ Never call those methods in your own file)
