@@ -37,7 +37,7 @@ const HUBS = [
   { file: 'src/engine/MusicEngine.ts', kinds: 1130, lines: null },
   { file: 'src/engine/models/ScoreModel.ts', kinds: 1105, lines: null },
   { file: 'src/engine/rendering/ScoreRenderer.ts', kinds: 891, lines: null },
-  { file: 'src/interactions/MouseController.ts', kinds: 835, lines: null },
+  { file: 'src/interactions/MouseController.ts', kinds: 779, lines: null },
   { file: 'src/interactions/PaletteController.ts', kinds: 504, lines: null },
   { file: 'src/interactions/HighlightController.ts', kinds: 316, lines: null },
   { file: 'src/interactions/shortcutWiring.ts', kinds: 465, lines: null, except: ['deleteSelected'] },

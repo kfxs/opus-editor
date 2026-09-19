@@ -1,6 +1,6 @@
 # Code shape plan — 2026-09-19
 
-**Status: IN PROGRESS — Phase 1 DONE (2026-09-19), bar item 5's two ⏭️ decisions. Phase 2 DONE. Phase 3.1: the three body drags done, awaiting his UI check; trill and slur next.** Phases are ordered by
+**Status: IN PROGRESS — Phase 1 DONE (2026-09-19), bar item 5's two ⏭️ decisions. Phase 2 DONE. Phase 3.1: the hairpin / ottava / pedal body drags done and checked; the trill's done, awaiting his UI check; slur next.** Phases are ordered by
 value over risk; each one stands alone and can be stopped after. A done item carries ✅ and what
 actually happened where that differs from what was planned.
 
@@ -232,7 +232,14 @@ Run the e2e suite either side of each step.
    `move` every move before the old chain. Kind mentions 970 → 835, code lines 2,122 → 1,996.
    The specs that drive these drags through real mouse events (`MouseController.hairpinBodyDrag`,
    `.dragRelease`) passed UNCHANGED, which is the evidence the behaviour held; the helper's own
-   contract is `drags/bodyDrag.test.ts`. ⏸️ Awaiting his UI check.*
+   contract is `drags/bodyDrag.test.ts`. ✅ His UI check passed (`8668f65`).*
+
+   *Second — the TRILL body drag, `drags/trillBody.ts`. ⛔ Not a `bodyDrag` row: its frame is the
+   square's — the HOLD's ledger (now the gesture's own, no longer the controller's shared
+   `markHold`), the span measured at the press, and a WRAP that ends the gesture from inside a
+   frame (`end` is idempotent, so the release that follows finds it over). ⚠️ No spec drove this
+   drag before; `drags/trillBody.test.ts` is its first. `MouseController` kinds 835 → 779, lines
+   1,996 → 1,930. ⏸️ Awaiting his UI check.*
 2. **A `keys` column on `ELEMENT_SPECS`** — `{ nudge, reset }` first — and one dispatcher.
    Replaces the four `||` chains and the 61 closures.
 

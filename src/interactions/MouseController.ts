@@ -40,11 +40,9 @@ import { DRAG_TIME_THRESHOLD_MS, type DragHost, type Gesture } from './drags/ges
 import { beginHairpinBodyDrag } from './drags/hairpinBody'
 import { beginOttavaBodyDrag } from './drags/ottavaBody'
 import { beginPedalBodyDrag } from './drags/pedalBody'
+import { beginTrillBodyDrag } from './drags/trillBody'
 import { dragHairpinEndpoint } from './hairpinWalk'
-import {
-  beginTrillBodySpan, dragTrillBody, dragTrillEndpoint, endTrillBodySpan, endTrillHandTrace,
-  settleTrillLanding, traceTrillHandVsInk,
-} from './trillWalk'
+import { dragTrillEndpoint } from './trillWalk'
 import { slurBodyStaffSpacePx, slurBodyDragStep, type SlurBodyAnchor } from './slurBodyDrag'
 import { armOttavaEndpointAt } from './elements/ottavaHandles'
 import { dragOttavaEndpoint } from './ottavaWalk'
@@ -55,7 +53,6 @@ import { barlineJoinGrabAt, joinedAtPointer, squareAtPointer, type BarlineJoinGr
 import { armPedalEndpointAt } from './elements/pedalHandles'
 import { dragPedalEndpoint } from './pedalWalk'
 import { armTrillEndpointAt } from './elements/trillHandles'
-import { trillStaffSpacePx } from './trillLane'
 import { articulationHit } from './elements/articulation'
 import { markAtPress } from './markGroupSelect'
 /** Placeholder for a Ctrl+Alt+T tempo mark — exists only so the mark renders a measurable box; the
@@ -488,13 +485,6 @@ export class MouseController {
   /** True once a preview write landed, so the drop records one undo entry. */
   private slurBodyDragChanged = false
   private slurBodyDragStartTime: number | null = null
-
-  // --- Trill BODY drag: a press on the ornament's own ink moves the WHOLE thing (2026-08-20). ---
-  private draggedTrillBodyId: string | null = null
-  private trillBodyLastX = 0
-  private trillBodyLastY = 0
-  private trillBodyDragChanged = false
-  private trillBodyDragStartTime: number | null = null
 
   // --- Staff-spacing vertical drag (Sibelius "space above staff" — Client #7) ---
   /** ⭐ The measure box that was showing when THIS press began, remembered across the element
@@ -996,35 +986,8 @@ export class MouseController {
    * px→staff-space scale, and a guessed one would move a small staff's hairpin by the wrong amount.
    * The press stays an ordinary selection.
    */
-  /**
-   * ⭐⭐ Arm the drag that moves a whole TRILL — a press on the `tr` or its wiggle (his ask,
-   * 2026-08-20: *"now the shape drag walking, and taking into consideration also the vertical axis
-   * for the target"*).
-   *
-   * ⭐ **One ornament, two gestures, told apart by WHERE you grabbed it**: a SQUARE moves that end,
-   * the BODY moves the whole thing — through the music sideways and up the ladder vertically. That
-   * is the arrows' own split arriving on the mouse.
-   *
-   * ⚠️ DECLINES to arm when the ornament's staff has no measured geometry: with no picture there is
-   * no px→staff-space scale, and a guessed one would move a small staff's trill by the wrong amount.
-   * The press stays an ordinary selection.
-   */
   private armTrillOffsetDrag(trillId: string, x: number, y: number, event: MouseEvent): void {
-    const engine = this.getEngine()
-    if (!engine || !trillStaffSpacePx(engine.getElementRegistry(), trillId)) return
-    // ⛔ A FRESH LEDGER PER GESTURE (`./dragHold`), as every other mark drag arms one.
-    this.markHold = releaseHold()
-    // ⭐⭐ …and the ornament's MUSIC, measured once for the whole gesture — the far end rides on it
-    //   (`trillWalk.beginTrillBodySpan`). ⛔ Here, not on the first frame: by then the drag may
-    //   already have moved the pair it is supposed to be measured from.
-    beginTrillBodySpan(engine, trillId)
-    this.activeDrag = { kind: 'trillBody', end: () => this.endTrillBodyDrag() }
-    this.draggedTrillBodyId = trillId
-    this.trillBodyLastX = x
-    this.trillBodyLastY = y
-    this.trillBodyDragChanged = false
-    this.trillBodyDragStartTime = Date.now()
-    event.preventDefault()
+    this.begin(beginTrillBodyDrag(this.dragHost, trillId, x, y), event)
   }
 
   /** ⭐ Arm the drag that moves a whole OTTAVA — a press on the numeral or its dashed line (his ask,
@@ -2970,7 +2933,6 @@ export class MouseController {
     if (this.handleDynamicDrag(engine, x, y)) return
     if (this.handleMarkEndDrag(engine, x, y)) return
     if (this.handleSlurBodyDrag(engine, x, y)) return
-    if (this.handleTrillBodyDrag(engine, x, y)) return
     if (this.handleSlurEndpointDrag(engine, x, y)) return
     if (this.handleStaffSpacingDrag(engine, x, y)) return
     if (this.handleStaffGroupSpanDrag(engine, y)) return
@@ -3475,102 +3437,6 @@ export class MouseController {
     this.slurBodyAnchor = null
     this.slurBodyDragChanged = false
     this.slurBodyDragStartTime = null
-  }
-
-
-
-  /**
-   * ⭐⭐ **One frame of a TRILL BODY drag: the whole ornament follows the hand** — sideways through
-   * the music (extent and all) and vertically up the LADDER (`trillWalk.dragTrillBody`).
-   *
-   * ⚠️ The delta is measured from the last ACCEPTED frame, the family's rule: the module accumulates
-   * rather than sets, so a refused frame leaves the anchor put and the gesture re-synchronises when
-   * the cursor comes back.
-   */
-  private handleTrillBodyDrag(engine: MusicEngine, x: number, y: number): boolean {
-    if (!(this.activeDrag?.kind === 'trillBody' && this.draggedTrillBodyId)) return false
-    if (this.trillBodyDragStartTime !== null
-        && Date.now() - this.trillBodyDragStartTime < this.DRAG_TIME_THRESHOLD_MS) return true
-    // ⭐ THE HOLD, exactly as {@link handleMarkEndDrag} has it — the body's frame is the square's
-    //   frame, latch included, so what the latch drops is repaid the same way (`./dragHold`).
-    const rawDx = x - this.trillBodyLastX
-    const heldDx = spendHold(this.markHold, rawDx)
-    const dy = y - this.trillBodyLastY
-    if (heldDx === 0 && dy === 0) {
-      logHold('Trill', this.markHold, rawDx, 0, false)
-      this.trillBodyLastX = x
-      return true
-    }
-    const frame = dragTrillBody(engine, this.draggedTrillBodyId, x, heldDx, dy)
-    // ⛔ null = the ornament is not drawn, so there is no scale to convert with; leave it alone.
-    if (frame === null) return true
-    if (frame.moved) {
-      if (frame.latched) {
-        takeHold(this.markHold, {
-          gapAheadPx: frame.gapAheadPx, discardedPx: frame.droppedPx, dirSign: Math.sign(heldDx),
-        })
-      }
-      logHold('Trill', this.markHold, rawDx, heldDx, frame.latched)
-      this.trillBodyLastX = x
-      this.trillBodyLastY = y
-      this.trillBodyDragChanged = true
-      // ⭐⭐ **Previewed, and the preview is what makes this walk STABLE** (§12.5a).
-      //
-      // 🚨🚨 A full render every frame is not the safe option here, it is the unsafe one. This walk
-      // decides from the ornament's OWN DRAWN INK, and a `tr` dragged upward GROWS the above-staff
-      // band it is claiming — which re-solves the system's height and the page's cast-off, moving
-      // the ink the walk is about to read. Traced 2026-08-22 on his grand staff: with nothing but
-      // the cursor creeping, the ornament's ink teleported 404.3 → 96.1 and back 54.7 → 365.7 —
-      // one system stride, twice, from a mark shoving the page it is standing on.
-      //
-      // ⭐ A preview cannot do that: it redraws this family against a finished render and re-casts
-      // nothing, so the ladder and the staves are exactly where the eye last saw them. The DROP
-      // renders for real (`endTrillBodyDrag`) and the page settles once, at the end.
-      //
-      // ⚠️ The family is preview-safe for the same reason the ottava and the pedal are: both
-      // `planTrillBands` and `renderTrills` walk `score.trills` and find the staff through the
-      // START NOTE's slot id — never a lane view, which is what made the hairpin's preview draw on
-      // the staff it had left (`HairpinRenderer.renderHairpins`). Slot membership is exactly what a
-      // mark drag does not touch.
-      this.render.previewMarks('trill', this.draggedTrillBodyId)
-      // ⚠️⚠️ EXPLORATORY (2026-08-30) — **a rung-change may not move the drawing** (his trace: the
-      // flip leaping 314.7 → 352.2 on a one-pixel frame). What the new rung gives the ornament is
-      // only knowable once it has been drawn there, so the payment is made HERE, after the draw above
-      // and inside the same mouse event — the wedge's line, one family on. ⭐ At most once per
-      // gesture, so the ordinary frame pays for no second draw.
-      if (frame.jumped && settleTrillLanding(engine, this.draggedTrillBodyId)) {
-        this.render.previewMarks('trill', this.draggedTrillBodyId)
-      }
-    }
-    // ⏱ TEMPORARY (2026-08-30) — his report: *"it is not moving with my hand"*. ⭐ AFTER the draw,
-    //   and OUTSIDE the `moved` branch: a refused frame is one where the hand moved and the ornament
-    //   did not, which is the whole complaint and is invisible to every trace taken before the write
-    //   ({@link traceTrillHandVsInk}).
-    traceTrillHandVsInk(engine, this.draggedTrillBodyId, x)
-    // ⭐⭐ A WRAP ENDS THE GESTURE — the square drag's rule (`MARK_END_DRAGS.trill.endsOnWrap`), and
-    //   now the body's too: the ornament is a line away and the hand is not, so every further pixel
-    //   would measure against a system it has left. It stays SELECTED, so the arrows carry on.
-    if (frame.wrapped) this.endTrillBodyDrag()
-    return true
-  }
-
-  /** Finish a trill BODY drag: one undo entry if the ornament actually moved, then reset. It stays
-   *  selected, so the arrows can carry on from where the mouse stopped. */
-  private endTrillBodyDrag(): void {
-    const engine = this.getEngine()
-    if (engine && this.trillBodyDragChanged) {
-      engine.commitTrillDrag('start')
-      // ⛔ THE DROP RENDERS FOR REAL — see `./drags/bodyDrag`. This is also where the page finally
-      // re-casts around the ornament's new claim, which the frames deliberately did not do.
-      this.render.renderScore()
-      dbg(`Trill moved | id:${this.draggedTrillBodyId}`)
-    }
-    endTrillHandTrace() // ⏱ TEMPORARY — one summary line per gesture.
-    endTrillBodySpan() // ⭐ The next grab measures its own music.
-    this.activeDrag = null
-    this.draggedTrillBodyId = null
-    this.trillBodyDragChanged = false
-    this.trillBodyDragStartTime = null
   }
 
 
