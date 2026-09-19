@@ -98,6 +98,24 @@ export const REST_MODIFIER_LINE_SHIFT: Readonly<Record<string, number>> = {
 /** One tremolo stroke to the next — `Tremolo.spacing` = 7 (`metrics.js:212`). */
 export const TREMOLO_STROKE_STEP_PX = 7
 
+/**
+ * What each written duration carries — VexFlow's `Tables.durationCodes` rows (`tables.js`), the fields the
+ * note reads (S12j-d2): whether it has a STEM (⚠️ a rest's row says yes too — `isRest` overrules it),
+ * whether it has a FLAG, how many BEAMS it takes, and how far a beamed stem is extended (`stemBeamExtension`,
+ * px). ⚠️ A quarter, half and whole have NO beam count (VexFlow's field is absent, read as `undefined`).
+ */
+export const NOTE_DURATION_ROWS: Readonly<Record<'w' | 'h' | 'q' | '8' | '16' | '32', { stem: boolean; flag: boolean; beamCount?: number; stemBeamExtension?: number }>> = {
+  w: { stem: false, flag: false },
+  h: { stem: true, flag: false },
+  q: { stem: true, flag: false },
+  '8': { stem: true, flag: true, beamCount: 1, stemBeamExtension: 0 },
+  '16': { stem: true, flag: true, beamCount: 2, stemBeamExtension: 0 },
+  '32': { stem: true, flag: true, beamCount: 3, stemBeamExtension: 7.5 },
+}
+
+/** The room a note keeps above/below per text line — `Note.renderOptions.annotationSpacing` = 5 (`note.js:154`). */
+export const NOTE_ANNOTATION_SPACING_PX = 5
+
 /** How far a tuplet mark stands off its own reach, in px — `Tuplet.yOffset` = 0 (`metrics.js:215`). */
 export const TUPLET_Y_OFFSET_PX = 0
 

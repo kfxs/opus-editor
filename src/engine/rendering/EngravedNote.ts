@@ -51,14 +51,16 @@
  * ⏭️ the moment a ledger number changes, the ghost has to come with it.
  */
 import { NoteHead, StaveNote, Stem } from 'vexflow'
-import type { BoundingBox, Fraction } from 'vexflow'
+import type { BoundingBox, Fraction, Stave } from 'vexflow'
+import type { EngravedStave } from './EngravedStave'
+import { midLine } from '@/engine/engrave/notes/midLine'
 import { ModifierBox } from './EngravedModifier'
 import { NoteTicks, type TickCount } from '@/engine/layout/tickCount'
 import type { ScoreTuplet } from './ScoreTuplet'
 import type { DrawGroup } from '@/engine/paint/DrawGroup'
 import { drawGroupOf, svgNode } from './svgDrawGroup'
-import { EngravedHead } from './EngravedHead'
-import { LEDGER_OVERHANG_PX, STEM_THICKNESS_PX } from '@/engine/engrave/inheritedDefaults'
+import { EngravedHead, type HeadStyle } from './EngravedHead'
+import { LEDGER_OVERHANG_PX, NOTEHEAD_MIN_PADDING_PX, NOTE_ANNOTATION_SPACING_PX, NOTE_DURATION_ROWS, NOTE_GLYPH_SCALE, STEM_LENGTH_PX, STEM_THICKNESS_PX } from '@/engine/engrave/inheritedDefaults'
 import { stemExtents, stemLineHeight, type StemSpan } from '@/engine/engrave/notes/stemLength'
 import { NOTE_FONT } from '@/engine/engrave/inheritedFonts'
 import type { DrawContext } from '@/engine/paint/DrawContext'
@@ -67,7 +69,7 @@ import { flagPlacement, drawFlag } from '@/engine/engrave/notes/flag'
 import { drawStem } from '@/engine/engrave/notes/stem'
 import { drawNoteHead } from '@/engine/engrave/notes/noteheads'
 import { acceptsInkSurface } from './inkSurface'
-import { requireNoteFrame, staveFrame, staveOf } from './staveFrame'
+import { maybeStaveOf, requireNoteFrame, staveFrame, staveOf } from './staveFrame'
 import { noteLineY } from '@/engine/engrave/staff/staffFrame'
 import { modifierStart, type MarkAnchor, type ModifierSide } from '@/engine/engrave/notes/modifierStart'
 import {
@@ -483,6 +485,260 @@ export class EngravedNote extends StaveNote {
     }
     while (stack.length) unscale(stack.pop()!)
     return this
+  }
+
+  // ── ⭐⭐ S12j-d2 — THE NOTE'S OWN READERS AND WRITERS, transcribed from `StaveNote` / `StemmableNote` ──
+  // What a duration carries is `inheritedDefaults.NOTE_DURATION_ROWS` (VexFlow's `durationCodes`).
+
+  /** This note's row — its duration as our word (`keyLines.noteDurationOf`, VexFlow's token checked). */
+  private durationRow() {
+    return NOTE_DURATION_ROWS[noteDurationOf(this.duration)]
+  }
+
+  /**
+   * `StaveNote.isRest`: its head glyph is a rest's (E4E0–E4FF). ⚠️ For the six durations this editor
+   * writes that is exactly "its note type is `'r'`" — checked against VexFlow's table, not assumed.
+   */
+  override isRest(): boolean {
+    return this.noteType === 'r'
+  }
+
+  override isChord(): boolean {
+    return !this.isRest() && this.keys.length > 1
+  }
+
+  /** ⚠️ A REST's row says yes — every reader pairs this with `isRest`, as VexFlow's did. */
+  override hasStem(): boolean {
+    return this.durationRow().stem
+  }
+
+  /** `StaveNote.hasFlag`: a flagged duration, no beam, not a rest. */
+  override hasFlag(): boolean {
+    return this.durationRow().flag && !this.beam && !this.isRest()
+  }
+
+  /** `StaveNote.shouldDrawFlag`: a stem, a flagged duration, no beam, not a rest. */
+  override shouldDrawFlag(): boolean {
+    return this.getStem() !== undefined && this.durationRow().flag && this.beam === undefined && !this.isRest()
+  }
+
+  /** `StemmableNote.getBeamCount` — ⚠️ `undefined` for a quarter and longer, as VexFlow's absent field. */
+  override getBeamCount(): number {
+    return this.durationRow().beamCount as number
+  }
+
+  override getLineNumber(isTopNote?: boolean): number {
+    if (!this.keyProps.length) throw new Error("EngravedNote: can't get a line — the note has no key props.")
+    let resultLine = this.keyProps[0].line
+    for (const { line } of this.keyProps) {
+      if (isTopNote ? line > resultLine : line < resultLine) resultLine = line
+    }
+    return resultLine
+  }
+
+  /** `StaveNote.getLineForRest`: its only key's line, or a chord's first and last keys' midpoint. */
+  override getLineForRest(): number {
+    let restLine = this.keyProps[0].line
+    if (this.keyProps.length > 1) {
+      const lastLine = this.keyProps[this.keyProps.length - 1].line
+      restLine = midLine(Math.max(restLine, lastLine), Math.min(restLine, lastLine))
+    }
+    return restLine
+  }
+
+  override getKeyLine(index: number): number {
+    return this.keyProps[index].line
+  }
+
+  /** `StaveNote.setKeyLine`: the key's line, and the note rebuilt around it (`reset`). */
+  override setKeyLine(index: number, line: number): this {
+    this.keyProps[index].line = line
+    this.reset()
+    return this
+  }
+
+  override setKeyStyle(index: number, style: Parameters<StaveNote['setKeyStyle']>[1]): this {
+    this.heads()[index].setStyle(style as HeadStyle)
+    return this
+  }
+
+  /** `StaveNote.getGlyphWidth`: its first head's width. */
+  override getGlyphWidth(): number {
+    return this.heads()[0].getWidth()
+  }
+
+  /** `StaveNote.getVoiceShiftWidth`: a head's width, twice when displaced. */
+  override getVoiceShiftWidth(): number {
+    return this.getGlyphWidth() * (this.displaced ? 2 : 1)
+  }
+
+  override isDisplaced(): boolean {
+    return this.displaced
+  }
+
+  override setNoteDisplaced(displaced: boolean): this {
+    this.displaced = displaced
+    return this
+  }
+
+  /** `StaveNote.getTieRightX`: past the head, its shifts, a right-displaced head and the column's right room. */
+  override getTieRightX(): number {
+    let tieStartX = this.getAbsoluteX()
+    tieStartX += this.getGlyphWidth() + this.getXShift() + this.getRightDisplacedHeadPx()
+    const column = this.getModifierContext()
+    if (column) tieStartX += column.getRightShift()
+    return tieStartX
+  }
+
+  /** `StaveNote.getYForTopText`: the stave's row, or clear of the stem's tip by the spacing per line. */
+  override getYForTopText(textLine: number): number {
+    const extents = this.getStemExtents()
+    return Math.min(staveOf(this).getYForTopText(textLine), extents.topY - NOTE_ANNOTATION_SPACING_PX * (textLine + 1))
+  }
+
+  /**
+   * `StaveNote.getYForBottomText` — ⚠️ transcribed with VexFlow's slip intact: it asks the stave's TOP
+   * text row. Nothing in this editor reaches it (the annotation asks the stave's bottom row itself).
+   */
+  override getYForBottomText(textLine: number): number {
+    const extents = this.getStemExtents()
+    return Math.max(staveOf(this).getYForTopText(textLine), extents.baseY + NOTE_ANNOTATION_SPACING_PX * textLine)
+  }
+
+  /**
+   * `StaveNote.setStave` (with `Note.setStave` under it): stand on the stave, take its context, stand each
+   * head on it, the note's ys from the heads', the stem's y bounds from the heads' span.
+   */
+  override setStave(stave: Stave): this {
+    // ⭐ Every stave is ours (S12h) — the ONE cast back from the note's API type.
+    const ours = stave as unknown as EngravedStave
+    this.stave = stave
+    this.setYs([ours.getYForLine(0)])
+    this.setContext(ours.getContext() as unknown as Parameters<StaveNote['setContext']>[0])
+    const ys = this.heads().map(head => {
+      head.setStave(ours)
+      return head.getY()
+    })
+    this.setYs(ys)
+    const stem = stemOf(this)
+    if (stem) {
+      const { yTop, yBottom } = this.getNoteHeadBounds()
+      stem.setYBounds(yTop, yBottom)
+    }
+    return this
+  }
+
+  /** `StaveNote.preFormat`: the column's rules run, and the note's own width (its head, displaced heads, a flag up). */
+  override preFormat(): void {
+    if (this.preFormatted) return
+    let noteHeadPadding = 0
+    const column = this.getModifierContext()
+    if (column) {
+      column.preFormat()
+      if (column.getWidth() === 0) noteHeadPadding = NOTEHEAD_MIN_PADDING_PX
+    }
+    let width = this.getGlyphWidth() + this.getLeftDisplacedHeadPx() + this.getRightDisplacedHeadPx() + noteHeadPadding
+    if (this.shouldDrawFlag() && this.getStemDirection() === 1) width += this.getGlyphWidth()
+    this.setWidth(width)
+    this.preFormatted = true
+  }
+
+  /** `StemmableNote.postFormat`. */
+  override postFormat(): this {
+    this.beam?.postFormat()
+    this.postFormatted = true
+    return this
+  }
+
+  /** `StaveNote.setBeam`: the beam, the heads' displacements again, the stem's extension for it. */
+  override setBeam(beam: Parameters<StaveNote['setBeam']>[0]): this {
+    this.beam = beam
+    this.calcNoteDisplacements()
+    stemOf(this)?.setExtension(this.getStemExtension())
+    return this
+  }
+
+  /** `StaveNote.calculateOptimalStemDirection`: up when the keys' middle is below the middle line. ⚠️ Writes `minLine`/`maxLine`. */
+  override calculateOptimalStemDirection(): number {
+    const sorted = stavePrivates(this).sortedKeyProps
+    this.minLine = sorted[0].keyProps.line
+    this.maxLine = sorted[this.keyProps.length - 1].keyProps.line
+    return (this.minLine + this.maxLine) / 2 < 3 ? 1 : -1
+  }
+
+  override autoStem(): void {
+    this.setStemDirection(this.calculateOptimalStemDirection())
+  }
+
+  override getStemDirection(): number {
+    if (!this.stemDirection) throw new Error('EngravedNote: no stem direction.')
+    return this.stemDirection
+  }
+
+  /**
+   * `StemmableNote.setStemDirection`: the direction (up by default), the note rebuilt, its flag rebuilt,
+   * its beam DROPPED, the stem told, and a pre-formatted note pre-formatted again.
+   */
+  override setStemDirection(direction?: number): this {
+    if (!direction) direction = 1
+    if (direction !== 1 && direction !== -1) throw new Error(`EngravedNote: invalid stem direction ${direction}`)
+    this.stemDirection = direction
+    this.reset()
+    if (this.hasFlag()) this.buildFlag()
+    this.beam = undefined
+    const stem = stemOf(this)
+    if (stem) {
+      stem.setDirection(direction)
+      stem.setExtension(this.getStemExtension())
+    }
+    if (this.preFormatted) this.preFormat()
+    return this
+  }
+
+  /**
+   * `StaveNote.getStemExtension` over `StemmableNote`'s: an override if one was set; a beamed stem's row
+   * extension; a flag taller than the stem; then — the note's OWN — a stem pointing the optimal way lengthens
+   * past an octave from the middle line (the chord's extreme line, beyond 3½ lines, times the staff space).
+   */
+  override getStemExtension(): number {
+    const row = this.durationRow()
+    const scale = NOTE_GLYPH_SCALE
+    let base: number
+    if (this.stemExtensionOverride !== undefined) {
+      base = this.stemExtensionOverride
+    } else if (this.beam) {
+      base = (row.stemBeamExtension as number) * scale
+    } else {
+      const flagHeight = this.flag.getHeight()
+      base = flagHeight > STEM_LENGTH_PX * scale ? flagHeight - STEM_LENGTH_PX * scale : 0
+    }
+    if (!row.stem) return base
+    const stemDirection = this.getStemDirection()
+    if (stemDirection !== this.calculateOptimalStemDirection()) return base
+    const MIDDLE_LINE = 3
+    const midLineDistance = stemDirection === 1 ? MIDDLE_LINE - this.maxLine : this.minLine - MIDDLE_LINE
+    const linesOverOctaveFromMidLine = midLineDistance - 3.5
+    if (linesOverOctaveFromMidLine <= 0) return base
+    const stave = maybeStaveOf(this)
+    const spacingBetweenLines = stave !== undefined ? stave.getSpacingBetweenLines() : 10
+    return base + linesOverOctaveFromMidLine * spacingBetweenLines
+  }
+
+  /** `StemmableNote.getStemLength`: the stem's 3½ spaces and the extension. */
+  override getStemLength(): number {
+    return STEM_LENGTH_PX + this.getStemExtension()
+  }
+
+  /** `StemmableNote.setStemLength`: an override of the extension, so the stem is `height` long. */
+  override setStemLength(height: number): this {
+    this.stemExtensionOverride = height - STEM_LENGTH_PX
+    return this
+  }
+
+  override getStemExtents(): { topY: number; baseY: number } {
+    const stem = stemOf(this)
+    if (!stem) throw new Error('EngravedNote: no stem attached to this note.')
+    return stem.getExtents()
   }
 
   /**
