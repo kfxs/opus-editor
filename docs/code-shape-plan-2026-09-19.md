@@ -1,6 +1,6 @@
 # Code shape plan — 2026-09-19
 
-**Status: IN PROGRESS — Phase 1 items 1–5 done (2026-09-19), 6–8 open.** Phases are ordered by
+**Status: IN PROGRESS — Phase 1 items 1–6 done (2026-09-19), 7–8 open.** Phases are ordered by
 value over risk; each one stands alone and can be stopped after. A done item carries ✅ and what
 actually happened where that differs from what was planned.
 
@@ -125,11 +125,16 @@ The fix is to change the **contract**, not the rule: a row owns its body.
      `PaletteController.setDynamic` / `setTempo`; `CoordinateMapper.beatToPixelX` / `getConfig` /
      `isWithinMeasureBounds`; `ViewportModel.getContentSize`; `PlaybackEngine.getState` (no caller
      at all) and the reserved `getPlaybackPosition`.*
-6. **Fence what the docs already claim.** Add `engine/rendering`, `engine/layout` and
+6. ✅ **Fence what the docs already claim.** Add `engine/rendering`, `engine/layout` and
    `engine/fonts` to the score layer's restricted imports. It fails today on
    `barlineOps.ts` → `layout/barlineSign` (→ font metrics); move the pure half
    (`signAtBoundary`, `wingsAllowed`) to the core, and the `BarlineSignKind` type with it —
    `ScoreModel.ts` imports it from the same file.
+   *Done as `engine/models/boundarySign.ts` (+ its spec, moved with it). `engine/rendering` was
+   already fenced; `layout` and `fonts` were added and the fence was proved to bite. ⚠️
+   `wingsAllowed` was NOT pure — it read the sign's parts, hence the font — so the core states it
+   as a total table and `barlineSign.test.ts` holds that table to `hasThickLine`, the same answer
+   read off the parts.*
 7. Cheap settings: `noImplicitOverride` (0 errors), `noImplicitReturns` (2), drop the leftover
    `jsx` / `*.tsx` settings, drop `@types/uuid`. Decide prettier: run it once with
    `.git-blame-ignore-revs` and a CI check, or remove it — today it is configured and never run.

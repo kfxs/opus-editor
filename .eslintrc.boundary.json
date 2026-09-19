@@ -261,8 +261,8 @@
                 "message": "src/dev is SCAFFOLDING and must delete cleanly: the score layer may not import it. See src/engine/RenderProbe.ts for the seam."
               },
               {
-                "group": ["vexflow", "**/rendering/*", "@/engine/rendering/*", "**/audio/*", "@/engine/audio/*", "**/MusicEngine", "@/engine/MusicEngine", "@/interactions", "@/interactions/*", "**/interactions/*", "@/bus", "@/bus/*", "**/bus/*"],
-                "message": "Score layer must not import a renderer, audio, the editor's facade, an interaction controller or the UI bus. The arrow points editor -> score, never score -> editor — docs/DESIGN-PRINCIPLES.md §5."
+                "group": ["vexflow", "**/rendering/*", "@/engine/rendering/*", "**/layout/*", "@/engine/layout/*", "**/fonts/*", "@/engine/fonts/*", "**/audio/*", "@/engine/audio/*", "**/MusicEngine", "@/engine/MusicEngine", "@/interactions", "@/interactions/*", "**/interactions/*", "@/bus", "@/bus/*", "**/bus/*"],
+                "message": "Score layer must not import a renderer, the layout or the font metrics (what a score IS never depends on how much room or ink it takes — a sign's KIND is `models/boundarySign`, its parts are `layout/barlineSign`), audio, the editor's facade, an interaction controller or the UI bus. The arrow points editor -> score, never score -> editor — docs/DESIGN-PRINCIPLES.md §5."
               }
             ]
           }

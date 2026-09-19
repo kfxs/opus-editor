@@ -19,7 +19,8 @@ import { pedalTethers, tetherDashArray, TETHER_HIT } from './elements/pedalTethe
 import { pedalStaffSpacePx } from './pedalLane'
 import { trillEndpointHandles } from './elements/trillHandles'
 import type { MarkKind } from './enclosedMarks'
-import { signAtBoundary, type SignHalf } from '@/engine/layout/barlineSign'
+import type { SignHalf } from '@/engine/layout/barlineSign'
+import { signAtBoundary } from '@/engine/models/boundarySign'
 import { scoreTextClass } from '@/engine/rendering/ScoreHeaderPass'
 
 /**

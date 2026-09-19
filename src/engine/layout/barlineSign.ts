@@ -41,6 +41,7 @@
  * sources agree, and here is the seam".
  */
 import type { Measure } from '@/types/music'
+import type { BarlineSignKind } from '@/engine/models/boundarySign'
 import { engravingDefault, glyphBox } from '@/engine/fonts/fontMetrics'
 import { THIN_LINE_SPACES } from '@/engine/rendering/thinLineWeight'
 
@@ -95,16 +96,9 @@ const DOT_SEPARATION = engravingDefault('repeatBarlineDotSeparation')
  */
 const DOT_WIDTH = glyphBox('repeatDot').advance
 
-/**
- * **What sign divides a boundary.** ⭐ Note what is NOT here: `none`, `double`, `heavy`, `dashed` —
- * the family's other members are one case each in this file the day they are asked for, and a value
- * with no drawing behind it would be a lie the compiler cannot catch (plan §0).
- *
- * ⭐ `repeatBoth` is not a stored value anywhere and never will be: it is the DRAWING of two model
- * facts, bar *N*'s `repeatEnd` plus bar *N+1*'s `repeatStart` (§3.2, §4.3). MEI had to invent
- * `rptboth` because one stored slot could not hold two statements; we combine at the pen instead.
- */
-export type BarlineSignKind = 'plain' | 'invisible' | 'final' | 'repeatEnd' | 'repeatStart' | 'repeatBoth'
+/** The family's kinds are the score's (`models/boundarySign`, with `signAtBoundary`); re-exported
+ *  because every signature below speaks them. */
+export type { BarlineSignKind }
 
 /**
  * ⭐ **The signs a user PLACES** — the palette's three, and the vocabulary the editor's barline stamp
@@ -292,46 +286,6 @@ export function barlineSignParts(kind: BarlineSignKind): BarlineSignParts {
   }
 }
 
-/**
- * **The sign at one boundary**, from the two bars that meet there. Either may be absent: `ends` is
- * undefined at a system's opening edge, `begins` at its closing one — and "absent" here means *not on
- * this system*, which is what makes the system condition local to this one function.
- *
- * ⭐ The order of these tests IS the family's precedence, and two rows of it are judgement calls:
- *
- *  - **`invisible` first, above everything** — it is not a sign but a statement about whatever sign
- *    would stand here, so it cannot lose to one. His call, 2026-08-26; the body says why.
- *  - a bar carrying BOTH a `final` style and a `repeatEnd` draws the **repeat**, because Gould's
- *    repeat *"uses the final double barline design together with repeat dots"* (p. 39) — the repeat
- *    is the final bar plus something, so it subsumes it rather than competing with it.
- */
-export function signAtBoundary(ends: Measure | undefined, begins: Measure | undefined): BarlineSignKind | null {
-  // ⭐⭐ **INVISIBLE WINS OVER EVERYTHING** — 🚨 his report, 2026-08-26: *"why can I not override a
-  // repeat line with an invisible?"* He had a `|:` on this line, stamped invisible, and the picture
-  // did not move: the style was stored, and the repeat below out-ranked it.
-  //
-  // ⭐ Right, and the fix is the precedence rather than the field. `invisible` is not a fourth sign
-  // competing for the boundary — it is a statement that **this line is not engraved**, which is a
-  // statement ABOUT whatever sign would otherwise stand there. Every engine models it that way
-  // (MuseScore's barline `visible` flag is orthogonal to its type), and it is the hidden REST's rule
-  // once more: what disappears is the INK, never the content. The repeat is still in the model, still
-  // exported, still what a play order would read.
-  //
-  // ⚠️ The ROOM is deliberately NOT affected — `ownEndSignKind` still answers `repeatEnd` for a
-  // hidden repeat, so hiding a line never re-spaces the music around it (that function's own rule:
-  // reserving more than is drawn is always safe, the reverse never is).
-  if (ends?.barline?.style === 'invisible') return 'invisible'
-
-  const closes = ends?.repeatEnd !== undefined
-  const opens = begins?.repeatStart !== undefined
-  if (closes && opens) return 'repeatBoth'
-  if (opens) return 'repeatStart'
-  if (closes) return 'repeatEnd'
-  if (ends?.barline?.style === 'final') return 'final'
-  // A bar ends here, and nothing was said about it: the plain single line every boundary draws.
-  // ⛔ Nothing when no bar ends here — a system's opening edge is the stave's own begin bar.
-  return ends ? 'plain' : null
-}
 
 /**
  * ⭐⭐ **WHICH TWO SPACES THE REPEAT DOTS GO IN — read off the staff, never hardcoded.**
@@ -379,21 +333,10 @@ export function signHasHalf(kind: BarlineSignKind, half: SignHalf): boolean {
   return strokes.some(s => s.half === half) || dots.some(d => d.half === half)
 }
 
-/**
- * ⭐⭐ **CAN THIS SIGN CARRY WINGS?** — the flared tips at the top and bottom of its thick line.
- *
- * ⭐ **A sign with a HALF has a thick line; one without is a bare stroke.** So the answer is read off
- * the parts, exactly as {@link signHasHalf} is, and there is no third table to keep in step: `final`,
- * both repeats and the back-to-back form all qualify, while a `plain` line and an `invisible` one —
- * which are nothing but their divider — have nothing to flare.
- *
- * 🚨 **HIS RULE, 2026-08-26:** *"it should be only checkable when wings are allowed — this is for
- * open repeat, for end repeat and for final; other barlines do not allow wings."* ⚠️ Note the FINAL:
- * MuseScore wings the two repeats and the back-to-back form and never the final bar
- * (`repeatBarTips` is checked in three cases only). He asked for the final too, which is his call and
- * a defensible one — a final bar's thick line is the same stroke a repeat's is.
- */
-export function wingsAllowed(kind: BarlineSignKind): boolean {
+/** Does the sign have a thick line — READ OFF THE PARTS. `models/boundarySign.wingsAllowed` is the
+ *  same answer stated by the core as a table (it may not read font metrics), and
+ *  `barlineSign.test.ts` holds the two together. */
+export function hasThickLine(kind: BarlineSignKind): boolean {
   return signHasHalf(kind, 'end') || signHasHalf(kind, 'start')
 }
 
@@ -432,7 +375,7 @@ export interface SignWings {
 }
 
 export function signWings(kind: BarlineSignKind): SignWings[] {
-  if (!wingsAllowed(kind)) return []
+  if (!hasThickLine(kind)) return []
   const parts = barlineSignParts(kind)
   const divider = parts.strokes[parts.divider]
   const width = glyphBox('bracketTop').advance
@@ -459,7 +402,7 @@ export function barlineSignExtent(kind: BarlineSignKind): { left: number; right:
 
 /**
  * ⭐ **The sign this bar ends with, from THIS bar's own fields and nothing else** — what the WIDTH
- * asks, as against {@link signAtBoundary}, which is what the DRAWING asks.
+ * asks, as against `models/boundarySign.signAtBoundary`, which is what the DRAWING asks.
  *
  * The two differ on purpose and only ever in the bar's favour. Room is owed by the measure that
  * stores the statement (§5.1, and it is what ONE OWNER PER LINE buys), so this may not read a

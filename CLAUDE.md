@@ -135,8 +135,10 @@ src/
                           #   ⭐ ONE number feeds the ROOM and the INK in each)
                           #   + barWidthRoom (the gesture's closed form) + measuredRoom (what
                           #   the ElementRegistry says a column/bar can still give up)
-                          #   + barlineSign (⭐ WHAT SIGN a boundary carries and what it is
-                          #   made of — the ONE owner of a final bar's / repeat's extent)
+                          #   + barlineSign (⭐ what a boundary's sign is MADE OF — the ONE owner
+                          #   of a final bar's / repeat's extent; ⚠️ WHICH sign stands there, and
+                          #   whether it may carry wings, is the SCORE's: `models/boundarySign` —
+                          #   the core may not import `layout/` or `fonts/`, lint:boundary)
                           #   + ⏸️ softmaxSpacing (VexFlow's softmax, PORTED only because a clef change
                           #   after a bar's last onset still stands where it puts it — his call;
                           #   ⛔ don't build on it: it goes with the clef review, map §9.4 #5)

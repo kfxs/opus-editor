@@ -4,7 +4,7 @@ import type { InspectedElement } from '../../interactions/selectionSnapshot'
 import { MAX_FAN_BEAMS, MAX_FAN_COUNT, MAX_FAN_SPREAD, fanRampRange, fanSpread } from '../../utils/fannedBeam'
 import type { TrillContinuationLabel } from '../../types/music'
 import type { ArticulationType, FanMark, FractionalBeamSide, Hairpin } from '../../types/music'
-import { wingsAllowed, type BarlineSignKind } from '@/engine/layout/barlineSign'
+import { wingsAllowed, type BarlineSignKind } from '@/engine/models/boundarySign'
 
 /**
  * What is selected, as the model holds it.

@@ -30,7 +30,7 @@
  * ORDER is one performance of it.
  */
 import type { BarlineStatement, BarlineStyle, Measure, RepeatEnd, RepeatStart, Score } from '@/types/music'
-import { signAtBoundary, wingsAllowed, type BarlineSignKind } from '@/engine/layout/barlineSign'
+import { signAtBoundary, wingsAllowed, type BarlineSignKind } from './boundarySign'
 
 /**
  * Every legal {@link BarlineStyle}, as a table the compiler keeps TOTAL.
@@ -289,7 +289,7 @@ export function addRepeatAtBoundary(score: Score, endsMeasure: number | null, wh
  * 🚨 **HIS ASK, 2026-08-26:** *"the wings on properties should be a checkbox, but the important thing
  * is it should only be checkable when wings are allowed — this is for open repeat, for end repeat and
  * for final; other barlines do not allow wings."* The *allowed* half is
- * {@link barlineSign.wingsAllowed}, asked by the panel; this is the write.
+ * {@link wingsAllowed}, asked by the panel; this is the write.
  *
  * ⭐ **It sets the flag on every statement standing at that line**, which is one field for a `final`
  * or a lone repeat and two for a `:||:`. A decoration on ONE drawn sign cannot be half on, and the

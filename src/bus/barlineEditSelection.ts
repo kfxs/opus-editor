@@ -1,4 +1,4 @@
-import type { BarlineSignKind } from '@/engine/layout/barlineSign'
+import type { BarlineSignKind } from '@/engine/models/boundarySign'
 
 /**
  * The seam the Properties **barline chooser** publishes through (his ask, 2026-08-26: *"what about
