@@ -280,6 +280,8 @@ describe('spanMarkKeys — a span mark\'s row of the keys column', () => {
     commitOttavaDrag: vi.fn(),
     commitOttavaOffsetDrag: vi.fn(),
     commitTrillDrag: vi.fn(),
+    resizeOttavaBySlot: vi.fn(() => true),
+    moveOttavaStartBySlot: vi.fn(() => true),
   }
   let ctx: KeysCtx
   let state: EditorState
@@ -321,6 +323,23 @@ describe('spanMarkKeys — a span mark\'s row of the keys column', () => {
     engine.nudgeOttava.mockReturnValueOnce(false)
     expect(spanMarkKeys('ottava').nudge!(ctx, select(), 0, 0.25)).toBe(false)
     expect(ctx.afterMarkPress).not.toHaveBeenCalled()
+  })
+
+  it('⭐ reanchor: the armed SQUARE is the gate — END resizes, START moves the beginning, nothing armed DECLINES', () => {
+    engine.resizeOttavaBySlot.mockReturnValue(true)
+    engine.moveOttavaStartBySlot.mockReturnValue(true)
+    expect(spanMarkKeys('ottava').reanchor!(ctx, select('end'), 1)).toBe(true)
+    expect(engine.resizeOttavaBySlot).toHaveBeenCalledWith('O1', 1)
+    expect(spanMarkKeys('ottava').reanchor!(ctx, select('start'), -1)).toBe(true)
+    expect(engine.moveOttavaStartBySlot).toHaveBeenCalledWith('O1', -1)
+    expect(ctx.render).toHaveBeenCalledTimes(2)
+    expect(spanMarkKeys('ottava').reanchor!(ctx, select(), 1)).toBe(false)
+  })
+
+  it('reanchor DECLINES, and draws nothing, when the model refuses', () => {
+    engine.resizeOttavaBySlot.mockReturnValue(false)
+    expect(spanMarkKeys('ottava').reanchor!(ctx, select('end'), -1)).toBe(false)
+    expect(ctx.render).not.toHaveBeenCalled()
   })
 
   it('reset: armed → that end, and it renders; nothing to take back → DECLINES, and does not', () => {

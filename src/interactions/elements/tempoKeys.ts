@@ -22,6 +22,15 @@ export const TEMPO_KEYS: KeysOf<'tempo'> = {
     return moved
   },
 
+  /** One ONSET earlier or later — and AUDIBLE, since a tempo applies from the beat it sits on.
+   *  ⚠️ DECLINES at either end of the score and on a beat another tempo mark already holds (one mark
+   *  per beat, `engine/models/tempoOps`), so the chord falls through to the note offset behind it. */
+  reanchor({ engine, render }, { id }, direction) {
+    const moved = engine.moveTempoBySlot(id, direction)
+    if (moved) render()
+    return moved
+  },
+
   /** DECLINEs when the mark was never nudged, so the key falls through. */
   reset({ engine, render }, { id }) {
     const was = engine.resetTempoOffset(id)

@@ -13,7 +13,11 @@ This file provides guidance to Claude Code when working with this repository.
   `interactions/elements/*`. **A SLICE TOO THIN TO BE LOGIC IS STILL A SLICE**: if what you are
   adding is the twelfth `case` in a family, add the twelfth *module* and a **row in its table** —
   `ELEMENT_SPECS` + `ELEMENT_HIT_ORDER` (`interactions/elements/chain.ts`), `GHOST_DRAWERS` +
-  `ToolGhost` (`engine/rendering/`), `MARKING_TOOL_USES_ARMED_LENGTH`. **And a SCORE operation goes
+  `ToolGhost` (`engine/rendering/`), `MARKING_TOOL_USES_ARMED_LENGTH`. ⭐ **A ROW OWNS ITS BODY**
+  (docs/code-shape-plan-2026-09-19.md): a kind's DRAG is `interactions/drags/<kind>.ts`, armed by
+  its own element module (⛔ no `arm…Drag`, field or `handle…Drag` on `MouseController`), and what
+  the ARROWS do to it is the `keys` column of its row, `elements/<kind>Keys.ts` (⛔ no
+  `nudgeSelected<Kind>` closure or `||` link in `shortcutWiring`). **And a SCORE operation goes
   in the core (`engine/models/**`, `utils/**`, `types/**`), not on `MusicEngine`** — that is the
   *editor's* facade (`docs/DESIGN-PRINCIPLES.md` §5). An IMPORT lint cannot check any of this: putting
   the logic in the wrong layer imports nothing, and a slice in the wrong file imports exactly what it
@@ -98,6 +102,11 @@ src/
   interactions/     # Framework-agnostic controllers (Mouse/Keyboard/Selection/
                     #   Highlight/Palette/Clipboard…) + EditorState + ViewportHost
                     #   (DOM⇄viewport) + shortcutWiring.
+                    #   elements/ — one module per selectable kind: its hit-test, how it paints,
+                    #     the drag it arms and its `keys` row (`<kind>Keys.ts`); `chain.ts` is the table.
+                    #   drags/ — ⭐ one GESTURE per drag, state in its closure. `MouseController` holds
+                    #     ONE and knows none: `gesture.ts` is the contract, `bodyDrag` / `heldDrag`
+                    #     the two frames a mark's walk is a row of, `markEnd` the squares' table.
   bus/              # The UI NOTICEBOARD: one `EditorBus` object of ~21 publish/subscribe
                     #   seams that `interactions/` and `windows/` both pin to, so neither
                     #   imports the other. Import `{ bus }` from '@/bus' — never a store
@@ -350,7 +359,7 @@ loadJSON(json: string): void
 - **Coordinate mapping**: ScoreRenderer stores measure bounds; CoordinateMapper converts between pixels and musical positions.
 - **Collision detection**: CollisionDetector checks for overlapping notes at same beat/pitch.
 - **Rest handling**: Empty beats are filled with rests automatically.
-- **The selection is TWO things, deliberately**: `selectedItems`/`selectedNoteId` is the multi-select of NOTES (an anchor and a pivot), and `selectedElement` is the ONE on-score element picked for edit/delete — a discriminated union (`SelectedElement`) covering clef, meter, barline, dynamic, tempo, tuplet, slur, tie, articulation, accidental, dot, stem, tremolo and measure-range. Selecting IS clearing, so there is no clear-list to keep in sync, and every new element kind MUST join the union. Each kind is then ONE module in `interactions/elements/` — its hit-test and how it paints — plus a row in `ELEMENT_SPECS` (total over the union) and, if a press can land on it, a position in `ELEMENT_HIT_ORDER` (⭐ that array's ORDER is the answer to "who wins a press two glyphs both cover"). `assertNeverElement` still names the two sites that stay switches: Delete (`shortcutWiring`) and the Properties report (`selectionSnapshot`). Always *reassign* the field, never mutate it in place.
+- **The selection is TWO things, deliberately**: `selectedItems`/`selectedNoteId` is the multi-select of NOTES (an anchor and a pivot), and `selectedElement` is the ONE on-score element picked for edit/delete — a discriminated union (`SelectedElement`) covering clef, meter, barline, dynamic, tempo, tuplet, slur, tie, articulation, accidental, dot, stem, tremolo and measure-range. Selecting IS clearing, so there is no clear-list to keep in sync, and every new element kind MUST join the union. Each kind is then ONE module in `interactions/elements/` — its hit-test, how it paints, the drag it arms (`interactions/drags/`) and what the arrows do to it (its `keys` row: `nudge` / `reset` / `reanchor` / `cycle`) — plus a row in `ELEMENT_SPECS` (total over the union) and, if a press can land on it, a position in `ELEMENT_HIT_ORDER` (⭐ that array's ORDER is the answer to "who wins a press two glyphs both cover"). `assertNeverElement` still names the two sites that stay switches: Delete (`shortcutWiring`) and the Properties report (`selectionSnapshot`). Always *reassign* the field, never mutate it in place.
 - **Marking tools**: the armed stamp/entry tools (clef, time signature, dynamic, tempo, articulation, accidental, tie, dot, rest) are ONE `selectedMarkingTool` union on `EditorState` (`interactions/EditorState.ts`) — arming a tool clears the others, and every new tool MUST join the union. Always *reassign* the field, never mutate it in place: the observable Proxy only traps the SET.
 
 ## Testing

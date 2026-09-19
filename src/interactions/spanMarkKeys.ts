@@ -139,6 +139,18 @@ export function spanMarkKeys(kind: SpanMarkKind): ElementKeys<Extract<SelectedEl
       }
       return moved
     },
+    /** The armed SQUARE is the gate, and says which end. Nothing armed DECLINES. */
+    reanchor({ engine, state, render }, { id, endpoint }, direction) {
+      if (!endpoint) return false
+      const moved = tools.reanchor(engine, state, id, endpoint, direction)
+      if (moved) render()
+      return moved
+    },
+    cycle({ engine, state, render }, _mark, step) {
+      const armed = cycleSpanMarkEnd(kind, state, engine, step)
+      if (armed) render()
+      return armed
+    },
     reset({ engine, state, render }, { endpoint }) {
       const was = endpoint ? resetArmedSpanMarkEnd(kind, state, engine) : resetSelectedSpanMark(kind, state, engine)
       if (was) render()

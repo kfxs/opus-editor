@@ -44,6 +44,15 @@ describe('ELEMENT_SPECS — the `keys` column', () => {
     expect(answering).toEqual(['clef', 'dynamic', 'hairpin', 'ottava', 'pedal', 'slur', 'tempo', 'trill'])
   })
 
+  it('⭐ …these MOVE THROUGH THE MUSIC on `Ctrl+Shift+←/→`, and these have handles for `Tab` to walk', () => {
+    const having = (verb: 'reanchor' | 'cycle') =>
+      Object.values(ELEMENT_SPECS).filter(spec => spec.keys?.[verb]).map(spec => spec.kind).sort()
+    // Every kind that answers the arrows re-anchors too: two chords, two categories, one selection.
+    expect(having('reanchor')).toEqual(['clef', 'dynamic', 'hairpin', 'ottava', 'pedal', 'slur', 'tempo', 'trill'])
+    // ⛔ A point mark has no handles: only the spans and the slur do.
+    expect(having('cycle')).toEqual(['hairpin', 'ottava', 'pedal', 'slur', 'trill'])
+  })
+
   it('every row that answers has BOTH verbs — a nudge with no reset leaves ink nobody can put back', () => {
     for (const spec of Object.values(ELEMENT_SPECS)) {
       if (!spec.keys) continue

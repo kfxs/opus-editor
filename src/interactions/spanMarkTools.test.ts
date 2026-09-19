@@ -23,7 +23,7 @@ describe('SPAN_MARK_TOOLS', () => {
    *  checked against a row rather than trusted (`reference_a_false_warning_teaches_readers_to_skip`). */
   const MEMBERS = [
     'armedStamp', 'onGeometrySet', 'nudgeEnd', 'nudgeWhole', 'walkEnd', 'walkWhole',
-    'resetEnd', 'resetWhole', 'commitEnd', 'commitWhole', 'cycleEnd', 'verticalSign',
+    'resetEnd', 'resetWhole', 'commitEnd', 'commitWhole', 'reanchor', 'cycleEnd', 'verticalSign',
   ] as const
 
   it('⭐⭐ has a COMPLETE row for every kind — no member missing, none extra', () => {

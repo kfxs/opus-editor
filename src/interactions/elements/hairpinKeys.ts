@@ -22,6 +22,7 @@
  * places the same pixels come from.
  */
 import { walkHairpinBody, walkHairpinEndpoint } from '../hairpinWalk'
+import { cycleHairpinEndpoint } from './hairpinHandles'
 import type { KeysOf } from './keys'
 
 export const HAIRPIN_KEYS: KeysOf<'hairpin'> = {
@@ -37,6 +38,37 @@ export const HAIRPIN_KEYS: KeysOf<'hairpin'> = {
     const moved = horizontal ? walkHairpinBody(engine, id, dx) : engine.nudgeHairpin(id, dx, dy)
     if (moved) afterMarkPress('hairpin', id, dx, dy, () => engine.commitHairpinOffsetDrag())
     return moved
+  },
+
+  /**
+   * The armed SQUARE is the gate, and says which end: the RIGHT one resizes — `→` lengthens, `←`
+   * shortens — and the LEFT one moves the start and holds the end (the model writes `beat` and
+   * `length` together). Nothing armed DECLINES: the wedge is not silently resized from one end.
+   *
+   * ⚠️ **This writes the MODEL where the arrows above write an override**, and that is the rule,
+   * not an inconsistency: a hairpin's EXTENT is musical — it says which notes get louder — and its
+   * height is not. An offset here would give two ways to say "three beats long" that can disagree,
+   * with playback believing the one the eye does not.
+   *
+   * ⭐ **By a SLOT, not by a fixed fraction**: the step is the duration of the note the wedge ends
+   * on (growing) or would end on (shrinking), so the end always lands on a notehead — the only
+   * place a wedge can honestly stop. A fixed quarter would leave it mid-triplet. It DECLINES rather
+   * than make the wedge non-positive; shortening never deletes the thing being shortened.
+   */
+  reanchor({ engine, render }, { id, endpoint }, direction) {
+    if (!endpoint) return false
+    const moved = endpoint === 'end'
+      ? engine.resizeHairpinBySlot(id, direction)
+      : engine.moveHairpinStartBySlot(id, direction)
+    if (moved) render()
+    return moved
+  },
+
+  /** `Tab` walks the wedge's two endpoint squares (`./hairpinHandles`). */
+  cycle({ engine, state, render }, _hairpin, step) {
+    const armed = cycleHairpinEndpoint(state, engine.getElementRegistry(), step)
+    if (armed) render()
+    return armed
   },
 
   /** An armed end → that end; nothing armed → both. DECLINEs when there was no nudge to take back,

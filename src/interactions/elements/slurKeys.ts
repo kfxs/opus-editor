@@ -25,6 +25,8 @@
  * ⛔ No key RUN here, unlike the marks: every press is its own write and its own render.
  */
 import { walkArmedSlurEndpoint } from '../slurEndpointWalk'
+import { cycleSlurHandle } from '../slurHandleCycle'
+import { reanchorArmedSlurEndpoint } from '../slurReanchor'
 import { nudgeArmedSlurControlPoint, resetArmedSlurHandle } from '../slurHandleNudge'
 import type { KeysOf } from './keys'
 
@@ -50,6 +52,22 @@ export const SLUR_KEYS: KeysOf<'slur'> = {
       : engine.nudgeSlur(slur.id, dx, dy)
     if (moved) render()
     return moved
+  },
+
+  /** An armed TRUE END walks its anchor one NOTE along, instead of nudging it by pixels. The module
+   *  owns every reason it can decline — no armed end, off the lane, at the other end
+   *  (`../slurReanchor`). */
+  reanchor({ engine, state, render }, _slur, direction) {
+    const moved = reanchorArmedSlurEndpoint(state, engine, direction)
+    if (moved) render()
+    return moved
+  },
+
+  /** `Tab` walks the slur's drawn handles — dots, ends and joins (`../slurHandleCycle`). */
+  cycle({ engine, state, render }, _slur, step) {
+    const armed = cycleSlurHandle(state, engine.getElementRegistry(), step)
+    if (armed) render()
+    return armed
   },
 
   /** ANY armed handle — arc dot, true end or open join — back to the automatic engraving; nothing

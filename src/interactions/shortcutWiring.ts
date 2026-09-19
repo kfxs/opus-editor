@@ -14,21 +14,13 @@ import type { RenderController } from './RenderController'
 import type { ClipboardController } from './ClipboardController'
 import type { ViewportHost } from './ViewportHost'
 import { ShortcutManager } from '../shortcuts'
-import { buildBeatMap } from '@/utils/beatMap'
-import { fracToNumber } from '@/utils/fraction'
 import { beatToFrac } from '../utils/musicUtils'
 import { selectedArticulationNoteIds } from './selection'
 import { markItems, marksLabel, removeMarks } from './enclosedMarks'
 import { passageOf, spansStaves } from './measurePassage'
 import { flipSelection } from './flipSelection'
 import { repeatSelectedPassage } from './repeatPassage'
-import { reanchorArmedSlurEndpoint } from './slurReanchor'
-import { cycleSlurHandle } from './slurHandleCycle'
-import { cycleHairpinEndpoint, nudgeArmedHairpinMouth, resetArmedHairpinMouth } from './elements/hairpinHandles'
-import {
-  cycleSpanMarkEnd,
-} from './spanMarkKeys'
-import { reanchorArmedTrillEndpoint } from './trillReanchor'
+import { nudgeArmedHairpinMouth, resetArmedHairpinMouth } from './elements/hairpinHandles'
 import { keyRunTick } from './keyRun'
 import type { MarkPreviewKind } from '../engine/rendering/markPreviewPass'
 import { windows } from '../windows'
@@ -104,61 +96,6 @@ export function wireShortcuts(
   // Properties input uses the same number.
   const MOUTH_STEP_SS = 0.05
 
-  // Tab / Shift+Tab: walk the selected slur's drawn handles. The registry is the list, so this
-  // declines wherever none are drawn (no slur selected, or linear view) — see `slurHandleCycle`.
-  const walkSlurHandles = (step: 1 | -1): boolean => {
-    const eng = getEngine()
-    if (!eng || !cycleSlurHandle(state, eng.getElementRegistry(), step)) return false
-    renderer.renderScore()
-    return true
-  }
-
-  // …and the same key walks a selected HAIRPIN's two endpoint squares (`elements/hairpinHandles`).
-  // Chained rather than merged: the two kinds are mutually exclusive in `selectedElement`, so each
-  // walk declines whenever the other's element is the one selected.
-  const walkHairpinHandles = (step: 1 | -1): boolean => {
-    const eng = getEngine()
-    if (!eng || !cycleHairpinEndpoint(state, eng.getElementRegistry(), step)) return false
-    renderer.renderScore()
-    return true
-  }
-
-  // …and a selected OTTAVA's two endpoint squares (`elements/ottavaHandles`). Chained on for the
-  // hairpin's reason: `selectedElement` is ONE thing, so each walk declines whenever another kind
-  // is what is selected.
-  const walkOttavaHandles = (step: 1 | -1): boolean => {
-    if (!cycleSpanMarkEnd('ottava', state, getEngine(), step)) return false
-    renderer.renderScore()
-    return true
-  }
-
-  // …and a selected PEDAL's squares — ⭐ through the FAMILY's verb (`./spanMarkKeys`) reading its row
-  // in `SPAN_MARK_TOOLS`, which is what the four copies above become one kind at a time.
-  // ⚠️ This walk can have ONE stop rather than two — a pedal whose release was not drawn — which the
-  // module's wrap arithmetic already answers.
-  const walkPedalHandles = (step: 1 | -1): boolean => {
-    if (!cycleSpanMarkEnd('pedal', state, getEngine(), step)) return false
-    renderer.renderScore()
-    return true
-  }
-
-  // …and a selected TRILL's squares (`elements/trillHandles`), chained on for the same reason.
-  const walkTrillHandles = (step: 1 | -1): boolean => {
-    if (!cycleSpanMarkEnd('trill', state, getEngine(), step)) return false
-    renderer.renderScore()
-    return true
-  }
-
-  // Ctrl+Shift+←/→ on an armed TRUE endpoint: walk the anchor one note, instead of nudging it by
-  // pixels. The module owns every reason it can decline (no armed end, off the lane, at the other
-  // end); this just repaints on a yes. See `slurReanchor`.
-  const reanchorArmedEndpoint = (direction: 1 | -1): boolean => {
-    const eng = getEngine()
-    if (!eng || !reanchorArmedSlurEndpoint(state, eng, direction)) return false
-    renderer.renderScore()
-    return true
-  }
-
   /**
    * ⭐⭐ **AFTER AN ACCEPTED ARROW ON A MARK — a WALK is a RUN, anything else renders.** His rule,
    * 2026-08-30: *"we should apply the same solution of the held to all walkings — pedal, ottava,
@@ -208,18 +145,17 @@ export function wireShortcuts(
     if (!eng || !element) return false
     return ELEMENT_SPECS[element.kind].keys?.reset?.(keysCtx(eng), element) ?? false
   }
-
-  /**
-   * ⭐⭐ **RE-ANCHOR THE ARMED TRILL SQUARE BY ONE NOTE** — `Ctrl+Shift+←/→` (his ask, 2026-08-18).
-   * The armed square is the gate, exactly as it is for the other four spans; ⭐ what differs is the
-   * STEP: a trill's anchors are NOTES, so this walks its lane one note at a time where the pedal and
-   * the bracket walk slots. The module owns every reason it can decline. See `trillReanchor`.
-   */
-  const reanchorArmedTrill = (direction: 1 | -1): boolean => {
+  const reanchorSelectedElement = (direction: 1 | -1): boolean => {
     const eng = getEngine()
-    if (!eng || !reanchorArmedTrillEndpoint(state, eng, direction)) return false
-    renderer.renderScore()
-    return true
+    const element = state.selectedElement
+    if (!eng || !element) return false
+    return ELEMENT_SPECS[element.kind].keys?.reanchor?.(keysCtx(eng), element, direction) ?? false
+  }
+  const cycleSelectedElement = (step: 1 | -1): boolean => {
+    const eng = getEngine()
+    const element = state.selectedElement
+    if (!eng || !element) return false
+    return ELEMENT_SPECS[element.kind].keys?.cycle?.(keysCtx(eng), element, step) ?? false
   }
 
   /**
@@ -265,47 +201,6 @@ export function wireShortcuts(
     return true
   }
 
-  /**
-   * ⭐⭐ **RE-ANCHOR THE SELECTED TEMPO MARK BY ONE ONSET** — `Ctrl+Shift+←/→` (his ask, 2026-08-19).
-   *
-   * ⭐ The musical half the mark did not have, and the same two-chord split the dynamics line already
-   * reads: the plain and `Ctrl` arrows own the INK, this chord means *move it through the music* —
-   * and here it is AUDIBLE, since a tempo applies from the beat it sits on.
-   *
-   * ⚠️ It DECLINES at either end of the score and on a beat another tempo mark already holds (one
-   * mark per beat, `engine/models/tempoOps`), so the chord falls through to the note offset behind it.
-   */
-  const reanchorSelectedTempo = (direction: 1 | -1): boolean => {
-    const eng = getEngine()
-    const tempoId = selectedOf(state, 'tempo')?.id
-    if (!eng || !tempoId) return false
-    if (!eng.moveTempoBySlot(tempoId, direction)) return false
-    renderer.renderScore()
-    return true
-  }
-
-  /**
-   * ⭐⭐ **RE-ANCHOR THE SELECTED DYNAMIC BY ONE SLOT** — `Ctrl+Shift+←/→` (his ask, 2026-08-18).
-   * The mark walks its own lane and takes the beat it lands on, re-filing across a barline.
-   *
-   * ⭐ **Two chords, two categories — the last family on the dynamics line to get its musical
-   * half.** the dynamic's own keys row (`elements/dynamicKeys`) owns the plain and `Ctrl` arrows and writes only INK; this
-   * chord means *move it through the music* on the wedge, the bracket, the pedal and the trill, and
-   * now says the same thing about the letters. ⛔ No armed-square gate, unlike those four: a
-   * dynamic is a point, so there is no end to be pointing at.
-   *
-   * ⚠️ The MODEL, and audible — the level applies from the beat this writes. The engine owns the
-   * undo entry and the model drops the mark's own nudge; this only repaints on a yes.
-   */
-  const reanchorSelectedDynamic = (direction: 1 | -1): boolean => {
-    const eng = getEngine()
-    const dynamicId = selectedOf(state, 'dynamic')?.id
-    if (!eng || !dynamicId) return false
-    if (!eng.moveDynamicBySlot(dynamicId, direction)) return false
-    renderer.renderScore()
-    return true
-  }
-
   // Ctrl+Shift+←/→ (wide) / Shift+Alt+←/→ (fine) on a SINGLE selected note or rest = nudge its
   // horizontal offset by a staff-space delta (+right), an OFFSET off its natural column (NOT
   // spacing — the bar keeps its width). Rides the deliberate chords, not the easy key: a note's
@@ -319,47 +214,6 @@ export function wireShortcuts(
     if (item.kind !== 'note') return false
     if (!eng.nudgeNoteOffset(item.id, dx)) return false
     renderer.renderScore()
-    return true
-  }
-
-  /**
-   * ⭐⭐ **Ctrl+Shift+←/→ MOVES a selected clef through the music** — one slot earlier or later, which
-   * is what DRAGGING it already does. His ask, 2026-08-28: *"when we drag the cleff we change the
-   * position, it will be good to wire ctr shift arrow to the same thing"*.
-   *
-   * ⭐ It is the MARK family's split, arriving at the clef: the plain and Ctrl arrows nudge the INK
-   * (an engraving offset), and **Ctrl+Shift re-anchors the MUSIC** — exactly what
-   * `reanchorSelectedDynamic` does on the same chord, and why that chord was left free above.
-   *
-   * ⭐ **The next slot is the BEAT MAP's**, the same stop the → key walks and the same one the clef
-   * APPLY uses (`PaletteController.selectedClefTarget`) — so a clef at a bar's first slot steps back
-   * into the previous bar rather than stopping at the barline, and nothing here has to know a bar's
-   * length. ⚠️ Scoped to the clef's own STAFF: a clef is a per-staff statement.
-   *
-   * ⚠️ It ends on `commitClefMove`, the drag's own tail — which drops the clef if it landed somewhere
-   * redundant (equal to the clef already in force there) and records ONE undo entry. Sharing it is
-   * the point: a keyboard move and a mouse drag cannot drift apart.
-   */
-  const moveSelectedClef = (direction: 1 | -1): boolean => {
-    const eng = getEngine()
-    const clef = selectedOf(state, 'clef')
-    if (!eng || !clef) return false
-    const from = beatToFrac(clef.beat)
-    const { beats } = buildBeatMap(eng.getScore(), undefined, clef.staff)
-    const at = beats.findIndex((b: { measureNumber: number; beat: Fraction }) =>
-      b.measureNumber === clef.measure && fracToNumber(b.beat) >= clef.beat - 1e-9)
-    const target = at === -1 ? undefined : beats[at + direction]
-    if (!target) return false
-    if (!eng.moveClef(clef.measure, from, target.measureNumber, target.beat)) return false
-    eng.commitClefMove(target.measureNumber, target.beat)
-    // ⭐ The selection FOLLOWS the clef, or the next press would move whatever is left at the old
-    // address — and there is usually nothing there at all.
-    state.selectedElement = {
-      kind: 'clef', measure: target.measureNumber, beat: fracToNumber(target.beat), staff: clef.staff,
-    }
-    renderer.renderScore()
-    dbg(`[Clef] moved ${direction > 0 ? '→' : '←'} to measure ${target.measureNumber} `
-      + `beat ${fracToNumber(target.beat).toFixed(3)} staff ${clef.staff}`)
     return true
   }
 
@@ -454,175 +308,6 @@ export function wireShortcuts(
     const measure = selectedBoundaryMeasure()
     if (!eng || measure === undefined) return false
     if (eng.nudgeBarWidth(measure, deltaPx) === null) return false
-    renderer.renderScore()
-    return true
-  }
-
-  /**
-   * ⭐⭐ **Lengthen / shorten the selected hairpin by one SLOT**, on `Ctrl+Shift+←/→` and only while
-   * its RIGHT-HAND square is armed (his call, 2026-08-17).
-   *
-   * ⭐ **Both halves of that come from the slur.** The chord, because `Ctrl+Shift+←/→` already means
-   * "stop nudging, move the anchor" there (`slurReanchor`) and this is the same sentence about a
-   * different span — the widest step on the horizontal, above the ¼-space plain arrows and the
-   * 1-space Ctrl pair. And the GATE, because a wedge now has two grabbable ends: the key edits the
-   * end you are pointing at, so with nothing (or the left square) armed it declines and the wedge is
-   * not silently resized from the other end. It used to ride the bare `Ctrl+←/→` with no gate at all,
-   * which meant a selected hairpin ate that chord outright.
-   *
-   * ⚠️ It is the END that grows, whichever direction is pressed — `→` lengthens, `←` shortens. There
-   * is no "resize from the left" yet; a start-anchored version would move the wedge's beat, which is
-   * a different edit from its length.
-   *
-   * ⚠️ **On a hairpin this key writes the MODEL, where one branch over (a slur endpoint, a dynamic)
-   * it writes a cosmetic override.** That is not an inconsistency to tidy away — it is §4's rule:
-   * a hairpin's EXTENT is musical (it says which notes get louder) and its height is not. Letting
-   * this write an offset instead would give us two ways to say "three beats long" that can
-   * disagree, with playback believing the one the eye does not. ⚠️ What DOES write a cosmetic
-   * override is the plain / `Ctrl` arrow on the same square (`elements/hairpinKeys`) —
-   * two chords, two categories — so `Ctrl+Backspace` now has something to reset on a hairpin, which
-   * this comment used to say it never would.
-   *
-   * ⭐ **By a SLOT, not by a fixed fraction.** The step is the duration of the note the wedge
-   * currently ends on (growing) or the one it would end on after shrinking — so the end always
-   * lands on a notehead, which is the only place a wedge can honestly stop. A fixed step of, say,
-   * a quarter would leave the end mid-triplet.
-   *
-   * DECLINEs (false) when no hairpin is selected, when its right-hand square is not the armed one,
-   * or when the edit would make the wedge non-positive — `setHairpinLength` refuses that rather than
-   * deleting the thing being shortened.
-   */
-  const resizeSelectedHairpin = (direction: 1 | -1): boolean => {
-    const eng = getEngine()
-    const hairpin = selectedOf(state, 'hairpin')
-    if (!eng || hairpin?.endpoint !== 'end') return false
-    if (!eng.resizeHairpinBySlot(hairpin.id, direction)) return false
-    renderer.renderScore()
-    return true
-  }
-
-  /**
-   * ⭐⭐ **Move the selected hairpin's START by one slot, WITHOUT moving its end** — the same chord
-   * with the wedge's LEFT square armed (his ask, 2026-08-17: *"we don't move the endpoint position,
-   * we just move the first position"*).
-   *
-   * The gate is the whole point of the pair: one chord, and WHICH END IS ARMED decides which end it
-   * moves. `←` reaches the start back a slot (the wedge grows at the front), `→` steps it in (the
-   * wedge shrinks from the front) — in both cases the right-hand end stays exactly where it is,
-   * which the model does by writing `beat` and `length` together (`hairpinOps`).
-   *
-   * DECLINEs (false) when the left square is not the armed one, when there is no earlier slot to
-   * reach, or when the start would reach the end.
-   */
-  const moveSelectedHairpinStart = (direction: 1 | -1): boolean => {
-    const eng = getEngine()
-    const hairpin = selectedOf(state, 'hairpin')
-    if (!eng || hairpin?.endpoint !== 'start') return false
-    if (!eng.moveHairpinStartBySlot(hairpin.id, direction)) return false
-    renderer.renderScore()
-    return true
-  }
-
-  /**
-   * ⭐ **Move a selected pedal's LIFT by one slot** — `resizeSelectedHairpin`'s twin, and it is a
-   * separate branch rather than a shared one because the two step through different lanes: a wedge
-   * walks its own VOICE, a pedal walks its whole STAFF (one damper — `pedalOps.resizePedalBySlot`).
-   *
-   * ⚠️ It writes the MODEL, like the hairpin's and for a sharper reason: how long the damper is down
-   * is what the notes SOUND (docs/pedal-plan.md §9), so a cosmetic offset would leave playback
-   * believing a lift the eye does not see. `Ctrl+Backspace` therefore has nothing to reset here.
-   *
-   * 🚨 **IT MOVED OFF `Ctrl+←/→` ONTO `Ctrl+Shift+←/→`, AND GAINED THE ARMED-SQUARE GATE
-   * (his call, 2026-08-18).** It shipped on the plain `Ctrl` chord in P3, when a pedal had no
-   * endpoint squares and nothing else to bind — and that put a MODEL write on the chord this editor
-   * reserves for nudging INK. On every other span `Ctrl+arrow` moves the drawing and
-   * `Ctrl+Shift+arrow` moves the end through the music; the pedal had the pair inverted, so the one
-   * family whose "resize" is audible was the one you could trigger by reaching for a cosmetic nudge.
-   * ⭐ It also frees `Ctrl+arrow` on a pedal for the ink offset it does not have yet — the day a
-   * hand-moved `✻` arrives (docs/pedal-plan.md §6.3) there is a key waiting and no collision.
-   *
-   * DECLINEs (false) when no pedal is selected, when its END square is not the armed one, or when
-   * the edit would leave it holding no music — `setPedalLength` refuses that rather than deleting
-   * the thing being shortened.
-   */
-  const resizeSelectedPedal = (direction: 1 | -1): boolean => {
-    const eng = getEngine()
-    const pedal = selectedOf(state, 'pedal')
-    if (!eng || pedal?.endpoint !== 'end') return false
-    if (!eng.resizePedalBySlot(pedal.id, direction)) return false
-    renderer.renderScore()
-    return true
-  }
-
-  /**
-   * ⭐⭐ **Move the selected pedal's PRESS by one slot, WITHOUT moving its lift** — the same chord
-   * with the START square armed (his ask, 2026-08-18), and `moveSelectedOttavaStart`'s twin down to
-   * the shape of the function.
-   *
-   * The gate is the whole point of the pair: one chord, and WHICH SQUARE IS ARMED decides which end
-   * it moves. `←` reaches the press back a slot, `→` steps it in; the lift holds either way, which
-   * the model does by writing `beat` and `length` together (`pedalOps`).
-   *
-   * ⚠️ **A press that crosses a barline re-files the pedal under the bar it now starts in**, same
-   * object and same id — otherwise the selection this gesture is driven from would evaporate
-   * mid-press. `movePedalStartBySlot` owns that; this only repaints.
-   *
-   * DECLINEs (false) when the start square is not the armed one, when there is no slot to step to,
-   * or when the press would reach the lift.
-   */
-  const moveSelectedPedalStart = (direction: 1 | -1): boolean => {
-    const eng = getEngine()
-    const pedal = selectedOf(state, 'pedal')
-    if (!eng || pedal?.endpoint !== 'start') return false
-    if (!eng.movePedalStartBySlot(pedal.id, direction)) return false
-    renderer.renderScore()
-    return true
-  }
-
-  /**
-   * ⭐⭐ **RE-ANCHOR THE SELECTED OTTAVA'S END by one slot** — the same chord with the bracket's END
-   * square armed (his ask, 2026-08-17: *"lets add ctrl shift arrow to the last point for change
-   * anchoring"*).
-   *
-   * ⭐ **The armed square is the GATE, exactly as it is for the hairpin's pair** — which is what
-   * makes one chord able to mean "this end" at all: the same keys, and WHICH SQUARE IS ARMED decides
-   * which end of the bracket they move.
-   *
-   * ⚠️ It walks the whole STAFF, not a voice — the pedal's lane and for its reason, spelled out in
-   * `ottavaOps.resizeOttavaBySlot`: an octave line has no voice, so a step that skipped the other
-   * voice's onsets would displace notes the key never passed.
-   *
-   * DECLINEs (false) when no ottava is selected, when its end square is not the armed one, when
-   * there is nothing further on the staff, or when shrinking would leave it covering no music —
-   * refused rather than deleting the line.
-   */
-  const resizeSelectedOttava = (direction: 1 | -1): boolean => {
-    const eng = getEngine()
-    const ottava = selectedOf(state, 'ottava')
-    if (!eng || ottava?.endpoint !== 'end') return false
-    if (!eng.resizeOttavaBySlot(ottava.id, direction)) return false
-    renderer.renderScore()
-    return true
-  }
-
-  /**
-   * ⭐⭐ **Move the selected ottava's BEGINNING by one slot, WITHOUT moving its end** — the same chord
-   * with the bracket's LEFT square armed (his ask, 2026-08-17: *"now lets do the same reanchor with
-   * the left square"*). `←` reaches the beginning back a slot, `→` steps it in; the far end holds,
-   * which the model does by writing `beat` and `length` together (`ottavaOps`).
-   *
-   * ⚠️ **A beginning that crosses a barline re-files the line under the bar it now starts in**, same
-   * object and same id — otherwise the selection this gesture is being driven from would evaporate
-   * mid-press. `moveOttavaStartBySlot` owns that; this only repaints.
-   *
-   * DECLINEs (false) when the left square is not the armed one, when there is no slot to step to, or
-   * when the beginning would reach the end.
-   */
-  const moveSelectedOttavaStart = (direction: 1 | -1): boolean => {
-    const eng = getEngine()
-    const ottava = selectedOf(state, 'ottava')
-    if (!eng || ottava?.endpoint !== 'start') return false
-    if (!eng.moveOttavaStartBySlot(ottava.id, direction)) return false
     renderer.renderScore()
     return true
   }
@@ -1138,10 +823,8 @@ export function wireShortcuts(
     // ⭐ Tab walks the selected slur's handles. Returning the DECLINE straight through is what keeps
     // Tab the browser's focus key when no slur is selected — the manager only calls preventDefault
     // when a handler does not answer false.
-    nextHandle: () => walkSlurHandles(1) || walkHairpinHandles(1) || walkOttavaHandles(1)
-      || walkPedalHandles(1) || walkTrillHandles(1),
-    previousHandle: () => walkSlurHandles(-1) || walkHairpinHandles(-1) || walkOttavaHandles(-1)
-      || walkPedalHandles(-1) || walkTrillHandles(-1),
+    nextHandle: () => cycleSelectedElement(1),
+    previousHandle: () => cycleSelectedElement(-1),
     selectNextNote: () => {
       // Whatever ELEMENT is selected answers first (`elements/keys`) — fine nudge right, not navigation.
       if (nudgeSelectedElement(NUDGE_FINE_SS, 0)) return
@@ -1257,18 +940,8 @@ export function wireShortcuts(
     //    HERE FROM `Ctrl+←/→`, where it had been ungated since P3 — the pedal was the family whose
     //    "resize" is audible sitting on the chord that nudges ink. The three pairs now read the
     //    same, which is the point: one sentence, one chord, whichever spanner is selected.
-    ctrlShiftArrowLeft: () =>
-      reanchorArmedEndpoint(-1) || resizeSelectedHairpin(-1) || moveSelectedHairpinStart(-1)
-      || resizeSelectedOttava(-1) || moveSelectedOttavaStart(-1)
-      || resizeSelectedPedal(-1) || moveSelectedPedalStart(-1) || reanchorArmedTrill(-1)
-      || reanchorSelectedDynamic(-1) || reanchorSelectedTempo(-1)
-      || nudgeSelectedNoteOffset(-NUDGE_COARSE_SS) || moveSelectedClef(-1),
-    ctrlShiftArrowRight: () =>
-      reanchorArmedEndpoint(1) || resizeSelectedHairpin(1) || moveSelectedHairpinStart(1)
-      || resizeSelectedOttava(1) || moveSelectedOttavaStart(1)
-      || resizeSelectedPedal(1) || moveSelectedPedalStart(1) || reanchorArmedTrill(1)
-      || reanchorSelectedDynamic(1) || reanchorSelectedTempo(1)
-      || nudgeSelectedNoteOffset(NUDGE_COARSE_SS) || moveSelectedClef(1),
+    ctrlShiftArrowLeft: () => reanchorSelectedElement(-1) || nudgeSelectedNoteOffset(-NUDGE_COARSE_SS),
+    ctrlShiftArrowRight: () => reanchorSelectedElement(1) || nudgeSelectedNoteOffset(NUDGE_COARSE_SS),
     nudgeNoteOffsetFineLeft: () => nudgeSelectedNoteOffset(-NUDGE_FINE_SS),
     nudgeNoteOffsetFineRight: () => nudgeSelectedNoteOffset(NUDGE_FINE_SS),
     // Ctrl+Shift+Backspace AND Shift+Alt+Backspace both reset the offset — it is one value, and each

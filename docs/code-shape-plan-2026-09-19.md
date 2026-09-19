@@ -1,6 +1,6 @@
 # Code shape plan — 2026-09-19
 
-**Status: IN PROGRESS — Phase 1 DONE (2026-09-19), bar item 5's two ⏭️ decisions. Phase 2 DONE. Phase 3.1: the hairpin / ottava / pedal body drags done and checked; the trill's too (`cdb7f05`); the slur's too (`69e927c`); the four SQUARE drags too (`6d903c3`); the slur HANDLE / ENDPOINT and staff-spacing drags too (`8f28f79`); the DYNAMIC and TEMPO drags too (`9a04f88`); bar width, barline join, group span and clef too (`ee31698`); the NOTE drag too (`7d2898e`) — every gesture is a module. **Phase 3.1 DONE** (`25f70a6`). 3.2: the `keys` column + dispatcher and the HAIRPIN on it (`e61626a`); OTTAVA / PEDAL / TRILL too (`14e10e7`); DYNAMIC and TEMPO too (`943fb64`); SLUR and CLEF on it, awaiting his UI check — **the nudge / reset chains are gone.** What 3.2 has not touched: `Ctrl+Shift+←/→` (re-anchor) and `Tab` (cycle the handles).** Phases are ordered by
+**Status: IN PROGRESS — Phase 1 DONE (2026-09-19), bar item 5's two ⏭️ decisions. Phase 2 DONE. Phase 3.1: the hairpin / ottava / pedal body drags done and checked; the trill's too (`cdb7f05`); the slur's too (`69e927c`); the four SQUARE drags too (`6d903c3`); the slur HANDLE / ENDPOINT and staff-spacing drags too (`8f28f79`); the DYNAMIC and TEMPO drags too (`9a04f88`); bar width, barline join, group span and clef too (`ee31698`); the NOTE drag too (`7d2898e`) — every gesture is a module. **Phase 3.1 DONE** (`25f70a6`). 3.2: the `keys` column + dispatcher and the HAIRPIN on it (`e61626a`); OTTAVA / PEDAL / TRILL too (`14e10e7`); DYNAMIC and TEMPO too (`943fb64`); SLUR and CLEF too (`8382fcc`); the `reanchor` and `cycle` verbs done, awaiting his UI check — **Phase 3.2 DONE with it.** 3.3 (`highlight(ctx)`) is next.** Phases are ordered by
 value over risk; each one stands alone and can be stopped after. A done item carries ✅ and what
 actually happened where that differs from what was planned.
 
@@ -374,7 +374,26 @@ Run the e2e suite either side of each step.
    links out of `shortcutWiring`, kinds 465 → 180, lines 806 → 562; eight kinds answer the keys,
    pinned by name in `chain.test.ts`. Two orphaned doc blocks the deletions had left behind (the
    ottava's, the pedal reset's) went too — their rules already stood in `spanMarkKeys.ts`.
-   ⏸️ Awaiting his UI check.*
+   ✅ Passed (`8382fcc`).*
+
+   *Fifth — two more verbs on the column, for the two per-kind chains `{ nudge, reset }` had left:
+   `reanchor(direction)` (`Ctrl+Shift+←/→` — **move it through the MUSIC**, the other category
+   from `nudge`: a model write, audible for most kinds; on a span the ARMED SQUARE is the gate and
+   says which end, a point mark moves whole) and `cycle(step)` (`Tab` — arm the next drawn handle).
+   Sixteen closures went: five `walk…Handles`, and the eleven links of the re-anchor chain — the
+   hairpin's, ottava's and pedal's resize / move-start pairs, the slur's and trill's note walks,
+   the dynamic's and tempo's slot moves, and the clef's beat-map step (now `clefKeys.reanchor`,
+   still ending on the DRAG's own `commitClefMove`). The span family took it as ONE more column of
+   `SPAN_MARK_TOOLS`, `reanchor`. The chords now read
+   `reanchorSelectedElement(±1) || nudgeSelectedNoteOffset(±coarse)` and
+   `cycleSelectedElement(±1)`. `chain.test.ts` pins which kinds answer each verb: all eight
+   re-anchor; only the spans and the slur have handles for `Tab`.*
+
+   *⭐ `shortcutWiring` at the end of 3.2: kinds 465 → **67**, code lines 806 → **431** (both
+   counted without `deleteSelected`), 45 per-kind closures gone — and its code-line ceiling STARTS
+   here. What it still names per kind is the barline / bar-width / note-spacing group (a selected
+   NOTE or a boundary, not `selectedElement`'s row), the hairpin's mouth, and `deleteSelected`'s
+   switch, which stays by decision. ⏸️ Awaiting his UI check.*
 
    *(review)* **`delete` reverses a recorded decision and is his call.** `chain.ts`'s header (and
    CLAUDE.md, "the two sites that stay switches") says a `delete?` row was sketched and refused:

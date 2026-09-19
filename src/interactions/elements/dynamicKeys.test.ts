@@ -15,7 +15,7 @@ import { DYNAMIC_KEYS } from './dynamicKeys'
 import { ELEMENT_SPECS } from './chain'
 
 describe('DYNAMIC_KEYS', () => {
-  const engine = { nudgeDynamicOffset: vi.fn(() => true), resetDynamicOffset: vi.fn(() => true), commitDynamicDrag: vi.fn() }
+  const engine = { moveDynamicBySlot: vi.fn(() => true), nudgeDynamicOffset: vi.fn(() => true), resetDynamicOffset: vi.fn(() => true), commitDynamicDrag: vi.fn() }
   let ctx: KeysCtx
   const mark = { kind: 'dynamic', id: 'D1' } as const
 
@@ -54,6 +54,23 @@ describe('DYNAMIC_KEYS', () => {
     walk.walkDynamic.mockReturnValue(false)
     expect(DYNAMIC_KEYS.nudge!(ctx, mark, 1, 0)).toBe(false)
     expect(ctx.afterMarkPress).not.toHaveBeenCalled()
+  })
+
+  it('⭐ reanchor moves the WHOLE mark through the music by one stop — no armed-square gate: it is a point', () => {
+    engine.moveDynamicBySlot.mockReturnValue(true)
+    expect(DYNAMIC_KEYS.reanchor!(ctx, mark, 1)).toBe(true)
+    expect(engine.moveDynamicBySlot).toHaveBeenCalledWith('D1', 1)
+    expect(ctx.render).toHaveBeenCalledTimes(1)
+  })
+
+  it('reanchor DECLINES, and draws nothing, when the model refuses — the chord falls through', () => {
+    engine.moveDynamicBySlot.mockReturnValue(false)
+    expect(DYNAMIC_KEYS.reanchor!(ctx, mark, -1)).toBe(false)
+    expect(ctx.render).not.toHaveBeenCalled()
+  })
+
+  it('⛔ has no handles for `Tab` to walk', () => {
+    expect(DYNAMIC_KEYS.cycle).toBeUndefined()
   })
 
   it('reset renders when it took a nudge back, and DECLINES — without rendering — when there was none', () => {

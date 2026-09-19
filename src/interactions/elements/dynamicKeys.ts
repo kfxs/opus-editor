@@ -22,6 +22,16 @@ export const DYNAMIC_KEYS: KeysOf<'dynamic'> = {
     return moved
   },
 
+  /** The mark walks its own LANE by one slot and takes the beat it lands on, re-filing across a
+   *  barline. ⛔ No armed-square gate, unlike the spans: a dynamic is a point, so there is no end to
+   *  be pointing at. ⚠️ The MODEL, and audible — the level applies from the beat this writes; the
+   *  model drops the mark's own nudge on the way. */
+  reanchor({ engine, render }, { id }, direction) {
+    const moved = engine.moveDynamicBySlot(id, direction)
+    if (moved) render()
+    return moved
+  },
+
   /** DECLINEs when the mark was never nudged, so the key falls through to the note spacing / bar
    *  width behind it. */
   reset({ engine, render }, { id }) {

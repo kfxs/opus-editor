@@ -15,7 +15,7 @@ import { TEMPO_KEYS } from './tempoKeys'
 import { ELEMENT_SPECS } from './chain'
 
 describe('TEMPO_KEYS', () => {
-  const engine = { nudgeTempoOffset: vi.fn(() => true), resetTempoOffset: vi.fn(() => true), commitTempoDrag: vi.fn() }
+  const engine = { moveTempoBySlot: vi.fn(() => true), nudgeTempoOffset: vi.fn(() => true), resetTempoOffset: vi.fn(() => true), commitTempoDrag: vi.fn() }
   let ctx: KeysCtx
   const mark = { kind: 'tempo', id: 'T1' } as const
 
@@ -54,6 +54,23 @@ describe('TEMPO_KEYS', () => {
     walk.walkTempo.mockReturnValue(false)
     expect(TEMPO_KEYS.nudge!(ctx, mark, 1, 0)).toBe(false)
     expect(ctx.afterMarkPress).not.toHaveBeenCalled()
+  })
+
+  it('⭐ reanchor moves the WHOLE mark through the music by one stop — no armed-square gate: it is a point', () => {
+    engine.moveTempoBySlot.mockReturnValue(true)
+    expect(TEMPO_KEYS.reanchor!(ctx, mark, 1)).toBe(true)
+    expect(engine.moveTempoBySlot).toHaveBeenCalledWith('T1', 1)
+    expect(ctx.render).toHaveBeenCalledTimes(1)
+  })
+
+  it('reanchor DECLINES, and draws nothing, when the model refuses — the chord falls through', () => {
+    engine.moveTempoBySlot.mockReturnValue(false)
+    expect(TEMPO_KEYS.reanchor!(ctx, mark, -1)).toBe(false)
+    expect(ctx.render).not.toHaveBeenCalled()
+  })
+
+  it('⛔ has no handles for `Tab` to walk', () => {
+    expect(TEMPO_KEYS.cycle).toBeUndefined()
   })
 
   it('reset renders when it took a nudge back, and DECLINES — without rendering — when there was none', () => {

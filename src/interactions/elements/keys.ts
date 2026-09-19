@@ -41,6 +41,20 @@ export interface ElementKeys<E extends SelectedElement = SelectedElement> {
   nudge?(ctx: KeysCtx, element: E, dx: number, dy: number): boolean
   /** `Ctrl+Backspace`: back to the engraver's own position. DECLINE when nothing was nudged. */
   reset?(ctx: KeysCtx, element: E): boolean
+  /**
+   * `Ctrl+Shift+←/→`: **move it through the MUSIC** by one stop of its lane — the other category
+   * from {@link nudge}. ⭐ Two chords, two categories: the plain and `Ctrl` arrows say where the INK
+   * goes (an override, resettable); this one writes the MODEL, and for most kinds audibly — which
+   * notes get louder, are displaced, ring, are trilled, from which beat a level or a tempo applies.
+   * On a span the ARMED SQUARE is the gate and says which end; a point mark (a dynamic, a tempo, a
+   * clef) has no end to point at and moves whole.
+   */
+  reanchor?(ctx: KeysCtx, element: E, direction: 1 | -1): boolean
+  /**
+   * `Tab` / `Shift+Tab`: arm the selected element's next drawn handle. ⚠️ The REGISTRY is the
+   * list, so this declines wherever the handles are not drawn (linear view).
+   */
+  cycle?(ctx: KeysCtx, element: E, step: 1 | -1): boolean
 }
 
 /** A row of `ELEMENT_SPECS`, narrowed: a kind's keys are handed its OWN element. */

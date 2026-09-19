@@ -32,6 +32,7 @@ import type { MusicEngine } from '../engine/MusicEngine'
 import type { ElementRegistry } from '../engine/ElementRegistry'
 import type { SpanMarkEnd, SpanMarkKind, SpanMarkOffsetField } from '../engine/models/spanMarkModel'
 import type { EditorState } from './EditorState'
+import { reanchorArmedTrillEndpoint } from './trillReanchor'
 import { armedTool } from './EditorState'
 import { bus } from '@/bus'
 import { cycleOttavaEndpoint } from './elements/ottavaHandles'
@@ -106,6 +107,19 @@ export interface SpanMarkToolSpec {
    */
   commitEnd(engine: MusicEngine, which: SpanMarkEnd): void
   commitWhole(engine: MusicEngine): void
+  /**
+   * `Ctrl+Shift+←/→` on an ARMED square: move that end through the MUSIC by one stop — a MODEL
+   * write, and audible (which notes are displaced, how long they ring, which are trilled). The far
+   * end holds: the model writes `beat` and `length` together, and a start that crosses a barline
+   * re-files the mark under the bar it now starts in, same object and same id, or the selection
+   * driving the gesture would evaporate mid-press. It DECLINES rather than leave the mark holding
+   * no music.
+   *
+   * ⚠️ What a STOP is differs by row: a bracket and a pedal walk the whole STAFF's slots — neither
+   * has a voice, and a step that skipped the other voice's onsets would displace (or ring) notes
+   * the key never passed — while a trill's anchors are NOTES, so it walks its lane a note at a time.
+   */
+  reanchor(engine: MusicEngine, state: EditorState, id: string, which: SpanMarkEnd, direction: 1 | -1): boolean
 
   /** `Tab` / `Shift+Tab`: arm the next drawn square. DECLINEs when this kind is not the selected one
    *  or its squares are not drawn — the caller CHAINS on a false. */
@@ -155,6 +169,8 @@ export const SPAN_MARK_TOOLS: { [K in SpanMarkKind]: SpanMarkToolSpec } = {
     resetWhole: (engine, id) => engine.resetPedalOffset(id),
     commitEnd: (engine, which) => engine.commitPedalDrag(which),
     commitWhole: engine => engine.commitPedalOffsetDrag(),
+    reanchor: (engine, _state, id, which, direction) =>
+      which === 'end' ? engine.resizePedalBySlot(id, direction) : engine.movePedalStartBySlot(id, direction),
     cycleEnd: (state, registry, step) => cyclePedalEndpoint(state, registry, step),
 
     // ⛔ No conversion, ever: a pedal has one side permanently, so `+ down` means the same thing
@@ -196,6 +212,8 @@ export const SPAN_MARK_TOOLS: { [K in SpanMarkKind]: SpanMarkToolSpec } = {
     resetWhole: (engine, id) => engine.resetOttavaOffset(id),
     commitEnd: (engine, which) => engine.commitOttavaDrag(which),
     commitWhole: engine => engine.commitOttavaOffsetDrag(),
+    reanchor: (engine, _state, id, which, direction) =>
+      which === 'end' ? engine.resizeOttavaBySlot(id, direction) : engine.moveOttavaStartBySlot(id, direction),
     cycleEnd: (state, registry, step) => cycleOttavaEndpoint(state, registry, step),
 
     // ⭐⭐ THE ONE ROW THAT FLIPS. Screen-up arrives as a NEGATIVE `dy`, and above the staff "up" IS
@@ -229,6 +247,8 @@ export const SPAN_MARK_TOOLS: { [K in SpanMarkKind]: SpanMarkToolSpec } = {
     resetWhole: (engine, id) => engine.resetTrillOffset(id),
     commitEnd: (engine, which) => engine.commitTrillDrag(which),
     commitWhole: engine => engine.commitTrillDrag('start'),
+    // One module answers for both squares: the walk is one lane either way (`./trillReanchor`).
+    reanchor: (engine, state, _id, _which, direction) => reanchorArmedTrillEndpoint(state, engine, direction),
     cycleEnd: (state, registry, step) => cycleTrillEndpoint(state, registry, step),
 
     // ⭐ The bracket's flip, read off `placement` rather than `shift` — an ornament changes sides too.

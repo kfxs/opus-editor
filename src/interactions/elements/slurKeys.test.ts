@@ -7,6 +7,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import type { MusicEngine } from '../../engine/MusicEngine'
 import type { KeysCtx } from './keys'
 
+const others = vi.hoisted(() => ({ reanchorArmedSlurEndpoint: vi.fn(() => true), cycleSlurHandle: vi.fn(() => true) }))
+vi.mock('../slurReanchor', async importOriginal => ({ ...(await importOriginal<object>()), reanchorArmedSlurEndpoint: others.reanchorArmedSlurEndpoint }))
+vi.mock('../slurHandleCycle', async importOriginal => ({ ...(await importOriginal<object>()), cycleSlurHandle: others.cycleSlurHandle }))
+
 const endpointWalk = vi.hoisted(() => ({ walkArmedSlurEndpoint: vi.fn() }))
 const handleNudge = vi.hoisted(() => ({
   nudgeArmedSlurControlPoint: vi.fn(() => true),
@@ -25,6 +29,7 @@ describe('SLUR_KEYS', () => {
     nudgeSlurSegmentEndpoint: vi.fn(() => true),
     nudgeSlur: vi.fn(() => true),
     resetSlurOffset: vi.fn(() => true),
+    getElementRegistry: vi.fn(() => 'the registry'),
   }
   let ctx: KeysCtx
   const whole = { kind: 'slur', id: 'S1' } as const
@@ -34,7 +39,10 @@ describe('SLUR_KEYS', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
-    for (const fn of Object.values(engine)) fn.mockReturnValue(true)
+    for (const fn of Object.values(engine)) fn.mockReturnValue(true as never)
+    engine.getElementRegistry.mockReturnValue('the registry')
+    others.reanchorArmedSlurEndpoint.mockReturnValue(true)
+    others.cycleSlurHandle.mockReturnValue(true)
     handleNudge.nudgeArmedSlurControlPoint.mockReturnValue(true)
     handleNudge.resetArmedSlurHandle.mockReturnValue(true)
     ctx = { engine: engine as unknown as MusicEngine, state: { tag: 'state' } as never, render: vi.fn(), afterMarkPress: vi.fn() }
@@ -83,6 +91,22 @@ describe('SLUR_KEYS', () => {
   it('⛔ no key RUN: a slur press is its own write and its own render', () => {
     SLUR_KEYS.nudge!(ctx, whole, 0.25, 0)
     expect(ctx.afterMarkPress).not.toHaveBeenCalled()
+    expect(ctx.render).toHaveBeenCalledTimes(1)
+  })
+
+  it('reanchor walks the armed END\'s anchor one note — the module owns every reason to decline', () => {
+    expect(SLUR_KEYS.reanchor!(ctx, end, -1)).toBe(true)
+    expect(others.reanchorArmedSlurEndpoint).toHaveBeenCalledWith(ctx.state, engine, -1)
+    others.reanchorArmedSlurEndpoint.mockReturnValue(false)
+    expect(SLUR_KEYS.reanchor!(ctx, whole, 1)).toBe(false)
+    expect(ctx.render).toHaveBeenCalledTimes(1)
+  })
+
+  it('cycle: `Tab` walks the drawn handles off the REGISTRY, and renders on a yes only', () => {
+    expect(SLUR_KEYS.cycle!(ctx, whole, 1)).toBe(true)
+    expect(others.cycleSlurHandle).toHaveBeenCalledWith(ctx.state, 'the registry', 1)
+    others.cycleSlurHandle.mockReturnValue(false)
+    expect(SLUR_KEYS.cycle!(ctx, whole, 1)).toBe(false)
     expect(ctx.render).toHaveBeenCalledTimes(1)
   })
 
