@@ -1414,15 +1414,15 @@ export class EngravedNote {
    * sources"* candidate — ⛔ and, like the other three, his call rather than a tidy-up.
    */
   drawNoteHeads(): void {
-    const vex = this.checkContext()
-    const surface = this.inkSurface ?? vex
+    const context = this.checkContext()
+    const surface = this.inkSurface ?? context
     this.drawnHeadCentreX = []
     // ⭐ S6c — each head is stamped at OUR y for its line, the same answer every reader of `getYs()` gets.
     const ys = this.getYs()
     for (const [index, head] of this.heads().entries()) {
-      head.setContext(vex)
-      vex.save()
-      head.applyStyle(vex)
+      head.setContext(context)
+      context.save()
+      head.applyStyle(context)
       head.setRendered()
       try {
         // 🚨 ONCE, and once only — see (1) above. ⚠️ And the value is KEPT rather than read back
@@ -1443,7 +1443,7 @@ export class EngravedNote {
           font: NOTE_FONT,
         }, () => this.drawModifiers(head))
       } finally {
-        vex.restore()
+        context.restore()
       }
     }
   }

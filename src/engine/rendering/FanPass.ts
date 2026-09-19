@@ -23,7 +23,7 @@ import type { Score, Clef, Chord, ChordRest, FanMemberChord, Fraction, KeySignat
 import { fracToNumber } from '@/utils/fraction'
 import { spellingToMidi } from '@/utils/pitchSpelling'
 import { staffLineForSpelling } from '@/utils/clefUtils'
-import { spellingToVexflowKey } from '@/utils/pitchSpelling'
+import { spellingToNoteKey } from '@/utils/pitchSpelling'
 import { displayedAccidentals } from '@/utils/accidentalState'
 import { C_MAJOR } from '@/utils/keySignature'
 import { slotLength } from '@/utils/durations'
@@ -604,7 +604,7 @@ function drawFanGroups(pass: RenderPass, drawings: FanSlotDrawing[], fanJoins: F
           if (types.length && memberHeads.length) {
             const placed = drawFanMemberArticulations(ctx, stave, {
               types,
-              keys: memberHeads.map(mh => spellingToVexflowKey(mh.pitch.step, mh.pitch.alter, mh.pitch.octave)),
+              keys: memberHeads.map(mh => spellingToNoteKey(mh.pitch.step, mh.pitch.alter, mh.pitch.octave)),
               clef,
               headX: member.headX,
               // ⭐ To the outside of the BEAM, not to the stem tip. A stem tip is where the stem

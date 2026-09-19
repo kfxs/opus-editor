@@ -158,7 +158,7 @@ export class EngravedAccidental extends EngravedModifier implements InkSurfaceAw
 
   /** ⭐ **OURS** — the glyph, through our own primitives, at VexFlow's own point. */
   draw(): void {
-    const vex = this.checkContext()
+    const context = this.checkContext()
     const note = this.checkAttachedNote() as EngravedNote
     this.setRendered()
 
@@ -175,7 +175,7 @@ export class EngravedAccidental extends EngravedModifier implements InkSurfaceAw
       font: accidentalFont(this.glyph),
       id: this.getAttribute('id')!,
     }
-    drawAccidental(this.inkSurface ?? vex, ink)
+    drawAccidental(this.inkSurface ?? context, ink)
     this.ink = drawnInkBoxOf(ctx => drawAccidental(ctx, ink))
   }
 }

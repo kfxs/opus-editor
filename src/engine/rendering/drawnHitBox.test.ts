@@ -53,8 +53,8 @@ describe('the accidental’s hit box', () => {
 
   it('🚨 the break-test — VexFlow’s ruler answers 0×0 for the very same sign', () => {
     const accidental = drawnSign('#')
-    const vexflow = accidental.getBoundingBox()!
-    expect([vexflow.w, vexflow.h], 'no font, no measurement').toEqual([0, 0])
+    const ruler = accidental.getBoundingBox()!
+    expect([ruler.w, ruler.h], 'no font, no measurement').toEqual([0, 0])
     expect(accidentalHitBox(accidental)!.height).toBeGreaterThan(0)
   })
 

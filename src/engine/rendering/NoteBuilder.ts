@@ -8,11 +8,11 @@ import { reserveDotRoom } from './dotPlacement'
 import type { Measure, NoteDuration, Clef, ArticulationType, Chord, ChordRest, Fraction, KeySignature } from '@/types/music'
 import { fracCompare, fracLte } from '@/utils/fraction'
 import { middleLineDiatonicPos } from '@/utils/clefUtils'
-import { doubleDuration, durationToVexflow, slotLength } from '@/utils/durations'
+import { doubleDuration, noteDurationToken, slotLength } from '@/utils/durations'
 import { pairRoleAt } from '@/utils/tremoloPair'
 import { displayedAccidentals } from '@/utils/accidentalState'
 import { C_MAJOR } from '@/utils/keySignature'
-import { spellingToMidi, spellingToVexflowKey, spellingDiatonicPos } from '@/utils/pitchSpelling'
+import { spellingToMidi, spellingToNoteKey, spellingDiatonicPos } from '@/utils/pitchSpelling'
 import { restStaffLine } from '@/engine/layout/restPlacement'
 
 /**
@@ -50,8 +50,8 @@ const TREBLE_LINE_KEYS = ['e/4', 'g/4', 'b/4', 'd/5', 'f/5']
  */
 export function restKey(duration: NoteDuration): string {
   // `restStaffLine` is spaces below the TOP line (0…4); VexFlow counts 1…5 from the BOTTOM.
-  const vexLine = 5 - restStaffLine(duration)
-  return TREBLE_LINE_KEYS[vexLine - 1] ?? 'b/4'
+  const restLine = 5 - restStaffLine(duration)
+  return TREBLE_LINE_KEYS[restLine - 1] ?? 'b/4'
 }
 
 /**
@@ -63,7 +63,7 @@ export function restKey(duration: NoteDuration): string {
 export const ARTICULATION_RENDER_ORDER: ArticulationType[] = ['staccato', 'tenuto', 'accent']
 
 export function convertDuration(duration: NoteDuration, dots: number = 0): string {
-  return durationToVexflow(duration, dots)
+  return noteDurationToken(duration, dots)
 }
 
 /**
@@ -174,8 +174,8 @@ export function createStaveNotesFromSlots(
         staveNotes.push(measureRest)
         continue
       }
-      const vexDuration = convertDuration(slot.duration, slot.dots || 0)
-      const staveNote = new EngravedNote({ keys: [restKey(slot.duration)], duration: vexDuration + 'r' })
+      const durationToken = convertDuration(slot.duration, slot.dots || 0)
+      const staveNote = new EngravedNote({ keys: [restKey(slot.duration)], duration: durationToken + 'r' })
       for (let d = 0; d < (slot.dots || 0); d++) {
         attachEngravedDots(staveNote)
       }
@@ -190,7 +190,7 @@ export function createStaveNotesFromSlots(
       (a, b) => spellingToMidi(a.step, a.alter, a.octave) - spellingToMidi(b.step, b.alter, b.octave)
     )
     // Build VexFlow key strings directly from spelling — no MIDI lookup table needed
-    const keys = sortedPitches.map(p => spellingToVexflowKey(p.step, p.alter, p.octave))
+    const keys = sortedPitches.map(p => spellingToNoteKey(p.step, p.alter, p.octave))
 
     // Clef in effect at this slot's beat (mid-measure changes move notes).
     const slotClef = resolveClef(slot.beat)
@@ -261,7 +261,7 @@ export function createStaveNotesFromSlots(
      * across.
      */
     const fanned = !!slot.fan
-    const vexDuration = fanned
+    const durationToken = fanned
       ? convertDuration('q', 0)
       : convertDuration(drawnDuration, slot.dots || 0)
     // ⭐ **A fanned slot is an ordinary `StaveNote` now (P5).** It used to be a `FanStaveNote` that
@@ -270,7 +270,7 @@ export function createStaveNotesFromSlots(
     // spacing model retired the whole problem: the members are ordinary COLUMNS in
     // `measureColumns`, so the bar asks for their room directly, and `spacingPass` writes the x's
     // rather than letting the tick-proportional formatter decide them.
-    const noteStruct = { keys, duration: vexDuration, clef: slotClef, autoStem: false }
+    const noteStruct = { keys, duration: durationToken, clef: slotClef, autoStem: false }
     // ⭐ {@link EngravedNote}, ⛔ not a bare `StaveNote`: the seam P3 empties one drawn part at a
     // time (P3a took the ledger lines). Everything else about it is still VexFlow's, including the
     // whole geometry API seven of our own renderers read.
@@ -313,7 +313,7 @@ export function createStaveNotesFromSlots(
 
     // Articulations are per-chord (stored on slot, not per pitch).
     // Sorted by ARTICULATION_RENDER_ORDER so the first added sits closest to the note head.
-    const articulationVexCodes: Record<ArticulationType, string> = { accent: 'a>', staccato: 'a.', tenuto: 'a-' }
+    const articulationCodes: Record<ArticulationType, string> = { accent: 'a>', staccato: 'a.', tenuto: 'a-' }
     // Auto side:
     //  - Single voice: opposite the stem (the note-head side), the usual convention.
     //  - Multi-voice (forcedStemDirection set): the voice's OUTER side regardless of
@@ -336,7 +336,7 @@ export function createStaveNotesFromSlots(
       // ⭐ OURS since 2026-09-14 — the glyph draws through our own primitives (`EngravedArticulation`);
       // everything about WHERE it lands is still `Articulation`'s, which is what that class takes care
       // not to touch.
-      attachModifier(staveNote, new EngravedArticulation(articulationVexCodes[art]).setPosition(articulationPosition), 0)
+      attachModifier(staveNote, new EngravedArticulation(articulationCodes[art]).setPosition(articulationPosition), 0)
     }
 
     // Single-note tremolo — per-chord like the articulations, and for the same reason (the mark

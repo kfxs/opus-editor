@@ -452,6 +452,17 @@ VexFlow classes, and the maps hold our `NoteGeometry` and our groups.
   identifiers 96 → 90, in tests 147 → 36. ⏭️ S15b the other identifiers · S15c the `vf-` prefix — his
   call: **dropped, not replaced** (it was VexFlow's namespace for living inside a host page; we own
   the page).
+  ✅ **S15b the other names** (2026-09-19): the ones that named VexFlow's FORMATS or were locals —
+  `spellingToNoteKey`, `noteDurationToken` (+ the table's `token`), `timeSignatureKey`,
+  `articulationCodes` / `ARTICULATION_CODES`, `buildScoreTuplets` / `scoreTuplet(s)`, `fontSpacePx`,
+  `context` for a drawing context, test locals. Identifiers 90 → **14**, in tests 36 → **8**. ⏸️ What
+  is LEFT names a number's SOURCE — `VEXFLOW_MAX_SLOPE`, `VEXFLOW_DOT_SPACING` / `_BASE_GAP`,
+  `VEXFLOW_ACCIDENTAL_GAP`, `VEXFLOW_CLEF_INDENT`, `VEXFLOW_SOFTMAX_FACTOR`, and the `vexflow` rows of
+  the beam-slope, dot-gap and barline→meter tables (the ACTIVE beam rule is `'vexflow'`, his call) —
+  beside `GOULD_SPACING`, `'lilypond'`, `'musescore'` — ⭐ **KEPT, his call**: the census lists them in
+  `SOURCE_NAMES` and both identifier ceilings fall to **0** (a NEW vex-name still counts). ⏭️ Also found: the
+  articulation-code table is written FOUR times (NoteBuilder, GhostRenderer, MarkGhost, fanArticulations);
+  and many spec TITLES still say what VexFlow does in the present tense (a sweep like the docs').
 
 ---
 

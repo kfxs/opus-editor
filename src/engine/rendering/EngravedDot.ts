@@ -135,7 +135,7 @@ export class EngravedDot extends EngravedModifier implements InkSurfaceAware {
 
   /** ⭐ **OURS** — the glyph, through our own primitives, at VexFlow's own point. */
   draw(): void {
-    const vex = this.checkContext()
+    const context = this.checkContext()
     const note = this.checkAttachedNote() as EngravedNote
     this.setRendered()
 
@@ -147,7 +147,7 @@ export class EngravedDot extends EngravedModifier implements InkSurfaceAware {
     this.x = start.x
     this.y = dotBaselineY(start.y, this.dotShiftY, requireNoteFrame(note).spacePx)
 
-    drawAugmentationDot(this.inkSurface ?? vex, {
+    drawAugmentationDot(this.inkSurface ?? context, {
       glyph: AUGMENTATION_DOT,
       x: this.x + this.getXShift(),
       y: this.y + this.yShift,

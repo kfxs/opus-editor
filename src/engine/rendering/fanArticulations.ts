@@ -54,7 +54,7 @@ import { standOn } from './staveFrame'
  */
 
 /** VexFlow's articulation codes, by our type — the same table `NoteBuilder` uses. */
-const ARTICULATION_VEX_CODES: Record<ArticulationType, string> = {
+const ARTICULATION_CODES: Record<ArticulationType, string> = {
   accent: 'a>',
   staccato: 'a.',
   tenuto: 'a-',
@@ -145,7 +145,7 @@ export function drawFanMemberArticulations(
   probe.setStemDirection(opts.stemDirection)
 
   const marks = sorted.map((t) => {
-    const art = new EngravedArticulation(ARTICULATION_VEX_CODES[t])
+    const art = new EngravedArticulation(ARTICULATION_CODES[t])
     // BEFORE the note sees it: this is what swaps `aboveCode`/`belowCode` (`setPosition` calls
     // `reset`), so the mark wears the glyph of the side it is actually on and not its mirror.
     art.setPosition(position)

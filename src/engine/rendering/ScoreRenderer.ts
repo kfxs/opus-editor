@@ -2113,7 +2113,7 @@ export class ScoreRenderer {
 
       // Tuplets must be created BEFORE adding notes to voice — VexFlow adjusts tick
       // values. A tuplet belongs to one voice, so grouping by tupletId is voice-safe.
-      const { vexTuplets, tupletStaveNoteMap } = this.buildVexTuplets(sortedSlots, staveNotes, measure, clef, multiVoice)
+      const { scoreTuplets, tupletStaveNoteMap } = this.buildScoreTuplets(sortedSlots, staveNotes, measure, clef, multiVoice)
 
       const meter = getMeterInfo(measure.timeSignature)
       const capacity = measureCapacityFrac(measure)
@@ -2336,7 +2336,7 @@ export class ScoreRenderer {
         // what comes AFTER the group: where the next note in the same voice was formatted, or the end
         // of the bar when nothing follows. A tuplet cannot see either.
         this.drawAndRegisterTuplets(
-          vexTuplets, tupletStaveNoteMap, measure, multiVoice,
+          scoreTuplets, tupletStaveNoteMap, measure, multiVoice,
           new Map(groups.map(g => [g.voice, g.staveNotes])), stave,
         )
         this.registerSlotElements(sortedSlots, staveNotes, measure, staffIndex)
@@ -2891,13 +2891,13 @@ export class ScoreRenderer {
     stave.setContext(this.context!).draw()
   }
 
-  private buildVexTuplets(
+  private buildScoreTuplets(
     sortedSlots: ChordRest[],
     staveNotes: EngravedNote[],
     measure: Measure,
     clef: Clef,
     multiVoice: boolean,
-  ): { vexTuplets: ScoreTuplet[]; tupletStaveNoteMap: Map<string, { staveNotes: EngravedNote[]; tuplet: Tuplet; voice: number }> } {
+  ): { scoreTuplets: ScoreTuplet[]; tupletStaveNoteMap: Map<string, { staveNotes: EngravedNote[]; tuplet: Tuplet; voice: number }> } {
     const tupletStaveNoteMap = new Map<string, { staveNotes: EngravedNote[]; tuplet: Tuplet; voice: number }>()
 
     for (let idx = 0; idx < sortedSlots.length && idx < staveNotes.length; idx++) {
@@ -2915,7 +2915,7 @@ export class ScoreRenderer {
       }
     }
 
-    const vexTuplets: ScoreTuplet[] = []
+    const scoreTuplets: ScoreTuplet[] = []
     for (const [_tupletId, { staveNotes: tupletStaveNotes, tuplet: tupletData, voice }] of tupletStaveNoteMap) {
       if (tupletStaveNotes.length >= 2) {
         try {
@@ -2935,19 +2935,19 @@ export class ScoreRenderer {
           // built). It is set in the pre-draw pass below, which runs after they are — and VexFlow
           // reads the option at draw time, so setting it late is not a workaround, it is when the
           // answer becomes knowable. Same for the mark's text.
-          const vexTuplet = new ScoreTuplet(tupletStaveNotes, {
+          const scoreTuplet = new ScoreTuplet(tupletStaveNotes, {
             numNotes: tupletData.numNotes,
             notesOccupied: tupletData.notesOccupied,
             location,
           })
-          vexTuplets.push(vexTuplet)
+          scoreTuplets.push(scoreTuplet)
         } catch (tupletError) {
           console.warn(`Could not create tuplet: ${tupletError}`)
         }
       }
     }
 
-    return { vexTuplets, tupletStaveNoteMap }
+    return { scoreTuplets, tupletStaveNoteMap }
   }
 
   /**
@@ -3200,7 +3200,7 @@ export class ScoreRenderer {
   }
 
   private drawAndRegisterTuplets(
-    vexTuplets: ScoreTuplet[],
+    scoreTuplets: ScoreTuplet[],
     tupletStaveNoteMap: Map<string, { staveNotes: EngravedNote[]; tuplet: Tuplet; voice: number }>,
     measure: Measure,
     multiVoice: boolean,
@@ -3228,15 +3228,15 @@ export class ScoreRenderer {
       return mode === 'division' ? noteRuler(next).originX : noteRuler(next).originX - BRACKET_END_GAP
     }
 
-    for (const vexTuplet of vexTuplets) {
+    for (const scoreTuplet of scoreTuplets) {
       try {
-        const tupletNotes = vexTuplet.getNotes() as EngravedNote[]
+        const tupletNotes = scoreTuplet.getNotes() as EngravedNote[]
         if (tupletNotes.length === 0) continue
 
         for (const [tupletId, { staveNotes: tStaveNotes, tuplet: tupletData, voice }] of tupletStaveNoteMap) {
           if (!tStaveNotes.includes(tupletNotes[0])) continue
 
-          const vt = vexTuplet
+          const vt = scoreTuplet
           const notes = vt.getNotes()
           const firstNote = notes?.[0]
           const lastNote = notes?.[notes.length - 1]
@@ -3266,7 +3266,7 @@ export class ScoreRenderer {
           // "a bare number when the meter already says what it is in the time of", so the same
           // tuplet prints `2` in 6/8 and `2:3` in 4/4 — and the ghost, asking the same function with
           // the hovered bar, showed exactly that before the click.
-          vexTuplet.setMarkRuns(
+          scoreTuplet.setMarkRuns(
             tupletMarkRuns(tupletData, tupletData.numberStyle, {
               meter: measure.timeSignature,
               beat: tupletData.startBeat,
@@ -3276,7 +3276,7 @@ export class ScoreRenderer {
           // …and where the bracket stops. Only meaningful with a bracket, but set either way: an
           // unbracketed tuplet's width still centres the number, and a number that drifted when the
           // bracket was switched off would be a second rule nobody asked for.
-          vexTuplet.bracketEndX = bracketed ? bracketEndX(tupletData, voice, lastNote) : undefined
+          scoreTuplet.bracketEndX = bracketed ? bracketEndX(tupletData, voice, lastNote) : undefined
 
           // A bracket flipped to the INNER side (toward the other voice) would be shoved
           // to the far edge of the system by VexFlow's staff-edge clamp; nudge it back
@@ -3286,11 +3286,11 @@ export class ScoreRenderer {
             return { stemUp: n.getStemDirection?.() === 1, topY: ext.topY, baseY: ext.baseY }
           })
           const flipOffset = innerFlipTupletYOffset(
-            stems, location, voice, multiVoice, vexTuplet.getYPosition()
+            stems, location, voice, multiVoice, scoreTuplet.getYPosition()
           )
           if (flipOffset !== 0) vt.options.yOffset = (vt.options.yOffset ?? 0) + flipOffset
 
-          vexTuplet.draw(this.context!)
+          scoreTuplet.draw(this.context!)
 
           // Use VexFlow's OWN post-draw geometry so the registered hit-box matches the
           // drawn bracket exactly. VexFlow draws the horizontal bracket line at
@@ -3303,12 +3303,12 @@ export class ScoreRenderer {
           // The END is read back off the tuplet, not recomputed from the last note: with a
           // `division` or `beforeNext` bracket the line runs PAST that note, and a hit-box measured
           // from the notehead would stop where the ink does not. `width` is what draw() just used.
-          const xEnd = xStart + vexTuplet.width
+          const xEnd = xStart + scoreTuplet.width
           const tupletWidth = xEnd - xStart
 
-          const bracketLineY = vexTuplet.getYPosition() // the horizontal bracket line
+          const bracketLineY = scoreTuplet.getYPosition() // the horizontal bracket line
           const bracketLegLength = 10
-          const numberHeight = vexTuplet.markHeight()
+          const numberHeight = scoreTuplet.markHeight()
           // The number sits on the outer side of the line, the legs hang inward. Cover
           // both (plus a little padding) so a click anywhere on the visible bracket or
           // its number registers.
@@ -3343,7 +3343,7 @@ export class ScoreRenderer {
           })
           // Keep the VexFlow Tuplet so its own SVG group can be recolored for selection
           // (avoids a document-wide scan that bleeds into neighbouring systems).
-          this.tupletObjectMap.set(tupletId, vexTuplet)
+          this.tupletObjectMap.set(tupletId, scoreTuplet)
           break
         }
       } catch (_e) {

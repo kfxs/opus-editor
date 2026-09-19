@@ -32,8 +32,8 @@ interface DurationInfo {
   beats: number
   /** Quarter-note beats as an exact rational — the canonical internal unit. */
   fraction: Fraction
-  /** VexFlow base duration token (before any dot suffix). */
-  vex: string
+  /** The note's duration token (before any dot suffix) — VexFlow's format, which `EngravedNote` reads. */
+  token: string
 }
 
 /**
@@ -48,12 +48,12 @@ interface DurationInfo {
  *   '32' → 1/8                  (thirty-second note)
  */
 export const DURATION_INFO: Record<NoteDuration, DurationInfo> = {
-  w: { beats: 4, fraction: { num: 4, den: 1 }, vex: 'w' },
-  h: { beats: 2, fraction: { num: 2, den: 1 }, vex: 'h' },
-  q: { beats: 1, fraction: { num: 1, den: 1 }, vex: 'q' },
-  '8': { beats: 0.5, fraction: { num: 1, den: 2 }, vex: '8' },
-  '16': { beats: 0.25, fraction: { num: 1, den: 4 }, vex: '16' },
-  '32': { beats: 0.125, fraction: { num: 1, den: 8 }, vex: '32' },
+  w: { beats: 4, fraction: { num: 4, den: 1 }, token: 'w' },
+  h: { beats: 2, fraction: { num: 2, den: 1 }, token: 'h' },
+  q: { beats: 1, fraction: { num: 1, den: 1 }, token: 'q' },
+  '8': { beats: 0.5, fraction: { num: 1, den: 2 }, token: '8' },
+  '16': { beats: 0.25, fraction: { num: 1, den: 4 }, token: '16' },
+  '32': { beats: 0.125, fraction: { num: 1, den: 8 }, token: '32' },
 }
 
 /**
@@ -236,16 +236,16 @@ export function fitRestDuration(
 }
 
 /**
- * Convert a note duration to its VexFlow token, appending one `'d'` per dot
- * (e.g. `'qd'` for a dotted quarter, `'qdd'` for double-dotted). VexFlow uses
- * the suffix to compute correct ticks.
+ * Convert a note duration to its token, appending one `'d'` per dot
+ * (e.g. `'qd'` for a dotted quarter, `'qdd'` for double-dotted). `EngravedNote`
+ * reads the suffix to compute its ticks (VexFlow's format, kept).
  */
-export function durationToVexflow(duration: NoteDuration, dots: number = 0): string {
-  let vex = DURATION_INFO[duration].vex
+export function noteDurationToken(duration: NoteDuration, dots: number = 0): string {
+  let token = DURATION_INFO[duration].token
   for (let i = 0; i < dots; i++) {
-    vex += 'd'
+    token += 'd'
   }
-  return vex
+  return token
 }
 
 /**

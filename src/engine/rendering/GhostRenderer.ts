@@ -34,11 +34,11 @@ import type { ToolGhost } from './ghostTypes'
 import { fracToNumber, fracCreate, fracAdd } from '@/utils/fraction'
 import { beatToFrac } from '@/utils/musicUtils'
 import { measureCapacityFrac } from '@/utils/measureCapacity'
-import { durationToVexflow, writtenLength } from '@/utils/durations'
+import { noteDurationToken, writtenLength } from '@/utils/durations'
 import { getMeterInfo } from '@/utils/meter'
 import { fillRests, type RestSlot } from '@/utils/restFill'
 import { measureEndingClef, effectiveClefAt, middleLineDiatonicPos, resolveStaffClefs } from '@/utils/clefUtils'
-import { spellingToVexflowKey, spellingDiatonicPos, alterToString } from '@/utils/pitchSpelling'
+import { spellingToNoteKey, spellingDiatonicPos, alterToString } from '@/utils/pitchSpelling'
 import { staffOf } from '@/utils/lanes'
 import { resolveStaffSize } from '@/engine/models/staffSize'
 import { staffMeasureView, staffIdAtIndex } from '@/engine/models/staffContent'
@@ -200,8 +200,8 @@ export function drawNoteGhost(
       tempStave.addMeter(widthInfo.cautionaryEndTimeSig, 'closing')
     }
 
-    const vexNote = spellingToVexflowKey(ghostNote.step, ghostNote.alter, ghostNote.octave)
-    const vexDuration = convertDuration(ghostNote.duration as NoteDuration, ghostNote.dots || 0)
+    const noteKey = spellingToNoteKey(ghostNote.step, ghostNote.alter, ghostNote.octave)
+    const durationToken = convertDuration(ghostNote.duration as NoteDuration, ghostNote.dots || 0)
 
     // Stem direction — same diatonic approach as createStaveNotesFromSlots.
     // Include any existing notes at the same beat so the ghost matches the chord's stem.
@@ -223,8 +223,8 @@ export function drawNoteGhost(
     checkDiatonic(ghostNote.step, ghostNote.octave)
 
     const staveNote = new EngravedNote({
-      keys: [vexNote],
-      duration: vexDuration,
+      keys: [noteKey],
+      duration: durationToken,
       clef,
       autoStem: false,
     })
@@ -252,13 +252,13 @@ export function drawNoteGhost(
     }
 
     if (ghostNote.articulations?.length) {
-      const articulationVexCodes: Record<ArticulationType, string> = { accent: 'a>', staccato: 'a.', tenuto: 'a-' }
+      const articulationCodes: Record<ArticulationType, string> = { accent: 'a>', staccato: 'a.', tenuto: 'a-' }
       const articulationPosition = stemDirection === 1 ? 'below' : 'above'
       const sortedGhostArticulations = ghostNote.articulations.slice().sort(
         (a, b) => ARTICULATION_RENDER_ORDER.indexOf(a) - ARTICULATION_RENDER_ORDER.indexOf(b)
       )
       for (const art of sortedGhostArticulations) {
-        attachModifier(staveNote, new EngravedArticulation(articulationVexCodes[art]).setPosition(articulationPosition), 0)
+        attachModifier(staveNote, new EngravedArticulation(articulationCodes[art]).setPosition(articulationPosition), 0)
       }
     }
 
@@ -269,7 +269,7 @@ export function drawNoteGhost(
     const noteEnd = fracAdd(noteStart, writtenLength(ghostNote))
 
     const makeRest = (r: RestSlot) => {
-      const sn = new EngravedNote({ keys: [restKey(r.duration)], duration: durationToVexflow(r.duration, r.dots) + 'r' })
+      const sn = new EngravedNote({ keys: [restKey(r.duration)], duration: noteDurationToken(r.duration, r.dots) + 'r' })
       if (r.dots) attachEngravedDots(sn)
       return sn
     }

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { getMeterInfo, isDyadicMeter, isValidGrouping, isValidTimeSignature, sameTimeSignature, timeSignatureVexKey, STRENGTH, type MeterInfo } from './meter'
+import { getMeterInfo, isDyadicMeter, isValidGrouping, isValidTimeSignature, sameTimeSignature, timeSignatureKey, STRENGTH, type MeterInfo } from './meter'
 import { fracToNumber, fracCreate, fracEq } from './fraction'
 import type { TimeSignature } from '@/types/music'
 
@@ -268,14 +268,14 @@ describe('meter — getMeterInfo', () => {
  * meter. The renderer asks one function what to draw, because four call sites building the string
  * inline is how a new spelling reaches three of them.
  */
-describe('timeSignatureVexKey', () => {
+describe('timeSignatureKey', () => {
   it('prints the numbers when the meter has no symbol', () => {
-    expect(timeSignatureVexKey({ numerator: 7, denominator: 8 })).toBe('7/8')
+    expect(timeSignatureKey({ numerator: 7, denominator: 8 })).toBe('7/8')
   })
 
   it('draws C for common time and C| for cut', () => {
-    expect(timeSignatureVexKey({ numerator: 4, denominator: 4, symbol: 'common' })).toBe('C')
-    expect(timeSignatureVexKey({ numerator: 2, denominator: 2, symbol: 'cut' })).toBe('C|')
+    expect(timeSignatureKey({ numerator: 4, denominator: 4, symbol: 'common' })).toBe('C')
+    expect(timeSignatureKey({ numerator: 2, denominator: 2, symbol: 'cut' })).toBe('C|')
   })
 })
 

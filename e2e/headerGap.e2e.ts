@@ -189,6 +189,6 @@ test('⭐⭐ a mid-line meter change stands the ARMED distance after the barline
 
   // 🚨 ⛔ NOT VexFlow's 0.5 — the unchosen barline width that placed this until 2026-09-13. The two
   //    differ by 0.25 sp, which is 2.5 px and well clear of any rounding in an `x` ATTRIBUTE.
-  const vexflow = placed.staveX + (0.5 + TIME_SIG_LEFT_BEARING) * SPACE
-  expect(Math.abs(placed.meterOriginX - vexflow), 'moved off the unchosen number').toBeGreaterThan(2)
+  const unchosen = placed.staveX + (0.5 + TIME_SIG_LEFT_BEARING) * SPACE
+  expect(Math.abs(placed.meterOriginX - unchosen), 'moved off the unchosen number').toBeGreaterThan(2)
 })

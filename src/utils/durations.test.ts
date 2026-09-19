@@ -4,7 +4,7 @@ import {
   DURATIONS_DESC,
   durationToBeats,
   durationToFraction,
-  durationToVexflow,
+  noteDurationToken,
   tupletNoteDurationFraction,
   beatsToDuration,
   splitBeatsIntoDurations,
@@ -106,16 +106,16 @@ describe('getDotMultiplier', () => {
   })
 })
 
-describe('durationToVexflow', () => {
+describe('noteDurationToken', () => {
   it('returns the base token', () => {
-    expect(durationToVexflow('q')).toBe('q')
-    expect(durationToVexflow('16')).toBe('16')
+    expect(noteDurationToken('q')).toBe('q')
+    expect(noteDurationToken('16')).toBe('16')
   })
 
   it('appends one "d" per dot', () => {
-    expect(durationToVexflow('q', 1)).toBe('qd')
-    expect(durationToVexflow('q', 2)).toBe('qdd')
-    expect(durationToVexflow('8', 1)).toBe('8d')
+    expect(noteDurationToken('q', 1)).toBe('qd')
+    expect(noteDurationToken('q', 2)).toBe('qdd')
+    expect(noteDurationToken('8', 1)).toBe('8d')
   })
 })
 

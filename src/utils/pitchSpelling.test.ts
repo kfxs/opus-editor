@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   spellingToMidi,
   pitchToMidi,
-  spellingToVexflowKey,
+  spellingToNoteKey,
   alterToString,
   formatPitch,
   spellingDiatonicPos,
@@ -72,33 +72,33 @@ describe('pitchSpelling', () => {
   })
 
   // -------------------------------------------------------------------------
-  describe('spellingToVexflowKey', () => {
+  describe('spellingToNoteKey', () => {
     it('converts C4 to "c/4"', () => {
-      expect(spellingToVexflowKey('C', 0, 4)).toBe('c/4')
+      expect(spellingToNoteKey('C', 0, 4)).toBe('c/4')
     })
 
     it('converts C#4 to "c#/4"', () => {
-      expect(spellingToVexflowKey('C', 1, 4)).toBe('c#/4')
+      expect(spellingToNoteKey('C', 1, 4)).toBe('c#/4')
     })
 
     it('converts Db4 to "db/4"', () => {
-      expect(spellingToVexflowKey('D', -1, 4)).toBe('db/4')
+      expect(spellingToNoteKey('D', -1, 4)).toBe('db/4')
     })
 
     it('converts G##3 to "g##/3"', () => {
-      expect(spellingToVexflowKey('G', 2, 3)).toBe('g##/3')
+      expect(spellingToNoteKey('G', 2, 3)).toBe('g##/3')
     })
 
     it('converts Abb5 to "abb/5"', () => {
-      expect(spellingToVexflowKey('A', -2, 5)).toBe('abb/5')
+      expect(spellingToNoteKey('A', -2, 5)).toBe('abb/5')
     })
 
     it('converts B3 to "b/3"', () => {
-      expect(spellingToVexflowKey('B', 0, 3)).toBe('b/3')
+      expect(spellingToNoteKey('B', 0, 3)).toBe('b/3')
     })
 
     it('uses lowercase step letter', () => {
-      const result = spellingToVexflowKey('F', 1, 4)
+      const result = spellingToNoteKey('F', 1, 4)
       expect(result[0]).toBe('f')
     })
   })

@@ -109,7 +109,7 @@ const CEILINGS = {
  *  refuses the import outright. What this script still guards is the NAMES below, until S15. */
 const TEST_CEILING = 0
 
-/** ⚠️ The NAME ceilings, measured 2026-09-14 (map §9.3); S11e 'identifiers' 113 → 110; S12e 'identifiers in tests' 150 → 147; S12h 'identifiers' 110 → 104. S15a (`VexFlowRenderer` → `ScoreRenderer`, 2026-09-19) 'files' 8 → 0, 'identifiers' 96 → 90, 'identifiers in tests' 147 → 36. Same rule: lower them as renames land;
+/** ⚠️ The NAME ceilings, measured 2026-09-14 (map §9.3); S11e 'identifiers' 113 → 110; S12e 'identifiers in tests' 150 → 147; S12h 'identifiers' 110 → 104. S15a (`VexFlowRenderer` → `ScoreRenderer`, 2026-09-19) 'files' 8 → 0, 'identifiers' 96 → 90, 'identifiers in tests' 147 → 36. S15b (the names that were VexFlow's FORMATS or locals — `spellingToNoteKey`, `noteDurationToken`, `scoreTuplet`, `context`…) 'identifiers' 90 → 14, 'identifiers in tests' 36 → 8; what is left names a number's SOURCE (`VEXFLOW_MAX_SLOPE`, the `vexflow` rule rows), beside `GOULD_SPACING` / `'lilypond'`. ⭐ KEPT (his call) and listed in `SOURCE_NAMES`, so both fall to 0. Same rule: lower them as renames land;
  *  ⛔ never raise. 'identifiers in tests' and 'vf- in tests' include `e2e/`, scanned as text.
  *  🔺 **The one RAISE** — S13b, 'vf- in code' 39 → 40: VexFlow's `prefix()` (`util.js`), which put `vf-` on every
  *  class and id `openGroup` wrote, is now `rendering/SvgPainter`'s — the SAME prefix, moved out of the library into
@@ -117,12 +117,23 @@ const TEST_CEILING = 0
  *  selector and spec reads. */
 const NAME_CEILINGS = {
   'files': 0,
-  'identifiers': 90,
-  'identifiers in tests': 36,
+  'identifiers': 0,
+  'identifiers in tests': 0,
   'vf- in code': 40,
   'vf- in tests': 418,
 }
 const NAME = /vex|Vex|VEX/
+/**
+ * ⭐ **Names that record a number's SOURCE are KEPT** (his call, 2026-09-19, S15b). A `vexflow` row sits
+ * in a rule table beside `gould`, `lilypond`, `musescore`, and `VEXFLOW_MAX_SLOPE` beside
+ * `GOULD_SPACING`: it says *whose number this is*, which stays true with the library gone. ⛔ Listed by
+ * name, so a NEW vex-name still counts — adding one here is his call, like the ones below.
+ */
+const SOURCE_NAMES = new Set([
+  'vexflow', // the rule-table rows: beamSlope, dotGap, barlineMeterGap (the ACTIVE beam rule, his call)
+  'VEXFLOW_MAX_SLOPE', 'VEXFLOW_DOT_SPACING', 'VEXFLOW_DOT_BASE_GAP', 'VEXFLOW_ACCIDENTAL_GAP',
+  'VEXFLOW_CLEF_INDENT', 'VEXFLOW_SOFTMAX_FACTOR',
+])
 
 // ─────────────────────────────────────────────────────────────────────────────────────────────────
 // 1. THE SCAN — every VexFlow use in src/, resolved to its declaration
@@ -215,7 +226,7 @@ for (const sf of program.getSourceFiles()) {
 
   const visit = node => {
     // NAMES — an identifier called vex-anything, or a string carrying VexFlow's `vf-` prefix.
-    if ((ts.isIdentifier(node) || ts.isPrivateIdentifier(node)) && NAME.test(node.text)) {
+    if ((ts.isIdentifier(node) || ts.isPrivateIdentifier(node)) && NAME.test(node.text) && !SOURCE_NAMES.has(node.text)) {
       recordName(node, test ? 'identifiers in tests' : 'identifiers', node.text)
     }
     if (ts.isStringLiteralLike(node) || ts.isTemplateHead(node) || ts.isTemplateMiddle(node) || ts.isTemplateTail(node)) {
@@ -311,7 +322,7 @@ for (const full of [...walkFiles(resolve(ROOT, 'src')), ...walkFiles(resolve(ROO
     const t = text.trim()
     if (t.startsWith('*') || t.startsWith('//') || t.startsWith('/*')) return
     for (const id of text.match(/[A-Za-z_$][\w$]*/g) || []) {
-      if (NAME.test(id)) names.push({ bucket: 'identifiers in tests', file, line: i + 1, text: id })
+      if (NAME.test(id) && !SOURCE_NAMES.has(id)) names.push({ bucket: 'identifiers in tests', file, line: i + 1, text: id })
     }
     for (let k = 0; k < (text.match(/vf-/g) || []).length; k++) names.push({ bucket: 'vf- in tests', file, line: i + 1, text: 'vf-' })
   })

@@ -45,7 +45,7 @@ import { sceneInkBox, sceneInkBoxDetail } from '@/engine/scene/sceneBox'
  * (`./drawnFontSize`). ⛔ Anything else answers null — the text is then UNMEASURED, never measured
  * wrongly.
  */
-export const vexFontSpacePx: SpacePxReader = (font: SceneFont) => {
+export const fontSpacePx: SpacePxReader = (font: SceneFont) => {
   const size = font.size
   if (typeof size === 'number') return drawnFontPx(size) / 4
   if (typeof size !== 'string') return null
@@ -61,12 +61,12 @@ export const vexFontSpacePx: SpacePxReader = (font: SceneFont) => {
  * not be measured**, so an incomplete box is never mistaken for a complete one.
  */
 export function drawnInkBox(node: SceneNode | Scene, include?: NodeFilter): SceneBox | null {
-  return sceneInkBox(node, vexFontSpacePx, include)
+  return sceneInkBox(node, fontSpacePx, include)
 }
 
 /** {@link drawnInkBox}, with the list of drawn strings it had no measurement for. */
 export function drawnInkBoxDetail(node: SceneNode | Scene, include?: NodeFilter): SceneBoxDetail {
-  return sceneInkBoxDetail(node, vexFontSpacePx, include)
+  return sceneInkBoxDetail(node, fontSpacePx, include)
 }
 
 /**

@@ -104,7 +104,7 @@ test('two beamed pairs: one beam each, flat over a repeated pitch', async ({ sco
   expect(drawn.beams[0].right).toBeLessThan(drawn.heads[2].x)
 })
 
-test('a beam over rising pitches slopes up, and never past VexFlow’s cap', async ({ score }) => {
+test('a beam over rising pitches slopes up, and never past the `vexflow` rule’s cap', async ({ score }) => {
   const drawn = await score.evaluate(async () => {
     const h = window.__h
     h.engine.addNoteAtBeat({ step: 'C', octave: 4, duration: '8', measure: 1, beat: h.frac(0, 1) })

@@ -108,14 +108,14 @@ export function isValidGrouping(grouping: number[] | undefined, numerator: numbe
  * optional additive grouping (if any) is valid for the numerator.
  */
 /**
- * The meter as VexFlow draws it: `C`, `C|`, or `n/d`.
+ * The meter's key: `C`, `C|`, or `n/d` (VexFlow's spelling, which `engrave/header/meterSign` reads).
  *
  * ONE function, because there are four call sites (a measure's meter, a mid-line change, a
  * cautionary at a line end, the linear-view gutter) and a fifth will arrive. Each of them used to
  * build `${numerator}/${denominator}` inline, which is exactly the shape where a new spelling
  * reaches three places out of four and the fourth silently prints the numbers.
  */
-export function timeSignatureVexKey(ts: TimeSignature): string {
+export function timeSignatureKey(ts: TimeSignature): string {
   if (ts.symbol === 'common') return 'C'
   if (ts.symbol === 'cut') return 'C|'
   return `${ts.numerator}/${ts.denominator}`

@@ -32,7 +32,7 @@ those slots (a tuplet lives in exactly one voice).
 
 Rendering (`src/engine/rendering/ScoreRenderer.ts`):
 
-- `buildVexTuplets()` groups slots by `tupletId`, builds a `ScoreTuplet` (VexFlow's `Tuplet` until S12a), and chooses the
+- `buildScoreTuplets()` groups slots by `tupletId`, builds a `ScoreTuplet` (VexFlow's `Tuplet` until S12a), and chooses the
   bracket side via `resolveTupletLocation()` (`NoteBuilder.ts`):
   - explicit `Tuplet.placement` override (set by the `x` flip) wins;
   - else **multi-voice → voice 0 above, lower voices below** (so the voices' brackets spread
@@ -137,7 +137,7 @@ past the other voice and same-side brackets don't perfectly overlap.
 
 Sketch (to be refined against manual testing):
 
-1. In `buildVexTuplets`/`drawAndRegisterTuplets`, detect a multi-voice tuplet whose resolved
+1. In `buildScoreTuplets`/`drawAndRegisterTuplets`, detect a multi-voice tuplet whose resolved
    `location` points **toward** the other voice (the "inner" side) — i.e. a non-primary voice
    placed *above*, or the primary voice placed *below*.
 2. Compute the desired bracket Y from the tuplet's **own** notes (replicating VexFlow's
@@ -225,7 +225,7 @@ Documented, not scheduled. When picked up:
 - Add override fields to `Tuplet`: `bracketVisible?` (→ `bracketed`), `numberYOffset?`
   (→ `textYOffset`), `yOffset?` (→ `yOffset`, user override layered over the Phase-1 auto
   value), `showRatio?` (→ `ratioed`).
-- Thread them through `buildVexTuplets`. Undo/redo + JSON round-trip.
+- Thread them through `buildScoreTuplets`. Undo/redo + JSON round-trip.
 - UI: palette toggles and/or a vertical drag handle on the number.
 
 ---
@@ -241,7 +241,7 @@ handles. ~~VexFlow stays the rhythm/spacing engine regardless.~~ (⚠️ 2026-09
 
 ## 7. Code references
 
-- `src/engine/rendering/ScoreRenderer.ts` — `buildVexTuplets`, `drawAndRegisterTuplets`,
+- `src/engine/rendering/ScoreRenderer.ts` — `buildScoreTuplets`, `drawAndRegisterTuplets`,
   `resolveTupletLocation` call site.
 - `src/engine/rendering/NoteBuilder.ts` — `resolveTupletLocation`, `TUPLET_LOCATION_*`.
 - `src/engine/ElementRegistry.ts` — `TupletGeometry`, `getTupletAt`.

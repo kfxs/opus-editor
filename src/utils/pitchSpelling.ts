@@ -72,17 +72,17 @@ export function pitchToMidi(pitch: PitchSpelling): number {
 }
 
 /**
- * Convert a pitch spelling to a VexFlow key string (e.g. 'c#/4', 'db/4').
- * VexFlow expects lowercase step, accidental suffix, slash, then octave.
+ * Convert a pitch spelling to a note key string (e.g. 'c#/4', 'db/4') — what `EngravedNote` reads:
+ * lowercase step, accidental suffix, slash, then octave (VexFlow's format, kept).
  *
  * @example
- * spellingToVexflowKey('C',  1, 4) // 'c#/4'
- * spellingToVexflowKey('D', -1, 4) // 'db/4'
- * spellingToVexflowKey('G',  2, 3) // 'g##/3'
- * spellingToVexflowKey('A', -2, 5) // 'abb/5'
- * spellingToVexflowKey('E',  0, 4) // 'e/4'
+ * spellingToNoteKey('C',  1, 4) // 'c#/4'
+ * spellingToNoteKey('D', -1, 4) // 'db/4'
+ * spellingToNoteKey('G',  2, 3) // 'g##/3'
+ * spellingToNoteKey('A', -2, 5) // 'abb/5'
+ * spellingToNoteKey('E',  0, 4) // 'e/4'
  */
-export function spellingToVexflowKey(step: PitchStep, alter: PitchAlter, octave: number): string {
+export function spellingToNoteKey(step: PitchStep, alter: PitchAlter, octave: number): string {
   return `${step.toLowerCase()}${alterToString(alter)}/${octave}`
 }
 

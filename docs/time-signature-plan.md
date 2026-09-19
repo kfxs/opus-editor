@@ -483,13 +483,13 @@ Beyond the 3 preset test meters, Phases 2/2b must pass: `32/16`, `16/4`, `15/8`,
 - [x] Phase 0 — Guardrails + duration centralization
   - New `src/utils/durations.ts` is the single source of truth: one exhaustive
     `Record<NoteDuration, {beats, fraction, vex}>` (`DURATION_INFO`) feeding
-    `durationToBeats`/`durationToFraction`/`durationToVexflow`/`beatsToDuration`/
+    `durationToBeats`/`durationToFraction`/`noteDurationToken`/`beatsToDuration`/
     `splitBeatsIntoDurations`/`tupletNoteDurationFraction` + `DURATIONS_DESC`.
   - `fraction.ts` is now pure rational arithmetic (duration maps moved out;
     importers in CollisionDetector/MusicEngine/NoteEntryCoordinator/ScoreModel
     repointed). `musicUtils.ts` re-exports the duration helpers for back-compat
     and gains `getMeasureDurationFrac(ts): Fraction`.
-  - `ScoreRenderer.convertDuration` → `durationToVexflow`; its private float
+  - `ScoreRenderer.convertDuration` → `noteDurationToken`; its private float
     `durationToBeats` map removed. `beatsToRestDurations` left for Phase 2b.
   - `ScoreModel.fillGapsWithRests` uses `getMeasureDurationFrac` (was the lossy
     `Math.round(totalBeats*8)/8`).

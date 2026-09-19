@@ -131,7 +131,7 @@ export function meterOriginX(inkLeftX: number, glyphLeft: number, space: number)
  * the one that wraps — see its note.
  *
  * ⚠️ An EMPTY row draws nothing rather than an empty `<text>` node (`stampGlyph`'s own guard).
- * Unreachable here — `utils/meter.timeSignatureVexKey` emits `C`, `C|` or `n/d`, so a numeric meter
+ * Unreachable here — `utils/meter.timeSignatureKey` emits `C`, `C|` or `n/d`, so a numeric meter
  * always has both rows — and stated because the two are not the same DOM.
  */
 export function stampMeter(ctx: DrawContext, rows: readonly MeterRow[]): void {

@@ -11,7 +11,7 @@ import {
 } from './staffLines'
 
 /** VexFlow's own correction, transcribed here ONLY so the divergence can be asserted against it. */
-const vexflowCorrection = (lineWidth: number) => (lineWidth % 2 === 0 ? 0 : 0.5)
+const halfPixelCorrection = (lineWidth: number) => (lineWidth % 2 === 0 ? 0 : 0.5)
 
 describe('a staff line hangs DOWNWARD from its own y', () => {
   it('one line per y, at the stave’s x and width', () => {
@@ -54,20 +54,20 @@ describe("🚨 …and VexFlow's correction only ever agreed at thickness 1", () 
   it('🚨 at the thickness we NOW ship, the two no longer agree', () => {
     expect(STAVE_LINE_WIDTH_PX).toBeCloseTo(1.1, 10)
     expect(staffLineStrokeY(40, STAVE_LINE_WIDTH_PX))
-      .not.toBeCloseTo(40 + vexflowCorrection(STAVE_LINE_WIDTH_PX), 6)
+      .not.toBeCloseTo(40 + halfPixelCorrection(STAVE_LINE_WIDTH_PX), 6)
   })
 
   it('⭐ …and OURS is the one that puts the ink on [y, y + thickness]', () => {
     const t = STAVE_LINE_WIDTH_PX
     // VexFlow's correction is a flat 0.5 for any odd width, so it would hang the ink 0.05 px high.
-    expect(40 + vexflowCorrection(t) - t / 2).toBeCloseTo(39.95, 10)
+    expect(40 + halfPixelCorrection(t) - t / 2).toBeCloseTo(39.95, 10)
     expect(staffLineStrokeY(40, t) - t / 2).toBeCloseTo(40, 10)
   })
 
   it('🚨 …and it would have diverged at Bravura’s 0.13 too — the value we did NOT pick', () => {
     const bravura = 0.13 * 10
-    expect(staffLineStrokeY(40, bravura)).not.toBeCloseTo(40 + vexflowCorrection(bravura), 6)
-    expect(40 + vexflowCorrection(bravura) - bravura / 2).toBeCloseTo(39.85, 10)
+    expect(staffLineStrokeY(40, bravura)).not.toBeCloseTo(40 + halfPixelCorrection(bravura), 6)
+    expect(40 + halfPixelCorrection(bravura) - bravura / 2).toBeCloseTo(39.85, 10)
     expect(staffLineStrokeY(40, bravura) - bravura / 2).toBeCloseTo(40, 10)
   })
 })

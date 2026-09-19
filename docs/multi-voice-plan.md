@@ -144,7 +144,7 @@ voice-blind `buildBeatMap` (mouse is the reliable voice-2 entry path) — nav re
 ### Phase 2 — Multi-voice render loop (headline — `ScoreRenderer.renderMeasure`) — ✅ DONE 2026-06-22
 - Group sorted slots by `voice ?? 0`; one `Voice` per group; `joinVoices(all)`, `format(all, width)`, draw
   each. ✅ — combined parallel arrays (group order) feed the once-per-measure passes that already key on
-  voice/tupletId internally (`attachDynamicsToSlots`, `buildVexTuplets`, `registerSlotElements`,
+  voice/tupletId internally (`attachDynamicsToSlots`, `buildScoreTuplets`, `registerSlotElements`,
   `registerDynamics`, `layoutCoLocatedDynamics`); beams + the `Voice` + mid-measure clef interleaving run
   per group. **Mid-measure clef glyphs ride the primary voice only** (they're tickless, so voices still
   share a tick total and `joinVoices` won't mismatch). Used **manual rest offset, not `alignRests`** (more
