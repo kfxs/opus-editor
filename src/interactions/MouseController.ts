@@ -35,23 +35,25 @@ import { stampBarlineAtClick } from './barlineStamp'
 import { stampKeySignatureAtClick } from './keySignatureStamp'
 import { STAFF_BAND_PAD_PX } from './staffBand'
 import { ELEMENT_HIT_ORDER, type DoubleClickMark, type ElementChainDeps, type MouseDownCtx } from './elements/chain'
-import { armHairpinEndpointAt, hairpinStaffSpacePx } from './elements/hairpinHandles'
-import { dragHairpinBody, dragHairpinEndpoint, settleHairpinLanding } from './hairpinWalk'
+import { armHairpinEndpointAt } from './elements/hairpinHandles'
+import { DRAG_TIME_THRESHOLD_MS, type DragHost, type Gesture } from './drags/gesture'
+import { beginHairpinBodyDrag } from './drags/hairpinBody'
+import { beginOttavaBodyDrag } from './drags/ottavaBody'
+import { beginPedalBodyDrag } from './drags/pedalBody'
+import { dragHairpinEndpoint } from './hairpinWalk'
 import {
   beginTrillBodySpan, dragTrillBody, dragTrillEndpoint, endTrillBodySpan, endTrillHandTrace,
   settleTrillLanding, traceTrillHandVsInk,
 } from './trillWalk'
 import { slurBodyStaffSpacePx, slurBodyDragStep, type SlurBodyAnchor } from './slurBodyDrag'
 import { armOttavaEndpointAt } from './elements/ottavaHandles'
-import { dragOttavaBody, dragOttavaEndpoint, settleOttavaLanding } from './ottavaWalk'
+import { dragOttavaEndpoint } from './ottavaWalk'
 import { logHold, releaseHold, spendHold, takeHold } from './dragHold'
 import { startTrace, traceFrame } from './dragTrace'
-import { ottavaStaffSpacePx } from './ottavaLane'
 import { barlineJoinGrabAt, joinedAtPointer, squareAtPointer, type BarlineJoinGrab,
   type BarlineJoinSquareEnd } from './elements/barlineJoinHandles'
 import { armPedalEndpointAt } from './elements/pedalHandles'
-import { pedalStaffSpacePx } from './pedalLane'
-import { dragPedalBody, dragPedalEndpoint, settlePedalLanding } from './pedalWalk'
+import { dragPedalEndpoint } from './pedalWalk'
 import { armTrillEndpointAt } from './elements/trillHandles'
 import { trillStaffSpacePx } from './trillLane'
 import { articulationHit } from './elements/articulation'
@@ -146,53 +148,6 @@ interface MarkEndSession {
   changed: boolean
 }
 
-/**
- * Every gesture a press can arm. ⭐ **Exactly ONE is ever live** — `handleMouseDown` is a chain of
- * branches that each `return`, so a press arms one thing or nothing.
- */
-type DragKind =
-  | 'note' | 'barWidth' | 'barlineJoin' | 'clef' | 'staffSpacing' | 'staffGroupSpan'
-  | 'slurHandle' | 'slurEndpoint' | 'slurBody'
-  | 'dynamic' | 'tempo'
-  | 'markEnd' | 'hairpinBody' | 'ottavaBody' | 'pedalBody' | 'trillBody'
-
-/**
- * ⭐⭐ **THE ONE GESTURE IN FLIGHT** — what used to be thirteen parallel `isDragging…` booleans, each
- * with its own `end…Drag()`, read in three separate dispatch blocks.
- *
- * ⭐ It is the *"a slice too thin to be logic is still a slice"* shape `CLAUDE.md` forbids, in a file
- * that rule names: every gesture added since has cost a fourteenth boolean and a fourteenth `if` in
- * every block that reads them — and one of those blocks had fallen four gestures behind
- * ({@link MouseController.handleMouseLeave}).
- *
- * ## ⭐⭐ THE RULE THIS ENFORCES: **A GESTURE ENDS ON THE RELEASE, WHEREVER THAT RELEASE HAPPENS**
- *
- * ⛔ **Leaving the canvas ends nothing.** His report, 2026-08-21: *"i move up and then i dont release
- * the mouse but went out of the viefinder and when i go back im not editing the slur… this is
- * wrong"*. Three paths see the release, so none can be missed:
- *
- *  1. {@link MouseController.onDocMouseUp} — document-level and CAPTURE phase, so any release
- *     anywhere reaches it first;
- *  2. the canvas's own `mouseup`, which no-ops when 1 has already run;
- *  3. {@link MouseController.handleMouseMove}'s `buttons === 0`, for a release outside the BROWSER
- *     WINDOW, which fires no `mouseup` at all.
- *
- * ⚠️ **One exception, and only one: the PAN.** It is settled by its own document pair
- * (`onDocPanMove` / `onDocPanUp`) rather than by `handleMouseUp`, because it is armed on a press that
- * may still turn out to be a tap. `handleMouseLeave` bails on it before anything else.
- *
- * ⚠️ **And one sub-case that is not an exception**: `isDraggingBarWidth` is NOT a gesture flag — it is
- * the past-the-dead-zone bit, and the gesture is armed from the press. So an armed-but-never-moved
- * bar-width press still has state to clear on release, which is why arming sets this field and the
- * threshold bit stays its own boolean.
- */
-interface ActiveDrag {
-  kind: DragKind
-  /** ⭐ The family's own `end…Drag()` — it commits what the gesture wrote and clears this field. */
-  end: () => void
-}
-
-
 /** Registry element types that are staff background / structure rather than clickable
  *  notational objects. A Ctrl+Shift+click landing only on one of these is still "empty
  *  space" for the measure-box gesture (see handleModifierMouseDown). */
@@ -211,8 +166,20 @@ export class MouseController {
   // --- Internal ephemeral state (not in EditorState — not needed for reactivity) ---
   private lastCanvasMousePosition: { x: number; y: number } | null = null
   private isMouseButtonDown = false
-  /** ⭐⭐ **THE ONE GESTURE IN FLIGHT** — see {@link ActiveDrag}, which carries the rule. */
-  private activeDrag: ActiveDrag | null = null
+  /** ⭐⭐ **THE ONE GESTURE IN FLIGHT** — see {@link Gesture}, which carries the rule. */
+  private activeDrag: Gesture | null = null
+  /** What a gesture in `./drags/` may ask of this controller. */
+  private readonly dragHost: DragHost = {
+    getEngine: () => this.getEngine(),
+    render: { previewMarks: (kind, id) => this.render.previewMarks(kind, id), renderScore: () => this.render.renderScore() },
+    release: () => { this.activeDrag = null },
+  }
+  /** Hold the gesture a press armed. ⛔ null = it declined, and the press goes on being a click. */
+  private begin(gesture: Gesture | null, event: MouseEvent): void {
+    if (!gesture) return
+    this.activeDrag = gesture
+    event.preventDefault()
+  }
   private draggedNoteOriginalPitch: PitchSpelling | null = null
   /**
    * Which gesture a note/rest drag turned out to be — **decided on the evidence, not on the
@@ -511,19 +478,6 @@ export class MouseController {
   //     state (`./hairpinWalk`, `./ottavaWalk`, `./pedalWalk`, `./trillWalk`). ---
   private markEnd: MarkEndSession | null = null
 
-  // --- Hairpin BODY drag (his ask, 2026-08-18): the whole wedge's INK, where the squares above move
-  //     its ENDS through the music. Free pixels, not a snap — it writes the offset override, so the
-  //     cursor's delta is converted to staff-spaces and accumulated frame by frame. ---
-  private draggedHairpinBodyId: string | null = null
-  /** The last ACCEPTED cursor position, in SVG px — the anchor each frame's delta is measured from.
-   *  ⚠️ Not advanced on a refusal (the page limit), so a wedge stopped at the sheet's edge picks the
-   *  cursor up again exactly where it left it rather than jumping the distance it did not travel. */
-  private hairpinBodyLastX = 0
-  private hairpinBodyLastY = 0
-  /** True once a preview write landed, so the drop records one undo entry. */
-  private hairpinBodyDragChanged = false
-  private hairpinBodyDragStartTime: number | null = null
-
   // --- Slur ARC BODY drag (his ask, 2026-08-18): the whole curve's INK, where a press on a HANDLE
   //     moves one point instead. Free pixels, no walk and no hold — a whole-curve move has no anchor
   //     to arrive at (`./slurBodyDrag`, which owns the arithmetic and the refusal rule). ---
@@ -534,22 +488,6 @@ export class MouseController {
   /** True once a preview write landed, so the drop records one undo entry. */
   private slurBodyDragChanged = false
   private slurBodyDragStartTime: number | null = null
-
-  // --- Ottava BODY drag (a press on the numeral or its dashed line). The whole bracket follows the
-  //     hand — sideways through the music, and DOWN ONTO ANOTHER SYSTEM vertically. ---
-  private draggedOttavaBodyId: string | null = null
-  private ottavaBodyLastX = 0
-  private ottavaBodyLastY = 0
-  private ottavaBodyDragChanged = false
-  private ottavaBodyDragStartTime: number | null = null
-
-  // --- Pedal BODY drag: a press on either SIGN moves the whole pedal — through the music sideways
-  //     (`pedalWalk.dragPedalBody`) and onto another system vertically (`markSystemJump`). ---
-  private draggedPedalBodyId: string | null = null
-  private pedalBodyLastX = 0
-  private pedalBodyLastY = 0
-  private pedalBodyDragChanged = false
-  private pedalBodyDragStartTime: number | null = null
 
   // --- Trill BODY drag: a press on the ornament's own ink moves the WHOLE thing (2026-08-20). ---
   private draggedTrillBodyId: string | null = null
@@ -571,7 +509,7 @@ export class MouseController {
   private staffSpacingDragStartTime: number | null = null
 
 
-  private readonly DRAG_TIME_THRESHOLD_MS = 150
+  private readonly DRAG_TIME_THRESHOLD_MS = DRAG_TIME_THRESHOLD_MS
 
   /** Min cursor travel (px) before a note/rest press becomes a drag AND picks its axis. The same
    *  dead-zone idea as {@link PAN_THRESHOLD_PX}, a little wider: this one also has to tell two
@@ -727,7 +665,7 @@ export class MouseController {
    * `handleMouseLeave`: the element's `mousemove` stops firing once the pointer exits the canvas, so
    * a gesture that lives on it dies at the edge. ⛔ The list of gestures is not repeated here — this
    * forwards the SAME `handleMouseMove` the canvas calls, and every drag handler in it is guarded by
-   * the one session ({@link ActiveDrag}).
+   * the one session ({@link Gesture}).
    *
    * ⚠️ **Only OUTSIDE the canvas**, or the element's own handler and this one would both fire and the
    * gesture would move twice per frame. Capture phase, so the target test happens before the element
@@ -1093,15 +1031,7 @@ export class MouseController {
    *  2026-08-21). ⛔ Declines when the bracket is not measurably drawn, exactly as the wedge's does:
    *  a gesture in pixels needs a staff-space size to convert them with. */
   private armOttavaOffsetDrag(ottavaId: string, x: number, y: number, event: MouseEvent): void {
-    const engine = this.getEngine()
-    if (!engine || !ottavaStaffSpacePx(engine.getElementRegistry(), ottavaId)) return
-    this.activeDrag = { kind: 'ottavaBody', end: () => this.endOttavaBodyDrag() }
-    this.draggedOttavaBodyId = ottavaId
-    this.ottavaBodyLastX = x
-    this.ottavaBodyLastY = y
-    this.ottavaBodyDragChanged = false
-    this.ottavaBodyDragStartTime = Date.now()
-    event.preventDefault()
+    this.begin(beginOttavaBodyDrag(this.dragHost, ottavaId, x, y), event)
   }
 
   /**
@@ -1116,29 +1046,11 @@ export class MouseController {
    * px→staff-space scale, and a guessed one would move a small staff's pedal by the wrong amount.
    */
   private armPedalOffsetDrag(pedalId: string, x: number, y: number, event: MouseEvent): void {
-    const engine = this.getEngine()
-    if (!engine || !pedalStaffSpacePx(engine.getElementRegistry(), pedalId)) return
-    this.activeDrag = { kind: 'pedalBody', end: () => this.endPedalBodyDrag() }
-    this.draggedPedalBodyId = pedalId
-    this.pedalBodyLastX = x
-    this.pedalBodyLastY = y
-    this.pedalBodyDragChanged = false
-    this.pedalBodyDragStartTime = Date.now()
-    event.preventDefault()
+    this.begin(beginPedalBodyDrag(this.dragHost, pedalId, x, y), event)
   }
 
   private armHairpinOffsetDrag(hairpinId: string, x: number, y: number, event: MouseEvent): void {
-    const engine = this.getEngine()
-    if (!engine) return
-    const spacePx = hairpinStaffSpacePx(engine.getElementRegistry(), hairpinId)
-    if (!spacePx) return
-    this.activeDrag = { kind: 'hairpinBody', end: () => this.endHairpinBodyDrag() }
-    this.draggedHairpinBodyId = hairpinId
-    this.hairpinBodyLastX = x
-    this.hairpinBodyLastY = y
-    this.hairpinBodyDragChanged = false
-    this.hairpinBodyDragStartTime = Date.now()
-    event.preventDefault()
+    this.begin(beginHairpinBodyDrag(this.dragHost, hairpinId, x, y), event)
   }
 
   /**
@@ -1863,7 +1775,7 @@ export class MouseController {
     if (room.barlineSlope <= 0) {
       dbg(`Bar width | bar ${measure} ends its system — its barline is pinned, so the drag moves the bar's own music`)
     }
-    // ⚠️ Armed from the PRESS, before the dead zone — see {@link ActiveDrag}: `isDraggingBarWidth` is
+    // ⚠️ Armed from the PRESS, before the dead zone — see {@link Gesture}: `isDraggingBarWidth` is
     // the past-the-threshold bit, so a press that never moves still has this state to clear.
     this.activeDrag = { kind: 'barWidth', end: () => this.endBarWidthDrag() }
     this.barWidthDrag = { measure, room }
@@ -1886,7 +1798,7 @@ export class MouseController {
    * Returns true while the drag owns the move.
    */
   private handleBarWidthDrag(engine: MusicEngine, x: number): boolean {
-    // ⚠️ The session says WHICH gesture is live ({@link ActiveDrag}); `barWidthDrag` is this one's
+    // ⚠️ The session says WHICH gesture is live ({@link Gesture}); `barWidthDrag` is this one's
     // captured room, and the second half of the test is what narrows it for the read below.
     if (this.activeDrag?.kind !== 'barWidth' || !this.barWidthDrag) return false
     const dx = x - this.barWidthDragStartX
@@ -2096,7 +2008,7 @@ export class MouseController {
   }
 
   /**
-   * ⭐⭐ **THE RELEASE ENDS THE GESTURE — one call, whichever gesture it was** ({@link ActiveDrag}).
+   * ⭐⭐ **THE RELEASE ENDS THE GESTURE — one call, whichever gesture it was** ({@link Gesture}).
    *
    * This was fourteen sequential `if`s, one per family, each naming its own flag and its own ender —
    * and the list had to be extended by every feature that added a drag. ⭐ Now the gesture carries
@@ -2108,7 +2020,7 @@ export class MouseController {
    * which is what makes three redundant paths safe rather than three commits.
    *
    * ⚠️ A hand/grab PAN is not here: it is resolved by the document-level `handleDocPanUp`, so it
-   * settles even when the release lands outside the viewport. See {@link ActiveDrag} for why it is
+   * settles even when the release lands outside the viewport. See {@link Gesture} for why it is
    * the one exception.
    */
   handleMouseUp(_event: MouseEvent): void {
@@ -2375,7 +2287,7 @@ export class MouseController {
     const engine = this.getEngine()
     if (engine && this.tempoDragChanged) {
       engine.commitTempoDrag()
-      // ⛔ THE DROP RENDERS FOR REAL — see `endHairpinBodyDrag`. Here it also re-engraves the mark's
+      // ⛔ THE DROP RENDERS FOR REAL — see `./drags/bodyDrag`. Here it also re-engraves the mark's
       // bar, which the preview frames deliberately did not.
       // ⚠️ EXPLORATORY (2026-08-31) — where the glyph was drawn on the LAST PREVIEW FRAME, and where
       // the real render below has just put it. ⭐ A difference here is the drop moving the mark, which
@@ -2413,7 +2325,7 @@ export class MouseController {
     const engine = this.getEngine()
     if (engine && this.dynamicDragChanged) {
       engine.commitDynamicDrag()
-      // ⛔ THE DROP RENDERS FOR REAL — see `endTempoDrag` and `endHairpinBodyDrag`. The preview
+      // ⛔ THE DROP RENDERS FOR REAL — see `endTempoDrag` and `./drags/bodyDrag`. The preview
       // frames leave the ladder unrestacked and the wedges of this mark's own family unredrawn.
       this.render.renderScore()
       dbg(`Dynamic dragged | id:${this.draggedDynamicId}`)
@@ -3046,6 +2958,10 @@ export class MouseController {
     // an armed paste must not draw a TOOL ghost underneath itself either.
     if (this.state.pastePlacementArmed) return
 
+    // A gesture that owns its own state takes every move (`./drags/`); the chain below is the
+    // gestures this controller still drives itself, one family at a time on their way out.
+    if (this.activeDrag?.move) { this.activeDrag.move(engine, x, y); return }
+
     // Live drag gestures — each returns true if it owns the move.
     if (this.handleBarWidthDrag(engine, x)) return
     if (this.handleNoteDrag(engine, x, y)) return
@@ -3053,10 +2969,7 @@ export class MouseController {
     if (this.handleTempoDrag(engine, x, y)) return
     if (this.handleDynamicDrag(engine, x, y)) return
     if (this.handleMarkEndDrag(engine, x, y)) return
-    if (this.handleHairpinBodyDrag(engine, x, y)) return
     if (this.handleSlurBodyDrag(engine, x, y)) return
-    if (this.handleOttavaBodyDrag(engine, x, y)) return
-    if (this.handlePedalBodyDrag(engine, x, y)) return
     if (this.handleTrillBodyDrag(engine, x, y)) return
     if (this.handleSlurEndpointDrag(engine, x, y)) return
     if (this.handleStaffSpacingDrag(engine, x, y)) return
@@ -3522,72 +3435,6 @@ export class MouseController {
   }
 
   /**
-   * ⭐⭐ One frame of a hairpin BODY drag: the whole wedge follows the hand, and the MUSIC comes along
-   * at each boundary its ink reaches — `../hairpinWalk`'s third port (his ask, 2026-08-20).
-   *
-   * ⭐ **It used to move only the DRAWING**, in free pixels: the wedge's extent was musical but its
-   * position was cosmetic. That split is gone — dragging a wedge now moves it through the music, as
-   * dragging a dynamic does, with the ink interpolating between the notes.
-   *
-   * ⭐⭐ **The vertical is a JUMP, not a walk**: within a system a wedge's place is continuous, and
-   * between systems there is nothing continuous to travel through. A frame that jumps ENDS there —
-   * the anchor has moved, so its `dx` would be spent against a slot the hand was never near.
-   *
-   * ⚠️ **The delta is measured from the last ACCEPTED frame**: on a refusal the anchor is left where
-   * it was, so the gesture re-synchronises when the cursor comes back instead of the wedge jumping by
-   * the distance it never travelled.
-   */
-  private handleHairpinBodyDrag(engine: MusicEngine, x: number, y: number): boolean {
-    if (!(this.activeDrag?.kind === 'hairpinBody' && this.draggedHairpinBodyId)) return false
-    if (this.hairpinBodyDragStartTime !== null
-        && Date.now() - this.hairpinBodyDragStartTime < this.DRAG_TIME_THRESHOLD_MS) return true
-    const frame = dragHairpinBody(
-      engine, this.draggedHairpinBodyId, x, x - this.hairpinBodyLastX, y - this.hairpinBodyLastY)
-    // ⛔ null = the wedge is not drawn, so there is no scale to convert with; leave the anchor alone.
-    if (frame === null) return true
-    if (frame.moved) {
-      this.hairpinBodyLastX = x
-      this.hairpinBodyLastY = y
-      this.hairpinBodyDragChanged = true
-      // ⭐ Previewed (§12.5a). ⚠️ This walk decides from the wedge's OWN DRAWN INK, so it is only
-      // sound while a preview draws the wedge exactly where a full render would. It did not, until
-      // 2026-08-22: `renderHairpins` found the wedge in the snapshot's stale LANE views, so a jump
-      // onto the other hand of a grand staff redrew it on the staff it had left — and the walk, seeing
-      // ink that had not moved, crossed again, and again. See the trace in `HairpinRenderer`.
-      this.render.previewMarks('hairpin', this.draggedHairpinBodyId)
-      // ⚠️⚠️ EXPLORATORY (2026-08-30) — **a flip may not move the drawing** (his *"look how it
-      // jumps"*, the ink 444.6 → 378.2 on a 3px frame). What the other side of the staff gives the
-      // wedge is only knowable once it has been drawn there, so the payment is made HERE, after the
-      // draw above and inside the same mouse event: on the next frame instead, the leap would be on
-      // screen for one frame. ⭐ It writes at most once per gesture, so the second draw is not a cost
-      // the ordinary frame pays.
-      if (frame.jumped && settleHairpinLanding(engine, this.draggedHairpinBodyId)) {
-        this.render.previewMarks('hairpin', this.draggedHairpinBodyId)
-      }
-    }
-    return true
-  }
-
-  /** Finish a hairpin BODY drag: one undo entry if the wedge actually moved, then reset. The wedge
-   *  stays selected, so the arrows can carry on from where the mouse stopped. */
-  private endHairpinBodyDrag(): void {
-    const engine = this.getEngine()
-    if (engine && this.hairpinBodyDragChanged) {
-      engine.commitHairpinOffsetDrag()
-      // ⛔ **THE DROP RENDERS FOR REAL** — §12.5a, the same debt the ottava and the pedal pay. The
-      // frames drew only the wedges, which does not restack the ladder around them, and
-      // `commitPreviewed` deliberately paints nothing. Leaving the cheap picture standing is the one
-      // thing a preview may never do.
-      this.render.renderScore()
-      dbg(`Hairpin moved | id:${this.draggedHairpinBodyId}`)
-    }
-    this.activeDrag = null
-    this.draggedHairpinBodyId = null
-    this.hairpinBodyDragChanged = false
-    this.hairpinBodyDragStartTime = null
-  }
-
-  /**
    * ⭐ One frame of a slur ARC-BODY drag: the whole curve follows the cursor, live (no undo), its
    * shape untouched. `./slurBodyDrag` owns both rules — the measured scale and the anchor that does
    * NOT advance on a refusal — so this is the state around them.
@@ -3619,7 +3466,7 @@ export class MouseController {
     const engine = this.getEngine()
     if (engine && this.slurBodyDragChanged) {
       engine.commitSlurOffsetDrag()
-      // ⛔ THE DROP RENDERS FOR REAL — see `endHairpinBodyDrag` for why a previewed gesture owes one.
+      // ⛔ THE DROP RENDERS FOR REAL — see `./drags/bodyDrag` for why a previewed gesture owes one.
       this.render.renderScore()
       dbg(`Slur moved | id:${this.draggedSlurBodyId}`)
     }
@@ -3631,122 +3478,6 @@ export class MouseController {
   }
 
 
-
-  /**
-   * ⭐⭐ **One frame of an OTTAVA BODY drag: the whole bracket follows the hand** — sideways through
-   * the music (extent and all) and, when the hand leaves its staff's room, DOWN ONTO ANOTHER SYSTEM
-   * (`ottavaWalk.dragOttavaBody`, his ask 2026-08-21).
-   *
-   * ⚠️ The delta is measured from the last ACCEPTED frame, the family's rule: the module accumulates
-   * rather than sets, so a refused frame leaves the anchor put and the gesture re-synchronises when
-   * the cursor comes back.
-   *
-   * ⭐⭐ **A system JUMP ends the frame, ⛔ not the gesture** — unlike a square's wrap. The bracket has
-   * landed where the hand is, so the hand may carry straight on down there; what must not happen is
-   * spending this frame's `dx` against a slot it was never near.
-   */
-  private handleOttavaBodyDrag(engine: MusicEngine, x: number, y: number): boolean {
-    if (!(this.activeDrag?.kind === 'ottavaBody' && this.draggedOttavaBodyId)) return false
-    if (this.ottavaBodyDragStartTime !== null
-        && Date.now() - this.ottavaBodyDragStartTime < this.DRAG_TIME_THRESHOLD_MS) return true
-    const frame = dragOttavaBody(
-      engine, this.draggedOttavaBodyId, x, x - this.ottavaBodyLastX, y - this.ottavaBodyLastY)
-    // ⛔ null = the bracket is not drawn, so there is no scale to convert with; leave the anchor alone.
-    if (frame === null) return true
-    if (frame.moved) {
-      this.ottavaBodyLastX = x
-      this.ottavaBodyLastY = y
-      this.ottavaBodyDragChanged = true
-      // ⭐⭐ **The frame draws the OTTAVAS and nothing else** (§12.5a). The music does not move while
-      // a bracket does — the census reported **0% of bars re-engraved** through the whole gesture —
-      // so every one of the render's eight whole-score passes was re-deriving what was already on
-      // screen. ⛔ The DROP still renders for real (`endOttavaBodyDrag` → `commitOttavaOffsetDrag`),
-      // which is what restacks the ladder the preview deliberately leaves alone.
-      this.render.previewMarks('ottava', this.draggedOttavaBodyId)
-    }
-    return true
-  }
-
-  /**
-   * ⭐⭐ **One frame of a PEDAL BODY drag: the whole pedal follows the hand** — sideways through the
-   * music (span and all) and, when the hand leaves its staff's room, DOWN ONTO ANOTHER SYSTEM
-   * (`pedalWalk.dragPedalBody`, his ask 2026-08-21).
-   *
-   * ⚠️ The delta is measured from the last ACCEPTED frame, the family's rule: the module accumulates
-   * rather than sets, so a refused frame leaves the anchor put and the gesture re-synchronises when
-   * the cursor comes back.
-   *
-   * ⭐⭐ **A system JUMP ends the frame, ⛔ not the gesture** — the bracket's rule: the pedal has landed
-   * where the hand is, so the hand may carry straight on down there.
-   */
-  private handlePedalBodyDrag(engine: MusicEngine, x: number, y: number): boolean {
-    if (!(this.activeDrag?.kind === 'pedalBody' && this.draggedPedalBodyId)) return false
-    if (this.pedalBodyDragStartTime !== null
-        && Date.now() - this.pedalBodyDragStartTime < this.DRAG_TIME_THRESHOLD_MS) return true
-    const frame = dragPedalBody(
-      engine, this.draggedPedalBodyId, x, x - this.pedalBodyLastX, y - this.pedalBodyLastY)
-    // ⛔ null = the pedal is not drawn, so there is no scale to convert with; leave the anchor alone.
-    if (frame === null) return true
-    if (frame.moved) {
-      this.pedalBodyLastX = x
-      this.pedalBodyLastY = y
-      this.pedalBodyDragChanged = true
-      // ⭐ Only the PEDALS are redrawn (§12.5a). ⚠️ `drawPedal` files its ladder claim during the
-      // DRAW, unlike its siblings, so the preview rewinds `occupiedBands` — see `markPreviewPass`.
-      this.render.previewMarks('pedal', this.draggedPedalBodyId)
-    }
-    return true
-  }
-
-  /** Finish a pedal BODY drag: one undo entry if the pedal actually moved, then reset. It stays
-   *  selected, so the arrows carry on from where the mouse stopped. */
-  private endPedalBodyDrag(): void {
-    const engine = this.getEngine()
-    if (engine && this.pedalBodyDragChanged) {
-      // ⚠️ EXPLORATORY (2026-08-30): a landing on the very last frame is still owed its settlement,
-      // and there is no next frame to pay it — `pedalWalk.settlePedalLanding` does it here, before
-      // the commit, so the one undo entry carries it. ⛔ Also stops a stale debt reaching the NEXT
-      // drag, which would yank the pedal on its first frame. (The bracket's line, one lane over.)
-      if (this.draggedPedalBodyId) settlePedalLanding(engine, this.draggedPedalBodyId)
-      engine.commitPedalOffsetDrag()
-      // ⛔ **THE DROP RENDERS FOR REAL** — §12.5a. The frames drew only this family, which does not
-      // restack the ladder around it; leaving the cheap picture standing is the one thing a preview
-      // may never do. ⚠️ Nothing rendered here before 2026-08-22, because the last frame's own
-      // `renderScore()` happened to be the final picture. A preview frame is not.
-      this.render.renderScore()
-      dbg(`Pedal moved | id:${this.draggedPedalBodyId}`)
-    }
-    this.activeDrag = null
-    this.draggedPedalBodyId = null
-    this.pedalBodyDragChanged = false
-    this.pedalBodyDragStartTime = null
-  }
-
-  /** Finish an ottava BODY drag: one undo entry if the bracket actually moved, then reset. It stays
-   *  selected, so the arrows carry on from where the mouse stopped. */
-  private endOttavaBodyDrag(): void {
-    const engine = this.getEngine()
-    if (engine && this.ottavaBodyDragChanged) {
-      // ⚠️ EXPLORATORY (2026-08-30): a landing on the very last frame is still owed its settlement,
-      // and there is no next frame to pay it — `ottavaWalk.settleOttavaLanding` does it here, before
-      // the commit, so the one undo entry carries it. ⛔ Also stops a stale debt reaching the NEXT
-      // drag, which would yank the bracket on its first frame.
-      if (this.draggedOttavaBodyId) settleOttavaLanding(engine, this.draggedOttavaBodyId)
-      engine.commitOttavaOffsetDrag()
-      // ⛔⛔ **THE DROP MUST RENDER FOR REAL, and this line is not optional** (§12.5a). The frames of
-      // this gesture draw only the ottavas (`RenderController.previewMarks`), which deliberately does
-      // NOT restack the ladder — a pedal that should have moved out of the bracket's way has not. Its
-      // whole licence is that the cheap picture is temporary. Until 2026-08-22 nothing rendered here,
-      // because the last frame's own `renderScore()` happened to be the final picture; a preview
-      // frame is not, and leaving it standing is the one thing a preview may never do.
-      this.render.renderScore()
-      dbg(`Ottava moved | id:${this.draggedOttavaBodyId}`)
-    }
-    this.activeDrag = null
-    this.draggedOttavaBodyId = null
-    this.ottavaBodyDragChanged = false
-    this.ottavaBodyDragStartTime = null
-  }
 
   /**
    * ⭐⭐ **One frame of a TRILL BODY drag: the whole ornament follows the hand** — sideways through
@@ -3829,7 +3560,7 @@ export class MouseController {
     const engine = this.getEngine()
     if (engine && this.trillBodyDragChanged) {
       engine.commitTrillDrag('start')
-      // ⛔ THE DROP RENDERS FOR REAL — see `endHairpinBodyDrag`. This is also where the page finally
+      // ⛔ THE DROP RENDERS FOR REAL — see `./drags/bodyDrag`. This is also where the page finally
       // re-casts around the ornament's new claim, which the frames deliberately did not do.
       this.render.renderScore()
       dbg(`Trill moved | id:${this.draggedTrillBodyId}`)
@@ -3993,7 +3724,7 @@ export class MouseController {
    *
    * ⭐⭐ **With the button UP there is nothing left to end** — the release has already been settled.
    * {@link handleMouseUp} is the only thing that ends a drag, and it is reached by three paths that
-   * between them see every release ({@link ActiveDrag}). ⚠️ Until 2026-08-24 six of the fourteen
+   * between them see every release ({@link Gesture}). ⚠️ Until 2026-08-24 six of the fourteen
    * gestures were ALSO torn down here by name; that list had fallen four gestures behind, and by then
    * it could not run at all — both assignments of `isMouseButtonDown = false` call `handleMouseUp`
    * first, so past the guard below every gesture is already over. It was dead code from the day the

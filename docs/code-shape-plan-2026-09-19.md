@@ -1,6 +1,6 @@
 # Code shape plan — 2026-09-19
 
-**Status: IN PROGRESS — Phase 1 DONE (2026-09-19), bar item 5's two ⏭️ decisions. Phase 2 DONE. Phase 3 is next.** Phases are ordered by
+**Status: IN PROGRESS — Phase 1 DONE (2026-09-19), bar item 5's two ⏭️ decisions. Phase 2 DONE. Phase 3.1: the three body drags done, awaiting his UI check; trill and slur next.** Phases are ordered by
 value over risk; each one stands alone and can be stopped after. A done item carries ✅ and what
 actually happened where that differs from what was planned.
 
@@ -222,6 +222,17 @@ Run the e2e suite either side of each step.
    - Nine `MouseController.*.test.ts` specs cast into the private drag fields. They break at this
      step and move to `drags/<kind>.test.ts` in the same commit (a spec moves with its module).
    - jsdom cannot prove a drag. Each family stops for his UI check, not only the e2e suite.
+
+   *First family done — the hairpin / ottava / pedal BODY drags: `interactions/drags/gesture.ts`
+   (the `Gesture` contract, `DragKind`, `DragHost`; `ActiveDrag` became it, with an optional
+   `move`), `drags/bodyDrag.ts` (the shared frame, with `afterFrame` for the hairpin's settle and
+   `beforeCommit` for the ottava's and pedal's) and one row module per kind. `MouseController`
+   lost 15 fields, three handlers and three enders; its arm methods are one line each
+   (`this.begin(begin<Kind>BodyDrag(…), event)`), and `handleMouseMove` hands a gesture that has
+   `move` every move before the old chain. Kind mentions 970 → 835, code lines 2,122 → 1,996.
+   The specs that drive these drags through real mouse events (`MouseController.hairpinBodyDrag`,
+   `.dragRelease`) passed UNCHANGED, which is the evidence the behaviour held; the helper's own
+   contract is `drags/bodyDrag.test.ts`. ⏸️ Awaiting his UI check.*
 2. **A `keys` column on `ELEMENT_SPECS`** — `{ nudge, reset }` first — and one dispatcher.
    Replaces the four `||` chains and the 61 closures.
 
