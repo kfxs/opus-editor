@@ -1,4 +1,4 @@
-import { Renderer, Stave, StaveNote, Accidental, Articulation, Annotation, type Beam, ClefNote } from 'vexflow'
+import { Renderer, Stave, StaveNote, Articulation, Annotation, type Beam, ClefNote } from 'vexflow'
 import { ScoreTuplet } from './ScoreTuplet'
 import { tremoloOn, TREMOLO_FLAG_STEM_STRETCH, TREMOLO_STROKE_CLEARANCE, usableStemSpan } from './CenteredTremolo'
 import { twoNoteTremoloStrokes } from './TwoNoteTremolo'
@@ -9,6 +9,7 @@ import { clearLedgersForAccidentals } from './ledgerAccidentalClearance'
 import { armedStandoffPx, placeAccidentals } from './accidentalPlacement'
 import { EngravedNote, drawNoteInkThrough } from './EngravedNote'
 import { accidentalHitBox } from './drawnHitBox'
+import { accidentalsOn } from './EngravedAccidental'
 import { drawLedgerLines } from '@/engine/engrave/notes/ledgerLines'
 import { placeDots } from './dotPlacement'
 import { GHOST_GROUP_SELECTOR, drawNoteGhost, drawToolGhost } from './GhostRenderer'
@@ -2486,11 +2487,7 @@ export class VexFlowRenderer {
         // Accidentals sit LEFT; VexFlow's getModifierStartXY does not fold xShift into the LEFT
         // branch, so shift the accidental glyph directly (this path works — the glyph has no
         // draw-time re-centering to fight).
-        for (const mod of sn.getModifiers()) {
-          if (mod instanceof Accidental) {
-            (mod as unknown as { xShift: number }).xShift += px
-          }
-        }
+        for (const accidental of accidentalsOn(sn)) accidental.nudgeX(px)
       }
       // Articulations sit ABOVE/BELOW. Two VexFlow facts make shifting THEIR xShift useless:
       //   1. a note's ABOVE/BELOW modifier start is the UNshifted head centre (unlike the dots' RIGHT one);
@@ -3500,9 +3497,8 @@ export class VexFlowRenderer {
               // `||` chain makes the guess WIN, because it only runs when the true answer said no.
               {
                 try {
-                  for (const modifier of staveNote.getModifiers()) {
-                    if (modifier.getCategory() === 'Accidental') {
-                      const accidental = modifier as Accidental
+                  for (const accidental of accidentalsOn(staveNote)) {
+                    {
                       if (accidental.getIndex() === keyIndex) {
                         const accBox = accidentalHitBox(accidental)
                         if (accBox) {

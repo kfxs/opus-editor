@@ -50,16 +50,42 @@
  * two sources"* number (beside the ledger overhang, the stem thickness, the flag reach, the notehead
  * glyph and the articulation's centring) — and like all of them it MOVES PIXELS, so it is a taste
  * call and ⛔ not this file's to make.
+ *
+ * ## ⭐ S12e — no longer VexFlow's `Accidental`
+ *
+ * It keeps the modifier contract (`./EngravedModifier`) and what `Accidental` added: LEFT of its
+ * note, its sign `type` (read by the column rule and the slur), the glyph (`accidentalGlyph` — the five
+ * signs this editor writes; any other is refused), and the WIDTH — the glyph measured in the
+ * `Accidental` category's face at `Accidental.fontSize` (the root 30). ⛔ VexFlow's two other branches
+ * are REFUSED, not transcribed: a CAUTIONARY sign (brackets, 20 pt) and a GRACE note's (20 pt) —
+ * neither is ever built here, and a refusal keeps that a fact rather than a silent wrong size.
  */
-import { Accidental } from 'vexflow'
+import type { Note, StaveNote } from 'vexflow'
 import type { DrawContext } from '@/engine/paint/DrawContext'
-import { accidentalFont } from '@/engine/engrave/inheritedFonts'
+import { MUSIC_FONT_SIZE_PT, accidentalFont } from '@/engine/engrave/inheritedFonts'
 import { accidentalOriginX, drawAccidental, type AccidentalInk } from '@/engine/engrave/notes/accidental'
+import { accidentalGlyph } from '@/engine/fonts/fontMetrics'
+import { GLYPH_CODEPOINTS } from '@/engine/fonts/bravuraMetrics'
 import type { SceneBox } from '@/engine/scene/sceneBox'
 import type { InkSurfaceAware } from './inkSurface'
 import { drawnInkBoxOf } from './sceneInk'
+import { measureGlyphMetrics } from './glyphPainter'
+import { EngravedModifier, MODIFIER_POSITION, type ModifierMetrics } from './EngravedModifier'
 
-export class EngravedAccidental extends Accidental implements InkSurfaceAware {
+/** The category whose face a sign is measured in — `Accidental`, which walks up to the root. */
+const SIGN_TAG = 'Accidental'
+
+export class EngravedAccidental extends EngravedModifier implements InkSurfaceAware {
+  static override get CATEGORY(): string {
+    return 'Accidental'
+  }
+
+  /** The sign as written — `'#'`, `'##'`, `'b'`, `'bb'`, `'n'`. */
+  readonly type: string
+
+  /** Its SMuFL glyph. */
+  private readonly glyph: string
+
   /**
    * The surface this accidental's glyph draws on — the note's own, handed over by
    * {@link drawNoteInkThrough} before the voices are drawn. Null until then, and then it falls back
@@ -70,9 +96,49 @@ export class EngravedAccidental extends Accidental implements InkSurfaceAware {
   /** @see EngravedAccidental.drawnInk */
   private ink: SceneBox | null = null
 
+  constructor(type: string) {
+    super()
+    const name = accidentalGlyph(type)
+    if (!name) throw new Error(`EngravedAccidental: no glyph for the sign "${type}" — only # ## b bb n are written here.`)
+    this.type = type
+    this.glyph = String.fromCodePoint(GLYPH_CODEPOINTS[name])
+    this.position = MODIFIER_POSITION.LEFT
+  }
+
+  /** `Accidental.setNote`: its `reset` picks a grace note's size — refused, as no grace note is built. */
+  override setNote(note: Note): this {
+    if (note.getCategory() === 'GraceNote') throw new Error('EngravedAccidental: a grace note\'s accidental is not transcribed.')
+    return super.setNote(note)
+  }
+
   /** @see EngravedAccidental.inkSurface */
   setInkSurface(ctx: DrawContext): void {
     this.inkSurface = ctx
+  }
+
+  /** The glyph it stamps. */
+  getText(): string {
+    return this.glyph
+  }
+
+  /** How much room it takes — the glyph's advance at the sign's size. */
+  getWidth(): number {
+    return this.measured().width
+  }
+
+  /** Move it by `px` on top of the shift it has — the note offset's nudge (`VexFlowRenderer`). */
+  nudgeX(px: number): this {
+    this.xShift += px
+    return this
+  }
+
+  private measured() {
+    return measureGlyphMetrics(SIGN_TAG, this.glyph, MUSIC_FONT_SIZE_PT)
+  }
+
+  protected inkMetrics(): ModifierMetrics {
+    const { width, ascent, descent } = this.measured()
+    return { width, ascent, descent }
   }
 
   /**
@@ -83,50 +149,38 @@ export class EngravedAccidental extends Accidental implements InkSurfaceAware {
    * BOX (measured in `e2e/sceneBox.e2e.ts` at more than three times the sign) hung off this object's
    * `x`/`y` fields.
    *
-   * @returns null when this accidental did not draw its own ink — a CAUTIONARY one (brackets, see
-   *   {@link EngravedAccidental.draw}) hands the whole job back to VexFlow, and then the only ruler
-   *   for it is VexFlow's. ⛔ Never a box "about right": an unmeasured glyph answers null too.
+   * @returns null before the sign has drawn. ⛔ Never a box "about right": an unmeasured glyph
+   *   answers null too.
    */
   drawnInk(): SceneBox | null {
     return this.ink
   }
 
   /** ⭐ **OURS** — the glyph, through our own primitives, at VexFlow's own point. */
-  override draw(): void {
+  draw(): void {
     const vex = this.checkContext()
-    const note = this.checkAttachedNote()
+    const note = this.checkAttachedNote() as StaveNote
     this.setRendered()
 
-    // ⚠️ Cleared FIRST, so a draw that takes the cautionary branch below — or throws — can never
-    // leave the previous render's box standing as if it were this one's.
     this.ink = null
 
     const start = note.getModifierStartXY(this.position, this.checkIndex())
-    // ⚠️ THE WRITE-BACK, and it must happen before the stamp reads these — see the header.
     this.x = accidentalOriginX(start.x, this.getWidth())
     this.y = start.y
 
-    // ⚠️ A cautionary accidental's brackets are `children`, which `renderText` stamps after the
-    // sign itself. Nothing in this repo makes one (no `setAsCautionary` call anywhere), so the
-    // child loop is ⛔ NOT transcribed — and this guard is what keeps that a statement about today
-    // rather than a silent loss the day somebody adds one.
-    if (this.children.length > 0) {
-      super.draw()
-      return
-    }
-
-    const glyph = this.getText()
     const ink: AccidentalInk = {
-      glyph,
-      x: this.x + this.getXShift(),
-      y: this.y + this.getYShift(),
-      font: accidentalFont(glyph),
-      // ⭐ The sign's own id, so its GROUP can be matched back to the hit box the registry
-      //   files for it — P6b's seam (`docs/own-engraving-engine.md` §5 P6).
-      id: this.getAttribute('id'),
+      glyph: this.glyph,
+      x: this.x + this.xShift,
+      y: this.y + this.yShift,
+      font: accidentalFont(this.glyph),
+      id: this.getAttribute('id')!,
     }
     drawAccidental(this.inkSurface ?? vex, ink)
-    // ⭐ THE RULER, from the same call that just painted — see {@link EngravedAccidental.drawnInk}.
     this.ink = drawnInkBoxOf(ctx => drawAccidental(ctx, ink))
   }
+}
+
+/** The accidentals hung on `note`, in the order they were attached. */
+export function accidentalsOn(note: Note): EngravedAccidental[] {
+  return (note.getModifiers() as unknown[]).filter((m): m is EngravedAccidental => m instanceof EngravedAccidental)
 }

@@ -84,8 +84,9 @@ export function drawArticulationGhost(ctx: DrawContext, cursorX: number, cursorY
 export function drawAccidentalGhost(ctx: DrawContext, cursorX: number, cursorY: number, accidental: ScoreAccidental): boolean {
   try {
     const sign = new EngravedAccidental(accidental) // '#' | 'b' | 'n' are the codes as-is
-    loneQuarter(cursorY, note => note.addModifier(sign, 0))
-    return drawSignGhost(ctx, 'ghost-accidental', cursorX, cursorY, () => drawMarkOn(ctx, sign), ghostCursorOffset)
+    loneQuarter(cursorY, note => attachModifier(note, sign, 0))
+    // Ours since S12e — it draws on our surface itself, with no cast.
+    return drawSignGhost(ctx, 'ghost-accidental', cursorX, cursorY, () => { sign.setInkSurface(ctx); sign.setContext(ctx).draw() }, ghostCursorOffset)
   } catch (_e) {
     return false
   }

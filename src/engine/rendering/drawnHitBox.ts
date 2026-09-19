@@ -31,10 +31,9 @@
  * crossing is `dbg`-reported with the glyph that caused it, and the specs pin that the ordinary path
  * never takes it.
  */
-import type { Accidental } from 'vexflow'
 import { dbg } from '@/utils/debug'
 import type { SceneBox } from '@/engine/scene/sceneBox'
-import { EngravedAccidental } from './EngravedAccidental'
+import type { EngravedAccidental } from './EngravedAccidental'
 
 /**
  * ⭐ **ONE ACCIDENTAL'S HIT BOX — the first kind to migrate** (2026-09-14).
@@ -45,18 +44,15 @@ import { EngravedAccidental } from './EngravedAccidental'
  *
  * @returns null when neither ruler has an answer — the sign has not been drawn yet.
  */
-export function accidentalHitBox(accidental: Accidental): SceneBox | null {
-  if (accidental instanceof EngravedAccidental) {
-    const ours = accidental.drawnInk()
-    if (ours) return ours
-    // ⚠️ Reachable for a CAUTIONARY accidental (brackets ⇒ VexFlow draws the whole thing) and for a
-    // glyph outside the font table. Neither exists in this editor today, and `drawnHitBox.test.ts`
-    // is what keeps that true rather than assumed.
-    dbg(
-      `⚠️ [hit-box] accidental "${accidental.getText()}" has no ink box of ours — ` +
-        `falling back to VexFlow's line-box (docs/own-engraving-engine.md §5 P6b).`,
-    )
-  }
+export function accidentalHitBox(accidental: EngravedAccidental): SceneBox | null {
+  const ours = accidental.drawnInk()
+  if (ours) return ours
+  // ⚠️ Reachable only for a sign that has not DRAWN: since S12e a cautionary sign and a glyph outside
+  // the font table are refused at construction. `drawnHitBox.test.ts` keeps that true, not assumed.
+  dbg(
+    `⚠️ [hit-box] accidental "${accidental.getText()}" has no ink box of ours — ` +
+      `falling back to the line-box (docs/own-engraving-engine.md §5 P6b).`,
+  )
   const box = accidental.getBoundingBox()
   return box ? { x: box.x, y: box.y, width: box.w, height: box.h } : null
 }

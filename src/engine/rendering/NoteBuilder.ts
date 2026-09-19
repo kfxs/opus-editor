@@ -298,7 +298,7 @@ export function createStaveNotesFromSlots(
     // ledger line is therefore a DRAW-time pass, not a wider accidental here.
     sortedPitches.forEach((p, idx) => {
       const acc = displayAccidentals.get(p.id) ?? null
-      if (acc) staveNote.addModifier(new EngravedAccidental(acc), idx)
+      if (acc) attachModifier(staveNote, new EngravedAccidental(acc), idx)
     })
 
     // Dots — none on a fanned slot; see the drawn-value note above.

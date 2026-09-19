@@ -46,7 +46,8 @@
  * now a choice rather than a limit; ⛔ still not taken, because the symmetric trim is what is on his
  * screen and nobody has reported it. `docs/note-engraving-plan.md` §4 holds the question.
  */
-import { StaveNote, Accidental } from 'vexflow'
+import { StaveNote } from 'vexflow'
+import { accidentalsOn } from './EngravedAccidental'
 import { ACCIDENTAL_NOTEHEAD_PADDING_PX, MODIFIER_LEFT_OFFSET_PX } from '@/engine/engrave/inheritedDefaults'
 import { trimLedgers } from './EngravedNote'
 
@@ -141,7 +142,7 @@ export function accidentalMeetsLedger(accidentalLine: number, headLines: number[
 export function clearLedgersForAccidentals(notes: StaveNote[], standoffPx = ACCIDENTAL_STANDOFF_PX): void {
   for (const note of notes) {
     if (note.isRest()) continue
-    const accidentals = note.getModifiers().filter((m): m is Accidental => m instanceof Accidental)
+    const accidentals = accidentalsOn(note)
     if (!accidentals.length) continue
     const props = note.getKeyProps()
     const headLines = props.map(p => p.line)

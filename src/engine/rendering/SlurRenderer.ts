@@ -31,7 +31,7 @@ import { slurIndentFraction } from './slurShapeExperiment'
 import { limitSlurSlant } from './slurSlantLimit'
 import { slurArchFit, type SlurObstacle } from './slurObstacles'
 import { accidentalAvoidPoint } from './slurAccidentalPoint'
-import { EngravedAccidental } from './EngravedAccidental'
+import { accidentalsOn } from './EngravedAccidental'
 import { noteInkBox } from './noteInkBox'
 import { brokenSlurOpenRise } from './brokenSlurTilt'
 import { spellingDiatonicPos } from '@/utils/pitchSpelling'
@@ -294,8 +294,7 @@ function slurObstaclesOf(
     //    corner across the whole box.
     const box = noteInkBox(note, ACCIDENTAL_ONLY)
     if (box) boxes.push(box)
-    for (const modifier of note.getModifiers?.() ?? []) {
-      if (!(modifier instanceof EngravedAccidental)) continue
+    for (const modifier of accidentalsOn(note)) {
       const ink = modifier.drawnInk()
       if (!ink) continue
       const point = accidentalAvoidPoint(ink, modifier.type, direction)

@@ -11,29 +11,33 @@
  * geometry"*.
  */
 import { describe, it, expect } from 'vitest'
-import { Accidental, Formatter, Renderer, Stave, StaveNote } from 'vexflow'
+import { Renderer } from 'vexflow'
 import { EngravedAccidental } from './EngravedAccidental'
+import { EngravedNote, drawNoteInkThrough } from './EngravedNote'
+import { EngravedStave } from './EngravedStave'
+import { attachModifier } from './EngravedModifier'
+import { formatLoneNote } from './loneNote'
 import { accidentalHitBox } from './drawnHitBox'
 import { glyphBox, glyphNameOf } from '@/engine/fonts/fontMetrics'
 
 /**
- * One drawn accidental, through the real VexFlow pipeline — ⚠️ it must have DRAWN: `Accidental.draw`
- * is where the sign learns where it stands (`reference: vexflow geometry only real after draw`).
+ * One drawn accidental, on a lone note formatted and drawn by the score's own pipeline — ⚠️ it must
+ * have DRAWN: the draw is where the sign learns where it stands.
  */
-function drawnSign(sign: string): EngravedAccidental
-function drawnSign(sign: string, ctor: typeof Accidental): Accidental
-function drawnSign(sign: string, ctor: typeof Accidental = EngravedAccidental): Accidental {
+function drawnSign(sign: string): EngravedAccidental {
   const div = document.createElement('div')
   document.body.appendChild(div)
   const renderer = new Renderer(div, Renderer.Backends.SVG)
   renderer.resize(500, 200)
   const ctx = renderer.getContext()
-  const stave = new Stave(10, 40, 400)
-  stave.setContext(ctx).draw()
-  const note = new StaveNote({ keys: ['c/4'], duration: 'q' })
-  const accidental = new ctor(sign)
-  note.addModifier(accidental, 0)
-  Formatter.FormatAndDraw(ctx, stave, [note])
+  const stave = new EngravedStave(10, 40, 400)
+  const note = new EngravedNote({ keys: ['c/4'], duration: 'q' })
+  note.setStave(stave)
+  const accidental = new EngravedAccidental(sign)
+  attachModifier(note, accidental, 0)
+  formatLoneNote(note, stave, { numerator: 4, denominator: 4 }, 300)
+  drawNoteInkThrough([note], ctx)
+  note.setContext(ctx).draw()
   return accidental
 }
 
@@ -82,14 +86,14 @@ describe('the accidental’s hit box', () => {
     }
   })
 
-  it('🚨 a plain VexFlow `Accidental` — ⛔ ink that is not ours — falls back to ITS box', () => {
-    const accidental = drawnSign('#', Accidental)
-    expect(accidental).not.toBeInstanceOf(EngravedAccidental)
-    const box = accidentalHitBox(accidental)!
-    // The fallback is VexFlow's own answer, which in jsdom is the 0×0 above. ⭐ The point of the
-    // assertion is that it is VexFlow's, ⛔ not that it is useful.
-    const vexflow = accidental.getBoundingBox()!
-    expect([box.width, box.height]).toEqual([vexflow.w, vexflow.h])
+  it('🚨 a sign that has not DRAWN falls back to its line box — and a sign with no glyph is refused', () => {
+    const undrawn = new EngravedAccidental('#')
+    expect(undrawn.drawnInk()).toBeNull()
+    const box = accidentalHitBox(undrawn)!
+    const line = undrawn.getBoundingBox()
+    expect([box.x, box.y, box.width, box.height]).toEqual([line.x, line.y, line.w, line.h])
+    // ⛔ A cautionary or unknown sign never gets that far (S12e) — refused at construction.
+    expect(() => new EngravedAccidental('{')).toThrow()
   })
 
   it('⭐ the box is the FONT’s, so it does not depend on a page having measured anything', () => {

@@ -238,10 +238,10 @@ export function drawNoteGhost(
 
     if (ghostNote.alter !== 0) {
       const sign = alterToString(ghostNote.alter)
-      staveNote.addModifier(new EngravedAccidental(sign), 0)
+      attachModifier(staveNote, new EngravedAccidental(sign), 0)
     } else if (ghostNote.forceAccidental) {
       // Armed natural: alter 0 has no sign of its own, so draw the ♮ explicitly.
-      staveNote.addModifier(new EngravedAccidental('n'), 0)
+      attachModifier(staveNote, new EngravedAccidental('n'), 0)
     }
 
     // The armed entry tremolo, through the SAME modifier the engraved mark uses — so the ghost

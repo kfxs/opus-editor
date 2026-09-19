@@ -4,7 +4,9 @@
  * backwards.
  */
 import { describe, it, expect, afterEach } from 'vitest'
-import { Accidental, StaveNote } from 'vexflow'
+import { StaveNote } from 'vexflow'
+import { EngravedAccidental, accidentalsOn } from './EngravedAccidental'
+import { attachModifier } from './EngravedModifier'
 import { accidentalShiftPx, armedStandoffPx, placeAccidentals, inheritedAccidentalGapSpaces } from './accidentalPlacement'
 import { ACCIDENTAL_STANDOFF_PX } from './ledgerAccidentalClearance'
 import { resetAccidentalGapRule, setAccidentalGapRule } from '@/engine/layout/accidentalGap'
@@ -14,11 +16,11 @@ afterEach(() => resetAccidentalGapRule())
 
 const sharpNote = () => {
   const note = new StaveNote({ keys: ['c/4'], duration: 'q' })
-  note.addModifier(new Accidental('#'), 0)
+  attachModifier(note, new EngravedAccidental('#'), 0)
   return note
 }
 const shiftOf = (note: StaveNote) =>
-  note.getModifiers().filter((m): m is Accidental => m instanceof Accidental)[0].getXShift()
+  accidentalsOn(note)[0].getXShift()
 
 describe('the armed shift', () => {
   it('⭐⭐ the `house` row is VexFlow’s own standoff, so it moves NOTHING', () => {
@@ -50,11 +52,10 @@ describe('the armed shift', () => {
   it('⭐⭐ every sign of a chord moves by the SAME amount — a column, ⛔ not a rake', () => {
     setAccidentalGapRule('ross')
     const chord = new StaveNote({ keys: ['c/4', 'e/4', 'g/4'], duration: 'q' })
-    chord.addModifier(new Accidental('#'), 0)
-    chord.addModifier(new Accidental('b'), 2)
+    attachModifier(chord, new EngravedAccidental('#'), 0)
+    attachModifier(chord, new EngravedAccidental('b'), 2)
     placeAccidentals([chord])
-    const shifts = chord.getModifiers()
-      .filter((m): m is Accidental => m instanceof Accidental).map(a => a.getXShift())
+    const shifts = accidentalsOn(chord).map(a => a.getXShift())
     expect(new Set(shifts).size, 'one shift for the column').toBe(1)
   })
 

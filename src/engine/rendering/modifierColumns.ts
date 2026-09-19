@@ -180,7 +180,8 @@ export class ColumnModifiers extends ModifierContext {
    * no stave yet, and `round(y / space × 2) / 2` of that key line's y when it has one.
    */
   private formatAccidentals(): void {
-    const signs = this.members.Accidental ?? []
+    // Ours since S12e — filed here by the category string, so narrowed back from VexFlow's member type.
+    const signs = (this.members.Accidental ?? []) as unknown[]
     if (signs.length === 0) return
     const ours = signs.map(sign => {
       if (!(sign instanceof EngravedAccidental)) throw new Error('ColumnModifiers: an accidental that is not an EngravedAccidental')

@@ -27,7 +27,8 @@
  * stands. ⛔ Run it after, or leave it reading VexFlow's constant, and a wide armed row would buy the
  * clearance twice.
  */
-import { Accidental, StaveNote } from 'vexflow'
+import type { StaveNote } from 'vexflow'
+import { accidentalsOn } from './EngravedAccidental'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { armedAccidentalGap } from '@/engine/layout/accidentalGap'
 import { ACCIDENTAL_STANDOFF_PX } from './ledgerAccidentalClearance'
@@ -63,8 +64,7 @@ export function placeAccidentals(notes: StaveNote[]): void {
   if (shift === 0) return
   for (const note of notes) {
     if (note.isRest()) continue
-    for (const modifier of note.getModifiers()) {
-      if (!(modifier instanceof Accidental)) continue
+    for (const modifier of accidentalsOn(note)) {
       // ⚠️ The NEGATION, see the header: the stored shift is negative for a LEFT modifier.
       modifier.setXShift(-modifier.getXShift() + shift)
     }
