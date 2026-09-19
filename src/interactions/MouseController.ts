@@ -40,10 +40,10 @@ import { DRAG_TIME_THRESHOLD_MS, type DragHost, type Gesture } from './drags/ges
 import { beginHairpinBodyDrag } from './drags/hairpinBody'
 import { beginOttavaBodyDrag } from './drags/ottavaBody'
 import { beginPedalBodyDrag } from './drags/pedalBody'
+import { beginSlurBodyDrag } from './drags/slurBody'
 import { beginTrillBodyDrag } from './drags/trillBody'
 import { dragHairpinEndpoint } from './hairpinWalk'
 import { dragTrillEndpoint } from './trillWalk'
-import { slurBodyStaffSpacePx, slurBodyDragStep, type SlurBodyAnchor } from './slurBodyDrag'
 import { armOttavaEndpointAt } from './elements/ottavaHandles'
 import { dragOttavaEndpoint } from './ottavaWalk'
 import { logHold, releaseHold, spendHold, takeHold } from './dragHold'
@@ -474,17 +474,6 @@ export class MouseController {
   //     when the ink reaches a stop, so the mouse and the arrows are one gesture and land in one
   //     state (`./hairpinWalk`, `./ottavaWalk`, `./pedalWalk`, `./trillWalk`). ---
   private markEnd: MarkEndSession | null = null
-
-  // --- Slur ARC BODY drag (his ask, 2026-08-18): the whole curve's INK, where a press on a HANDLE
-  //     moves one point instead. Free pixels, no walk and no hold — a whole-curve move has no anchor
-  //     to arrive at (`./slurBodyDrag`, which owns the arithmetic and the refusal rule). ---
-  private draggedSlurBodyId: string | null = null
-  /** The last ACCEPTED cursor position + the measured px→staff-space scale. ⚠️ Not advanced on a
-   *  refusal, so a curve stopped by the page or band limit picks the cursor up where it left it. */
-  private slurBodyAnchor: SlurBodyAnchor | null = null
-  /** True once a preview write landed, so the drop records one undo entry. */
-  private slurBodyDragChanged = false
-  private slurBodyDragStartTime: number | null = null
 
   // --- Staff-spacing vertical drag (Sibelius "space above staff" — Client #7) ---
   /** ⭐ The measure box that was showing when THIS press began, remembered across the element
@@ -1016,27 +1005,8 @@ export class MouseController {
     this.begin(beginHairpinBodyDrag(this.dragHost, hairpinId, x, y), event)
   }
 
-  /**
-   * ⭐⭐ Arm the drag that moves a whole SLUR's ink — a press on the ARC itself (his ask, 2026-08-18:
-   * *"now the next step is doing this same offset controle by the drag mouse, similar to hairpin"*).
-   * The hairpin body drag above, sentence for sentence: a HANDLE moves one point, the BODY moves the
-   * drawing.
-   *
-   * ⚠️ DECLINES when the drawn curve offers no measured staff-space scale — `slurBodyStaffSpacePx`'s
-   * rule, since a guessed one would move a small staff's slur by the wrong amount. The press stays an
-   * ordinary selection.
-   */
   private armSlurOffsetDrag(slurId: string, x: number, y: number, event: MouseEvent): void {
-    const engine = this.getEngine()
-    if (!engine) return
-    const staffSpacePx = slurBodyStaffSpacePx(engine.getElementRegistry(), slurId)
-    if (!staffSpacePx) return
-    this.activeDrag = { kind: 'slurBody', end: () => this.endSlurBodyDrag() }
-    this.draggedSlurBodyId = slurId
-    this.slurBodyAnchor = { x, y, staffSpacePx }
-    this.slurBodyDragChanged = false
-    this.slurBodyDragStartTime = Date.now()
-    event.preventDefault()
+    this.begin(beginSlurBodyDrag(this.dragHost, slurId, x, y), event)
   }
 
   /**
@@ -2932,7 +2902,6 @@ export class MouseController {
     if (this.handleTempoDrag(engine, x, y)) return
     if (this.handleDynamicDrag(engine, x, y)) return
     if (this.handleMarkEndDrag(engine, x, y)) return
-    if (this.handleSlurBodyDrag(engine, x, y)) return
     if (this.handleSlurEndpointDrag(engine, x, y)) return
     if (this.handleStaffSpacingDrag(engine, x, y)) return
     if (this.handleStaffGroupSpanDrag(engine, y)) return
@@ -3395,51 +3364,6 @@ export class MouseController {
       dbg(`${MARK_END_DRAGS[session.kind].label} ${session.which} dragged | id:${session.id}`)
     }
   }
-
-  /**
-   * ⭐ One frame of a slur ARC-BODY drag: the whole curve follows the cursor, live (no undo), its
-   * shape untouched. `./slurBodyDrag` owns both rules — the measured scale and the anchor that does
-   * NOT advance on a refusal — so this is the state around them.
-   *
-   * ⛔ No hold and no latch, unlike `handleSlurEndpointDrag`: those exist because an endpoint has a
-   * next note to arrive at, and a whole-curve move has nothing to arrive at.
-   */
-  private handleSlurBodyDrag(engine: MusicEngine, x: number, y: number): boolean {
-    if (!(this.activeDrag?.kind === 'slurBody' && this.draggedSlurBodyId && this.slurBodyAnchor)) return false
-    if (this.slurBodyDragStartTime !== null
-        && Date.now() - this.slurBodyDragStartTime < this.DRAG_TIME_THRESHOLD_MS) return true
-    const moved = slurBodyDragStep(engine, this.draggedSlurBodyId, this.slurBodyAnchor, x, y)
-    if (moved) {
-      this.slurBodyAnchor = moved
-      this.slurBodyDragChanged = true
-      // ⭐ Previewed (§12.5a): the SLUR family, which is the one moving. ⚠️ This said `'trill'` with
-      // the *trill*'s dragged id until 2026-08-22 — so a slur drag redrew the ornaments and never
-      // the curve, and (the id being null throughout) never even checked that anything landed.
-      // ⭐ Safe to preview: `slurBodyDragStep` is a pure cursor delta, and `renderSlurs` reads
-      // `score.slurs` and `staffIndexOfId` — neither of them the last render's lane views.
-      this.render.previewMarks('slur', this.draggedSlurBodyId)
-    }
-    return true
-  }
-
-  /** Finish a slur ARC-BODY drag: one undo entry if the curve actually moved, then reset. The slur
-   *  stays selected, so the arrows carry on from where the mouse stopped. */
-  private endSlurBodyDrag(): void {
-    const engine = this.getEngine()
-    if (engine && this.slurBodyDragChanged) {
-      engine.commitSlurOffsetDrag()
-      // ⛔ THE DROP RENDERS FOR REAL — see `./drags/bodyDrag` for why a previewed gesture owes one.
-      this.render.renderScore()
-      dbg(`Slur moved | id:${this.draggedSlurBodyId}`)
-    }
-    this.activeDrag = null
-    this.draggedSlurBodyId = null
-    this.slurBodyAnchor = null
-    this.slurBodyDragChanged = false
-    this.slurBodyDragStartTime = null
-  }
-
-
 
   /**
    * ⭐⭐ **One frame of a slur ENDPOINT drag: the ink follows the hand, and the anchor comes along

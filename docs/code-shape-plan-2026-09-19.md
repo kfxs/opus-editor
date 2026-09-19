@@ -1,6 +1,6 @@
 # Code shape plan — 2026-09-19
 
-**Status: IN PROGRESS — Phase 1 DONE (2026-09-19), bar item 5's two ⏭️ decisions. Phase 2 DONE. Phase 3.1: the hairpin / ottava / pedal body drags done and checked; the trill's done, awaiting his UI check; slur next.** Phases are ordered by
+**Status: IN PROGRESS — Phase 1 DONE (2026-09-19), bar item 5's two ⏭️ decisions. Phase 2 DONE. Phase 3.1: the hairpin / ottava / pedal body drags done and checked; the trill's too (`cdb7f05`); the slur's done, awaiting his UI check. Eleven gestures are still the controller's.** Phases are ordered by
 value over risk; each one stands alone and can be stopped after. A done item carries ✅ and what
 actually happened where that differs from what was planned.
 
@@ -239,7 +239,16 @@ Run the e2e suite either side of each step.
    `markHold`), the span measured at the press, and a WRAP that ends the gesture from inside a
    frame (`end` is idempotent, so the release that follows finds it over). ⚠️ No spec drove this
    drag before; `drags/trillBody.test.ts` is its first. `MouseController` kinds 835 → 779, lines
-   1,996 → 1,930. ⏸️ Awaiting his UI check.*
+   1,996 → 1,930. ✅ His UI check passed (`cdb7f05`).*
+
+   *Third — the SLUR body drag, `drags/slurBody.ts`: a `bodyDrag` row after all. The frame's
+   delta-since-the-last-accepted-cursor IS the position `slurBodyDragStep` converts when measured
+   from a fixed origin, so the arithmetic and the refusal rule stay in `slurBodyDrag.ts` and the
+   row is one line. The scale is still measured once, at the press. Its first wiring spec.
+   `MouseController` kinds 779 → 742. ⏸️ Awaiting his UI check.*
+
+   *Still the controller's own (no `move`): note, barWidth, barlineJoin, clef, staffSpacing,
+   staffGroupSpan, slurHandle, slurEndpoint, dynamic, tempo, markEnd.*
 2. **A `keys` column on `ELEMENT_SPECS`** — `{ nudge, reset }` first — and one dispatcher.
    Replaces the four `||` chains and the 61 closures.
 
