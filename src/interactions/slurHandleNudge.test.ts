@@ -56,14 +56,16 @@ function stubEngine(registry: ElementRegistry, authored = true) {
   const resetJoin = vi.fn((_id: string, _address: unknown, _spanCount: number) => authored)
   const engine = {
     getElementRegistry: () => registry,
-    previewSlurShape: (id: string, cps: CurveControlPointDeltas, segment?: SlurSegmentAddress, spanCount?: number) => {
-      shapes.push({ id, cps, segment, spanCount })
-      return true
+    slur: {
+      previewSlurShape: (id: string, cps: CurveControlPointDeltas, segment?: SlurSegmentAddress, spanCount?: number) => {
+        shapes.push({ id, cps, segment, spanCount })
+        return true
+      },
+      commitSlurShape: commit,
+      resetSlurShape: reset,
+      resetSlurEndpointOffset: resetEnd,
+      resetSlurSegmentEndpointOffset: resetJoin,
     },
-    commitSlurShape: commit,
-    resetSlurShape: reset,
-    resetSlurEndpointOffset: resetEnd,
-    resetSlurSegmentEndpointOffset: resetJoin,
   } as unknown as MusicEngine
   return { engine, shapes, commit, reset, resetEnd, resetJoin }
 }

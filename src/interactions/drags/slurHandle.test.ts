@@ -16,9 +16,9 @@ describe('beginSlurHandleDrag', () => {
   const handle = (over: Partial<ElementInfo> = {}) =>
     ({ cpIndex: 0, slurEndpoints, controlPoints, staffSpacePx: 10, ...over }) as ElementInfo
 
-  const preview = vi.fn<MusicEngine['previewSlurShape']>(() => true)
+  const preview = vi.fn<MusicEngine['slur']['previewSlurShape']>(() => true)
   const commit = vi.fn()
-  const engine = { previewSlurShape: preview, commitSlurShape: commit } as unknown as MusicEngine
+  const engine = { slur: { previewSlurShape: preview, commitSlurShape: commit } } as unknown as MusicEngine
   let host: DragHost
 
   beforeEach(() => {

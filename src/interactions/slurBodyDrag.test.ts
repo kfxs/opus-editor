@@ -48,19 +48,19 @@ describe('slurBodyStaffSpacePx', () => {
 
 describe('slurBodyDragStep', () => {
   const engineThat = (accepts: boolean): SlurBodyDragEngine =>
-    ({ previewSlurOffset: vi.fn().mockReturnValue(accepts) } as unknown as SlurBodyDragEngine)
+    ({ slur: { previewSlurOffset: vi.fn().mockReturnValue(accepts) } } as unknown as SlurBodyDragEngine)
 
   it('moves the curve by the cursor’s travel, converted to staff-spaces', () => {
     const engine = engineThat(true)
     const next = slurBodyDragStep(engine, 'SL1', anchor(), 125, 195)
-    expect(engine.previewSlurOffset).toHaveBeenCalledWith('SL1', 2.5, -0.5)
+    expect(engine.slur.previewSlurOffset).toHaveBeenCalledWith('SL1', 2.5, -0.5)
     expect(next).toEqual({ x: 125, y: 195, staffSpacePx: 10 })
   })
 
   it('⭐ scales by the ANCHOR’s own staff-space size, not a constant', () => {
     const engine = engineThat(true)
     slurBodyDragStep(engine, 'SL1', anchor({ staffSpacePx: 5 }), 110, 200)
-    expect(engine.previewSlurOffset).toHaveBeenCalledWith('SL1', 2, 0)
+    expect(engine.slur.previewSlurOffset).toHaveBeenCalledWith('SL1', 2, 0)
   })
 
   it('🚨 does NOT advance the anchor when the write is REFUSED', () => {
@@ -69,7 +69,7 @@ describe('slurBodyDragStep', () => {
     // and the gesture re-synchronises.
     const engine = engineThat(false)
     expect(slurBodyDragStep(engine, 'SL1', anchor(), 400, 200)).toBeNull()
-    expect(engine.previewSlurOffset).toHaveBeenCalledWith('SL1', 30, 0)
+    expect(engine.slur.previewSlurOffset).toHaveBeenCalledWith('SL1', 30, 0)
   })
 
   it('…so the NEXT accepted frame carries the whole travel since the last accepted one', () => {
@@ -77,12 +77,12 @@ describe('slurBodyDragStep', () => {
     // by 3 spaces, not by the 1 it travelled since the refusal.
     const engine = engineThat(true)
     slurBodyDragStep(engine, 'SL1', anchor(), 130, 200)
-    expect(engine.previewSlurOffset).toHaveBeenCalledWith('SL1', 3, 0)
+    expect(engine.slur.previewSlurOffset).toHaveBeenCalledWith('SL1', 3, 0)
   })
 
   it('⛔ writes nothing for a frame the cursor did not move in', () => {
     const engine = engineThat(true)
     expect(slurBodyDragStep(engine, 'SL1', anchor(), 100, 200)).toBeNull()
-    expect(engine.previewSlurOffset).not.toHaveBeenCalled()
+    expect(engine.slur.previewSlurOffset).not.toHaveBeenCalled()
   })
 })

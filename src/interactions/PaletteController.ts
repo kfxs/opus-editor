@@ -1294,8 +1294,8 @@ export class PaletteController {
       this.armMarkingTool({ kind: 'slur' })
       return
     }
-    const slur = engine.createSlur(noteIds)
-    dbg(`[Slur] createSlur on ${noteIds.length} note(s) → ${slur ? `slur ${slur.id}` : 'no valid span'}`)
+    const created = engine.slur.createSlur(noteIds)
+    dbg(`[Slur] createSlur on ${noteIds.length} note(s) → ${created ? `slur ${created.id}` : 'no valid span'}`)
     this.renderScore()
   }
 

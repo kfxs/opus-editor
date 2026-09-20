@@ -538,3 +538,37 @@ export function setSlurPlacement(score: Score, id: string, placement: 'above' | 
   return true
 }
 
+/**
+ * Re-anchor or drop every slur referencing `oldId` (a deleted/replaced head):
+ *  - `newId` given → re-point the anchor (e.g. to a surviving chord sibling, or
+ *    to the rest that replaced a deleted single note — like the tie re-link).
+ *  - `newId === null` → drop the slur (no surviving anchor).
+ * A re-anchor that collapses the span (start === end) drops the slur too.
+ * Mutates the live score in place; the caller owns the surrounding undo step.
+ *
+ * Both outcomes provably break any hand-tuned shape (plan §3.3): a drop ends the
+ * slur, a re-point moves an endpoint onto a *different* element — so the
+ * engraving-overrides auto-reset fires here too (drop → clear all; re-point → clear
+ * the span-relative `curveShape`), matching {@link setSlurEndpoint}.
+ */
+export function reanchorSlurs(score: Score, oldId: string, newId: string | null): void {
+  const slurs = score.slurs
+  if (!slurs) return
+  for (let i = slurs.length - 1; i >= 0; i--) {
+    const s = slurs[i]
+    if (s.startNoteId !== oldId && s.endNoteId !== oldId) continue
+    if (newId === null) {
+      slurs.splice(i, 1)
+      clearEngravingOverride(score, s.id) // auto-reset (§3.3): no surviving anchor → slur dropped
+      continue
+    }
+    if (s.startNoteId === oldId) s.startNoteId = newId
+    if (s.endNoteId === oldId) s.endNoteId = newId
+    if (s.startNoteId === s.endNoteId) {
+      slurs.splice(i, 1)
+      clearEngravingOverride(score, s.id) // auto-reset (§3.3): re-anchor collapsed the span → dropped
+    } else {
+      clearEngravingOverride(score, s.id, 'curveShape') // auto-reset (§3.3): endpoint re-pointed onto a different element
+    }
+  }
+}

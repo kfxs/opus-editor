@@ -45,7 +45,7 @@ const FLIP_ELEMENT: {
   [K in FlippableKind]: (engine: MusicEngine, element: Extract<SelectedElement, { kind: K }>) => void
 } = {
   // A slur flips SIDE — above ↔ below.
-  slur: (engine, el) => engine.flipSlur(el.id),
+  slur: (engine, el) => engine.slur.flipSlur(el.id),
   // ⭐⭐ A hairpin flips its LANE — above the staff ↔ below it — like every other row here.
   //
   // 🚨 **It used to flip the TYPE** (`<` ↔ `>`), his call of 2026-08-12, on the reasoning that *"a

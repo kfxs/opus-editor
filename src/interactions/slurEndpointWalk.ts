@@ -47,6 +47,7 @@
  * stays a plain nudge. `Ctrl+Shift+←/→` is the gesture that crosses a break.
  */
 import type { MusicEngine } from '../engine/MusicEngine'
+import type { SlurCommands } from '@/engine/commands/slurCommands'
 import type { ElementRegistry } from '../engine/ElementRegistry'
 import type { EditorState } from './EditorState'
 import { selectedOf } from './EditorState'
@@ -55,9 +56,11 @@ import { endpointOffsetOverrideOf } from '../engine/models/engravingOverrides'
 import { dbg } from '../utils/debug'
 
 /** What the walk needs off the engine — a Pick, so a spec can stand it up without a renderer. */
-type EndpointWalkEngine = AnchorWalkEngine & Pick<MusicEngine,
-  'getElementRegistry' | 'nudgeSlurEndpoint' | 'setSlurEndpointKeepingEdits' | 'runBatch'
-  | 'previewSlurEndpointOffset' | 'previewSlurEndpointKeepingEdits'>
+type EndpointWalkEngine = AnchorWalkEngine & Pick<MusicEngine, 'getElementRegistry' | 'runBatch'> & {
+  slur: Pick<SlurCommands,
+    'nudgeSlurEndpoint' | 'setSlurEndpointKeepingEdits' | 'previewSlurEndpointOffset'
+    | 'previewSlurEndpointKeepingEdits'>
+}
 
 /**
  * The two model writes the move is made of, in the flavour the gesture needs: a KEY press records
@@ -284,8 +287,8 @@ export function walkArmedSlurEndpoint(state: EditorState, engine: EndpointWalkEn
   if (!selectedOf(state, 'slur')?.endpoint) return false
   engine.runBatch('Move slur endpoint', () => {
     carryEndpoint(state, engine, {
-      reanchor: (id, which, noteId) => engine.setSlurEndpointKeepingEdits(id, which, noteId),
-      nudge: (id, which, ddx, ddy) => engine.nudgeSlurEndpoint(id, which, ddx, ddy),
+      reanchor: (id, which, noteId) => engine.slur.setSlurEndpointKeepingEdits(id, which, noteId),
+      nudge: (id, which, ddx, ddy) => engine.slur.nudgeSlurEndpoint(id, which, ddx, ddy),
     }, dx, 0)
   })
   return true
@@ -293,7 +296,7 @@ export function walkArmedSlurEndpoint(state: EditorState, engine: EndpointWalkEn
 
 /**
  * ⭐⭐ **ONE FRAME OF AN ENDPOINT DRAG** — the same move, with the cursor's delta in PIXELS instead
- * of a key's step, and no undo entry (the drop commits once, {@link MusicEngine.commitSlurEndpoint}).
+ * of a key's step, and no undo entry (the drop commits once, {@link MusicEngine.slur.commitSlurEndpoint}).
  *
  * ⭐ **The mouse and the arrows are now the SAME gesture**, which is what the drag was missing: it
  * used to snap the end to the nearest notehead within 60 px and re-anchor outright, so the ink
@@ -338,8 +341,8 @@ export function dragArmedSlurEndpoint(
   if (!ss) return null
 
   const move = carryEndpoint(state, engine, {
-    reanchor: (id, w, noteId) => engine.previewSlurEndpointKeepingEdits(id, w, noteId),
-    nudge: (id, w, ddx, ddy) => engine.previewSlurEndpointOffset(id, w, ddx, ddy),
+    reanchor: (id, w, noteId) => engine.slur.previewSlurEndpointKeepingEdits(id, w, noteId),
+    nudge: (id, w, ddx, ddy) => engine.slur.previewSlurEndpointOffset(id, w, ddx, ddy),
   }, dxPx / ss, dyPx / ss, true, true)
   // Back into the caller's units: it is holding a cursor, not a staff.
   return { ...move, gapAhead: move.gapAhead * ss, discarded: move.discarded * ss }

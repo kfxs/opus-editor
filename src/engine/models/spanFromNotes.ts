@@ -19,6 +19,7 @@
  */
 import type { Note } from '@/types/music'
 import { staffOf, voiceOf } from '@/utils/lanes'
+import { fracEq } from '@/utils/fraction'
 import { compareByPosition } from '@/utils/musicUtils'
 
 /** What the question needs of the score — `ScoreModel` answers both. */
@@ -27,6 +28,13 @@ export interface SpanNoteSource {
   /** A fanned MEMBER's index in its group, or null. Members share their event's (measure, beat), so
    *  position alone cannot order them. */
   fanMemberIndexOf(noteId: string): number | null
+}
+
+/** …and what walking ON from a note needs besides. */
+export interface SlotWalkSource extends SpanNoteSource {
+  getAllNotes(): Note[]
+  /** The members of the fanned group `noteId` belongs to (the typed note is member 0), or null. */
+  fanMembersOfSlot(noteId: string): Note[] | null
 }
 
 export interface SpanFromNotes {
@@ -72,4 +80,40 @@ export function spanFromNotes(
     .filter(n => staffOf(n) === staff && (!lane.byVoice || voiceOf(n) === voice))
     .sort((a, b) => compareForSpan(source, a, b))
   return { notes, start: notes[0], end: notes[notes.length - 1], staff, voice }
+}
+
+/**
+ * The next slot after `start` whose `(measure, beat)` differs from it — i.e. the
+ * next musical event, skipping sibling chord heads that share `start`'s beat.
+ * `getAllNotes()` emits one entry per pitch, hence the dedupe.
+ */
+export function nextDistinctSlot(source: SlotWalkSource, start: Note): Note | undefined {
+  // ⭐ Inside a FAN, "the next thing" is the next MEMBER (his ask).
+  //
+  // ⚠️ Including from the note you TYPED — it is member 0, not a thing standing outside the group,
+  // so `s` on it slurs to member 1. (I first restricted this to members proper, reasoning that the
+  // typed note means "the whole event"; it does not, once you are working member by member.) To
+  // slur a fan to something outside it, select BOTH ends — that path never asks this question.
+  let walkFromId = start.id
+  const group = source.fanMembersOfSlot(start.id)
+  if (group) {
+    const at = source.fanMemberIndexOf(start.id) ?? -1
+    if (at >= 0 && at + 1 < group.length) return group[at + 1]
+    // The LAST member slurs OUT of the fan — and it has to walk on from the SLOT, since the flat
+    // note list has no entry for a member to find itself in.
+    walkFromId = group[0]?.id ?? start.id
+  }
+  // Stay within the start note's own voice AND staff — a slur's end anchor must be the
+  // next slot in the SAME stream, not whatever event comes next in another voice/staff.
+  const startVoice = voiceOf(start)
+  const startStaff = staffOf(start)
+  const sorted = source.getAllNotes()
+    .filter(n => voiceOf(n) === startVoice && staffOf(n) === startStaff)
+    .sort(compareByPosition)
+  const idx = sorted.findIndex(n => n.id === walkFromId)
+  if (idx < 0) return undefined
+  for (let i = idx + 1; i < sorted.length; i++) {
+    if (sorted[i].measure !== start.measure || !fracEq(sorted[i].beat, start.beat)) return sorted[i]
+  }
+  return undefined
 }

@@ -588,7 +588,7 @@ export function wireShortcuts(
             renderer.renderScore()
             return
           case 'slur':
-            eng.removeSlur(element.id)
+            eng.slur.removeSlur(element.id)
             state.selectedElement = null
             renderer.renderScore()
             return

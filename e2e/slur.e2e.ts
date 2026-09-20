@@ -32,7 +32,7 @@ async function drawSlur(
         measure: i + 1, beat: h.frac(0, 1),
       })!.id
     })
-    h.engine.createSlur([ids[0], ids[ids.length - 1]])
+    h.engine.slur.createSlur([ids[0], ids[ids.length - 1]])
     await h.render()
     const staff = window.__h.staves()[0]
     const d = [...document.querySelectorAll('g.slur path')]
@@ -118,7 +118,7 @@ async function slurTilt(
         measure: i + 1, beat: h.frac(0, 1),
       })!.id
     })
-    h.engine.createSlur([ids[0], ids[ids.length - 1]])
+    h.engine.slur.createSlur([ids[0], ids[ids.length - 1]])
     await h.render()
     // `renderCurve` emits ONE closed path: `M p0 … C c0 c1 p1 …` — so the first coordinate pair is
     // the start endpoint and the fourth is the end endpoint (the return pass follows).
@@ -193,7 +193,7 @@ test('⭐⭐ the arc leaves BEYOND the stem, not across it (§12.1)', async ({ s
     const h = window.__h
     const a = h.engine.addNoteAtBeat({ step: 'A', octave: 4, duration: 'h', measure: 1, beat: h.frac(0, 1) })!
     const c = h.engine.addNoteAtBeat({ step: 'C', octave: 5, duration: 'h', measure: 1, beat: h.frac(2, 1) })!
-    h.engine.createSlur([a.id, c.id])
+    h.engine.slur.createSlur([a.id, c.id])
     await h.render()
     const d = document.querySelector('g.slur path')?.getAttribute('d') ?? ''
     const first = [...d.matchAll(/(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)/g)][0]
@@ -222,7 +222,7 @@ test('⭐⭐ the arc starts OVER the notehead, not past it (§12 Phase 2)', asyn
     // what is measured is the anchor itself.
     const a = h.engine.addNoteAtBeat({ step: 'F', octave: 5, duration: 'h', measure: 1, beat: h.frac(0, 1) })!
     const b = h.engine.addNoteAtBeat({ step: 'G', octave: 5, duration: 'h', measure: 1, beat: h.frac(2, 1) })!
-    h.engine.createSlur([a.id, b.id])
+    h.engine.slur.createSlur([a.id, b.id])
     await h.render()
     const d = document.querySelector('g.slur path')?.getAttribute('d') ?? ''
     const pts = [...d.matchAll(/(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)/g)]
@@ -251,7 +251,7 @@ test('⭐ a slur from a CHORD springs from its outer note, not the one you click
     const middle = h.engine.addChordNote({ step: 'C', octave: 5, duration: 'h', measure: 1, beat: h.frac(0, 1) })
     const next = h.engine.addNoteAtBeat({ step: 'G', octave: 5, duration: 'h', measure: 1, beat: h.frac(2, 1) })!
     // Anchor the slur to the chord's MIDDLE note — the case that used to spring from inside it.
-    h.engine.createSlur([middle?.id ?? top.id, next.id])
+    h.engine.slur.createSlur([middle?.id ?? top.id, next.id])
     await h.render()
     const d = document.querySelector('g.slur path')?.getAttribute('d') ?? ''
     const p = [...d.matchAll(/(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)/g)].map(m => ({ x: +m[1], y: +m[2] }))
@@ -275,7 +275,7 @@ test('⭐⭐ a slur over a rising RUN clears the notes it covers (§12 Phase 8, 
     })!.id)
     h.engine.addMeasure()
     const last = h.engine.addNoteAtBeat({ step: 'G', octave: 5, duration: 'q', measure: 2, beat: h.frac(0, 1) })!
-    h.engine.createSlur([ids[0], last.id])
+    h.engine.slur.createSlur([ids[0], last.id])
     await h.render()
 
     const d = document.querySelector('g.slur path')?.getAttribute('d') ?? ''
@@ -321,7 +321,7 @@ test('🚨🚨 a DYNAMIC under a covered note does not touch the arch — his re
     const ids = steps.map((step, i) => h.engine.addNoteAtBeat({
       step, octave: 4, duration: 'q', measure: 1, beat: h.frac(i, 1),
     })!.id)
-    h.engine.createSlur([ids[0], ids[3]])
+    h.engine.slur.createSlur([ids[0], ids[3]])
     await h.render()
     const before = h.curveSamples('g.slur path', 40)
     // ⚠️ A `p` under a note MID-SPAN, not under an endpoint: an obstacle within a whisker of an end
@@ -355,7 +355,7 @@ test('⭐ …and a run that ENDS in a rest keeps the same air over its peak', as
     })!.id)
     h.engine.addMeasure()
     const last = h.engine.addNoteAtBeat({ step: 'G', octave: 5, duration: 'q', measure: 2, beat: h.frac(0, 1) })!
-    h.engine.createSlur([ids[0], last.id])
+    h.engine.slur.createSlur([ids[0], last.id])
     await h.render()
     const d = document.querySelector('g.slur path')?.getAttribute('d') ?? ''
     const p = [...d.matchAll(/(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)/g)].map(m => ({ x: +m[1], y: +m[2] }))
@@ -398,7 +398,7 @@ test('⭐⭐ a slur broken by a system break leans toward its own music (§12 Ph
     if (broken < 1) return { rise: NaN }
     // Re-pitch the note that OPENS the new system, so the interval across the break is the variable.
     h.engine.updateNote(ids[broken], { step: 'C', octave: endOctave })
-    h.engine.createSlur([ids[broken - 1], ids[broken]])
+    h.engine.slur.createSlur([ids[broken - 1], ids[broken]])
     await h.render()
     // The BEGIN half is the one whose path starts on the earlier system (smaller y overall).
     const paths = [...document.querySelectorAll('g.slur path')].map(p => p.getAttribute('d') ?? '')
@@ -449,7 +449,7 @@ test('⭐⭐ a continuation starts AFTER the clef, key and meter (Gould p. 112, 
     for (let i = 1; i < tops.length; i++) if (Math.abs(tops[i] - tops[i - 1]) > 1) { broken = i; break }
     if (broken < 1) return { startsAfterClefInk: false, clefCount: 0, lengthSp: NaN, clearOfNoteSp: NaN }
     h.engine.updateNote(ids[broken], { step: 'G', octave: 4 })
-    h.engine.createSlur([ids[broken - 1], ids[broken]])
+    h.engine.slur.createSlur([ids[broken - 1], ids[broken]])
     await h.render()
     const parsed = [...document.querySelectorAll('g.slur path')]
       .map(p => [...(p.getAttribute('d') ?? '').matchAll(/(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)/g)].map(m => ({ x: +m[1], y: +m[2] })))
@@ -514,7 +514,7 @@ test('⭐⭐ the WHOLE curve moves RIGIDLY — its shape is not re-solved (his a
     const last = h.engine.addNoteAtBeat({
       step: 'G', octave: 5, duration: 'q', measure: runBar + 1, beat: h.frac(0, 1),
     })!
-    const slur = h.engine.createSlur([ids[0], last.id])!
+    const slur = h.engine.slur.createSlur([ids[0], last.id])!
     await h.render()
 
     const sp = (h.staves()[0].bottom - h.staves()[0].top) / 4
@@ -525,15 +525,15 @@ test('⭐⭐ the WHOLE curve moves RIGIDLY — its shape is not re-solved (his a
       Math.max(...after.map((p, i) => Math.max(
         Math.abs(p.x - before[i].x - dx * sp), Math.abs(p.y - before[i].y - dy * sp))))
 
-    h.engine.nudgeSlur(slur.id, 1.5, -2)
+    h.engine.slur.nudgeSlur(slur.id, 1.5, -2)
     await h.render()
     const rigid = deviation(sample(), 1.5, -2)
 
     // ⭐ The same delta the other way — as two endpoint offsets — for the comparison the feature
     // exists to make. Reset first, so the two are measured from the same drawing.
-    h.engine.resetSlurOffset(slur.id)
-    h.engine.nudgeSlurEndpoint(slur.id, 'start', 1.5, -2)
-    h.engine.nudgeSlurEndpoint(slur.id, 'end', 1.5, -2)
+    h.engine.slur.resetSlurOffset(slur.id)
+    h.engine.slur.nudgeSlurEndpoint(slur.id, 'start', 1.5, -2)
+    h.engine.slur.nudgeSlurEndpoint(slur.id, 'end', 1.5, -2)
     await h.render()
     const asEndpoints = deviation(sample(), 1.5, -2)
     // ⭐ The fixture's own check: if the run did NOT land below the first row, the lift below is
@@ -584,14 +584,14 @@ test('🚨 pushing one end DOWN must not send the arc UP off the sheet', async (
     const ids = [0, 1, 2, 3].map(beat => h.engine.addNoteAtBeat({
       step: 'B', octave: 4, duration: 'q', measure: 1, beat: h.frac(beat, 1),
     })!.id)
-    const slur = h.engine.createSlur([ids[0], ids[3]])!
+    const slur = h.engine.slur.createSlur([ids[0], ids[3]])!
     await h.render()
     const top = () => Math.round(h.inkSizes('g.slur path')[0].y)
     const before = top()
     const tops: number[] = []
     for (const steps of [10, 20, 20]) {
       for (let i = 0; i < steps; i++) {
-        h.engine.nudgeSlurEndpoint(slur.id, 'end', 0, 1)
+        h.engine.slur.nudgeSlurEndpoint(slur.id, 'end', 0, 1)
         await h.render()
       }
       tops.push(top())
@@ -632,7 +632,7 @@ async function slurDepthBelow(
     const h = window.__h
     const b = h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: '8', measure: 1, beat: h.frac(0, 1) })!
     const g = h.engine.addNoteAtBeat({ step: 'G', octave: 4, alter, duration: '8', measure: 1, beat: h.frac(1, 2) })!
-    h.engine.createSlur([b.id, g.id])
+    h.engine.slur.createSlur([b.id, g.id])
     await h.render()
     const ys = h.curveSamples('g.slur path', 40).map(p => p.y)
     return { deepest: Math.max(...ys), staffBottom: h.staves()[0].bottom }
@@ -680,7 +680,7 @@ test('🚨🚨 five sixteenths, the last one FLAGGED — the arch stays on the p
       h.engine.addNoteAtBeat({
         step: step as string, octave: octave as number, duration: '16', measure: 2, beat: h.frac(i, 4),
       })!.id)
-    h.engine.createSlur(ids)
+    h.engine.slur.createSlur(ids)
     await h.render()
     const ys = h.curveSamples('g.slur path', 40).map(p => p.y)
     const staff = h.staves().find(s => s.measure === 2)!
@@ -717,7 +717,7 @@ async function slurShape(score: import('@playwright/test').Page, staccato: boole
       if (staccato) h.engine.toggleArticulation(n.id, 'staccato')
       return n.id
     })
-    h.engine.createSlur(ids)
+    h.engine.slur.createSlur(ids)
     await h.render()
     const d = document.querySelector('g.slur path')!.getAttribute('d')!
     const n = [...d.matchAll(/-?\d+(?:\.\d+)?/g)].map(m => parseFloat(m[0]))

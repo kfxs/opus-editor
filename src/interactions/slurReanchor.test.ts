@@ -50,7 +50,7 @@ describe('reanchorArmedSlurEndpoint', () => {
     // Four quarters in one bar, one voice: C4 D4 E4 F4.
     ids = (['C', 'D', 'E', 'F'] as const).map((step, i) =>
       engine.addNoteAtBeat({ step, octave: 4, duration: 'q', measure: 1, beat: frac(i, 1) })!.id)
-    slurId = engine.createSlur([ids[1], ids[2]])!.id // D4 → E4, room to walk either way
+    slurId = engine.slur.createSlur([ids[1], ids[2]])!.id // D4 → E4, room to walk either way
     state = createEditorState()
   })
 
@@ -103,7 +103,7 @@ describe('reanchorArmedSlurEndpoint', () => {
     // chord, so the walk's destination — the chord's lowest note — is a different id, and only a
     // POSITION comparison can see that the two ends would land on the same moment.
     const upper = engine.addChordNote({ step: 'G', octave: 4, duration: 'q', measure: 1, beat: frac(2, 1) })
-    engine.previewSlurEndpoint(slurId, 'end', upper.id)
+    engine.slur.previewSlurEndpoint(slurId, 'end', upper.id)
     arm('start')
 
     expect(reanchorArmedSlurEndpoint(state, engine, 1)).toBe(false)
@@ -111,8 +111,8 @@ describe('reanchorArmedSlurEndpoint', () => {
   })
 
   it('CLEARS the moved end’s nudge and keeps the other’s', () => {
-    engine.nudgeSlurEndpoint(slurId, 'start', 0.5, -0.25)
-    engine.nudgeSlurEndpoint(slurId, 'end', 1, 1)
+    engine.slur.nudgeSlurEndpoint(slurId, 'start', 0.5, -0.25)
+    engine.slur.nudgeSlurEndpoint(slurId, 'end', 1, 1)
     arm('start')
 
     expect(reanchorArmedSlurEndpoint(state, engine, -1)).toBe(true)
@@ -135,7 +135,7 @@ describe('reanchorArmedSlurEndpoint', () => {
     // G4 stacked on the D4 the slur starts at. The beat map keeps the chord's LOWEST note (D4), so
     // an endpoint anchored on the upper one is not on the map by id at all.
     const upper = engine.addChordNote({ step: 'G', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
-    engine.previewSlurEndpoint(slurId, 'start', upper.id)
+    engine.slur.previewSlurEndpoint(slurId, 'start', upper.id)
     arm('start')
 
     expect(reanchorArmedSlurEndpoint(state, engine, -1)).toBe(true)
@@ -144,7 +144,7 @@ describe('reanchorArmedSlurEndpoint', () => {
 
   it('walks OVER a rest — a phrase mark spans silence, it does not end on it', () => {
     engine.convertToRest(ids[1]) // the note the slur started on is gone; re-anchor onto E4→F4 first
-    const restBar = engine.createSlur([ids[2], ids[3]])!
+    const restBar = engine.slur.createSlur([ids[2], ids[3]])!
     state.selectedElement = { kind: 'slur', id: restBar.id, endpoint: 'start' }
 
     // E4's neighbour going back is the BAR's rest at beat 1 — skipped, so the walk lands on C4.

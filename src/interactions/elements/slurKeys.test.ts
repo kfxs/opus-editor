@@ -25,10 +25,12 @@ import { ELEMENT_SPECS } from './chain'
 
 describe('SLUR_KEYS', () => {
   const engine = {
-    nudgeSlurEndpoint: vi.fn(() => true),
-    nudgeSlurSegmentEndpoint: vi.fn(() => true),
-    nudgeSlur: vi.fn(() => true),
-    resetSlurOffset: vi.fn(() => true),
+    slur: {
+      nudgeSlurEndpoint: vi.fn(() => true),
+      nudgeSlurSegmentEndpoint: vi.fn(() => true),
+      nudgeSlur: vi.fn(() => true),
+      resetSlurOffset: vi.fn(() => true),
+    },
     getElementRegistry: vi.fn(() => 'the registry'),
   }
   let ctx: KeysCtx
@@ -39,7 +41,7 @@ describe('SLUR_KEYS', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
-    for (const fn of Object.values(engine)) fn.mockReturnValue(true as never)
+    for (const fn of Object.values(engine.slur)) fn.mockReturnValue(true as never)
     engine.getElementRegistry.mockReturnValue('the registry')
     others.reanchorArmedSlurEndpoint.mockReturnValue(true)
     others.cycleSlurHandle.mockReturnValue(true)
@@ -56,12 +58,12 @@ describe('SLUR_KEYS', () => {
     SLUR_KEYS.nudge!(ctx, end, 0.25, 0)
     expect(endpointWalk.walkArmedSlurEndpoint).toHaveBeenCalledWith(ctx.state, engine, 0.25)
     SLUR_KEYS.nudge!(ctx, end, 0, -0.25)
-    expect(engine.nudgeSlurEndpoint).toHaveBeenCalledWith('S1', 'end', 0, -0.25)
+    expect(engine.slur.nudgeSlurEndpoint).toHaveBeenCalledWith('S1', 'end', 0, -0.25)
   })
 
   it('an OPEN JOIN nudges that join, passing the captured span count as the reset signature', () => {
     SLUR_KEYS.nudge!(ctx, join, 0.25, 0)
-    expect(engine.nudgeSlurSegmentEndpoint).toHaveBeenCalledWith('S1', expect.anything(), 0.25, 0, 3)
+    expect(engine.slur.nudgeSlurSegmentEndpoint).toHaveBeenCalledWith('S1', expect.anything(), 0.25, 0, 3)
     expect(endpointWalk.walkArmedSlurEndpoint).not.toHaveBeenCalled()
   })
 
@@ -69,12 +71,12 @@ describe('SLUR_KEYS', () => {
     SLUR_KEYS.nudge!(ctx, dot, 0, -1)
     expect(handleNudge.nudgeArmedSlurControlPoint).toHaveBeenCalledWith(ctx.state, engine, 0, -1)
     SLUR_KEYS.nudge!(ctx, whole, 1, -1)
-    expect(engine.nudgeSlur).toHaveBeenCalledWith('S1', 1, -1)
+    expect(engine.slur.nudgeSlur).toHaveBeenCalledWith('S1', 1, -1)
   })
 
   it('⚠️ an armed END or JOIN always CONSUMES the key and renders — even when the engine refused', () => {
-    engine.nudgeSlurEndpoint.mockReturnValue(false)
-    engine.nudgeSlurSegmentEndpoint.mockReturnValue(false)
+    engine.slur.nudgeSlurEndpoint.mockReturnValue(false)
+    engine.slur.nudgeSlurSegmentEndpoint.mockReturnValue(false)
     expect(SLUR_KEYS.nudge!(ctx, end, 0, 1)).toBe(true)
     expect(SLUR_KEYS.nudge!(ctx, join, 0, 1)).toBe(true)
     expect(ctx.render).toHaveBeenCalledTimes(2)
@@ -82,7 +84,7 @@ describe('SLUR_KEYS', () => {
 
   it('…while a shape handle and the whole curve DECLINE on a refusal, and draw nothing', () => {
     handleNudge.nudgeArmedSlurControlPoint.mockReturnValue(false)
-    engine.nudgeSlur.mockReturnValue(false)
+    engine.slur.nudgeSlur.mockReturnValue(false)
     expect(SLUR_KEYS.nudge!(ctx, dot, 1, 0)).toBe(false)
     expect(SLUR_KEYS.nudge!(ctx, whole, 1, 0)).toBe(false)
     expect(ctx.render).not.toHaveBeenCalled()
@@ -113,11 +115,11 @@ describe('SLUR_KEYS', () => {
   it('reset: ANY armed handle → that handle; nothing armed → the whole curve; declines when nothing was authored', () => {
     for (const armed of [end, join, dot]) SLUR_KEYS.reset!(ctx, armed)
     expect(handleNudge.resetArmedSlurHandle).toHaveBeenCalledTimes(3)
-    expect(engine.resetSlurOffset).not.toHaveBeenCalled()
+    expect(engine.slur.resetSlurOffset).not.toHaveBeenCalled()
     expect(SLUR_KEYS.reset!(ctx, whole)).toBe(true)
-    expect(engine.resetSlurOffset).toHaveBeenCalledWith('S1')
+    expect(engine.slur.resetSlurOffset).toHaveBeenCalledWith('S1')
 
-    engine.resetSlurOffset.mockReturnValue(false)
+    engine.slur.resetSlurOffset.mockReturnValue(false)
     ;(ctx.render as ReturnType<typeof vi.fn>).mockClear()
     expect(SLUR_KEYS.reset!(ctx, whole)).toBe(false)
     expect(ctx.render).not.toHaveBeenCalled()

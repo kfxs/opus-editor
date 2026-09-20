@@ -185,7 +185,7 @@ describe('elementClipboard — the TEMPO mark (his ask, 2026-08-19)', () => {
     beforeEach(() => {
       ids = (['D', 'E', 'F', 'G'] as const).map((step, i) =>
         engine.addNoteAtBeat({ step, octave: 4, duration: 'q', measure: 1, beat: frac(i, 1) })!.id)
-      slurId = engine.createSlur([ids[0], ids[1]])!.id   // D→E, one beat of span
+      slurId = engine.slur.createSlur([ids[0], ids[1]])!.id   // D→E, one beat of span
     })
 
     it('⭐⭐ copies the SPAN, since two note ids mean nothing anywhere else', () => {
@@ -199,7 +199,7 @@ describe('elementClipboard — the TEMPO mark (his ask, 2026-08-19)', () => {
     })
 
     it('⭐⭐ …and a WIDER slur stays wider — the span is what was copied', () => {
-      const wide = engine.createSlur([ids[0], ids[2]])!   // D→F, two beats
+      const wide = engine.slur.createSlur([ids[0], ids[2]])!   // D→F, two beats
       const clip = copyElement(engine, { kind: 'slur', id: wide.id })!
       expect(clip).toMatchObject({ span: frac(2, 1) })
       // Pasted on the second note, two beats reach the fourth.
@@ -208,7 +208,7 @@ describe('elementClipboard — the TEMPO mark (his ask, 2026-08-19)', () => {
     })
 
     it('⭐ an explicit PLACEMENT travels; an absent one stays absent so the stems decide', () => {
-      engine.flipSlur(slurId)
+      engine.slur.flipSlur(slurId)
       const clip = copyElement(engine, { kind: 'slur', id: slurId })!
       expect(clip).toHaveProperty('placement')
       const pasted = idOf(pasteElement(engine, clip, { measure: 1, beat: frac(2, 1), staff: 0, noteId: ids[2] }))!

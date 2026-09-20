@@ -26,6 +26,7 @@
  * authored against other music.
  */
 import type { MusicEngine } from '../engine/MusicEngine'
+import type { SlurCommands } from '@/engine/commands/slurCommands'
 import type { HairpinCommands } from '@/engine/commands/hairpinCommands'
 import type { TrillCommands } from '@/engine/commands/trillCommands'
 import type { OttavaCommands } from '@/engine/commands/ottavaCommands'
@@ -179,7 +180,7 @@ export type ElementClip =
   | TrillElementClip | OttavaElementClip | PedalElementClip
 
 /** What the element clipboard needs off the engine — a Pick, so a spec needs no renderer. */
-type ElementClipEngine = Pick<MusicEngine, 'getDynamicById' | 'addDynamic' | 'staffIdForIndex' | 'getTempoMarkById' | 'addTempoMark' | 'removeTempoMark' | 'getScore' | 'runBatch' | 'getHairpinById' | 'getSlurById' | 'slurSpanOf' | 'createSlurOverSpan' | 'getTrillById' | 'trillSpanBeats' | 'getOttavaById' | 'getPedalById'> & { hairpin: Pick<HairpinCommands, 'addHairpin'> } & {
+type ElementClipEngine = Pick<MusicEngine, 'getDynamicById' | 'addDynamic' | 'staffIdForIndex' | 'getTempoMarkById' | 'addTempoMark' | 'removeTempoMark' | 'getScore' | 'runBatch' | 'getHairpinById' | 'getSlurById' | 'slurSpanOf' | 'getTrillById' | 'trillSpanBeats' | 'getOttavaById' | 'getPedalById'> & { slur: Pick<SlurCommands, 'createSlurOverSpan'> } & { hairpin: Pick<HairpinCommands, 'addHairpin'> } & {
   trill: Pick<TrillCommands, 'createTrillOverSpan'>
   ottava: Pick<OttavaCommands, 'addOttava'>
   pedal: Pick<PedalCommands, 'addPedalOverSpan'>
@@ -337,7 +338,7 @@ export function pasteElement(engine: ElementClipEngine, clip: ElementClip, ancho
       // click landed on one (`pasteAnchor`); when it does not, there is nothing to slur and this
       // says so.
       if (!anchor.noteId) return null
-      const created = engine.createSlurOverSpan(anchor.noteId, clip.span, clip.placement)
+      const created = engine.slur.createSlurOverSpan(anchor.noteId, clip.span, clip.placement)
       return created ? { kind: 'slur', id: created.id } : null
     }
     case 'trill': {

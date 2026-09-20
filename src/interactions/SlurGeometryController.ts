@@ -53,7 +53,7 @@ export class SlurGeometryController {
       // ⭐ The same absolute→relative arithmetic as an endpoint, against the whole curve's own
       // override — and `null` resets it, leaving both ends' nudges and the arc's shape alone.
       if (!value) {
-        if (!engine.resetSlurOffset(slurId)) return
+        if (!engine.slur.resetSlurOffset(slurId)) return
         this.renderScore()
         dbg(`[Slur] Properties reset whole-curve offset | id:${slurId}`)
         return
@@ -62,7 +62,7 @@ export class SlurGeometryController {
       const dx = value.x === undefined ? 0 : value.x - (whole?.x ?? 0)
       const dy = value.y === undefined ? 0 : value.y - (whole?.y ?? 0)
       if (dx === 0 && dy === 0) return
-      if (!engine.nudgeSlur(slurId, dx, dy)) return
+      if (!engine.slur.nudgeSlur(slurId, dx, dy)) return
       this.renderScore()
       dbg(`[Slur] Properties set whole-curve offset → (${value.x}, ${value.y}) staff-space(s) | id:${slurId}`)
       return
@@ -70,7 +70,7 @@ export class SlurGeometryController {
 
     const current = endpointOffsetOverrideOf(engine.getScore(), slurId)?.[target.which]
     if (!value) {
-      if (!engine.resetSlurEndpointOffset(slurId, target.which)) return
+      if (!engine.slur.resetSlurEndpointOffset(slurId, target.which)) return
       this.renderScore()
       dbg(`[Slur] Properties reset ${target.which} endpoint | id:${slurId}`)
       return
@@ -79,7 +79,7 @@ export class SlurGeometryController {
     const dx = value.x === undefined ? 0 : value.x - (current?.x ?? 0)
     const dy = value.y === undefined ? 0 : value.y - (current?.y ?? 0)
     if (dx === 0 && dy === 0) return // no change → no undo entry
-    if (!engine.nudgeSlurEndpoint(slurId, target.which, dx, dy)) return
+    if (!engine.slur.nudgeSlurEndpoint(slurId, target.which, dx, dy)) return
     this.renderScore()
     dbg(`[Slur] Properties set ${target.which} endpoint → (${value.x}, ${value.y}) staff-space(s) | id:${slurId}`)
   }

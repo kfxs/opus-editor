@@ -545,12 +545,12 @@ async function slurOverTrill(
     const ids = pitches.map((p, beat) => h.engine.addNoteAtBeat({
       step: p.step, octave: p.octave, duration: 'q', measure: 1, beat: h.frac(beat, 1),
     })!.id)
-    const created = slur ? h.engine.createSlur([ids[0], ids[3]]) : null
+    const created = slur ? h.engine.slur.createSlur([ids[0], ids[3]]) : null
     h.engine.trill.addTrill({ startNoteId: ids[1] })
     h.engine.addDynamic(1, { beat: h.frac(1, 1), text: 'p', placement: 'above' })
     // ⭐ The hand's move goes in BEFORE the render being measured — this is the drawn page after a
     //   drag, not a preview frame.
-    const nudged = created && nudge !== undefined ? h.engine.nudgeSlur(created.id, 0, nudge) : false
+    const nudged = created && nudge !== undefined ? h.engine.slur.nudgeSlur(created.id, 0, nudge) : false
     await h.render()
 
     const stave = h.staves()[0]
@@ -657,7 +657,7 @@ test('⭐ the ENDPOINT case: a slur STARTING on the trilled note — Gould p. 13
       h.engine.addNoteAtBeat({
         step: p.step, octave: p.octave, duration: 'q', measure: 1, beat: h.frac(beat, 1),
       })!.id)
-    h.engine.createSlur([ids[0], ids[3]])   // the slur STARTS on the note that is trilled
+    h.engine.slur.createSlur([ids[0], ids[3]])   // the slur STARTS on the note that is trilled
     h.engine.trill.addTrill({ startNoteId: ids[0] })
     await h.render()
     const marks = h.placed('g.trill text')
@@ -720,7 +720,7 @@ test('🚨🚨 the BELOW mirror: flip both, and the `tr` goes UNDER the arc', as
       h.engine.addNoteAtBeat({
         step: p.step, octave: p.octave, duration: 'q', measure: 1, beat: h.frac(beat, 1),
       })!.id)
-    h.engine.createSlur([ids[0], ids[3]])
+    h.engine.slur.createSlur([ids[0], ids[3]])
     const trill = h.engine.trill.addTrill({ startNoteId: ids[1] })!
     h.engine.trill.toggleTrillPlacement(trill.id)
     await h.render()

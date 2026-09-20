@@ -31,6 +31,7 @@
  * way in. Without that, ↑ would raise a slur above the staff and *lower* one below it.
  */
 import type { MusicEngine } from '../engine/MusicEngine'
+import type { SlurCommands } from '@/engine/commands/slurCommands'
 import type { ElementInfo } from '../engine/ElementRegistry'
 import type { SlurSegmentAddress } from '../types/music'
 import type { EditorState, SlurControlPointHandle } from './EditorState'
@@ -38,9 +39,11 @@ import { selectedOf } from './EditorState'
 import { dbg } from '../utils/debug'
 
 /** What the nudge and its reset need off the engine — a Pick so a test can stand up the calls alone. */
-type ShapeEngine = Pick<MusicEngine,
-  'getElementRegistry' | 'previewSlurShape' | 'commitSlurShape'
-  | 'resetSlurShape' | 'resetSlurEndpointOffset' | 'resetSlurSegmentEndpointOffset'>
+type ShapeEngine = Pick<MusicEngine, 'getElementRegistry'> & {
+  slur: Pick<SlurCommands,
+    'previewSlurShape' | 'commitSlurShape' | 'resetSlurShape' | 'resetSlurEndpointOffset'
+    | 'resetSlurSegmentEndpointOffset'>
+}
 
 /**
  * Invert `engrave/curves/curveInk`'s `curveControlPoints` — ⭐ the one owner of that math, which
@@ -123,8 +126,8 @@ function arcBaseline(
  *  exactly one undo entry for it. A press — or a typed value — is already a whole gesture, so the two
  *  run back to back. */
 function writeArc(engine: ShapeEngine, slurId: string, cps: ArcBaseline['cps'], base: ArcBaseline): boolean {
-  if (!engine.previewSlurShape(slurId, cps, base.segment, base.spanCount)) return false
-  engine.commitSlurShape()
+  if (!engine.slur.previewSlurShape(slurId, cps, base.segment, base.spanCount)) return false
+  engine.slur.commitSlurShape()
   return true
 }
 
@@ -190,7 +193,7 @@ export function setSlurControlPoint(
   if (!base) return false
 
   if (!value) {
-    const ok = engine.resetSlurShape(selected.id, base.segment, base.spanCount)
+    const ok = engine.slur.resetSlurShape(selected.id, base.segment, base.spanCount)
     if (ok) dbg(`Slur arc reset to auto (Properties) | id:${selected.id} seg:${base.segment?.role ?? 'single'}`)
     return ok
   }
@@ -230,7 +233,7 @@ export function resetArmedSlurHandle(state: EditorState, engine: ShapeEngine): b
   if (!selected) return false
 
   if (selected.endpoint) {
-    const ok = engine.resetSlurEndpointOffset(selected.id, selected.endpoint)
+    const ok = engine.slur.resetSlurEndpointOffset(selected.id, selected.endpoint)
     if (ok) dbg(`Slur endpoint offset reset | id:${selected.id} end:${selected.endpoint}`)
     return ok
   }
@@ -238,7 +241,7 @@ export function resetArmedSlurHandle(state: EditorState, engine: ShapeEngine): b
   if (selected.segmentEndpoint) {
     // The span count captured when the join was armed — the override's reset signature, the same
     // value its nudge passes.
-    const ok = engine.resetSlurSegmentEndpointOffset(
+    const ok = engine.slur.resetSlurSegmentEndpointOffset(
       selected.id, selected.segmentEndpoint, selected.segmentSpanCount ?? 0,
     )
     if (ok) dbg(`Slur open-join offset reset | id:${selected.id} join:${selected.segmentEndpoint.role}`)
@@ -249,14 +252,14 @@ export function resetArmedSlurHandle(state: EditorState, engine: ShapeEngine): b
   if (!armed) return false
   if (armed.segmentRole === undefined) {
     // Same-line arc: the slur's whole shape override IS this arc's.
-    const ok = engine.resetSlurShape(selected.id)
+    const ok = engine.slur.resetSlurShape(selected.id)
     if (ok) dbg(`Slur shape reset to auto | id:${selected.id}`)
     return ok
   }
   // A segment's edit is keyed by the live span count, which only the drawn handle knows.
   const base = arcBaseline(engine, selected.id, armed.cpIndex, armed)
   if (!base?.segment || base.spanCount === undefined) return false
-  const ok = engine.resetSlurShape(selected.id, base.segment, base.spanCount)
+  const ok = engine.slur.resetSlurShape(selected.id, base.segment, base.spanCount)
   if (ok) dbg(`Slur segment shape reset to auto | id:${selected.id} seg:${armed.segmentRole}`)
   return ok
 }

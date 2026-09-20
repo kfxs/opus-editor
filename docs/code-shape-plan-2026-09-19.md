@@ -1,6 +1,6 @@
 # Code shape plan — 2026-09-19
 
-**Status: IN PROGRESS — Phase 1 DONE (2026-09-19), bar item 5's two ⏭️ decisions. Phase 2 DONE. Phase 3.1: the hairpin / ottava / pedal body drags done and checked; the trill's too (`cdb7f05`); the slur's too (`69e927c`); the four SQUARE drags too (`6d903c3`); the slur HANDLE / ENDPOINT and staff-spacing drags too (`8f28f79`); the DYNAMIC and TEMPO drags too (`9a04f88`); bar width, barline join, group span and clef too (`ee31698`); the NOTE drag too (`7d2898e`) — every gesture is a module. **Phase 3.1 DONE** (`25f70a6`). 3.2: the `keys` column + dispatcher and the HAIRPIN on it (`e61626a`); OTTAVA / PEDAL / TRILL too (`14e10e7`); DYNAMIC and TEMPO too (`943fb64`); SLUR and CLEF too (`8382fcc`); the `reanchor` and `cycle` verbs done, awaiting his UI check — **Phase 3.2 DONE with it.** 3.3 (`highlight(ctx)`): the contract + the four span squares (`a7c1076`); the join and group squares (`b772418`); the `ink` column (`f1832e7`); the slur handles (`d3dcb7b`); the anchor guide line (`e2ff597`); the note pass + note-attached kinds (`aa7e5af`); every remaining row done, awaiting his UI check — **Phase 3.3 DONE** (`1efb38d`). 3.4: the panels' `rows` (`4db182d`); the typed `InspectedElement` union done, awaiting his UI check — **3.4 DONE** (`54ab9cc`). 3.5: `spanFromNotes` (4.1) + the OTTAVA (`e684125`); the PEDAL (`44b99d2`); the TRILL (`7148a63`); the HAIRPIN as `engine.hairpin.*` done, awaiting his UI check; slur / dynamic / tempo to follow.** Phases are ordered by
+**Status: IN PROGRESS — Phase 1 DONE (2026-09-19), bar item 5's two ⏭️ decisions. Phase 2 DONE. Phase 3.1: the hairpin / ottava / pedal body drags done and checked; the trill's too (`cdb7f05`); the slur's too (`69e927c`); the four SQUARE drags too (`6d903c3`); the slur HANDLE / ENDPOINT and staff-spacing drags too (`8f28f79`); the DYNAMIC and TEMPO drags too (`9a04f88`); bar width, barline join, group span and clef too (`ee31698`); the NOTE drag too (`7d2898e`) — every gesture is a module. **Phase 3.1 DONE** (`25f70a6`). 3.2: the `keys` column + dispatcher and the HAIRPIN on it (`e61626a`); OTTAVA / PEDAL / TRILL too (`14e10e7`); DYNAMIC and TEMPO too (`943fb64`); SLUR and CLEF too (`8382fcc`); the `reanchor` and `cycle` verbs done, awaiting his UI check — **Phase 3.2 DONE with it.** 3.3 (`highlight(ctx)`): the contract + the four span squares (`a7c1076`); the join and group squares (`b772418`); the `ink` column (`f1832e7`); the slur handles (`d3dcb7b`); the anchor guide line (`e2ff597`); the note pass + note-attached kinds (`aa7e5af`); every remaining row done, awaiting his UI check — **Phase 3.3 DONE** (`1efb38d`). 3.4: the panels' `rows` (`4db182d`); the typed `InspectedElement` union done, awaiting his UI check — **3.4 DONE** (`54ab9cc`). 3.5: `spanFromNotes` (4.1) + the OTTAVA (`e684125`); the PEDAL (`44b99d2`); the TRILL (`7148a63`); the HAIRPIN (`cf560a1`); the SLUR as `engine.slur.*` (+ `reanchorSlurs` → `slurOps`) done, awaiting his UI check; dynamic / tempo to follow.** Phases are ordered by
 value over risk; each one stands alone and can be stopped after. A done item carries ✅ and what
 actually happened where that differs from what was planned.
 
@@ -626,8 +626,28 @@ Run the e2e suite either side of each step.
    mocks with `Object.values(engine)` (→ `engine.hairpin`), the table-driven
    `MouseController.markEndDrag` row (`commands: 'hairpin'`), and the mock-nester's SKIP list
    (`hairpinOps*.test.ts` — import lists). `audit:tests` lists `hairpinCommands` as owed a spec,
-   the trill's gap. `MusicEngine`: 5,028 → 4,646 lines, kinds 866 → **771**. ⏸️ Awaiting his UI
-   check.*
+   the trill's gap. `MusicEngine`: 5,028 → 4,646 lines, kinds 866 → **771**. ✅ Passed
+   (`cf560a1`).*
+
+   *Fifth family — the SLUR, with its Phase 4.1 slice first.*
+
+   *4.1: `reanchorSlurs(score, oldId, newId)` is `engine/models/slurOps` now — what happens to the
+   slurs hanging off a deleted or replaced head (re-point · drop · the collapsed span · which
+   overrides each outcome clears); `MusicEngine`'s six callers and `RebarDeps` pass the score.
+   `nextDistinctSlot(source, start)` — where a ONE-note slur ends: the next event in its own voice
+   and staff, the next MEMBER inside a fan — went beside `spanFromNotes`, over a `SlotWalkSource`
+   (`SpanNoteSource` + `getAllNotes` + `fanMembersOfSlot`). Both have specs now
+   (`slurOps.reanchor.test.ts`, 5; `spanFromNotes.test.ts` +4); neither had one of its own.*
+
+   *3.5: `engine/commands/slurCommands.ts`, `engine.slur.<command>(…)` — 21 commands and its four
+   private guards (`endpointInk`, `endpointLane`, `endpointOffsetAllowed`, `offsetAllowed`).
+   ⭐ Every one records with `saveOnly`: a slur is notational only. Reads stay (`getSlurs`,
+   `getSlurById`, `slurSpanOf`, the SVG group). ⚠️ The context's `registry()` became
+   `getElementRegistry?.() ?? {}` — `flipSlur` read it through `?.()` because several engine specs
+   stub a renderer with NO registry, and a context that threw there would have broken them.
+   Spec moved: the `createSlur` chapter of `MusicEngine.test.ts` (425 lines, incl. the
+   shape auto-reset) → `commands/slurCommands.test.ts`. `MusicEngine`: 4,646 → 4,263 lines,
+   kinds 771 → **668**. ⏸️ Awaiting his UI check.*
 
    *🚨 Two slips worth keeping. (1) A receiver-anchored regex (`(?<![\w.])engine\.`) skipped
    `h.engine.addOttava(…)` in `e2e/` — untyped inside `page.evaluate`, so `tsc` was silent and only

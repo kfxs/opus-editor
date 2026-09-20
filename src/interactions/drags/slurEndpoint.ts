@@ -41,6 +41,6 @@ export function beginSlurEndpointDrag(
         latched: move.latched, droppedPx: move.discarded, gapAheadPx: move.gapAhead,
       }
     },
-    commit: engine => engine.commitSlurEndpoint(),
+    commit: engine => engine.slur.commitSlurEndpoint(),
   }, x, y)
 }

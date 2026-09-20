@@ -61,7 +61,7 @@ describe('walkArmedSlurEndpoint', () => {
     // Four quarters in one bar, one voice: C4 D4 E4 F4.
     ids = (['C', 'D', 'E', 'F'] as const).map((step, i) =>
       engine.addNoteAtBeat({ step, octave: 4, duration: 'q', measure: 1, beat: frac(i, 1) })!.id)
-    slurId = engine.createSlur([ids[0], ids[2]])!.id // C4 → E4, so the END has F4 to walk onto
+    slurId = engine.slur.createSlur([ids[0], ids[2]])!.id // C4 → E4, so the END has F4 to walk onto
     state = createEditorState()
     state.selectedElement = { kind: 'slur', id: slurId, endpoint: 'end' }
     render()
@@ -92,8 +92,8 @@ describe('walkArmedSlurEndpoint', () => {
   it('⭐⭐ keeps the vertical nudge and the hand-tuned arc THROUGH the crossing', () => {
     // The reason this walk needed a model op of its own: the ordinary re-anchor drops both (it is
     // right for "not that note", wrong for a ¼-space press that steps over a notehead).
-    engine.nudgeSlurEndpoint(slurId, 'end', 0, -2)
-    engine.setSlurShape(slurId, [{ x: 0, y: -3 }, { x: 0, y: -3 }])
+    engine.slur.nudgeSlurEndpoint(slurId, 'end', 0, -2)
+    engine.slur.setSlurShape(slurId, [{ x: 0, y: -3 }, { x: 0, y: -3 }])
     for (let i = 0; i < 10; i++) walkArmedSlurEndpoint(state, engine, 1)
     expect(slur().endNoteId, 'it did cross').toBe(ids[3])
     expect(offsetY(), 'the lift survives').toBeCloseTo(-2)
@@ -143,7 +143,7 @@ describe('walkArmedSlurEndpoint', () => {
     // A key press can cross at most one note; a frame of a quick drag can fly over many, and
     // re-anchoring once per frame would let the cursor outrun the anchor. Put the end on F4 and drag
     // it two whole gaps left in a single frame: it must land on D4, not on E4.
-    engine.setSlurEndpointKeepingEdits(slurId, 'end', ids[3])
+    engine.slur.setSlurEndpointKeepingEdits(slurId, 'end', ids[3])
     // ⭐ The count and the gap are what the caller holds the ink by, so both must be the truth.
     expect(dragArmedSlurEndpoint(state, engine, -200, 0))
       .toEqual({ crossings: 2, gapAhead: 0, latched: true, discarded: 0 })
@@ -155,7 +155,7 @@ describe('walkArmedSlurEndpoint', () => {
     // The one place the two devices differ on purpose. A lift is tuned to clear the note it sits on
     // — its stem, its beam, its accidentals — so dragging past that note leaves it stale, while a
     // deliberate arrow press has no business dropping it.
-    engine.nudgeSlurEndpoint(slurId, 'end', 0, -2)
+    engine.slur.nudgeSlurEndpoint(slurId, 'end', 0, -2)
     dragArmedSlurEndpoint(state, engine, 100, 0) // one whole gap right → crosses onto F4
     expect(slur().endNoteId, 'it crossed').toBe(ids[3])
     expect(offsetY(), 'and arrived at the new note’s own height').toBeCloseTo(0, 6)
@@ -163,7 +163,7 @@ describe('walkArmedSlurEndpoint', () => {
 
   it('…and ten presses covering the same ground KEEP that lift', () => {
     // The mirror of the test above, and the reason the flag exists rather than one rule for both.
-    engine.nudgeSlurEndpoint(slurId, 'end', 0, -2)
+    engine.slur.nudgeSlurEndpoint(slurId, 'end', 0, -2)
     for (let i = 0; i < 10; i++) walkArmedSlurEndpoint(state, engine, 1)
     expect(slur().endNoteId).toBe(ids[3])
     expect(offsetY()).toBeCloseTo(-2, 6)

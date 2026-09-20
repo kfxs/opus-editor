@@ -31,6 +31,6 @@ export function beginSlurBodyDrag(host: DragHost, id: string, x: number, y: numb
     // for a refusal alike, and either way the anchor stays put.
     step: (eng, slurId, _cursorX, dxPx, dyPx) =>
       ({ moved: slurBodyDragStep(eng, slurId, origin, dxPx, dyPx) !== null, jumped: false }),
-    commit: eng => eng.commitSlurOffsetDrag(),
+    commit: eng => eng.slur.commitSlurOffsetDrag(),
   }, id, { x, y })
 }

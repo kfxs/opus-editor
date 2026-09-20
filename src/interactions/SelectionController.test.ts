@@ -247,8 +247,8 @@ describe('SelectionController — Shift range select', () => {
   it('pulls a fully-covered slur into the selection (so it highlights)', () => {
     const slurKey = (id: string) => itemKey({ kind: 'slur', id })
     // A slur n0..n1 (both ends inside a n0..n2 box) and a slur n2..n3 (only n2 inside it).
-    const inSlur = engine.createSlur([n0, n1])!.id
-    const straddle = engine.createSlur([n2, n3])!.id
+    const inSlur = engine.slur.createSlur([n0, n1])!.id
+    const straddle = engine.slur.createSlur([n2, n3])!.id
 
     selection.selectNote(n0)
     selection.extendSelectionTo(n2)      // box = beats 0..2 (n0,n1,n2)

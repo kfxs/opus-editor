@@ -20,10 +20,10 @@
  * advance on a refusal.
  */
 import type { ElementRegistry } from '../engine/ElementRegistry'
-import type { MusicEngine } from '../engine/MusicEngine'
+import type { SlurCommands } from '@/engine/commands/slurCommands'
 
 /** What one frame needs off the engine — a Pick, so a spec can drive it with no renderer. */
-export type SlurBodyDragEngine = Pick<MusicEngine, 'previewSlurOffset'>
+export type SlurBodyDragEngine = { slur: Pick<SlurCommands, 'previewSlurOffset'> }
 
 /** Where the cursor was when the last ACCEPTED frame landed, plus the scale to convert with. */
 export interface SlurBodyAnchor {
@@ -81,6 +81,6 @@ export function slurBodyDragStep(
   const dx = (x - anchor.x) / anchor.staffSpacePx
   const dy = (y - anchor.y) / anchor.staffSpacePx
   if (dx === 0 && dy === 0) return null
-  if (!engine.previewSlurOffset(slurId, dx, dy)) return null
+  if (!engine.slur.previewSlurOffset(slurId, dx, dy)) return null
   return { x, y, staffSpacePx: anchor.staffSpacePx }
 }

@@ -52,7 +52,7 @@ export function beginSlurHandleDrag(host: DragHost, slurId: string, handle: Elem
         { x: cps[0].x / staffSpacePx, y: cps[0].y / staffSpacePx },
         { x: cps[1].x / staffSpacePx, y: cps[1].y / staffSpacePx },
       ]
-      if (engine.previewSlurShape(slurId, cpsStaffSpaces, segment, spanCount)) {
+      if (engine.slur.previewSlurShape(slurId, cpsStaffSpaces, segment, spanCount)) {
         changed = true
         // A full render: it redraws the handles at the new spots.
         host.render.renderScore()
@@ -62,7 +62,7 @@ export function beginSlurHandleDrag(host: DragHost, slurId: string, handle: Elem
     end() {
       const engine = host.getEngine()
       if (engine && changed) {
-        engine.commitSlurShape()
+        engine.slur.commitSlurShape()
         dbg(`Slur reshaped | id:${slurId}`)
       }
       host.release()

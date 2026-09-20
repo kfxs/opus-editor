@@ -34,14 +34,14 @@ export const SLUR_KEYS: KeysOf<'slur'> = {
   nudge({ engine, state, render }, slur, dx, dy) {
     if (slur.endpoint) {
       if (dy === 0 && dx !== 0) walkArmedSlurEndpoint(state, engine, dx)
-      else engine.nudgeSlurEndpoint(slur.id, slur.endpoint, dx, dy)
+      else engine.slur.nudgeSlurEndpoint(slur.id, slur.endpoint, dx, dy)
       render()
       return true
     }
     if (slur.segmentEndpoint) {
       // The captured span count is the override's reset signature
       // (docs/multisystem-slur-segment-endpoint-offset-plan.md).
-      engine.nudgeSlurSegmentEndpoint(slur.id, slur.segmentEndpoint, dx, dy, slur.segmentSpanCount ?? 0)
+      engine.slur.nudgeSlurSegmentEndpoint(slur.id, slur.segmentEndpoint, dx, dy, slur.segmentSpanCount ?? 0)
       render()
       return true
     }
@@ -49,7 +49,7 @@ export const SLUR_KEYS: KeysOf<'slur'> = {
     // DRAWN arc rather than the stored value (`../slurHandleNudge`).
     const moved = slur.controlPoint
       ? nudgeArmedSlurControlPoint(state, engine, dx, dy)
-      : engine.nudgeSlur(slur.id, dx, dy)
+      : engine.slur.nudgeSlur(slur.id, dx, dy)
     if (moved) render()
     return moved
   },
@@ -76,7 +76,7 @@ export const SLUR_KEYS: KeysOf<'slur'> = {
    *  nothing authored to reset, so the key falls through to the note-spacing / bar-width resets. */
   reset({ engine, state, render }, slur) {
     const armed = slur.endpoint || slur.segmentEndpoint || slur.controlPoint
-    const was = armed ? resetArmedSlurHandle(state, engine) : engine.resetSlurOffset(slur.id)
+    const was = armed ? resetArmedSlurHandle(state, engine) : engine.slur.resetSlurOffset(slur.id)
     if (was) render()
     return was
   },

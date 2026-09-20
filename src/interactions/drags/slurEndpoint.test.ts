@@ -16,7 +16,7 @@ import { beginSlurEndpointDrag } from './slurEndpoint'
 describe('beginSlurEndpointDrag', () => {
   const state = {} as EditorState
   const commit = vi.fn()
-  const engine = { commitSlurEndpoint: commit } as unknown as MusicEngine
+  const engine = { slur: { commitSlurEndpoint: commit } } as unknown as MusicEngine
   let host: DragHost
 
   beforeEach(() => {

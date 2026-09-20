@@ -153,7 +153,7 @@ async function twoStavesWithSpans(score: Page): Promise<void> {
       const b = h.engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'h', measure: 1, beat: h.frac(2, 1), staff })!
       const c = h.engine.addNoteAtBeat({ step: 'G', octave: 4, duration: 'w', measure: 2, beat: h.frac(0, 1), staff })!
       h.engine.updateNote(b.id, { tiedTo: c.id })
-      h.engine.createSlur([a.id, c.id])
+      h.engine.slur.createSlur([a.id, c.id])
     }
     await h.render()
   })
@@ -321,7 +321,7 @@ test('a slur ACROSS A SYSTEM BREAK still reaches the margin on a small staff', a
         if (note) ids.push(note.id)
       }
     }
-    h.engine.createSlur([ids[0], ids[40]]) // several systems apart
+    h.engine.slur.createSlur([ids[0], ids[40]]) // several systems apart
     await h.render()
 
     const read = () => {

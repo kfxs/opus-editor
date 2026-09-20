@@ -53,7 +53,7 @@ export function stampSlurAtClick(
   // createSlur commits its own undo entry; runBatch keeps the stamp's shape identical to its
   // siblings (one click = one undo) and is what marks the model dirty for the repaint.
   let slurId: string | null = null
-  engine.runBatch('Add slur', () => { slurId = engine.createSlur([noteId])?.id ?? null })
+  engine.runBatch('Add slur', () => { slurId = engine.slur.createSlur([noteId])?.id ?? null })
   if (!slurId) {
     // No next slot to reach — the last note of the score, or of its voice. Quiet, like the tie's.
     dbg(`· Slur stamp: no valid span from note ${noteId} — no change`)

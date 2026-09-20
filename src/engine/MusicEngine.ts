@@ -34,17 +34,18 @@ import { midiToNoteName, beatToFrac, compareByPosition, measureAccidentalNotes, 
 import { measureCapacityQuarters } from '@/utils/measureCapacity'
 import { fracToNumber, fracEq } from '@/utils/fraction'
 import { quantizeBeat } from '@/utils/durations'
-import { spanFromNotes } from './models/spanFromNotes'
+import { reanchorSlurs } from './models/slurOps'
 import type { CommandContext } from './commands/commandContext'
 import { ottavaCommands } from './commands/ottavaCommands'
 import { hairpinCommands } from './commands/hairpinCommands'
 import { pedalCommands } from './commands/pedalCommands'
+import { slurCommands } from './commands/slurCommands'
 import { trillCommands } from './commands/trillCommands'
 import { spellingToMidi, accidentalToAlter, formatPitch } from '@/utils/pitchSpelling'
 import { alterInForceAt } from '@/utils/accidentalState'
 import type { BeamRole } from '@/utils/beaming'
 import { fifthsOf, keyAt } from '@/utils/keySignature'
-import type { KeySignature, Score, Note, NoteParams, Fraction, PixelCoordinates, Tuplet, TupletFormat, TupletMarkRun, TupletShape, TupletNumberStyle, NoteDuration, ArticulationType, Accidental, PitchSpelling, GhostNote, Clef, TimeSignature, Dynamic, DynamicLevel, Hairpin, Ottava, Pedal, TempoMark, Slur, Trill, PitchAlter, PitchStep, CurveControlPointDeltas, SlurSegmentAddress, SlurSegmentEndpointAddress, TremoloMark, FanMark, SoundRef, BarlineStyle, StaffGroup, FractionalBeamSide } from '@/types/music'
+import type { KeySignature, Score, Note, NoteParams, Fraction, PixelCoordinates, Tuplet, TupletFormat, TupletMarkRun, TupletShape, TupletNumberStyle, NoteDuration, ArticulationType, Accidental, PitchSpelling, GhostNote, Clef, TimeSignature, Dynamic, DynamicLevel, Hairpin, Ottava, Pedal, TempoMark, Slur, Trill, PitchAlter, PitchStep, TremoloMark, FanMark, SoundRef, BarlineStyle, StaffGroup, FractionalBeamSide } from '@/types/music'
 import { dynamicLabel } from '@/utils/dynamics'
 import { tempoLabel } from '@/utils/tempoMap'
 import type { ElementRegistry, ElementInfo, ElementType } from './ElementRegistry'
@@ -458,60 +459,6 @@ export class MusicEngine {
     return allowed
   }
 
-  /**
-   * ⭐⭐ **The drawn HANDLE of the end being moved** — the ink the band limit judges, and ⛔ NOT the
-   * slur's bounding box.
-   *
-   * 🚨 His report, 2026-08-18: with an end 9.9 sp below the staff the endpoint could not be dragged
-   * back UP. The box was the whole arc's, which spans from the arch down to that end, so its TOP
-   * already poked above the band's ceiling — and the rule refuses a step that grows the overhang on
-   * ANY edge, so moving up (shrinking the bottom overhang, growing the top one) was refused. The
-   * endpoint was nowhere near the top; the ARCH was.
-   *
-   * ⚠️ The page limit's use of the whole bbox is right for the page — a sheet cares about all the ink.
-   * A BAND is about one point's room, so the ink is that point. ⛔ Empty when the squares are not drawn
-   * (an unselected slur, linear view), which the rule reads as "nothing to measure" and allows.
-   */
-  private slurEndpointInk(id: string, which: 'start' | 'end'): InkBox[] {
-    const registry = this.renderer.getElementRegistry() as {
-      getByType?: (t: ElementType) => ElementInfo[]
-    }
-    return (registry.getByType?.('slur-endpoint') ?? [])
-      .filter((e: ElementInfo) => e.slurId === id && e.endpoint === which)
-      .map((e: ElementInfo) => e.bbox)
-  }
-
-  /** Where the slur end being moved is anchored, for {@link nudgeStaysInBand}. Null when the anchor
-   *  is not resolvable, which the caller treats as "no limit to apply". */
-  private slurEndpointLane(id: string, which: 'start' | 'end'): { measure: number; staff: number } | null {
-    const slur = this.scoreModel.getSlurById(id)
-    if (!slur) return null
-    const note = this.scoreModel.getNote(which === 'start' ? slur.startNoteId : slur.endNoteId)
-    return note ? { measure: note.measure, staff: note.staff ?? 0 } : null
-  }
-
-  /** Both limits an endpoint offset must satisfy: it may not leave its SHEET
-   *  ({@link nudgeStaysOnPage}) and it may not enter a neighbouring staff's room
-   *  ({@link nudgeStaysInBand}). Shared by the keyboard nudge and every drag frame, so the two
-   *  devices cannot disagree about what is allowed. */
-  private slurEndpointOffsetAllowed(id: string, which: 'start' | 'end', dx: number, dy: number): boolean {
-    if (!this.nudgeStaysOnPage('slur', id, dx, dy)) return false
-    const lane = this.slurEndpointLane(id, which)
-    return !lane || this.nudgeStaysInBand(this.slurEndpointInk(id, which), lane.measure, lane.staff, dy)
-  }
-
-  /** The same two limits for a move of the WHOLE curve ({@link nudgeSlur}) — ⭐ the band one applied
-   *  to EACH end in its own band, since a rigid translate moves both and a cross-system slur's ends
-   *  live in different systems. ⛔ Still not the arc's bbox: `slurEndpointInk`'s note says why. */
-  private slurOffsetAllowed(id: string, dx: number, dy: number): boolean {
-    if (!this.nudgeStaysOnPage('slur', id, dx, dy)) return false
-    for (const which of ['start', 'end'] as const) {
-      const lane = this.slurEndpointLane(id, which)
-      if (lane && !this.nudgeStaysInBand(this.slurEndpointInk(id, which), lane.measure, lane.staff, dy)) return false
-    }
-    return true
-  }
-
   private saveOnly(description: string): void {
     this.saveUndoState(description)
   }
@@ -542,7 +489,9 @@ export class MusicEngine {
   private commandContext(): CommandContext {
     return {
       model: () => this.scoreModel,
-      registry: () => this.renderer.getElementRegistry(),
+      // ⚠️ `?.()`: several engine specs stub the renderer with no registry at all, and every reader
+      // of this treats "nothing drawn" as its answer.
+      registry: () => this.renderer.getElementRegistry?.() ?? {},
       commit: description => this.commit(description),
       saveOnly: description => this.saveOnly(description),
       markDirty: () => this.markModelDirty(),
@@ -1854,83 +1803,16 @@ export class MusicEngine {
   }
 
   // --- Slurs (phrasing) ---
+  //
+  // ⭐ The family's COMMANDS are `engine/commands/slurCommands` — `engine.slur.<command>(…)`, the
+  // ottava's arrangement. What stays here is its reads.
 
-  /**
-   * Create a phrasing slur over the current selection (a span object on
-   * {@link Score.slurs}, distinct from ties). Endpoint resolution:
-   *  - **1 note**  → slur from it to the NEXT distinct slot (note or rest). The
-   *    next-slot scan dedupes by `(measure, beat)` so a chord member slurs to the
-   *    next *event*, not a sibling head at the same beat.
-   *  - **N notes** → slur first→last in score order (`measure`, then `beat`),
-   *    filtered to voice 0 (other voices ignored; see docs/slur-plan.md §1).
-   *
-   * Create-only and **idempotent**: if a slur with the same endpoints already
-   * exists, the existing one is returned and nothing is added (no duplicate). There
-   * is intentionally no toggle-off here — removal is a separate operation (select
-   * the arc + Delete → {@link removeSlur}); see docs/slur-plan.md §1.
-   *
-   * Slurs are notational only — no playback change — so the audio engine isn't touched.
-   * @returns the created (or pre-existing) Slur, or null if no valid span resolved.
-   */
-  createSlur(noteIds: string[]): Slur | null {
-    // ⭐ A FANNED MEMBER *can* anchor a slur — unlike a tie. The plan refused both together
-    // (docs/fanned-beam-pitches-plan.md §3) and that was right for the tie: it is a pitch-to-pitch
-    // continuation, and a member has no length of its own to continue into. A slur is not an
-    // attachment to the event's rhythm, it is a SPAN between two points, and member 2 → member 5 is
-    // a perfectly good span (his ask). So members stay in the candidate list here.
-    // A slur lives in ONE voice. Derive it from the selection (the first resolved
-    // note's voice) and keep only that voice's notes — so a voice-2 selection makes a
-    // voice-2 slur. (Was hardcoded to voice 0, so `s` did nothing in any other voice.)
-    const span = spanFromNotes(this.scoreModel, noteIds, { byVoice: true, sounding: false })
-    if (!span) return null
-    const { start: startNote, voice: slurVoice } = span
-    const endNote = span.notes.length >= 2 ? span.end : this.nextDistinctSlot(startNote)
-    if (!endNote || endNote.id === startNote.id) return null
-
-    const existing = this.scoreModel.findSlurByEndpoints(startNote.id, endNote.id)
-    if (existing) return existing // idempotent — never duplicate, never remove
-
-    const created = this.scoreModel.addSlur({ startNoteId: startNote.id, endNoteId: endNote.id, voice: slurVoice })
-    this.saveOnly('Add slur')
-    return created
-  }
-
-  /**
-   * ⭐⭐ **Create the slur a COPIED one describes** — the same amount of music, starting at `at`.
-   *
-   * ⭐ A slur's identity is two NOTE IDS, which mean nothing anywhere else, so what a copy carries is
-   * its SPAN (`slurOps.slurSpanOf`) and this resolves it against the destination's own notes
-   * (`slurOps.slurEndsFrom` — the last note starting within the span, the ⛔ about rests included).
-   * ⛔ It starts from a NOTE, never an address: an address always resolves to something, which is how
-   * a paste into an empty bar drew a slur three bars long (his report, 2026-08-20).
-   * An explicit `placement` is reproduced too: it is a decision the user made, where an absent one
-   * lets the renderer read the stems.
-   *
-   * @returns the new slur, or null when there is nothing there to join.
-   */
-  createSlurOverSpan(
-    startNoteId: string,
-    span: Fraction,
-    placement?: 'above' | 'below',
-  ): Slur | null {
-    const ends = this.scoreModel.slurEndsFrom(startNoteId, span)
-    if (!ends) return null
-    const created = this.createSlur([ends.startNoteId, ends.endNoteId])
-    if (created && placement) this.scoreModel.setSlurPlacement(created.id, placement)
-    return created
-  }
+  /** Every edit the editor can make to a slur. */
+  readonly slur = slurCommands(this.commandContext())
 
   /** How much music a slur covers, in quarter beats — what a COPY carries of it. */
   slurSpanOf(id: string): Fraction | null {
     return this.scoreModel.slurSpanOf(id)
-  }
-
-  /** Remove a slur by id (the arc only — never the anchored notes). Saves undo
-   *  state when removed. @returns true if a slur was removed. */
-  removeSlur(id: string): boolean {
-    const removed = this.scoreModel.removeSlur(id)
-    if (removed) this.saveOnly('Remove slur')
-    return removed
   }
 
   // ==================== Trills ====================
@@ -1967,166 +1849,6 @@ export class MusicEngine {
    *  for the printed sign; playback asks for the sounding pitch. @returns null if it does not resolve. */
   trillAuxiliaryOf(id: string): TrillAuxiliary | null {
     return this.scoreModel.trillAuxiliaryOf(id)
-  }
-
-  /** Set (or clear with `null`) a slur's user-edited curve shape (the two cubic
-   *  control-point deltas, in **staff-spaces** — the caller converts from pixels). Stored
-   *  in the engraving-overrides compartment, not on the slur (see
-   *  {@link CurveShapeOverride}). Saves one undo step on success.
-   *  @returns true if the slur exists and was updated. */
-  setSlurShape(id: string, cps: CurveControlPointDeltas | null): boolean {
-    const updated = this.scoreModel.setSlurShape(id, cps)
-    if (updated) this.saveOnly(cps ? 'Reshape slur' : 'Reset slur shape')
-    return updated
-  }
-
-  /** Live (preview) shape update used **while dragging a slur handle** — updates the
-   *  slur's curve-shape override (staff-spaces) but does NOT record undo. Call
-   *  {@link commitSlurShape} on drop to push the single undo entry (mirrors `moveClef` /
-   *  `commitClefMove`).
-   *
-   *  A same-line slur (no `segment`) reshapes its whole-arc `curveShape`. A cross-system
-   *  slur passes the grabbed segment's address + the live `spanCount`, routing the edit
-   *  into the per-segment `segmentCurveShape` override instead. */
-  previewSlurShape(
-    id: string,
-    cps: CurveControlPointDeltas,
-    segment?: SlurSegmentAddress,
-    spanCount?: number,
-  ): boolean {
-    // Live drag: mutates the model but defers its undo entry to commitSlurShape, so it never
-    // passes through saveUndoState — the one place that flags the model dirty. Flag it here or
-    // the next render would skip, and the drag would not appear (render-performance-plan §5a).
-    this.markModelDirty()
-    return segment && spanCount !== undefined
-      ? this.scoreModel.setSlurSegmentShape(id, segment, cps, spanCount)
-      : this.scoreModel.setSlurShape(id, cps)
-  }
-
-  /** Record one undo entry after a slur-handle drag settles. */
-  commitSlurShape(): void {
-    this.commitPreviewed('Reshape slur')
-  }
-
-  /** Re-anchor without undo — moves one end of the slur onto `noteId` and resets the edits that
-   *  were authored against the old anchor (see `slurOps.setSlurEndpoint`). Returns false (no-op)
-   *  when the target is invalid (collapses the span or is unchanged). Pair it with
-   *  {@link commitSlurEndpoint} for the single undo entry: every FRAME of an endpoint drag, or the
-   *  one step of a Ctrl+Shift+←/→ press (`interactions/slurReanchor`, where the two run back to
-   *  back — a press is already a whole gesture). */
-  previewSlurEndpoint(id: string, which: 'start' | 'end', noteId: string): boolean {
-    this.markModelDirty() // live drag, undo deferred to commitSlurEndpoint — see previewSlurShape
-    return this.scoreModel.setSlurEndpoint(id, which, noteId)
-  }
-
-  /** Record one undo entry for a re-anchor: after the drag settles, or per keyboard step. */
-  commitSlurEndpoint(): void {
-    this.commitPreviewed('Re-anchor slur')
-  }
-
-  /** Re-point one end onto `noteId` **keeping** the arc's shape and both ends' nudges, and save ONE
-   *  undo step. The interpolating walk's write (`interactions/slurEndpointWalk`), which pairs it
-   *  with a re-basing {@link nudgeSlurEndpoint} inside a {@link runBatch} so the press is one entry.
-   *  ⚠️ NOT the general re-anchor — see `slurOps.setSlurEndpointKeepingEdits` for which caller wants
-   *  which. @returns false (no-op) when the target is invalid or already the anchor. */
-  setSlurEndpointKeepingEdits(id: string, which: 'start' | 'end', noteId: string): boolean {
-    const ok = this.scoreModel.setSlurEndpointKeepingEdits(id, which, noteId)
-    if (ok) this.saveOnly('Re-anchor slur')
-    return ok
-  }
-
-  /** The undo-free twin of {@link setSlurEndpointKeepingEdits}, for a live endpoint DRAG whose every
-   *  frame may cross a note. Pair with {@link commitSlurEndpoint} on drop. */
-  previewSlurEndpointKeepingEdits(id: string, which: 'start' | 'end', noteId: string): boolean {
-    this.markModelDirty() // live drag, undo deferred to commitSlurEndpoint — see previewSlurShape
-    return this.scoreModel.setSlurEndpointKeepingEdits(id, which, noteId)
-  }
-
-  /** The undo-free twin of {@link nudgeSlurEndpoint} — accumulates the same way, keeps the same page
-   *  limit, records no undo step. One frame of an endpoint drag. */
-  previewSlurEndpointOffset(id: string, which: 'start' | 'end', dx: number, dy: number): boolean {
-    if (!this.slurEndpointOffsetAllowed(id, which, dx, dy)) return false
-    this.markModelDirty()
-    return this.scoreModel.setSlurEndpointOffset(id, which, dx, dy)
-  }
-
-  /** Drop a slur's hand-edited ARC shape and save ONE undo step — the reset half of the handle
-   *  nudges, on the key that resets everything else (`interactions/slurHandleReset`). Pass a
-   *  `segment` + live `spanCount` for one segment of a cross-system slur, neither for the whole
-   *  slur. @returns false when there was nothing authored to reset — the caller then DECLINEs and
-   *  the key falls through. */
-  resetSlurShape(id: string, segment?: SlurSegmentAddress, spanCount?: number): boolean {
-    const ok = this.scoreModel.resetSlurShape(id, segment, spanCount)
-    if (ok) this.saveOnly('Reset slur shape')
-    return ok
-  }
-
-  /** Drop ONE true end's nudge and save ONE undo step — the reset half of {@link nudgeSlurEndpoint}.
-   *  @returns false if that end has no offset, so the caller DECLINEs and the key falls through. */
-  resetSlurEndpointOffset(id: string, which: 'start' | 'end'): boolean {
-    const ok = this.scoreModel.resetSlurEndpointOffset(id, which)
-    if (ok) this.saveOnly('Reset slur endpoint')
-    return ok
-  }
-
-  /** Drop ONE open join's nudge and save ONE undo step — the reset half of
-   *  {@link nudgeSlurSegmentEndpoint}. @returns false if that join has no offset. */
-  resetSlurSegmentEndpointOffset(id: string, address: SlurSegmentEndpointAddress, spanCount: number): boolean {
-    const ok = this.scoreModel.resetSlurSegmentEndpointOffset(id, address, spanCount)
-    if (ok) this.saveOnly('Reset slur segment endpoint')
-    return ok
-  }
-
-  /** Nudge a slur endpoint by a staff-space delta and save ONE undo step (the keyboard
-   *  fine-positioning — see docs/slur-endpoint-offset-plan.md). Unlike a mouse drag each
-   *  arrow press is already a discrete commit, so there is no preview/commit split. */
-  nudgeSlurEndpoint(id: string, which: 'start' | 'end', dx: number, dy: number): boolean {
-    if (!this.slurEndpointOffsetAllowed(id, which, dx, dy)) return false
-    const ok = this.scoreModel.setSlurEndpointOffset(id, which, dx, dy)
-    if (ok) this.saveOnly('Nudge slur endpoint')
-    return ok
-  }
-
-  /**
-   * ⭐⭐ **Nudge the WHOLE curve** by a staff-space delta and save ONE undo step — the arrows with the
-   * slur selected and no handle armed (his ask, 2026-08-18), the family's rule that a hairpin, a
-   * bracket, a pedal and a trill already follow. The shape does not change: see
-   * {@link SlurOffsetOverride} for why this is one rigid translate rather than two endpoint nudges.
-   *
-   * ⚠️ **Both limits, judged END BY END.** The page limit reads the whole slur's ink (a sheet cares
-   * about all of it, and each drawn fragment is judged against its own page). The BAND limit reads
-   * each end's own handle in its OWN system's band — the correction of 2026-08-18 twice over: the
-   * arc's bbox spans the arch, so judging it would refuse every vertical move of a curve whose arch
-   * already overhangs, and on a cross-system slur the two ends do not even share a band.
-   */
-  nudgeSlur(id: string, dx: number, dy: number): boolean {
-    if (!this.slurOffsetAllowed(id, dx, dy)) return false
-    const ok = this.scoreModel.setSlurOffset(id, dx, dy)
-    if (ok) this.saveOnly('Nudge slur')
-    return ok
-  }
-
-  /** The undo-free twin of {@link nudgeSlur} — one frame of an ARC-BODY drag. Accumulating, so the
-   *  caller passes the delta since the last ACCEPTED frame; both limits still refuse the write, so a
-   *  curve dragged into a neighbour's room stops moving (⛔ the drawing is never clamped). Pair with
-   *  {@link commitSlurOffsetDrag} on the drop. @returns true when the model changed. */
-  previewSlurOffset(id: string, dx: number, dy: number): boolean {
-    if (!this.slurOffsetAllowed(id, dx, dy)) return false
-    this.markModelDirty() // live drag, undo deferred to commitSlurOffsetDrag
-    return this.scoreModel.setSlurOffset(id, dx, dy)
-  }
-
-  /** Record ONE undo entry after an arc-body drag settles. */
-  commitSlurOffsetDrag(): void {
-    this.commitPreviewed('Move slur')
-  }
-
-  /** Drop the whole curve's offset and save ONE undo step — `Ctrl+Backspace` with nothing armed.
-   *  @returns false when it carries none, so the caller DECLINEs and the key falls through. */
-  resetSlurOffset(id: string): boolean {
-    const ok = this.scoreModel.resetSlurOffset(id)
-    if (ok) this.saveOnly('Reset slur offset')
-    return ok
   }
 
   /**
@@ -3077,40 +2799,6 @@ export class MusicEngine {
     return true
   }
 
-  /** Nudge one OPEN join of a cross-system slur by a staff-space delta and save ONE undo step
-   *  (the keyboard fine-positioning for the orange segment-endpoint squares — see
-   *  docs/multisystem-slur-segment-endpoint-offset-plan.md). `spanCount` is the live system
-   *  count at the time of the edit (the override's reset signature). */
-  nudgeSlurSegmentEndpoint(id: string, address: SlurSegmentEndpointAddress, dx: number, dy: number, spanCount: number): boolean {
-    if (!this.nudgeStaysOnPage('slur', id, dx, dy)) return false
-    const ok = this.scoreModel.setSlurSegmentEndpointOffset(id, address, dx, dy, spanCount)
-    if (ok) this.saveOnly('Nudge slur segment endpoint')
-    return ok
-  }
-
-  /** Flip a slur with a Sibelius-style `x` toggle: auto ↔ flipped. When the slur already
-   *  carries an explicit `placement`, clear it back to the context-aware auto default;
-   *  otherwise set an explicit side opposite to whatever was last *drawn* (read from the
-   *  registry), so the first press always visibly flips. Two presses round-trip to auto.
-   *  Saves one undo step. @returns true if it flipped. */
-  flipSlur(id: string): boolean {
-    const slur = this.scoreModel.getSlurById(id)
-    if (!slur) return false
-    if (slur.placement !== undefined) {
-      // Overridden → return to the auto (stem-derived) default.
-      delete slur.placement
-      this.saveOnly('Reset slur to auto')
-      return true
-    }
-    // Auto → pin the opposite of the last-drawn side. Guarded so a stubbed/headless
-    // renderer just falls back to "above" (dir -1).
-    const el = this.renderer.getElementRegistry?.()?.getByType?.('slur').find(e => e.id === id)
-    const currentDir = el?.slurDirection ?? -1
-    slur.placement = currentDir === -1 ? 'below' : 'above'
-    this.saveOnly('Flip slur')
-    return true
-  }
-
   /** Flip a tuplet's bracket/number with a Sibelius-style `x` toggle: auto ↔ flipped. When
    *  the tuplet already carries an explicit `placement`, clear it back to the context-aware
    *  auto default (voice/stem rule); otherwise set an explicit side opposite to whatever was
@@ -3157,77 +2845,6 @@ export class MusicEngine {
     if (!this.scoreModel.setTieDirection(fromNoteId, currentDir === -1 ? 1 : -1)) return false
     this.saveOnly('Flip tie')
     return true
-  }
-
-  /**
-   * Re-anchor or drop every slur referencing `oldId` (a deleted/replaced head):
-   *  - `newId` given → re-point the anchor (e.g. to a surviving chord sibling, or
-   *    to the rest that replaced a deleted single note — like the tie re-link).
-   *  - `newId === null` → drop the slur (no surviving anchor).
-   * A re-anchor that collapses the span (start === end) drops the slur too.
-   * Mutates the live score in place; the caller owns the surrounding undo step.
-   *
-   * Both outcomes provably break any hand-tuned shape (plan §3.3): a drop ends the
-   * slur, a re-point moves an endpoint onto a *different* element — so the
-   * engraving-overrides auto-reset fires here too (drop → clear all; re-point → clear
-   * the span-relative `curveShape`), matching {@link ScoreModel.setSlurEndpoint}.
-   */
-  private reanchorSlurs(oldId: string, newId: string | null): void {
-    const slurs = this.scoreModel.getScore().slurs
-    if (!slurs) return
-    for (let i = slurs.length - 1; i >= 0; i--) {
-      const s = slurs[i]
-      if (s.startNoteId !== oldId && s.endNoteId !== oldId) continue
-      if (newId === null) {
-        slurs.splice(i, 1)
-        this.scoreModel.clearEngravingOverride(s.id) // auto-reset (§3.3): no surviving anchor → slur dropped
-        continue
-      }
-      if (s.startNoteId === oldId) s.startNoteId = newId
-      if (s.endNoteId === oldId) s.endNoteId = newId
-      if (s.startNoteId === s.endNoteId) {
-        slurs.splice(i, 1)
-        this.scoreModel.clearEngravingOverride(s.id) // auto-reset (§3.3): re-anchor collapsed the span → dropped
-      } else {
-        this.scoreModel.clearEngravingOverride(s.id, 'curveShape') // auto-reset (§3.3): endpoint re-pointed onto a different element
-      }
-    }
-  }
-
-  /**
-   * The next slot after `start` whose `(measure, beat)` differs from it — i.e. the
-   * next musical event, skipping sibling chord heads that share `start`'s beat.
-   * `getAllNotes()` emits one entry per pitch, hence the dedupe.
-   */
-  private nextDistinctSlot(start: Note): Note | undefined {
-    // ⭐ Inside a FAN, "the next thing" is the next MEMBER (his ask).
-    //
-    // ⚠️ Including from the note you TYPED — it is member 0, not a thing standing outside the group,
-    // so `s` on it slurs to member 1. (I first restricted this to members proper, reasoning that the
-    // typed note means "the whole event"; it does not, once you are working member by member.) To
-    // slur a fan to something outside it, select BOTH ends — that path never asks this question.
-    let walkFromId = start.id
-    const group = this.scoreModel.fanMembersOfSlot(start.id)
-    if (group) {
-      const at = this.scoreModel.fanMemberIndexOf(start.id) ?? -1
-      if (at >= 0 && at + 1 < group.length) return group[at + 1]
-      // The LAST member slurs OUT of the fan — and it has to walk on from the SLOT, since the flat
-      // note list has no entry for a member to find itself in.
-      walkFromId = group[0]?.id ?? start.id
-    }
-    // Stay within the start note's own voice AND staff — a slur's end anchor must be the
-    // next slot in the SAME stream, not whatever event comes next in another voice/staff.
-    const startVoice = voiceOf(start)
-    const startStaff = staffOf(start)
-    const sorted = this.scoreModel.getAllNotes()
-      .filter(n => voiceOf(n) === startVoice && staffOf(n) === startStaff)
-      .sort(compareByPosition)
-    const idx = sorted.findIndex(n => n.id === walkFromId)
-    if (idx < 0) return undefined
-    for (let i = idx + 1; i < sorted.length; i++) {
-      if (sorted[i].measure !== start.measure || !fracEq(sorted[i].beat, start.beat)) return sorted[i]
-    }
-    return undefined
   }
 
   /** All phrasing slurs (live array; empty if none). */
@@ -3383,7 +3000,7 @@ export class MusicEngine {
 
     // Slurs anchored to ANY head of the old slot follow it onto the rest — the slot is still there
     // and still has a length, so the arc still has something to hang on.
-    for (const id of pitchIds) this.reanchorSlurs(id, rest.id)
+    for (const id of pitchIds) reanchorSlurs(this.scoreModel.getScore(), id, rest.id)
 
     // Silencing the last note of a secondary voice leaves it all rests → it collapses, exactly as
     // after a delete (Sibelius-style).
@@ -3432,7 +3049,7 @@ export class MusicEngine {
     if (this.scoreModel.isFanMember(noteId)) {
       const wholeMember = (this.scoreModel.fanMemberPitches(noteId)?.length ?? 0) <= 1
       if (!this.scoreModel.deleteNote(noteId)) return false
-      if (wholeMember) this.reanchorSlurs(noteId, null)
+      if (wholeMember) reanchorSlurs(this.scoreModel.getScore(), noteId, null)
       this.playbackEngine.setScore(this.scoreModel.getScore())
       this.saveUndoState(description)
       return true
@@ -3493,20 +3110,20 @@ export class MusicEngine {
       }
       // A slur anchored to this head follows the note onto its replacement rest
       // (the rest gets a NEW id), or is dropped if the rest couldn't be placed.
-      if (result) this.reanchorSlurs(noteId, replacementRest?.id ?? null)
+      if (result) reanchorSlurs(this.scoreModel.getScore(), noteId, replacementRest?.id ?? null)
     } else if (result && isPartOfChord) {
       // Chord head removed but the chord survives — re-anchor slurs to a sibling head.
-      this.reanchorSlurs(noteId, slurSiblingId ?? null)
+      reanchorSlurs(this.scoreModel.getScore(), noteId, slurSiblingId ?? null)
     } else if (result && !isPartOfChord && note.isRest && !note.tupletId) {
       // Standalone rest deleted without replacement — re-fill the measure to close the gap
       this.scoreModel.repairMeasureGaps(note.measure)
-      this.reanchorSlurs(noteId, null) // the rest anchor is gone — drop dependent slurs
+      reanchorSlurs(this.scoreModel.getScore(), noteId, null) // the rest anchor is gone — drop dependent slurs
     } else if (result && !isPartOfChord && note.isRest && note.tupletId) {
       // Rest inside a tuplet deleted — fill the empty gap it left behind
       const measure = this.scoreModel.getMeasure(note.measure)
       const tuplet = measure?.tuplets?.find(t => t.id === note.tupletId)
       if (tuplet) this.scoreModel.refillTupletRemainder(note.measure, tuplet, voiceOf(note))
-      this.reanchorSlurs(noteId, null)
+      reanchorSlurs(this.scoreModel.getScore(), noteId, null)
     }
 
     // If that deletion emptied a secondary voice (no notes left, only rests), drop it
@@ -3551,7 +3168,7 @@ export class MusicEngine {
         deleteOne: id => this.deleteNote(id),
         fillMeasureGaps: m => this.scoreModel.fillMeasureGaps(m),
         collapseEmptyVoices: m => this.scoreModel.collapseEmptyVoices(m),
-        reanchorSlurs: (oldId, newId) => this.reanchorSlurs(oldId, newId),
+        reanchorSlurs: (oldId, newId) => reanchorSlurs(this.scoreModel.getScore(), oldId, newId),
       })
       // `deleteOne` commits for the ids it took, but the cleared REGION is this module's own write
       // — without this the batch would see no change for a plain range and push no undo entry.

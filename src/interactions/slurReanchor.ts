@@ -51,8 +51,8 @@ export function reanchorArmedSlurEndpoint(
 
   // The drag's own pair: `preview…` takes the change (and flags the model dirty), `commit…` records
   // exactly one undo entry for it. A press is a whole gesture, so the two run back to back here.
-  if (!engine.previewSlurEndpoint(selected.id, selected.endpoint, dest.id)) return false
-  engine.commitSlurEndpoint()
+  if (!engine.slur.previewSlurEndpoint(selected.id, selected.endpoint, dest.id)) return false
+  engine.slur.commitSlurEndpoint()
   dbg(`Slur re-anchored (keyboard) | id:${selected.id} end:${selected.endpoint} → m${dest.measureNumber} beat:${dest.beat.num}/${dest.beat.den}`)
   return true
 }

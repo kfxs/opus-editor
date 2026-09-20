@@ -4,7 +4,7 @@
  */
 import { describe, it, expect } from 'vitest'
 import type { Note } from '@/types/music'
-import { spanFromNotes, type SpanNoteSource } from './spanFromNotes'
+import { nextDistinctSlot, spanFromNotes, type SlotWalkSource, type SpanNoteSource } from './spanFromNotes'
 
 const note = (id: string, measure: number, beat: number, over: Partial<Note> = {}): Note =>
   ({ id, measure, beat: { num: beat, den: 1 }, duration: 'q', ...over }) as Note
@@ -61,5 +61,42 @@ describe('spanFromNotes', () => {
   it('⭐ fanned MEMBERS share a beat, so they are ordered by member index — never click order', () => {
     const src = source([note('m2', 1, 0), note('m0', 1, 0), note('m1', 1, 0)], { m0: 0, m1: 1, m2: 2 })
     expect(spanFromNotes(src, ['m2', 'm0', 'm1'], VOICE)!.notes.map(n => n.id)).toEqual(['m0', 'm1', 'm2'])
+  })
+})
+
+describe('nextDistinctSlot — where a one-note slur ends', () => {
+  const walk = (notes: Note[], groups: Record<string, string[]> = {}): SlotWalkSource => ({
+    getNote: id => notes.find(n => n.id === id),
+    getAllNotes: () => notes.filter(n => !Object.values(groups).some(g => g.slice(1).includes(n.id))),
+    fanMembersOfSlot: id => {
+      const group = Object.values(groups).find(g => g.includes(id))
+      return group ? group.map(m => notes.find(n => n.id === m)!) : null
+    },
+    fanMemberIndexOf: id => {
+      const group = Object.values(groups).find(g => g.includes(id))
+      return group ? group.indexOf(id) : null
+    },
+  })
+
+  it('the next EVENT — a chord sibling on the same beat is skipped', () => {
+    const notes = [note('a', 1, 0), note('a2', 1, 0), note('b', 1, 1)]
+    expect(nextDistinctSlot(walk(notes), notes[0])!.id).toBe('b')
+  })
+
+  it('⭐ stays in its own voice AND staff — never whatever comes next in another stream', () => {
+    const notes = [note('a', 1, 0), note('other', 1, 1, { voice: 1 }), note('below', 1, 2, { staff: 1 }), note('b', 1, 3)]
+    expect(nextDistinctSlot(walk(notes), notes[0])!.id).toBe('b')
+  })
+
+  it('undefined at the end of the road', () => {
+    const notes = [note('a', 1, 0)]
+    expect(nextDistinctSlot(walk(notes), notes[0])).toBeUndefined()
+  })
+
+  it('⭐ inside a FAN the next thing is the next MEMBER; the LAST member walks out from the slot', () => {
+    const notes = [note('m0', 1, 0), note('m1', 1, 0), note('m2', 1, 0), note('after', 1, 2)]
+    const src = walk(notes, { g: ['m0', 'm1', 'm2'] })
+    expect(nextDistinctSlot(src, notes[0])!.id).toBe('m1')
+    expect(nextDistinctSlot(src, notes[2])!.id).toBe('after')
   })
 })

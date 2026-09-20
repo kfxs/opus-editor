@@ -22,8 +22,10 @@ function stubEngine(score: Score) {
   const resetEnd = vi.fn(() => true)
   const engine = {
     getScore: () => score,
-    nudgeSlurEndpoint: nudge,
-    resetSlurEndpointOffset: resetEnd,
+    slur: {
+      nudgeSlurEndpoint: nudge,
+      resetSlurEndpointOffset: resetEnd,
+    },
     // The arc path resolves its baseline from the registry; an empty one makes it DECLINE, which is
     // what this spec wants everywhere except the one test that asserts the routing.
     getElementRegistry: () => ({ getByType: () => [] }),

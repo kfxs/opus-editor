@@ -17,8 +17,10 @@ describe('beginSlurBodyDrag', () => {
       getByType: () => [{ id: 'S1', type: 'slur', staffSpacePx }],
       getStaffGeometry: () => undefined,
     }),
-    previewSlurOffset: preview,
-    commitSlurOffsetDrag: commit,
+    slur: {
+      previewSlurOffset: preview,
+      commitSlurOffsetDrag: commit,
+    },
   } as unknown as MusicEngine
   let host: DragHost
 

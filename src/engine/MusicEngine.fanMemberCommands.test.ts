@@ -106,7 +106,7 @@ describe('a fanned member at the command layer', () => {
   it('⭐ a SLUR anchors to the member — a span, not an attachment', () => {
     const slot = chord()
     const second = slot.fan!.members![1].pitches[0].id
-    const created = engine.createSlur([memberId, second])
+    const created = engine.slur.createSlur([memberId, second])
     expect(created).not.toBeNull()
     expect(created!.startNoteId).toBe(memberId)
     expect(created!.endNoteId).toBe(second)
@@ -119,7 +119,7 @@ describe('a fanned member at the command layer', () => {
     const slot = chord()
     const first = slot.fan!.members![0].pitches[0].id
     const third = slot.fan!.members![2].pitches[0].id
-    const created = engine.createSlur([third, first])
+    const created = engine.slur.createSlur([third, first])
     expect(created).not.toBeNull()
     expect(created!.startNoteId).toBe(first)
     expect(created!.endNoteId).toBe(third)
@@ -129,7 +129,7 @@ describe('a fanned member at the command layer', () => {
     // The defensive pass rebuilds the id set from the score; leave members out of it and every
     // slur inside a fan is dropped the next time any edit runs it.
     const second = chord().fan!.members![1].pitches[0].id
-    const created = engine.createSlur([memberId, second])!
+    const created = engine.slur.createSlur([memberId, second])!
     engine.updateNote(memberId, { step: 'D', octave: 4 }) // any edit at all
     expect(engine.getSlurs().some(sl => sl.id === created.id)).toBe(true)
   })
@@ -137,14 +137,14 @@ describe('a fanned member at the command layer', () => {
   it('⭐ `s` on the note you TYPED slurs to member 1 — it IS member 0', () => {
     // Not "the whole event": once you are working member by member, the thing after the first note
     // is the second member. Slurring a fan to something outside it means selecting BOTH ends.
-    const created = engine.createSlur([noteId])
+    const created = engine.slur.createSlur([noteId])
     expect(created).not.toBeNull()
     expect(created!.startNoteId).toBe(noteId)
     expect(created!.endNoteId).toBe(chord().fan!.members![0].pitches[0].id)
   })
 
   it('⭐ `s` on ONE member slurs to the NEXT member, not out of the group', () => {
-    const created = engine.createSlur([memberId])
+    const created = engine.slur.createSlur([memberId])
     expect(created).not.toBeNull()
     expect(created!.startNoteId).toBe(memberId)
     expect(created!.endNoteId).toBe(chord().fan!.members![1].pitches[0].id)
@@ -153,7 +153,7 @@ describe('a fanned member at the command layer', () => {
   it('from the LAST member it slurs out of the fan, to the next slot', () => {
     engine.addNoteAtBeat({ step: 'G', octave: 4, duration: 'h', measure: 1, beat: frac(2, 1) })
     const last = chord().fan!.members![chord().fan!.members!.length - 1].pitches[0].id
-    const created = engine.createSlur([last])
+    const created = engine.slur.createSlur([last])
     expect(created).not.toBeNull()
     expect(engine.getNote(created!.endNoteId)?.step).toBe('G')
   })
@@ -222,7 +222,7 @@ describe('a fanned member at the command layer', () => {
 
     it('drops a slur anchored to the member it removed', () => {
       const second = chord().fan!.members![1].pitches[0].id
-      const created = engine.createSlur([memberId, second])!
+      const created = engine.slur.createSlur([memberId, second])!
       expect(engine.getSlurs().some(s => s.id === created.id)).toBe(true)
       engine.deleteNote(memberId)
       expect(engine.getSlurs().some(s => s.id === created.id)).toBe(false)

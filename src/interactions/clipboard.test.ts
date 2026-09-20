@@ -715,8 +715,8 @@ describe('clipboard — dynamics travel (Phase 2)', () => {
     // paste, and `Score.engravingOverrides[id]` is the list both speak.
     const ids = (['C', 'D'] as const).map((step, i) =>
       engine.addNoteAtBeat({ step, alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(i, 1) })!.id)
-    const slur = engine.createSlur(ids)!
-    engine.nudgeSlurEndpoint(slur.id, 'end', 1, -2)
+    const slur = engine.slur.createSlur(ids)!
+    engine.slur.nudgeSlurEndpoint(slur.id, 'end', 1, -2)
     const mark = engine.addTempoMark(1, { beat: frac(0, 1), text: 'Allegro' })!
     engine.nudgeTempoOffset(mark.id, 3, 1)
 
@@ -855,7 +855,7 @@ describe('clipboard — slurs travel (Phase 3)', () => {
 
   it('copies a slur and re-anchors it onto the pasted notes', () => {
     const ids = fill(1)
-    engine.createSlur([ids[0], ids[3]]) // slur C4@0 → F4@3
+    engine.slur.createSlur([ids[0], ids[3]]) // slur C4@0 → F4@3
 
     const payload = buildClipboardFromSelection(engine.getScore(), ids)!
     expect(payload.slurs).toHaveLength(1)
@@ -873,7 +873,7 @@ describe('clipboard — slurs travel (Phase 3)', () => {
     const c = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!.id
     const d = engine.addNoteAtBeat({ step: 'D', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })!.id
     const e = engine.addNoteAtBeat({ step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(2, 1) })!.id
-    engine.createSlur([c, e]) // C@0 → E@2
+    engine.slur.createSlur([c, e]) // C@0 → E@2
 
     // Copy only C+D → window [0,2); E@2 is on the boundary → slur not enclosed.
     const payload = buildClipboardFromSelection(engine.getScore(), [c, d])!
@@ -882,7 +882,7 @@ describe('clipboard — slurs travel (Phase 3)', () => {
 
   it('re-bases a slur to the paste offset', () => {
     const ids = fill(1) // C D E F @ 0..3
-    engine.createSlur([ids[1], ids[2]]) // slur D4@1 → E4@2
+    engine.slur.createSlur([ids[1], ids[2]]) // slur D4@1 → E4@2
 
     const payload = buildClipboardFromSelection(engine.getScore(), ids)!
     // Paste at m2 beat 0: the slur's D (clip offset 1) and E (offset 2) land at beats 1 and 2.
@@ -900,7 +900,7 @@ describe('clipboard — slurs travel (Phase 3)', () => {
     const s0 = engine.addNoteAtBeat({ step: 'G', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(0, 1), staff: 0 })!.id
     const a = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1), staff: 1 })!.id
     const b = engine.addNoteAtBeat({ step: 'D', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1), staff: 1 })!.id
-    engine.createSlur([a, b]) // slur on staff 1
+    engine.slur.createSlur([a, b]) // slur on staff 1
 
     const payload = buildClipboardFromSelection(engine.getScore(), [s0, a, b])!
     expect(payload.slurs).toHaveLength(1)
