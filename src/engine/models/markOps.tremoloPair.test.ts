@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { ScoreModel } from './ScoreModel'
+import { moveSelectionToVoice } from './voiceOps'
 import { fracCreate as frac, fracToNumber } from '@/utils/fraction'
 import type { Chord } from '@/types/music'
 import { buildClipboardFromSelection } from '@/interactions/clipboard'
@@ -317,12 +318,19 @@ describe('the pair survives copy/paste and a voice move', () => {
   it('MOVES to another voice when BOTH notes go', () => {
     const m = new ScoreModel('P')
     const { a, b } = twoQuarters(m)
-    const moving = new Set([a.id, b.id])
-    for (const id of [a.id, b.id]) m.moveNoteToVoice(id, 1, moving)
-    m.dropStaleTremoloPairs(1)
+    // Through the real gesture: it prunes AFTER its loop, since between the two moves the pair is
+    // invalid and a per-note prune would kill a mark about to be whole again.
+    moveSelectionToVoice(m, [a.id, b.id], 1)
 
     const moved = m.getMeasure(1)!.slots.find(s => s.type === 'chord' && (s.voice ?? 0) === 1 && fracToNumber(s.beat) === 0)
     expect(moved?.type === 'chord' && moved.tremoloPair).toBe(true)
+  })
+
+  it('…and a SELECTION holding only one of the two severs it, in its after-loop prune', () => {
+    const m = new ScoreModel('P')
+    const { a } = twoQuarters(m)
+    moveSelectionToVoice(m, [a.id], 1)
+    expect(m.getMeasure(1)!.slots.filter(s => s.type === 'chord' && s.tremoloPair)).toHaveLength(0)
   })
 
   it('is SEVERED when only one of the two moves — either one', () => {

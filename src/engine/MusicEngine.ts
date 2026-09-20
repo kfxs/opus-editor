@@ -28,13 +28,14 @@ import { PlaybackEngine, type PlaybackCallbacks } from './audio/PlaybackEngine'
 import { UndoRedoManager } from './UndoRedoManager'
 import { NoteEntryCoordinator, INVALID_NOTE_ENTRY_TYPES } from './NoteEntryCoordinator'
 import { getStaves, keyStaffId, staffIdAtIndex } from './models/staffContent'
-import { midiToNoteName, beatToFrac, compareByPosition, measureAccidentalNotes, deriveTupletM, tupletMarkRuns } from '@/utils/musicUtils'
+import { midiToNoteName, beatToFrac, measureAccidentalNotes, deriveTupletM, tupletMarkRuns } from '@/utils/musicUtils'
 import { measureCapacityQuarters } from '@/utils/measureCapacity'
 import { fracToNumber } from '@/utils/fraction'
 import { quantizeBeat } from '@/utils/durations'
 import { reanchorSlurs } from './models/slurOps'
 import { deleteNoteWithRepair } from './models/deleteNoteOps'
 import { convertSlotToRest } from './models/convertToRestOps'
+import { moveSelectionToVoice } from './models/voiceOps'
 import { applyTiePairs, planTieSelection, toggleTie } from './models/tieOps'
 import type { CommandContext } from './commands/commandContext'
 import { ottavaCommands } from './commands/ottavaCommands'
@@ -54,7 +55,7 @@ import { headCentreX } from './ElementRegistry'
 import type { Clip, ClipTarget } from '@/utils/clip'
 import type { TrillAuxiliary } from '@/utils/trillPitch'
 import type { TrillSpan } from '@/engine/models/trillOps'
-import { staffOf, voiceOf } from '@/utils/lanes'
+import { voiceOf } from '@/utils/lanes'
 import type { VoiceScope } from '@/utils/dynamicScope'
 import { isTestRun } from '@/utils/env'
 import { installUndoInvariant } from './undoInvariant'
@@ -2693,35 +2694,12 @@ export class MusicEngine {
    * actually moved.
    */
   moveSelectionToVoice(pitchIds: string[], targetVoice: number): boolean {
-    const ordered = pitchIds
-      .map(id => ({ id, note: this.scoreModel.getNote(id) }))
-      .filter((x): x is { id: string; note: Note } => !!x.note)
-      .sort((a, b) => compareByPosition(a.note, b.note))
-
-    // The full set of moving pitch ids — so a tie/slur whose BOTH ends are in the
-    // selection survives the move (its partner is moving to the same voice too).
-    const movingIds = new Set(ordered.map(o => o.id))
-
-    // A beamed-over rest cannot MOVE (rests are per-voice, each voice fills its own), but the flag is
-    // the user's intent and must reappear on the target voice's rest at the same beat — else the beam
-    // group arrives in the new voice with its interior rest un-beamed. Capture where before the move
-    // refills both voices, re-apply after (ScoreModel.setRestBeamOver).
-    const beamOverRests = ordered
-      .filter(o => o.note.isRest && o.note.beamOver)
-      .map(o => ({ measure: o.note.measure, beat: o.note.beat, staff: staffOf(o.note) }))
-
-    // Bars a two-note tremolo could have been torn across — collected BEFORE the move, since a note
-    // that leaves takes its bar number with it.
-    const touchedMeasures = new Set(ordered.map(o => o.note.measure))
-
-    return this.runBatch(`Move ${ordered.length} note(s) to voice ${targetVoice + 1}`, () => {
-      for (const { id } of ordered) this.moveNoteToVoice(id, targetVoice, movingIds)
-      for (const r of beamOverRests) this.scoreModel.setRestBeamOver(r.measure, r.beat, targetVoice, r.staff, true)
-      // AFTER the loop, never inside it: moving both notes of a pair moves them one at a time, and
-      // between the two the pair is invalid. Pruning per note would kill a mark that is about to be
-      // whole again in the new voice — which is the whole point of moving both.
-      for (const m of touchedMeasures) this.scoreModel.dropStaleTremoloPairs(m)
-    })
+    // The order, the beamed-over rests and the tremolo prune are `voiceOps.moveSelectionToVoice`;
+    // this adds the ONE undo entry, and only when something changed lane.
+    const { found, moved } = moveSelectionToVoice(this.scoreModel, pitchIds, targetVoice)
+    if (!moved) return false
+    this.mutate(`Move ${found} note(s) to voice ${targetVoice + 1}`)
+    return true
   }
 
   /**

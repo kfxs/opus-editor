@@ -716,7 +716,8 @@ describe('MusicEngine.moveNoteToVoice — facade (Phase 1)', () => {
   })
 })
 
-describe('MusicEngine.moveSelectionToVoice — atomic multi-note move (Phase 3)', () => {
+/** What the move DOES is `models/voiceOps.moveSelectionToVoice`; the facade adds the undo entry. */
+describe('MusicEngine.moveSelectionToVoice — the undo entry', () => {
   let engine: MusicEngine
   beforeEach(() => { engine = makeEngine() })
 
@@ -733,9 +734,7 @@ describe('MusicEngine.moveSelectionToVoice — atomic multi-note move (Phase 3)'
     const c = addNote(engine, { step: 'G', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(2, 1) })
 
     expect(engine.moveSelectionToVoice([c.id, a.id, b.id], 1)).toBe(true)
-    expect(voiceOf(1, a.id)).toBe(1)
-    expect(voiceOf(1, b.id)).toBe(1)
-    expect(voiceOf(1, c.id)).toBe(1)
+    expect(engine.getUndoDescription()).toBe('Move 3 note(s) to voice 2')
 
     // ONE undo restores all three to voice 0.
     expect(engine.undo()).toBe(true)
@@ -749,59 +748,6 @@ describe('MusicEngine.moveSelectionToVoice — atomic multi-note move (Phase 3)'
     const couldUndo = engine.canUndo()
     expect(engine.moveSelectionToVoice([a.id], 0)).toBe(false) // already voice 0
     expect(engine.canUndo()).toBe(couldUndo)
-  })
-
-  it('ignores rest ids in the selection', () => {
-    const a = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
-    // The bar has filler rests after the quarter; grab one's id.
-    const restId = engine.getScore().measures[0].slots.find(s => s.type === 'rest')!.id
-    expect(engine.moveSelectionToVoice([a.id, restId], 1)).toBe(true)
-    expect(voiceOf(1, a.id)).toBe(1) // the note moved; the rest id was harmlessly skipped
-  })
-
-  it('carries a beamed-over rest to the target voice (the flag survives the move)', () => {
-    // Voice 0: C C 𝄾 C as eighths, the rest at beat 1.0 interior to the group and marked beamOver.
-    // A rest does not itself move (each voice fills its own), so the flag must be re-applied to voice
-    // 1's fresh rest — else the group lands in voice 2 with its interior rest un-beamed (the bug).
-    addNote(engine, { step: 'C', alter: 0, octave: 4, duration: '8', measure: 1, beat: frac(0, 2) })
-    addNote(engine, { step: 'C', alter: 0, octave: 4, duration: '8', measure: 1, beat: frac(1, 2) })
-    addNote(engine, { step: 'C', alter: 0, octave: 4, duration: '8', measure: 1, beat: frac(3, 2) })
-    const restAt1 = engine.getScore().measures[0].slots.find(s => s.type === 'rest' && fracToNumber(s.beat) === 1)!
-    engine.updateNote(restAt1.id, { beamOver: true })
-
-    // Select ALL of voice 0 (notes and rests) and move to voice 1, as select-all + Alt+2 does.
-    const ids = engine.getScore().measures[0].slots
-      .filter(s => (s.voice ?? 0) === 0)
-      .map(s => (s.type === 'chord' ? s.notes[0].id : s.id))
-    expect(engine.moveSelectionToVoice(ids, 1)).toBe(true)
-
-    const v1RestAt1 = engine.getScore().measures[0].slots.find(
-      s => s.type === 'rest' && (s.voice ?? 0) === 1 && fracToNumber(s.beat) === 1)
-    expect((v1RestAt1 as { beamOver?: boolean } | undefined)?.beamOver).toBe(true)
-  })
-
-  it('keeps a tie when BOTH tied notes move together (surviving span)', () => {
-    const a = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
-    const b = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
-    engine.toggleTie(a.id) // tie a → b
-
-    expect(engine.moveSelectionToVoice([a.id, b.id], 1)).toBe(true)
-
-    // Both moved to voice 1 and the tie survived (partner co-moved, not dropped).
-    expect(voiceOf(1, a.id)).toBe(1)
-    expect(voiceOf(1, b.id)).toBe(1)
-    expect(engine.getNote(a.id)!.tiedTo).toBe(b.id)
-    expect(engine.getNote(b.id)!.tiedFrom).toBe(a.id)
-  })
-
-  it('still drops the tie when only ONE of the tied notes moves', () => {
-    const a = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
-    const b = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
-    engine.toggleTie(a.id)
-
-    expect(engine.moveSelectionToVoice([a.id], 1)).toBe(true)
-    expect(engine.getNote(a.id)!.tiedTo).toBeUndefined()
-    expect(engine.getNote(b.id)!.tiedFrom).toBeUndefined()
   })
 })
 

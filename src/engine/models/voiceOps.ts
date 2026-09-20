@@ -19,12 +19,12 @@
  * group is atomic, so the note cannot simply leave — a matching tuplet is created in the target
  * voice and the ordinal slots are poured across.
  */
-import type { Score, Measure, Chord, NotePitch, Tuplet, Fraction, PitchInsert } from '@/types/music'
+import type { Score, Measure, Chord, Note, NotePitch, Tuplet, Fraction, PitchInsert } from '@/types/music'
 import { v4 as uuidv4 } from 'uuid'
 import { dbg } from '@/utils/debug'
-import { voiceOf } from '@/utils/lanes'
+import { staffOf, voiceOf } from '@/utils/lanes'
 import { fracCompare, fracEq, fracAdd, fracSub, fracMul, fracCreate, fracToNumber, fracGte, fracLt } from '@/utils/fraction'
-import { tupletSpan, tupletSlotDuration } from '@/utils/musicUtils'
+import { compareByPosition, tupletSpan, tupletSlotDuration } from '@/utils/musicUtils'
 import { alterToString } from '@/utils/pitchSpelling'
 import { staffIndexOfId } from './staffContent'
 import { findSlot } from './slotLookup'
@@ -434,4 +434,58 @@ function moveTupletNoteToVoice(score: Score, deps: VoiceDeps, measure: Measure, 
   // invalid between the two notes' moves, and `moveSelectionToVoice` prunes once the loop is done.
   if (!movingIds) markOps.dropStaleTremoloPairs(score, measure.number)
   return true
+}
+
+/** What moving a SELECTION needs of the score — `ScoreModel` answers all of it (the flat `Note`
+ *  projection is the model's, which is why this is not `(score, deps)` like the functions above). */
+export interface VoiceMoveModel {
+  getNote(id: string): Note | undefined
+  moveNoteToVoice(pitchId: string, targetVoice: number, movingIds?: ReadonlySet<string>): boolean
+  setRestBeamOver(measureNumber: number, beat: Fraction, voice: number, staff: number, value: boolean): void
+  dropStaleTremoloPairs(measureNumber: number): void
+}
+
+/**
+ * Move several notes' pitches into a voice as ONE gesture (move-note-to-voice plan, Phase 3).
+ * Score logic, moved off `MusicEngine` (docs/code-shape-plan-2026-09-19.md, Phase 4.1): the facade
+ * keeps the undo entry. Notes are processed in a stable order (measure, then beat) so chord-merge
+ * "shorter wins" is deterministic; each per-note move skips no-ops and rests itself. Ids are
+ * preserved, so the caller's selection stays valid.
+ *
+ * @returns `found` — how many of the ids named something (what the undo entry counts) — and
+ * `moved`, how many actually changed lane; the caller files its entry on `moved`.
+ */
+export function moveSelectionToVoice(
+  model: VoiceMoveModel, pitchIds: readonly string[], targetVoice: number,
+): { found: number; moved: number } {
+  const ordered = pitchIds
+    .map(id => ({ id, note: model.getNote(id) }))
+    .filter((x): x is { id: string; note: Note } => !!x.note)
+    .sort((a, b) => compareByPosition(a.note, b.note))
+
+  // The full set of moving pitch ids — so a tie/slur whose BOTH ends are in the
+  // selection survives the move (its partner is moving to the same voice too).
+  const movingIds = new Set(ordered.map(o => o.id))
+
+  // A beamed-over rest cannot MOVE (rests are per-voice, each voice fills its own), but the flag is
+  // the user's intent and must reappear on the target voice's rest at the same beat — else the beam
+  // group arrives in the new voice with its interior rest un-beamed. Capture where before the move
+  // refills both voices, re-apply after (`markOps.setRestBeamOver`).
+  const beamOverRests = ordered
+    .filter(o => o.note.isRest && o.note.beamOver)
+    .map(o => ({ measure: o.note.measure, beat: o.note.beat, staff: staffOf(o.note) }))
+
+  // Bars a two-note tremolo could have been torn across — collected BEFORE the move, since a note
+  // that leaves takes its bar number with it.
+  const touchedMeasures = new Set(ordered.map(o => o.note.measure))
+
+  let moved = 0
+  for (const { id } of ordered) if (model.moveNoteToVoice(id, targetVoice, movingIds)) moved++
+
+  for (const r of beamOverRests) model.setRestBeamOver(r.measure, r.beat, targetVoice, r.staff, true)
+  // AFTER the loop, never inside it: moving both notes of a pair moves them one at a time, and
+  // between the two the pair is invalid. Pruning per note would kill a mark that is about to be
+  // whole again in the new voice — which is the whole point of moving both.
+  for (const m of touchedMeasures) model.dropStaleTremoloPairs(m)
+  return { found: ordered.length, moved }
 }

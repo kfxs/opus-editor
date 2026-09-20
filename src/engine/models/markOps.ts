@@ -322,7 +322,7 @@ export function setFan(score: Score, noteId: string, fan: FanMark | null): Note 
  * A rest does not itself move between voices — each voice fills its own — so when a beam group that
  * beams over an interior rest changes voice, the flag cannot ride the rest. The move carries it: it
  * captures where a beamed-over rest sat, and after the target voice has been refilled, re-applies the
- * flag to the fresh rest there ({@link MusicEngine.moveSelectionToVoice}). A no-op when no such rest
+ * flag to the fresh rest there (`voiceOps.moveSelectionToVoice`). A no-op when no such rest
  * exists — a moved group may decompose its gap into different rests, and a missing target is not an
  * error. Called inside the move's `runBatch`, so no separate undo entry.
  */

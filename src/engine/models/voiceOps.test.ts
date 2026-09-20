@@ -1,11 +1,11 @@
 /**
  * {@link voiceOps} — moving a note into another lane, and the repairs that implies.
  *
- * Three chapters, in the order the feature was built (docs/move-note-to-voice-plan.md): a plain
+ * Four chapters, in the order the feature was built (docs/move-note-to-voice-plan.md): a plain
  * note (the lane change plus what travels with it — beam, tie, slur, tremolo), a COLLISION (the
  * target lane already sounds at that beat, and the shorter duration wins), and a note inside a
  * TUPLET (the group is atomic, so a matching tuplet is made in the target voice and the ordinal
- * slots are poured across).
+ * slots are poured across) — and a SELECTION, moved as one gesture ({@link moveSelectionToVoice}).
  *
  * A `ScoreModel` is the FIXTURE — `moveNoteToVoice` is its delegator. Extracted from
  * `ScoreModel.test.ts` on 2026-07-28 by the modularity plan's Phase 3, under Phase 0's rule that
@@ -14,6 +14,8 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { ScoreModel } from './ScoreModel'
 import type { ChordRest } from '@/types/music'
+import { moveSelectionToVoice } from './voiceOps'
+import { toggleTie } from './tieOps'
 import { fracCreate as frac, fracCompare, fracToNumber } from '@/utils/fraction'
 
 /** Slots in a measure, sorted by beat. */
@@ -365,5 +367,77 @@ describe('ScoreModel.moveNoteToVoice — Phase 4 (tuplets, ordinal fill)', () =>
     expect(model.getMeasure(1)!.tuplets!.every(tup =>
       model.getMeasure(1)!.slots.some(s => s.tupletId === tup.id))).toBe(true) // no dangling tuplet
     expect(model.getNote(b)!.voice).toBe(1)
+  })
+})
+
+describe('moveSelectionToVoice — a selection moved as ONE gesture (Phase 3)', () => {
+  let model: ScoreModel
+  beforeEach(() => { model = new ScoreModel('MV') })
+
+  const add = (step: 'C' | 'E' | 'G', beat: number, duration: 'q' | '8' = 'q', den = 1) =>
+    model.addNote({ step, alter: 0, octave: 4, duration, measure: 1, beat: frac(beat, den) })
+  const v0 = (s: ChordRest) => (s.voice ?? 0) === 0
+  const laneOf = (id: string) => {
+    for (const s of slotsOf(model, 1)) if (s.type === 'chord' && s.notes.some(n => n.id === id)) return s.voice ?? 0
+    return undefined
+  }
+
+  it('moves every note, ids preserved, whatever order the ids arrive in', () => {
+    const [a, b, c] = [add('C', 0), add('E', 1), add('G', 2)]
+    expect(moveSelectionToVoice(model, [c.id, a.id, b.id], 1)).toEqual({ found: 3, moved: 3 })
+    expect([a, b, c].map(n => laneOf(n.id))).toEqual([1, 1, 1])
+  })
+
+  it('moved: 0 when every note is already there — the caller files nothing', () => {
+    const a = add('C', 0)
+    const before = JSON.stringify(model.getScore())
+    expect(moveSelectionToVoice(model, [a.id], 0)).toEqual({ found: 1, moved: 0 })
+    expect(JSON.stringify(model.getScore())).toBe(before)
+  })
+
+  it('a rest id is FOUND but does not move; an id that names nothing is not even found', () => {
+    const a = add('C', 0)
+    const restId = slotsOf(model, 1).find(s => s.type === 'rest')!.id
+    expect(moveSelectionToVoice(model, [a.id, restId, 'gone'], 1)).toEqual({ found: 2, moved: 1 })
+    expect(laneOf(a.id)).toBe(1)
+  })
+
+  it('carries a beamed-over rest to the target voice (the flag survives the move)', () => {
+    // Voice 0: C C 𝄾 C as eighths, the rest at beat 1.0 interior to the group and marked beamOver.
+    // A rest does not itself move (each voice fills its own), so the flag must be re-applied to voice
+    // 1's fresh rest — else the group lands in voice 2 with its interior rest un-beamed (the bug).
+    add('C', 0, '8', 2); add('C', 1, '8', 2); add('C', 3, '8', 2)
+    const restAt1 = slotsOf(model, 1).find(s => s.type === 'rest' && fracToNumber(s.beat) === 1)!
+    model.updateNote(restAt1.id, { beamOver: true })
+
+    // ALL of voice 0 (notes and rests), as select-all + Alt+2 sends it.
+    const ids = slotsOf(model, 1)
+      .filter(s => v0(s))
+      .map(s => (s.type === 'chord' ? s.notes[0].id : s.id))
+    expect(moveSelectionToVoice(model, ids, 1).moved).toBe(3)
+
+    const v1RestAt1 = slotsOf(model, 1).find(
+      s => s.type === 'rest' && (s.voice ?? 0) === 1 && fracToNumber(s.beat) === 1)
+    expect((v1RestAt1 as { beamOver?: boolean } | undefined)?.beamOver).toBe(true)
+  })
+
+  it('keeps a tie when BOTH tied notes move together (surviving span)', () => {
+    const [a, b] = [add('C', 0), add('C', 1)]
+    toggleTie(model, a.id) // tie a → b
+
+    moveSelectionToVoice(model, [a.id, b.id], 1)
+
+    expect([laneOf(a.id), laneOf(b.id)]).toEqual([1, 1])
+    expect(model.getNote(a.id)!.tiedTo).toBe(b.id)
+    expect(model.getNote(b.id)!.tiedFrom).toBe(a.id)
+  })
+
+  it('still drops the tie when only ONE of the tied notes moves', () => {
+    const [a, b] = [add('C', 0), add('C', 1)]
+    toggleTie(model, a.id)
+
+    moveSelectionToVoice(model, [a.id], 1)
+    expect(model.getNote(a.id)!.tiedTo).toBeUndefined()
+    expect(model.getNote(b.id)!.tiedFrom).toBeUndefined()
   })
 })
