@@ -20,7 +20,7 @@
  * hands it the cursor's x, since a jump has to land somewhere along the new staff.
  *
  * ⭐ A frame MOVES the letters rather than redrawing them: they are an annotation inside their bar's
- * group, so the preview re-applies its composed transform (`engine/rendering/markPreviewPass`, the
+ * group, so the preview re-applies its composed transform (`engine/rendering/marks/markPreviewPass`, the
  * `dynamic` row). A frame that walked the mark onto another slot refuses there and renders for
  * real — the annotation hangs off a note, and no transform reaches another one.
  */

@@ -184,7 +184,7 @@ Separable, but only after the per-render state is bundled.
 - **Verify gate:** slurs above/below, nested, dragged handles, flip side (`x`), split slurs.
 - **Checkpoint:** ✅
 
-### B3 — Dynamics layout → `rendering/DynamicsLayout.ts`
+### B3 — Dynamics layout → `rendering/marks/dynamics/DynamicsLayout.ts`
 - **Scope:** `attachDynamicsToSlots`, `layoutCoLocatedDynamics`, `buildDynamicAnnotation`,
   `registerDynamics` (~140 lines).
 - **Verify gate:** p/mp/mf/f + custom text placement, co-located dynamics, edit overlay.

@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi, type Mock } from 'vitest'
 import { DynamicTextSource } from './DynamicTextSource'
 import { composeDynamicGlyphs, levelToGlyphString } from '../utils/dynamics'
-import { DYNAMIC_GLYPH_SIZE, DYNAMIC_TEXT_SIZE } from '../engine/rendering/dynamicStyle'
+import { DYNAMIC_GLYPH_SIZE, DYNAMIC_TEXT_SIZE } from '../engine/rendering/marks/dynamics/dynamicStyle'
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { Dynamic } from '../types/music'
 

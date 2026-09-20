@@ -1288,6 +1288,17 @@ the BROWSER suite (300) green.*
 (`SlurRenderer` · `TieRenderer` · `curveArc` · `curveStyle` · the `slur*` / `tie*` rules · `brokenSlurTilt`),
 35 with specs. Fence re-proved against the new folder; tsc · eslint · `build:check` · 7,062 specs green.*
 
+*Group 3 (awaiting his word): **`engine/rendering/marks/`** — `dynamics/` (the dynamics line and the
+hairpin, 11 modules) · `tempo/` (6) · `lines/` (ottava · pedal · trill · `bracketSpanBand`, 8) · and at
+`marks/` itself `markPreviewPass` + `spanSegments`; 46 files with specs. Fence re-proved at both depths.
+⚠️ **`lint:hubs` went red, and it was the COUNTER, not the hubs**: it reads kind words out of every token,
+import specifiers included, so a folder called `marks/dynamics/` counted as `ScoreRenderer` learning about
+dynamics (+6 with no line of it changed). ⛔ The ceiling was NOT raised: `check-hubs.mjs` now blanks the
+specifier of `from '…'` / `import('…')` — a path is where a module lives, the imported NAMES are still
+counted — and every ceiling FELL to the new measure (ScoreRenderer 891 → 853, ScoreModel 940 → 916,
+MusicEngine 506 → 490, MouseController 307 → 282, PaletteController 455 → 449, shortcutWiring 67 → 59,
+selectionSnapshot 7 → 3). tsc · eslint · `build:check` · 7,062 specs green.*
+
 ### Later — before orchestral scores
 
 Undo clones the whole score with JSON on every edit, three times on an undo. Measured on a

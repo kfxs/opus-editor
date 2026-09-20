@@ -233,7 +233,7 @@ export interface TempoMark {
    * **The mark exactly as printed** — `Allegro`, `♩ = 120`, `Allegro (♩ = 120)`, `Moderato ♩ = 112
    * sempre`. Free text, never an enum: the palette words pre-fill it, they are not the legal
    * values. The note is a real character (`♩`), so the string is the whole truth about the
-   * engraving and the renderer just draws it (utils/tempoText, engine/rendering/TempoLayout).
+   * engraving and the renderer just draws it (utils/tempoText, engine/rendering/marks/tempo/TempoLayout).
    *
    * Speed is NOT read from here at playback time — {@link bpm} is. The two are kept in step by
    * parsing the text on every edit (utils/tempoText `parseTempoText`).

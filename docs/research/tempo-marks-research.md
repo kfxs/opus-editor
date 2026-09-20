@@ -101,7 +101,7 @@ rewrite. This is how every DAW and notation app does it.
 ## 3. VexFlow already does the rendering (checked in vexflow 5.0.0)
 
 > ⚠️ **2026-09-19: VexFlow is removed.** Nothing below describes today's code: the tempo mark is drawn
-> by our own `rendering/TempoLayout` (`drawTempoText`), and the ghost by `rendering/ghosts/TempoGhost`. The
+> by our own `rendering/marks/tempo/TempoLayout` (`drawTempoText`), and the ghost by `rendering/ghosts/TempoGhost`. The
 > section is kept as the 2026 research it was; `stavetempo.js` is in
 > `~/dev/engine-sources/vexflow-5.0.0-npm/package/build/esm/src/`.
 

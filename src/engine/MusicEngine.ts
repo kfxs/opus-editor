@@ -9,7 +9,7 @@ import { clefOffsetOverrideOf } from './models/engravingOverrides'
 import { staveHeightPx, systemStaffTops, minSpacingAboveSpaces, spacingAbovePx, MIN_SPACING_ABOVE_AT_PAGE_TOP } from './layout/staffStride'
 import { ScoreRenderer } from './rendering/ScoreRenderer'
 import type { Scene } from './scene/Scene'
-import type { MarkPreviewKind } from './rendering/markPreviewPass'
+import type { MarkPreviewKind } from './rendering/marks/markPreviewPass'
 import type { ViewMode, GutterState, GutterStaffState } from '@/engine/layout/layoutConfig'
 import type { GhostNote, ToolGhost } from './rendering/ghosts/ghostTypes'
 import type { PixelCoordinates } from './rendering/renderTypes'
@@ -241,7 +241,7 @@ export class MusicEngine {
 
   /** ⭐ Redraw ONE mark family against the last render instead of the whole score — the cheap frame
    *  of a mark gesture. False = no usable snapshot, and the caller owes a real render.
-   *  See {@link ScoreRenderer.previewMarks} and `rendering/markPreviewPass`. */
+   *  See {@link ScoreRenderer.previewMarks} and `rendering/marks/markPreviewPass`. */
   previewMarks(kind: MarkPreviewKind, markId?: string): boolean {
     return this.renderer.previewMarks(kind, markId)
   }

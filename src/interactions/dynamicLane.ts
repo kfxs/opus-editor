@@ -68,7 +68,7 @@ interface DynamicStaffLaneHead extends DynamicLaneHead {
  * Every slot of the mark's lane, as drawn — one candidate per ONSET, at the centre of its ink.
  *
  * ⚠️ A chord registers one entry per notehead on one onset; they share an x, so the first one
- * answers for the slot — a dynamic is centred on the COLUMN (`rendering/dynamicMarkAnchor.ts`), not
+ * answers for the slot — a dynamic is centred on the COLUMN (`rendering/marks/dynamics/dynamicMarkAnchor.ts`), not
  * on a particular head of it.
  */
 export function dynamicLaneHeads(engine: LaneEngine, dynamic: Dynamic): DynamicLaneHead[] {

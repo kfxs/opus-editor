@@ -643,9 +643,9 @@ later.
   mid-measure clef (515), rest (1441), note (1467/1495), articulation (1515),
   accidental (1552), beam (1583), stave (1617), line-start clef (1649),
   timeSignature (1669), barline (1698), tuplet (1409).
-- Dynamics (attach + ink rebuild): `engine/rendering/DynamicsLayout.ts`
-  (`attachDynamicsToSlots`, `registerDynamics`), `engine/rendering/dynamicStyle.ts`
-  (the pointer-rect write-up). Tempo: `engine/rendering/TempoLayout.ts:233`.
+- Dynamics (attach + ink rebuild): `engine/rendering/marks/dynamics/DynamicsLayout.ts`
+  (`attachDynamicsToSlots`, `registerDynamics`), `engine/rendering/marks/dynamics/dynamicStyle.ts`
+  (the pointer-rect write-up). Tempo: `engine/rendering/marks/tempo/TempoLayout.ts:233`.
 - Consumers: `interactions/MouseController.ts` (per-type handlers, chain at 458),
   `interactions/HighlightController.ts` (`highlightGlyphsInBBox` 653, caret 124/129,
   attachment line 815, rest-branch annotation skip 321),

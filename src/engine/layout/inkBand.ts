@@ -60,8 +60,8 @@ const STAFF_BOTTOM = 4
  *
  * Supplied by the caller because it is a FONT measurement: a glyph measures 0×0 in jsdom
  * (`reference_jsdom_cannot_measure_glyphs`), so a number computed here would be a number agreeing
- * with itself. `rendering/dynamicStyle.ts` holds the dynamics' proportions; the trill's are
- * `rendering/trillStyle.ts`'s.
+ * with itself. `rendering/marks/dynamics/dynamicStyle.ts` holds the dynamics' proportions; the trill's are
+ * `rendering/marks/lines/trillStyle.ts`'s.
  */
 export interface MarkInk {
   /** Baseline → the mark's topmost ink (upward). */

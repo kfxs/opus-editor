@@ -217,12 +217,12 @@ new mechanism. Two consequences, both from §1 rule 1:
   the fix would take. **Deferred, deliberately** (§12): it is a second module, it is only visible on
   a passage with several short pedals, and the rule it implements is permissive in the book.
 
-Its two constants live in `rendering/pedalStyle.ts` as a `Clearance`, beside `DYNAMICS_LINE` and the
+Its two constants live in `rendering/marks/lines/pedalStyle.ts` as a `Clearance`, beside `DYNAMICS_LINE` and the
 trill's — ⛔ no new placement rule, only new numbers (§12).
 
 ---
 
-## 5. Drawing — `engine/rendering/PedalRenderer.ts` + `pedalStyle.ts`
+## 5. Drawing — `engine/rendering/marks/lines/PedalRenderer.ts` + `pedalStyle.ts`
 
 ### 5.1 What is drawn
 
@@ -303,7 +303,7 @@ per fragment — in `PedalRenderer` and `interactions/elements/pedal.ts`, nowher
 ⭐⭐ **A CONTINUATION RESTATES, in parentheses — `(Ped.)` — and the ottava already decided this.**
 The first fragment shows `Ped.`, the last shows `✻`, and **every fragment in between opens with a
 parenthesised `(Ped.)`**, exactly as an ottava opens a new system with `(8)`
-(`rendering/ottavaStyle.ts`, inset `OTTAVA_CONTINUATION_INSET` = 2.0 sp, his eye 2026-08-13). Three
+(`rendering/marks/lines/ottavaStyle.ts`, inset `OTTAVA_CONTINUATION_INSET` = 2.0 sp, his eye 2026-08-13). Three
 sources agree and none dissents:
 
 - **Dorico** always shows text or a symbol at the start of subsequent systems (only the *hook-only*

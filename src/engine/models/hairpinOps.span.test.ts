@@ -295,7 +295,7 @@ describe('a wedge covers exactly the music selected', () => {
 
   it('ONE quarter → one quarter of music, however short that reads', () => {
     // ⛔ NOT widened to reach the next note. A short wedge is narrowed by the ANGLE CAP
-    // (`rendering/hairpinShape.ts`), never lengthened over music nobody selected.
+    // (`rendering/marks/dynamics/hairpinShape.ts`), never lengthened over music nobody selected.
     const h = addHairpinOverNotes(score, 'dim',
       { measure: 1, beat: frac(1, 1) },
       { measure: 1, beat: frac(1, 1), length: frac(1, 1) })!

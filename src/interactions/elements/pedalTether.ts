@@ -36,7 +36,7 @@
  * systems' x's on one ruler again.
  */
 import type { ElementInfo } from '../../engine/ElementRegistry'
-import { OTTAVA_DASH_LENGTH } from '../../engine/rendering/ottavaStyle'
+import { OTTAVA_DASH_LENGTH } from '../../engine/rendering/marks/lines/ottavaStyle'
 import { systemInkAt } from '../markBreakWrap'
 
 /** One drawn segment: from the left sign's right edge to the right sign's left edge, on the baseline

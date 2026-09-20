@@ -1385,7 +1385,7 @@ this number exists.
 
 His own proposal: *"why do we have to render the whole score? Why not just render that element?"*
 
-`engine/rendering/markPreviewPass.ts` + `MusicEngine.previewMarks` + `RenderController.previewMarks`.
+`engine/rendering/marks/markPreviewPass.ts` + `MusicEngine.previewMarks` + `RenderController.previewMarks`.
 A mark drag redraws ONE family against the last full render instead of re-deriving the score. The
 census is the whole argument: eight whole-score regions, the largest 20%, and `measuresRedrawn` at
 **0%** for the entire gesture — the music never changed, so ~11 ms went on re-deriving what was

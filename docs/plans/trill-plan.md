@@ -237,7 +237,7 @@ His call: build it as if key signatures existed, and let "no key" mean C major.
 
 ---
 
-## 4. Drawing it — `engine/rendering/TrillRenderer.ts`
+## 4. Drawing it — `engine/rendering/marks/lines/TrillRenderer.ts`
 
 A score-level pass after the measures, exactly like `SlurRenderer` and `HairpinRenderer`, and for
 the same reason: it spans bars, so it cannot live in one bar's group.
@@ -283,7 +283,7 @@ is CJS-only and resolves to `undefined` in the browser).
   ⚠️ **Where the trill's own ink comes from.** The baseline needs `DynamicMarkInk` — how far the
   mark's glyph reaches from its baseline — and that is a FONT measurement the layout module may not
   compute (a glyph measures 0×0 in jsdom, `reference_jsdom_cannot_measure_glyphs`; the dynamics get
-  theirs handed in from `rendering/dynamicStyle.ts`). The `tr` needs the same: a proportion of the
+  theirs handed in from `rendering/marks/dynamics/dynamicStyle.ts`). The `tr` needs the same: a proportion of the
   glyph size, stated in the rendering layer, passed in — never measured in `inkBand.ts`.
 - **Registration**: each fragment registers a polyline in `ElementRegistry` under `'trill'` with the
   same `points` shape the hairpin uses, and each carries the same trill id.
@@ -471,7 +471,7 @@ follows in every respect — but ⚠️ **a branch alone will not do**:
   already positional, but nothing is read yet. ⛔ `Measure.keys` was **not** added — a field with no
   feature is a field nothing maintains; the trigger is the key-signature feature itself.
 - **P2 — drawing. ✅ BUILT 2026-08-13.** `engine/layout/inkBand.ts` (readers **and** the
-  parameterised `clearanceBaseline`, §4), `rendering/trillStyle.ts`, `rendering/TrillRenderer.ts`,
+  parameterised `clearanceBaseline`, §4), `rendering/marks/lines/trillStyle.ts`, `rendering/marks/lines/TrillRenderer.ts`,
   the `'trill'` registry type + `trillGroupMap`, and the `spanAnchors` loop. *Done when*: `tr` +
   wiggle draw over a span, clear the stems, repeat the sign on each system. — 7 specs in
   `e2e/trill.e2e.ts`; the whole browser suite (115) re-run because the extraction touched the

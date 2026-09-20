@@ -29,7 +29,7 @@ import {
  */
 
 /** A mark's ink either side of its baseline, in staff spaces — roughly what a dynamics level glyph
- *  measures today (`rendering/dynamicStyle.ts`: 0.68 and 0.18 of a 30 px glyph, over a 10 px space). */
+ *  measures today (`rendering/marks/dynamics/dynamicStyle.ts`: 0.68 and 0.18 of a 30 px glyph, over a 10 px space). */
 const MARK: MarkInk = { above: 2.04, below: 0.54 }
 
 /** ⚠️ The dynamics family's two numbers, written OUT rather than imported. This spec is about the

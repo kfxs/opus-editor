@@ -9,7 +9,7 @@
  */
 import type { Fraction, Pedal } from '@/types/music'
 import { slotLength } from '@/utils/durations'
-import { PEDAL_SIGN_GAP } from '../rendering/pedalStyle'
+import { PEDAL_SIGN_GAP } from '../rendering/marks/lines/pedalStyle'
 import type { PedalLiftTarget, PedalSlotTarget, PedalStaffSlotTarget } from '../models/pedalOps'
 import { spanFromNotes } from '../models/spanFromNotes'
 import type { CommandContext } from './commandContext'

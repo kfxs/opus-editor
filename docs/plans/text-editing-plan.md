@@ -232,7 +232,7 @@ Click-away-to-commit fires a canvas `click` after the overlay closes. Two defens
 - [x] `TextEditController` (open / commit→render-callback / cancel / close, empty-text rule via `isNew`,
       no re-render mid-edit). DOM split behind injectable `TextEditDom`; real impl `DomTextEdit.ts`
 - [x] `DynamicTextSource` — rect via forward `getScreenCTM()` (scroll-correct); font from the
-      `DYNAMIC_TEXT_*` constants (extracted to `engine/rendering/dynamicStyle.ts`); `commit`→
+      `DYNAMIC_TEXT_*` constants (extracted to `engine/rendering/marks/dynamics/dynamicStyle.ts`); `commit`→
       `updateDynamic` + render / delete-on-empty-when-`isNew`. New `getDynamicById` on ScoreModel+engine
 - [x] `@dblclick` wiring + `MouseController.handleDoubleClick` (hit-test text dynamics, selection tool)
 - [x] New-placement opens the editor + **disarms `selectedDynamic`** (replaces the `"Text"` placeholder)

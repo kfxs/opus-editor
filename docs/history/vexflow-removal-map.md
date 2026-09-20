@@ -738,26 +738,26 @@ Line ranges merge uses within 3 lines of each other.
 | `rendering/BarlineRenderer.ts` | 13 | 119, 319, 330–331, 434, 439, 483, 611, 617 | Element.getX×6, Stave.getSpacingBetweenLines×2, Element.getWidth×2, Element.getY, Stave.getNumLines, Stave.getYForLine |
 | `rendering/headerPlacementPass.ts` | 10 | 97–99, 103, 128–130, 165, 172 | Element.getX×5, Stave.getSpacingBetweenLines×2, Element.setX×2, Element.getXShift |
 | `rendering/FanPass.ts` | 6 | 528, 690, 750, 777, 808, 995 | Stave.getYForNote×3, Note.getStave, Stave.getNoteEndX, Stave.getSpacingBetweenLines |
-| `rendering/TempoLayout.ts` | 6 | 240, 260, 281, 450, 513, 517 | Stave.getNoteStartX×2, Element.getX, Stave.getYForTopText, Stave.getYForLine, Stave.getSpacingBetweenLines |
+| `rendering/marks/tempo/TempoLayout.ts` | 6 | 240, 260, 281, 450, 513, 517 | Stave.getNoteStartX×2, Element.getX, Stave.getYForTopText, Stave.getYForLine, Stave.getSpacingBetweenLines |
 | `rendering/EngravedTimeSignature.ts` | 5 | 121, 127, 131–134 | Stave.getYForLine×5 |
 | `rendering/curves/TieRenderer.ts` | 5 | 51, 216, 235, 243 | Note.getStave×3, Stave.getNumLines, Stave.getYForLine |
-| `rendering/DynamicsLayout.ts` | 4 | 356–358 | Note.getStave×2, Stave.getYForLine, Stave.getSpacingBetweenLines |
+| `rendering/marks/dynamics/DynamicsLayout.ts` | 4 | 356–358 | Note.getStave×2, Stave.getYForLine, Stave.getSpacingBetweenLines |
 | `rendering/ghosts/GhostRenderer.ts` | 4 | 271, 332, 462 | Stave.getNoteEndX, Stave.getNoteStartX, Stave.getSpacingBetweenLines, Stave.getYForNote |
-| `rendering/HairpinRenderer.ts` | 4 | 576, 596, 647, 727 | Stave.getYForLine×3, Stave.getSpacingBetweenLines |
+| `rendering/marks/dynamics/HairpinRenderer.ts` | 4 | 576, 596, 647, 727 | Stave.getYForLine×3, Stave.getSpacingBetweenLines |
 | `rendering/GutterRenderer.ts` | 4 | 100, 144–146 | Stave.getYForLine×3, Stave.getNumLines |
-| `rendering/TrillRenderer.ts` | 3 | 367, 371, 698 | Stave.getYForLine×2, Stave.getSpacingBetweenLines |
+| `rendering/marks/lines/TrillRenderer.ts` | 3 | 367, 371, 698 | Stave.getYForLine×2, Stave.getSpacingBetweenLines |
 | `rendering/barlineInk.ts` | 3 | 54–55 | Stave.getYForLine×2, Stave.getNumLines |
 | `rendering/systemStart.ts` | 3 | 176, 192 | Stave.getYForLine×2, Stave.getNumLines |
 | `rendering/CenteredTremolo.ts` | 2 | 90 | Stave.getSpacingBetweenLines, Note.getStave |
 | `rendering/EngravedNote.ts` | 2 | 164, 173 | Note.checkStave, Stave.getYForNote |
 | `rendering/EngravedDot.ts` | 2 | 76 | Stave.getSpacingBetweenLines, Note.checkStave |
 | `rendering/staffSpace.ts` | 2 | 19, 24 | Stave.getSpacingBetweenLines×2 |
-| `rendering/OttavaRenderer.ts` | 2 | 521, 641 | Stave.getYForLine×2 |
-| `rendering/PedalRenderer.ts` | 2 | 432, 473 | Stave.getYForLine×2 |
+| `rendering/marks/lines/OttavaRenderer.ts` | 2 | 521, 641 | Stave.getYForLine×2 |
+| `rendering/marks/lines/PedalRenderer.ts` | 2 | 432, 473 | Stave.getYForLine×2 |
 | `rendering/EngravedClef.ts` | 1 | 78 | Stave.getYForLine |
 | `rendering/barlineGap.ts` | 1 | 110 | Element.getY |
-| `rendering/dynamicsLinePass.ts` | 1 | 146 | Stave.getYForLine |
-| `rendering/tempoLinePass.ts` | 1 | 159 | Stave.getYForLine |
+| `rendering/marks/dynamics/dynamicsLinePass.ts` | 1 | 146 | Stave.getYForLine |
+| `rendering/marks/tempo/tempoLinePass.ts` | 1 | 159 | Stave.getYForLine |
 
 ### R2 note ruler
 
@@ -777,15 +777,15 @@ Line ranges merge uses within 3 lines of each other.
 | `rendering/dotPlacement.ts` | 3 | 150–153 | StaveNote.isRest, StaveNote.hasFlag, StemmableNote.getStemDirection |
 | `rendering/EngravedAccidental.ts` | 2 | 107–108 | Note.x, Note.y |
 | `rendering/EngravedDot.ts` | 2 | 75–76 | Note.x, Note.y |
-| `rendering/DynamicsLayout.ts` | 2 | 355–357 | Note.getYs, Note.getAbsoluteX |
-| `rendering/TempoLayout.ts` | 2 | 272, 308 | Note.getAbsoluteX×2 |
-| `rendering/TrillRenderer.ts` | 2 | 146, 839 | StaveNote.getTieLeftX, Note.getYs |
-| `rendering/OttavaRenderer.ts` | 2 | 149, 165 | StaveNote.getTieLeftX, StaveNote.getTieRightX |
+| `rendering/marks/dynamics/DynamicsLayout.ts` | 2 | 355–357 | Note.getYs, Note.getAbsoluteX |
+| `rendering/marks/tempo/TempoLayout.ts` | 2 | 272, 308 | Note.getAbsoluteX×2 |
+| `rendering/marks/lines/TrillRenderer.ts` | 2 | 146, 839 | StaveNote.getTieLeftX, Note.getYs |
+| `rendering/marks/lines/OttavaRenderer.ts` | 2 | 149, 165 | StaveNote.getTieLeftX, StaveNote.getTieRightX |
 | `rendering/ledgerAccidentalClearance.ts` | 1 | 152 | StaveNote.isRest |
 | `rendering/accidentalPlacement.ts` | 1 | 67 | StaveNote.isRest |
-| `rendering/PedalRenderer.ts` | 1 | 108 | StaveNote.getTieLeftX |
+| `rendering/marks/lines/PedalRenderer.ts` | 1 | 108 | StaveNote.getTieLeftX |
 | `rendering/clefOffsetPass.ts` | 1 | 59 | ClefNote.getClef |
-| `rendering/HairpinRenderer.ts` | 1 | 119 | StaveNote.getTieLeftX |
+| `rendering/marks/dynamics/HairpinRenderer.ts` | 1 | 119 | StaveNote.getTieLeftX |
 
 ### R3 placement rules
 
@@ -813,11 +813,11 @@ Line ranges merge uses within 3 lines of each other.
 | `rendering/EngravedArticulation.ts` | 6 | 50, 73, 80–81 | Articulation.<extends>, Element.children, Element.getX, Modifier.getXShift, Element.getY, Element.getYShift |
 | `rendering/EngravedBarline.ts` | 5 | 70, 96, 100, 105 | Barline.<extends>, Barline.getType, BarlineType.SINGLE, StaveModifier.checkStave, Element.getX |
 | `rendering/BarlineRenderer.ts` | 5 | 432, 482 | Stave.getModifiers×2, StaveModifierPosition.BEGIN, StaveModifierPosition.END, Barline.CATEGORY |
-| `rendering/TempoLayout.ts` | 4 | 165, 239 | Element.getWidth, Stave.getModifiers, StaveModifierPosition.BEGIN, TimeSignature.CATEGORY |
+| `rendering/marks/tempo/TempoLayout.ts` | 4 | 165, 239 | Element.getWidth, Stave.getModifiers, StaveModifierPosition.BEGIN, TimeSignature.CATEGORY |
 | `rendering/accidentalPlacement.ts` | 3 | 69–71 | Accidental.<instanceof>, Modifier.setXShift, Modifier.getXShift |
 | `rendering/clefOffsetPass.ts` | 3 | 108 | Stave.getModifiers, StaveModifierPosition.BEGIN, Clef.CATEGORY |
 | `rendering/drawnHitBox.ts` | 2 | 48, 60 | Accidental.<type>, Element.getBoundingBox |
-| `rendering/DynamicsLayout.ts` | 2 | 217, 354 | Element.setWidth, Modifier.getNote |
+| `rendering/marks/dynamics/DynamicsLayout.ts` | 2 | 217, 354 | Element.setWidth, Modifier.getNote |
 | `rendering/KeySignaturePass.ts` | 2 | 139 | Stave.getModifiers, StaveModifierPosition.BEGIN |
 | `rendering/RenderPass.ts` | 1 | 97 | Tuplet.<type> |
 | `rendering/glyphPainter.ts` | 1 | 116 | Element.getWidth |
@@ -845,10 +845,10 @@ Line ranges merge uses within 3 lines of each other.
 | `rendering/glyphPainter.ts` | 10 | 88–89, 114, 123–126, 171–173 | RenderContext.<type>×2, Element.<type>×2, Element.constructor×2, Element.setText×2, Element.setFontSize, Element.setFont |
 | `rendering/FanPass.ts` | 8 | 468, 494, 504, 530, 622, 630, 896, 986 | SVGContext.openGroup×2, SVGContext.closeGroup×2, SVGContext.<type>×2, NoteHead.constructor, NoteHead.setStave |
 | `rendering/EngravedNote.ts` | 7 | 94, 102, 229, 245, 251, 286, 314 | Element.getText×2, RenderContext.openGroup, RenderContext.closeGroup, RenderContext.save, RenderContext.restore, Element.getTextMetrics |
-| `rendering/DynamicsLayout.ts` | 7 | 200–207, 211 | Annotation.<type>, Annotation.constructor, Annotation.setVerticalJustification, Annotation.setJustification, AnnotationHorizontalJustify.LEFT, Annotation.HorizontalJustify, Element.setFont |
+| `rendering/marks/dynamics/DynamicsLayout.ts` | 7 | 200–207, 211 | Annotation.<type>, Annotation.constructor, Annotation.setVerticalJustification, Annotation.setJustification, AnnotationHorizontalJustify.LEFT, Annotation.HorizontalJustify, Element.setFont |
 | `rendering/EngravedStave.ts` | 5 | 114, 119, 140–142 | RenderContext.openGroup, RenderContext.closeGroup, RenderContext.setFont, RenderContext.measureText, RenderContext.fillText |
 | `rendering/CenteredTremolo.ts` | 4 | 120, 161–162, 263 | Element.textMetrics×2, Element.text, Element.setFontSize |
-| `rendering/TempoLayout.ts` | 3 | 151, 160–163 | Element.constructor, Element.setFont, Element.setText |
+| `rendering/marks/tempo/TempoLayout.ts` | 3 | 151, 160–163 | Element.constructor, Element.setFont, Element.setText |
 | `rendering/EngravedTimeSignature.ts` | 3 | 126, 151–153 | Element.getText×2, Element.<type> |
 | `rendering/RenderPass.ts` | 2 | 78, 99 | SVGContext.<type>, Annotation.<type> |
 | `rendering/fanArticulations.ts` | 2 | 55, 108 | RenderContext.<type>×2 |
@@ -862,10 +862,10 @@ Line ranges merge uses within 3 lines of each other.
 | `rendering/EngravedClef.ts` | 1 | 81 | Element.getText |
 | `rendering/BarlineRenderer.ts` | 1 | 432 | Element.getCategory |
 | `rendering/headerPlacementPass.ts` | 1 | 102 | Element.getCategory |
-| `rendering/tempoLinePass.ts` | 1 | 100 | SVGContext.svg |
-| `rendering/tempoAnchorInk.ts` | 1 | 78 | SVGContext.svg |
-| `rendering/tempoNudgePass.ts` | 1 | 61 | SVGContext.svg |
-| `rendering/markPreviewPass.ts` | 1 | 259 | SVGContext.svg |
+| `rendering/marks/tempo/tempoLinePass.ts` | 1 | 100 | SVGContext.svg |
+| `rendering/marks/tempo/tempoAnchorInk.ts` | 1 | 78 | SVGContext.svg |
+| `rendering/marks/tempo/tempoNudgePass.ts` | 1 | 61 | SVGContext.svg |
+| `rendering/marks/markPreviewPass.ts` | 1 | 259 | SVGContext.svg |
 
 ### R6 object graph
 
@@ -876,11 +876,11 @@ Line ranges merge uses within 3 lines of each other.
 | `rendering/FanPass.ts` | 20 | 83–85, 101, 245, 286, 394, 531, 573–575, 671, 677–679, 730, 896–899, 910, 931, 987 | StaveNote.<type>×9, Stave.<type>×3, Element.setContext×3, StemmableNote.getStem×2, NoteHead.draw, Element.renderText, Element.drawWithStyle |
 | `rendering/EngravedNote.ts` | 16 | 79–81, 94, 107, 171, 224, 228–231, 244, 249, 313, 334–337, 345, 361 | Element.checkContext×4, Element.setRendered×2, Element.getAttribute×2, StaveNote.<type>×2, StaveNote.<extends>, Element.setContext, Element.applyStyle, StaveNote.drawModifiers, StemmableNote.getStem, Tickable.getModifiers |
 | `rendering/curves/SlurRenderer.ts` | 12 | 80, 108, 292, 385, 463, 489–492, 518, 565, 878, 924 | Stave.<type>×9, StaveNote.<type>×2, Tickable.getModifiers |
-| `rendering/DynamicsLayout.ts` | 9 | 110, 123, 158, 203, 237, 299, 304, 334, 354 | Element.getSVGElement×4, StaveNote.<type>×2, Note.addModifier, Element.setAttribute, Stave.<type> |
-| `rendering/TempoLayout.ts` | 9 | 164, 225–226, 301, 332, 381–382, 410–413 | StaveNote.<type>×5, Stave.<type>×3, Element.renderText |
+| `rendering/marks/dynamics/DynamicsLayout.ts` | 9 | 110, 123, 158, 203, 237, 299, 304, 334, 354 | Element.getSVGElement×4, StaveNote.<type>×2, Note.addModifier, Element.setAttribute, Stave.<type> |
+| `rendering/marks/tempo/TempoLayout.ts` | 9 | 164, 225–226, 301, 332, 381–382, 410–413 | StaveNote.<type>×5, Stave.<type>×3, Element.renderText |
 | `rendering/fanArticulations.ts` | 8 | 109, 129–130, 145, 165–168 | Element.setContext×2, Stave.<type>, StaveNote.constructor, StaveNote.setStave, Note.addModifier, Articulation.draw, Element.renderText |
 | `rendering/EngravedStave.ts` | 8 | 52, 83, 110–114, 131–134, 223 | Stave.<extends>, StaveOptions.<type>, Element.checkContext, Element.setRendered, Element.getAttribute, Element.setContext, Element.drawWithStyle, Stave.<type> |
-| `rendering/HairpinRenderer.ts` | 8 | 73, 184, 258, 265, 488–491, 512 | Stave.<type>×6, Element.getSVGElement×2 |
+| `rendering/marks/dynamics/HairpinRenderer.ts` | 8 | 73, 184, 258, 265, 488–491, 512 | Stave.<type>×6, Element.getSVGElement×2 |
 | `rendering/EngravedDot.ts` | 7 | 62–64, 69, 85, 98–99 | Element.checkContext, Element.setRendered, Dot.draw, Element.getAttribute, StaveNote.<type>, Note.getKeys, Note.addModifier |
 | `rendering/ghosts/FanGhost.ts` | 6 | 55–63, 68 | Element.setContext×2, Stave.constructor, StaveNote.constructor, StaveNote.setStave, StaveNote.draw |
 | `rendering/EngravedTimeSignature.ts` | 6 | 81–85, 105–106, 119 | Element.setRendered×2, Stave.<type>×2, Element.checkContext, Element.getAttribute |
@@ -904,23 +904,23 @@ Line ranges merge uses within 3 lines of each other.
 | `rendering/staffSpace.ts` | 2 | 18, 23 | Stave.<type>×2 |
 | `rendering/accidentalPlacement.ts` | 2 | 63, 68 | StaveNote.<type>, Tickable.getModifiers |
 | `rendering/glyphPainter.ts` | 2 | 144, 174 | Element.renderText×2 |
-| `rendering/TrillRenderer.ts` | 2 | 105, 917 | Stave.<type>×2 |
-| `rendering/dynamicsLinePass.ts` | 2 | 58, 124 | Stave.<type>, Element.getSVGElement |
-| `rendering/dynamicNudgePass.ts` | 2 | 42, 70 | Stave.<type>, Element.getSVGElement |
-| `rendering/OttavaRenderer.ts` | 1 | 82 | Stave.<type> |
-| `rendering/PedalRenderer.ts` | 1 | 77 | Stave.<type> |
+| `rendering/marks/lines/TrillRenderer.ts` | 2 | 105, 917 | Stave.<type>×2 |
+| `rendering/marks/dynamics/dynamicsLinePass.ts` | 2 | 58, 124 | Stave.<type>, Element.getSVGElement |
+| `rendering/marks/dynamics/dynamicNudgePass.ts` | 2 | 42, 70 | Stave.<type>, Element.getSVGElement |
+| `rendering/marks/lines/OttavaRenderer.ts` | 1 | 82 | Stave.<type> |
+| `rendering/marks/lines/PedalRenderer.ts` | 1 | 77 | Stave.<type> |
 | `rendering/barlineInk.ts` | 1 | 52 | Stave.<type> |
 | `rendering/systemStart.ts` | 1 | 68 | Stave.<type> |
-| `rendering/tempoLinePass.ts` | 1 | 63 | Stave.<type> |
-| `rendering/tempoNudgePass.ts` | 1 | 48 | Stave.<type> |
-| `rendering/markPreviewPass.ts` | 1 | 331 | Element.getSVGElement |
+| `rendering/marks/tempo/tempoLinePass.ts` | 1 | 63 | Stave.<type> |
+| `rendering/marks/tempo/tempoNudgePass.ts` | 1 | 48 | Stave.<type> |
+| `rendering/marks/markPreviewPass.ts` | 1 | 331 | Element.getSVGElement |
 
 ### R7 numbers+fonts
 
 | file | uses | lines | members |
 |---|---|---|---|
 | `rendering/CenteredTremolo.ts` | 7 | 147–149, 161, 195–198, 208 | Metrics.get×3, Element.getFontScale×2, Stem.WIDTH×2 |
-| `rendering/TempoLayout.ts` | 7 | 54–55, 159–160 | Metrics.clear×2, Element.fontInfo, FontInfo.family, FontInfo.size, FontInfo.weight, FontInfo.style |
+| `rendering/marks/tempo/TempoLayout.ts` | 7 | 54–55, 159–160 | Metrics.clear×2, Element.fontInfo, FontInfo.family, FontInfo.size, FontInfo.weight, FontInfo.style |
 | `rendering/ghosts/GhostRenderer.ts` | 7 | 689–693 | FontInfo.size×3, FontInfo.style×2, Element.fontInfo, FontInfo.family |
 | `rendering/ScoreTuplet.ts` | 6 | 22, 62 | Metrics.clear, FontInfo.family, FontInfo.size, FontInfo.weight, FontInfo.style, Element.fontInfo |
 | `rendering/VexFlowRenderer.ts` | 6 | 1320, 3113, 3165, 5127, 5212 | Stem.WIDTH×4, Metrics.get×2 |
@@ -1008,10 +1008,10 @@ A spec moves or dies with its subject (`CLAUDE.md`: *a spec moves with its modul
 | `rendering/glyphPainter.test.ts` | 6 |
 | `rendering/fanArticulations.test.ts` | 4 |
 | `rendering/curves/SlurRenderer.test.ts` | 3 |
-| `rendering/TempoLayout.test.ts` | 2 |
-| `rendering/dynamicsLinePass.test.ts` | 2 |
+| `rendering/marks/tempo/TempoLayout.test.ts` | 2 |
+| `rendering/marks/dynamics/dynamicsLinePass.test.ts` | 2 |
 | `rendering/systemStart.test.ts` | 2 |
-| `rendering/HairpinRenderer.test.ts` | 1 |
+| `rendering/marks/dynamics/HairpinRenderer.test.ts` | 1 |
 | `rendering/drawnFontSize.test.ts` | 1 |
 | `rendering/staffSpace.test.ts` | 1 |
 | `rendering/__tests__/tier1Geometry.test.ts` | 1 |

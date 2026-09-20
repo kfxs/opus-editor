@@ -68,7 +68,7 @@ export function frameName(line: string): string | null {
 }
 
 /**
- * `http://localhost:5199/src/engine/rendering/TempoLayout.ts?t=17…:123:45` → `TempoLayout.ts:123`.
+ * `http://localhost:5199/src/engine/rendering/marks/tempo/TempoLayout.ts?t=17…:123:45` → `TempoLayout.ts:123`.
  *
  * ⚠️ Greedy up to the LAST `:line:col`, because the URL is full of colons and a non-greedy match
  * stops at the scheme's — which is the bug this whole module now documents.

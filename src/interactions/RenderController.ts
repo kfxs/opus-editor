@@ -10,7 +10,7 @@ import type { HighlightController } from './HighlightController'
 import { voiceFillColor, voiceStrokeColor } from '../utils/voiceColors'
 import { renderProbe } from '../engine/RenderProbe' // P0 instrument seam — temporary, see §8
 import { musicFontReady } from '../engine/rendering/musicFontReady'
-import type { MarkPreviewKind } from '../engine/rendering/markPreviewPass'
+import type { MarkPreviewKind } from '../engine/rendering/marks/markPreviewPass'
 import { dbg } from '../utils/debug'
 
 /**
@@ -143,7 +143,7 @@ export class RenderController {
 
   /**
    * ⭐⭐ **ONE FRAME OF A MARK GESTURE — redraw the family that is moving, and nothing else**
-   * (docs/history/render-performance-plan.md §12.5a, `engine/rendering/markPreviewPass`).
+   * (docs/history/render-performance-plan.md §12.5a, `engine/rendering/marks/markPreviewPass`).
    *
    * The same shape `renderPreview` below already has, one level up: the engraved score and its
    * measure groups stay exactly as they are, and only the moving family's `<g>`s are swapped. The

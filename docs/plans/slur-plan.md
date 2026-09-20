@@ -2268,9 +2268,9 @@ His report: he dropped a dynamic under a note a slur covers and the curve change
 never should affect the slur arch or shape, take a closer look please."* He is right, and the cause is
 structural rather than a tuning error:
 
-- a dynamic is attached to its anchor note as a VexFlow **`Annotation`** (`rendering/DynamicsLayout`)
+- a dynamic is attached to its anchor note as a VexFlow **`Annotation`** (`rendering/marks/dynamics/DynamicsLayout`)
   — that is how it gets an anchor and a baseline — and is then **translated to the dynamics line** by
-  a later pass (`rendering/dynamicsLinePass`);
+  a later pass (`rendering/marks/dynamics/dynamicsLinePass`);
 - `StaveNote.getBoundingBox()` **unions every attached modifier** into the note's box
   (`stavenote.js:424`), so the note reports itself as reaching down to a mark that is about to be
   drawn somewhere else entirely;

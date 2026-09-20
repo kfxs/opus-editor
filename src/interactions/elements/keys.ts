@@ -14,7 +14,7 @@
  * note-spacing nudge). A key nobody consumed stays free for the browser.
  */
 import type { MusicEngine } from '../../engine/MusicEngine'
-import type { MarkPreviewKind } from '../../engine/rendering/markPreviewPass'
+import type { MarkPreviewKind } from '../../engine/rendering/marks/markPreviewPass'
 import type { EditorState, SelectedElement } from '../EditorState'
 
 /** What a kind's key handlers may use. */

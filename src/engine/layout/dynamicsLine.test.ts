@@ -27,7 +27,7 @@ import { DYNAMICS_LINE, dynamicsLineAt } from './dynamicsLine'
  */
 
 /** A mark's ink either side of its baseline, in staff spaces — roughly what a level glyph measures
- *  today (`rendering/dynamicStyle.ts`: 0.68 and 0.18 of a 30 px glyph, over a 10 px space). */
+ *  today (`rendering/marks/dynamics/dynamicStyle.ts`: 0.68 and 0.18 of a 30 px glyph, over a 10 px space). */
 const MARK: MarkInk = { above: 2.04, below: 0.54 }
 
 describe('columnsUnder — which ink a mark is measured against', () => {

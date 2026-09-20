@@ -34,15 +34,15 @@ import { readFileSync } from 'node:fs'
 
 /** A hub, its ceilings, and the functions counted out of it. `lines: null` = reported, not held. */
 const HUBS = [
-  { file: 'src/engine/MusicEngine.ts', kinds: 506, lines: null },
-  { file: 'src/engine/models/ScoreModel.ts', kinds: 940, lines: null },
-  { file: 'src/engine/rendering/ScoreRenderer.ts', kinds: 891, lines: null },
-  { file: 'src/interactions/MouseController.ts', kinds: 307, lines: 1100 },
-  { file: 'src/interactions/PaletteController.ts', kinds: 455, lines: null },
+  { file: 'src/engine/MusicEngine.ts', kinds: 490, lines: null },
+  { file: 'src/engine/models/ScoreModel.ts', kinds: 916, lines: null },
+  { file: 'src/engine/rendering/ScoreRenderer.ts', kinds: 853, lines: null },
+  { file: 'src/interactions/MouseController.ts', kinds: 282, lines: 1100 },
+  { file: 'src/interactions/PaletteController.ts', kinds: 449, lines: null },
   { file: 'src/interactions/HighlightController.ts', kinds: 9, lines: 117 },
-  { file: 'src/interactions/shortcutWiring.ts', kinds: 67, lines: 431, except: ['deleteSelected'] },
+  { file: 'src/interactions/shortcutWiring.ts', kinds: 59, lines: 431, except: ['deleteSelected'] },
   { file: 'src/windows/properties/PropertiesWidget.ts', kinds: 0, lines: 73 },
-  { file: 'src/interactions/selectionSnapshot.ts', kinds: 7, lines: null, except: ['selectedElements'] },
+  { file: 'src/interactions/selectionSnapshot.ts', kinds: 3, lines: null, except: ['selectedElements'] },
 ]
 
 /** Where the editor declares its kinds. */
@@ -85,6 +85,17 @@ function stripComments(text) {
 const COMMAND_NAMESPACES = ['ottava', 'pedal', 'trill', 'hairpin', 'slur', 'dynamic', 'tempo']
 function withoutCommandNamespaces(code) {
   return code.replace(new RegExp(`\\.(?:${COMMAND_NAMESPACES.join('|')})\\.(?=[A-Za-z_])`, 'g'), '.')
+}
+
+/**
+ * ⭐ An import's PATH is where a module lives, ⛔ not what the hub knows: the names it imports are
+ * counted where they are written, and a folder called `marks/dynamics/` would otherwise read as the
+ * hub having learned about dynamics (found 2026-09-20, when Phase 6 moved `rendering/` into
+ * sub-folders and `ScoreRenderer` "grew" by six without a line of it changing). Only the specifier
+ * of `from '…'` and `import('…')` is blanked.
+ */
+function withoutImportPaths(code) {
+  return code.replace(/(\bfrom\s+|\bimport\s*\(\s*)(['"])[^'"\n]*\2/g, (_m, lead, q) => `${lead}${q}${q}`)
 }
 
 /** Remove the body of `name` — `name: (…) => {`, `function name(`, or a method `name(` — by brace
@@ -134,7 +145,7 @@ const failures = []
 const falls = []
 
 for (const hub of HUBS) {
-  let code = withoutCommandNamespaces(stripComments(readFileSync(hub.file, 'utf8')))
+  let code = withoutImportPaths(withoutCommandNamespaces(stripComments(readFileSync(hub.file, 'utf8'))))
   for (const name of hub.except ?? []) code = withoutFunction(code, name, hub.file)
 
   const perKind = new Map()

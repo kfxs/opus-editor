@@ -18,7 +18,7 @@
  *
  * ⚠️ **Which can name a beat the TOP staff has nothing at** — a left-hand chord under a right-hand
  * rest. The mark then draws at the first element at-or-after its beat on the staff it is engraved
- * above (`rendering/TempoLayout.anchorX`, Gould p. 183), which is a hair right of where a hand
+ * above (`rendering/marks/tempo/TempoLayout.anchorX`, Gould p. 183), which is a hair right of where a hand
  * engraver would put it. ⏭️ The honest fix is to anchor the drawing to the COLUMN rather than to the
  * top staff's slots; nothing here needs to change for it.
  *
@@ -102,7 +102,7 @@ function moveTempoToMeasure(score: Score, mark: TempoMark, measureNumber: number
  * consideration the real tempo anchor cordinate"*.
  *
  * ⭐ **AT-OR-AFTER, and the drawing is why.** A tempo mark is engraved at the first notational
- * element at-or-after its beat (`rendering/TempoLayout.anchorX`, Gould p. 183); anchoring the MODEL
+ * element at-or-after its beat (`rendering/marks/tempo/TempoLayout.anchorX`, Gould p. 183); anchoring the MODEL
  * to the onset before it would put the mark's meaning one step behind its ink. So a requested beat
  * that nothing sounds on resolves FORWARD, and only a request past the last onset in the score falls
  * back to that last one — there is nothing after it to move to.

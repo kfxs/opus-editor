@@ -42,7 +42,7 @@
  *
  * **⚠️ Its y is a BASELINE, not a top edge.** A 30 px Bravura glyph and a 14 px Georgia italic look
  * aligned only when they share a baseline — which is how print sets `p dolce`, and how
- * `DYNAMIC_GLYPH_INK_ABOVE` / `_BELOW` are already defined (`rendering/dynamicStyle.ts`). So the mark's
+ * `DYNAMIC_GLYPH_INK_ABOVE` / `_BELOW` are already defined (`rendering/marks/dynamics/dynamicStyle.ts`). So the mark's
  * own ink extent is an INPUT ({@link DynamicMarkInk}), not something computed here: measuring a glyph
  * needs the browser (jsdom returns zeros), and that measurement belongs to the e2e suite.
  *

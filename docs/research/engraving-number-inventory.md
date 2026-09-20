@@ -79,56 +79,56 @@ lists it as owed to his eye.
 
 | name | value | file:line | comment words | possibly-covering doc |
 |---|---|---|---|---|
-| `TRILL_PAREN_RAISE` | 0.22 × paren size | rendering/trillStyle.ts:109 | "Taste, and derived from assumed font metrics rather than measured ones" | none found (paren is serif text; `ornamentTrill` bbox quoted at trillStyle.ts:80) |
-| `TRILL_GLYPH_SIZE` (`tr`) | 26 pt = 3.47 sp @10 | rendering/trillStyle.ts:112 | "A shade under the dynamics' 30" | pedal-plan.md §12 item 3 (text band 2.02–2.42 sp, pre pt→px fix); above-staff-ladder.md §"pt vs px" |
-| `TRILL_GLYPH_INK_ABOVE` | 0.62 × drawn px | rendering/trillStyle.ts:123 | "First-cut proportions, not a measurement" | *F-answerable* (`ornamentTrill` glyphBBox); above-staff-ladder.md §"The RATIOS are still guesses"; trill-plan.md §10 P2 |
-| `TRILL_GLYPH_INK_BELOW` | 0.04 × drawn px | rendering/trillStyle.ts:124 | "First-cut proportions, not a measurement" | *F-answerable* (as above) |
-| `TRILL_LINE.minFromStaff` | 1.0 sp | rendering/trillStyle.ts:158 | "1.0 is a taste value … genuinely waiting on his eye" | OPEN trill-plan.md §10 P2; above-staff-ladder.md §3 |
-| `TRILL_CONTINUATION_INSET` (`(tr)` left of music) | 2.0 sp | rendering/trillStyle.ts:183 | "tuned separately by eye. It starts equal to the ottava's" | ottava-plan.md §"HIS EYE, 2026-08-13" item 5 (direction only); ottava-plan.md §1 "Covered by Gould, NOT yet read" (pp. 28–34) |
-| `TRILL_END_INSET` | 0.5 sp | rendering/trillStyle.ts:209 | "Starting at half a space by eye — a taste value" | OPEN trill-plan.md §10 P2; dynamics-line-and-hairpins-plan.md §2.4c (Gould "about a space") |
-| `OTTAVA_PAREN_SCALE` | 0.52 × glyph size | rendering/ottavaStyle.ts:88 | "Taste, and starting from the trill's 0.52" | OPEN ottava-plan.md §"HIS EYE, 2026-08-13" still-open list |
-| `OTTAVA_PAREN_RAISE` | 0.22 × paren size | rendering/ottavaStyle.ts:97 | "Taste, from the trill's 0.22" | OPEN ottava-plan.md §"HIS EYE"; SMuFL `octaveParensLeft/Right` would make it F |
-| `OTTAVA_GLYPH_SIZE` (8va numeral) | 26 pt = 3.47 sp @10 | rendering/ottavaStyle.ts:102 | "Gould gives the numeral's height … that page is … unread … a first cut" | ottava-plan.md §1 "Covered by Gould, NOT yet read" (pp. 28–34) — Gould now on disk (reference/README.md) |
-| `OTTAVA_GLYPH_INK_ABOVE_RATIO` | 0.62 × drawn px | rendering/ottavaStyle.ts:112 | "First-cut proportions, not a measurement" | *F-answerable* (`ottavaAlta`/`ottavaBassaBa` glyphBBox); above-staff-ladder.md §"The RATIOS are still guesses" |
-| `OTTAVA_GLYPH_INK_BELOW_RATIO` | 0.04 × drawn px | rendering/ottavaStyle.ts:113 | "First-cut proportions, not a measurement" | *F-answerable* (as above) |
-| `OTTAVA_LINE.padding` | 0.5 sp | rendering/ottavaStyle.ts:167 | "Taste, and owed to his eye" | ottava-plan.md §1 rule 5, §5; ottava-plan.md:161 (Gould p. 102 engraving measured, "prices the PADDING") |
-| `OTTAVA_LINE.minFromStaff` | 1.5 sp (was 2.5) | rendering/ottavaStyle.ts:168 | "Taste, and OWED TO HIS EYE" | ottava-plan.md §5; reference/README.md Gould p. 337 figure measured (8 bracket 3.25 sp below bottom line) |
-| `OTTAVA_DASH_LENGTH` | 0.5 sp | rendering/ottavaStyle.ts:205 | "The dash pattern, in staff spaces" (no source) | OPEN ottava-plan.md §"HIS EYE" ("the dash pattern"); §1 Gould pp. 28–34 unread |
-| `OTTAVA_DASH_GAP` | 0.4 sp | rendering/ottavaStyle.ts:206 | (as above) | (as above) |
-| `OTTAVA_END_AIR` | 0.5 sp | rendering/ottavaStyle.ts:258 | "Taste, starting at the trill's own half-space by eye" | ottava-plan.md §"HIS EYE" item 2 (rule, not value) |
-| `OTTAVA_MIN_LINE` | 1.0 sp | rendering/ottavaStyle.ts:275 | no source | OPEN ottava-plan.md §"HIS EYE" ("the min line") |
-| `OTTAVA_HOOK` | 0.8 sp | rendering/ottavaStyle.ts:285 | "The closing HOOK's length" (no source) | OPEN ottava-plan.md §"HIS EYE" ("the hook"); §1 rules 3–4; Gould pp. 28–34 unread |
-| `PEDAL_GLYPH_SIZE` (`Ped.`) | 26 pt = 3.47 sp @10 | rendering/pedalStyle.ts:61 | "A first cut, and one of the five numbers owed to his eye" | OPEN pedal-plan.md §12 item 3; above-staff-ladder.md §"pt vs px" |
-| `PEDAL_GLYPH_INK_ABOVE_RATIO` | 0.52 × drawn px | rendering/pedalStyle.ts:72 | "First-cut proportions, not a measurement" | *F-answerable* (`keyboardPedalPed`); above-staff-ladder.md §"The RATIOS are still guesses" (measured 0.577) |
-| `PEDAL_GLYPH_INK_BELOW_RATIO` | 0.18 × drawn px | rendering/pedalStyle.ts:73 | "`Ped.` has a real DESCENDER" | *F-answerable*; ⚠️ above-staff-ladder.md §"The RATIOS are still guesses" measured **0.0** — "the 'descender' … does not exist" |
-| `PEDAL_LINE.padding` | 0.6 sp | rendering/pedalStyle.ts:107 | "Taste … the dynamics line's own padding, borrowed unchanged" | OPEN pedal-plan.md §12 item 2 |
-| `PEDAL_LINE.minFromStaff` | 4.0 sp | rendering/pedalStyle.ts:108 | "Taste… 4.0 is the plan's suggested start" | OPEN pedal-plan.md §12 item 1; reference/README.md Gould p. 337 (Ped. line 7.25 sp below, under an 8 bracket) |
-| `PEDAL_CONTINUATION_INSET` | 2.0 sp | rendering/pedalStyle.ts:121 | "Taste, and §12.5 asks his eye for it" | OPEN pedal-plan.md §12 item 5 |
-| `PEDAL_MIN_SPAN` (Ped.→✻) | 3.4 sp | rendering/pedalStyle.ts:136 | "Taste, §12.6" | OPEN pedal-plan.md §12 item 6, §5.1a |
-| `PEDAL_BARLINE_AIR` | 0.4 sp | rendering/pedalStyle.ts:152 | "one of the five numbers owed to his eye" | OPEN pedal-plan.md §12 item 4; reference/README.md Gould pp. 333/335 (release point, prose) |
-| `PEDAL_SIGN_GAP` (Ped. → ✻) | 0.5 sp | rendering/pedalStyle.ts:161 | "larger because both sides of this gap are solid glyphs" | pedal-plan.md §12 item 6 (mentions, no value source) |
+| `TRILL_PAREN_RAISE` | 0.22 × paren size | rendering/marks/lines/trillStyle.ts:109 | "Taste, and derived from assumed font metrics rather than measured ones" | none found (paren is serif text; `ornamentTrill` bbox quoted at trillStyle.ts:80) |
+| `TRILL_GLYPH_SIZE` (`tr`) | 26 pt = 3.47 sp @10 | rendering/marks/lines/trillStyle.ts:112 | "A shade under the dynamics' 30" | pedal-plan.md §12 item 3 (text band 2.02–2.42 sp, pre pt→px fix); above-staff-ladder.md §"pt vs px" |
+| `TRILL_GLYPH_INK_ABOVE` | 0.62 × drawn px | rendering/marks/lines/trillStyle.ts:123 | "First-cut proportions, not a measurement" | *F-answerable* (`ornamentTrill` glyphBBox); above-staff-ladder.md §"The RATIOS are still guesses"; trill-plan.md §10 P2 |
+| `TRILL_GLYPH_INK_BELOW` | 0.04 × drawn px | rendering/marks/lines/trillStyle.ts:124 | "First-cut proportions, not a measurement" | *F-answerable* (as above) |
+| `TRILL_LINE.minFromStaff` | 1.0 sp | rendering/marks/lines/trillStyle.ts:158 | "1.0 is a taste value … genuinely waiting on his eye" | OPEN trill-plan.md §10 P2; above-staff-ladder.md §3 |
+| `TRILL_CONTINUATION_INSET` (`(tr)` left of music) | 2.0 sp | rendering/marks/lines/trillStyle.ts:183 | "tuned separately by eye. It starts equal to the ottava's" | ottava-plan.md §"HIS EYE, 2026-08-13" item 5 (direction only); ottava-plan.md §1 "Covered by Gould, NOT yet read" (pp. 28–34) |
+| `TRILL_END_INSET` | 0.5 sp | rendering/marks/lines/trillStyle.ts:209 | "Starting at half a space by eye — a taste value" | OPEN trill-plan.md §10 P2; dynamics-line-and-hairpins-plan.md §2.4c (Gould "about a space") |
+| `OTTAVA_PAREN_SCALE` | 0.52 × glyph size | rendering/marks/lines/ottavaStyle.ts:88 | "Taste, and starting from the trill's 0.52" | OPEN ottava-plan.md §"HIS EYE, 2026-08-13" still-open list |
+| `OTTAVA_PAREN_RAISE` | 0.22 × paren size | rendering/marks/lines/ottavaStyle.ts:97 | "Taste, from the trill's 0.22" | OPEN ottava-plan.md §"HIS EYE"; SMuFL `octaveParensLeft/Right` would make it F |
+| `OTTAVA_GLYPH_SIZE` (8va numeral) | 26 pt = 3.47 sp @10 | rendering/marks/lines/ottavaStyle.ts:102 | "Gould gives the numeral's height … that page is … unread … a first cut" | ottava-plan.md §1 "Covered by Gould, NOT yet read" (pp. 28–34) — Gould now on disk (reference/README.md) |
+| `OTTAVA_GLYPH_INK_ABOVE_RATIO` | 0.62 × drawn px | rendering/marks/lines/ottavaStyle.ts:112 | "First-cut proportions, not a measurement" | *F-answerable* (`ottavaAlta`/`ottavaBassaBa` glyphBBox); above-staff-ladder.md §"The RATIOS are still guesses" |
+| `OTTAVA_GLYPH_INK_BELOW_RATIO` | 0.04 × drawn px | rendering/marks/lines/ottavaStyle.ts:113 | "First-cut proportions, not a measurement" | *F-answerable* (as above) |
+| `OTTAVA_LINE.padding` | 0.5 sp | rendering/marks/lines/ottavaStyle.ts:167 | "Taste, and owed to his eye" | ottava-plan.md §1 rule 5, §5; ottava-plan.md:161 (Gould p. 102 engraving measured, "prices the PADDING") |
+| `OTTAVA_LINE.minFromStaff` | 1.5 sp (was 2.5) | rendering/marks/lines/ottavaStyle.ts:168 | "Taste, and OWED TO HIS EYE" | ottava-plan.md §5; reference/README.md Gould p. 337 figure measured (8 bracket 3.25 sp below bottom line) |
+| `OTTAVA_DASH_LENGTH` | 0.5 sp | rendering/marks/lines/ottavaStyle.ts:205 | "The dash pattern, in staff spaces" (no source) | OPEN ottava-plan.md §"HIS EYE" ("the dash pattern"); §1 Gould pp. 28–34 unread |
+| `OTTAVA_DASH_GAP` | 0.4 sp | rendering/marks/lines/ottavaStyle.ts:206 | (as above) | (as above) |
+| `OTTAVA_END_AIR` | 0.5 sp | rendering/marks/lines/ottavaStyle.ts:258 | "Taste, starting at the trill's own half-space by eye" | ottava-plan.md §"HIS EYE" item 2 (rule, not value) |
+| `OTTAVA_MIN_LINE` | 1.0 sp | rendering/marks/lines/ottavaStyle.ts:275 | no source | OPEN ottava-plan.md §"HIS EYE" ("the min line") |
+| `OTTAVA_HOOK` | 0.8 sp | rendering/marks/lines/ottavaStyle.ts:285 | "The closing HOOK's length" (no source) | OPEN ottava-plan.md §"HIS EYE" ("the hook"); §1 rules 3–4; Gould pp. 28–34 unread |
+| `PEDAL_GLYPH_SIZE` (`Ped.`) | 26 pt = 3.47 sp @10 | rendering/marks/lines/pedalStyle.ts:61 | "A first cut, and one of the five numbers owed to his eye" | OPEN pedal-plan.md §12 item 3; above-staff-ladder.md §"pt vs px" |
+| `PEDAL_GLYPH_INK_ABOVE_RATIO` | 0.52 × drawn px | rendering/marks/lines/pedalStyle.ts:72 | "First-cut proportions, not a measurement" | *F-answerable* (`keyboardPedalPed`); above-staff-ladder.md §"The RATIOS are still guesses" (measured 0.577) |
+| `PEDAL_GLYPH_INK_BELOW_RATIO` | 0.18 × drawn px | rendering/marks/lines/pedalStyle.ts:73 | "`Ped.` has a real DESCENDER" | *F-answerable*; ⚠️ above-staff-ladder.md §"The RATIOS are still guesses" measured **0.0** — "the 'descender' … does not exist" |
+| `PEDAL_LINE.padding` | 0.6 sp | rendering/marks/lines/pedalStyle.ts:107 | "Taste … the dynamics line's own padding, borrowed unchanged" | OPEN pedal-plan.md §12 item 2 |
+| `PEDAL_LINE.minFromStaff` | 4.0 sp | rendering/marks/lines/pedalStyle.ts:108 | "Taste… 4.0 is the plan's suggested start" | OPEN pedal-plan.md §12 item 1; reference/README.md Gould p. 337 (Ped. line 7.25 sp below, under an 8 bracket) |
+| `PEDAL_CONTINUATION_INSET` | 2.0 sp | rendering/marks/lines/pedalStyle.ts:121 | "Taste, and §12.5 asks his eye for it" | OPEN pedal-plan.md §12 item 5 |
+| `PEDAL_MIN_SPAN` (Ped.→✻) | 3.4 sp | rendering/marks/lines/pedalStyle.ts:136 | "Taste, §12.6" | OPEN pedal-plan.md §12 item 6, §5.1a |
+| `PEDAL_BARLINE_AIR` | 0.4 sp | rendering/marks/lines/pedalStyle.ts:152 | "one of the five numbers owed to his eye" | OPEN pedal-plan.md §12 item 4; reference/README.md Gould pp. 333/335 (release point, prose) |
+| `PEDAL_SIGN_GAP` (Ped. → ✻) | 0.5 sp | rendering/marks/lines/pedalStyle.ts:161 | "larger because both sides of this gap are solid glyphs" | pedal-plan.md §12 item 6 (mentions, no value source) |
 
 ### Hairpins & dynamics (7)
 
 | name | value | file:line | comment words | possibly-covering doc |
 |---|---|---|---|---|
-| `HAIRPIN.GROWTH_PER_SPACE` (aperture ramp slope) | 0.012 sp/sp | rendering/hairpinShape.ts:189 | "A taste number with no source" | dynamics-line-and-hairpins-plan.md §2.4d (seven-case fit), §13.1 "PROVISIONAL … no source for either"; §2.4b/§2.4c (Dorico 8→36 ramp, Sibelius/Finale two-step) |
-| `HAIRPIN.END_INSET` | 0.25 sp per end | rendering/hairpinShape.ts:276 | "Unconditional is the POINT, and it was his call" (rule his; value uncited) | OPEN dynamics-line-and-hairpins-plan.md §13.1 "air between two abutting wedges — STILL OPEN. Dorico leaves a notehead width (~1.18 sp)"; §2.4c |
-| squeezed-wedge sliver | 1 sp | rendering/HairpinRenderer.ts:559 | "a wedge squeezed to nothing … keeps a sliver" | none found (degenerate case) |
-| `DYNAMIC_GLYPH_SIZE` (p/f/mf) | 30 pt = 4.0 sp @10 | rendering/dynamicStyle.ts:13 | bare constant, no comment | none found for the size; above-staff-ladder.md §"THE LADDER'S INK WAS A QUARTER TOO SMALL — pt vs px" measures its ink (1.80 sp) |
-| `DYNAMIC_GLYPH_INK_ABOVE` | 0.68 × drawn px | rendering/dynamicStyle.ts:51 | "First-cut proportions of the glyph size — tune to taste" | *F-answerable* (glyphBox, already used per letter in dynamicMarkInk.ts); above-staff-ladder.md §"The RATIOS are still guesses" (measured 0.45) |
-| `DYNAMIC_GLYPH_INK_BELOW` | 0.18 × drawn px | rendering/dynamicStyle.ts:52 | "First-cut proportions … tune to taste" | *F-answerable*; same doc (measured 0.15) |
-| co-located dynamics row `GAP` (`p dolce`) | 6 px @10 = 0.6 sp | rendering/DynamicsLayout.ts:154 | "0.6 staff-spaces of INK, in the bar's own space" | dynamics-line-and-hairpins-plan.md §3 (keeps the row and the GAP, no value source) |
+| `HAIRPIN.GROWTH_PER_SPACE` (aperture ramp slope) | 0.012 sp/sp | rendering/marks/dynamics/hairpinShape.ts:189 | "A taste number with no source" | dynamics-line-and-hairpins-plan.md §2.4d (seven-case fit), §13.1 "PROVISIONAL … no source for either"; §2.4b/§2.4c (Dorico 8→36 ramp, Sibelius/Finale two-step) |
+| `HAIRPIN.END_INSET` | 0.25 sp per end | rendering/marks/dynamics/hairpinShape.ts:276 | "Unconditional is the POINT, and it was his call" (rule his; value uncited) | OPEN dynamics-line-and-hairpins-plan.md §13.1 "air between two abutting wedges — STILL OPEN. Dorico leaves a notehead width (~1.18 sp)"; §2.4c |
+| squeezed-wedge sliver | 1 sp | rendering/marks/dynamics/HairpinRenderer.ts:559 | "a wedge squeezed to nothing … keeps a sliver" | none found (degenerate case) |
+| `DYNAMIC_GLYPH_SIZE` (p/f/mf) | 30 pt = 4.0 sp @10 | rendering/marks/dynamics/dynamicStyle.ts:13 | bare constant, no comment | none found for the size; above-staff-ladder.md §"THE LADDER'S INK WAS A QUARTER TOO SMALL — pt vs px" measures its ink (1.80 sp) |
+| `DYNAMIC_GLYPH_INK_ABOVE` | 0.68 × drawn px | rendering/marks/dynamics/dynamicStyle.ts:51 | "First-cut proportions of the glyph size — tune to taste" | *F-answerable* (glyphBox, already used per letter in dynamicMarkInk.ts); above-staff-ladder.md §"The RATIOS are still guesses" (measured 0.45) |
+| `DYNAMIC_GLYPH_INK_BELOW` | 0.18 × drawn px | rendering/marks/dynamics/dynamicStyle.ts:52 | "First-cut proportions … tune to taste" | *F-answerable*; same doc (measured 0.15) |
+| co-located dynamics row `GAP` (`p dolce`) | 6 px @10 = 0.6 sp | rendering/marks/dynamics/DynamicsLayout.ts:154 | "0.6 staff-spaces of INK, in the bar's own space" | dynamics-line-and-hairpins-plan.md §3 (keeps the row and the GAP, no value source) |
 
 ### Tempo & text (7)
 
 | name | value | file:line | comment words | possibly-covering doc |
 |---|---|---|---|---|
-| `TEMPO_GLYPH_FONT_SIZE` (metronome ♩) | 20 pt = 2.67 sp @10 | rendering/tempoStyle.ts:38 | "tracks TEMPO_TEXT_FONT_SIZE at about 1.12× … roughly the word's own height" | none found (tempo-marks-research.md §3 / tempo-marks-plan.md §6 cover rendering, not the note's size) |
-| `TEMPO_INK_ABOVE` (♩ top) | 0.75 × drawn px | rendering/tempoStyle.ts:77 | "First cut BY EYE, exactly as dynamicStyle's 0.68/0.18 and trillStyle's 0.62/0.04 were" | *F-answerable* (`metNoteQuarterUp`); above-staff-ladder.md §"The RATIOS are still guesses" |
-| `TEMPO_INK_BELOW` (text descender) | 0.22 × drawn px | rendering/tempoStyle.ts:78 | "First cut BY EYE" | text-font metric, not SMuFL; above-staff-ladder.md §"The RATIOS are still guesses" |
-| `TEMPO_LINE.padding` | 0.8 sp | rendering/tempoStyle.ts:106 | "Both are TASTE, and they are the pair owed to his eye" | OPEN ottava-plan.md §8 P0b ("Owed to his eye — the two numbers"); above-staff-ladder.md §1/§3 |
-| `TEMPO_LINE.minFromStaff` | 3.0 sp | rendering/tempoStyle.ts:108 | "3.0 is that guess" | OPEN ottava-plan.md §8 P0b; tempo-marks-plan.md §6.4 |
+| `TEMPO_GLYPH_FONT_SIZE` (metronome ♩) | 20 pt = 2.67 sp @10 | rendering/marks/tempo/tempoStyle.ts:38 | "tracks TEMPO_TEXT_FONT_SIZE at about 1.12× … roughly the word's own height" | none found (tempo-marks-research.md §3 / tempo-marks-plan.md §6 cover rendering, not the note's size) |
+| `TEMPO_INK_ABOVE` (♩ top) | 0.75 × drawn px | rendering/marks/tempo/tempoStyle.ts:77 | "First cut BY EYE, exactly as dynamicStyle's 0.68/0.18 and trillStyle's 0.62/0.04 were" | *F-answerable* (`metNoteQuarterUp`); above-staff-ladder.md §"The RATIOS are still guesses" |
+| `TEMPO_INK_BELOW` (text descender) | 0.22 × drawn px | rendering/marks/tempo/tempoStyle.ts:78 | "First cut BY EYE" | text-font metric, not SMuFL; above-staff-ladder.md §"The RATIOS are still guesses" |
+| `TEMPO_LINE.padding` | 0.8 sp | rendering/marks/tempo/tempoStyle.ts:106 | "Both are TASTE, and they are the pair owed to his eye" | OPEN ottava-plan.md §8 P0b ("Owed to his eye — the two numbers"); above-staff-ladder.md §1/§3 |
+| `TEMPO_LINE.minFromStaff` | 3.0 sp | rendering/marks/tempo/tempoStyle.ts:108 | "3.0 is that guess" | OPEN ottava-plan.md §8 P0b; tempo-marks-plan.md §6.4 |
 | `SCORE_TEXT_SPECS.title.baselineSpaces` | 3.46 sp (0.78 ascent) | rendering/ScoreHeaderPass.ts:90 | "0.78 is a serif face's ascent … ⚠️ A GUESS" | score-header-sketch.md §3b — 🚧 SKETCH module, to be thrown away |
 | `SCORE_TEXT_SPECS.composer.baselineSpaces` | 9.3 sp (0.25 descender) | rendering/ScoreHeaderPass.ts:93 | "less a descender's worth" (0.25 uncited) | score-header-sketch.md §3b — 🚧 SKETCH |
 
@@ -211,12 +211,12 @@ lists it as owed to his eye.
 | `SLUR_ARCH_TILT_LIMIT` | 0.693 lean÷arch | rendering/curves/curveStyle.ts:363 | "the citation for this one is his drawing" | slur-plan.md §"1. The lean was unbounded" |
 | `LAYOUT_CONFIG.MIN_MEASURE_WIDTH` | 10 sp | rendering/layoutConfig.ts:98 | "a DEFAULT chosen by eye … *I think 10 was nicer*" | bar-width-plan.md §1.5 |
 | `SCORE_TEXT_SPECS.composer.sizeSpaces` | 2.8 sp | rendering/ScoreHeaderPass.ts:93 | "The COMPOSER is NOT, and his eye is why" | score-header-sketch.md (🚧 SKETCH) |
-| `HAIRPIN.APERTURE` | 1.5 sp | rendering/hairpinShape.ts:52 | "the majority, chosen on 2026-08-15 over the 1.33" | dynamics-line-and-hairpins-plan.md §2.4d, §13.1 |
-| `HAIRPIN.GROWTH_FROM_SPACES` | 36 sp | rendering/hairpinShape.ts:176 | "We do NOT take Dorico's numbers, and the reason is his eye" | dynamics-line-and-hairpins-plan.md §2.4d (§13.1 still calls it PROVISIONAL) |
-| `HAIRPIN.MAX_ANGLE_DEGREES` | 11.5 deg | rendering/hairpinShape.ts:253 | "11.5°, not Verovio's 16° — his eye" | dynamics-line-and-hairpins-plan.md §2.4a, §13.1 |
-| `TRILL_PAREN_SCALE` | 0.52 × tr size | rendering/trillStyle.ts:100 | "Pure taste, tuned against his eye … 0.85 was 'definitely too big'" | trill-plan.md §1 rule 6 |
-| `OTTAVA_LINE_RAISE_ABOVE` | 0.5 × mark ink above | rendering/ottavaStyle.ts:195 | "Both numbers are taste and both are his" | ottava-plan.md §"HIS EYE, 2026-08-13" item 4 |
-| `OTTAVA_LINE_RAISE_BELOW` | 0 sp | rendering/ottavaStyle.ts:196 | "BELOW is 0 — the baseline itself" | (as above) |
+| `HAIRPIN.APERTURE` | 1.5 sp | rendering/marks/dynamics/hairpinShape.ts:52 | "the majority, chosen on 2026-08-15 over the 1.33" | dynamics-line-and-hairpins-plan.md §2.4d, §13.1 |
+| `HAIRPIN.GROWTH_FROM_SPACES` | 36 sp | rendering/marks/dynamics/hairpinShape.ts:176 | "We do NOT take Dorico's numbers, and the reason is his eye" | dynamics-line-and-hairpins-plan.md §2.4d (§13.1 still calls it PROVISIONAL) |
+| `HAIRPIN.MAX_ANGLE_DEGREES` | 11.5 deg | rendering/marks/dynamics/hairpinShape.ts:253 | "11.5°, not Verovio's 16° — his eye" | dynamics-line-and-hairpins-plan.md §2.4a, §13.1 |
+| `TRILL_PAREN_SCALE` | 0.52 × tr size | rendering/marks/lines/trillStyle.ts:100 | "Pure taste, tuned against his eye … 0.85 was 'definitely too big'" | trill-plan.md §1 rule 6 |
+| `OTTAVA_LINE_RAISE_ABOVE` | 0.5 × mark ink above | rendering/marks/lines/ottavaStyle.ts:195 | "Both numbers are taste and both are his" | ottava-plan.md §"HIS EYE, 2026-08-13" item 4 |
+| `OTTAVA_LINE_RAISE_BELOW` | 0 sp | rendering/marks/lines/ottavaStyle.ts:196 | "BELOW is 0 — the baseline itself" | (as above) |
 
 Several S rows also carry a D *choice of row* (e.g. `DOT_GAP_RULES` armed `house` = "his report",
 `BARLINE_METER_RULES` armed `gerouLusk`, `CLEF_METER_RULES` armed `stone`, `HEADER_GAP_RULES` armed
@@ -295,12 +295,12 @@ Engine-copied or borrowed without a citation:
 - tuplet bracket air 5 px @10, rendering/ScoreTuplet.ts:147-175 + ScoreRenderer.ts:3304 — probably VexFlow's `tuplet.js`, but uncited. tuplet-control-plan.md §1–§2.
 - tuplet bracket leg 10 px @10, rendering/ScoreTuplet.ts:180-181 — bare `location * 10`, which is VexFlow's. tuplet-control-plan.md §2.
 - tuplet bracket thickness 1 px @10, rendering/ScoreTuplet.ts:170-180 + ScoreRenderer.ts:3331 — ⚠️ **conflicts** with thinLineWeight.ts's claim that tuplet brackets share 0.16 sp. staff-line-research.md §4.3.
-- `MARK_INK` (dynamics ink in sp), rendering/dynamicsLinePass.ts:74 — a re-export of `dynamicStyle` 0.68/0.18. Don't count it twice.
-- `TRILL_LINE.padding` 0.5 sp, rendering/trillStyle.ts:157 — ⚠️ **conflicting comments**: "LilyPond's `TrillSpanner` defaults" here, while ottavaStyle.ts:164 says the trill's 0.5/1.0 "were tuned by looking". trill-plan.md §1 rule 8, §10 P2.
-- wiggle glyph size `/10`, rendering/TrillRenderer.ts:918 — `STAFF_SPACE_PX` inlined. A unit conversion, but the sign and the wiggle take different size paths. above-staff-ladder.md §pt vs px.
-- `OTTAVA_NUMERAL_GAP` 0.3 sp, rendering/ottavaStyle.ts:173 — borrowed from the trill's LilyPond value. ottava-plan.md §1 (Gould pp. 28–34 unread).
-- `OTTAVA_CONTINUATION_INSET` 2.0 sp, rendering/ottavaStyle.ts:229 — ⚠️ conflicting: "Taste — his eye picks" here, "his eye's value" at pedalStyle.ts:113, and ottava-plan.md §"HIS EYE" still lists it open.
-- tempo draw origin `getYForTopText(1)`, rendering/TempoLayout.ts:450 — translated away by the line pass, so probably not a preset value. tempo-marks-plan.md §6.4.
+- `MARK_INK` (dynamics ink in sp), rendering/marks/dynamics/dynamicsLinePass.ts:74 — a re-export of `dynamicStyle` 0.68/0.18. Don't count it twice.
+- `TRILL_LINE.padding` 0.5 sp, rendering/marks/lines/trillStyle.ts:157 — ⚠️ **conflicting comments**: "LilyPond's `TrillSpanner` defaults" here, while ottavaStyle.ts:164 says the trill's 0.5/1.0 "were tuned by looking". trill-plan.md §1 rule 8, §10 P2.
+- wiggle glyph size `/10`, rendering/marks/lines/TrillRenderer.ts:918 — `STAFF_SPACE_PX` inlined. A unit conversion, but the sign and the wiggle take different size paths. above-staff-ladder.md §pt vs px.
+- `OTTAVA_NUMERAL_GAP` 0.3 sp, rendering/marks/lines/ottavaStyle.ts:173 — borrowed from the trill's LilyPond value. ottava-plan.md §1 (Gould pp. 28–34 unread).
+- `OTTAVA_CONTINUATION_INSET` 2.0 sp, rendering/marks/lines/ottavaStyle.ts:229 — ⚠️ conflicting: "Taste — his eye picks" here, "his eye's value" at pedalStyle.ts:113, and ottava-plan.md §"HIS EYE" still lists it open.
+- tempo draw origin `getYForTopText(1)`, rendering/marks/tempo/TempoLayout.ts:450 — translated away by the line pass, so probably not a preset value. tempo-marks-plan.md §6.4.
 - linear-view gutter bar number 11 px / 8 px lift / 10 px inset, rendering/GutterRenderer.ts:17-26 — editor chrome, arguably not engraving. linear-view-plan.md §"P3".
 
 ## 6. Suggested research batches (topics only)

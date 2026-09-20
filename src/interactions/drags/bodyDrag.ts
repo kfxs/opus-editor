@@ -22,7 +22,7 @@
  * - **One undo entry per gesture**, and none when the press never became a drag.
  */
 import type { MusicEngine } from '../../engine/MusicEngine'
-import type { MarkPreviewKind } from '../../engine/rendering/markPreviewPass'
+import type { MarkPreviewKind } from '../../engine/rendering/marks/markPreviewPass'
 import { dbg } from '../../utils/debug'
 import { DRAG_TIME_THRESHOLD_MS, type DragHost, type DragKind, type Gesture } from './gesture'
 

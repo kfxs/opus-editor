@@ -55,8 +55,8 @@ kept at `~/dev/engine-sources/vexflow-5.0.0-npm/package`, and its `node_modules/
 
 | role | face used now | source |
 |---|---|---|
-| tempo words | Academico **bold**, reached through VexFlow's stack `'Bravura,Academico'` (⚠️ since S13a our own row, `src/engine/fonts/fontCategories.ts:37`, ported from it) and re-ordered text-first | `node_modules/vexflow/build/esm/src/metrics.js:62`; `src/engine/rendering/TempoLayout.ts:155-160`; fallback `src/interactions/TempoTextSource.ts:21` |
-| expression words (`dolce`), italic | **not Academico**: `DYNAMIC_TEXT_FONT = 'Georgia, "Times New Roman", Times, serif'`, chosen because it *"has a true italic face (the music font doesn't)"* | `src/engine/rendering/dynamicStyle.ts:54-56`; applied italic at `src/interactions/DynamicTextSource.ts:265-267` |
+| tempo words | Academico **bold**, reached through VexFlow's stack `'Bravura,Academico'` (⚠️ since S13a our own row, `src/engine/fonts/fontCategories.ts:37`, ported from it) and re-ordered text-first | `node_modules/vexflow/build/esm/src/metrics.js:62`; `src/engine/rendering/marks/tempo/TempoLayout.ts:155-160`; fallback `src/interactions/TempoTextSource.ts:21` |
+| expression words (`dolce`), italic | **not Academico**: `DYNAMIC_TEXT_FONT = 'Georgia, "Times New Roman", Times, serif'`, chosen because it *"has a true italic face (the music font doesn't)"* | `src/engine/rendering/marks/dynamics/dynamicStyle.ts:54-56`; applied italic at `src/interactions/DynamicTextSource.ts:265-267` |
 | italic parentheses (trill, ottava, pedal) | the same Georgia/Times stack | `trillStyle.ts:59`, `ottavaStyle.ts:78`, `pedalStyle.ts:50` (all `src/engine/rendering/`) |
 | title and composer (the 🚧 sketch) | `Georgia, "Times New Roman", Times, serif` | `src/engine/rendering/ScoreHeaderPass.ts:125-128, 202` |
 | menu specimens (italic expression, bold tempo) | Georgia/Times stack | `src/menus/MenuLayer.ts:171-172, 179` |

@@ -525,7 +525,7 @@ export interface DynamicOffsetOverride extends EngravingOverride {
  * +down (screen). {@link DynamicOffsetOverride}'s twin, element-id-keyed the same way.
  *
  * ⭐ **What it is measured FROM is the ladder's answer, not a constant**: the mark is drawn on the
- * row `rendering/tempoLinePass` gives it (above whatever its own music, a trill or an 8va bracket
+ * row `rendering/marks/tempo/tempoLinePass` gives it (above whatever its own music, a trill or an 8va bracket
  * claimed), and this rides on top of that — so a nudged mark still moves when the music beneath it
  * does. ⛔ Which is why it is stored here and not as a y in the model: it is an adjustment to an
  * engraved position, not a position.
@@ -545,7 +545,7 @@ export interface TempoOffsetOverride extends EngravingOverride {
    * types about a mark means *how far from the staff*, and for a mark that is always drawn ABOVE
    * the staff that direction is up. A dynamic hangs BELOW, so its screen-down `y` already reads as
    * "further away" and needs no such rule. ⚠️ The two are converted at exactly two places — the
-   * render (`rendering/TempoLayout`) and the page limit (`MusicEngine.tempo.nudgeTempoOffset`) — and
+   * render (`rendering/marks/tempo/TempoLayout`) and the page limit (`MusicEngine.tempo.nudgeTempoOffset`) — and
    * nothing else may assume a sign.
    */
   y: number

@@ -7,7 +7,7 @@ import {
   cautionaryClefKey, cautionaryKey, cautionaryKeyGapKey, cautionaryKeyGapOf, restPositionKey,
   curveShapeOverrideOf, segmentCurveShapeOverrideOf, hairpinApertureOverrideOf,
 } from '../engine/models/engravingOverrides'
-import { authoredApertureRange } from '../engine/rendering/hairpinShape'
+import { authoredApertureRange } from '../engine/rendering/marks/dynamics/hairpinShape'
 import { selectedNoteIds } from './selection'
 import { staffOf, voiceOf } from '@/utils/lanes'
 import { beatToFrac } from '@/utils/musicUtils'

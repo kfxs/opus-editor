@@ -2,7 +2,7 @@ import type { MusicEngine } from '../engine/MusicEngine'
 import type { EditableTextSource, TextEditInsert, TextEditInsertion } from './TextEditController'
 import type { MenuItem } from '../menus/MenuItem'
 import { buildExpressionMenu } from '../menus/expressionMenu'
-import { DYNAMIC_TEXT_FONT, DYNAMIC_TEXT_SIZE, DYNAMIC_GLYPH_SIZE } from '../engine/rendering/dynamicStyle'
+import { DYNAMIC_TEXT_FONT, DYNAMIC_TEXT_SIZE, DYNAMIC_GLYPH_SIZE } from '../engine/rendering/marks/dynamics/dynamicStyle'
 import { dbg } from '@/utils/debug'
 import { dynamicLabel, levelToGlyphString, splitDynamicRuns } from '../utils/dynamics'
 

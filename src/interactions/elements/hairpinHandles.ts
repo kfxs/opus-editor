@@ -39,7 +39,7 @@ import type { MusicEngine } from '../../engine/MusicEngine'
 import type { HairpinCommands } from '@/engine/commands/hairpinCommands'
 import type { EditorState } from '../EditorState'
 import { selectedOf } from '../EditorState'
-import { authoredApertureRange } from '../../engine/rendering/hairpinShape'
+import { authoredApertureRange } from '../../engine/rendering/marks/dynamics/hairpinShape'
 import { dbg } from '../../utils/debug'
 
 /** One drawn handle: a point, and which end of the span it is. */

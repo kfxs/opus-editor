@@ -34,7 +34,7 @@
  * parked anywhere in the gap without changing the beat it applies from, which playback reads.
  *
  * ⚠️ **`gap` is a NOTEHEAD-to-NOTEHEAD distance.** A dynamic is drawn centred on its notehead
- * (`rendering/dynamicMarkAnchor.ts`), so the two agree exactly — where the slur has to tolerate an
+ * (`rendering/marks/dynamics/dynamicMarkAnchor.ts`), so the two agree exactly — where the slur has to tolerate an
  * endpoint that attaches to a head or a stem tip depending on the stems, this one does not.
  *
  * 🚨 **It will not walk across a system break.** Two x's from different systems are not on one

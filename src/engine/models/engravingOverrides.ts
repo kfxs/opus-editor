@@ -499,7 +499,7 @@ export function dynamicOffsetOverrideOf(score: Score, dynamicId: string): Dynami
 /**
  * The tempo mark's hand-nudged position offset, if any (client #13 — his ask, 2026-08-19). The
  * reader above's twin in every respect: `{x,y}` in **staff-spaces**, added at render to the row the
- * ladder gave the mark (`rendering/tempoLinePass`), element-id-keyed, absent = no offset.
+ * ladder gave the mark (`rendering/marks/tempo/tempoLinePass`), element-id-keyed, absent = no offset.
  */
 export function tempoOffsetOverrideOf(score: Score, tempoId: string): TempoOffsetOverride | undefined {
   return engravingOverrideOf(score, tempoId, 'tempoOffset') as TempoOffsetOverride | undefined

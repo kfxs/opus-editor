@@ -19,21 +19,21 @@ coded by the engines. The rows come from the inventory (§2, "Trills / ottava / 
 
 | # | name | today | file:line | inventory class |
 |---|---|---|---|---|
-| 1 | `OTTAVA_DASH_LENGTH` / `OTTAVA_DASH_GAP` | 0.5 / 0.4 sp | `rendering/ottavaStyle.ts:205-206` | T |
-| 2 | `OTTAVA_HOOK` | 0.8 sp | `rendering/ottavaStyle.ts:285` | T |
-| 3 | `OTTAVA_END_AIR` | 0.5 sp | `rendering/ottavaStyle.ts:258` | T (the RULE is his, the value is not) |
-| 4 | `OTTAVA_MIN_LINE` | 1.0 sp | `rendering/ottavaStyle.ts:275` | T |
-| 5 | `OTTAVA_NUMERAL_GAP` | 0.3 sp | `rendering/ottavaStyle.ts:173` | ? |
-| 6 | `OTTAVA_CONTINUATION_INSET` | 2.0 sp | `rendering/ottavaStyle.ts:229` | ? |
-| 7 | `TRILL_CONTINUATION_INSET` | 2.0 sp | `rendering/trillStyle.ts:183` | T |
-| 8 | `PEDAL_CONTINUATION_INSET` | 2.0 sp | `rendering/pedalStyle.ts:121` | T |
-| 9 | `TRILL_END_INSET` | 0.5 sp | `rendering/trillStyle.ts:209` | T (the RULE is his, the value is not) |
-| 10 | `PEDAL_BARLINE_AIR` | 0.4 sp | `rendering/pedalStyle.ts:152` | T |
-| 11 | `PEDAL_MIN_SPAN` (`Ped.`→✻) | 3.4 sp | `rendering/pedalStyle.ts:136` | T |
-| 12 | `PEDAL_SIGN_GAP` | 0.5 sp | `rendering/pedalStyle.ts:161` | T |
-| 13 | `HAIRPIN.END_INSET` | 0.25 sp per end | `rendering/hairpinShape.ts:276` | T (the RULE is his, the value is open) |
-| 14 | `HAIRPIN.GROWTH_PER_SPACE` | 0.012 sp/sp (from `GROWTH_FROM_SPACES` 36) | `rendering/hairpinShape.ts:189` (`:176`) | T (fitted to his eye, PROVISIONAL) |
-| 15 | squeezed-wedge sliver | 1 sp | `rendering/HairpinRenderer.ts:559` | T |
+| 1 | `OTTAVA_DASH_LENGTH` / `OTTAVA_DASH_GAP` | 0.5 / 0.4 sp | `rendering/marks/lines/ottavaStyle.ts:205-206` | T |
+| 2 | `OTTAVA_HOOK` | 0.8 sp | `rendering/marks/lines/ottavaStyle.ts:285` | T |
+| 3 | `OTTAVA_END_AIR` | 0.5 sp | `rendering/marks/lines/ottavaStyle.ts:258` | T (the RULE is his, the value is not) |
+| 4 | `OTTAVA_MIN_LINE` | 1.0 sp | `rendering/marks/lines/ottavaStyle.ts:275` | T |
+| 5 | `OTTAVA_NUMERAL_GAP` | 0.3 sp | `rendering/marks/lines/ottavaStyle.ts:173` | ? |
+| 6 | `OTTAVA_CONTINUATION_INSET` | 2.0 sp | `rendering/marks/lines/ottavaStyle.ts:229` | ? |
+| 7 | `TRILL_CONTINUATION_INSET` | 2.0 sp | `rendering/marks/lines/trillStyle.ts:183` | T |
+| 8 | `PEDAL_CONTINUATION_INSET` | 2.0 sp | `rendering/marks/lines/pedalStyle.ts:121` | T |
+| 9 | `TRILL_END_INSET` | 0.5 sp | `rendering/marks/lines/trillStyle.ts:209` | T (the RULE is his, the value is not) |
+| 10 | `PEDAL_BARLINE_AIR` | 0.4 sp | `rendering/marks/lines/pedalStyle.ts:152` | T |
+| 11 | `PEDAL_MIN_SPAN` (`Ped.`→✻) | 3.4 sp | `rendering/marks/lines/pedalStyle.ts:136` | T |
+| 12 | `PEDAL_SIGN_GAP` | 0.5 sp | `rendering/marks/lines/pedalStyle.ts:161` | T |
+| 13 | `HAIRPIN.END_INSET` | 0.25 sp per end | `rendering/marks/dynamics/hairpinShape.ts:276` | T (the RULE is his, the value is open) |
+| 14 | `HAIRPIN.GROWTH_PER_SPACE` | 0.012 sp/sp (from `GROWTH_FROM_SPACES` 36) | `rendering/marks/dynamics/hairpinShape.ts:189` (`:176`) | T (fitted to his eye, PROVISIONAL) |
+| 15 | squeezed-wedge sliver | 1 sp | `rendering/marks/dynamics/HairpinRenderer.ts:559` | T |
 
 **Existing docs this builds on, and does not repeat:**
 - `docs/plans/ottava-plan.md` §1 (rules) and §"HIS EYE, 2026-08-13": the air before the hook and the

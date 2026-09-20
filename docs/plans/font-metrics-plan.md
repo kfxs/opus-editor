@@ -631,7 +631,7 @@ paragraph in a doc, not a piece of work.
 
 ### ⭐ The first consumer OUTSIDE layout — 2026-08-17
 
-`engine/rendering/dynamicMarkInk.ts` asks the table how far a dynamic mark's ink reaches, per letter,
+`engine/rendering/marks/dynamics/dynamicMarkInk.ts` asks the table how far a dynamic mark's ink reaches, per letter,
 because a GUIDE has to touch the letter it points at and the mark's box top is one fraction of the
 glyph size for every letter (`f` 1.776 sp against `p` 1.096 — see `docs/plans/dynamic-offset-plan.md`). It
 is worth recording for two reasons:

@@ -779,7 +779,7 @@ export class ElementRegistry {
 
   /**
    * ⭐⭐ **WHERE A TEMPO MARK ANCHORED AT THIS BEAT IS DRAWN** — `measure:beat` → x, filled by the
-   * one function that decides it (`rendering/TempoLayout.anchorX`) as each bar is drawn.
+   * one function that decides it (`rendering/marks/tempo/TempoLayout.anchorX`) as each bar is drawn.
    *
    * 🚨🚨 **IT EXISTS BECAUSE TWO FUNCTIONS WERE ANSWERING ONE QUESTION**, and his report of
    * 2026-08-31 is what that costs: *"i'm moving the hand and the tempo is not moving on certain

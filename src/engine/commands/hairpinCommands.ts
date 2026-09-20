@@ -96,7 +96,7 @@ export function hairpinCommands(ctx: CommandContext) {
      *
      * ⛔ This deliberately drops the plan's §11.4 sketch ("this note → the end of the NEXT slot").
      * That was reasoned from minimum-length — a wedge over one quarter is short — but the fix for a
-     * short wedge is the angle cap (`rendering/hairpinShape.ts`), not silently covering music the
+     * short wedge is the angle cap (`rendering/marks/dynamics/hairpinShape.ts`), not silently covering music the
      * user did not select. `Ctrl+→` is how a wedge grows, and it is the only thing that should.
      *
      * ⛔ **A REST cannot anchor one.** A hairpin says the sounding music is getting louder; the engine

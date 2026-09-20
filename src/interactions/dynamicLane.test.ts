@@ -7,7 +7,7 @@
  *
  * ⭐⭐ The claims are about WHICH x's exist at all, and they are the reason this is one function
  * rather than a copy in the walk and another in the drag: a mark is drawn CENTRED on its notehead
- * (`rendering/dynamicMarkAnchor.ts`), a chord is ONE slot, a rest is a slot, and nothing outside the
+ * (`rendering/marks/dynamics/dynamicMarkAnchor.ts`), a chord is ONE slot, a rest is a slot, and nothing outside the
  * mark's own lane is one.
  */
 import { describe, it, expect } from 'vitest'

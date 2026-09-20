@@ -81,7 +81,7 @@ All four items below are closed. Kept for the record.
 | Read (`dynamicOffsetOverrideOf`) | `src/engine/models/engravingOverrides.ts` |
 | Mutator (`nudgeDynamicOffset`, accumulate + clear-at-0) | `src/engine/models/ScoreModel.ts` |
 | Facade (`nudgeDynamicOffset`, one `saveOnly` undo) | `src/engine/MusicEngine.ts` |
-| Render apply (`applyDynamicOffsets`) | `src/engine/rendering/DynamicsLayout.ts` |
+| Render apply (`applyDynamicOffsets`) | `src/engine/rendering/marks/dynamics/DynamicsLayout.ts` |
 | Keyboard (`nudgeSelectedDynamic`) | `src/composables/useShortcuts.ts` |
 
 ## Render note
@@ -133,7 +133,7 @@ Three of his reports in one sitting, and the third is the general rule:
    top is `DYNAMIC_GLYPH_INK_ABOVE` = `0.68 × the glyph size` — **one fraction for every letter** —
    while Bravura's real reaches are `f` 1.776 sp and `p` 1.096 sp. So the guide began ~9 px above
    anything drawn over a `p`. The point is now measured per letter off the font
-   (`engine/rendering/dynamicMarkInk.ts` → `engine/fonts`), captured at render as
+   (`engine/rendering/marks/dynamics/dynamicMarkInk.ts` → `engine/fonts`), captured at render as
    `ElementInfo.guideFrom`, and it is the ink corner **nearest the staff** — top for a mark below,
    bottom for one above — so the guide never crosses the letter it points at.
    ⛔ **The BOX deliberately keeps the constant**: it is the hit-box, the text-overlay's placement and
@@ -593,9 +593,9 @@ render instead of re-deriving the score. The dynamic joined the table the day af
 and it is the tempo's shape: a MOVED family, since its letters are an `Annotation` attached to the
 anchor note, drawn *inside its bar's group*, and repositioned by one composed transform.
 
-- ⭐ `rendering/dynamicNudgePass` (new) — the composer's nudge, re-applied by id. Its only other
+- ⭐ `rendering/marks/dynamics/dynamicNudgePass` (new) — the composer's nudge, re-applied by id. Its only other
   writer is inside the bar draw a preview skips.
-- `rendering/dynamicsLinePass` — the LINE, re-planned (⛔ never a captured plan) and re-applied.
+- `rendering/marks/dynamics/dynamicsLinePass` — the LINE, re-planned (⛔ never a captured plan) and re-applied.
 
 ### 🚨 The nudge had to be SPLIT OUT of the co-located row's shift
 

@@ -28,7 +28,7 @@
  * ## The two axes, because mixing them is what this kind of module gets wrong
  *
  * **Horizontal: ABSOLUTE QUARTER-BEATS from the score's start** ({@link measureStartOffsets}) — the
- * same axis `rendering/dynamicsLinePlan.ts` already levels chains on, and it is shared rather than
+ * same axis `rendering/marks/dynamics/dynamicsLinePlan.ts` already levels chains on, and it is shared rather than
  * re-derived so two families cannot disagree about where bar 7 begins. ⛔ **Not pixels.** A pixel x
  * is in one system's coordinates and is scaled by its staff's size; a beat is neither, and every
  * producer and consumer here knows its own musical extent already.
@@ -80,7 +80,7 @@ export interface OccupiedSpan {
  * two marks either side of a barline, or in different families, can only be compared on one, and a
  * second copy of this walk is a second answer to where bar 7 begins.
  *
- * (It was `rendering/dynamicsLinePlan.ts`'s private helper first, where chaining needed exactly this
+ * (It was `rendering/marks/dynamics/dynamicsLinePlan.ts`'s private helper first, where chaining needed exactly this
  * and nothing else did.)
  */
 export const measureStartOffsets = (score: Score): Map<number, Fraction> =>

@@ -97,8 +97,8 @@ and follow the errors" here. The list is short enough to BE the checklist:
 |---|---|
 | `utils/dynamics` `resolveChordLevels:340` / `resolveActiveLevel:299` | every voice **of the mark's staff** — 🚨 and the staff test above. One non-test caller of the latter: `ScoreModel:1322`, whose signature gains the staff |
 | `engine/models/dynamicOps:60` (`laneStops`) | any voice on its staff — the tempo mark's `onsets` rule |
-| `engine/rendering/DynamicsLayout:66` (the drawn anchor) | the slot at that beat in ANY voice. ⭐ State the tie-break — *first in reading order* — it is arbitrary between voices and the mark is centred on the COLUMN anyway (`dynamicMarkAnchor`) |
-| `engine/rendering/HairpinRenderer:130,305,313` (its lane + the dynamics it clears) | any voice on its staff |
+| `engine/rendering/marks/dynamics/DynamicsLayout:66` (the drawn anchor) | the slot at that beat in ANY voice. ⭐ State the tie-break — *first in reading order* — it is arbitrary between voices and the mark is centred on the COLUMN anyway (`dynamicMarkAnchor`) |
+| `engine/rendering/marks/dynamics/HairpinRenderer:130,305,313` (its lane + the dynamics it clears) | any voice on its staff |
 | `engine/models/hairpinOps:311,362` (`addHairpinOverNotes` dedup, `hairpinSpan`) | a wedge with no voice covers the staff |
 | `interactions/dynamicLane:58`, `elements/hairpinHandles:169` | the lane the walk/handles read |
 | `interactions/attachedMarks:85,100` (the Properties list for a note) | an ALL mark is attached to every voice's note — ⚠️ and it tests voice but **not staff**, so a staff-2 hairpin would list under a staff-1 note. Same fix, same commit |

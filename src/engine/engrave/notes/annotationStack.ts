@@ -1,7 +1,7 @@
 /**
  * ⭐⭐ **HOW A COLUMN'S TEXT ANNOTATIONS STACK** — S9f of `docs/history/vexflow-removal-map.md`
  * (`Annotation.format`, MIT, transcribed). In this editor the only annotations are the DYNAMICS
- * (`rendering/DynamicsLayout.buildDynamicAnnotation`).
+ * (`rendering/marks/dynamics/DynamicsLayout.buildDynamicAnnotation`).
  *
  * ## ⭐ What the rule IS
  *
@@ -16,7 +16,7 @@
  * ## ⛔ What is NOT here
  *
  * - **Where the text is drawn from its text line** — `Annotation.draw`, still VexFlow's.
- * - **The dynamics LANE** — the text lines this sets are overruled by `rendering/dynamicsLinePass`,
+ * - **The dynamics LANE** — the text lines this sets are overruled by `rendering/marks/dynamics/dynamicsLinePass`,
  *   which puts every dynamic of a system on one line; what survives is the column's counters.
  *
  * ⚠️ Transcribed with VexFlow's quirks intact: a stemless note counts as stem-UP; the stem is counted

@@ -298,7 +298,7 @@ that number**:
 
 | constant | value | where | source |
 |---|---|---|---|
-| `TRILL_LINE.padding` | **0.5 sp** | `rendering/trillStyle.ts:155-158` | LilyPond's `TrillSpanner` defaults, taken when the trill family was built |
+| `TRILL_LINE.padding` | **0.5 sp** | `rendering/marks/lines/trillStyle.ts:155-158` | LilyPond's `TrillSpanner` defaults, taken when the trill family was built |
 
 So the three engines agree with the constant the family already uses to clear a notehead, and the
 slur is cleared by the same 0.5 for free once P2 goes through `clearanceBaseline`. ⚠️ A second

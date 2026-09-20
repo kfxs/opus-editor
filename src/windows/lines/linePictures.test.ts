@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest'
 import { LINE_CHOICES } from './linePictures'
 import { LINE_TOOL_KINDS } from '@/bus/lineSelection'
-import { TRILL_SIGN_GLYPH, TRILL_WIGGLE_GLYPH } from '@/engine/rendering/trillStyle'
-import { OTTAVA_NUMERAL_GLYPHS } from '@/engine/rendering/ottavaStyle'
-import { PEDAL_DOWN_GLYPH, PEDAL_UP_GLYPH } from '@/engine/rendering/pedalStyle'
+import { TRILL_SIGN_GLYPH, TRILL_WIGGLE_GLYPH } from '@/engine/rendering/marks/lines/trillStyle'
+import { OTTAVA_NUMERAL_GLYPHS } from '@/engine/rendering/marks/lines/ottavaStyle'
+import { PEDAL_DOWN_GLYPH, PEDAL_UP_GLYPH } from '@/engine/rendering/marks/lines/pedalStyle'
 
 /**
  * ⚠️ These assert the MARKUP, never where the ink landed: a unit test runs in jsdom, which has no

@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { MusicEngine } from '../MusicEngine'
 import { pedalOffsetOverrideOf } from '../models/engravingOverrides'
 import { fracCreate as frac } from '@/utils/fraction'
-import { PEDAL_SIGN_GAP } from '../rendering/pedalStyle'
+import { PEDAL_SIGN_GAP } from '../rendering/marks/lines/pedalStyle'
 
 /**
  * ⭐⭐ **THE RELEASE'S NUDGE IS NOT WRITTEN WHERE THE DRAWING WOULD IGNORE IT** — subject:

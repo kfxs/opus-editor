@@ -5,7 +5,7 @@
  * `../pedalWalk` is the walk.
  *
  * ⚠️ `drawPedal` files its ladder claim during the DRAW, unlike its siblings, so the frame's
- * preview rewinds `occupiedBands` — see `engine/rendering/markPreviewPass`.
+ * preview rewinds `occupiedBands` — see `engine/rendering/marks/markPreviewPass`.
  */
 import { pedalStaffSpacePx } from '../pedalLane'
 import { dragPedalBody, settlePedalLanding } from '../pedalWalk'

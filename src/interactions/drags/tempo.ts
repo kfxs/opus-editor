@@ -17,7 +17,7 @@
  * a drag rather than a click is charged to neither.
  *
  * ⭐ A frame MOVES the glyph rather than redrawing it: a tempo mark lives inside its measure's
- * group, so the preview re-applies its composed transform (`engine/rendering/markPreviewPass`, the
+ * group, so the preview re-applies its composed transform (`engine/rendering/marks/markPreviewPass`, the
  * `tempo` row). ⚠️ It is the one family whose full render really does re-engrave a bar — the nudge
  * is applied at draw time and folded into that bar's shape key — so the preview saves the
  * whole-score passes AND the bar, and the drop pays both once.

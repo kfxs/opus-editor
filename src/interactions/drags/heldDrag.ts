@@ -33,7 +33,7 @@
  * finds the gesture over.
  */
 import type { MusicEngine } from '../../engine/MusicEngine'
-import type { MarkPreviewKind } from '../../engine/rendering/markPreviewPass'
+import type { MarkPreviewKind } from '../../engine/rendering/marks/markPreviewPass'
 import { dbg } from '../../utils/debug'
 import { logHold, releaseHold, spendHold, takeHold } from '../dragHold'
 import type { DragFrame } from '../markDrive'

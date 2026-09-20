@@ -1507,7 +1507,7 @@ real finding, because it means the box is not a dependency we are content with:
 |---|---|
 | `rendering/noteInkBox` | `StaveNote.getBoundingBox()` **unions every attached modifier**, so a note's "box" spans its accidentals, dots and articulations — his report |
 | `rendering/CenteredTremolo` | *"NOT `Element.getBoundingBox()`… that box is built from `this.x`/`this.y`"* — a mark left at the origin reports the origin |
-| `rendering/DynamicsLayout` | reads the **rendered SVG** instead, because the modifier's width is deliberately zeroed |
+| `rendering/marks/dynamics/DynamicsLayout` | reads the **rendered SVG** instead, because the modifier's width is deliberately zeroed |
 | `rendering/clefOffsetPass` | depends on the `x + xShift` behaviour, and says so — everything downstream of an offset clef is measured from that box |
 
 **(b) The PAGE, read back — ~24 `getBBox()` code sites in `engine/`** (GhostRenderer ×9,

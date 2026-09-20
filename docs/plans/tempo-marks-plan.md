@@ -245,11 +245,11 @@ It draws at `stave.getYForTopText(1)` — a fixed line above the staff; collisio
 is possible. Staff-spacing already relieves it, and the ctor's `shiftY` is the seam for an
 arrow-nudge later: `engravingOverrides` client #8 (geometry never goes on the mark — principle 3).
 
-⭐ **BOTH BUILT SINCE.** The vertical is the LADDER's — `rendering/tempoLinePass` moves every mark
+⭐ **BOTH BUILT SINCE.** The vertical is the LADDER's — `rendering/marks/tempo/tempoLinePass` moves every mark
 onto the row its own music, the trill and the 8va leave free (P0b of `docs/plans/ottava-plan.md`), so the
 fixed line above is only the ORIGIN it measures from. And the arrow-nudge landed 2026-08-19 as
 **client #13** (`tempoOffset`), riding on top of that row: arrows ¼ space, `Ctrl`+arrows 1 space,
-`Ctrl+Backspace` resets. `rendering/tempoMarkTransform` owns the composition of the two.
+`Ctrl+Backspace` resets. `rendering/marks/tempo/tempoMarkTransform` owns the composition of the two.
 
 ### 6.5 Horizontal position — ⭐⭐ Gould p. 183, and ⛔ NEVER the barline
 
@@ -332,7 +332,7 @@ causes were found and fixed; a residual offset remains, so this is *better, not 
 
 **Fixed already (do not regress):**
 1. *Wrong font.* The overlay hardcoded a serif italic. VexFlow resolved `StaveTempo.name` from its
-   own `Metrics` — **bold**, in its own text font (today a row of ours, `rendering/tempoStyle`). The overlay now READS the engraved node's
+   own `Metrics` — **bold**, in its own text font (today a row of ours, `rendering/marks/tempo/tempoStyle`). The overlay now READS the engraved node's
    computed font instead of guessing, and `fontWeight` had to be plumbed through
    `EditableTextSource` / `TextEditMountOptions` / `DomTextEdit` (it did not exist — dynamics only
    ever needed italic).
@@ -491,13 +491,13 @@ same port the wedge, the bracket, the pedal and the dynamic use.
 docs/history/render-performance-plan.md §12.5a wired the mark drags to a preview that redraws one family
 instead of the score. The tempo mark is the one family that is **MOVED rather than redrawn**: its
 glyph is drawn inside its bar's `<g class="measure">` and repositioned afterwards by the composed
-transform (`rendering/tempoMarkTransform`), so a frame re-applies two idempotent passes and draws
+transform (`rendering/marks/tempo/tempoMarkTransform`), so a frame re-applies two idempotent passes and draws
 nothing —
 
-- ⭐ `rendering/tempoNudgePass` (new) — the composer's nudge. Its only other writer is inside
+- ⭐ `rendering/marks/tempo/tempoNudgePass` (new) — the composer's nudge. Its only other writer is inside
   `drawTempoMarks`, i.e. inside the bar draw a preview skips, so without it the mark would follow the
   hand down the ladder and refuse to follow it sideways.
-- `rendering/tempoLinePass` — the ladder row, which already re-ran over every measure drawn or reused.
+- `rendering/marks/tempo/tempoLinePass` — the ladder row, which already re-ran over every measure drawn or reused.
 
 ### 🚨🚨 The HORIZONTAL is a RE-ANCHOR, and no transform reaches another bar's group
 

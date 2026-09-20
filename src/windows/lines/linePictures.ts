@@ -1,9 +1,9 @@
 import { LINE_TOOL_KINDS, type LineToolKind } from '@/bus/lineSelection'
 import { CHROME } from '../../utils/chromeColors'
 import { MUSIC_FONT, escapeXml } from '../symbols/glyphSvg'
-import { TRILL_SIGN_GLYPH, TRILL_WIGGLE_GLYPH } from '@/engine/rendering/trillStyle'
-import { OTTAVA_NUMERAL_GLYPHS } from '@/engine/rendering/ottavaStyle'
-import { PEDAL_DOWN_GLYPH, PEDAL_UP_GLYPH } from '@/engine/rendering/pedalStyle'
+import { TRILL_SIGN_GLYPH, TRILL_WIGGLE_GLYPH } from '@/engine/rendering/marks/lines/trillStyle'
+import { OTTAVA_NUMERAL_GLYPHS } from '@/engine/rendering/marks/lines/ottavaStyle'
+import { PEDAL_DOWN_GLYPH, PEDAL_UP_GLYPH } from '@/engine/rendering/marks/lines/pedalStyle'
 
 /**
  * The Lines picker's thumbnails — one SVG per row, drawn ONCE at import and held as strings.
@@ -198,7 +198,7 @@ function ottavaPicture(direction: 1 | -1): string {
  * The SUSTAIN PEDAL — `Ped.` where the foot goes down, `✻` where it comes up.
  *
  * ⚠️ **Two glyphs with nothing between them, because that is what the editor draws today**
- * (`engine/rendering/pedalStyle`: the bracket, the hook and the retake notch are a later dress for
+ * (`engine/rendering/marks/lines/pedalStyle`: the bracket, the hook and the retake notch are a later dress for
  * the same statement). A picture with a bracket in it would be a promise this editor does not keep.
  */
 function pedalPicture(): string {

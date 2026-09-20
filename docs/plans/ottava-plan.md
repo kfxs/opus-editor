@@ -573,11 +573,11 @@ band machinery.
   flat for the chain to move anything — and was rewritten until it failed. ⭐ Worth remembering: a
   claim written before `levelDynamicsChains` is invisible to every test that does not force a chain.
 - ✅ **P0b — TEMPO JOINS THE LADDER. BUILT 2026-08-13** — ⚠️ **but not signed off: his eye is owed.**
-  ✅ **§7.7 settled the way it was recommended: a TRANSLATE pass.** `engine/rendering/tempoLinePass.ts`
+  ✅ **§7.7 settled the way it was recommended: a TRANSLATE pass.** `engine/rendering/marks/tempo/tempoLinePass.ts`
   is `dynamicsLinePass`' twin — the mark stays where `drawTempoMarks` put it, inside its measure
   group, and is moved afterwards, so a system-scope y never enters `measureShapeKey` and the 53%
   redraw cost is not paid. `TempoLayout`'s `getYForTopText(1)` survives as a drawing ORIGIN only,
-  documented as such; `engine/rendering/tempoStyle.ts` holds `TEMPO_LINE` (padding **0.8**,
+  documented as such; `engine/rendering/marks/tempo/tempoStyle.ts` holds `TEMPO_LINE` (padding **0.8**,
   minFromStaff **3.0**) and `TEMPO_MARK_INK`. Wired in **after `renderTrills`**, because the ladder's
   order IS the pass order.
   *Proved by*: `e2e/ladder.e2e.ts` (5 tests, new file — there was no tempo geometry spec at all),
@@ -692,7 +692,7 @@ band machinery.
   latest-start tie-break, and the per-staff filter.
   ⏭️ Nothing here is audible yet — no ottava can be created (P5). The tests write one through
   `ottavaOps` directly, which is also what makes them a real contract rather than a UI check.
-- ✅ **P3 — DRAWING. BUILT 2026-08-13.** `engine/rendering/ottavaStyle.ts` + `OttavaRenderer.ts`, on
+- ✅ **P3 — DRAWING. BUILT 2026-08-13.** `engine/rendering/marks/lines/ottavaStyle.ts` + `OttavaRenderer.ts`, on
   the `TrillRenderer` pattern: `planSlurSegments` fragments, SMuFL numeral, dashed line, hook, and
   the parenthesised `(8)` at each continuation system's left edge. Wired in **after `renderTrills`
   and before `placeTempoMarksOnLine`** — the ladder's order IS the pass order — plus the two rows

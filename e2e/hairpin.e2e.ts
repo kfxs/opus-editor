@@ -7,7 +7,7 @@ import { test, expect } from './fixtures'
  * ⚠️ **This suite has to be here and cannot be a unit test.** Every claim below is about where ink
  * landed, and the wedge's y comes from the dynamics line, which is stated relative to a MARK's ink
  * — a font measurement that answers 0 in jsdom. The shape arithmetic is unit-tested without a
- * browser (`engine/rendering/hairpinShape.test.ts`, `engine/models/hairpinOps.span.test.ts`); what
+ * browser (`engine/rendering/marks/dynamics/hairpinShape.test.ts`, `engine/models/hairpinOps.span.test.ts`); what
  * is checked here is that the DRAWING obeys it.
  */
 
@@ -91,7 +91,7 @@ test('⭐⭐ the mouth opens to the aperture, in STAFF SPACES', async ({ score }
   const arms = await armsOf(score)
   const staff = await staffOf(score)
   // 1.5 spaces total — Verovio's `hairpinSize` 3 MEI units and GUIDO's `deltaY` 3 half-spaces,
-  // the majority of the four engines. The default lives in `rendering/hairpinShape.ts`, which is
+  // the majority of the four engines. The default lives in `rendering/marks/dynamics/hairpinShape.ts`, which is
   // where this number is allowed to change.
   expect(Math.abs(arms[0].y2 - arms[1].y2) / staff.spacing).toBeCloseTo(1.5, 1)
 })
@@ -469,7 +469,7 @@ test('⭐⭐ two wedges that MEET leave a gap — they must not touch at a point
  * ⚠️ **These cannot be unit tests, and not only for the usual reason.** The cut is made from the
  * mark's DRAWN ink (`markInkX` reads `getBBox()` on the letter's `<text>`), which measures 0×0 in
  * jsdom — so without a browser there are no gaps at all and the wedge draws whole. The arithmetic
- * that keeps the halves collinear is unit-tested on its own (`engine/rendering/hairpinBreaks.test.ts`);
+ * that keeps the halves collinear is unit-tested on its own (`engine/rendering/marks/dynamics/hairpinBreaks.test.ts`);
  * what is checked here is that the picture obeys it.
  *
  * ⛔ No other engine draws this: LilyPond forbids the input, MuseScore lets them overlap, Verovio

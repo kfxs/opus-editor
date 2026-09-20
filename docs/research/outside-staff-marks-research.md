@@ -23,23 +23,23 @@ own `rendering/glyphPainter` / `SvgPainter`, which keep its point→pixel factor
 
 | # | row (inventory §2 / §5b) | file:line | today | in sp |
 |---|---|---|---|---|
-| R1 | `TRILL_LINE.padding` (+ the source conflict) | `rendering/trillStyle.ts:157` | 0.5 | 0.5 sp |
-| R2 | `TRILL_LINE.minFromStaff` | `rendering/trillStyle.ts:158` | 1.0 | 1.0 sp |
-| R3 | `OTTAVA_LINE.padding` | `rendering/ottavaStyle.ts:167` | 0.5 | 0.5 sp |
-| R4 | `OTTAVA_LINE.minFromStaff` | `rendering/ottavaStyle.ts:168` | 1.5 | 1.5 sp |
-| R5 | `PEDAL_LINE.padding` | `rendering/pedalStyle.ts:107` | 0.6 | 0.6 sp |
-| R6 | `PEDAL_LINE.minFromStaff` | `rendering/pedalStyle.ts:108` | 4.0 | 4.0 sp |
-| R7 | `TEMPO_LINE.padding` | `rendering/tempoStyle.ts:106` | 0.8 | 0.8 sp |
-| R8 | `TEMPO_LINE.minFromStaff` | `rendering/tempoStyle.ts:108` | 3.0 | 3.0 sp |
-| R9 | `TRILL_GLYPH_SIZE` (`tr`) | `rendering/trillStyle.ts:112` | 26 pt | em 3.47 sp (0.867 SMuFL em) |
-| R10 | `OTTAVA_GLYPH_SIZE` (`8va`/`8ba`) | `rendering/ottavaStyle.ts:102` | 26 pt | em 3.47 sp (0.867 em) |
-| R11 | `PEDAL_GLYPH_SIZE` (`Ped.`) | `rendering/pedalStyle.ts:61` | 26 pt | em 3.47 sp (0.867 em) |
-| R12 | `DYNAMIC_GLYPH_SIZE` (p/f/mf) | `rendering/dynamicStyle.ts:13` | 30 pt | em 4.0 sp (1.0 em) |
-| R13 | `TEMPO_GLYPH_FONT_SIZE` (metronome ♩) | `rendering/tempoStyle.ts:38` | 20 pt | em 2.67 sp (0.667 em) |
+| R1 | `TRILL_LINE.padding` (+ the source conflict) | `rendering/marks/lines/trillStyle.ts:157` | 0.5 | 0.5 sp |
+| R2 | `TRILL_LINE.minFromStaff` | `rendering/marks/lines/trillStyle.ts:158` | 1.0 | 1.0 sp |
+| R3 | `OTTAVA_LINE.padding` | `rendering/marks/lines/ottavaStyle.ts:167` | 0.5 | 0.5 sp |
+| R4 | `OTTAVA_LINE.minFromStaff` | `rendering/marks/lines/ottavaStyle.ts:168` | 1.5 | 1.5 sp |
+| R5 | `PEDAL_LINE.padding` | `rendering/marks/lines/pedalStyle.ts:107` | 0.6 | 0.6 sp |
+| R6 | `PEDAL_LINE.minFromStaff` | `rendering/marks/lines/pedalStyle.ts:108` | 4.0 | 4.0 sp |
+| R7 | `TEMPO_LINE.padding` | `rendering/marks/tempo/tempoStyle.ts:106` | 0.8 | 0.8 sp |
+| R8 | `TEMPO_LINE.minFromStaff` | `rendering/marks/tempo/tempoStyle.ts:108` | 3.0 | 3.0 sp |
+| R9 | `TRILL_GLYPH_SIZE` (`tr`) | `rendering/marks/lines/trillStyle.ts:112` | 26 pt | em 3.47 sp (0.867 SMuFL em) |
+| R10 | `OTTAVA_GLYPH_SIZE` (`8va`/`8ba`) | `rendering/marks/lines/ottavaStyle.ts:102` | 26 pt | em 3.47 sp (0.867 em) |
+| R11 | `PEDAL_GLYPH_SIZE` (`Ped.`) | `rendering/marks/lines/pedalStyle.ts:61` | 26 pt | em 3.47 sp (0.867 em) |
+| R12 | `DYNAMIC_GLYPH_SIZE` (p/f/mf) | `rendering/marks/dynamics/dynamicStyle.ts:13` | 30 pt | em 4.0 sp (1.0 em) |
+| R13 | `TEMPO_GLYPH_FONT_SIZE` (metronome ♩) | `rendering/marks/tempo/tempoStyle.ts:38` | 20 pt | em 2.67 sp (0.667 em) |
 | R14 | `TRILL_PAREN_SCALE` / `OTTAVA_PAREN_SCALE` | `trillStyle.ts:100` / `ottavaStyle.ts:88` | 0.52 × sign pt | 13.5 pt serif italic, em 1.80 sp |
 | R15 | `TRILL_PAREN_RAISE` / `OTTAVA_PAREN_RAISE` | `trillStyle.ts:109` / `ottavaStyle.ts:97` | 0.22 | **0.30 sp as coded** (see §4.3) |
-| R16 | `TEMPO_INK_BELOW` (text descender) | `rendering/tempoStyle.ts:78` | 0.22 × 18 pt drawn | 0.53 sp |
-| R17 | co-located dynamics row `GAP` (`p dolce`) | `rendering/DynamicsLayout.ts:154` | 6 px @10 | 0.6 sp |
+| R16 | `TEMPO_INK_BELOW` (text descender) | `rendering/marks/tempo/tempoStyle.ts:78` | 0.22 × 18 pt drawn | 0.53 sp |
+| R17 | co-located dynamics row `GAP` (`p dolce`) | `rendering/marks/dynamics/DynamicsLayout.ts:154` | 6 px @10 | 0.6 sp |
 
 Covering docs, cited and not repeated: `docs/how-it-works/above-staff-ladder.md` (the mechanisms, and the pt-vs-px
 fix), `docs/plans/ottava-plan.md` §1 + §"HIS EYE, 2026-08-13" + §8 P0b, `docs/plans/pedal-plan.md` §12,

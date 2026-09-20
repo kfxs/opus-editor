@@ -64,12 +64,12 @@ describe('frameName — one V8 stack line', () => {
   })
 
   it('🚨 an ANONYMOUS frame reports its FILE, never the URL scheme', () => {
-    const line = '    at http://localhost:5199/src/engine/rendering/TempoLayout.ts:123:45'
+    const line = '    at http://localhost:5199/src/engine/rendering/marks/tempo/TempoLayout.ts:123:45'
     expect(frameName(line), 'the bug printed `http` here').toBe('TempoLayout.ts:123')
   })
 
   it('🚨 …including through a Vite query string, which is full of extra colons', () => {
-    expect(frameName('    at http://localhost:5199/src/engine/rendering/TempoLayout.ts?t=1755000000000:9:3'))
+    expect(frameName('    at http://localhost:5199/src/engine/rendering/marks/tempo/TempoLayout.ts?t=1755000000000:9:3'))
       .toBe('TempoLayout.ts:9')
   })
 

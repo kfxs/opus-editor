@@ -21,7 +21,7 @@ scope says which voices it *will* govern.
   barlines** (his call over a bar-bounded variant). Marks that touch nothing keep P1's local rule
   untouched.
   ⚠️ It forced a real restructure: the answer cannot be reached inside either drawing pass, because
-  what a wedge's baseline is depends on a mark at its far end. `rendering/dynamicsLinePlan.ts` now
+  what a wedge's baseline is depends on a mark at its far end. `rendering/marks/dynamics/dynamicsLinePlan.ts` now
   decides every mark's y ONCE per render and both passes look it up.
 - ⭐⭐ **A WEDGE ALWAYS SITS A LITTLE INSIDE ITS SPAN** (`HAIRPIN.END_INSET`, 0.25 sp per end). Two
   abutting wedges met at a point and read as one diamond: *"here both should not touch… normally in
@@ -351,7 +351,7 @@ below is accepted and the numbers are a resting point, not a conclusion — the 
 is Gould's. Anyone re-opening it should start from the arithmetic above and his seven cases below,
 not from a blank sheet.
 
-**THE RULE — an affine RAMP, not an angle**, in `rendering/hairpinShape.ts`:
+**THE RULE — an affine RAMP, not an angle**, in `rendering/marks/dynamics/hairpinShape.ts`:
 
 ```
 aperture = min(MAX_APERTURE, APERTURE + GROWTH_PER_SPACE × max(0, lengthSpaces − GROWTH_FROM_SPACES))
@@ -444,7 +444,7 @@ every line break.
 
 **Its y is a BASELINE, not a top edge.** A 30 px Bravura glyph and 14 px Georgia italic look aligned
 only when they share a baseline — which is how print sets `p dolce`. We are already set up for it:
-`DYNAMIC_GLYPH_INK_ABOVE` / `_BELOW` (`rendering/dynamicStyle.ts`) are defined *from the text
+`DYNAMIC_GLYPH_INK_ABOVE` / `_BELOW` (`rendering/marks/dynamics/dynamicStyle.ts`) are defined *from the text
 baseline*, so the line states one baseline and each mark derives its ink extent from it. The
 hairpin's mouth then centres not on the baseline but on the glyphs' optical centre — about a quarter
 of the glyph size above it, from those same two constants.
@@ -549,7 +549,7 @@ His question, 2026-08-12. Three answers, because it is three questions.
    the y for both.
 
 🔎 **AMENDED 2026-08-12 — horizontally, SOMETHING changed after all: a LEVEL is now centred on its
-notehead** (`rendering/dynamicMarkAnchor.ts`). His report while testing P1: *"the text is entered
+notehead** (`rendering/marks/dynamics/dynamicMarkAnchor.ts`). His report while testing P1: *"the text is entered
 more to the right of the anchored note… for me the initial position should be before the note in
 x."* He is right and every source agrees — Gould (*centrally below the note*), LilyPond's
 `DynamicText self-alignment-X = CENTER`, MuseScore and Dorico both centred by default. The rule
@@ -998,8 +998,8 @@ Each is separately visible and separately testable.
   `solidifyFirstStaffContent`). So both sides are normalised through the first staff's id, exactly as
   `models/staffContent.matchesStaff` does; comparing strictly — as `kerning.sameBand` does — hands
   the upper staff of a grand staff an empty band and its dynamics the floor.
-- **P1 — dynamics read the line. ✅ BUILT** — `rendering/dynamicsLinePass.ts` (the system pass) +
-  `rendering/dynamicMarkTransform.ts` (who owns the mark's `translate`), specs for both, and
+- **P1 — dynamics read the line. ✅ BUILT** — `rendering/marks/dynamics/dynamicsLinePass.ts` (the system pass) +
+  `rendering/marks/dynamics/dynamicMarkTransform.ts` (who owns the mark's `translate`), specs for both, and
   `e2e/dynamicsLine.e2e.ts` for the drawn geometry. §11.1 answered **(c)**.
 
   🔎 **The one thing the build added to the plan: a transform OWNER.** (c) makes three passes move
@@ -1050,7 +1050,7 @@ Each is separately visible and separately testable.
   What IS built is the two sites it needs: `removeHairpin` clears the whole id (so an override can
   never orphan), and `restoreBeatAnchors` carries a ⚠️ naming itself as the re-stamp site, next to
   the dynamic's, for the day the aperture or the vertical nudge arrives (§6).
-- **P3 — draw it. ✅ BUILT.** `rendering/HairpinRenderer.ts` (the pass) + `rendering/hairpinShape.ts`
+- **P3 — draw it. ✅ BUILT.** `rendering/marks/dynamics/HairpinRenderer.ts` (the pass) + `rendering/marks/dynamics/hairpinShape.ts`
   (the resolver) + `rendering/thinLineWeight.ts` (the shared 0.16) + `models/hairpinOps.hairpinSpan`
   (beat+length → two addresses) + `layout/dynamicsLine.columnsBetween`/`mergeInkBands` (the
   spanner's wider slice), specs for each, and `e2e/hairpin.e2e.ts` for the drawn geometry. Both
@@ -1197,7 +1197,7 @@ So the general shape is: **for a `(system, staff, side)` there is an ordered lad
 family occupies one rung.** The dynamics line is that structure with one rung and one member.
 
 ⚠️ **We already have a second family placed above the staff with no shared rule: tempo marks**
-(`rendering/TempoLayout.ts`). Rehearsal marks, 8va brackets, technique text (the open Alt+T item) and
+(`rendering/marks/tempo/TempoLayout.ts`). Rehearsal marks, 8va brackets, technique text (the open Alt+T item) and
 trill spanners would each add another, and each one placed on its own is another private vertical
 rule to reconcile later — the "two settings arriving by two routes" failure that
 `DESIGN-PRINCIPLES.md` warns about in its open boundary case.
@@ -1219,7 +1219,7 @@ blocking; this section exists so none of it has to be re-derived.
 
 ### 13.1 The numbers, and which of them his eye has now settled
 
-All are constants in `rendering/hairpinShape.ts`. **Most of this table was settled on 2026-08-15**
+All are constants in `rendering/marks/dynamics/hairpinShape.ts`. **Most of this table was settled on 2026-08-15**
 (§2.4d) — recorded so nobody re-opens a decision he already made against a screen.
 
 | what | ours | status |
@@ -1599,7 +1599,7 @@ Three corroborations for the surrounding decisions, each from a second book:
 
 ### What was built
 
-`engine/rendering/hairpinBreaks.ts` (new module, pure) + `markGaps` in `HairpinRenderer`:
+`engine/rendering/marks/dynamics/hairpinBreaks.ts` (new module, pure) + `markGaps` in `HairpinRenderer`:
 
 1. every dynamic on this staff's line whose DRAWN ink lands on the wedge contributes that ink,
    padded by `HAIRPIN.BREAK_PADDING`, as a gap. ⚠️ It read **strictly inside the span** until

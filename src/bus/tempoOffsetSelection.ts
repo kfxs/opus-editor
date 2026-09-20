@@ -9,7 +9,7 @@ import { RequestChannel } from './requestChannel'
  * exists to defend: a content widget never holds the engine.
  *
  * ⭐ Two axes, like the dynamic's and unlike the note's: a tempo mark rides the row the ladder gives
- * it (`rendering/tempoLinePass`) and may be moved off it in either direction.
+ * it (`rendering/marks/tempo/tempoLinePass`) and may be moved off it in either direction.
  */
 export interface TempoOffsetRequest {
   /** The selected tempo mark's id. */

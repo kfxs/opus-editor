@@ -399,7 +399,7 @@ export function elementClipSummary(clip: ElementClip): string {
   if (clip.kind === 'ottava') {
     // ⭐ Named as the READER sees it, ⛔ never "shift +1", which is the storage. ⚠️ ASCII on purpose —
     // this is a console line, not ink; the drawn numerals are SMuFL glyphs and these are the names
-    // those glyphs print (`engine/rendering/ottavaStyle.OTTAVA_NUMERAL_GLYPHS`).
+    // those glyphs print (`engine/rendering/marks/lines/ottavaStyle.OTTAVA_NUMERAL_GLYPHS`).
     const name = { 1: '8va', '-1': '8ba', 2: '15ma', '-2': '15mb', 3: '22ma', '-3': '22mb' }
     return `${name[clip.shift]} over ${fracToNumber(clip.length)} beats`
   }
