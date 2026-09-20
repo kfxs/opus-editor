@@ -19,7 +19,9 @@ This file provides guidance to Claude Code when working with this repository.
   the ARROWS do to it is the `keys` column of its row, `elements/<kind>Keys.ts` (⛔ no
   `nudgeSelected<Kind>` closure or `||` link in `shortcutWiring`). **And a SCORE operation goes
   in the core (`engine/models/**`, `utils/**`, `types/**`), not on `MusicEngine`** — that is the
-  *editor's* facade (`docs/DESIGN-PRINCIPLES.md` §5). An IMPORT lint cannot check any of this: putting
+  *editor's* facade (`docs/DESIGN-PRINCIPLES.md` §5). ⛔ **Nor as a new forwarder on `ScoreModel`**:
+  a new caller imports the ops module and calls `xOps.fn(model.getScore(), …)` itself — the
+  forwarders already there stay, and their count only falls. An IMPORT lint cannot check any of this: putting
   the logic in the wrong layer imports nothing, and a slice in the wrong file imports exactly what it
   would have imported from the right one. ⭐ So it is COUNTED instead: `npm run lint:hubs` (in
   `build:check`) holds, per hub, how many identifiers name an element kind, and that number may only
@@ -273,7 +275,9 @@ src/
                           #   + `inheritedDefaults` / `inheritedFonts` (the numbers and faces
                           #   taken from VexFlow, today's values as sourced ROWS)
     audio/                # PlaybackEngine + InstrumentPlayer seam (WebAudioFont)
-  types/music.ts    # TypeScript interfaces (Note, Measure, Score, etc.)
+  types/            # TypeScript interfaces, one file per domain: duration · pitch · tuplet · notes ·
+                    #   signs · marks · engravingOverrides · score. ⭐ `music.ts` is the BARREL —
+                    #   import from `@/types/music`; ⛔ a new type goes in its chapter, not the barrel
   utils/            # Pure helpers — fraction, meter, rebar, restFill,
                     #   beaming, clefUtils, pitchSpelling, dynamics, durations,
                     #   lanes (voiceOf/staffOf — absent means the first one),

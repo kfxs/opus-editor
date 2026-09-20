@@ -155,7 +155,7 @@ files (historical/working plans). For *how the pieces fit together*, read this.
 │          beaming, fannedBeam, beatMap, clefUtils, durations,   │  helpers
 │          dynamics, lanes, musicUtils, pitchSpelling, slurs,    │
 │          artics                                                │
-│  types/music.ts  the shared interfaces                         │
+│  types/  the shared interfaces — music.ts is the BARREL        │
 │  shortcuts/  declarative keybinding table + manager            │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -394,6 +394,13 @@ out by name. ⚠️ The layer clause (a score operation on `MusicEngine`) is sti
 method whose subject genuinely is the class (`ScoreModel.getScore`, `ScoreRenderer.clearGhosts`);
 and a helper private to one existing method. The test is *"could someone want this without the
 editor?"* — if yes, it is a core module.
+
+⛔ **…but `ScoreModel` gains NO new forwarder.** The delegation clause is `MusicEngine`'s — the
+editor's facade, where a one-liner is how the UI reaches the score. `ScoreModel` is not a facade
+over its ops modules: a new caller of a score operation imports the ops function and calls
+`xOps.fn(model.getScore(), …)` (or hands it the narrow `<X>Model` interface it declares) itself.
+The forwarders already on `ScoreModel` stay — they are call sites nobody is owed a rewrite of —
+but their count only falls (docs/code-shape-plan-2026-09-19.md, Phase 4.4).
 
 ### ⭐⭐ …and the other direction: **a name is not a body**
 

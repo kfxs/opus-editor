@@ -37,6 +37,7 @@ const NO_SPEC_EXPECTED = [
   /\/layoutConfig\.ts$/,
   /\/main\.ts$/,
   /\/ghostTypes\.ts$/,       // a `type` union and nothing else — no runtime to have a contract
+  /\/src\/types\//,         // the score's TYPES, one chapter per domain — `interface`s and `type`s only
   /\/commandContext\.ts$/,     // an `interface` and nothing else — no runtime to have a contract
   /\/fakeCommandContext\.ts$/, // spec SUPPORT for `engine/commands/*.test.ts` — no contract of its own
   /\/bravuraMetrics\.ts$/,   // GENERATED font data — its contract is `fontMetrics.test.ts`, and a
