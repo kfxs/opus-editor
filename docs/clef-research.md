@@ -116,7 +116,7 @@ the engines apply both, multiplicatively.
 
 **What we do:** ✅ **the same thing, structurally.** A staff is drawn inside a
 `<g transform="scale(k)">` group, so a small staff's clef shrinks with everything else. ⭐ There is no
-clef magnification of our own, and ⛔ there must not be one (`docs/small-staff-spacing.md`).
+clef magnification of our own, and ⛔ there must not be one (`docs/staff-size-plan.md`).
 
 ### 1.2 How far the ink reaches — MEASURED, because no book states it
 

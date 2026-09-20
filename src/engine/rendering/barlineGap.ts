@@ -7,7 +7,7 @@
  *
  * 🚨🚨 **THE GAP SEGMENT MAY NOT BE DRAWN INSIDE `inStaffSpace`.** `BarlineRenderer.drawSign` paints
  * within a per-staff SCALE group, and a line crossing two staves belongs to neither — a 0.7 small
- * staff breaks it immediately (docs/small-staff-spacing.md's rule: a gap inside `scale(k)` must be
+ * staff breaks it immediately (docs/staff-size-plan.md's rule: a gap inside `scale(k)` must be
  * ÷ k). So this draws in SCORE space, which means it cannot live inside that call at all; the
  * per-staff sign keeps its own extent parameter (`SignStaff.topY/botY`) and is untouched by any of
  * this.

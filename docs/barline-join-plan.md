@@ -279,7 +279,7 @@ Lusk — three hits, none about barlines), so its rules would have to come from 
   branch. So a repeat's dots stay on each staff and only the strokes cross the gap.
 - 🚨🚨 **THE GAP SEGMENT MAY NOT BE DRAWN INSIDE `inStaffSpace`.** `BarlineRenderer.drawSign` paints
   within a per-staff SCALE group, and a line crossing two staves belongs to neither — a 0.7 small
-  staff breaks it immediately (`docs/small-staff-spacing.md`'s rule: a gap inside `scale(k)` must be
+  staff breaks it immediately (`docs/staff-size-plan.md`'s rule: a gap inside `scale(k)` must be
   ÷ k). The gap segment is drawn in SCORE space.
 - 🚨🚨 **ITS y COMES FROM THE PLACEMENTS, NEVER FROM THE STAVES.** A reused bar's `Stave` reports where
   it was last PAINTED (`BarlinePlacement.x`'s header, and the report that produced it: *"the final bar
@@ -385,7 +385,7 @@ Lusk — three hits, none about barlines), so its rules would have to come from 
   mutator would be a **picture-only change nobody records**, and the page would simply not move
   (`reference_only_a_stale_render_runs`: it must be in `viewStateKey`, and ⚠️ e2e cannot catch it).
   Going through the model sets `modelDirty` and the question never arises.
-- **JSON:** one optional field, absence legal, ⛔ no migration — `docs/no-json-migration.md`.
+- **JSON:** one optional field, absence legal, ⛔ no migration — `docs/json-io-plan.md`.
 - **Geometry is not a unit test.** The gap ink is browser geometry: `e2e/*.e2e.ts` asserts the strokes
   cross the gap and the dots do not; jsdom asserts the resolver and the handle POSITIONS' arithmetic.
   ⚠️ **And P1 moves an existing count.** The harness's `barlines()` reads `g.stavebarline rect`,

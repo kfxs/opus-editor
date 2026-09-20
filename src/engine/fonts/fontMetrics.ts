@@ -189,7 +189,7 @@ const ACCIDENTAL_GLYPHS: Record<string, GlyphName> = {
  *
  * ⚠️ **A modifier's `getWidth()` is a LAYOUT box, not ink**, and the two differ by whatever padding
  * the layout chose to carry. Any spacing decision measured against the box is measuring someone
- * else's padding as if it were the drawing (`docs/kerning.md`'s rule: ink is LOCATED BOXES).
+ * else's padding as if it were the drawing (`docs/vexflow-boundary.md`'s rule: ink is LOCATED BOXES).
  */
 export function clefGlyph(clef: 'treble' | 'bass' | 'alto' | 'tenor'): GlyphName {
   return clef === 'treble' ? 'gClef' : clef === 'bass' ? 'fClef' : 'cClef'

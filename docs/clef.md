@@ -479,7 +479,7 @@ in `e2e/` or, where our own primitives draw it, in the SCENE.
 
 ⭐ **A small STAFF scales its clef for free.** A staff is drawn inside a `<g transform="scale(k)">`
 group, so the clef shrinks with everything else — there is no clef magnification of our own, and
-⛔ there must not be one. (`docs/small-staff-spacing.md`; the standing trap is visual coordinates
+⛔ there must not be one. (`docs/staff-size-plan.md`; the standing trap is visual coordinates
 inside a scaled scope.)
 
 ---

@@ -112,7 +112,7 @@ y = 747 on Ross p. 156 (0.13 sp above the top staff line) the serif occupies x 5
 treble clef's top hook occupies x 555–557 — **they pass each other side by side with ≈0.75 sp of
 clearance**. On Gould p. 507 the serif tip is **1.61 sp above the top staff line**, in a band where
 the clef at those columns has no ink. ⇒ this is a **vertical-band** fact, exactly the distinction
-`docs/kerning.md` draws, and ⛔ not a case for reserved horizontal room.
+`docs/vexflow-boundary.md` draws, and ⛔ not a case for reserved horizontal room.
 
 ## 1.4 Is a bracketed stave's clef further right? If anything, very slightly LESS
 

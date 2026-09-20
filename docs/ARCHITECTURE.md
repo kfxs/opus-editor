@@ -90,6 +90,14 @@ files (historical/working plans). For *how the pieces fit together*, read this.
 │        its purpose. (renderCensus lives here too — the engine   │
 │        sees only engine/RenderProbe, and App.ts injects it.)    │
 ├═════════════════════════════════════════════════════════════┤  ← BOUNDARY
+│  windows/  the WINDOW primitive + every floating window:       │  UI
+│      Keypad, Properties (panels/ — one module per kind),       │
+│      Lines, Symbols, Clef / Key / Time Signature, Tuplet…      │
+│      Each builds its own elements and subscribes to state.     │
+│  menus/  the MENU primitive, the right-click Insert menu       │
+│      and the MENU BAR (⚠️ the demo's chrome — provisional).    │
+│      Every row runs a command that already existed.            │
+├─────────────────────────────────────────────────────────────┤  ← BOUNDARY
 │  interactions/  (framework-agnostic)                          │  Controllers
 │      EditorState ............ all editor UI state + THE       │
 │                               reactivity (emitting Proxy)      │
@@ -108,7 +116,7 @@ files (historical/working plans). For *how the pieces fit together*, read this.
 │      TextEditController ..... in-canvas DOM text overlay       │
 │      RenderController ....... "re-render now" indirection      │
 ├─────────────────────────────────────────────────────────────┤
-│  bus/  the UI NOTICEBOARD — one `EditorBus`, 21 seams         │  UI bus
+│  bus/  the UI NOTICEBOARD — one `EditorBus`, 40 seams          │  UI bus
 │      Publish/subscribe stores both `interactions/` and         │  (a leaf)
 │      `windows/` pin to, so neither has to import the other.    │
 │      Per-store modules keep their doc comments; the EXPORTS    │
@@ -127,6 +135,16 @@ files (historical/working plans). For *how the pieces fit together*, read this.
 │                              delegated mutation sub-APIs —      │
 │                              free funcs over `score`            │
 │      models/CollisionDetector                                  │
+│      commands/ ............. one module per MARK family —      │
+│                              the editor's half of an edit      │
+│      engrave/ .............. WHAT SYMBOLS, WHERE — music →     │
+│                              ink through paint/ (no DOM)       │
+│      paint/ ................ the surface we draw on:           │
+│                              DrawContext, DrawGroup, Affine    │
+│      scene/ ................ WHAT WAS DRAWN, as values —       │
+│                              geometry as a unit test           │
+│      fonts/ ................ SMuFL metrics, faces, files       │
+│      export/ ............... the score as SVG / PDF            │
 │      rendering/ScoreRenderer ... notation → SVG (SvgPainter) │
 │      rendering/{FanPass,GhostRenderer,PagePass,ScoreHeader…,  │
 │                              Tie…,Slur…}                    │
@@ -174,8 +192,12 @@ Three arrows used to point the wrong way, and were turned in 2026-07-27's Phase 
   census into it, in dev builds only.
 - **`interactions/` ↔ `windows/` pointed at each other**, because six window modules
   imported ~20 `*Selection` stores from `interactions/`. Those stores were never
-  interaction logic; they are `src/bus/`, a leaf both sides depend downward on. What is
-  left of that edge is two `import type` lines for `InspectedElement`, erased at build.
+  interaction logic; they are `src/bus/`, a leaf both sides depend downward on.
+  ⚠️ **One runtime edge is left, one way**: `interactions/` opens windows. Two files do it
+  (measured 2026-09-20) — `shortcutWiring` (the registry, the `open…Window` functions, the
+  Keypad's layouts: a KEY opens a window) and `MouseController` (a double-click on the title
+  opens the score-text window). `windows/` imports `interactions/` for TYPES only, erased at
+  build. ⛔ A window never imports a controller; a third file opening a window is a smell.
 - **`utils/` + `types/` + `engine/models/` were not fenced against `interactions/`** —
   only against VexFlow, rendering, audio and `MusicEngine`. They are now, along with
   `bus/`, which is the arrow `DESIGN-PRINCIPLES.md` §5 cares about most.
@@ -733,9 +755,9 @@ Vocabulary that is otherwise tribal knowledge.
 | Term | Meaning |
 |---|---|
 | **slot** | A time position within a measure that holds one musical event. A slot's `type` is `note`, `rest`, or `chord`. `Measure.slots[]` is the internal storage; the public API flattens these to `Note`s. |
-| **`Chord` / `NotePitch` / `Rest` / `ChordRest`** | The **internal** rich data model in `ScoreModel`. A `ChordRest` is a slot; a `Chord` holds multiple `NotePitch`es at one beat; a `Rest` is silence. The model is **voice-ready** — multi-voice data shape is already built. |
+| **`Chord` / `NotePitch` / `Rest` / `ChordRest`** | The **internal** rich data model in `ScoreModel`. A `ChordRest` is a slot; a `Chord` holds multiple `NotePitch`es at one beat; a `Rest` is silence. Every slot carries its voice and staff (`utils/lanes` — absent means the first one). |
 | **flat `Note`** | The **public projection** of the internal model (`toFlatNote` / `restToFlatNote`). The UI and JSON see flat `Note`s (`{ id, step, alter, octave, duration, measure, beat, … }`), never the internal `Chord`/`NotePitch`. Deliberate two-model design — don't collapse it. |
-| **voice-ready** | The data model already supports multiple voices per measure; only the multi-voice *render loop* is deferred. This is why features land "voice-ready". |
+| **voice-ready** | The data model carries up to four voices per staff, and they are entered, drawn and played (`docs/multi-voice-plan.md`; rests placed by `multi-voice-rest-position-plan.md`). The word survives in older docs from when only the data shape existed: a feature that landed "voice-ready" took a `voice` from the start. ⚠️ Absent means the FIRST voice (`utils/lanes.voiceOf`). |
 | **written vs. sounding** | Written pitch is what's notated; sounding pitch is what plays (they differ for transposing contexts). Kept distinct in pitch handling. |
 | **rebar** | Re-flowing notes across barlines when a measure's capacity changes (e.g. a time-signature edit). Bounded rebar **pushes the next TS change forward** rather than cramming overflow. The pure relay algorithm is `utils/rebar.ts`; the region-rewrite *orchestration* (capture ties/slurs/anchors/rest-shifts → relay → materialize → restore) is `engine/models/rebarOps.ts`. |
 | **erosion** | Clearing (eroding) the space a spanning note will occupy in the *next* measure before placing the tied continuation — part of the cross-barline tie-split. |

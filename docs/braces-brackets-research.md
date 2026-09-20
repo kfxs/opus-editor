@@ -1029,7 +1029,7 @@ system, not to either staff's ink"*. `engine/rendering/barlineGap.ts` then made 
 with the sharper reason:
 
 > 🚨🚨 **Ink crossing two staves may NOT be drawn inside `inStaffSpace`** — a 0.7 small staff's
-> `scale(k)` group breaks it immediately (`docs/small-staff-spacing.md`: a gap inside `scale(k)` must
+> `scale(k)` group breaks it immediately (`docs/staff-size-plan.md`: a gap inside `scale(k)` must
 > be ÷ k). So it draws in **SCORE space**, at the score's staff-space.
 
 ⭐ A brace or bracket spanning staves has **exactly** that property, so the answer is already written

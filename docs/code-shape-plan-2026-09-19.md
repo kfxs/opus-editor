@@ -1195,8 +1195,8 @@ most of the "copied" spec helpers).
 ### Phase 6 — Folders and docs
 
 *(review)* Items 1–2 move about 220 files and touch every import path: run them only when
-nothing else is in flight, one folder group per commit, and after the prettier decision
-(Phase 1.7).
+nothing else is in flight, one folder group per commit. ✅ The prettier decision this waited on is
+TAKEN (Phase 1.7: prettier REMOVED, measured) — so the moves' blame cost is paid once, not twice.
 
 1. **`engine/rendering/`** (129 files) → `engraved/`, `format/`, `painter/`, `beams/`, `curves/`,
    `marks/{dynamics,tempo,lines}/`, `ghosts/`, `staff/`. High-cohesion groups first. Rename the
@@ -1216,6 +1216,36 @@ nothing else is in flight, one folder group per commit, and after the prettier d
 5. **`DESIGN-PRINCIPLES.md`**: the six principles stand. Add to the boundary cases: the unused
    staff seam (150 raw `measure.slots` reads against 5 `staffSlots` calls, so per-staff meters
    would touch about 100 sites) and the undo cost below.
+
+*Phase 6 item 4 (docs), first half DONE (awaiting his word; docs only, no checks run). ⚠️ **The
+"move 65 done files to `docs/archive/`" half was MEASURED and NOT done**: the code's comments cite docs by
+path and section — 1,774 mentions of 118 files — and the BUILT plans are the most cited of all
+(`vexflow-removal-map` 122, `own-engraving-engine` 75, `render-performance-plan` 69, `pedal-plan` 66). Moving
+them rewrites about a thousand comment lines for a tidier folder listing, and only 5 of 146 files carry a
+status line that says "done" in a way a script could trust — which 65 is a judgement, HIS. The problem the
+move was for — *which of these is live?* — is answered by the new one-screen **`docs/README.md`** instead:
+rules · live work · planned · descriptions · research · feature plans · history, every file linked, no path
+changed. `ARCHITECTURE.md` got the plan's listed corrections and nothing else: the layer map gained
+`windows/`, `menus/` and the engine's `commands/ engrave/ paint/ scene/ fonts/ export/`; the bus is 40 seams;
+the "voice-ready" glossary row no longer says multi-voice rendering is deferred; and ⚠️ the claim that only
+two `import type` lines were left of the `interactions/`↔`windows/` edge was FALSE — `shortcutWiring` and
+`MouseController` open windows at runtime, one way, and the doc now says so. Still owed in item 4: the
+opening's spacing-model narrative (accurate but long), and `CLAUDE.md`'s tree as one line per folder —
+⏸️ that one moves the ⛔ rules agents read every session, so it wants his eye first.*
+
+*…and the DOC LINKS (awaiting his word) — his words: the docs folder *"is a little messy"*. Before tidying it,
+what the tidying would break had to be checkable: **`npm run lint:doclinks`** (`scripts/check-doc-links.mjs`,
+now in `build:check`) holds every `docs/….md` cited from `src/`, `e2e/`, `scripts/`, `docs/`, `CLAUDE.md` and
+`reference/README.md` — 2,511 mentions — to a file that exists. It found SEVEN cited docs that did not
+(28 mentions), and ⚠️ five of the seven were the names of the AGENT'S OWN MEMORY NOTES, cited in code comments
+as if they were files: rules nobody else could open. Four were repointed to the doc that really holds the
+rule (`staff-size-plan` · `vexflow-boundary` · `json-io-plan` · `spacing-model-plan`); two that stated a doc's
+absence now say so without a path; and the most cited, **`docs/tuning-systems-and-alteration.md`** (12
+mentions across the audio and pitch code), was WRITTEN from the note — why `alter` is a symbol and not a
+count of semitones, MEI vs MusicXML, and his decision that a tuning system is a LAYER, not score content.
+⏭️ Next, now that it is safe: sub-folders by kind with the paths rewritten in the same commit, and a Status
+line per file — ⛔ written only where the file or the code makes it certain; a doubtful one is left as it is
+and corrected when development next meets it (his rule).*
 
 ### Later — before orchestral scores
 
@@ -1241,8 +1271,9 @@ emoji-marked lines, 56 sentences where VexFlow still acts) hides it.
 - A marker is for a rule no tool can check; one per block.
 
 First pass, because it is misinformation rather than noise: the present-tense VexFlow sentences
-and the three dangling doc links (`docs/kerning.md`, `docs/small-staff-spacing.md`,
-`docs/tuning-systems-and-alteration.md`).
+and the three dangling doc links (`kerning`, `small-staff-spacing` — repointed 2026-09-20 to the docs that
+hold those rules — and `docs/tuning-systems-and-alteration.md`, written that day; `npm run lint:doclinks`
+now holds all of them).
 
 ---
 

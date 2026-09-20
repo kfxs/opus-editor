@@ -296,5 +296,6 @@ What it would take, and why it is its own piece of work:
 
 ⚠️ Whatever is built, `spanAnchors` must keep NOT cross-pinning the two sides: the ordinary path is
 careful that seeing one system never forces the other's bar to be painted for nothing
-(docs/cross-system-beam-fragments-plan.md P4), and a fan join currently leans on being one pinned set
+(the cross-system beam-fragments rule, P4 — never a file of its own; it is written down in
+`docs/cross-barline-beaming-plan.md`), and a fan join currently leans on being one pinned set
 precisely because it never spans a break.

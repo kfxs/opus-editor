@@ -30,7 +30,7 @@ signature is engraved, at system heads and at mid-score changes. ⏭️ **P4 nex
 > The others: §2's call-site count (two, not one) and its specs; §2.1's missing `keysByStaff` prepass;
 > §3's missing `measureColumns` (which is what makes this a *width* change); §4.1's empty-signature
 > trap; §4.3's wrong table; §5's unregistered hit boxes. One dead reference removed
-> (`docs/render-width-key-vs-shape-key.md` does not exist).
+> (a `render-width-key-vs-shape-key` doc does not exist; the rule is `docs/ARCHITECTURE.md` §"Adding a new engraved element").
 
 ## 0. What we are building, and what we are not
 
@@ -153,11 +153,11 @@ that shape of glyph, because header overhead is priced outside the note-space pa
 provably width-independent (`clefWidthIndependence.test.ts`), a key is not.
 
 ⚠️ The required read before this line is written is **`measureRenderRoles.ts`'s header and
-`MeasureRedrawKey.ts`'s header** — `docs/render-width-key-vs-shape-key.md`, cited here in the first
+`MeasureRedrawKey.ts`'s header** — a `render-width-key-vs-shape-key` doc, cited here in the first
 draft, **does not exist** (the name is a memory index entry, not a file).
 
 **JSON:** additive and optional, so import/export is untouched and there is **no migration** (that is
-policy, not laziness — `docs/no-json-migration.md`).
+policy, not laziness — `docs/json-io-plan.md`).
 
 ---
 

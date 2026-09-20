@@ -573,7 +573,7 @@ adds a stored staff-space delta to the mark's automatic placement, so changing t
 the nudged mark with it — which is exactly what anchor-relative means, and §4's argument arriving
 (the origin stops being a side effect and becomes a rule). ⛔ Nothing to migrate and nothing to
 rebase: there are no users and no files in the wild, and this repo does not build migrations
-(`docs/no-json-migration.md`). Worth a line only so a hand-nudged mark sitting somewhere new in the
+(`docs/json-io-plan.md`). Worth a line only so a hand-nudged mark sitting somewhere new in the
 test score after P1 reads as the rule landing rather than a regression.
 
 **⛔ Not corrected here at all:** technique text (`pizz.` — Gould puts it above), tempo marks (their
