@@ -14,7 +14,7 @@ import type { MeasureBounds } from './renderTypes'
  * jsdom draws nothing (`reference_jsdom_cannot_measure_glyphs`) and nothing here needs it to.
  *
  * ⚠️ What this chapter does NOT own: that the cut then produces a `(Ped.)` resumption carrying the
- * release. That is `planSlurSegments`', already proven, and `PedalRenderer` only hands it a different
+ * release. That is `planSpanSegments`', already proven, and `PedalRenderer` only hands it a different
  * line number.
  */
 function makeLookup(

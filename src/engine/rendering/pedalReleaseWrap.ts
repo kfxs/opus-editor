@@ -52,7 +52,7 @@ interface WrappedRelease {
  * @param drawnEndX the release's x **with** the hand's `endX` nudge in it — the ink actually on the
  *   page, which is both what decides and what travels.
  * @param scale how big this staff is drawn — the edges come from `measureBounds` (SVG space) and
- *   everything here is in the staff's own space, `planSlurSegments`' conversion and for its reason.
+ *   everything here is in the staff's own space, `planSpanSegments`' conversion and for its reason.
  * @param lineIsPainted did the last render put this pedal's staff on that line? ⛔ Never wrap onto a
  *   line the picture cannot say anything about — the walk's own no-guessing rule.
  * @returns null when it stays put, which is the ordinary answer; otherwise the line and the DRAWN x

@@ -41,7 +41,7 @@
  *
  * Everything drawn runs inside `inStaffSpace`, i.e. the staff's own `scale(k)` group: note and stave
  * coordinates are in it already. A SYSTEM EDGE is not — `measureBounds` says where a bar landed in
- * the SVG — so it is divided by the scale on the way in, the same conversion `planSlurSegments`
+ * the SVG — so it is divided by the scale on the way in, the same conversion `planSpanSegments`
  * makes. `TrillRenderer`'s note, and it applies here verbatim.
  */
 import type { EngravedStave } from './EngravedStave'
@@ -50,11 +50,10 @@ import type { Score, Ottava, Measure, Fraction } from '@/types/music'
 import type { Column } from '@/engine/layout/spacing'
 import { ottavaSpan, type OttavaSpan } from '@/engine/models/ottavaOps'
 import { ottavaOffsetOverrideOf } from '@/engine/models/engravingOverrides'
-import { clearanceBaseline, columnsBetween, mergeInkBands, staffInkBand, type InkBand } from '@/engine/layout/inkBand'
-import { bandOver, markBand, measureStartOffsets, type OccupiedSpan } from '@/engine/layout/outsideStaffBand'
-import { measureCapacityFrac } from '@/utils/measureCapacity'
-import { fracAdd, fracCompare } from '@/utils/fraction'
-import { planSlurSegments } from './SlurRenderer'
+import { measureStartOffsets, type OccupiedSpan } from '@/engine/layout/outsideStaffBand'
+import { fracCompare } from '@/utils/fraction'
+import { cutSpanAtSystems } from './spanSegments'
+import { barSlice, bracketBaseline, bracketFragmentClaim } from './bracketSpanBand'
 import { inStaffSpace } from './staffScaleGroup'
 import { staffSpacesToPixels } from './staffSpace'
 import { THIN_LINE_SPACES } from '@/engine/layout/thinLineWeight'
@@ -120,8 +119,6 @@ interface OttavaPiece {
   final: boolean
 }
 
-const ZERO: Fraction = { num: 0, den: 1 }
-
 /**
  * The slots of ONE bar that the ottava covers, in beat order — **every voice**, because an ottava
  * governs the staff (§4: it is the one span in our model that carries no voice).
@@ -130,8 +127,7 @@ const ZERO: Fraction = { num: 0, den: 1 }
  * beat in the first bar, from 0 thereafter; up to (but not including) the end beat in the last bar.
  */
 function coveredSlots(p: OttavaPlacement, span: OttavaSpan): Measure['slots'] {
-  const from = p.measureNumber === span.startMeasure ? span.startBeat : ZERO
-  const to = p.measureNumber === span.endMeasure ? span.endBeat : measureCapacityFrac(p.view)
+  const { from, to } = barSlice(p, span)
   return p.view.slots
     .filter(s => fracCompare(s.beat, from) >= 0 && fracCompare(s.beat, to) < 0)
     .sort((a, b) => fracCompare(a.beat, b.beat))
@@ -234,33 +230,8 @@ function baselineFor(
   line: number,
   starts: Map<number, Fraction>,
 ): number {
-  let music: InkBand | null = null
-  let taken: InkBand | null = null
-  for (const p of here) {
-    const { from, to } = barSlice(p, span)
-    music = mergeInkBands(music, staffInkBand(columnsBetween(p.system.columns, from, to), staffId, firstStaffId))
-    const base = starts.get(p.measureNumber)
-    if (base === undefined) continue
-    taken = mergeInkBands(taken, bandOver(
-      pass.occupiedBands, line, staffId, side,
-      fracAdd(base, from), fracAdd(base, to), firstStaffId))
-  }
-  return clearanceBaseline(mergeInkBands(music, taken), side, OTTAVA_MARK_INK, OTTAVA_LINE)
-}
-
-/**
- * ⭐ The slice of ONE bar the ottava covers, in that bar's own beats — the first bar from the start
- * beat, the last bar to the end beat, everything between it whole.
- *
- * Shared by {@link baselineFor} (what ink is in there) and {@link ottavaFragmentClaim} (what beats
- * the fragment took), so what the line CLEARED and what it CLAIMS cannot drift apart. `TrillRenderer`
- * makes the same pairing for the same reason.
- */
-function barSlice(p: Pick<OttavaPlacement, 'view' | 'measureNumber'>, span: OttavaSpan): { from: Fraction; to: Fraction } {
-  return {
-    from: p.measureNumber === span.startMeasure ? span.startBeat : ZERO,
-    to: p.measureNumber === span.endMeasure ? span.endBeat : measureCapacityFrac(p.view),
-  }
+  return bracketBaseline(pass.occupiedBands, here, span, { line, staffId, side }, firstStaffId, starts,
+    { ink: OTTAVA_MARK_INK, clearance: OTTAVA_LINE })
 }
 
 /**
@@ -283,25 +254,11 @@ export function ottavaFragmentClaim(
   baseline: number,
   starts: Map<number, Fraction>,
 ): OccupiedSpan | null {
-  const bars = [...here].sort((a, b) => a.measureNumber - b.measureNumber)
-  const first = bars[0]
-  const last = bars[bars.length - 1]
-  if (!first || !last) return null
-  const firstStart = starts.get(first.measureNumber)
-  const lastStart = starts.get(last.measureNumber)
-  if (!firstStart || !lastStart) return null
-  return {
-    line,
-    staffId,
-    side,
-    from: fracAdd(firstStart, barSlice(first, span).from),
-    to: fracAdd(lastStart, barSlice(last, span).to),
-    band: markBand(baseline, OTTAVA_MARK_INK),
-  }
+  return bracketFragmentClaim(here, span, { line, staffId, side }, baseline, starts, OTTAVA_MARK_INK)
 }
 
 /**
- * Cut the bracket into the pieces the systems make. `planSlurSegments` is reused verbatim — its name
+ * Cut the bracket into the pieces the systems make. `planSpanSegments` is reused verbatim — its name
  * is the only thing about it that says "slur": it answers *given two system numbers and two x's, what
  * pieces does this span break into*, which is a fact about systems.
  */
@@ -313,22 +270,13 @@ function cutIntoPieces(
   endX: number,
   scale: number,
 ): OttavaPiece[] {
-  const pieces: OttavaPiece[] = []
-  for (const seg of planSlurSegments(pass, fromLine, toLine, startX, endX, scale)) {
-    const range = seg.type === 'single' ? { x0: startX, x1: endX, line: fromLine }
-      : seg.type === 'begin' ? { x0: seg.firstX, x1: seg.rightX, line: fromLine }
-        : seg.type === 'middle' ? { x0: seg.leftX, x1: seg.rightX, line: seg.line }
-          : { x0: seg.leftX, x1: seg.lastX, line: toLine }
-    if (range.x1 <= range.x0) continue
-    pieces.push({
-      ...range,
-      // `single` and `begin` carry the line's real start; `middle` and `end` are resumptions.
-      continuation: seg.type === 'middle' || seg.type === 'end',
-      // ⭐ …and `single` and `end` carry its real END, which is the only place a hook may go.
-      final: seg.type === 'single' || seg.type === 'end',
-    })
-  }
-  return pieces
+  return cutSpanAtSystems(pass, fromLine, toLine, startX, endX, scale).map(({ type, ...range }) => ({
+    ...range,
+    // `single` and `begin` carry the line's real start; `middle` and `end` are resumptions.
+    continuation: type === 'middle' || type === 'end',
+    // ⭐ …and `single` and `end` carry its real END, which is the only place a hook may go.
+    final: type === 'single' || type === 'end',
+  }))
 }
 
 /**
@@ -537,7 +485,7 @@ function drawOttava(
     // brackets say it did not start here.
     //
     // ⭐ A RESUMED numeral starts LEFT of where the music does (his call; see
-    // {@link OTTAVA_CONTINUATION_INSET}): `planSlurSegments`' left edge is `noteStartX`, which put
+    // {@link OTTAVA_CONTINUATION_INSET}): `planSpanSegments`' left edge is `noteStartX`, which put
     // the `(8va)` on top of the first notehead. ⚠️ Clamped at the bar's own left edge so it can
     // never reach back past the stave and collide with the clef.
     const barLeft = here[0] ? pass.measureBounds.get(here[0].measureNumber)?.measureX : undefined

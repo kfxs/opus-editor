@@ -212,7 +212,7 @@ export const OTTAVA_DASH_GAP = 0.4
  * > but the x position of the continuation is more to the right than i expected… basically it should
  * > be more to the left."*
  *
- * ⚠️ **The cause: `planSlurSegments`' left edge is `noteStartX`** — where NOTES may begin, i.e. after
+ * ⚠️ **The cause: `planSpanSegments`' left edge is `noteStartX`** — where NOTES may begin, i.e. after
  * the clef, key and meter. For a slur that is exactly right (an arc resumes where the music does),
  * and the ottava inherited it, which put `(8va)` directly over the first notehead. A resumed numeral
  * is not part of the music though — it is a REMINDER, read before the first note rather than with

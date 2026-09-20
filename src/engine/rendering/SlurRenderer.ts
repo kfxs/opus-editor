@@ -35,7 +35,8 @@ import { accidentalsOn } from './EngravedAccidental'
 import { noteInkBox } from './noteInkBox'
 import { brokenSlurOpenRise } from './brokenSlurTilt'
 import { spellingDiatonicPos } from '@/utils/pitchSpelling'
-import { lineLeftCurveX, lineLeftEdgeX, lineRightEdgeX, type SystemEdgeLookup } from './systemEdges'
+import { lineLeftCurveX } from './systemEdges'
+import { planSpanSegments } from './spanSegments'
 import { voiceOf } from '@/utils/lanes'
 import { noteFrame } from './staveFrame'
 import { staffBottomLineY, staffLineY, type StaffFrame } from '@/engine/engrave/staff/staffFrame'
@@ -160,79 +161,6 @@ function resolveSlurEnd(pass: RenderPass, noteId: string): SlurEnd | undefined {
 }
 
 /**
- * One drawn piece of a slur. A same-line slur is a single `single`; a slur crossing
- * N systems is `begin` + (N−2)×`middle` + `end`, each anchored to the **system**
- * edges (not the endpoint notes' own measures — that measure-vs-system confusion was
- * the original bug). `firstX`/`lastX` are the note tie-edge Xs; `leftX`/`rightX` are
- * the system margins from the helpers above.
- */
-export type SlurSegment =
-  | { type: 'single' }
-  | { type: 'begin'; firstX: number; rightX: number }
-  | { type: 'middle'; leftX: number; rightX: number; line: number }
-  | { type: 'end'; leftX: number; lastX: number }
-
-/**
- * Pure decision: given the start/end lines and the two note tie-edge Xs, return the
- * ordered segments to draw. No VexFlow / ctx / StaveNote — the heart of the
- * multi-system fix, so it's unit-testable in isolation. A line whose system edge
- * can't be resolved is skipped (defensive; shouldn't happen for a rendered line).
- */
-export function planSlurSegments(
-  pass: SystemEdgeLookup,
-  fromLine: number,
-  toLine: number,
-  firstX: number,
-  lastX: number,
-  /**
-   * ⚠️ **How big the slur's staff is drawn** (1 = full size), and it is not optional in spirit.
-   *
-   * `firstX`/`lastX` come off the notes, so they are in the staff's OWN space — but a system edge
-   * comes from `measureBounds`, which is where the bar landed in the SVG. Mixing the two was a real
-   * defect for exactly one shape of music: a slur crossing a system break on a staff drawn small
-   * stopped at `edge × k` instead of the edge, i.e. 30% short of the margin. Everything here is
-   * handed to the drawing, which happens inside the staff's scale group, so the edges are converted
-   * INTO that space here — the one place both kinds of number meet.
-   */
-  scale: number,
-  /**
-   * ⭐ **Which left boundary this family resumes at** — the one thing a CURVE and a LINE disagree
-   * about at a system start, so it is the caller's to say and everything else here is shared.
-   *
-   * A slur or tie resumes after the header's INK ({@link lineLeftCurveX}, Gould p. 112 / p. 65). The
-   * bracket families — ottava, pedal, trill, hairpin — keep the default, the MUSIC's own margin: each
-   * already shifts its resumed label left of it by its own eye-tuned inset, and a boundary that moved
-   * under them would move the labels onto the clef.
-   */
-  leftEdgeX: (pass: SystemEdgeLookup, line: number) => number | undefined = lineLeftEdgeX,
-): SlurSegment[] {
-  if (fromLine === toLine) return [{ type: 'single' }]
-  const toLocal = (x: number | undefined): number | undefined => (x === undefined ? undefined : x / scale)
-  const segments: SlurSegment[] = []
-  for (let line = fromLine; line <= toLine; line++) {
-    if (line === fromLine) {
-      const rightX = toLocal(lineRightEdgeX(pass, line))
-      if (rightX !== undefined) segments.push({ type: 'begin', firstX, rightX })
-    } else if (line === toLine) {
-      // ⭐⭐ **AFTER the clef, key and meter** — Gould p. 112, verbatim: *"At the beginning of the new
-      // system, the slur starts after the clef, key signature and time signature, but before any
-      // accidental."* Gerou & Lusk say the same independently, and all three engines land there
-      // (⚠️ including Verovio, whose `GetLeftBarLineXRel` is AFTER the header — its alignment enum
-      // orders the score-def clef before the left barline, which I misread as "before the clef" and
-      // briefly copied). ⚠️ Which x that IS is `leftEdgeX`'s to say: `noteStartX` is the padded
-      // boundary and measured equal to the first notehead, so a curve passes `lineLeftCurveX`.
-      const leftX = toLocal(leftEdgeX(pass, line))
-      if (leftX !== undefined) segments.push({ type: 'end', leftX, lastX })
-    } else {
-      const leftX = toLocal(leftEdgeX(pass, line))
-      const rightX = toLocal(lineRightEdgeX(pass, line))
-      if (leftX !== undefined && rightX !== undefined) segments.push({ type: 'middle', leftX, rightX, line })
-    }
-  }
-  return segments
-}
-
-/**
  * The two TRUE, anchorable endpoints of a slur — the beginning point `p0` and the end
  * point `p1` — in screen pixels. Pure geometry: mirrors the same-line `p0`/`p1` that
  * carry the square re-anchor handles, so a cross-system slur can expose the same two
@@ -311,7 +239,7 @@ function slurObstaclesOf(
  *
  * ⭐ **The system is identified by the STAVE'S OWN TOP LINE, not by a measure number.** Every bar on
  * one system shares it, and it is a number the renderer already has for every drawn note — which is
- * the same reason `planSlurSegments` works off drawn edges rather than off the model.
+ * the same reason `planSpanSegments` works off drawn edges rather than off the model.
  *
  * ⚠️ `getBoundingBox()` deliberately spans head + stem + beam, so on the stem side the edge is the
  * stem tip and on the notehead side the notehead — which is exactly what the curve must clear.
@@ -857,7 +785,7 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
           // `firstX`/`lastX` (incl. the endpoint nudge) were lifted above the branch.
           // The two true endpoints (square re-anchor handles). Attach them to the FIRST
           // partial that actually registers — independent of which segment draws, since
-          // planSlurSegments may defensively skip a system edge it can't resolve, so we
+          // planSpanSegments may defensively skip a system edge it can't resolve, so we
           // can't assume the BEGIN partial exists. NO controlPoints/staffSpacePx, so the
           // round shape handles stay off for a split slur (it has no single shared shape).
           const trueEnds = slurTrueEndpoints(firstX, lastX, fromY, toY, LIFT, direction)
@@ -931,7 +859,7 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
             return brokenSlurOpenRise(steps ?? 0, half, direction, lengthPx, clearance)
           }
           let middleOrdinal = 0
-          for (const seg of planSlurSegments(pass, fromLine, toLine, firstX, lastX, pass.staffScale(slurStaffIndex), lineLeftCurveX)) {
+          for (const seg of planSpanSegments(pass, fromLine, toLine, firstX, lastX, pass.staffScale(slurStaffIndex), lineLeftCurveX)) {
             if (seg.type === 'begin') {
               // Start note → system right edge, rising to an OPEN right end that leans toward the
               // music on the next system (`./brokenSlurTilt`, Gould p. 112).

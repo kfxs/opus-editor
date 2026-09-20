@@ -77,7 +77,7 @@ interface ResolvedSegmentShapes {
  *
  * No mutation — staleness is decided fresh every render, so this is correct without ever
  * writing back. (The optional lazy *clear* is out of scope; see plan §3.) Pure & VexFlow-free
- * for isolated unit testing, mirroring `planSlurSegments` / `slurTrueEndpoints`.
+ * for isolated unit testing, mirroring `planSpanSegments` / `slurTrueEndpoints`.
  */
 export function reconcileSegmentShape(
   override: SegmentCurveShapeOverride | undefined,

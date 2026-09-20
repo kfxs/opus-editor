@@ -35,7 +35,7 @@
  *
  * Everything drawn runs inside `inStaffSpace`, i.e. the staff's own `scale(k)` group: note and stave
  * coordinates are in it already. A SYSTEM EDGE is not — `measureBounds` says where a bar landed in
- * the SVG — so it is divided by the scale on the way in, the same conversion `planSlurSegments`
+ * the SVG — so it is divided by the scale on the way in, the same conversion `planSpanSegments`
  * makes. `OttavaRenderer`'s note, and it applies here verbatim.
  */
 import type { EngravedStave } from './EngravedStave'
@@ -46,11 +46,10 @@ import type { GuideLine } from '@/engine/ElementRegistry'
 import { pedalSpan, type PedalSpan } from '@/engine/models/pedalOps'
 import { pedalOffsetOverrideOf } from '@/engine/models/engravingOverrides'
 import { pedalDrawStaff } from '@/utils/pedalScope'
-import { clearanceBaseline, columnsBetween, mergeInkBands, staffInkBand, type InkBand } from '@/engine/layout/inkBand'
-import { bandOver, markBand, measureStartOffsets, type OccupiedSpan } from '@/engine/layout/outsideStaffBand'
-import { measureCapacityFrac } from '@/utils/measureCapacity'
-import { fracAdd, fracCompare } from '@/utils/fraction'
-import { planSlurSegments } from './SlurRenderer'
+import { measureStartOffsets, type OccupiedSpan } from '@/engine/layout/outsideStaffBand'
+import { fracCompare } from '@/utils/fraction'
+import { cutSpanAtSystems } from './spanSegments'
+import { bracketBaseline, bracketFragmentClaim } from './bracketSpanBand'
 import { wrapReleaseOntoNextLine } from './pedalReleaseWrap'
 import { onsetXOf } from '@/engine/layout/measureRestOnset'
 import { inStaffSpace } from './staffScaleGroup'
@@ -93,8 +92,6 @@ interface PedalPiece {
   /** ⭐ Does this fragment carry the LIFT? Only that one draws the `✻`. */
   final: boolean
 }
-
-const ZERO: Fraction = { num: 0, den: 1 }
 
 /** The id `staveNoteMap` is keyed by for a slot — the first PITCH id for a chord, the slot id for a
  *  rest. `OttavaRenderer`'s convention, and it must match or nothing resolves. */
@@ -187,21 +184,6 @@ function spanX(
 }
 
 /**
- * ⭐ The slice of ONE bar the pedal covers, in that bar's own beats — the first bar from the press,
- * the last bar to the lift, everything between it whole.
- *
- * Shared by {@link baselineFor} (what ink is in there) and {@link pedalFragmentClaim} (what beats the
- * fragment took), so what the pedal CLEARED and what it CLAIMS cannot drift apart. `OttavaRenderer`
- * makes the same pairing for the same reason.
- */
-function barSlice(p: Pick<PedalPlacement, 'view' | 'measureNumber'>, span: PedalSpan): { from: Fraction; to: Fraction } {
-  return {
-    from: p.measureNumber === span.startMeasure ? span.startBeat : ZERO,
-    to: p.measureNumber === span.endMeasure ? span.endBeat : measureCapacityFrac(p.view),
-  }
-}
-
-/**
  * ⭐⭐ **THE PEDAL'S OWN Y — and it is the ladder's last consumer.**
  *
  * Two bands merged: the MUSIC's ink over the bars of THIS FRAGMENT (`layout/inkBand`), and everything
@@ -223,18 +205,8 @@ function baselineFor(
   line: number,
   starts: Map<number, Fraction>,
 ): number {
-  let music: InkBand | null = null
-  let taken: InkBand | null = null
-  for (const p of here) {
-    const { from, to } = barSlice(p, span)
-    music = mergeInkBands(music, staffInkBand(columnsBetween(p.system.columns, from, to), staffId, firstStaffId))
-    const base = starts.get(p.measureNumber)
-    if (base === undefined) continue
-    taken = mergeInkBands(taken, bandOver(
-      pass.occupiedBands, line, staffId, 'below',
-      fracAdd(base, from), fracAdd(base, to), firstStaffId))
-  }
-  return clearanceBaseline(mergeInkBands(music, taken), 'below', PEDAL_MARK_INK, PEDAL_LINE)
+  return bracketBaseline(pass.occupiedBands, here, span, { line, staffId, side: 'below' }, firstStaffId, starts,
+    { ink: PEDAL_MARK_INK, clearance: PEDAL_LINE })
 }
 
 /**
@@ -257,25 +229,11 @@ export function pedalFragmentClaim(
   baseline: number,
   starts: Map<number, Fraction>,
 ): OccupiedSpan | null {
-  const bars = [...here].sort((a, b) => a.measureNumber - b.measureNumber)
-  const first = bars[0]
-  const last = bars[bars.length - 1]
-  if (!first || !last) return null
-  const firstStart = starts.get(first.measureNumber)
-  const lastStart = starts.get(last.measureNumber)
-  if (firstStart === undefined || lastStart === undefined) return null
-  return {
-    line,
-    staffId,
-    side: 'below',
-    from: fracAdd(firstStart, barSlice(first, span).from),
-    to: fracAdd(lastStart, barSlice(last, span).to),
-    band: markBand(baseline, PEDAL_MARK_INK),
-  }
+  return bracketFragmentClaim(here, span, { line, staffId, side: 'below' }, baseline, starts, PEDAL_MARK_INK)
 }
 
 /**
- * Cut the pedal into the pieces the systems make. `planSlurSegments` is reused verbatim — its name is
+ * Cut the pedal into the pieces the systems make. `planSpanSegments` is reused verbatim — its name is
  * the only thing about it that says "slur": it answers *given two system numbers and two x's, what
  * pieces does this span break into*, which is a fact about systems.
  */
@@ -287,24 +245,15 @@ function cutIntoPieces(
   endX: number,
   scale: number,
 ): PedalPiece[] {
-  const pieces: PedalPiece[] = []
-  for (const seg of planSlurSegments(pass, fromLine, toLine, startX, endX, scale)) {
-    const range = seg.type === 'single' ? { x0: startX, x1: endX, line: fromLine }
-      : seg.type === 'begin' ? { x0: seg.firstX, x1: seg.rightX, line: fromLine }
-        : seg.type === 'middle' ? { x0: seg.leftX, x1: seg.rightX, line: seg.line }
-          : { x0: seg.leftX, x1: seg.lastX, line: toLine }
-    // ⚠️ `<`, not `<=`: a FINAL fragment may legitimately be a hair wide (a lift just inside a new
-    // system's first bar), and dropping it would leave a pedal whose release is never drawn.
-    if (range.x1 < range.x0) continue
-    pieces.push({
-      ...range,
-      // `single` and `begin` carry the press; `middle` and `end` are resumptions.
-      continuation: seg.type === 'middle' || seg.type === 'end',
-      // ⭐ …and `single` and `end` carry the LIFT, which is the only place a `✻` may go.
-      final: seg.type === 'single' || seg.type === 'end',
-    })
-  }
-  return pieces
+  // ⚠️ `keepHairWide`: a FINAL fragment may legitimately be a hair wide (a lift just inside a new
+  // system's first bar), and dropping it would leave a pedal whose release is never drawn.
+  return cutSpanAtSystems(pass, fromLine, toLine, startX, endX, scale, { keepHairWide: true }).map(({ type, ...range }) => ({
+    ...range,
+    // `single` and `begin` carry the press; `middle` and `end` are resumptions.
+    continuation: type === 'middle' || type === 'end',
+    // ⭐ …and `single` and `end` carry the LIFT, which is the only place a `✻` may go.
+    final: type === 'single' || type === 'end',
+  }))
 }
 
 /** This pedal's stored `endX` nudge, in staff spaces — 0 when it carries none. Read here as well as
@@ -443,7 +392,7 @@ function drawPedal(
     // not go down here.
     //
     // ⭐ A RESUMED sign starts LEFT of where the music does ({@link PEDAL_CONTINUATION_INSET}):
-    // `planSlurSegments`' left edge is `noteStartX`, which would put `(Ped.)` on top of the first
+    // `planSpanSegments`' left edge is `noteStartX`, which would put `(Ped.)` on top of the first
     // notehead. ⚠️ Clamped at the bar's own left edge so it can never reach back past the stave and
     // collide with the clef.
     const barLeft = here[0] ? pass.measureBounds.get(here[0].measureNumber)?.measureX : undefined

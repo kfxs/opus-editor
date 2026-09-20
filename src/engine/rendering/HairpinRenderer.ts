@@ -32,7 +32,7 @@
  * Everything drawn runs inside `inStaffSpace`, i.e. the staff's own `scale(k)` group: note
  * coordinates, stave coordinates and the dynamics' drawn boxes are all in it already. A SYSTEM
  * EDGE is not — `measureBounds` says where a bar landed in the SVG — so it is divided by the scale
- * on the way in, which is the same conversion `planSlurSegments` makes and for the same reason
+ * on the way in, which is the same conversion `planSpanSegments` makes and for the same reason
  * (a cross-system slur on a small staff used to stop 30% short of the margin).
  */
 import type { EngravedStave } from './EngravedStave'
@@ -51,7 +51,7 @@ import { breakWedgeAtGaps, inksClash, rampAt, type InkBand, type WedgeGap } from
 import { dynamicInkReachSpaces } from './dynamicMarkInk'
 import { dynamicLabel } from '@/utils/dynamics'
 import { HAIRPIN_LINE_SPACES } from '@/engine/layout/thinLineWeight'
-import { planSlurSegments } from './SlurRenderer'
+import { cutSpanAtSystems } from './spanSegments'
 import { staffIndexOfId } from '@/engine/models/staffContent'
 import { inStaffSpace } from './staffScaleGroup'
 import { staffSpacesToPixels } from './staffSpace'
@@ -378,7 +378,7 @@ interface WedgePiece {
  * Cut the wedge into the pieces the systems make, each fragment opening by the fractions
  * {@link fragmentOpening} states — LilyPond's and Verovio's identical thirds.
  *
- * ⭐ `planSlurSegments` is reused verbatim, and its name is the only thing about it that says
+ * ⭐ `planSpanSegments` is reused verbatim, and its name is the only thing about it that says
  * "slur": it is *given two system numbers and two x's, what pieces does this span break into*,
  * which is a fact about systems. Its `type` maps one-to-one onto a fragment's role, which is why
  * there is no second planner here to drift out of step with it.
@@ -391,18 +391,8 @@ function cutIntoPieces(
   endX: number,
   scale: number,
 ): WedgePiece[] {
-  const pieces: WedgePiece[] = []
-  for (const seg of planSlurSegments(pass, fromLine, toLine, startX, endX, scale)) {
-    // ⚠️ Only a MIDDLE segment carries its line — the other three are implied by which end they
-    // are, which is why this mapping is spelled out rather than read off `seg`.
-    const range = seg.type === 'single' ? { x0: startX, x1: endX, line: fromLine }
-      : seg.type === 'begin' ? { x0: seg.firstX, x1: seg.rightX, line: fromLine }
-        : seg.type === 'middle' ? { x0: seg.leftX, x1: seg.rightX, line: seg.line }
-          : { x0: seg.leftX, x1: seg.lastX, line: toLine }
-    if (range.x1 <= range.x0) continue
-    pieces.push({ ...range, role: seg.type })
-  }
-  return pieces
+  // A segment's `type` maps one-to-one onto a fragment's role.
+  return cutSpanAtSystems(pass, fromLine, toLine, startX, endX, scale).map(({ type, ...range }) => ({ ...range, role: type }))
 }
 
 /**

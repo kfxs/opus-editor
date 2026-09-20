@@ -112,7 +112,7 @@ export const PEDAL_LINE: Clearance = {
  * ⭐⭐ **How far LEFT of the first note a CONTINUATION `(Ped.)` sits**, in staff spaces — the
  * ottava's `OTTAVA_CONTINUATION_INSET`, at his eye's value for that family (2.0, 2026-08-13).
  *
- * Same cause, same fix: `planSlurSegments`' left edge is `noteStartX`, i.e. where NOTES may begin —
+ * Same cause, same fix: `planSpanSegments`' left edge is `noteStartX`, i.e. where NOTES may begin —
  * after the clef, key and meter — which puts a resumed sign directly over the first notehead. A
  * resumption is a REMINDER, read before the music rather than with it, so it belongs in the space the
  * clef sits in. Clamped at the bar's own left edge at the draw site so it can never reach onto the

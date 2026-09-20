@@ -36,7 +36,7 @@
  * Everything drawn runs inside `inStaffSpace`, i.e. the staff's own `scale(k)` group: note
  * coordinates and stave coordinates are in it already. A SYSTEM EDGE is not — `measureBounds` says
  * where a bar landed in the SVG — so it is divided by the scale on the way in, which is the same
- * conversion `planSlurSegments` makes and for the same reason.
+ * conversion `planSpanSegments` makes and for the same reason.
  */
 import type { EngravedStave } from './EngravedStave'
 import { drawGlyph, drawTextRun, measureGlyph } from './glyphPainter'
@@ -51,7 +51,7 @@ import { markBand, measureStartOffsets, type OccupiedSpan } from '@/engine/layou
 import { measureCapacityFrac } from '@/utils/measureCapacity'
 import { fracAdd, fracCompare, fracGt } from '@/utils/fraction'
 import { voiceOf } from '@/utils/lanes'
-import { planSlurSegments } from './SlurRenderer'
+import { cutSpanAtSystems } from './spanSegments'
 import { inStaffSpace } from './staffScaleGroup'
 import { staffSpacesToPixels } from './staffSpace'
 import {
@@ -284,7 +284,7 @@ export function foldPastSystemEnd(
 ): { line: number; endX: number } {
   for (let guard = 0; guard < 64; guard++) {
     // ⚠️ Every edge comes from `measureBounds`, i.e. the SVG's own space; everything here is in the
-    // staff's (`SlurRenderer.planSlurSegments` makes the same conversion for the same reason).
+    // staff's (`spanSegments.planSpanSegments` makes the same conversion for the same reason).
     const right = lineRightEdgeX(pass, line)
     const left = lineLeftEdgeX(pass, line)
     const nextLeft = lineLeftEdgeX(pass, line + 1)
@@ -446,7 +446,7 @@ function beatAfter(view: Measure, voice: number, beat: Fraction): Fraction | und
 }
 
 /**
- * Cut the trill into the pieces the systems make. `planSlurSegments` is reused verbatim — its name
+ * Cut the trill into the pieces the systems make. `planSpanSegments` is reused verbatim — its name
  * is the only thing about it that says "slur": it answers *given two system numbers and two x's,
  * what pieces does this span break into*, which is a fact about systems.
  */
@@ -458,17 +458,9 @@ function cutIntoPieces(
   endX: number,
   scale: number,
 ): TrillPiece[] {
-  const pieces: TrillPiece[] = []
-  for (const seg of planSlurSegments(pass, fromLine, toLine, startX, endX, scale)) {
-    const range = seg.type === 'single' ? { x0: startX, x1: endX, line: fromLine }
-      : seg.type === 'begin' ? { x0: seg.firstX, x1: seg.rightX, line: fromLine }
-        : seg.type === 'middle' ? { x0: seg.leftX, x1: seg.rightX, line: seg.line }
-          : { x0: seg.leftX, x1: seg.lastX, line: toLine }
-    if (range.x1 <= range.x0) continue
-    // ⭐ `single` and `begin` carry the trill's real start; `middle` and `end` are resumptions.
-    pieces.push({ ...range, continuation: seg.type === 'middle' || seg.type === 'end' })
-  }
-  return pieces
+  // ⭐ `single` and `begin` carry the trill's real start; `middle` and `end` are resumptions.
+  return cutSpanAtSystems(pass, fromLine, toLine, startX, endX, scale)
+    .map(({ type, ...range }) => ({ ...range, continuation: type === 'middle' || type === 'end' }))
 }
 
 /**

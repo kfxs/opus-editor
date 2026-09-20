@@ -163,7 +163,7 @@ export const TRILL_LINE: Clearance = {
  *
  * ⚠️ **This file used to CLAIM the behaviour it did not have.** The rule (his, 2026-08-13) is that a
  * bracketed label is a REMINDER and so belongs at the system's left edge — where an `(8)` sits — and
- * the renderer put it at `planSlurSegments`' left edge, which is `noteStartX`: after the clef, key
+ * the renderer put it at `planSpanSegments`' left edge, which is `noteStartX`: after the clef, key
  * and meter, i.e. where the NOTES begin. Right for a slur (an arc resumes where the music does) and
  * wrong for a reminder, which is read before the first note rather than with it. `e2e/trill.e2e.ts`
  * had already measured the consequence and written it down as "an honest limit" — the label and the
