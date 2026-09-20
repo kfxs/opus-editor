@@ -14,10 +14,10 @@
  * family-specific thing there is the RULER — the trill's port measures on the ribbon.
  */
 import type { MusicEngine } from '../../engine/MusicEngine'
-import { dragHairpinEndpoint } from '../hairpinWalk'
-import { dragOttavaEndpoint } from '../ottavaWalk'
-import { dragPedalEndpoint } from '../pedalWalk'
-import { dragTrillEndpoint } from '../trillWalk'
+import { dragHairpinEndpoint } from '../walks/hairpinWalk'
+import { dragOttavaEndpoint } from '../walks/ottavaWalk'
+import { dragPedalEndpoint } from '../walks/pedalWalk'
+import { dragTrillEndpoint } from '../walks/trillWalk'
 import { beginHeldDrag, type HeldFrame } from './heldDrag'
 import type { DragHost, Gesture } from './gesture'
 

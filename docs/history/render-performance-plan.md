@@ -1558,7 +1558,7 @@ isolated edit:**
 > walking."* … *"we should apply the same solution of the held to all walkings — pedal, ottava,
 > hairpin, dynamics and tempo."*
 
-`interactions/keyRun.ts`. An accepted press draws the cheap picture (`previewMarks`) and re-arms one
+`interactions/walks/keyRun.ts`. An accepted press draws the cheap picture (`previewMarks`) and re-arms one
 150 ms timer; when the repeats stop the run settles: **one commit** (the family's own `commit…Drag`,
 so a single `Ctrl+Z` returns to where the key went down) and **one real render** — which is what
 re-stacks the ladder and re-casts the page, exactly as a drop does.

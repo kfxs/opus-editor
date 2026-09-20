@@ -61,7 +61,7 @@ import { noteRuler } from '../../engraved/noteRuler'
  * staff whose music is in voice 2 hung off rests all bar. 🚨 Worse where that rest is the WHOLE-BAR
  * one: VexFlow centres it, so the mark was drawn in the middle of the bar rather than under the note
  * the reader would say it belongs to. ⭐ The trill's rule, one family over
- * (`interactions/trillLane`: *"pick the nearest, no matter what voice"*).
+ * (`interactions/lanes/trillLane`: *"pick the nearest, no matter what voice"*).
  *
  * ⚠️ **It changes NOTHING about what the mark GOVERNS.** `Dynamic.voice` is the author's statement
  * about loudness (`utils/dynamicScope`, and his own line: *"that is a decision by the author"*);
@@ -423,7 +423,7 @@ export function registerDynamics(pass: RenderPass, measure: Measure): void {
           // ⚠️ One guide, and only when the anchor note was found: ⛔ a guide is never a guess.
           ...(anchor ? { guides: [{ from: { x: bx, y: guideY }, to: anchor }] } : {}),
           // ⭐ The stave's line spacing where this mark was DRAWN — what the interpolating walk
-          // (`interactions/dynamicWalk`) converts a measured pixel gap into staff-spaces with. ⛔ It
+          // (`interactions/walks/dynamicWalk`) converts a measured pixel gap into staff-spaces with. ⛔ It
           // refuses to guess one, so this is the only route: a small staff beside a normal one is a
           // ratio, and a guessed scale would re-base the offset by the wrong distance.
           ...(spacing === undefined ? {} : { staffSpacePx: spacing }),

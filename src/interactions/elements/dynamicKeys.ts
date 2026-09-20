@@ -12,7 +12,7 @@
  * ⛔ The VERTICAL stays a pure offset: a dynamic's lane runs sideways, so there is no anchor above
  * to arrive at. Screen-down is +y, and that is the stored convention too — nothing is converted.
  */
-import { walkDynamic } from '../dynamicWalk'
+import { walkDynamic } from '../walks/dynamicWalk'
 import type { KeysOf } from './keys'
 
 export const DYNAMIC_KEYS: KeysOf<'dynamic'> = {

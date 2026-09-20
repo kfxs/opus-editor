@@ -35,8 +35,8 @@
 import type { MusicEngine } from '../../engine/MusicEngine'
 import type { MarkPreviewKind } from '../../engine/rendering/marks/markPreviewPass'
 import { dbg } from '../../utils/debug'
-import { logHold, releaseHold, spendHold, takeHold } from '../dragHold'
-import type { DragFrame } from '../markDrive'
+import { logHold, releaseHold, spendHold, takeHold } from '../walks/dragHold'
+import type { DragFrame } from '../walks/markDrive'
 import { DRAG_TIME_THRESHOLD_MS, type DragHost, type DragKind, type Gesture } from './gesture'
 
 /** What a latching walk answers for one frame — `../markDrive`'s frame, plus the `jumped` a body

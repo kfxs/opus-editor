@@ -282,7 +282,7 @@ export function resizeOttavaBySlot(score: Score, id: string, direction: 1 | -1):
 /**
  * ⭐⭐ **WHICH SLOT THE HOOK WOULD CLOSE AROUND after one step, WITHOUT stepping** — a pure read,
  * split out of {@link resizeOttavaBySlot} on 2026-08-21 when the END square asked for the
- * interpolating walk (`interactions/ottavaWalk`).
+ * interpolating walk (`interactions/walks/ottavaWalk`).
  *
  * ⭐ **It is the candidate rule itself, so the two keys cannot disagree.** `Ctrl+Shift+←/→` jumps a
  * whole slot and the plain arrow walks the ink onto one; asking twice would let them land the
@@ -426,7 +426,7 @@ export function setOttavaStartAtSlot(score: Score, id: string, target: OttavaSlo
   //
   // 🚨 What it replaced was a REFUSAL (*"a beginning may not reach its own end"*, the wedge's), and
   // the refusal did not merely stop the gesture — it KILLED it. The walk stops at the first stop the
-  // model declines (`interactions/markWalk.carryMark`), so every further press became pure ink: his
+  // model declines (`interactions/walks/markWalk.carryMark`), so every further press became pure ink: his
   // report, with the score attached, showed the bracket parked on one note at `beat 1, length 1`
   // while its `startX` had run to **63 staff-spaces** and the square had left the page. The
   // cross-system wrap died with it, since the stop it was refusing is on THIS system and the wrap is

@@ -193,7 +193,7 @@ export function slurCommands(ctx: CommandContext) {
      *  were authored against the old anchor (see `slurOps.setSlurEndpoint`). Returns false (no-op)
      *  when the target is invalid (collapses the span or is unchanged). Pair it with
      *  {@link commitSlurEndpoint} for the single undo entry: every FRAME of an endpoint drag, or the
-     *  one step of a Ctrl+Shift+←/→ press (`interactions/slurReanchor`, where the two run back to
+     *  one step of a Ctrl+Shift+←/→ press (`interactions/walks/slurReanchor`, where the two run back to
      *  back — a press is already a whole gesture). */
     previewSlurEndpoint(id: string, which: 'start' | 'end', noteId: string): boolean {
       ctx.markDirty() // live drag, undo deferred to commitSlurEndpoint — see previewSlurShape
@@ -206,7 +206,7 @@ export function slurCommands(ctx: CommandContext) {
     },
 
     /** Re-point one end onto `noteId` **keeping** the arc's shape and both ends' nudges, and save ONE
-     *  undo step. The interpolating walk's write (`interactions/slurEndpointWalk`), which pairs it
+     *  undo step. The interpolating walk's write (`interactions/walks/slurEndpointWalk`), which pairs it
      *  with a re-basing {@link nudgeSlurEndpoint} inside a {@link runBatch} so the press is one entry.
      *  ⚠️ NOT the general re-anchor — see `slurOps.setSlurEndpointKeepingEdits` for which caller wants
      *  which. @returns false (no-op) when the target is invalid or already the anchor. */

@@ -34,7 +34,7 @@
  * fragment only) and the one `slurHandleCycle` names for slur handles.
  */
 import type { ElementInfo, ElementRegistry } from '../../engine/ElementRegistry'
-import { markStaffSpacePx } from '../markLane'
+import { markStaffSpacePx } from '../lanes/markLane'
 import type { MusicEngine } from '../../engine/MusicEngine'
 import type { HairpinCommands } from '@/engine/commands/hairpinCommands'
 import type { EditorState } from '../state/EditorState'

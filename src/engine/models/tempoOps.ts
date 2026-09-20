@@ -58,7 +58,7 @@ function locate(score: Score, id: string): { mark: TempoMark; measure: Measure }
 /**
  * Every onset in the score, in reading order, each appearing once — ⭐ **the list of stops itself**,
  * exported since 2026-08-31 for the one caller that has to look PAST the next one
- * (`interactions/tempoDrag`: several stops can share a drawn x, and the mouse cannot aim inside a
+ * (`interactions/walks/tempoDrag`: several stops can share a drawn x, and the mouse cannot aim inside a
  * column). ⛔ Asking for it per step would rebuild it per step; the drag builds it once a frame.
  *
  * ⭐ Every staff and every voice, unlike the dynamic's lane — see the header. A column sounded by
@@ -178,7 +178,7 @@ export function moveTempoBySlot(score: Score, id: string, direction: 1 | -1): bo
 
 /**
  * ⭐⭐ **THE SAME MOVE, KEEPING THE MARK'S OWN NUDGE** — the crossing of the INTERPOLATING WALK
- * (`interactions/tempoWalk`), `dynamicOps.setDynamicAtSlotKeepingOffset`'s twin and for its reason.
+ * (`interactions/walks/tempoWalk`), `dynamicOps.setDynamicAtSlotKeepingOffset`'s twin and for its reason.
  *
  * The clear above is right for *"not that element"* — a whole stop in one press. It is wrong for a
  * ¼-space press that happens to step the ink over one: there the walk re-bases the offset by the gap
@@ -190,7 +190,7 @@ export function setTempoAtSlotKeepingOffset(score: Score, id: string, target: St
 
 /**
  * ⭐ **PUT THE MARK ON `target`** — ⭐⭐ since 2026-08-31 this is EVERY write a DRAG makes
- * (`interactions/tempoDrag`: the mouse snaps from anchor to anchor and has no in-between), as well as
+ * (`interactions/walks/tempoDrag`: the mouse snaps from anchor to anchor and has no in-between), as well as
  * the landing when it leaves the mark's own system. The KEYS' walk still uses the keep-the-nudge twin
  * above. It takes the whole-stop rule: the sideways nudge goes, because arriving on another element
  * is the user saying *"not there"*.

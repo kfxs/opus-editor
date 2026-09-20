@@ -8,8 +8,8 @@ import type { MusicEngine } from '../../engine/MusicEngine'
 import type { KeysCtx } from './keys'
 
 const others = vi.hoisted(() => ({ reanchorArmedSlurEndpoint: vi.fn(() => true), cycleSlurHandle: vi.fn(() => true) }))
-vi.mock('../slurReanchor', async importOriginal => ({ ...(await importOriginal<object>()), reanchorArmedSlurEndpoint: others.reanchorArmedSlurEndpoint }))
-vi.mock('../slurHandleCycle', async importOriginal => ({ ...(await importOriginal<object>()), cycleSlurHandle: others.cycleSlurHandle }))
+vi.mock('../walks/slurReanchor', async importOriginal => ({ ...(await importOriginal<object>()), reanchorArmedSlurEndpoint: others.reanchorArmedSlurEndpoint }))
+vi.mock('../walks/slurHandleCycle', async importOriginal => ({ ...(await importOriginal<object>()), cycleSlurHandle: others.cycleSlurHandle }))
 
 const endpointWalk = vi.hoisted(() => ({ walkArmedSlurEndpoint: vi.fn() }))
 const handleNudge = vi.hoisted(() => ({
@@ -17,8 +17,8 @@ const handleNudge = vi.hoisted(() => ({
   resetArmedSlurHandle: vi.fn(() => true),
 }))
 // Partial: importing `ELEMENT_SPECS` loads every kind, and the slur's DRAGS read these modules too.
-vi.mock('../slurEndpointWalk', async importOriginal => ({ ...(await importOriginal<object>()), ...endpointWalk }))
-vi.mock('../slurHandleNudge', async importOriginal => ({ ...(await importOriginal<object>()), ...handleNudge }))
+vi.mock('../walks/slurEndpointWalk', async importOriginal => ({ ...(await importOriginal<object>()), ...endpointWalk }))
+vi.mock('../walks/slurHandleNudge', async importOriginal => ({ ...(await importOriginal<object>()), ...handleNudge }))
 
 import { SLUR_KEYS } from './slurKeys'
 import { ELEMENT_SPECS } from './chain'

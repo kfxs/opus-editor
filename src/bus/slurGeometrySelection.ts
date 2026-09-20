@@ -2,7 +2,7 @@ import { RequestChannel } from './requestChannel'
 
 /**
  * The seam the Properties panel's SLUR GEOMETRY inputs publish through — the typed twin of the
- * arrow-key nudges (`interactions/slurHandleNudge`, `shortcutWiring`). A command-only store in the
+ * arrow-key nudges (`interactions/walks/slurHandleNudge`, `shortcutWiring`). A command-only store in the
  * {@link ./noteOffsetSelection} shape: the window writes "put THIS handle of THIS slur at THIS value",
  * and {@link SlurGeometryController} — the one place that holds the engine — applies it.
  *

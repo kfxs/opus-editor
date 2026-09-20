@@ -1096,13 +1096,13 @@ onset of the lane THAT END OF THE BRACKET goes with it. The fifth family to get 
 the slur, the dynamic/tempo pair, the hairpin and the trill, and it arrives by the wedge's own rule:
 **a handle that has BOTH a re-anchor and an offset owes the walk that joins them.**
 
-The arithmetic is `interactions/markWalk`'s, untouched. New modules, ⛔ no per-kind slice anywhere:
+The arithmetic is `interactions/walks/markWalk`'s, untouched. New modules, ⛔ no per-kind slice anywhere:
 
-- **`interactions/ottavaLane.ts`** — where the bracket's lane was DRAWN, extracted from
+- **`interactions/lanes/ottavaLane.ts`** — where the bracket's lane was DRAWN, extracted from
   `elements/ottavaHandles.ottavaDragTargetAt` so the mouse and the keyboard measure ONE list.
   ⭐⭐ The two ends read DIFFERENT EDGES of an onset (numeral left, hook right — §1 rule 2).
-- **`interactions/ottavaWalk.ts`** — the port, twice.
-- **`interactions/markBreakWrap.ts`** — the wedge's cross-system WRAP, **extracted** from
+- **`interactions/walks/ottavaWalk.ts`** — the port, twice.
+- **`interactions/walks/markBreakWrap.ts`** — the wedge's cross-system WRAP, **extracted** from
   `hairpinWalk` (its four rejected cuts and all) so the bracket could port into it rather than copy
   it. Hairpin and ottava both go through it; its 48 wedge tests were the safety net and never moved.
 - **Model:** `ottavaOps.nextOttavaEndSlot` / `nextOttavaStartSlot` / `ottavaEndSlot`, split out of the
@@ -1212,7 +1212,7 @@ bracket (`dragOttavaBody`; the bracket had no body drag at all before, only its 
 ⭐⭐ **TWO KINDS OF VERTICAL, and that is the design.** Within its own staff's room the `y` is plain
 INK — the shared height, bounded by the band. Past halfway to the neighbouring staff there is nothing
 continuous to travel through, so coming down onto the staff below is a **JUMP**
-(`interactions/markSystemJump`, the dynamic's, the tempo mark's and the wedge's rule). ⭐ The two meet
+(`interactions/walks/markSystemJump`, the dynamic's, the tempo mark's and the wedge's rule). ⭐ The two meet
 exactly: the band refuses the ink at the same halfway line the jump fires on.
 
 ⚠️⚠️ **EXPLORATORY, 2026-08-30 — the DRAG's half of this has changed and is not settled.** The
@@ -1382,7 +1382,7 @@ latch pins the ink for exactly ONE frame (the next frame's `offset === 0` releas
 without the render lag masking it, it is nearly invisible.
 
 ⭐ **So the squares get the gesture the SLUR ENDPOINT already has** — extracted to
-`interactions/dragHold.ts` rather than invented a second time: the hold absorbs cursor travel while
+`interactions/walks/dragHold.ts` rather than invented a second time: the hold absorbs cursor travel while
 the anchor has the ink, and the catch-up hands every absorbed pixel back at the derived gain, so the
 hand and the mark are level again by the next stop. The ratio (**0.8**), the cap (**30 px**), the
 jitter guard and `G = 1/(1 − r)` are all his, tuned by hand on the slur in 2026-08-18;

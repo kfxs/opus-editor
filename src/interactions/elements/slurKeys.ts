@@ -24,10 +24,10 @@
  *
  * ⛔ No key RUN here, unlike the marks: every press is its own write and its own render.
  */
-import { walkArmedSlurEndpoint } from '../slurEndpointWalk'
-import { cycleSlurHandle } from '../slurHandleCycle'
-import { reanchorArmedSlurEndpoint } from '../slurReanchor'
-import { nudgeArmedSlurControlPoint, resetArmedSlurHandle } from '../slurHandleNudge'
+import { walkArmedSlurEndpoint } from '../walks/slurEndpointWalk'
+import { cycleSlurHandle } from '../walks/slurHandleCycle'
+import { reanchorArmedSlurEndpoint } from '../walks/slurReanchor'
+import { nudgeArmedSlurControlPoint, resetArmedSlurHandle } from '../walks/slurHandleNudge'
 import type { KeysOf } from './keys'
 
 export const SLUR_KEYS: KeysOf<'slur'> = {

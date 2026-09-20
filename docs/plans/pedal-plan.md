@@ -760,8 +760,8 @@ and ONE shared `y` — Gould p. 333: a pedal and its own release share a baselin
 
 His ask: *"lets do the pedal endpoint keyboard walk now"*. The pedal is the sixth family to get the
 gesture, and it arrives by the rule the wedge's second square set: **a handle that has BOTH a
-re-anchor and an offset owes the walk that joins them.** `interactions/pedalWalk.ts` +
-`interactions/pedalLane.ts`, both PORTS — the arithmetic is `markWalk`'s and the cross-system rule is
+re-anchor and an offset owes the walk that joins them.** `interactions/walks/pedalWalk.ts` +
+`interactions/lanes/pedalLane.ts`, both PORTS — the arithmetic is `markWalk`'s and the cross-system rule is
 `markBreakWrap`'s, ⛔ copied from neither.
 
 ### ⭐⭐ The END is a MOMENT, so it needed model ops the family did not have

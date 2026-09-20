@@ -144,7 +144,7 @@ export function moveDynamicBySlot(score: Score, id: string, direction: 1 | -1): 
  * ⭐ **THE STOP ONE STEP AWAY** — where {@link moveDynamicBySlot} would put the mark, without
  * putting it there. Null at the end of the lane (or for an id no longer in the score).
  *
- * ⭐ Split out for the INTERPOLATING WALK (`interactions/dynamicWalk`), which has to know what lies
+ * ⭐ Split out for the INTERPOLATING WALK (`interactions/walks/dynamicWalk`), which has to know what lies
  * ahead — how far away it is drawn — before it decides whether this press re-anchors or only nudges
  * ink. ⛔ Two candidate rules would mean the arrows and `Ctrl+Shift`+arrow landing the mark on
  * different notes, so both roads read this one.
@@ -192,7 +192,7 @@ export function setDynamicAtSlot(score: Score, id: string, target: DynamicSlotTa
 
 /**
  * ⭐⭐ **THE SAME MOVE, KEEPING THE MARK'S OWN NUDGE** — the crossing of the INTERPOLATING WALK
- * (`interactions/dynamicWalk`), `slurOps.setSlurEndpointKeepingEdits`' twin and for its reason.
+ * (`interactions/walks/dynamicWalk`), `slurOps.setSlurEndpointKeepingEdits`' twin and for its reason.
  *
  * The clear above is right for *"not that note"* — a whole slot in one press, the ink landing
  * wherever the engraver puts it. It is wrong for a ¼-space press that happens to step the ink over

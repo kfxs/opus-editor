@@ -2,8 +2,8 @@
  * The drag that moves a whole OTTAVA — a press on the numeral or its dashed line, where a press on
  * a square moves one END. {@link beginBodyDrag} is the frame; `../ottavaWalk` is the walk.
  */
-import { ottavaStaffSpacePx } from '../ottavaLane'
-import { dragOttavaBody, settleOttavaLanding } from '../ottavaWalk'
+import { ottavaStaffSpacePx } from '../lanes/ottavaLane'
+import { dragOttavaBody, settleOttavaLanding } from '../walks/ottavaWalk'
 import { beginBodyDrag, type BodyDragSpec } from './bodyDrag'
 import type { DragHost, Gesture } from './gesture'
 

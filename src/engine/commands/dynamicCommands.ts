@@ -91,7 +91,7 @@ export function dynamicCommands(ctx: CommandContext) {
      *
      * ⚠️ **The whole-slot flavour**, so it drops the mark's sideways nudge like any re-anchor: the
      * drag reaches for this only when the ink has crossed onto ANOTHER STAFF
-     * (`interactions/dynamicLane.systemSlotFor`), which is a jump and not a walk. Ordinary
+     * (`interactions/lanes/dynamicLane.systemSlotFor`), which is a jump and not a walk. Ordinary
      * within-lane crossings go through {@link previewDynamicSlotKeepingOffset} below, where the
      * whole point is that nothing visibly changes.
      *
@@ -104,7 +104,7 @@ export function dynamicCommands(ctx: CommandContext) {
     },
 
     /** Hand a dynamic onto the lane slot at `target` KEEPING its hand-nudged offset, where
-     *  {@link moveDynamicBySlot} drops it — one crossing of the mark's walk (`interactions/dynamicWalk`).
+     *  {@link moveDynamicBySlot} drops it — one crossing of the mark's walk (`interactions/walks/dynamicWalk`).
      *  No undo entry: {@link commitDynamicDrag} records the whole gesture once. */
     previewDynamicSlotKeepingOffset(id: string, target: DynamicSlotTarget): boolean {
       ctx.markDirty() // live drag, undo deferred to commitDynamicDrag

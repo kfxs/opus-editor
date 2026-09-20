@@ -145,7 +145,7 @@ export interface StaffRun {
  *
  * 🚨🚨 `PagePass` draws the sheets SIDE BY SIDE, so a staff's y says nothing about which PAGE it is
  * on. Two of his reports on 2026-08-30 came from asking a y alone: a dragged mark jumped onto the
- * next sheet (`interactions/markSystemJump`), and an `8va` on page 1's first system was fenced in by
+ * next sheet (`interactions/walks/markSystemJump`), and an `8va` on page 1's first system was fenced in by
  * staves on pages 2 and 3 that merely sat at that height — `mine 276…316 | band 270…361`, six pixels
  * of room under a ceiling that should have been the top of the paper.
  *

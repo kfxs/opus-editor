@@ -414,7 +414,7 @@ describe('pedalOps — movePedalStartBySlot', () => {
 
   it('⭐⭐ steps the press ONTO the lift and PUSHES it — ⛔ never refuses, never deletes', () => {
     // Until 2026-08-21 this refused, and the refusal read as a guard rail. It is not one: the walk
-    // stops at the first stop the model declines (`interactions/markWalk.carryMark`), so a press
+    // stops at the first stop the model declines (`interactions/walks/markWalk.carryMark`), so a press
     // parked against its own lift turned every further arrow into pure ink and the square walked off
     // the page while the pedal stood still. See {@link setPedalStartAtSlot}.
     quarters(1)
@@ -461,7 +461,7 @@ describe('pedalOps — movePedalStartBySlot', () => {
 /**
  * ⭐⭐ **THE TWO ADDRESS WRITES BOTH DEVICES END AT** — {@link setPedalStartAtSlot} and
  * {@link setPedalLiftAt}. The arrows reach them through the walk and so does a square drag
- * (`interactions/pedalWalk`), so a dragged pedal cannot land where the keys could not put it.
+ * (`interactions/walks/pedalWalk`), so a dragged pedal cannot land where the keys could not put it.
  *
  * ⭐ **Two doors, ⛔ not one, and that is the pedal's third end rule showing through**: the press
  * takes an ONSET of its staff, the lift takes a MOMENT — no note need stand there

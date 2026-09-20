@@ -21,7 +21,7 @@
  * own — see `hairpinOps.setHairpinOffset` for why a separate "whole wedge" number would be two
  * places the same pixels come from.
  */
-import { walkHairpinBody, walkHairpinEndpoint } from '../hairpinWalk'
+import { walkHairpinBody, walkHairpinEndpoint } from '../walks/hairpinWalk'
 import { cycleHairpinEndpoint } from './hairpinHandles'
 import type { KeysOf } from './keys'
 

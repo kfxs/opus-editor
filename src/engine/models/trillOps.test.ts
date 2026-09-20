@@ -412,7 +412,7 @@ describe('trillOps — the ink offsets', () => {
 
 /**
  * ⭐⭐ The two readers the interpolating walk asks BEFORE it offers a step
- * (`interactions/trillWalk`, `interactions/trillReanchor`). Both exist because a question answered
+ * (`interactions/walks/trillWalk`, `interactions/walks/trillReanchor`). Both exist because a question answered
  * only by the WRITE arrives too late: a step the op refuses leaves the key jammed, and a step priced
  * at the wrong note makes the ink jump.
  */
@@ -442,7 +442,7 @@ describe('trillOps — what the walk asks before it steps', () => {
   it('trillMayAnchorOn: a REST and an unknown id are refused at either end', () => {
     // ⭐ A rest is not an ANCHOR at either end — carrying a trill's line over empty bars is the INK's
     // job, not the anchor's (his rule, 2026-08-20: *"no anchor to a note but offset in the next
-    // system"*). See `interactions/trillWalk`'s system FOLD.
+    // system"*). See `interactions/walks/trillWalk`'s system FOLD.
     const mine = model.addTrill({ startNoteId: notes[0].id })!
     model.addMeasure()
     const rest = model.getNotesInMeasure(2).find(n => n.isRest)!

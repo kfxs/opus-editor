@@ -11,7 +11,7 @@ const walk = vi.hoisted(() => ({
   dragDynamic: vi.fn<(...args: unknown[]) => boolean | null>(() => true),
   settleDynamicLanding: vi.fn(() => false),
 }))
-vi.mock('../dynamicWalk', () => walk)
+vi.mock('../walks/dynamicWalk', () => walk)
 
 import { beginDynamicDrag } from './dynamic'
 

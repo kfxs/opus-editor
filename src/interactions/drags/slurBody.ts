@@ -10,7 +10,7 @@
  * ⭐ Safe to preview: a frame is a pure cursor delta, and `renderSlurs` reads `score.slurs` and
  * `staffIndexOfId` — neither of them the last render's lane views.
  */
-import { slurBodyDragStep, slurBodyStaffSpacePx } from '../slurBodyDrag'
+import { slurBodyDragStep, slurBodyStaffSpacePx } from '../walks/slurBodyDrag'
 import { beginBodyDrag } from './bodyDrag'
 import type { DragHost, Gesture } from './gesture'
 

@@ -27,8 +27,8 @@
  * gesture; it only prints.
  */
 import { dbg } from '../../utils/debug'
-import { startTrace, traceFrame } from '../dragTrace'
-import { dragTempo, tempoAnchorXOf } from '../tempoDrag'
+import { startTrace, traceFrame } from '../walks/dragTrace'
+import { dragTempo, tempoAnchorXOf } from '../walks/tempoDrag'
 import { DRAG_TIME_THRESHOLD_MS, type DragHost, type Gesture } from './gesture'
 
 /**

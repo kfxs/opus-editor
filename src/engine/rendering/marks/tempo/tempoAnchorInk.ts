@@ -5,7 +5,7 @@
  * ## The identity, and the half that was missing
  *
  * A dragged mark is `drawn = base(anchor) + offset`, and the walk's crossing moves BOTH halves at
- * once (`interactions/markWalk`: anchor += gap, offset −= gap) precisely so the drawing does not
+ * once (`interactions/walks/markWalk`: anchor += gap, offset −= gap) precisely so the drawing does not
  * move. A preview re-applies the mark's transform without re-engraving anything, and until now it
  * could only rewrite the OFFSET — `base` is baked into the glyph's `x` at draw time
  * (`TempoLayout.drawTempoMarks`, which stamps the address it used on the group).
@@ -15,7 +15,7 @@
  * sawtoothing ~39 px per stop). The fix taken then was to REFUSE such a frame and let a full render
  * draw it. ⭐⭐ **That was the wrong fix, and it is his call, 2026-08-31**: *"i think it was the wrong
  * fix to the issue described here"*. Measured on the Prelude the same day, with the drag traced
- * (`interactions/dragTrace`): a frame the preview accepts repaints in **0.3–0.7 ms** and one it
+ * (`interactions/walks/dragTrace`): a frame the preview accepts repaints in **0.3–0.7 ms** and one it
  * refuses in **33–46 ms**, and since a horizontal drag crosses a stop on most frames the preview was
  * switched off in practice — the hand's own delta ballooned from ~3 px to 24–35 px, and the latch
  * then ate 70 px of a 564 px gesture.
@@ -25,7 +25,7 @@
  *
  * ⚠️ **Measured off the LAST RENDER, from the same ink the WALK measures**: the drawn onsets in the
  * `ElementRegistry`. That is deliberate — the walk pays `gap = stopX(next) − stopX(here)` into the
- * offset from exactly these boxes (`interactions/tempoAnchors.drawnOnsets`), so the travel this returns
+ * offset from exactly these boxes (`interactions/lanes/tempoAnchors.drawnOnsets`), so the travel this returns
  * and the gap that walk subtracted are the same distance, and the two cancel to the pixel. ⛔ Not
  * `TempoLayout.anchorX`, which is the same question asked of VexFlow objects a preview does not have
  * — and which would cancel only approximately.
@@ -51,7 +51,7 @@ const BEAT_EPSILON = 1e-9
  *
  * ⭐ **The TOP staff's element wins**, because that is the staff a tempo mark is engraved above;
  * a stop that exists only lower down still answers, with that staff's point, since the two share a
- * column. `interactions/tempoAnchors.drawnOnsets`' rule, and it has to stay that rule.
+ * column. `interactions/lanes/tempoAnchors.drawnOnsets`' rule, and it has to stay that rule.
  */
 export function onsetInkX(registry: ElementRegistry, measure: number, beat: number): number | null {
   let best: { x: number; staff: number } | null = null
@@ -95,7 +95,7 @@ export function tempoAnchorTravelPx(pass: RenderPass, id: string): number | null
   // 🚨🚨 **HORIZONTAL ONLY, so ⛔ ONE SYSTEM ONLY.** A translate would happily carry the glyph into
   // another bar's `<g>` — SVG does not clip it — but it cannot put the mark on the other system's
   // ROW, and the x's of two systems are not one ruler anyway
-  // (`interactions/markSystemJump`: *"two systems' x's are not one ruler"*). So a frame whose two
+  // (`interactions/walks/markSystemJump`: *"two systems' x's are not one ruler"*). So a frame whose two
   // addresses were drawn on different staff rows refuses and lets a real render place it.
   // ⚠️ A staff-top y does not name a system in general — sheets stand side by side and share rows
   // (`reference_a_staff_top_y_does_not_name_a_system`) — but neither road that re-anchors a tempo

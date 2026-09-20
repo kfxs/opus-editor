@@ -29,7 +29,7 @@ A vertical drag was two rules that never met:
 - **A BAND** clamped the ink to the room between the mark's own staff and its neighbours
   (`MusicEngine.nudgeStaysInBand` → `layout/systemBand`). At the edge, further travel was REFUSED.
 - **A JUMP** re-assigned the staff when the ink passed *halfway* to where the mark would sit on the
-  next staff (`interactions/markSystemJump.systemStopFor`).
+  next staff (`interactions/walks/markSystemJump.systemStopFor`).
 
 `markSystemJump`'s header claims the two "meet exactly: the band refuses the ink at the same halfway
 line the jump fires on." **They do not.** The midpoint lies OUTSIDE the room the band allows, so the

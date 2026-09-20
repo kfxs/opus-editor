@@ -125,7 +125,7 @@ export const SHORTCUTS: Record<string, ShortcutDefinition> = {
 
   // ⭐ TAB WALKS THE SELECTED ELEMENT'S HANDLES, in reading order and wrapping at both ends (his ask,
   // 2026-08-17). A SLUR's are its two blue ends, its round shape dots and, when it is split, its
-  // orange open joins (`interactions/slurHandleCycle.ts`); a HAIRPIN's are the two blue squares at
+  // orange open joins (`interactions/walks/slurHandleCycle.ts`); a HAIRPIN's are the two blue squares at
   // the ends of the wedge (`interactions/elements/hairpinHandles.ts`). Shift+Tab walks back. Both
   // DECLINE when nothing with handles is selected, which is what leaves Tab as the browser's own
   // focus key everywhere else in the app.
@@ -192,7 +192,7 @@ export const SHORTCUTS: Record<string, ShortcutDefinition> = {
     description: 'Nudge the selected slur endpoint / hairpin end / dynamic right, lengthen the pedal, or widen the note-spacing / barline',
   },
   // ⭐ …and the RESET of the same chord. It also takes the armed SLUR HANDLE — arc dot, true end or
-  // open join — back to the automatic engraving (`interactions/slurHandleNudge`), and the armed
+  // open join — back to the automatic engraving (`interactions/walks/slurHandleNudge`), and the armed
   // HAIRPIN end back to the engraver's own position: Ctrl+←/→ nudges those points, so Ctrl+Backspace
   // undoes the nudging, the rule every other pair here follows.
   'Ctrl+Backspace': {
@@ -210,7 +210,7 @@ export const SHORTCUTS: Record<string, ShortcutDefinition> = {
   // Ctrl+←/→ already nudges that same point by pixels, so Shift keeps the axis and means "stop
   // nudging, move the anchor" (the keyboard twin of dragging the blue square; his ask, 2026-08-17).
   // Disjoint from the offset branch and so not a conflict: arming an endpoint clears the note
-  // multi-select the offset requires. `interactions/slurReanchor.ts` owns the walk.
+  // multi-select the offset requires. `interactions/walks/slurReanchor.ts` owns the walk.
   //
   // ⭐ …and an armed HAIRPIN right-hand square lengthens / shortens the wedge by one slot on the very
   // same chord (his call, 2026-08-17) — the same sentence, "move THIS end of the span", about the

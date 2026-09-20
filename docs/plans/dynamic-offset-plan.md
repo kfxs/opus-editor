@@ -414,7 +414,7 @@ arbitrarily far from the note it claimed to hang off, and the music chord jumped
 the ink snapping to wherever the engraver puts it. Neither could say "this `f` belongs a little to
 the left of that note over there" as one continuous motion.
 
-**The identity** (`interactions/dynamicWalk.ts`, `slurEndpointWalk`'s sentence for sentence): a drawn
+**The identity** (`interactions/walks/dynamicWalk.ts`, `slurEndpointWalk`'s sentence for sentence): a drawn
 mark is `base(anchor) + offset`, so a press may spend its step on either term.
 
 ```
@@ -445,15 +445,15 @@ the drawn mark by exactly one step, so **the crossing is invisible** — which i
   one press.
 
 Where it lives: `dynamicOps.nextDynamicSlot` + `setDynamicAtSlotKeepingOffset` → `ScoreModel` →
-`MusicEngine.moveDynamicToSlotKeepingOffset` / `nextDynamicSlot` → `interactions/dynamicWalk.ts` →
+`MusicEngine.moveDynamicToSlotKeepingOffset` / `nextDynamicSlot` → `interactions/walks/dynamicWalk.ts` →
 the horizontal branch of `nudgeSelectedDynamic` in `shortcutWiring`. Tests: `dynamicWalk.test.ts`
 (the arithmetic, over a fabricated render — jsdom draws nothing) and `dynamicOps.test.ts`.
 
 ### ⭐⭐ EXTRACTED, 2026-08-19 — the walk is now shared with the tempo mark
 
 Everything below still describes what the dynamic does; where it LIVES changed when the tempo mark
-asked for the same gesture. The arithmetic is `interactions/markWalk.ts` and the system rule is
-`interactions/markSystemJump.ts`, each taking a per-mark PORT; `dynamicWalk` and `dynamicLane` keep
+asked for the same gesture. The arithmetic is `interactions/walks/markWalk.ts` and the system rule is
+`interactions/walks/markSystemJump.ts`, each taking a per-mark PORT; `dynamicWalk` and `dynamicLane` keep
 the dynamic's answers and nothing else. ⛔ A third mark writes a port, never a copy. The dynamic's
 own tests passed untouched through both extractions, which is the evidence they moved nothing.
 
@@ -502,7 +502,7 @@ state.
   - ⭐ It needs no travel history, unlike a crossing test: a frame taller than a whole system is judged
     by where it ENDED, so a fast hand cannot fly over a staff.
 - ⭐ **Gone with it**: `elements/dynamicDrag.ts` — `dynamicDragTargetAt`, its row window and its
-  150 px snap. What survives is in `interactions/dynamicLane.ts`: where a lane's slots were DRAWN
+  150 px snap. What survives is in `interactions/lanes/dynamicLane.ts`: where a lane's slots were DRAWN
   (shared with the keyboard, so the two doors cannot disagree about where a slot is) and the staff
   crossing above. `MusicEngine.previewDynamicSlot` stayed, and is now reached only by a jump.
 

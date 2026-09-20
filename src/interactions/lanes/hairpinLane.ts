@@ -1,0 +1,282 @@
+/**
+ * ⭐⭐ **WHERE A HAIRPIN'S LANE WAS DRAWN** — the onsets one of its tips may sit on, as pixels off the
+ * LAST RENDER, and the address the wedge's start holds right now.
+ *
+ * Extracted from `elements/hairpinHandles.hairpinDragTargetAt` on 2026-08-20, when the left square
+ * asked for the interpolating walk (`./hairpinStartWalk`): the mouse had the geometry and the
+ * keyboard would otherwise have grown a second copy of it. ⛔ Two lists of "where a slot is drawn"
+ * are two answers that can disagree — `./dynamicLane` was split out of the dynamic's drag for
+ * exactly this reason, and this is its twin one lane over.
+ *
+ * ⭐⭐ **THE BOUNDARIES, NOT THE NOTEHEADS.** Both of a wedge's tips are drawn at a note's LEFT EDGE
+ * (`HairpinRenderer.spanX`: `startX` at the first covered note, `endX` at the first uncovered one),
+ * so the positions a tip can occupy are the lane's onsets — ⛔ not the centres a dynamic walks
+ * between, which put a jump half a notehead early (his report, 2026-08-17).
+ *
+ * ⚠️ **The lane is the wedge's STAFF, in every voice** — ⛔ not the voices it GOVERNS: a tip is drawn
+ * at a COLUMN and a column belongs to the staff (`utils/dynamicScope.onSameStaff`, his call
+ * 2026-08-19). That is the same filter the model's stepping ops apply, so no route can reach a slot
+ * another route cannot.
+ */
+import type { MusicEngine } from '../../engine/MusicEngine'
+import type { HairpinSlotTarget, HairpinStaffSlotTarget } from '../../engine/models/hairpinOps'
+import { hairpinSpan } from '../../engine/models/hairpinOps'
+import type { Hairpin, Score } from '../../types/music'
+import { staffOf } from '../../utils/lanes'
+import { keyStaffId } from '../../engine/models/staffContent'
+import { fracCompare } from '../../utils/fraction'
+import { hairpinEndpointOffsetOverrideOf } from '../../engine/models/engravingOverrides'
+import { systemStopFor } from '../walks/markSystemJump'
+import type { SystemInk } from '../walks/markBreakWrap'
+import { markSystemInkLimit, staffIndexOf } from './markLane'
+
+/** What reading the lane needs off the engine — a Pick, so a test can stand up the reads without a
+ *  renderer. `dynamicLane.LaneEngine`'s twin. */
+export type HairpinLaneEngine = Pick<MusicEngine, 'getScore' | 'getElementRegistry' | 'getNote'>
+
+/** One onset of the lane as it was DRAWN: the left edge a tip would be drawn against, that ink's
+ *  right edge (what "cover this slot" reaches to), a y to tell systems apart, and the address. */
+interface HairpinLaneBoundary {
+  x: number
+  right: number
+  /**
+   * ⚠️ The middle of the STAFF this onset was drawn on — ⛔ NOT the notehead's own centre, which is
+   * the only thing the reader wants it for: `markSystemJump` asks which painted staff a candidate
+   * belongs to, and a head on ledger lines can sit nearer the neighbouring staff's band than its
+   * own. `dynamicLane`'s rule, one lane over. Falls back to the ink's centre when that bar drew no
+   * geometry.
+   */
+  y: number
+  target: HairpinSlotTarget
+}
+
+/** The same, on a staff that may not be the wedge's — what a VERTICAL drag chooses between, where a
+ *  sideways walk only ever sees one staff's. */
+interface HairpinStaffLaneBoundary extends HairpinLaneBoundary {
+  staff: number
+  target: HairpinStaffSlotTarget
+}
+
+/**
+ * Every onset of `hairpin`'s lane the last render drew, once each, at its LEFT EDGE.
+ *
+ * A CHORD registers one entry per notehead on one onset, and two voices striking a beat are one
+ * place a tip can sit — so both merge into a single boundary keeping the LEFTMOST edge, which is the
+ * one the wedge is drawn against.
+ */
+export function hairpinLaneBoundaries(
+  engine: HairpinLaneEngine,
+  hairpin: Hairpin,
+): HairpinLaneBoundary[] {
+  const staff = staffIndexOf(engine.getScore(), hairpin.staffId)
+  return drawnBoundaries(engine).filter(b => b.staff === staff)
+}
+
+/**
+ * ⭐⭐ **EVERY ONSET OF EVERY PAINTED STAFF** — the candidates a VERTICAL drag chooses between, his
+ * ask 2026-08-21 after the dynamic got the same thing: *"we already did on dynamic correctly, now we
+ * should apply this also to hairpin."*
+ *
+ * ⛔ Nothing here widens the WALK. Sideways the wedge stays in its lane
+ * ({@link hairpinLaneBoundaries}), because a lane is what "the next onset" is counted along; the
+ * vertical is the axis on which a staff is a place, and `markSystemJump` was always choosing between
+ * painted staves — it simply never had a candidate on any but the wedge's own.
+ */
+function hairpinStaffLaneBoundaries(engine: HairpinLaneEngine): HairpinStaffLaneBoundary[] {
+  return drawnBoundaries(engine)
+}
+
+/**
+ * One boundary per (staff, onset) in the last render.
+ *
+ * ⚠️ The merge is keyed on the STAFF as well as the address — two staves striking beat 0 of bar 3 are
+ * two places, and collapsing them would leave the lower one unreachable. It merges what it is meant
+ * to: two voices (or a chord's heads) on one onset of one staff, keeping the LEFTMOST edge, which is
+ * the one the wedge is drawn against.
+ */
+function drawnBoundaries(engine: HairpinLaneEngine): HairpinStaffLaneBoundary[] {
+  const score = engine.getScore()
+  const boundaries: HairpinStaffLaneBoundary[] = []
+  const registry = engine.getElementRegistry()
+  for (const el of [...registry.getByType('note'), ...registry.getByType('rest')]) {
+    if (!el.id) continue
+    const note = engine.getNote(el.id)
+    if (!note) continue
+    const staff = staffOf(note)
+    const seen = boundaries.find(b => b.staff === staff
+      && b.target.measure === note.measure && fracCompare(b.target.beat, note.beat) === 0)
+    if (seen) {
+      seen.x = Math.min(seen.x, el.bbox.x)
+      seen.right = Math.max(seen.right, el.bbox.x + el.bbox.width)
+      continue
+    }
+    const lines = registry.getStaffGeometry(note.measure, staff)?.lineYPositions
+    boundaries.push({
+      x: el.bbox.x,
+      right: el.bbox.x + el.bbox.width,
+      y: lines ? (lines[0] + lines[4]) / 2 : el.bbox.y + el.bbox.height / 2,
+      staff,
+      // ⚠️ The WRITE convention, resolved here and not in the model: the first staff is stored
+      // ABSENT (`MusicEngine.staffIdForIndex`).
+      target: { measure: note.measure, beat: note.beat, staffId: keyStaffId(score, staff) },
+    })
+  }
+  return boundaries
+}
+
+/** Where one slot of the lane was drawn, or null when the last render drew nothing there. */
+export function hairpinBoundaryX(
+  engine: HairpinLaneEngine,
+  hairpin: Hairpin,
+  target: HairpinSlotTarget,
+): number | null {
+  const found = hairpinLaneBoundaries(engine, hairpin).find(b =>
+    b.target.measure === target.measure && fracCompare(b.target.beat, target.beat) === 0)
+  return found ? found.x : null
+}
+
+/**
+ * ⭐⭐ **WHERE A TIP STANDING AT `at` IS DRAWN** — the far side of every gap the right square's walk
+ * measures, for today's end address and for a candidate one alike.
+ *
+ * ⭐ The tip stands at the first UNCOVERED note's left edge, so ordinarily this is that onset's own
+ * boundary — read from the same list as the stops, so the two ends of a gap cancel whatever the
+ * boundary list is systematically off by.
+ *
+ * ⚠️ **A wedge ending on a BARLINE has no onset to read**: its end address is that bar's capacity
+ * ({@link hairpinSpan}) and `HairpinRenderer.spanX` falls back to the bar's own `noteEndX`, so this
+ * reads the same number off the staff's geometry. 🚨 That case is not a corner — it is where the
+ * music of a LINE runs out, so it is exactly the address a tip walking off the end of a system
+ * lands on (his report, 2026-08-20: *"it is never reaching the next system"*).
+ *
+ * Null when that bar was not drawn — the no-guessing rule.
+ */
+export function hairpinTipX(
+  engine: HairpinLaneEngine,
+  hairpin: Hairpin,
+  at: HairpinSlotTarget,
+): number | null {
+  const onset = hairpinLaneBoundaries(engine, hairpin).find(b => compareAddress(b.target, at) === 0)
+  if (onset) return onset.x
+  const staff = staffIndexOf(engine.getScore(), hairpin.staffId)
+  return engine.getElementRegistry().getStaffGeometry(at.measure, staff)?.noteEndX ?? null
+}
+
+/**
+ * ⭐⭐ **HOW FAR THE INK MAY GO ON THIS SYSTEM** — the drawn music's left and right edges on the
+ * SYSTEM the given address was drawn on, in pixels.
+ *
+ * Two callers, both from his 2026-08-20 reports: the folded gap across a break is measured to this
+ * line's end and from that line's start (`interactions/walks/hairpinWalk`), and where there is nothing to
+ * extend onto at all, it is the LIMIT that stops the arrow pushing the drawing into the margin with
+ * the music standing still.
+ *
+ * ⭐ The measuring and the NAMING are the shared rule's ({@link systemInkAt}) — ⛔ a staff's top line
+ * y does NOT name a system, which is the bug his two-staff score found. What is hairpin-specific is
+ * only WHICH STAFF to ask about.
+ *
+ * @returns null when that bar was not drawn.
+ */
+export function hairpinSystemInkLimit(
+  engine: HairpinLaneEngine,
+  hairpin: Hairpin,
+  at: { measure: number },
+): SystemInk | null {
+  return markSystemInkLimit(engine, hairpin.staffId, at)
+}
+
+/** Where the wedge ENDS, as an address — ⚠️ its beat MAY EQUAL its bar's capacity, a wedge finishing
+ *  on the barline ({@link hairpinSpan}). Null for an id no longer in the score. */
+export function hairpinEndAddress(score: Score, id: string): HairpinSlotTarget | null {
+  const span = hairpinSpan(score, id)
+  return span ? { measure: span.endMeasure, beat: span.endBeat } : null
+}
+
+/** The score's reading order over two addresses — ⛔ not a timeline: nothing here needs to know how
+ *  long a bar is, only which of two points comes first. (`dynamicOps` makes the same argument.) */
+function compareAddress(a: HairpinSlotTarget, b: HairpinSlotTarget): number {
+  return a.measure !== b.measure ? a.measure - b.measure : fracCompare(a.beat, b.beat)
+}
+
+/** The address the wedge BEGINS at — the measure is half of it, so it comes from the span rather
+ *  than off the `Hairpin` object (which carries only its beat). Null for an id no longer in the
+ *  score. */
+export function hairpinStartAddress(score: Score, id: string): HairpinSlotTarget | null {
+  const span = hairpinSpan(score, id)
+  return span ? { measure: span.startMeasure, beat: span.startBeat } : null
+}
+
+/**
+ * ⭐⭐ **THE SLOT ON THE SYSTEM THE WEDGE NOW BELONGS TO** — the hairpin's PORT into the shared rule
+ * (`./markSystemJump`, the dynamic's and the tempo mark's). His ask, 2026-08-20: *"in the y axis we
+ * detect if there is another system so we go to there"*.
+ *
+ * The rule and its reasons live in that module — the switch falls halfway between where the wedge
+ * sits and where it would sit on the other staff, measured from its NATURAL distance with its own
+ * lift taken back out. What is here is only what is hairpin-specific:
+ *
+ * ⭐⭐ **The candidates are EVERY PAINTED STAFF's, not the wedge's own lane** (his ask, 2026-08-21,
+ * the dynamic's change one day on). The shared rule always chose between painted staves, so the
+ * other hand of a grand staff was in the running and simply had no candidate on it — which is why
+ * the wedge used to sail past the left hand onto the next system. ⭐ A landing therefore NAMES a
+ * staff, and `hairpinOps.setHairpinAtStaffSlot` writes it: on a grand staff a wedge dragged down
+ * belongs to the left hand, not to the right hand of the system below.
+ *
+ * ⚠️ The ink and the lift are the WEDGE's: its first fragment's box, and the START end's stored `y`
+ * (both ends carry the same number while the body is moved as one, `hairpinOps.setHairpinOffset`).
+ * Screen-signed already, ⛔ unlike the tempo mark's outward `y`.
+ */
+export function hairpinSystemSlotFor(
+  engine: HairpinLaneEngine,
+  hairpin: Hairpin,
+  cursorX: number,
+  /** Where the wedge's ink will be after this frame — its drawn y plus the frame's `dy`. */
+  inkY: number,
+  staffSpacePx: number,
+): HairpinStaffSlotTarget | null {
+  const lane = hairpinStaffLaneBoundaries(engine)
+  const staff = staffIndexOf(engine.getScore(), hairpin.staffId)
+  const here = hairpinStartAddress(engine.getScore(), hairpin.id)
+  // ⚠️ The wedge's OWN onset, so on its own staff: `markSystemJump` measures its natural distance
+  // from the staff it hangs off, and a same-address onset on the other staff would name the wrong one.
+  const anchor = here && lane.find(b => b.staff === staff && compareAddress(b.target, here) === 0)
+
+  return systemStopFor<HairpinStaffSlotTarget>({
+    bands: () => engine.getElementRegistry().staffRuns(),
+    candidates: () => lane.map(b => ({ x: b.x, y: b.y, stop: b.target })),
+    anchor: () => (anchor ? { x: anchor.x, y: anchor.y } : null),
+    inkY: () => hairpinInkY(engine, hairpin.id),
+    // ⚠️⚠️ EXPLORATORY (2026-08-30) — ⛔ THE HAIRPIN ALONE. His report, with the screenshot: *"still
+    // here not reanchoring while i'm on the space of the elements of the staff"*, and before it
+    // *"look how low i have to go to reanchor"* — measured, 97px down to reach a rung 36px away, and
+    // the mirror going back up made him drag the wedge INSIDE the staff above (ink 303 against its
+    // lines 276…316). The natural-home rule prices the journey to *the same side of the other staff*,
+    // which is ⛔ not where `hairpinWalk.jumpStaves` lands it (*"it arrives on the side it came
+    // from"*), so a wedge's two rungs — below staff N and above staff N+1 — share one strip of paper
+    // and only a line INSIDE that strip can tell them apart.
+    belongsToTheStaffOverhead: () => 'betweenTheMusic',
+    liftPx: () =>
+      (hairpinEndpointOffsetOverrideOf(engine.getScore(), hairpin.id)?.start?.y ?? 0) * staffSpacePx,
+    above: () => (hairpin.placement ?? 'below') === 'above',
+  }, cursorX, inkY)
+}
+
+/** The vertical centre of the wedge's own ink in the last render — its FIRST fragment, which is the
+ *  one its start (and so its anchor) lives on. Null when it drew none. */
+export function hairpinInkY(engine: HairpinLaneEngine, hairpinId: string): number | null {
+  const piece = engine.getElementRegistry().getByType('hairpin').find(e => e.id === hairpinId)
+  return piece ? piece.bbox.y + piece.bbox.height / 2 : null
+}
+
+/** The wedge's own staff, top and bottom line, where its START is drawn. Null when that bar was not
+ *  painted. ⭐ The line the placement flip is measured against — see `hairpinWalk.flipPlacement`. */
+export function hairpinStaffBand(
+  engine: HairpinLaneEngine,
+  hairpin: Hairpin,
+): { top: number; bottom: number } | null {
+  const at = hairpinStartAddress(engine.getScore(), hairpin.id)
+  const staff = staffIndexOf(engine.getScore(), hairpin.staffId)
+  const geometry = at && engine.getElementRegistry().getStaffGeometry(at.measure, staff)
+  return geometry ? { top: geometry.lineYPositions[0], bottom: geometry.lineYPositions[4] } : null
+}
+

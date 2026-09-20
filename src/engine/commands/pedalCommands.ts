@@ -267,7 +267,7 @@ export function pedalCommands(ctx: CommandContext) {
      *
      * ⭐ **The keyboard's own door, minus the undo** — the pair `previewPedalLiftAt` completes. That is
      * what makes a drag and N presses over one distance leave ONE state rather than two that merely
-     * look alike (`interactions/pedalWalk`), and it is why the two ends need two doors: a press lands
+     * look alike (`interactions/walks/pedalWalk`), and it is why the two ends need two doors: a press lands
      * on an ONSET, a lift on a MOMENT ({@link pedalOps.PedalLiftTarget}).
      */
     previewPedalStartAtSlot(id: string, target: PedalSlotTarget): boolean {
@@ -319,7 +319,7 @@ export function pedalCommands(ctx: CommandContext) {
 
     /**
      * Where {@link resizePedalBySlot} would put the LIFT, WITHOUT putting it there — a pure read, no
-     * undo entry. The interpolating walk (`interactions/pedalWalk`) asks before it decides whether a
+     * undo entry. The interpolating walk (`interactions/walks/pedalWalk`) asks before it decides whether a
      * press re-anchors or only nudges ink, and asks THIS so the two keys can never move the damper to
      * different moments. @returns null at either end of the road.
      */
@@ -431,7 +431,7 @@ export function pedalCommands(ctx: CommandContext) {
      * at the edge rather than being clamped in the drawing.
      *
      * @param throughTheBand ⚠️⚠️ **EXPLORATORY (2026-08-30) — let the vertical PASS the band**, for the
-     *   one frame kind that has somewhere to be handed to (`interactions/pedalLane.pedalCanHandOver`,
+     *   one frame kind that has somewhere to be handed to (`interactions/lanes/pedalLane.pedalCanHandOver`,
      *   which carries his report and the measurement). The band floors this mark at the partner staff's
      *   EDGE while the hand-over fires 28px lower, so the two rules deadlock and the gesture stalls.
      *   ⛔ Off everywhere else — the keyboard nudge, both squares, and a sheet with one staff on it —
@@ -449,7 +449,7 @@ export function pedalCommands(ctx: CommandContext) {
      *  judged by the page limit or the band ({@link previewHairpinEndpointRebase} has the reason).
      *
      *  ⚠️ **EXPLORATORY (2026-08-30): it grew a `dy`** — a LANDING pays the travel of the mark's home
-     *  into the offset so the re-anchor does not move the drawing (`interactions/pedalWalk.jumpStaves`),
+     *  into the offset so the re-anchor does not move the drawing (`interactions/walks/pedalWalk.jumpStaves`),
      *  and that payment is vertical as well as horizontal. ⛔ It must not come through
      *  {@link previewPedalOffset}: the drawn ink does not move, so neither the page nor the band has
      *  anything to judge — and the band, measured off the render the pedal has just left, would refuse

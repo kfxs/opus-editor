@@ -174,7 +174,7 @@ describe('cycleTrillEndpoint', () => {
  * ⛔ **THE DRAG-TARGET CHAPTER IS GONE, with `trillDragTargetAt` itself (2026-08-20).**
  *
  * The mouse no longer SNAPS to the nearest note: a square drag now runs the very ports the arrow
- * keys do (`interactions/trillWalk.dragTrillEndpoint`), so "which note is the cursor nearest" is not
+ * keys do (`interactions/walks/trillWalk.dragTrillEndpoint`), so "which note is the cursor nearest" is not
  * a question anyone asks any more — the ink follows the hand and the anchor comes along when the ink
  * reaches a note. What that chapter proved is proved there instead, once, for both devices:
  *

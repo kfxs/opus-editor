@@ -289,7 +289,7 @@ window"*. The result is that every one of a slur's grabbable points now answers 
 three surfaces — mouse, keyboard, typed number — and none of them is a second copy of the
 geometry.
 
-Modules: `interactions/slurHandleNudge.ts` (+ its spec), `interactions/propertyControllers/SlurGeometryController.ts`,
+Modules: `interactions/walks/slurHandleNudge.ts` (+ its spec), `interactions/propertyControllers/SlurGeometryController.ts`,
 `bus/slurGeometrySelection.ts`, rows in `windows/properties/PropertiesWidget.ts`,
 `slurOps.resetSlurShape` / `resetSlurEndpointOffset` / `resetSlurSegmentEndpointOffset`.
 
@@ -424,7 +424,7 @@ crosses a break. **⛔ And it never guesses the staff-space size**: no drawn han
 
 ### Where it lives
 
-- `interactions/slurEndpointWalk.ts` — the module. `carryEndpoint` is the shared arithmetic;
+- `interactions/walks/slurEndpointWalk.ts` — the module. `carryEndpoint` is the shared arithmetic;
   `walkArmedSlurEndpoint` (keys) and `dragArmedSlurEndpoint` (mouse) differ only in an
   `EndpointWriter` — a key press commits its own undo step, a drag frame previews and the drop
   commits once.
@@ -439,7 +439,7 @@ crosses a break. **⛔ And it never guesses the staff-space size**: no drawn han
 
 ### The mouse: hold + catch-up (snap-and-go)
 
-⭐ **EXTRACTED to `interactions/dragHold.ts` on 2026-08-22** and shared with the four square drags
+⭐ **EXTRACTED to `interactions/walks/dragHold.ts` on 2026-08-22** and shared with the four square drags
 (docs/plans/ottava-plan.md): the ratio, the cap, the derived gain, the jitter guard and the cancel-on-turn
 below are now one implementation rather than two. ⚠️ Nothing here changed — the extraction was
 verbatim, and this section stays the place the reasoning and the sources live.
@@ -617,7 +617,7 @@ on-ink affordance can leave the screen. The only thing that cannot is the anchor
   file learns only "a label and something to run" — the app's glue supplies the shapes, as with every
   other `menuActions` field. Its items are now composed PER OPENING rather than once.
 
-## The handle a press takes (`interactions/slurHandlePick.ts`)
+## The handle a press takes (`interactions/walks/slurHandlePick.ts`)
 
 His report: *"im trying to get the endpoint but i'm getting the control point"*. The press path was three
 `.find()`s in a row with the round ARC dots first, so it took the first box containing the cursor rather
@@ -702,7 +702,7 @@ the same delta once, before any fragment registers.
 ### The mouse (same day)
 
 *"now the next step is doing this same offset controle by the drag mouse, similar to hairpin"* — so a
-press on the ARC drags the whole curve, `interactions/slurBodyDrag.ts` + the state in `MouseController`.
+press on the ARC drags the whole curve, `interactions/walks/slurBodyDrag.ts` + the state in `MouseController`.
 It is the hairpin body drag sentence for sentence (`elements/hairpin.ts` → `armHairpinOffsetDrag`), which
 is the point: **one curve, two categories, told apart by WHERE you grabbed it.** A handle moves one point
 (an end through the music, a dot's bend); the body moves the drawing. Nothing new is armed, because

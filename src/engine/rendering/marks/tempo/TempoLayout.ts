@@ -223,7 +223,7 @@ export function anchorX(
   //    the system — found nothing at-or-after those beats and fell through to the bar's opening. So
   //    seven different anchors drew at ONE x, and the mark sat still for a whole bar.
   //
-  // ⭐ A tempo mark governs the CLOCK, not a staff (`interactions/tempoWalk`: its stops are every
+  // ⭐ A tempo mark governs the CLOCK, not a staff (`interactions/walks/tempoWalk`: its stops are every
   //   onset, whatever staff sounds it). The DRAWING has to agree with the walk or the two disagree
   //   by a whole bar, so the beat is resolved against the system's shared column grid and this
   //   staff's own notes are used only to convert that grid into the stave's coordinates.
@@ -344,7 +344,7 @@ function columnXFromNeighbour(
  * implementation, and a second copy is exactly the drift this replaces.
  *
  * ⚠️ The COLUMNS' beats, ⛔ not this staff's slots: a tempo mark's stops are the system's onsets, so
- * a beat sounded only by the other hand is a stop too (`interactions/tempoWalk`, and `anchorX`'s own
+ * a beat sounded only by the other hand is a stop too (`interactions/walks/tempoWalk`, and `anchorX`'s own
  * note on the grand staff). Falls back to this staff's slots when the bar solved no columns.
  */
 function registerTempoAnchors(
@@ -371,7 +371,7 @@ function registerTempoAnchors(
   })
   // ⚠️ A `[tempo-anchors]` census used to print here, one line PER BAR PER RENDER (his log opened
   // with 64 of them). It did its job — `m2: 6 of 6 beats (columns) | 0@539 0.25@539 1@539` is the
-  // measurement the COLUMN rule was built from (`interactions/tempoAnchors.nextAnchorPoint`) — and he
+  // measurement the COLUMN rule was built from (`interactions/lanes/tempoAnchors.nextAnchorPoint`) — and he
   // asked for it back out, 2026-08-31: *"we have a lot of temp console logs that i think we dont need
   // anymore"*. ⭐ The reader that answers the same question on demand is `__spacing.dump()`'s
   // neighbour: `ElementRegistry.tempoAnchorX` is a Map anyone can print from the console.
@@ -395,7 +395,7 @@ export function drawTempoMarks(
   // beat with no mark on it, and it is the distance to THAT the walk splits the hand's travel with.
   // 🚨 His report, 2026-08-31 — *"i'm moving the hand and the tempo is not moving on certain
   // occasions"* — was two functions answering this one question: the engraver's (here) and a
-  // notehead-to-notehead guess in `interactions/tempoWalk`, which differ by the whole distance from
+  // notehead-to-notehead guess in `interactions/walks/tempoWalk`, which differ by the whole distance from
   // a time signature to the first note of its bar. One answer now, and the walk asks for it.
   registerTempoAnchors(pass, measure, slots, staveNotes, stave, scale)
 
@@ -485,7 +485,7 @@ export function drawTempoMarks(
           // this). `TEMPO_INK_BELOW` is the descender depth these constants already state.
           guides: [{ from: { x: box.x, y: y + TEMPO_INK_BELOW }, to: { x, y: staffLineY(staveFrame(stave), 0) } }],
           // ⭐ The stave's line spacing where this mark was DRAWN — what the interpolating walk
-          // (`interactions/tempoWalk`) converts a measured pixel gap into staff-spaces with. ⛔ It
+          // (`interactions/walks/tempoWalk`) converts a measured pixel gap into staff-spaces with. ⛔ It
           // refuses to guess one, so this is the only route.
           staffSpacePx: staveFrame(stave).spacePx,
         })

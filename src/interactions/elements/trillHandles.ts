@@ -119,9 +119,9 @@ export function armTrillEndpointAt(
  * note at a time and an end could never be parked between two.
  *
  * ⭐ A square drag now runs the very ports the arrow keys do
- * (`interactions/trillWalk.dragTrillEndpoint`): the ink follows the hand and the anchor comes along
+ * (`interactions/walks/trillWalk.dragTrillEndpoint`): the ink follows the hand and the anchor comes along
  * when the ink reaches a note. Nothing here has to know where a note is drawn any more — that
- * geometry is `interactions/trillLane`'s, shared by both devices, which is the point.
+ * geometry is `interactions/lanes/trillLane`'s, shared by both devices, which is the point.
  *
  * ⚠️ The cursor's y is not translated anywhere now either: a walk reads a horizontal DELTA, so the
  * *"the drag's cursor rides the mark's line"* rule ({@link signToMusicOffset}, deleted with it) has

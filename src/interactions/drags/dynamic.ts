@@ -24,7 +24,7 @@
  * `dynamic` row). A frame that walked the mark onto another slot refuses there and renders for
  * real — the annotation hangs off a note, and no transform reaches another one.
  */
-import { dragDynamic, settleDynamicLanding } from '../dynamicWalk'
+import { dragDynamic, settleDynamicLanding } from '../walks/dynamicWalk'
 import { beginBodyDrag, type BodyDragSpec } from './bodyDrag'
 import type { DragHost, Gesture } from './gesture'
 

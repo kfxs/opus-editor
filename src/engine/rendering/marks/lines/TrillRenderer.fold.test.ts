@@ -49,7 +49,7 @@ describe('foldPastSystemEnd', () => {
   })
 
   it('⛔ STOPS at the last line the render drew — there is nothing beyond it to fold onto', () => {
-    // ⚠️ The overflow is left standing in the margin rather than clamped; `interactions/trillWalk`
+    // ⚠️ The overflow is left standing in the margin rather than clamped; `interactions/walks/trillWalk`
     // is what refuses the press there, so the ink never gets here in the first place.
     expect(foldPastSystemEnd(pass, 2, 900, 1)).toEqual({ line: 2, endX: 900 })
   })

@@ -263,7 +263,7 @@ export function resizePedalBySlot(score: Score, id: string, direction: 1 | -1): 
 /**
  * ⭐⭐ **WHERE THE FOOT WOULD COME UP after one step, WITHOUT stepping** — a pure read, split out of
  * {@link resizePedalBySlot} on 2026-08-21 when the END square asked for the interpolating walk
- * (`interactions/pedalWalk`).
+ * (`interactions/walks/pedalWalk`).
  *
  * ⭐ **It is the candidate rule itself, so the two keys cannot disagree.** `Ctrl+Shift+←/→` jumps a
  * whole slot and the plain arrow walks the ink onto one; asking twice would let them land the lift
@@ -422,7 +422,7 @@ export interface PedalSlotTarget {
  * because the end of a slot IS the next onset; only past the final note is there an address no onset
  * names. ⭐ Both are reachable one step at a time — {@link nextPedalLift} reaches THROUGH a slot
  * going forward and drops the last held one coming back — which is why the drag needs no separate
- * "after the notehead" candidate of its own (`interactions/pedalWalk`; the snap that did have one
+ * "after the notehead" candidate of its own (`interactions/walks/pedalWalk`; the snap that did have one
  * went on 2026-08-21).
  */
 export interface PedalLiftTarget {
@@ -452,7 +452,7 @@ export function setPedalStartAtSlot(score: Score, id: string, target: PedalSlotT
   //
   // 🚨 What it replaces here was a REFUSAL (*"the press may not reach the lift"*), and
   // {@link setOttavaStartAtSlot} carries the report that killed it: the walk stops at the first stop
-  // the model declines (`interactions/markWalk.carryMark`), so once the press is against the lift
+  // the model declines (`interactions/walks/markWalk.carryMark`), so once the press is against the lift
   // every further press becomes pure ink and the square runs off the page while the pedal stands
   // still. A stop that can refuse FOREVER is a dead gesture, not a guard rail.
   //

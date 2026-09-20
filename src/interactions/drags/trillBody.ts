@@ -23,11 +23,11 @@
  * NOTE's slot id, never a lane view — slot membership is what a mark drag does not touch. The DROP
  * renders for real, and that is where the page re-casts around the ornament's new claim.
  */
-import { trillStaffSpacePx } from '../trillLane'
+import { trillStaffSpacePx } from '../lanes/trillLane'
 import {
   beginTrillBodySpan, dragTrillBody, endTrillBodySpan, settleTrillLanding,
-} from '../trillWalk'
-import { endTrillHandTrace, traceTrillHandVsInk } from '../trillTrace'
+} from '../walks/trillWalk'
+import { endTrillHandTrace, traceTrillHandVsInk } from '../walks/trillTrace'
 import { beginHeldDrag } from './heldDrag'
 import type { DragHost, Gesture } from './gesture'
 

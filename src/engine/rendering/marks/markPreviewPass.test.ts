@@ -374,7 +374,7 @@ describe('the TEMPO family is moved, not redrawn', () => {
     // offset of 0 snapped the mark back to the beat it was engraved at (his 2026-08-22 sawtooth).
     // The refusal was the wrong cut — his call: *"i think it was the wrong fix to the issue described
     // here"* — because a horizontal drag re-anchors on most frames, so it switched the preview off
-    // and cost a 33–46 ms full render per crossing (measured, `interactions/dragTrace`). The frame
+    // and cost a 33–46 ms full render per crossing (measured, `interactions/walks/dragTrace`). The frame
     // now absorbs the missing half (`./tempoAnchorInk`) and the identity holds.
     const before = mark().getAttribute('transform')!
     setTempoAtSlot(tempoModel.getScore(), tempoId, { measure: 1, beat: frac(2, 1) })

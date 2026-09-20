@@ -3,7 +3,7 @@ import type { EditorState } from '../state/EditorState'
 import { bus } from '@/bus'
 import type { SlurGeometryRequest } from '@/bus'
 import { endpointOffsetOverrideOf, slurOffsetOverrideOf } from '../../engine/models/engravingOverrides'
-import { setSlurControlPoint } from '../slurHandleNudge'
+import { setSlurControlPoint } from '../walks/slurHandleNudge'
 import { dbg } from '../../utils/debug'
 
 /**

@@ -9,7 +9,7 @@ import type { EditorState } from '../state/EditorState'
 import { DRAG_TIME_THRESHOLD_MS, type DragHost } from './gesture'
 
 const walk = vi.hoisted(() => ({ dragArmedSlurEndpoint: vi.fn() }))
-vi.mock('../slurEndpointWalk', () => walk)
+vi.mock('../walks/slurEndpointWalk', () => walk)
 
 import { beginSlurEndpointDrag } from './slurEndpoint'
 

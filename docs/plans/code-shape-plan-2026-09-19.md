@@ -1125,7 +1125,7 @@ cross-staff paste case was added and shown green on the OLD code before the merg
 staff-blind clip lookup fails the cross-staff cases, a voice-blind rebar lookup fails both marks' unison
 cases.*
 
-*`trillTrace` DONE (awaiting his word to commit) — `interactions/trillTrace.ts` holds the ⏱ TEMPORARY
+*`trillTrace` DONE (awaiting his word to commit) — `interactions/walks/trillTrace.ts` holds the ⏱ TEMPORARY
 tracing whole: `traceTrillFrame`, `traceTrillHandVsInk`, `endTrillHandTrace` and the `handVsInk` state, so
 deleting the tracing is deleting one file and three call sites. ⭐ NO runtime cycle: what only the walk can
 build (the body's port, the ornament's staff) arrives as a `TrillFrameProbe` from `dragTrillBody`, still
@@ -1168,7 +1168,7 @@ What IS a body, and small: five lane helpers spelled per family with only the re
 pedal's `drawnOnsets`. About 60 lines, no gesture decision in any of them.*
 
 *…and the small bodies DONE (awaiting his word to commit; his instruction: **"dont change any rule"**) —
-`interactions/markLane.ts`: `staffIndexOf` (the four private copies' body, ⛔ NOT routed through
+`interactions/lanes/markLane.ts`: `staffIndexOf` (the four private copies' body, ⛔ NOT routed through
 `staffContent.staffIndexOfId`, which resolves through `getStaves` and is therefore not provably the same
 answer), `markStaffSpacePx(registry, kind, id)` (ottava · pedal · trill · hairpin), `markSystemInkLimit`
 (ottava · pedal · hairpin · dynamic) and `sameSlotAddress`. Every family keeps its exported name as a
@@ -1313,6 +1313,23 @@ plan: renaming the adapter twins that share a basename with their `engrave/` int
 `signRun`, `staveFrame`) — a rename is a separate decision from a move.
 ⭐ His word, 2026-09-20: these moves are mechanical, so each group is committed once its checks pass,
 to the end of this task.*
+
+*Phase 6 item 2 DONE — **`interactions/` is sorted, and its top level holds folders only**: `controllers/`
+(the eight controllers, `ViewportHost`, `shortcutWiring`, `keypadSync`, the sync modules — 53 files with
+specs, `4047e84`) · `state/` (`EditorState`, the selection, `inspectedElement`, `toolGhost`, the passages —
+18) · `propertyControllers/` (25) · `stamps/` (27) · `text/` (9) · `clipboard/` (12) · `io/` (1, `91df68a`) ·
+`walks/` (41) · `lanes/` (14), beside the `elements/` and `drags/` that Phase 3 made. The
+engine→interactions fence was re-proved against every new folder. 🚨 One trap, caught by tsc: a module
+named like its new folder (`clipboard.ts` → `clipboard/`) had its path DOUBLED by the tool's prose pass —
+the pattern now refuses a match already followed by a slash. ⭐ Three subject-less feature specs that sat
+loose at the root (`fanPress`, `tremoloDelete`, `tremoloEntry`) went to `__tests__/`, where the test-layout
+rule puts them, and `lint:testnames`' allowlist SHRANK by three (7 → 4). tsc · eslint · `build:check` ·
+7,062 specs · the BROWSER suite (300) green.*
+
+**Phase 6 items 1, 2, 4, 5 DONE.** `engine/rendering/` went from 129 flat files to ten and eight folders;
+`interactions/` from 98 to eleven folders; `docs/` from 147 flat files to five and four folders, behind a
+link check. Left, and his call: `CLAUDE.md`'s tree as one line per folder; the adapter twins' renames
+(`noteRuler` · `signRun` · `staveFrame`); and the "Later" note on undo.
 
 ### Later — before orchestral scores
 

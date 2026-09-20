@@ -134,12 +134,12 @@ any of the four lint gates notices when the twelfth module is the fourth renderi
 
 This is what makes the pass tractable rather than speculative:
 
-- `interactions/markWalk.ts` (293) — `MarkWalkPort`, the per-mark seam. ~~All four implement it.~~
+- `interactions/walks/markWalk.ts` (293) — `MarkWalkPort`, the per-mark seam. ~~All four implement it.~~
   **`[A3]` SIX implement it, not four:** `ottavaWalk`, `pedalWalk`, `hairpinWalk`, `trillWalk` — **and
   `dynamicWalk` and `tempoWalk`**.
-- `interactions/markBreakWrap.ts` (290) — `BreakWrapPort`, the system-break crossing. Five
+- `interactions/walks/markBreakWrap.ts` (290) — `BreakWrapPort`, the system-break crossing. Five
   implementors: the four families **plus `dynamicWalk` and `tempoWalk`**, minus `trillWalk`.
-- `interactions/markSystemJump.ts` (123) — `SystemJumpPort<Stop>`, already generic in its stop type.
+- `interactions/walks/markSystemJump.ts` (123) — `SystemJumpPort<Stop>`, already generic in its stop type.
   Live, not aspirational: `systemStopFor` is imported by **six** lane modules (`dynamicLane`,
   `tempoWalk`, `hairpinLane`, `ottavaLane`, `pedalLane`, `trillLane`).
 
@@ -321,7 +321,7 @@ Gate: `build:check` + 5,052 unit tests. No `test:e2e` needed — nothing here dr
 
 ### ✅ What actually happened
 
-**1b — the driver — DONE.** `interactions/markDrive.ts`: `walkPress` (one arrow press) and
+**1b — the driver — DONE.** `interactions/walks/markDrive.ts`: `walkPress` (one arrow press) and
 `dragFrame` (one drag frame). **All six families call it**, so the plan's acceptance criterion holds —
 `dynamicWalk` and `tempoWalk` are POINT marks, and their calling it is what proves the driver is about
 the WALK and not about spans.

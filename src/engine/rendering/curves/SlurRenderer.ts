@@ -469,7 +469,7 @@ function slurOffsetPx(
  * `ups().p + ups().off` (`slurtie.cpp:103-142`).
  *
  * ⭐ Why a slur needs one at all, when the arc plainly starts at a note: since the interpolating walk
- * (`interactions/slurEndpointWalk`) an endpoint's ink can sit a whole note-gap from its anchor, so
+ * (`interactions/walks/slurEndpointWalk`) an endpoint's ink can sit a whole note-gap from its anchor, so
  * the arc can be drawn springing from a note the slur does not span — and every engine surveyed
  * (Dorico, Sibelius, Finale, MuseScore) answers that with a dashed line to the true anchor rather
  * than by forbidding the displacement.

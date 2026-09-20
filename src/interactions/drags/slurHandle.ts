@@ -16,7 +16,7 @@
 import type { ElementInfo } from '../../engine/ElementRegistry'
 import type { SlurSegmentAddress } from '../../types/music'
 import { dbg } from '../../utils/debug'
-import { cpsFromDrawnControlPoints } from '../slurHandleNudge'
+import { cpsFromDrawnControlPoints } from '../walks/slurHandleNudge'
 import { DRAG_TIME_THRESHOLD_MS, type DragHost, type Gesture } from './gesture'
 
 type Point = { x: number; y: number }

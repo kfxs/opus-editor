@@ -9,7 +9,7 @@ import type { KeysCtx } from './keys'
 
 const walk = vi.hoisted(() => ({ walkTempo: vi.fn(() => true) }))
 // Partial: importing `ELEMENT_SPECS` loads every kind, and the mark's DRAG reads this module too.
-vi.mock('../tempoWalk', async importOriginal => ({ ...(await importOriginal<object>()), ...walk }))
+vi.mock('../walks/tempoWalk', async importOriginal => ({ ...(await importOriginal<object>()), ...walk }))
 
 import { TEMPO_KEYS } from './tempoKeys'
 import { ELEMENT_SPECS } from './chain'

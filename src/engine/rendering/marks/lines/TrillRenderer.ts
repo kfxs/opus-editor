@@ -274,7 +274,7 @@ function trillGeometry(
  *
  * ⚠️ A loop, not a single step: a big nudge (or a wide zoom-out) may fold over several lines. It
  * stops at the last line the render drew, which is where the ink genuinely has nowhere to go — and
- * `interactions/trillWalk` refuses the press there rather than letting it run off the page.
+ * `interactions/walks/trillWalk` refuses the press there rather than letting it run off the page.
  */
 export function foldPastSystemEnd(
   pass: SystemEdgeLookup,

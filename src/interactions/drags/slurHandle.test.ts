@@ -6,7 +6,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import type { ElementInfo } from '../../engine/ElementRegistry'
 import type { MusicEngine } from '../../engine/MusicEngine'
-import { cpsFromDrawnControlPoints } from '../slurHandleNudge'
+import { cpsFromDrawnControlPoints } from '../walks/slurHandleNudge'
 import { DRAG_TIME_THRESHOLD_MS, type DragHost } from './gesture'
 import { beginSlurHandleDrag } from './slurHandle'
 

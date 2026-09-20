@@ -110,7 +110,7 @@ export function tempoCommands(ctx: CommandContext) {
     },
 
     /** Hand a tempo mark onto `target` KEEPING its hand-nudged offset, where {@link moveTempoBySlot}
-     *  drops it — one crossing of the mark's walk (`interactions/tempoWalk`). No undo entry:
+     *  drops it — one crossing of the mark's walk (`interactions/walks/tempoWalk`). No undo entry:
      *  {@link commitTempoDrag} records the whole gesture once. */
     previewTempoSlotKeepingOffset(id: string, target: TempoStop): boolean {
       ctx.markDirty() // live drag, undo deferred to commitTempoDrag
@@ -118,7 +118,7 @@ export function tempoCommands(ctx: CommandContext) {
     },
 
     /** The whole-stop flavour, undo-free: what a drag lands with when the ink has left the mark's own
-     *  SYSTEM (`interactions/tempoWalk`), which is a jump and not a walk — so it drops the nudge. */
+     *  SYSTEM (`interactions/walks/tempoWalk`), which is a jump and not a walk — so it drops the nudge. */
     previewTempoSlot(id: string, target: TempoStop): boolean {
       ctx.markDirty()
       return ctx.model().setTempoAtSlot(id, target)

@@ -40,7 +40,7 @@ export const TEMPO_ELEMENT: ClickableElementSpec = {
     }
 
     // ⭐ Click = select; drag (decided on move, past the same time threshold every other handle
-    // uses) walks the mark through the music and moves its ink (`interactions/tempoWalk`). The MARK
+    // uses) walks the mark through the music and moves its ink (`interactions/walks/tempoWalk`). The MARK
     // is its own handle — a tempo mark is a point, like a dynamic and unlike the span families.
     // Armed inside `pick` so the order matches theirs: assignment, then arm, then repaint.
     dbg(`✓ Tempo mark selected | id:${tempoAt.id}`)

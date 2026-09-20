@@ -252,7 +252,7 @@ export function toggleHairpinType(score: Score, id: string): 'cresc' | 'dim' | n
  * *"if an hairpin is selected we use x (flip) … to translate the hairpin to the oposite lane"*.
  *
  * ⭐ **There really are two lanes**, and this is not a new capability — it is a keyboard instrument
- * for one the DRAG already has (`interactions/hairpinWalk.flipPlacement`, from his report of
+ * for one the DRAG already has (`interactions/walks/hairpinWalk.flipPlacement`, from his report of
  * 2026-08-20: *"remember we can draw a hairpin up or down the staff"*). `dynamicsLinePlan` plans a
  * baseline per side for wedges and letters alike, so both sides are places a wedge BELONGS.
  *
@@ -728,7 +728,7 @@ export function resizeHairpinBySlot(score: Score, id: string, direction: 1 | -1)
  * without putting it there, and named in the DRAG's vocabulary ({@link HairpinDragWrite}) so that
  * every route to the tip speaks one language. Null when there is nothing to reach.
  *
- * ⭐ Split out for the INTERPOLATING WALK (`interactions/hairpinWalk`), the start's
+ * ⭐ Split out for the INTERPOLATING WALK (`interactions/walks/hairpinWalk`), the start's
  * {@link nextHairpinStartSlot} twin and for its reason: the arrows and `Ctrl+Shift`+arrow must never
  * land the tip on different notes.
  *

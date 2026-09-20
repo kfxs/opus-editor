@@ -3,7 +3,7 @@
  * one END through the music. {@link beginBodyDrag} is the frame; `../hairpinWalk` is the walk.
  */
 import { hairpinStaffSpacePx } from '../elements/hairpinHandles'
-import { dragHairpinBody, settleHairpinLanding } from '../hairpinWalk'
+import { dragHairpinBody, settleHairpinLanding } from '../walks/hairpinWalk'
 import { beginBodyDrag, type BodyDragSpec } from './bodyDrag'
 import type { DragHost, Gesture } from './gesture'
 

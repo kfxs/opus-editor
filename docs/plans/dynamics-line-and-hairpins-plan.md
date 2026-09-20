@@ -1296,7 +1296,7 @@ what exists; §4's rule stands, so there is no cosmetic offset behind it.
 **The resize.** It rides **`Ctrl+Shift+←/→`**, and only while the RIGHT-HAND square is armed.
 
 - The CHORD comes from the slur, where `Ctrl+Shift+←/→` already means "stop nudging, move the
-  anchor" (`interactions/slurReanchor.ts`). Resizing a wedge is the same sentence about the other
+  anchor" (`interactions/walks/slurReanchor.ts`). Resizing a wedge is the same sentence about the other
   kind of spanner, so it is the same key — the widest step on the horizontal, above the ¼-space plain
   arrows and the 1-space `Ctrl` pair.
 - The GATE is what the two new squares make possible, and it fixes something that was wrong before
@@ -1805,8 +1805,8 @@ reason is his: a square that has BOTH a re-anchor and an offset owes the gesture
 The gesture itself is the dynamics line's, arriving here third (`docs/plans/dynamic-offset-plan.md`, the
 tempo mark's tail section): ←/→ and `Ctrl`+←/→ nudge the armed end's INK, and the press on which that
 ink ARRIVES at the next boundary spends its step on the MODEL instead — `offset += step − gap` — so
-the crossing is invisible. Arithmetic: `interactions/markWalk.ts`, untouched. New modules:
-`interactions/hairpinWalk.ts` (the two PORTS) and `interactions/hairpinLane.ts` (where the lane was
+the crossing is invisible. Arithmetic: `interactions/walks/markWalk.ts`, untouched. New modules:
+`interactions/walks/hairpinWalk.ts` (the two PORTS) and `interactions/lanes/hairpinLane.ts` (where the lane was
 DRAWN, extracted from the drag so all three routes measure one geometry).
 
 - ⭐⭐ **The stops are BOUNDARIES, not noteheads** — a wedge's tips are drawn at a note's LEFT EDGE

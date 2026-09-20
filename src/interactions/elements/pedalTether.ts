@@ -37,7 +37,7 @@
  */
 import type { ElementInfo } from '../../engine/ElementRegistry'
 import { OTTAVA_DASH_LENGTH } from '../../engine/rendering/marks/lines/ottavaStyle'
-import { systemInkAt } from '../markBreakWrap'
+import { systemInkAt } from '../walks/markBreakWrap'
 
 /** One drawn segment: from the left sign's right edge to the right sign's left edge, on the baseline
  *  they share. Empty when there is nothing to pair. */
@@ -209,7 +209,7 @@ interface TetherRegistry {
  * 2026-08-21. ⭐ The y cannot lie the same way: a pedal is always drawn BELOW its staff, so the row is
  * the staff whose top line is the LAST one above the sign.
  *
- * The extent itself is `interactions/markBreakWrap`'s — the contiguous run of bars that share the
+ * The extent itself is `interactions/walks/markBreakWrap`'s — the contiguous run of bars that share the
  * row — so this cannot re-acquire the cross-page bug that rule exists to fix.
  */
 function rowInkAt(registry: TetherRegistry, sign: ElementInfo): { min: number; max: number } | null {

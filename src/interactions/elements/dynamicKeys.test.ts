@@ -9,7 +9,7 @@ import type { KeysCtx } from './keys'
 
 const walk = vi.hoisted(() => ({ walkDynamic: vi.fn(() => true) }))
 // Partial: importing `ELEMENT_SPECS` loads every kind, and the mark's DRAG reads this module too.
-vi.mock('../dynamicWalk', async importOriginal => ({ ...(await importOriginal<object>()), ...walk }))
+vi.mock('../walks/dynamicWalk', async importOriginal => ({ ...(await importOriginal<object>()), ...walk }))
 
 import { DYNAMIC_KEYS } from './dynamicKeys'
 import { ELEMENT_SPECS } from './chain'

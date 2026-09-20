@@ -100,7 +100,7 @@ and follow the errors" here. The list is short enough to BE the checklist:
 | `engine/rendering/marks/dynamics/DynamicsLayout:66` (the drawn anchor) | the slot at that beat in ANY voice. ⭐ State the tie-break — *first in reading order* — it is arbitrary between voices and the mark is centred on the COLUMN anyway (`dynamicMarkAnchor`) |
 | `engine/rendering/marks/dynamics/HairpinRenderer:130,305,313` (its lane + the dynamics it clears) | any voice on its staff |
 | `engine/models/hairpinOps:311,362` (`addHairpinOverNotes` dedup, `hairpinSpan`) | a wedge with no voice covers the staff |
-| `interactions/dynamicLane:58`, `elements/hairpinHandles:169` | the lane the walk/handles read |
+| `interactions/lanes/dynamicLane:58`, `elements/hairpinHandles:169` | the lane the walk/handles read |
 | `interactions/clipboard/attachedMarks:85,100` (the Properties list for a note) | an ALL mark is attached to every voice's note — ⚠️ and it tests voice but **not staff**, so a staff-2 hairpin would list under a staff-1 note. Same fix, same commit |
 | `engine/MusicEngine.createHairpin:1355` | 🚨 see below |
 | `interactions/clipboard/clipboard:319,404` + `rebarOps.pasteEvents:505,524` | 🚨 the paste trap |

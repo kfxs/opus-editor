@@ -220,7 +220,7 @@ export function resetTrillEndpointOffset(score: Score, id: string, which: 'start
 /**
  * ⭐⭐ **THE BARE `tr`** — turn the wavy line off (`'none'`) or back on (`undefined`). His ask,
  * 2026-08-18, reached from the END square's walk: one step further left than the collapse
- * (`interactions/trillReanchor`).
+ * (`interactions/walks/trillReanchor`).
  *
  * ⛔ **Turning it off CLEARS the end**, the other half of {@link Trill.extension}'s invariant: a
  * trill drawn without a line cannot also claim to cover a run of notes, because the line is the only
@@ -281,7 +281,7 @@ export function setTrillStart(score: Score, id: string, noteId: string): boolean
   // it*. The result is the ordinary one-note trill, which is a finished ornament.
   //
   // ⭐ It is also the mirror of what the END square does when it steps back onto the start
-  // (`interactions/trillReanchor`): both ends collapse the line rather than jamming against it. His
+  // (`interactions/walks/trillReanchor`): both ends collapse the line rather than jamming against it. His
   // report, 2026-08-18: *"i can move the first point (tr) to the left but not to the right"* — on a
   // trill whose end was the very next note, so every rightward step reached it.
   //
@@ -333,7 +333,7 @@ export function toggleTrillPlacement(score: Score, id: string): 'above' | 'below
 }
 
 /** Put the ornament on a NAMED side — {@link toggleTrillPlacement} for a caller that knows which one
- *  it wants (a vertical drag crossing the staff, `interactions/trillWalk`). @returns true if it
+ *  it wants (a vertical drag crossing the staff, `interactions/walks/trillWalk`). @returns true if it
  *  changed, so a frame that asks for the side it is already on writes nothing. */
 export function setTrillPlacement(score: Score, id: string, side: 'above' | 'below'): boolean {
   const trill = getTrillById(score, id)
@@ -344,7 +344,7 @@ export function setTrillPlacement(score: Score, id: string, side: 'above' | 'bel
 
 /**
  * ⭐⭐ **MOVE THE WHOLE ORNAMENT ONTO ANOTHER NOTE, KEEPING ITS EXTENT** — the model write behind a
- * vertical drag that lands the trill on another system (`interactions/trillWalk`).
+ * vertical drag that lands the trill on another system (`interactions/walks/trillWalk`).
  *
  * ⭐ **The extent is counted in the LANE's own notes**, which is the only measure a trill has: a span
  * of N stops arrives as a span of N stops, and it is the CALLER that counts them (the lane is an
@@ -502,7 +502,7 @@ export function trillSpanBeats(score: Score, id: string): Fraction | null {
  * ⭐⭐ **WHERE THE LINE WOULD STOP IF THIS TRILL HAD NO EXPLICIT END** — the last note of the START's
  * tie chain, which is the ordinary one-note trill's own extent ({@link Trill.endNoteId}).
  *
- * ⭐ Exported for the interpolating walk (`interactions/trillWalk`), which has to price the step
+ * ⭐ Exported for the interpolating walk (`interactions/walks/trillWalk`), which has to price the step
  * that CLEARS the end **where the ink will actually land** — ⛔ never at the note that step names.
  * On an untied note the two are the same and this reads as a long way round; on a TIED one they are
  * bars apart, and pricing the step at the start note would make the crossing jump the whole tie.

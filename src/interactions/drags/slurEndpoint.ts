@@ -20,7 +20,7 @@
  * the selection — so the arrows carry on from where the hand stopped.
  */
 import type { EditorState } from '../state/EditorState'
-import { dragArmedSlurEndpoint } from '../slurEndpointWalk'
+import { dragArmedSlurEndpoint } from '../walks/slurEndpointWalk'
 import { beginHeldDrag } from './heldDrag'
 import type { DragHost, Gesture } from './gesture'
 

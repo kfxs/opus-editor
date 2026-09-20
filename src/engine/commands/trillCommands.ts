@@ -120,7 +120,7 @@ export function trillCommands(ctx: CommandContext) {
 
     /**
      * ⭐⭐ **Re-anchor one END of a trill by NOTE** — `Ctrl+Shift+←/→` with that square armed
-     * (`interactions/trillReanchor`). `noteId === null` on the END clears it, back to the one-note
+     * (`interactions/walks/trillReanchor`). `noteId === null` on the END clears it, back to the one-note
      * trill whose extent comes from the ties.
      *
      * ⚠️ **AUDIBLE** — unlike the continuation label below it. Which notes a trill
@@ -210,7 +210,7 @@ export function trillCommands(ctx: CommandContext) {
 
     /**
      * ⭐⭐ **THE CROSSING'S SECOND HALF** — {@link nudgeTrillEndpoint} without the page limit, for the
-     * interpolating walk (`interactions/trillWalk`).
+     * interpolating walk (`interactions/walks/trillWalk`).
      *
      * 🚨 It is BOOKKEEPING, not a nudge: the pair *(anchor := the next note, offset −= the gap)* leaves
      * the DRAWN ornament exactly where it was, so a rule about where INK may go has no business judging
@@ -242,7 +242,7 @@ export function trillCommands(ctx: CommandContext) {
 
     /**
      * Live (preview) side change while DRAGGING an ornament across its own staff — the LADDER's first
-     * rung (`interactions/trillWalk`). ⚠️ No undo of its own; the drop commits once.
+     * rung (`interactions/walks/trillWalk`). ⚠️ No undo of its own; the drop commits once.
      */
     previewTrillPlacement(id: string, side: 'above' | 'below'): boolean {
       ctx.markDirty()

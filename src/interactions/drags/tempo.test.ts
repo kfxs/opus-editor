@@ -11,7 +11,7 @@ const snap = vi.hoisted(() => ({
   dragTempo: vi.fn(),
   tempoAnchorXOf: vi.fn<() => number | null>(() => 160),
 }))
-vi.mock('../tempoDrag', () => snap)
+vi.mock('../walks/tempoDrag', () => snap)
 
 import { beginTempoDrag } from './tempo'
 

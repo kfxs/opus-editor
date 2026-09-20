@@ -46,9 +46,6 @@ const ALLOWLIST = [
   'src/engine/rendering/ledgerLineStyle.test.ts',
   'src/engine/rendering/noteSpacingRender.test.ts',
   'src/engine/rendering/staveGeometry.test.ts',
-  'src/interactions/fanPress.test.ts',
-  'src/interactions/tremoloDelete.test.ts',
-  'src/interactions/tremoloEntry.test.ts',
 ]
 
 function walk(dir, out = []) {

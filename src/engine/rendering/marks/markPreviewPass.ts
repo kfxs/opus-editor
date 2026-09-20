@@ -275,7 +275,7 @@ const MARK_PREVIEW_FAMILIES: Record<MarkPreviewKind, MarkPreviewFamily> = {
       // ⭐⭐ **The cut taken then was to REFUSE any frame whose anchor had moved, and that was the
       //   wrong fix** — his call, 2026-08-31: *"i think it was the wrong fix to the issue described
       //   here"*. A horizontal drag crosses on most frames, so it switched the preview off in
-      //   practice: measured with `interactions/dragTrace`, an accepted frame repaints in 0.3–0.7 ms
+      //   practice: measured with `interactions/walks/dragTrace`, an accepted frame repaints in 0.3–0.7 ms
       //   and a refused one in **33–46 ms**, which stretched the hand's own delta from ~3 px to
       //   24–35 px and left the latch eating 70 px of a 564 px gesture.
       //
@@ -324,7 +324,7 @@ const MARK_PREVIEW_FAMILIES: Record<MarkPreviewKind, MarkPreviewFamily> = {
     redrawn: [{ registryType: 'hairpin', groups: pass => pass.hairpinGroupMap }],
     // 🚨🚨 **IS THE ANNOTATION HANGING OFF THE NOTE THE MARK NOW NAMES?** The tempo row above carries
     //    the full account; the shape is identical, and so is the failure it prevents. A dynamic drag
-    //    walks the mark from slot to slot (`interactions/dynamicWalk`) and can cross to the other
+    //    walks the mark from slot to slot (`interactions/walks/dynamicWalk`) and can cross to the other
     //    HAND, and neither is something a transform can express: the annotation is attached to a
     //    StaveNote inside a measure group.
     placed: (pass, id) => {

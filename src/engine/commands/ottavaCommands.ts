@@ -219,7 +219,7 @@ export function ottavaCommands(ctx: CommandContext) {
 
     /**
      * ⭐⭐ **Move the whole bracket onto `target`, keeping its length** — the body walk's crossing write
-     * (`interactions/ottavaWalk`). It keeps both ends' nudges (`ottavaOps` writes no override here): the
+     * (`interactions/walks/ottavaWalk`). It keeps both ends' nudges (`ottavaOps` writes no override here): the
      * crossing is meant to be invisible, and the caller re-bases the offset rather than wiping it. No
      * undo entry of its own; {@link commitOttavaOffsetDrag} records the gesture once.
      */
@@ -264,7 +264,7 @@ export function ottavaCommands(ctx: CommandContext) {
      *
      *  ⚠️ `outward` is the second half of the same bookkeeping and is unjudged for the same reason: a
      *  re-base pays back a move the ANCHOR made, so the drawn ink does not move and there is nothing
-     *  for a limit to have an opinion about (`interactions/ottavaWalk.jumpStaves`). */
+     *  for a limit to have an opinion about (`interactions/walks/ottavaWalk.jumpStaves`). */
     previewOttavaOffsetRebase(id: string, dx: number, outward = 0): boolean {
       ctx.markDirty()
       return ctx.model().setOttavaOffset(id, dx, outward)
@@ -293,7 +293,7 @@ export function ottavaCommands(ctx: CommandContext) {
 
     /**
      * Where {@link resizeOttavaBySlot} would put the HOOK, WITHOUT putting it there — a pure read, no
-     * undo entry. The interpolating walk (`interactions/ottavaWalk`) asks before it decides whether a
+     * undo entry. The interpolating walk (`interactions/walks/ottavaWalk`) asks before it decides whether a
      * press re-anchors or only nudges ink, and asks THIS so the two keys can never land the bracket's
      * end on different notes. @returns null at either end of the road.
      */
@@ -358,7 +358,7 @@ export function ottavaCommands(ctx: CommandContext) {
      * tilted octave bracket is not a shape.
      *
      * ⚠️ **`outward` is a distance FROM THE STAFF**, like every other ottava vertical: the caller
-     * converts its screen delta on the way in (`interactions/ottavaWalk.dragOttavaEndpoint`, the drag's
+     * converts its screen delta on the way in (`interactions/walks/ottavaWalk.dragOttavaEndpoint`, the drag's
      * twin of `shortcutWiring`'s conversion for the keys).
      *
      * 🚨 TWO AXES, TWO QUESTIONS at the page limit — {@link spanEndStaysOnPage}: the horizontal moves

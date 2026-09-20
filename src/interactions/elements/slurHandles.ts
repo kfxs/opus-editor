@@ -146,7 +146,7 @@ export function paintSlurHandles(ctx: HighlightContext): void {
  * know the user the new anchor"*).
  *
  * ⭐ **It serves the mouse too.** The drag is the same carried move as the arrows
- * (`interactions/slurEndpointWalk`), so there is no candidate distinct from the anchor: the anchor
+ * (`interactions/walks/slurEndpointWalk`), so there is no candidate distinct from the anchor: the anchor
  * follows the ink live, and tinting the anchor IS tinting where the end is going.
  *
  * ⭐ **Standing, not a flash.** A blink needs a timer, an undo of itself, and a rule for a second

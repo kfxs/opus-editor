@@ -234,7 +234,7 @@ describe('setDynamicAtSlot — landing the mark by address', () => {
   })
 
   it('⭐⭐ …and its KEEPING-OFFSET twin does everything but the clear — the invisible crossing', () => {
-    // The one line the interpolating walk (`interactions/dynamicWalk`) needed of its own: it hands
+    // The one line the interpolating walk (`interactions/walks/dynamicWalk`) needed of its own: it hands
     // the anchor one gap forward and takes that same gap back out of the offset, so wiping the
     // offset in between would make the one press in ten that crosses jump the mark.
     const nudged: DynamicOffsetOverride = { kind: 'dynamicOffset', x: 1.5, y: -2 }

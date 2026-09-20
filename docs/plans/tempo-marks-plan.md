@@ -367,7 +367,7 @@ second is *audible* — the tempo applies from the beat it lands on, so `utils/t
 | gesture | what it does | where |
 |---|---|---|
 | ←→↑↓ / `Ctrl`+arrow | nudge the ink ¼ / 1 staff-space | `shortcutWiring.nudgeSelectedTempo` |
-| ←→ / `Ctrl`+←→ | …and the anchor follows at ARRIVAL — the interpolating walk | `interactions/tempoWalk` |
+| ←→ / `Ctrl`+←→ | …and the anchor follows at ARRIVAL — the interpolating walk | `interactions/walks/tempoWalk` |
 | `Ctrl+Shift`+←→ | re-anchor a whole onset | `engine/models/tempoOps.moveTempoBySlot` |
 | `Ctrl+Backspace` | drop the nudge | `MusicEngine.resetTempoOffset` |
 | Properties `offset (sp)` | type it, absolute | `bus.tempoOffset` → `TempoOffsetController` |
@@ -389,7 +389,7 @@ id for every tempo mark), and it **dies with the mark** at the model level.
 
 ### 10.2 The walk, and what it shares
 
-⭐⭐ **The arithmetic lives once, in `interactions/markWalk.ts`**, with each mark a PORT (where its
+⭐⭐ **The arithmetic lives once, in `interactions/walks/markWalk.ts`**, with each mark a PORT (where its
 stops are, how far away they are drawn, which ops move it). The dynamic and the tempo mark are the
 two rows; a third mark writes a port, ⛔ never a copy. Shared: the identity
 (`offset += step − gap`), ARRIVAL rather than midpoint, the invisible re-base (which needs a
@@ -421,7 +421,7 @@ spacing. Re-tuning them here is a separate exercise, and only worth it if the dr
 
 ⭐ **Both axes**, with the outward→screen conversion in one line; ⭐ the lift SURVIVES a crossing (a
 tempo's lift answers the ladder's ROW, ⛔ unlike a slur endpoint's, which answers one note's stem and
-therefore settles). ⭐⭐ **Leaving a system is a JUMP** — `interactions/markSystemJump`, shared with the
+therefore settles). ⭐⭐ **Leaving a system is a JUMP** — `interactions/walks/markSystemJump`, shared with the
 dynamic: the mark belongs to whichever system it would LOOK AT HOME on (its natural distance from its
 own staff, read from every other staff), so the switch falls halfway between where it sits and where
 it would sit. ⚠️ **Unchanged (2026-08-30): the OTTAVA's drag grew a white-space gate on top of this
@@ -548,7 +548,7 @@ is sounded only by the LEFT hand. The loop found nothing at-or-after them and fe
 the bar's opening — so **seven different anchors drew at one x**, and the mark stood still for a whole
 bar and then jumped when the walk reached bar 7's downbeat, which the right hand does play.
 
-⭐ **A tempo mark governs the CLOCK, not a staff.** `interactions/tempoWalk` already says so — its
+⭐ **A tempo mark governs the CLOCK, not a staff.** `interactions/walks/tempoWalk` already says so — its
 stops are every onset, *whatever staff sounds it* (`drawnOnsets`). The DRAWING has to agree with the
 WALK or the two disagree by a whole bar, which is exactly what he saw.
 
@@ -582,7 +582,7 @@ behaviour, and what every pre-existing case in `TempoLayout.test.ts` still pins.
 ## The DRAG'S TRACE (his ask, same day)
 
 *"add more logs so we can see mouse coordinates and other important coordinates"*. One line per
-frame, `[TempoDrag]` in `interactions/tempoWalk`: the cursor x, the delta in px **and** staff-spaces
+frame, `[TempoDrag]` in `interactions/walks/tempoWalk`: the cursor x, the delta in px **and** staff-spaces
 with the px/ss it converted at, the ANCHOR (address + drawn x) before→after, the INK x off the
 registry, the OFFSET before→after, the next STOP with the gap to it, and the outcome
 (`crossings=N` / `LATCHED (dropped …)` / `moved`). Guarded by `debugEnabled()`, not merely written
@@ -605,7 +605,7 @@ walk (the KEYS) still works that way.
 
 His call: *"make the drag not a walk but anchor when the mouse hit the next anchor point"*, and then
 *"till the beginning of the ink doesn't reach the next anchor point, nothing; when it reaches it,
-re-anchor"*. `interactions/tempoDrag.ts`, and the whole of it is:
+re-anchor"*. `interactions/walks/tempoDrag.ts`, and the whole of it is:
 
 1. **the HAND carries the anchor**, ⛔ not the raw pointer — the press lands anywhere inside
    `Allegro (♩ = 120)`, so `MouseController` charges that grab distance once and every frame after
@@ -632,7 +632,7 @@ strictly ahead — a test that is right for the next SYSTEM (two systems' x's ar
 fatal for a shared column: the hand has no pixel to reach and the ink has no gap to cross, so nothing
 past the emptied bar was reachable at all.
 
-⭐⭐ **The rule, once, for both**: `interactions/tempoAnchors.nextAnchorPoint` — the stops sharing the
+⭐⭐ **The rule, once, for both**: `interactions/lanes/tempoAnchors.nextAnchorPoint` — the stops sharing the
 current anchor's x are passed OVER, and the next anchor point is the nearest stop drawn somewhere
 else. ⛔ A stop drawn BEHIND the anchor still ends the road (that is the system change), and so does
 one the last render published no anchor for.
@@ -661,7 +661,7 @@ current measure, however if a barline is selected the anchor point should be the
 barline"*. The action read ONE thing — `selectedNoteId` — which is right for a note and wrong for the
 two selections that name a PLACE rather than a sounding thing.
 
-`interactions/tempoInsertAnchor.tempoInsertStop(state, engine)`:
+`interactions/lanes/tempoInsertAnchor.tempoInsertStop(state, engine)`:
 
 | selected | the mark anchors at |
 |---|---|

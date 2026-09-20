@@ -15,7 +15,7 @@ const walk = vi.hoisted(() => ({
   walkHairpinBody: vi.fn(() => true),
 }))
 // Partial: importing `ELEMENT_SPECS` loads every kind, and the wedge's DRAG reads this module too.
-vi.mock('../hairpinWalk', async importOriginal => ({ ...(await importOriginal<object>()), ...walk }))
+vi.mock('../walks/hairpinWalk', async importOriginal => ({ ...(await importOriginal<object>()), ...walk }))
 
 import { HAIRPIN_KEYS } from './hairpinKeys'
 import { ELEMENT_SPECS } from './chain'

@@ -12,7 +12,7 @@
  * words, sharing its arithmetic (`../markWalk`) and differing only in where the stops are: a tempo
  * has no lane, it governs the clock.
  */
-import { walkTempo } from '../tempoWalk'
+import { walkTempo } from '../walks/tempoWalk'
 import type { KeysOf } from './keys'
 
 export const TEMPO_KEYS: KeysOf<'tempo'> = {

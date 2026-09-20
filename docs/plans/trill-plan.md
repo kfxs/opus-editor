@@ -593,7 +593,7 @@ Commits `6cd183d` · `97604e5` · `a97a5d6` · `b44567f` (+ the Properties rows)
 ### ⭐⭐ THE TRILL IS THE SLUR'S FAMILY, NOT THE PEDAL'S
 
 Its anchors are NOTES, where a hairpin's, an ottava's and a pedal's are positions in TIME. So the
-chord that steps those three by a SLOT steps this one by a NOTE (`interactions/trillReanchor.ts`,
+chord that steps those three by a SLOT steps this one by a NOTE (`interactions/walks/trillReanchor.ts`,
 `slurReanchor`'s twin), and the drag answers with a note id rather than an address.
 
 ### ⭐⭐ …and it has a state none of the other four has: NO END AT ALL
@@ -674,9 +674,9 @@ The trill is the fourth family to get the gesture, after the slur, the dynamic/t
 hairpin, and it arrives by the rule the wedge's second square set on 2026-08-20: **a handle that has
 BOTH a re-anchor and an offset owes the walk that joins them.**
 
-Modules: `interactions/trillWalk.ts` (the PORT, twice) + `interactions/trillLane.ts` (where each
+Modules: `interactions/walks/trillWalk.ts` (the PORT, twice) + `interactions/lanes/trillLane.ts` (where each
 square would be drawn, per candidate anchor) + `MusicEngine.rebaseTrillEndpointOffset`. The
-arithmetic is `interactions/markWalk.ts`'s, **untouched** — `trillOps.trillEndWithoutAnEnd` is the
+arithmetic is `interactions/walks/markWalk.ts`'s, **untouched** — `trillOps.trillEndWithoutAnEnd` is the
 one new reader in the core.
 
 ### The identity, unchanged
@@ -728,7 +728,7 @@ of the ink and the next press crosses again — all the way to bar 1.
 
 ### Tests
 
-`interactions/trillWalk.test.ts` (10) + `interactions/trillLane.test.ts` (6), both break-tested: the
+`interactions/walks/trillWalk.test.ts` (10) + `interactions/lanes/trillLane.test.ts` (6), both break-tested: the
 successor rule, the tie pricing and the bare-`tr` guard were each reverted and each took exactly one
 assertion red with it. ⚠️ The fixture's lane is deliberately UNEVEN (the last note's successor sits
 300 px on, where the noteheads are 100 apart) — evenly spaced, every assertion passes with the
@@ -795,7 +795,7 @@ stopped being a special case at all.**
 
 ### ⭐⭐ THE RIBBON — every drawn line laid end to end, as ONE ruler
 
-`interactions/trillLane.trillRibbonX`. The drawing FOLDS ink past a line's end onto the next
+`interactions/lanes/trillLane.trillRibbonX`. The drawing FOLDS ink past a line's end onto the next
 (§12), so a trill's ink really does travel ONE continuous distance — down line 1, onto line 2, and
 on. Every x the walk's port answers with is now measured along that ribbon, and the consequences are
 all deletions:
@@ -898,7 +898,7 @@ the fold, the sign floor and the guide's target were each break-tested.
 
 His ask: *"now we need to make the mouse drag change the `tr` y offset, and of course we have to be
 aware of the system jump in the y, similar to hairpin"*. The rungs are the wedge's, rule for rule
-(`interactions/hairpinWalk`), because they are the same two questions asked of any mark that has a
+(`interactions/walks/hairpinWalk`), because they are the same two questions asked of any mark that has a
 SIDE.
 
 ```
@@ -914,7 +914,7 @@ SIDE.
    distance from THAT edge, so the next staff is a whole system away again. The height goes with the
    flip: a distance measured above the staff means nothing below it.
 2. **THEN THE SYSTEM JUMP** (`jumpTrillSystems` → `trillLane.trillSystemNoteFor` →
-   `interactions/markSystemJump`, the shared port, ⛔ never a copy). ⭐ **The whole ornament goes,
+   `interactions/walks/markSystemJump`, the shared port, ⛔ never a copy). ⭐ **The whole ornament goes,
    extent and all** (`trillOps.moveTrillTo`): a trill's extent is counted in the LANE's own notes, so
    a span of N stops arrives as a span of N stops — counted on the interaction side, since the lane
    is not a model question. It lands **on the side it came from** (down ⇒ *above* the staff below),
@@ -1424,7 +1424,7 @@ not changed. It now `previewMarks('trill', id)` per press and renders for real O
 repeats stop — the settle pays for the ladder and the page cast-off exactly as a drag's DROP does.
 
 ⚠️ **It was opt-in for a day.** *"we should apply the same solution of the held to all walkings"* —
-the trill's run is now every family's, `interactions/keyRun.ts`, and the undo went with it: a run is
+the trill's run is now every family's, `interactions/walks/keyRun.ts`, and the undo went with it: a run is
 ONE entry rather than one per press. See docs/history/render-performance-plan.md §12.5c.
 
 ⏭️ **Still owed, and measured:** the other ~25 ms. Two candidates, not yet separated — the UNDO

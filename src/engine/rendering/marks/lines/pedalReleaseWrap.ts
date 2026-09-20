@@ -7,11 +7,11 @@
  * ## What actually put the glyph there
  *
  * A pedal whose lift falls where its staff has no note — normal, and common since the whole pedal
- * learned to walk (`interactions/pedalWalk.walkPedalBody`) — has its release priced at the bar's
+ * learned to walk (`interactions/walks/pedalWalk.walkPedalBody`) — has its release priced at the bar's
  * `noteEndX`, which is Gould's rule 3 as drawn: *the release lands at or before the barline*. When
  * that bar is the LAST on its line, the `✻` is already sitting on the line's last ink; the hand's own
  * `endX` nudge then pushes it into the margin, where nothing catches it. ⛔ The walk's cross-system
- * WRAP (`interactions/markBreakWrap`) cannot: the body's stops are the PRESS's, so it asks the
+ * WRAP (`interactions/walks/markBreakWrap`) cannot: the body's stops are the PRESS's, so it asks the
  * question for the sign at the other end.
  *
  * ## The rule

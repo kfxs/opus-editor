@@ -511,7 +511,7 @@ describe('ottavaOps — moveOttavaStartBySlot', () => {
 
   it('⭐⭐ the beginning PUSHES the end when it catches it — his rule, 2026-08-21', () => {
     // *"when the left anchor push the right anchor then the right anchor should reanchor"*. ⛔ It was
-    // a refusal before, and a refusal STOPS THE WALK dead (`interactions/markWalk.carryMark`): his
+    // a refusal before, and a refusal STOPS THE WALK dead (`interactions/walks/markWalk.carryMark`): his
     // bracket sat on one note while its ink ran 63 spaces off the page.
     quarters(1)
     const o = addOttava(score, 1, { beat: frac(2, 1), length: frac(1, 1), shift: 1 })!
@@ -581,7 +581,7 @@ describe('ottavaOps — moveOttavaStartBySlot', () => {
  * ⭐⭐ THE CANDIDATE READS — where a step WOULD land, without landing there.
  *
  * Split out of the two stepping ops on 2026-08-21 for the interpolating walk
- * (`interactions/ottavaWalk`), and the claim that matters is that they are the SAME rule: the plain
+ * (`interactions/walks/ottavaWalk`), and the claim that matters is that they are the SAME rule: the plain
  * arrow walks the ink onto the slot `Ctrl+Shift+←/→` jumps to, so the two keys cannot land a square
  * on different notes depending on how far it had been nudged.
  *

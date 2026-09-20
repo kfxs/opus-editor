@@ -7,8 +7,8 @@
  * ⚠️ `drawPedal` files its ladder claim during the DRAW, unlike its siblings, so the frame's
  * preview rewinds `occupiedBands` — see `engine/rendering/marks/markPreviewPass`.
  */
-import { pedalStaffSpacePx } from '../pedalLane'
-import { dragPedalBody, settlePedalLanding } from '../pedalWalk'
+import { pedalStaffSpacePx } from '../lanes/pedalLane'
+import { dragPedalBody, settlePedalLanding } from '../walks/pedalWalk'
 import { beginBodyDrag, type BodyDragSpec } from './bodyDrag'
 import type { DragHost, Gesture } from './gesture'
 

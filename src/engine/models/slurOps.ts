@@ -92,7 +92,7 @@ export function setSlurShape(score: Score, id: string, cps: CurveControlPointDel
  * ⭐⭐ **RE-POINT ONE END AND KEEP EVERY AUTHORED EDIT** — the bare model write, with none of the
  * auto-resets {@link setSlurEndpoint} makes.
  *
- * It exists for the INTERPOLATING walk (`interactions/slurEndpointWalk`), where a horizontal arrow
+ * It exists for the INTERPOLATING walk (`interactions/walks/slurEndpointWalk`), where a horizontal arrow
  * moves the endpoint's INK and the anchor follows it onto the next note once the ink gets there.
  * That crossing is meant to be **invisible** — his call, 2026-08-18: preserve the nudge, *"probably
  * reset it can be strange"* — so the very wipes that are right for "not that note" are wrong here:
@@ -126,7 +126,7 @@ export function setSlurEndpointKeepingEdits(
 
 /**
  * Re-anchor one end of a slur onto a different note (the draggable endpoint handles, and the
- * Ctrl+Shift+←/→ walk in `interactions/slurReanchor`). Rewrites `startNoteId` or `endNoteId` and
+ * Ctrl+Shift+←/→ walk in `interactions/walks/slurReanchor`). Rewrites `startNoteId` or `endNoteId` and
  * **drops any custom shape** — the hand-tuned arc was relative to the old span, so it re-bows to
  * the auto arch for the new endpoints — **and the moved end's own nudge**, which was tuned against
  * the note it is leaving. Rejected (returns false) if the slur is missing, the target equals
