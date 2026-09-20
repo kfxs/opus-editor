@@ -1,6 +1,6 @@
 # Code shape plan — 2026-09-19
 
-**Status: IN PROGRESS — Phase 1 DONE (2026-09-19), bar item 5's two ⏭️ decisions. Phase 2 DONE. Phase 3.1: the hairpin / ottava / pedal body drags done and checked; the trill's too (`cdb7f05`); the slur's too (`69e927c`); the four SQUARE drags too (`6d903c3`); the slur HANDLE / ENDPOINT and staff-spacing drags too (`8f28f79`); the DYNAMIC and TEMPO drags too (`9a04f88`); bar width, barline join, group span and clef too (`ee31698`); the NOTE drag too (`7d2898e`) — every gesture is a module. **Phase 3.1 DONE** (`25f70a6`). 3.2: the `keys` column + dispatcher and the HAIRPIN on it (`e61626a`); OTTAVA / PEDAL / TRILL too (`14e10e7`); DYNAMIC and TEMPO too (`943fb64`); SLUR and CLEF too (`8382fcc`); the `reanchor` and `cycle` verbs done, awaiting his UI check — **Phase 3.2 DONE with it.** 3.3 (`highlight(ctx)`): the contract + the four span squares (`a7c1076`); the join and group squares (`b772418`); the `ink` column (`f1832e7`); the slur handles (`d3dcb7b`); the anchor guide line (`e2ff597`); the note pass + note-attached kinds (`aa7e5af`); every remaining row done, awaiting his UI check — **Phase 3.3 DONE** (`1efb38d`). 3.4: the panels' `rows` (`4db182d`); the typed `InspectedElement` union done, awaiting his UI check — **3.4 DONE** (`54ab9cc`). **Phase 3 DONE** — 3.5: all seven mark families are `engine/commands/<family>Commands.ts` (`e684125` … `a8549ad`), with command specs and `commit` / `saveOnly` folded into one `mutate`. **Phase 4 IN PROGRESS** — 4.1: `spanFromNotes`, `reanchorSlurs` → `slurOps`, `tieOps` (`6d720b8`) done; `deleteNote`'s repair → `deleteNoteOps` (`ab182f4`); `convertToRest` → `convertToRestOps` (`e20ca48`); `moveSelectionToVoice` → `voiceOps` (`5f6fa03`) — **4.1 DONE**. 4.2 split a–d: **a** the spanning note → `spanningNoteOps` (`551b39a`); **b** the overwrite → `entryOverwriteOps` done, awaiting his UI check; c duration change next.** Phases are ordered by
+**Status: IN PROGRESS — Phase 1 DONE (2026-09-19), bar item 5's two ⏭️ decisions. Phase 2 DONE. Phase 3.1: the hairpin / ottava / pedal body drags done and checked; the trill's too (`cdb7f05`); the slur's too (`69e927c`); the four SQUARE drags too (`6d903c3`); the slur HANDLE / ENDPOINT and staff-spacing drags too (`8f28f79`); the DYNAMIC and TEMPO drags too (`9a04f88`); bar width, barline join, group span and clef too (`ee31698`); the NOTE drag too (`7d2898e`) — every gesture is a module. **Phase 3.1 DONE** (`25f70a6`). 3.2: the `keys` column + dispatcher and the HAIRPIN on it (`e61626a`); OTTAVA / PEDAL / TRILL too (`14e10e7`); DYNAMIC and TEMPO too (`943fb64`); SLUR and CLEF too (`8382fcc`); the `reanchor` and `cycle` verbs done, awaiting his UI check — **Phase 3.2 DONE with it.** 3.3 (`highlight(ctx)`): the contract + the four span squares (`a7c1076`); the join and group squares (`b772418`); the `ink` column (`f1832e7`); the slur handles (`d3dcb7b`); the anchor guide line (`e2ff597`); the note pass + note-attached kinds (`aa7e5af`); every remaining row done, awaiting his UI check — **Phase 3.3 DONE** (`1efb38d`). 3.4: the panels' `rows` (`4db182d`); the typed `InspectedElement` union done, awaiting his UI check — **3.4 DONE** (`54ab9cc`). **Phase 3 DONE** — 3.5: all seven mark families are `engine/commands/<family>Commands.ts` (`e684125` … `a8549ad`), with command specs and `commit` / `saveOnly` folded into one `mutate`. **Phase 4 IN PROGRESS** — 4.1: `spanFromNotes`, `reanchorSlurs` → `slurOps`, `tieOps` (`6d720b8`) done; `deleteNote`'s repair → `deleteNoteOps` (`ab182f4`); `convertToRest` → `convertToRestOps` (`e20ca48`); `moveSelectionToVoice` → `voiceOps` (`5f6fa03`) — **4.1 DONE**. 4.2 split a–d: **a** the spanning note → `spanningNoteOps` (`551b39a`); **b** the overwrite → `entryOverwriteOps` (`ad381dd`); **c** the duration change → `durationChangeOps` done, awaiting his UI check (🚨 a chord-overflow BUG found, his call); d tuplets next.** Phases are ordered by
 value over risk; each one stands alone and can be stopped after. A done item carries ✅ and what
 actually happened where that differs from what was planned.
 
@@ -845,7 +845,33 @@ The only phase that fixes a broken principle rather than a shape.
    `entryOverwriteOps.test.ts` (11) — all NEW (nothing pinned either rule), incl. a chapter that
    pins where they part company, "pinned, not endorsed". Break-tested ×4. ⏭️ Left for (d): entry
    INTO a tuplet — the keyboard's clamp and the mouse's fill pointer — is model-only too and goes
-   with the tuplet builders. ⏸️ Awaiting his UI check.*
+   with the tuplet builders. ✅ `ad381dd`.*
+
+   *4.2c done, 2026-09-20 — `engine/models/durationChangeOps.ts`: `changeNote(model, id, updates)`
+   is `updateNote`'s three bodies (the overflow split, the tuplet clamp + refill, the plain
+   lengthen / shorten with its rest fill and tie release) + `findLargestFittingDuration`, over a
+   `DurationChangeModel` (extends `SpanningNoteModel`). Bodies verbatim. ⭐ It answers
+   `{ note, commit }` — the LABEL to commit under ("Update note" / "Update note duration" /
+   "Update tuplet note"), or null on the one path that writes nothing (a tuplet member nothing
+   fits); `NoteEntryCoordinator.updateNote` = the fan member's straight-through write + the ops
+   call + the commit. The coordinator's own copy of `getChordNotesAt` is gone
+   (`deleteNoteOps.chordNotesAt`); coordinator 1,230 → 949 lines. ⚠️ Float + epsilon kept as it
+   was (the header says so). Spec: `durationChangeOps.test.ts` (15) — the overflow chapter of
+   `MusicEngine.test.ts` and the voice-isolation chapter of `NoteEntryCoordinator.test.ts` MOVED;
+   NEW: the labels, shorten → rests, the tie release, the clipped rest, the chord in step, both
+   tuplet cases. Break-tested: voice scope, tie release and tuplet clamp bite; ⚠️ the chord-sync
+   loop does NOT — the model already writes a chord's length on the slot, so the loop is
+   redundant today.*
+
+   *🚨 **A BUG FOUND WRITING THE SPEC, NOT FIXED — his call.** Lengthening a CHORD across the
+   barline loses every head but the last one split: the heads are split one at a time, each split
+   ERODES bar 2's overflow zone first, and so the next head's erosion deletes the continuation the
+   previous head just placed. `[C E] q` at beat 3 → whole = `C h` tied across, `E h` bare, nothing
+   of E in bar 2. ⭐ MEASURED to predate this phase (same result in a worktree at `5876ef6`), and
+   ⚠️ it makes 4.2a's UI check item 4 ("every head splits and ties") a wrong promise. The same
+   shape is in the MOUSE path (`placeSplitNote`: chord heads, then the new note). Pinned as
+   `it.fails` with what SHOULD hold. The likely fix: erode ONCE, before any head is split
+   (`placeSpanningNote` gains a "zone already cleared" input) — a rule change, so its own step.*
 
 3. `ScoreModel`'s remaining logic (`fillGapsWithRests`, `pushRestSlot`, `insertPitch`,
    `convertToRest`, the three `repairDangling*`) into ops modules; then `rebarOps` imports ops
