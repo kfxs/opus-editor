@@ -699,6 +699,29 @@ The only phase that fixes a broken principle rather than a shape.
    `deleteNote`'s repair;
    `reanchorSlurs` → `slurOps`; the five `create*` span methods → one
    `spanFromNotes(score, ids, { byVoice })`; `convertToRest`, `moveSelectionToVoice`.
+   *Done so far (with 3.5's families): `spanFromNotes` + `nextDistinctSlot` (the five `create*`
+   heads, `e684125` / `29ffe10`) · `reanchorSlurs` → `slurOps` (`29ffe10`).*
+
+   *TIES done — `engine/models/tieOps.ts`. `tieTargetOf(sorted, source)` is the ONE target rule
+   (next slot strictly after, in the source's own staff AND voice; same pitch preferred; else
+   whatever is there, a rest included) where `toggleTie` and `tieSelection` each spelled it.
+   `toggleTie(model, id)` writes and answers added / removed / null; the selection is
+   `planTieSelection` + `applyTiePairs` — ⭐ split in two because the facade NAMES its undo entry
+   after the answer ("Add ties" / "Remove ties"), and the history's labels are observable
+   (`getUndoDescription`). They take a `TieModel` (five methods `ScoreModel` answers), since the
+   flat `Note` projection is the model's. The fan-member refusal and the `[Tie]` logs went with
+   the rule. `MusicEngine.toggleTie` / `.tieSelection` are the undo entry and nothing else — the
+   Phase 1.1 ask-inside-the-batch is kept, with its reason. Spec: `tieOps.test.ts` (11); the
+   engine spec's staff-scoping chapter became a pure `tieTargetOf` case. ⏸️ Awaiting his UI
+   check. Left in 4.1: `deleteNote`'s repair, `convertToRest`, `moveSelectionToVoice`.*
+
+   *⏭️ His two answers, 2026-09-20: **fold `commit` / `saveOnly`** as the plan recommends (3.5's
+   review note), and **yes to the missing command specs** — agreed order: the specs FIRST (a fake
+   `CommandContext` pins what a commands module adds over its ops: the limit's refusal and the
+   undo classification — one entry per edit, none per preview frame, one per drop), THEN the fold,
+   which changes exactly that classification. ⚠️ The plan's by-ear check stays his: play, edit a
+   tempo mark mid-playback, watch the cursor against the sound — BEFORE the fold and after.*
+
 2. `NoteEntryCoordinator`'s model-only half — overflow, erosion, tie-split, overwrite, the
    tuplet builders — into `engine/models/noteEntryOps`. The coordinator keeps pixel resolution,
    collision and commit.

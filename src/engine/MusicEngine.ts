@@ -33,6 +33,7 @@ import { measureCapacityQuarters } from '@/utils/measureCapacity'
 import { fracToNumber, fracEq } from '@/utils/fraction'
 import { quantizeBeat } from '@/utils/durations'
 import { reanchorSlurs } from './models/slurOps'
+import { applyTiePairs, planTieSelection, toggleTie } from './models/tieOps'
 import type { CommandContext } from './commands/commandContext'
 import { ottavaCommands } from './commands/ottavaCommands'
 import { dynamicCommands } from './commands/dynamicCommands'
@@ -41,7 +42,7 @@ import { pedalCommands } from './commands/pedalCommands'
 import { slurCommands } from './commands/slurCommands'
 import { tempoCommands } from './commands/tempoCommands'
 import { trillCommands } from './commands/trillCommands'
-import { spellingToMidi, accidentalToAlter, formatPitch } from '@/utils/pitchSpelling'
+import { spellingToMidi, accidentalToAlter } from '@/utils/pitchSpelling'
 import { alterInForceAt } from '@/utils/accidentalState'
 import type { BeamRole } from '@/utils/beaming'
 import { fifthsOf, keyAt } from '@/utils/keySignature'
@@ -1510,131 +1511,33 @@ export class MusicEngine {
   }
 
   /**
-   * Toggle a tie from a note to the next note with the same pitch.
-   * If the note already has a forward tie, removes it.
-   * Returns true if tie added, false if removed, null if no candidate found.
+   * Toggle a tie from a note to the next note with the same pitch; removes it if the note already
+   * has one. The rule is `engine/models/tieOps`; this adds the undo entry.
+   * @returns true if a tie was added, false if removed, null if nothing changed.
    */
   toggleTie(noteId: string): boolean | null {
-    if (this.refusesFanMember(noteId, 'tie')) return null
-    const note = this.scoreModel.getNote(noteId)
-    if (!note || note.isRest) return null
-
-    const fmt = (n: typeof note) => n.isRest ? `rest` : `${formatPitch(n)} m${n.measure} beat:${fracToNumber(n.beat).toFixed(3)}`
-    dbg(`[Tie] toggleTie | source: ${fmt(note)}`)
-
-    if (note.tiedTo) {
-      const tiedToNote = this.scoreModel.getNote(note.tiedTo)
-      dbg(`[Tie] removing existing tie → was tied to: ${tiedToNote ? fmt(tiedToNote) : 'NOT FOUND'}`)
-      const tiedToId = note.tiedTo
-      // Drop any flip override so a future re-tie starts from auto placement again.
-      this.scoreModel.clearTieDirection(noteId)
-      this.scoreModel.updateNote(noteId, { tiedTo: undefined })
-      // The target may be gone (e.g. severed by a re-bar) — only clear it if present.
-      if (tiedToNote) this.scoreModel.updateNote(tiedToId, { tiedFrom: undefined })
-      this.commit('Remove tie')
-      return false
-    } else {
-      // Tie to the next slot STRICTLY AFTER this note's position — never a sibling
-      // sharing the same chord/beat (that would tie two notes of one chord to each
-      // other). Within that next slot (itself possibly a chord) prefer the SAME
-      // pitch so a chord tie joins like to like; otherwise fall back to the first
-      // event there (incl. a rest, for the tie-into-rest case).
-      const allSlots = this.scoreModel.getAllNotes().sort(compareByPosition)
-      const source = allSlots.find(n => n.id === noteId)
-      if (!source) return null
-      // A tie stays within ONE stream — the source's own voice AND staff. Searching all
-      // slots would tie a staff-1 note to whatever staff-0 note happens to sit at the next
-      // position (voices/staves are independent streams).
-      const stream = allSlots.filter(n => voiceOf(n) === voiceOf(source) && staffOf(n) === staffOf(source))
-      const nextStart = stream.find(n => compareByPosition(n, source) > 0)
-      if (!nextStart) {
-        dbg(`[Tie] no next slot found — tie not created`)
-        return null
-      }
-      const samePitch = stream.find(n =>
-        compareByPosition(n, nextStart) === 0 && !n.isRest
-        && n.step === source.step && (n.alter ?? 0) === (source.alter ?? 0) && n.octave === source.octave)
-      // Prefer the same pitch in the next slot (chord ties join like to like); otherwise
-      // tie forward to whatever is there (incl. a different pitch or a rest) — a "let
-      // ring" / l.v. tie. Two notes tying into one target is fine: the tie is owned by
-      // each source's `tiedTo`, and deleting the target reassigns ALL of them onto the
-      // replacement rest (see deleteNote), so nothing is left dangling.
-      const nextNote = samePitch ?? nextStart
-      dbg(`[Tie] tying to next slot: ${fmt(nextNote)}`)
-
-      this.scoreModel.updateNote(noteId, { tiedTo: nextNote.id })
-      this.scoreModel.updateNote(nextNote.id, { tiedFrom: noteId })
-      this.commit('Add tie')
-      return true
-    }
+    const added = toggleTie(this.scoreModel, noteId)
+    if (added !== null) this.commit(added ? 'Add tie' : 'Remove tie')
+    return added
   }
 
   /**
-   * Tie a whole selection at once (key Enter with >1 note selected). Each selected
-   * note ties to the SAME PITCH in the next slot, so a chord ties pitch-for-pitch to
-   * the next chord. Notes at the last selected position don't tie forward (nothing
-   * within the selection follows them) — but a single-position selection (one chord)
-   * does tie to the next slot, matching the single-note behaviour. One undo entry;
-   * toggles off when every resolved pair is already tied.
+   * Tie a whole selection at once (key Enter with >1 note selected) — `tieOps.planTieSelection`
+   * says what the press would do, and the batch is NAMED after it. ONE undo entry for the lot.
    *
-   * A single selected note routes to {@link toggleTie} (preserves tie-into-rest and
-   * the flip-direction reset on removal).
+   * ⚠️ The entry is asked for INSIDE the batch: `updateNote` requests none, and a batch that
+   * counted no request pushes nothing — Ctrl+Z then takes the PREVIOUS edit instead (Phase 1.1).
    */
   tieSelection(noteIds: string[]): boolean | null {
-    // A member in the selection is DROPPED, not a reason to refuse the press: the other notes were
-    // selected too and a tie is theirs to take. Same shape as the rests this already skips.
-    noteIds = noteIds.filter(id => !this.scoreModel.isFanMember(id))
-    const ids = [...new Set(noteIds)]
-    if (ids.length <= 1) return ids[0] ? this.toggleTie(ids[0]) : null
-
-    const all = this.scoreModel.getAllNotes().sort(compareByPosition)
-    const selected = ids
-      .map((id) => all.find((n) => n.id === id))
-      .filter((n): n is Note => !!n && !n.isRest)
-      .sort(compareByPosition)
-    if (selected.length === 0) return null
-
-    // Distinct selected positions, in order. Notes at the LAST position never tie
-    // forward; a single-position selection (one chord) ties to the next slot.
-    const posKey = (n: Note) => `${n.measure}:${fracToNumber(n.beat)}`
-    const positions = [...new Set(selected.map(posKey))]
-    const lastPos = positions[positions.length - 1]
-    const sources = positions.length > 1 ? selected.filter((n) => posKey(n) !== lastPos) : selected
-
-    // Resolve each source's forward target: prefer the same pitch in the next slot
-    // (chords join like to like), else tie to whatever is there (let-ring / l.v.).
-    const pairs: { source: Note; target: Note }[] = []
-    for (const source of sources) {
-      // Scope the forward target to the source's own voice AND staff (independent streams).
-      const stream = all.filter((n) => voiceOf(n) === voiceOf(source) && staffOf(n) === staffOf(source))
-      const next = stream.find((n) => compareByPosition(n, source) > 0)
-      if (!next) continue
-      const samePitch = stream.find(
-        (n) =>
-          compareByPosition(n, next) === 0 && !n.isRest &&
-          n.step === source.step && (n.alter ?? 0) === (source.alter ?? 0) && n.octave === source.octave,
-      )
-      pairs.push({ source, target: samePitch ?? next })
-    }
-    if (pairs.length === 0) return null
-
-    const allTied = pairs.every((p) => p.source.tiedTo === p.target.id)
-    this.runBatch(allTied ? 'Remove ties' : 'Add ties', () => {
-      for (const { source, target } of pairs) {
-        if (allTied) {
-          this.scoreModel.clearTieDirection(source.id)
-          this.scoreModel.updateNote(source.id, { tiedTo: undefined })
-          this.scoreModel.updateNote(target.id, { tiedFrom: undefined })
-        } else if (source.tiedTo !== target.id) {
-          this.scoreModel.updateNote(source.id, { tiedTo: target.id })
-          this.scoreModel.updateNote(target.id, { tiedFrom: source.id })
-        }
-      }
-      // `updateNote` asks for no undo entry, and a batch that counted no request pushes none —
-      // so the ask is made here, as `toggleTie` makes it.
-      this.commit(allTied ? 'Remove ties' : 'Add ties')
+    const plan = planTieSelection(this.scoreModel, noteIds)
+    if (!plan) return null
+    if ('single' in plan) return this.toggleTie(plan.single)
+    const description = plan.allTied ? 'Remove ties' : 'Add ties'
+    this.runBatch(description, () => {
+      applyTiePairs(this.scoreModel, plan.pairs, plan.allTied)
+      this.commit(description)
     })
-    return !allTied
+    return !plan.allTied
   }
 
   // --- Slurs (phrasing) ---
