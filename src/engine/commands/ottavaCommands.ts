@@ -128,7 +128,7 @@ export function ottavaCommands(ctx: CommandContext) {
 
     /**
      * ⭐ Flip a selected octave line's DIRECTION — 8va ↔ 8vb, 15ma ↔ 15mb — the `x` key's ottava
-     * branch (`interactions/flipSelection.ts`). His request, 2026-08-17.
+     * branch (`interactions/state/flipSelection.ts`). His request, 2026-08-17.
      *
      * ⚠️ **AUDIBLE, and that is the difference from the trill's branch of the same
      * key.** Flipping a trill swaps a SIDE — nothing audible — so it only records undo. An ottava's

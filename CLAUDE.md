@@ -69,7 +69,7 @@ score, and export/import JSON.
   SVG's groups carry their BARE class and id — no `vf-` prefix).
 - **Audio Playback**: WebAudioFont (sampled General MIDI; samples fetched from CDN at play time)
 - **State Management**: `EditorState` — one plain object behind an emitting Proxy
-  (`interactions/EditorState.ts`). `subscribe(fn)` fires once per top-level write, and that IS the
+  (`interactions/state/EditorState.ts`). `subscribe(fn)` fires once per top-level write, and that IS the
   app's reactivity: the toolbar, Keypad, Properties window, score cursor and gutter are all just
   subscribers. ⚠️ Only TOP-LEVEL writes emit — mutating a nested value (`state.selectedItems.set(…)`,
   or a field of the armed tool) is invisible, so always REASSIGN the field.
@@ -299,7 +299,7 @@ now also holds the layer arrows: `engine/`/`interactions/`/`bus/` may not import
 in none until 2026-07-28: a `tool: MarkingTool` parameter in `ScoreRenderer` passed all
 four gates. When the engine needs to be told what the editor has armed, the ENGINE
 declares the vocabulary and the editor translates into it — `engine/rendering/ghosts/ghostTypes.ts`
-+ `interactions/toolGhost.ts`, the same shape as `engine/RenderProbe.ts`.
++ `interactions/state/toolGhost.ts`, the same shape as `engine/RenderProbe.ts`.
 
 ## Core Types (src/types/music.ts)
 
@@ -389,7 +389,7 @@ loadJSON(json: string): void
 - **Collision detection**: CollisionDetector checks for overlapping notes at same beat/pitch.
 - **Rest handling**: Empty beats are filled with rests automatically.
 - **The selection is TWO things, deliberately**: `selectedItems`/`selectedNoteId` is the multi-select of NOTES (an anchor and a pivot), and `selectedElement` is the ONE on-score element picked for edit/delete — a discriminated union (`SelectedElement`) covering clef, meter, barline, dynamic, tempo, tuplet, slur, tie, articulation, accidental, dot, stem, tremolo and measure-range. Selecting IS clearing, so there is no clear-list to keep in sync, and every new element kind MUST join the union. Each kind is then ONE module in `interactions/elements/` — its hit-test, how it paints (its `highlight` and `ink` rows, handed a `HighlightContext` — ⛔ no `apply…` on `HighlightController`, which is only the layer's undo log), the drag it arms (`interactions/drags/`) and what the arrows do to it (its `keys` row: `nudge` / `reset` / `reanchor` / `cycle`) — plus a row in `ELEMENT_SPECS` (total over the union) and, if a press can land on it, a position in `ELEMENT_HIT_ORDER` (⭐ that array's ORDER is the answer to "who wins a press two glyphs both cover"). `assertNeverElement` still names the two sites that stay switches: Delete (`shortcutWiring`) and the Properties report (`selectionSnapshot`). Always *reassign* the field, never mutate it in place.
-- **Marking tools**: the armed stamp/entry tools (clef, time signature, dynamic, tempo, articulation, accidental, tie, dot, rest) are ONE `selectedMarkingTool` union on `EditorState` (`interactions/EditorState.ts`) — arming a tool clears the others, and every new tool MUST join the union. Always *reassign* the field, never mutate it in place: the observable Proxy only traps the SET.
+- **Marking tools**: the armed stamp/entry tools (clef, time signature, dynamic, tempo, articulation, accidental, tie, dot, rest) are ONE `selectedMarkingTool` union on `EditorState` (`interactions/state/EditorState.ts`) — arming a tool clears the others, and every new tool MUST join the union. Always *reassign* the field, never mutate it in place: the observable Proxy only traps the SET.
 
 ## Testing
 

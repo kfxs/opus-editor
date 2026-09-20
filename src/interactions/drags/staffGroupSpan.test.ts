@@ -5,7 +5,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import type { ElementRegistry } from '../../engine/ElementRegistry'
 import type { MusicEngine } from '../../engine/MusicEngine'
-import type { EditorState } from '../EditorState'
+import type { EditorState } from '../state/EditorState'
 import type { DragHost } from './gesture'
 
 const handles = vi.hoisted(() => ({

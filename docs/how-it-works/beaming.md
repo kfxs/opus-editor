@@ -279,7 +279,7 @@ cluster over; the rules below are the same, they just light Keypad keys now inst
 the dev row is gone. It is a `TODO` on `PaletteController.setBeam` to add a "reset beaming" control to
 the Properties window; until then an authored `begin`/`continue`/`end`/`single` cannot be cleared.
 
-The lit rule is the shared single-selection one (`beamHighlight` in `interactions/keypadSync`):
+The lit rule is the shared single-selection one (`beamHighlight` in `interactions/controllers/keypadSync`):
 
 - **entry mode** — the armed value, what the next note will carry;
 - **selection mode, one note** — that note's own beam, synced by `SelectionController.syncPaletteToNote`.

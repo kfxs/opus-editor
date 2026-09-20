@@ -9,7 +9,7 @@
  *
  * ⚠️ It lived in `dev/` until File ▸ Export JSON put it on the menu bar. Nothing that ships may
  * import the shell, so it moved rather than being copied — same graduation as
- * `interactions/staffSizeToggle`. Provisional it remains; it is simply provisional in a place a
+ * `interactions/controllers/staffSizeToggle`. Provisional it remains; it is simply provisional in a place a
  * built site is allowed to reach.
  *
  * The job is narrow. There are no users and the score model changes constantly, so the point is

@@ -10,7 +10,7 @@
 import type { ElementKindSpec } from './chain'
 import type { HighlightContext } from './highlightContext'
 import { voiceFillColor } from '@/utils/voiceColors'
-import { selectedOf } from '../EditorState'
+import { selectedOf } from '../state/EditorState'
 
 export const TUPLET_ELEMENT: ElementKindSpec = {
   kind: 'tuplet',

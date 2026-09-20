@@ -40,7 +40,7 @@ import type { HighlightContext } from './highlightContext'
 import { paintFill } from './recolour'
 import { beginPedalBodyDrag } from '../drags/pedalBody'
 import { spanMarkKeys } from '../spanMarkKeys'
-import { selectedOf } from '../EditorState'
+import { selectedOf } from '../state/EditorState'
 import { paintEndpointHandles } from './endpointHandles'
 import { pedalEndpointHandles } from './pedalHandles'
 

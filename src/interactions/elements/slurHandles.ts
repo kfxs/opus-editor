@@ -16,7 +16,7 @@
  *
  * ⛔ The entries are the highlight pass's own — `clearHighlights` removes all three types.
  */
-import { selectedOf } from '../EditorState'
+import { selectedOf } from '../state/EditorState'
 import { HANDLE_HIT, HANDLE_R, handleHitBox, paintHandleSquare } from './handleSquare'
 import type { HighlightContext } from './highlightContext'
 import { paintNote } from './notePaint'

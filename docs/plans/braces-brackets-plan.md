@@ -711,7 +711,7 @@ glyph-vs-curve question is genuinely open rather than a formality.
 > #### ⭐⭐ HIS FIRST TWO CASES ARE ONE CASE
 >
 > *"Multiple staves"* and *"just one staff"* need no branch — a `measureRange` carries a staff SPAN
-> since the same day's passage work (`interactions/measurePassage`), so a one-staff selection is
+> since the same day's passage work (`interactions/state/measurePassage`), so a one-staff selection is
 > simply `fromStaff === toStaff`. ⛔ Two rules would have been two places to keep in step for one
 > sentence of behaviour.
 >

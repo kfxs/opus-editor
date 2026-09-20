@@ -102,7 +102,7 @@ describe('hairpinOps — storage', () => {
   })
 
   /**
-   * ⭐⭐ THE OTHER LANE — his ask, 2026-08-22. The `x` key's row (`interactions/flipSelection`), and
+   * ⭐⭐ THE OTHER LANE — his ask, 2026-08-22. The `x` key's row (`interactions/state/flipSelection`), and
    * the keyboard's version of what the body drag does by crossing the staff's own lines.
    */
   it('⭐⭐ moves a wedge to the other lane — above the staff ⇄ below it', () => {

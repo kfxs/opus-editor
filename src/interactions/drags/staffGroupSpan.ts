@@ -14,7 +14,7 @@
  * gesture that wanders and comes back has written and changed nothing.
  */
 import type { ElementRegistry } from '../../engine/ElementRegistry'
-import { selectedOf, type EditorState } from '../EditorState'
+import { selectedOf, type EditorState } from '../state/EditorState'
 import { staffAtPointer, spanAfterDrag, type StaffGroupHandleEnd } from '../elements/staffGroupHandles'
 import { dbg } from '../../utils/debug'
 import type { DragHost, Gesture } from './gesture'

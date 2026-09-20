@@ -15,7 +15,7 @@
  * release the host ({@link DragHost.release}) on its way out.
  */
 import type { MusicEngine } from '../../engine/MusicEngine'
-import type { RenderController } from '../RenderController'
+import type { RenderController } from '../controllers/RenderController'
 
 /**
  * Every gesture a press can arm. ⭐ **Exactly ONE is ever live** — `handleMouseDown` is a chain of

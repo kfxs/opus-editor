@@ -1,5 +1,5 @@
 import { bus } from '@/bus'
-import type { InspectedOf } from '@/interactions/inspectedElement'
+import type { InspectedOf } from '@/interactions/state/inspectedElement'
 import { MAX_FAN_BEAMS, MAX_FAN_COUNT, MAX_FAN_SPREAD, fanRampRange, fanSpread } from '@/utils/fannedBeam'
 import type { FanMark, FractionalBeamSide, Note, NoteOffsetOverride } from '@/types/music'
 import { BISHOP, commitOnFirstStep } from '../rows'

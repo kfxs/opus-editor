@@ -369,8 +369,8 @@ An adjacent one went with it: when that clamp dropped the dots, the chord-member
 - `src/engine/models/tupletOps.ts` — `createTuplet` (writes the format), `refillTupletRemainder`
 - `src/engine/NoteEntryCoordinator.ts` — `buildTupletWithFirstNote`, `applyTupletToNote`, `tupletFitsBar`, `updateTupletNote` (all exact — §12)
 - `src/engine/rendering/engraved/ScoreTuplet.ts` — the drawn mark and bracket: `TUPLET_FONT_SIZE`, `NOTE_GLYPH_SCALE`, `layoutTupletMark`
-- `src/interactions/EditorState.ts` — `armedTuplet` (+ its `format` and `deriveM`), `armedTupletM`, `spendArmedTuplet`
-- `src/interactions/PaletteController.ts` — `armTuplet`, `armTupletPreset` (the deriving one), `armTupletInTimeOf`
+- `src/interactions/state/EditorState.ts` — `armedTuplet` (+ its `format` and `deriveM`), `armedTupletM`, `spendArmedTuplet`
+- `src/interactions/controllers/PaletteController.ts` — `armTuplet`, `armTupletPreset` (the deriving one), `armTupletInTimeOf`
 - `src/interactions/tupletSelection.ts` — the window → `keypadSync` → controller seam
 - `src/windows/tupletWindow.ts` — the window: the sentence, the Format box, OK arms
 - `src/engine/NoteEntryCoordinator.test.ts` — "dotted tuplet unit"

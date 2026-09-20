@@ -9,7 +9,7 @@
  * ⛔ The REPORT — what `element` holds — is not a panel's: `selectionSnapshot.selectedElements` stays
  * one exhaustive switch, by decision.
  */
-import type { InspectedElement, InspectedOf, MissingElement } from '@/interactions/inspectedElement'
+import type { InspectedElement, InspectedOf, MissingElement } from '@/interactions/state/inspectedElement'
 import type { EngravingOverride } from '@/types/music'
 
 /** ⭐ A panel is handed the report for ITS kind, so it reads `data` and `derived` with no cast. */

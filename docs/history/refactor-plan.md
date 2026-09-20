@@ -158,7 +158,7 @@ dead code and go with them). Git history preserves everything.
 | `utils/clefUtils.ts` | `midMeasureClefChanges` | one-line filter over live `measureClefChanges` |
 | `utils/meter.ts` | `meterBarQuarters` | unused one-liner |
 | `utils/durations.ts` | `durationInfoIsConsistent` | "for tests" but untested — OR write the 3-line test; decide at impl |
-| `interactions/selection.ts` | `selectionKinds` | trivial, recreate when mixed-kind selection lands |
+| `interactions/state/selection.ts` | `selectionKinds` | trivial, recreate when mixed-kind selection lands |
 | `types/music.ts` | `Position` interface | suggests an API that doesn't exist |
 | `engine/NoteEntryCoordinator.ts` | `isTiedContinuation` param + branch in `findNotesToOverwrite` | always `false` |
 | `engine/MusicEngine.ts` | `addRest`, `checkCollision`, `checkOverflow`, `findNextAvailablePosition`, `noteToPixel`, `updateCoordinateConfig`, `resizeCanvas` | the pre-NoteEntryCoordinator entry pipeline's facade |

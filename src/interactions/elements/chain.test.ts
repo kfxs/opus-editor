@@ -10,7 +10,7 @@
  */
 import { describe, it, expect } from 'vitest'
 import { ELEMENT_HIT_ORDER, ELEMENT_SPECS } from './chain'
-import type { SelectedElement } from '../EditorState'
+import type { SelectedElement } from '../state/EditorState'
 import { MARK_KINDS } from '../enclosedMarks'
 
 /** Every kind in the union, as `SelectedElement['kind']` — the list `assertNeverElement` polices. */

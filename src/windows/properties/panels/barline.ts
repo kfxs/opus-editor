@@ -1,5 +1,5 @@
 import { bus } from '@/bus'
-import type { InspectedOf } from '@/interactions/inspectedElement'
+import type { InspectedOf } from '@/interactions/state/inspectedElement'
 import { wingsAllowed, type BarlineSignKind } from '@/engine/models/boundarySign'
 import { BISHOP } from '../rows'
 import type { PanelRows } from './panel'

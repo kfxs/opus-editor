@@ -14,7 +14,7 @@
  */
 import type { MusicEngine } from '@/engine/MusicEngine'
 import type { ElementRegistry } from '@/engine/ElementRegistry'
-import type { EditorState } from '../EditorState'
+import type { EditorState } from '../state/EditorState'
 
 export interface HighlightContext {
   engine: MusicEngine

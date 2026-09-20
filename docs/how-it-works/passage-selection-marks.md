@@ -50,7 +50,7 @@ test is what makes the duplication safe meanwhile.
 > be able to also do it with all elements that we are now handling group selection (tril, hairpin,
 > slur, dynamic).. so we can also use the real selection for filtering or add in copy and paste"*
 
-`interactions/markGroupSelect.ts` — a Ctrl/Cmd-press toggles one mark in or out, the toggle a note
+`interactions/state/markGroupSelect.ts` — a Ctrl/Cmd-press toggles one mark in or out, the toggle a note
 has always had. It answers *which mark is under the pointer* by **re-running the press chain with a
 different tail**: `pick` records instead of replacing, and every drag and editor door is a no-op
 (⛔ two Ctrl-presses on a dynamic are "in, then out", never "open its editor"). ⛔ Writing a second
@@ -181,7 +181,7 @@ were split across two gestures and neither did both.
   the key and barline stamps) and every one is correct for the single-staff case it was written for.
   ⭐ Making the field **required** made the compiler list every construction site — 12 of them, all
   found at once. ⏭️ Each per-staff reader can grow to the whole span when its own feature wants it.
-- **`interactions/measurePassage.ts`** — normalise both axes (`passageOf`) and answer *what is
+- **`interactions/state/measurePassage.ts`** — normalise both axes (`passageOf`) and answer *what is
   inside* (`passageNoteIds`). ⭐ **It is a module because it has three callers**: the plain click, the
   shift extension, and the highlight. *The highlight promises the copy* — the box drawn and the ids a
   Delete or Copy acts on now come from **one** answer, ⛔ not from two `staffOf` filters that agree

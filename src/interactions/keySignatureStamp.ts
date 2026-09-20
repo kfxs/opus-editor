@@ -34,8 +34,8 @@
 import { dbg } from '@/utils/debug'
 import type { KeySignature } from '@/types/music'
 import type { MusicEngine } from '../engine/MusicEngine'
-import type { EditorState } from './EditorState'
-import { selectedOf } from './EditorState'
+import type { EditorState } from './state/EditorState'
+import { selectedOf } from './state/EditorState'
 import { fifthsOf } from '@/utils/keySignature'
 
 /**

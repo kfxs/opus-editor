@@ -515,7 +515,7 @@ Run the e2e suite either side of each step.
    kinds 187 → **0**, 1,579 → **120** file lines; both ceilings set (0 · 73). `report` stays, by
    the recommendation above. ✅ Passed (`4db182d`).*
 
-   *Second half done — the typed report. `interactions/inspectedElement.ts` (types only):
+   *Second half done — the typed report. `interactions/state/inspectedElement.ts` (types only):
    `InspectedElement` is a discriminated union keyed by `kind`, one `Report<K, data, derived>`
    per kind, + `InspectedOf<K>` and `MissingElement`. `data` is precise everywhere (the model's
    own `Dynamic` / `Ottava` / … or `MissingElement`; `Measure['clefs']`-style indexed types for the

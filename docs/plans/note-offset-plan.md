@@ -87,7 +87,7 @@ Clone the dynamic-offset shape:
 | Facade (`nudgeNoteOffset` + `resetNoteOffset`, one `saveOnly` undo each) | `src/engine/MusicEngine.ts` |
 | Render apply (`setXShift` compose + modifier shift) | `src/engine/rendering/ScoreRenderer.ts` |
 | Redraw-key inclusion | `src/engine/rendering/MeasureRedrawKey.ts` |
-| Keyboard surface (C) | `src/interactions/shortcutWiring.ts` |
+| Keyboard surface (C) | `src/interactions/controllers/shortcutWiring.ts` |
 | Properties surface (B) | `src/windows/properties/` + a channel + a controller |
 
 ## Two input surfaces on one facade
@@ -311,7 +311,7 @@ which is what a beam does everywhere else:
      spanned `headX` → last stem, and the ramp's order stops being the ink's order the moment a
      member is nudged past its neighbour.
 3. **P2 — the surfaces. ✅ DONE.** `noteOverrideKey` became **`noteOverrideKeys`** (plural) in
-   `interactions/selectionSnapshot.ts` and asks the engine for the key the nudge itself writes
+   `interactions/state/selectionSnapshot.ts` and asks the engine for the key the nudge itself writes
    (`offsetTargetOf`), so a member reports ITS number and not its owner's — the `getNote` lesson: a
    surface must report what the model will accept. Its doc comment said *"no compartment client keys
    off a note's pitch id"*; that is now false, so it is rewritten rather than re-routed.

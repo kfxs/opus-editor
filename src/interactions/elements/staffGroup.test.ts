@@ -5,8 +5,8 @@
  * finds them by. WHERE the squares sit is `./staffGroupHandles`' own spec.
  */
 import { describe, it, expect } from 'vitest'
-import { HighlightController } from '../HighlightController'
-import { createEditorState } from '../EditorState'
+import { HighlightController } from '../controllers/HighlightController'
+import { createEditorState } from '../state/EditorState'
 import { ElementRegistry } from '@/engine/ElementRegistry'
 import type { MusicEngine } from '@/engine/MusicEngine'
 import { ELEMENT_SELECTION_FILL } from '@/utils/selectionColors'

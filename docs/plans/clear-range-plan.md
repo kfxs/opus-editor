@@ -94,7 +94,7 @@ every arc.
 | `engine/models/overrideOps.ts` | `clearClearedSpanOverrides` + `ClearedSpan`. |
 | `engine/models/engravingOverrides.ts` | `parseRestPositionKey`. |
 | `engine/MusicEngine.ts` | `deleteNotes(ids)` — the command; `deleteNote` stays the per-slot primitive. |
-| `interactions/shortcutWiring.ts` | `deleteSelected` calls it once instead of looping. |
+| `interactions/controllers/shortcutWiring.ts` | `deleteSelected` calls it once instead of looping. |
 
 ## 7. Open
 

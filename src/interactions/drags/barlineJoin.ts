@@ -22,7 +22,7 @@
  * score that never moved. ⛔ So the test is `current !== baseline`, never "was anything written" —
  * which the continuous drags can afford and a boolean cannot.
  */
-import type { EditorState } from '../EditorState'
+import type { EditorState } from '../state/EditorState'
 import {
   joinedAtPointer, squareAtPointer, type BarlineJoinGrab, type BarlineJoinSquareEnd,
 } from '../elements/barlineJoinHandles'

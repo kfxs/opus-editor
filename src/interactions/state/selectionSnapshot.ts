@@ -1,0 +1,470 @@
+import type { EditorState } from './EditorState'
+import { assertNeverElement } from './EditorState'
+import type { MusicEngine } from '../../engine/MusicEngine'
+import type { EngravingOverride, Note, Score } from '../../types/music'
+import type { InspectedElement } from './inspectedElement'
+import {
+  cautionaryClefKey, cautionaryKey, cautionaryKeyGapKey, cautionaryKeyGapOf, restPositionKey,
+  curveShapeOverrideOf, segmentCurveShapeOverrideOf, hairpinApertureOverrideOf,
+} from '../../engine/models/engravingOverrides'
+import { authoredApertureRange } from '../../engine/rendering/marks/dynamics/hairpinShape'
+import { selectedNoteIds } from './selection'
+import { staffOf, voiceOf } from '@/utils/lanes'
+import { beatToFrac } from '@/utils/musicUtils'
+import { boundarySign, boundaryWinged } from '@/engine/models/barlineOps'
+import { scoreText } from '@/engine/models/scoreTextOps'
+import { fifthsOf, keyAt } from '@/utils/keySignature'
+import { CAUTIONARY_KEY_TO_LINE_END } from '@/engine/layout/cautionaryKey'
+
+/**
+ * What is selected in the score, resolved to the OBJECTS behind it.
+ *
+ * `EditorState` stores a selection as locators — an id here, a (measure, beat) there, a Map of
+ * items for notes — spread across a dozen `selected*` fields. That is the right shape for the
+ * editor (each command asks about the kind it acts on) and the wrong shape for anything that wants
+ * to show the user what they picked. This turns the locators into the elements.
+ *
+ * Read-only, and derived: it holds nothing, subscribes to nothing, and writing to what it returns
+ * changes nothing. Recompute it whenever state changes — that is cheap, and it is the only way it
+ * cannot go stale.
+ *
+ * Its first client is the Properties window, which stringifies the result — a sketch of the panel
+ * that will eventually EDIT these. The function is the part worth getting right now: "what is
+ * selected, and what is its object" is the same question the editable panel will ask, and today it
+ * has no single answer anywhere in the codebase.
+ *
+ * An ARRAY, not one element, because the selection genuinely can be several things: notes
+ * multi-select through `selectedItems`, and `selectedElement` names one more alongside them.
+ * Reporting only the first would be a guess about precedence that the editor itself does not make.
+ *
+ * ⚠️ **`InspectedElement` (`./inspectedElement`), not `SelectedElement`** — the latter is the STATE (`EditorState
+ * .selectedElement`, the locator union). This is the REPORT: the same selection resolved to its
+ * objects, for something that wants to show it. Two names because they are two things.
+ */
+/** The compartment's entries under one key, or undefined when there are none (never an empty list —
+ *  the panel shows the section only when there is something in it). */
+function overridesAt(score: Score, key: string | undefined): EngravingOverride[] | undefined {
+  if (!key) return undefined
+  const entries = score.engravingOverrides?.[key]
+  return entries?.length ? entries : undefined
+}
+
+/** The entries under SEVERAL keys, as one list — for an element addressed more than one way (see
+ *  {@link noteOverrideKeys}). Undefined when none of them holds anything. */
+function overridesAtAny(score: Score, keys: string[]): EngravingOverride[] | undefined {
+  const entries = keys.flatMap((key) => score.engravingOverrides?.[key] ?? [])
+  return entries.length ? entries : undefined
+}
+
+/**
+ * EVERY compartment key a note or rest answers to — plural, because one element can be addressed
+ * more than one way and the panel must show what the model will accept, not what one lookup happens
+ * to find (the `getNote` lesson).
+ *
+ * ⚠️ **Three different addressing schemes meet on this one element:**
+ * - **The horizontal offset (client #12) is `MusicEngine.offsetTargetOf`** — the SLOT id for an
+ *   ordinary note (a chord moves as a unit) or a rest, and a fanned MEMBER's own first pitch id.
+ *   ⛔ Not `slotIdForNote`: that resolves a member to the chord containing it, so a selected member
+ *   reported its OWNER's number while the nudge wrote its own (docs/plans/note-offset-plan.md).
+ * - **A rest's shift and its hide are POSITION-keyed**, because a rest has no durable id — rebar
+ *   makes and unmakes rests freely.
+ * - …so a REST has BOTH, and reading either one alone hides the other silently: an empty section
+ *   looks exactly like "this element has none".
+ */
+function noteOverrideKeys(score: Score, engine: MusicEngine, note: Note): string[] {
+  const keys: string[] = []
+  const target = engine.offsetTargetOf(note.id)
+  if (target) keys.push(target.key)
+  if (!note.isRest) return keys
+  const measure = score.measures.find((m) => m.number === note.measure)
+  if (measure) keys.push(restPositionKey(measure.id, voiceOf(note), note.beat, score.staves?.[staffOf(note)]?.id))
+  return keys
+}
+
+/** Two decimals — the drawn aperture is a float off a pixel division, and a control showing
+ *  `1.4999999999999998` is a control nobody trusts. */
+function round2(n: number): number {
+  return Math.round(n * 100) / 100
+}
+
+export function selectedElements(state: EditorState, engine: MusicEngine | null): InspectedElement[] {
+  const out: InspectedElement[] = []
+  if (!engine) return out
+  const score = engine.getScore()
+
+  // Notes and rests. The multi-select set is authoritative; `selectedNoteId` is its mirror for the
+  // single case, so reading the set alone covers both and cannot report the same note twice.
+  const noteIds = selectedNoteIds(state.selectedItems.values())
+  const ids = noteIds.length ? noteIds : state.selectedNoteId ? [state.selectedNoteId] : []
+  for (const id of ids) {
+    const note = engine.getNote(id)
+    // A note whose id no longer resolves is worth SHOWING, not hiding: a stale selection is exactly
+    // the kind of thing this window exists to make visible.
+    out.push({
+      kind: note?.isRest ? 'rest' : 'note',
+      data: note ?? { id, missing: true },
+      overrides: note ? overridesAtAny(score, noteOverrideKeys(score, engine, note)) : undefined,
+    })
+  }
+
+  const element = state.selectedElement
+  if (!element) return out
+
+  // ⭐ A `switch`, not fourteen `if`s: the compiler polices it. Only ONE element is selected at a
+  // time now (see {@link SelectedElement}), so a chain of independent tests would be describing a
+  // state that can no longer exist — and `assertNeverElement` is what makes a fifteenth kind
+  // impossible to add without deciding what this window shows for it.
+  switch (element.kind) {
+    case 'dynamic':
+      out.push({
+        kind: 'dynamic',
+        data: engine.getDynamicById(element.id) ?? { id: element.id, missing: true },
+        overrides: overridesAt(score, element.id),
+      })
+      break
+    case 'tempo':
+      out.push({
+        kind: 'tempo',
+        data: engine.getTempoMarkById(element.id) ?? { id: element.id, missing: true },
+        overrides: overridesAt(score, element.id),
+      })
+      break
+    case 'slur': {
+      // ⭐ The ARC's authored shape, resolved to the ONE address the panel's inputs write to (his
+      // ask, 2026-08-17). A slur's shape lives under two different override kinds — `curveShape` for
+      // a same-line arc, `segmentCurveShape` keyed by segment for a cross-system one — so a panel
+      // reading the compartment itself would have to know which, and on a split slur would have to
+      // pick a system. The ARMED dot already answers both, so the answer is resolved here and the
+      // window stays a reader. `null` = nothing authored, i.e. the automatic arch, which is a
+      // different statement from "0,0" and the reason this is nullable rather than defaulted.
+      const armed = element.controlPoint
+      const segments = armed?.segmentRole
+        ? segmentCurveShapeOverrideOf(score, element.id)
+        : undefined
+      const cps = armed?.segmentRole === 'middle'
+        ? segments?.middles?.[armed.segmentOrdinal ?? 0]
+        : armed?.segmentRole === 'begin' ? segments?.begin
+        : armed?.segmentRole === 'end' ? segments?.end
+        : curveShapeOverrideOf(score, element.id)?.cps
+      out.push({
+        kind: 'slur',
+        data: engine.getSlurById(element.id) ?? { id: element.id, missing: true },
+        overrides: overridesAt(score, element.id),
+        derived: {
+          arc: {
+            cps: cps ?? null,
+            // Which system's arc those numbers belong to — absent on a same-line slur, and absent on
+            // a cross-system one until a dot is armed, which is exactly when the inputs can write.
+            segment: armed?.segmentRole
+              ? (armed.segmentRole === 'middle' ? `middle ${(armed.segmentOrdinal ?? 0) + 1}` : armed.segmentRole)
+              : null,
+            armed: armed ? armed.cpIndex : null,
+          },
+        },
+      })
+      break
+    }
+
+    case 'trill':
+      // ⭐ The report carries the DERIVED auxiliary beside the stored object, because the stored
+      // object deliberately has no interval (docs/plans/trill-plan.md §3) — so "what does this trill
+      // actually play?" is unanswerable from `data` alone, and that is the one question a reader of
+      // this panel will have. `span` is derived for the same reason: `endNoteId` may be absent.
+      out.push({
+        kind: 'trill',
+        data: engine.getTrillById(element.id) ?? { id: element.id, missing: true },
+        derived: {
+          auxiliary: engine.trillAuxiliaryOf(element.id),
+          span: engine.trillSpan(element.id),
+        },
+        overrides: overridesAt(score, element.id),
+      })
+      break
+
+    case 'ottava':
+      // ⭐ The report carries the DERIVED span and the sounding shift beside the stored object, for
+      // the trill's reason: `shift` alone does not say which music is governed (the end is derived
+      // from `length` by walking the bars) and does not say what it SOUNDS in semitones — the two
+      // questions a reader of this panel actually has.
+      out.push({
+        kind: 'ottava',
+        data: engine.getOttavaById(element.id) ?? { id: element.id, missing: true },
+        derived: {
+          span: engine.getOttavaSpan(element.id),
+          semitones: engine.getOttavaById(element.id)
+            ? engine.getOttavaById(element.id)!.shift * 12
+            : null,
+        },
+        overrides: overridesAt(score, element.id),
+      })
+      break
+
+    case 'pedal':
+      // ⭐ The DERIVED span beside the stored object, for the ottava's reason: `length` is a count of
+      // music, so it does not say WHERE the foot comes up — that address is walked from the bars.
+      // The lift is the one thing a reader of this panel is actually asking about.
+      out.push({
+        kind: 'pedal',
+        data: engine.getPedalById(element.id) ?? { id: element.id, missing: true },
+        derived: {
+          span: engine.getPedalSpan(element.id),
+        },
+        overrides: overridesAt(score, element.id),
+      })
+      break
+
+    case 'hairpin': {
+      // The whole model object — `beat` + `length` ARE the report, since a hairpin's extent is
+      // musical; what is cosmetic (the end nudges, the mouth) appears under `overrides`.
+      //
+      // ⭐⭐ …plus the mouth AS DRAWN, and the range it may be authored in. Both are his corrections
+      // (2026-08-17): *"if i'm in auto and increase i don't start from 0, i start from current value
+      // and increase"*, and *"we have a max mouth and a min mouth value, so this should be the
+      // boundaries also in properties"*. Neither number is in the model — the effective aperture is
+      // the automatic rule's answer for the wedge's DRAWN length, and the upper bound is that same
+      // length through the steepness cap — so both come off the last render, which is the only thing
+      // that knows how long the wedge came out.
+      const drawn = engine.getElementRegistry().getByType('hairpin').find(e => e.id === element.id)
+      const authored = hairpinApertureOverrideOf(score, element.id)?.aperture
+      out.push({
+        kind: 'hairpin',
+        data: engine.getHairpinById(element.id) ?? { id: element.id, missing: true },
+        overrides: overridesAt(score, element.id),
+        derived: {
+          mouth: drawn?.apertureSpaces === undefined ? null : {
+            /** What is on screen now — authored or automatic. A control steps from THIS. */
+            value: round2(drawn.apertureSpaces),
+            /** Whether that number is the user's or the engraver's. */
+            authored: authored !== undefined,
+            ...authoredApertureRange(drawn.hairpinLengthSpaces ?? 0),
+          },
+        },
+      })
+      break
+    }
+
+    // The four kinds below have no object of their own in the model — an articulation, an
+    // accidental, a dot and a tie are PROPERTIES of a note, not entries in a list. Their locator IS
+    // the truth, so the locator is what is reported, with the note it hangs on.
+    case 'articulation':
+      out.push({
+        kind: 'articulation',
+        data: { noteId: element.noteId, type: element.type, note: engine.getNote(element.noteId) },
+      })
+      break
+    case 'accidental':
+      out.push({
+        kind: 'accidental',
+        data: { noteId: element.noteId, type: element.type, note: engine.getNote(element.noteId) },
+      })
+      break
+    case 'dot':
+      out.push({ kind: 'dot', data: { noteId: element.noteId, note: engine.getNote(element.noteId) } })
+      break
+    case 'stem':
+      // Same shape as the dot: a stem is a PROPERTY of the slot (its direction lives on the note),
+      // not an object in the model — the locator plus the note it belongs to is the whole truth.
+      out.push({ kind: 'stem', data: { noteId: element.noteId, note: engine.getNote(element.noteId) } })
+      break
+    case 'tremolo':
+      // The MARK is a field on the slot (`tremolo`), so the note carries the whole truth — reported
+      // like the dot above, locator plus note.
+      out.push({ kind: 'tremolo', data: { noteId: element.noteId, note: engine.getNote(element.noteId) } })
+      break
+    case 'tie':
+      out.push({ kind: 'tie', data: { fromNoteId: element.fromNoteId, from: engine.getNote(element.fromNoteId) } })
+      break
+
+    case 'tuplet':
+      // The OBJECT, like every other kind above — this used to report `{ id }` alone, so the one
+      // element whose fields you most want to read (the ratio, the unit, what was typed) showed
+      // nothing but a uuid.
+      out.push({
+        kind: 'tuplet',
+        data: engine.getTuplet(element.id) ?? { id: element.id, missing: true },
+        overrides: overridesAt(score, element.id),
+      })
+      break
+
+    // Clef and time signature are positional: they belong to a measure (and, for a clef, a staff
+    // and a beat), so the position IS the identity — there is no id to look up. Reported with the
+    // measure they sit in, which is where their values live.
+    case 'clef': {
+      const measure = score.measures.find((m) => m.number === element.measure)
+      out.push({
+        kind: 'clef',
+        data: {
+          measure: element.measure,
+          beat: element.beat,
+          staff: element.staff,
+          clefs: measure?.clefs,
+          // ⭐ The hand-nudged horizontal offset, and whether this clef can carry one at all (his
+          // ask, 2026-08-28). ⚠️ `offsettable` is a RENDER fact — a clef standing in a system's
+          // header is laid out by the header and cannot be nudged — so it comes from the engine's
+          // reading of the drawn ink, ⛔ never from the score.
+          offset: engine.getClefOffset(element.measure, beatToFrac(element.beat), element.staff),
+          offsettable: engine.clefIsOffsettable(element.measure, beatToFrac(element.beat), element.staff),
+        },
+        // Now that clefs HAVE an override kind, this branch has a key to ask for — per staff, like
+        // the flag itself. The first staff is ABSENT in the key, not named — `staffIdForIndex`'s
+        // rule, and the reason this branch showed nothing at first: it asked under a key nobody
+        // writes.
+        overrides: overridesAt(
+          score,
+          measure
+            ? cautionaryClefKey(measure.id, element.staff ? score.staves?.[element.staff]?.id : undefined)
+            : undefined,
+        ),
+      })
+      break
+    }
+    case 'timeSignature': {
+      const measure = score.measures.find((m) => m.number === element.measure)
+      out.push({
+        kind: 'timeSignature',
+        data: { measure: element.measure, timeSignature: measure?.timeSignature },
+        // Its overrides answer to a key of their OWN (`caution:<measureId>`), not to the measure id
+        // and not to a position key — so a kind that looks up nothing shows nothing, which is
+        // exactly what this did until a selected meter turned out to have a cautionary flag worth
+        // seeing.
+        overrides: overridesAt(score, measure ? cautionaryKey(measure.id) : undefined),
+      })
+      break
+    }
+
+    case 'keySignature': {
+      // ⭐ Positional like the clef above, and per STAFF for the clef's reason: the model stores a
+      // key change per staff (`Measure.keys`, `staffId` absent = staff 0).
+      //
+      // ⭐⭐ **TWO ANSWERS, and they are different questions** — which is why `derived` earns its place
+      // here rather than the branch reporting `measure.keys` alone. The bar's own `keys` array is what
+      // this bar SAYS (empty at a system head, which reprints without changing anything); `keyAt` is
+      // what is IN FORCE here, which is what the signs on the page are drawing. A panel that showed
+      // only the first would read "nothing" under a signature you can see.
+      const measure = score.measures.find((m) => m.number === element.measure)
+      const staffId = element.staff ? score.staves?.[element.staff]?.id : undefined
+      out.push({
+        kind: 'keySignature',
+        data: { measure: element.measure, staff: element.staff, keys: measure?.keys },
+        overrides: overridesAt(score, measure ? cautionaryKeyGapKey(measure.id, staffId) : undefined),
+        derived: {
+          inForce: keyAt(score, element.measure, staffId),
+          /**
+           * ⭐ The bare staff drawn after this change's CAUTIONARY at a system break, and whether the
+           * number is the AUTHOR's or the engraver's — the pair the panel's row needs (the hairpin's
+           * `mouth` reports the same shape, and for the same reason: a blank box would make the first
+           * press of a spinner jump to the minimum instead of nudging what is on the page).
+           *
+           * ⚠️ Reported whether or not this change happens to land on a break in the CURRENT
+           * casting-off: the author's decision belongs to the change, and which bar ends a system
+           * moves on every reflow.
+           */
+          cautionaryGap: measure
+            ? {
+              value: cautionaryKeyGapOf(score, measure.id, staffId) ?? CAUTIONARY_KEY_TO_LINE_END,
+              authored: cautionaryKeyGapOf(score, measure.id, staffId) !== undefined,
+            }
+            : null,
+          // ⭐ The traditional NAME's shorthand, or null for a signature the circle of fifths cannot
+          // name — a Bartók one mixing sharps and flats. ⛔ Reported as `derived` and never stored:
+          // `fifths` is not the model (`utils/keySignature.ts` argues it at length).
+          fifths: fifthsOf(keyAt(score, element.measure, staffId)),
+        },
+      })
+      break
+    }
+
+    case 'barline': {
+      // A barline is the one selectable thing with NO object behind it at all: the measures are the
+      // barline spine, so the selection is a boundary. Reported as the measure it closes, which is
+      // the whole of its identity — and now also as what that bar SAYS about the line, which is the
+      // address P1 turned into a real one (docs/plans/barline-types-plan.md §8 P5).
+      const measure = score.measures.find((m) => m.number === element.measure)
+      out.push({
+        kind: 'barline',
+        data: { endsMeasure: element.measure, style: measure?.barline?.style, repeatEnd: measure?.repeatEnd },
+        // ⭐ The SIGN AT THE BOUNDARY is `derived`, never `data`, for this field's whole reason: it is
+        // not stored anywhere and cannot be, because it is a fact about TWO bars — a `:|` whose
+        // neighbour opens a repeat makes the back-to-back form, and a bar that says nothing still
+        // has a plain line. `barlineOps.boundarySign` is the drawing's own question, asked here so
+        // the panel reports the picture as well as the statement.
+        //
+        // ⭐⭐ It is also what the Properties CHOOSER shows as current and writes back to
+        // (`bus.barlineEdit`), which is why both barline kinds report it and neither computes its
+        // own: the panel edits the LINE, so it must read the line.
+        //
+        // ⚠️ It answers for the MODEL's boundary, not for this render: a displaced `|:` (pushed past
+        // its bar's clef) is not standing at this line, and the neighbour may be on the next system.
+        // Both are the pass's business, and neither changes what this bar has said.
+        derived: {
+          sign: boundarySign(score, element.measure),
+          // ⭐ The WINGS ride whichever statements are standing, so the panel reads the LINE's
+          // answer rather than one bar's field — the checkbox edits the drawn sign, not a bar.
+          winged: boundaryWinged(score, element.measure),
+        },
+      })
+      break
+    }
+
+    case 'repeatStart': {
+      // ⭐ The `|:` OPENING this bar — the other half of the family, and its own kind because the
+      // model stores it on the bar it opens (ONE OWNER PER LINE) and because the sign at the start of
+      // the score stands at no boundary at all. See `SelectedElement`'s `repeatStart`.
+      const measure = score.measures.find((m) => m.number === element.measure)
+      out.push({
+        kind: 'repeatStart',
+        data: { opensMeasure: element.measure, repeatStart: measure?.repeatStart },
+        // ⭐ The SAME boundary fact as the barline's above, and deliberately so: this sign stands on
+        // the line that ends the previous bar, so the chooser must show what is on that whole line
+        // — `repeatBoth` when a `:|` closes into it, not the `|:` this selection happens to name.
+        // ⛔ Null at the score's opening edge, where no bar ends: `boundarySign` answers `repeatStart`.
+        derived: {
+          sign: boundarySign(score, element.measure > 1 ? element.measure - 1 : null),
+          winged: boundaryWinged(score, element.measure > 1 ? element.measure - 1 : null),
+        },
+      })
+      break
+    }
+
+    case 'scoreText':
+      // 🚧 One line of the sketched HEADER (`engine/rendering/ScoreHeaderPass`). ⭐ The locator
+      // carries only WHICH field, so the report's `data` is that plus the one thing there is to
+      // show: the string itself, read from the score. ⛔ Nothing to `derive` and no `overrides` —
+      // the block has no authored geometry, because there is no element for one to be keyed to.
+      out.push({
+        kind: 'scoreText',
+        data: { field: element.field, text: scoreText(score, element.field) },
+      })
+      break
+
+    case 'measureRange':
+      // A selection of MEASURES, not of anything inside them — the box the user drew.
+      out.push({
+        kind: 'measureRange',
+        data: {
+          anchor: element.anchor,
+          focus: element.focus,
+          staff: element.staff,
+          style: element.boxStyle,
+        },
+      })
+      break
+
+    case 'staffGroup':
+      // ⭐ The sign IS the group, so the report shows WHICH sign and the staves it spans — read from
+      // the score at report time, because a group's membership can change while its id does not.
+      out.push({
+        kind: 'staffGroup',
+        data: {
+          symbol: element.symbol,
+          staves: (score.staffGroups?.find(g => g.id === element.groupId)?.staffIds ?? []).length,
+        },
+      })
+      break
+
+    default:
+      assertNeverElement(element)
+  }
+
+  return out
+}

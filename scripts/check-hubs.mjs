@@ -37,16 +37,16 @@ const HUBS = [
   { file: 'src/engine/MusicEngine.ts', kinds: 490, lines: null },
   { file: 'src/engine/models/ScoreModel.ts', kinds: 916, lines: null },
   { file: 'src/engine/rendering/ScoreRenderer.ts', kinds: 853, lines: null },
-  { file: 'src/interactions/MouseController.ts', kinds: 282, lines: 1100 },
-  { file: 'src/interactions/PaletteController.ts', kinds: 449, lines: null },
-  { file: 'src/interactions/HighlightController.ts', kinds: 9, lines: 117 },
-  { file: 'src/interactions/shortcutWiring.ts', kinds: 59, lines: 431, except: ['deleteSelected'] },
+  { file: 'src/interactions/controllers/MouseController.ts', kinds: 282, lines: 1100 },
+  { file: 'src/interactions/controllers/PaletteController.ts', kinds: 449, lines: null },
+  { file: 'src/interactions/controllers/HighlightController.ts', kinds: 9, lines: 117 },
+  { file: 'src/interactions/controllers/shortcutWiring.ts', kinds: 59, lines: 431, except: ['deleteSelected'] },
   { file: 'src/windows/properties/PropertiesWidget.ts', kinds: 0, lines: 73 },
-  { file: 'src/interactions/selectionSnapshot.ts', kinds: 3, lines: null, except: ['selectedElements'] },
+  { file: 'src/interactions/state/selectionSnapshot.ts', kinds: 3, lines: null, except: ['selectedElements'] },
 ]
 
 /** Where the editor declares its kinds. */
-const UNIONS = 'src/interactions/EditorState.ts'
+const UNIONS = 'src/interactions/state/EditorState.ts'
 /** Kind words the unions spell only inside longer names (`repeatStart`), or not at all. */
 const EXTRA_WORDS = ['repeat', 'tie', 'fan']
 /** Everyday identifiers: never a kind on their own. */

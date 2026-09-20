@@ -160,7 +160,7 @@ so a manual bend rides along on top of a nudged endpoint.
 
 ## Selection of a point
 
-### State (`src/interactions/EditorState.ts`)
+### State (`src/interactions/state/EditorState.ts`)
 
 Add `selectedSlurEndpoint: 'start' | 'end' | null` (default null; only meaningful
 while `selectedSlurId` is set).
@@ -180,7 +180,7 @@ or changed**, not only when it is cleared. Concretely:
 So "click a square" is the one and only way to arm a point, and any other selection
 change disarms it.
 
-### Click to select (`src/interactions/MouseController.ts`)
+### Click to select (`src/interactions/controllers/MouseController.ts`)
 
 `handleSlurHandleMouseDown` already grabs a `slur-endpoint` registry hit to arm the
 re-anchor drag. Extend it: on grabbing a square, **also set
@@ -189,7 +189,7 @@ highlights immediately. The existing arm-on-down / decide-on-move flow is unchan
 a release without movement leaves the point selected (click = select); a drag
 re-anchors (and the point stays selected afterward, so you can fine-tune with arrows).
 
-### Highlight border (`src/interactions/HighlightController.ts`)
+### Highlight border (`src/interactions/controllers/HighlightController.ts`)
 
 In `applySlurHandles`, when drawing each square, if `which === selectedSlurEndpoint`
 (and the slur is selected) draw it with a distinct **selected** border — thicker /

@@ -11,7 +11,7 @@
  * live in `engine/models/`; the gestures that drive it live in `interactions/`, and `engine/` may not
  * import `interactions/`. So there is no single object that can name both: this one holds the SCORE's
  * vocabulary, {@link SPAN_MARK_TOOLS} holds the EDITOR's, and they are keyed by the same
- * {@link SpanMarkKind}. It is the shape `engine/rendering/ghosts/ghostTypes.ts` + `interactions/toolGhost.ts`
+ * {@link SpanMarkKind}. It is the shape `engine/rendering/ghosts/ghostTypes.ts` + `interactions/state/toolGhost.ts`
  * already uses.
  *
  * ⚠️ **This table may name nothing above `engine/models/`** — not `MusicEngine` (the editor's facade,

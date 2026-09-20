@@ -6,7 +6,7 @@
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import type { MusicEngine } from '../engine/MusicEngine'
-import { createEditorState, type EditorState, type MarkingTool } from './EditorState'
+import { createEditorState, type EditorState, type MarkingTool } from './state/EditorState'
 import { pressSpanTool, SPAN_TOOL_PRESSES, type SpanToolHost } from './spanToolPress'
 
 function makeHost(state: EditorState, engine: MusicEngine | null) {

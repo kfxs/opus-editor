@@ -48,7 +48,7 @@ The state grows the same `get`/`set`/`subscribe` shape the repo's stores (`toolM
 `PaletteSelection`) already use — without importing Vue.
 
 ```ts
-// interactions/EditorState.ts — still framework-agnostic, still no Vue import
+// interactions/state/EditorState.ts — still framework-agnostic, still no Vue import
 type StateListener = (key: keyof EditorState) => void
 
 export interface ObservableEditorState {
@@ -153,7 +153,7 @@ it on suspicion.
 The read-sync moves from `App.vue` `watch`es into a plain-TS module subscribing to `onStateChange`:
 
 ```ts
-// interactions/keypadSync.ts — framework-agnostic, NOT App.vue
+// interactions/controllers/keypadSync.ts — framework-agnostic, NOT App.vue
 export function wireKeypadSync(state: EditorState, palette: PaletteController,
                                subscribe: (fn: StateListener) => () => void) {
   const sync = () => {

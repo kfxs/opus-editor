@@ -12,8 +12,8 @@
  * — which on an expression WORD sent it back across the whole word to reach a note near its start.
  */
 import { describe, it, expect } from 'vitest'
-import { HighlightController } from '../HighlightController'
-import { createEditorState } from '../EditorState'
+import { HighlightController } from '../controllers/HighlightController'
+import { createEditorState } from '../state/EditorState'
 import { ElementRegistry } from '@/engine/ElementRegistry'
 import type { MusicEngine } from '@/engine/MusicEngine'
 import { paintAnchorGuideLine } from './anchorGuideLine'

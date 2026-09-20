@@ -110,7 +110,7 @@ recomputes a width that cannot have changed. Cheap, and the safe direction.
 A marking tool exactly like the accidental stamp: **single-valued and idempotent**.
 
 ```typescript
-| { kind: 'tremolo'; tremolo: TremoloMark }   // MarkingTool, src/interactions/EditorState.ts:46
+| { kind: 'tremolo'; tremolo: TremoloMark }   // MarkingTool, src/interactions/state/EditorState.ts:46
 ```
 
 - **Single-valued**, so pressing a different tremolo button **swaps** the armed mark rather than
@@ -742,7 +742,7 @@ are about to stamp:
   `colorNoteArticulations` already have.
 - **The Tremolo palette reports it.** The row used to light only the ARMED mark, so it answered
   "what will the next click stamp?" and nothing else. `tremoloHighlight(state, engine)` in
-  `interactions/keypadSync` — beside `durationHighlight`, single-sourced for whoever reads it next —
+  `interactions/controllers/keypadSync` — beside `durationHighlight`, single-sourced for whoever reads it next —
   answers from three sources in this order:
     1. a marking tool is armed → the armed tremolo if it IS the tremolo stamp, else null (under a
        clef tool no tremolo is in play);

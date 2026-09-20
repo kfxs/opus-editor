@@ -3,7 +3,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { PropertiesWidget } from '../PropertiesWidget'
 import { bus } from '@/bus'
 import type { SlurGeometryRequest } from '@/bus'
-import type { InspectedElement } from '@/interactions/inspectedElement'
+import type { InspectedElement } from '@/interactions/state/inspectedElement'
 
 /**
  * ⭐ THE SLUR'S FOUR HANDLES AS NUMBERS (his ask, 2026-08-17) — the typed twin of the drag and the

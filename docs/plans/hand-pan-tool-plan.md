@@ -62,7 +62,7 @@ palette and works in every tool.
   through `getScreenCTM()` and shift as the view scrolls, so using them would feed the scroll back on
   itself. Track `clientX/clientY` between moves and call `scrollBy(-dx, -dy)` (content follows the hand →
   scroll moves opposite to pointer motion).
-- All gesture logic lives in `MouseController` (`src/interactions/MouseController.ts`) — the single place
+- All gesture logic lives in `MouseController` (`src/interactions/controllers/MouseController.ts`) — the single place
   every mouse event funnels through. The existing note-drag / clef-drag / slur-handle drags are checked
   **first** in `handleMouseMove`, so grabbing those still behaves exactly as today.
 
@@ -75,8 +75,8 @@ palette and works in every tool.
   `model.scrollBy` + `applyScrollToElement`, mirroring the existing `scrollTo`/`ensureVisible`). ~5 lines.
 - **`src/composables/useMouseInteraction.ts`** — thread a `panBy: (dx, dy) => void` param into the
   `MouseController` constructor.
-- **`src/interactions/MouseController.ts`** — the real work (see §4).
-- **`src/interactions/EditorState.ts`** — add a reactive `isPanning` boolean (template binds to it for the
+- **`src/interactions/controllers/MouseController.ts`** — the real work (see §4).
+- **`src/interactions/state/EditorState.ts`** — add a reactive `isPanning` boolean (template binds to it for the
   cursor). Note: the existing `showCursor` flag controls the in-score keyboard *caret*, NOT the OS mouse
   pointer — hiding the actual pointer needs CSS `cursor: none`, hence a separate flag.
 - **`src/App.vue`** — (a) pass `(dx, dy) => viewport.scrollBy(dx, dy)` into `useMouseInteraction`

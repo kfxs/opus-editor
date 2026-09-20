@@ -7,7 +7,7 @@
  * ⚠️ It runs BEFORE the selected element's `highlight`, so what a single click adds — the squares,
  * the guide — lands OVER what this draws (the pedal's tether).
  */
-import { selectedIdsOf } from '../EditorState'
+import { selectedIdsOf } from '../state/EditorState'
 import { MARK_KINDS, type MarkKind } from '../enclosedMarks'
 import { ELEMENT_SPECS } from './chain'
 import type { HighlightContext } from './highlightContext'

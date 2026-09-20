@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { MusicEngine } from '../engine/MusicEngine'
-import { createEditorState, type EditorState } from './EditorState'
+import { createEditorState, type EditorState } from './state/EditorState'
 import {
   BARLINE_SIGNS,
   applyBarlineSign,
@@ -9,7 +9,7 @@ import {
   stampBarlineAtClick,
   type BarlineSign,
 } from './barlineStamp'
-import { STAFF_BAND_PAD_PX } from './staffBand'
+import { STAFF_BAND_PAD_PX } from './state/staffBand'
 
 /**
  * The barline palette's press — P4 of docs/plans/barline-types-plan.md.

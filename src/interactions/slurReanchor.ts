@@ -24,8 +24,8 @@
  * (`collapseToBeats`), and for the same reason — one press should move one position in time.
  */
 import type { MusicEngine } from '../engine/MusicEngine'
-import type { EditorState } from './EditorState'
-import { selectedOf } from './EditorState'
+import type { EditorState } from './state/EditorState'
+import { selectedOf } from './state/EditorState'
 import { buildBeatMap, type FlatNote } from '../utils/beatMap'
 import { fracEq } from '../utils/fraction'
 import { staffOf, voiceOf } from '../utils/lanes'

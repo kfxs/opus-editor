@@ -128,7 +128,7 @@ const COMPOSER_AIR_SPACES = 5
 const TEXT_FONT_STACK = 'Georgia, "Times New Roman", Times, serif'
 
 /** The group the block is drawn into — swept and redrawn every render, like the sheets under it.
- *  Exported because the highlight has to find the ink again (`interactions/HighlightController`). */
+ *  Exported because the highlight has to find the ink again (`interactions/controllers/HighlightController`). */
 export const SCORE_HEADER_GROUP_CLASS = 'score-header'
 
 /** The class on ONE drawn line, so the highlight can find the field that was selected. */

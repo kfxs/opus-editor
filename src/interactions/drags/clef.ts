@@ -18,7 +18,7 @@ import type { MusicEngine } from '../../engine/MusicEngine'
 import type { Fraction } from '../../types/music'
 import { fracEq, fracToNumber } from '../../utils/fraction'
 import { dbg } from '../../utils/debug'
-import { selectedOf, type EditorState } from '../EditorState'
+import { selectedOf, type EditorState } from '../state/EditorState'
 import { DRAG_TIME_THRESHOLD_MS, type DragHost, type Gesture } from './gesture'
 
 /**

@@ -3,7 +3,7 @@ import {
   cycleSpanMarkEnd, nudgeArmedSpanMarkEnd, nudgeSelectedSpanMark, resetArmedSpanMarkEnd,
   resetSelectedSpanMark, spanMarkKeys,
 } from './spanMarkKeys'
-import { createEditorState, type EditorState } from './EditorState'
+import { createEditorState, type EditorState } from './state/EditorState'
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { KeysCtx } from './elements/keys'
 import { SPAN_MARK_TOOLS } from './spanMarkTools'

@@ -15,7 +15,7 @@
  */
 import type { MusicEngine } from '../../engine/MusicEngine'
 import type { MarkPreviewKind } from '../../engine/rendering/marks/markPreviewPass'
-import type { EditorState, SelectedElement } from '../EditorState'
+import type { EditorState, SelectedElement } from '../state/EditorState'
 
 /** What a kind's key handlers may use. */
 export interface KeysCtx {

@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import {
   nudgeArmedSlurControlPoint, resetArmedSlurHandle, cpsFromDrawnControlPoints,
 } from './slurHandleNudge'
-import { createEditorState, type EditorState } from './EditorState'
+import { createEditorState, type EditorState } from './state/EditorState'
 import { ElementRegistry, type ElementInfo } from '../engine/ElementRegistry'
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { CurveControlPointDeltas, SlurSegmentAddress } from '../types/music'

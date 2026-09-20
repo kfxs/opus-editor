@@ -19,11 +19,11 @@ import type { MenuToggle } from './menuCommands'
  * shortlist the dev toolbar's picker offers, from the same array, so the two lists cannot drift.
  *
  * The two pickers stay IN STEP because neither owns the value: both press `bus.sound`, and both read
- * its highlight (`interactions/soundSync.ts` is what turns a press into an engine call). Choose a
+ * its highlight (`interactions/controllers/soundSync.ts` is what turns a press into an engine call). Choose a
  * sound in the dev dropdown and the tick moves here; choose it here and the dropdown follows.
  *
  * ⭐ **Play Repeats** (2026-08-26) is the same arrangement one store over — `bus.playRepeats`, the dev
- * toolbar's 🔁 checkbox, and `interactions/playRepeatsSync`. ⚠️ It differs from the sound in what it
+ * toolbar's 🔁 checkbox, and `interactions/controllers/playRepeatsSync`. ⚠️ It differs from the sound in what it
  * IS: a sound is stored in the score and undoes with it, while taking the repeats is a statement
  * about this hearing and is in no file. The play order it switches is `engine/audio/repeatPlan`.
  */
@@ -61,7 +61,7 @@ export function buildPlayMenu(actions: PlayMenuActions): MenuBarTitle {
          *
          * ⛔ It presses `bus.playRepeats` and never touches the engine — the dev toolbar's 🔁 checkbox
          * offers the same choice, and the two stay in step for `Score Sound`'s reason: neither owns
-         * the value. `interactions/playRepeatsSync` is the one place a press becomes an engine call.
+         * the value. `interactions/controllers/playRepeatsSync` is the one place a press becomes an engine call.
          *
          * ⭐ A press of the OPPOSITE value, not a toggle of the store's own: the store's press channel
          * always fires and the handler decides, so what is sent is what the user is asking for.

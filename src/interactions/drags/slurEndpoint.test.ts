@@ -5,7 +5,7 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import type { MusicEngine } from '../../engine/MusicEngine'
-import type { EditorState } from '../EditorState'
+import type { EditorState } from '../state/EditorState'
 import { DRAG_TIME_THRESHOLD_MS, type DragHost } from './gesture'
 
 const walk = vi.hoisted(() => ({ dragArmedSlurEndpoint: vi.fn() }))

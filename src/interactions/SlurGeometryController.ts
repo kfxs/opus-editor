@@ -1,5 +1,5 @@
 import type { MusicEngine } from '../engine/MusicEngine'
-import type { EditorState } from './EditorState'
+import type { EditorState } from './state/EditorState'
 import { bus } from '@/bus'
 import type { SlurGeometryRequest } from '@/bus'
 import { endpointOffsetOverrideOf, slurOffsetOverrideOf } from '../engine/models/engravingOverrides'

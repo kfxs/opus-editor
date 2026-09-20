@@ -1,6 +1,6 @@
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { SpanMarkKind } from '../engine/models/spanMarkModel'
-import { selectedOf, type EditorState, type SelectedElement } from './EditorState'
+import { selectedOf, type EditorState, type SelectedElement } from './state/EditorState'
 import { SPAN_MARK_TOOLS } from './spanMarkTools'
 import type { ElementKeys } from './elements/keys'
 

@@ -1,6 +1,6 @@
 import type { Widget } from '../content/Widget'
 import { bus } from '@/bus'
-import type { InspectedElement } from '../../interactions/inspectedElement'
+import type { InspectedElement } from '../../interactions/state/inspectedElement'
 import { panelRowsFor } from './panels'
 import { AMBER, PHOSPHOR } from './rows'
 

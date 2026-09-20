@@ -26,10 +26,10 @@
  * the set that carries a scope — {@link SCOPED_KINDS} — and a kind joining it is one row.
  */
 import type { MusicEngine } from '../engine/MusicEngine'
-import type { EditorState } from './EditorState'
-import { selectedIdsOf } from './EditorState'
+import type { EditorState } from './state/EditorState'
+import { selectedIdsOf } from './state/EditorState'
 import type { VoiceScope } from '../utils/dynamicScope'
-import type { SelectionItem } from './selection'
+import type { SelectionItem } from './state/selection'
 
 /** What the press needs off the engine — a Pick, so a spec needs no renderer. */
 type ScopeEngine = Pick<MusicEngine, 'setMarkVoiceScope' | 'runBatch'>

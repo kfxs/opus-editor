@@ -22,8 +22,8 @@ Nine days and 211 commits later:
 | `rendering/ScoreRenderer.ts` | 3,324 | 5,491 | **+2,167** |
 | `MusicEngine.ts` | 2,424 | 3,696 | **+1,272** |
 | `models/ScoreModel.ts` | 2,817 | 3,663 | **+846** |
-| `interactions/PaletteController.ts` | 1,423 | 2,211 | +788 |
-| `interactions/MouseController.ts` | 1,960 | 2,558 | +598 |
+| `interactions/controllers/PaletteController.ts` | 1,423 | 2,211 | +788 |
+| `interactions/controllers/MouseController.ts` | 1,960 | 2,558 | +598 |
 
 ScoreModel grew back everything the split removed, in nine days. **Extraction without a
 rule is a rounding error.** So this plan ends with a standing convention (Phase 6), and
@@ -286,7 +286,7 @@ don't. Both are pure moves.
 ```
 engine/rendering/ScoreRenderer.ts:45   import { renderCensus } from '@/dev/renderCensus'
 engine/rendering/MeasureLayout.ts:11     import { renderCensus } from '@/dev/renderCensus'
-interactions/RenderController.ts:9       import { renderCensus } from '../dev/renderCensus'
+interactions/controllers/RenderController.ts:9       import { renderCensus } from '../dev/renderCensus'
 ```
 
 `CLAUDE.md` and `ARCHITECTURE.md` both promise dev/ "deletes cleanly". It doesn't — the
@@ -428,7 +428,7 @@ measured against.
    `MouseController.tremoloSelection.test.ts`, beside the existing `MouseController.stemSelection.test.ts`.
 
 **What is left of the two-way edge, and deliberately:** `windows/properties/PropertiesWidget` still
-imports `InspectedElement` from `interactions/selectionSnapshot`, and `bus/selectionInspection`
+imports `InspectedElement` from `interactions/state/selectionSnapshot`, and `bus/selectionInspection`
 imports the same type — both `import type`, erased at build, the same judgement this phase already
 makes about the two remaining cycles. The type is defined next to the function that BUILDS it, where
 the 30 lines explaining why it is not `SelectedElement` belong.

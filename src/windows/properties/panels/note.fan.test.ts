@@ -3,7 +3,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { PropertiesWidget } from '../PropertiesWidget'
 import { bus } from '@/bus'
 import type { FanEditRequest } from '@/bus'
-import type { InspectedElement } from '@/interactions/inspectedElement'
+import type { InspectedElement } from '@/interactions/state/inspectedElement'
 import type { FanMark } from '@/types/music'
 
 /**

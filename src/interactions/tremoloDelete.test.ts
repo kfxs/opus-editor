@@ -12,8 +12,8 @@
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { MusicEngine } from '../engine/MusicEngine'
-import { createEditorState, type EditorState } from './EditorState'
-import { wireShortcuts } from './shortcutWiring'
+import { createEditorState, type EditorState } from './state/EditorState'
+import { wireShortcuts } from './controllers/shortcutWiring'
 import { fracCreate as frac } from '../utils/fraction'
 
 vi.mock('../engine/rendering/ScoreRenderer', async () => (await import('@/testing/engineStubs')).scoreRendererStub())

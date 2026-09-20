@@ -8,7 +8,7 @@
 import { dbg } from '@/utils/debug'
 import type { ClickableElementSpec } from './chain'
 import type { HighlightContext } from './highlightContext'
-import { selectedOf } from '../EditorState'
+import { selectedOf } from '../state/EditorState'
 import { barlineGapGroup, barlineSignGroup, paintBarlineHalf } from './barlineInk'
 import { beginBarWidthDrag } from '../drags/barWidth'
 import { paintBarlineJoinSquares } from './barlineJoinSquares'

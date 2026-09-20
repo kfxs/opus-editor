@@ -6,8 +6,8 @@
  * `HighlightController.test.ts`'s; the cases here that clear are about THIS ink's inverse.
  */
 import { describe, it, expect } from 'vitest'
-import { HighlightController } from '../HighlightController'
-import { createEditorState } from '../EditorState'
+import { HighlightController } from '../controllers/HighlightController'
+import { createEditorState } from '../state/EditorState'
 import { ElementRegistry } from '@/engine/ElementRegistry'
 import type { MusicEngine } from '@/engine/MusicEngine'
 import type { ViewMode } from '@/engine/layout/layoutConfig'

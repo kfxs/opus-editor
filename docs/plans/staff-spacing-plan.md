@@ -298,7 +298,7 @@ bottom-margin term later if it ever matters; additive, no teardown).
   all-staff double-box hit-box/highlight + playback scroll cover the pushed-down staves.
 - `src/shortcuts/*` + a controller (`interactions/`) — `Alt+↑/↓` (overload `chordNoteUp/Down`
   by selection kind) + `Ctrl+Alt+↑/↓` coarse nudge, gated to a single-box selection.
-- (Phase 2) `src/interactions/MouseController.ts` — vertical drag; `HighlightController` /
+- (Phase 2) `src/interactions/controllers/MouseController.ts` — vertical drag; `HighlightController` /
   `PaletteController` for live box + reset button.
 - Tests co-located (`engravingOverrides.test.ts`, `ScoreModel` spacing tests).
 

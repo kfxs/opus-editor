@@ -13,8 +13,8 @@
  * cross-barline split) is pinned in `tremoloTravel.test.ts`.
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { createEditorState, selectedOf, type EditorState } from './EditorState'
-import { PaletteController } from './PaletteController'
+import { createEditorState, selectedOf, type EditorState } from './state/EditorState'
+import { PaletteController } from './controllers/PaletteController'
 import { MusicEngine } from '../engine/MusicEngine'
 import { fracCreate as frac } from '../utils/fraction'
 

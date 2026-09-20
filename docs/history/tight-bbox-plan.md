@@ -100,11 +100,11 @@ engine`. The relevant players:
 - **`engine/ElementRegistry.ts`** — the authoritative store of "what is where."
   Every rendered element becomes an `ElementInfo { type, id, bbox, … }`. Hit-testing
   lives here (`findClosestNoteOrRest`, `hitsNoteOrRestBody`, `getByType`, …).
-- **`interactions/MouseController.ts`** — turns a raw mouse event into a selection. On
+- **`interactions/controllers/MouseController.ts`** — turns a raw mouse event into a selection. On
   mousedown it runs a **priority-ordered list of per-type hit-tests** against the
   registry (clef, timeSignature, tempo, dynamic, tie, slur, accidental, articulation,
   dot, then note/rest) and selects the first that claims the click.
-- **`interactions/HighlightController.ts`** — recolours the selected element's SVG.
+- **`interactions/controllers/HighlightController.ts`** — recolours the selected element's SVG.
 
 Key invariant: **the registry is the single source of truth for hit geometry.** If a
 box in it is wrong, *everything* downstream (selection, distance, highlight, caret
@@ -646,8 +646,8 @@ later.
 - Dynamics (attach + ink rebuild): `engine/rendering/marks/dynamics/DynamicsLayout.ts`
   (`attachDynamicsToSlots`, `registerDynamics`), `engine/rendering/marks/dynamics/dynamicStyle.ts`
   (the pointer-rect write-up). Tempo: `engine/rendering/marks/tempo/TempoLayout.ts:233`.
-- Consumers: `interactions/MouseController.ts` (per-type handlers, chain at 458),
-  `interactions/HighlightController.ts` (`highlightGlyphsInBBox` 653, caret 124/129,
+- Consumers: `interactions/controllers/MouseController.ts` (per-type handlers, chain at 458),
+  `interactions/controllers/HighlightController.ts` (`highlightGlyphsInBBox` 653, caret 124/129,
   attachment line 815, rest-branch annotation skip 321),
   `interactions/DynamicTextSource.ts:46` / `TempoTextSource.ts` (text overlays).
 - VexFlow 5 (read, not modified): `element.js:186` (`getBoundingBox` = ink),

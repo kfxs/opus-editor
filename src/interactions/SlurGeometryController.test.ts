@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { SlurGeometryController } from './SlurGeometryController'
-import { createEditorState, type EditorState } from './EditorState'
+import { createEditorState, type EditorState } from './state/EditorState'
 import { bus } from '@/bus'
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { Score } from '../types/music'

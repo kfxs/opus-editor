@@ -20,9 +20,9 @@
  */
 import { dbg } from '@/utils/debug'
 import type { MusicEngine } from '../engine/MusicEngine'
-import type { EditorState, MarkingTool } from './EditorState'
-import { armedTool } from './EditorState'
-import { selectedNoteIds } from './selection'
+import type { EditorState, MarkingTool } from './state/EditorState'
+import { armedTool } from './state/EditorState'
+import { selectedNoteIds } from './state/selection'
 
 /** What the press needs of the palette: the state it routes on and the four things it may do. */
 export interface SpanToolHost {

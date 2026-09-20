@@ -1,8 +1,8 @@
 import { dbg } from '@/utils/debug'
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { ElementRegistry } from '../engine/ElementRegistry'
-import type { EditorState } from './EditorState'
-import { armedTool } from './EditorState'
+import type { EditorState } from './state/EditorState'
+import { armedTool } from './state/EditorState'
 
 /**
  * ⭐ THE SLUR STAMP'S CLICK — a click on a note slurs it to the next slot.

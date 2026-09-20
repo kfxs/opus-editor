@@ -198,7 +198,7 @@ cost; the raster cost needs `performance` timings around the zoom step.
 
 - `src/engine/rendering/staff/barlineInk.ts` — the barline's thickness AND its hinting onto the pixel
   grid; `src/dev/barlineCensus.ts` (`__barlines.dump()`) is the instrument for both.
-- `src/interactions/ViewportHost.ts` — `applyZoom()`, the single writer of the sizer size and the
+- `src/interactions/controllers/ViewportHost.ts` — `applyZoom()`, the single writer of the sizer size and the
   layer transform.
 - `src/engine/ViewportModel.ts` — `zoomAbout()`, `ZOOM_LADDER`, `getVisibleRect()`.
 - `src/App.ts` — `handleZoomWheel()`, `ZOOM_WHEEL_K`.

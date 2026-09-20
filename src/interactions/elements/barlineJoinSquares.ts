@@ -14,7 +14,7 @@
  * ⛔ The `barline-join` entries are the highlight pass's own — `clearHighlights` removes them.
  */
 import { signAtBoundary } from '@/engine/models/boundarySign'
-import { selectedOf } from '../EditorState'
+import { selectedOf } from '../state/EditorState'
 import { barlineJoinHandles } from './barlineJoinHandles'
 import { handleHitBox, paintHandleSquare } from './handleSquare'
 import type { HighlightContext } from './highlightContext'

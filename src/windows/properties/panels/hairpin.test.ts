@@ -3,7 +3,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { PropertiesWidget } from '../PropertiesWidget'
 import { bus } from '@/bus'
 import type { HairpinEditRequest, HairpinGeometryRequest } from '@/bus'
-import type { InspectedElement, InspectedOf } from '@/interactions/inspectedElement'
+import type { InspectedElement, InspectedOf } from '@/interactions/state/inspectedElement'
 
 /**
  * ⭐ THE WEDGE'S TWO ENDS AS NUMBERS (his ask, 2026-08-17) — the typed twin of the arrows that

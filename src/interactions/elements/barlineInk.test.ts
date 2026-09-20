@@ -19,11 +19,11 @@
  */
 import { describe, it, expect, beforeEach } from 'vitest'
 import { MusicEngine } from '@/engine/MusicEngine'
-import { HighlightController } from '../HighlightController'
+import { HighlightController } from '../controllers/HighlightController'
 import { paintSelectedBarline } from './barline'
 import { paintSelectedRepeatStart } from './repeatStart'
-import { createEditorState } from '../EditorState'
-import type { EditorState } from '../EditorState'
+import { createEditorState } from '../state/EditorState'
+import type { EditorState } from '../state/EditorState'
 import { ELEMENT_SELECTION_FILL } from '@/utils/selectionColors'
 
 describe('barline selection highlight', () => {

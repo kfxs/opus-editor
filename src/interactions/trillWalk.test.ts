@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { MusicEngine } from '../engine/MusicEngine'
-import { createEditorState, type EditorState } from './EditorState'
+import { createEditorState, type EditorState } from './state/EditorState'
 import {
   commitTrillKeyRun, dragTrillBody, dragTrillEndpoint, walkTrillBody, walkTrillEndpoint,
 } from './trillWalk'

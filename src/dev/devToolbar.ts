@@ -1,13 +1,13 @@
-import type { EditorState } from '../interactions/EditorState'
-import { selectedOf } from '../interactions/EditorState'
-import type { PaletteController } from '../interactions/PaletteController'
+import type { EditorState } from '../interactions/state/EditorState'
+import { selectedOf } from '../interactions/state/EditorState'
+import type { PaletteController } from '../interactions/controllers/PaletteController'
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { NoteDuration } from '../types/music'
-import { durationHighlight } from '../interactions/keypadSync'
+import { durationHighlight } from '../interactions/controllers/keypadSync'
 import { DEV_SOUNDS } from '../engine/audio/WebAudioFontInstrument'
 import { bus } from '../bus'
 import { exportScorePdfFile } from '../interactions/scoreFileIo'
-import { isSelectedStaffSmall, toggleSelectedStaffSize } from '../interactions/staffSizeToggle'
+import { isSelectedStaffSmall, toggleSelectedStaffSize } from '../interactions/controllers/staffSizeToggle'
 
 /**
  * The development toolbar — **scaffolding, deliberately kept**.
@@ -211,7 +211,7 @@ export function mountDevToolbar(host: HTMLElement, deps: DevToolbarDeps): DevToo
   const durBox = group('Duration:')
   const BTN_BOLD = 'px-3 py-1 rounded text-sm font-bold'
   for (const { d, glyph, title } of DURATIONS) {
-    // `durationHighlight` is THE rule (interactions/keypadSync), shared with the Keypad: a marking
+    // `durationHighlight` is THE rule (interactions/controllers/keypadSync), shared with the Keypad: a marking
     // tool arms into entry mode but enters no note, so the duration must go dark under an armed
     // clef — and stay lit under the armed REST, whose length these keys are.
     toggle(durBox, BTN_BOLD, glyph, title,
@@ -385,7 +385,7 @@ export function mountDevToolbar(host: HTMLElement, deps: DevToolbarDeps): DevToo
   }
   // ⭐ The picker no longer HOLDS the choice, it shows it. The bar's Play ▸ Score Sound offers the
   // same list, so the value moved to `bus.sound` and both surfaces became readers of it — press to
-  // choose, `onHighlight` to follow someone else choosing. `interactions/soundSync.ts` is the one
+  // choose, `onHighlight` to follow someone else choosing. `interactions/controllers/soundSync.ts` is the one
   // place that turns a press into an engine call; this dropdown never touches the engine again.
   const soundHighlight = () => { sound.value = String(bus.sound.get() ?? DEV_SOUNDS[0].program) }
   soundHighlight()
@@ -404,7 +404,7 @@ export function mountDevToolbar(host: HTMLElement, deps: DevToolbarDeps): DevToo
    *
    * ⛔ It presses `bus.playRepeats` and never touches the engine — the bar's Play ▸ Play Repeats row
    * offers the same choice, and the two stay in step for the sound picker's reason: neither owns the
-   * value. `interactions/playRepeatsSync` is the one place a press becomes an engine call.
+   * value. `interactions/controllers/playRepeatsSync` is the one place a press becomes an engine call.
    *
    * ⚠️ It was an ENGINE read for exactly one hour, which is the bug the store fixes: this box syncs
    * on the editor's STATE notification, and toggling repeats writes no state — so the menu could turn

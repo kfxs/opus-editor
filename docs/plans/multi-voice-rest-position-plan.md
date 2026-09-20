@@ -287,7 +287,7 @@ rather than paint.
 ### 4.2 🚨 Seam TWO — voice navigation, and it was never in lockstep
 
 ⛔ **"One seam" was wrong.** `SelectionController.elementVerticalPos`
-(`interactions/SelectionController.ts:589-597`) computes a rest's vertical position a **second**
+(`interactions/controllers/SelectionController.ts:589-597`) computes a rest's vertical position a **second**
 time, for the Alt+Shift+↑/↓ voice hop:
 
 ```ts

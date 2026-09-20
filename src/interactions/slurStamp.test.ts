@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { MusicEngine } from '../engine/MusicEngine'
 import type { ElementRegistry } from '../engine/ElementRegistry'
-import { createEditorState, type EditorState } from './EditorState'
+import { createEditorState, type EditorState } from './state/EditorState'
 import { stampSlurAtClick } from './slurStamp'
 import { fracCreate as frac } from '../utils/fraction'
 

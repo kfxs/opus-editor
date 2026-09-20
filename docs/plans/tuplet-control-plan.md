@@ -245,7 +245,7 @@ handles. ~~VexFlow stays the rhythm/spacing engine regardless.~~ (⚠️ 2026-09
   `resolveTupletLocation` call site.
 - `src/engine/rendering/engraved/NoteBuilder.ts` — `resolveTupletLocation`, `TUPLET_LOCATION_*`.
 - `src/engine/ElementRegistry.ts` — `TupletGeometry`, `getTupletAt`.
-- `src/interactions/HighlightController.ts` — `applyTupletSelectionHighlight` (front-floats the
+- `src/interactions/controllers/HighlightController.ts` — `applyTupletSelectionHighlight` (front-floats the
   selected group so overlapping brackets don't hide the highlight).
 - `src/engine/engrave/marks/tupletPlacement.ts` — ⭐ **the height rule, ours since S8a**, with its
   `TUPLET_AIR` table and `tupletPlacement.test.ts` beside it.

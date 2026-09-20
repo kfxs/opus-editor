@@ -33,8 +33,8 @@ that cost the rule **does not** reach.
 | `rendering/ScoreRenderer.ts` | 3,744 | 1,508 | 269 | **1,967** |
 | `models/ScoreModel.ts` | 3,637 | 1,310 | 287 | **2,040** |
 | `MusicEngine.ts` | 3,256 | 1,392 | 294 | **1,570** |
-| `interactions/MouseController.ts` | 2,566 | 786 | 180 | **1,600** |
-| `interactions/PaletteController.ts` | 2,201 | 989 | 156 | **1,056** |
+| `interactions/controllers/MouseController.ts` | 2,566 | 786 | 180 | **1,600** |
+| `interactions/controllers/PaletteController.ts` | 2,201 | 989 | 156 | **1,056** |
 | `types/music.ts` | 1,427 | 1,054 | 56 | **317** |
 
 40–74% of every "big file" is prose, and it is the good kind — the `openGroup` prefix trap, the
@@ -336,7 +336,7 @@ Four layers, twelve kinds, 42 methods, 20 of them empty. Re-counted: `RenderCont
 the middle two are single delegating statements exactly as claimed.
 
 🚨 **`AMENDED` — the payload type may NOT be `MarkingTool`, and no lint would tell you.**
-`MarkingTool` is declared in `interactions/EditorState.ts:46`. `src/engine/` today imports **nothing**
+`MarkingTool` is declared in `interactions/state/EditorState.ts:46`. `src/engine/` today imports **nothing**
 from `interactions/` (verified: zero hits outside one test file) — that clean arrow is
 `App.ts → interactions → engine`, and it is what the npm-package goal rests on. But
 `.eslintrc.boundary.json` fences only `utils/`, `types/` and `engine/models/` off from
@@ -394,7 +394,7 @@ Adding a ghost is now a `ToolGhost` member, a `GHOST_DRAWERS` row and a `toolGho
 edits in three files that each *say something*, instead of four files of which two said nothing.
 
 - **The type is engine-owned**, as the amendment demanded: `engine/rendering/ghosts/ghostTypes.ts`. The
-  `MarkingTool → ToolGhost` step went to a module of its own, `interactions/toolGhost.ts`, rather
+  `MarkingTool → ToolGhost` step went to a module of its own, `interactions/state/toolGhost.ts`, rather
   than staying in the controller — it is a pure function, so it gets a real spec (`toolGhost.test.ts`,
   11 tests) instead of only being reachable through a draw. That is the rule from Phase 0 and from
   CLAUDE.md applied to this phase's own new code.

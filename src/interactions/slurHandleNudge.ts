@@ -34,8 +34,8 @@ import type { MusicEngine } from '../engine/MusicEngine'
 import type { SlurCommands } from '@/engine/commands/slurCommands'
 import type { ElementInfo } from '../engine/ElementRegistry'
 import type { SlurSegmentAddress } from '../types/music'
-import type { EditorState, SlurControlPointHandle } from './EditorState'
-import { selectedOf } from './EditorState'
+import type { EditorState, SlurControlPointHandle } from './state/EditorState'
+import { selectedOf } from './state/EditorState'
 import { dbg } from '../utils/debug'
 
 /** What the nudge and its reset need off the engine — a Pick so a test can stand up the calls alone. */

@@ -162,8 +162,8 @@ box (`HighlightController.applySelectionHighlight`) — inherently leaky.
 - Highlight approach depends on verifying VexFlow per-note SVG grouping (TODO).
 
 ## Relevant files
-- `src/interactions/MouseController.ts` — `handleMouseDown` selection path.
+- `src/interactions/controllers/MouseController.ts` — `handleMouseDown` selection path.
 - `src/engine/rendering/CoordinateMapper.ts` — `pixelToMeasure` (band-based).
 - `src/engine/ElementRegistry.ts` — `findClosestNoteOrRest`, `pixelYToPitch`,
   `pitchToPixelY`, registered `bbox` per element.
-- `src/interactions/HighlightController.ts` — `applySelectionHighlight` (global scan).
+- `src/interactions/controllers/HighlightController.ts` — `applySelectionHighlight` (global scan).

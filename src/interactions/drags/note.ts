@@ -45,7 +45,7 @@ import { dbg } from '../../utils/debug'
 import { staffOf } from '../../utils/lanes'
 import { measureCapacityQuarters } from '../../utils/measureCapacity'
 import { spellingToMidi } from '../../utils/pitchSpelling'
-import type { EditorState } from '../EditorState'
+import type { EditorState } from '../state/EditorState'
 import { entryAlteration } from '../../engine/models/entryAlteration'
 import { DRAG_DISTANCE_THRESHOLD_PX, type DragHost, type Gesture } from './gesture'
 

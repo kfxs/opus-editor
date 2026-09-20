@@ -3,7 +3,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { PropertiesWidget } from '../PropertiesWidget'
 import { bus } from '@/bus'
 import type { TrillGeometryRequest } from '@/bus'
-import type { InspectedElement } from '@/interactions/inspectedElement'
+import type { InspectedElement } from '@/interactions/state/inspectedElement'
 
 /**
  * ⭐ A TRILL'S INK AS NUMBERS (his ask, 2026-08-18) — the typed twin of the arrows on its two

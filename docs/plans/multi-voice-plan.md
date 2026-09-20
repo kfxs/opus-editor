@@ -270,11 +270,11 @@ rule.
 
 **Touch points (all one-liners):**
 - `utils/voiceColors.ts` — added orange (V3) and purple (V4) fill/stroke.
-- `interactions/EditorState.ts` — `activeVoice: 1|2|3|4`; `activeVoiceToModel`/`modelVoiceToActive`
+- `interactions/state/EditorState.ts` — `activeVoice: 1|2|3|4`; `activeVoiceToModel`/`modelVoiceToActive`
   generalised (± 1, clamped 0–3) instead of the 2-way branch.
-- `shortcuts/ShortcutConfig.ts` + `interactions/shortcutWiring.ts` — `Alt+3`/`Alt+4` →
+- `shortcuts/ShortcutConfig.ts` + `interactions/controllers/shortcutWiring.ts` — `Alt+3`/`Alt+4` →
   `palette.setActiveVoice(3|4)` (same enter-into / move-selection-to-voice path as Alt+1/2).
-- `interactions/PaletteController.ts` — `setActiveVoice(voice: 1|2|3|4)`.
+- `interactions/controllers/PaletteController.ts` — `setActiveVoice(voice: 1|2|3|4)`.
 - `engine/rendering/ScoreRenderer.ts` — `forcedStem`/`restShift` key on `v % 2` (stems-up = even
   model index).
 - `engine/rendering/engraved/NoteBuilder.ts` (tuplet bracket side), `TieRenderer.ts`, `SlurRenderer.ts` —

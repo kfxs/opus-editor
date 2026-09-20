@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { TextEditController, type EditableTextSource, type TextEditDom, type TextEditMountOptions } from './TextEditController'
-import { createEditorState, type EditorState } from './EditorState'
+import { createEditorState, type EditorState } from './state/EditorState'
 
 /** Fake DOM layer: records mount/unmount and lets tests drive commit/cancel + typing. */
 class FakeDom implements TextEditDom {

@@ -1,7 +1,7 @@
 import { dbg } from '@/utils/debug'
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { ElementRegistry } from '../engine/ElementRegistry'
-import type { EditorState } from './EditorState'
+import type { EditorState } from './state/EditorState'
 
 /**
  * ⭐ THE HAIRPIN STAMP'S CLICK — a click on a note opens a wedge over that note.

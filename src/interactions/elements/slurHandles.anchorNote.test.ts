@@ -13,8 +13,8 @@
  * start vs end vs none — not where any ink is.
  */
 import { describe, it, expect } from 'vitest'
-import { HighlightController } from '../HighlightController'
-import { createEditorState, type EditorState } from '../EditorState'
+import { HighlightController } from '../controllers/HighlightController'
+import { createEditorState, type EditorState } from '../state/EditorState'
 import { ElementRegistry } from '@/engine/ElementRegistry'
 import type { MusicEngine } from '@/engine/MusicEngine'
 import { paintArmedSlurAnchorNote } from './slurHandles'

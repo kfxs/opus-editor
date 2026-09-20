@@ -4,7 +4,7 @@ import {
   OTTAVA_HANDLE_GAP_PX as GAP,
 } from './ottavaHandles'
 import { ElementRegistry, type ElementInfo } from '../../engine/ElementRegistry'
-import { createEditorState, type EditorState } from '../EditorState'
+import { createEditorState, type EditorState } from '../state/EditorState'
 
 /**
  * Where a selected ottava's two endpoint squares sit.

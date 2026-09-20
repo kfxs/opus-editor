@@ -36,7 +36,7 @@
 import { dbg } from '@/utils/debug'
 import type { ClickableElementSpec } from './chain'
 import type { HighlightContext } from './highlightContext'
-import { selectedOf } from '../EditorState'
+import { selectedOf } from '../state/EditorState'
 import { paintBarlineHalf, signGroupById } from './barlineInk'
 
 export const REPEAT_START_ELEMENT: ClickableElementSpec = {

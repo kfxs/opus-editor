@@ -83,8 +83,8 @@ reactive. It becomes `el.textContent = …` on the same timer.
    code plus `destroy()`, `v-show` → `style.display`, `v-if` → a hidden element
    whose getter reports null. The last two composables moved inward rather than
    being ported — neither was really about Vue: `useShortcuts` →
-   `interactions/shortcutWiring.ts` (it imported Vue for a single `type Ref`), and
-   `useViewport` → `interactions/ViewportHost.ts` (elements as getters, lifecycle
+   `interactions/controllers/shortcutWiring.ts` (it imported Vue for a single `type Ref`), and
+   `useViewport` → `interactions/controllers/ViewportHost.ts` (elements as getters, lifecycle
    as explicit `attach`/`detach`). `src/composables/` is gone.
 4. **✅ Dropped the plugin and the deps.** `vue`, `@vitejs/plugin-vue`, `vue-tsc`,
    `eslint-plugin-vue`; `build:check` runs `tsc --noEmit`, and `.eslintrc.json` no

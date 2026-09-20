@@ -82,16 +82,16 @@ slur included since it is the fifth member of the same idea):
 | shared hub | hairpin | ottava | pedal | trill | slur | total |
 |---|---|---|---|---|---|---|
 | `engine/MusicEngine.ts` | 227 | 190 | 269 | 204 | 275 | **1,165** |
-| `interactions/MouseController.ts` | 142 | 134 | 151 | 139 | 301 | **867** |
+| `interactions/controllers/MouseController.ts` | 142 | 134 | 151 | 139 | 301 | **867** |
 | **`engine/models/ScoreModel.ts`** | 159 | 145 | 145 | 148 | 160 | **757** |
-| `interactions/shortcutWiring.ts` | 117 | 104 | 125 | 93 | 118 | **557** |
+| `interactions/controllers/shortcutWiring.ts` | 117 | 104 | 125 | 93 | 118 | **557** |
 | **`engine/models/rebarOps.ts`** | 40 | 41 | 50 | 84 | 111 | **326** |
-| `interactions/HighlightController.ts` | 36 | 29 | 68 | 39 | 131 | **303** |
+| `interactions/controllers/HighlightController.ts` | 36 | 29 | 68 | 39 | 131 | **303** |
 | `engine/rendering/ScoreRenderer.ts` | 38 | 38 | 34 | 47 | 55 | **212** |
 | `engine/ElementRegistry.ts` | 19 | 28 | 34 | 15 | 61 | **157** |
 | `windows/properties/PropertiesWidget.ts` | 35 | 16 | 20 | 42 | 30 | **143** |
-| `interactions/PaletteController.ts` | 24 | 17 | 18 | 26 | 37 | **122** |
-| `interactions/EditorState.ts` | 21 | 16 | 24 | 24 | 33 | **118** |
+| `interactions/controllers/PaletteController.ts` | 24 | 17 | 18 | 26 | 37 | **122** |
+| `interactions/state/EditorState.ts` | 21 | 16 | 24 | 24 | 33 | **118** |
 | `interactions/clipboard.ts` | 16 | 20 | 16 | 28 | 35 | **115** |
 | `interactions/elements/chain.ts` | 11 | 10 | 13 | 14 | 15 | **63** |
 
@@ -191,7 +191,7 @@ that answering "no" costs nothing already spent.
 object naming both. The shape that respects the fence is **two tables**: `SPAN_MARK_MODEL` in
 `engine/models/` (ops + geometry + style + ghost, engine-owned vocabulary) and `SPAN_MARK_TOOLS` in
 `interactions/` (port builders + handles + stamp), keyed by the same kind. This is the same split
-`engine/rendering/ghosts/ghostTypes.ts` + `interactions/toolGhost.ts` already uses, and it is the answer
+`engine/rendering/ghosts/ghostTypes.ts` + `interactions/state/toolGhost.ts` already uses, and it is the answer
 this plan assumes.
 
 ---

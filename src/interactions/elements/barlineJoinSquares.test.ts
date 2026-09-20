@@ -9,8 +9,8 @@
  * press finds it by — under the staff ABOVE its gap — and that they come off with the highlight layer.
  */
 import { describe, it, expect } from 'vitest'
-import { HighlightController } from '../HighlightController'
-import { createEditorState } from '../EditorState'
+import { HighlightController } from '../controllers/HighlightController'
+import { createEditorState } from '../state/EditorState'
 import { ElementRegistry } from '@/engine/ElementRegistry'
 import type { MusicEngine } from '@/engine/MusicEngine'
 import { paintBarlineJoinSquares } from './barlineJoinSquares'

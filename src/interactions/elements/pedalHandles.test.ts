@@ -4,7 +4,7 @@ import {
   PEDAL_HANDLE_GAP_PX as GAP,
 } from './pedalHandles'
 import { ElementRegistry, type ElementInfo } from '../../engine/ElementRegistry'
-import { createEditorState, type EditorState } from '../EditorState'
+import { createEditorState, type EditorState } from '../state/EditorState'
 
 /**
  * Where a selected pedal's two endpoint squares sit.

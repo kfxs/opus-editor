@@ -800,7 +800,7 @@ side.
 
 🔎 A pleasant consequence of dropping the ghost (§8): with no `ToolGhost` member and no
 `GHOST_DRAWERS` row, this feature never touches the engine↔editor vocabulary seam
-(`engine/rendering/ghosts/ghostTypes.ts` ⇄ `interactions/toolGhost.ts`) at all. One fewer arrow to get
+(`engine/rendering/ghosts/ghostTypes.ts` ⇄ `interactions/state/toolGhost.ts`) at all. One fewer arrow to get
 backwards.
 
 **6 — a statement that can change mid-score is positional.** The hairpin is positional by
@@ -1966,7 +1966,7 @@ want to be able to control the mouth"*. The rule itself already existed — `nud
 owns which square HAS the mouth, stepping from what is DRAWN, and the clamp into
 `authoredApertureRange` — so this is a new DEVICE for it, not a new behaviour.
 
-New module: `interactions/wheelGestures.ts`, a TABLE of modifier+wheel gestures with one row today.
+New module: `interactions/controllers/wheelGestures.ts`, a TABLE of modifier+wheel gestures with one row today.
 ⛔ Not an `if` in `App.ts`: the app shell is not a place for per-mark rules, and the second row must
 be a row. The shell gains three lines (offer the wheel, `preventDefault`, repaint). ⛔ `Ctrl`+wheel is
 not in the table — zoom is the app's own, always score zoom (docs/plans/zoom-plan.md §7).

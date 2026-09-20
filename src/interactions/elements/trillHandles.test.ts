@@ -4,7 +4,7 @@ import {
   TRILL_HANDLE_GAP_PX as GAP,
 } from './trillHandles'
 import { ElementRegistry, type ElementInfo } from '../../engine/ElementRegistry'
-import { createEditorState, type EditorState } from '../EditorState'
+import { createEditorState, type EditorState } from '../state/EditorState'
 
 /**
  * Where a selected trill's two endpoint squares sit.

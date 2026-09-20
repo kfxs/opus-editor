@@ -54,7 +54,7 @@ export const GROUP_SIGN_GHOST_GROUP_CLASS = 'ghost-groupsign'
  *
  * ⛔ **No `subBracket` row, and that is not an oversight** — SMuFL has no glyph for it, and it cannot
  * be armed: no palette button (his call, 2026-08-29) and the console APPLIES rather than arms.
- * `interactions/toolGhost` returns no ghost for it, so this table is never asked.
+ * `interactions/state/toolGhost` returns no ghost for it, so this table is never asked.
  */
 const SIGN_GLYPHS = {
   // ⭐ `braceLarge`, ⛔ NOT plain `brace` — the ghost shows the glyph we ENGRAVE (P4b chose this

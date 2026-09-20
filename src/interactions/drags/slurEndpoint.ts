@@ -19,7 +19,7 @@
  * the end by the grab offset. The end stays ARMED after the drop — the drop ends the gesture, not
  * the selection — so the arrows carry on from where the hand stopped.
  */
-import type { EditorState } from '../EditorState'
+import type { EditorState } from '../state/EditorState'
 import { dragArmedSlurEndpoint } from '../slurEndpointWalk'
 import { beginHeldDrag } from './heldDrag'
 import type { DragHost, Gesture } from './gesture'

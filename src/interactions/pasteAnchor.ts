@@ -27,9 +27,9 @@
  */
 import type { Fraction, Measure, Score } from '../types/music'
 import type { MusicEngine } from '../engine/MusicEngine'
-import { assertNeverElement, type EditorState, type SelectedElement } from './EditorState'
+import { assertNeverElement, type EditorState, type SelectedElement } from './state/EditorState'
 import { earliestSelectedPosition } from './clipboard'
-import { selectedNoteIds } from './selection'
+import { selectedNoteIds } from './state/selection'
 import { staffIndexOfId } from '../engine/models/staffContent'
 import { fracCreate, fracCompare, fracToNumber } from '../utils/fraction'
 import { staffOf, voiceOf } from '../utils/lanes'

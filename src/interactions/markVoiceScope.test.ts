@@ -7,9 +7,9 @@
  */
 import { describe, it, expect, vi } from 'vitest'
 import { applyMarkVoiceScope, selectedMarkScope, selectionHasScopedMark } from './markVoiceScope'
-import { createEditorState, type EditorState } from './EditorState'
-import type { SelectionItem } from './selection'
-import { itemKey } from './selection'
+import { createEditorState, type EditorState } from './state/EditorState'
+import type { SelectionItem } from './state/selection'
+import { itemKey } from './state/selection'
 import type { VoiceScope } from '../utils/dynamicScope'
 
 /** An engine that records every scope write and reports each as a real change. */

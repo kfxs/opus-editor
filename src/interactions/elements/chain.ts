@@ -38,7 +38,7 @@
  */
 import type { MusicEngine } from '../../engine/MusicEngine'
 import type { ElementInfo, ElementRegistry } from '../../engine/ElementRegistry'
-import type { EditorState, SelectedElement } from '../EditorState'
+import type { EditorState, SelectedElement } from '../state/EditorState'
 import type { DragHost, Gesture } from '../drags/gesture'
 import type { ElementKeys } from './keys'
 import type { Fraction } from '../../types/music'

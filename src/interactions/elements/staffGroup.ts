@@ -18,7 +18,7 @@ import { dbg } from '@/utils/debug'
 import type { ClickableElementSpec } from './chain'
 import { signOutwardReachSpaces } from '@/engine/layout/systemStartColumn'
 import { ELEMENT_SELECTION_FILL } from '@/utils/selectionColors'
-import { selectedOf } from '../EditorState'
+import { selectedOf } from '../state/EditorState'
 import { handleHitBox, paintHandleSquare } from './handleSquare'
 import { staffGroupHandles } from './staffGroupHandles'
 

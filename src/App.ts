@@ -5,17 +5,17 @@ import { attachedMarksOf } from './interactions/attachedMarks'
 import { ScoreModel } from './engine/models/ScoreModel'
 import { VIEWPORT_HEIGHT } from '@/engine/layout/layoutConfig'
 import { DEFAULT_ZOOM } from './engine/ViewportModel'
-import { createObservableEditorState, scoreCursorClass, selectedOf } from './interactions/EditorState'
-import { HighlightController } from './interactions/HighlightController'
-import { RenderController } from './interactions/RenderController'
-import { runWheelGesture } from '@/interactions/wheelGestures'
-import { SelectionController } from './interactions/SelectionController'
-import { PaletteController } from './interactions/PaletteController'
-import { KeyboardController } from './interactions/KeyboardController'
-import { MouseController } from './interactions/MouseController'
+import { createObservableEditorState, scoreCursorClass, selectedOf } from './interactions/state/EditorState'
+import { HighlightController } from './interactions/controllers/HighlightController'
+import { RenderController } from './interactions/controllers/RenderController'
+import { runWheelGesture } from '@/interactions/controllers/wheelGestures'
+import { SelectionController } from './interactions/controllers/SelectionController'
+import { PaletteController } from './interactions/controllers/PaletteController'
+import { KeyboardController } from './interactions/controllers/KeyboardController'
+import { MouseController } from './interactions/controllers/MouseController'
 import { TextEditController } from './interactions/TextEditController'
 import { DomTextEdit } from './interactions/DomTextEdit'
-import { GutterController } from './interactions/GutterController'
+import { GutterController } from './interactions/controllers/GutterController'
 import { ClipboardController } from './interactions/ClipboardController'
 import { NoteOffsetController } from './interactions/NoteOffsetController'
 import { ClefOffsetController } from './interactions/ClefOffsetController'
@@ -34,15 +34,15 @@ import { SlurGeometryController } from './interactions/SlurGeometryController'
 import { HairpinGeometryController } from './interactions/HairpinGeometryController'
 import { ArticulationStemAlignController } from './interactions/ArticulationStemAlignController'
 import { FractionalBeamSideController } from './interactions/FractionalBeamSideController'
-import { createViewportHost } from './interactions/ViewportHost'
-import { playbackStartMeasure } from './interactions/playbackStart'
+import { createViewportHost } from './interactions/controllers/ViewportHost'
+import { playbackStartMeasure } from './interactions/controllers/playbackStart'
 import { PASTEBOARD_MARGIN } from './engine/pasteboard'
-import { wireShortcuts } from './interactions/shortcutWiring'
-import { wireKeypadSync } from './interactions/keypadSync'
-import { wireSelectionInspection } from './interactions/selectionInspectionSync'
-import { wireSoundSync } from './interactions/soundSync'
-import { wirePlayRepeatsSync } from './interactions/playRepeatsSync'
-import { isSelectedStaffSmall, toggleSelectedStaffSize } from './interactions/staffSizeToggle'
+import { wireShortcuts } from './interactions/controllers/shortcutWiring'
+import { wireKeypadSync } from './interactions/controllers/keypadSync'
+import { wireSelectionInspection } from './interactions/controllers/selectionInspectionSync'
+import { wireSoundSync } from './interactions/controllers/soundSync'
+import { wirePlayRepeatsSync } from './interactions/controllers/playRepeatsSync'
+import { isSelectedStaffSmall, toggleSelectedStaffSize } from './interactions/controllers/staffSizeToggle'
 import { exportScoreJson, exportScorePdfFile, importScoreJson, openExampleScore } from './interactions/scoreFileIo'
 import { renderCensus, buildSyntheticScore } from './dev/renderCensus' // P0 instrument — temporary
 import { layoutFlushCensus } from './dev/layoutFlushCensus' // P0 instrument — temporary
@@ -500,7 +500,7 @@ export function createEditorApp(host: HTMLElement): EditorApp {
   menuActions.addStaffBelow = { run: () => palette.addStaffBelow(), enabled: singleBox }
   menuActions.smallStaff = {
     // An ENGINE read, not a state one: the size lives on the staff, so this is the same pair of
-    // functions the toolbar's `Small` button uses (`interactions/staffSizeToggle.ts` owns the rule — it
+    // functions the toolbar's `Small` button uses (`interactions/controllers/staffSizeToggle.ts` owns the rule — it
     // left `dev/` when this menu shipped, since nothing in a built site may import the shell).
     isOn: () => isSelectedStaffSmall(state, getEngine()),
     toggle: () => { if (toggleSelectedStaffSize(state, getEngine())) renderer.renderScore() },
@@ -637,7 +637,7 @@ export function createEditorApp(host: HTMLElement): EditorApp {
    *  or not the pointer is over the score ("zoom is always score zoom", docs/plans/zoom-plan.md §7). */
   function handleZoomWheel(e: WheelEvent): void {
     // ⭐ A modifier + wheel may mean something on the score — today the hairpin's MOUTH
-    // (`interactions/wheelGestures`, which owns the table and declines when nothing is armed). It is
+    // (`interactions/controllers/wheelGestures`, which owns the table and declines when nothing is armed). It is
     // asked FIRST because `Ctrl` is zoom's alone; a row that took the wheel kills the scroll.
     const gesture = runWheelGesture(state, engine, e)
     if (gesture.consumed) {
@@ -778,7 +778,7 @@ export function createEditorApp(host: HTMLElement): EditorApp {
   /**
    * Play / stop — the `p` key and the toolbar's button, one function so they cannot drift.
    *
-   * ⭐ **Playback starts at what you have selected** (`interactions/playbackStart.ts`): the bar the
+   * ⭐ **Playback starts at what you have selected** (`interactions/controllers/playbackStart.ts`): the bar the
    * selected element belongs to, the earliest bar of a selected group, the bar AFTER a selected
    * barline, or the top when nothing is selected. Sibelius's behaviour, and the reason `p` is the
    * play key here.

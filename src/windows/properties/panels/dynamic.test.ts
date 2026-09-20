@@ -3,7 +3,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { PropertiesWidget } from '../PropertiesWidget'
 import { bus } from '@/bus'
 import type { DynamicOffsetRequest } from '@/bus'
-import type { InspectedElement } from '@/interactions/inspectedElement'
+import type { InspectedElement } from '@/interactions/state/inspectedElement'
 
 /**
  * ⭐ A DYNAMIC'S (or expression's) OFFSET AS TWO NUMBERS — his ask, 2026-08-17: *"we also should be

@@ -3,7 +3,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { PropertiesWidget } from '../PropertiesWidget'
 import { bus } from '@/bus'
 import type { ClefOffsetRequest } from '@/bus'
-import type { InspectedElement } from '@/interactions/inspectedElement'
+import type { InspectedElement } from '@/interactions/state/inspectedElement'
 
 /**
  * ⭐⭐ **AN INLINE CLEF'S HORIZONTAL OFFSET** — his ask, 2026-08-28: *"when the clef is not in the

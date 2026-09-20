@@ -6,7 +6,7 @@
  *
  * ⭐ **HIS CALL, 2026-08-17 — and it overturns a written decision, deliberately.** The trill was one
  * of the six armed tools that showed only the blue cursor, and the reason was recorded in three
- * places (`interactions/toolGhost.ts`, {@link ToolGhost}, docs/plans/trill-plan.md §6): a trill is drawn
+ * places (`interactions/state/toolGhost.ts`, {@link ToolGhost}, docs/plans/trill-plan.md §6): a trill is drawn
  * ABOVE the music at a height that comes from the ink of notes the click has not picked, so a `tr`
  * at the pointer previews a POSITION nothing has decided. His answer: *"we really want to see a tr
  * ghost; this is much better"* — the ghost's job is to say WHAT the next click makes, not where the

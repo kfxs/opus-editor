@@ -1,6 +1,6 @@
 import { bus } from '@/bus'
 import type { TempoOffsetOverride } from '@/types/music'
-import type { InspectedOf } from '@/interactions/inspectedElement'
+import type { InspectedOf } from '@/interactions/state/inspectedElement'
 import { buildMarkOffsetRow } from '../rows'
 import { live, overrideOf, type PanelRows } from './panel'
 

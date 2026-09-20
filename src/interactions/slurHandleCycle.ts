@@ -31,8 +31,8 @@
  * ordinary same-line slur that yields exactly the reading order: **start square → first dot → second
  * dot → end square.**
  */
-import type { EditorState, SelectedElement } from './EditorState'
-import { selectedOf } from './EditorState'
+import type { EditorState, SelectedElement } from './state/EditorState'
+import { selectedOf } from './state/EditorState'
 import type { ElementInfo, ElementRegistry } from '../engine/ElementRegistry'
 
 /** The slur-shaped members of {@link SelectedElement} — what one Tab press arms. */

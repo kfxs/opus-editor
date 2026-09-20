@@ -59,7 +59,7 @@ describe('frameName — one V8 stack line', () => {
   })
 
   it('⭐ keeps the receiver on a method', () => {
-    expect(frameName('    at MouseController.clientToSvg (http://localhost:5199/src/interactions/MouseController.ts:666:8)'))
+    expect(frameName('    at MouseController.clientToSvg (http://localhost:5199/src/interactions/controllers/MouseController.ts:666:8)'))
       .toBe('MouseController.clientToSvg')
   })
 

@@ -11,7 +11,7 @@
 import { dbg } from '@/utils/debug'
 import type { ClickableElementSpec } from './chain'
 import type { HighlightContext } from './highlightContext'
-import { selectedOf } from '../EditorState'
+import { selectedOf } from '../state/EditorState'
 import { voiceFillColor } from '@/utils/voiceColors'
 import { distToSegment } from './slur'
 

@@ -9,8 +9,8 @@
  * a press finds it by — under `hairpinId`, and only for as long as the highlight layer lives.
  */
 import { describe, it, expect } from 'vitest'
-import { HighlightController } from '../HighlightController'
-import { createEditorState } from '../EditorState'
+import { HighlightController } from '../controllers/HighlightController'
+import { createEditorState } from '../state/EditorState'
 import { ElementRegistry } from '@/engine/ElementRegistry'
 import type { MusicEngine } from '@/engine/MusicEngine'
 import { HAIRPIN_ELEMENT } from './hairpin'

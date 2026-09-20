@@ -81,7 +81,7 @@ export function beamGroupStemDirection(slots: ChordRest[], clef: Clef = 'treble'
 
 /**
  * ⭐⭐ **FLIP THE STEM OF THE THING THAT HAS ONE** — the note's beam GROUP, or the note alone when it
- * is not beamed. `x`'s fallback row (`interactions/flipSelection`), through
+ * is not beamed. `x`'s fallback row (`interactions/state/flipSelection`), through
  * `ScoreModel.flipStemDirection`.
  *
  * Two presses round-trip: forced → auto, so a flipped-then-unflipped group follows the engraver

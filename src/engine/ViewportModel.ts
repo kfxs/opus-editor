@@ -1,7 +1,7 @@
 /**
  * ViewportModel — the framework-agnostic state of the score *viewport*: the fixed-size window
  * you look through, the full content surface behind it, and the current scroll offset between
- * them. Pure data + math, zero DOM, zero framework — a host adapter (`interactions/ViewportHost`)
+ * them. Pure data + math, zero DOM, zero framework — a host adapter (`interactions/controllers/ViewportHost`)
  * is the only piece that touches a real scroll element. Survives a framework port verbatim and is
  * unit-testable with no DOM.
  *
@@ -165,7 +165,7 @@ export class ViewportModel {
 
   /**
    * An opaque strip pinned over the LEADING edge of the viewport — linear view's frozen gutter
-   * (`interactions/GutterController`). Null whenever nothing is pinned there (wrapped view).
+   * (`interactions/controllers/GutterController`). Null whenever nothing is pinned there (wrapped view).
    *
    * The model has to be told, because a pinned strip changes what a legal scroll offset IS. The
    * gutter reports the clef and bar *under it*, so it is only honest while it is against the music;

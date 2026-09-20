@@ -7,7 +7,7 @@
  */
 import { describe, it, expect } from 'vitest'
 import { groupTargetFromSelection, targetStaffIds } from './groupStamp'
-import type { EditorState } from './EditorState'
+import type { EditorState } from './state/EditorState'
 
 const state = (selectedElement: unknown, selectedTool = 'selection'): EditorState =>
   ({ selectedElement, selectedTool } as unknown as EditorState)

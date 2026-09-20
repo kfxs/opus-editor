@@ -26,8 +26,8 @@
  * both squares sit on that band's middle and there is nothing to re-derive — `pedalHandles`' case.
  */
 import type { ElementInfo, ElementRegistry } from '../../engine/ElementRegistry'
-import type { EditorState } from '../EditorState'
-import { selectedOf } from '../EditorState'
+import type { EditorState } from '../state/EditorState'
+import { selectedOf } from '../state/EditorState'
 import { dbg } from '../../utils/debug'
 
 /** One drawn handle: a point, and which end of the trill it is. */

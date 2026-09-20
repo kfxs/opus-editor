@@ -1,5 +1,5 @@
 import { bus } from '@/bus'
-import type { InspectedOf } from '@/interactions/inspectedElement'
+import type { InspectedOf } from '@/interactions/state/inspectedElement'
 import type { PedalOffsetOverride } from '@/types/music'
 import { scalarOffsetRow } from '../rows'
 import { live, overrideOf, type PanelRows } from './panel'

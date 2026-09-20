@@ -26,7 +26,7 @@ import type { ClickableElementSpec } from './chain'
 import type { HighlightContext } from './highlightContext'
 import { ELEMENT_SELECTION_FILL } from '@/utils/selectionColors'
 import { scoreTextClass } from '@/engine/rendering/ScoreHeaderPass'
-import { selectedOf } from '../EditorState'
+import { selectedOf } from '../state/EditorState'
 
 export const SCORE_TEXT_ELEMENT: ClickableElementSpec = {
   kind: 'scoreText',

@@ -301,7 +301,7 @@ left edge.
 - ⚠️ **`StaveConnector` draws at the stave's own x.** A gutter stave at x=0 puts the system line
   half outside the viewBox, where it is clipped to nothing — hence `GUTTER_INSET`. (The score never
   hits this: its staves start at the margin.)
-- The screen↔layout mapping lives in **`interactions/GutterController`**, not in the Vue
+- The screen↔layout mapping lives in **`interactions/controllers/GutterController`**, not in the Vue
   composable. It is the one real piece of logic in the feature — the mapping CSS gives the score
   for free (`layoutX = scrollX/zoom − padX + GUTTER_WIDTH`, `screenY = (padY + layoutY)·zoom −
   scrollY`) — and a framework port must not have to rewrite it.

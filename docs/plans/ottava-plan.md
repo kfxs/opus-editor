@@ -802,7 +802,7 @@ band machinery.
     selected"*) — `ottavaOps.toggleOttavaDirection` NEGATES the shift, so a `15ma` flips to `15mb`
     and never to `8vb`: the signed number is the whole statement. ⚠️ It COMMITS (audible: an ottava's
     shift is what the covered notes sound) where the trill's branch of the same key only records
-    undo. ⭐ The key's handler became a TABLE at the same time — `interactions/flipSelection.ts`,
+    undo. ⭐ The key's handler became a TABLE at the same time — `interactions/state/flipSelection.ts`,
     six branches in `shortcutWiring` having been one `if` away from seven. ⛔ Still no shortcut that
     ARMS the tool; §7.9 stands.
   ⭐⭐ **The one thing P5 found that the plan had not said out loud: THE LANE IS A STAFF.**

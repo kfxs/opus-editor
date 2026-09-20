@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach, vi, type Mock } from 'vitest'
 import { MusicEngine } from '../engine/MusicEngine'
-import { PaletteController } from './PaletteController'
-import { createEditorState, type EditorState } from './EditorState'
-import { fanHighlight } from './keypadSync'
+import { PaletteController } from './controllers/PaletteController'
+import { createEditorState, type EditorState } from './state/EditorState'
+import { fanHighlight } from './controllers/keypadSync'
 import { fracCreate as frac } from '../utils/fraction'
 import { DEFAULT_FAN_BEAMS, DEFAULT_FAN_COUNT } from '../utils/fannedBeam'
 

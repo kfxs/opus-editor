@@ -2,7 +2,7 @@ import { dbg } from '@/utils/debug'
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { ElementRegistry } from '../engine/ElementRegistry'
 import { SPAN_MARK_MODEL, type SpanMarkKind } from '../engine/models/spanMarkModel'
-import type { EditorState } from './EditorState'
+import type { EditorState } from './state/EditorState'
 import { SPAN_MARK_TOOLS } from './spanMarkTools'
 
 /**

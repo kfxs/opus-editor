@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest'
-import { createEditorState } from './EditorState'
+import { createEditorState } from './state/EditorState'
 import { LINE_TOOL_KINDS } from '@/bus/lineSelection'
 import { armedLineTool, pressLineTool } from './lineTools'
-import type { PaletteController } from './PaletteController'
+import type { PaletteController } from './controllers/PaletteController'
 
 /**
  * The one translation from the family's shared names to the palette methods — so the Lines window's

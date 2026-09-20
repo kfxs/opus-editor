@@ -9,8 +9,8 @@
 import type { ElementKindSpec } from './chain'
 import type { HighlightContext } from './highlightContext'
 import { voiceFillColor } from '@/utils/voiceColors'
-import { passageOf } from '../measurePassage'
-import { selectedOf } from '../EditorState'
+import { passageOf } from '../state/measurePassage'
+import { selectedOf } from '../state/EditorState'
 
 export const MEASURE_RANGE_ELEMENT: ElementKindSpec = {
   kind: 'measureRange',
@@ -52,7 +52,7 @@ export function paintMeasureBox(ctx: HighlightContext): void {
   const staffCount = engine.getScore().staves?.length ?? 1
   // ⭐⭐ **A `single` passage spans a RANGE of staves, not one** — his report of 2026-08-29, where a
   //   shift-click onto the staff below had to select *"the measure but in both staves"*. The two
-  //   ends are normalised by `interactions/measurePassage`, the same call the selection itself
+  //   ends are normalised by `interactions/state/measurePassage`, the same call the selection itself
   //   makes, so ⭐ **the box and the selected ids cannot disagree** — the highlight promises the copy.
   const passage = passageOf(range)
   const lines = new Map<number, { left: number; right: number; top: number; bottom: number }>()

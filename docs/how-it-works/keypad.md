@@ -53,7 +53,7 @@ collapsed (docs/history/refactor-plan-2026-07-27.md 3b).
 vocabulary owned by `keypadLayouts`, so putting it there would make the bus depend upward on
 `windows/` — the single thing that directory exists to prevent. It sits beside the layouts instead.
 
-The lights flow IN through `interactions/keypadSync.ts`, which recomputes them on every state change
+The lights flow IN through `interactions/controllers/keypadSync.ts`, which recomputes them on every state change
 and pushes them to the seams. Presses flow OUT through the same seams to `PaletteController` — the
 same methods the dev toolbar's buttons call.
 

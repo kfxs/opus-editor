@@ -1,6 +1,6 @@
 import type { LineToolKind } from '@/bus/lineSelection'
-import type { EditorState } from './EditorState'
-import type { PaletteController } from './PaletteController'
+import type { EditorState } from './state/EditorState'
+import type { PaletteController } from './controllers/PaletteController'
 
 /**
  * What a LINES row DOES, and whether it is lit — the one translation from the bus's vocabulary

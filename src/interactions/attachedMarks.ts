@@ -32,7 +32,7 @@
  * to the staff and is offered to any of its notes.
  */
 import type { MusicEngine } from '../engine/MusicEngine'
-import type { SelectedElement } from './EditorState'
+import type { SelectedElement } from './state/EditorState'
 import { fracCompare } from '../utils/fraction'
 import { staffOf, voiceOf } from '../utils/lanes'
 import { governsSlot } from '../utils/dynamicScope'

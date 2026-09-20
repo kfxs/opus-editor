@@ -4,7 +4,7 @@
 import { dbg } from '@/utils/debug'
 import type { ClickableElementSpec } from './chain'
 import type { HighlightContext } from './highlightContext'
-import { selectedOf } from '../EditorState'
+import { selectedOf } from '../state/EditorState'
 import { voiceFillColor } from '@/utils/voiceColors'
 import { tremoloGlyph } from '@/utils/tremoloGlyphs'
 import { TREMOLO_PAIR_GROUP } from '@/utils/tremoloPair'

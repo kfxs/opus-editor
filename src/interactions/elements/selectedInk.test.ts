@@ -12,8 +12,8 @@
  * which is all the recolour touches. No geometry is asserted here; that is the browser suite's.
  */
 import { describe, it, expect } from 'vitest'
-import { HighlightController } from '../HighlightController'
-import { createEditorState, type SelectedElement } from '../EditorState'
+import { HighlightController } from '../controllers/HighlightController'
+import { createEditorState, type SelectedElement } from '../state/EditorState'
 import { ElementRegistry } from '@/engine/ElementRegistry'
 import type { MusicEngine } from '@/engine/MusicEngine'
 import { ELEMENT_SELECTION_FILL } from '@/utils/selectionColors'

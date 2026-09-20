@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { MusicEngine } from '../engine/MusicEngine'
 import { ClipboardController } from './ClipboardController'
-import type { RenderController } from './RenderController'
-import type { SelectionController } from './SelectionController'
-import { createEditorState, type EditorState } from './EditorState'
+import type { RenderController } from './controllers/RenderController'
+import type { SelectionController } from './controllers/SelectionController'
+import { createEditorState, type EditorState } from './state/EditorState'
 import { fracCreate as frac, fracToNumber } from '../utils/fraction'
 
 /**

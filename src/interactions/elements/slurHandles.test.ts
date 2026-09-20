@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect } from 'vitest'
-import { HighlightController } from '../HighlightController'
-import { createEditorState, type SlurSegmentEndpoint, type SlurControlPointHandle } from '../EditorState'
+import { HighlightController } from '../controllers/HighlightController'
+import { createEditorState, type SlurSegmentEndpoint, type SlurControlPointHandle } from '../state/EditorState'
 import { ElementRegistry, type ElementInfo } from '@/engine/ElementRegistry'
 import type { MusicEngine } from '@/engine/MusicEngine'
 import type { ViewMode } from '@/engine/layout/layoutConfig'

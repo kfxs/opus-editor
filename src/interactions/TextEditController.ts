@@ -1,4 +1,4 @@
-import type { EditorState } from './EditorState'
+import type { EditorState } from './state/EditorState'
 import type { MenuItem } from '../menus/MenuItem'
 
 /**

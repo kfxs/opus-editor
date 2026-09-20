@@ -8,7 +8,7 @@ import { dbg } from '@/utils/debug'
 import type { ClickableElementSpec } from './chain'
 import type { HighlightContext } from './highlightContext'
 import { staffOf } from '@/utils/lanes'
-import { selectedOf } from '../EditorState'
+import { selectedOf } from '../state/EditorState'
 import { paintGlyphsInBBox } from './headerGlyphs'
 
 export const TIME_SIGNATURE_ELEMENT: ClickableElementSpec = {

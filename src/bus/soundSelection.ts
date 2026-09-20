@@ -18,7 +18,7 @@ import { PaletteSelection } from './paletteSelection'
  * (docs/plans/instruments-plan.md P1b/P2) this store gains a lane or gives way to one that has it. That is
  * why the menu says *Score* Sound: the word admits the scope.
  *
- * ⚠️ Its HIGHLIGHT is mirrored from the score, not from the last press — see `interactions/soundSync`:
+ * ⚠️ Its HIGHLIGHT is mirrored from the score, not from the last press — see `interactions/controllers/soundSync`:
  * an undo can change the sound with nobody pressing anything.
  */
 export const createSoundSelection = () => new PaletteSelection<number>()

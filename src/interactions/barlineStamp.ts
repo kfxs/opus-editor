@@ -49,9 +49,9 @@
 import { dbg } from '@/utils/debug'
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { PlacedBarlineSign } from '../engine/layout/barlineSign'
-import type { EditorState } from './EditorState'
-import { selectedOf } from './EditorState'
-import { inStaffBand } from './staffBand'
+import type { EditorState } from './state/EditorState'
+import { selectedOf } from './state/EditorState'
+import { inStaffBand } from './state/staffBand'
 
 /**
  * The signs the palette can place, the eraser included — ⭐ **the ENGINE's type**, re-exported so the

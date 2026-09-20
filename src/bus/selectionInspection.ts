@@ -1,8 +1,8 @@
 // A TYPE-ONLY back edge, and deliberately the only one: `InspectedElement` is defined next to the
-// function that BUILDS it (`interactions/selectionSnapshot`), where the 30 lines explaining what it
+// function that BUILDS it (`interactions/state/selectionSnapshot`), where the 30 lines explaining what it
 // is and why it is not `SelectedElement` belong. `import type` is erased at build, so the bus stays
 // a runtime leaf — the same judgement the refactor plan makes about the two remaining cycles.
-import type { InspectedElement } from '@/interactions/inspectedElement'
+import type { InspectedElement } from '@/interactions/state/inspectedElement'
 
 /**
  * The current selection, resolved to objects, published for anything that wants to SHOW it — today

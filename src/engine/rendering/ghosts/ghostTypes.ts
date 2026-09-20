@@ -2,7 +2,7 @@
  * WHAT THE ENGINE CAN DRAW AT THE CURSOR — the payload of every marking-tool ghost, in one union.
  *
  * ⚠️ **This type exists to keep an arrow pointing the right way.** The obvious shape for
- * `drawToolGhost` was to take the editor's armed `MarkingTool` (`interactions/EditorState.ts`)
+ * `drawToolGhost` was to take the editor's armed `MarkingTool` (`interactions/state/EditorState.ts`)
  * straight down into the renderer. That inverts `App.ts → interactions → engine`: the engine would
  * import the editor, and the score layer's package boundary (docs/DESIGN-PRINCIPLES.md §5) would be
  * quietly gone. Nothing would have said so — `.eslintrc.boundary.json` fenced only `utils/`,
@@ -22,7 +22,7 @@
  *    length of its own — it reads `selectedDuration`/`selectedDots` (see
  *    `MARKING_TOOL_USES_ARMED_LENGTH`).
  *
- * The `MarkingTool → ToolGhost` step is `interactions/toolGhost.ts`, on the editor side where the
+ * The `MarkingTool → ToolGhost` step is `interactions/state/toolGhost.ts`, on the editor side where the
  * armed state lives. Adding a ghost is a member here, a row in `GHOST_DRAWERS`, and a case there.
  *
  * ⚠️ NOT in the union: the ghost NOTE ({@link GhostNote}, declared at the foot of this file — it is
@@ -55,7 +55,7 @@ export type ToolGhost =
    *
    * ⛔ **No `subBracket`**, and that is not an oversight: SMuFL has no glyph for it, and it cannot be
    * armed — it has no palette button (his call, 2026-08-29) and the console APPLIES rather than arms.
-   * `interactions/toolGhost` returns no ghost for it, so this member is never constructed with one.
+   * `interactions/state/toolGhost` returns no ghost for it, so this member is never constructed with one.
    */
   | { kind: 'group'; symbol: 'brace' | 'bracket' }
   /** The finished mark ('Allegro (♩ = 120)'), so what you see is what gets engraved. */

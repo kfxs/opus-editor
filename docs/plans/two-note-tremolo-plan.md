@@ -364,7 +364,7 @@ named group — `openGroup` at draw time (⚠️ it PREFIXED with `vf-` until S1
 `closeGroup()` in a `finally`), then colour that group. It is the barline lesson again: paint the
 highlight, do not go hunting for glyphs to recolour.
 
-The palette's lit state (`interactions/keypadSync.tremoloHighlight`) answers with a `TremoloMark`
+The palette's lit state (`interactions/controllers/keypadSync.tremoloHighlight`) answers with a `TremoloMark`
 today; the pair is a second axis, so it reports separately — the count lights as it always did, and
 the pair button lights beside it.
 

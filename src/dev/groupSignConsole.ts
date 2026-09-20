@@ -34,7 +34,7 @@ import type { MusicEngine } from '@/engine/MusicEngine'
 import type { StaffGroup } from '@/types/music'
 import { groupsAt } from '@/engine/models/staffGroups'
 import { groupTargetFromSelection } from '@/interactions/groupStamp'
-import type { EditorState } from '@/interactions/EditorState'
+import type { EditorState } from '@/interactions/state/EditorState'
 import { systemStartColumn, scoreSystemStartIndentSpaces, scoreSystemStartIndentPx } from '@/engine/layout/systemStartColumn'
 
 /** The class `systemStart` draws its signs into. */

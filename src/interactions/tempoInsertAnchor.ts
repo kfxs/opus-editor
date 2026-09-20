@@ -33,8 +33,8 @@
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { Stop } from '../engine/models/tempoOps'
 import { tempoAnchorAt } from '../engine/models/tempoOps'
-import { passageOf } from './measurePassage'
-import type { EditorState } from './EditorState'
+import { passageOf } from './state/measurePassage'
+import type { EditorState } from './state/EditorState'
 import { fracCreate } from '../utils/fraction'
 
 /** What this needs off the engine — a Pick, so a spec can stand it up without a renderer. */

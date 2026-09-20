@@ -6,7 +6,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import type { ElementInfo } from '../../engine/ElementRegistry'
 import type { MusicEngine } from '../../engine/MusicEngine'
-import type { EditorState } from '../EditorState'
+import type { EditorState } from '../state/EditorState'
 import { fracCreate as frac } from '../../utils/fraction'
 import { DRAG_TIME_THRESHOLD_MS, type DragHost } from './gesture'
 import { beginClefDrag } from './clef'

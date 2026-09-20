@@ -44,7 +44,7 @@ import { createVoiceSelection } from './voiceSelection'
  * (`interactions/`) and the panels that have no business seeing them (`windows/`).
  *
  * WHY IT IS A DIRECTORY OF ITS OWN. These stores lived in `interactions/` and were imported by name
- * from six window modules, while `interactions/shortcutWiring` imported the windows back: two
+ * from six window modules, while `interactions/controllers/shortcutWiring` imported the windows back: two
  * directories pointing at each other, which `docs/ARCHITECTURE.md`'s *"dependencies point inward and
  * downward"* does not describe. They were never interaction LOGIC — they are a noticeboard both
  * layers pin to. Filed as a leaf, both sides depend downward on it and neither on the other

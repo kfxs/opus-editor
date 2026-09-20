@@ -1,5 +1,5 @@
 import { bus } from '@/bus'
-import type { InspectedOf } from '@/interactions/inspectedElement'
+import type { InspectedOf } from '@/interactions/state/inspectedElement'
 import type { Hairpin, HairpinEndpointOffsetOverride } from '@/types/music'
 import { BISHOP, buildNumberRow, buildPointRow } from '../rows'
 import { live, overrideOf, type PanelRows } from './panel'
@@ -29,7 +29,7 @@ export const hairpinRows: PanelRows<'hairpin'> = (element) => {
  * two seams (`bus/hairpinEditSelection` states the split).
  *
  * ⭐ It CHANGES a wedge, never makes one — the Lines window and Delete own that, exactly as for the
- * trill's row. And `x` on a selected hairpin still flips it (`interactions/flipSelection`): one
+ * trill's row. And `x` on a selected hairpin still flips it (`interactions/state/flipSelection`): one
  * fact, two instruments, which is this editor's ordinary shape.
  */
 function buildHairpinTypeSelect(hairpinId: string, current: Hairpin['type']): HTMLElement {

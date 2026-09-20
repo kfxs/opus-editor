@@ -11,7 +11,7 @@
  * ## ⭐ HIS FIRST TWO CASES ARE ONE CASE
  *
  * *"Multiple staves"* and *"just one staff"* need no branch: a `measureRange` carries a staff SPAN
- * since the passage work of the same day (`interactions/measurePassage`), so a one-staff selection
+ * since the passage work of the same day (`interactions/state/measurePassage`), so a one-staff selection
  * is simply `fromStaff === toStaff`. ⛔ Writing them as two rules would be two places to keep in
  * step for one sentence of behaviour.
  *
@@ -23,10 +23,10 @@
  * and the next click says where. Same for a selected clef, barline or dynamic: they name a bar or a
  * line, ⛔ never a run of staves.
  */
-import type { EditorState } from './EditorState'
+import type { EditorState } from './state/EditorState'
 import type { StaffGroup } from '@/types/music'
-import { selectedOf } from './EditorState'
-import { passageOf } from './measurePassage'
+import { selectedOf } from './state/EditorState'
+import { passageOf } from './state/measurePassage'
 
 /** The staves a sign will span — 0-based indices, low→high, inclusive. */
 export interface GroupTarget {

@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { MusicEngine } from '../engine/MusicEngine'
 import { anchorOfElement, pasteAnchorFor } from './pasteAnchor'
-import { createEditorState, type EditorState } from './EditorState'
+import { createEditorState, type EditorState } from './state/EditorState'
 import { fracCreate as frac, fracToNumber } from '../utils/fraction'
 import { levelToGlyphString } from '../utils/dynamics'
 

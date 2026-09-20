@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { slurHandleOrder, cycleSlurHandle } from './slurHandleCycle'
-import { createEditorState, type EditorState } from './EditorState'
+import { createEditorState, type EditorState } from './state/EditorState'
 import { ElementRegistry, type ElementInfo } from '../engine/ElementRegistry'
 
 /**

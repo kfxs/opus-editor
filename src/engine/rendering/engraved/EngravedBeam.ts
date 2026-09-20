@@ -378,7 +378,7 @@ export class EngravedBeam {
  * (`docs/research/beam-hook-research.md`; the rule itself is `engrave/beams/fractionalBeam`).
  *
  * ⚠️ **This is a TRANSLATION and nothing else** — the metre is the editor's and the rule is the
- * engine's; what happens here is the one step between them, exactly as `interactions/toolGhost.ts`
+ * engine's; what happens here is the one step between them, exactly as `interactions/state/toolGhost.ts`
  * translates an armed tool into `ghostTypes`. ⛔ No engraving decision is taken in this function.
  *
  * ## ⭐ Why `setPartialBeamSideAt` is enough, and ⛔ NOT a half-measure
