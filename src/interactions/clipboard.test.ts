@@ -8,21 +8,8 @@ import { addOttava } from '../engine/models/ottavaOps'
 import { addPedal } from '../engine/models/pedalOps'
 import { restPositionKey, restShiftOverrideOf, restHiddenOf, dynamicOffsetOverrideOf } from '../engine/models/engravingOverrides'
 
-const fakeRegistry = {
-  clear: vi.fn(), register: vi.fn(), getAll: vi.fn(() => []),
-  findAt: vi.fn(() => null), getByNoteId: vi.fn(() => null),
-  registerStaffGeometry: vi.fn(), getStaffGeometry: vi.fn(() => null),
-}
-vi.mock('../engine/rendering/ScoreRenderer', () => ({
-  ScoreRenderer: class {
-    initialize = vi.fn(); renderScore = vi.fn(); getElementRegistry = vi.fn(() => fakeRegistry)
-  },
-}))
-vi.mock('../engine/audio/PlaybackEngine', () => ({
-  PlaybackEngine: class {
-    setScore = vi.fn(); play = vi.fn(); pause = vi.fn(); stop = vi.fn(); setVolume = vi.fn(); onStateChange = vi.fn()
-  },
-}))
+vi.mock('../engine/rendering/ScoreRenderer', async () => (await import('@/testing/engineStubs')).scoreRendererStub())
+vi.mock('../engine/audio/PlaybackEngine', async () => (await import('@/testing/engineStubs')).playbackEngineStub())
 
 function makeEngine(): MusicEngine {
   const engine = new MusicEngine({ container: {} as unknown as HTMLElement, width: 800, height: 400 })

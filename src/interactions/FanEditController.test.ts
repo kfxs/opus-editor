@@ -11,22 +11,8 @@ import type { FanMark } from '../types/music'
  * dumb publisher; this is the controller that holds the engine, so these tests drive the seam the
  * way the inputs do.
  */
-const fakeRegistry = {
-  clear: vi.fn(), register: vi.fn(), getAll: vi.fn(() => []),
-  findAt: vi.fn(() => null), getById: vi.fn(() => null),
-  registerStaffGeometry: vi.fn(), getStaffGeometry: vi.fn(() => null),
-  getByMeasure: vi.fn(() => []),
-}
-vi.mock('../engine/rendering/ScoreRenderer', () => ({
-  ScoreRenderer: class {
-    initialize = vi.fn(); renderScore = vi.fn(); getElementRegistry = vi.fn(() => fakeRegistry)
-  },
-}))
-vi.mock('../engine/audio/PlaybackEngine', () => ({
-  PlaybackEngine: class {
-    setScore = vi.fn(); play = vi.fn(); pause = vi.fn(); stop = vi.fn(); setVolume = vi.fn(); onStateChange = vi.fn()
-  },
-}))
+vi.mock('../engine/rendering/ScoreRenderer', async () => (await import('@/testing/engineStubs')).scoreRendererStub())
+vi.mock('../engine/audio/PlaybackEngine', async () => (await import('@/testing/engineStubs')).playbackEngineStub())
 
 const FAN: FanMark = { direction: 'accel', count: 6, beams: 3 }
 

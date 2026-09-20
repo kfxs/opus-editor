@@ -4,6 +4,7 @@ import { buildClipboardFromSelection } from '../clipboard'
 import { getMeasureNotes } from '../../utils/musicUtils'
 import { fracCreate as frac } from '../../utils/fraction'
 import { spacingPositionKey, leadingSpaceOverrideOf, measureLeadingSpaces } from '../../engine/models/engravingOverrides'
+import { makeEngine } from '@/testing/makeEngine'
 
 /**
  * A leading space TRAVELS WITH THE MUSIC (docs/note-spacing-plan.md §6).
@@ -15,28 +16,9 @@ import { spacingPositionKey, leadingSpaceOverrideOf, measureLeadingSpaces } from
  * The other half of the same rule is the auto-reset: a space whose column no longer exists is
  * DROPPED, because a space with nothing to space would still widen the bar and shift nothing.
  */
-const fakeRegistry = {
-  clear: vi.fn(), register: vi.fn(), getAll: vi.fn(() => []),
-  findAt: vi.fn(() => null), getByNoteId: vi.fn(() => null),
-  registerStaffGeometry: vi.fn(), getStaffGeometry: vi.fn(() => null),
-  getByMeasure: vi.fn(() => []),
-}
-vi.mock('../../engine/rendering/ScoreRenderer', () => ({
-  ScoreRenderer: class {
-    initialize = vi.fn(); renderScore = vi.fn(); getElementRegistry = vi.fn(() => fakeRegistry)
-  },
-}))
-vi.mock('../../engine/audio/PlaybackEngine', () => ({
-  PlaybackEngine: class {
-    setScore = vi.fn(); play = vi.fn(); pause = vi.fn(); stop = vi.fn(); setVolume = vi.fn(); onStateChange = vi.fn()
-  },
-}))
+vi.mock('../../engine/rendering/ScoreRenderer', async () => (await import('@/testing/engineStubs')).scoreRendererStub())
+vi.mock('../../engine/audio/PlaybackEngine', async () => (await import('@/testing/engineStubs')).playbackEngineStub())
 
-function makeEngine(): MusicEngine {
-  const engine = new MusicEngine({ container: {} as unknown as HTMLElement, width: 800, height: 400 })
-  engine.addMeasure()
-  return engine
-}
 
 const measureId = (engine: MusicEngine, n: number) =>
   engine.getScore().measures.find(m => m.number === n)!.id

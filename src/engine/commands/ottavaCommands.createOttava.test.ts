@@ -31,11 +31,7 @@ vi.mock('../rendering/ScoreRenderer', () => ({
     }))
   },
 }))
-vi.mock('../audio/PlaybackEngine', () => ({
-  PlaybackEngine: class {
-    setScore = vi.fn(); play = vi.fn(); pause = vi.fn(); stop = vi.fn(); setVolume = vi.fn(); onStateChange = vi.fn()
-  },
-}))
+vi.mock('../audio/PlaybackEngine', async () => (await import('@/testing/engineStubs')).playbackEngineStub())
 
 describe('ottavaCommands.createOttava — through the facade', () => {
   let engine: MusicEngine

@@ -28,11 +28,7 @@ vi.mock('./rendering/ScoreRenderer', () => ({
     initialize = vi.fn(); renderScore = vi.fn(); getElementRegistry = vi.fn(() => fakeRegistry)
   },
 }))
-vi.mock('./audio/PlaybackEngine', () => ({
-  PlaybackEngine: class {
-    setScore = vi.fn(); play = vi.fn(); pause = vi.fn(); stop = vi.fn(); setVolume = vi.fn(); onStateChange = vi.fn()
-  },
-}))
+vi.mock('./audio/PlaybackEngine', async () => (await import('@/testing/engineStubs')).playbackEngineStub())
 
 const FAN: FanMark = { direction: 'accel', count: 4, beams: 3 }
 

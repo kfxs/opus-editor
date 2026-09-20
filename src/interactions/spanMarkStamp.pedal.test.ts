@@ -32,11 +32,7 @@ vi.mock('../engine/rendering/ScoreRenderer', () => ({
     }))
   },
 }))
-vi.mock('../engine/audio/PlaybackEngine', () => ({
-  PlaybackEngine: class {
-    setScore = vi.fn(); play = vi.fn(); pause = vi.fn(); stop = vi.fn(); setVolume = vi.fn(); onStateChange = vi.fn()
-  },
-}))
+vi.mock('../engine/audio/PlaybackEngine', async () => (await import('@/testing/engineStubs')).playbackEngineStub())
 
 describe("stampSpanMarkAtClick — the pedal's row", () => {
   let engine: MusicEngine

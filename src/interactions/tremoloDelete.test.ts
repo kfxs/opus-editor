@@ -16,22 +16,8 @@ import { createEditorState, type EditorState } from './EditorState'
 import { wireShortcuts } from './shortcutWiring'
 import { fracCreate as frac } from '../utils/fraction'
 
-const fakeRegistry = {
-  clear: vi.fn(), register: vi.fn(), getAll: vi.fn(() => []),
-  findAt: vi.fn(() => null), getByNoteId: vi.fn(() => null),
-  registerStaffGeometry: vi.fn(), getStaffGeometry: vi.fn(() => null),
-  getByMeasure: vi.fn(() => []),
-}
-vi.mock('../engine/rendering/ScoreRenderer', () => ({
-  ScoreRenderer: class {
-    initialize = vi.fn(); renderScore = vi.fn(); getElementRegistry = vi.fn(() => fakeRegistry)
-  },
-}))
-vi.mock('../engine/audio/PlaybackEngine', () => ({
-  PlaybackEngine: class {
-    setScore = vi.fn(); play = vi.fn(); pause = vi.fn(); stop = vi.fn(); setVolume = vi.fn(); onStateChange = vi.fn()
-  },
-}))
+vi.mock('../engine/rendering/ScoreRenderer', async () => (await import('@/testing/engineStubs')).scoreRendererStub())
+vi.mock('../engine/audio/PlaybackEngine', async () => (await import('@/testing/engineStubs')).playbackEngineStub())
 
 /** The tremolo on the chord at measure 1, beat 0 — read off the model, not off a projection. */
 function tremoloAt(engine: MusicEngine): unknown {

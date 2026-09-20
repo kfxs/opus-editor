@@ -13,16 +13,8 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { createEditorState, type EditorState } from './EditorState'
 import { MouseController } from './MouseController'
 import { fracCreate as frac } from '@/utils/fraction'
+import { fakeSvg } from '@/testing/fakeSvg'
 
-function fakeSvg(): SVGSVGElement {
-  return {
-    createSVGPoint() {
-      const p = { x: 0, y: 0, matrixTransform: (_m: unknown) => ({ x: p.x, y: p.y }) }
-      return p
-    },
-    getScreenCTM: () => ({ inverse: () => ({}) }),
-  } as unknown as SVGSVGElement
-}
 
 /** One note at (100, 100) in bar 1 beat 1 — the thing every test below grabs. */
 const NOTE_EL = {

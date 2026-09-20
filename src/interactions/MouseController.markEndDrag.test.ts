@@ -16,16 +16,8 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { createEditorState, type EditorState } from './EditorState'
 import { MouseController } from './MouseController'
+import { fakeSvg } from '@/testing/fakeSvg'
 
-function fakeSvg(): SVGSVGElement {
-  return {
-    createSVGPoint() {
-      const p = { x: 0, y: 0, matrixTransform: (_m: unknown) => ({ x: p.x, y: p.y }) }
-      return p
-    },
-    getScreenCTM: () => ({ inverse: () => ({}) }),
-  } as unknown as SVGSVGElement
-}
 
 /** One family's square, and the engine calls its frame makes. */
 interface Family {

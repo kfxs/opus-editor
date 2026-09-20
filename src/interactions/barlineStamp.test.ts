@@ -19,22 +19,8 @@ import { STAFF_BAND_PAD_PX } from './staffBand'
  * where a pixel landed in MUSICAL terms. ⭐ It does ask which drawn LINE a press is nearest, on a
  * stubbed registry of boxes — that is his rule of 2026-08-26 and it is arithmetic, not layout.
  */
-const fakeRegistry = {
-  clear: vi.fn(), register: vi.fn(), getAll: vi.fn(() => []),
-  findAt: vi.fn(() => null), getById: vi.fn(() => null),
-  registerStaffGeometry: vi.fn(), getStaffGeometry: vi.fn(() => null),
-  getByMeasure: vi.fn(() => []),
-}
-vi.mock('../engine/rendering/ScoreRenderer', () => ({
-  ScoreRenderer: class {
-    initialize = vi.fn(); renderScore = vi.fn(); getElementRegistry = vi.fn(() => fakeRegistry)
-  },
-}))
-vi.mock('../engine/audio/PlaybackEngine', () => ({
-  PlaybackEngine: class {
-    setScore = vi.fn(); play = vi.fn(); pause = vi.fn(); stop = vi.fn(); setVolume = vi.fn(); onStateChange = vi.fn()
-  },
-}))
+vi.mock('../engine/rendering/ScoreRenderer', async () => (await import('@/testing/engineStubs')).scoreRendererStub())
+vi.mock('../engine/audio/PlaybackEngine', async () => (await import('@/testing/engineStubs')).playbackEngineStub())
 
 describe('barlineStamp', () => {
   let engine: MusicEngine

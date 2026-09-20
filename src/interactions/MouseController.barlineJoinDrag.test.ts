@@ -15,16 +15,8 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { createEditorState, type EditorState } from './EditorState'
 import { MouseController } from './MouseController'
+import { fakeSvg } from '@/testing/fakeSvg'
 
-function fakeSvg(): SVGSVGElement {
-  return {
-    createSVGPoint() {
-      const p = { x: 0, y: 0, matrixTransform: (_m: unknown) => ({ x: p.x, y: p.y }) }
-      return p
-    },
-    getScreenCTM: () => ({ inverse: () => ({}) }),
-  } as unknown as SVGSVGElement
-}
 
 /** Two staves, one bar: staff 0's lines span y 90–130, staff 1's start at 240. ⇒ the gap is
  *  130…240 and its MIDDLE — the whole gesture's threshold — is y 185. */

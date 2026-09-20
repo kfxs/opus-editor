@@ -24,11 +24,7 @@ import { SPAN_HANDLE_ROOM_PX } from './layout/pageBounds'
  * — comfortably inside the sheet — and every case would pass without the rule existing at all. The
  * boxes below are supplied, which is what makes the assertions real.
  */
-vi.mock('./audio/PlaybackEngine', () => ({
-  PlaybackEngine: class {
-    setScore = vi.fn(); play = vi.fn(); pause = vi.fn(); stop = vi.fn(); setVolume = vi.fn(); onStateChange = vi.fn()
-  },
-}))
+vi.mock('./audio/PlaybackEngine', async () => (await import('@/testing/engineStubs')).playbackEngineStub())
 
 const PAGE = resolveSurface(A4_NORMAL)
 

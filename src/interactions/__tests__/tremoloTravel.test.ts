@@ -3,6 +3,7 @@ import { MusicEngine } from '../../engine/MusicEngine'
 import { buildClipboardFromSelection } from '../clipboard'
 import { fracCreate as frac } from '../../utils/fraction'
 import type { TremoloMark } from '../../types/music'
+import { makeEngine } from '@/testing/makeEngine'
 
 /**
  * A tremolo TRAVELS WITH THE NOTE (docs/tremolo-plan.md §6, P1).
@@ -19,28 +20,9 @@ import type { TremoloMark } from '../../types/music'
  * These are worth pinning precisely because the failure is invisible: nothing throws, nothing logs,
  * the mark is just gone the next time the bar is re-tiled.
  */
-const fakeRegistry = {
-  clear: vi.fn(), register: vi.fn(), getAll: vi.fn(() => []),
-  findAt: vi.fn(() => null), getByNoteId: vi.fn(() => null),
-  registerStaffGeometry: vi.fn(), getStaffGeometry: vi.fn(() => null),
-  getByMeasure: vi.fn(() => []),
-}
-vi.mock('../../engine/rendering/ScoreRenderer', () => ({
-  ScoreRenderer: class {
-    initialize = vi.fn(); renderScore = vi.fn(); getElementRegistry = vi.fn(() => fakeRegistry)
-  },
-}))
-vi.mock('../../engine/audio/PlaybackEngine', () => ({
-  PlaybackEngine: class {
-    setScore = vi.fn(); play = vi.fn(); pause = vi.fn(); stop = vi.fn(); setVolume = vi.fn(); onStateChange = vi.fn()
-  },
-}))
+vi.mock('../../engine/rendering/ScoreRenderer', async () => (await import('@/testing/engineStubs')).scoreRendererStub())
+vi.mock('../../engine/audio/PlaybackEngine', async () => (await import('@/testing/engineStubs')).playbackEngineStub())
 
-function makeEngine(): MusicEngine {
-  const engine = new MusicEngine({ container: {} as unknown as HTMLElement, width: 800, height: 400 })
-  engine.addMeasure()
-  return engine
-}
 
 /** C4 D4 E4 F4 on beats 0..3 of measure `m`; returns their (pitch) ids. */
 function fourNotes(engine: MusicEngine, m: number): string[] {

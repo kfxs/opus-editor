@@ -275,6 +275,10 @@ src/
                           #   + `inheritedDefaults` / `inheritedFonts` (the numbers and faces
                           #   taken from VexFlow, today's values as sourced ROWS)
     audio/                # PlaybackEngine + InstrumentPlayer seam (WebAudioFont)
+  testing/          # SPEC SUPPORT shared across folders — `engineStubs` (the renderer + playback
+                    #   `vi.mock` FACTORIES; ⛔ imports nothing of the engine's), `makeEngine`, `fakeSvg`.
+                    #   ⛔ Only helpers whose BODIES were identical live here: a spec's `note()` /
+                    #   `score()` builder is its own fixture and stays in the spec
   types/            # TypeScript interfaces, one file per domain: duration · pitch · tuplet · notes ·
                     #   signs · marks · engravingOverrides · score. ⭐ `music.ts` is the BARREL —
                     #   import from `@/types/music`; ⛔ a new type goes in its chapter, not the barrel

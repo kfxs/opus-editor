@@ -6,6 +6,7 @@ import { KeyboardController } from './KeyboardController'
 import { SelectionController } from './SelectionController'
 import { getMeasureNotes } from '../utils/musicUtils'
 import { fracCreate as frac, fracEq } from '@/utils/fraction'
+import { makeEngine } from '@/testing/makeEngine'
 
 // Characterization tests: they describe what KeyboardController DOES today, so the
 // Tier 2 decomposition can lean on them. They assert observable outcomes (engine
@@ -35,19 +36,8 @@ vi.mock('../engine/rendering/ScoreRenderer', () => ({
     getSystemOpeningMeasureNumber = vi.fn(() => undefined)
   },
 }))
-vi.mock('../engine/audio/PlaybackEngine', () => ({
-  PlaybackEngine: class {
-    setScore = vi.fn(); play = vi.fn(); pause = vi.fn(); stop = vi.fn()
-    setVolume = vi.fn(); onStateChange = vi.fn()
-  },
-}))
+vi.mock('../engine/audio/PlaybackEngine', async () => (await import('@/testing/engineStubs')).playbackEngineStub())
 
-function makeEngine(): MusicEngine {
-  const container = {} as unknown as HTMLElement
-  const engine = new MusicEngine({ container, width: 800, height: 400 })
-  engine.addMeasure()
-  return engine
-}
 
 const measure1 = (engine: MusicEngine) => engine.getScore().measures.find(m => m.number === 1)!
 const notesAtBeat = (engine: MusicEngine, beatNum: number) =>

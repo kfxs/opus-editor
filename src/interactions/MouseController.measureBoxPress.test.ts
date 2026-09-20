@@ -16,16 +16,8 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { createEditorState, type EditorState } from './EditorState'
 import { MouseController } from './MouseController'
+import { fakeSvg } from '@/testing/fakeSvg'
 
-function fakeSvg(): SVGSVGElement {
-  return {
-    createSVGPoint() {
-      const p = { x: 0, y: 0, matrixTransform: (_m: unknown) => ({ x: p.x, y: p.y }) }
-      return p
-    },
-    getScreenCTM: () => ({ inverse: () => ({}) }),
-  } as unknown as SVGSVGElement
-}
 
 /** Bar 1 spans x 100…300 on a staff whose five lines run y 90…130 — the box the tests press into. */
 const NOTE_EL = {

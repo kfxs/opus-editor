@@ -4,6 +4,7 @@ import { buildClipboardFromSelection } from '../clipboard'
 import { fracCreate as frac } from '../../utils/fraction'
 import { DEFAULT_FAN_COUNT, DEFAULT_FAN_BEAMS } from '../../utils/fannedBeam'
 import type { FanMark } from '../../types/music'
+import { makeEngine } from '@/testing/makeEngine'
 
 /**
  * A FAN TRAVELS WITH THE NOTE — the same explicit field lists `tremoloTravel.test.ts` pins, walked
@@ -11,30 +12,11 @@ import type { FanMark } from '../../types/music'
  * (docs/fanned-beams-plan.md §0). One difference, and it is the whole reason this file exists
  * separately: on a TIE-SPLIT the tremolo goes on both halves and **the fan goes on the first only**.
  */
-const fakeRegistry = {
-  clear: vi.fn(), register: vi.fn(), getAll: vi.fn(() => []),
-  findAt: vi.fn(() => null), getByNoteId: vi.fn(() => null),
-  registerStaffGeometry: vi.fn(), getStaffGeometry: vi.fn(() => null),
-  getByMeasure: vi.fn(() => []),
-}
-vi.mock('../../engine/rendering/ScoreRenderer', () => ({
-  ScoreRenderer: class {
-    initialize = vi.fn(); renderScore = vi.fn(); getElementRegistry = vi.fn(() => fakeRegistry)
-  },
-}))
-vi.mock('../../engine/audio/PlaybackEngine', () => ({
-  PlaybackEngine: class {
-    setScore = vi.fn(); play = vi.fn(); pause = vi.fn(); stop = vi.fn(); setVolume = vi.fn(); onStateChange = vi.fn()
-  },
-}))
+vi.mock('../../engine/rendering/ScoreRenderer', async () => (await import('@/testing/engineStubs')).scoreRendererStub())
+vi.mock('../../engine/audio/PlaybackEngine', async () => (await import('@/testing/engineStubs')).playbackEngineStub())
 
 const FAN: FanMark = { direction: 'accel', count: DEFAULT_FAN_COUNT, beams: DEFAULT_FAN_BEAMS }
 
-function makeEngine(): MusicEngine {
-  const engine = new MusicEngine({ container: {} as unknown as HTMLElement, width: 800, height: 400 })
-  engine.addMeasure()
-  return engine
-}
 
 /** The model (no engine wrapper yet — P0 is the model layer; P2 wires the button). */
 const model = (engine: MusicEngine) =>

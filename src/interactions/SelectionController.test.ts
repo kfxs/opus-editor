@@ -9,6 +9,7 @@ import { expandTieChains } from '../utils/beatMap'
 import { fracCreate as frac, fracEq } from '@/utils/fraction'
 import { getMeasureNotes, measureFanMemberNotes } from '@/utils/musicUtils'
 import { DEFAULT_FAN_COUNT, DEFAULT_FAN_BEAMS } from '@/utils/fannedBeam'
+import { makeEngine } from '@/testing/makeEngine'
 
 // Stub ScoreRenderer (needs canvas/SVG) and PlaybackEngine (needs Web Audio).
 const fakeRegistry = {
@@ -23,19 +24,8 @@ vi.mock('../engine/rendering/ScoreRenderer', () => ({
     getElementRegistry = vi.fn(() => fakeRegistry)
   },
 }))
-vi.mock('../engine/audio/PlaybackEngine', () => ({
-  PlaybackEngine: class {
-    setScore = vi.fn(); play = vi.fn(); pause = vi.fn(); stop = vi.fn()
-    setVolume = vi.fn(); onStateChange = vi.fn()
-  },
-}))
+vi.mock('../engine/audio/PlaybackEngine', async () => (await import('@/testing/engineStubs')).playbackEngineStub())
 
-function makeEngine(): MusicEngine {
-  const container = {} as unknown as HTMLElement
-  const engine = new MusicEngine({ container, width: 800, height: 400 })
-  engine.addMeasure()
-  return engine
-}
 
 const noteKey = (id: string) => itemKey({ kind: 'note', id })
 

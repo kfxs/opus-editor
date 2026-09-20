@@ -46,11 +46,7 @@ vi.mock('../rendering/ScoreRenderer', () => ({
     }))
   },
 }))
-vi.mock('../audio/PlaybackEngine', () => ({
-  PlaybackEngine: class {
-    setScore = vi.fn(); play = vi.fn(); pause = vi.fn(); stop = vi.fn(); setVolume = vi.fn(); onStateChange = vi.fn()
-  },
-}))
+vi.mock('../audio/PlaybackEngine', async () => (await import('@/testing/engineStubs')).playbackEngineStub())
 
 describe('MusicEngine — the release keeps no nudge the drawing would floor away', () => {
   let engine: MusicEngine

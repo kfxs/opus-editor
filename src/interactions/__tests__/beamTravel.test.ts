@@ -3,6 +3,7 @@ import { MusicEngine } from '../../engine/MusicEngine'
 import { buildClipboardFromSelection } from '../clipboard'
 import { fracCreate as frac, fracToNumber } from '../../utils/fraction'
 import type { BeamMode } from '../../types/music'
+import { makeEngine } from '@/testing/makeEngine'
 
 /**
  * AN AUTHORED BEAM TRAVELS WITH THE MUSIC — the beam twin of `tremoloTravel.test.ts`, and there
@@ -16,28 +17,9 @@ import type { BeamMode } from '../../types/music'
  * ⚠️ Which piece of a TIE-SPLIT keeps the statement is the mode's own question (`relayEvents`),
  * so the split cases live beside the rule, in `utils/rebar.test.ts`.
  */
-const fakeRegistry = {
-  clear: vi.fn(), register: vi.fn(), getAll: vi.fn(() => []),
-  findAt: vi.fn(() => null), getByNoteId: vi.fn(() => null),
-  registerStaffGeometry: vi.fn(), getStaffGeometry: vi.fn(() => null),
-  getByMeasure: vi.fn(() => []),
-}
-vi.mock('../../engine/rendering/ScoreRenderer', () => ({
-  ScoreRenderer: class {
-    initialize = vi.fn(); renderScore = vi.fn(); getElementRegistry = vi.fn(() => fakeRegistry)
-  },
-}))
-vi.mock('../../engine/audio/PlaybackEngine', () => ({
-  PlaybackEngine: class {
-    setScore = vi.fn(); play = vi.fn(); pause = vi.fn(); stop = vi.fn(); setVolume = vi.fn(); onStateChange = vi.fn()
-  },
-}))
+vi.mock('../../engine/rendering/ScoreRenderer', async () => (await import('@/testing/engineStubs')).scoreRendererStub())
+vi.mock('../../engine/audio/PlaybackEngine', async () => (await import('@/testing/engineStubs')).playbackEngineStub())
 
-function makeEngine(): MusicEngine {
-  const engine = new MusicEngine({ container: {} as unknown as HTMLElement, width: 800, height: 400 })
-  engine.addMeasure()
-  return engine
-}
 
 /** Four C4 eighths on beats 0, 0.5, 1, 1.5 of measure `m`; returns their (pitch) ids. */
 function fourEighths(engine: MusicEngine, m: number): string[] {

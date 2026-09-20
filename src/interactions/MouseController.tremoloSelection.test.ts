@@ -11,16 +11,8 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { createEditorState, selectedOf, type EditorState } from './EditorState'
 import { MouseController } from './MouseController'
+import { fakeSvg } from '@/testing/fakeSvg'
 
-function fakeSvg(): SVGSVGElement {
-  return {
-    createSVGPoint() {
-      const p = { x: 0, y: 0, matrixTransform: (_m: unknown) => ({ x: p.x, y: p.y }) }
-      return p
-    },
-    getScreenCTM: () => ({ inverse: () => ({}) }),
-  } as unknown as SVGSVGElement
-}
 
 /** A stem-up quarter: head at (100, 110), stem up its right side to y=75… */
 const NOTE_EL = { type: 'note' as const, id: 'n1', measure: 1, staff: 0, headX: 100,

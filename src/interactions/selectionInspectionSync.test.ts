@@ -1,9 +1,9 @@
 import { describe, it, expect, vi } from 'vitest'
-import { MusicEngine } from '../engine/MusicEngine'
 import { fracCreate as frac } from '../utils/fraction'
 import { createEditorState } from './EditorState'
 import { bus } from '@/bus'
 import { wireSelectionInspection } from './selectionInspectionSync'
+import { makeEngine } from '@/testing/makeEngine'
 
 /**
  * The Properties feed has to survive the case that broke it: the SAME element edited under a
@@ -33,18 +33,8 @@ vi.mock('../engine/rendering/ScoreRenderer', () => ({
     getSystemOpeningMeasureNumber = vi.fn(() => undefined)
   },
 }))
-vi.mock('../engine/audio/PlaybackEngine', () => ({
-  PlaybackEngine: class {
-    setScore = vi.fn(); play = vi.fn(); pause = vi.fn(); stop = vi.fn()
-    setVolume = vi.fn(); onStateChange = vi.fn()
-  },
-}))
+vi.mock('../engine/audio/PlaybackEngine', async () => (await import('@/testing/engineStubs')).playbackEngineStub())
 
-function makeEngine(): MusicEngine {
-  const engine = new MusicEngine({ container: {} as unknown as HTMLElement, width: 800, height: 400 })
-  engine.addMeasure()
-  return engine
-}
 
 describe('wireSelectionInspection', () => {
   it('refreshes when the SELECTED element is edited but the selection does not move', async () => {
