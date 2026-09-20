@@ -1,0 +1,252 @@
+// @vitest-environment jsdom
+import { describe, it, expect } from 'vitest'
+import { HighlightController } from '../HighlightController'
+import { createEditorState, type SlurSegmentEndpoint, type SlurControlPointHandle } from '../EditorState'
+import { ElementRegistry, type ElementInfo } from '@/engine/ElementRegistry'
+import type { MusicEngine } from '@/engine/MusicEngine'
+import type { ViewMode } from '@/engine/layout/layoutConfig'
+import { paintSlurHandles } from './slurHandles'
+
+/**
+ * Guards slur-handle drawing across same-line AND cross-system slurs.
+ *
+ * Round (control-point) and square (endpoint) handles draw independently, BUT a round
+ * handle now requires drag endpoints (`segmentEndpoints` for a cross-system segment, else
+ * `slurEndpoints`) — a control point with no endpoints can't be inverted into a cps delta,
+ * so it isn't drawn. A same-line slur is ONE partial (controlPoints + slurEndpoints) → one
+ * round pair + squares. A cross-system slur is N partials, each with its own controlPoints
+ * + segmentEndpoints (a round pair per segment), and the true ends on a single partial
+ * (`slurEndpoints`) → the squares. `paintSlurHandles` must LOOP all partials for rounds
+ * (§4a) — a single `.find` would have served only the first segment.
+ *
+ * We fabricate the `slur` partial(s), run `paintSlurHandles`, and count what it pushes back.
+ */
+function runPartials(
+  partialExtras: Partial<ElementInfo>[],
+  selectedEndpoint: 'start' | 'end' | null = null,
+  selectedSegment: EditorStateSegmentSel = null,
+  viewMode: ViewMode = 'wrapped',
+  selectedControlPoint: SlurControlPointHandle | null = null,
+) {
+  const registry = new ElementRegistry()
+  for (const extra of partialExtras) {
+    registry.add({ type: 'slur', id: 'S1', bbox: { x: 0, y: 0, width: 0, height: 0 }, ...extra })
+  }
+  const engine = {
+    getElementRegistry: () => registry,
+    getViewMode: () => viewMode,
+  } as unknown as MusicEngine
+
+  const canvas = document.createElement('div')
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+  canvas.appendChild(svg)
+
+  const state = createEditorState()
+  state.selectedElement = {
+    kind: 'slur',
+    id: 'S1',
+    endpoint: selectedEndpoint ?? undefined,
+    segmentEndpoint: selectedSegment ?? undefined,
+    controlPoint: selectedControlPoint ?? undefined,
+  }
+
+  const hc = new HighlightController(() => engine, () => canvas, state)
+  paintSlurHandles(hc.context()!)
+
+  return {
+    handles: registry.getByType('slur-handle'),
+    rounds: registry.getByType('slur-handle').length,
+    squares: registry.getByType('slur-endpoint').length,
+    segSquares: registry.getByType('slur-segment-endpoint'),
+    circles: svg.querySelectorAll('circle').length,
+    rects: svg.querySelectorAll('rect').length,
+    selectedCircles: svg.querySelectorAll('.slur-handle--selected').length,
+    selectedRects: svg.querySelectorAll('.slur-endpoint-handle--selected').length,
+    selectedSegRects: svg.querySelectorAll('.slur-segment-endpoint-handle--selected').length,
+  }
+}
+type EditorStateSegmentSel = SlurSegmentEndpoint | null
+const run = (
+  slurExtra: Partial<ElementInfo>,
+  selectedEndpoint: 'start' | 'end' | null = null,
+  selectedSegment: EditorStateSegmentSel = null,
+) => runPartials([slurExtra], selectedEndpoint, selectedSegment)
+
+const runLinear = (slurExtra: Partial<ElementInfo>) => runPartials([slurExtra], null, null, 'linear')
+
+const CPS: [{ x: number; y: number }, { x: number; y: number }] = [{ x: 10, y: 20 }, { x: 30, y: 20 }]
+const ENDS = { p0: { x: 5, y: 15 }, p1: { x: 40, y: 15 }, direction: -1 }
+const SEG_ENDS = { p0: { x: 50, y: 15 }, p1: { x: 90, y: 15 }, direction: -1 }
+
+describe('HighlightController slur-handle gate', () => {
+  it('split slur with no shape (slurEndpoints only) → two squares, zero round handles', () => {
+    const r = run({ slurEndpoints: ENDS })
+    expect(r.squares).toBe(2)
+    expect(r.rounds).toBe(0)
+    expect(r.rects).toBe(2)
+    expect(r.circles).toBe(0)
+  })
+
+  // Slur geometry is read-only in linear view: the shape is relative to endpoints whose
+  // horizontal span differs between the views (docs/linear-view-plan.md §4.2). Drawing no
+  // handles is also what keeps them out of the registry, so there is nothing to grab.
+  it('linear view → no handles drawn, and none registered to grab', () => {
+    const r = runLinear({ controlPoints: CPS, slurEndpoints: ENDS })
+    expect(r.rounds).toBe(0)
+    expect(r.squares).toBe(0)
+    expect(r.circles).toBe(0)
+    expect(r.rects).toBe(0)
+  })
+
+  it('same-line slur (controlPoints + slurEndpoints) → both round and square handles', () => {
+    const r = run({ controlPoints: CPS, slurEndpoints: ENDS })
+    expect(r.rounds).toBe(2)
+    expect(r.squares).toBe(2)
+    expect(r.circles).toBe(2)
+    expect(r.rects).toBe(2)
+  })
+
+  it('controlPoints with NO endpoints → no round handles (un-draggable, so not drawn)', () => {
+    const r = run({ controlPoints: CPS })
+    expect(r.rounds).toBe(0)
+    expect(r.squares).toBe(0)
+  })
+
+  it('controlPoints + segmentEndpoints → round handles carrying the segment drag context', () => {
+    const r = run({
+      controlPoints: CPS, segmentEndpoints: SEG_ENDS,
+      segmentRole: 'middle', segmentOrdinal: 1, staffSpacePx: 10, slurSpanCount: 3,
+    })
+    expect(r.rounds).toBe(2)
+    expect(r.squares).toBe(0) // no slurEndpoints → no squares on this partial
+    // The handle carries its own segment's context, read straight off it on mousedown.
+    expect(r.handles[0]).toMatchObject({
+      slurEndpoints: SEG_ENDS, controlPoints: CPS,
+      segmentRole: 'middle', segmentOrdinal: 1, staffSpacePx: 10, slurSpanCount: 3,
+    })
+  })
+
+  it('cross-system slur (§4a): loops ALL segment partials → a round pair each + 2 squares once', () => {
+    // BEGIN carries the true ends (squares); every segment carries its own round-handle data.
+    const begin = {
+      controlPoints: CPS, segmentEndpoints: SEG_ENDS, slurEndpoints: ENDS,
+      segmentRole: 'begin' as const, staffSpacePx: 10, slurSpanCount: 3,
+    }
+    const middle = {
+      controlPoints: CPS, segmentEndpoints: SEG_ENDS,
+      segmentRole: 'middle' as const, segmentOrdinal: 0, staffSpacePx: 10, slurSpanCount: 3,
+    }
+    const end = {
+      controlPoints: CPS, segmentEndpoints: SEG_ENDS,
+      segmentRole: 'end' as const, staffSpacePx: 10, slurSpanCount: 3,
+    }
+    const r = runPartials([begin, middle, end])
+    expect(r.rounds).toBe(6)  // 2 per segment × 3 segments — the §4a loop, not a single .find
+    expect(r.squares).toBe(2) // true ends drawn exactly once (from the partial with slurEndpoints)
+    expect(r.circles).toBe(6)
+    // Orange OPEN-join squares: begin right (1) + middle both (2) + end left (1) = 4.
+    expect(r.segSquares.length).toBe(4)
+    expect(r.rects).toBe(6)   // 2 blue true-end squares + 4 orange open-join squares
+    // Each segment's round handles carry that segment's role.
+    expect(r.handles.map(h => h.segmentRole).sort()).toEqual(
+      ['begin', 'begin', 'end', 'end', 'middle', 'middle'],
+    )
+  })
+
+  // ── The PICKED round handle (his ask, 2026-08-17). Cosmetic only: the count of drawn dots and
+  //    the registry entries behind them must not move, so each of these checks both.
+  it('no control point picked → every round handle draws plain', () => {
+    const r = run({ controlPoints: CPS, slurEndpoints: ENDS })
+    expect(r.circles).toBe(2)
+    expect(r.selectedCircles).toBe(0)
+  })
+
+  it('a picked control point draws exactly ONE dot selected, and still registers two', () => {
+    const r = runPartials([{ controlPoints: CPS, slurEndpoints: ENDS }], null, null, 'wrapped',
+      { cpIndex: 1 })
+    expect(r.circles).toBe(2)
+    expect(r.selectedCircles).toBe(1)
+    expect(r.rounds).toBe(2) // the hit-boxes are untouched — what you can grab did not change
+  })
+
+  it('⭐ on a cross-system slur the pick is per SEGMENT — one dot lights, not one per system', () => {
+    // All three segments carry cpIndex 0 and 1. Addressing by index alone would light three dots.
+    const seg = (extra: Partial<ElementInfo>) => ({
+      controlPoints: CPS, segmentEndpoints: SEG_ENDS, staffSpacePx: 10, slurSpanCount: 3, ...extra,
+    })
+    const partials = [
+      seg({ slurEndpoints: ENDS, segmentRole: 'begin' }),
+      seg({ segmentRole: 'middle', segmentOrdinal: 0 }),
+      seg({ segmentRole: 'end' }),
+    ]
+    const r = runPartials(partials, null, null, 'wrapped',
+      { cpIndex: 0, segmentRole: 'middle', segmentOrdinal: 0 })
+    expect(r.circles).toBe(6)
+    expect(r.selectedCircles).toBe(1)
+  })
+
+  it('a pick addressed to a segment that is not drawn lights nothing', () => {
+    const r = runPartials([{ controlPoints: CPS, slurEndpoints: ENDS }], null, null, 'wrapped',
+      { cpIndex: 0, segmentRole: 'middle', segmentOrdinal: 2 })
+    expect(r.selectedCircles).toBe(0)
+  })
+
+  it('neither field → no handles drawn (nothing to draw)', () => {
+    const r = run({})
+    expect(r.rounds).toBe(0)
+    expect(r.squares).toBe(0)
+  })
+
+  it('no armed endpoint → neither square gets the selected border', () => {
+    const r = run({ slurEndpoints: ENDS })
+    expect(r.rects).toBe(2)
+    expect(r.selectedRects).toBe(0)
+  })
+
+  it('an armed endpoint → exactly that square gets the selected border', () => {
+    const r = run({ slurEndpoints: ENDS }, 'start')
+    expect(r.rects).toBe(2)         // still two squares, hit-boxes unchanged
+    expect(r.squares).toBe(2)
+    expect(r.selectedRects).toBe(1) // only the armed (start) square is highlighted
+  })
+})
+
+/**
+ * The orange OPEN-join squares (segment-endpoint nudge handles) of a cross-system slur —
+ * docs/multisystem-slur-segment-endpoint-offset-plan.md. One per BEGIN (right) / END (left),
+ * two per MIDDLE; carried as `slur-segment-endpoint` registry entries with the nudge address.
+ */
+describe('HighlightController orange open-join squares', () => {
+  it('a same-line slur draws NO orange squares (no segments)', () => {
+    const r = run({ controlPoints: CPS, slurEndpoints: ENDS })
+    expect(r.segSquares.length).toBe(0)
+  })
+
+  it('BEGIN partial → one orange square addressed {role:begin}, no side', () => {
+    const r = run({ segmentEndpoints: SEG_ENDS, segmentRole: 'begin', slurSpanCount: 2 })
+    expect(r.segSquares.length).toBe(1)
+    expect(r.segSquares[0]).toMatchObject({
+      type: 'slur-segment-endpoint', slurId: 'S1', segmentRole: 'begin', slurSpanCount: 2,
+    })
+    expect(r.segSquares[0].segmentSide).toBeUndefined()
+  })
+
+  it('MIDDLE partial → two orange squares, left and right, carrying ordinal + side', () => {
+    const r = run({ segmentEndpoints: SEG_ENDS, segmentRole: 'middle', segmentOrdinal: 0, slurSpanCount: 3 })
+    expect(r.segSquares.length).toBe(2)
+    expect(r.segSquares.map(s => s.segmentSide).sort()).toEqual(['left', 'right'])
+    for (const s of r.segSquares) {
+      expect(s).toMatchObject({ segmentRole: 'middle', segmentOrdinal: 0, slurSpanCount: 3 })
+    }
+  })
+
+  it('an armed open join → exactly that orange square gets the selected border', () => {
+    const r = run(
+      { segmentEndpoints: SEG_ENDS, segmentRole: 'middle', segmentOrdinal: 0, slurSpanCount: 3 },
+      null,
+      { role: 'middle', ordinal: 0, side: 'left' },
+    )
+    expect(r.rects).toBe(2)            // two orange squares (no blue — this partial has no slurEndpoints)
+    expect(r.selectedSegRects).toBe(1) // only the armed (middle/0/left) square is highlighted
+  })
+})

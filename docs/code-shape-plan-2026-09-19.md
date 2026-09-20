@@ -1,6 +1,6 @@
 # Code shape plan — 2026-09-19
 
-**Status: IN PROGRESS — Phase 1 DONE (2026-09-19), bar item 5's two ⏭️ decisions. Phase 2 DONE. Phase 3.1: the hairpin / ottava / pedal body drags done and checked; the trill's too (`cdb7f05`); the slur's too (`69e927c`); the four SQUARE drags too (`6d903c3`); the slur HANDLE / ENDPOINT and staff-spacing drags too (`8f28f79`); the DYNAMIC and TEMPO drags too (`9a04f88`); bar width, barline join, group span and clef too (`ee31698`); the NOTE drag too (`7d2898e`) — every gesture is a module. **Phase 3.1 DONE** (`25f70a6`). 3.2: the `keys` column + dispatcher and the HAIRPIN on it (`e61626a`); OTTAVA / PEDAL / TRILL too (`14e10e7`); DYNAMIC and TEMPO too (`943fb64`); SLUR and CLEF too (`8382fcc`); the `reanchor` and `cycle` verbs done, awaiting his UI check — **Phase 3.2 DONE with it.** 3.3 (`highlight(ctx)`): the contract + the four span squares (`a7c1076`); the join and group squares (`b772418`); the `ink` column (seven mark recolours) done, awaiting his UI check.** Phases are ordered by
+**Status: IN PROGRESS — Phase 1 DONE (2026-09-19), bar item 5's two ⏭️ decisions. Phase 2 DONE. Phase 3.1: the hairpin / ottava / pedal body drags done and checked; the trill's too (`cdb7f05`); the slur's too (`69e927c`); the four SQUARE drags too (`6d903c3`); the slur HANDLE / ENDPOINT and staff-spacing drags too (`8f28f79`); the DYNAMIC and TEMPO drags too (`9a04f88`); bar width, barline join, group span and clef too (`ee31698`); the NOTE drag too (`7d2898e`) — every gesture is a module. **Phase 3.1 DONE** (`25f70a6`). 3.2: the `keys` column + dispatcher and the HAIRPIN on it (`e61626a`); OTTAVA / PEDAL / TRILL too (`14e10e7`); DYNAMIC and TEMPO too (`943fb64`); SLUR and CLEF too (`8382fcc`); the `reanchor` and `cycle` verbs done, awaiting his UI check — **Phase 3.2 DONE with it.** 3.3 (`highlight(ctx)`): the contract + the four span squares (`a7c1076`); the join and group squares (`b772418`); the `ink` column (`f1832e7`); the slur handles done, awaiting his UI check.** Phases are ordered by
 value over risk; each one stands alone and can be stopped after. A done item carries ✅ and what
 actually happened where that differs from what was planned.
 
@@ -445,9 +445,19 @@ Run the e2e suite either side of each step.
    seven `recolor…`, `drawPedalTether`, its private `selectedIdsOf`. Spec moved:
    `HighlightController.markColor.test.ts` → `elements/selectedInk.test.ts` (+ a box-member case);
    `chain.test.ts` pins the `ink` rows to exactly `MARK_KINDS` (a lost row is a mark that never
-   lights, silently). Hub: kinds 239 → **171**, file → 1,521 lines. ⏸️ Awaiting his UI check.
-   Next: the slur's handles + armed anchor note, then the anchor guide line, then the note-attached
-   kinds (articulation / dot / accidental / tremolo / stem / tie) and the header signs.*
+   lights, silently). Hub: kinds 239 → **171**, file → 1,521 lines. ✅ Passed (`f1832e7`).*
+
+   *Fourth slice — the slur's handles: `elements/slurHandles.ts` (`paintSlurHandles` — the round
+   dots, the blue true-end squares, the orange open-join squares — and `paintArmedSlurAnchorNote`).
+   Both squares are `paintHandleSquare` now; the square gained `tone: 'join'` for the orange. The
+   context gained ONE door, `paintNote(noteId, fill, stroke)`: the anchor tint paints a whole note,
+   and the note painter is still the controller's own pass — ⏳ it goes with the note-attached
+   slice. The controller's `SLUR_HANDLE_*` / `SLUR_ANCHOR_*` statics are gone. Specs: the two slur
+   chapters of `HighlightController.test.ts` → `elements/slurHandles.test.ts`;
+   `.slurAnchor.test.ts` → `elements/slurHandles.anchorNote.test.ts`; the `clearHighlights`
+   chapter stays with the controller. Hub: kinds 171 → **119**, file → 1,299 lines. ⏸️ Awaiting
+   his UI check. Next: the anchor guide line, then the note-attached kinds (articulation / dot /
+   accidental / tremolo / stem / tie) and the header signs.*
 4. **Properties panels**: `windows/properties/panels/<kind>.ts` exporting `report` and `rows`,
    keyed by kind. *(review)* **Recommended: `rows` yes, `report` no.** The `paint` ladder is
    where this window grows (977 code lines, 25 kind tests), its specs are *already* split by kind

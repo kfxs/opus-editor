@@ -2,8 +2,7 @@
 /**
  * The note an ARMED slur endpoint is anchored to wears the endpoint's blue.
  *
- * Subject: {@link HighlightController}, a chapter beside `HighlightController.test.ts` (slur
- * handles) and `.anchorLine.test.ts`. His ask, 2026-08-18: *"when reanchoring with keyboard we dont
+ * Subject: {@link paintArmedSlurAnchorNote}, a chapter beside `slurHandles.test.ts`. His ask, 2026-08-18: *"when reanchoring with keyboard we dont
  * highlight the note… that is the way to let know the user the new anchor"* — the drag has tinted
  * its candidate since it was written, and the keyboard re-anchor (`slurReanchor`) moved the arc with
  * nothing to say which note it had landed on. The candidate tint is gone now — the drag carries the
@@ -14,10 +13,11 @@
  * start vs end vs none — not where any ink is.
  */
 import { describe, it, expect } from 'vitest'
-import { HighlightController } from './HighlightController'
-import { createEditorState, type EditorState } from './EditorState'
-import { ElementRegistry } from '../engine/ElementRegistry'
-import type { MusicEngine } from '../engine/MusicEngine'
+import { HighlightController } from '../HighlightController'
+import { createEditorState, type EditorState } from '../EditorState'
+import { ElementRegistry } from '@/engine/ElementRegistry'
+import type { MusicEngine } from '@/engine/MusicEngine'
+import { paintArmedSlurAnchorNote } from './slurHandles'
 
 /** One `stavenote` group per note id, and the head inside it we assert the colour on. */
 function fabricateScore() {
@@ -60,7 +60,7 @@ function tintedBy(arm: (state: EditorState) => void): string[] {
   const { canvas, engine, heads } = fabricateScore()
   const state = createEditorState()
   arm(state)
-  new HighlightController(() => engine, () => canvas, state).applyArmedSlurAnchorNote()
+  paintArmedSlurAnchorNote(new HighlightController(() => engine, () => canvas, state).context()!)
   return [...heads].filter(([, head]) => head.getAttribute('fill') === '#2563EB').map(([id]) => id)
 }
 

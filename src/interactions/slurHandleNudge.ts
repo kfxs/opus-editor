@@ -21,7 +21,7 @@
  *  - the FIRST press freezes the auto arch (including any nest lift / obstacle clearance folded into
  *    it) into an explicit shape, exactly as the first pixel of a drag does — same gesture, same
  *    conversion, no second rule;
- *  - a slur with no drawn handles (LINEAR view, where `applySlurHandles` returns early) has nothing
+ *  - a slur with no drawn handles (LINEAR view, where `paintSlurHandles` returns early) has nothing
  *    in the registry, so this DECLINES and the arrow key keeps its normal job;
  *  - a cross-system slur nudges the segment whose dot is armed, because the armed dot names its
  *    segment and the segment's own endpoints come off the same registry entry.

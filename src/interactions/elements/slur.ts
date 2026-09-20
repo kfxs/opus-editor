@@ -9,6 +9,7 @@ import { dbg } from '@/utils/debug'
 import type { ClickableElementSpec } from './chain'
 import { beginSlurBodyDrag } from '../drags/slurBody'
 import { SLUR_KEYS } from './slurKeys'
+import { paintArmedSlurAnchorNote, paintSlurHandles } from './slurHandles'
 import { voiceFillColor } from '@/utils/voiceColors'
 import { paintFill, paintStroke } from './recolour'
 
@@ -64,13 +65,13 @@ export const SLUR_ELEMENT: ClickableElementSpec = {
 
   // The arc is already coloured by the set pass; the handles are the single-click extra — and,
   // once one of the blue squares is ARMED, the note that square is anchored to wears the same blue,
-  // so a keyboard re-anchor is visible as the tint moving on (`applyArmedSlurAnchorNote`).
+  // so a keyboard re-anchor is visible as the tint moving on (`paintArmedSlurAnchorNote`).
   // …and a DISPLACED end draws the dotted line back to where the engraver put it — the affordance
   // every notation program surveyed has for the same situation (2026-08-18 research), and the one
   // that makes an endpoint parked most of a note-gap away legible instead of mysterious.
   highlight: ctx => {
-    ctx.controller.applySlurHandles()
-    ctx.controller.applyArmedSlurAnchorNote()
+    paintSlurHandles(ctx)
+    paintArmedSlurAnchorNote(ctx)
     ctx.controller.applyAnchorGuideLine()
   },
   // In ITS voice's colour (V1 blue, V2 green — matches the notehead/tie highlight). ⚠️ `Slur.voice`

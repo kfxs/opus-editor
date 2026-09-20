@@ -14,7 +14,7 @@
  * DREW — rather than from the model. Everything follows from that:
  *
  *  - a slur with no hand-editable shape has no round dots, and Tab visits none;
- *  - LINEAR view draws no handles at all (`HighlightController.applySlurHandles` returns early), so
+ *  - LINEAR view draws no handles at all (`elements/slurHandles.paintSlurHandles` returns early), so
  *    Tab declines there without needing to know why;
  *  - a cross-system slur's per-segment dots and open joins appear exactly as often as they are
  *    drawn — no second rule about how many segments there are.

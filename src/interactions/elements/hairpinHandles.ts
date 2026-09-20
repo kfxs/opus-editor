@@ -53,7 +53,7 @@ interface HairpinHandle {
  * The beginning steps LEFT and the end steps RIGHT, i.e. both step outward along the span, so the
  * wedge's own shape — the thing being selected — is never under a square.
  *
- * The number is the handle's half-side (6 px, `SLUR_HANDLE_R + 1`) plus a few px of air, so the
+ * The number is the handle's half-side (6 px, `HANDLE_R + 1`) plus a few px of air, so the
  * square's inner edge clears the tip rather than merely missing its centre. ⚠️ PIXELS, like every
  * other handle in the editor: these are drawn on the highlight layer at a constant on-screen size,
  * so a square stays the same size to the hand at every zoom (⛔ not the rule for a DOM text overlay,

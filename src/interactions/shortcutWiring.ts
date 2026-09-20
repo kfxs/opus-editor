@@ -895,7 +895,7 @@ export function wireShortcuts(
     //    evicted families ate the chord OUTRIGHT and changed the music on the first press with
     //    nothing on screen to say so. This one moves ink press after press, re-anchors only on
     //    arrival at a note the user has steered the ink onto, and the note it lands on is TINTED
-    //    throughout (`applyArmedSlurAnchorNote`) — so the change is asked for, visible, and one
+    //    throughout (`paintArmedSlurAnchorNote`) — so the change is asked for, visible, and one
     //    undo press away. *"a shortcut is for making the live easy to the user"*. ⛔ The rule still
     //    stands for everything else: an ungated model write here is still the bug it was.
     //    ⭐ The pedal came BACK to it the same day as its ink offsets — as an offset this time, and

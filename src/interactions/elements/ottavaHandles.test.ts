@@ -62,7 +62,7 @@ describe('ottavaEndpointHandles', () => {
       { which: 'end', x: 300 + GAP, y: 92 },
     ])
     // …and far enough that the square's inner EDGE clears the ink, not merely its centre: the
-    // squares are 6px half-side (`SLUR_HANDLE_R + 1`), so anything at or under 6 overlaps.
+    // squares are 6px half-side (`HANDLE_R + 1`), so anything at or under 6 overlaps.
     expect(GAP).toBeGreaterThan(6)
   })
 

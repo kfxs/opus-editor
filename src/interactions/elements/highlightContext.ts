@@ -32,6 +32,12 @@ export interface HighlightContext {
   /** Append a node the highlight layer owns; it comes off with the layer. */
   addNode(parent: Element, node: Element): void
   /**
+   * Paint a whole NOTE — head, stem, flag, and what hangs off it — the way the note selection
+   * does, in a colour of the caller's. ⏳ The note painter is still the controller's own pass; this
+   * is the one door onto it for a kind that points AT a note (the slur's armed anchor).
+   */
+  paintNote(noteId: string, fill: string, stroke: string): void
+  /**
    * ⏳ **TRANSITIONAL** — the painters that have not moved to their kind's module yet. A row that
    * still reads `ctx.controller.apply…()` is a row Phase 3.3 has not reached; this member goes when
    * the last one stops.

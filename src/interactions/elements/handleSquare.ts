@@ -18,7 +18,14 @@ export const HANDLE_HIT = 9
 export function paintHandleSquare(
   ctx: HighlightContext,
   at: { x: number; y: number },
-  look: { className: string; cursor: string; armed?: boolean },
+  look: {
+    className: string
+    cursor: string
+    armed?: boolean
+    /** ORANGE — the slur's open-join squares: the round handles' family (layout-ephemeral), where
+     *  blue is a TRUE end. It does not darken when armed; the size and the ring say picked. */
+    tone?: 'join'
+  },
 ): void {
   const half = look.armed ? HANDLE_R + 3 : HANDLE_R + 1
   const sq = document.createElementNS('http://www.w3.org/2000/svg', 'rect')
@@ -26,7 +33,7 @@ export function paintHandleSquare(
   sq.setAttribute('y', String(at.y - half))
   sq.setAttribute('width', String(half * 2))
   sq.setAttribute('height', String(half * 2))
-  sq.setAttribute('fill', look.armed ? '#1D4ED8' : '#2563EB')
+  sq.setAttribute('fill', look.tone === 'join' ? '#F59E0B' : look.armed ? '#1D4ED8' : '#2563EB')
   sq.setAttribute('stroke', '#ffffff')
   sq.setAttribute('stroke-width', look.armed ? '2.5' : '1.5')
   sq.setAttribute('class', look.className)
