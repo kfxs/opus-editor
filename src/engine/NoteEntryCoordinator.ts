@@ -2,7 +2,7 @@ import { dbg } from '@/utils/debug'
 import { ScoreModel } from './models/ScoreModel'
 import { CoordinateMapper } from './rendering/CoordinateMapper'
 import { CollisionDetector } from './models/CollisionDetector'
-import { durationToBeats, splitBeatsIntoDurations, midiToNoteName, tupletSlotDuration, tupletSpan, tupletScale, tupletWrittenDuration, beatToFrac } from '@/utils/musicUtils'
+import { durationToBeats, splitBeatsIntoDurations, midiToNoteName, tupletSpan, tupletScale, tupletWrittenDuration, beatToFrac } from '@/utils/musicUtils'
 import { measureCapacityQuarters, measureCapacityFrac } from '@/utils/measureCapacity'
 import {
   fracToNumber, fracEq, fracAdd, fracSub, fracMul, fracDiv,
@@ -13,6 +13,7 @@ import type { Fraction } from '@/utils/fraction'
 import type { Note, NoteParams, PixelCoordinates, Tuplet, TupletFormat, NoteDuration, ArticulationType, Accidental, PitchSpelling, Measure } from '@/types/music'
 import { spellingToMidi, formatPitch } from '@/utils/pitchSpelling'
 import { entryAlteration } from './models/entryAlteration'
+import { applyEntryOverwrites, overwriteOverlappedNotes } from './models/entryOverwriteOps'
 import { addSplitNoteWithTie, splitExistingNoteWithTie } from './models/spanningNoteOps'
 import { ElementRegistry } from './ElementRegistry'
 import type { ElementInfo } from './ElementRegistry'
@@ -110,35 +111,12 @@ export class NoteEntryCoordinator {
     const finalParams: NoteParams = { ...params, beat: finalBeatFrac, ...(tupletId ? { tupletId } : {}), ...(actualDuration ? { actualDuration } : {}) }
     const noteEnd = fracAdd(finalBeatFrac, soundingDuration)
 
-    // Remove overlapping CHORD notes atomically, using scaled durations for tuplet notes.
-    // Rests are intentionally skipped here — replaceRestsWith (inside addNote) handles
-    // rest removal with proper tie migration, so deleting rests here would break that.
-    // NOTE this runs for an incoming REST too, which is what lets a stamped rest overwrite the
-    // notes it covers; the rests it covers are evicted by addNote, one layer down.
+    // Remove the same-voice, same-staff notes the incoming note overlaps (a stamped REST too — that
+    // is what lets it overwrite the notes it covers). The rule is `entryOverwriteOps`.
     const entryVoice = voiceOf(params)
-    const entryStaff = staffOf(params)
-    const toDelete = this.getScoreModel().getNotesInMeasure(params.measure).filter(n => {
-      if (n.isRest) return false
-      // Other voices/staves are independent streams — never clobber them.
-      if (voiceOf(n) !== entryVoice) return false
-      if (staffOf(n) !== entryStaff) return false
-      const nTuplet = n.tupletId ? (targetMeasure.tuplets || []).find(t => t.id === n.tupletId) : undefined
-      const nDuration = nTuplet
-        ? tupletWrittenDuration(nTuplet, n.duration, n.dots || 0)
-        : writtenLength(n)
-      const nEnd = fracAdd(n.beat, nDuration)
-      // Two half-open intervals overlap when each starts before the other ends. STRICT comparisons,
-      // and no epsilon: notes that merely TOUCH (one ends where the next begins) do not overlap, and
-      // exact arithmetic says so without a tolerance. The epsilon this replaces was a float guard
-      // sized when every tuplet was 3:2 — a margin in a model whose beats are Fractions.
-      return fracLt(n.beat, noteEnd) && fracGt(nEnd, finalBeatFrac)
+    overwriteOverlappedNotes(this.getScoreModel(), targetMeasure, {
+      beat: finalBeatFrac, end: noteEnd, voice: entryVoice, staff: staffOf(params),
     })
-    if (toDelete.length) {
-      dbg(`[Entry] v${entryVoice} overwrites ${toDelete.length} same-voice note(s): ${toDelete.map(n => `${n.step}${n.octave}@b${fracToNumber(n.beat).toFixed(3)}`).join(', ')}`)
-    }
-    for (const n of toDelete) {
-      this.getScoreModel().deleteNote(n.id)
-    }
 
     const overflow = this.collisionDetector.checkMeasureOverflow(
       finalParams,
@@ -422,7 +400,7 @@ export class NoteEntryCoordinator {
 
     // Delete anything the new note overwrites (range/same-pitch replacements, plus
     // tuplet items inside a multi-slot tuplet note's actual-time span).
-    this.applyEntryOverwrites(measureNumber, finalBeat, duration, dots, pitchMidi, tupletId, tupletAtBeat, entryVoice, entryStaff)
+    applyEntryOverwrites(this.getScoreModel(), measureNumber, finalBeat, duration, dots, pitchMidi, tupletId, tupletAtBeat, entryVoice, entryStaff)
 
     // Handle overflow by splitting the note across the bar line with a tie.
     // SKIP for tuplet notes — tuplets have shorter actual durations, designed to fit their span.
@@ -501,51 +479,6 @@ export class NoteEntryCoordinator {
       }
     }
     return true
-  }
-
-  /**
-   * Delete everything the incoming note overwrites: notes in its duration range or a
-   * same-pitch note at its beat (replacement), plus — for a multi-slot tuplet note —
-   * any tuplet items inside its actual-time span.
-   */
-  private applyEntryOverwrites(
-    measureNumber: number,
-    finalBeat: Fraction,
-    duration: NoteParams['duration'],
-    dots: number | undefined,
-    pitchMidi: number,
-    tupletId: string | undefined,
-    tupletAtBeat: Tuplet | undefined,
-    voice: number = 0,
-    staff: number = 0,
-  ): void {
-    const notesToOverwrite = this.findNotesToOverwrite(measureNumber, finalBeat, duration, pitchMidi, tupletAtBeat, voice, staff)
-    if (notesToOverwrite.length > 0) {
-      dbg('Overwriting notes:', notesToOverwrite.map(n => {
-        return `${formatPitch(n)}@beat:${fracToNumber(n.beat).toFixed(3)}`
-      }).join(', '))
-      for (const noteToDelete of notesToOverwrite) {
-        this.getScoreModel().deleteNote(noteToDelete.id)
-      }
-    }
-
-    // For tuplet notes that span multiple slots (e.g., quarter note in eighth triplet),
-    // delete any existing tuplet notes/rests that fall within the note's actual time range
-    if (tupletId && tupletAtBeat) {
-      const actualNoteDurationFrac = tupletWrittenDuration(tupletAtBeat, duration, dots ?? 0)
-      const noteEndBeat = fracAdd(finalBeat, actualNoteDurationFrac)
-
-      const tupletItemsToDelete = this.getScoreModel().getNotesInMeasure(measureNumber)
-        .filter(n =>
-          n.tupletId === tupletId &&
-          fracGt(n.beat, finalBeat) && // After the note's start (exclusive)
-          fracLt(n.beat, noteEndBeat)  // Before the note's end (exclusive)
-        )
-
-      for (const itemToDelete of tupletItemsToDelete) {
-        this.getScoreModel().deleteNote(itemToDelete.id)
-      }
-    }
   }
 
   /**
@@ -1293,60 +1226,5 @@ export class NoteEntryCoordinator {
       }
     }
     return nearestRest
-  }
-
-  /**
-   * Find notes that would be overwritten by a new note.
-   * Returns notes that fall within the new note's duration range.
-   * Notes at the same beat with DIFFERENT pitch are kept (chords).
-   * Notes at the same beat with SAME pitch are deleted (replacement).
-   */
-  private findNotesToOverwrite(
-    measureNumber: number,
-    beat: Fraction,
-    duration: NoteParams['duration'],
-    pitch: number,
-    tupletInfo?: Tuplet,
-    voice: number = 0,
-    staff: number = 0,
-  ): Note[] {
-    // For tuplet notes, use the actual tuplet note duration, not the base duration
-    const noteDurationFrac = tupletInfo
-      ? tupletSlotDuration(tupletInfo)
-      : durationToFraction(duration)
-    const noteEnd = fracAdd(beat, noteDurationFrac)
-    const notesInMeasure = this.getScoreModel().getNotesInMeasure(measureNumber)
-
-    return notesInMeasure.filter(existing => {
-      // Skip rests - they're handled separately by ScoreModel
-      if (existing.isRest) return false
-
-      // Other voices/staves are independent streams — never overwrite them.
-      if (voiceOf(existing) !== voice) return false
-      if (staffOf(existing) !== staff) return false
-
-      // Never delete notes that are in the same tuplet (except for same-beat replacement)
-      // Notes within a tuplet should coexist and not overwrite each other based on range
-      if (tupletInfo && existing.tupletId === tupletInfo.id) {
-        // Only allow deletion if at the exact same beat AND same pitch (replacement)
-        if (fracEq(existing.beat, beat) && !existing.isRest && spellingToMidi(existing.step!, existing.alter!, existing.octave!) === pitch) {
-          return true
-        }
-        return false  // Protect all other notes in the same tuplet
-      }
-
-      // Notes at the same beat: only delete if same pitch (replacement); a different pitch
-      // is a chord and is kept.
-      if (fracEq(existing.beat, beat)) {
-        return !existing.isRest && spellingToMidi(existing.step!, existing.alter!, existing.octave!) === pitch
-      }
-
-      // Check if this note starts within the new note's time range
-      if (fracGt(existing.beat, beat) && fracLt(existing.beat, noteEnd)) {
-        return true
-      }
-
-      return false
-    })
   }
 }
