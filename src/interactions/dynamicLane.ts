@@ -36,7 +36,8 @@ import { keyStaffId } from '../engine/models/staffContent'
 import { fracCompare } from '../utils/fraction'
 import { dynamicOffsetOverrideOf } from '../engine/models/engravingOverrides'
 import { systemStopFor } from './markSystemJump'
-import { lastMeasureNumber, systemInkAt, type SystemInk } from './markBreakWrap'
+import type { SystemInk } from './markBreakWrap'
+import { markSystemInkLimit, staffIndexOf } from './markLane'
 
 /** What reading the lane needs off the engine — a Pick, so a test can stand up the three reads
  *  without a renderer. */
@@ -227,14 +228,6 @@ export function dynamicSystemInkLimit(
   dynamic: Dynamic,
   at: { measure: number },
 ): SystemInk | null {
-  const staff = staffIndexOf(engine.getScore(), dynamic.staffId)
-  return systemInkAt(engine.getElementRegistry(), staff, at.measure, lastMeasureNumber(engine.getScore()))
+  return markSystemInkLimit(engine, dynamic.staffId, at)
 }
 
-/** The staff INDEX a dynamic's `staffId` names (absent = the first staff), so a drawn element's own
- *  `staff` can be compared against it. `hairpinHandles`' twin. */
-function staffIndexOf(score: Score, staffId: string | undefined): number {
-  if (!staffId) return 0
-  const at = score.staves?.findIndex(s => s.id === staffId) ?? -1
-  return at === -1 ? 0 : at
-}

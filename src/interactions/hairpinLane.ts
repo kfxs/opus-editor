@@ -27,7 +27,8 @@ import { keyStaffId } from '../engine/models/staffContent'
 import { fracCompare } from '../utils/fraction'
 import { hairpinEndpointOffsetOverrideOf } from '../engine/models/engravingOverrides'
 import { systemStopFor } from './markSystemJump'
-import { lastMeasureNumber, systemInkAt, type SystemInk } from './markBreakWrap'
+import type { SystemInk } from './markBreakWrap'
+import { markSystemInkLimit, staffIndexOf } from './markLane'
 
 /** What reading the lane needs off the engine — a Pick, so a test can stand up the reads without a
  *  renderer. `dynamicLane.LaneEngine`'s twin. */
@@ -181,8 +182,7 @@ export function hairpinSystemInkLimit(
   hairpin: Hairpin,
   at: { measure: number },
 ): SystemInk | null {
-  const staff = staffIndexOf(engine.getScore(), hairpin.staffId)
-  return systemInkAt(engine.getElementRegistry(), staff, at.measure, lastMeasureNumber(engine.getScore()))
+  return markSystemInkLimit(engine, hairpin.staffId, at)
 }
 
 /** Where the wedge ENDS, as an address — ⚠️ its beat MAY EQUAL its bar's capacity, a wedge finishing
@@ -204,14 +204,6 @@ function compareAddress(a: HairpinSlotTarget, b: HairpinSlotTarget): number {
 export function hairpinStartAddress(score: Score, id: string): HairpinSlotTarget | null {
   const span = hairpinSpan(score, id)
   return span ? { measure: span.startMeasure, beat: span.startBeat } : null
-}
-
-/** The staff INDEX a hairpin's `staffId` names (absent = the first staff), so a drawn element's own
- *  `staff` can be compared against it. `dynamicLane`'s twin. */
-function staffIndexOf(score: Score, staffId: string | undefined): number {
-  if (!staffId) return 0
-  const at = score.staves?.findIndex(s => s.id === staffId) ?? -1
-  return at === -1 ? 0 : at
 }
 
 /**

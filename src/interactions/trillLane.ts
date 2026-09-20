@@ -43,6 +43,7 @@
  * unequal width, which is a fraction of a staff-space and below the ¼-space step of a press.
  */
 import type { ElementRegistry } from '../engine/ElementRegistry'
+import { markStaffSpacePx } from './markLane'
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { Fraction, Note } from '../types/music'
 import { buildBeatMap, type FlatNote } from '../utils/beatMap'
@@ -268,9 +269,7 @@ export function trillRibbonLimits(
  * the drawn distance, while a length parked on an element would have to be scaled by hand.
  */
 export function trillStaffSpacePx(registry: ElementRegistry, trillId: string): number | null {
-  const drawn = registry.getByType('trill').find(el => el.id === trillId)
-  if (!drawn || drawn.measure === undefined) return null
-  return registry.getStaffGeometry(drawn.measure, drawn.staff ?? 0)?.lineSpacing ?? null
+  return markStaffSpacePx(registry, 'trill', trillId)
 }
 
 /** A drawn slot's horizontal centre — the notehead's own (`headX`) where it has one, else the ink

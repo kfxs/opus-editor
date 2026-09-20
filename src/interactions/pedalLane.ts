@@ -37,7 +37,8 @@ import type { Pedal, Score } from '../types/music'
 import { staffOf } from '../utils/lanes'
 import { keyStaffId } from '../engine/models/staffContent'
 import { fracCompare } from '../utils/fraction'
-import { lastMeasureNumber, systemInkAt, type SystemInk } from './markBreakWrap'
+import type { SystemInk } from './markBreakWrap'
+import { markStaffSpacePx, markSystemInkLimit, sameSlotAddress, staffIndexOf } from './markLane'
 import { systemStopFor } from './markSystemJump'
 import { runsOnSheetAt } from '@/engine/layout/systemBand'
 import { pedalOffsetOverrideOf } from '../engine/models/engravingOverrides'
@@ -118,7 +119,7 @@ function drawnOnsets(engine: PedalLaneEngine): PedalStaffLaneOnset[] {
     // its gaps where the ink lands, and a lane that answered the glyph while the drawing answered the
     // bar would make every crossing jump.
     const left = onsetXOf(el.bbox.x, note.isMeasureRest, geometry?.noteStartX)
-    const seen = onsets.find(o => o.staff === staff && sameAddress(o.target, { measure: note.measure, beat: note.beat }))
+    const seen = onsets.find(o => o.staff === staff && sameSlotAddress(o.target, { measure: note.measure, beat: note.beat }))
     if (seen) {
       seen.left = Math.min(seen.left, left)
       continue
@@ -148,7 +149,7 @@ export function pedalPressX(
   pedal: Pedal,
   at: PedalSlotTarget,
 ): number | null {
-  const onset = pedalLaneOnsets(engine, pedal).find(o => sameAddress(o.target, at))
+  const onset = pedalLaneOnsets(engine, pedal).find(o => sameSlotAddress(o.target, at))
   return onset ? onset.left : null
 }
 
@@ -201,9 +202,7 @@ export function pedalPressAddress(score: Score, id: string): PedalSlotTarget | n
  * Null when the last render drew no sign of it.
  */
 export function pedalStaffSpacePx(registry: ElementRegistry, pedalId: string): number | null {
-  const drawn = registry.getByType('pedal').find(e => e.id === pedalId)
-  if (!drawn || drawn.measure === undefined) return null
-  return registry.getStaffGeometry(drawn.measure, drawn.staff ?? 0)?.lineSpacing ?? null
+  return markStaffSpacePx(registry, 'pedal', pedalId)
 }
 
 /**
@@ -218,21 +217,7 @@ export function pedalSystemInkLimit(
   pedal: Pedal,
   at: { measure: number },
 ): SystemInk | null {
-  const staff = staffIndexOf(engine.getScore(), pedal.staffId)
-  return systemInkAt(engine.getElementRegistry(), staff, at.measure, lastMeasureNumber(engine.getScore()))
-}
-
-/** Two lane addresses naming the same onset. ⛔ Never `===` on the beat — it is a Fraction. */
-function sameAddress(a: PedalSlotTarget, b: PedalSlotTarget): boolean {
-  return a.measure === b.measure && fracCompare(a.beat, b.beat) === 0
-}
-
-/** The staff INDEX a pedal's `staffId` names (absent = the first staff), so a drawn element's own
- *  `staff` can be compared against it. `ottavaLane`'s twin. */
-function staffIndexOf(score: Score, staffId: string | undefined): number {
-  if (!staffId) return 0
-  const at = score.staves?.findIndex(s => s.id === staffId) ?? -1
-  return at === -1 ? 0 : at
+  return markSystemInkLimit(engine, pedal.staffId, at)
 }
 
 /**
@@ -266,7 +251,7 @@ export function pedalSystemSlotFor(
   const here = pedalPressAddress(engine.getScore(), pedal.id)
   // ⚠️ The pedal's OWN onset, so on its own staff: `markSystemJump` measures its natural distance
   // from the staff it hangs off, and a same-address onset on the other staff would name the wrong one.
-  const anchor = here && lane.find(o => o.staff === staff && sameAddress(o.target, here))
+  const anchor = here && lane.find(o => o.staff === staff && sameSlotAddress(o.target, here))
 
   return systemStopFor<PedalStaffSlotTarget>({
     bands: () => engine.getElementRegistry().staffRuns(),

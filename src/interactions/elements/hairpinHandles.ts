@@ -34,6 +34,7 @@
  * fragment only) and the one `slurHandleCycle` names for slur handles.
  */
 import type { ElementInfo, ElementRegistry } from '../../engine/ElementRegistry'
+import { markStaffSpacePx } from '../markLane'
 import type { MusicEngine } from '../../engine/MusicEngine'
 import type { HairpinCommands } from '@/engine/commands/hairpinCommands'
 import type { EditorState } from '../EditorState'
@@ -142,9 +143,7 @@ export function armHairpinEndpointAt(
  *   no scale, so the caller must not start a drag at all rather than guess one.
  */
 export function hairpinStaffSpacePx(registry: ElementRegistry, hairpinId: string): number | null {
-  const drawn = registry.getByType('hairpin').find(e => e.id === hairpinId)
-  if (!drawn || drawn.measure === undefined) return null
-  return registry.getStaffGeometry(drawn.measure, drawn.staff ?? 0)?.lineSpacing ?? null
+  return markStaffSpacePx(registry, 'hairpin', hairpinId)
 }
 
 /**

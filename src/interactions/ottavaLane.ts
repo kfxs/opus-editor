@@ -26,10 +26,10 @@ import { ottavaSpan } from '../engine/models/ottavaOps'
 import type { Ottava, Score } from '../types/music'
 import { staffOf } from '../utils/lanes'
 import { keyStaffId } from '../engine/models/staffContent'
-import { fracCompare } from '../utils/fraction'
 import { ottavaOffsetOverrideOf } from '../engine/models/engravingOverrides'
 import { systemStopFor } from './markSystemJump'
-import { lastMeasureNumber, systemInkAt, type SystemInk } from './markBreakWrap'
+import type { SystemInk } from './markBreakWrap'
+import { markStaffSpacePx, markSystemInkLimit, sameSlotAddress, staffIndexOf } from './markLane'
 
 /** What reading the lane needs off the engine — a Pick, so a spec can stand up the reads without a
  *  renderer. `hairpinLane.HairpinLaneEngine`'s twin. */
@@ -102,7 +102,7 @@ function drawnOnsets(engine: OttavaLaneEngine): OttavaStaffLaneOnset[] {
     // ⛔ No voice filter — an octave line governs the whole staff.
     const staff = staffOf(note)
     const seen = onsets.find(o => o.staff === staff
-      && sameAddress(o.target, { measure: note.measure, beat: note.beat }))
+      && sameSlotAddress(o.target, { measure: note.measure, beat: note.beat }))
     if (seen) {
       seen.left = Math.min(seen.left, el.bbox.x)
       seen.right = Math.max(seen.right, el.bbox.x + el.bbox.width)
@@ -135,7 +135,7 @@ export function ottavaEdgeX(
   at: OttavaSlotTarget,
   which: 'start' | 'end',
 ): number | null {
-  const onset = ottavaLaneOnsets(engine, ottava).find(o => sameAddress(o.target, at))
+  const onset = ottavaLaneOnsets(engine, ottava).find(o => sameSlotAddress(o.target, at))
   if (!onset) return null
   return which === 'start' ? onset.left : onset.right
 }
@@ -157,9 +157,7 @@ export function ottavaStartAddress(score: Score, id: string): OttavaSlotTarget |
  * Null when the last render drew no fragment of it.
  */
 export function ottavaStaffSpacePx(registry: ElementRegistry, ottavaId: string): number | null {
-  const drawn = registry.getByType('ottava').find(e => e.id === ottavaId)
-  if (!drawn || drawn.measure === undefined) return null
-  return registry.getStaffGeometry(drawn.measure, drawn.staff ?? 0)?.lineSpacing ?? null
+  return markStaffSpacePx(registry, 'ottava', ottavaId)
 }
 
 /**
@@ -174,21 +172,7 @@ export function ottavaSystemInkLimit(
   ottava: Ottava,
   at: { measure: number },
 ): SystemInk | null {
-  const staff = staffIndexOf(engine.getScore(), ottava.staffId)
-  return systemInkAt(engine.getElementRegistry(), staff, at.measure, lastMeasureNumber(engine.getScore()))
-}
-
-/** Two lane addresses naming the same onset. ⛔ Never `===` on the beat — it is a Fraction. */
-function sameAddress(a: OttavaSlotTarget, b: OttavaSlotTarget): boolean {
-  return a.measure === b.measure && fracCompare(a.beat, b.beat) === 0
-}
-
-/** The staff INDEX an ottava's `staffId` names (absent = the first staff), so a drawn element's own
- *  `staff` can be compared against it. `hairpinLane`'s twin. */
-function staffIndexOf(score: Score, staffId: string | undefined): number {
-  if (!staffId) return 0
-  const at = score.staves?.findIndex(s => s.id === staffId) ?? -1
-  return at === -1 ? 0 : at
+  return markSystemInkLimit(engine, ottava.staffId, at)
 }
 
 /**
@@ -228,7 +212,7 @@ export function ottavaSystemSlotFor(
   const here = ottavaStartAddress(engine.getScore(), ottava.id)
   // ⚠️ The bracket's OWN onset, so on its own staff: `markSystemJump` measures its natural distance
   // from the staff it hangs off, and a same-address onset on the other staff would name the wrong one.
-  const anchor = here && lane.find(o => o.staff === staff && sameAddress(o.target, here))
+  const anchor = here && lane.find(o => o.staff === staff && sameSlotAddress(o.target, here))
   const above = ottava.shift > 0
 
   return systemStopFor<OttavaStaffSlotTarget>({

@@ -1,6 +1,6 @@
 # Code shape plan — 2026-09-19
 
-**Status: IN PROGRESS — Phase 1 DONE (2026-09-19), bar item 5's two ⏭️ decisions. Phase 2 DONE. Phase 3.1: the hairpin / ottava / pedal body drags done and checked; the trill's too (`cdb7f05`); the slur's too (`69e927c`); the four SQUARE drags too (`6d903c3`); the slur HANDLE / ENDPOINT and staff-spacing drags too (`8f28f79`); the DYNAMIC and TEMPO drags too (`9a04f88`); bar width, barline join, group span and clef too (`ee31698`); the NOTE drag too (`7d2898e`) — every gesture is a module. **Phase 3.1 DONE** (`25f70a6`). 3.2: the `keys` column + dispatcher and the HAIRPIN on it (`e61626a`); OTTAVA / PEDAL / TRILL too (`14e10e7`); DYNAMIC and TEMPO too (`943fb64`); SLUR and CLEF too (`8382fcc`); the `reanchor` and `cycle` verbs done, awaiting his UI check — **Phase 3.2 DONE with it.** 3.3 (`highlight(ctx)`): the contract + the four span squares (`a7c1076`); the join and group squares (`b772418`); the `ink` column (`f1832e7`); the slur handles (`d3dcb7b`); the anchor guide line (`e2ff597`); the note pass + note-attached kinds (`aa7e5af`); every remaining row done, awaiting his UI check — **Phase 3.3 DONE** (`1efb38d`). 3.4: the panels' `rows` (`4db182d`); the typed `InspectedElement` union done, awaiting his UI check — **3.4 DONE** (`54ab9cc`). **Phase 3 DONE** — 3.5: all seven mark families are `engine/commands/<family>Commands.ts` (`e684125` … `a8549ad`), with command specs and `commit` / `saveOnly` folded into one `mutate`. **Phase 4 IN PROGRESS** — 4.1: `spanFromNotes`, `reanchorSlurs` → `slurOps`, `tieOps` (`6d720b8`) done; `deleteNote`'s repair → `deleteNoteOps` (`ab182f4`); `convertToRest` → `convertToRestOps` (`e20ca48`); `moveSelectionToVoice` → `voiceOps` (`5f6fa03`) — **4.1 DONE**. 4.2 split a–d: **a** the spanning note → `spanningNoteOps` (`551b39a`); **b** the overwrite → `entryOverwriteOps` (`ad381dd`); **c** the duration change → `durationChangeOps` (`cf41ba4`) + the chord-overflow FIX as its own commit (`6b97a8f`); **d** the tuplet builders + entry INTO a tuplet → `tupletEntryOps` (`6116fb8`) — **4.2 DONE** (coordinator 1,602 → 734 lines). 4.3 split a–e: **a** the three `repairDangling*` → `tieOps` / `slurOps` / `trillOps` (`1eed47b`); **b** the rest fill → `restFillOps` (`243d35c`); **c** slot placement + `insertPitch` → `slotPlacementOps` (`4323899`); **d** the model's `convertToRest` → `convertToRestOps.swapSlotForRest` (`5da6ce1`); **e1** `addRestSlot` — `VoiceDeps` GONE (`4e0e6b0`); **e2** `measureOps` — `RebarDeps` GONE, `ClearRangeDeps` 5 → 2 — done, awaiting his check — **4.3 DONE with it**; 4.5a (`GhostNote` / `PixelCoordinates` → the engine's type files, `7a248f7`); 4.5b (eight chapters behind the `music.ts` barrel) done, awaiting his word — **Phase 4 DONE** (`425d153`). **Phase 5 IN PROGRESS** — `RequestChannel<T>` (`ffef05b`); `spanLane` + `writeSpanOffset` (`9b9d27e`); `pressSpanTool` (`d9db8d9`); `mapElementCoordinates` (`6678cb4`); `rebarOps` twins (`da78ac2`); `trillTrace` (`073bde3`); the span-renderer shares done, awaiting his word.** Phases are ordered by
+**Status: IN PROGRESS — Phase 1 DONE (2026-09-19), bar item 5's two ⏭️ decisions. Phase 2 DONE. Phase 3.1: the hairpin / ottava / pedal body drags done and checked; the trill's too (`cdb7f05`); the slur's too (`69e927c`); the four SQUARE drags too (`6d903c3`); the slur HANDLE / ENDPOINT and staff-spacing drags too (`8f28f79`); the DYNAMIC and TEMPO drags too (`9a04f88`); bar width, barline join, group span and clef too (`ee31698`); the NOTE drag too (`7d2898e`) — every gesture is a module. **Phase 3.1 DONE** (`25f70a6`). 3.2: the `keys` column + dispatcher and the HAIRPIN on it (`e61626a`); OTTAVA / PEDAL / TRILL too (`14e10e7`); DYNAMIC and TEMPO too (`943fb64`); SLUR and CLEF too (`8382fcc`); the `reanchor` and `cycle` verbs done, awaiting his UI check — **Phase 3.2 DONE with it.** 3.3 (`highlight(ctx)`): the contract + the four span squares (`a7c1076`); the join and group squares (`b772418`); the `ink` column (`f1832e7`); the slur handles (`d3dcb7b`); the anchor guide line (`e2ff597`); the note pass + note-attached kinds (`aa7e5af`); every remaining row done, awaiting his UI check — **Phase 3.3 DONE** (`1efb38d`). 3.4: the panels' `rows` (`4db182d`); the typed `InspectedElement` union done, awaiting his UI check — **3.4 DONE** (`54ab9cc`). **Phase 3 DONE** — 3.5: all seven mark families are `engine/commands/<family>Commands.ts` (`e684125` … `a8549ad`), with command specs and `commit` / `saveOnly` folded into one `mutate`. **Phase 4 IN PROGRESS** — 4.1: `spanFromNotes`, `reanchorSlurs` → `slurOps`, `tieOps` (`6d720b8`) done; `deleteNote`'s repair → `deleteNoteOps` (`ab182f4`); `convertToRest` → `convertToRestOps` (`e20ca48`); `moveSelectionToVoice` → `voiceOps` (`5f6fa03`) — **4.1 DONE**. 4.2 split a–d: **a** the spanning note → `spanningNoteOps` (`551b39a`); **b** the overwrite → `entryOverwriteOps` (`ad381dd`); **c** the duration change → `durationChangeOps` (`cf41ba4`) + the chord-overflow FIX as its own commit (`6b97a8f`); **d** the tuplet builders + entry INTO a tuplet → `tupletEntryOps` (`6116fb8`) — **4.2 DONE** (coordinator 1,602 → 734 lines). 4.3 split a–e: **a** the three `repairDangling*` → `tieOps` / `slurOps` / `trillOps` (`1eed47b`); **b** the rest fill → `restFillOps` (`243d35c`); **c** slot placement + `insertPitch` → `slotPlacementOps` (`4323899`); **d** the model's `convertToRest` → `convertToRestOps.swapSlotForRest` (`5da6ce1`); **e1** `addRestSlot` — `VoiceDeps` GONE (`4e0e6b0`); **e2** `measureOps` — `RebarDeps` GONE, `ClearRangeDeps` 5 → 2 — done, awaiting his check — **4.3 DONE with it**; 4.5a (`GhostNote` / `PixelCoordinates` → the engine's type files, `7a248f7`); 4.5b (eight chapters behind the `music.ts` barrel) done, awaiting his word — **Phase 4 DONE** (`425d153`). **Phase 5 IN PROGRESS** — `RequestChannel<T>` (`ffef05b`); `spanLane` + `writeSpanOffset` (`9b9d27e`); `pressSpanTool` (`d9db8d9`); `mapElementCoordinates` (`6678cb4`); `rebarOps` twins (`da78ac2`); `trillTrace` (`073bde3`); the span-renderer shares (`33e8e4a`); the ottava + pedal WALK row measured and ⏸️ with him.** Phases are ordered by
 value over risk; each one stands alone and can be stopped after. A done item carries ✅ and what
 actually happened where that differs from what was planned.
 
@@ -1060,7 +1060,7 @@ Each passes ARCHITECTURE's "a name is not a body" test — measured on bodies, n
 | what | saves (code lines) |
 |---|---|
 | `spanLane` (`staffOnsets`, `measureStarts`, `locate`) + one `writeSpanOffset` for the span ops | ~200 — ✅ done: ottava 841 → 761, pedal 830 → 758, trill 695 → 680 |
-| ottava + pedal walk and lane → one bracket-span pair | ~380 |
+| ottava + pedal walk and lane → one bracket-span pair | ~380 — ⚠️ MEASURED 2026-09-20: not a pair of copies, see below; ⏸️ his call |
 | `cutIntoPieces`, `fragmentClaim`, `baselineFor` shared by the span renderers (⚠ pedal uses `<`, ottava `<=`); move `planSlurSegments` out of `SlurRenderer` | ~120 — ✅ done |
 | `pressSpanTool(row)` for the palette's five `create*` | ~70 — ✅ done: PaletteController −98 lines, kinds 489 → 455 |
 | `RequestChannel<T>` for the 19 identical bus emitters | ~230 — ✅ done, measured −250 in the 19 files, +53 for the channel |
@@ -1149,6 +1149,33 @@ copy of the slice. ⛔ **The TRILL is not on it**: its last bar runs to the onse
 and its baseline reads the drawn CURVES and nothing of the ladder — a name, not a body. Specs: the planner's
 chapter moved to `spanSegments.test.ts` (+5 `cutSpanAtSystems` cases), `bracketSpanBand.test.ts` (6).
 Proof: unit suite + the BROWSER suite, 300 passed (cross-system ottava / pedal / hairpin / trill included).*
+
+*⚠️ The ottava + pedal WALK row, MEASURED before touching it (2026-09-20) — **no code changed.** With
+comments stripped and the family's name normalised (`Ottava`/`Pedal` → `X`), `ottavaWalk` (248 code lines)
+and `pedalWalk` (245) differ on **149 lines**; what is identical is 118 lines in NINE scattered runs of 7–22.
+The lanes: 135 / 147 code lines, 82 differing. The differences are rules, not spelling: the ottava has a SIDE
+(every vertical goes through `above ? -px : px`, and its offset is `outward`) where the pedal is always below
+and screen-signed; the pedal's two ends are different THINGS (`press` on a slot, `lift` on a `PedalLiftTarget`,
+two commands, two x readers) where the ottava's are one `reanchor` with a `which`; the pedal's body drag
+carries `throughTheBand` (hand-over) and the ottava's does not; and the engine commands differ end to end.
+The shared FRAME is already shared — `markWalk` / `dragFrame` / `BreakWrapPort`. One "bracket walk" would be
+a function of ~10 callbacks whose rows are today's two files. ⛔ And this is the gesture code that was reset
+at his request once. **The ~380 was a count of names.**
+
+What IS a body, and small: five lane helpers spelled per family with only the registry kind differing —
+`<kind>StaffSpacePx` (×5: ottava, pedal, trill, hairpin, slur body), `staffIndexOf` (×4 private copies of
+`models/staffContent.staffIndexOfId`), `<kind>SystemInkLimit` (×4), `sameAddress` (×2), and the ottava's and
+pedal's `drawnOnsets`. About 60 lines, no gesture decision in any of them.*
+
+*…and the small bodies DONE (awaiting his word to commit; his instruction: **"dont change any rule"**) —
+`interactions/markLane.ts`: `staffIndexOf` (the four private copies' body, ⛔ NOT routed through
+`staffContent.staffIndexOfId`, which resolves through `getStaves` and is therefore not provably the same
+answer), `markStaffSpacePx(registry, kind, id)` (ottava · pedal · trill · hairpin), `markSystemInkLimit`
+(ottava · pedal · hairpin · dynamic) and `sameSlotAddress`. Every family keeps its exported name as a
+one-line wrapper, so no caller and no spec mock changed. ⚠️ Two entries of the list above were WRONG on
+reading the bodies and were left alone: the slur body's staff space prefers a space MEASURED on the arc,
+and the two `drawnOnsets` differ (the pedal reads a measure rest at its bar's onset; the ottava keeps a
+right edge). Spec: `markLane.test.ts` (5). The WALK files are untouched.*
 
 ### Phase 6 — Folders and docs
 
