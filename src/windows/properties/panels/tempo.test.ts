@@ -1,14 +1,14 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { PropertiesWidget } from './PropertiesWidget'
+import { PropertiesWidget } from '../PropertiesWidget'
 import { bus } from '@/bus'
 import type { TempoOffsetRequest } from '@/bus'
-import type { InspectedElement } from '../../interactions/selectionSnapshot'
+import type { InspectedElement } from '@/interactions/selectionSnapshot'
 
 /**
  * ⭐ A TEMPO MARK'S OFFSET AS TWO NUMBERS — his ask, 2026-08-19, the typed twin of the arrows.
  *
- * Subject: {@link PropertiesWidget}, a chapter beside `.dynamicOffset.test.ts`. The window's half
+ * Subject: this kind's PANEL, driven through the mounted `PropertiesWidget`; a chapter beside `dynamic.test.ts`. The window's half
  * only — which boxes appear and what they publish; the apply is `TempoOffsetController`'s.
  *
  * ⭐⭐ The row itself is SHARED with the dynamic's (`buildMarkOffsetRow`), so what this file is really

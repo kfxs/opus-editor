@@ -9,7 +9,7 @@ import type { Score } from '../types/music'
  * The apply half of the Properties slur rows.
  *
  * Subject: {@link SlurGeometryController}, sitting beside this file. The window's half — which rows
- * appear and what they publish — is `PropertiesWidget.slur.test.ts`; what is asked here is the
+ * appear and what they publish — is `windows/properties/panels/slur.test.ts`; what is asked here is the
  * translation, which is where the real risk is: the panel speaks ABSOLUTE positions and the endpoint
  * facade is a NUDGE, so a wrong reading of "current" moves the end by the wrong amount, silently and
  * only when it already carried an offset.

@@ -1,10 +1,10 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { PropertiesWidget } from './PropertiesWidget'
+import { PropertiesWidget } from '../PropertiesWidget'
 import { bus } from '@/bus'
 import type { FanEditRequest } from '@/bus'
-import type { InspectedElement } from '../../interactions/selectionSnapshot'
-import type { FanMark } from '../../types/music'
+import type { InspectedElement } from '@/interactions/selectionSnapshot'
+import type { FanMark } from '@/types/music'
 
 /**
  * ⭐ THE FAN ROW'S 1-BASED SEAM (docs/fan-ramp-range-plan.md P2). The window shows "note 1" for the

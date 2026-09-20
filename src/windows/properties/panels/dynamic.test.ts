@@ -1,15 +1,15 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { PropertiesWidget } from './PropertiesWidget'
+import { PropertiesWidget } from '../PropertiesWidget'
 import { bus } from '@/bus'
 import type { DynamicOffsetRequest } from '@/bus'
-import type { InspectedElement } from '../../interactions/selectionSnapshot'
+import type { InspectedElement } from '@/interactions/selectionSnapshot'
 
 /**
  * ⭐ A DYNAMIC'S (or expression's) OFFSET AS TWO NUMBERS — his ask, 2026-08-17: *"we also should be
  * able to control the offset of expression (dynamics) on the properties."*
  *
- * Subject: {@link PropertiesWidget}, a chapter beside `.hairpin.test.ts`. The window's half only —
+ * Subject: this kind's PANEL, driven through the mounted `PropertiesWidget`; a chapter beside `hairpin.test.ts`. The window's half only —
  * which boxes appear and what they publish; the apply is `DynamicOffsetController`'s.
  *
  * ⭐⭐ **The claim this file exists for is the STALE VALUE**, his report an hour later: *"the number

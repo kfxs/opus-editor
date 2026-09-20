@@ -1,15 +1,15 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { PropertiesWidget } from './PropertiesWidget'
+import { PropertiesWidget } from '../PropertiesWidget'
 import { bus } from '@/bus'
 import type { SlurGeometryRequest } from '@/bus'
-import type { InspectedElement } from '../../interactions/selectionSnapshot'
+import type { InspectedElement } from '@/interactions/selectionSnapshot'
 
 /**
  * ⭐ THE SLUR'S FOUR HANDLES AS NUMBERS (his ask, 2026-08-17) — the typed twin of the drag and the
  * arrow nudge.
  *
- * Subject: {@link PropertiesWidget}, sitting beside this file. What is asked here is the WINDOW's
+ * Subject: this kind's PANEL, driven through the mounted `PropertiesWidget`. What is asked here is the WINDOW's
  * half only: which rows appear, what they show, and what they publish. The apply is
  * `SlurGeometryController`'s and has its own spec — the window holds no engine, which is the boundary
  * this panel exists to keep.

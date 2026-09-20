@@ -8,7 +8,7 @@ import type { Score } from '../types/music'
  * The apply half of the Properties hairpin rows.
  *
  * Subject: {@link HairpinGeometryController}, sitting beside this file. The window's half is
- * `windows/properties/PropertiesWidget.hairpin.test.ts`; what is asked here is the translation, where
+ * `windows/properties/panels/hairpin.test.ts`; what is asked here is the translation, where
  * the risk lives: the panel speaks ABSOLUTE offsets and the engine's verb ACCUMULATES, so a wrong
  * reading of "current" moves the end by the wrong amount — silently, and only once it already carries
  * a nudge.

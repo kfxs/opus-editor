@@ -1,15 +1,15 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { PropertiesWidget } from './PropertiesWidget'
+import { PropertiesWidget } from '../PropertiesWidget'
 import { bus } from '@/bus'
 import type { OttavaGeometryRequest } from '@/bus'
-import type { InspectedElement } from '../../interactions/selectionSnapshot'
+import type { InspectedElement } from '@/interactions/selectionSnapshot'
 
 /**
  * ⭐ AN OCTAVE BRACKET'S INK AS NUMBERS (his ask, 2026-08-17) — the typed twin of the arrows on its
  * two endpoint squares.
  *
- * Subject: {@link PropertiesWidget}, a chapter beside `.hairpin.test.ts` and `.dynamicOffset.test.ts`.
+ * Subject: this kind's PANEL, driven through the mounted `PropertiesWidget`; a chapter beside `hairpin.test.ts` and `dynamic.test.ts`.
  * The window's half only: which rows appear and what they publish. The apply is
  * `OttavaGeometryController`'s.
  *

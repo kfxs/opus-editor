@@ -1,6 +1,6 @@
 # Code shape plan — 2026-09-19
 
-**Status: IN PROGRESS — Phase 1 DONE (2026-09-19), bar item 5's two ⏭️ decisions. Phase 2 DONE. Phase 3.1: the hairpin / ottava / pedal body drags done and checked; the trill's too (`cdb7f05`); the slur's too (`69e927c`); the four SQUARE drags too (`6d903c3`); the slur HANDLE / ENDPOINT and staff-spacing drags too (`8f28f79`); the DYNAMIC and TEMPO drags too (`9a04f88`); bar width, barline join, group span and clef too (`ee31698`); the NOTE drag too (`7d2898e`) — every gesture is a module. **Phase 3.1 DONE** (`25f70a6`). 3.2: the `keys` column + dispatcher and the HAIRPIN on it (`e61626a`); OTTAVA / PEDAL / TRILL too (`14e10e7`); DYNAMIC and TEMPO too (`943fb64`); SLUR and CLEF too (`8382fcc`); the `reanchor` and `cycle` verbs done, awaiting his UI check — **Phase 3.2 DONE with it.** 3.3 (`highlight(ctx)`): the contract + the four span squares (`a7c1076`); the join and group squares (`b772418`); the `ink` column (`f1832e7`); the slur handles (`d3dcb7b`); the anchor guide line (`e2ff597`); the note pass + note-attached kinds (`aa7e5af`); every remaining row done, awaiting his UI check — **Phase 3.3 DONE with it.** 3.4 (Properties panels) is next.** Phases are ordered by
+**Status: IN PROGRESS — Phase 1 DONE (2026-09-19), bar item 5's two ⏭️ decisions. Phase 2 DONE. Phase 3.1: the hairpin / ottava / pedal body drags done and checked; the trill's too (`cdb7f05`); the slur's too (`69e927c`); the four SQUARE drags too (`6d903c3`); the slur HANDLE / ENDPOINT and staff-spacing drags too (`8f28f79`); the DYNAMIC and TEMPO drags too (`9a04f88`); bar width, barline join, group span and clef too (`ee31698`); the NOTE drag too (`7d2898e`) — every gesture is a module. **Phase 3.1 DONE** (`25f70a6`). 3.2: the `keys` column + dispatcher and the HAIRPIN on it (`e61626a`); OTTAVA / PEDAL / TRILL too (`14e10e7`); DYNAMIC and TEMPO too (`943fb64`); SLUR and CLEF too (`8382fcc`); the `reanchor` and `cycle` verbs done, awaiting his UI check — **Phase 3.2 DONE with it.** 3.3 (`highlight(ctx)`): the contract + the four span squares (`a7c1076`); the join and group squares (`b772418`); the `ink` column (`f1832e7`); the slur handles (`d3dcb7b`); the anchor guide line (`e2ff597`); the note pass + note-attached kinds (`aa7e5af`); every remaining row done, awaiting his UI check — **Phase 3.3 DONE** (`1efb38d`). 3.4: the panels' `rows` done, awaiting his UI check; the typed `InspectedElement` union next.** Phases are ordered by
 value over risk; each one stands alone and can be stopped after. A done item carries ✅ and what
 actually happened where that differs from what was planned.
 
@@ -499,6 +499,22 @@ Run the e2e suite either side of each step.
    a reader of "what is selected" wants it in one place — it stays. The 37 casts do not need it
    moved: they come from `InspectedElement.data: unknown`. Make `InspectedElement` a
    discriminated union keyed by `kind`, and each panel receives its own typed `data`.
+
+   *First half done — the `rows`. `windows/properties/panels/<kind>.ts`, one per kind that has
+   controls (note · clef · dynamic · tempo · ottava · pedal · trill · slur · hairpin · keySignature
+   · barline), each exporting a `PanelRows = (element) => HTMLElement[]`; `panels/index.ts` is the
+   table (`rest` shares the note's panel, `repeatStart` the barline's — the same LINE from either
+   side), and `PropertiesWidget.paint` is `for (row of PANELS[kind]?.(element) ?? [])`, knowing no
+   kind by name. `windows/properties/rows.ts` holds what a row IS — `commitOnFirstStep`,
+   `buildMarkOffsetRow`, `scalarOffsetRow`, `buildNumberRow`, `buildPointRow`, the three colours —
+   with ⛔ no `bus`: a row is handed its `publish`. `panels/panel.ts` has the contract and `liveId`
+   (the eleven copies of the `id && !missing` gate). The ten per-kind specs moved whole, unchanged
+   but for their imports — they drive the mounted widget through `bus.inspection`, so they are the
+   proof the move changed nothing: `PropertiesWidget.<topic>.test.ts` → `panels/<kind>.test.ts`.
+   Two orphaned doc comments (the fan's, the stem-align's) went back onto their functions. Hub:
+   kinds 187 → **0**, 1,579 → **120** file lines; both ceilings set (0 · 73). `report` stays, by
+   the recommendation above. ⏸️ Awaiting his UI check. Second half, next: `InspectedElement` as
+   a discriminated union, so a panel receives its own typed `data` and the casts go.*
 5. **Mark-family commands off the facade**: `engine/commands/<family>Commands.ts` built from a
    small context (`mutate`, `preview`, `commitPreviewed`, the guards); `MusicEngine` keeps
    `readonly ottava = …`. About 2,600 file lines leave, and the walks swap their `Pick` for the

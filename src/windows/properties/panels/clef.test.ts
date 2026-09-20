@@ -1,16 +1,16 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { PropertiesWidget } from './PropertiesWidget'
+import { PropertiesWidget } from '../PropertiesWidget'
 import { bus } from '@/bus'
 import type { ClefOffsetRequest } from '@/bus'
-import type { InspectedElement } from '../../interactions/selectionSnapshot'
+import type { InspectedElement } from '@/interactions/selectionSnapshot'
 
 /**
  * ⭐⭐ **AN INLINE CLEF'S HORIZONTAL OFFSET** — his ask, 2026-08-28: *"when the clef is not in the
  * beguining of a line (i mean a header clef) i want to be able to offset it horizontally either by
  * keys in the keyboard **or be the property**"*.
  *
- * Subject: {@link PropertiesWidget}, a chapter beside `.dynamicOffset.test.ts`. The window's half
+ * Subject: this kind's PANEL, driven through the mounted `PropertiesWidget`; a chapter beside `dynamic.test.ts`. The window's half
  * only — which control appears and what it publishes; the apply is `ClefOffsetController`'s.
  *
  * ⭐ **The claim this file exists for is the ABSENT ROW.** A clef standing at the head of a system is

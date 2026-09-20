@@ -1,16 +1,16 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { PropertiesWidget } from './PropertiesWidget'
+import { PropertiesWidget } from '../PropertiesWidget'
 import { bus } from '@/bus'
 import type { CautionaryKeyGapRequest } from '@/bus'
-import type { InspectedElement } from '../../interactions/selectionSnapshot'
+import type { InspectedElement } from '@/interactions/selectionSnapshot'
 
 /**
  * ⭐ **THE COURTESY TAIL AS A NUMBER** (his ask, 2026-08-28: *"lets make what we have now default but
  * give the user the freedom to change the number in properties"*) — the bare staff drawn after a
  * cautionary key signature at a system break.
  *
- * Subject: {@link PropertiesWidget}, a chapter beside `.hairpin.test.ts`, whose `mouth` row this one
+ * Subject: this kind's PANEL, driven through the mounted `PropertiesWidget`; a chapter beside `hairpin.test.ts`, whose `mouth` row this one
  * copies: the window's half only — which row appears and what it publishes. The apply is
  * `CautionaryKeyGapController`'s.
  *

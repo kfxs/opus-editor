@@ -1,15 +1,15 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { PropertiesWidget } from './PropertiesWidget'
+import { PropertiesWidget } from '../PropertiesWidget'
 import { bus } from '@/bus'
 import type { HairpinEditRequest, HairpinGeometryRequest } from '@/bus'
-import type { InspectedElement } from '../../interactions/selectionSnapshot'
+import type { InspectedElement } from '@/interactions/selectionSnapshot'
 
 /**
  * ⭐ THE WEDGE'S TWO ENDS AS NUMBERS (his ask, 2026-08-17) — the typed twin of the arrows that
  * reshape a hairpin.
  *
- * Subject: {@link PropertiesWidget}, a chapter beside `.slur.test.ts` and `.fan.test.ts`. The window's
+ * Subject: this kind's PANEL, driven through the mounted `PropertiesWidget`; a chapter beside `slur.test.ts` and `note.fan.test.ts`. The window's
  * half only: which rows appear and what they publish. The apply is `HairpinGeometryController`'s.
  *
  * ⛔ The claim worth pinning hardest is a NEGATIVE: the panel offers no box for the wedge's EXTENT.

@@ -1,15 +1,15 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { PropertiesWidget } from './PropertiesWidget'
+import { PropertiesWidget } from '../PropertiesWidget'
 import { bus } from '@/bus'
 import type { PedalGeometryRequest } from '@/bus'
-import type { InspectedElement } from '../../interactions/selectionSnapshot'
+import type { InspectedElement } from '@/interactions/selectionSnapshot'
 
 /**
  * ⭐ A SUSTAIN PEDAL'S INK AS NUMBERS (his ask, 2026-08-18) — the typed twin of the arrows on its two
  * squares.
  *
- * Subject: {@link PropertiesWidget}, a chapter beside `.ottava.test.ts`, whose claim it repeats for
+ * Subject: this kind's PANEL, driven through the mounted `PropertiesWidget`; a chapter beside `ottava.test.ts`, whose claim it repeats for
  * the other span: **THREE rows, not two points.** Two height boxes would offer two answers to a
  * question the notation has one of — here because a pedal and its own release share a baseline
  * (Gould p. 333, the copy in `reference/`), where the bracket's reason is that a straight rule

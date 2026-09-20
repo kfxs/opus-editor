@@ -1,15 +1,15 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { PropertiesWidget } from './PropertiesWidget'
+import { PropertiesWidget } from '../PropertiesWidget'
 import { bus } from '@/bus'
 import type { TrillGeometryRequest } from '@/bus'
-import type { InspectedElement } from '../../interactions/selectionSnapshot'
+import type { InspectedElement } from '@/interactions/selectionSnapshot'
 
 /**
  * ⭐ A TRILL'S INK AS NUMBERS (his ask, 2026-08-18) — the typed twin of the arrows on its two
  * squares.
  *
- * Subject: {@link PropertiesWidget}, a chapter beside `.ottava.test.ts` and `.pedal.test.ts`, whose
+ * Subject: this kind's PANEL, driven through the mounted `PropertiesWidget`; a chapter beside `ottava.test.ts` and `pedal.test.ts`, whose
  * claim it repeats for the fifth span: **THREE rows, not two points.** The `tr` and its wavy line are
  * drawn on one baseline, so two height boxes would offer two answers to a question the notation has
  * one of.

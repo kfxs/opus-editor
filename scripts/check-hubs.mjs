@@ -41,7 +41,7 @@ const HUBS = [
   { file: 'src/interactions/PaletteController.ts', kinds: 504, lines: null },
   { file: 'src/interactions/HighlightController.ts', kinds: 9, lines: 117 },
   { file: 'src/interactions/shortcutWiring.ts', kinds: 67, lines: 431, except: ['deleteSelected'] },
-  { file: 'src/windows/properties/PropertiesWidget.ts', kinds: 187, lines: null },
+  { file: 'src/windows/properties/PropertiesWidget.ts', kinds: 0, lines: 73 },
   { file: 'src/interactions/selectionSnapshot.ts', kinds: 7, lines: null, except: ['selectedElements'] },
 ]
 
