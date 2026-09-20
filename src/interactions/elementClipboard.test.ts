@@ -365,7 +365,7 @@ describe('elementClipboard — the TEMPO mark (his ask, 2026-08-19)', () => {
     beforeEach(() => {
       engine.addNoteAtBeat({ step: 'D', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
       engine.addNoteAtBeat({ step: 'E', octave: 4, duration: 'q', measure: 1, beat: frac(2, 1) })
-      wedgeId = engine.addHairpin(1, { type: 'cresc', beat: frac(0, 1), length: frac(2, 1) })!.id
+      wedgeId = engine.hairpin.addHairpin(1, { type: 'cresc', beat: frac(0, 1), length: frac(2, 1) })!.id
     })
 
     it('⭐⭐ copies the wedge WITH its length — a hairpin is an amount of music', () => {
@@ -375,8 +375,8 @@ describe('elementClipboard — the TEMPO mark (his ask, 2026-08-19)', () => {
     })
 
     it('⛔ …and NOT the drawing: neither end nudge nor the hand-set mouth', () => {
-      engine.nudgeHairpinEndpoint(wedgeId, 'end', 2, -1)
-      engine.setHairpinAperture(wedgeId, 1.8)
+      engine.hairpin.nudgeHairpinEndpoint(wedgeId, 'end', 2, -1)
+      engine.hairpin.setHairpinAperture(wedgeId, 1.8)
       const clip = copyElement(engine, { kind: 'hairpin', id: wedgeId })!
 
       const pasted = pasteElement(engine, clip, { measure: 1, beat: frac(2, 1), staff: 0 })
@@ -399,13 +399,13 @@ describe('elementClipboard — the TEMPO mark (his ask, 2026-08-19)', () => {
     })
 
     it('⭐ the SCOPE travels verbatim — an absent one stays absent (staff-wide)', () => {
-      const scoped = engine.addHairpin(1, { type: 'dim', beat: frac(1, 1), length: frac(1, 1), voice: 2 })!
+      const scoped = engine.hairpin.addHairpin(1, { type: 'dim', beat: frac(1, 1), length: frac(1, 1), voice: 2 })!
       expect(copyElement(engine, { kind: 'hairpin', id: scoped.id })).toMatchObject({ voice: 2 })
       expect(copyElement(engine, { kind: 'hairpin', id: wedgeId })).not.toHaveProperty('voice')
     })
 
     it('⛔ copies nothing for a wedge that is no longer in the score', () => {
-      engine.removeHairpin(wedgeId)
+      engine.hairpin.removeHairpin(wedgeId)
       expect(copyElement(engine, { kind: 'hairpin', id: wedgeId })).toBeNull()
     })
   })

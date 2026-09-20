@@ -74,15 +74,17 @@ describe('hairpin body drag — the wedge\'s ink follows the cursor', () => {
       getNote: () => null,
       getScore: () => ({ measures: [] }),
       pixelToMeasure: () => 1,
-      previewHairpinOffset: preview,
-      commitHairpinOffsetDrag: commit,
-      // ⭐ The body drag is a WALK now (`../hairpinWalk`): it asks for the next slot of the wedge's
-      // lane and for the system it belongs to. Nothing is drawn here but the wedge itself, so both
-      // answer "nowhere", and the frame degrades to the plain ink nudge these cases are about.
+      hairpin: {
+        previewHairpinOffset: preview,
+        commitHairpinOffsetDrag: commit,
+        // ⭐ The body drag is a WALK now (`../hairpinWalk`): it asks for the next slot of the wedge's
+        // lane and for the system it belongs to. Nothing is drawn here but the wedge itself, so both
+        // answer "nowhere", and the frame degrades to the plain ink nudge these cases are about.
+        nextHairpinStartSlot: () => null,
+        previewHairpinSlot: () => false,
+        previewHairpinOffsetRebase: vi.fn(() => true),
+      },
       getHairpinById: () => ({ id: 'H1', type: 'cresc' }),
-      nextHairpinStartSlot: () => null,
-      previewHairpinSlot: () => false,
-      previewHairpinOffsetRebase: vi.fn(() => true),
     }
 
     mc = new MouseController(

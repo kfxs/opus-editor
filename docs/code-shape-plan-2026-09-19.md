@@ -1,6 +1,6 @@
 # Code shape plan — 2026-09-19
 
-**Status: IN PROGRESS — Phase 1 DONE (2026-09-19), bar item 5's two ⏭️ decisions. Phase 2 DONE. Phase 3.1: the hairpin / ottava / pedal body drags done and checked; the trill's too (`cdb7f05`); the slur's too (`69e927c`); the four SQUARE drags too (`6d903c3`); the slur HANDLE / ENDPOINT and staff-spacing drags too (`8f28f79`); the DYNAMIC and TEMPO drags too (`9a04f88`); bar width, barline join, group span and clef too (`ee31698`); the NOTE drag too (`7d2898e`) — every gesture is a module. **Phase 3.1 DONE** (`25f70a6`). 3.2: the `keys` column + dispatcher and the HAIRPIN on it (`e61626a`); OTTAVA / PEDAL / TRILL too (`14e10e7`); DYNAMIC and TEMPO too (`943fb64`); SLUR and CLEF too (`8382fcc`); the `reanchor` and `cycle` verbs done, awaiting his UI check — **Phase 3.2 DONE with it.** 3.3 (`highlight(ctx)`): the contract + the four span squares (`a7c1076`); the join and group squares (`b772418`); the `ink` column (`f1832e7`); the slur handles (`d3dcb7b`); the anchor guide line (`e2ff597`); the note pass + note-attached kinds (`aa7e5af`); every remaining row done, awaiting his UI check — **Phase 3.3 DONE** (`1efb38d`). 3.4: the panels' `rows` (`4db182d`); the typed `InspectedElement` union done, awaiting his UI check — **3.4 DONE** (`54ab9cc`). 3.5: `spanFromNotes` (4.1) + the OTTAVA (`e684125`); the PEDAL (`44b99d2`); the TRILL as `engine.trill.*` done, awaiting his UI check; hairpin / slur / dynamic / tempo to follow.** Phases are ordered by
+**Status: IN PROGRESS — Phase 1 DONE (2026-09-19), bar item 5's two ⏭️ decisions. Phase 2 DONE. Phase 3.1: the hairpin / ottava / pedal body drags done and checked; the trill's too (`cdb7f05`); the slur's too (`69e927c`); the four SQUARE drags too (`6d903c3`); the slur HANDLE / ENDPOINT and staff-spacing drags too (`8f28f79`); the DYNAMIC and TEMPO drags too (`9a04f88`); bar width, barline join, group span and clef too (`ee31698`); the NOTE drag too (`7d2898e`) — every gesture is a module. **Phase 3.1 DONE** (`25f70a6`). 3.2: the `keys` column + dispatcher and the HAIRPIN on it (`e61626a`); OTTAVA / PEDAL / TRILL too (`14e10e7`); DYNAMIC and TEMPO too (`943fb64`); SLUR and CLEF too (`8382fcc`); the `reanchor` and `cycle` verbs done, awaiting his UI check — **Phase 3.2 DONE with it.** 3.3 (`highlight(ctx)`): the contract + the four span squares (`a7c1076`); the join and group squares (`b772418`); the `ink` column (`f1832e7`); the slur handles (`d3dcb7b`); the anchor guide line (`e2ff597`); the note pass + note-attached kinds (`aa7e5af`); every remaining row done, awaiting his UI check — **Phase 3.3 DONE** (`1efb38d`). 3.4: the panels' `rows` (`4db182d`); the typed `InspectedElement` union done, awaiting his UI check — **3.4 DONE** (`54ab9cc`). 3.5: `spanFromNotes` (4.1) + the OTTAVA (`e684125`); the PEDAL (`44b99d2`); the TRILL (`7148a63`); the HAIRPIN as `engine.hairpin.*` done, awaiting his UI check; slur / dynamic / tempo to follow.** Phases are ordered by
 value over risk; each one stands alone and can be stopped after. A done item carries ✅ and what
 actually happened where that differs from what was planned.
 
@@ -614,8 +614,20 @@ Run the e2e suite either side of each step.
    `elementClipboard`, `enclosedMarks`); ⚠️ it flattens a multi-line Pick onto one line — reformat
    by hand. ⚠️ No engine spec tests the trill's commands on their own, so `audit:tests` lists
    `trillCommands` as owed one (`MusicEngine.pageLimit.test.ts` covers four of them among the
-   other families'). `MusicEngine`: 5,333 → 5,028 lines, kinds 947 → **866**. ⏸️ Awaiting his
-   UI check.*
+   other families'). `MusicEngine`: 5,333 → 5,028 lines, kinds 947 → **866**. ✅ Passed
+   (`7148a63`).*
+
+   *Fourth family — the HAIRPIN: `engine/commands/hairpinCommands.ts`,
+   `engine.hairpin.<command>(…)` — 26 commands and its three private guards (`endpointInk`,
+   `endpointLane`, `endpointOffsetAllowed`: judged per END, because a `y` on one end TILTS the
+   wedge). Reads stay (`getHairpins`, `getHairpinById`, the SVG group). With it the facade's last
+   `slotLength` user left, so that import went too. The recipe is four scratch scripts now (cut ·
+   repoint · fix Picks · nest mocks); what still needed a hand: `hairpinKeys.test.ts` reset its
+   mocks with `Object.values(engine)` (→ `engine.hairpin`), the table-driven
+   `MouseController.markEndDrag` row (`commands: 'hairpin'`), and the mock-nester's SKIP list
+   (`hairpinOps*.test.ts` — import lists). `audit:tests` lists `hairpinCommands` as owed a spec,
+   the trill's gap. `MusicEngine`: 5,028 → 4,646 lines, kinds 866 → **771**. ⏸️ Awaiting his UI
+   check.*
 
    *🚨 Two slips worth keeping. (1) A receiver-anchored regex (`(?<![\w.])engine\.`) skipped
    `h.engine.addOttava(…)` in `e2e/` — untyped inside `page.evaluate`, so `tsc` was silent and only

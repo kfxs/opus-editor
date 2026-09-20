@@ -18,7 +18,7 @@ const HAIRPIN_BODY: BodyDragSpec = {
   // screen for one frame. It writes at most once per gesture, so the second draw is not a cost the
   // ordinary frame pays.
   afterFrame: (engine, id, frame) => frame.jumped && settleHairpinLanding(engine, id),
-  commit: engine => engine.commitHairpinOffsetDrag(),
+  commit: engine => engine.hairpin.commitHairpinOffsetDrag(),
 }
 
 /** ⛔ null = declines to arm: the wedge is not measurably drawn, and a gesture in pixels needs a

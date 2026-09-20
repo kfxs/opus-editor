@@ -31,12 +31,12 @@ export const HAIRPIN_KEYS: KeysOf<'hairpin'> = {
     if (endpoint) {
       const moved = horizontal
         ? walkHairpinEndpoint(engine, id, endpoint, dx)
-        : engine.nudgeHairpinEndpoint(id, endpoint, dx, dy)
-      if (moved) afterMarkPress('hairpin', id, dx, dy, () => engine.commitHairpinDrag(endpoint))
+        : engine.hairpin.nudgeHairpinEndpoint(id, endpoint, dx, dy)
+      if (moved) afterMarkPress('hairpin', id, dx, dy, () => engine.hairpin.commitHairpinDrag(endpoint))
       return moved
     }
-    const moved = horizontal ? walkHairpinBody(engine, id, dx) : engine.nudgeHairpin(id, dx, dy)
-    if (moved) afterMarkPress('hairpin', id, dx, dy, () => engine.commitHairpinOffsetDrag())
+    const moved = horizontal ? walkHairpinBody(engine, id, dx) : engine.hairpin.nudgeHairpin(id, dx, dy)
+    if (moved) afterMarkPress('hairpin', id, dx, dy, () => engine.hairpin.commitHairpinOffsetDrag())
     return moved
   },
 
@@ -58,8 +58,8 @@ export const HAIRPIN_KEYS: KeysOf<'hairpin'> = {
   reanchor({ engine, render }, { id, endpoint }, direction) {
     if (!endpoint) return false
     const moved = endpoint === 'end'
-      ? engine.resizeHairpinBySlot(id, direction)
-      : engine.moveHairpinStartBySlot(id, direction)
+      ? engine.hairpin.resizeHairpinBySlot(id, direction)
+      : engine.hairpin.moveHairpinStartBySlot(id, direction)
     if (moved) render()
     return moved
   },
@@ -74,7 +74,7 @@ export const HAIRPIN_KEYS: KeysOf<'hairpin'> = {
   /** An armed end → that end; nothing armed → both. DECLINEs when there was no nudge to take back,
    *  so the key falls through to the note-spacing / bar-width resets. */
   reset({ engine, render }, { id, endpoint }) {
-    const was = endpoint ? engine.resetHairpinEndpointOffset(id, endpoint) : engine.resetHairpinOffset(id)
+    const was = endpoint ? engine.hairpin.resetHairpinEndpointOffset(id, endpoint) : engine.hairpin.resetHairpinOffset(id)
     if (was) render()
     return was
   },

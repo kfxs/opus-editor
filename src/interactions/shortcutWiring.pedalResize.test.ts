@@ -61,8 +61,10 @@ describe('moving a sustain pedal\'s ends from the keyboard', () => {
       nudgeNoteOffset: noteOffset,
       getPedalById: () => ({ id: 'P1' }),
       getScore: () => ({ measures: [] }),
-      resizeHairpinBySlot: vi.fn(() => false),
-      moveHairpinStartBySlot: vi.fn(() => false),
+      hairpin: {
+        resizeHairpinBySlot: vi.fn(() => false),
+        moveHairpinStartBySlot: vi.fn(() => false),
+      },
       ottava: {
         resizeOttavaBySlot: vi.fn(() => false),
         moveOttavaStartBySlot: vi.fn(() => false),

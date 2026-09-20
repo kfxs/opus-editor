@@ -194,7 +194,9 @@ function mouthEngine(
   const engine = {
     getHairpinById: () => ({ id: 'H1', type }),
     getElementRegistry: () => registry,
-    setHairpinAperture: set,
+    hairpin: {
+      setHairpinAperture: set,
+    },
   } as unknown as Parameters<typeof nudgeArmedHairpinMouth>[1]
   return { engine, set }
 }
@@ -285,7 +287,9 @@ describe('resetArmedHairpinMouth', () => {
     const engine = {
       getHairpinById: () => ({ id: 'H1', type: 'cresc' }),
       getElementRegistry: () => registry,
-      setHairpinAperture: () => false,
+      hairpin: {
+        setHairpinAperture: () => false,
+      },
     } as unknown as Parameters<typeof resetArmedHairpinMouth>[1]
     expect(resetArmedHairpinMouth(state, engine)).toBe(false)
   })

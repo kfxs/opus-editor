@@ -73,10 +73,12 @@ describe('nudging a sustain pedal\'s ink from the keyboard', () => {
       getScore: () => ({ measures: [] }),
       // The families ahead of the pedal in every chain — stubbed to DECLINE, so a case that reaches
       // a pedal branch proves the chain got that far rather than crashing.
-      nudgeHairpinEndpoint: vi.fn(() => false),
+      hairpin: {
+        nudgeHairpinEndpoint: vi.fn(() => false),
+        resizeHairpinBySlot: vi.fn(() => false),
+        moveHairpinStartBySlot: vi.fn(() => false),
+      },
       nudgeOttavaEndpoint: vi.fn(() => false),
-      resizeHairpinBySlot: vi.fn(() => false),
-      moveHairpinStartBySlot: vi.fn(() => false),
       resizeOttavaBySlot: vi.fn(() => false),
       moveOttavaStartBySlot: vi.fn(() => false),
       getOttavaById: () => null,

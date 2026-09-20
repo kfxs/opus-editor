@@ -444,7 +444,7 @@ describe('clipboard — hairpins travel', () => {
 
   it('copies a hairpin under the selection and re-bases it on paste', () => {
     const ids = fourNotes()
-    engine.addHairpin(1, { type: 'cresc', beat: frac(1, 1), length: frac(2, 1), voice: 0 })
+    engine.hairpin.addHairpin(1, { type: 'cresc', beat: frac(1, 1), length: frac(2, 1), voice: 0 })
 
     const payload = buildClipboardFromSelection(engine.getScore(), ids)!
     expect(payload.hairpins).toHaveLength(1)
@@ -459,7 +459,7 @@ describe('clipboard — hairpins travel', () => {
   it('⭐ carries a hairpin STRADDLING the window WHOLE — a span belongs to where it begins', () => {
     // Copy only C@0 + D@1 → window [0,2). The wedge starts inside it but runs to beat 3.
     const ids = fourNotes().slice(0, 2)
-    engine.addHairpin(1, { type: 'cresc', beat: frac(1, 1), length: frac(2, 1), voice: 0 })
+    engine.hairpin.addHairpin(1, { type: 'cresc', beat: frac(1, 1), length: frac(2, 1), voice: 0 })
 
     const payload = buildClipboardFromSelection(engine.getScore(), ids)!
     // ⭐ 2026-08-19, his call: it travels, with its extent verbatim. ⛔ Nothing is truncated — which
@@ -472,7 +472,7 @@ describe('clipboard — hairpins travel', () => {
 
   it('leaves a hairpin that STARTS before the window behind — its home is that earlier music', () => {
     const ids = fourNotes().slice(2) // window [2,4)
-    engine.addHairpin(1, { type: 'cresc', beat: frac(0, 1), length: frac(4, 1), voice: 0 })
+    engine.hairpin.addHairpin(1, { type: 'cresc', beat: frac(0, 1), length: frac(4, 1), voice: 0 })
     const payload = buildClipboardFromSelection(engine.getScore(), ids)!
     expect(payload.hairpins).toHaveLength(0)
   })
@@ -481,7 +481,7 @@ describe('clipboard — hairpins travel', () => {
     // Window [0,2); wedge [0,2] — its end lands on the first beat NOT copied, which is where
     // the copied music stops sounding, so it fits. (A dynamic AT beat 2 would not.)
     const ids = fourNotes().slice(0, 2)
-    engine.addHairpin(1, { type: 'dim', beat: frac(0, 1), length: frac(2, 1), voice: 0 })
+    engine.hairpin.addHairpin(1, { type: 'dim', beat: frac(0, 1), length: frac(2, 1), voice: 0 })
 
     const payload = buildClipboardFromSelection(engine.getScore(), ids)!
     expect(payload.hairpins).toHaveLength(1)
@@ -489,8 +489,8 @@ describe('clipboard — hairpins travel', () => {
 
   it('overwrites a destination hairpin starting in the paste window', () => {
     const ids = fourNotes()
-    engine.addHairpin(1, { type: 'cresc', beat: frac(0, 1), length: frac(1, 1), voice: 0 })
-    engine.addHairpin(2, { type: 'dim', beat: frac(0, 1), length: frac(1, 1), voice: 0 })
+    engine.hairpin.addHairpin(1, { type: 'cresc', beat: frac(0, 1), length: frac(1, 1), voice: 0 })
+    engine.hairpin.addHairpin(2, { type: 'dim', beat: frac(0, 1), length: frac(1, 1), voice: 0 })
 
     const payload = buildClipboardFromSelection(engine.getScore(), ids)!
     engine.pasteEvents(payload, { measure: 2, beat: frac(0, 1), voice: 0 })
@@ -687,9 +687,9 @@ describe('clipboard — dynamics travel (Phase 2)', () => {
     // overrides orphaned on every rebar AND every paste: the id is regenerated on the way in, and
     // only the dynamic's single offset had been taught to ride the seam.
     const c = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!.id
-    const wedge = engine.addHairpin(1, { type: 'cresc', beat: frac(0, 1), length: frac(1, 1) })!
-    engine.nudgeHairpinEndpoint(wedge.id, 'end', 1.5, -2)   // the angle he means
-    engine.setHairpinAperture(wedge.id, 1.8)
+    const wedge = engine.hairpin.addHairpin(1, { type: 'cresc', beat: frac(0, 1), length: frac(1, 1) })!
+    engine.hairpin.nudgeHairpinEndpoint(wedge.id, 'end', 1.5, -2)   // the angle he means
+    engine.hairpin.setHairpinAperture(wedge.id, 1.8)
 
     const payload = buildClipboardFromSelection(engine.getScore(), [c])!
     expect(payload.hairpins[0].engraving).toEqual([

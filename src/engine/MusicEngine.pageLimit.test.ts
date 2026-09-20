@@ -141,11 +141,11 @@ describe('MusicEngine — a hand nudge may not be written past the edge of the p
   describe('every span with endpoint squares stops where its HANDLE would leave the sheet', () => {
     it('the hairpin', () => {
       engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
-      const wedge = engine.addHairpin(1, { beat: frac(0, 1), length: frac(1, 1), type: 'cresc' })!
+      const wedge = engine.hairpin.addHairpin(1, { beat: frac(0, 1), length: frac(1, 1), type: 'cresc' })!
       drawn('hairpin', wedge.id, 5 + SPAN_HANDLE_ROOM_PX)
-      expect(engine.nudgeHairpinEndpoint(wedge.id, 'start', -1, 0)).toBe(false)
-      expect(engine.nudgeHairpinEndpoint(wedge.id, 'start', -0.25, 0), 'a quarter still fits').toBe(true)
-      expect(engine.nudgeHairpinEndpoint(wedge.id, 'start', 1, 0), '⭐ and it is never stranded').toBe(true)
+      expect(engine.hairpin.nudgeHairpinEndpoint(wedge.id, 'start', -1, 0)).toBe(false)
+      expect(engine.hairpin.nudgeHairpinEndpoint(wedge.id, 'start', -0.25, 0), 'a quarter still fits').toBe(true)
+      expect(engine.hairpin.nudgeHairpinEndpoint(wedge.id, 'start', 1, 0), '⭐ and it is never stranded').toBe(true)
     })
 
     it('the trill', () => {
@@ -159,11 +159,11 @@ describe('MusicEngine — a hand nudge may not be written past the edge of the p
 
     it('⭐ …and the END square of the same mark is judged at the OTHER edge', () => {
       engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
-      const wedge = engine.addHairpin(1, { beat: frac(0, 1), length: frac(1, 1), type: 'cresc' })!
+      const wedge = engine.hairpin.addHairpin(1, { beat: frac(0, 1), length: frac(1, 1), type: 'cresc' })!
       drawn('hairpin', wedge.id, 5 + SPAN_HANDLE_ROOM_PX)
       // The box is 20 px wide and nowhere near the right edge, so this end may move freely — ⛔ the
       // start's predicament is not its own.
-      expect(engine.nudgeHairpinEndpoint(wedge.id, 'end', -1, 0)).toBe(true)
+      expect(engine.hairpin.nudgeHairpinEndpoint(wedge.id, 'end', -1, 0)).toBe(true)
     })
   })
 
@@ -178,7 +178,7 @@ describe('MusicEngine — a hand nudge may not be written past the edge of the p
     const notes = engine.getScore().measures[0].slots
     const first = notes[0].type === 'chord' ? notes[0].notes[0].id : notes[0].id
 
-    const hairpin = engine.addHairpin(1, { beat: frac(0, 1), length: frac(1, 1), type: 'cresc' })!
+    const hairpin = engine.hairpin.addHairpin(1, { beat: frac(0, 1), length: frac(1, 1), type: 'cresc' })!
     const ottava = engine.ottava.addOttava(1, { beat: frac(0, 1), length: frac(1, 1), shift: 1 })!
     const dynamic = engine.addDynamic(1, { beat: frac(0, 1), text: 'f' })!
 
@@ -189,8 +189,8 @@ describe('MusicEngine — a hand nudge may not be written past the edge of the p
     drawn('note', first, OFF_LEFT)
 
     // …and every leftward nudge is refused, with nothing written.
-    expect(engine.nudgeHairpinEndpoint(hairpin.id, 'start', -1, 0), 'hairpin end').toBe(false)
-    expect(engine.nudgeHairpin(hairpin.id, -1, 0), 'whole hairpin').toBe(false)
+    expect(engine.hairpin.nudgeHairpinEndpoint(hairpin.id, 'start', -1, 0), 'hairpin end').toBe(false)
+    expect(engine.hairpin.nudgeHairpin(hairpin.id, -1, 0), 'whole hairpin').toBe(false)
     expect(engine.ottava.nudgeOttavaEndpoint(ottava.id, 'start', -1, 0), 'ottava').toBe(false)
     expect(engine.nudgeDynamicOffset(dynamic.id, -1, 0), 'dynamic / expression').toBe(false)
     expect(engine.nudgeNoteOffset(first, -1), 'note').toBe(false)
@@ -199,7 +199,7 @@ describe('MusicEngine — a hand nudge may not be written past the edge of the p
       expect(overrides(key), `nothing stored for ${key}`).toHaveLength(0)
     }
     // …and each one comes back on the first press the other way.
-    expect(engine.nudgeHairpinEndpoint(hairpin.id, 'start', 1, 0)).toBe(true)
+    expect(engine.hairpin.nudgeHairpinEndpoint(hairpin.id, 'start', 1, 0)).toBe(true)
     expect(engine.ottava.nudgeOttavaEndpoint(ottava.id, 'start', 1, 0)).toBe(true)
     expect(engine.nudgeDynamicOffset(dynamic.id, 1, 0)).toBe(true)
     expect(engine.nudgeNoteOffset(first, 1)).toBe(true)

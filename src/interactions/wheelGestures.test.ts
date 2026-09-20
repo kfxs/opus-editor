@@ -33,7 +33,9 @@ describe('runWheelGesture', () => {
           ? [{ type: 'hairpin', id: 'H1', apertureSpaces: 1.5, hairpinLengthSpaces: 40 }]
           : []),
       }),
-      setHairpinAperture: setAperture,
+      hairpin: {
+        setHairpinAperture: setAperture,
+      },
     } as unknown as MusicEngine
     state.selectedElement = { kind: 'hairpin', id: 'H1', endpoint: 'end' }
   })

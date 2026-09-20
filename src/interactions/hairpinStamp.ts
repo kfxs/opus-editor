@@ -57,7 +57,7 @@ export function stampHairpinAtClick(
   // siblings (one click = one undo) and is what marks the model dirty for the repaint.
   let hairpinId: string | null = null
   engine.runBatch(`Add ${tool.type === 'cresc' ? 'crescendo' : 'diminuendo'}`, () => {
-    hairpinId = engine.createHairpin([el.id!], tool.type)?.id ?? null
+    hairpinId = engine.hairpin.createHairpin([el.id!], tool.type)?.id ?? null
   })
   if (!hairpinId) {
     // No next slot to reach — the last note of the score, or of its voice. Quiet, like the slur's.

@@ -35,6 +35,7 @@
  */
 import type { ElementInfo, ElementRegistry } from '../../engine/ElementRegistry'
 import type { MusicEngine } from '../../engine/MusicEngine'
+import type { HairpinCommands } from '@/engine/commands/hairpinCommands'
 import type { EditorState } from '../EditorState'
 import { selectedOf } from '../EditorState'
 import { authoredApertureRange } from '../../engine/rendering/hairpinShape'
@@ -159,7 +160,7 @@ export function hairpinMouthEnd(type: 'cresc' | 'dim'): 'start' | 'end' {
 }
 
 /** What the mouth keys need off the engine. */
-type MouthEngine = Pick<MusicEngine, 'getHairpinById' | 'getElementRegistry' | 'setHairpinAperture'>
+type MouthEngine = Pick<MusicEngine, 'getHairpinById' | 'getElementRegistry'> & { hairpin: Pick<HairpinCommands, 'setHairpinAperture'> }
 
 /** The mouth as the last render DREW it, plus the range it may be authored in — both facts about the
  *  drawn wedge, since the automatic aperture is a function of its length. */
@@ -213,7 +214,7 @@ export function nudgeArmedHairpinMouth(
   // down by the steepness cap), so it arrives as 1.796853…, which never equals its own rounded self.
   // His log, 2026-08-20: seven wheel notches, seven "opened → 1.796853254238242sp", nothing moving.
   if (Math.abs(next - mouth.value) < 0.005) return false
-  if (!engine.setHairpinAperture(selected.id, next)) return false
+  if (!engine.hairpin.setHairpinAperture(selected.id, next)) return false
   dbg(`Hairpin mouth ${delta > 0 ? 'opened' : 'closed'} | id:${selected.id} → ${next}sp`)
   return true
 }
@@ -230,7 +231,7 @@ export function resetArmedHairpinMouth(state: EditorState, engine: MouthEngine):
   if (!selected?.endpoint) return false
   const hairpin = engine.getHairpinById(selected.id)
   if (!hairpin || selected.endpoint !== hairpinMouthEnd(hairpin.type)) return false
-  if (!engine.setHairpinAperture(selected.id, null)) return false
+  if (!engine.hairpin.setHairpinAperture(selected.id, null)) return false
   dbg(`Hairpin mouth reset to auto | id:${selected.id}`)
   return true
 }

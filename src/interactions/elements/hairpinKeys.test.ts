@@ -22,14 +22,16 @@ import { ELEMENT_SPECS } from './chain'
 
 describe('HAIRPIN_KEYS', () => {
   const engine = {
-    nudgeHairpinEndpoint: vi.fn(() => true),
-    nudgeHairpin: vi.fn(() => true),
-    commitHairpinDrag: vi.fn(),
-    commitHairpinOffsetDrag: vi.fn(),
-    resetHairpinEndpointOffset: vi.fn(() => true),
-    resetHairpinOffset: vi.fn(() => true),
-    resizeHairpinBySlot: vi.fn(() => true),
-    moveHairpinStartBySlot: vi.fn(() => true),
+    hairpin: {
+      nudgeHairpinEndpoint: vi.fn(() => true),
+      nudgeHairpin: vi.fn(() => true),
+      commitHairpinDrag: vi.fn(),
+      commitHairpinOffsetDrag: vi.fn(),
+      resetHairpinEndpointOffset: vi.fn(() => true),
+      resetHairpinOffset: vi.fn(() => true),
+      resizeHairpinBySlot: vi.fn(() => true),
+      moveHairpinStartBySlot: vi.fn(() => true),
+    },
     getElementRegistry: vi.fn(() => 'the registry'),
   }
   let ctx: KeysCtx
@@ -38,7 +40,7 @@ describe('HAIRPIN_KEYS', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
-    for (const fn of Object.values(engine)) fn.mockReturnValue(true as never)
+    for (const fn of Object.values(engine.hairpin)) fn.mockReturnValue(true as never)
     engine.getElementRegistry.mockReturnValue('the registry')
     handles.cycleHairpinEndpoint.mockReturnValue(true)
     walk.walkHairpinEndpoint.mockReturnValue(true)
@@ -54,7 +56,7 @@ describe('HAIRPIN_KEYS', () => {
     expect(HAIRPIN_KEYS.nudge!(ctx, armed, 0.25, 0)).toBe(true)
     expect(walk.walkHairpinEndpoint).toHaveBeenCalledWith(engine, 'H1', 'end', 0.25)
     expect(HAIRPIN_KEYS.nudge!(ctx, armed, 0, -0.25)).toBe(true)
-    expect(engine.nudgeHairpinEndpoint).toHaveBeenCalledWith('H1', 'end', 0, -0.25)
+    expect(engine.hairpin.nudgeHairpinEndpoint).toHaveBeenCalledWith('H1', 'end', 0, -0.25)
     expect(walk.walkHairpinBody).not.toHaveBeenCalled()
   })
 
@@ -62,7 +64,7 @@ describe('HAIRPIN_KEYS', () => {
     HAIRPIN_KEYS.nudge!(ctx, whole, -1, 0)
     expect(walk.walkHairpinBody).toHaveBeenCalledWith(engine, 'H1', -1)
     HAIRPIN_KEYS.nudge!(ctx, whole, 0, 1)
-    expect(engine.nudgeHairpin).toHaveBeenCalledWith('H1', 0, 1)
+    expect(engine.hairpin.nudgeHairpin).toHaveBeenCalledWith('H1', 0, 1)
     expect(walk.walkHairpinEndpoint).not.toHaveBeenCalled()
   })
 
@@ -71,11 +73,11 @@ describe('HAIRPIN_KEYS', () => {
     const [kind, id, dx, dy, commit] = (ctx.afterMarkPress as ReturnType<typeof vi.fn>).mock.calls[0]
     expect([kind, id, dx, dy]).toEqual(['hairpin', 'H1', 0.25, 0])
     commit()
-    expect(engine.commitHairpinDrag).toHaveBeenCalledWith('end')
+    expect(engine.hairpin.commitHairpinDrag).toHaveBeenCalledWith('end')
 
     HAIRPIN_KEYS.nudge!(ctx, whole, 0.25, 0)
     ;(ctx.afterMarkPress as ReturnType<typeof vi.fn>).mock.calls[1][4]()
-    expect(engine.commitHairpinOffsetDrag).toHaveBeenCalledTimes(1)
+    expect(engine.hairpin.commitHairpinOffsetDrag).toHaveBeenCalledTimes(1)
   })
 
   it('🚨 a REFUSED press DECLINES — nothing is drawn, and the key falls through', () => {
@@ -86,16 +88,16 @@ describe('HAIRPIN_KEYS', () => {
 
   it('⭐ reanchor: the armed SQUARE is the gate — END resizes, START moves the start, nothing armed DECLINES', () => {
     expect(HAIRPIN_KEYS.reanchor!(ctx, armed, 1)).toBe(true)
-    expect(engine.resizeHairpinBySlot).toHaveBeenCalledWith('H1', 1)
+    expect(engine.hairpin.resizeHairpinBySlot).toHaveBeenCalledWith('H1', 1)
     expect(HAIRPIN_KEYS.reanchor!(ctx, { kind: 'hairpin', id: 'H1', endpoint: 'start' }, -1)).toBe(true)
-    expect(engine.moveHairpinStartBySlot).toHaveBeenCalledWith('H1', -1)
+    expect(engine.hairpin.moveHairpinStartBySlot).toHaveBeenCalledWith('H1', -1)
     expect(ctx.render).toHaveBeenCalledTimes(2)
     expect(HAIRPIN_KEYS.reanchor!(ctx, whole, 1)).toBe(false) // ⛔ never silently resized from one end
-    expect(engine.resizeHairpinBySlot).toHaveBeenCalledTimes(1)
+    expect(engine.hairpin.resizeHairpinBySlot).toHaveBeenCalledTimes(1)
   })
 
   it('reanchor DECLINES, and draws nothing, when the model refuses (a wedge may not become non-positive)', () => {
-    engine.resizeHairpinBySlot.mockReturnValue(false)
+    engine.hairpin.resizeHairpinBySlot.mockReturnValue(false)
     ;(ctx.render as ReturnType<typeof vi.fn>).mockClear()
     expect(HAIRPIN_KEYS.reanchor!(ctx, armed, -1)).toBe(false)
     expect(ctx.render).not.toHaveBeenCalled()
@@ -111,14 +113,14 @@ describe('HAIRPIN_KEYS', () => {
 
   it('reset: an armed end → that end; nothing armed → both; and it renders', () => {
     expect(HAIRPIN_KEYS.reset!(ctx, armed)).toBe(true)
-    expect(engine.resetHairpinEndpointOffset).toHaveBeenCalledWith('H1', 'end')
+    expect(engine.hairpin.resetHairpinEndpointOffset).toHaveBeenCalledWith('H1', 'end')
     expect(HAIRPIN_KEYS.reset!(ctx, whole)).toBe(true)
-    expect(engine.resetHairpinOffset).toHaveBeenCalledWith('H1')
+    expect(engine.hairpin.resetHairpinOffset).toHaveBeenCalledWith('H1')
     expect(ctx.render).toHaveBeenCalledTimes(2)
   })
 
   it('⛔ reset DECLINES when there was no nudge to take back', () => {
-    engine.resetHairpinOffset.mockReturnValue(false)
+    engine.hairpin.resetHairpinOffset.mockReturnValue(false)
     expect(HAIRPIN_KEYS.reset!(ctx, whole)).toBe(false)
     expect(ctx.render).not.toHaveBeenCalled()
   })

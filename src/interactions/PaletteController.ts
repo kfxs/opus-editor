@@ -1460,8 +1460,8 @@ export class PaletteController {
 
     const engine = this.getEngine()
     if (!engine) return
-    const hairpin = engine.createHairpin(noteIds, type)
-    dbg(`[${name}] createHairpin on ${noteIds.length} note(s) → ${hairpin ? hairpin.id : 'no valid span'}`)
+    const created = engine.hairpin.createHairpin(noteIds, type)
+    dbg(`[${name}] createHairpin on ${noteIds.length} note(s) → ${created ? created.id : 'no valid span'}`)
     this.renderScore()
   }
 

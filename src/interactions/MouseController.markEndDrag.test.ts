@@ -48,14 +48,16 @@ interface Family {
 const FAMILIES: Family[] = [
   {
     kind: 'hairpin', handleType: 'hairpin-endpoint', idField: 'hairpinId',
-    previewOffset: 'previewHairpinEndpointOffset', commitDrag: 'commitHairpinDrag',
+    previewOffset: 'previewHairpinEndpointOffset', commitDrag: 'commitHairpinDrag', commands: 'hairpin',
     extra: {
       getHairpinById: () => ({ id: 'M1', type: 'cresc' }),
-      nextHairpinStartSlot: () => null,
-      nextHairpinEndStop: () => null,
+      hairpin: {
+        nextHairpinStartSlot: () => null,
+        nextHairpinEndStop: () => null,
+        previewHairpinEnd: () => false,
+        previewHairpinEndpointRebase: () => true,
+      },
       hairpinEndSlot: () => null,
-      previewHairpinEnd: () => false,
-      previewHairpinEndpointRebase: () => true,
     },
   },
   {

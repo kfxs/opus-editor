@@ -40,7 +40,7 @@ export class HairpinGeometryController {
     // The MOUTH is absolute already — the model stores what the user asked for, so there is no delta
     // to take (and no accumulation to read back). It also lets the model refuse a non-positive one.
     if ('aperture' in req) {
-      if (!engine.setHairpinAperture(req.hairpinId, req.aperture)) return
+      if (!engine.hairpin.setHairpinAperture(req.hairpinId, req.aperture)) return
       this.renderScore()
       dbg(`[Hairpin] Properties set the mouth → ${req.aperture ?? 'auto'} | id:${req.hairpinId}`)
       return
@@ -48,7 +48,7 @@ export class HairpinGeometryController {
     const { hairpinId, which, value } = req
 
     if (!value) {
-      if (!engine.resetHairpinEndpointOffset(hairpinId, which)) return
+      if (!engine.hairpin.resetHairpinEndpointOffset(hairpinId, which)) return
       this.renderScore()
       dbg(`[Hairpin] Properties reset the ${which} end | id:${hairpinId}`)
       return
@@ -57,7 +57,7 @@ export class HairpinGeometryController {
     const dx = value.x === undefined ? 0 : value.x - (current?.x ?? 0)
     const dy = value.y === undefined ? 0 : value.y - (current?.y ?? 0)
     if (dx === 0 && dy === 0) return // no change → no undo entry
-    if (!engine.nudgeHairpinEndpoint(hairpinId, which, dx, dy)) return
+    if (!engine.hairpin.nudgeHairpinEndpoint(hairpinId, which, dx, dy)) return
     this.renderScore()
     dbg(`[Hairpin] Properties set the ${which} end → (${value.x ?? '·'}, ${value.y ?? '·'}) staff-space(s) | id:${hairpinId}`)
   }

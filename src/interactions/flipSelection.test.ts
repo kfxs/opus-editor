@@ -61,7 +61,7 @@ describe('flipSelection — the `x` key', () => {
     // 🚨 It flipped the TYPE until this date, because nothing else could reach the type. The
     //    Properties dropdown now can, so the key takes the side — which is what every other row in
     //    the table means by "flip". ⛔ And the type must NOT change with it.
-    const hairpin = engine.createHairpin(noteIds, 'cresc')!
+    const hairpin = engine.hairpin.createHairpin(noteIds, 'cresc')!
     state.selectedElement = { kind: 'hairpin', id: hairpin.id }
 
     expect(flipSelection(state, engine)).toBe(true)
@@ -76,8 +76,8 @@ describe('flipSelection — the `x` key', () => {
     // The drag's own rule (`hairpinWalk.flipPlacement`), stated once in the op: a `y` measured below
     // the staff means nothing above it, while an `x` is how far along its span an end reaches — the
     // same statement on either side.
-    const hairpin = engine.createHairpin(noteIds, 'cresc')!
-    engine.nudgeHairpinEndpoint(hairpin.id, 'start', 2, -3)
+    const hairpin = engine.hairpin.createHairpin(noteIds, 'cresc')!
+    engine.hairpin.nudgeHairpinEndpoint(hairpin.id, 'start', 2, -3)
     state.selectedElement = { kind: 'hairpin', id: hairpin.id }
 
     expect(flipSelection(state, engine)).toBe(true)

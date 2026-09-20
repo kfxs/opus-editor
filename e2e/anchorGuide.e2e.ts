@@ -127,7 +127,7 @@ test('⭐⭐ a HAIRPIN draws ONE guide, at its BEGINNING — his call, where Mus
     for (let i = 0; i < 4; i++) {
       ids.push(h.engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: h.frac(i, 1) })!.id)
     }
-    const hairpin = h.engine.createHairpin([ids[1], ids[3]], 'cresc')!
+    const hairpin = h.engine.hairpin.createHairpin([ids[1], ids[3]], 'cresc')!
     await h.render()
 
     const reg = h.engine.getElementRegistry()

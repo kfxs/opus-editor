@@ -594,7 +594,7 @@ export function wireShortcuts(
             return
           case 'hairpin':
             // The wedge only — never the notes it spans, the slur's rule exactly.
-            eng.removeHairpin(element.id)
+            eng.hairpin.removeHairpin(element.id)
             state.selectedElement = null
             renderer.renderScore()
             return

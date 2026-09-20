@@ -71,22 +71,24 @@ describe('nudging an octave bracket\'s ink from the keyboard', () => {
       getOttavaById: () => ({ id: 'O1', shift: side }),
       // The hairpin's own branches sit ahead of the ottava's in every chain — stubbed so the last
       // case can prove they answer FIRST for a wedge rather than crashing past it.
-      nudgeHairpinEndpoint: vi.fn(() => true),
-      // ⭐ The neighbour family reaches its WALK in the 'answers for an OTTAVA only' case,
-      //   and a walk previews now (`./keyRun`).
-      previewHairpinEndpointOffset: vi.fn(() => true),
-      previewHairpinEndpointRebase: vi.fn(() => true),
-      previewHairpinEnd: vi.fn(() => true),
-      commitHairpinDrag: vi.fn(),
-      // ⭐ Both squares' horizontals ask the WALK first (`./hairpinWalk`); nothing is drawn here, so
-      // "nowhere to go" keeps the press the plain nudge this case is about.
-      nextHairpinStartSlot: vi.fn(() => null),
-      nextHairpinEndStop: vi.fn(() => null),
+      hairpin: {
+        nudgeHairpinEndpoint: vi.fn(() => true),
+        // ⭐ The neighbour family reaches its WALK in the 'answers for an OTTAVA only' case,
+        //   and a walk previews now (`./keyRun`).
+        previewHairpinEndpointOffset: vi.fn(() => true),
+        previewHairpinEndpointRebase: vi.fn(() => true),
+        previewHairpinEnd: vi.fn(() => true),
+        commitHairpinDrag: vi.fn(),
+        // ⭐ Both squares' horizontals ask the WALK first (`./hairpinWalk`); nothing is drawn here, so
+        // "nowhere to go" keeps the press the plain nudge this case is about.
+        nextHairpinStartSlot: vi.fn(() => null),
+        nextHairpinEndStop: vi.fn(() => null),
+        resetHairpinEndpointOffset: vi.fn(() => true),
+        resizeHairpinBySlot: vi.fn(() => false),
+        moveHairpinStartBySlot: vi.fn(() => false),
+      },
       getHairpinById: () => ({ id: 'H1', type: 'cresc' }),
       getScore: () => ({ measures: [] }),
-      resetHairpinEndpointOffset: vi.fn(() => true),
-      resizeHairpinBySlot: vi.fn(() => false),
-      moveHairpinStartBySlot: vi.fn(() => false),
       pedal: {
         resizePedalBySlot: vi.fn(() => false),
       },

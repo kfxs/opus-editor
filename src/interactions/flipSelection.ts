@@ -60,7 +60,7 @@ const FLIP_ELEMENT: {
   //
   // ⚠️ The translation drops the VERTICAL offsets and keeps the horizontal — the drag's rule, stated
   // once in `hairpinOps.flipHairpinPlacement`. A CONTENT edit, hence the undo entry it commits.
-  hairpin: (engine, el) => engine.flipHairpinPlacement(el.id),
+  hairpin: (engine, el) => engine.hairpin.flipHairpinPlacement(el.id),
   // ⭐⭐ …and a DYNAMIC flips the same lane — his ask, 2026-08-22: *"now we have to do the same with
   // expression"*. A level and an expression WORD are one object in the model (`utils/dynamics` splits
   // the text, nothing else does), so this row moves either.

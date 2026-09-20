@@ -41,8 +41,10 @@ describe('moving a dynamic from the keyboard', () => {
       previewDynamicSlotKeepingOffset: vi.fn(() => true),
       commitDynamicDrag: vi.fn(),
       nudgeNoteOffset: noteOffset,
-      resizeHairpinBySlot: vi.fn(() => false),
-      moveHairpinStartBySlot: vi.fn(() => false),
+      hairpin: {
+        resizeHairpinBySlot: vi.fn(() => false),
+        moveHairpinStartBySlot: vi.fn(() => false),
+      },
       resizeOttavaBySlot: vi.fn(() => false),
       moveOttavaStartBySlot: vi.fn(() => false),
       pedal: {

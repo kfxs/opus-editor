@@ -28,6 +28,7 @@
  * there is no anchor above or below to arrive at.
  */
 import type { MusicEngine } from '../engine/MusicEngine'
+import type { HairpinCommands } from '@/engine/commands/hairpinCommands'
 import type { HairpinDragWrite, HairpinEndStop, HairpinSlotTarget } from '../engine/models/hairpinOps'
 import { hairpinEndpointOffsetOverrideOf } from '../engine/models/engravingOverrides'
 import {
@@ -51,19 +52,12 @@ import { dbg, debugEnabled } from '../utils/debug'
 let landed: { id: string; inkY: number } | null = null
 
 /** What the walk needs off the engine — a Pick, so a spec can stand it up without a renderer. */
-type HairpinWalkEngine = Pick<MusicEngine,
-  'getHairpinById' | 'getScore' | 'getElementRegistry' | 'getNote' | 'runBatch'
-  | 'nextHairpinStartSlot'
-  | 'nextHairpinEndStop'
-  | 'nudgeHairpinEndpoint'
-  | 'previewHairpinEnd' | 'previewHairpinEndpointOffset' | 'previewHairpinEndpointRebase'
-  | 'previewHairpinSlot' | 'previewHairpinStaffSlot' | 'previewHairpinOffset' | 'previewHairpinOffsetRebase'
-  | 'nudgeHairpin' | 'previewHairpinPlacement'>
+type HairpinWalkEngine = Pick<MusicEngine, 'getHairpinById' | 'getScore' | 'getElementRegistry' | 'getNote' | 'runBatch'> & { hairpin: Pick<HairpinCommands, 'nextHairpinStartSlot' | 'nextHairpinEndStop' | 'nudgeHairpinEndpoint' | 'previewHairpinEnd' | 'previewHairpinEndpointOffset' | 'previewHairpinEndpointRebase' | 'previewHairpinSlot' | 'previewHairpinStaffSlot' | 'previewHairpinOffset' | 'previewHairpinOffsetRebase' | 'nudgeHairpin' | 'previewHairpinPlacement'> }
 
 /**
  * ⭐ **WHAT SEPARATES THE TWO DEVICES, and the whole of it**: a KEY press records its own undo step,
  * a drag FRAME records none and leaves the drop to commit once
- * ({@link MusicEngine.commitHairpinDrag}). Everything else — the stops, the geometry, the identity —
+ * ({@link MusicEngine.hairpin.commitHairpinDrag}). Everything else — the stops, the geometry, the identity —
  * is shared, which is what makes a drag and N presses land in the same state rather than in two
  * states that merely look alike (`./dynamicWalk`'s arrangement, and for its reason).
  */
@@ -80,10 +74,10 @@ interface HairpinWrite {
 /** The drag's writes: the same three edits with no undo entry of their own. */
 function previewWrites(engine: HairpinWalkEngine, id: string, which: 'start' | 'end'): HairpinWrite {
   return {
-    moveStart: (target) => engine.previewHairpinEnd(id, { at: 'start', ...target }),
-    moveEnd: (stop) => engine.previewHairpinEnd(id, stop),
-    nudge: (dx, dy) => engine.previewHairpinEndpointOffset(id, which, dx, dy),
-    rebase: (dx) => engine.previewHairpinEndpointRebase(id, which, dx),
+    moveStart: (target) => engine.hairpin.previewHairpinEnd(id, { at: 'start', ...target }),
+    moveEnd: (stop) => engine.hairpin.previewHairpinEnd(id, stop),
+    nudge: (dx, dy) => engine.hairpin.previewHairpinEndpointOffset(id, which, dx, dy),
+    rebase: (dx) => engine.hairpin.previewHairpinEndpointRebase(id, which, dx),
   }
 }
 
@@ -118,7 +112,7 @@ function startPort(engine: HairpinWalkEngine, id: string, write: HairpinWrite): 
     // ⭐ The SAME candidate rule `Ctrl+Shift+←/→` uses, which is why it lives in the model: two rules
     // would mean the two keys landing the start on different notes depending on how far it had been
     // nudged.
-    nextStop: (direction) => engine.nextHairpinStartSlot(id, direction),
+    nextStop: (direction) => engine.hairpin.nextHairpinStartSlot(id, direction),
     stopX: (stop) => boundaryX(engine, id, stop as HairpinSlotTarget),
     anchorX: () => {
       const here = hairpinStartAddress(engine.getScore(), id)
@@ -139,7 +133,7 @@ function endPort(engine: HairpinWalkEngine, id: string, write: HairpinWrite): Ma
     label: 'Hairpin end',
     // ⭐ `resizeHairpinBySlot`'s own candidate, split out of it for exactly this — see
     // `hairpinOps.nextHairpinEndStop`.
-    nextStop: (direction) => engine.nextHairpinEndStop(id, direction),
+    nextStop: (direction) => engine.hairpin.nextHairpinEndStop(id, direction),
     // ⭐⭐ WHERE THE TIP WOULD BE DRAWN, ⛔ not where the note it names is: a stop that leaves the
     // wedge ending on a BARLINE draws the tip at the end of the PREVIOUS line
     // (`hairpinOps.addressOfAbs`, and his report that made it a rule). The model answers with that
@@ -305,7 +299,7 @@ function endpointDrive(
 /**
  * ⭐⭐ **ONE FRAME OF A SQUARE DRAG** — the same journey with the cursor's delta in PIXELS instead of
  * a key's step, and no undo entry (the drop commits once,
- * {@link MusicEngine.commitHairpinDrag}). His ask, 2026-08-20: *"now lets do the walk for the
+ * {@link MusicEngine.hairpin.commitHairpinDrag}). His ask, 2026-08-20: *"now lets do the walk for the
  * mouse"*.
  *
  * ⭐ **The mouse and the arrows become ONE gesture.** The drag used to snap the grabbed end to the
@@ -422,7 +416,7 @@ function portFor(
 function bodyPort(engine: HairpinWalkEngine, id: string, write: HairpinBodyWrite): MarkWalkPort {
   return {
     label: 'Hairpin',
-    nextStop: (direction) => engine.nextHairpinStartSlot(id, direction),
+    nextStop: (direction) => engine.hairpin.nextHairpinStartSlot(id, direction),
     stopX: (stop) => boundaryX(engine, id, stop as HairpinSlotTarget),
     anchorX: () => {
       const here = hairpinStartAddress(engine.getScore(), id)
@@ -445,9 +439,9 @@ interface HairpinBodyWrite {
 }
 
 const bodyPreviewWrites = (engine: HairpinWalkEngine, id: string): HairpinBodyWrite => ({
-  move: (target) => engine.previewHairpinSlot(id, target),
-  nudge: (dx, dy) => engine.previewHairpinOffset(id, dx, dy),
-  rebase: (dx) => engine.previewHairpinOffsetRebase(id, dx),
+  move: (target) => engine.hairpin.previewHairpinSlot(id, target),
+  nudge: (dx, dy) => engine.hairpin.previewHairpinOffset(id, dx, dy),
+  rebase: (dx) => engine.hairpin.previewHairpinOffsetRebase(id, dx),
 })
 
 /**
@@ -566,7 +560,7 @@ function jumpStaves(
   const from = hairpinStartAddress(engine.getScore(), id)
   const fromX = from ? hairpinBoundaryX(engine, hairpin, from) : null
 
-  if (!engine.previewHairpinStaffSlot(id, target)) return false
+  if (!engine.hairpin.previewHairpinStaffSlot(id, target)) return false
 
   // ⭐⭐ **IT ARRIVES ON THE SIDE IT CAME FROM** — his correction, 2026-08-20: *"i don't like that
   // going down jumps from below the staff to below, and going up from above to above; it is not
@@ -575,7 +569,7 @@ function jumpStaves(
   // below, which is also where the ink already is. ⛔ Landing on the far side skips a rung and puts
   // the wedge past the hand.
   const facing: 'above' | 'below' = dyPx > 0 ? 'above' : 'below'
-  engine.previewHairpinPlacement(id, facing)
+  engine.hairpin.previewHairpinPlacement(id, facing)
 
   // ⚠️⚠️ EXPLORATORY (2026-08-30) — **A RE-ANCHOR DOES NOT MOVE THE DRAWING** (his *"and by the way
   // when reanchoring it jumps"*, measured: the anchor 251 → 307 with the offset zeroed). The old
@@ -586,11 +580,11 @@ function jumpStaves(
   const after = engine.getHairpinById(id)
   const toX = after ? hairpinBoundaryX(engine, after, target) : null
   const offset = hairpinEndpointOffsetOverrideOf(engine.getScore(), id)?.start
-  if (offset?.y) engine.previewHairpinOffset(id, 0, -offset.y)
+  if (offset?.y) engine.hairpin.previewHairpinOffset(id, 0, -offset.y)
   // ⚠️ Whatever the picture could not say is paid as 0 — the no-guessing rule (`./markWalk`).
   const dx = fromX !== null && toX !== null ? (fromX - toX) / staffSpacePx : -(offset?.x ?? 0)
   // ⛔ A REBASE, not a nudge: the drawn ink does not move, so no limit has anything to judge.
-  if (dx) engine.previewHairpinOffsetRebase(id, dx)
+  if (dx) engine.hairpin.previewHairpinOffsetRebase(id, dx)
   landed = { id, inkY: inkY + dyPx }
   dbg(`[Hairpin] jumped ${facing} the staff it now belongs to | id:${id} → m${target.measure}`
     + ` staff:${target.staffId ?? 0} | decided from inkY ${inkY.toFixed(1)} + dy ${dyPx.toFixed(1)}`
@@ -632,10 +626,10 @@ function flipPlacement(engine: HairpinWalkEngine, id: string, dyPx: number): boo
     !above && next < band.top ? 'above'
       : above && next > band.bottom ? 'below'
         : null
-  if (!flipped || !engine.previewHairpinPlacement(id, flipped)) return false
+  if (!flipped || !engine.hairpin.previewHairpinPlacement(id, flipped)) return false
 
   const offset = hairpinEndpointOffsetOverrideOf(engine.getScore(), id)?.start
-  if (offset?.y) engine.previewHairpinOffset(id, 0, -offset.y)
+  if (offset?.y) engine.hairpin.previewHairpinOffset(id, 0, -offset.y)
   // ⚠️⚠️ EXPLORATORY (2026-08-30) — **A FLIP DOES NOT MOVE THE DRAWING** ({@link settleLanding}).
   // His report, *"look how it jumps"*: measured, the ink leapt **444.6 → 378.2** on a frame the hand
   // had moved 3px, because the wedge is re-engraved on the other side of its staff and the lift it
@@ -671,7 +665,7 @@ export function settleHairpinLanding(engine: HairpinWalkEngine, id: string): boo
 
   const debt = was - drawn
   // ⛔ A REBASE, not a nudge: the drawn ink does not move, so the page limit has nothing to judge.
-  engine.previewHairpinOffsetRebase(id, 0, debt / staffSpacePx)
+  engine.hairpin.previewHairpinOffsetRebase(id, 0, debt / staffSpacePx)
   dbg(`[Hairpin] flip settled | id:${id} | ink ${drawn.toFixed(1)} → ${was.toFixed(1)}`
     + ` (${debt.toFixed(1)}px the other side of the staff gave or took)`)
   return true

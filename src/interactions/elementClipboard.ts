@@ -26,6 +26,7 @@
  * authored against other music.
  */
 import type { MusicEngine } from '../engine/MusicEngine'
+import type { HairpinCommands } from '@/engine/commands/hairpinCommands'
 import type { TrillCommands } from '@/engine/commands/trillCommands'
 import type { OttavaCommands } from '@/engine/commands/ottavaCommands'
 import type { PedalCommands } from '@/engine/commands/pedalCommands'
@@ -178,14 +179,7 @@ export type ElementClip =
   | TrillElementClip | OttavaElementClip | PedalElementClip
 
 /** What the element clipboard needs off the engine — a Pick, so a spec needs no renderer. */
-type ElementClipEngine = Pick<MusicEngine,
-  'getDynamicById' | 'addDynamic' | 'staffIdForIndex'
-  | 'getTempoMarkById' | 'addTempoMark' | 'removeTempoMark' | 'getScore' | 'runBatch'
-  | 'getHairpinById' | 'addHairpin'
-  | 'getSlurById' | 'slurSpanOf' | 'createSlurOverSpan'
-  | 'getTrillById' | 'trillSpanBeats'
-  | 'getOttavaById'
-  | 'getPedalById'> & {
+type ElementClipEngine = Pick<MusicEngine, 'getDynamicById' | 'addDynamic' | 'staffIdForIndex' | 'getTempoMarkById' | 'addTempoMark' | 'removeTempoMark' | 'getScore' | 'runBatch' | 'getHairpinById' | 'getSlurById' | 'slurSpanOf' | 'createSlurOverSpan' | 'getTrillById' | 'trillSpanBeats' | 'getOttavaById' | 'getPedalById'> & { hairpin: Pick<HairpinCommands, 'addHairpin'> } & {
   trill: Pick<TrillCommands, 'createTrillOverSpan'>
   ottava: Pick<OttavaCommands, 'addOttava'>
   pedal: Pick<PedalCommands, 'addPedalOverSpan'>
@@ -283,7 +277,7 @@ export function pasteElement(engine: ElementClipEngine, clip: ElementClip, ancho
       // wedge pasted near the end draws short and grows back if it is moved home — where trimming
       // here would quietly throw the music away.
       const staffId = engine.staffIdForIndex(anchor.staff)
-      const created = engine.addHairpin(anchor.measure, {
+      const created = engine.hairpin.addHairpin(anchor.measure, {
         beat: anchor.beat,
         length: clip.length,
         type: clip.type,

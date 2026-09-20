@@ -19,9 +19,11 @@ function stubEngine(score: Score) {
   const mouth = vi.fn(() => true)
   const engine = {
     getScore: () => score,
-    nudgeHairpinEndpoint: nudge,
-    resetHairpinEndpointOffset: reset,
-    setHairpinAperture: mouth,
+    hairpin: {
+      nudgeHairpinEndpoint: nudge,
+      resetHairpinEndpointOffset: reset,
+      setHairpinAperture: mouth,
+    },
   } as unknown as MusicEngine
   return { engine, nudge, reset, mouth }
 }

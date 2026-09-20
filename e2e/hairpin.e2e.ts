@@ -48,7 +48,7 @@ test('⭐ a crescendo draws two arms that OPEN to the right', async ({ score }) 
     for (const beat of [0, 1, 2, 3]) {
       h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: 'q', measure: 1, beat: h.frac(beat, 1) })
     }
-    h.engine.addHairpin(1, { type: 'cresc', beat: h.frac(0, 1), length: h.frac(4, 1) })
+    h.engine.hairpin.addHairpin(1, { type: 'cresc', beat: h.frac(0, 1), length: h.frac(4, 1) })
     await h.render()
   })
 
@@ -68,7 +68,7 @@ test('⭐ a diminuendo is its mirror — open at the left, closed at the right',
     for (const beat of [0, 1, 2, 3]) {
       h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: 'q', measure: 1, beat: h.frac(beat, 1) })
     }
-    h.engine.addHairpin(1, { type: 'dim', beat: h.frac(0, 1), length: h.frac(4, 1) })
+    h.engine.hairpin.addHairpin(1, { type: 'dim', beat: h.frac(0, 1), length: h.frac(4, 1) })
     await h.render()
   })
 
@@ -84,7 +84,7 @@ test('⭐⭐ the mouth opens to the aperture, in STAFF SPACES', async ({ score }
     for (const beat of [0, 1, 2, 3]) {
       h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: 'q', measure: 1, beat: h.frac(beat, 1) })
     }
-    h.engine.addHairpin(1, { type: 'cresc', beat: h.frac(0, 1), length: h.frac(4, 1) })
+    h.engine.hairpin.addHairpin(1, { type: 'cresc', beat: h.frac(0, 1), length: h.frac(4, 1) })
     await h.render()
   })
 
@@ -102,7 +102,7 @@ test('⭐⭐ the wedge is stroked at a STAFF LINE\'s weight — Gould p. 103, st
     for (const beat of [0, 1, 2, 3]) {
       h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: 'q', measure: 1, beat: h.frac(beat, 1) })
     }
-    h.engine.addHairpin(1, { type: 'cresc', beat: h.frac(0, 1), length: h.frac(4, 1) })
+    h.engine.hairpin.addHairpin(1, { type: 'cresc', beat: h.frac(0, 1), length: h.frac(4, 1) })
     await h.render()
     const arm = document.querySelector('g.hairpin path') as SVGPathElement
     const first = window.__h.staves()[0]
@@ -135,7 +135,7 @@ test('⭐⭐ a LONG wedge opens wider than an ordinary one — measured in STAFF
       if (m > 1) h.engine.addMeasure()
       h.engine.addNoteAtBeat({ step: 'A', octave: 3, duration: 'w', measure: m, beat: h.frac(0, 1) })
     }
-    h.engine.addHairpin(1, { type: 'cresc', beat: h.frac(0, 1), length: h.frac(36, 1) })
+    h.engine.hairpin.addHairpin(1, { type: 'cresc', beat: h.frac(0, 1), length: h.frac(36, 1) })
     await h.render()
     const first = window.__h.staves()[0]
     return {
@@ -171,7 +171,7 @@ test('⭐⭐ the wedge sits on the DYNAMICS LINE — level with the letters besi
     // A `p` on beat 0 and a wedge over beats 1–4: the mark and the wedge are one family, so the
     // wedge's axis must land on the letters' OPTICAL CENTRE, not merely somewhere below the staff.
     h.engine.addDynamic(1, { beat: h.frac(0, 1), text: 'p' })
-    h.engine.addHairpin(1, { type: 'cresc', beat: h.frac(1, 1), length: h.frac(3, 1) })
+    h.engine.hairpin.addHairpin(1, { type: 'cresc', beat: h.frac(1, 1), length: h.frac(3, 1) })
     await h.render()
   })
 
@@ -210,7 +210,7 @@ test('🚨🚨 a NUDGED dynamic moves ITSELF and not the wedge — no pushing', 
     for (const beat of [0, 1, 2, 3]) {
       h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: 'q', measure: 1, beat: h.frac(beat, 1) })
     }
-    h.engine.addHairpin(1, { type: 'cresc', beat: h.frac(0, 1), length: h.frac(3, 1) })
+    h.engine.hairpin.addHairpin(1, { type: 'cresc', beat: h.frac(0, 1), length: h.frac(3, 1) })
     await h.render()
     const segs = window.__h.segments('g.hairpin path')
     return { x1: segs[0].x1, x2: segs[segs.length - 1].x2 }
@@ -247,7 +247,7 @@ test('⭐⭐ a wedge crossing a system break is SPLIT, and it STEPS at the break
       if (m > 1) h.engine.addMeasure()
       h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: 'w', measure: m, beat: h.frac(0, 1) })
     }
-    h.engine.addHairpin(1, { type: 'cresc', beat: h.frac(0, 1), length: h.frac(48, 1) })
+    h.engine.hairpin.addHairpin(1, { type: 'cresc', beat: h.frac(0, 1), length: h.frac(48, 1) })
     await h.render()
     const first = window.__h.staves()[0]
     return {
@@ -315,7 +315,7 @@ test('⭐⭐ a wedge starting LATE in a system does not drag its continuation ac
   const drawn = await score.evaluate(async (firstOfSecond: number) => {
     const h = window.__h
     // Two whole notes: the last bar of system one, then the first bar of system two.
-    h.engine.addHairpin(firstOfSecond - 1, { type: 'cresc', beat: h.frac(0, 1), length: h.frac(8, 1) })
+    h.engine.hairpin.addHairpin(firstOfSecond - 1, { type: 'cresc', beat: h.frac(0, 1), length: h.frac(8, 1) })
     await h.render()
     const first = window.__h.staves()[0]
     return {
@@ -344,7 +344,7 @@ test('⭐ P4: a wedge registers its OUTLINE, so it is clickable on its own ink',
     for (const beat of [0, 1, 2, 3]) {
       h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: 'q', measure: 1, beat: h.frac(beat, 1) })
     }
-    h.engine.addHairpin(1, { type: 'cresc', beat: h.frac(0, 1), length: h.frac(4, 1) })
+    h.engine.hairpin.addHairpin(1, { type: 'cresc', beat: h.frac(0, 1), length: h.frac(4, 1) })
     await h.render()
     return window.__h.segments('g.hairpin path')
   })
@@ -369,7 +369,7 @@ test('⭐ P4: a SPLIT wedge registers one entry per fragment, both carrying the 
       if (m > 1) h.engine.addMeasure()
       h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: 'w', measure: m, beat: h.frac(0, 1) })
     }
-    const made = h.engine.addHairpin(1, { type: 'cresc', beat: h.frac(0, 1), length: h.frac(48, 1) })
+    const made = h.engine.hairpin.addHairpin(1, { type: 'cresc', beat: h.frac(0, 1), length: h.frac(48, 1) })
     await h.render()
     const found = window.__h.engine.getElementRegistry().getByType('hairpin')
     return { count: found.length, allSameId: found.every(e => e.id === made!.id) }
@@ -392,8 +392,8 @@ test('⭐⭐ CHAINING: a `< >` pair over a LOW note levels with itself, not per-
     h.engine.addNoteAtBeat({ step: 'F', octave: 4, duration: 'h', measure: 1, beat: h.frac(2, 1) })
     h.engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'h', measure: 2, beat: h.frac(0, 1) })
     h.engine.addNoteAtBeat({ step: 'D', octave: 4, duration: 'h', measure: 2, beat: h.frac(2, 1) })
-    h.engine.addHairpin(2, { type: 'cresc', beat: h.frac(0, 1), length: h.frac(2, 1) })
-    h.engine.addHairpin(2, { type: 'dim', beat: h.frac(2, 1), length: h.frac(2, 1) })
+    h.engine.hairpin.addHairpin(2, { type: 'cresc', beat: h.frac(0, 1), length: h.frac(2, 1) })
+    h.engine.hairpin.addHairpin(2, { type: 'dim', beat: h.frac(2, 1), length: h.frac(2, 1) })
     await h.render()
     const first = window.__h.staves()[0]
     return { arms: window.__h.segments('g.hairpin path'), spacing: (first.bottom - first.top) / 4 }
@@ -416,8 +416,8 @@ test('⭐ …and a wedge that touches NOTHING keeps the local rule', async ({ sc
     // they are separate chains and the low one deviates ALONE — P1's rule, still intact.
     h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: 'w', measure: 1, beat: h.frac(0, 1) })
     h.engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'w', measure: 3, beat: h.frac(0, 1) })
-    h.engine.addHairpin(1, { type: 'cresc', beat: h.frac(0, 1), length: h.frac(4, 1) })
-    h.engine.addHairpin(3, { type: 'cresc', beat: h.frac(0, 1), length: h.frac(4, 1) })
+    h.engine.hairpin.addHairpin(1, { type: 'cresc', beat: h.frac(0, 1), length: h.frac(4, 1) })
+    h.engine.hairpin.addHairpin(3, { type: 'cresc', beat: h.frac(0, 1), length: h.frac(4, 1) })
     await h.render()
     const first = window.__h.staves()[0]
     return { arms: window.__h.segments('g.hairpin path'), spacing: (first.bottom - first.top) / 4 }
@@ -438,8 +438,8 @@ test('⭐⭐ two wedges that MEET leave a gap — they must not touch at a point
     h.engine.addNoteAtBeat({ step: 'D', octave: 4, duration: 'h', measure: 2, beat: h.frac(2, 1) })
     // His case: `< >` back to back. Their addresses abut exactly, so without the end inset the two
     // tips meet at one point and the pair reads as a single diamond.
-    h.engine.addHairpin(2, { type: 'cresc', beat: h.frac(0, 1), length: h.frac(2, 1) })
-    h.engine.addHairpin(2, { type: 'dim', beat: h.frac(2, 1), length: h.frac(2, 1) })
+    h.engine.hairpin.addHairpin(2, { type: 'cresc', beat: h.frac(0, 1), length: h.frac(2, 1) })
+    h.engine.hairpin.addHairpin(2, { type: 'dim', beat: h.frac(2, 1), length: h.frac(2, 1) })
     await h.render()
     const first = window.__h.staves()[0]
     const arms = window.__h.segments('g.hairpin path')
@@ -482,7 +482,7 @@ test('⭐⭐ a dynamic INSIDE the span breaks the wedge in two', async ({ score 
     for (const beat of [0, 1, 2, 3]) {
       h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: 'q', measure: 1, beat: h.frac(beat, 1) })
     }
-    h.engine.addHairpin(1, { type: 'cresc', beat: h.frac(0, 1), length: h.frac(4, 1) })
+    h.engine.hairpin.addHairpin(1, { type: 'cresc', beat: h.frac(0, 1), length: h.frac(4, 1) })
     // 🚨 A REAL dynamics glyph (`dynamicForte`, U+E522), ⛔ not the ASCII letter: an ASCII `f` is
     // prose in a serif face (`utils/dynamics`' text-as-truth rule), it carries no centring translate,
     // and it therefore misses the whole class of bug these tests exist for — his report of
@@ -509,7 +509,7 @@ test('⭐⭐ …and the two halves lie on ONE pair of straight lines — the ang
     for (const beat of [0, 1, 2, 3]) {
       h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: 'q', measure: 1, beat: h.frac(beat, 1) })
     }
-    h.engine.addHairpin(1, { type: 'cresc', beat: h.frac(0, 1), length: h.frac(4, 1) })
+    h.engine.hairpin.addHairpin(1, { type: 'cresc', beat: h.frac(0, 1), length: h.frac(4, 1) })
     // 🚨 A REAL dynamics glyph (`dynamicForte`, U+E522), ⛔ not the ASCII letter: an ASCII `f` is
     // prose in a serif face (`utils/dynamics`' text-as-truth rule), it carries no centring translate,
     // and it therefore misses the whole class of bug these tests exist for — his report of
@@ -545,7 +545,7 @@ test('⭐⭐ the hole is a WINDOW, not a gap — a small padding either side of 
     for (const beat of [0, 1, 2, 3]) {
       h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: 'q', measure: 1, beat: h.frac(beat, 1) })
     }
-    h.engine.addHairpin(1, { type: 'cresc', beat: h.frac(0, 1), length: h.frac(4, 1) })
+    h.engine.hairpin.addHairpin(1, { type: 'cresc', beat: h.frac(0, 1), length: h.frac(4, 1) })
     // 🚨 A REAL dynamics glyph (`dynamicForte`, U+E522), ⛔ not the ASCII letter: an ASCII `f` is
     // prose in a serif face (`utils/dynamics`' text-as-truth rule), it carries no centring translate,
     // and it therefore misses the whole class of bug these tests exist for — his report of
@@ -588,14 +588,14 @@ test('🚨🚨 a NUDGED wedge that is also broken stays straight — it does not
     for (const beat of [0, 1, 2, 3]) {
       h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: 'q', measure: 1, beat: h.frac(beat, 1) })
     }
-    const hp = h.engine.addHairpin(1, { type: 'cresc', beat: h.frac(0, 1), length: h.frac(4, 1) })!
+    const hp = h.engine.hairpin.addHairpin(1, { type: 'cresc', beat: h.frac(0, 1), length: h.frac(4, 1) })!
     h.engine.addDynamic(1, { beat: h.frac(2, 1), text: '\ue522' })
     await h.render()
     const was = h.segments('g.hairpin path').map(a => a.y1)
     // ⚠️ Both ends lifted by the same SMALL amount — his JSON's shape (`{start: {y}, end: {y}}`) but
     // not its size: three spaces would lift the wedge clear of the letter and it would be drawn
     // whole (the test below), leaving nothing broken to check for a zigzag.
-    h.engine.nudgeHairpin(hp.id, 0, -0.5)
+    h.engine.hairpin.nudgeHairpin(hp.id, 0, -0.5)
     await h.render()
     return was
   })
@@ -627,10 +627,10 @@ test('⭐⭐ lift the WEDGE clear of the mark and it is drawn WHOLE — no hole 
     for (const beat of [0, 1, 2, 3]) {
       h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: 'q', measure: 1, beat: h.frac(beat, 1) })
     }
-    const hp = h.engine.addHairpin(1, { type: 'cresc', beat: h.frac(0, 1), length: h.frac(4, 1) })!
+    const hp = h.engine.hairpin.addHairpin(1, { type: 'cresc', beat: h.frac(0, 1), length: h.frac(4, 1) })!
     h.engine.addDynamic(1, { beat: h.frac(2, 1), text: '\ue522' })
     await h.render()
-    h.engine.nudgeHairpin(hp.id, 0, -3)   // three spaces up: past the top of the `f`'s ink
+    h.engine.hairpin.nudgeHairpin(hp.id, 0, -3)   // three spaces up: past the top of the `f`'s ink
     await h.render()
   })
 
@@ -643,7 +643,7 @@ test('⭐ …and lifting the MARK instead does it too — either one moving is e
     for (const beat of [0, 1, 2, 3]) {
       h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: 'q', measure: 1, beat: h.frac(beat, 1) })
     }
-    h.engine.addHairpin(1, { type: 'cresc', beat: h.frac(0, 1), length: h.frac(4, 1) })
+    h.engine.hairpin.addHairpin(1, { type: 'cresc', beat: h.frac(0, 1), length: h.frac(4, 1) })
     const dyn = h.engine.addDynamic(1, { beat: h.frac(2, 1), text: '\ue522' })!
     await h.render()
     h.engine.nudgeDynamicOffset(dyn.id, 0, 3)   // the mark DOWN, away from the wedge
@@ -659,7 +659,7 @@ test('🚨 …but a mark still ON the wedge keeps its hole — the test is CLASH
     for (const beat of [0, 1, 2, 3]) {
       h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: 'q', measure: 1, beat: h.frac(beat, 1) })
     }
-    h.engine.addHairpin(1, { type: 'cresc', beat: h.frac(0, 1), length: h.frac(4, 1) })
+    h.engine.hairpin.addHairpin(1, { type: 'cresc', beat: h.frac(0, 1), length: h.frac(4, 1) })
     const dyn = h.engine.addDynamic(1, { beat: h.frac(2, 1), text: '\ue522' })!
     await h.render()
     h.engine.nudgeDynamicOffset(dyn.id, 0, 0.25)  // a quarter space: still through the arms
@@ -683,7 +683,7 @@ test('⭐⭐ a mark hidden behind its editor KEEPS its hole', async ({ score }) 
     for (const beat of [0, 1, 2, 3]) {
       h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: 'q', measure: 1, beat: h.frac(beat, 1) })
     }
-    h.engine.addHairpin(1, { type: 'cresc', beat: h.frac(0, 1), length: h.frac(4, 1) })
+    h.engine.hairpin.addHairpin(1, { type: 'cresc', beat: h.frac(0, 1), length: h.frac(4, 1) })
     const dyn = h.engine.addDynamic(1, { beat: h.frac(2, 1), text: '\ue522' })!
     await h.render()
     // …and now the editor opens on it.
@@ -701,7 +701,7 @@ test('⭐⭐ …and the hole GROWS with what is being typed', async ({ score }) 
     for (const beat of [0, 1, 2, 3]) {
       h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: 'q', measure: 1, beat: h.frac(beat, 1) })
     }
-    h.engine.addHairpin(1, { type: 'cresc', beat: h.frac(0, 1), length: h.frac(4, 1) })
+    h.engine.hairpin.addHairpin(1, { type: 'cresc', beat: h.frac(0, 1), length: h.frac(4, 1) })
     const dyn = h.engine.addDynamic(1, { beat: h.frac(2, 1), text: '\ue522' })!
     await h.render()
 
@@ -749,7 +749,7 @@ test('⭐⭐ a wedge split across systems registers each fragment under its OWN 
       if (m > 1) h.engine.addMeasure()
       h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: 'w', measure: m, beat: h.frac(0, 1) })
     }
-    h.engine.addHairpin(1, { type: 'cresc', beat: h.frac(0, 1), length: h.frac(48, 1) })
+    h.engine.hairpin.addHairpin(1, { type: 'cresc', beat: h.frac(0, 1), length: h.frac(48, 1) })
     await h.render()
     const pieces = h.engine.getElementRegistry().getByType('hairpin')
     return {

@@ -35,7 +35,7 @@ export class HairpinEditController {
     //   re-pick, and an undo entry that takes back a no-op is a step the user cannot see the effect
     //   of. (The seam publishes it anyway, on purpose: deciding it is a no-op is this end's job.)
     if (engine.getHairpinById(hairpinId)?.type === type) return
-    if (!engine.updateHairpin(hairpinId, { type })) return
+    if (!engine.hairpin.updateHairpin(hairpinId, { type })) return
     dbg(`[Hairpin] type → ${type} | id:${hairpinId.slice(0, 8)}`)
     this.renderScore()
   }

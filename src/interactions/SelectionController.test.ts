@@ -674,7 +674,7 @@ describe('SelectionController — a note selection replaces the element selectio
   it('⭐ selectNotes takes the MARKS the notes enclose — what a paste just wrote is all selected', () => {
     // His report, 2026-08-19: a paste selected only the notes, understating what had landed.
     const dynId = engine.addDynamic(1, { beat: frac(0, 1), text: levelToGlyphString('f'), voice: 0 })!.id
-    const hairpinId = engine.addHairpin(1, { type: 'cresc', beat: frac(0, 1), length: frac(2, 1), voice: 0 })!.id
+    const hairpinId = engine.hairpin.addHairpin(1, { type: 'cresc', beat: frac(0, 1), length: frac(2, 1), voice: 0 })!.id
     selection.selectNotes([noteA, noteB])
     const kinds = [...state.selectedItems.values()].map(i => i.kind).sort()
     expect(kinds).toEqual(['dynamic', 'hairpin', 'note', 'note'])
@@ -688,7 +688,7 @@ describe('SelectionController — a note selection replaces the element selectio
     // His report, 2026-08-19: click the dynamic, Ctrl-click the hairpin, and the dynamic vanished —
     // a plain click on a MARK lands in `selectedElement`, and the toggle used to throw it away.
     const dynId = engine.addDynamic(1, { beat: frac(0, 1), text: levelToGlyphString('f'), voice: 0 })!.id
-    const hairpinId = engine.addHairpin(1, { type: 'cresc', beat: frac(0, 1), length: frac(2, 1), voice: 0 })!.id
+    const hairpinId = engine.hairpin.addHairpin(1, { type: 'cresc', beat: frac(0, 1), length: frac(2, 1), voice: 0 })!.id
     state.selectedElement = { kind: 'dynamic', id: dynId }
 
     selection.toggleMark({ kind: 'hairpin', id: hairpinId })
@@ -712,7 +712,7 @@ describe('SelectionController — a note selection replaces the element selectio
   })
 
   it('a kind the SET cannot hold (a barline) is still just cleared', () => {
-    const hairpinId = engine.addHairpin(1, { type: 'cresc', beat: frac(0, 1), length: frac(2, 1), voice: 0 })!.id
+    const hairpinId = engine.hairpin.addHairpin(1, { type: 'cresc', beat: frac(0, 1), length: frac(2, 1), voice: 0 })!.id
     state.selectedElement = { kind: 'barline', measure: 1 }
     selection.toggleMark({ kind: 'hairpin', id: hairpinId })
     expect([...state.selectedItems.values()].map(i => i.kind)).toEqual(['hairpin'])

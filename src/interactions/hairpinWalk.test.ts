@@ -122,7 +122,7 @@ describe('walkHairpinEndpoint', () => {
     ids = (['C', 'D', 'E', 'F'] as const).map((step, i) =>
       engine.addNoteAtBeat({ step, octave: 4, duration: 'q', measure: 1, beat: frac(i, 1) })!.id)
     // Beats 0 → 3: it covers the first three notes, so there are stops on both sides of its start.
-    wedgeId = engine.addHairpin(1, { type: 'cresc', beat: frac(0, 1), length: frac(3, 1) })!.id
+    wedgeId = engine.hairpin.addHairpin(1, { type: 'cresc', beat: frac(0, 1), length: frac(3, 1) })!.id
     render()
   })
 
@@ -149,7 +149,7 @@ describe('walkHairpinEndpoint', () => {
 
   it('⭐ keeps the OTHER end’s own nudge through the crossing', () => {
     // The two ends are separate numbers, and a walk of one must not touch the other's shape.
-    engine.nudgeHairpinEndpoint(wedgeId, 'end', 1.5, -2)
+    engine.hairpin.nudgeHairpinEndpoint(wedgeId, 'end', 1.5, -2)
     for (let i = 0; i < 10; i++) walkHairpinEndpoint(engine, wedgeId, 'start', 1)
     expect(span().beat, 'it did cross').toBe(1)
     expect(offset('end')).toEqual({ x: 1.5, y: -2 })
@@ -203,7 +203,7 @@ describe('walkHairpinEndpoint', () => {
     expect(span().beat).toBe(1)
     // ⭐⭐ THE RUN IS THE UNDO ENTRY, ⛔ not the press — settle it first, as
     //   `shortcutWiring`'s 150 ms does in the app (`./keyRun`).
-    engine.commitHairpinDrag('start')
+    engine.hairpin.commitHairpinDrag('start')
     engine.undo()
     expect(span()).toEqual({ beat: 0, length: 3 })
     expect(offset('start').x).toBeCloseTo(0)
@@ -230,7 +230,7 @@ describe('walkHairpinEndpoint', () => {
     })
 
     it('⭐ keeps the START’s own nudge through the crossing', () => {
-      engine.nudgeHairpinEndpoint(wedgeId, 'start', -1.5, 1)
+      engine.hairpin.nudgeHairpinEndpoint(wedgeId, 'start', -1.5, 1)
       for (let i = 0; i < 10; i++) walkHairpinEndpoint(engine, wedgeId, 'end', -1)
       expect(span().length, 'it did cross').toBe(2)
       expect(offset('start')).toEqual({ x: -1.5, y: 1 })
@@ -257,7 +257,7 @@ describe('walkHairpinEndpoint', () => {
     it('⭐⭐ …and past the last onset the only stop left is COVERING it', () => {
       // The tip is standing on the barline and the lane's final slot is the next bar's whole rest:
       // there is no onset to stop BEFORE any more, so the remaining boundary is that bar's own end.
-      engine.setHairpinLength(wedgeId, frac(4, 1))
+      engine.hairpin.setHairpinLength(wedgeId, frac(4, 1))
       renderSecondBar()
       drawn.noteEndX = { 1: 430, 2: 470 }
       for (let i = 0; i < 3; i++) walkHairpinEndpoint(engine, wedgeId, 'end', 1)
@@ -267,7 +267,7 @@ describe('walkHairpinEndpoint', () => {
     })
 
     it('⛔ …but never onto a bar the last render drew nothing for — no picture, no crossing', () => {
-      engine.setHairpinLength(wedgeId, frac(4, 1))
+      engine.hairpin.setHairpinLength(wedgeId, frac(4, 1))
       render([100, 200, 300, 400], 10, 425)
       drawn.undrawn = [2]
       expect(walkHairpinEndpoint(engine, wedgeId, 'end', 1), 'refused, not guessed').toBe(false)
@@ -288,7 +288,7 @@ describe('walkHairpinEndpoint', () => {
       //   has to be settled before there is anything to undo. In the app that is
       //   `shortcutWiring`'s settle, 150 ms after the repeats stop (`./keyRun`); here it is the
       //   family's own commit, which is exactly what the run calls.
-      engine.commitHairpinDrag('end')
+      engine.hairpin.commitHairpinDrag('end')
       engine.undo()
       expect(span()).toEqual({ beat: 0, length: 3 })
       expect(offset('end').x).toBeCloseTo(0)
@@ -357,8 +357,8 @@ describe('walkHairpinEndpoint', () => {
 
     it('⭐ a crossing keeps the end’s own y — it is the wedge’s SHAPE, not a position', () => {
       twoSystems()
-      engine.setHairpinLength(wedgeId, frac(4, 1))
-      engine.nudgeHairpinEndpoint(wedgeId, 'end', 0, -2)
+      engine.hairpin.setHairpinLength(wedgeId, frac(4, 1))
+      engine.hairpin.nudgeHairpinEndpoint(wedgeId, 'end', 0, -2)
       walkHairpinEndpoint(engine, wedgeId, 'end', 1)
       expect(span().length, 'it wrapped').toBe(5)
       expect(offset('end').y).toBeCloseTo(-2)
@@ -372,7 +372,7 @@ describe('walkHairpinEndpoint', () => {
       // against the previous system's edges. ⛔ Never read the ink off a fragment.
       twoSystems()
       // A second wedge, this one living on the LOWER system: from bar 2's second note, one beat long.
-      const lower = engine.addHairpin(2, { type: 'cresc', beat: frac(1, 1), length: frac(1, 1) })!.id
+      const lower = engine.hairpin.addHairpin(2, { type: 'cresc', beat: frac(1, 1), length: frac(1, 1) })!.id
       // …drawn on that system, so the walk has a staff-space size to measure with.
       drawn.entries.push({
         type: 'hairpin', id: lower, staff: 0, measure: 2,
@@ -415,7 +415,7 @@ describe('walkHairpinEndpoint', () => {
       // Bar 2 undrawn: no way to show the stop is across a break rather than simply ahead, so the
       // limit applies and the press is REFUSED — ⛔ never clamped, and it may always come back.
       twoSystems(429)
-      engine.setHairpinLength(wedgeId, frac(4, 1))
+      engine.hairpin.setHairpinLength(wedgeId, frac(4, 1))
       drawn.undrawn = [2]
       expect(walkHairpinEndpoint(engine, wedgeId, 'end', 1)).toBe(false)
       expect(walkHairpinEndpoint(engine, wedgeId, 'end', -1), 'back is allowed').toBe(true)
@@ -496,7 +496,7 @@ describe('walkHairpinEndpoint', () => {
       notes.forEach((id, i) => drawn.entries.push({
         type: 'note', id, staff: 0, bbox: { x: 100 + i * 100, y: 250, width: 10, height: 10 },
       }))
-      engine.setHairpinLength(wedgeId, frac(4, 1))   // ends on bar 1's barline
+      engine.hairpin.setHairpinLength(wedgeId, frac(4, 1))   // ends on bar 1's barline
 
       // ⭐ The CURSOR is what says the line has run out: 440 is past this line's music end (430).
       const frame = dragHairpinEndpoint(engine, wedgeId, 'end', 440, 10)
@@ -520,7 +520,7 @@ describe('walkHairpinEndpoint', () => {
       notes.forEach((id, i) => drawn.entries.push({
         type: 'note', id, staff: 0, bbox: { x: 100 + i * 100, y: 250, width: 10, height: 10 },
       }))
-      engine.setHairpinLength(wedgeId, frac(4, 1))   // its tip is on bar 1's barline
+      engine.hairpin.setHairpinLength(wedgeId, frac(4, 1))   // its tip is on bar 1's barline
 
       expect(dragHairpinEndpoint(engine, wedgeId, 'end', 500, 1)?.wrapped, 'past 430 → wrapped').toBe(true)
       expect(span()).toEqual({ beat: 0, length: 5 })
@@ -534,7 +534,7 @@ describe('walkHairpinEndpoint', () => {
       notes.forEach((id, i) => drawn.entries.push({
         type: 'note', id, staff: 0, bbox: { x: 100 + i * 100, y: 250, width: 10, height: 10 },
       }))
-      engine.setHairpinLength(wedgeId, frac(4, 1))
+      engine.hairpin.setHairpinLength(wedgeId, frac(4, 1))
 
       expect(dragHairpinEndpoint(engine, wedgeId, 'end', 420, 60)?.wrapped).toBe(false)
       expect(span(), 'the model held still').toEqual({ beat: 0, length: 4 })
@@ -641,7 +641,7 @@ describe('walkHairpinEndpoint', () => {
       //   has to be settled before there is anything to undo. In the app that is
       //   `shortcutWiring`'s settle, 150 ms after the repeats stop (`./keyRun`); here it is the
       //   family's own commit, which is exactly what the run calls.
-      engine.commitHairpinOffsetDrag()
+      engine.hairpin.commitHairpinOffsetDrag()
       engine.undo()
       expect(span()).toEqual({ beat: 0, length: 3 })
       expect(offset('start').x, 'the ink presses went back with it').toBeCloseTo(0, 6)
@@ -653,8 +653,8 @@ describe('walkHairpinEndpoint', () => {
       // wedge BELONGS, so crossing its own five lines is the first step, and only then is another
       // system even a question.
       drawn.bands = [{ top: 40, bottom: 80 }, { top: 240, bottom: 280 }]
-      engine.nudgeHairpinEndpoint(wedgeId, 'start', 0, 2)   // a lift, which the flip drops
-      engine.nudgeHairpinEndpoint(wedgeId, 'end', 0, 2)
+      engine.hairpin.nudgeHairpinEndpoint(wedgeId, 'start', 0, 2)   // a lift, which the flip drops
+      engine.hairpin.nudgeHairpinEndpoint(wedgeId, 'end', 0, 2)
 
       // The wedge's ink is at y 94, below a staff whose lines run 40…80. A hand that has carried it
       // past the TOP line has moved it to the other side of the staff.
@@ -667,7 +667,7 @@ describe('walkHairpinEndpoint', () => {
 
     it('⭐ …and back DOWN across the bottom line returns it below', () => {
       drawn.bands = [{ top: 40, bottom: 80 }, { top: 240, bottom: 280 }]
-      engine.updateHairpin(wedgeId, { placement: 'above' })
+      engine.hairpin.updateHairpin(wedgeId, { placement: 'above' })
       expect(dragHairpinBody(engine, wedgeId, 200, 0, 40)?.jumped).toBe(true)
       expect(engine.getHairpinById(wedgeId)?.placement).toBe('below')
     })
@@ -685,7 +685,7 @@ describe('walkHairpinEndpoint', () => {
       below.forEach((id, i) => drawn.entries.push({
         type: 'note', id, staff: 0, bbox: { x: 100 + i * 100, y: 250, width: 10, height: 10 },
       }))
-      engine.nudgeHairpinEndpoint(wedgeId, 'start', 0, 1)   // a small lift, which the jump drops
+      engine.hairpin.nudgeHairpinEndpoint(wedgeId, 'start', 0, 1)   // a small lift, which the jump drops
 
       const frame = dragHairpinBody(engine, wedgeId, 210, 0, 200)
       expect(frame).toEqual({ moved: true, jumped: true })

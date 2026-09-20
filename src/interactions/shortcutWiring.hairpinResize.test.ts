@@ -46,27 +46,29 @@ describe('resizing a hairpin from the keyboard', () => {
     nextStop = vi.fn(() => null)
     nextEndStop = vi.fn(() => null)
     const engine = {
-      nudgeHairpin: whole,
-      resetHairpinOffset: vi.fn(() => false),
-      nudgeHairpinEndpoint: nudge,
-      // ⭐ The WALK writes through the preview twins since 2026-08-30 — a run of presses is ONE
-      //   undo entry (`./keyRun`). Aliased to the same mocks: what these cases claim is which
-      //   key writes which ink, and that is unchanged.
-      previewHairpinEndpointOffset: nudge,
-      previewHairpinEndpointRebase: vi.fn(() => true),
-      previewHairpinEnd: vi.fn(() => true),
-      previewHairpinOffset: (id: string, dx: number, dy: number) => whole(id, dx, dy),
-      previewHairpinOffsetRebase: vi.fn(() => true),
-      previewHairpinSlot: vi.fn(() => true),
-      commitHairpinDrag: vi.fn(),
-      commitHairpinOffsetDrag: vi.fn(),
-      resetHairpinEndpointOffset: vi.fn(() => false),
-      setHairpinAperture: mouth,
+      hairpin: {
+        nudgeHairpin: whole,
+        resetHairpinOffset: vi.fn(() => false),
+        nudgeHairpinEndpoint: nudge,
+        // ⭐ The WALK writes through the preview twins since 2026-08-30 — a run of presses is ONE
+        //   undo entry (`./keyRun`). Aliased to the same mocks: what these cases claim is which
+        //   key writes which ink, and that is unchanged.
+        previewHairpinEndpointOffset: nudge,
+        previewHairpinEndpointRebase: vi.fn(() => true),
+        previewHairpinEnd: vi.fn(() => true),
+        previewHairpinOffset: (id: string, dx: number, dy: number) => whole(id, dx, dy),
+        previewHairpinOffsetRebase: vi.fn(() => true),
+        previewHairpinSlot: vi.fn(() => true),
+        commitHairpinDrag: vi.fn(),
+        commitHairpinOffsetDrag: vi.fn(),
+        resetHairpinEndpointOffset: vi.fn(() => false),
+        setHairpinAperture: mouth,
+        resizeHairpinBySlot: resize,
+        moveHairpinStartBySlot: moveStart,
+        nextHairpinStartSlot: nextStop,
+        nextHairpinEndStop: nextEndStop,
+      },
       getHairpinById: () => ({ id: 'H1', type: 'cresc' }),
-      resizeHairpinBySlot: resize,
-      moveHairpinStartBySlot: moveStart,
-      nextHairpinStartSlot: nextStop,
-      nextHairpinEndStop: nextEndStop,
       // The walk also reads the score (for the end's address) and the drawn wedge (for the system's
       // edge). Neither says anything here, which is the "no picture, no limit" answer.
       getScore: () => ({ measures: [] }),

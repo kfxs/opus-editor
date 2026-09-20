@@ -39,7 +39,7 @@ describe('HairpinEditController', () => {
   beforeEach(() => {
     engine = new MusicEngine({ container: {} as unknown as HTMLElement, width: 800, height: 400 })
     engine.addMeasure()
-    hairpinId = engine.addHairpin(1, { type: 'cresc', beat: frac(0, 1), length: frac(2, 1) })!.id
+    hairpinId = engine.hairpin.addHairpin(1, { type: 'cresc', beat: frac(0, 1), length: frac(2, 1) })!.id
     renders = 0
     controller = new HairpinEditController(() => engine, () => { renders++ })
   })
