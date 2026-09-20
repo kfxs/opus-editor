@@ -27,7 +27,7 @@ describe("SpanMarkGeometryController — the trill's row", () => {
     nudge = vi.fn(() => true)
     render = vi.fn()
     score = { id: 's', title: '', measures: [], engravingOverrides: {} } as unknown as Score
-    const engine = { getScore: () => score, nudgeTrillEndpoint: nudge } as unknown as MusicEngine
+    const engine = { getScore: () => score, trill: { nudgeTrillEndpoint: nudge } } as unknown as MusicEngine
     controller = new SpanMarkGeometryController('trill', () => engine, render)
   })
   afterEach(() => { controller.destroy() })

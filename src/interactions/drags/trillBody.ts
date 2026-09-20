@@ -51,7 +51,7 @@ export function beginTrillBodyDrag(host: DragHost, id: string, x: number, y: num
     // ⏱ TEMPORARY — AFTER the draw, and on a refused frame too: that is one where the hand moved
     // and the ornament did not, which is invisible to a trace taken before the write.
     trace: (eng, cursorX) => traceTrillHandVsInk(eng, id, cursorX),
-    commit: eng => eng.commitTrillDrag('start'),
+    commit: eng => eng.trill.commitTrillDrag('start'),
     done: () => {
       endTrillHandTrace() // ⏱ TEMPORARY — one summary line per gesture.
       endTrillBodySpan()

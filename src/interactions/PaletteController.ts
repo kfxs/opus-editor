@@ -1402,8 +1402,8 @@ export class PaletteController {
       this.armMarkingTool({ kind: 'trill' })
       return
     }
-    const trill = engine.createTrill(noteIds)
-    dbg(`[Trill] createTrill on ${noteIds.length} note(s) → ${trill ? `trill ${trill.id}` : 'no valid anchor'}`)
+    const created = engine.trill.createTrill(noteIds)
+    dbg(`[Trill] createTrill on ${noteIds.length} note(s) → ${created ? `trill ${created.id}` : 'no valid anchor'}`)
     this.renderScore()
   }
 

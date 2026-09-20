@@ -38,7 +38,7 @@ test('⭐⭐ a trill on ONE note draws the sign AND a wiggle — the line always
     const h = window.__h
     const ids = [0, 1, 2, 3].map(beat =>
       h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: 'q', measure: 1, beat: h.frac(beat, 1) })!.id)
-    h.engine.addTrill({ startNoteId: ids[1] })
+    h.engine.trill.addTrill({ startNoteId: ids[1] })
     await h.render()
   })
 
@@ -55,7 +55,7 @@ test('⭐⭐ a trill over a SPAN draws the sign plus a run of wiggles', async ({
     const h = window.__h
     const ids = [0, 1, 2, 3].map(beat =>
       h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: 'q', measure: 1, beat: h.frac(beat, 1) })!.id)
-    h.engine.addTrill({ startNoteId: ids[0], endNoteId: ids[3] })
+    h.engine.trill.addTrill({ startNoteId: ids[0], endNoteId: ids[3] })
     await h.render()
   })
 
@@ -77,7 +77,7 @@ test('⭐⭐ the line STOPS SHORT of the next notehead — air at the end (his c
     const ids = [0, 1, 2, 3].map(beat =>
       h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: 'q', measure: 1, beat: h.frac(beat, 1) })!.id)
     // Trill the first two notes: the line must stop before the THIRD note's head.
-    h.engine.addTrill({ startNoteId: ids[0], endNoteId: ids[1] })
+    h.engine.trill.addTrill({ startNoteId: ids[0], endNoteId: ids[1] })
     await h.render()
     const staff = h.staves()[0]
     return {
@@ -103,7 +103,7 @@ test('⭐ the sign LEFT-aligns to the left edge of its notehead (rule 4)', async
     const h = window.__h
     const ids = [0, 1, 2, 3].map(beat =>
       h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: 'q', measure: 1, beat: h.frac(beat, 1) })!.id)
-    h.engine.addTrill({ startNoteId: ids[1] })
+    h.engine.trill.addTrill({ startNoteId: ids[1] })
     await h.render()
     return h.placed('g.notehead text')
   })
@@ -123,7 +123,7 @@ const signOver = (score: import('@playwright/test').Page, octave: number) =>
   score.evaluate(async (oct) => {
     const h = window.__h
     const id = h.engine.addNoteAtBeat({ step: 'C', octave: oct, duration: 'w', measure: 1, beat: h.frac(0, 1) })!.id
-    h.engine.addTrill({ startNoteId: id })
+    h.engine.trill.addTrill({ startNoteId: id })
     await h.render()
     return { y: h.placed('g.trill text')[0].y, top: h.staves()[0].top, spacing: (h.staves()[0].bottom - h.staves()[0].top) / 4 }
   }, octave)
@@ -144,7 +144,7 @@ test('⭐ the trill sits NEARER the staff than a dynamic would — it is the inn
   const { trillY, dynY, top } = await score.evaluate(async () => {
     const h = window.__h
     const id = h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: 'w', measure: 1, beat: h.frac(0, 1) })!.id
-    h.engine.addTrill({ startNoteId: id })
+    h.engine.trill.addTrill({ startNoteId: id })
     h.engine.addDynamic(1, { beat: h.frac(0, 1), text: 'p', placement: 'above' })
     await h.render()
     return {
@@ -192,7 +192,7 @@ test('⭐⭐ a trill ENDING on the next system still draws — the x\'s are in d
     const onFirstRow = heads.filter(g => Math.abs(g.y - firstRowY) < 5).length
     if (onFirstRow >= ids.length) return { glyphs: [], staves: h.staves().length, broke: false }
 
-    h.engine.addTrill({ startNoteId: ids[onFirstRow - 1], endNoteId: ids[onFirstRow] })
+    h.engine.trill.addTrill({ startNoteId: ids[onFirstRow - 1], endNoteId: ids[onFirstRow] })
     await h.render()
     return { glyphs: h.placed('g.trill text'), staves: h.staves().length, broke: true }
   })
@@ -261,8 +261,8 @@ async function continuationOf(score: import('@playwright/test').Page, label: 'pa
     const heads = h.placed('g.notehead text')
     const firstRowY = Math.min(...heads.map(g => g.y))
     const onFirstRow = heads.filter(g => Math.abs(g.y - firstRowY) < 5).length
-    const trill = h.engine.addTrill({ startNoteId: ids[onFirstRow - 1], endNoteId: ids[onFirstRow] })!
-    if (lab !== 'parenthesised') h.engine.setTrillContinuationLabel(trill.id, lab)
+    const trill = h.engine.trill.addTrill({ startNoteId: ids[onFirstRow - 1], endNoteId: ids[onFirstRow] })!
+    if (lab !== 'parenthesised') h.engine.trill.setTrillContinuationLabel(trill.id, lab)
     await h.render()
     // The second row's first notehead — what a plain restart must sit on.
     const after = h.placed('g.notehead text')
@@ -330,7 +330,7 @@ test('⭐⭐ a trill crossing a system break repeats its SIGN on the new system 
       if (m > 1) h.engine.addMeasure()
       ids.push(h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: 'w', measure: m, beat: h.frac(0, 1) })!.id)
     }
-    h.engine.addTrill({ startNoteId: ids[0], endNoteId: ids[ids.length - 1] })
+    h.engine.trill.addTrill({ startNoteId: ids[0], endNoteId: ids[ids.length - 1] })
     await h.render()
     return { staves: h.staves().length, glyphs: h.placed('g.trill text') }
   })
@@ -370,7 +370,7 @@ test('🚨 nudging the START moves the sign AND its hit-box together', async ({ 
     const h = window.__h
     const ids = [0, 1, 2, 3].map(beat =>
       h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: 'q', measure: 1, beat: h.frac(beat, 1) })!.id)
-    h.engine.addTrill({ startNoteId: ids[1], endNoteId: ids[2] })
+    h.engine.trill.addTrill({ startNoteId: ids[1], endNoteId: ids[2] })
     await h.render()
   })
   const before = await read()
@@ -378,7 +378,7 @@ test('🚨 nudging the START moves the sign AND its hit-box together', async ({ 
   await score.evaluate(async () => {
     const h = window.__h
     const trill = h.engine.getTrills()[0]
-    h.engine.nudgeTrillEndpoint(trill.id, 'start', -1, 0)   // one staff space LEFT
+    h.engine.trill.nudgeTrillEndpoint(trill.id, 'start', -1, 0)   // one staff space LEFT
     await h.render()
   })
   const after = await read()
@@ -401,14 +401,14 @@ test('⭐ …and nudging the END moves the line\'s end, leaving the sign where i
     const h = window.__h
     const ids = [0, 1, 2, 3].map(beat =>
       h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: 'q', measure: 1, beat: h.frac(beat, 1) })!.id)
-    h.engine.addTrill({ startNoteId: ids[0], endNoteId: ids[2] })
+    h.engine.trill.addTrill({ startNoteId: ids[0], endNoteId: ids[2] })
     await h.render()
   })
   const before = await read()
 
   await score.evaluate(async () => {
     const h = window.__h
-    h.engine.nudgeTrillEndpoint(h.engine.getTrills()[0].id, 'end', 1, 0)
+    h.engine.trill.nudgeTrillEndpoint(h.engine.getTrills()[0].id, 'end', 1, 0)
     await h.render()
   })
   const after = await read()
@@ -438,7 +438,7 @@ test('🚨🚨 a BIG NEGATIVE end nudge leaves the SIGN standing — his report,
       h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: 'q', measure: 1, beat: h.frac(beat, 1) })!.id)
     // ⭐ A ONE-NOTE trill, as his was: its line is about a quarter-note wide, so a 5-space pull is
     // enough to take the end back past the sign — which is the state that used to erase everything.
-    h.engine.addTrill({ startNoteId: ids[0] })
+    h.engine.trill.addTrill({ startNoteId: ids[0] })
     await h.render()
   })
   const before = await read()
@@ -447,7 +447,7 @@ test('🚨🚨 a BIG NEGATIVE end nudge leaves the SIGN standing — his report,
 
   await score.evaluate(async () => {
     const h = window.__h
-    h.engine.nudgeTrillEndpoint(h.engine.getTrills()[0].id, 'end', -5, 0)
+    h.engine.trill.nudgeTrillEndpoint(h.engine.getTrills()[0].id, 'end', -5, 0)
     await h.render()
   })
   const after = await read()
@@ -467,13 +467,13 @@ test('⭐⭐ the vertical is OUTWARD: + lifts an `above` trill, and LOWERS a `be
     const h = window.__h
     const ids = [0, 1, 2, 3].map(beat =>
       h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: 'q', measure: 1, beat: h.frac(beat, 1) })!.id)
-    h.engine.addTrill({ startNoteId: ids[1] })
+    h.engine.trill.addTrill({ startNoteId: ids[1] })
     await h.render()
   })
   const aboveBefore = await signY()
   await score.evaluate(async () => {
     const h = window.__h
-    h.engine.nudgeTrillEndpoint(h.engine.getTrills()[0].id, 'start', 0, 1)   // +1 OUTWARD
+    h.engine.trill.nudgeTrillEndpoint(h.engine.getTrills()[0].id, 'start', 0, 1)   // +1 OUTWARD
     await h.render()
   })
   expect(await signY(), 'above the staff, further out is UP the screen').toBeLessThan(aboveBefore)
@@ -482,14 +482,14 @@ test('⭐⭐ the vertical is OUTWARD: + lifts an `above` trill, and LOWERS a `be
   await score.evaluate(async () => {
     const h = window.__h
     const trill = h.engine.getTrills()[0]
-    h.engine.resetTrillOffset(trill.id)
-    h.engine.toggleTrillPlacement(trill.id)
+    h.engine.trill.resetTrillOffset(trill.id)
+    h.engine.trill.toggleTrillPlacement(trill.id)
     await h.render()
   })
   const belowBefore = await signY()
   await score.evaluate(async () => {
     const h = window.__h
-    h.engine.nudgeTrillEndpoint(h.engine.getTrills()[0].id, 'start', 0, 1)
+    h.engine.trill.nudgeTrillEndpoint(h.engine.getTrills()[0].id, 'start', 0, 1)
     await h.render()
   })
   expect(await signY(), 'below the staff, further out is DOWN the screen').toBeGreaterThan(belowBefore)
@@ -546,7 +546,7 @@ async function slurOverTrill(
       step: p.step, octave: p.octave, duration: 'q', measure: 1, beat: h.frac(beat, 1),
     })!.id)
     const created = slur ? h.engine.createSlur([ids[0], ids[3]]) : null
-    h.engine.addTrill({ startNoteId: ids[1] })
+    h.engine.trill.addTrill({ startNoteId: ids[1] })
     h.engine.addDynamic(1, { beat: h.frac(1, 1), text: 'p', placement: 'above' })
     // ⭐ The hand's move goes in BEFORE the render being measured — this is the drawn page after a
     //   drag, not a preview frame.
@@ -658,7 +658,7 @@ test('⭐ the ENDPOINT case: a slur STARTING on the trilled note — Gould p. 13
         step: p.step, octave: p.octave, duration: 'q', measure: 1, beat: h.frac(beat, 1),
       })!.id)
     h.engine.createSlur([ids[0], ids[3]])   // the slur STARTS on the note that is trilled
-    h.engine.addTrill({ startNoteId: ids[0] })
+    h.engine.trill.addTrill({ startNoteId: ids[0] })
     await h.render()
     const marks = h.placed('g.trill text')
     const xs = marks.map(m => m.x)
@@ -687,7 +687,7 @@ test('⭐ a TIE under the wavy line is an obstacle too — Gould p. 139', async 
     const second = h.engine.addNoteAtBeat({
       step: 'C', octave: 6, duration: 'w', measure: 2, beat: h.frac(0, 1) })!.id
     if (tie) h.engine.updateNote(first, { tiedTo: second })
-    h.engine.addTrill({ startNoteId: first })
+    h.engine.trill.addTrill({ startNoteId: first })
     await h.render()
     const marks = h.placed('g.trill text')
     const xs = marks.map(m => m.x)
@@ -721,8 +721,8 @@ test('🚨🚨 the BELOW mirror: flip both, and the `tr` goes UNDER the arc', as
         step: p.step, octave: p.octave, duration: 'q', measure: 1, beat: h.frac(beat, 1),
       })!.id)
     h.engine.createSlur([ids[0], ids[3]])
-    const trill = h.engine.addTrill({ startNoteId: ids[1] })!
-    h.engine.toggleTrillPlacement(trill.id)
+    const trill = h.engine.trill.addTrill({ startNoteId: ids[1] })!
+    h.engine.trill.toggleTrillPlacement(trill.id)
     await h.render()
     const stave = h.staves()[0]
     const marks = h.placed('g.trill text')

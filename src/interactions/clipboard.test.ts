@@ -782,7 +782,7 @@ describe('⭐ clipboard — trills travel (docs/trill-plan.md §2.3)', () => {
 
   it('copies a trill and re-anchors both ends onto the pasted notes', () => {
     const ids = fill(1)
-    engine.addTrill({ startNoteId: ids[0], endNoteId: ids[3], voice: 0 })
+    engine.trill.addTrill({ startNoteId: ids[0], endNoteId: ids[3], voice: 0 })
 
     const payload = buildClipboardFromSelection(engine.getScore(), ids)!
     expect(payload.trills).toHaveLength(1)
@@ -798,7 +798,7 @@ describe('⭐ clipboard — trills travel (docs/trill-plan.md §2.3)', () => {
 
   it('carries the ONE-NOTE trill, and does not invent an end for it', () => {
     const ids = fill(1)
-    engine.addTrill({ startNoteId: ids[1], voice: 0 })
+    engine.trill.addTrill({ startNoteId: ids[1], voice: 0 })
 
     const payload = buildClipboardFromSelection(engine.getScore(), ids)!
     expect(payload.trills).toHaveLength(1)
@@ -817,7 +817,7 @@ describe('⭐ clipboard — trills travel (docs/trill-plan.md §2.3)', () => {
     const c = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!.id
     const d = engine.addNoteAtBeat({ step: 'D', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })!.id
     const e = engine.addNoteAtBeat({ step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(2, 1) })!.id
-    engine.addTrill({ startNoteId: c, endNoteId: e, voice: 0 })
+    engine.trill.addTrill({ startNoteId: c, endNoteId: e, voice: 0 })
 
     // Copy only C+D → window [0,2); E@2 is outside it.
     const payload = buildClipboardFromSelection(engine.getScore(), [c, d])!
@@ -830,7 +830,7 @@ describe('⭐ clipboard — trills travel (docs/trill-plan.md §2.3)', () => {
     const c = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!.id
     const d = engine.addNoteAtBeat({ step: 'D', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })!.id
     const e = engine.addNoteAtBeat({ step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(2, 1) })!.id
-    engine.addTrill({ startNoteId: c, endNoteId: e, voice: 0 })
+    engine.trill.addTrill({ startNoteId: c, endNoteId: e, voice: 0 })
 
     const payload = buildClipboardFromSelection(engine.getScore(), [d, e])!
     expect(payload.trills).toHaveLength(0)

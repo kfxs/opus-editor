@@ -34,7 +34,7 @@ async function threeFamilies(score: import('@playwright/test').Page, octave = 6)
   return score.evaluate(async (oct: number) => {
     const h = window.__h
     const id = h.engine.addNoteAtBeat({ step: 'B', octave: oct, duration: 'w', measure: 1, beat: h.frac(0, 1) })!.id
-    h.engine.addTrill({ startNoteId: id })
+    h.engine.trill.addTrill({ startNoteId: id })
     h.engine.addDynamic(1, { beat: h.frac(0, 1), text: 'p', placement: 'above' })
     h.engine.addTempoMark(1, { beat: h.frac(0, 1), text: 'Allegro' })
     await h.render()
@@ -137,7 +137,7 @@ test('⭐⭐ the tempo mark’s hit-box is a TEXT LINE, and does not swallow the
     const h = window.__h
     // His fixture: a C5 whole note, a trill on it, and a metronome mark on the downbeat.
     const id = h.engine.addNoteAtBeat({ step: 'C', octave: 5, duration: 'w', measure: 1, beat: h.frac(0, 1) })!.id
-    h.engine.addTrill({ startNoteId: id })
+    h.engine.trill.addTrill({ startNoteId: id })
     h.engine.addTempoMark(1, { beat: h.frac(0, 1), text: 'Allegretto ♩ = 60', unit: 'q', bpm: 60 })
     await h.render()
     const boxes = h.engine.getElementRegistry().getAll()

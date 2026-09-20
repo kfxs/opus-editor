@@ -74,7 +74,7 @@ describe('trillLane', () => {
     engine.addMeasure() // the engine opens with one bar; this is the second, whose rest ends the lane
     ids = (['C', 'D', 'E', 'F'] as const).map((step, i) =>
       engine.addNoteAtBeat({ step, octave: 4, duration: 'q', measure: 1, beat: frac(i, 1) })!.id)
-    trillId = engine.createTrill([ids[1], ids[2]])!.id
+    trillId = engine.trill.createTrill([ids[1], ids[2]])!.id
     drawn.lineSpacing = 12
     drawn.geometry = null
     drawn.entries = ids.map((id, i) => ({

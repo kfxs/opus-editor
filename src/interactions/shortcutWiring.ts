@@ -600,7 +600,7 @@ export function wireShortcuts(
             return
           case 'trill':
             // The ornament only — never the notes it covers, the hairpin's rule exactly.
-            eng.removeTrill(element.id)
+            eng.trill.removeTrill(element.id)
             state.selectedElement = null
             renderer.renderScore()
             return

@@ -23,6 +23,7 @@
  */
 import type { Fraction, Measure, Score } from '../types/music'
 import type { MusicEngine } from '../engine/MusicEngine'
+import type { TrillCommands } from '@/engine/commands/trillCommands'
 import type { OttavaCommands } from '@/engine/commands/ottavaCommands'
 import type { PedalCommands } from '@/engine/commands/pedalCommands'
 import type { SelectionItem } from './selection'
@@ -194,8 +195,8 @@ export function markItems(items: Iterable<SelectionItem>): { kind: MarkKind; id:
 }
 
 /** What each kind's removal is called on the engine — the one place the six are mapped. */
-type MarkRemover = Pick<MusicEngine,
-  'removeDynamic' | 'removeSlur' | 'removeHairpin' | 'removeTrill' | 'removeTempoMark'> & {
+type MarkRemover = Pick<MusicEngine, 'removeDynamic' | 'removeSlur' | 'removeHairpin' | 'removeTempoMark'> & {
+  trill: Pick<TrillCommands, 'removeTrill'>
   ottava: Pick<OttavaCommands, 'removeOttava'>
   pedal: Pick<PedalCommands, 'removePedal'>
 }
@@ -212,7 +213,7 @@ export function removeMarks(engine: MarkRemover, marks: { kind: MarkKind; id: st
       case 'dynamic': engine.removeDynamic(mark.id); break
       case 'slur': engine.removeSlur(mark.id); break
       case 'hairpin': engine.removeHairpin(mark.id); break
-      case 'trill': engine.removeTrill(mark.id); break
+      case 'trill': engine.trill.removeTrill(mark.id); break
       case 'ottava': engine.ottava.removeOttava(mark.id); break
       case 'pedal': engine.pedal.removePedal(mark.id); break
       case 'tempo': engine.removeTempoMark(mark.id); break

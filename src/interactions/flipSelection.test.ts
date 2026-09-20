@@ -101,7 +101,7 @@ describe('flipSelection — the `x` key', () => {
   })
 
   it('a TRILL flips its side — the same key, one meaning of "flip" across the table', () => {
-    const trill = engine.createTrill([noteIds[0]])!
+    const trill = engine.trill.createTrill([noteIds[0]])!
     state.selectedElement = { kind: 'trill', id: trill.id }
     expect(flipSelection(state, engine)).toBe(true)
     expect(engine.getTrills()[0].placement).toBe('below')

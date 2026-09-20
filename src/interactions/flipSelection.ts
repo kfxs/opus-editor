@@ -73,7 +73,7 @@ const FLIP_ELEMENT: {
   // trill's own field and it shares no line with anything (a trill is not a baseline family), so
   // moving it moves nothing else. `below` is the multi-voice case (docs/trill-plan.md §1 rule 2),
   // which is exactly when a user reaches for this key.
-  trill: (engine, el) => engine.toggleTrillPlacement(el.id),
+  trill: (engine, el) => engine.trill.toggleTrillPlacement(el.id),
   // ⭐⭐ An OTTAVA flips its DIRECTION — 8va ↔ 8vb, 15ma ↔ 15mb (his request, 2026-08-17: *"we should
   // use shortcut x to switch 8va to 8vb when selected"*). The hairpin's kind of flip, one degree
   // stronger: `shift` is what the covered notes SOUND, so this is the only row on the table that

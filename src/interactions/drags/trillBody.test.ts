@@ -28,7 +28,7 @@ describe('beginTrillBodyDrag', () => {
   let order: string[]
   let host: DragHost
   const commit = vi.fn(() => { order.push('commit') })
-  const engine = { getElementRegistry: () => ({}), commitTrillDrag: commit } as unknown as MusicEngine
+  const engine = { getElementRegistry: () => ({}), trill: { commitTrillDrag: commit } } as unknown as MusicEngine
 
   beforeEach(() => {
     vi.useFakeTimers()

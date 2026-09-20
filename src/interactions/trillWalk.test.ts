@@ -138,7 +138,7 @@ describe('walkTrillEndpoint', () => {
     engine.addMeasure()
     ids = (['C', 'D', 'E', 'F'] as const).map((step, i) =>
       engine.addNoteAtBeat({ step, octave: 4, duration: 'q', measure: 1, beat: frac(i, 1) })!.id)
-    trillId = engine.createTrill([ids[1], ids[2]])!.id // D4 → E4, room to walk either way
+    trillId = engine.trill.createTrill([ids[1], ids[2]])!.id // D4 → E4, room to walk either way
     state = createEditorState()
     render()
   })
@@ -218,7 +218,7 @@ describe('walkTrillEndpoint', () => {
     // the STATE, exactly as `Ctrl+Shift+←` always has.
     // The one-note trill on D4: its line runs to E4 (300) and its sign sits on D4 (200), so ten
     // spaces of leftward ink take the end back past the sign.
-    engine.setTrillAnchor(trillId, 'end', null)      // no musical extent left to give up
+    engine.trill.setTrillAnchor(trillId, 'end', null)      // no musical extent left to give up
     arm('end')
     presses(9, -1)
     expect(trill().extension, 'nine spaces of ink, still a line').toBeUndefined()
@@ -228,8 +228,8 @@ describe('walkTrillEndpoint', () => {
   })
 
   it('⭐ …and from the bare sign a RIGHTWARD press puts the line back', () => {
-    engine.setTrillAnchor(trillId, 'end', null)
-    engine.setTrillExtension(trillId, 'none')
+    engine.trill.setTrillAnchor(trillId, 'end', null)
+    engine.trill.setTrillExtension(trillId, 'none')
     arm('end')
     expect(press(0.25), 'the press is consumed by the state change').toBe(true)
     expect(trill().extension, 'the line is back').toBeUndefined()
@@ -279,7 +279,7 @@ describe('walkTrillEndpoint', () => {
   const wrapFixture = () => {
     // A whole NOTE in bar 2 — a rest is not a stop, and with none the walk has nowhere to go.
     const there = engine.addNoteAtBeat({ step: 'G', octave: 4, duration: 'w', measure: 2, beat: frac(0, 1) })!
-    engine.setTrillAnchor(trillId, 'end', ids[3])   // the end on bar 1's LAST note
+    engine.trill.setTrillAnchor(trillId, 'end', ids[3])   // the end on bar 1's LAST note
     render()
     drawn.systems[2] = { top: 140, min: 90, max: 830 }
     drawn.entries.push({
@@ -325,7 +325,7 @@ describe('walkTrillEndpoint', () => {
     // ⚠️ ONE system, and the end parked on its last note — so the line already reaches that system's
     // end and there is no further line for the renderer to FOLD the ink onto.
     drawn.systems = { 1: { top: 40, min: 90, max: 430 } }
-    engine.setTrillAnchor(trillId, 'end', ids[3])
+    engine.trill.setTrillAnchor(trillId, 'end', ids[3])
     arm('end')
     expect(press(1), 'nothing to extend onto').toBe(false)
     expect(offset('end'), 'and nothing written').toBeCloseTo(0)
@@ -341,7 +341,7 @@ describe('walkTrillEndpoint', () => {
     //
     // ⭐⭐ THE RULE: a press crosses AT MOST ONE stop, and the ink still travels its own step. The
     // anchor walks back up to the ink a note per press, visibly.
-    engine.nudgeTrillEndpoint(trillId, 'start', 25, 0)   // the sign is 25 spaces ahead of its note
+    engine.trill.nudgeTrillEndpoint(trillId, 'start', 25, 0)   // the sign is 25 spaces ahead of its note
     arm('start')
     expect(press(0.25)).toBe(true)
     expect(idx(trill().startNoteId), 'ONE note along, ⛔ not all the way to F4').toBe(2)
@@ -408,7 +408,7 @@ describe('walkTrillEndpoint', () => {
       arm('start')
       drag(trillId, 'start', -30)
       drag(trillId, 'start', -30)
-      engine.commitTrillDrag('start')
+      engine.trill.commitTrillDrag('start')
       engine.undo()
       expect(offset('start'), 'both frames came back in ONE step').toBeCloseTo(0)
     })
@@ -502,8 +502,8 @@ describe('walkTrillEndpoint', () => {
     })
 
     it('⚠️ a span pushed off the end of the lane arrives SHORTENED, ⛔ not refused', () => {
-      engine.setTrillAnchor(trillId, 'start', ids[2])   // E4 → F4, the last two notes
-      engine.setTrillAnchor(trillId, 'end', ids[3])
+      engine.trill.setTrillAnchor(trillId, 'start', ids[2])   // E4 → F4, the last two notes
+      engine.trill.setTrillAnchor(trillId, 'end', ids[3])
       for (let i = 0; i < 10; i++) body(1)
       expect(idx(trill().startNoteId), 'onto F4, the last note').toBe(3)
       expect(trill().endNoteId, 'and the end had nowhere to go — the one-note trill').toBeUndefined()
@@ -718,7 +718,7 @@ describe('walkTrillEndpoint', () => {
 
     it('⛔ …and the dedup is PER TRILL — a second ornament still gets its own line', () => {
       // ⚠️ Its ink has to be DRAWN or the jump bails before it ever reaches the decline.
-      const other = engine.createTrill([ids[0]])!.id
+      const other = engine.trill.createTrill([ids[0]])!.id
       drawn.entries.push({
         type: 'trill', id: other, staff: 0, measure: 1,
         bbox: { x: 100, y: 20, width: 100, height: 10 },

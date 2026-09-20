@@ -87,12 +87,14 @@ const FAMILIES: Family[] = [
   },
   {
     kind: 'trill', handleType: 'trill-endpoint', idField: 'trillId',
-    previewOffset: 'previewTrillEndpointOffset', commitDrag: 'commitTrillDrag',
+    previewOffset: 'previewTrillEndpointOffset', commitDrag: 'commitTrillDrag', commands: 'trill',
     extra: {
       getTrillById: () => ({ id: 'M1', placement: 'above', extension: 'wavy', startNoteId: 'n1' }),
-      previewTrillExtension: () => false,
+      trill: {
+        previewTrillExtension: () => false,
+        previewTrillEndpointRebase: () => true,
+      },
       previewTrillEnd: () => false,
-      previewTrillEndpointRebase: () => true,
     },
   },
 ]

@@ -96,7 +96,7 @@ test('⭐⭐ a TRILL points at the NOTE it ornaments — the pitch its auxiliary
     const h = window.__h
     const note = h.engine.addNoteAtBeat({ step: 'C', octave: 5, duration: 'q', measure: 1, beat: h.frac(0, 1) })!
     h.engine.addNoteAtBeat({ step: 'C', octave: 5, duration: 'q', measure: 1, beat: h.frac(1, 1) })
-    const trill = h.engine.createTrill([note.id])!
+    const trill = h.engine.trill.createTrill([note.id])!
     await h.render()
 
     const e = h.engine.getElementRegistry().getById(trill.id)!
@@ -253,11 +253,11 @@ test('🚨🚨 a NUDGED trill sign keeps its guide ON THE NOTEHEAD — his repor
     const h = window.__h
     const id = h.engine.addNoteAtBeat({ step: 'C', octave: 5, duration: 'q', measure: 1, beat: h.frac(0, 1) })!.id
     h.engine.addNoteAtBeat({ step: 'D', octave: 5, duration: 'q', measure: 1, beat: h.frac(1, 1) })
-    const trill = h.engine.addTrill({ startNoteId: id })!
+    const trill = h.engine.trill.addTrill({ startNoteId: id })!
     await h.render()
     const before = h.engine.getElementRegistry().getByType('trill')[0].guides![0]
 
-    h.engine.nudgeTrillEndpoint(trill.id, 'start', 6, 0)   // six spaces to the right
+    h.engine.trill.nudgeTrillEndpoint(trill.id, 'start', 6, 0)   // six spaces to the right
     await h.render()
     const e = h.engine.getElementRegistry().getByType('trill')[0]
     return { before, after: e.guides![0], signX: e.bbox.x }

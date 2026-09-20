@@ -260,7 +260,7 @@ describe('elementClipboard — the TEMPO mark (his ask, 2026-08-19)', () => {
     beforeEach(() => {
       ids = (['D', 'E', 'F', 'G'] as const).map((step, i) =>
         engine.addNoteAtBeat({ step, octave: 4, duration: 'q', measure: 1, beat: frac(i, 1) })!.id)
-      trillId = engine.createTrill([ids[0], ids[1]])!.id   // D→E, one beat of span
+      trillId = engine.trill.createTrill([ids[0], ids[1]])!.id   // D→E, one beat of span
     })
 
     it('⭐⭐ copies the SPAN, since a note id means nothing anywhere else', () => {
@@ -278,7 +278,7 @@ describe('elementClipboard — the TEMPO mark (his ask, 2026-08-19)', () => {
     it('⚠️ a ONE-NOTE trill travels as a span of ZERO, and arrives with no end', () => {
       // ⭐ Its extent is its own note's sounding duration ({@link Trill.endNoteId}), which is spelled
       // by ABSENCE — so the clip carries nothing to resolve and the paste asks for no end.
-      const alone = engine.createTrill([ids[2]])!
+      const alone = engine.trill.createTrill([ids[2]])!
       const clip = copyElement(engine, { kind: 'trill', id: alone.id })!
       expect(clip).toMatchObject({ span: frac(0, 1) })
       pasteElement(engine, clip, { measure: 1, beat: frac(3, 1), staff: 0, noteId: ids[3] })
@@ -286,8 +286,8 @@ describe('elementClipboard — the TEMPO mark (his ask, 2026-08-19)', () => {
     })
 
     it('⭐⭐ the three ways it READS travel — side, label, and whether it has a line', () => {
-      engine.toggleTrillPlacement(trillId)
-      engine.setTrillContinuationLabel(trillId, 'plain')
+      engine.trill.toggleTrillPlacement(trillId)
+      engine.trill.setTrillContinuationLabel(trillId, 'plain')
       const clip = copyElement(engine, { kind: 'trill', id: trillId })!
       expect(clip).toMatchObject({ placement: 'below', continuationLabel: 'plain' })
 
@@ -300,7 +300,7 @@ describe('elementClipboard — the TEMPO mark (his ask, 2026-08-19)', () => {
     })
 
     it('⛔ …but the hand-nudged INK does not — it was authored against other music', () => {
-      engine.nudgeTrillEndpoint(trillId, 'start', 3, 2)
+      engine.trill.nudgeTrillEndpoint(trillId, 'start', 3, 2)
       const clip = copyElement(engine, { kind: 'trill', id: trillId })!
       expect(clip).not.toHaveProperty('startX')
       const pasted = idOf(pasteElement(engine, clip, {
@@ -317,8 +317,8 @@ describe('elementClipboard — the TEMPO mark (his ask, 2026-08-19)', () => {
       // important because it is a use case the user wants to KEEP"*. ⛔⛔ `extension: 'none'` and an
       // `endNoteId` contradict each other ({@link Trill.extension}), so the pair has to arrive in the
       // right ORDER: no end asked for, then the line turned off.
-      const alone = engine.createTrill([ids[2]])!
-      engine.setTrillExtension(alone.id, 'none')
+      const alone = engine.trill.createTrill([ids[2]])!
+      engine.trill.setTrillExtension(alone.id, 'none')
       const clip = copyElement(engine, { kind: 'trill', id: alone.id })!
       expect(clip).toMatchObject({ span: frac(0, 1), extension: 'none' })
 

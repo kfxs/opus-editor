@@ -39,6 +39,7 @@
  * for the note offset, so the caller must chain rather than repaint on a false.
  */
 import type { MusicEngine } from '../engine/MusicEngine'
+import type { TrillCommands } from '@/engine/commands/trillCommands'
 import type { Fraction, Trill } from '../types/music'
 import type { EditorState } from './EditorState'
 import { selectedOf } from './EditorState'
@@ -179,12 +180,12 @@ export function nextTrillAnchorStop(
  * another trill may already own that notehead. The op is the authority; a caller repaints on a yes.
  */
 export function applyTrillAnchorStop(
-  engine: Pick<MusicEngine, 'setTrillAnchor'>,
+  engine: { trill: Pick<TrillCommands, 'setTrillAnchor'> },
   id: string,
   which: 'start' | 'end',
   stop: TrillAnchorStop,
 ): boolean {
-  return engine.setTrillAnchor(id, which, stop.clearsEnd ? null : stop.note.id)
+  return engine.trill.setTrillAnchor(id, which, stop.clearsEnd ? null : stop.note.id)
 }
 
 /** ⚠️ Located by POSITION, not by id: a chord's representative in the beat map is its LOWEST note,
@@ -235,12 +236,12 @@ export function reanchorArmedTrillEndpoint(
   // measure to a state, so the ink has nothing to arrive at.
   if (which === 'end') {
     if (direction === 1 && trill.extension === 'none') {
-      if (!engine.setTrillExtension(selected.id, undefined)) return false
+      if (!engine.trill.setTrillExtension(selected.id, undefined)) return false
       dbg(`Trill line restored (keyboard) | id:${selected.id}`)
       return true
     }
     if (direction === -1 && trill.extension !== 'none' && trill.endNoteId === undefined) {
-      if (!engine.setTrillExtension(selected.id, 'none')) return false
+      if (!engine.trill.setTrillExtension(selected.id, 'none')) return false
       dbg(`Trill line off (keyboard) | id:${selected.id} → a bare tr`)
       return true
     }

@@ -233,8 +233,10 @@ describe("the span-mark key verbs, at the trill row — screen → outward", () 
   let placement: 'above' | 'below'
 
   const engineFor = (): MusicEngine => ({
-    nudgeTrillEndpoint: nudge,
-    nudgeTrill: whole,
+    trill: {
+      nudgeTrillEndpoint: nudge,
+      nudgeTrill: whole,
+    },
     getTrillById: () => ({ id: 'T1', placement, extension: 'none' }),
     getScore: () => ({ measures: [] }),
     getElementRegistry: () => ({ getByType: () => [] }),
@@ -288,7 +290,9 @@ describe('spanMarkKeys — a span mark\'s row of the keys column', () => {
       moveOttavaStartBySlot: vi.fn(() => true),
     },
     getOttavaById: () => ({ id: 'O1', shift: 1 }),
-    commitTrillDrag: vi.fn(),
+    trill: {
+      commitTrillDrag: vi.fn(),
+    },
   }
   let ctx: KeysCtx
   let state: EditorState
@@ -323,7 +327,7 @@ describe('spanMarkKeys — a span mark\'s row of the keys column', () => {
 
   it('⚠️ a TRILL\'s whole-mark run commits through its START — the ornament has one drag commit', () => {
     SPAN_MARK_TOOLS.trill.commitWhole(engine as unknown as MusicEngine)
-    expect(engine.commitTrillDrag).toHaveBeenCalledWith('start')
+    expect(engine.trill.commitTrillDrag).toHaveBeenCalledWith('start')
   })
 
   it('🚨 a REFUSED press DECLINES, and hands nothing to the run', () => {

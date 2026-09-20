@@ -26,6 +26,7 @@
  * authored against other music.
  */
 import type { MusicEngine } from '../engine/MusicEngine'
+import type { TrillCommands } from '@/engine/commands/trillCommands'
 import type { OttavaCommands } from '@/engine/commands/ottavaCommands'
 import type { PedalCommands } from '@/engine/commands/pedalCommands'
 import type { Fraction, NoteDuration, Ottava, TempoMark, TrillContinuationLabel } from '../types/music'
@@ -148,7 +149,7 @@ interface SlurElementClip {
  * A copied TRILL (his ask, 2026-08-20). ⭐ The slur's shape, for the slur's reason: its identity is a
  * NOTE plus an extent, and a note id means nothing anywhere else — so what travels is *"a trill over
  * this much music"* and the paste resolves the far end against the destination's own notes
- * (`MusicEngine.createTrillOverSpan`).
+ * (`MusicEngine.trill.createTrillOverSpan`).
  *
  * ⭐⭐ **The three ways it READS travel with it** — which side it is on, how a continuation system
  * labels it, and whether it draws its line at all. Those are decisions the engraver made about THIS
@@ -182,9 +183,10 @@ type ElementClipEngine = Pick<MusicEngine,
   | 'getTempoMarkById' | 'addTempoMark' | 'removeTempoMark' | 'getScore' | 'runBatch'
   | 'getHairpinById' | 'addHairpin'
   | 'getSlurById' | 'slurSpanOf' | 'createSlurOverSpan'
-  | 'getTrillById' | 'trillSpanBeats' | 'createTrillOverSpan'
+  | 'getTrillById' | 'trillSpanBeats'
   | 'getOttavaById'
   | 'getPedalById'> & {
+  trill: Pick<TrillCommands, 'createTrillOverSpan'>
   ottava: Pick<OttavaCommands, 'addOttava'>
   pedal: Pick<PedalCommands, 'addPedalOverSpan'>
 }
@@ -350,7 +352,7 @@ export function pasteElement(engine: ElementClipEngine, clip: ElementClip, ancho
       // ornament a note bars away. A trill is a sign ON a notehead; if the pointer was not on one,
       // there is nothing to trill and this says so.
       if (!anchor.noteId) return null
-      const created = engine.createTrillOverSpan(anchor.noteId, clip.span, {
+      const created = engine.trill.createTrillOverSpan(anchor.noteId, clip.span, {
         ...(clip.placement !== undefined ? { placement: clip.placement } : {}),
         ...(clip.continuationLabel !== undefined ? { continuationLabel: clip.continuationLabel } : {}),
         ...(clip.extension !== undefined ? { extension: clip.extension } : {}),

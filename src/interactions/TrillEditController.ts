@@ -29,7 +29,7 @@ export class TrillEditController {
   private apply({ trillId, continuationLabel }: TrillEditRequest): void {
     const engine = this.getEngine()
     if (!engine || continuationLabel === undefined) return
-    if (!engine.setTrillContinuationLabel(trillId, continuationLabel)) return
+    if (!engine.trill.setTrillContinuationLabel(trillId, continuationLabel)) return
     dbg(`[Trill] continuation label → ${continuationLabel} | id:${trillId.slice(0, 8)}`)
     this.renderScore()
   }

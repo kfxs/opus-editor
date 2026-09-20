@@ -39,6 +39,10 @@ export interface CommandContext {
    *  does not flag the model dirty (that re-engraves a picture that is already there). */
   commitPreviewed(description: string): void
 
+  /** Several edits as ONE undo entry — an inner batch defers to the outer one. @returns true when
+   *  an entry was pushed. */
+  runBatch(description: string, fn: () => void): boolean
+
   /** A staff index as the model files it — ⚠️ the FIRST staff is `undefined`, not its id. */
   staffIdForIndex(staff: number): string | undefined
 

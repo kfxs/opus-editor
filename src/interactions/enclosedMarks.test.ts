@@ -68,12 +68,12 @@ describe('marksInBox', () => {
   })
 
   it('⭐ takes a TRILL on its SIGN alone — its wavy line may run out of the box', () => {
-    const id = engine.addTrill({ startNoteId: bar1[3], endNoteId: bar2[1] })!.id
+    const id = engine.trill.addTrill({ startNoteId: bar1[3], endNoteId: bar2[1] })!.id
     expect(marksInBox(engine.getScore(), bar1)).toEqual([{ kind: 'trill', id }])
   })
 
   it('leaves a trill whose sign is in the NEXT bar', () => {
-    engine.addTrill({ startNoteId: bar2[0] })
+    engine.trill.addTrill({ startNoteId: bar2[0] })
     expect(marksInBox(engine.getScore(), bar1)).toEqual([])
   })
 
@@ -98,14 +98,14 @@ describe('marksInBox', () => {
   it('⭐⭐ agrees with the COPY — the highlight is a promise about what travels', () => {
     engine.addDynamic(1, { beat: frac(0, 1), text: levelToGlyphString('p'), voice: 0 })
     engine.addHairpin(1, { type: 'dim', beat: frac(1, 1), length: frac(2, 1), voice: 0 })
-    engine.addTrill({ startNoteId: bar1[2] })
+    engine.trill.addTrill({ startNoteId: bar1[2] })
     engine.ottava.addOttava(1, { beat: frac(0, 1), length: frac(4, 1), shift: -1 })
     engine.addTempoMark(1, { beat: frac(0, 1), text: 'Allegro' })
     // ⭐ A wedge that STARTS in the box and runs past it — in BOTH, since 2026-08-19.
     engine.addHairpin(1, { type: 'cresc', beat: frac(3, 1), length: frac(3, 1), voice: 0 })
     // …and two that must be in NEITHER, both because they start in the NEXT bar.
     engine.addDynamic(2, { beat: frac(0, 1), text: levelToGlyphString('f'), voice: 0 })
-    engine.addTrill({ startNoteId: bar2[2] })
+    engine.trill.addTrill({ startNoteId: bar2[2] })
 
     const clip = buildClipboardFromSelection(engine.getScore(), bar1)!
     const box = marksInBox(engine.getScore(), bar1)

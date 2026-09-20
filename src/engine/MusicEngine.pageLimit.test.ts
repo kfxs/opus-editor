@@ -150,11 +150,11 @@ describe('MusicEngine — a hand nudge may not be written past the edge of the p
 
     it('the trill', () => {
       const note = engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!
-      const trill = engine.addTrill({ startNoteId: note.id })!
+      const trill = engine.trill.addTrill({ startNoteId: note.id })!
       drawn('trill', trill.id, 5 + SPAN_HANDLE_ROOM_PX)
-      expect(engine.nudgeTrillEndpoint(trill.id, 'start', -1, 0)).toBe(false)
-      expect(engine.nudgeTrillEndpoint(trill.id, 'start', -0.25, 0), 'a quarter still fits').toBe(true)
-      expect(engine.nudgeTrillEndpoint(trill.id, 'start', 1, 0), '⭐ and it is never stranded').toBe(true)
+      expect(engine.trill.nudgeTrillEndpoint(trill.id, 'start', -1, 0)).toBe(false)
+      expect(engine.trill.nudgeTrillEndpoint(trill.id, 'start', -0.25, 0), 'a quarter still fits').toBe(true)
+      expect(engine.trill.nudgeTrillEndpoint(trill.id, 'start', 1, 0), '⭐ and it is never stranded').toBe(true)
     })
 
     it('⭐ …and the END square of the same mark is judged at the OTHER edge', () => {

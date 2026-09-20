@@ -28,7 +28,7 @@
  * ⭐ **THE CROSSING KEEPS BOTH NUDGES BY CONSTRUCTION** — `setTrillEnd` / `setTrillStart` touch no
  * override at all, so unlike the slur there is no `…KeepingEdits` twin to reach for. What the walk
  * then does with the armed end's own offset is the family's identity: it takes the gap back out
- * through {@link MusicEngine.rebaseTrillEndpointOffset}, so the ink does not jump.
+ * through {@link MusicEngine.trill.rebaseTrillEndpointOffset}, so the ink does not jump.
  *
  * ⛔ **The vertical is not in here.** ↑/↓ stay a pure offset, and on this mark they move the WHOLE
  * ornament: the sign and the wiggle share one baseline, so `TrillOffsetOverride` has a single
@@ -47,6 +47,7 @@
  * With no line drawn, an arrow on the end square stays the plain ink nudge it has always been.
  */
 import type { MusicEngine } from '../engine/MusicEngine'
+import type { TrillCommands } from '@/engine/commands/trillCommands'
 import type { Note } from '../types/music'
 import { trillOffsetOverrideOf } from '../engine/models/engravingOverrides'
 import { trillEndWithoutAnEnd } from '../engine/models/trillOps'
@@ -72,17 +73,18 @@ import { staffOf, voiceOf } from '../utils/lanes'
 import { dbg, debugEnabled } from '../utils/debug'
 
 /** What the walk needs off the engine — a Pick, so a spec can stand it up without a renderer. */
-type TrillWalkEngine = TrillAnchorEngine & Pick<MusicEngine,
-  'setTrillAnchor' | 'nudgeTrillEndpoint' | 'rebaseTrillEndpointOffset' | 'runBatch'
-  | 'previewTrillAnchor' | 'previewTrillEndpointOffset' | 'previewTrillEndpointRebase'
-  | 'previewTrillPlacement' | 'previewTrillMove' | 'resetTrillOffset'
-  | 'setTrillExtension' | 'previewTrillExtension'
-  | 'nudgeTrill' | 'commitTrillDrag'
-  | 'previewTrillOffset' | 'previewTrillOffsetRebase'>
+type TrillWalkEngine = TrillAnchorEngine & Pick<MusicEngine, 'runBatch'> & {
+  trill: Pick<TrillCommands,
+    'setTrillAnchor' | 'nudgeTrillEndpoint' | 'rebaseTrillEndpointOffset'
+    | 'previewTrillAnchor' | 'previewTrillEndpointOffset' | 'previewTrillEndpointRebase'
+    | 'previewTrillPlacement' | 'previewTrillMove' | 'resetTrillOffset'
+    | 'setTrillExtension' | 'previewTrillExtension'
+    | 'nudgeTrill' | 'commitTrillDrag' | 'previewTrillOffset' | 'previewTrillOffsetRebase'>
+}
 
 /**
  * ⭐ **WHAT SEPARATES THE TWO DEVICES, and the whole of it**: a KEY press records its own undo step,
- * a drag FRAME records none and leaves the drop to commit once ({@link MusicEngine.commitTrillDrag}).
+ * a drag FRAME records none and leaves the drop to commit once ({@link MusicEngine.trill.commitTrillDrag}).
  * Everything else — the stops, the geometry, the identity — is shared, which is what makes a drag
  * and N presses land in the same state rather than in two states that merely look alike.
  */
@@ -98,8 +100,8 @@ interface TrillWrite {
 function keyWrites(engine: TrillWalkEngine, id: string, which: 'start' | 'end'): TrillWrite {
   return {
     reanchor: (stop) => applyTrillAnchorStop(engine, id, which, stop),
-    nudge: (dx, dy) => engine.nudgeTrillEndpoint(id, which, dx, dy),
-    rebase: (dx) => engine.rebaseTrillEndpointOffset(id, which, dx),
+    nudge: (dx, dy) => engine.trill.nudgeTrillEndpoint(id, which, dx, dy),
+    rebase: (dx) => engine.trill.rebaseTrillEndpointOffset(id, which, dx),
   }
 }
 
@@ -108,9 +110,9 @@ function previewWrites(engine: TrillWalkEngine, id: string, which: 'start' | 'en
   return {
     // ⚠️ `null` is the CLEAR — the end walked back onto the start. It goes through the PREVIEW op
     // like every other frame, or that one crossing would record its own undo entry mid-gesture.
-    reanchor: (stop) => engine.previewTrillAnchor(id, which, stop.clearsEnd ? null : stop.note.id),
-    nudge: (dx, dy) => engine.previewTrillEndpointOffset(id, which, dx, dy),
-    rebase: (dx) => engine.previewTrillEndpointRebase(id, which, dx),
+    reanchor: (stop) => engine.trill.previewTrillAnchor(id, which, stop.clearsEnd ? null : stop.note.id),
+    nudge: (dx, dy) => engine.trill.previewTrillEndpointOffset(id, which, dx, dy),
+    rebase: (dx) => engine.trill.previewTrillEndpointRebase(id, which, dx),
   }
 }
 
@@ -582,14 +584,14 @@ const bodyKeyWrites = bodyMoveWrites
  * ⚠️ The nudge and the rebase must move BOTH inks or the shape breathes: between crossings the
  * start's ink would carry the whole offset while the end's stayed on its note, stretching by a gap
  * and snapping back at every step. ⛔ `preview*` throughout — no undo entry per press or per frame;
- * the drop commits ({@link MusicEngine.commitTrillDrag}), and so does the key run
+ * the drop commits ({@link MusicEngine.trill.commitTrillDrag}), and so does the key run
  * ({@link commitTrillKeyRun}).
  */
 function bodyMoveWrites(engine: TrillWalkEngine, id: string): TrillWrite {
   return {
-    reanchor: (stop) => engine.previewTrillMove(id, stop.note.id, carriedEnd(engine, id, stop.note.id)),
-    nudge: (dx, dy) => engine.previewTrillOffset(id, dx, dy),
-    rebase: (dx) => engine.previewTrillOffsetRebase(id, dx),
+    reanchor: (stop) => engine.trill.previewTrillMove(id, stop.note.id, carriedEnd(engine, id, stop.note.id)),
+    nudge: (dx, dy) => engine.trill.previewTrillOffset(id, dx, dy),
+    rebase: (dx) => engine.trill.previewTrillOffsetRebase(id, dx),
   }
 }
 
@@ -633,7 +635,7 @@ export function walkTrillBody(engine: TrillWalkEngine, id: string, dx: number): 
 export function commitTrillKeyRun(engine: TrillWalkEngine): boolean {
   if (!keyRunOpen) return false
   keyRunOpen = false
-  engine.commitTrillDrag('start')
+  engine.trill.commitTrillDrag('start')
   dbg('[Trill] the key run committed — ONE undo entry, back to before the key went down')
   return true
 }
@@ -700,8 +702,8 @@ export function dragTrillBody(
   // ⭐⭐ THE BARE `tr` — {@link dragTrillEndpoint}'s first rung. ⚠️ Inert on `'start'`
   // ({@link crossTheBareSign} returns at once), and duplicated anyway: this function is that one.
   if (crossTheBareSign(engine, id, 'start', dxPx / staffSpacePx, {
-    extension: (to) => engine.previewTrillExtension(id, to),
-    nudge: (ddx, ddy) => engine.previewTrillEndpointOffset(id, 'end', ddx, ddy),
+    extension: (to) => engine.trill.previewTrillExtension(id, to),
+    nudge: (ddx, ddy) => engine.trill.previewTrillEndpointOffset(id, 'end', ddx, ddy),
   })) return { ...NO_TRAVEL, moved: true }
 
   // ⭐⭐ ITS OWN STAFF FIRST, then the system — the squares' two rungs, and the same order.
@@ -716,7 +718,7 @@ export function dragTrillBody(
   // here. ⛔ Through the ENDPOINT op, as the square's does — see the header.
   const above = (engine.getTrillById(id)?.placement ?? 'above') === 'above'
   const lifted = dyPx !== 0
-    && engine.previewTrillEndpointOffset(id, 'start', 0, (above ? -dyPx : dyPx) / staffSpacePx)
+    && engine.trill.previewTrillEndpointOffset(id, 'start', 0, (above ? -dyPx : dyPx) / staffSpacePx)
 
   // ⭐⭐ **IT WRAPS, exactly as the other three do** — {@link wrapPort} + `markBreakWrap`.
   // ⚠️ The cursor goes in ON THE RIBBON ({@link cursorOnRibbon}), because everything else this family
@@ -877,7 +879,7 @@ function flipTrillPlacement(engine: TrillWalkEngine, id: string, dyPx: number): 
     above && next > band.bottom ? 'below'
       : !above && next < band.top ? 'above'
         : null
-  if (!flipped || !engine.previewTrillPlacement(id, flipped)) return false
+  if (!flipped || !engine.trill.previewTrillPlacement(id, flipped)) return false
   dropTheLift(engine, id)
   // ⚠️⚠️ EXPLORATORY (2026-08-30) — **A RUNG-CHANGE DOES NOT MOVE THE DRAWING**
   // ({@link settleTrillLanding}). The dropped lift IS right — a height measured above the staff means
@@ -932,9 +934,9 @@ function jumpTrillStaves(
   // ⭐ Where the ornament is DRAWN, before the anchor moves out from under it — the number the
   //   landing has to preserve.
   const inkBefore = inkXOf(engine, id)
-  if (!engine.previewTrillMove(id, target, extentFrom(engine, id, target))) return false
+  if (!engine.trill.previewTrillMove(id, target, extentFrom(engine, id, target))) return false
 
-  engine.previewTrillPlacement(id, dyPx > 0 ? 'above' : 'below')
+  engine.trill.previewTrillPlacement(id, dyPx > 0 ? 'above' : 'below')
   landWhereItWasDrawn(engine, id, target, inkBefore)
   // ⚠️ EXPLORATORY (2026-08-30): the x is preserved above, by the rule that function carries; the
   // VERTICAL cannot be predicted — the ornament arrives on the other side of a different staff — so
@@ -982,7 +984,7 @@ function landWhereItWasDrawn(
   /** The ornament's drawn x before the anchor moved. Null = it was not drawn. */
   inkBefore: number | null,
 ): void {
-  engine.resetTrillOffset(id)
+  engine.trill.resetTrillOffset(id)
   const noteX = engine.getElementRegistry().getByType('note').find(e => e.id === target)?.bbox.x
   const staffSpacePx = trillStaffSpacePx(engine.getElementRegistry(), id)
   if (inkBefore === null || noteX === undefined || !staffSpacePx) return
@@ -998,7 +1000,7 @@ function landWhereItWasDrawn(
   //   stays exactly where the hand had it — that is the whole point — so there is nothing for a page
   //   limit to have an opinion about. Same writer `markBreakWrap.leaveSystem` uses for the same
   //   reason: *"a page limit that refused it would strand the mark mid-wrap"*.
-  if (spaces !== 0) engine.previewTrillOffsetRebase(id, spaces)
+  if (spaces !== 0) engine.trill.previewTrillOffsetRebase(id, spaces)
 }
 
 /**
@@ -1053,7 +1055,7 @@ export function settleTrillLanding(engine: TrillWalkEngine, id: string): boolean
   const debt = was - drawn
   const above = (engine.getTrillById(id)?.placement ?? 'above') === 'above'
   // ⛔ A REBASE, not a nudge: the drawn ink does not move, so no limit has anything to judge.
-  engine.previewTrillOffsetRebase(id, 0, (above ? -debt : debt) / staffSpacePx)
+  engine.trill.previewTrillOffsetRebase(id, 0, (above ? -debt : debt) / staffSpacePx)
   dbg(`[Trill] rung settled | id:${id} | ink ${drawn.toFixed(1)} → ${was.toFixed(1)}`
     + ` (${debt.toFixed(1)}px the new rung gave or took)`)
   return true
@@ -1121,7 +1123,7 @@ function liftPx(engine: TrillWalkEngine, id: string, above: boolean): number {
  *  survives a FLIP (the ornament is still on the same notes) and goes with a JUMP. */
 function dropTheLift(engine: TrillWalkEngine, id: string): boolean {
   const outward = trillOffsetOverrideOf(engine.getScore(), id)?.outward ?? 0
-  return outward === 0 || engine.previewTrillEndpointOffset(id, 'start', 0, -outward)
+  return outward === 0 || engine.trill.previewTrillEndpointOffset(id, 'start', 0, -outward)
 }
 
 
@@ -1149,7 +1151,7 @@ const NO_TRAVEL: TrillDragFrame = {
 /**
  * ⭐⭐ **ONE FRAME OF A TRILL SQUARE DRAG** — the same journey as the arrows, with the cursor's delta
  * in PIXELS instead of a key's step and no undo entry (the drop commits once,
- * {@link MusicEngine.commitTrillDrag}). His ask, 2026-08-20: *"now the walking with the mouse drag…
+ * {@link MusicEngine.trill.commitTrillDrag}). His ask, 2026-08-20: *"now the walking with the mouse drag…
  * we should be able to go to the next system too, behaviour similar to hairpins, just using the
  * proper re-anchor for the trill"*.
  *
@@ -1192,8 +1194,8 @@ export function dragTrillEndpoint(
   // ⭐⭐ THE BARE `tr` — the same rung the keys take ({@link crossTheBareSign}), so a drag and a press
   // that go the same way end in the same STATE rather than in two that merely look alike.
   if (crossTheBareSign(engine, id, which, dxPx / staffSpacePx, {
-    extension: (to) => engine.previewTrillExtension(id, to),
-    nudge: (ddx, ddy) => engine.previewTrillEndpointOffset(id, 'end', ddx, ddy),
+    extension: (to) => engine.trill.previewTrillExtension(id, to),
+    nudge: (ddx, ddy) => engine.trill.previewTrillEndpointOffset(id, 'end', ddx, ddy),
   })) return { ...NO_TRAVEL, moved: true }
 
   // ⭐⭐ ITS OWN STAFF FIRST — see {@link flipTrillPlacement}. An ornament dragged across its staff
@@ -1207,7 +1209,7 @@ export function dragTrillEndpoint(
   // it. ⚠️ Screen-down is +dy and the stored number is OUTWARD from the staff, so it converts here.
   const above = (engine.getTrillById(id)?.placement ?? 'above') === 'above'
   const lifted = dyPx !== 0
-    && engine.previewTrillEndpointOffset(id, which, 0, (above ? -dyPx : dyPx) / staffSpacePx)
+    && engine.trill.previewTrillEndpointOffset(id, which, 0, (above ? -dyPx : dyPx) / staffSpacePx)
 
   // ⭐⭐ **IT WRAPS, exactly as the other three do** — {@link wrapPort} + `markBreakWrap`, ⛔ not a
   // rule of its own. `breakCrossing` reports ARRIVED when the hand passes the line's edge (either
@@ -1320,8 +1322,8 @@ export function walkTrillEndpoint(
   const port = trillPort(engine, id, which, keyWrites(engine, id, which))
   // ⭐⭐ THE BARE `tr`, the END's leftmost rung — see {@link crossTheBareSign}.
   if (crossTheBareSign(engine, id, which, dx, {
-    extension: (to) => engine.setTrillExtension(id, to),
-    nudge: (ddx, ddy) => engine.nudgeTrillEndpoint(id, 'end', ddx, ddy),
+    extension: (to) => engine.trill.setTrillExtension(id, to),
+    nudge: (ddx, ddy) => engine.trill.nudgeTrillEndpoint(id, 'end', ddx, ddy),
   })) return true
   const drive = trillDrive(engine, id, port,
     which === 'start' ? 'Move trill start' : 'Move trill end')

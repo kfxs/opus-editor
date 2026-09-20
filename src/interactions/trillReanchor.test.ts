@@ -55,7 +55,7 @@ describe('reanchorArmedTrillEndpoint', () => {
     // Four quarters in one bar, one voice: C4 D4 E4 F4.
     ids = (['C', 'D', 'E', 'F'] as const).map((s, i) =>
       engine.addNoteAtBeat({ step: s, octave: 4, duration: 'q', measure: 1, beat: frac(i, 1) })!.id)
-    trillId = engine.createTrill([ids[1], ids[2]])!.id // D4 → E4, room to walk either way
+    trillId = engine.trill.createTrill([ids[1], ids[2]])!.id // D4 → E4, room to walk either way
     state = createEditorState()
   })
 
@@ -120,7 +120,7 @@ describe('reanchorArmedTrillEndpoint', () => {
     expect(trill().extension).toBe('none')
     // The line is what tells the reader how long to keep trilling, so giving the trill an extent
     // gives it back its line — `setTrillEnd`'s half of the invariant.
-    engine.setTrillAnchor(trillId, 'end', ids[2])
+    engine.trill.setTrillAnchor(trillId, 'end', ids[2])
     expect(trill().extension).toBeUndefined()
     expect(idx(trill().endNoteId)).toBe(2)
   })
@@ -166,7 +166,7 @@ describe('reanchorArmedTrillEndpoint', () => {
     // Two notes of room: the start at C4 with the end at E4 may reach E4 but not F4 in one press,
     // and the collapse is what makes "reach" legal. 🚨 The break-test for `>` vs `>=` is the case
     // above; this one is for the opposite mistake, dropping the clamp altogether.
-    engine.setTrillAnchor(trillId, 'start', ids[0])
+    engine.trill.setTrillAnchor(trillId, 'start', ids[0])
     arm('start')
     expect(step(1)).toBe(true)                       // C4 → D4
     expect(step(1)).toBe(true)                       // D4 → E4, collapsing
@@ -192,15 +192,15 @@ describe('reanchorArmedTrillEndpoint', () => {
     // ornament on one notehead; offering that note as the step and letting it say no left the key
     // DEAD against it. A note the model would refuse is not a stop — so the walk skips it, exactly
     // as it has always skipped a rest.
-    engine.setTrillAnchor(trillId, 'end', null)   // a one-note trill on D4, free to travel
-    engine.createTrill([ids[2]])                  // …and E4 now carries its own
+    engine.trill.setTrillAnchor(trillId, 'end', null)   // a one-note trill on D4, free to travel
+    engine.trill.createTrill([ids[2]])                  // …and E4 now carries its own
     arm('start')
     expect(step(1)).toBe(true)
     expect(idx(trill().startNoteId), 'over E4, onto F4').toBe(3)
   })
 
   it('⭐ …but an END may land there — spans overlap, and only the START is single-valued', () => {
-    engine.createTrill([ids[3]])                  // F4 carries its own trill
+    engine.trill.createTrill([ids[3]])                  // F4 carries its own trill
     arm('end')
     expect(step(1)).toBe(true)
     expect(idx(trill().endNoteId), 'E4 → F4, under the other trill\'s sign').toBe(3)
@@ -211,8 +211,8 @@ describe('reanchorArmedTrillEndpoint', () => {
     // end"*, over and over. The far end was a note carrying ANOTHER trill, so the candidate filter
     // had dropped it from the list; `findIndex` answered −1, the guard read that as "there is no end
     // to cross", and the walk offered a note far beyond it for the model to refuse for ever.
-    engine.setTrillAnchor(trillId, 'end', ids[2])     // D4 → E4
-    engine.createTrill([ids[2]])                      // …and E4 now carries a trill of its own
+    engine.trill.setTrillAnchor(trillId, 'end', ids[2])     // D4 → E4
+    engine.trill.createTrill([ids[2]])                      // …and E4 now carries a trill of its own
     arm('start')
     // 🚨 The CANDIDATE is the thing under test: with the index clamp it offers F4 — PAST the end —
     // and only the model's refusal hides it, which is what made the drag retry for ever.
@@ -224,7 +224,7 @@ describe('reanchorArmedTrillEndpoint', () => {
 
   it('⛔ declines for a trill the score no longer has', () => {
     arm('end')
-    engine.removeTrill(trillId)
+    engine.trill.removeTrill(trillId)
     expect(step(1)).toBe(false)
   })
 

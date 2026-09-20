@@ -268,7 +268,7 @@ test('⭐⭐ an 8va clears a TRILL under it — LilyPond\'s 400 against 50', asy
   const { trill, ottava } = await score.evaluate(async () => {
     const h = window.__h
     const id = h.engine.addNoteAtBeat({ step: 'B', octave: 6, duration: 'w', measure: 1, beat: h.frac(0, 1) })!.id
-    h.engine.addTrill({ startNoteId: id })
+    h.engine.trill.addTrill({ startNoteId: id })
     h.engine.ottava.addOttava(1, { beat: h.frac(0, 1), length: h.frac(4, 1), shift: 1 })
     await h.render()
     return {
