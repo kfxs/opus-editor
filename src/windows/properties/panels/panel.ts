@@ -9,13 +9,27 @@
  * ⛔ The REPORT — what `element` holds — is not a panel's: `selectionSnapshot.selectedElements` stays
  * one exhaustive switch, by decision.
  */
-import type { InspectedElement } from '@/interactions/selectionSnapshot'
+import type { InspectedElement, InspectedOf, MissingElement } from '@/interactions/inspectedElement'
+import type { EngravingOverride } from '@/types/music'
 
-export type PanelRows = (element: InspectedElement) => HTMLElement[]
+/** ⭐ A panel is handed the report for ITS kind, so it reads `data` and `derived` with no cast. */
+export type PanelRows<K extends InspectedElement['kind']> = (element: InspectedOf<K>) => HTMLElement[]
 
-/** The element's id when it still resolves — ⛔ a stale selection (`missing`) gets no control: it is
- *  shown in the dump, and a box that writes to nothing would be a control that lies. */
-export function liveId(element: InspectedElement): string | null {
-  const data = element.data as { id?: string; missing?: boolean }
-  return data.id && !data.missing ? data.id : null
+/** The model's object when it still resolves — ⛔ a stale selection (`missing`) gets no control: it
+ *  is shown in the dump, and a box that writes to nothing would be a control that lies. */
+export function live<T extends object>(data: T | MissingElement): T | null {
+  return 'missing' in data ? null : data
+}
+
+/**
+ * The element's entry of one kind in the engraving-overrides compartment, as that kind's interface.
+ *
+ * ⚠️ The caller names the interface AND its `kind` string, and `T['kind']` holds the two together:
+ * `EngravingOverride` is a base interface the kinds EXTEND, not a union, so the model's `kind` is
+ * the discriminator by convention and this is the one place that convention is cast on.
+ */
+export function overrideOf<T extends EngravingOverride>(
+  element: Pick<InspectedElement, 'overrides'>, kind: T['kind'],
+): T | undefined {
+  return element.overrides?.find((o) => o.kind === kind) as T | undefined
 }

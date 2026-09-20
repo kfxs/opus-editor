@@ -1,7 +1,7 @@
 import type { Widget } from '../content/Widget'
 import { bus } from '@/bus'
-import type { InspectedElement } from '../../interactions/selectionSnapshot'
-import { PANELS } from './panels'
+import type { InspectedElement } from '../../interactions/inspectedElement'
+import { panelRowsFor } from './panels'
 import { AMBER, PHOSPHOR } from './rows'
 
 /**
@@ -78,7 +78,7 @@ export class PropertiesWidget implements Widget {
 
       // ⭐ The kind's own controls, above its dump — `./panels` is the table, and this loop knows no
       // kind by name. Most kinds have none yet.
-      for (const row of PANELS[element.kind]?.(element) ?? []) body.appendChild(row)
+      for (const row of panelRowsFor(element)) body.appendChild(row)
 
       const dump = document.createElement('div')
       dump.textContent = stringify(element.data)

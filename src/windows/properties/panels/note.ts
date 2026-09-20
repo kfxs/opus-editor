@@ -1,29 +1,28 @@
 import { bus } from '@/bus'
-import type { InspectedElement } from '@/interactions/selectionSnapshot'
+import type { InspectedOf } from '@/interactions/inspectedElement'
 import { MAX_FAN_BEAMS, MAX_FAN_COUNT, MAX_FAN_SPREAD, fanRampRange, fanSpread } from '@/utils/fannedBeam'
-import type { ArticulationType, FanMark, FractionalBeamSide } from '@/types/music'
+import type { FanMark, FractionalBeamSide, Note, NoteOffsetOverride } from '@/types/music'
 import { BISHOP, commitOnFirstStep } from '../rows'
-import { liveId, type PanelRows } from './panel'
+import { live, overrideOf, type PanelRows } from './panel'
 
 /**
  * A NOTE or a REST — the panel's FIRST real control (client #12 — docs/note-offset-plan.md §B): its
  * horizontal offset, an absolute value in staff-spaces. A note adds what only a note has.
  */
-export const noteRows: PanelRows = (element) => {
-  const id = liveId(element)
-  if (!id) return []
+export const noteRows: PanelRows<'note' | 'rest'> = (element) => {
+  const note = live(element.data)
+  if (!note) return []
+  const id = note.id
   const rows = [buildOffsetInput(id, currentNoteOffset(element))]
   if (element.kind !== 'note') return rows
 
   // Only meaningful when the note carries an articulation (the flag moves stem-side marks).
-  const artics = (element.data as { articulations?: ArticulationType[] }).articulations
-  if (artics?.length) rows.push(buildStemAlignCheckbox(id, currentStemAlign(element)))
+  if (note.articulations?.length) rows.push(buildStemAlignCheckbox(id, note.articulationStemAlign === true))
 
   // The fanned group's numbers, shown only on a note that HAS one: this row changes the shape of a
   // fan, it never makes one (docs/fanned-beams-plan.md §3, P4). Creating and removing them is the
   // accel./rit. press, which is also where the direction lives.
-  const fan = (element.data as { fan?: FanMark }).fan
-  if (fan) rows.push(buildFanInputs(id, fan))
+  if (note.fan) rows.push(buildFanInputs(id, note.fan))
 
   // ⭐ …and which way its FRACTIONAL BEAM points (his ask, 2026-09-01).
   //
@@ -32,8 +31,8 @@ export const noteRows: PanelRows = (element) => {
   // this snapshot does not hold. So the row can appear on a semiquaver in a run of semiquavers, where
   // it has nothing to move. ⛔ Deliberately not faked tighter by guessing — the honest fix is the one
   // the clef's `offsettable` uses: ask the engine what was DRAWN. See docs/beam-hook-research.md §8.
-  if (canCarryFractionalBeam(element)) {
-    rows.push(buildFractionalBeamSideSelect(id, currentFractionalBeamSide(element)))
+  if (canCarryFractionalBeam(note)) {
+    rows.push(buildFractionalBeamSideSelect(id, note.fractionalBeamSide ?? null))
   }
   return rows
 }
@@ -310,27 +309,15 @@ function buildFractionalBeamSideSelect(
   return wrap
 }
 
+/** ⚠️ Necessary, ⛔ not sufficient — see the call site: only a value that can BE a fraction of a
+ *  coarser beam may carry a stub at all, but whether one is drawn depends on the beam group. */
+function canCarryFractionalBeam(note: Note): boolean {
+  return !note.isRest && (note.duration === '16' || note.duration === '32')
+}
+
 /** The note/rest's current horizontal offset in staff-spaces (0 when none), read from the element's
  *  own overrides — the entry at whichever key the engine writes (the slot's, or a fanned MEMBER's
  *  own; `selectionSnapshot` resolves it through `offsetTargetOf`, so a member shows ITS number). */
-/** A note's stored fractional-beam override, or null for auto (the metric rule). */
-function currentFractionalBeamSide(element: InspectedElement): FractionalBeamSide | null {
-  return (element.data as { fractionalBeamSide?: FractionalBeamSide }).fractionalBeamSide ?? null
-}
-
-/** ⚠️ Necessary, ⛔ not sufficient — see the call site: only a value that can BE a fraction of a
- *  coarser beam may carry a stub at all, but whether one is drawn depends on the beam group. */
-function canCarryFractionalBeam(element: InspectedElement): boolean {
-  const data = element.data as { duration?: string; isRest?: boolean }
-  return !data.isRest && (data.duration === '16' || data.duration === '32')
-}
-
-function currentNoteOffset(element: InspectedElement): number {
-  const entry = element.overrides?.find((o) => o.kind === 'noteOffset') as { x?: number } | undefined
-  return entry?.x ?? 0
-}
-
-/** The note's current articulation stem-align state (false when unset), read from its own object. */
-function currentStemAlign(element: InspectedElement): boolean {
-  return (element.data as { articulationStemAlign?: boolean }).articulationStemAlign === true
+function currentNoteOffset(element: InspectedOf<'note' | 'rest'>): number {
+  return overrideOf<NoteOffsetOverride>(element, 'noteOffset')?.x ?? 0
 }

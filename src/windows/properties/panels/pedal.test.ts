@@ -3,7 +3,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { PropertiesWidget } from '../PropertiesWidget'
 import { bus } from '@/bus'
 import type { PedalGeometryRequest } from '@/bus'
-import type { InspectedElement } from '@/interactions/selectionSnapshot'
+import type { InspectedElement } from '@/interactions/inspectedElement'
 
 /**
  * ⭐ A SUSTAIN PEDAL'S INK AS NUMBERS (his ask, 2026-08-18) — the typed twin of the arrows on its two

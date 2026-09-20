@@ -3,7 +3,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { PropertiesWidget } from '../PropertiesWidget'
 import { bus } from '@/bus'
 import type { HairpinEditRequest, HairpinGeometryRequest } from '@/bus'
-import type { InspectedElement } from '@/interactions/selectionSnapshot'
+import type { InspectedElement, InspectedOf } from '@/interactions/inspectedElement'
 
 /**
  * ⭐ THE WEDGE'S TWO ENDS AS NUMBERS (his ask, 2026-08-17) — the typed twin of the arrows that
@@ -19,7 +19,7 @@ import type { InspectedElement } from '@/interactions/selectionSnapshot'
 /** The mouth as the snapshot reports it for an un-authored wedge: what is DRAWN, plus its range. */
 const AUTO_MOUTH = { value: 1.5, authored: false, min: 1, max: 2 }
 
-const hairpinElement = (over: Partial<InspectedElement> = {}): InspectedElement[] => ([{
+const hairpinElement = (over: Partial<InspectedOf<'hairpin'>> = {}): InspectedElement[] => ([{
   kind: 'hairpin',
   data: { id: 'H1', type: 'cresc', beat: { num: 0, den: 1 }, length: { num: 2, den: 1 } },
   ...over,
@@ -193,7 +193,7 @@ describe('the hairpin type dropdown', () => {
 
   it('⭐ …and a `dim` wedge shows as one', () => {
     bus.inspection.set(hairpinElement({
-      data: { id: 'H1', type: 'dim' } as unknown as InspectedElement['data'],
+      data: { id: 'H1', type: 'dim' } as unknown as InspectedOf<'hairpin'>['data'],
     }))
     expect(select()!.value).toBe('dim')
   })
@@ -207,7 +207,7 @@ describe('the hairpin type dropdown', () => {
 
   it('⛔ no dropdown for a wedge the score no longer has', () => {
     bus.inspection.set(hairpinElement({
-      data: { id: 'H1', missing: true } as unknown as InspectedElement['data'],
+      data: { id: 'H1', missing: true } as unknown as InspectedOf<'hairpin'>['data'],
     }))
     expect(select(), 'a missing mark gets no controls at all').toBeNull()
   })

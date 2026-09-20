@@ -11,12 +11,10 @@ import type { PanelRows } from './panel'
  * ⚠️ It is offered whether or not the change currently lands on a system break: the decision belongs
  * to the CHANGE, and which bar ends a system moves on every reflow.
  */
-export const keySignatureRows: PanelRows = (element) => {
-  const where = element.data as { measure?: number; staff?: number }
-  const gap = element.derived?.cautionaryGap as { value: number; authored: boolean } | null | undefined
-  if (!gap || where.measure === undefined) return []
-  const measure = where.measure
-  const staff = where.staff ?? 0
+export const keySignatureRows: PanelRows<'keySignature'> = (element) => {
+  const { measure, staff } = element.data
+  const gap = element.derived?.cautionaryGap
+  if (!gap) return []
   return [buildNumberRow(
     // ⭐ A quarter-space step: the whole interesting range is 0.5–2 sp (the two sources' answers and
     //   a little either side), so a finer step would offer stops nobody can see.

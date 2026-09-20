@@ -2,7 +2,7 @@
 // function that BUILDS it (`interactions/selectionSnapshot`), where the 30 lines explaining what it
 // is and why it is not `SelectedElement` belong. `import type` is erased at build, so the bus stays
 // a runtime leaf — the same judgement the refactor plan makes about the two remaining cycles.
-import type { InspectedElement } from '@/interactions/selectionSnapshot'
+import type { InspectedElement } from '@/interactions/inspectedElement'
 
 /**
  * The current selection, resolved to objects, published for anything that wants to SHOW it — today

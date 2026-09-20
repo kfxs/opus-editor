@@ -12,15 +12,11 @@ import type { PanelRows } from './panel'
  * header is laid out by the header and is exactly the one he excluded. ⛔ A row whose write is
  * always refused would be a control that lies.
  */
-export const clefRows: PanelRows = (element) => {
-  const clef = element.data as {
-    measure?: number; beat?: number; staff?: number; offset?: number; offsettable?: boolean
-  }
-  if (!clef.offsettable || clef.measure === undefined || clef.beat === undefined) return []
-  const { measure, beat } = clef
-  const staff = clef.staff ?? 0
+export const clefRows: PanelRows<'clef'> = (element) => {
+  const { measure, beat, staff, offset, offsettable } = element.data
+  if (!offsettable) return []
   return [scalarOffsetRow(
-    'offset x', clef.offset ?? 0,
+    'offset x', offset,
     'Horizontal nudge in staff-spaces, + right. The keyboard does the same: '
     + 'Ctrl+Shift+←/→ (wide) or Shift+Alt+←/→ (fine).',
     (x) => bus.clefOffset.set(measure, beat, staff, x),

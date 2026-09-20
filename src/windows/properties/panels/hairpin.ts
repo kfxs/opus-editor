@@ -1,8 +1,8 @@
 import { bus } from '@/bus'
-import type { InspectedElement } from '@/interactions/selectionSnapshot'
-import type { Hairpin } from '@/types/music'
+import type { InspectedOf } from '@/interactions/inspectedElement'
+import type { Hairpin, HairpinEndpointOffsetOverride } from '@/types/music'
 import { BISHOP, buildNumberRow, buildPointRow } from '../rows'
-import { liveId, type PanelRows } from './panel'
+import { live, overrideOf, type PanelRows } from './panel'
 
 /**
  * ⭐ A selected HAIRPIN — WHICH WAY IT OPENS first, because that is the wedge's MUSIC (his ask,
@@ -10,11 +10,10 @@ import { liveId, type PanelRows } from './panel'
  * extent: that is musical and has its own gestures (`bus/hairpinGeometrySelection` says why a
  * staff-space box is the wrong instrument for it).
  */
-export const hairpinRows: PanelRows = (element) => {
-  const id = liveId(element)
-  if (!id) return []
-  const type = (element.data as { type?: Hairpin['type'] }).type ?? 'cresc'
-  return [buildHairpinTypeSelect(id, type), buildHairpinEndRows(id, element)]
+export const hairpinRows: PanelRows<'hairpin'> = (element) => {
+  const hairpin = live(element.data)
+  if (!hairpin) return []
+  return [buildHairpinTypeSelect(hairpin.id, hairpin.type), buildHairpinEndRows(hairpin.id, element)]
 }
 
 /**
@@ -90,15 +89,12 @@ function buildHairpinTypeSelect(hairpinId: string, current: Hairpin['type']): HT
  * Blank means the engraver's own position (see {@link buildPointRow}) — not zero, which here would
  * be a hand-authored "exactly where it already was".
  */
-function buildHairpinEndRows(hairpinId: string, element: InspectedElement): HTMLElement {
+function buildHairpinEndRows(hairpinId: string, element: InspectedOf<'hairpin'>): HTMLElement {
   const wrap = document.createElement('div')
   wrap.style.margin = '2px 0 4px'
-  const offsets = (element.overrides?.find((o) => o.kind === 'hairpinEndpointOffset') ?? {}) as {
-    start?: { x: number; y: number }
-    end?: { x: number; y: number }
-  }
+  const offsets = overrideOf<HairpinEndpointOffsetOverride>(element, 'hairpinEndpointOffset')
   for (const which of ['start', 'end'] as const) {
-    wrap.appendChild(buildPointRow(`${which} (sp)`, offsets[which], (value) =>
+    wrap.appendChild(buildPointRow(`${which} (sp)`, offsets?.[which], (value) =>
       bus.hairpinGeometry.set({ hairpinId, which, value })))
   }
   // …and the MOUTH — one number for the whole wedge, so a row of its own rather than a third point.
@@ -114,8 +110,7 @@ function buildHairpinEndRows(hairpinId: string, element: InspectedElement): HTML
   // wedge's DRAWN length through the steepness cap (`authoredApertureRange`), so on a short wedge it
   // is well under the engine's nominal maximum. Offering a number the renderer would silently pull
   // back is a control that lies about what it did.
-  const mouth = element.derived?.mouth as
-    { value: number; authored: boolean; min: number; max: number } | null | undefined
+  const mouth = element.derived?.mouth
   if (mouth) {
     wrap.appendChild(buildNumberRow(
       // ⭐ A 0.05-space step: the whole authorable range is half a space wide (1.5–2.0 at ordinary

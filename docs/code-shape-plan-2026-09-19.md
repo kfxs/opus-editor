@@ -1,6 +1,6 @@
 # Code shape plan — 2026-09-19
 
-**Status: IN PROGRESS — Phase 1 DONE (2026-09-19), bar item 5's two ⏭️ decisions. Phase 2 DONE. Phase 3.1: the hairpin / ottava / pedal body drags done and checked; the trill's too (`cdb7f05`); the slur's too (`69e927c`); the four SQUARE drags too (`6d903c3`); the slur HANDLE / ENDPOINT and staff-spacing drags too (`8f28f79`); the DYNAMIC and TEMPO drags too (`9a04f88`); bar width, barline join, group span and clef too (`ee31698`); the NOTE drag too (`7d2898e`) — every gesture is a module. **Phase 3.1 DONE** (`25f70a6`). 3.2: the `keys` column + dispatcher and the HAIRPIN on it (`e61626a`); OTTAVA / PEDAL / TRILL too (`14e10e7`); DYNAMIC and TEMPO too (`943fb64`); SLUR and CLEF too (`8382fcc`); the `reanchor` and `cycle` verbs done, awaiting his UI check — **Phase 3.2 DONE with it.** 3.3 (`highlight(ctx)`): the contract + the four span squares (`a7c1076`); the join and group squares (`b772418`); the `ink` column (`f1832e7`); the slur handles (`d3dcb7b`); the anchor guide line (`e2ff597`); the note pass + note-attached kinds (`aa7e5af`); every remaining row done, awaiting his UI check — **Phase 3.3 DONE** (`1efb38d`). 3.4: the panels' `rows` done, awaiting his UI check; the typed `InspectedElement` union next.** Phases are ordered by
+**Status: IN PROGRESS — Phase 1 DONE (2026-09-19), bar item 5's two ⏭️ decisions. Phase 2 DONE. Phase 3.1: the hairpin / ottava / pedal body drags done and checked; the trill's too (`cdb7f05`); the slur's too (`69e927c`); the four SQUARE drags too (`6d903c3`); the slur HANDLE / ENDPOINT and staff-spacing drags too (`8f28f79`); the DYNAMIC and TEMPO drags too (`9a04f88`); bar width, barline join, group span and clef too (`ee31698`); the NOTE drag too (`7d2898e`) — every gesture is a module. **Phase 3.1 DONE** (`25f70a6`). 3.2: the `keys` column + dispatcher and the HAIRPIN on it (`e61626a`); OTTAVA / PEDAL / TRILL too (`14e10e7`); DYNAMIC and TEMPO too (`943fb64`); SLUR and CLEF too (`8382fcc`); the `reanchor` and `cycle` verbs done, awaiting his UI check — **Phase 3.2 DONE with it.** 3.3 (`highlight(ctx)`): the contract + the four span squares (`a7c1076`); the join and group squares (`b772418`); the `ink` column (`f1832e7`); the slur handles (`d3dcb7b`); the anchor guide line (`e2ff597`); the note pass + note-attached kinds (`aa7e5af`); every remaining row done, awaiting his UI check — **Phase 3.3 DONE** (`1efb38d`). 3.4: the panels' `rows` (`4db182d`); the typed `InspectedElement` union done, awaiting his UI check — **3.4 DONE with it.** 3.5 (mark commands off the facade) is next.** Phases are ordered by
 value over risk; each one stands alone and can be stopped after. A done item carries ✅ and what
 actually happened where that differs from what was planned.
 
@@ -513,8 +513,28 @@ Run the e2e suite either side of each step.
    proof the move changed nothing: `PropertiesWidget.<topic>.test.ts` → `panels/<kind>.test.ts`.
    Two orphaned doc comments (the fan's, the stem-align's) went back onto their functions. Hub:
    kinds 187 → **0**, 1,579 → **120** file lines; both ceilings set (0 · 73). `report` stays, by
-   the recommendation above. ⏸️ Awaiting his UI check. Second half, next: `InspectedElement` as
-   a discriminated union, so a panel receives its own typed `data` and the casts go.*
+   the recommendation above. ✅ Passed (`4db182d`).*
+
+   *Second half done — the typed report. `interactions/inspectedElement.ts` (types only):
+   `InspectedElement` is a discriminated union keyed by `kind`, one `Report<K, data, derived>`
+   per kind, + `InspectedOf<K>` and `MissingElement`. `data` is precise everywhere (the model's
+   own `Dynamic` / `Ottava` / … or `MissingElement`; `Measure['clefs']`-style indexed types for the
+   positional kinds); `derived` is precise ONLY where a panel reads it (slur `arc`, hairpin
+   `mouth`, key `cautionaryGap`, the two LINE kinds' `sign` / `winged`) and an open record
+   elsewhere — its one other reader is the JSON dump, and a hand copy of the engine's span types
+   would be a field list that rots. `selectedElements` is now held to those shapes by the
+   compiler. A panel is `PanelRows<K>` and reads `element.data` / `.derived` with no cast:
+   `panel.live(data)` narrows off `MissingElement`, `panel.overrideOf<T>(element, kind)` types an
+   override entry (⚠️ ONE cast, inside it: `EngravingOverride` is a base interface its kinds
+   EXTEND, not a union). The window's casts: 37 → the one in `overrideOf`, the one in
+   `panels/index.panelRowsFor` (a kind-keyed lookup TypeScript cannot correlate — the table's own
+   type is what makes it sound), and four `select.value as <Enum>` (a DOM string).
+   🚨 Two things worth keeping: the union FIRST went into `selectionSnapshot` and `lint:hubs`
+   refused it (7 → 58 kind mentions) — right: a type table is a module too. And a table row for a
+   panel serving TWO kinds is refused when the row type is the ALIAS (`PanelRows<K>` compares its
+   argument by name; `in K` is rejected because `Extract` hides the variance) — spell the row as
+   the function type. ⏸️ Awaiting his UI check; **3.4 DONE with it.** 3.5 (mark-family commands
+   off the facade, family by family with Phase 4.1) is next.*
 5. **Mark-family commands off the facade**: `engine/commands/<family>Commands.ts` built from a
    small context (`mutate`, `preview`, `commitPreviewed`, the guards); `MusicEngine` keeps
    `readonly ottava = …`. About 2,600 file lines leave, and the walks swap their `Pick` for the

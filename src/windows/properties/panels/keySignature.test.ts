@@ -3,7 +3,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { PropertiesWidget } from '../PropertiesWidget'
 import { bus } from '@/bus'
 import type { CautionaryKeyGapRequest } from '@/bus'
-import type { InspectedElement } from '@/interactions/selectionSnapshot'
+import type { InspectedElement } from '@/interactions/inspectedElement'
 
 /**
  * ⭐ **THE COURTESY TAIL AS A NUMBER** (his ask, 2026-08-28: *"lets make what we have now default but

@@ -1,8 +1,11 @@
 import { bus } from '@/bus'
-import type { InspectedElement } from '@/interactions/selectionSnapshot'
+import type { InspectedOf } from '@/interactions/inspectedElement'
 import { wingsAllowed, type BarlineSignKind } from '@/engine/models/boundarySign'
 import { BISHOP } from '../rows'
 import type { PanelRows } from './panel'
+
+/** The two kinds that name a LINE. */
+type Line = 'barline' | 'repeatStart'
 
 /**
  * ⭐⭐ A selected BARLINE or OPEN REPEAT gets the sign at its LINE — his ask, 2026-08-26: *"I was
@@ -10,9 +13,8 @@ import type { PanelRows } from './panel'
  * an option for close+open case"*. Both selections name the same kind of thing (a line), so BOTH
  * kinds' rows in the table are this one panel; {@link boundaryOf} turns each into its boundary.
  */
-export const barlineRows: PanelRows = (element) => {
+export const barlineRows: PanelRows<Line> = (element) => {
   const boundary = boundaryOf(element)
-  if (boundary === undefined) return []
   const sign = currentBarlineSign(element)
   return [
     buildBarlineSignSelect(boundary, sign),
@@ -154,15 +156,12 @@ function buildBarlineWingsCheckbox(
  * score's opening edge.
  *
  * The two selections are the same line seen from either side: `barline` already IS that measure, and
- * a `repeatStart` opening bar *M* stands on the line ending bar *M−1*. ⛔ `undefined` — no control at
- * all — is impossible today and is kept as the total answer rather than a cast: every barline
- * selection resolves to a line.
+ * a `repeatStart` opening bar *M* stands on the line ending bar *M−1*. Total over the two kinds:
+ * every barline selection resolves to a line, and the union is what says so.
  */
-function boundaryOf(element: InspectedElement): number | null | undefined {
-  const data = element.data as { endsMeasure?: number; opensMeasure?: number }
-  if (data.endsMeasure !== undefined) return data.endsMeasure
-  if (data.opensMeasure !== undefined) return data.opensMeasure > 1 ? data.opensMeasure - 1 : null
-  return undefined
+function boundaryOf(element: InspectedOf<Line>): number | null {
+  if (element.kind === 'barline') return element.data.endsMeasure
+  return element.data.opensMeasure > 1 ? element.data.opensMeasure - 1 : null
 }
 
 /**
@@ -175,8 +174,8 @@ function boundaryOf(element: InspectedElement): number | null | undefined {
  * ⚠️ A `repeatStart` selection has no `derived` — it is one stored statement and nothing is computed
  * from it — so the fallback is its own sign, which is what it is by definition.
  */
-function currentBarlineSign(element: InspectedElement): BarlineSignKind {
-  const derived = (element.derived as { sign?: BarlineSignKind } | undefined)?.sign
+function currentBarlineSign(element: InspectedOf<Line>): BarlineSignKind {
+  const derived = element.derived?.sign
   if (derived) return derived
   return element.kind === 'repeatStart' ? 'repeatStart' : 'plain'
 }
@@ -184,6 +183,6 @@ function currentBarlineSign(element: InspectedElement): BarlineSignKind {
 /** Whether the sign on the selected line is drawn with wings — `derived`, like the sign itself, and
  *  for the same reason: the flag rides whichever statements are standing there, so it is a fact about
  *  the LINE that no single stored field answers. */
-function currentBarlineWinged(element: InspectedElement): boolean {
-  return (element.derived as { winged?: boolean } | undefined)?.winged === true
+function currentBarlineWinged(element: InspectedOf<Line>): boolean {
+  return element.derived?.winged === true
 }

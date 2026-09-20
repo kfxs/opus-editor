@@ -1,15 +1,16 @@
 import { bus } from '@/bus'
-import type { InspectedElement } from '@/interactions/selectionSnapshot'
+import type { InspectedOf } from '@/interactions/inspectedElement'
+import type { SlurEndpointOffsetOverride, SlurOffsetOverride } from '@/types/music'
 import { buildPointRow } from '../rows'
-import { liveId, type PanelRows } from './panel'
+import { live, overrideOf, type PanelRows } from './panel'
 
 /**
  * ⭐ A selected SLUR gets its four handles as numbers — the two ends' offsets and the two arc control
  * points, the same points the mouse drags and the arrows nudge (his ask, 2026-08-17). Publishes to
  * `bus.slurGeometry`.
  */
-export const slurRows: PanelRows = (element) => {
-  const id = liveId(element)
+export const slurRows: PanelRows<'slur'> = (element) => {
+  const id = live(element.data)?.id
   return id ? [buildSlurGeometryRows(id, element)] : []
 }
 
@@ -33,42 +34,35 @@ export const slurRows: PanelRows = (element) => {
  * which); with none armed there is no system to write to, so they are shown disabled rather than
  * offered as a guess. The END rows are always live — a true end belongs to the whole slur.
  */
-function buildSlurGeometryRows(slurId: string, element: InspectedElement): HTMLElement {
+function buildSlurGeometryRows(slurId: string, element: InspectedOf<'slur'>): HTMLElement {
   const wrap = document.createElement('div')
   wrap.style.margin = '2px 0 4px'
 
-  const ends = (element.overrides?.find((o) => o.kind === 'endpointOffset') ?? {}) as {
-    start?: { x: number; y: number }
-    end?: { x: number; y: number }
-  }
-  const arc = (element.derived?.arc ?? {}) as {
-    cps?: [{ x: number; y: number }, { x: number; y: number }] | null
-    segment?: string | null
-    armed?: 0 | 1 | null
-  }
+  const ends = overrideOf<SlurEndpointOffsetOverride>(element, 'endpointOffset')
+  const arc = element.derived?.arc
 
   // ⭐ The WHOLE curve first, because it is the coarsest thing on the panel and the one that
   // answers "this slur sits in the wrong place" — the two ends below answer "this END does".
-  const whole = (element.overrides?.find((o) => o.kind === 'slurOffset') ?? {}) as { x?: number; y?: number }
+  const whole = overrideOf<SlurOffsetOverride>(element, 'slurOffset')
   wrap.appendChild(buildPointRow(
     'whole curve (sp)',
-    whole.x === undefined && whole.y === undefined ? undefined : { x: whole.x ?? 0, y: whole.y ?? 0 },
+    whole?.x === undefined && whole?.y === undefined ? undefined : { x: whole.x ?? 0, y: whole.y ?? 0 },
     (value) => bus.slurGeometry.set({ slurId, target: { kind: 'whole' }, value }),
   ))
-  wrap.appendChild(buildPointRow('start end (sp)', ends.start, (value) =>
+  wrap.appendChild(buildPointRow('start end (sp)', ends?.start, (value) =>
     bus.slurGeometry.set({ slurId, target: { kind: 'endpoint', which: 'start' }, value })))
-  wrap.appendChild(buildPointRow('end end (sp)', ends.end, (value) =>
+  wrap.appendChild(buildPointRow('end end (sp)', ends?.end, (value) =>
     bus.slurGeometry.set({ slurId, target: { kind: 'endpoint', which: 'end' }, value })))
 
   // A cross-system slur with nothing armed: the caption says why the rows are dead rather than
   // leaving the user to wonder which system a number would have gone to.
-  const segment = arc.segment ?? null
-  const armedOnly = segment !== null && arc.armed === null
+  const segment = arc?.segment ?? null
+  const armedOnly = segment !== null && (arc?.armed ?? null) === null
   for (const cpIndex of [0, 1] as const) {
     const label = `arc ${cpIndex + 1}${segment ? ` (${segment})` : ''} (sp)`
     wrap.appendChild(buildPointRow(
       label,
-      arc.cps?.[cpIndex],
+      arc?.cps?.[cpIndex],
       (value) => bus.slurGeometry.set({ slurId, target: { kind: 'controlPoint', cpIndex }, value }),
       armedOnly ? 'select an arc handle first — a split slur shapes one system at a time' : undefined,
     ))

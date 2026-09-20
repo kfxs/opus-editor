@@ -1,7 +1,8 @@
 import { bus } from '@/bus'
-import type { InspectedElement } from '@/interactions/selectionSnapshot'
+import type { TempoOffsetOverride } from '@/types/music'
+import type { InspectedOf } from '@/interactions/inspectedElement'
 import { buildMarkOffsetRow } from '../rows'
-import { liveId, type PanelRows } from './panel'
+import { live, overrideOf, type PanelRows } from './panel'
 
 /**
  * ⭐ A selected TEMPO MARK gets the dynamic's two numbers (his ask, 2026-08-19), through
@@ -9,8 +10,8 @@ import { liveId, type PanelRows } from './panel'
  * direction, so it takes the dynamic's row rather than the note's single horizontal — ⚠️ with its
  * own `y` caption: a tempo mark's vertical is OUTWARD (+up).
  */
-export const tempoRows: PanelRows = (element) => {
-  const id = liveId(element)
+export const tempoRows: PanelRows<'tempo'> = (element) => {
+  const id = live(element.data)?.id
   if (!id) return []
   return [buildMarkOffsetRow(
     currentTempoOffset(element), (x, y) => bus.tempoOffset.set(id, x, y),
@@ -19,8 +20,7 @@ export const tempoRows: PanelRows = (element) => {
 
 /** The tempo mark's current offset in staff-spaces (0,0 when none) — the reader above's twin, on the
  *  entry `nudgeTempoOffset` accumulates into. */
-function currentTempoOffset(element: InspectedElement): { x: number; y: number } {
-  const entry = element.overrides?.find((o) => o.kind === 'tempoOffset') as
-    { x?: number; y?: number } | undefined
+function currentTempoOffset(element: InspectedOf<'tempo'>): { x: number; y: number } {
+  const entry = overrideOf<TempoOffsetOverride>(element, 'tempoOffset')
   return { x: entry?.x ?? 0, y: entry?.y ?? 0 }
 }

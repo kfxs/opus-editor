@@ -1,11 +1,12 @@
 import { bus } from '@/bus'
-import type { InspectedElement } from '@/interactions/selectionSnapshot'
+import type { InspectedOf } from '@/interactions/inspectedElement'
+import type { PedalOffsetOverride } from '@/types/music'
 import { scalarOffsetRow } from '../rows'
-import { liveId, type PanelRows } from './panel'
+import { live, overrideOf, type PanelRows } from './panel'
 
 /** A selected PEDAL — the bracket's three numbers, reached by a different road (see below). */
-export const pedalRows: PanelRows = (element) => {
-  const id = liveId(element)
+export const pedalRows: PanelRows<'pedal'> = (element) => {
+  const id = live(element.data)?.id
   return id ? [buildPedalOffsetRows(id, element)] : []
 }
 
@@ -27,21 +28,17 @@ export const pedalRows: PanelRows = (element) => {
  * staff), which is the point: every offset box in this panel reads *+ is up on screen*, whatever
  * its model happens to store.
  */
-function buildPedalOffsetRows(pedalId: string, element: InspectedElement): HTMLElement {
+function buildPedalOffsetRows(pedalId: string, element: InspectedOf<'pedal'>): HTMLElement {
   const wrap = document.createElement('div')
   wrap.style.margin = '2px 0 4px'
-  const off = (element.overrides?.find((o) => o.kind === 'pedalOffset') ?? {}) as {
-    startX?: number
-    endX?: number
-    y?: number
-  }
+  const off = overrideOf<PedalOffsetOverride>(element, 'pedalOffset')
 
   wrap.appendChild(scalarOffsetRow(
-    'start x (sp)', off.startX ?? 0,
+    'start x (sp)', off?.startX ?? 0,
     'the Ped. sign — + reaches right; the release stays put',
     (x) => bus.pedalGeometry.set({ pedalId, which: 'start', x })))
   wrap.appendChild(scalarOffsetRow(
-    'end x (sp)', off.endX ?? 0,
+    'end x (sp)', off?.endX ?? 0,
     'the release ✻ — + reaches right; the Ped. stays put',
     (x) => bus.pedalGeometry.set({ pedalId, which: 'end', x })))
   // ⭐ A negation is its own inverse, so ONE helper converts both ways. ⚠️ `0` is special-cased only
@@ -50,7 +47,7 @@ function buildPedalOffsetRows(pedalId: string, element: InspectedElement): HTMLE
   const flip = (n: number) => (n === 0 ? 0 : -n)
   wrap.appendChild(scalarOffsetRow(
     // ⚠️ Named for the AXIS, not the direction — the bracket's row's rule and his wording.
-    'vertical (sp)', flip(off.y ?? 0),
+    'vertical (sp)', flip(off?.y ?? 0),
     'BOTH signs — + moves them UP on screen and − moves them down. One number, because a pedal '
     + 'and its own release share a baseline',
     (up) => bus.pedalGeometry.set({ pedalId, y: flip(up) })))

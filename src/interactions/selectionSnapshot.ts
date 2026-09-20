@@ -2,6 +2,7 @@ import type { EditorState } from './EditorState'
 import { assertNeverElement } from './EditorState'
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { EngravingOverride, Note, Score } from '../types/music'
+import type { InspectedElement } from './inspectedElement'
 import {
   cautionaryClefKey, cautionaryKey, cautionaryKeyGapKey, cautionaryKeyGapOf, restPositionKey,
   curveShapeOverrideOf, segmentCurveShapeOverrideOf, hairpinApertureOverrideOf,
@@ -36,38 +37,10 @@ import { CAUTIONARY_KEY_TO_LINE_END } from '@/engine/layout/cautionaryKey'
  * multi-select through `selectedItems`, and `selectedElement` names one more alongside them.
  * Reporting only the first would be a guess about precedence that the editor itself does not make.
  *
- * ⚠️ **`InspectedElement`, not `SelectedElement`** — the latter is the STATE (`EditorState
+ * ⚠️ **`InspectedElement` (`./inspectedElement`), not `SelectedElement`** — the latter is the STATE (`EditorState
  * .selectedElement`, the locator union). This is the REPORT: the same selection resolved to its
  * objects, for something that wants to show it. Two names because they are two things.
  */
-export interface InspectedElement {
-  /** Which kind of thing this is — the discriminator, not a label to show the user. */
-  kind: string
-  /** The element's own data, as the model holds it, or the locator when there is no object to fetch. */
-  data: unknown
-  /**
-   * The authored geometry hanging off this element — its entries in the engraving-overrides
-   * compartment (`score.engravingOverrides`), if any.
-   *
-   * A SEPARATE field and deliberately not folded into `data`, because that is exactly what the
-   * compartment is: geometry kept OUT of the content model so transposition, playback and
-   * re-barring never trip over pixels (docs/engraving-overrides-plan.md). A dump that merged the
-   * two would show a shape the model does not have. Absent when the element has none.
-   */
-  overrides?: EngravingOverride[]
-  /**
-   * Facts COMPUTED from the model for this element, which the model deliberately does not store.
-   *
-   * ⭐ A SEPARATE field for exactly {@link overrides}' reason, one step further: folding these into
-   * `data` would show a shape the model does not have. The first client is the TRILL, whose
-   * auxiliary pitch is derived from the key and the bar's accidentals rather than stored
-   * (docs/trill-plan.md §3) — so "what does this trill actually play?" is unanswerable from `data`
-   * alone, and it is the one question a reader of this panel will have. Absent when there is
-   * nothing derived worth reporting.
-   */
-  derived?: Record<string, unknown>
-}
-
 /** The compartment's entries under one key, or undefined when there are none (never an empty list —
  *  the panel shows the section only when there is something in it). */
 function overridesAt(score: Score, key: string | undefined): EngravingOverride[] | undefined {

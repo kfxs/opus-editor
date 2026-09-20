@@ -1,12 +1,13 @@
 import { bus } from '@/bus'
-import type { InspectedElement } from '@/interactions/selectionSnapshot'
+import type { InspectedOf } from '@/interactions/inspectedElement'
+import type { Ottava, OttavaOffsetOverride } from '@/types/music'
 import { scalarOffsetRow } from '../rows'
-import { liveId, type PanelRows } from './panel'
+import { live, overrideOf, type PanelRows } from './panel'
 
 /** A selected OTTAVA — its ink offsets as numbers, the typed twin of the arrows on its two squares. */
-export const ottavaRows: PanelRows = (element) => {
-  const id = liveId(element)
-  return id ? [buildOttavaOffsetRows(id, element)] : []
+export const ottavaRows: PanelRows<'ottava'> = (element) => {
+  const ottava = live(element.data)
+  return ottava ? [buildOttavaOffsetRows(ottava, element)] : []
 }
 
 /**
@@ -26,22 +27,19 @@ export const ottavaRows: PanelRows = (element) => {
  * ⚠️ Every box commits through {@link commitOnFirstStep} and puts itself back on commit — the two
  * rules the page limit forced on this panel (docs/engraving-overrides-plan.md §8.6).
  */
-function buildOttavaOffsetRows(ottavaId: string, element: InspectedElement): HTMLElement {
+function buildOttavaOffsetRows(ottava: Ottava, element: InspectedOf<'ottava'>): HTMLElement {
+  const ottavaId = ottava.id
   const wrap = document.createElement('div')
   wrap.style.margin = '2px 0 4px'
-  const off = (element.overrides?.find((o) => o.kind === 'ottavaOffset') ?? {}) as {
-    startX?: number
-    endX?: number
-    outward?: number
-  }
+  const off = overrideOf<OttavaOffsetOverride>(element, 'ottavaOffset')
 
 
   wrap.appendChild(scalarOffsetRow(
-    'start x (sp)', off.startX ?? 0,
+    'start x (sp)', off?.startX ?? 0,
     'the numeral and the line leaving it — + reaches right; the far end stays put',
     (x) => bus.ottavaGeometry.set({ ottavaId, which: 'start', x })))
   wrap.appendChild(scalarOffsetRow(
-    'end x (sp)', off.endX ?? 0,
+    'end x (sp)', off?.endX ?? 0,
     'the closing hook — + reaches right; the numeral stays put',
     (x) => bus.ottavaGeometry.set({ ottavaId, which: 'end', x })))
   // ⭐⭐ **THE BOX SPEAKS SCREEN: + IS UP, ALWAYS.** His rule, 2026-08-17, after trying both:
@@ -54,13 +52,13 @@ function buildOttavaOffsetRows(ottavaId: string, element: InspectedElement): HTM
   // true at once, and this line is where they meet: the store keeps the intent, the box shows the
   // movement. ⚠️ So the displayed number FLIPS SIGN when the bracket is flipped — which is honest,
   // because the ink genuinely moved to the other side of the staff.
-  const above = ((element.data as { shift?: number }).shift ?? 1) > 0
+  const above = ottava.shift > 0
   const toScreen = (n: number) => (above ? n : -n)
   wrap.appendChild(scalarOffsetRow(
     // ⚠️ Named for the AXIS, not the direction — his call: *"instead of up, better something like
     // vertical position."* `up` read as a verb, and it sits beside two rows named for an axis.
     // Which way `+` goes is the tooltip's job, and the tooltip is unambiguous.
-    'vertical (sp)', toScreen(off.outward ?? 0),
+    'vertical (sp)', toScreen(off?.outward ?? 0),
     'the WHOLE bracket — + moves it UP on screen and − moves it down, whichever side of the staff '
     + 'it is on. One number, because an octave line is a straight rule',
     // ⭐ `toScreen` is its own inverse (a negation), so one helper does both directions.

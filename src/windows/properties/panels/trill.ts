@@ -1,18 +1,20 @@
 import { bus } from '@/bus'
-import type { InspectedElement } from '@/interactions/selectionSnapshot'
-import type { TrillContinuationLabel } from '@/types/music'
+import type { InspectedOf } from '@/interactions/inspectedElement'
+import type { Trill, TrillContinuationLabel, TrillOffsetOverride } from '@/types/music'
 import { BISHOP, scalarOffsetRow } from '../rows'
-import { liveId, type PanelRows } from './panel'
+import { live, overrideOf, type PanelRows } from './panel'
 
 /**
  * A selected TRILL — its three ink offsets (the BRACKET's vertical rather than the pedal's, since
  * `x` flips a trill's side), then its one stored choice: how it labels a continuation system.
  */
-export const trillRows: PanelRows = (element) => {
-  const id = liveId(element)
-  if (!id) return []
-  const label = (element.data as { continuationLabel?: TrillContinuationLabel }).continuationLabel
-  return [buildTrillOffsetRows(id, element), buildTrillLabelSelect(id, label ?? 'parenthesised')]
+export const trillRows: PanelRows<'trill'> = (element) => {
+  const trill = live(element.data)
+  if (!trill) return []
+  return [
+    buildTrillOffsetRows(trill, element),
+    buildTrillLabelSelect(trill.id, trill.continuationLabel ?? 'parenthesised'),
+  ]
 }
 
 /**
@@ -28,29 +30,26 @@ export const trillRows: PanelRows = (element) => {
  * this line converts. ⚠️ So the displayed number FLIPS SIGN when the ornament is flipped, which is
  * honest — the ink genuinely moved to the other side of the staff.
  */
-function buildTrillOffsetRows(trillId: string, element: InspectedElement): HTMLElement {
+function buildTrillOffsetRows(trill: Trill, element: InspectedOf<'trill'>): HTMLElement {
+  const trillId = trill.id
   const wrap = document.createElement('div')
   wrap.style.margin = '2px 0 4px'
-  const off = (element.overrides?.find((o) => o.kind === 'trillOffset') ?? {}) as {
-    startX?: number
-    endX?: number
-    outward?: number
-  }
+  const off = overrideOf<TrillOffsetOverride>(element, 'trillOffset')
 
   wrap.appendChild(scalarOffsetRow(
-    'start x (sp)', off.startX ?? 0,
+    'start x (sp)', off?.startX ?? 0,
     'the tr sign, and the wavy line leaving it — + reaches right; the far end stays put',
     (x) => bus.trillGeometry.set({ trillId, which: 'start', x })))
   wrap.appendChild(scalarOffsetRow(
-    'end x (sp)', off.endX ?? 0,
+    'end x (sp)', off?.endX ?? 0,
     'where the wavy line stops — + reaches right; the sign stays put',
     (x) => bus.trillGeometry.set({ trillId, which: 'end', x })))
   // ⭐ `+` is UP on screen whichever side the ornament is on — his standing rule for every offset
   // box. `toScreen` is its own inverse (a negation), so one helper does both directions.
-  const above = ((element.data as { placement?: 'above' | 'below' }).placement ?? 'above') === 'above'
+  const above = (trill.placement ?? 'above') === 'above'
   const toScreen = (n: number) => (above ? n : -n)
   wrap.appendChild(scalarOffsetRow(
-    'vertical (sp)', toScreen(off.outward ?? 0),
+    'vertical (sp)', toScreen(off?.outward ?? 0),
     'the WHOLE ornament — + moves it UP on screen and − moves it down, whichever side of the staff '
     + 'it is on. One number, because the sign and its line share a baseline',
     (up) => bus.trillGeometry.set({ trillId, outward: toScreen(up) })))
