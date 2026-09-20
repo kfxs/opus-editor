@@ -1,3 +1,5 @@
+import { RequestChannel } from './requestChannel'
+
 /**
  * The seam the Properties panel's TRILL OFFSET inputs publish through — the typed twin of the arrow
  * keys that move a selected ornament's ink (`shortcutWiring.nudgeArmedTrillEnd`; his ask,
@@ -52,20 +54,5 @@ export interface TrillHeightRequest {
 
 export type TrillGeometryRequest = TrillEndRequest | TrillHeightRequest
 
-class TrillGeometrySelection {
-  private listeners = new Set<(req: TrillGeometryRequest) => void>()
-
-  /** Publish a request. ALWAYS fires — re-typing the same number is a real event, and the controller
-   *  decides it is a no-op. */
-  set(req: TrillGeometryRequest): void {
-    for (const fn of this.listeners) fn(req)
-  }
-
-  /** Handle a request — {@link TrillGeometryController} runs the engine apply. */
-  onSet(fn: (req: TrillGeometryRequest) => void): () => void {
-    this.listeners.add(fn)
-    return () => this.listeners.delete(fn)
-  }
-}
-
-export const createTrillGeometrySelection = () => new TrillGeometrySelection()
+/** TrillGeometryController handles it — the one place that holds the engine. */
+export const createTrillGeometrySelection = () => new RequestChannel<TrillGeometryRequest>()

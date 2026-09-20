@@ -1,7 +1,9 @@
+import { RequestChannel } from './requestChannel'
+
 /**
  * The seam the Properties panel's HAIRPIN END inputs publish through — the typed twin of the arrow
  * keys that reshape a wedge (`shortcutWiring.nudgeArmedHairpinEnd`; his ask, 2026-08-17). Command-
- * only, in {@link NoteOffsetSelection}'s shape: the window writes "put THIS end of THIS wedge at
+ * only, in {@link ./noteOffsetSelection}'s shape: the window writes "put THIS end of THIS wedge at
  * THIS offset", and {@link HairpinGeometryController} — the one place that holds the engine —
  * applies it.
  *
@@ -50,20 +52,5 @@ export interface HairpinApertureRequest {
 
 export type HairpinGeometryRequest = HairpinEndRequest | HairpinApertureRequest
 
-class HairpinGeometrySelection {
-  private listeners = new Set<(req: HairpinGeometryRequest) => void>()
-
-  /** Publish a request. ALWAYS fires — re-typing the same number is a real event, and the controller
-   *  decides it is a no-op. */
-  set(req: HairpinGeometryRequest): void {
-    for (const fn of this.listeners) fn(req)
-  }
-
-  /** Handle a request — {@link HairpinGeometryController} runs the engine apply. */
-  onSet(fn: (req: HairpinGeometryRequest) => void): () => void {
-    this.listeners.add(fn)
-    return () => this.listeners.delete(fn)
-  }
-}
-
-export const createHairpinGeometrySelection = () => new HairpinGeometrySelection()
+/** HairpinGeometryController handles it — the one place that holds the engine. */
+export const createHairpinGeometrySelection = () => new RequestChannel<HairpinGeometryRequest>()

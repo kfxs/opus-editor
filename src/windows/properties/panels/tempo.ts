@@ -14,7 +14,7 @@ export const tempoRows: PanelRows<'tempo'> = (element) => {
   const id = live(element.data)?.id
   if (!id) return []
   return [buildMarkOffsetRow(
-    currentTempoOffset(element), (x, y) => bus.tempoOffset.set(id, x, y),
+    currentTempoOffset(element), (x, y) => bus.tempoOffset.set({ tempoId: id, x, y }),
     'Vertical offset, + is UP (away from the staff)')]
 }
 

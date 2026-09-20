@@ -1,3 +1,4 @@
+import { PressChannel } from './requestChannel'
 import type { Fraction, TimeSignature } from '@/types/music'
 
 /**
@@ -24,19 +25,4 @@ export interface ArmedTimeSignature {
   pickup: Fraction | null
 }
 
-class TimeSignatureSelection {
-  private listeners = new Set<(armed: ArmedTimeSignature) => void>()
-
-  /** The user chose this meter. ALWAYS fires — re-choosing the armed one is a real event (it means
-   *  "arm it again"), so it must not be swallowed as "no change". */
-  press(armed: ArmedTimeSignature): void {
-    for (const fn of this.listeners) fn(armed)
-  }
-
-  onPress(fn: (armed: ArmedTimeSignature) => void): () => void {
-    this.listeners.add(fn)
-    return () => this.listeners.delete(fn)
-  }
-}
-
-export const createTimeSignatureSelection = () => new TimeSignatureSelection()
+export const createTimeSignatureSelection = () => new PressChannel<ArmedTimeSignature>()

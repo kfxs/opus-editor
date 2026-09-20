@@ -1,3 +1,5 @@
+import { RequestChannel } from './requestChannel'
+
 /**
  * ⭐⭐ **THE CAUTIONARY KEY SIGNATURE'S TRAILING GAP, asked for from the Properties panel** — how much
  * bare staff is drawn after a courtesy at a system break, in staff spaces.
@@ -28,19 +30,5 @@ export interface CautionaryKeyGapRequest {
   gap: number | null
 }
 
-class CautionaryKeyGapSelection {
-  private listeners = new Set<(req: CautionaryKeyGapRequest) => void>()
-
-  /** Ask for a gap — the Properties row's only move. */
-  set(req: CautionaryKeyGapRequest): void {
-    for (const fn of this.listeners) fn(req)
-  }
-
-  /** Handle a request — {@link CautionaryKeyGapController} runs the engine apply. */
-  onSet(fn: (req: CautionaryKeyGapRequest) => void): () => void {
-    this.listeners.add(fn)
-    return () => this.listeners.delete(fn)
-  }
-}
-
-export const createCautionaryKeyGapSelection = () => new CautionaryKeyGapSelection()
+/** CautionaryKeyGapController handles it — the one place that holds the engine. */
+export const createCautionaryKeyGapSelection = () => new RequestChannel<CautionaryKeyGapRequest>()

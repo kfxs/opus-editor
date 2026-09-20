@@ -1,3 +1,5 @@
+import { RequestChannel } from './requestChannel'
+
 /**
  * The seam the Properties panel's OTTAVA OFFSET inputs publish through — the typed twin of the arrow
  * keys that move a selected bracket's ink (`shortcutWiring.nudgeArmedOttavaEnd`; his ask,
@@ -57,20 +59,5 @@ export interface OttavaHeightRequest {
 
 export type OttavaGeometryRequest = OttavaEndRequest | OttavaHeightRequest
 
-class OttavaGeometrySelection {
-  private listeners = new Set<(req: OttavaGeometryRequest) => void>()
-
-  /** Publish a request. ALWAYS fires — re-typing the same number is a real event, and the controller
-   *  decides it is a no-op. */
-  set(req: OttavaGeometryRequest): void {
-    for (const fn of this.listeners) fn(req)
-  }
-
-  /** Handle a request — {@link OttavaGeometryController} runs the engine apply. */
-  onSet(fn: (req: OttavaGeometryRequest) => void): () => void {
-    this.listeners.add(fn)
-    return () => this.listeners.delete(fn)
-  }
-}
-
-export const createOttavaGeometrySelection = () => new OttavaGeometrySelection()
+/** OttavaGeometryController handles it — the one place that holds the engine. */
+export const createOttavaGeometrySelection = () => new RequestChannel<OttavaGeometryRequest>()

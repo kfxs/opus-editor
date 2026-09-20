@@ -1,3 +1,4 @@
+import { RequestChannel } from './requestChannel'
 import type { TrillContinuationLabel } from '@/types/music'
 
 /**
@@ -21,20 +22,5 @@ export interface TrillEditRequest {
   continuationLabel?: TrillContinuationLabel
 }
 
-export class TrillEditSelection {
-  private listeners = new Set<(req: TrillEditRequest) => void>()
-
-  /** Publish a change. ALWAYS fires (re-choosing the same value is a real event — the controller
-   *  decides it is a no-op), mirroring `FanEditSelection.set`. */
-  set(req: TrillEditRequest): void {
-    for (const fn of this.listeners) fn(req)
-  }
-
-  /** Handle a change — {@link TrillEditController} runs the engine apply. */
-  onSet(fn: (req: TrillEditRequest) => void): () => void {
-    this.listeners.add(fn)
-    return () => this.listeners.delete(fn)
-  }
-}
-
-export const createTrillEditSelection = () => new TrillEditSelection()
+/** TrillEditController handles it — the one place that holds the engine. */
+export const createTrillEditSelection = () => new RequestChannel<TrillEditRequest>()

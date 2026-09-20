@@ -1,3 +1,4 @@
+import { RequestChannel } from './requestChannel'
 import type { Hairpin } from '@/types/music'
 
 /**
@@ -27,20 +28,5 @@ export interface HairpinEditRequest {
   type?: Hairpin['type']
 }
 
-class HairpinEditSelection {
-  private listeners = new Set<(req: HairpinEditRequest) => void>()
-
-  /** Publish a change. ALWAYS fires (re-choosing the same value is a real event — the controller
-   *  decides it is a no-op), mirroring `TrillEditSelection.set`. */
-  set(req: HairpinEditRequest): void {
-    for (const fn of this.listeners) fn(req)
-  }
-
-  /** Handle a change — {@link HairpinEditController} runs the engine apply. */
-  onSet(fn: (req: HairpinEditRequest) => void): () => void {
-    this.listeners.add(fn)
-    return () => this.listeners.delete(fn)
-  }
-}
-
-export const createHairpinEditSelection = () => new HairpinEditSelection()
+/** HairpinEditController handles it — the one place that holds the engine. */
+export const createHairpinEditSelection = () => new RequestChannel<HairpinEditRequest>()

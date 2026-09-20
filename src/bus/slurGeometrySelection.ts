@@ -1,7 +1,9 @@
+import { RequestChannel } from './requestChannel'
+
 /**
  * The seam the Properties panel's SLUR GEOMETRY inputs publish through — the typed twin of the
  * arrow-key nudges (`interactions/slurHandleNudge`, `shortcutWiring`). A command-only store in the
- * {@link NoteOffsetSelection} shape: the window writes "put THIS handle of THIS slur at THIS value",
+ * {@link ./noteOffsetSelection} shape: the window writes "put THIS handle of THIS slur at THIS value",
  * and {@link SlurGeometryController} — the one place that holds the engine — applies it.
  *
  * ⭐ **The window addresses a HANDLE, not an override.** `curveShape` / `segmentCurveShape` /
@@ -14,7 +16,7 @@
  * armed handle's business, and the controller reads it from the selection. A window that guessed the
  * segment would be able to write a shape onto a system the user is not looking at.
  *
- * There is no mirror channel back, for {@link NoteOffsetSelection}'s reason: the inputs read their
+ * There is no mirror channel back, for {@link ./noteOffsetSelection}'s reason: the inputs read their
  * current values from `selectionInspection`, which they already subscribe to.
  */
 
@@ -49,20 +51,5 @@ export interface SlurGeometryRequest {
   value: { x?: number; y?: number } | null
 }
 
-class SlurGeometrySelection {
-  private listeners = new Set<(req: SlurGeometryRequest) => void>()
-
-  /** Publish a geometry request. ALWAYS fires — re-typing the same number is a real event, and the
-   *  controller decides it is a no-op (mirrors {@link NoteOffsetSelection.set}). */
-  set(req: SlurGeometryRequest): void {
-    for (const fn of this.listeners) fn(req)
-  }
-
-  /** Handle a request — {@link SlurGeometryController} runs the engine apply. */
-  onSet(fn: (req: SlurGeometryRequest) => void): () => void {
-    this.listeners.add(fn)
-    return () => this.listeners.delete(fn)
-  }
-}
-
-export const createSlurGeometrySelection = () => new SlurGeometrySelection()
+/** SlurGeometryController handles it — the one place that holds the engine. */
+export const createSlurGeometrySelection = () => new RequestChannel<SlurGeometryRequest>()

@@ -1,3 +1,5 @@
+import { RequestChannel } from './requestChannel'
+
 /**
  * The seam the Properties fan inputs publish through (docs/fanned-beams-plan.md §3, P4). The twin of
  * {@link ./noteOffsetSelection}: **command-only**, so the window writes "this fanned note should be
@@ -40,20 +42,5 @@ export interface FanEditRequest {
   spread?: number
 }
 
-export class FanEditSelection {
-  private listeners = new Set<(req: FanEditRequest) => void>()
-
-  /** Publish a change. ALWAYS fires (re-typing the same value is a real event — the controller
-   *  decides it is a no-op), mirroring `PaletteSelection.press`. */
-  set(req: FanEditRequest): void {
-    for (const fn of this.listeners) fn(req)
-  }
-
-  /** Handle a change — {@link FanEditController} runs the engine apply. */
-  onSet(fn: (req: FanEditRequest) => void): () => void {
-    this.listeners.add(fn)
-    return () => this.listeners.delete(fn)
-  }
-}
-
-export const createFanEditSelection = () => new FanEditSelection()
+/** FanEditController handles it — the one place that holds the engine. */
+export const createFanEditSelection = () => new RequestChannel<FanEditRequest>()

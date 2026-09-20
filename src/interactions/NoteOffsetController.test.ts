@@ -33,27 +33,27 @@ describe('NoteOffsetController', () => {
 
   it('turns an absolute value into the delta from the current offset', () => {
     offsets['n1'] = 1
-    bus.noteOffset.set('n1', 2.5)
+    bus.noteOffset.set({ noteId: 'n1', x: 2.5 })
     expect(nudges).toEqual([{ id: 'n1', dx: 1.5 }])
     expect(renders).toBe(1)
   })
 
   it('is a no-op when the value is unchanged (no empty nudge, no repaint)', () => {
     offsets['n1'] = 0.75
-    bus.noteOffset.set('n1', 0.75)
+    bus.noteOffset.set({ noteId: 'n1', x: 0.75 })
     expect(nudges).toEqual([])
     expect(renders).toBe(0)
   })
 
   it('a negative target walks the offset back the other way', () => {
     offsets['n1'] = 0.5
-    bus.noteOffset.set('n1', -0.5)
+    bus.noteOffset.set({ noteId: 'n1', x: -0.5 })
     expect(nudges).toEqual([{ id: 'n1', dx: -1 }])
   })
 
   it('stops applying once destroyed', () => {
     controller.destroy()
-    bus.noteOffset.set('n1', 3)
+    bus.noteOffset.set({ noteId: 'n1', x: 3 })
     expect(nudges).toEqual([])
     expect(renders).toBe(0)
   })

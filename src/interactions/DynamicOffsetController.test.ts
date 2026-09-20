@@ -35,26 +35,26 @@ describe('DynamicOffsetController', () => {
 
   it('⭐ turns an ABSOLUTE ask into the delta from what is stored', () => {
     stored(1, 2)
-    bus.dynamicOffset.set('D1', 3, -1)
+    bus.dynamicOffset.set({ dynamicId: 'D1', x: 3, y: -1 })
     expect(nudge).toHaveBeenCalledWith('D1', 2, -3)
     expect(render).toHaveBeenCalled()
   })
 
   it('treats an absent override as (0, 0)', () => {
-    bus.dynamicOffset.set('D1', 1.5, 0.5)
+    bus.dynamicOffset.set({ dynamicId: 'D1', x: 1.5, y: 0.5 })
     expect(nudge).toHaveBeenCalledWith('D1', 1.5, 0.5)
   })
 
   it('⚠️ ONE call, not one per axis — one commit is one undo entry', () => {
     // Two nudges would also let the page limit judge the halves separately, so a diagonal that must
     // be refused whole could get its x through.
-    bus.dynamicOffset.set('D1', 2, 2)
+    bus.dynamicOffset.set({ dynamicId: 'D1', x: 2, y: 2 })
     expect(nudge).toHaveBeenCalledTimes(1)
   })
 
   it('does NOTHING when the value has not changed — no empty undo entry, no repaint', () => {
     stored(1, 2)
-    bus.dynamicOffset.set('D1', 1, 2)
+    bus.dynamicOffset.set({ dynamicId: 'D1', x: 1, y: 2 })
     expect(nudge).not.toHaveBeenCalled()
     expect(render).not.toHaveBeenCalled()
   })
@@ -64,7 +64,7 @@ describe('DynamicOffsetController', () => {
     // repaints — and the panel's own rule (put the box back on commit) is what keeps the typed number
     // from lingering on screen.
     nudge.mockReturnValue(false)
-    bus.dynamicOffset.set('D1', 900, 0)
+    bus.dynamicOffset.set({ dynamicId: 'D1', x: 900, y: 0 })
     expect(nudge).toHaveBeenCalled()
     expect(render).not.toHaveBeenCalled()
   })
@@ -72,11 +72,11 @@ describe('DynamicOffsetController', () => {
   it('⛔ is inert with no engine, and after destroy', () => {
     // ⚠️ The bus is a SINGLETON, so this one has to go first or both subscribers answer.
     controller.destroy()
-    bus.dynamicOffset.set('D1', 7, 7)
+    bus.dynamicOffset.set({ dynamicId: 'D1', x: 7, y: 7 })
     expect(nudge, 'unsubscribed').not.toHaveBeenCalled()
 
     const orphan = new DynamicOffsetController(() => null, render)
-    bus.dynamicOffset.set('D1', 5, 5)
+    bus.dynamicOffset.set({ dynamicId: 'D1', x: 5, y: 5 })
     expect(render, 'no engine to apply through').not.toHaveBeenCalled()
     orphan.destroy()
   })

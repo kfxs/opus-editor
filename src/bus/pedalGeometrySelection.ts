@@ -1,3 +1,5 @@
+import { RequestChannel } from './requestChannel'
+
 /**
  * The seam the Properties panel's PEDAL OFFSET inputs publish through — the typed twin of the arrow
  * keys that move a selected pedal's ink (`shortcutWiring.nudgeArmedPedalEnd`; his ask, 2026-08-18).
@@ -56,20 +58,5 @@ export interface PedalHeightRequest {
 
 export type PedalGeometryRequest = PedalEndRequest | PedalHeightRequest
 
-class PedalGeometrySelection {
-  private listeners = new Set<(req: PedalGeometryRequest) => void>()
-
-  /** Publish a request. ALWAYS fires — re-typing the same number is a real event, and the controller
-   *  decides it is a no-op. */
-  set(req: PedalGeometryRequest): void {
-    for (const fn of this.listeners) fn(req)
-  }
-
-  /** Handle a request — {@link PedalGeometryController} runs the engine apply. */
-  onSet(fn: (req: PedalGeometryRequest) => void): () => void {
-    this.listeners.add(fn)
-    return () => this.listeners.delete(fn)
-  }
-}
-
-export const createPedalGeometrySelection = () => new PedalGeometrySelection()
+/** PedalGeometryController handles it — the one place that holds the engine. */
+export const createPedalGeometrySelection = () => new RequestChannel<PedalGeometryRequest>()

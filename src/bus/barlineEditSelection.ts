@@ -1,3 +1,4 @@
+import { RequestChannel } from './requestChannel'
 import type { BarlineSignKind } from '@/engine/models/boundarySign'
 
 /**
@@ -49,20 +50,5 @@ export interface BarlineEditRequest {
   winged?: boolean
 }
 
-class BarlineEditSelection {
-  private listeners = new Set<(req: BarlineEditRequest) => void>()
-
-  /** Publish a change. ALWAYS fires (re-choosing the same value is a real event — the controller
-   *  decides it is a no-op), mirroring `HairpinEditSelection.set`. */
-  set(req: BarlineEditRequest): void {
-    for (const fn of this.listeners) fn(req)
-  }
-
-  /** Handle a change — {@link BarlineEditController} runs the engine apply. */
-  onSet(fn: (req: BarlineEditRequest) => void): () => void {
-    this.listeners.add(fn)
-    return () => this.listeners.delete(fn)
-  }
-}
-
-export const createBarlineEditSelection = () => new BarlineEditSelection()
+/** BarlineEditController handles it — the one place that holds the engine. */
+export const createBarlineEditSelection = () => new RequestChannel<BarlineEditRequest>()

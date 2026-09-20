@@ -19,7 +19,7 @@ export const clefRows: PanelRows<'clef'> = (element) => {
     'offset x', offset,
     'Horizontal nudge in staff-spaces, + right. The keyboard does the same: '
     + 'Ctrl+Shift+←/→ (wide) or Shift+Alt+←/→ (fine).',
-    (x) => bus.clefOffset.set(measure, beat, staff, x),
+    (x) => bus.clefOffset.set({ measure, beat, staff, x }),
   )]
 }
 

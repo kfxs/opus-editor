@@ -72,7 +72,7 @@ function buildOffsetInput(noteId: string, current: number): HTMLElement {
   const commit = () => {
     const x = parseFloat(input.value)
     if (!Number.isFinite(x)) { input.value = String(current); return }
-    bus.noteOffset.set(noteId, x)
+    bus.noteOffset.set({ noteId, x })
     // ⭐⭐ THE BOX NEVER KEEPS A NUMBER THE MODEL REFUSED — his report, 2026-08-17: *"the number
     // doesn't stop but keeps on changing after the limit, so to go back we have to do the whole
     // path."* The page limit can decline the write, and a declined write changes nothing, so
@@ -107,7 +107,7 @@ function buildOffsetInput(noteId: string, current: number): HTMLElement {
   reset.addEventListener('click', () => {
     // Zeroed immediately — a reset only reduces an offset, so the limit cannot refuse it.
     input.value = '0'
-    bus.noteOffset.set(noteId, 0)
+    bus.noteOffset.set({ noteId, x: 0 })
   })
   row.appendChild(reset)
   return row
@@ -132,7 +132,7 @@ function buildStemAlignCheckbox(noteId: string, current: boolean): HTMLElement {
   input.type = 'checkbox'
   input.checked = current
   input.style.accentColor = BISHOP
-  input.addEventListener('change', () => bus.articulationStemAlign.set(noteId, input.checked))
+  input.addEventListener('change', () => bus.articulationStemAlign.set({ noteId, align: input.checked }))
   row.appendChild(input)
 
   const label = document.createElement('span')
@@ -302,7 +302,7 @@ function buildFractionalBeamSideSelect(
   }
   select.addEventListener('change', () => {
     const picked = select.value
-    bus.fractionalBeamSide.set(noteId, picked === 'auto' ? null : (picked as FractionalBeamSide))
+    bus.fractionalBeamSide.set({ noteId, side: picked === 'auto' ? null : (picked as FractionalBeamSide) })
   })
 
   wrap.appendChild(select)

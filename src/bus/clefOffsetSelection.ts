@@ -1,3 +1,5 @@
+import { RequestChannel } from './requestChannel'
+
 /**
  * The seam the Properties CLEF-offset input publishes through (his ask, 2026-08-28: *"when the clef
  * is not in the beguining of a line (i mean a header clef) i want to be able to offset it
@@ -22,20 +24,4 @@ export interface ClefOffsetRequest {
   x: number
 }
 
-export class ClefOffsetSelection {
-  private listeners = new Set<(req: ClefOffsetRequest) => void>()
-
-  /** Publish an absolute-offset request. ALWAYS fires — re-typing the same value is a real event and
-   *  the controller decides it is a no-op (`NoteOffsetSelection.set`'s rule). */
-  set(measure: number, beat: number, staff: number, x: number): void {
-    for (const fn of this.listeners) fn({ measure, beat, staff, x })
-  }
-
-  /** Handle a request — `ClefOffsetController` runs the engine apply. */
-  onSet(fn: (req: ClefOffsetRequest) => void): () => void {
-    this.listeners.add(fn)
-    return () => this.listeners.delete(fn)
-  }
-}
-
-export const createClefOffsetSelection = () => new ClefOffsetSelection()
+export const createClefOffsetSelection = () => new RequestChannel<ClefOffsetRequest>()

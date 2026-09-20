@@ -1,3 +1,4 @@
+import { PressChannel } from './requestChannel'
 import type { NoteDuration, TupletFormat } from '@/types/music'
 
 /**
@@ -27,18 +28,4 @@ export interface ArmedTuplet {
   format?: TupletFormat
 }
 
-class TupletSelection {
-  private listeners = new Set<(armed: ArmedTuplet) => void>()
-
-  /** The user chose this tuplet. ALWAYS fires — re-choosing the armed one means "arm it again". */
-  press(armed: ArmedTuplet): void {
-    for (const fn of this.listeners) fn(armed)
-  }
-
-  onPress(fn: (armed: ArmedTuplet) => void): () => void {
-    this.listeners.add(fn)
-    return () => this.listeners.delete(fn)
-  }
-}
-
-export const createTupletSelection = () => new TupletSelection()
+export const createTupletSelection = () => new PressChannel<ArmedTuplet>()

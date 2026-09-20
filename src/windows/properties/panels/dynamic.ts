@@ -13,7 +13,7 @@ import { live, overrideOf, type PanelRows } from './panel'
 export const dynamicRows: PanelRows<'dynamic'> = (element) => {
   const id = live(element.data)?.id
   if (!id) return []
-  return [buildMarkOffsetRow(currentDynamicOffset(element), (x, y) => bus.dynamicOffset.set(id, x, y))]
+  return [buildMarkOffsetRow(currentDynamicOffset(element), (x, y) => bus.dynamicOffset.set({ dynamicId: id, x, y }))]
 }
 
 /** The dynamic's current offset in staff-spaces (0,0 when none), read from its own overrides — the

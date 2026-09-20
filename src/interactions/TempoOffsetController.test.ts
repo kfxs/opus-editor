@@ -34,13 +34,13 @@ describe('TempoOffsetController', () => {
 
   it('⭐ turns an ABSOLUTE ask into the delta from what is stored', () => {
     stored(1, 2)
-    bus.tempoOffset.set('T1', 3, -1)
+    bus.tempoOffset.set({ tempoId: 'T1', x: 3, y: -1 })
     expect(nudge).toHaveBeenCalledWith('T1', 2, -3)
     expect(render).toHaveBeenCalled()
   })
 
   it('treats an absent override as (0, 0)', () => {
-    bus.tempoOffset.set('T1', 1.5, 0.5)
+    bus.tempoOffset.set({ tempoId: 'T1', x: 1.5, y: 0.5 })
     expect(nudge).toHaveBeenCalledWith('T1', 1.5, 0.5)
   })
 
@@ -48,33 +48,33 @@ describe('TempoOffsetController', () => {
     // One compartment, two kinds. Reading the wrong one would compute the delta from a number this
     // mark never had, and the first commit would fling it.
     score.engravingOverrides = { T1: [{ kind: 'dynamicOffset', x: 9, y: 9 } as never] }
-    bus.tempoOffset.set('T1', 1, 1)
+    bus.tempoOffset.set({ tempoId: 'T1', x: 1, y: 1 })
     expect(nudge).toHaveBeenCalledWith('T1', 1, 1)
   })
 
   it('⭐ ONE call for both axes — one commit is one undo entry, and one page-limit verdict', () => {
     stored(0, 0)
-    bus.tempoOffset.set('T1', 2, -2)
+    bus.tempoOffset.set({ tempoId: 'T1', x: 2, y: -2 })
     expect(nudge).toHaveBeenCalledTimes(1)
   })
 
   it('does nothing when the value has not changed — no empty undo entry', () => {
     stored(1, 2)
-    bus.tempoOffset.set('T1', 1, 2)
+    bus.tempoOffset.set({ tempoId: 'T1', x: 1, y: 2 })
     expect(nudge).not.toHaveBeenCalled()
     expect(render).not.toHaveBeenCalled()
   })
 
   it('⭐ a REFUSED nudge repaints nothing — the page limit is the engine\'s call, and it stands', () => {
     nudge.mockReturnValue(false)
-    bus.tempoOffset.set('T1', 99, 99)
+    bus.tempoOffset.set({ tempoId: 'T1', x: 99, y: 99 })
     expect(nudge).toHaveBeenCalled()
     expect(render).not.toHaveBeenCalled()
   })
 
   it('stops listening once destroyed', () => {
     controller.destroy()
-    bus.tempoOffset.set('T1', 5, 5)
+    bus.tempoOffset.set({ tempoId: 'T1', x: 5, y: 5 })
     expect(nudge).not.toHaveBeenCalled()
   })
 })

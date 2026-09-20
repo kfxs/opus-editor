@@ -1,3 +1,5 @@
+import { RequestChannel } from './requestChannel'
+
 /**
  * The seam the Properties note-offset input publishes through (client #12 — see
  * docs/note-offset-plan.md §B). A `PaletteSelection`-style singleton, but **command-only**: the
@@ -17,20 +19,5 @@ export interface NoteOffsetRequest {
   x: number
 }
 
-export class NoteOffsetSelection {
-  private listeners = new Set<(req: NoteOffsetRequest) => void>()
-
-  /** Publish an absolute-offset request. ALWAYS fires (re-typing the same value is a real event —
-   *  the controller decides it's a no-op), mirroring {@link PaletteSelection.press}. */
-  set(noteId: string, x: number): void {
-    for (const fn of this.listeners) fn({ noteId, x })
-  }
-
-  /** Handle a request — {@link NoteOffsetController} runs the engine apply. */
-  onSet(fn: (req: NoteOffsetRequest) => void): () => void {
-    this.listeners.add(fn)
-    return () => this.listeners.delete(fn)
-  }
-}
-
-export const createNoteOffsetSelection = () => new NoteOffsetSelection()
+/** NoteOffsetController handles it — the one place that holds the engine. */
+export const createNoteOffsetSelection = () => new RequestChannel<NoteOffsetRequest>()

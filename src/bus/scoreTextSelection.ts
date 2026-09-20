@@ -1,3 +1,4 @@
+import { RequestChannel } from './requestChannel'
 import type { ScoreTextField } from '@/engine/models/scoreTextOps'
 
 /**
@@ -22,20 +23,5 @@ export interface ScoreTextRequest {
   text: string
 }
 
-class ScoreTextSelection {
-  private listeners = new Set<(req: ScoreTextRequest) => void>()
-
-  /** Publish a change. ALWAYS fires — re-typing the same words is a real event, and the controller
-   *  decides it is a no-op (`barlineEditSelection.set`'s rule). */
-  set(req: ScoreTextRequest): void {
-    for (const fn of this.listeners) fn(req)
-  }
-
-  /** Handle one — {@link ScoreTextController} runs the engine apply. */
-  onSet(fn: (req: ScoreTextRequest) => void): () => void {
-    this.listeners.add(fn)
-    return () => this.listeners.delete(fn)
-  }
-}
-
-export const createScoreTextSelection = () => new ScoreTextSelection()
+/** ScoreTextController handles it — the one place that holds the engine. */
+export const createScoreTextSelection = () => new RequestChannel<ScoreTextRequest>()

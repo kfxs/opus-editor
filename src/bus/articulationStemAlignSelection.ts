@@ -1,3 +1,5 @@
+import { RequestChannel } from './requestChannel'
+
 /**
  * The seam the Properties "align to stem" checkbox publishes through — the twin of
  * {@link ./noteOffsetSelection}. **Command-only**: the window writes "set stem-alignment of THIS
@@ -12,18 +14,4 @@ export interface ArticulationStemAlignRequest {
   align: boolean
 }
 
-class ArticulationStemAlignSelection {
-  private listeners = new Set<(req: ArticulationStemAlignRequest) => void>()
-
-  /** Publish a set request. ALWAYS fires (the controller decides a no-op), like the offset seam. */
-  set(noteId: string, align: boolean): void {
-    for (const fn of this.listeners) fn({ noteId, align })
-  }
-
-  onSet(fn: (req: ArticulationStemAlignRequest) => void): () => void {
-    this.listeners.add(fn)
-    return () => this.listeners.delete(fn)
-  }
-}
-
-export const createArticulationStemAlignSelection = () => new ArticulationStemAlignSelection()
+export const createArticulationStemAlignSelection = () => new RequestChannel<ArticulationStemAlignRequest>()
