@@ -22,7 +22,7 @@
  *
  * ⭐ **SO: adding a coordinate field to `ElementInfo` means adding it to {@link EVERY_COORDINATE}
  * and to both expectations below.** That is the checklist, and it is executable
- * (`docs/dynamic-offset-plan.md` carries the same table in prose, plus `shiftById`, which is
+ * (`docs/plans/dynamic-offset-plan.md` carries the same table in prose, plus `shiftById`, which is
  * exercised in `HighlightController.anchorLine.test.ts` and the browser suite).
  */
 import { describe, it, expect } from 'vitest'

@@ -1,6 +1,6 @@
 /**
  * ⭐⭐ **THE SLUR + TIE GEOMETRY, IN STAFF SPACES** — every number that shapes a curve, in the unit
- * the engraving literature states them in (docs/slur-plan.md §11–§13).
+ * the engraving literature states them in (docs/plans/slur-plan.md §11–§13).
  *
  * One file for both, because they are one family: the same `drawCurveArc` primitive draws a slur, a
  * tie, each cross-system half and the armed tool's ghost, and §13.6 confirmed the two share a
@@ -8,7 +8,7 @@
  * pair of `slur*`/`tie*Thickness` values. What legitimately differs is the ARCH, and both arches are
  * here where they can be compared.
  *
- * ⭐ **Why staff spaces, when the drawing wants pixels** (docs/slur-plan.md §12.0 #8, Phase 7): these
+ * ⭐ **Why staff spaces, when the drawing wants pixels** (docs/plans/slur-plan.md §12.0 #8, Phase 7): these
  * used to be px living beside the code that drew them — `SLUR_LIFT = 10`, `TIE_BOW = 5.3`,
  * `CURVE_THICKNESS = 2.7` — which behaved as staff spaces only because the draw runs inside the
  * staff's `scale(k)` group. They are engraving numbers: Bravura publishes `slurMidpointThickness`
@@ -20,7 +20,7 @@
  * ⛔ **The conversion is against the CONSTANT {@link STAFF_SPACE_PX}, never against a live stave.**
  * The same rule `trillStyle` states: this ink is drawn INSIDE the staff's scale group at a fixed px
  * size, so a small staff's curve is already the same number of ITS OWN spaces as a full-size one's.
- * Multiplying by the staff size here would apply it twice — the bug class of docs/staff-size-plan.md.
+ * Multiplying by the staff size here would apply it twice — the bug class of docs/plans/staff-size-plan.md.
  * That is also why the ghost, which floats at the cursor with no stave under it at all, can use the
  * same numbers.
  *
@@ -32,7 +32,7 @@ import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { engravingDefault } from '@/engine/fonts/fontMetrics'
 
 /**
- * ⭐ **The numbers, in STAFF SPACES.** Where a phase of docs/slur-plan.md §12 will touch one, the
+ * ⭐ **The numbers, in STAFF SPACES.** Where a phase of docs/plans/slur-plan.md §12 will touch one, the
  * comment says which — so the next reader knows whether a value is settled or waiting on his eye.
  */
 export const CURVE = {
@@ -123,7 +123,7 @@ export const CURVE = {
    * ⭐⭐ **The air between a slur's ENDPOINT and its own note's articulation mark** —
    * `./slurArticulationEndpoint`, his report of 2026-09-14.
    *
-   * ⛔ **No book gives it.** `docs/slur-tie-research.md` §8.3 records that no treatise on disk states
+   * ⛔ **No book gives it.** `docs/research/slur-tie-research.md` §8.3 records that no treatise on disk states
    * how a slur clears articulation on the NOTEHEAD side at all; what they settle is only that
    * staccato and tenuto go INSIDE the slur (§8.2, four sources).
    *
@@ -262,7 +262,7 @@ export const CURVE = {
    * (`boundingbox.cpp:945`) — it narrows the fill by the stroke so fill + outline equals the nominal
    * exactly, where we simply added the two.
    *
-   * ⭐⭐ **And it is now READ from Bravura rather than typed** (F3, docs/font-metrics-plan.md) —
+   * ⭐⭐ **And it is now READ from Bravura rather than typed** (F3, docs/plans/font-metrics-plan.md) —
    * `engravingDefault('slurMidpointThickness')`, which is where this sentence already said it came
    * from. ⛔ It is still ONE number and still a taste call inside a real range: if it reads thin, the
    * answer is an override here with its reason, not a second constant somewhere else.
@@ -397,7 +397,7 @@ export const SLUR_OBSTACLE_MARGIN_RATIO = 0.04
  * ⭐ Verovio does the same thing with a different spelling — only obstacles with `|0.5 − ratio| <
  * 0.45` contribute, *"because this would result in very large shifts"* — and MuseScore halves the
  * step for edge collisions. All three engines have this rule; ⛔ we had none, and the hole is what
- * his 2026-09-14 report walked into (`docs/slur-tie-research.md` §8.1).
+ * his 2026-09-14 report walked into (`docs/research/slur-tie-research.md` §8.1).
  *
  * ⚠️ An obstacle inside this band is left UNCLEARED rather than answered with a spike. That is the
  * trade the three engines make, and the END is where the endpoint rules answer instead

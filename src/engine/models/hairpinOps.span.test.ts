@@ -216,13 +216,13 @@ describe('resizeHairpinBySlot — Ctrl+←/→ on the model', () => {
     expect(resizeHairpinBySlot(score, 'ghost', 1)).toBe(false)
   })
 
-  // ⭐⭐ P3 of docs/dynamic-voice-scope-plan.md. An unscoped wedge's lane is EVERY voice of its
+  // ⭐⭐ P3 of docs/plans/dynamic-voice-scope-plan.md. An unscoped wedge's lane is EVERY voice of its
   // staff, so two voices can begin together — and "cover that onset" then has two answers. It has to
   // be the SHORTEST, because the wedge must reach the NEXT onset in the lane, not past it.
 })
 
 /**
- * ⭐⭐ **THE LANE OF A WEDGE THAT GOVERNS EVERY VOICE** — P3 of docs/dynamic-voice-scope-plan.md.
+ * ⭐⭐ **THE LANE OF A WEDGE THAT GOVERNS EVERY VOICE** — P3 of docs/plans/dynamic-voice-scope-plan.md.
  *
  * Its own fixture, and the insertion order is the point: the LONG voice is typed first, so it is the
  * first entry `measure.slots` offers at the shared onset. "Take the first" and "take the shortest"

@@ -7,7 +7,7 @@ import { spacingPositionKey, leadingSpaceOverrideOf, measureLeadingSpaces } from
 import { makeEngine } from '@/testing/makeEngine'
 
 /**
- * A leading space TRAVELS WITH THE MUSIC (docs/note-spacing-plan.md §6).
+ * A leading space TRAVELS WITH THE MUSIC (docs/plans/note-spacing-plan.md §6).
  *
  * The reason it needs its own machinery: the override is keyed by *position*, not by any id the
  * clipboard carries, so nothing in the event stream can drag it along. Without capture/restore a
@@ -163,7 +163,7 @@ describe('leading space — survives a rebar, and auto-resets when its column di
 })
 
 /**
- * ⭐ A MEMBER's space travels too (docs/note-spacing-plan.md §7).
+ * ⭐ A MEMBER's space travels too (docs/plans/note-spacing-plan.md §7).
  *
  * The trap this pins: `restoreLeadingSpaces` keeps a space only where an event still starts at that
  * beat, and a fanned member starts at a beat NO SLOT holds — its position is a rational inside one.

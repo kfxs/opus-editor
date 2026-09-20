@@ -10,7 +10,7 @@
  * The cost is that every read has to re-derive it, and `x.voice ?? 0` was written out at 150 sites
  * and `x.staff ?? 0` at 69. Forgetting one does not fail loudly — the note simply belongs to the
  * wrong lane, which is the "next-note search unscoped by (voice, staff)" bug family
- * (docs/multi-staff-plan.md) that has already been fixed once. Naming the rule makes it greppable
+ * (docs/plans/multi-staff-plan.md) that has already been fixed once. Naming the rule makes it greppable
  * and gives it one home to change.
  *
  * ⚠️ These resolve an absent FIELD, not an absent OBJECT. They take a value, deliberately not

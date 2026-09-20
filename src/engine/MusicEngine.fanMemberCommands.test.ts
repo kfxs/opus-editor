@@ -5,7 +5,7 @@ import type { Chord, FanMark } from '@/types/music'
 
 /**
  * WHAT A FANNED MEMBER TAKES AND WHAT IT REFUSES, and why each answer is the notation talking
- * (docs/fanned-beam-pitches-plan.md §2 P3, §3).
+ * (docs/plans/fanned-beam-pitches-plan.md §2 P3, §3).
  *
  * A member is a note inside one written event, and the line between the two has moved twice, both
  * times because he used the feature and said so:
@@ -272,7 +272,7 @@ describe('a selected fanned member in the selection machinery', () => {
   })
 
   /**
-   * ⭐ …and the horizontal offset is NOT one of those things (docs/note-offset-plan.md §"Inside a
+   * ⭐ …and the horizontal offset is NOT one of those things (docs/plans/note-offset-plan.md §"Inside a
    * FAN"). Reported from use: nudge a member and the note that was typed moved instead, because the
    * offset resolved to the slot — the third time a member has answered for its owner.
    */
@@ -339,7 +339,7 @@ describe('a member edit is a real edit', () => {
 })
 
 /**
- * ⭐ Shift+letter stacks a pitch onto the MEMBER (docs/fanned-beam-pitches-plan.md §1 — the plan's
+ * ⭐ Shift+letter stacks a pitch onto the MEMBER (docs/plans/fanned-beam-pitches-plan.md §1 — the plan's
  * own list of what a member accepts). A member is a chord in its own right; resolving the chord
  * positionally, as the ordinary path does, put the new note on the group's FIRST head.
  */
@@ -395,7 +395,7 @@ describe('a chord note on a fanned member', () => {
 })
 
 /**
- * ⭐ THE SPACING ADDRESS of a fanned member (docs/note-spacing-plan.md §7).
+ * ⭐ THE SPACING ADDRESS of a fanned member (docs/plans/note-spacing-plan.md §7).
  *
  * `getNote` projects a member with the SLOT's beat, which is why nudging one member's spacing moved
  * the whole fan: every member handed the spacing keys the group's own column. `spacingColumnOf` is

@@ -7,7 +7,7 @@ import { MAX_FAN_BEAMS, MAX_FAN_COUNT, MAX_FAN_SPREAD, clampFanBeams, clampFanCo
 import type { FanMark } from '../types/music'
 
 /**
- * P4 — the Properties inputs change a fan's SHAPE (docs/fanned-beams-plan.md §3). The window is a
+ * P4 — the Properties inputs change a fan's SHAPE (docs/plans/fanned-beams-plan.md §3). The window is a
  * dumb publisher; this is the controller that holds the engine, so these tests drive the seam the
  * way the inputs do.
  */
@@ -107,7 +107,7 @@ describe('FanEditController', () => {
   })
 
   /**
-   * ⭐ THE RAMP RANGE (docs/fan-ramp-range-plan.md P2). The window publishes 0-based indices — it
+   * ⭐ THE RAMP RANGE (docs/plans/fan-ramp-range-plan.md P2). The window publishes 0-based indices — it
    * does the 1-based conversion itself — so these tests drive the seam exactly as it arrives.
    */
   describe('the ramp range', () => {

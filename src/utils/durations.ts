@@ -69,7 +69,7 @@ export const DURATIONS_DESC: NoteDuration[] = (Object.keys(DURATION_INFO) as Not
  * `'16'` → 2, `'32'` → 3. Dots never change it (a dotted eighth is still one flag).
  *
  * The count is what a tremolo's stroke count adds to, to say how finely the note is repeated
- * (docs/tremolo-plan.md §5): one total beam = eighths, two = 16ths, three = 32nds. It is why the
+ * (docs/plans/tremolo-plan.md §5): one total beam = eighths, two = 16ths, three = 32nds. It is why the
  * rule of thumb "three strokes on a quarter, two on an eighth, one on a sixteenth" all mean 32nds.
  *
  * DERIVED from {@link DURATION_INFO} rather than tabulated, the same reason {@link DURATIONS_DESC}
@@ -90,7 +90,7 @@ export function durationFlags(duration: NoteDuration): number {
  * when there is none.
  *
  * The two-note tremolo's drawing rule: both noteheads of a pair are written at the full value of the
- * whole tremolo, so the written pair reads twice as long as it sounds (docs/two-note-tremolo-plan.md
+ * whole tremolo, so the written pair reads twice as long as it sounds (docs/plans/two-note-tremolo-plan.md
  * §0). A `'w'` has no double, which is exactly why a pair of whole notes is refused — the null is the
  * refusal, not an error.
  *

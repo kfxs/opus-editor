@@ -1,6 +1,6 @@
 /**
  * ⭐⭐ **THE SEAM WHERE AN ACCIDENTAL'S INK COMES BACK TO US** — the note's MODIFIERS, 2026-09-14
- * (`docs/own-engraving-engine.md` P3; the ink itself is `engrave/notes/accidental`).
+ * (`docs/plans/own-engraving-engine.md` P3; the ink itself is `engrave/notes/accidental`).
  *
  * `Accidental.draw()` is ten lines, and only the last one paints:
  *
@@ -142,7 +142,7 @@ export class EngravedAccidental extends EngravedModifier implements InkSurfaceAw
   }
 
   /**
-   * ⭐⭐ **WHAT THIS SIGN'S INK COVERS — P6b's first hit box** (`docs/own-engraving-engine.md` §5 P6).
+   * ⭐⭐ **WHAT THIS SIGN'S INK COVERS — P6b's first hit box** (`docs/plans/own-engraving-engine.md` §5 P6).
    *
    * Computed from the stamp itself ({@link drawnInkBoxOf}), so it is the glyph's own outline in the
    * coordinates the glyph was drawn in — ⛔ not `getBoundingBox()`, whose height is the FONT'S LINE

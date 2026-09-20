@@ -299,7 +299,7 @@ test('⭐⭐ the BARLINE ghost is the PRECOMPOSED sign — three glyphs, one pos
   // which is also why the ghost is BLUE: the family's recolour paints `text` and `path`, so the
   // first build's `fillRect` strokes came out black — *"why the only thing is blue in the ghost is
   // the dots?"* ⛔ The PASS does not draw these glyphs: their box is a fixed 4 staff spaces, and an
-  // engraved barline spans whatever staff it is on (docs/barline-types-plan.md §8 P2).
+  // engraved barline spans whatever staff it is on (docs/plans/barline-types-plan.md §8 P2).
   expect(drawn.final.glyphs.map(g => g.code), 'barlineFinal').toEqual(['e032'])
   expect(drawn.start.glyphs.map(g => g.code), 'repeatLeft').toEqual(['e040'])
   expect(drawn.end.glyphs.map(g => g.code), 'repeatRight').toEqual(['e041'])

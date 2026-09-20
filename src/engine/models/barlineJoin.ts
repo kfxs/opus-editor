@@ -1,6 +1,6 @@
 /**
  * ⭐⭐ **IS THERE INK IN THE GAP?** — whether a barline runs unbroken from one staff into the next
- * one down, at a given boundary. docs/barline-join-plan.md §2.4.
+ * one down, at a given boundary. docs/plans/barline-join-plan.md §2.4.
  *
  * ## ⭐⭐ Why the BOUNDARY is in the signature although nothing varies by it
  *
@@ -18,7 +18,7 @@
  *
  * ⛔ **So we do NOT add a positional field now.** A field with no feature is a field nothing
  * maintains: `Measure.keys` was deliberately left out of key signatures P1 for this reason, and
- * docs/barline-types-plan.md §2 took the other road (it stores a per-staff scope that nothing reads)
+ * docs/plans/barline-types-plan.md §2 took the other road (it stores a per-staff scope that nothing reads)
  * and lists it in §10 as a smell.
  *
  * ⭐ This is `resolveStaffSize`'s arrangement, down to the `void` on the reserved parameter and its
@@ -41,7 +41,7 @@ import { getStaves } from './staffContent'
  * ⭐ It is also the conservative landing: today every staff draws its own barlines, so an absent
  * field keeps the picture exactly as it is and nothing in the score moves until someone asks for a
  * join. The joined-by-default question comes back as an INSTRUMENT one (piano joined, orchestral
- * joined per family, vocal not — docs/barline-join-plan.md §2.3), where it belongs.
+ * joined per family, vocal not — docs/plans/barline-join-plan.md §2.3), where it belongs.
  */
 export const DEFAULT_BARLINE_JOIN = false
 
@@ -81,7 +81,7 @@ export function barlineJoinsBelow(
  *
  * ⭐ **The bottom staff is refused, not silently stored.** There is no gap below it, so a `true`
  * there would be a fact about nothing that {@link barlineJoinsBelow} would then have to ignore
- * forever — the shape of stored-and-unread that docs/barline-types-plan.md §10 lists as a smell.
+ * forever — the shape of stored-and-unread that docs/plans/barline-types-plan.md §10 lists as a smell.
  *
  * @returns whether the score changed — `false` for an unknown staff, the bottom staff, or a write
  *          that says what was already true.

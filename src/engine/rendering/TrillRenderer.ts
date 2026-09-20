@@ -1,5 +1,5 @@
 /**
- * ⭐⭐ **TRILLS — the `tr` and its wavy extension, drawn.** P2 of docs/trill-plan.md.
+ * ⭐⭐ **TRILLS — the `tr` and its wavy extension, drawn.** P2 of docs/plans/trill-plan.md.
  *
  * A score-level pass after the measures, exactly like `renderSlurs` and `renderHairpins` and for the
  * same reason: a trill spans bars, so it cannot be drawn inside any one bar's group.
@@ -10,13 +10,13 @@
  * dynamics family and must level with the letters it meets, which is why it looks its y up in a
  * plan computed for the whole render. A trill is read individually at its own note — nobody scans a
  * row of trills — so it clears its OWN span and nothing else, with no chain and no plan
- * (docs/above-staff-ladder.md §1: the test for a baseline is *is it read as a row?*).
+ * (docs/how-it-works/above-staff-ladder.md §1: the test for a baseline is *is it read as a row?*).
  *
  * ⭐ **Every fragment draws its own SIGN.** A cross-system trill is not one mark in pieces the way a
  * slur is: the reader arriving on the second system must be told what the wavy line means, so
  * LilyPond restarts the `tr` above the first note there, Sibelius prints a parenthesised `(tr)`, and
  * Dorico makes it an option. Ours is LilyPond's plain restart — the parenthesis is one constant away
- * if his eye prefers it (docs/trill-plan.md §1 rule 6).
+ * if his eye prefers it (docs/plans/trill-plan.md §1 rule 6).
  *
  * ⭐⭐ **THE LINE DRAWS BY DEFAULT, including on a single note** — his call, 2026-08-13, overruling
  * the plan's rule 5 (LilyPond's and Gould's "a single note needs no wavy line"). A bare `tr` leaves
@@ -78,7 +78,7 @@ import { noteRuler } from './noteRuler'
  * layout's columns and from beats alone, which is what let {@link planTrillBands} run above the
  * measure loop.
  *
- * ⭐ **We gave that up to clear the SLUR** (docs/trill-slur-clearance-plan.md). An arc's height is
+ * ⭐ **We gave that up to clear the SLUR** (docs/plans/trill-slur-clearance-plan.md). An arc's height is
  * not derivable from columns and beats — it exists only once drawn — so the plan now runs after
  * `renderTies`/`renderSlurs` and takes the full {@link TrillPlacement}, stave and all. ⚠️ The
  * pixel-freeness bought exactly one thing, the hoist; the hoist bought exactly one thing, an early
@@ -338,7 +338,7 @@ function baselineFor(
 }
 
 /**
- * ⭐⭐ **THE SLUR (AND THE TIE) AS INK** — docs/trill-slur-clearance-plan.md P2, and the whole reason
+ * ⭐⭐ **THE SLUR (AND THE TIE) AS INK** — docs/plans/trill-slur-clearance-plan.md P2, and the whole reason
  * this pass runs after the curves are drawn.
  *
  * > Gould p. 135: the trill sits *"further from the note than any articulation marks. Only a long
@@ -647,7 +647,7 @@ function drawTrill(
   // ⭐⭐ THE ATTACHMENT GUIDE'S FAR END — the trilled NOTE, captured once for the whole ornament.
   //
   // ⭐ **A trill's anchor really is a note**, which puts it with the dynamic and against the tempo
-  // mark (whose anchor is a place in time — see docs/dynamic-offset-plan.md). The distinction is not
+  // mark (whose anchor is a place in time — see docs/plans/dynamic-offset-plan.md). The distinction is not
   // a style choice: this ornament is DEFINED by that note. Its auxiliary is a step above THAT pitch
   // (`utils/trillPitch`), so a guide that pointed at a staff line instead would be pointing away
   // from the thing the trill is computed from.
@@ -740,7 +740,7 @@ function drawTrill(
     // the pieces are cut, because past the end of a line it changes which pieces there are (the
     // FOLD). ⛔ Adding it again here would double every end nudge.
     const lineEnd = piece.x1
-    // ⭐⭐ **THE LINE DRAWS BY DEFAULT — his call, 2026-08-13**, overruling docs/trill-plan.md §1
+    // ⭐⭐ **THE LINE DRAWS BY DEFAULT — his call, 2026-08-13**, overruling docs/plans/trill-plan.md §1
     // rule 5 ("a single note needs no wavy line"), which was LilyPond's and Gould's. A bare `tr`
     // leaves the duration implied; he wants it shown, on one note as much as on twenty.
     //

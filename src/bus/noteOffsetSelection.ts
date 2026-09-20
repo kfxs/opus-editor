@@ -2,7 +2,7 @@ import { RequestChannel } from './requestChannel'
 
 /**
  * The seam the Properties note-offset input publishes through (client #12 — see
- * docs/note-offset-plan.md §B). A `PaletteSelection`-style singleton, but **command-only**: the
+ * docs/plans/note-offset-plan.md §B). A `PaletteSelection`-style singleton, but **command-only**: the
  * window writes "set the horizontal offset of THIS note/rest to X staff-spaces" and
  * {@link NoteOffsetController} — the one place that holds the engine — applies it.
  *

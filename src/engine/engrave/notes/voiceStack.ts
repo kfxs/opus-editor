@@ -1,6 +1,6 @@
 /**
  * ⭐⭐ **HOW THE VOICES OF ONE COLUMN MAKE ROOM FOR EACH OTHER** — S9g of
- * `docs/vexflow-removal-map.md` (`StaveNote.format`, MIT, transcribed).
+ * `docs/history/vexflow-removal-map.md` (`StaveNote.format`, MIT, transcribed).
  *
  * ## ⭐ What the rule IS
  *

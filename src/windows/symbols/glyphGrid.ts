@@ -5,7 +5,7 @@ import type { Glyph, RangeBlock } from './smufl'
 
 /**
  * The chart itself: one continuous scroll, a heading over each SMuFL range, a wall of glyphs under
- * it — Sibelius's Symbols panel (docs/symbols-window-plan.md).
+ * it — Sibelius's Symbols panel (docs/plans/symbols-window-plan.md).
  *
  * ⚠️ **A cell holds a glyph and nothing else.** No codepoint under it, no name, no badge. That rule
  * is the whole look: what makes the panel readable is that the eye meets ink and not labels. Every

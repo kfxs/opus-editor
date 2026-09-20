@@ -14,7 +14,7 @@ import {
  * {@link inkBand} — how far the music reaches, and where a mark clears it.
  *
  * Extracted from `dynamicsLine.test.ts` when the TRILL became the rule's second client
- * (docs/trill-plan.md §4, P2) — *a spec moves with its module*. What stayed behind is what is
+ * (docs/plans/trill-plan.md §4, P2) — *a spec moves with its module*. What stayed behind is what is
  * genuinely about the dynamics FAMILY: that its own two numbers produce the 2.1 floor, and that
  * `dynamicsLineAt` measures a mark against its own column. Here is the arithmetic both families
  * share, and the first chapter is the one the extraction exists for — that the rule is
@@ -57,7 +57,7 @@ function barOf(pitches: Array<{ step: string; octave: number }>): Column[] {
 }
 
 describe('⭐⭐ clearanceBaseline is PARAMETERISED — the point of the extraction', () => {
-  /** The trill's own two numbers (docs/trill-plan.md §1 rule 8 — LilyPond's `TrillSpanner`). */
+  /** The trill's own two numbers (docs/plans/trill-plan.md §1 rule 8 — LilyPond's `TrillSpanner`). */
   const TRILL: Clearance = { padding: 0.5, minFromStaff: 1.0 }
 
   it('two families with two constant sets get two different lines from the same band', () => {
@@ -68,7 +68,7 @@ describe('⭐⭐ clearanceBaseline is PARAMETERISED — the point of the extract
   })
 
   it('⭐ the trill sits NEARER the staff than the dynamics would — it is the innermost family', () => {
-    // docs/above-staff-ladder.md §3: LilyPond gives TrillSpanner priority 50 against
+    // docs/how-it-works/above-staff-ladder.md §3: LilyPond gives TrillSpanner priority 50 against
     // DynamicLineSpanner's 250, and for us that ordering is exactly these two floors.
     const band = { top: 0, bottom: 4 }
     const trill = clearanceBaseline(band, 'above', MARK, TRILL)

@@ -15,7 +15,7 @@ import { standOn } from './staveFrame'
  *
  * A fan is how you write N attacks with one written note, and an articulation belongs to an attack —
  * so the sixth note of an accelerando can be the accented one. That was refused for a long time
- * (`docs/fanned-beam-pitches-plan.md` §3: *"Ties, articulations, dynamics on a member. Refused —
+ * (`docs/plans/fanned-beam-pitches-plan.md` §3: *"Ties, articulations, dynamics on a member. Refused —
  * actively"*) on the reasoning that a mark attaches to the whole gesture, and the drawing agreed by
  * accident: only member 0 is a real `StaveNote`, so only member 0 could carry a modifier at all.
  * Both halves are gone — `FanMemberChord.articulations` stores them and this draws them — for the

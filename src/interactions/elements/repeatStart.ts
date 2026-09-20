@@ -26,7 +26,7 @@
  *
  * ⭐ The box already says which sign a press is on, so the order was the only thing wrong: it is this
  * sign's own ink from the boundary rightward, which for a lone `|:` is the WHOLE sign (all of it grows
- * into the bar it opens, `docs/barline-types-plan.md` §6.1) and for a `:||:` is exactly its right
+ * into the bar it opens, `docs/plans/barline-types-plan.md` §6.1) and for a `:||:` is exactly its right
  * half. The barline keeps everything left of the boundary — the end repeat's half, or the line itself.
  *
  * ⚠️ **The bar-width gestures are not lost where this takes the ink.** The boundary is still grabbable
@@ -46,7 +46,7 @@ export const REPEAT_START_ELEMENT: ClickableElementSpec = {
    *
    * ⭐ **No `isPainted` filter, unlike the barline's** — and it is not an omission. Tier 1 registers a
    * barline box for every bar in the SCORE, drawn or not, so a press there can land on a line that is
-   * not on the page (docs/barline-selection.md §1a). This box is registered by the DRAWING pass
+   * not on the page (docs/how-it-works/barline-selection.md §1a). This box is registered by the DRAWING pass
    * (`BarlineRenderer.registerRepeatStart`), so its existence already IS the proof that the sign was
    * painted.
    */

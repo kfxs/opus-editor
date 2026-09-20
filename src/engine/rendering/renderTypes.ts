@@ -25,7 +25,7 @@ export interface MeasureBounds {
   noteEndX: number
   /**
    * ⭐ **This SYSTEM's header→first-note gap, in staff spaces** — 2½ after a clef or key signature,
-   * 2 after a meter (decision D, `docs/header-spacing-research.md` §8).
+   * 2 after a meter (decision D, `docs/research/header-spacing-research.md` §8).
    *
    * ⚠️ **The system's, ⛔ not "what this bar spent".** A bar drawing no header spends its own lead-in
    * padding instead and ignores this — it is recorded on every bar because the reader that wants it
@@ -52,7 +52,7 @@ export function measureGroupKey(measureNumber: number, staffIndex: number): stri
 
 /**
  * **Tier 1** — where one (measure, staff) sits, and the `Stave` that knows its geometry
- * (docs/render-performance-plan.md §7).
+ * (docs/history/render-performance-plan.md §7).
  *
  * Everything here is derived from the casting-off — `MeasureLayout`'s widths plus the staff-spacing
  * layout — and **nothing here needs a drawing context**. The `stave` is built but not painted; it
@@ -142,7 +142,7 @@ export interface MeasurePlacement {
   /** The real height of the system this measure sits on (staff-spacing aware). */
   systemHeight: number
   /**
-   * **How big this staff is drawn**, as a ratio (1 = full size — docs/staff-size-plan.md).
+   * **How big this staff is drawn**, as a ratio (1 = full size — docs/plans/staff-size-plan.md).
    *
    * ⚠️ `x`, `y` and `width` above are where the bar lands **in the SVG**; the `stave` below is
    * built at `x/scale, y/scale, width/scale` and painted inside a `<g transform="scale(k)">`, so

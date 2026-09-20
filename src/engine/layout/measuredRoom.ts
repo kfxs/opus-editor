@@ -1,7 +1,7 @@
 /**
  * ROOM, MEASURED OFF THE LAST RENDER — how far a column may still be pulled left, how far a fanned
  * member may close on the one behind it, and how many pixels of width a drawn bar can give back.
- * Extracted from {@link MusicEngine} (docs/refactor-plan-2026-07-27.md Phase 6b).
+ * Extracted from {@link MusicEngine} (docs/history/refactor-plan-2026-07-27.md Phase 6b).
  *
  * All three ask the SAME kind of question and answer it the same way: not by predicting what the
  * formatter would do, but by reading what it DID out of the {@link ElementRegistry}, which registers
@@ -84,7 +84,7 @@ export function measuredShrinkRoom(registry: ElementRegistry, measureNumber: num
     // ⭐ The floor is the MODEL's own — a notehead plus note↔note padding, {@link MIN_COLUMN_GAP} —
     //   and it is in STAFF SPACES, so a staff drawn small floors at its own smaller number. It used
     //   to be `MIN_NOTE_SPACING`, an absolute pixel count that was the same on every staff whatever
-    //   its size, and 1.8 spaces where the ink needs 1.43 (docs/spacing-model-plan.md P3).
+    //   its size, and 1.8 spaces where the ink needs 1.43 (docs/plans/spacing-model-plan.md P3).
     const slack = (columns[at].x - leftX) / staffSpacePx - MIN_COLUMN_GAP
     room = room === null ? Math.max(0, slack) : Math.min(room, Math.max(0, slack))
   }
@@ -178,7 +178,7 @@ export function measuredBarlineGapRoom(
     const geometry = registry.getStaffGeometry(measureNumber, staff)
     if (!geometry) return null
     const spacePx = geometry.lineSpacing ?? STAFF_SPACE_PX
-    // ⭐⭐ **THE FLOOR IS THE PADDING PLUS THE SIGN** (docs/barline-types-plan.md §6.2). The blank a
+    // ⭐⭐ **THE FLOOR IS THE PADDING PLUS THE SIGN** (docs/plans/barline-types-plan.md §6.2). The blank a
     // bar must keep between its last glyph and its barline is `pairPadding`, and that is measured to
     // the line's INK — but a final bar or a repeat puts ≈1.0–1.5 staff spaces of its own ink to the
     // LEFT of the line (§6.1). Without the second term `Shift+←` would happily close the gap onto

@@ -24,7 +24,7 @@
  *
  * ## ⭐ At most ONE mark per beat, so a stop that is taken is REFUSED
  *
- * Two tempo marks on one beat is not a thing (`docs/tempo-marks-plan.md` §4, and the rule
+ * Two tempo marks on one beat is not a thing (`docs/plans/tempo-marks-plan.md` §4, and the rule
  * `rebarOps.restoreBeatAnchors` already enforces on the way back in). ⛔ The step therefore neither
  * overwrites the sitting mark (silent data loss) nor stacks beside it (a contradiction the tempo map
  * would have to resolve by array order): it declines, and the walk stops there exactly as it stops
@@ -120,7 +120,7 @@ export function tempoAnchorAt(score: Score, at: Stop): Stop | null {
 
 /**
  * The tempo mark sitting on a stop, if any — ⚠️ **at most one per beat** is the model's rule
- * (`docs/tempo-marks-plan.md` §4), so a caller placing a mark there has to decide about THIS one.
+ * (`docs/plans/tempo-marks-plan.md` §4), so a caller placing a mark there has to decide about THIS one.
  * A paste replaces it, which is what `rebarOps.restoreBeatAnchors` does with the clip's own marks.
  */
 export function tempoAtStop(score: Score, at: Stop): TempoMark | null {

@@ -260,7 +260,7 @@ describe('musicUtils', () => {
 
 /**
  * The bar's notes as the running-accidental rule sees them — `getMeasureNotes` plus every fanned
- * MEMBER, at the beat it sounds on (docs/fanned-beam-pitches-plan.md §2).
+ * MEMBER, at the beat it sounds on (docs/plans/fanned-beam-pitches-plan.md §2).
  */
 describe('measureAccidentalNotes', () => {
   const pitch = (id: string, step: PitchStep, alter: PitchAlter): NotePitch =>
@@ -340,7 +340,7 @@ describe('measureAccidentalNotes', () => {
 
 /**
  * ⭐ ARROW NAVIGATION WALKS THE MEMBERS — each sounds at its own moment inside the slot, so
- * `buildVoiceNavBeatMap` stops on every one (docs/fanned-beam-pitches-plan.md). Its ENTRY twin,
+ * `buildVoiceNavBeatMap` stops on every one (docs/plans/fanned-beam-pitches-plan.md). Its ENTRY twin,
  * `buildBeatMap`, deliberately does not: a member is not a position you can type a note at.
  */
 describe('fanned members in the beat maps', () => {

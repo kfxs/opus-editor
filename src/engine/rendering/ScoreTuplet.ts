@@ -19,9 +19,9 @@ import { staveFrame, staveOf } from './staveFrame'
  * mark and of the ghost's, and VexFlow's own `textElement` ({@link ScoreTuplet}'s constructor).
  *
  * ⭐ Not per staff: a small staff gets a small number anyway, because the mark is drawn inside its
- * scale group (docs/staff-size-plan.md §10). It used to be written into VexFlow's GLOBAL
+ * scale group (docs/plans/staff-size-plan.md §10). It used to be written into VexFlow's GLOBAL
  * `MetricsDefaults.Tuplet` at import, with a `Metrics.clear` to evict the cached font — S1c of
- * `docs/vexflow-removal-map.md` made it a value handed to each drawing instead.
+ * `docs/history/vexflow-removal-map.md` made it a value handed to each drawing instead.
  */
 const TUPLET_FONT_SIZE = 26
 
@@ -118,7 +118,7 @@ export interface ScoreTupletOptions {
 let nextTupletId = 0
 
 /**
- * ⭐ **A TUPLET OF OURS — S12a** (`docs/vexflow-removal-map.md` S12): the group, its options and its
+ * ⭐ **A TUPLET OF OURS — S12a** (`docs/history/vexflow-removal-map.md` S12): the group, its options and its
  * mark, drawn with OUR bracket. It used to `extend` VexFlow's `Tuplet`; what it still took from it is
  * transcribed here — the constructor's defaults, its rest alignment and its `attach`, the note count,
  * and the nesting count. ⚠️ The NOTES still hold it VexFlow's way: `setTuplet` pushes it on each

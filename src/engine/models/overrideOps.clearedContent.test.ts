@@ -25,8 +25,8 @@ import type { Score, RestShiftOverride, RestHiddenOverride, NoteOffsetOverride, 
  * SLOT, so the clear above never sees it.
  *
  * ⛔ It drops the HIDDEN flag and nothing else. The `restShift` at that same address stays — see
- * `docs/rest-shift-plan.md` §4 and `ScoreModel.test.ts`'s "resurrects on a plain rest→note→rest",
- * a decision this fix is not allowed to retire behind its back. `docs/rest-hide-plan.md` §"A hide
+ * `docs/plans/rest-shift-plan.md` §4 and `ScoreModel.test.ts`'s "resurrects on a plain rest→note→rest",
+ * a decision this fix is not allowed to retire behind its back. `docs/plans/rest-hide-plan.md` §"A hide
  * does not resurrect" is where the asymmetry is argued.
  */
 

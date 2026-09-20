@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * The note/rest drag decides between TWO gestures from the movement (docs/note-spacing-plan.md §5,
+ * The note/rest drag decides between TWO gestures from the movement (docs/plans/note-spacing-plan.md §5,
  * P2): vertical wins → re-pitch, horizontal wins → note spacing.
  *
  * These pin the decision itself, which is the part with a history. The old gate was elapsed TIME,
@@ -79,7 +79,7 @@ describe('note/rest drag — axis decision', () => {
       pixelToPosition: vi.fn(() => ({ measure: 1, beat: 1, spelling: { step: 'E', alter: 0, octave: 4 } })),
       updateNote: vi.fn(),
       // The spacing address of the grabbed note — its own column here; a fanned member's own beat
-      // in the app (docs/note-spacing-plan.md §7).
+      // in the app (docs/plans/note-spacing-plan.md §7).
       spacingColumnOf: vi.fn(() => ({ measure: note.measure, beat: note.beat, memberIndex: 0 })),
       noteSpacingRoom: vi.fn(() => 2),
       getNoteSpacing: vi.fn(() => 0),
@@ -183,7 +183,7 @@ describe('note/rest drag — axis decision', () => {
   })
 
   /**
-   * ⭐ A FANNED MEMBER drags like any other note (docs/fanned-beam-pitches-plan.md §2 P3).
+   * ⭐ A FANNED MEMBER drags like any other note (docs/plans/fanned-beam-pitches-plan.md §2 P3).
    *
    * It reached the registry and the highlight and STILL did nothing on a drag, because the pitch
    * branch re-read the note through `getMeasureNotes` — which walks `slot.notes` and cannot see a

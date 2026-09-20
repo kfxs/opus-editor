@@ -1,6 +1,6 @@
 /**
  * What the span and dynamics LANES each asked of the last render in the same words — four tiny
- * bodies spelled once per family (docs/code-shape-plan-2026-09-19.md, Phase 5). ⛔ No gesture decides
+ * bodies spelled once per family (docs/plans/code-shape-plan-2026-09-19.md, Phase 5). ⛔ No gesture decides
  * anything here: these READ the registry, and every family's walk stays its own.
  *
  * ⚠️ Measured before merging — only copies that were identical line for line are here. NOT here, on

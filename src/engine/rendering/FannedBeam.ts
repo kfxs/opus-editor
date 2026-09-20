@@ -1,7 +1,7 @@
 /**
  * A fanned (feathered) beam's GEOMETRY — where the members' stems go and where the beam lines run,
  * as pure arithmetic. Numbers in, numbers out: no VexFlow, no DOM. The renderer reads the real
- * note's geometry, calls this, and fills the quads (docs/fanned-beams-plan.md §3, P1).
+ * note's geometry, calls this, and fills the quads (docs/plans/fanned-beams-plan.md §3, P1).
  *
  * VexFlow cannot draw this: `Beam.drawBeamLines` steps every level by a constant `beamWidth * 1.5`
  * on ONE shared slope, and how many lines there are comes from the note's written duration. A fan is
@@ -58,7 +58,7 @@ export function fanBeamFarEdge(beams: FanQuad[], x: number, stemDirection: numbe
 
 /**
  * One note of the PREFIX — the group the fan is JOINED to on its left
- * (docs/fan-beam-join-plan.md P1).
+ * (docs/plans/fan-beam-join-plan.md P1).
  *
  * ⚠️ Its position is FIXED by the formatter, not by the ramp: these notes were spaced by VexFlow
  * like any others, and all this pass does is aim their stems at the shared line. Rests carry no
@@ -96,7 +96,7 @@ export interface FanGeometry {
   /**
    * How many lines stand at each END of the GROUP — the narrow end of the ramp is always 1, its wide
    * end is `beams`, and an end the wedge does not reach at all is 1 (the primary, alone). What a
-   * neighbouring fan has to meet (docs/fan-beam-join-plan.md P2): the lines that cross the gap
+   * neighbouring fan has to meet (docs/plans/fan-beam-join-plan.md P2): the lines that cross the gap
    * between two fans are the ones BOTH sides have.
    */
   startLevels: number
@@ -167,7 +167,7 @@ export interface FanGeometryOptions {
   beams: number
   /**
    * ⭐ Which members the WEDGE covers — {@link FanMark.rampFrom}/{@link FanMark.rampTo}, passed
-   * RAW and clamped here against `members.length` (docs/fan-ramp-range-plan.md §3). Absent on either
+   * RAW and clamped here against `members.length` (docs/plans/fan-ramp-range-plan.md §3). Absent on either
    * side means that end of the group, which is every fan drawn before the range existed.
    *
    * Only the extra levels move. The primary still runs the whole group — every member is beamed —
@@ -230,7 +230,7 @@ export interface FanGeometryOptions {
   headRightRoom?: number[]
   /**
    * ⭐ The user-authored leading space, in PIXELS, before each member — 0 (or absent) where the
-   * engraver's own ramp stands (docs/note-spacing-plan.md §7). Index k is the space before member k;
+   * engraver's own ramp stands (docs/plans/note-spacing-plan.md §7). Index k is the space before member k;
    * entry 0 is ignored, because the space before member 0 is the space before the fan's own COLUMN
    * and the tick-context shift has already spent it.
    *
@@ -299,7 +299,7 @@ export interface FanGeometryOptions {
   rampApexX?: number
   /**
    * ⭐ The user-authored horizontal OFFSET of each member, in PIXELS (+right) — 0 (or absent) where
-   * the member stands on its own column (docs/note-offset-plan.md §"Inside a FAN"). Index k is
+   * the member stands on its own column (docs/plans/note-offset-plan.md §"Inside a FAN"). Index k is
    * member k's own offset, **entry 0 included**: the fan's owner is one note of the group, not a
    * handle the group hangs from.
    *
@@ -360,7 +360,7 @@ export interface FanGeometryOptions {
  * ⭐ **The beam line RUNS FROM MEMBER 0'S OWN STEM TIP**, at the slope the last member asks for, and
  * the extra levels step INWARD from it (`beamWidth × 1.5`, VexFlow's own step, signed by the stem
  * direction). It was flat while every member was the slot's own pitch; now that they have their own
- * (docs/fanned-beam-pitches-plan.md §2) it leans, and this is the only line here that changed.
+ * (docs/plans/fanned-beam-pitches-plan.md §2) it leans, and this is the only line here that changed.
  *
  * ⭐ **Anchored at member 0, never at the middle.** The real note's stem is drawn by VexFlow, so the
  * one place the line and the page cannot argue is the tip it already has. Everything else is
@@ -380,7 +380,7 @@ export interface FanGeometryOptions {
  * makes them read as one fan rather than as a stack of beams that happens to be ragged.
  *
  * ⭐ **The wedge may cover only PART of the group** ({@link FanGeometryOptions.rampFrom}, and
- * docs/fan-ramp-range-plan.md). The primary is untouched by that — every member is beamed — so the
+ * docs/plans/fan-ramp-range-plan.md). The primary is untouched by that — every member is beamed — so the
  * whole of the change is which two stems the extra levels span, and the members outside them are
  * left carrying one line at the base speed their own {@link FanMember.quarters} already reports.
  * Picture and playback are still the same function; they are simply flat over part of their range.
@@ -391,7 +391,7 @@ export interface FanGeometryOptions {
  *
  * ## Joined to the group on its left
  *
- * ⭐ **The joined line is HORIZONTAL** (his call, docs/fan-beam-join-plan.md P1 — the cheapest of
+ * ⭐ **The joined line is HORIZONTAL** (his call, docs/plans/fan-beam-join-plan.md P1 — the cheapest of
  * three answers). Flat means there is no angle to argue about: the line sits at the height the
  * outermost note in the WHOLE group asks for and every stem stretches to meet it, which is precisely
  * the floor pass below ("largest ask wins, the whole line moves") with the slope forced to zero. It
@@ -478,7 +478,7 @@ export function fannedBeamGeometry(opts: FanGeometryOptions): FanGeometry {
    * is why the feature carried five constants that all answered one question — `fanColumns` bought
    * the room, `FAN_MAX_SPAN_STRETCH` capped it, `fanMaxSpanPx` re-derived it, `trailingGap` held the
    * end open, `FAN_MIN_HEAD_GAP_RATIO` floored the crowding — each right on the screenshot it was
-   * measured against (docs/spacing-model-plan.md §0). A ramp with an ABSOLUTE natural size needs
+   * measured against (docs/plans/spacing-model-plan.md §0). A ramp with an ABSOLUTE natural size needs
    * none of them: it does not sprawl when the bar is wide, and the bar asks for exactly what its
    * member columns need because `measureColumns` counts them like any other columns.
    *
@@ -704,7 +704,7 @@ export function fannedBeamGeometry(opts: FanGeometryOptions): FanGeometry {
 }
 
 /**
- * The lines that CROSS the gap between two fans on one beam (docs/fan-beam-join-plan.md P2) — from
+ * The lines that CROSS the gap between two fans on one beam (docs/plans/fan-beam-join-plan.md P2) — from
  * the left fan's last member's stem to the right fan's owner's stem.
  *
  * ⭐ **The lines both sides have**: `min(left.endLevels, right.startLevels)`. A level that only one

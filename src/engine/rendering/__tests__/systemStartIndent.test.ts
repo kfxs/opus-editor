@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * ⭐⭐ **DOES THE LEFT-EDGE INDENT ACTUALLY REACH THE LAYOUT?** — P2 of docs/braces-brackets-plan.md.
+ * ⭐⭐ **DOES THE LEFT-EDGE INDENT ACTUALLY REACH THE LAYOUT?** — P2 of docs/plans/braces-brackets-plan.md.
  *
  * A **feature test** rather than one module's: the claim spans `models/staffGroups` (which signs
  * stand), `layout/systemStartColumn` (what they take), `MeasureLayout` (the casting-off that gets

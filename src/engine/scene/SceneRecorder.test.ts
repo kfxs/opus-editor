@@ -8,7 +8,7 @@ import type { SceneGroup } from './Scene'
 
 /**
  * ⭐ **No jsdom** — deliberately, and it is the headline: a recorder needs no page, which is what
- * makes the scene a unit-testable artefact at all (`docs/own-engraving-engine.md` §7.2).
+ * makes the scene a unit-testable artefact at all (`docs/plans/own-engraving-engine.md` §7.2).
  */
 
 /** A DrawGroup that just remembers what it was told — the "real painter" half of a tee. */

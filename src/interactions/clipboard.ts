@@ -113,7 +113,7 @@ function selectedSpans(score: Score, noteIds: Set<string>): { start: Fraction; e
  * Manual rest shifts of one `(staff, voice)` lane whose rest onset falls inside the copy window
  * `[spanStart, spanEnd)`, as `{ offset, steps }` re-based to the window start (the same
  * basis as the lane's events). Read straight off the `Score` value via
- * `restShiftOverrideOf`. See docs/rest-shift-plan.md §6.5.
+ * `restShiftOverrideOf`. See docs/plans/rest-shift-plan.md §6.5.
  */
 function restShiftsInWindow(
   score: Score,
@@ -143,7 +143,7 @@ function restShiftsInWindow(
 /**
  * Hidden rests of one `(staff, voice)` lane whose onset falls inside the copy window
  * `[spanStart, spanEnd)`, as `{ offset }` re-based to the window start (same basis as the
- * lane's events). The hidden twin of {@link restShiftsInWindow}. See docs/rest-hide-plan.md.
+ * lane's events). The hidden twin of {@link restShiftsInWindow}. See docs/plans/rest-hide-plan.md.
  */
 function restHiddenInWindow(
   score: Score,

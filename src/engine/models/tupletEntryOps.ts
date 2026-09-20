@@ -3,7 +3,7 @@
  * ({@link buildTupletWithFirstNote}, the mouse's and the keyboard's create), an existing note or
  * rest turned into one ({@link applyTupletToNote}), and the guard all three share: a tuplet must
  * FIT its bar ({@link tupletFitsBar}). Score logic, moved out of `NoteEntryCoordinator`
- * (docs/code-shape-plan-2026-09-19.md, Phase 4.2d): the coordinator keeps pixel resolution and the
+ * (docs/plans/code-shape-plan-2026-09-19.md, Phase 4.2d): the coordinator keeps pixel resolution and the
  * commit — each function answers null when nothing was written, and the caller commits otherwise.
  *
  * And entering INTO one that exists: the keyboard CLAMPS the written length to what the group has

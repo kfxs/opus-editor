@@ -58,7 +58,7 @@ export type MarkingTool =
   | { kind: 'timeSignature'; timeSignature: TimeSignature; cautionary?: boolean; pickup?: Fraction | null }
   /**
    * ⭐ The KEY SIGNATURE stamp — a click puts `key` at the head of the bar it lands on
-   * (`interactions/keySignatureStamp.ts`, docs/key-signature-plan.md §5).
+   * (`interactions/keySignatureStamp.ts`, docs/plans/key-signature-plan.md §5).
    *
    * ⭐ **It CARRIES THE SIGNATURE ITSELF**, ⛔ never a `fifths` integer: the model stores a LIST of
    * altered letters precisely so a custom signature (mixed sharps and flats, authored order) is
@@ -83,7 +83,7 @@ export type MarkingTool =
   | { kind: 'keySignature'; key: KeySignature }
   /**
    * ⭐⭐ The GROUPING-SIGN stamp — a click puts a brace or a bracket on the staff it lands on
-   * (P5 of docs/braces-brackets-plan.md, `interactions/groupStamp.ts`).
+   * (P5 of docs/plans/braces-brackets-plan.md, `interactions/groupStamp.ts`).
    *
    * ⭐ **It is the ARM half of his rule of 2026-08-29**: *"if no staff is selected we arm a stamp and
    * apply to the staff we click."* The APPLY half never reaches here — a selection that names staves
@@ -118,7 +118,7 @@ export type MarkingTool =
   /** SINGLE-valued for the accidental's reason: a note carries ONE tremolo, so pressing another
    *  mark swaps it. Marks notes that already have their length, like the accidental stamp.
    *  Distinct from {@link EditorState.selectedTremolo}, which arms the mark for the next note
-   *  ENTERED — the same split the accidental has. See docs/tremolo-plan.md §2 and §10. */
+   *  ENTERED — the same split the accidental has. See docs/plans/tremolo-plan.md §2 and §10. */
   | { kind: 'tremolo'; tremolo: TremoloMark }
   /** VALUELESS — a note ties to the next slot or it does not. */
   | { kind: 'tie' }
@@ -213,7 +213,7 @@ export type MarkingTool =
    * preview a position nothing has chosen — but what the cursor has to say is WHAT the click makes.
    * See {@link toolGhost} and `interactions/trillStamp.ts`.
    *
-   * ⛔ And no keyboard shortcut arms it — his call, 2026-08-13. See docs/trill-plan.md §6.
+   * ⛔ And no keyboard shortcut arms it — his call, 2026-08-13. See docs/plans/trill-plan.md §6.
    */
   | { kind: 'trill' }
   /**
@@ -235,7 +235,7 @@ export type MarkingTool =
    * length the click has not picked. See {@link toolGhost} and `interactions/pedalStamp.ts`.
    *
    * ⛔ And no keyboard shortcut arms it — his call, the trill's and the ottava's. Sibelius spells it
-   * `P`, and ours is taken: `p` is PLAY (docs/pedal-plan.md §7).
+   * `P`, and ours is taken: `p` is PLAY (docs/plans/pedal-plan.md §7).
    */
   | { kind: 'pedal' }
   /** VALUELESS — Ctrl+Alt+T with nothing selected. The tempo twin of `dynamicEntry`: places a
@@ -245,7 +245,7 @@ export type MarkingTool =
   /**
    * ⭐ The BARLINE stamp — the final bar, the open repeat, the end repeat — armed by a palette press
    * with nothing (or a note) selected. A click puts the sign on the clicked BAR, on that sign's own
-   * SIDE of it (`interactions/barlineStamp.ts`, docs/barline-types-plan.md P4).
+   * SIDE of it (`interactions/barlineStamp.ts`, docs/plans/barline-types-plan.md P4).
    *
    * ⭐ It CARRIES ITS SIGN, like the hairpin's `type` and the ottava's `shift` and for their reason:
    * three palette buttons that must light independently, not one tool with a setting.
@@ -404,7 +404,7 @@ export function assertNeverTool(tool: never): never {
 }
 
 /** Which OPEN join of a cross-system slur is armed for keyboard nudging — set by clicking an
- *  orange segment-endpoint square (docs/multisystem-slur-segment-endpoint-offset-plan.md). */
+ *  orange segment-endpoint square (docs/plans/multisystem-slur-segment-endpoint-offset-plan.md). */
 export type SlurSegmentEndpoint =
   | { role: 'begin' }
   | { role: 'end' }
@@ -476,7 +476,7 @@ export type SelectedElement =
    * stored answers false. ⛔ So this selection never has to know which of the two it is looking at.
    *
    * ⛔ A C-major signature has NO ink and so cannot be selected at all — the first kind whose valid
-   * state is zero glyphs, and what the SIGNPOST is owed for (docs/key-signature-plan.md §5).
+   * state is zero glyphs, and what the SIGNPOST is owed for (docs/plans/key-signature-plan.md §5).
    */
   | { kind: 'keySignature'; measure: number; staff: number }
   /**
@@ -560,7 +560,7 @@ export type SelectedElement =
    *    same day). ONE OWNER PER LINE is the model's rule; this is its selection.
    *
    * Positional and staff-less for `barline`'s reasons: a repeat is a system-wide statement
-   * (docs/barline-types-plan.md §2), drawn once per staff, and `measure.repeatStart` is where the
+   * (docs/plans/barline-types-plan.md §2), drawn once per staff, and `measure.repeatStart` is where the
    * model keeps it.
    */
   | { kind: 'repeatStart'; measure: number }
@@ -615,7 +615,7 @@ export type SelectedElement =
    * ⭐ `endpoint` arrived 2026-08-17 with the two blue squares a selected wedge now draws, reached by
    * clicking one or by Tab (`./elements/hairpinHandles`). ⛔ It arms NOTHING yet: a hairpin's extent
    * is MUSICAL — `Ctrl+←/→` rewrites `length` on the model rather than nudging a cosmetic offset
-   * (docs/dynamics-line-and-hairpins-plan.md §4) — so unlike the slur's `endpoint` there is no
+   * (docs/plans/dynamics-line-and-hairpins-plan.md §4) — so unlike the slur's `endpoint` there is no
    * override behind it. It is the selection an edit would read when there is one to make.
    */
   | { kind: 'hairpin'; id: string; endpoint?: 'start' | 'end' }
@@ -655,7 +655,7 @@ export type SelectedElement =
    * the stored object, and it has no VOICE — one damper serves the whole staff.
    *
    * ⚠️ **The id names the PEDAL, not the sign that was clicked**, and that is deliberate: the two
-   * glyphs register separately so a press can only land on ink (docs/pedal-plan.md §6.2), but they
+   * glyphs register separately so a press can only land on ink (docs/plans/pedal-plan.md §6.2), but they
    * are one statement, so pressing either selects the whole thing.
    *
    * ⭐ `endpoint` arrived 2026-08-18 with the two blue squares a selected pedal now draws, reached by
@@ -782,7 +782,7 @@ export function selectedOf<K extends SelectedElement['kind']>(
  * reachable here — `'id' in x` is the gate, and they have their own readers.
  *
  * Lifted out of `HighlightController`, where it was private, when `markVoiceScope` needed the same
- * question (docs/dynamic-voice-scope-plan.md P4). ⛔ Not copied: two answers to "what is selected"
+ * question (docs/plans/dynamic-voice-scope-plan.md P4). ⛔ Not copied: two answers to "what is selected"
  * is exactly the drift this file exists to prevent.
  */
 export function selectedIdsOf(state: EditorState, kind: SelectionItem['kind']): Set<string> {
@@ -981,7 +981,7 @@ export interface EditorState {
    * LilyPond's `ragged-last`, where a short final system keeps its natural width.
    *
    * ⚠️ **View state, mirrored here for the toolbar — NOT a `Score` field.** How the page is cast off
-   * is not part of the music, the same reason `viewMode` is not (docs/linear-view-plan.md §5). The
+   * is not part of the music, the same reason `viewMode` is not (docs/plans/linear-view-plan.md §5). The
    * renderer owns the truth; this is what the UI reads, exactly as `viewMode` does.
    */
   justifyLastLine: boolean
@@ -1026,7 +1026,7 @@ export interface EditorState {
   isPanning: boolean
   playbackState: PlaybackState
   /** MIRROR of the engine's view mode (wrapped ↔ linear), for the toolbar button's lit state and
-   *  the gutter's presence — the engine OWNS it (docs/linear-view-plan.md §5), and a MusicEngine
+   *  the gutter's presence — the engine OWNS it (docs/plans/linear-view-plan.md §5), and a MusicEngine
    *  emits nothing, so no subscriber can follow `engine.getViewMode()` directly. Written only by
    *  `PaletteController.setViewMode`, alongside the engine itself, so the two cannot diverge:
    *  never assign this field from anywhere else, and never read it to DECIDE anything — the
@@ -1093,7 +1093,7 @@ export type StateListener = (key: keyof EditorState) => void
  * framework. Read and write `state` exactly as a plain object; `subscribe(fn)` registers a
  * listener called with the key on every top-level write.
  *
- * The whole mechanism is a Proxy `set` trap (see docs/observable-editorstate-plan.md). This
+ * The whole mechanism is a Proxy `set` trap (see docs/history/observable-editorstate-plan.md). This
  * `subscribe` IS the editor's reactivity now — the plan called it the end state while Vue was still
  * wrapping it, and since Vue left there is nothing else. Everything that follows state follows it:
  * the Keypad, the Properties window, the dev toolbar, the score cursor, the linear-view gutter.

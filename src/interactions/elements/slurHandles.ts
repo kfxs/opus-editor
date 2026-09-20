@@ -34,7 +34,7 @@ export function paintSlurHandles(ctx: HighlightContext): void {
   // No slur geometry editing in linear view. A slur's control points are a 2-D shape relative
   // to endpoints whose horizontal span differs between the views, so a curve tuned against
   // unjustified linear spacing looks wrong once the line is justified — read-only here is the
-  // end state, not a phase-1 shortcut (docs/linear-view-plan.md §4.2–4.3). Drawing no handles
+  // end state, not a phase-1 shortcut (docs/plans/linear-view-plan.md §4.2–4.3). Drawing no handles
   // is also what keeps them out of the registry, so there is nothing to grab.
   if (ctx.engine.getViewMode() === 'linear') return
 

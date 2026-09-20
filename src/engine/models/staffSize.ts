@@ -1,6 +1,6 @@
 /**
  * **How big a staff is drawn** — the score's base staff-space in pixels, and the per-staff ratio
- * that multiplies it. See docs/staff-size-plan.md.
+ * that multiplies it. See docs/plans/staff-size-plan.md.
  *
  * The picture this is for: a violin part above a piano part, the violin engraved small and the
  * piano full size, on the same system. The size is a **ratio**, never a `small: true` flag — `1` is
@@ -32,7 +32,7 @@ import { getStaves } from './staffContent'
  * ⭐ It used to be called `VEXFLOW_DEFAULT_STAFF_SPACE_PX` and live in `engravingOverrides.ts`, and
  * both were wrong: it is not VexFlow's default, it is **the score's staff size**, and a scale is
  * not an authored tweak. Its call sites are all `staffSpaces × this`; each becomes
- * `staffSpaces × this × that staff's size` as the phases of docs/staff-size-plan.md land.
+ * `staffSpaces × this × that staff's size` as the phases of docs/plans/staff-size-plan.md land.
  */
 export const STAFF_SPACE_PX = 10
 

@@ -1,6 +1,6 @@
 /**
  * ⭐⭐ **THE GAP BETWEEN A CLEF AND A TIME SIGNATURE, WITH NO KEY SIGNATURE BETWEEN THEM — a TABLE
- * OF RULES, and which row is armed is HIS.** `docs/header-spacing-research.md` §4.4, §4.5, §5.6.
+ * OF RULES, and which row is armed is HIS.** `docs/research/header-spacing-research.md` §4.4, §4.5, §5.6.
  *
  * ## 🚨 Why this module exists: it was the one gap in the header run NOBODY EVER CHOSE
  *

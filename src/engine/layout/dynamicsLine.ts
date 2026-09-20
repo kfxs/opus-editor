@@ -4,7 +4,7 @@
  *
  * The letters (`p`, `ff`), the expression words (`dolce`) and — later — the hairpins all share one
  * horizontal line per system. It is LilyPond's `DynamicLineSpanner`, Finale's *baseline*, Dorico's
- * dynamics baseline; every program has it, and we do not (docs/dynamics-line-and-hairpins-plan.md
+ * dynamics baseline; every program has it, and we do not (docs/plans/dynamics-line-and-hairpins-plan.md
  * §2.2): VexFlow places a `below` annotation from **the note's own lowest point**, so two `p`s in one
  * bar sit at different heights whenever their notes differ in pitch, and a high note gets its mark a
  * fixed distance under its own head — which can be *inside* the staff.
@@ -100,7 +100,7 @@ export const DYNAMICS_LINE: Clearance = {
 /**
  * ⭐ **THE RULE, for the dynamics family** — {@link clearanceBaseline} with {@link DYNAMICS_LINE}'s
  * two numbers, and nothing else. The arithmetic moved to `./inkBand` when the trill became its
- * second client (docs/trill-plan.md §4): the rule is one sentence for every outside-staff family
+ * second client (docs/plans/trill-plan.md §4): the rule is one sentence for every outside-staff family
  * and only the constants differ, so a copy here with two other numbers would be a second answer to
  * "how far from the staff".
  *

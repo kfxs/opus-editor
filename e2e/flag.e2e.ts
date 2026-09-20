@@ -1,5 +1,5 @@
 /**
- * ⭐⭐ **WHERE A FLAG'S PLACEMENT NUMBER COMES FROM** — `docs/note-engraving-plan.md` §3.3, the
+ * ⭐⭐ **WHERE A FLAG'S PLACEMENT NUMBER COMES FROM** — `docs/plans/note-engraving-plan.md` §3.3, the
  * question P3b opened and deliberately did not answer.
  *
  * P3b took the flag's ink (`engine/engrave/notes/flag.ts`) and made its one font-dependent input a
@@ -135,7 +135,7 @@ test('⭐⭐ §3.3 — Bravura’s own table and the canvas agree about the flag
 
   // ⭐ …and the canvas's answer is the font's rounded to the NEAREST whole pixel (0.36 → 0, 0.56 → 1).
   // ⚠️ Measured 2026-09-14 with the faces we ship. VexFlow's embedded Bravura rounded BOTH up (1, 1),
-  // which is what this test pinned until S1 of docs/vexflow-removal-map.md — a fact about that font
+  // which is what this test pinned until S1 of docs/history/vexflow-removal-map.md — a fact about that font
   // build, not about the canvas: the same page with only VexFlow's faces left still answers 1 and 1.
   expect(px(canvasUp), 'the coarse ruler rounds the fine one to the nearest pixel').toBe(Math.round(fontUp))
   expect(px(canvasDown)).toBe(Math.round(fontDown))

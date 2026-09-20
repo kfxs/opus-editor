@@ -32,7 +32,7 @@
  * ink above it and 0.540 **below**; `restHalf` has 0.568 **above** and 0.008 below (they are the same
  * shape, the same width). So the origin IS the attachment line in each case. But *which* line it
  * attaches to is not in the font, and no amount of measuring glyphs recovers it
- * (docs/font-metrics-plan.md §3.4a).
+ * (docs/plans/font-metrics-plan.md §3.4a).
  *
  * ## 🚨 Why this module exists: we drew it wrong, for as long as we have drawn rests
  *

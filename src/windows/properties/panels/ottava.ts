@@ -25,7 +25,7 @@ export const ottavaRows: PanelRows<'ottava'> = (element) => {
  * publishes 0 through the same seam, and the model's zero-pruning drops the entry.
  *
  * ⚠️ Every box commits through {@link commitOnFirstStep} and puts itself back on commit — the two
- * rules the page limit forced on this panel (docs/engraving-overrides-plan.md §8.6).
+ * rules the page limit forced on this panel (docs/plans/engraving-overrides-plan.md §8.6).
  */
 function buildOttavaOffsetRows(ottava: Ottava, element: InspectedOf<'ottava'>): HTMLElement {
   const ottavaId = ottava.id

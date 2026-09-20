@@ -2,7 +2,7 @@
 /**
  * An inline clef change of ours (S12j-e) — VexFlow's `ClefNote`, transcribed. ⚠️ jsdom measures the
  * glyph 0 wide, so what is pinned here is the contract and the ARITHMETIC of where it stands; that it
- * draws exactly where `ClefNote` drew is the Chromium A/B's (`docs/vexflow-removal-map.md` S12j-e).
+ * draws exactly where `ClefNote` drew is the Chromium A/B's (`docs/history/vexflow-removal-map.md` S12j-e).
  */
 import { describe, it, expect } from 'vitest'
 import type { DrawContext } from '@/engine/paint/DrawContext'

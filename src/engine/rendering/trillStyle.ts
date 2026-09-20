@@ -1,5 +1,5 @@
 /**
- * Styling constants for the TRILL — the `tr` sign and its wavy extension (docs/trill-plan.md §4).
+ * Styling constants for the TRILL — the `tr` sign and its wavy extension (docs/plans/trill-plan.md §4).
  *
  * The dynamics' twin (`./dynamicStyle` + `MARK_INK` in `./dynamicsLinePass`), and deliberately the
  * same shape: the family's two clearance numbers, the glyph size, and how far the sign's ink reaches
@@ -24,7 +24,7 @@ export const TRILL_SIGN_GLYPH = ''
  *
  * ⚠️ **Not VexFlow's `Vibrato`, which defaults to U+EAB0** (`wiggleVibrato`) — a visibly different,
  * tighter wave meaning vibrato rather than a trill. Reaching for `VibratoBracket` would have
- * inherited the wrong glyph along with four other defects (docs/trill-plan.md §4).
+ * inherited the wrong glyph along with four other defects (docs/plans/trill-plan.md §4).
  */
 export const TRILL_WIGGLE_GLYPH = ''
 
@@ -40,11 +40,11 @@ export const TRILL_WIGGLE_GLYPH = ''
  * American publisher house style. ⛔ **NOT an engraving tradition**: Beethoven Op. 111 (Cotta 1892)
  * repeats the sign PLAIN above the first note, MuseScore repeats no sign at all, LilyPond repeats a
  * plain one, and Dorico offers all three. ⚠️ The old claim that Sibelius brackets it is still
- * unverified — it is not in Avid's Reference Guide. See docs/trill-plan.md §1 rule 6.
+ * unverified — it is not in Avid's Reference Guide. See docs/plans/trill-plan.md §1 rule 6.
  *
  * ⏭️ **A future per-trill property switches it off** (his call, same message): the plain repeated
  * `tr` is the other convention, and a `Trill` may later carry an optional field — or an engraving
- * preset may set it score-wide. ⛔ Not built, and not a field until it is asked for; docs/trill-plan.md
+ * preset may set it score-wide. ⛔ Not built, and not a field until it is asked for; docs/plans/trill-plan.md
  * §9 carries the row. Note this is the one thing here that would be a MODEL change rather than a
  * constant.
  *
@@ -138,13 +138,13 @@ export const TRILL_MARK_INK: MarkInk = {
 
 /**
  * ⭐ The trill family's two clearance numbers — LilyPond's `TrillSpanner` defaults, taken the same
- * way the dynamics line took `DynamicLineSpanner`'s 0.6/1.2 (docs/trill-plan.md §1 rule 8).
+ * way the dynamics line took `DynamicLineSpanner`'s 0.6/1.2 (docs/plans/trill-plan.md §1 rule 8).
  *
  * ⭐⭐ **These sit NEARER the staff than the dynamics', and that is the ladder.** LilyPond states the
  * order as `outside-staff-priority`: `TrillSpanner` 50 against `DynamicLineSpanner` 250, i.e. the
  * trill is the innermost outside-staff family we have. For us that ordering IS these two numbers —
  * we need no priority table, because an innermost family never has to know what is above it
- * (docs/above-staff-ladder.md §2 and §4).
+ * (docs/how-it-works/above-staff-ladder.md §2 and §4).
  *
  * ⚠️ **Unlike the dynamics' 2.1, the floor here is NOT derived from a cleared stem.** The dynamics
  * line needs its marks to agree with each other — it is read as a ROW — so its floor is chosen to be
@@ -200,7 +200,7 @@ export const TRILL_SIGN_GAP = 0.3
  * ⚠️ **Bigger than the hairpin's 0.25, deliberately.** That one is a hairline of air so two abutting
  * wedges do not touch; this one stands the line off a NOTEHEAD, which is the case Gould describes as
  * "about a space". Starting at half a space by eye — ⚠️ a taste value, and one of the three numbers
- * this feature is waiting on his eye for (docs/trill-plan.md P2).
+ * this feature is waiting on his eye for (docs/plans/trill-plan.md P2).
  *
  * ⚠️ Applied to the trill's own END only — never to a SYSTEM BREAK, where a fragment runs to the
  * margin and there is nothing to stand off from. The renderer insets before cutting into pieces,

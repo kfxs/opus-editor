@@ -109,7 +109,7 @@ describe('staffLineForSpelling', () => {
  * the voice hop (`SelectionController.elementVerticalPos`) has to rank rests and noteheads on ONE
  * scale, and the conversion between the two had drifted — a rest's manual shift, in staff SPACES,
  * was added to the DIATONIC scale unconverted and moved the hop at half strength
- * (docs/multi-voice-rest-position-plan.md §4.2).
+ * (docs/plans/multi-voice-rest-position-plan.md §4.2).
  */
 describe('diatonicPosForStaffLine', () => {
   it('⭐ is the exact inverse of `staffLineForSpelling`, in every clef', () => {

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * Note spacing at draw time (docs/note-spacing-plan.md §4) — **move the columns, never the glyphs.**
+ * Note spacing at draw time (docs/plans/note-spacing-plan.md §4) — **move the columns, never the glyphs.**
  *
  * Everything here runs in LINEAR view on purpose. Wrapped view re-justifies the whole line when a
  * bar grows, so every x moves a little and no exact assertion survives; linear view gives each bar

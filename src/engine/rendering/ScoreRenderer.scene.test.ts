@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * ⭐⭐ **THE PAYOFF — GEOMETRY AS A UNIT TEST** (`docs/own-engraving-engine.md` §7.2, P1d).
+ * ⭐⭐ **THE PAYOFF — GEOMETRY AS A UNIT TEST** (`docs/plans/own-engraving-engine.md` §7.2, P1d).
  *
  * > *"'the whole-bar rest is centred in its bar' becomes an assertion on a scene, in jsdom, in
  * > milliseconds. This is the single most valuable item in this document — it is worth more than
@@ -21,7 +21,7 @@
  * and marks (U2, blocked on U3's highlight), and the ghosts. 🚨 ⛔ **And `lint:paint` will not tell
  * you which**: it counts the identifier `vexContext`, which a MODIFIER never writes — the accidental,
  * the dot and the articulation were missing from this file's scenes for four migration steps without
- * moving that number by one (`docs/note-engraving-plan.md` §1f, §1g). ⭐ Hence the CENSUS below: the
+ * moving that number by one (`docs/plans/note-engraving-plan.md` §1f, §1g). ⭐ Hence the CENSUS below: the
  * page's glyphs, diffed against the scene's.
  * ⭐ That gap is the migration's remaining work rather than a defect of the scene, and it shrinks
  * with every commit: the noteheads, stems, flags and ledger lines arrived with P3, the beams with
@@ -468,7 +468,7 @@ describe('⭐⭐ P4b — the beam’s SLOPE, and it is the first step that MOVES
   })
 
   it('⭐ …while the ACTIVE rule (`vexflow`, his call) leaves them where they always were', () => {
-    // The measured "before P4b" table is in `docs/beam-slope-research.md` §3: a 4th and everything
+    // The measured "before P4b" table is in `docs/research/beam-slope-research.md` §3: a 4th and everything
     // wider drew 0.60 spaces. ⭐ This asserts P4b moved NO PIXEL — the whole shape of that decision.
     expect(beamRun(pair(7)).rise, 'an octave').toBeCloseTo(0.6, 2)
     expect(beamRun(pair(1)).rise, 'a 2nd').toBeCloseTo(0.24, 2)
@@ -576,7 +576,7 @@ describe('⭐⭐ P5b — the CLEF in the scene, the first symbol of the HEADER t
 
   it('⚠️ a MID-LINE clef change draws a second clef, at VexFlow’s two-thirds — ⏳ unsourced', () => {
     // ⚠️ `Clef.getPoint('small')` is `fontSize * 2 / 3`, and NOTHING in this repo chose that ratio.
-    // ⭐ It is question 3 of `docs/clef-research.md`; this assertion exists so that the day someone
+    // ⭐ It is question 3 of `docs/research/clef-research.md`; this assertion exists so that the day someone
     // changes it, a spec says so out loud rather than a picture changing quietly.
     const model = buildScore(4)
     model.setClef(3, 'bass')
@@ -665,7 +665,7 @@ describe('⭐⭐ P5b — the METER in the scene, the second symbol of the HEADER
     // ⭐ And the pair is centred on the staff: the middle line is midway between the baselines.
     expect((top.y + bottom.y) / 2, 'centred on the middle line').toBeCloseTo(lines[2], 10)
     // ⛔ The GAP between the rows is not asserted as a NUMBER on purpose: it is UNKNOWN in every
-    // treatise (`docs/header-spacing-research.md` row H) and falls out of the two lines VexFlow
+    // treatise (`docs/research/header-spacing-research.md` row H) and falls out of the two lines VexFlow
     // names. What is pinned here is the SHAPE — symmetric, filling the staff.
   })
 

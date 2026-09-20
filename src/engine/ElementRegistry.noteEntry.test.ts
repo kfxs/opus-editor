@@ -1,6 +1,6 @@
 /**
  * ⭐ **NOTE ENTRY MEASURES FROM THE HEAD, ⛔ NOT FROM THE BOX** — the first reader moved off the note's
- * union rectangle (`docs/own-engraving-engine.md` §5 P6).
+ * union rectangle (`docs/plans/own-engraving-engine.md` §5 P6).
  *
  * A note's registry `bbox` is VexFlow's union of every modifier, so a left-hanging accidental drags
  * its centre a few pixels LEFT of the head the user is looking at. Clicking and `pixelXToBeat`

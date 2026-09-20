@@ -1,7 +1,7 @@
 import { test, expect } from './fixtures'
 
 /**
- * OCTAVE LINES — the numeral and its dashed bracket, drawn (docs/ottava-plan.md P3).
+ * OCTAVE LINES — the numeral and its dashed bracket, drawn (docs/plans/ottava-plan.md P3).
  *
  * ⚠️ **This suite has to be here.** Every claim below is about where ink landed: the numeral's width
  * decides where the dashes start, the notehead's width decides where they stop, and the y is stated

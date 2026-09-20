@@ -6,7 +6,7 @@ import type { StaffFrame } from '@/engine/engrave/staff/staffFrame'
  * The engraving-overrides compartment stores *positional* data in **staff-spaces**
  * (the distance between two adjacent staff lines), never raw pixels — so a tweak
  * renders correctly at any font / zoom / spacing and rides along when the music
- * reflows (see docs/engraving-overrides-plan.md, invariant "no pixels in the model").
+ * reflows (see docs/plans/engraving-overrides-plan.md, invariant "no pixels in the model").
  * These helpers do the conversion against a staff's space (`engrave/staff/staffFrame`), which is in
  * hand at draw time (`rendering/staveFrame`).
  *

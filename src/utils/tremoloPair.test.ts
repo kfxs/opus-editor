@@ -4,7 +4,7 @@ import { fracCreate as frac } from './fraction'
 import type { Chord, ChordRest, NoteDuration, Rest, BeamMode } from '@/types/music'
 
 /**
- * The ONE validity predicate (docs/two-note-tremolo-plan.md §1). These pin the refusal list of §0 —
+ * The ONE validity predicate (docs/plans/two-note-tremolo-plan.md §1). These pin the refusal list of §0 —
  * the rule the button, the renderer, the beam grouper and playback all read.
  */
 

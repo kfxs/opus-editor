@@ -5,7 +5,7 @@ import { bus } from '@/bus'
 import type { TremoloMark } from '../../types/music'
 
 /**
- * The Beams/Tremolos page's tremolo cluster, wired (docs/tremolo-plan.md §9, §10).
+ * The Beams/Tremolos page's tremolo cluster, wired (docs/plans/tremolo-plan.md §9, §10).
  *
  * What is worth pinning is the WIRING, not the drawing: which key carries which mark, that a press
  * reaches the palette's router, and that the pair is a second axis rather than a seventh mark. The

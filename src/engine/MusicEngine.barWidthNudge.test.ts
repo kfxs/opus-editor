@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * The keyboard half of bar width (docs/bar-width-plan.md §4–§6, P1) — and above all the two
+ * The keyboard half of bar width (docs/plans/bar-width-plan.md §4–§6, P1) — and above all the two
  * things that are NOT arithmetic we may invent.
  *
  * The barline must land where the gesture asked, which needs the §4 inversion (widening a bar
@@ -480,7 +480,7 @@ describe('shrinking an EMPTY bar', () => {
       .toBeGreaterThanOrEqual(8 * MIN_COLUMN_GAP * STAFF_SPACE_PX)
     // ⚠️ It gives up very little now, and that IS its music setting its claim: these eighths are on
     //    C4, which in treble is a LEDGER note, and a ledger line is 1.80 staff spaces against a bare
-    //    notehead's 1.13 (docs/spacing-model-plan.md P3.1). A run of ledgered eighths is nearly
+    //    notehead's 1.13 (docs/plans/spacing-model-plan.md P3.1). A run of ledgered eighths is nearly
     //    incompressible by construction. The bar still moves — it just has almost nothing to give.
     expect(settled, 'it did give something up').toBeLessThan(before)
   })
@@ -491,7 +491,7 @@ describe('shrinking an EMPTY bar', () => {
     // now ONE ordinary press wide: its note space is its honest 40px rather than an inflated 80, so
     // every press is worth twice the multiplier it used to be. Coarse in the other direction from
     // the reported "36 presses to walk a bar across a system", and the same cause: the multiplier
-    // is the wrong parameter for the step. docs/bar-width-plan.md "Known issues" #3.
+    // is the wrong parameter for the step. docs/plans/bar-width-plan.md "Known issues" #3.
     const before = width(3)
     engine.nudgeBarWidth(3, -3); engine.renderScore()
     expect(width(3)).toBeLessThan(before)

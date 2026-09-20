@@ -28,7 +28,7 @@ import { bus } from '@/bus'
  * about the bar this meter opens, so there is no second target to choose. Unticked is an ANSWER,
  * not a silence — it clears a pickup already on that bar.
  *
- * Still unwired, and written up in docs/time-signature-window-plan.md: "Beam and Rest Groups…"
+ * Still unwired, and written up in docs/plans/time-signature-window-plan.md: "Beam and Rest Groups…"
  * beyond the grouping field it already edits (rest grouping is not modelled at all).
  */
 
@@ -251,7 +251,7 @@ export function openTimeSignatureWindow(windows: WindowLayer): Window {
             // Opens the grouping editor, judged against the meter selected ABOVE — which is why it
             // reads `meters.value` at click time rather than capturing a meter at build time.
             // (Rest grouping and per-note-value grouping are still missing from the MODEL, not just
-            // from that window — see docs/time-signature-window-plan.md §2.)
+            // from that window — see docs/plans/time-signature-window-plan.md §2.)
             new Button('Beam and Rest Groups…', () => {
               const meter = currentMeter()
               openBeamGroupsWindow(windows, {

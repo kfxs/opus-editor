@@ -8,7 +8,7 @@ import { FONT_FILES, fontFileUrl } from '@/engine/fonts/fontFiles'
  * ## Why the PDF outlines instead of embedding
  *
  * Every glyph is a `<text>` in Bravura (with Academico behind it for words). Since S1 of
- * `docs/vexflow-removal-map.md` the screen draws with these same `.otf` files
+ * `docs/history/vexflow-removal-map.md` the screen draws with these same `.otf` files
  * (`rendering/musicFontFaces`, from `fonts/fontFiles`) — before that it drew with the base64 woff2
  * copies VexFlow installs on import, a different build of Academico. jsPDF cannot embed OTF/CFF
  * outlines as *text* at all. So the export does not embed a font — it **outlines** the glyphs into

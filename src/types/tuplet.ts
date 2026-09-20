@@ -12,7 +12,7 @@ import type { NoteDuration, Fraction } from './duration'
  *
  * It is split out from {@link Tuplet} because this — and NOT the id or the beat — is what gets ARMED
  * (`EditorState.armedTuplet`), what a creation call needs, and what every span calculation reads.
- * See docs/tuplet-extension-plan.md.
+ * See docs/plans/tuplet-extension-plan.md.
  *
  * ⚠️ N:M is TWO INTEGERS, never a `Fraction`: `fracCreate` reduces by gcd, and 6:4 → 3:2 turns a
  * sextuplet into a triplet. The scaling factor `span ÷ (N × unit)` is a Fraction; the identity is not.
@@ -93,7 +93,7 @@ export interface Tuplet extends TupletShape, TupletFormat {
    */
   placement?: 'above' | 'below'
   /** Staff this tuplet belongs to (a {@link StaffInfo} id); absent = staff 0. See
-   *  docs/multi-staff-plan.md §4. Orthogonal to voice (the owning slots carry it). */
+   *  docs/plans/multi-staff-plan.md §4. Orthogonal to voice (the owning slots carry it). */
   staffId?: string
 }
 

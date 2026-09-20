@@ -305,7 +305,7 @@ describe('the BRACE — ⭐⭐ one glyph, stretched in y ALONE', () => {
   /**
    * ⭐ **THE BRACE'S PLACEMENT, read out of the attribute** — `{ sx, sy, tx, ty }`.
    *
-   * ⚠️ It arrives as `matrix(...)` since P1c (`docs/own-engraving-engine.md`): the pass now writes an
+   * ⚠️ It arrives as `matrix(...)` since P1c (`docs/plans/own-engraving-engine.md`): the pass now writes an
    * {@link Affine} through `DrawGroup.setPlacement`, and a scale composed with a translate has no
    * shorthand form. ⛔ The engraving facts below are unchanged — the brace is still non-uniform, its
    * depth still constant, its foot still flush — only the notation they are written in moved, which

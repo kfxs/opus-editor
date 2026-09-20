@@ -14,7 +14,7 @@ import type { MenuToggle } from './menuCommands'
  * ⭐ **Score Sound** — the word *Score* is doing real work, and since 2026-08-23 it is literally true
  * as well: the choice is stored IN the score (`Score.playback`) and saved with it. The editor still
  * has one sound for everything, and there is no instrument model yet
- * (docs/instruments-plan.md: a positional lane→instrument map is the shape it will take). A row called "Instrument" would promise a per-staff choice that does not
+ * (docs/plans/instruments-plan.md: a positional lane→instrument map is the shape it will take). A row called "Instrument" would promise a per-staff choice that does not
  * exist, so the label admits the scope instead. The submenu is `DEV_SOUNDS` — the same curated GM
  * shortlist the dev toolbar's picker offers, from the same array, so the two lists cannot drift.
  *

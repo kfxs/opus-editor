@@ -1,5 +1,5 @@
 /**
- * ⭐⭐ **OCTAVE LINES — the numeral and its dashed bracket, drawn.** P3 of docs/ottava-plan.md.
+ * ⭐⭐ **OCTAVE LINES — the numeral and its dashed bracket, drawn.** P3 of docs/plans/ottava-plan.md.
  *
  * A score-level pass after the measures, exactly like `renderSlurs` / `renderHairpins` /
  * `renderTrills` and for the same reason: an ottava spans bars, so it cannot be drawn inside any one
@@ -561,7 +561,7 @@ function drawOttava(
       // ⭐ `startX` is the NUMERAL's left edge (the bracket's beginning as the reader sees it), not
       // `lineStart`, which is the dashed line's — the handle belongs beside the whole mark.
       ottavaAxis: { y: lineY, startX, endX: right },
-      // ⭐⭐ THE ATTACHMENT GUIDE — the fifth kind (docs/dynamic-offset-plan.md).
+      // ⭐⭐ THE ATTACHMENT GUIDE — the fifth kind (docs/plans/dynamic-offset-plan.md).
       //
       // ⭐ **Its far end is a PLACE, not a note**, which puts the octave line with the hairpin and
       // the tempo mark: it governs a REGION — every voice, every note in it, including notes typed

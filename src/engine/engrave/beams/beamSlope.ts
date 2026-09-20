@@ -1,13 +1,13 @@
 /**
- * ⭐⭐ **HOW STEEP A BEAM MAY BE — P4b** (`docs/beam-slope-research.md`,
- * `docs/beam-engraving-plan.md`).
+ * ⭐⭐ **HOW STEEP A BEAM MAY BE — P4b** (`docs/research/beam-slope-research.md`,
+ * `docs/plans/beam-engraving-plan.md`).
  *
  * ## ⭐⭐ THE ALGORITHM IS DELIBERATELY OPEN — this is a TABLE OF RULES, not a rule
  *
  * ⛔ **The question "what is the best beam-slope algorithm?" is NOT settled here, and is not meant
  * to be** (his call, 2026-09-01: *"lets not fix the rule, but leave it open, i would like to test the
  * three engine solutions"*). The three engines answer it three different ways and
- * `docs/beam-slope-research.md` §4 measures all three; ⭐ **each is a ROW that can be added here and
+ * `docs/research/beam-slope-research.md` §4 measures all three; ⭐ **each is a ROW that can be added here and
  * compared against the others on the same page**, which is the whole shape of this module.
  *
  * | row | what it is | state |
@@ -91,7 +91,7 @@ const QUARTER_SPACE = 0.25
  * this table alone would give 1½, and with the width rule applied the pair gives **½** — so the two
  * engines-and-Ross reading is *half* of what Gould engraved in that example. ⛔ Not resolved, and
  * ⛔ not a reason to bend a number: it is one of the reasons the algorithm is
- * `docs/beam-engraving-plan.md`'s **open** question rather than a settled one.
+ * `docs/plans/beam-engraving-plan.md`'s **open** question rather than a settled one.
  */
 const INTERVAL_QUARTERS = [0, 1, 2, 3, 4, 5, 6, 7]
 
@@ -234,7 +234,7 @@ export type BeamSlopeRuleName = keyof typeof BEAM_SLOPE_RULES
  * ⛔ That is a verdict on a PICTURE, ⛔ not a finding that the treatises are wrong — the two things
  * this session could not settle are whether our ~2.4-space quaver spacing is what the books assume,
  * and whether *"closer than three spaces"* is even measured the way we measure it
- * (`docs/beam-engraving-plan.md`).
+ * (`docs/plans/beam-engraving-plan.md`).
  *
  * ⛔ Not a setting, not state, not a preference — one identifier, so that swapping algorithms to
  * compare them is a one-word edit and `npm run dev`.

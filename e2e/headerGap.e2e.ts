@@ -1,6 +1,6 @@
 /**
  * ⭐⭐ **THE CLEF → TIME SIGNATURE GAP** — `engine/layout/clefMeterGap`,
- * `docs/header-spacing-research.md` §4.4/§4.5/§5.6, placed by `rendering/headerPlacementPass`.
+ * `docs/research/header-spacing-research.md` §4.4/§4.5/§5.6, placed by `rendering/headerPlacementPass`.
  *
  * 🚨 **Why this is a browser spec and cannot be a unit one.** `Stave.format()`'s begin walk reads
  * `padding = modifier.getPadding(i + offset)` and then `if (padding + width === 0) offset--`. In
@@ -30,7 +30,7 @@
  * ## 🚨🚨 …AND THE BIAS WAS NOT THE READER (2026-09-14)
  *
  * The "1–2 px too wide" above was measured while the page drew in **VexFlow's embedded Bravura**.
- * Since S1 of `docs/vexflow-removal-map.md` it draws in the `.otf` we ship, and the same reader on the
+ * Since S1 of `docs/history/vexflow-removal-map.md` it draws in the `.otf` we ship, and the same reader on the
  * same page reads a notehead at 1.20 sp and a G clef at 2.70 (the font says 1.18 and 2.684) — within
  * half a pixel. With only VexFlow's faces left it still reads 1.30 / 2.90. ⇒ the excess belonged to
  * that font BUILD. ⭐ The origin rule stands anyway: whole-pixel rounding still leaves up to a pixel
@@ -149,7 +149,7 @@ test('⭐ readerInflation — the ink reader is within half a pixel of the fonts
   // 🚨 This test used to assert the OPPOSITE — ~1 px per side too wide (1.30 / 2.90) — and that excess
   //    was never the reader. It was VexFlow's embedded Bravura build: the same page with only
   //    VexFlow's faces left still reads 1.30 / 2.90, and with ours 1.20 / 2.70 (S1 of
-  //    docs/vexflow-removal-map.md, when the page started drawing in the fonts we ship).
+  //    docs/history/vexflow-removal-map.md, when the page started drawing in the fonts we ship).
   expect(small.headWidthSp - big.headWidthSp, 'the notehead reads within half a pixel of the font at 1×').toBeLessThan(0.05)
   expect(small.clefWidthSp - big.clefWidthSp, 'and so does the clef').toBeLessThan(0.05)
   // ⚠️ Origins are still the honest measure of a gap: whole-pixel rounding leaves up to a pixel

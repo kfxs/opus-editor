@@ -2,10 +2,10 @@ import { test, expect } from './fixtures'
 import type { BarSpacing } from './harness'
 
 /**
- * The spacing model, measured on the page (docs/spacing-model-plan.md).
+ * The spacing model, measured on the page (docs/plans/spacing-model-plan.md).
  *
  * These fixtures started life as P0 — *"measure the present"*, the before nothing could be called an
- * improvement without (docs/spacing-model-research.md §6). **P2 inverted them**, which was always the
+ * improvement without (docs/research/spacing-model-research.md §6). **P2 inverted them**, which was always the
  * plan, and **P3 added the ink**: every assertion below now has Gould's answer where it used to have
  * a constant's.
  *
@@ -394,7 +394,7 @@ test('⭐⭐ LEDGER LINES no longer draw on top of each other (P3.1)', async ({ 
 
 test('⭐⭐ the SAME DURATION is drawn the same width across a system', async ({ score }) => {
   // The consistency rule MuseScore 4's whole rewrite existed to establish
-  // (docs/spacing-model-research.md §4), and the bug he found by eye: *"bar 1 is not dense at all…
+  // (docs/research/spacing-model-research.md §4), and the bug he found by eye: *"bar 1 is not dense at all…
   // there is a lot of space in the line"*. Measured on his own fragment, one line, two bars of the
   // same music — a quarter came out **4.28** staff spaces in the opening bar and **3.96** two bars
   // later. 8% apart, for the same note.
@@ -432,7 +432,7 @@ test('⭐⭐ the SAME DURATION is drawn the same width across a system', async (
   // ⏭️ The system-OPENING bar is still a little wider, and by a known amount that is NOT this bug:
   //    we reserve `CLEF_WIDTH + TIME_SIG_WIDTH` for the header while VexFlow places the glyphs and
   //    needs about 0.9 staff spaces less, and the difference lands in that bar's music. That is the
-  //    header-as-columns work (docs/vexflow-boundary.md, priority 2) — pinned here at 6% so it
+  //    header-as-columns work (docs/history/vexflow-boundary.md, priority 2) — pinned here at 6% so it
   //    cannot quietly grow, and so that finishing it turns this line green at a tighter tolerance.
   expect(drawn[0].quarter / midLine[0].quarter, 'the opening bar, still carrying the header gap')
     .toBeLessThan(1.06)
@@ -530,7 +530,7 @@ test('⭐⭐ an EMPTY bar\'s width is its DURATION\'s, not a flat default', asyn
 
   // ⚠️ And the bars MID-LINE are unchanged, in every meter: the rule leaves a bar-long silence under
   //    `MIN_MEASURE_WIDTH`, so there the floor is still what answers — deliberately. He has reported
-  //    three times that empty bars do not shrink far enough (docs/bar-width-plan.md "Known issues" #1),
+  //    three times that empty bars do not shrink far enough (docs/plans/bar-width-plan.md "Known issues" #1),
   //    and a fix at the line start must not widen the ones in the middle.
   for (const widths of [drawn.four, drawn.twelve, drawn.two]) {
     expect(widths[1], 'a mid-line empty bar still sits on the floor').toBeCloseTo(widths[2], 1)
@@ -539,7 +539,7 @@ test('⭐⭐ an EMPTY bar\'s width is its DURATION\'s, not a flat default', asyn
 })
 
 test('⭐⭐ the HEADER is ours: what the layout reserves is where the first note lands', async ({ score }) => {
-  // `docs/vexflow-boundary.md` priority 1. The clef and the meter were laid out by VexFlow and
+  // `docs/history/vexflow-boundary.md` priority 1. The clef and the meter were laid out by VexFlow and
   // reserved for by two constants of ours with nothing connecting them: over by 0.9 staff spaces for
   // a line-opening bar (its music came out 5% wider than the same music two bars later) and UNDER by
   // 0.6 for a two-digit meter, where the bar was reserved less room than its own header takes.
@@ -588,7 +588,7 @@ test('⭐⭐ the HEADER is ours: what the layout reserves is where the first not
   //   choice) less the 0.6 of air the meter part's own extent carries, the same subtraction
   //   `keyToMeterGap()` has always made for the pair next door. Before that this gap was the only one
   //   in the run still charged BOX to BOX, and it reserved ≈1.6 sp of ink against 1.42 drawn —
-  //   two numbers for one distance, neither chosen (`docs/header-spacing-research.md` §4.4).
+  //   two numbers for one distance, neither chosen (`docs/research/header-spacing-research.md` §4.4).
   //   ⇒ the header is 0.6 sp NARROWER, and `e2e/headerGap.e2e.ts` measures the white it buys.
   expect(drawn.trebleAndFourFour, 'clef + meter, then LilyPond\'s gap')
     .toBeCloseTo(2.0 + 3.2 + 0.2 + 0.4 + 2.4, 1)

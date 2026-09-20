@@ -1,7 +1,7 @@
 /**
  * How the voices of one column make room for each other. ⚠️ Exactness against `StaveNote.format` was
  * proved once — per note on 20,000 random columns, and on the rendered page of 60 random multi-voice
- * scores (S9g, `docs/vexflow-removal-map.md` §5.2); pinned here is the rule, quirks included.
+ * scores (S9g, `docs/history/vexflow-removal-map.md` §5.2); pinned here is the rule, quirks included.
  */
 import { describe, it, expect } from 'vitest'
 import { type ColumnVoiceNote, VOICE_SIDE_STEP_PAD_PX, stackVoices } from './voiceStack'

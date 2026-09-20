@@ -348,7 +348,7 @@ export class KeyboardController {
         dots: this.state.selectedDots || undefined,
         isRest: false,
         articulations: this.getPendingArticulations(),
-        // The armed entry tremolo (docs/tremolo-plan.md §10) — the typed note is born wearing it,
+        // The armed entry tremolo (docs/plans/tremolo-plan.md §10) — the typed note is born wearing it,
         // exactly as the clicked one is.
         ...(this.state.selectedTremolo !== null && { tremolo: this.state.selectedTremolo }),
         ...(this.state.selectedAccidental === 'n' && { forceAccidental: true }),
@@ -430,7 +430,7 @@ export class KeyboardController {
     // new note must stay in that voice, or the chord note lands in voice 1 by default.
     const noteVoice = voiceOf(note)
     const noteStaff = staffOf(note)
-    // ⭐ A FANNED MEMBER is its OWN chord (docs/fanned-beam-pitches-plan.md §2 P3): the pitches
+    // ⭐ A FANNED MEMBER is its OWN chord (docs/plans/fanned-beam-pitches-plan.md §2 P3): the pitches
     // already stacked here are the member's, not the slot's. Resolving this positionally — the
     // ordinary path below — reads the whole slot and then adds to `slot.notes`, which put the new
     // note on the group's FIRST head (his report).

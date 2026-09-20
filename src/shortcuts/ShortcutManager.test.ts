@@ -3,7 +3,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { ShortcutManager } from './ShortcutManager'
 
 /**
- * The decline mechanism (docs/slur-endpoint-offset-plan.md P2): `handleKeyDown` runs the
+ * The decline mechanism (docs/plans/slur-endpoint-offset-plan.md P2): `handleKeyDown` runs the
  * handler FIRST, then `preventDefault`s UNLESS the handler returned `false`. This lets a
  * binding claim a key only conditionally (the slur endpoint nudge owns Ctrl+←/→ only while
  * an endpoint is armed) without globally stealing it. These guard that contract — plus the

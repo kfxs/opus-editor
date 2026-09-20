@@ -21,7 +21,7 @@
  *    governs a region — every voice under it — so a voice colour said "this belongs to voice 1"
  *    about a mark that shapes them all.
  *  - **Either one, ASKED OF THE DATA** — the **dynamic** and the **hairpin**, since P2 of
- *    docs/dynamic-voice-scope-plan.md ({@link markSelectionColor}). These two are the only kinds
+ *    docs/plans/dynamic-voice-scope-plan.md ({@link markSelectionColor}). These two are the only kinds
  *    that carry a real SCOPE: a mark governing the whole staff is a region mark and takes the blue,
  *    a mark narrowed to one voice IS that voice's ink and takes its colour. ⭐ So the rule above
  *    stops being a list of kinds for them and becomes a question the model answers.

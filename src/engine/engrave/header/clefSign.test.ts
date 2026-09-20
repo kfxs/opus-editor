@@ -3,7 +3,7 @@ import { CLEF_LINES, clefSign } from './clefSign'
 
 /**
  * ⭐ A clef's sign is TODAY's picture, copied exactly from VexFlow's `Clef.types` and `Clef.getPoint`
- * (S4b0 of `docs/vexflow-removal-map.md`). ⚠️ Rows, not laws — a change here is a decision about the
+ * (S4b0 of `docs/history/vexflow-removal-map.md`). ⚠️ Rows, not laws — a change here is a decision about the
  * look (rule 13), ⛔ never a way to make this spec pass.
  */
 describe('clefSign — what a clef draws, as ours', () => {

@@ -1,5 +1,5 @@
 /**
- * ⭐⭐ **WHERE A TEXT ANNOTATION STANDS ON ITS NOTE** — S12g of `docs/vexflow-removal-map.md`
+ * ⭐⭐ **WHERE A TEXT ANNOTATION STANDS ON ITS NOTE** — S12g of `docs/history/vexflow-removal-map.md`
  * (`Annotation.draw`'s placement, MIT, transcribed). In this editor the annotations are the DYNAMICS.
  *
  * ## ⭐ What the rule IS

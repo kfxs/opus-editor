@@ -14,7 +14,7 @@ Every engraving number in `src/engine/rendering/` is supposed to cite a rule rat
 (`docs/DESIGN-PRINCIPLES.md`, and the standing instruction that an invented rule *will* be caught).
 That only works while the sources are reachable — and on **2026-08-17** the one we had leaned on
 hardest stopped being reachable, mid-investigation, having already supplied most of the Gould
-quotations now sitting in `docs/slur-plan.md`. Two agents spent a large part of their budget
+quotations now sitting in `docs/plans/slur-plan.md`. Two agents spent a large part of their budget
 rediscovering that it was gone. This directory is so the third one does not.
 
 ## What is here
@@ -40,7 +40,7 @@ rediscovering that it was gone. This directory is so the third one does not.
 | `gecko/nLU.cpp` | **`nsLayoutUtils.cpp`** — 10,190 lines, 377 KB. Gecko's layout utility layer: where the geometry queries a script can ask for are actually served, and therefore where a **forced style/layout flush** is decided. | added by hand, 2026-08-22 07:59 |
 | `gecko/EC.cpp` | **`EffectCompositor.cpp`** — 983 lines. The animation/restyle side of the same story. | added by hand, 2026-08-22 07:59 |
 
-⭐ **Why they are here.** `docs/render-performance-plan.md` §12.7 measures the render one forced
+⭐ **Why they are here.** `docs/history/render-performance-plan.md` §12.7 measures the render one forced
 reflow at a time — *"the flush is ~1.4 ms per frame, paid once, by whoever reads first"* — and four
 predictions in that document have already died from reasoning about the browser instead of reading
 it (the `hintBarlines` CTM memo is the last of them). These are the primary source for what a
@@ -67,7 +67,7 @@ that a score can be a bicycle, a spiral, or a bent staff, without giving up prof
 convention: the treatises and the three engines answer those, and Belle would only be a fourth
 opinion with no plate behind it.
 
-⭐ **Why it earns a place anyway.** `docs/own-engraving-engine.md` plans a **SCENE** (§7.2), and the
+⭐ **Why it earns a place anyway.** `docs/plans/own-engraving-engine.md` plans a **SCENE** (§7.2), and the
 open question in a scene is what a primitive is allowed to be *placed by*. Our stated goals are
 professional engraving **and** contemporary music / graphic scores, with eye-music transformations
 (a bent staff, a spiral staff, a staff around a wheel) as something the engine must not make
@@ -79,10 +79,10 @@ forth in Behind Bars"*.
 | file | what it is | where it came from |
 |---|---|---|
 | ⭐⭐ `burnson-introducing-belle-bonne-sage-icmc2010.pdf` / `belle-icmc2010-fulltext.txt` | **Burnson, *Introducing Belle, Bonne, Sage*, ICMC 2010, pp. 482–485** — 4pp, clean embedded text layer, so the `.txt` is **quotable as it stands** (⛔ unlike Gould's OCR). ⭐ **The origin, stated in the abstract**: *"In the search for a suitable tool for notation to engrave his graphic symbol piece Bike Ride, the composer starts from scratch, developing a corpus of vector-graphics tools for music notation Belle, Bonne, Sage in deference to a 14th century piece of eye music under the same name by Baude Cordier. The technical problems posed by this feat, once solved, become solutions to other gaps in current music notation technology."* ⭐⭐ And §3 RENDERING is the part that matters to us: *everything* — glyphs, stems, lines, text — is converted to **filled vector paths** so that one scanline algorithm draws all of it, and a stemmed note is drawn as **a single union outline** so the join cannot show. | wayback → ICMC proceedings, 2026-08-29 |
-| ⭐⭐ `bike-ride-icmc2010-p2-200dpi.png` / `…-450dpi.png` | **Figure 2 — *Bike Ride* (2007, rev. 2009) for solo piano, dedicated to Barry and Mary Hannigan, print 18″ × 32″** — page 483 rendered whole. ⭐ **Look at it before designing anything for eye music**: the two wheels are staves bent into circles with beamed music running round the rims, the spokes are drawn as radial lines, and *two* straight staves run along the bottom as the road. A SCAN beats a sentence here too — it shows what the geometry actually had to do. ⭐⭐ **And it was MEASURED on 2026-08-29** — `bike-ride-rim-detail-600dpi.png` and `bike-ride-beamgroup-detail-1200dpi.png` beside it: the staff lines are **true arcs**, the noteheads/accidentals/clefs/tuplet numerals/text are **rotated, never deformed**, and 🚨 **the beams are STRAIGHT chords crossing the arcs** — the rigid unit is the *beamed group*, rotated whole, with the curvature absorbed between groups. **Nothing in the piece is warped.** Written up as `docs/own-engraving-engine.md` §7.5.5. | rendered from the PDF above |
+| ⭐⭐ `bike-ride-icmc2010-p2-200dpi.png` / `…-450dpi.png` | **Figure 2 — *Bike Ride* (2007, rev. 2009) for solo piano, dedicated to Barry and Mary Hannigan, print 18″ × 32″** — page 483 rendered whole. ⭐ **Look at it before designing anything for eye music**: the two wheels are staves bent into circles with beamed music running round the rims, the spokes are drawn as radial lines, and *two* straight staves run along the bottom as the road. A SCAN beats a sentence here too — it shows what the geometry actually had to do. ⭐⭐ **And it was MEASURED on 2026-08-29** — `bike-ride-rim-detail-600dpi.png` and `bike-ride-beamgroup-detail-1200dpi.png` beside it: the staff lines are **true arcs**, the noteheads/accidentals/clefs/tuplet numerals/text are **rotated, never deformed**, and 🚨 **the beams are STRAIGHT chords crossing the arcs** — the rigid unit is the *beamed group*, rotated whole, with the curvature absorbed between groups. **Nothing in the piece is warped.** Written up as `docs/plans/own-engraving-engine.md` §7.5.5. | rendered from the PDF above |
 | ⭐ `burnson-kaper-automatic-notation-icmc2010.pdf` / `burnson-kaper-icmc2010-fulltext.txt` | **Burnson, Kaper & Tipei, *Automatic Notation of Computer-Generated Scores for Instruments, Voices and Electro-Acoustic Sounds*, ICMC 2010** — Belle as the printing back-end for **DISSCO** (CMOD + LASS). Its subject is the interface between a *generated* score and an engraver, and its requirement list is the one we share: *"handling of both traditional, proportional, and graphic notation; dealing with instrumental/vocal parts as well as electro-acoustic sounds; and providing high quality, publishable documents"*. ⚠️ Only the abstract and §1 have been read (2026-08-29). | wayback → ICMC proceedings, 2026-08-29 |
-| ⭐⭐ `solomon-horizontal-spacing-graphical-notation-icmc2011.pdf` / `solomon-icmc2011-fulltext.txt` | **Mike Solomon, *The Horizontal Spacing of Graphical Notation*, ICMC 2011, pp. 689ff** — ⭐⭐ **the single most useful thing in this folder for the "contemporary music" half of the goal**, and it is not by Burnson. It asks the question we will have to answer: *how does a GRAPHIC object take part in a normal spring/rod line of music?* Its answer is a **linear program** that stretches a vector graphic so it hits horizontal **"target points"** in the score while spreading the distortion over the whole graphic instead of at the anchors. ⭐ §2.2 is also a compact, sourced history of spacing itself — Gourlay's box-glue, **Haken & Blostein for the words *spring* and *rod***, Renz's "neighbourhoods", and a bulleted summary of **LilyPond's algorithm** (columns, one spring per adjacent pair, non-adjacent rods, `S → 2W`, `D(2S)=3W`, `D(4S)=4W`, the common-shortest-duration). ⭐ **What it answered (2026-08-29): `docs/spacing-model-research.md` §6f** — the sourced history, the bulleted LilyPond algorithm, and the *spanners across line breaks* argument for why a graphic must ride the piece-wide solve. It also **partly answers §6e's "nobody was found to have done this"**. ⚠️ §§1–3.1 read; the LP matrices later in §3 are unread. ⚠️ It is also mildly **critical of Belle** — *"context-agnostic tools such as this do not draw upon the many musical engraving conventions"* — which is exactly the trap our own engine has to avoid. | wayback → ICMC proceedings, 2026-08-29 |
-| ⭐⭐ `haken-blostein-horizontal-spacing-icmc1995.pdf` + `haken-blostein-icmc1995-p1.png` / `-p2.png` | **Lippold Haken & Dorothea Blostein, *A New Algorithm for Horizontal Spacing of Printed Music*, ICMC 1995, pp. 118–119** — the algorithm used in the **Lime** editor, and ⭐⭐ **the primary source for the vocabulary `docs/spacing-model-plan.md` already uses**: *springs* between simultaneities with a constant derived from the **shortest note sounding**, an **inverse-logarithmic** duration→constant function, *rods* spanning one or more springs, a very stiff spring standing for a barline's white space. 🚨 **2 pages, and it is a SCAN with NO text layer** (`pdftotext` yields nothing, `tesseract` is not installed) — read the two PNGs beside it. Reached from Solomon's bibliography and from Belle's own README, which links it as the source of its "spring spaces". ⭐ **Both pages read; what it answered is `docs/spacing-model-research.md` §6f** — incl. two details no summary of it states: the spring constant comes from the shortest note **sounding** (*"may be held over from a previous simultaneity"*), and the rod solve is a **greedy maximal-force sweep**, not a global one. ⚠️ **Gourlay 1987 itself is NOT on disk** — an OSU tech report, never fetched: ⛔ UNKNOWN, not silent. | wayback → ICMC proceedings, 2026-08-29 |
+| ⭐⭐ `solomon-horizontal-spacing-graphical-notation-icmc2011.pdf` / `solomon-icmc2011-fulltext.txt` | **Mike Solomon, *The Horizontal Spacing of Graphical Notation*, ICMC 2011, pp. 689ff** — ⭐⭐ **the single most useful thing in this folder for the "contemporary music" half of the goal**, and it is not by Burnson. It asks the question we will have to answer: *how does a GRAPHIC object take part in a normal spring/rod line of music?* Its answer is a **linear program** that stretches a vector graphic so it hits horizontal **"target points"** in the score while spreading the distortion over the whole graphic instead of at the anchors. ⭐ §2.2 is also a compact, sourced history of spacing itself — Gourlay's box-glue, **Haken & Blostein for the words *spring* and *rod***, Renz's "neighbourhoods", and a bulleted summary of **LilyPond's algorithm** (columns, one spring per adjacent pair, non-adjacent rods, `S → 2W`, `D(2S)=3W`, `D(4S)=4W`, the common-shortest-duration). ⭐ **What it answered (2026-08-29): `docs/research/spacing-model-research.md` §6f** — the sourced history, the bulleted LilyPond algorithm, and the *spanners across line breaks* argument for why a graphic must ride the piece-wide solve. It also **partly answers §6e's "nobody was found to have done this"**. ⚠️ §§1–3.1 read; the LP matrices later in §3 are unread. ⚠️ It is also mildly **critical of Belle** — *"context-agnostic tools such as this do not draw upon the many musical engraving conventions"* — which is exactly the trap our own engine has to avoid. | wayback → ICMC proceedings, 2026-08-29 |
+| ⭐⭐ `haken-blostein-horizontal-spacing-icmc1995.pdf` + `haken-blostein-icmc1995-p1.png` / `-p2.png` | **Lippold Haken & Dorothea Blostein, *A New Algorithm for Horizontal Spacing of Printed Music*, ICMC 1995, pp. 118–119** — the algorithm used in the **Lime** editor, and ⭐⭐ **the primary source for the vocabulary `docs/plans/spacing-model-plan.md` already uses**: *springs* between simultaneities with a constant derived from the **shortest note sounding**, an **inverse-logarithmic** duration→constant function, *rods* spanning one or more springs, a very stiff spring standing for a barline's white space. 🚨 **2 pages, and it is a SCAN with NO text layer** (`pdftotext` yields nothing, `tesseract` is not installed) — read the two PNGs beside it. Reached from Solomon's bibliography and from Belle's own README, which links it as the source of its "spring spaces". ⭐ **Both pages read; what it answered is `docs/research/spacing-model-research.md` §6f** — incl. two details no summary of it states: the spring constant comes from the shortest note **sounding** (*"may be held over from a previous simultaneity"*), and the rod solve is a **greedy maximal-force sweep**, not a global one. ⚠️ **Gourlay 1987 itself is NOT on disk** — an OSU tech report, never fetched: ⛔ UNKNOWN, not silent. | wayback → ICMC proceedings, 2026-08-29 |
 | `eye-music-wikipedia.html` / `.txt` | **Wikipedia, *Eye music*** — the term itself and its canon: Cordier's heart-shaped `Belle, bonne, sage` and circular `Tout par compas suy composés`, Josquin's blackened notation, Bull's circular canon, Marcello's enharmonic spellings, Telemann's `3/32` and `24/1` in the *Gulliver Suite*, and Crumb's circles/spirals/crosses. ⚠️ **A tertiary source** — fine for the vocabulary and for a list of what has been done, ⛔ never for a rule. | `en.wikipedia.org/wiki/Eye_music`, 2026-08-29 |
 
 ⭐ **The code is a CLONE, and it is NOT in this directory** — `~/dev/engine-sources/belle`,
@@ -90,7 +90,7 @@ forth in Behind Bars"*.
 below. ⚠️ **The whole repo is ONE commit** — `git fetch --unshallow` returns nothing, so there is no
 history to read. **BSD-2-Clause** (`Copyright 2007-2013, 2017 Andi; 2013-2016 Robert Taub`, per-file
 headers) — i.e. the same *port-it-attributed* footing as VexFlow's MIT
-(`docs/own-engraving-engine.md` §6.7), ⛔ **not** the LGPL the 2010 paper announces. Note it is a
+(`docs/plans/own-engraving-engine.md` §6.7), ⛔ **not** the LGPL the 2010 paper announces. Note it is a
 header-only C++ library in two halves: `include/prim-*.h` (the utility layer — `Affine`, `Path`,
 `Bezier`, rationals) and `include/belle-*.h` (the music layer — `belle-engraver.h`,
 `belle-spacing.h`, `belle-springs.h`, `belle-island.h`, `belle-house-style.h`, painters for PDF /
@@ -314,7 +314,7 @@ prose), and all four sources plus all three engines agree: **no**.
 rejects the system-wide reading in its own module note, `dynamicsChain.ts` already chains only
 *touching* spans (Gould's *sequence*), and `outsideStaffBand.bandOver` already does a closed-interval
 overlap test. The leak was a BUG one layer up: `TrillRenderer.coveredPlacements` published every
-trill's claim across its whole system (fixed 2026-08-20, `docs/trill-plan.md` §17). ⭐⭐ The lesson
+trill's claim across its whole system (fixed 2026-08-20, `docs/plans/trill-plan.md` §17). ⭐⭐ The lesson
 worth keeping from a research trip that found a bug instead of a rule: **the books agreed with the
 code's stated intent, so the disagreement was between the code and itself.**
 
@@ -385,7 +385,7 @@ score gets to be a bicycle. Everything about it, including the four ICMC papers 
 the `belle/` section above.
 
 ⭐⭐ **VexFlow 5.0.0, TWO copies since 2026-09-19 — the library this editor was built on and REMOVED**
-(`docs/vexflow-removal-map.md`). Kept because much of our engine is a TRANSCRIPTION of it: a port's
+(`docs/history/vexflow-removal-map.md`). Kept because much of our engine is a TRANSCRIPTION of it: a port's
 comment says *"`Clef.getPoint` (`clef.js:98`)"*, and once the package leaves `package.json` (S14) that
 citation must still resolve. ⛔ **Not an engraving opinion either** — it is where OUR inherited defaults
 came from, asked *"what did the code we replaced do, exactly?"*, never *"what is right?"*.
@@ -398,7 +398,7 @@ came from, asked *"what did the code we replaced do, exactly?"*, never *"what is
 ⚠️ **Inkscape answers a DIFFERENT KIND of question** and is filed here only because it lives in the
 same directory. The other three are asked *what did they engrave*; Inkscape is asked **how does an
 interactive vector editor stay fast while you drag something** — see
-`docs/render-performance-research.md`. ⛔ It knows nothing about music.
+`docs/history/render-performance-research.md`. ⛔ It knows nothing about music.
 
 ⭐ **Why not under `reference/`**: 846 MB of C++ inside the project directory is reachable by
 ripgrep, editor indexing and every `find` we run — a grep for `hairpin` that silently starts matching
@@ -557,7 +557,7 @@ that matters**, not the file. A PDF nobody knows we have is worth the same as no
    The middle column is the one a future reader searches on — "Gerou & Lusk" means nothing to
    someone looking for whether a slur may cross a beam.
 3. If it made a repo claim checkable, or refuted one, say so in the row. That is how
-   `docs/slur-plan.md` and the `src/engine/rendering/` doc comments stay honest about *which* source
+   `docs/plans/slur-plan.md` and the `src/engine/rendering/` doc comments stay honest about *which* source
    each number came from.
 4. ⛔ **A scan beats an OCR whenever the question is "what did they DRAW".** Snippet APIs return
    prose only, and a book's engraving can be measured — that is how Gould's p. 111 examples were
@@ -589,7 +589,7 @@ The question was the **KEY SIGNATURE**, whole: placement per clef, spacing, canc
 practice, and how the change is edited. Five passes ran in parallel (this library; the three engine
 checkouts; MusicXML/MEI/SMuFL + the four applications; a UI survey).
 
-📄 **The answers are digested in `docs/key-signature-research.md`** — go there, not to the scratchpad,
+📄 **The answers are digested in `docs/research/key-signature-research.md`** — go there, not to the scratchpad,
 which does not survive. Only what is *about this library* is recorded here.
 
 | asked | source | answer |
@@ -638,7 +638,7 @@ The question was **the TIME SIGNATURE ACROSS STAVES**: where two staves of one s
 signatures of DIFFERENT widths (one has a key and the other none, or the two hands are in different
 keys), is each staff's meter placed after its own signature, or are the meters aligned? Asked because
 of a grand-staff screenshot in which the two meters did not line up. A second pass read the three
-engine checkouts (⛔ not this library — see `docs/key-signature-plan.md` §8.5d for that half).
+engine checkouts (⛔ not this library — see `docs/plans/key-signature-plan.md` §8.5d for that half).
 
 | asked | source | answer |
 |---|---|---|
@@ -653,7 +653,7 @@ engine checkouts (⛔ not this library — see `docs/key-signature-plan.md` §8.
 The question was **the BARE STAFF after a cautionary key signature at a system break** — how much, and
 does the staff run to the right margin or stop after the signs? Asked because the first pass's 1.9 sp
 looked long on screen. A parallel pass read the three engines (⛔ not this library; the numbers are in
-`docs/key-signature-plan.md` §8.6a).
+`docs/plans/key-signature-plan.md` §8.6a).
 
 | asked | source | answer |
 |---|---|---|
@@ -671,7 +671,7 @@ looked long on screen. A parallel pass read the three engines (⛔ not this libr
 
 The question was **BRACES and BRACKETS** — which sign for which ensemble, the nesting order, and the
 geometry of each. Five parallel agents read the engines, SMuFL and the standards (⛔ not this library;
-they are in `docs/braces-brackets-research.md`). ⭐⭐ **Almost every NUMBER here is a MEASUREMENT, not
+they are in `docs/research/braces-brackets-research.md`). ⭐⭐ **Almost every NUMBER here is a MEASUREMENT, not
 a quotation** — §3.8 of that document lists what the books state in words, and it is almost nothing.
 
 | asked | source | answer |
@@ -695,7 +695,7 @@ The question was **the VERTICAL POSITION OF RESTS WHEN A STAFF CARRIES MORE THAN
 because `public/examples/prelude-bwv846.json` carried **67 hand-placed `restShift` overrides**, one
 per rest, because we ship a fixed per-voice ladder that is blind to the other voice. ⭐ **New ground
 for this library** — nothing here had been asked about rests before. A parallel pass read the four
-engines (⛔ not this library; they are in `docs/multi-voice-rest-position.md` §4).
+engines (⛔ not this library; they are in `docs/research/multi-voice-rest-position.md` §4).
 
 | asked | source | answer |
 |---|---|---|
@@ -712,9 +712,9 @@ engines (⛔ not this library; they are in `docs/multi-voice-rest-position.md` �
 ### What was asked of it on 2026-09-01, and what came back
 
 The question was **the STEM — its LENGTH above all, then its ATTACHMENT and THICKNESS** — asked
-because `docs/note-engraving-plan.md` P3c took the stem's INK and deliberately left the LENGTH, on
+because `docs/plans/note-engraving-plan.md` P3c took the stem's INK and deliberately left the LENGTH, on
 the parent plan's rule that a re-implementation with no stated rule is worse than a dependency.
-Written up in full as **`docs/stem-length-research.md`**. ⭐⭐ **THE FINDING THAT MATTERS FOR THIS
+Written up in full as **`docs/research/stem-length-research.md`**. ⭐⭐ **THE FINDING THAT MATTERS FOR THIS
 MANIFEST: STONE HAS A COMPLETE STEM-LENGTH CHAPTER (printed pp. 47–49, seven numbered cases) AND WE
 HAD NEVER ASKED HIM ANYTHING.** He is the most systematic source in the library on this question.
 ⚠️ **Stone's PDF is 2-UP** — printed pp. 48–49 are PDF page **35**, left and right halves; printed
@@ -739,10 +739,10 @@ p. 47 is the right half of PDF 34. That is a new offset fact, unlike Gould (+20)
 | ⚠️⚠️ THICKNESS | **Gould p. 13**, **Ross p. 83**, **G&L pp. 25/137** — vs Gould's own PLATE | Three books say the stem is **thinner than a stave-line** and **none gives a number**. 🚨 **MEASURED on Gould p. 14 by ink coverage at 450 dpi: stems 0.106–0.120 sp, staff lines 0.107–0.116 sp — the same, to the scan's resolution.** ⭐ The **sixth** drawing-does-not-back-the-sentence in this library. Bravura (0.12/0.13) and Leland (0.10/0.11) engrave the sentence; 🚨 **LilyPond draws the stem 30% THICKER than its staff line (0.13/0.10) and Verovio 33% thicker (0.10/0.075).** |
 | ❌ STONE on thickness or attachment | **Stone**, whole book | **Nothing.** Checked 2026-09-01 — ⛔ do not check again. |
 | ⛔ CROSS-STAFF stems | **Gould p. 305** | *"a stem may extend from one stave to the other to take advantage of the other clef"* — a permission with **no geometry**, and that is the whole of it. Ross, Stone and G&L: **UNKNOWN**, searched and silent. |
-| ⛔ a rule for the RAMP as a function · the stem's overlap INTO the head · whole-bar/stemless stems · non-5-line staves | — | **UNKNOWN** — see `docs/stem-length-research.md` §6 for exactly where each was looked for. |
+| ⛔ a rule for the RAMP as a function · the stem's overlap INTO the head · whole-bar/stemless stems · non-5-line staves | — | **UNKNOWN** — see `docs/research/stem-length-research.md` §6 for exactly where each was looked for. |
 | ⛔ **Gardner Read**, *Music Notation* | — | **Still not on disk** (see *Still missing* below) and the obvious fifth opinion here; LilyPond cites him by page elsewhere. **Not consulted.** |
 
-⭐ **What the three ENGINES do is in `docs/stem-length-research.md` §4**, with `file:line` for every
+⭐ **What the three ENGINES do is in `docs/research/stem-length-research.md` §4**, with `file:line` for every
 number — including three Verovio defects found while reading it (the SMuFL flag extension is
 commented out as crashing, the two-voice reduction its own header calls for is unimplemented, and
 the chord path hard-codes a 5-line staff). ⚠️ **MuseScore has moved the algorithm again**: it is now
@@ -750,8 +750,8 @@ the chord path hard-codes a 5-line staff). ⚠️ **MuseScore has moved the algo
 
 ### What was asked of it on 2026-09-01 (second question), and what came back
 
-The question was **THE BEAM'S SLOPE**, asked for **P4b** of `docs/beam-engraving-plan.md` — the same
-gate the stem's length is behind. Written up in full as **`docs/beam-slope-research.md`**.
+The question was **THE BEAM'S SLOPE**, asked for **P4b** of `docs/plans/beam-engraving-plan.md` — the same
+gate the stem's length is behind. Written up in full as **`docs/research/beam-slope-research.md`**.
 ⭐⭐ **THE FINDING THAT MATTERS FOR THIS MANIFEST: ALL FOUR TREATISES ANSWER, AND TWO OF THEM POINT AT
 THE THIRD.** Gould p. 21 — *"(For a detailed study of beam angles, see Ted Ross, The Art of Music
 Engraving and Processing.)"* — and Stone p. 12's footnote names the same book **and the same pages**:
@@ -775,7 +775,7 @@ Engraving and Processing.)"* — and Stone p. 12's footnote names the same book 
 The question was **HORIZONTAL SPACING — what a note-value is actually worth**, asked because HE
 noticed the dating: *"i think the research was done before we had the reference folder with the
 books"*, and then *"before we had the repository with all the engines cloned"*. Both true —
-`docs/spacing-model-research.md` is **2026-07-30**, Gould arrived **2026-08-17**, Ross/Stone/G&L
+`docs/research/spacing-model-research.md` is **2026-07-30**, Gould arrived **2026-08-17**, Ross/Stone/G&L
 **2026-08-18**, the engine clones **2026-08-18**. ⇒ **every number in that document was second-hand**,
 and it says so itself: Gould's table came *"via the facsimile in MuseScore's spacing paper"*.
 
@@ -801,7 +801,7 @@ Gould on this subject.
 ### What was asked of it on 2026-09-01 (fourth question), and what came back
 
 The question was the **FRACTIONAL BEAM — which side a "hook" points, and how long it is** (P4c of
-`docs/beam-engraving-plan.md`; the write-up is `docs/beam-hook-research.md`). ⭐⭐ **The single most
+`docs/plans/beam-engraving-plan.md`; the write-up is `docs/research/beam-hook-research.md`). ⭐⭐ **The single most
 useful thing learned is the SEARCH TERM**: the object is a **fractional beam** in every book — Ross
 also allows *broken beam*, LilyPond's source says *beamlet*, Verovio *partial flag*, VexFlow *partial
 beam*. ⛔ Grepping these books for **"hook"** finds the **REST** chapters instead (a quaver rest has
@@ -823,10 +823,10 @@ Gould's own plates, and with the engines.
 
 ### What was asked of it on 2026-09-01 (fifth question), and what came back
 
-The question was **THE STAFF AND ITS HEADER** — P5 of `docs/own-engraving-engine.md`, asked in two
-halves and written up as two documents: **`docs/staff-line-research.md`** (how thick a staff line is,
+The question was **THE STAFF AND ITS HEADER** — P5 of `docs/plans/own-engraving-engine.md`, asked in two
+halves and written up as two documents: **`docs/research/staff-line-research.md`** (how thick a staff line is,
 whether it scales, and what else in the repo rides that number) and
-**`docs/header-spacing-research.md`** (every gap from the system's left edge through clef → key
+**`docs/research/header-spacing-research.md`** (every gap from the system's left edge through clef → key
 signature → time signature to the first note).
 
 ⭐⭐ **THE FINDING THAT MATTERS FOR THIS MANIFEST: NOT ONE OF THE FOUR TREATISES STATES A STAFF-LINE
@@ -865,7 +865,7 @@ library that can answer *"does this quantity scale with the staff?"* for anythin
 The question was **HOW FAR UP AND DOWN A BARLINE REACHES** — raised by P5b taking the opening
 barline's ink, which exposed that every vertical line in the score ended at *"the bottom line's y
 plus 1"*, VexFlow's staff-line thickness rather than ours. Written up in
-`docs/own-engraving-engine.md` P5b's fourth step; the rule lives in
+`docs/plans/own-engraving-engine.md` P5b's fourth step; the rule lives in
 `src/engine/engrave/staff/barlineExtent.ts`.
 
 ⭐⭐ **THE MANIFEST-LEVEL FACT: THE BOOKS DO NOT RESOLVE IT, AND THE ENGINES ARE UNANIMOUS.** This is
@@ -961,14 +961,14 @@ against the printed folio on the rendered page** — Gould +20 (printed 8 = PDF 
 The question was the **ACCIDENTAL** and the **AUGMENTATION DOT** — their gaps, their vertical
 anchors, a chord's accidental columns, and the dot on a line — asked because P3 took both glyphs'
 INK on 2026-09-14 and left every one of their placements with VexFlow. Written up in full as
-`docs/accidental-dot-research.md` (§2 per book, §3 unanimity, §4 what we draw, §5 the open
+`docs/research/accidental-dot-research.md` (§2 per book, §3 unanimity, §4 what we draw, §5 the open
 decisions). ⭐ Answered **entirely from the four books on disk**: no web route was used, so none was
 found dead.
 
 🚨 **A MANIFEST-LEVEL CORRECTION, and it affects every existing Gerou & Lusk citation: THEIR PDF IS
 2-UP.** PDF page *n* holds printed pages **2n − 4** and **2n − 3** — verified twice, by reading the
 running heads off PDF 5 (printed **6–7**, *Accidentals*) and PDF 70 (printed **136–137**, the
-*Stems* entry `docs/stem-length-research.md` cites). ⛔ `docs/stem-length-research.md`'s header says
+*Stems* entry `docs/research/stem-length-research.md` cites). ⛔ `docs/research/stem-length-research.md`'s header says
 *"Gerou & Lusk's PDF is 1-up with its own printed numbers"* — **that is wrong**, and it is the
 second 2-up PDF in this directory after Stone's.
 
@@ -1010,16 +1010,16 @@ fine, **images included** — a dialog screenshot is what settled Finale's nine 
 ### What was asked of it on 2026-09-14, and what came back
 
 The question was **the SLUR and the TIE** — thickness, arch, attachment, avoidance, the system break
-— for `docs/slur-tie-research.md`, written because the arc's INK became ours that day
+— for `docs/research/slur-tie-research.md`, written because the arc's INK became ours that day
 (`engine/engrave/curves/curveInk.ts`) while its SHAPE was deliberately left open. ⭐ The first time
-**Ross and Stone** were asked this: `docs/slur-plan.md` §11.7 (2026-08-15) lists both as
+**Ross and Stone** were asked this: `docs/plans/slur-plan.md` §11.7 (2026-08-15) lists both as
 *"not obtainable"*, and both have been on disk since 2026-08-18. **All four treatises answer.**
 
 | asked | source | answer |
 |---|---|---|
 | ⭐⭐ **a page offset nobody had recorded** | **Gerou & Lusk**, the whole PDF | 🚨 **THE G&L PDF IS 2-UP**, like Stone's — printed page P sits on **PDF page P/2 + 2** (even LEFT, odd RIGHT), calibrated on PDF 62 = printed 120/121 and PDF 73 = printed 142/143. Slurs printed **pp. 121–127** = PDF 62–65; ties printed **pp. 143–148** = PDF 73–76. ⛔ Not a simple `+n`. |
 | where the material is | all four | **Gould** ties pp. 60–72, slurs pp. 109–114 (PDF +20) · **Ross** *Ties, Slurs, and Phrase Marks* pp. 136–143 (PDF +12) · **Stone** *Slurs and Ties* pp. 35–39 (2-UP: pp. 36/37 = PDF 29, pp. 38/39 = PDF 30) · **G&L** as above. |
-| ⭐⭐ the tie's *"1–1½ stave-spaces deep"* — apex or total reach? | **Gould p. 62**, MEASURED at 450 dpi | **The APEX over the chord.** Her page draws the SAME two-note tie three times, labelled *centre* / *edge* / *slightly after*: apex **1.52 / 0.97 / 0.47 sp**, i.e. the two ends of her own stated band in the first two. ⭐ This closes the ambiguity `docs/slur-plan.md` §13.2 left open — and it closes it **against** every engine, none of which reaches 1 sp. ⛔ The tie's height is HIS decision (§13.1) and was not re-opened. |
+| ⭐⭐ the tie's *"1–1½ stave-spaces deep"* — apex or total reach? | **Gould p. 62**, MEASURED at 450 dpi | **The APEX over the chord.** Her page draws the SAME two-note tie three times, labelled *centre* / *edge* / *slightly after*: apex **1.52 / 0.97 / 0.47 sp**, i.e. the two ends of her own stated band in the first two. ⭐ This closes the ambiguity `docs/plans/slur-plan.md` §13.2 left open — and it closes it **against** every engine, none of which reaches 1 sp. ⛔ The tie's height is HIS decision (§13.1) and was not re-opened. |
 | ⭐⭐ does her DRAWING match her endpoint sentence? | **Gould p. 62**, same plate | ✅ **Yes, for once.** *"Centre of the notehead"* draws the tip over the head's centre to **±0.27 sp**; *"edge of the notehead"* draws it on the edge to **±0.15 sp**. ⭐ And a third fact no book states and no engine models: the three variants differ in DEPTH by **3×** on the same two notes. |
 | a slur/tie THICKNESS, from any book | **all four** | ⛔ **UNKNOWN — none gives a number.** Gould specifies a thickness for beams, hairpins, tenuto lines, barlines, ledger lines and rests, and for the curve says only *"tapered arc"*. Ross: *"a thick center which gradually tapers to uniformly thin ends"*, no figure. Stone and G&L: nothing. ⭐ **MEASURED instead**: Gould's own ties are **0.30 sp** at the belly (≈2.8× her 0.106 sp staff line), on both p. 61 and p. 62. |
 | a slur ARCH HEIGHT, from any book | **all four** | ⛔ **UNKNOWN.** Gould constrains only the direction — *"the curve of a long slur is flattened … may be completely flat in the middle"* (p. 109) — and **Ross states the same thing independently**: *"A long slur is a straight line with both ends bending uniformly towards the enclosed notes"* (pp. 140–141). ⚠️ **G&L p. 145 is the dissent**, and only for the tie: *"Adjust curve for longer ties. Raise or lower the center of the curve to the next space"* — i.e. a LONG tie gets DEEPER, quantised to whole spaces. |

@@ -1,6 +1,6 @@
 /**
  * ⭐⭐ **WHICH COLUMN EACH ACCIDENTAL OF A CHORD TAKES, AND WHERE THAT COLUMN STANDS** — S9d of
- * `docs/vexflow-removal-map.md` (`Accidental.format` + `Accidental.checkCollision` +
+ * `docs/history/vexflow-removal-map.md` (`Accidental.format` + `Accidental.checkCollision` +
  * `Tables.accidentalColumnsTable`, MIT, transcribed).
  *
  * ## ⭐ What the rule IS
@@ -22,7 +22,7 @@
  * - **The ink** — `./accidental`.
  * - **Gould's column rule** — `rendering/chordAccidentalColumns` is ours and the FAN uses it; the
  *   ordinary chord still packs by THIS table. Switching it is a picture change, ⛔ not a port.
- *   The research is `docs/accidental-dot-research.md` A3/A4.
+ *   The research is `docs/research/accidental-dot-research.md` A3/A4.
  *
  * ⚠️ Transcribed with VexFlow's quirks intact, because tidying any of them moves a sign:
  * - the seven-or-more pattern search runs over the WHOLE chord, not the colliding run;

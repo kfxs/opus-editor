@@ -108,7 +108,7 @@ describe('a mark that belongs to a NOTE takes that note’s voice colour', () =>
 })
 
 /**
- * ⭐⭐ P2 of docs/dynamic-voice-scope-plan.md — for these two kinds the rule stops being a list and
+ * ⭐⭐ P2 of docs/plans/dynamic-voice-scope-plan.md — for these two kinds the rule stops being a list and
  * becomes a question the model answers. ⚠️ Only these two: an 8va and a pedal have no voice field to
  * ask, and the trill asks its anchor note instead (both above, unchanged).
  */

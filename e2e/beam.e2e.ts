@@ -4,7 +4,7 @@
  *
  * ## 🚨 Why this file exists: a change moved 85% of beams and the browser suite stayed green
  *
- * P4b (`docs/beam-slope-research.md`) put five slope rules behind a console knob and measured that
+ * P4b (`docs/research/beam-slope-research.md`) put five slope rules behind a console knob and measured that
  * the tradition's tables would flatten most beams by ~0.28 staff spaces. All **276** browser tests
  * passed either way — and the reason is precise, not an absence:
  *

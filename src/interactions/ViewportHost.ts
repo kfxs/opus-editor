@@ -16,7 +16,7 @@ function samePin(a: PinnedGutter | null, b: PinnedGutter | null): boolean {
 /**
  * DOM host for {@link ViewportModel} — the *only* DOM-aware piece of the viewport stack.
  * It keeps the pure model and the real scroll element in sync in both directions, and owns the
- * zoom DOM (the `sizer` + `zoomLayer` pair, see docs/zoom-plan.md §3):
+ * zoom DOM (the `sizer` + `zoomLayer` pair, see docs/plans/zoom-plan.md §3):
  *
  *  - **DOM → model:** a `scroll` listener mirrors user scrolling into the model; a `ResizeObserver`
  *    on the outer box mirrors viewport (window/layout) resizes; and a `ResizeObserver` on the

@@ -7,7 +7,7 @@ import { fracCreate as frac } from '../utils/fraction'
 import { DEFAULT_FAN_BEAMS, DEFAULT_FAN_COUNT } from '../utils/fannedBeam'
 
 /**
- * The `accel.` / `rit.` press (docs/fanned-beams-plan.md §3, P2) — one button, three jobs: apply,
+ * The `accel.` / `rit.` press (docs/plans/fanned-beams-plan.md §3, P2) — one button, three jobs: apply,
  * turn round, and clear. And the lit state, which is READ from the selection and never pushed.
  */
 vi.mock('../engine/rendering/ScoreRenderer', async () => (await import('@/testing/engineStubs')).scoreRendererStub())
@@ -230,7 +230,7 @@ describe('pressFan across a selection', () => {
    * written mode would be inert while the fan is on and ALIVE the moment it came off, which is the
    * resurrection trap the two-note tremolo avoids the same way: by not writing.
    *
-   * ⭐ The one is `continue` — the JOIN to the group on the left (docs/fan-beam-join-plan.md §0).
+   * ⭐ The one is `continue` — the JOIN to the group on the left (docs/plans/fan-beam-join-plan.md §0).
    * On a fan the word reads exactly as it does anywhere else: a beam comes in AND a beam goes out,
    * and the outgoing one is the ramp. `begin` is what an unjoined fan already means, `end` and
    * `single` are impossible, so `continue` is the only choice left to make.

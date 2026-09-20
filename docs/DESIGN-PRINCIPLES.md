@@ -11,7 +11,7 @@ while the code is small and expensive to retrofit once features depend on it.
 
 > **Not in this file: framework-agnosticism.** That was never a principle here — it
 > was a *mechanism*, `npm run lint:boundary`, and it has been discharged: Vue was
-> removed (`docs/remove-vue-plan.md`) and the project has no UI framework. The lint
+> removed (`docs/history/remove-vue-plan.md`) and the project has no UI framework. The lint
 > ratchet stays so one cannot creep back, but it is a build check, not a design
 > constraint. Everything below is about the **model's** assumptions, which is why
 > none of it needed revising when the framework went.
@@ -179,7 +179,7 @@ be made *consciously* before more code piles onto it.
 
   ⭐ **A SECOND member has since arrived, deliberately and by the same route: the SURFACE**
   (`engine/layout/surface.ts` — page size and margins, or a sketching canvas;
-  `docs/layout-plan.md`). It is session-only for the same reason and travels the same path
+  `docs/plans/layout-plan.md`). It is session-only for the same reason and travels the same path
   (engine-held, pushed to the renderer, in `layoutStateKey`). This entry's own list of what the
   engraving object would hold — *page size, margins, staff size, ragged-last* — is that surface and
   `justifyLastLine` in one breath, so they are **not** two settings arriving by two routes: they are
@@ -215,7 +215,7 @@ be made *consciously* before more code piles onto it.
   different routes is how the compartment stops meaning anything.
 
   ⭐⭐ **A THIRD stakeholder, recorded 2026-08-29: AN AUTHORED STAFF TRANSFORMATION** — a bent, curved
-  or spiral staff, i.e. the eye-music half of the engine's goal (`docs/own-engraving-engine.md`
+  or spiral staff, i.e. the eye-music half of the engine's goal (`docs/plans/own-engraving-engine.md`
   §7.5). ⛔ **It is not music** — principle 3 keeps it out of the content model outright. ⛔ **And it
   is not `engravingOverrides`** — that compartment is id-keyed and anchor-relative, and a
   transformation has no single element to hang off; its key is a **staff × range**, the shape
@@ -236,7 +236,7 @@ be made *consciously* before more code piles onto it.
   `curveShape` override is client #1; old scores carrying inline `Slur.cps` are
   forward-migrated on load (`migrateLegacySlurCps`). The "decide before adding more
   drag-shaped objects" question this entry raised is answered by
-  `docs/engraving-overrides-plan.md`: a separate compartment keyed by element id, with
+  `docs/plans/engraving-overrides-plan.md`: a separate compartment keyed by element id, with
   a per-element recipe for any future adjustable element. Semantic side/direction flips
   (`placement`, `stemDirection`, `tieDirection`) deliberately stay on the content model
   — they are notational meaning, not geometry.
@@ -245,7 +245,7 @@ be made *consciously* before more code piles onto it.
   positional compartment.** The playback sound was `PlaybackEngine.program`: a field on the editor,
   absent from the score, the JSON and undo, so a reload lost it and a second score opened in the same
   editor inherited the previous one's timbre (a principle-1 smell as well as a lost setting). It is
-  now `score.playback.sounds[]` — `engine/models/soundOps.ts`, `docs/instruments-plan.md` P1a.
+  now `score.playback.sounds[]` — `engine/models/soundOps.ts`, `docs/plans/instruments-plan.md` P1a.
 
   Why it lands differently from ragged-last, which is still parked above:
   - **It is POSITIONAL** — that is this section's own discriminator. A sound can change at bar 40
@@ -286,7 +286,7 @@ be made *consciously* before more code piles onto it.
        so "re-bar each staff on its own grid" is always expressible.
     2. **The shared-spine assumption must never be baked into content** — breaking it later
        (per-`StaffContent` meter/barlines; the outer `Measure` as a re-sync unit) is the
-       documented path to different measure counts per staff. See docs/multi-staff-plan.md
+       documented path to different measure counts per staff. See docs/plans/multi-staff-plan.md
        §11. The addressing seam is one helper, `engine/models/staffContent.ts`.
 
 - **`createEditorApp` creates its own score rather than being handed one (re: principle 5).**
@@ -310,7 +310,7 @@ be made *consciously* before more code piles onto it.
   dev/           renderCensus, layoutFlushCensus   ← ⏳ TEMPORARY, see below
   ```
 
-  ⏳ **The two in `dev/` are P0 instruments and leave with `src/dev/`** (docs/render-performance-plan.md
+  ⏳ **The two in `dev/` are P0 instruments and leave with `src/dev/`** (docs/history/render-performance-plan.md
   §8). ⭐ Neither could be instance-scoped even in principle, and that is not an excuse but the
   reason: `renderCensus` is installed through `engine/RenderProbe`'s single injected seam, and
   `layoutFlushCensus` patches `Element.prototype` — **a page has one of those however many editors are

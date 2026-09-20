@@ -1,6 +1,6 @@
 /**
- * ⭐⭐ **THE SVG PAINTER — ours** (S13b of `docs/vexflow-removal-map.md`, P1e of
- * `docs/own-engraving-engine.md`).
+ * ⭐⭐ **THE SVG PAINTER — ours** (S13b of `docs/history/vexflow-removal-map.md`, P1e of
+ * `docs/plans/own-engraving-engine.md`).
  *
  * VexFlow's `SVGContext` (`svgcontext.js`) and the `Renderer` that made it, transcribed as far as this
  * editor calls them. It is the implementation {@link DrawContext} was declared for: every pass that

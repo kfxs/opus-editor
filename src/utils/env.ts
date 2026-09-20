@@ -4,7 +4,7 @@
  * `import.meta.env` is Vite's and Vite's alone. Reading it from inside the core fence
  * (`engine/models/**`, `utils/**`, `types/**`) is the one thing that would make a published core
  * package require one specific bundler — and it was the only such coupling left in there
- * (docs/refactor-plan-2026-07-27.md Phase 0d). `process.env` is the neutral spelling instead: Node
+ * (docs/history/refactor-plan-2026-07-27.md Phase 0d). `process.env` is the neutral spelling instead: Node
  * sets it, every bundler statically replaces it, and a plain Node consumer of the package has it
  * for free without a build step at all.
  *
@@ -19,7 +19,7 @@
  * True when running under the unit-test runner (Vitest sets both of these).
  *
  * ⚠️ This is an assertion about the REPOSITORY, not about the music, so per the convention in
- * docs/refactor-plan-2026-07-27.md Phase 0c it has a test behind it rather than a promise in a
+ * docs/history/refactor-plan-2026-07-27.md Phase 0c it has a test behind it rather than a promise in a
  * comment: `env.test.ts` fails if the runner stops being detected. That test is the whole reason
  * this lives in its own module — the flag it feeds (`ScoreModel`'s `STRICT_INVARIANTS`) is private,
  * so a silent `false` there would disarm the measure-integrity check in all ~2500 tests while

@@ -1,6 +1,6 @@
 /**
  * ⭐⭐ **WHAT A CLEF IS, AS OURS — its glyph, the staff line it names, and its face.**
- * S4b0 of `docs/vexflow-removal-map.md`.
+ * S4b0 of `docs/history/vexflow-removal-map.md`.
  *
  * `rendering/EngravedClef` used to draw the glyph text, the line and the size VexFlow's `Clef` had
  * resolved from its own `Clef.types` table and `Clef.getPoint`. They are rows here now, with today's
@@ -9,7 +9,7 @@
  * ## ⚠️ These are TODAY's rows, ⛔ not the clef research's answer
  *
  * The P5 note kept *which line each clef names* and the ⅔ a mid-line clef is reduced by as VexFlow's
- * parameters while `docs/clef-research.md` was open. Rule 13 (`docs/own-engraving-engine.md` §0.3) is
+ * parameters while `docs/research/clef-research.md` was open. Rule 13 (`docs/plans/own-engraving-engine.md` §0.3) is
  * what changed that: a number is never a blocker, so today's value becomes a changeable ROW and the
  * research becomes its preset menu. The ⅔ already moved that way in S1c (`../inheritedFonts`).
  */

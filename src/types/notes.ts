@@ -20,7 +20,7 @@ export type ArticulationType = 'accent' | 'staccato' | 'tenuto'
  * ⚠️ The number is **how the mark is written, not how it is performed**. The measured /
  * unmeasured split is NOT `typeof === 'number'`: four and five strokes are numbers and are
  * never measured, and even three usually is not. The reading is *derived* from the stroke count
- * plus the note's own flags at playback time (docs/tremolo-plan.md §5) — nothing is stored for
+ * plus the note's own flags at playback time (docs/plans/tremolo-plan.md §5) — nothing is stored for
  * it, because nothing about the notation says it.
  *
  * The Penderecki sign is a member of the same field rather than a flag beside it because a note
@@ -38,14 +38,14 @@ export type TremoloMark = 1 | 2 | 3 | 4 | 5 | 'penderecki'
  * — a blanca — and say "play this as an accelerando"; what is stored is that sentence. The N notes
  * it is played and drawn as are a *projection*, produced by `fanMembers` (utils/fannedBeam) and
  * never written back. Assertion → consequence is a function; the reverse is not. See
- * docs/fanned-beams-plan.md §0.
+ * docs/plans/fanned-beams-plan.md §0.
  *
  * ⭐ **The RHYTHM is a projection; the PITCHES are not.** {@link members} is the one thing inside a
  * fan that is stored, because a pitch cannot be derived from anything — see
- * docs/fanned-beam-pitches-plan.md §0-§1. It does not make the group divisible: this is still ONE
+ * docs/plans/fanned-beam-pitches-plan.md §0-§1. It does not make the group divisible: this is still ONE
  * slot, of one written duration, and no pipeline that walks slots sees anything new.
  *
- * ⚠️ Every number here is PROVISIONAL — see docs/fanned-beams-plan.md §1. They are not considered
+ * ⚠️ Every number here is PROVISIONAL — see docs/plans/fanned-beams-plan.md §1. They are not considered
  * engraving or performance decisions, and tuning them is ongoing hand work.
  */
 export interface FanMark {
@@ -85,7 +85,7 @@ export interface FanMark {
    * mark sounds at the steady base speed and carries ONE beam, so the sounding weights, the head
    * spacing and the drawn levels are one fact with three readers — `fanWeights` (utils/fannedBeam) is
    * the reader, and the only place these two numbers are interpreted. Picture and playback are the
-   * same function here, as they have been since day one (docs/fan-ramp-range-plan.md §0).
+   * same function here, as they have been since day one (docs/plans/fan-ramp-range-plan.md §0).
    *
    * ⚠️ **ABSENT IS THE ONLY SPELLING OF THE DEFAULT.** `normalizeFan` drops them both when they come
    * out equal to `0`/`count-1` (and when `count ≤ 1`, where the inequality cannot hold at all), so
@@ -193,7 +193,7 @@ export interface Attack {
 
 /**
  * ⭐ **One member of a fan — a CHORD in its own right**, which is what this feature had already
- * concluded in prose (`docs/fanned-beam-pitches-plan.md`: *"inside a fan the chord is the MEMBER,
+ * concluded in prose (`docs/plans/fanned-beam-pitches-plan.md`: *"inside a fan the chord is the MEMBER,
  * not the slot"*) before the type said it. It was `NotePitch[]`, a bare array, and that shape could
  * only ever hold pitches.
  *
@@ -344,7 +344,7 @@ export interface Note {
   secondaryBreak?: boolean
   /**
    * ⭐ **Which way this note's FRACTIONAL BEAM points** — the short stub of secondary beam that
-   * belongs to one note only (Gould pp. 157–158; `docs/beam-hook-research.md`).
+   * belongs to one note only (Gould pp. 157–158; `docs/research/beam-hook-research.md`).
    *
    * **Omitted = AUTO**, and auto is the four treatises' rule: the beam points at the beat, or
    * division of the beat, that the note belongs to (`engine/engrave/beams/fractionalBeam`). Set only
@@ -381,7 +381,7 @@ export interface Note {
    * 0-based index of this note's staff in {@link Score.staves} (default 0). This is the
    * **positional** projection of the internal `staffId` back-pointer (mirrors `measure`
    * being an ordinal), for staff-aware addressing in the flat public API. Note-**id**
-   * lookups stay global and are unaffected. See docs/multi-staff-plan.md §4.
+   * lookups stay global and are unaffected. See docs/plans/multi-staff-plan.md §4.
    */
   staff?: number
 }
@@ -427,7 +427,7 @@ export interface NotePitch {
  * already at that beat in that voice, or makes a new slot from these fields.
  *
  * Named because it crosses a module boundary: `voiceOps` builds one when a note changes voice and
- * hands it back to the model to insert (docs/modularity-plan-2026-07-28.md Phase 3). It is model
+ * hands it back to the model to insert (docs/history/modularity-plan-2026-07-28.md Phase 3). It is model
  * vocabulary, not a public API shape — nothing outside `engine/models` builds one.
  */
 export interface PitchInsert {
@@ -481,7 +481,7 @@ export interface Chord extends Attack {
   secondaryBreak?: boolean
   /**
    * ⭐ **Which way this note's FRACTIONAL BEAM points** — the short stub of secondary beam that
-   * belongs to one note only (Gould pp. 157–158; `docs/beam-hook-research.md`).
+   * belongs to one note only (Gould pp. 157–158; `docs/research/beam-hook-research.md`).
    *
    * **Omitted = AUTO**, and auto is the four treatises' rule: the beam points at the beat, or
    * division of the beat, that the note belongs to (`engine/engrave/beams/fractionalBeam`). Set only
@@ -507,7 +507,7 @@ export interface Chord extends Attack {
    * Inside a slot, so it needs no `MEASURE_RENDER_ROLE` entry: `laneFingerprint` stringifies
    * `lane.slots` whole and `measureShapeKey` reuses that string, so redraw is correct for free.
    * That is *conservative* rather than exact — the mark costs no horizontal space, yet riding in
-   * `slots` puts it in the WIDTH key too — which is the safe direction. See docs/tremolo-plan.md §1.
+   * `slots` puts it in the WIDTH key too — which is the safe direction. See docs/plans/tremolo-plan.md §1.
    */
   tremolo?: TremoloMark
   /**
@@ -524,7 +524,7 @@ export interface Chord extends Attack {
    * insert between, change a duration, a meter change, a paste that re-bars them apart). So the flag
    * alone is NOT the notation — {@link pairIsValid} (utils/tremoloPair) is asked by the button, the
    * renderer, the beam grouper and playback alike, and a broken pair is DROPPED by the relay rather
-   * than carried. See docs/two-note-tremolo-plan.md §1.
+   * than carried. See docs/plans/two-note-tremolo-plan.md §1.
    *
    * ⚠️ Durations are NOT rewritten: the model keeps two half notes, only the *drawing* doubles them.
    * That is the whole reason the feature is cheap — rebar, rest-fill, meter changes, clipboard,
@@ -551,7 +551,7 @@ export interface Chord extends Attack {
    * tremolo. A global default has no home yet and inventing one would collide with the positional
    * rule (docs/DESIGN-PRINCIPLES) unless it lands in a real engraving-options compartment beside
    * {@link Score.engravingOverrides}. When that exists, this becomes the per-mark override — which is
-   * Dorico's shape too. See docs/two-note-tremolo-plan.md §2.
+   * Dorico's shape too. See docs/plans/two-note-tremolo-plan.md §2.
    */
   tremoloPairStyle?: 'joined' | 'open'
   /**
@@ -582,7 +582,7 @@ export interface Chord extends Attack {
   /**
    * Staff this chord belongs to (a {@link StaffInfo} id). Absent = staff 0 (the first
    * staff), mirroring absent {@link Note.voice} = voice 0. Orthogonal to voice: a slot's
-   * vertical identity is the pair `(staffId, voice)`. See docs/multi-staff-plan.md §4.
+   * vertical identity is the pair `(staffId, voice)`. See docs/plans/multi-staff-plan.md §4.
    */
   staffId?: string
   notes: NotePitch[]
@@ -602,7 +602,7 @@ export interface Rest {
   tiedFrom?: string
   /**
    * Staff this rest belongs to (a {@link StaffInfo} id); absent = staff 0. Orthogonal
-   * to voice, exactly like {@link Chord.staffId}. See docs/multi-staff-plan.md §4.
+   * to voice, exactly like {@link Chord.staffId}. See docs/plans/multi-staff-plan.md §4.
    */
   staffId?: string
   /**
@@ -616,7 +616,7 @@ export interface Rest {
    * `𝅘𝅥𝅮 𝄾 𝅘𝅥𝅮 𝅘𝅥𝅮` in one beat gets a single beam with the rest floating under it. Absent = the default,
    * a rest breaks the beam. It only shows when the rest is INTERIOR to a group its neighbours form;
    * a leading or trailing beamed rest is trimmed, because a beam never hangs off a rest. See
-   * docs/beaming.md.
+   * docs/how-it-works/beaming.md.
    *
    * A structural beaming statement, so it lives on the slot beside {@link Chord.beam} /
    * `secondaryBreak`, not in the visual-override compartment rest hide/shift use. ⚠️ It is therefore
@@ -653,7 +653,7 @@ export interface NoteParams {
   articulations?: ArticulationType[]
   /**
    * The tremolo the new note is entered WITH — note entry armed with a mark, the way it is armed
-   * with an accidental or a dot (docs/tremolo-plan.md §10). A property of the SLOT, so entering a
+   * with an accidental or a dot (docs/plans/tremolo-plan.md §10). A property of the SLOT, so entering a
    * pitch into an existing chord marks the whole chord.
    *
    * Rests ignore it: you cannot tremolo silence.

@@ -4,7 +4,7 @@
  * {@link ScoreModel} keeping thin delegators (DESIGN-PRINCIPLES principle 5 — the score is
  * independent of the editor, so none of this may live on `MusicEngine`, which only records undo).
  *
- * See docs/barline-types-plan.md. Three things decided there govern every line of this file:
+ * See docs/plans/barline-types-plan.md. Three things decided there govern every line of this file:
  *
  * ## ⭐⭐ A REPEAT IS NOT A BARLINE STYLE
  *
@@ -132,7 +132,7 @@ export function setRepeatStart(score: Score, measureNumber: number, on: boolean,
  * `times` is how many times the passage is played in total; absent = twice, the reading every player
  * assumes. Refuses a `times` that is not a whole number ≥ 2 ({@link isValidRepeatTimes}) rather than
  * clamping it — a sign that says "play 1 time" is not a repeat, and repairing it silently would make
- * the file and the picture disagree (docs/json-io-plan.md).
+ * the file and the picture disagree (docs/plans/json-io-plan.md).
  *
  * @returns whether the score changed.
  */

@@ -1,5 +1,5 @@
 /**
- * Styling constants for the SUSTAIN PEDAL — `Ped.` and its release `✻` (docs/pedal-plan.md §5, P2).
+ * Styling constants for the SUSTAIN PEDAL — `Ped.` and its release `✻` (docs/plans/pedal-plan.md §5, P2).
  *
  * `./ottavaStyle`'s twin and deliberately the same shape: the family's two clearance numbers, the
  * glyph size, and how far the sign's ink reaches from its own baseline. Everything vertical that is
@@ -11,7 +11,7 @@
  * itself ships (`build/esm/src/glyphs.js`), so they are the font's own, not remembered.
  *
  * ⭐ **THE STYLE IS NOT THE FEATURE.** Today a pedal is two glyphs with nothing between them; the
- * bracket, the hook and the retake notch are a later dress for the same statement (docs/pedal-plan.md
+ * bracket, the hook and the retake notch are a later dress for the same statement (docs/plans/pedal-plan.md
  * header). That swap must land HERE and in the renderer — ⛔ never in the model, which stores no
  * `style` field precisely so this file can be rewritten without touching a score.
  */
@@ -23,12 +23,12 @@ import { DYNAMIC_TEXT_FONT } from './dynamicStyle'
 export const PEDAL_DOWN_GLYPH = '\uE650'
 
 /** `keyboardPedalUp` — the release ✻, where the foot comes UP. ⭐ The whole of the "third end rule":
- *  it marks a point in TIME, not a note (docs/pedal-plan.md §5.2). */
+ *  it marks a point in TIME, not a note (docs/plans/pedal-plan.md §5.2). */
 export const PEDAL_UP_GLYPH = '\uE655'
 
 /**
  * ⭐⭐ **The parentheses around a CONTINUATION `Ped.`** — the reminder on a system the pedal did not
- * start on (docs/pedal-plan.md §5.3).
+ * start on (docs/plans/pedal-plan.md §5.3).
  *
  * **SMuFL's own, `keyboardPedalParensLeft` / `Right` (U+E676/E677)** — glyphs drawn *for this job*
  * ("left/right parenthesis for pedal marking"), which exist because the practice does.
@@ -137,7 +137,7 @@ export const PEDAL_MIN_SPAN = 3.4
 
 /**
  * ⭐⭐ **AIR BEFORE THE BARLINE**, in staff spaces — how far *inside* the line the `✻` sits when the
- * lift is the bar's end (docs/pedal-plan.md §12.4, one of the five numbers owed to his eye).
+ * lift is the bar's end (docs/plans/pedal-plan.md §12.4, one of the five numbers owed to his eye).
  *
  * ⚠️ **It exists because "at the barline" and "inside the barline" are different pictures, and the
  * geometry gives the first for free.** The lift x for a bar-length pedal is that bar's `noteEndX` —

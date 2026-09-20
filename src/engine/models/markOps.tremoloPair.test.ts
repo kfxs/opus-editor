@@ -6,7 +6,7 @@ import type { Chord } from '@/types/music'
 import { buildClipboardFromSelection } from '@/interactions/clipboard'
 
 /**
- * The TWO-NOTE tremolo MODEL — one field on the FIRST slot (docs/two-note-tremolo-plan.md §1).
+ * The TWO-NOTE tremolo MODEL — one field on the FIRST slot (docs/plans/two-note-tremolo-plan.md §1).
  *
  * These pin the apply/refuse rule and the two staleness defences (drop + validate). Nothing here is
  * about how the strokes are DRAWN: jsdom cannot measure glyphs, so a geometry assertion would pass

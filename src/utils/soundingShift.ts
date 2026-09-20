@@ -1,15 +1,15 @@
 /**
  * WHERE WRITTEN PITCH BECOMES SOUND — the one function that answers *"how far is this position's
- * notated pitch from the pitch you hear"*, in semitones. See docs/ottava-plan.md §6.
+ * notated pitch from the pitch you hear"*, in semitones. See docs/plans/ottava-plan.md §6.
  *
  * ⭐ **Our model stores WRITTEN pitch** ({@link Ottava}): an 8va does not move a notehead, it moves
  * the sound. So the octave has to be added back somewhere, and the whole design rests on that
- * somewhere being *singular* — the argument `docs/octave-clefs-plan.md` §1 made first: storing the
+ * somewhere being *singular* — the argument `docs/plans/octave-clefs-plan.md` §1 made first: storing the
  * sound instead means every note must be shifted back before it reaches VexFlow, and **a missed
  * site draws silently an octave wrong**. Written pitch inverts that risk into this file, where a
  * missed site *sounds* an octave wrong — still silent, but reachable from one place.
  *
- * ⭐⭐ **This is deliberately the seam the OCTAVE CLEF will share.** `docs/octave-clefs-plan.md`
+ * ⭐⭐ **This is deliberately the seam the OCTAVE CLEF will share.** `docs/plans/octave-clefs-plan.md`
  * §2.4's one genuinely new coupling is "resolve the effective clef here and subtract 12 under an
  * 8vb clef", which is this signature exactly. When that arrives it becomes a second term in
  * {@link soundingShiftAt}, not a second resolver — and that matters beyond tidiness, because it is
@@ -127,7 +127,7 @@ export function soundingShiftAt(score: Score, measureNumber: number, beat: Fract
 
 /**
  * ⭐ **Every SLOT's shift, resolved ONCE** — `trilledSlotIds`' shape, and for a sharper version of
- * its reason (docs/ottava-plan.md §6).
+ * its reason (docs/plans/ottava-plan.md §6).
  *
  * ⚠️ **The point is not speed, it is that there is no single seam downstream.** `playbackSchedule`
  * derives a MIDI number in four places — a chord's notes, the fan attacks, the two-note tremolo's
@@ -163,7 +163,7 @@ export function soundingShiftBySlot(score: Score): Map<string, number> {
 
 /**
  * ⭐⭐ **WRITTEN SPELLING + THE SHIFT = THE SOUNDING SPELLING** — the fold that lets the schedule
- * carry a PITCH instead of a MIDI integer (docs/playback-semantics-plan.md, built 2026-08-20).
+ * carry a PITCH instead of a MIDI integer (docs/plans/playback-semantics-plan.md, built 2026-08-20).
  *
  * ## ⭐ Why this adds to the OCTAVE NUMBER and not to a semitone count
  *
@@ -176,7 +176,7 @@ export function soundingShiftBySlot(score: Score): Map<string, number> {
  * obvious shape and it is the wrong currency the moment the shift is *not* an octave: a transposing
  * instrument (a B♭ clarinet, written-to-sounding a major second) is a DIATONIC + CHROMATIC operation
  * on the spelling, and in meantone "down a major 2nd" is not a number of semitones at all — the same
- * conflation `docs/tuning-systems-and-alteration.md` catches in `alter` itself. So when that case
+ * conflation `docs/how-it-works/tuning-systems-and-alteration.md` catches in `alter` itself. So when that case
  * arrives it is a **spelling transposition**, written here beside this function; ⛔ it is never a
  * number added at the audio boundary.
  *
@@ -196,7 +196,7 @@ export function applySoundingShift(spelling: PitchSpelling, semitones: number): 
   if (!Number.isInteger(octaves)) {
     console.error(
       `applySoundingShift: ${semitones} semitones is not a whole octave. A non-octave shift is a `
-      + 'SPELLING transposition, not a number (docs/tuning-systems-and-alteration.md); sounding the '
+      + 'SPELLING transposition, not a number (docs/how-it-works/tuning-systems-and-alteration.md); sounding the '
       + 'written pitch instead.')
     return spelling
   }

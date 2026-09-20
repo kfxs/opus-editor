@@ -1,7 +1,7 @@
 import { test, expect } from './fixtures'
 
 /**
- * TRILLS — the `tr` and its wavy extension, drawn (docs/trill-plan.md P2).
+ * TRILLS — the `tr` and its wavy extension, drawn (docs/plans/trill-plan.md P2).
  *
  * ⚠️ **This suite has to be here and cannot be a unit test.** Every claim below is about where ink
  * landed, and the trill's whole geometry is font-dependent: the sign's width decides where the
@@ -29,7 +29,7 @@ const trillGlyphs = (score: import('@playwright/test').Page) =>
   score.evaluate(() => window.__h.placed('g.trill text'))
 
 // ⭐⭐ HIS CALL, 2026-08-13, and it inverted this test: the line ALWAYS draws, including on a single
-// note. docs/trill-plan.md §1 rule 5 said the opposite (LilyPond's and Gould's "a single note needs
+// note. docs/plans/trill-plan.md §1 rule 5 said the opposite (LilyPond's and Gould's "a single note needs
 // no wavy line") — he tested it and overruled it, because a bare `tr` leaves the duration implied.
 // ⛔ If this ever goes back to expecting no wiggle, the decision has been undone by someone reading
 // the sources instead of the note on `TrillSpan`.
@@ -154,7 +154,7 @@ test('⭐ the trill sits NEARER the staff than a dynamic would — it is the inn
     }
   })
 
-  // Both above the staff, and the trill is the closer of the two (docs/above-staff-ladder.md §3:
+  // Both above the staff, and the trill is the closer of the two (docs/how-it-works/above-staff-ladder.md §3:
   // LilyPond gives TrillSpanner priority 50 against DynamicLineSpanner's 250).
   expect(trillY).toBeLessThan(top)
   expect(trillY).toBeGreaterThan(dynY)
@@ -316,7 +316,7 @@ test('⭐ label `(tr)` — parenthesised, its bracket at the margin and the sign
   // read "at the margin and on the note are only a bracket's width apart" — measured, honestly, and
   // wrong about the cause: `planSlurSegments`' left edge is `noteStartX`, i.e. where NOTES may begin
   // (after the clef and meter), so the "margin" the rule asked for was never reached. The identical
-  // defect on the octave line is what exposed it (docs/ottava-plan.md, his eye §5). The label now
+  // defect on the octave line is what exposed it (docs/plans/ottava-plan.md, his eye §5). The label now
   // genuinely precedes the music — and still never reaches back onto the clef.
   expect(paren!.x, 'never back past the stave').toBeGreaterThanOrEqual(staveLeftOfRow2)
 })
@@ -497,7 +497,7 @@ test('⭐⭐ the vertical is OUTWARD: + lifts an `above` trill, and LOWERS a `be
 
 // ─────────────────────────────────────────────────────────────────────────────────────────────────
 /**
- * ⭐⭐ **THE TRILL AND THE CURVE UNDER IT** — docs/trill-slur-clearance-plan.md, his report of
+ * ⭐⭐ **THE TRILL AND THE CURVE UNDER IT** — docs/plans/trill-slur-clearance-plan.md, his report of
  * 2026-08-18: *a `tr` on a note inside a slur's span collides with the arc.*
  *
  * > **Gould p. 135**: the sign sits *"further from the note than any articulation marks. Only a long

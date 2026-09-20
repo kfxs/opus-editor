@@ -2,7 +2,7 @@
  * The beam's ink, in jsdom.
  *
  * ⛔ There is deliberately no spec here for WHICH x's a beam line runs between, or for what slope it
- * takes: P4a took the ink and left the hooks and the slope with VexFlow until `docs/beaming.md` gains
+ * takes: P4a took the ink and left the hooks and the slope with VexFlow until `docs/how-it-works/beaming.md` gains
  * a rule for the drawn line. A test asserting either now would pin VexFlow's answer as if it were
  * ours — the same line `engrave/notes/stem` draws against the stem's LENGTH.
  */
@@ -91,7 +91,7 @@ describe('beamLevelY — the level stack, whose one owner this now is', () => {
   // it as a pair (0.5 of ink, 0.25 of air); VexFlow says it as this single ratio. Asserted rather
   // than described, because the agreement is what makes the stride NOT a taste call for his eye —
   // unlike the ledger overhang, the stem's thickness and the notehead table
-  // (docs/note-engraving-plan.md §3).
+  // (docs/plans/note-engraving-plan.md §3).
   it('⭐⭐ the stride IS the font’s: (beamThickness + beamSpacing) / beamThickness', () => {
     const thickness = engravingDefault('beamThickness')
     const spacing = engravingDefault('beamSpacing')

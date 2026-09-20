@@ -2,7 +2,7 @@
  * A stem of ours (S12i): the contract VexFlow's note still drives, and what our beam and fan call. ⚠️ That
  * it draws exactly as before was proved on the page: 40 broad random scores byte-identical, and in
  * Chromium a two-staff page, its note ghosts and the highlight's stem groups identical
- * (`docs/vexflow-removal-map.md` S12i). Its LENGTH is `engrave/notes/stemLength`'s, pinned there.
+ * (`docs/history/vexflow-removal-map.md` S12i). Its LENGTH is `engrave/notes/stemLength`'s, pinned there.
  */
 import { describe, it, expect } from 'vitest'
 import { EngravedNote, EngravedStem, stemOf } from './EngravedNote'

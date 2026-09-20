@@ -1,5 +1,5 @@
 /**
- * ⭐⭐ **THE SURFACE WE DRAW ON, DECLARED BY US** — `docs/own-engraving-engine.md` P1b.
+ * ⭐⭐ **THE SURFACE WE DRAW ON, DECLARED BY US** — `docs/plans/own-engraving-engine.md` P1b.
  *
  * ## What this is
  *
@@ -90,13 +90,13 @@ export interface DrawContext {
 
   // ── The transform + state stack ──────────────────────────────────────────────────────────────
   /** ⚠️ `save`/`restore` are NO-OPS in VexFlow's SVG context for style purposes — one of the four
-   *  standing gotchas P1's own implementation closes (`docs/own-engraving-engine.md` §5 P1). Called
+   *  standing gotchas P1's own implementation closes (`docs/plans/own-engraving-engine.md` §5 P1). Called
    *  anyway, so the intent is in the code when a context that honours them arrives. */
   save(): void
   restore(): void
   /** ⛔ Not the staff-size mechanism: that is a `transform` on the measure's own group, because
    *  `ctx.scale` rewrites the SVG's viewBox and would rescale what is already drawn
-   *  (`docs/staff-size-plan.md` §4.1). */
+   *  (`docs/plans/staff-size-plan.md` §4.1). */
   scale(x: number, y: number): void
 
   // ── Grouping + hit surface ───────────────────────────────────────────────────────────────────

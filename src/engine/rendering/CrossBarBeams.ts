@@ -1,6 +1,6 @@
 /**
  * **Cross-barline beams** — which beam groups leave their bar, and what that costs the bars they
- * leave (docs/cross-barline-beaming-plan.md).
+ * leave (docs/plans/cross-barline-beaming-plan.md).
  *
  * The grouping itself is pure and lives in `utils/beaming` (`computeCrossBarBeamGroups`). This
  * module is the *layout-aware* half: it slices the score into the runs a beam may actually cross,
@@ -63,7 +63,7 @@ export interface CrossBarJoinMember {
 /**
  * One system's worth of a join — the members that landed on a single line, drawn as an independent
  * half-group with an open end where the beam runs off toward the break
- * (docs/cross-barline-beaming-plan.md).
+ * (docs/plans/cross-barline-beaming-plan.md).
  *
  * A join wholly on one line has exactly one side, open at neither end — which is every join *today*,
  * because `splitIntoRuns` still walls the run at a system break. The machinery is built ahead of that
@@ -112,7 +112,7 @@ export interface CrossBarJoin {
 }
 
 /**
- * One member of a crossing group whose beam is a FAN's (docs/fan-beam-join-plan.md P3).
+ * One member of a crossing group whose beam is a FAN's (docs/plans/fan-beam-join-plan.md P3).
  *
  * It carries what a synthetic lane spanning two bars cannot answer in one voice: the clef the
  * member's pitches are read against, the lane its accidental state comes from, and the note after it
@@ -138,7 +138,7 @@ interface CrossBarFanMember {
 
 /**
  * ⭐ A crossing group whose beam is a FAN's, and therefore no `Beam` at all
- * (docs/fan-beam-join-plan.md P3). Its counterpart is {@link CrossBarJoin}, and the difference is
+ * (docs/plans/fan-beam-join-plan.md P3). Its counterpart is {@link CrossBarJoin}, and the difference is
  * the whole reason it is a separate kind: a fan draws its own line end to end, so the group gets no
  * `Beam` object, and the fan's OWNER must keep the stem that line is anchored to.
  *
@@ -163,7 +163,7 @@ export interface LaneBeamPlan {
   /**
    * Slots of a crossing FAN group that OWN a fan. The direction reaches them; the placeholder must
    * not — `StaveNote.draw` skips the stem whenever `note.beam` is set, and that stem is what the
-   * joined line is anchored to (docs/fan-beam-join-plan.md P1).
+   * joined line is anchored to (docs/plans/fan-beam-join-plan.md P1).
    */
   fanned: { slots: number[]; stemDirection: number }[]
 }
@@ -185,7 +185,7 @@ export interface CrossBarBeamPlan {
   /**
    * ⭐⭐ **Did ANY group span more than one bar?** — false for most real scores, and the licence to
    * run this planner **once instead of twice** (`ScoreRenderer.renderScore`, measured at 14% of a
-   * render before it existed: docs/render-performance-plan.md §12.7).
+   * render before it existed: docs/history/render-performance-plan.md §12.7).
    *
    * ⚠️ It is NOT `joins.length > 0`: a crossing group can be REFUSED — a fan across a system break,
    * or an undrawn partner — and produce no join while still having crossed. This is the honest
@@ -228,7 +228,7 @@ function beamCountOf(slot: ChordRest): number {
 
 /**
  * Partition a join's members into per-system SIDES — split at every index where the line changes
- * (docs/cross-barline-beaming-plan.md). Members on one line become one side; a break between
+ * (docs/plans/cross-barline-beaming-plan.md). Members on one line become one side; a break between
  * two lines opens the side before it on its right and the side after it on its left.
  *
  * `secondaryBreaks` (group-local indices) stay whole-group and are handed in rather than recomputed
@@ -330,7 +330,7 @@ export function planCrossBarBeams(
         const forced = forcedPerBar.find((f, i) => f !== undefined && barsTouched.includes(i))
         const stemDirection = stemDirectionFor(unionSlots, first, forced)
 
-        // ⭐ A group holding a FAN is the fan's beam, not a `Beam` (docs/fan-beam-join-plan.md P3).
+        // ⭐ A group holding a FAN is the fan's beam, not a `Beam` (docs/plans/fan-beam-join-plan.md P3).
         if (unionSlots.some(slot => slot.type === 'chord' && slot.fan)) {
           // ⛔ …unless it landed on more than one system. Half a feathered ramp is not a thing v1
           // knows how to draw, so the join is refused entirely and the ORDINARY notes are handed
@@ -443,7 +443,7 @@ export function planCrossBarBeams(
  * A `Beam` cannot span two lines, but the *plan* must: the stem direction and the crossing count are
  * whole-group facts, and side A needs them whether or not side B is on screen. So the run stays open
  * across a line break, and `computeSides` partitions the group into one fragment per line
- * (docs/cross-barline-beaming-plan.md). Keeping it open costs nothing — nothing is drawn from
+ * (docs/plans/cross-barline-beaming-plan.md). Keeping it open costs nothing — nothing is drawn from
  * the run directly; a side's own `drawable` decides that, and the join it forms is therefore the same
  * whether or not the next system is culled, which is what keeps the shape-key descriptor scroll-stable.
  *

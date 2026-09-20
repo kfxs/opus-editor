@@ -3,7 +3,7 @@ import { PaletteSelection } from './paletteSelection'
 /**
  * Selection mode as a Keypad key, on the SAME two-channel seam as duration/accidental/dot/tie
  * ({@link PaletteSelection}). This replaces the old bespoke `toolMode` store: now that EditorState
- * carries its own change-notification (the emitting Proxy — see docs/observable-editorstate-plan.md),
+ * carries its own change-notification (the emitting Proxy — see docs/history/observable-editorstate-plan.md),
  * the mode no longer needs a hand-built bidirectional mirror through App.ts. It is just another key.
  *
  * HIGHLIGHT: `keypadSync` pushes `'selection'` when `state.selectedTool === 'selection'`, null

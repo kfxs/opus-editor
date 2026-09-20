@@ -24,7 +24,7 @@
  *    let the formatter buy the space). Ledger lines depend on the CLEF, so reserving makes a bar's
  *    width depend on it too — and this editor proved bar width clef-INDEPENDENT and took `clef` out
  *    of the width-cache key (`MeasureLayout.clefWidthIndependence.test.ts`,
- *    docs/render-performance-plan.md §9). That key was worth **47% of layout time** on a score with
+ *    docs/history/render-performance-plan.md §9). That key was worth **47% of layout time** on a score with
  *    one clef change. The spec caught the attempt, which is exactly what it is for.
  * 2. ⛔ **…so the sign moves at DRAW time, and it cannot move far.** Measured in a minimum-width bar
  *    (sixteen 16ths, every one signed): the gap between the previous notehead and the next
@@ -44,7 +44,7 @@
  * ends. The asymmetric version — trim the left, keep the right — is what LilyPond does, and it needs
  * the lines to be ours to draw. ⭐ **As of P3a they are** (`engrave/notes/ledgerLines`), so this is
  * now a choice rather than a limit; ⛔ still not taken, because the symmetric trim is what is on his
- * screen and nobody has reported it. `docs/note-engraving-plan.md` §4 holds the question.
+ * screen and nobody has reported it. `docs/plans/note-engraving-plan.md` §4 holds the question.
  */
 import { accidentalsOn } from './EngravedAccidental'
 import { ACCIDENTAL_NOTEHEAD_PADDING_PX, MODIFIER_LEFT_OFFSET_PX } from '@/engine/engrave/inheritedDefaults'
@@ -56,7 +56,7 @@ import { trimLedgers, EngravedNote } from './EngravedNote'
  * merely stops touching still reads as touching.
  */
 export const LEDGER_ACCIDENTAL_GAP = 2 // 0.2 staff-spaces of INK — scaled by the staff's own
-// group on a small staff, so ⛔ not multiplied by its size here (docs/staff-size-plan.md §1).
+// group on a small staff, so ⛔ not multiplied by its size here (docs/plans/staff-size-plan.md §1).
 
 /**
  * How far an accidental glyph reaches above and below its own staff line, in LINES (1 line = 1

@@ -1,5 +1,5 @@
 /**
- * ⭐⭐ **THE CURVE'S INK — U1** (`docs/own-engraving-engine.md` §5, "the unlettered work").
+ * ⭐⭐ **THE CURVE'S INK — U1** (`docs/plans/own-engraving-engine.md` §5, "the unlettered work").
  *
  * ## ⭐ What a slur or a tie IS, as ink
  *

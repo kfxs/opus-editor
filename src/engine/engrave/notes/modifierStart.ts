@@ -1,5 +1,5 @@
 /**
- * ⭐⭐ **WHERE A NOTE OFFERS ITS MODIFIERS A PLACE TO STAND** — S5a of `docs/vexflow-removal-map.md`.
+ * ⭐⭐ **WHERE A NOTE OFFERS ITS MODIFIERS A PLACE TO STAND** — S5a of `docs/history/vexflow-removal-map.md`.
  *
  * Every modifier of a note — its accidental, its dots, its articulations, an annotation — asks the note
  * one question before it places itself: *where do I start, on this side of you?* That answer is this
@@ -19,8 +19,8 @@
  * ## ⭐ The one part that is the EDITOR's, not VexFlow's — the {@link MarkAnchor}
  *
  * A mark above or below is where two things of ours enter, both on that side only: a hand-nudged note
- * OFFSET (`docs/note-offset-plan.md`), which the note's shift does not carry there, and STEM ALIGNMENT —
- * a stem-side mark centred on the stem instead of the head (`docs/articulation-stem-align.md`). They used
+ * OFFSET (`docs/plans/note-offset-plan.md`), which the note's shift does not carry there, and STEM ALIGNMENT —
+ * a stem-side mark centred on the stem instead of the head (`docs/how-it-works/articulation-stem-align.md`). They used
  * to reach this answer by replacing the note's method per note at render time, the repo's one live
  * monkeypatch (`own-engraving-engine.md` §2.4). They are now an input.
  *

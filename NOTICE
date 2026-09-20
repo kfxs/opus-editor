@@ -9,7 +9,7 @@ VexFlow 5.0.0 — https://github.com/vexflow/vexflow — MIT licence
 
 The score engine (src/engine/engrave, src/engine/rendering, src/engine/layout,
 src/engine/fonts) contains code transcribed from VexFlow 5.0.0. Until 2026-09-19 VexFlow
-was a runtime dependency; it was removed step by step (docs/vexflow-removal-map.md). Each
+was a runtime dependency; it was removed step by step (docs/history/vexflow-removal-map.md). Each
 ported function carries a comment naming the VexFlow method it transcribes.
 
 VexFlow - A JavaScript library for rendering music notation.
@@ -40,5 +40,5 @@ Music fonts — SIL Open Font License 1.1
 --------------------------------------------------------------------------------
 
 Bravura: see public/fonts/OFL.txt.
-Academico: OFL 1.1 (docs/smufl-fonts-research.md); its own licence file is not yet in
+Academico: OFL 1.1 (docs/research/smufl-fonts-research.md); its own licence file is not yet in
 public/fonts.

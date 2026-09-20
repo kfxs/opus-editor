@@ -71,7 +71,7 @@ describe('system margins — where the MUSIC begins and ends on a line', () => {
  * ⭐⭐ **The CURVE's own left boundary** — Gould p. 112 / p. 65: a slur or tie resumes *after the
  * clef, key signature and time signature*, meaning after their INK. `noteStartX` is the padded
  * boundary and measured **equal to the first notehead's x** in his figure, which is why the two
- * questions have two answers (docs/slur-plan.md §12 Phase 5).
+ * questions have two answers (docs/plans/slur-plan.md §12 Phase 5).
  */
 describe('lineLeftCurveX — where a continuation begins', () => {
   const pass = makeLookup(LINES, BOUNDS)

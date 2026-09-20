@@ -7,7 +7,7 @@ import type { FanMark, Score } from '@/types/music'
 import { pitchToMidi } from '@/utils/pitchSpelling'
 
 /**
- * ⭐⭐ **A TRILL SOUNDS** (docs/trill-plan.md §7, P5) — one note becomes an alternation with the note
+ * ⭐⭐ **A TRILL SOUNDS** (docs/plans/trill-plan.md §7, P5) — one note becomes an alternation with the note
  * above, at a physical speed, over whatever the note actually sounds for.
  *
  * The arithmetic of the alternation is `trillAttacks.test.ts`'s. What is asked here is everything

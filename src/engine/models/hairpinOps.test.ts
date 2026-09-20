@@ -3,7 +3,7 @@
  * refuses, and what dies with it.
  *
  * There is no geometry here and there cannot be: a hairpin's drawn shape is derived from the
- * render every frame and stored nowhere (docs/dynamics-line-and-hairpins-plan.md §6), so what a
+ * render every frame and stored nowhere (docs/plans/dynamics-line-and-hairpins-plan.md §6), so what a
  * unit test can check is the model's own contract — the wedge rides its start measure, its extent
  * is an amount of MUSIC rather than a second address, a non-positive extent is refused rather
  * than clamped or deleted, and an override never outlives its anchor.

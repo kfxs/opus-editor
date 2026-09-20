@@ -1,6 +1,6 @@
 /**
  * Staff-axis addressing primitive (multi-staff Phase 0, Option A — flat `staffId`
- * discriminator). See docs/multi-staff-plan.md §4.
+ * discriminator). See docs/plans/multi-staff-plan.md §4.
  *
  * A `Measure` holds flat `slots` / `clefs` / `dynamics` / `tuplets` arrays whose
  * elements each carry an optional `staffId`. Exactly like the parallel vertical axis,
@@ -171,7 +171,7 @@ export function staffContent(measure: Measure, staffId: string | undefined, scor
  * consumer that reads `measure.slots` etc. (the renderer's per-measure path) operate on a
  * single staff **without threading `staffId` into its every helper** — pass it this view
  * instead of the raw measure. At N=1 the filters return the whole measure, so the view is
- * behaviorally identical to the original. See docs/multi-staff-plan.md §5.
+ * behaviorally identical to the original. See docs/plans/multi-staff-plan.md §5.
  *
  * The `id`/`number` are unchanged, so per-measure *geometry* keys (still keyed on
  * `measure.number`) would collide across staves — geometry rekeying to `(measure, staffId)`
@@ -187,7 +187,7 @@ export function staffMeasureView(measure: Measure, staffId: string | undefined, 
   //
   // ⭐ `barline` / `repeatStart` / `repeatEnd` are the deliberate exception, and riding the spread is
   // what they are FOR: a barline statement with no `staffId` governs the whole system, so reaching
-  // every staff's lane unfiltered IS its semantics (docs/barline-types-plan.md §3.1). The day the
+  // every staff's lane unfiltered IS its semantics (docs/plans/barline-types-plan.md §3.1). The day the
   // per-staff scope is actually read — §2's "contemporary music can mix individual staff and whole
   // system" — this is where the filter goes, and it will be a filter on the SCOPE, not on the field.
   return {
@@ -201,7 +201,7 @@ export function staffMeasureView(measure: Measure, staffId: string | undefined, 
  * Resolve a 0-based staff index (from `NoteParams.staff`) to the `staffId` to stamp on a new slot.
  * Mirrors the voice convention: the FIRST staff (index 0 / undefined) stamps NO `staffId` (absent =
  * staff 0, keeps single-staff output byte-identical); any later staff stamps its real id.
- * See docs/multi-staff-plan.md §4.
+ * See docs/plans/multi-staff-plan.md §4.
  */
 export function staffIdForParams(score: Score, staff: number | undefined): string | undefined {
   if (!staff) return undefined

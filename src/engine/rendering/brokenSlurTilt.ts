@@ -1,5 +1,5 @@
 /**
- * ⭐⭐ **A SLUR BROKEN BY A SYSTEM BREAK MUST LEAN TOWARD ITS OWN MUSIC** (docs/slur-plan.md §12
+ * ⭐⭐ **A SLUR BROKEN BY A SYSTEM BREAK MUST LEAN TOWARD ITS OWN MUSIC** (docs/plans/slur-plan.md §12
  * Phase 5) — the last of the *published* rules this plan found unbuilt.
  *
  * > Gould p. 112: *"**The whole slur should tilt in the direction of the pitches.** A slur starting
@@ -21,7 +21,7 @@
  * 🚨 **PITCH, never the drawn y** (§12.0 #5). The two ends are on different systems, so `toY − fromY`
  * is not a melodic interval — it is the distance between two staves plus whatever the page cast-off
  * did. Cross-system coordinates are not one ruler; the hairpin cost us that lesson already
- * (docs/dynamics-line-and-hairpins-plan.md).
+ * (docs/plans/dynamics-line-and-hairpins-plan.md).
  *
  * ⭐ **And the floor is Gould's own justification, in code.** Verovio: *"Make sure that broken slurs
  * do not look like ties"* — if the two ends of a half come out within a space of each other it forces

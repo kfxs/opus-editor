@@ -9,7 +9,7 @@ import type { HighlightContext } from './highlightContext'
 
 /**
  * ⭐ **The weight a selected line is drawn at, in px** — the width the barline highlight has had
- * since it shipped (`docs/barline-selection.md`), kept when it became a recolour. Thin ink reads
+ * since it shipped (`docs/how-it-works/barline-selection.md`), kept when it became a recolour. Thin ink reads
  * paler than a filled glyph at the same hue, and 2 px is what made a selected barline read as
  * selected. See {@link thickenToHighlightWeight}.
  */
@@ -118,7 +118,7 @@ export function barlineSignGroup(svg: Element, measure: number, staff: number): 
 
 /**
  * {@link barlineSignGroup}'s twin for the ink BELOW that staff — the piece of the same line
- * crossing into the gap, when the two staves are joined (docs/barline-join-plan.md).
+ * crossing into the gap, when the two staves are joined (docs/plans/barline-join-plan.md).
  *
  * ⭐ Deliberately the same two-lookup rule and the same order, because it is the same question:
  * a boundary carries one sign, drawn either by the bar that ends there or by the bar that opens a

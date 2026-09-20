@@ -115,7 +115,7 @@ describe('the ottava offset rows', () => {
 
   it('⭐⭐ puts a box BACK after committing — nothing on screen the model has not taken', () => {
     // The page limit can refuse a write; a refused write repaints nothing, so a box left holding what
-    // was typed is a spinner you must wind all the way back down (docs/engraving-overrides-plan.md
+    // was typed is a spinner you must wind all the way back down (docs/plans/engraving-overrides-plan.md
     // §8.6, his report).
     const [startX] = show([{ kind: 'ottavaOffset', startX: 1 } as never])
     startX.value = '900'

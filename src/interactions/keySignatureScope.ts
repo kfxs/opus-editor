@@ -22,7 +22,7 @@
  * ⭐ Two staves in different keys therefore select separately (they are two statements) and two staves
  * in the same key select together (they are one) — with no flag, no field and nothing to keep in sync.
  *
- * ⚠️ **The same function on both sides is the point** (docs/key-signature-plan.md §8.5c): the highlight
+ * ⚠️ **The same function on both sides is the point** (docs/plans/key-signature-plan.md §8.5c): the highlight
  * PROMISES what Delete does, and the moment those two are computed apart the promise is a matter of
  * luck. `interactions/passageSelectionMarks`' rule, one kind over.
  */

@@ -65,7 +65,7 @@ describe('reconcileSegmentShape (pure apply rule, plan §3)', () => {
 })
 
 /**
- * P0 of the slur endpoint-offset plan (docs/slur-endpoint-offset-plan.md): the
+ * P0 of the slur endpoint-offset plan (docs/plans/slur-endpoint-offset-plan.md): the
  * `endpointOffset` kind (client #3) + the `endpointOffsetOverrideOf` reader +
  * `setSlurEndpointOffset` (accumulate) + the deliberate "survives a re-anchor" exception
  * to the §3.3 auto-reset. Pure storage — no VexFlow / render here.
@@ -90,7 +90,7 @@ describe('endpointOffsetOverrideOf reader', () => {
 
 /**
  * P0 of the multi-system slur segment-endpoint offset plan
- * (docs/multisystem-slur-segment-endpoint-offset-plan.md): the `segmentEndpointOffset` kind
+ * (docs/plans/multisystem-slur-segment-endpoint-offset-plan.md): the `segmentEndpointOffset` kind
  * (client #4) + the `reconcileSegmentEndpointOffset` apply rule (twin of reconcileSegmentShape)
  * + the `setSlurSegmentEndpointOffset` accumulate mutator + the `setSlurEndpoint` clear. Pure
  * storage + the count-signature staleness rule; no VexFlow / render here.
@@ -127,7 +127,7 @@ describe('reconcileSegmentEndpointOffset (pure apply rule, open-join twin)', () 
 })
 
 /**
- * Client #5: the rest-shift override (docs/rest-shift-plan.md). Unlike every other client it
+ * Client #5: the rest-shift override (docs/plans/rest-shift-plan.md). Unlike every other client it
  * is POSITION-keyed (`restPositionKey`), not element-id-keyed — rests have no durable id. Here
  * we pin the pure key builder + reader + the `nudgeRestShift` accumulate/clear mutator. The
  * travel-across-rebar/paste behavior lives in ScoreModel.test.ts / clipboard.test.ts.
@@ -174,7 +174,7 @@ describe('restPositionKey (pure key builder)', () => {
 })
 
 // Client #7 (staff spacing) — id-keyed by the durable staffId, signed staff-spaces,
-// clears on 0. See docs/staff-spacing-plan.md.
+// clears on 0. See docs/plans/staff-spacing-plan.md.
 describe('staffSpacingAbove reader (convenience, 0 when absent)', () => {
   let model: ScoreModel
   beforeEach(() => { model = new ScoreModel('Test Score') })

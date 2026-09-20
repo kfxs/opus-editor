@@ -1,5 +1,5 @@
 /**
- * ⭐⭐ **HOW STEEP A SLUR MAY BE, AND WHAT STEEPNESS DOES TO ITS SHAPE** (docs/slur-plan.md §12
+ * ⭐⭐ **HOW STEEP A SLUR MAY BE, AND WHAT STEEPNESS DOES TO ITS SHAPE** (docs/plans/slur-plan.md §12
  * Phase 6). Two rules, one subject — and they are the opposite kinds of thing, which is why the file
  * says so twice.
  *

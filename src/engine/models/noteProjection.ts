@@ -15,7 +15,7 @@ import { staffIndexOfId } from './staffContent'
  *
  * `staffIndex` is the 0-based staff ordinal (the `staffId → index` projection resolved by
  * the caller against {@link Score.staves}); it defaults to 0, the single-staff case. See
- * docs/multi-staff-plan.md §4.
+ * docs/plans/multi-staff-plan.md §4.
  */
 export function toFlatNote(chord: Chord, pitch: NotePitch, staffIndex = 0): Note {
   return {
@@ -73,7 +73,7 @@ export function restToFlatNote(rest: Rest, staffIndex = 0): Note {
  * The two projections above, with the staff ordinal resolved off the score — what a caller holding
  * a `Score` actually wants, and what {@link ScoreModel}'s private `toFlatNote` / `restToFlatNote`
  * were. Split out so the `*Ops` modules (free functions over a score) can project without going
- * back through the model (docs/modularity-plan-2026-07-28.md Phase 3).
+ * back through the model (docs/history/modularity-plan-2026-07-28.md Phase 3).
  */
 export function flatNoteOf(score: Score, chord: Chord, pitch: NotePitch): Note {
   return toFlatNote(chord, pitch, staffIndexOfId(score, chord.staffId))

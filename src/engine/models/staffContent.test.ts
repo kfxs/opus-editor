@@ -21,7 +21,7 @@ import { fracCreate as frac } from '@/utils/fraction'
  * primitive under N>1 (a hand-built two-staff measure) even though the rest of the engine
  * is still N=1, plus the model-level scaffolding: a fresh score has one staff, `staves`
  * round-trips through JSON, absent `staves` defaults to one, and N=1 note projection is
- * unchanged (no `staff` field). See docs/multi-staff-plan.md §4.
+ * unchanged (no `staff` field). See docs/plans/multi-staff-plan.md §4.
  */
 
 const S0 = 'staff-top'

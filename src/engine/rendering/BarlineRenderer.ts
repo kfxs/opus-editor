@@ -1,6 +1,6 @@
 /**
  * ⭐⭐ **WE DRAW THE BARLINES** — every end line in the score, plain ones included. P2 of
- * docs/barline-types-plan.md, and the answer to his question *"are we using VexFlow to draw?
+ * docs/plans/barline-types-plan.md, and the answer to his question *"are we using VexFlow to draw?
  * shouldn't we draw ourself following the own engine strategy?"*
  *
  * A score-level pass beside `drawSystemConnector` / `renderHairpins` / `renderOttavas` /
@@ -98,7 +98,7 @@ export interface BarlinePlacement {
    * bar without re-engraving one, and every barline stayed at the previous render's y.
    *
    * ⭐ This is the SAME trap the barline selection highlight fell into once already
-   * (docs/barline-selection.md: *"the coordinates LIE"*), which is why the fix is the same shape:
+   * (docs/how-it-works/barline-selection.md: *"the coordinates LIE"*), which is why the fix is the same shape:
    * take the position from the PLACEMENT — the plan for THIS render — and never from the stave.
    * ⭐ Since S4e that is the PLACED frame and sign run (`./staveFrame`, `./signRun`), which is every
    * frame this pass asks.
@@ -262,7 +262,7 @@ const REPEAT_DOT_GLYPH = '\uE044'
  *
  * ⚠️ Only ever for a sign that was PAINTED, which is the whole of its "is this bar on screen" test —
  * unlike the tier-1 barline box, which is registered for every bar in the score and has to be
- * filtered by `registry.isPainted` at press time (docs/barline-selection.md §1a).
+ * filtered by `registry.isPainted` at press time (docs/how-it-works/barline-selection.md §1a).
  */
 function registerRepeatStart(
   pass: RenderPass, placement: BarlinePlacement, boundaryX: number,
@@ -443,7 +443,7 @@ function displacedRepeatX(placement: BarlinePlacement, signLeft: number): number
  * **after the barline**. When a change of time signature occurs between systems, add a cautionary
  * indication at the end of the first system, **after the last barline**."* ⚠️ Note this is the
  * OPPOSITE of a cautionary CLEF, which all four books put BEFORE the barline
- * (`docs/clef-research.md` §4.3) — ⛔ the two cautionaries are not one family.
+ * (`docs/research/clef-research.md` §4.3) — ⛔ the two cautionaries are not one family.
  *
  * ⭐ **VexFlow already gets it right, and always did.** Its `SORT_ORDER_END_MODIFIERS` is
  * `TimeSignature: 0, KeySignature: 1, Barline: 2, Clef: 3`, and `Stave.format()`'s end walk places
@@ -470,7 +470,7 @@ function displacedRepeatX(placement: BarlinePlacement, signLeft: number): number
  * `Stave`'s constructor makes impossible (`modifiers[1]` is always one), so it is a guard against a
  * future VexFlow, ⛔ not a case that runs.
  *
- * `docs/barline-types-plan.md` §4.4a carries the measurement and the citation.
+ * `docs/plans/barline-types-plan.md` §4.4a carries the measurement and the citation.
  */
 function endBoundaryX(placement: BarlinePlacement): number {
   const endBarlineX = placedSignRun(placement).endBarlineX
@@ -507,7 +507,7 @@ export function renderBarlines(
      * which reaches the same picture by suppressing tips wherever a span bar continues. ⭐ Both of
      * those follow from a barline that SPANS the staves, and ours does not: each staff draws its own
      * line, so each staff's line gets its own tips. ⏭️ The day span bars arrive
-     * (**`docs/barline-join-plan.md`**, which names this very comment in §3), this is the line to
+     * (**`docs/plans/barline-join-plan.md`**, which names this very comment in §3), this is the line to
      * revisit — and the two engines already agree on what it should become.
      */
     const wingsOn = (ends: Measure | undefined, begins: Measure | undefined): boolean =>
@@ -520,7 +520,7 @@ export function renderBarlines(
 
     /**
      * ⭐⭐ **AND THE SAME SIGN, CONTINUED INTO THE GAP BELOW THIS STAFF** — one call per sign drawn,
-     * so the gap can never carry a different sign from the staves it joins (docs/barline-join-plan.md
+     * so the gap can never carry a different sign from the staves it joins (docs/plans/barline-join-plan.md
      * §3). Everything about HOW it is drawn — score space, the weight, the hinting choice, the
      * hidden treatment, the dots it must NOT draw — is `./barlineGap`'s; what stays here is what
      * this loop already knows: which sign stands at this boundary, and where.

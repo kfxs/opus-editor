@@ -17,7 +17,7 @@
  * re-derived 35 bars of music that had not changed, and the walk's model write recorded an undo
  * entry, which is a SNAPSHOT of the whole score, thirty times a second. A drag has never paid
  * either: its frames write through `preview*` ops and its DROP commits once
- * (docs/render-performance-plan.md §12.5a). A key run had no drop — so this is it.
+ * (docs/history/render-performance-plan.md §12.5a). A key run had no drop — so this is it.
  *
  * ## The run
  *

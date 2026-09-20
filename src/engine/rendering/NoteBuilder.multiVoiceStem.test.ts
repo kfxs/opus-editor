@@ -8,7 +8,7 @@ import { BarVoice } from './barVoice'
 import type { ChordRest } from '@/types/music'
 import { fracCreate } from '@/utils/fraction'
 
-// Regression guard for the 3-voice stem bug (docs/multi-voice-plan.md §13).
+// Regression guard for the 3-voice stem bug (docs/plans/multi-voice-plan.md §13).
 //
 // When three voices collide at one tick, the multi-voice rule (VexFlow's StaveNote.format, ours
 // since S9g as `engrave/notes/voiceStack`) REASSIGNS

@@ -38,7 +38,7 @@ interface Report<K extends string, D, V = Record<string, unknown>> {
    *
    * A SEPARATE field and deliberately not folded into `data`, because that is exactly what the
    * compartment is: geometry kept OUT of the content model so transposition, playback and
-   * re-barring never trip over pixels (docs/engraving-overrides-plan.md). A dump that merged the
+   * re-barring never trip over pixels (docs/plans/engraving-overrides-plan.md). A dump that merged the
    * two would show a shape the model does not have. Absent when the element has none.
    */
   overrides?: EngravingOverride[]
@@ -48,7 +48,7 @@ interface Report<K extends string, D, V = Record<string, unknown>> {
    * ⭐ A SEPARATE field for exactly {@link overrides}' reason, one step further: folding these into
    * `data` would show a shape the model does not have. The first client is the TRILL, whose
    * auxiliary pitch is derived from the key and the bar's accidentals rather than stored
-   * (docs/trill-plan.md §3) — so "what does this trill actually play?" is unanswerable from `data`
+   * (docs/plans/trill-plan.md §3) — so "what does this trill actually play?" is unanswerable from `data`
    * alone, and it is the one question a reader of this panel will have. Absent when there is
    * nothing derived worth reporting.
    */
@@ -63,7 +63,7 @@ interface BoundaryDerived { sign: BarlineSignKind; winged: boolean }
 interface OnNote { noteId: string; note: Note | undefined }
 
 /**
- * ⭐ **A discriminated union keyed by `kind`** (docs/code-shape-plan-2026-09-19.md, Phase 3.4), so a
+ * ⭐ **A discriminated union keyed by `kind`** (docs/plans/code-shape-plan-2026-09-19.md, Phase 3.4), so a
  * reader that has switched on the kind — a Properties panel is handed {@link InspectedOf} its own —
  * reads `data` with no cast. {@link selectedElements} is the one writer, and the compiler now holds
  * it to these shapes.

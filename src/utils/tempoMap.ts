@@ -1,5 +1,5 @@
 /**
- * The single source of *meaning* for tempo (docs/tempo-marks-plan.md §2).
+ * The single source of *meaning* for tempo (docs/plans/tempo-marks-plan.md §2).
  *
  * A {@link TempoMark} is a point change; the score's speed is therefore a **step
  * function** over the absolute beat axis — a *tempo map*, the same structure every DAW

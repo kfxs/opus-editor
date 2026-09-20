@@ -9,7 +9,7 @@ import type { Score } from '@/types/music'
 
 /**
  * **What a PLAY ORDER sounds** — `playableOverPlan`, a chapter of {@link playbackSchedule} beside its
- * siblings (docs/barline-types-plan.md §7, his ask of 2026-08-26).
+ * siblings (docs/plans/barline-types-plan.md §7, his ask of 2026-08-26).
  *
  * ⭐ The claim worth pinning is the one that makes the whole design safe: **a score with no repeats
  * comes out byte for byte as it did before this existed.** The rest is that a repeated note sounds

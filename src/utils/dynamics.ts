@@ -1,7 +1,7 @@
 /**
  * The single source of truth for dynamics.
  *
- * A dynamic IS its `text` (docs/dynamics-text-as-truth-plan.md): a string that mixes SMuFL
+ * A dynamic IS its `text` (docs/plans/dynamics-text-as-truth-plan.md): a string that mixes SMuFL
  * dynamics glyphs (the `f`/`p`/… drawn in the music font — the *actual* dynamic, the level) with
  * plain expression words (`dolce`, `con brio`). The distinction is the FONT, not the spelling: a
  * `p` stored as the SMuFL glyph is piano; a `p` typed as plain text is just a letter and stays

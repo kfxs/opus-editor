@@ -6,8 +6,8 @@ import { BAR_STRETCH_MIN } from '@/engine/models/engravingOverrides'
 
 /**
  * The bar-width gesture's arithmetic, stated on its own — which is the whole reason Phase 6b pulled
- * it off `MusicEngine` (docs/refactor-plan-2026-07-27.md). Every claim below is one of
- * `docs/bar-width-plan.md` §4–§5, and none of them needs a renderer, a score or a DOM to say.
+ * it off `MusicEngine` (docs/history/refactor-plan-2026-07-27.md). Every claim below is one of
+ * `docs/plans/bar-width-plan.md` §4–§5, and none of them needs a renderer, a score or a DOM to say.
  *
  * ⚠️ These are statements about the MAPPING, not about drawn pixels. Where a bar's barline actually
  * lands is browser geometry and belongs in `e2e/barWidth.e2e.ts`, which measures it for real.

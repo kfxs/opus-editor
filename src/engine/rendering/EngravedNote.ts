@@ -1,11 +1,11 @@
 /**
  * ⭐⭐ **THE SEAM WHERE THE NOTE'S INK COMES BACK TO US, ONE PIECE AT A TIME** —
- * `docs/own-engraving-engine.md` P3, `docs/note-engraving-plan.md`.
+ * `docs/plans/own-engraving-engine.md` P3, `docs/plans/note-engraving-plan.md`.
  *
  * `StaveNote.draw()` is five things in a fixed order: ledger lines, stem, noteheads, flag, pointer
  * rect. P3 is the work of moving those five to our own primitives, and it cannot be done in one
  * commit — `Stave`/`StaveNote` are also the RULER seven of our own renderers read
- * (`docs/own-engraving-engine.md` §2.3), so the object has to keep answering while its ink moves.
+ * (`docs/plans/own-engraving-engine.md` §2.3), so the object has to keep answering while its ink moves.
  *
  * ⭐ **This subclass WAS that seam** (P3–S12j-d2): the note stayed VexFlow's, and each override emptied
  * one of the five. ⭐ Since S12j-d3 it is a class of ours, extending nothing — the table below is the
@@ -779,7 +779,7 @@ export class EngravedNote {
   /**
    * How far this note's ledger lines run past its heads, in px — the inherited default
    * ({@link LEDGER_OVERHANG_PX}, 3), ⛔ **not** the font's `legerLineExtension` (0.4 spaces = 4 px);
-   * the alternatives are `docs/ledger-line-length-research.md`'s preset rows.
+   * the alternatives are `docs/research/ledger-line-length-research.md`'s preset rows.
    */
   private ledgerOverhang: number = LEDGER_OVERHANG_PX
 
@@ -1249,7 +1249,7 @@ export class EngravedNote {
    * 🚨 **`getTextMetrics()` is a runtime `measureText`** — §3's bug class — and P3b's whole
    * contribution is that it now leaves this file as a NAMED ARGUMENT instead of hiding inside a draw
    * method. ⛔ Not re-sourced: swapping it for `fonts/flagDropFromTip` is a measurement to make
-   * first (`docs/note-engraving-plan.md` §3.3), and P3b moved no pixel.
+   * first (`docs/plans/note-engraving-plan.md` §3.3), and P3b moved no pixel.
    */
   /**
    * ⭐⭐ **S12j-d1 — THE NOTE'S DRAW IS OURS** (`StaveNote.draw`, transcribed): nothing if it is not to be

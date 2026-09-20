@@ -4,7 +4,7 @@
  * Sample data is NOT bundled: the player's loader injects a `<script>` tag pointing at
  * WebAudioFont's CDN preset file, which assigns the decoded wavetable to a `window` global.
  * First use of an instrument needs a network round-trip (~100 KB, then browser-cached);
- * truly-offline playback is a non-goal. See `docs/soundfont-plan.md` §2.
+ * truly-offline playback is a non-goal. See `docs/plans/soundfont-plan.md` §2.
  *
  * ── Why the source is eval'd instead of imported ──────────────────────────────────
  * The `webaudiofont` npm package ships a plain browser script (`'use strict'; var
@@ -137,13 +137,13 @@ export class WebAudioFontInstrument implements InstrumentPlayer {
   }
 
   /**
-   * ⭐⭐ **THE ONE PLACE THE SOUND PATH MINTS MIDI** (docs/playback-semantics-plan.md, 2026-08-20).
+   * ⭐⭐ **THE ONE PLACE THE SOUND PATH MINTS MIDI** (docs/plans/playback-semantics-plan.md, 2026-08-20).
    *
    * WebAudioFont indexes its wavetables by MIDI note number, so 12-EDO is *this backend's*
    * requirement — and stating it here, in the class named after the backend, is the whole of the
    * three-stage split. ⛔ Do not push `pitchToMidi` back up the chain to save a call: the schedule
    * that carried the integer could not have told G♯4 from A♭4, and a tuning-aware sibling of this
-   * class needs exactly that (docs/tuning-systems-and-alteration.md).
+   * class needs exactly that (docs/how-it-works/tuning-systems-and-alteration.md).
    *
    * ⚠️ Fractional/microtonal pitch is NOT supported here and must not be faked by rounding — the
    * honest home for it is a different `InstrumentPlayer`, which is why this seam exists.

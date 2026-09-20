@@ -3,7 +3,7 @@
  * behind every family that sits outside the staff.
  *
  * Extracted from `./dynamicsLine.ts` when the TRILL became its second client
- * (docs/trill-plan.md §4, P2). The dynamics line was here first and named every piece after itself;
+ * (docs/plans/trill-plan.md §4, P2). The dynamics line was here first and named every piece after itself;
  * what the split found is that only the two CONSTANTS were ever dynamics-specific. The rule —
  * *clear the ink by `padding`, floor that at `minFromStaff` from the staff, mirrored for `above`* —
  * is the same sentence for a `p`, a wedge and a `tr`.
@@ -11,7 +11,7 @@
  * ⛔ **So a new outside-staff family calls {@link clearanceBaseline} with its own two numbers. It
  * does NOT copy these six lines.** A duplicated rule imports nothing, so no lint can see it, and the
  * result is two answers to "how far from the staff" — the exact thing
- * docs/dynamics-line-and-hairpins-plan.md exists to prevent. `docs/above-staff-ladder.md` §4 states
+ * docs/plans/dynamics-line-and-hairpins-plan.md exists to prevent. `docs/how-it-works/above-staff-ladder.md` §4 states
  * the same rule from the other side: a new family must either join a baseline, or read the ink band
  * the way the trill does.
  *
@@ -39,7 +39,7 @@
  * `./measureColumns` models — noteheads, ledgers, dots, accidentals, stems and flags. If one of
  * those families must push a line, it becomes a ROW in that ink model, so the width and the line
  * agree. A second extent computed at a draw site would be a second answer to how far a bar reaches.
- * (`docs/above-staff-ladder.md`, "Known and accepted limitation".)
+ * (`docs/how-it-works/above-staff-ladder.md`, "Known and accepted limitation".)
  */
 import type { Fraction } from '@/types/music'
 import { fracCompare } from '@/utils/fraction'

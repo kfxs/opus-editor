@@ -3,7 +3,7 @@
  * A notehead of ours (S12j-a). ⚠️ That the heads draw, displace and box exactly as before was proved on
  * the page: 40 broad random scores (3,310 notes, 659 chords with seconds, fan member chords, a second
  * voice resting) byte-identical against the previous commit, and in Chromium a two-staff page with its
- * note ghosts and a fan page identical (`docs/vexflow-removal-map.md` S12j-a). Pinned here is its contract.
+ * note ghosts and a fan page identical (`docs/history/vexflow-removal-map.md` S12j-a). Pinned here is its contract.
  */
 import { describe, it, expect } from 'vitest'
 import { EngravedHead } from './EngravedHead'

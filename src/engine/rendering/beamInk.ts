@@ -1,6 +1,6 @@
 /**
  * The sizes a beam that leaves its bar is drawn at. Extracted from {@link ScoreRenderer}
- * (docs/refactor-plan-2026-07-27.md Phase 6a) because three drawing passes share them and no two of
+ * (docs/history/refactor-plan-2026-07-27.md Phase 6a) because three drawing passes share them and no two of
  * them live in the same module any more: the cross-barline beams (still in the renderer), the
  * two-note tremolo's strokes, and {@link FanPass}. A constant reached for from three places is not
  * one file's private business.
@@ -12,7 +12,7 @@ import { engravingDefault } from '@/engine/fonts/fontMetrics'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 
 /**
- * The half-beam a cross-*system* fragment hangs over its open end (docs/cross-barline-beaming-plan.md):
+ * The half-beam a cross-*system* fragment hangs over its open end (docs/plans/cross-barline-beaming-plan.md):
  * a short fixed stub past the edge note's stem, NOT a run to the system edge — a beam the width of a
  * system reads as a long empty beam, not one going somewhere. VexFlow's own `partialBeamLength` (10px)
  * is the honest floor; these are tuned by eye.
@@ -31,7 +31,7 @@ import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
  * drawn inside that staff's own scale group (`inScaledStaffGroup`), so they shrink with it and ⛔
  * must not be multiplied by its size here. The one number in this family that is NOT in that space
  * is the barline a line-end stub runs to: it comes from `measureBounds`, i.e. the SVG, and is
- * converted where the two meet (`crossSystemOverhangEndX`). See docs/staff-size-plan.md §1, §4.3.
+ * converted where the two meet (`crossSystemOverhangEndX`). See docs/plans/staff-size-plan.md §1, §4.3.
  */
 const CROSS_SYSTEM_BEAM_STUB_LINE_END = 22
 const CROSS_SYSTEM_BEAM_STUB_LINE_START = 12
@@ -39,7 +39,7 @@ export const CROSS_SYSTEM_BEAM_MARGIN = 10
 /**
  * ⭐ **A BEAM'S OWN THICKNESS — Bravura's `beamThickness`, 0.5 staff spaces**, which is where the 5
  * this used to be came from: VexFlow's default `beamWidth` is that same half space, and at
- * {@link STAFF_SPACE_PX} it is 5 px exactly (F3, docs/font-metrics-plan.md).
+ * {@link STAFF_SPACE_PX} it is 5 px exactly (F3, docs/plans/font-metrics-plan.md).
  *
  * ⚠️ In PIXELS, not spaces, unlike the rest of the font's weights — because its three callers draw
  * beam quads in the staff's own scale-group coordinates (see the note above), not in staff spaces.
@@ -56,6 +56,6 @@ export const crossSystemStub = (direction: number): number =>
  * moved on the commit that gave VexFlow's own beam the same primitive, which made it the ink of
  * FOUR drawers rather than three; what stays in this file is the cross-SYSTEM fragment's sizes, and
  * those are the renderer's arithmetic against `measureBounds`, not ink anyone else draws.
- * (`docs/own-engraving-engine.md` §8.3: a file migrates into `engrave/` on the commit that touches
+ * (`docs/plans/own-engraving-engine.md` §8.3: a file migrates into `engrave/` on the commit that touches
  * it anyway — ⛔ never as a rename of its own.)
  */

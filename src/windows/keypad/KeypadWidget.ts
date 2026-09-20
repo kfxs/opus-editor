@@ -274,7 +274,7 @@ export class KeypadWidget implements Widget {
     if (cell.select === 'beamOver') return bus.beamOver.get() === 'beamOver'
     // ⚠️ TWO AXES, lit independently: the count key says how fast, the pair key says the strokes go
     // between two notes, and a two-note tremolo is BOTH — so `Enter` lights beside `3`, not instead
-    // of it (docs/two-note-tremolo-plan.md §4).
+    // of it (docs/plans/two-note-tremolo-plan.md §4).
     if (cell.select === 'tremolo') return !!cell.tremolo && cell.tremolo === bus.tremolo.get()
     if (cell.select === 'tremoloPair') return bus.tremoloPair.get() === 'tremoloPair'
     // The feathered beams are a radio like the tremolo counts — a note carries ONE fan.
@@ -305,7 +305,7 @@ export class KeypadWidget implements Widget {
       button.textContent = name
       button.title = `voice ${name}`
       button.addEventListener('click', () => {
-        // ⭐ All five press the SAME seam (docs/dynamic-voice-scope-plan.md P4). `All` used to be a
+        // ⭐ All five press the SAME seam (docs/plans/dynamic-voice-scope-plan.md P4). `All` used to be a
         // local highlight with nothing behind it; it now says *this mark governs every voice of its
         // staff*, which is the one thing the fifth button could ever have meant.
         // ⚠️ We never set `this.voice` here — the highlight mirror lights the button back, and it is

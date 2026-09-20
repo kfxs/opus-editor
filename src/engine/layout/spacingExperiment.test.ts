@@ -124,7 +124,7 @@ describe('⭐⭐ the two rows his memory asked for, and they are OPPOSITES', () 
     const q = followingSpace(frac(1, 1), SPACING_LAWS.proportional)
     expect(followingSpace(frac(1, 2), SPACING_LAWS.proportional)).toBeCloseTo(q / 2, 6)
     expect(followingSpace(frac(2, 1), SPACING_LAWS.proportional)).toBeCloseTo(q * 2, 6)
-    // ⭐ His bar's four quavers, measured in `docs/shortest-duration-plan.md` §9.5 as 1.80 under
+    // ⭐ His bar's four quavers, measured in `docs/plans/shortest-duration-plan.md` §9.5 as 1.80 under
     // LilyPond's own proportional mode — ours lands within a twentieth of a space of that.
     expect(followingSpace(frac(1, 2), SPACING_LAWS.proportional)).toBeCloseTo(1.75, 2)
   })

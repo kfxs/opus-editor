@@ -1,5 +1,5 @@
 /**
- * ⭐ **A NOTE FORMATTED ALONE** — the cursor ghosts' one-note bar (S11b–d, `docs/vexflow-removal-map.md`
+ * ⭐ **A NOTE FORMATTED ALONE** — the cursor ghosts' one-note bar (S11b–d, `docs/history/vexflow-removal-map.md`
  * S11), through the score's own pipeline: `BarVoice`, our modifier columns, our tick columns. Where a
  * bare VexFlow `Voice` + `Formatter` used to give a ghost's note the tick context it will not draw
  * without.

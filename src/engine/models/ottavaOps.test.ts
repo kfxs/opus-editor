@@ -4,7 +4,7 @@
  *
  * There is no geometry here and there cannot be: where the bracket's ink stops is Gould's
  * last-notehead rule, derived by the render from columns a jsdom test has none of
- * (docs/ottava-plan.md §1 rule 2). What a unit test can check is the model's own contract — the
+ * (docs/plans/ottava-plan.md §1 rule 2). What a unit test can check is the model's own contract — the
  * line rides its start measure, its extent is an amount of MUSIC rather than a second address, a
  * non-positive extent is refused, an override never outlives its anchor, and ⭐ **one (beat, staff)
  * holds at most one octave line**, which is the single rule separating this module from

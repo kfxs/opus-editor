@@ -2,7 +2,7 @@
  * ⭐⭐ **THE DOT'S TWO GAPS, FROM THE CONSOLE — his eye, on his own music.**
  *
  * The rows are `engine/layout/dotGap`; this is the entry point that arms one. Built 2026-09-14,
- * straight off the survey (`docs/accidental-dot-research.md` + `docs/accidental-dot-engines.md`),
+ * straight off the survey (`docs/research/accidental-dot-research.md` + `docs/research/accidental-dot-engines.md`),
  * because the survey's headline finding is that **there is no shared law here**:
  *
  * - Gould's plate draws the dots CLOSER to each other (0.26 sp) than the first dot is to the head

@@ -1,7 +1,7 @@
 /**
  * Where a rest inside a beam sits. ⚠️ Exactness against `Formatter.AlignRestsToNotes` was proved once —
  * on 6,000 random bars in one process and on the rendered page of 60 random scores (S9h-a,
- * `docs/vexflow-removal-map.md` §5.2); pinned here is the rule, quirks included.
+ * `docs/history/vexflow-removal-map.md` §5.2); pinned here is the rule, quirks included.
  */
 import { describe, it, expect } from 'vitest'
 import { type VoiceTickable, alignRestsToNotes } from './restAlign'

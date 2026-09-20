@@ -1,5 +1,5 @@
 /**
- * ⭐⭐ **THE BEAM'S INK — P4a** (`docs/beam-engraving-plan.md`, `docs/own-engraving-engine.md` P4).
+ * ⭐⭐ **THE BEAM'S INK — P4a** (`docs/plans/beam-engraving-plan.md`, `docs/plans/own-engraving-engine.md` P4).
  *
  * ## ⭐ What a beam IS, as ink
  *
@@ -56,7 +56,7 @@ export interface BeamLineInk {
  * (0.5 + 0.25) / 0.5 is exactly this 1.5. ⚠️ Worth saying out loud because it is the FIRST number in
  * this migration where the room we reserve and the ink we draw came from two sources and matched:
  * the ledger overhang, the stem's thickness and the notehead's glyph table all disagree
- * (`docs/note-engraving-plan.md` §3). ⛔ So there is nothing here for his eye.
+ * (`docs/plans/note-engraving-plan.md` §3). ⛔ So there is nothing here for his eye.
  */
 export const BEAM_LEVEL_STRIDE = 1.5
 

@@ -8,10 +8,10 @@ import type { KeySignature, Measure, NoteParams } from '@/types/music'
 import { C_MAJOR, keyFromFifths } from '@/utils/keySignature'
 
 /**
- * A measure's columns — the bridge from the music to the rule (docs/spacing-model-plan.md P2).
+ * A measure's columns — the bridge from the music to the rule (docs/plans/spacing-model-plan.md P2).
  *
  * ⭐ Everything here works headless *because* it is duration-only: the widths below are the rule's
- * answer, not the ink's, and the ink measures 0×0 in node (docs/spacing-model-research.md §5.4). The
+ * answer, not the ink's, and the ink measures 0×0 in node (docs/research/spacing-model-research.md §5.4). The
  * real drawn gaps are pinned in `e2e/spacing.e2e.ts`.
  */
 
@@ -151,7 +151,7 @@ describe('the width these columns ask for', () => {
   it('⭐⭐ sixteen 16ths ask for TWICE four quarters — not four times, which is what we did', () => {
     // THE headline of the whole model, and the one assertion that works headless because it is
     // duration-only. Before P2 a bar's room was ∝ its EVENT COUNT and this ratio was ~4
-    // (docs/spacing-model-research.md §6, where it measured 3.9 on the page).
+    // (docs/research/spacing-model-research.md §6, where it measured 3.9 on the page).
     const quarters = asks(evenBar(4, 'q'))
     const sixteenths = asks(evenBar(16, '16'))
     // LilyPond's quarter is 3.6 spaces (Gould's 3½ + 3%) — see `spacing.ts`'s LILYPOND_SPACING.
@@ -199,7 +199,7 @@ describe('the INK half (P3) — what an event draws buys its own minimum', () =>
   const asks = (model: ScoreModel) => naturalWidth(columnsOf(model))
 
   it('⭐⭐ a FLAG is ink — an UNBEAMED short note reaches a space past its notehead', () => {
-    // `docs/vexflow-boundary.md` §5 P2. A flag hangs off the stem TIP and the column never counted it:
+    // `docs/history/vexflow-boundary.md` §5 P2. A flag hangs off the stem TIP and the column never counted it:
     // measured in Chrome, an eighth's up-flag reaches **2.15** staff spaces past the head's anchor
     // against the head's own 1.13, so a bar of unbeamed 32nds — gap 1.50 by the rule — drew every flag
     // **0.65 spaces THROUGH** the next notehead. Seven collisions in one bar.
@@ -395,7 +395,7 @@ describe('LEDGER LINES (P3.1) — ink that depends on where a note SITS', () => 
   })
 
   /**
-   * ⚠️⚠️ **A KEY SIGNATURE IS A WIDTH CHANGE** (docs/key-signature-plan.md §3), and this is where it
+   * ⚠️⚠️ **A KEY SIGNATURE IS A WIDTH CHANGE** (docs/plans/key-signature-plan.md §3), and this is where it
    * happens: the signature decides which notes DRAW an accidental, and the sign's ink is priced into
    * the column. ⛔ So the clef's width-independence proof (`MeasureLayout.clefWidthIndependence`)
    * does not transfer — a clef moves every notehead the same distance vertically and buys nothing;

@@ -51,12 +51,12 @@ export interface FanMemberAnchor {
 
 export interface RenderPass {
   /** The score being rendered this pass — read for engraving-override lookups (e.g. per-rest
-   *  vertical shifts; see docs/rest-shift-plan.md §6.8). */
+   *  vertical shifts; see docs/plans/rest-shift-plan.md §6.8). */
   score: Score
   /**
    * ⭐⭐ **THE SURFACE THIS PASS DRAWS ON** (rebuilt by `initialize`) — our own type, `paint/`'s
    * {@link DrawContext}, satisfied by our `SvgPainter` (S13b; VexFlow's `SVGContext` until then), the
-   * object behind it. `docs/own-engraving-engine.md` P1b.
+   * object behind it. `docs/plans/own-engraving-engine.md` P1b.
    *
    * ⭐ Every pass that only *draws* takes this and no longer names a VexFlow type. Reach for
    * {@link RenderPass.painter} only for the two things this cannot do — see there.
@@ -74,7 +74,7 @@ export interface RenderPass {
   staveNoteMap: Map<string, { staveNote: EngravedNote; noteIndex: number }>
   /**
    * FANNED MEMBER pitch id → where its head was actually drawn, so a SLUR can anchor to one
-   * (docs/fanned-beam-pitches-plan.md). A member has no `StaveNote` of its own, and everything a
+   * (docs/plans/fanned-beam-pitches-plan.md). A member has no `StaveNote` of its own, and everything a
    * slur endpoint needs is geometry the fan renderer already computed: the head's edges and centre,
    * the stem tip it hangs from, and the SLOT's note. ⭐ (The note used to be needed only to
    * CONSTRUCT VexFlow's `Curve`; since U1 the arc takes no note at all — just its endpoints.)
@@ -127,7 +127,7 @@ export interface RenderPass {
   solvedColumns: Map<number, SpacedColumns>
   /**
    * ⭐⭐ **WHAT THE OUTSIDE-STAFF FAMILIES HAVE ALREADY TAKEN**, appended to by each as it is placed
-   * and read by the ones placed after it (`engine/layout/outsideStaffBand.ts`, docs/ottava-plan.md
+   * and read by the ones placed after it (`engine/layout/outsideStaffBand.ts`, docs/plans/ottava-plan.md
    * P0a). This is the LADDER: the order is the order the passes run in, and there is no priority
    * table anywhere.
    *
@@ -140,7 +140,7 @@ export interface RenderPass {
   /**
    * ⭐⭐ **THE CURVES THAT HAVE BEEN DRAWN** — every slur arc, slur segment and tie, filed by the
    * pass that drew it so the outside-staff families can clear one
-   * (`engine/layout/curveObstacleBand.ts`, docs/trill-slur-clearance-plan.md P1).
+   * (`engine/layout/curveObstacleBand.ts`, docs/plans/trill-slur-clearance-plan.md P1).
    *
    * ⭐ Its own collection rather than a read of the `ElementRegistry`, which holds the same sampled
    * points for hit-testing. Two reasons, and both bit: the registry stores them SCALED into SVG
@@ -188,7 +188,7 @@ export interface RenderPass {
    *  so the engraved word isn't drawn under the DOM input. Mirrors suppressedDynamicId. */
   suppressedTempoId: string | null
   /**
-   * **How big a staff is DRAWN**, by 0-based index — 1 for full size (docs/staff-size-plan.md).
+   * **How big a staff is DRAWN**, by 0-based index — 1 for full size (docs/plans/staff-size-plan.md).
    *
    * Every pass that draws OUTSIDE a measure group needs it, because everything it reads back off
    * the drawn notes is in that staff's own scaled space (§4.3 — see `inStaffSpace`). A function

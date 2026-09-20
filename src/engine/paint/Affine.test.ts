@@ -8,7 +8,7 @@ import {
  * ⭐ **Pure arithmetic, so the whole contract runs in jsdom** — which is the point of a placement
  * being a value rather than an attribute string. ⛔ Nothing here touches a DOM, and nothing here
  * needs a font: this is the half of the engine that P2 and P1 exist to grow
- * (`docs/own-engraving-engine.md` §7.2.1 — *"every metric we can put in a table moves a decision
+ * (`docs/plans/own-engraving-engine.md` §7.2.1 — *"every metric we can put in a table moves a decision
  * from `engrave/` to `layout/`"*, and every placement we can express as a value does the same).
  *
  * ⚠️ **The composition ORDER is the one thing here that can be wrong in a way that looks right.**

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /**
  * A text annotation of ours (S12g) — the dynamics'. ⚠️ That it draws, stacks and is read back exactly
- * as before was proved on the page (`docs/vexflow-removal-map.md` S12g); its placement is pinned in
+ * as before was proved on the page (`docs/history/vexflow-removal-map.md` S12g); its placement is pinned in
  * `engrave/notes/annotationPlacement.test.ts`. Pinned here is the contract its readers rely on.
  */
 import { describe, it, expect } from 'vitest'

@@ -215,7 +215,7 @@ export class MusicEngine {
   private lastViewStateKey: string | null = null
 
   /**
-   * Is the drawn SVG still a correct picture of the score? (docs/render-performance-plan.md §5a)
+   * Is the drawn SVG still a correct picture of the score? (docs/history/render-performance-plan.md §5a)
    *
    * Three ways it can be wrong, and **the selection is none of them** — that is the point of P3.
    * A selection change only needs the highlight pass repainted, not a 200-bar score re-laid-out
@@ -267,7 +267,7 @@ export class MusicEngine {
    * "Did `fn` change anything?" used to be answered by stringifying the WHOLE SCORE before and
    * after and comparing — two full serializations per batched edit, on top of the deep clone
    * `pushState` already does. At orchestral scale that is ~150 ms of the ~220 ms an edit spends
-   * in undo (docs/render-performance-plan.md §7). But every mutation that wants an undo entry
+   * in undo (docs/history/render-performance-plan.md §7). But every mutation that wants an undo entry
    * calls {@link saveUndoState}, which bumps {@link undoRequests} *even while suppressed* — so
    * the answer is already known, for free.
    *
@@ -322,7 +322,7 @@ export class MusicEngine {
    * ⭐ **ONE UNDO ENTRY FOR ONE EDIT** — what every mutator ends with, whatever it changed.
    *
    * It was two functions: `commit` (this, after `playbackEngine.setScore`) for edits that change
-   * what PLAYS, and `saveOnly` for ink. Folded 2026-09-20 (docs/code-shape-plan-2026-09-19.md, 3.5):
+   * what PLAYS, and `saveOnly` for ink. Folded 2026-09-20 (docs/plans/code-shape-plan-2026-09-19.md, 3.5):
    * the resync bought nothing. `play()` rebuilds the tempo map, the repeat plan and the total
    * duration itself before it schedules anything; nothing reads them while stopped; the score object
    * is the same live one; and the editor does not edit DURING playback, which was the one moment the
@@ -475,7 +475,7 @@ export class MusicEngine {
    * It records history; it does not change content. So unlike {@link saveUndoState} it must NOT
    * flag the model dirty: doing so re-engraves the entire score to paint a picture that is
    * already on screen. That was costing a full render on every drag release (visible in the
-   * census as `handleMouseLeave` — docs/render-performance-plan.md §5a).
+   * census as `handleMouseLeave` — docs/history/render-performance-plan.md §5a).
    *
    * Inside a `runBatch` the surrounding batch owns the snapshot, exactly as in `saveUndoState`.
    */
@@ -647,7 +647,7 @@ export class MusicEngine {
 
   /**
    * Set how big the staff at the given 0-based index is DRAWN, as a ratio (`1` full size, `0.7` a
-   * small staff — docs/staff-size-plan.md). Records its own undo entry, like the two above.
+   * small staff — docs/plans/staff-size-plan.md). Records its own undo entry, like the two above.
    *
    * The write lives on the facade for the one reason a write ever does: undo. The value itself and
    * the rule that reads it are `engine/models/staffSize.ts`; this takes an INDEX because that is
@@ -666,7 +666,7 @@ export class MusicEngine {
 
   /**
    * **Join or disjoin the gap below a staff** — whether its barlines run unbroken into the next
-   * staff down (docs/barline-join-plan.md). Ordinal in, id out, exactly as {@link setStaffSize}:
+   * staff down (docs/plans/barline-join-plan.md). Ordinal in, id out, exactly as {@link setStaffSize}:
    * the field is keyed by staff identity and only the facade speaks in indices.
    *
    * ⭐ A join is INK, ⛔ never an audible edit. It changes no note's time, so there is nothing
@@ -692,7 +692,7 @@ export class MusicEngine {
   /**
    * Live (preview) join/disjoin of the gap below a staff — writes the model but records **no undo**;
    * {@link commitBarlineJoin} records the whole drag once on the drop. The pair is
-   * `previewStaffSpacing` / `commitStaffSpacing`'s, one gesture over (docs/barline-join-plan.md P3).
+   * `previewStaffSpacing` / `commitStaffSpacing`'s, one gesture over (docs/plans/barline-join-plan.md P3).
    *
    * ⚠️ **`markModelDirty` only when it actually changed** — the trap `previewBarWidth` records in
    * full: `modelDirty` means *the model has moved on from the picture*, and only a render clears it,
@@ -742,7 +742,7 @@ export class MusicEngine {
 
   // ============ Barline types (the final bar, the two repeats) ============
   // The write lives on the facade for the one reason a write ever does: undo. The values and the
-  // rules are `engine/models/barlineOps`, a SCORE operation (docs/barline-types-plan.md §8 P1).
+  // rules are `engine/models/barlineOps`, a SCORE operation (docs/plans/barline-types-plan.md §8 P1).
   //
   // ⭐ A barline sign is INK, never an audible edit. Drawing `:|` and playing bars twice are
   // different features, and nothing here may change what Play does (plan §7) — so there is no
@@ -1186,7 +1186,7 @@ export class MusicEngine {
   /**
    * ⭐⭐ **Set which voices a dynamic or a hairpin GOVERNS** — one method for both kinds, because
    * `Alt+1…5` does not ask which one is selected: it asks what the selection can take
-   * (`interactions/markVoiceScope`, docs/dynamic-voice-scope-plan.md P4).
+   * (`interactions/markVoiceScope`, docs/plans/dynamic-voice-scope-plan.md P4).
    *
    * `'all'` is the absence — the mark governs every voice of its staff — and the model DELETES the
    * field for it rather than storing an `undefined` (`dynamicOps.setDynamicVoiceScope`).
@@ -1216,7 +1216,7 @@ export class MusicEngine {
   // ==================== Ottava operations ====================
   //
   // ⭐ The family's COMMANDS are `engine/commands/ottavaCommands` — `engine.ottava.<command>(…)`
-  // (docs/code-shape-plan-2026-09-19.md, Phase 3.5). What stays here is what the family shares with
+  // (docs/plans/code-shape-plan-2026-09-19.md, Phase 3.5). What stays here is what the family shares with
   // the others (the page limit below) and its reads.
 
   /** Every edit the editor can make to an octave line. */
@@ -1453,7 +1453,7 @@ export class MusicEngine {
    * ⛔ Is this id a FANNED MEMBER, which the command about to run cannot attach to?
    *
    * A member is a PITCH inside one event — the ties, slurs, articulations, dots, duration and stem
-   * all belong to the SLOT, the whole gesture (docs/fanned-beam-pitches-plan.md §3). The model
+   * all belong to the SLOT, the whole gesture (docs/plans/fanned-beam-pitches-plan.md §3). The model
    * already refuses to store any of it (`findSlot` finds a member only when asked, and `updateNote`
    * writes nothing but spelling onto one), so this is not what makes the edit safe — it is what
    * makes the refusal a DECISION: the command stops here, reports nothing happened, and mints no
@@ -1582,7 +1582,7 @@ export class MusicEngine {
   }
 
   /** ⭐ What a trill alternates WITH — the diatonic step above, resolved against the key and the
-   *  bar's accidentals. DERIVED every time, never stored (docs/trill-plan.md §3). The renderer asks
+   *  bar's accidentals. DERIVED every time, never stored (docs/plans/trill-plan.md §3). The renderer asks
    *  for the printed sign; playback asks for the sounding pitch. @returns null if it does not resolve. */
   trillAuxiliaryOf(id: string): TrillAuxiliary | null {
     return this.scoreModel.trillAuxiliaryOf(id)
@@ -1590,7 +1590,7 @@ export class MusicEngine {
 
   /**
    * Nudge a selected rest's vertical shift by `delta` whole staff-steps and save ONE undo step
-   * (the ↑/↓ keyboard fine-positioning — see docs/rest-shift-plan.md). Resolves the rest id to
+   * (the ↑/↓ keyboard fine-positioning — see docs/plans/rest-shift-plan.md). Resolves the rest id to
    * its position address here (the override is position-keyed, since rests have no durable id)
    * and delegates the accumulate/clear to the model. A no-op for a non-rest / missing id.
    * @returns true if a rest was nudged.
@@ -1616,7 +1616,7 @@ export class MusicEngine {
 
   /**
    * Set the user-authored leading space before one rhythmic column and save ONE undo step
-   * (client #10 — docs/note-spacing-plan.md). `space` is in staff-spaces, signed; `0` clears.
+   * (client #10 — docs/plans/note-spacing-plan.md). `space` is in staff-spaces, signed; `0` clears.
    *
    * Keyed by measure **id** and beat, with no voice and no staff: a space belongs to the column,
    * so every voice and every staff at that beat moves together by construction. The caller supplies
@@ -1638,7 +1638,7 @@ export class MusicEngine {
 
   /**
    * ⭐ The COLUMN a selected note is spaced by — **its own beat inside a fan** rather than the
-   * group's (docs/note-spacing-plan.md §7). Every spacing caller resolves its address through here
+   * group's (docs/plans/note-spacing-plan.md §7). Every spacing caller resolves its address through here
    * instead of reading `getNote().beat`, which reports the SLOT's beat for a fanned member and so
    * spaced the whole group.
    *
@@ -1738,7 +1738,7 @@ export class MusicEngine {
     const after = this.scoreModel.setNoteSpacing(key, space, minSpace)
     const changed = after !== before
     // A spacing change re-runs the casting-off, unlike the weightless previews — so the dirty flag
-    // is what makes the bar re-measure at all, not just repaint. See docs/note-spacing-plan.md §2.
+    // is what makes the bar re-measure at all, not just repaint. See docs/plans/note-spacing-plan.md §2.
     // ⚠️ Only when it CHANGED — a no-op frame that marks the model dirty is never rendered (the
     // caller repaints on `true`) and so never cleaned, and `noteSpacingRoom` then refuses every
     // later gesture. See {@link previewBarWidth} for the report that found it.
@@ -1832,7 +1832,7 @@ export class MusicEngine {
 
   /**
    * Set a bar's authored **stretch** and save ONE undo step (client #11 —
-   * docs/bar-width-plan.md). `stretch` multiplies the bar's own note space; `1` clears.
+   * docs/plans/bar-width-plan.md). `stretch` multiplies the bar's own note space; `1` clears.
    *
    * Keyed by the measure **id**, so the stretch rides through a rebar untouched (a rebar keeps
    * ids) — no capture/restore, unlike the column-keyed leading spaces. `minStretch` is the floor
@@ -1863,7 +1863,7 @@ export class MusicEngine {
 
   /**
    * How much room a bar-width gesture has on this bar, and what a pixel is worth in it — everything
-   * needed to move a barline, measured off the **last render** (docs/bar-width-plan.md §4–§5).
+   * needed to move a barline, measured off the **last render** (docs/plans/bar-width-plan.md §4–§5).
    *
    * The arithmetic itself is {@link barWidthRoomOf}, a pure function of the things read here.
    * What this method owns is the READING, and one rule that goes with it: ⚠️ **a dirty model cannot
@@ -1883,7 +1883,7 @@ export class MusicEngine {
       viewMode: this.getViewMode(),
       // ⭐ The MUSIC's surface, not the page's: `barWidthRoom` reads `contentWidthPx` as the line's
       //   TOTAL, and a derived view that disagrees with the layout it describes is worse than none
-      //   (docs/braces-brackets-plan.md P2's consumer table).
+      //   (docs/plans/braces-brackets-plan.md P2's consumer table).
       surface: musicSurface(resolveSurface(this.surface), this.scoreModel.getScore()),
       slackPx,
     })
@@ -2027,7 +2027,7 @@ export class MusicEngine {
 
   /**
    * Nudge a selected note's horizontal offset by `dx` staff-spaces and save ONE undo step (the
-   * Ctrl+arrow keyboard fine-positioning — see docs/note-offset-plan.md). Selection gives a *pitch*
+   * Ctrl+arrow keyboard fine-positioning — see docs/plans/note-offset-plan.md). Selection gives a *pitch*
    * id; the override is keyed by whatever {@link ScoreModel.offsetTargetOf} resolves — the SLOT for
    * anything ordinary (a chord moves as a unit, and a rest is a slot too), the MEMBER's own key
    * inside a fan — and the accumulate/clear is the model's. A no-op for an id no longer in the score.
@@ -2049,7 +2049,7 @@ export class MusicEngine {
 
   /**
    * Reset a selected note to its natural column, dropping its horizontal offset outright (the
-   * Ctrl+Backspace first-class reset — see docs/note-offset-plan.md). Keyed by
+   * Ctrl+Backspace first-class reset — see docs/plans/note-offset-plan.md). Keyed by
    * {@link ScoreModel.offsetTargetOf} like {@link nudgeNoteOffset}. One undo step.
    * @returns true if an offset was there to reset.
    */
@@ -2155,7 +2155,7 @@ export class MusicEngine {
    * `openingMeasureId` and `staffId` so callers can resolve/fall back without re-deriving them.
    *
    * **Null in linear view, always** — and that one line is the whole safety layer of
-   * docs/linear-view-plan.md §4.1. This key is a *system* address, and linear view's single
+   * docs/plans/linear-view-plan.md §4.1. This key is a *system* address, and linear view's single
    * system opens at measure 1: resolving it here would hand every caller the key of wrapped
    * view's first system, so a staff drag in linear view would silently rewrite the wrapped
    * layout. Since every staff-spacing path (nudge / reset / preview / the drag's baseline read)
@@ -2178,14 +2178,14 @@ export class MusicEngine {
    * Clamp a requested space-above so shrinking can't collide the staff/system with the one
    * above it. `above` is an offset from the default stride, and every consecutive gap is that
    * stride plus `above·ss`, so a single lower bound on `above` floors every gap at once. No upper
-   * bound — you can widen freely. See docs/staff-spacing-plan.md and `layout/staffStride`.
+   * bound — you can widen freely. See docs/plans/staff-spacing-plan.md and `layout/staffStride`.
    *
    * ⚠️ **Two staves' sizes, and they are different staves.** The gap this `above` controls sits
    * between staff `staffIndex` and the one ABOVE it: it is the upper staff's ink you would collide
    * with (so the floor comes from *its* size), while `above` itself is authored in the dragged
    * staff's own spaces. The top staff of a system has no staff above it inside the system — that
    * gap runs to the previous system's last staff — so it floors against its own, which is exactly
-   * what every staff did while there was one size. See docs/staff-size-plan.md §5.
+   * what every staff did while there was one size. See docs/plans/staff-size-plan.md §5.
    *
    * ⭐ **Unless that system opens a PAGE, where there is no staff above it at all** — only the
    * sheet's top margin, which `above = 0` already sits against. A collision floor prices ink you
@@ -2207,7 +2207,7 @@ export class MusicEngine {
     return Math.max(above, floor)
   }
 
-  // ---- Linear view's staff-spacing VIEW KNOB (docs/linear-view-plan.md §4.2b) ----
+  // ---- Linear view's staff-spacing VIEW KNOB (docs/plans/linear-view-plan.md §4.2b) ----
 
   /**
    * Space above each staff *as you are currently looking at it in linear view*, keyed by staffId,
@@ -2240,7 +2240,7 @@ export class MusicEngine {
   /**
    * Nudge the space above staff `staffIndex` on the system containing `measureNumber` by
    * `delta` staff-spaces, saving ONE undo step (Shift+↑/↓ fine / Alt+↑/↓ coarse — see
-   * docs/staff-spacing-plan.md). Per-system (plan option C): the tweak is keyed to that system's
+   * docs/plans/staff-spacing-plan.md). Per-system (plan option C): the tweak is keyed to that system's
    * opening measure. Accumulates onto the currently-shown value (per-system, else the global
    * fallback) so nudging is continuous even over a global default. Clears at 0.
    *
@@ -2345,7 +2345,7 @@ export class MusicEngine {
 
   /**
    * Toggle whether a selected rest is hidden (the Sibelius-style Ctrl+Shift+H — see
-   * docs/rest-hide-plan.md). Resolves the rest id to its position address (the override is
+   * docs/plans/rest-hide-plan.md). Resolves the rest id to its position address (the override is
    * position-keyed, since rests have no durable id) and delegates the set/clear to the model.
    * A no-op for a non-rest / missing id.
    *
@@ -2504,7 +2504,7 @@ export class MusicEngine {
     const measure = score.measures.find(m => m.number === note.measure)
     if (!measure) return 0
     // A FANNED member alters its position for the rest of the bar too, so the list includes them
-    // (docs/fanned-beam-pitches-plan.md §2) — `getMeasureNotes` alone would answer "nothing in force"
+    // (docs/plans/fanned-beam-pitches-plan.md §2) — `getMeasureNotes` alone would answer "nothing in force"
     // for a bar whose only sharp is inside a fan.
     return alterInForceAt(
       measureAccidentalNotes(measure), note.beat,
@@ -2860,7 +2860,7 @@ export class MusicEngine {
    *
    * AUDIBLE: a tremolo is an instruction to the PLAYER, so it belongs with the
    * changes that resync playback — even though nothing is scheduled for it until
-   * docs/tremolo-plan.md §5 lands. Calling it a display-only flag today would be a thing to
+   * docs/plans/tremolo-plan.md §5 lands. Calling it a display-only flag today would be a thing to
    * remember to change later, and this is the seam that would be silently wrong.
    */
   setTremolo(noteId: string, tremolo: TremoloMark | null): Note | null {
@@ -2941,7 +2941,7 @@ export class MusicEngine {
   /**
    * Wrapped (stacked systems, justified) vs linear (one endless system, intrinsic widths).
    * View state, not score data: it lives on the engine, never in the model, and never in
-   * `toJSON`. See docs/linear-view-plan.md §5.
+   * `toJSON`. See docs/plans/linear-view-plan.md §5.
    *
    * The engine owns it — not EditorState, not a `renderScore` parameter — because the engine
    * re-renders *itself* from several internal call sites that never pass through
@@ -2977,7 +2977,7 @@ export class MusicEngine {
 
   /**
    * The **surface** the music is being drawn on — a sketching canvas or a page
-   * (`engine/layout/surface.ts`, docs/layout-plan.md).
+   * (`engine/layout/surface.ts`, docs/plans/layout-plan.md).
    *
    * ⚠️ The default here is the plain canvas, and **the editor opens on A4 by saying so**
    * (`MusicEngineConfig.surface`, set in `App.ts`). Deliberate: an engine embedded somewhere else
@@ -3004,7 +3004,7 @@ export class MusicEngine {
   }
 
   /**
-   * What the frozen left gutter must show at layout-x `x` (docs/linear-view-plan.md §P3): the
+   * What the frozen left gutter must show at layout-x `x` (docs/plans/linear-view-plan.md §P3): the
    * clef *in force* there, per staff, the y each staff sits at, and the measure you are looking
    * at — everything the gutter needs and nothing about how it is drawn. No meter: the music draws
    * its own where it changes.
@@ -3114,7 +3114,7 @@ export class MusicEngine {
   private cullWindow: Rect | null = null
 
   /**
-   * **P6 — tell the engine where the user is looking** (docs/render-performance-plan.md §8).
+   * **P6 — tell the engine where the user is looking** (docs/history/render-performance-plan.md §8).
    *
    * `visible` is the viewport in layout coordinates. The engine keeps a *larger* window around it —
    * the visible rect grown by {@link CULL_OVERSCAN} — and that grown window is what the renderer
@@ -3283,7 +3283,7 @@ export class MusicEngine {
    * ⚠️ ONE method, and it stays one. This was ten (`renderScoreWithClefGhost`,
    * `…TimeSignatureGhost`, …), each a single delegating statement to a matching one-liner on
    * `ScoreRenderer` — twenty methods of pure forwarding, so a new ghost was four files' work to
-   * add nothing (docs/modularity-plan-2026-07-28.md Phase 2). A new ghost is now a {@link ToolGhost}
+   * add nothing (docs/history/modularity-plan-2026-07-28.md Phase 2). A new ghost is now a {@link ToolGhost}
    * member and a `GHOST_DRAWERS` row; this facade does not learn about it.
    *
    * ⚠️ The ghost NOTE is not one of these — it rides the armed duration/accidental/tuplet and goes
@@ -3442,7 +3442,7 @@ export class MusicEngine {
    * Until 2026-08-23 this was a field on `PlaybackEngine`: a reload lost the choice, and a second
    * score loaded into the same editor inherited the previous one's timbre.
    *
-   * ⏭️ Per-staff and per-voice sounds add a LANE to the write (docs/instruments-plan.md P2); this
+   * ⏭️ Per-staff and per-voice sounds add a LANE to the write (docs/plans/instruments-plan.md P2); this
    * method is then the N=1 case of that one, not something it has to replace.
    */
   setScoreSound(sound: SoundRef): void {
@@ -3501,7 +3501,7 @@ export class MusicEngine {
   /**
    * ⭐⭐ **RENDER, AND HAND BACK WHAT WAS DRAWN** — a one-line delegation to
    * {@link ScoreRenderer.recordScene}, which TEES: the page paints exactly as normal and a
-   * {@link Scene} of plain values comes back as well (`docs/own-engraving-engine.md` P1d).
+   * {@link Scene} of plain values comes back as well (`docs/plans/own-engraving-engine.md` P1d).
    *
    * ⛔ **Not a feature, and nothing in the editor's own flow calls it.** It exists because the two
    * things that need to compare *what we computed* against *what the page holds* live outside the

@@ -1,7 +1,7 @@
 import { test, expect } from './fixtures'
 
 /**
- * SUSTAIN PEDALS — `Ped.` and its release `✻`, drawn (docs/pedal-plan.md P2).
+ * SUSTAIN PEDALS — `Ped.` and its release `✻`, drawn (docs/plans/pedal-plan.md P2).
  *
  * ⚠️ **This suite has to be here.** Every claim below is about where ink landed: the `Ped.`'s width
  * decides where the `✻` may go, the barline's x decides where it must stop, and the y is stated

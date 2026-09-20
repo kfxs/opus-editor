@@ -1,6 +1,6 @@
 /**
  * ⭐⭐ **WHAT A SPAN MARK IS, IN THE SCORE'S OWN WORDS** — the engine half of the span-mark family's
- * two tables (`docs/span-mark-family-plan-2026-08-24.md` Phase 3, decision D2).
+ * two tables (`docs/plans/span-mark-family-plan-2026-08-24.md` Phase 3, decision D2).
  *
  * A hairpin, an octave line, a pedalling and a trill are *one idea built four times*: a line spanning
  * music, two draggable ends, a rung on the below-staff ladder, a wrap at every system break. This
@@ -83,7 +83,7 @@ export interface SpanMarkModelSpec {
    * none**, which is also the engraver's own value.
    *
    * ⚠️ Read from the COMPARTMENT, never from whatever a panel last painted: the number on screen is
-   * a picture of the model, never a second copy of it (docs/engraving-overrides-plan.md §8).
+   * a picture of the model, never a second copy of it (docs/plans/engraving-overrides-plan.md §8).
    */
   offsetOf(score: Score, id: string, field: SpanMarkOffsetField): number
 }

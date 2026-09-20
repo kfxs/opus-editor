@@ -1,7 +1,7 @@
 /**
  * A duration token parsed as VexFlow's `Note.parseNoteStruct` parsed it (S12j-d3). ⚠️ That it agrees with
  * VexFlow's own parse was checked once, token by token — every duration and alias, 0–3 dots written or
- * given, every type letter, custom key types (`docs/vexflow-removal-map.md` S12j-d3); pinned here is what
+ * given, every type letter, custom key types (`docs/history/vexflow-removal-map.md` S12j-d3); pinned here is what
  * the module promises.
  */
 import { describe, it, expect } from 'vitest'

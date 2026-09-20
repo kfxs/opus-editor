@@ -60,7 +60,7 @@ describe('KeySignatureGhost', () => {
   it('⛔ an EMPTY signature draws nothing and says so — C major has no ink to preview', () => {
     // The one case that is answered before any measuring, so jsdom CAN speak to it: the drawer
     // refuses on the alterations list, not on `getBBox`. ⛔ And it invents no placeholder glyph —
-    // that hole is the SIGNPOST's (docs/key-signature-plan.md §5).
+    // that hole is the SIGNPOST's (docs/plans/key-signature-plan.md §5).
     const ctx = { openGroup: () => document.createElementNS('http://www.w3.org/2000/svg', 'g') }
     expect(drawKeySignatureGhost(ctx as never, 100, 100, C_MAJOR)).toBe(false)
   })

@@ -1,5 +1,5 @@
 /**
- * The SMuFL metadata — the Symbols window's whole data source (docs/symbols-window-plan.md).
+ * The SMuFL metadata — the Symbols window's whole data source (docs/plans/symbols-window-plan.md).
  *
  * The files under `public/smufl/` are the specification's own, verbatim, and they are FETCHED on
  * first open rather than imported: `glyphnames.json` alone is 300 KB, and a chart nobody has opened

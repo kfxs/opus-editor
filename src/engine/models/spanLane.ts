@@ -1,6 +1,6 @@
 /**
  * THE LANE A SPAN MARK WALKS — what `ottavaOps` and `pedalOps` each spelled for themselves, word for
- * word (docs/code-shape-plan-2026-09-19.md, Phase 5).
+ * word (docs/plans/code-shape-plan-2026-09-19.md, Phase 5).
  *
  * A bracket-shaped span (an octave line, a pedal) stands on a STAFF, not in a voice: its ends step
  * between that staff's onsets, every voice counted once. So "where is this mark now, and what may

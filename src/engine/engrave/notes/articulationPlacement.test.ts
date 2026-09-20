@@ -2,7 +2,7 @@
  * Where an articulation stands on its note (S12f — `Articulation.draw`'s placement, transcribed).
  * ⚠️ Exactness against VexFlow was proved on the page: 50 random scores (1,889 marks, 1,721 hit boxes)
  * byte-identical against the previous commit, and 150 note ghosts wearing marks identical in
- * Chromium (`docs/vexflow-removal-map.md` S12f). Pinned here is the rule.
+ * Chromium (`docs/history/vexflow-removal-map.md` S12f). Pinned here is the rule.
  *
  * A treble staff with its top line at y = 80, a space of 10: line 5 (F5) at 80, line 1 (E4) at 120.
  */

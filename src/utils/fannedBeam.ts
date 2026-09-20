@@ -7,7 +7,7 @@
  * would have to emit. Assertion → consequence is a function; the reverse is not, which is why the
  * model stores the assertion and this file is the only place the consequence exists.
  *
- * ⚠️ **EVERY NUMBER IN THIS FILE IS PROVISIONAL** — see docs/fanned-beams-plan.md §1. None of them
+ * ⚠️ **EVERY NUMBER IN THIS FILE IS PROVISIONAL** — see docs/plans/fanned-beams-plan.md §1. None of them
  * is a considered engraving or performance decision; they exist so the feature is usable today and
  * they are expected to be wrong. Each lives in exactly one named constant so changing it is a
  * one-line edit. In particular the ramp is LINEAR, and a real accelerando is not: {@link FanCurve}
@@ -48,7 +48,7 @@ export function fanJoinSubdivides(fan: FanMark): boolean {
 
 /**
  * Is this slot a fan JOINED to the group on its left? `beam: 'continue'` IS the join (there is no
- * other spelling — docs/fan-beam-join-plan.md), and it is what makes {@link fanJoinSubdivides} a
+ * other spelling — docs/plans/fan-beam-join-plan.md), and it is what makes {@link fanJoinSubdivides} a
  * question worth asking at all: an unjoined fan has no boundary to break.
  */
 export function fanIsJoined(slot: { fan?: unknown; beam?: BeamMode }): boolean {
@@ -355,7 +355,7 @@ export function chordStoredPitches(chord: Chord): NotePitch[] {
  * ⭐ The beat EVERY member of a fan starts on, member 0 first — `slot.beat + Σ preceding member
  * quarters`, one entry per member the count claims. **The one owner of that arithmetic**, which is
  * now four passes' worth: the accidental walk, arrow navigation, playback, and — since a member can
- * carry its own leading space (docs/note-spacing-plan.md §7) — the spacing address it is nudged by.
+ * carry its own leading space (docs/plans/note-spacing-plan.md §7) — the spacing address it is nudged by.
  *
  * ⚠️ Arbitrary rationals, and that is fine: they are POSITIONS, never notatable durations. Nothing
  * turns one back into a slot. It is also what lets a member share `spacingPositionKey` with an
@@ -384,7 +384,7 @@ export function fanMemberBeats(fan: FanMark, totalQuarters: Fraction, slotBeat: 
  *
  * ⚠️ The beats are arbitrary rationals — 8/15 of a beat is an ordinary answer — and that is fine.
  * They are POSITIONS, never notatable durations; nothing turns them back into slots, which is
- * exactly what storing the assertion buys (docs/fanned-beams-plan.md §0).
+ * exactly what storing the assertion buys (docs/plans/fanned-beams-plan.md §0).
  *
  * Member 0 is NOT here: it is the slot's own chord, at the slot's own beat.
  */
@@ -437,7 +437,7 @@ export interface FanMember {
  *
  * ⚠️ **The RAMP's length, not the GROUP's, and no direction.** Reversing for a `rit` and mapping the
  * result onto the group's members are both {@link fanWeights}' business — the ramp may cover only
- * part of the fan (docs/fan-ramp-range-plan.md §2), and an array reversed by a caller that thinks it
+ * part of the fan (docs/plans/fan-ramp-range-plan.md §2), and an array reversed by a caller that thinks it
  * holds the whole group mirrors an inset mark to the other end. This function shapes a ramp; it does
  * not know where one sits.
  */

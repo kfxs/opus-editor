@@ -15,7 +15,7 @@ import { CHROME } from '../utils/chromeColors'
  * │                                                                                              │
  * │  It DOES inherit the window's four rules whole: outside the zoom layer and the scroll box;    │
  * │  the layer is transparent to the pointer; content never knows where it is; closed means the   │
- * │  nodes are GONE.  (docs/menus-design.md)                                                      │
+ * │  nodes are GONE.  (docs/how-it-works/menus-design.md)                                                      │
  * └──────────────────────────────────────────────────────────────────────────────────────────────┘
  *
  * It takes `(x, y, items)` and nothing else. It does not decide WHICH menu belongs to what was

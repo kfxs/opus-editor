@@ -5,7 +5,7 @@ import { applyKeySignature, keyTargetFromSelection, stampKeySignatureAtClick } f
 import { keyFromFifths } from '@/utils/keySignature'
 
 /**
- * The key-signature stamp — P5 of docs/key-signature-plan.md.
+ * The key-signature stamp — P5 of docs/plans/key-signature-plan.md.
  *
  * Subject: {@link keySignatureStamp}, sitting beside this file. The `MusicEngine` is real, because
  * every claim here is one of ITS answers: what got stored, on which staves, and whether the whole

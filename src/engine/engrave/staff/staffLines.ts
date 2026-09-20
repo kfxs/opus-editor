@@ -1,5 +1,5 @@
 /**
- * ⭐⭐ **THE STAFF'S OWN FIVE LINES, AS INK — P5a** (`docs/own-engraving-engine.md` P5).
+ * ⭐⭐ **THE STAFF'S OWN FIVE LINES, AS INK — P5a** (`docs/plans/own-engraving-engine.md` P5).
  *
  * ## ⭐ What a staff line IS, as ink
  *
@@ -149,7 +149,7 @@ export function fillStaffLine(ctx: DrawContext, line: StaffLineInk): void {
  * past the last barline. A tail of a different weight is visible instantly.
  *
  * 🚨🚨 **CORRECTED 2026-09-01 — this used to read "SMuFL says 0.13", and SMuFL says NOTHING.**
- * `docs/staff-line-research.md` §5.1 checked the spec live: it defines `staffLineThickness` only as
+ * `docs/research/staff-line-research.md` §5.1 checked the spec live: it defines `staffLineThickness` only as
  * *"expressed in staff spaces"* and publishes **no default**. ⭐ **0.13 is BRAVURA's own number**, and
  * calling it a standard promoted one font to one. ⚠️ And we are not an outlier: the field is
  * LilyPond **0.100** (our value exactly), MuseScore **0.11**, Verovio **0.0722**, Bravura **0.13** —
@@ -161,7 +161,7 @@ export function fillStaffLine(ctx: DrawContext, line: StaffLineInk): void {
  *
  * ## ✅ HIS DECISION, 2026-09-01: **GOULD — 0.11 staff spaces**
  *
- * > *"lets do gould"* — decision **A** of `docs/staff-line-research.md` §8, taken after the research.
+ * > *"lets do gould"* — decision **A** of `docs/research/staff-line-research.md` §8, taken after the research.
  *
  * ⭐ **0.11 sp is what Gould's own engraved staves MEASURE** — four pages, nine staves, calibrated
  * against her own beam thicknesses (`staff-line-research.md` §3.1) — and it is MuseScore's

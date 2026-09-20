@@ -129,7 +129,7 @@ export class ScoreModel {
       ...(title?.trim() ? { title: title.trim() } : {}),
       measures: [],
       // The staff axis: one staff by default (N=1). Content carries no explicit
-      // `staffId` at N=1 — absent = this staff. See docs/multi-staff-plan.md §4.
+      // `staffId` at N=1 — absent = this staff. See docs/plans/multi-staff-plan.md §4.
       staves: [{ id: uuidv4() }],
     }
     // Initialize with one empty measure
@@ -199,7 +199,7 @@ export class ScoreModel {
    * and return its stable id. The new staff is rest-filled in **every** measure (treble
    * default — a fresh staff carries no clef change, so it resolves to the universal
    * `'treble'` default; the user re-clefs it afterward) and joins the single staff group (created on the first
-   * add, grown thereafter). See docs/multi-staff-plan.md §9.
+   * add, grown thereafter). See docs/plans/multi-staff-plan.md §9.
    *
    * The first staff owns the absent-`staffId` = staff-0 convention, so **inserting at index
    * 0** (prepending above the top staff) first {@link solidifyFirstStaffContent solidifies}
@@ -253,7 +253,7 @@ export class ScoreModel {
       // ⚠️ The KEY too, and it was missing until 2026-08-28: `Measure.keys` is per-staff exactly as
       //    `clefs` is, so without this a PREPENDED staff would silently inherit the outgoing first
       //    staff's signatures and leave that staff in C major — the very re-pointing this pass exists
-      //    to prevent (docs/key-signature-plan.md §1.2).
+      //    to prevent (docs/plans/key-signature-plan.md §1.2).
       for (const key of m.keys ?? []) if (key.staffId === undefined) key.staffId = firstId
       for (const dyn of m.dynamics ?? []) if (dyn.staffId === undefined) dyn.staffId = firstId
       for (const tup of m.tuplets ?? []) if (tup.staffId === undefined) tup.staffId = firstId
@@ -625,7 +625,7 @@ export class ScoreModel {
   //
   // Thin delegators to `hairpinOps` (the clefOps/slurOps idiom) — the logic is a SCORE
   // operation and lives in the score layer, reachable with no renderer and no editor.
-  // See docs/dynamics-line-and-hairpins-plan.md §6a, principle 5.
+  // See docs/plans/dynamics-line-and-hairpins-plan.md §6a, principle 5.
 
   /** Add a hairpin starting at (measure, beat) covering `length` of music; null if the measure
    *  does not exist or the length is not positive. See {@link hairpinOps.addHairpin}. */
@@ -765,7 +765,7 @@ export class ScoreModel {
   // ==================== Ottava operations ====================
   //
   // Thin delegators to `ottavaOps` — the hairpin block above with ONE rule changed: an ottava
-  // UPSERTS per (beat, staff), where a hairpin stacks. See docs/ottava-plan.md §4.
+  // UPSERTS per (beat, staff), where a hairpin stacks. See docs/plans/ottava-plan.md §4.
 
   /** Add an octave line starting at (measure, beat) covering `length` of music, REPLACING any
    *  ottava already on that (beat, staff). Null if the measure is missing or the length is not
@@ -900,7 +900,7 @@ export class ScoreModel {
   //
   // Thin delegators to `pedalOps` — the ottava block above with the SHIFT dropped and one rule
   // added: overlap is a contradiction, and it is the ENTRY door (`addPedalOverNotes`) that resolves
-  // it, never `addPedal`. See docs/pedal-plan.md §3.3.
+  // it, never `addPedal`. See docs/plans/pedal-plan.md §3.3.
 
   /** Add a sustain pedal starting at (measure, beat) holding `length` of music, REPLACING any pedal
    *  already on that (beat, staff). Null if the measure is missing or the length is not positive.
@@ -1034,7 +1034,7 @@ export class ScoreModel {
   //     every staff, so the beat alone is the key.
   //   - At most ONE mark per beat (add REPLACES; the clef rule), where dynamics stack.
   // There is no `setTempo` global to keep in sync — it does not exist. See
-  // docs/tempo-marks-plan.md §5.
+  // docs/plans/tempo-marks-plan.md §5.
 
   /**
    * Add a tempo mark at (measure, mark.beat), REPLACING any mark already on that beat.
@@ -1205,7 +1205,7 @@ export class ScoreModel {
 
   /**
    * Nudge one endpoint of a slur by a staff-space delta, **accumulating** onto any existing offset
-   * (the in/out keyboard fine-positioning — see docs/slur-endpoint-offset-plan.md).
+   * (the in/out keyboard fine-positioning — see docs/plans/slur-endpoint-offset-plan.md).
    *  See {@link slurOps.setSlurEndpointOffset} for the why. */
   setSlurEndpointOffset(id: string, which: 'start' | 'end', dx: number, dy: number): boolean {
     return slurOps.setSlurEndpointOffset(this.score, id, which, dx, dy)
@@ -1270,7 +1270,7 @@ export class ScoreModel {
 
   /**
    * Nudge a rest's manual vertical shift by `delta` whole staff-steps, **accumulating** onto any
-   * existing shift (the ↑/↓ keyboard fine-positioning — see docs/rest-shift-plan.md).
+   * existing shift (the ↑/↓ keyboard fine-positioning — see docs/plans/rest-shift-plan.md).
    *  See {@link overrideOps.nudgeRestShift} for the why. */
   nudgeRestShift(posKey: string, delta: number): boolean {
     return overrideOps.nudgeRestShift(this.score, posKey, delta)
@@ -1293,7 +1293,7 @@ export class ScoreModel {
 
   /**
    * Set a bar's authored **stretch** — the multiplier on its own note space (client #11 — see
-   * docs/bar-width-plan.md).
+   * docs/plans/bar-width-plan.md).
    *  See {@link overrideOps.setBarWidth} for the why. */
   setBarWidth(key: string, stretch: number, minStretch: number): number {
     return overrideOps.setBarWidth(this.score, key, stretch, minStretch)
@@ -1343,20 +1343,20 @@ export class ScoreModel {
 
   /**
    * Nudge a note's manual horizontal offset by `dx` staff-spaces, **accumulating** onto any existing
-   * offset (the Ctrl+arrow keyboard fine-positioning — see docs/note-offset-plan.md).
+   * offset (the Ctrl+arrow keyboard fine-positioning — see docs/plans/note-offset-plan.md).
    *  See {@link overrideOps.nudgeNoteOffset} for the why. */
   nudgeNoteOffset(key: string, dx: number): boolean {
     return overrideOps.nudgeNoteOffset(this.score, key, dx)
   }
 
-  /** first-class reset — see docs/note-offset-plan.md). See {@link overrideOps.clearNoteOffset} for the why. */
+  /** first-class reset — see docs/plans/note-offset-plan.md). See {@link overrideOps.clearNoteOffset} for the why. */
   clearNoteOffset(key: string): boolean {
     return overrideOps.clearNoteOffset(this.score, key)
   }
 
   /**
    * Toggle whether the rest at this position address is hidden (the Sibelius-style
-   * Ctrl+Shift+H — see docs/rest-hide-plan.md). A {@link RestHiddenOverride} is payloadless,
+   * Ctrl+Shift+H — see docs/plans/rest-hide-plan.md). A {@link RestHiddenOverride} is payloadless,
    * so the toggle is presence-based: set it when absent, clear it when present. Position-keyed
    * (`posKey` from `restPositionKey`) for the same reason as {@link nudgeRestShift} — rests
    * have no durable id. No undo snapshot here; the facade (`MusicEngine.toggleRestHidden`) /
@@ -1403,7 +1403,7 @@ export class ScoreModel {
 
   /**
    * Nudge a staff's extra "space above" by `delta` staff-spaces, **accumulating** onto any existing
-   * value (the Sibelius-style Alt+↑/↓ vertical staff drag — see docs/staff-spacing-plan.md).
+   * value (the Sibelius-style Alt+↑/↓ vertical staff drag — see docs/plans/staff-spacing-plan.md).
    *  See {@link overrideOps.nudgeStaffSpacing} for the why. */
   nudgeStaffSpacing(staffId: string, delta: number): boolean {
     return overrideOps.nudgeStaffSpacing(this.score, staffId, delta)
@@ -1430,14 +1430,14 @@ export class ScoreModel {
 
   /** Join or disjoin the gap BELOW a staff — whether its barlines run on into the next staff down.
    *  Writing the default (not joined) clears the field; the bottom staff has no gap and is refused.
-   *  See {@link barlineJoinOps.setBarlineJoinBelow} (docs/barline-join-plan.md). */
+   *  See {@link barlineJoinOps.setBarlineJoinBelow} (docs/plans/barline-join-plan.md). */
   setBarlineJoinBelow(staffId: string, on: boolean): boolean {
     return barlineJoinOps.setBarlineJoinBelow(this.score, staffId, on)
   }
 
   // ============ Barline types (the final bar, the two repeats) ============
   // Thin delegators to `engine/models/barlineOps` — a SCORE operation, so the logic is in the core.
-  // ⭐ THREE setters and not one, because a repeat is NOT a barline style (docs/barline-types-plan.md
+  // ⭐ THREE setters and not one, because a repeat is NOT a barline style (docs/plans/barline-types-plan.md
   // §3.2), and the two repeats are owned by DIFFERENT bars: an end repeat by the bar it closes, a
   // start repeat by the bar it opens (ONE OWNER PER LINE).
 
@@ -1498,7 +1498,7 @@ export class ScoreModel {
   // `Score` (`score.engravingOverrides`), so it clones / serializes / undoes with
   // the score value for free. Phase 0 was infrastructure only — storage + accessors +
   // JSON round-trip; a slur's hand-edited shape is client #1 (`curveShape`, Phase 1).
-  // See docs/engraving-overrides-plan.md.
+  // See docs/plans/engraving-overrides-plan.md.
 
   /** Every override recorded for an element id (the live array, or [] if none). */
   getEngravingOverrides(elementId: string): EngravingOverride[] {
@@ -1851,7 +1851,7 @@ export class ScoreModel {
    * Find the slot containing the given note/pitch ID.
    *
    * ⭐ **A FANNED MEMBER'S pitch is found ONLY when asked for** (`{ fanMembers: true }`), and that
-   * default is the safety rule of docs/fanned-beam-pitches-plan.md §2 P3. A member is a real pitch
+   * default is the safety rule of docs/plans/fanned-beam-pitches-plan.md §2 P3. A member is a real pitch
    * with a real id, so an id can now name something that is NOT in `slot.notes` — and almost every
    * mutator here assumes it is: the delete paths are `chord.notes.filter(n => n.id !== pitch.id)`,
    * which would no-op on a member and report success, and the tie would write `tiedTo` onto a pitch
@@ -1886,7 +1886,7 @@ export class ScoreModel {
    * its members.
    *
    * "What comes next inside this fan?", which is what a slur started on one member needs
-   * (docs/fanned-beam-pitches-plan.md). One pitch per member is enough for an anchor, so this
+   * (docs/plans/fanned-beam-pitches-plan.md). One pitch per member is enough for an anchor, so this
    * projects the FIRST of each — the same choice `collapseToBeats` makes for a chord.
    */
   fanMembersOfSlot(noteId: string): Note[] | null {
@@ -1917,7 +1917,7 @@ export class ScoreModel {
 
   /**
    * ⭐ The COLUMN a note is spaced by — its own beat for anything ordinary, and **the member's own
-   * beat inside a fan** (docs/note-spacing-plan.md §7).
+   * beat inside a fan** (docs/plans/note-spacing-plan.md §7).
    *
    * The whole of the fix for "spacing one member moved the whole fan": `getNote` projects a member
    * with `toFlatNote(chord, pitch)`, which carries the CHORD's beat, so every member handed the
@@ -1943,7 +1943,7 @@ export class ScoreModel {
 
   /**
    * ⭐ The KEY a note's horizontal offset is stored at — the slot's id for anything ordinary, and
-   * **the member's own first pitch id inside a fan** (docs/note-offset-plan.md §"Inside a FAN").
+   * **the member's own first pitch id inside a fan** (docs/plans/note-offset-plan.md §"Inside a FAN").
    *
    * The twin of {@link spacingColumnOf}, and the same fix one axis over: {@link slotIdForNote}
    * resolves a member to the chord that contains it, so every member of a group wrote its offset at
@@ -2015,7 +2015,7 @@ export class ScoreModel {
    * Resolve a 0-based staff index (from {@link NoteParams.staff}) to the `staffId` to stamp
    * on a new slot. Mirrors the voice convention: the FIRST staff (index 0 / undefined) stamps
    * NO `staffId` (absent = staff 0, keeps single-staff output byte-identical); any later staff
-   * stamps its real id. See docs/multi-staff-plan.md §4.
+   * stamps its real id. See docs/plans/multi-staff-plan.md §4.
    */
   private staffIdForParams(staff: number | undefined): string | undefined {
     return staffIdForParams(this.score, staff)
@@ -2165,7 +2165,7 @@ export class ScoreModel {
   /**
    * Get a note by its ID.
    *
-   * ⭐ Answers for a FANNED MEMBER too (docs/fanned-beam-pitches-plan.md §2 P3): a member is a real
+   * ⭐ Answers for a FANNED MEMBER too (docs/plans/fanned-beam-pitches-plan.md §2 P3): a member is a real
    * pitch you can click, so everything downstream of a selection — the Keypad, the Properties
    * window, the highlight's rest check — has to be able to ask what it is. What comes back is the
    * member's own spelling wearing the SLOT's rhythm (`toFlatNote` reads both from the chord), which
@@ -2214,7 +2214,7 @@ export class ScoreModel {
    * has no role at all; `'single'` would be a claim about a beamable note that stayed alone.
    *
    * The run is the whole lane, not the bar: a beam may cross a barline
-   * (docs/cross-barline-beaming-plan.md), and the last note of bar N joined forward is a `continue`,
+   * (docs/plans/cross-barline-beaming-plan.md), and the last note of bar N joined forward is a `continue`,
    * not the `end` its own bar would call it.
    */
   getBeamRole(noteId: string): BeamRole | null {
@@ -2353,7 +2353,7 @@ export class ScoreModel {
       throw new Error(`Note ${noteId} not found`)
     }
 
-    // ⭐ A FANNED MEMBER IS A PITCH, so a pitch is all it takes (docs/fanned-beam-pitches-plan.md
+    // ⭐ A FANNED MEMBER IS A PITCH, so a pitch is all it takes (docs/plans/fanned-beam-pitches-plan.md
     // §2 P3). That is the whole of what P3 buys: `ArrowUp`/`ArrowDown`, `Ctrl+Arrow`, `a`–`g` and
     // the accidental stamp all route through here and write the spelling onto whichever pitch they
     // were handed, so they work on a member without knowing one exists.
@@ -2492,7 +2492,7 @@ export class ScoreModel {
     writeAttackMarks(chord, updates)
     if ('articulationStemAlign' in updates) chord.articulationStemAlign = updates.articulationStemAlign
     // ⭐ Stored ABSENT for auto, like `beam: 'auto'` — the metric rule is the default and costs no
-    // JSON (`docs/beam-hook-research.md`). An explicit `undefined` clears the override.
+    // JSON (`docs/research/beam-hook-research.md`). An explicit `undefined` clears the override.
     if ('fractionalBeamSide' in updates) chord.fractionalBeamSide = updates.fractionalBeamSide ?? undefined
 
     // Handle explicit undefined for tie fields
@@ -2673,7 +2673,7 @@ export class ScoreModel {
 
   /**
    * Sever every two-note tremolo in `measureNumber` that is no longer one — the model half of
-   * docs/two-note-tremolo-plan.md §1's *"a broken pair is DROPPED, not carried"*.
+   * docs/plans/two-note-tremolo-plan.md §1's *"a broken pair is DROPPED, not carried"*.
    *  See {@link markOps.dropStaleTremoloPairs} for the why. */
   dropStaleTremoloPairs(measureNumber: number): void {
     markOps.dropStaleTremoloPairs(this.score, measureNumber)
@@ -2916,7 +2916,7 @@ export class ScoreModel {
     // The staff axis: a live model always carries a `staves` array. Hand-written /
     // pre-multi-staff JSON may omit it — default to one staff (N=1). This is defaulting,
     // NOT a migration (no legacy scores exist in the wild); content with absent `staffId`
-    // resolves to this staff. See docs/multi-staff-plan.md §4.
+    // resolves to this staff. See docs/plans/multi-staff-plan.md §4.
     if (!scoreData.staves || scoreData.staves.length === 0) {
       scoreData.staves = [{ id: uuidv4() }]
     }
@@ -2982,7 +2982,7 @@ export class ScoreModel {
    * that is not a whole number of playings. Guards the only entry point such a value can take —
    * `barlineOps` refuses both, and absent is legal everywhere.
    *
-   * ⛔ **Report, never repair** ({@link validateMeters}'s rule, and docs/json-io-plan.md's): silently
+   * ⛔ **Report, never repair** ({@link validateMeters}'s rule, and docs/plans/json-io-plan.md's): silently
    * clamping a hand-written `times: 0` to 2, or dropping an unknown style, would make the file and
    * the picture disagree — the one failure this boundary exists to prevent.
    */
@@ -2998,7 +2998,7 @@ export class ScoreModel {
       // ⭐ The WINGS flag rides three different statements, so it is checked on all three: a
       // hand-written `winged: "curved"` (MusicXML's spelling of ours) would otherwise enter as a
       // truthy string and draw tips nobody could turn off through a checkbox that writes booleans.
-      // ⛔ Report, never repair (docs/json-io-plan.md).
+      // ⛔ Report, never repair (docs/plans/json-io-plan.md).
       for (const statement of [m.barline, m.repeatEnd, m.repeatStart]) {
         const winged = statement?.winged
         if (winged !== undefined && typeof winged !== 'boolean') {

@@ -1,6 +1,6 @@
 /**
  * ⭐⭐ **A SCORE STAVE — ours: its five lines, the signs it carries, and (since S12h) the object itself**
- * (`docs/own-engraving-engine.md` P5, `docs/vexflow-removal-map.md` S4; the line ink is
+ * (`docs/plans/own-engraving-engine.md` P5, `docs/history/vexflow-removal-map.md` S4; the line ink is
  * `engrave/staff/staffLines`).
  *
  * | | ours since | where |

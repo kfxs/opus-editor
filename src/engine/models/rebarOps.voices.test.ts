@@ -1,5 +1,5 @@
 /**
- * {@link rebarOps} — **a re-bar must not erase a secondary voice** (docs/multivoice-rebar-plan.md, P1).
+ * {@link rebarOps} — **a re-bar must not erase a secondary voice** (docs/plans/multivoice-rebar-plan.md, P1).
  *
  * The relay flattens a region into a stream and lays it out again under the new meter. Done per-bar
  * it would keep voice 0 and quietly drop the rest; done carelessly it emits one voice's tuplet as a
@@ -17,7 +17,7 @@ import { fracCreate as frac, fracToNumber } from '@/utils/fraction'
 
 // ===========================================================================
 // Multi-voice rebar — a TS change / paste must not erase a secondary voice
-// (docs/multivoice-rebar-plan.md, P1)
+// (docs/plans/multivoice-rebar-plan.md, P1)
 // ===========================================================================
 
 describe('rebar preserves secondary voices', () => {

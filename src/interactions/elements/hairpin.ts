@@ -65,7 +65,7 @@ export const HAIRPIN_ELEMENT: ClickableElementSpec = {
   },
   // ⭐ **In the colour its SCOPE says**: the element ink for a wedge governing the whole staff, that
   // voice's colour for one narrowed to a voice (`markSelectionColor`, P2 of
-  // docs/dynamic-voice-scope-plan.md) — a voice colour is for ink that BELONGS to one voice's notes.
+  // docs/plans/dynamic-voice-scope-plan.md) — a voice colour is for ink that BELONGS to one voice's notes.
   // The wedge is STROKED, never filled (two open polylines — see `HairpinRenderer`): setting `fill`
   // as well would paint the triangle the two arms enclose, which is not ink the score has.
   ink: (ctx, id) => {

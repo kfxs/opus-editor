@@ -1,7 +1,7 @@
 /**
  * THE MARKS A SLOT WEARS — articulation side, tie direction, tremolo, two-note tremolo, fanned
  * beam, beam-over-rest — extracted from {@link ScoreModel}, which keeps thin public delegators to
- * these free functions (docs/modularity-plan-2026-07-28.md Phase 3).
+ * these free functions (docs/history/modularity-plan-2026-07-28.md Phase 3).
  *
  * What files them together: each is an **authored statement about one slot**, stored ON that slot,
  * with no length and no position of its own. `setTremolo(id, 3)` says "play this note as a
@@ -112,7 +112,7 @@ export function clearTieDirection(score: Score, fromNoteId: string): void {
  *
  * ⭐ REMOVING THE COUNT REMOVES A TWO-NOTE PAIR WITH IT — and the pair's stroke STYLE too — and
  * that is the model rather than a courtesy: a pair needs a stroke COUNT
- * (docs/two-note-tremolo-plan.md §0), so `tremoloPair` with no `tremolo` is a mark with nothing to
+ * (docs/plans/two-note-tremolo-plan.md §0), so `tremoloPair` with no `tremolo` is a mark with nothing to
  * draw, and `tremoloPairStyle` with no pair is a setting for a mark that is not there. Putting it
  * here rather than in each caller is what makes Delete, the palette's re-press and anything added
  * later agree for free. CHANGING the count leaves both alone — that is the same mark re-read.
@@ -140,14 +140,14 @@ export function setTremolo(score: Score, noteId: string, tremolo: TremoloMark | 
  * Refuses (returns null) whenever {@link pairIsValid} says this slot cannot be the first note of a
  * pair — the §0 list, read off the slot's own lane. The ONE predicate: the button asks it here,
  * the renderer asks it before drawing, the beam grouper before excluding. It is checked at APPLY
- * time and again at DRAW time on purpose; neither alone is enough (docs/two-note-tremolo-plan.md
+ * time and again at DRAW time on purpose; neither alone is enough (docs/plans/two-note-tremolo-plan.md
  * §1).
  *
  * ⭐ THE COUNT COMES FROM THE NOTE, and with none there the press sets THREE. The pair is a
  * separate field from the stroke count, so a press on a note carrying no `tremolo` would otherwise
  * be a mark with nothing to draw. Three strokes is the ordinary two-note tremolo. Refusing instead
  * would make the button dead on exactly the note you pressed it on — the trap the tie stamp
- * already had and fixed (docs/tie-stamp-plan.md §1.3).
+ * already had and fixed (docs/plans/tie-stamp-plan.md §1.3).
  *
  * Removing takes ALL of it off — the count, the pair and the STROKE STYLE. The pair is ONE mark,
  * and half of it is not a notation; and a style left behind on a plain note is the same
@@ -229,7 +229,7 @@ export function tremoloPairAcceptsJoined(score: Score, noteId: string): boolean 
 
 /**
  * Sever every two-note tremolo in `measureNumber` that is no longer one — the model half of
- * docs/two-note-tremolo-plan.md §1's *"a broken pair is DROPPED, not carried"*.
+ * docs/plans/two-note-tremolo-plan.md §1's *"a broken pair is DROPPED, not carried"*.
  *
  * Draw-time validation already keeps a stale flag from being DRAWN, and the plan is explicit that
  * this is not enough on its own: the dead flag sits in the JSON and silently comes back to life the
@@ -259,7 +259,7 @@ export function dropStaleTremoloPairs(score: Score, measureNumber: number): void
 /**
  * Set — or with `null`, remove — the FANNED (feathered) beam on the slot containing `noteId`:
  * "play this one event as N notes, speeding up (or slowing down) across exactly its own
- * duration". See {@link FanMark} and docs/fanned-beams-plan.md §0.
+ * duration". See {@link FanMark} and docs/plans/fanned-beams-plan.md §0.
  *
  * On the SLOT, like the tremolo and for the same reason: a chord accelerates as a chord.
  *
@@ -267,7 +267,7 @@ export function dropStaleTremoloPairs(score: Score, measureNumber: number): void
  * - a REST — you cannot accelerate silence, the same sentence that keeps {@link Rest} free of a
  *   `tremolo` field;
  * - a TUPLET member — a ramp inside a ratio is a second normalization of the same span, and
- *   nobody has asked for one (docs/fanned-beams-plan.md §3);
+ *   nobody has asked for one (docs/plans/fanned-beams-plan.md §3);
  * - nothing to remove — removing a fan that is not there is not an edit, so it reports null
  *   rather than minting an undo entry, exactly as {@link setTremoloPair} does when switching off.
  *
@@ -295,7 +295,7 @@ export function setFan(score: Score, noteId: string, fan: FanMark | null): Note 
   }
 
   if (chord.tupletId) return null
-  // ⭐ The ONE place `count` and `members` are held in step (docs/fanned-beam-pitches-plan.md §1).
+  // ⭐ The ONE place `count` and `members` are held in step (docs/plans/fanned-beam-pitches-plan.md §1).
   // Materialises the members on a fresh mark, grows or shrinks them on an edited one — and does it
   // HERE rather than in the callers so a palette press, a Properties number and anything added
   // later cannot disagree about the off-by-one.

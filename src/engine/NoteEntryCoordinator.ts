@@ -249,7 +249,7 @@ export class NoteEntryCoordinator {
     // ⭐ …then the alteration: the ARMED accidental if there is one, else what is in force where the
     //   click landed — the bar's running accidental, else the KEY SIGNATURE
     //   ({@link entryAlteration}). Without that last fallback a click in G major enters an F♮ and
-    //   the renderer draws it a natural, on every note (docs/key-signature-plan.md §3.1).
+    //   the renderer draws it a natural, on every note (docs/plans/key-signature-plan.md §3.1).
     // ⚠️ Resolved AFTER the beat, because the question is positional. Nothing above reads the pitch.
     const alter = entryAlteration(
       this.getScoreModel().getScore(), { measure: measureNumber, beat: finalBeat, staff: entryStaff },
@@ -464,7 +464,7 @@ export class NoteEntryCoordinator {
    */
   updateNote(noteId: string, updates: Partial<NoteParams>): Note {
     // ⭐ A FANNED MEMBER goes STRAIGHT to the model — none of the rhythm machinery below applies to
-    // it (docs/fanned-beam-pitches-plan.md §2 P3). A member has no duration of its own to shorten,
+    // it (docs/plans/fanned-beam-pitches-plan.md §2 P3). A member has no duration of its own to shorten,
     // no gap to rest-fill and no barline to split across: the slot owns all of that, and re-spelling
     // a pitch inside the group changes none of it. The model writes the spelling and ignores the
     // rest. This is also what keeps a member's id out of the rebar path entirely.

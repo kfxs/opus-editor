@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * The bar-width drag (docs/bar-width-plan.md §6, P2): grab a barline, and the bar to its LEFT gets
+ * The bar-width drag (docs/plans/bar-width-plan.md §6, P2): grab a barline, and the bar to its LEFT gets
  * roomier or tighter with its music re-spaced proportionally.
  *
  * Simpler than the note drag in one respect — the target is a barline, so there is no axis contest

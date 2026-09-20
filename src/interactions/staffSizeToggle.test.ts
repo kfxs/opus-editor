@@ -7,7 +7,7 @@ import {
 } from './staffSizeToggle'
 
 /**
- * The dev-shell staff-size button (docs/staff-size-plan.md P1). Crude on purpose, but two things
+ * The dev-shell staff-size button (docs/plans/staff-size-plan.md P1). Crude on purpose, but two things
  * about it are not: WHICH staff a press acts on (the plain-click box, never the Ctrl+Shift range),
  * and that the light is read from the model rather than remembered by the button.
  */

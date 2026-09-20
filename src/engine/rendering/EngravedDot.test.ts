@@ -3,7 +3,7 @@
  * An augmentation dot of ours (S12c): what VexFlow's `Dot` added to the modifier contract. ⚠️ That it
  * draws, spaces and boxes exactly as before was proved on the page — 50 random scores (626 dotted
  * notes, 1,049 dot hit boxes), SVG and registry byte-identical against the previous commit
- * (`docs/vexflow-removal-map.md` S12c). Pinned here is the contract its readers rely on.
+ * (`docs/history/vexflow-removal-map.md` S12c). Pinned here is the contract its readers rely on.
  */
 import { describe, it, expect } from 'vitest'
 import { EngravedDot } from './EngravedDot'

@@ -2,7 +2,7 @@
  * What goes inside a window — and inside other widgets.
  *
  * The whole contract: you are handed a box, you fill it. Nothing more. A widget never asks where it
- * is, how big it is, or who its parent is (docs/windows-design.md, rule 3), which is why the same
+ * is, how big it is, or who its parent is (docs/how-it-works/windows-design.md, rule 3), which is why the same
  * object works as a window's only child, as one cell of a Columns, or as a row in a Column.
  *
  * `destroy()` runs when the window closes — closed means the nodes are gone, so anything registered

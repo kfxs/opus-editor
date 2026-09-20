@@ -3,7 +3,7 @@
  *
  * Three passes move a rendered dynamic off the spot VexFlow drew it: the co-located row
  * (`layoutCoLocatedDynamics`), the hand nudge (`applyDynamicOffsets`) and, since P1 of
- * docs/dynamics-line-and-hairpins-plan.md, the **dynamics line** — a post-measure system pass. They
+ * docs/plans/dynamics-line-and-hairpins-plan.md, the **dynamics line** — a post-measure system pass. They
  * all move the same `<g>`, so somebody has to own the attribute, and until now nobody did: the first
  * overwrote it, the second PREPENDED to whatever it found.
  *

@@ -14,7 +14,7 @@ import { readScoreFile, scoreFilename, wrapScoreJson, type ScoreFileView } from 
  * Each takes a `status` callback rather than owning any UI: the panel writes to its little grey line,
  * the menu has nowhere to write and passes nothing. Neither is told about the other.
  *
- * ⚠️ Still PROVISIONAL, all of it (docs/json-io-plan.md) — the envelope is not a document format and
+ * ⚠️ Still PROVISIONAL, all of it (docs/plans/json-io-plan.md) — the envelope is not a document format and
  * `loadJSON` REPLACES the open score with no "are you sure". What moved is where the code lives, not
  * how finished it is.
  */
@@ -176,7 +176,7 @@ export async function exportScorePdfFile(engine: MusicEngine, hooks: ScoreFileHo
   try {
     const { exportScorePdf } = await import('@/engine/export/pdfExport')
     // On the surface the editor is showing: a page layout prints as real pages, the sketching canvas
-    // as the one tall column it has always been (docs/layout-plan.md P2).
+    // as the one tall column it has always been (docs/plans/layout-plan.md P2).
     await exportScorePdf(engine.getScore(), engine.getSurface())
     hooks.status?.('exported PDF')
   } catch (error) {

@@ -1,6 +1,6 @@
 /**
  * ⭐⭐ **A FACE, NORMALISED AND WRITTEN AS CSS — VexFlow's `Font.validate` and `Font.toCSSString`, as
- * ours** (S13a of `docs/vexflow-removal-map.md`).
+ * ours** (S13a of `docs/history/vexflow-removal-map.md`).
  *
  * Every face this editor draws or measures passed through these two on the way: `validate` fills the
  * gaps from the ROOT face (`Bravura,Academico`, 30 pt, normal, normal) and writes a numeric size as

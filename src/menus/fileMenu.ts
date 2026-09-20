@@ -18,7 +18,7 @@ import type { MenuCommand } from './menuCommands'
  * ⚠️ **Import replaces the open score, with no confirmation.** That is the behaviour the dev panel's
  * button has always had, and putting it on the menu bar does not make it safer — it makes it
  * REACHABLE, by someone who has not read this file. A "discard the current score?" step is the first
- * thing this menu should grow when the demo stops being a demo (docs/json-io-plan.md).
+ * thing this menu should grow when the demo stops being a demo (docs/plans/json-io-plan.md).
  *
  * The dev shell's Score-JSON panel keeps its own Copy button and is not duplicated here: copying the
  * model as text is a debugging move, and it exists because that panel's dump cannot be selected.

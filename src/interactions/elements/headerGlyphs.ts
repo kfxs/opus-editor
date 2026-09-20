@@ -29,7 +29,7 @@ export function paintGlyphsInBBox(
     //    2026-08-28: *"on small staff the time signature is not highlited."* `getBBox()` answers in
     //    the element's OWN user space, which for a 0.7 staff is 1/0.7 of the page, while the
     //    registry's box is SVG space (the registry scales its records out — `ElementRegistry.
-    //    withScale`). Comparing the two directly is `docs/staff-size-plan.md`'s named bug class:
+    //    withScale`). Comparing the two directly is `docs/plans/staff-size-plan.md`'s named bug class:
     //    "visual coords in a scaled scope".
     //
     // ⚠️ It went unseen because it was HIDDEN BY A LOOSE BOX: the meter's hit box used to be a

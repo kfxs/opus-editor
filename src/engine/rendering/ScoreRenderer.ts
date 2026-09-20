@@ -128,7 +128,7 @@ import { noteRuler } from './noteRuler'
 import { signRun } from './signRun'
 
 /**
- * Apply the bar's user-authored horizontal space (client #10 — docs/note-spacing-plan.md §4) by
+ * Apply the bar's user-authored horizontal space (client #10 — docs/plans/note-spacing-plan.md §4) by
  * **moving the columns, never the glyphs**.
  *
  * `note.getAbsoluteX()` is `tickContext.getX() + stave.getNoteStartX()`, read lazily at draw time,
@@ -156,7 +156,7 @@ import { signRun } from './signRun'
  * quarters) rather than hard-coded, so it follows the tick clock (`layout/tickCount`).
  */
 /**
- * ⏱ **TEMPORARY** — the pair that carves up a render (docs/render-performance-plan.md §12.7,
+ * ⏱ **TEMPORARY** — the pair that carves up a render (docs/history/render-performance-plan.md §12.7,
  * {@link RenderLayoutPart}). Delete with the census.
  *
  * ⭐ **Two statements, not a wrapper taking a closure.** A closure would read better and would also
@@ -228,7 +228,7 @@ function localPlacement(p: MeasurePlacement): MeasurePlacement {
 /**
  * The stand-in a note wears while its real beam does not exist yet — a note beamed across a barline,
  * between its own bar's draw and the post-measure pass that builds the joined `Beam`
- * (docs/cross-barline-beaming-plan.md).
+ * (docs/plans/cross-barline-beaming-plan.md).
  *
  * It is never drawn and never asked anything: VexFlow only tests `note.beam` for *existence* when
  * deciding to draw a flag (`shouldDrawFlag`) or a stem (`draw`), and the one method it does call on
@@ -240,7 +240,7 @@ const PLACEHOLDER_BEAM: NoteBeam = { postFormat: () => {} }
 
 /**
  * Everything one drawn (measure, staff) produced, kept so the **next** render can reuse it instead
- * of drawing it again (docs/render-performance-plan.md §7a).
+ * of drawing it again (docs/history/render-performance-plan.md §7a).
  *
  * Reuse is sound only because a measure is reused **only when its redraw key is identical**, and
  * that key contains its x, y and justified width — so nothing in here can be stale. The moment the
@@ -349,7 +349,7 @@ export class ScoreRenderer {
    */
   private drawFilter: ((p: Omit<MeasurePlacement, 'stave'>) => boolean) | null = null
   /**
-   * **P6 — the window tier 2 paints** (docs/render-performance-plan.md §8), in layout coordinates.
+   * **P6 — the window tier 2 paints** (docs/history/render-performance-plan.md §8), in layout coordinates.
    * `null` = draw the whole score, which is what every render did before P6 and what still happens
    * before the viewport has reported a size.
    *
@@ -382,7 +382,7 @@ export class ScoreRenderer {
    * {@link justifyLastLine}: view state, never a score field, and in {@link layoutStateKey} so
    * changing it re-casts the score. Resolved to a {@link SurfaceMetrics} ONCE per render and
    * threaded from there — no drawing code holds a `Surface`, and nothing anywhere branches on its
-   * kind. (docs/layout-plan.md §5)
+   * kind. (docs/plans/layout-plan.md §5)
    */
   private surface: Surface = SKETCH_CANVAS
 
@@ -445,7 +445,7 @@ export class ScoreRenderer {
   /**
    * Each FANNED MEMBER pitch id → the `<g class="fanhead">` its ink was drawn into, and which
    * head inside it belongs to that pitch. The member's answer to `staveNoteMap`
-   * (docs/fanned-beam-pitches-plan.md §2 P3) — a member has no `StaveNote`, so a highlight resolves
+   * (docs/plans/fanned-beam-pitches-plan.md §2 P3) — a member has no `StaveNote`, so a highlight resolves
    * through here instead. Rebuilt every render, like the note map.
    */
   private fanMemberGroupMap: Map<string, { group: SVGGElement; noteIndex: number }> = new Map()
@@ -525,11 +525,11 @@ export class ScoreRenderer {
 
   /**
    * Everything that changes the *picture* without changing the *score* — the second half of
-   * the "may we skip this render?" key (docs/render-performance-plan.md §5a). Content is the
+   * the "may we skip this render?" key (docs/history/render-performance-plan.md §5a). Content is the
    * first half and is answered by `MusicEngine.modelDirty`; the selection is deliberately in
    * neither, which is the whole point of P3.
    *
-   * The **surface** is here (docs/layout-plan.md P0.5) — it is what the casting-off casts off
+   * The **surface** is here (docs/plans/layout-plan.md P0.5) — it is what the casting-off casts off
    * against, so a different page or canvas width is a different layout, however unchanged the
    * score. It used to be absent, correctly, while it was a constant.
    *
@@ -581,7 +581,7 @@ export class ScoreRenderer {
     return JSON.stringify([
       this.viewMode,
       // ⭐ THE STAFF SIZES, and they belong here the day a staff's size becomes a WIDTH input — which
-      //   is the day its ink started being measured at its own size (docs/staff-size-plan.md §6a).
+      //   is the day its ink started being measured at its own size (docs/plans/staff-size-plan.md §6a).
       //   Before that they were invisible to this key and it did not matter; after it, leaving them
       //   out means shrinking a staff reuses the casting-off it had at full size and NOTHING about
       //   the spacing moves. Measured exactly that way: bar 1's minWidth stayed 257.5 either side of
@@ -630,7 +630,7 @@ export class ScoreRenderer {
    * The width/line assignment of the **last** render, read-only — every bar's `minWidth`,
    * `finalWidth`, authored slices and `lineNumber`.
    *
-   * Exposed for the bar-width gesture (docs/bar-width-plan.md §4): moving a barline means solving
+   * Exposed for the bar-width gesture (docs/plans/bar-width-plan.md §4): moving a barline means solving
    * for a stretch against the line the bar is actually on, and the terms of that solution — the
    * line's membership and each bar's intrinsic width — are exactly what this map holds. Read once
    * at the grab, never recomputed mid-gesture: a stretch changes no bar's *intrinsic* width, which
@@ -660,7 +660,7 @@ export class ScoreRenderer {
    * The measure NUMBER that opens the system currently containing `measureNumber` (the
    * smallest number sharing its line), per the last render's layout — or undefined if that
    * measure isn't laid out. This is how a per-system staff-spacing tweak finds its durable
-   * anchor (Client #7, docs/staff-spacing-plan.md option C): the caller maps this number to
+   * anchor (Client #7, docs/plans/staff-spacing-plan.md option C): the caller maps this number to
    * the opening measure's id. Reflow-dependent by design — resolved fresh from `measureLayoutInfo`.
    */
   getSystemOpeningMeasureNumber(measureNumber: number): number | undefined {
@@ -702,7 +702,7 @@ export class ScoreRenderer {
       //
       // ⭐⭐ …and when a SCENE is being recorded, `context` is the recorder TEEING onto it: every
       // pass paints exactly as before and the drawing is written down as values as well
-      // (`engine/scene/`, `docs/own-engraving-engine.md` P1d). ⛔ `painter` is never the
+      // (`engine/scene/`, `docs/plans/own-engraving-engine.md` P1d). ⛔ `painter` is never the
       // recorder — what is drawn straight onto it (the notes' own draw, the beams', the stave's)
       // is invisible to the scene. Until S13b this was VexFlow's context and the count
       // `lint:paint` reported; the painter is ours now, the scene's gap is engine work.
@@ -770,7 +770,7 @@ export class ScoreRenderer {
     // no-ops, because `SVGContext.save()` deep-clones its state with `structuredClone`, which throws
     // on a Vue reactive proxy. That could only bite if the engine were held in a deep `ref()`;
     // `App.vue` used `shallowRef`, so the hazard was already gone before Vue was, and Vue itself is
-    // gone now (docs/remove-vue-plan.md). Measured after re-enabling: save → setStrokeStyle →
+    // gone now (docs/history/remove-vue-plan.md). Measured after re-enabling: save → setStrokeStyle →
     // restore round-trips correctly, and `state`/`attributes` hold nothing but strings and numbers.
     //
     // What the stubs COST while they were there: VexFlow scopes a style with
@@ -932,7 +932,7 @@ export class ScoreRenderer {
 
   /**
    * The pair's OWN beam — one `Beam` over the two notes when the DRAWN value is beamable (an eighth
-   * or shorter, i.e. a pair of sixteenths or finer). P2 of docs/two-note-tremolo-plan.md §2.
+   * or shorter, i.e. a pair of sixteenths or finer). P2 of docs/plans/two-note-tremolo-plan.md §2.
    *
    * A pair is never in an automatic group (`pairRoleAt` breaks it in the pure grouper), so the meter
    * never gives it one and this is the only place it can come from. Built here, beside `buildBeams`
@@ -1123,7 +1123,7 @@ export class ScoreRenderer {
    * Register the STEM of `staveNote` as its own ink rect, anchored on `anchorNoteId`.
    *
    * WHY IT IS ITS OWN ELEMENT. The note registers a box that spans head + stem + beam on purpose
-   * (docs/tight-bbox-plan.md §4a keeps that "semantic" box), which means the stem's own geometry —
+   * (docs/history/tight-bbox-plan.md §4a keeps that "semantic" box), which means the stem's own geometry —
    * which side of the head it is on, how far it reaches — is not readable from outside: only
    * guessable. VexFlow knows it exactly, so the answer is written down here rather than inferred at
    * hit-test time. First caller is the tremolo stamp (the strokes ride the stem, so that is where
@@ -1347,7 +1347,7 @@ export class ScoreRenderer {
    *   end as a courtesy warning (set when the next line opens with a meter change)
    */
   /**
-   * The addressable unit of the drawn score (docs/render-performance-plan.md §7).
+   * The addressable unit of the drawn score (docs/history/render-performance-plan.md §7).
    *
    * One `<g class="measure" id="m{n}-s{i}">` per **(measure, staff)** — not per measure. The
    * staff axis is addressable because P6 must cull **vertically** too: you cannot see forty staves
@@ -1360,7 +1360,7 @@ export class ScoreRenderer {
    * working for measures that are never drawn at all.
    */
   /**
-   * **Tier 1** (docs/render-performance-plan.md §7) — place every (measure, staff) in the score and
+   * **Tier 1** (docs/history/render-performance-plan.md §7) — place every (measure, staff) in the score and
    * register its geometry. **Draws nothing.**
    *
    * This is the pass that has to run for the WHOLE score even once P6 only draws a window of it —
@@ -1456,7 +1456,7 @@ export class ScoreRenderer {
       })
       const leadIn = measureLeadIn(measure, clefFor, sizeFor, keyFor)
       const system = {
-        // ⭐ Each staff's ink at its OWN size — the spine stays global (docs/staff-size-plan.md §6a).
+        // ⭐ Each staff's ink at its OWN size — the spine stays global (docs/plans/staff-size-plan.md §6a).
         //   The width path builds the same resolver, so the room reserved is the room asked for.
         columns: measureColumns(measure, clefFor, sizeFor, keyFor),
         leadIn,
@@ -1541,7 +1541,7 @@ export class ScoreRenderer {
    *
    * A **cross-barline beam** is a span in exactly this sense and joins the same list: it is drawn
    * outside every measure group, from its notes' drawn coordinates, so none of its bars may be
-   * translated. But the forcing is **per SIDE**, not per join (docs/cross-barline-beaming-plan.md
+   * translated. But the forcing is **per SIDE**, not per join (docs/plans/cross-barline-beaming-plan.md
    * P4): a same-line side pins its bars together — when it crosses the window both must be painted, or
    * half the fragment has no `StaveNote` — while the two sides of a group split across a system break
    * are independent, so seeing one system never forces the other's bar to be painted for nothing. A
@@ -1629,7 +1629,7 @@ export class ScoreRenderer {
     // the line vanishes on scroll.
     //
     // ⚠️ It pins BOTH endpoint bars even though the ottava's ink stops at the last NOTEHEAD rather
-    // than at the bar's end (docs/ottava-plan.md §1 rule 2): the last notehead is found by walking
+    // than at the bar's end (docs/plans/ottava-plan.md §1 rule 2): the last notehead is found by walking
     // the covered bars backwards, so any of them may be the one the end x is read from.
     for (const measure of score.measures) {
       for (const ottava of measure.ottavas ?? []) {
@@ -1649,7 +1649,7 @@ export class ScoreRenderer {
     // ⚠️ The END bar matters MORE here than for any neighbour, and that is worth saying: an ottava's
     // ink stops at the last notehead, but a pedal's `✻` is placed from the end bar's own geometry —
     // the column at the lift beat, or that bar's `noteEndX` when the lift is the barline
-    // (docs/pedal-plan.md §5.2). An unpinned end bar is a release drawn from stale x's.
+    // (docs/plans/pedal-plan.md §5.2). An unpinned end bar is a release drawn from stale x's.
     for (const measure of score.measures) {
       for (const pedal of measure.pedals ?? []) {
         const span = pedalSpan(score, pedal.id)
@@ -1663,7 +1663,7 @@ export class ScoreRenderer {
     // needed for exactly the hairpin's two silent failures above: without it the endpoint bar is
     // TRANSLATED rather than re-engraved, so `TrillRenderer` reads `StaveNote`s still holding last
     // render's coordinates and the sign draws detached from its note; and under culling that bar's
-    // `<g>` is deleted outright, so the trill vanishes on scroll (docs/trill-plan.md §4).
+    // `<g>` is deleted outright, so the trill vanishes on scroll (docs/plans/trill-plan.md §4).
     //
     // ⚠️ A ONE-NOTE trill has no `endNoteId`, and its bar must still be pinned — so the start id is
     // passed for both ends rather than the pair being skipped. `add` marks each resolvable end
@@ -1694,7 +1694,7 @@ export class ScoreRenderer {
       }
     }
 
-    // …and the fans whose beam crosses one (docs/fan-beam-join-plan.md P3), on the same terms. No
+    // …and the fans whose beam crosses one (docs/plans/fan-beam-join-plan.md P3), on the same terms. No
     // `sides` to walk: such a join is refused outright unless every member landed on ONE system, so
     // its bars are always one pinned set. Without this, culling would delete the bar holding the
     // prefix and the joined beam would draw its line to stems that are no longer there.
@@ -1718,7 +1718,7 @@ export class ScoreRenderer {
   }
 
   /**
-   * **P6, the cross-measure-span rule** (docs/render-performance-plan.md §8).
+   * **P6, the cross-measure-span rule** (docs/history/render-performance-plan.md §8).
    *
    * Ties and slurs are drawn in a post-measure pass that asks `staveNoteMap` where their endpoint
    * notes are — and only a *drawn* measure puts anything in `staveNoteMap`. So a slur over bars 3–9
@@ -1759,7 +1759,7 @@ export class ScoreRenderer {
     // ⭐ The stave is built in the STAFF'S OWN space: at `x/k, y/k, width/k` inside a group that
     // will carry `scale(k)`, so the drawn result lands exactly at (x, y, width) and the whole
     // transform is one multiplication about the origin — no offset term anywhere downstream
-    // (docs/staff-size-plan.md §4.1). At full size `k` is 1 and this is the arithmetic it replaced.
+    // (docs/plans/staff-size-plan.md §4.1). At full size `k` is 1 and this is the arithmetic it replaced.
     const k = p.scale
     const stave = this.buildStave(p.view, p.x / k, p.y / k, p.width / k, p.isFirstInLine, p.clef, p.hasClefChange, p.cautionaryEndClef, p.cautionaryEndTimeSig, p.headerKey, p.system, k)
 
@@ -1774,7 +1774,7 @@ export class ScoreRenderer {
 
     // This measure's REAL system height, so pixelToMeasure's vertical band matches the drawn layout
     // — the uniform fallback under-covers once a staff is spaced far down
-    // (docs/staff-spacing-plan.md §3). Written by staff 0, which owns measureBounds.
+    // (docs/plans/staff-spacing-plan.md §3). Written by staff 0, which owns measureBounds.
     const bounds = this.measureBounds.get(p.measureNumber)
     if (bounds) bounds.systemHeight = p.systemHeight
 
@@ -1782,7 +1782,7 @@ export class ScoreRenderer {
   }
 
   /**
-   * Plan this render's cross-barline beams (docs/cross-barline-beaming-plan.md). `isDrawn` says
+   * Plan this render's cross-barline beams (docs/plans/cross-barline-beaming-plan.md). `isDrawn` says
    * whether tier 2 is painting the plan at that index — an unpainted bar closes its barline.
    *
    * The stem direction is resolved HERE, over the whole group, because the rule needs the clef at
@@ -1827,7 +1827,7 @@ export class ScoreRenderer {
     // exists at exactly the right granularity, one per measure PER STAFF — carries the scale, so
     // lines, glyphs, stems, beams and dynamics all shrink together because it is one transform.
     // ⛔ Not `ctx.scale`, which rewrites the SVG's viewBox and would rescale the whole score
-    // including what is already drawn (docs/staff-size-plan.md §4.1).
+    // including what is already drawn (docs/plans/staff-size-plan.md §4.1).
     if (placement.scale !== 1) group?.setPlacement(scaling(placement.scale))
     try {
       // Everything inside draws in the staff's own space, which is where its `stave` already is.
@@ -1891,7 +1891,7 @@ export class ScoreRenderer {
       // that asks it. It replaces a fixed four-lane ladder (`REST_LANE × REST_LINE_STEP`) that could
       // express the SIGN and nothing else, and that cost 67 hand-placed `restShift` overrides in the
       // prelude example. Single voice: 0 — Gould p. 34's centred rest, untouched.
-      // (docs/multi-voice-rest-position-plan.md §4.1.)
+      // (docs/plans/multi-voice-rest-position-plan.md §4.1.)
       //
       // ⭐ `measure` here is THIS STAFF'S LANE (`placement.view`, a `staffMeasureView` copy), so
       // `sortedAll` already holds every voice of this staff and nothing else — which is exactly the
@@ -1975,7 +1975,7 @@ export class ScoreRenderer {
           .addAll(tickables)
         // This lane's beams. When a cross-barline plan owns the lane it decides BOTH halves: which
         // groups this bar builds itself, and which of its notes are waiting for a beam that spans
-        // the barline (docs/cross-barline-beaming-plan.md).
+        // the barline (docs/plans/cross-barline-beaming-plan.md).
         const lane = beamPlan?.lanes.get(laneKey(measure.number, staffIndex, g.voice))
         const { beams, fanJoins } = this.buildBeams(g.staveNotes, g.slots, meter, clefForBeat, g.forcedStem, lane?.inBar)
         // A two-note tremolo whose DRAWN value is beamable owns its own beam — the meter never gives
@@ -2101,7 +2101,7 @@ export class ScoreRenderer {
           }
         }
 
-        // Hand-nudged note offsets (client #12 — docs/note-offset-plan.md), AFTER the multi-voice
+        // Hand-nudged note offsets (client #12 — docs/plans/note-offset-plan.md), AFTER the multi-voice
         // re-assert above: that loop restores each note's xShift to its captured pre-format value,
         // so an offset applied before it is wiped (gotcha 2). Here — post-re-assert, pre-draw — is
         // the one window that survives, and it covers BOTH the multi-voice and single-voice paths.
@@ -2237,7 +2237,7 @@ export class ScoreRenderer {
    * attach to — at their key line. Shorter rests are not line-attached and get nothing.
    * VexFlow's `StaveNote.drawLedgerLines()` hard-returns for rests (no noteheads → no anchor
    * X), so we draw it ourselves, centred on the rest glyph and styled like VexFlow's ledgers.
-   * `slots` and `staveNotes` are parallel (same order). See docs/rest-shift-plan.md §10.
+   * `slots` and `staveNotes` are parallel (same order). See docs/plans/rest-shift-plan.md §10.
    */
   private drawRestLedgerLines(slots: ChordRest[], staveNotes: EngravedNote[], stave: EngravedStave, measure: Measure, score: Score): void {
     const ctx = this.context
@@ -2286,7 +2286,7 @@ export class ScoreRenderer {
   }
 
   /**
-   * Apply each note's hand-nudged horizontal offset (client #12 — docs/note-offset-plan.md) as a
+   * Apply each note's hand-nudged horizontal offset (client #12 — docs/plans/note-offset-plan.md) as a
    * post-format / pre-draw `StaveNote.setXShift`, which moves the note's *reported geometry* so its
    * beam, stem, ties, slurs, dots and hit-testing (`headX`) all recompute around the new position —
    * the reason we shift the note and not the SVG group (a translate would leave the beam and tie
@@ -2311,7 +2311,7 @@ export class ScoreRenderer {
    * (recomputed from `this.x`) — so a manual shift is silently discarded (the old bug: an ABOVE accent,
    * which snaps inside the staff, never followed; a BELOW one, outside, did). We instead fold the
    * offset into the value both the placement and the re-centering read: this note's ABOVE/BELOW
-   * `getModifierStartXY` base x. See docs/note-offset-plan.md.
+   * `getModifierStartXY` base x. See docs/plans/note-offset-plan.md.
    */
   private applyNoteOffsets(slots: ChordRest[], staveNotes: EngravedNote[], score: Score, stave: EngravedStave): void {
     for (let i = 0; i < slots.length; i++) {
@@ -2333,7 +2333,7 @@ export class ScoreRenderer {
       //   1. a note's ABOVE/BELOW modifier start is the UNshifted head centre (unlike the dots' RIGHT one);
       //   2. Articulation.draw() re-centers any within-staff mark with `setOrigin(0.5, 0.5)`, and
       //      Element.setOriginX OVERWRITES xShift (recomputed from this.x) — discarding a manual
-      //      shift (repro: an ABOVE accent never followed; a BELOW one did — docs/note-offset-plan.md).
+      //      shift (repro: an ABOVE accent never followed; a BELOW one did — docs/plans/note-offset-plan.md).
       // ⭐ So both effects go into the value both read — that start, which is OURS since S5a
       //   (`engrave/notes/modifierStart`'s MarkAnchor): the offset for BOTH sides, the stem alignment for
       //   the stem side. ⛔ No longer a per-note replacement of the note's method (the repo's one
@@ -2374,7 +2374,7 @@ export class ScoreRenderer {
   }
 
   /**
-   * **Tier 1** (docs/render-performance-plan.md §7) — construct the Stave and its modifiers.
+   * **Tier 1** (docs/history/render-performance-plan.md §7) — construct the Stave and its modifiers.
    *
    * Nothing here touches the drawing context, and that is the point, not an accident: the returned
    * Stave already knows its full geometry (`getNoteStartX`, `getYForLine`, `getBoundingBox`) purely
@@ -2419,7 +2419,7 @@ export class ScoreRenderer {
     // has no predecessor on its line to end into it.
     // ⭐⭐ **AND SINCE 2026-08-26 WE DRAW THE END LINE OURSELVES** — `./BarlineRenderer`, a
     // score-level pass, for every bar in the score and not only the ones carrying a final bar or a
-    // repeat (docs/barline-types-plan.md §4.6.7: a half-take does not work, because suppressing bar
+    // repeat (docs/plans/barline-types-plan.md §4.6.7: a half-take does not work, because suppressing bar
     // N's line before a start repeat is a per-bar decision that needs the neighbour). So the rule
     // above is now enforced twice over: VexFlow draws no end bar at all.
     //
@@ -2489,7 +2489,7 @@ export class ScoreRenderer {
       //    sorts a TimeSignature OUTSIDE the barline, which is Gould's rule); what is wrong is that
       //    `BarlineRenderer` draws at the stave's right EDGE since it took the end barlines over.
       //    ⛔ Not fixed here — it moves ink. The finding, the citation and the fix's shape are
-      //    `docs/barline-types-plan.md` §4.4a.
+      //    `docs/plans/barline-types-plan.md` §4.4a.
       stave.addMeter(cautionaryEndTimeSig, 'closing')
     }
 
@@ -2791,7 +2791,7 @@ export class ScoreRenderer {
   /**
    * This lane's beams — plus the JOINED FAN GROUPS, which get no `Beam` at all.
    *
-   * ⭐ A group holding a fanned slot is the fan's (docs/fan-beam-join-plan.md P1): its beam is drawn
+   * ⭐ A group holding a fanned slot is the fan's (docs/plans/fan-beam-join-plan.md P1): its beam is drawn
    * by hand from end to end, because "VexFlow's beam meets our ramp at the shared stem" would be a
    * polyline of three slopes where a beam group must be one straight edge, and it would put two
    * owners on one stem tip. One line, one owner, one pass. So all this does for such a group is
@@ -2804,7 +2804,7 @@ export class ScoreRenderer {
     meter: MeterInfo,
     clefForBeat: (beat: Fraction) => Clef,
     forcedStemDirection?: number,
-    /** This lane's groups, when a cross-barline plan owns them (docs/cross-barline-beaming-plan.md).
+    /** This lane's groups, when a cross-barline plan owns them (docs/plans/cross-barline-beaming-plan.md).
      *  A lane whose barline is open cannot be grouped from its own slots alone — a leading
      *  `continue` reads as an orphan — so the plan's answer replaces the per-bar one. */
     inBarGroups?: number[][],
@@ -2906,12 +2906,12 @@ export class ScoreRenderer {
    *
    * A same-line side is one whole `Beam`, as before. A side open at a system break also hangs a
    * half-beam stub over its open end; a side of a single note has no `Beam` at all (the constructor
-   * throws on one note) and draws the note's own stem plus the stub (docs/cross-barline-beaming-plan.md).
+   * throws on one note) and draws the note's own stem plus the stub (docs/plans/cross-barline-beaming-plan.md).
    */
   private drawCrossBarBeams(pass: RenderPass, joins: CrossBarJoin[]): void {
     for (const join of joins) {
       // Drawn from the notes' own stem tips and slopes, which are in their staff's scaled space —
-      // and a beam through a barline is one staff's, both bars of it (docs/staff-size-plan.md §4.3).
+      // and a beam through a barline is one staff's, both bars of it (docs/plans/staff-size-plan.md §4.3).
       inScaledStaffGroup(pass, join.staffIndex, `crossbeam-${join.staffIndex}-${join.voice}-${join.sides[0]?.measures[0] ?? 0}`, () => {
         for (const side of join.sides) {
           const staveNotes = side.members
@@ -2975,7 +2975,7 @@ export class ScoreRenderer {
    * x, so it is in the staff's own (scaled) space; `measureBounds` is where the bar landed in the
    * SVG. On a staff drawn small the barline has to be converted before the two can be compared —
    * otherwise the max picks the stem every time and the overhang shrinks to a stub that never
-   * reaches the margin. (docs/staff-size-plan.md §4.3)
+   * reaches the margin. (docs/plans/staff-size-plan.md §4.3)
    */
   private crossSystemOverhangEndX(side: CrossBarSide, startX: number, direction: number, scale: number): number {
     if (direction < 0) return startX - crossSystemStub(-1)
@@ -3204,7 +3204,7 @@ export class ScoreRenderer {
         try {
           // Register the rest by its OWN glyph's ink box (its single notehead), NOT the StaveNote
           // container box — the container unions attached modifiers, so a rest carrying a dynamic
-          // would register a box reaching down to the dynamic (docs/tight-bbox-plan.md §3, §6a).
+          // would register a box reaching down to the dynamic (docs/history/tight-bbox-plan.md §3, §6a).
           // A rest StaveNote has exactly one notehead (the rest glyph); fall back to the StaveNote
           // if it isn't available yet (pre-draw), which preserves the old behaviour.
           const glyph = staveNote.noteHeads[0] ?? staveNote
@@ -3539,7 +3539,7 @@ export class ScoreRenderer {
       }
     }
 
-    // ⭐⭐ **THE GRAB TARGET GROWS WITH THE SIGN — LEFTWARD** (docs/barline-types-plan.md §6.2).
+    // ⭐⭐ **THE GRAB TARGET GROWS WITH THE SIGN — LEFTWARD** (docs/plans/barline-types-plan.md §6.2).
     // A plain line's box straddles the boundary by 2px each way and is padded ±4 by
     // `interactions/elements/barline.ts` to be clickable at all. A final bar is ≈1.0 staff space of
     // ink and an end repeat ≈1.5 — 10 to 15 px here — and §6.1 puts every bit of it to the LEFT of
@@ -3621,8 +3621,8 @@ export class ScoreRenderer {
    * **Where every staff of every system sits** — the vertical casting-off's own arithmetic.
    *
    * Two per-staff facts feed it. Client #7 staff-spacing overrides (Sibelius "space above staff" —
-   * docs/staff-spacing-plan.md, option C), which each *system* (line) can carry a different amount
-   * of; and how big each staff is DRAWN (docs/staff-size-plan.md §5), which decides its stride. It
+   * docs/plans/staff-spacing-plan.md, option C), which each *system* (line) can carry a different amount
+   * of; and how big each staff is DRAWN (docs/plans/staff-size-plan.md §5), which decides its stride. It
    * returns:
    *  - `staffTopPx[line][staffIndex]` — that staff's top, measured from its system's top: the
    *    strides of every staff above it plus the space-above of every staff at/above it (a staff's
@@ -3667,7 +3667,7 @@ export class ScoreRenderer {
       // system opening at measure 1, so honouring the key here would silently show (and, via a
       // drag, overwrite) wrapped view's FIRST-SYSTEM spacing. Pass no opener instead: the
       // resolver falls back to the per-staff GLOBAL value, which is keyed to a content entity
-      // and so travels between views exactly as it should. (docs/linear-view-plan.md §4)
+      // and so travels between views exactly as it should. (docs/plans/linear-view-plan.md §4)
       const openId = this.viewMode === 'linear' ? undefined : openingMeasureId.get(line)
       const abovePx: number[] = []
       const sizes: number[] = []
@@ -3686,7 +3686,7 @@ export class ScoreRenderer {
         abovePx.push(spacingAbovePx(above, size))
         sizes.push(size)
       }
-      // Summed, not multiplied — a small staff gets a small slot (docs/staff-size-plan.md §5).
+      // Summed, not multiplied — a small staff gets a small slot (docs/plans/staff-size-plan.md §5).
       const system = systemStaffTops(sizes, abovePx)
       staffTopPx.push(system.topPx)
       staffSize.push(sizes)
@@ -3708,7 +3708,7 @@ export class ScoreRenderer {
     const lineTopPx = pages.lineTopInPagePx.map((topInPage, line) => origins[line].y + topInPage)
     // ⭐⭐ **THE MUSIC'S LEFT EDGE, WHICH IS NOT THE PAGE'S MARGIN.** The signs at a system's left
     // edge (brace, bracket) stand OUTSIDE the staves, and ⛔ never in the margin — print is the
-    // reason (`docs/pdf-export.md`'s audience rule). So the system indents by what they take.
+    // reason (`docs/how-it-works/pdf-export.md`'s audience rule). So the system indents by what they take.
     // ⚠️ `surface` above stays the PAGE's: `pageCastOff` and the sketched header are laid out on the
     // paper, and a brace must not re-centre the title (`layout/systemStartColumn.musicSurface`).
     const lineLeftPx = origins.map(at => at.x + surface.marginLeftPx + scoreSystemStartIndentPx(score))
@@ -3719,7 +3719,7 @@ export class ScoreRenderer {
   }
 
   /**
-   * ⭐⭐ **RENDER, AND HAND BACK WHAT WAS DRAWN AS VALUES** — `docs/own-engraving-engine.md` P1d.
+   * ⭐⭐ **RENDER, AND HAND BACK WHAT WAS DRAWN AS VALUES** — `docs/plans/own-engraving-engine.md` P1d.
    *
    * Runs `fn` (normally one `renderScore`) with a {@link SceneRecorder} teed onto the real context,
    * so the page is painted exactly as it would have been *and* the drawing is written down. ⭐ §7.2's
@@ -3748,14 +3748,14 @@ export class ScoreRenderer {
     if (!this.context) {
       throw new Error('Renderer not initialized. Call initialize() first.')
     }
-    renderProbe().beginRender() // P0 instrument — remove with docs/render-performance-plan.md §8
+    renderProbe().beginRender() // P0 instrument — remove with docs/history/render-performance-plan.md §8
 
     // NOTE: no unconditional `clear()` here any more. The SVG is torn down *selectively*, below,
     // once we know which measures actually changed — see `clearForRender`.
 
     // The surface being drawn on (page or canvas), resolved ONCE for this whole render: every
     // margin and width below is read off it, and re-resolving mid-render is how a picture ends up
-    // half on one page and half on another. (docs/layout-plan.md §5)
+    // half on one page and half on another. (docs/plans/layout-plan.md §5)
     const surface = this.surfaceMetrics()
     // ⭐⭐ **AND THE MUSIC'S SURFACE, which is the page minus what the left-edge signs took.** The
     // paper does not shrink when a brace is added; the room the music is CAST OFF into does. ⛔ The
@@ -3839,7 +3839,7 @@ export class ScoreRenderer {
     // side by side, so the SVG is as wide as all of them.
     // Linear view has no line to justify to: the music runs off to the right and the SVG has to
     // grow with it — the side margins + the intrinsic widths, floored at the surface width so a
-    // short fragment doesn't render on a stub of a page. (docs/linear-view-plan.md §P1)
+    // short fragment doesn't render on a stub of a page. (docs/plans/linear-view-plan.md §P1)
     const spread = surfaceSizePx(surface, spacing.pageCount, spacing.contentHeightPx)
     const contentWidth = this.viewMode === 'linear'
       ? Math.max(
@@ -3893,7 +3893,7 @@ export class ScoreRenderer {
     // treated as a bar that had *changed*: dragging a staff down re-engraved 66% of the score on
     // every mouse-move frame, and that single gesture was 53% of all render time. Nothing about
     // those bars was different — they had moved.
-    // ---- Cross-barline beams (docs/cross-barline-beaming-plan.md), planned in two passes ----
+    // ---- Cross-barline beams (docs/plans/cross-barline-beaming-plan.md), planned in two passes ----
     //
     // The first pass is drawn-blind (`() => true`), so it sees every join and every SIDE regardless of
     // culling — the spans machinery then pins each side's bars together and forces them drawn as a set.
@@ -3943,7 +3943,7 @@ export class ScoreRenderer {
     // ⭐⭐ **The second pass runs only if the first found something that crosses** — 2026-08-22.
     // Planning ran TWICE on every render, whole score, and the census measured the pair at **14% of
     // all render time** on a score with no cross-barline beams at all
-    // (docs/render-performance-plan.md §12.7).
+    // (docs/history/render-performance-plan.md §12.7).
     //
     // ⭐ `crossed` is sound as a licence, and {@link CrossBarBeamPlan.crossed} carries the argument:
     // `drawn` only ever SPLITS runs, so the blind pass is an upper bound on crossings — and with
@@ -4032,14 +4032,14 @@ export class ScoreRenderer {
 
     // ⭐⭐ **THE LADDER WAS PLANNED HERE UNTIL 2026-08-18, AND IS NOW PLANNED AFTER THE SLURS** —
     // see the three calls below `renderSlurs`. What moved, and why, is
-    // docs/trill-slur-clearance-plan.md §6 ("the main road"): a slur's arc does not exist until it is
+    // docs/plans/trill-slur-clearance-plan.md §6 ("the main road"): a slur's arc does not exist until it is
     // drawn, so a ladder planned up here can clear the music but never the curve over it — which is
     // the collision he reported (a `tr` through a slur).
     //
     // ⭐ The hoist it replaced was real but had outlived its client: the three plans take `plans`
     // rather than `placements` (no `stave`), and `placements` is each `plans` entry plus a stave
     // pushed one-for-one in the same order, so computing them after the loop is byte-identical
-    // (docs/ottava-plan.md P0a said so, and the move was measured against both suites before it was
+    // (docs/plans/ottava-plan.md P0a said so, and the move was measured against both suites before it was
     // made: 4187 unit + 199 e2e, unchanged). The comment here used to claim they ran early enough
     // "for a family drawn INSIDE the loop to read it (P0b: the tempo mark)" — ⚠️ nothing in the loop
     // ever read one; the tempo mark is placed at the end of this method with everything else.
@@ -4110,7 +4110,7 @@ export class ScoreRenderer {
     // ⭐⭐ **THE SIGNS AT A SYSTEM'S LEFT EDGE** — `./systemStart`, which owns both the drawing and
     // the rule for *which* system edges get one. Today that is the systemic barline alone (the
     // grand-staff look); ⏭️ the brace and the bracket join it there, ⛔ never here
-    // (docs/braces-brackets-plan.md P1). They live at the SVG's top level, not inside a measure
+    // (docs/plans/braces-brackets-plan.md P1). They live at the SVG's top level, not inside a measure
     // group, so they are torn down and redrawn every render — which is why a REUSED measure still
     // has to keep its `Stave` around (see MeasureSnapshot).
     renderSystemStarts(
@@ -4118,7 +4118,7 @@ export class ScoreRenderer {
       this.cullWindow ? new Set(groupKeys.filter((_, i) => draws[i])) : null,
     )
 
-    // ⭐⭐ **THE BARLINES — ours, not VexFlow's** (docs/barline-types-plan.md §4.6). Every stave was
+    // ⭐⭐ **THE BARLINES — ours, not VexFlow's** (docs/plans/barline-types-plan.md §4.6). Every stave was
     // built with `setEndBarType(NONE)`, so every end line in the score is drawn here: the plain
     // single line, the final bar, and the two repeats. ⛔ It has to be a pass rather than per-bar ink
     // for the reason `MEASURE_RENDER_ROLE` cannot state — a boundary's sign depends on BOTH bars that
@@ -4127,7 +4127,7 @@ export class ScoreRenderer {
     // Here, after the connector and before the cross-bar beams, which is where VexFlow's own lines
     // sat in the paint order: every bar has been drawn, and the beams, ties and slurs that cross a
     // barline still land on top of it.
-    // ⭐⭐ **THE KEY SIGNATURES — ours too** (docs/key-signature-plan.md §4). Every stave was built
+    // ⭐⭐ **THE KEY SIGNATURES — ours too** (docs/plans/key-signature-plan.md §4). Every stave was built
     // with its meter pushed aside (`pushMeterPastKeySignature`); this is what goes in the gap. A
     // pass rather than per-bar ink for the barline's reason: what a bar draws depends on the bar
     // before it and on the casting-off, neither of which a per-measure key can express.
@@ -4138,7 +4138,7 @@ export class ScoreRenderer {
     // Beams that run through a barline: one `Beam` over both bars, drawn outside either measure
     // group now that every bar has been painted. Before the ties, as a bar's own beams are.
     this.drawCrossBarBeams(pass, beamPlan.joins)
-    // …and the fans whose beam does the same (docs/fan-beam-join-plan.md P3). Here for both of
+    // …and the fans whose beam does the same (docs/plans/fan-beam-join-plan.md P3). Here for both of
     // `drawCrossBarBeams`' reasons — a measure group is REUSED, and culling deletes an off-screen
     // bar's group with everything drawn into it — and after it, so a fan joined behind an ordinary
     // cross-barline beam finds its neighbour's stems already settled.
@@ -4146,7 +4146,7 @@ export class ScoreRenderer {
     probeSub('groups', tGroups)
 
     // ⭐⭐ **THE SLURS ARE DRAWN BEFORE THE LADDER IS PLANNED — 2026-08-18, and this seat is the
-    // whole of docs/trill-slur-clearance-plan.md's P1.** An arc exists only once it is drawn, so
+    // whole of docs/plans/trill-slur-clearance-plan.md's P1.** An arc exists only once it is drawn, so
     // every family that has to clear one must be placed after this line.
     //
     // ⭐ It is what all three engines do (that plan's §6, read in source): LilyPond seeds the
@@ -4200,7 +4200,7 @@ export class ScoreRenderer {
     // baseline is depends on the mark at its far end, which no walk of one measure can see. Its last
     // argument is the ladder collector — what the trill and the ottava above have just claimed.
     // ⚠️ `placements`, not `plans` — the trill's plan is the one that reads the DRAWN curves
-    // (docs/trill-slur-clearance-plan.md P2), so it needs each bar's stave to turn an arc's pixels
+    // (docs/plans/trill-slur-clearance-plan.md P2), so it needs each bar's stave to turn an arc's pixels
     // into staff spaces. The other two are still pixel-free and take `plans`; ⛔ that difference is
     // the whole reason the trill's seat matters and theirs does not.
     probeSub('curves', tCurves)
@@ -4217,7 +4217,7 @@ export class ScoreRenderer {
     // ⭐ Every dynamic onto its system's line, now that every bar of every system is standing —
     // including the ones this render REUSED, which is the point: a mark's y is a fact about its
     // system, so the bar whose line changed is usually not the bar that was edited
-    // (docs/dynamics-line-and-hairpins-plan.md P1). Before the spans, which will want to read the
+    // (docs/plans/dynamics-line-and-hairpins-plan.md P1). Before the spans, which will want to read the
     // same line for a hairpin's ends. The plan it applies was decided just above.
     placeDynamicsOnLine(pass, placements, dynamicsPlan, staffList.map(staff => staff.id))
 
@@ -4227,7 +4227,7 @@ export class ScoreRenderer {
 
     // ⭐ And the hairpins — after `placeDynamicsOnLine` above, deliberately: a wedge is a member of
     // the dynamics family, so it asks the same module for the same line, and it reads where the
-    // letters actually landed in order to stop short of them (docs/dynamics-line-and-hairpins-plan.md
+    // letters actually landed in order to stop short of them (docs/plans/dynamics-line-and-hairpins-plan.md
     // P3). Its endpoint bars are span anchors, so their notes are drawn rather than translated.
     inkAt('hairpin')
     // ⭐⭐ The DYNAMIC family's rewind point IS the hairpin's, both halves — because its preview frame
@@ -4242,7 +4242,7 @@ export class ScoreRenderer {
     // ⭐ And the trills. AFTER the hairpins but sharing nothing with them: a trill is not a member
     // of the dynamics family, so it takes no `dynamicsPlan` — it reads the ink band over its own
     // span and takes its own rung, which is the whole of its vertical story
-    // (docs/above-staff-ladder.md §4). Its endpoint bars are span anchors, so their notes are drawn
+    // (docs/how-it-works/above-staff-ladder.md §4). Its endpoint bars are span anchors, so their notes are drawn
     // rather than translated.
     inkAt('trill')
     renderTrills(pass, score, placements, staffList.map(staff => staff.id), trillBands)
@@ -4251,9 +4251,9 @@ export class ScoreRenderer {
     // families above (LilyPond's `outside-staff-priority` 400 against the dynamics' 250 and the
     // trill's 50 — ⚠️ LilyPond ALONE: the Gould sentence once cited beside it was withdrawn on
     // 2026-08-17, and her actual ranking p. 101–102 puts the bracket INSIDE the dynamics. Open
-    // decision, see docs/ottava-plan.md §5), so it is the first pass
+    // decision, see docs/plans/ottava-plan.md §5), so it is the first pass
     // that both READS `pass.occupiedBands` and writes to it — the middle of the ladder
-    // (docs/ottava-plan.md P3). ⛔ Move this call and you change the order; there is no table.
+    // (docs/plans/ottava-plan.md P3). ⛔ Move this call and you change the order; there is no table.
     inkAt('ottava')
     renderOttavas(pass, score, placements, staffList.map(staff => staff.id), ottavaBands)
 
@@ -4261,7 +4261,7 @@ export class ScoreRenderer {
     // families. A pedal line goes below the bottom staff and outside EVERYTHING (Dorico, *Positions
     // of pedal lines*; LilyPond's pedal spanners are `outside-staff-priority` 1000 against the
     // dynamics' 250 and the trill's 50), so it must read `pass.occupiedBands` after every other
-    // family below the staff has filed its claim (docs/pedal-plan.md §4).
+    // family below the staff has filed its claim (docs/plans/pedal-plan.md §4).
     //
     // ⚠️ Being after `renderOttavas` is what makes it outside an 8vb; being after
     // `placeDynamicsOnLine` and `renderHairpins` is what makes it outside a `p` and a wedge. ⛔ Move
@@ -4275,7 +4275,7 @@ export class ScoreRenderer {
     // because tempo is the OUTERMOST (LilyPond's MetronomeMark 1300 against the dynamics' 250 and
     // the trill's 50) and this is where the ladder's order lives: each family filed what it took in
     // `pass.occupiedBands` as it was placed, and this one clears whatever it finds
-    // (docs/ottava-plan.md P0b). ⛔ There is no priority table; move this call and you change the
+    // (docs/plans/ottava-plan.md P0b). ⛔ There is no priority table; move this call and you change the
     // order.
     // ⭐ The tempo family's rewind point. It only READS `occupiedBands` (it is the outermost
     //   above-staff row and files no claim), so this is a no-op truncation — captured anyway, so the
@@ -4301,14 +4301,14 @@ export class ScoreRenderer {
     // pixel grid, and a print render has no such grid; the PDF keeps the true 0.16 spaces.
     //
     // ⭐⭐ **NOT CALLED AT ALL unless a barline moved** — 2026-08-22, and it was **9% of all render
-    // time** (docs/render-performance-plan.md §12.7). On a mark-drag frame no bar is re-engraved and
+    // time** (docs/history/render-performance-plan.md §12.7). On a mark-drag frame no bar is re-engraved and
     // none is translated, so every rect is exactly where the last hint put it.
     //
     // 🚨🚨 **Gating the `force` FLAG did not work, and the reason is the whole lesson.** The first
     // attempt passed `force: redrawn > 0 || barlinesMoved` and the next census read **9%, unchanged**
     // — because `hintBarlines` reads `svg.getScreenCTM()` to verify its own premise BEFORE it looks
     // at `force`, and that read is a forced style+layout flush of the document
-    // (`docs/render-performance-research.md` §7a: in Blink the bbox/CTM is a stored field, so 100% of
+    // (`docs/history/render-performance-research.md` §7a: in Blink the bbox/CTM is a stored field, so 100% of
     // the cost is the flush). The cheap half was being skipped and the expensive half was not.
     // ⛔ Never "gate" a pass whose first statement is a layout read; gate the CALL.
     //
@@ -4331,7 +4331,7 @@ export class ScoreRenderer {
     probeSub('hint', tHint)
 
     // ⭐⭐ Everything a GESTURE needs to redraw one family without running any of this again
-    //   (`./markPreviewPass`, docs/render-performance-plan.md §12.5a). Captured last, so it can only
+    //   (`./markPreviewPass`, docs/history/render-performance-plan.md §12.5a). Captured last, so it can only
     //   ever describe a render that finished.
     this.lastRender = {
       score,
@@ -4349,7 +4349,7 @@ export class ScoreRenderer {
    * Re-hint the barlines already on screen — see {@link hintBarlines}.
    *
    * Public because hinting depends on the ZOOM, and zoom does not re-render: it is a CSS transform
-   * over a finished SVG (docs/zoom-plan.md §3). This re-reads where each barline now falls on the
+   * over a finished SVG (docs/plans/zoom-plan.md §3). This re-reads where each barline now falls on the
    * pixel grid and rewrites two attributes per line. No engraving, no VexFlow, no layout solve —
    * which is what makes it affordable to run on a zoom change.
    */
@@ -4410,7 +4410,7 @@ export class ScoreRenderer {
    * multiplications, and a stale copy of it would be a picture drawn on last render's page.
    *
    * ⭐ **Linear view is a canvas, and that is settled HERE — before anything reads a metric.**
-   * Pages are a property of the wrapped casting-off (docs/linear-view-plan.md §1); linear has no
+   * Pages are a property of the wrapped casting-off (docs/plans/linear-view-plan.md §1); linear has no
    * line to justify and no system to break after, so a page means nothing to it. Resolving the
    * canvas at the source rather than filtering downstream is what keeps the rule from having to be
    * remembered: otherwise the very first reader that forgets picks up the page — and it would have
@@ -4464,7 +4464,7 @@ export class ScoreRenderer {
 
   /**
    * Take down everything this render will rebuild, and **leave the reused measure groups standing**
-   * (docs/render-performance-plan.md §7a). The incremental replacement for the old unconditional
+   * (docs/history/render-performance-plan.md §7a). The incremental replacement for the old unconditional
    * `clear()`.
    *
    * What survives: measure `<g>`s whose redraw key is unchanged. What does not, and why:
@@ -4562,7 +4562,7 @@ export class ScoreRenderer {
     // ⚠️ THE STAFF'S SCALE HAS TO SURVIVE THIS, in both branches. This method OWNS the group's
     // `transform` attribute — it overwrites it to move a bar and REMOVES it to put one back — so a
     // scaled staff would snap to full size the first time one of its bars moved: never on a fresh
-    // render, always mid-drag (docs/staff-size-plan.md §4.1).
+    // render, always mid-drag (docs/plans/staff-size-plan.md §4.1).
     //
     // `translate` FIRST, because `dx/dy` are measured in the parent's space (they come from the
     // casting-off's own SVG coordinates), while the scale belongs to everything drawn inside.
@@ -4835,7 +4835,7 @@ export class ScoreRenderer {
    * This was ten one-line methods (`renderScoreWithClefGhost`, `…TieGhost`, …), each forwarding to
    * its own drawer, with a matching one-liner above it on `MusicEngine` and another above that on
    * `RenderController`. The payload now travels whole as a {@link ToolGhost} and the kind→glyph
-   * answer lives once, in {@link GHOST_DRAWERS} (docs/modularity-plan-2026-07-28.md Phase 2).
+   * answer lives once, in {@link GHOST_DRAWERS} (docs/history/modularity-plan-2026-07-28.md Phase 2).
    *
    * ⚠️ The ghost NOTE is not one of these — see {@link drawGhostNote} above.
    */
@@ -4846,7 +4846,7 @@ export class ScoreRenderer {
 
 /**
  * ⭐ **THE BAR'S LEAD-IN — the blank between a barline and the first thing drawn, taken back from
- * VexFlow** (docs/spacing-model-plan.md P3.2).
+ * VexFlow** (docs/plans/spacing-model-plan.md P3.2).
  *
  * VexFlow starts a headerless bar's notes **1.7 staff spaces** in, always: 5 px of its own
  * `Stave.startX` plus a 12 px `Stave.padding` that `Note.getAbsoluteX` adds to every note. Neither

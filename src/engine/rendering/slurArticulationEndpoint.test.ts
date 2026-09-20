@@ -1,6 +1,6 @@
 /**
  * ⭐⭐ **THE ENDPOINT CLEARS ITS OWN MARK** — his rule, 2026-09-14: *"they should not change the slur
- * angle but move it up a little"* (`docs/slur-tie-research.md` §8).
+ * angle but move it up a little"* (`docs/research/slur-tie-research.md` §8).
  *
  * ⭐ The module is pure, so all of it is jsdom — which matters more than usual here: VexFlow's own
  * articulation box is **NaN** without a page (`Articulation.draw`'s `setOrigin` divides by a glyph

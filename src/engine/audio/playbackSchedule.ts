@@ -10,7 +10,7 @@
  * 3 and staff 1 bar 3 share the same absolute onset), which is exactly the invariant the
  * multi-staff plan (§8) calls for; the flat model gets it for free.
  *
- * ⭐ **Dynamics ARE per-staff now** (2026-08-19, docs/dynamic-voice-scope-plan.md P1): a mark
+ * ⭐ **Dynamics ARE per-staff now** (2026-08-19, docs/plans/dynamic-voice-scope-plan.md P1): a mark
  * governs the voices its `voice` names — or every voice of its own staff when it names none, which
  * is what every stamp writes — and {@link resolveChordLevels} compares the STAFF as well as the
  * voice. ⚠️ It compared neither before: this note used to say a staff-2 chord "inherits its voice's
@@ -47,14 +47,14 @@ export interface ScheduledNote {
    * line folded into the octave ({@link applySoundingShift}). ⛔ **Not a MIDI number, and that is
    * the point of this field.**
    *
-   * Built 2026-08-20, `docs/playback-semantics-plan.md`: score → **schedule (pitch)** → interpret
+   * Built 2026-08-20, `docs/plans/playback-semantics-plan.md`: score → **schedule (pitch)** → interpret
    * (MIDI, for whatever synth is listening). Until then this was `midi: number` and the integer was
    * minted at four sites in this file; it is now minted once, in `WebAudioFontInstrument.noteOn`.
    *
    * ⚠️⚠️ **The reason is not tidiness — it is that `spellingToMidi` DESTROYS the enharmonic.** G♯4
    * and A♭4 both become 61, and which of the two was written is the only thing a tuning system could
    * interpret: in meantone G♯ sounds *lower* than A♭, in Pythagorean *higher*
-   * (docs/tuning-systems-and-alteration.md). A schedule carrying integers has already thrown away
+   * (docs/how-it-works/tuning-systems-and-alteration.md). A schedule carrying integers has already thrown away
    * its own input, so no later layer can be built on it.
    *
    * ⛔ **Do not widen this into MIDI-shaped fields** (bend, channel, program). Those are the
@@ -67,7 +67,7 @@ export interface ScheduledNote {
   durationBeats: number
   /** Normalized velocity 0–1 (dynamic level × articulation scale).
    *
-   *  ⏭️ The range is already right; what `docs/playback-semantics-plan.md` wants of it is that it be
+   *  ⏭️ The range is already right; what `docs/plans/playback-semantics-plan.md` wants of it is that it be
    *  a MUSICAL value (0 = niente, 1 = the loudest possible) rather than this synth's calibration —
    *  and, the requirement with teeth, **a function over time rather than a per-note constant**, or a
    *  hairpin can never sound. */
@@ -77,7 +77,7 @@ export interface ScheduledNote {
    * ({@link PlayableNote} does not carry it).
    *
    * ⭐ It exists for the sustain pedal, which is the first rule here that is about a STAFF rather
-   * than about a note (docs/pedal-plan.md §9): the damper holds every note of an instrument, so
+   * than about a note (docs/plans/pedal-plan.md §9): the damper holds every note of an instrument, so
    * "which events does this pedal hold" cannot be asked without it. ⚠️ Absent = the first staff, the
    * model's convention everywhere (`utils/lanes`), so it is normalised rather than compared
    * directly — `pedalWindowCovers`.
@@ -91,7 +91,7 @@ const LEGATO_OVERLAP_BEATS = 0.12
 /**
  * TOTAL BEAMS (the note's own flags + the tremolo's strokes) at which the mark stops meaning a
  * subdivision and starts meaning "as fast as possible" — the one number that chooses between rule 1
- * and rule 2 below (docs/tremolo-plan.md §5).
+ * and rule 2 below (docs/plans/tremolo-plan.md §5).
  *
  * **4 — our answer, deliberately one higher than the references.** Gould reports that players assume
  * unmeasured from three, and Dorico's default minimum is 3 (exposed as a preference). Ours keeps THREE
@@ -214,7 +214,7 @@ export function playableFrom(
 
 /**
  * ⭐⭐ **THE NOTES A PLAY ORDER SOUNDS** — {@link playableFrom}'s successor once a bar can sound more
- * than once (docs/barline-types-plan.md §7, his ask of 2026-08-26).
+ * than once (docs/plans/barline-types-plan.md §7, his ask of 2026-08-26).
  *
  * ⭐ **Every note is emitted once PER LEG that contains it**, which is the whole of what a repeat
  * does: the second time round is not different notes, it is the same notes at a different time. So
@@ -309,7 +309,7 @@ export function collectScheduledNotes(
   const trilledSlots = trilledSlotIds(score)
 
   // ⭐⭐ HOW FAR EACH SLOT IS FROM ITS OWN NOTATION — the octave lines, resolved once per slot rather
-  // than asked per pitch (docs/ottava-plan.md §6). ⚠️ **Every `applySoundingShift` below takes its
+  // than asked per pitch (docs/plans/ottava-plan.md §6). ⚠️ **Every `applySoundingShift` below takes its
   // slot's shift** — that is the rule, and it is checkable by grep precisely because the shift is one
   // lookup rather than a resolver called from four places on three emit paths. Empty for any score
   // with no ottava in it, which is the whole of the un-shifted path.
@@ -329,7 +329,7 @@ export function collectScheduledNotes(
    * six push sites (the plain note, the tremolo fill, the trill attacks, the fan's, and two inside
    * the pair's), three of them in helpers with their own signatures, and any of them missed would be
    * a note the pedal silently fails to hold. A mark cannot be missed by a `continue`, and a seventh
-   * emit path inherits it by construction (docs/pedal-plan.md §9).
+   * emit path inherits it by construction (docs/plans/pedal-plan.md §9).
    */
   const staffMarks: Array<{ from: number; staffId?: string }> = []
   let currentTimeInBeats = 0
@@ -415,7 +415,7 @@ export function collectScheduledNotes(
       /**
        * ⭐ A FANNED BEAM branches on the SLOT, beside the two-note tremolo and for the same reason:
        * it is ONE gesture over the whole event, and its members have PITCHES OF THEIR OWN
-       * (docs/fanned-beam-pitches-plan.md §2 P4). It sat inside the per-pitch loop while every member
+       * (docs/plans/fanned-beam-pitches-plan.md §2 P4). It sat inside the per-pitch loop while every member
        * shared the slot's pitches — where each chord tone emitted its own run of the whole ramp,
        * which was right then and wrong the moment they could differ.
        *
@@ -481,7 +481,7 @@ export function collectScheduledNotes(
 
         // ⭐⭐ A TRILL turns one sounding note into an alternation with the note above it.
         //
-        // ⭐ **AFTER the tremolo branch, and that IS the precedence rule** (docs/trill-plan.md §7):
+        // ⭐ **AFTER the tremolo branch, and that IS the precedence rule** (docs/plans/trill-plan.md §7):
         // a note carrying a tremolo `continue`s above and never reaches here, and a FAN branches on
         // the slot even earlier. Two re-attack patterns over one span is not a sound, it is a mess —
         // and expressing that as reachability rather than as a condition means there is no third
@@ -542,7 +542,7 @@ function stampStaffIds(events: ScheduledNote[], marks: ReadonlyArray<{ from: num
 
 /**
  * ⭐⭐ **THE SUSTAIN PEDAL, and it is the whole of P1** — every event attacked under a depressed
- * damper rings until the foot comes up (docs/pedal-plan.md §9).
+ * damper rings until the foot comes up (docs/plans/pedal-plan.md §9).
  *
  * WebAudioFont has no CC64, so "damper up" means exactly one thing here: the note's RELEASE moves to
  * the lift. `Math.max`, because a pedal never shortens anything.
@@ -567,7 +567,7 @@ function stampStaffIds(events: ScheduledNote[], marks: ReadonlyArray<{ from: num
  * An event belongs to the window its ONSET falls in, half-open — a note struck before the press is
  * not caught (its key is up by then), which is also why legato/tie tails reaching past a press are
  * not caught. And when two stored pedals overlap (the model permits it; only the entry door
- * truncates — docs/pedal-plan.md §3.3), the LATEST press at or before the onset wins and its lift is
+ * truncates — docs/plans/pedal-plan.md §3.3), the LATEST press at or before the onset wins and its lift is
  * the one that counts: re-pressing the pedal is the pianist lifting first.
  */
 function holdUnderPedals(events: ScheduledNote[], score: Score): void {
@@ -627,7 +627,7 @@ function laneIndexOfMeasure(measure: Measure): Map<string, { lane: ChordRest[]; 
  * chain. Members 1…count-1 are their own notes, sounding once each at their own pitches.
  *
  * ⭐ **AND WITH THEIR OWN ARTICULATIONS.** They used to wear the slot's, because a mark belonged to
- * the whole gesture; it does not any more (`Attack`, docs/fanned-beam-pitches-plan.md §3), and the
+ * the whole gesture; it does not any more (`Attack`, docs/plans/fanned-beam-pitches-plan.md §3), and the
  * engraving followed the member while this did not — so an accent on member 3 was drawn and not
  * heard, and a staccato on the owner was heard on all six and drawn on one. Picture and playback
  * have been one function in this feature since day one, and that is only true if the mark this reads
@@ -693,7 +693,7 @@ function collectFanAttacks(
  * two notes; only the rhythm is shared.
  *
  * ⭐ The period comes from the mark's own number as the TOTAL, over the DRAWN (doubled) value across
- * the combined span — not `flags + strokes` (docs/two-note-tremolo-plan.md §3). Two quarters marked
+ * the combined span — not `flags + strokes` (docs/plans/two-note-tremolo-plan.md §3). Two quarters marked
  * 3 draw as halves and sound as 32nds; two sixteenths marked 3 draw as beamed eighths (one beam, two
  * strokes) and sound as 32nds too. Same mark, same speed, however it is spelled — which is the whole
  * point of the beam counting.
@@ -801,7 +801,7 @@ const PERIOD_EPSILON = 1e-9
  *
  * ⚠️ **A PERIOD, NOT A COUNT** — and the period comes from the note as WRITTEN while the caller fills
  * the length that SOUNDS. That is not a refinement; it is what makes the arithmetic exact in the
- * three cases a count gets wrong (docs/tremolo-plan.md §5):
+ * three cases a count gets wrong (docs/plans/tremolo-plan.md §5):
  *
  *  - **Tuplets.** A triplet eighth with one stroke is 2 attacks over 1/3 of a beat. Counting from the
  *    sounding duration gives 4/3 of an attack and forces an invented rounding rule.
@@ -856,7 +856,7 @@ function tremoloPeriodBeats(
  * pair below, which disagree about how `totalBeams` and the written value are ARRIVED AT but not
  * about what to do with them.
  *
- * Where they disagree (docs/two-note-tremolo-plan.md §2/§3): a single note adds its own flags to the
+ * Where they disagree (docs/plans/two-note-tremolo-plan.md §2/§3): a single note adds its own flags to the
  * stroke count, because a flag sits on the outside of the stem and is not one of the lines that say
  * the speed. A pair's count IS the total — its beam is one of the lines between the two notes and
  * spends one of them — and its written value is the DRAWN (doubled) one over the pair's COMBINED
@@ -905,7 +905,7 @@ function trilledSlotIds(score: Score): Set<string> {
  *
  * ⚠️ **Computed PER PITCH, not once per trill.** A trill covering four different notes trills each
  * of them with ITS OWN upper neighbour — the interval is a consequence of where the note sits in the
- * scale, never a property of the trill (docs/trill-plan.md §3). `trillOps.trillAuxiliaryOf` answers
+ * scale, never a property of the trill (docs/plans/trill-plan.md §3). `trillOps.trillAuxiliaryOf` answers
  * for the trill's START note and is what the renderer and the Properties panel want; playback needs
  * this one.
  *
@@ -914,7 +914,7 @@ function trilledSlotIds(score: Score): Set<string> {
  * the pitch it was anchored to — so narrowing this later is a FILTER here, not a model change.
  * Stated rather than assumed, because "trill the chord" is what the code does today.
  *
- * ⚠️⚠️ **`shift` is why this takes a parameter it could have ignored** (docs/ottava-plan.md §6 names
+ * ⚠️⚠️ **`shift` is why this takes a parameter it could have ignored** (docs/plans/ottava-plan.md §6 names
  * this exact site as the trap). The auxiliary is derived from the WRITTEN neighbour — the key and
  * the bar's accidentals are notation, and an octave line changes neither — so the shift is applied
  * *after* that derivation, here, at the last step. Leave it out and a trill under an 8va alternates
@@ -945,7 +945,7 @@ function physicalPeriodBeats(seconds: number, startBeats: number, tempoMap: Temp
  * Do two note-pitches sound the same MIDI? (The tie-chase only follows true same-pitch ties.)
  *
  * ⛔ **THE ONE `spellingToMidi` HERE THAT TAKES NO OCTAVE SHIFT, and that is deliberate** — every
- * other one in this file does (docs/ottava-plan.md §6's table). This is a COMPARISON, and it is
+ * other one in this file does (docs/plans/ottava-plan.md §6's table). This is a COMPARISON, and it is
  * shift-invariant in the case that matters: a tie joins two slots, and asking whether they are the
  * same note is a question about the NOTATION. Shifting both sides changes nothing; shifting only
  * the side that happens to fall under a bracket would break the tie chain at an 8va's edge — where
@@ -954,7 +954,7 @@ function physicalPeriodBeats(seconds: number, startBeats: number, tempoMap: Temp
  * ⏭️⚠️ **AND IT IS THE LAST 12-EDO ASSUMPTION LEFT IN THIS FILE — recorded, deliberately not fixed**
  * (2026-08-20, with the pitch move). MIDI equality means G♯ tied to A♭ is ONE held pitch. That is
  * right in 12-TET and wrong in meantone, where they are different pitches
- * (docs/tuning-systems-and-alteration.md). ⭐ It survives the pitch move untouched because it is a
+ * (docs/how-it-works/tuning-systems-and-alteration.md). ⭐ It survives the pitch move untouched because it is a
  * COMPARISON and never reaches an event: nothing it returns is scheduled, so it cannot mint the
  * integer this file no longer mints. When a tuning system lands, this is the second site it has to
  * be told about — ⛔ and it is a question about what a TIE means, not about how loud or how high

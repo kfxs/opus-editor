@@ -1,11 +1,11 @@
 /**
  * ⭐⭐ **THE SIGNS AT A SYSTEM'S LEFT EDGE** — everything drawn to the left of, and joining, the
- * staves a system opens with. P1 of docs/braces-brackets-plan.md.
+ * staves a system opens with. P1 of docs/plans/braces-brackets-plan.md.
  *
  * Today that is exactly one member: the **systemic barline**, the vertical line joining a system's
  * top and bottom staves (the grand-staff look). ⏭️ The **brace** and the **bracket** join it here
  * (P3/P4 of the plan), which is why this module exists before either of them is drawn — the family
- * gets **ONE OWNER** the way the barlines did (`docs/barline-types-plan.md` §4.6), rather than the
+ * gets **ONE OWNER** the way the barlines did (`docs/plans/barline-types-plan.md` §4.6), rather than the
  * second member arriving as a second slice in `ScoreRenderer`.
  *
  * ⛔ **A new left-edge sign is a row in THIS module, never a `case` in the facade** (CLAUDE.md's
@@ -196,7 +196,7 @@ function spanBottomY(bottom: SystemStartPlacement): number {
 }
 
 /**
- * ⭐⭐ **THE SQUARE BRACKET** — a rod with a serif at each end. P3 of docs/braces-brackets-plan.md.
+ * ⭐⭐ **THE SQUARE BRACKET** — a rod with a serif at each end. P3 of docs/plans/braces-brackets-plan.md.
  *
  * | | | source |
  * |---|---|---|
@@ -265,7 +265,7 @@ function drawBracket(
 
 /**
  * ⭐⭐ **THE SUB-BRACKET — a hairline `[`, ⛔ NOT a thinner rod and ⛔ NOT a glyph.** P6 of
- * docs/braces-brackets-plan.md.
+ * docs/plans/braces-brackets-plan.md.
  *
  * The thin secondary sign grouping a subset inside a bracket — divisi strings under the section's
  * own bracket. 🚨 **SMuFL has no glyph for it**, so it is drawn: **three rectangles**, which is
@@ -313,7 +313,7 @@ function drawSubBracket(
 }
 
 /**
- * ⭐⭐ **THE PIANO BRACE** — P4b of docs/braces-brackets-plan.md.
+ * ⭐⭐ **THE PIANO BRACE** — P4b of docs/plans/braces-brackets-plan.md.
  *
  * | | | source |
  * |---|---|---|
@@ -386,7 +386,7 @@ function drawBrace(
 /**
  * ⭐⭐ **`braceLarge` — U+F401, and the choice is MEASURED, not a taste call.**
  *
- * Decision 6 of docs/braces-brackets-plan.md was *"which of the five variants, and at what height"*,
+ * Decision 6 of docs/plans/braces-brackets-plan.md was *"which of the five variants, and at what height"*,
  * and the plan expected to settle it by his eye on a rendered ladder. ⭐ **It did not have to be**:
  * all five were drawn at our own grand-staff span and their stroke profiles measured against
  * **Gould p. 331's engraved brace, measured off the scan at 450 dpi** (20.25 px per staff space):
@@ -487,7 +487,7 @@ function systemIsDrawn(measureNumber: number, numStaves: number, drawnKeys: Set<
  * The single vertical line joining a system's top and bottom staves (the grand-staff look).
  *
  * ⛔ **Drawn by hand rather than with `StaveConnector`, and this is the one place in
- * docs/staff-size-plan.md §4.3 where that is the answer.** See this module's header for why it
+ * docs/plans/staff-size-plan.md §4.3 where that is the answer.** See this module's header for why it
  * cannot live inside `inStaffSpace`.
  *
  * The line itself is what VexFlow's `singleLeft` draws — `fillRect(x, topY, 1, height)`
@@ -518,7 +518,7 @@ function drawSystemConnector(
   // 🔎 ⚠️ **That group is a COLLECTOR, not a label** — `hintBarlines` snaps every rect in it onto
   // whole device pixels. ⛔ A future left-edge sign whose
   // WEIGHT is engraved (the bracket's rod, at Bravura's 0.5 spaces) must not be put here without
-  // deciding that it wants to be pixel-snapped too — docs/braces-brackets-plan.md P3.
+  // deciding that it wants to be pixel-snapped too — docs/plans/braces-brackets-plan.md P3.
   ctx.openGroup('stavebarline')
   try {
     ctx.fillRect(top.x, topY, THIN_BARLINE_PX, bottomY - topY)

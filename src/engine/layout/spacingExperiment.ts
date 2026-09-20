@@ -15,7 +15,7 @@
  *
  * ## ⭐ What is VERIFIED here and what is not — the distinction matters
  *
- * 🚨 `docs/spacing-model-research.md` was written **2026-07-30**, and the books reached the disk on
+ * 🚨 `docs/research/spacing-model-research.md` was written **2026-07-30**, and the books reached the disk on
  * **2026-08-17/18** while the engine clones arrived **2026-08-18**. So every number in it was
  * second-hand: its Gould table came *"via the facsimile in MuseScore's spacing paper"*, its engine
  * formulas from web manuals.
@@ -128,7 +128,7 @@ export const SPACING_LAWS = {
    * before we have an even space rule"*. He is right: this editor's width rule before the spacing
    * model was `laneColumns × MIN_NOTE_SPACING` — a flat **1.8 staff spaces per column**, so a bar of
    * four semiquavers and a bar of four crotchets came out identical
-   * (`docs/spacing-model-research.md` §5.1).
+   * (`docs/research/spacing-model-research.md` §5.1).
    *
    * ⭐ It is a power law with **ratio 1**: `t^log₂(1) = t^0 = 1`, i.e. duration cancels out entirely.
    * ⛔ **No engraver's rule has this shape** — it is here as the BASELINE the model replaced, so
@@ -143,7 +143,7 @@ export const SPACING_LAWS = {
    *
    * ⭐ This is **his own axis**, already written up as a separate plan rather than a bug fix:
    * *"the second group can have more space so it looks more even matching with the first group… it
-   * will look more beautiful"* (`docs/shortest-duration-plan.md` §1, §9.5). The mechanism it names is
+   * will look more beautiful"* (`docs/plans/shortest-duration-plan.md` §1, §9.5). The mechanism it names is
    * LilyPond's `proportionalNotationDuration` (`lily/spacing-engraver.cc`), which overwrites every
    * column's shortest-duration with one fixed value so that `fraction = delta_t / that` is **pure
    * elapsed time** — a quaver is a quaver everywhere.
@@ -165,7 +165,7 @@ export const SPACING_LAWS = {
  * > `Voice.softmax`: `ideal(event) ∝ SOFTMAX_FACTOR ^ (ticks / voice.ticksUsed)` (`voice.js:115`,
  * > factor 10) — the exponent is the event's **fraction of ITS BAR**, so the same rhythm is spaced
  * > differently depending on the meter. A quarter against an eighth is **1.33× in 4/4** and
- * > **1.78× in 2/4** (`docs/spacing-model-research.md` §5.2).
+ * > **1.78× in 2/4** (`docs/research/spacing-model-research.md` §5.2).
  *
  * ⇒ A `SpacingRule` maps a DURATION to a space; VexFlow's needs the bar as well. Faking it with the
  * 4/4-equivalent ratio 1.33 would be a row that is wrong in every other meter — ⛔ a guessing

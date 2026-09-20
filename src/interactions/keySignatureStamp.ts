@@ -1,7 +1,7 @@
 /**
  * ⭐⭐ **THE KEY SIGNATURE STAMP** — which BAR a click writes to, and on how many STAVES.
  *
- * P5 of docs/key-signature-plan.md, and the module CLAUDE.md's rule asks for: the score edit is in
+ * P5 of docs/plans/key-signature-plan.md, and the module CLAUDE.md's rule asks for: the score edit is in
  * the core (`engine/models/keyOps`), the *gesture* is here, and `PaletteController` /
  * `MouseController` each keep one line.
  *

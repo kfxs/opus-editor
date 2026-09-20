@@ -3,7 +3,7 @@
  *
  *   node scripts/generate-font-metrics.mjs
  *
- * F1 of `docs/font-metrics-plan.md`. The ink table stops being a set of numbers measured by hand in
+ * F1 of `docs/plans/font-metrics-plan.md`. The ink table stops being a set of numbers measured by hand in
  * Chrome and becomes a set of numbers read out of the font — ⭐ **the same font file the editor
  * engraves with and the PDF export outlines**, `public/fonts/Bravura.otf`, so what we measure and
  * what is drawn cannot be two different Bravuras (plan §1.1, §4.2).
@@ -83,7 +83,7 @@ const GLYPHS = {
     'timeSig0', 'timeSig1', 'timeSig2', 'timeSig3', 'timeSig4',
     'timeSig5', 'timeSig6', 'timeSig7', 'timeSig8', 'timeSig9',
     // ⭐ The two meters that are a SYMBOL rather than numerals — `C` and `C|` (S4b0 of
-    //   docs/vexflow-removal-map.md: the meter's glyph is chosen by us, not by VexFlow's table).
+    //   docs/history/vexflow-removal-map.md: the meter's glyph is chosen by us, not by VexFlow's table).
     'timeSigCommon', 'timeSigCutCommon',
   ],
 
@@ -107,13 +107,13 @@ const GLYPHS = {
     'articStaccatissimoAbove', 'articStaccatissimoBelow',
   ],
 
-  // The lines family's own marks (`docs/trill-plan.md`, `pedal-plan.md`, `ottava-plan.md`).
+  // The lines family's own marks (`docs/plans/trill-plan.md`, `pedal-plan.md`, `ottava-plan.md`).
   lines: ['ornamentTrill', 'keyboardPedalPed', 'keyboardPedalUp', 'ottavaAlta', 'ottavaBassaVb'],
 
   // Tremolo strokes — one glyph per stroke count, ours going to three.
   tremolos: ['tremolo1', 'tremolo2', 'tremolo3'],
 
-  // ⭐⭐ THE LEFT-EDGE SIGNS (`docs/braces-brackets-plan.md` P4a). The piano BRACE, plus the four
+  // ⭐⭐ THE LEFT-EDGE SIGNS (`docs/plans/braces-brackets-plan.md` P4a). The piano BRACE, plus the four
   //   alternates — ⭐ all five are exactly 4 staff spaces tall and differ ONLY in width, so the
   //   choice between them is *"which drawing holds its weight when stretched this far"*, not
   //   *"how wide should it be"* (the depth is CONSTANT — Gould p. 331, measured).
@@ -264,7 +264,7 @@ const names = Object.keys(boxes)
  * glyphs"* whatever the run actually reported — so the first glyph that disagreed (`brace`, when the
  * left-edge signs were added) left the file **asserting the opposite of its own run**. A comment that
  * a reader can catch lying is worse than no comment: it teaches them to skip the next one
- * (`docs/font-metrics-plan.md`, and the same lesson as `satisfies Record<keyof T, true>`).
+ * (`docs/plans/font-metrics-plan.md`, and the same lesson as `satisfies Record<keyof T, true>`).
  */
 const crossCheckReport = disagreements.length === 0
   ? ` * ⭐ All ${names.length} boxes agree to within 0.001 spaces, so the version skew is recorded\n` +
@@ -322,7 +322,7 @@ const source = `/**
  * ⛔⛔ **GENERATED — DO NOT EDIT.** \`node scripts/generate-font-metrics.mjs\`
  *
  * ${names.length} of Bravura's ${Object.keys(metadata.glyphBBoxes).length} glyphs: the ones the editor draws
- * (\`docs/font-metrics-plan.md\` F1). Hand-editing a number here would recreate by hand the very
+ * (\`docs/plans/font-metrics-plan.md\` F1). Hand-editing a number here would recreate by hand the very
  * drift the file exists to end — change the glyph list in the script and re-run.
  *
  * ⭐ **Boxes measured from \`public/fonts/Bravura.otf\`** — the font we engrave with and outline for

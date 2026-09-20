@@ -39,7 +39,7 @@ describe('clefPlacement — a clef stands ON the line it names', () => {
 
   it('⚠️ the anchor is what the CALLER resolved — this adds no nudge of its own', () => {
     // 🚨 The whole guard of this spec: a fudge factor added here would be an engraving rule invented
-    // ahead of `docs/clef-research.md`. A treble clef's ink reaching far above the staff is the
+    // ahead of `docs/research/clef-research.md`. A treble clef's ink reaching far above the staff is the
     // FONT's business — the glyph's origin is cut to sit on its anchor line.
     for (const lineY of [-40, 0, 0.5, 137.25, 1e4]) {
       expect(clefPlacement({ x: 0, lineY }).baselineY).toBe(lineY)

@@ -3,7 +3,7 @@ import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 /**
  * The **surface** the music is drawn on — the sheet, not the engraving.
  *
- * Two kinds, and the distinction is the whole point (docs/layout-plan.md §2):
+ * Two kinds, and the distinction is the whole point (docs/plans/layout-plan.md §2):
  *
  *  - **canvas** — for sketching. A width to wrap at, and nothing else. ⭐ **A canvas has no
  *    physical size**: *"how many mm wide is it?"* must have NO answer, and it has none here
@@ -82,7 +82,7 @@ const MM_PER_STAFF_SPACE = 1.75
  *
  * ⭐ It **reads** {@link STAFF_SPACE_PX} rather than spelling the 10 out, and that is the point:
  * the two are the same fact — how big a staff space is — and a page's millimetres are derived from
- * the score's staff size, not the other way round (docs/staff-size-plan.md §9, the collision this
+ * the score's staff size, not the other way round (docs/plans/staff-size-plan.md §9, the collision this
  * settles). ⛔ A *staff's own* size does not belong here: a page is a page whether the violin part
  * on it is engraved small or not.
  *

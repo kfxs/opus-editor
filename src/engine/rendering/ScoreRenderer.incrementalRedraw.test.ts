@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * P5.4 — **incremental redraw** (docs/render-performance-plan.md §7a).
+ * P5.4 — **incremental redraw** (docs/history/render-performance-plan.md §7a).
  *
  * A render now reuses the measure groups it did not have to redraw. Two things must both be true,
  * and they pull against each other:
@@ -179,7 +179,7 @@ describe('P5.4 — incremental redraw', () => {
     // matches the measureId prefix) is blind to it, AND the dynamics array itself is unchanged by a
     // nudge. If the offset weren't folded into the key some other way, the bar would read "clean",
     // its group would be reused, and the mark would sit still while the model moved. Prove the key
-    // moves and the bar redraws. See docs/dynamic-offset-plan.md.
+    // moves and the bar redraws. See docs/plans/dynamic-offset-plan.md.
     const model = buildScore()
     const renderer = makeRenderer()
     const dyn = model.addDynamic(1, { text: levelToGlyphString('f'), beat: frac(0, 1), voice: 0 })!
@@ -546,7 +546,7 @@ describe('a reused measure keeps its fanned members', () => {
     // member's offset is keyed by the member's own first PITCH id, which is neither a slot id nor a
     // `{measureId}:…` position key — so both of the shape key's existing override lines are blind to
     // it. Without the member line, the nudge changes nothing in the key, the bar keeps its drawn
-    // group, and the head sits still while the model moves. See docs/note-offset-plan.md.
+    // group, and the head sits still while the model moves. See docs/plans/note-offset-plan.md.
     const { model, memberIds } = fannedScore()
     const renderer = makeRenderer()
     renderer.renderScore(model.getScore())
@@ -612,12 +612,12 @@ describe('viewStateKey — the suppressed mark\'s live ink', () => {
  * ⭐⭐ **Hinting is not free, and it was unconditional.** `hintBarlines` re-derives every barline's
  * device-pixel position, one `getScreenCTM()` per rect — and `renderScore` called it with
  * `force: true` on EVERY render, which is exactly the flag that bypasses its own early-out. The
- * census measured that at **9% of all render time** (docs/render-performance-plan.md §12.7).
+ * census measured that at **9% of all render time** (docs/history/render-performance-plan.md §12.7).
  *
  * `force` exists for one stated reason: a rebuilt bar carries brand-new, unhinted rects.
  *
  * ⚠️⚠️ **AND THE GATE THAT FOLLOWED FROM THAT DIED ON 2026-08-26**, when `./BarlineRenderer` took the
- * drawing (docs/barline-types-plan.md P2). It used to be *"did any barline actually move"* — was a
+ * drawing (docs/plans/barline-types-plan.md P2). It used to be *"did any barline actually move"* — was a
  * bar re-engraved, or merely TRANSLATED, which lands its rects on a new device pixel even though the
  * ink is identical — and the case this file led with was a render that reuses every group and must
  * therefore not hint at all.

@@ -82,7 +82,7 @@ describe("stampSpanMarkAtClick — the pedal's row", () => {
     // ⚠️ **Break-tested fixture.** Every note STACCATO, because a plain one proves nothing here: a
     // one-note pedal lifts where the note ends, so its ringing is unchanged either way and the test
     // would pass against a stamp that placed no pedal at all. Under a damper a staccato note rings
-    // its full length (docs/pedal-plan.md §9 — the pedal beats the articulation), so the clicked
+    // its full length (docs/plans/pedal-plan.md §9 — the pedal beats the articulation), so the clicked
     // note is the only one that changes.
     for (const id of ids) engine.updateNote(id, { articulations: ['staccato'] })
     const dry = ringsFor(1)
@@ -95,7 +95,7 @@ describe("stampSpanMarkAtClick — the pedal's row", () => {
   })
 
   it('⭐⭐ a second press INSIDE a pedal already down LIFTS it there — the pianist\'s re-take', () => {
-    // The entry door's truncation rule (docs/pedal-plan.md §3.3) reached through the gesture: two
+    // The entry door's truncation rule (docs/plans/pedal-plan.md §3.3) reached through the gesture: two
     // overlapping dampers is not a stack, it is a contradiction — one foot.
     stampSpanMarkAtClick('pedal', state, engine, hits(ids[0]), 10, 10, render)
     engine.pedal.setPedalLength(pedals()[0].id, frac(4, 1)) // hold the whole bar…

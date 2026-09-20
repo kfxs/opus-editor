@@ -9,10 +9,10 @@ import { DYNAMICS_LINE, dynamicsLineAt } from './dynamicsLine'
 
 /**
  * THE DYNAMICS LINE — one baseline per `(system, staff, placement)`
- * (docs/dynamics-line-and-hairpins-plan.md P0).
+ * (docs/plans/dynamics-line-and-hairpins-plan.md P0).
  *
  * ⚠️ **Most of this file moved to `inkBand.test.ts`** when the trill became the rule's second client
- * (docs/trill-plan.md §4, P2) — *a spec moves with its module*. The arithmetic (`clearanceBaseline`,
+ * (docs/plans/trill-plan.md §4, P2) — *a spec moves with its module*. The arithmetic (`clearanceBaseline`,
  * `staffInkBand`, the column slices) is shared and is tested there, against arbitrary constants.
  *
  * What is left is what is genuinely about the DYNAMICS family: `dynamicsLineAt`, i.e. the local rule

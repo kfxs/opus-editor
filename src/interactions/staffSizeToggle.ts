@@ -6,7 +6,7 @@ import { staffIdAtIndex } from '../engine/models/staffContent'
 import { dbg } from '../utils/debug'
 
 /**
- * The staff-size control — still **deliberately crude** (docs/staff-size-plan.md P1): two values, one
+ * The staff-size control — still **deliberately crude** (docs/plans/staff-size-plan.md P1): two values, one
  * of which is this module's choice, exercising the infrastructure while it is iterated on.
  *
  * ⚠️ It lived in `dev/` until the bar's Score menu offered it (Score ▸ Small Staff). That menu SHIPS,

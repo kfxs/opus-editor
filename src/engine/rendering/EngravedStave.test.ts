@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * ⭐⭐ **P5a's DIVIDEND — the staff's five lines are now in the SCENE** (`docs/own-engraving-engine.md` P5).
+ * ⭐⭐ **P5a's DIVIDEND — the staff's five lines are now in the SCENE** (`docs/plans/own-engraving-engine.md` P5).
  *
  * Before P5a a staff line was painted by VexFlow's `Stave` onto the raw context, so it was invisible
  * to `recordScene` and every question about it needed a browser

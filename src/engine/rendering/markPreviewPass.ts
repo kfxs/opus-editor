@@ -1,5 +1,5 @@
 /**
- * ⭐⭐ **A GESTURE DRAWS ONLY THE FAMILY THAT IS MOVING** — docs/render-performance-plan.md §12.5a,
+ * ⭐⭐ **A GESTURE DRAWS ONLY THE FAMILY THAT IS MOVING** — docs/history/render-performance-plan.md §12.5a,
  * his own proposal: *"why do we have to render the whole score? Why not just render that element?"*
  *
  * ## Why this exists, in one measured number
@@ -309,7 +309,7 @@ const MARK_PREVIEW_FAMILIES: Record<MarkPreviewKind, MarkPreviewFamily> = {
    * 2026-08-22: *"when the dynamic overlaps a hairpin, it modifies it… the render of the hairpin is
    * behind"*. The first cut of this row drew only the letters and said so as an accepted
    * approximation; it is not one. A wedge asks `dynamicsLinePlan` for the same baseline the letters
-   * get and BREAKS around a letter it runs into (docs/dynamics-line-and-hairpins-plan.md P3), so a
+   * get and BREAKS around a letter it runs into (docs/plans/dynamics-line-and-hairpins-plan.md P3), so a
    * dragged `p` changes the wedge beside it *in the same plan* — leaving the wedge on the last
    * render's answer is a picture that contradicts itself while the mouse is down.
    *

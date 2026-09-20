@@ -2,7 +2,7 @@
 /**
  * An articulation of ours (S12f): what VexFlow's `Articulation` added to the modifier contract. ⚠️ Its
  * placement is pinned in `engrave/notes/articulationPlacement.test.ts`, and exactness was proved on the
- * page (`docs/vexflow-removal-map.md` S12f). Pinned here is the contract its readers rely on.
+ * page (`docs/history/vexflow-removal-map.md` S12f). Pinned here is the contract its readers rely on.
  */
 import { describe, it, expect } from 'vitest'
 import { EngravedArticulation } from './EngravedArticulation'

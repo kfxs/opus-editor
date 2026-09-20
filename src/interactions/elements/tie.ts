@@ -2,7 +2,7 @@
  * A TIE — the arc joining two soundings of the same pitch. Identified by the note it comes FROM,
  * because that is where the model keeps it (`tiedTo` on the pitch).
  *
- * ⭐ **Hit-tested against the sampled CURVE, like the slur** (docs/slur-plan.md §12 Phase 3b). It
+ * ⭐ **Hit-tested against the sampled CURVE, like the slur** (docs/plans/slur-plan.md §12 Phase 3b). It
  * used to be a padded RECTANGLE around the arc's bbox — so a press anywhere in the empty air under
  * a tie selected it, and the tie was the last span element that behaved that way. The points arrive
  * for free now that every tie draws through `drawCurveArc`, which is why this landed with the

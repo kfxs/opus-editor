@@ -1,7 +1,7 @@
 import { test, expect } from './fixtures'
 
 /**
- * Fanned (feathered) beams (docs/fanned-beams-plan.md), measured for real.
+ * Fanned (feathered) beams (docs/plans/fanned-beams-plan.md), measured for real.
  *
  * `ScoreRenderer.fan.test.ts` says at its head that it is *"deliberately not a geometry suite —
  * jsdom stubs glyph measurement, so an assertion about where the ink landed would pass vacuously"*.
@@ -34,7 +34,7 @@ test('an accelerando fan: heads crowd together, beams feather OUT to the right',
   })
 
   // The assertion is one note; the six are a projection of it and are never written back
-  // (docs/fanned-beams-plan.md §0). Both halves are visible here at once.
+  // (docs/plans/fanned-beams-plan.md §0). Both halves are visible here at once.
   expect(drawn.slots, 'the model still holds ONE event').toBe(1)
   expect(drawn.heads, 'and six are drawn').toHaveLength(6)
 

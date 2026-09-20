@@ -2,7 +2,7 @@
  * The modifier contract (S12b): what VexFlow's note and our columns ask of a modifier, transcribed from
  * `Element` and `Modifier`. ⚠️ That the tremolo — its first member — draws and boxes exactly as before
  * was proved on the page: 50 random scores (897 tremolos), SVG and every registry box byte-identical
- * against the previous commit (`docs/vexflow-removal-map.md` S12b).
+ * against the previous commit (`docs/history/vexflow-removal-map.md` S12b).
  */
 import { describe, it, expect } from 'vitest'
 import type { DrawContext } from '@/engine/paint/DrawContext'

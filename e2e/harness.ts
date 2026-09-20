@@ -1,5 +1,5 @@
 /**
- * The browser side of the geometry net (docs/refactor-plan-2026-07-27.md Phase 5).
+ * The browser side of the geometry net (docs/history/refactor-plan-2026-07-27.md Phase 5).
  *
  * Unit tests run in jsdom, which has no layout and no fonts: every glyph measures 0×0, so an
  * assertion about where the ink landed agrees with itself and proves nothing
@@ -67,7 +67,7 @@ export interface StaveBox {
   /** y of the TOP stave line — bars on the same system share it. */
   top: number
   /** y of the BOTTOM stave line. `bottom - top` is four staff-spaces of REAL ink, which is how a
-   *  staff drawn small (docs/staff-size-plan.md) is told from one merely moved. */
+   *  staff drawn small (docs/plans/staff-size-plan.md) is told from one merely moved. */
   bottom: number
 }
 
@@ -127,7 +127,7 @@ export interface Harness {
   /** Every drawn bar of every staff — the source for "which system is this bar on?". */
   staves(): StaveBox[]
   /**
-   * The SPACING census (docs/spacing-model-plan.md P0): per bar, where every column landed and how
+   * The SPACING census (docs/plans/spacing-model-plan.md P0): per bar, where every column landed and how
    * wide the gap after it is, **in staff spaces** — the unit Gould's table is written in.
    *
    * Built from `staves()` + `noteheads()` + `rests()` and the shared arithmetic in
@@ -159,7 +159,7 @@ export interface Harness {
   /** Export the current score as a PDF (it downloads — the spec catches the download). */
   /**
    * The GHOST groups currently on the page, by class — the overlay contract in one reader
-   * (docs/refactor-plan-2026-07-27.md Phase 6a). A ghost is an overlay appended to the score's
+   * (docs/history/refactor-plan-2026-07-27.md Phase 6a). A ghost is an overlay appended to the score's
    * `<svg>`, and putting a new one up must take the old one down; anything else is the smear the
    * tempo ghost once left behind. Class names only — WHERE the ghost landed is read with the
    * ordinary `glyphs()` / `segments()` readers, scoped to the group.
@@ -194,7 +194,7 @@ export interface Harness {
    *  {@link Harness.glyphs} would only report the first character's codepoint. */
   texts(selector: string): string[]
   exportPdf(): Promise<void>
-  /** Draw on A4 pages instead of the sketching canvas (docs/layout-plan.md P1). */
+  /** Draw on A4 pages instead of the sketching canvas (docs/plans/layout-plan.md P1). */
   useLayout(on: boolean): void
   /** Every drawn SHEET, left to right — the page rectangles behind the music. */
   pages(): { x: number; y: number; width: number; height: number }[]
@@ -206,7 +206,7 @@ export interface Harness {
    * ⚠️ The one reader here built on `getBoundingClientRect`, and deliberately: it is the
    * POST-transform box, which is the whole question when a staff is drawn inside a
    * `<g transform="scale(k)">` (`getBBox()` is local user space and would report the same numbers
-   * at any scale — docs/staff-size-plan.md §4.2). It is still a *text layout* box on a music
+   * at any scale — docs/plans/staff-size-plan.md §4.2). It is still a *text layout* box on a music
    * glyph, so use its SIZE for RATIOS — "0.7 of what it was" — never as a measurement of the ink.
    */
   inkSizes(selector: string): { x: number; y: number; width: number; height: number }[]
@@ -324,7 +324,7 @@ const harness: Harness = {
 
   crossBarBeams: () =>
     // Direct children of the <svg> — plus one level deeper through a `scaled` wrapper, which is
-    // what a beam on a staff drawn small is drawn inside (docs/staff-size-plan.md §4.3).
+    // what a beam on a staff drawn small is drawn inside (docs/plans/staff-size-plan.md §4.3).
     [...svg().children]
       .flatMap(el => (el.getAttribute('class') === 'scaled' ? [...el.children] : [el]))
       .filter(el => el.getAttribute('class') === 'beam')

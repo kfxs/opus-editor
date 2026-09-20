@@ -1,5 +1,5 @@
 /**
- * ⭐⭐ **WHERE EACH AUGMENTATION DOT OF A COLUMN STANDS** — S9c of `docs/vexflow-removal-map.md`
+ * ⭐⭐ **WHERE EACH AUGMENTATION DOT OF A COLUMN STANDS** — S9c of `docs/history/vexflow-removal-map.md`
  * (`Dot.format`, MIT, transcribed).
  *
  * ## ⭐ What the rule IS
@@ -17,7 +17,7 @@
  * - **The gap from the notehead** — `rendering/dotPlacement` moves every dot by the armed standoff
  *   after this runs (the `__dots` knob; `layout/dotGap`).
  * - **The ink** — `./augmentationDot`.
- * - **Which rule the books prefer for a chord's dots** — `docs/accidental-dot-research.md` B2 (Gould,
+ * - **Which rule the books prefer for a chord's dots** — `docs/research/accidental-dot-research.md` B2 (Gould,
  *   Ross, Gerou & Lusk). This is VexFlow's rule, kept as it drew; the research is its preset menu.
  *
  * ⚠️ Transcribed with VexFlow's quirks intact, because tidying either moves a dot:

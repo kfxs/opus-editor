@@ -1,6 +1,6 @@
 /**
  * A note's flag, ours (S12j-d3): the glyph the note draws and the box its hit box merges. ⚠️ That the page
- * is unchanged was proved by the S12j-d3 A/B (`docs/vexflow-removal-map.md`); pinned here is its contract,
+ * is unchanged was proved by the S12j-d3 A/B (`docs/history/vexflow-removal-map.md`); pinned here is its contract,
  * against a stand-in measurement — jsdom has no fonts.
  */
 import { describe, it, expect, vi } from 'vitest'

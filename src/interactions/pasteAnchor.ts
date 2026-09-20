@@ -49,7 +49,7 @@ export interface PasteAnchor {
    *  ⛔ **Not a dynamic's SCOPE.** It describes what was SELECTED, and `pasteElement` deliberately
    *  does not consult it for the dynamics family: an absent `Dynamic.voice` means *all voices of
    *  the staff*, so letting the anchor fill it in would narrow every pasted staff-wide mark
-   *  (docs/dynamic-voice-scope-plan.md). The day a kind needs the selection's voice, this is it. */
+   *  (docs/plans/dynamic-voice-scope-plan.md). The day a kind needs the selection's voice, this is it. */
   voice?: number
   /**
    * ⭐⭐ **The NOTE this anchor names, when it names one** — the earliest selected note, or the note a

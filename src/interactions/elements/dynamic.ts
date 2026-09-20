@@ -62,7 +62,7 @@ export const DYNAMIC_ELEMENT: ClickableElementSpec = {
   highlight: ctx => paintAnchorGuideLine(ctx),
   // ⭐ THE COLOUR IS THE MARK'S OWN, asked per id: a box can sweep up a staff-wide `p` and a voice-2
   // `f` together, and they do not paint alike (`markSelectionColor`, P2 of
-  // docs/dynamic-voice-scope-plan.md).
+  // docs/plans/dynamic-voice-scope-plan.md).
   ink: (ctx, id) => {
     const group = ctx.engine.getDynamicSVGGroup(id)
     if (!group) return

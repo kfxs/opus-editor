@@ -19,11 +19,11 @@ import { CHROME } from '../utils/chromeColors'
  * │  WHY: this system imports no framework, so it ports for free. The moment a window's           │
  * │  DEFINITION sits in App.ts, THAT WINDOW DOES NOT PORT — you keep the engine and throw away   │
  * │  every actual window. The value of framework-agnostic is not in WindowLayer; it is in the     │
- * │  WINDOWS.  (docs/windows-design.md)                                                           │
+ * │  WINDOWS.  (docs/how-it-works/windows-design.md)                                                           │
  * └──────────────────────────────────────────────────────────────────────────────────────────────┘
  *
  * Creates a frame when a window opens and REMOVES it when it closes (closed means the nodes are
- * gone, not hidden — docs/windows-design.md rule 4), and writes styles straight onto the element
+ * gone, not hidden — docs/how-it-works/windows-design.md rule 4), and writes styles straight onto the element
  * while dragging, which never touches a reactive system.
  *
  * It imports no framework, so there is nothing to port: this file ran unchanged through Vue's
@@ -182,7 +182,7 @@ export class WindowLayer {
    * racing the app's mount. If the layer is already up, it runs now.
    *
    * The HOST is handed through because the app donates exactly ONE box and other overlays want it
-   * too — the menu layer mounts into the same element (docs/menus-design.md). Whoever needs the box
+   * too — the menu layer mounts into the same element (docs/how-it-works/menus-design.md). Whoever needs the box
    * asks the layer that already has it, so `App.ts` never grows a third line.
    */
   whenMounted(fn: (host: HTMLElement) => void): void {

@@ -1,7 +1,7 @@
 /**
  * {@link voiceOps} — moving a note into another lane, and the repairs that implies.
  *
- * Four chapters, in the order the feature was built (docs/move-note-to-voice-plan.md): a plain
+ * Four chapters, in the order the feature was built (docs/plans/move-note-to-voice-plan.md): a plain
  * note (the lane change plus what travels with it — beam, tie, slur, tremolo), a COLLISION (the
  * target lane already sounds at that beat, and the shorter duration wins), and a note inside a
  * TUPLET (the group is atomic, so a matching tuplet is made in the target voice and the ordinal

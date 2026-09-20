@@ -45,7 +45,7 @@ describe('ScoreModel', () => {
     // Tempo is NOT a score field: a fresh score makes no tempo statement at all. It plays
     // at the engine constant DEFAULT_TEMPO and prints nothing. A stored global would also
     // be, implicitly, "the tempo at bar 1" — the conflation that made score.clef bleed.
-    // See docs/tempo-marks-plan.md §0.
+    // See docs/plans/tempo-marks-plan.md §0.
     it('should NOT carry a tempo field (tempo is resolved from marks, not stored)', () => {
       const score = model.getScore()
       expect('tempo' in score).toBe(false)
@@ -1392,7 +1392,7 @@ describe('ScoreModel JSON — time-signature validation', () => {
 })
 
 /**
- * Rest-shift TRAVEL (docs/rest-shift-plan.md §3–§4): the position-keyed override survives
+ * Rest-shift TRAVEL (docs/plans/rest-shift-plan.md §3–§4): the position-keyed override survives
  * plain edits / measure inserts on its own (position-key + measure-id wins), and is carried
  * across a rebar by captureRestShifts/restoreRestShifts — re-stamped where a rest still
  * starts at the same region-relative offset, dropped otherwise.

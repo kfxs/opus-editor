@@ -19,7 +19,7 @@ import { GLYPH_BOXES } from './bravuraMetrics'
 import type { NoteDuration } from '@/types/music'
 
 /**
- * F1 of `docs/font-metrics-plan.md` — the font as data.
+ * F1 of `docs/plans/font-metrics-plan.md` — the font as data.
  *
  * ⭐⭐ **What is worth asserting here, and what is not.** Re-stating a generated number
  * (`expect(glyphBox('noteheadBlack').right).toBe(1.18)`) would be this file agreeing with itself:

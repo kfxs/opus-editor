@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * P6 — **virtualization: draw only the window** (docs/render-performance-plan.md §8).
+ * P6 — **virtualization: draw only the window** (docs/history/render-performance-plan.md §8).
  *
  * P5 made a render re-engrave only the bars whose picture *changed*. What it could not make cheaper
  * is a change that legitimately changes every bar's picture — a clef at bar 2, a paste that re-wraps

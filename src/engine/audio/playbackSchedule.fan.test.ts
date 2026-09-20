@@ -7,7 +7,7 @@ import type { Score, FanMark } from '@/types/music'
 import { pitchToMidi } from '@/utils/pitchSpelling'
 
 /**
- * A FAN SOUNDS (docs/fanned-beams-plan.md §3, P3) — `count` attacks that speed up or slow down
+ * A FAN SOUNDS (docs/plans/fanned-beams-plan.md §3, P3) — `count` attacks that speed up or slow down
  * across exactly the note's own duration.
  *
  * The one thing that must never break: **the group's total time is unchanged.** A fan is free
@@ -120,7 +120,7 @@ describe('a fan turns one note into its members', () => {
 describe('the fan and the other expansions', () => {
   /**
    * ⭐ A staccato on the OWNER shortens the owner and nobody else — the marks are per attack now
-   * (`Attack`, docs/fanned-beam-pitches-plan.md §3), and the drawing has said so since it started
+   * (`Attack`, docs/plans/fanned-beam-pitches-plan.md §3), and the drawing has said so since it started
    * marking members individually. This asserted "every member" until then, which is the same claim
    * the engraving had already stopped making.
    */
@@ -193,7 +193,7 @@ describe('the fan and the other expansions', () => {
 })
 
 /**
- * ⭐ P4 — EACH MEMBER SOUNDS ITS OWN PITCH (docs/fanned-beam-pitches-plan.md §2 P4).
+ * ⭐ P4 — EACH MEMBER SOUNDS ITS OWN PITCH (docs/plans/fanned-beam-pitches-plan.md §2 P4).
  *
  * The expansion moved OUT of the per-pitch loop to do this. While every member shared the slot's
  * pitches, running the whole ramp once per chord tone was right; the moment they can differ it is

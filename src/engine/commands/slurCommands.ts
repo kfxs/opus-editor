@@ -84,19 +84,19 @@ export function slurCommands(ctx: CommandContext) {
      *    next-slot scan dedupes by `(measure, beat)` so a chord member slurs to the
      *    next *event*, not a sibling head at the same beat.
      *  - **N notes** → slur first→last in score order (`measure`, then `beat`),
-     *    filtered to voice 0 (other voices ignored; see docs/slur-plan.md §1).
+     *    filtered to voice 0 (other voices ignored; see docs/plans/slur-plan.md §1).
      *
      * Create-only and **idempotent**: if a slur with the same endpoints already
      * exists, the existing one is returned and nothing is added (no duplicate). There
      * is intentionally no toggle-off here — removal is a separate operation (select
-     * the arc + Delete → {@link removeSlur}); see docs/slur-plan.md §1.
+     * the arc + Delete → {@link removeSlur}); see docs/plans/slur-plan.md §1.
      *
      * Slurs are notational only — no playback change — so the audio engine isn't touched.
      * @returns the created (or pre-existing) Slur, or null if no valid span resolved.
      */
     createSlur(noteIds: string[]): Slur | null {
       // ⭐ A FANNED MEMBER *can* anchor a slur — unlike a tie. The plan refused both together
-      // (docs/fanned-beam-pitches-plan.md §3) and that was right for the tie: it is a pitch-to-pitch
+      // (docs/plans/fanned-beam-pitches-plan.md §3) and that was right for the tie: it is a pitch-to-pitch
       // continuation, and a member has no length of its own to continue into. A slur is not an
       // attachment to the event's rhythm, it is a SPAN between two points, and member 2 → member 5 is
       // a perfectly good span (his ask). So members stay in the candidate list here.
@@ -259,7 +259,7 @@ export function slurCommands(ctx: CommandContext) {
     },
 
     /** Nudge a slur endpoint by a staff-space delta and save ONE undo step (the keyboard
-     *  fine-positioning — see docs/slur-endpoint-offset-plan.md). Unlike a mouse drag each
+     *  fine-positioning — see docs/plans/slur-endpoint-offset-plan.md). Unlike a mouse drag each
      *  arrow press is already a discrete commit, so there is no preview/commit split. */
     nudgeSlurEndpoint(id: string, which: 'start' | 'end', dx: number, dy: number): boolean {
       if (!endpointOffsetAllowed(id, which, dx, dy)) return false
@@ -312,7 +312,7 @@ export function slurCommands(ctx: CommandContext) {
 
     /** Nudge one OPEN join of a cross-system slur by a staff-space delta and save ONE undo step
      *  (the keyboard fine-positioning for the orange segment-endpoint squares — see
-     *  docs/multisystem-slur-segment-endpoint-offset-plan.md). `spanCount` is the live system
+     *  docs/plans/multisystem-slur-segment-endpoint-offset-plan.md). `spanCount` is the live system
      *  count at the time of the edit (the override's reset signature). */
     nudgeSlurSegmentEndpoint(id: string, address: SlurSegmentEndpointAddress, dx: number, dy: number, spanCount: number): boolean {
       if (!ctx.limits.nudgeStaysOnPage('slur', id, dx, dy)) return false

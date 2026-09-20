@@ -6,7 +6,7 @@ import { spaceColumns } from '@/engine/layout/spacing'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 
 /**
- * ⭐⭐ **THE RENDERER TAKES OVER X** (docs/spacing-model-plan.md P4) — the pass that stops VexFlow's
+ * ⭐⭐ **THE RENDERER TAKES OVER X** (docs/plans/spacing-model-plan.md P4) — the pass that stops VexFlow's
  * softmax deciding where inside a bar the notes go.
  *
  * P2 gave the bar the width the rule asks for; P3 gave the ink its minimums. Neither touched the

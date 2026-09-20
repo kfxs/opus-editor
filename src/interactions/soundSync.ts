@@ -21,7 +21,7 @@ import type { MusicEngine } from '@/engine/MusicEngine'
  * and disposes, never a method on anything.
  *
  * ⚠️ Still ONE sound for the whole score — see `bus/soundSelection.ts`. Per-staff and per-voice are
- * docs/instruments-plan.md P2.
+ * docs/plans/instruments-plan.md P2.
  */
 export function wireSoundSync(
   getEngine: () => MusicEngine | null,

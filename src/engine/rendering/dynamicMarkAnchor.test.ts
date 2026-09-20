@@ -6,7 +6,7 @@ import { dynamicMarkAnchorShift, isPureLevel } from './dynamicMarkAnchor'
 
 /**
  * HOW A DYNAMIC SITS ON ITS NOTE, HORIZONTALLY — centred if it is a level, anchored if it is prose
- * (docs/dynamics-line-and-hairpins-plan.md §3a, the x half).
+ * (docs/plans/dynamics-line-and-hairpins-plan.md §3a, the x half).
  *
  * ⭐ The WIDTH is a parameter, so all of this is headless: what the rule decides is *whether* to
  * centre and *by what fraction of the mark*, never how wide a glyph is. That measurement is the

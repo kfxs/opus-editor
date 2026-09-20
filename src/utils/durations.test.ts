@@ -69,7 +69,7 @@ describe('durationFlags', () => {
   })
 
   it('is the sum a tremolo adds to: 3 strokes on a quarter = 2 on an eighth = 1 on a 16th', () => {
-    // The standard reading — all three are 32nds (docs/tremolo-plan.md §5).
+    // The standard reading — all three are 32nds (docs/plans/tremolo-plan.md §5).
     expect(durationFlags('q') + 3).toBe(3)
     expect(durationFlags('8') + 2).toBe(3)
     expect(durationFlags('16') + 1).toBe(3)

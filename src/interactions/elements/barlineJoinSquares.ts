@@ -1,6 +1,6 @@
 /**
  * ⭐⭐ **THE SELECTED BARLINE'S JOIN SQUARES** — one under each staff and one over the staff below
- * it, at every gap of the system (docs/barline-join-plan.md §1, P2). Grabbing one is how a gap is
+ * it, at every gap of the system (docs/plans/barline-join-plan.md §1, P2). Grabbing one is how a gap is
  * joined, and how a joined one is disjoined (`drags/barlineJoin`). WHERE they sit is
  * `./barlineJoinHandles`'; this paints them and registers what a press finds them by.
  *

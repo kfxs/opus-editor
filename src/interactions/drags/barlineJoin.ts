@@ -1,7 +1,7 @@
 /**
  * **THE JOIN DRAG** — pull the grabbed end of a barline PAST THE MIDDLE of the gap between two
  * staves and the gap **flips**: an unjoined one joins, a joined one comes apart. Come back before
- * the middle and it is as it was (docs/barline-join-plan.md P3).
+ * the middle and it is as it was (docs/plans/barline-join-plan.md P3).
  *
  * ⭐ **The gesture is relative to the STATE, ⛔ not an absolute position** ("the gesture should be
  * opposite to the state"): grab the lower staff's square on an already-joined gap and pull away,

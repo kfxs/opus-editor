@@ -2,7 +2,7 @@ import { test, expect } from './fixtures'
 
 /**
  * ⭐⭐ **THE BAR RESERVES ROOM FOR ITS OWN SIGN, AND THE THREE GESTURES SURVIVE IT** — P3 of
- * docs/barline-types-plan.md §5.1 / §6.2.
+ * docs/plans/barline-types-plan.md §5.1 / §6.2.
  *
  * His constraint on the whole feature: *"even if we have the different barline we should be able to
  * change measure space by dragging, the same way we are doing now."* The rule that protects it is

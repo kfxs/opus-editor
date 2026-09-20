@@ -2,7 +2,7 @@
  * Which slope a beam takes inside its budget — the search, in jsdom.
  *
  * ⚠️ Exactness against `Beam.calculateSlope` was proved once, by a throwaway probe running both on the
- * same beams (S7a, `docs/vexflow-removal-map.md` §9). What is pinned here is what the search DOES:
+ * same beams (S7a, `docs/history/vexflow-removal-map.md` §9). What is pinned here is what the search DOES:
  * halve the stems' own lean, never cross an inner stem, stay inside the budget, and always end.
  */
 import { describe, it, expect } from 'vitest'

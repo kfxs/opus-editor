@@ -22,7 +22,7 @@ vi.mock('./rendering/ScoreRenderer', async (importOriginal) => ({
     setLinearStaffSpacing = vi.fn()
     setCullWindow = vi.fn()
     setLayoutReusable = vi.fn()
-    // P3's skip test (docs/render-performance-plan.md §5a) reads the view state off the
+    // P3's skip test (docs/history/render-performance-plan.md §5a) reads the view state off the
     // renderer. The stub's view state never changes, so `isRenderStale` here answers purely
     // "did the content change?" — which is exactly what the tests below exercise.
     viewStateKey = vi.fn(() => 'stub-view-state')
@@ -829,7 +829,7 @@ describe('MusicEngine — multi-voice (Phase 1)', () => {
 })
 
 /**
- * Linear view's staff-spacing VIEW KNOB (docs/linear-view-plan.md §4.2b). The point of the
+ * Linear view's staff-spacing VIEW KNOB (docs/plans/linear-view-plan.md §4.2b). The point of the
  * feature is what it does NOT do: it moves the staves you are looking at, and touches neither the
  * score nor the undo stack. These tests exist to keep it that way — the moment one of them has to
  * be relaxed, the knob has stopped being a view knob and belongs in a real layout scope.
@@ -888,7 +888,7 @@ describe('MusicEngine — linear-view staff spacing (the view knob)', () => {
 })
 
 /**
- * P3 — a selection change must not redraw the score (docs/render-performance-plan.md §5a).
+ * P3 — a selection change must not redraw the score (docs/history/render-performance-plan.md §5a).
  *
  * The skip is only safe if `isRenderStale()` is honest about *content*: a missed dirty-flag is a
  * measure that renders stale forever. So the contract is pinned here — including the three live-drag
@@ -980,7 +980,7 @@ describe('isRenderStale (P3 skip test)', () => {
 /**
  * `runBatch` used to answer "did `fn` change anything?" by stringifying the WHOLE SCORE before
  * and after and comparing — two full serializations per batched edit, on top of the deep clone
- * `pushState` already does (docs/render-performance-plan.md §7). Every mutation that wants an undo
+ * `pushState` already does (docs/history/render-performance-plan.md §7). Every mutation that wants an undo
  * entry already calls `saveUndoState`, which counts the request even while suppressed, so the
  * answer was there for free.
  */
@@ -1064,7 +1064,7 @@ describe('runBatch — change detection without serializing the score', () => {
 })
 
 /**
- * P6 — the virtualization window (docs/render-performance-plan.md §8).
+ * P6 — the virtualization window (docs/history/render-performance-plan.md §8).
  *
  * The whole risk of culling is that it turns scrolling — today a free CSS scroll — into a redraw. It
  * doesn't, and this is why: the engine draws a window *larger* than the viewport, and only re-cuts it

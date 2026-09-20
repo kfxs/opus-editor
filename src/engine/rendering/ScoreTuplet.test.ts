@@ -2,7 +2,7 @@
  * A tuplet of ours (S12a): VexFlow's `Tuplet` constructor and the contract its notes read, transcribed.
  * ⚠️ Where the bracket and the mark land — and the ticks the notes scale by it — are proved on the page:
  * an A/B of 60 random scores (476 tuplets) against the previous commit, SVG and hit boxes byte-identical
- * (`docs/vexflow-removal-map.md` S12a). The rest alignment it runs is pinned in
+ * (`docs/history/vexflow-removal-map.md` S12a). The rest alignment it runs is pinned in
  * `engrave/notes/restAlign.test.ts`.
  *
  * The notes here are STAND-INS carrying only what the tuplet asks of a note — whether it is beamed, and

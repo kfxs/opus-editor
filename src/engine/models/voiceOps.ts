@@ -1,6 +1,6 @@
 /**
  * MOVING A NOTE BETWEEN VOICES — extracted from {@link ScoreModel}, which keeps thin public
- * delegators to these free functions (docs/modularity-plan-2026-07-28.md Phase 3).
+ * delegators to these free functions (docs/history/modularity-plan-2026-07-28.md Phase 3).
  *
  * A voice is a LANE, not a container: `voice` is a field on the slot (absent = voice 0), so moving
  * a note between voices is not a re-parent — it is a field change plus the repairs that field
@@ -9,7 +9,7 @@
  *  - the source lane may be left with a hole (fill it) or empty (collapse it, so a one-voice bar
  *    goes back to having no voice tags at all);
  *  - the target lane may already have something at that beat — it chords, and the SHORTER duration
- *    wins (docs/move-note-to-voice-plan.md);
+ *    wins (docs/plans/move-note-to-voice-plan.md);
  *  - a tie or a two-note tremolo is a RELATION and cannot span voices, so a move can leave one
  *    broken: `dropCrossVoiceTies` and `markOps.dropStaleTremoloPairs` sever exactly those, and
  *    both are careful about a BATCH — a partner moving in the same gesture is not a break;
@@ -240,7 +240,7 @@ function resyncSlurVoiceForPitch(score: Score, pitchId: string): void {
 
 /**
  * The same for a trill — its `voice` is the same cached field with the same meaning, so a move that
- * changes an anchor's voice leaves it stale in the same way (docs/trill-plan.md §2.1).
+ * changes an anchor's voice leaves it stale in the same way (docs/plans/trill-plan.md §2.1).
  *
  * ⭐ **Two anchors, and a one-note trill has only one**, so the agreement test is over the ends that
  * exist: an absent `endNoteId` means the start's voice IS the trill's voice, with nothing to
@@ -435,7 +435,7 @@ export interface VoiceMoveModel {
 
 /**
  * Move several notes' pitches into a voice as ONE gesture (move-note-to-voice plan, Phase 3).
- * Score logic, moved off `MusicEngine` (docs/code-shape-plan-2026-09-19.md, Phase 4.1): the facade
+ * Score logic, moved off `MusicEngine` (docs/plans/code-shape-plan-2026-09-19.md, Phase 4.1): the facade
  * keeps the undo entry. Notes are processed in a stable order (measure, then beat) so chord-merge
  * "shorter wins" is deterministic; each per-note move skips no-ops and rests itself. Ids are
  * preserved, so the caller's selection stays valid.

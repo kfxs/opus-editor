@@ -1,6 +1,6 @@
 /**
  * ⭐⭐ **WHAT A NOTE SAYS ABOUT ITS OWN BEAM** — today, one thing: which way its **fractional beam**
- * points (`docs/beam-hook-research.md`).
+ * points (`docs/research/beam-hook-research.md`).
  *
  * ## Why its own module rather than a line in `markOps`
  *

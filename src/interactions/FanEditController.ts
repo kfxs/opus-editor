@@ -6,7 +6,7 @@ import { dbg } from '../utils/debug'
 import type { FanMark } from '../types/music'
 
 /**
- * Applies a Properties-panel fan edit to the engine (docs/fanned-beams-plan.md §3, P4). The window is
+ * Applies a Properties-panel fan edit to the engine (docs/plans/fanned-beams-plan.md §3, P4). The window is
  * a **dumb publisher**: it writes `{noteId, count?, beams?}` to {@link bus.fanEdit}, and this
  * controller — the one place that holds `getEngine` — merges it into the fan the note is wearing and
  * repaints.
@@ -48,7 +48,7 @@ export class FanEditController {
     }
     // ⚠️ The ramp range is NOT clamped here, and that is deliberate: holding it inside the count
     // needs the count, and `setFan` → `normalizeFan` is the one place that has it *and* is allowed
-    // to write it (docs/fan-ramp-range-plan.md §1). This merges; it does not decide.
+    // to write it (docs/plans/fan-ramp-range-plan.md §1). This merges; it does not decide.
     if (rampFrom !== undefined) next.rampFrom = rampFrom
     if (rampTo !== undefined) next.rampTo = rampTo
     if (spread !== undefined) next.spread = spread

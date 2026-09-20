@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /**
  * The JOIN SQUARES a selected barline draws in the gaps between its staves (P2 of
- * docs/barline-join-plan.md).
+ * docs/plans/barline-join-plan.md).
  *
  * WHAT the selection recolours is `HighlightController.barline.test.ts`; the same square one family
  * over is `endpointHandles.test.ts`. WHERE the squares sit is `./barlineJoinHandles`' own spec; what

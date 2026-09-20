@@ -2,7 +2,7 @@
 /**
  * Our SVG painter (S13b) — VexFlow's `SVGContext`, transcribed. ⚠️ That the page it writes is
  * byte-identical to VexFlow's was proved once, in jsdom and in Chromium, against the previous commit
- * (`docs/vexflow-removal-map.md` S13b); pinned here are the rules the markup depends on.
+ * (`docs/history/vexflow-removal-map.md` S13b); pinned here are the rules the markup depends on.
  */
 import { describe, it, expect, beforeEach } from 'vitest'
 import { SvgPainter } from './SvgPainter'

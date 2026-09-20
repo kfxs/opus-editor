@@ -3,7 +3,7 @@
  * one beat, so a chord (or a rest) arriving in a lane EVICTS the rests its span overlaps; a tie that
  * pointed at an evicted rest moves onto whatever replaced it; a replaced tuplet rest hands its
  * `tupletId` on; and a NOTE taking a rest's position takes that rest's hidden flag with it. Score
- * logic, moved off `ScoreModel` (docs/code-shape-plan-2026-09-19.md, Phase 4.3c) — it is the
+ * logic, moved off `ScoreModel` (docs/plans/code-shape-plan-2026-09-19.md, Phase 4.3c) — it is the
  * machinery under `ScoreModel.addNote`, its duration change, and `voiceOps`' {@link insertPitch}.
  *
  * {@link computeActualDurationForSlot} is here because placing is what needs it: a slot's SOUNDING
@@ -139,7 +139,7 @@ function scanOverlappingRests(
 /**
  * A NOTE is taking this rest's position, so the rest's HIDDEN flag goes with it — it was
  * authored for a rest that will not be there (his report, 2026-08-30). ⛔ The rest SHIFT at the
- * same address stays: `docs/rest-shift-plan.md` §4 accepts resurrect-on-return. See
+ * same address stays: `docs/plans/rest-shift-plan.md` §4 accepts resurrect-on-return. See
  * `overrideOps.clearRestHiddenAt` for why the two differ, and why this is operation-driven
  * rather than a sweep over what looks orphaned.
  */

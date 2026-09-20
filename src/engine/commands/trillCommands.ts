@@ -25,7 +25,7 @@ export function trillCommands(ctx: CommandContext) {
      * ({@link trillOps.addTrill}). @returns the stored Trill, the existing one, or null.
      *
      * ⚠️ AUDIBLE, and unlike the slur beside it: a trill CHANGES WHAT PLAYS
-     * (docs/trill-plan.md §7 — it turns one sounding note into alternating attacks), so playback has
+     * (docs/plans/trill-plan.md §7 — it turns one sounding note into alternating attacks), so playback has
      * to be resynced. A slur is a phrasing curve with no attacks of its own, which is why it gets the
      * cheaper snapshot.
      */
@@ -48,7 +48,7 @@ export function trillCommands(ctx: CommandContext) {
      *    `endNoteId`** — deliberately not "this note to the next", which would draw a wavy line the
      *    user did not ask for.
      *  - ⛔ **A fanned member is refused**, where a slur accepts one. `trillOps.addTrill` is where
-     *    that decision lives and why (docs/trill-plan.md §2.2); this method simply lets it answer.
+     *    that decision lives and why (docs/plans/trill-plan.md §2.2); this method simply lets it answer.
      *
      * A trill lives in ONE voice on ONE staff, taken from the first resolved note — notes in other
      * lanes are dropped rather than silently widening the span, `createSlur`'s rule exactly.

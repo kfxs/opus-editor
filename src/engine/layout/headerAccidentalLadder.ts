@@ -1,6 +1,6 @@
 /**
  * ⭐⭐ **HOW MUCH THE HEADER→FIRST-NOTE GAP CLOSES WHEN THAT NOTE CARRIES AN ACCIDENTAL — a TABLE
- * OF RULES, and which row is armed is HIS.** Decision **E** (`docs/header-spacing-research.md` §8 E).
+ * OF RULES, and which row is armed is HIS.** Decision **E** (`docs/research/header-spacing-research.md` §8 E).
  *
  * ## Why this is a table and not a constant
  *
@@ -74,7 +74,7 @@ export const HEADER_GAP_RULES = {
   },
   /**
    * ⭐ **The same figure, MEASURED** — clef row 2.65 / 1.65 / 1.15, key row 2.49 / 1.45 / 1.10,
-   * meter row 2.15 / 1.15 / 1.10 (`docs/header-spacing-research.md` §3.7). ⚠️ The `none` column is
+   * meter row 2.15 / 1.15 / 1.10 (`docs/research/header-spacing-research.md` §3.7). ⚠️ The `none` column is
    * held at decision D's 2.5 / 2.0 rather than at her drawn 2.65 / 2.15: that column is closed.
    */
   gouldDrawn: {

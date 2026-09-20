@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * Delete removes a selected TREMOLO (docs/tremolo-plan.md §2 decision 4).
+ * Delete removes a selected TREMOLO (docs/plans/tremolo-plan.md §2 decision 4).
  *
  * The mark shipped stampable but not removable — Ctrl+Z was the only way to take one off — because
  * "Delete removes the selected thing" needs a selected thing, and the mark only became selectable in

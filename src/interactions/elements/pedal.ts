@@ -5,7 +5,7 @@
  * ⭐⭐ **That is the one thing this module decides, and it is a rule rather than a tuning.** The
  * ottava next door hit-tests its whole drawn band, because a dashed bracket is *mostly* empty and a
  * reader cannot see where the gaps are. A `Ped.✻` pedal is not mostly empty — it is **entirely**
- * empty between its signs, and *a press may only reach INK* (docs/barline-selection.md). A band test
+ * empty between its signs, and *a press may only reach INK* (docs/how-it-works/barline-selection.md). A band test
  * here would hand the pedal every press over four bars of music it merely passes over.
  *
  * ⚠️ So there is no proximity half either: `TRILL_ELEMENT` and `OTTAVA_ELEMENT` fall back to
@@ -15,7 +15,7 @@
  *
  * ⚠️ A pedal registers ONE ENTRY PER DRAWN GLYPH — both signs, plus a `(Ped.)` for every system it
  * resumes on — each carrying the same pedal id. That is why the search below is a `find` over all of
- * them rather than a lookup: the id is the answer, whichever sign was hit (docs/pedal-plan.md §5.3).
+ * them rather than a lookup: the id is the answer, whichever sign was hit (docs/plans/pedal-plan.md §5.3).
  *
  * ⭐ When the bracket style arrives the line becomes ink and the band test becomes the right one — a
  * change here and in `PedalRenderer`, nowhere else.
@@ -110,7 +110,7 @@ export const PEDAL_ELEMENT: ClickableElementSpec = {
     if (!selected) return
     paintEndpointHandles(ctx, 'pedal', selected, pedalEndpointHandles(ctx.registry.getByType('pedal'), selected.id))
   },
-  // ⭐ **TEXT only**: the pedal draws no `path` at all (docs/pedal-plan.md — the two-glyph dress).
+  // ⭐ **TEXT only**: the pedal draws no `path` at all (docs/plans/pedal-plan.md — the two-glyph dress).
   // ⚠️ The day the bracket style arrives this needs the ottava's stroke half. One group holds every
   // sign the pedal drew, other systems' included, so a broken pedal lights up whole. ⭐ The ELEMENT
   // ink, for the ottava's reason: one damper serves the staff, whatever voices its music is in.

@@ -298,7 +298,7 @@ function clearHorizontalOffset(score: Score, id: string): void {
 
 /**
  * ⭐⭐ **SET WHICH VOICES THE MARK GOVERNS** — the model write behind `Alt+1…4` / `Alt+5` with a
- * dynamic selected, and behind the Keypad's voice row (docs/dynamic-voice-scope-plan.md P4).
+ * dynamic selected, and behind the Keypad's voice row (docs/plans/dynamic-voice-scope-plan.md P4).
  *
  * ⭐ **`'all'` DELETES the field**, and that is why this exists at all rather than being one more
  * `updateDynamic({ voice })` call: `updateDynamic` is an `Object.assign`, so `{ voice: undefined }`

@@ -2,7 +2,7 @@
  * Which x's each beam line runs between — the walk, in jsdom.
  *
  * ⚠️ Exactness against `Beam.getBeamLines` was proved once, by a throwaway probe running both on the
- * same beams (S7d, `docs/vexflow-removal-map.md` §9). Pinned here: what a line joins, and where each
+ * same beams (S7d, `docs/history/vexflow-removal-map.md` §9). Pinned here: what a line joins, and where each
  * kind of fractional beam points.
  */
 import { describe, it, expect } from 'vitest'

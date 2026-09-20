@@ -1,6 +1,6 @@
 /**
- * ⭐⭐ **THE ONE PLACE A GLYPH IS RESOLVED, MEASURED AND STAMPED** — `docs/own-engraving-engine.md` P1,
- * first step; ⭐ **no VexFlow since S13a** (`docs/vexflow-removal-map.md`): the `Element` it used is
+ * ⭐⭐ **THE ONE PLACE A GLYPH IS RESOLVED, MEASURED AND STAMPED** — `docs/plans/own-engraving-engine.md` P1,
+ * first step; ⭐ **no VexFlow since S13a** (`docs/history/vexflow-removal-map.md`): the `Element` it used is
  * `GlyphRun` below, the face tree `fonts/fontCategories`, the CSS `fonts/fontFace`. The history that
  * follows explains why a TAG selects a face and a size is POINTS — both still true, now of our rows.
  *
@@ -43,7 +43,7 @@
  * no row in VexFlow's metrics table, so they all resolve to the same default (a stack LEADING with
  * the music font, per `reference: vexflow music font first in stack`). ⚠️ A tag that IS a VexFlow
  * category resolves differently — `TempoLayout` once ran on exactly that (`'StaveTempo.glyph'` vs
- * `'StaveTempo.name'`), until S1c of `docs/vexflow-removal-map.md` made its two faces rows of ours.
+ * `'StaveTempo.name'`), until S1c of `docs/history/vexflow-removal-map.md` made its two faces rows of ours.
  * ⛔ So never name a tag after a VexFlow category: it would pick up that category's font.
  *
  * ⭐ So the tag stays a parameter: it is load-bearing, and it doubles as the debug label it has
@@ -73,7 +73,7 @@ import { categoryFont } from '@/engine/fonts/fontCategories'
 import { fontToCss, validateFont, type FontInfo } from '@/engine/fonts/fontFace'
 
 /**
- * ⭐⭐ **WHAT `new Element(tag)` WAS HERE — S13a** (`docs/vexflow-removal-map.md`): a face resolved from
+ * ⭐⭐ **WHAT `new Element(tag)` WAS HERE — S13a** (`docs/history/vexflow-removal-map.md`): a face resolved from
  * the tag (`fonts/fontCategories`), a size or a face laid over it (`fonts/fontFace.validateFont`), a
  * measurement on one shared canvas, and a stamp of two primitives. ⛔ Nothing else of `Element` was
  * ever asked here, so nothing else is kept. It is private: callers speak tags, glyphs and points.
@@ -171,7 +171,7 @@ export interface TextRunFont {
  *
  * ⭐ Three byte-identical private copies of this lived in `TrillRenderer`, `PedalRenderer` and
  * `OttavaRenderer` — a rule with no home, copied because there was no module to import it from
- * (`docs/own-engraving-engine.md` §3.1's *"the second owner is the tell"*).
+ * (`docs/plans/own-engraving-engine.md` §3.1's *"the second owner is the tell"*).
  */
 /** The run behind one stamp — the two lines every call site used to write for itself. */
 function glyphRun(tag: string, glyph: string, sizePt: number): GlyphRun {

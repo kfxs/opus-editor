@@ -1,5 +1,5 @@
 /**
- * ⭐⭐ **WHERE A BRACE OR BRACKET LANDS — APPLIES, else ARMS.** P5 of docs/braces-brackets-plan.md.
+ * ⭐⭐ **WHERE A BRACE OR BRACKET LANDS — APPLIES, else ARMS.** P5 of docs/plans/braces-brackets-plan.md.
  *
  * **His rule, 2026-08-29**, and it is the bargain this editor already makes for the Time Signature
  * window, the Clef window and the key/barline stamps:

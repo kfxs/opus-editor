@@ -5,7 +5,7 @@ The scores the editor **ships with** — what File ▸ Examples opens.
 One file per example, in the score-file envelope `utils/scoreFile` already reads and
 `File ▸ Export JSON` already writes: an exported score dropped in here is an example, with no
 conversion step and no second format. ⛔ Not a raw `Score` — the envelope is what `readScoreFile`
-checks, and report-never-repair (`docs/json-io-plan.md`) means a bare model is refused, not fixed up.
+checks, and report-never-repair (`docs/plans/json-io-plan.md`) means a bare model is refused, not fixed up.
 
 ## Why `public/`, not `src/`
 

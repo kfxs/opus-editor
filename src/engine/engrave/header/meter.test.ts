@@ -52,7 +52,7 @@ describe('meterRowBaseline — a numeral is CENTRED on the line it names', () =>
 
   it('⚠️ the anchor is what the CALLER resolved — this adds no nudge of its own', () => {
     // 🚨 The whole guard of this spec. The GAP between the two rows is ⛔ UNKNOWN in every treatise
-    // (`docs/header-spacing-research.md` row H) and the engines split 2.0 sp against 0.0 — so a
+    // (`docs/research/header-spacing-research.md` row H) and the engines split 2.0 sp against 0.0 — so a
     // number added here would be an engraving rule chosen inside a migration, which is the one thing
     // the migration's safety argument forbids.
     for (const lineY of [-40, 0, 0.5, 137.25, 1e4]) expect(meterRowBaseline(lineY)).toBe(lineY)

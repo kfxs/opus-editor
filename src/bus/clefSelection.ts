@@ -19,7 +19,7 @@ import type { Clef } from '@/types/music'
  */
 export interface ArmedClef {
   clef: Clef
-  /** Sibelius has no such box on its clef dialog; this is ours. See docs/time-signature-window-plan.md §1
+  /** Sibelius has no such box on its clef dialog; this is ours. See docs/plans/time-signature-window-plan.md §1
    *  for the model it shares with the meter's. */
   cautionary: boolean
 }

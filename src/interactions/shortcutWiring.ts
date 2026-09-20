@@ -66,22 +66,22 @@ export function wireShortcuts(
     return { x: w / 2, y: h / 2 }
   }
 
-  // Slur endpoint keyboard nudge step (staff-spaces; see docs/slur-endpoint-offset-plan.md):
+  // Slur endpoint keyboard nudge step (staff-spaces; see docs/plans/slur-endpoint-offset-plan.md):
   // a plain arrow is fine, Ctrl+arrow is coarse.
   const NUDGE_FINE_SS = 0.25
   const NUDGE_COARSE_SS = 1.0
 
-  // Staff-spacing nudge step (staff-spaces; docs/staff-spacing-plan.md §8). Shift+↑/↓ moves by
+  // Staff-spacing nudge step (staff-spaces; docs/plans/staff-spacing-plan.md §8). Shift+↑/↓ moves by
   // one, Alt+↑/↓ by four — starting conservative (rest-shift shipped too large), tune live.
   const STAFF_SPACING_FINE_SS = 1
   const STAFF_SPACING_COARSE_SS = 4
 
-  // Note-spacing nudge step (staff-spaces; docs/note-spacing-plan.md §5). A quarter of a space per
+  // Note-spacing nudge step (staff-spaces; docs/plans/note-spacing-plan.md §5). A quarter of a space per
   // press — small enough that Shift+Alt+→ reads as fine positioning rather than a jump, and it is
   // the same step the slur endpoints already use.
   const NOTE_SPACING_STEP_SS = 0.25
 
-  // Bar-width nudge step (PIXELS of barline movement; docs/bar-width-plan.md §6). One staff-space,
+  // Bar-width nudge step (PIXELS of barline movement; docs/plans/bar-width-plan.md §6). One staff-space,
   // so a step means the same distance whether it arrives from the keyboard or (P2) from the mouse —
   // rather than the keyboard nudging an abstract ratio, which would move a dense bar and a sparse
   // one by different amounts under the same key.
@@ -188,7 +188,7 @@ export function wireShortcuts(
   }
 
   // ↑/↓ on a SINGLE selected rest = nudge its vertical shift by one staff-step (+up), instead
-  // of the pitch edit (which skips rests anyway). One undo per press. See docs/rest-shift-plan.md.
+  // of the pitch edit (which skips rests anyway). One undo per press. See docs/plans/rest-shift-plan.md.
   const nudgeSelectedRest = (delta: number): boolean => {
     const eng = getEngine()
     if (!eng || state.selectedItems.size !== 1) return false
@@ -206,7 +206,7 @@ export function wireShortcuts(
   // spacing — the bar keeps its width). Rides the deliberate chords, not the easy key: a note's
   // plain ←/→ is navigation and the easy Ctrl+←/→ is the MOVE (spacing/bar width). Returns true
   // when it consumed the key, false to DECLINE so it falls through. One undo per press. The engine
-  // keys the override by SLOT, so a chord (and a rest) moves as a unit. See docs/note-offset-plan.md §C.
+  // keys the override by SLOT, so a chord (and a rest) moves as a unit. See docs/plans/note-offset-plan.md §C.
   const nudgeSelectedNoteOffset = (dx: number): boolean => {
     const eng = getEngine()
     if (!eng || state.selectedItems.size !== 1) return false
@@ -233,7 +233,7 @@ export function wireShortcuts(
   // Shift+↑/↓ (fine) / Alt+↑/↓ (coarse) on a plain-click SINGLE measure box = Sibelius
   // "space above staff": nudge the clicked staff's vertical spacing by `delta` staff-spaces
   // (+down). Gated to the single-box selection — disjoint from the chord-nav that Alt+↑/↓
-  // otherwise drives (see docs/staff-spacing-plan.md §6). One undo per press. Returns true
+  // otherwise drives (see docs/plans/staff-spacing-plan.md §6). One undo per press. Returns true
   // when it consumed the key, false to DECLINE so it falls through to its normal action.
   const nudgeStaffSpacingIfBoxSelected = (delta: number): boolean => {
     const eng = getEngine()
@@ -250,10 +250,10 @@ export function wireShortcuts(
   // or shrinks and everything right of the column slides, so it re-runs the casting-off rather than
   // just repainting. The engine DECLINES (null) when it cannot measure how far left the column may
   // go — an unrendered bar has no gaps to read — and we decline with it rather than guessing.
-  // One undo per press. See docs/note-spacing-plan.md §5.
+  // One undo per press. See docs/plans/note-spacing-plan.md §5.
   // ⭐ The address comes from `spacingColumnOf`, NOT from `getNote().beat`: a fanned member's flat
   // note carries the SLOT's beat, so reading it there spaced the whole fan whichever member was
-  // selected (docs/note-spacing-plan.md §7). The id travels with the column so the engine can floor
+  // selected (docs/plans/note-spacing-plan.md §7). The id travels with the column so the engine can floor
   // a member's nudge against the head behind it.
   const selectedColumn = (): { measure: number; beat: Fraction; noteId: string } | null => {
     const eng = getEngine()
@@ -281,7 +281,7 @@ export function wireShortcuts(
   // single note is selected, so this is a `||` onto it. The engine DECLINES (null) when the last
   // render cannot say how far the barline may go — including the barline that ENDS a system, which
   // justification pins to the right margin and no stretch can move. One undo per press.
-  // See docs/bar-width-plan.md §4–§6.
+  // See docs/plans/bar-width-plan.md §4–§6.
   /**
    * ⭐⭐ **THE BAR THE SELECTED LINE ENDS** — the one address the four width/gap gestures below share,
    * resolved from EITHER barline selection.
@@ -573,7 +573,7 @@ export function wireShortcuts(
             // to the palette/Keypad rather than to Delete. Keeps the note selected afterwards, like
             // the accidental and the dot above, so the obvious next thing (stamp a different mark)
             // is one press away. Until this landed, a stamped tremolo could only be taken off with
-            // Ctrl+Z (docs/tremolo-plan.md §2).
+            // Ctrl+Z (docs/plans/tremolo-plan.md §2).
             const noteId = element.noteId
             eng.setTremolo(noteId, null)
             state.selectedElement = null
@@ -616,7 +616,7 @@ export function wireShortcuts(
           case 'pedal':
             // The pedal only — never the notes it holds. ⚠️ Like the ottava above, deleting it
             // CHANGES WHAT THEY SOUND: the notes stop ringing to the lift and fall back to their own
-            // written lengths (docs/pedal-plan.md §9). Visible and audible, and both intended.
+            // written lengths (docs/plans/pedal-plan.md §9). Visible and audible, and both intended.
             eng.pedal.removePedal(element.id)
             state.selectedElement = null
             renderer.renderScore()
@@ -654,7 +654,7 @@ export function wireShortcuts(
             // a signature: every bar is in SOME key, so removing the change at this bar reverts it
             // (and the bars after it, until the next change) to the inherited one. `keyOps.removeKeyAt`
             // is the write, and it does not touch its neighbours — propagation is a WALK, never a
-            // rewrite (docs/key-signature-plan.md §5.1).
+            // rewrite (docs/plans/key-signature-plan.md §5.1).
             //
             // ⭐ **Measure 1 is NOT refused** — his report, 2026-08-28: *"here i remove the key but
             // nothing hapend i still see the key on screen."* The guard that swallowed it was
@@ -701,7 +701,7 @@ export function wireShortcuts(
             // barline and turn it into a normal barline"*. `barlineOps.clearBarline` drops the SIGN
             // standing at this boundary (a final bar's style, an end repeat), never the boundary:
             // the measures array is the barline spine, so a bar always ends in a line and "delete"
-            // can only mean the STATEMENT drawn on it (docs/barline-types-plan.md §8 P5).
+            // can only mean the STATEMENT drawn on it (docs/plans/barline-types-plan.md §8 P5).
             //
             // ⚠️ This overturns the non-behaviour that stood here until P5, and the reasoning it
             // replaces was right about the identity and wrong about the consequence: a barline IS a
@@ -807,7 +807,7 @@ export function wireShortcuts(
     toggleRestHidden: () => {
       // Sibelius-style hide/show: toggle every selected REST's own hidden state, all in one
       // undo step (mirrors how deleteSelected batches articulations). Non-rest selections are
-      // ignored (notes/text not supported yet). See docs/rest-hide-plan.md.
+      // ignored (notes/text not supported yet). See docs/plans/rest-hide-plan.md.
       const eng = getEngine()
       if (!eng) return
       const restIds = [...state.selectedItems.values()]
@@ -878,7 +878,7 @@ export function wireShortcuts(
     octaveUp: () => { if (!nudgeSelectedElement(0, -NUDGE_COARSE_SS)) selection.adjustOctave(1) },
     octaveDown: () => { if (!nudgeSelectedElement(0, NUDGE_COARSE_SS)) selection.adjustOctave(-1) },
     // ── Ctrl+←/→ = MOVE: change the space before a selected note's column, or a selected barline's
-    //    bar width — "move a lot" gets the easy key (docs/note-offset-plan.md §C swap). Joins the
+    //    bar width — "move a lot" gets the easy key (docs/plans/note-offset-plan.md §C swap). Joins the
     //    slur-endpoint / dynamic COARSE nudge that already owned Ctrl+←/→ (all selections disjoint).
     //    Left = tighten/narrow, right = widen. DECLINEs (false) when nothing applicable is selected,
     //    keeping the key free. One undo per press.
@@ -919,7 +919,7 @@ export function wireShortcuts(
     // ── Note OFFSET (the small, deliberate nudge off the natural column) rides the harder chords:
     //    Ctrl+Shift+←/→ = WIDE (1 space), Shift+Alt+←/→ = FINE (¼ space). "Should not offset that
     //    much" → the deliberate chords, not the easy key. Each DECLINEs when no single note/rest is
-    //    selected. See docs/note-offset-plan.md §C.
+    //    selected. See docs/plans/note-offset-plan.md §C.
     //    ⭐ An armed slur ENDPOINT gets the chord first: it re-anchors one note left/right instead
     //    (Ctrl+←/→ already nudges that point by pixels, so Shift on the same axis means "move the
     //    anchor" — see `slurReanchor`). Disjoint from the offset, which needs a selected NOTE.

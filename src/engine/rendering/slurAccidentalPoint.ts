@@ -1,6 +1,6 @@
 /**
  * ⭐⭐ **AN ACCIDENTAL IS ONE POINT UNDER A SLUR, NOT A BOX** — LilyPond's rule, his call 2026-09-14
- * (`docs/slur-tie-research.md` §8.8).
+ * (`docs/research/slur-tie-research.md` §8.8).
  *
  * ## 🚨 The report, and the second time the same shape of fault appeared in one afternoon
  *

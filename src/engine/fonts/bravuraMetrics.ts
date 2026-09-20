@@ -2,7 +2,7 @@
  * ⛔⛔ **GENERATED — DO NOT EDIT.** `node scripts/generate-font-metrics.mjs`
  *
  * 73 of Bravura's 3434 glyphs: the ones the editor draws
- * (`docs/font-metrics-plan.md` F1). Hand-editing a number here would recreate by hand the very
+ * (`docs/plans/font-metrics-plan.md` F1). Hand-editing a number here would recreate by hand the very
  * drift the file exists to end — change the glyph list in the script and re-run.
  *
  * ⭐ **Boxes measured from `public/fonts/Bravura.otf`** — the font we engrave with and outline for

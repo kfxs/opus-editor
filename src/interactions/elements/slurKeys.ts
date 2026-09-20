@@ -40,7 +40,7 @@ export const SLUR_KEYS: KeysOf<'slur'> = {
     }
     if (slur.segmentEndpoint) {
       // The captured span count is the override's reset signature
-      // (docs/multisystem-slur-segment-endpoint-offset-plan.md).
+      // (docs/plans/multisystem-slur-segment-endpoint-offset-plan.md).
       engine.slur.nudgeSlurSegmentEndpoint(slur.id, slur.segmentEndpoint, dx, dy, slur.segmentSpanCount ?? 0)
       render()
       return true

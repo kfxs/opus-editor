@@ -3,7 +3,7 @@
  *
  * This used to be one number: `STAVE_HEIGHT + VERTICAL_SPACING`, computed inline in four places,
  * multiplied by the staff index for a staff's Y and by the staff count for a system's height. It
- * stopped being one number the day a staff could be drawn small (docs/staff-size-plan.md §5), and
+ * stopped being one number the day a staff could be drawn small (docs/plans/staff-size-plan.md §5), and
  * the failure is not merely ugly: `pageCastOff` decides page breaks from the system heights, so a
  * 0.7 staff sitting in a full-size slot paginates the score wrong.
  *
@@ -30,7 +30,7 @@ export function staveHeightPx(size: number): number {
 
 /** The five lines themselves — 4 staff-spaces, at `size`. ⭐ The measurable thing: every distance the
  *  engraving literature states is between one staff's BOTTOM LINE and the next one's TOP LINE
- *  (docs/vertical-spacing-research.md §1), so the gaps below are expressed against this and not
+ *  (docs/research/vertical-spacing-research.md §1), so the gaps below are expressed against this and not
  *  against {@link staveHeightPx}, which also carries room for ink that hangs off. */
 export function staffLinesPx(size: number): number {
   return STAFF_LINES_SPACES * STAFF_SPACE_PX * size
@@ -43,7 +43,7 @@ const STAFF_LINES_SPACES = 4
  * his ask, 2026-08-28: *"lets make the default space between staves (no between systems) a piano
  * space or a string quartet space based on the research"*.
  *
- * **5, and here is where it comes from** (docs/vertical-spacing-research.md, all MEASURED off the
+ * **5, and here is where it comes from** (docs/research/vertical-spacing-research.md, all MEASURED off the
  * printed engravings, since no book states a number):
  *
  * | measured | sp |
@@ -82,14 +82,14 @@ const STAFF_LINES_SPACES = 4
  * space is too wide"*) — roughly double the drawn practice, and it also broke the one ordering every
  * source agrees on (systems must be wider than staves), because a system's gap was the same 11.
  *
- * ⛔ **NOT scaled by staff size**: a gap is not made of ink (docs/staff-size-plan.md §5).
+ * ⛔ **NOT scaled by staff size**: a gap is not made of ink (docs/plans/staff-size-plan.md §5).
  *
  * ⏭️ **What this does NOT do, and the literature says it is the real rule:** the distance should be
  * decided by the INK IN THE GAP — Gould's *"recommended"* piano spacing is 13.27 sp because that gap
  * carries a hairpin, a slur and a tuplet bracket, and she prints an uncriticised 7.95 sp system gap
  * while calling 8.25 sp *"not acceptable"* where the ink is dense. A constant cannot say that. We
  * already build the skyline (`layout/outsideStaffBand`), so a measured gap is buildable —
- * docs/vertical-spacing-research.md §6, and docs/layout-plan.md §8 is where it would be planned.
+ * docs/research/vertical-spacing-research.md §6, and docs/plans/layout-plan.md §8 is where it would be planned.
  */
 export const STAFF_GAP_SPACES = 6.5
 

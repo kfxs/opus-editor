@@ -173,7 +173,7 @@ export const SHORTCUTS: Record<string, ShortcutDefinition> = {
   // horizontal-coarse pair is otherwise unbound. Its handlers DECLINE (return false) when no slur
   // endpoint is armed AND no dynamic is selected, so Ctrl+←/→ stay free for the rest of the app
   // until then. (A selected dynamic also nudges on the plain arrows — see nudgeSelectedDynamic.)
-  // Ctrl+←/→ = MOVE (docs/note-offset-plan.md §C): the space before a selected note's column, or a
+  // Ctrl+←/→ = MOVE (docs/plans/note-offset-plan.md §C): the space before a selected note's column, or a
   // selected barline's bar width — "move a lot" on the easy key. Joins the slur-endpoint / dynamic
   // coarse chain that already owned Ctrl+←/→ (all selections disjoint, so it just adds branches).
   // ⚠️ A selected HAIRPIN used to resize on this chord, ungated, so a selected wedge ate Ctrl+←/→
@@ -200,7 +200,7 @@ export const SHORTCUTS: Record<string, ShortcutDefinition> = {
     description: 'Reset the armed slur handle / hairpin end / a dynamic or tempo mark’s nudge / the space before the selected note / the bar’s width',
   },
 
-  // Note horizontal offset (client #12 — docs/note-offset-plan.md). A free nudge of a single
+  // Note horizontal offset (client #12 — docs/plans/note-offset-plan.md). A free nudge of a single
   // selected note/rest off its natural column, on top of automatic spacing. It rides the deliberate
   // chords, NOT the easy key ("should not offset that much"): WIDE (1 space) on Ctrl+Shift+←/→, FINE
   // (¼ space) on Shift+Alt+←/→. Both Ctrl+Shift+Backspace and Shift+Alt+Backspace reset it to the
@@ -242,7 +242,7 @@ export const SHORTCUTS: Record<string, ShortcutDefinition> = {
   // Staff spacing fine nudge (Sibelius "space above staff") — only fires when a single
   // measure box is selected; the coarse step rides Alt+↑/↓ (chordNoteUp/Down overloaded by
   // selection kind). Shift+↑/↓ (not Ctrl+Alt, which Linux WMs grab for workspace switching).
-  // See docs/staff-spacing-plan.md.
+  // See docs/plans/staff-spacing-plan.md.
   // ⭐ …and, with a HAIRPIN's mouth-bearing square armed (right on a crescendo, left on a diminuendo),
   // this pair OPENS and closes the MOUTH — ↑ wider (his call after trying Shift+←/→ in the hand and
   // finding it unintuitive, 2026-08-17; `interactions/elements/hairpinHandles`). Disjoint from the
@@ -296,7 +296,7 @@ export const SHORTCUTS: Record<string, ShortcutDefinition> = {
     description: 'Select nearest note in the voice below',
   },
 
-  // Note OFFSET, FINE step (¼ space) — Shift+Alt+←/→ (docs/note-offset-plan.md §C). The horizontal
+  // Note OFFSET, FINE step (¼ space) — Shift+Alt+←/→ (docs/plans/note-offset-plan.md §C). The horizontal
   // twin of the voice nav above (which owns Shift+Alt+↑/↓), on the axis the nav leaves free. The
   // note MOVE (spacing / bar width) used to live here; the §C swap sent it to the easy Ctrl+←/→ and
   // gave these deliberate chords to the offset instead ("should not offset that much"). The WIDE
@@ -339,7 +339,7 @@ export const SHORTCUTS: Record<string, ShortcutDefinition> = {
   },
   // ⭐ The fifth: ALL, which is a word about a MARK — a selected dynamic or hairpin governs every
   // voice of its staff. It says nothing about note entry (there is no typing into all of them), so
-  // with no such mark selected it does nothing. See docs/dynamic-voice-scope-plan.md P4.
+  // with no such mark selected it does nothing. See docs/plans/dynamic-voice-scope-plan.md P4.
   'Alt+5': {
     action: 'setMarkScopeAllVoices',
     description: 'The selected dynamic / hairpin governs ALL voices of its staff',
@@ -372,7 +372,7 @@ export const SHORTCUTS: Record<string, ShortcutDefinition> = {
   // Key signature: opens the Key Signature window — the same action as Insert ▸ Key Signature.
   // His ask, 2026-08-28. K joins Q (clef), T (meter), L (lines) and U (tuplet) as the bare-letter
   // Insert dialogs, and it was free. (Dorico's own key-signature popover is Shift+K — see
-  // docs/key-signature-plan.md §7; the bare letter is what this editor's other dialogs use.)
+  // docs/plans/key-signature-plan.md §7; the bare letter is what this editor's other dialogs use.)
   'k': {
     action: 'openKeySignatureWindow',
     description: 'Open the key signature window (a stepper along the circle of fifths)',
@@ -448,7 +448,7 @@ export const SHORTCUTS: Record<string, ShortcutDefinition> = {
   // exactly this — a `key` binding could not tell the two `1`s apart.
   'Ctrl+Numpad1': { action: 'keypadNoteEntryPage', description: 'Keypad: turn to the note-entry page (numpad 1)' },
 
-  // View mode (docs/linear-view-plan.md). Sibelius binds Panorama to Ctrl+Shift+P, but Firefox
+  // View mode (docs/plans/linear-view-plan.md). Sibelius binds Panorama to Ctrl+Shift+P, but Firefox
   // owns that (private window), so: Ctrl+Shift+L for "linear".
   'Ctrl+Shift+l': {
     action: 'toggleViewMode',
@@ -515,7 +515,7 @@ export const SHORTCUTS: Record<string, ShortcutDefinition> = {
   ),
 
   // Symbols: the SMuFL chart. Sibelius's own key for it, and a REFERENCE window — unlike Q and T
-  // above, opening it arms nothing and changes nothing on the score (docs/symbols-window-plan.md).
+  // above, opening it arms nothing and changes nothing on the score (docs/plans/symbols-window-plan.md).
   'z': {
     action: 'openSymbolsWindow',
     description: 'Open the Symbols window — the SMuFL glyph chart',

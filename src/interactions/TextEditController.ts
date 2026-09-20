@@ -240,7 +240,7 @@ export class TextEditController {
 
   /** Tear down the overlay, restore the original glyph, and clear editing state.
    *  Never re-renders — staying modal until commit/cancel keeps the SVG group and
-   *  overlay geometry valid (see docs/text-editing-plan.md §4.3). */
+   *  overlay geometry valid (see docs/plans/text-editing-plan.md §4.3). */
   private close(): void {
     const source = this.source
     if (!source) return

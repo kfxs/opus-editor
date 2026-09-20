@@ -43,7 +43,7 @@ export class SelectionController {
     if (note.forceAccidental && note.alter) return note.alter > 0 ? '#' : 'b'
 
     // The fanned members count here as well — the sign this reports must be the one the renderer
-    // engraves, and that walk sees them (docs/fanned-beam-pitches-plan.md §2).
+    // engraves, and that walk sees them (docs/plans/fanned-beam-pitches-plan.md §2).
     const governing = alterInForceAt(
       measureAccidentalNotes(measure), note.beat,
       keyAt(score, note.measure, keyStaffId(score, note.staff)), note.step!, note.octave!,
@@ -105,7 +105,7 @@ export class SelectionController {
     const engine = this.getEngine()
     if (!engine) return
     // ⚠️ Through the ENGINE, never a `getMeasureNotes` walk: that walk reads `slot.notes` and is
-    // blind to a FANNED MEMBER (docs/fanned-beam-pitches-plan.md §2 P3). Selecting a member has to
+    // blind to a FANNED MEMBER (docs/plans/fanned-beam-pitches-plan.md §2 P3). Selecting a member has to
     // make its lane active like any other note, or the next keystroke lands in another voice.
     const note = engine.getNote(noteId)
     if (!note) return
@@ -447,7 +447,7 @@ export class SelectionController {
     // `getMeasureNotes` walks `slot.notes`), so it navigates from the SLOT it belongs to — the same
     // (measure, beat) it sounds at. Without this a member is a dead end: you click one and the
     // arrows do nothing at all, with nothing on screen to say why
-    // (docs/fanned-beam-pitches-plan.md §2 P3).
+    // (docs/plans/fanned-beam-pitches-plan.md §2 P3).
     const selectedPos = selectedNote
     const currentNote = allFlat.find(n => n.id === this.state.selectedNoteId)
       ?? (selectedPos && allFlat.find(n =>
@@ -479,7 +479,7 @@ export class SelectionController {
    * ←/→ on a selected BARLINE walks to the previous/next one.
    *
    * Dispatched on WHAT IS SELECTED, the same way `Shift+Alt+←/→` is note spacing on a note and bar
-   * width on a barline (docs/bar-width-plan.md §6). A barline selection and a note selection are
+   * width on a barline (docs/plans/bar-width-plan.md §6). A barline selection and a note selection are
    * disjoint — picking a barline clears the note first — so this is a guard on the arrow handlers,
    * not a mode.
    *
@@ -545,7 +545,7 @@ export class SelectionController {
     const noteVoice = voiceOf(note)
     const noteStaff = staffOf(note)
     // ⭐ Inside a FAN, the chord is the MEMBER — the pitches stacked on this head, not the slot's
-    // (docs/fanned-beam-pitches-plan.md §2 P3). Resolving it positionally, as the ordinary path
+    // (docs/plans/fanned-beam-pitches-plan.md §2 P3). Resolving it positionally, as the ordinary path
     // does, hands back the slot's own pitches, the selected member is not among them, and Alt+↑/↓
     // silently does nothing (his report). Same rule as `Shift`+letter, which stacks onto the member.
     const chordNotes = (engine.fanMemberPitches(this.state.selectedNoteId) ?? getMeasureNotes(measure, score)
@@ -588,7 +588,7 @@ export class SelectionController {
    * ladder was written: the lane was in DIATONIC units where the renderer's was staff SPACES, and
    * the user's own `steps` was added to a diatonic scale unconverted, moving the hop at half
    * strength. ⛔ The import IS the lockstep — not a comment promising one, and not a copy.
-   * (docs/multi-voice-rest-position-plan.md §4.2.)
+   * (docs/plans/multi-voice-rest-position-plan.md §4.2.)
    */
   private elementVerticalPos(n: Note, clef: Clef, score: Score, measure: Measure): number {
     const voice = voiceOf(n)

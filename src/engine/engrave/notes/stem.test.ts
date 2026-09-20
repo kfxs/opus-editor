@@ -2,7 +2,7 @@
  * The stem's ink, in jsdom.
  *
  * ⛔ There is deliberately no spec here for how LONG a stem is: P3c took the ink and left the length
- * with VexFlow until `docs/stem-length-research.md` states a rule. A test asserting a length now
+ * with VexFlow until `docs/research/stem-length-research.md` states a rule. A test asserting a length now
  * would be pinning VexFlow's answer as if it were ours.
  */
 import { describe, it, expect } from 'vitest'

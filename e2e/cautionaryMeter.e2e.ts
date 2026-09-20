@@ -1,13 +1,13 @@
 /**
  * ⭐⭐ **A CAUTIONARY TIME SIGNATURE STANDS AFTER THE LAST BARLINE** — his report, 2026-09-12, and
- * `docs/barline-types-plan.md` §4.4a.
+ * `docs/plans/barline-types-plan.md` §4.4a.
  *
  * > *"The new time signature is always placed **after the barline**. When a change of time signature
  * > occurs between systems, add a cautionary indication at the end of the first system, **after the
  * > last barline**."* — Gould, *Behind Bars* **p. 152**, read on the scan, with a drawn example.
  *
  * ⚠️⚠️ **The OPPOSITE of a cautionary CLEF**, which all four books put BEFORE the barline
- * (`docs/clef-research.md` §4.3). ⛔ The two cautionaries are not one family, and a test that pinned
+ * (`docs/research/clef-research.md` §4.3). ⛔ The two cautionaries are not one family, and a test that pinned
  * only one of them would let the other regress — so both sides are asserted here.
  *
  * 🚨 **Why a browser spec**: the positions come from `Stave.format()`'s END walk, which steps back

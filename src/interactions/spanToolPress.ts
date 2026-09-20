@@ -1,7 +1,7 @@
 /**
  * ONE PRESS OF A SPAN TOOL'S KEY OR PALETTE ROW, routed by context — what `PaletteController` spelled
  * five times, for the slur, the trill, the octave line, the pedal and the two hairpins
- * (docs/code-shape-plan-2026-09-19.md, Phase 5). The same split the tie key has, which is Sibelius's
+ * (docs/plans/code-shape-plan-2026-09-19.md, Phase 5). The same split the tie key has, which is Sibelius's
  * gesture:
  *
  *  0. THIS tool's stamp is already armed → disarm it. A re-press of an armed tool turns it off, and

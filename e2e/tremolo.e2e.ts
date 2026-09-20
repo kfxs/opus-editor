@@ -1,7 +1,7 @@
 import { test, expect } from './fixtures'
 
 /**
- * Tremolos (docs/tremolo-plan.md, docs/two-note-tremolo-plan.md), measured for real.
+ * Tremolos (docs/plans/tremolo-plan.md, docs/plans/two-note-tremolo-plan.md), measured for real.
  *
  * Both kinds are placed against things only a real browser knows: a single-note tremolo centres its
  * strokes on the STEM and lengthens that stem when the strokes need the room (Gould: "extend the

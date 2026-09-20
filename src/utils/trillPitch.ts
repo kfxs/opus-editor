@@ -7,7 +7,7 @@
  * transposition or a key change without anything having to be rewritten. Store it and you have a
  * second answer that goes stale the first time the music around it moves.
  *
- * ⚠️ **It is SEMANTIC, not decoration**: this is what plays (docs/trill-plan.md §7), so getting it
+ * ⚠️ **It is SEMANTIC, not decoration**: this is what plays (docs/plans/trill-plan.md §7), so getting it
  * wrong is an audible bug, not a typographic one.
  *
  * ## The two questions, and why they have different answers
@@ -25,7 +25,7 @@
  * ⚠️ There is a real editorial spectrum here that this does not model: Gould advises showing the
  * accidental wherever there is any doubt, and some houses print it for every altered auxiliary
  * regardless. Ours is the narrow, mechanical rule — one function, one decision to widen if his eye
- * wants more signs (docs/trill-plan.md §9, "user chooses the step").
+ * wants more signs (docs/plans/trill-plan.md §9, "user chooses the step").
  */
 import type { Accidental, PitchAlter, PitchStep } from '@/types/music'
 import { alterInForce } from './accidentalState'

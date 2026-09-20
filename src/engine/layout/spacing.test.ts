@@ -13,11 +13,11 @@ import {
 } from './spacing'
 
 /**
- * The spacing rule (docs/spacing-model-plan.md P1). **Gould's own table is the spec.**
+ * The spacing rule (docs/plans/spacing-model-plan.md P1). **Gould's own table is the spec.**
  *
  * This is the one half of the model that needs no browser: it is a function of a `Fraction`, so it
  * can be held to *Behind Bars* p. 39 in node. The other half — the ink — measures 0×0 headless
- * (docs/spacing-model-research.md §5.4), so everything below hands extents in as FIXTURES and the
+ * (docs/research/spacing-model-research.md §5.4), so everything below hands extents in as FIXTURES and the
  * real numbers get pinned in `e2e/`.
  */
 

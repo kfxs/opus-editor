@@ -1,5 +1,5 @@
 /**
- * ⭐⭐ **WHERE A NOTE'S HEADS AND STEM STAND ALONG THE STAFF** — S6a of `docs/vexflow-removal-map.md`
+ * ⭐⭐ **WHERE A NOTE'S HEADS AND STEM STAND ALONG THE STAFF** — S6a of `docs/history/vexflow-removal-map.md`
  * (the note's geometry; ⏭️ S6b its y's and displaced heads, S6c its stem's extents, S6d the head width
  * from the font).
  *

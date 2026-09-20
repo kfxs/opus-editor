@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /**
  * ⭐⭐ **A HIT BOX, CHECKED IN jsdom** — which is the whole point of P6b
- * (`docs/own-engraving-engine.md` §5 P6).
+ * (`docs/plans/own-engraving-engine.md` §5 P6).
  *
  * 🚨 **The break-test is built into every case here and it is worth stating once:** in jsdom
  * `Accidental.getBoundingBox()` answers **0×0** — a page-less test has no font, so VexFlow's ruler

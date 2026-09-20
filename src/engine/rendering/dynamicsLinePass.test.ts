@@ -12,7 +12,7 @@ import { planDynamicsLines } from './dynamicsLinePlan'
 
 /**
  * THE DYNAMICS LINE PASS — the routing, not the geometry
- * (docs/dynamics-line-and-hairpins-plan.md P1).
+ * (docs/plans/dynamics-line-and-hairpins-plan.md P1).
  *
  * ⚠️ **Every number here is one the test HANDED IN**: the stave's line positions and each mark's
  * drawn baseline are fixtures, so what is checked is which line a mark is filed under and what the

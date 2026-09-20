@@ -42,7 +42,7 @@
  * are unanimous that a clef change belongs **BEFORE** the barline (Gould p. 8, *"the clef always goes
  * before the barline"*; Ross p. 167 and Gerou & Lusk p. 51 forbid the other arrangement outright), and
  * two of the three engines place it there. ⇒ its 0.5 is not a gap to tune but a SIDE to change, which
- * is a model widening and HIS — `docs/clef.md` §0.1a.
+ * is a model widening and HIS — `docs/how-it-works/clef.md` §0.1a.
  *
  * ## 🚨 THE SEQUENCE IS LOAD-BEARING (three wrong attempts, all caught by the BROWSER suite)
  *
@@ -147,7 +147,7 @@ function placeMeter(stave: EngravedStave, clef: Clef, key: KeySignature | undefi
  * device pixel per side, so a white gap reads **~0.2 sp too small** — more than the 0.16 the two
  * signs differ by ([[reference_the_browser_ink_reader_inflates_every_box]]). ⇒ 🚨 **the instrument
  * confirmed whichever form was tried last.** Calibrated against glyphs of known width, `+ left` is
- * right — and it is what all three engines compute (`docs/ink-anchors-and-side-bearings.md`).
+ * right — and it is what all three engines compute (`docs/research/ink-anchors-and-side-bearings.md`).
  * ⭐ So there is one conversion, {@link meterOriginX}, and the arms differ only in **what precedes
  * the meter** and **which gap belongs to that pair** — which is all they ever should have.
  */

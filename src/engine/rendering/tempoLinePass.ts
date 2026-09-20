@@ -2,7 +2,7 @@
  * ⭐⭐ **THE TEMPO MARK JOINS THE LADDER** — the post-measure pass that moves every tempo mark off
  * VexFlow's fixed rung and onto the row its own music leaves free.
  *
- * P0b of docs/ottava-plan.md, and the last of the four outside-staff families to stop having a
+ * P0b of docs/plans/ottava-plan.md, and the last of the four outside-staff families to stop having a
  * private vertical rule. What it replaces is one line in `./TempoLayout`:
  * `const y = stave.getYForTopText(1)` — a CONSTANT (a baseline 2 staff spaces above the top line,
  * `topTextPosition` 1) that knows nothing about ledger lines, a dynamic above the staff, a trill, or
@@ -112,7 +112,7 @@ export function placeTempoMarksOnLine(
   //    the fixed rung `drawTempoMarks` drew it on while every other family moves.
   // ⚠️ Silent for a full render, where the placements are the render's own. It is a preview
   //    (`./markPreviewPass`) that makes the snapshot older than the score. Same trap the wedge hit,
-  //    docs/render-performance-plan.md §12.5a.
+  //    docs/history/render-performance-plan.md §12.5a.
   const byNumber = new Map(pass.score.measures.map(m => [m.number, m]))
 
   for (const placement of placements) {

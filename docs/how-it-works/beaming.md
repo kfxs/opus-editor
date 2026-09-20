@@ -1,0 +1,334 @@
+# Beaming
+
+Which notes are joined by a beam. The rules live in `src/utils/beaming.ts` — pure, no VexFlow, no
+DOM: it takes a bar's slots plus a `MeterInfo` and returns slot-index groups, which
+`ScoreRenderer.buildBeams` maps onto its parallel `EngravedNote[]`.
+
+## Where a beam lives: on the NOTE
+
+`beam?: BeamMode` is a field of the `Chord` slot (`types/music.ts`), projected onto the flat `Note`
+and settable through `NoteParams`. It is stored as **absent** when it is `'auto'`, so the default
+costs nothing in JSON and `?? 'auto'` is how you read it back.
+
+It is **not** an engraving override. `EngravingOverrides` holds anchor-relative *visual nudges* in
+staff spaces, keyed by element id, which auto-reset when their anchor breaks. A beam mode is not a
+nudge — it changes *what is engraved*, which notes are grouped, the same class of statement as
+`stemDirection` sitting beside it on the slot. MusicXML puts `<beam>` on the note; music21 puts
+`.beams` on the note.
+
+## The default: the meter's beat groups
+
+With no override, notes beam together while they share a `getBeatGroup(beat, meter)` — the bar
+partitioned by the meter's own group lengths. 4/4 beams per quarter, 6/8 → 3+3, 9/8 → 3+3+3,
+7/8 → 2+2+3, and a stored additive grouping (8/8 as 3+3+2) is honoured as written.
+
+Three things break a group, whatever the meter: a rest (you cannot beam silence — but see
+"Beaming over a rest" for the opt-in exception), a non-beamable duration (quarter and longer), and a
+group that ends up with fewer than two notes.
+
+Beaming does **not** depend on clef — a beam group may span a mid-measure clef change. See
+`docs/how-it-works/note-selection-hit-detection.md` for that companion decision.
+
+## The four overrides
+
+| mode | meaning |
+|---|---|
+| `auto` | no override — the metric grouping above (stored as no field at all) |
+| `single` | force this note out of any beam |
+| `begin` | a beam **starts** here — the note before is cut loose, and the meter closes the group |
+| `continue` | this note is in the middle of a beam — **beamed on both sides** |
+| `end` | close the group after this note |
+
+### `continue` is symmetric (fixed 2026-07-24)
+
+A note marked `continue` has a beam coming in *and* a beam going out. That is what the word means,
+and what MusicXML means by it — so the mark must not depend on where the note sits in its group.
+
+It used to. `computeBeamGroups` only removed the break *behind* a `continue` note, so with eight
+eighths beamed 2+2+2+2:
+
+- on the **first** note of a group, the boundary you want to cross is behind it → it worked;
+- on the **last** note of a group, the boundary is in *front* → the mark did nothing at all.
+
+A `bridgeNext` flag now makes the note *after* a `continue` join across the boundary too. It spends
+itself on that one note, so a single `continue` bridges **exactly one boundary** rather than
+dissolving every boundary left in the bar: both cases above give `[0,1,2,3] [4,5] [6,7]`.
+
+`begin`…`continue`…`end` is unaffected — `end` closes the group explicitly.
+
+### `begin` starts a beam the METER ends (fixed 2026-07-24)
+
+`begin` used to open a **forced group that ignored every beat boundary** until an `end`, a rest, or the
+end of the bar. The group never terminated: eight eighths beamed `2+2+2+2` with `begin` on the second
+engraved **one seven-note beam** with the first note flagged, every note after the mark reading
+`continue`.
+
+The missing thing was the **end**, not the taking of the next note. `begin` still takes it — a beam of
+one note is not a beam, and MusicXML says the same by construction: a `begin` is followed by
+`continue`s and an `end`, never by nothing. So the mark bridges **exactly one boundary**, like
+`continue`, and then the meter closes the group:
+
+```
+auto              (1 2) (3 4) (5 6) (7 8)
+`begin` on 2      (1)  (2 3 4)  (5 6) (7 8)     roles: single begin continue end …
+```
+
+Two consequences worth knowing:
+
+- **`begin` … `end` alone no longer spans several beats.** One mark bridges one boundary, so a beam
+  over six eighths wants `continue` on the notes between — which is what MusicXML writes too. A press
+  applies to the whole selection, so "select the run, press `continue`" does it in one action.
+- **On the last beamable note of a bar `begin` engraves nothing**, because only `continue` opens a
+  barline (below). The mark is kept; there is simply nothing on this side of the barline to start a
+  beam with.
+
+## The mark travels with the music (rebar, copy/paste)
+
+`beam` and `secondaryBreak` are carried through the rebar relay — `RebarEvent` → `RebarPiece` →
+`Chord` (`utils/rebar.ts`) — which is the same road a meter change and a **paste** both ride. Named
+there for the reason the tremolo and the fan are: a slot field the relay does not list is a slot
+field the relay eats. The beam is the loudest case of it, because the automatic beat rules refill
+the silence instantly — a passage pasted without its mark does not arrive unbeamed, it arrives
+**beamed differently, and looking deliberate**. (That is what a paste did until 2026-07-28.)
+
+Which piece of a **tie-split** keeps the statement is the mode's own question, because the four do
+not all talk about the same end of the note:
+
+| mode | goes to | why |
+| --- | --- | --- |
+| `begin`, `continue` | the FIRST piece | they say where the group *starts*, and the note starts there |
+| `end` | the LAST piece | it says where the group *closes*, and the note ends there |
+| `single` | EVERY piece | it isolates the whole note; half of it beamed to a neighbour is what it forbids |
+| `secondaryBreak` | the FIRST piece | the break is in front of the note |
+
+The inverse — a tie chain **collapsing** back into one event — keeps the head's statement, so an
+`end` authored on the swallowed tail is dropped. One event holds one beam value, and a second field
+for a tail statement would be a shape for a case nothing in the editor asks for.
+
+⚠️ A rest's `beamOver` does **not** travel: it is tied to the rest object, and a rebar or paste
+regenerates rests. See "Beaming over a rest" below.
+
+## Through the barline
+
+```
+ bar 1                    | bar 2
+   ♪  ♪  ♪  ♪ ═════════════════ ♪  ♪
+```
+
+A barline is the strongest boundary in the bar, and it is still a boundary: mark the note on either
+side of it `continue` and the beam carries through. **No new field and no new button** — a second
+one ("beam across barline") would be the same statement written twice, and the two could then
+disagree. `docs/DESIGN-PRINCIPLES.md` also keeps the measures spine removable, and a feature that
+needs a special field for *the boundary that happens to be a barline* has baked bars in.
+
+Either side, because `continue` means the same thing wherever it sits (above). The last note of bar N
+has a beam going out; the first note of bar N+1 has one coming in, and across a barline there is
+nowhere else it could come from.
+
+Three things follow from the mark being the only thing that opens a barline:
+
+- **The default never joins.** The bar boundary is an unconditional break, and it has to be stated as
+  one — `beat` is bar-relative, so beat 0 of bar N+1 falls in the same beat group as beat 0 of bar N
+  and the metric rule alone would silently join every bar to the next.
+- **Only `continue` opens it.** `begin` bridges one boundary too (above), but not this one: a beam
+  through a barline is a deliberate, unusual notation, and it should take the mark that says *this
+  note is beamed on both sides* rather than fall out of a mark about starting a group. `begin` …
+  `continue` at the barline … `end` is how a manual group spans two bars.
+- **Chaining falls out.** A mark at two successive barlines runs the beam through both.
+
+The grouping is `computeCrossBarBeamGroups(bars)` in `utils/beaming.ts`, taking a run of bars — each
+with **its own meter**, since a run may contain a time-signature change — and returning `(bar, slot)`
+refs. `computeBeamGroups` is now a run of one, so there is one algorithm for both.
+
+### Through a system break too — the half-beam
+
+One beam (`EngravedBeam` — VexFlow's `Beam` until the removal) cannot span two lines, so a group straddling a break is not one beam: it is
+**planned whole and drawn as one fragment per system**. Each fragment hangs a short **half-beam** over
+its open end — the end-of-line fragment carries it through the closing barline into the margin, and the
+next line's fragment projects a shorter stub left of its first note. The two read as one beam
+continued across the page, which is what real engraving does; before, the pair fell back to two ordinary
+flagged groups, and the mark simply had nothing to join on that page.
+
+The mark does not change and nothing is added — `continue` at a barline still means *beamed on both
+sides*, and this section is the whole statement. The palette still reads `continue` at the break: the
+role is a fact about the **score** and the break a fact about the **layout** — `ScoreModel` does not
+know where the lines fall, and now intent and engraving agree rather than merely not being a bug.
+
+How it is drawn — the per-side split, the half-beam stub, the lone-note case, and what stays a
+whole-group fact (stem direction, the crossing beam count) — is in `docs/plans/cross-barline-beaming-plan.md`.
+
+## A beam group has ONE stem direction
+
+A beam cannot attach to stems pointing opposite ways, so the group's direction is a property of the
+*group*: **`engine/models/stemOps.beamGroupStemDirection`** resolves it once — an explicit
+`stemDirection` on any member wins, then the multi-voice lane's forced side, then the pitch furthest
+from the middle line — and every note in the group is set to it. **An `x` flip on any member
+therefore flips the whole beam**, which is the only thing it can mean.
+
+### 🚨🚨 …and until 2026-08-31 the FLIP did not know that
+
+His report: *"the two notes are beamed and grouped with stem down so im flipin B and nothing
+hapends… in case is a beamed group what the user expect is to flip the group"*, on a log where the
+key worked perfectly and the picture never moved:
+
+```
+[Model.updateNote] v0 B4 8 m1 b0.000 ← {stemDirection} {stemDirection: 'up'}
+[Model.updateNote] v0 B4 8 m1 b0.000 ← {stemDirection} {stemDirection: 'auto'}   ← and repeat
+```
+
+⭐ **The flip asked the wrong thing which way the note is drawn.** It read the pressed note's OWN
+pitch against the middle line (B4 in treble → down) and wrote the opposite — but his group, B4 with a
+G4 under it, was already drawn UP by the rule above. So `x` wrote the direction the group already had,
+and the second press released it back to the same picture. Nothing was wrong with the write, the undo
+or the render: the DECISION was measured against a note that does not decide.
+
+⭐⭐ The flip is now **`stemOps.flipStems`** and the GROUP is the unit: a press on any member reads the
+group's drawn direction and writes the opposite to every member; a second press clears them all back
+to auto; a group only *half* pinned (the state the old per-note flip could leave) is turned around
+rather than released. A note that is not beamed is a group of one — the behaviour that was always
+there.
+
+⭐ **And the group's rule moved into that module, so there is ONE of it.** `ScoreRenderer` keeps a
+one-line delegation and draws with the same answer `x` decides against; two answers to *"which way
+does this group point?"* is exactly the bug that cost. ⏭️ A beam that crosses a BARLINE is planned
+over a run of bars, so a flip on one turns around the half of it that lives in the pressed note's
+bar — the honest fix needs the renderer's plan, not a guess from one bar.
+
+⚠️ In a multi-voice bar that collides with the re-assert. `ScoreRenderer` captures each note's
+intended stem *before* the beams exist (to undo the same-tick reshuffling after `format` — VexFlow's, transcribed into ours), so
+the flipped note's partners were still marked with the voice's own side — and
+`StemmableNote.setStemDirection` **clears `note.beam`** (and so does our `EngravedNote.setStemDirection`, which transcribes it). The partner then drew its own stem *and* a
+flag while the beam went on drawing a stem for it: doubled stems, from one `x` press. Once a note is
+beamed, its intended direction **is** the beam's, and the capture is refreshed to say so
+(`multiVoiceStem.test.ts` pins both halves).
+
+## Secondary beam breaks (subdivision)
+
+Six sixteenths beamed as one group, subdivided 3+3: **one** primary beam over all six, the 16th-level
+beam broken in the middle. Standard notation — the primary beam shows the group, the secondary shows
+how it is felt inside.
+
+```
+  ┌─────────────────┐
+  ├─────┐   ┌───────┤
+  │  │  │   │  │  │
+```
+
+`secondaryBreak?: boolean` on the slot, projected onto the flat `Note` and settable through
+`NoteParams`, absent when off. It sits on the note that **starts** the new group — the break is in
+front of it, the reading `begin` already has, and the note MusicXML puts `<beam number="2">begin` on.
+
+It is **not** a sixth `BeamMode`, because it is a different statement. The mode says *which notes are
+beamed together*; this says *how many lines join them*. The six notes above are `auto` — nobody
+authored their grouping, the meter did — and they are still subdivided. The two are set
+independently, exactly as MusicXML keeps `<beam number="1">` and `<beam number="2">` apart.
+
+Drawing it is `EngravedBeam.breakSecondaryAt` (VexFlow's `Beam.breakSecondaryAt`, transcribed), no geometry of this feature's. The one wrinkle is an index
+translation, and it lives in `secondaryBreakIndices` (pure, tested) rather than inline in the
+renderer: our flag marks the note the break is **in front of**, the beam (VexFlow's convention, kept) wants the note the beam
+**ends after** — so a break in front of `i` is `breakSecondaryAt([i - 1])`. A flag on the group's
+first note has nothing in front of it and is dropped.
+
+The `subdivide` button is **selection-only** — no armed entry-mode value, unlike the beam mode. A
+subdivision is a statement about a group that already exists ("where does the second beam break
+*within* these six"), which is not something a note you have not written yet can carry. Sibelius's
+break-secondary is a selection edit for the same reason. It toggles across the whole selection as a
+set, like the articulations: all of them have it → remove, otherwise add.
+
+## Beaming over a rest (the "beamed rest")
+
+The default is that a rest breaks a beam — you cannot beam silence. But common practice keeps the beam
+running *over* a rest that sits **inside** a group: `𝅘𝅥𝅮 𝄾 𝅘𝅥𝅮 𝅘𝅥𝅮` in one beat is one beam, the rest floating
+under it. That is an opt-in, per rest.
+
+`beamOver?: boolean` on the **Rest** slot (`types/music.ts`), off by default, absent in JSON when off.
+It is a structural beaming statement, so it lives on the slot beside `beam` / `secondaryBreak`, not in
+the visual-override compartment that rest hide/shift use — with the one consequence that it is tied to
+that rest object, so a structural edit that regenerates the rest (rebar, paste) drops it, which is also
+when the beaming it described has changed.
+
+Two rules make it well-defined (`computeCrossBarBeamGroups`, tested):
+
+- **Interior only.** A `beamOver` rest is swept into a group only when a beamable note precedes it and
+  one follows; it never *starts* a group (a leading rest is nothing to beam) and it is **trimmed** if it
+  ends up trailing (a beam never hangs off a rest). So a surviving group still starts and ends on a note.
+- **It is a silent `continue`.** The mark does the bridging itself: the rest joins the group before it
+  *and* pulls the note after it across whatever boundary sits between — a beat boundary included — so the
+  neighbours need no mark of their own. That is the whole point of one click: `♪ ♪ 𝄾 ♪` with the rest on
+  the beat boundary beams as one run, where without the flag it would be `(♪ ♪)(♪)`. Like `continue` the
+  bridge spends itself on the next note, so one rest bridges exactly its own position, and a manual
+  `begin…end` group encloses an interior `beamOver` rest the same way.
+
+**The drawing is the beam's own, for free** (VexFlow's then; `EngravedBeam`, transcribed, since the removal). The rest already has its own note (`EngravedNote`) in the parallel array;
+once its slot index is in the group, `new EngravedBeam([...])` sweeps it in and floats the beam over it (a rest
+has no stem, so nothing connects down to it — the beam simply passes above). No geometry of ours.
+
+The `beam rest` button is **selection-only** and the exact **inverse population** of `subdivide`: it
+filters to keep rests and drops notes, because a rest is the only thing it applies to. It reports the
+authored flag; whether a beam actually runs over the rest depends on its neighbours (see the two rules).
+
+## The controls: the Keypad (the dev palette is gone)
+
+The beam controls live on the **Keypad's Beams/Tremolos page** — `single`/`begin`/`continue`/`end` on
+`* 7 8 9`, `subdivide` on `/`, `beam rest` on `-` (docs/how-it-works/keypad.md). The `Beam:` row in
+`dev/devToolbar.ts` that first exposed them was a dev tool and was **removed** once the Keypad took the
+cluster over; the rules below are the same, they just light Keypad keys now instead of toolbar buttons.
+
+⚠️ **`auto` has no key.** The reset — clear a note's authored beam back to the meter's default —
+`setBeam('auto')` is still a live method, but neither the Keypad nor anything else surfaces it now that
+the dev row is gone. It is a `TODO` on `PaletteController.setBeam` to add a "reset beaming" control to
+the Properties window; until then an authored `begin`/`continue`/`end`/`single` cannot be cleared.
+
+The lit rule is the shared single-selection one (`beamHighlight` in `interactions/keypadSync`):
+
+- **entry mode** — the armed value, what the next note will carry;
+- **selection mode, one note** — that note's own beam, synced by `SelectionController.syncPaletteToNote`.
+  ⚠️ it reads the engine's projection, because `getMeasureNotes` does *not* carry `beam` — reading it
+  there hands back `undefined` for every note and looks fixed while doing nothing;
+- **nothing, or several notes selected** — nothing lit. `BeamMode` has no "none", so an ungated control
+  would always have a key lit, claiming a selection that isn't there is auto-beamed.
+
+### Two facts (2026-07-24)
+
+The rule above answers one question — *did anyone author a beam here?* — and on its own that is not
+quality information. Eight auto eighths in 4/4 are beamed 2+2+2+2; every one of them reports `auto`, so
+it says nothing about the four beams you can see on the staff, nor that the first of each pair *begins*
+a beam and the second *ends* it.
+
+So a second, independent question is answered at the same time: *what is this note's beam?* —
+`beamRoleAt` in `utils/beaming.ts` (pure), reached through `ScoreModel.getBeamRole(noteId)` and the
+`beamRoleHighlight` rule beside `beamHighlight`. First index of its group → `begin`, last → `end`,
+between → `continue`, in no group → `single`. There is no `auto` role: `auto` is the absence of a
+choice, not a thing a note can be.
+
+Both facts light at once — the Keypad's `beamSelection` is a **set** (`PaletteController.refreshBeamSelection`
+unions `beamHighlight` and `beamRoleHighlight`), so up to two keys light, exactly as the removed toolbar
+row did. The old row also *coloured* the difference (cyan = authored, slate = the case nobody chose);
+the Keypad lights in one colour, so that nuance is dropped — the two-fact model is intact, only its
+display simplified. And the two can still **disagree** — an orphaned `end` with nothing behind it is
+authored `end` and engraved `single`, which is how a mark that did nothing announces itself.
+
+Two things the role must get right. It is read **live** from the engine on every sync, never mirrored
+into `EditorState`: it is a property of the score, and editing the *neighbour* changes it. And it is
+computed over the run the renderer actually beams — **one voice of one staff, sorted by beat, across the
+whole lane** (`beamRoleAtRef`) — or a voice-2 note gets scored against voice 1's grouping, and a note
+beamed through a barline reports the `end` its own bar would call it while the staff shows `continue`.
+
+Selection mode with a single note only. In entry mode `beamHighlight` shows the *armed* beam — the beam
+of a note that does not exist yet — and there is no role to pair it with.
+
+### A rest darkens the beam keys
+
+You cannot beam silence, so a selected rest has no beam to author and no role to be in: **both** facts
+go null (`getBeamRole` returns null for a rest slot; `beamHighlight` takes a `BeamSource` so it can
+ask). Lighting a beam-mode key over a rest would answer a question the note never asked — `setBeam` has
+always skipped rests. The **one** key that lights for a rest and darkens for a note is `beam rest`
+(`beamOverHighlight`), the mirror image — see "Beaming over a rest".
+
+### A press applies to the whole selection
+
+The controls are dark for a multi-selection — no single value stands for a set — but a **press** is not
+a reading. `setBeam` applies to every selected note in one `runBatch`, like every other multi-select
+action, because beaming is a statement about a *run* of notes: "select the group, press begin" is the
+gesture. It used to write only `selectedNoteId`, leaving the other five notes of a selected six
+untouched. Rests in the selection are filtered out rather than refusing the whole press.

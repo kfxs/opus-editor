@@ -18,7 +18,7 @@ import type { Score, BarWidthOverride, NoteParams, Dynamic } from '@/types/music
  * flag keeps these testing what they mean to test.
  */
 /**
- * The width and justification halves of bar width (docs/bar-width-plan.md §2–§3).
+ * The width and justification halves of bar width (docs/plans/bar-width-plan.md §2–§3).
  *
  * Two sentences these all test. **The multiplier is on the MUSIC** — never on the bar's
  * clef/meter overhead, which is reflow-dependent, so the same stored stretch buys the same pixels

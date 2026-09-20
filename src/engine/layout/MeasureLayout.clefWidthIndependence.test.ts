@@ -3,7 +3,7 @@
  * **Does a bar's note-space width depend on its CLEF?**
  *
  * The question decides where the last remaining cost in this editor gets fixed
- * (docs/render-performance-plan.md §9). `laneFingerprint` puts `clef` in the width cache's key, so
+ * (docs/history/render-performance-plan.md §9). `laneFingerprint` puts `clef` in the width cache's key, so
  * an alto clef at bar 40 mints a **new key for every one of the 260 bars after it** — and the census
  * measured the consequence: 1,175 formatter re-runs, 293 ms, **47% of all layout time**, almost all
  * of it earned by one clef change and the drag that moved it.
@@ -171,7 +171,7 @@ describe('is a measure’s width independent of its clef?', () => {
     // ⚠️ This test used to assert the opposite, and the assertion was right for as long as the ink
     //    was a notehead and an accidental: a clef moves every head the same distance *vertically*,
     //    and accidental stacking depends on the notes' RELATIVE positions. The spacing model's ink
-    //    half (docs/spacing-model-plan.md P3.1) put LEDGER LINES in, and a ledger is 0.67 spaces
+    //    half (docs/plans/spacing-model-plan.md P3.1) put LEDGER LINES in, and a ledger is 0.67 spaces
     //    wider than a bare notehead — so whether a note has one is a fact about where it SITS, and
     //    the same music under two clefs genuinely needs two widths. Drawing it otherwise put the
     //    ledger lines of a 32nd run on top of each other (his screenshot).

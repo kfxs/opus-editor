@@ -90,7 +90,7 @@ export const SLOT_FIELD_TRAVEL = {
   fan: 'carried',
   /** Which piece keeps it depends on WHAT it says — `begin` the first, `end` the last (`relayEvents`). */
   beam: 'carried',
-  /** ⭐ An authored override of one stub's direction (`docs/beam-hook-research.md` §8). Carried for
+  /** ⭐ An authored override of one stub's direction (`docs/research/beam-hook-research.md` §8). Carried for
    *  `stemDirection`'s reason — it is a hand-made decision about THIS note, and nothing a re-lay does
    *  invalidates it. ⚠️ Unlike `beam` it needs no per-piece choice: the stub belongs to the note, so
    *  every piece of a split may keep it, and the metric default reasserts itself wherever the

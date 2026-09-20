@@ -13,7 +13,7 @@
  * does, which keeps the pasteboard a fixed amount of PAPER rather than a fixed amount of screen.
  *
  * The functions here are pure and know nothing about the DOM: the host multiplies by zoom and
- * writes pixels, the model clamps scroll. See docs/zoom-plan.md §3 for the sizer/zoomLayer pair
+ * writes pixels, the model clamps scroll. See docs/plans/zoom-plan.md §3 for the sizer/zoomLayer pair
  * these feed.
  */
 

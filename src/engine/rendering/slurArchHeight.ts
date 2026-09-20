@@ -1,5 +1,5 @@
 /**
- * ⭐⭐ **HOW TALL A SLUR'S ARCH IS** — one span in, one control height out (docs/slur-plan.md §12
+ * ⭐⭐ **HOW TALL A SLUR'S ARCH IS** — one span in, one control height out (docs/plans/slur-plan.md §12
  * Phase 2). The number every other slur decision is judged against, and the only one in the family
  * with **no published source at all**.
  *

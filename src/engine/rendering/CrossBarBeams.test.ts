@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * **Cross-barline beams** (docs/cross-barline-beaming-plan.md) — P1.
+ * **Cross-barline beams** (docs/plans/cross-barline-beaming-plan.md) — P1.
  *
  * The join is observable without any test-only API: the one `Beam` that spans two bars is drawn
  * OUTSIDE both measure groups, so it is a direct child of the `<svg>` (`g.beam`), exactly where a
@@ -242,7 +242,7 @@ describe('cross-barline beams — the planner', () => {
   })
 
   /**
-   * ⭐ A crossing group holding a FAN is the fan's beam, not a `Beam` (docs/fan-beam-join-plan.md P3).
+   * ⭐ A crossing group holding a FAN is the fan's beam, not a `Beam` (docs/plans/fan-beam-join-plan.md P3).
    * It is routed to `fanJoins`, its owner keeps its stem, and a group that landed on two systems is
    * refused outright rather than split.
    */
@@ -387,7 +387,7 @@ describe('cross-barline beams — the planner', () => {
    *
    * `renderScore` runs this planner drawn-blind (to find every join for the span machinery) and then
    * again against the real draw decision. The census measured the pair at **14% of all render time**
-   * on a score with no cross-barline beams at all (docs/render-performance-plan.md §12.7), so the
+   * on a score with no cross-barline beams at all (docs/history/render-performance-plan.md §12.7), so the
    * second pass is now skipped when the first reports nothing crossed.
    *
    * ⛔ The flag has to answer for the REFUSALS too, or that skip is unsound.
@@ -415,7 +415,7 @@ describe('cross-barline beams — the planner', () => {
       const fanned = noteIdAt(model, 2, 0)
       model.setFan(fanned, { direction: 'accel', count: 4, beams: 2 })
       // ⚠️ `continue` on the FAN'S OWNER is the word that joins it to the group on its left
-      // (docs/fan-beam-join-plan.md) — a fan is not a group of one, so without this it is inert.
+      // (docs/plans/fan-beam-join-plan.md) — a fan is not a group of one, so without this it is inert.
       model.updateNote(fanned, { beam: 'continue' })
 
       // Bar 1 on line 0, bar 2 on line 1 — the split that makes the refusal fire.
@@ -427,7 +427,7 @@ describe('cross-barline beams — the planner', () => {
   })
 })
 
-// --- unit: sides, the per-system split (docs/cross-barline-beaming-plan.md) ---
+// --- unit: sides, the per-system split (docs/plans/cross-barline-beaming-plan.md) ---
 
 describe('cross-system beam fragments — computeSides', () => {
   // Synthetic members: the wall still keeps real joins single-line, so the split is exercised here,

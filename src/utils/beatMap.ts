@@ -55,7 +55,7 @@ export function buildVoiceNavBeatMap(score: Score, voice: number, staff?: number
       // Staff is a HARD boundary (no per-measure fallback like voice): filter to the staff
       // first, then apply the voice fallback WITHIN that staff's notes.
       // ⭐ The fan's MEMBERS are stops too — each sounds at its own moment inside the slot, so the
-      // arrows walking time walk through them (docs/fanned-beam-pitches-plan.md). They are added
+      // arrows walking time walk through them (docs/plans/fanned-beam-pitches-plan.md). They are added
       // HERE and not in `buildBeatMap`: that map drives note ENTRY, and a member is not a position
       // you can type a note at.
       const notes = [...getMeasureNotes(m, score), ...measureFanMemberNotes(m, score)]

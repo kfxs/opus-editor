@@ -5,7 +5,7 @@ import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 
 /**
  * ⭐ **THE ZERO-CHANGE PROOF.** `curveStyle` moved the slur/tie geometry out of pixels and into
- * staff spaces (docs/slur-plan.md §12.0 #8). The whole claim of that move is that it changed no
+ * staff spaces (docs/plans/slur-plan.md §12.0 #8). The whole claim of that move is that it changed no
  * drawn ink, so this spec pins every derived pixel against the literal it replaced — the values that
  * stood in `SlurRenderer`, `TieRenderer` and `curveArc` before the move.
  *

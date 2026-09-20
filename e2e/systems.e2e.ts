@@ -2,7 +2,7 @@ import { test, expect } from './fixtures'
 
 /**
  * Casting off — where the music breaks into systems, and what a beam does when a break lands in
- * the middle of it (docs/cross-barline-beaming-plan.md, docs/ragged-last-system.md).
+ * the middle of it (docs/plans/cross-barline-beaming-plan.md, docs/how-it-works/ragged-last-system.md).
  *
  * VexFlow does no line breaking at all; every one of these decisions is ours, and every one is made
  * from MEASURED widths. In jsdom those widths are zeros, so the whole of this file is invisible to

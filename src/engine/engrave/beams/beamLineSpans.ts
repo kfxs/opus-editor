@@ -1,5 +1,5 @@
 /**
- * ⭐⭐ **WHICH X'S EACH BEAM LINE RUNS BETWEEN** — S7d of `docs/vexflow-removal-map.md`
+ * ⭐⭐ **WHICH X'S EACH BEAM LINE RUNS BETWEEN** — S7d of `docs/history/vexflow-removal-map.md`
  * (`Beam.getBeamLines` + `Beam.lookupBeamDirection`, MIT, transcribed).
  *
  * ## ⭐ What the rule IS
@@ -26,7 +26,7 @@
  *   stub (its end was just set, so the `end === undefined` test never passes);
  * - the recursion for an interior stub asks each coarser level in turn and gives up LEFT at the primary.
  *
- * ⏸️ **TODO / REVIEW after the VexFlow removal** (`docs/vexflow-removal-map.md` §9.4 #1): the two
+ * ⏸️ **TODO / REVIEW after the VexFlow removal** (`docs/history/vexflow-removal-map.md` §9.4 #1): the two
  * secondary-BREAK branches never read {@link BeamLevelInput.forcedSides}, so the beat rule
  * (`./fractionalBeam`) does not reach a note next to a break — and a group's FIRST note with a break
  * right after it points LEFT, out of the group. Kept as VexFlow drew it: fixing it moves stubs.
@@ -34,7 +34,7 @@
 
 /**
  * ⭐ **A fractional beam's length, in px — 1 staff space.** Taken from `Beam.renderOptions`'
- * `partialBeamLength` = 10 (`beam.js:323`). ⏳ **Open (decision A of `docs/beam-hook-research.md` §8)**:
+ * `partialBeamLength` = 10 (`beam.js:323`). ⏳ **Open (decision A of `docs/research/beam-hook-research.md` §8)**:
  * every source says *one notehead* — Gould's plate 0.97 of one, Bravura's black head 1.18 sp,
  * MuseScore and LilyPond 1.1 — and this is the default until that is decided.
  */

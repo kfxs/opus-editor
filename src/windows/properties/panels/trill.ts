@@ -59,7 +59,7 @@ function buildTrillOffsetRows(trill: Trill, element: InspectedOf<'trill'>): HTML
 /**
  * ⭐ **How a trill labels itself on a CONTINUATION system** — the three real behaviours in the
  * field, offered as a choice because there is no single right one (see
- * {@link Trill.continuationLabel} for who does which, and docs/trill-plan.md §1 rule 6).
+ * {@link Trill.continuationLabel} for who does which, and docs/plans/trill-plan.md §1 rule 6).
  *
  * ⚠️ The window is a DUMB PUBLISHER: it writes to `bus.trillEdit` and never touches the engine —
  * `TrillEditController` owns the apply, the same boundary the fan inputs keep.

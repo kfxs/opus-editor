@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * **A small staff gets a small slot** (docs/staff-size-plan.md §5, P2).
+ * **A small staff gets a small slot** (docs/plans/staff-size-plan.md §5, P2).
  *
  * The vertical stride used to be one number for every staff in every system, and `pageCastOff`
  * decides page breaks from it — so a staff drawn at 0.7 in a full-size slot is not merely ugly,
@@ -47,7 +47,7 @@ function buildScore(): ScoreModel {
  * ⭐ ONE renderer, re-rendered — not a fresh one per picture. A second render REUSES the measure
  * groups whose shape key is unchanged and merely translates them, and a size change is exactly a
  * bar that moves without looking different. A fresh renderer would draw everything from scratch
- * and prove nothing about the path the app actually takes (docs/staff-size-plan.md §7).
+ * and prove nothing about the path the app actually takes (docs/plans/staff-size-plan.md §7).
  */
 function makeRenderer(): ScoreRenderer {
   const container = document.createElement('div')

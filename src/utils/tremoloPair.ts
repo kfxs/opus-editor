@@ -1,5 +1,5 @@
 /**
- * The TWO-NOTE tremolo's ONE validity predicate — docs/two-note-tremolo-plan.md §1.
+ * The TWO-NOTE tremolo's ONE validity predicate — docs/plans/two-note-tremolo-plan.md §1.
  *
  * `Chord.tremoloPair` is a **relation**, not a property: it says "this slot alternates with the NEXT
  * one", and every pipeline that reorders slots can break it after the fact — deleting the partner
@@ -158,7 +158,7 @@ export function pairIsJoined(slots: ChordRest[], index: number): boolean {
  * quarters, drawn as halves with no beam, draws all three.
  *
  * ⚠️ THIS IS NOT THE SINGLE-NOTE RULE, and the difference is geometric rather than arbitrary. There
- * (docs/tremolo-plan.md §5) `totalBeams = flags + strokes`: a flag hangs off the OUTSIDE of the
+ * (docs/plans/tremolo-plan.md §5) `totalBeams = flags + strokes`: a flag hangs off the OUTSIDE of the
  * stem, so it is not one of the lines between anything and cannot stand in for a stroke. Same reason
  * the flags of a pair drawn APART do not count here either — only a beam does.
  *

@@ -68,7 +68,7 @@ export function pressKeypadCell(cell: KeypadCell): void {
       // to palette.pressFan — the same method the dev toolbar's two buttons call — which puts a fan on
       // the selection, turns an existing one round, or takes it off when the lit key is pressed again.
       // The press channel is what makes that last one possible: a mirror would swallow it as "no
-      // change" (docs/fanned-beams-plan.md §3).
+      // change" (docs/plans/fanned-beams-plan.md §3).
       if (cell.fan) bus.fan.press(cell.fan)
       break
     case 'tremoloPair':

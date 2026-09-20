@@ -128,7 +128,7 @@ describe('selectedElements — engraving overrides', () => {
     ])
   })
 
-  // ⭐⭐ The member trap (docs/note-offset-plan.md): a fanned member's offset is keyed by the member
+  // ⭐⭐ The member trap (docs/plans/note-offset-plan.md): a fanned member's offset is keyed by the member
   // itself, so a panel that resolved it to the containing slot would show the OWNER's number while
   // the keyboard nudge wrote the member's — a surface must report what the model will accept.
   it('⭐⭐ a fanned MEMBER reports its own offset, not the fan owner’s', () => {

@@ -334,7 +334,7 @@ describe('resolveChordLevels', () => {
 
 // ---------------------------------------------------------------------------
 // ⭐⭐ SCOPE — an absent `voice` governs EVERY voice of the mark's own staff
-// (docs/dynamic-voice-scope-plan.md P1). Every fixture above states its voice
+// (docs/plans/dynamic-voice-scope-plan.md P1). Every fixture above states its voice
 // explicitly, so none of them exercises this; these do.
 // ---------------------------------------------------------------------------
 

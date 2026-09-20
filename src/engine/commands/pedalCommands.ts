@@ -158,7 +158,7 @@ export function pedalCommands(ctx: CommandContext) {
      * `beat` must be a slot-boundary beat. Saves undo state when added.
      *
      * ⚠️ This is the LOW-level door: it stores, it does not make room. Lifting a pedal that was still
-     * down is the ENTRY door's job (`addPedalOverNotes`), which is P4's (docs/pedal-plan.md §3.3).
+     * down is the ENTRY door's job (`addPedalOverNotes`), which is P4's (docs/plans/pedal-plan.md §3.3).
      * @returns the stored Pedal, or null if the measure is missing or the length is not positive.
      */
     addPedal(measureNumber: number, pedal: Omit<Pedal, 'id'>): Pedal | null {
@@ -182,7 +182,7 @@ export function pedalCommands(ctx: CommandContext) {
      * lift on the last note's onset would release the very note the user pointed at.
      *
      * ⭐⭐ **It also LIFTS whatever was still down** — the truncation rule lives in `addPedalOverNotes`
-     * (docs/pedal-plan.md §3.3), so both doors make room the same way and neither invents it. That is
+     * (docs/plans/pedal-plan.md §3.3), so both doors make room the same way and neither invents it. That is
      * the whole reason the entry phase has a door of its own rather than calling `addPedal`.
      *
      * ⛔ **A REST cannot anchor one**, the ottava's and hairpin's refusal — the engine resolves by
@@ -212,7 +212,7 @@ export function pedalCommands(ctx: CommandContext) {
      *
      * ⭐ **It goes through the ENTRY door** (`pedalOps.addPedalOverNotes`), ⛔ never `addPedal`: two
      * pedals overlapping on one staff is a contradiction — there is ONE damper — and the rule for
-     * resolving it is the pianist's own gesture, *lift, re-press* (docs/pedal-plan.md §3.3). An earlier
+     * resolving it is the pianist's own gesture, *lift, re-press* (docs/plans/pedal-plan.md §3.3). An earlier
      * press still down is shortened to end here; a later one is left alone and this pedal stops where
      * it begins; one on this exact beat is replaced. ⚠️ That is the same door the Lines window uses,
      * so a pasted pedal cannot reach a state the entry gesture could not.

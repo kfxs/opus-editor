@@ -1,7 +1,7 @@
 /**
  * HAIRPINS — the crescendo / diminuendo wedges, as SCORE operations: add, remove, re-length,
  * look up. Free functions on a `Score`, in the `clefOps` / `slurOps` / `voiceOps` idiom, with
- * {@link ScoreModel} keeping thin delegators (docs/dynamics-line-and-hairpins-plan.md §6a,
+ * {@link ScoreModel} keeping thin delegators (docs/plans/dynamics-line-and-hairpins-plan.md §6a,
  * principle 5 — *the score is independent of the editor*, so none of this may live on
  * `MusicEngine`, which is the editor's facade).
  *
@@ -99,7 +99,7 @@ export function hairpinMeasure(score: Score, id: string): Measure | null {
  * categories of thing on a hairpin and on a slur endpoint one branch over. Letting a horizontal
  * drag write a cosmetic offset instead would give us two ways to say "this hairpin is three
  * beats long" that can disagree, with playback believing the one the eye does not.
- * See docs/dynamics-line-and-hairpins-plan.md §4.
+ * See docs/plans/dynamics-line-and-hairpins-plan.md §4.
  *
  * A non-positive length is refused rather than deleting the hairpin — removal is
  * {@link removeHairpin}'s job, and a shortening gesture that silently destroys the thing it is

@@ -3,7 +3,7 @@ import { METER_BOTTOM_LINE, METER_SYMBOL_LINE, METER_TOP_LINE, meterLayout } fro
 
 /**
  * ⭐ A time signature's rows are TODAY's picture, copied exactly from VexFlow's `TimeSignature`
- * (S4b0 of `docs/vexflow-removal-map.md`). ⚠️ Rows, not laws (rule 13).
+ * (S4b0 of `docs/history/vexflow-removal-map.md`). ⚠️ Rows, not laws (rule 13).
  *
  * The widths are a named argument, so this spec hands in a ruler of its own: every glyph 10 px wide.
  */

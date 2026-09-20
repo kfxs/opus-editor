@@ -276,7 +276,7 @@ const rework = (layers: GlyphSpec[]): Icon => ({ layers })
  *  tremolos" (keys 1–5); key 6 is the PENDERECKI mark (E22B).
  *
  *  ⚠️ Key 6 used to be called `buzzRoll` here while drawing E22B — three names for one glyph across
- *  two files (docs/tremolo-plan.md §0). It is named for what it DRAWS now, and it matches the
+ *  two files (docs/plans/tremolo-plan.md §0). It is named for what it DRAWS now, and it matches the
  *  `TremoloMark` value (`'penderecki'`) and the dev palette's id. E22A is the actual buzz roll and
  *  E22C the dedicated unmeasured sign; both are still unused. Sibelius calls its own key 6 a buzz
  *  roll — if that is the key we want, the GLYPH changes, not just the name. */
@@ -328,7 +328,7 @@ const TREMOLO = {
 // were already in Sibelius's places (1–5 strokes, 6 the Penderecki sign, Enter the two-note mark).
 //
 // ⚠️ `Enter` is a SECOND AXIS, not a seventh mark: a two-note tremolo has a count AND a pair, so it
-// lights beside `1`–`6` rather than instead of one (docs/two-note-tremolo-plan.md §4). And the pair's
+// lights beside `1`–`6` rather than instead of one (docs/plans/two-note-tremolo-plan.md §4). And the pair's
 // stroke STYLE is on the beam keys above — `begin` joins them, `single` floats them — because on a
 // pair those keys choose how its lines are drawn (§2).
 const page2: CellSpec[] = [

@@ -1,5 +1,5 @@
 /**
- * ⭐⭐ **AN OCTAVE LINE SOUNDS** (docs/ottava-plan.md §6, P2) — the notehead stays where it is and
+ * ⭐⭐ **AN OCTAVE LINE SOUNDS** (docs/plans/ottava-plan.md §6, P2) — the notehead stays where it is and
  * the ear hears it an octave away.
  *
  * The RESOLUTION rules (half-open span, per staff, which of two overlapping lines wins) are
@@ -47,7 +47,7 @@ describe('a passage under an octave line plays an octave away', () => {
     addOttava(model.getScore(), 1, { beat: frac(0, 1), length: frac(4, 1), shift: 1 })
 
     expect(midis(model.getScore())).toEqual([C5])
-    // ⭐ The written pitch is untouched — that is the whole design (docs/ottava-plan.md §2).
+    // ⭐ The written pitch is untouched — that is the whole design (docs/plans/ottava-plan.md §2).
     expect(model.getNote(note.id)!.octave).toBe(4)
   })
 
@@ -83,7 +83,7 @@ describe('a passage under an octave line plays an octave away', () => {
  */
 describe('every re-attack pattern is shifted too — the three emit paths', () => {
   it('⭐⭐ a TRILL inside an 8va trills in the new octave — BOTH notes, not just the main one', () => {
-    // docs/ottava-plan.md §6 names `auxiliaryMidiFor` as the site that fails silently. Unshifted, the
+    // docs/plans/ottava-plan.md §6 names `auxiliaryMidiFor` as the site that fails silently. Unshifted, the
     // auxiliary would be D4 (62) against a main of C5 (72) — a ninth, and still audibly "a trill".
     const model = new ScoreModel()
     const note = model.addNote({ step: 'C', alter: 0, octave: 5, duration: 'w', measure: 1, beat: frac(0, 1) })

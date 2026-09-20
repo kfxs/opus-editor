@@ -259,7 +259,7 @@ export function pasteElement(engine: ElementClipEngine, clip: ElementClip, ancho
       // the mark, like `placement`, and it is what you copied. ⚠️ This used to read
       // `anchor.voice ?? clip.voice ?? 0`, so a staff-wide `f` pasted onto a voice-2 note came back
       // scoped to voice 2, and onto anything else came back scoped to voice 1 — a copy could never
-      // reproduce a staff-wide mark. See docs/dynamic-voice-scope-plan.md (his call is owed here).
+      // reproduce a staff-wide mark. See docs/plans/dynamic-voice-scope-plan.md (his call is owed here).
       const staffId = engine.staffIdForIndex(anchor.staff)
       const created = engine.dynamic.addDynamic(anchor.measure, {
         beat: anchor.beat,
@@ -301,7 +301,7 @@ export function pasteElement(engine: ElementClipEngine, clip: ElementClip, ancho
       //
       // ⚠️ **A paste onto an occupied beat REPLACES** — `addOttava`'s upsert, the clef's rule and not
       // the wedge's: one (beat, staff) may hold at most one octave line, or no reader could say which
-      // displacement is true (docs/ottava-plan.md §7.8). ⭐ It needs no batch here, since that op is
+      // displacement is true (docs/plans/ottava-plan.md §7.8). ⭐ It needs no batch here, since that op is
       // one write and records one undo entry.
       const staffId = engine.staffIdForIndex(anchor.staff)
       const created = engine.ottava.addOttava(anchor.measure, {
@@ -319,7 +319,7 @@ export function pasteElement(engine: ElementClipEngine, clip: ElementClip, ancho
       //
       // ⚠️⚠️ **IT LANDS THROUGH THE ENTRY DOOR, so it MAKES ROOM** — {@link MusicEngine.pedal.addPedalOverSpan},
       // ⛔ never `addPedal`. Two pedals overlapping on one staff is a contradiction (one damper), and
-      // the model already knows how a pianist resolves it: *lift, re-press* (docs/pedal-plan.md §3.3).
+      // the model already knows how a pianist resolves it: *lift, re-press* (docs/plans/pedal-plan.md §3.3).
       // ⭐ That is the difference from the ottava's arm beside it — two brackets may not SHARE a beat,
       // but they may overlap, because two displacements at different times are readable and two feet
       // are not.
@@ -363,7 +363,7 @@ export function pasteElement(engine: ElementClipEngine, clip: ElementClip, ancho
       // ⛔ A barline is never one of them, whatever the selection was.
       const stop = tempoAnchorAt(engine.getScore(), { measure: anchor.measure, beat: anchor.beat })
       if (!stop) return null
-      // ⚠️ At most ONE mark per beat (docs/tempo-marks-plan.md §4). A paste REPLACES the sitting
+      // ⚠️ At most ONE mark per beat (docs/plans/tempo-marks-plan.md §4). A paste REPLACES the sitting
       // mark, which is what the music clip's own paste does with it (`rebarOps.restoreBeatAnchors`)
       // — and the two writes are one undo step, so a Ctrl+Z puts the old mark back.
       const sitting = tempoAtStop(engine.getScore(), stop)

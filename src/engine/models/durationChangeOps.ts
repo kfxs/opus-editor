@@ -6,7 +6,7 @@
  * TUPLET is clamped to what the group has left and the group's filler rests are recomputed. A
  * chord's heads are kept in step throughout — they share one length.
  *
- * Score logic, moved out of `NoteEntryCoordinator` (docs/code-shape-plan-2026-09-19.md, Phase
+ * Score logic, moved out of `NoteEntryCoordinator` (docs/plans/code-shape-plan-2026-09-19.md, Phase
  * 4.2c): the coordinator keeps a fanned member's straight-through write and the commit, which is
  * why {@link changeNote} answers the LABEL to commit under — or null when nothing was written.
  *

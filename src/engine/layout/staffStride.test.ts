@@ -8,7 +8,7 @@ import {
 
 // ⚠️ **The stride stopped being `STAVE_HEIGHT + VERTICAL_SPACING` on 2026-08-28.** A staff-to-staff
 // distance is now the five LINES plus the researched gap, and the bottom staff of a system trails a
-// wider one (docs/vertical-spacing-research.md; the gaps themselves are `staffStride.gaps.test.ts`).
+// wider one (docs/research/vertical-spacing-research.md; the gaps themselves are `staffStride.gaps.test.ts`).
 // `STAVE_HEIGHT` still means "the room a staff's ink occupies" — the cull window and the measure
 // rect read it — it is simply no longer what sets the distance.
 const FULL_STRIDE = staffLinesPx(1) + STAFF_GAP_SPACES * STAFF_SPACE_PX
@@ -16,7 +16,7 @@ const FULL_STRIDE = staffLinesPx(1) + STAFF_GAP_SPACES * STAFF_SPACE_PX
 const TRAILING_EXTRA = (SYSTEM_GAP_SPACES - STAFF_GAP_SPACES) * STAFF_SPACE_PX
 
 /**
- * The vertical stride went from one number to one per staff (docs/staff-size-plan.md §5). The two
+ * The vertical stride went from one number to one per staff (docs/plans/staff-size-plan.md §5). The two
  * things worth pinning: at a uniform size every function still answers exactly what the old
  * arithmetic did, and a small staff shrinks the STAFF without shrinking the clearance.
  */

@@ -1,7 +1,7 @@
 /**
  * ⭐ **TIES** — which note a tie joins to, and the two ways the editor asks for one: a single note
  * (`toggleTie`) and a whole selection (`planTieSelection` + `applyTiePairs`). Score logic, moved off `MusicEngine`
- * (docs/code-shape-plan-2026-09-19.md, Phase 4.1): the facade keeps the undo entry and nothing else.
+ * (docs/plans/code-shape-plan-2026-09-19.md, Phase 4.1): the facade keeps the undo entry and nothing else.
  *
  * ⭐ **One rule for the target, where the two callers each spelled it**: a tie goes to the next slot
  * STRICTLY AFTER the source in its own stream — the source's voice AND staff, because voices and
@@ -13,7 +13,7 @@
  * the target reassigns ALL of them onto the replacement rest (`deleteNoteOps.deleteNoteWithRepair`).
  *
  * ⛔ A FANNED MEMBER cannot carry a tie: a tie is a pitch-to-pitch continuation, and a member has
- * no length of its own to continue into (docs/fanned-beam-pitches-plan.md §3). A single-note ask is
+ * no length of its own to continue into (docs/plans/fanned-beam-pitches-plan.md §3). A single-note ask is
  * refused; in a selection the member is DROPPED, since the other notes were selected too.
  */
 import type { Note, NoteParams, Score } from '@/types/music'

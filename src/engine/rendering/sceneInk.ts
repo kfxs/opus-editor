@@ -1,6 +1,6 @@
 /**
  * ⭐ **THE SCENE'S BOX, READ IN VexFlow's DIALECT** — the adapter half of P6a
- * (`engine/scene/sceneBox` is the arithmetic; `docs/own-engraving-engine.md` §5 P6).
+ * (`engine/scene/sceneBox` is the arithmetic; `docs/plans/own-engraving-engine.md` §5 P6).
  *
  * ## ⭐⭐ Why this file exists at all, and it is one sentence
  *

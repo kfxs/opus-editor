@@ -1,6 +1,6 @@
 /**
  * {@link soundingShiftAt} / {@link soundingShiftBySlot} — **the one place written pitch becomes
- * sound** (docs/ottava-plan.md §6).
+ * sound** (docs/plans/ottava-plan.md §6).
  *
  * The model stores what the notehead says, so this function is the entire difference between the
  * page and the ear. What is asked here is its resolution rules: the span is half-open, it is
@@ -174,7 +174,7 @@ describe('soundingShiftBySlot — the per-slot prepass', () => {
 /**
  * ⭐⭐ {@link applySoundingShift} — **the fold that lets the schedule carry a PITCH.**
  *
- * Built 2026-08-20 with the pitch-not-MIDI move (docs/playback-semantics-plan.md). The whole
+ * Built 2026-08-20 with the pitch-not-MIDI move (docs/plans/playback-semantics-plan.md). The whole
  * question is which FIELD the shift lands in, and the answer is `octave`: an octave is 12 semitones,
  * ×2 in frequency and +1 to the octave number in every tuning system, so this is the one
  * transformation that survives a change of representation. ⛔ `alter` is never touched — an 8va
@@ -218,7 +218,7 @@ describe('applySoundingShift', () => {
     it('🚨 sounds the WRITTEN pitch and says so — ⛔ it never rounds to the nearest octave', () => {
       // Unreachable from any score the editor writes (`Ottava.shift` counts octaves), reachable from
       // hand-edited JSON. A non-octave shift is a SPELLING transposition, not a number — see the
-      // function's note and docs/tuning-systems-and-alteration.md.
+      // function's note and docs/how-it-works/tuning-systems-and-alteration.md.
       const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
       expect(applySoundingShift(C4, 7), 'unshifted, not C4+7 rounded anywhere')
         .toEqual({ step: 'C', alter: 0, octave: 4 })

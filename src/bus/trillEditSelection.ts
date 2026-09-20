@@ -2,7 +2,7 @@ import { RequestChannel } from './requestChannel'
 import type { TrillContinuationLabel } from '@/types/music'
 
 /**
- * The seam the Properties trill control publishes through (docs/trill-plan.md §1 rule 6). The twin of
+ * The seam the Properties trill control publishes through (docs/plans/trill-plan.md §1 rule 6). The twin of
  * {@link ./fanEditSelection}: **command-only**, so the window writes "this trill should label its
  * continuations plainly" and {@link TrillEditController} — the one place that holds the engine —
  * applies it.

@@ -7,7 +7,7 @@ import { Window, WINDOW_DEFAULTS, type WindowHost, type WindowOptions } from './
  * window cannot know — who else is open, who is on top, and how big the world is. It is the windows'
  * {@link WindowHost}: they call back into it to close and to raise themselves.
  *
- * See docs/windows-design.md.
+ * See docs/how-it-works/windows-design.md.
  */
 
 /** Each new window steps down-right from the last, so a second one is visibly a second one. */

@@ -1,6 +1,6 @@
 /**
  * ⭐⭐ **HAIRPINS — the crescendo / diminuendo wedges, drawn.** P3 of
- * docs/dynamics-line-and-hairpins-plan.md.
+ * docs/plans/dynamics-line-and-hairpins-plan.md.
  *
  * A score-level pass after the measures, exactly like `renderSlurs` and for the same reason: a
  * wedge spans bars, so it cannot be drawn inside any one bar's group. It runs AFTER
@@ -713,7 +713,7 @@ function drawWedge(
       // The two ends: the wedge's own tip at its near-staff side (a hairpin lives BELOW the staff,
       // so that is the TOP arm), and the staff's BOTTOM line at the beat the span starts on — a
       // POSITIONAL span attaches to a place, like the tempo mark and unlike the trill (which is
-      // defined by a note's pitch). See docs/dynamic-offset-plan.md for that split.
+      // defined by a note's pitch). See docs/plans/dynamic-offset-plan.md for that split.
       ...(piece === segments[0]
         ? { guides: [{ from: { x: piece.x0, y: y0 - h0 }, to: { x: x.startX, y: staffBottomLineY(staveFrame(stave)) } }] }
         : {}),

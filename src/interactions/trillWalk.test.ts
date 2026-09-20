@@ -662,7 +662,7 @@ describe('walkTrillEndpoint', () => {
   })
 
   /**
-   * ⭐ **THE DECLINE'S LOG IS ON THE HOT PATH** (docs/render-performance-plan.md §12.7 item 3).
+   * ⭐ **THE DECLINE'S LOG IS ON THE HOT PATH** (docs/history/render-performance-plan.md §12.7 item 3).
    *
    * 🚨 `whyNoJump` is not a template literal — it walks `getByType('note')` and runs a `find` inside
    * a `some`, i.e. §12.2's quadratic id lookup, hiding inside a LOG MESSAGE. A suppressed `dbg`

@@ -113,7 +113,7 @@ export function hairpinCommands(ctx: CommandContext) {
       // ⭐⭐ The lane CHOOSES the notes; it does not become the wedge's SCOPE. `byVoice` filtered the
       // selection to one stream (a wedge cannot span two), and the voice is deliberately NOT passed
       // on: a wedge with no voice governs every voice of its staff, which is the default the user
-      // asked for. Narrowing it is a second, explicit act. See docs/dynamic-voice-scope-plan.md.
+      // asked for. Narrowing it is a second, explicit act. See docs/plans/dynamic-voice-scope-plan.md.
       const { start: startNote, end: endNote, staff } = span
 
       const created = ctx.model().addHairpinOverNotes(
@@ -143,7 +143,7 @@ export function hairpinCommands(ctx: CommandContext) {
     /**
      * Set how much music a hairpin covers — the model write behind lengthen/shorten. ⚠️ This is a
      * CONTENT edit, not an engraving nudge: the same key on a slur endpoint one branch over writes
-     * an override instead (docs/dynamics-line-and-hairpins-plan.md §4). Saves undo state.
+     * an override instead (docs/plans/dynamics-line-and-hairpins-plan.md §4). Saves undo state.
      * @returns true if the hairpin exists and the length is positive.
      */
     setHairpinLength(id: string, length: Fraction): boolean {
@@ -155,7 +155,7 @@ export function hairpinCommands(ctx: CommandContext) {
     /**
      * Grow (+1) or shrink (−1) the hairpin by one slot of its own lane — `Ctrl+→` / `Ctrl+←`.
      * ⚠️ A CONTENT edit: it rewrites `length`, where the same key on a slur endpoint writes an
-     * engraving override (docs/dynamics-line-and-hairpins-plan.md §4). Saves undo state.
+     * engraving override (docs/plans/dynamics-line-and-hairpins-plan.md §4). Saves undo state.
      * @returns true when the wedge changed; false (declining the key) when there is nothing to
      *   reach, or when shrinking would leave it covering no music.
      */
@@ -227,7 +227,7 @@ export function hairpinCommands(ctx: CommandContext) {
      * ⚠️ An ENGRAVING OVERRIDE, where `resizeHairpinBySlot` one method up writes the model: same two
      * squares, two chords, two categories. Nothing about the music moves — playback cannot tell — and
      * that is exactly why it may not be stored as a shorter `length`
-     * (docs/dynamics-line-and-hairpins-plan.md §4).
+     * (docs/plans/dynamics-line-and-hairpins-plan.md §4).
      */
     nudgeHairpinEndpoint(id: string, which: 'start' | 'end', dx: number, dy: number): boolean {
       if (!endpointOffsetAllowed(id, which, dx, dy)) return false

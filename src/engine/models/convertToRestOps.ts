@@ -1,6 +1,6 @@
 /**
  * ⭐ **SILENCING A SLOT — a note (or a whole chord) becomes the rest of its own length.** Score
- * logic, moved off `MusicEngine` (docs/code-shape-plan-2026-09-19.md, Phase 4.1): the facade keeps
+ * logic, moved off `MusicEngine` (docs/plans/code-shape-plan-2026-09-19.md, Phase 4.1): the facade keeps
  * the undo entry and its label.
  *
  * Not a delete. Delete says "this shouldn't be here" and leaves a gap for the meter-aware fill to
@@ -15,7 +15,7 @@
  * exactly as after a delete (`deleteNoteOps`).
  *
  * ⛔ A FANNED MEMBER is refused: a member is a pitch inside one event, and the silence belongs to
- * the whole gesture (docs/fanned-beam-pitches-plan.md §3).
+ * the whole gesture (docs/plans/fanned-beam-pitches-plan.md §3).
  */
 import type { Note, Rest, Score } from '@/types/music'
 import { dbg } from '@/utils/debug'

@@ -1,7 +1,7 @@
 /**
  * ⭐ **A KIND'S PANEL** — the controls the Properties window shows for one selected element of that
  * kind, above its dump. One module per kind (`./<kind>.ts`), one row per kind in `./index`'s table
- * (docs/code-shape-plan-2026-09-19.md, Phase 3.4).
+ * (docs/plans/code-shape-plan-2026-09-19.md, Phase 3.4).
  *
  * ⚠️ A panel is a DUMB PUBLISHER: it builds rows (`../rows`) and hands each a `publish` that writes
  * to the `bus` — ⛔ never the engine. The controller on the other side of the bus owns the apply.

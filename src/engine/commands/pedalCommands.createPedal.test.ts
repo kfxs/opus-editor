@@ -5,7 +5,7 @@ import { fracCreate as frac, fracToNumber } from '@/utils/fraction'
 
 /**
  * `MusicEngine.pedal.createPedal` — **which notes did the user mean**, the editor half of the split that
- * `pedalOps.addPedalOverNotes` owns the other side of (docs/pedal-plan.md §7).
+ * `pedalOps.addPedalOverNotes` owns the other side of (docs/plans/pedal-plan.md §7).
  *
  * ⭐⭐ **The chapter this file exists for is the LANE**, `commands/ottavaCommands.createOttava.test.ts`'s reason
  * with a physical rather than a notational argument behind it. `createSlur`, `createHairpin` and

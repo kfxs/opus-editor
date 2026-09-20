@@ -1,7 +1,7 @@
 /**
  * ⭐⭐ **THE FONT, AS DATA** — what Bravura says a glyph is, in staff spaces, synchronously.
  *
- * F1 of `docs/font-metrics-plan.md`. Pure lookup: no DOM, no canvas, no VexFlow, no `await`. That
+ * F1 of `docs/plans/font-metrics-plan.md`. Pure lookup: no DOM, no canvas, no VexFlow, no `await`. That
  * list is the whole point of the module and every item on it is load-bearing:
  *
  * - **No canvas.** The ink table's numbers were obtained by rendering in Chrome and reading back
@@ -189,7 +189,7 @@ const ACCIDENTAL_GLYPHS: Record<string, GlyphName> = {
  *
  * ⚠️ **A modifier's `getWidth()` is a LAYOUT box, not ink**, and the two differ by whatever padding
  * the layout chose to carry. Any spacing decision measured against the box is measuring someone
- * else's padding as if it were the drawing (`docs/vexflow-boundary.md`'s rule: ink is LOCATED BOXES).
+ * else's padding as if it were the drawing (`docs/history/vexflow-boundary.md`'s rule: ink is LOCATED BOXES).
  */
 export function clefGlyph(clef: 'treble' | 'bass' | 'alto' | 'tenor'): GlyphName {
   return clef === 'treble' ? 'gClef' : clef === 'bass' ? 'fClef' : 'cClef'

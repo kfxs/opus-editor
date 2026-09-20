@@ -6,7 +6,7 @@ import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 
 const SP = STAFF_SPACE_PX
 /** A cubic's peak deviation is 0.75 × its control height — the conversion every engine comparison
- *  in docs/slur-plan.md §11.3 and §12 Phase 2 is stated in. */
+ *  in docs/plans/slur-plan.md §11.3 and §12 Phase 2 is stated in. */
 const apex = (spanSpaces: number) => (slurArchHeight(spanSpaces * SP) * 0.75) / SP
 
 describe('slurArchHeight — LilyPond\'s law, his call of 2026-08-16', () => {

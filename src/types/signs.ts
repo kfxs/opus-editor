@@ -30,7 +30,7 @@ export interface ClefChange {
   /**
    * Staff this clef change belongs to (a {@link StaffInfo} id). Clef is per-staff.
    * Absent = staff 0 (the first staff), mirroring absent {@link Note.voice} = voice 0.
-   * See docs/multi-staff-plan.md §4.
+   * See docs/plans/multi-staff-plan.md §4.
    */
   staffId?: string
 }
@@ -136,7 +136,7 @@ export interface TimeSignature {
  * **The KIND of line drawn at a measure's end** — a barline STYLE, and nothing else.
  *
  * ⛔ **A REPEAT IS NOT A STYLE** ({@link RepeatStart} / {@link RepeatEnd}), and that is the one
- * decision this whole family rests on (docs/barline-types-plan.md §3.2). MNX's `barline-type` list
+ * decision this whole family rests on (docs/plans/barline-types-plan.md §3.2). MNX's `barline-type` list
  * carries no repeat value; SMuFL puts barlines at U+E030–E039 and repeats at U+E040–E04D; MusicXML,
  * which does merge them, needs two fields kept consistent (`light-heavy` **and**
  * `<repeat direction="backward"/>`), and MEI, which merged them harder, had to invent `rptboth` for

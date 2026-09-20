@@ -1,6 +1,6 @@
 /**
  * ⭐⭐ **A CLEF ON A SCORE STAVE — a sign of ours, with no VexFlow class underneath** (S4c of
- * `docs/vexflow-removal-map.md`; the ink itself is `engrave/header/clef`).
+ * `docs/history/vexflow-removal-map.md`; the ink itself is `engrave/header/clef`).
  *
  * It began (P5b) as a subclass of VexFlow's `Clef` whose `draw()` moved the ink into our module. Piece
  * by piece everything else followed:

@@ -7,7 +7,7 @@ import { TRILL_MARK_INK } from './trillStyle'
 import { trillFragmentClaim } from './TrillRenderer'
 
 /**
- * THE TRILL'S LADDER CLAIM — what it tells the families placed OUTSIDE it (docs/ottava-plan.md P0a).
+ * THE TRILL'S LADDER CLAIM — what it tells the families placed OUTSIDE it (docs/plans/ottava-plan.md P0a).
  *
  * ⭐ The trill is the innermost outside-staff family, so it never READS the collection — which is
  * exactly why this needs a test of its own: nothing it draws changes when the claim is wrong, so the

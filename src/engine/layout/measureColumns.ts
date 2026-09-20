@@ -1,5 +1,5 @@
 /**
- * A measure's COLUMNS — the bridge from the music to the spacing rule (docs/spacing-model-plan.md
+ * A measure's COLUMNS — the bridge from the music to the spacing rule (docs/plans/spacing-model-plan.md
  * P2). Pure: a `Measure` in, {@link Column}s out, no VexFlow and no DOM.
  *
  * ⭐⭐ **A column is a rhythmic position at which something starts, holding every event that starts
@@ -69,7 +69,7 @@ type RawInk = Omit<InkBox, 'size'>[]
  * and only ever compared with another band on the same staff (`kerning.sameBand`).
  *
  * The rule and its sources (LilyPond skylines, Verovio's `staffSize/100`, GUIDO's rods) are in
- * docs/staff-size-plan.md §6a: the SPINE is global and size-blind, only the INK is per staff — and
+ * docs/plans/staff-size-plan.md §6a: the SPINE is global and size-blind, only the INK is per staff — and
  * because `inkFloor` refuses to compare boxes across staves, a column shared by a small staff and a
  * big one takes the big one's demand for free.
  */
@@ -125,7 +125,7 @@ const needsLedger = (pitch: NotePitch, clef: Clef): boolean => {
 function slotInk(slot: ChordRest, signs: Map<string, string | null>, clef: Clef, multiVoice: boolean, flagged: boolean, size: number): ColumnInk {
   const staff = slot.staffId
   if (slot.type !== 'chord') {
-    // ⭐ A rest's band is its own, at last (`restBand`, docs/font-metrics-plan.md §3.4). It used to
+    // ⭐ A rest's band is its own, at last (`restBand`, docs/plans/font-metrics-plan.md §3.4). It used to
     //   be the WHOLE STAFF — the honest answer while the extents were unknown, and a maximally
     //   conservative one. ⚠️ Nothing kerns against a rest yet (`MAY_KERN` has no rest row), so this
     //   moves no width; it makes the question askable.
@@ -143,7 +143,7 @@ function slotInk(slot: ChordRest, signs: Map<string, string | null>, clef: Clef,
   // one place a chord is wider than a single note without any modifier being involved.
   const positions = pitches.map(pitch => spellingDiatonicPos(pitch.step, pitch.octave)).sort((a, b) => a - b)
   const hasSecond = positions.some((position, i) => i > 0 && position - positions[i - 1] === 1)
-  // ⚠️ TWO quantities, and they were one row until F2 (docs/font-metrics-plan.md §3.1a): the second
+  // ⚠️ TWO quantities, and they were one row until F2 (docs/plans/font-metrics-plan.md §3.1a): the second
   //    head is DISPLACED by `secondDisplacement` — the head's ink less half the stem they share —
   //    and then draws its own full `notehead` of ink from there. ⛔ Not `2 × notehead`, which would
   //    count the shared stem twice the moment the ink row takes the font's 1.18.
@@ -455,7 +455,7 @@ function hasSeveralVoices(measure: Measure): boolean {
  * accidental the drawing suppresses, or forgets one it shows.
  *
  * ⚠️⚠️ **AND THE KEY IS WHY A SIGNATURE CHANGES HOW WIDE A BAR IS** — the one place this feature is
- * a *width* change rather than a picture change (docs/key-signature-plan.md §3). A signature
+ * a *width* change rather than a picture change (docs/plans/key-signature-plan.md §3). A signature
  * suppresses accidentals and mints naturals, and the ink of each is priced into the column below.
  * ⛔ So the clef's width-independence proof (`clefWidthIndependence.test.ts`) does NOT transfer.
  */
@@ -573,7 +573,7 @@ export function measureColumns(
   //   ⭐ That is LilyPond's `NoteSpacing.space-to-barline` exactly: the last note is measured to the
   //   LEFT EDGE of the barline group, so a wide sign does not steal the bar's last beat.
   //
-  // ⚠️ §5.1 of docs/barline-types-plan.md predicted a separate term "beside `LeadIn`" and it is not
+  // ⚠️ §5.1 of docs/plans/barline-types-plan.md predicted a separate term "beside `LeadIn`" and it is not
   //   needed. That section was written while the sign still grew RIGHTWARD, where its ink would have
   //   fallen past the last column into no gap at all — the symmetric twin of `measureLeadIn`'s own
   //   bug. §6.1 reversed the direction, and the reversal dissolved the term.

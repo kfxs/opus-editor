@@ -4,7 +4,7 @@
  *
  * ⭐ **A system is not a measure**, and that confusion was a real bug: a span crossing a line break
  * used to be anchored to its endpoint notes' own measures, which hid the arc on any non-boundary
- * measure and dropped middle systems entirely (docs/slur-plan.md §8). These two helpers answer for
+ * measure and dropped middle systems entirely (docs/plans/slur-plan.md §8). These two helpers answer for
  * the SYSTEM: the first measure that landed on the line gives its left margin, the last its right.
  *
  * Extracted from `SlurRenderer` when the TIE's cross-system halves migrated off VexFlow's
@@ -65,7 +65,7 @@ function lineLeftHeaderGap(pass: SystemEdgeLookup, line: number): number | undef
  * ⚠️ **The two are not the same number, and believing they were is what this fixes.**
  * {@link lineLeftEdgeX} is `noteStartX`, and his figure measured it *equal to the first notehead's
  * own x* — so the fragment had no length to be drawn at (0.6 sp, *"almost over the note"*,
- * 2026-08-16). Gould's *"after the clef"* means after the GLYPH: `docs/slur-plan.md` §12 Phase 5, and
+ * 2026-08-16). Gould's *"after the clef"* means after the GLYPH: `docs/plans/slur-plan.md` §12 Phase 5, and
  * `CURVE.curveFromHeader` carries the three engines' agreement on how far past it to start.
  *
  * ⭐ **The header's ink edge is already published, and needs no glyph measuring**:

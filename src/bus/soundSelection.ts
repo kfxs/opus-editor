@@ -15,7 +15,7 @@ import { PaletteSelection } from './paletteSelection'
  * value it carries lives in the score itself (`Score.playback`, `engine/models/soundOps`), so it
  * persists, undoes and travels with the file; what stays provisional is the SCOPE (every staff,
  * every voice) and the curated GM list (`DEV_SOUNDS`). When per-staff / per-voice sounds land
- * (docs/instruments-plan.md P1b/P2) this store gains a lane or gives way to one that has it. That is
+ * (docs/plans/instruments-plan.md P1b/P2) this store gains a lane or gives way to one that has it. That is
  * why the menu says *Score* Sound: the word admits the scope.
  *
  * ⚠️ Its HIGHLIGHT is mirrored from the score, not from the last press — see `interactions/soundSync`:

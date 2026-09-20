@@ -1,6 +1,6 @@
 /**
  * FANNED BEAMS, drawn — the whole family, extracted from {@link ScoreRenderer}
- * (docs/refactor-plan-2026-07-27.md Phase 6a). Free functions over the passed-in {@link RenderPass},
+ * (docs/history/refactor-plan-2026-07-27.md Phase 6a). Free functions over the passed-in {@link RenderPass},
  * like {@link TieRenderer} / {@link SlurRenderer} / {@link DynamicsLayout}: nothing here reads
  * renderer-instance state, and the two maps it fills (`fanMemberGroupMap`, `fanMemberAnchorMap`) are
  * carried on the pass as references to the renderer's own fields, exactly as `staveNoteMap` is.
@@ -73,7 +73,7 @@ import { barFrame, staveFrame, maybeStaveOf } from './staveFrame'
 import { noteLineY } from '@/engine/engrave/staff/staffFrame'
 
 /**
- * A fanned slot JOINED to the group on its left (docs/fan-beam-join-plan.md), as INDICES into one
+ * A fanned slot JOINED to the group on its left (docs/plans/fan-beam-join-plan.md), as INDICES into one
  * lane's parallel `slots` / `staveNotes` arrays.
  *
  * The one fact the pre-format pass (`ScoreRenderer.buildBeams`) learns and the post-draw pass
@@ -183,7 +183,7 @@ function fanLedgerOverhang(heads: { line: number; sign: string | null }[]): numb
 
 /**
  * The authored leading space before each MEMBER of a fanned slot, in pixels — the §7 half of client
- * #10 (docs/note-spacing-plan.md). Entry k is the space before member k; entry 0 is always 0,
+ * #10 (docs/plans/note-spacing-plan.md). Entry k is the space before member k; entry 0 is always 0,
  * because the space before member 0 is the space before the fan's own column and
  * `applyLeadingSpaces` has already spent it on the tick context.
  *
@@ -243,7 +243,7 @@ function fanTrailingSpacePx(score: Score, measureNumber: number, slot: Chord): n
 
 /**
  * ⭐ The authored horizontal OFFSET of each member of a fanned slot, in pixels — the fan's half of
- * client #12 (docs/note-offset-plan.md §"Inside a FAN"). Entry k is member k's own offset, entry 0
+ * client #12 (docs/plans/note-offset-plan.md §"Inside a FAN"). Entry k is member k's own offset, entry 0
  * the OWNER's (which `applyNoteOffsets` has already spent on the `StaveNote`, and which
  * `fannedBeamGeometry` therefore takes back OUT of `headX` to find the natural column).
  *
@@ -272,7 +272,7 @@ function fanMemberOffsetsPx(score: Score, slot: Chord, stave: EngravedStave): nu
 }
 
 /**
- * Draw each fanned slot's OTHER members and its feathered beam (docs/fanned-beams-plan.md §3, P1),
+ * Draw each fanned slot's OTHER members and its feathered beam (docs/plans/fanned-beams-plan.md §3, P1),
  * for ONE LANE of one bar.
  *
  * ⭐ **The slot's own `StaveNote` is member 0 and is NOT suppressed** — it has already been drawn
@@ -319,7 +319,7 @@ export function drawFannedBeams(
 ): void {
   // Which sign each pitch of this lane displays — the SAME map NoteBuilder gave the StaveNotes, so
   // a member's accidental obeys one rule with the notes around it, including holding for the rest
-  // of the bar (docs/fanned-beam-pitches-plan.md §2). Not free, so not walked for a lane with no
+  // of the bar (docs/plans/fanned-beam-pitches-plan.md §2). Not free, so not walked for a lane with no
   // fan in it — which is nearly every lane.
   if (!slots.some(s => s.type === 'chord' && s.fan)) return
   const signs = displayedAccidentals(slots, key)
@@ -354,7 +354,7 @@ export function drawFannedBeams(
 }
 
 /**
- * ⭐ **P3 — the fans whose beam LEAVES its bar** (docs/fan-beam-join-plan.md). One pass per
+ * ⭐ **P3 — the fans whose beam LEAVES its bar** (docs/plans/fan-beam-join-plan.md). One pass per
  * crossing group, drawn OUTSIDE every measure group, exactly as `drawCrossBarBeams` is and
  * for the same two reasons: top-level content is torn down and rebuilt every render while measure
  * groups are REUSED (so a beam drawn into one would vanish on any pass that reuses it), and
@@ -419,7 +419,7 @@ export function drawCrossBarFanBeams(pass: RenderPass, joins: CrossBarFanJoin[])
 
     const prefix = join.members.map((m, i) => (!m.fan && i < fanIndices[0] ? i : -1)).filter(i => i >= 0)
     // In the staff's own space, like every other beam drawn outside a measure group — the ramp is
-    // built from these notes' stems (docs/staff-size-plan.md §4.3).
+    // built from these notes' stems (docs/plans/staff-size-plan.md §4.3).
     inScaledStaffGroup(pass, join.staffIndex, `crossfan-${join.staffIndex}-${join.voice}-${join.members[0]?.measureNumber ?? 0}`,
       () => drawFanGroups(pass, drawings, [{ prefix, fans: fanIndices }]))
   }
@@ -738,7 +738,7 @@ function fanSlotDrawing(input: {
     stemDirection > 0 && (k === 0 ? note.isDisplaced() : memberDisplaced[k].some(Boolean)) ? headShift : 0
   ))
 
-  // ⭐ THE PREFIX — the group this fan is JOINED to on its left (docs/fan-beam-join-plan.md P1).
+  // ⭐ THE PREFIX — the group this fan is JOINED to on its left (docs/plans/fan-beam-join-plan.md P1).
   // Their x's and head y's are the FORMATTER's, settled and read here like everything else in this
   // pass; what the join changes is only where their stems end.
   const prefixNotes = input.prefixNotes.filter(n => !!n && !!n.getStem())
@@ -1011,10 +1011,10 @@ function registerFanInk(
  * A bare `NoteHead` off the staff only swaps to the LEDGER glyph (a slightly wider head); the
  * lines themselves are `StaveNote`'s job, so a fan on a note above or below the staff drew
  * floating heads. Per-note pitch makes that the ordinary case rather than the exception, which is
- * why it is fixed here (docs/fanned-beam-pitches-plan.md §2).
+ * why it is fixed here (docs/plans/fanned-beam-pitches-plan.md §2).
  *
  * ⭐⭐ **The RULE and the INK both left this file in P3a** — `engrave/notes/ledgerLines`, which is
- * now the one owner of both (`docs/note-engraving-plan.md`). What was here was a hand-written copy
+ * now the one owner of both (`docs/plans/note-engraving-plan.md`). What was here was a hand-written copy
  * of VexFlow's loop, and it agreed with it to the pixel; that agreement is a spec now instead of a
  * coincidence maintained in two places. All that remains here is the fan's own three answers: which
  * heads, how wide its glyph is, and how far it overhangs.

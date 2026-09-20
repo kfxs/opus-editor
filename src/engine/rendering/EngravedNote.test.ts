@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /**
  * ⭐⭐ **THE NOTE STILL ANSWERS WHAT IT STOPPED PAINTING** — the standing rule of the `Engraved*`
- * family (`docs/own-engraving-engine.md` P3), and the one it broke.
+ * family (`docs/plans/own-engraving-engine.md` P3), and the one it broke.
  *
  * 🚨 **His report, 2026-09-14**: a slur over five sixteenths *"completely crazy"* — measured in
  * Chromium at `M180 65 C198 −313.7, 234 −261.7, 252 45`, an arch 380 px above a 72 px span. The

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * `npm run lint:singletons` — the check behind a REPO FACT
- * (docs/refactor-plan-2026-07-27.md Phase 0c/0e).
+ * (docs/history/refactor-plan-2026-07-27.md Phase 0c/0e).
  *
  * THE FACT: `docs/DESIGN-PRINCIPLES.md` boundary case 5 counts the module-level singletons that make
  * "exactly one editor" an assumption, and its whole cost argument is that de-singletoning would be

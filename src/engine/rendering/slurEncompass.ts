@@ -2,7 +2,7 @@
  * ⭐⭐ **WHAT THE SLUR HAS TO GET OVER — the notes BETWEEN its two ends.**
  *
  * Every other slur rule we have looks at the two anchored notes and nothing else. That is the gap
- * `docs/slur-plan.md` §11.6 names outright — *"All three have it; we have none"* — and it is what
+ * `docs/plans/slur-plan.md` §11.6 names outright — *"All three have it; we have none"* — and it is what
  * produced his report of 2026-08-17: eight rising quarters, a slur from the 3rd to the 7th, and the
  * arc springing from **beside** the 3rd note's stem while the stems of the notes underneath stood a
  * full 3 staff spaces higher. Nothing in the pipeline had ever been told those notes were there.

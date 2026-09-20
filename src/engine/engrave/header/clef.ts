@@ -1,6 +1,6 @@
 /**
  * ⭐⭐ **THE CLEF'S INK — P5b, and the first symbol of the HEADER that is ours**
- * (`docs/own-engraving-engine.md` P5; the adapter is `rendering/EngravedClef`).
+ * (`docs/plans/own-engraving-engine.md` P5; the adapter is `rendering/EngravedClef`).
  *
  * ## What P5 said this step was
  *
@@ -35,7 +35,7 @@
  * `Clef.getPoint`.
  *
  * ⭐ **Both are open research questions as of 2026-09-02**, being asked of the books and the three
- * engine clones (`docs/clef-research.md`): the vertical anchor per clef, and the small-clef ratio.
+ * engine clones (`docs/research/clef-research.md`): the vertical anchor per clef, and the small-clef ratio.
  * ⛔ Taking a table or a ratio into this module *before* that lands would be inventing a rule that
  * predates the research — so they are parameters, and the day the research answers them this is
  * where they come to live. (P3b did exactly this with the flag's font reach, and said so: *"the

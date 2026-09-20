@@ -19,7 +19,7 @@ import type { MenuItem } from './MenuItem'
  * │  every one runs a command that already existed, through the seam that already ran it. So if   │
  * │  this bar is replaced wholesale, WHAT GOES IS A LIST OF LABELS.                               │
  * │                                                                                              │
- * │  Read docs/menus-design.md §"The menu bar is PROVISIONAL" before treating any of it as        │
+ * │  Read docs/how-it-works/menus-design.md §"The menu bar is PROVISIONAL" before treating any of it as        │
  * │  settled. The running order is `buildMenuBarTitles()` in ./index — one line per title.        │
  * └──────────────────────────────────────────────────────────────────────────────────────────────┘
  *

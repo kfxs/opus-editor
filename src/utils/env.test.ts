@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { isTestRun } from './env'
 
 /**
- * The check behind a repo fact (docs/refactor-plan-2026-07-27.md Phase 0c).
+ * The check behind a repo fact (docs/history/refactor-plan-2026-07-27.md Phase 0c).
  *
  * `ScoreModel`'s `STRICT_INVARIANTS` is a private const fed by `isTestRun()`, and it decides whether
  * a malformed bar THROWS or merely logs. If runner detection ever broke, the integrity check would

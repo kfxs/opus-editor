@@ -1,5 +1,5 @@
 /**
- * ⭐⭐ **HOW A COLUMN'S TEXT ANNOTATIONS STACK** — S9f of `docs/vexflow-removal-map.md`
+ * ⭐⭐ **HOW A COLUMN'S TEXT ANNOTATIONS STACK** — S9f of `docs/history/vexflow-removal-map.md`
  * (`Annotation.format`, MIT, transcribed). In this editor the only annotations are the DYNAMICS
  * (`rendering/DynamicsLayout.buildDynamicAnnotation`).
  *

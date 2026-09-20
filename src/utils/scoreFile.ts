@@ -1,6 +1,6 @@
 /**
  * The score **file** — a wrapper around the score **model**. Development scaffolding
- * (docs/json-io-plan.md); this is not the final file format and is expected to be replaced
+ * (docs/plans/json-io-plan.md); this is not the final file format and is expected to be replaced
  * wholesale when a real document model lands.
  *
  * Why it is not in the engine: `MusicEngine.exportJSON()` / `loadJSON()` are pure model↔string and
@@ -32,7 +32,7 @@ export const SCORE_FILE_FORMAT = 'opus-editor-score'
  *
  * That rule is what makes the number mean exactly one thing — *below this, refuse and say why*.
  * It is a tombstone marker, not a migration hook; we do not build migration paths
- * (docs/json-io-plan.md).
+ * (docs/plans/json-io-plan.md).
  */
 export const SCORE_FILE_VERSION = 1
 

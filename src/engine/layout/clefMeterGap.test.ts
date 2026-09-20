@@ -4,7 +4,7 @@
  * ⭐ The interesting assertion is not any row's value (those are citations, and a spec that repeats
  * them proves nothing). It is that **the reservation and the drawing read ONE number** — the pair
  * `own-engraving-engine.md` §P5 is named after, closed here for the last gap of the header run that
- * still had two (`docs/header-spacing-research.md` §4.4).
+ * still had two (`docs/research/header-spacing-research.md` §4.4).
  */
 import { describe, it, expect, afterEach } from 'vitest'
 import {

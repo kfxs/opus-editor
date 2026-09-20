@@ -4,7 +4,7 @@ import { INK, INK_HEIGHT, pairPadding, accidentalExtent } from './spacingPadding
 
 /**
  * KERNING — two inks only need horizontal clearance where they share a vertical band
- * (`docs/vexflow-boundary.md` §5 P1).
+ * (`docs/history/vexflow-boundary.md` §5 P1).
  *
  * ⚠️ These are all ALGEBRA tests, deliberately: they hand `inkFloor` boxes and check the number. Where
  * the boxes come FROM is `measureColumns`' job (and `measureColumns.test.ts`'s), and whether the

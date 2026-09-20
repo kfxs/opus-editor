@@ -9,7 +9,7 @@ import { LEDGER_LINE_STYLE } from '@/engine/layout/layoutConfig'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 
 /**
- * ⭐⭐ **HOW THICK A LINE IS, AND WHO SAYS SO** — F3 of docs/font-metrics-plan.md.
+ * ⭐⭐ **HOW THICK A LINE IS, AND WHO SAYS SO** — F3 of docs/plans/font-metrics-plan.md.
  *
  * A feature test rather than one module's: the claim spans five files and belongs to none of them.
  * Every structural weight the editor draws with now comes out of Bravura's `engravingDefaults`
@@ -127,7 +127,7 @@ describe('the ledger line — the one weight that is a RATIO, not a thickness', 
   it('⭐⭐ is the font\'s ledger-to-staff-line RATIO, against the staff line WE draw', () => {
     // The distinction F3 turned up: a weight from the font only agrees with its neighbours while
     // the neighbours come from the font too, and our staff line does not come from the font — it is
-    // Gould's measured 0.11 sp (docs/staff-line-research.md §8 A), not Bravura's 0.13.
+    // Gould's measured 0.11 sp (docs/research/staff-line-research.md §8 A), not Bravura's 0.13.
     //
     // ⭐⭐ THE POINT OF THIS SPEC, and it earned its keep on 2026-09-01: it is written against the
     // RATIO rather than a baked number, so when the staff line moved from 0.10 to 0.11 sp the ledger

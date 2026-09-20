@@ -6,7 +6,7 @@
  * them still paint themselves. ⭐ **One at a time, they stopped** — the accidental, the augmentation dot
  * and the articulation (P3f/P3g) — and each one that has needs telling which surface to draw on.
  *
- * ⚠️ **The stave's signs left this family in S4c** (`docs/vexflow-removal-map.md`): the clef, the meter
+ * ⚠️ **The stave's signs left this family in S4c** (`docs/history/vexflow-removal-map.md`): the clef, the meter
  * and the opening barline joined it in P5b, and are now plain objects of ours that the stave hands its
  * surface directly (`./staveSign`'s `drawSign`).
  *

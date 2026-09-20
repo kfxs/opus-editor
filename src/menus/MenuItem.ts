@@ -39,7 +39,7 @@
  * only: a submenu is a word.
  *
  * An item never learns where it is: not its x/y, not that it sits in a flyout. Placement is the menu
- * system's arithmetic (docs/windows-design.md rule 3, inherited whole).
+ * system's arithmetic (docs/how-it-works/windows-design.md rule 3, inherited whole).
  */
 /**
  * How a label is SET, when plain UI text would misrepresent it.

@@ -8,7 +8,7 @@
  * while the other eight did nothing at all. Splitting the translation out leaves the controller with
  * the part that is genuinely its own — take the previous ghost down, make sure the score under it is
  * drawn, tell the census what this render was for — and leaves this testable without a renderer
- * (docs/modularity-plan-2026-07-28.md Phase 2).
+ * (docs/history/modularity-plan-2026-07-28.md Phase 2).
  *
  * ⚠️ It answers `null` for a tool with NO preview, which is a real answer and not a failure: the two
  * click-to-type entry tools (`dynamicEntry` from Ctrl+E, `tempoEntry` from Ctrl+Alt+T) signal
@@ -116,7 +116,7 @@ export function toolGhost(tool: MarkingTool, armed: ArmedRestFields): ToolGhost 
     case 'slur': return null
     // …and the hairpin joins it for exactly that reason: a wedge is drawn BETWEEN two points and the
     // click has picked one. A ghost wedge at the pointer would be previewing a length the click is
-    // not going to make (docs/dynamics-line-and-hairpins-plan.md §8 — his call, 2026-08-12).
+    // not going to make (docs/plans/dynamics-line-and-hairpins-plan.md §8 — his call, 2026-08-12).
     case 'hairpin': return null
     // ⭐ The BARLINE stamp DOES ghost — his call, 2026-08-26, the day it shipped without one:
     // *"where is the ghost? … we need ghosts for every case using the glyph"*. It arrived in the
@@ -139,7 +139,7 @@ export function toolGhost(tool: MarkingTool, armed: ArmedRestFields): ToolGhost 
 }
 
 /**
- * What the render census calls each ghost (`docs/render-performance-findings.md` §P0.4) — the label
+ * What the render census calls each ghost (`docs/history/render-performance-findings.md` §P0.4) — the label
  * `renderProbe().setCause` used to be handed by each of the eleven `render*Ghost` methods.
  *
  * ⚠️ A table and not `` `ghost:${kind}` `` for one reason: `timeSignature`'s label is **`ghost:timesig`**,

@@ -1,6 +1,6 @@
 /**
  * THE GHOSTS — every translucent preview the editor draws, extracted from {@link ScoreRenderer}
- * (docs/refactor-plan-2026-07-27.md Phase 6a). Free functions over the drawing context and the
+ * (docs/history/refactor-plan-2026-07-27.md Phase 6a). Free functions over the drawing context and the
  * score's `<svg>`, like {@link FanPass} and the tie / slur / dynamics passes.
  *
  * Two families, and the difference between them is where the preview LIVES:
@@ -10,13 +10,13 @@
  *    overrides push its system down), which is why those arrive as arguments.
  *  - the cursor ghosts (`drawClefGhost`, `drawRestGhost`, `drawDynamicGhost`, …) — ONE glyph shown
  *    loose, following the pointer, parked by their own ink box, so they need nothing from the score.
- *    ⭐ S11 (`docs/vexflow-removal-map.md`) is moving them out one family at a time, each drawn by the
+ *    ⭐ S11 (`docs/history/vexflow-removal-map.md`) is moving them out one family at a time, each drawn by the
  *    score's OWN classes on our surface: the clef + meter (`./HeaderSignGhost`), the marks and the
  *    dynamic (`./MarkGhost`), the tempo mark (`./TempoGhost`), the rest (`./RestGhost`) and the fan head
  *    (`./FanGhost`). ⭐ The NOTE ghost below too, since S11e: every ghost is drawn by the score's own
  *    classes on a `DrawContext`, and no ghost module imports VexFlow.
  *
- * Every one of them is an **overlay** (docs/render-performance-plan.md §5b): it draws into its own
+ * Every one of them is an **overlay** (docs/history/render-performance-plan.md §5b): it draws into its own
  * class-tagged `<g>` appended last, so putting one up or taking it down is a DOM append/remove
  * against the already-drawn score — never a re-layout. `ScoreRenderer.clearGhosts` is the
  * take-down, and it sweeps exactly the groups named in {@link GHOST_GROUP_SELECTOR}. ⚠️ **A group
@@ -157,7 +157,7 @@ export function drawNoteGhost(
     const systemTop = spacing.lineTopPx[line] ?? surface.marginTopPx
     // The render's own per-staff offset — strides AND space-above, already summed. Recomputing it
     // from `staffIndex × stride` is what would put the ghost on the wrong staff the moment one of
-    // them is drawn small (docs/staff-size-plan.md §5).
+    // them is drawn small (docs/plans/staff-size-plan.md §5).
     const measureY = systemTop + (spacing.staffTopPx[line]?.[staffIndex] ?? 0)
     const staveWidth = widthInfo.finalWidth
     const effectiveClefs = resolveStaffClefs(score, staffId).opening
@@ -172,7 +172,7 @@ export function drawNoteGhost(
 
     // ⭐ The ghost is drawn in ITS STAFF'S own space, like the bar it previews into: the throwaway
     // stave is built at `x/k, y/k, width/k` and the whole ghost group carries `scale(k)`
-    // (docs/staff-size-plan.md §4.1, §4.3). Full size, k is 1 and this is the arithmetic it
+    // (docs/plans/staff-size-plan.md §4.1, §4.3). Full size, k is 1 and this is the arithmetic it
     // replaced. Get it wrong and the preview is a full-size note over a small staff — the one
     // place where "what you see is what you get" is the entire point of the drawing.
     const scale = staffId ? resolveStaffSize(score, staffId) : 1
@@ -493,7 +493,7 @@ function drawTieGhost(ctx: DrawContext, cursorX: number, cursorY: number): boole
  * renderScoreWithClefGhost` → `ScoreRenderer.renderScoreWithClefGhost` → `drawClefGhost`: 42
  * methods across four layers for twelve kinds, and the **twenty in the middle two carried no logic
  * at all** — each was a single delegating statement, so a thirteenth ghost meant editing four files
- * in order to add nothing (docs/modularity-plan-2026-07-28.md §4, Phase 2). Now the payload
+ * in order to add nothing (docs/history/modularity-plan-2026-07-28.md §4, Phase 2). Now the payload
  * ({@link ToolGhost}) travels whole and only this table knows which glyph goes with which kind.
  *
  * ⚠️ The rows are **adapters, not the bare exports**. The drawers above have genuinely different

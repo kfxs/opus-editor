@@ -1,11 +1,11 @@
 /**
  * THE WRITE SIDE of the engraving-overrides compartment — extracted from {@link ScoreModel}, which
  * keeps thin public delegators to these free functions (the `clefOps` / `rebarOps` idiom;
- * docs/modularity-plan-2026-07-28.md Phase 3).
+ * docs/history/modularity-plan-2026-07-28.md Phase 3).
  *
  * The compartment is a sub-tree of `Score` (`score.engravingOverrides`) holding hand-positioning
  * data — staff-space, anchor-relative — kept OUT of the musical content model, so it clones,
- * serializes and undoes with the score value for free. See docs/engraving-overrides-plan.md.
+ * serializes and undoes with the score value for free. See docs/plans/engraving-overrides-plan.md.
  *
  * ⚠️ **Reads live next door in `engravingOverrides.ts`, and the split is deliberate.** The renderer
  * holds a `Score`, not a `ScoreModel`, and imports the readers directly at draw time; keeping the
@@ -88,7 +88,7 @@ export function clearEngravingOverride(score: Score, elementId: string, kind?: s
 
 /**
  * Nudge a rest's manual vertical shift by `delta` whole staff-steps, **accumulating** onto
- * any existing shift (the ↑/↓ keyboard fine-positioning — see docs/rest-shift-plan.md).
+ * any existing shift (the ↑/↓ keyboard fine-positioning — see docs/plans/rest-shift-plan.md).
  * Stored as a {@link RestShiftOverride} in the engraving-overrides compartment, keyed by the
  * rest's **position address** (`posKey`, built by `restPositionKey`) rather than an id —
  * rests have no durable id (rest-fill mints fresh ones every edit). The override is a delta
@@ -113,7 +113,7 @@ export function nudgeRestShift(score: Score, posKey: string, delta: number): boo
 
 /**
  * Toggle whether the rest at this position address is hidden (the Sibelius-style
- * Ctrl+Shift+H — see docs/rest-hide-plan.md). A {@link RestHiddenOverride} is payloadless,
+ * Ctrl+Shift+H — see docs/plans/rest-hide-plan.md). A {@link RestHiddenOverride} is payloadless,
  * so the toggle is presence-based: set it when absent, clear it when present. Position-keyed
  * (`posKey` from `restPositionKey`) for the same reason as {@link nudgeRestShift} — rests
  * have no durable id. No undo snapshot here; the facade (`MusicEngine.toggleRestHidden`) /
@@ -162,7 +162,7 @@ export function clearRestHiddenAt(score: Score, posKey: string): boolean {
 
 /**
  * Set the user-authored **leading space** before one rhythmic column (client #10 — see
- * docs/note-spacing-plan.md), in staff-spaces, signed. Stored as a {@link LeadingSpaceOverride}
+ * docs/plans/note-spacing-plan.md), in staff-spaces, signed. Stored as a {@link LeadingSpaceOverride}
  * keyed by the column's position address (`posKey`, built by `spacingPositionKey`) — a column
  * has no id of its own, and deliberately no voice/staff either: the key IS the voice and staff
  * sync.
@@ -216,7 +216,7 @@ export function setNoteSpacing(score: Score, posKey: string, space: number, minS
 
 /**
  * Set a bar's authored **stretch** — the multiplier on its own note space (client #11 — see
- * docs/bar-width-plan.md). Stored as a {@link BarWidthOverride} keyed by {@link barWidthKey}.
+ * docs/plans/bar-width-plan.md). Stored as a {@link BarWidthOverride} keyed by {@link barWidthKey}.
  *
  * **Two clamps, and the second is not optional.** `minStretch` is the caller's — the *measured*
  * floor from the last render, the same contract as {@link setNoteSpacing}'s `minSpace`: only
@@ -247,7 +247,7 @@ export function setBarWidth(score: Score, key: string, stretch: number, minStret
 /**
  * Nudge a dynamic's manual position offset by `(dx, dy)` staff-spaces, **accumulating** onto
  * any existing offset (the ←→↑↓ / Ctrl+arrow keyboard fine-positioning — see
- * docs/dynamic-offset-plan.md). Stored as a {@link DynamicOffsetOverride} in the
+ * docs/plans/dynamic-offset-plan.md). Stored as a {@link DynamicOffsetOverride} in the
  * engraving-overrides compartment, keyed by the dynamic's durable `id` (element-id-keyed,
  * unlike the position-keyed rest clients). The offset is a delta on top of the mark's
  * automatic placement; render adds it back in.
@@ -303,7 +303,7 @@ export function resetMarkOffset(score: Score, id: string, kind: 'dynamicOffset' 
 
 /**
  * Nudge a note's manual horizontal offset by `dx` staff-spaces, **accumulating** onto any existing
- * offset (the Ctrl+arrow keyboard fine-positioning — see docs/note-offset-plan.md). Stored as a
+ * offset (the Ctrl+arrow keyboard fine-positioning — see docs/plans/note-offset-plan.md). Stored as a
  * {@link NoteOffsetOverride} in the engraving-overrides compartment under the key
  * {@link offsetTargetOf} resolves — the **slot** id for anything ordinary (one StaveNote is one
  * slot, so a chord moves as a unit), a fanned MEMBER's own first pitch id for a member. The offset
@@ -356,7 +356,7 @@ export function clearClefOffset(score: Score, clefId: string): boolean {
 }
 
 /** Drop a note's horizontal offset outright, back to its natural column (the Ctrl+Backspace
- *  first-class reset — see docs/note-offset-plan.md). Keyed by {@link offsetTargetOf}. No undo
+ *  first-class reset — see docs/plans/note-offset-plan.md). Keyed by {@link offsetTargetOf}. No undo
  *  snapshot here; the facade owns it. @returns true if an offset was there to clear. */
 export function clearNoteOffset(score: Score, key: string): boolean {
   if (!noteOffsetOverrideOf(score, key)) return false
@@ -366,7 +366,7 @@ export function clearNoteOffset(score: Score, key: string): boolean {
 
 /**
  * Drop the stored offsets of fanned members that are GOING AWAY — the sweep every id-keyed client
- * owes the compartment when its element dies (docs/note-offset-plan.md P3).
+ * owes the compartment when its element dies (docs/plans/note-offset-plan.md P3).
  *
  * ⚠️ **A member dies in more than one place**, which is the whole reason this is a helper: the
  * `Delete` key takes one ({@link deleteNote}), lowering `fan.count` truncates the list
@@ -396,7 +396,7 @@ export function moveNoteOffsetKey(score: Score, from: string, to: string): void 
 /**
  * Nudge a staff's extra "space above" by `delta` staff-spaces, **accumulating** onto any
  * existing value (the Sibelius-style Alt+↑/↓ vertical staff drag — see
- * docs/staff-spacing-plan.md). Stored as a {@link StaffSpacingOverride} in the
+ * docs/plans/staff-spacing-plan.md). Stored as a {@link StaffSpacingOverride} in the
  * engraving-overrides compartment, keyed by the durable `staffId` (unlike the position-keyed
  * rest clients). Render adds the accumulated per-system `above` back into each stave's Y.
  *

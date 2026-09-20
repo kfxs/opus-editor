@@ -5,14 +5,14 @@
  * sit on* ({@link keySignatureLines}). Pure: staff spaces and staff lines out, no VexFlow, no DOM —
  * `headerInk.ts`'s neighbour, and it takes the `key` part that file prices.
  *
- * ⭐ **`stave.addKeySignature` is never called** (docs/key-signature-plan.md §4). The boundary test —
+ * ⭐ **`stave.addKeySignature` is never called** (docs/plans/key-signature-plan.md §4). The boundary test —
  * *take a decision from VexFlow only when there is a rule we want to state and cannot* — is passed
  * twice over here: a placement table and a spacing row are rules we can state outright, and SMuFL
  * hands us neither (it defines no key-signature glyphs and no `engravingDefaults` mentioning one, so
  * a signature is drawn with the ordinary accidentals and the distance between them is OURS to say).
  *
- * @see docs/key-signature-research.md §9.4.1b — the table, measured
- * @see docs/key-signature-research.md §9.4.2, §9.4.2b — the spacing, measured twice
+ * @see docs/research/key-signature-research.md §9.4.1b — the table, measured
+ * @see docs/research/key-signature-research.md §9.4.2, §9.4.2b — the spacing, measured twice
  */
 import type { Clef, KeyAlteration, KeySignature, PitchAlter, PitchStep } from '@/types/music'
 import { accidentalGlyph, glyphBox } from '@/engine/fonts/fontMetrics'

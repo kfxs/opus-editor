@@ -11,7 +11,7 @@
  * is allowed to know about both) injects the real census. Delete `src/dev/` and every call site
  * here keeps compiling and does nothing, which is what the promise said all along.
  *
- * ⚠️ TEMPORARY in the same sense the census is (docs/render-performance-plan.md §8/§9): when the
+ * ⚠️ TEMPORARY in the same sense the census is (docs/history/render-performance-plan.md §8/§9): when the
  * instrument goes, this goes with it. It is an interface rather than a parameter because the probed
  * sites are deep in the layout — `noteSpaceForLane` is a free function called per (measure, staff),
  * and threading a probe through every frame of that path to time it would change the shape of the
@@ -37,7 +37,7 @@
  *
  * ⭐⭐ **The eight below carve up the RESIDUAL** — the 83% of a render that the census could only
  * call "draw", on frames where `measuresRedrawn` reported **0%** and therefore nothing was drawn
- * (docs/render-performance-plan.md §12.7). They are contiguous regions of `renderScore`, in the
+ * (docs/history/render-performance-plan.md §12.7). They are contiguous regions of `renderScore`, in the
  * order it runs them, so what they do NOT cover shows up as the dump's `unaccounted` line rather
  * than being silently absorbed by a neighbour.
  *

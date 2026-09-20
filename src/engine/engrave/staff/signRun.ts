@@ -1,6 +1,6 @@
 /**
  * ⭐⭐ **THE SIGNS A BAR CARRIES ON ITS STAFF, AND WHERE THEY STAND** — the "sign run" of
- * `docs/vexflow-removal-map.md` S4.
+ * `docs/history/vexflow-removal-map.md` S4.
  *
  * A bar opens with a run of signs — its opening barline, a clef, a meter — and ends with a barline.
  * The key signature, the tempo mark, the repeat sign and the renderer's own hit boxes all need to know

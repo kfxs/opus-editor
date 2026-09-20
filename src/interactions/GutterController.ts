@@ -4,7 +4,7 @@ import { GUTTER_WIDTH, GUTTER_METER_AIR } from '@/engine/layout/layoutConfig'
 import type { PinnedGutter, ViewportModel } from '../engine/ViewportModel'
 
 /**
- * Owns the linear-view frozen gutter (docs/linear-view-plan.md §P3): the clef and meter *in force
+ * Owns the linear-view frozen gutter (docs/plans/linear-view-plan.md §P3): the clef and meter *in force
  * at the current scroll-x*, pinned to the left edge of the viewport, so the music stays readable
  * at bar 400 instead of scrolling away from its own clef forever.
  *

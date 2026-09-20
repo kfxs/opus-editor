@@ -1,5 +1,5 @@
 /**
- * ⭐⭐ **THE STEM'S INK — P3c** (`docs/note-engraving-plan.md`, `docs/own-engraving-engine.md` P3).
+ * ⭐⭐ **THE STEM'S INK — P3c** (`docs/plans/note-engraving-plan.md`, `docs/plans/own-engraving-engine.md` P3).
  *
  * ## ⛔ What this module is NOT, and the line is the whole point of the commit it arrived in
  *
@@ -7,7 +7,7 @@
  * When P3c was written that number was still VexFlow's, because `own-engraving-engine.md` §6.1 listed
  * stem length among the places *"where we currently have no opinion"* and its own rule is that a
  * re-implementation without an opinion is strictly worse than a dependency. ⭐ The opinion has since
- * been written down (`docs/stem-length-research.md`) and — the happy part — it agrees with the number
+ * been written down (`docs/research/stem-length-research.md`) and — the happy part — it agrees with the number
  * the editor was already drawing: 3½ staff spaces, four treatises for four. ⇒ the length moved without
  * inventing anything, and this module is still only the ink.
  *

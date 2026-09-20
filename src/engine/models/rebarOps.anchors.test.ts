@@ -75,7 +75,7 @@ describe('rebar preserves beat-anchored annotations (clefs + dynamics)', () => {
  * (clearMeasureForRebar drops `measure.tempos`) unless it rides the same
  * captureBeatAnchors/restoreBeatAnchors seam that carries clefs + dynamics.
  * Marks are written straight onto the measure here — the ScoreModel ops land in P3.
- * See docs/tempo-marks-plan.md §4.
+ * See docs/plans/tempo-marks-plan.md §4.
  */
 describe('rebar preserves beat-anchored annotations (tempo marks)', () => {
   let model: ScoreModel
@@ -167,7 +167,7 @@ describe('rebar preserves beat-anchored annotations (tempo marks)', () => {
     expect(found[0].text).toBe('Presto')
   })
 
-  // A DECISION, not an accident (docs/tempo-marks-plan.md §4): the clipboard carries
+  // A DECISION, not an accident (docs/plans/tempo-marks-plan.md §4): the clipboard carries
   // staff-relative musical material, and a tempo mark is a system object governing the
   // clock. So pasting notes over a bar must leave that bar's tempo mark standing — unlike
   // a dynamic in the paste window, which the clip overwrites.
@@ -288,7 +288,7 @@ describe('rebar preserves beat-anchored annotations (hairpins)', () => {
  * used to govern sounds an octave away and nothing throws.
  *
  * ⭐ And one rule differs from the hairpin's, deliberately: an ottava DEDUPES per (beat, staff) on
- * the way back in — the clef's rule (docs/ottava-plan.md §7.8).
+ * the way back in — the clef's rule (docs/plans/ottava-plan.md §7.8).
  */
 describe('rebar preserves beat-anchored annotations (ottavas)', () => {
   let model: ScoreModel
@@ -406,7 +406,7 @@ describe('rebar preserves beat-anchored annotations (ottavas)', () => {
  * ⭐⭐ SUSTAIN PEDALS — the ottava's chapter, and the cost of missing this seam is heard as well as
  * seen. `clearMeasureForRebar` deletes `measure.pedals`, so a pedal not captured here is GONE; and
  * a pedal that survived the wipe uncaptured would be worse — a press holding its old beat while the
- * music is re-tiled around it, sustaining notes that are no longer there (docs/pedal-plan.md §8).
+ * music is re-tiled around it, sustaining notes that are no longer there (docs/plans/pedal-plan.md §8).
  *
  * The restore takes the CLEF's rule, as the ottava's does: at most one per (beat, staff), last wins.
  * ⛔ Not the hairpin's stack-freely rule — one damper, one foot.

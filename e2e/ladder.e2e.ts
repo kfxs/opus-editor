@@ -1,8 +1,8 @@
 import { test, expect } from './fixtures'
 
 /**
- * THE ABOVE-STAFF LADDER — the four families in order, over one bar (docs/ottava-plan.md P0b,
- * docs/above-staff-ladder.md §4's module, finally due).
+ * THE ABOVE-STAFF LADDER — the four families in order, over one bar (docs/plans/ottava-plan.md P0b,
+ * docs/how-it-works/above-staff-ladder.md §4's module, finally due).
  *
  * ⚠️ **This cannot be a unit test and the distinction matters here more than usual.** The ladder's
  * order emerges from three passes each measuring their own glyph's ink and clearing what the last

@@ -64,7 +64,7 @@ export function paintNote(
   }
 
   // ⭐ A FANNED MEMBER has no `StaveNote`, so its ink lives in the group the fan renderer drew it
-  // into (docs/fanned-beam-pitches-plan.md §2 P3) — head, accidental, ledger lines and stem, all
+  // into (docs/plans/fanned-beam-pitches-plan.md §2 P3) — head, accidental, ledger lines and stem, all
   // ours, all in one place. The shared beam is untouched because it is drawn OUTSIDE that group.
   //
   // ⚠️ **A GLYPH IS FILLED, NEVER STROKED.** Handing the accidental a stroke as well as a fill

@@ -1,9 +1,9 @@
 /**
  * ⭐⭐ **WHAT AN OUTSIDE-STAFF FAMILY HAS ALREADY TAKEN** — the accumulator an OUTER family reads so
- * it can clear an INNER one, and the whole of the "ladder" that `docs/above-staff-ladder.md` §1(3)
+ * it can clear an INNER one, and the whole of the "ladder" that `docs/how-it-works/above-staff-ladder.md` §1(3)
  * describes as a priority number elsewhere.
  *
- * P0a of docs/ottava-plan.md. `./inkBand` answers *how far does the MUSIC reach*; this answers *and
+ * P0a of docs/plans/ottava-plan.md. `./inkBand` answers *how far does the MUSIC reach*; this answers *and
  * what has been put there since*. An outer family merges the two and calls
  * {@link clearanceBaseline} exactly as it does today — so nothing here is a second placement rule,
  * it is a wider input to the one that exists.
@@ -23,7 +23,7 @@
  * ⭐ So this is a SECOND, LATER collection: seeded by nothing, appended to by each family **as it is
  * placed**, and read only by families placed after it. The ORDER of the ladder is therefore the
  * order the passes already run in — ⛔ **there is no priority-number table here and there must never
- * be one**, which is `docs/above-staff-ladder.md` §2's argument surviving intact.
+ * be one**, which is `docs/how-it-works/above-staff-ladder.md` §2's argument surviving intact.
  *
  * ## The two axes, because mixing them is what this kind of module gets wrong
  *

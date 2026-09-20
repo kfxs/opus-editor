@@ -143,7 +143,7 @@ describe('beamHighlight (the dev shell\'s Beam row)', () => {
   })
 
   it('⭐ …except `continue` — the one beam key a fan takes, and it lights what was WRITTEN', () => {
-    // docs/fan-beam-join-plan.md §1 (P0): the join to the group on the left.
+    // docs/plans/fan-beam-join-plan.md §1 (P0): the join to the group on the left.
     const state = stateWith([note('f')])
     const joined: BeamSource = { getNote: () => ({ fan: FAN, beam: 'continue' }), getBeamRole: () => 'continue' }
     state.selectedBeam = 'single'   // the ARMED value is beside the point here…

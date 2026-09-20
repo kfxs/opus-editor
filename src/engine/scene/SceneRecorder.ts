@@ -1,6 +1,6 @@
 /**
  * ⭐⭐ **THE FIRST IMPLEMENTATION OF `DrawContext` THAT IS OURS** — and it records instead of
- * painting (`docs/own-engraving-engine.md` P1d).
+ * painting (`docs/plans/own-engraving-engine.md` P1d).
  *
  * ## ⚠️ Why the RECORDER and not the painter — the plan's own objection, applied honestly
  *

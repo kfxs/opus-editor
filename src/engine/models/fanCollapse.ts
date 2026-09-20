@@ -16,7 +16,7 @@
  *
  * ⭐ **The pitches keep their ids.** The tail slots are deleted, so their ids are free, and a slur
  * anchored on one of those notes still resolves — to the MEMBER it became, which the fan supports
- * (docs/fanned-beam-pitches-plan.md, the slur reversal). Ties are the opposite case and are cut:
+ * (docs/plans/fanned-beam-pitches-plan.md, the slur reversal). Ties are the opposite case and are cut:
  * a tie is a pitch-to-pitch CONTINUATION and a member has no length of its own to continue into.
  *
  * ⛔ **Not on `MusicEngine`**: this reads and writes the score and nothing else — a score operation

@@ -629,7 +629,7 @@ export class MouseController {
       return
     }
     // …and a press on a selected barline's JOIN SQUARE arms the join drag (P3 of
-    // docs/barline-join-plan.md). ⚠️ **BEFORE the staff-spacing drag, and it must be**: the square
+    // docs/plans/barline-join-plan.md). ⚠️ **BEFORE the staff-spacing drag, and it must be**: the square
     // sits 10 px into the gap, inside the 12 px PADDED band (`./staffBand`) that gesture claims, and
     // a handle you can SEE has to win the press over whatever it happens to overlap.
     //
@@ -1033,7 +1033,7 @@ export class MouseController {
     // Slur SEGMENT endpoint (orange square) — an OPEN join of a cross-system slur. Click ARMS
     // it for keyboard nudging; there is NO drag/re-anchor (no note to anchor onto). Arming
     // disarms the blue endpoint (mutually exclusive). See
-    // docs/multisystem-slur-segment-endpoint-offset-plan.md.
+    // docs/plans/multisystem-slur-segment-endpoint-offset-plan.md.
     if (pick?.kind === 'segmentEndpoint' && pick.entry.segmentRole) {
       const segEndHandle = pick.entry
       const role = segEndHandle.segmentRole
@@ -1057,7 +1057,7 @@ export class MouseController {
   /**
    * ⭐⭐ **RE-GRAB THE BOX THIS PRESS LANDED INSIDE** — a plain-click SINGLE measure box that is
    * already selected keeps its selection, and the press arms the vertical drag that adjusts the
-   * staff's "space above" (Sibelius staff drag — Client #7, docs/staff-spacing-plan.md §6).
+   * staff's "space above" (Sibelius staff drag — Client #7, docs/plans/staff-spacing-plan.md §6).
    * Mirrors {@link handleSlurHandleMouseDown}: you first select the box, then grab it.
    *
    * 🚨🚨 **IT RUNS LAST, AND THAT IS THE WHOLE POINT — his report, 2026-08-31**: *"if a measure is
@@ -1106,7 +1106,7 @@ export class MouseController {
    *
    *  Works in BOTH views, but writes different things: in wrapped view the drag engraves a
    *  per-system override; in linear view it moves an ephemeral VIEW KNOB that persists nothing
-   *  (docs/linear-view-plan.md §4.2b). Same gesture, and the engine decides which — so nothing
+   *  (docs/plans/linear-view-plan.md §4.2b). Same gesture, and the engine decides which — so nothing
    *  keyed to a system can be written from a view that has no system worth naming (§4.1).
    *  @returns true if a drag was armed. */
   private armStaffSpacingDrag(measure: number, startY: number): boolean {
@@ -1396,7 +1396,7 @@ export class MouseController {
    * Always placed below the staff.
    *
    * ⭐⭐ SCOPE SEAM: the placed mark carries **NO `voice`, which means it governs EVERY voice of
-   * the staff it landed on** (`utils/dynamicScope`, docs/dynamic-voice-scope-plan.md) — the
+   * the staff it landed on** (`utils/dynamicScope`, docs/plans/dynamic-voice-scope-plan.md) — the
    * ordinary notation rule, and what the user asked for: *"the default is that it affect ALL"*.
    *
    * ⚠️ This used to write a hardcoded `voice: 0`, and the note here predicted the wrong fix — that
@@ -1581,7 +1581,7 @@ export class MouseController {
    * so a near-miss must not fall through to note entry.
    *
    * No playability ceiling, and none is needed: past the unmeasured threshold nothing is scheduled
-   * as a subdivision at all, so there is no absurd note value to guard against (docs/tremolo-plan.md
+   * as a subdivision at all, so there is no absurd note value to guard against (docs/plans/tremolo-plan.md
    * §2). A ceiling would also be unenforceable — shortening the note afterwards recreates the same
    * combination with no stamp in sight.
    */
@@ -1876,7 +1876,7 @@ export class MouseController {
 
     // No throttle: since P4 the ghost is an overlay, so following the cursor costs one small
     // draw rather than a re-layout of the whole score. The old 50 ms gate existed only to
-    // ration that cost, and capped the preview at 20 fps (docs/render-performance-plan.md §5b).
+    // ration that cost, and capped the preview at 20 fps (docs/history/render-performance-plan.md §5b).
     this.render.renderToolGhost({ x, y })
   }
 

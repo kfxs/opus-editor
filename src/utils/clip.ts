@@ -27,7 +27,7 @@ import type { EngravingOverride, NoteDuration } from '@/types/music'
 /**
  * One copied lane: a `(staff, voice)` pair and its event stream. The staff is a
  * RELATIVE index (0 = topmost copied staff) so a clip spanning staves 1+2 can land
- * on staves 3+4 — paste adds the paste-target staff to it (docs/copy-paste-staff-plan.md).
+ * on staves 3+4 — paste adds the paste-target staff to it (docs/plans/copy-paste-staff-plan.md).
  */
 export interface ClipLane {
   /** RELATIVE staff index within the clip (0 = topmost copied staff). Paste maps it to
@@ -45,13 +45,13 @@ export interface ClipLane {
    * Manual rest shifts inside the clip window, offsets relative to the clip start (same
    * basis as {@link events}) so they re-base by the paste start. Carried separately because
    * rests are not events — a shifted rest must travel even though it produces no note.
-   * Absent/empty = no shifted rests. See docs/rest-shift-plan.md §6.5.
+   * Absent/empty = no shifted rests. See docs/plans/rest-shift-plan.md §6.5.
    */
   restShifts?: Array<{ offset: Fraction; steps: number }>
   /**
    * Hidden rests inside the clip window, offsets relative to the clip start (same basis as
    * {@link events}). Carried separately for the same reason as {@link restShifts} — a hidden
-   * rest produces no note but must travel. Absent/empty = none hidden. See docs/rest-hide-plan.md.
+   * rest produces no note but must travel. Absent/empty = none hidden. See docs/plans/rest-hide-plan.md.
    */
   restHidden?: Array<{ offset: Fraction }>
   /**
@@ -59,7 +59,7 @@ export interface ClipLane {
    * start (same basis as {@link events}). Carried separately because the override is
    * SLOT-keyed and nothing in `events` (which holds no ids) can drag it along — a copied passage
    * would otherwise arrive un-offset. Covers chords AND rests (a note offset hangs off the slot).
-   * Absent/empty = none. See docs/note-offset-plan.md.
+   * Absent/empty = none. See docs/plans/note-offset-plan.md.
    *
    * ⭐ `member` is a fanned MEMBER's place in its group (1…count−1), absent for the slot itself: the
    * member's own offset travels with the group it belongs to, addressed by index because the paste
@@ -73,7 +73,7 @@ export interface ClipLane {
    * ⭐ Carried separately for the reason {@link restShifts} and {@link noteOffsets} are, and it is the
    * sharpest case of it: `RebarEvent` deliberately has NO `tremoloPair` field, because the relay
    * copies a split event's marks to every piece and a pair minted on each half of a tie-split would
-   * be a bogus mark between two halves of one note (docs/two-note-tremolo-plan.md §1). That drop is
+   * be a bogus mark between two halves of one note (docs/plans/two-note-tremolo-plan.md §1). That drop is
    * right for a RE-BAR, where adjacency genuinely may not survive — and wrong for a COPY, which
    * carries both notes and can simply reproduce the mark. So the relay stays clean and the clip
    * carries the relation itself.
@@ -88,7 +88,7 @@ export interface ClipLane {
  * A dynamic marking inside the clip window, re-anchored on paste. Staff is a RELATIVE index
  * (0 = topmost copied staff), like {@link ClipLane.staff}; `offset` is relative to the clip
  * start (quarter beats). Only dynamics whose position is FULLY inside the window travel
- * (decision: fully-enclosed-only). See docs/copy-paste-staff-plan.md.
+ * (decision: fully-enclosed-only). See docs/plans/copy-paste-staff-plan.md.
  */
 export interface ClipDynamic {
   /** RELATIVE staff index (0 = topmost copied staff). Paste maps it to `target.staff + staff`. */
@@ -313,7 +313,7 @@ export interface Clip {
    *
    * Carried at all for the same reason `restShifts` is: the override is position-keyed, so nothing
    * in `events` can drag it along, and a copied passage would silently arrive unspaced.
-   * Absent/empty = none. See docs/note-spacing-plan.md §6.
+   * Absent/empty = none. See docs/plans/note-spacing-plan.md §6.
    */
   spaces?: Array<{ offset: Fraction; space: number }>
   // future: clefs?: ClipClef[]; …

@@ -52,10 +52,10 @@ type CapturedAnchor =
   // total music unchanged, so the extent is invariant and only the anchor needs re-finding.
   | { kind: 'hairpin'; absBeat: Fraction; hairpin: Hairpin; overrides?: EngravingOverride[] }
   // Same again for the octave line — with the CLEF's collision rule on the way back in, not the
-  // hairpin's (docs/ottava-plan.md §7.8). See restoreBeatAnchors.
+  // hairpin's (docs/plans/ottava-plan.md §7.8). See restoreBeatAnchors.
   | { kind: 'ottava'; absBeat: Fraction; ottava: Ottava; overrides?: EngravingOverride[] }
   // …and for the sustain pedal, which takes the ottava's road entire: start-only capture, the clef's
-  // collision rule on the way back, no voice (docs/pedal-plan.md §8).
+  // collision rule on the way back, no voice (docs/plans/pedal-plan.md §8).
   | { kind: 'pedal'; absBeat: Fraction; pedal: Pedal; overrides?: EngravingOverride[] }
 
 /**
@@ -165,7 +165,7 @@ export function rebarRegion(score: Score, fromMeasure: number, ts: TimeSignature
   // be re-attached to the rebar'd notes (otherwise they'd dangle and vanish).
   const slurState = captureSlurs(score, regionMeasures)
 
-  // …and trills, on exactly the same terms and for exactly the same reason (docs/trill-plan.md §2.1).
+  // …and trills, on exactly the same terms and for exactly the same reason (docs/plans/trill-plan.md §2.1).
   const trillState = captureTrills(score, regionMeasures)
 
   // Capture beat-anchored annotations (clef changes + dynamics) by their ABSOLUTE
@@ -472,7 +472,7 @@ export function pasteEvents(
   // Re-anchor the clip's own slurs onto the freshly-pasted notes (Phase 3), mapping rel→abs
   // staff (drop overflow) + re-voicing single-voice clips — the slur analogue of clip dynamics.
   restoreClipSlurs(score, regionNumbers, clipSlurs, targetStaff, targetVoice, singleVoice, pasteStart, staffCount)
-  // …and the clip's own trills, on the same staff-aware lookup (docs/trill-plan.md §2.3).
+  // …and the clip's own trills, on the same staff-aware lookup (docs/plans/trill-plan.md §2.3).
   restoreClipTrills(score, regionNumbers, clipTrills, targetStaff, targetVoice, singleVoice, pasteStart, staffCount)
   restoreBeatAnchors(score, regionNumbers, survivingAnchors)
   // Re-anchor the clip's own dynamics on top (Phase 2): re-base each clip-relative offset by the
@@ -842,7 +842,7 @@ function restoreBeatAnchors(score: Score, regionNumbers: number[], anchors: Capt
       m.clefs.sort((x, y) => fracCompare(x.beat, y.beat))
     } else if (a.kind === 'tempo') {
       // Tempo takes the CLEF rule, not the dynamics rule: at most one mark per beat, last
-      // wins. Two tempo marks on one beat is not a thing (docs/tempo-marks-plan.md §4).
+      // wins. Two tempo marks on one beat is not a thing (docs/plans/tempo-marks-plan.md §4).
       if (!m.tempos) m.tempos = []
       const dup = m.tempos.findIndex((t) => fracCompare(t.beat, beat) === 0)
       if (dup !== -1) m.tempos.splice(dup, 1)
@@ -883,9 +883,9 @@ function restoreBeatAnchors(score: Score, regionNumbers: number[], anchors: Capt
       // ⭐ Pedals take the CLEF rule the branch above takes, and the reason is physical rather than
       // notational: two octave shifts on a beat are a contradiction a reader cannot resolve, two
       // pedal presses on a beat are a contradiction the PIANIST cannot perform. One damper, one
-      // foot (docs/pedal-plan.md §3.3).
+      // foot (docs/plans/pedal-plan.md §3.3).
       // ⚠️ Per STAFF, as the clef and ottava branches are — and ⛔ NOT per staff-and-voice: a pedal
-      // has no voice to compare (docs/pedal-plan.md §3.1).
+      // has no voice to compare (docs/plans/pedal-plan.md §3.1).
       // ⚠️ Overlap that does NOT share a beat is left standing, exactly as `pedalOps.addPedal`
       // leaves it: a rebar re-anchors, it does not adjudicate gestures, and playback resolves
       // positionally.
@@ -893,7 +893,7 @@ function restoreBeatAnchors(score: Score, regionNumbers: number[], anchors: Capt
       const dup = m.pedals.findIndex((p) => fracCompare(p.beat, beat) === 0 && matchesStaff(p.staffId, a.pedal.staffId, score))
       if (dup !== -1) m.pedals.splice(dup, 1)
       // The id is regenerated here, as a hairpin's and an ottava's are — the day anything is keyed
-      // by a pedal id (a hand-moved `✻`, docs/pedal-plan.md §6.3), THIS is the site that must
+      // by a pedal id (a hand-moved `✻`, docs/plans/pedal-plan.md §6.3), THIS is the site that must
       // re-stamp it.
       const pedalId = uuidv4()
       m.pedals.push({ ...a.pedal, id: pedalId, beat })
@@ -917,7 +917,7 @@ function restoreBeatAnchors(score: Score, regionNumbers: number[], anchors: Capt
  * start (per voice), measured with the measures' CURRENT (pre-rebar) capacities, then
  * CLEAR the stored override — it is re-stamped by {@link restoreRestShifts} after the bars
  * are regenerated, or intentionally dropped if the new tiling has no rest at that offset.
- * The position-keyed twin of {@link captureBeatAnchors}. See docs/rest-shift-plan.md §3.2.
+ * The position-keyed twin of {@link captureBeatAnchors}. See docs/plans/rest-shift-plan.md §3.2.
  */
 function captureRestShifts(score: Score, regionMeasures: Measure[]): CapturedRestShift[] {
   const out: CapturedRestShift[] = []
@@ -949,7 +949,7 @@ function captureRestShifts(score: Score, regionMeasures: Measure[]): CapturedRes
  * collision (last wins), so paste can stamp the clip's shifts on top of the destination's
  * by calling this again — the captured offsets are region-relative, so paste re-bases the
  * clip's offsets by the paste start and routes them through this same path.
- * See docs/rest-shift-plan.md §3.2 / §6.4.
+ * See docs/plans/rest-shift-plan.md §3.2 / §6.4.
  */
 function restoreRestShifts(score: Score, regionNumbers: number[], captured: CapturedRestShift[]): void {
   if (captured.length === 0) return
@@ -989,7 +989,7 @@ function restoreRestShifts(score: Score, regionNumbers: number[], captured: Capt
  * stored override — {@link restoreNoteOffsets} re-stamps it under the fresh slot id afterwards, or
  * drops it if the new tiling has no slot starting there. The slot-keyed twin of
  * {@link captureRestShifts}; it covers BOTH chords and rests, because a note offset hangs off the
- * whole slot (a chord moves as a unit). See docs/note-offset-plan.md.
+ * whole slot (a chord moves as a unit). See docs/plans/note-offset-plan.md.
  */
 function captureNoteOffsets(score: Score, regionMeasures: Measure[]): CapturedNoteOffset[] {
   const out: CapturedNoteOffset[] = []
@@ -1023,7 +1023,7 @@ function captureNoteOffsets(score: Score, regionMeasures: Measure[]): CapturedNo
  * (measure, beat) it now lands on, and write the override onto whatever slot of that (voice, staff)
  * now STARTS exactly there. Unlike a rest shift this is not rest-only — a chord slot or a rest slot
  * satisfies it — but the same "no slot start → silently DROP" rule applies (a note the new tiling
- * moved/merged away loses its offset, benign; docs/note-offset-plan.md deferred-travel note). Keyed
+ * moved/merged away loses its offset, benign; docs/plans/note-offset-plan.md deferred-travel note). Keyed
  * by the fresh slot id, so it survives the id re-mint. Overwrites on a collision (last wins), so
  * paste stamps the clip's offsets on top of the destination's by calling this again.
  *
@@ -1069,7 +1069,7 @@ function restoreNoteOffsets(score: Score, regionNumbers: number[], captured: Cap
  *
  * ⚠️ POSITION-KEYED, WHICH IS WHY IT IS SAFE where carrying the flag on the event would not be. The
  * relay hands a split event's marks to EVERY piece, so a `tremoloPair` riding `RebarEvent` would
- * mint a bogus pair between two halves of one tie-split note (docs/two-note-tremolo-plan.md §1).
+ * mint a bogus pair between two halves of one tie-split note (docs/plans/two-note-tremolo-plan.md §1).
  * This re-finds the slot that now STARTS at the same absolute offset and re-applies only where
  * `pairIsValid` still holds — so a pair the new tiling tore apart is simply not written back, which
  * is the drop, done cleanly.
@@ -1119,7 +1119,7 @@ function restoreTremoloPairs(score: Score, regionNumbers: number[], captured: Ca
 
 /**
  * Capture and clear every user-authored leading space in the region (client #10 — see
- * docs/note-spacing-plan.md §6), keyed by its **absolute** offset from the region start so it can
+ * docs/plans/note-spacing-plan.md §6), keyed by its **absolute** offset from the region start so it can
  * be re-found after the bars are re-tiled.
  *
  * The twin of {@link captureRestShifts}, and position-keyed for the same reason — but with neither
@@ -1154,7 +1154,7 @@ function captureLeadingSpaces(score: Score, regionMeasures: Measure[]): Captured
  */
 /**
  * Does anything start at this beat — **counting a fanned group's MEMBERS**, which is the §7 half of
- * the rule (docs/note-spacing-plan.md). A member is not a slot: its beat is an arbitrary rational
+ * the rule (docs/plans/note-spacing-plan.md). A member is not a slot: its beat is an arbitrary rational
  * inside one, so the plain `slots.some(...)` test called every member space orphaned and dropped it
  * at the first meter change or paste. A member IS a column here in the only sense the test means —
  * there is a head drawn at that position for the space to open a gap before.
@@ -1439,7 +1439,7 @@ function restoreSlurs(score: Score, regionNumbers: number[], captured: CapturedS
  * ⚠️⚠️ **Without this, a meter change deletes every trill it touches.** A trill is anchored by note
  * identity ({@link Trill}), a re-bar re-mints every id in the region, and the dangling sweep would
  * then find nothing to point at — so "just let the belt handle it" is not a lighter-touch option,
- * it is the feature silently removing the user's marks. This is the whole of docs/trill-plan.md §2.1
+ * it is the feature silently removing the user's marks. This is the whole of docs/plans/trill-plan.md §2.1
  * and the amendment that plan needed most.
  *
  * The key is `captureSlurs`' — absolute onset offset from the region start (pre-rebar capacities)
@@ -1603,7 +1603,7 @@ function clearMeasureForRebar(measure: Measure): void {
   // capture is a visible loss instead of a silent lie.
   delete measure.hairpins
   delete measure.ottavas // …and the octave lines, for that same load-bearing reason
-  delete measure.pedals // …and the sustain pedals, likewise (docs/pedal-plan.md §8)
+  delete measure.pedals // …and the sustain pedals, likewise (docs/plans/pedal-plan.md §8)
 }
 
 /**

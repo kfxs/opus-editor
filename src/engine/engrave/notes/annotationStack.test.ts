@@ -1,6 +1,6 @@
 /**
  * How a column's text annotations stack. ⚠️ Exactness against `Annotation.format` was proved once, on
- * ~1,100 texts of random scores (S9f, `docs/vexflow-removal-map.md` §5.2); pinned here is the rule.
+ * ~1,100 texts of random scores (S9f, `docs/history/vexflow-removal-map.md` §5.2); pinned here is the rule.
  */
 import { describe, it, expect } from 'vitest'
 import { type AnnotationColumnState, type StackedAnnotation, stackAnnotations } from './annotationStack'

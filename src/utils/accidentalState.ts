@@ -7,7 +7,7 @@
  * redundant), we replay the measure's earlier notes and remember the last alteration seen
  * at each diatonic position.
  *
- * ## ⭐⭐ THE KEY SIGNATURE IS THE FALLBACK, NOT A PRE-FILL (docs/key-signature-plan.md §3)
+ * ## ⭐⭐ THE KEY SIGNATURE IS THE FALLBACK, NOT A PRE-FILL (docs/plans/key-signature-plan.md §3)
  *
  * The running map is keyed by **diatonic position** — octave-specific, so F4 and F5 are two
  * entries. A key signature governs a **LETTER, in all octaves** (Gould pp. 93–94, and it is what
@@ -68,7 +68,7 @@ export function prevailingAlterations(notes: AccidentalNote[], beat: Fraction): 
  * ⭐ THE rule of this module, named once so every pass reads the same one: the sign a note draws,
  * the pitch a new note is born with, the note a trill alternates with and what "remove the
  * accidental" reverts to are all this question asked from four places
- * (docs/key-signature-plan.md §3).
+ * (docs/plans/key-signature-plan.md §3).
  *
  * ⚠️ **`?? `, not `||`** — an explicit natural earlier in the bar is `0`, and it must WIN over a
  * sharp in the key. That is the whole difference between "the bar said nothing" and "the bar said
@@ -96,7 +96,7 @@ export function alterInForceAt(
  * updated within a chord as signs are shown.
  *
  * Extracted from `NoteBuilder`'s inline accumulator so that a FANNED slot's members can obey it too
- * (docs/fanned-beam-pitches-plan.md §2). ⚠️ **The drawing READS this decision, it never makes one.**
+ * (docs/plans/fanned-beam-pitches-plan.md §2). ⚠️ **The drawing READS this decision, it never makes one.**
  * The `StaveNote`s and the hand-drawn member heads look the answer up in the SAME map, so the two
  * cannot drift — a second accidental rule inside the fan renderer is the one thing this feature
  * cannot afford.

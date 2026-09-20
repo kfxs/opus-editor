@@ -21,7 +21,7 @@ export class HighlightController {
    *
    * Highlights used to reset themselves by being wiped along with the SVG — the code said so
    * out loud: *"Safe: the next render rebuilds the SVG."* Once a selection change stops
-   * redrawing the score (docs/render-performance-plan.md §5a) that reset is gone, so every
+   * redrawing the score (docs/history/render-performance-plan.md §5a) that reset is gone, so every
    * mutation needs a real inverse. Nothing here touches the DOM directly any more; it goes
    * through the helpers below, and each records how to undo itself.
    */

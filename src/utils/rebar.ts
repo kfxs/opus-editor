@@ -552,7 +552,7 @@ export function relayEvents(events: RebarEvent[], meter: MeterInfo, opts: RelayO
           // ⚠️ The FIRST piece only — the opposite rule, and deliberately so. A fan is an assertion
           // about ONE event ("play this note as six, accelerating"); split that event at a barline
           // and the group it described is gone. Copying it like the tremolo would silently mint the
-          // cross-barline fan docs/fanned-beams-plan.md §4 excludes, on both halves, twice over.
+          // cross-barline fan docs/plans/fanned-beams-plan.md §4 excludes, on both halves, twice over.
           fan: pieces.length === 0 ? ev.fan : undefined,
         }
         bars[i].push(piece)

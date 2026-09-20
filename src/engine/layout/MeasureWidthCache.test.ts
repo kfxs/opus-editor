@@ -10,7 +10,7 @@ import { fracCreate as frac } from '@/utils/fraction'
 
 /**
  * P2 — memoize each (measure, staff) lane's note-space width, keyed by the lane's CONTENT
- * (docs/render-performance-plan.md §4).
+ * (docs/history/render-performance-plan.md §4).
  *
  * The whole bet is that a fingerprint cannot go stale. So these tests are not about speed; they
  * are about the one way a memo can be worse than no memo: **returning a width for content that

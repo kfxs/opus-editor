@@ -1,6 +1,6 @@
 /**
  * ⭐⭐ **THE TIME SIGNATURE'S INK — P5b, and the second symbol of the HEADER that is ours**
- * (`docs/own-engraving-engine.md` P5; the adapter is `rendering/EngravedTimeSignature`).
+ * (`docs/plans/own-engraving-engine.md` P5; the adapter is `rendering/EngravedTimeSignature`).
  *
  * ## What P5 said this step was
  *
@@ -43,7 +43,7 @@
  * | the **x** of the whole sign | `Stave.format()`'s BEGIN-modifier walk | *"`headerInk` MEASURES, `Stave` PLACES"* — the next step of P5b, ⛔ not this one |
  *
  * 🚨🚨 **THE ROW GAP IS UNKNOWN IN EVERY BOOK, AND THAT IS A FINDING, ⛔ NOT AN OMISSION.**
- * `docs/header-spacing-research.md` §2.8 searched all four treatises for it and found only Gould's
+ * `docs/research/header-spacing-research.md` §2.8 searched all four treatises for it and found only Gould's
  * vertical rule above; the engines then split — **2.0 sp between the rows** (LilyPond, Verovio, and
  * VexFlow's lines 1↔3, which is what we draw) against **a 0.0 clear gap, bboxes touching**
  * (MuseScore's `timeSigNormalNumDist`). ⇒ row **H** of that document's table is marked ⛔ UNKNOWN
@@ -117,7 +117,7 @@ export function meterRowBaseline(lineY: number): number {
  *
  * ⭐⭐ **The lesson is not the sign.** Two expressions of one rule do not disagree loudly — they
  * disagree by a bearing; and an instrument whose error (0.2 sp) exceeds the effect (0.16 sp) will
- * confirm whichever one you tried last. `docs/ink-anchors-and-side-bearings.md`.
+ * confirm whichever one you tried last. `docs/research/ink-anchors-and-side-bearings.md`.
  */
 export function meterOriginX(inkLeftX: number, glyphLeft: number, space: number): number {
   return inkLeftX + glyphLeft * space

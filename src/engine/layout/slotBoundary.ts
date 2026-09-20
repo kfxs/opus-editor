@@ -5,7 +5,7 @@
  * *"Clef-tool click snaps to the nearest slot boundary"* (commit `588b817`) — the BOUNDARY is where
  * the slot's ink starts, so a note carrying a sharp begins at the sharp. That stays the rule here.
  *
- * ## What changed, and it is only the ruler (`docs/own-engraving-engine.md` §5 P6b)
+ * ## What changed, and it is only the ruler (`docs/plans/own-engraving-engine.md` §5 P6b)
  *
  * The edge used to be `bbox.x` of a note's registry entry — VexFlow's union of every modifier, which
  * happened to start at the accidental. It is now asked of the parts the editor measures itself:

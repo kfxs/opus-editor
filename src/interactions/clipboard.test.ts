@@ -155,7 +155,7 @@ describe('clipboard — copy/paste of notes', () => {
 })
 
 /**
- * Rest-shift travel through copy/paste (docs/rest-shift-plan.md §4–§6.5): a shifted rest in
+ * Rest-shift travel through copy/paste (docs/plans/rest-shift-plan.md §4–§6.5): a shifted rest in
  * the copy window rides along at its clip-relative offset (the canon effect), and a paste
  * that overwrites a destination rest with a note drops that destination's shift.
  */
@@ -491,7 +491,7 @@ describe('clipboard — octave lines travel', () => {
 
   /** A measure's ottavas as `shift@beat+length`. ⚠️ Read off the score, and WRITTEN through
    *  `ottavaOps`, because the editor facade has no ottava door yet — that arrives with entry
-   *  (docs/ottava-plan.md P5). The clipboard is what is under test here, not the way in. */
+   *  (docs/plans/ottava-plan.md P5). The clipboard is what is under test here, not the way in. */
   const ottavasOf = (m: number) =>
     (engine.getScore().measures.find(x => x.number === m)!.ottavas ?? [])
       .map(o => `${o.shift}@${fracToNumber(o.beat)}+${fracToNumber(o.length)}`)
@@ -549,7 +549,7 @@ describe('clipboard — sustain pedals travel', () => {
   beforeEach(() => { engine = makeEngine() })
 
   /** A measure's pedals as `beat+length`. ⚠️ Written through `pedalOps` for `ottavasOf`'s reason:
-   *  the editor facade has no pedal door yet (docs/pedal-plan.md P4). The clipboard is the subject
+   *  the editor facade has no pedal door yet (docs/plans/pedal-plan.md P4). The clipboard is the subject
    *  here, not the way in. */
   const pedalsOf = (m: number) =>
     (engine.getScore().measures.find(x => x.number === m)!.pedals ?? [])
@@ -753,7 +753,7 @@ describe('clipboard — dynamics travel (Phase 2)', () => {
   })
 })
 
-describe('⭐ clipboard — trills travel (docs/trill-plan.md §2.3)', () => {
+describe('⭐ clipboard — trills travel (docs/plans/trill-plan.md §2.3)', () => {
   let engine: MusicEngine
   beforeEach(() => { engine = makeEngine() })
 

@@ -168,7 +168,7 @@ describe('scheduling through the tempo map', () => {
 })
 
 /**
- * TREMOLO PLAYBACK (docs/tremolo-plan.md §5, P3) — one `ScheduledNote` becomes N.
+ * TREMOLO PLAYBACK (docs/plans/tremolo-plan.md §5, P3) — one `ScheduledNote` becomes N.
  *
  * The whole of §5's reasoning is checkable here, because this collector is pure: no AudioContext, no
  * Tone, and the tempo map it needs is pure too. What the tests are really pinning is that the period

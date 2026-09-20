@@ -1,5 +1,5 @@
 /**
- * ⭐⭐ **HOW FAR OUT A TUPLET'S BRACKET AND NUMERAL STAND** — S8 of `docs/vexflow-removal-map.md`
+ * ⭐⭐ **HOW FAR OUT A TUPLET'S BRACKET AND NUMERAL STAND** — S8 of `docs/history/vexflow-removal-map.md`
  * (`Tuplet.getYPosition`).
  *
  * ## ⭐ What the rule IS
@@ -14,7 +14,7 @@
  *
  * ## ⭐ The numbers are ROWS, and their alternatives are already sourced
  *
- * `docs/tremolo-tuplet-research.md` **U4** is the preset table for {@link TUPLET_AIR}, U5 for the
+ * `docs/research/tremolo-tuplet-research.md` **U4** is the preset table for {@link TUPLET_AIR}, U5 for the
  * bracket's horizontal overhang and U6 for its legs (both of which live in the drawing, not here).
  * That document states its own rule — *"every number that runs today stays the default"* — so this
  * port keeps VexFlow's values exactly and **moves no pixel**.
@@ -38,7 +38,7 @@ import { staffLineY } from '../staff/staffFrame'
 
 /**
  * ⭐ **The air the mark keeps from each thing it has to clear, in staff spaces.** Taken from
- * `tuplet.js:132-165`; alternatives in `docs/tremolo-tuplet-research.md` U4.
+ * `tuplet.js:132-165`; alternatives in `docs/research/tremolo-tuplet-research.md` U4.
  *
  * ⚠️ `staffAbove` and `staffBelow` are **not equal**, and that asymmetry is VexFlow's rather than a
  * rule anyone states. ⛔ Not tidied into one number: doing so would move the mark on every tuplet that

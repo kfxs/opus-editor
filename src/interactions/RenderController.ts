@@ -64,7 +64,7 @@ export class RenderController {
    * {@link ELEMENT_SPECS} — a Record TOTAL over the union, so the guarantee is the same (a
    * fifteenth kind fails to BUILD until it says how it paints) and the answer now sits in the
    * kind's OWN module beside its hit-test, rather than in a switch here that has to be kept in
-   * step with one over there (docs/modularity-plan-2026-07-28.md Phase 1).
+   * step with one over there (docs/history/modularity-plan-2026-07-28.md Phase 1).
    *
    * Only one row can run, so their order means nothing (it used to: thirteen fields could in
    * principle all be set). The rows that paint nothing new are deliberate, and say so where they
@@ -82,7 +82,7 @@ export class RenderController {
   /**
    * Make the picture right again.
    *
-   * Most calls here change no content: the census (docs/render-performance-findings.md §P0.4)
+   * Most calls here change no content: the census (docs/history/render-performance-findings.md §P0.4)
    * found that **82% of renders in an ordinary editing session** were a selection move, a hover,
    * a pan or a ghost being erased — each paying a full layout + draw of the whole score to shift
    * a highlight. So the score is only re-engraved when it is actually *stale* (content, view
@@ -143,7 +143,7 @@ export class RenderController {
 
   /**
    * ⭐⭐ **ONE FRAME OF A MARK GESTURE — redraw the family that is moving, and nothing else**
-   * (docs/render-performance-plan.md §12.5a, `engine/rendering/markPreviewPass`).
+   * (docs/history/render-performance-plan.md §12.5a, `engine/rendering/markPreviewPass`).
    *
    * The same shape `renderPreview` below already has, one level up: the engraved score and its
    * measure groups stay exactly as they are, and only the moving family's `<g>`s are swapped. The
@@ -268,7 +268,7 @@ export class RenderController {
    * WHICH glyph is {@link toolGhost}'s answer and HOW it is drawn is `GHOST_DRAWERS`'s — this used
    * to be a twelve-case switch over eleven `render*Ghost` methods of my own, each forwarding to a
    * one-liner on `MusicEngine` and another on `ScoreRenderer`
-   * (docs/modularity-plan-2026-07-28.md Phase 2).
+   * (docs/history/modularity-plan-2026-07-28.md Phase 2).
    */
   renderToolGhost(coords: { x: number; y: number }): void {
     const tool = this.state.selectedMarkingTool

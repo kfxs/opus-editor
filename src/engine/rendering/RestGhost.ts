@@ -1,5 +1,5 @@
 /**
- * ⭐ **THE REST STAMP'S GHOST — S11d** (`docs/vexflow-removal-map.md` S11): a free-floating rest of the
+ * ⭐ **THE REST STAMP'S GHOST — S11d** (`docs/history/vexflow-removal-map.md` S11): a free-floating rest of the
  * armed duration + dots, following the cursor. Its own module rather than a function in
  * {@link GhostRenderer}, per CLAUDE.md's rule: the table there has a ROW and the drawing lives here.
  *
@@ -52,7 +52,7 @@ export function drawRestGhost(
     //   it — it never knew about the old fixed lanes either, so the gap is older than the derived
     //   rule and merely wider now. Not fixed here (the plan's §9), but a preview that lies about
     //   where the mark lands is the same family of fault as a rest the user has to drag.
-    //   (docs/multi-voice-rest-position-plan.md §8.)
+    //   (docs/plans/multi-voice-rest-position-plan.md §8.)
     const rest = new EngravedNote({ keys: [restKey(duration)], duration: convertDuration(duration, dots) + 'r' })
     for (let d = 0; d < dots; d++) attachEngravedDots(rest)
     standOn(rest, stave)

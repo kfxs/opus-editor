@@ -16,11 +16,11 @@ import { STAVE_LINE_WIDTH_PX } from '@/engine/engrave/staff/staffLines'
  * SURFACE.** `CONTAINER_WIDTH` and `MARGIN` used to sit in this object and were exactly that: a
  * page width and a page margin that nothing owned and nothing forbade, read from ten sites that
  * each thought they were reading an engraving constant. They now live in
- * `engine/layout/surface.ts` and reach a render as a `SurfaceMetrics` (docs/layout-plan.md §1).
+ * `engine/layout/surface.ts` and reach a render as a `SurfaceMetrics` (docs/plans/layout-plan.md §1).
  * ⛔ Do not put a page dimension back in here; a constant in this object must hold whether or not
  * there is a page at all.
  *
- * ## ⭐ INK vs FINGER — the rule that sorts a pixel constant (docs/staff-size-plan.md §1)
+ * ## ⭐ INK vs FINGER — the rule that sorts a pixel constant (docs/plans/staff-size-plan.md §1)
  *
  * Every number in `LAYOUT_CONFIG` is **ink**: it is a distance in the engraving, and it is secretly
  * a staff-space at the score's staff size — so each is written as one, `spaces × STAFF_SPACE_PX`,
@@ -39,7 +39,7 @@ import { STAVE_LINE_WIDTH_PX } from '@/engine/engrave/staff/staffLines'
  * already scales — do not multiply it by the staff's size, that is the double-scaling bug.** The
  * ones that do need `× sizeₛ` are the ones read during the **casting-off**, before any group
  * exists: the four width constants below, which is why every one of them is still full-size on a
- * small staff today (docs/staff-size-plan.md §6 — P3, open).
+ * small staff today (docs/plans/staff-size-plan.md §6 — P3, open).
  */
 export const LAYOUT_CONFIG = {
   /**
@@ -58,7 +58,7 @@ export const LAYOUT_CONFIG = {
    * ⭐ **A DEFAULT and a SHRINK FLOOR are different questions**, and that is the distinction he drew:
    * *"of course empty bars can shrink more (depending on the context, probably to 4?) but as an initial
    * setup…"*. How far a bar of silence may be *forced* is `EMPTY_BAR_FLOOR_PX` plus the transfer
-   * (docs/bar-width-plan.md §1.5) — already well below 4 spaces — and it is not this.
+   * (docs/plans/bar-width-plan.md §1.5) — already well below 4 spaces — and it is not this.
    *
    * ⚠️ So this is the one number here that is a matter of taste rather than of ink, and it is **cheap to
    * change and expensive to change silently**: it re-casts every system, and two specs used to state
@@ -92,7 +92,7 @@ export const LAYOUT_CONFIG = {
    * | mid-line | 10.00 (this floor) | 10.25 |
    *
    * ⚠️ The last row is the one to watch: he has reported three times that empty bars do not shrink far
-   * enough (docs/bar-width-plan.md "Known issues" #1), so a fix at the line start must never widen the
+   * enough (docs/plans/bar-width-plan.md "Known issues" #1), so a fix at the line start must never widen the
    * ones mid-line. This one does not.
    */
   MIN_MEASURE_WIDTH: 10 * STAFF_SPACE_PX,
@@ -124,7 +124,7 @@ export const LAYOUT_CONFIG = {
    *  Read through `layout/staffStride`, which is where a staff's own size multiplies it. */
   STAVE_HEIGHT: 12 * STAFF_SPACE_PX,
   /** The clearance below a staff, to the next one — 3 staff-spaces. ⛔ Deliberately NOT scaled by a
-   *  staff's size: a gap is not made of ink (docs/staff-size-plan.md §5). */
+   *  staff's size: a gap is not made of ink (docs/plans/staff-size-plan.md §5). */
   VERTICAL_SPACING: 3 * STAFF_SPACE_PX,
 }
 
@@ -137,7 +137,7 @@ const VIEWPORT_LINES = 3.5
  * The scroll box's own breathing room above and below the music, in px.
  *
  * ⚠️ Its own constant, and deliberately so: this used to read `LAYOUT_CONFIG.MARGIN`, i.e. the
- * viewport's height tracked **the page's margin**. That is the conflation docs/layout-plan.md §1
+ * viewport's height tracked **the page's margin**. That is the conflation docs/plans/layout-plan.md §1
  * is about, one import deep — how much padding a *sheet of paper* has is no business of how tall
  * the window you look through it is. ⛔ Do not "de-duplicate" this back onto a surface: they are
  * equal by history, not by meaning.
@@ -148,7 +148,7 @@ const VIEWPORT_PADDING = 20
  * Fixed height of the score *viewport* (the window you scroll inside), sized to VIEWPORT_LINES
  * staff lines so the JSON panel below stays visible. Derived from LAYOUT_CONFIG so it tracks the
  * per-line content height (STAVE_HEIGHT + VERTICAL_SPACING), rather than being a magic number.
- * See docs/navigation-viewport-plan.md §2.
+ * See docs/plans/navigation-viewport-plan.md §2.
  */
 export const VIEWPORT_HEIGHT =
   VIEWPORT_LINES * (LAYOUT_CONFIG.STAVE_HEIGHT + LAYOUT_CONFIG.VERTICAL_SPACING) +
@@ -160,7 +160,7 @@ export const VIEWPORT_HEIGHT =
  * intrinsic width (Sibelius Panorama / Dorico galley / MuseScore continuous-horizontal).
  *
  * Two things it deliberately is NOT. It is not a *score* field — it is view state, owned by
- * MusicEngine and never written to JSON (docs/linear-view-plan.md §5, P0). And pagination is
+ * MusicEngine and never written to JSON (docs/plans/linear-view-plan.md §5, P0). And pagination is
  * not a third member: pages, if they ever come, are a property of `wrapped` (a casting-off),
  * not a sibling of it (§1).
  *
@@ -235,10 +235,10 @@ export interface GutterState {
  *
  * ## ⭐⭐ A RATIO from the font, not a weight from the font — and the difference matters
  *
- * F3 (docs/font-metrics-plan.md) took the other weights straight out of `engravingDefaults`. ⛔ Not
+ * F3 (docs/plans/font-metrics-plan.md) took the other weights straight out of `engravingDefaults`. ⛔ Not
  * this one, and taking it would make the line too heavy: the font's 0.16 spaces is **1.6 px** here,
  * but the thing it has to look right against is **the staff line we actually draw**, which is
- * **0.11 sp** (Gould, measured — `docs/staff-line-research.md` §8 A) and not the font's 0.13.
+ * **0.11 sp** (Gould, measured — `docs/research/staff-line-research.md` §8 A) and not the font's 0.13.
  * Absolute weights from the font only agree with each other while everything on the page comes from
  * the font, and the staff line does not.
  *
@@ -267,7 +267,7 @@ export const LEDGER_LINE_STYLE = {
 
 /**
  * Where every SYSTEM starts vertically, once the per-system staff-spacing overrides (Client #7 —
- * docs/staff-spacing-plan.md) have been resolved. Computed by `ScoreRenderer.staffSpacingLayout`,
+ * docs/plans/staff-spacing-plan.md) have been resolved. Computed by `ScoreRenderer.staffSpacingLayout`,
  * which is the only thing that can: the answer depends on the view mode and linear view's own
  * spacing knob, and those are the renderer's. Declared here so anything drawing INTO that layout —
  * the note ghost, notably — can be handed the result instead of recomputing it.
@@ -290,7 +290,7 @@ export interface StaffSpacingLayout {
   /**
    * `staffTopPx[line][staffIndex]` — that staff's top, measured from its SYSTEM's top: the strides
    * of every staff above it (each one its own, since a staff drawn small takes a smaller slot —
-   * docs/staff-size-plan.md §5) plus the space-above of every staff at/above it.
+   * docs/plans/staff-size-plan.md §5) plus the space-above of every staff at/above it.
    *
    * ⭐ One number, not two. It used to be `cumPx` — the space-above prefix alone — with every
    * consumer adding `staffIndex × stride` itself, which was only correct while every staff in the
@@ -301,7 +301,7 @@ export interface StaffSpacingLayout {
   /** `staffSize[line][staffIndex]` — how big that staff is DRAWN on that system, as a ratio
    *  (1 = full size). Published rather than re-resolved by every consumer so there is ONE answer
    *  per (system, staff): it is what decided `staffTopPx` above, and per-system size (§3 of
-   *  docs/staff-size-plan.md) would make it genuinely vary by line. */
+   *  docs/plans/staff-size-plan.md) would make it genuinely vary by line. */
   staffSize: number[][]
   lineHeightPx: number[]
   /** Σ over lines of that system's height (every staff's own stride + its extra) — the score's
@@ -319,7 +319,7 @@ export interface MeasureWidthInfo {
    *  may legitimately push the line to re-wrap. */
   minWidth: number
   /**
-   * The slice of `minWidth` the USER authored (client #10 — docs/note-spacing-plan.md), in px.
+   * The slice of `minWidth` the USER authored (client #10 — docs/plans/note-spacing-plan.md), in px.
    *
    * Split out because justification treats the two halves differently: the intrinsic half
    * (`minWidth − userSpace`) is the engraver's and gets stretched or squeezed to fill the line,
@@ -330,7 +330,7 @@ export interface MeasureWidthInfo {
   userSpace?: number
   /**
    * The slice of `minWidth` the user's **bar stretch** bought (client #11 —
-   * docs/bar-width-plan.md), in px: `noteSpace × (stretch − 1)`. Signed — a stretch below 1 makes
+   * docs/plans/bar-width-plan.md), in px: `noteSpace × (stretch − 1)`. Signed — a stretch below 1 makes
    * it negative.
    *
    * Reserved off the top exactly as `userSpace` is, and for the same reason (a stretch must not be
@@ -352,7 +352,7 @@ export interface MeasureWidthInfo {
   noteSpace?: number
   /**
    * True when this bar's stretch scales its **share of the line** instead of adding a reserved
-   * amount on top — the EMPTY-bar case (docs/bar-width-plan.md §2, corrected at P1).
+   * amount on top — the EMPTY-bar case (docs/plans/bar-width-plan.md §2, corrected at P1).
    *
    * The difference is visible in `distributeLineWidths`: a share-scaling bar carries
    * `stretchSpace: 0` and folds its stretch into `minWidth`, so `intrinsicOf` — and therefore the

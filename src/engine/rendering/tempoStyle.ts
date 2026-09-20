@@ -2,14 +2,14 @@
  * ⭐ **THE TEMPO MARK'S PROPORTIONS AND ITS RUNG** — the two numbers that place it outside everything
  * else, and how much room its own ink takes.
  *
- * P0b of docs/ottava-plan.md. Sits beside `./trillStyle` and `./dynamicStyle`, which hold the same
+ * P0b of docs/plans/ottava-plan.md. Sits beside `./trillStyle` and `./dynamicStyle`, which hold the same
  * pair for their own families, and it exists for the reason those do: a family's ink extents are a
  * FONT measurement (jsdom returns zeros, so they cannot be computed in the layout module that uses
  * them), and its clearance pair is taste that must be findable in one place.
  *
  * ⭐⭐ **Tempo is the OUTERMOST family we have** — LilyPond states the order as
  * `outside-staff-priority` and puts `MetronomeMark` at **1300**, against `DynamicLineSpanner` 250 and
- * `TrillSpanner` 50 (docs/above-staff-ladder.md §1). For us that order is not a number: the trill and
+ * `TrillSpanner` 50 (docs/how-it-works/above-staff-ladder.md §1). For us that order is not a number: the trill and
  * the dynamics line file their claims in `engine/layout/outsideStaffBand.ts` as they are placed, and
  * the tempo mark — placed last — clears whatever it finds there. {@link TEMPO_LINE} only has to be a
  * FLOOR for the case where it finds nothing.
@@ -107,7 +107,7 @@ export const TEMPO_MARK_INK: MarkInk = {
  * ⭐ The tempo family's two clearance numbers — the fourth row of the same table, and the one with
  * the largest floor.
  *
- * ⚠️⚠️ **Both are TASTE, and they are the pair owed to his eye** (docs/ottava-plan.md P0b). Every
+ * ⚠️⚠️ **Both are TASTE, and they are the pair owed to his eye** (docs/plans/ottava-plan.md P0b). Every
  * score with a tempo mark repositions when these land, because what they replace is not another
  * pair of numbers but a CONSTANT: `TempoLayout` drew every mark at `stave.getYForTopText(1)`, which
  * resolves to a baseline exactly 2 staff spaces above the top line — blind to ledger lines, to a

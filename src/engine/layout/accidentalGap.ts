@@ -23,7 +23,7 @@
  * ## ⚠️⚠️ A GAP IS A NUMBER **PLUS A MODEL OF INK**, and the rows are not interchangeable
  *
  * 🚨 The engines' figures are measured against different ideas of where a glyph ends
- * (`docs/accidental-dot-engines.md` §4): MuseScore's and Verovio's 0.25 are measured to **SMuFL
+ * (`docs/research/accidental-dot-engines.md` §4): MuseScore's and Verovio's 0.25 are measured to **SMuFL
  * cut-out sub-rectangles**, LilyPond's 0.35 to **skylines in a shared vertical band**, VexFlow's 0.30
  * to a **plain bounding box**. ⛔ **Arming `musescore` does not give you MuseScore's spacing** — it
  * gives you MuseScore's *number*, applied to bounding boxes we compute a different way. That is a

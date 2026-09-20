@@ -1,23 +1,23 @@
 /**
  * ⭐⭐ **THE NUMBERS WE INHERITED — one table, each row today's value and where it came from.**
- * S1b of `docs/vexflow-removal-map.md`.
+ * S1b of `docs/history/vexflow-removal-map.md`.
  *
  * Every number below used to be read out of the drawing library at run time (`Tables.STEM_WIDTH`,
  * `Metrics.get('Stave.padding')`…). They are the defaults the editor has always drawn with, so they
  * are copied here EXACTLY — no pixel moves — and attributed, because the drawing library is MIT and
- * its notice travels with what we took (`docs/own-engraving-engine.md` §6.7).
+ * its notice travels with what we took (`docs/plans/own-engraving-engine.md` §6.7).
  *
- * ## ⭐ These are ROWS of one house style, not laws (`docs/own-engraving-engine.md` rule 13)
+ * ## ⭐ These are ROWS of one house style, not laws (`docs/plans/own-engraving-engine.md` rule 13)
  *
  * Each is a default a user will one day be able to change, and several already have their
  * alternatives researched — the future preset menu:
  *
  * | row | research |
  * |---|---|
- * | {@link STEM_THICKNESS_PX} | `docs/stem-thickness-research.md` (Gould's plates ≈0.11 sp, fonts 0.08–0.20) |
- * | {@link STEM_LENGTH_PX} | `docs/stem-length-research.md` — ⭐ the one row the research CONFIRMS rather than disputes |
- * | {@link LEDGER_OVERHANG_PX} | `docs/ledger-line-length-research.md` (Gould's and Ross's plates ≈0.40 sp) |
- * | {@link TREMOLO_STROKE_STEP_PX} | `docs/tremolo-tuplet-research.md` (Gould 0.75 sp, MuseScore 0.8) |
+ * | {@link STEM_THICKNESS_PX} | `docs/research/stem-thickness-research.md` (Gould's plates ≈0.11 sp, fonts 0.08–0.20) |
+ * | {@link STEM_LENGTH_PX} | `docs/research/stem-length-research.md` — ⭐ the one row the research CONFIRMS rather than disputes |
+ * | {@link LEDGER_OVERHANG_PX} | `docs/research/ledger-line-length-research.md` (Gould's and Ross's plates ≈0.40 sp) |
+ * | {@link TREMOLO_STROKE_STEP_PX} | `docs/research/tremolo-tuplet-research.md` (Gould 0.75 sp, MuseScore 0.8) |
  *
  * ⛔ Gathering them into one house-style object is agreed and deferred (§0.2). ⚠️ And while the
  * drawing library still formats and draws beams, a row it ALSO reads internally must keep its value
@@ -32,7 +32,7 @@ export const STEM_THICKNESS_PX = (15 * STAFF_SPACE_PX) / 100
 /**
  * ⭐⭐ **A STEM'S DEFAULT LENGTH — 3.5 staff spaces, measured from the notehead the stem stands on.**
  * Taken from `Tables.STEM_HEIGHT` = 35 (`tables.js:597`), and ⭐ **unusually for this table, the
- * inherited number is also the RESEARCHED one**: `docs/stem-length-research.md` §1 found all four
+ * inherited number is also the RESEARCHED one**: `docs/research/stem-length-research.md` §1 found all four
  * treatises saying the same thing in the same words — *a stem is one octave long, 3½ stave-spaces,
  * measured from the CENTRE of the notehead* (Gould p. 14, Ross p. 83, Stone p. 47, Gerou & Lusk
  * p. 137; four for four, no dissent). ⚠️ Ross's footnote explains the engravers' alternative phrasing

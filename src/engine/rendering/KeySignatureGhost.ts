@@ -24,7 +24,7 @@
  *
  * ⛔ A signature with NO signs (C major, an open key) draws nothing, and {@link drawSignGhost}
  * answers false for it — the tool is armed, the pointer simply has nothing to show. That is the same
- * hole the SIGNPOST is owed for (docs/key-signature-plan.md §5), and ⛔ it is not patched here with
+ * hole the SIGNPOST is owed for (docs/plans/key-signature-plan.md §5), and ⛔ it is not patched here with
  * an invented placeholder glyph.
  */
 import type { DrawContext } from '@/engine/paint/DrawContext'

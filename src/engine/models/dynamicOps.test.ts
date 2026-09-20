@@ -286,7 +286,7 @@ describe('nextDynamicSlot — the stop one step away', () => {
 
 /**
  * ⭐⭐ {@link setDynamicVoiceScope} — WHICH VOICES THE MARK GOVERNS (P4 of
- * docs/dynamic-voice-scope-plan.md). The one claim that matters: `'all'` **removes** the field, so
+ * docs/plans/dynamic-voice-scope-plan.md). The one claim that matters: `'all'` **removes** the field, so
  * the model has one spelling of "governs everything" and the JSON round trip cannot invent a second.
  */
 describe('setDynamicVoiceScope', () => {

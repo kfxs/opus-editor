@@ -7,7 +7,7 @@
 
 /**
  * One authored engraving adjustment on a score element — an entry in the
- * **engraving-overrides compartment** (see docs/engraving-overrides-plan.md).
+ * **engraving-overrides compartment** (see docs/plans/engraving-overrides-plan.md).
  *
  * An override is *authored geometry*: continuous, measured, hand-positioned data
  * that is deliberately kept OUT of the musical content model, so transposition,
@@ -25,7 +25,7 @@
  */
 export interface EngravingOverride {
   /** Discriminator: which kind of adjustment this is. Concrete kinds are introduced
-   *  incrementally; see docs/engraving-overrides-plan.md §4. */
+   *  incrementally; see docs/plans/engraving-overrides-plan.md §4. */
   kind: string
 }
 
@@ -33,7 +33,7 @@ export interface EngravingOverride {
  * Two cubic Bézier control-point **deltas** fed to `engrave/curves/curveInk` — the
  * editable "handle" data for a slur/curve shape. Each `{x,y}` is an offset on top of
  * the spacing-based base control point, so an edit rides along when the anchor notes
- * move. See docs/slur-plan.md §6–§7 and {@link CurveShapeOverride}.
+ * move. See docs/plans/slur-plan.md §6–§7 and {@link CurveShapeOverride}.
  */
 export type CurveControlPointDeltas = [{ x: number; y: number }, { x: number; y: number }]
 
@@ -52,7 +52,7 @@ export interface CurveShapeOverride extends EngravingOverride {
 
 /**
  * Per-segment shape for a **cross-system** slur (one drawn as `BEGIN + k×MIDDLE + END`,
- * see docs/multisystem-slur-segment-shape-plan.md). A same-line slur is a single arc and
+ * see docs/plans/multisystem-slur-segment-shape-plan.md). A same-line slur is a single arc and
  * uses {@link CurveShapeOverride} instead — this is a deliberately SEPARATE kind, so the
  * single↔multi boundary needs no special logic (a collapsed-to-one-line slur reads its
  * empty `curveShape` and draws the default).
@@ -92,7 +92,7 @@ export interface SegmentCurveShapeOverride extends EngravingOverride {
 
 /**
  * Client #3 of the engraving-overrides compartment: a free positional nudge of a slur's
- * in/out endpoint(s), on top of its note anchor (see docs/slur-endpoint-offset-plan.md).
+ * in/out endpoint(s), on top of its note anchor (see docs/plans/slur-endpoint-offset-plan.md).
  * Each offset is in **staff-spaces**, anchor-relative — added to the auto endpoint
  * position at render against that end's own stave. Both ends are note-anchored on same-line
  * AND cross-system slurs, so unlike {@link SegmentCurveShapeOverride} there is no `spanCount`
@@ -164,7 +164,7 @@ export interface SlurOffsetOverride extends EngravingOverride {
  * covers — musical, so they write `beat`/`length` on the model. The arrows here change only where the
  * ink is drawn: how far the tip reaches, and how open or slanted the wedge looks. Nothing about the
  * music moves, playback cannot tell, and the span the model reports is unchanged
- * (docs/dynamics-line-and-hairpins-plan.md §4 — the rule that used to say a hairpin had *nothing*
+ * (docs/plans/dynamics-line-and-hairpins-plan.md §4 — the rule that used to say a hairpin had *nothing*
  * cosmetic, which was true only until there was a way to author it).
  *
  * ⭐ Per END, in **staff-spaces**, relative to the drawn position: `x` moves that end along the
@@ -299,7 +299,7 @@ export interface OttavaOffsetOverride extends EngravingOverride {
 /**
  * The hand-nudged INK of a SUSTAIN PEDAL — the `Ped.` and the `✻` moved off where the engraver put
  * them, without changing when the damper goes down or comes up. {@link OttavaOffsetOverride}'s
- * shape, and the last thing docs/pedal-plan.md §6.3 left for later (*"a hand-nudged `✻`"*).
+ * shape, and the last thing docs/plans/pedal-plan.md §6.3 left for later (*"a hand-nudged `✻`"*).
  *
  * ⭐ The horizontal stays PER SIGN, because the two signs are two separate glyphs with two separate
  * jobs — and unlike the bracket's ends there is no line between them that a nudge could stretch.
@@ -387,7 +387,7 @@ export type SlurSegmentEndpointAddress =
 
 /**
  * Client #4 of the engraving-overrides compartment: free positional nudges of the OPEN
- * join points of a cross-system slur (see docs/multisystem-slur-segment-endpoint-offset-plan.md).
+ * join points of a cross-system slur (see docs/plans/multisystem-slur-segment-endpoint-offset-plan.md).
  * Each offset is in **staff-spaces**, margin-relative — added to the auto open-end position
  * at render against that segment's own stave. Structurally parallel to
  * {@link SegmentCurveShapeOverride}: `begin`/`end` are durable (their system margins are
@@ -412,15 +412,15 @@ export interface SegmentEndpointOffsetOverride extends EngravingOverride {
 /**
  * Client #5 of the engraving-overrides compartment: a manual vertical shift of a rest,
  * in whole **staff SPACES** (signed, +up), added on top of the automatic multi-voice
- * placement (see docs/rest-shift-plan.md). A rest is pitchless, so its vertical position
+ * placement (see docs/plans/rest-shift-plan.md). A rest is pitchless, so its vertical position
  * carries no musical meaning — this is pure engraving/clarity geometry, not content, and
  * staff spaces keep it resolution-independent (no pixels in the model, principle 3).
  *
- * ⚠️ **A SPACE, not a "staff-step".** This doc and `docs/rest-shift-plan.md` both said *step*
+ * ⚠️ **A SPACE, not a "staff-step".** This doc and `docs/plans/rest-shift-plan.md` both said *step*
  * while every consumer treated it as a SPACE — the arithmetic is `getLineForRest() + steps` and a
  * VexFlow line IS a space — so a `steps: 6` here is **6 staff spaces = 12 diatonic steps**, twice
  * what the word suggests. That ambiguity cost a research pass: a stored 6 was read as matching
- * Gould's measured ±3 spaces when it is double it (docs/multi-voice-rest-position.md §1), and it is
+ * Gould's measured ±3 spaces when it is double it (docs/research/multi-voice-rest-position.md §1), and it is
  * what let the voice hop add a space count to a diatonic scale unconverted. ⛔ A COMMENT fix only:
  * the arithmetic is already spaces and must not change.
  *
@@ -437,7 +437,7 @@ export interface RestShiftOverride extends EngravingOverride {
 
 /**
  * Client #6 of the engraving-overrides compartment: a hidden rest (Sibelius-style
- * Ctrl+Shift+H — see docs/rest-hide-plan.md). The rest is still real content (an empty
+ * Ctrl+Shift+H — see docs/plans/rest-hide-plan.md). The rest is still real content (an empty
  * beat stays filled); this only suppresses its normal engraving. The override carries no
  * payload — **presence = hidden, absence = visible** — so JSON stays clean and absent
  * degrades to the default (drawn) just like every other client.
@@ -463,7 +463,7 @@ export interface RestHiddenOverride extends EngravingOverride {
  *
  * It lives in the compartment rather than beside `Measure.timeSignatureHidden` because it is an
  * authored engraving decision about a position, not part of what the music says — the meter, the
- * bars and the playback are identical either way (docs/time-signature-window-plan.md §1).
+ * bars and the playback are identical either way (docs/plans/time-signature-window-plan.md §1).
  */
 export interface CautionaryOverride extends EngravingOverride {
   kind: 'cautionary'
@@ -484,7 +484,7 @@ export interface CautionaryClefOverride extends EngravingOverride {
 
 /**
  * Client #7 of the engraving-overrides compartment: extra vertical space ABOVE a staff
- * (Sibelius "space above staff" — see docs/staff-spacing-plan.md). Stored in STAFF-SPACES,
+ * (Sibelius "space above staff" — see docs/plans/staff-spacing-plan.md). Stored in STAFF-SPACES,
  * signed (+ = push the staff and everything below it in its system downward). Absent =
  * default spacing.
  *
@@ -502,7 +502,7 @@ export interface StaffSpacingOverride extends EngravingOverride {
 /**
  * Client #8 of the engraving-overrides compartment: a free positional nudge of a dynamic
  * off its note anchor (the ←→↑↓ / Ctrl+arrow keyboard fine-positioning — see
- * docs/dynamic-offset-plan.md). Each component is in **staff-spaces**, anchor-relative —
+ * docs/plans/dynamic-offset-plan.md). Each component is in **staff-spaces**, anchor-relative —
  * added to the dynamic's auto placement (below/above the staff, under its anchor note) at
  * render. `x` is +right, `y` is +down (screen), matching {@link SlurEndpointOffsetOverride}.
  *
@@ -553,7 +553,7 @@ export interface TempoOffsetOverride extends EngravingOverride {
 
 /**
  * Client #10 of the engraving-overrides compartment: user-authored horizontal space before a
- * rhythmic column (Sibelius's *note spacing* — see docs/note-spacing-plan.md).
+ * rhythmic column (Sibelius's *note spacing* — see docs/plans/note-spacing-plan.md).
  *
  * ⚠️ **The first override in this compartment that HAS WIDTH.** Every other client is an
  * *offset*: it moves a glyph and nothing else in the score notices — weightless, invisible to
@@ -605,7 +605,7 @@ export interface BarlineSpaceOverride extends EngravingOverride {
 /**
  * Client #11 of the engraving-overrides compartment: user-authored **bar stretch** — the bar's
  * music gets `stretch ×` the room the engraver gave it, re-spaced proportionally (see
- * docs/bar-width-plan.md).
+ * docs/plans/bar-width-plan.md).
  *
  * **The second override that has width**, and the opposite gesture to {@link LeadingSpaceOverride}:
  * a leading space opens a *dead gap* before one column and is subtracted before formatting, so it
@@ -658,7 +658,7 @@ export interface ClefOffsetOverride extends EngravingOverride {
 
 /**
  * Client #12 of the engraving-overrides compartment: a free horizontal nudge of a single note off
- * its natural (formatted) column, on top of the automatic spacing (see docs/note-offset-plan.md).
+ * its natural (formatted) column, on top of the automatic spacing (see docs/plans/note-offset-plan.md).
  * `x` is in **staff-spaces**, +right — added to the note's own X at render via
  * `StaveNote.setXShift`, so the note's beam, stem, ties, slurs, dots and hit-testing all recompute
  * around the moved position (an SVG translate would leave the beam and tie anchors behind).

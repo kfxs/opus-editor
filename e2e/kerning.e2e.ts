@@ -10,7 +10,7 @@ const REST_DURATIONS: Record<string, NoteDuration> = {
 
 /**
  * KERNING, on the page — two inks only need horizontal clearance where they share a vertical band
- * (`docs/vexflow-boundary.md` §5, P1; `src/engine/layout/kerning.ts`).
+ * (`docs/history/vexflow-boundary.md` §5, P1; `src/engine/layout/kerning.ts`).
  *
  * Three things live here, and only the browser can hold any of them:
  *
@@ -27,7 +27,7 @@ const REST_DURATIONS: Record<string, NoteDuration> = {
  * VexFlow draws"**. Since F2 the table is also held against Bravura's own metrics in jsdom
  * (`spacingPadding.font.test.ts`), and leaving this file untouched would have quietly turned it into
  * **"our drawing agrees with the font"** — a different claim, green either way
- * (docs/font-metrics-plan.md §4).
+ * (docs/plans/font-metrics-plan.md §4).
  *
  * ⭐⭐ So the check is now split on purpose, and this half is the interesting one: **the subject is
  * the DEPENDENCY.** There are three copies of Bravura in play — the woff2 VexFlow bundles and draws
@@ -269,13 +269,13 @@ test('⛔ …but inside a BEAM the previous stem is in the way, and the accident
 })
 
 test('⭐⭐ a FLAG no longer draws through the next notehead — and a beamed note pays nothing for one', async ({ score }) => {
-  // `docs/vexflow-boundary.md` §5 P2, the last blind spot in the ink table. A flag hangs off the stem
+  // `docs/history/vexflow-boundary.md` §5 P2, the last blind spot in the ink table. A flag hangs off the stem
   // TIP and the column never counted it, so a bar of UNBEAMED 32nds — whose gap the rule sets at 1.50
   // staff spaces — drew each flag **0.65 spaces through** the next notehead. Seven collisions in one bar.
   //
   // ⚠️ And the opposite error is the one the old ink path made: VexFlow's `preCalculateMinTotalWidth`
   //    counted a flag on every eighth, beamed ones included, which is why an eighth once measured WIDER
-  //    than a quarter (docs/spacing-model-research.md §6). So both halves are asserted here.
+  //    than a quarter (docs/research/spacing-model-research.md §6). So both halves are asserted here.
   const drawn = await score.evaluate(async () => {
     const h = window.__h
     const bar = async (beamed: boolean) => {

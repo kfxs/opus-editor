@@ -104,7 +104,7 @@ export function ottavaCommands(ctx: CommandContext) {
      * higher — Sibelius's, and what this does — or (b) drop every covered note's written pitch an
      * octave in the same batch so the SOUND is unchanged and the noteheads come down off their ledger
      * lines — Dorico's. (b) is one added loop over the covered notes calling `updateNote`, inside this
-     * same `runBatch`, and it is **not a stored flag** either way (docs/ottava-plan.md §2's tail).
+     * same `runBatch`, and it is **not a stored flag** either way (docs/plans/ottava-plan.md §2's tail).
      * Shipping (a) first because it is the literal reading of the gesture — the command adds a MARK —
      * and because it is not destructive: (b) rewrites pitches, and a wrong default there is undone one
      * `Ctrl+Z` at a time on real music.

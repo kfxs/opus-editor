@@ -6,7 +6,7 @@
  *
  * The number shipped first — half a staff space, edge to edge, in answer to his report *"the dot is
  * too close to the notehead"* — and `rendering/dotPlacement` has carried it since. Then the survey
- * arrived (`docs/accidental-dot-research.md`, `docs/accidental-dot-engines.md`) and said three
+ * arrived (`docs/research/accidental-dot-research.md`, `docs/research/accidental-dot-engines.md`) and said three
  * things at once:
  *
  * 1. ⭐ **The number is well supported.** Gould p. 54 states *"usually a half stave-space's

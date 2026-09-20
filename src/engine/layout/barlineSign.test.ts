@@ -1,5 +1,5 @@
 /**
- * **The sign a boundary carries, and what it is made of** — P2 of docs/barline-types-plan.md.
+ * **The sign a boundary carries, and what it is made of** — P2 of docs/plans/barline-types-plan.md.
  *
  * ⭐ Everything here is arithmetic and precedence, which is exactly what a unit test can hold. ⛔ What
  * it cannot hold is where the ink LANDED: jsdom has no layout and no fonts, so a drawn position

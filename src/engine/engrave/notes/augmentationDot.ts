@@ -1,5 +1,5 @@
 /**
- * ⭐⭐ **AN AUGMENTATION DOT'S INK** (`docs/own-engraving-engine.md` P3 — the note's MODIFIERS,
+ * ⭐⭐ **AN AUGMENTATION DOT'S INK** (`docs/plans/own-engraving-engine.md` P3 — the note's MODIFIERS,
  * 2026-09-14). The accidental's twin: see `./accidental` for why both were invisible to the ceiling.
  *
  * ## ⭐ What a dot IS, as ink
@@ -44,7 +44,7 @@ export interface AugmentationDotInk {
  * turns a decision made in spaces into a baseline in pixels. ⚠️ `staffSpace` is the stave's own
  * spacing rather than a constant — a SMALL staff draws a smaller lift, and reading a global here
  * would put the dot in the wrong place on exactly the staves that are hardest to look at
- * (`docs/staff-size-plan.md`'s standing trap).
+ * (`docs/plans/staff-size-plan.md`'s standing trap).
  */
 export function dotBaselineY(noteY: number, dotShiftY: number, staffSpace: number): number {
   return noteY + dotShiftY * staffSpace

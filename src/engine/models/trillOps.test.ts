@@ -4,7 +4,7 @@
  * Two chapters, and they answer two different questions the plan had to decide rather than look up:
  *
  *  - **The refusals.** A trill is a sign ON one note plus a duration, so it refuses a rest and a
- *    FANNED MEMBER (docs/trill-plan.md §2.2 — the codebase says two things about members, and this
+ *    FANNED MEMBER (docs/plans/trill-plan.md §2.2 — the codebase says two things about members, and this
  *    is the one a trill takes). It is idempotent, because a note carries at most one trill.
  *  - **The span.** An absent `endNoteId` is resolved through TIES, which is the engraving rule and
  *    the model's simplest case in one — a fact worth pinning, since it is the whole reason `Trill`
@@ -61,7 +61,7 @@ describe('trillOps — anchoring', () => {
     expect(model.addTrill({ startNoteId: rest!.id })).toBeNull()
   })
 
-  it('⭐ refuses a FANNED MEMBER (docs/trill-plan.md §2.2)', () => {
+  it('⭐ refuses a FANNED MEMBER (docs/plans/trill-plan.md §2.2)', () => {
     const fan: FanMark = { direction: 'accel', count: 3, beams: 2 }
     expect(model.setFan(notes[0].id, fan)).not.toBeNull()
     const slot = model.getMeasure(1)!.slots.find(s => fracToNumber(s.beat) === 0) as Chord
@@ -90,7 +90,7 @@ describe('trillOps — anchoring', () => {
   it('flips placement, defaulting to above', () => {
     const trill = model.addTrill({ startNoteId: notes[0].id })!
     // ⭐ Absent means ABOVE, so the first flip goes DOWN — a trill sits above the notes unless the
-    // staff carries more than one voice (docs/trill-plan.md §1 rule 2).
+    // staff carries more than one voice (docs/plans/trill-plan.md §1 rule 2).
     expect(trill.placement).toBeUndefined()
     expect(model.toggleTrillPlacement(trill.id)).toBe('below')
     expect(model.toggleTrillPlacement(trill.id)).toBe('above')
@@ -227,7 +227,7 @@ describe('⭐⭐ trillOps.trillAuxiliaryOf — P1\'s done-when, end to end', () 
 })
 
 describe('trillOps — the dangling sweep (removeMeasure)', () => {
-  // `repairDanglingTrills` is the BELT, not the mechanism (docs/trill-plan.md §2.1) — but deleting a
+  // `repairDanglingTrills` is the BELT, not the mechanism (docs/plans/trill-plan.md §2.1) — but deleting a
   // bar outright is the one path where it IS the whole answer, since nothing was captured.
   let model: ScoreModel
 

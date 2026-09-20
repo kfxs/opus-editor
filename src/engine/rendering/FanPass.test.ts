@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * The fan actually RENDERS (docs/fanned-beams-plan.md §3, P1).
+ * The fan actually RENDERS (docs/plans/fanned-beams-plan.md §3, P1).
  *
  * Subject: {@link FanPass}. It is driven through `ScoreRenderer.renderScore` because that is the
  * only way to build a `RenderPass` — the renderer is the FIXTURE, the ink is the pass's (test-layout
@@ -85,7 +85,7 @@ describe('a fanned slot renders', () => {
   })
 
   /**
-   * ⭐ THE RANGE, end to end (docs/fan-ramp-range-plan.md P1) — through `setFan`, so `normalizeFan`
+   * ⭐ THE RANGE, end to end (docs/plans/fan-ramp-range-plan.md P1) — through `setFan`, so `normalizeFan`
    * settles it and the renderer reads it off the stored mark.
    *
    * The beam quads are OUR OWN arithmetic drawn as `<path>`s, so their x-extents are real here in a
@@ -177,7 +177,7 @@ describe('a fanned slot renders', () => {
 })
 
 /**
- * PER-MEMBER PITCH on the page (docs/fanned-beam-pitches-plan.md §2). Still not a geometry suite —
+ * PER-MEMBER PITCH on the page (docs/plans/fanned-beam-pitches-plan.md §2). Still not a geometry suite —
  * what is checked is that each member is its own THING in the DOM, which is what P3's selection will
  * hang off, and that the passes that could take the render down do not.
  */
@@ -329,7 +329,7 @@ describe('the fan is drawn where the note is', () => {
 
 /**
  * ⭐ P3 — a member is SELECTABLE: it has a registry entry of its own and an SVG group the highlight
- * can recolour (docs/fanned-beam-pitches-plan.md §2 P3).
+ * can recolour (docs/plans/fanned-beam-pitches-plan.md §2 P3).
  */
 describe('the members are selectable', () => {
   function fannedWithMembers(count = 4) {
@@ -551,7 +551,7 @@ describe('a slur anchored inside a fan', () => {
 })
 
 /**
- * ⭐ JOINED TO THE GROUP ON ITS LEFT (docs/fan-beam-join-plan.md P1). The fan draws the WHOLE joined
+ * ⭐ JOINED TO THE GROUP ON ITS LEFT (docs/plans/fan-beam-join-plan.md P1). The fan draws the WHOLE joined
  * group's beam by hand — one line, one owner, one pass — so what is checked here is the seam: the
  * prefix's stem is drawn by US, inside the fan's group, and is still the NOTE'S OWN `Stem` object,
  * which is the only thing the selection highlight can find.
@@ -696,7 +696,7 @@ describe('two fans joined to each other', () => {
 })
 
 /**
- * ⭐ P3 — THE JOIN CROSSES A BARLINE (docs/fan-beam-join-plan.md). The whole group is then drawn by
+ * ⭐ P3 — THE JOIN CROSSES A BARLINE (docs/plans/fan-beam-join-plan.md). The whole group is then drawn by
  * a top-level pass, outside every measure group, for `drawCrossBarBeams`' own two reasons: a measure
  * group is REUSED between renders, and culling deletes an off-screen bar's group with everything
  * drawn into it.
@@ -785,7 +785,7 @@ describe('a fan joined across a barline', () => {
  * ⭐ S10 — the fan paints on OUR surface, so what it draws is in the SCENE (`recordScene`). Before, its
  * member heads, signs and prefix stems were VexFlow objects painting on VexFlow's context, which the
  * recorder never sees. ⚠️ That the PAGE is unchanged was proved once by an A/B of the SVG and the hit
- * boxes (`docs/vexflow-removal-map.md` S10); pinned here is where the ink now goes.
+ * boxes (`docs/history/vexflow-removal-map.md` S10); pinned here is where the ink now goes.
  */
 describe('the fan draws through the scene', () => {
   it('each member is a group holding its own notehead, its sign and its stem', () => {

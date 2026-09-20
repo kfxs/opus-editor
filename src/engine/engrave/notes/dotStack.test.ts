@@ -1,6 +1,6 @@
 /**
  * Where each augmentation dot of a column stands. ⚠️ Exactness against `Dot.format` was proved once,
- * on 655 dots of random scores (S9c, `docs/vexflow-removal-map.md` §5.2); pinned here is the rule.
+ * on 655 dots of random scores (S9c, `docs/history/vexflow-removal-map.md` §5.2); pinned here is the rule.
  */
 import { describe, it, expect } from 'vitest'
 import { type ColumnDot, UNISON_DOT_SPACING_PX, stackDots } from './dotStack'

@@ -1,6 +1,6 @@
 /**
  * TEMPORARY — the measuring instrument for "why do some barlines look thicker than others?"
- * (docs/firefox-zoom-repaint.md). Dev builds only; delete when the question is closed.
+ * (docs/how-it-works/firefox-zoom-repaint.md). Dev builds only; delete when the question is closed.
  *
  * ## Why it has to run in HIS browser
  *
@@ -181,7 +181,7 @@ function reportGrid(lines: BarlineOnScreen[], blurry: BarlineOnScreen[]): void {
     console.log(
       `[barlines] ✅ all ${lines.length} land on whole pixels at one width. ` +
         'If they still look uneven, the difference is NOT in what we drew — the browser is ' +
-        'showing a scaled copy of an older rasterisation (docs/firefox-zoom-repaint.md).',
+        'showing a scaled copy of an older rasterisation (docs/how-it-works/firefox-zoom-repaint.md).',
     )
   } else {
     console.log(

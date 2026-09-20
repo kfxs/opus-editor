@@ -1,6 +1,6 @@
 /**
  * ⭐⭐ **WHAT A TIME SIGNATURE DRAWS, AS OURS — its glyph rows, where each row stands, and how wide it is.**
- * S4b0 of `docs/vexflow-removal-map.md`.
+ * S4b0 of `docs/history/vexflow-removal-map.md`.
  *
  * `rendering/EngravedTimeSignature` used to draw the rows VexFlow's `TimeSignature` had composed in
  * `makeTimeSignatureGlyph`: the numeral string of each row, the offsets that centre the rows on each
@@ -17,7 +17,7 @@
  * ## ⚠️ Rows of TODAY, and one of them is a known UNKNOWN
  *
  * The two numeral rows stand on lines 1 and 3, so they are 2 staff spaces apart. That gap is ⛔ UNKNOWN
- * in every book (`docs/header-spacing-research.md` §2.8, row H: the engines split 2.0 against 0.0), and
+ * in every book (`docs/research/header-spacing-research.md` §2.8, row H: the engines split 2.0 against 0.0), and
  * ⛔ this module must not become the place somebody quietly picks one — it keeps the lines VexFlow
  * drew, as rows (rule 13).
  */

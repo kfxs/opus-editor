@@ -1,6 +1,6 @@
 /**
  * ⭐⭐ **THE FLAG — P3b, and the first GLYPH of a note that is ours**
- * (`docs/note-engraving-plan.md`, `docs/own-engraving-engine.md` P3).
+ * (`docs/plans/note-engraving-plan.md`, `docs/plans/own-engraving-engine.md` P3).
  *
  * ## Why the flag was the second piece
  *
@@ -22,7 +22,7 @@
  * a draw method. ⛔ **P3b did not change where it comes from**: the adapter still passes VexFlow's
  * measured number, so no pixel moved. ⏭️ Swapping it for `fonts/flagDropFromTip` is one argument,
  * and it is a **measurement** to make first, not a refactor to assume —
- * `docs/note-engraving-plan.md` §3.3.
+ * `docs/plans/note-engraving-plan.md` §3.3.
  *
  * ## ⭐ The rule, in one sentence
  *

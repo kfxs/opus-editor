@@ -23,7 +23,7 @@ export type DynamicLevel = 'ppp' | 'pp' | 'p' | 'mp' | 'mf' | 'f' | 'ff' | 'fff'
  * A dynamic marking positioned within a measure, mirroring {@link ClefChange}:
  * a beat-anchored, measure-owned, selectable/deletable marking.
  *
- * **The mark IS its `text`** (docs/dynamics-text-as-truth-plan.md). The text mixes SMuFL dynamics
+ * **The mark IS its `text`** (docs/plans/dynamics-text-as-truth-plan.md). The text mixes SMuFL dynamics
  * glyphs — the `f`/`p`/… drawn in the music font, which ARE the levels — with plain expression
  * words (`dolce`), e.g. `f con brio` or `più f`. There is deliberately NO `kind`/`level` field:
  *  - glyph vs word is decided per character by whether it's a dynamics glyph (the FONT, not the
@@ -45,13 +45,13 @@ export interface Dynamic {
    * {@link staffId}. ⚠️ That is the opposite of the `voice ?? 0` rule every other kind follows
    * ({@link Note.voice}, `utils/lanes`), and it is deliberate: a dynamic is not addressed by a
    * lane, it speaks FOR lanes, and the common case is the whole staff. ⛔ So `voiceOf()` is the
-   * wrong reader here — use `utils/dynamicScope` (docs/dynamic-voice-scope-plan.md).
+   * wrong reader here — use `utils/dynamicScope` (docs/plans/dynamic-voice-scope-plan.md).
    */
   voice?: 0 | 1 | 2 | 3
   /** Vertical placement relative to the staff; default 'below'. */
   placement?: 'above' | 'below'
   /** Staff this dynamic belongs to (a {@link StaffInfo} id); absent = staff 0. See
-   *  docs/multi-staff-plan.md §4. Orthogonal to {@link Dynamic.voice} — the staff says WHERE the
+   *  docs/plans/multi-staff-plan.md §4. Orthogonal to {@link Dynamic.voice} — the staff says WHERE the
    *  mark is, the voice which of that staff's streams it governs. */
   staffId?: string
 }
@@ -59,7 +59,7 @@ export interface Dynamic {
 /**
  * A HAIRPIN — the crescendo (open) or diminuendo (close) wedge. A member of the dynamics
  * family: it lives on the same line as the letters and the expression words, and it rides the
- * measure spine exactly as a {@link Dynamic} does. See docs/dynamics-line-and-hairpins-plan.md.
+ * measure spine exactly as a {@link Dynamic} does. See docs/plans/dynamics-line-and-hairpins-plan.md.
  *
  * ⭐ **It is addressed POSITIONALLY — a start plus an AMOUNT OF MUSIC — never by note identity.**
  * That is what every standard does (MusicXML pairs a wedge with a separate stop, MEI uses a
@@ -103,7 +103,7 @@ export interface Hairpin {
 
 /**
  * An OTTAVA — the octave line: `8va` / `8vb` (and `15ma` / `22ma`), the numeral plus its dashed
- * bracket. See docs/ottava-plan.md.
+ * bracket. See docs/plans/ottava-plan.md.
  *
  * ⭐ **It is a CLEF-shaped statement wearing a {@link Hairpin}'s address.** What it *says* is what a
  * clef says: it governs a REGION of a STAFF — every voice in it, and every note typed into it
@@ -115,8 +115,8 @@ export interface Hairpin {
  *
  * ⭐ **The written pitch is the stored pitch, here as everywhere.** An ottava does not change what
  * `octave: 5` means; it changes what that notehead SOUNDS. The octave lives in exactly one place —
- * the point where written pitch becomes sound (`soundingShiftAt`, docs/ottava-plan.md §6) — which is
- * the answer `docs/octave-clefs-plan.md` already gave for octave clefs, and it must be the same
+ * the point where written pitch becomes sound (`soundingShiftAt`, docs/plans/ottava-plan.md §6) — which is
+ * the answer `docs/plans/octave-clefs-plan.md` already gave for octave clefs, and it must be the same
  * answer or one score has two rules for where an octave lives. Dorico, LilyPond and MusicXML store
  * the sounding pitch instead; Sibelius and MuseScore store the written one, and so do we.
  * (Dorico's nicer *gesture* — press 8va and watch the noteheads drop an octave — is still available,
@@ -131,7 +131,7 @@ export interface Ottava {
   /** How much music the line covers, in quarter-note beats — the same unit as {@link beat}.
    *  Always > 0. ⚠️ This is the span's MUSICAL extent, not the drawn one: Gould's rule is that the
    *  bracket stops at the last NOTEHEAD inside it rather than at the end of that note's duration,
-   *  so where the ink ends is derived by the render (docs/ottava-plan.md §1 rule 2). */
+   *  so where the ink ends is derived by the render (docs/plans/ottava-plan.md §1 rule 2). */
   length: Fraction
   /**
    * ⭐ **THE WHOLE STATEMENT: octaves of shift.** +1 = 8va, −1 = 8vb, +2 = 15ma, −3 = 22mb.
@@ -155,17 +155,17 @@ export interface Ottava {
 }
 
 /**
- * A SUSTAIN PEDAL — the damper, drawn `Ped. … ✻`. See docs/pedal-plan.md.
+ * A SUSTAIN PEDAL — the damper, drawn `Ped. … ✻`. See docs/plans/pedal-plan.md.
  *
  * ⭐ **{@link Ottava}'s twin in shape and its opposite in effect.** Both are CLEF-shaped statements
  * wearing a {@link Hairpin}'s address — measure-owned, beat-anchored, carrying their own extent,
  * governing a REGION rather than a set of notes, so notes typed into one afterwards are governed
  * too. What they differ in is which half of a sounding note they touch: an ottava moves the PITCH
- * (`soundingShiftAt`), a pedal moves the RELEASE (docs/pedal-plan.md §9). Neither is stored on the
+ * (`soundingShiftAt`), a pedal moves the RELEASE (docs/plans/pedal-plan.md §9). Neither is stored on the
  * notes it governs.
  *
  * ⛔ **No `type`, no `style`, no `placement`, no retake, no `endNoteId`** — each refused for its own
- * reason in docs/pedal-plan.md §3.1, and the one worth repeating here is `style`: `Ped.✻` vs the
+ * reason in docs/plans/pedal-plan.md §3.1, and the one worth repeating here is `style`: `Ped.✻` vs the
  * bracket vs mixed is PRESENTATION (DESIGN-PRINCIPLES §3), so the day the bracket arrives it is a
  * renderer's default and an engraving preset, and no JSON written today becomes wrong. Sostenuto and
  * una corda, when they come, add ONE optional field (`type?`, absent = sustain), additively.
@@ -183,7 +183,7 @@ export interface Pedal {
    * ⭐ **`beat + length` is the LIFT, and the lift is a point in TIME** — not a note, which is why
    * there is no end id to store. It is also the one thing a reader has to get right: Gould's rule
    * puts the release at or before the barline, never after it, and a lift landing exactly on a
-   * barline belongs to THAT bar's end (docs/pedal-plan.md §5.2).
+   * barline belongs to THAT bar's end (docs/plans/pedal-plan.md §5.2).
    */
   length: Fraction
   /**
@@ -194,7 +194,7 @@ export interface Pedal {
    * neither of which is knowable while `Score.staffGroups` is unrendered content. So both questions
    * are asked of `utils/pedalScope` (`pedalStavesAt` / `pedalDrawStaff`), which today answer with
    * this field and change together the day the piano exists. ⛔ Never read this field directly at a
-   * playback or a draw site (docs/pedal-plan.md §3.2).
+   * playback or a draw site (docs/plans/pedal-plan.md §3.2).
    *
    * ⭐ **There is no `voice`** — the {@link Ottava}'s exception, harder: an octave line governs a
    * staff because a bracket says so, a pedal governs it because there is only one foot.
@@ -209,7 +209,7 @@ export interface Pedal {
  * SYSTEM-level: it governs the clock, not a staff, so unlike {@link Dynamic} it has
  * **no `staffId` and no `voice`**. It rides the shared measure spine (measure-owned,
  * beat-anchored, exactly like `clefs`/`dynamics`), which is what makes it system-level
- * for free. See docs/tempo-marks-plan.md.
+ * for free. See docs/plans/tempo-marks-plan.md.
  *
  * Three rules the model encodes deliberately:
  * - **The mark IS its text.** {@link text} is the whole printed string, verbatim — brackets,
@@ -255,7 +255,7 @@ export interface TempoMark {
    * absent). Reserved for polytempo (Stockhausen, *Gruppen*: three orchestras, three
    * simultaneous tempi) — it would name a {@link StaffGroup} id. The insurance costs one
    * optional field now; retrofitting "the number of clocks is a parameter, not 1" later
-   * costs a rewrite. See docs/tempo-marks-research.md §7.
+   * costs a rewrite. See docs/research/tempo-marks-research.md §7.
    */
   scopeId?: string
 }
@@ -268,7 +268,7 @@ export interface TempoMark {
  * first-class span object anchored to a start and end note event — never as note
  * attributes — mirroring MusicXML `<slur>` and MuseScore's Spanner. Stored
  * top-level on {@link Score.slurs} because slurs cross barlines and systems
- * freely. See docs/slur-plan.md.
+ * freely. See docs/plans/slur-plan.md.
  */
 export interface Slur {
   id: string
@@ -285,7 +285,7 @@ export interface Slur {
    * engraving-overrides plan, the hand-tuned arc is stored in the
    * {@link EngravingOverrides} compartment (`score.engravingOverrides[slur.id]` as a
    * {@link CurveShapeOverride}, in staff-spaces) — keeping pixels out of the content
-   * model. Absent override = the auto arch. See docs/engraving-overrides-plan.md.
+   * model. Absent override = the auto arch. See docs/plans/engraving-overrides-plan.md.
    */
   /**
    * Reserved for future nested/overlapping-slur disambiguation (MusicXML `number`).
@@ -298,7 +298,7 @@ export interface Slur {
  * A TRILL — the `tr` sign plus the wavy extension line it may carry. Top-level (`score.trills`),
  * beside {@link Slur} and for the same reason: it is anchored to NOTES and crosses barlines and
  * systems freely, so a measure-owned span would have to be split and re-joined by every re-bar.
- * See docs/trill-plan.md.
+ * See docs/plans/trill-plan.md.
  *
  * ⭐ **A trill is TWO things in every format** — a sign on a note and a span — and this models both
  * with one object. MusicXML pairs `<trill-mark/>` with a separate `<wavy-line>`; LilyPond has
@@ -310,12 +310,12 @@ export interface Slur {
  * A hairpin covers an AMOUNT of music from a start beat, so it survives a re-bar untouched. A
  * trill's ends are notes ("there is no trill without a note"), which is what MusicXML and LilyPond
  * both anchor to. The cost is that a re-bar re-mints every id — paid by `rebarOps`' capture/restore
- * pass, exactly as it is paid for a slur (docs/trill-plan.md §2.1). ⛔ It is NOT paid by dropping
+ * pass, exactly as it is paid for a slur (docs/plans/trill-plan.md §2.1). ⛔ It is NOT paid by dropping
  * the trill: that would delete every trill in the region on any meter change.
  *
  * ⛔ **Nothing else here.** No length in beats (a trill's ends are notes), no interval — the
  * auxiliary is the diatonic step above, DERIVED against the key in force and the bar's accidentals
- * (docs/trill-plan.md §3), so storing it would be a second answer that goes stale on a
+ * (docs/plans/trill-plan.md §3), so storing it would be a second answer that goes stale on a
  * transposition. No y, no angle, no wiggle count, no stored break point: how it LOOKS is derived
  * from the render or authored into the engraving-overrides compartment keyed by this id
  * (DESIGN-PRINCIPLES §3), never a field here.
@@ -359,12 +359,12 @@ export interface Trill {
    * Options → Ornaments → Trills → "Label for start of new system"*, i.e. score-wide, which is the
    * shape a house style really has. ⏭️ When engraving presets land, the preset sets the DEFAULT and
    * this field stays as the per-trill OVERRIDE — absent meaning "whatever the score says". The two
-   * layer; neither replaces the other. See docs/trill-plan.md §1 rule 6.
+   * layer; neither replaces the other. See docs/plans/trill-plan.md §1 rule 6.
    */
   continuationLabel?: 'parenthesised' | 'plain' | 'none'
   /**
    * ⭐⭐ **THE BARE `tr` — no wavy line at all.** Absent = the line draws, which is our default and
-   * HIS OWN CALL of 2026-08-13, overruling docs/trill-plan.md §1 rule 5 (*"a single note needs no
+   * HIS OWN CALL of 2026-08-13, overruling docs/plans/trill-plan.md §1 rule 5 (*"a single note needs no
    * wavy line"*, which was Gould's and LilyPond's): *a bare `tr` leaves the duration implied; show it
    * on one note as much as on twenty.* This field is the per-trill exception to that default — his
    * ask, 2026-08-18: *"there are cases where the user wants to have `tr` without the line"*.

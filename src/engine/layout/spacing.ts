@@ -1,6 +1,6 @@
 /**
  * THE SPACING RULE — how much horizontal room an event earns, and how a bar's surplus is shared
- * (docs/spacing-model-plan.md P1). Pure: no VexFlow, no DOM, `Fraction` in, staff spaces out.
+ * (docs/plans/spacing-model-plan.md P1). Pure: no VexFlow, no DOM, `Fraction` in, staff spaces out.
  *
  * Gould states horizontal spacing as **two independent facts** about every event, and Dorico,
  * MuseScore, LilyPond and Verovio are all built the same way:
@@ -13,7 +13,7 @@
  * *ideal* gap, the ink gives the *minimum* one, and the wider of the two wins. That sentence is the
  * whole module, and P0 measured what its absence costs — today a quarter comes out at 1.94 staff
  * spaces bare and 3.75 with a sharp in front of it, because the ink either replaces the rule
- * outright or plays no part in it (docs/spacing-model-research.md §6).
+ * outright or plays no part in it (docs/research/spacing-model-research.md §6).
  *
  * ## Why here and not in `utils/`
  *
@@ -129,7 +129,7 @@ export const GOULD_SPACING: SpacingRule = { law: 'power', quarterSpace: 3.5, rat
  * time a measure joins the system, re-lay out every previous measure"* loop (plan §1.1). But it is a
  * choice with a measured cost at both ends of the range: a 32nd-dominated passage comes out 25–37%
  * too tight and a piece of nothing shorter than a crotchet ~24% too loose, because the anchor is a
- * duration neither of them contains. **`docs/shortest-duration-plan.md` is the fix, decided and not
+ * duration neither of them contains. **`docs/plans/shortest-duration-plan.md` is the fix, decided and not
  * yet built.**
  *
  * ⛔ What deriving it does NOT do is even out equal durations — that is `proportionalNotationDuration`,

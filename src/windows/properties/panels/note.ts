@@ -6,7 +6,7 @@ import { BISHOP, commitOnFirstStep } from '../rows'
 import { live, overrideOf, type PanelRows } from './panel'
 
 /**
- * A NOTE or a REST — the panel's FIRST real control (client #12 — docs/note-offset-plan.md §B): its
+ * A NOTE or a REST — the panel's FIRST real control (client #12 — docs/plans/note-offset-plan.md §B): its
  * horizontal offset, an absolute value in staff-spaces. A note adds what only a note has.
  */
 export const noteRows: PanelRows<'note' | 'rest'> = (element) => {
@@ -20,7 +20,7 @@ export const noteRows: PanelRows<'note' | 'rest'> = (element) => {
   if (note.articulations?.length) rows.push(buildStemAlignCheckbox(id, note.articulationStemAlign === true))
 
   // The fanned group's numbers, shown only on a note that HAS one: this row changes the shape of a
-  // fan, it never makes one (docs/fanned-beams-plan.md §3, P4). Creating and removing them is the
+  // fan, it never makes one (docs/plans/fanned-beams-plan.md §3, P4). Creating and removing them is the
   // accel./rit. press, which is also where the direction lives.
   if (note.fan) rows.push(buildFanInputs(id, note.fan))
 
@@ -30,7 +30,7 @@ export const noteRows: PanelRows<'note' | 'rest'> = (element) => {
   // its beam group's common level actually carries a stub, and that is a fact about the GROUP, which
   // this snapshot does not hold. So the row can appear on a semiquaver in a run of semiquavers, where
   // it has nothing to move. ⛔ Deliberately not faked tighter by guessing — the honest fix is the one
-  // the clef's `offsettable` uses: ask the engine what was DRAWN. See docs/beam-hook-research.md §8.
+  // the clef's `offsettable` uses: ask the engine what was DRAWN. See docs/research/beam-hook-research.md §8.
   if (canCarryFractionalBeam(note)) {
     rows.push(buildFractionalBeamSideSelect(id, note.fractionalBeamSide ?? null))
   }
@@ -150,7 +150,7 @@ function buildStemAlignCheckbox(noteId: string, current: boolean): HTMLElement {
  * computes a consequence, it just says what the assertion is. The direction is not offered — that
  * is the accel./rit. press, and showing it twice would give one fact two owners.
  *
- * ⭐ **`from`/`to` are shown 1-BASED and converted right here** (docs/fan-ramp-range-plan.md P2).
+ * ⭐ **`from`/`to` are shown 1-BASED and converted right here** (docs/plans/fan-ramp-range-plan.md P2).
  * "Note 1" is the note he typed, which is how a musician counts a group; the model, the seam and
  * every reader past this line stay 0-based like the rest of the editor. The conversion belongs at
  * the one place a human reads the number, and nowhere deeper.

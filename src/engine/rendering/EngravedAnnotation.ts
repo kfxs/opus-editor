@@ -1,5 +1,5 @@
 /**
- * ⭐ **A TEXT ANNOTATION OF OURS** — S9f of `docs/vexflow-removal-map.md` gave it readers for its
+ * ⭐ **A TEXT ANNOTATION OF OURS** — S9f of `docs/history/vexflow-removal-map.md` gave it readers for its
  * justification; ⭐ **S12g made it ours**: no longer VexFlow's `Annotation`. In this editor the
  * annotations are the DYNAMICS (`./DynamicsLayout.buildDynamicAnnotation`).
  *

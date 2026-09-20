@@ -1,5 +1,5 @@
 /**
- * THE TEMPO MARK'S GHOST — S11c (`docs/vexflow-removal-map.md` S11): the armed mark's text at the
+ * THE TEMPO MARK'S GHOST — S11c (`docs/history/vexflow-removal-map.md` S11): the armed mark's text at the
  * pointer, drawn by the score's own `drawTempoText` on our surface.
  *
  * ⭐ Measuring, recolouring and parking are {@link drawSignGhost}'s — this module is the SIGN and its

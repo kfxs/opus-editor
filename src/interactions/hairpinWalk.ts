@@ -505,7 +505,7 @@ export function dragHairpinBody(
   const staffSpacePx = port.staffSpacePx()
   if (!staffSpacePx) return null
 
-  // ⏱ TEMPORARY (docs/render-performance-plan.md §12.5a) — the numbers this frame DECIDES FROM.
+  // ⏱ TEMPORARY (docs/history/render-performance-plan.md §12.5a) — the numbers this frame DECIDES FROM.
   // ⭐ `inkY` is the mark's OWN DRAWN INK, and that is the whole question: a preview redraws the
   //   family without re-running the render, so if the ink it leaves differs from a full render's,
   //   every decision below is made against the wrong y and the next frame reads the result.

@@ -5,7 +5,7 @@ import { DEFAULT_FAN_COUNT, DEFAULT_FAN_BEAMS } from '@/utils/fannedBeam'
 import type { Chord, FanMark } from '@/types/music'
 
 /**
- * The FAN MODEL — one field on the slot (docs/fanned-beams-plan.md §0), and the refusals that ARE
+ * The FAN MODEL — one field on the slot (docs/plans/fanned-beams-plan.md §0), and the refusals that ARE
  * the notation: you cannot accelerate silence, a ramp inside a tuplet's ratio is a second
  * normalization of one span, and a slot cannot carry two answers to "how many attacks?".
  *
@@ -137,7 +137,7 @@ describe('setFan — one slot, ONE expansion', () => {
 })
 
 /**
- * THE MEMBERS (docs/fanned-beam-pitches-plan.md §1) — the one thing inside a fan that is stored,
+ * THE MEMBERS (docs/plans/fanned-beam-pitches-plan.md §1) — the one thing inside a fan that is stored,
  * because a pitch cannot be derived. `setFan` is the only door: it runs every mark through
  * `normalizeFan`, which owns the `members.length === count - 1` off-by-one.
  */
@@ -219,7 +219,7 @@ describe('setFan — the members', () => {
 })
 
 /**
- * ⭐ P3 — A MEMBER IS A NOTE YOU CAN EDIT (docs/fanned-beam-pitches-plan.md §2 P3).
+ * ⭐ P3 — A MEMBER IS A NOTE YOU CAN EDIT (docs/plans/fanned-beam-pitches-plan.md §2 P3).
  *
  * The rule underneath all of it: `findSlot` finds a member only when ASKED, so a mutator that has
  * not thought about fans refuses instead of writing a half-edit nobody can see.
@@ -286,7 +286,7 @@ describe('a fanned member as an editable pitch', () => {
 
   /**
    * ⭐ …but the horizontal OFFSET is not slot-shaped: a member has a head and a stem of its own and
-   * can be moved off its column like anything else (docs/note-offset-plan.md §"Inside a FAN").
+   * can be moved off its column like anything else (docs/plans/note-offset-plan.md §"Inside a FAN").
    */
   describe('offsetTargetOf — the key its own offset is stored at', () => {
     it('⭐ a member answers with ITS key, the note that was typed with the slot', () => {

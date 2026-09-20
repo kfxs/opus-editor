@@ -8,7 +8,7 @@ import type { Widget } from './content/Widget'
  * name every combination (`ResizableTwoColumnWindow`); properties compose for free. The variation
  * that matters lives in {@link Widget}, which is handed to a window, not inherited by it.
  *
- * Geometry lives here and never in the content (docs/windows-design.md, rule 3): content fills the
+ * Geometry lives here and never in the content (docs/how-it-works/windows-design.md, rule 3): content fills the
  * box it is handed and never reads its own x/y. Hence no DOM in this file — the window knows where
  * it is, and what is inside it does not.
  */

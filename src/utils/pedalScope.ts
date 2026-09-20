@@ -1,6 +1,6 @@
 /**
  * ⭐⭐ **WHAT A PEDAL REACHES** — the two questions a sustain pedal's `staffId` is NOT the answer to,
- * asked at a seam so the day the piano exists there is one file to change. See docs/pedal-plan.md
+ * asked at a seam so the day the piano exists there is one file to change. See docs/plans/pedal-plan.md
  * §3.2.
  *
  * A real damper pedal belongs to an INSTRUMENT, not to a staff: it sustains every staff of that
@@ -23,7 +23,7 @@ import { fracToNumber } from './fraction'
 
 /**
  * ⭐ **WHICH STAVES THIS PEDAL SUSTAINS** — the staff ids playback must hold notes on
- * (docs/pedal-plan.md §9). Today: the one staff the pedal is attached to.
+ * (docs/plans/pedal-plan.md §9). Today: the one staff the pedal is attached to.
  *
  * ⚠️ **`undefined` is a staff id here, not a missing answer.** The first staff stores an ABSENT id
  * everywhere in this model (`utils/lanes` — "absent means the first one"), and a caller comparing
@@ -41,7 +41,7 @@ export function pedalStavesAt(score: Score, pedal: Pedal): Array<string | undefi
 /**
  * ⭐ **WHICH STAFF IT IS DRAWN UNDER** — §1 rule 1's other half (*all pedal lines go below the bottom
  * staff*). Today: the staff it is attached to, which on a two-staff score puts it BETWEEN the staves
- * until the piano exists. Stated as a limitation in docs/pedal-plan.md §1 rather than half-fixed
+ * until the piano exists. Stated as a limitation in docs/plans/pedal-plan.md §1 rather than half-fixed
  * here, because guessing "the last staff of the score" would be wrong the moment a score holds two
  * instruments.
  */

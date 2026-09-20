@@ -1,6 +1,6 @@
 /**
  * The emitting Proxy behind `createObservableEditorState()` — the state's own change-notification
- * (docs/observable-editorstate-plan.md). This is now the ONLY reactivity the editor has, so these
+ * (docs/history/observable-editorstate-plan.md). This is now the ONLY reactivity the editor has, so these
  * are no longer a spike: they are the contract every subscriber depends on (the Keypad, the
  * Properties window, the dev toolbar, the score cursor, the gutter).
  *

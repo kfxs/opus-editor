@@ -5,7 +5,7 @@ import { drawGroupOf } from './svgDrawGroup'
 
 /**
  * **Ink that belongs to one staff but is drawn outside its measure groups** — the ties, slurs and
- * cross-barline beams of docs/staff-size-plan.md §4.3.
+ * cross-barline beams of docs/plans/staff-size-plan.md §4.3.
  *
  * A bar's own glyphs are drawn inside a `<g transform="scale(k)">` (§4.1), so on a staff drawn
  * small everything VexFlow has stored about them — stem tips, notehead edges, beam slopes — is in

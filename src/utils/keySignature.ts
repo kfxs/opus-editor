@@ -109,8 +109,8 @@
  * but the ordering and grouping for that case have no authority to appeal to: whatever we do there
  * is **house style**, and should be documented as such rather than presented as a convention.
  *
- * @see docs/key-signature-plan.md — the build (P1 is this file plus `Measure.keys`)
- * @see docs/key-signature-research.md — the five research passes behind every number in it
+ * @see docs/plans/key-signature-plan.md — the build (P1 is this file plus `Measure.keys`)
+ * @see docs/research/key-signature-research.md — the five research passes behind every number in it
  */
 import type { Fraction, KeyChange, KeySignature, PitchAlter, PitchStep, Score } from '@/types/music'
 import { fracCreate, fracLt, fracLte, fracGt } from './fraction'
@@ -210,8 +210,8 @@ export interface StaffKeys {
  * ⚠️⚠️ **{@link keyAt} must not be what the layout asks.** It inherits by scanning BACKWARDS over
  * every earlier measure, each step doing its own `measures.find` — quadratic per measure and cubic
  * over the score, asked once per (measure, staff) per render by the header. That exact shape, for
- * the clef, measured **47% of all layout time** before it became a fold (docs/render-performance-plan.md
- * §4, and docs/key-signature-plan.md §2.1). ⛔ Do not thread `keyAt` into `MeasureLayout`.
+ * the clef, measured **47% of all layout time** before it became a fold (docs/history/render-performance-plan.md
+ * §4, and docs/plans/key-signature-plan.md §2.1). ⛔ Do not thread `keyAt` into `MeasureLayout`.
  *
  * Both halves earn their place: `opening` is what a bar's header draws, and `ending` is what the
  * next bar compares against to decide whether it must redraw the signature at all — and what the
@@ -307,7 +307,7 @@ function measureKeyChanges(score: Score, measureNumber: number, staffId?: string
  *
  * ⚠️ **This is the MODEL's answer, and it walks.** Layout must not ask it per bar per staff: that
  * shape, for the clef, was 47% of all layout time until `resolveStaffClefs` replaced it with one
- * forward pass. See docs/key-signature-plan.md §2.1.
+ * forward pass. See docs/plans/key-signature-plan.md §2.1.
  */
 export function keyAt(score: Score, measureNumber: number, staffId?: string, beat: Fraction = ZERO): KeySignature {
   const changes = measureKeyChanges(score, measureNumber, staffId)

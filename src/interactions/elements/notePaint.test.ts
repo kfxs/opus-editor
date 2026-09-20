@@ -178,7 +178,7 @@ describe('a selected note lights the tremolo it carries', () => {
 })
 
 /**
- * ⭐ A SELECTED FANNED MEMBER (docs/fanned-beam-pitches-plan.md §2 P3) — its ink is ours, drawn into
+ * ⭐ A SELECTED FANNED MEMBER (docs/plans/fanned-beam-pitches-plan.md §2 P3) — its ink is ours, drawn into
  * one group, so the highlight is an ordinary recolour rather than a painted rectangle.
  *
  * ⚠️ What is really pinned here is the fill/stroke split: **a glyph is filled, never stroked.**

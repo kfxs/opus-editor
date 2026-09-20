@@ -19,7 +19,7 @@ import { groupingError, parseGrouping } from '../utils/groupingInput'
  *     cannot say "eighths as 3+3+2 but sixteenths as 4+4+4". That second level is a model change,
  *     not a field on this window.
  *
- * Both are written up in docs/time-signature-window-plan.md §2. The window is named for what it will
+ * Both are written up in docs/plans/time-signature-window-plan.md §2. The window is named for what it will
  * be rather than what it is, because renaming it later would break the one thing a user remembers.
  */
 interface BeamGroupsOptions {

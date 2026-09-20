@@ -5,10 +5,10 @@
  * PlaybackEngine owns the clock + beats→seconds math (see {@link collectScheduledNotes})
  * and hands finished `(pitch, when, durationSec, velocity)` events to whatever implements
  * this. Swapping WebAudioFont → smplr → a future custom sampler is a drop-in change here,
- * touching no scheduling/tie/dynamics logic. See `docs/soundfont-plan.md` §3.
+ * touching no scheduling/tie/dynamics logic. See `docs/plans/soundfont-plan.md` §3.
  *
  * ⭐⭐ **THIS IS THE *INTERPRET* STEP — the third stage of score → schedule → interpret**
- * (docs/playback-semantics-plan.md, built 2026-08-20). Everything above it speaks MUSIC; an
+ * (docs/plans/playback-semantics-plan.md, built 2026-08-20). Everything above it speaks MUSIC; an
  * implementation of this interface is the first place allowed to speak its synth's vocabulary, and
  * therefore the first place allowed to assume 12-EDO. ⛔ A MIDI number must not appear on either
  * side of this boundary in any caller.
@@ -34,7 +34,7 @@ export interface InstrumentPlayer {
    * system for its ratio, which a number arriving here could never have supported.
    *
    * ⚠️ That is the whole point of the seam: `spellingToMidi` collapses G♯4 and A♭4 onto 61, and in
-   * meantone those are different pitches (docs/tuning-systems-and-alteration.md). Whoever mints the
+   * meantone those are different pitches (docs/how-it-works/tuning-systems-and-alteration.md). Whoever mints the
    * integer decides that question, so only the thing that knows what is playing may mint it.
    */
   noteOn(pitch: PitchSpelling, when: number, durationSec: number, velocity: number): void

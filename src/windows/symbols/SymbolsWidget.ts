@@ -8,7 +8,7 @@ import { loadSmufl, type RangeBlock, type Smufl } from './smufl'
 
 /**
  * The Symbols window's content: the search strip on top, the ranges down the left, the chart on
- * the right (docs/symbols-window-plan.md, P0–P1).
+ * the right (docs/plans/symbols-window-plan.md, P0–P1).
  *
  * The left column is NAVIGATION, not a mode: clicking a range scrolls the one continuous chart to
  * it, and scrolling past its end simply arrives in the next range — the difference between this and

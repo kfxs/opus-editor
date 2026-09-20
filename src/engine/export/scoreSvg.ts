@@ -49,7 +49,7 @@ interface ScoreSvgRender {
  * @param surface What to engrave onto (`engine/layout/surface.ts`). An **argument**, not something
  * threaded from the editor's renderer: this function builds its own renderer, so the surface has no
  * other way in — and an export's surface is a legitimately separate question from the one the
- * editor is drawing (docs/layout-plan.md P0.3). Defaults to today's sketching canvas.
+ * editor is drawing (docs/plans/layout-plan.md P0.3). Defaults to today's sketching canvas.
  */
 export async function renderScoreSvg(score: Score, surface: Surface = SKETCH_CANVAS): Promise<ScoreSvgRender> {
   const metrics = resolveSurface(surface)

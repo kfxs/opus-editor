@@ -19,7 +19,7 @@
  *
  * Known, deliberate simplification: compound detection is gated at `denominator
  * >= 8`, so `6/4`, `9/4`, `12/4` are treated as *simple* (one beat per quarter),
- * not as compound dotted-half beats. See docs/time-signature-plan.md §6 Phase 2.
+ * not as compound dotted-half beats. See docs/plans/time-signature-plan.md §6 Phase 2.
  *
  * Pure: depends only on `fraction.ts` and the type declarations.
  */

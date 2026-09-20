@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /**
  * P5.2 — every (measure, staff) draws into its **own addressable `<g>`**
- * (docs/render-performance-plan.md §7).
+ * (docs/history/render-performance-plan.md §7).
  *
  * This is the structure P5's incremental redraw and P6's culling both address the score through, so
  * these tests are about the *shape of the SVG*, not about speed. The one that matters most is

@@ -6,7 +6,7 @@
  * ⚠️ jsdom has no `getBBox`, so the group is never parked on the pointer here — that, and that the
  * glyph is the page's own at the page's size, is the browser suite's (`e2e/ghosts.e2e.ts`) and was
  * proved once by an A/B of every cursor ghost's ink against the previous commit
- * (`docs/vexflow-removal-map.md` S11a). Pinned here: which group, which glyph, and nothing loose.
+ * (`docs/history/vexflow-removal-map.md` S11a). Pinned here: which group, which glyph, and nothing loose.
  */
 import { describe, it, expect, beforeEach } from 'vitest'
 import { MusicEngine } from '../MusicEngine'

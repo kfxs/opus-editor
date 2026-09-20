@@ -1,6 +1,6 @@
 /**
  * ⭐⭐ **PUTTING ONE MUSIC GLYPH DOWN, in a face that is already resolved** —
- * `docs/note-engraving-plan.md`, the shared half of P3b and P3d.
+ * `docs/plans/note-engraving-plan.md`, the shared half of P3b and P3d.
  *
  * ## ⚠️ Why this is not `rendering/glyphPainter`, and the distinction is the whole reason both exist
  *
@@ -23,7 +23,7 @@
  * ## 🚨 Why it is a module and not two copies
  *
  * P3b wrote these two lines inside `engrave/notes/flag.ts`. P3d needed exactly the same two for the
- * notehead — *"the second owner is the tell"* (`docs/own-engraving-engine.md` §3.1), which this
+ * notehead — *"the second owner is the tell"* (`docs/plans/own-engraving-engine.md` §3.1), which this
  * migration has now met in the ledger line, the stem, and here. ⭐ Collected on the commit that
  * produced the second owner, rather than after a third.
  */

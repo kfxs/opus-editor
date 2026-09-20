@@ -104,7 +104,7 @@ export const MEASURE_RENDER_ROLE: Record<keyof Measure, MeasureRenderRole> = {
    * key signature is INHERITED: the key set in bar 1 decides the accidentals drawn in bar 40, whose
    * own fields never move. That is the governing clef's bug exactly, it is silent, and its home is
    * the same one — a governing-`key` row in `MeasureRedrawKey`'s `ShapeKeyInputs`, beside `clef`.
-   * See docs/key-signature-plan.md §1.3. ⛔ Do not read this row as covering it.
+   * See docs/plans/key-signature-plan.md §1.3. ⛔ Do not read this row as covering it.
    */
   keys: 'width',
 
@@ -127,7 +127,7 @@ export const MEASURE_RENDER_ROLE: Record<keyof Measure, MeasureRenderRole> = {
   /**
    * ⭐ **The one row that answers "neither", and it needs its reasons out loud** — this file's
    * standing advice when unsure is *include it*, so declining both keys is a claim, not a shrug
-   * (docs/ottava-plan.md §8 P3, which was written to satisfy exactly this file).
+   * (docs/plans/ottava-plan.md §8 P3, which was written to satisfy exactly this file).
    *
    * NOT in the width key: an ottava changes what a note SOUNDS, never where its head sits — we
    * store WRITTEN pitch ({@link Ottava}) — so no bar gets wider or narrower for having one.
@@ -148,7 +148,7 @@ export const MEASURE_RENDER_ROLE: Record<keyof Measure, MeasureRenderRole> = {
 
   /**
    * ⭐ The SECOND row that answers "neither", on the ottava's reasoning above and for its two halves
-   * (docs/pedal-plan.md §5.4, written to satisfy exactly this file).
+   * (docs/plans/pedal-plan.md §5.4, written to satisfy exactly this file).
    *
    * NOT in the width key: a pedal is drawn BELOW the staff and costs no horizontal room — the same
    * "drawn but weightless" this file's header opens with.
@@ -169,7 +169,7 @@ export const MEASURE_RENDER_ROLE: Record<keyof Measure, MeasureRenderRole> = {
   /**
    * ⭐ **The line ending this bar is WIDER ink than a plain one, so the bar needs more room.** A
    * final barline is ≈1.0 staff-space of ink and a repeat ≈1.5 against the plain line's 0.16
-   * (docs/barline-types-plan.md §4.1, §4.2), and §6.1 puts that ink INSIDE the bar that stores it —
+   * (docs/plans/barline-types-plan.md §4.1, §4.2), and §6.1 puts that ink INSIDE the bar that stores it —
    * so the bar's own width has to pay for it. There is no "extra space *because* a barline is
    * final": the gap before it stays the pair table's (`note↔barline` 1.2, `rest↔barline` 1.65) and
    * the sign is simply wider, which is LilyPond's `space-to-barline` exactly (§5).

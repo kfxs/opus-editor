@@ -25,7 +25,7 @@ import { paintBarlineJoinSquares } from './barlineJoinSquares'
  * ⚠️ **The VERTICAL half of this replaces a rule that was deliberate**, and it is worth saying why it
  * changed rather than quietly widening it. It read: *"NOT vertically: the box is exactly the five
  * staff lines, and a click in the gap between two staves is on no barline at all"* — true while the
- * gap held nothing. It now holds the join squares (docs/barline-join-plan.md), so *the top and bottom
+ * gap held nothing. It now holds the join squares (docs/plans/barline-join-plan.md), so *the top and bottom
  * ENDS of a line are where the hand aims*, and Sibelius's own instruction for the same gesture is
  * *"click carefully at the top or bottom of a normal barline"*. A press a few px past the last staff
  * line is aiming at the line, not at the bar.
@@ -161,7 +161,7 @@ export const BARLINE_ELEMENT: ClickableElementSpec = {
  * staff to the RIGHT of the sign — a blue sliver beside a black sign, which is what he saw.
  *
  * ⚠️ **This is a RECOLOUR, and the rule it looks like it breaks does not apply to it.**
- * `docs/barline-selection.md` §3 says PAINT, don't RECOLOUR — but read what that rule is about:
+ * `docs/how-it-works/barline-selection.md` §3 says PAINT, don't RECOLOUR — but read what that rule is about:
  * recolouring **VexFlow's** nodes. Every failure it lists is a *finding* failure of that DOM (one
  * barline was two rects, the second not always in the group you expect, and the coordinates lie on
  * a bar that was reused and translated). None of it survives P2:

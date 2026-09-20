@@ -2,7 +2,7 @@
  * ⭐⭐ **THE ALTERATION A PITCH IS BORN WITH** — what a newly typed, clicked or stepped-to note
  * carries when nobody has said otherwise.
  *
- * ## Why this module exists at all (docs/key-signature-plan.md §3.1)
+ * ## Why this module exists at all (docs/plans/key-signature-plan.md §3.1)
  *
  * Note entry takes *"natural pitch spelling from Y coordinate (that staff's clef), then apply
  * accidental"*: the click gives a diatonic position, the entered pitch is that letter with

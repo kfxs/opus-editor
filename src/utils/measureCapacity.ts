@@ -9,7 +9,7 @@ import { type Fraction, fracAdd, fracCreate, fracMul, fracToNumber } from '@/uti
  * {@link measureCapacityQuarters} to lay a score out in time. ESM hoisting happens to make that work
  * today; a change in bundling order turns it into `undefined is not a function` at module init, and
  * the failure would look like nothing to do with meter. Splitting the leaf out breaks it for good
- * (docs/refactor-plan-2026-07-27.md 3d).
+ * (docs/history/refactor-plan-2026-07-27.md 3d).
  *
  * The split is not just cycle-breaking, though — this IS a subject. "How long is this bar" is the
  * question every timing decision starts from (entry overflow, re-barring, playback, layout, the

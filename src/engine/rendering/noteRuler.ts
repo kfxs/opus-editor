@@ -3,7 +3,7 @@ import type { NoteRuler } from '@/engine/engrave/notes/noteRuler'
 
 /**
  * ⭐ **THE ONE PLACE a note's parts are read off a VexFlow `StaveNote`** — S3 of
- * `docs/vexflow-removal-map.md`. Everything else asks the {@link NoteRuler}.
+ * `docs/history/vexflow-removal-map.md`. Everything else asks the {@link NoteRuler}.
  *
  * A SEAM, not a port, exactly like `./staveFrame`'s `barFrame`: every field is a getter, so each value
  * is read from the note at the moment a reader asks — ⛔ never copied up front. That keeps every read

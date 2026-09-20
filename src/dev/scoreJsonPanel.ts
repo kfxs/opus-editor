@@ -2,14 +2,14 @@ import type { MusicEngine } from '../engine/MusicEngine'
 import { exportScoreJson, importScoreJson } from '../interactions/scoreFileIo'
 
 /**
- * The live Score-JSON panel — development scaffolding, deliberately kept (docs/remove-vue-plan.md).
+ * The live Score-JSON panel — development scaffolding, deliberately kept (docs/history/remove-vue-plan.md).
  *
  * It POLLS rather than subscribing, and always has: the engine's ScoreModel is a plain object with
  * no change-notification of its own, so there is nothing to listen to. That was true under Vue too —
  * a `computed` never saw an edit, which is why the Vue version polled into a ref. Losing the
  * framework costs this panel nothing; the ref just became a text node.
  *
- * It also carries the Import / Export buttons (docs/json-io-plan.md). They are here, next to the
+ * It also carries the Import / Export buttons (docs/plans/json-io-plan.md). They are here, next to the
  * dump, because they are the same provisional thing: a way to get the model in and out while it is
  * still changing weekly. They will not ship here — and since the bar's File menu now offers the same
  * two commands, what they DO is no longer here either: both surfaces call

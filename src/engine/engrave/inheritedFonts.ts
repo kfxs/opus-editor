@@ -1,6 +1,6 @@
 /**
  * ⭐⭐ **THE FACES WE INHERITED — which font each kind of ink is set in, one table.**
- * S1c of `docs/vexflow-removal-map.md`, the sibling of `./inheritedDefaults` (S1b's numbers).
+ * S1c of `docs/history/vexflow-removal-map.md`, the sibling of `./inheritedDefaults` (S1b's numbers).
  *
  * The drawing library resolved a font per CATEGORY at run time: `new Element('Clef')` asked its
  * `Metrics` table for `Clef.fontFamily`, `Clef.fontSize`… walking up to the root row when the
@@ -17,7 +17,7 @@
  * A mark whose size this repo chose (the tempo mark's `tempoStyle`, the tuplet's `ScoreTuplet`, the
  * dynamics' `dynamicStyle`) keeps that knob beside its own ink tables, and builds its face from
  * {@link MUSIC_FONT_STACK} here. ⛔ Gathering all of them into one house-style object is agreed and
- * deferred (`docs/own-engraving-engine.md` §0.2).
+ * deferred (`docs/plans/own-engraving-engine.md` §0.2).
  *
  * ⚠️ While the drawing library still MEASURES its own objects (a clef's width, an accidental's, a
  * note's head), it does so from its own copy of these values — so a row that changes before S5–S6

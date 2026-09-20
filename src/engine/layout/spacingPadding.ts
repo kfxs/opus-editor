@@ -1,6 +1,6 @@
 /**
  * THE INK HALF — how much room an event's own glyphs take, and the least space that may be left
- * between two of them (docs/spacing-model-plan.md P3). Pure: staff spaces in, staff spaces out.
+ * between two of them (docs/plans/spacing-model-plan.md P3). Pure: staff spaces in, staff spaces out.
  *
  * Gould's second fact. `spacing.ts` says how much room a DURATION earns; this says how much room the
  * ink NEEDS, and the two are combined with a `max` — the duration gives the ideal gap, the ink gives
@@ -16,7 +16,7 @@
  * and fails if the two drift — which is the answer to *"⛔ what is not an option is measuring one
  * and drawing the other silently"* (plan §P3). The paddings BETWEEN events are a different kind of
  * number — a judgement, not a measurement — and are seeded from MuseScore's published table
- * (docs/spacing-model-research.md §3).
+ * (docs/research/spacing-model-research.md §3).
  *
  * ⭐⭐ **F2 added the other side of that pairing**: `spacingPadding.font.test.ts` holds every extent
  * here against **Bravura's own metrics** (`engine/fonts/`), in jsdom, with no browser. So the table
@@ -26,7 +26,7 @@
  * silent one: a silent difference is how a rounded-out clearance gets "corrected" by the next reader.
  *
  * ⚠️ **Three quantities live in this one table and always have** — an ink extent, a placement, and a
- * distance measured off VexFlow's BEHAVIOUR (docs/font-metrics-plan.md §3.1). `notehead` and
+ * distance measured off VexFlow's BEHAVIOUR (docs/plans/font-metrics-plan.md §3.1). `notehead` and
  * `secondDisplacement` are the pair that shows why it matters: they were one row until F2, and the
  * font agrees with only one of them.
  *
@@ -65,7 +65,7 @@ export const INK = {
   /**
    * ⭐⭐ **A notehead's own INK** — how wide the drawn head is. ⚠️ **Bravura says 1.18**
    * (`fonts/fontMetrics.noteheadInk`), and this is 1.13 as an **OVERRIDE pending his eye**
-   * (docs/font-metrics-plan.md §3.6 item 2): it moves every note-to-note gap in the score by 0.05
+   * (docs/plans/font-metrics-plan.md §3.6 item 2): it moves every note-to-note gap in the score by 0.05
    * spaces, and it drags {@link MIN_COLUMN_GAP} — and therefore the drag floors — with it.
    *
    * ⛔ **1.13 is not this quantity, and that is the point of the split.** It was measured as the
@@ -118,14 +118,14 @@ export const INK = {
    * draws to 2.15, so a bar of unbeamed 32nds — whose rule-given gap is 1.50 — draws each flag through
    * the next notehead. And the OLD ink path (VexFlow's `preCalculateMinTotalWidth`) had the opposite
    * error: it counted a flag on every eighth *including beamed ones*, where none is drawn, which is
-   * what made an eighth measure WIDER than a quarter (docs/spacing-model-research.md §6). The answer to
+   * what made an eighth measure WIDER than a quarter (docs/research/spacing-model-research.md §6). The answer to
    * both is to count it exactly when it is drawn — see {@link measureColumns}, which asks
    * `beamRoleAt` rather than guessing from the duration.
    *
    * A DOWN flag adds nothing: its stem stands at the head's LEFT edge, so its 1.2 spaces of ink land
    * inside the head's own 1.13 (measured: box right 1.3 against the head's 1.2).
    *
-   * ⚠️ **This is a COMPOSITION, not a glyph width** (docs/font-metrics-plan.md §3.1b): the font's
+   * ⚠️ **This is a COMPOSITION, not a glyph width** (docs/plans/font-metrics-plan.md §3.1b): the font's
    * `flag8thUp` is 1.056 measured from the STEM's x, so the reach past the head is
    * `noteheadInk − stemThickness + flag`, i.e. **0.94** past a 1.18 head — 2.12 from the anchor,
    * against the 2.13 this 1.0 gives on a 1.13 head. ⛔ It cannot be re-sourced on its own: it rides
@@ -158,7 +158,7 @@ export const INK = {
  * ⭐⭐ **And they are now CHECKED, not only measured**: `spacingPadding.font.test.ts` holds every row
  * of this file against Bravura's own metrics (`engine/fonts/`), so a number that drifts from the
  * font is a failing test rather than a discovery years later. ⛔ A row that deliberately differs is
- * an **override carrying its sentence** — never a silent difference (docs/font-metrics-plan.md §3.5).
+ * an **override carrying its sentence** — never a silent difference (docs/plans/font-metrics-plan.md §3.5).
  *
  * ⚠️ **A REST is not in this table** — it is not drawn at a pitch, so it has a BAND rather than a
  * reach. See {@link restBand}.
@@ -182,7 +182,7 @@ export const INK_HEIGHT = {
 } as const
 
 /**
- * ⭐⭐ **A REST'S HEIGHT — the row this table never had** (docs/font-metrics-plan.md §3.4).
+ * ⭐⭐ **A REST'S HEIGHT — the row this table never had** (docs/plans/font-metrics-plan.md §3.4).
  *
  * Every other ink here is a `± reach` around its own anchor. A rest cannot be: **it is not drawn at
  * a pitch**, it is drawn at a fixed place on the staff that depends on its duration, so what the
@@ -409,7 +409,7 @@ export function pairPadding(left: InkKind, right: InkKind): number {
   //   space — the floor never enters), and in a bar of 16ths the floor binds at **2.13** (notehead 1.13
   //   plus this). MuseScore is the only engine with a constant here, `noteBarDistance` = 1.5, which would
   //   make that 2.63. Judged on screen and left at 1.0 (*"i think is ok now"*), so ⛔ do not "correct" it
-  //   towards MuseScore without an eye on a dense bar — `docs/spacing-model-research.md` §6d.
+  //   towards MuseScore without an eye on a dense bar — `docs/research/spacing-model-research.md` §6d.
   if (right === 'barline') return left === 'rest' ? 1.65 : 1.0
   if (left === 'rest' || right === 'rest') return 0.5
   if (left === 'dot') return 0.5

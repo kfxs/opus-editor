@@ -10,7 +10,7 @@ import { paintSelectedNotes } from './elements/notePaint'
 import { paintMeasureBox } from './elements/measureRange'
 
 /**
- * P3 — the highlight layer must be REMOVABLE without a redraw (docs/render-performance-plan.md §5a).
+ * P3 — the highlight layer must be REMOVABLE without a redraw (docs/history/render-performance-plan.md §5a).
  *
  * Highlights used to reset themselves by being wiped along with the SVG ("Safe: the next render
  * rebuilds the SVG"). Now that a selection change can skip the render entirely, `clearHighlights()`

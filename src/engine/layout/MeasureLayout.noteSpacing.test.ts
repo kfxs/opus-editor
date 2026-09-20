@@ -17,7 +17,7 @@ import type { Score } from '@/types/music'
  * flag keeps these testing what they mean to test.
  */
 /**
- * The width and justification halves of note spacing (docs/note-spacing-plan.md §2–§3).
+ * The width and justification halves of note spacing (docs/plans/note-spacing-plan.md §2–§3).
  *
  * The one sentence these all test: **a space is not an offset — it has width.** So it survives the
  * intrinsic clamps, it reaches the break pass, and the stretcher hands it back instead of sharing

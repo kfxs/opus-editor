@@ -1,7 +1,7 @@
 /**
  * VexFlow's softmax spacing, kept for one clef (S9h-b). ⚠️ Exactness against `Formatter.preFormat` was
  * proved once — every context's x and every whole-bar rest's centre shift on 8,000 random twin bars,
- * and the rendered page of 60 scores (`docs/vexflow-removal-map.md` §5.2); pinned here is the shape.
+ * and the rendered page of 60 scores (`docs/history/vexflow-removal-map.md` §5.2); pinned here is the shape.
  */
 import { describe, it, expect } from 'vitest'
 import {

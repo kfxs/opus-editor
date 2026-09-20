@@ -3,7 +3,7 @@
  *
  * ⭐ The point of every case here is that **absent is auto**: clearing the override must remove the
  * key rather than write a side, so a score nobody has hand-edited is engraved wholly by the metric
- * rule (`docs/beam-hook-research.md`).
+ * rule (`docs/research/beam-hook-research.md`).
  */
 import { describe, it, expect } from 'vitest'
 import { ScoreModel } from './ScoreModel'

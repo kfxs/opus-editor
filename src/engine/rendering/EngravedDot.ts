@@ -1,6 +1,6 @@
 /**
  * ⭐⭐ **THE SEAM WHERE AN AUGMENTATION DOT'S INK COMES BACK TO US** — the note's MODIFIERS,
- * 2026-09-14 (`docs/own-engraving-engine.md` P3; the ink is `engrave/notes/augmentationDot`).
+ * 2026-09-14 (`docs/plans/own-engraving-engine.md` P3; the ink is `engrave/notes/augmentationDot`).
  * The accidental's twin — see {@link EngravedAccidental} for the shape and for the write-back rule.
  *
  * `Dot.draw()` is thirteen lines, and only the last one paints:
@@ -28,7 +28,7 @@
  *
  * ⭐ **`Dot.format` is ours since S9c** — which way a dot dodges its staff line when a chord stacks
  * them is `engrave/notes/dotStack`, VexFlow's rule transcribed; the survey that would let us choose
- * another is `docs/accidental-dot-research.md`.
+ * another is `docs/research/accidental-dot-research.md`.
  *
  * ⛔ **The GAP from the notehead** — `rendering/dotPlacement` already owns it (half a staff space,
  * edge to edge, his report of a dot standing too close). It moves the dot by `setXShift`, and this
@@ -153,7 +153,7 @@ export class EngravedDot extends EngravedModifier implements InkSurfaceAware {
       y: this.y + this.yShift,
       font: MUSIC_GLYPH_FONT,
       // ⭐ The sign's own id, so its GROUP can be matched back to the hit box the registry
-      //   files for it — P6b's seam (`docs/own-engraving-engine.md` §5 P6).
+      //   files for it — P6b's seam (`docs/plans/own-engraving-engine.md` §5 P6).
       id: this.getAttribute('id')!,
     })
   }

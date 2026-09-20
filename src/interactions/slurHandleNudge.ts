@@ -2,7 +2,7 @@
  * ⭐ **ARROW KEYS RESHAPE THE ARC** — his ask, 2026-08-17: *"i want to be able to change slur control
  * arc point with the arrow key when selected"*. The keyboard twin of dragging a round amber dot, and
  * the last of the three slur handles to get one — the blue TRUE ends have nudged since
- * docs/slur-endpoint-offset-plan.md, the orange OPEN JOINS since the multi-system plan, and the arc's
+ * docs/plans/slur-endpoint-offset-plan.md, the orange OPEN JOINS since the multi-system plan, and the arc's
  * own control points were still mouse-only. Tab (`./slurHandleCycle`) can now reach every handle
  * without the pointer, so this is what makes that reachability worth anything.
  *

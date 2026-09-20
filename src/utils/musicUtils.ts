@@ -32,7 +32,7 @@ import {
  *
  * How much fits in a bar lives in `utils/measureCapacity.ts` — moved out because this module's
  * import of {@link MET_NOTE_GLYPH} closed a cycle through `tempoText → tempoMap`, and because a
- * bar's capacity is a subject of its own rather than a utility (docs/refactor-plan-2026-07-27.md 3d).
+ * bar's capacity is a subject of its own rather than a utility (docs/history/refactor-plan-2026-07-27.md 3d).
  */
 
 export { durationToBeats, getDotMultiplier, beatsToDuration, splitBeatsIntoDurations }
@@ -334,7 +334,7 @@ export function resolveTupletInTimeOf(
  * reading `4` for something that will engrave as `4:3` is a preview of a different tuplet.
  *
  * Derived every time, never stored — the numbers ARE the rhythm, so a saved string would go on
- * saying `5:4` after the tuplet changed (docs/tuplet-extension-plan.md §6).
+ * saying `5:4` after the tuplet changed (docs/plans/tuplet-extension-plan.md §6).
  */
 /**
  * The two numbers the mark PRINTS, and the note value they COUNT — all three DERIVED, never read off
@@ -690,7 +690,7 @@ export function measureSelectableNotes(measure: Measure, score?: Score): Note[] 
  * FANNED member, at the beat it sounds on.
  *
  * A member is a note in the bar, so its accidental holds for the rest of it like any other's
- * (docs/fanned-beam-pitches-plan.md §2, his decision). Left out, a member's F♯ followed by an
+ * (docs/plans/fanned-beam-pitches-plan.md §2, his decision). Left out, a member's F♯ followed by an
  * ordinary F later in the bar would draw no natural — and the sign a note DISPLAYS would disagree
  * with the sign it is engraved with.
  *

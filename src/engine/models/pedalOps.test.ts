@@ -2,10 +2,10 @@
  * {@link pedalOps} — the sustain pedal as STORAGE: where it lives, what it refuses, what it
  * REPLACES, how far it reaches, and ⭐⭐ **the split that is this module's whole character** — the
  * model policing only coincidence while the ENTRY door resolves overlap by truncating
- * (docs/pedal-plan.md §3.3).
+ * (docs/plans/pedal-plan.md §3.3).
  *
  * There is no geometry here and there cannot be: where the `✻` lands is a column x the render reads
- * from a spacing solve a jsdom test has none of (docs/pedal-plan.md §5.2). What a unit test can
+ * from a spacing solve a jsdom test has none of (docs/plans/pedal-plan.md §5.2). What a unit test can
  * check is the model's own contract — the pedal rides its start measure, its extent is an amount of
  * MUSIC rather than a second address, a non-positive extent is refused, an override never outlives
  * its anchor, one (beat, staff) holds at most one pedal, and a press makes room for itself.
@@ -273,7 +273,7 @@ describe('pedalOps — addPedalOverNotes makes room', () => {
 
 /**
  * ⭐⭐ `Ctrl+←/→` — the model write behind the key, and the ONE place a pedal's lane matters: it steps
- * through its whole STAFF where a hairpin steps through its own voice (docs/pedal-plan.md §6.3).
+ * through its whole STAFF where a hairpin steps through its own voice (docs/plans/pedal-plan.md §6.3).
  */
 describe('pedalOps — resizePedalBySlot', () => {
   let model: ScoreModel
@@ -578,7 +578,7 @@ describe('pedalOps — setPedalStartAtSlot / setPedalLiftAt', () => {
 })
 
 /**
- * ⭐⭐ THE HAND-NUDGED INK — `PedalOffsetOverride`, the last thing docs/pedal-plan.md §6.3 left for
+ * ⭐⭐ THE HAND-NUDGED INK — `PedalOffsetOverride`, the last thing docs/plans/pedal-plan.md §6.3 left for
  * later. The claim under test is the SHAPE: two horizontals and ONE vertical, because a pedal and
  * its own release share a baseline (Gould p. 333, `reference/` on disk).
  */

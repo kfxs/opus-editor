@@ -1,6 +1,6 @@
 /**
  * ⭐⭐ **WHAT A TRILL SOUNDS LIKE** — one sounding note becomes an alternation between it and the
- * note above (docs/trill-plan.md §7, P5).
+ * note above (docs/plans/trill-plan.md §7, P5).
  *
  * Pure arithmetic over numbers, deliberately: `collectScheduledNotes` decides WHICH notes trill and
  * with what auxiliary, and this decides only how the alternation is laid out in time. That split is
@@ -23,7 +23,7 @@ import type { PitchSpelling } from '@/types/music'
 /** A single attack of the alternation, in the caller's own units. */
 interface TrillAttack {
   /** ⭐ A PITCH, not a MIDI number — `ScheduledNote.pitch`'s reason, and this module hands its
-   *  attacks straight to it (docs/playback-semantics-plan.md). It is never read here: the two
+   *  attacks straight to it (docs/plans/playback-semantics-plan.md). It is never read here: the two
    *  pitches are opaque values this function alternates between, which is what keeps the rate
    *  testable without a score and would keep it working for a microtonal auxiliary. */
   pitch: PitchSpelling
@@ -40,7 +40,7 @@ interface TrillAttack {
  * an unmeasured tremolo's 0.05 s would be wrong (a tremolo is "as fast as possible"; a trill is
  * fast but shaped), and much slower reads as a written-out turn.
  *
- * ⏭️ A per-trill speed is docs/trill-plan.md §9's row: an optional field read here, where this
+ * ⏭️ A per-trill speed is docs/plans/trill-plan.md §9's row: an optional field read here, where this
  * constant is now.
  */
 export const TRILL_PERIOD_SECONDS = 0.08

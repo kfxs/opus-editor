@@ -20,8 +20,8 @@
  * point, and `App.ts` wires it. ⏭️ When his eye has chosen, the winner is frozen with his choice as
  * the citation and both files go — the same contract as `dev/slurShapeConsole`.
  *
- * ⏭️ **NOT BUILT, deliberately** (`docs/beam-engraving-plan.md`): LilyPond's and Verovio's rows. Both
- * are measured in `docs/beam-slope-research.md` §4, and both need the seam widened from a *budget* to
+ * ⏭️ **NOT BUILT, deliberately** (`docs/plans/beam-engraving-plan.md`): LilyPond's and Verovio's rows. Both
+ * are measured in `docs/research/beam-slope-research.md` §4, and both need the seam widened from a *budget* to
  * a *chosen rise* first. ⭐ This file is the marker that says so.
  */
 import { dbg } from '@/utils/debug'
@@ -117,7 +117,7 @@ export function beamSlopeConsole(render: () => void): BeamSlopeConsole {
         const cells = names.map(n => `${n} ${BEAM_SLOPE_RULES[n](shape).toFixed(2)}`).join('   ')
         dbg(`  ${what.padEnd(46)} ${cells}`)
       }
-      dbg('[beams] ⏭️ lilypond and verovio are NOT rows yet — docs/beam-slope-research.md §4 has both measured.')
+      dbg('[beams] ⏭️ lilypond and verovio are NOT rows yet — docs/research/beam-slope-research.md §4 has both measured.')
       return readout()
     },
   }

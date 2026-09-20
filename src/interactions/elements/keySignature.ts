@@ -4,7 +4,7 @@
  * Straight after the time signature, and the three of them are one argument: clef, key, meter are
  * big glyphs in their own columns of the header, laid out left to right with no overlap, so the
  * order among them decides nothing and asking each costs one array scan
- * (docs/key-signature-plan.md §5).
+ * (docs/plans/key-signature-plan.md §5).
  *
  * ⭐ **ONE BOX FOR THE WHOLE ROW**, registered by the drawing pass itself
  * (`engine/rendering/KeySignaturePass`): the signature is what you select and delete — there is no

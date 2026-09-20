@@ -33,7 +33,7 @@ const GUTTER_NUMBER_SIZE_PX = 11
 const GUTTER_NUMBER_LIFT_PX = 8
 
 /**
- * The frozen left gutter of linear view (docs/linear-view-plan.md §P3): the clef *in force at the
+ * The frozen left gutter of linear view (docs/plans/linear-view-plan.md §P3): the clef *in force at the
  * current scroll-x*, pinned to the left edge of the viewport. This is the piece that makes the
  * view usable at bar 400 — without it you scroll away from the clef and never see it again.
  *
@@ -50,7 +50,7 @@ const GUTTER_NUMBER_LIFT_PX = 8
  * here is noise. The gutter answers the one question the music can no longer answer once its clef
  * has scrolled away.
  *
- * ⭐ **S4d of `docs/vexflow-removal-map.md`: no VexFlow stave is built here any more.** Each gutter
+ * ⭐ **S4d of `docs/history/vexflow-removal-map.md`: no VexFlow stave is built here any more.** Each gutter
  * staff is a frame of ours, its lines are `engrave/staff/staffLines`, and its clef and its two empty
  * barlines are the score's own sign objects walked by the score's own walk (`engrave/staff/signWalk`)
  * — the same positions the plain `Stave` gave them. ⚠️ Since then the LINES are the score's weight and the
@@ -103,7 +103,7 @@ export class GutterRenderer {
     for (const staff of state.staves) {
       // ⭐ A SMALL staff is repeated small. Same mechanism as the score's, and for the same reason
       // it is a transform rather than a set of smaller numbers: the lines, the clef and the spacing
-      // between them all have to shrink together (docs/staff-size-plan.md §4.1). So the staff is
+      // between them all have to shrink together (docs/plans/staff-size-plan.md §4.1). So the staff is
       // laid out in its OWN space — every coordinate divided by `k` — inside a group carrying
       // `scale(k)`, and lands exactly where the full-size arithmetic put it when `k` is 1.
       const k = staff.size

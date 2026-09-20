@@ -6,7 +6,7 @@ import type { Measure, TimeSignature } from '@/types/music'
 const frac = fracCreate
 
 /**
- * The four capacity functions, gathered here when they left `musicUtils` (docs/refactor-plan-2026-07-27.md
+ * The four capacity functions, gathered here when they left `musicUtils` (docs/history/refactor-plan-2026-07-27.md
  * 3d). They were tested in two places before — the float pair in `musicUtils.test.ts`, the exact
  * generality matrix in `durations.test.ts` under a note reading *"lives in musicUtils, validated here
  * alongside the duration table"*, which had already stopped being true of anything.

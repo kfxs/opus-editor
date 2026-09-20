@@ -1,6 +1,6 @@
 /**
  * ⭐ **THE SVG PAINTER'S GROUP HANDLE** — what `paint/DrawGroup` means when the surface is an SVG
- * document (`docs/own-engraving-engine.md` P1c).
+ * document (`docs/plans/own-engraving-engine.md` P1c).
  *
  * ⛔ This file knows the DOM; `paint/` does not, and `lint:boundary` holds that line. It is the
  * whole of the adapter for groups, the way `./glyphPainter` is the whole of it for glyphs. ⏭️ A

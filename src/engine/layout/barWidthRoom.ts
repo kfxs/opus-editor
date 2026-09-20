@@ -1,11 +1,11 @@
 /**
  * THE BAR-WIDTH GESTURE'S ARITHMETIC — how much room a bar-width gesture has on one bar, and what a
- * pixel is worth in it. Extracted from {@link MusicEngine} (docs/refactor-plan-2026-07-27.md Phase
+ * pixel is worth in it. Extracted from {@link MusicEngine} (docs/history/refactor-plan-2026-07-27.md Phase
  * 6b): it was a 200-line method with a 130-line branch, and it is really a **pure function** of the
  * last render's casting-off, the bar's stored stretch, the view mode, the surface it was cast off
  * onto and one measured slack — none of which is engine state once it has been read.
  *
- * Made pure deliberately, not incidentally: every claim in `docs/bar-width-plan.md` §4–§5 is about
+ * Made pure deliberately, not incidentally: every claim in `docs/plans/bar-width-plan.md` §4–§5 is about
  * this mapping, so it is worth being able to state one in a test without a renderer, a score and a
  * DOM. `MusicEngine.barWidthRoom` stays as the one-line reader that gathers the inputs.
  *
@@ -23,7 +23,7 @@ import { BAR_STRETCH_MIN, BAR_STRETCH_MAX } from '@/engine/models/engravingOverr
 /**
  * What a bar-width gesture may do to one bar, all read off the last render — the answer
  * {@link MusicEngine.barWidthRoom} gives, and what a drag captures ONCE at the grab
- * (docs/bar-width-plan.md §4–§5).
+ * (docs/plans/bar-width-plan.md §4–§5).
  */
 export interface BarWidthRoom {
   /** The bar's stretch as stored right now. */
@@ -92,7 +92,7 @@ export interface BarWidthRoom {
 
 /**
  * How much room a bar-width gesture has on this bar, and what a pixel is worth in it — everything
- * needed to move a barline, measured off the **last render** (docs/bar-width-plan.md §4–§5).
+ * needed to move a barline, measured off the **last render** (docs/plans/bar-width-plan.md §4–§5).
  *
  * The trap it exists to solve: widening bar *m* also shrinks bar *m*'s own justified share, and
  * shrinks every bar *before* it on the line, so the barline you are holding does **not** move by

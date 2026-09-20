@@ -1,5 +1,5 @@
 /**
- * ⭐⭐ **AN INLINE CLEF CHANGE, OURS — S12j-e** (`docs/vexflow-removal-map.md` S12): the tickable a clef
+ * ⭐⭐ **AN INLINE CLEF CHANGE, OURS — S12j-e** (`docs/history/vexflow-removal-map.md` S12): the tickable a clef
  * change at `beat > 0` stands in a bar's voice as. It was VexFlow's `ClefNote` (`clefnote.js`) with a
  * VexFlow `Clef` inside it; this is both, transcribed as far as anything asks, and the sign itself is
  * the header clef's rows (`engrave/header/clefSign`, at `'small'`).

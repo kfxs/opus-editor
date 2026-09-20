@@ -5,7 +5,7 @@
  * ⭐ Everything here is headless *because* the module is: it answers in staff spaces from constants
  * and one length, with no stave, no font and no SVG. That is the point of having a resolver at all
  * — the day the aperture and the slant become user controls they are a compartment client and these
- * assertions still hold (docs/dynamics-line-and-hairpins-plan.md §6). Where the wedge actually
+ * assertions still hold (docs/plans/dynamics-line-and-hairpins-plan.md §6). Where the wedge actually
  * lands is P3's, in the browser suite.
  */
 import { describe, it, expect } from 'vitest'

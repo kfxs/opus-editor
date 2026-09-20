@@ -36,7 +36,7 @@ import { drawsTimeSignature } from './headerInk'
 
 /**
  * The horizontal space a measure's notes need — **the spacing rule, summed over its columns**
- * (docs/spacing-model-plan.md P2). Two numbers: what the music asks for, and what it will not go
+ * (docs/plans/spacing-model-plan.md P2). Two numbers: what the music asks for, and what it will not go
  * below.
  *
  * ⭐⭐ **This is where DURATION finally enters bar width.** It used to be
@@ -44,7 +44,7 @@ import { drawsTimeSignature } from './headerInk'
  * floor, with no duration term anywhere, and P0 measured what that produced: an eighth drawn 3.36
  * staff spaces against a quarter's 1.94, because an unbeamed eighth carries a *flag* at width time
  * and a quarter carries nothing, so ink was the only quantity that varied and it varied the wrong
- * way (docs/spacing-model-research.md §6). Now a quarter earns Gould's 3½ spaces because it is a
+ * way (docs/research/spacing-model-research.md §6). Now a quarter earns Gould's 3½ spaces because it is a
  * quarter.
  *
  * ⚠️ **PER MEASURE, not per lane** — the max-over-staves became a MERGE. A column is a position in
@@ -96,7 +96,7 @@ function noteSpaceForMeasure(
   // casting-off works in px.
   // ⭐ A staff drawn small now multiplies its own INK by its size, inside `measureColumns` — the
   //   spine stays global and size-blind, which is what LilyPond, Verovio and GUIDO all do
-  //   (docs/staff-size-plan.md §6a). The width and the drawing read the same columns, so they agree.
+  //   (docs/plans/staff-size-plan.md §6a). The width and the drawing read the same columns, so they agree.
   // ⭐ P5 — no fan term. A fanned slot's members are ordinary columns in `columns` (their beats come
   // from `fanMemberBeats`), so the sum above already asks for exactly the room their heads take.
   // What used to be here was `laneColumns × MIN_NOTE_SPACING`, covering the span `fanRoom` bought
@@ -106,7 +106,7 @@ function noteSpaceForMeasure(
     natural: naturalWidth(columns) * STAFF_SPACE_PX,
     // ⭐ **A bar of pure silence keeps a LOWER floor than its own ink** — {@link EMPTY_BAR_FLOOR_PX},
     //   not the rest glyph's extent. Deliberate, and the one thing left of the old special case: an
-    //   empty bar is allowed to get out of a neighbour's way completely (docs/bar-width-plan.md §2),
+    //   empty bar is allowed to get out of a neighbour's way completely (docs/plans/bar-width-plan.md §2),
     //   which is a statement about a bar nobody has written into, not about how wide a rest is.
     floor: isEmptyBar(measure) ? EMPTY_BAR_FLOOR_PX : minimumWidth(columns) * STAFF_SPACE_PX,
   }
@@ -117,12 +117,12 @@ function noteSpaceForMeasure(
 /**
  * Minimum width of a measure — its columns' own demand, plus **the widest staff's** overhead.
  *
- * ⭐ **The note space is a MERGE over the staves, and used to be a max** (docs/spacing-model-plan.md
+ * ⭐ **The note space is a MERGE over the staves, and used to be a max** (docs/plans/spacing-model-plan.md
  * §1.2). A measure spans every staff and they share barlines, so a rhythmic position is a position
  * in the *system*: beat 2 on staff 1 and beat 2 on staff 2 are ONE column at ONE x, paid for once.
  * The old max-over-staves was the best available answer while each staff was formatted alone — it
  * replaced something worse still (pouring every staff's notes into one voice set, which reserved
- * room for 25 staves interleaved into an imaginary stream, docs/render-performance-plan.md §3) — but
+ * room for 25 staves interleaved into an imaginary stream, docs/history/render-performance-plan.md §3) — but
  * it cannot express "these two staves want the same x", which is what a grand staff is.
  *
  * The clef terms stay per-staff and OUTSIDE that, because a clef really is per-staff (staff 1 may
@@ -130,7 +130,7 @@ function noteSpaceForMeasure(
  * staff, so they sit outside too.
  *
  * Returns **four** numbers, not one: the clamped total the layout casts off on, the measure's note
- * space alone (what a bar stretch multiplies — client #11, docs/bar-width-plan.md §2), its overhead,
+ * space alone (what a bar stretch multiplies — client #11, docs/plans/bar-width-plan.md §2), its overhead,
  * and its incompressible floor. The overhead is deliberately NOT in the note space — a bar pays a
  * full clef only while it opens a line, so a stretch over the overhead would buy a different number
  * of pixels after every re-wrap.
@@ -140,7 +140,7 @@ function noteSpaceForMeasure(
  *
  * ⚠️ Built HERE, at the entry, and threaded down — ⛔ never asked per measure. `keyAt` inherits by
  * scanning backwards over every earlier bar, which is the shape that made the governing clef 47% of
- * all layout time before it became a fold (docs/key-signature-plan.md §2.1).
+ * all layout time before it became a fold (docs/plans/key-signature-plan.md §2.1).
  *
  * Keyed exactly as `clefsByStaff` is, so the two are read side by side with one staff id.
  */
@@ -250,7 +250,7 @@ function calculateMinimumMeasureWidth(
   //   ⛔ The trailing side needs nothing here: §6.1 puts an end sign's ink INSIDE its own bar, so it
   //   falls in the gap before the barline column, which `naturalWidth` already sums.
   // ⭐ **2½ after a clef or key signature, 2 after a meter** — Gould p. 42, decision D
-  //   (`docs/header-spacing-research.md` §8). ⚠️ Keyed on the METER, which is a system-wide statement,
+  //   (`docs/research/header-spacing-research.md` §8). ⚠️ Keyed on the METER, which is a system-wide statement,
   //   so every staff of this bar earns the same gap even though `widestOverhead` came from one of them.
   // ⭐ **…and it CLOSES UP when that first note carries an accidental** — 1½ with one, 1 with more
   //   (Gould p. 42, decision E, and her own plate measured at 1.65 / 1.15). ⚠️ `leadIn.accidentals`,
@@ -367,8 +367,8 @@ function isEmptyBar(measure: Measure): boolean {
 
 /**
  * The measure's **intrinsic** width plus whatever horizontal space the user authored into it —
- * a leading space per column (client #10 — docs/note-spacing-plan.md §2) and/or a stretch on the
- * whole bar (client #11 — docs/bar-width-plan.md §2). One `minWidth`, split three ways so §3 can
+ * a leading space per column (client #10 — docs/plans/note-spacing-plan.md §2) and/or a stretch on the
+ * whole bar (client #11 — docs/plans/bar-width-plan.md §2). One `minWidth`, split three ways so §3 can
  * tell them apart: the intrinsic part is the engraver's and may be squeezed, the authored parts are
  * the user's and are handed back.
  *
@@ -428,7 +428,7 @@ function measureWidthParts(
   // thing. That is deliberate: it also stops being a bar whose width was a default.
   // 🔴 KNOWN-INCOMPLETE: this branch is better than the reserved model here and still does not
   // shrink an empty bar as far as it should — reported three times, postponed rather than solved.
-  // See docs/bar-width-plan.md "Known issues" #1 before assuming the behaviour below is correct.
+  // See docs/plans/bar-width-plan.md "Known issues" #1 before assuming the behaviour below is correct.
   // ⭐ **A SHRINK lowers the bar's claim on the line; a GROWTH takes room from its neighbours.**
   // Asymmetric on purpose, because the two gestures mean different things. "Make this bar wider" is
   // a demand on the neighbours, so it is handed over as a transfer and they pay for it. "I need less
@@ -525,7 +525,7 @@ export const USER_SPACE_LINE_FRACTION = 0.6
  *   most of the line" is the legitimate case rather than the pathological one — an empty bar is a
  *   rest with white space either side of it, and there is a line's worth of room to give it.
  *   Capping it made the gesture visibly slow to a crawl and then jump, reported from use
- *   (docs/bar-width-plan.md §3).
+ *   (docs/plans/bar-width-plan.md §3).
  *
  * Uncapping the stretch is safe because pass 1 already bounds it: a bar joins a line only while the
  * line's Σ `minWidth` still fits, and authored ≤ `minWidth`, so Σ `stretchSpace` ≤ `availableWidth`
@@ -557,7 +557,7 @@ export function authoredScales(
 /**
  * Distribute available width proportionally among measures on a line — justifying the
  * **intrinsic** widths only, and handing the user's authored space back on top
- * (docs/note-spacing-plan.md §3, "the gap you drag is the gap you get").
+ * (docs/plans/note-spacing-plan.md §3, "the gap you drag is the gap you get").
  *
  * Feeding the authored space through the stretcher instead would be wrong twice over: it would
  * dilute a 20px drag to ~13px, *and* shuffle every other bar on the line to pay for a change the
@@ -620,7 +620,7 @@ function distributeLineWidths(
    * ⭐ Sharing by `noteSpace` — the part that CAN stretch — makes every bar's music stretch by the
    * same factor, so **the same duration is drawn the same width everywhere on a line**. That is the
    * consistency rule MuseScore 4's whole rewrite existed to establish
-   * (docs/spacing-model-research.md §4), and the clef then costs exactly what a clef costs.
+   * (docs/research/spacing-model-research.md §4), and the clef then costs exactly what a clef costs.
    *
    * ⛔ **Only a SURPLUS is shared this way; a DEFICIT keeps the old proportional squeeze.** They are
    * different questions. Handing out room is a spring problem — the springs take it. Taking room
@@ -936,7 +936,7 @@ export function squeezedWidth(info: SqueezableWidth): number {
  * make everywhere else in this file. A stretch is *live music room*: "give this bar more of the
  * line", which is exactly a claim on the neighbours. A leading space is a *dead gap* that genuinely
  * needs the room it asks for, and note spacing states as a design property that it reaches the
- * break pass (docs/note-spacing-plan.md §2 — "a space is not an offset, it has width"). Letting it
+ * break pass (docs/plans/note-spacing-plan.md §2 — "a space is not an offset, it has width"). Letting it
  * squeeze instead of wrap silently repealed that.
  *
  * A *shrink* does not count either: it hands room back rather than taking it, and a line of
@@ -950,7 +950,7 @@ function lineIsClaimingRoom(line: MeasureWidthInfo[], incoming: SqueezableWidth)
 
 /**
  * Linear view's break policy: there isn't one. Every measure lands on line 0 at its intrinsic
- * width — never break, never justify (docs/linear-view-plan.md §P1). Only the very first
+ * width — never break, never justify (docs/plans/linear-view-plan.md §P1). Only the very first
  * measure opens a line, so only it carries a full clef; every later measure pays the smaller
  * mid-line clef-change width, and only when the clef actually changes across the barline.
  *

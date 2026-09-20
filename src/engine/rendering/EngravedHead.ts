@@ -1,5 +1,5 @@
 /**
- * ⭐⭐ **A NOTEHEAD OF OURS — S12j-a** (`docs/vexflow-removal-map.md` S12).
+ * ⭐⭐ **A NOTEHEAD OF OURS — S12j-a** (`docs/history/vexflow-removal-map.md` S12).
  *
  * VexFlow's `NoteHead` is a whole `Note` — built through the tickable's constructor, ticks and all — to
  * answer a dozen questions about ONE glyph on ONE line. Its INK was ours since P3 (`engrave/notes/

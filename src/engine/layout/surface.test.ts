@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { resolveSurface, SKETCH_CANVAS, A4_NORMAL, PX_PER_MM, type Surface } from './surface'
 
 describe('resolveSurface — the canvas is today, verbatim', () => {
-  // ⭐ THE no-op pin for docs/layout-plan.md P0: these three numbers are what the editor drew
+  // ⭐ THE no-op pin for docs/plans/layout-plan.md P0: these three numbers are what the editor drew
   // before a surface existed (LAYOUT_CONFIG.CONTAINER_WIDTH 1000, MARGIN 20, and the 960 the
   // casting-off has always worked in). If this test changes, the score re-flowed.
   const m = resolveSurface(SKETCH_CANVAS)
@@ -31,7 +31,7 @@ describe('resolveSurface — a page is paper', () => {
   it('is A4 at 1 staff space = 1.75 mm', () => {
     expect(m.widthPx).toBeCloseTo(210 * PX_PER_MM, 6)
     expect(m.heightPx).toBeCloseTo(297 * PX_PER_MM, 6)
-    // The numbers docs/layout-plan.md §4 reasons about, to 1 px.
+    // The numbers docs/plans/layout-plan.md §4 reasons about, to 1 px.
     expect(Math.round(m.widthPx)).toBe(1200)
     expect(Math.round(m.heightPx!)).toBe(1697)
   })

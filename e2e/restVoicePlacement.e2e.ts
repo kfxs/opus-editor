@@ -3,7 +3,7 @@ import type { Glyph, StaveBox } from './harness'
 
 /**
  * ⭐⭐ **WHERE A MULTI-VOICE REST ACTUALLY LANDS ON THE PAGE** — the geometry net the rest work had
- * never had (`docs/multi-voice-rest-position-plan.md` P2).
+ * never had (`docs/plans/multi-voice-rest-position-plan.md` P2).
  *
  * `engine/layout/restVoicePlacement.test.ts` proves the RULE computes the right line. This proves
  * the line **reaches the drawing** — a different failure, and one ⛔ nothing in jsdom can see, since

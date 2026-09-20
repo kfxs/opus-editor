@@ -6,7 +6,7 @@ import type { TremoloMark } from '../../types/music'
 import { makeEngine } from '@/testing/makeEngine'
 
 /**
- * A tremolo TRAVELS WITH THE NOTE (docs/tremolo-plan.md §6, P1).
+ * A tremolo TRAVELS WITH THE NOTE (docs/plans/tremolo-plan.md §6, P1).
  *
  * JSON is free — a slot field is serialized directly. Everything else is an explicit field list, and
  * anything not named in one is dropped **in silence**: the hole `beamOver` fell into. There are three
@@ -139,7 +139,7 @@ describe('tremolo — the tie-split across a barline', () => {
 })
 
 /**
- * Entering a note WITH a mark (docs/tremolo-plan.md §10) — the engine half of the note-entry flow.
+ * Entering a note WITH a mark (docs/plans/tremolo-plan.md §10) — the engine half of the note-entry flow.
  *
  * A `tremolo` in `NoteParams` rather than a `setTremolo` after the fact, so the note is BORN with it:
  * one undo entry, and the cross-barline split carries it to every piece the way the stamp's does.

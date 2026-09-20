@@ -1,6 +1,6 @@
 /**
  * How a column's articulations stack. ⚠️ Exactness against `Articulation.format` was proved once, on
- * ~2,000 marks of random scores (S9e, `docs/vexflow-removal-map.md` §5.2); pinned here is the rule.
+ * ~2,000 marks of random scores (S9e, `docs/history/vexflow-removal-map.md` §5.2); pinned here is the rule.
  */
 import { describe, it, expect } from 'vitest'
 import { type ArticulationColumnState, type StackedArticulation, stackArticulations } from './articulationStack'

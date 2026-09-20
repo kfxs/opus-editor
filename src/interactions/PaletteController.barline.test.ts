@@ -1,6 +1,6 @@
 /**
  * {@link PaletteController} — the BARLINE row (final / open repeat / end repeat), P4 of
- * docs/barline-types-plan.md.
+ * docs/plans/barline-types-plan.md.
  *
  * The chapter for ONE press meaning three things: *"if nothing selected stamp, if a barline is
  * selected apply to the barline, if a whole measure is selected apply in relationship with the

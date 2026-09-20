@@ -63,7 +63,7 @@ export function fanSpanRods(
   measure: Measure,
   positions: Fraction[],
   /** How big the fan's own staff is drawn — its members are ink, so they scale with it. See
-   *  `measureColumns.sized` and docs/staff-size-plan.md §6a. */
+   *  `measureColumns.sized` and docs/plans/staff-size-plan.md §6a. */
   sizeFor: (staffId: string | undefined) => number = () => 1,
 ): number[] {
   const rods = positions.map(() => 0)

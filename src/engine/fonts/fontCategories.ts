@@ -1,6 +1,6 @@
 /**
  * ⭐⭐ **WHICH FACE A CATEGORY TAG RESOLVES TO — VexFlow's `Metrics` font tree, as ours** (S13a of
- * `docs/vexflow-removal-map.md`).
+ * `docs/history/vexflow-removal-map.md`).
  *
  * `new Element(tag)` began with `Metrics.getFontInfo(tag)` (`metrics.js`): walk the tag's dotted path
  * down `MetricsDefaults`, keeping the DEEPEST `fontFamily` / `fontSize` / `fontScale` / `fontWeight` /

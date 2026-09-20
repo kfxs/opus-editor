@@ -2,7 +2,7 @@
  * The flag's placement rule, in jsdom — ⭐ and the point of the spec is the SECOND describe: the
  * font reach is a NAMED INPUT now, so *"what happens when the font has not measured yet"* is a case
  * that can be written down instead of a bug that appears on someone's first render
- * (`docs/own-engraving-engine.md` §3).
+ * (`docs/plans/own-engraving-engine.md` §3).
  */
 import { describe, it, expect } from 'vitest'
 import { flagPlacement, drawFlag } from './flag'
@@ -49,7 +49,7 @@ describe('flagPlacement — the glyph’s outer edge meets the stem tip', () => 
     it('⛔ an unmeasured font (reach 0) parks the baseline ON the tip — ⚠️ that IS jsdom', () => {
       // Not a defect: with no font there is no ink to reach. ⭐ The value of it being an argument is
       // that the case is stateable at all — inside `getTextMetrics()` it was invisible until a
-      // browser rendered before the woff2 landed (`docs/own-engraving-engine.md` §3).
+      // browser rendered before the woff2 landed (`docs/plans/own-engraving-engine.md` §3).
       expect(flagPlacement({ x: 100, tipY: 40, up: true }, STEM_WIDTH, 0).baselineY).toBe(40)
     })
 

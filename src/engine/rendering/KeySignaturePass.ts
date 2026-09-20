@@ -19,10 +19,10 @@ import { STAFF_BOTTOM_EDGE_PX } from '@/engine/engrave/inheritedDefaults'
 import { placedSignRun, signRun } from './signRun'
 
 /**
- * ⭐⭐ **THE KEY SIGNATURE — ours, not VexFlow's** (docs/key-signature-plan.md §4).
+ * ⭐⭐ **THE KEY SIGNATURE — ours, not VexFlow's** (docs/plans/key-signature-plan.md §4).
  *
  * `stave.addKeySignature` is never called. The reason is the boundary test in
- * `docs/vexflow-boundary.md` §4 — *take a decision from VexFlow only when there is a rule we want to
+ * `docs/history/vexflow-boundary.md` §4 — *take a decision from VexFlow only when there is a rule we want to
  * state and cannot* — and a signature fails it twice over: a placement table and one spacing gap are
  * rules we can state outright (`engine/layout/keySignatureLayout.ts` states them, with the sources).
  * ⭐ And VexFlow's own `KeySignature` could not draw ours anyway: it is built from a key NAME, so it
@@ -95,7 +95,7 @@ export const SIGN_CHARS: Partial<Record<GlyphName, string>> = {
  * ⭐⭐ **A SIGNATURE'S SIGN IS THE SAME SIZE AS AN ORDINARY ACCIDENTAL — the rule is Gould's, p. 78:**
  * *"An accidental is scaled down in size **only** when placed before a grace note … or a cue note."*
  * ⛔ So there is no "small signature" variant to build, ever
- * (docs/key-signature-research.md §9.4.3, first bullet).
+ * (docs/research/key-signature-research.md §9.4.3, first bullet).
  *
  * **30 is how we obey it here**, not a taste call: it is `MetricsDefaults.fontSize`, VexFlow's own
  * default, which its `Accidental` inherits by having no override of its own (only `cautionary` and
@@ -194,7 +194,7 @@ export function keySignatureInkRight(stave: EngravedStave, clef: Clef, key: KeyS
 /**
  * ⭐⭐ **THE HIT BOX — registered from the pen, which is the only place both facts are known.**
  *
- * `BarlineRenderer.registerRepeatStart`'s rule verbatim (docs/key-signature-plan.md §5): a hit-test
+ * `BarlineRenderer.registerRepeatStart`'s rule verbatim (docs/plans/key-signature-plan.md §5): a hit-test
  * resolves a press against `ElementRegistry` boxes, and a score-level pass has to put them there
  * itself. Nothing else knows both WHERE this render put the bar and WHETHER it drew a signature —
  * the two questions a press asks.

@@ -2,19 +2,19 @@
  * SUSTAIN PEDALS — the damper span, as SCORE operations: add, remove, re-length, look up, and turn
  * `beat + length` into the two addresses it covers. Free functions on a `Score`, in the `clefOps` /
  * `hairpinOps` / `ottavaOps` idiom, with {@link ScoreModel} keeping thin delegators
- * (docs/pedal-plan.md §3; DESIGN-PRINCIPLES principle 5 — *the score is independent of the editor*,
+ * (docs/plans/pedal-plan.md §3; DESIGN-PRINCIPLES principle 5 — *the score is independent of the editor*,
  * so none of this may live on `MusicEngine`, which is the editor's facade).
  *
  * ⭐ **`ottavaOps` is the twin**, down to the shape of every function here, because a pedal and an
  * octave line are the same KIND of statement: a region of a staff, governing every voice and every
  * note typed into it afterwards, stored on the bar its start lands in and carrying its own extent.
  * What they differ in is what the region does to a sounding note — an ottava moves its PITCH, a
- * pedal moves its RELEASE (docs/pedal-plan.md §9) — and none of that is visible from here.
+ * pedal moves its RELEASE (docs/plans/pedal-plan.md §9) — and none of that is visible from here.
  *
  * ## ⭐⭐ The one rule that is this module's own: OVERLAP, and the SPLIT it forces
  *
  * Two sustain pedals overlapping on one staff is not a stack, it is a contradiction — one damper,
- * one foot. But *when* to say so is two questions, not one (docs/pedal-plan.md §3.3):
+ * one foot. But *when* to say so is two questions, not one (docs/plans/pedal-plan.md §3.3):
  *
  * - **{@link addPedal} takes the CLEF's rule and nothing more** — at most one per `(beat, staff)`,
  *   last wins. It does **not** police overlap, and that is `ottavaOps`' stated principle holding
@@ -82,7 +82,7 @@ export function addPedal(score: Score, measureNumber: number, pedal: Omit<Pedal,
  *
  * Clears any engraving override keyed by that id on the way out — an override must not outlive its
  * anchor (the `removeHairpin` / `removeOttava` rule). Nothing writes one yet; the call is here so
- * the day a hand-moved `✻` arrives (docs/pedal-plan.md §6.3) it cannot orphan.
+ * the day a hand-moved `✻` arrives (docs/plans/pedal-plan.md §6.3) it cannot orphan.
  * @returns true if a pedal was removed.
  */
 export function removePedal(score: Score, id: string): boolean {
@@ -117,7 +117,7 @@ export function pedalMeasure(score: Score, id: string): Measure | null {
 
 /**
  * Set how much music a pedal holds — i.e. **move the lift**, which is the only thing a pedal's
- * length means (docs/pedal-plan.md §5.2).
+ * length means (docs/plans/pedal-plan.md §5.2).
  *
  * ⭐ **The MODEL, not an override** — {@link setOttavaLength}'s distinction, and it is just as sharp
  * here: a pedal's extent decides how long notes RING. A cosmetic offset that disagreed with it would
@@ -173,7 +173,7 @@ export function updatePedal(score: Score, id: string, updates: Partial<Omit<Peda
  * ## ⭐⭐ TRUNCATION — the gesture this door knows about and {@link addPedal} does not
  *
  * The pianist's real gesture is *lift, re-press*, so a new pedal makes room by moving other feet out
- * of the way rather than by stacking on them (docs/pedal-plan.md §3.3). On the pedal's own staff:
+ * of the way rather than by stacking on them (docs/plans/pedal-plan.md §3.3). On the pedal's own staff:
  *
  * - an existing pedal STARTING BEFORE this one and still down when it begins is **shortened to end
  *   at the new start** — the lift the pianist just performed;
@@ -245,7 +245,7 @@ export function addPedalOverNotes(
  * steps through the slots of its own VOICE, because it governs one; a pedal has no voice (§3.1), so
  * every voice of its staff is a step it can take — and it MUST be, or the key would move the `✻`
  * somewhere `PedalRenderer` does not draw it: the render reads the lift x from the first slot of the
- * staff at or after the lift beat, whatever voice that is (docs/pedal-plan.md §5.2/§6.3).
+ * staff at or after the lift beat, whatever voice that is (docs/plans/pedal-plan.md §5.2/§6.3).
  *
  * ⚠️ **This is the MODEL, not an override** — {@link setPedalLength}'s point, and it is why
  * `Ctrl+Backspace` has nothing to reset on a pedal: how long the damper is down is what the notes
@@ -416,7 +416,7 @@ export interface PedalSlotTarget {
  * ⚠️ `beat` MAY EQUAL its measure's capacity — the release at the barline, the common case.
  *
  * ⚠️⚠️ **THE PEDAL'S THIRD END RULE lives in this type.** A trill ends at the end of a DURATION and
- * an octave bracket at the last NOTEHEAD, but a pedal's end is a moment in TIME (docs/pedal-plan.md
+ * an octave bracket at the last NOTEHEAD, but a pedal's end is a moment in TIME (docs/plans/pedal-plan.md
  * §5.2), and at the last note of a passage a moment can be named two ways: *the damper comes up as
  * this note is struck* (the note is dry) or *when it finishes*. Everywhere else the two coincide,
  * because the end of a slot IS the next onset; only past the final note is there an address no onset

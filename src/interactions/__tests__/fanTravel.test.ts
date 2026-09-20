@@ -9,7 +9,7 @@ import { makeEngine } from '@/testing/makeEngine'
 /**
  * A FAN TRAVELS WITH THE NOTE — the same explicit field lists `tremoloTravel.test.ts` pins, walked
  * again for the new slot field, because anything they do not name is dropped **in silence**
- * (docs/fanned-beams-plan.md §0). One difference, and it is the whole reason this file exists
+ * (docs/plans/fanned-beams-plan.md §0). One difference, and it is the whole reason this file exists
  * separately: on a TIE-SPLIT the tremolo goes on both halves and **the fan goes on the first only**.
  */
 vi.mock('../../engine/rendering/ScoreRenderer', async () => (await import('@/testing/engineStubs')).scoreRendererStub())
@@ -41,7 +41,7 @@ function fanAt(engine: MusicEngine, m: number, beat: number, voice = 0): FanMark
 /**
  * The ASSERTION a fan carries, without its members — "play this as N, accelerating". The members are
  * checked separately because they are pitches with ids, and an id that travelled UNCHANGED would be
- * the bug (docs/fanned-beam-pitches-plan.md §1b).
+ * the bug (docs/plans/fanned-beam-pitches-plan.md §1b).
  */
 const assertionOf = (fan?: FanMark) =>
   fan && { direction: fan.direction, count: fan.count, beams: fan.beams }
@@ -77,7 +77,7 @@ describe('fan — survives a rebar', () => {
   it('⭐ keeps the mark on the FIRST half only when a rebar tie-splits the note', () => {
     // The opposite of the tremolo's rule, on purpose: a tremolo interrupted at a barline is still
     // being played across it, but a fan cut in half is not a fan — it is the cross-barline fan
-    // docs/fanned-beams-plan.md §4 excludes, and copying would mint one on both halves.
+    // docs/plans/fanned-beams-plan.md §4 excludes, and copying would mint one on both halves.
     const head = engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'h', measure: 1, beat: frac(0, 1) })!
     model(engine).setFan(head.id, FAN)
     engine.setTimeSignature(1, { numerator: 1, denominator: 4 })

@@ -1,6 +1,6 @@
 /**
  * ⭐⭐ **A STAVE'S OWN BARLINE — a sign of ours, with no VexFlow class underneath** (S4c of
- * `docs/vexflow-removal-map.md`; the ink itself is `engrave/staff/openingBarline`).
+ * `docs/history/vexflow-removal-map.md`; the ink itself is `engrave/staff/openingBarline`).
  *
  * Every stave has one at each end, as VexFlow's `Stave` constructor gave it. It began (P5b) as a
  * subclass of VexFlow's `Barline` whose `draw()` moved the plain line's ink into our module:

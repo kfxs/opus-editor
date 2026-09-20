@@ -1,5 +1,5 @@
 /**
- * ⭐ **THE MARK GHOSTS — S11b** (`docs/vexflow-removal-map.md` S11): the armed articulation(s),
+ * ⭐ **THE MARK GHOSTS — S11b** (`docs/history/vexflow-removal-map.md` S11): the armed articulation(s),
  * accidental, augmentation dot and tremolo — and, since S11c, the dynamic — shown loose at the pointer.
  *
  * A mark stands where its NOTE puts it, so each ghost builds ONE lone note — a B4 quarter — hangs the

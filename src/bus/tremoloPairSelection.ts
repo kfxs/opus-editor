@@ -8,7 +8,7 @@ import { PaletteSelection } from './paletteSelection'
  * On or off, a nullable sentinel like the tie and the subdivide. ⚠️ A SECOND AXIS beside
  * {@link tremoloSelection}, never one of its values: the count says how fast, the pair says the
  * strokes go between two notes, and both are true at once — so this lights BESIDE the count key
- * rather than instead of it (docs/two-note-tremolo-plan.md §4).
+ * rather than instead of it (docs/plans/two-note-tremolo-plan.md §4).
  *
  * A press routes OUT through `pressTremoloPair`, the same method the dev toolbar's button calls.
  */

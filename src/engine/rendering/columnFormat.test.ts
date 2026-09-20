@@ -2,7 +2,7 @@
 /**
  * A bar's voices, formatted by us (S9h-a). ⚠️ That this is exactly `Formatter.format` was proved once —
  * every context's metrics and x and every note's line and x on 6,000 random bars, and the rendered
- * page of 60 scores (`docs/vexflow-removal-map.md` §5.2); pinned here is what the module promises.
+ * page of 60 scores (`docs/history/vexflow-removal-map.md` §5.2); pinned here is what the module promises.
  */
 import { describe, it, expect } from 'vitest'
 import { EngravedBeam } from './EngravedBeam'

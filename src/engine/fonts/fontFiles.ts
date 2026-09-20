@@ -8,7 +8,7 @@
  * | `rendering/musicFontFaces` | registers it with the browser, so `font-family: Bravura` renders |
  * | `export/exportFonts` | parses it with opentype.js and OUTLINES the glyphs into the PDF |
  *
- * ## 🚨 Why this exists (`docs/vexflow-removal-map.md` S1)
+ * ## 🚨 Why this exists (`docs/history/vexflow-removal-map.md` S1)
  *
  * Until 2026-09-14 the screen never used these files. The browser had Bravura only because
  * importing VexFlow installs its own embedded copies — Bravura, Academico (both weights), Gonville,
@@ -19,12 +19,12 @@
  *
  * ## ⭐ A table of FACES, not "load Bravura" — the SMuFL fonts to come
  *
- * `docs/smufl-fonts-research.md` found five free SMuFL faces that ship outlines AND metadata
+ * `docs/research/smufl-fonts-research.md` found five free SMuFL faces that ship outlines AND metadata
  * (Bravura, Leland, Petaluma, MuseJazz, Sebastian), arriving the way Bravura already does: a font
  * file in `public/fonts/` plus build-time metadata. A future house style that sets the music in
  * another face is one more ROW here — ⚠️ plus that face's metrics table, which is what
  * `fonts/bravuraMetrics.ts` is for Bravura. ⛔ Nothing here chooses between faces yet: removing
- * VexFlow comes first (`docs/own-engraving-engine.md` §0.2).
+ * VexFlow comes first (`docs/plans/own-engraving-engine.md` §0.2).
  *
  * No DOM: this module is data plus a URL (`engine/fonts/` is fenced by `lint:boundary`).
  */

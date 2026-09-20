@@ -276,7 +276,7 @@ describe('beaming — explicit BeamMode overrides', () => {
 })
 
 describe('beaming — computeCrossBarBeamGroups (a beam through the barline)', () => {
-  // docs/cross-barline-beaming-plan.md. Refs are (bar, slot) within the RUN, and the run is one
+  // docs/plans/cross-barline-beaming-plan.md. Refs are (bar, slot) within the RUN, and the run is one
   // lane — one voice of one staff.
   const bar = (slots: ChordRest[], m: MeterInfo): BeamBar => ({ slots, meter: m })
   const at = (b: number, s: number) => ({ bar: b, slot: s })
@@ -313,7 +313,7 @@ describe('beaming — computeCrossBarBeamGroups (a beam through the barline)', (
   })
 
   it("'continue' on the FIRST note of bar 2 opens it from the other side — same group", () => {
-    // `continue` means the same thing wherever it sits (docs/beaming.md); a barline is a boundary
+    // `continue` means the same thing wherever it sits (docs/how-it-works/beaming.md); a barline is a boundary
     // like any other, so the mark must work from either side of it.
     const groups = computeCrossBarBeamGroups([
       bar(eighths(), meter(4, 4)),
@@ -439,7 +439,7 @@ describe('beaming — computeCrossBarBeamGroups (a beam through the barline)', (
 })
 
 describe('beaming — clef-change regression', () => {
-  // Companion to the clef-beam decision (docs/note-selection-hit-detection.md):
+  // Companion to the clef-beam decision (docs/how-it-works/note-selection-hit-detection.md):
   // beams stay beamed ACROSS a mid-measure clef change. Grouping is purely
   // metric — computeBeamGroups takes no clef and therefore cannot split a beam
   // group at a clef boundary. Clef only affects stem direction, applied later in
@@ -539,7 +539,7 @@ describe('beaming — secondaryBreakIndices (subdividing a beam)', () => {
 
 describe('a two-note tremolo pair is never in an automatic group', () => {
   /**
-   * The pair owns its own beam or none (docs/two-note-tremolo-plan.md §2), and the exclusion belongs
+   * The pair owns its own beam or none (docs/plans/two-note-tremolo-plan.md §2), and the exclusion belongs
    * HERE, in the pure grouper — the cross-barline planner feeds the renderer its own `inBarGroups`,
    * so a pair excluded only at the renderer would still be dragged across a barline by the plan.
    */
@@ -579,7 +579,7 @@ describe('a two-note tremolo pair is never in an automatic group', () => {
 describe('a FANNED slot is never in an automatic group either', () => {
   /**
    * Same rule, same place, same reason as the pair above: a fan owns the feathered beam it exists
-   * to draw, so two beams would argue over one stem (docs/fanned-beams-plan.md §3, P0).
+   * to draw, so two beams would argue over one stem (docs/plans/fanned-beams-plan.md §3, P0).
    */
   const FAN = { direction: 'accel' as const, count: 6, beams: 3 }
   const fanned = (slots: ChordRest[], i: number): ChordRest[] =>
@@ -620,7 +620,7 @@ describe('a FANNED slot is never in an automatic group either', () => {
 
 describe('a FANNED slot JOINED to the group on its left', () => {
   /**
-   * docs/fan-beam-join-plan.md §0-§1 (P0). `continue` authored on the OWNER is the join, and it is
+   * docs/plans/fan-beam-join-plan.md §0-§1 (P0). `continue` authored on the OWNER is the join, and it is
    * the exact word rather than a spare key: a beam comes in and a beam goes out, and the outgoing
    * one is the ramp. Left only — the fan's last member is a pitch inside the event, so no slot can
    * address the right end.

@@ -23,7 +23,7 @@ import { barlineExtent, type BarlineExtent } from '@/engine/engrave/staff/barlin
  * pixels — it cannot be a solid line at the view the app starts in). A staff line escapes this
  * because VexFlow snaps it by half a pixel; a stem escapes it by being 1.5 wide. A barline had
  * neither, which is exactly why it is the first thing to vanish while Firefox re-rasterises a zoom
- * (docs/firefox-zoom-repaint.md).
+ * (docs/how-it-works/firefox-zoom-repaint.md).
  *
  * ⛔ Not fixed by snapping x to the pixel grid. That is `shape-rendering: crispEdges` in miniature,
  * already tried and reverted: it ruins the staff-line spacing, and it would move the barline off

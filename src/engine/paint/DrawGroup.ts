@@ -1,5 +1,5 @@
 /**
- * ⭐⭐ **WHAT A GROUP IS, IN OUR OWN VOCABULARY** — `docs/own-engraving-engine.md` P1c.
+ * ⭐⭐ **WHAT A GROUP IS, IN OUR OWN VOCABULARY** — `docs/plans/own-engraving-engine.md` P1c.
  *
  * ## Read out of the call sites, not designed
  *

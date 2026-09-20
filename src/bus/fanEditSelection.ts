@@ -1,7 +1,7 @@
 import { RequestChannel } from './requestChannel'
 
 /**
- * The seam the Properties fan inputs publish through (docs/fanned-beams-plan.md §3, P4). The twin of
+ * The seam the Properties fan inputs publish through (docs/plans/fanned-beams-plan.md §3, P4). The twin of
  * {@link ./noteOffsetSelection}: **command-only**, so the window writes "this fanned note should be
  * six notes with three beams" and {@link FanEditController} — the one place that holds the engine —
  * applies it.
@@ -25,7 +25,7 @@ export interface FanEditRequest {
   beams?: number
   /**
    * Which member the feathering starts on and which it ends on — **0-based, like the model**
-   * (docs/fan-ramp-range-plan.md P2). Absent = leave it alone, the same as every field here.
+   * (docs/plans/fan-ramp-range-plan.md P2). Absent = leave it alone, the same as every field here.
    *
    * ⚠️ The window shows these **1-based** — "note 1" is the note he typed — and converts at the
    * widget. The conversion belongs there and nowhere else: the moment a seam carries a 1-based

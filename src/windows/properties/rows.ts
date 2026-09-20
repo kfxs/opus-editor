@@ -174,7 +174,7 @@ export function buildMarkOffsetRow(
  * number with a caption.
  *
  * ⚠️ Every box commits through {@link commitOnFirstStep} and puts itself back on commit — the two
- * rules the page limit forced on this panel (docs/engraving-overrides-plan.md §8.6).
+ * rules the page limit forced on this panel (docs/plans/engraving-overrides-plan.md §8.6).
  */
 export function scalarOffsetRow(
   caption: string,

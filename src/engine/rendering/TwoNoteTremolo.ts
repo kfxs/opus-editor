@@ -7,7 +7,7 @@
  * stroke is a beam quad, at VexFlow's own beam thickness and its ×1.5 step between levels.
  *
  * Everything below is numbers in, numbers out: no VexFlow, no DOM. The renderer reads the two stems'
- * geometry, calls this, and fills the quads (docs/two-note-tremolo-plan.md §2).
+ * geometry, calls this, and fills the quads (docs/plans/two-note-tremolo-plan.md §2).
  */
 
 /** One stroke, as `fillBeamQuad` wants it: the TOP edge, thickness applied downward. */

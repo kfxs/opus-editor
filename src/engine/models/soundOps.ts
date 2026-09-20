@@ -6,7 +6,7 @@
  * `PlaybackEngine.program` — a field on the editor, absent from the score, the JSON and undo — so
  * choosing one and reloading lost it, and a second score opened in the same editor silently
  * inherited the last one's timbre. It is now a positional statement IN the score value, resolved by
- * walking back from a position, exactly as a clef or a tempo is (principle 6; docs/instruments-plan.md
+ * walking back from a position, exactly as a clef or a tempo is (principle 6; docs/plans/instruments-plan.md
  * §5). ⛔ Never a `Score.sound` field: that would be, in truth, "the sound at bar 1 beat 0" — the
  * conflation that cost `score.clef`, `score.tempo` and `defaultTimeSignature` their places.
  *
@@ -17,7 +17,7 @@
  *
  * ⏭️ **WHAT IS DELIBERATELY NOT HERE.** Lanes. Today one assignment governs every staff and every
  * voice, which is what the editor already did — this change is about persistence, not scope. When
- * `applySound(lane, …)` lands (docs/instruments-plan.md P2) it adds FIELDS to
+ * `applySound(lane, …)` lands (docs/plans/instruments-plan.md P2) it adds FIELDS to
  * {@link SoundAssignment} and a filter to {@link resolveSound}; nothing here is rewritten, and an
  * absent lane keeps meaning EVERY lane (see the type's note — it is a scope, not a position).
  */
@@ -28,7 +28,7 @@ import { fracCompare, fracFromInt } from '@/utils/fraction'
  * What a note plays when nothing has been said — an implicit piano.
  *
  * ⛔ **A constant, never "the first assignment" or a stored global.** "The score's sound" as a
- * field would be the very bug this compartment avoids (docs/instruments-plan.md §5 rule 3).
+ * field would be the very bug this compartment avoids (docs/plans/instruments-plan.md §5 rule 3).
  */
 export const DEFAULT_SOUND: SoundRef = { kind: 'gm', program: 0 }
 
@@ -73,7 +73,7 @@ export function resolveSound(score: Score, at?: { measureId?: string; beat?: Fra
   }
   if (!best) return DEFAULT_SOUND
   // ⚠️ A `kind` this build does not know is KEPT in the file and ignored HERE — report-never-repair
-  // (docs/json-io-plan.md). A later version's synth patch must not come back from a round trip
+  // (docs/plans/json-io-plan.md). A later version's synth patch must not come back from a round trip
   // through this editor as a piano that overwrote it.
   return isPlayable(best.sound) ? best.sound : DEFAULT_SOUND
 }
@@ -116,7 +116,7 @@ export function applySound(
 /**
  * Take the statement back — the compartment disappears with its last assignment.
  *
- * ⭐ **The N=1 invariant** (docs/instruments-plan.md §10): a score nobody has chosen a sound for must
+ * ⭐ **The N=1 invariant** (docs/plans/instruments-plan.md §10): a score nobody has chosen a sound for must
  * be byte-identical in JSON to one before this feature existed — no `playback: {}`, no
  * `sounds: []`. "Piano" is the ABSENCE of a statement, not a stored one, and a compartment left
  * behind empty would make every fresh file claim otherwise.

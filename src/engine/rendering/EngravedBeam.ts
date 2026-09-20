@@ -1,6 +1,6 @@
 /**
- * ⭐⭐ **A BEAM — OURS, ⛔ no longer a VexFlow `Beam`** (S7e of `docs/vexflow-removal-map.md`;
- * `docs/beam-engraving-plan.md`, `docs/own-engraving-engine.md` P4).
+ * ⭐⭐ **A BEAM — OURS, ⛔ no longer a VexFlow `Beam`** (S7e of `docs/history/vexflow-removal-map.md`;
+ * `docs/plans/beam-engraving-plan.md`, `docs/plans/own-engraving-engine.md` P4).
  *
  * Every answer a beam gives is an `engrave/beams/` rule:
  *
@@ -173,7 +173,7 @@ export class EngravedBeam {
    * 🚨 **What the element registry files for a beam — a ZERO-SIZE box at `(0, lift)`, kept exactly.**
    * It is what VexFlow's generic `Element.getBoundingBox()` answered for a beam, which sets none of
    * `x`, `width` or `height` and whose `yShift` IS the lift (measured: an empty text's ascent is 0 in
-   * jsdom and in Chromium). ⏸️ What a beam's box SHOULD be is `docs/vexflow-removal-map.md` §9.4 #2.
+   * jsdom and in Chromium). ⏸️ What a beam's box SHOULD be is `docs/history/vexflow-removal-map.md` §9.4 #2.
    */
   getBoundingBox(): { x: number; y: number; w: number; h: number } {
     return { x: 0, y: this.lift, w: 0, h: 0 }
@@ -375,7 +375,7 @@ export class EngravedBeam {
 
 /**
  * ⭐⭐ **P4c — TELL THE BEAM WHICH WAY ITS FRACTIONAL BEAMS POINT**
- * (`docs/beam-hook-research.md`; the rule itself is `engrave/beams/fractionalBeam`).
+ * (`docs/research/beam-hook-research.md`; the rule itself is `engrave/beams/fractionalBeam`).
  *
  * ⚠️ **This is a TRANSLATION and nothing else** — the metre is the editor's and the rule is the
  * engine's; what happens here is the one step between them, exactly as `interactions/toolGhost.ts`
@@ -391,7 +391,7 @@ export class EngravedBeam {
  * |---|---|---|
  * | **first** note of a group | VexFlow ⇒ right | ⭐ forced — a left stub would leave the group, and Ross p. 124 / Gerou & Lusk p. 31 both say *"always inside the grouping"* |
  * | **last** note of a group | VexFlow ⇒ left | ⭐ forced, same rule, mirrored |
- * | after a secondary BREAK | the walk ⇒ right | that break is already OUR decision (`secondaryBreakIndices`). 🚨 ⏸️ But the note BEFORE a break points LEFT even when it is the group's first — `docs/vexflow-removal-map.md` §9.4 #1 |
+ * | after a secondary BREAK | the walk ⇒ right | that break is already OUR decision (`secondaryBreakIndices`). 🚨 ⏸️ But the note BEFORE a break points LEFT even when it is the group's first — `docs/history/vexflow-removal-map.md` §9.4 #1 |
  * | **interior**, alone at its level | ⭐⭐ **US** | the only case where the metre has a free choice — and it is exactly Gould's |
  *
  * ⇒ **the hatch covers every case the books actually legislate.** `fractionalBeamSides` answers

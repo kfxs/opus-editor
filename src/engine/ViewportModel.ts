@@ -6,13 +6,13 @@
  * unit-testable with no DOM.
  *
  * It owns the scroll-into-view math that `SelectionController.scrollSelectedNoteIntoView` currently
- * inlines against the live DOM; Phase 4 of docs/navigation-viewport-plan.md migrates that call site
+ * inlines against the live DOM; Phase 4 of docs/plans/navigation-viewport-plan.md migrates that call site
  * onto `ensureVisible` so the same logic also drives playback-follow.
  *
  * It owns `zoom` (the one layout→screen scalar) but NOT the view mode: wrapped-vs-linear is a
  * layout decision, and layout is engine work — the mode lives on MusicEngine instead. Zoom is
  * only here because it never touches layout (it is a CSS transform). See
- * docs/linear-view-plan.md §5, P0.
+ * docs/plans/linear-view-plan.md §5, P0.
  */
 
 import type { Margins } from './pasteboard'
@@ -40,7 +40,7 @@ export const ENSURE_VISIBLE_PADDING = 50
 
 /**
  * P6 overscan: how far past each edge of the visible rect the renderer actually draws, as a
- * fraction of the viewport's own size (docs/render-performance-plan.md §8).
+ * fraction of the viewport's own size (docs/history/render-performance-plan.md §8).
  *
  * It buys two different things at once, which is why it is not just "a bit of margin":
  *
@@ -138,7 +138,7 @@ export class ViewportModel {
   /**
    * The single layout→screen scalar: `screenPx = layoutPx × zoom`. The model works entirely in
    * scaled (screen) pixels — `viewportSize`, `contentSize`, `scroll`, `maxScroll` all match the DOM
-   * — and `zoom` is the one bridge to layout coords (see §2 of docs/zoom-plan.md). Public so screen-
+   * — and `zoom` is the one bridge to layout coords (see §2 of docs/plans/zoom-plan.md). Public so screen-
    * space overlays (the text-edit font) can read it; mutate it only through `setZoom`/`zoomAt`.
    */
   zoom = 1
@@ -323,7 +323,7 @@ export class ViewportModel {
    * element bounding boxes live in. The model itself works in screen pixels, so this is the one
    * place that divides back out by zoom: `layoutPx = screenPx / zoom`.
    *
-   * This is what P6 culls against (docs/render-performance-plan.md §8). Note the coordinate origin
+   * This is what P6 culls against (docs/history/render-performance-plan.md §8). Note the coordinate origin
    * is the zoom layer's, which includes the content surface's own padding — the caller subtracts
    * that inset to reach SVG-internal coords. Overscan swamps the difference, but the subtraction is
    * still made rather than hand-waved.

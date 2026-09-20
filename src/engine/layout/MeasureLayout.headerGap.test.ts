@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /**
  * ⭐⭐ **DECISION D, THROUGH A REAL RENDER — the first note sits further in after a clef than after a
- * meter** (Gould p. 42; `docs/header-spacing-research.md` §8 D, his call 2026-09-01).
+ * meter** (Gould p. 42; `docs/research/header-spacing-research.md` §8 D, his call 2026-09-01).
  *
  * 🚨 **This file exists because nothing failed when the rule changed.** The single `HEADER_TO_NOTE`
  * was applied by two paths — the width path (`MeasureLayout`'s `sharedOverhead`) and the drawing path

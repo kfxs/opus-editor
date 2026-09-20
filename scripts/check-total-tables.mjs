@@ -2,7 +2,7 @@
 /**
  * `npm run lint:tables` — the guard on a DECLARATION, not on a count.
  *
- * THE INVARIANT (`docs/span-mark-family-plan-2026-08-24.md` Phase 3 `[A4]`): a registry answering
+ * THE INVARIANT (`docs/plans/span-mark-family-plan-2026-08-24.md` Phase 3 `[A4]`): a registry answering
  * *"what does kind K do?"* is worth having **only when the compiler refuses to build a kind that
  * forgot its row.** `tsc` enforces that — but only GIVEN the declaration. Nothing stops a future
  * edit from quietly weakening `Record<SpanMarkKind, Spec>` to `Partial<Record<…>>` to make one
@@ -86,7 +86,7 @@ if (failures.length) {
   console.error(`  These tables answer "what does kind K do?", and such a table is worth having ONLY
   when the compiler refuses a kind with no row. If a kind genuinely cannot state one, that is
   evidence the abstraction is wrong — the fix is an OPTIONAL MEMBER on the spec, never a hole in
-  the table. See docs/span-mark-family-plan-2026-08-24.md Phase 3 [A4].
+  the table. See docs/plans/span-mark-family-plan-2026-08-24.md Phase 3 [A4].
 `)
   process.exit(1)
 }

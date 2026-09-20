@@ -2,7 +2,7 @@ import { test, expect } from './fixtures'
 import type { Page } from '@playwright/test'
 
 /**
- * ⭐⭐ **THE BRACKET, AS IT IS ACTUALLY DRAWN** — P3 of docs/braces-brackets-plan.md.
+ * ⭐⭐ **THE BRACKET, AS IT IS ACTUALLY DRAWN** — P3 of docs/plans/braces-brackets-plan.md.
  *
  * This cannot be a unit test even in principle, and the plan's done-condition says so: *"an e2e test
  * measures the drawn rod against the staves it spans"*. jsdom has no fonts, so the serif glyphs

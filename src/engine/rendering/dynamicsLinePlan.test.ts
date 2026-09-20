@@ -9,7 +9,7 @@ import { MARK_INK } from './dynamicsLinePass'
 
 /**
  * THE DYNAMICS PLAN'S LADDER CLAIM — what the family tells the families placed OUTSIDE it
- * (docs/ottava-plan.md P0a).
+ * (docs/plans/ottava-plan.md P0a).
  *
  * ⚠️ The baselines themselves are `layout/dynamicsLine.test.ts`'s and `layout/dynamicsChain.test.ts`'s;
  * what is checked here is that a claim is filed for every mark, on the right `(line, staff, side)`,

@@ -317,7 +317,7 @@ describe('NoteEntryCoordinator.addRestAtPosition', () => {
  * fit: a triplet of halves is three notes in the time of two halves = four quarter-beats.
  */
 /**
- * 🐛 `docs/vexflow-removal-map.md` §9.4 #7 — a note entered on one staff JOINED a tuplet on ANOTHER
+ * 🐛 `docs/history/vexflow-removal-map.md` §9.4 #7 — a note entered on one staff JOINED a tuplet on ANOTHER
  * staff at that beat: the tuplet lookup was scoped to the entry VOICE and never to its STAFF, so a
  * top-staff triplet claimed a bottom-staff quarter, which then sounded ⅔ of a beat and left its bar
  * short. Found by S13a's random-score probe (all 18 of its integrity failures were this).

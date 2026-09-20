@@ -1,7 +1,7 @@
 /**
  * SLURS — the top-level phrasing spans, extracted from {@link ScoreModel}, which keeps thin public
  * delegators to these free functions (the `clefOps` / `rebarOps` idiom;
- * docs/modularity-plan-2026-07-28.md Phase 3).
+ * docs/history/modularity-plan-2026-07-28.md Phase 3).
  *
  * A slur is stored ONCE, at the top of the score (`score.slurs`), as a pair of note ids and a
  * voice — never on a measure, because a phrase does not stop at a barline and a span that lived on
@@ -10,7 +10,7 @@
  * ⭐ **Everything about how a slur LOOKS lives somewhere else, and that is the point.** The arc's
  * hand-edited shape, its endpoint nudges, and the per-segment edits of a slur crossing a system
  * break are all engraving overrides keyed by the slur id (`overrideOps` / `engravingOverrides`), not
- * fields on the `Slur`: pixels stay out of the content model (docs/engraving-overrides-plan.md
+ * fields on the `Slur`: pixels stay out of the content model (docs/plans/engraving-overrides-plan.md
  * Phase 1). So most of this module is the WRITE half of that arrangement, and the reason a slur has
  * four setters rather than one is that they clear each other on different rules — re-anchoring an
  * end drops every edit that was authored against it (the span-relative shapes AND that end's own
@@ -73,7 +73,7 @@ export function getSlurById(score: Score, id: string): Slur | null {
  * override the auto arch; pass `null` to drop the override and revert to the auto
  * shape. The shape lives in the engraving-overrides compartment keyed by the slur id
  * (a {@link CurveShapeOverride}), NOT on the `Slur` — pixels stay out of the content
- * model (Phase 1; see docs/engraving-overrides-plan.md). @returns true if the slur
+ * model (Phase 1; see docs/plans/engraving-overrides-plan.md). @returns true if the slur
  * exists and was updated.
  */
 export function setSlurShape(score: Score, id: string, cps: CurveControlPointDeltas | null): boolean {
@@ -142,7 +142,7 @@ export function setSlurEndpoint(score: Score, id: string, which: 'start' | 'end'
   // re-anchor — which can change the span — wipes them too.
   clearEngravingOverride(score, id, 'segmentEndpointOffset')
   // ⭐ …and so does the MOVED end's own nudge (his call, 2026-08-17), reversing what
-  // docs/slur-endpoint-offset-plan.md §"survives" first decided. Anchor-relative makes the offset
+  // docs/plans/slur-endpoint-offset-plan.md §"survives" first decided. Anchor-relative makes the offset
   // *transferable*, not *wanted*: it was tuned to clear the notehead, stem and accidentals of the
   // note it used to sit on, and a re-anchor is the user saying "not that note" — so carrying the
   // nudge along re-applies an answer to a question nobody asked again. Only the end that MOVED is
@@ -175,7 +175,7 @@ function clearEndpointOffsetSide(score: Score, id: string, which: 'start' | 'end
 
 /**
  * Nudge one endpoint of a slur by a staff-space delta, **accumulating** onto any existing
- * offset (the in/out keyboard fine-positioning — see docs/slur-endpoint-offset-plan.md).
+ * offset (the in/out keyboard fine-positioning — see docs/plans/slur-endpoint-offset-plan.md).
  * Stored as a {@link SlurEndpointOffsetOverride} in the engraving-overrides compartment
  * (staff-spaces, anchor-relative — so it survives any font/zoom/reflow; ⚠️ it does NOT survive a
  * re-anchor of its own end, see {@link setSlurEndpoint}). `dx`/`dy` are in staff-spaces. A future
@@ -244,7 +244,7 @@ export function resetSlurOffset(score: Score, id: string): boolean {
  * `spanCount`, its MIDDLE edits are stale, so they are dropped here (begin/end are durable
  * and kept) before the live count is adopted — otherwise a stale middle could resurrect at
  * the wrong geometry once the signatures matched again. Mirrors the read-time apply rule
- * in `reconcileSegmentShape`. See docs/multisystem-slur-segment-shape-plan.md §2–§3.
+ * in `reconcileSegmentShape`. See docs/plans/multisystem-slur-segment-shape-plan.md §2–§3.
  * @returns true if the slur exists and was updated.
  */
 export function setSlurSegmentShape(
@@ -382,7 +382,7 @@ export function resetSlurSegmentEndpointOffset(
 /**
  * Nudge one OPEN join of a cross-system slur by a staff-space delta, **accumulating** onto
  * any existing offset (keyboard fine-positioning — see
- * docs/multisystem-slur-segment-endpoint-offset-plan.md). Stored as a
+ * docs/plans/multisystem-slur-segment-endpoint-offset-plan.md). Stored as a
  * {@link SegmentEndpointOffsetOverride}, separate from the durable note-anchored
  * `endpointOffset`. `dx`/`dy` are in **staff-spaces**, margin-relative. `spanCount` is the
  * **live** system count at the time of the edit — the override's reset signature.
@@ -587,7 +587,7 @@ export function repairDanglingSlurs(score: Score): void {
     for (const s of m.slots) {
       if (s.type === 'chord') {
         // ⭐ `chordStoredPitches` includes the FANNED MEMBERS, and a member can anchor a slur
-        // (docs/fanned-beam-pitches-plan.md) — a slur is a SPAN between two points, and member 2 →
+        // (docs/plans/fanned-beam-pitches-plan.md) — a slur is a SPAN between two points, and member 2 →
         // member 5 is a span. Leave them out and every such slur is silently dropped the next time
         // this defensive pass runs.
         for (const p of chordStoredPitches(s)) ids.add(p.id)

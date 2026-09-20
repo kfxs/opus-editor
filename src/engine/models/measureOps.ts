@@ -1,7 +1,7 @@
 /**
  * ⭐ **MAKING A MEASURE** — {@link insertMeasureAfter} (splice + renumber + rest-fill) and
  * {@link addMeasure} (the same, at the end). Score logic, moved off `ScoreModel`
- * (docs/code-shape-plan-2026-09-19.md, Phase 4.3e): they were the last two BODIES `rebarOps` could
+ * (docs/plans/code-shape-plan-2026-09-19.md, Phase 4.3e): they were the last two BODIES `rebarOps` could
  * only reach as callbacks — a re-bar that grows the score appends bars, and one that pushes a
  * downstream meter change forward inserts them.
  *

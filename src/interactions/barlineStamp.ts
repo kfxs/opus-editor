@@ -1,7 +1,7 @@
 /**
  * ⭐⭐ **THE BARLINE PALETTE'S PRESS** — which LINE a sign lands on, and what pressing a button does.
  *
- * P4 of docs/barline-types-plan.md, and the module CLAUDE.md's rule asks for: the score edit is in
+ * P4 of docs/plans/barline-types-plan.md, and the module CLAUDE.md's rule asks for: the score edit is in
  * the core (`engine/models/barlineOps`), the *gesture* is here, and `PaletteController` /
  * `MouseController` each keep one line.
  *

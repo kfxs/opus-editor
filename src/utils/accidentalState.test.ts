@@ -49,7 +49,7 @@ describe('accidentalState.prevailingAlterations', () => {
 
 /**
  * The FORWARD walk — the sign each pitch actually displays. Extracted from `NoteBuilder` so a fanned
- * group's members obey the same rule as the notes around them (docs/fanned-beam-pitches-plan.md §2).
+ * group's members obey the same rule as the notes around them (docs/plans/fanned-beam-pitches-plan.md §2).
  */
 describe('displayedAccidentals', () => {
   const pitch = (id: string, step: PitchStep, alter: PitchAlter, extra: Partial<NotePitch> = {}): NotePitch =>
@@ -114,7 +114,7 @@ describe('displayedAccidentals', () => {
   })
 
   /**
-   * ⭐⭐ THE KEY SIGNATURE'S HALF of the rule (docs/key-signature-plan.md §3). The key is the
+   * ⭐⭐ THE KEY SIGNATURE'S HALF of the rule (docs/plans/key-signature-plan.md §3). The key is the
    * FALLBACK consulted where the bar has said nothing at a position — never a pre-fill of the map,
    * because the map is octave-specific and a signature governs a letter in every octave.
    */

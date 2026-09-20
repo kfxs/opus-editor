@@ -77,13 +77,13 @@ export type ElementType =
    *
    * ⛔ A bar whose signature is EMPTY (C major, an open key) registers nothing, because it draws
    * nothing — the first element whose valid state is zero ink, and why a SIGNPOST is owed
-   * (docs/key-signature-plan.md §5). See `engine/rendering/KeySignaturePass`.
+   * (docs/plans/key-signature-plan.md §5). See `engine/rendering/KeySignaturePass`.
    */
   | 'keySignature'
   | 'barline'
   /**
    * ⭐⭐ **THE PART OF A JOINED BARLINE THAT CROSSES THE GAP** between two staves — the ink
-   * `rendering/barlineGap` draws, made clickable (docs/barline-join-plan.md). His ask, 2026-08-28:
+   * `rendering/barlineGap` draws, made clickable (docs/plans/barline-join-plan.md). His ask, 2026-08-28:
    * *"if the barline is join and i click on in the empty space of the two staves i want to be able to
    * select it too and move and do the normal barline operations"*.
    *
@@ -100,7 +100,7 @@ export type ElementType =
   | 'barline-gap'
   /**
    * ⭐⭐ One of the blue SQUARES a selected barline draws in the gaps between the staves — the handle
-   * that JOINS that gap or disjoins it (docs/barline-join-plan.md §1). The `'pedal-endpoint'` family's
+   * that JOINS that gap or disjoins it (docs/plans/barline-join-plan.md §1). The `'pedal-endpoint'` family's
    * arrangement: registered by the HIGHLIGHT pass so it exists only while its barline is selected,
    * removed again by `clearHighlights`, and answered by a MouseController pre-step rather than by a
    * row in `ELEMENT_HIT_ORDER` — ⛔ a join square is not a selectable element and there is no
@@ -176,7 +176,7 @@ export type ElementType =
    * registers twice, and one crossing a break registers its `(Ped.)` resumptions too — every entry
    * carrying the same pedal id, so a hit on any sign resolves to the whole pedal.
    * ⭐ The day the bracket style arrives the line becomes ink and this returns to one box per
-   * fragment (docs/pedal-plan.md §5.3/§6.2).
+   * fragment (docs/plans/pedal-plan.md §5.3/§6.2).
    */
   | 'pedal'
   /**
@@ -246,7 +246,7 @@ const GLYPH_TYPES: ReadonlySet<ElementType> = new Set<ElementType>([
 /**
  * Tripwire threshold in staff-spaces. A legit single glyph is ≤ a few staff-spaces tall
  * (bare rest ≈ 1, a tall mid-measure clef ≈ 4); a StaveNote unioned with a below-staff
- * dynamic is ≈ 7-8. 6 clears every legitimate glyph with daylight (docs/tight-bbox-plan.md
+ * dynamic is ≈ 7-8. 6 clears every legitimate glyph with daylight (docs/history/tight-bbox-plan.md
  * §6a-ii calibration note). Raise only if a real glyph ever trips it.
  */
 const GLYPH_MAX_STAFF_SPACES = 6
@@ -434,7 +434,7 @@ export interface ElementInfo {
    * 🚨 **A coordinate field here has THREE handlers to satisfy**, and each was found a different way:
    * {@link offsetElement} (a translated bar), {@link ElementRegistry.shiftById} (an element moved
    * after registration — ⛔ only the `from` ends move) and {@link scaleElement} (a reduced staff).
-   * See `docs/dynamic-offset-plan.md`.
+   * See `docs/plans/dynamic-offset-plan.md`.
    */
   guides?: GuideLine[]
   // Tie-specific properties
@@ -472,7 +472,7 @@ export interface ElementInfo {
   slurEndpoints?: { p0: { x: number; y: number }; p1: { x: number; y: number }; direction: number }
   /** The stave's line spacing (px) where this slur was drawn. Lets a handle drag convert
    *  the new pixel shape to **staff-spaces** before storing it in the engraving-overrides
-   *  compartment (so the saved shape is resolution-independent). See docs/engraving-overrides-plan.md. */
+   *  compartment (so the saved shape is resolution-independent). See docs/plans/engraving-overrides-plan.md. */
   staffSpacePx?: number
   /** The side a slur was actually drawn on: -1 = above, +1 = below. Lets a flip
    *  toggle an auto-placed slur to the opposite of what's on screen. */
@@ -584,7 +584,7 @@ export interface ElementInfo {
  * ⚠️ A note's `bbox` is VexFlow's union of every modifier, so a sharp hanging left drags its centre
  * off the head the user is looking at. A rest's box is its own glyph and it carries no `headX`, so a
  * rest answers exactly what it did before. ⭐ First reader moved off the note's union rectangle
- * (`docs/own-engraving-engine.md` §5 P6) — the note-entry lookups, 2026-09-14.
+ * (`docs/plans/own-engraving-engine.md` §5 P6) — the note-entry lookups, 2026-09-14.
  */
 export function headCentreX(element: ElementInfo): number {
   return element.headX ?? element.bbox.x + element.bbox.width / 2
@@ -601,7 +601,7 @@ interface CoordinateMap {
 /**
  * ⭐⭐ **THE ONE WALK over every coordinate-bearing field of an {@link ElementInfo}** — what
  * {@link offsetElement} and {@link scaleElement} each spelled field by field
- * (docs/code-shape-plan-2026-09-19.md, Phase 5).
+ * (docs/plans/code-shape-plan-2026-09-19.md, Phase 5).
  *
  * ⚠️ **A new coordinate field is taught HERE, once**, and to `EVERY_COORDINATE` in
  * `ElementRegistry.coordinates.test.ts`. A missed one does not crash and does not look wrong: it
@@ -610,7 +610,7 @@ interface CoordinateMap {
  * not from `slurEndpoints` (that one holds the true note ends, for the square re-anchor handles), so
  * a segment on a bar that moved put its handles where the bar used to be, and one on a REDUCED staff
  * put them off the arc by a factor of `k`. Found by auditing every field against the two walkers and
- * `shiftById`; the table and the reasoning are in docs/dynamic-offset-plan.md.
+ * `shiftById`; the table and the reasoning are in docs/plans/dynamic-offset-plan.md.
  *
  * ⛔ **NOT {@link ElementRegistry.shiftById}**, which is no third caller: it moves the element and
  * the guides' `from` ends while the `to` ends deliberately STAY — a different statement, not a
@@ -686,7 +686,7 @@ function mapElementCoordinates(element: ElementInfo, map: CoordinateMap): Elemen
 
 /**
  * Translate one registered element by (dx, dy) — P5.4b, a measure that **moved** rather than
- * changed (docs/render-performance-plan.md §7a).
+ * changed (docs/history/render-performance-plan.md §7a).
  *
  * ⚠️ **Every coordinate-bearing field must be listed here.** A missed one does not crash and does
  * not look wrong: it makes the *hit-box* drift away from the *glyph*, so clicks land on the wrong
@@ -706,7 +706,7 @@ export function offsetElement(element: ElementInfo, dx: number, dy: number): Ele
 /**
  * Scale one registered element out of a staff's own drawing space into the SVG's — the
  * {@link ElementRegistry.withScale} half of what {@link offsetElement} does for a move
- * (docs/staff-size-plan.md §4.2).
+ * (docs/plans/staff-size-plan.md §4.2).
  *
  * ⚠️ **Every coordinate-bearing field must be listed here, and so must every LENGTH.** That is the
  * one way this differs from `offsetElement`, which leaves widths and heights alone: a staff drawn
@@ -928,7 +928,7 @@ export class ElementRegistry {
 
   /**
    * Attach a measure's mid-measure clef regions — a **tier-2** addition to a **tier-1** record
-   * (docs/render-performance-plan.md §7).
+   * (docs/history/render-performance-plan.md §7).
    *
    * The staff's geometry is registered without drawing, but an inline clef's X only exists once the
    * voice has been formatted, which is part of the draw. So a drawn measure adds its segments here,
@@ -1084,7 +1084,7 @@ export class ElementRegistry {
   /**
    * **Register everything `fn` produces in the coordinates of a staff drawn at `k`.**
    *
-   * A staff drawn small is drawn inside a `<g transform="scale(k)">` (docs/staff-size-plan.md §4.1),
+   * A staff drawn small is drawn inside a `<g transform="scale(k)">` (docs/plans/staff-size-plan.md §4.1),
    * so everything VexFlow reports back — `getYForLine`, `getNoteStartX`, `getBoundingBox`,
    * `getBBox` — answers in the group's own PRE-transform space, while every consumer of this
    * registry (hit-testing, pixel↔pitch, scroll-into-view) works in the SVG's. The two differ by
@@ -1179,7 +1179,7 @@ export class ElementRegistry {
   }
 
   /**
-   * Register a GLYPH element by its OWN VexFlow object's ink box (docs/tight-bbox-plan.md §6a).
+   * Register a GLYPH element by its OWN VexFlow object's ink box (docs/history/tight-bbox-plan.md §6a).
    *
    * Pass the LEAF glyph — a `NoteHead`, `Accidental`, `Articulation`, `Dot`, `Clef` — never a
    * `StaveNote` container: `StaveNote.getBoundingBox()` unions every attached modifier into its own
@@ -1209,7 +1209,7 @@ export class ElementRegistry {
   }
 
   /**
-   * The RESULT tripwire (docs/tight-bbox-plan.md §6a-ii) — the forever version of the
+   * The RESULT tripwire (docs/history/tight-bbox-plan.md §6a-ii) — the forever version of the
    * Phase 0 audit. A single glyph is at most a few staff-spaces tall; a StaveNote box
    * that has unioned an attached modifier (a rest carrying a below-staff dynamic, say) is
    * ~7-8. So if a *glyph-type* box measures taller than {@link GLYPH_MAX_STAFF_SPACES}
@@ -1231,7 +1231,7 @@ export class ElementRegistry {
       dbg(
         `⚠️ [hit-box] ${element.type} ${element.id} is ${staffSpaces.toFixed(1)} staff-spaces tall ` +
           `(> ${GLYPH_MAX_STAFF_SPACES}) — likely registered from a container-union box, not its own ` +
-          `glyph. Route it through ElementRegistry.addGlyph (docs/tight-bbox-plan.md §6a).`,
+          `glyph. Route it through ElementRegistry.addGlyph (docs/history/tight-bbox-plan.md §6a).`,
       )
     }
   }
@@ -1239,7 +1239,7 @@ export class ElementRegistry {
   /**
    * Drop every element of a type. Needed by the highlight layer: it registers its own
    * hit-boxes (slur handles) *after* the render, and those used to be wiped by the next
-   * render's `clear()`. Once a render can be skipped (docs/render-performance-plan.md §5a),
+   * render's `clear()`. Once a render can be skipped (docs/history/render-performance-plan.md §5a),
    * the highlight pass must remove its own entries instead, or they accumulate.
    */
   removeByType(type: ElementType): void {

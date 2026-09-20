@@ -1,7 +1,7 @@
 import { test, expect } from './fixtures'
 
 /**
- * PAGES — the vertical casting-off (docs/layout-plan.md P1).
+ * PAGES — the vertical casting-off (docs/plans/layout-plan.md P1).
  *
  * Invisible to the unit suite for the same reason the horizontal one is: which system lands on
  * which page depends on how tall a drawn system actually is, and in jsdom every glyph measures 0×0.

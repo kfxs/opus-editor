@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /**
  * The modifier contexts are ours (S9b). ⚠️ That no pixel moved was proved once, by rendering the same
- * scores at the previous commit and after it (`docs/vexflow-removal-map.md` §5.2); pinned here is what
+ * scores at the previous commit and after it (`docs/history/vexflow-removal-map.md` §5.2); pinned here is what
  * the seam promises: which notes share a column, and that a kind with no rule is refused.
  */
 import { describe, it, expect } from 'vitest'

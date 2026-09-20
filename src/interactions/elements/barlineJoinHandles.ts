@@ -1,7 +1,7 @@
 /**
  * ⭐⭐ **THE JOIN SQUARE OF A SELECTED BARLINE** — the handle that joins the gap between two staves,
  * or disjoins it: where it is (P2), what a press on it grabbed and what the cursor then means (P3).
- * docs/barline-join-plan.md.
+ * docs/plans/barline-join-plan.md.
  *
  * ⚠️ The gesture's *plumbing* is `MouseController`'s — arming, previewing, the one undo entry on the
  * drop — and everything here is a pure function of the registry and a coordinate, which is what lets
@@ -238,7 +238,7 @@ export interface BarlineJoinGrab {
 /**
  * ⭐⭐ **THE PRESS THAT ARMS THE JOIN DRAG** — run as a PRE-STEP in `MouseController`, before the hit
  * chain, exactly where the hairpin's, the slur's, the ottava's and the pedal's handle presses run
- * (docs/barline-join-plan.md §4, P3).
+ * (docs/plans/barline-join-plan.md §4, P3).
  *
  * ⚠️ **Before the chain, and it must be**: the square sits ~10 px into the gap, inside the PADDED
  * staff band (`staffBand`'s 12 px) that the staff-spacing drag claims, and that gesture is armed in

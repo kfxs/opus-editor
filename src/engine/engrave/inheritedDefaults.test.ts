@@ -14,7 +14,7 @@ import {
 } from './inheritedDefaults'
 
 /**
- * ⭐ The inherited defaults are TODAY's picture, copied exactly — S1b of `docs/vexflow-removal-map.md`
+ * ⭐ The inherited defaults are TODAY's picture, copied exactly — S1b of `docs/history/vexflow-removal-map.md`
  * moved these numbers out of the drawing library's tables and moved no pixel doing it.
  *
  * ⚠️ These are not laws (rule 13): each is one house style's default, and its alternatives are

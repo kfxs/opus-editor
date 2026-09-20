@@ -2,7 +2,7 @@
  * How steep a beam may be — the rules, in jsdom.
  *
  * ⛔ There is deliberately no spec here asserting that one RULE is correct: which algorithm this
- * editor should use is open (`docs/beam-engraving-plan.md`, his call 2026-09-01). What is pinned is
+ * editor should use is open (`docs/plans/beam-engraving-plan.md`, his call 2026-09-01). What is pinned is
  * that each row says what its source says, and that the table stays a table.
  */
 import { describe, it, expect } from 'vitest'
@@ -67,7 +67,7 @@ describe('the `musescore` rule — Ross p. 102 as MuseScore encodes it', () => {
   })
 
   // ⚠️ The dissent, asserted rather than described: at the width Gould DREW her example, the tables
-  // give half of what she engraved. See `docs/beam-slope-research.md` §2.2 — it is one of the
+  // give half of what she engraved. See `docs/research/beam-slope-research.md` §2.2 — it is one of the
   // reasons the algorithm is an open question and not a settled one.
   it('🚨 …and at Gould’s own plate the tables are FLATTER than she engraved', () => {
     expect(beamRiseCap(shape(2, 4.4), 'musescore'), 'her 3rd: the tables agree').toBe(0.5)

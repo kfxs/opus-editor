@@ -258,7 +258,7 @@ describe('the context comes from the staff’s own lane', () => {
 })
 
 /**
- * ⭐⭐ HIS LANE ORDER — **V3 / V1 / V2 / V4, top to bottom** (`docs/multi-voice-plan.md` §13, *"the
+ * ⭐⭐ HIS LANE ORDER — **V3 / V1 / V2 / V4, top to bottom** (`docs/plans/multi-voice-plan.md` §13, *"the
  * values the user picked"*, 2026-07-23; reaffirmed 2026-08-31 when the derived rule first dropped
  * it). ⛔ Three and four voices are UNKNOWN in every source, so this is a TASTE CALL and it is his —
  * which is exactly why it needs a spec: nothing else in the module would catch its loss.

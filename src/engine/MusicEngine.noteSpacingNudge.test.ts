@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * The keyboard half of note spacing (docs/note-spacing-plan.md §5, P1) — and above all the FLOOR.
+ * The keyboard half of note spacing (docs/plans/note-spacing-plan.md §5, P1) — and above all the FLOOR.
  *
  * A leftward nudge must stop when the column reaches its left neighbour rather than walking
  * through it, and the amount of room left is not something we can compute: it is the formatter's

@@ -1,5 +1,5 @@
 /**
- * ⭐⭐ **WHICH SLOPE A BEAM TAKES, INSIDE ITS BUDGET** — S7a of `docs/vexflow-removal-map.md`
+ * ⭐⭐ **WHICH SLOPE A BEAM TAKES, INSIDE ITS BUDGET** — S7a of `docs/history/vexflow-removal-map.md`
  * (`Beam.calculateSlope`, MIT, transcribed).
  *
  * ## ⭐ What the rule IS

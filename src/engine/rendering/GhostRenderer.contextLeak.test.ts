@@ -86,7 +86,7 @@ describe('ghost renders must not leak paint into the shared context', () => {
     // Guard: the baseline is what a plain render leaves behind — ⚠️ and since P5a that is the STAFF
     // LINE's width, not the SVG default. `drawStaffLines` sets it per stave and does not restore,
     // exactly as the renderer's old `setLineWidth` pin did; only the number changed (1 → 0.11 sp,
-    // Gould — `docs/staff-line-research.md` §8 A). ⭐ The leak assertions below compare against THIS
+    // Gould — `docs/research/staff-line-research.md` §8 A). ⭐ The leak assertions below compare against THIS
     // baseline, so they test what they always tested.
     expect(clean['stroke-width']).toBe(STAVE_LINE_WIDTH_PX)
 

@@ -480,7 +480,7 @@ describe('SelectionController — navigateVoice (Alt+Shift+up/down voice hop)', 
     // 🚨 The drift this seam carried since the rest ladder was written: `steps` is in staff SPACES
     // and was added to a DIATONIC scale (two units to the space) unconverted, so the user's own
     // shift moved the hop at HALF strength — a rest they had dragged clear of a note still hopped
-    // as though it were where they left it. (docs/multi-voice-rest-position-plan.md §4.2.)
+    // as though it were where they left it. (docs/plans/multi-voice-rest-position-plan.md §4.2.)
     //
     // Voice 1 sings G5, voice 2 rests at beat 0 and has an E4 at beat 1. The derived rule puts that
     // rest on line 1 (its own voice's E4 is what it tracks; the G5 is far above and does not press
@@ -553,7 +553,7 @@ describe('SelectionController — navigateChord is voice-scoped', () => {
   })
 
   /**
-   * ⭐ Inside a FAN, the chord is the MEMBER (docs/fanned-beam-pitches-plan.md §2 P3).
+   * ⭐ Inside a FAN, the chord is the MEMBER (docs/plans/fanned-beam-pitches-plan.md §2 P3).
    *
    * The ordinary path resolves the chord positionally — every note at this beat, in this voice —
    * which inside a fan hands back the SLOT's pitches. The selected member is not among them, so

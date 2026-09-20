@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { INK, MIN_COLUMN_GAP, accidentalExtent, dotExtent, pairPadding } from './spacingPadding'
 
 /**
- * The ink half's table (docs/spacing-model-plan.md P3).
+ * The ink half's table (docs/plans/spacing-model-plan.md P3).
  *
  * ⭐ Every extent here was MEASURED off our own drawing in Chrome and is asserted against the number
  * that came back, so this file is where the table's provenance lives. `e2e/spacing.e2e.ts`

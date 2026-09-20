@@ -5,7 +5,7 @@ import { placeDynamicMark, shiftDynamicMark } from './dynamicMarkTransform'
 
 /**
  * WHO OWNS A DYNAMIC'S TRANSFORM — the composition three passes share
- * (docs/dynamics-line-and-hairpins-plan.md P1).
+ * (docs/plans/dynamics-line-and-hairpins-plan.md P1).
  *
  * ⭐ Attribute arithmetic, so jsdom is the right place for all of it: nothing here measures ink, it
  * only checks that the number written is the sum of the components and that the registry is told the

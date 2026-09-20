@@ -1,6 +1,6 @@
 /**
  * ⭐⭐ **WHERE A DRAWN NOTE'S PARTS ARE — the questions a reader asks of a note, as ours.**
- * S3 of `docs/vexflow-removal-map.md` (R2, the note's ruler).
+ * S3 of `docs/history/vexflow-removal-map.md` (R2, the note's ruler).
  *
  * Slurs, ties, trills, ottavas, pedals, hairpins, dynamics, tempo marks, tremolos and the renderer's
  * own passes all need to know where a note's heads, stem and tie points landed. They used to ask a

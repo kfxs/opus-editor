@@ -15,7 +15,7 @@ import { dbg } from '../utils/debug'
  * ⭐ **Absolute in, relative out.** The engine's nudge ACCUMULATES, so a typed absolute becomes
  * `delta = wanted − current` — which is what makes re-typing the same number a no-op rather than an
  * empty undo entry, and what puts the panel behind the same PAGE LIMIT as the keyboard
- * (docs/engraving-overrides-plan.md §8; his report: *"the offset limit should also be true of
+ * (docs/plans/engraving-overrides-plan.md §8; his report: *"the offset limit should also be true of
  * properties"*). ⛔ Writing the override directly from here would be a second door past that gate.
  *
  * ⚠️ **The current value is read from the COMPARTMENT, not from the request.** The panel could have

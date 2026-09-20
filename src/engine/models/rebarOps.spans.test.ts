@@ -4,7 +4,7 @@
  * A re-bar regenerates every slot id in the region, so a span stored as a pair of note ids is
  * pointing at notes that no longer exist by the time the relay finishes. Re-attaching means finding
  * the note at the same absolute position, in the same VOICE — a unison in another voice must not
- * steal the endpoint (docs/multivoice-rebar-plan.md, P2). And a span whose anchor is genuinely gone
+ * steal the endpoint (docs/plans/multivoice-rebar-plan.md, P2). And a span whose anchor is genuinely gone
  * (overwritten by a paste) is DROPPED, never left dangling.
  *
  * A `ScoreModel` is the FIXTURE — `setTimeSignature` / `pasteEvents` are how the rebar is reached;
@@ -87,7 +87,7 @@ describe('rebar preserves slurs (phrasing spans)', () => {
   })
 })
 
-describe('⭐⭐ rebar preserves TRILLS (docs/trill-plan.md §2.1)', () => {
+describe('⭐⭐ rebar preserves TRILLS (docs/plans/trill-plan.md §2.1)', () => {
   let model: ScoreModel
   beforeEach(() => {
     model = new ScoreModel() // measure 1, 4/4 by default

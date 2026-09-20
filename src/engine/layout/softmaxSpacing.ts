@@ -1,5 +1,5 @@
 /**
- * ⏸️ **VEXFLOW'S SOFTMAX SPACING, KEPT FOR ONE CLEF** — S9h-b of `docs/vexflow-removal-map.md`
+ * ⏸️ **VEXFLOW'S SOFTMAX SPACING, KEPT FOR ONE CLEF** — S9h-b of `docs/history/vexflow-removal-map.md`
  * (`Formatter.preFormat`, MIT, transcribed exactly).
  *
  * ## ⚠️ Why this exists at all
@@ -14,7 +14,7 @@
  * eighth).
  *
  * ⭐ **His call, 2026-09-18: keep that clef's picture exactly, and review it later.** Where a clef
- * change belongs is a CLEF RULE (`docs/clef.md` §0 — *"the clef always goes before the barline"*,
+ * change belongs is a CLEF RULE (`docs/how-it-works/clef.md` §0 — *"the clef always goes before the barline"*,
  * Gould p. 8), which he put outside the VexFlow removal. ⏭️ **When the clef review decides where such
  * a clef stands, this file is deleted** — logged as `vexflow-removal-map.md` §9.4 #5.
  *

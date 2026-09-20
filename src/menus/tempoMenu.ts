@@ -17,7 +17,7 @@ import { UNIT_GLYPH } from '../utils/tempoText'
  *                     for now, wiring is a next step);
  *     · MODULATION  — the augmentation dot, the `←`/`→` cues, the whole `← ♩ = ♪ →` equation, the
  *                     beamed note groups and the triplet-with-bracket and tie. The GLYPHS ship now;
- *                     a modulation that changes playback is future work (docs/metric-modulation-plan.md).
+ *                     a modulation that changes playback is future work (docs/plans/metric-modulation-plan.md).
  *                     Today the equation draws and, carrying no number, inherits the prevailing
  *                     tempo — a placeholder, not a lie, because it makes no false numeric claim;
  *     · the German ESZETT (ß), the one accented character kept — the OS keyboard reaches the rest,
@@ -110,7 +110,7 @@ const ARROWS: ReadonlyArray<{ arrow: string; shortcut: string }> = [
  * The whole metric-modulation equation as one ready-made row — `← ♩ = ♪ →`. The LABEL shows it in
  * Bravura (arrows + text-note glyphs); what it INSERTS keeps the ♩/♪ as UNIT_GLYPH so the notes
  * still engrave and parse, with the Bravura arrows either side. Playing the modulation — and drawing
- * those arrows in the engraved mark — is future work (docs/metric-modulation-plan.md).
+ * those arrows in the engraved mark — is future work (docs/plans/metric-modulation-plan.md).
  */
 const MODULATION_LABEL = `${GLYPH.arrowLeft}\u2002${NOTE_GLYPH['q']}\u2002=\u2002${NOTE_GLYPH['8']}\u2002${GLYPH.arrowRight}`
 const MODULATION_TEXT = `${GLYPH.arrowLeft} ${UNIT_GLYPH.q} = ${UNIT_GLYPH['8']} ${GLYPH.arrowRight}`

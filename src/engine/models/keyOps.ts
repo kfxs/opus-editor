@@ -24,7 +24,7 @@
  *    built, because nothing writes one. ⏭️ The day a mid-bar key change becomes a feature, it needs
  *    that capture/restore pair IN THE SAME COMMIT — and `keys` must join `clearMeasureForRebar`.
  *
- * @see docs/key-signature-plan.md §1.2, §8.1
+ * @see docs/plans/key-signature-plan.md §1.2, §8.1
  */
 import type { CautionaryKeyGapOverride, KeyChange, KeySignature, Measure, Score } from '@/types/music'
 import { cautionaryKeyGapKey, cautionaryKeyGapOf } from './engravingOverrides'
@@ -180,7 +180,7 @@ function cloneKey(key: KeySignature): KeySignature {
  *
  * ⭐ **Geometry, so it lives in the OVERRIDES compartment** and never on `KeyChange`: a number of
  * staff spaces is not what key the music is in, and transposition, playback and re-barring must be
- * able to walk the model without stepping over pixels (docs/engraving-overrides-plan.md).
+ * able to walk the model without stepping over pixels (docs/plans/engraving-overrides-plan.md).
  *
  * ⛔ A gap of **0 is a real answer** ("no tail at all") and is stored, not treated as absent.
  *

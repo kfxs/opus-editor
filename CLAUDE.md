@@ -14,7 +14,7 @@ This file provides guidance to Claude Code when working with this repository.
   adding is the twelfth `case` in a family, add the twelfth *module* and a **row in its table** —
   `ELEMENT_SPECS` + `ELEMENT_HIT_ORDER` (`interactions/elements/chain.ts`), `GHOST_DRAWERS` +
   `ToolGhost` (`engine/rendering/`), `MARKING_TOOL_USES_ARMED_LENGTH`. ⭐ **A ROW OWNS ITS BODY**
-  (docs/code-shape-plan-2026-09-19.md): a kind's DRAG is `interactions/drags/<kind>.ts`, armed by
+  (docs/plans/code-shape-plan-2026-09-19.md): a kind's DRAG is `interactions/drags/<kind>.ts`, armed by
   its own element module (⛔ no `arm…Drag`, field or `handle…Drag` on `MouseController`), and what
   the ARROWS do to it is the `keys` column of its row, `elements/<kind>Keys.ts` (⛔ no
   `nudgeSelected<Kind>` closure or `||` link in `shortcutWiring`). **And a SCORE operation goes
@@ -47,24 +47,24 @@ This file provides guidance to Claude Code when working with this repository.
   best-sourced option), build it as a changeable row rather than a constant, note the research as a
   follow-up, and keep going. Research is still wanted (it becomes the preset menu); it never stops a
   phase. Before calling a number "open", grep the feature's own module — it may already be decided.
-  See `docs/own-engraving-engine.md` §0.3 rule 13.
+  See `docs/plans/own-engraving-engine.md` §0.3 rule 13.
 
 ## Project Overview
 
 A music score editor with its own engraving engine (first built on VexFlow, which was removed —
-docs/vexflow-removal-map.md) and WebAudioFont, in plain TypeScript (no UI framework —
-Vue was removed, see docs/remove-vue-plan.md). Users can add/edit notes on a staff, play back the
+docs/history/vexflow-removal-map.md) and WebAudioFont, in plain TypeScript (no UI framework —
+Vue was removed, see docs/history/remove-vue-plan.md). Users can add/edit notes on a staff, play back the
 score, and export/import JSON.
 
 ## Tech Stack
 
-- **Framework**: **none.** Vue was removed (docs/remove-vue-plan.md) — the editor is plain
+- **Framework**: **none.** Vue was removed (docs/history/remove-vue-plan.md) — the editor is plain
   TypeScript and the DOM. ⚠️ Do not add a UI framework, and do not write UI as if one were
   coming; `lint:boundary` refuses framework imports. New UI follows `windows/` and `menus/`:
   a module that builds its own elements and subscribes to state.
 - **Notation Rendering**: our own engine (`engine/engrave`, `engine/rendering`, painted by
   `rendering/SvgPainter`). ⭐ VexFlow is GONE from `package.json` (S14 of
-  `docs/vexflow-removal-map.md`), and `lint:boundary` refuses the import in every file, specs and
+  `docs/history/vexflow-removal-map.md`), and `lint:boundary` refuses the import in every file, specs and
   `e2e/` included. The code ported from it is credited in `NOTICE`. S15 took the names too (`ScoreRenderer`; the
   SVG's groups carry their BARE class and id — no `vf-` prefix).
 - **Audio Playback**: WebAudioFont (sampled General MIDI; samples fetched from CDN at play time)
@@ -121,7 +121,7 @@ src/
                     #   PaletteController method, a window's own toggle) — nothing is
                     #   reimplemented for it, so deleting the bar deletes a list of LABELS.
                     #   `buildMenuBarTitles()` in menus/index.ts is the whole running order.
-                    #   Read docs/menus-design.md before treating any of it as settled.
+                    #   Read docs/how-it-works/menus-design.md before treating any of it as settled.
   shortcuts/        # Keyboard shortcut definitions
   engine/           # Framework-agnostic music engine
     MusicEngine.ts        # Facade — coordinates the components below
@@ -136,7 +136,7 @@ src/
     ViewportModel.ts      # Scroll/zoom viewport state
     models/               # ScoreModel (data model), CollisionDetector,
                           #   clearOps (⭐ a cleared REGION is refilled by the METER, once —
-                          #     docs/clear-range-plan.md; ⛔ never one rest per deleted slot,
+                          #     docs/plans/clear-range-plan.md; ⛔ never one rest per deleted slot,
                           #     and ⛔ never past the region's edge),
                           #   🚧 scoreTextOps (the title + composer as ONE table — SKETCH),
                           #   spanFromNotes (⭐ "which notes did the user mean?" — ONE answer for
@@ -182,17 +182,17 @@ src/
                           #   its draw loop; the arithmetic is `layout/tickCount`, VexFlow's `Fraction`
                           #   transcribed — ⛔ it never reduces: a column is keyed by a NUMERATOR)
                           #   + 🚧 ScoreHeaderPass (⛔ A SKETCH — the title + composer at the
-                          #     head of page 1; read docs/score-header-sketch.md before
+                          #     head of page 1; read docs/plans/score-header-sketch.md before
                           #     touching it, and ⛔ do not grow it: the real thing is a FRAME
                           #     of engraved TEXT ITEMS and this is to be thrown away)
                           #   + spacingPass
                           #   (⭐ WHERE each column goes — the model's x's, post-format)
                           #   + BarlineRenderer (⭐ WE draw every barline that ends a bar —
                           #   plain, final, both repeats; VexFlow keeps only the line that
-                          #   OPENS a system. docs/barline-types-plan.md §4.6)
+                          #   OPENS a system. docs/plans/barline-types-plan.md §4.6)
                           #   + barlineGap (⭐ the JOIN: the same sign's strokes crossing the
                           #   space BETWEEN two staves — ⛔ never inside `inStaffSpace`, and
-                          #   ⛔ never the dots. docs/barline-join-plan.md)
+                          #   ⛔ never the dots. docs/plans/barline-join-plan.md)
                           #   + SvgPainter (⭐⭐ S13b — THE PAINTER: VexFlow's `SVGContext` transcribed;
                           #   every `DrawContext` on the page is one. ⚠️ its markup is a contract —
                           #   attributes diffed against the group, key order, 3-place rounding)
@@ -212,7 +212,7 @@ src/
                           #   are plain classes since S12j-b (no cast in since S12j-e)
                           #   + staveFrame / noteRuler / signRun (⭐⭐ THE ONE PLACES a stave (ours since
                           #   S12h) / a `StaveNote` is asked where its lines, bar, heads, stem or signs are —
-                          #   docs/vexflow-removal-map.md S2/S3. ⚠️ LIVE getters, ⛔ never a
+                          #   docs/history/vexflow-removal-map.md S2/S3. ⚠️ LIVE getters, ⛔ never a
                           #   snapshot: `getNoteStartX` formats the stave, and readers ask a note
                           #   BEFORE its draw too. ⛔ Never call those methods in your own file)
     scene/                # ⭐⭐ WHAT WAS DRAWN, as VALUES — `Scene` + `SceneRecorder` + `sceneBox`
@@ -225,7 +225,7 @@ src/
                           #   through the pass's surface — heads, stems, beams, staff lines, signs —
                           #   ⛔ NOT what is still drawn straight on the painter (the TUPLET's number
                           #   and bracket, `pointerRect` hit targets), ⛔ nor an INK EXTENT.
-                          #   docs/own-engraving-engine.md §7.2, P1d
+                          #   docs/plans/own-engraving-engine.md §7.2, P1d
     paint/                # ⭐⭐ THE SURFACE WE DRAW ON, declared by US — `DrawContext` (20
                           #   primitives; the 20th is `bezierCurveTo`, U1's curve)
                           #   + `DrawGroup` (placement/inkBox/discard/tag/tagLast)
@@ -233,9 +233,9 @@ src/
                           #   ⛔ no DOM, ⛔ no vexflow, ⛔ no models. A pass takes
                           #   `RenderPass.context`; `RenderPass.painter` (our `SvgPainter`) and
                           #   `svgNode()` are the DOM that is LEFT, and `npm run lint:paint` holds
-                          #   `svgNode`'s ceiling (it may only fall). docs/own-engraving-engine.md P1b/P1c
+                          #   `svgNode`'s ceiling (it may only fall). docs/plans/own-engraving-engine.md P1b/P1c
     engrave/              # ⭐⭐ WHAT SYMBOLS, WHERE — music → ink through `paint/`, and the home
-                          #   P3 moves the NOTE into one piece at a time (docs/note-engraving-plan.md).
+                          #   P3 moves the NOTE into one piece at a time (docs/plans/note-engraving-plan.md).
                           #   ⛔ no DOM, ⛔ no vexflow (lint:boundary). `notes/ledgerLines` (P3a — the
                           #   ONE owner of the rule AND its ink, where three copies used to be) and
                           #   `notes/flag` (P3b — ⭐ its FONT REACH is a named argument, not a hidden
@@ -347,7 +347,7 @@ page/band limits) and reached as `engine.<family>.<command>(…)`, e.g. `engine.
 facade keeps the family's READS (`getOttavaById`, …). ⭐ Every edit ends with ONE `mutate(description)`
 (undo entry + dirty flag); a drag frame is `markDirty`, its drop `commitPreviewed`. A commands spec
 stands on `commands/fakeCommandContext.ts` — a real `ScoreModel`, no engine. See
-docs/code-shape-plan-2026-09-19.md, Phase 3.5:
+docs/plans/code-shape-plan-2026-09-19.md, Phase 3.5:
 
 ```typescript
 // Note / rest entry — returns the flat Note; null when placement is rejected
@@ -412,7 +412,7 @@ A split that leaves its assertions in the parent has not finished: the parent sp
 knows everything the parent used to do, so it never shrinks and keeps pulling the parent
 back, while the extracted module has no contract of its own. That is a structural reason
 splits grow back, independent of the "a new feature adds a MODULE" rule above
-(`docs/modularity-plan-2026-07-28.md` §5 + Phase 0). `npm run audit:tests` lists who is
+(`docs/history/modularity-plan-2026-07-28.md` §5 + Phase 0). `npm run audit:tests` lists who is
 still owed one; the parent's own API keeps its own tests — move what the *extracted*
 module answers for.
 

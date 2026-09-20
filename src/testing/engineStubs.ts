@@ -1,6 +1,6 @@
 /**
  * SPEC SUPPORT — the two seams a `MusicEngine` spec stubs because jsdom draws nothing and plays
- * nothing (docs/code-shape-plan-2026-09-19.md, Phase 5). Fifty-odd specs each spelled these classes.
+ * nothing (docs/plans/code-shape-plan-2026-09-19.md, Phase 5). Fifty-odd specs each spelled these classes.
  *
  * A `vi.mock` has to be written in the spec itself (vitest hoists it per file), so what is shared is
  * the FACTORY:

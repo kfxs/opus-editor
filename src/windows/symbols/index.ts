@@ -5,7 +5,7 @@ import { SymbolsWidget } from './SymbolsWidget'
 /**
  * The Symbols window — every SMuFL glyph, browsable, on `Z` (Sibelius's own key).
  *
- * It is a REFERENCE and it puts nothing on the score (docs/symbols-window-plan.md). Two audiences
+ * It is a REFERENCE and it puts nothing on the score (docs/plans/symbols-window-plan.md). Two audiences
  * share it: a musician looking up a sign, and us looking up the codepoint behind one — the
  * `'' // metAugmentationDot` literals scattered through `tempoMenu.ts` and `TempoLayout.ts`
  * were each verified by eye against a website, which is the job this window takes over once its

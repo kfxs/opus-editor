@@ -90,7 +90,7 @@ describe('innerFlipTupletYOffset', () => {
   })
 })
 
-describe('createStaveNotesFromSlots — per-rest vertical shift (docs/rest-shift-plan.md §6.8)', () => {
+describe('createStaveNotesFromSlots — per-rest vertical shift (docs/plans/rest-shift-plan.md §6.8)', () => {
   const restSlot = (id: string, beatNum: number): ChordRest =>
     ({ type: 'rest', id, beat: frac(beatNum, 1), duration: 'q', voice: 0 } as unknown as ChordRest)
 
@@ -111,7 +111,7 @@ describe('createStaveNotesFromSlots — per-rest vertical shift (docs/rest-shift
   })
 })
 
-describe('restSupportingLedgerLine (off-staff whole/half rest support, docs/rest-shift-plan.md §10)', () => {
+describe('restSupportingLedgerLine (off-staff whole/half rest support, docs/plans/rest-shift-plan.md §10)', () => {
   it('only whole/half rests are line-attached — shorter rests never get a ledger', () => {
     for (const d of ['q', '8', '16', '32'] as const) {
       expect(restSupportingLedgerLine(d, false, 8)).toBeNull()   // even far off-staff
@@ -143,7 +143,7 @@ describe('createStaveNotesFromSlots — a two-note tremolo pair', () => {
   /**
    * The pair is WRITTEN at double its value and PLAYS at its own: the StaveNote carries the doubled
    * duration, and `applyTickMultiplier(1, 2)` halves the ticks back so the formatter spaces it over
-   * its real length and a FULL-mode voice is not handed twice the bar (docs/two-note-tremolo-plan.md
+   * its real length and a FULL-mode voice is not handed twice the bar (docs/plans/two-note-tremolo-plan.md
    * §2, "the four traps").
    */
   let seq = 0

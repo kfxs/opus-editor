@@ -1,5 +1,5 @@
 /**
- * ⭐⭐ **WE INSTALL THE SCORE'S FONTS — not VexFlow's import.** S1 of `docs/vexflow-removal-map.md`.
+ * ⭐⭐ **WE INSTALL THE SCORE'S FONTS — not VexFlow's import.** S1 of `docs/history/vexflow-removal-map.md`.
  *
  * Every row of `fonts/fontFiles` becomes a `FontFace` in `document.fonts`, from the file we ship.
  * VexFlow's entry still installs its own embedded copies on import, and will until the package goes

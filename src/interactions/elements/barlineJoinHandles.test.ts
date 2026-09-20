@@ -1,6 +1,6 @@
 /**
  * ⭐⭐ **A SQUARE EXISTS EXACTLY WHERE A GAP EXISTS** — the arithmetic behind his table
- * (docs/barline-join-plan.md §1): bottom only on the first staff, top only on the last, both on the
+ * (docs/plans/barline-join-plan.md §1): bottom only on the first staff, top only on the last, both on the
  * ones in between, and **none at all when there is one staff**.
  *
  * Subject: {@link barlineJoinHandles}. That the squares are PAINTED and registered is

@@ -4,7 +4,7 @@ import type { TrillEditRequest } from '@/bus'
 import { dbg } from '../utils/debug'
 
 /**
- * Applies a Properties-panel trill edit to the engine (docs/trill-plan.md §1 rule 6). The window is a
+ * Applies a Properties-panel trill edit to the engine (docs/plans/trill-plan.md §1 rule 6). The window is a
  * **dumb publisher**: it writes `{trillId, continuationLabel}` to {@link bus.trillEdit}, and this
  * controller — the one place that holds `getEngine` — applies it and repaints.
  *

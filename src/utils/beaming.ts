@@ -13,7 +13,7 @@
  * Default grouping follows the meter's primary beat groups ("show each beat"):
  * 4/4 beams per quarter, 6/8 → 3+3 eighths, 9/8 → 3+3+3, 7/8 → 2+2+3, etc.
  * Beaming never depends on clef — a beam group may span a mid-measure clef
- * change (see docs/note-selection-hit-detection.md companion decision).
+ * change (see docs/how-it-works/note-selection-hit-detection.md companion decision).
  *
  * Pure: depends only on `fraction.ts`, the metric structure, and the types.
  */
@@ -86,7 +86,7 @@ export function computeBeamGroups(slots: ChordRest[], meter: MeterInfo): number[
 
 /**
  * The same grouping over a RUN of bars, so a beam can cross a barline
- * (docs/cross-barline-beaming-plan.md).
+ * (docs/plans/cross-barline-beaming-plan.md).
  *
  * `bars` must be one LANE — one voice of one staff, each bar's slots sorted by beat — the same
  * slice {@link beamRoleAt} insists on, or a voice-2 note is scored against voice 1's grouping.
@@ -128,7 +128,7 @@ export function computeCrossBarBeamGroups(bars: BeamBar[]): BeamSlotRef[][] {
   let bridgeNext: 'begin' | 'continue' | null = null
   /**
    * The group currently ends on a FAN, and **only another fan may extend it**
-   * (docs/fan-beam-join-plan.md P2).
+   * (docs/plans/fan-beam-join-plan.md P2).
    *
    * A fan has to be able to OPEN a group, or a fan-to-fan join could never form: the mark that joins
    * lives on the RIGHT fan, and it needs something already open on its left to be pushed onto. But
@@ -164,7 +164,7 @@ export function computeCrossBarBeamGroups(bars: BeamBar[]): BeamSlotRef[][] {
       // group ends here rather than reaching over the bar to the one after it.
       //
       // ⭐ A FANNED first slot opens it on exactly the same terms as any other (P3 of
-      // docs/fan-beam-join-plan.md): a joined fan carries a leading `continue`, and that satisfies
+      // docs/plans/fan-beam-join-plan.md): a joined fan carries a leading `continue`, and that satisfies
       // "across a barline there is nowhere else it could come from" word for word. P0 and P2 kept a
       // `!first.fan` here while the drawing could not span two bars; `planCrossBarBeams` now routes
       // such a group to a `CrossBarFanJoin`, which builds no `Beam` and leaves the fan its stem.
@@ -179,7 +179,7 @@ export function computeCrossBarBeamGroups(bars: BeamBar[]): BeamSlotRef[][] {
       const ref: BeamSlotRef = { bar: b, slot: i }
 
       // ⚠️ A TWO-NOTE TREMOLO PAIR is never a member of an automatic group — it owns its own beam or
-      // none (docs/two-note-tremolo-plan.md §2). The exclusion belongs HERE, in the pure grouper, and
+      // none (docs/plans/two-note-tremolo-plan.md §2). The exclusion belongs HERE, in the pure grouper, and
       // not in `ScoreRenderer.buildBeams`: the cross-barline planner feeds the renderer its own
       // `inBarGroups`, so a pair excluded only at the renderer would still be dragged into a group
       // ACROSS A BARLINE by the plan. Both members break, exactly as a plain rest does.
@@ -193,9 +193,9 @@ export function computeCrossBarBeamGroups(bars: BeamBar[]): BeamSlotRef[][] {
       // is no more a member of an automatic group than a pair is, and for the same reason: two
       // beams would argue over one stem. Here rather than in the renderer, again because the
       // cross-barline planner reads these groups and would otherwise drag a fanned corchea across a
-      // barline into someone else's beam. See docs/fanned-beams-plan.md §3 (P0).
+      // barline into someone else's beam. See docs/plans/fanned-beams-plan.md §3 (P0).
       //
-      // ⭐ …but it MAY be JOINED to the group on its LEFT (docs/fan-beam-join-plan.md). `continue`
+      // ⭐ …but it MAY be JOINED to the group on its LEFT (docs/plans/fan-beam-join-plan.md). `continue`
       // authored on the owner is the exact word and not a spare key: a beam comes in AND a beam
       // goes out, and the outgoing one is the ramp. So the fan is pushed onto a group already open —
       // joined behind, never bridging in front, because the fan's last member is a pitch inside the
@@ -372,7 +372,7 @@ export function beamRoleAt(slots: ChordRest[], meter: MeterInfo, index: number):
 
 /**
  * {@link beamRoleAt} over a RUN of bars, so a note beamed through a barline reads `continue` rather
- * than the `end` its own bar would call it (docs/cross-barline-beaming-plan.md).
+ * than the `end` its own bar would call it (docs/plans/cross-barline-beaming-plan.md).
  *
  * The run is a fact about the SCORE, not about the page: nothing here knows where the systems break,
  * so a join the layout could not engrave still reads as one. That is the palette working — the mark
@@ -404,7 +404,7 @@ export function beamRoleAtRef(bars: BeamBar[], ref: BeamSlotRef): BeamRole {
   // fact.
   //
   // ⭐ …unless it is JOINED to the group on its LEFT, when the answer is `continue` — a beam coming
-  // in and a beam going out, the word's own definition (docs/fan-beam-join-plan.md §0). ⚠️ Never
+  // in and a beam going out, the word's own definition (docs/plans/fan-beam-join-plan.md §0). ⚠️ Never
   // `end`, although the generic rule below would say exactly that for the last fan of a group: a fan
   // ALWAYS has an outgoing beam, and it is its own ramp.
   //

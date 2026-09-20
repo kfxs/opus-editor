@@ -1,7 +1,7 @@
 /**
  * Where a text annotation stands on its note (S12g — `Annotation.draw`'s placement, transcribed).
  * ⚠️ Exactness against VexFlow was proved on the page: 50 random scores (797 dynamics, 138 hairpins)
- * byte-identical, down to the last bit of the note boxes they merge into (`docs/vexflow-removal-map.md`
+ * byte-identical, down to the last bit of the note boxes they merge into (`docs/history/vexflow-removal-map.md`
  * S12g). Pinned here is the rule.
  */
 import { describe, it, expect } from 'vitest'

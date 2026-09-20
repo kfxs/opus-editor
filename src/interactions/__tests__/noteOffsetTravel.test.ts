@@ -6,7 +6,7 @@ import { noteOffsetOverrideOf } from '../../engine/models/engravingOverrides'
 import { makeEngine } from '@/testing/makeEngine'
 
 /**
- * A note horizontal offset (client #12) TRAVELS WITH THE MUSIC (docs/note-offset-plan.md).
+ * A note horizontal offset (client #12) TRAVELS WITH THE MUSIC (docs/plans/note-offset-plan.md).
  *
  * Like the rest shift and leading space, the override is keyed by something the clipboard event
  * stream does not carry — here the SLOT id, which a rebar re-mints — so without capture/restore a
@@ -75,7 +75,7 @@ describe('note offset — copy/paste', () => {
 })
 
 /**
- * ⭐ A FANNED MEMBER's offset travels too (docs/note-offset-plan.md P3) — and by a different address
+ * ⭐ A FANNED MEMBER's offset travels too (docs/plans/note-offset-plan.md P3) — and by a different address
  * than everything else here: the group's own beat plus the member's INDEX. A member has no column of
  * its own for the tiling to hand back, and its key (its first pitch id) is re-minted by
  * `cloneFanFresh` on the far side, so the index is what survives the crossing.

@@ -25,7 +25,7 @@ vi.mock('../rendering/ScoreRenderer', async (importOriginal) => ({
     setLinearStaffSpacing = vi.fn()
     setCullWindow = vi.fn()
     setLayoutReusable = vi.fn()
-    // P3's skip test (docs/render-performance-plan.md §5a) reads the view state off the
+    // P3's skip test (docs/history/render-performance-plan.md §5a) reads the view state off the
     // renderer. The stub's view state never changes, so `isRenderStale` here answers purely
     // "did the content change?" — which is exactly what the tests below exercise.
     viewStateKey = vi.fn(() => 'stub-view-state')

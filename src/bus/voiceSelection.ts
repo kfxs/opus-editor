@@ -14,7 +14,7 @@ import { PaletteSelection } from './paletteSelection'
  *
  * ⭐⭐ **`'all'` is a word about a MARK, never about entry** — there is no typing into all the voices,
  * so `EditorState.activeVoice` stays 1–4 and `setActiveVoice` returns early on it
- * (docs/dynamic-voice-scope-plan.md P4). It rides this seam because the fifth button IS the fifth
+ * (docs/plans/dynamic-voice-scope-plan.md P4). It rides this seam because the fifth button IS the fifth
  * button: one row, one press channel, one method behind it.
  */
 export const createVoiceSelection = () => new PaletteSelection<1 | 2 | 3 | 4 | 'all'>()

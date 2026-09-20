@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { addTicks, lcm, subtractTicks, ticksEqual, ticksGreaterThan, ticksValue } from './tickCount'
 
 // VexFlow's `Fraction` arithmetic, transcribed (S9i). ⚠️ That it matches VexFlow's own was proved once,
-// side by side on random voices (`docs/vexflow-removal-map.md` §5.2); pinned here is what it promises.
+// side by side on random voices (`docs/history/vexflow-removal-map.md` §5.2); pinned here is what it promises.
 describe('tickCount', () => {
   it('adds over the LCM and ⛔ never reduces — a column key is the NUMERATOR', () => {
     expect(addTicks({ numerator: 1, denominator: 2 }, { numerator: 1, denominator: 2 }))

@@ -2,7 +2,7 @@ import { test, expect } from './fixtures'
 
 /**
  * THE DYNAMICS LINE — every dynamic-family mark of one (system, staff, placement) on one baseline
- * (docs/dynamics-line-and-hairpins-plan.md P1).
+ * (docs/plans/dynamics-line-and-hairpins-plan.md P1).
  *
  * ⚠️ **This suite has to be here and cannot be a unit test.** Every claim below is about where ink
  * landed, and the marks are text: in jsdom a glyph measures 0×0 and a `<text>` has no metrics, so

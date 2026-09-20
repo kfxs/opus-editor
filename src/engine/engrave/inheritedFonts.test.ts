@@ -11,7 +11,7 @@ import {
 } from './inheritedFonts'
 
 /**
- * ⭐ The inherited faces are TODAY's picture, copied exactly — S1c of `docs/vexflow-removal-map.md`
+ * ⭐ The inherited faces are TODAY's picture, copied exactly — S1c of `docs/history/vexflow-removal-map.md`
  * moved the fonts out of the drawing library's per-category table and moved no pixel doing it.
  *
  * ⚠️ These are not laws (rule 13): each is one house style's default. A change here is a DECISION

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /**
  * ⚠️⚠️ **THE GOVERNING KEY SIGNATURE IN THE SHAPE KEY** — the row that stops a key change at bar 1
- * leaving bar 40 drawn as it was (docs/key-signature-plan.md §1.3).
+ * leaving bar 40 drawn as it was (docs/plans/key-signature-plan.md §1.3).
  *
  * `MEASURE_RENDER_ROLE` is **own-fields-only**: it asks what bar *N*'s field does to bar *N*'s keys.
  * A key signature is **INHERITED**, so bar 40's own fields never move when bar 1's signature does —

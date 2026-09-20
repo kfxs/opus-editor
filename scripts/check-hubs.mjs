@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * `npm run lint:hubs` — **a new feature adds a MODULE**, as a number (CLAUDE.md;
- * docs/code-shape-plan-2026-09-19.md Phase 2.1).
+ * docs/plans/code-shape-plan-2026-09-19.md Phase 2.1).
  *
  * The rule cannot be checked by an import lint: a per-kind slice written into a hub imports exactly
  * what it would have imported from its own module. What CAN be counted is how much a hub knows
@@ -78,7 +78,7 @@ function stripComments(text) {
 /**
  * ⭐ `engine.dynamic.addDynamic(…)` names its kind ONCE, as `engine.addDynamic(…)` did. A mark family's
  * commands are reached through a namespace on the facade (`engine/commands/<family>Commands`,
- * docs/code-shape-plan-2026-09-19.md Phase 3.5), and that accessor carries no knowledge the command's
+ * docs/plans/code-shape-plan-2026-09-19.md Phase 3.5), and that accessor carries no knowledge the command's
  * own name does not already carry — so it is not a second mention. ⚠️ Narrow on purpose: only a
  * MEMBER access (`.family.`) that is itself followed by a member, and only these families.
  */
@@ -174,7 +174,7 @@ if (failures.length) {
   A new feature adds a MODULE (CLAUDE.md): the hub may gain a one-line delegation, the kind's logic
   and state live in its own file — interactions/elements/<kind>.ts, engine/models/<kind>Ops.ts, a
   row in the kind's table. If the hub genuinely had to grow, say why in
-  docs/code-shape-plan-2026-09-19.md and raise the ceiling in scripts/check-hubs.mjs in the same
+  docs/plans/code-shape-plan-2026-09-19.md and raise the ceiling in scripts/check-hubs.mjs in the same
   commit — that is a decision, and it should read as one.
 `)
   process.exit(1)

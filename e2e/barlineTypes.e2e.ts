@@ -1,7 +1,7 @@
 import { test, expect } from './fixtures'
 
 /**
- * **The three signs, drawn** — P2 of docs/barline-types-plan.md, measured in a browser.
+ * **The three signs, drawn** — P2 of docs/plans/barline-types-plan.md, measured in a browser.
  *
  * Here and not in the unit suite because every claim below is a POSITION. jsdom has no layout and no
  * fonts, so a barline's ink measures 0×0 there and any assertion about it agrees with itself. The
@@ -273,7 +273,7 @@ test('🚨🚨 a bar that MOVED without being re-engraved takes its barline with
   // that gesture showed it whole.
   //
   // ⭐ The same trap the barline selection HIGHLIGHT fell into once already
-  // (docs/barline-selection.md, "PAINT don't RECOLOUR"). The fix is the same shape: take the
+  // (docs/how-it-works/barline-selection.md, "PAINT don't RECOLOUR"). The fix is the same shape: take the
   // position from the PLACEMENT — the plan for THIS render — never from the stave.
   const out = await score.evaluate(async () => {
     const h = window.__h

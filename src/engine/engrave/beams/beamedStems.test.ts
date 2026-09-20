@@ -2,7 +2,7 @@
  * How far a beamed stem runs — to the beam, in jsdom.
  *
  * ⚠️ Exactness against `Beam.applyStemExtensions` was proved once, by a throwaway probe running both
- * on the same beams (S7b, `docs/vexflow-removal-map.md` §9). Pinned here: every stem meets the line,
+ * on the same beams (S7b, `docs/history/vexflow-removal-map.md` §9). Pinned here: every stem meets the line,
  * and a stem against the beam crosses the whole stack.
  */
 import { describe, it, expect } from 'vitest'

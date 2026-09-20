@@ -405,7 +405,7 @@ describe('elementClipboard — the TEMPO mark (his ask, 2026-08-19)', () => {
    * `placement` to copy beside it — and no `voice` either, an octave line governing its whole staff.
    *
    * ⚠️ And a paste onto an occupied beat REPLACES rather than stacks: `addOttava`'s upsert, the
-   * clef's rule (docs/ottava-plan.md §7.8), where two wedges may share a beat happily.
+   * clef's rule (docs/plans/ottava-plan.md §7.8), where two wedges may share a beat happily.
    */
   describe('an ottava', () => {
     let bracketId: string
@@ -478,7 +478,7 @@ describe('elementClipboard — the TEMPO mark (his ask, 2026-08-19)', () => {
    * ⚠️⚠️ **And its paste MAKES ROOM where the bracket's REPLACES.** Two brackets may overlap — two
    * displacements at different times are readable — but two pedals on one staff cannot: there is one
    * foot. So this lands through the ENTRY door (`MusicEngine.pedal.addPedalOverSpan`), which performs the
-   * pianist's own gesture, *lift, re-press* (docs/pedal-plan.md §3.3).
+   * pianist's own gesture, *lift, re-press* (docs/plans/pedal-plan.md §3.3).
    */
   describe('a sustain pedal', () => {
     let pedalId: string
@@ -520,7 +520,7 @@ describe('elementClipboard — the TEMPO mark (his ask, 2026-08-19)', () => {
     it('⚠️⚠️ a paste UNDER a pedal that is still down LIFTS it — ⛔ it never stacks', () => {
       // ⭐⭐ THE ONE PLACE THIS DIFFERS FROM THE BRACKET'S ARM, and it is the instrument's own fact:
       // one damper. The long pedal is shortened to end where the pasted one begins, which is exactly
-      // what the pianist did (docs/pedal-plan.md §3.3).
+      // what the pianist did (docs/plans/pedal-plan.md §3.3).
       const long = engine.pedal.addPedal(1, { beat: frac(1, 1), length: frac(3, 1) })!
       const clip = copyElement(engine, { kind: 'pedal', id: pedalId })!
       pasteElement(engine, clip, { measure: 1, beat: frac(2, 1), staff: 0 })

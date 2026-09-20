@@ -1,6 +1,6 @@
 /**
  * ⭐⭐ **THE LINE THAT OPENS A STAVE, AS INK — P5b's last piece of drawing**
- * (`docs/own-engraving-engine.md` P5; the seam is `rendering/EngravedBarline`).
+ * (`docs/plans/own-engraving-engine.md` P5; the seam is `rendering/EngravedBarline`).
  *
  * ⚠️ **It is not one of the barlines `BarlineRenderer` draws, and that is a statement about the
  * MARK rather than about this repo's history.** Every line that *divides two bars* — plain, final,

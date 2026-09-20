@@ -14,7 +14,7 @@
  * key and the offset moves in the JSON while the mark sits still, which is the dynamic's recorded
  * lesson of 2026-07-18 (`reference_render_width_key_vs_shape_key`).
  *
- * 🚨 **But a PREVIEW re-engraves nothing** (docs/render-performance-plan.md §12.5a). A mark drag
+ * 🚨 **But a PREVIEW re-engraves nothing** (docs/history/render-performance-plan.md §12.5a). A mark drag
  * changes exactly that override, and the one writer of it is inside the bar draw the preview exists
  * to skip. Without this pass the frame would move the mark's ROW and leave its nudge on the last
  * render's value — the mark would follow the hand vertically down the ladder and refuse to follow it

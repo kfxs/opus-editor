@@ -78,7 +78,7 @@ describe('cautionaryExtent — a key takes the METER\'s branch', () => {
 
 /**
  * ⭐⭐ **DECISION D — the gap before the first note is keyed on what ENDS the header**
- * (Gould p. 42; `docs/header-spacing-research.md` §8 D, his call 2026-09-01).
+ * (Gould p. 42; `docs/research/header-spacing-research.md` §8 D, his call 2026-09-01).
  *
  * 🚨 There was NO coverage of this gap before the decision — the single `HEADER_TO_NOTE` was applied
  * everywhere and nothing asserted it, so changing it broke not one test. That absence is why this

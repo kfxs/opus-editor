@@ -70,7 +70,7 @@ let firstSettle: Promise<void> | undefined
  * touching it is a `ReferenceError` rather than `undefined`.
  */
 export function musicFontReady(): Promise<void> {
-  // ⭐ Our own faces go in first (`./musicFontFaces`, S1 of docs/vexflow-removal-map.md) — the
+  // ⭐ Our own faces go in first (`./musicFontFaces`, S1 of docs/history/vexflow-removal-map.md) — the
   // browser no longer depends on VexFlow's import to have the music font at all.
   firstSettle ??= typeof document === 'undefined'
     ? Promise.resolve()

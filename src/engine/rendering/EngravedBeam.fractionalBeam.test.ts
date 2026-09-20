@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * ⭐⭐ **P4c, MEASURED — Gould p. 157's ⅜ pair, rendered** (`docs/beam-hook-research.md` §3–§4).
+ * ⭐⭐ **P4c, MEASURED — Gould p. 157's ⅜ pair, rendered** (`docs/research/beam-hook-research.md` §3–§4).
  *
  * Her two bars carry the SAME three note-values and she draws them with OPPOSITE fractional beams,
  * because the semiquaver completes the second quaver in one and starts it in the other. 🚨 Before

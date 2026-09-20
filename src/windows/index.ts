@@ -8,7 +8,7 @@ import { installProperties } from './properties'
  * It lives here — plain TS — and not in `App.ts`, so that ANY module can open a window by importing
  * it: a shortcut handler, a controller in `interactions/`, the engine. If the instance lived in the
  * app, the app would have to hand it to every opener, and "add a window" would mean "edit App.ts" —
- * the one thing docs/windows-design.md forbids.
+ * the one thing docs/how-it-works/windows-design.md forbids.
  *
  * `App.ts`'s entire share is therefore TWO lines, and both exist only because the app owns the DOM
  * node and decides how long it lives:

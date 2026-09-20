@@ -1,5 +1,5 @@
 /**
- * Styling constants for the OTTAVA — the numeral and its dashed bracket (docs/ottava-plan.md §1, P3).
+ * Styling constants for the OTTAVA — the numeral and its dashed bracket (docs/plans/ottava-plan.md §1, P3).
  *
  * `./trillStyle`'s twin, and deliberately the same shape: the family's two clearance numbers, the
  * glyph size, and how far the sign's ink reaches from its own baseline. Everything vertical that is
@@ -138,7 +138,7 @@ export const OTTAVA_MARK_INK: MarkInk = {
  * but it is her general *don't collide with anything* rule, not a ranking. Her ranking against
  * DYNAMICS is p. 101–102 and puts the octave bracket **INSIDE** them, with a drawn correct/incorrect
  * pair whose "incorrect" half is what we draw today. So the two sources disagree and this follows
- * LilyPond alone. ⏭️ Changing it is an open decision, not a tidy-up — see docs/ottava-plan.md §1 rule
+ * LilyPond alone. ⏭️ Changing it is an open decision, not a tidy-up — see docs/plans/ottava-plan.md §1 rule
  * 5 and §5, which carry the pages, the measurements and why the fix is not a one-line pass move.
  *
  * ⚠️ So `minFromStaff` is only the FLOOR for a bar where nothing else is beside the staff — it is not

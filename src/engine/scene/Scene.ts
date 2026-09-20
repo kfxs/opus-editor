@@ -1,5 +1,5 @@
 /**
- * ⭐⭐ **THE SCENE — what was drawn, as VALUES** (`docs/own-engraving-engine.md` §7.2).
+ * ⭐⭐ **THE SCENE — what was drawn, as VALUES** (`docs/plans/own-engraving-engine.md` §7.2).
  *
  * > *"The engrave stage produces a SCENE: a plain typed array of primitives — glyph, line, quad,
  * > curve, text, group — in score coordinates, with no DOM and no VexFlow."*
@@ -30,7 +30,7 @@
  * step.** The check counts the identifier `vexContext`; a MODIFIER never writes one, because
  * `StaveNote.drawModifiers` hands it `checkContext()`. So every accidental and every dot sat outside
  * this scene through four migration steps while that number fell 24 → 9, and nothing said so
- * (`docs/note-engraving-plan.md` §1f). ⇒ ⭐ **the honest measure of what is missing is a CENSUS**
+ * (`docs/plans/note-engraving-plan.md` §1f). ⇒ ⭐ **the honest measure of what is missing is a CENSUS**
  * against the page — `ScoreRenderer.scene.test.ts` — and `lint:paint` measures COUPLING.
  *
  * ✅ What IS in it today: barlines and their joins, key signatures, the grouping signs and the

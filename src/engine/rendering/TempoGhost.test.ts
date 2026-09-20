@@ -4,7 +4,7 @@
  *
  * ⚠️ jsdom has no `getBBox`, so this spec STUBS it — the claims are the wiring: which group, which
  * runs, painted how. Where the ink lands against the pointer is the browser's, proved once by an A/B
- * of every cursor ghost's ink against the previous commit (`docs/vexflow-removal-map.md` S11c).
+ * of every cursor ghost's ink against the previous commit (`docs/history/vexflow-removal-map.md` S11c).
  */
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest'
 import { MusicEngine } from '../MusicEngine'

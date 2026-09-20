@@ -1,7 +1,7 @@
 import { test, expect } from './fixtures'
 
 /**
- * The bar-width gesture (docs/bar-width-plan.md §4–§6), measured for real.
+ * The bar-width gesture (docs/plans/bar-width-plan.md §4–§6), measured for real.
  *
  * This is the one feature in the editor whose whole definition is a measured pixel: *the barline
  * lands where the gesture asked*. Widening a bar shrinks its own justified share and every bar's

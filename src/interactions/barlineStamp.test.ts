@@ -12,7 +12,7 @@ import {
 import { STAFF_BAND_PAD_PX } from './staffBand'
 
 /**
- * The barline palette's press — P4 of docs/barline-types-plan.md.
+ * The barline palette's press — P4 of docs/plans/barline-types-plan.md.
  *
  * Subject: {@link barlineStamp}, sitting beside this file. The `MusicEngine` is real (the write, its
  * refusals and its undo entry are all its answers); nothing here is drawn, and nothing here asks

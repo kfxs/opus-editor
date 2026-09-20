@@ -1,6 +1,6 @@
 /**
  * ⭐⭐ **WHICH LANES A DYNAMIC (OR A HAIRPIN) GOVERNS** — the scope axis of the dynamics family,
- * asked at a seam so there is one file to change. See docs/dynamic-voice-scope-plan.md.
+ * asked at a seam so there is one file to change. See docs/plans/dynamic-voice-scope-plan.md.
  *
  * ⭐⭐ **ABSENT MEANS *ALL*, and that inverts `utils/lanes` for these two kinds only.** Everywhere
  * else in this model an absent `voice` means *the first one* (`voiceOf` — a note with no voice is

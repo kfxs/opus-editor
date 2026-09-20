@@ -1,6 +1,6 @@
 /**
  * ⭐⭐ **WHAT A VOICE PRESS DOES TO A SELECTED MARK** — `Alt+1…5` and the Keypad's voice row, for the
- * dynamics family. P4 of docs/dynamic-voice-scope-plan.md.
+ * dynamics family. P4 of docs/plans/dynamic-voice-scope-plan.md.
  *
  * ## The rule is ONE sentence, and it is his
  *
@@ -36,7 +36,7 @@ type ScopeEngine = Pick<MusicEngine, 'setMarkVoiceScope' | 'runBatch'>
 
 /**
  * ⭐ The selection kinds that CARRY a scope. Both members of the dynamics family, and nothing else:
- * a row here is the whole of adding a third (docs/dynamic-voice-scope-plan.md).
+ * a row here is the whole of adding a third (docs/plans/dynamic-voice-scope-plan.md).
  */
 const SCOPED_KINDS: ReadonlyArray<SelectionItem['kind']> = ['dynamic', 'hairpin']
 

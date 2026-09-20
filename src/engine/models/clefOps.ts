@@ -18,7 +18,7 @@ import { clearClefOffset } from './overrideOps'
  * Same-staff test for two clef changes. Staff 0 always stores an ABSENT `staffId`
  * (the write convention — {@link MusicEngine.staffIdForIndex} yields undefined for
  * index 0), and any later staff stores its real id, so strict equality is exact: two
- * clefs on one staff share the same (possibly undefined) id. See docs/multi-staff-plan.md §4.
+ * clefs on one staff share the same (possibly undefined) id. See docs/plans/multi-staff-plan.md §4.
  */
 function sameStaff(a: string | undefined, b: string | undefined): boolean {
   return a === b

@@ -11,7 +11,7 @@ import {
 
 /**
  * ⭐ The staff frame answers the questions a `Stave` used to — `getYForLine`, `getYForNote`,
- * `getYForTopText` — with the same numbering, so S2 of `docs/vexflow-removal-map.md` moved no pixel.
+ * `getYForTopText` — with the same numbering, so S2 of `docs/history/vexflow-removal-map.md` moved no pixel.
  * A stave at y = 40 with the default 4 spaces of headroom has its top line at 80.
  */
 const frame: StaffFrame = { topLineY: 80, spacePx: 10, lineCount: 5 }

@@ -1,5 +1,5 @@
 /**
- * ⭐⭐ **A BOX, COMPUTED FROM WHAT WAS DRAWN** — P6 step a (`docs/own-engraving-engine.md` §5 P6).
+ * ⭐⭐ **A BOX, COMPUTED FROM WHAT WAS DRAWN** — P6 step a (`docs/plans/own-engraving-engine.md` §5 P6).
  *
  * > *"A box is COMPUTED from what was drawn, not measured off the page and not asked of an object."*
  *

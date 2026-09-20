@@ -1,5 +1,5 @@
 /**
- * ⭐⭐ **WHERE A REST INSIDE A BEAM SITS** — S9h of `docs/vexflow-removal-map.md`
+ * ⭐⭐ **WHERE A REST INSIDE A BEAM SITS** — S9h of `docs/history/vexflow-removal-map.md`
  * (`Formatter.AlignRestsToNotes`, MIT, transcribed; §5.1 #2).
  *
  * ## ⭐ What the rule IS

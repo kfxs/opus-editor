@@ -6,7 +6,7 @@
  * ⚠️ jsdom has no `getBBox`, so a sign ghost there measures nothing and takes itself down. This spec
  * STUBS it — the claims are the wiring: which group, which glyphs, in which order, painted how. Where
  * the ink lands against the pointer is the browser's, and was proved once by an A/B of every cursor
- * ghost's ink against the previous commit (`docs/vexflow-removal-map.md` S11b).
+ * ghost's ink against the previous commit (`docs/history/vexflow-removal-map.md` S11b).
  */
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest'
 import { MusicEngine } from '../MusicEngine'

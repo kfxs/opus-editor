@@ -1,6 +1,6 @@
 /**
  * ⭐⭐ **A SLUR'S ENDPOINT CLEARS ITS OWN NOTE'S ARTICULATION** — his report of 2026-09-14, and the
- * rule two engines already state (`docs/slur-tie-research.md` §8).
+ * rule two engines already state (`docs/research/slur-tie-research.md` §8).
  *
  * ## ⭐ What this is for, and why it is an ENDPOINT rule rather than an obstacle rule
  *
@@ -18,7 +18,7 @@
  *
  * ## ⭐ Who else does this, because ⛔ no book on disk answers it
  *
- * `docs/slur-tie-research.md` §8.3 records the negative: **no treatise states how a slur clears
+ * `docs/research/slur-tie-research.md` §8.3 records the negative: **no treatise states how a slur clears
  * articulation marks on the NOTEHEAD side.** (Gould p. 111 is about a slur at the STEM end and was
  * misapplied here once already — his catch.) What the books settle is only that staccato and tenuto
  * go INSIDE the slur, so the slur must be outside them (§8.2, four sources).
@@ -51,7 +51,7 @@ const ARTICULATION = 'Articulation'
  * ⛔ **Answers null rather than guessing** when the note has no marks, or when a mark's box is not a
  * finite number. ⚠️ The second case is real and it is VexFlow's: `Articulation.draw` centres a mark
  * with `setOrigin`, which divides by a glyph width that a page-less test measures as **0**, so under
- * the unit runner these boxes are NaN (`docs/own-engraving-engine.md` §5 P6a). A NaN must not reach
+ * the unit runner these boxes are NaN (`docs/plans/own-engraving-engine.md` §5 P6a). A NaN must not reach
  * the arithmetic — *a box is either honest or absent*.
  *
  * @param direction −1 for a slur above, +1 for below.

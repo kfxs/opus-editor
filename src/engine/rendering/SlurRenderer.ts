@@ -45,7 +45,7 @@ import { noteRuler } from './noteRuler'
 import type { NoteRuler } from '@/engine/engrave/notes/noteRuler'
 
 // Vertical geometry shared by all slur arcs, in pixels — ⛔ authored in STAFF SPACES in
-// `./curveStyle`, where each number carries the research it answers to (docs/slur-plan.md §11–§13).
+// `./curveStyle`, where each number carries the research it answers to (docs/plans/slur-plan.md §11–§13).
 // A cubic's peak deviation is 0.75·H, so the 0.93 sp BOW reproduces the old quadratic's
 // LIFT + ARC/2 peak. Phase 2 of §12 is the one that may replace this height law outright.
 const SLUR_LIFT = CURVE_PX.slurLift       // gap between the notehead and the arc's endpoints
@@ -65,7 +65,7 @@ function measureOfNoteId(score: Score, noteId: string): number | undefined {
       if (s.type === 'chord' && s.notes.some(p => p.id === noteId)) return m.number
       if (s.type === 'rest' && s.id === noteId) return m.number
       // A FANNED MEMBER lives inside the slot, not in `slot.notes` — and a slur can be anchored to
-      // one (docs/fanned-beam-pitches-plan.md), so it has to name its measure like any other end.
+      // one (docs/plans/fanned-beam-pitches-plan.md), so it has to name its measure like any other end.
       if (s.type === 'chord' && (s.fan?.members ?? []).some(mm => mm.pitches.some(p => p.id === noteId))) return m.number
     }
   }
@@ -84,7 +84,7 @@ function measureOfNoteId(score: Score, noteId: string): number | undefined {
 interface SlurEnd {
   staveNote: EngravedNote
   /**
-   * ⭐ Where the arc springs from / lands: the **CENTRE of the notehead** (docs/slur-plan.md §12
+   * ⭐ Where the arc springs from / lands: the **CENTRE of the notehead** (docs/plans/slur-plan.md §12
    * Phase 2). It used to be the note's tie EDGES — `getTieRightX()`/`getTieLeftX()` — which made a
    * slur span the gap BETWEEN two heads instead of reaching over them, roughly 0.6 sp short at each
    * end. All three engines anchor at the centre by three different constructions (MuseScore
@@ -127,7 +127,7 @@ function resolveSlurEnd(pass: RenderPass, noteId: string): SlurEnd | undefined {
       staveNote: member.staveNote,
       centerX: (member.leftX + member.rightX) / 2,
       // A member's head and the point where its stem meets the beam mean exactly what a real note's
-      // do, so the same rule reaches it with no branch of its own (docs/slur-plan.md §12.0 #7).
+      // do, so the same rule reaches it with no branch of its own (docs/plans/slur-plan.md §12.0 #7).
       attach: {
         headYs: [member.headY],
         stemTipY: member.tipY,
@@ -354,7 +354,7 @@ function slurArchCps(
 ): [{ x: number; y: number }, { x: number; y: number }] {
   const dy = p1.y - p0.y
   // HOW TALL is `./slurArchHeight` — a law, not a constant, and the one number in the family with no
-  // published source (docs/slur-plan.md §12 Phase 2). `extraHeight` lifts an outer slur clear of the
+  // published source (docs/plans/slur-plan.md §12 Phase 2). `extraHeight` lifts an outer slur clear of the
   // slur(s) nested inside it (Phase 8).
   //
   // ⏭️ A short, steeply tilted slur should be rounder than this law asks (Verovio's minimum control
@@ -375,7 +375,7 @@ function slurArchCps(
   // ⭐⭐ **THE OBSTACLE FACTOR SCALES BOTH CONTROLS BY THE SAME NUMBER** — LilyPond's, and the
   //    property is the point: multiplying a pair by one scalar cannot change their RATIO, so the
   //    arch keeps its shape and only its size answers the music under it (`./slurObstacles`).
-  //    ⛔ Never two separate lifts — that is what bent his slur (`docs/slur-tie-research.md` §8.1).
+  //    ⛔ Never two separate lifts — that is what bent his slur (`docs/research/slur-tie-research.md` §8.1).
   return [
     { x: indent, y: (H + lean) * fit },
     // ⚠️ `0 - indent`, ⛔ not `-indent`: the default puts a NEGATIVE ZERO there, and `toEqual`
@@ -412,7 +412,7 @@ export function resolveCps(
 /**
  * Resolve a slur's endpoint nudge (a {@link SlurEndpointOffsetOverride}, stored in
  * **staff-spaces**, anchor-relative) to per-end PIXEL deltas against each end's OWN stave
- * (see docs/slur-endpoint-offset-plan.md). A missing offset for an end — or a
+ * (see docs/plans/slur-endpoint-offset-plan.md). A missing offset for an end — or a
  * not-yet-laid-out stave (`undefined`) — yields 0 for that end, so the caller can add the
  * result unconditionally without risking a throw inside `staffSpacesToPixels`. Pure +
  * VexFlow-light (reads only the stave's space, through `./staveFrame`), mirroring `resolveCps`.
@@ -622,13 +622,13 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
       const slurStaffIndex = staffIndexOfId(score, startSlot?.staffId)
 
       // A slur is built from its two notes' own coordinates, which live in their staff's scaled
-      // space — so it is drawn there too (docs/staff-size-plan.md §4.3). That covers its ARC, its
+      // space — so it is drawn there too (docs/plans/staff-size-plan.md §4.3). That covers its ARC, its
       // thickness, and the handles + sampled points it registers for hit-testing, all at once.
       // A slur never spans two staves today (cross-staff slurring is not modelled), so the start
       // note's staff is the slur's.
       inStaffSpace(pass, slurStaffIndex, group, () => {
 
-        // ⭐⭐ **THE ARC, FILED AS AN OBSTACLE** — docs/trill-slur-clearance-plan.md P1. Every drawn
+        // ⭐⭐ **THE ARC, FILED AS AN OBSTACLE** — docs/plans/trill-slur-clearance-plan.md P1. Every drawn
         // arc (this slur's, or each of a split slur's segments) goes on the render's curve
         // collection, so the outside-staff ladder planned after this pass can clear it: Gould p. 135
         // puts the trill outside all but a long slur, and until now nothing above the staff knew a
@@ -672,7 +672,7 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
         // don't collide. A manual `cps` shape opts out — the user controls that height.
         const nestLift = (nestDepths.get(slur.id) ?? 0) * SLUR_NEST_GAP
 
-        // Endpoint nudge (docs/slur-endpoint-offset-plan.md): a free anchor-relative offset
+        // Endpoint nudge (docs/plans/slur-endpoint-offset-plan.md): a free anchor-relative offset
         // (staff-spaces) on top of each note anchor. Applied ONCE here, before the
         // single-vs-cross branch, so every downstream consumer — the arc, the auto-arch cps,
         // `slurTrueEndpoints`, and therefore the blue squares — flows from the shifted values.

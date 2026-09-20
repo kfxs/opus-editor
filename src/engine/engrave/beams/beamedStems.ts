@@ -1,5 +1,5 @@
 /**
- * ⭐⭐ **HOW FAR A BEAMED STEM RUNS — to the beam** — S7b of `docs/vexflow-removal-map.md`
+ * ⭐⭐ **HOW FAR A BEAMED STEM RUNS — to the beam** — S7b of `docs/history/vexflow-removal-map.md`
  * (`Beam.applyStemExtensions`, MIT, transcribed).
  *
  * ## ⭐ What the rule IS

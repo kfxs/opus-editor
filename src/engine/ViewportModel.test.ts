@@ -196,7 +196,7 @@ describe('ViewportModel', () => {
     })
   })
   /**
-   * P6 — the window the renderer culls against (docs/render-performance-plan.md §8). The model works
+   * P6 — the window the renderer culls against (docs/history/render-performance-plan.md §8). The model works
    * in screen pixels; measure boxes are in layout pixels; `getVisibleRect` is the one place the two
    * are divided apart.
    */

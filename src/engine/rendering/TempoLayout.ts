@@ -1,6 +1,6 @@
 /**
  * Tempo-mark rendering & layout — the render side of {@link TempoMark}
- * (docs/tempo-marks-plan.md §6). Free functions over the passed-in {@link RenderPass} +
+ * (docs/plans/tempo-marks-plan.md §6). Free functions over the passed-in {@link RenderPass} +
  * measure, matching the {@link DynamicsLayout} idiom.
  *
  * Called once per measure from `renderMeasure`, AFTER the voices are formatted and drawn
@@ -413,7 +413,7 @@ export function drawTempoMarks(
     if (!mark.text) continue // nothing printed (a mark that only sounds)
 
     // ⚠️ **NOT the mark's row — only where it is drawn before one is decided.** Until P0b of
-    // docs/ottava-plan.md this WAS the answer, and it was a constant: `getYForTopText(1)` resolves
+    // docs/plans/ottava-plan.md this WAS the answer, and it was a constant: `getYForTopText(1)` resolves
     // to a baseline 2 staff spaces above the top line, blind to ledger lines, to a dynamic above the
     // staff, to a trill and to an 8va bracket. `./tempoLinePass` now translates every mark onto the
     // row its music leaves free, so what survives here is an ORIGIN — the pass measures its move
@@ -468,7 +468,7 @@ export function drawTempoMarks(
           // ⭐⭐ THE ATTACHMENT GUIDE'S TWO ENDS — the second kind to draw one (his call, 2026-08-17,
           // the dynamic's having been the first). Both are captured here because both are
           // measurements, and `elements/anchorGuideLine.paintAnchorGuideLine` only draws what the render
-          // measured (docs/dynamic-offset-plan.md).
+          // measured (docs/plans/dynamic-offset-plan.md).
           //
           // ⭐ **What a tempo mark is attached to is a PLACE IN TIME, not a note** — which is why
           // this end is `x` (the same {@link anchorX} the mark is drawn from: the bar's opening for a

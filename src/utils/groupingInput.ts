@@ -10,7 +10,7 @@ import { isValidTimeSignature } from './meter'
  * subtly differently. The rule is the model's, not a component's (lint:boundary enforces the
  * direction; this file simply keeps the rule where both sides can reach it).
  *
- * See docs/time-signature-window-plan.md §2 for what grouping still CANNOT say.
+ * See docs/plans/time-signature-window-plan.md §2 for what grouping still CANNOT say.
  */
 
 /**

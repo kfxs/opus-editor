@@ -1,6 +1,6 @@
 /**
- * ⭐⭐ **A NOTEHEAD'S INK — the shape P3d drew, given its SECOND OWNER** (`docs/note-engraving-plan.md`
- * §1d; `docs/own-engraving-engine.md` P3).
+ * ⭐⭐ **A NOTEHEAD'S INK — the shape P3d drew, given its SECOND OWNER** (`docs/plans/note-engraving-plan.md`
+ * §1d; `docs/plans/own-engraving-engine.md` P3).
  *
  * ## ⭐ Why this module exists: the note's ink lives HERE, and the heads were the odd one out
  *
@@ -17,7 +17,7 @@
  * that GROUP, ⛔ not on the notehead: the highlight reads the member group back as a DOM node, so the
  * group had to open on our surface too (the counted `svgNode` escape), and the member's sign, ledgers
  * and stems had to move in the same step, or one member's ink would have split across two contexts.
- * The 2026-09-01 attempt that was reverted is recorded in `docs/own-engraving-engine.md` U2.
+ * The 2026-09-01 attempt that was reverted is recorded in `docs/plans/own-engraving-engine.md` U2.
  *
  * ## ⭐ What a notehead IS, as ink
  *

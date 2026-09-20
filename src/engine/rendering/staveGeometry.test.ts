@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * **The assumption the two-tier split stands on** (docs/render-performance-plan.md §7).
+ * **The assumption the two-tier split stands on** (docs/history/render-performance-plan.md §7).
  *
  * Tier 1 — where every measure *is* — must be derivable from a stave that was **never drawn**.
  * That is what lets P6 cull a measure's draw without losing its position, and it is why

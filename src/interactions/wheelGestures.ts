@@ -13,7 +13,7 @@
  * user put the editor in deliberately.
  *
  * ⛔ **`Ctrl`+wheel is NOT here.** Zoom is the app's own, always score zoom whether or not the pointer
- * is over the music (docs/zoom-plan.md §7), and it is handled before this is consulted.
+ * is over the music (docs/plans/zoom-plan.md §7), and it is handled before this is consulted.
  *
  * ⚠️ The caller owns `preventDefault()` and the repaint — this module answers *"did anything take
  * it?"* and nothing else, so it can be tested without a DOM.

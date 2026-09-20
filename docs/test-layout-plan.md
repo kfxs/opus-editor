@@ -325,13 +325,13 @@ Two judgement calls to note:
   (⚠️ 2026-09-19: no longer true of its imports — since VexFlow's removal it tests `EngravedStave`,
   which it could be named after; the allowlist entry is unchanged.)
 
-One stale pointer left deliberately: `docs/time-signature-plan.md` §Phase 0 names
+One stale pointer left deliberately: `docs/plans/time-signature-plan.md` §Phase 0 names
 `restFill.baseline.test.ts`, now `ScoreModel.restFill.test.ts`. It sits inside a dated
 completion record, so it reads as history rather than as a path to follow.
 
 ## Phase 5 — a spec moves with its module (2026-07-28)
 
-Added by `docs/modularity-plan-2026-07-28.md` Phase 0, which re-opens the stop point below on
+Added by `docs/history/modularity-plan-2026-07-28.md` Phase 0, which re-opens the stop point below on
 purpose and for a different reason. Phases 1–4 were about **layout** — where a spec sits and what it
 is called. This one is about **contracts**: §5 of that plan measures that the extractions moved the
 *code* out and left the *tests* in the parent, so the parent spec never shrinks, still knows

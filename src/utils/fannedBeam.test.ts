@@ -7,7 +7,7 @@ import { fracCreate as frac, fracFromInt, fracAdd, fracEq, fracToNumber } from '
 import type { FanMark, NotePitch } from '@/types/music'
 
 /**
- * The expander (docs/fanned-beams-plan.md §2). What is pinned here is the ONE promise a fan makes —
+ * The expander (docs/plans/fanned-beams-plan.md §2). What is pinned here is the ONE promise a fan makes —
  * **the group's total duration is unchanged** — plus the degenerate cases, because a fan applied to
  * a note somebody then edits is how those get reached.
  */
@@ -152,7 +152,7 @@ describe('rampWeights — the seam the curve will be swapped at', () => {
 })
 
 /**
- * ⭐ The RANGE (docs/fan-ramp-range-plan.md P0). Two promises: the default is **today's numbers, to
+ * ⭐ The RANGE (docs/plans/fan-ramp-range-plan.md P0). Two promises: the default is **today's numbers, to
  * the last unit** — this is the whole no-migration claim, and a drifted weight would move every fan
  * already on the page — and an inset mark holds the members outside it at ONE weight, which is what
  * makes "outside the mark is a one-beam note at base speed" true of the sound as well as the picture.

@@ -1,5 +1,5 @@
 /**
- * TEMPORARY — the P0 measurement instrument for the spacing model (docs/spacing-model-plan.md P0).
+ * TEMPORARY — the P0 measurement instrument for the spacing model (docs/plans/spacing-model-plan.md P0).
  * Delete when P5 closes; nothing in the app may depend on it.
  *
  * P0 exists because *"nothing can be called an improvement without a before"*. This module IS the
@@ -9,7 +9,7 @@
  *
  * ## Why a browser, and why here
  *
- * Headless every music glyph measures 0×0 (docs/spacing-model-research.md §5.4), so a census taken
+ * Headless every music glyph measures 0×0 (docs/research/spacing-model-research.md §5.4), so a census taken
  * in jsdom would report the *floor* talking to itself. The numbers have to come off a real render
  * with real Bravura metrics, which means two callers, both real:
  *

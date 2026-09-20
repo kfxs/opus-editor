@@ -79,7 +79,7 @@ export const SLUR_ELEMENT: ClickableElementSpec = {
   // is unreliable (created as 0), so it is read off the start NOTE.
   // An arc emits TWO paths — a stroke-only outline and a fill-only body (`engrave/curves/curveInk`)
   // — so fill AND stroke are set on each, or a selected slur shows a coloured body with a dark
-  // outline (docs/slur-plan.md §7.3).
+  // outline (docs/plans/slur-plan.md §7.3).
   ink: (ctx, id) => {
     const group = ctx.engine.getSlurSVGGroup(id)
     if (!group) return

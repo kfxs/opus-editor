@@ -8,7 +8,7 @@ import { DEFAULT_FAN_BEAMS } from '@/utils/fannedBeam'
 import type { Score, FanMark } from '@/types/music'
 
 /**
- * 🚨 THE WIDTH — the one silent failure the fan can cause (docs/fanned-beams-plan.md §3, P1).
+ * 🚨 THE WIDTH — the one silent failure the fan can cause (docs/plans/fanned-beams-plan.md §3, P1).
  *
  * A fanned slot is drawn as `count` noteheads but is ONE slot, and bar width floors at
  * `slots.length × MIN_NOTE_SPACING`. Nothing throws when this is wrong; the heads simply pile up on

@@ -1,6 +1,6 @@
 /**
  * ⭐⭐ **ONE FACTOR OVER THE WHOLE ARCH** — LilyPond's `fit_factor`, adopted 2026-09-14 in place of
- * Verovio's two-control solve (`docs/slur-tie-research.md` §8; the module header has the why).
+ * Verovio's two-control solve (`docs/research/slur-tie-research.md` §8; the module header has the why).
  *
  * 🚨 **The property these specs exist for is the RATIO.** His report was not that the slur was too
  * tall — it was that it was BENT: *"they should not change the slur angle but move it up a little"*.

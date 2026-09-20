@@ -6,7 +6,7 @@
  * converted to pixels against the live stave, ELSE the auto arch*, and `slurEndpointOffsetPx` yields
  * zero for a missing offset so the caller adds it without a branch. Copying that here is the whole
  * reason this file exists: aperture and slant are both wanted as user controls later
- * (docs/dynamics-line-and-hairpins-plan.md §6), and the day they arrive they must be a compartment
+ * (docs/plans/dynamics-line-and-hairpins-plan.md §6), and the day they arrive they must be a compartment
  * client plus a drag — with no geometry rewritten, because the drawing already asks a resolver
  * instead of reading a constant.
  *

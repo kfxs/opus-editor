@@ -315,7 +315,7 @@ describe('pitchSpelling', () => {
 
 /**
  * ⭐⭐ {@link pitchToMidi} — **the interpret step's own conversion, and the only 12-EDO step the
- * sound path is allowed to take** (docs/playback-semantics-plan.md, 2026-08-20).
+ * sound path is allowed to take** (docs/plans/playback-semantics-plan.md, 2026-08-20).
  *
  * It is `spellingToMidi` read off one object, so the arithmetic is already covered above. What is
  * worth pinning here is the property that makes its POSITION matter: it is LOSSY, and what it loses
@@ -330,7 +330,7 @@ describe('pitchToMidi', () => {
 
   it('🚨 COLLAPSES the enharmonic — which is why it must be the LAST step, never the schedule\'s', () => {
     // In meantone G♯ sounds LOWER than A♭; in Pythagorean, higher. Once both are 61 no later layer
-    // can tell which was written (docs/tuning-systems-and-alteration.md).
+    // can tell which was written (docs/how-it-works/tuning-systems-and-alteration.md).
     expect(pitchToMidi({ step: 'G', alter: 1, octave: 4 })).toBe(68)
     expect(pitchToMidi({ step: 'A', alter: -1, octave: 4 })).toBe(68)
   })

@@ -5,7 +5,7 @@ import { keyFromFifths } from '@/utils/keySignature'
 import { fracCreate as frac } from '@/utils/fraction'
 
 /**
- * ⭐⭐ The alteration a newly placed pitch is born with (docs/key-signature-plan.md §3.1).
+ * ⭐⭐ The alteration a newly placed pitch is born with (docs/plans/key-signature-plan.md §3.1).
  *
  * The rule it pins is *armed accidental → the bar's running accidental → the key → 0*, and the case
  * that made it necessary is the third rung: without it, every note typed in G major comes out an F♮

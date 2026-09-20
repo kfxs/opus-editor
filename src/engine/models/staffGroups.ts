@@ -1,6 +1,6 @@
 /**
  * ⭐⭐ **WHICH GROUPING SIGNS STAND AT A BAR** — the brace and the bracket a system opening at that
- * bar draws, resolved from the score. P2/P4 of docs/braces-brackets-plan.md.
+ * bar draws, resolved from the score. P2/P4 of docs/plans/braces-brackets-plan.md.
  *
  * ## ⭐⭐ THE BAR IS IN THE SIGNATURE THOUGH NOTHING VARIES BY IT YET
  *
@@ -16,7 +16,7 @@
  * With the bar already asked for, the day a group carries a measure range the lookup changes
  * **inside this function** and ⛔ **not one caller moves**. Add the field first and it is a field
  * with no feature — nothing authors it, nothing maintains it, and nothing reads it back
- * (`docs/barline-types-plan.md` §2 lists exactly that as a smell, and key signatures P1 left
+ * (`docs/plans/barline-types-plan.md` §2 lists exactly that as a smell, and key signatures P1 left
  * `Measure.keys` out for the same reason). ⇒ the field arrives with the **authoring** that writes
  * it (P5), and this signature is what makes that arrival a one-file change.
  *
@@ -59,7 +59,7 @@ export interface ResolvedStaffGroup {
 /**
  * **The signs standing at this bar**, innermost first.
  *
- * ⚠️ **Report, never repair** (`docs/json-io-plan.md`). Three shapes are silently *skipped* rather
+ * ⚠️ **Report, never repair** (`docs/plans/json-io-plan.md`). Three shapes are silently *skipped* rather
  * than drawn wrongly, because each would put ink somewhere no engraver would:
  *
  * - **no `symbol`** — nobody asked for a sign (see the header);

@@ -69,7 +69,7 @@ import { A4_NORMAL } from './engine/layout/surface'
  * The editor application. No framework: it builds its own DOM, wires the controllers, and owns the
  * lifecycle. Everything below it was already framework-agnostic (`lint:boundary` has enforced that
  * for months), so this file is the last piece — the successor to `App.vue`. See
- * docs/remove-vue-plan.md.
+ * docs/history/remove-vue-plan.md.
  *
  * The layout is two things with different lifespans. The **viewport** — the score and everything
  * that draws into it — is the application. The **dev shell** around it (toolbar, Score-JSON dump,
@@ -100,7 +100,7 @@ const CONTENT_PADDING = 16
 
 /** Ctrl+wheel (and trackpad pinch) zoom sensitivity: factor = exp(-deltaY · k), so zoom is
  *  continuous and multiplicative. Tuned so one mouse notch (~100px deltaY) ≈ a ~15% step while a
- *  trackpad pinch stays smooth. See docs/zoom-plan.md §7 Phase 3. */
+ *  trackpad pinch stays smooth. See docs/plans/zoom-plan.md §7 Phase 3. */
 const ZOOM_WHEEL_K = 0.0015
 
 /**
@@ -172,7 +172,7 @@ export function createEditorApp(host: HTMLElement): EditorApp {
    * `scoreCanvas` owns scrolling and is what `querySelector('svg')` runs against. `scoreContent` is
    * the engine's render target — VexFlow wipes it with innerHTML='' on every render, so it must NOT
    * be the outer scroll box. Padding stays on the inner surface so bbox coords stay aligned with the
-   * viewport scroll. See docs/navigation-viewport-plan.md §4.
+   * viewport scroll. See docs/plans/navigation-viewport-plan.md §4.
    */
   const scoreViewport = div(
     IS_DEV ? 'relative overflow-hidden rounded-b-lg' : 'relative overflow-hidden flex-1 min-h-0',
@@ -185,7 +185,7 @@ export function createEditorApp(host: HTMLElement): EditorApp {
   scoreCanvas.style.height = IS_DEV ? `${VIEWPORT_HEIGHT}px` : '100%'
 
   /*
-   * Zoom DOM (docs/zoom-plan.md §3): the `sizer` takes an explicit size = naturalSvgSize × zoom so
+   * Zoom DOM (docs/plans/zoom-plan.md §3): the `sizer` takes an explicit size = naturalSvgSize × zoom so
    * the scroll bars get their range; the `zoomLayer` carries transform: scale(zoom) so the visuals
    * scale without a re-render. The viewport host writes both from the same scalar.
    */
@@ -203,7 +203,7 @@ export function createEditorApp(host: HTMLElement): EditorApp {
   playCursor.style.display = 'none'
 
   /*
-   * The frozen left gutter (docs/linear-view-plan.md §P3) — the clef and meter in force at the
+   * The frozen left gutter (docs/plans/linear-view-plan.md §P3) — the clef and meter in force at the
    * current scroll-x, so they stay readable at bar 400. A SEPARATE, DOM-pinned SVG: drawing it into
    * the score SVG at scrollX would re-render the whole score on every scroll event. It also sits
    * outside the zoom layer, so GutterController applies the zoom scalar (and the content padding) by
@@ -590,7 +590,7 @@ export function createEditorApp(host: HTMLElement): EditorApp {
   const stopPlayRepeatsSync = wirePlayRepeatsSync(getEngine)
 
   // The Properties note-offset input publishes to `noteOffsetSelection`; this controller owns the
-  // engine apply (client #12, docs/note-offset-plan.md §B) so the window stays a dumb publisher.
+  // engine apply (client #12, docs/plans/note-offset-plan.md §B) so the window stays a dumb publisher.
   const noteOffset = new NoteOffsetController(getEngine, () => renderer.renderScore())
   // …and the INLINE CLEF's horizontal offset, addressed positionally (his ask, 2026-08-28).
   const clefOffset = new ClefOffsetController(getEngine, () => renderer.renderScore())
@@ -606,17 +606,17 @@ export function createEditorApp(host: HTMLElement): EditorApp {
   // The Properties "align to stem" checkbox publishes to `articulationStemAlignSelection`; this
   // controller owns the engine apply, same boundary as the note-offset input above.
   const articulationStemAlign = new ArticulationStemAlignController(getEngine, () => renderer.renderScore())
-  // …and the Properties fractional-beam control, on the same boundary (docs/beam-hook-research.md §8).
+  // …and the Properties fractional-beam control, on the same boundary (docs/research/beam-hook-research.md §8).
   const fractionalBeamSide = new FractionalBeamSideController(getEngine, () => renderer.renderScore())
   // The Properties fan inputs publish to `fanEditSelection`; this controller owns the engine apply
-  // (docs/fanned-beams-plan.md §3, P4), the same boundary as the two above.
+  // (docs/plans/fanned-beams-plan.md §3, P4), the same boundary as the two above.
   const fanEdit = new FanEditController(getEngine, () => renderer.renderScore())
-  // …and the Properties trill control, on the same boundary (docs/trill-plan.md §1 rule 6).
+  // …and the Properties trill control, on the same boundary (docs/plans/trill-plan.md §1 rule 6).
   const trillEdit = new TrillEditController(getEngine, () => renderer.renderScore())
   const hairpinEdit = new HairpinEditController(getEngine, () => renderer.renderScore())
   // …and the Properties BARLINE chooser, on the same boundary. ⭐ The one of these that names a LINE
   // rather than an element id — which is what makes the back-to-back `:||:` reachable at all
-  // (docs/barline-types-plan.md §8 P6).
+  // (docs/plans/barline-types-plan.md §8 P6).
   const barlineEdit = new BarlineEditController(getEngine, () => renderer.renderScore())
   // ⭐ The cautionary key signature's trailing gap, from the Properties panel (his ask, 2026-08-28).
   const cautionaryKeyGap = new CautionaryKeyGapController(getEngine, () => renderer.renderScore())
@@ -634,7 +634,7 @@ export function createEditorApp(host: HTMLElement): EditorApp {
   // ---------------------------------------------------------------------------------------------
   /** Ctrl+wheel zoom toward the cursor. A window-level listener registered `{ passive: false }` so
    *  preventDefault() actually kills the browser's page-zoom — done whenever Ctrl is held, whether
-   *  or not the pointer is over the score ("zoom is always score zoom", docs/zoom-plan.md §7). */
+   *  or not the pointer is over the score ("zoom is always score zoom", docs/plans/zoom-plan.md §7). */
   function handleZoomWheel(e: WheelEvent): void {
     // ⭐ A modifier + wheel may mean something on the score — today the hairpin's MOUTH
     // (`interactions/wheelGestures`, which owns the table and declines when nothing is armed). It is
@@ -703,7 +703,7 @@ export function createEditorApp(host: HTMLElement): EditorApp {
   windows.mount(scoreViewport)
 
   // The menu bar. ⚠️ DEMO CHROME, not the app's UI — the titles and their grouping are provisional
-  // guesses (docs/menus-design.md §"The menu bar is PROVISIONAL"); every ROW, though, runs a command
+  // guesses (docs/how-it-works/menus-design.md §"The menu bar is PROVISIONAL"); every ROW, though, runs a command
   // that already existed, so dropping the bar is deleting these three lines and `buildMenuBarTitles`.
   // Mounted after the layers, because a title's dropdown opens in the menu layer.
   const menuBar = mountMenuBar(menuBarHost, menus, buildMenuBarTitles(), {
@@ -807,7 +807,7 @@ export function createEditorApp(host: HTMLElement): EditorApp {
   }
 
   /**
-   * TEMPORARY — the P0 render-performance instrument (docs/render-performance-plan.md §8).
+   * TEMPORARY — the P0 render-performance instrument (docs/history/render-performance-plan.md §8).
    * Dev builds only; delete when P0 closes. From the DevTools console:
    *
    *   __perf.load(200)      // a synthetic 200-bar score (4 quarters/bar), same density as the bench
@@ -818,14 +818,14 @@ export function createEditorApp(host: HTMLElement): EditorApp {
   function installPerfInstruments(): void {
     const w = window as unknown as Record<string, unknown>
     // The engine only knows the `RenderProbe` seam and defaults it to a no-op, so it compiles with
-    // `dev/` deleted (docs/refactor-plan-2026-07-27.md 3a). App.ts is the one place allowed to know
+    // `dev/` deleted (docs/history/refactor-plan-2026-07-27.md 3a). App.ts is the one place allowed to know
     // both, so it is the one place that plugs the real instrument in — and only in a dev build.
     setRenderProbe(renderCensus)
     w.__census = renderCensus
     // Hit-box VISUALIZER (dev tool). Draws every registered hit-box as a coloured SVG rectangle
     // right on the score, so you can SEE which click-boxes are inflated or mis-placed — reads the
     // registry, which always holds the CURRENT boxes (no re-render needed). Born from
-    // docs/tight-bbox-plan.md §7 (it made the fat rest-carrying-a-dynamic box visible) and kept as a
+    // docs/history/tight-bbox-plan.md §7 (it made the fat rest-carrying-a-dynamic box visible) and kept as a
     // general debugging aid. __bbox.show() draws all (labelled `type W×H`); __bbox.show('rest')
     // filters to one type; __bbox.hide() clears.
     const inkBoxOverlay = createInkBoxOverlay(() => engine)
@@ -884,7 +884,7 @@ export function createEditorApp(host: HTMLElement): EditorApp {
         dbg(`[perf] loaded ${bars} bars × ${staves} staves`)
       },
     }
-    // The spacing model's own P0 instrument (docs/spacing-model-plan.md P0) — the census of the
+    // The spacing model's own P0 instrument (docs/plans/spacing-model-plan.md P0) — the census of the
     // DRAWN gaps, in staff spaces, for the score actually on screen. Scoped to the score container
     // so it measures the music and not a window's preview.
     w.__spacing = {
@@ -905,7 +905,7 @@ export function createEditorApp(host: HTMLElement): EditorApp {
     // (src/dev/layoutFlushCensus.ts). ⛔ Patches prototypes, so it is off until `enable()`.
     w.__flush = layoutFlushCensus
     // ⭐ The GROUPING SIGNS — author a brace/bracket from the console and see whether it drew, since
-    // the real authoring (docs/braces-brackets-plan.md P5) does not exist yet. See the module for
+    // the real authoring (docs/plans/braces-brackets-plan.md P5) does not exist yet. See the module for
     // the three ways it is scaffolding and not the feature.
     w.__groups = groupSignConsole(
       () => engine, () => document.querySelector('.score-container') ?? document,

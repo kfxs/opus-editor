@@ -1,5 +1,5 @@
 /**
- * The ONE emitter behind the bus's command-only seams (docs/code-shape-plan-2026-09-19.md, Phase 5).
+ * The ONE emitter behind the bus's command-only seams (docs/plans/code-shape-plan-2026-09-19.md, Phase 5).
  *
  * Nineteen stores each spelled the same class: a listener set, a publish that walks it, a subscribe
  * that returns its own unsubscribe. What differed was the REQUEST — so a seam's module now declares

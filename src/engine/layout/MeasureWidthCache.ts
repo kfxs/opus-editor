@@ -10,7 +10,7 @@ import { barlineMeterGapGeneration } from '@/engine/layout/barlineMeterGap'
 /**
  * Memo for the expensive half of the width calc: the VexFlow `Formatter` call that decides how
  * much horizontal space **one staff's lane of one measure** needs for its notes
- * (docs/render-performance-plan.md §4).
+ * (docs/history/render-performance-plan.md §4).
  *
  * ## Why a content fingerprint, and not a dirty flag
  *
@@ -154,7 +154,7 @@ export function laneFingerprint(lane: Measure): string {
       lane.timeSignature,
       lane.actualDurationOverride ?? null, // a pickup bar's capacity → the Voice's mode
       // The barline family: a final bar or a repeat is wider ink than a plain line, and §6.1 of
-      // docs/barline-types-plan.md puts that ink INSIDE the bar that stores it — so the sign is part
+      // docs/plans/barline-types-plan.md puts that ink INSIDE the bar that stores it — so the sign is part
       // of how much room this bar needs. (`MEASURE_RENDER_ROLE` classifies all three 'width'.)
       lane.barline ?? null,
       lane.repeatStart ?? null,

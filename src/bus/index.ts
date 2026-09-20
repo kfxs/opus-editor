@@ -48,7 +48,7 @@ import { createVoiceSelection } from './voiceSelection'
  * directories pointing at each other, which `docs/ARCHITECTURE.md`'s *"dependencies point inward and
  * downward"* does not describe. They were never interaction LOGIC — they are a noticeboard both
  * layers pin to. Filed as a leaf, both sides depend downward on it and neither on the other
- * (docs/refactor-plan-2026-07-27.md 3b).
+ * (docs/history/refactor-plan-2026-07-27.md 3b).
  *
  * WHY IT IS ONE OBJECT. Each store used to be its own module-level singleton, imported by name —
  * `keypadPress.ts` named fourteen of them, `KeypadWidget.ts` fifteen. `docs/DESIGN-PRINCIPLES.md` §1

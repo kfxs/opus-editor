@@ -36,7 +36,7 @@ export const menuActions: InsertMenuActions & FileMenuActions & EditMenuActions 
  *
  * ⚠️⚠️ **PROVISIONAL — the demo's chrome, not the app's UI.** These seven titles and their grouping
  * are conventional guesses, not a taxonomy anyone chose; the real interface is undecided and may have
- * no menu bar at all. See the banner in `./menuBar` and docs/menus-design.md §"The menu bar is
+ * no menu bar at all. See the banner in `./menuBar` and docs/how-it-works/menus-design.md §"The menu bar is
  * PROVISIONAL". **This function is where the bar is deleted from**: it and the `mountMenuBar` call in
  * App.ts are the whole of it, because no row here implements anything — each runs a command that
  * already existed, through the seam that already ran it.

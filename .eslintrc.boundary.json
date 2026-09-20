@@ -13,7 +13,7 @@
         "patterns": [
           {
             "group": ["vexflow", "vexflow/*"],
-            "message": "⛔ VexFlow was REMOVED (docs/vexflow-removal-map.md S14) — in every file, specs included. The engine is ours: engine/engrave, engine/rendering, engine/paint. ⚠️ This is a SEPARATE rule from `no-restricted-imports` on purpose: the overrides below replace that rule's options per folder, and would silently drop a ban written there."
+            "message": "⛔ VexFlow was REMOVED (docs/history/vexflow-removal-map.md S14) — in every file, specs included. The engine is ours: engine/engrave, engine/rendering, engine/paint. ⚠️ This is a SEPARATE rule from `no-restricted-imports` on purpose: the overrides below replace that rule's options per folder, and would silently drop a ban written there."
           }
         ]
       }
@@ -34,7 +34,7 @@
               "@/App.vue",
               "**/App.vue"
             ],
-            "message": "Framework-agnostic boundary: src/engine, src/interactions, src/bus, src/windows, src/menus and src/dev must not import a UI framework. Vue was REMOVED from this project (docs/remove-vue-plan.md) — these patterns stay as a ratchet so it cannot creep back. All UI here is plain TS + DOM; see docs/ARCHITECTURE.md."
+            "message": "Framework-agnostic boundary: src/engine, src/interactions, src/bus, src/windows, src/menus and src/dev must not import a UI framework. Vue was REMOVED from this project (docs/history/remove-vue-plan.md) — these patterns stay as a ratchet so it cannot creep back. All UI here is plain TS + DOM; see docs/ARCHITECTURE.md."
           }
         ]
       }
@@ -99,7 +99,7 @@
               },
               {
                 "group": ["@/interactions", "@/interactions/*", "**/interactions/*", "@/bus", "@/bus/*", "**/bus/*"],
-                "message": "The arrow is App.ts -> interactions -> engine, never back: the engine may not import an editor controller, EditorState, or the UI bus (docs/ARCHITECTURE.md, DESIGN-PRINCIPLES.md §5). The engine declares the vocabulary it wants and the editor translates into it — see src/engine/rendering/ghostTypes.ts, which exists because a `tool: MarkingTool` parameter in the renderer passed all four gates before this rule (docs/modularity-plan-2026-07-28.md Phase 2)."
+                "message": "The arrow is App.ts -> interactions -> engine, never back: the engine may not import an editor controller, EditorState, or the UI bus (docs/ARCHITECTURE.md, DESIGN-PRINCIPLES.md §5). The engine declares the vocabulary it wants and the editor translates into it — see src/engine/rendering/ghostTypes.ts, which exists because a `tool: MarkingTool` parameter in the renderer passed all four gates before this rule (docs/history/modularity-plan-2026-07-28.md Phase 2)."
               }
             ]
           }
@@ -112,12 +112,12 @@
       "rules": {
         "no-restricted-globals": [
           "error",
-          { "name": "document", "message": "THE INK HALF DOES NOT MEASURE AT RUNTIME. How much room a glyph needs is answered from Bravura's own metrics (src/engine/fonts/), synchronously, in jsdom, with no font loaded — docs/font-metrics-plan.md F4. Reaching for a canvas here would put the layout back behind the font race that `musicFontReady` exists to survive, and would make every width untestable without a browser. Add a row to the metrics instead: `node scripts/generate-font-metrics.mjs`." },
-          { "name": "window", "message": "The ink half is pure: staff spaces in, staff spaces out, no DOM — docs/font-metrics-plan.md F4." },
-          { "name": "navigator", "message": "The ink half is pure: no browser APIs — docs/font-metrics-plan.md F4." },
-          { "name": "getComputedStyle", "message": "The ink half does not read the page to decide a width. The font's metrics are the source — src/engine/fonts/, docs/font-metrics-plan.md F4." },
-          { "name": "OffscreenCanvas", "message": "THE INK HALF DOES NOT MEASURE AT RUNTIME — src/engine/fonts/ has the numbers, and they need no canvas. See docs/font-metrics-plan.md F4." },
-          { "name": "ResizeObserver", "message": "The ink half is pure: no DOM — docs/font-metrics-plan.md F4." }
+          { "name": "document", "message": "THE INK HALF DOES NOT MEASURE AT RUNTIME. How much room a glyph needs is answered from Bravura's own metrics (src/engine/fonts/), synchronously, in jsdom, with no font loaded — docs/plans/font-metrics-plan.md F4. Reaching for a canvas here would put the layout back behind the font race that `musicFontReady` exists to survive, and would make every width untestable without a browser. Add a row to the metrics instead: `node scripts/generate-font-metrics.mjs`." },
+          { "name": "window", "message": "The ink half is pure: staff spaces in, staff spaces out, no DOM — docs/plans/font-metrics-plan.md F4." },
+          { "name": "navigator", "message": "The ink half is pure: no browser APIs — docs/plans/font-metrics-plan.md F4." },
+          { "name": "getComputedStyle", "message": "The ink half does not read the page to decide a width. The font's metrics are the source — src/engine/fonts/, docs/plans/font-metrics-plan.md F4." },
+          { "name": "OffscreenCanvas", "message": "THE INK HALF DOES NOT MEASURE AT RUNTIME — src/engine/fonts/ has the numbers, and they need no canvas. See docs/plans/font-metrics-plan.md F4." },
+          { "name": "ResizeObserver", "message": "The ink half is pure: no DOM — docs/plans/font-metrics-plan.md F4." }
         ]
       }
     },
@@ -131,7 +131,7 @@
             "patterns": [
               {
                 "group": ["vexflow", "@/engine/rendering/*", "**/rendering/*"],
-                "message": "src/engine/fonts is the FONT AS DATA and must not know who draws with it: no VexFlow, no renderer. It is the one module a future engine keeps unchanged when the drawing moves (docs/own-engraving-engine.md P2/P3)."
+                "message": "src/engine/fonts is the FONT AS DATA and must not know who draws with it: no VexFlow, no renderer. It is the one module a future engine keeps unchanged when the drawing moves (docs/plans/own-engraving-engine.md P2/P3)."
               }
             ]
           }
@@ -144,9 +144,9 @@
       "rules": {
         "no-restricted-globals": [
           "error",
-          { "name": "document", "message": "src/engine/scene is WHAT WAS DRAWN, as values — no DOM. A scene that needed a page would be a second renderer rather than a record of the first, and the whole point is that geometry becomes a unit test (docs/own-engraving-engine.md §7.2, P1d)." },
-          { "name": "window", "message": "src/engine/scene: no DOM — docs/own-engraving-engine.md P1d." },
-          { "name": "SVGElement", "message": "src/engine/scene holds primitives, never nodes. ⛔ A primitive that smuggles a DOM node into the scene defeats the whole thing (docs/own-engraving-engine.md §7.2)." }
+          { "name": "document", "message": "src/engine/scene is WHAT WAS DRAWN, as values — no DOM. A scene that needed a page would be a second renderer rather than a record of the first, and the whole point is that geometry becomes a unit test (docs/plans/own-engraving-engine.md §7.2, P1d)." },
+          { "name": "window", "message": "src/engine/scene: no DOM — docs/plans/own-engraving-engine.md P1d." },
+          { "name": "SVGElement", "message": "src/engine/scene holds primitives, never nodes. ⛔ A primitive that smuggles a DOM node into the scene defeats the whole thing (docs/plans/own-engraving-engine.md §7.2)." }
         ],
         "no-restricted-imports": [
           "error",
@@ -167,10 +167,10 @@
       "rules": {
         "no-restricted-globals": [
           "error",
-          { "name": "document", "message": "src/engine/paint is the DRAWING SURFACE, declared by us — no DOM. A primitive that smuggles a DOM node in is what makes a second painter (PDF, canvas, a recording SCENE) impossible, and that is the one thing this layer exists to prevent (docs/own-engraving-engine.md §7.2, P1b)." },
-          { "name": "window", "message": "src/engine/paint: no DOM — docs/own-engraving-engine.md P1b." },
-          { "name": "navigator", "message": "src/engine/paint: no browser APIs — docs/own-engraving-engine.md P1b." },
-          { "name": "SVGElement", "message": "src/engine/paint declares WHAT can be drawn, never what it is drawn ONTO. An SVG type here would make the SVG painter the only possible one — docs/own-engraving-engine.md §7.2." }
+          { "name": "document", "message": "src/engine/paint is the DRAWING SURFACE, declared by us — no DOM. A primitive that smuggles a DOM node in is what makes a second painter (PDF, canvas, a recording SCENE) impossible, and that is the one thing this layer exists to prevent (docs/plans/own-engraving-engine.md §7.2, P1b)." },
+          { "name": "window", "message": "src/engine/paint: no DOM — docs/plans/own-engraving-engine.md P1b." },
+          { "name": "navigator", "message": "src/engine/paint: no browser APIs — docs/plans/own-engraving-engine.md P1b." },
+          { "name": "SVGElement", "message": "src/engine/paint declares WHAT can be drawn, never what it is drawn ONTO. An SVG type here would make the SVG painter the only possible one — docs/plans/own-engraving-engine.md §7.2." }
         ],
         "no-restricted-imports": [
           "error",
@@ -178,7 +178,7 @@
             "patterns": [
               {
                 "group": ["vexflow", "@/engine/rendering/*", "**/rendering/*", "@/engine/models/*", "**/models/*"],
-                "message": "src/engine/paint knows the SCENE and nothing else — no VexFlow, no renderer, and ⛔ NOT the model: that is what makes a second painter cost nothing (docs/own-engraving-engine.md §8.2 rule 2/12). ⭐ It is deliberately satisfied BY VexFlow's SVGContext today, which is a fact about the caller, never an import here."
+                "message": "src/engine/paint knows the SCENE and nothing else — no VexFlow, no renderer, and ⛔ NOT the model: that is what makes a second painter cost nothing (docs/plans/own-engraving-engine.md §8.2 rule 2/12). ⭐ It is deliberately satisfied BY VexFlow's SVGContext today, which is a fact about the caller, never an import here."
               }
             ]
           }
@@ -191,8 +191,8 @@
       "rules": {
         "no-restricted-globals": [
           "error",
-          { "name": "document", "message": "src/engine/engrave decides WHAT SYMBOLS GO WHERE and draws them through `paint/` — no DOM. A pass that needed a page could never be run by the PDF painter or recorded as a scene (docs/own-engraving-engine.md §7.2, §8.2 rule 11)." },
-          { "name": "window", "message": "src/engine/engrave: no DOM — docs/own-engraving-engine.md §8.2 rule 11." },
+          { "name": "document", "message": "src/engine/engrave decides WHAT SYMBOLS GO WHERE and draws them through `paint/` — no DOM. A pass that needed a page could never be run by the PDF painter or recorded as a scene (docs/plans/own-engraving-engine.md §7.2, §8.2 rule 11)." },
+          { "name": "window", "message": "src/engine/engrave: no DOM — docs/plans/own-engraving-engine.md §8.2 rule 11." },
           { "name": "SVGElement", "message": "src/engine/engrave emits ink through `paint/DrawContext`, never nodes. An SVG type here would make the SVG painter the only possible one." }
         ],
         "no-restricted-imports": [
@@ -201,7 +201,7 @@
             "patterns": [
               {
                 "group": ["vexflow"],
-                "message": "⛔ src/engine/engrave may not import vexflow (docs/own-engraving-engine.md §8.2 rule 11). ⭐ The ADAPTER is what holds VexFlow — `engine/rendering/EngravedNote` and friends hand this layer plain numbers. A rule that needed a `StaveNote` to state itself is a rule that cannot be unit-tested and cannot be painted to PDF."
+                "message": "⛔ src/engine/engrave may not import vexflow (docs/plans/own-engraving-engine.md §8.2 rule 11). ⭐ The ADAPTER is what holds VexFlow — `engine/rendering/EngravedNote` and friends hand this layer plain numbers. A rule that needed a `StaveNote` to state itself is a rule that cannot be unit-tested and cannot be painted to PDF."
               }
             ]
           }
@@ -218,11 +218,11 @@
             "patterns": [
               {
                 "group": ["vexflow"],
-                "message": "The ink half must not consult the drawing library to decide how much room ink needs — that is the coupling docs/font-metrics-plan.md §3.1 is about (a table calibrated to VexFlow's BEHAVIOUR describes nothing the day VexFlow stops drawing). Measure the font instead: src/engine/fonts/."
+                "message": "The ink half must not consult the drawing library to decide how much room ink needs — that is the coupling docs/plans/font-metrics-plan.md §3.1 is about (a table calibrated to VexFlow's BEHAVIOUR describes nothing the day VexFlow stops drawing). Measure the font instead: src/engine/fonts/."
               },
               {
                 "group": ["@/engine/rendering/*", "**/rendering/*"],
-                "message": "The arrow is rendering -> layout, never back: layout decides HOW MUCH ROOM and WHERE from the score and the font's metrics, and a renderer reads its answer. A layout module that imports a renderer cannot be tested or reused without one. What used to be imported backwards now lives here — MeasureLayout, MeasureWidthCache, layoutConfig, thinLineWeight, headerInk.drawsTimeSignature, surface's page constants (docs/code-shape-plan-2026-09-19.md Phase 2.3)."
+                "message": "The arrow is rendering -> layout, never back: layout decides HOW MUCH ROOM and WHERE from the score and the font's metrics, and a renderer reads its answer. A layout module that imports a renderer cannot be tested or reused without one. What used to be imported backwards now lives here — MeasureLayout, MeasureWidthCache, layoutConfig, thinLineWeight, headerInk.drawsTimeSignature, surface's page constants (docs/plans/code-shape-plan-2026-09-19.md Phase 2.3)."
               }
             ]
           }

@@ -1,6 +1,6 @@
 /**
  * ⭐ **WHAT PIECES A SPAN BREAKS INTO AT THE SYSTEM BREAKS** — a fact about SYSTEMS, which is why it
- * left `SlurRenderer` (docs/code-shape-plan-2026-09-19.md, Phase 5): the hairpin, the ottava, the
+ * left `SlurRenderer` (docs/plans/code-shape-plan-2026-09-19.md, Phase 5): the hairpin, the ottava, the
  * pedal and the trill all asked it, and each said in a comment that its name was the only thing
  * about it that said "slur".
  *

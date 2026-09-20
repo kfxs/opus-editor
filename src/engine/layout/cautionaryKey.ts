@@ -1,7 +1,7 @@
 /**
  * ⭐⭐ **THE CAUTIONARY KEY SIGNATURE — where a key change that lands on a system break is ENGRAVED.**
  *
- * P6 of docs/key-signature-plan.md, and its own module rather than a third copy of the loop in
+ * P6 of docs/plans/key-signature-plan.md, and its own module rather than a third copy of the loop in
  * `MeasureLayout` (CLAUDE.md's rule: a new feature adds a MODULE). The two that are there already —
  * `applyCautionaryClefs` and `applyCautionaryTimeSignatures` — differ from this one in three ways, so
  * ⛔ do not collapse the three until there is a reason beyond their shape:

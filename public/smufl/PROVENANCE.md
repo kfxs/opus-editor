@@ -12,7 +12,7 @@ group as part of the SMuFL spec, and are used here unmodified and attributed. If
 redistribute these beyond the app, check the group's current terms first rather than assuming.
 
 They are **fetched at runtime** by `src/windows/symbols/smufl.ts` (the Symbols window), never
-bundled — see `docs/symbols-window-plan.md`. Re-download rather than hand-edit: any local change to
+bundled — see `docs/plans/symbols-window-plan.md`. Re-download rather than hand-edit: any local change to
 these files would be a silent fork of the specification.
 
 The music font itself is elsewhere — `public/fonts/Bravura.otf`, under SIL OFL 1.1 (`OFL.txt`).

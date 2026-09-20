@@ -1,6 +1,6 @@
 /**
  * ⭐ **WHAT AN ENTERED NOTE OVERWRITES** — the notes already standing where a new one is about to
- * go. Score logic, moved out of `NoteEntryCoordinator` (docs/code-shape-plan-2026-09-19.md, Phase
+ * go. Score logic, moved out of `NoteEntryCoordinator` (docs/plans/code-shape-plan-2026-09-19.md, Phase
  * 4.2b): the coordinator keeps pixel resolution, collision and the commit.
  *
  * Always the entry's own VOICE and STAFF — other streams are independent and never clobbered — and

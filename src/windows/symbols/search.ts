@@ -1,7 +1,7 @@
 import type { Glyph, RangeBlock } from './smufl'
 
 /**
- * What the search box means (P1 of docs/symbols-window-plan.md).
+ * What the search box means (P1 of docs/plans/symbols-window-plan.md).
  *
  * Two searches in one field, because the window has two audiences and they arrive with different
  * things in their hands:

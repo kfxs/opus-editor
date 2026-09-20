@@ -2,8 +2,8 @@
  * **What a HIDDEN element does, and who is looking.**
  *
  * The editor lets you hide things that are still real content — the hidden rest (engraving client
- * #6, Sibelius' Ctrl+Shift+H, docs/rest-hide-plan.md) and, since 2026-08-26, the **invisible
- * barline** (`BarlineStyle`, docs/barline-types-plan.md), tomorrow whatever joins them. "Hidden"
+ * #6, Sibelius' Ctrl+Shift+H, docs/plans/rest-hide-plan.md) and, since 2026-08-26, the **invisible
+ * barline** (`BarlineStyle`, docs/plans/barline-types-plan.md), tomorrow whatever joins them. "Hidden"
  * has never meant *gone*: the rest still fills its beat, still holds its column, is still
  * selectable, and can still be unhidden. What it means is **do not engrave this**.
  *

@@ -1,5 +1,5 @@
 /**
- * ⭐ **A NOTE'S FLAG, AS OURS — S12j-d3** (`docs/vexflow-removal-map.md` S12). Its INK has been ours since
+ * ⭐ **A NOTE'S FLAG, AS OURS — S12j-d3** (`docs/history/vexflow-removal-map.md` S12). Its INK has been ours since
  * P3b (`engrave/notes/flag`, drawn by `EngravedNote.drawFlag`); this is the object VexFlow's `Flag` was:
  * the glyph, the note's face, and the point the draw WRITES BACK (⚠️ the note's hit box merges this
  * flag's box whenever it has a flag — `EngravedNote.drawFlag` says what happened when that was lost).

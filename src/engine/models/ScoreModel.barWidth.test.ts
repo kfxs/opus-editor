@@ -13,7 +13,7 @@ import { fracCreate } from '@/utils/fraction'
 import type { BarWidthOverride } from '@/types/music'
 
 /**
- * Client #11 — user-authored bar stretch (docs/bar-width-plan.md §1).
+ * Client #11 — user-authored bar stretch (docs/plans/bar-width-plan.md §1).
  *
  * The key is id-keyed and the value is a MULTIPLIER; both are the design, and both are pinned
  * here. So is the pair of write-time clamps: the caller's measured floor, and the absolute one

@@ -27,7 +27,7 @@ can read next to the diff in the generated one.
 
 ⭐⭐ **Not the bounding boxes.** Those are measured from `public/fonts/Bravura.otf` — the font file
 we already ship, already outline for the PDF export, and therefore the one whose numbers can be
-checked against what is actually drawn (`docs/font-metrics-plan.md` §1.1). The generator reads
+checked against what is actually drawn (`docs/plans/font-metrics-plan.md` §1.1). The generator reads
 `glyphBBoxes` here only to **cross-check** the OTF and report any disagreement.
 
 Taken from here, because a font file cannot carry them:

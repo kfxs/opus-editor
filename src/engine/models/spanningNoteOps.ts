@@ -1,7 +1,7 @@
 /**
  * ⭐ **A NOTE THAT SPANS A BARLINE** — a length that does not fit its bar is written as a TIED
  * CHAIN: the pieces that fit in the start bar, then the pieces that continue in the next. Score
- * logic, moved out of `NoteEntryCoordinator` (docs/code-shape-plan-2026-09-19.md, Phase 4.2): the
+ * logic, moved out of `NoteEntryCoordinator` (docs/plans/code-shape-plan-2026-09-19.md, Phase 4.2): the
  * coordinator keeps pixel resolution, collision and the commit.
  *
  * {@link placeSpanningNote} is the single primitive behind both callers, and the ONLY difference
@@ -102,7 +102,7 @@ export function placeSpanningNote(model: SpanningNoteModel, p: {
   const pitch = { step: p.step, alter: p.alter, octave: p.octave, ...(p.voice && { voice: p.voice }), ...(p.staff && { staff: p.staff }) }
 
   // A tremolo on the head must reach EVERY piece of the chain: a tremolo interrupted at a barline
-  // is still being played across it (docs/tremolo-plan.md §6). Read before the head is retitled,
+  // is still being played across it (docs/plans/tremolo-plan.md §6). Read before the head is retitled,
   // and applied explicitly per piece — the continuations are built from `{step, alter, octave,
   // voice, staff}` alone, so anything not named here is dropped in silence.
   //

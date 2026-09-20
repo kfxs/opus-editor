@@ -1,5 +1,5 @@
 /**
- * ⭐⭐ **THE MODIFIER CONTEXTS ARE OURS — S9b** (`docs/vexflow-removal-map.md` §5.1 #1 and #3).
+ * ⭐⭐ **THE MODIFIER CONTEXTS ARE OURS — S9b** (`docs/history/vexflow-removal-map.md` §5.1 #1 and #3).
  *
  * VexFlow's formatter keeps one `ModifierContext` per (stave, tick): the notes that start together
  * and every modifier they carry. Its `preFormat` is where the modifier RULES run — which way a

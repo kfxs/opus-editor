@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * The BARLINE JOIN drag (docs/barline-join-plan.md P3): grab the blue square in the gap, drag it
+ * The BARLINE JOIN drag (docs/plans/barline-join-plan.md P3): grab the blue square in the gap, drag it
  * past the middle of that gap, and the barline runs unbroken into the staff below — drag it back and
  * the two staves part again.
  *

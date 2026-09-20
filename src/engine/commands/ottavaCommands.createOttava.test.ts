@@ -5,7 +5,7 @@ import { fracCreate as frac, fracToNumber } from '@/utils/fraction'
 
 /**
  * `MusicEngine.ottava.createOttava` — **which notes did the user mean**, the editor half of the split that
- * `ottavaOps.addOttavaOverNotes` owns the other side of (docs/ottava-plan.md P5).
+ * `ottavaOps.addOttavaOverNotes` owns the other side of (docs/plans/ottava-plan.md P5).
  *
  * ⭐⭐ **The chapter this file exists for is the LANE.** `createSlur`, `createHairpin` and
  * `createTrill` all narrow a selection to the first note's `(staff, voice)` and drop the rest —

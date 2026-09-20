@@ -1,7 +1,7 @@
 /**
  * @vitest-environment jsdom
  *
- * P0 measurement harness (docs/render-performance-plan.md §8). THROWAWAY — delete once the
+ * P0 measurement harness (docs/history/render-performance-plan.md §8). THROWAWAY — delete once the
  * numbers land in the findings doc. Layout is pure JS (no DOM writes), so these numbers
  * transfer to Chrome; jsdom is here only because VexFlow wants a document to exist.
  *

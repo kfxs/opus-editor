@@ -1,6 +1,6 @@
 /**
  * ⭐⭐ **THE HIT BOX A CLICK RESOLVES AGAINST, COMPUTED FROM THE INK** — P6b, one element kind at a
- * time (`docs/own-engraving-engine.md` §5 P6).
+ * time (`docs/plans/own-engraving-engine.md` §5 P6).
  *
  * > *"A box is COMPUTED from what was drawn, not measured off the page and not asked of an object."*
  *
@@ -51,7 +51,7 @@ export function accidentalHitBox(accidental: EngravedAccidental): SceneBox | nul
   // the font table are refused at construction. `drawnHitBox.test.ts` keeps that true, not assumed.
   dbg(
     `⚠️ [hit-box] accidental "${accidental.getText()}" has no ink box of ours — ` +
-      `falling back to the line-box (docs/own-engraving-engine.md §5 P6b).`,
+      `falling back to the line-box (docs/plans/own-engraving-engine.md §5 P6b).`,
   )
   const box = accidental.getBoundingBox()
   return box ? { x: box.x, y: box.y, width: box.w, height: box.h } : null

@@ -88,7 +88,7 @@ describe('HighlightController slur-handle gate', () => {
   })
 
   // Slur geometry is read-only in linear view: the shape is relative to endpoints whose
-  // horizontal span differs between the views (docs/linear-view-plan.md §4.2). Drawing no
+  // horizontal span differs between the views (docs/plans/linear-view-plan.md §4.2). Drawing no
   // handles is also what keeps them out of the registry, so there is nothing to grab.
   it('linear view → no handles drawn, and none registered to grab', () => {
     const r = runLinear({ controlPoints: CPS, slurEndpoints: ENDS })
@@ -213,7 +213,7 @@ describe('HighlightController slur-handle gate', () => {
 
 /**
  * The orange OPEN-join squares (segment-endpoint nudge handles) of a cross-system slur —
- * docs/multisystem-slur-segment-endpoint-offset-plan.md. One per BEGIN (right) / END (left),
+ * docs/plans/multisystem-slur-segment-endpoint-offset-plan.md. One per BEGIN (right) / END (left),
  * two per MIDDLE; carried as `slur-segment-endpoint` registry entries with the nudge address.
  */
 describe('HighlightController orange open-join squares', () => {

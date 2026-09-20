@@ -91,7 +91,7 @@ export function makeClefResolver(measure: Measure, openingClef: Clef): (beat: Fr
  * line, the line they attach to. This is unlike a notehead (which gets the full stack of
  * ledgers out to its position) and unlike shorter rests (quarter/eighth/… are not
  * line-attached, so they get none). Staff lines are 1–5 in VexFlow's line system, so a rest
- * is off the staff when its line is ≥ 6 (above) or ≤ 0 (below). See docs/rest-shift-plan.md
+ * is off the staff when its line is ≥ 6 (above) or ≤ 0 (below). See docs/plans/rest-shift-plan.md
  * §10 (convention: Wikipedia "Ledger line" — half/whole rest support in multi-voice). Pure &
  * VexFlow-free for isolated testing.
  */
@@ -117,7 +117,7 @@ export function restSupportingLedgerLine(
  * @param restLineShift - Vertical line offset for rests (multi-voice rest separation:
  *   +up for V1, -down for V2). 0 = centred (single-voice, unchanged). A resolver
  *   `(slot) => number` is accepted so the caller can add a per-rest manual shift on top of
- *   the voice base (see docs/rest-shift-plan.md §6.8) — mirroring the `clefForBeat` overload.
+ *   the voice base (see docs/plans/rest-shift-plan.md §6.8) — mirroring the `clefForBeat` overload.
  * @param key - The KEY SIGNATURE governing this lane's bar. An F♯ under a signature that already
  *   says F♯ draws no sign; an F♮ under it draws a natural. Defaults to C major so a caller with no
  *   score behind it gets exactly the arithmetic it got before signatures existed.
@@ -139,7 +139,7 @@ export function createStaveNotesFromSlots(
   // utils/accidentalState (`displayedAccidentals`) — the same rule `prevailingAlterations` states
   // as a query, and the same map the FAN renderer reads for its hand-drawn member heads. It lived
   // inline here until the members needed it; the extraction is what keeps the two from drifting
-  // (docs/fanned-beam-pitches-plan.md §2).
+  // (docs/plans/fanned-beam-pitches-plan.md §2).
   const displayAccidentals = displayedAccidentals(slots, key)
 
   for (let slotIndex = 0; slotIndex < slots.length; slotIndex++) {
@@ -215,7 +215,7 @@ export function createStaveNotesFromSlots(
       // ⭐ A FAN's stem direction is the GROUP's, decided over every member's pitches — because the
       // members hang off ONE beam line and a beam has one side. Single voice only: with a
       // `forcedStemDirection` the lane has already answered (V1 up, V2 down) and the group follows
-      // its voice, not its own pitches (docs/fanned-beam-pitches-plan.md §2).
+      // its voice, not its own pitches (docs/plans/fanned-beam-pitches-plan.md §2).
       for (const p of pairSlots.flatMap(s => [...s.notes, ...(s.fan?.members ?? []).flatMap(m => m.pitches)])) {
         const dPos = spellingDiatonicPos(p.step, p.octave)
         const dist = Math.abs(dPos - middleDiatonic)
@@ -227,14 +227,14 @@ export function createStaveNotesFromSlots(
     }
 
     // A pair is WRITTEN at double its value — two quarters draw as two halves — because each note
-    // carries the full value of the whole tremolo (docs/two-note-tremolo-plan.md §0). `pairIsValid`
+    // carries the full value of the whole tremolo (docs/plans/two-note-tremolo-plan.md §0). `pairIsValid`
     // has already refused the one duration with no double, so the `?? slot.duration` is only the
     // no-pair case.
     const drawnDuration = pairRole ? (doubleDuration(slot.duration) ?? slot.duration) : slot.duration
 
     /**
      * ⭐ A FANNED slot is written as ONE blanca and DRAWN as its members — filled heads under a
-     * feathered beam (docs/fanned-beams-plan.md §0). So the note VexFlow builds here is a plain
+     * feathered beam (docs/plans/fanned-beams-plan.md §0). So the note VexFlow builds here is a plain
      * QUARTER whatever the slot says: a filled head, a stem, and no flag to suppress, which is
      * exactly what a beamed member looks like. Drawing the written value instead would put one
      * hollow half-note head among five filled companions — a picture that contradicts its own beam.
@@ -344,7 +344,7 @@ export function createStaveNotesFromSlots(
     // the bounding-box fix rather than being a second drawing path that must remember all four.
     //
     // ⚠️ NOT in a PAIR. A two-note tremolo's strokes moved off the stem and into the gap between the
-    // two (docs/two-note-tremolo-plan.md §2) — drawing both would say two different things. That
+    // two (docs/plans/two-note-tremolo-plan.md §2) — drawing both would say two different things. That
     // covers the second slot too: it carries no `tremoloPair`, but a single-note mark left on it
     // from before is part of the same pair now and is not drawn twice.
     if (slot.tremolo && !pairRole) {

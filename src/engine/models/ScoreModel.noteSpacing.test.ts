@@ -12,7 +12,7 @@ import { STAFF_SPACE_PX } from './staffSize'
 import { fracCreate } from '@/utils/fraction'
 
 /**
- * Client #10 — user-authored horizontal space (docs/note-spacing-plan.md §1).
+ * Client #10 — user-authored horizontal space (docs/plans/note-spacing-plan.md §1).
  *
  * The key is the design: no voice segment and no staff segment, because a space belongs to the
  * COLUMN. Everything below either pins that shape or pins the two rules that hang off it — the

@@ -1,7 +1,7 @@
 /**
  * ⭐ **A BRACKET SPAN'S RUNG ON THE OUTSIDE-STAFF LADDER** — what `OttavaRenderer` and `PedalRenderer`
  * each spelled, identically but for the side and the family's two style rows
- * (docs/code-shape-plan-2026-09-19.md, Phase 5): which beats of a bar the span covers, the baseline
+ * (docs/plans/code-shape-plan-2026-09-19.md, Phase 5): which beats of a bar the span covers, the baseline
  * that clears the music AND everything already claimed there, and the claim the fragment files.
  *
  * ⭐ {@link barSlice} is shared by the baseline (what ink is in there) and the claim (what beats the

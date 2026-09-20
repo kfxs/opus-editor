@@ -1,5 +1,5 @@
 /**
- * **The barline family's contract** — the three signs of docs/barline-types-plan.md P1: the final
+ * **The barline family's contract** — the three signs of docs/plans/barline-types-plan.md P1: the final
  * barline (a STYLE) and the two repeats (which are NOT styles).
  *
  * ⛔ Nothing here asserts a drawn position. Unit tests run in jsdom, which has no layout and no

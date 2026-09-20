@@ -14,7 +14,7 @@ import { isSelectedStaffSmall, toggleSelectedStaffSize } from '../interactions/s
  *
  * What is inside the score viewport is the application; this strip of buttons around it is a tool for
  * building it. It is temporary in intent but permanent enough to be useful, so it lives here in
- * `dev/` rather than pretending to be a feature. See docs/remove-vue-plan.md.
+ * `dev/` rather than pretending to be a feature. See docs/history/remove-vue-plan.md.
  *
  * THE SEAM: this file reads {@link EditorState} and calls the palette. Nothing inside the viewport
  * knows it exists, which is what makes deleting it one day a single `rm` rather than an excavation.
@@ -175,7 +175,7 @@ export function mountDevToolbar(host: HTMLElement, deps: DevToolbarDeps): DevToo
   row.appendChild(toolBox)
   row.appendChild(divider())
 
-  // --- View mode (docs/linear-view-plan.md) ---
+  // --- View mode (docs/plans/linear-view-plan.md) ---
   const viewBox = group('View:')
   toggle(viewBox, TOOL_BTN, 'Wrapped',
     'Wrapped view — music broken into stacked systems (Ctrl+Shift+L toggles)',
@@ -221,7 +221,7 @@ export function mountDevToolbar(host: HTMLElement, deps: DevToolbarDeps): DevToo
 
   // --- Beam ---
   // REMOVED: the beam palette (auto/single/begin/continue/end + subdivide + beam-rest) was a DEV tool,
-  // and every one of its actions now lives on the Keypad's Beams/Tremolos page (docs/keypad.md) — the
+  // and every one of its actions now lives on the Keypad's Beams/Tremolos page (docs/how-it-works/keypad.md) — the
   // same `PaletteController` methods, so nothing behind it changed. The one action with no Keypad key
   // is `setBeam('auto')` — reset a note's authored beam back to the meter's default — which is kept as
   // a method for a future Properties "reset beaming" control (see `PaletteController.setBeam`).
@@ -285,13 +285,13 @@ export function mountDevToolbar(host: HTMLElement, deps: DevToolbarDeps): DevToo
    * one line each, and they touch neither the score nor the render.
    *
    * ⛔ **DO NOT GROW THEM INTO THE FEATURE.** `Score.staffGroups` exists already and the grouping
-   * SYMBOL is deliberately deferred (docs/multi-staff-plan.md §0/§1, and `ScoreRenderer`'s note at
-   * its draw site). The research under `docs/braces-brackets-research.md` is still landing, and the
+   * SYMBOL is deliberately deferred (docs/plans/multi-staff-plan.md §0/§1, and `ScoreRenderer`'s note at
+   * its draw site). The research under `docs/research/braces-brackets-research.md` is still landing, and the
    * question it is answering — **span vs container, and whether a group can change mid-score** — is
    * exactly the one a button wired up in a hurry would decide by accident.
    *
    * 🚨 And when it is built: **the bracket does NOT own the barline join** (`types/music.ts` ~2287,
-   * `docs/barline-join-research.md` §5.1) — ⛔ no join flag on `StaffGroup`, whatever MusicXML's
+   * `docs/research/barline-join-research.md` §5.1) — ⛔ no join flag on `StaffGroup`, whatever MusicXML's
    * `<group-barline>` and MEI's `@bar.thru` do.
    *
    * ⏭️ Its fate is written: when the feature has real UI these go the way the Barlines and Lines rows
@@ -330,7 +330,7 @@ export function mountDevToolbar(host: HTMLElement, deps: DevToolbarDeps): DevToo
    *
    * ⇒ What is left is a two-step dance for a change between two accidental-free statements
    * (C major ↔ atonal, atonal at bar 1). ⏭️ Its proper fix is the **SIGNPOST** — the mark drawn
-   * wherever a change has no glyphs of its own (docs/key-signature-plan.md §5), which reaches EVERY
+   * wherever a change has no glyphs of its own (docs/plans/key-signature-plan.md §5), which reaches EVERY
    * inkless change and not just the one a button could cover.
    */
 

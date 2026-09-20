@@ -1,6 +1,6 @@
 /**
  * ⭐⭐ **HOW THE EDITOR DRIVES A SPAN MARK** — the interactions half of the family's two tables
- * (`docs/span-mark-family-plan-2026-08-24.md` Phase 3, decision D2), the twin of
+ * (`docs/plans/span-mark-family-plan-2026-08-24.md` Phase 3, decision D2), the twin of
  * {@link SPAN_MARK_MODEL}.
  *
  * ⭐⭐ **WHY TWO TABLES AND NOT ONE.** A mark's ops live in `engine/models/`, its gestures here, and
@@ -47,7 +47,7 @@ import { walkTrillBody, walkTrillEndpoint } from './trillWalk'
  *
  * ⭐ **Absolute**, because that is what a typed box means; the driver turns it into the engine's
  * accumulating nudge, which is what keeps the panel behind the same PAGE LIMIT as the keyboard
- * (docs/engraving-overrides-plan.md §8).
+ * (docs/plans/engraving-overrides-plan.md §8).
  */
 export interface SpanMarkGeometryTarget {
   /** The mark whose ink to move. */
@@ -143,7 +143,7 @@ export const SPAN_MARK_TOOLS: { [K in SpanMarkKind]: SpanMarkToolSpec } = {
     //
     // ⭐⭐ **A SECOND CLICK LIFTS THE FIRST PEDAL** rather than stacking on it — `createPedal` goes
     // through `addPedalOverNotes`, whose truncation rule is the pianist's own gesture: press again
-    // and the foot came up first (docs/pedal-plan.md §3.3). So stamping along a run of notes leaves a
+    // and the foot came up first (docs/plans/pedal-plan.md §3.3). So stamping along a run of notes leaves a
     // chain of abutting pedals, which is exactly what a re-take looks like in this dress: `✻ Ped.`
     // side by side, as the old editions print it. ⚠️ That is the pedal's answer to a repeated click;
     // the bracket UPSERTS per (beat, staff) instead, which is why the rule lives in the row rather

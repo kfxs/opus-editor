@@ -9,7 +9,7 @@ import { fillGapsWithRests, pushRestSlot } from './restFillOps'
  * filler. These lock today's behaviour so the Phase 2b rewrite (meter-aware,
  * exact `fillRests`) has an explicit before/after. Some of these outputs are
  * NOT engraving-ideal — Phase 2b is expected to UPDATE these expectations, not
- * preserve them. See docs/time-signature-plan.md §2.3 / Phase 2b.
+ * preserve them. See docs/plans/time-signature-plan.md §2.3 / Phase 2b.
  */
 describe('rest-fill baseline (4/4) — pre-Phase-2b', () => {
   let model: ScoreModel

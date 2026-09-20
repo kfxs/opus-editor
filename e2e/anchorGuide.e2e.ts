@@ -14,7 +14,7 @@ import { test, expect } from './fixtures'
  * hypothetical — the defect in §"travels with the element" shipped, and passed the unit suite.
  *
  * ⭐ A new kind adds a case here and two edits in `src/` (its pass captures the points, its
- * `ELEMENT_SPECS` row calls the guide) — see `docs/dynamic-offset-plan.md`.
+ * `ELEMENT_SPECS` row calls the guide) — see `docs/plans/dynamic-offset-plan.md`.
  */
 
 /** The first staff as drawn: its outer lines. */

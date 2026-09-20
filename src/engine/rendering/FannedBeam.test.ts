@@ -202,7 +202,7 @@ describe('the wedge’s spread', () => {
 })
 
 /**
- * ⭐ THE WEDGE COVERS ONLY PART OF THE GROUP (docs/fan-ramp-range-plan.md P1). The primary is
+ * ⭐ THE WEDGE COVERS ONLY PART OF THE GROUP (docs/plans/fan-ramp-range-plan.md P1). The primary is
  * untouched — every member is beamed — so what is pinned here is that the EXTRA levels span the
  * range, and that a member outside it is left holding one line.
  */
@@ -375,7 +375,7 @@ describe('fanStemExtension — the room the levels need', () => {
 })
 
 /**
- * ⭐ PER-MEMBER PITCH (docs/fanned-beam-pitches-plan.md §2). The beam was flat only while every
+ * ⭐ PER-MEMBER PITCH (docs/plans/fanned-beam-pitches-plan.md §2). The beam was flat only while every
  * member sat on one line; with pitches of their own it leans — anchored at member 0's own stem tip,
  * clamped, and never so close to a head that a stem inverts through it.
  */
@@ -466,7 +466,7 @@ describe('an accidental buys its own room', () => {
 })
 
 /**
- * ⭐ JOINED TO THE GROUP ON ITS LEFT (docs/fan-beam-join-plan.md P1). The whole line becomes ours —
+ * ⭐ JOINED TO THE GROUP ON ITS LEFT (docs/plans/fan-beam-join-plan.md P1). The whole line becomes ours —
  * one straight edge from the first prefix stem to the last member — and in v1 it is FLAT.
  */
 describe('a fan joined to the group on its left', () => {
@@ -624,7 +624,7 @@ describe('a fan joined to the group on its left', () => {
 })
 
 /**
- * ⭐ P2 — FAN TO FAN (docs/fan-beam-join-plan.md). Two ramps on one beam: the line is shared (a beam
+ * ⭐ P2 — FAN TO FAN (docs/plans/fan-beam-join-plan.md). Two ramps on one beam: the line is shared (a beam
  * is one straight edge) and the gap between them carries the lines they BOTH have.
  */
 describe('two fans on one beam', () => {
@@ -724,7 +724,7 @@ describe('two fans on one beam', () => {
 })
 
 /**
- * ⭐ PER-MEMBER SPACING (docs/note-spacing-plan.md §7) — the user nudges ONE member of a fan and
+ * ⭐ PER-MEMBER SPACING (docs/plans/note-spacing-plan.md §7) — the user nudges ONE member of a fan and
  * only that gap opens. The width it needs is already inside `spanEndX` by the time this runs (the
  * bar grew and `applyLeadingSpaces` moved the following note), so what is pinned here is where it
  * LANDS: in the authored gap, not smeared across the ramp.
@@ -782,7 +782,7 @@ describe('a member’s own authored space', () => {
 })
 
 /**
- * ⭐⭐ PER-MEMBER OFFSET (docs/note-offset-plan.md §"Inside a FAN") — his rule, drawn: *"if I offset
+ * ⭐⭐ PER-MEMBER OFFSET (docs/plans/note-offset-plan.md §"Inside a FAN") — his rule, drawn: *"if I offset
  * something, things that are not the offset note should never move."* One head goes where it was
  * told; every other head, and the span itself, is exactly what the un-offset ramp produced.
  *

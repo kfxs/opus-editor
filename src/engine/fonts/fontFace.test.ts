@@ -1,6 +1,6 @@
 /**
  * A face normalised and written as CSS — VexFlow's `Font.validate` / `Font.toCSSString`, as ours (S13a).
- * ⚠️ Equality with VexFlow's was proved once over a 1,600-case grid (`docs/vexflow-removal-map.md` S13a);
+ * ⚠️ Equality with VexFlow's was proved once over a 1,600-case grid (`docs/history/vexflow-removal-map.md` S13a);
  * pinned here are the rules and the quirks.
  */
 import { describe, it, expect } from 'vitest'

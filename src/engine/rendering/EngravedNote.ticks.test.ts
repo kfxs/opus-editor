@@ -1,6 +1,6 @@
 /**
  * The note's ticks and its tuplet stack (S12j-c) — VexFlow's `Tickable` bookkeeping, transcribed. ⚠️
- * That the page is unchanged was proved by the broad and the tuplet A/Bs (`docs/vexflow-removal-map.md`
+ * That the page is unchanged was proved by the broad and the tuplet A/Bs (`docs/history/vexflow-removal-map.md`
  * S12j-c). Pinned here is the arithmetic, ⛔ unreduced.
  */
 import { describe, it, expect } from 'vitest'

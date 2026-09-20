@@ -1,6 +1,6 @@
 /**
  * ⭐⭐ **THE RULER, MADE VISIBLE** — `__bbox.ink()`, the eye-check for P6
- * (`docs/own-engraving-engine.md` §5 P6).
+ * (`docs/plans/own-engraving-engine.md` §5 P6).
  *
  * ## His point, 2026-09-14
  *

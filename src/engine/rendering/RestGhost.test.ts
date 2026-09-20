@@ -5,7 +5,7 @@
  * Subject: {@link RestGhost}, sitting beside this file; a `MusicEngine` is the FIXTURE. ⚠️ NODE
  * IDENTITY ONLY — jsdom measures every glyph 0×0, so where the ghost lands against the pointer is the
  * browser's, proved once by an A/B of every cursor ghost's ink against the previous commit
- * (`docs/vexflow-removal-map.md` S11d).
+ * (`docs/history/vexflow-removal-map.md` S11d).
  */
 import { describe, it, expect, beforeEach } from 'vitest'
 import { MusicEngine } from '../MusicEngine'

@@ -4,7 +4,7 @@ import { fracCreate as frac, fracToNumber } from '@/utils/fraction'
 import type { Chord } from '@/types/music'
 
 /**
- * The single-note tremolo MODEL — one field on the slot (docs/tremolo-plan.md §1).
+ * The single-note tremolo MODEL — one field on the slot (docs/plans/tremolo-plan.md §1).
  *
  * These pin the three properties the stamp relies on and nothing about how the mark is DRAWN:
  * jsdom cannot measure glyphs, so a geometry assertion here would pass vacuously

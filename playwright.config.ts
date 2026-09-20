@@ -1,7 +1,7 @@
 import { defineConfig, devices } from '@playwright/test'
 
 /**
- * `npm run test:e2e` — the GEOMETRY net (docs/refactor-plan-2026-07-27.md Phase 5).
+ * `npm run test:e2e` — the GEOMETRY net (docs/history/refactor-plan-2026-07-27.md Phase 5).
  *
  * The unit suite runs in jsdom, which has no layout engine and no fonts, so every glyph measures
  * 0×0 and an assertion about engraved geometry passes vacuously. These specs run the real engine in

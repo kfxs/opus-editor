@@ -1,7 +1,7 @@
 /**
  * Which face a category tag resolves to — VexFlow's `Metrics` font tree, as ours (S13a). ⚠️ That it
  * answers exactly what `Metrics.getFontInfo` answered was proved once, in one process, over 44 tags
- * (`docs/vexflow-removal-map.md` S13a); pinned here is what the rows and the walk promise.
+ * (`docs/history/vexflow-removal-map.md` S13a); pinned here is what the rows and the walk promise.
  */
 import { describe, it, expect } from 'vitest'
 import { ROOT_FONT_FAMILY, ROOT_FONT_SIZE_PT, categoryFont } from './fontCategories'

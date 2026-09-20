@@ -1,5 +1,5 @@
 /**
- * ⭐⭐ **A TIE MUST NOT SIT ON A STAFF LINE** (docs/slur-plan.md §12 Phase 3, §13.4).
+ * ⭐⭐ **A TIE MUST NOT SIT ON A STAFF LINE** (docs/plans/slur-plan.md §12 Phase 3, §13.4).
  *
  * > Gould p. 61: *"The curve of the tie should be sufficiently round to be **conspicuous through a
  * > stave-line**."*
@@ -33,7 +33,7 @@
  * Verovio not at all.
  *
  * ⚠️ **The armed tool's GHOST is exempt**: it floats at the cursor with no stave under it, so there
- * are no lines to clear and nothing to call this with (docs/slur-plan.md §12.0 #2).
+ * are no lines to clear and nothing to call this with (docs/plans/slur-plan.md §12.0 #2).
  */
 import { CURVE, CURVE_PX } from './curveStyle'
 

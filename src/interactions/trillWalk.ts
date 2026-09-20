@@ -543,7 +543,7 @@ export function dragTrillBody(
   const staffSpacePx = port.staffSpacePx()
   if (!staffSpacePx) return null
 
-  // ⏱ TEMPORARY (docs/render-performance-plan.md §12.5a) — everything this frame decides from, in
+  // ⏱ TEMPORARY (docs/history/render-performance-plan.md §12.5a) — everything this frame decides from, in
   //   one line, because the horizontal and the vertical read DIFFERENT numbers and a report that
   //   shows only one of them cannot tell a bad decision from a bad drawing.
   //   ⭐ `inkX/inkY` are the ornament's OWN DRAWN INK (the registry row the walk reads); `offset` is
@@ -859,7 +859,7 @@ function landWhereItWasDrawn(
  * `markBreakWrap.sameSystem` already carries, and for the same reason.
  *
  * 🚨 {@link whyNoJump} is **not** a template literal. It walks `getByType('note')` and runs a `find`
- * inside a `some`, which is docs/render-performance-plan.md §12.2's quadratic id lookup — hiding
+ * inside a `some`, which is docs/history/render-performance-plan.md §12.2's quadratic id lookup — hiding
  * inside a LOG MESSAGE. It was built EAGERLY on every declined frame, because a suppressed `dbg`
  * still evaluates its arguments (docs/logging.md's template caveat), so a production build with
  * every trace switched off paid for it too. In one of his 2026-08-22 census gestures this decline

@@ -7,7 +7,7 @@ import type { InspectedElement } from '@/interactions/inspectedElement'
 import type { FanMark } from '@/types/music'
 
 /**
- * ⭐ THE FAN ROW'S 1-BASED SEAM (docs/fan-ramp-range-plan.md P2). The window shows "note 1" for the
+ * ⭐ THE FAN ROW'S 1-BASED SEAM (docs/plans/fan-ramp-range-plan.md P2). The window shows "note 1" for the
  * note he typed, because that is how a musician counts a group; the model and the seam stay 0-based
  * like everything else in the editor, and the conversion happens here and nowhere deeper.
  *

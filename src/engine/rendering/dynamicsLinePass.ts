@@ -1,7 +1,7 @@
 /**
  * ⭐⭐ **THE DYNAMICS LINE, applied — the post-measure system pass that puts every mark on it.**
  *
- * P1 of docs/dynamics-line-and-hairpins-plan.md, and the plan's option **(c)**: the marks stay
+ * P1 of docs/plans/dynamics-line-and-hairpins-plan.md, and the plan's option **(c)**: the marks stay
  * exactly where they are drawn — a VexFlow `Annotation` attached to its anchor note, inside its
  * measure's group — and this pass TRANSLATES them onto the line afterwards. `engine/layout/
  * dynamicsLine.ts` decides where the line is; this decides nothing and moves everything.

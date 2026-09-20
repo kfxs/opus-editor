@@ -48,7 +48,7 @@ export interface PlaybackCallbacks {
  *
  * It owns the clock and the beats→seconds math and drives the position-follow loop, then
  * hands each sounding note to an {@link InstrumentPlayer} (the swappable sound source — see
- * `docs/soundfont-plan.md`). Scheduling is direct against the shared {@link AudioContext}'s
+ * `docs/plans/soundfont-plan.md`). Scheduling is direct against the shared {@link AudioContext}'s
  * `currentTime` (no Web-Audio transport), which is why pause/seek behave as documented below.
  */
 export class PlaybackEngine {
@@ -73,13 +73,13 @@ export class PlaybackEngine {
    * DEFAULT_TEMPO segment, which is why there is no `tempo` field anywhere.
    *
    * v1 builds ONE map (`scope = undefined` = the whole system). Polytempo would build one
-   * per scope and mix them at absolute seconds — see docs/tempo-marks-plan.md §0 rule 2.
+   * per scope and mix them at absolute seconds — see docs/plans/tempo-marks-plan.md §0 rule 2.
    */
   private tempoMap: TempoSegment[] = [{ startBeats: 0, qpm: DEFAULT_TEMPO, startSeconds: 0 }]
 
   /**
    * ⭐⭐ **THE PLAY ORDER** — the performance this score makes, as a list of legs
-   * (`./repeatPlan`, docs/barline-types-plan.md §7). One leg for a score with no repeats, which is
+   * (`./repeatPlan`, docs/plans/barline-types-plan.md §7). One leg for a score with no repeats, which is
    * what every arithmetic downstream collapses to.
    *
    * ⚠️ Rebuilt by {@link calculateTotalDuration} alongside the tempo map, and for its reason: the
@@ -132,7 +132,7 @@ export class PlaybackEngine {
     // the map — never through one scalar.
     this.tempoMap = buildTempoMap(this.score)
 
-    // ⭐⭐ **THE PERFORMANCE, not the score** (docs/barline-types-plan.md §7). The length used to be
+    // ⭐⭐ **THE PERFORMANCE, not the score** (docs/plans/barline-types-plan.md §7). The length used to be
     // the sum of every bar's capacity; with repeats a bar can sound more than once, so the length is
     // the play order's — `planDuration`. ⚠️ Rebuilt HERE for the same reason the tempo map is:
     // placing a repeat changes the piece's duration, and the auto-stop and the progress bar read it.

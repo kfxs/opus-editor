@@ -3,7 +3,7 @@
  * An accidental of ours (S12e): what VexFlow's `Accidental` added to the modifier contract. ⚠️ That it
  * draws, stacks and boxes exactly as before was proved on the page — 50 random scores (2,442
  * accidental hit boxes, dense chords, ledger notes, note offsets), SVG and registry byte-identical
- * against the previous commit (`docs/vexflow-removal-map.md` S12e). Its hit box is pinned in
+ * against the previous commit (`docs/history/vexflow-removal-map.md` S12e). Its hit box is pinned in
  * `drawnHitBox.test.ts`; pinned here is the contract its readers rely on.
  */
 import { describe, it, expect } from 'vitest'

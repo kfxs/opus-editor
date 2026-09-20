@@ -696,7 +696,7 @@ test('🚨🚨 five sixteenths, the last one FLAGGED — the arch stays on the p
 /**
  * 🚨🚨 **HIS REPORT, 2026-09-14 — a slur over five STACCATO sixteenths came out bent.**
  * *"the articulation is bending the slur, while in my opinion they should not change the slur ANGLE
- * but move it up a little"* (`docs/slur-tie-research.md` §8).
+ * but move it up a little"* (`docs/research/slur-tie-research.md` §8).
  *
  * ⭐⭐ **The assertion is the RATIO of the two control heights, and that is deliberate.** The
  * complaint was never the height — his own hand-tuned target was TALLER than what we now draw. It

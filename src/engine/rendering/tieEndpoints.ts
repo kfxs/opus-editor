@@ -1,6 +1,6 @@
 /**
  * ⭐⭐ **WHERE A TIE ATTACHES** — the tie's twin of `./slurStemEndpoint`, and the last of its
- * placement decisions to come back from VexFlow (docs/slur-plan.md §13.3, his call 2026-08-16).
+ * placement decisions to come back from VexFlow (docs/plans/slur-plan.md §13.3, his call 2026-08-16).
  *
  * ⭐ **The x, and why it moved.** We used VexFlow's `getTieRightX()` / `getTieLeftX()` — the head's
  * outer edges, plus whatever modifiers hang off the note — so a tie spanned the GAP between two

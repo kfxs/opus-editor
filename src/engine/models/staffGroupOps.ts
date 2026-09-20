@@ -2,7 +2,7 @@
  * **GROUPING SIGNS — the brace and the bracket, as a SCORE operation.** Free functions on a `Score`,
  * in the `clefOps` / `barlineOps` / `keyOps` idiom, with {@link ScoreModel} keeping thin delegators
  * (DESIGN-PRINCIPLES principle 5 — the score is independent of the editor, so none of this may live
- * on `MusicEngine`, which only records undo). P5 of docs/braces-brackets-plan.md.
+ * on `MusicEngine`, which only records undo). P5 of docs/plans/braces-brackets-plan.md.
  *
  * ## ⭐⭐ THE USER OWNS MEMBERSHIP NOW — the auto-writer had to stop
  *

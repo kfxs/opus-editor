@@ -14,7 +14,7 @@
   -webkit-user-select: none;
 }
 
-/* Zoom DOM (docs/zoom-plan.md §3). The sizer's explicit width/height (set by useViewport =
+/* Zoom DOM (docs/plans/zoom-plan.md §3). The sizer's explicit width/height (set by useViewport =
    naturalSvgSize × zoom) is what the scroll box measures for its scroll range. The zoomLayer
    sits at the sizer's top-left and carries transform: scale(zoom) (origin 0 0, set in JS); it is
    also the containing block for the play-cursor, which therefore stays in pure layout coords. */
@@ -36,7 +36,7 @@
   background-color: #ffffff;
 }
 
-/* Linear view's frozen gutter (docs/linear-view-plan.md §P3): the clef in force at the current
+/* Linear view's frozen gutter (docs/plans/linear-view-plan.md §P3): the clef in force at the current
    scroll-x, pinned to the left edge so it stays readable at bar 400. Absolutely positioned OVER
    the scroll box (a child of it would scroll away with the music) and outside the zoom layer — so
    GutterController applies the zoom scalar itself, and writes `top`/`height` to track the score

@@ -3,7 +3,7 @@ import { walkSigns, type WalkSign } from './signWalk'
 import { BARLINE_ROWS, type BarlineKind } from './barlineMetrics'
 
 /**
- * ⭐ The walk is VexFlow's `Stave.format()` transcribed (S4b1 of `docs/vexflow-removal-map.md`), so each
+ * ⭐ The walk is VexFlow's `Stave.format()` transcribed (S4b1 of `docs/history/vexflow-removal-map.md`), so each
  * expectation below is that arithmetic done by hand on round numbers: a 200 px bar at x 0, a clef 30
  * wide, a meter 20 wide.
  */

@@ -1,5 +1,5 @@
 /**
- * ⭐ **A BAR'S TICK ARITHMETIC — S9i** (`docs/vexflow-removal-map.md` §5.2).
+ * ⭐ **A BAR'S TICK ARITHMETIC — S9i** (`docs/history/vexflow-removal-map.md` §5.2).
  *
  * A note's length in VexFlow's clock, summed the way VexFlow's `Fraction` sums it — **transcribed, not
  * improved**: `add` puts both sides over their LCM and ⛔ never reduces. That matters, because a bar's

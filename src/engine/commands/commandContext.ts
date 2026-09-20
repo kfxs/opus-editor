@@ -1,7 +1,7 @@
 /**
  * ⭐ **WHAT A COMMAND FAMILY IS BUILT FROM** — the editor's own concerns, and nothing of the score's:
  * how an edit becomes an undo entry, how a live drag defers one, and the limits a hand-nudge is
- * judged by before it may be WRITTEN (docs/code-shape-plan-2026-09-19.md, Phase 3.5).
+ * judged by before it may be WRITTEN (docs/plans/code-shape-plan-2026-09-19.md, Phase 3.5).
  *
  * A family (`./<family>Commands.ts`) is a function of this context returning typed functions;
  * `MusicEngine` builds the context once and keeps `readonly ottava = ottavaCommands(ctx)`. ⛔ What a

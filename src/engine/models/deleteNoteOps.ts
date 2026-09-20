@@ -3,7 +3,7 @@
  * model's; what this module answers is everything that must still be true afterwards: the slot's
  * length is still accounted for, the ties that pointed at it still point somewhere, the slurs
  * anchored to it follow or fall, and a secondary voice left with nothing but rests collapses. Score
- * logic, moved off `MusicEngine` (docs/code-shape-plan-2026-09-19.md, Phase 4.1): the facade keeps
+ * logic, moved off `MusicEngine` (docs/plans/code-shape-plan-2026-09-19.md, Phase 4.1): the facade keeps
  * the undo entry and its label.
  *
  * Which edit a delete IS depends on what the id names:

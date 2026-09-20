@@ -7,7 +7,7 @@ import { drawGlyph, drawTextRun, measureGlyph } from './glyphPainter'
  * ⭐⭐ **THE CONTRACT IS EQUIVALENCE**, and that is the only thing worth asserting here.
  *
  * This module was extracted from nine files that each wrote the same four lines by hand
- * (`docs/own-engraving-engine.md` P1). Its whole job is to emit *exactly* what they emitted — a
+ * (`docs/plans/own-engraving-engine.md` P1). Its whole job is to emit *exactly* what they emitted — a
  * hand-built VexFlow `Element` (`setText` + `setFontSize` + `renderText`). ⭐ Since S14 VexFlow is gone,
  * so what that `Element` emitted is PINNED as literals ({@link BY_HAND}), recorded from VexFlow 5.0.0
  * on 2026-09-19 just before the package was removed. ⛔ A test that only checked "it called fillText

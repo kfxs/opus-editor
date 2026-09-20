@@ -67,7 +67,7 @@ describe('stampFanAtClick', () => {
     // `in the time of a half` and placed a half, so there is no second span to store.
     expect(note.fan?.length).toBeUndefined()
     // `setFan` mints the members, each carrying its own pitches (a member IS a chord —
-    // docs/fanned-beam-pitches-plan.md), so all six attacks arrive at the clicked pitch and are
+    // docs/plans/fanned-beam-pitches-plan.md), so all six attacks arrive at the clicked pitch and are
     // editable from the moment they are stamped. `count - 1` of them: member 0 IS the slot itself.
     expect(note.fan?.members).toHaveLength(5)
     expect(render).toHaveBeenCalled()

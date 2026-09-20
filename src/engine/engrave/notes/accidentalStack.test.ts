@@ -1,6 +1,6 @@
 /**
  * Which column each accidental of a chord takes. ⚠️ Exactness against `Accidental.format` was proved
- * once, on 3,264 signs of random chords (S9d, `docs/vexflow-removal-map.md` §5.2); pinned here is the
+ * once, on 3,264 signs of random chords (S9d, `docs/history/vexflow-removal-map.md` §5.2); pinned here is the
  * rule's shape.
  */
 import { describe, it, expect } from 'vitest'

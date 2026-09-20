@@ -1,7 +1,7 @@
 import { test, expect } from './fixtures'
 
 /**
- * ⭐⭐ **P6b — THE ACCIDENTAL'S HIT BOX, CHECKED AGAINST THE PAGE** (`docs/own-engraving-engine.md`
+ * ⭐⭐ **P6b — THE ACCIDENTAL'S HIT BOX, CHECKED AGAINST THE PAGE** (`docs/plans/own-engraving-engine.md`
  * §5 P6).
  *
  * `drawnHitBox.test.ts` proves the box is the glyph's own outline, in jsdom — which is the whole

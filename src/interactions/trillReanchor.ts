@@ -231,7 +231,7 @@ export function reanchorArmedTrillEndpoint(
   // ⚠️⚠️ **This is the one place `Ctrl+Shift+arrow` writes something COSMETIC.** The chord otherwise
   // means "move this end through the music" and a plain arrow means "move the ink". It is defensible
   // only because at this end of the walk the trill covers ONE note and there is no musical extent
-  // left to change — see docs/trill-plan.md. ⛔ Do not generalise it to the other spans, and ⛔ note
+  // left to change — see docs/plans/trill-plan.md. ⛔ Do not generalise it to the other spans, and ⛔ note
   // that the INTERPOLATING walk (`./trillWalk`) deliberately does NOT reach it: there is no gap to
   // measure to a state, so the ink has nothing to arrive at.
   if (which === 'end') {

@@ -3,7 +3,7 @@
  * passed-in {@link RenderPass} + score (no renderer-instance state), matching the
  * engine's free-function module idiom.
  *
- * ⭐⭐ **ONE PRIMITIVE FOR EVERY TIE** (docs/slur-plan.md §12 Phase 3b, his call 2026-08-16:
+ * ⭐⭐ **ONE PRIMITIVE FOR EVERY TIE** (docs/plans/slur-plan.md §12 Phase 3b, his call 2026-08-16:
  * *"vexflow draw something and us another? i dont like this inconsistence"*). A same-line tie, both
  * halves of one crossing a system break, the pending preview and the armed tool's ghost all draw
  * through {@link drawCurveArc} with the same bow and the same weight. Three of those four used to be
@@ -170,7 +170,7 @@ export function renderTies(pass: RenderPass, score: Score): void {
             const tieGroup = drawGroupOf(pass.context.openGroup?.('tie', `tie-${pitch.id}`))
 
             // A tie is drawn from the two notes' own coordinates, and those are in their staff's
-            // space — so the tie is drawn in it too (docs/staff-size-plan.md §4.3). Both ends of a
+            // space — so the tie is drawn in it too (docs/plans/staff-size-plan.md §4.3). Both ends of a
             // tie are the same pitch on the same staff, including across a system break, so one
             // scale covers the whole thing.
             const staffIndex = staffIndexOfId(score, slot.staffId)
@@ -184,7 +184,7 @@ export function renderTies(pass: RenderPass, score: Score): void {
                 partial?: 'start' | 'end',
               ) => {
                 if (!arc) return
-                // ⭐⭐ **THE ARC, FILED AS AN OBSTACLE** — docs/trill-slur-clearance-plan.md P1, the
+                // ⭐⭐ **THE ARC, FILED AS AN OBSTACLE** — docs/plans/trill-slur-clearance-plan.md P1, the
                 // slur's twin next door. The tie is the case Gould draws (p. 139, *Change of
                 // trilling note*: ties hugging the noteheads with the wavy line above them), and a
                 // trill's span runs *through* ties by definition, so this is the commoner of the
@@ -220,7 +220,7 @@ export function renderTies(pass: RenderPass, score: Score): void {
                 // system's margin — the same construction the SLUR uses (`./systemEdges`), where
                 // this used to be VexFlow's `StaveTie` deciding its own extent. A system edge comes
                 // from `measureBounds`, i.e. where the bar landed in the SVG, so it is converted
-                // into the staff's own space here (the small-staff rule, docs/staff-size-plan.md).
+                // into the staff's own space here (the small-staff rule, docs/plans/staff-size-plan.md).
                 const scale = pass.staffScale(staffIndex)
                 const rightEdge = lineRightEdgeX(pass, fromLine)
                 // ⭐ Gould p. 65 gives the tie the slur's own rule — *"at the start of a new system

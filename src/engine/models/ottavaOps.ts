@@ -2,7 +2,7 @@
  * OTTAVAS — the octave lines (8va / 8vb / 15ma …), as SCORE operations: add, remove, re-length,
  * look up, and turn `beat + length` into the two addresses it covers. Free functions on a `Score`,
  * in the `clefOps` / `hairpinOps` / `slurOps` idiom, with {@link ScoreModel} keeping thin
- * delegators (docs/ottava-plan.md §4; DESIGN-PRINCIPLES principle 5 — *the score is independent of
+ * delegators (docs/plans/ottava-plan.md §4; DESIGN-PRINCIPLES principle 5 — *the score is independent of
  * the editor*, so none of this may live on `MusicEngine`, which is the editor's facade).
  *
  * ⭐ **`hairpinOps` is the twin, with ONE rule changed and it is the whole character of the
@@ -40,7 +40,7 @@ export function measureOttavas(measure: Measure): Ottava[] {
  * The list is kept sorted ascending by beat. A fresh id is generated.
  *
  * ⭐ **UPSERT, per staff** — an ottava already at this (beat, staff) is REPLACED rather than joined.
- * That is the clef's rule and it is deliberate (docs/ottava-plan.md §7.8): the hairpin's
+ * That is the clef's rule and it is deliberate (docs/plans/ottava-plan.md §7.8): the hairpin's
  * everything-stacks rule would let a bar hold an 8va and a 15ma governing one staff from one beat,
  * and no reader — the eye, playback, or `soundingShiftAt` — could say which one is true. ⚠️ Staff
  * comparison is `matchesStaff`, not `===`: staff 0 stores an ABSENT id, so an explicit first-staff
@@ -724,7 +724,7 @@ export interface OttavaSpan {
  * `restoreBeatAnchors` applies to an over-running offset.
  *
  * ⚠️ **This is the MUSICAL span, not the drawn one.** Gould's rule stops the bracket at the last
- * notehead inside the span rather than at the end of that note's duration (docs/ottava-plan.md §1
+ * notehead inside the span rather than at the end of that note's duration (docs/plans/ottava-plan.md §1
  * rule 2 — the opposite of the trill's and the hairpin's x rule), and finding that notehead needs
  * the render's columns. What is answered here is *which music is governed*, which is what playback
  * and any future re-spelling command ask.

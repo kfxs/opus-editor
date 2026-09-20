@@ -2,7 +2,7 @@
  * ⭐ **THE REST FILL — every voice of every staff sums to its bar.** {@link fillGapsWithRests} finds
  * the holes in a measure, per staff and per voice, and fills them with engraving-correct rests;
  * {@link pushRestSlot} is the one place a filler rest is minted. Score logic, moved off
- * `ScoreModel` (docs/code-shape-plan-2026-09-19.md, Phase 4.3b) — it was the callback every `*Deps`
+ * `ScoreModel` (docs/plans/code-shape-plan-2026-09-19.md, Phase 4.3b) — it was the callback every `*Deps`
  * bundle asked for (`RebarDeps`, `VoiceDeps`, `tupletOps.deleteTuplet`), and they import it now.
  *
  * ⚠️ Division of labour: WHICH rests span a gap is `utils/restFill`'s `fillRests` — meter-aware and

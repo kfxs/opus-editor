@@ -1,5 +1,5 @@
 /**
- * ⭐⭐ **SUSTAIN PEDALS — `Ped.` and its release `✻`, drawn.** P2 of docs/pedal-plan.md.
+ * ⭐⭐ **SUSTAIN PEDALS — `Ped.` and its release `✻`, drawn.** P2 of docs/plans/pedal-plan.md.
  *
  * A score-level pass after the measures, exactly like `renderHairpins` / `renderTrills` /
  * `renderOttavas` and for the same reason: a pedal spans bars, so it cannot be drawn inside any one
@@ -27,7 +27,7 @@
  * ⭐ **4. Two glyphs, no line between them — so the REGISTRY grain is the GLYPH, not the fragment.**
  * Every other span here registers one box per drawn fragment; a `Ped.✻` pedal would then claim a wide
  * empty strip under music it merely passes over, and *a press may only reach INK*
- * (docs/barline-selection.md). So each drawn sign registers its own box, all carrying the pedal's id.
+ * (docs/how-it-works/barline-selection.md). So each drawn sign registers its own box, all carrying the pedal's id.
  * ⭐ When the bracket style arrives the line becomes ink and the boxes merge back into one per
  * fragment — here and in `interactions/elements/pedal.ts`, nowhere else.
  *
@@ -280,7 +280,7 @@ export function renderPedals(
       if (!span) continue
 
       // ⭐ WHICH STAFF IT IS DRAWN UNDER is the seam's question, not `pedal.staffId`'s
-      // (docs/pedal-plan.md §3.2) — today the attached staff, tomorrow the bottom one of its
+      // (docs/plans/pedal-plan.md §3.2) — today the attached staff, tomorrow the bottom one of its
       // instrument, and this call site does not change when that does.
       const drawStaff = pedalDrawStaff(score, pedal)
       const staffIndex = staffIds.findIndex(id => (id ?? staffIds[0]) === (drawStaff ?? staffIds[0]))
@@ -406,7 +406,7 @@ function drawPedal(
     const signX = autoSignX + (piece.continuation ? 0 : px(nudge?.startX ?? 0))
 
     const downWidth = drawPedalSign(ctx, signX, y, piece.continuation)
-    // ⭐⭐ THE ATTACHMENT GUIDE — the sixth kind (docs/dynamic-offset-plan.md), and it rides the
+    // ⭐⭐ THE ATTACHMENT GUIDE — the sixth kind (docs/plans/dynamic-offset-plan.md), and it rides the
     // `Ped.` because that is the sign the gesture BEGINS with.
     //
     // ⭐ Its far end is a PLACE, like the hairpin's and the octave line's: a pedal governs a region —

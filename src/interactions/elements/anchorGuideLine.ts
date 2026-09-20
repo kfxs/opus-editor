@@ -3,7 +3,7 @@
  * (Dorico/MuseScore style — the mark to the note/beat it belongs to). It is a pure VISUALIZATION,
  * never part of the score: not engraved, not hit-tested, not serialized — just a hint that reads
  * "this is attached HERE", which matters once the mark has been nudged away from its note
- * (docs/dynamic-offset-plan.md). Both endpoints are captured at render and shifted with the bar
+ * (docs/plans/dynamic-offset-plan.md). Both endpoints are captured at render and shifted with the bar
  * (`offsetElement`), so the line tracks a translated measure. Cleared by the next render like
  * every other decoration.
  *
@@ -50,7 +50,7 @@ export function paintAnchorGuideLine(ctx: HighlightContext): void {
   // `to` is whatever it hangs off (a notehead for a dynamic or a trill, a beat's column at the
   // staff's edge for a tempo mark or a hairpin). Both were his corrections, 2026-08-17: *"change
   // that point to the beginning of the expression"* and *"the anchor line should be measuring ink
-  // and not bbox"* — see `docs/dynamic-offset-plan.md` for which kind attaches to what.
+  // and not bbox"* — see `docs/plans/dynamic-offset-plan.md` for which kind attaches to what.
   for (const guide of guides) {
     const line = document.createElementNS('http://www.w3.org/2000/svg', 'line')
     line.setAttribute('x1', String(guide.from.x))

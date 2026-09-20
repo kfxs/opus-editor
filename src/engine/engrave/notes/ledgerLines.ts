@@ -1,6 +1,6 @@
 /**
- * ⭐⭐ **THE LEDGER LINE — the first piece of a NOTE that is ours** (`docs/own-engraving-engine.md`
- * P3, `docs/note-engraving-plan.md` P3a).
+ * ⭐⭐ **THE LEDGER LINE — the first piece of a NOTE that is ours** (`docs/plans/own-engraving-engine.md`
+ * P3, `docs/plans/note-engraving-plan.md` P3a).
  *
  * ## Why this one first
  *
@@ -13,7 +13,7 @@
  * | `FanPass.drawFanLedgerLines` | a fanned member's hand-drawn head — *"`drawLedgerLines` belongs to `StaveNote`; a bare `NoteHead` only swaps to the ledger glyph"* |
  * | `ScoreRenderer.drawRestLedgerLines` | a rest a manual shift pushed off the staff |
  *
- * 🚨 That is `docs/own-engraving-engine.md` §3.1's *"the second owner is the tell"*, found three
+ * 🚨 That is `docs/plans/own-engraving-engine.md` §3.1's *"the second owner is the tell"*, found three
  * times in one element: **a rule with no home, copied because there was no module to import.** The
  * two copies were written from VexFlow's source and say so in their comments.
  *
@@ -33,12 +33,12 @@
  *   already decided the weight — `layoutConfig.LEDGER_LINE_STYLE`, black, at Bravura's own
  *   `legerLineThickness / staffLineThickness` **ratio (1.23×)**, pinned by
  *   `rendering/ledgerLineStyle.test.ts` — and Gould's sentence says **2×**. ⛔ Not this module's
- *   call, and ⛔ not a drift to "fix": see `docs/note-engraving-plan.md` §3.
+ *   call, and ⛔ not a drift to "fix": see `docs/plans/note-engraving-plan.md` §3.
  * - *"The ledger line extends slightly beyond either side of the notehead and is just over two
  *   spaces long."* ⚠️ Ours is a notehead (1.18) + 2 × 0.3 = **1.78 spaces**, because the overhang is
  *   VexFlow's 3 px. The font's own `legerLineExtension` (0.4) would make it 1.98 — *"just over two
  *   spaces"* — and that is already **open taste call #5** awaiting his eye
- *   (`docs/font-metrics-plan.md` §3.6, recorded in `layout/spacingPadding.font.test.ts`).
+ *   (`docs/plans/font-metrics-plan.md` §3.6, recorded in `layout/spacingPadding.font.test.ts`).
  *   ⛔ **Not decided here.** This module changed no pixel.
  * - *"Ledger lines of adjacent notes should not join up; the lines may be slightly shortened in
  *   cramped conditions."* ⏭️ The horizontal half of that is already the ink table's
@@ -54,7 +54,7 @@
  * ⛔ **What is NOT here yet**, so nobody reads its absence as a decision: Gould p. 27's
  * *"the two parts may share ledger lines"* — two voices at the same level draw one ledger between
  * them, and a ledger not shared *"should not cut through"* the nearer part's stem. Every voice
- * draws its own today. `docs/note-engraving-plan.md` §4 holds it.
+ * draws its own today. `docs/plans/note-engraving-plan.md` §4 holds it.
  *
  * ## ⚠️ Where the numbers come FROM
  *
@@ -132,7 +132,7 @@ export function ledgerLineRuns(
  * ⭐ **THE INK** — and it is the whole of what a ledger line is: a stroked two-point path per run.
  *
  * `yOfLine` is the caller's staff, asked rather than computed: ⛔ rule 5 of
- * `docs/own-engraving-engine.md` §0.3 — *"no inverse mapping written as straight-staff arithmetic"*
+ * `docs/plans/own-engraving-engine.md` §0.3 — *"no inverse mapping written as straight-staff arithmetic"*
  * — cuts both ways, and a module that turned a line number into a y by multiplying would be the
  * reader that assumes the staff is straight.
  *

@@ -1,5 +1,5 @@
 /**
- * ⭐⭐ **HOW A COLUMN'S ARTICULATIONS STACK** — S9e of `docs/vexflow-removal-map.md`
+ * ⭐⭐ **HOW A COLUMN'S ARTICULATIONS STACK** — S9e of `docs/history/vexflow-removal-map.md`
  * (`Articulation.format`, MIT, transcribed).
  *
  * ## ⭐ What the rule IS

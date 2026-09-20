@@ -1,6 +1,6 @@
 /**
  * ⭐⭐ **A TIME SIGNATURE ON A SCORE STAVE — a sign of ours, with no VexFlow class underneath** (S4c of
- * `docs/vexflow-removal-map.md`; the ink itself is `engrave/header/meter`).
+ * `docs/history/vexflow-removal-map.md`; the ink itself is `engrave/header/meter`).
  *
  * It began (P5b) as a subclass of VexFlow's `TimeSignature` whose `draw()` moved the ink into our
  * module. Piece by piece everything else followed:
@@ -13,7 +13,7 @@
  * | the OBJECT | S4c | this plain class, held in `EngravedStave`'s own sign list |
  *
  * 🚨 The ROW GAP stays today's 2 sp: it is ⛔ **UNKNOWN in every treatise**
- * (`docs/header-spacing-research.md` row **H**), so a migration is the last place it may be chosen.
+ * (`docs/research/header-spacing-research.md` row **H**), so a migration is the last place it may be chosen.
  *
  * ⚠️ VexFlow's `drawAt` — the ungrouped path a `TimeSigNote` took — is gone with the subclass: nothing
  * in this repo makes a `TimeSigNote` (a mid-bar meter change is the renderer's own pass).

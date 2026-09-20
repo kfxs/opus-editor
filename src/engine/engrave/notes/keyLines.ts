@@ -1,6 +1,6 @@
 /**
  * ⭐⭐ **WHAT A CHORD'S KEYS PUT ON THE STAFF** — each key's staff LINE, the notehead GLYPH it is
- * written with, and which keys stand a SECOND apart. S6d of `docs/vexflow-removal-map.md`.
+ * written with, and which keys stand a SECOND apart. S6d of `docs/history/vexflow-removal-map.md`.
  *
  * ## ⭐ Why this module exists
  *

@@ -1,5 +1,5 @@
 /**
- * ⭐⭐ **WHERE AN ARTICULATION STANDS ON ITS NOTE** — S12f of `docs/vexflow-removal-map.md`
+ * ⭐⭐ **WHERE AN ARTICULATION STANDS ON ITS NOTE** — S12f of `docs/history/vexflow-removal-map.md`
  * (`Articulation.draw`'s placement, MIT, transcribed).
  *
  * ## ⭐ What the rule IS

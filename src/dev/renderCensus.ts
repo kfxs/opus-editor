@@ -1,5 +1,5 @@
 /**
- * TEMPORARY — the P0 measurement instrument (docs/render-performance-plan.md §8).
+ * TEMPORARY — the P0 measurement instrument (docs/history/render-performance-plan.md §8).
  * Delete when P0 closes; nothing may depend on it.
  *
  * Answers the two questions that need a *real browser* and a *real editing session*:
@@ -242,7 +242,7 @@ class RenderCensus implements RenderProbe {
       row('unaccounted', r.unaccountedMs, 'the header: surface, clefs, staff spacing, sizing, ghost'),
     ])
     // ⛔ A fourth line here reported `MeasureWidthCache` hits/misses. It printed `0 hits / 0 misses`
-    // for its whole life, and docs/render-performance-plan.md §12.6 quoted that as if it meant the
+    // for its whole life, and docs/history/render-performance-plan.md §12.6 quoted that as if it meant the
     // cache was cold: the probe had NO call site, and the cache it would have measured is
     // deliberately not consulted (`MeasureLayout.noteSpaceForMeasure`). A line that can only print
     // zero is not a measurement, and leaving it standing cost a reading of the census.

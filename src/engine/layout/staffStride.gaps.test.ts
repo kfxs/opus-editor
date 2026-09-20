@@ -5,7 +5,7 @@
  *
  * Subject: {@link staffStridePx} / {@link systemStaffTops}, a chapter beside `staffStride.test.ts`.
  * Everything here is stated as the distance a reader can SEE and a book can quote: **bottom stave-line
- * of one staff → top stave-line of the next** (docs/vertical-spacing-research.md §1). ⛔ Never
+ * of one staff → top stave-line of the next** (docs/research/vertical-spacing-research.md §1). ⛔ Never
  * top-to-top, which no source measures and which hides the staff's own 4 spaces inside the number.
  */
 import { describe, it, expect } from 'vitest'

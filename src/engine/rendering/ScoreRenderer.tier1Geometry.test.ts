@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * P5.3 — **tier 1 is complete without tier 2** (docs/render-performance-plan.md §7).
+ * P5.3 — **tier 1 is complete without tier 2** (docs/history/render-performance-plan.md §7).
  *
  * The claim the whole two-tier design rests on: *a measure that is never drawn still knows where it
  * is.* `linear-view-plan.md` named the blocker — `ElementRegistry` was populated **as a side effect

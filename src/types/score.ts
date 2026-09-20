@@ -68,7 +68,7 @@ export interface Measure {
    * one** (P2). `clearMeasureForRebar` deletes every *beat-anchored* array before a bar is re-tiled,
    * precisely so a missed re-anchor is a visible loss rather than a mark pointing at music that
    * moved. A beat-0 signature is a boundary fact and rides its measure like the meter does; a
-   * beat > 0 one would need capturing. See docs/key-signature-plan.md §1.2.
+   * beat > 0 one would need capturing. See docs/plans/key-signature-plan.md §1.2.
    */
   keys?: KeyChange[]
   /**
@@ -92,7 +92,7 @@ export interface Measure {
    * beat. A hairpin is stored on the bar its start lands in and carries its own extent
    * ({@link Hairpin.length}), so it may run past this bar's end. Multiple hairpins may share a
    * (beat, voice) — nothing is replaced. Optional/absent = none.
-   * See docs/dynamics-line-and-hairpins-plan.md §5; ops in `engine/models/hairpinOps`.
+   * See docs/plans/dynamics-line-and-hairpins-plan.md §5; ops in `engine/models/hairpinOps`.
    */
   hairpins?: Hairpin[]
   /**
@@ -101,7 +101,7 @@ export interface Measure {
    * a hairpin is, so it may run past this bar's end. ⚠️ At most ONE per (beat, staff) — the CLEF
    * rule, not the hairpin's: two wedges on a beat are two readable marks, two octave shifts
    * governing one staff from one beat are a contradiction. Optional/absent = none.
-   * See docs/ottava-plan.md §4; ops in `engine/models/ottavaOps`.
+   * See docs/plans/ottava-plan.md §4; ops in `engine/models/ottavaOps`.
    */
   ottavas?: Ottava[]
   /**
@@ -109,9 +109,9 @@ export interface Measure {
    * lands in and carrying its own extent ({@link Pedal.length}), exactly as a hairpin is, so it may
    * run past this bar's end. ⚠️ At most ONE per (beat, staff) — the CLEF rule, as for an
    * {@link Ottava}, and here the reason is physical: one damper, one foot. ⚠️ Overlap that does not
-   * share a start beat is NOT policed by the model (docs/pedal-plan.md §3.3) — the entry door
+   * share a start beat is NOT policed by the model (docs/plans/pedal-plan.md §3.3) — the entry door
    * truncates, and playback resolves positionally. Optional/absent = none.
-   * See docs/pedal-plan.md §3; ops in `engine/models/pedalOps`.
+   * See docs/plans/pedal-plan.md §3; ops in `engine/models/pedalOps`.
    */
   pedals?: Pedal[]
   /**
@@ -122,7 +122,7 @@ export interface Measure {
    * bar happens to be last in the file).
    *
    * ⛔ Repeats are NOT styles — see {@link repeatStart} / {@link repeatEnd} and {@link BarlineStyle}.
-   * Ops in `engine/models/barlineOps`; see docs/barline-types-plan.md §3.
+   * Ops in `engine/models/barlineOps`; see docs/plans/barline-types-plan.md §3.
    */
   barline?: BarlineStatement
   /** **This bar OPENS a repeat** ( `|:` ). The one sign filed under the bar it begins rather than the
@@ -138,7 +138,7 @@ export interface Measure {
 /**
  * One staff in the vertical **staff axis** — a single lane of five lines (the concrete
  * thing "+ Staff Above/Below" adds). Ordered top→bottom in {@link Score.staves}; a
- * single-staff score has exactly one. See docs/multi-staff-plan.md.
+ * single-staff score has exactly one. See docs/plans/multi-staff-plan.md.
  *
  * Identity is a **stable string id**, never a positional index: "add staff above"
  * prepends to `Score.staves` with no mass-renumber of back-pointers (contrast measure
@@ -146,7 +146,7 @@ export interface Measure {
  * projection time (that is what flat {@link Note.staff} carries).
  *
  * Deferred by design (not modeled here): name, transposition, timbre — timbre is a
- * *playback* concern, never content. See docs/multi-staff-plan.md §1, §10.
+ * *playback* concern, never content. See docs/plans/multi-staff-plan.md §1, §10.
  */
 export interface StaffInfo {
   /** Stable identity. Slot/clef/dynamic/tuplet `staffId` back-pointers use this. */
@@ -161,7 +161,7 @@ export interface StaffInfo {
    * staff (and later per system), so it is positional and belongs to the thing it varies at.
    * It is NOT part of the layout {@link Surface}; a canvas has no millimetres and still has a
    * staff size. Read it through `resolveStaffSize` (engine/models/staffSize.ts), never directly —
-   * that is where per-system size will arrive. See docs/staff-size-plan.md §2, §3.
+   * that is where per-system size will arrive. See docs/plans/staff-size-plan.md §2, §3.
    */
   size?: number
   /**
@@ -180,7 +180,7 @@ export interface StaffInfo {
    *
    * ⚠️ Read it through `barlineJoinsBelow` (engine/models/barlineJoin.ts), **never directly** — that
    * function takes the BOUNDARY as well, which is where the contemporary per-boundary mix will
-   * arrive without a single caller moving. See docs/barline-join-plan.md §2.4.
+   * arrive without a single caller moving. See docs/plans/barline-join-plan.md §2.4.
    */
   barlineJoinBelow?: boolean
 }
@@ -190,7 +190,7 @@ export interface StaffInfo {
  * = one group of two staves). Genuine *content* — it is what will later gate cross-staff
  * legality (allowed within a group, never between groups) and drive the brace/bracket —
  * so it lives in the model, but its rendering is DEFERRED. A sketch has no groups
- * (`Score.staffGroups` absent). See docs/multi-staff-plan.md §1, §4.
+ * (`Score.staffGroups` absent). See docs/plans/multi-staff-plan.md §1, §4.
  */
 export interface StaffGroup {
   id: string
@@ -239,20 +239,20 @@ export interface Score {
    *  (`engine/models/scoreTextOps`). 🚧 Drawn by `rendering/ScoreHeaderPass`, which is a sketch. */
   composer?: string
   /** Measures in the score — the shared horizontal spine (barlines, meter), aligned
-   *  across all staves. See docs/multi-staff-plan.md §4. */
+   *  across all staves. See docs/plans/multi-staff-plan.md §4. */
   measures: Measure[]
   /**
    * The **staff axis**: staves ordered top→bottom. Length 1 for a single-staff score
    * (the default, not a special case). A live model always has this populated (the
    * constructor seeds one; {@link fromJSON} defaults it when absent in hand-written JSON).
    * Content back-references a staff by its {@link StaffInfo.id}; absent `staffId` on a
-   * slot/clef/dynamic/tuplet means staff 0. See docs/multi-staff-plan.md §1, §4.
+   * slot/clef/dynamic/tuplet means staff 0. See docs/plans/multi-staff-plan.md §1, §4.
    */
   staves?: StaffInfo[]
   /**
    * Optional **grouping overlay** (a piano = one group of two staves). Genuine content
    * (gates future cross-staff legality + brace), but its rendering is DEFERRED; absent =
-   * no groups (a sketch). See {@link StaffGroup} and docs/multi-staff-plan.md §1.
+   * no groups (a sketch). See {@link StaffGroup} and docs/plans/multi-staff-plan.md §1.
    */
   staffGroups?: StaffGroup[]
   /**
@@ -260,8 +260,8 @@ export interface Score {
    * {@link Measure.tempos}, falling back to the engine constant `DEFAULT_TEMPO` (utils/
    * tempoMap) — never to a value stored on the score. A global "default tempo" would also
    * be, implicitly, "the tempo at bar 1 beat 0"; that exact conflation is what made
-   * `score.clef` bleed across staves (docs/clef-model-plan.md). One way to state a tempo,
-   * not two. See docs/tempo-marks-plan.md §0.
+   * `score.clef` bleed across staves (docs/plans/clef-model-plan.md). One way to state a tempo,
+   * not two. See docs/plans/tempo-marks-plan.md §0.
    */
   /**
    * NOTE: there is deliberately **no `keySignature` field** — and ✅ the prediction this note used
@@ -270,25 +270,25 @@ export interface Score {
    * score's), so it landed as {@link Measure.keys} carrying a `staffId`, resolving positionally
    * through `utils/keySignature`'s `keyAt` and bottoming out in C major — never to a value stored
    * on the score. A global key would be, implicitly, "the key at bar 1 beat 0"; that
-   * conflation is what made `score.clef` bleed across staves (docs/clef-model-plan.md).
+   * conflation is what made `score.clef` bleed across staves (docs/plans/clef-model-plan.md).
    *
    * Nor is there a **`defaultTimeSignature`**, for the same reason (it was, in truth,
    * "the meter at bar 1"). Meter is resolved positionally from the `timeSignatureChange`
    * markers — {@link effectiveTimeSignature} in utils/meter — falling back to the constant
    * `DEFAULT_TIME_SIGNATURE`. It also has to go before per-staff meters / polymeter can
-   * land (docs/multi-staff-plan.md §10).
+   * land (docs/plans/multi-staff-plan.md §10).
    */
   /**
    * Phrasing slurs spanning runs of note events. Top-level (not measure-owned)
    * because a slur spans barlines and systems. Optional/absent = no slurs
-   * (backward-compatible JSON). See {@link Slur} and docs/slur-plan.md.
+   * (backward-compatible JSON). See {@link Slur} and docs/plans/slur-plan.md.
    */
   slurs?: Slur[]
   /**
    * Trills — the `tr` sign and its wavy extension. Top-level for {@link Slur}'s reason (a span
    * anchored to notes, crossing barlines and systems), and stored beside it rather than on a
    * measure. Optional/absent = no trills (backward-compatible JSON). See {@link Trill} and
-   * docs/trill-plan.md; ops in `engine/models/trillOps`.
+   * docs/plans/trill-plan.md; ops in `engine/models/trillOps`.
    */
   trills?: Trill[]
   /**
@@ -296,14 +296,14 @@ export interface Score {
    * id-keyed compartment of staff-space, anchor-relative geometry. A sub-tree of
    * `Score` so it clones / serializes / undoes with the score value. Optional/absent
    * = none (backward-compatible JSON). See {@link EngravingOverrides} and
-   * docs/engraving-overrides-plan.md.
+   * docs/plans/engraving-overrides-plan.md.
    */
   engravingOverrides?: EngravingOverrides
   /**
    * How the score SOUNDS — the third compartment, beside content and
    * {@link Score.engravingOverrides}. Optional/absent = nothing has been chosen and every note
    * plays `DEFAULT_SOUND` (`engine/models/soundOps`), which is why a fresh sketch's JSON gains no
-   * key at all. See {@link ScorePlayback} and docs/instruments-plan.md.
+   * key at all. See {@link ScorePlayback} and docs/plans/instruments-plan.md.
    */
   playback?: ScorePlayback
 }
@@ -313,7 +313,7 @@ export interface Score {
  *
  * ⛔ **Never a bare `program: number`.** General MIDI is ONE kind of sound and not THE kind — an
  * electroacoustic sketch's timbre may be a sample or a synth patch, and a model that had baked in a
- * GM integer could not say so without a migration (docs/instruments-plan.md §4, *Forbidden*).
+ * GM integer could not say so without a migration (docs/plans/instruments-plan.md §4, *Forbidden*).
  *
  * ⚠️ The score does not know what a `program` IS. Resolving one to audio is the
  * `InstrumentPlayer` seam's job, on the other side of principle 5's line: the score layer imports no
@@ -321,7 +321,7 @@ export interface Score {
  */
 export type SoundRef =
   | { kind: 'gm'; program: number }
-  // ⏭️ 'sample' / 'synth' — the electroacoustic future (docs/instruments-plan.md §4). A `kind` this
+  // ⏭️ 'sample' / 'synth' — the electroacoustic future (docs/plans/instruments-plan.md §4). A `kind` this
   // build does not know is KEPT on load and ignored at playback: report-never-repair, and a file
   // written by a later version must not come back damaged.
 
@@ -337,13 +337,13 @@ export type SoundRef =
  * the score. Ids are what every other detached-but-anchored thing here keys by
  * (`engravingOverrides`), and this compartment is detached for the same reason.
  *
- * ⏭️ **WHAT ARRIVES LATER: the LANE — `staffId` and `voice`** (docs/instruments-plan.md P2). Their
+ * ⏭️ **WHAT ARRIVES LATER: the LANE — `staffId` and `voice`** (docs/plans/instruments-plan.md P2). Their
  * absence is what an assignment written today means, so the rule has to be fixed now, before there
  * is a second reading to argue with:
  *
  * > ⭐⭐ **An absent lane field means EVERY lane — not staff 0.** These fields are a SCOPE, not a
  * > position, which is the same distinction a dynamic's `voices` already makes (absent = all of its
- * > staff, and `voiceOf()` is the wrong question to ask of it — docs/dynamic-voice-scope-plan.md).
+ * > staff, and `voiceOf()` is the wrong question to ask of it — docs/plans/dynamic-voice-scope-plan.md).
  * > Read as a note's lane, an absent `staffId` would mean staff 0, and the day a second staff
  * > appeared it would fall silent — a bug the file itself could not explain.
  */

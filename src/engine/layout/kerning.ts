@@ -3,7 +3,7 @@
  *
  * The mechanism every other engine has: MuseScore's `Shape::minHorizontalDistance` +
  * `computeVerticalClearance` + `KerningType`, LilyPond's skylines. It is the honest answer to
- * *"accidentals in dense passages push the notes apart"* (`docs/vexflow-boundary.md` §5) — an
+ * *"accidentals in dense passages push the notes apart"* (`docs/history/vexflow-boundary.md` §5) — an
  * accidental low on the staff should be allowed to tuck under a preceding high notehead instead of
  * buying room nobody looks at.
  *
@@ -66,7 +66,7 @@ export interface InkBox {
   /**
    * ⭐ The SIZE its staff is drawn at (1 = full). A staff drawn at 0.7 has 0.7 of the ink, so it
    * needs 0.7 of the room — LilyPond measures the drawn stencils' skylines, Verovio measures the
-   * glyphs at `staffSize/100`, GUIDO's rod is `halfExtent * getSize()` (docs/staff-size-plan.md §6a).
+   * glyphs at `staffSize/100`, GUIDO's rod is `halfExtent * getSize()` (docs/plans/staff-size-plan.md §6a).
    *
    * ⚠️ `left`/`right` arrive **already multiplied by it** — they are system staff spaces, which is
    * what the column arithmetic speaks. This field is kept for the one thing that cannot be folded
@@ -126,7 +126,7 @@ const mayKern = (left: InkKind, right: InkKind): boolean =>
  * hanging two octaves below its own staff on ledger lines can reach into the staff beneath it, and
  * this will happily kern against it. That collision is vertical, it exists today whatever the
  * horizontal spacing does, and staff distance is not something this module is given — see
- * `docs/staff-spacing-plan.md`.
+ * `docs/plans/staff-spacing-plan.md`.
  */
 function sameBand(left: InkBox, right: InkBox): boolean {
   if (left.staff !== right.staff) return false
@@ -192,7 +192,7 @@ export function mergedReach(boxes: readonly InkBox[]): { left: number; right: nu
  * value to that row (`table[BAR_LINE][REST] = barNoteDistance`) and keeps 1.65 only for the OTHER
  * direction, a rest *before* a barline — which is where ours had been copied from. So the row was
  * deleted rather than made to fire, and this rule is now correct instead of accidentally so
- * (`docs/spacing-model-research.md` §6d).
+ * (`docs/research/spacing-model-research.md` §6d).
  */
 export function edgeKind(boxes: readonly InkBox[], edge: 'left' | 'right'): InkKind {
   let best: InkBox | undefined

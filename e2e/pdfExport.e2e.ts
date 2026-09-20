@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import { test, expect, type Download } from './fixtures'
 
 /**
- * PDF export (docs/pdf-export.md), end to end — and the FIRST automated check this path has ever
+ * PDF export (docs/how-it-works/pdf-export.md), end to end — and the FIRST automated check this path has ever
  * had. It cannot be unit-tested at all: it re-renders the score to an off-screen SVG, outlines
  * every music glyph against the real Bravura file, and hands the result to jsPDF. jsdom has no
  * layout for the render, no `document.fonts` for the outlining, and no download for the save.

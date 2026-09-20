@@ -1,5 +1,5 @@
 /**
- * ⭐ **A NOTE'S WRITTEN DURATION, PARSED** — S12j-d3 of `docs/vexflow-removal-map.md` (`Note.parseDuration`
+ * ⭐ **A NOTE'S WRITTEN DURATION, PARSED** — S12j-d3 of `docs/history/vexflow-removal-map.md` (`Note.parseDuration`
  * + `Note.parseNoteStruct` + `Tables.durationToTicks`, MIT, transcribed): a token like `'q'`, `'8d'`,
  * `'hr'` or `'16dd'` → the duration as written, its dots, its note type, and its length in ticks.
  *

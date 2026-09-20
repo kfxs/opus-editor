@@ -1,5 +1,5 @@
 /**
- * ⭐⭐ **THE SUSTAIN PEDAL SOUNDS** (docs/pedal-plan.md §9, P1) — notes struck under a depressed
+ * ⭐⭐ **THE SUSTAIN PEDAL SOUNDS** (docs/plans/pedal-plan.md §9, P1) — notes struck under a depressed
  * damper ring until the foot comes up, and nothing else about them changes.
  *
  * That last clause is what most of this chapter is for. The clamp itself is one line; the reason it
@@ -113,7 +113,7 @@ describe('WHICH notes it holds — onset membership, half-open', () => {
   })
 
   it('⭐ two OVERLAPPING pedals: the latest press at or before the onset wins', () => {
-    // The model permits this (only the entry door truncates — docs/pedal-plan.md §3.3), so the
+    // The model permits this (only the entry door truncates — docs/plans/pedal-plan.md §3.3), so the
     // reader has to resolve it, and it resolves the way the foot does: pressing again lifts first.
     const model = new ScoreModel()
     model.addMeasure()

@@ -1,7 +1,7 @@
 /**
  * ⭐ **WHAT A KIND'S `highlight` ROW IS HANDED** — the highlight layer's painting toolkit and the
  * four things every painter started by fetching, so the painting can live in the kind's OWN module
- * (docs/code-shape-plan-2026-09-19.md, Phase 3.3) instead of as one more `apply…` on
+ * (docs/plans/code-shape-plan-2026-09-19.md, Phase 3.3) instead of as one more `apply…` on
  * `HighlightController`.
  *
  * ⛔ **Every write goes through the toolkit, never straight at the DOM.** A selection change no

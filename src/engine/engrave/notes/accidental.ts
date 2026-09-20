@@ -1,5 +1,5 @@
 /**
- * ⭐⭐ **AN ACCIDENTAL'S INK** (`docs/own-engraving-engine.md` P3 — the note's MODIFIERS, 2026-09-14).
+ * ⭐⭐ **AN ACCIDENTAL'S INK** (`docs/plans/own-engraving-engine.md` P3 — the note's MODIFIERS, 2026-09-14).
  *
  * ## ⭐ What an accidental IS, as ink
  *
@@ -42,7 +42,7 @@ export interface AccidentalInk {
  * the glyph's origin is that point set back by the glyph's own width.
  *
  * ⚠️ `modifierStartX` is what the NOTE offers (VexFlow's `getModifierStartXY`, which this repo
- * monkeypatches — `docs/own-engraving-engine.md` §2.4 calls that patch *"the shape of the whole
+ * monkeypatches — `docs/plans/own-engraving-engine.md` §2.4 calls that patch *"the shape of the whole
  * problem"*), so this function decides nothing about the gap; it converts a right edge into an
  * origin, which is the one arithmetic step that belongs to the accidental itself.
  *
@@ -61,7 +61,7 @@ export function accidentalOriginX(modifierStartX: number, width: number): number
  * landed loose in the notehead group its note had opened. ⭐ It is here because *a sign that can be
  * SELECTED must be findable in the scene*: `__bbox.ink()` draws one box per group, so without it a
  * note's box silently swallowed its accidental and the sign itself had no box at all — his report,
- * 2026-09-14 (`docs/own-engraving-engine.md` §5 P6).
+ * 2026-09-14 (`docs/plans/own-engraving-engine.md` §5 P6).
  *
  * ⚠️ It is a DOM change and the only one this family has made: an extra `<g class="accidental">`
  * INSIDE the notehead group, in the same place in draw order. ⭐ Every highlight selector that reaches

@@ -65,7 +65,7 @@ function overridesAtAny(score: Score, keys: string[]): EngravingOverride[] | und
  * - **The horizontal offset (client #12) is `MusicEngine.offsetTargetOf`** — the SLOT id for an
  *   ordinary note (a chord moves as a unit) or a rest, and a fanned MEMBER's own first pitch id.
  *   ⛔ Not `slotIdForNote`: that resolves a member to the chord containing it, so a selected member
- *   reported its OWNER's number while the nudge wrote its own (docs/note-offset-plan.md).
+ *   reported its OWNER's number while the nudge wrote its own (docs/plans/note-offset-plan.md).
  * - **A rest's shift and its hide are POSITION-keyed**, because a rest has no durable id — rebar
  *   makes and unmakes rests freely.
  * - …so a REST has BOTH, and reading either one alone hides the other silently: an empty section
@@ -167,7 +167,7 @@ export function selectedElements(state: EditorState, engine: MusicEngine | null)
 
     case 'trill':
       // ⭐ The report carries the DERIVED auxiliary beside the stored object, because the stored
-      // object deliberately has no interval (docs/trill-plan.md §3) — so "what does this trill
+      // object deliberately has no interval (docs/plans/trill-plan.md §3) — so "what does this trill
       // actually play?" is unanswerable from `data` alone, and that is the one question a reader of
       // this panel will have. `span` is derived for the same reason: `endNoteId` may be absent.
       out.push({
@@ -378,7 +378,7 @@ export function selectedElements(state: EditorState, engine: MusicEngine | null)
       // A barline is the one selectable thing with NO object behind it at all: the measures are the
       // barline spine, so the selection is a boundary. Reported as the measure it closes, which is
       // the whole of its identity — and now also as what that bar SAYS about the line, which is the
-      // address P1 turned into a real one (docs/barline-types-plan.md §8 P5).
+      // address P1 turned into a real one (docs/plans/barline-types-plan.md §8 P5).
       const measure = score.measures.find((m) => m.number === element.measure)
       out.push({
         kind: 'barline',

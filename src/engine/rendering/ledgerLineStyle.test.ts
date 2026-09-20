@@ -7,7 +7,7 @@
  * part of the staff, so it is black, and it is *slightly* heavier than a staff line.
  *
  * ⭐⭐ **How much heavier is the FONT's ratio, and this asserts it as a ratio** (F3,
- * docs/font-metrics-plan.md): Bravura's `legerLineThickness / staffLineThickness`, 0.16 / 0.13, put
+ * docs/plans/font-metrics-plan.md): Bravura's `legerLineThickness / staffLineThickness`, 0.16 / 0.13, put
  * against the staff line VexFlow actually draws (1 px, the SVG context's default stroke-width).
  * ⛔ NOT the font's 0.16 spaces as an absolute — that is 1.6 px here, which would be too heavy beside
  * a 1 px staff line. Absolute weights from a font only agree while everything on the page comes from
@@ -27,7 +27,7 @@ const LEDGER_TO_STAFF_LINE =
 
 /**
  * ⭐ …applied to the staff line WE draw, which since 2026-09-01 is Gould's measured **0.11 sp** and
- * ⛔ no longer 1 px (`docs/staff-line-research.md` §8 A). Written as the product rather than a baked
+ * ⛔ no longer 1 px (`docs/research/staff-line-research.md` §8 A). Written as the product rather than a baked
  * number so the ledger keeps FOLLOWING the staff line, which is the entire point of a ratio.
  */
 const LEDGER_WIDTH_PX = STAVE_LINE_WIDTH_PX * LEDGER_TO_STAFF_LINE

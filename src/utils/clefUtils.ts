@@ -32,7 +32,7 @@ export function middleLineDiatonicPos(clef: Clef): number {
  * needed at ≥ 6 or ≤ 0 (`restSupportingLedgerLine` states the same bound).
  *
  * Only wanted where a head is drawn by HAND — the fanned beam's members
- * (docs/fanned-beam-pitches-plan.md §2) — since a `StaveNote` resolves its own from the key string.
+ * (docs/plans/fanned-beam-pitches-plan.md §2) — since a `StaveNote` resolves its own from the key string.
  * Derived from the clef's middle line rather than from a table, so a clef added later needs one row
  * in {@link CLEF_MIDDLE_LINE_DIATONIC} and nothing here.
  */
@@ -48,7 +48,7 @@ export function staffLineForSpelling(step: PitchStep, octave: number, clef: Clef
  * (`SelectionController.elementVerticalPos`) has to order rests and noteheads on ONE scale. Written
  * here, beside its inverse, so the two `3`s and the two `2`s are the same two numbers and cannot
  * drift apart — the pair had drifted, with a rest's manual shift added to a diatonic scale in staff
- * SPACES and so moving the hop at half strength (docs/multi-voice-rest-position-plan.md §4.2).
+ * SPACES and so moving the hop at half strength (docs/plans/multi-voice-rest-position-plan.md §4.2).
  */
 export function diatonicPosForStaffLine(line: number, clef: Clef): number {
   return middleLineDiatonicPos(clef) + (line - 3) * 2
@@ -56,7 +56,7 @@ export function diatonicPosForStaffLine(line: number, clef: Clef): number {
 
 /**
  * Does a clef change belong to the staff addressed by `staffId`? Clef is per-staff
- * (multi-staff, docs/multi-staff-plan.md §4): an absent `staffId` on either side resolves
+ * (multi-staff, docs/plans/multi-staff-plan.md §4): an absent `staffId` on either side resolves
  * to the first staff, so at N=1 (all absent, query undefined) every clef matches the one
  * staff and behavior is identical to the pre-multi-staff code.
  */
@@ -73,7 +73,7 @@ function clefOnStaff(c: ClefChange, staffId: string | undefined, score: Score): 
  * own `measures.find`. Asking them for every measure — which the layout and the render loop both
  * do, per staff — is quadratic per measure and cubic over the score, and it never short-circuits
  * on the common case of a score with no clef changes at all. That was the whole remaining cost of
- * a cached layout (docs/render-performance-plan.md §4).
+ * a cached layout (docs/history/render-performance-plan.md §4).
  *
  * Inheritance is a fold: carry the clef forward and read it off. Same semantics, O(measures).
  */

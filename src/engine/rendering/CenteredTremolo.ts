@@ -85,7 +85,7 @@ export const TREMOLO_STROKE_CLEARANCE = 0.25
  * ⭐ **Both codepoints are `utils/tremoloGlyphs`' — S8b made that the only source.** The stroke used to
  * come from VexFlow's `Tremolo` constructor and the Penderecki sign from here; now the one function
  * answers for both, which is also what the selection highlight matches drawn strokes against (and that
- * side of the app has no VexFlow). See docs/tremolo-plan.md §0.
+ * side of the app has no VexFlow). See docs/plans/tremolo-plan.md §0.
  */
 
 /** A rectangle in the same pixel space the ElementRegistry stores. */

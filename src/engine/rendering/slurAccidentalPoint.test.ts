@@ -1,5 +1,5 @@
 /**
- * ⭐⭐ **LilyPond's one-point accidental** — his call, 2026-09-14 (`docs/slur-tie-research.md` §8.8).
+ * ⭐⭐ **LilyPond's one-point accidental** — his call, 2026-09-14 (`docs/research/slur-tie-research.md` §8.8).
  *
  * ⭐ Pure, so all of it runs in jsdom: the rule is a table plus one linear interpolation, and the
  * ink box it places the point on is the caller's (`EngravedAccidental.drawnInk()`).

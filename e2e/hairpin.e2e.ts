@@ -2,7 +2,7 @@ import { test, expect } from './fixtures'
 
 /**
  * HAIRPINS — the crescendo / diminuendo wedge, drawn on the dynamics line
- * (docs/dynamics-line-and-hairpins-plan.md P3).
+ * (docs/plans/dynamics-line-and-hairpins-plan.md P3).
  *
  * ⚠️ **This suite has to be here and cannot be a unit test.** Every claim below is about where ink
  * landed, and the wedge's y comes from the dynamics line, which is stated relative to a MARK's ink

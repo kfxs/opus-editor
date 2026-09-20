@@ -2,7 +2,7 @@ import { test, expect } from './fixtures'
 import type { Page } from '@playwright/test'
 
 /**
- * **A staff drawn small** (docs/staff-size-plan.md P4) — the phase where the picture, and not just
+ * **A staff drawn small** (docs/plans/staff-size-plan.md P4) — the phase where the picture, and not just
  * the layout, changes.
  *
  * This one cannot be a unit test even in principle. jsdom has no fonts, so a notehead measures 0×0
@@ -137,7 +137,7 @@ test('and back to full size, on the same drawing — the transform is not one-wa
 })
 
 /**
- * P5 — the passes drawn OUTSIDE a bar's own group (docs/staff-size-plan.md §4.3). Each of these
+ * P5 — the passes drawn OUTSIDE a bar's own group (docs/plans/staff-size-plan.md §4.3). Each of these
  * builds its geometry out of coordinates VexFlow stored while the notes were being drawn, which on
  * a small staff are in that staff's own scaled space. Drawn as-is they land full size where the
  * *unscaled* notes would have been — which on a single-size score looks perfect.
@@ -193,7 +193,7 @@ test('a tie and a slur on a small staff are drawn AT that staff, at its size', a
   //
   // ⭐ An arch is a function of the SPAN, and the span does not shrink with the staff. That is the
   // rule, not a gap: the spacing SPINE is global and size-blind, only the INK is per staff, and a
-  // column takes the max of the staves' demands (docs/staff-size-plan.md §6a, read out of LilyPond,
+  // column takes the max of the staves' demands (docs/plans/staff-size-plan.md §6a, read out of LilyPond,
   // Verovio and GUIDO). A small staff sharing a system with a full-size one must ALIGN with it —
   // simultaneous notes line up — so in its own spaces its music is 1/k wider, and the arc over it is
   // longer and flatter. ⛔ The comment here used to blame "full-size spacing until P3"; P3 is built
@@ -338,7 +338,7 @@ test('a slur ACROSS A SYSTEM BREAK still reaches the margin on a small staff', a
     return { before, after: read() }
   })
 
-  // ⚠️ The mixing defect this pins (docs/staff-size-plan.md §1, the P6 sweep): a slur's note
+  // ⚠️ The mixing defect this pins (docs/plans/staff-size-plan.md §1, the P6 sweep): a slur's note
   // endpoints come off the notes — the staff's own space — while its SYSTEM edges come from
   // `measureBounds`, which is where the bar landed in the SVG. Drawn together unconverted, the
   // first segment stopped at `edge × 0.7`: 30% short of the margin, and only for a slur that

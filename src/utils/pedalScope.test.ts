@@ -5,7 +5,7 @@
  * functions currently return the attached staff, so every assertion below could be satisfied by
  * `pedal.staffId` inlined at each call site. The point is that they are *two named functions with
  * two callers*, so the day `Score.staffGroups` becomes an instrument the change lands in one file
- * and the two answers can diverge (docs/pedal-plan.md §3.2).
+ * and the two answers can diverge (docs/plans/pedal-plan.md §3.2).
  *
  * ⛔ So the test that matters most here is the LAST one: neither function may normalise `undefined`
  * away, because absent-means-first-staff is the convention every caller will compare against.

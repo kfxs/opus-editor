@@ -2,7 +2,7 @@
 /**
  * One voice of one bar, ours (S9i). ⚠️ That its bookkeeping is exactly `Voice`'s and
  * `Formatter.getResolutionMultiplier`'s was proved once, side by side on random voices, and the page
- * of random scores rendered at the previous commit and after it (`docs/vexflow-removal-map.md` §5.2);
+ * of random scores rendered at the previous commit and after it (`docs/history/vexflow-removal-map.md` §5.2);
  * pinned here is what the module promises.
  */
 import { describe, it, expect, vi } from 'vitest'

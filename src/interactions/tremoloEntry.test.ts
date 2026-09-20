@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * WHAT A TREMOLO-PALETTE PRESS DOES — the four gestures on one button (docs/tremolo-plan.md §10/§11).
+ * WHAT A TREMOLO-PALETTE PRESS DOES — the four gestures on one button (docs/plans/tremolo-plan.md §10/§11).
  *
  * Pick a duration and press one: every note you write is born wearing the mark, and it PERSISTS —
  * writing five tremolo notes must be five clicks, not five clicks and five re-arms. Select notes and

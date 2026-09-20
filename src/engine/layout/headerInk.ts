@@ -8,7 +8,7 @@ import { armedHeaderGapRule } from './headerAccidentalLadder'
 
 /**
  * ⭐⭐ **THE HEADER, AS INK** — what a clef and a meter actually cost at the front of a bar
- * (`docs/vexflow-boundary.md` priority 1). Pure: staff spaces out, no VexFlow, no DOM.
+ * (`docs/history/vexflow-boundary.md` priority 1). Pure: staff spaces out, no VexFlow, no DOM.
  *
  * The bar's own music has been the spacing model's since P2; its HEADER was still two numbers on
  * each side of a fence. We reserved `CLEF_WIDTH` (4.5 spaces), `CLEF_CHANGE_WIDTH` (3) and
@@ -72,7 +72,7 @@ export const HEADER_TO_NOTE = 2.0
 
 /**
  * ⭐⭐ **…AND AFTER A CLEF OR A KEY SIGNATURE IT IS 2½, not 2 — decision D, HIS, 2026-09-01**
- * (`docs/header-spacing-research.md` §8 D).
+ * (`docs/research/header-spacing-research.md` §8 D).
  *
  * **Gould p. 42** keys this gap on **what stands immediately before the note**: 2½ staff spaces after
  * a clef or a key signature, 2 after a time signature. Her own drawn examples measure
@@ -95,7 +95,7 @@ export const HEADER_TO_NOTE_AFTER_SIGN = 2.5
 
 /**
  * ⭐⭐ **…AND IT CLOSES UP WHEN THE FIRST NOTE CARRIES AN ACCIDENTAL — decision E, HIS, 2026-09-02**
- * (*"lets do what gould say"*; `docs/header-spacing-research.md` §8 E).
+ * (*"lets do what gould say"*; `docs/research/header-spacing-research.md` §8 E).
  *
  * > *"A first note or chord with an accidental **may move closer to the preceding symbol(s)**. When
  * > further accidentals are added, these move closer to the clef. However, **an accidental should
@@ -110,7 +110,7 @@ export const HEADER_TO_NOTE_AFTER_SIGN = 2.5
  * | after a **time signature** | 2 | **1** | **1** |
  *
  * ⭐⭐ **AND SHE DRAWS IT — all nine cells of that figure, measured off the scan** (450 dpi, staff
- * space 20.0 px, ink to ink, `docs/header-spacing-research.md` §3.7):
+ * space 20.0 px, ink to ink, `docs/research/header-spacing-research.md` §3.7):
  *
  * | | plain | one accidental | more |
  * |---|---|---|---|
@@ -172,7 +172,7 @@ export function headerToNoteGap(header: Header, accidentals = 0): number {
 
 /**
  * ⭐⭐ **THE INDENTATION — how far the clef's ink sits inside the staff's left edge.**
- * Decision **A**, HIS, 2026-09-01 (`docs/header-spacing-research.md` §8 A, §3.4).
+ * Decision **A**, HIS, 2026-09-01 (`docs/research/header-spacing-research.md` §8 A, §3.4).
  *
  * > *"A clef is indented into the stave by one stave-space (⌐) **or a little less**"* — Gould p. 6
  * > *"indented from the open end of the staff (or from the systematic barline) by **½ to 1 space**"* — Ross p. 144
@@ -281,7 +281,7 @@ export function headerKeyRoom(key: KeySignature | undefined): number {
  * 🚨 **This subtraction is the whole point, and its absence was a real defect.** Until 2026-09-12
  * this pair was charged a flat `BETWEEN_PARTS` (1.0) with the air left IN, so the model reserved
  * ≈**1.6 sp** of ink gap while the drawing used **1.42** — two numbers for one distance, neither
- * chosen (`docs/header-spacing-research.md` §4.4, §4.5). ⭐ Now both sides read
+ * chosen (`docs/research/header-spacing-research.md` §4.4, §4.5). ⭐ Now both sides read
  * {@link armedClefMeterInk}, so they agree by construction.
  *
  * ⚠️ ⛔ Never quote this number; quote the ink one.

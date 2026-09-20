@@ -1,6 +1,6 @@
 /**
  * ⭐⭐ **WHAT THE SIGNS AT A SYSTEM'S LEFT EDGE TAKE, AND WHERE EACH ONE SITS** — in staff spaces,
- * measured LEFTWARD from the staves' own left edge. P2 of docs/braces-brackets-plan.md, and the one
+ * measured LEFTWARD from the staves' own left edge. P2 of docs/plans/braces-brackets-plan.md, and the one
  * genuinely new layout idea in the feature.
  *
  * ⭐⭐ **THERE IS NO CONSTANT TO COPY: NO ENGINE HAS A NESTING-INDENT CONSTANT.** Three codebases,
@@ -9,7 +9,7 @@
  * is **the sum of what the signs actually take**, which is what this module adds up.
  *
  * Structurally it is the below-staff LADDER turned ninety degrees
- * (`./outsideStaffBand`, `docs/above-staff-ladder.md`), and it keeps that module's shape: **pure,
+ * (`./outsideStaffBand`, `docs/how-it-works/above-staff-ladder.md`), and it keeps that module's shape: **pure,
  * ordered, unit-testable**, with ⛔ **no priority-number table** — the ORDER is the order the signs
  * come in, and `models/staffGroups.groupsAt` has already put them innermost-first.
  *
@@ -23,7 +23,7 @@
  * ## ⛔ Never into the margin
  *
  * The indent this returns is room the SYSTEM gives up, ⛔ not room borrowed from the page. Print is
- * the reason (`docs/pdf-export.md`'s audience rule, and `layout/pageBounds`): ink in the margin is
+ * the reason (`docs/how-it-works/pdf-export.md`'s audience rule, and `layout/pageBounds`): ink in the margin is
  * ink off the paper. ⇒ its consumer subtracts it from the content width — see the plan's P2, which
  * lists the four sites that must agree and the one (`ScoreHeaderPass`) that must not move.
  */
@@ -186,7 +186,7 @@ export const SIGN_TO_BARLINE_SPACES = 0.45
  * ⭐⭐ **THE SUB-BRACKET — a hairline `[`, ⛔ NOT a thinner rod.**
  *
  * The thin secondary sign grouping a subset inside a bracket — divisi strings under the section's
- * own bracket. P6 of docs/braces-brackets-plan.md.
+ * own bracket. P6 of docs/plans/braces-brackets-plan.md.
  *
  * | | value | source |
  * |---|---|---|
@@ -391,7 +391,7 @@ export function scoreSystemStartIndentPx(score: Score): number {
  * ⭐⭐ **THE MUSIC'S SURFACE — the page, minus what the left-edge signs took.**
  *
  * ⛔ **This is not the PAGE's surface and the two must not be confused**, which is the distinction
- * P2 of docs/braces-brackets-plan.md exists to draw. The paper does not shrink when a brace is
+ * P2 of docs/plans/braces-brackets-plan.md exists to draw. The paper does not shrink when a brace is
  * added; what shrinks is the room the *music* is cast off into.
  *
  * | reads the PAGE (raw) | reads the MUSIC (this) |
@@ -402,7 +402,7 @@ export function scoreSystemStartIndentPx(score: Score): number {
  *
  * ⚠️ ⛔ **Never into the margin.** The indent is room the system gives up, not room borrowed from
  * the page: `marginLeftPx` grows by exactly what `contentWidthPx` loses, so the right edge does not
- * move and nothing is pushed off the paper (`docs/pdf-export.md`'s audience rule, `layout/pageBounds`).
+ * move and nothing is pushed off the paper (`docs/how-it-works/pdf-export.md`'s audience rule, `layout/pageBounds`).
  */
 export function musicSurface(surface: SurfaceMetrics, score: Score): SurfaceMetrics {
   const indentPx = scoreSystemStartIndentPx(score)

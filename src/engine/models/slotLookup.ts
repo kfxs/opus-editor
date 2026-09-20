@@ -1,6 +1,6 @@
 /**
  * WHERE A NOTE ID LIVES — the one slot lookup over a `Score`, extracted from {@link ScoreModel}
- * (docs/modularity-plan-2026-07-28.md Phase 3).
+ * (docs/history/modularity-plan-2026-07-28.md Phase 3).
  *
  * It sits in its own module because it is what every `*Ops` module needs first: `markOps` and
  * `voiceOps` are free functions over a score, and almost all of them begin by resolving an id to
@@ -26,7 +26,7 @@ export type FoundSlot =
  * Find the slot containing the given note/pitch ID.
  *
  * ⭐ **A FANNED MEMBER'S pitch is found ONLY when asked for** (`{ fanMembers: true }`), and that
- * default is the safety rule of docs/fanned-beam-pitches-plan.md §2 P3. A member is a real pitch
+ * default is the safety rule of docs/plans/fanned-beam-pitches-plan.md §2 P3. A member is a real pitch
  * with a real id, so an id can now name something that is NOT in `slot.notes` — and almost every
  * mutator assumes it is: the delete paths are `chord.notes.filter(n => n.id !== pitch.id)`,
  * which would no-op on a member and report success, and the tie would write `tiedTo` onto a pitch

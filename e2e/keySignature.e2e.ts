@@ -1,7 +1,7 @@
 import { test, expect } from './fixtures'
 
 /**
- * The key signature, measured on the page (docs/key-signature-plan.md P3).
+ * The key signature, measured on the page (docs/plans/key-signature-plan.md P3).
  *
  * ⚠️⚠️ **These assertions are a different kind from the rest of this suite, and the difference is
  * worth stating.** Everywhere else the browser RE-MEASURES a number we took off someone else's
@@ -325,7 +325,7 @@ test('🚨🚨 the three HEADER HIT BOXES are each on their own glyph — clef, 
 })
 
 // ---------------------------------------------------------------------------
-// P4 — the ACCIDENTAL RIPPLE (docs/key-signature-plan.md §3). The signature stops being a picture at
+// P4 — the ACCIDENTAL RIPPLE (docs/plans/key-signature-plan.md §3). The signature stops being a picture at
 // the head of the bar and starts deciding what every note under it draws.
 // ---------------------------------------------------------------------------
 
@@ -397,7 +397,7 @@ test('⭐⭐ a COURTESY survives the key agreeing with it — Gould p. 81, and h
 
 // ---------------------------------------------------------------------------
 // P6 — CANCELLING NATURALS and the CAUTIONARY at a system break
-// (docs/key-signature-plan.md §4.2, and the measurements from Gould p. 93.)
+// (docs/plans/key-signature-plan.md §4.2, and the measurements from Gould p. 93.)
 // ---------------------------------------------------------------------------
 
 test('⭐⭐ a change to C MAJOR draws cancelling naturals, where the old signs stood', async ({ score }) => {

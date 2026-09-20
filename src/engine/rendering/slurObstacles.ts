@@ -1,6 +1,6 @@
 /**
  * ⭐⭐ **WHAT A SLUR HAS TO CLEAR, AND HOW MUCH TALLER THAT MAKES IT** — one factor over the whole
- * arch (docs/slur-tie-research.md §8; `docs/slur-plan.md` §12 Phase 8).
+ * arch (docs/research/slur-tie-research.md §8; `docs/plans/slur-plan.md` §12 Phase 8).
  *
  * > Gould p. 322: *"**all notes must appear to be included in a slur**"* — and p. 110/111 for the
  * > two other constraints, *"always remain outside a beam"* and *"must not obscure a ledger line"*.

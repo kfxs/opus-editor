@@ -1,6 +1,6 @@
 /**
  * ⭐⭐ **THE SEAM WHERE AN ARTICULATION'S INK COMES BACK TO US** — the note's MODIFIERS, 2026-09-14
- * (`docs/own-engraving-engine.md` P3; the ink itself is `engrave/notes/articulation`).
+ * (`docs/plans/own-engraving-engine.md` P3; the ink itself is `engrave/notes/articulation`).
  * The third member of the family {@link EngravedAccidental} and {@link EngravedDot} opened — and the
  * one the CENSUS named: *"the articulation, and nothing else, is still a VexFlow modifier"*
  * (`ScoreRenderer.scene.test.ts`) was a passing assertion written so that the day it moved, it

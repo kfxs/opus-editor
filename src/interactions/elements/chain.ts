@@ -6,7 +6,7 @@
  * `MouseController`, `apply*Highlight` ×13 reached from `RenderController`'s switch, the Delete
  * switch in `shortcutWiring`, the report switch in `selectionSnapshot`. The code was filed by
  * MECHANISM — all mousedowns together, all highlights together — and it CHANGES by kind, so every
- * kind was a thin slice across five files (docs/modularity-plan-2026-07-28.md §4, Phase 1).
+ * kind was a thin slice across five files (docs/history/modularity-plan-2026-07-28.md §4, Phase 1).
  *
  * Now each kind is one module in this directory, holding what a press does with it and what it
  * looks like selected. Adding a twenty-second is one new file plus one row here.
@@ -312,7 +312,7 @@ export const ELEMENT_HIT_ORDER: ReadonlyArray<ClickableElementSpec> = [
  * a compile error here until someone decides how it shows.
  *
  * ⭐ A row is handed a {@link HighlightContext} — the layer's painting toolkit, bound to its undo
- * log — so the painting lives in the kind's own module (docs/code-shape-plan-2026-09-19.md, 3.3;
+ * log — so the painting lives in the kind's own module (docs/plans/code-shape-plan-2026-09-19.md, 3.3;
  * every row does). The layer itself — the undo log, `clearHighlights`, the entry keyboard cursor —
  * is all `HighlightController` still is.
  */

@@ -1,6 +1,6 @@
 /**
  * ⭐⭐ **WHERE A SLUR ATTACHES AT EACH END** — the notehead, the stem end, or a point part-way up
- * the stem when the two stems disagree (Gould p. 111; docs/slur-plan.md §12 Phase 1).
+ * the stem when the two stems disagree (Gould p. 111; docs/plans/slur-plan.md §12 Phase 1).
  *
  * > p. 111: *"When outer notes have opposite stem directions, move the slur at the stem end towards
  * > the noteheads **so it does not tilt contrary to the direction of the pitches**."*
@@ -38,7 +38,7 @@
  * ⭐ **Numbers in, numbers out — including a FANNED MEMBER's.** A member has no `StaveNote`; the fan
  * renderer records its head and the point where its stem meets the beam, and those two numbers mean
  * exactly what a real note's do. So the rule reaches it for free, which is the reason this module
- * takes coordinates rather than notes (docs/slur-plan.md §12.0 #7).
+ * takes coordinates rather than notes (docs/plans/slur-plan.md §12.0 #7).
  */
 import { CURVE_PX } from './curveStyle'
 

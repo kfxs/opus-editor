@@ -8,7 +8,7 @@ import { buildTempoMap } from '@/utils/tempoMap'
 import type { Score } from '@/types/music'
 
 /**
- * **The play order** — what a repeat means to PLAYBACK. §7 of docs/barline-types-plan.md, his ask of
+ * **The play order** — what a repeat means to PLAYBACK. §7 of docs/plans/barline-types-plan.md, his ask of
  * 2026-08-26.
  *
  * ⭐ Two halves, tested apart because they are two questions: {@link measureOrder} is the MUSICAL one

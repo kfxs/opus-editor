@@ -14,7 +14,7 @@
  * ## ⭐⭐ What is genuinely this family's own: THE LIFT IS A MOMENT, SO IT HAS NO NOTEHEAD
  *
  * An octave bracket's hook closes around a notehead and a trill's line ends at a duration, but a
- * pedal comes up at a POINT IN TIME (docs/pedal-plan.md §5.2) — and the two things that point can be
+ * pedal comes up at a POINT IN TIME (docs/plans/pedal-plan.md §5.2) — and the two things that point can be
  * are exactly what {@link pedalLiftX} answers: the left edge of the first column at or after it, or,
  * when nothing in that bar is left, the bar's own `noteEndX` less {@link PEDAL_BARLINE_AIR}. Both are
  * `PedalRenderer.spanX`'s, mirrored here rather than shared because that function reads a live

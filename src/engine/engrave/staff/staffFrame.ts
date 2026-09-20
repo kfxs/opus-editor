@@ -1,6 +1,6 @@
 /**
  * ⭐⭐ **WHERE A STAFF'S LINES ARE — the one module that does staff-line arithmetic.**
- * S2 of `docs/vexflow-removal-map.md`; rules 5 and 6 of `docs/own-engraving-engine.md` §0.3.
+ * S2 of `docs/history/vexflow-removal-map.md`; rules 5 and 6 of `docs/plans/own-engraving-engine.md` §0.3.
  *
  * Every "where is line n", "how big is a space", "which line is this y on" used to be asked of a
  * VexFlow `Stave` (`getYForLine`, `getSpacingBetweenLines`, `getYForNote`…) in two dozen files, and

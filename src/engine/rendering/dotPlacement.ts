@@ -25,7 +25,7 @@
  * `__dots.gap(…)`; the eight sourced alternatives are there, and this file no longer holds a
  * constant at all. ⛔ Building the table moved no ink.
  *
- * 🚨 **THE CITATION WAS WRONG, corrected 2026-09-14 by `docs/accidental-dot-research.md`.** This
+ * 🚨 **THE CITATION WAS WRONG, corrected 2026-09-14 by `docs/research/accidental-dot-research.md`.** This
  * paragraph used to credit Gould with the half space *between the dots*. She does not say it: her
  * half space (p. 54) is the **notehead→dot** distance, and about the dots themselves she says only
  * *"close together and evenly spaced"*. ⭐ The number we ship has two real sources — **Ross p. 171**
@@ -35,7 +35,7 @@
  * ⚠️ And the survey found that *equal* is nobody's drawing: **Gould's own plate measures 0.37 sp
  * after the notehead and 0.26 sp between the dots** — tighter, not equal — and the engines split
  * four ways (LilyPond 0.45/0.45, MuseScore 0.50/0.25, Verovio 0.30/0.35, VexFlow 0.20/0.10;
- * `docs/accidental-dot-engines.md`). ⭐ **The 0.5 stands — it is HIS call off the page** — and it is
+ * `docs/research/accidental-dot-engines.md`). ⭐ **The 0.5 stands — it is HIS call off the page** — and it is
  * now a house-style choice with its sources straight, ⛔ not a rule the books share.
  *
  * ⭐ It also settles the ledger case with nothing ledger-specific in it: a ledger line overhangs the
@@ -86,7 +86,7 @@ function dotGapSpaces(): number {
  *
  *  ⭐ A staff can be drawn SMALL and this needs no change: the ink is drawn inside that staff's own
  *  `<g transform="scale(k)">`, so it shrinks with everything else. ⛔ Multiplying by the staff's size
- *  here would scale it twice (docs/staff-size-plan.md §1). */
+ *  here would scale it twice (docs/plans/staff-size-plan.md §1). */
 function dotGapPx(): number {
   return dotGapSpaces() * STAFF_SPACE_PX
 }

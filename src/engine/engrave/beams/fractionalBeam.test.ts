@@ -1,5 +1,5 @@
 /**
- * ⭐⭐ **THE FRACTIONAL BEAM'S SIDE — the books, as assertions** (`docs/beam-hook-research.md`).
+ * ⭐⭐ **THE FRACTIONAL BEAM'S SIDE — the books, as assertions** (`docs/research/beam-hook-research.md`).
  *
  * ⭐ The two headline cases are **Gould's own ⅜ pair, p. 157**: the same three note-values, drawn
  * with OPPOSITE fractional beams. They are the whole reason P4c exists, and they are the pair the

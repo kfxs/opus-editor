@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /**
  * The note's own readers and writers (S12j-d2) — `StaveNote` / `StemmableNote`, transcribed. ⚠️ That the
- * page is unchanged was proved by the broad and the tuplet A/Bs (`docs/vexflow-removal-map.md` S12j-d2).
+ * page is unchanged was proved by the broad and the tuplet A/Bs (`docs/history/vexflow-removal-map.md` S12j-d2).
  * Pinned here is the arithmetic, and the row table they read.
  */
 import { describe, it, expect } from 'vitest'

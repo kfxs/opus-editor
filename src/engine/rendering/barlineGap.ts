@@ -1,13 +1,13 @@
 /**
  * ⭐⭐ **THE BARLINE THAT RUNS THROUGH THE GAP** — the piece of a continuous barline that belongs to
  * neither staff: the strokes crossing the space between one staff and the next one down.
- * P1 of docs/barline-join-plan.md.
+ * P1 of docs/plans/barline-join-plan.md.
  *
  * ## ⭐⭐ Why it is a MODULE and not a branch in `drawSign`
  *
  * 🚨🚨 **THE GAP SEGMENT MAY NOT BE DRAWN INSIDE `inStaffSpace`.** `BarlineRenderer.drawSign` paints
  * within a per-staff SCALE group, and a line crossing two staves belongs to neither — a 0.7 small
- * staff breaks it immediately (docs/staff-size-plan.md's rule: a gap inside `scale(k)` must be
+ * staff breaks it immediately (docs/plans/staff-size-plan.md's rule: a gap inside `scale(k)` must be
  * ÷ k). So this draws in SCORE space, which means it cannot live inside that call at all; the
  * per-staff sign keeps its own extent parameter (`SignStaff.topY/botY`) and is untouched by any of
  * this.
@@ -19,7 +19,7 @@
  * ## ⭐⭐ THE LINES RUN THROUGH, THE DOTS DO NOT
  *
  * A repeat's dots stay on each staff and only its STROKES cross the gap — ours already
- * (docs/barline-types-plan.md §4.5, 3 of 3 engines) and confirmed in both sources: LilyPond makes
+ * (docs/plans/barline-types-plan.md §4.5, 3 of 3 engines) and confirmed in both sources: LilyPond makes
  * the `:` a literal-space replacement in the span glyph (`scm/bar-line.scm:1312`), Verovio's
  * `DrawBarLineDots` sits only inside the per-staff branch. ⇒ this pass draws `parts.strokes` and
  * ⛔ never `parts.dots`.

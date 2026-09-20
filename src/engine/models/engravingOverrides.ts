@@ -4,7 +4,7 @@ import { STAFF_SPACE_PX } from './staffSize'
 
 /**
  * Pure reads over the engraving-overrides compartment (a sub-tree of `Score`; see
- * docs/engraving-overrides-plan.md). {@link ScoreModel} owns the mutators and
+ * docs/plans/engraving-overrides-plan.md). {@link ScoreModel} owns the mutators and
  * delegates its reads here; the renderer — which holds a `Score`, not a `ScoreModel` —
  * imports these directly to fetch an override at draw time.
  */
@@ -30,7 +30,7 @@ export function curveShapeOverrideOf(score: Score, elementId: string): CurveShap
 
 /**
  * The element's per-segment cross-system slur shape, if any (client #2 — cross-system
- * slurs). See docs/multisystem-slur-segment-shape-plan.md. Absent = every segment draws
+ * slurs). See docs/plans/multisystem-slur-segment-shape-plan.md. Absent = every segment draws
  * its auto arch. Read it through {@link reconcileSegmentShape} to apply the count-signature
  * staleness rule before using the `middles`.
  */
@@ -40,7 +40,7 @@ export function segmentCurveShapeOverrideOf(score: Score, elementId: string): Se
 
 /**
  * The slur's hand-nudged endpoint offsets, if any (client #3 — see
- * docs/slur-endpoint-offset-plan.md). Each `start`/`end` `{x,y}` is in **staff-spaces**,
+ * docs/plans/slur-endpoint-offset-plan.md). Each `start`/`end` `{x,y}` is in **staff-spaces**,
  * anchor-relative; the renderer converts to pixels against that end's own stave and adds
  * it to the auto endpoint position. Durable — both ends are note-anchored, so this reads
  * straight through (no reconcile rule, unlike {@link reconcileSegmentShape}). Absent = no
@@ -94,7 +94,7 @@ export function reconcileSegmentShape(
 
 /**
  * The slur's hand-nudged OPEN-join offsets, if any (client #4 — cross-system slurs). See
- * docs/multisystem-slur-segment-endpoint-offset-plan.md. Each `{x,y}` is in **staff-spaces**,
+ * docs/plans/multisystem-slur-segment-endpoint-offset-plan.md. Each `{x,y}` is in **staff-spaces**,
  * margin-relative; the renderer converts to pixels against that segment's own stave and adds
  * it to the auto open-end position. Read through {@link reconcileSegmentEndpointOffset} to
  * apply the count-signature staleness rule before using the `middles`.
@@ -174,7 +174,7 @@ export function reconcileSegmentEndpointOffset(
 
 /**
  * Canonical position address for a rest-shift override (client #5 — see
- * docs/rest-shift-plan.md). Rests are regenerated with fresh ids on every edit, so the
+ * docs/plans/rest-shift-plan.md). Rests are regenerated with fresh ids on every edit, so the
  * override cannot hang off a rest id; it hangs off the rest's **position**:
  * `{measureId}[:s{staffId}]:v{voice}:b{num}/{den}`. The beat fraction is reduced (via
  * {@link fracCreate}) so `2/4` and `1/2` collapse to one key. The `measureId` (not the measure
@@ -218,7 +218,7 @@ export function parseRestPositionKey(key: string): { measureId: string; staffId?
 
 /**
  * The manual vertical shift on the rest at this position address, if any (client #5 — see
- * docs/rest-shift-plan.md). `steps` is in whole staff-steps (signed, +up), added on top of
+ * docs/plans/rest-shift-plan.md). `steps` is in whole staff-steps (signed, +up), added on top of
  * the automatic multi-voice placement at render. Key it with {@link restPositionKey}. Absent
  * = no shift (the rest renders at its default voice position).
  */
@@ -228,7 +228,7 @@ export function restShiftOverrideOf(score: Score, posKey: string): RestShiftOver
 
 /**
  * Whether the rest at this position address is hidden (client #6 — see
- * docs/rest-hide-plan.md). The override is payloadless, so presence alone means hidden;
+ * docs/plans/rest-hide-plan.md). The override is payloadless, so presence alone means hidden;
  * key it with {@link restPositionKey}. Absent = visible (the rest draws normally).
  */
 export function restHiddenOf(score: Score, posKey: string): boolean {
@@ -237,7 +237,7 @@ export function restHiddenOf(score: Score, posKey: string): boolean {
 
 /**
  * Canonical position address for a user-authored **leading space** (client #10 — see
- * docs/note-spacing-plan.md): `{measureId}:space:b{num}/{den}`. Like {@link restPositionKey} the
+ * docs/plans/note-spacing-plan.md): `{measureId}:space:b{num}/{den}`. Like {@link restPositionKey} the
  * beat fraction is reduced, so `2/4` and `1/2` collapse to one key, and the `measureId` (not the
  * *number*) keeps it stable across renumbering and rebar.
  *
@@ -344,7 +344,7 @@ export function measureUserSpacePx(score: Score, measureId: string): number {
 }
 
 /**
- * The compartment key for a bar's authored **stretch** (client #11 — see docs/bar-width-plan.md):
+ * The compartment key for a bar's authored **stretch** (client #11 — see docs/plans/bar-width-plan.md):
  * `{measureId}:barwidth`. Id-keyed, not position-keyed: a bar width names the bar itself, so a
  * rebar (which keeps measure ids) carries it forward with no capture/restore — unlike
  * {@link spacingPositionKey}, whose key names *columns* that a meter change moves.
@@ -478,7 +478,7 @@ export function cautionaryClefAllowedOf(score: Score, measureId: string, staffId
 
 /**
  * The extra vertical space above this staff, if any (client #7 — see
- * docs/staff-spacing-plan.md). `above` is in **staff-spaces**, signed (+ pushes the staff
+ * docs/plans/staff-spacing-plan.md). `above` is in **staff-spaces**, signed (+ pushes the staff
  * and everything below it in its system down). Keyed by the durable `staffId` (id-keyed,
  * the usual case — unlike the position-keyed rest clients). Absent = default spacing.
  */
@@ -488,7 +488,7 @@ export function staffSpacingOverrideOf(score: Score, staffId: string): StaffSpac
 
 /**
  * The dynamic's hand-nudged position offset, if any (client #8 — see
- * docs/dynamic-offset-plan.md). `{x,y}` is in **staff-spaces**, anchor-relative; the renderer
+ * docs/plans/dynamic-offset-plan.md). `{x,y}` is in **staff-spaces**, anchor-relative; the renderer
  * converts to pixels and adds it to the mark's auto placement. Element-id-keyed (dynamics have
  * durable ids), so it reads straight through — no reconcile rule. Absent = no offset.
  */
@@ -506,7 +506,7 @@ export function tempoOffsetOverrideOf(score: Score, tempoId: string): TempoOffse
 }
 
 /**
- * The note's hand-nudged horizontal offset, if any (client #12 — see docs/note-offset-plan.md).
+ * The note's hand-nudged horizontal offset, if any (client #12 — see docs/plans/note-offset-plan.md).
  * `x` is in **staff-spaces**, +right; the renderer converts to pixels and folds it into the note's
  * `StaveNote.setXShift` at draw time (so beam/stem/tie/slur/dots/hit-testing all follow). Keyed by
  * the **slot** id (one StaveNote = one slot; a chord moves as a unit), so it reads straight through —

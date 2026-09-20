@@ -18,7 +18,7 @@ import type { Clef } from '../types/music'
  * The second column of Sibelius's dialog (transposed clef, "draw on subsequent staves") is
  * deliberately absent — it is a decision about the transposing-instrument model, not about this
  * window. Percussion is absent for a harder reason: it is not a fifth clef but a staff whose lines
- * are not pitches, and `Clef` has four values because of it — see docs/unpitched-staves-plan.md.
+ * are not pitches, and `Clef` has four values because of it — see docs/plans/unpitched-staves-plan.md.
  */
 
 /**

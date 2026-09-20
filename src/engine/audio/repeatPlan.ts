@@ -1,6 +1,6 @@
 /**
  * ⭐⭐ **THE PLAY ORDER** — what a repeat means to PLAYBACK, as against what it draws. §7 of
- * docs/barline-types-plan.md, and the feature that model deliberately waited for.
+ * docs/plans/barline-types-plan.md, and the feature that model deliberately waited for.
  *
  * 🚨 **HIS ASK, 2026-08-26:** *"what about the playback? …by default playback should repeat, and I
  * guess we can have a checkmark on the dev shell near dev sound to not repeat if the user wants."*

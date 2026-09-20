@@ -5,7 +5,7 @@ import type { WalkSign } from '@/engine/engrave/staff/signWalk'
 
 /**
  * ⭐ **A sign a score stave carries** — S4b1 gave it its own position, S4c made it a plain object of ours
- * (`docs/vexflow-removal-map.md`).
+ * (`docs/history/vexflow-removal-map.md`).
  *
  * Our clef, meter and barline implement it, and `EngravedStave` holds them in one list. The stave's walk
  * sets {@link StaveSign.signX}, `./headerPlacementPass` and `spreadHeaderToSystem` move it, a hand offset

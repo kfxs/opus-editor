@@ -1,7 +1,7 @@
 /**
  * TRILLS — the top-level note-anchored ornament spans, in the `slurOps` / `hairpinOps` idiom:
  * free functions over a `Score`, with {@link ScoreModel} keeping thin public delegators
- * (docs/modularity-plan-2026-07-28.md Phase 3; docs/trill-plan.md §2).
+ * (docs/history/modularity-plan-2026-07-28.md Phase 3; docs/plans/trill-plan.md §2).
  *
  * A trill is stored ONCE, at the top of the score (`score.trills`), as a start note id, an optional
  * end note id and a voice. Never on a measure: a trill crosses barlines and systems freely, and a
@@ -49,10 +49,10 @@ export function trillOnNote(score: Score, startNoteId: string): Trill | undefine
  * Add a trill. **Idempotent and ADD-only**: a note already carrying one gets that trill back
  * rather than a second, because a note carries at most one trill — the accidental stamp's
  * single-valued rule, and the shape `addHairpinOverNotes` already established for the stamp that
- * will call this (docs/trill-plan.md §6).
+ * will call this (docs/plans/trill-plan.md §6).
  *
  * ⛔ **Refused (null) on a REST and on a FANNED MEMBER.** The rest case is nonsense on its face.
- * The member case is the decision docs/trill-plan.md §2.2 had to make, because the code says two
+ * The member case is the decision docs/plans/trill-plan.md §2.2 had to make, because the code says two
  * things: `slotLookup.findSlot`'s note names the commands that must refuse a member ("a tie, a
  * slur, an articulation, a duration change: they attach to the SLOT — the whole gesture — and a
  * member is not one"), while `slurOps.repairDanglingSlurs` deliberately includes members so a
@@ -389,7 +389,7 @@ export interface TrillSpan {
    *  to know a slot's sounding length, which tuplets and ties both complicate. */
   endBeat: Fraction
   /** Every slot the trill covers, in order — at least the start's. What playback re-attacks over
-   *  (docs/trill-plan.md §7) and what the renderer measures its ink band against. */
+   *  (docs/plans/trill-plan.md §7) and what the renderer measures its ink band against. */
   slotIds: string[]
 }
 
@@ -397,7 +397,7 @@ export interface TrillSpan {
  * ⚠️⚠️ **THE LINE IS THE DEFAULT, AND THAT IS A DECISION — HIS, 2026-08-13.**
  *
  * This interface once carried a `hasLine`, and the renderer asked it before drawing the wiggle. The
- * rule came from the research (docs/trill-plan.md §1 rule 5, LilyPond's and Gould's practice): *a
+ * rule came from the research (docs/plans/trill-plan.md §1 rule 5, LilyPond's and Gould's practice): *a
  * single note needs no wavy line; the line exists exactly when the reader must know how long to keep
  * trilling.*
  *
@@ -519,7 +519,7 @@ export function trillEndWithoutAnEnd(score: Score, id: string): string | null {
 
 /**
  * ⭐ **What this trill alternates WITH** — the diatonic step above, resolved against the key in
- * force and the accidentals already used in its bar (docs/trill-plan.md §3, P1).
+ * force and the accidentals already used in its bar (docs/plans/trill-plan.md §3, P1).
  *
  * The arithmetic is `utils/trillPitch`'s and the key is `utils/keySignature`'s; this function is
  * only the ADDRESS — find the trilled note, gather the bar it sits in, and ask. It lives here
@@ -649,7 +649,7 @@ function laneSlotsBetween(score: Score, from: Anchor, to: Anchor): string[] {
  * feature in use.** A re-bar re-mints every note id in the region, so if this sweep were the only
  * thing that ran, every meter change and every paste would silently remove every trill it touched.
  * The trill is CAPTURED before the ids go and RE-FOUND afterwards by (onset offset + pitch +
- * voice); this only cleans up what genuinely could not be re-found. See docs/trill-plan.md §2.1.
+ * voice); this only cleans up what genuinely could not be re-found. See docs/plans/trill-plan.md §2.1.
  *
  * ⭐ A dangling END degrades rather than drops: the sign is still true and only the line's length
  * was in doubt, so the field is cleared and the trill becomes the one-note trill. Dropping the

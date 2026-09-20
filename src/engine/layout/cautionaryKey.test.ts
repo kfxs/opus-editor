@@ -7,7 +7,7 @@ import { C_MAJOR, keyFromFifths, type StaffKeys } from '@/utils/keySignature'
 import type { KeySignature } from '@/types/music'
 
 /**
- * The cautionary key signature at a system break — P6 of docs/key-signature-plan.md.
+ * The cautionary key signature at a system break — P6 of docs/plans/key-signature-plan.md.
  *
  * Subject: {@link cautionaryKey}, sitting beside this file. ⚠️ The WALK is faked (a `StaffKeys` is two
  * maps, and building one by hand is what lets a two-staff break be stated in four lines); what is

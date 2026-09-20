@@ -32,7 +32,7 @@
  * with the software rather than with the treatises' prose.
  *
  * 📄 `reference/README.md`'s 2026-09-13 (second question) Q&A entry carries the measurements and the
- * page calibrations; `docs/mid-bar-sign-spacing-research.md` carries the engines'.
+ * page calibrations; `docs/research/mid-bar-sign-spacing-research.md` carries the engines'.
  */
 
 /** One rule: the clear white between the barline's ink and the meter's, in staff spaces. */

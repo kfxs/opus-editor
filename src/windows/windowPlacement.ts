@@ -12,7 +12,7 @@
  *
  * A missing or unreadable value is simply ABSENT — the caller falls back to its own defaults. This
  * is a preference, not score data: there is nothing to report and nobody to report it to, and the
- * repair is "open where you always did". (Contrast docs/json-io-plan.md, where a damaged SCORE is
+ * repair is "open where you always did". (Contrast docs/plans/json-io-plan.md, where a damaged SCORE is
  * reported and never repaired — losing a bar is not losing a window position.)
  */
 

@@ -1,5 +1,5 @@
 /**
- * ⭐ **THE CLEF AND METER GHOSTS — S11a** (`docs/vexflow-removal-map.md` S11).
+ * ⭐ **THE CLEF AND METER GHOSTS — S11a** (`docs/history/vexflow-removal-map.md` S11).
  *
  * The armed clef or time signature, shown loose at the pointer. ⭐ Drawn by the SAME sign objects the
  * score's own header draws (`EngravedClef`, `EngravedTimeSignature`) on OUR surface, where a line-less

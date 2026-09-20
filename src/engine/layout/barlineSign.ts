@@ -1,7 +1,7 @@
 /**
  * ⭐⭐ **WHAT A BARLINE SIGN IS MADE OF** — the strokes and dots of a plain line, a final bar and the
  * two repeats, in **staff spaces**, measured from the boundary the sign divides. P2 of
- * docs/barline-types-plan.md.
+ * docs/plans/barline-types-plan.md.
  *
  * Pure: no stave, no context, no score. That is deliberate and it is §6.2's first item — **ONE OWNER
  * FOR THE SIGN'S EXTENT.** Four consumers need the same number and none of them may compute its own:
@@ -102,7 +102,7 @@ export type { BarlineSignKind }
 
 /**
  * ⭐ **The signs a user PLACES** — the palette's three, and the vocabulary the editor's barline stamp
- * speaks (`interactions/barlineStamp.ts`, its ghost, docs/barline-types-plan.md P4).
+ * speaks (`interactions/barlineStamp.ts`, its ghost, docs/plans/barline-types-plan.md P4).
  *
  * Declared HERE and narrowed from {@link BarlineSignKind} rather than listed again over there, for
  * the reason `engine/rendering/ghostTypes.ts` exists at all: the engine owns the vocabulary and the

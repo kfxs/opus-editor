@@ -184,7 +184,7 @@ describe('ElementRegistry multi-staff geometry', () => {
 })
 
 /**
- * The §6a-ii RESULT tripwire (docs/tight-bbox-plan.md): a glyph-type box that is
+ * The §6a-ii RESULT tripwire (docs/history/tight-bbox-plan.md): a glyph-type box that is
  * implausibly tall for its staff means a caller registered a container-union box
  * (a StaveNote that unioned an attached dynamic) instead of the leaf glyph — the
  * flagship inflated-rest bug. It dev-warns so a future re-introduction is caught.
@@ -257,7 +257,7 @@ describe('ElementRegistry §6a-ii glyph-height tripwire', () => {
 })
 
 /**
- * The STEM as its own registered element (docs/tremolo-plan.md §2). A tremolo's strokes ride the
+ * The STEM as its own registered element (docs/plans/tremolo-plan.md §2). A tremolo's strokes ride the
  * stem, so the stem is where the pointer goes — and the note's own box cannot answer "where is the
  * stem", since it spans head + stem + beam by design. These pin the finder, not the geometry: what
  * the renderer writes into the rect comes from VexFlow (`getStemX` / `getStemExtents`).

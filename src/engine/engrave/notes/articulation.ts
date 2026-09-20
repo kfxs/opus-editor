@@ -1,5 +1,5 @@
 /**
- * ⭐⭐ **AN ARTICULATION'S INK** (`docs/own-engraving-engine.md` P3 — the note's MODIFIERS,
+ * ⭐⭐ **AN ARTICULATION'S INK** (`docs/plans/own-engraving-engine.md` P3 — the note's MODIFIERS,
  * 2026-09-14). The third member of the family `./accidental` and `./augmentationDot` opened, and the
  * **last glyph an ordinary bar drew that the SCENE did not hold** — the one the census named.
  *
@@ -29,7 +29,7 @@
  * stays, and the seam is the one the fan already uses: a point, handed over.
  *
  * ⭐ One part of the placement IS ours and always has been — **notehead vs stem alignment on the stem
- * side** (`docs/articulation-stem-align.md`), applied through the `getModifierStartXY` override. It
+ * side** (`docs/how-it-works/articulation-stem-align.md`), applied through the `getModifierStartXY` override. It
  * reaches this module the same way everything else does: inside the x.
  *
  * ## 🚨 The centring is a runtime `measureText` — §3's bug class, for the third time

@@ -144,7 +144,7 @@ export function attachDynamicsToSlots(pass: RenderPass, sortedSlots: ChordRest[]
  * one's registry bbox so hit-testing follows. Must run AFTER {@link registerDynamics}.
  * Pure no-op in non-DOM tests (getBBox unavailable → entries skipped).
  *
- * ⭐ **HORIZONTAL ONLY, since P1 of docs/dynamics-line-and-hairpins-plan.md.** It used to align the
+ * ⭐ **HORIZONTAL ONLY, since P1 of docs/plans/dynamics-line-and-hairpins-plan.md.** It used to align the
  * row on the first mark's vertical CENTRE, which put a 14 px italic word against a 30 px glyph's box
  * instead of on its baseline — `p dolce` sat visibly stepped, and only in the co-located case (a mark
  * on its own has always been drawn at the text size and grown upward from one baseline, which is what
@@ -156,7 +156,7 @@ export function attachDynamicsToSlots(pass: RenderPass, sortedSlots: ChordRest[]
  */
 export function layoutCoLocatedDynamics(pass: RenderPass, groups: string[][]): void {
   // 0.6 staff-spaces of INK, in the bar's own space — the mark is drawn inside the staff's scale
-  // group, so a small staff's row closes up with it (docs/staff-size-plan.md §1).
+  // group, so a small staff's row closes up with it (docs/plans/staff-size-plan.md §1).
   const GAP = 6
   for (const ids of groups) {
     const items: Array<{ id: string; el: SVGGraphicsElement; box: { x: number; y: number; width: number; height: number } }> = []
@@ -287,7 +287,7 @@ export function enlargeDynamicGlyphRuns(text: SVGTextElement, dyn: Dynamic): voi
 }
 
 /**
- * Apply each dynamic's hand-nudged position offset (client #8 — see docs/dynamic-offset-plan.md).
+ * Apply each dynamic's hand-nudged position offset (client #8 — see docs/plans/dynamic-offset-plan.md).
  * The stored `{x,y}` is in staff-spaces, anchor-relative; convert to pixels against the measure's
  * stave and translate the rendered SVG group, then shift its registry bbox so hit-testing follows.
  *

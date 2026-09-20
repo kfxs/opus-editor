@@ -111,7 +111,7 @@ export function drawSignGhost(
     group.tag('opacity', '0.7')
     // ⛔ The NODE: recolouring the drawn shapes is DOM work on ink, not a placement — the counted
     //   escape (`npm run lint:paint`). ⏭️ In a SCENE a ghost is the same scene with a STYLE, and
-    //   this sweep stops existing (`docs/own-engraving-engine.md` §7.2).
+    //   this sweep stops existing (`docs/plans/own-engraving-engine.md` §7.2).
     const node = svgNode(group)!
     // ⚠️ `text, path` — a GLYPH's two shapes, which is what every sign ghost draws. It is also a
     // constraint on drawers: ink of any other kind comes out BLACK. The barline ghost's first build

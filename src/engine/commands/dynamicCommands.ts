@@ -147,7 +147,7 @@ export function dynamicCommands(ctx: CommandContext) {
 
     /**
      * Nudge a selected dynamic's position offset by `(dx, dy)` staff-spaces and save ONE undo step
-     * (the ←→↑↓ / Ctrl+arrow keyboard fine-positioning — see docs/dynamic-offset-plan.md). The
+     * (the ←→↑↓ / Ctrl+arrow keyboard fine-positioning — see docs/plans/dynamic-offset-plan.md). The
      * override is element-id-keyed (dynamics have durable ids), so this delegates straight to the
      * model with the dynamic id. A no-op for a missing id.
      * @returns true if the dynamic was nudged.

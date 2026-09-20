@@ -273,7 +273,7 @@ export class PaletteController {
    * path for the mode: it sets the engine (the owner) and `state.viewMode` (the palette's
    * reactive mirror) together, so they cannot drift apart.
    *
-   * See docs/linear-view-plan.md — P2 also clears the armed slur-handle state here, so that
+   * See docs/plans/linear-view-plan.md — P2 also clears the armed slur-handle state here, so that
    * an orange join armed in wrapped view can't be nudged from inside linear view.
    */
   setViewMode(mode: ViewMode): void {
@@ -304,7 +304,7 @@ export class PaletteController {
   }
 
   /**
-   * Draw on a PAGE (A4 at normal margins) or on the sketching canvas — docs/layout-plan.md.
+   * Draw on a PAGE (A4 at normal margins) or on the sketching canvas — docs/plans/layout-plan.md.
    *
    * The same path as the two knobs above it, and the same reason: the engine holds the truth (a
    * `Surface`, not a boolean), the state carries the toolbar's mirror of it, and one render follows
@@ -581,7 +581,7 @@ export class PaletteController {
    *     ONE undoable action ({@link applyTremoloToSelection}).
    *  3. Selection mode with NOTHING to apply to → arm the STAMP, whose next click marks a note.
    *  4. Note entry → arm the mark for the notes you are about to WRITE: the ghost wears it and every
-   *     click enters a note carrying it (docs/tremolo-plan.md §10). `selectedTremolo` is a note-entry
+   *     click enters a note carrying it (docs/plans/tremolo-plan.md §10). `selectedTremolo` is a note-entry
    *     value beside the accidental and the dots — NOT a marking tool, because a tool would replace
    *     note entry with stamping.
    *
@@ -655,7 +655,7 @@ export class PaletteController {
 
   /**
    * ⭐ The TWO-NOTE tremolo — one button, pressed on the FIRST note of the pair
-   * (docs/two-note-tremolo-plan.md §0). The note and the one after it alternate, and both are drawn
+   * (docs/plans/two-note-tremolo-plan.md §0). The note and the one after it alternate, and both are drawn
    * at DOUBLE their written value.
    *
    * ONE note, not a selection: the mark is a RELATION between this note and its neighbour, so
@@ -698,7 +698,7 @@ export class PaletteController {
   }
 
   /**
-   * ⭐ The FANNED (feathered) beam — `accel.` / `rit.` (docs/fanned-beams-plan.md §3, P2).
+   * ⭐ The FANNED (feathered) beam — `accel.` / `rit.` (docs/plans/fanned-beams-plan.md §3, P2).
    *
    * **The time is already entered.** The press acts on notes that exist: it turns each selected note
    * into a group that speeds up or slows down across exactly that note's own duration, so nothing
@@ -1322,7 +1322,7 @@ export class PaletteController {
    * `Shift+T`, which was never Sibelius's (Sibelius has no default trill key; its trill line lives
    * in the Lines gallery). A key invented for us is a key to remember, and the trill is not frequent
    * enough to earn one. So this row is the trill's whole entry surface, which is why it carries both
-   * behaviours rather than half of them (docs/trill-plan.md §6).
+   * behaviours rather than half of them (docs/plans/trill-plan.md §6).
    */
   createTrill(): void {
     pressSpanTool(this.spanToolHost(), SPAN_TOOL_PRESSES.trill())
@@ -1642,7 +1642,7 @@ export class PaletteController {
     if (!engine || this.state.selectedTool !== 'selection') return
 
     // A FANNED slot takes exactly ONE of the four, and it is `continue`: the JOIN to the group on
-    // its left (docs/fan-beam-join-plan.md §0). Its own beam is the RAMP — one self-contained
+    // its left (docs/plans/fan-beam-join-plan.md §0). Its own beam is the RAMP — one self-contained
     // feathered group that always has a beam going out — so `begin` has nothing left to say,
     // `end`/`single` are impossible, and only "a beam comes in as well" is a choice anyone can make.
     // The other three are skipped beside the rests, which also avoids the resurrection trap
@@ -2027,7 +2027,7 @@ export class PaletteController {
   }
 
   /**
-   * ⭐ **A BARLINE PALETTE PRESS** — final bar / open repeat / end repeat (docs/barline-types-plan.md
+   * ⭐ **A BARLINE PALETTE PRESS** — final bar / open repeat / end repeat (docs/plans/barline-types-plan.md
    * P4). One method for all three, because the difference between them is a ROW in `BARLINE_SIGNS`,
    * not a branch here.
    *
@@ -2059,7 +2059,7 @@ export class PaletteController {
   }
 
   /**
-   * ⭐⭐ **A GROUPING SIGN — APPLIES, else ARMS.** P5 of docs/braces-brackets-plan.md.
+   * ⭐⭐ **A GROUPING SIGN — APPLIES, else ARMS.** P5 of docs/plans/braces-brackets-plan.md.
    *
    * **His rule, 2026-08-29**: *"for applying the brace or bracket we check the measure selection: if
    * multiple staves are selected we apply to those staves; if just one staff is selected we apply
@@ -2172,7 +2172,7 @@ export class PaletteController {
    * intact seam a future framework-agnostic tempo palette on the editor side would call — the tested
    * half of the behaviour (arm, disarm-on-re-press, edit-selected-in-place, place-on-selection,
    * mutual exclusion), none of it Vue-shaped. When that palette lands its preset rows could come
-   * from the word → bpm dictionary sketched in docs/tempo-marks-plan.md §9, rather than a hand list.
+   * from the word → bpm dictionary sketched in docs/plans/tempo-marks-plan.md §9, rather than a hand list.
    * {@link placeTempoAtSelectedNote} / `placeTempoAtClick` and the `'tempo'` marking-tool variant
    * are the placement half of this same seam and are kept for the same reason.
    */
@@ -2358,7 +2358,7 @@ export class PaletteController {
     this.state.tenuto = false
     // The tremolo is the same kind of setting, by the same argument: it is a decision about the
     // NEXT NOTE, not a standing choice like the duration. It persists across every note you enter —
-    // Escape is the deliberate way out (docs/tremolo-plan.md §10).
+    // Escape is the deliberate way out (docs/plans/tremolo-plan.md §10).
     this.state.selectedTremolo = null
   }
 

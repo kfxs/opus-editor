@@ -3,7 +3,7 @@ import type { Page } from '@playwright/test'
 
 /**
  * **CONTINUOUS BARLINES** — the line that runs unbroken through the gap between two staves
- * (docs/barline-join-plan.md P1).
+ * (docs/plans/barline-join-plan.md P1).
  *
  * ⚠️ **This cannot be a unit test, even in principle.** The whole claim is about where ink lands
  * between two staves, and jsdom has no layout: every stave measures from arithmetic that agrees

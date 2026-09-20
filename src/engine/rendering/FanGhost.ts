@@ -22,7 +22,7 @@
  * WRONG: `draw()` is what sets each head's x (`setX(getNoteHeadBeginX())`) before drawing, so the
  * heads land at one x and their dots at another.
  *
- * ⭐ S11d (`docs/vexflow-removal-map.md` S11): the note is the score's own — `EngravedNote` +
+ * ⭐ S11d (`docs/history/vexflow-removal-map.md` S11): the note is the score's own — `EngravedNote` +
  * `EngravedDot`, formatted by `./loneNote` and drawn on our surface — where a VexFlow `StaveNote`,
  * `Voice` and `Formatter` stood on a line-less VexFlow `Stave`. Our heads still open their own
  * `notehead` group and draw their dots inside it, so the pruning below is unchanged.

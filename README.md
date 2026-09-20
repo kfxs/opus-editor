@@ -19,7 +19,7 @@ Work in progress — this is an experiment under development.
 
 ## Tech Stack
 
-- No UI framework — plain TypeScript and the DOM (Vue was removed; see docs/remove-vue-plan.md)
+- No UI framework — plain TypeScript and the DOM (Vue was removed; see docs/history/remove-vue-plan.md)
 - Our own engraving engine — notation rendering (first built on VexFlow 5, since removed; its MIT-licensed ports are credited in `NOTICE`)
 - WebAudioFont — sampled General-MIDI audio playback (samples fetched from CDN at play time)
 - Tailwind CSS — styling

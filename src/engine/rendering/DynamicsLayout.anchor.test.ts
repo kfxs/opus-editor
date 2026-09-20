@@ -9,7 +9,7 @@
  * ⚠️ The array it is given is **VOICE-MAJOR**, not beat-ordered: `drawMeasureContent` builds it as
  * `groups.flatMap(g => g.slots)`, one group per voice. Every case here is about that — a plain
  * "first match" scan answers with the lowest VOICE's slot, which was invisible while a mark could
- * only ever govern one voice (docs/dynamic-voice-scope-plan.md P3).
+ * only ever govern one voice (docs/plans/dynamic-voice-scope-plan.md P3).
  *
  * ⛔ No geometry: this is an INDEX, and where the ink lands is the browser suite's.
  */

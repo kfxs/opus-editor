@@ -1,6 +1,6 @@
 /**
  * ⭐⭐ **HOW FAR A STEM RUNS — where its tip is, where its base is, and how long the stroke is.**
- * S6e of `docs/vexflow-removal-map.md` (`Stem.getExtents` / `Stem.getHeight` / `Stem.HEIGHT`).
+ * S6e of `docs/history/vexflow-removal-map.md` (`Stem.getExtents` / `Stem.getHeight` / `Stem.HEIGHT`).
  *
  * ## ⭐ This is the answer to the `⛔` at the top of `./stem`
  *
@@ -9,7 +9,7 @@
  * stem length among the places *"where we currently have no opinion"*, and **a re-implementation
  * without an opinion is strictly worse than a dependency**.
  *
- * ⭐ **The opinion arrived.** `docs/stem-length-research.md` found all four treatises stating the same
+ * ⭐ **The opinion arrived.** `docs/research/stem-length-research.md` found all four treatises stating the same
  * rule in the same words, and — ⭐ the happy part — the number the editor has always drawn with is
  * already that rule: `Tables.STEM_HEIGHT` = 35 px = **3½ staff spaces**, which is Gould p. 14, Ross
  * p. 83, Stone p. 47 and Gerou & Lusk p. 137, four for four. ⇒ this module is a port with sources

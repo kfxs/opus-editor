@@ -1,6 +1,6 @@
 /**
  * ⏱ **THE TRILL WALK'S TRACING — TEMPORARY, and kept apart so it can be deleted as one file**
- * (docs/code-shape-plan-2026-09-19.md, Phase 5). `./trillWalk` decides; this only REPORTS, and only
+ * (docs/plans/code-shape-plan-2026-09-19.md, Phase 5). `./trillWalk` decides; this only REPORTS, and only
  * while `debugEnabled()`: the per-frame line, and the cumulative hand-vs-ink comparison a drag runs
  * after each draw.
  *

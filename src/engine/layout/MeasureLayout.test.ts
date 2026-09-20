@@ -6,7 +6,7 @@ import { resolveStaffClefs, type StaffClefs } from '@/utils/clefUtils'
 import type { Score } from '@/types/music'
 
 /**
- * The linear-view break policy (docs/linear-view-plan.md §P1): one endless system, measures at
+ * The linear-view break policy (docs/plans/linear-view-plan.md §P1): one endless system, measures at
  * their intrinsic width. The whole feature is the absence of the two things wrapped view does —
  * breaking and justifying — so that is exactly what these assert.
  */
@@ -70,7 +70,7 @@ describe('calculateMeasureWidths — linear mode', () => {
 
 /**
  * P1 — a measure's width is the width of its WIDEST STAFF, not of every staff's notes poured
- * into one imaginary stream (docs/render-performance-plan.md §3).
+ * into one imaginary stream (docs/history/render-performance-plan.md §3).
  *
  * The old code grouped a measure's slots by *voice* and never filtered by *staff*, so a bar with
  * four notes on each of two staves was formatted as if it held eight notes in one lane. That is

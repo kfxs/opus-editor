@@ -1,5 +1,5 @@
 /**
- * ⭐⭐ **A PLACEMENT — where a drawn thing sits, as one value** (`docs/own-engraving-engine.md`
+ * ⭐⭐ **A PLACEMENT — where a drawn thing sits, as one value** (`docs/plans/own-engraving-engine.md`
  * rule 8, and §7.5.4's first decision).
  *
  * > *"A scene primitive carries a PLACEMENT (an affine), not an (x, y). Identity for every note ever

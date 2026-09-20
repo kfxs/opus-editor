@@ -19,13 +19,13 @@
  * This script used to hold two more checks — an allowlist of files naming VexFlow's render context,
  * and a `vexContext` ceiling. Both reached zero when VexFlow was removed, and `lint:boundary` now
  * refuses the import in every file, so nothing is left for them to count.
- * History: docs/own-engraving-engine.md P1b / P1c.
+ * History: docs/plans/own-engraving-engine.md P1b / P1c.
  */
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
 
 const SRC = 'src'
-const DOC = 'docs/own-engraving-engine.md'
+const DOC = 'docs/plans/own-engraving-engine.md'
 
 /** A ceiling, not a target. Lower it when an escape goes; ⛔ never raise it — a new reach for the
  *  DOM wants a capability on `DrawGroup` instead. */

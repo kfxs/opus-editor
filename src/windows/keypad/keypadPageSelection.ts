@@ -14,7 +14,7 @@ import { DEFAULT_KEYPAD_PAGE, nextKeypadPageId, type KeypadPageId } from './keyp
  * {@link ./keypadLayouts} — `nextKeypadPageId` is expressly *the ONE place page ORDER is used*. Put
  * this on the bus and the bus imports `windows/`, which is upward, and which is the single thing
  * that directory exists to prevent. So it sits beside the layouts it names instead
- * (docs/refactor-plan-2026-07-27.md 3b).
+ * (docs/history/refactor-plan-2026-07-27.md 3b).
  *
  * The value is an ID, never an index — inserting a page must not silently re-point anything that holds
  * one (see {@link KEYPAD_PAGES}).

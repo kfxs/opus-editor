@@ -1,6 +1,6 @@
 /**
  * TEMPORARY — **which call site pays the forced style+layout flush**
- * (docs/render-performance-plan.md §12.7, docs/render-performance-research.md §7a).
+ * (docs/history/render-performance-plan.md §12.7, docs/history/render-performance-research.md §7a).
  *
  * ## The question the region census cannot answer
  *

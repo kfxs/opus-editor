@@ -7,7 +7,7 @@
  * coincidence in the font — it is the statement that these marks are one weight, so that a score
  * reads as having been drawn by one hand.
  *
- * ⭐⭐ **And it is now READ from the font rather than typed** (F3, docs/font-metrics-plan.md):
+ * ⭐⭐ **And it is now READ from the font rather than typed** (F3, docs/plans/font-metrics-plan.md):
  * `engravingDefault('thinBarlineThickness')` out of `engine/fonts/`. The five names above are one
  * value in Bravura, so any of them would do; the barline is named because it is the member this
  * family was first extracted from.
@@ -119,7 +119,7 @@ export const THIN_LINE_SPACES = engravingDefault('thinBarlineThickness')
  *
  * ✅ **HALF DONE, 2026-09-01 — and the number is not the one this note assumed.** P5a took control of
  * the staff line (`engine/engrave/staff/staffLines`), and he then chose **Gould's measured 0.11 sp**
- * over Bravura's 0.13 (decision A, `docs/staff-line-research.md` §8), because **no treatise states a
+ * over Bravura's 0.13 (decision A, `docs/research/staff-line-research.md` §8), because **no treatise states a
  * thickness at all** and her own engraved staves measure 0.110–0.111.
  *
  * ⇒ ⭐ the gap this comment is about **narrowed from 1.30× to 1.18×**, ⛔ but did not close: a hairpin
@@ -136,7 +136,7 @@ export const THIN_LINE_SPACES = engravingDefault('thinBarlineThickness')
  * and smears into grey. A plate cannot overrule a measurement of what this editor actually renders.
  *
  * 🚨 **Do NOT re-open this by citing Gould p. 103 or Ross p. 187.** Both were read, quoted and
- * weighed when the decision was made (`docs/staff-line-research.md` §8 D). ⏳ The question that IS
+ * weighed when the decision was made (`docs/research/staff-line-research.md` §8 D). ⏳ The question that IS
  * still open is **F — screen versus paper**, which is the real cause; if that is ever settled with
  * separate weights for the two media, this row is worth revisiting THEN.
  *

@@ -4,7 +4,7 @@ import type { BarFrame, StaffFrame } from '@/engine/engrave/staff/staffFrame'
 
 /**
  * ⭐ **THE ONE PLACE a staff's lines are read off a VexFlow `Stave`** — S2 of
- * `docs/vexflow-removal-map.md`. Everything else asks the frame (`engrave/staff/staffFrame`).
+ * `docs/history/vexflow-removal-map.md`. Everything else asks the frame (`engrave/staff/staffFrame`).
  *
  * A SEAM, not a port: the three numbers are the stave's own, so no reader's answer changes.
  *

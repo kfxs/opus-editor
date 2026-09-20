@@ -15,7 +15,7 @@ import type { NoteDuration } from '@/types/music'
 
 /**
  * ⭐⭐ **OURS AGAINST THE FONT** — the first half of the split check
- * (docs/font-metrics-plan.md §4, F2).
+ * (docs/plans/font-metrics-plan.md §4, F2).
  *
  * ## Why this file exists at all, and why it is NOT a derivation
  *
@@ -50,7 +50,7 @@ const EXACT = 0.005
  * A row here is a decision someone took in the open. A difference NOT here is a bug, and the tests
  * below are what turn it into a failing build rather than a discovery years later (plan §3.5).
  *
- * ⏭️ The entries marked **HIS EYE** are `docs/font-metrics-plan.md` §3.6 — batched, awaiting one
+ * ⏭️ The entries marked **HIS EYE** are `docs/plans/font-metrics-plan.md` §3.6 — batched, awaiting one
  * look. Each is one line to flip once he has decided.
  */
 const OVERRIDES = {

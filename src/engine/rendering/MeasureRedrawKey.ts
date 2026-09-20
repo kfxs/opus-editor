@@ -3,7 +3,7 @@ import type { Fraction } from '@/utils/fraction'
 import { laneFingerprint } from '@/engine/layout/MeasureWidthCache'
 
 /**
- * **The shape key** (docs/render-performance-plan.md §7a) — "does this measure still *look* the
+ * **The shape key** (docs/history/render-performance-plan.md §7a) — "does this measure still *look* the
  * same?", answered without drawing it.
  *
  * ## Shape, deliberately NOT position
@@ -58,7 +58,7 @@ interface ShapeKeyInputs {
   width: number
   isFirstInLine: boolean
   /**
-   * ⚠️ **How big this staff is DRAWN** (docs/staff-size-plan.md §7) — the one piece of a bar's
+   * ⚠️ **How big this staff is DRAWN** (docs/plans/staff-size-plan.md §7) — the one piece of a bar's
    * picture that lives on `score.staves` instead of in the measure, so nothing else in this key
    * can see it.
    *
@@ -228,14 +228,14 @@ export function measureShapeKey(
     // never sees it, and the dynamics array itself is unchanged by a nudge. Leave this out and a
     // nudge changes nothing in the key: the bar never redraws, so `applyDynamicOffsets`' transform
     // never re-runs and the mark sits still while the model moves. WIDTH≠PICTURE, silently. See
-    // docs/dynamic-offset-plan.md.
+    // docs/plans/dynamic-offset-plan.md.
     view.dynamics?.map(d => score.engravingOverrides?.[d.id] ?? null) ?? null,
     // ⚠️ A note's hand-nudged horizontal OFFSET (client #12) is **slot-id-keyed** (by the slot's
     // uuid), the same trap as the dynamic offset above: `overridesFor` matches only the
     // position-keyed `{measureId}:…` overrides, never a bare slot id, and the slots themselves are
     // unchanged by a nudge. Leave this out and a nudge changes nothing in the key — the bar never
     // redraws, so `applyNoteOffsets`' setXShift never re-runs and the note sits still while the
-    // model moves. WIDTH≠PICTURE, silently. See docs/note-offset-plan.md.
+    // model moves. WIDTH≠PICTURE, silently. See docs/plans/note-offset-plan.md.
     view.slots.map(s => score.engravingOverrides?.[s.id] ?? null),
     // ⚠️ …and a FANNED MEMBER's offset is keyed by the member's own first pitch id
     // (`ScoreModel.offsetTargetOf`), which is in neither of the two lines above: not a slot id, not a

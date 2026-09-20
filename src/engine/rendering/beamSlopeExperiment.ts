@@ -4,7 +4,7 @@
  * try an optimal solution"*.
  *
  * ⭐⭐ **THE POINT: how steep a beam should be is an OPEN question, and the instrument that settles one
- * is his eye on his own music.** `docs/beam-slope-research.md` measured four treatises and three
+ * is his eye on his own music.** `docs/research/beam-slope-research.md` measured four treatises and three
  * engines; the engines answer three different ways and the books' own plates disagree with the
  * books' own numbers (Gould draws a 7th at 1 space where the tables give ½). ⛔ So instead of the
  * rule being frozen by whoever wrote the code first, the rule is a **table** in

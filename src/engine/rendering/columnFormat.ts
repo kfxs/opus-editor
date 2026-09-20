@@ -1,5 +1,5 @@
 /**
- * ⭐⭐ **A BAR'S VOICES, FORMATTED BY US — S9h** (`docs/vexflow-removal-map.md` §5.1 #2–#4, §5.2).
+ * ⭐⭐ **A BAR'S VOICES, FORMATTED BY US — S9h** (`docs/history/vexflow-removal-map.md` §5.1 #2–#4, §5.2).
  *
  * `Formatter.format(voices, width)` did three things once the modifier contexts were attached
  * (`./modifierColumns`, S9b). This file is where they come home:
@@ -12,7 +12,7 @@
  *
  * ⏸️ **The softmax is kept, and only for ONE x.** `spacingPass` overwrites every x it writes except a
  * context no column names — a clef change after a bar's last onset. ⭐ His call (2026-09-18): keep
- * that clef's picture exactly until the CLEF review decides where it stands (`docs/clef.md` §0,
+ * that clef's picture exactly until the CLEF review decides where it stands (`docs/how-it-works/clef.md` §0,
  * `vexflow-removal-map.md` §9.4 #5); then `layout/softmaxSpacing` is deleted. ⛔ No `Formatter`
  * instance is made any more, and ⭐ S9i: no `Voice` either — a bar's voices are `./barVoice`.
  */
@@ -46,7 +46,7 @@ export interface TickColumnMetrics {
 type ColumnTickable = BarTickable
 
 /**
- * ⭐⭐ **A TICK COLUMN OF OURS — S12j-b** (`docs/vexflow-removal-map.md` S12): the notes that start
+ * ⭐⭐ **A TICK COLUMN OF OURS — S12j-b** (`docs/history/vexflow-removal-map.md` S12): the notes that start
  * together, and the room they take. It used to `extend` VexFlow's `TickContext`; what is kept is
  * `TickContext` transcribed as far as anything asks — its x (a base and an offset), padding, the
  * longest and shortest tickables (compared in VexFlow's unreduced tick arithmetic, `layout/tickCount`),

@@ -1,6 +1,6 @@
 /**
  * The note/rest drag — **one press, two gestures, decided from the movement.** Vertical wins →
- * re-pitch. Horizontal wins → NOTE SPACING (docs/note-spacing-plan.md §5), which is why a REST arms
+ * re-pitch. Horizontal wins → NOTE SPACING (docs/plans/note-spacing-plan.md §5), which is why a REST arms
  * this too: it has no pitch to drag, but it occupies a column exactly as a note does.
  *
  * ⭐ **The decision reads the SHAPE of the movement, ⛔ not its age.** Nothing happens until the

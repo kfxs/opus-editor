@@ -1,7 +1,7 @@
 /**
  * The drag that sets a BAR'S WIDTH — the grabbed barline follows the cursor, and the bar to its
  * LEFT takes or gives up the room, its music re-spaced proportionally rather than pushed to one end
- * (docs/bar-width-plan.md §4–§6).
+ * (docs/plans/bar-width-plan.md §4–§6).
  *
  * ⭐ **The room is captured ONCE, off the picture the user grabbed** — the slope, the measured
  * floor, the ceiling. A stretch changes no bar's *intrinsic* width, so none of those terms move

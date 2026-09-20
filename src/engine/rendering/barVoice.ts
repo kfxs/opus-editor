@@ -1,5 +1,5 @@
 /**
- * ⭐⭐ **ONE VOICE OF ONE BAR, OURS — S9i** (`docs/vexflow-removal-map.md` §5.1, §5.2).
+ * ⭐⭐ **ONE VOICE OF ONE BAR, OURS — S9i** (`docs/history/vexflow-removal-map.md` §5.1, §5.2).
  *
  * VexFlow's `Voice` did four things for this editor, and each is here:
  *

@@ -1,6 +1,6 @@
 /**
  * ⭐⭐ **WHERE A BAR'S SIGNS STAND — the walk that lays them out along the staff.**
- * S4b1 of `docs/vexflow-removal-map.md`.
+ * S4b1 of `docs/history/vexflow-removal-map.md`.
  *
  * A port of VexFlow's `Stave.format()` (`stave.js:374–450`, MIT), transcribed step for step so every
  * position comes out as it did — ⛔ no pixel moves. The OPENING signs are walked in from the bar's left

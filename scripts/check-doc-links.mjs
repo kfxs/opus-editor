@@ -7,17 +7,23 @@
  * A rule that lives in a doc the reader cannot open is a rule nobody can check. It is also what
  * makes MOVING a doc safe: rewrite the paths, run this, and a missed one is named.
  *
- * Read: `src/`, `e2e/`, `scripts/`, `docs/`, `CLAUDE.md`, `reference/README.md`. A mention is the
- * literal text `docs/….md` (sub-folders allowed). ⚠️ A sentence that says a doc does NOT exist has to
- * spell it without the `docs/` prefix, or list it in KNOWN_ABSENT with its reason.
+ * Read: the whole repo but `node_modules/`, `dist/`, `.git/` and the gitignored library under
+ * `reference/` (its `README.md` IS read). Two kinds of mention:
+ *  - the literal text `docs/….md` (sub-folders allowed), anywhere;
+ *  - a RELATIVE markdown link `](name.md)` / `](../folder/name.md)` inside a file under `docs/`,
+ *    resolved from that file's own folder — the index and the docs' cross-links.
+ * ⚠️ A sentence that says a doc does NOT exist has to spell it without the `docs/` prefix, or list
+ * it in KNOWN_ABSENT with its reason.
  */
 import { readdirSync, readFileSync, statSync, existsSync } from 'node:fs'
-import { join } from 'node:path'
+import { join, dirname, normalize } from 'node:path'
 
-const ROOTS = ['src', 'e2e', 'scripts', 'docs']
-const FILES = ['CLAUDE.md', 'reference/README.md']
-const READ = /\.(ts|mjs|js|md|json|css|html)$/
+const SKIP_DIRS = new Set(['node_modules', 'dist', '.git', 'reference', 'test-results', 'playwright-report'])
+const FILES = ['reference/README.md']
+const READ = /(\.(ts|mjs|js|md|json|css|html)|^NOTICE)$/
 const MENTION = /docs\/[A-Za-z0-9._/-]+\.md/g
+/** `](x.md`, `](./x.md`, `](../y/x.md` — a relative link; ⛔ not a URL, not an absolute path. */
+const RELATIVE_LINK = /\]\(((?:\.\.?\/)*[A-Za-z0-9._-]+(?:\/[A-Za-z0-9._-]+)*\.md)(?:#[^)]*)?\)/g
 
 /** Cited on purpose though absent — each with the reason it may stay. Keep this EMPTY if you can. */
 const KNOWN_ABSENT = new Map([
@@ -26,7 +32,7 @@ const KNOWN_ABSENT = new Map([
 
 function walk(dir, out = []) {
   for (const entry of readdirSync(dir)) {
-    if (entry === 'node_modules' || entry === 'dist') continue
+    if (SKIP_DIRS.has(entry)) continue
     const p = join(dir, entry)
     if (statSync(p).isDirectory()) walk(p, out)
     else if (READ.test(entry)) out.push(p)
@@ -34,7 +40,7 @@ function walk(dir, out = []) {
   return out
 }
 
-const files = [...ROOTS.flatMap(r => (existsSync(r) ? walk(r) : [])), ...FILES.filter(f => existsSync(f))]
+const files = [...walk('.'), ...FILES.filter(f => existsSync(f))].map(f => normalize(f))
 const missing = new Map() // cited path → [file:line]
 let mentions = 0
 for (const file of files) {
@@ -46,6 +52,14 @@ for (const file of files) {
       if (existsSync(cited) || KNOWN_ABSENT.has(cited)) continue
       if (!missing.has(cited)) missing.set(cited, [])
       missing.get(cited).push(`${file}:${i + 1}`)
+    }
+    if (!file.startsWith('docs/')) return
+    for (const m of line.matchAll(RELATIVE_LINK)) {
+      mentions++
+      const target = normalize(join(dirname(file), m[1]))
+      if (existsSync(target)) continue
+      if (!missing.has(target)) missing.set(target, [])
+      missing.get(target).push(`${file}:${i + 1} (relative link \`${m[1]}\`)`)
     }
   })
 }

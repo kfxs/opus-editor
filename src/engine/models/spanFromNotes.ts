@@ -3,7 +3,7 @@
  * slur, a hairpin, a trill, an octave line and a pedal are each made "over the selection", and the
  * selection is a bag of note ids in click order, possibly across voices and staves.
  *
- * One answer, where `MusicEngine` held five copies of it (docs/code-shape-plan-2026-09-19.md,
+ * One answer, where `MusicEngine` held five copies of it (docs/plans/code-shape-plan-2026-09-19.md,
  * Phase 4.1): resolve the ids, keep the LANE of the first one, order what is left the way the music
  * reads. What is then BUILT from the two ends is each family's own.
  *

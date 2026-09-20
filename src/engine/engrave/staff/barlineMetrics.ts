@@ -1,6 +1,6 @@
 /**
  * ⭐ **HOW MUCH ROOM EACH KIND OF BARLINE TAKES IN A BAR'S SIGN WALK** — S4b1 of
- * `docs/vexflow-removal-map.md`.
+ * `docs/history/vexflow-removal-map.md`.
  *
  * These are the numbers VexFlow's `Barline` constructor sets (`stavebarline.js:35–90`), copied exactly
  * and attributed: a width, a padding, and the layout metrics the closing walk reads. ⛔ They are ROOM,

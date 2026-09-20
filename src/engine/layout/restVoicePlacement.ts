@@ -7,7 +7,7 @@
  *
  * > ⭐⭐ **The SIGN is positional** (upper voice up, lower voice down), **the MAGNITUDE is DERIVED
  * > from surrounding content**, and **the RESULT is QUANTISED to whole staff spaces.**
- * > — docs/multi-voice-rest-position.md §3.3, the unanimous finding of Gould, Ross, Gerou & Lusk
+ * > — docs/research/multi-voice-rest-position.md §3.3, the unanimous finding of Gould, Ross, Gerou & Lusk
  * > and Stone, and of LilyPond, Verovio and MuseScore.
  *
  * ⛔ **A fixed per-voice table can express the sign and NOTHING ELSE**, which is what we shipped
@@ -47,8 +47,8 @@
  * - ⛔ **Not the single-voice case.** Gould p. 34 owns that, `restPlacement.ts` implements it, and it
  *   is already right.
  *
- * See `docs/multi-voice-rest-position.md` (the evidence) and
- * `docs/multi-voice-rest-position-plan.md` (the decisions).
+ * See `docs/research/multi-voice-rest-position.md` (the evidence) and
+ * `docs/plans/multi-voice-rest-position-plan.md` (the decisions).
  */
 
 import type { ChordRest, Clef, Fraction, NoteDuration, Rest } from '@/types/music'
@@ -205,7 +205,7 @@ export interface RestVoicePlacement {
  * | `base` | one space out for `q`/`8`/`16`/`32`, **the outer staff line** for `w`/`h`. ⭐ Also the FLOOR: nothing may come nearer the middle | Gould p. 36, measured at **±1 stave-space**; MuseScore ±1 space (`restlayout.cpp:757-766`) |
  * | `ownLevel` | the ANCHOR placed so the rest's ink *centre* sits at `mean(own)` — ⛔ not for `w`/`h` | Gould p. 37; Verovio's same-layer mean (`rest.cpp:503-509`) |
  * | `clearance` | the near ink edge clears the other voice's extreme note by {@link GAP} | Gould p. 37 *"the rest moves further away from the stave"*; LilyPond `minimum-distance` |
- * | `laneOrder` | the near ink edge clears the same-parity INNER voice's REST by {@link GAP} — ⭐ V3 outside V1, V4 outside V2 | ⭐ **HIS convention**, `docs/multi-voice-plan.md` §13 — see {@link laneOrder} |
+ * | `laneOrder` | the near ink edge clears the same-parity INNER voice's REST by {@link GAP} — ⭐ V3 outside V1, V4 outside V2 | ⭐ **HIS convention**, `docs/plans/multi-voice-plan.md` §13 — see {@link laneOrder} |
  *
  * ⛔ **The fourth candidate an earlier draft listed was an illusion** — a *"floor — never nearer the
  * middle than `base`"*, which under `max`/`min` **is** `base`, the same number twice. Verovio can
@@ -271,14 +271,14 @@ export function restLineForVoice(input: RestVoicePlacement): number {
  * ⭐⭐ **HIS LANE ORDER — V3 / V1 / V2 / V4, top to bottom**, and the one part of this module that is
  * a TASTE CALL rather than a reading of the literature.
  *
- * ⛔ **Three and four voices are UNKNOWN in every source we hold** (`docs/multi-voice-rest-position.md`
+ * ⛔ **Three and four voices are UNKNOWN in every source we hold** (`docs/research/multi-voice-rest-position.md`
  * §8): no rest-height rule in Gould, Ross, Gerou & Lusk or Stone; Gould handles four parts as **2+2
  * on two staves**; Gerou & Lusk say *"avoid combining three instruments on one staff"*; Verovio
  * declines the question in code (`rest.cpp:366-367`); and LilyPond's V3/V4 are **vertically
  * identical** to V1/V2, differing only in horizontal shift.
  *
  * ⭐ So the ordering is not derivable, and it is HIS: stated 2026-07-23 and recorded in
- * `docs/multi-voice-plan.md` §13 as *"the values the user picked"* — **V3 +3 / V1 0 / V2 −3 / V4 −6**
+ * `docs/plans/multi-voice-plan.md` §13 as *"the values the user picked"* — **V3 +3 / V1 0 / V2 −3 / V4 −6**
  * under the old fixed ladder. 🚨 The derived rule dropped it on first writing, because `dir` is
  * parity and V1/V3 therefore shared a direction with nothing to tell them apart. That was reported
  * as a regression and **he refused it**: a settled convention of his is not a casualty of a rule

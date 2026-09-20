@@ -1,6 +1,6 @@
 /**
  * ⭐⭐ **WHAT A DRAWN CURVE OCCUPIES OVER A STRETCH OF ONE SYSTEM** — the slur (and the tie) as an
- * obstacle the outside-staff ladder can see. P1 of docs/trill-slur-clearance-plan.md.
+ * obstacle the outside-staff ladder can see. P1 of docs/plans/trill-slur-clearance-plan.md.
  *
  * ## Why it exists
  *

@@ -155,7 +155,7 @@ export class CoordinateMapper {
     // system's REAL height below it (`bounds.systemHeight`, which includes per-staff spacing),
     // so the vertical band spans the whole spaced-apart system. The uniform `this.systemHeight()`
     // is only a fallback for bounds captured before Client #7 populated the real height — it
-    // under-covers once staves are dragged far apart (docs/staff-spacing-plan.md §3).
+    // under-covers once staves are dragged far apart (docs/plans/staff-spacing-plan.md §3).
     const uniformHeight = this.systemHeight()
     if (this.measureBounds.size > 0) {
       // Find which measure contains the click coordinates (real per-system height).

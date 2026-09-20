@@ -74,7 +74,7 @@ export function beamHighlight(state: EditorState, engine: BeamSource | null): Be
   // itself — it is one self-contained feathered group — so `begin`/`end`/`single` have nothing left
   // to say and `setBeam` refuses them.
   //
-  // ⭐ EXCEPT `continue` — the JOIN to the group on its left (docs/fan-beam-join-plan.md §0), the one
+  // ⭐ EXCEPT `continue` — the JOIN to the group on its left (docs/plans/fan-beam-join-plan.md §0), the one
   // beam key a fan takes. It has to light, or the key would never show what it just wrote and the
   // only feedback left would be the ROLE, which reads `begin` on an inert mark: the press that did
   // nothing and the press that unjoins would then look identical.
@@ -242,7 +242,7 @@ export interface TremoloSource {
  *
  * {@link tremoloHighlight} answers with a `TremoloMark`, and the pair is not one of those: the count
  * says how fast, the pair says the strokes go between two notes. Both are true at once, so the count
- * lights as it always did and this lights beside it (docs/two-note-tremolo-plan.md §4).
+ * lights as it always did and this lights beside it (docs/plans/two-note-tremolo-plan.md §4).
  *
  * Only the two SCORE-derived sources of the four above, and deliberately: the pair has no armed
  * stamp and no note-entry form — the mark applies to notes that already exist, which is the standing
@@ -262,7 +262,7 @@ export function tremoloPairHighlight(state: EditorState, engine: TremoloSource |
 
 /**
  * Which way the selected note's FANNED beam runs, or null when it has none — what lights the
- * `accel.` / `rit.` pair (docs/fanned-beams-plan.md §3, P2).
+ * `accel.` / `rit.` pair (docs/plans/fanned-beams-plan.md §3, P2).
  *
  * ⭐ **Read from the selection, never pushed.** The fan is a fact about the score, so a Delete, an
  * undo or a paste changes it without going near the palette — the same live read the articulation,
@@ -313,7 +313,7 @@ export function dotHighlight(state: EditorState): 'dot' | null {
  * sync with editor state, and route their key presses back through the palette — with NO Vue in the
  * loop. This is the cord-cut: the read-sync used to flow through App.vue `watch`es (Vue owned the
  * "it changed"); now it flows through the state's own `subscribe`
- * (see docs/observable-editorstate-plan.md). The Select arrow is here too, since `toolMode` collapsed
+ * (see docs/history/observable-editorstate-plan.md). The Select arrow is here too, since `toolMode` collapsed
  * into this seam — mode is just another key now.
  *
  * HIGHLIGHT (in): `sync()` recomputes all five lit states and pushes them to the two-channel
@@ -372,7 +372,7 @@ export function wireKeypadSync(
     // The voice key follows the SAME single-selection rule as the others: light the active voice when
     // it means something — entry mode (the voice you're writing into) or a single selected note (its
     // voice) — and NOTHING when nothing, or more than one note, is selected (no single voice to show).
-    // ⭐⭐ A SELECTED MARK's scope wins the row (docs/dynamic-voice-scope-plan.md P4): with a dynamic
+    // ⭐⭐ A SELECTED MARK's scope wins the row (docs/plans/dynamic-voice-scope-plan.md P4): with a dynamic
     // or a hairpin selected, the voice keys say what it GOVERNS — `All`, or the one voice it was
     // narrowed to — because that is what a press would change. Only with no such mark does the row
     // fall back to the entry voice, under the same single-selection rule as the other keys: light it

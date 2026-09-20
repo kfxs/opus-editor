@@ -22,7 +22,7 @@
  * cursor: `barlineFinal`'s box is exactly 4 staff spaces tall — a five-line staff and nothing else —
  * while an engraved barline has to span whatever staff it is drawn on (a cue staff, a 1-line
  * percussion staff, a 4-line tablature). That is why 3 of 3 engines stroke the lines
- * (docs/barline-types-plan.md §8 P2). ⭐ **A ghost has no such staff.** It is a sign for the user, on
+ * (docs/plans/barline-types-plan.md §8 P2). ⭐ **A ghost has no such staff.** It is a sign for the user, on
  * the nominal five-line staff at the score's own size, which is the one case the precomposed glyph is
  * correct by construction — so the font draws it, in one `<text>` node, and the family's shared
  * recolouring ({@link drawSignGhost}) reaches all of it.

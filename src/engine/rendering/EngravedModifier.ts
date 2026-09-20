@@ -1,5 +1,5 @@
 /**
- * ⭐⭐ **A NOTE'S MODIFIER, AS OURS — the contract (S12b of `docs/vexflow-removal-map.md`).**
+ * ⭐⭐ **A NOTE'S MODIFIER, AS OURS — the contract (S12b of `docs/history/vexflow-removal-map.md`).**
  *
  * The marks on a note (dot, accidental, articulation, tremolo, the dynamics' annotation) extended
  * VexFlow's `Modifier` — itself an `Element`. They leave it one at a time, leaf first, BEFORE the note
