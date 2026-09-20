@@ -24,14 +24,14 @@ export function trillCommands(ctx: CommandContext) {
      * Add a trill on a note — idempotent, and refused on a rest or a fanned member
      * ({@link trillOps.addTrill}). @returns the stored Trill, the existing one, or null.
      *
-     * ⚠️ `commit`, not `saveOnly`, and unlike the slur beside it: a trill CHANGES WHAT PLAYS
+     * ⚠️ AUDIBLE, and unlike the slur beside it: a trill CHANGES WHAT PLAYS
      * (docs/trill-plan.md §7 — it turns one sounding note into alternating attacks), so playback has
      * to be resynced. A slur is a phrasing curve with no attacks of its own, which is why it gets the
      * cheaper snapshot.
      */
     addTrill(trill: Omit<Trill, 'id'>): Trill | null {
       const created = ctx.model().addTrill(trill)
-      if (created) ctx.commit('Add trill')
+      if (created) ctx.mutate('Add trill')
       return created
     },
 
@@ -68,7 +68,7 @@ export function trillCommands(ctx: CommandContext) {
         ...(end && end.id !== start.id ? { endNoteId: end.id } : {}),
         voice,
       })
-      if (created) ctx.commit('Add trill')
+      if (created) ctx.mutate('Add trill')
       return created
     },
 
@@ -114,7 +114,7 @@ export function trillCommands(ctx: CommandContext) {
      *  resyncs playback when removed. @returns true if one was removed. */
     removeTrill(id: string): boolean {
       const removed = ctx.model().removeTrill(id)
-      if (removed) ctx.commit('Remove trill')
+      if (removed) ctx.mutate('Remove trill')
       return removed
     },
 
@@ -123,7 +123,7 @@ export function trillCommands(ctx: CommandContext) {
      * (`interactions/trillReanchor`). `noteId === null` on the END clears it, back to the one-note
      * trill whose extent comes from the ties.
      *
-     * ⚠️ **`commit`, not `saveOnly`** — unlike the continuation label below it. Which notes a trill
+     * ⚠️ **AUDIBLE** — unlike the continuation label below it. Which notes a trill
      * covers is which notes get the alternation, so this is AUDIBLE: `trilledSlotIds` reads the span
      * and the playback schedule generates its repeats from it.
      *
@@ -133,7 +133,7 @@ export function trillCommands(ctx: CommandContext) {
       const ok = which === 'end'
         ? ctx.model().setTrillEnd(id, noteId)
         : noteId !== null && ctx.model().setTrillStart(id, noteId)
-      if (ok) ctx.commit(which === 'start' ? 'Move trill start' : 'Move trill end')
+      if (ok) ctx.mutate(which === 'start' ? 'Move trill start' : 'Move trill end')
       return ok
     },
 
@@ -161,13 +161,13 @@ export function trillCommands(ctx: CommandContext) {
 
     /**
      * ⭐⭐ **THE BARE `tr`** — the wavy line off or back on, reached from the END square's walk one step
-     * past the collapse. ⚠️ `commit`, not `saveOnly`: turning the line off CLEARS an explicit end, and
+     * past the collapse. ⚠️ AUDIBLE: turning the line off CLEARS an explicit end, and
      * which notes a trill covers is what the notes SOUND. In the ordinary case (the trill was already
      * a one-note trill) nothing audible changes and the entry is simply cheap.
      */
     setTrillExtension(id: string, extension: 'none' | undefined): boolean {
       const ok = ctx.model().setTrillExtension(id, extension)
-      if (ok) ctx.commit(extension === 'none' ? 'Trill without a line' : 'Trill with a line')
+      if (ok) ctx.mutate(extension === 'none' ? 'Trill without a line' : 'Trill with a line')
       return ok
     },
 
@@ -190,7 +190,7 @@ export function trillCommands(ctx: CommandContext) {
      * invert the nudge with it. ⚠️ Callers that speak screen convert on the way in; `shortcutWiring`
      * is the one that does.
      *
-     * ⚠️ An override, so `saveOnly` rather than `commit`: moving ink changes nothing audible, which is
+     * ⚠️ An override: moving ink changes nothing audible, which is
      * exactly what separates this key from `Ctrl+Shift+arrow` on the same square.
      */
     nudgeTrillEndpoint(id: string, which: 'start' | 'end', dx: number, outward: number): boolean {
@@ -204,7 +204,7 @@ export function trillCommands(ctx: CommandContext) {
       const dy = above ? -outward : outward
       if (dy !== 0 && !ctx.limits.nudgeStaysOnPage('trill', id, 0, dy)) return false
       const ok = ctx.model().setTrillEndpointOffset(id, which, dx, outward)
-      if (ok) ctx.saveOnly('Nudge trill')
+      if (ok) ctx.mutate('Nudge trill')
       return ok
     },
 
@@ -221,7 +221,7 @@ export function trillCommands(ctx: CommandContext) {
      */
     rebaseTrillEndpointOffset(id: string, which: 'start' | 'end', dx: number): boolean {
       const ok = ctx.model().setTrillEndpointOffset(id, which, dx, 0)
-      if (ok) ctx.saveOnly('Nudge trill') // inside the walk's batch this only counts the request
+      if (ok) ctx.mutate('Nudge trill') // inside the walk's batch this only counts the request
       return ok
     },
 
@@ -285,7 +285,7 @@ export function trillCommands(ctx: CommandContext) {
       const above = (ctx.model().getTrillById(id)?.placement ?? 'above') === 'above'
       if (!ctx.limits.nudgeStaysOnPage('trill', id, dx, above ? -outward : outward)) return false
       const ok = ctx.model().setTrillOffset(id, dx, outward)
-      if (ok) ctx.saveOnly('Nudge trill')
+      if (ok) ctx.mutate('Nudge trill')
       return ok
     },
 
@@ -293,7 +293,7 @@ export function trillCommands(ctx: CommandContext) {
      *  carries none. */
     resetTrillOffset(id: string): boolean {
       const ok = ctx.model().resetTrillOffset(id)
-      if (ok) ctx.saveOnly('Reset trill nudge')
+      if (ok) ctx.mutate('Reset trill nudge')
       return ok
     },
 
@@ -301,7 +301,7 @@ export function trillCommands(ctx: CommandContext) {
      *  engraver's own. @returns false when it carries no nudge, so the key falls through. */
     resetTrillEndpointOffset(id: string, which: 'start' | 'end'): boolean {
       const ok = ctx.model().resetTrillEndpointOffset(id, which)
-      if (ok) ctx.saveOnly('Reset trill nudge')
+      if (ok) ctx.mutate('Reset trill nudge')
       return ok
     },
 
@@ -314,19 +314,19 @@ export function trillCommands(ctx: CommandContext) {
      * Set how a CONTINUATION system labels a trill — `(tr)` (default), a plain `tr`, or nothing.
      * See {@link Trill.continuationLabel} for the three, and who does which.
      *
-     * ⚠️ `saveOnly`: a label is notation, and it changes nothing audible.
+     * ⚠️ Ink only: a label is notation, and it changes nothing audible.
      */
     setTrillContinuationLabel(id: string, label: TrillContinuationLabel): boolean {
       const ok = ctx.model().setTrillContinuationLabel(id, label)
-      if (ok) ctx.saveOnly('Trill continuation label')
+      if (ok) ctx.mutate('Trill continuation label')
       return ok
     },
 
     /** Flip a trill between above and below the staff — the `x` key's trill branch. Saves undo state.
-     *  ⚠️ `saveOnly`, unlike {@link addTrill}: a side is notation, and it changes nothing audible. */
+     *  ⚠️ Ink only, unlike {@link addTrill}: a side is notation, and it changes nothing audible. */
     toggleTrillPlacement(id: string): 'above' | 'below' | null {
       const side = ctx.model().toggleTrillPlacement(id)
-      if (side) ctx.saveOnly('Flip trill side')
+      if (side) ctx.mutate('Flip trill side')
       return side
     },
   }

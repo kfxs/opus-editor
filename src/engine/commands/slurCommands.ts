@@ -4,7 +4,7 @@
  * writes `engine.slur.nudgeSlur(…)`. The ottava's arrangement (`./ottavaCommands`).
  *
  * Everything a slur IS lives in `engine/models/slurOps`. ⭐ A slur is NOTATIONAL ONLY — nothing here
- * changes what plays — so every command records with `saveOnly`, never `commit`; and its shape is
+ * changes what plays — so no command here is an audible edit; and its shape is
  * cosmetic, so it has the family's richest set of ink edits (the arc's control points, per system on
  * a cross-system slur; the two true ends; the open joins) beside the two that touch the music: which
  * notes it joins, and which side it is drawn on.
@@ -113,7 +113,7 @@ export function slurCommands(ctx: CommandContext) {
       if (existing) return existing // idempotent — never duplicate, never remove
 
       const created = ctx.model().addSlur({ startNoteId: startNote.id, endNoteId: endNote.id, voice: slurVoice })
-      ctx.saveOnly('Add slur')
+      ctx.mutate('Add slur')
       return created
     },
 
@@ -146,7 +146,7 @@ export function slurCommands(ctx: CommandContext) {
      *  state when removed. @returns true if a slur was removed. */
     removeSlur(id: string): boolean {
       const removed = ctx.model().removeSlur(id)
-      if (removed) ctx.saveOnly('Remove slur')
+      if (removed) ctx.mutate('Remove slur')
       return removed
     },
 
@@ -157,7 +157,7 @@ export function slurCommands(ctx: CommandContext) {
      *  @returns true if the slur exists and was updated. */
     setSlurShape(id: string, cps: CurveControlPointDeltas | null): boolean {
       const updated = ctx.model().setSlurShape(id, cps)
-      if (updated) ctx.saveOnly(cps ? 'Reshape slur' : 'Reset slur shape')
+      if (updated) ctx.mutate(cps ? 'Reshape slur' : 'Reset slur shape')
       return updated
     },
 
@@ -212,7 +212,7 @@ export function slurCommands(ctx: CommandContext) {
      *  which. @returns false (no-op) when the target is invalid or already the anchor. */
     setSlurEndpointKeepingEdits(id: string, which: 'start' | 'end', noteId: string): boolean {
       const ok = ctx.model().setSlurEndpointKeepingEdits(id, which, noteId)
-      if (ok) ctx.saveOnly('Re-anchor slur')
+      if (ok) ctx.mutate('Re-anchor slur')
       return ok
     },
 
@@ -238,7 +238,7 @@ export function slurCommands(ctx: CommandContext) {
      *  the key falls through. */
     resetSlurShape(id: string, segment?: SlurSegmentAddress, spanCount?: number): boolean {
       const ok = ctx.model().resetSlurShape(id, segment, spanCount)
-      if (ok) ctx.saveOnly('Reset slur shape')
+      if (ok) ctx.mutate('Reset slur shape')
       return ok
     },
 
@@ -246,7 +246,7 @@ export function slurCommands(ctx: CommandContext) {
      *  @returns false if that end has no offset, so the caller DECLINEs and the key falls through. */
     resetSlurEndpointOffset(id: string, which: 'start' | 'end'): boolean {
       const ok = ctx.model().resetSlurEndpointOffset(id, which)
-      if (ok) ctx.saveOnly('Reset slur endpoint')
+      if (ok) ctx.mutate('Reset slur endpoint')
       return ok
     },
 
@@ -254,7 +254,7 @@ export function slurCommands(ctx: CommandContext) {
      *  {@link nudgeSlurSegmentEndpoint}. @returns false if that join has no offset. */
     resetSlurSegmentEndpointOffset(id: string, address: SlurSegmentEndpointAddress, spanCount: number): boolean {
       const ok = ctx.model().resetSlurSegmentEndpointOffset(id, address, spanCount)
-      if (ok) ctx.saveOnly('Reset slur segment endpoint')
+      if (ok) ctx.mutate('Reset slur segment endpoint')
       return ok
     },
 
@@ -264,7 +264,7 @@ export function slurCommands(ctx: CommandContext) {
     nudgeSlurEndpoint(id: string, which: 'start' | 'end', dx: number, dy: number): boolean {
       if (!endpointOffsetAllowed(id, which, dx, dy)) return false
       const ok = ctx.model().setSlurEndpointOffset(id, which, dx, dy)
-      if (ok) ctx.saveOnly('Nudge slur endpoint')
+      if (ok) ctx.mutate('Nudge slur endpoint')
       return ok
     },
 
@@ -283,7 +283,7 @@ export function slurCommands(ctx: CommandContext) {
     nudgeSlur(id: string, dx: number, dy: number): boolean {
       if (!offsetAllowed(id, dx, dy)) return false
       const ok = ctx.model().setSlurOffset(id, dx, dy)
-      if (ok) ctx.saveOnly('Nudge slur')
+      if (ok) ctx.mutate('Nudge slur')
       return ok
     },
 
@@ -306,7 +306,7 @@ export function slurCommands(ctx: CommandContext) {
      *  @returns false when it carries none, so the caller DECLINEs and the key falls through. */
     resetSlurOffset(id: string): boolean {
       const ok = ctx.model().resetSlurOffset(id)
-      if (ok) ctx.saveOnly('Reset slur offset')
+      if (ok) ctx.mutate('Reset slur offset')
       return ok
     },
 
@@ -317,7 +317,7 @@ export function slurCommands(ctx: CommandContext) {
     nudgeSlurSegmentEndpoint(id: string, address: SlurSegmentEndpointAddress, dx: number, dy: number, spanCount: number): boolean {
       if (!ctx.limits.nudgeStaysOnPage('slur', id, dx, dy)) return false
       const ok = ctx.model().setSlurSegmentEndpointOffset(id, address, dx, dy, spanCount)
-      if (ok) ctx.saveOnly('Nudge slur segment endpoint')
+      if (ok) ctx.mutate('Nudge slur segment endpoint')
       return ok
     },
 
@@ -332,7 +332,7 @@ export function slurCommands(ctx: CommandContext) {
       if (slur.placement !== undefined) {
         // Overridden → return to the auto (stem-derived) default.
         delete slur.placement
-        ctx.saveOnly('Reset slur to auto')
+        ctx.mutate('Reset slur to auto')
         return true
       }
       // Auto → pin the opposite of the last-drawn side. Guarded so a stubbed/headless
@@ -340,7 +340,7 @@ export function slurCommands(ctx: CommandContext) {
       const el = ctx.registry().getByType?.('slur').find(e => e.id === id)
       const currentDir = el?.slurDirection ?? -1
       slur.placement = currentDir === -1 ? 'below' : 'above'
-      ctx.saveOnly('Flip slur')
+      ctx.mutate('Flip slur')
       return true
     },
   }

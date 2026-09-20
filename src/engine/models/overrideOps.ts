@@ -14,7 +14,7 @@
  *
  * Every client here is one of the same shape: accumulate or set, and **clear the entry when the
  * value returns to its default**, so "absent = default" holds and the JSON stays clean. None takes
- * an undo snapshot — the facade (`MusicEngine`) owns the per-press `saveOnly`, because a
+ * an undo snapshot — the facade (`MusicEngine`) owns the per-press `mutate`, because a
  * model-level snapshot would push one undo entry per drag frame.
  *
  * ⚠️ NOT here: `setCautionaryAllowed` / `setCautionaryClefAllowed`. They write to the same
@@ -96,7 +96,7 @@ export function clearEngravingOverride(score: Score, elementId: string, kind?: s
  *
  * Returning to a net shift of 0 clears the entry (so "absent = default" holds and the JSON
  * stays clean). No undo snapshot here — the facade (`MusicEngine.nudgeRestShift`) owns the
- * per-press `saveOnly`, mirroring `setSlurEndpointOffset` / `nudgeSlurEndpoint`.
+ * per-press `mutate`, mirroring `setSlurEndpointOffset` / `nudgeSlurEndpoint`.
  * @returns true (the override always exists/updates for a valid position key).
  */
 export function nudgeRestShift(score: Score, posKey: string, delta: number): boolean {
@@ -254,7 +254,7 @@ export function setBarWidth(score: Score, key: string, stretch: number, minStret
  *
  * Returning to a net (0,0) clears the entry (so "absent = default" holds and the JSON stays
  * clean). No undo snapshot here — the facade (`MusicEngine.nudgeDynamicOffset`) owns the
- * per-press `saveOnly`, mirroring {@link nudgeRestShift} / {@link nudgeSlurEndpoint}.
+ * per-press `mutate`, mirroring {@link nudgeRestShift} / {@link nudgeSlurEndpoint}.
  * @returns true (the override always exists/updates for a valid dynamic id).
  */
 export function nudgeDynamicOffset(score: Score, dynamicId: string, dx: number, dy: number): boolean {
@@ -311,7 +311,7 @@ export function resetMarkOffset(score: Score, id: string, kind: 'dynamicOffset' 
  *
  * Returning to a net `x` of 0 clears the entry (so "absent = default" holds and the JSON stays
  * clean). No undo snapshot here — the facade (`MusicEngine.nudgeNoteOffset`) owns the per-press
- * `saveOnly`, mirroring {@link nudgeDynamicOffset}.
+ * `mutate`, mirroring {@link nudgeDynamicOffset}.
  * @returns true (the override always exists/updates for a valid key).
  */
 export function nudgeNoteOffset(score: Score, key: string, dx: number): boolean {
@@ -331,7 +331,7 @@ export function nudgeNoteOffset(score: Score, key: string, dx: number): boolean 
  * existing offset — {@link nudgeNoteOffset}'s twin, keyed by the {@link ClefChange} id (his ask,
  * 2026-08-28). Returning to a net `x` of 0 clears the entry, so "absent = default" holds and the JSON
  * stays clean. No undo snapshot here; the facade (`MusicEngine.nudgeClefOffset`) owns the per-press
- * `saveOnly`.
+ * `mutate`.
  * @returns true (the override always exists/updates for a valid id).
  */
 export function nudgeClefOffset(score: Score, clefId: string, dx: number): boolean {

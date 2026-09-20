@@ -32,7 +32,7 @@ export function tempoCommands(ctx: CommandContext) {
     addTempoMark(measureNumber: number, mark: Omit<TempoMark, 'id'>): TempoMark | null {
       const created = ctx.model().addTempoMark(measureNumber, mark)
       if (created) {
-        ctx.commit(`Add tempo ${tempoLabel(created)} at measure ${measureNumber}`)
+        ctx.mutate(`Add tempo ${tempoLabel(created)} at measure ${measureNumber}`)
       }
       return created
     },
@@ -46,7 +46,7 @@ export function tempoCommands(ctx: CommandContext) {
     updateTempoMark(id: string, updates: Partial<Omit<TempoMark, 'id'>>): TempoMark | null {
       const updated = ctx.model().updateTempoMark(id, updates)
       if (updated) {
-        ctx.commit(`Edit tempo ${tempoLabel(updated)}`)
+        ctx.mutate(`Edit tempo ${tempoLabel(updated)}`)
       }
       return updated
     },
@@ -59,7 +59,7 @@ export function tempoCommands(ctx: CommandContext) {
     removeTempoMark(id: string): boolean {
       const removed = ctx.model().removeTempoMark(id)
       if (removed) {
-        ctx.commit('Remove tempo mark')
+        ctx.mutate('Remove tempo mark')
       }
       return removed
     },
@@ -82,7 +82,7 @@ export function tempoCommands(ctx: CommandContext) {
       if (!ctx.model().getTempoMarkById(tempoId)) return false
       const ok = ctx.model().nudgeTempoOffset(tempoId, dx, dy)
       if (ok) {
-        ctx.saveOnly('Nudge tempo mark')
+        ctx.mutate('Nudge tempo mark')
         const off = tempoOffsetOverrideOf(ctx.model().getScore(), tempoId)
         dbg(`[Tempo] nudge ${tempoId} by (${dx}, ${dy}) → offset (${off?.x ?? 0}, ${off?.y ?? 0}) staff-space(s)`)
       }
@@ -103,7 +103,7 @@ export function tempoCommands(ctx: CommandContext) {
     moveTempoBySlot(id: string, direction: 1 | -1): boolean {
       const ok = ctx.model().moveTempoBySlot(id, direction)
       if (ok) {
-        ctx.commit(direction === -1 ? 'Move tempo mark back' : 'Move tempo mark on')
+        ctx.mutate(direction === -1 ? 'Move tempo mark back' : 'Move tempo mark on')
         dbg(`[Tempo] re-anchored ${id} ${direction === -1 ? 'back' : 'on'} one onset`)
       }
       return ok
@@ -155,7 +155,7 @@ export function tempoCommands(ctx: CommandContext) {
 
     resetTempoOffset(id: string): boolean {
       const ok = ctx.model().resetTempoOffset(id)
-      if (ok) ctx.saveOnly('Reset tempo nudge')
+      if (ok) ctx.mutate('Reset tempo nudge')
       return ok
     },
   }

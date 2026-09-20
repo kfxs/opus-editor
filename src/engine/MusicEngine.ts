@@ -130,7 +130,7 @@ export class MusicEngine {
       this.collisionDetector,
       this.renderer.getElementRegistry(),
       (description) => {
-        this.commit(description)
+        this.mutate(description)
       }
     )
 
@@ -218,7 +218,7 @@ export class MusicEngine {
    * A selection change only needs the highlight pass repainted, not a 200-bar score re-laid-out
    * and redrawn.
    *
-   *  1. **Content** — {@link modelDirty}. Every edit funnels through `commit`/`saveUndoState`
+   *  1. **Content** — {@link modelDirty}. Every edit funnels through `mutate`/`saveUndoState`
    *     (the ARCHITECTURE invariant), which sets it. A direct write to `scoreModel` that bypasses
    *     the facade would defeat this — but that write is already a bug.
    *  2. **View state** — {@link ScoreRenderer.viewStateKey}: view mode, the linear staff-spacing
@@ -316,19 +316,26 @@ export class MusicEngine {
   }
 
   /**
-   * Sync playback with the current score, then snapshot for undo. Use for any score
-   * mutation that changes what plays. setScore always runs; saveUndoState self-
-   * suppresses inside a runBatch.
+   * ⭐ **ONE UNDO ENTRY FOR ONE EDIT** — what every mutator ends with, whatever it changed.
+   *
+   * It was two functions: `commit` (this, after `playbackEngine.setScore`) for edits that change
+   * what PLAYS, and `saveOnly` for ink. Folded 2026-09-20 (docs/code-shape-plan-2026-09-19.md, 3.5):
+   * the resync bought nothing. `play()` rebuilds the tempo map, the repeat plan and the total
+   * duration itself before it schedules anything; nothing reads them while stopped; the score object
+   * is the same live one; and the editor does not edit DURING playback, which was the one moment the
+   * two could differ. The hand-kept split had already drifted — opening a repeat and inserting a
+   * measure both change what plays and both sat on `saveOnly`, with no symptom.
+   *
+   * ⚠️ `setScore` stays where the score OBJECT is replaced: the constructor, undo, redo and load.
+   * ⭐ WHICH edits are audible is still worth knowing and is still said where it is true — in the
+   * command's own comment — it just no longer picks a function.
+   *
+   * Self-suppresses inside a `runBatch` (the batch pushes once).
    */
-  private commit(description: string): void {
-    this.playbackEngine.setScore(this.scoreModel.getScore())
+  private mutate(description: string): void {
     this.saveUndoState(description)
   }
 
-  /**
-   * Snapshot for undo WITHOUT a playback resync. Use only for changes that do not
-   * affect audible output (title, display-only flags, slur/tie/clef visual edits).
-   */
   /**
    * ⭐⭐ **THE PAGE LIMIT — may this hand-nudge be WRITTEN?** His report, 2026-08-17: *"all the
    * objects that we offset, when in wrapped mode, can go out of the page… when we have boundaries
@@ -458,10 +465,6 @@ export class MusicEngine {
     return allowed
   }
 
-  private saveOnly(description: string): void {
-    this.saveUndoState(description)
-  }
-
   /**
    * Record the undo entry for a change the model has **already taken and the screen has already
    * shown** — the drop of a live drag, whose every frame went through a `preview*` method.
@@ -491,8 +494,7 @@ export class MusicEngine {
       // ⚠️ `?.()`: several engine specs stub the renderer with no registry at all, and every reader
       // of this treats "nothing drawn" as its answer.
       registry: () => this.renderer.getElementRegistry?.() ?? {},
-      commit: description => this.commit(description),
-      saveOnly: description => this.saveOnly(description),
+      mutate: description => this.mutate(description),
       markDirty: () => this.markModelDirty(),
       commitPreviewed: description => this.commitPreviewed(description),
       runBatch: (description, fn) => this.runBatch(description, fn),
@@ -586,7 +588,7 @@ export class MusicEngine {
    */
   setTitle(title: string): void {
     this.scoreModel.setTitle(title)
-    this.saveOnly(`Set title to "${title}"`)
+    this.mutate(`Set title to "${title}"`)
   }
 
   /**
@@ -598,7 +600,7 @@ export class MusicEngine {
    */
   setScoreText(field: ScoreTextField, text: string): boolean {
     if (!this.scoreModel.setScoreText(field, text)) return false
-    this.saveOnly(text.trim() ? `Set ${field}` : `Remove ${field}`)
+    this.mutate(text.trim() ? `Set ${field}` : `Remove ${field}`)
     return true
   }
 
@@ -608,7 +610,7 @@ export class MusicEngine {
    */
   clearScoreText(field: ScoreTextField): boolean {
     if (!this.scoreModel.clearScoreText(field)) return false
-    this.saveOnly(`Remove ${field}`)
+    this.mutate(`Remove ${field}`)
     return true
   }
 
@@ -617,7 +619,7 @@ export class MusicEngine {
    */
   addMeasure(): void {
     this.scoreModel.addMeasure()
-    this.saveOnly('Add measure')
+    this.mutate('Add measure')
   }
 
   /**
@@ -626,7 +628,7 @@ export class MusicEngine {
    */
   addStaffAbove(refStaffIndex: number): string {
     const id = this.scoreModel.addStaffAbove(refStaffIndex)
-    this.saveOnly(`Add staff above ${refStaffIndex}`)
+    this.mutate(`Add staff above ${refStaffIndex}`)
     return id
   }
 
@@ -636,7 +638,7 @@ export class MusicEngine {
    */
   addStaffBelow(refStaffIndex: number): string {
     const id = this.scoreModel.addStaffBelow(refStaffIndex)
-    this.saveOnly(`Add staff below ${refStaffIndex}`)
+    this.mutate(`Add staff below ${refStaffIndex}`)
     return id
   }
 
@@ -655,7 +657,7 @@ export class MusicEngine {
     const staffId = staffIdAtIndex(this.scoreModel.getScore(), staffIndex)
     if (staffId === undefined) return false
     if (!this.scoreModel.setStaffSize(staffId, size)) return false
-    this.saveOnly(`Staff ${staffIndex} size ${size}`)
+    this.mutate(`Staff ${staffIndex} size ${size}`)
     return true
   }
 
@@ -664,7 +666,7 @@ export class MusicEngine {
    * staff down (docs/barline-join-plan.md). Ordinal in, id out, exactly as {@link setStaffSize}:
    * the field is keyed by staff identity and only the facade speaks in indices.
    *
-   * ⭐ `saveOnly`, ⛔ never `commit`: a join is INK. It changes no note's time, so there is nothing
+   * ⭐ A join is INK, ⛔ never an audible edit. It changes no note's time, so there is nothing
    * for playback to resync — `barlineOps`' own rule for the signs, arriving at the line between
    * them. And it is what marks the model dirty, which is what makes the next render happen at all.
    */
@@ -672,7 +674,7 @@ export class MusicEngine {
     const staffId = staffIdAtIndex(this.scoreModel.getScore(), staffIndex)
     if (staffId === undefined) return false
     if (!this.scoreModel.setBarlineJoinBelow(staffId, on)) return false
-    this.saveOnly(`Staff ${staffIndex} barline join ${on ? 'on' : 'off'}`)
+    this.mutate(`Staff ${staffIndex} barline join ${on ? 'on' : 'off'}`)
     return true
   }
 
@@ -721,15 +723,16 @@ export class MusicEngine {
     return true
   }
 
-  /** Record ONE undo entry after a group-span drag settles. ⭐ `commitPreviewed`, ⛔ never `commit`:
-   *  a grouping sign is INK and changes no note's time, so there is no playback to resync. */
+  /** Record ONE undo entry after a group-span drag settles. ⭐ `commitPreviewed`, ⛔ never `mutate`:
+   *  every frame already wrote the model and drew it, and `mutate` would flag it dirty and re-engrave
+   *  a picture that is already on screen. */
   commitStaffGroupSpan(): void {
     this.commitPreviewed('Resize group')
   }
 
   /** Record ONE undo entry after a join drag settles (a drag whose every frame went through
-   *  {@link previewBarlineJoinBelow}). ⭐ `commitPreviewed`, ⛔ never `commit`: a join is INK and
-   *  changes no note's time, so there is no playback to resync. */
+   *  {@link previewBarlineJoinBelow}). ⭐ `commitPreviewed`, ⛔ never `mutate`: the frames
+   *  already wrote and drew it — see {@link commitStaffGroupSpan}. */
   commitBarlineJoin(): void {
     this.commitPreviewed('Barline join')
   }
@@ -738,7 +741,7 @@ export class MusicEngine {
   // The write lives on the facade for the one reason a write ever does: undo. The values and the
   // rules are `engine/models/barlineOps`, a SCORE operation (docs/barline-types-plan.md §8 P1).
   //
-  // ⭐ `saveOnly`, never `commit`: a barline sign is INK. Drawing `:|` and playing bars twice are
+  // ⭐ A barline sign is INK, never an audible edit. Drawing `:|` and playing bars twice are
   // different features, and nothing here may change what Play does (plan §7) — so there is no
   // playback resync to do.
 
@@ -751,7 +754,7 @@ export class MusicEngine {
    */
   setBarlineStyle(measureNumber: number, style: BarlineStyle | undefined, staffId?: string): boolean {
     if (!this.scoreModel.setBarlineStyle(measureNumber, style, staffId)) return false
-    this.saveOnly(style === undefined ? `Clear barline at measure ${measureNumber}` : `Barline ${style} at measure ${measureNumber}`)
+    this.mutate(style === undefined ? `Clear barline at measure ${measureNumber}` : `Barline ${style} at measure ${measureNumber}`)
     return true
   }
 
@@ -763,7 +766,7 @@ export class MusicEngine {
    */
   setRepeatStart(measureNumber: number, on: boolean, staffId?: string): boolean {
     if (!this.scoreModel.setRepeatStart(measureNumber, on, staffId)) return false
-    this.saveOnly(`${on ? 'Open' : 'Clear open'} repeat at measure ${measureNumber}`)
+    this.mutate(`${on ? 'Open' : 'Clear open'} repeat at measure ${measureNumber}`)
     return true
   }
 
@@ -775,7 +778,7 @@ export class MusicEngine {
    */
   setRepeatEnd(measureNumber: number, on: boolean, options?: { times?: number; staffId?: string }): boolean {
     if (!this.scoreModel.setRepeatEnd(measureNumber, on, options)) return false
-    this.saveOnly(`${on ? 'End' : 'Clear end'} repeat at measure ${measureNumber}`)
+    this.mutate(`${on ? 'End' : 'Clear end'} repeat at measure ${measureNumber}`)
     return true
   }
 
@@ -808,7 +811,7 @@ export class MusicEngine {
     }
     if (!this.scoreModel.applyGroupSymbol(ids, symbol)) return false
     const what = symbol ?? 'no sign'
-    this.saveUndoState(ids.length > 1
+    this.mutate(ids.length > 1
       ? `${what} over staves ${Math.min(fromStaff, toStaff) + 1}–${Math.max(fromStaff, toStaff) + 1}`
       : `${what} on staff ${Math.min(fromStaff, toStaff) + 1}`)
     return true
@@ -825,7 +828,7 @@ export class MusicEngine {
     const group = this.scoreModel.getScore().staffGroups?.find(g => g.id === groupId)
     if (!group) return false
     if (!this.scoreModel.applyGroupSymbol(group.staffIds, undefined)) return false
-    this.saveUndoState(`Remove ${group.symbol ?? 'grouping sign'}`)
+    this.mutate(`Remove ${group.symbol ?? 'grouping sign'}`)
     return true
   }
 
@@ -833,7 +836,7 @@ export class MusicEngine {
    *  Refuses a line whose sign cannot carry them. See {@link barlineOps.setBoundaryWinged}. */
   setBoundaryWinged(endsMeasure: number | null, on: boolean): boolean {
     if (!this.scoreModel.setBoundaryWinged(endsMeasure, on)) return false
-    this.saveOnly(`${on ? 'Wings on' : 'Wings off'} at ${endsMeasure === null ? 'the opening edge' : `measure ${endsMeasure}`}`)
+    this.mutate(`${on ? 'Wings on' : 'Wings off'} at ${endsMeasure === null ? 'the opening edge' : `measure ${endsMeasure}`}`)
     return true
   }
 
@@ -850,7 +853,7 @@ export class MusicEngine {
    */
   addRepeatAtBoundary(endsMeasure: number | null, which: 'start' | 'end'): boolean {
     if (!this.scoreModel.addRepeatAtBoundary(endsMeasure, which)) return false
-    this.saveOnly(`${which === 'start' ? 'Open' : 'End'} repeat at ${endsMeasure === null ? 'the opening edge' : `measure ${endsMeasure}`}`)
+    this.mutate(`${which === 'start' ? 'Open' : 'End'} repeat at ${endsMeasure === null ? 'the opening edge' : `measure ${endsMeasure}`}`)
     return true
   }
 
@@ -859,13 +862,13 @@ export class MusicEngine {
    * the only route to the back-to-back `:||:` (his ask, 2026-08-26). `endsMeasure` is the bar the line
    * closes, or `null` for the score's opening edge.
    *
-   * ⭐ One `saveOnly` for what may be two field writes, which is the whole reason this is a method
+   * ⭐ One undo entry for what may be two field writes, which is the whole reason this is a method
    * here rather than three calls from the controller: choosing `:||:` is one thing the user did, and
    * a Ctrl-Z that took back half of it would leave a sign nobody asked for.
    */
   setBoundarySign(endsMeasure: number | null, sign: BarlineSignKind): boolean {
     if (!this.scoreModel.setBoundarySign(endsMeasure, sign)) return false
-    this.saveOnly(`Barline ${sign} at ${endsMeasure === null ? 'the opening edge' : `measure ${endsMeasure}`}`)
+    this.mutate(`Barline ${sign} at ${endsMeasure === null ? 'the opening edge' : `measure ${endsMeasure}`}`)
     return true
   }
 
@@ -877,7 +880,7 @@ export class MusicEngine {
 
   clearBarline(measureNumber: number): boolean {
     if (!this.scoreModel.clearBarline(measureNumber)) return false
-    this.saveOnly(`Clear barline at measure ${measureNumber}`)
+    this.mutate(`Clear barline at measure ${measureNumber}`)
     return true
   }
 
@@ -889,7 +892,7 @@ export class MusicEngine {
    */
   insertMeasureAfter(afterNumber: number): void {
     this.scoreModel.insertMeasureAfter(afterNumber)
-    this.saveOnly(`Insert measure after ${afterNumber}`)
+    this.mutate(`Insert measure after ${afterNumber}`)
   }
 
   /**
@@ -905,7 +908,7 @@ export class MusicEngine {
       return false
     }
     const removed = this.scoreModel.removeMeasure(measureNumber)
-    if (removed) this.saveOnly(`Remove measure ${measureNumber}`)
+    if (removed) this.mutate(`Remove measure ${measureNumber}`)
     return removed
   }
 
@@ -924,7 +927,7 @@ export class MusicEngine {
       if (this.scoreModel.getScore().measures.length <= 1) break // keep at least one bar
       if (this.scoreModel.removeMeasure(m)) removedCount++
     }
-    if (removedCount > 0) this.saveOnly(`Remove ${removedCount} measure(s)`)
+    if (removedCount > 0) this.mutate(`Remove ${removedCount} measure(s)`)
     return removedCount
   }
 
@@ -937,7 +940,7 @@ export class MusicEngine {
    */
   clearMeasureStaff(measureNumber: number, staff: number): boolean {
     const cleared = this.scoreModel.clearMeasureStaff(measureNumber, staff)
-    if (cleared) this.commit(`Clear measure ${measureNumber}`)
+    if (cleared) this.mutate(`Clear measure ${measureNumber}`)
     return cleared
   }
 
@@ -961,7 +964,7 @@ export class MusicEngine {
   setClefAt(measureNumber: number, beat: Fraction, clef: Clef, staff: number = 0): boolean {
     const changed = this.scoreModel.setClefAt(measureNumber, beat, clef, this.staffIdForIndex(staff))
     if (changed) {
-      this.commit(`Set ${clef} clef at measure ${measureNumber} beat ${fracToNumber(beat)} staff ${staff}`)
+      this.mutate(`Set ${clef} clef at measure ${measureNumber} beat ${fracToNumber(beat)} staff ${staff}`)
     }
     return changed
   }
@@ -974,7 +977,7 @@ export class MusicEngine {
   removeClefAt(measureNumber: number, beat: Fraction, staff: number = 0): boolean {
     const changed = this.scoreModel.removeClefAt(measureNumber, beat, this.staffIdForIndex(staff))
     if (changed) {
-      this.commit(`Remove clef at measure ${measureNumber} beat ${fracToNumber(beat)} staff ${staff}`)
+      this.mutate(`Remove clef at measure ${measureNumber} beat ${fracToNumber(beat)} staff ${staff}`)
     }
     return changed
   }
@@ -1014,7 +1017,7 @@ export class MusicEngine {
     const changed = this.scoreModel.setKeyAt(measureNumber, key, this.staffIdForIndex(staff))
     if (changed) {
       const name = fifthsOf(key)
-      this.commit(`Set key signature at measure ${measureNumber} staff ${staff}`
+      this.mutate(`Set key signature at measure ${measureNumber} staff ${staff}`
         + ` (${name === null ? 'custom' : `${name} fifths`})`)
     }
     return changed
@@ -1034,14 +1037,14 @@ export class MusicEngine {
   setCautionaryKeyGap(measureNumber: number, gap: number | null, staff: number = 0): boolean {
     const changed = this.scoreModel.setCautionaryKeyGap(measureNumber, gap, this.staffIdForIndex(staff))
     if (changed) {
-      this.saveUndoState(`${gap === null ? 'Reset' : 'Set'} cautionary key gap at measure ${measureNumber}`)
+      this.mutate(`${gap === null ? 'Reset' : 'Set'} cautionary key gap at measure ${measureNumber}`)
     }
     return changed
   }
 
   removeKeyAt(measureNumber: number, staff: number = 0): boolean {
     const changed = this.scoreModel.removeKeyAt(measureNumber, this.staffIdForIndex(staff))
-    if (changed) this.commit(`Remove key signature at measure ${measureNumber} staff ${staff}`)
+    if (changed) this.mutate(`Remove key signature at measure ${measureNumber} staff ${staff}`)
     return changed
   }
 
@@ -1062,7 +1065,7 @@ export class MusicEngine {
   ): boolean {
     const changed = this.scoreModel.setTimeSignature(measureNumber, ts, options)
     if (changed) {
-      this.commit(`Set time signature ${ts.numerator}/${ts.denominator} at measure ${measureNumber}`)
+      this.mutate(`Set time signature ${ts.numerator}/${ts.denominator} at measure ${measureNumber}`)
     }
     return changed
   }
@@ -1109,7 +1112,7 @@ export class MusicEngine {
   removeTimeSignatureChange(measureNumber: number, options?: { rewrite?: 'rebar' | 'none' }): boolean {
     const changed = this.scoreModel.removeTimeSignatureChange(measureNumber, options)
     if (changed) {
-      this.commit(`Remove time signature change at measure ${measureNumber}`)
+      this.mutate(`Remove time signature change at measure ${measureNumber}`)
     }
     return changed
   }
@@ -1123,7 +1126,7 @@ export class MusicEngine {
   setTimeSignatureHidden(measureNumber: number, hidden: boolean): boolean {
     const changed = this.scoreModel.setTimeSignatureHidden(measureNumber, hidden)
     if (changed) {
-      this.saveOnly(`${hidden ? 'Hide' : 'Show'} time signature at measure ${measureNumber}`)
+      this.mutate(`${hidden ? 'Hide' : 'Show'} time signature at measure ${measureNumber}`)
     }
     return changed
   }
@@ -1137,7 +1140,7 @@ export class MusicEngine {
   setMeasureActualDuration(measureNumber: number, actual: Fraction | null): boolean {
     const changed = this.scoreModel.setMeasureActualDuration(measureNumber, actual)
     if (changed) {
-      this.commit(
+      this.mutate(
         actual ? `Set pickup at measure ${measureNumber}` : `Clear pickup at measure ${measureNumber}`,
       )
     }
@@ -1191,7 +1194,7 @@ export class MusicEngine {
   setMarkVoiceScope(id: string, scope: VoiceScope): boolean {
     const ok = this.scoreModel.setDynamicVoiceScope(id, scope) || this.scoreModel.setHairpinVoiceScope(id, scope)
     if (ok) {
-      this.commit(scope === 'all' ? 'Mark governs all voices' : `Mark governs voice ${scope + 1}`)
+      this.mutate(scope === 'all' ? 'Mark governs all voices' : `Mark governs voice ${scope + 1}`)
       dbg(`[Scope] ${id} → ${scope === 'all' ? 'ALL voices' : `voice ${scope + 1}`}`)
     }
     return ok
@@ -1350,7 +1353,7 @@ export class MusicEngine {
    */
   commitClefMove(measureNumber: number, beat: Fraction): void {
     this.scoreModel.normalizeClefAt(measureNumber, beat)
-    this.saveOnly(`Move clef to measure ${measureNumber} beat ${fracToNumber(beat)}`)
+    this.mutate(`Move clef to measure ${measureNumber} beat ${fracToNumber(beat)}`)
   }
 
   /**
@@ -1380,7 +1383,7 @@ export class MusicEngine {
   addChordNote(params: NoteParams): Note {
     const note = this.scoreModel.addNote(params)
     const noteName = params.step ? midiToNoteName(spellingToMidi(params.step, params.alter ?? 0, params.octave!)) : 'rest'
-    this.commit(`Add chord note ${noteName}`)
+    this.mutate(`Add chord note ${noteName}`)
     return note
   }
 
@@ -1394,7 +1397,7 @@ export class MusicEngine {
   addFanMemberPitch(noteId: string, spelling: { step: PitchStep; alter: PitchAlter; octave: number }): Note | null {
     const note = this.scoreModel.addFanMemberPitch(noteId, spelling)
     if (!note) return null
-    this.commit(`Add chord note ${midiToNoteName(spellingToMidi(spelling.step, spelling.alter, spelling.octave))}`)
+    this.mutate(`Add chord note ${midiToNoteName(spellingToMidi(spelling.step, spelling.alter, spelling.octave))}`)
     return note
   }
 
@@ -1411,7 +1414,7 @@ export class MusicEngine {
    */
   pasteEvents(clip: Clip, target: ClipTarget): string[] {
     const ids = this.scoreModel.pasteEvents(clip, target)
-    this.commit('Paste')
+    this.mutate('Paste')
     return ids
   }
 
@@ -1493,7 +1496,7 @@ export class MusicEngine {
     const updated = hasIt ? existing.filter(a => a !== type) : [...existing, type]
 
     const result = this.scoreModel.updateNote(noteId, { articulations: updated })
-    this.commit(hasIt ? `Remove ${type}` : `Add ${type}`)
+    this.mutate(hasIt ? `Remove ${type}` : `Add ${type}`)
     return result
   }
 
@@ -1506,7 +1509,7 @@ export class MusicEngine {
     const note = this.scoreModel.getNote(noteId)
     if (!note || note.isRest || !note.articulations?.length) return null
     const result = this.scoreModel.updateNote(noteId, { articulations: [], articulationPlacement: undefined })
-    this.commit('Remove articulations')
+    this.mutate('Remove articulations')
     return result
   }
 
@@ -1517,7 +1520,7 @@ export class MusicEngine {
    */
   toggleTie(noteId: string): boolean | null {
     const added = toggleTie(this.scoreModel, noteId)
-    if (added !== null) this.commit(added ? 'Add tie' : 'Remove tie')
+    if (added !== null) this.mutate(added ? 'Add tie' : 'Remove tie')
     return added
   }
 
@@ -1535,7 +1538,7 @@ export class MusicEngine {
     const description = plan.allTied ? 'Remove ties' : 'Add ties'
     this.runBatch(description, () => {
       applyTiePairs(this.scoreModel, plan.pairs, plan.allTied)
-      this.commit(description)
+      this.mutate(description)
     })
     return !plan.allTied
   }
@@ -1608,7 +1611,7 @@ export class MusicEngine {
     const key = restPositionKey(measure.id, voiceOf(note), note.beat, this.staffIdForIndex(note.staff))
     const ok = this.scoreModel.nudgeRestShift(key, delta)
     if (ok) {
-      this.saveOnly('Nudge rest')
+      this.mutate('Nudge rest')
       const steps = restShiftOverrideOf(this.scoreModel.getScore(), key)?.steps ?? 0
       dbg(`[Rest] ${delta > 0 ? '↑' : '↓'} shift rest ${restId} (${key}) by ${delta} → total ${steps} step(s)`)
     }
@@ -1632,7 +1635,7 @@ export class MusicEngine {
     if (!measure) return null
     const key = spacingPositionKey(measure.id, beat)
     const stored = this.scoreModel.setNoteSpacing(key, space, minSpace)
-    this.saveOnly('Note spacing')
+    this.mutate('Note spacing')
     dbg(`[Spacing] bar ${measureNumber} beat ${beat.num}/${beat.den} (${key}) → ${stored} staff-space(s)`)
     return stored
   }
@@ -1684,7 +1687,7 @@ export class MusicEngine {
     const key = spacingPositionKey(measure.id, beat)
     const current = leadingSpaceOverrideOf(this.scoreModel.getScore(), key)?.space ?? 0
     const stored = this.scoreModel.setNoteSpacing(key, current + delta, current - room)
-    this.saveOnly('Note spacing')
+    this.mutate('Note spacing')
     dbg(`[Spacing] bar ${measureNumber} beat ${beat.num}/${beat.den} ${delta > 0 ? '→' : '←'} ${stored} staff-space(s) (room ${room.toFixed(2)})`)
     return stored
   }
@@ -1761,7 +1764,7 @@ export class MusicEngine {
     const key = spacingPositionKey(measure.id, beat)
     if (!leadingSpaceOverrideOf(this.scoreModel.getScore(), key)) return false
     this.scoreModel.setNoteSpacing(key, 0, 0)
-    this.saveOnly('Reset note spacing')
+    this.mutate('Reset note spacing')
     dbg(`[Spacing] reset bar ${measureNumber} beat ${beat.num}/${beat.den}`)
     return true
   }
@@ -1814,7 +1817,7 @@ export class MusicEngine {
     // The floor is relative: `room` is what the CURRENT gap can still give up, so the stored value
     // may go down by that much and no further.
     const stored = this.scoreModel.setBarlineSpace(barlineSpaceKey(measure.id), current + delta, current - room)
-    this.saveOnly('Barline gap')
+    this.mutate('Barline gap')
     dbg(`[BarlineGap] bar ${measureNumber} ${delta > 0 ? '→' : '←'} ${stored} staff-space(s) (room ${room.toFixed(2)})`)
     return stored
   }
@@ -1826,7 +1829,7 @@ export class MusicEngine {
     if (!measure) return false
     if (barlineSpaceOf(this.scoreModel.getScore(), measure.id) === 0) return false
     this.scoreModel.setBarlineSpace(barlineSpaceKey(measure.id), 0, 0)
-    this.saveOnly('Reset barline gap')
+    this.mutate('Reset barline gap')
     dbg(`[BarlineGap] reset bar ${measureNumber}`)
     return true
   }
@@ -1840,7 +1843,7 @@ export class MusicEngine {
    * measured off the last render by whoever has it in hand (P1); pass `BAR_STRETCH_MIN` when there
    * is nothing to measure against — `ScoreModel.setBarWidth` applies the absolute clamp regardless.
    *
-   * A stretch changes what the bar is worth, so the casting-off must re-run — `saveOnly` flags the
+   * A stretch changes what the bar is worth, so the casting-off must re-run — `mutate` flags the
    * model dirty for us, exactly as on a leading space. (A live drag will need the preview/commit
    * pair instead; that is P2's, not this.)
    *
@@ -1850,7 +1853,7 @@ export class MusicEngine {
     const measure = this.scoreModel.getMeasure(measureNumber)
     if (!measure) return null
     const stored = this.scoreModel.setBarWidth(barWidthKey(measure.id), stretch, minStretch)
-    this.saveOnly('Bar width')
+    this.mutate('Bar width')
     dbg(`[BarWidth] bar ${measureNumber} (${measure.id}) → ×${stored}`)
     return stored
   }
@@ -1963,7 +1966,7 @@ export class MusicEngine {
       if (Math.abs(continuous - room.stretch) > 1e-9) bounded = continuous
     }
     const stored = this.scoreModel.setBarWidth(barWidthKey(measure.id), bounded, BAR_STRETCH_MIN)
-    this.saveOnly('Bar width')
+    this.mutate('Bar width')
     dbg(
       `[BarWidth] bar ${measureNumber} ${barlineDeltaPx > 0 ? '→' : '←'} ×${stored.toFixed(3)} ` +
         `[${this.renderer.getMeasureLayoutInfo().get(measureNumber)?.stretchScalesShare ? 'empty bar: scales its share' : 'has music: reserved space'}] ` +
@@ -2021,7 +2024,7 @@ export class MusicEngine {
     if (!measure) return false
     if (measureStretch(this.scoreModel.getScore(), measure.id) === 1) return false
     this.scoreModel.setBarWidth(barWidthKey(measure.id), 1, BAR_STRETCH_MIN)
-    this.saveOnly('Reset bar width')
+    this.mutate('Reset bar width')
     dbg(`[BarWidth] reset bar ${measureNumber}`)
     return true
   }
@@ -2040,7 +2043,7 @@ export class MusicEngine {
     if (!target) return false
     const ok = this.scoreModel.nudgeNoteOffset(target.key, dx)
     if (ok) {
-      this.saveOnly('Nudge note')
+      this.mutate('Nudge note')
       const off = noteOffsetOverrideOf(this.scoreModel.getScore(), target.key)
       const what = target.memberIndex ? `fan member ${target.memberIndex}` : 'slot'
       dbg(`[Note] nudge ${noteId} (${what} ${target.key}) by ${dx} → offset ${off?.x ?? 0} staff-space(s)`)
@@ -2058,7 +2061,7 @@ export class MusicEngine {
     const target = this.scoreModel.offsetTargetOf(noteId)
     if (!target) return false
     if (!this.scoreModel.clearNoteOffset(target.key)) return false
-    this.saveOnly('Reset note offset')
+    this.mutate('Reset note offset')
     dbg(`[Note] reset offset ${noteId} (key ${target.key})`)
     return true
   }
@@ -2096,7 +2099,7 @@ export class MusicEngine {
     if (boxes.length === 0) return false
     if (!this.nudgeBoxesStayOnPage(boxes, dx, 0)) return false
     if (!this.scoreModel.nudgeClefOffset(change.id, dx)) return false
-    this.saveOnly('Nudge clef')
+    this.mutate('Nudge clef')
     dbg(`[Clef] nudge ${measureNumber}:${fracToNumber(beat).toFixed(3)} staff ${staff} by ${dx} `
       + `→ offset ${this.getClefOffset(measureNumber, beat, staff)} staff-space(s)`)
     return true
@@ -2107,7 +2110,7 @@ export class MusicEngine {
   resetClefOffset(measureNumber: number, beat: Fraction, staff: number): boolean {
     const change = this.scoreModel.clefChangeAt(measureNumber, beat, this.staffIdForIndex(staff))
     if (!change || !this.scoreModel.clearClefOffset(change.id)) return false
-    this.saveOnly('Reset clef offset')
+    this.mutate('Reset clef offset')
     return true
   }
 
@@ -2262,7 +2265,7 @@ export class MusicEngine {
     if (!t) return false
     const above = this.clampSpacingAbove(resolveStaffSpacingAbove(this.scoreModel.getScore(), t.staffId, t.openingMeasureId) + delta, staffIndex, measureNumber)
     this.scoreModel.setStaffSpacing(t.key, above) // absolute; clears at 0
-    this.saveOnly('Nudge staff spacing')
+    this.mutate('Nudge staff spacing')
     dbg(`[Staff] ${delta > 0 ? '↓' : '↑'} space above staff ${staffIndex} @sys(${t.openingMeasureId}) by ${delta} → ${above} ss`)
     return true
   }
@@ -2287,7 +2290,7 @@ export class MusicEngine {
     if (!t) return false
     const removed = this.scoreModel.resetStaffSpacing(t.key)
     if (removed) {
-      this.saveOnly('Reset staff spacing')
+      this.mutate('Reset staff spacing')
       dbg(`[Staff] reset space above staff ${staffIndex} @sys(${t.openingMeasureId})`)
     }
     return removed
@@ -2369,7 +2372,7 @@ export class MusicEngine {
    * *Allow cautionary*. Half the rule; the other half is whether that change opens a system, which
    * only the layout knows (MeasureLayout).
    *
-   * `saveOnly`: nothing audible changes — the meter, the bars and the playback are identical either
+   * Ink only: nothing audible changes — the meter, the bars and the playback are identical either
    * way, and only the engraving differs.
    * @returns true if the stored state changed.
    */
@@ -2377,7 +2380,7 @@ export class MusicEngine {
     const measure = this.scoreModel.getMeasure(measureNumber)
     if (!measure) return false
     const changed = this.scoreModel.setCautionaryAllowed(measure.id, allowed)
-    if (changed) this.saveOnly(allowed ? 'Allow cautionary time signature' : 'No cautionary time signature')
+    if (changed) this.mutate(allowed ? 'Allow cautionary time signature' : 'No cautionary time signature')
     return changed
   }
 
@@ -2386,7 +2389,7 @@ export class MusicEngine {
    * the previous system — the clef twin of {@link setCautionaryAllowed}, and half the rule: the
    * other half is whether that change opens a system, which only the layout knows.
    *
-   * `saveOnly`: the clef, the pitches and the playback are identical either way; only the engraving
+   * Ink only: the clef, the pitches and the playback are identical either way; only the engraving
    * differs.
    * @returns true if the stored state changed.
    */
@@ -2394,7 +2397,7 @@ export class MusicEngine {
     const measure = this.scoreModel.getMeasure(measureNumber)
     if (!measure) return false
     const changed = this.scoreModel.setCautionaryClefAllowed(measure.id, this.staffIdForIndex(staff), allowed)
-    if (changed) this.saveOnly(allowed ? 'Allow cautionary clef' : 'No cautionary clef')
+    if (changed) this.mutate(allowed ? 'Allow cautionary clef' : 'No cautionary clef')
     return changed
   }
 
@@ -2406,7 +2409,7 @@ export class MusicEngine {
     const key = restPositionKey(measure.id, voiceOf(note), note.beat, this.staffIdForIndex(note.staff))
     const nowHidden = !restHiddenOf(this.scoreModel.getScore(), key)
     this.scoreModel.toggleRestHidden(key)
-    this.saveUndoState(`${nowHidden ? 'Hide' : 'Show'} rest`)
+    this.mutate(`${nowHidden ? 'Hide' : 'Show'} rest`)
     dbg(`[Rest] ${nowHidden ? 'hide' : 'show'} rest ${restId} (${key})`)
     return true
   }
@@ -2422,7 +2425,7 @@ export class MusicEngine {
     if (tuplet.placement !== undefined) {
       // Overridden → return to the auto (voice/stem-derived) default.
       this.scoreModel.setTupletPlacement(id, undefined)
-      this.saveOnly('Reset tuplet to auto')
+      this.mutate('Reset tuplet to auto')
       return true
     }
     // Auto → pin the opposite of the last-drawn side. Guarded so a stubbed/headless
@@ -2430,7 +2433,7 @@ export class MusicEngine {
     const el = this.renderer.getElementRegistry?.()?.getTupletById?.(id)
     const currentDir = el?.tupletGeometry?.location ?? 1
     this.scoreModel.setTupletPlacement(id, currentDir === 1 ? 'below' : 'above')
-    this.saveOnly('Flip tuplet')
+    this.mutate('Flip tuplet')
     return true
   }
 
@@ -2447,7 +2450,7 @@ export class MusicEngine {
     if (pitch.tieDirection !== undefined) {
       // Overridden → return to the auto default.
       this.scoreModel.clearTieDirection(fromNoteId)
-      this.saveOnly('Reset tie to auto')
+      this.mutate('Reset tie to auto')
       return true
     }
     // Auto → pin the opposite of the last-drawn side. Guarded so a stubbed/headless
@@ -2455,7 +2458,7 @@ export class MusicEngine {
     const el = this.renderer.getElementRegistry?.()?.getByType?.('tie').find(e => e.fromNoteId === fromNoteId)
     const currentDir = el?.tieDirection ?? 1
     if (!this.scoreModel.setTieDirection(fromNoteId, currentDir === -1 ? 1 : -1)) return false
-    this.saveOnly('Flip tie')
+    this.mutate('Flip tie')
     return true
   }
 
@@ -2621,7 +2624,7 @@ export class MusicEngine {
     const label = !note.isRest && note.step
       ? `Convert ${midiToNoteName(spellingToMidi(note.step, note.alter ?? 0, note.octave!))} to rest`
       : 'Convert to rest'
-    this.commit(label)
+    this.mutate(label)
     return this.scoreModel.getNote(rest.id) ?? null
   }
 
@@ -2662,8 +2665,7 @@ export class MusicEngine {
       const wholeMember = (this.scoreModel.fanMemberPitches(noteId)?.length ?? 0) <= 1
       if (!this.scoreModel.deleteNote(noteId)) return false
       if (wholeMember) reanchorSlurs(this.scoreModel.getScore(), noteId, null)
-      this.playbackEngine.setScore(this.scoreModel.getScore())
-      this.saveUndoState(description)
+      this.mutate(description)
       return true
     }
 
@@ -2742,10 +2744,7 @@ export class MusicEngine {
     // so the bar reverts to a single voice (Sibelius-style collapse).
     if (result) this.scoreModel.collapseEmptyVoices(note.measure)
 
-    this.playbackEngine.setScore(this.scoreModel.getScore())
-    if (result) {
-      this.saveUndoState(description)
-    }
+    if (result) this.mutate(description)
     return result
   }
 
@@ -2784,7 +2783,7 @@ export class MusicEngine {
       })
       // `deleteOne` commits for the ids it took, but the cleared REGION is this module's own write
       // — without this the batch would see no change for a plain range and push no undo entry.
-      if (cleared) this.commit(`Delete ${cleared} note(s)`)
+      if (cleared) this.mutate(`Delete ${cleared} note(s)`)
     })
     return cleared
   }
@@ -2798,7 +2797,7 @@ export class MusicEngine {
    */
   moveNoteToVoice(pitchId: string, targetVoice: number, movingIds?: ReadonlySet<string>): boolean {
     const moved = this.scoreModel.moveNoteToVoice(pitchId, targetVoice, movingIds)
-    if (moved) this.commit(`Move note to voice ${targetVoice + 1}`)
+    if (moved) this.mutate(`Move note to voice ${targetVoice + 1}`)
     return moved
   }
 
@@ -2847,7 +2846,7 @@ export class MusicEngine {
    */
   clearAllNotes(): void {
     this.scoreModel.clearAllNotes()
-    this.commit('Clear all notes')
+    this.mutate('Clear all notes')
   }
 
   // ==================== Tuplet Operations ====================
@@ -2914,7 +2913,7 @@ export class MusicEngine {
   deleteTuplet(tupletId: string): boolean {
     const result = this.scoreModel.deleteTuplet(tupletId)
     if (result) {
-      this.commit('Delete triplet')
+      this.mutate('Delete triplet')
     }
     return result
   }
@@ -2954,7 +2953,7 @@ export class MusicEngine {
     // every member's pitches). Refused rather than written and ignored.
     if (this.refusesFanMember(noteId, 'stem flip')) return null
     if (!this.scoreModel.flipStemDirection(noteId)) return null
-    this.commit('Flip stem direction')
+    this.mutate('Flip stem direction')
     return this.scoreModel.getNote(noteId) ?? null
   }
 
@@ -2970,7 +2969,7 @@ export class MusicEngine {
   flipArticulation(noteId: string): Note | null {
     const result = this.scoreModel.flipArticulationPlacement(noteId)
     if (!result) return null
-    this.saveOnly('Flip articulation')
+    this.mutate('Flip articulation')
     return result
   }
 
@@ -2982,7 +2981,7 @@ export class MusicEngine {
   setArticulationStemAlign(noteId: string, align: boolean): Note | null {
     const result = this.scoreModel.setArticulationStemAlign(noteId, align)
     if (!result) return null
-    this.saveOnly('Align articulation to stem')
+    this.mutate('Align articulation to stem')
     return result
   }
 
@@ -2993,7 +2992,7 @@ export class MusicEngine {
   setFractionalBeamSide(noteId: string, side: FractionalBeamSide | null): Note | null {
     const result = this.scoreModel.setFractionalBeamSide(noteId, side)
     if (!result) return null
-    this.saveOnly(side ? `Fractional beam ${side}` : 'Fractional beam auto')
+    this.mutate(side ? `Fractional beam ${side}` : 'Fractional beam auto')
     return result
   }
 
@@ -3001,7 +3000,7 @@ export class MusicEngine {
    * Set — or with `null`, remove — the single-note tremolo on the slot containing `noteId`.
    * Single-valued: a different mark replaces the one there. No-op (null) for a rest.
    *
-   * `commit`, not `saveOnly`: a tremolo is an instruction to the PLAYER, so it belongs with the
+   * AUDIBLE: a tremolo is an instruction to the PLAYER, so it belongs with the
    * changes that resync playback — even though nothing is scheduled for it until
    * docs/tremolo-plan.md §5 lands. Calling it a display-only flag today would be a thing to
    * remember to change later, and this is the seam that would be silently wrong.
@@ -3009,7 +3008,7 @@ export class MusicEngine {
   setTremolo(noteId: string, tremolo: TremoloMark | null): Note | null {
     const result = this.scoreModel.setTremolo(noteId, tremolo)
     if (!result) return null
-    this.commit(tremolo === null ? 'Remove tremolo' : `Set tremolo ${tremolo}`)
+    this.mutate(tremolo === null ? 'Remove tremolo' : `Set tremolo ${tremolo}`)
     return result
   }
 
@@ -3018,13 +3017,13 @@ export class MusicEngine {
    * and the one after it alternate, and both are drawn at double their written value.
    *
    * Returns null when the pair is refused (`ScoreModel.setTremoloPair` — the §0 list) so the press
-   * does nothing, and `commit` for the same reason {@link setTremolo} does: it is an instruction to
+   * does nothing, and AUDIBLE for the same reason {@link setTremolo} is: it is an instruction to
    * the player, so it belongs with the changes that resync playback.
    */
   setTremoloPair(noteId: string, on: boolean): Note | null {
     const result = this.scoreModel.setTremoloPair(noteId, on)
     if (!result) return null
-    this.commit(on ? 'Two-note tremolo' : 'Remove two-note tremolo')
+    this.mutate(on ? 'Two-note tremolo' : 'Remove two-note tremolo')
     return result
   }
 
@@ -3035,14 +3034,14 @@ export class MusicEngine {
    * Returns null when the fan is refused (a rest, a tuplet member, or nothing to remove — see
    * `ScoreModel.setFan`), so the press does nothing and mints no undo entry.
    *
-   * `commit`, not `saveOnly`: a fan changes what SOUNDS, so it belongs with the edits that resync
+   * AUDIBLE: a fan changes what SOUNDS, so it belongs with the edits that resync
    * playback — the same call {@link setTremolo} documents itself making, and the seam that would
    * otherwise be silently wrong the day P3 lands.
    */
   setFan(noteId: string, fan: FanMark | null): Note | null {
     const result = this.scoreModel.setFan(noteId, fan)
     if (!result) return null
-    this.commit(fan === null ? 'Remove fanned beam' : `Fanned beam ${fan.direction}`)
+    this.mutate(fan === null ? 'Remove fanned beam' : `Fanned beam ${fan.direction}`)
     return result
   }
 
@@ -3052,12 +3051,12 @@ export class MusicEngine {
    * first) for the caller to keep selected, or null when the selection is not a passage —
    * `fanCollapse.collapseIntoFan` owns that list, and the press then does nothing at all.
    *
-   * `commit`, for {@link setFan}'s reason: it changes what sounds.
+   * AUDIBLE, for {@link setFan}'s reason: it changes what sounds.
    */
   collapseIntoFan(noteIds: string[], direction: 'accel' | 'rit'): Note | null {
     const result = this.scoreModel.collapseIntoFan(noteIds, direction)
     if (!result) return null
-    this.commit(`Fanned beam ${direction}`)
+    this.mutate(`Fanned beam ${direction}`)
     return result
   }
 
@@ -3065,12 +3064,12 @@ export class MusicEngine {
    * How a two-note tremolo's strokes meet the stems — `'joined'` or `'open'`. Returns null when the
    * pair does not accept the choice (see `ScoreModel.setTremoloPairStyle`), so the press does nothing.
    *
-   * `saveOnly`, not `commit`: this is how the mark is DRAWN, and nothing about it changes a note.
+   * Ink only: this is how the mark is DRAWN, and nothing about it changes a note.
    */
   setTremoloPairStyle(noteId: string, style: 'joined' | 'open'): Note | null {
     const result = this.scoreModel.setTremoloPairStyle(noteId, style)
     if (!result) return null
-    this.saveOnly(`Tremolo strokes ${style}`)
+    this.mutate(`Tremolo strokes ${style}`)
     return result
   }
 
@@ -3590,9 +3589,9 @@ export class MusicEngine {
    */
   setScoreSound(sound: SoundRef): void {
     this.scoreModel.applySound(sound)
-    // `commit`, not `saveUndoState`: the sound is exactly the kind of change that alters what plays,
+    // AUDIBLE: the sound is exactly the kind of change that alters what plays,
     // so playback must be handed the new score before the snapshot is taken.
-    this.commit('Set sound')
+    this.mutate('Set sound')
     // …and warm the samples now rather than at the downbeat, which is what the old setter did for
     // the picker. Fire-and-forget: the sound only actually swaps on the next play().
     this.playbackEngine.preloadSound()

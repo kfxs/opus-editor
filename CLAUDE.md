@@ -124,13 +124,19 @@ src/
   engine/           # Framework-agnostic music engine
     MusicEngine.ts        # Facade — coordinates the components below
     NoteEntryCoordinator.ts # Note placement, overflow, cross-barline tie-splits
+    commands/             # ⭐ One module per MARK family — `<family>Commands(ctx)`, the editor's
+                          #   half of an edit: the ops call, the LIMIT that may refuse a hand-nudge,
+                          #   the undo entry. `commandContext` is what they are built from;
+                          #   ⛔ what a mark IS stays in `models/<family>Ops`.
     ElementRegistry.ts    # Authoritative hit-testing + pixel↔position
     ViewportModel.ts      # Scroll/zoom viewport state
     models/               # ScoreModel (data model), CollisionDetector,
                           #   clearOps (⭐ a cleared REGION is refilled by the METER, once —
                           #     docs/clear-range-plan.md; ⛔ never one rest per deleted slot,
                           #     and ⛔ never past the region's edge),
-                          #   🚧 scoreTextOps (the title + composer as ONE table — SKETCH)
+                          #   🚧 scoreTextOps (the title + composer as ONE table — SKETCH),
+                          #   spanFromNotes (⭐ "which notes did the user mean?" — ONE answer for
+                          #     the five span creates) + tieOps (ONE rule for a tie's target)
     layout/               # WHAT the music is drawn on, HOW MUCH ROOM the music earns, and
                           #   derived-view arithmetic off the LAST RENDER (⛔ layout/ may not import
                           #   rendering/ — lint:boundary; MeasureLayout, the HORIZONTAL casting-off,
@@ -319,11 +325,14 @@ Score: { id, title, composer?, measures[], staves?, staffGroups?, slurs?,
 The `MusicEngine` class is the main interface between UI and engine. Curated
 summary — see the class for the full surface (clefs, meter, dynamics, tempo,
 slurs, tuplets, staff spacing, engraving overrides each have their own methods).
-⭐ A mark FAMILY's commands are leaving the facade one at a time for `engine/commands/<family>Commands.ts`
-(built from a `CommandContext` — the undo seams + the page/band limits), reached as
-`engine.<family>.<command>(…)`: the OTTAVA is the first (`engine.ottava.nudgeOttava(…)`). ⛔ A new
-command for such a family goes in its commands module, never back on `MusicEngine`; the facade keeps
-the family's READS. See docs/code-shape-plan-2026-09-19.md, Phase 3.5:
+⭐ The seven MARK families' commands live in `engine/commands/<family>Commands.ts` — ottava, pedal,
+trill, hairpin, slur, dynamic, tempo — each built from a `CommandContext` (the undo seams + the
+page/band limits) and reached as `engine.<family>.<command>(…)`, e.g. `engine.ottava.nudgeOttava(…)`.
+⛔ A new command for such a family goes in its commands module, never back on `MusicEngine`; the
+facade keeps the family's READS (`getOttavaById`, …). ⭐ Every edit ends with ONE `mutate(description)`
+(undo entry + dirty flag); a drag frame is `markDirty`, its drop `commitPreviewed`. A commands spec
+stands on `commands/fakeCommandContext.ts` — a real `ScoreModel`, no engine. See
+docs/code-shape-plan-2026-09-19.md, Phase 3.5:
 
 ```typescript
 // Note / rest entry — returns the flat Note; null when placement is rejected

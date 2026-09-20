@@ -7,9 +7,9 @@
  * Everything an octave line IS lives in `engine/models/ottavaOps`; what a command adds is the
  * editor's own concern and nothing else — the LIMIT that may refuse a hand-nudge, and the undo entry.
  *
- * ⚠️ **`commit` vs `saveOnly` is a classification, kept per command**: an edit to the EXTENT or the
- * direction changes what the covered notes SOUND (`commit`); moving ink changes nothing audible
- * (`saveOnly`). A live drag frame records nothing (`markDirty`) and its drop records once
+ * ⚠️ Every edit records ONE undo entry (`mutate`), audible or not — but WHICH are audible is said per
+ * command, because it is true of the music: an edit to the EXTENT or the direction changes what the
+ * covered notes SOUND; moving ink does not. A live drag frame records nothing (`markDirty`) and its drop records once
  * (`commitPreviewed`).
  */
 import type { Ottava } from '@/types/music'
@@ -75,7 +75,7 @@ export function ottavaCommands(ctx: CommandContext) {
      */
     addOttava(measureNumber: number, ottava: Omit<Ottava, 'id'>): Ottava | null {
       const created = ctx.model().addOttava(measureNumber, ottava)
-      if (created) ctx.commit(`Add ${created.shift > 0 ? '8va' : '8vb'} at measure ${measureNumber}`)
+      if (created) ctx.mutate(`Add ${created.shift > 0 ? '8va' : '8vb'} at measure ${measureNumber}`)
       return created
     },
 
@@ -122,7 +122,7 @@ export function ottavaCommands(ctx: CommandContext) {
         { measure: endNote.measure, beat: endNote.beat, length: slotLength(endNote) },
         ctx.staffIdForIndex(staff),
       )
-      if (created) ctx.saveOnly(`Add ${shift > 0 ? '8va' : '8vb'}`)
+      if (created) ctx.mutate(`Add ${shift > 0 ? '8va' : '8vb'}`)
       return created
     },
 
@@ -130,17 +130,17 @@ export function ottavaCommands(ctx: CommandContext) {
      * ⭐ Flip a selected octave line's DIRECTION — 8va ↔ 8vb, 15ma ↔ 15mb — the `x` key's ottava
      * branch (`interactions/flipSelection.ts`). His request, 2026-08-17.
      *
-     * ⚠️ **`commit`, not `saveOnly`, and that is the difference from the trill's branch of the same
+     * ⚠️ **AUDIBLE, and that is the difference from the trill's branch of the same
      * key.** Flipping a trill swaps a SIDE — nothing audible — so it only records undo. An ottava's
-     * shift is what the covered notes SOUND (`soundingShiftAt`), which is `commit`'s stated condition
-     * and the hairpin's reason for using it too. ⚠️ The resync inside `commit` re-hands the SAME live
+     * shift is what the covered notes SOUND (`soundingShiftAt`), which is the hairpin's
+     * case too. ⚠️ Playback reads the SAME live
      * score object today (`ScoreModel.getScore` returns the model's own), so what this actually buys
      * is the convention, not a fix for a stale-playback bug — but the classification is the part a
      * future non-live score would depend on. @returns the new shift, or null if no ottava has that id.
      */
     toggleOttavaDirection(id: string): Ottava['shift'] | null {
       const shift = ctx.model().toggleOttavaDirection(id)
-      if (shift) ctx.commit(`Flip octave line to ${shift > 0 ? '8va' : '8vb'}`)
+      if (shift) ctx.mutate(`Flip octave line to ${shift > 0 ? '8va' : '8vb'}`)
       return shift
     },
 
@@ -149,11 +149,11 @@ export function ottavaCommands(ctx: CommandContext) {
      * square armed. Saves undo state when it changed. See {@link ottavaOps.resizeOttavaBySlot}.
      *
      * ⚠️ **A CONTENT edit, like the flip above it**: the notes the bracket newly covers (or lets go)
-     * change octave when they SOUND. Hence `commit`, not `saveOnly`.
+     * change octave when they SOUND. Hence AUDIBLE.
      */
     resizeOttavaBySlot(id: string, direction: 1 | -1): boolean {
       const ok = ctx.model().resizeOttavaBySlot(id, direction)
-      if (ok) ctx.commit(direction === 1 ? 'Lengthen octave line' : 'Shorten octave line')
+      if (ok) ctx.mutate(direction === 1 ? 'Lengthen octave line' : 'Shorten octave line')
       return ok
     },
 
@@ -164,7 +164,7 @@ export function ottavaCommands(ctx: CommandContext) {
      */
     moveOttavaStartBySlot(id: string, direction: 1 | -1): boolean {
       const ok = ctx.model().moveOttavaStartBySlot(id, direction)
-      if (ok) ctx.commit('Move octave line start')
+      if (ok) ctx.mutate('Move octave line start')
       return ok
     },
 
@@ -181,7 +181,7 @@ export function ottavaCommands(ctx: CommandContext) {
      * speak screen convert on the way in; `shortcutWiring` is the one that does, because `↑` is a
      * screen direction. `dx` is unaffected — right is right on both sides of the staff.
      *
-     * ⚠️ An override, so `saveOnly` rather than `commit`: moving ink changes nothing audible, unlike
+     * ⚠️ An override: moving ink changes nothing audible, unlike
      * the extent edits above it.
      */
     nudgeOttavaEndpoint(id: string, which: 'start' | 'end', dx: number, outward: number): boolean {
@@ -193,7 +193,7 @@ export function ottavaCommands(ctx: CommandContext) {
       // the WHOLE line — and only it can enter a neighbour's room. {@link ottavaEndpointOffsetAllowed}.
       if (!endpointOffsetAllowed(id, which, dx, above ? -outward : outward)) return false
       const ok = ctx.model().setOttavaEndpointOffset(id, which, dx, outward)
-      if (ok) ctx.saveOnly('Nudge octave line')
+      if (ok) ctx.mutate('Nudge octave line')
       return ok
     },
 
@@ -213,7 +213,7 @@ export function ottavaCommands(ctx: CommandContext) {
       if (!ctx.limits.nudgeStaysOnPage('ottava', id, dx, dy)) return false
       if (dy !== 0 && !staysInBand(id, dy)) return false
       const ok = ctx.model().setOttavaOffset(id, dx, outward)
-      if (ok) ctx.saveOnly('Nudge octave line')
+      if (ok) ctx.mutate('Nudge octave line')
       return ok
     },
 
@@ -279,7 +279,7 @@ export function ottavaCommands(ctx: CommandContext) {
      *  it carries none. */
     resetOttavaOffset(id: string): boolean {
       const ok = ctx.model().resetOttavaOffset(id)
-      if (ok) ctx.saveOnly('Reset octave line nudge')
+      if (ok) ctx.mutate('Reset octave line nudge')
       return ok
     },
 
@@ -287,7 +287,7 @@ export function ottavaCommands(ctx: CommandContext) {
      *  own. @returns false when it carries no nudge, so the key falls through. */
     resetOttavaEndpointOffset(id: string, which: 'start' | 'end'): boolean {
       const ok = ctx.model().resetOttavaEndpointOffset(id, which)
-      if (ok) ctx.saveOnly('Reset octave line nudge')
+      if (ok) ctx.mutate('Reset octave line nudge')
       return ok
     },
 
@@ -326,7 +326,7 @@ export function ottavaCommands(ctx: CommandContext) {
      */
     moveOttavaStartToSlot(id: string, target: OttavaSlotTarget): boolean {
       const ok = ctx.model().applyOttavaDrag(id, { at: 'start', ...target })
-      if (ok) ctx.commit('Move octave line start')
+      if (ok) ctx.mutate('Move octave line start')
       return ok
     },
 
@@ -394,7 +394,7 @@ export function ottavaCommands(ctx: CommandContext) {
     /** Remove an octave line by id. Saves undo state when one was removed. */
     removeOttava(id: string): boolean {
       const removed = ctx.model().removeOttava(id)
-      if (removed) ctx.commit('Remove octave line')
+      if (removed) ctx.mutate('Remove octave line')
       return removed
     },
   }

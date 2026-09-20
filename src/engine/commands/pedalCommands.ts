@@ -163,7 +163,7 @@ export function pedalCommands(ctx: CommandContext) {
      */
     addPedal(measureNumber: number, pedal: Omit<Pedal, 'id'>): Pedal | null {
       const created = ctx.model().addPedal(measureNumber, pedal)
-      if (created) ctx.commit(`Add pedal at measure ${measureNumber}`)
+      if (created) ctx.mutate(`Add pedal at measure ${measureNumber}`)
       return created
     },
 
@@ -201,7 +201,7 @@ export function pedalCommands(ctx: CommandContext) {
         { measure: endNote.measure, beat: endNote.beat, length: slotLength(endNote) },
         ctx.staffIdForIndex(staff),
       )
-      if (created) ctx.saveOnly('Add pedal')
+      if (created) ctx.mutate('Add pedal')
       return created
     },
 
@@ -225,21 +225,21 @@ export function pedalCommands(ctx: CommandContext) {
     addPedalOverSpan(measure: number, beat: Fraction, length: Fraction, staffId?: string): Pedal | null {
       const created = ctx.model().addPedalOverNotes(
         { measure, beat }, { measure, beat, length }, staffId)
-      if (created) ctx.commit('Add pedal')
+      if (created) ctx.mutate('Add pedal')
       return created
     },
 
     /** Remove a sustain pedal by id. Saves undo state when one was removed. */
     removePedal(id: string): boolean {
       const removed = ctx.model().removePedal(id)
-      if (removed) ctx.commit('Remove pedal')
+      if (removed) ctx.mutate('Remove pedal')
       return removed
     },
 
     /** Move the LIFT — set how much music a pedal holds. Saves undo state when it changed. */
     setPedalLength(id: string, length: Fraction): boolean {
       const ok = ctx.model().setPedalLength(id, length)
-      if (ok) ctx.commit('Resize pedal')
+      if (ok) ctx.mutate('Resize pedal')
       return ok
     },
 
@@ -247,16 +247,16 @@ export function pedalCommands(ctx: CommandContext) {
      *  Saves undo state when it changed. See {@link pedalOps.resizePedalBySlot}. */
     resizePedalBySlot(id: string, direction: 1 | -1): boolean {
       const ok = ctx.model().resizePedalBySlot(id, direction)
-      if (ok) ctx.commit(direction === 1 ? 'Lengthen pedal' : 'Shorten pedal')
+      if (ok) ctx.mutate(direction === 1 ? 'Lengthen pedal' : 'Shorten pedal')
       return ok
     },
 
     /** Move a pedal's PRESS by one slot, holding its lift — the same chord with the START square
-     *  armed. ⚠️ `commit`, like its twin: when the damper falls is AUDIBLE, so this is never a
+     *  armed. ⚠️ AUDIBLE, like its twin: when the damper falls is AUDIBLE, so this is never a
      *  save-only cosmetic write. See {@link pedalOps.movePedalStartBySlot}. */
     movePedalStartBySlot(id: string, direction: 1 | -1): boolean {
       const ok = ctx.model().movePedalStartBySlot(id, direction)
-      if (ok) ctx.commit(direction === 1 ? 'Move pedal start later' : 'Move pedal start earlier')
+      if (ok) ctx.mutate(direction === 1 ? 'Move pedal start later' : 'Move pedal start earlier')
       return ok
     },
 
@@ -350,7 +350,7 @@ export function pedalCommands(ctx: CommandContext) {
      */
     movePedalStartToSlot(id: string, target: PedalSlotTarget): boolean {
       const ok = ctx.model().setPedalStartAtSlot(id, target)
-      if (ok) ctx.commit('Move pedal start')
+      if (ok) ctx.mutate('Move pedal start')
       return ok
     },
 
@@ -365,14 +365,14 @@ export function pedalCommands(ctx: CommandContext) {
      * ⚠️ **No screen→outward conversion here, unlike the bracket's twin** — a pedal has one side
      * permanently, so `+ down` means the same thing everywhere it can be drawn.
      *
-     * ⚠️ An override, so `saveOnly` rather than `commit`: moving ink changes nothing audible, which is
+     * ⚠️ An override: moving ink changes nothing audible, which is
      * exactly what separates this key from `Ctrl+Shift+arrow` on the same square.
      */
     nudgePedalEndpoint(id: string, which: 'start' | 'end', dx: number, dy: number): boolean {
       const step = endpointStepAllowed(id, which, dx, dy)
       if (!step) return false
       const ok = ctx.model().setPedalEndpointOffset(id, which, step.dx, step.dy)
-      if (ok) ctx.saveOnly('Nudge pedal')
+      if (ok) ctx.mutate('Nudge pedal')
       return ok
     },
 
@@ -385,7 +385,7 @@ export function pedalCommands(ctx: CommandContext) {
       if (!ctx.limits.nudgeStaysOnPage('pedal', id, dx, dy)) return false
       if (dy !== 0 && !staysInBand(id, dy)) return false
       const ok = ctx.model().setPedalOffset(id, dx, dy)
-      if (ok) ctx.saveOnly('Nudge pedal')
+      if (ok) ctx.mutate('Nudge pedal')
       return ok
     },
 
@@ -393,13 +393,13 @@ export function pedalCommands(ctx: CommandContext) {
      * ⭐⭐ **Move the WHOLE pedal onto `target`, keeping how much music it holds** — the body walk's
      * crossing write, the keyboard twin of {@link movePedalStartToSlot} at the other grain.
      *
-     * ⚠️ A CONTENT edit and AUDIBLE: the same notes are no longer the ones that ring, so `commit`, ⛔
-     * never `saveOnly`. ⭐ It keeps both signs' nudges by construction (`pedalOps` writes no override
+     * ⚠️ A CONTENT edit and AUDIBLE: the same notes are no longer the ones that ring, so it is never
+     * just ink. ⭐ It keeps both signs' nudges by construction (`pedalOps` writes no override
      * here), which is what the walk needs — the crossing is meant to be invisible.
      */
     movePedalToSlot(id: string, target: PedalSlotTarget): boolean {
       const ok = ctx.model().setPedalAtSlot(id, target)
-      if (ok) ctx.commit('Move pedal')
+      if (ok) ctx.mutate('Move pedal')
       return ok
     },
 
@@ -468,7 +468,7 @@ export function pedalCommands(ctx: CommandContext) {
      *  carries none. */
     resetPedalOffset(id: string): boolean {
       const ok = ctx.model().resetPedalOffset(id)
-      if (ok) ctx.saveOnly('Reset pedal nudge')
+      if (ok) ctx.mutate('Reset pedal nudge')
       return ok
     },
 
@@ -476,7 +476,7 @@ export function pedalCommands(ctx: CommandContext) {
      *  own. @returns false when it carries no nudge, so the key falls through. */
     resetPedalEndpointOffset(id: string, which: 'start' | 'end'): boolean {
       const ok = ctx.model().resetPedalEndpointOffset(id, which)
-      if (ok) ctx.saveOnly('Reset pedal nudge')
+      if (ok) ctx.mutate('Reset pedal nudge')
       return ok
     },
   }

@@ -28,7 +28,7 @@ export function dynamicCommands(ctx: CommandContext) {
     addDynamic(measureNumber: number, dynamic: Omit<Dynamic, 'id'>): Dynamic | null {
       const created = ctx.model().addDynamic(measureNumber, dynamic)
       if (created) {
-        ctx.commit(`Add dynamic ${dynamicLabel(created)} at measure ${measureNumber}`)
+        ctx.mutate(`Add dynamic ${dynamicLabel(created)} at measure ${measureNumber}`)
       }
       return created
     },
@@ -40,7 +40,7 @@ export function dynamicCommands(ctx: CommandContext) {
     updateDynamic(id: string, updates: Partial<Omit<Dynamic, 'id'>>): Dynamic | null {
       const updated = ctx.model().updateDynamic(id, updates)
       if (updated) {
-        ctx.commit(`Edit dynamic ${dynamicLabel(updated)}`)
+        ctx.mutate(`Edit dynamic ${dynamicLabel(updated)}`)
       }
       return updated
     },
@@ -55,7 +55,7 @@ export function dynamicCommands(ctx: CommandContext) {
      */
     flipDynamicPlacement(id: string): 'above' | 'below' | null {
       const placement = ctx.model().flipDynamicPlacement(id)
-      if (placement) ctx.commit(`Move dynamic ${placement} the staff`)
+      if (placement) ctx.mutate(`Move dynamic ${placement} the staff`)
       return placement
     },
 
@@ -66,7 +66,7 @@ export function dynamicCommands(ctx: CommandContext) {
     removeDynamic(id: string): boolean {
       const removed = ctx.model().removeDynamic(id)
       if (removed) {
-        ctx.commit('Remove dynamic')
+        ctx.mutate('Remove dynamic')
       }
       return removed
     },
@@ -74,7 +74,7 @@ export function dynamicCommands(ctx: CommandContext) {
     moveDynamicBySlot(id: string, direction: 1 | -1): boolean {
       const ok = ctx.model().moveDynamicBySlot(id, direction)
       if (ok) {
-        ctx.commit(direction === -1 ? 'Move dynamic back' : 'Move dynamic on')
+        ctx.mutate(direction === -1 ? 'Move dynamic back' : 'Move dynamic on')
         dbg(`[Dynamic] re-anchored ${id} ${direction === -1 ? 'back' : 'on'} one slot`)
       }
       return ok
@@ -157,7 +157,7 @@ export function dynamicCommands(ctx: CommandContext) {
       if (!ctx.model().getDynamicById(dynamicId)) return false
       const ok = ctx.model().nudgeDynamicOffset(dynamicId, dx, dy)
       if (ok) {
-        ctx.saveOnly('Nudge dynamic')
+        ctx.mutate('Nudge dynamic')
         const off = dynamicOffsetOverrideOf(ctx.model().getScore(), dynamicId)
         dbg(`[Dynamic] nudge ${dynamicId} by (${dx}, ${dy}) → offset (${off?.x ?? 0}, ${off?.y ?? 0}) staff-space(s)`)
       }
@@ -172,7 +172,7 @@ export function dynamicCommands(ctx: CommandContext) {
      */
     resetDynamicOffset(id: string): boolean {
       const ok = ctx.model().resetDynamicOffset(id)
-      if (ok) ctx.saveOnly('Reset dynamic nudge')
+      if (ok) ctx.mutate('Reset dynamic nudge')
       return ok
     },
   }

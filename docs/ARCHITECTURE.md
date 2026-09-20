@@ -464,6 +464,9 @@ sites* — that number, not the number of families, is what the work costs and w
 | Which PAGE a system lands on, and where on it | `engine/layout/pageCastOff.ts` — the whole vertical algorithm, and short because system heights are already known. It asks the surface ONE question (`contentHeightPx`; `null` ⇒ never break, which is the canvas), and never how the sheets are ARRANGED — that is a drawing decision and lives in `engine/rendering/PagePass.ts`, which draws them and owns the axis (`PAGE_FLOW`: side by side today, `'vertical'` a real option) in `pageOriginPx`/`surfaceSizePx` and nowhere else. ⚠️ A system taller than a page takes one and overflows it; the `used > 0` guard is what stops that being an infinite loop |
 | 🚧 The TITLE and COMPOSER at the head of the first page | `engine/rendering/ScoreHeaderPass.ts` + `engine/models/scoreTextOps.ts` — ⛔ **A SKETCH, and the one row in this table that is scaffolding**: read `docs/score-header-sketch.md` before touching it. Two optional `Score` strings drawn as one block, wrapped view and paper only, with the room taken as `pageCastOff`'s `firstPageHeadPx` so page 1 really does hold fewer systems. Selectable / deletable / double-click-editable as ONE kind (`{ kind: 'scoreText'; field }`), because the two lines differ in nothing a press cares about. ⛔ A third field does not arrive by adding a row — the real thing is a FRAME of engraved text items with ids, and this is to be thrown away rather than grown (`docs/layout-plan.md` §7–§8) |
 | The SURFACE the music is drawn on (page size, margins, the width it wraps at) | `engine/layout/surface.ts` — a `Surface` is authored *input*, not derived, and it is the one thing in `engine/layout/` that isn't read off the last render. ⭐ A **canvas** has no physical size (that invariant is what stops a sketching width becoming a page); a **page** is mm. One union in, one flat `SurfaceMetrics` out, so no call site branches on the kind. `MusicEngine` HOLDS the one in use as it holds `viewMode` — ⛔ never `score.layout`, never "the layout *of* the score". `docs/layout-plan.md` |
+| An EDIT to a mark (ottava · pedal · trill · hairpin · slur · dynamic · tempo): create, nudge, re-anchor, flip, reset, remove, a drag's preview frames and its drop | `engine/commands/<family>Commands.ts`, reached as `engine.<family>.<command>(…)`. ⭐ Built from a `CommandContext` (`commands/commandContext.ts`): `model()` / `registry()` (FUNCTIONS — undo, redo and load replace the `ScoreModel`), the undo seams (`mutate` · `markDirty` · `commitPreviewed` · `runBatch`) and the `limits` that may refuse a hand-nudge before it is WRITTEN (page · band · span end — shared by every family, so they stay on the facade and are handed over). ⛔ What the mark IS — its span, its slots, its overrides — is `engine/models/<family>Ops`. The family's READS stay on `MusicEngine`. A caller that needs a few commands asks for `{ <family>: Pick<<Family>Commands, …> }`, never the facade. Specs: `commands/fakeCommandContext.ts` |
+| "Which notes did the user mean?" when a span mark is made over a selection; where a one-note slur ends | `engine/models/spanFromNotes.ts` — `spanFromNotes(source, ids, { byVoice, sounding })` and `nextDistinctSlot`. ONE answer for the five creates |
+| Which note a tie joins to; tying one note or a selection | `engine/models/tieOps.ts` — `tieTargetOf` is the one rule; `MusicEngine.toggleTie` / `.tieSelection` add only the undo entry |
 | Marking something as selected on screen | The KIND's own module in `interactions/elements/` — its `ink` row (⭐ asked once per selected id by `elements/selectedInk`: the one a click picked ∪ the ones a box enclosed, so a mark's ink is painted in one place however it got selected) and its `highlight` row (only what a single click earns: the guide line, the handles). Both are handed a `HighlightContext` (`elements/highlightContext.ts`) — ⛔ every DOM write goes through its undo-logged toolkit. Notes are `elements/notePaint.ts`; shared looks are `handleSquare` / `recolour` / `headerGlyphs` / `barlineInk`. `interactions/HighlightController.ts` is only the LAYER: the undo log, `clearHighlights`, `context()`, the entry cursor. ⭐ **PAINT a mark (`addNode`), don't recolour engraved ink.** A recolour inherits every renderer detail: how many elements a mark is made of, which group owns them, and whether their coordinates are still true (a REUSED measure carries a `translate`, so its rects' own x is stale). See `docs/barline-selection.md` §3 for the four bugs that came of it |
 | Hit-testing / "what element is at (x,y)" | `engine/ElementRegistry.ts` |
 | Pixel ↔ beat/pitch conversion | `engine/rendering/CoordinateMapper.ts` (+ `ElementRegistry`) |
@@ -512,11 +515,21 @@ the pixel boundary: when a screen click is quantized to a grid position
 all hit-testing flows through it. `CoordinateMapper` provides pixel↔position
 fallbacks. Don't reinvent "where is this note on screen" — ask the registry.
 
-### A score edit must resync playback
+### A score edit records ONE undo entry — `mutate`
 
-Every mutation in `MusicEngine` must push the new score into `PlaybackEngine`
-*and* snapshot for undo. Forgetting the resync silently desyncs audio from the
-score — this is exactly the class of bug the `commit()` helper exists to prevent.
+Every mutation ends with `MusicEngine.mutate(description)` (a command family's:
+`CommandContext.mutate`), which snapshots for undo and flags the model dirty. A live
+drag frame records nothing (`markModelDirty`) and its drop records once
+(`commitPreviewed`, which does NOT re-dirty the model — the picture is already on screen).
+
+It was two helpers until 2026-09-20 — `commit()`, which also pushed the score into
+`PlaybackEngine`, and `saveOnly()` for ink — and this section said *"a score edit must
+resync playback"*. The resync bought nothing: `PlaybackEngine.play()` rebuilds its tempo
+map and total duration from the live score when it starts, nothing reads them while
+stopped, and the editor does not edit during playback. `setScore` now lives only where
+the score OBJECT is replaced — the constructor, undo, redo, load. ⭐ WHICH edits are
+audible is still said, per command, in its comment ("AUDIBLE" / "ink only"): it is true
+of the music, it just no longer picks a function.
 
 **The undo half is checked, not promised.** `runBatch` decides whether to push a history entry by
 counting undo REQUESTS, so a mutator that writes the model and asks for nothing gets no entry and

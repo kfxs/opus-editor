@@ -28,10 +28,8 @@ export interface CommandContext {
   model(): ScoreModel
   registry(): DrawnRegistry
 
-  /** A score edit that changes what PLAYS: resync playback, then one undo entry. */
-  commit(description: string): void
-  /** One undo entry for an edit with nothing audible in it — ink, a side, a label. */
-  saveOnly(description: string): void
+  /** ONE undo entry for one edit — audible or not (`MusicEngine.mutate` says why it is one seam). */
+  mutate(description: string): void
   /** The model is about to change under a LIVE drag frame: flag it, record nothing. Undo is deferred
    *  to the drop's {@link commitPreviewed}. */
   markDirty(): void

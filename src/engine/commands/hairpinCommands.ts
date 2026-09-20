@@ -72,7 +72,7 @@ export function hairpinCommands(ctx: CommandContext) {
     addHairpin(measureNumber: number, hairpin: Omit<Hairpin, 'id'>): Hairpin | null {
       const created = ctx.model().addHairpin(measureNumber, hairpin)
       if (created) {
-        ctx.commit(`Add ${created.type === 'cresc' ? 'crescendo' : 'diminuendo'} at measure ${measureNumber}`)
+        ctx.mutate(`Add ${created.type === 'cresc' ? 'crescendo' : 'diminuendo'} at measure ${measureNumber}`)
       }
       return created
     },
@@ -122,21 +122,21 @@ export function hairpinCommands(ctx: CommandContext) {
         { measure: endNote.measure, beat: endNote.beat, length: slotLength(endNote) },
         { ...(ctx.staffIdForIndex(staff) !== undefined ? { staffId: ctx.staffIdForIndex(staff) } : {}) },
       )
-      if (created) ctx.saveOnly(`Add ${type === 'cresc' ? 'crescendo' : 'diminuendo'}`)
+      if (created) ctx.mutate(`Add ${type === 'cresc' ? 'crescendo' : 'diminuendo'}`)
       return created
     },
 
     /** Remove a hairpin by id. Saves undo state when removed. @returns true if one was removed. */
     removeHairpin(id: string): boolean {
       const removed = ctx.model().removeHairpin(id)
-      if (removed) ctx.commit('Remove hairpin')
+      if (removed) ctx.mutate('Remove hairpin')
       return removed
     },
 
     /** Edit a hairpin by id. Saves undo state when found. @returns the updated Hairpin, or null. */
     updateHairpin(id: string, updates: Partial<Omit<Hairpin, 'id'>>): Hairpin | null {
       const updated = ctx.model().updateHairpin(id, updates)
-      if (updated) ctx.commit('Edit hairpin')
+      if (updated) ctx.mutate('Edit hairpin')
       return updated
     },
 
@@ -148,7 +148,7 @@ export function hairpinCommands(ctx: CommandContext) {
      */
     setHairpinLength(id: string, length: Fraction): boolean {
       const ok = ctx.model().setHairpinLength(id, length)
-      if (ok) ctx.commit('Change hairpin length')
+      if (ok) ctx.mutate('Change hairpin length')
       return ok
     },
 
@@ -161,7 +161,7 @@ export function hairpinCommands(ctx: CommandContext) {
      */
     resizeHairpinBySlot(id: string, direction: 1 | -1): boolean {
       const ok = ctx.model().resizeHairpinBySlot(id, direction)
-      if (ok) ctx.commit(direction === 1 ? 'Lengthen hairpin' : 'Shorten hairpin')
+      if (ok) ctx.mutate(direction === 1 ? 'Lengthen hairpin' : 'Shorten hairpin')
       return ok
     },
 
@@ -177,7 +177,7 @@ export function hairpinCommands(ctx: CommandContext) {
      */
     moveHairpinStartBySlot(id: string, direction: 1 | -1): boolean {
       const ok = ctx.model().moveHairpinStartBySlot(id, direction)
-      if (ok) ctx.commit(direction === -1 ? 'Extend hairpin start' : 'Trim hairpin start')
+      if (ok) ctx.mutate(direction === -1 ? 'Extend hairpin start' : 'Trim hairpin start')
       return ok
     },
 
@@ -232,7 +232,7 @@ export function hairpinCommands(ctx: CommandContext) {
     nudgeHairpinEndpoint(id: string, which: 'start' | 'end', dx: number, dy: number): boolean {
       if (!endpointOffsetAllowed(id, which, dx, dy)) return false
       const ok = ctx.model().setHairpinEndpointOffset(id, which, dx, dy)
-      if (ok) ctx.saveOnly('Reshape hairpin')
+      if (ok) ctx.mutate('Reshape hairpin')
       return ok
     },
 
@@ -247,7 +247,7 @@ export function hairpinCommands(ctx: CommandContext) {
     nudgeHairpin(id: string, dx: number, dy: number): boolean {
       if (!ctx.limits.nudgeStaysOnPage('hairpin', id, dx, dy)) return false
       const ok = ctx.model().setHairpinOffset(id, dx, dy)
-      if (ok) ctx.saveOnly('Move hairpin')
+      if (ok) ctx.mutate('Move hairpin')
       return ok
     },
 
@@ -350,7 +350,7 @@ export function hairpinCommands(ctx: CommandContext) {
      *  @returns false when neither end carries one, so the key falls through. */
     resetHairpinOffset(id: string): boolean {
       const ok = ctx.model().resetHairpinOffset(id)
-      if (ok) ctx.saveOnly('Reset hairpin position')
+      if (ok) ctx.mutate('Reset hairpin position')
       return ok
     },
 
@@ -358,7 +358,7 @@ export function hairpinCommands(ctx: CommandContext) {
      *  @returns false when that end has no offset, so the key falls through. */
     resetHairpinEndpointOffset(id: string, which: 'start' | 'end'): boolean {
       const ok = ctx.model().resetHairpinEndpointOffset(id, which)
-      if (ok) ctx.saveOnly('Reset hairpin end')
+      if (ok) ctx.mutate('Reset hairpin end')
       return ok
     },
 
@@ -374,14 +374,14 @@ export function hairpinCommands(ctx: CommandContext) {
      */
     setHairpinAperture(id: string, aperture: number | null): boolean {
       const ok = ctx.model().setHairpinAperture(id, aperture)
-      if (ok) ctx.saveOnly(aperture === null ? 'Reset hairpin mouth' : 'Set hairpin mouth')
+      if (ok) ctx.mutate(aperture === null ? 'Reset hairpin mouth' : 'Set hairpin mouth')
       return ok
     },
 
     /** Flip a hairpin between crescendo and diminuendo. Saves undo state. @returns the new type. */
     toggleHairpinType(id: string): 'cresc' | 'dim' | null {
       const type = ctx.model().toggleHairpinType(id)
-      if (type) ctx.commit(`Change to ${type === 'cresc' ? 'crescendo' : 'diminuendo'}`)
+      if (type) ctx.mutate(`Change to ${type === 'cresc' ? 'crescendo' : 'diminuendo'}`)
       return type
     },
 
@@ -395,7 +395,7 @@ export function hairpinCommands(ctx: CommandContext) {
      */
     flipHairpinPlacement(id: string): 'above' | 'below' | null {
       const placement = ctx.model().flipHairpinPlacement(id)
-      if (placement) ctx.commit(`Move hairpin ${placement} the staff`)
+      if (placement) ctx.mutate(`Move hairpin ${placement} the staff`)
       return placement
     },
   }

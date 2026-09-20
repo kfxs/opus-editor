@@ -77,7 +77,7 @@ export function installUndoInvariant(engine: object): void {
       if (!defersItsUndo(name)) {
         throw new Error(
           `[undo invariant] MusicEngine.${name} changed the score and asked for no undo entry — ` +
-          `call commit()/saveUndoState() (free inside a batch), or, for a gesture's frame, name it preview*`,
+          `call mutate()/saveUndoState() (free inside a batch), or, for a gesture's frame, name it preview*`,
         )
       }
       if (!internals.modelDirty) {

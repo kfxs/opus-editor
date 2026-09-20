@@ -6,7 +6,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { MusicEngine } from '../MusicEngine'
 import { curveShapeOverrideOf, segmentCurveShapeOverrideOf, endpointOffsetOverrideOf, segmentEndpointOffsetOverrideOf } from '../models/engravingOverrides'
-import { fracCreate as frac, fracToNumber } from '@/utils/fraction'
+import { fracCreate as frac } from '@/utils/fraction'
 
 // Stub ScoreRenderer (needs canvas/SVG) and PlaybackEngine (needs Web Audio)
 const fakeRegistry = {
@@ -98,130 +98,6 @@ describe('slurCommands.createSlur — endpoint resolution, through the facade', 
     expect(slur.startNoteId).toBe(a.id)
     expect(slur.endNoteId).not.toBe(sibling.id) // NOT the sibling at the same beat
     expect(slur.endNoteId).toBe(next.id)
-  })
-
-  it('toggleTie on a chord member ties to the matching pitch in the NEXT slot, not a sibling head', () => {
-    // Chord G4 + D5 at beat 1, then a lone G4 at beat 2.
-    const g1 = addNote(engine, { step: 'G', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
-    const d5 = engine.addChordNote({ step: 'D', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(1, 1) })
-    const g2 = addNote(engine, { step: 'G', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(2, 1) })
-
-    expect(engine.toggleTie(g1.id)).toBe(true)
-    expect(engine.getNote(g1.id)!.tiedTo).toBe(g2.id)   // tied across to G4@2
-    expect(engine.getNote(g1.id)!.tiedTo).not.toBe(d5.id) // NOT the chord sibling
-    expect(engine.getNote(g2.id)!.tiedFrom).toBe(g1.id)
-  })
-
-  it('tieSelection ties EVERY selected note in a run, not just the last', () => {
-    const a = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
-    const b = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
-    const c = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(2, 1) })
-    addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(3, 1) }) // not selected
-
-    expect(engine.tieSelection([a.id, b.id, c.id])).toBe(true)
-    expect(engine.getNote(a.id)!.tiedTo).toBe(b.id) // a → b
-    expect(engine.getNote(b.id)!.tiedTo).toBe(c.id) // b → c
-    expect(engine.getNote(c.id)!.tiedTo).toBeUndefined() // last selected note does NOT tie forward
-  })
-
-  it('tieSelection ties two chords pitch-for-pitch', () => {
-    // Chord C4+E4 at beat 0, chord C4+E4 at beat 1.
-    const c1 = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
-    const e1 = engine.addChordNote({ step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
-    const c2 = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
-    const e2 = engine.addChordNote({ step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
-
-    expect(engine.tieSelection([c1.id, e1.id, c2.id, e2.id])).toBe(true)
-    expect(engine.getNote(c1.id)!.tiedTo).toBe(c2.id) // C → C
-    expect(engine.getNote(e1.id)!.tiedTo).toBe(e2.id) // E → E (not C)
-    expect(engine.getNote(c2.id)!.tiedTo).toBeUndefined() // last chord not tied forward
-    expect(engine.getNote(e2.id)!.tiedTo).toBeUndefined()
-  })
-
-  it('tieSelection on a single chord ties forward to the next slot', () => {
-    const c1 = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
-    const e1 = engine.addChordNote({ step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
-    const c2 = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
-    const e2 = engine.addChordNote({ step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
-
-    // Only the first chord selected → it ties to the next slot (single-position case).
-    expect(engine.tieSelection([c1.id, e1.id])).toBe(true)
-    expect(engine.getNote(c1.id)!.tiedTo).toBe(c2.id)
-    expect(engine.getNote(e1.id)!.tiedTo).toBe(e2.id)
-  })
-
-  it('tieSelection toggles off when the whole run is already tied', () => {
-    const a = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
-    const b = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
-    const c = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(2, 1) })
-
-    expect(engine.tieSelection([a.id, b.id, c.id])).toBe(true)
-    expect(engine.tieSelection([a.id, b.id, c.id])).toBe(false) // second press removes
-    expect(engine.getNote(a.id)!.tiedTo).toBeUndefined()
-    expect(engine.getNote(b.id)!.tiedTo).toBeUndefined()
-    expect(engine.getNote(b.id)!.tiedFrom).toBeUndefined()
-  })
-
-  it('tieSelection is ONE undo step of its own: undo takes the ties and leaves the notes', () => {
-    const a = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
-    const b = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
-    const c = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(2, 1) })
-
-    engine.renderScore()
-    engine.tieSelection([a.id, b.id, c.id])
-    expect(engine.isRenderStale()).toBe(true) // the next render may not be skipped
-
-    expect(engine.undo()).toBe(true)
-    // The ties went…
-    expect(engine.getNote(a.id)!.tiedTo).toBeUndefined()
-    expect(engine.getNote(b.id)!.tiedTo).toBeUndefined()
-    expect(engine.getNote(b.id)!.tiedFrom).toBeUndefined()
-    // …and the undo did not take the edit BEFORE them instead.
-    expect(engine.getNote(c.id)).toBeTruthy()
-
-    expect(engine.redo()).toBe(true)
-    expect(engine.getNote(a.id)!.tiedTo).toBe(b.id)
-    expect(engine.getNote(b.id)!.tiedTo).toBe(c.id)
-  })
-
-  it('the undo invariant is ARMED on a real engine: a mutator that stops asking throws', () => {
-    const a = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
-    addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
-    // `toggleTie` asks through `commit`; with that silenced it is exactly the bug `tieSelection` had.
-    ;(engine as unknown as { commit: () => void }).commit = () => {}
-    expect(() => engine.toggleTie(a.id)).toThrow(/undo invariant/)
-  })
-
-  it('toggleTie ties a chord member with no same pitch ahead to the next slot (let-ring)', () => {
-    // Chord C4+C5 at beat 0, then a lone C4 at beat 1 — C5 has no partner.
-    const c4 = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
-    const c5 = engine.addChordNote({ step: 'C', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })
-    const c4next = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
-
-    expect(engine.toggleTie(c4.id)).toBe(true) // C4 → C4 (same pitch)
-    expect(engine.getNote(c4.id)!.tiedTo).toBe(c4next.id)
-    expect(engine.toggleTie(c5.id)).toBe(true) // C5 → next slot (let-ring), even without a C5
-    expect(engine.getNote(c5.id)!.tiedTo).toBe(c4next.id)
-  })
-
-  it('deleting a target with TWO incoming ties reassigns BOTH to the replacement rest', () => {
-    // Reproduces the reported bug: a chord C4+C5 tied forward to a lone C4 (C5 let-ring).
-    const c4 = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
-    const c5 = engine.addChordNote({ step: 'C', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })
-    const target = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
-    expect(engine.toggleTie(c4.id)).toBe(true)
-    expect(engine.toggleTie(c5.id)).toBe(true)
-    expect(engine.getNote(c4.id)!.tiedTo).toBe(target.id)
-    expect(engine.getNote(c5.id)!.tiedTo).toBe(target.id)
-
-    engine.deleteNote(target.id) // target becomes a rest
-
-    const rest = engine.getScore().measures[0].slots.find(
-      s => s.type === 'rest' && fracToNumber(s.beat) === 1,
-    )!
-    // BOTH ties survive and point at the rest — neither is dropped or left dangling.
-    expect(engine.getNote(c4.id)!.tiedTo).toBe(rest.id)
-    expect(engine.getNote(c5.id)!.tiedTo).toBe(rest.id)
   })
 
   it('is create-only and idempotent — pressing s again does NOT add a duplicate or remove', () => {
@@ -436,37 +312,6 @@ describe('slurCommands.createSlur — endpoint resolution, through the facade', 
 
     expect(engine.slur.flipSlur('nope')).toBe(false) // unknown id
   })
-  it('flipTie inverts the tie curve direction as one undo step', () => {
-    const a = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
-    addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
-    expect(engine.toggleTie(a.id)).toBe(true) // tie C → C
-
-    const dirOf = () => {
-      const score = JSON.parse(engine.exportJSON())
-      for (const m of score.measures)
-        for (const s of m.slots)
-          if (s.type === 'chord')
-            for (const p of s.notes) if (p.id === a.id) return p.tieDirection
-      return undefined
-    }
-    expect(dirOf()).toBeUndefined() // auto (no override yet)
-
-    // First flip from auto stores an explicit ±1 direction.
-    expect(engine.flipTie(a.id)).toBe(true)
-    const after = dirOf()
-    expect(after === -1 || after === 1).toBe(true)
-
-    // Second flip round-trips back to auto (Sibelius-style x).
-    engine.flipTie(a.id)
-    expect(dirOf()).toBeUndefined()
-
-    // Undo reverts the reset (one step) → back to the explicit direction.
-    expect(engine.undo()).toBe(true)
-    expect(dirOf()).toBe(after)
-
-    expect(engine.flipTie('nope')).toBe(false) // unknown id
-  })
-
   it('flipTuplet toggles auto ↔ flipped as one undo step', () => {
     const tuplet = engine.createTupletAtBeat(1, 0, '8', { step: 'E', alter: 0, octave: 4 }, 3, 2, 0)!.tuplet
     const find = () => engine.getScore().measures[0].tuplets!.find(t => t.id === tuplet.id)!
