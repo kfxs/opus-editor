@@ -288,7 +288,7 @@ and 18 non-test files import it.
 - **Engraving defaults:** `engravingDefault(...)` is called by:
   - `layout/barlineSign.ts:60,84`
   - `rendering/thinLineWeight.ts:60,146`
-  - `rendering/curveStyle.ts:280,284`
+  - `rendering/curves/curveStyle.ts:280,284`
   - `rendering/layoutConfig.ts:265`
   - `rendering/beamInk.ts:48`
   - the compositions `secondDisplacement`, `flagInkRight` and `ledgerExtension` (`fontMetrics.ts:248–250,271–278,301–303`)

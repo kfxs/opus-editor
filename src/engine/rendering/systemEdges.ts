@@ -13,7 +13,7 @@
  */
 import { HEADER_TO_NOTE } from '@/engine/layout/headerInk'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
-import { CURVE } from './curveStyle'
+import { CURVE } from './curves/curveStyle'
 import type { RenderPass } from './RenderPass'
 
 /** The post-render lookup data the system-edge helpers + segment planner need. A

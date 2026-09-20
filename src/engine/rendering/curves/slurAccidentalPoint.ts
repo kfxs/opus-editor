@@ -40,7 +40,7 @@
  * (their y grows up), ours is −1. Every table below is written in OUR convention, converted once,
  * here — ⛔ not transcribed and left to bite a reader.
  */
-import type { NoteInkRect } from './noteInkBox'
+import type { NoteInkRect } from '../noteInkBox'
 
 /**
  * ⭐ **Where along its own width an accidental is met**, as a fraction: **−1 the left edge, 0 the

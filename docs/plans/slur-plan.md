@@ -642,10 +642,10 @@ collision avoidance. So:
 > (`engine/engrave/curves/curveInk.ts`) and VexFlow is removed, so the curve's ink is our own code.
 > ⛔ That removes a limit; it decides nothing — the dual-thickness taper is as undone as it was.
 
-### 9.4 Our current calibration (the only knobs; `rendering/SlurRenderer.ts`)
+### 9.4 Our current calibration (the only knobs; `rendering/curves/SlurRenderer.ts`)
 
 ⚠️ **This table said `ScoreRenderer.ts` and listed two constants that no longer exist** — the
-slur code moved to its own module and the weight moved again, to `rendering/curveArc.ts`, shared
+slur code moved to its own module and the weight moved again, to `rendering/curves/curveArc.ts`, shared
 with ties. Corrected 2026-08-15.
 
 | Constant | Value | in staff spaces | Role |
@@ -741,7 +741,7 @@ START note's stem alone.
 | Verovio | `CalcSlurDirectionFunctor` — `if (system->HasMixedDrawingStemDir(start, end))` force above |
 
 ⭐ MuseScore's first line **is** our whole rule, so ours was theirs minus the scan. ✅ **BUILT
-2026-08-15** as `rendering/slurDirection.ts` (`slurSideFromStems` + `coveredChordIds`), reading the
+2026-08-15** as `rendering/curves/slurDirection.ts` (`slurSideFromStems` + `coveredChordIds`), reading the
 stems actually DRAWN (by VexFlow then; by our `EngravedNote` since the removal — beaming forces a group, so the model's answer still differs) and scoped to the
 slur's own lane — MuseScore scopes the same scan by `c1->track()`. The voice-parity rule (§10) still
 outranks it. ⚠️ The **mixed → above** tie-break is provisional: three implementations agreeing is not
@@ -839,8 +839,8 @@ tilted slur is deliberately made rounder.** Nothing does the reverse.
 
 ⚠️ **"we have none" was true when this was written and is not any more** — and it misled a reader on
 2026-08-17, who repeated it back to him as a live fact. The ARCH half shipped as §12 Phase 8
-(`rendering/slurObstacles.ts`, Verovio's constraint solve); the ENDPOINT half shipped 2026-08-17
-(`rendering/slurEncompass.ts` + the ceiling in `slurStemEndpoint`). ⛔ Do not read the paragraph
+(`rendering/curves/slurObstacles.ts`, Verovio's constraint solve); the ENDPOINT half shipped 2026-08-17
+(`rendering/curves/slurEncompass.ts` + the ceiling in `slurStemEndpoint`). ⛔ Do not read the paragraph
 below as a statement of what we lack; it is a comparison of the three engines' MECHANISMS, which is
 still accurate and still worth having.
 
@@ -1076,7 +1076,7 @@ argument carried the clefs it needed. Bass's middle line is **22**. So on a bass
 from **D3 to A4** — nearly the whole staff — measured as *below the middle line* and curved **down**,
 which above the real middle line is the side its own down-stem already occupies: Gould p. 64
 inverted. Alto (28) and tenor (26) were wrong the same way. **There was no spec naming the function
-anywhere.** Now `rendering/tieDirection.ts` + `tieDirection.test.ts` + `e2e/tie.e2e.ts`, the twin of
+anywhere.** Now `rendering/curves/tieDirection.ts` + `tieDirection.test.ts` + `e2e/tie.e2e.ts`, the twin of
 `slurDirection`, with Gould p. 64's two rules in her order: **away from the stems as DRAWN** (both
 ends — beaming forces a group, so the model's own direction is not the drawn one), and only when the
 two stems **disagree**, away from the **middle line of the clef in force**. The flip override and the
@@ -1135,11 +1135,11 @@ rule's own words: *a slice too thin to be logic is still a slice*. So:
 
 | phase | the module it adds | pure? |
 |---|---|---|
-| 1 | `rendering/slurStemEndpoint.ts` | **yes** — head ys + stem dirs + tips in, adjusted ys out |
-| 2 | `rendering/slurArchHeight.ts` (the height law, both ends of the length range) | **yes** — span in, arch height out |
-| 3 | `rendering/tieStaffLineClearance.ts` | **yes** — tie y + the stave's line ys in, a shift out |
-| 5 | `rendering/brokenSlurTilt.ts` | **yes** — diatonic difference in, half-arc rise out |
-| 6 | `rendering/slurSlantLimit.ts` | **yes** — the two endpoints in, the raised one out |
+| 1 | `rendering/curves/slurStemEndpoint.ts` | **yes** — head ys + stem dirs + tips in, adjusted ys out |
+| 2 | `rendering/curves/slurArchHeight.ts` (the height law, both ends of the length range) | **yes** — span in, arch height out |
+| 3 | `rendering/curves/tieStaffLineClearance.ts` | **yes** — tie y + the stave's line ys in, a shift out |
+| 5 | `rendering/curves/brokenSlurTilt.ts` | **yes** — diatonic difference in, half-arc rise out |
+| 6 | `rendering/curves/slurSlantLimit.ts` | **yes** — the two endpoints in, the raised one out |
 
 ⭐ **And that overturns one line in Phase 1**: *"⛔ Not headless: it is stem geometry"* is true of the
 **integration** only. Each rule above is arithmetic over numbers it is *handed*, so it gets a
@@ -1189,7 +1189,7 @@ measured them in.
 
 ### Phase 1 — the stem-end endpoint (Gould p. 111) — ✅ BUILT 2026-08-16 (not committed)
 
-> ✅ **`rendering/slurStemEndpoint.ts`** + `slurStemEndpoint.test.ts` + four cases in
+> ✅ **`rendering/curves/slurStemEndpoint.ts`** + `slurStemEndpoint.test.ts` + four cases in
 > `e2e/slur.e2e.ts`. `SlurRenderer` no longer decides an attachment: `slurEndpointY` is gone, and
 > `SlurEnd` carries a `SlurAttachment` (head, stem tip, stem direction) for both a real note and a
 > fanned member, so the pair goes to one module and comes back as two Ys.
@@ -1338,7 +1338,7 @@ attaches to**. The stem tip is what substitutes a stem end for a pitch.
 > p. 111: *"When outer notes have opposite stem directions, move the slur at the stem end towards the
 > noteheads **so it does not tilt contrary to the direction of the pitches**."*
 
-**The change** — ⭐ **a new module, `rendering/slurStemEndpoint.ts`** (§12.0 #1), not a widened
+**The change** — ⭐ **a new module, `rendering/curves/slurStemEndpoint.ts`** (§12.0 #1), not a widened
 `slurEndpointY`: MuseScore's rule, whose own comment cites this page (`slurtielayout.cpp:683–721`) —
 when the two chords have **opposite** stem directions and the slur is on the stem side of one, that
 endpoint **slides along its stem by half the vertical distance between the two slur-side notes**,
@@ -1372,7 +1372,7 @@ against the melodic interval.
 ### Phase 2 — the short-slur height (TASTE — needs his eye) — ✅ BUILT 2026-08-16, option (b)
 
 > ⭐⭐ **HIS CALL on the costed table below: option (b), LilyPond's law adopted whole.**
-> `rendering/slurArchHeight.ts` now computes `F0_1(w·r₀/h_inf)·h_inf` with the `Slur` grob's own pair
+> `rendering/curves/slurArchHeight.ts` now computes `F0_1(w·r₀/h_inf)·h_inf` with the `Slur` grob's own pair
 > — `height-limit` **2.0**, `ratio` **0.25**. The floor + slope + cap it replaced (0.93 / 0.06 / 2.2)
 > is gone, and its three constants went with it.
 >
@@ -1447,7 +1447,7 @@ further than we have ever drawn it.
 ✅ **The centre anchor does not disturb this question**: it lengthens every arc by ~1.2 sp, which
 under our law adds 0.05 sp of apex — inside the rounding of the table.
 
-⭐ **Whichever he picks, it is `rendering/slurArchHeight.ts`** (§12.0 #1) — span in, arch height out,
+⭐ **Whichever he picks, it is `rendering/curves/slurArchHeight.ts`** (§12.0 #1) — span in, arch height out,
 with a spec that pins the table above at both ends. Option (b) is a *law*, not a constant, and a law
 living inline in `slurArchCps` is the slice the ⭐ rule refuses. ✅ The ghost tie follows this and
 Phase 4 for free (§12.0 #2); ⚠️ show it to him **together with Phases 4 and 6** (§12.0 #8).
@@ -1491,7 +1491,7 @@ clear the stem, since the two rules meet on the same end.
 
 ### Phase 3 — ⭐ a tie must not sit on a staff line — ✅ BUILT 2026-08-16 (with 3b)
 
-> ✅ **`rendering/tieStaffLineClearance.ts`** — and it took THREE corrections on the way, each from
+> ✅ **`rendering/curves/tieStaffLineClearance.ts`** — and it took THREE corrections on the way, each from
 > reading rather than reasoning. ⛔ Don't re-derive them:
 >
 > 1. **A rigid shift cannot satisfy both of LilyPond's clearances** (tip 0.225, apex 0.3): clearing
@@ -1572,7 +1572,7 @@ measuring anything:
 So the fault is not diffuse and it is not a search: **it is the on-line notehead, always.** A lift of
 ≈0.20 sp puts the tip at LilyPond's `tip-staff-line-clearance` 0.225 and the apex 0.25 sp clear of
 the line. ⛔ That does **not** make it a magic constant in `TieRenderer`: it is
-`rendering/tieStaffLineClearance.ts` (§12.0 #1) — tie y + the stave's line ys in, a shift out — so it
+`rendering/curves/tieStaffLineClearance.ts` (§12.0 #1) — tie y + the stave's line ys in, a shift out — so it
 stays honest on the day the shape stops being constant (Phase 2's law, a hand-edited tie, a small
 staff). The two-case table is what its spec asserts.
 
@@ -1689,7 +1689,7 @@ the stroke of the slur)"* — and it settled at **0.16 sp**. Thinning the slur's
 
 ### Phase 5 — a broken slur must lean toward its own music — ✅ BUILT 2026-08-16
 
-> ✅ **`rendering/brokenSlurTilt.ts`** — the last of the plan's *published* rules to be built. The open
+> ✅ **`rendering/curves/brokenSlurTilt.ts`** — the last of the plan's *published* rules to be built. The open
 > end of each half moves **0.25 sp per diatonic step** of the interval between the slur's two
 > anchored notes (Verovio's `pitchDiff * unit / 2`, `src/slur.cpp:929`, read at source): the BEGIN
 > half's open end rises when the music resumes higher, the END half's *falls* by the same amount, so
@@ -1851,7 +1851,7 @@ coordinates are not one ruler — the hairpin already cost us this bug
 from the **diatonic difference between the two anchored notes in the model**, which the renderer has
 in hand (`score` + the two note ids), times Verovio's 0.25 sp per step.
 
-⭐ **The module is `rendering/brokenSlurTilt.ts`** (§12.0 #1): diatonic difference + which half
+⭐ **The module is `rendering/curves/brokenSlurTilt.ts`** (§12.0 #1): diatonic difference + which half
 (BEGIN or END) in, the half-arc's open-end rise out. Pure, so the whole of Gould's sentence — *angled
 in the direction of the final pitch* — is one spec beside it.
 
@@ -1861,7 +1861,7 @@ that is right. The rule is about the two *open ends that face music*, not about 
 
 ### Phase 6 — a maximum slant — ✅ CEILING BUILT 2026-08-16 · ⏭️ the roundness half COSTED, NOT BUILT
 
-> ✅ **`rendering/slurSlantLimit.ts`** — Verovio's `GetAdjustedSlurAngle`: past **60°** the LOWER
+> ✅ **`rendering/curves/slurSlantLimit.ts`** — Verovio's `GetAdjustedSlurAngle`: past **60°** the LOWER
 > endpoint rises until the tilt is the ceiling, so the arc keeps its shape and only an end moves.
 > ⚠️ With a cap Verovio has no equivalent of — `CURVE.slurSlantMaxTravel` 1.0 sp, ⛔ ours and
 > provisional, because Gould gives a MINIMUM distance from the notehead and no maximum. It lands
@@ -1914,7 +1914,7 @@ to how steeply the slur is tilted, scaled by a length factor that is full below 
 the reverse. It is the only genuine slant→shape coupling anywhere in the research, and it pairs
 directly with Phase 2, which is also about the short end.
 
-⭐ **Both halves live in `rendering/slurSlantLimit.ts`** (§12.0 #1) — the two endpoints in, the raised
+⭐ **Both halves live in `rendering/curves/slurSlantLimit.ts`** (§12.0 #1) — the two endpoints in, the raised
 one plus the minimum control angle out. That module is also where the ⛔ *this number is ours, not an
 engraving rule* comment belongs, since it is the file a future reader will open.
 
@@ -1961,13 +1961,13 @@ and three separate approval gates cost three round trips where one side-by-side 
 > two-control solve**, which shipped on 2026-08-16 and was **replaced on 2026-09-14 by LilyPond's
 > single `fit_factor`** — his call, after a slur over five staccato sixteenths came out bent.
 > The account, the measurements and the sources are `docs/research/slur-tie-research.md` §8; the module header
-> of `rendering/slurObstacles.ts` states the new mechanism.
+> of `rendering/curves/slurObstacles.ts` states the new mechanism.
 >
 > ⭐ **What changed, in one line:** an obstacle no longer lifts ONE control point (which changes the
 > arch's shape — measured, a 35.5° launch became 67.3° and a 2:1 arch 3.4:1); it scales **both**
 > control heights by one factor, so the ratio — the shape — cannot move. ⛔ And obstacles within
 > `SLUR_EDGE_DISCOUNT_SPACES` **2.5 sp** of either end no longer count at all; the ENDPOINT rules
-> answer there instead (`rendering/slurArticulationEndpoint.ts`).
+> answer there instead (`rendering/curves/slurArticulationEndpoint.ts`).
 >
 > ⚠️ What survives unchanged from the account below: the obstacles are still what was DRAWN (VexFlow's drawing then; `EngravedNote`'s since the removal), the
 > solve is still one feed-forward pass with no loop, it still samples the real (leaning) curve rather
@@ -1978,7 +1978,7 @@ and three separate approval gates cost three round trips where one side-by-side 
 > an arc that knows only its endpoints runs straight through its own music. Measured before the fix:
 > the curve passed **1.94 sp BELOW** the highest notehead it covered.
 >
-> ✅ **`rendering/slurObstacles.ts` — Verovio's single feed-forward pass**, solving
+> ✅ **`rendering/curves/slurObstacles.ts` — Verovio's single feed-forward pass**, solving
 > `3(1−t)²·x + 3(1−t)t²·y ≥ intersection` for the control lifts; with our two lifts equal that is
 > `3t(1−t)`, so one division answers each obstacle and the worst one wins. No loop, no search.
 > ✅ **The obstacles are what VexFlow DREW** (⚠️ 2026-09-19: what `EngravedNote` draws — VexFlow is removed): `coveredChordIds` (the same scan `slurDirection` uses)
@@ -2436,7 +2436,7 @@ avoids.
 - ⛔ **Default = what shipped**, asserted to twelve decimals against the old code.
 - 🚨 **The generation counter is in `viewStateKey`** — a law is a PICTURE change with no model
   change, so without it `isRenderStale()` answers "no" and the console call draws nothing.
-- ⛔ **`engine/` may not import `dev/`**: the setting lives in `rendering/slurShapeExperiment`, the
+- ⛔ **`engine/` may not import `dev/`**: the setting lives in `rendering/curves/slurShapeExperiment`, the
   console entry point in `dev/slurShapeConsole`, and `App.ts` wires them — `RenderProbe`'s shape.
 - ⚠️ `indent(0.5)` is ALLOWED (his call, after the first cut refused it): both controls land on one
   point and the arc draws pointier — a drawable extreme a knob built for an eye must not withhold.

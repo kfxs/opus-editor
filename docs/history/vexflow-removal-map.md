@@ -733,14 +733,14 @@ Line ranges merge uses within 3 lines of each other.
 |---|---|---|---|
 | `rendering/VexFlowRenderer.ts` | 43 | 1027, 1158, 2088, 2173, 2203, 2247, 2427, 2472, 2751, 2839, 2847–2848, 3226, 3578, 3589–3593, 3601, 3613–3615, 3669, 3680–3682, 3686, 3691, 3726, 4908, 5127, 5150–5152, 5168, 5175–5176 | Stave.getYForLine×8, Stave.getSpacingBetweenLines×6, Stave.getNoteEndX×6, Element.getX×6, Stave.getNoteStartX×5, Note.getStave×3, Element.getXShift×3, Element.setXShift×2, Stave.getYForNote, Stave.getBoundingBox, Element.setX, Element.getWidth |
 | `rendering/KeySignaturePass.ts` | 18 | 118, 138–142, 175, 214–216, 245–248, 274–276, 314, 337, 347 | Element.getX×4, Stave.getSpacingBetweenLines×4, Stave.getTopLineTopY×4, Stave.getBottomLineBottomY×2, Stave.getYForLine×2, Element.getY, Stave.getNumLines |
-| `rendering/SlurRenderer.ts` | 15 | 333–334, 390, 755, 760–761, 786, 846, 899, 926, 936, 965, 995–996 | Note.getStave×9, Stave.getYForLine×2, Stave.getSpacingBetweenLines×2, Stave.getTopLineTopY, Stave.getBottomLineBottomY |
+| `rendering/curves/SlurRenderer.ts` | 15 | 333–334, 390, 755, 760–761, 786, 846, 899, 926, 936, 965, 995–996 | Note.getStave×9, Stave.getYForLine×2, Stave.getSpacingBetweenLines×2, Stave.getTopLineTopY, Stave.getBottomLineBottomY |
 | `rendering/EngravedStave.ts` | 13 | 139–142, 210–213 | Stave.measure×3, Element.getX×2, Stave.options×2, Stave.getYForTopText, StaveOptions.numLines, StaveLineConfig.visible, StaveOptions.lineConfig, Stave.getYForLine, Element.getWidth |
 | `rendering/BarlineRenderer.ts` | 13 | 119, 319, 330–331, 434, 439, 483, 611, 617 | Element.getX×6, Stave.getSpacingBetweenLines×2, Element.getWidth×2, Element.getY, Stave.getNumLines, Stave.getYForLine |
 | `rendering/headerPlacementPass.ts` | 10 | 97–99, 103, 128–130, 165, 172 | Element.getX×5, Stave.getSpacingBetweenLines×2, Element.setX×2, Element.getXShift |
 | `rendering/FanPass.ts` | 6 | 528, 690, 750, 777, 808, 995 | Stave.getYForNote×3, Note.getStave, Stave.getNoteEndX, Stave.getSpacingBetweenLines |
 | `rendering/TempoLayout.ts` | 6 | 240, 260, 281, 450, 513, 517 | Stave.getNoteStartX×2, Element.getX, Stave.getYForTopText, Stave.getYForLine, Stave.getSpacingBetweenLines |
 | `rendering/EngravedTimeSignature.ts` | 5 | 121, 127, 131–134 | Stave.getYForLine×5 |
-| `rendering/TieRenderer.ts` | 5 | 51, 216, 235, 243 | Note.getStave×3, Stave.getNumLines, Stave.getYForLine |
+| `rendering/curves/TieRenderer.ts` | 5 | 51, 216, 235, 243 | Note.getStave×3, Stave.getNumLines, Stave.getYForLine |
 | `rendering/DynamicsLayout.ts` | 4 | 356–358 | Note.getStave×2, Stave.getYForLine, Stave.getSpacingBetweenLines |
 | `rendering/ghosts/GhostRenderer.ts` | 4 | 271, 332, 462 | Stave.getNoteEndX, Stave.getNoteStartX, Stave.getSpacingBetweenLines, Stave.getYForNote |
 | `rendering/HairpinRenderer.ts` | 4 | 576, 596, 647, 727 | Stave.getYForLine×3, Stave.getSpacingBetweenLines |
@@ -769,11 +769,11 @@ Line ranges merge uses within 3 lines of each other.
 | `rendering/ghosts/GhostRenderer.ts` | 10 | 284, 317–322, 326, 459–460 | StaveNote.getNoteHeadBeginX×2, StaveNote.getNoteHeadEndX×2, Note.getAbsoluteX, StemmableNote.getStemExtents, StaveNote.hasStem, Note.getYs, StemmableNote.topY, StemmableNote.baseY |
 | `rendering/EngravedBeam.ts` | 9 | 140–141, 147, 195 | StemmableNote.getStemX×3, Note.getLineNumber×2, StemmableNote.topY×2, StemmableNote.getStemExtents×2 |
 | `rendering/CenteredTremolo.ts` | 8 | 89–91, 194, 207–209 | Note.getStemDirection×2, Note.getAbsoluteX×2, Note.getGlyphWidth×2, Note.getStemExtents, Note.hasStem |
-| `rendering/SlurRenderer.ts` | 8 | 110–111, 140–144, 151, 628 | StemmableNote.getStemDirection×2, StaveNote.hasStem, StemmableNote.topY, StemmableNote.getStemExtents, Note.getYs, StaveNote.getNoteHeadBeginX, StaveNote.getNoteHeadEndX |
+| `rendering/curves/SlurRenderer.ts` | 8 | 110–111, 140–144, 151, 628 | StemmableNote.getStemDirection×2, StaveNote.hasStem, StemmableNote.topY, StemmableNote.getStemExtents, Note.getYs, StaveNote.getNoteHeadBeginX, StaveNote.getNoteHeadEndX |
 | `rendering/ScoreTuplet.ts` | 7 | 143, 147–148, 191 | Note.getAbsoluteX, Note.getTieLeftX, Note.getTieRightX, BoundingBox.getX, BoundingBox.getY, BoundingBox.getW, BoundingBox.getH |
 | `rendering/fanArticulations.ts` | 5 | 160, 173 | StaveNote.getNoteHeadBeginX, BoundingBox.x, BoundingBox.y, BoundingBox.w, BoundingBox.h |
 | `rendering/drawnHitBox.ts` | 4 | 61 | BoundingBox.x, BoundingBox.y, BoundingBox.w, BoundingBox.h |
-| `rendering/TieRenderer.ts` | 4 | 37, 41–42, 150 | Note.getYs, StaveNote.getNoteHeadBeginX, StaveNote.getNoteHeadEndX, StemmableNote.getStemDirection |
+| `rendering/curves/TieRenderer.ts` | 4 | 37, 41–42, 150 | Note.getYs, StaveNote.getNoteHeadBeginX, StaveNote.getNoteHeadEndX, StemmableNote.getStemDirection |
 | `rendering/dotPlacement.ts` | 3 | 150–153 | StaveNote.isRest, StaveNote.hasFlag, StemmableNote.getStemDirection |
 | `rendering/EngravedAccidental.ts` | 2 | 107–108 | Note.x, Note.y |
 | `rendering/EngravedDot.ts` | 2 | 75–76 | Note.x, Note.y |
@@ -821,7 +821,7 @@ Line ranges merge uses within 3 lines of each other.
 | `rendering/KeySignaturePass.ts` | 2 | 139 | Stave.getModifiers, StaveModifierPosition.BEGIN |
 | `rendering/RenderPass.ts` | 1 | 97 | Tuplet.<type> |
 | `rendering/glyphPainter.ts` | 1 | 116 | Element.getWidth |
-| `rendering/SlurRenderer.ts` | 1 | 296 | Accidental.type |
+| `rendering/curves/SlurRenderer.ts` | 1 | 296 | Accidental.type |
 
 ### R4 formatter
 
@@ -875,7 +875,7 @@ Line ranges merge uses within 3 lines of each other.
 | `rendering/ghosts/GhostRenderer.ts` | 62 | 163, 183, 207, 222–225, 233, 243, 254, 259, 276, 292, 308, 431–434, 445–448, 453, 512, 516, 555, 559, 656–664, 672, 742–745, 751–755, 763, 769, 810–818, 824, 828, 884–892, 898, 902, 1013–1021, 1028, 1032 | Element.setContext×16, StaveNote.setStave×11, Stave.constructor×9, StaveNote.constructor×8, Note.addModifier×8, StaveNote.draw×2, Stave.draw×2, StaveNote.<type>, Element.getSVGElement, Articulation.draw, Accidental.draw, Tickable.getModifiers, Modifier.draw |
 | `rendering/FanPass.ts` | 20 | 83–85, 101, 245, 286, 394, 531, 573–575, 671, 677–679, 730, 896–899, 910, 931, 987 | StaveNote.<type>×9, Stave.<type>×3, Element.setContext×3, StemmableNote.getStem×2, NoteHead.draw, Element.renderText, Element.drawWithStyle |
 | `rendering/EngravedNote.ts` | 16 | 79–81, 94, 107, 171, 224, 228–231, 244, 249, 313, 334–337, 345, 361 | Element.checkContext×4, Element.setRendered×2, Element.getAttribute×2, StaveNote.<type>×2, StaveNote.<extends>, Element.setContext, Element.applyStyle, StaveNote.drawModifiers, StemmableNote.getStem, Tickable.getModifiers |
-| `rendering/SlurRenderer.ts` | 12 | 80, 108, 292, 385, 463, 489–492, 518, 565, 878, 924 | Stave.<type>×9, StaveNote.<type>×2, Tickable.getModifiers |
+| `rendering/curves/SlurRenderer.ts` | 12 | 80, 108, 292, 385, 463, 489–492, 518, 565, 878, 924 | Stave.<type>×9, StaveNote.<type>×2, Tickable.getModifiers |
 | `rendering/DynamicsLayout.ts` | 9 | 110, 123, 158, 203, 237, 299, 304, 334, 354 | Element.getSVGElement×4, StaveNote.<type>×2, Note.addModifier, Element.setAttribute, Stave.<type> |
 | `rendering/TempoLayout.ts` | 9 | 164, 225–226, 301, 332, 381–382, 410–413 | StaveNote.<type>×5, Stave.<type>×3, Element.renderText |
 | `rendering/fanArticulations.ts` | 8 | 109, 129–130, 145, 165–168 | Element.setContext×2, Stave.<type>, StaveNote.constructor, StaveNote.setStave, Note.addModifier, Articulation.draw, Element.renderText |
@@ -898,7 +898,7 @@ Line ranges merge uses within 3 lines of each other.
 | `rendering/EngravedClef.ts` | 3 | 77–80, 84 | Element.setRendered, Element.checkContext, Element.getAttribute |
 | `rendering/BarlineRenderer.ts` | 3 | 83, 430, 481 | Stave.<type>×3 |
 | `rendering/clefOffsetPass.ts` | 3 | 33, 51, 101 | Stave.<type>×2, ClefNote.<type> |
-| `rendering/TieRenderer.ts` | 3 | 36, 48, 68 | Stave.<type>×2, StaveNote.<type> |
+| `rendering/curves/TieRenderer.ts` | 3 | 36, 48, 68 | Stave.<type>×2, StaveNote.<type> |
 | `rendering/RenderPass.ts` | 2 | 36, 80 | StaveNote.<type>×2 |
 | `rendering/dotPlacement.ts` | 2 | 116, 148 | StaveNote.<type>×2 |
 | `rendering/staffSpace.ts` | 2 | 18, 23 | Stave.<type>×2 |
@@ -1007,7 +1007,7 @@ A spec moves or dies with its subject (`CLAUDE.md`: *a spec moves with its modul
 | `rendering/VexFlowRenderer.incrementalRedraw.test.ts` | 6 |
 | `rendering/glyphPainter.test.ts` | 6 |
 | `rendering/fanArticulations.test.ts` | 4 |
-| `rendering/SlurRenderer.test.ts` | 3 |
+| `rendering/curves/SlurRenderer.test.ts` | 3 |
 | `rendering/TempoLayout.test.ts` | 2 |
 | `rendering/dynamicsLinePass.test.ts` | 2 |
 | `rendering/systemStart.test.ts` | 2 |

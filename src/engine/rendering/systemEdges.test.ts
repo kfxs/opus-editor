@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { lineLeftCurveX, lineLeftEdgeX, lineRightEdgeX, type SystemEdgeLookup } from './systemEdges'
 import { HEADER_TO_NOTE } from '@/engine/layout/headerInk'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
-import { CURVE } from './curveStyle'
+import { CURVE } from './curves/curveStyle'
 import type { MeasureWidthInfo } from '@/engine/layout/layoutConfig'
 import type { MeasureBounds } from './renderTypes'
 

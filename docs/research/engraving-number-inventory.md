@@ -136,11 +136,11 @@ lists it as owed to his eye.
 
 | name | value | file:line | comment words | possibly-covering doc |
 |---|---|---|---|---|
-| `CURVE.brokenSlurMaxRise` | 2.0 sp | rendering/curveStyle.ts:78 | "OURS, and provisional" | slur-plan.md §"Phase 5 — a broken slur must lean toward its own music" ("⚠️ ours"); slur-tie-research.md §5 row 15 |
-| `CURVE.slurNestGap` | 1.0 sp per level | rendering/curveStyle.ts:121 | "so concentric slurs don't collide" (no citation) | slur-tie-research.md §4.1 LilyPond `free-slur-distance` 0.8 sp; slur-plan.md §8 |
-| `CURVE.slurSlantMaxTravel` | 1.0 sp | rendering/curveStyle.ts:170 | "OURS, and provisional … ⛔ No source: a number to tune by eye." | slur-plan.md §"Phase 6 — a maximum slant"; slur-tie-research.md §5 |
-| `SLUR_ARCH_TILT` | 0.25 × dy | rendering/curveStyle.ts:337 | "How much the arch LEANS with its own interval" (no citation) | slur-plan.md §"1. The lean was unbounded — slurArchHeight.archLean", §"Phase 8 — interior notes" |
-| accidental avoid point, double sharp | 0 (centre) | rendering/slurAccidentalPoint.ts:69 | "NOT in LilyPond's table … but it is OURS" | slur-tie-research.md §8.8 (no double-sharp row) |
+| `CURVE.brokenSlurMaxRise` | 2.0 sp | rendering/curves/curveStyle.ts:78 | "OURS, and provisional" | slur-plan.md §"Phase 5 — a broken slur must lean toward its own music" ("⚠️ ours"); slur-tie-research.md §5 row 15 |
+| `CURVE.slurNestGap` | 1.0 sp per level | rendering/curves/curveStyle.ts:121 | "so concentric slurs don't collide" (no citation) | slur-tie-research.md §4.1 LilyPond `free-slur-distance` 0.8 sp; slur-plan.md §8 |
+| `CURVE.slurSlantMaxTravel` | 1.0 sp | rendering/curves/curveStyle.ts:170 | "OURS, and provisional … ⛔ No source: a number to tune by eye." | slur-plan.md §"Phase 6 — a maximum slant"; slur-tie-research.md §5 |
+| `SLUR_ARCH_TILT` | 0.25 × dy | rendering/curves/curveStyle.ts:337 | "How much the arch LEANS with its own interval" (no citation) | slur-plan.md §"1. The lean was unbounded — slurArchHeight.archLean", §"Phase 8 — interior notes" |
+| accidental avoid point, double sharp | 0 (centre) | rendering/curves/slurAccidentalPoint.ts:69 | "NOT in LilyPond's table … but it is OURS" | slur-tie-research.md §8.8 (no double-sharp row) |
 
 ### Tremolo (6)
 
@@ -203,12 +203,12 @@ lists it as owed to his eye.
 | `ACTIVE_BEAM_SLOPE_RULE` | row `vexflow` | engrave/beams/beamSlope.ts:244 | "HIS CALL, 2026-09-01 … i prefer vexflow angle" | beam-slope-research.md; beam-engraving-plan.md |
 | `STAVE_LINE_WIDTH_PX` | 0.11 sp | engrave/staff/staffLines.ts:179 | "HIS DECISION, 2026-09-01: GOULD — 0.11" | staff-line-research.md §8 A |
 | `HAIRPIN_LINE_SPACES` | 0.13 sp | rendering/thinLineWeight.ts:146 | "his eye rejected 0.10 and 0.12 as 'too thin'" | staff-line-research.md §8 D |
-| `CURVE.curveFromHeader` | 0 sp | rendering/curveStyle.ts:109 | "HIS EYE, 2026-08-16: LilyPond's 0" | slur-plan.md §12 |
-| `CURVE.slurHeightLimit` | 2.0 sp | rendering/curveStyle.ts:119 | "HIS CALL, 2026-08-16, option (b)" | slur-plan.md §12 Phase 2 (LilyPond define-grobs.scm:3178) |
-| `CURVE.tieEndpointInset` | 0.25 sp | rendering/curveStyle.ts:239 | "Verovio's, his call of 2026-08-16" | slur-plan.md §13.3 |
-| `CURVE.tieBow` | 0.53 sp control rise | rendering/curveStyle.ts:247 | "SETTLED by his call, 2026-08-15 (§13.1)" | slur-plan.md §13.1 |
-| `SLUR_MAX_SLANT_DEG` | 60 deg | rendering/curveStyle.ts:313 | "HIS CALL … THE ONE CONSTANT IN THIS FILE WITH NO PUBLISHED SOURCE" | slur-plan.md §11.10 / Phase 6 (Verovio slur.cpp:570 default) |
-| `SLUR_ARCH_TILT_LIMIT` | 0.693 lean÷arch | rendering/curveStyle.ts:363 | "the citation for this one is his drawing" | slur-plan.md §"1. The lean was unbounded" |
+| `CURVE.curveFromHeader` | 0 sp | rendering/curves/curveStyle.ts:109 | "HIS EYE, 2026-08-16: LilyPond's 0" | slur-plan.md §12 |
+| `CURVE.slurHeightLimit` | 2.0 sp | rendering/curves/curveStyle.ts:119 | "HIS CALL, 2026-08-16, option (b)" | slur-plan.md §12 Phase 2 (LilyPond define-grobs.scm:3178) |
+| `CURVE.tieEndpointInset` | 0.25 sp | rendering/curves/curveStyle.ts:239 | "Verovio's, his call of 2026-08-16" | slur-plan.md §13.3 |
+| `CURVE.tieBow` | 0.53 sp control rise | rendering/curves/curveStyle.ts:247 | "SETTLED by his call, 2026-08-15 (§13.1)" | slur-plan.md §13.1 |
+| `SLUR_MAX_SLANT_DEG` | 60 deg | rendering/curves/curveStyle.ts:313 | "HIS CALL … THE ONE CONSTANT IN THIS FILE WITH NO PUBLISHED SOURCE" | slur-plan.md §11.10 / Phase 6 (Verovio slur.cpp:570 default) |
+| `SLUR_ARCH_TILT_LIMIT` | 0.693 lean÷arch | rendering/curves/curveStyle.ts:363 | "the citation for this one is his drawing" | slur-plan.md §"1. The lean was unbounded" |
 | `LAYOUT_CONFIG.MIN_MEASURE_WIDTH` | 10 sp | rendering/layoutConfig.ts:98 | "a DEFAULT chosen by eye … *I think 10 was nicer*" | bar-width-plan.md §1.5 |
 | `SCORE_TEXT_SPECS.composer.sizeSpaces` | 2.8 sp | rendering/ScoreHeaderPass.ts:93 | "The COMPOSER is NOT, and his eye is why" | score-header-sketch.md (🚧 SKETCH) |
 | `HAIRPIN.APERTURE` | 1.5 sp | rendering/hairpinShape.ts:52 | "the majority, chosen on 2026-08-15 over the 1.33" | dynamics-line-and-hairpins-plan.md §2.4d, §13.1 |
@@ -234,7 +234,7 @@ Several S rows also carry a D *choice of row* (e.g. `DOT_GAP_RULES` armed `house
 - `GOULD_SPACING` / `LILYPOND_SPACING` (armed) — layout/spacing.ts:96,138.
 - `BEAM_SLOPE_RULES` (+ `INTERVAL_QUARTERS`, `WIDTH_QUARTERS`, `VEXFLOW_MAX_SLOPE`) — engrave/beams/beamSlope.ts:95-121 — Ross pp. 101–102, Gould p. 20, MuseScore, LilyPond, Verovio.
 - `FRACTIONAL_BEAM_SIDE_RULES` — engrave/beams/fractionalBeam.ts:131,144 — Gould p. 157, Ross p. 124, Gerou & Lusk p. 31, Stone p. 12.
-- `HEIGHT_LAW` (slur height: lilypond/verovio/musescore) — rendering/slurShapeExperiment.ts:36-56.
+- `HEIGHT_LAW` (slur height: lilypond/verovio/musescore) — rendering/curves/slurShapeExperiment.ts:36-56.
 
 ### Single sourced numbers
 - **spacing:** barline→next lead-in 1.2 sp (spacingPadding.ts:399, VexFlow Stave.padding, MuseScore 1.35).
@@ -286,9 +286,9 @@ Engine-copied or borrowed without a citation:
 - pairPadding note↔note 0.3 sp, layout/spacingPadding.ts:420 — justified by its result (lands on Sibelius/LilyPond), while MuseScore uses 0.1. spacing-model-research.md §3; spacing-model-plan.md §1.1.
 - `KERN_CLEARANCE` 0.35 sp, layout/kerning.ts:88 — "A judgement rather than a measurement". accidental-dot-engines.md §2.2, §4; spacing-model-plan.md P3.1/P3.2.
 - beamed stem assumed to reach the far staff edge, layout/measureColumns.ts:209 — a model heuristic. stem-length-research.md §2.1.
-- `CURVE.slurLift` 1.0 sp, rendering/curveStyle.ts:40 — Gould gives only a ½ sp minimum. slur-tie-research.md §5 row 8 (MuseScore 0.9).
-- `CURVE.slurStemOvershoot` 1.0 sp, rendering/curveStyle.ts:221 — "MuseScore's clamp", but no MuseScore line is quoted. slur-plan.md §12 Phase 1.
-- `BROKEN_SLUR_MAX_SLOPE` 0.5, rendering/curveStyle.ts:325 — the idea is MuseScore's, the number is uncited. slur-plan.md §"Phase 5"; slur-tie-research.md §5 row 15.
+- `CURVE.slurLift` 1.0 sp, rendering/curves/curveStyle.ts:40 — Gould gives only a ½ sp minimum. slur-tie-research.md §5 row 8 (MuseScore 0.9).
+- `CURVE.slurStemOvershoot` 1.0 sp, rendering/curves/curveStyle.ts:221 — "MuseScore's clamp", but no MuseScore line is quoted. slur-plan.md §12 Phase 1.
+- `BROKEN_SLUR_MAX_SLOPE` 0.5, rendering/curves/curveStyle.ts:325 — the idea is MuseScore's, the number is uncited. slur-plan.md §"Phase 5"; slur-tie-research.md §5 row 15.
 - `LAYOUT_CONFIG.BARLINE_PADDING` 1 sp, rendering/layoutConfig.ts:122 — ⚠️ **apparently DEAD**: only comments reference it (measureColumns.ts:289, MeasureLayout.ts:171). barline-types-plan.md §5.
 - format-width floor 50 px, rendering/ScoreRenderer.ts:2180 — a degenerate-bar clamp rather than a look. note-spacing-plan.md §4, R6.
 - two-note tremolo tip offset ×1.5, rendering/ScoreRenderer.ts:1227 — "THIS is the one line to turn". It matches the beam level stride (beam-engraving-plan.md §2.1). two-note-tremolo-plan.md §"Beamed, or apart with flags".

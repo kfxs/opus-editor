@@ -4,7 +4,7 @@
 (systems), for **any** number of crossed systems — and fix the existing 2-line
 bug as a side effect.
 
-Status: PLANNED. Touches only `src/engine/rendering/SlurRenderer.ts` (+ a one-line
+Status: PLANNED. Touches only `src/engine/rendering/curves/SlurRenderer.ts` (+ a one-line
 type widening in `ElementRegistry.ts`). No model/JSON/interaction changes.
 
 ---

@@ -411,7 +411,7 @@ export interface NotePitch {
    * Explicit tie-curve direction override on the tie that STARTS at this pitch:
    * -1 = curve up/over, +1 = curve down/under. Omitted = auto (derived from the
    * stems as drawn / its place in a chord / the clef's middle line — see
-   * `engine/rendering/tieDirection.ts`).
+   * `engine/rendering/curves/tieDirection.ts`).
    * Set by flipping a selected tie with `x`. Unlike a slur a tie stays flat and
    * anchored to the noteheads, so flipping only inverts the arc direction.
    */

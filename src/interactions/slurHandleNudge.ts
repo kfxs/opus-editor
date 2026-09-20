@@ -9,7 +9,7 @@
  * ## ⭐⭐ THE DRAWN SHAPE IS THE BASELINE, and that is the whole design
  *
  * A slur's `curveShape` override REPLACES the auto arch rather than adding to it (`resolveCps` in
- * `engine/rendering/SlurRenderer`), so a nudge cannot simply accumulate onto the stored value the way
+ * `engine/rendering/curves/SlurRenderer`), so a nudge cannot simply accumulate onto the stored value the way
  * an endpoint offset does: with no override yet, "stored + ¼ space" means *¼ space off the auto arch's
  * ZERO*, and the first arrow press would fling the control point down onto the chord line.
  *

@@ -10,7 +10,7 @@ Research only. It recommends nothing and changes no code. Every number below is 
 
 | # | row | today | defined | consumed |
 |---|---|---|---|---|
-| 1 | `CURVE.slurLift` | 1.0 sp | `rendering/curveStyle.ts:40` | `SlurRenderer.ts:46`, `:586`, `:654` (added to the anchor y from `staveNote.getYs()`, i.e. the **notehead centre**, `SlurRenderer.ts:140`; or from the stem tip) |
+| 1 | `CURVE.slurLift` | 1.0 sp | `rendering/curves/curveStyle.ts:40` | `SlurRenderer.ts:46`, `:586`, `:654` (added to the anchor y from `staveNote.getYs()`, i.e. the **notehead centre**, `SlurRenderer.ts:140`; or from the stem tip) |
 | 2 | `CURVE.brokenSlurMaxRise` | 2.0 sp | `curveStyle.ts:78` | `brokenSlurTilt.ts:110` |
 | 3 | `BROKEN_SLUR_MAX_SLOPE` | 0.5 (rise ÷ fragment length) | `curveStyle.ts:325` | `brokenSlurTilt.ts:110`, `:117` |
 | 4 | `CURVE.slurNestGap` | 1.0 sp per nesting level | `curveStyle.ts:121` | `SlurRenderer.ts:47`, `:742` → `slurArchHeight.ts:70` (`extraHeight`) |

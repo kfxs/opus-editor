@@ -5,13 +5,13 @@
 > plates, reads the five engines at source, and ends with a table of OPEN questions that are HIS.
 >
 > ⚠️ **It is a survey of the BOOKS. It does not know what we decided.** Several numbers in
-> `src/engine/rendering/curveStyle.ts` are already settled — the tie's height, the 0.20 sp endpoint
+> `src/engine/rendering/curves/curveStyle.ts` are already settled — the tie's height, the 0.20 sp endpoint
 > lift, one weight shared between slur and tie (`docs/plans/slur-plan.md` §13.1, §13.3, §13.8). Where a
 > book disagrees with one of those, §5 reports the book's answer and says **already HIS decision**.
 > ⛔ It does not re-open it.
 >
 > ⚠️ **Two live experiments belong to him and stay OPEN**: the `__slur` shape console knob
-> (`rendering/slurShapeExperiment.ts`), and his standing judgement that *her DRAWING beats the
+> (`rendering/curves/slurShapeExperiment.ts`), and his standing judgement that *her DRAWING beats the
 > formula*. Nothing below settles either.
 >
 > **Status 2026-09-14: researched, measured — and §8 SHIPPED a change; §§1–7 changed nothing.**
@@ -747,7 +747,7 @@ and **not as evidence**:
 
 ## 5. ⭐⭐ WHAT WE DRAW TODAY, against the books
 
-From `src/engine/rendering/curveStyle.ts` (authored in staff spaces), `slurArchHeight.ts`,
+From `src/engine/rendering/curves/curveStyle.ts` (authored in staff spaces), `slurArchHeight.ts`,
 `tieEndpoints.ts`, `tieStaffLineClearance.ts` and `engrave/curves/curveInk.ts`.
 
 | # | number | **ours** | the books | verdict |
@@ -879,7 +879,7 @@ supplies the HEIGHT, the accidental supplies the REACH, and the single rectangle
 divergence, but it was calibrated for *"an obstacle the endpoint sits on top of"*, where the gain
 goes to infinity. This one has a gain of **3.8** and sails under the ceiling.
 
-⚠️ **And the symptom has a name in our own code.** `rendering/slurArchHeight` records that the height
+⚠️ **And the symptom has a name in our own code.** `rendering/curves/slurArchHeight` records that the height
 law was replaced on 2026-08-16 partly to kill a 61° launch angle — LilyPond's source calls it *"a
 certain hookiness at the end"* — and that LilyPond's law brings it to 43°. **The obstacle lift
 re-creates it at 67°, unbounded.** ⇒ a bound on the arch that the obstacle solve can walk straight
@@ -1040,14 +1040,14 @@ rectangle.
 little"* — and it took two changes, because the marks at the ENDS and the marks in the MIDDLE reach
 the curve by different routes.
 
-**1. `rendering/slurArticulationEndpoint.ts` — the ENDS move the ENDPOINT.** A staccato or tenuto on
+**1. `rendering/curves/slurArticulationEndpoint.ts` — the ENDS move the ENDPOINT.** A staccato or tenuto on
 the first or last note stands between that note and the slur, so the endpoint's lift is measured from
 the MARK rather than from the notehead, plus `CURVE.slurArticulationGap` **0.5 sp**
 (MuseScore's `slurTipToArticVertDist`; Verovio's portato re-anchor is the same rule spelled
 differently). ⭐ Moving the ends TRANSLATES the curve, and a translation cannot change its shape —
 the property the whole-curve offset override already relies on.
 
-**2. `rendering/slurObstacles.ts` — the MIDDLE scales the WHOLE arch.** Verovio's two-control solve
+**2. `rendering/curves/slurObstacles.ts` — the MIDDLE scales the WHOLE arch.** Verovio's two-control solve
 is replaced by LilyPond's single `fit_factor` (§8.4a), multiplying both control heights by one
 number. ⛔ With it goes `SLUR_OBSTACLE_MAX_LIFT_RATIO`, **deleted rather than tuned**: it was a
 ceiling of 4 written for an obstacle the endpoint sits on top of, and his case came in at **3.8**,
@@ -1145,11 +1145,11 @@ else if (alt == NATURAL_ALTERATION) xp = -dir_;
 notch, and the flat is the sign his eye caught. ⚠️ **The point carries the glyph's FULL reach**:
 LilyPond expresses the notch by choosing WHERE TO STAND, ⛔ never by lowering the obstacle.
 ⚠️ `dir_` is the opposite sign to ours (theirs +1 = above); converted once, in
-`rendering/slurAccidentalPoint`, ⛔ not left for a reader to trip on.
+`rendering/curves/slurAccidentalPoint`, ⛔ not left for a reader to trip on.
 ⚠️ **The double sharp is OURS** — LilyPond's table has three branches and no `##`; we put it at the
 centre and label it as ours in the module and the spec.
 
-⇒ ✅ `rendering/slurAccidentalPoint.ts`; the note now contributes its head/stem/beam box **without**
+⇒ ✅ `rendering/curves/slurAccidentalPoint.ts`; the note now contributes its head/stem/beam box **without**
 accidentals, plus one point per accidental. ⛔ `rendering/accidentalCutOut.ts` **and its spec are
 DELETED** — the tuck was the fault, not a tuning.
 ⭐ `slurArchFit` gained one branch with it: a **degenerate** obstacle is measured at the nearest

@@ -23,7 +23,7 @@
  *
  * ## ⭐⭐ Why the sampler moved here WITH the ink, and it is P3a's rule again
  *
- * {@link curveArcPoints} was extracted in `rendering/curveArc` on 2026-08-22 for exactly the right
+ * {@link curveArcPoints} was extracted in `rendering/curves/curveArc` on 2026-08-22 for exactly the right
  * reason — *"so a caller can ask where this curve would be without a second sampler that could drift
  * from this one"* — but it could only mirror VexFlow's control-point math from the outside, which
  * left the rule with **two owners**: theirs drew it and ours sampled it. {@link curveControlPoints}
@@ -85,11 +85,11 @@ export function curveControlPoints(arc: CurveArc): { c0: CurvePoint; c1: CurvePo
  *
  * ⛔ **Opens no group and sets no style.** The caller names the group (`tie-<id>`, `slur-<id>` — the
  * editor's highlight finds the ink by it) and owns the weight: the outline width is pinned around
- * this call, and `fillGap` is derived from the authored thickness by `rendering/curveArc`.
+ * this call, and `fillGap` is derived from the authored thickness by `rendering/curves/curveArc`.
  *
  * @param fillGap how far the return pass bows out from the first — ⚠️ ⛔ NOT the drawn thickness:
  *   the ink at the belly measures `0.75 × gap + outline` (Verovio's coefficient, see
- *   `rendering/curveArc.curveFillGap`).
+ *   `rendering/curves/curveArc.curveFillGap`).
  */
 export function drawCurveArcInk(ctx: DrawContext, arc: CurveArc, fillGap: number): void {
   const { p0, p1, direction } = arc

@@ -135,7 +135,7 @@ type EngravingDefault = keyof typeof ENGRAVING_DEFAULTS
  *
  * ⭐ **We already decided the font is the authority here** — `rendering/thinLineWeight.ts` says
  * `THIN_LINE_SPACES = 0.16` *is* the font's one thin-line weight and names the five defaults that
- * share it; `rendering/curveStyle.ts` says 0.22 *is* `slurMidpointThickness`. This makes that
+ * share it; `rendering/curves/curveStyle.ts` says 0.22 *is* `slurMidpointThickness`. This makes that
  * mechanical instead of transcribed (plan §F3). ⛔ It does not make it automatic: where his eye has
  * overruled the font — the hairpin, twice — the override stays and keeps its reason.
  */

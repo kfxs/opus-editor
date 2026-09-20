@@ -18,7 +18,7 @@
  *
  * ## ⭐ Nothing is measured here
  *
- * `rendering/curveArc.ts` already samples every arc it draws — 17 points reconstructing the cubic,
+ * `rendering/curves/curveArc.ts` already samples every arc it draws — 17 points reconstructing the cubic,
  * for arc-proximity hit-testing — so the obstacle geometry is the DRAWN curve, for free. That is
  * also what the field uses: MuseScore tests a slur against ~20 sampled rectangles, Verovio against a
  * thickened bezier. ⛔ **Not the bbox**: a slur's box spans its whole arch, so a `tr` near an endpoint
@@ -63,7 +63,7 @@ export interface DrawnCurve {
   staff: number
   /** The system it was drawn on. The other half: x's repeat on every line. */
   line: number
-  /** The sampled cubic, in that staff's own space. `rendering/curveArc.ts` supplies it. */
+  /** The sampled cubic, in that staff's own space. `rendering/curves/curveArc.ts` supplies it. */
   points: readonly { x: number; y: number }[]
 }
 

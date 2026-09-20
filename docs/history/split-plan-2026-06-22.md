@@ -173,12 +173,12 @@ Separable, but only after the per-render state is bundled.
   drag a slur handle, drag a clef, pixel→position mapping).
 - **Checkpoint:** ✅
 
-### B1 — Tie rendering → `rendering/TieRenderer.ts`
+### B1 — Tie rendering → `rendering/curves/TieRenderer.ts`
 - **Scope:** `getTieDirection`, `drawFlatTie`, `renderTies` (~170 lines). Takes `RenderPass`.
 - **Verify gate:** ties within/across barlines; flat ties; flip-tie (`x`); pending-tie preview.
 - **Checkpoint:** ✅
 
-### B2 — Slur rendering → `rendering/SlurRenderer.ts`
+### B2 — Slur rendering → `rendering/curves/SlurRenderer.ts`
 - **Scope:** `slurEndpointY`, `slurArchCps`, `renderSlurs`, `drawCurveArc`,
   `measureOfNoteId` (~200 lines).
 - **Verify gate:** slurs above/below, nested, dragged handles, flip side (`x`), split slurs.

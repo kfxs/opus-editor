@@ -1284,6 +1284,10 @@ silently. PROVED it still bites — a probe file in `engine/models/` importing `
 folder, by alias and by relative path, is refused twice. tsc · eslint · `build:check` · 7,062 specs ·
 the BROWSER suite (300) green.*
 
+*Group 2 (awaiting his word): **`engine/rendering/curves/`** — the slur's and the tie's eighteen files
+(`SlurRenderer` · `TieRenderer` · `curveArc` · `curveStyle` · the `slur*` / `tie*` rules · `brokenSlurTilt`),
+35 with specs. Fence re-proved against the new folder; tsc · eslint · `build:check` · 7,062 specs green.*
+
 ### Later — before orchestral scores
 
 Undo clones the whole score with JSON on every edit, three times on an undo. Measured on a

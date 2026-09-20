@@ -4,7 +4,7 @@ import { test, expect } from './fixtures'
  * SLURS — WHICH SIDE, measured on drawn ink.
  *
  * ⚠️ **This has to be a browser suite and cannot be a unit test.** The rule
- * (`rendering/slurDirection.ts`) is pure and unit-tested there, but its INPUT is the stem direction
+ * (`rendering/curves/slurDirection.ts`) is pure and unit-tested there, but its INPUT is the stem direction
  * VexFlow actually resolved — which depends on beaming, on the clef, and on `NoteBuilder`'s
  * pitch-derived default for a note that draws no stem at all. jsdom answers none of that, and a
  * bare `new StaveNote(...)` reports stem direction `1` for every pitch, so a headless check of this
@@ -100,7 +100,7 @@ test('…and a LOW stemless pair goes the other way', async ({ score }) => {
 /**
  * ⭐⭐ THE TILT — Gould p. 111, and the two faults it was written for.
  *
- * The rule is `rendering/slurStemEndpoint.ts` and its arithmetic is unit-tested there. What only a
+ * The rule is `rendering/curves/slurStemEndpoint.ts` and its arithmetic is unit-tested there. What only a
  * browser can say is that VexFlow really resolves these two notes to OPPOSITE stems, that the stem
  * tip it reports is the post-beaming one, and that the arc therefore leaves the page tilting the way
  * the melody does. The old attachment drew a rising step as a 3-space DESCENT.

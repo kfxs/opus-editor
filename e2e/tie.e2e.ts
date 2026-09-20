@@ -3,7 +3,7 @@ import { test, expect } from './fixtures'
 /**
  * TIES — WHICH WAY THEY BOW, measured on drawn ink.
  *
- * ⚠️ **The browser half of `rendering/tieDirection.ts`.** The rule itself is pure and unit-tested
+ * ⚠️ **The browser half of `rendering/curves/tieDirection.ts`.** The rule itself is pure and unit-tested
  * beside the module; what only a browser can answer is whether the two things it is handed are
  * real — the stems VexFlow actually RESOLVED (beaming forces a whole group, so a note's natural
  * direction and its drawn one differ) and the clef in force (a bare `new StaveNote(...)` reports

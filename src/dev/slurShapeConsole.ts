@@ -15,12 +15,12 @@
  *
  * A slur's height has **no published source** — the library was searched again the same day and the
  * verdict was UNDOCUMENTED — and the three engines disagree most exactly where most slurs live, at
- * the short end (`rendering/slurArchHeight`'s table: at 2.4 sp, LilyPond 0.42, Verovio 0.45,
+ * the short end (`rendering/curves/slurArchHeight`'s table: at 2.4 sp, LilyPond 0.42, Verovio 0.45,
  * MuseScore 0.58 apex). His two hand-drawn shapes both asked for MORE than ours. ⛔ Rather than fit a
  * fourth law to two samples, this draws all three and he picks.
  *
  * ⛔ **SCAFFOLDING, and it deletes cleanly**: the setting lives in the ENGINE
- * (`engine/rendering/slurShapeExperiment` — `engine/` may not import `dev/`), this is the entry
+ * (`engine/rendering/curves/slurShapeExperiment` — `engine/` may not import `dev/`), this is the entry
  * point, and `App.ts` wires it. ⏭️ When his eye has chosen, the winner is frozen in the law with his
  * choice as the citation and both files go.
  */
@@ -28,8 +28,8 @@ import { dbg } from '@/utils/debug'
 import {
   resetSlurShape, setSlurHeightLaw, setSlurIndentFraction, slurShapeSettings,
   type SlurHeightLaw,
-} from '@/engine/rendering/slurShapeExperiment'
-import { lilypondArchHeightSpaces } from '@/engine/rendering/slurArchHeight'
+} from '@/engine/rendering/curves/slurShapeExperiment'
+import { lilypondArchHeightSpaces } from '@/engine/rendering/curves/slurArchHeight'
 
 /** The spans worth comparing, in staff spaces: two eighths, a beat, a bar, a long phrase. */
 const SPANS = [2.4, 4, 10.8, 18, 25.2]

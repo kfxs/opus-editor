@@ -171,7 +171,7 @@ describe('anchors', () => {
 describe('engraving defaults', () => {
   it('⭐⭐ states the weights two modules already adopted BY HAND — and states them the same', () => {
     // `rendering/thinLineWeight.ts` says THIN_LINE_SPACES 0.16 IS the font's one thin-line weight,
-    // and names five defaults that share it. `rendering/curveStyle.ts` says 0.22 IS
+    // and names five defaults that share it. `rendering/curves/curveStyle.ts` says 0.22 IS
     // slurMidpointThickness and 0.10 IS slurEndpointThickness. Those are transcriptions; this is the
     // source. ⭐ If one of them was mistyped, THIS is the test that says so (plan §F3).
     for (const name of [

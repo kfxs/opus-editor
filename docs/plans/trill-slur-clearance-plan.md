@@ -159,7 +159,7 @@ thickened bezier) both use rather than a bounding box.
 `curveObstacleBand` takes the drawn curves and an x-window on one system, and answers the band they
 occupy there. ⛔ Not the bbox: a slur's box spans its whole arch, so a `tr`
 near an endpoint would be pushed by ink that is nowhere near it. ⚠️ **Named for the CURVE, not the
-slur** — `engine/rendering/slurObstacles.ts` already exists next door (the arch clearance that lifts
+slur** — `engine/rendering/curves/slurObstacles.ts` already exists next door (the arch clearance that lifts
 a slur over the notes it covers), and two files a letter apart answering opposite questions is a trap
 for the next reader. `engine/layout/` is the right home: `measuredRoom.ts` already imports
 `ElementRegistry`, so a derived-view module reading the last render has precedent.

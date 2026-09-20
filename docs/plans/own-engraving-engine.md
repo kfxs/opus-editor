@@ -619,7 +619,7 @@ and the beam's lines did not reduce it, because the objects still painting thems
 | still paints itself | where | which phase takes it |
 |---|---|---|
 | **`Stave`** — ⛔ no longer for INK, ⭐ but it still PLACES the clef/meter `headerInk` already measures | `ScoreRenderer` | ✅ **P5 took all of it**: the LINES (2026-09-01), the CLEF's glyph (09-02), the METER's (09-12), the opening BARLINE's (09-13) and the header's PLACEMENT (09-13) |
-| ~~**`Curve`** — the tie's and slur's arc~~ | ~~`rendering/curveArc` (4), `TieRenderer` (1)~~ | ✅ **U1, 2026-09-14** — `engine/engrave/curves/curveInk` |
+| ~~**`Curve`** — the tie's and slur's arc~~ | ~~`rendering/curves/curveArc` (4), `TieRenderer` (1)~~ | ✅ **U1, 2026-09-14** — `engine/engrave/curves/curveInk` |
 | ~~**`NoteHead` / `Accidental`** painted directly, ⛔ not through an `EngravedNote`~~ | ~~`rendering/FanPass` (2)~~ | ✅ **S10, 2026-09-18** — on our surface; see U2 |
 
 ⇒ ⭐⭐ **ONE ROW IS LEFT, and it is the fan's.** The other five code uses are the beam's and the
@@ -652,7 +652,7 @@ does NOT close the shape question, and this row exists to say so before somebody
 
 ⇒ **`engine/engrave/curves/curveInk.ts`** — a port of `Curve.renderCurve` (MIT, attributed), with
 `xShift`/`yShift` folded out (always 0 here) and the `lineDash` branch dropped (nothing dashes a
-slur). `rendering/curveArc` keeps the WEIGHT (the outline pin + `curveFillGap`); `TieRenderer`,
+slur). `rendering/curves/curveArc` keeps the WEIGHT (the outline pin + `curveFillGap`); `TieRenderer`,
 `SlurRenderer` ×4, the pending tie and the ghost tie all take `context` now. ⛔ No pixel moved —
 6301 unit + 284 e2e green.
 

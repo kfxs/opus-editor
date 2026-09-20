@@ -125,7 +125,7 @@ nudgeSlurEndpoint(id, which, dx, dy): boolean {
 One press = one `saveOnly` (undo per press, decision above). No preview/commit split
 is needed — unlike a mouse drag, each arrow press is already a discrete commit.
 
-## Render: applying the offset (`src/engine/rendering/SlurRenderer.ts`)
+## Render: applying the offset (`src/engine/rendering/curves/SlurRenderer.ts`)
 
 The endpoint pixel positions all derive from the anchor note:
 `firstX = fromNote.getTieRightX()`, `lastX = toNote.getTieLeftX()`, and

@@ -1,6 +1,6 @@
 import type { CurveArc, CurvePoint } from '@/engine/engrave/curves/curveInk'
 import { curveArcPoints, drawCurveArcInk } from '@/engine/engrave/curves/curveInk'
-import type { RenderPass } from './RenderPass'
+import type { RenderPass } from '../RenderPass'
 import { CURVE_PX } from './curveStyle'
 
 /**
