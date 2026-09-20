@@ -5,6 +5,9 @@
  */
 import { dbg } from '@/utils/debug'
 import type { ClickableElementSpec } from './chain'
+import type { HighlightContext } from './highlightContext'
+import { selectedOf } from '../EditorState'
+import { voiceStrokeColor } from '@/utils/voiceColors'
 
 export const STEM_ELEMENT: ClickableElementSpec = {
   kind: 'stem',
@@ -36,5 +39,30 @@ export const STEM_ELEMENT: ClickableElementSpec = {
     return deps.pick({ kind: 'stem', noteId })
   },
 
-  highlight: ctx => ctx.controller.applyStemHighlight(),
+  highlight: paintSelectedStem,
+}
+
+/**
+ * Highlight the selected STEM — its own paths inside the note's `stavenote` group, in the
+ * slot's voice colour like every other sub-element highlight.
+ *
+ * Resolved by IDENTITY (`getStaveNoteSVGGroup` hands back the stem element), so it works whether
+ * the note drew its own stem or the beam drew it — the same lookup {@link paintNote} uses for
+ * the head+stem case. Nothing else in the group is touched: the point of selecting a stem is that
+ * it is not the note.
+ */
+export function paintSelectedStem(ctx: HighlightContext): void {
+  const engine = ctx.engine
+  const noteId = selectedOf(ctx.state, 'stem')?.noteId
+  if (!noteId) return
+  const stem = engine.getStaveNoteSVGGroup(noteId)?.stem
+  if (!stem) return
+
+  const color = voiceStrokeColor(engine.getNote(noteId)?.voice ?? 0)
+  stem.querySelectorAll('path, line').forEach(el => {
+    const svgEl = el as SVGElement
+    ctx.setAttr(svgEl, 'stroke', color)
+    ctx.setStyleProp(svgEl, 'stroke', color)
+    ctx.addClass(svgEl, 'selected-stem')
+  })
 }

@@ -58,7 +58,7 @@ test('⭐⭐ …and it is TIGHTER than the page’s — a line box is not a hit 
 
 /**
  * 🚨🚨 **THE HIGHLIGHT READS THIS BOX'S CENTRE**, and that is a coupling nothing asserted until the
- * box changed hands. `HighlightController.applyAccidentalHighlight` finds the glyph to recolour by
+ * box changed hands. `elements/accidental.paintSelectedAccidental` finds the glyph to recolour by
  * walking every `<text>` in the SVG and matching centres — `|Δx| < 1.0` and `|Δy| < height/2 + 1`.
  *
  * ⚠️ The y tolerance is **derived from the box itself**, so a tighter box is also a stricter match:

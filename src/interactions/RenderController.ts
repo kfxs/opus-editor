@@ -4,6 +4,8 @@ import { activeVoiceToModel } from './EditorState'
 import { toolGhost, GHOST_CAUSE } from './toolGhost'
 import { ELEMENT_SPECS } from './elements/chain'
 import { paintSelectedMarkInk } from './elements/selectedInk'
+import { paintSelectedNotes } from './elements/notePaint'
+import { paintSelectedArticulations } from './elements/articulation'
 import type { HighlightController } from './HighlightController'
 import { voiceFillColor, voiceStrokeColor } from '../utils/voiceColors'
 import { renderProbe } from '../engine/RenderProbe' // P0 instrument seam — temporary, see §8
@@ -42,10 +44,12 @@ export class RenderController {
     // in exactly one place however it came to be selected. The kind's `highlight` row is then only
     // the EXTRA a single click earns: the anchor guide, the handles. ⚠️ Ink BEFORE highlight, so
     // the endpoint squares of the pedal a click picked land OVER its tether.
-    this.highlight.applySelectionHighlight()
-    this.highlight.applyArticulationHighlight()
     const ctx = this.highlight.context()
-    if (ctx) paintSelectedMarkInk(ctx)
+    if (ctx) {
+      paintSelectedNotes(ctx)
+      paintSelectedArticulations(ctx)
+      paintSelectedMarkInk(ctx)
+    }
     this.applySelectedElementHighlight()
     this.highlight.applyKeyboardCursor()
   }

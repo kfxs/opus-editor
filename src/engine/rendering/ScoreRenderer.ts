@@ -971,7 +971,7 @@ export class ScoreRenderer {
    * no bar to live in.
    *
    * Each pair paints inside its OWN named group. That is the seam the highlight needs (§4):
-   * `HighlightController.colorNoteTremolo` finds `<text>` nodes inside the note's `stavenote`
+   * `elements/tremolo.paintNoteTremolo` finds `<text>` nodes inside the note's `stavenote`
    * group whose content is the tremolo codepoint, and these are paths outside every note group — the
    * lookup would find nothing. Paint the highlight, do not go hunting for glyphs to recolour.
    *

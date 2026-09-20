@@ -9,6 +9,9 @@
 import { dbg } from '@/utils/debug'
 import type { ElementInfo, ElementRegistry } from '@/engine/ElementRegistry'
 import type { ClickableElementSpec } from './chain'
+import type { HighlightContext } from './highlightContext'
+import { selectedOf } from '../EditorState'
+import { voiceFillColor } from '@/utils/voiceColors'
 
 /**
  * The articulation under the cursor, or null when the NOTE should keep the press.
@@ -55,7 +58,88 @@ export const ARTICULATION_ELEMENT: ClickableElementSpec = {
     return deps.pickArticulationGroup(articulationAt.noteId)
   },
 
-  // Painted from the SET by `applyArticulationHighlight`, which runs for every press — the element
+  // Painted from the SET by `paintSelectedArticulations` below, which runs for every press — the element
   // is only the anchor, so being the selected element adds nothing of its own.
   highlight: () => {},
+}
+
+export function paintSelectedArticulations(ctx: HighlightContext): void {
+  const engine = ctx.engine
+
+  // Selected articulation groups live in the multi-select set (Ctrl-click adds more);
+  // fall back to the element ANCHOR for safety. Each group covers EVERY articulation on
+  // its note (Sibelius-style), so highlight all of them, each in its note's voice colour.
+  const selectedNoteIds = new Set<string>()
+  for (const item of ctx.state.selectedItems.values()) {
+    if (item.kind === 'articulation') selectedNoteIds.add(item.noteId)
+  }
+  const anchor = selectedOf(ctx.state, 'articulation')?.noteId
+  if (anchor) selectedNoteIds.add(anchor)
+
+  for (const noteId of selectedNoteIds) {
+    const voice = engine.getNote(noteId)?.voice ?? 0
+    paintNoteArticulations(ctx, noteId, voiceFillColor(voice))
+  }
+}
+
+/**
+ * Colour every articulation glyph on `noteId` in `color`. Shared by the articulation-GROUP
+ * highlight ({@link paintSelectedArticulations}) and the selected-NOTE highlight
+ * ({@link paintNote}), so a note reads as fully selected (head + stem + accidental +
+ * articulations). Uses the logged setAttr so `clearHighlights` reverts it.
+ *
+ * KEY DOM FACT: VexFlow renders a note's articulation glyphs INSIDE that note's own
+ * `notehead` group — NoteHead.draw() opens the group, draws the head, then calls
+ * stavenote.drawModifiers(this) before closing it. So an articulation lives at
+ * `stavenote > notehead[noteIndex] > <text>`, scoped to the very note it belongs to;
+ * searching ONLY within that notehead sub-group avoids grabbing a stacked voice's glyph (a
+ * document-wide nearest-glyph scan was the old bug). Within the group, the notehead glyph is
+ * drawn FIRST (skip index 0); geometry then picks the glyph whose centre is closest to the
+ * registered articulation bbox — robust for a note carrying several stacked marks.
+ */
+export function paintNoteArticulations(ctx: HighlightContext, noteId: string, color: string): void {
+  const engine = ctx.engine
+  const artElements = engine.getElementRegistry().getByType('articulation').filter(el => el.noteId === noteId)
+  if (!artElements.length) return
+
+  // ⭐ A FANNED MEMBER's marks are not in a `notehead` at all — VexFlow never drew that head, so
+  // `FanPass` paints the whole member (head, sign, ledgers, stem AND its articulations) into its
+  // own `fanhead` group. Same search, one group over; without this a member's mark was drawn
+  // and registered and selectable but never lit up.
+  const memberGroup = engine.getFanMemberSVGGroup(noteId)?.group
+  let scope: Element | null = memberGroup ?? null
+  if (!scope) {
+    const groupInfo = engine.getStaveNoteSVGGroup(noteId)
+    if (!groupInfo) return
+    const noteheadGroups = groupInfo.group.querySelectorAll('g.notehead')
+    scope = noteheadGroups[groupInfo.noteIndex] ?? noteheadGroups[0] ?? null
+  }
+  if (!scope) return
+
+  const glyphEls = scope.querySelectorAll<SVGGraphicsElement>('text, path')
+  // In a `notehead` the head is drawn FIRST and is skipped by index; a member's group has its
+  // ledgers before the head, so there is no fixed index to skip and the nearest-centre match below
+  // does the work on its own (a mark sits a staff space clear of the head it belongs to).
+  const skipFirst = !memberGroup
+  for (const artEl of artElements) {
+    const cx = artEl.bbox.x + artEl.bbox.width / 2
+    const cy = artEl.bbox.y + artEl.bbox.height / 2
+    let best: SVGGraphicsElement | null = null
+    let bestDist = Infinity
+    glyphEls.forEach((svgEl, i) => {
+      if (skipFirst && i === 0) return // the notehead glyph itself
+      const bb = svgEl.getBBox?.()
+      if (!bb || bb.width === 0 || bb.height === 0) return
+      const dx = bb.x + bb.width / 2 - cx
+      const dy = bb.y + bb.height / 2 - cy
+      const dist = dx * dx + dy * dy
+      if (dist < bestDist) { bestDist = dist; best = svgEl }
+    })
+    if (best) {
+      const el = best as SVGGraphicsElement
+      ctx.setAttr(el, 'fill', color)
+      ctx.setStyleProp(el, 'fill', color)
+      ctx.addClass(el, 'selected-articulation')
+    }
+  }
 }

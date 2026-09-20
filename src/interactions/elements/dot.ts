@@ -6,6 +6,9 @@
 import { dbg } from '@/utils/debug'
 import type { ElementInfo } from '@/engine/ElementRegistry'
 import type { ClickableElementSpec } from './chain'
+import type { HighlightContext } from './highlightContext'
+import { selectedOf } from '../EditorState'
+import { voiceFillColor } from '@/utils/voiceColors'
 
 export const DOT_ELEMENT: ClickableElementSpec = {
   kind: 'dot',
@@ -52,5 +55,60 @@ export const DOT_ELEMENT: ClickableElementSpec = {
     return deps.pick({ kind: 'dot', noteId: dotAt.noteId })
   },
 
-  highlight: ctx => ctx.controller.applyDotHighlight(),
+  highlight: paintSelectedDot,
+}
+
+/**
+ * Colour every augmentation-dot glyph of the slot anchored at `noteId`. Shared by the selected-DOT
+ * highlight ({@link paintSelectedDot}) and the selected-NOTE highlight ({@link paintNote}),
+ * exactly as {@link paintNoteArticulations} is shared — so a dotted note reads as fully selected
+ * and clicking one dot lights them all.
+ *
+ * Scoped to the whole `stavenote` group, NOT to one `notehead` like articulations are: a
+ * chord's dots are spread across EVERY notehead group (VexFlow attaches one Dot per head, drawn
+ * inside that head's group), yet they are one model value on the slot. Each registered dot bbox
+ * then claims the nearest glyph in the group; a dot sits clear to the right of the head it belongs
+ * to, so nearest is unambiguous, and requiring the glyph's centre to fall inside the (slightly
+ * grown) bbox keeps a notehead from ever being picked when a dot glyph is missing.
+ */
+export function paintNoteDots(ctx: HighlightContext, noteId: string, color: string): void {
+  const engine = ctx.engine
+  const dotElements = engine.getElementRegistry().getByType('dot').filter(el => el.noteId === noteId)
+  if (!dotElements.length) return
+  const groupInfo = engine.getStaveNoteSVGGroup(noteId)
+  if (!groupInfo) return
+
+  const glyphEls = groupInfo.group.querySelectorAll<SVGGraphicsElement>('text')
+  for (const dotEl of dotElements) {
+    const cx = dotEl.bbox.x + dotEl.bbox.width / 2
+    const cy = dotEl.bbox.y + dotEl.bbox.height / 2
+    let best: SVGGraphicsElement | null = null
+    let bestDist = Infinity
+    glyphEls.forEach(svgEl => {
+      const bb = svgEl.getBBox?.()
+      if (!bb || bb.width === 0 || bb.height === 0) return
+      const ex = bb.x + bb.width / 2
+      const ey = bb.y + bb.height / 2
+      if (Math.abs(ex - cx) > dotEl.bbox.width / 2 + 1.0) return
+      if (Math.abs(ey - cy) > dotEl.bbox.height / 2 + 1.0) return
+      const dist = (ex - cx) ** 2 + (ey - cy) ** 2
+      if (dist < bestDist) { bestDist = dist; best = svgEl }
+    })
+    if (best) {
+      const el = best as SVGGraphicsElement
+      ctx.setAttr(el, 'fill', color)
+      ctx.setStyleProp(el, 'fill', color)
+      ctx.addClass(el, 'selected-dot')
+    }
+  }
+}
+
+/** Highlight the dots selected on the score (a click on any one of them). Paints in the slot's
+ *  voice colour, like every other sub-element highlight. */
+export function paintSelectedDot(ctx: HighlightContext): void {
+  const engine = ctx.engine
+  const noteId = selectedOf(ctx.state, 'dot')?.noteId
+  if (!noteId) return
+  const voice = engine.getNote(noteId)?.voice ?? 0
+  paintNoteDots(ctx, noteId, voiceFillColor(voice))
 }

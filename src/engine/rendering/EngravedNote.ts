@@ -143,7 +143,7 @@ const SIDE_OF_POSITION: Readonly<Record<number, ModifierSide>> = {
  *
  * 🚨🚨 **The group is load-bearing and its ID is the whole seam.** The editor finds a stem's ink with
  * `note.getStem().getSVGElement()`, which is `document.getElementById(prefix(attrs.id))`, and then
- * recolours `querySelectorAll('path, line')` inside it (`HighlightController.applyStemHighlight`).
+ * recolours `querySelectorAll('path, line')` inside it (`elements/stem.paintSelectedStem`).
  * ⛔ So this override must open `openGroup('stem', this.getAttribute('id'))` exactly as VexFlow did:
  * drop the id and stem selection silently stops painting, with nothing failing.
  *

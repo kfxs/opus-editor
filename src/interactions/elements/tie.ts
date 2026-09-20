@@ -10,6 +10,9 @@
  */
 import { dbg } from '@/utils/debug'
 import type { ClickableElementSpec } from './chain'
+import type { HighlightContext } from './highlightContext'
+import { selectedOf } from '../EditorState'
+import { voiceFillColor } from '@/utils/voiceColors'
 import { distToSegment } from './slur'
 
 export const TIE_ELEMENT: ClickableElementSpec = {
@@ -42,5 +45,49 @@ export const TIE_ELEMENT: ClickableElementSpec = {
     return deps.pick({ kind: 'tie', fromNoteId: tieAt.fromNoteId })
   },
 
-  highlight: ctx => ctx.controller.applyTieHighlight(),
+  highlight: paintSelectedTie,
+}
+
+export function paintSelectedTie(ctx: HighlightContext): void {
+  const engine = ctx.engine
+  const fromNoteId = selectedOf(ctx.state, 'tie')?.fromNoteId
+  if (!fromNoteId) return
+
+  // Paint the tie in ITS voice's colour (V1 blue, V2 green — Sibelius-style;
+  // matches the notehead highlight) rather than a uniform orange.
+  const voice = engine.getNote(fromNoteId)?.voice ?? 0
+  paintNoteTie(ctx, fromNoteId, voiceFillColor(voice))
+}
+
+/**
+ * Colour the tie `noteId` OWNS — its forward (`tiedTo`) arc. Shared by the selected-NOTE highlight
+ * ({@link paintNote}, so a tied note reads as fully selected) and the selected-TIE highlight
+ * ({@link paintSelectedTie}), exactly as {@link paintNoteArticulations} is shared.
+ *
+ * The FORWARD tie only, which is precisely what the Keypad's Enter key lights and removes
+ * (`PaletteController.noteHasTie` reads `tiedTo`) — so score and Keypad always agree. Select the
+ * far end of a tie and neither lights: that note owns no tie, it is only tied INTO.
+ *
+ * No lookup of `tiedTo` is needed: `tieGroupMap` is keyed by the FROM note, so a note that ties to
+ * nothing simply has no group and this is a no-op.
+ */
+export function paintNoteTie(ctx: HighlightContext, noteId: string, color: string): void {
+  const group = ctx.engine.getTieSVGGroup(noteId)
+  if (!group) return
+  paintTieGroup(ctx, group, color)
+}
+
+/** Colour the tie inside its OWN `<g class="tie">` group — never a document-wide
+ *  bbox path-scan, which bled onto staff lines whose bbox fell inside the tie's
+ *  rectangle (mirrors the slur fix). An arc emits TWO paths — a stroke-only outline
+ *  and a fill-only body (`engrave/curves/curveInk`) — so set fill AND stroke on each,
+ *  or a selected tie shows a coloured body with a black outline (see curveArc.ts). */
+export function paintTieGroup(ctx: HighlightContext, group: SVGGElement, tieColor: string): void {
+  group.querySelectorAll('path').forEach(el => {
+    ctx.setAttr(el, 'fill', tieColor)
+    ctx.setAttr(el, 'stroke', tieColor)
+    ctx.setStyleProp(el, 'fill', tieColor)
+    ctx.setStyleProp(el, 'stroke', tieColor)
+    ctx.addClass(el, 'selected-tie')
+  })
 }

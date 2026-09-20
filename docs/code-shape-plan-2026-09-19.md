@@ -1,6 +1,6 @@
 # Code shape plan — 2026-09-19
 
-**Status: IN PROGRESS — Phase 1 DONE (2026-09-19), bar item 5's two ⏭️ decisions. Phase 2 DONE. Phase 3.1: the hairpin / ottava / pedal body drags done and checked; the trill's too (`cdb7f05`); the slur's too (`69e927c`); the four SQUARE drags too (`6d903c3`); the slur HANDLE / ENDPOINT and staff-spacing drags too (`8f28f79`); the DYNAMIC and TEMPO drags too (`9a04f88`); bar width, barline join, group span and clef too (`ee31698`); the NOTE drag too (`7d2898e`) — every gesture is a module. **Phase 3.1 DONE** (`25f70a6`). 3.2: the `keys` column + dispatcher and the HAIRPIN on it (`e61626a`); OTTAVA / PEDAL / TRILL too (`14e10e7`); DYNAMIC and TEMPO too (`943fb64`); SLUR and CLEF too (`8382fcc`); the `reanchor` and `cycle` verbs done, awaiting his UI check — **Phase 3.2 DONE with it.** 3.3 (`highlight(ctx)`): the contract + the four span squares (`a7c1076`); the join and group squares (`b772418`); the `ink` column (`f1832e7`); the slur handles (`d3dcb7b`); the anchor guide line done, awaiting his UI check.** Phases are ordered by
+**Status: IN PROGRESS — Phase 1 DONE (2026-09-19), bar item 5's two ⏭️ decisions. Phase 2 DONE. Phase 3.1: the hairpin / ottava / pedal body drags done and checked; the trill's too (`cdb7f05`); the slur's too (`69e927c`); the four SQUARE drags too (`6d903c3`); the slur HANDLE / ENDPOINT and staff-spacing drags too (`8f28f79`); the DYNAMIC and TEMPO drags too (`9a04f88`); bar width, barline join, group span and clef too (`ee31698`); the NOTE drag too (`7d2898e`) — every gesture is a module. **Phase 3.1 DONE** (`25f70a6`). 3.2: the `keys` column + dispatcher and the HAIRPIN on it (`e61626a`); OTTAVA / PEDAL / TRILL too (`14e10e7`); DYNAMIC and TEMPO too (`943fb64`); SLUR and CLEF too (`8382fcc`); the `reanchor` and `cycle` verbs done, awaiting his UI check — **Phase 3.2 DONE with it.** 3.3 (`highlight(ctx)`): the contract + the four span squares (`a7c1076`); the join and group squares (`b772418`); the `ink` column (`f1832e7`); the slur handles (`d3dcb7b`); the anchor guide line (`e2ff597`); the note pass + the six note-attached kinds done, awaiting his UI check.** Phases are ordered by
 value over risk; each one stands alone and can be stopped after. A done item carries ✅ and what
 actually happened where that differs from what was planned.
 
@@ -460,15 +460,23 @@ Run the e2e suite either side of each step.
 
    *Fifth slice — the anchor guide line: `elements/anchorGuideLine.paintAnchorGuideLine(ctx)`, moved
    whole (it was already kind-agnostic and touched no private but `addNode`); seven rows call it,
-   spec moved → `elements/anchorGuideLine.test.ts`. Hub: file → 1,222 lines. ⏸️ Awaiting his UI
-   check.*
+   spec moved → `elements/anchorGuideLine.test.ts`. Hub: file → 1,222 lines. ✅ Passed
+   (`e2ff597`).*
 
-   *⏭️ What is left on the controller, and its shape: (a) the NOTE pass (`applySelectionHighlight`
-   → `highlightNote`) and the note-attached kinds — articulation / dot / accidental / tremolo / tie
-   / stem. ⚠️ These SHARE their painters with the note pass (`colorNoteDots`, `colorNoteTie`, …: a
-   selected note lights what hangs off it), so the step is each `colorNote<Kind>` becoming its
-   kind's exported painter that BOTH the row and the note pass call — and `ctx.paintNote` stops
-   being a door. (b) the header signs — clef / meter / key (`highlightGlyphsInBBox`). (c) the
+   *Sixth slice — (a) below: the NOTE pass and the six note-attached kinds. Each `colorNote<Kind>`
+   is now its kind's exported painter — `paintNoteArticulations` / `paintNoteDots` /
+   `paintNoteTremolo` (+ the pair group) / `paintNoteTie` / `paintNoteAccidentals` — beside that
+   kind's `paintSelected<Kind>`, which IS its `highlight` row (`highlight: paintSelectedDot`). The
+   note pass is `elements/notePaint.ts` (`paintSelectedNotes` + `paintNote`), which imports those
+   five: ONE owner per ink, called by the row and by the note. `ctx.paintNote` — the door the slur
+   slice opened — is gone (the slur's anchor tint imports `paintNote`); the context gained
+   `raiseToFront` instead, the toolkit's fifth write. The articulation SET pass is
+   `articulation.paintSelectedArticulations`, run by `RenderController` beside the notes and the
+   marks (it is keyed by `noteId`, not `id`, so it is not an `ink` row). Specs: the tie / tremolo /
+   fanned-member chapters → `elements/notePaint.test.ts`; `clearHighlights` stays the
+   controller's. Hub: kinds 118 → **55**, file → 718 lines. ⏸️ Awaiting his UI check.*
+
+   *⏭️ What is left on the controller, and its shape: (a) ✅ the note pass — above. (b) the header signs — clef / meter / key (`highlightGlyphsInBBox`). (c) the
    barline / repeat-start family (`recolourBarlineHalf` + the group finders). (d) tuplet, score
    text, measure box, keyboard cursor.*
 4. **Properties panels**: `windows/properties/panels/<kind>.ts` exporting `report` and `rows`,

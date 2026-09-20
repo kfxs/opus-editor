@@ -19,6 +19,7 @@
 import { selectedOf } from '../EditorState'
 import { HANDLE_HIT, HANDLE_R, handleHitBox, paintHandleSquare } from './handleSquare'
 import type { HighlightContext } from './highlightContext'
+import { paintNote } from './notePaint'
 
 /** The tint a note wears while it is a slur endpoint's ANCHOR — the blue-square blue, so the note
  *  and the square that points at it read as one thing. ⚠️ NOT `selectionColors`' element blue: this
@@ -158,5 +159,5 @@ export function paintArmedSlurAnchorNote(ctx: HighlightContext): void {
   if (!armed?.endpoint) return
   const slur = ctx.engine.getSlurById(armed.id)
   if (!slur) return
-  ctx.paintNote(armed.endpoint === 'start' ? slur.startNoteId : slur.endNoteId, SLUR_ANCHOR_FILL, SLUR_ANCHOR_STROKE)
+  paintNote(ctx, armed.endpoint === 'start' ? slur.startNoteId : slur.endNoteId, SLUR_ANCHOR_FILL, SLUR_ANCHOR_STROKE)
 }

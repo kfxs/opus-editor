@@ -213,7 +213,7 @@ export class SelectionController {
    * only the notes understated what had just landed.
    *
    * Ties need no explicit item: a tie's arc highlights with the note that OWNS it (see
-   * `HighlightController.colorNoteTie`).
+   * `elements/tie.paintNoteTie`).
    */
   selectNotes(noteIds: string[]): void {
     const engine = this.getEngine()

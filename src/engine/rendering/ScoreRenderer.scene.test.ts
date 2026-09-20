@@ -306,7 +306,7 @@ describe('⭐⭐ P3c — the STEM’s ink in the scene, and the seam that surviv
   it('🚨 the stem’s group carries its own ID — the selection highlight resolves ink by it', () => {
     const groups = sceneGroups(render(1).scene, 'stem')
     expect(groups.length).toBeGreaterThan(0)
-    for (const g of groups) expect(g.id, 'an id, or `applyStemHighlight` finds nothing').toBeTruthy()
+    for (const g of groups) expect(g.id, 'an id, or `elements/stem.paintSelectedStem` finds nothing').toBeTruthy()
   })
 })
 
