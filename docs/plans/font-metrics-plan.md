@@ -1,5 +1,7 @@
 # The ink table comes from the FONT — SMuFL as its source
 
+**Status: BUILT** 2026-08-16 (F1–F4; P2 of the engine project complete) — this file's own words, below.
+
 > 📄 **P2 of `docs/plans/own-engraving-engine.md`.** That document is the strategy — why we are taking the
 > drawing at all, the five pieces, the target architecture. ⛔ This one does not restate it. It is
 > the DECISION RECORD for the one piece we do next, and the list of questions that need his eye.

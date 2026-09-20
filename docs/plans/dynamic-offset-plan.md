@@ -1,5 +1,7 @@
 # Dynamic offset (keyboard nudge) plan
 
+**Status: ALL DONE** (2026-07-19) — this file's own words, §"✅ TODO — ALL DONE" below.
+
 ## Goal
 
 Let the composer **fine-tune where a dynamic sits** — a free x/y offset off its

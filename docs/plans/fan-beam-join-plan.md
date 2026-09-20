@@ -1,5 +1,7 @@
 # Joining a fan to the beam on its left — plan
 
+**Status: P0–P3 DONE; §5 — the join across a SYSTEM BREAK — wanted, NOT built.** By this file's own phase marks.
+
 ## 0. The decision
 
 **A fan can be joined to the group on its LEFT, never on its right, and only at its owner.**

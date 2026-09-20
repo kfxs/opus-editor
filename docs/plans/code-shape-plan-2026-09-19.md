@@ -1258,6 +1258,19 @@ relative markdown links resolved from their own file — 2,708 mentions, all res
 fake link of each kind. Suite and `build:check` green. Still owed: a Status line per file, ⛔ only where
 certain (his rule).*
 
+*Status lines (awaiting his word; docs only) — MEASURED first: 55 of the 77 plans already state their status
+in their first lines. Of the 22 that do not, three state it further down in their own words, and those were
+lifted to the top as quotations of the file (`dynamic-offset-plan` ALL DONE · `font-metrics-plan` BUILT ·
+`fan-beam-join-plan` P0–P3 done, §5 not built). The other 19 say nothing about their own state, and that a
+feature's module exists does not say every item of its plan shipped — so, ⛔ by his rule, they are LEFT, and
+`docs/README.md` now says why a plan may carry no status. The other folders need none: `research/`,
+`how-it-works/` and `history/` are kinds, and the folder says it.*
+
+**Phase 6 item 4 DONE.** Open in Phase 6: `CLAUDE.md`'s tree as one line per folder (⏸️ it carries the ⛔
+rules an agent reads every session — his eye first) and items 1–2, the ~220-file source-folder moves.
+✅ Item 5 done with this batch: `DESIGN-PRINCIPLES.md` gained the two boundary cases — the staff seam
+(re-measured: 147 raw `measure.slots` reads against 5 `staffSlots` callers) and the undo clone's cost.
+
 ### Later — before orchestral scores
 
 Undo clones the whole score with JSON on every edit, three times on an undo. Measured on a

@@ -350,6 +350,40 @@ be made *consciously* before more code piles onto it.
   behind it (`utils/env.test.ts`) because the flag it feeds is private, and a silent `false` would
   have disarmed the measure-integrity check across the entire suite with every test still green.
 
+- **The STAFF seam exists and almost nothing goes through it (re: principle 4) — measured
+  2026-09-20.** `Measure.slots` is ONE flat list for every staff of the bar, each slot tagged with its
+  `staffId`, and `engine/models/staffContent.staffSlots(measure, staffId, score)` is the reader that
+  answers *"this staff's slots"*. It has **5 callers**. There are **147 raw `measure.slots` reads**
+  beside it, each filtering by staff for itself, or not needing to because today every staff of a bar
+  shares one meter and one capacity.
+
+  That is fine while it is true, and it is the thing that stops being true first: **per-staff
+  meters** (polymetric music, a cadenza staff, an unmeasured part — `docs/plans/spacing-model-plan.md`
+  §3b's UNFIXED music) make *"the bar's capacity"* a question with one answer PER STAFF, and about a
+  hundred of those reads would each have to learn it. ⛔ Not a refactor to do now — there is no
+  feature asking. The decision to take consciously is the cheap half: **a NEW read of a bar's content
+  goes through `staffSlots` (or `staffMeasureView`)**, so the count that would have to change stops
+  growing. `utils/lanes` (`voiceOf` / `staffOf` — absent means the first one) is the same seam for a
+  single slot.
+
+- **Undo is a whole-score clone, and its cost is linear in the SCORE, not in the edit (re: principle
+  1).** *A score is a value* is what makes undo trivially correct here: `UndoRedoManager` keeps
+  snapshots, and a snapshot cannot be half-applied. The price is how the value is copied —
+  `JSON.parse(JSON.stringify(score))` on every `pushState`, again when a snapshot is read back, and
+  `ScoreModel.fromJSON(JSON.stringify(state))` on top of that for an undo: **three serialisations for
+  one Ctrl+Z**. Measured on a synthetic 400 bars × 20 staves (docs/plans/code-shape-plan-2026-09-19.md,
+  "Later — before orchestral scores"): **over 100 ms per edit**, and an estimated **2 GB** for a
+  100-deep history.
+
+  Nothing a piano score will meet, which is why it is recorded and not scheduled. Two steps, in
+  order: drop the double serialisation (no design needed — it is the same value copied twice), and
+  before orchestral scores, **per-measure structural sharing** — a snapshot that shares every
+  `Measure` the edit did not touch. ⭐ The principle is what makes that possible at all: a measure
+  that is never mutated in place after it is snapshotted can be shared by reference. ⚠️ Which is
+  also the constraint it would introduce — today's ops mutate `score.measures[i]` freely BECAUSE the
+  snapshot is a deep copy; sharing turns "mutate in place" into "copy the measure you touch", for
+  every ops module, at once.
+
 ## How to use this
 
 When adding a feature, ask: *does this make one of the six assumptions above?* If
