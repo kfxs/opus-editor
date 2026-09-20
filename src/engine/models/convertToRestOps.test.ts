@@ -9,7 +9,7 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import type { FanMark } from '@/types/music'
 import { fracCreate as frac, fracToNumber } from '@/utils/fraction'
 import { ScoreModel } from './ScoreModel'
-import { convertSlotToRest, slotPitchIds } from './convertToRestOps'
+import { convertSlotToRest, slotPitchIds, swapSlotForRest } from './convertToRestOps'
 import { toggleTie } from './tieOps'
 
 describe('convertSlotToRest', () => {
@@ -127,5 +127,40 @@ describe('convertSlotToRest', () => {
     const before = JSON.stringify(model.getScore())
     expect(convertSlotToRest(model, memberId)).toBeNull()
     expect(JSON.stringify(model.getScore())).toBe(before)
+  })
+})
+
+describe('swapSlotForRest — the same SLOT wearing a different type', () => {
+  it('in place, at the same index, keeping everything that says WHERE and HOW LONG', () => {
+    const model = new ScoreModel()
+    model.addStaffBelow(0)
+    const lowId = model.getScore().staves![1].id
+    const tuplet = model.createTuplet(1, frac(0, 1), '8', 3, 2, 1, 1)
+    const first = model.addNote({ step: 'C', alter: 0, octave: 3, duration: '8', measure: 1, beat: frac(0, 1), voice: 1, staff: 1, tupletId: tuplet.id })
+    model.refillTupletRemainder(1, tuplet, 1)
+    const slots = model.getScore().measures[0].slots
+    const index = slots.findIndex(s => s.type === 'chord')
+    const was = slots[index]
+
+    const rest = swapSlotForRest(model.getScore(), first.id)!
+
+    expect(slots[index]).toBe(rest) // its seat in the bar's order is kept
+    expect(rest).toMatchObject({ type: 'rest', duration: '8', voice: 1, staffId: lowId, tupletId: tuplet.id })
+    expect(rest.beat).toEqual(was.beat)
+    expect(rest.actualDuration).toEqual(was.actualDuration) // still a triplet eighth
+    expect(rest.id).not.toBe(was.id)
+  })
+
+  it('null for a rest, an id that names nothing, and a fanned MEMBER (found only when asked for)', () => {
+    const model = new ScoreModel()
+    const owner = model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'h', measure: 1, beat: frac(0, 1) })
+    model.setFan(owner.id, { direction: 'accel', count: 4, beams: 3 })
+    const chord = model.getScore().measures[0].slots.find(s => s.type === 'chord')!
+    if (chord.type !== 'chord') throw new Error('expected a chord')
+    const restId = model.getScore().measures[0].slots.find(s => s.type === 'rest')!.id
+
+    expect(swapSlotForRest(model.getScore(), restId)).toBeNull()
+    expect(swapSlotForRest(model.getScore(), 'gone')).toBeNull()
+    expect(swapSlotForRest(model.getScore(), chord.fan!.members![0].pitches[0].id)).toBeNull()
   })
 })
