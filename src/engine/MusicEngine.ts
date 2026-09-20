@@ -33,7 +33,8 @@ import { measureCapacityQuarters } from '@/utils/measureCapacity'
 import { fracToNumber } from '@/utils/fraction'
 import { quantizeBeat } from '@/utils/durations'
 import { reanchorSlurs } from './models/slurOps'
-import { chordNotesAt, deleteNoteWithRepair } from './models/deleteNoteOps'
+import { deleteNoteWithRepair } from './models/deleteNoteOps'
+import { convertSlotToRest } from './models/convertToRestOps'
 import { applyTiePairs, planTieSelection, toggleTie } from './models/tieOps'
 import type { CommandContext } from './commands/commandContext'
 import { ottavaCommands } from './commands/ottavaCommands'
@@ -2597,39 +2598,16 @@ export class MusicEngine {
    * it selected use the returned id — the point of returning the rest rather than a boolean.
    */
   convertToRest(noteId: string): Note | null {
-    if (this.refusesFanMember(noteId, 'convert to rest')) return null
+    // Read BEFORE the swap — afterwards there is no pitch left to name.
     const note = this.scoreModel.getNote(noteId)
-    if (!note || note.isRest) return null
+    const restId = convertSlotToRest(this.scoreModel, noteId)
+    if (!restId) return null
 
-    // BEFORE the swap: once the slot is a rest there are no heads left to find.
-    const pitchIds = this.slotPitchIdsFor(note, noteId)
-
-    const rest = this.scoreModel.convertToRest(noteId)
-    if (!rest) return null
-
-    // Slurs anchored to ANY head of the old slot follow it onto the rest — the slot is still there
-    // and still has a length, so the arc still has something to hang on.
-    for (const id of pitchIds) reanchorSlurs(this.scoreModel.getScore(), id, rest.id)
-
-    // Silencing the last note of a secondary voice leaves it all rests → it collapses, exactly as
-    // after a delete (Sibelius-style).
-    this.scoreModel.collapseEmptyVoices(note.measure)
-
-    const label = !note.isRest && note.step
+    const label = note?.step
       ? `Convert ${midiToNoteName(spellingToMidi(note.step, note.alter ?? 0, note.octave!))} to rest`
       : 'Convert to rest'
     this.mutate(label)
-    return this.scoreModel.getNote(rest.id) ?? null
-  }
-
-  /** Every pitch id sharing `note`'s slot — its chord siblings and itself. Scoped to the note's own
-   *  (voice, staff) via {@link chordNotesAt}: two staves holding a note at the same beat in voice 0
-   *  is ordinary, not a chord, and re-anchoring the OTHER staff's slurs onto this rest would be a real
-   *  bug. `noteId` is appended defensively so the note being converted is always covered. */
-  private slotPitchIdsFor(note: Note, noteId: string): string[] {
-    const ids = chordNotesAt(this.scoreModel, note.measure, note.beat, voiceOf(note), staffOf(note))
-      .map(n => n.id)
-    return ids.includes(noteId) ? ids : [...ids, noteId]
+    return this.scoreModel.getNote(restId) ?? null
   }
 
   /**
