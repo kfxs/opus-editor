@@ -368,7 +368,7 @@ export class KeyboardController {
     // Follow the tie chain to the last note so the cursor lands after all tied continuations.
     //
     // RE-READ the head first. `addNoteAtBeat` returns a flat PROJECTION built when the note was
-    // created, and a split attaches its ties afterwards (placeSpanningNote: addNote → updateNote
+    // created, and a split attaches its ties afterwards (spanningNoteOps.placeSpanningNote: addNote → updateNote
     // tiedTo) — so the returned object's `tiedTo` is `undefined` no matter what the model says. The
     // walk below seeded from it, found no tie, and left the cursor on the HEAD: type a whole note
     // across a barline and the caret landed inside the note you had just typed, so the next one

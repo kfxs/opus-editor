@@ -6,21 +6,20 @@ import { durationToBeats, splitBeatsIntoDurations, midiToNoteName, tupletSlotDur
 import { measureCapacityQuarters, measureCapacityFrac } from '@/utils/measureCapacity'
 import {
   fracToNumber, fracEq, fracAdd, fracSub, fracMul, fracDiv,
-  fracLt, fracGt, fracGte, fracLte, fracFromInt,
+  fracLt, fracGt, fracGte, fracLte,
 } from '@/utils/fraction'
-import { durationToFraction, fitRestDuration, splitBeatsIntoLengths, slotLength, writtenLength } from '@/utils/durations'
+import { durationToFraction, fitRestDuration, slotLength, writtenLength } from '@/utils/durations'
 import type { Fraction } from '@/utils/fraction'
 import type { Note, NoteParams, PixelCoordinates, Tuplet, TupletFormat, NoteDuration, ArticulationType, Accidental, PitchSpelling, Measure } from '@/types/music'
 import { spellingToMidi, formatPitch } from '@/utils/pitchSpelling'
 import { entryAlteration } from './models/entryAlteration'
+import { addSplitNoteWithTie, splitExistingNoteWithTie } from './models/spanningNoteOps'
 import { ElementRegistry } from './ElementRegistry'
 import type { ElementInfo } from './ElementRegistry'
 import { staffOf, voiceOf } from '@/utils/lanes'
 
 const CLOSE_THRESHOLD = 25
 const FAR_THRESHOLD = 40
-/** Safety cap on the addMeasure() loop that extends the score to reach a target measure. */
-const MAX_MEASURE_CREATE_ATTEMPTS = 20
 export const INVALID_NOTE_ENTRY_TYPES = ['clef', 'timeSignature', 'barline']
 
 /** Float beat-comparison epsilon (pixel-boundary tolerance; see docs/ARCHITECTURE.md). */
@@ -149,7 +148,7 @@ export class NoteEntryCoordinator {
 
     if (overflow.willOverflow && overflow.overflowAmount) {
       dbg(`[Entry] KeyboardEntry | v${entryVoice} ${formatPitch(params)} dur:${params.duration} measure:${params.measure} beat:${fracToNumber(finalBeatFrac).toFixed(3)} → overflow ${overflow.overflowAmount.toFixed(3)}b — splitting with tie`)
-      const splitNote = this.addSplitNoteWithTie(finalParams, overflow.overflowAmount)
+      const splitNote = addSplitNoteWithTie(this.getScoreModel(), finalParams, overflow.overflowAmount)
       if (splitNote) {
         this.onCommit('Keyboard enter note')
       }
@@ -568,10 +567,10 @@ export class NoteEntryCoordinator {
     const existingChordNotes = this.getScoreModel().getNotesInMeasure(measureNumber)
       .filter(n => !n.isRest && voiceOf(n) === splitVoice && staffOf(n) === splitStaff && fracEq(n.beat, finalBeat) && spellingToMidi(n.step!, n.alter!, n.octave!) !== pitchMidi && !n.tiedTo)
     for (const chordNote of existingChordNotes) {
-      this.splitExistingNoteWithTie(chordNote, duration, overflowAmount, dots)
+      splitExistingNoteWithTie(this.getScoreModel(), chordNote, duration, overflowAmount, dots)
     }
 
-    const splitNote = this.addSplitNoteWithTie(noteParams, overflowAmount)
+    const splitNote = addSplitNoteWithTie(this.getScoreModel(), noteParams, overflowAmount)
     if (splitNote) {
       this.onCommit(`Add ${midiToNoteName(pitchMidi)}`)
     }
@@ -659,11 +658,11 @@ export class NoteEntryCoordinator {
           // Split chord members (other notes at the same beat)
           for (const chordNote of chordNotes) {
             if (chordNote.id === noteId) continue
-            this.splitExistingNoteWithTie(chordNote, newDuration, overflowAmount, newDots)
+            splitExistingNoteWithTie(this.getScoreModel(), chordNote, newDuration, overflowAmount, newDots)
           }
 
           // Split the target note itself
-          this.splitExistingNoteWithTie(existingNote, newDuration, overflowAmount, newDots)
+          splitExistingNoteWithTie(this.getScoreModel(), existingNote, newDuration, overflowAmount, newDots)
 
           this.onCommit('Update note duration')
           return this.getScoreModel().getNote(noteId)!
@@ -1294,255 +1293,6 @@ export class NoteEntryCoordinator {
       }
     }
     return nearestRest
-  }
-
-  /**
-   * Place a note that spans across one barline by splitting it into a tied chain:
-   * `currentMeasureDurations` in the start measure, `nextMeasureDurations` in the next.
-   * The single primitive behind both note-entry and duration-change overflow.
-   *
-   * The ONLY difference between those two callers is the chain head: pass
-   * `existingHeadId` to reuse an existing note as the first link (duration change),
-   * or omit it to create the head fresh (note entry). Returns the first note in the
-   * chain (the reused/created head), or null if the split or measure creation fails.
-   */
-  private placeSpanningNote(p: {
-    step: NoteParams['step']
-    alter: NoteParams['alter']
-    octave: NoteParams['octave']
-    startMeasure: number
-    startBeat: Fraction
-    totalBeats: number
-    overflowAmount: number
-    voice?: NoteParams['voice']
-    staff?: NoteParams['staff']
-    existingHeadId?: string
-    /** The mark the note is being ENTERED with, when there is no existing head to read one off. */
-    tremolo?: NoteParams['tremolo']
-  }): Note | null {
-    const beatsInCurrentMeasure = p.totalBeats - p.overflowAmount
-    const beatsInNextMeasure = p.overflowAmount
-
-    const currentMeasureDurations = splitBeatsIntoLengths(beatsInCurrentMeasure)
-    const nextMeasureDurations = splitBeatsIntoLengths(beatsInNextMeasure)
-
-    if (currentMeasureDurations.length === 0 || nextMeasureDurations.length === 0) {
-      console.warn('Could not split spanning note into valid durations')
-      return null
-    }
-
-    const nextMeasureNumber = p.startMeasure + 1
-    if (!this.ensureMeasureExists(nextMeasureNumber)) {
-      console.warn('Could not create next measure for tie split')
-      return null
-    }
-
-    // Erode notes in the overflow zone of the next measure (Sibelius-style)
-    this.erodeOverflowZone(nextMeasureNumber, beatsInNextMeasure, voiceOf(p), staffOf(p))
-
-    const model = this.getScoreModel()
-    const pitch = { step: p.step, alter: p.alter, octave: p.octave, ...(p.voice && { voice: p.voice }), ...(p.staff && { staff: p.staff }) }
-
-    // A tremolo on the head must reach EVERY piece of the chain: a tremolo interrupted at a barline
-    // is still being played across it (docs/tremolo-plan.md §6). Read before the head is retitled,
-    // and applied explicitly per piece — the continuations are built from `{step, alter, octave,
-    // voice, staff}` alone, so anything not named here is dropped in silence.
-    //
-    // TWO sources now, one per caller: the duration-change caller reads the mark off the head it is
-    // reusing, and the ENTRY caller carries the armed one (§10) — you CAN enter a note with a
-    // tremolo since note-entry mode learned to arm one, so a fresh head is no longer always bare.
-    const tremolo = p.tremolo ?? (p.existingHeadId ? model.getNote(p.existingHeadId)?.tremolo : undefined)
-
-    // Build the tied chain. Split durations are always plain (dots cleared).
-    let firstNote: Note | null = null
-    let previousNoteId: string | null = null
-    let currentBeat = p.startBeat
-    let startIndex = 0
-
-    if (p.existingHeadId) {
-      // Reuse the existing note as the head: retitle its duration to the first piece.
-      model.updateNote(p.existingHeadId, { duration: currentMeasureDurations[0].duration, dots: currentMeasureDurations[0].dots })
-      firstNote = model.getNote(p.existingHeadId) ?? null
-      previousNoteId = p.existingHeadId
-      currentBeat = fracAdd(currentBeat, durationToFraction(currentMeasureDurations[0].duration, currentMeasureDurations[0].dots))
-      startIndex = 1
-    }
-
-    // Remaining current-measure pieces (when the split needs > 1 — 3 beats is now ONE dotted half)
-    for (let i = startIndex; i < currentMeasureDurations.length; i++) {
-      const { duration, dots } = currentMeasureDurations[i]
-      const note = model.addNote({ ...pitch, duration, dots, measure: p.startMeasure, beat: currentBeat })
-      if (tremolo) model.setTremolo(note.id, tremolo)
-      if (!firstNote) firstNote = note
-      if (previousNoteId) {
-        model.updateNote(previousNoteId, { tiedTo: note.id })
-        model.updateNote(note.id, { tiedFrom: previousNoteId })
-      }
-      previousNoteId = note.id
-      currentBeat = fracAdd(currentBeat, durationToFraction(duration, dots))
-    }
-
-    // Tied continuation pieces in the next measure
-    let nextBeat = fracFromInt(0)
-    for (const { duration, dots } of nextMeasureDurations) {
-      const note = model.addNote({ ...pitch, duration, dots, measure: nextMeasureNumber, beat: nextBeat })
-      if (tremolo) model.setTremolo(note.id, tremolo)
-      if (previousNoteId) {
-        model.updateNote(previousNoteId, { tiedTo: note.id })
-        model.updateNote(note.id, { tiedFrom: previousNoteId })
-      }
-      previousNoteId = note.id
-      nextBeat = fracAdd(nextBeat, durationToFraction(duration, dots))
-    }
-
-    dbg('Placed spanning note with tie:', {
-      head: p.existingHeadId ?? firstNote?.id, currentDurations: currentMeasureDurations,
-      nextMeasure: nextMeasureNumber, nextDurations: nextMeasureDurations,
-    })
-    return firstNote
-  }
-
-  /** Extend the score with empty measures until `measureNumber` exists. */
-  private ensureMeasureExists(measureNumber: number): boolean {
-    let attempts = MAX_MEASURE_CREATE_ATTEMPTS
-    while (!this.getScoreModel().getMeasure(measureNumber) && attempts-- > 0) {
-      this.getScoreModel().addMeasure()
-    }
-    return !!this.getScoreModel().getMeasure(measureNumber)
-  }
-
-  /**
-   * Split an existing note with a tie when its duration changes to overflow.
-   * Thin wrapper: reuses the note as the chain head via {@link placeSpanningNote}.
-   */
-  splitExistingNoteWithTie(existingNote: Note, newDuration: NoteParams['duration'], overflowAmount: number, newDots: number = 0): void {
-    this.placeSpanningNote({
-      step: existingNote.step,
-      alter: existingNote.alter,
-      octave: existingNote.octave,
-      startMeasure: existingNote.measure,
-      startBeat: existingNote.beat,
-      totalBeats: durationToBeats(newDuration, newDots),
-      overflowAmount,
-      voice: existingNote.voice,
-      staff: existingNote.staff,
-      existingHeadId: existingNote.id,
-    })
-  }
-
-  /**
-   * Add a note that spans across a bar line by splitting it with a tie.
-   * Thin wrapper: creates a fresh chain head via {@link placeSpanningNote}.
-   * Returns the first note (in the current measure) or null if failed.
-   */
-  private addSplitNoteWithTie(noteParams: NoteParams, overflowAmount: number): Note | null {
-    return this.placeSpanningNote({
-      step: noteParams.step,
-      alter: noteParams.alter,
-      octave: noteParams.octave,
-      startMeasure: noteParams.measure,
-      startBeat: noteParams.beat,
-      totalBeats: durationToBeats(noteParams.duration, noteParams.dots || 0),
-      overflowAmount,
-      voice: noteParams.voice,
-      staff: noteParams.staff,
-      // An ENTERED mark reaches every piece too — the same rule the existing head's mark follows.
-      tremolo: noteParams.tremolo,
-    })
-  }
-
-  /**
-   * Erode all notes in the overflow zone of the next measure.
-   * Notes fully within [0, overflowBeats) are deleted.
-   * Notes that straddle the boundary are trimmed and moved to start at overflowBeats.
-   * Notes with a downstream tiedTo are deleted (punt case).
-   */
-  private erodeOverflowZone(measureNumber: number, overflowBeats: number, voice: number = 0, staff: number = 0): void {
-    const epsilon = 0.001
-    const notes = this.getScoreModel().getNotesInMeasure(measureNumber)
-    for (const note of notes) {
-      if (note.isRest) continue
-      // Only erode the overflowing note's own voice/staff — other streams are independent.
-      if (voiceOf(note) !== voice) continue
-      if (staffOf(note) !== staff) continue
-      const noteBeat = fracToNumber(note.beat)
-      if (noteBeat >= overflowBeats - epsilon) continue
-      this.erodeNoteAtBoundary(note, overflowBeats)
-    }
-  }
-
-  /**
-   * Erode a single note that starts within the overflow zone.
-   * - Fully consumed (noteEnd <= overflowBeats): break upstream tiedFrom, delete.
-   * - Straddles (noteEnd > overflowBeats, no tiedTo): trim duration and move to overflowBeats.
-   *   If the remainder needs multiple durations, build a tie chain for the tail.
-   * - Has tiedTo (downstream chain): delete (punt case — too complex to rewire).
-   */
-  private erodeNoteAtBoundary(note: Note, overflowBeats: number): void {
-    const epsilon = 0.001
-    const noteBeat = fracToNumber(note.beat)
-    const noteDurBeats = durationToBeats(note.duration, note.dots ?? 0)
-    const noteEnd = noteBeat + noteDurBeats
-
-    if (noteEnd <= overflowBeats + epsilon) {
-      // Fully consumed — break upstream tie pointer then delete
-      if (note.tiedFrom) {
-        this.getScoreModel().updateNote(note.tiedFrom, { tiedTo: undefined })
-      }
-      this.getScoreModel().deleteNote(note.id)
-      return
-    }
-
-    // Straddles boundary — punt to deletion if note has a downstream tie chain
-    if (note.tiedTo) {
-      this.getScoreModel().deleteNote(note.id)
-      return
-    }
-
-    // Trim: remainder starts at overflowBeats
-    const remainderBeats = noteEnd - overflowBeats
-    const remainderDurations = splitBeatsIntoLengths(remainderBeats)
-    if (remainderDurations.length === 0) {
-      this.getScoreModel().deleteNote(note.id)
-      return
-    }
-
-    // Break incoming tie
-    if (note.tiedFrom) {
-      this.getScoreModel().updateNote(note.tiedFrom, { tiedTo: undefined })
-    }
-
-    // Update the note: first remainder length, moved to overflowBeats
-    this.getScoreModel().updateNote(note.id, {
-      duration: remainderDurations[0].duration,
-      dots: remainderDurations[0].dots,
-      beat: beatToFrac(overflowBeats),
-      tiedFrom: undefined,
-    })
-
-    // Build tie chain for any additional remainder lengths
-    if (remainderDurations.length > 1) {
-      let prevId = note.id
-      let currentBeat = fracAdd(beatToFrac(overflowBeats), durationToFraction(remainderDurations[0].duration, remainderDurations[0].dots))
-      for (let i = 1; i < remainderDurations.length; i++) {
-        const { duration, dots } = remainderDurations[i]
-        const tailNote = this.getScoreModel().addNote({
-          step: note.step,
-          alter: note.alter,
-          octave: note.octave,
-          duration,
-          dots,
-          measure: note.measure,
-          beat: currentBeat,
-          ...(note.voice && { voice: note.voice }),
-          ...(note.staff && { staff: note.staff }),
-        })
-        this.getScoreModel().updateNote(prevId, { tiedTo: tailNote.id })
-        this.getScoreModel().updateNote(tailNote.id, { tiedFrom: prevId })
-        prevId = tailNote.id
-        currentBeat = fracAdd(currentBeat, durationToFraction(duration, dots))
-      }
-    }
   }
 
   /**

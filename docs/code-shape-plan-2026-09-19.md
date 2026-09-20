@@ -1,6 +1,6 @@
 # Code shape plan — 2026-09-19
 
-**Status: IN PROGRESS — Phase 1 DONE (2026-09-19), bar item 5's two ⏭️ decisions. Phase 2 DONE. Phase 3.1: the hairpin / ottava / pedal body drags done and checked; the trill's too (`cdb7f05`); the slur's too (`69e927c`); the four SQUARE drags too (`6d903c3`); the slur HANDLE / ENDPOINT and staff-spacing drags too (`8f28f79`); the DYNAMIC and TEMPO drags too (`9a04f88`); bar width, barline join, group span and clef too (`ee31698`); the NOTE drag too (`7d2898e`) — every gesture is a module. **Phase 3.1 DONE** (`25f70a6`). 3.2: the `keys` column + dispatcher and the HAIRPIN on it (`e61626a`); OTTAVA / PEDAL / TRILL too (`14e10e7`); DYNAMIC and TEMPO too (`943fb64`); SLUR and CLEF too (`8382fcc`); the `reanchor` and `cycle` verbs done, awaiting his UI check — **Phase 3.2 DONE with it.** 3.3 (`highlight(ctx)`): the contract + the four span squares (`a7c1076`); the join and group squares (`b772418`); the `ink` column (`f1832e7`); the slur handles (`d3dcb7b`); the anchor guide line (`e2ff597`); the note pass + note-attached kinds (`aa7e5af`); every remaining row done, awaiting his UI check — **Phase 3.3 DONE** (`1efb38d`). 3.4: the panels' `rows` (`4db182d`); the typed `InspectedElement` union done, awaiting his UI check — **3.4 DONE** (`54ab9cc`). **Phase 3 DONE** — 3.5: all seven mark families are `engine/commands/<family>Commands.ts` (`e684125` … `a8549ad`), with command specs and `commit` / `saveOnly` folded into one `mutate`. **Phase 4 IN PROGRESS** — 4.1: `spanFromNotes`, `reanchorSlurs` → `slurOps`, `tieOps` (`6d720b8`) done; `deleteNote`'s repair → `deleteNoteOps` (`ab182f4`); `convertToRest` → `convertToRestOps` (`e20ca48`); `moveSelectionToVoice` → `voiceOps` done, awaiting his UI check — **4.1 DONE with it**; 4.2 (`noteEntryOps`) next.** Phases are ordered by
+**Status: IN PROGRESS — Phase 1 DONE (2026-09-19), bar item 5's two ⏭️ decisions. Phase 2 DONE. Phase 3.1: the hairpin / ottava / pedal body drags done and checked; the trill's too (`cdb7f05`); the slur's too (`69e927c`); the four SQUARE drags too (`6d903c3`); the slur HANDLE / ENDPOINT and staff-spacing drags too (`8f28f79`); the DYNAMIC and TEMPO drags too (`9a04f88`); bar width, barline join, group span and clef too (`ee31698`); the NOTE drag too (`7d2898e`) — every gesture is a module. **Phase 3.1 DONE** (`25f70a6`). 3.2: the `keys` column + dispatcher and the HAIRPIN on it (`e61626a`); OTTAVA / PEDAL / TRILL too (`14e10e7`); DYNAMIC and TEMPO too (`943fb64`); SLUR and CLEF too (`8382fcc`); the `reanchor` and `cycle` verbs done, awaiting his UI check — **Phase 3.2 DONE with it.** 3.3 (`highlight(ctx)`): the contract + the four span squares (`a7c1076`); the join and group squares (`b772418`); the `ink` column (`f1832e7`); the slur handles (`d3dcb7b`); the anchor guide line (`e2ff597`); the note pass + note-attached kinds (`aa7e5af`); every remaining row done, awaiting his UI check — **Phase 3.3 DONE** (`1efb38d`). 3.4: the panels' `rows` (`4db182d`); the typed `InspectedElement` union done, awaiting his UI check — **3.4 DONE** (`54ab9cc`). **Phase 3 DONE** — 3.5: all seven mark families are `engine/commands/<family>Commands.ts` (`e684125` … `a8549ad`), with command specs and `commit` / `saveOnly` folded into one `mutate`. **Phase 4 IN PROGRESS** — 4.1: `spanFromNotes`, `reanchorSlurs` → `slurOps`, `tieOps` (`6d720b8`) done; `deleteNote`'s repair → `deleteNoteOps` (`ab182f4`); `convertToRest` → `convertToRestOps` (`e20ca48`); `moveSelectionToVoice` → `voiceOps` (`5f6fa03`) — **4.1 DONE**. 4.2 split a–d: **a** the spanning note → `spanningNoteOps` done, awaiting his UI check; b overwrite next.** Phases are ordered by
 value over risk; each one stands alone and can be stopped after. A done item carries ✅ and what
 actually happened where that differs from what was planned.
 
@@ -796,11 +796,42 @@ The only phase that fixes a broken principle rather than a shape.
    each bite. ⚠️ KEPT AS IT WAS, and his to call: when NOTHING moves (a selection of rests only)
    the beam-over re-flag and the prune still run, and no undo entry is filed — a write outside
    the history if the target voice has a rest at that beat. Not changed in a move. `MusicEngine`
-   kinds 511 → 510. ⏸️ Awaiting his UI check. **4.1 is DONE with it.***
+   kinds 511 → 510. ✅ `5f6fa03`. **4.1 is DONE.***
 
 2. `NoteEntryCoordinator`'s model-only half — overflow, erosion, tie-split, overwrite, the
    tuplet builders — into `engine/models/noteEntryOps`. The coordinator keeps pixel resolution,
    collision and commit.
+   *SPLIT into four, 2026-09-20, after reading the coordinator (1,602 lines) — and ⚠️ NOT one
+   `noteEntryOps`: its model-only half is four subjects that share nothing but the model, so one
+   file would be a ~900-line hub born whole. One module per subject, the rule's own shape:*
+   - ***a. the SPANNING note*** *— `placeSpanningNote`, its two callers, `ensureMeasureExists`,
+     the erosion → `models/spanningNoteOps`.* ***Done (below).***
+   - ***b. what an entered note OVERWRITES*** *— `findNotesToOverwrite`, `applyEntryOverwrites`,
+     `addNoteAtBeat`'s own overlap sweep and tuplet clamp → `models/entryOverwriteOps`.
+     ⚠️ There are TWO overlap rules today (the keyboard path's exact half-open intervals, the mouse
+     path's "starts inside my range") — moved side by side first, ⛔ not merged in the move.*
+   - ***c. a DURATION CHANGE*** *— `updateNote`'s three bodies (overflow, tuplet, plain) and
+     `findLargestFittingDuration` → `models/durationChangeOps`; the coordinator keeps the fan
+     member's straight-through write and the commit. ⚠️ Still float + epsilon where (b)'s keyboard
+     path is exact — noted, not changed in the move.*
+   - ***d. the TUPLET builders*** *— `buildTupletWithFirstNote`, `applyTupletToNote`,
+     `tupletFitsBar` → `tupletOps` (it exists) or a sibling, decided when read.*
+   *The coordinator is left with what the plan said: pixel resolution (`resolveClickToBeat`, the
+   rest finders, `isValidEntryClick`), collision, and the commit. Its own copy of `getChordNotesAt`
+   goes in (c), to `deleteNoteOps.chordNotesAt`.*
+
+   *4.2a done, 2026-09-20 — `engine/models/spanningNoteOps.ts`: `placeSpanningNote(model, p)` +
+   `splitExistingNoteWithTie` (a reused head) + `addSplitNoteWithTie` (a fresh one) +
+   `erodeOverflowZone`, over a `SpanningNoteModel`. Moved by script, bodies verbatim (the
+   `console.warn`s and the float epsilon included). `NoteEntryCoordinator` 1,602 → 1,352 lines;
+   its public `splitExistingNoteWithTie` had no caller but the spec and is gone. Spec:
+   `spanningNoteOps.test.ts` (12) — the split and erosion chapters MOVED; the one case that drives
+   `addNoteAtBeat` stays with the coordinator (it pins that ENTRY reaches the chain) and has an ops
+   twin; NEW: erosion is scoped to the overflowing note's voice AND staff, which nothing pinned
+   (break-tested: dropping either scope now fails). ⚠️ Learned writing it: the head
+   `placeSpanningNote` answers is a flat SNAPSHOT taken before its tie is attached — `tiedTo` reads
+   undefined on it; ask the model. Kept as it was. ⏸️ Awaiting his UI check.*
+
 3. `ScoreModel`'s remaining logic (`fillGapsWithRests`, `pushRestSlot`, `insertPitch`,
    `convertToRest`, the three `repairDangling*`) into ops modules; then `rebarOps` imports ops
    directly and `RebarDeps`, `VoiceDeps`, `ClearRangeDeps` disappear.

@@ -27,101 +27,8 @@ function makeCoordinator(scoreModel: ScoreModel) {
   )
 }
 
-describe('NoteEntryCoordinator.splitExistingNoteWithTie', () => {
-  let scoreModel: ScoreModel
-  let coordinator: NoteEntryCoordinator
-
-  beforeEach(() => {
-    scoreModel = new ScoreModel('Test')
-    // Ensure we have 2 measures
-    scoreModel.addMeasure()
-    coordinator = makeCoordinator(scoreModel)
-  })
-
-  it('splits a note at beat 0 into the next measure (basic case)', () => {
-    // Add a quarter note at beat 0 in measure 1
-    const note = scoreModel.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
-
-    // Request a whole note (4 beats) — only 4 available but note is at beat 0, so no overflow...
-    // Let's put it at beat 2 so 2 beats remain, then request a whole note (4 beats) → overflow 2 beats
-    scoreModel.deleteNote(note.id)
-    const note2 = scoreModel.addNote({ step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(2, 1) })
-
-    coordinator.splitExistingNoteWithTie(note2, 'w', 2) // whole = 4b, available = 2b, overflow = 2b
-
-    const m1Notes = scoreModel.getNotesInMeasure(1).filter(n => !n.isRest)
-    const m2Notes = scoreModel.getNotesInMeasure(2).filter(n => !n.isRest)
-
-    // Current measure: 2 beats remaining → half note
-    expect(m1Notes).toHaveLength(1)
-    expect(m1Notes[0].duration).toBe('h')
-    expect(m1Notes[0].step).toBe('E')
-
-    // Next measure: 2 beats → half note
-    expect(m2Notes).toHaveLength(1)
-    expect(m2Notes[0].duration).toBe('h')
-    expect(m2Notes[0].step).toBe('E')
-
-    // Tied together
-    expect(m1Notes[0].tiedTo).toBe(m2Notes[0].id)
-    expect(m2Notes[0].tiedFrom).toBe(m1Notes[0].id)
-  })
-
-  it('spans 3 remaining beats with ONE dotted half, not a half tied to a quarter', () => {
-    // Note at beat 1 in 4/4 → 3 beats remain. Request whole (4 beats) → overflow = 1 beat.
-    // splitBeatsIntoLengths(3) = [h.], splitBeatsIntoLengths(1) = [q] — the FEWEST values that span
-    // it, dots included. It was ['h','q'], which cost an extra note and an extra tie for nothing.
-    const note = scoreModel.addNote({ step: 'G', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
-
-    coordinator.splitExistingNoteWithTie(note, 'w', 1) // overflow = 1 beat
-
-    const m1Notes = scoreModel.getNotesInMeasure(1).filter(n => !n.isRest && n.step === 'G')
-    const m2Notes = scoreModel.getNotesInMeasure(2).filter(n => !n.isRest && n.step === 'G')
-
-    // 3 beats in the current measure: ONE dotted half
-    expect(m1Notes).toHaveLength(1)
-    expect(m1Notes[0].duration).toBe('h')
-    expect(m1Notes[0].dots).toBe(1)
-
-    // 1 beat in the next measure: a quarter
-    expect(m2Notes).toHaveLength(1)
-    expect(m2Notes[0].duration).toBe('q')
-
-    // ONE tie now, not two: dotted half → quarter
-    expect(m1Notes[0].tiedTo).toBe(m2Notes[0].id)
-    expect(m2Notes[0].tiedFrom).toBe(m1Notes[0].id)
-    expect(m2Notes[0].tiedTo).toBeUndefined()
-  })
-
-  it('creates the next measure automatically if it does not exist', () => {
-    // ScoreModel starts with 1 measure; remove the extra one we added
-    const freshModel = new ScoreModel('Test')
-    const freshCoord = makeCoordinator(freshModel)
-    expect(freshModel.getScore().measures).toHaveLength(1)
-
-    const note = freshModel.addNote({ step: 'A', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(2, 1) })
-    freshCoord.splitExistingNoteWithTie(note, 'w', 2)
-
-    expect(freshModel.getScore().measures).toHaveLength(2)
-    const m2Notes = freshModel.getNotesInMeasure(2).filter(n => !n.isRest)
-    expect(m2Notes).toHaveLength(1)
-  })
-
-  it('displaces existing content in the next measure (MuseScore-style)', () => {
-    // Pre-fill measure 2 with a quarter note
-    scoreModel.addNote({ step: 'D', alter: 0, octave: 4, duration: 'q', measure: 2, beat: frac(0, 1) })
-
-    const note = scoreModel.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(2, 1) })
-    coordinator.splitExistingNoteWithTie(note, 'w', 2) // overflow 2 beats into m2
-
-    // The D in measure 2 should be gone; the tied C continuation should be there instead
-    const m2Notes = scoreModel.getNotesInMeasure(2).filter(n => !n.isRest)
-    expect(m2Notes.every(n => n.step !== 'D')).toBe(true)
-    expect(m2Notes.some(n => n.step === 'C')).toBe(true)
-  })
-})
-
-describe('NoteEntryCoordinator — Sibelius-style erosion', () => {
+/** The chain and the erosion are `models/spanningNoteOps`; this pins that ENTRY reaches them. */
+describe('NoteEntryCoordinator.addNoteAtBeat — an overflowing note is split and the next bar eroded', () => {
   let scoreModel: ScoreModel
   let coordinator: NoteEntryCoordinator
 
@@ -129,88 +36,6 @@ describe('NoteEntryCoordinator — Sibelius-style erosion', () => {
     scoreModel = new ScoreModel('Test')
     scoreModel.addMeasure()
     coordinator = makeCoordinator(scoreModel)
-  })
-
-  it('trims a straddling note instead of deleting it (headline case)', () => {
-    // 4/4: E4q at beat 2 → dotted half (3 beats). Overflow = 1 beat.
-    // G4h at beat 0 in M2 straddles: remainder = 2 - 1 = 1 beat → G4q at beat 1
-    scoreModel.addNote({ step: 'G', alter: 0, octave: 4, duration: 'h', measure: 2, beat: frac(0, 1) })
-    scoreModel.addNote({ step: 'A', alter: 0, octave: 4, duration: 'h', measure: 2, beat: frac(2, 1) })
-    const note = scoreModel.addNote({ step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(2, 1) })
-
-    coordinator.splitExistingNoteWithTie(note, 'h', 1) // 2b available, overflow = 1b → M2 gets E4q
-
-    const m2NonRest = scoreModel.getNotesInMeasure(2).filter(n => !n.isRest)
-    const g4 = m2NonRest.find(n => n.step === 'G')
-    const a4 = m2NonRest.find(n => n.step === 'A')
-
-    // G4 must survive, trimmed to quarter, moved to beat 1
-    expect(g4).toBeDefined()
-    expect(g4!.duration).toBe('q')
-    expect(fracToNumber(g4!.beat)).toBeCloseTo(1)
-
-    // A4 untouched
-    expect(a4).toBeDefined()
-    expect(a4!.duration).toBe('h')
-    expect(fracToNumber(a4!.beat)).toBeCloseTo(2)
-  })
-
-  it('deletes a note fully consumed by the overflow zone', () => {
-    // G4q at beat 0 in M2, overflow = 2 beats → G4q entirely within [0,2), deleted
-    scoreModel.addNote({ step: 'G', alter: 0, octave: 4, duration: 'q', measure: 2, beat: frac(0, 1) })
-    const note = scoreModel.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(2, 1) })
-
-    coordinator.splitExistingNoteWithTie(note, 'w', 2) // overflow = 2 beats
-
-    const m2NonRest = scoreModel.getNotesInMeasure(2).filter(n => !n.isRest)
-    expect(m2NonRest.every(n => n.step !== 'G')).toBe(true)
-  })
-
-  it('writes a trimmed 3-beat remainder as ONE dotted half', () => {
-    // G4 whole at beat 0 in M2, overflow = 1 beat → remainder = 3 beats. That is a dotted half at
-    // beat 1, not h + q tied (the old plain-only split — see splitBeatsIntoLengths).
-    scoreModel.addNote({ step: 'G', alter: 0, octave: 4, duration: 'w', measure: 2, beat: frac(0, 1) })
-    const note = scoreModel.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(3, 1) })
-
-    coordinator.splitExistingNoteWithTie(note, 'h', 1) // 1b available, overflow = 1b
-
-    const m2G = scoreModel.getNotesInMeasure(2).filter(n => !n.isRest && n.step === 'G')
-    expect(m2G).toHaveLength(1)
-    expect(m2G[0].duration).toBe('h')
-    expect(m2G[0].dots).toBe(1)
-    expect(fracToNumber(m2G[0].beat)).toBeCloseTo(1)
-    expect(m2G[0].tiedTo).toBeUndefined() // one value, so nothing to tie it to
-  })
-
-  it('breaks the upstream tiedFrom pointer when eroding a note that has tiedFrom', () => {
-    // G4h in M2 is the tied continuation of G4h in M1
-    const g4m1 = scoreModel.addNote({ step: 'G', alter: 0, octave: 4, duration: 'h', measure: 1, beat: frac(0, 1) })
-    const g4m2 = scoreModel.addNote({ step: 'G', alter: 0, octave: 4, duration: 'h', measure: 2, beat: frac(0, 1) })
-    scoreModel.updateNote(g4m1.id, { tiedTo: g4m2.id })
-    scoreModel.updateNote(g4m2.id, { tiedFrom: g4m1.id })
-
-    // Now enter C4 at beat 2 M1 extended to whole → overflow 2 beats, erodes G4m2
-    const note = scoreModel.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(2, 1) })
-    coordinator.splitExistingNoteWithTie(note, 'w', 2) // overflow = 2 beats, G4h fully consumed
-
-    // Upstream tie pointer on G4m1 should be cleared
-    const updated = scoreModel.getNote(g4m1.id)
-    expect(updated?.tiedTo).toBeUndefined()
-  })
-
-  it('falls back to deletion when the note to erode has a downstream tiedTo', () => {
-    // G4h in M2 is itself tied forward to G4q in M2
-    const g4head = scoreModel.addNote({ step: 'G', alter: 0, octave: 4, duration: 'h', measure: 2, beat: frac(0, 1) })
-    const g4tail = scoreModel.addNote({ step: 'G', alter: 0, octave: 4, duration: 'q', measure: 2, beat: frac(2, 1) })
-    scoreModel.updateNote(g4head.id, { tiedTo: g4tail.id })
-    scoreModel.updateNote(g4tail.id, { tiedFrom: g4head.id })
-
-    const note = scoreModel.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(2, 1) })
-    coordinator.splitExistingNoteWithTie(note, 'h', 1) // overflow = 1 beat, G4h straddles
-
-    // G4head must be deleted (punt case), not trimmed
-    const m2NonRest = scoreModel.getNotesInMeasure(2).filter(n => !n.isRest)
-    expect(m2NonRest.every(n => n.step !== 'G' || n.id === g4tail.id)).toBe(true)
   })
 
   it('erodes via addNoteAtBeat (addSplitNoteWithTie path)', () => {
@@ -232,23 +57,6 @@ describe('NoteEntryCoordinator — Sibelius-style erosion', () => {
     expect(g4).toBeDefined()
     expect(g4!.duration).toBe('q')
     expect(fracToNumber(g4!.beat)).toBeCloseTo(1)
-  })
-
-  it('handles mixed overflow zone: fully-consumed note deleted, straddling note trimmed', () => {
-    // M2: G4q at beat 0 (fully consumed), A4h at beat 1 (straddles). Overflow = 2 beats.
-    // A4h: start=1, end=3, overflow=2 → remainder = 3-2 = 1b → A4q at beat 2
-    scoreModel.addNote({ step: 'G', alter: 0, octave: 4, duration: 'q', measure: 2, beat: frac(0, 1) })
-    scoreModel.addNote({ step: 'A', alter: 0, octave: 4, duration: 'h', measure: 2, beat: frac(1, 1) })
-    const note = scoreModel.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(2, 1) })
-
-    coordinator.splitExistingNoteWithTie(note, 'w', 2) // overflow = 2 beats
-
-    const m2NonRest = scoreModel.getNotesInMeasure(2).filter(n => !n.isRest)
-    expect(m2NonRest.every(n => n.step !== 'G')).toBe(true) // G4q deleted
-    const a4 = m2NonRest.find(n => n.step === 'A')
-    expect(a4).toBeDefined()
-    expect(a4!.duration).toBe('q')
-    expect(fracToNumber(a4!.beat)).toBeCloseTo(2)
   })
 })
 
