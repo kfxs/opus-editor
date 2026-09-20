@@ -16,7 +16,7 @@
  * no length of its own to continue into (docs/fanned-beam-pitches-plan.md §3). A single-note ask is
  * refused; in a selection the member is DROPPED, since the other notes were selected too.
  */
-import type { Note, NoteParams } from '@/types/music'
+import type { Note, NoteParams, Score } from '@/types/music'
 import { dbg } from '@/utils/debug'
 import { fracToNumber } from '@/utils/fraction'
 import { staffOf, voiceOf } from '@/utils/lanes'
@@ -141,6 +141,33 @@ export function applyTiePairs(model: TieModel, pairs: readonly TiePair[], allTie
     } else if (source.tiedTo !== target.id) {
       model.updateNote(source.id, { tiedTo: target.id })
       model.updateNote(target.id, { tiedFrom: source.id })
+    }
+  }
+}
+
+/**
+ * Clear `tiedTo`/`tiedFrom` pointers that reference ids no longer present in the
+ * score (e.g. after re-barring regenerates region slot ids). Ties are severed,
+ * never left dangling, so tie editing/rendering can't hit a missing note.
+ */
+export function repairDanglingTies(score: Score): void {
+  const ids = new Set<string>()
+  for (const m of score.measures) {
+    for (const s of m.slots) {
+      if (s.type === 'chord') for (const p of s.notes) ids.add(p.id)
+      else ids.add(s.id)
+    }
+  }
+  for (const m of score.measures) {
+    for (const s of m.slots) {
+      if (s.type === 'chord') {
+        for (const p of s.notes) {
+          if (p.tiedTo && !ids.has(p.tiedTo)) delete p.tiedTo
+          if (p.tiedFrom && !ids.has(p.tiedFrom)) delete p.tiedFrom
+        }
+      } else if (s.tiedFrom && !ids.has(s.tiedFrom)) {
+        delete s.tiedFrom
+      }
     }
   }
 }

@@ -13,6 +13,8 @@
  */
 import { describe, it, expect, beforeEach } from 'vitest'
 import { ScoreModel } from './ScoreModel'
+import { repairDanglingSlurs, setSlurOffset } from './slurOps'
+import { fracCreate as fracOf } from '@/utils/fraction'
 import { curveShapeOverrideOf, endpointOffsetOverrideOf, slurOffsetOverrideOf, segmentCurveShapeOverrideOf, segmentEndpointOffsetOverrideOf } from './engravingOverrides'
 import type { CurveControlPointDeltas } from '@/types/music'
 
@@ -385,5 +387,38 @@ describe('ScoreModel.resetSlurSegmentEndpointOffset', () => {
     expect(model.resetSlurSegmentEndpointOffset(slurId, { role: 'end' }, 3)).toBe(false)
     // Authored at 3 systems, asked at 2: already stale, so there is nothing to take back.
     expect(model.resetSlurSegmentEndpointOffset(slurId, { role: 'middle', ordinal: 0, side: 'left' }, 2)).toBe(false)
+  })
+})
+
+describe('repairDanglingSlurs — the belt behind a re-bar\'s slur restore', () => {
+  const note = (model: ScoreModel, beat: number) =>
+    model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: fracOf(beat, 1) })
+
+  it('drops a slur with a missing anchor — and its overrides with it — and keeps a whole one', () => {
+    const model = new ScoreModel()
+    const [a, b] = [note(model, 0), note(model, 1)]
+    const whole = model.addSlur({ startNoteId: a.id, endNoteId: b.id })
+    const broken = model.addSlur({ startNoteId: a.id, endNoteId: 'gone' })
+    setSlurOffset(model.getScore(), broken.id, 1, 1)
+    expect(slurOffsetOverrideOf(model.getScore(), broken.id)).toBeDefined()
+
+    repairDanglingSlurs(model.getScore())
+
+    expect(model.getSlurs().map(s => s.id)).toEqual([whole.id])
+    expect(slurOffsetOverrideOf(model.getScore(), broken.id)).toBeUndefined()
+  })
+
+  it('⭐ a FANNED MEMBER is an anchor — a slur between two members survives the sweep', () => {
+    const model = new ScoreModel()
+    const owner = model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'h', measure: 1, beat: fracOf(0, 1) })
+    model.setFan(owner.id, { direction: 'accel', count: 4, beams: 3 })
+    const slot = model.getScore().measures[0].slots.find(s => s.type === 'chord')!
+    if (slot.type !== 'chord') throw new Error('expected a chord')
+    const [m1, m2] = slot.fan!.members!.map(m => m.pitches[0].id)
+    model.addSlur({ startNoteId: m1, endNoteId: m2 })
+
+    repairDanglingSlurs(model.getScore())
+
+    expect(model.getSlurs()).toHaveLength(1)
   })
 })

@@ -13,7 +13,7 @@ import {
 } from '@/utils/meter'
 import { fillRests, type RestSlot } from '@/utils/restFill'
 import { beamRoleAtRef, type BeamRole } from '@/utils/beaming'
-import { cloneFanFresh, chordStoredPitches, fanMemberPitches, fanMemberBeats } from '@/utils/fannedBeam'
+import { cloneFanFresh, fanMemberPitches, fanMemberBeats } from '@/utils/fannedBeam'
 import { alterToString } from '@/utils/pitchSpelling'
 import type { Clip, ClipTarget } from '@/utils/clip'
 import {
@@ -38,6 +38,7 @@ import { keyAt } from '@/utils/keySignature'
 import * as rebarOps from './rebarOps'
 import * as overrideOps from './overrideOps'
 import * as slurOps from './slurOps'
+import { repairDanglingTies } from './tieOps'
 import * as trillOps from './trillOps'
 import type { TrillAuxiliary } from '@/utils/trillPitch'
 import * as dynamicOps from './dynamicOps'
@@ -438,9 +439,9 @@ export class ScoreModel {
     // The removed measure's notes are gone, so any tie/slur that referenced them (or
     // crossed its boundary) now points at a missing id — sever/prune them so tie &
     // slur editing/rendering can't hit a hole. (Same sweeps rebar uses.)
-    this.repairDanglingTies()
-    this.repairDanglingSlurs()
-    this.repairDanglingTrills()
+    repairDanglingTies(this.score)
+    slurOps.repairDanglingSlurs(this.score)
+    trillOps.repairDanglingTrills(this.score)
     return true
   }
 
@@ -1961,103 +1962,6 @@ export class ScoreModel {
       findSlot: (id) => this.findSlot(id),
       setEngravingOverride: (id, override) => this.setEngravingOverride(id, override),
       clearEngravingOverride: (id, kind) => this.clearEngravingOverride(id, kind),
-      repairDanglingTies: () => this.repairDanglingTies(),
-      repairDanglingSlurs: () => this.repairDanglingSlurs(),
-      repairDanglingTrills: () => this.repairDanglingTrills(),
-    }
-  }
-
-  /**
-   * Clear `tiedTo`/`tiedFrom` pointers that reference ids no longer present in the
-   * score (e.g. after re-barring regenerates region slot ids). Ties are severed,
-   * never left dangling, so tie editing/rendering can't hit a missing note.
-   */
-  private repairDanglingTies(): void {
-    const ids = new Set<string>()
-    for (const m of this.score.measures) {
-      for (const s of m.slots) {
-        if (s.type === 'chord') for (const p of s.notes) ids.add(p.id)
-        else ids.add(s.id)
-      }
-    }
-    for (const m of this.score.measures) {
-      for (const s of m.slots) {
-        if (s.type === 'chord') {
-          for (const p of s.notes) {
-            if (p.tiedTo && !ids.has(p.tiedTo)) delete p.tiedTo
-            if (p.tiedFrom && !ids.has(p.tiedFrom)) delete p.tiedFrom
-          }
-        } else if (s.tiedFrom && !ids.has(s.tiedFrom)) {
-          delete s.tiedFrom
-        }
-      }
-    }
-  }
-
-  /**
-   * Drop any slur referencing a note id no longer present in the score (defensive belt
-   * to {@link restoreSlurs}: a slur must never point at a missing note, or rendering /
-   * endpoint editing would hit a hole). Mirrors {@link repairDanglingTies}.
-   */
-  private repairDanglingSlurs(): void {
-    const slurs = this.score.slurs
-    if (!slurs || slurs.length === 0) return
-    const ids = new Set<string>()
-    for (const m of this.score.measures) {
-      for (const s of m.slots) {
-        if (s.type === 'chord') {
-          // ⭐ `chordStoredPitches` includes the FANNED MEMBERS, and a member can anchor a slur
-          // (docs/fanned-beam-pitches-plan.md) — a slur is a SPAN between two points, and member 2 →
-          // member 5 is a span. Leave them out and every such slur is silently dropped the next time
-          // this defensive pass runs.
-          for (const p of chordStoredPitches(s)) ids.add(p.id)
-        } else ids.add(s.id)
-      }
-    }
-    for (let i = slurs.length - 1; i >= 0; i--) {
-      if (!ids.has(slurs[i].startNoteId) || !ids.has(slurs[i].endNoteId)) {
-        const [dropped] = slurs.splice(i, 1)
-        this.clearEngravingOverride(dropped.id) // auto-reset (§3.3): slur points at a missing note → dropped
-      }
-    }
-  }
-
-  /**
-   * Drop any trill whose START note is no longer in the score — the defensive BELT behind
-   * `rebarOps`' {@link restoreTrills}, exactly as {@link repairDanglingSlurs} is the belt behind
-   * `restoreSlurs`.
-   *
-   * ⚠️⚠️ **This is not how a trill survives a re-bar, and reading it as such would delete the
-   * feature in use.** A re-bar re-mints every note id in the region, so if this sweep were the only
-   * thing that ran, every meter change and every paste would silently remove every trill it touched.
-   * The trill is CAPTURED before the ids go and RE-FOUND afterwards by (onset offset + pitch +
-   * voice); this only cleans up what genuinely could not be re-found. See docs/trill-plan.md §2.1.
-   *
-   * ⭐ A dangling END degrades rather than drops: the sign is still true and only the line's length
-   * was in doubt, so the field is cleared and the trill becomes the one-note trill. Dropping the
-   * whole object because its far end went would lose a mark the user can still see a reason for.
-   *
-   * ⛔ FANNED MEMBERS are deliberately NOT in the id set, unlike `repairDanglingSlurs`' — a trill
-   * refuses to anchor to one in the first place (`trillOps.addTrill`), so an id that resolves only
-   * as a member is one this sweep should be dropping.
-   */
-  private repairDanglingTrills(): void {
-    const trills = this.score.trills
-    if (!trills || trills.length === 0) return
-    const ids = new Set<string>()
-    for (const m of this.score.measures) {
-      for (const s of m.slots) {
-        if (s.type === 'chord') for (const p of s.notes) ids.add(p.id)
-      }
-    }
-    for (let i = trills.length - 1; i >= 0; i--) {
-      const trill = trills[i]
-      if (!ids.has(trill.startNoteId)) {
-        trills.splice(i, 1)
-        this.clearEngravingOverride(trill.id) // auto-reset (§3.3): the sign's own note is gone
-      } else if (trill.endNoteId !== undefined && !ids.has(trill.endNoteId)) {
-        delete trill.endNoteId
-      }
     }
   }
 

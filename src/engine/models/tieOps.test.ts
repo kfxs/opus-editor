@@ -7,7 +7,7 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import type { Note } from '@/types/music'
 import { fracCreate as frac } from '@/utils/fraction'
 import { ScoreModel } from './ScoreModel'
-import { applyTiePairs, planTieSelection, tieTargetOf, toggleTie } from './tieOps'
+import { applyTiePairs, planTieSelection, repairDanglingTies, tieTargetOf, toggleTie } from './tieOps'
 
 const n = (id: string, beat: number, over: Partial<Note> = {}): Note =>
   ({ id, measure: 1, beat: frac(beat, 1), duration: 'q', step: 'C', alter: 0, octave: 4, ...over }) as Note
@@ -95,5 +95,32 @@ describe('toggleTie / planTieSelection — through a ScoreModel', () => {
   it('one usable note is not a selection — it routes to the single-note toggle; duplicates fold', () => {
     expect(planTieSelection(model, [ids[0], ids[0]])).toEqual({ single: ids[0] })
     expect(planTieSelection(model, [])).toBeNull()
+  })
+})
+
+describe('repairDanglingTies — a tie is severed, never left pointing at nothing', () => {
+  it('clears a pointer to an id that is gone, on either end, and leaves a whole tie alone', () => {
+    const model = new ScoreModel()
+    const [a, b, c] = [0, 1, 2].map(i =>
+      model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(i, 1) }))
+    toggleTie(model, a.id) // a → b, whole
+    // What a re-bar leaves when it re-mints ids: pointers at notes that no longer exist.
+    model.updateNote(b.id, { tiedTo: 'gone' })
+    model.updateNote(c.id, { tiedFrom: 'gone-too' })
+
+    repairDanglingTies(model.getScore())
+
+    expect(model.getNote(a.id)!.tiedTo).toBe(b.id)
+    expect(model.getNote(b.id)!.tiedFrom).toBe(a.id)
+    expect(model.getNote(b.id)!.tiedTo).toBeUndefined()
+    expect(model.getNote(c.id)!.tiedFrom).toBeUndefined()
+  })
+
+  it('a REST holds only the arriving end, and that is cleared too', () => {
+    const model = new ScoreModel()
+    const rest = model.addNote({ duration: 'q', measure: 1, beat: frac(0, 1), isRest: true })
+    model.updateNote(rest.id, { tiedFrom: 'gone' })
+    repairDanglingTies(model.getScore())
+    expect(model.getNote(rest.id)!.tiedFrom).toBeUndefined()
   })
 })

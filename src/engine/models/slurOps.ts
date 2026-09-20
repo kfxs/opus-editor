@@ -30,6 +30,7 @@ import { measureStartOffsets as measureStarts } from '@/utils/measureCapacity'
 import { voiceOf } from '@/utils/lanes'
 import { onSameStaff } from '@/utils/dynamicScope'
 import { v4 as uuidv4 } from 'uuid'
+import { chordStoredPitches } from '@/utils/fannedBeam'
 import { engravingOverrideOf } from './engravingOverrides'
 import { setEngravingOverride, clearEngravingOverride } from './overrideOps'
 
@@ -569,6 +570,34 @@ export function reanchorSlurs(score: Score, oldId: string, newId: string | null)
       clearEngravingOverride(score, s.id) // auto-reset (§3.3): re-anchor collapsed the span → dropped
     } else {
       clearEngravingOverride(score, s.id, 'curveShape') // auto-reset (§3.3): endpoint re-pointed onto a different element
+    }
+  }
+}
+
+/**
+ * Drop any slur referencing a note id no longer present in the score (defensive belt
+ * to {@link restoreSlurs}: a slur must never point at a missing note, or rendering /
+ * endpoint editing would hit a hole). Mirrors {@link repairDanglingTies}.
+ */
+export function repairDanglingSlurs(score: Score): void {
+  const slurs = score.slurs
+  if (!slurs || slurs.length === 0) return
+  const ids = new Set<string>()
+  for (const m of score.measures) {
+    for (const s of m.slots) {
+      if (s.type === 'chord') {
+        // ⭐ `chordStoredPitches` includes the FANNED MEMBERS, and a member can anchor a slur
+        // (docs/fanned-beam-pitches-plan.md) — a slur is a SPAN between two points, and member 2 →
+        // member 5 is a span. Leave them out and every such slur is silently dropped the next time
+        // this defensive pass runs.
+        for (const p of chordStoredPitches(s)) ids.add(p.id)
+      } else ids.add(s.id)
+    }
+  }
+  for (let i = slurs.length - 1; i >= 0; i--) {
+    if (!ids.has(slurs[i].startNoteId) || !ids.has(slurs[i].endNoteId)) {
+      const [dropped] = slurs.splice(i, 1)
+      clearEngravingOverride(score, dropped.id) // auto-reset (§3.3): slur points at a missing note → dropped
     }
   }
 }

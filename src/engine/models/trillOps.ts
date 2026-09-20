@@ -55,7 +55,7 @@ export function trillOnNote(score: Score, startNoteId: string): Trill | undefine
  * The member case is the decision docs/trill-plan.md §2.2 had to make, because the code says two
  * things: `slotLookup.findSlot`'s note names the commands that must refuse a member ("a tie, a
  * slur, an articulation, a duration change: they attach to the SLOT — the whole gesture — and a
- * member is not one"), while `ScoreModel.repairDanglingSlurs` deliberately includes members so a
+ * member is not one"), while `slurOps.repairDanglingSlurs` deliberately includes members so a
  * slur CAN span them. A trill is a sign ON one note plus a duration — the articulation family's
  * attachment, not the slur's span-between-two-points — so it refuses. Refusing here (rather than
  * half-writing an anchor nothing draws) is what lets the stamp consume a near-miss click.
@@ -653,4 +653,43 @@ function laneSlotsBetween(score: Score, from: Anchor, to: Anchor): string[] {
     }
   }
   return ids
+}
+
+/**
+ * Drop any trill whose START note is no longer in the score — the defensive BELT behind
+ * `rebarOps`' {@link restoreTrills}, exactly as {@link repairDanglingSlurs} is the belt behind
+ * `restoreSlurs`.
+ *
+ * ⚠️⚠️ **This is not how a trill survives a re-bar, and reading it as such would delete the
+ * feature in use.** A re-bar re-mints every note id in the region, so if this sweep were the only
+ * thing that ran, every meter change and every paste would silently remove every trill it touched.
+ * The trill is CAPTURED before the ids go and RE-FOUND afterwards by (onset offset + pitch +
+ * voice); this only cleans up what genuinely could not be re-found. See docs/trill-plan.md §2.1.
+ *
+ * ⭐ A dangling END degrades rather than drops: the sign is still true and only the line's length
+ * was in doubt, so the field is cleared and the trill becomes the one-note trill. Dropping the
+ * whole object because its far end went would lose a mark the user can still see a reason for.
+ *
+ * ⛔ FANNED MEMBERS are deliberately NOT in the id set, unlike `repairDanglingSlurs`' — a trill
+ * refuses to anchor to one in the first place (`trillOps.addTrill`), so an id that resolves only
+ * as a member is one this sweep should be dropping.
+ */
+export function repairDanglingTrills(score: Score): void {
+  const trills = score.trills
+  if (!trills || trills.length === 0) return
+  const ids = new Set<string>()
+  for (const m of score.measures) {
+    for (const s of m.slots) {
+      if (s.type === 'chord') for (const p of s.notes) ids.add(p.id)
+    }
+  }
+  for (let i = trills.length - 1; i >= 0; i--) {
+    const trill = trills[i]
+    if (!ids.has(trill.startNoteId)) {
+      trills.splice(i, 1)
+      clearEngravingOverride(score, trill.id) // auto-reset (§3.3): the sign's own note is gone
+    } else if (trill.endNoteId !== undefined && !ids.has(trill.endNoteId)) {
+      delete trill.endNoteId
+    }
+  }
 }

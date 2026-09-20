@@ -25,6 +25,9 @@ import { type Fraction, fracCreate, fracAdd, fracSub, fracCompare, fracEq, fracL
 import { measureCapacityFrac } from '@/utils/measureCapacity'
 import { staffIndexOfId, matchesStaff, staffIdAtIndex, keyStaffId, staffMeasureView } from './staffContent'
 import { laneOfSlot, pairIsValid } from '@/utils/tremoloPair'
+import { repairDanglingTies } from './tieOps'
+import { repairDanglingSlurs } from './slurOps'
+import { repairDanglingTrills } from './trillOps'
 import { cloneFanFresh, chordStoredPitches, fanMemberBeats } from '@/utils/fannedBeam'
 import { v4 as uuidv4 } from 'uuid'
 import { voiceOf } from '@/utils/lanes'
@@ -54,9 +57,6 @@ export interface RebarDeps {
   findSlot(noteId: string): FindSlotResult | undefined
   setEngravingOverride(elementId: string, override: EngravingOverride): void
   clearEngravingOverride(elementId: string, kind?: string): boolean
-  repairDanglingTies(): void
-  repairDanglingSlurs(): void
-  repairDanglingTrills(): void
 }
 
 /**
@@ -274,14 +274,14 @@ export function rebarRegion(score: Score, deps: RebarDeps, fromMeasure: number, 
   // note at the boundary (same pitch/position); anything unrestorable is then
   // severed so no pointer is left dangling (would crash tie editing).
   restoreBoundaryTies(score, deps, fromMeasure, regionNumbers[regionNumbers.length - 1], boundary)
-  deps.repairDanglingTies()
+  repairDanglingTies(score)
 
   // Re-attach captured slurs to the rebar'd notes (by onset offset + pitch); drop any
   // that can't be re-found, so none is left pointing at a regenerated/deleted id.
   restoreSlurs(score, deps, regionNumbers, slurState)
-  deps.repairDanglingSlurs()
+  repairDanglingSlurs(score)
   restoreTrills(score, deps, regionNumbers, trillState)
-  deps.repairDanglingTrills()
+  repairDanglingTrills(score)
 
   // Re-anchor the captured clef changes / dynamics into the new bar layout,
   // mapping each absolute offset to the (measure, beat) it now lands on.
@@ -485,11 +485,11 @@ export function pasteEvents(
 
   const created = materializeRegion(score, deps, regionNumbers, lanes)
   restoreBoundaryTies(score, deps, targetMeasure, regionNumbers[regionNumbers.length - 1], boundary)
-  deps.repairDanglingTies()
+  repairDanglingTies(score)
   restoreSlurs(score, deps, regionNumbers, slurState)
-  deps.repairDanglingSlurs()
+  repairDanglingSlurs(score)
   restoreTrills(score, deps, regionNumbers, trillState)
-  deps.repairDanglingTrills()
+  repairDanglingTrills(score)
   // Re-anchor the clip's own slurs onto the freshly-pasted notes (Phase 3), mapping rel→abs
   // staff (drop overflow) + re-voicing single-voice clips — the slur analogue of clip dynamics.
   restoreClipSlurs(score, deps, regionNumbers, clipSlurs, targetStaff, targetVoice, singleVoice, pasteStart, staffCount)
