@@ -12,7 +12,7 @@
  * motion out of ScoreModel; the rebar / paste / time-signature test suites are the net.
  */
 import type {
-  Score, Measure, Note, Chord, NotePitch, TimeSignature, Clef, Dynamic, TempoMark, Hairpin, Ottava, Pedal,
+  Score, Measure, Note, Chord, ChordRest, NotePitch, TimeSignature, Clef, Dynamic, TempoMark, Hairpin, Ottava, Pedal,
   Slur, Trill, EngravingOverride, RestShiftOverride, RestHiddenOverride,
   LeadingSpaceOverride, NoteOffsetOverride } from '@/types/music'
 import { restShiftOverrideOf, restHiddenOf, restPositionKey, noteOffsetOverrideOf, spacingPositionKey, measureLeadingSpaces } from './engravingOverrides'
@@ -1273,6 +1273,104 @@ function linkTieById(score: Score, fromId: string, toId: string): void {
   to.pitch.tiedFrom = fromId
 }
 
+// ==================== The anchors a slur and a trill are re-found by ====================
+
+/** A region note as a span's end is re-found by: WHEN it starts (absolute, from the region's
+ *  start), WHAT it is, and its voice. */
+type RegionAnchor = { offset: Fraction; pitch: SlurPitch; voice: number }
+
+/**
+ * Region pitch id → its anchor, measured with the measures' CURRENT (pre-rebar) capacities — what
+ * {@link captureSlurs} and {@link captureTrills} each built, because the question is identical:
+ * *which note is this, once the barlines have moved?*
+ */
+function regionAnchorsById(regionMeasures: Measure[]): Map<string, RegionAnchor> {
+  const inRegion = new Map<string, RegionAnchor>()
+  forEachRegionMeasure(regionMeasures, (m, base) => {
+    for (const s of m.slots) {
+      if (s.type !== 'chord') continue
+      const offset = fracAdd(base, s.beat)
+      const voice = voiceOf(s)
+      for (const p of s.notes) {
+        inRegion.set(p.id, { offset, pitch: { step: p.step, alter: p.alter, octave: p.octave }, voice })
+      }
+    }
+  })
+  return inRegion
+}
+
+/** Every chord pitch of the NEW region with its absolute onset offset. A number with no measure
+ *  behind it is skipped, and does not advance the offset. */
+function forEachRegionPitch(
+  score: Score,
+  regionNumbers: number[],
+  visit: (pitch: NotePitch, slot: ChordRest, offset: Fraction) => void,
+): void {
+  const measures = regionNumbers.map(num => getMeasure(score, num)).filter((m): m is Measure => !!m)
+  forEachRegionMeasure(measures, (m, base) => {
+    for (const s of m.slots) {
+      if (s.type !== 'chord') continue
+      const offset = fracAdd(base, s.beat)
+      for (const p of s.notes) visit(p, s, offset)
+    }
+  })
+}
+
+/**
+ * The captured end → the id it has NOW, for {@link restoreSlurs} and {@link restoreTrills}: an
+ * external end keeps its id; an in-region one is re-found by absolute onset offset + pitch + voice
+ * (the first chord at the offset wins). ⚠️ STAFF-BLIND, unlike {@link clipEndResolver}.
+ */
+function capturedEndResolver(score: Score, regionNumbers: number[]): (end: CapturedSlurEnd) => string | undefined {
+  const lookup = new Map<string, string>()
+  forEachRegionPitch(score, regionNumbers, (p, s, offset) => {
+    const key = slurAnchorKey(offset, { step: p.step, alter: p.alter, octave: p.octave }, voiceOf(s))
+    if (!lookup.has(key)) lookup.set(key, p.id)
+  })
+  return end => end.externalId !== undefined
+    ? end.externalId
+    : lookup.get(slurAnchorKey(end.offset, end.pitch, end.voice))
+}
+
+/** Where a paste is landing — what turns a clip's RELATIVE address into a note of the score. */
+interface ClipLanding {
+  targetStaff: number
+  targetVoice: number
+  singleVoice: boolean
+  pasteStart: Fraction
+  staffCount: number
+}
+
+/**
+ * A clip end (relative staff / voice / clip-relative offset / pitch) → the pasted note now sitting
+ * there, for {@link restoreClipSlurs} and {@link restoreClipTrills}: the staff maps onto an absolute
+ * one (dropped if it overflows the staff count), a single-voice clip is re-voiced into the target
+ * voice, the offset is re-based by the paste start. ⭐ STAFF-AWARE, so a multi-staff paste anchors
+ * each end on the intended staff (first chord wins).
+ */
+function clipEndResolver(
+  score: Score,
+  regionNumbers: number[],
+  { targetStaff, targetVoice, singleVoice, pasteStart, staffCount }: ClipLanding,
+): (relStaff: number, endVoice: number, relOffset: Fraction, pitch: ClipSlurPitch) => string | undefined {
+  const offKey = (off: Fraction): string => { const r = fracCreate(off.num, off.den); return `${r.num}/${r.den}` }
+  const key = (staff: number, voice: number, off: Fraction, p: ClipSlurPitch): string =>
+    `${staff}|v${voice}|${offKey(off)}|${p.step}/${p.alter}/${p.octave}`
+
+  const lookup = new Map<string, string>()
+  forEachRegionPitch(score, regionNumbers, (p, s, offset) => {
+    const k = key(staffIndexOfId(score, s.staffId), voiceOf(s), offset, { step: p.step, alter: p.alter, octave: p.octave })
+    if (!lookup.has(k)) lookup.set(k, p.id)
+  })
+
+  return (relStaff, endVoice, relOffset, pitch) => {
+    const absStaff = targetStaff + relStaff
+    if (absStaff < 0 || absStaff >= staffCount) return undefined
+    const voice = singleVoice ? targetVoice : endVoice
+    return lookup.get(key(absStaff, voice, fracAdd(pasteStart, relOffset), pitch))
+  }
+}
+
 // ==================== Capture / restore: slurs ====================
 
 /**
@@ -1286,32 +1384,14 @@ function captureSlurs(score: Score, regionMeasures: Measure[]): CapturedSlur[] {
   const slurs = score.slurs
   if (!slurs || slurs.length === 0) return []
 
-  // Region pitch id -> its absolute onset offset + pitch identity + voice.
-  const inRegion = new Map<string, { offset: Fraction; pitch: SlurPitch; voice: number }>()
-  let base = fracCreate(0, 1)
-  for (const m of regionMeasures) {
-    const cap = measureCapacityFrac(m)
-    for (const s of m.slots) {
-      if (s.type !== 'chord') continue
-      const offset = fracAdd(base, s.beat)
-      const voice = voiceOf(s)
-      for (const p of s.notes) {
-        inRegion.set(p.id, { offset, pitch: { step: p.step, alter: p.alter, octave: p.octave }, voice })
-      }
-    }
-    base = fracAdd(base, cap)
-  }
+  const inRegion = regionAnchorsById(regionMeasures)
 
   const captured: CapturedSlur[] = []
   for (const slur of slurs) {
     const start = inRegion.get(slur.startNoteId)
     const end = inRegion.get(slur.endNoteId)
     if (!start && !end) continue // slur lies wholly outside the region — untouched
-    captured.push({
-      slur,
-      start: start ? { offset: start.offset, pitch: start.pitch, voice: start.voice } : { externalId: slur.startNoteId },
-      end: end ? { offset: end.offset, pitch: end.pitch, voice: end.voice } : { externalId: slur.endNoteId },
-    })
+    captured.push({ slur, start: start ?? { externalId: slur.startNoteId }, end: end ?? { externalId: slur.endNoteId } })
   }
   return captured
 }
@@ -1333,29 +1413,7 @@ function restoreSlurs(score: Score, regionNumbers: number[], captured: CapturedS
   const slurs = score.slurs
   if (!slurs) return
 
-  // New region: absolute onset offset + pitch -> pitch id (first chord at the offset wins).
-  const lookup = new Map<string, string>()
-  let base = fracCreate(0, 1)
-  for (const num of regionNumbers) {
-    const m = getMeasure(score, num)
-    if (!m) continue
-    const cap = measureCapacityFrac(m)
-    for (const s of m.slots) {
-      if (s.type !== 'chord') continue
-      const offset = fracAdd(base, s.beat)
-      const voice = voiceOf(s)
-      for (const p of s.notes) {
-        const key = slurAnchorKey(offset, { step: p.step, alter: p.alter, octave: p.octave }, voice)
-        if (!lookup.has(key)) lookup.set(key, p.id)
-      }
-    }
-    base = fracAdd(base, cap)
-  }
-
-  const resolve = (end: CapturedSlurEnd): string | undefined =>
-    end.externalId !== undefined
-      ? end.externalId
-      : lookup.get(slurAnchorKey(end.offset, end.pitch, end.voice))
+  const resolve = capturedEndResolver(score, regionNumbers)
 
   for (const c of captured) {
     const idx = slurs.indexOf(c.slur)
@@ -1393,20 +1451,7 @@ function captureTrills(score: Score, regionMeasures: Measure[]): CapturedTrill[]
   const trills = score.trills
   if (!trills || trills.length === 0) return []
 
-  const inRegion = new Map<string, { offset: Fraction; pitch: SlurPitch; voice: number }>()
-  let base = fracCreate(0, 1)
-  for (const m of regionMeasures) {
-    const cap = measureCapacityFrac(m)
-    for (const s of m.slots) {
-      if (s.type !== 'chord') continue
-      const offset = fracAdd(base, s.beat)
-      const voice = voiceOf(s)
-      for (const p of s.notes) {
-        inRegion.set(p.id, { offset, pitch: { step: p.step, alter: p.alter, octave: p.octave }, voice })
-      }
-    }
-    base = fracAdd(base, cap)
-  }
+  const inRegion = regionAnchorsById(regionMeasures)
 
   const captured: CapturedTrill[] = []
   for (const trill of trills) {
@@ -1415,12 +1460,8 @@ function captureTrills(score: Score, regionMeasures: Measure[]): CapturedTrill[]
     if (!start && !end) continue // wholly outside the region — untouched
     captured.push({
       trill,
-      start: start ? { offset: start.offset, pitch: start.pitch, voice: start.voice } : { externalId: trill.startNoteId },
-      end: trill.endNoteId === undefined
-        ? undefined
-        : end
-          ? { offset: end.offset, pitch: end.pitch, voice: end.voice }
-          : { externalId: trill.endNoteId },
+      start: start ?? { externalId: trill.startNoteId },
+      end: trill.endNoteId === undefined ? undefined : end ?? { externalId: trill.endNoteId },
     })
   }
   return captured
@@ -1441,28 +1482,7 @@ function restoreTrills(score: Score, regionNumbers: number[], captured: Captured
   const trills = score.trills
   if (!trills) return
 
-  const lookup = new Map<string, string>()
-  let base = fracCreate(0, 1)
-  for (const num of regionNumbers) {
-    const m = getMeasure(score, num)
-    if (!m) continue
-    const cap = measureCapacityFrac(m)
-    for (const s of m.slots) {
-      if (s.type !== 'chord') continue
-      const offset = fracAdd(base, s.beat)
-      const voice = voiceOf(s)
-      for (const p of s.notes) {
-        const key = slurAnchorKey(offset, { step: p.step, alter: p.alter, octave: p.octave }, voice)
-        if (!lookup.has(key)) lookup.set(key, p.id)
-      }
-    }
-    base = fracAdd(base, cap)
-  }
-
-  const resolve = (end: CapturedSlurEnd): string | undefined =>
-    end.externalId !== undefined
-      ? end.externalId
-      : lookup.get(slurAnchorKey(end.offset, end.pitch, end.voice))
+  const resolve = capturedEndResolver(score, regionNumbers)
 
   for (const c of captured) {
     const idx = trills.indexOf(c.trill)
@@ -1500,35 +1520,7 @@ function restoreClipTrills(
 ): void {
   if (clipTrills.length === 0) return
 
-  const offKey = (off: Fraction): string => { const r = fracCreate(off.num, off.den); return `${r.num}/${r.den}` }
-  const key = (staff: number, voice: number, off: Fraction, p: ClipSlurPitch): string =>
-    `${staff}|v${voice}|${offKey(off)}|${p.step}/${p.alter}/${p.octave}`
-
-  const lookup = new Map<string, string>()
-  let base = fracCreate(0, 1)
-  for (const num of regionNumbers) {
-    const m = getMeasure(score, num)
-    if (!m) continue
-    const cap = measureCapacityFrac(m)
-    for (const s of m.slots) {
-      if (s.type !== 'chord') continue
-      const staff = staffIndexOfId(score, s.staffId)
-      const voice = voiceOf(s)
-      const offset = fracAdd(base, s.beat)
-      for (const p of s.notes) {
-        const k = key(staff, voice, offset, { step: p.step, alter: p.alter, octave: p.octave })
-        if (!lookup.has(k)) lookup.set(k, p.id)
-      }
-    }
-    base = fracAdd(base, cap)
-  }
-
-  const resolve = (relStaff: number, endVoice: number, relOffset: Fraction, pitch: ClipSlurPitch): string | undefined => {
-    const absStaff = targetStaff + relStaff
-    if (absStaff < 0 || absStaff >= staffCount) return undefined
-    const voice = singleVoice ? targetVoice : endVoice
-    return lookup.get(key(absStaff, voice, fracAdd(pasteStart, relOffset), pitch))
-  }
+  const resolve = clipEndResolver(score, regionNumbers, { targetStaff, targetVoice, singleVoice, pasteStart, staffCount })
 
   for (const ct of clipTrills) {
     const startId = resolve(ct.startStaff, ct.startVoice, ct.startOffset, ct.startPitch)
@@ -1571,36 +1563,7 @@ function restoreClipSlurs(
 ): void {
   if (clipSlurs.length === 0) return
 
-  // (staff | voice | offset | pitch) -> pitch id, over the pasted region (first chord wins).
-  const offKey = (off: Fraction): string => { const r = fracCreate(off.num, off.den); return `${r.num}/${r.den}` }
-  const key = (staff: number, voice: number, off: Fraction, p: ClipSlurPitch): string =>
-    `${staff}|v${voice}|${offKey(off)}|${p.step}/${p.alter}/${p.octave}`
-
-  const lookup = new Map<string, string>()
-  let base = fracCreate(0, 1)
-  for (const num of regionNumbers) {
-    const m = getMeasure(score, num)
-    if (!m) continue
-    const cap = measureCapacityFrac(m)
-    for (const s of m.slots) {
-      if (s.type !== 'chord') continue
-      const staff = staffIndexOfId(score, s.staffId)
-      const voice = voiceOf(s)
-      const offset = fracAdd(base, s.beat)
-      for (const p of s.notes) {
-        const k = key(staff, voice, offset, { step: p.step, alter: p.alter, octave: p.octave })
-        if (!lookup.has(k)) lookup.set(k, p.id)
-      }
-    }
-    base = fracAdd(base, cap)
-  }
-
-  const resolve = (relStaff: number, endVoice: number, relOffset: Fraction, pitch: ClipSlurPitch): string | undefined => {
-    const absStaff = targetStaff + relStaff
-    if (absStaff < 0 || absStaff >= staffCount) return undefined
-    const voice = singleVoice ? targetVoice : endVoice
-    return lookup.get(key(absStaff, voice, fracAdd(pasteStart, relOffset), pitch))
-  }
+  const resolve = clipEndResolver(score, regionNumbers, { targetStaff, targetVoice, singleVoice, pasteStart, staffCount })
 
   for (const cs of clipSlurs) {
     const startId = resolve(cs.startStaff, cs.startVoice, cs.startOffset, cs.startPitch)

@@ -796,6 +796,25 @@ describe('⭐ clipboard — trills travel (docs/trill-plan.md §2.3)', () => {
     expect(pasted[0].endNoteId).toBe(idAt(2, 0, 'F4@3'))
   })
 
+  it('carries a trill across staves (1+2 → 3+4) — the slur\'s staff-aware landing, which it shares', () => {
+    engine.addStaffBelow(0)
+    engine.addStaffBelow(1)
+    engine.addStaffBelow(2) // staves 0..3
+    const s0 = engine.addNoteAtBeat({ step: 'G', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(0, 1), staff: 0 })!.id
+    const a = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1), staff: 1 })!.id
+    const b = engine.addNoteAtBeat({ step: 'D', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1), staff: 1 })!.id
+    engine.trill.addTrill({ startNoteId: a, endNoteId: b, voice: 0 })
+
+    const payload = buildClipboardFromSelection(engine.getScore(), [s0, a, b])!
+    expect(payload.trills).toHaveLength(1)
+
+    engine.pasteEvents(payload, { measure: 2, beat: frac(0, 1), voice: 0, staff: 2 })
+
+    const pasted = (engine.getScore().trills ?? []).filter(t => t.startNoteId === idAt(2, 3, 'C4@0'))
+    expect(pasted).toHaveLength(1)
+    expect(pasted[0].endNoteId).toBe(idAt(2, 3, 'D4@1'))
+  })
+
   it('carries the ONE-NOTE trill, and does not invent an end for it', () => {
     const ids = fill(1)
     engine.trill.addTrill({ startNoteId: ids[1], voice: 0 })
