@@ -16,6 +16,11 @@
  */
 import { dbg } from '@/utils/debug'
 import type { ClickableElementSpec } from './chain'
+import { signOutwardReachSpaces } from '@/engine/layout/systemStartColumn'
+import { ELEMENT_SELECTION_FILL } from '@/utils/selectionColors'
+import { selectedOf } from '../EditorState'
+import { handleHitBox, paintHandleSquare } from './handleSquare'
+import { staffGroupHandles } from './staffGroupHandles'
 
 /**
  * ⭐⭐ **HOW MUCH FORGIVENESS A PRESS GETS, in px.**
@@ -53,5 +58,44 @@ export const STAFF_GROUP_ELEMENT: ClickableElementSpec = {
     return deps.pick({ kind: 'staffGroup', groupId: sign.id, symbol })
   },
 
-  highlight: ctx => ctx.controller.applyStaffGroupHighlight(),
+  // ⭐⭐ **PAINTED BY RECOLOURING ITS OWN GROUP.** Every part of the sign — the bracket's rod and its
+  // two serif glyphs, the brace's single stretched glyph, the sub-bracket's three rectangles — is
+  // drawn inside ONE `systemsign` group carrying the group's id (`rendering/systemStart`). So the
+  // highlight is a sweep of that group's ink, ⛔ not a box drawn over the top.
+  highlight: ctx => {
+    const selected = selectedOf(ctx.state, 'staffGroup')
+    if (!selected) return
+
+    // ⭐ Every system's copy of the sign, not just one: a group spans the whole score, so selecting
+    //   it lights it on every system it is drawn on — the way a selected slur lights both halves.
+    for (const group of ctx.svg.querySelectorAll(`g.systemsign[id*="${CSS.escape(selected.groupId)}"]`)) {
+      for (const ink of group.querySelectorAll<SVGElement>('rect, text, path')) {
+        ctx.setAttr(ink, 'fill', ELEMENT_SELECTION_FILL)
+        ctx.setStyleProp(ink, 'fill', ELEMENT_SELECTION_FILL)
+      }
+    }
+
+    // ⭐⭐ …and the TWO SQUARES that resize the group — his ask, 2026-08-29: *"we should be able to
+    //   see the two squares up and down so we can enlarge or shrink the groups."* ⛔ None on a
+    //   one-staff system: `staffGroupHandles` returns nothing when there is nowhere to move an end
+    //   to, which is his rule falling out of the geometry rather than being written as an `if`.
+    const staffCount = ctx.engine.getScore().staves?.length ?? 1
+    // ⭐ Whether this sign's ink already projects past the staff lines — which decides how much air
+    //   its squares need (his *"can be tiny closer"*, 2026-08-29).
+    const projects = signOutwardReachSpaces(selected.symbol) > 0
+    for (const handle of staffGroupHandles(ctx.registry, selected.groupId, staffCount, projects)) {
+      paintHandleSquare(ctx, handle, {
+        className: `staff-group-handle staff-group-handle--${handle.end}`,
+        cursor: 'ns-resize',
+      })
+      // ⚠️ `staff` carries WHICH END this square is, encoded as 0 (top) / 1 (bottom) — the press
+      //    needs to know which end it grabbed, and the registry has no field of its own for it.
+      ctx.registry.add({
+        type: 'staff-group-handle',
+        id: selected.groupId,
+        staff: handle.end === 'top' ? 0 : 1,
+        bbox: handleHitBox(handle),
+      })
+    }
+  },
 }

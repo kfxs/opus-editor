@@ -9,16 +9,12 @@ import { ELEMENT_SELECTION_FILL, ELEMENT_SELECTION_STROKE, markSelectionColor } 
 import { tremoloGlyph } from '../utils/tremoloGlyphs'
 import { TREMOLO_PAIR_GROUP } from '../utils/tremoloPair'
 import { staffOf } from '@/utils/lanes'
-import { barlineJoinHandles } from './elements/barlineJoinHandles'
-import { staffGroupHandles } from './elements/staffGroupHandles'
-import { signOutwardReachSpaces } from '@/engine/layout/systemStartColumn'
-import { HANDLE_HIT, HANDLE_R } from './elements/endpointHandles'
+import { HANDLE_HIT, HANDLE_R } from './elements/handleSquare'
 import type { HighlightContext } from './elements/highlightContext'
 import { pedalTethers, tetherDashArray, TETHER_HIT } from './elements/pedalTether'
 import { pedalStaffSpacePx } from './pedalLane'
 import type { MarkKind } from './enclosedMarks'
 import type { SignHalf } from '@/engine/layout/barlineSign'
-import { signAtBoundary } from '@/engine/models/boundarySign'
 import { scoreTextClass } from '@/engine/rendering/ScoreHeaderPass'
 
 /**
@@ -134,6 +130,7 @@ export class HighlightController {
     registry?.removeByType('pedal-tether')
     registry?.removeByType('trill-endpoint')
     registry?.removeByType('barline-join')
+    registry?.removeByType('staff-group-handle')
   }
 
   /** A full redraw already threw the old SVG away, so the log's targets are detached nodes:
@@ -791,74 +788,6 @@ export class HighlightController {
     })
   }
 
-  /**
-   * ⭐⭐ **A SELECTED GROUPING SIGN — painted by RECOLOURING ITS OWN GROUP.**
-   *
-   * 🚨 His report, 2026-08-29: *"i'm not able to select bracket or brace… i should be able to click
-   * on it and select."*
-   *
-   * ⭐ Every part of the sign — the bracket's rod and its two serif glyphs, the brace's single
-   * stretched glyph, the sub-bracket's three rectangles — is drawn inside ONE `systemsign` group
-   * carrying the group's id (`rendering/systemStart`). So the highlight is a sweep of that group's
-   * `rect` and `text` children, ⛔ not a box drawn over the top.
-   *
-   * ⚠️ `setAttribute('fill')` and ⛔ never VexFlow's `setStyle`, which leaks its context
-   * ([[reference_vexflow_setstyle_context_leak]]) — the rule the whole recolouring family follows.
-   */
-  applyStaffGroupHighlight(): void {
-    const scoreCanvas = this.getScoreCanvas()
-    const selected = selectedOf(this.state, 'staffGroup')
-    if (!scoreCanvas || !selected) return
-    const svg = scoreCanvas.querySelector('svg')
-    if (!svg) return
-
-    // ⭐ Every system's copy of the sign, not just one: a group spans the whole score, so selecting
-    //   it lights it on every system it is drawn on — the way a selected slur lights both halves.
-    for (const group of svg.querySelectorAll(`g.systemsign[id*="${CSS.escape(selected.groupId)}"]`)) {
-      for (const ink of group.querySelectorAll('rect, text, path')) {
-        const el = ink as SVGElement
-        this.setAttr(el, 'fill', ELEMENT_SELECTION_FILL)
-        this.setStyleProp(el, 'fill', ELEMENT_SELECTION_FILL)
-      }
-    }
-
-    // ⭐⭐ …and the TWO SQUARES that resize the group — his ask, 2026-08-29: *"we should be able to
-    //   see the two squares up and down so we can enlarge or shrink the groups."* ⛔ None on a
-    //   one-staff system: `staffGroupHandles` returns nothing when there is nowhere to move an end
-    //   to, which is his rule falling out of the geometry rather than being written as an `if`.
-    const engine = this.getEngine()
-    if (!engine) return
-    const registry = engine.getElementRegistry()
-    const staffCount = engine.getScore().staves?.length ?? 1
-    const S = HighlightController.SLUR_HANDLE_R + 1 // one family with the slur and join squares
-    const HIT = HighlightController.SLUR_HANDLE_HIT
-    // ⭐ Whether this sign's ink already projects past the staff lines — which decides how much air
-    //   its squares need (his *"can be tiny closer"*, 2026-08-29).
-    const projects = signOutwardReachSpaces(selected.symbol) > 0
-    for (const handle of staffGroupHandles(registry, selected.groupId, staffCount, projects)) {
-      const sq = document.createElementNS('http://www.w3.org/2000/svg', 'rect')
-      sq.setAttribute('x', String(handle.x - S))
-      sq.setAttribute('y', String(handle.y - S))
-      sq.setAttribute('width', String(S * 2))
-      sq.setAttribute('height', String(S * 2))
-      sq.setAttribute('fill', '#2563EB')
-      sq.setAttribute('stroke', '#ffffff')
-      sq.setAttribute('stroke-width', '1.5')
-      sq.setAttribute('class', `staff-group-handle staff-group-handle--${handle.end}`)
-      ;(sq as SVGElement & { style: CSSStyleDeclaration }).style.cursor = 'ns-resize'
-      this.addNode(svg, sq)
-
-      // ⚠️ `staff` carries WHICH END this square is, encoded as 0 (top) / 1 (bottom) — the press
-      //    needs to know which end it grabbed, and the registry has no field of its own for it.
-      registry.add({
-        type: 'staff-group-handle',
-        id: selected.groupId,
-        staff: handle.end === 'top' ? 0 : 1,
-        bbox: { x: handle.x - HIT, y: handle.y - HIT, width: HIT * 2, height: HIT * 2 },
-      })
-    }
-  }
-
   applyClefSelectionHighlight(): void {
     const engine = this.getEngine()
     const scoreCanvas = this.getScoreCanvas()
@@ -1016,68 +945,6 @@ export class HighlightController {
       this.barlineSignGroup(svg, measure, staff),
       this.barlineGapGroup(svg, measure, staff),
     ])
-  }
-
-  /**
-   * ⭐⭐ **THE SELECTED BARLINE'S JOIN SQUARES** — one under each staff and one over the staff below
-   * it, at every gap of the system (docs/barline-join-plan.md §1, P2). Grabbing one is how a gap is
-   * joined, and how a joined one is disjoined — ⏭️ P3, ⛔ nothing here drags yet.
-   *
-   * ⭐ **`elements/endpointHandles` verbatim but for the geometry it reads**, which is the point: the
-   * editor has ONE look for "this is a handle you can grab", so the same blue, the same size, the same
-   * white ring, and the same registered-by-the-highlight / removed-by-`clearHighlights` life.
-   *
-   * ⭐ **THE SQUARE NEVER CHANGES WITH THE STATE** — his call, 2026-08-28: *"always the same square"*.
-   * A joined gap is told by the ink running through it; the square only ever says *grab here*, and it
-   * has to look the same on a joined gap because that is the one you grab to disjoin.
-   *
-   * ⚠️ **And none of them is ARMED**, unlike every other family here: a join square is not a selectable
-   * element (there is no `SelectedElement` kind for it), so there is no "picked" square to draw bigger.
-   * ⇒ one size, one fill, one stroke width.
-   */
-  applyBarlineJoinHandles(): void {
-    const engine = this.getEngine()
-    const scoreCanvas = this.getScoreCanvas()
-    const selected = selectedOf(this.state, 'barline')
-    const measure = selected?.measure ?? null
-    if (!engine || !scoreCanvas || measure === null) return
-    const svg = scoreCanvas.querySelector('svg')
-    if (!svg) return
-
-    const registry = engine.getElementRegistry()
-    const S = HighlightController.SLUR_HANDLE_R + 1 // the slur squares' half-side, one family
-    const HIT = HighlightController.SLUR_HANDLE_HIT
-    // ⭐ WHICH SIGN stands on this line, so the square can centre on the ink the join would draw
-    // rather than on the boundary coordinate — his report, and `strokeCentrePx`'s reason. The
-    // two-measure question is `signAtBoundary`'s, the same one the recolour above asks by group id.
-    const measures = engine.getScore().measures
-    const kind = signAtBoundary(measures[measure - 1], measures[measure]) ?? 'plain'
-    // ⭐ …and only the ONE square at the spot that was pressed — his calls: *"just in the stave we
-    // clicked"*, then *"the spot to click is critical"*. An absent spot (a keyboard walk with no
-    // press behind it) narrows nothing rather than guessing one (`offeredAt`).
-    const pressedAt = { staff: selected?.staff, end: selected?.pressedAt }
-    for (const handle of barlineJoinHandles(registry, measure, kind, pressedAt)) {
-      const sq = document.createElementNS('http://www.w3.org/2000/svg', 'rect')
-      sq.setAttribute('x', String(handle.x - S))
-      sq.setAttribute('y', String(handle.y - S))
-      sq.setAttribute('width', String(S * 2))
-      sq.setAttribute('height', String(S * 2))
-      sq.setAttribute('fill', '#2563EB')
-      sq.setAttribute('stroke', '#ffffff')
-      sq.setAttribute('stroke-width', '1.5')
-      sq.setAttribute('class', `barline-join-handle barline-join-handle--${handle.side}`)
-      ;(sq as SVGElement & { style: CSSStyleDeclaration }).style.cursor = 'pointer'
-      this.addNode(svg, sq)
-
-      // ⚠️ `staff` is the staff ABOVE the gap — the model's key — so both squares of one gap register
-      // the same (measure, staff) pair and a P3 press writes one fact whichever it grabbed.
-      registry.add({
-        type: 'barline-join',
-        measure,
-        staff: handle.staffAbove,
-        bbox: { x: handle.x - HIT, y: handle.y - HIT, width: HIT * 2, height: HIT * 2 },
-      })
-    }
   }
 
   /**

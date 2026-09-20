@@ -3,17 +3,17 @@
  * The JOIN SQUARES a selected barline draws in the gaps between its staves (P2 of
  * docs/barline-join-plan.md).
  *
- * Subject: {@link HighlightController}, a chapter beside `.barline.test.ts` (which asks what the
- * selection RECOLOURS) and `.hairpin.test.ts` (the same handle family, one mark over). WHERE the
- * squares sit is `elements/barlineJoinHandles`' own spec; what is asked here is that selecting a
- * barline paints them at all, that each registers the hit-box a P3 press will find it by — under the
- * staff ABOVE its gap — and that they come off with the highlight layer.
+ * WHAT the selection recolours is `HighlightController.barline.test.ts`; the same square one family
+ * over is `endpointHandles.test.ts`. WHERE the squares sit is `./barlineJoinHandles`' own spec; what
+ * is asked here is that selecting a barline paints them at all, that each registers the hit-box a
+ * press finds it by — under the staff ABOVE its gap — and that they come off with the highlight layer.
  */
 import { describe, it, expect } from 'vitest'
-import { HighlightController } from './HighlightController'
-import { createEditorState } from './EditorState'
-import { ElementRegistry } from '../engine/ElementRegistry'
-import type { MusicEngine } from '../engine/MusicEngine'
+import { HighlightController } from '../HighlightController'
+import { createEditorState } from '../EditorState'
+import { ElementRegistry } from '@/engine/ElementRegistry'
+import type { MusicEngine } from '@/engine/MusicEngine'
+import { paintBarlineJoinSquares } from './barlineJoinSquares'
 
 const MEASURE = 3
 
@@ -48,7 +48,7 @@ function paint(
   if (selected) state.selectedElement = { kind: selected, measure: MEASURE, ...pressedAt }
 
   const highlight = new HighlightController(() => engine, () => canvas, state)
-  highlight.applyBarlineJoinHandles()
+  paintBarlineJoinSquares(highlight.context()!)
   return { svg, registry, highlight }
 }
 

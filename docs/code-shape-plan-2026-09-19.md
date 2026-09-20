@@ -1,6 +1,6 @@
 # Code shape plan — 2026-09-19
 
-**Status: IN PROGRESS — Phase 1 DONE (2026-09-19), bar item 5's two ⏭️ decisions. Phase 2 DONE. Phase 3.1: the hairpin / ottava / pedal body drags done and checked; the trill's too (`cdb7f05`); the slur's too (`69e927c`); the four SQUARE drags too (`6d903c3`); the slur HANDLE / ENDPOINT and staff-spacing drags too (`8f28f79`); the DYNAMIC and TEMPO drags too (`9a04f88`); bar width, barline join, group span and clef too (`ee31698`); the NOTE drag too (`7d2898e`) — every gesture is a module. **Phase 3.1 DONE** (`25f70a6`). 3.2: the `keys` column + dispatcher and the HAIRPIN on it (`e61626a`); OTTAVA / PEDAL / TRILL too (`14e10e7`); DYNAMIC and TEMPO too (`943fb64`); SLUR and CLEF too (`8382fcc`); the `reanchor` and `cycle` verbs done, awaiting his UI check — **Phase 3.2 DONE with it.** 3.3 (`highlight(ctx)`): the contract + the four span squares done, awaiting his UI check.** Phases are ordered by
+**Status: IN PROGRESS — Phase 1 DONE (2026-09-19), bar item 5's two ⏭️ decisions. Phase 2 DONE. Phase 3.1: the hairpin / ottava / pedal body drags done and checked; the trill's too (`cdb7f05`); the slur's too (`69e927c`); the four SQUARE drags too (`6d903c3`); the slur HANDLE / ENDPOINT and staff-spacing drags too (`8f28f79`); the DYNAMIC and TEMPO drags too (`9a04f88`); bar width, barline join, group span and clef too (`ee31698`); the NOTE drag too (`7d2898e`) — every gesture is a module. **Phase 3.1 DONE** (`25f70a6`). 3.2: the `keys` column + dispatcher and the HAIRPIN on it (`e61626a`); OTTAVA / PEDAL / TRILL too (`14e10e7`); DYNAMIC and TEMPO too (`943fb64`); SLUR and CLEF too (`8382fcc`); the `reanchor` and `cycle` verbs done, awaiting his UI check — **Phase 3.2 DONE with it.** 3.3 (`highlight(ctx)`): the contract + the four span squares (`a7c1076`); the join and group squares done, awaiting his UI check.** Phases are ordered by
 value over risk; each one stands alone and can be stopped after. A done item carries ✅ and what
 actually happened where that differs from what was planned.
 
@@ -422,8 +422,17 @@ Run the e2e suite either side of each step.
    and trill rows call it with their own geometry, and the four `apply<Kind>Handles` are gone.
    `HighlightController.hairpin.test.ts` moved with it → `elements/endpointHandles.test.ts`, now
    through the hairpin's ROW, plus one case per kind (class, `<kind>Id`, off with the layer).
-   Hub: kinds 316 → **256**, file 2,172 → 1,989 lines. ⏸️ Awaiting his UI check. Next in this
-   step: the staff-group and barline-join squares (the same square, unarmed), then the recolours
+   Hub: kinds 316 → **256**, file 2,172 → 1,989 lines. ✅ Passed (`a7c1076`).*
+
+   *Second slice — the other two squares. `elements/handleSquare.ts` is THE square (its look,
+   `armed`, `handleHitBox`, and `HANDLE_R` / `HANDLE_HIT`, which moved here); `paintEndpointHandles`
+   is now a loop over it. The barline's join squares are `elements/barlineJoinSquares.ts` (⛔ not
+   in `barlineJoinHandles`, which is pure geometry with no DOM), spec moved with it; the grouping
+   sign's WHOLE highlight — recolour + resize squares — is `staffGroup.ts`'s own row, with a new
+   `staffGroup.test.ts` (it had none). 🚨 Found on the way: nothing removed the `staff-group-handle`
+   entries — `clearHighlights` listed every other highlight-owned type — so they piled up across
+   skipped renders (harmless only because the press guards on the selection). It removes them now.
+   Hub: kinds 256 → **239**, file → 1,855 lines. ⏸️ Awaiting his UI check. Next: the recolours,
    family by family.*
 4. **Properties panels**: `windows/properties/panels/<kind>.ts` exporting `report` and `rows`,
    keyed by kind. *(review)* **Recommended: `rows` yes, `report` no.** The `paint` ladder is

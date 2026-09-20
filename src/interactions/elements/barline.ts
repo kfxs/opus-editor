@@ -8,6 +8,7 @@
 import { dbg } from '@/utils/debug'
 import type { ClickableElementSpec } from './chain'
 import { beginBarWidthDrag } from '../drags/barWidth'
+import { paintBarlineJoinSquares } from './barlineJoinSquares'
 
 /**
  * ⭐⭐ **HOW FAR OUTSIDE ITS INK A BARLINE ANSWERS A PRESS**, in px, on BOTH axes.
@@ -138,5 +139,5 @@ export const BARLINE_ELEMENT: ClickableElementSpec = {
     )
   },
 
-  highlight: ctx => { ctx.controller.applyBarlineSelectionHighlight(); ctx.controller.applyBarlineJoinHandles() },
+  highlight: ctx => { ctx.controller.applyBarlineSelectionHighlight(); paintBarlineJoinSquares(ctx) },
 }
