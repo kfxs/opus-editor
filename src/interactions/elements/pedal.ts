@@ -35,6 +35,9 @@ import type { ClickableElementSpec } from './chain'
 import { pedalTetherAt } from './pedalTether'
 import { beginPedalBodyDrag } from '../drags/pedalBody'
 import { spanMarkKeys } from '../spanMarkKeys'
+import { selectedOf } from '../EditorState'
+import { paintEndpointHandles } from './endpointHandles'
+import { pedalEndpointHandles } from './pedalHandles'
 
 /** A few px of grace at the edges — the pad the slur, hairpin, trill and ottava already share. */
 const PAD = 7
@@ -98,9 +101,11 @@ export const PEDAL_ELEMENT: ClickableElementSpec = {
   // several pedals, and *which `✻` closes which `Ped.`* is the question it asks hardest (his report,
   // 2026-08-21). It runs in the SET pass beside the recolour — `RenderController.applyHighlights` —
   // and still before this row, so a handle sits over the line rather than under it (`./pedalTether`).
-  highlight: h => {
-    h.applyAnchorGuideLine()
-    h.applyPedalHandles()
+  highlight: ctx => {
+    ctx.controller.applyAnchorGuideLine()
+    const selected = selectedOf(ctx.state, 'pedal')
+    if (!selected) return
+    paintEndpointHandles(ctx, 'pedal', selected, pedalEndpointHandles(ctx.registry.getByType('pedal'), selected.id))
   },
   keys: spanMarkKeys('pedal'),
 }

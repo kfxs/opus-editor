@@ -35,6 +35,6 @@ export const CLEF_ELEMENT: ClickableElementSpec = {
     )
   },
 
-  highlight: h => h.applyClefSelectionHighlight(),
+  highlight: ctx => ctx.controller.applyClefSelectionHighlight(),
   keys: CLEF_KEYS,
 }

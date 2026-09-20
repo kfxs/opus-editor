@@ -30,5 +30,5 @@ export const TIME_SIGNATURE_ELEMENT: ClickableElementSpec = {
     return deps.pick({ kind: 'timeSignature', measure: timeSigAt.measure })
   },
 
-  highlight: h => h.applyTimeSignatureSelectionHighlight(),
+  highlight: ctx => ctx.controller.applyTimeSignatureSelectionHighlight(),
 }

@@ -1,18 +1,20 @@
 // @vitest-environment jsdom
 /**
- * The two endpoint squares a selected HAIRPIN draws.
+ * The two endpoint squares a selected SPAN draws — `paintEndpointHandles`, asked through the
+ * HAIRPIN's own `highlight` row (the first of the four kinds on it), then once per kind for what the
+ * kind changes: the class and the registry entry.
  *
- * Subject: {@link HighlightController}, a chapter beside `HighlightController.test.ts` (slur handles)
- * and `.anchorLine.test.ts`. WHERE they sit is `elements/hairpinHandles` and has its own spec; what
- * is asked here is that selecting a wedge paints them at all, that the armed one reads as picked, and
- * that each registers the hit-box a press finds it by — under `hairpinId`, and only for as long as
- * the highlight layer lives.
+ * WHERE they sit is `./<kind>Handles` and has its own spec; what is asked here is that selecting a
+ * wedge paints them at all, that the armed one reads as picked, and that each registers the hit-box
+ * a press finds it by — under `hairpinId`, and only for as long as the highlight layer lives.
  */
 import { describe, it, expect } from 'vitest'
-import { HighlightController } from './HighlightController'
-import { createEditorState } from './EditorState'
-import { ElementRegistry } from '../engine/ElementRegistry'
-import type { MusicEngine } from '../engine/MusicEngine'
+import { HighlightController } from '../HighlightController'
+import { createEditorState } from '../EditorState'
+import { ElementRegistry } from '@/engine/ElementRegistry'
+import type { MusicEngine } from '@/engine/MusicEngine'
+import { HAIRPIN_ELEMENT } from './hairpin'
+import { paintEndpointHandles, type EndpointHandleKind } from './endpointHandles'
 
 function paint(selectedId: string | null, endpoint?: 'start' | 'end') {
   const registry = new ElementRegistry()
@@ -35,7 +37,7 @@ function paint(selectedId: string | null, endpoint?: 'start' | 'end') {
   if (selectedId) state.selectedElement = { kind: 'hairpin', id: selectedId, endpoint }
 
   const highlight = new HighlightController(() => engine, () => canvas, state)
-  highlight.applyHairpinHandles()
+  HAIRPIN_ELEMENT.highlight(highlight.context()!)
   return { svg, registry, highlight }
 }
 
@@ -92,4 +94,32 @@ describe('a selected hairpin', () => {
     highlight.clearHighlights()
     expect(svg.querySelectorAll('rect.hairpin-endpoint-handle')).toHaveLength(0)
   })
+})
+
+describe('one painter, four kinds', () => {
+  it.each<EndpointHandleKind>(['hairpin', 'ottava', 'pedal', 'trill'])(
+    'a %s square carries its own class and registers under its own id field', kind => {
+      const registry = new ElementRegistry()
+      const engine = { getElementRegistry: () => registry } as unknown as MusicEngine
+      const canvas = document.createElement('div')
+      const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+      canvas.appendChild(svg)
+      const highlight = new HighlightController(() => engine, () => canvas, createEditorState())
+
+      paintEndpointHandles(highlight.context()!, kind, { id: 'M1', endpoint: 'start' }, [
+        { which: 'start', x: 10, y: 20 },
+        { which: 'end', x: 90, y: 20 },
+      ])
+
+      expect(svg.querySelectorAll(`rect.${kind}-endpoint-handle`)).toHaveLength(2)
+      expect(svg.querySelectorAll(`rect.${kind}-endpoint-handle--selected`)).toHaveLength(1)
+      const entries = registry.getByType(`${kind}-endpoint`)
+      expect(entries.map(e => [e[`${kind}Id`], e.endpoint, e.id])).toEqual([
+        ['M1', 'start', undefined], ['M1', 'end', undefined],
+      ])
+
+      highlight.clearHighlights()
+      expect(svg.querySelectorAll('rect')).toHaveLength(0)
+      expect(registry.getByType(`${kind}-endpoint`)).toEqual([])
+    })
 })

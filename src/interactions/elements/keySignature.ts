@@ -39,5 +39,5 @@ export const KEY_SIGNATURE_ELEMENT: ClickableElementSpec = {
     return deps.pick({ kind: 'keySignature', measure: keyAt.measure, staff: staffOf(keyAt) })
   },
 
-  highlight: h => h.applyKeySignatureSelectionHighlight(),
+  highlight: ctx => ctx.controller.applyKeySignatureSelectionHighlight(),
 }

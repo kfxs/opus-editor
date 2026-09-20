@@ -10,5 +10,5 @@ import type { ElementKindSpec } from './chain'
 
 export const MEASURE_RANGE_ELEMENT: ElementKindSpec = {
   kind: 'measureRange',
-  highlight: h => h.applyMeasureBox(),
+  highlight: ctx => ctx.controller.applyMeasureBox(),
 }

@@ -31,5 +31,5 @@ export const TREMOLO_ELEMENT: ClickableElementSpec = {
     return deps.pick({ kind: 'tremolo', noteId })
   },
 
-  highlight: h => h.applyTremoloHighlight(),
+  highlight: ctx => ctx.controller.applyTremoloHighlight(),
 }

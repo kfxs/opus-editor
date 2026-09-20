@@ -42,5 +42,5 @@ export const TIE_ELEMENT: ClickableElementSpec = {
     return deps.pick({ kind: 'tie', fromNoteId: tieAt.fromNoteId })
   },
 
-  highlight: h => h.applyTieHighlight(),
+  highlight: ctx => ctx.controller.applyTieHighlight(),
 }

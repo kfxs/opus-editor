@@ -52,5 +52,5 @@ export const DOT_ELEMENT: ClickableElementSpec = {
     return deps.pick({ kind: 'dot', noteId: dotAt.noteId })
   },
 
-  highlight: h => h.applyDotHighlight(),
+  highlight: ctx => ctx.controller.applyDotHighlight(),
 }

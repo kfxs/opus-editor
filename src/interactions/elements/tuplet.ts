@@ -11,5 +11,5 @@ import type { ElementKindSpec } from './chain'
 
 export const TUPLET_ELEMENT: ElementKindSpec = {
   kind: 'tuplet',
-  highlight: h => h.applyTupletSelectionHighlight(),
+  highlight: ctx => ctx.controller.applyTupletSelectionHighlight(),
 }

@@ -78,7 +78,8 @@ export class RenderController {
   private applySelectedElementHighlight(): void {
     const element = this.state.selectedElement
     if (!element) return
-    ELEMENT_SPECS[element.kind].highlight(this.highlight)
+    const ctx = this.highlight.context()
+    if (ctx) ELEMENT_SPECS[element.kind].highlight(ctx)
   }
 
   /**

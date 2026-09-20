@@ -66,10 +66,10 @@ export const SLUR_ELEMENT: ClickableElementSpec = {
   // …and a DISPLACED end draws the dotted line back to where the engraver put it — the affordance
   // every notation program surveyed has for the same situation (2026-08-18 research), and the one
   // that makes an endpoint parked most of a note-gap away legible instead of mysterious.
-  highlight: h => {
-    h.applySlurHandles()
-    h.applyArmedSlurAnchorNote()
-    h.applyAnchorGuideLine()
+  highlight: ctx => {
+    ctx.controller.applySlurHandles()
+    ctx.controller.applyArmedSlurAnchorNote()
+    ctx.controller.applyAnchorGuideLine()
   },
   keys: SLUR_KEYS,
 }

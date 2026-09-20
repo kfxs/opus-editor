@@ -36,5 +36,5 @@ export const STEM_ELEMENT: ClickableElementSpec = {
     return deps.pick({ kind: 'stem', noteId })
   },
 
-  highlight: h => h.applyStemHighlight(),
+  highlight: ctx => ctx.controller.applyStemHighlight(),
 }

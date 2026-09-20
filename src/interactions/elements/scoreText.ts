@@ -66,5 +66,5 @@ export const SCORE_TEXT_ELEMENT: ClickableElementSpec = {
     return false
   },
 
-  highlight: h => h.applyScoreTextSelectionHighlight(),
+  highlight: ctx => ctx.controller.applyScoreTextSelectionHighlight(),
 }

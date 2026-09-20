@@ -23,5 +23,5 @@ export const ACCIDENTAL_ELEMENT: ClickableElementSpec = {
     })
   },
 
-  highlight: h => h.applyAccidentalHighlight(),
+  highlight: ctx => ctx.controller.applyAccidentalHighlight(),
 }

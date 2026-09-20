@@ -18,6 +18,9 @@ import type { ClickableElementSpec } from './chain'
 import { distToSegment } from './slur'
 import { beginTrillBodyDrag } from '../drags/trillBody'
 import { spanMarkKeys } from '../spanMarkKeys'
+import { selectedOf } from '../EditorState'
+import { paintEndpointHandles } from './endpointHandles'
+import { trillEndpointHandles } from './trillHandles'
 
 /** A few px of grace at the edges — the pad the slur and hairpin already share, for the same
  *  reason: a pointer cannot be aimed to the pixel, and the wiggle is a thin wave inside its band. */
@@ -64,9 +67,11 @@ export const TRILL_ELEMENT: ClickableElementSpec = {
   // ⚠️ The RECOLOUR is not here since 2026-08-19: it moved to the SET pass in `RenderController`
   // (the dynamic's own arrangement), because a passage box can now select this kind too and the
   // ink has to paint for every selected one — not only for the one a click picked.
-  highlight: h => {
-    h.applyAnchorGuideLine()
-    h.applyTrillHandles()
+  highlight: ctx => {
+    ctx.controller.applyAnchorGuideLine()
+    const selected = selectedOf(ctx.state, 'trill')
+    if (!selected) return
+    paintEndpointHandles(ctx, 'trill', selected, trillEndpointHandles(ctx.registry.getByType('trill'), selected.id))
   },
   keys: spanMarkKeys('trill'),
 }

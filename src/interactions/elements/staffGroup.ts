@@ -53,5 +53,5 @@ export const STAFF_GROUP_ELEMENT: ClickableElementSpec = {
     return deps.pick({ kind: 'staffGroup', groupId: sign.id, symbol })
   },
 
-  highlight: h => h.applyStaffGroupHighlight(),
+  highlight: ctx => ctx.controller.applyStaffGroupHighlight(),
 }

@@ -54,6 +54,6 @@ export const TEMPO_ELEMENT: ClickableElementSpec = {
   // ⚠️ The RECOLOUR is not here since 2026-08-19: it moved to the SET pass in `RenderController`
   // (the dynamic's own arrangement), because a box and a Ctrl-press can now select this kind too
   // and the ink has to paint for every selected one — not only for the one a click picked.
-  highlight: h => h.applyAnchorGuideLine(),
+  highlight: ctx => ctx.controller.applyAnchorGuideLine(),
   keys: TEMPO_KEYS,
 }

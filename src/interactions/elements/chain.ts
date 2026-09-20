@@ -43,7 +43,7 @@ import type { DragHost, Gesture } from '../drags/gesture'
 import type { ElementKeys } from './keys'
 import type { Fraction } from '../../types/music'
 import type { ScoreTextField } from '@/engine/models/scoreTextOps'
-import type { HighlightController } from '../HighlightController'
+import type { HighlightContext } from './highlightContext'
 
 import { CLEF_ELEMENT } from './clef'
 import { STAFF_GROUP_ELEMENT } from './staffGroup'
@@ -181,7 +181,7 @@ export interface ElementKindSpec {
    */
   hit?: ElementHit
   /** What extra painting this kind gets when it is the ONE selected element. */
-  highlight: (h: HighlightController) => void
+  highlight: (ctx: HighlightContext) => void
   /** What the arrows and their backspace do to this kind when it is selected (`./keys`). ABSENT
    *  = the kind does not answer them, and the key falls through. ⚠️ Typed for the union here; a
    *  kind's own module types its row with `KeysOf<'kind'>`, and the dispatcher hands each row the
@@ -303,10 +303,10 @@ export const ELEMENT_HIT_ORDER: ReadonlyArray<ClickableElementSpec> = [
  * TOTAL over `SelectedElement['kind']` — the exhaustiveness site for painting. A twenty-second kind is
  * a compile error here until someone decides how it shows.
  *
- * ⚠️ The `apply*Highlight` BODIES stay in {@link HighlightController}: they lean on ~10 of that
- * class's privates (`highlightGlyphsInBBox`, `colorNoteArticulations`, `colorNoteDots`, `setAttr`,
- * `raiseToFront`, the undo log …), and publishing that painting toolkit as an API would be a larger
- * and worse change than the one this table is for. What moves here is the DISPATCH.
+ * ⭐ A row is handed a {@link HighlightContext} — the layer's painting toolkit, bound to its undo
+ * log — so the painting lives in the kind's own module (docs/code-shape-plan-2026-09-19.md, 3.3;
+ * the span squares are the first, `./endpointHandles`). ⏳ A row that still reads
+ * `ctx.controller.apply…()` has a body the step has not reached yet.
  */
 export const ELEMENT_SPECS: Record<SelectedElement['kind'], ElementKindSpec> = {
   clef: CLEF_ELEMENT,

@@ -12,12 +12,10 @@ import { staffOf } from '@/utils/lanes'
 import { barlineJoinHandles } from './elements/barlineJoinHandles'
 import { staffGroupHandles } from './elements/staffGroupHandles'
 import { signOutwardReachSpaces } from '@/engine/layout/systemStartColumn'
-import { hairpinEndpointHandles } from './elements/hairpinHandles'
-import { ottavaEndpointHandles } from './elements/ottavaHandles'
-import { pedalEndpointHandles } from './elements/pedalHandles'
+import { HANDLE_HIT, HANDLE_R } from './elements/endpointHandles'
+import type { HighlightContext } from './elements/highlightContext'
 import { pedalTethers, tetherDashArray, TETHER_HIT } from './elements/pedalTether'
 import { pedalStaffSpacePx } from './pedalLane'
-import { trillEndpointHandles } from './elements/trillHandles'
 import type { MarkKind } from './enclosedMarks'
 import type { SignHalf } from '@/engine/layout/barlineSign'
 import { signAtBoundary } from '@/engine/models/boundarySign'
@@ -92,6 +90,28 @@ export class HighlightController {
     const next = group.nextSibling
     this.undoLog.push(() => { parent.insertBefore(group, next) })
     parent.appendChild(group)
+  }
+
+  /**
+   * ⭐ What a kind's `highlight` row is handed (`elements/highlightContext`): the toolkit above, bound
+   * to THIS layer's undo log, plus what every painter began by fetching. Null when there is nothing
+   * to paint on — no engine, or no score SVG yet.
+   */
+  context(): HighlightContext | null {
+    const engine = this.getEngine()
+    const svg = this.getScoreCanvas()?.querySelector('svg')
+    if (!engine || !svg) return null
+    return {
+      engine,
+      svg,
+      state: this.state,
+      registry: engine.getElementRegistry(),
+      setAttr: (el, name, value) => this.setAttr(el, name, value),
+      setStyleProp: (el, name, value) => this.setStyleProp(el, name, value),
+      addClass: (el, cls) => this.addClass(el, cls),
+      addNode: (parent, node) => this.addNode(parent, node),
+      controller: this,
+    }
   }
 
   /**
@@ -1003,7 +1023,7 @@ export class HighlightController {
    * it, at every gap of the system (docs/barline-join-plan.md §1, P2). Grabbing one is how a gap is
    * joined, and how a joined one is disjoined — ⏭️ P3, ⛔ nothing here drags yet.
    *
-   * ⭐ **{@link applyPedalHandles} verbatim but for the geometry it reads**, which is the point: the
+   * ⭐ **`elements/endpointHandles` verbatim but for the geometry it reads**, which is the point: the
    * editor has ONE look for "this is a handle you can grab", so the same blue, the same size, the same
    * white ring, and the same registered-by-the-highlight / removed-by-`clearHighlights` life.
    *
@@ -1527,59 +1547,6 @@ export class HighlightController {
   }
 
   /**
-   * ⭐ **THE SELECTED HAIRPIN'S TWO ENDPOINT SQUARES** — one at the beginning, one at the end (his
-   * ask, 2026-08-17). Drawn in the slur's blue so the editor has ONE look for "this is an end of a
-   * span", and placed by `hairpinEndpointHandles`, which owns the arithmetic (and the split-wedge
-   * trap: the two ends come from different fragments).
-   *
-   * ⭐ The armed square reads as PICKED — larger, a darker blue, a thicker white ring — the slur
-   * squares' own rule and the same three numbers, because they are one family: "this is an end of a
-   * span, and this is the one you have". Cosmetic only; the registered hit-box below never changes,
-   * so what you can grab does not move when you grab it.
-   *
-   * ⛔ Each square registers a `hairpin-endpoint` entry so a press can find it — and `clearHighlights`
-   * removes them again, since the highlight pass owns them (the render never draws one).
-   *
-   * They ride the highlight layer's undo log like every node here, so the next render clears them.
-   */
-  applyHairpinHandles(): void {
-    const engine = this.getEngine()
-    const scoreCanvas = this.getScoreCanvas()
-    const selected = selectedOf(this.state, 'hairpin')
-    if (!engine || !scoreCanvas || !selected) return
-    const svg = scoreCanvas.querySelector('svg')
-    if (!svg) return
-
-    const registry = engine.getElementRegistry()
-    const S = HighlightController.SLUR_HANDLE_R + 1 // the slur squares' half-side, one family
-    const HIT = HighlightController.SLUR_HANDLE_HIT
-    for (const handle of hairpinEndpointHandles(registry.getByType('hairpin'), selected.id)) {
-      const armed = handle.which === selected.endpoint
-      const half = armed ? S + 2 : S
-      const sq = document.createElementNS('http://www.w3.org/2000/svg', 'rect')
-      sq.setAttribute('x', String(handle.x - half))
-      sq.setAttribute('y', String(handle.y - half))
-      sq.setAttribute('width', String(half * 2))
-      sq.setAttribute('height', String(half * 2))
-      sq.setAttribute('fill', armed ? '#1D4ED8' : '#2563EB')
-      sq.setAttribute('stroke', '#ffffff')
-      sq.setAttribute('stroke-width', armed ? '2.5' : '1.5')
-      sq.setAttribute('class', armed
-        ? `hairpin-endpoint-handle hairpin-endpoint-handle--${handle.which} hairpin-endpoint-handle--selected`
-        : `hairpin-endpoint-handle hairpin-endpoint-handle--${handle.which}`)
-      ;(sq as SVGElement & { style: CSSStyleDeclaration }).style.cursor = 'pointer'
-      this.addNode(svg, sq)
-
-      registry.add({
-        type: 'hairpin-endpoint',
-        hairpinId: selected.id,
-        endpoint: handle.which,
-        bbox: { x: handle.x - HIT, y: handle.y - HIT, width: HIT * 2, height: HIT * 2 },
-      })
-    }
-  }
-
-  /**
    * A selected TRILL, recoloured.
    *
    * ⚠️ **The trill is drawn as TEXT, not as paths** — the `tr` and every wiggle repeat are `<text>`
@@ -1624,57 +1591,6 @@ export class HighlightController {
       this.setAttr(el, 'stroke', SELECTION_COLOR)
       this.setStyleProp(el, 'stroke', SELECTION_COLOR)
     })
-  }
-
-  /**
-   * ⭐ **THE SELECTED OTTAVA'S TWO ENDPOINT SQUARES** — one beyond the beginning of the bracket, one
-   * beyond its end (his ask, 2026-08-17). {@link applyHairpinHandles} verbatim but for the geometry
-   * it reads, and that is the point: the editor has ONE look for "this is an end of a span", so the
-   * same blue, the same sizes, the same armed-reads-as-picked rule.
-   *
-   * ⭐ **They sit on the bracket's own line and OUTSIDE its ink**, which is what the module's
-   * `OTTAVA_HANDLE_GAP_PX` buys: a square centred on the end would cover the closing hook, and one
-   * centred on the beginning would cover the `8va` — the two marks that state the displacement.
-   *
-   * ⛔ Each square registers an `ottava-endpoint` entry so a press can find it — and
-   * `clearHighlights` removes them again, since the highlight pass owns them (the render never
-   * draws one). They ride the highlight layer's undo log like every node here.
-   */
-  applyOttavaHandles(): void {
-    const engine = this.getEngine()
-    const scoreCanvas = this.getScoreCanvas()
-    const selected = selectedOf(this.state, 'ottava')
-    if (!engine || !scoreCanvas || !selected) return
-    const svg = scoreCanvas.querySelector('svg')
-    if (!svg) return
-
-    const registry = engine.getElementRegistry()
-    const S = HighlightController.SLUR_HANDLE_R + 1 // the slur squares' half-side, one family
-    const HIT = HighlightController.SLUR_HANDLE_HIT
-    for (const handle of ottavaEndpointHandles(registry.getByType('ottava'), selected.id)) {
-      const armed = handle.which === selected.endpoint
-      const half = armed ? S + 2 : S
-      const sq = document.createElementNS('http://www.w3.org/2000/svg', 'rect')
-      sq.setAttribute('x', String(handle.x - half))
-      sq.setAttribute('y', String(handle.y - half))
-      sq.setAttribute('width', String(half * 2))
-      sq.setAttribute('height', String(half * 2))
-      sq.setAttribute('fill', armed ? '#1D4ED8' : '#2563EB')
-      sq.setAttribute('stroke', '#ffffff')
-      sq.setAttribute('stroke-width', armed ? '2.5' : '1.5')
-      sq.setAttribute('class', armed
-        ? `ottava-endpoint-handle ottava-endpoint-handle--${handle.which} ottava-endpoint-handle--selected`
-        : `ottava-endpoint-handle ottava-endpoint-handle--${handle.which}`)
-      ;(sq as SVGElement & { style: CSSStyleDeclaration }).style.cursor = 'pointer'
-      this.addNode(svg, sq)
-
-      registry.add({
-        type: 'ottava-endpoint',
-        ottavaId: selected.id,
-        endpoint: handle.which,
-        bbox: { x: handle.x - HIT, y: handle.y - HIT, width: HIT * 2, height: HIT * 2 },
-      })
-    }
   }
 
   /**
@@ -1790,106 +1706,6 @@ export class HighlightController {
     }
   }
 
-  /**
-   * ⭐ **THE SELECTED PEDAL'S TWO ENDPOINT SQUARES** — one beyond the `Ped.`, one beyond the `✻`
-   * (his ask, 2026-08-18). {@link applyOttavaHandles} verbatim but for the geometry it reads, and
-   * that is the point: the editor has ONE look for "this is an end of a span", so the same blue, the
-   * same sizes, the same armed-reads-as-picked rule.
-   *
-   * ⭐ **They sit OUTSIDE the signs**, which is what the module's `PEDAL_HANDLE_GAP_PX` buys — and a
-   * pedal has less to spare than its neighbours: the two glyphs ARE the mark, with no line, hook or
-   * wedge to fall back on, so a square centred on one would hide half the statement.
-   *
-   * ⛔ Each square registers a `pedal-endpoint` entry so a press can find it — and `clearHighlights`
-   * removes them again, since the highlight pass owns them (the render never draws one). They ride
-   * the highlight layer's undo log like every node here.
-   */
-  applyPedalHandles(): void {
-    const engine = this.getEngine()
-    const scoreCanvas = this.getScoreCanvas()
-    const selected = selectedOf(this.state, 'pedal')
-    if (!engine || !scoreCanvas || !selected) return
-    const svg = scoreCanvas.querySelector('svg')
-    if (!svg) return
-
-    const registry = engine.getElementRegistry()
-    const S = HighlightController.SLUR_HANDLE_R + 1 // the slur squares' half-side, one family
-    const HIT = HighlightController.SLUR_HANDLE_HIT
-    for (const handle of pedalEndpointHandles(registry.getByType('pedal'), selected.id)) {
-      const armed = handle.which === selected.endpoint
-      const half = armed ? S + 2 : S
-      const sq = document.createElementNS('http://www.w3.org/2000/svg', 'rect')
-      sq.setAttribute('x', String(handle.x - half))
-      sq.setAttribute('y', String(handle.y - half))
-      sq.setAttribute('width', String(half * 2))
-      sq.setAttribute('height', String(half * 2))
-      sq.setAttribute('fill', armed ? '#1D4ED8' : '#2563EB')
-      sq.setAttribute('stroke', '#ffffff')
-      sq.setAttribute('stroke-width', armed ? '2.5' : '1.5')
-      sq.setAttribute('class', armed
-        ? `pedal-endpoint-handle pedal-endpoint-handle--${handle.which} pedal-endpoint-handle--selected`
-        : `pedal-endpoint-handle pedal-endpoint-handle--${handle.which}`)
-      ;(sq as SVGElement & { style: CSSStyleDeclaration }).style.cursor = 'pointer'
-      this.addNode(svg, sq)
-
-      registry.add({
-        type: 'pedal-endpoint',
-        pedalId: selected.id,
-        endpoint: handle.which,
-        bbox: { x: handle.x - HIT, y: handle.y - HIT, width: HIT * 2, height: HIT * 2 },
-      })
-    }
-  }
-
-  /**
-   * ⭐ **THE SELECTED TRILL'S TWO ENDPOINT SQUARES** — one beyond the `tr`, one beyond the end of its
-   * wavy line (his ask, 2026-08-18). {@link applyPedalHandles} verbatim but for the geometry it
-   * reads, and that is the point: the editor has ONE look for "this is an end of a span", so the
-   * same blue, the same sizes, the same armed-reads-as-picked rule.
-   *
-   * ⭐ **They sit OUTSIDE the ornament's ink** (`TRILL_HANDLE_GAP_PX`): a square centred on the
-   * beginning would cover the `tr` itself, which is the whole statement on a one-note trill.
-   *
-   * ⛔ Each square registers a `trill-endpoint` entry so a press can find it — and `clearHighlights`
-   * removes them again, since the highlight pass owns them (the render never draws one).
-   */
-  applyTrillHandles(): void {
-    const engine = this.getEngine()
-    const scoreCanvas = this.getScoreCanvas()
-    const selected = selectedOf(this.state, 'trill')
-    if (!engine || !scoreCanvas || !selected) return
-    const svg = scoreCanvas.querySelector('svg')
-    if (!svg) return
-
-    const registry = engine.getElementRegistry()
-    const S = HighlightController.SLUR_HANDLE_R + 1 // the slur squares' half-side, one family
-    const HIT = HighlightController.SLUR_HANDLE_HIT
-    for (const handle of trillEndpointHandles(registry.getByType('trill'), selected.id)) {
-      const armed = handle.which === selected.endpoint
-      const half = armed ? S + 2 : S
-      const sq = document.createElementNS('http://www.w3.org/2000/svg', 'rect')
-      sq.setAttribute('x', String(handle.x - half))
-      sq.setAttribute('y', String(handle.y - half))
-      sq.setAttribute('width', String(half * 2))
-      sq.setAttribute('height', String(half * 2))
-      sq.setAttribute('fill', armed ? '#1D4ED8' : '#2563EB')
-      sq.setAttribute('stroke', '#ffffff')
-      sq.setAttribute('stroke-width', armed ? '2.5' : '1.5')
-      sq.setAttribute('class', armed
-        ? `trill-endpoint-handle trill-endpoint-handle--${handle.which} trill-endpoint-handle--selected`
-        : `trill-endpoint-handle trill-endpoint-handle--${handle.which}`)
-      ;(sq as SVGElement & { style: CSSStyleDeclaration }).style.cursor = 'pointer'
-      this.addNode(svg, sq)
-
-      registry.add({
-        type: 'trill-endpoint',
-        trillId: selected.id,
-        endpoint: handle.which,
-        bbox: { x: handle.x - HIT, y: handle.y - HIT, width: HIT * 2, height: HIT * 2 },
-      })
-    }
-  }
-
   applyTrillSelectionHighlight(): void {
     for (const id of this.selectedIdsOf('trill')) this.recolorTrill(id)
   }
@@ -1961,8 +1777,8 @@ export class HighlightController {
   }
 
   /** Radius of a slur control-point handle dot (px) and its hit half-extent. */
-  private static readonly SLUR_HANDLE_R = 5
-  private static readonly SLUR_HANDLE_HIT = 9
+  private static readonly SLUR_HANDLE_R = HANDLE_R
+  private static readonly SLUR_HANDLE_HIT = HANDLE_HIT
 
   /** The tint a note wears while it is a slur endpoint's ANCHOR — the blue-square blue, so the note
    *  and the square that points at it read as one thing. Both tinting paths share it: the drag's

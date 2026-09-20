@@ -18,6 +18,9 @@ import type { ClickableElementSpec } from './chain'
 import { distToSegment } from './slur'
 import { beginOttavaBodyDrag } from '../drags/ottavaBody'
 import { spanMarkKeys } from '../spanMarkKeys'
+import { selectedOf } from '../EditorState'
+import { paintEndpointHandles } from './endpointHandles'
+import { ottavaEndpointHandles } from './ottavaHandles'
 
 /** A few px of grace at the edges — the pad the slur, hairpin and trill already share. */
 const PAD = 7
@@ -61,9 +64,11 @@ export const OTTAVA_ELEMENT: ClickableElementSpec = {
   // ⚠️ The RECOLOUR is not here since 2026-08-19: it moved to the SET pass in `RenderController`
   // (the dynamic's own arrangement), because a passage box can now select this kind too and the
   // ink has to paint for every selected one — not only for the one a click picked.
-  highlight: h => {
-    h.applyAnchorGuideLine()
-    h.applyOttavaHandles()
+  highlight: ctx => {
+    ctx.controller.applyAnchorGuideLine()
+    const selected = selectedOf(ctx.state, 'ottava')
+    if (!selected) return
+    paintEndpointHandles(ctx, 'ottava', selected, ottavaEndpointHandles(ctx.registry.getByType('ottava'), selected.id))
   },
   keys: spanMarkKeys('ottava'),
 }

@@ -13,6 +13,9 @@ import type { ClickableElementSpec } from './chain'
 import { distToSegment } from './slur'
 import { beginHairpinBodyDrag } from '../drags/hairpinBody'
 import { HAIRPIN_KEYS } from './hairpinKeys'
+import { selectedOf } from '../EditorState'
+import { paintEndpointHandles } from './endpointHandles'
+import { hairpinEndpointHandles } from './hairpinHandles'
 
 export const HAIRPIN_ELEMENT: ClickableElementSpec = {
   kind: 'hairpin',
@@ -52,6 +55,11 @@ export const HAIRPIN_ELEMENT: ClickableElementSpec = {
   // ⚠️ The RECOLOUR is not here since 2026-08-19: it moved to the SET pass in `RenderController`
   // (the dynamic's own arrangement), because a passage box can now select this kind too and the
   // ink has to paint for every selected one — not only for the one a click picked.
-  highlight: h => { h.applyAnchorGuideLine(); h.applyHairpinHandles() },
+  highlight: ctx => {
+    ctx.controller.applyAnchorGuideLine()
+    const selected = selectedOf(ctx.state, 'hairpin')
+    if (!selected) return
+    paintEndpointHandles(ctx, 'hairpin', selected, hairpinEndpointHandles(ctx.registry.getByType('hairpin'), selected.id))
+  },
   keys: HAIRPIN_KEYS,
 }

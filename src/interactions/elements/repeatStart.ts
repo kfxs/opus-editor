@@ -75,5 +75,5 @@ export const REPEAT_START_ELEMENT: ClickableElementSpec = {
     return deps.pick({ kind: 'repeatStart', measure })
   },
 
-  highlight: h => h.applyRepeatStartSelectionHighlight(),
+  highlight: ctx => ctx.controller.applyRepeatStartSelectionHighlight(),
 }

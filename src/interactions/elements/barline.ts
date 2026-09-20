@@ -138,5 +138,5 @@ export const BARLINE_ELEMENT: ClickableElementSpec = {
     )
   },
 
-  highlight: h => { h.applyBarlineSelectionHighlight(); h.applyBarlineJoinHandles() },
+  highlight: ctx => { ctx.controller.applyBarlineSelectionHighlight(); ctx.controller.applyBarlineJoinHandles() },
 }
