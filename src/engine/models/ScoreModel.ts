@@ -1,10 +1,10 @@
 import { dbg } from '@/utils/debug'
 import { isTestRun } from '@/utils/env'
-import type { KeySignature, PitchInsert, Score, Measure, Note, NoteParams, TimeSignature, Tuplet, TupletFormat, NoteDuration, ChordRest, Chord, Rest, NotePitch, PitchAlter, PitchStep, Clef, Dynamic, Hairpin, Ottava, Pedal, TempoMark, Slur, Trill, TrillContinuationLabel, StaffInfo, StaffGroup, EngravingOverride, CurveControlPointDeltas, SlurSegmentAddress, SlurSegmentEndpointAddress, CautionaryOverride, CautionaryClefOverride, TremoloMark, FanMark, SoundRef, SoundAssignment, BarlineStyle, ClefChange, FractionalBeamSide } from '@/types/music'
-import { engravingOverridesOf, engravingOverrideOf, cautionaryKey, cautionaryAllowedOf, cautionaryClefKey, cautionaryClefAllowedOf, restPositionKey } from './engravingOverrides'
-import { tupletScale, noteSpansOverlapFrac, splitBeatsIntoDurations } from '@/utils/musicUtils'
+import type { KeySignature, Score, Measure, Note, NoteParams, TimeSignature, Tuplet, TupletFormat, NoteDuration, ChordRest, Chord, Rest, NotePitch, PitchAlter, PitchStep, Clef, Dynamic, Hairpin, Ottava, Pedal, TempoMark, Slur, Trill, TrillContinuationLabel, StaffInfo, StaffGroup, EngravingOverride, CurveControlPointDeltas, SlurSegmentAddress, SlurSegmentEndpointAddress, CautionaryOverride, CautionaryClefOverride, TremoloMark, FanMark, SoundRef, SoundAssignment, BarlineStyle, ClefChange, FractionalBeamSide } from '@/types/music'
+import { engravingOverridesOf, engravingOverrideOf, cautionaryKey, cautionaryAllowedOf, cautionaryClefKey, cautionaryClefAllowedOf } from './engravingOverrides'
+import { splitBeatsIntoDurations } from '@/utils/musicUtils'
 import { measureCapacityFrac, getMeasureDurationFrac } from '@/utils/measureCapacity'
-import { durationToFraction, slotLength, writtenLength } from '@/utils/durations'
+import { durationToFraction, slotLength } from '@/utils/durations'
 import {
   getMeterInfo,
   isValidTimeSignature,
@@ -13,7 +13,7 @@ import {
 } from '@/utils/meter'
 import { fillRests } from '@/utils/restFill'
 import { beamRoleAtRef, type BeamRole } from '@/utils/beaming'
-import { cloneFanFresh, fanMemberPitches, fanMemberBeats } from '@/utils/fannedBeam'
+import { fanMemberPitches, fanMemberBeats } from '@/utils/fannedBeam'
 import { alterToString } from '@/utils/pitchSpelling'
 import type { Clip, ClipTarget } from '@/utils/clip'
 import {
@@ -21,7 +21,6 @@ import {
   fracCreate,
   fracAdd,
   fracSub,
-  fracMul,
   fracCompare,
   fracGt,
   fracGte,
@@ -36,6 +35,7 @@ import { keyAt } from '@/utils/keySignature'
 import * as rebarOps from './rebarOps'
 import * as overrideOps from './overrideOps'
 import { fillGapsWithRests, pushRestSlot } from './restFillOps'
+import { computeActualDurationForSlot, dropRestHiddenOf, evictRestsOverlapping, evictRestsOverlappingChord, fmtSlot, replaceRestsWithChord } from './slotPlacementOps'
 import * as slurOps from './slurOps'
 import { repairDanglingTies } from './tieOps'
 import * as trillOps from './trillOps'
@@ -75,23 +75,6 @@ import type { VoiceScope } from '@/utils/dynamicScope'
 // in @/utils/clip, so callers import it from there rather than through this class.
 
 
-/**
- * Compact, voice-tagged one-line summary of a slot for debug logs, e.g.
- * `v0 C4+E4 q m1 b0.000` (a chord) or `v1 REST h. m2 b1.500`. Voice always
- * shown (even default 0) because the multi-voice paths are the sensitive ones.
- */
-function fmtSlot(slot: ChordRest): string {
-  const v = voiceOf(slot)
-  const b = fracToNumber(slot.beat).toFixed(3)
-  const dots = slot.dots ? '.'.repeat(slot.dots) : ''
-  const tup = slot.tupletId ? ` tup:${slot.tupletId.slice(0, 4)}` : ''
-  if (slot.type === 'rest') {
-    const mr = slot.isMeasureRest ? ' [measure-rest]' : ''
-    return `v${v} REST ${slot.duration}${dots} m${slot.measure} b${b}${mr}${tup}`
-  }
-  const pitches = slot.notes.map(n => `${n.step}${alterToString(n.alter)}${n.octave}`).join('+')
-  return `v${v} ${pitches} ${slot.duration}${dots} m${slot.measure} b${b}${tup}`
-}
 
 /**
  * What {@link ScoreModel.updateNote} will write onto a FANNED MEMBER — its spelling, and its own
@@ -1919,7 +1902,6 @@ export class ScoreModel {
    *  voice move uses but does not own. */
   private get voiceDeps(): voiceOps.VoiceDeps {
     return {
-      insertPitch: (m, payload) => this.insertPitch(m, payload),
       refillTupletRemainder: (n, t, voice) => this.refillTupletRemainder(n, t, voice),
     }
   }
@@ -2145,12 +2127,12 @@ export class ScoreModel {
       }
       if (params.voice) rest.voice = params.voice
       if (targetStaffId !== undefined) rest.staffId = targetStaffId
-      rest.actualDuration = this.computeActualDurationForSlot(rest, measure)
+      rest.actualDuration = computeActualDurationForSlot(rest, measure)
       // Through the SAME rule a new chord uses: a rest evicts the same-voice rests it overlaps.
       // This branch used to `push` and nothing else, which is how a bar reached six beats in 4/4
       // (see evictRestsOverlapping). No gap fill here: this is often the gap-filler's OWN addNote.
       dbg(`[Model.addNote] add REST ${fmtSlot(rest)} → m${measure.number}, replacing same-voice rests`)
-      this.evictRestsOverlapping(measure, rest)
+      evictRestsOverlapping(this.score, measure, rest)
       measure.slots.push(rest)
       measure.slots.sort((a, b) => fracCompare(a.beat, b.beat))
       return this.restToFlatNote(rest)
@@ -2186,7 +2168,7 @@ export class ScoreModel {
         if (existingChord.duration !== params.duration || (existingChord.dots || 0) !== noteDots) {
           existingChord.duration = params.duration
           existingChord.dots = params.dots
-          existingChord.actualDuration = this.computeActualDurationForSlot(existingChord, measure)
+          existingChord.actualDuration = computeActualDurationForSlot(existingChord, measure)
         }
       }
       // Sync stem direction if provided
@@ -2228,191 +2210,12 @@ export class ScoreModel {
     }
     if (params.voice) chord.voice = params.voice
     if (targetStaffId !== undefined) chord.staffId = targetStaffId
-    chord.actualDuration = this.computeActualDurationForSlot(chord, measure)
+    chord.actualDuration = computeActualDurationForSlot(chord, measure)
 
     dbg(`[Model.addNote] new chord ${fmtSlot(chord)} → replacing same-voice rests`)
-    this.replaceRestsWithChord(measure, chord)
+    replaceRestsWithChord(this.score, measure, chord)
 
     return this.toFlatNote(chord, notePitch)
-  }
-
-  /**
-   * Evict the same-voice, same-staff RESTS that `incoming`'s span overlaps, migrating any tie that
-   * pointed at one onto whatever replaces it. Returns the tupletId inherited from a replaced tuplet
-   * rest, if any. Does NOT place `incoming`, and deliberately does NOT fill gaps — see below.
-   *
-   * The rule is about TIME, not pitch: one voice cannot be two things over one beat, so anything
-   * arriving evicts the rests its span covers — a chord or another rest alike. It lived inside the
-   * chord's half of {@link addNote}'s if/else, so the rest branch never got it and simply pushed:
-   * a quarter rest entered where a half rest already sat left BOTH, and the bar went to six beats in
-   * 4/4 (`[integrity] … Δ +2 — OVERFULL`). Pulling the rule out of the chord path is what lets both
-   * branches obey it.
-   *
-   * FILLING IS THE CALLER'S. A rest is often being added BY the gap-filler itself, and re-entering
-   * the filler from inside it closes the very hole the caller was opening — the bar is meant to be
-   * inconsistent mid-repair. The chord path fills afterwards because it is done at that point;
-   * that difference is real, so it stays at the call sites rather than becoming a flag here.
-   *
-   * The tie target is the only thing that varies by kind: a chord's first pitch, or the rest itself
-   * (both can be tied INTO — the let-ring rule; see deleteNoteOps.deleteNoteWithRepair).
-   */
-  /**
-   * The shared "which same-voice/staff rests does this span cover?" scan. Partitions the
-   * measure's slots into the rests to evict (a rest is the only thing another event can
-   * displace — chords and other-voice/staff rests are independent streams and always
-   * survive) and the slots that remain, order preserved. `keepId` is the incoming slot
-   * itself, which always overlaps its own span, so it is never evicted.
-   *
-   * What to DO with each evicted rest — migrate a tie, inherit a tupletId, re-fill the bar —
-   * stays at the two call sites, because who fills and who places differs between them.
-   */
-  private scanOverlappingRests(
-    measure: Measure,
-    beat: Fraction,
-    durFrac: Fraction,
-    voice: number,
-    staffId: string | undefined,
-    keepId: string,
-  ): { evicted: Rest[]; remaining: ChordRest[] } {
-    const evicted: Rest[] = []
-    const remaining: ChordRest[] = []
-    for (const existing of measure.slots) {
-      if (existing.id === keepId) {
-        remaining.push(existing)
-        continue
-      }
-      if (existing.type === 'rest') {
-        const existingDurFrac =
-          slotLength(existing)
-        const overlaps =
-          voiceOf(existing) === voice &&
-          matchesStaff(existing.staffId, staffId, this.score) &&
-          noteSpansOverlapFrac(beat, durFrac, existing.beat, existingDurFrac)
-        if (overlaps) {
-          evicted.push(existing)
-          continue
-        }
-      }
-      remaining.push(existing) // a chord, or a rest of another voice/staff — independent streams
-    }
-    return { evicted, remaining }
-  }
-
-  /**
-   * A NOTE is taking this rest's position, so the rest's HIDDEN flag goes with it — it was
-   * authored for a rest that will not be there (his report, 2026-08-30). ⛔ The rest SHIFT at the
-   * same address stays: `docs/rest-shift-plan.md` §4 accepts resurrect-on-return. See
-   * `overrideOps.clearRestHiddenAt` for why the two differ, and why this is operation-driven
-   * rather than a sweep over what looks orphaned.
-   */
-  private dropRestHiddenOf(measure: Measure, rest: Rest): void {
-    overrideOps.clearRestHiddenAt(
-      this.score, restPositionKey(measure.id, voiceOf(rest), rest.beat, rest.staffId),
-    )
-  }
-
-  private evictRestsOverlapping(measure: Measure, incoming: ChordRest): string | undefined {
-    const incomingDurFrac = slotLength(incoming)
-    const incomingVoice = voiceOf(incoming)
-    const tieTarget: { id: string; tiedFrom?: string } | undefined =
-      incoming.type === 'chord' ? incoming.notes[0] : incoming
-
-    let inheritedTupletId: string | undefined = incoming.tupletId
-    const { evicted, remaining } = this.scanOverlappingRests(
-      measure, incoming.beat, incomingDurFrac, incomingVoice, incoming.staffId, incoming.id,
-    )
-
-    for (const existing of evicted) {
-      dbg(`[Model.replaceRests] remove overlapping ${fmtSlot(existing)} (same voice v${incomingVoice} as new ${incoming.type})`)
-      if (existing.tupletId && !incoming.tupletId) {
-        inheritedTupletId = existing.tupletId
-      }
-      // Migrate any tie pointing TO this rest onto whatever replaces it
-      if (tieTarget) {
-        if (existing.tiedFrom) tieTarget.tiedFrom = existing.tiedFrom
-        this.migrateRestTieTo(existing.id, tieTarget.id)
-      }
-      // ⭐ Only when a NOTE takes the position: a rest evicted by another rest is the rest-fill
-      // churn the position key exists to survive, so its hidden flag must stay put.
-      // See `overrideOps.clearRestHiddenAt`.
-      if (incoming.type === 'chord') {
-        this.dropRestHiddenOf(measure, existing)
-      }
-    }
-
-    measure.slots = remaining
-    return inheritedTupletId
-  }
-
-  /**
-   * Replace rests overlapping a new Chord and fill gaps with new rests.
-   * Also inherits tupletId from any replaced tuplet rest.
-   */
-  private replaceRestsWithChord(measure: Measure, chord: Chord): void {
-    const inheritedTupletId = this.evictRestsOverlapping(measure, chord)
-
-    // Apply inherited tupletId
-    if (inheritedTupletId && !chord.tupletId) {
-      chord.tupletId = inheritedTupletId
-      // Recompute actual duration with the now-known tuplet
-      chord.actualDuration = this.computeActualDurationForSlot(chord, measure)
-    }
-
-    measure.slots.push(chord)
-
-    // Fill gaps with rests
-    fillGapsWithRests(this.score, measure)
-
-    // Sort by beat
-    measure.slots.sort((a, b) => fracCompare(a.beat, b.beat))
-  }
-
-  /**
-   * A chord already in the measure has grown (its duration was lengthened in
-   * place) and its sounding span may now overlap later same-voice/staff rests.
-   * Evict every such rest — migrating any tie that pointed at it onto the chord's
-   * first note — then re-fill the tail so the bar stays exactly full.
-   *
-   * This is the in-place counterpart to {@link replaceRestsWithChord} (which
-   * assumes the chord is not yet in `slots`). No-op when nothing overlaps, so it
-   * is safe to call on any duration change; only a genuine grow evicts anything.
-   */
-  private evictRestsOverlappingChord(measure: Measure, chord: Chord): void {
-    const chordDurFrac = slotLength(chord)
-    const chordVoice = voiceOf(chord)
-
-    const { evicted, remaining } = this.scanOverlappingRests(
-      measure, chord.beat, chordDurFrac, chordVoice, chord.staffId, chord.id,
-    )
-    if (evicted.length === 0) return
-
-    for (const existing of evicted) {
-      dbg(`[Model.evictRests] remove overlapping ${fmtSlot(existing)} (chord grew, v${chordVoice})`)
-      if (chord.notes.length > 0) this.migrateRestTieTo(existing.id, chord.notes[0].id)
-      this.dropRestHiddenOf(measure, existing)
-    }
-
-    measure.slots = remaining
-    fillGapsWithRests(this.score, measure)
-    measure.slots.sort((a, b) => fracCompare(a.beat, b.beat))
-  }
-
-  /**
-   * Update all NotePitch.tiedTo pointers that reference a deleted rest ID,
-   * redirecting them to newNotePitchId.
-   */
-  private migrateRestTieTo(restId: string, newNotePitchId: string): void {
-    for (const measure of this.score.measures) {
-      for (const slot of measure.slots) {
-        if (slot.type === 'chord') {
-          for (const pitch of slot.notes) {
-            if (pitch.tiedTo === restId) {
-              pitch.tiedTo = newNotePitchId
-            }
-          }
-        }
-      }
-    }
   }
 
   /**
@@ -2439,34 +2242,6 @@ export class ScoreModel {
       this.addRest(restDuration, measureNumber, currentBeat, voice, staff)
       currentBeat = fracAdd(currentBeat, durationToFraction(restDuration))
     }
-  }
-
-  /**
-   * Compute the exact sounding duration of a slot as a Fraction.
-   *
-   * A measure rest spans the whole bar regardless of its `'w'` glyph, so its
-   * actual length is the meter's bar length — correct in every meter, not just
-   * 4/4 where `'w'` happens to equal four quarters.
-   *
-   * ⭐ …and a fan made by COLLAPSING a passage (`fanCollapse`) spans what that passage spanned,
-   * which need not be writable as one value: seven sixteenths is a dotted quarter tied to a
-   * sixteenth. The span is authored on the MARK ({@link FanMark.length}) precisely so it can be
-   * derived here rather than trusted from the wire — `fromJSON` recomputes every slot's.
-   */
-  private computeActualDurationForSlot(slot: ChordRest | { duration: NoteDuration; dots?: number; tupletId?: string; isMeasureRest?: boolean }, measure: Measure): Fraction {
-    if ('isMeasureRest' in slot && slot.isMeasureRest) {
-      return measureCapacityFrac(measure)
-    }
-    if ('fan' in slot && slot.fan?.length) return slot.fan.length
-    const base = writtenLength(slot)
-    if (slot.tupletId && measure.tuplets) {
-      const tuplet = measure.tuplets.find(t => t.id === slot.tupletId)
-      if (tuplet) {
-        // The written→sounding factor, which is only `M/N` when both sides share a note value.
-        return fracMul(base, tupletScale(tuplet))
-      }
-    }
-    return base
   }
 
   /**
@@ -2737,7 +2512,7 @@ export class ScoreModel {
           articulationStemAlign: updates.articulationStemAlign,
           notes: [notePitch],
         }
-        chord.actualDuration = this.computeActualDurationForSlot(chord, measure)
+        chord.actualDuration = computeActualDurationForSlot(chord, measure)
 
         measure.slots = measure.slots.filter(s => s.id !== rest.id)
         measure.slots.push(chord)
@@ -2747,7 +2522,7 @@ export class ScoreModel {
         // and then typing a note over it left `restHidden` filed under the position the note now
         // occupies. The position keeps holding a slot, so `clearRemovedContentOverrides` never
         // sees it — only this operation knows a rest just stopped existing here.
-        this.dropRestHiddenOf(measure, rest)
+        dropRestHiddenOf(this.score, measure, rest)
 
         return this.toFlatNote(chord, notePitch)
       }
@@ -2769,7 +2544,7 @@ export class ScoreModel {
         rest.measure = updates.measure
         // A relocated rest is no longer the whole-bar measure rest.
         delete rest.isMeasureRest
-        rest.actualDuration = this.computeActualDurationForSlot(rest, newMeasureObj)
+        rest.actualDuration = computeActualDurationForSlot(rest, newMeasureObj)
         newMeasureObj.slots.push(rest)
         newMeasureObj.slots.sort((a, b) => fracCompare(a.beat, b.beat))
       } else {
@@ -2793,7 +2568,7 @@ export class ScoreModel {
         }
         if (updates.duration !== undefined || updates.dots !== undefined || updates.tupletId !== undefined) {
           const m = this.getMeasure(rest.measure)
-          if (m) rest.actualDuration = this.computeActualDurationForSlot(rest, m)
+          if (m) rest.actualDuration = computeActualDurationForSlot(rest, m)
         }
       }
       return this.restToFlatNote(rest)
@@ -2841,7 +2616,7 @@ export class ScoreModel {
         oldMeasureObj.slots = oldMeasureObj.slots.filter(s => s.id !== chord.id)
       }
       chord.measure = updates.measure
-      chord.actualDuration = this.computeActualDurationForSlot(chord, newMeasureObj)
+      chord.actualDuration = computeActualDurationForSlot(chord, newMeasureObj)
       newMeasureObj.slots.push(chord)
       newMeasureObj.slots.sort((a, b) => fracCompare(a.beat, b.beat))
     } else {
@@ -2852,11 +2627,11 @@ export class ScoreModel {
       if (updates.duration !== undefined || updates.dots !== undefined || updates.tupletId !== undefined) {
         const m = this.getMeasure(chord.measure)
         if (m) {
-          chord.actualDuration = this.computeActualDurationForSlot(chord, m)
+          chord.actualDuration = computeActualDurationForSlot(chord, m)
           // A chord lengthened in place now overlaps the rests that used to sit
           // in the space it grew into — evict them, or the bar goes overfull.
           if (oldActualDuration === undefined || fracGt(chord.actualDuration, oldActualDuration)) {
-            this.evictRestsOverlappingChord(m, chord)
+            evictRestsOverlappingChord(this.score, m, chord)
           }
         }
       }
@@ -3064,103 +2839,6 @@ export class ScoreModel {
   /** Set (or clear) `beamOver` on the rest at a given beat/voice/staff. See {@link markOps.setRestBeamOver} for the why. */
   setRestBeamOver(measureNumber: number, beat: Fraction, voice: number, staff: number, value: boolean): void {
     markOps.setRestBeamOver(this.score, measureNumber, beat, voice, staff, value)
-  }
-
-  /**
-   * Insert a pitch into a measure at a given beat/voice, **reusing the supplied
-   * `pitch.id`** (unlike {@link addNote}, which always mints a fresh uuid). Mirrors
-   * addNote's two branches: merge into a same-beat/same-voice chord, or build a
-   * new chord and clear the target-voice rest via {@link replaceRestsWithChord}.
-   * Used by {@link moveNoteToVoice} so a moved note keeps its anchored ties/slurs.
-   */
-  private insertPitch(measure: Measure, payload: PitchInsert): void {
-    const notePitch: NotePitch = {
-      id: payload.id,
-      step: payload.step,
-      alter: payload.alter,
-      octave: payload.octave,
-      forceAccidental: payload.forceAccidental,
-      tiedTo: payload.tiedTo,
-      tiedFrom: payload.tiedFrom,
-      tieDirection: payload.tieDirection,
-    }
-    const targetVoice = payload.voice
-
-    // The target slot is addressed by the whole LANE — (staff, voice) — not by the voice alone:
-    // on a two-staff score both staves have a voice 1, and a beat-matched chord on the other
-    // staff is a different stream, not a collision to merge into.
-    const existingChord = measure.slots.find(
-      (s): s is Chord => s.type === 'chord' && fracEq(s.beat, payload.beat) && voiceOf(s) === targetVoice
-        && matchesStaff(s.staffId, payload.staffId, this.score),
-    )
-
-    if (existingChord) {
-      // Merge into the existing chord (collision). If neither side is a tuplet and
-      // the durations differ, the SHORTER duration wins (plan §0.2 / Phase 2): the
-      // merged chord takes the smaller duration and fillGapsWithRests reclaims the
-      // freed time in this voice. A longer incoming note is simply cramped in.
-      existingChord.notes.push(notePitch)
-      // Bring the moved note's articulations along only if the target chord has none of
-      // its own (don't clobber marks the destination chord already carries).
-      if (payload.articulations?.length && !existingChord.articulations?.length) {
-        existingChord.articulations = [...payload.articulations]
-      }
-      // Same rule for the beam statement: the destination chord's own beaming wins.
-      if (payload.beam && !existingChord.beam) existingChord.beam = payload.beam
-      // And for the tremolo, for the same reason: a note has ONE, so the destination keeps its own.
-      if (payload.tremolo && !existingChord.tremolo) existingChord.tremolo = payload.tremolo
-      if (payload.tremoloPair && !existingChord.tremoloPair) {
-        existingChord.tremoloPair = true
-        if (payload.tremoloPairStyle) existingChord.tremoloPairStyle = payload.tremoloPairStyle
-      }
-      // The fan is the same kind of statement about the event, so it follows the same rule — and it
-      // stands down in front of a tremolo the destination already carries, because the two cannot
-      // both describe the same slot (`setFan`).
-      // Cloned, not shared: the slot it came from may still exist (a chord keeps its fan when one of
-      // its pitches leaves), and two live slots holding ONE members array means two heads with the
-      // same pitch id — see {@link cloneFanFresh}.
-      if (payload.fan && !existingChord.fan && !existingChord.tremolo) existingChord.fan = cloneFanFresh(payload.fan)
-      if (payload.secondaryBreak && existingChord.secondaryBreak === undefined) {
-        existingChord.secondaryBreak = true
-      }
-      if (!existingChord.tupletId) {
-        const incomingFrac = writtenLength(payload)
-        const existingFrac = writtenLength(existingChord)
-        if (fracCompare(incomingFrac, existingFrac) < 0) {
-          existingChord.duration = payload.duration
-          existingChord.dots = payload.dots
-          existingChord.actualDuration = this.computeActualDurationForSlot(existingChord, measure)
-          fillGapsWithRests(this.score, measure) // reclaim the freed time as rests
-        }
-      }
-      dbg(`[Model.insertPitch] merge ${notePitch.step}${alterToString(notePitch.alter)}${notePitch.octave} → chord ${fmtSlot(existingChord)} (now ${existingChord.notes.length} note(s), dur ${existingChord.duration})`)
-      return
-    }
-
-    // No chord at this beat/voice — build one and clear the target-voice rest.
-    const chord: Chord = {
-      id: uuidv4(),
-      type: 'chord',
-      beat: payload.beat,
-      duration: payload.duration,
-      dots: payload.dots,
-      measure: measure.number,
-      notes: [notePitch],
-    }
-    if (payload.articulations?.length) chord.articulations = [...payload.articulations]
-    if (payload.articulationStemAlign) chord.articulationStemAlign = true
-    if (payload.fractionalBeamSide) chord.fractionalBeamSide = payload.fractionalBeamSide
-    if (payload.beam) chord.beam = payload.beam
-    if (payload.secondaryBreak) chord.secondaryBreak = true
-    if (payload.tremolo) chord.tremolo = payload.tremolo
-    if (payload.tremoloPair) chord.tremoloPair = true
-    if (payload.tremoloPairStyle) chord.tremoloPairStyle = payload.tremoloPairStyle
-    if (payload.fan) chord.fan = cloneFanFresh(payload.fan) // fresh member ids — see the merge branch
-    if (targetVoice) chord.voice = targetVoice as 0 | 1 | 2 | 3
-    if (payload.staffId !== undefined) chord.staffId = payload.staffId
-    chord.actualDuration = this.computeActualDurationForSlot(chord, measure)
-    dbg(`[Model.insertPitch] new chord ${fmtSlot(chord)} → replacing v${targetVoice} rests`)
-    this.replaceRestsWithChord(measure, chord)
   }
 
   /**
@@ -3432,7 +3110,7 @@ export class ScoreModel {
     // The helper handles measure rests (whole-bar length) in every meter.
     for (const measure of model.score.measures) {
       for (const slot of measure.slots ?? []) {
-        slot.actualDuration = model.computeActualDurationForSlot(slot, measure)
+        slot.actualDuration = computeActualDurationForSlot(slot, measure)
       }
     }
 

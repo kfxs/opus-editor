@@ -19,7 +19,7 @@
  * group is atomic, so the note cannot simply leave — a matching tuplet is created in the target
  * voice and the ordinal slots are poured across.
  */
-import type { Score, Measure, Chord, Note, NotePitch, Tuplet, Fraction, PitchInsert } from '@/types/music'
+import type { Score, Measure, Chord, Note, NotePitch, Tuplet, Fraction } from '@/types/music'
 import { v4 as uuidv4 } from 'uuid'
 import { dbg } from '@/utils/debug'
 import { staffOf, voiceOf } from '@/utils/lanes'
@@ -29,6 +29,7 @@ import { alterToString } from '@/utils/pitchSpelling'
 import { staffIndexOfId } from './staffContent'
 import { findSlot } from './slotLookup'
 import { fillGapsWithRests } from './restFillOps'
+import { insertPitch } from './slotPlacementOps'
 import * as markOps from './markOps'
 import * as tupletOps from './tupletOps'
 
@@ -38,8 +39,6 @@ import * as tupletOps from './tupletOps'
  * voice move USES but does not own, so they are handed in rather than duplicated or dragged along.
  */
 export interface VoiceDeps {
-  /** Put the pitch into the target lane — merging into a same-beat chord, or making a new slot. */
-  insertPitch(measure: Measure, payload: PitchInsert): void
   /** Fill the remainder of a freshly made tuplet with rests. */
   refillTupletRemainder(measureNumber: number, tuplet: Tuplet, voice?: number): void
 }
@@ -165,7 +164,7 @@ export function moveNoteToVoice(score: Score, deps: VoiceDeps, pitchId: string, 
 
   // Insert into the target voice (merges into a same-beat chord, or makes a new
   // one and clears the target-voice rest there). Reuses the captured id.
-  deps.insertPitch(measure, payload)
+  insertPitch(score, measure, payload)
 
   // A tie whose partner stayed behind would now span two voices — drop it (plan
   // §5). A partner that's also moving in this batch (movingIds) is kept: it will
