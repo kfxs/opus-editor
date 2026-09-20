@@ -12,7 +12,7 @@
  *
  * ⚠️ WHO FILLS differs by caller, on purpose: see {@link evictRestsOverlapping}.
  */
-import type { Chord, ChordRest, Fraction, Measure, NoteDuration, NotePitch, PitchInsert, Rest, Score } from '@/types/music'
+import type { Chord, ChordRest, Fraction, Measure, NoteDuration, NoteParams, NotePitch, PitchInsert, Rest, Score } from '@/types/music'
 import { dbg } from '@/utils/debug'
 import { slotLength, writtenLength } from '@/utils/durations'
 import { cloneFanFresh } from '@/utils/fannedBeam'
@@ -25,7 +25,7 @@ import { v4 as uuidv4 } from 'uuid'
 import { restPositionKey } from './engravingOverrides'
 import * as overrideOps from './overrideOps'
 import { fillGapsWithRests } from './restFillOps'
-import { matchesStaff } from './staffContent'
+import { matchesStaff, staffIdAtIndex } from './staffContent'
 
 /**
  * Compact, voice-tagged one-line summary of a slot for debug logs, e.g.
@@ -251,6 +251,39 @@ function migrateRestTieTo(score: Score, restId: string, newNotePitchId: string):
       }
     }
   }
+}
+
+/**
+ * Mint a REST slot from entry params and place it: the rest branch of `ScoreModel.addNote`, lifted
+ * out so the callers that only ever add rests — `tupletOps.refillTupletRemainder` first among them
+ * — need no `addNote` callback. @returns the stored rest.
+ *
+ * ⚠️ Evicts, and deliberately does NOT fill — see {@link evictRestsOverlapping}.
+ */
+export function addRestSlot(score: Score, measure: Measure, params: NoteParams): Rest {
+  // Which staff this slot belongs to (absent = staff 0) — see `ScoreModel.staffIdForParams`.
+  const targetStaffId = params.staff ? staffIdAtIndex(score, params.staff) : undefined
+  const rest: Rest = {
+    id: uuidv4(),
+    type: 'rest',
+    beat: params.beat,
+    duration: params.duration,
+    measure: params.measure,
+    dots: params.dots,
+    tupletId: params.tupletId,
+    actualDuration: params.actualDuration,
+  }
+  if (params.voice) rest.voice = params.voice
+  if (targetStaffId !== undefined) rest.staffId = targetStaffId
+  rest.actualDuration = computeActualDurationForSlot(rest, measure)
+  // Through the SAME rule a new chord uses: a rest evicts the same-voice rests it overlaps.
+  // This branch used to `push` and nothing else, which is how a bar reached six beats in 4/4
+  // (see evictRestsOverlapping). No gap fill here: this is often the gap-filler's OWN addNote.
+  dbg(`[Model.addNote] add REST ${fmtSlot(rest)} → m${measure.number}, replacing same-voice rests`)
+  evictRestsOverlapping(score, measure, rest)
+  measure.slots.push(rest)
+  measure.slots.sort((a, b) => fracCompare(a.beat, b.beat))
+  return rest
 }
 
 /**

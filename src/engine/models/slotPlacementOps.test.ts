@@ -11,7 +11,7 @@ import { fracCreate as frac, fracToNumber } from '@/utils/fraction'
 import { ScoreModel } from './ScoreModel'
 import { restHiddenOf, restPositionKey } from './engravingOverrides'
 import {
-  computeActualDurationForSlot, evictRestsOverlapping, evictRestsOverlappingChord, insertPitch,
+  addRestSlot, computeActualDurationForSlot, evictRestsOverlapping, evictRestsOverlappingChord, insertPitch,
   replaceRestsWithChord,
 } from './slotPlacementOps'
 
@@ -106,6 +106,24 @@ describe('slotPlacementOps', () => {
     evictRestsOverlappingChord(model.getScore(), bar, chord)
     expect(shape()).toEqual(['nh@0', 'rh@2'])
     expect(model.getNote(note.id)).toBeTruthy()
+  })
+
+  describe('addRestSlot — the rest half of note entry', () => {
+    it('mints the rest in its lane, evicts the rests it covers, and does NOT refill', () => {
+      model.addStaffBelow(0)
+      const lowId = model.getScore().staves![1].id
+      const rest = addRestSlot(model.getScore(), bar, { duration: 'q', measure: 1, beat: frac(1, 1), isRest: true, voice: 1, staff: 1 })
+      expect(rest).toMatchObject({ type: 'rest', duration: 'q', voice: 1, staffId: lowId })
+      expect(fracToNumber(rest.actualDuration!)).toBe(1)
+      // The top staff's measure rest is another lane: untouched.
+      expect(shape(s => s.staffId === undefined)).toEqual(['rw@0'])
+    })
+
+    it('a quarter rest landing on a HALF rest replaces it — the bar is never overfull', () => {
+      model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'h', measure: 1, beat: frac(0, 1) }) // nh@0 rh@2
+      addRestSlot(model.getScore(), bar, { duration: 'q', measure: 1, beat: frac(2, 1), isRest: true })
+      expect(shape()).toEqual(['nh@0', 'rq@2']) // the half rest went; beat 3 is the CALLER's to fill
+    })
   })
 
   describe('insertPitch — the supplied pitch id is KEPT', () => {

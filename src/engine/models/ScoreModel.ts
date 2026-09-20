@@ -36,7 +36,7 @@ import * as rebarOps from './rebarOps'
 import * as overrideOps from './overrideOps'
 import { swapSlotForRest } from './convertToRestOps'
 import { fillGapsWithRests, pushRestSlot } from './restFillOps'
-import { computeActualDurationForSlot, dropRestHiddenOf, evictRestsOverlapping, evictRestsOverlappingChord, fmtSlot, replaceRestsWithChord } from './slotPlacementOps'
+import { addRestSlot, computeActualDurationForSlot, dropRestHiddenOf, evictRestsOverlappingChord, fmtSlot, replaceRestsWithChord } from './slotPlacementOps'
 import * as slurOps from './slurOps'
 import { repairDanglingTies } from './tieOps'
 import * as trillOps from './trillOps'
@@ -1898,15 +1898,6 @@ export class ScoreModel {
    * shares with the rest of the model (measure insertion, gap-fill, engraving overrides, tie /
    * slur repair). Built per call; rebar is not a hot path.
    */
-  /** The ScoreModel callbacks the {@link voiceOps} free functions call back into — bound here for
-   *  the same reason {@link rebarDeps} is: rest-fill and pitch insertion are note-entry machinery a
-   *  voice move uses but does not own. */
-  private get voiceDeps(): voiceOps.VoiceDeps {
-    return {
-      refillTupletRemainder: (n, t, voice) => this.refillTupletRemainder(n, t, voice),
-    }
-  }
-
   private get rebarDeps(): rebarOps.RebarDeps {
     return {
       insertMeasureAfter: (afterNumber, ts) => this.insertMeasureAfter(afterNumber, ts),
@@ -2115,28 +2106,8 @@ export class ScoreModel {
     const targetStaffId = this.staffIdForParams(params.staff)
 
     if (params.isRest) {
-      // Create a Rest slot
-      const rest: Rest = {
-        id: uuidv4(),
-        type: 'rest',
-        beat: params.beat,
-        duration: params.duration,
-        measure: params.measure,
-        dots: params.dots,
-        tupletId: params.tupletId,
-        actualDuration: params.actualDuration,
-      }
-      if (params.voice) rest.voice = params.voice
-      if (targetStaffId !== undefined) rest.staffId = targetStaffId
-      rest.actualDuration = computeActualDurationForSlot(rest, measure)
-      // Through the SAME rule a new chord uses: a rest evicts the same-voice rests it overlaps.
-      // This branch used to `push` and nothing else, which is how a bar reached six beats in 4/4
-      // (see evictRestsOverlapping). No gap fill here: this is often the gap-filler's OWN addNote.
-      dbg(`[Model.addNote] add REST ${fmtSlot(rest)} → m${measure.number}, replacing same-voice rests`)
-      evictRestsOverlapping(this.score, measure, rest)
-      measure.slots.push(rest)
-      measure.slots.sort((a, b) => fracCompare(a.beat, b.beat))
-      return this.restToFlatNote(rest)
+      // Minting the rest and evicting the rests it overlaps is `slotPlacementOps.addRestSlot`.
+      return this.restToFlatNote(addRestSlot(this.score, measure, params))
     }
 
     // Regular note — look for an existing Chord at the same beat AND voice
@@ -2760,7 +2731,7 @@ export class ScoreModel {
    * choice B, mutate in place).
    *  See {@link voiceOps.moveNoteToVoice} for the why. */
   moveNoteToVoice(pitchId: string, targetVoice: number, movingIds?: ReadonlySet<string>): boolean {
-    return voiceOps.moveNoteToVoice(this.score, this.voiceDeps, pitchId, targetVoice, movingIds)
+    return voiceOps.moveNoteToVoice(this.score, pitchId, targetVoice, movingIds)
   }
 
   /** Set (or clear) `beamOver` on the rest at a given beat/voice/staff. See {@link markOps.setRestBeamOver} for the why. */
@@ -2879,7 +2850,7 @@ export class ScoreModel {
    * Fill any empty gaps in a tuplet with filler rests. See {@link tupletOps.refillTupletRemainder}.
    */
   refillTupletRemainder(measureNumber: number, tuplet: Tuplet, voice: number = 0): void {
-    tupletOps.refillTupletRemainder(this.score, measureNumber, tuplet, params => this.addNote(params), voice)
+    tupletOps.refillTupletRemainder(this.score, measureNumber, tuplet, voice)
   }
 
   /**

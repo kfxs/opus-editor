@@ -19,7 +19,7 @@
  * group is atomic, so the note cannot simply leave — a matching tuplet is created in the target
  * voice and the ordinal slots are poured across.
  */
-import type { Score, Measure, Chord, Note, NotePitch, Tuplet, Fraction } from '@/types/music'
+import type { Score, Measure, Chord, Note, NotePitch, Fraction } from '@/types/music'
 import { v4 as uuidv4 } from 'uuid'
 import { dbg } from '@/utils/debug'
 import { staffOf, voiceOf } from '@/utils/lanes'
@@ -32,16 +32,6 @@ import { fillGapsWithRests } from './restFillOps'
 import { insertPitch } from './slotPlacementOps'
 import * as markOps from './markOps'
 import * as tupletOps from './tupletOps'
-
-/**
- * The `ScoreModel` callbacks these free functions call back into — the {@link rebarOps.RebarDeps}
- * idiom, and for its reason: rest-fill and pitch insertion are core note-entry machinery that a
- * voice move USES but does not own, so they are handed in rather than duplicated or dragged along.
- */
-export interface VoiceDeps {
-  /** Fill the remainder of a freshly made tuplet with rests. */
-  refillTupletRemainder(measureNumber: number, tuplet: Tuplet, voice?: number): void
-}
 
 /** Find a measure by its number (mirrors `ScoreModel.getMeasure`). */
 function getMeasure(score: Score, measureNumber: number): Measure | undefined {
@@ -84,7 +74,7 @@ export function collapseEmptyVoices(score: Score, measureNumber: number): void {
  *
  * @returns true if the note actually moved.
  */
-export function moveNoteToVoice(score: Score, deps: VoiceDeps, pitchId: string, targetVoice: number, movingIds?: ReadonlySet<string>): boolean {
+export function moveNoteToVoice(score: Score, pitchId: string, targetVoice: number, movingIds?: ReadonlySet<string>): boolean {
   const found = findSlot(score, pitchId)
   if (!found || found.type !== 'chord') return false // rests / unknown ids ignored
 
@@ -98,7 +88,7 @@ export function moveNoteToVoice(score: Score, deps: VoiceDeps, pitchId: string, 
   // Tuplet member → the ordinal-fill tuplet path (creates a matching tuplet in
   // the target voice). Plain notes continue below.
   if (chord.tupletId) {
-    return moveTupletNoteToVoice(score, deps, measure, chord, pitch, targetVoice, movingIds)
+    return moveTupletNoteToVoice(score, measure, chord, pitch, targetVoice, movingIds)
   }
 
   dbg(`[Model.moveNoteToVoice] ${pitch.step}${alterToString(pitch.alter)}${pitch.octave} (id ${pitch.id.slice(0, 8)}) v${from}→v${targetVoice} @ m${chord.measure} b${fracToNumber(chord.beat).toFixed(3)}`)
@@ -285,7 +275,7 @@ function resyncTrillVoiceForPitch(score: Score, pitchId: string): void {
  * the moved note's own slot → chorded). The source tuplet's gap is refilled (and
  * the tuplet dropped if it ends up all rests). Ids are preserved throughout.
  */
-function moveTupletNoteToVoice(score: Score, deps: VoiceDeps, measure: Measure, chord: Chord, pitch: NotePitch, targetVoice: number, movingIds?: ReadonlySet<string>): boolean {
+function moveTupletNoteToVoice(score: Score, measure: Measure, chord: Chord, pitch: NotePitch, targetVoice: number, movingIds?: ReadonlySet<string>): boolean {
   const sourceTuplet = measure.tuplets?.find(t => t.id === chord.tupletId)
   if (!sourceTuplet) return false // defensive: tupletId with no tuplet record
 
@@ -398,7 +388,7 @@ function moveTupletNoteToVoice(score: Score, deps: VoiceDeps, measure: Measure, 
   }
 
   // Fill the target tuplet's empty slots with tuplet rests.
-  deps.refillTupletRemainder(measure.number, targetTuplet, targetVoice)
+  tupletOps.refillTupletRemainder(score, measure.number, targetTuplet, targetVoice)
 
   // Drop any tie of the moved note that would now span two voices (a co-moving
   // partner in movingIds is kept — it lands in the same target voice).
@@ -406,7 +396,7 @@ function moveTupletNoteToVoice(score: Score, deps: VoiceDeps, measure: Measure, 
 
   // Source side: close the source tuplet's gap; drop it if now all rests.
   if (removedSourceSlot) {
-    deps.refillTupletRemainder(measure.number, sourceTuplet, from)
+    tupletOps.refillTupletRemainder(score, measure.number, sourceTuplet, from)
     const sourceHasNote = measure.slots.some(s => s.tupletId === sourceTuplet.id && s.type === 'chord')
     if (!sourceHasNote) {
       tupletOps.deleteTuplet(score, sourceTuplet.id)
@@ -435,7 +425,7 @@ function moveTupletNoteToVoice(score: Score, deps: VoiceDeps, measure: Measure, 
 }
 
 /** What moving a SELECTION needs of the score — `ScoreModel` answers all of it (the flat `Note`
- *  projection is the model's, which is why this is not `(score, deps)` like the functions above). */
+ *  projection is the model's, which is why this is not `(score, …)` like the functions above). */
 export interface VoiceMoveModel {
   getNote(id: string): Note | undefined
   moveNoteToVoice(pitchId: string, targetVoice: number, movingIds?: ReadonlySet<string>): boolean

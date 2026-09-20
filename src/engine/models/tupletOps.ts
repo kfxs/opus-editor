@@ -5,9 +5,8 @@
  * Create / query / refill / delete of tuplets and their slots. Each function takes
  * the `score` it operates on as a parameter (no shared instance state), matching the
  * `utils/rebar.ts` / `clefOps.ts` idiom. Two operations reach back into ScoreModel's
- * One operation reaches back into ScoreModel's larger note-entry machinery —
- * `refillTupletRemainder` needs `addNote` — so that is passed in as a callback rather than
- * duplicated here. (`deleteTuplet`'s rest fill was a callback too, until it became `restFillOps`.)
+ * Nothing is injected any more: `deleteTuplet`'s rest fill is `restFillOps`, and the filler rests
+ * of `refillTupletRemainder` are `slotPlacementOps.addRestSlot` (both were `ScoreModel` callbacks).
  */
 import type { Score, Measure, Note, NoteParams, Tuplet, TupletFormat, NoteDuration, Fraction } from '@/types/music'
 import {
@@ -19,6 +18,7 @@ import {
 } from '@/utils/musicUtils'
 import { durationToFraction, slotLength, writtenLength } from '@/utils/durations'
 import { fillGapsWithRests } from './restFillOps'
+import { addRestSlot } from './slotPlacementOps'
 import {
   fracCreate,
   fracAdd,
@@ -235,9 +235,12 @@ export function refillTupletRemainder(
   score: Score,
   measureNumber: number,
   tuplet: Tuplet,
-  addNote: (params: NoteParams) => Note,
   voice: number = 0,
 ): void {
+  const measure = score.measures.find(m => m.number === measureNumber)
+  if (!measure) throw new Error(`Measure ${measureNumber} does not exist`)
+  // Filler rests only — so this needs the rest half of note entry and nothing more.
+  const addNote = (params: NoteParams): void => { addRestSlot(score, measure, params) }
   // The written→sounding factor and its inverse. NOT `M/N`: that is only the same thing when the
   // two sides share a note value (see tupletScale).
   const ratio = tupletScale(tuplet)
