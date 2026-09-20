@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { MusicEngine } from './MusicEngine'
-import { pedalOffsetOverrideOf } from './models/engravingOverrides'
-import { fracCreate as frac } from '../utils/fraction'
-import { PEDAL_SIGN_GAP } from './rendering/pedalStyle'
+import { MusicEngine } from '../MusicEngine'
+import { pedalOffsetOverrideOf } from '../models/engravingOverrides'
+import { fracCreate as frac } from '@/utils/fraction'
+import { PEDAL_SIGN_GAP } from '../rendering/pedalStyle'
 
 /**
  * ⭐⭐ **THE RELEASE'S NUDGE IS NOT WRITTEN WHERE THE DRAWING WOULD IGNORE IT** — subject:
@@ -27,7 +27,7 @@ const drawn = vi.hoisted(() => ({
   systemTop: {} as Record<number, number>,
 }))
 
-vi.mock('./rendering/ScoreRenderer', () => ({
+vi.mock('../rendering/ScoreRenderer', () => ({
   ScoreRenderer: class {
     initialize = vi.fn(); renderScore = vi.fn()
     getElementRegistry = vi.fn(() => ({
@@ -46,7 +46,7 @@ vi.mock('./rendering/ScoreRenderer', () => ({
     }))
   },
 }))
-vi.mock('./audio/PlaybackEngine', () => ({
+vi.mock('../audio/PlaybackEngine', () => ({
   PlaybackEngine: class {
     setScore = vi.fn(); play = vi.fn(); pause = vi.fn(); stop = vi.fn(); setVolume = vi.fn(); onStateChange = vi.fn()
   },
@@ -74,32 +74,32 @@ describe('MusicEngine — the release keeps no nudge the drawing would floor awa
     for (let i = 0; i < 4; i++) {
       engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(i, 1) })
     }
-    pedalId = engine.addPedal(1, { beat: frac(0, 1), length: frac(2, 1) })!.id
+    pedalId = engine.pedal.addPedal(1, { beat: frac(0, 1), length: frac(2, 1) })!.id
     render(60)
   })
 
   it('⭐ writes freely while the drawing still has air to give', () => {
-    expect(engine.nudgePedalEndpoint(pedalId, 'end', -1, 0)).toBe(true)
+    expect(engine.pedal.nudgePedalEndpoint(pedalId, 'end', -1, 0)).toBe(true)
     expect(endX()).toBeCloseTo(-1)
   })
 
   it('🚨🚨 ⛔ REFUSES the leftward step once the floor is binding — ⛔ no invisible debt', () => {
     render(PEDAL_SIGN_GAP * 10) // exactly the floor: no air left to give
-    expect(engine.nudgePedalEndpoint(pedalId, 'end', -1, 0)).toBe(false)
+    expect(engine.pedal.nudgePedalEndpoint(pedalId, 'end', -1, 0)).toBe(false)
     expect(endX(), 'nothing stored').toBe(0)
   })
 
   it('⭐⭐ …but NEVER the step that mends it — the way out is open on the first press', () => {
     render(0) // already past the floor, as a saved file may be
-    expect(engine.nudgePedalEndpoint(pedalId, 'end', -1, 0)).toBe(false)
-    expect(engine.nudgePedalEndpoint(pedalId, 'end', 1, 0), 'rightward always').toBe(true)
+    expect(engine.pedal.nudgePedalEndpoint(pedalId, 'end', -1, 0)).toBe(false)
+    expect(engine.pedal.nudgePedalEndpoint(pedalId, 'end', 1, 0), 'rightward always').toBe(true)
     expect(endX()).toBeCloseTo(1)
   })
 
   it('⛔ says nothing about the START — its floor is measured FROM the `Ped.`, so that ink shows', () => {
     render(0)
-    expect(engine.nudgePedalEndpoint(pedalId, 'start', -1, 0)).toBe(true)
-    expect(engine.nudgePedalEndpoint(pedalId, 'start', 1, 0)).toBe(true)
+    expect(engine.pedal.nudgePedalEndpoint(pedalId, 'start', -1, 0)).toBe(true)
+    expect(engine.pedal.nudgePedalEndpoint(pedalId, 'start', 1, 0)).toBe(true)
   })
 
   it('⛔ allows freely across a SYSTEM BREAK — two systems are not one ruler', () => {
@@ -115,16 +115,16 @@ describe('MusicEngine — the release keeps no nudge the drawing would floor awa
       ]
     }
     cut(240)
-    expect(engine.nudgePedalEndpoint(pedalId, 'end', -1, 0), 'a break is not a floor').toBe(true)
+    expect(engine.pedal.nudgePedalEndpoint(pedalId, 'end', -1, 0), 'a break is not a floor').toBe(true)
 
     // ⭐ Break the test's own fixture: put both bars back on ONE line and the same two boxes are
     // read as a crossed pair, which is the reading the ruler check exists to refuse.
     cut(40)
-    expect(engine.nudgePedalEndpoint(pedalId, 'end', -1, 0)).toBe(false)
+    expect(engine.pedal.nudgePedalEndpoint(pedalId, 'end', -1, 0)).toBe(false)
   })
 
   it('⛔ allows freely when the last render drew no signs at all', () => {
     drawn.entries = []
-    expect(engine.nudgePedalEndpoint(pedalId, 'end', -1, 0)).toBe(true)
+    expect(engine.pedal.nudgePedalEndpoint(pedalId, 'end', -1, 0)).toBe(true)
   })
 })

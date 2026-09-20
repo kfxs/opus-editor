@@ -5,7 +5,7 @@
  * `PaletteController.ottava.test.ts`'s chapter for the row that behaves this way with nothing to
  * carry, and it needs no engine for that file's reason: what a press MEANS depends only on what is
  * armed and what is selected. Whether the resulting pedal holds the right music is
- * `MusicEngine.createPedal.test.ts`'s question; whether it is drawn right is the browser suite's.
+ * `MusicEngine.pedal.createPedal.test.ts`'s question; whether it is drawn right is the browser suite's.
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { PaletteController } from './PaletteController'

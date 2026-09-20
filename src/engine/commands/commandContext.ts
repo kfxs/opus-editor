@@ -20,6 +20,8 @@ import type { ScoreModel } from '../models/ScoreModel'
  *  already treats as ALLOW. */
 export interface DrawnRegistry {
   getByType?: (type: ElementType) => ElementInfo[]
+  getStaffGeometry?: (measure: number, staff: number) =>
+    { lineSpacing: number; lineYPositions: readonly number[] } | undefined
 }
 
 export interface CommandContext {

@@ -45,8 +45,10 @@ describe('moving a dynamic from the keyboard', () => {
       moveHairpinStartBySlot: vi.fn(() => false),
       resizeOttavaBySlot: vi.fn(() => false),
       moveOttavaStartBySlot: vi.fn(() => false),
-      resizePedalBySlot: vi.fn(() => false),
-      movePedalStartBySlot: vi.fn(() => false),
+      pedal: {
+        resizePedalBySlot: vi.fn(() => false),
+        movePedalStartBySlot: vi.fn(() => false),
+      },
       getElementRegistry: () => ({ getByType: () => [] }),
       getSlurById: () => null,
       getNote: () => null,

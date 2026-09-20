@@ -27,7 +27,7 @@ async function overQuarters(score: import('@playwright/test').Page, covers: numb
     for (const beat of [0, 1, 2, 3]) {
       h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: 'q', measure: 1, beat: h.frac(beat, 1) })
     }
-    h.engine.addPedal(1, { beat: h.frac(0, 1), length: h.frac(covers, 1) })
+    h.engine.pedal.addPedal(1, { beat: h.frac(0, 1), length: h.frac(covers, 1) })
     await h.render()
     const stave = h.staves()[0]
     return {
@@ -62,7 +62,7 @@ test('⛔ draws NO line between the signs — the style is not the feature', asy
     for (const beat of [0, 1, 2, 3]) {
       h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: 'q', measure: 1, beat: h.frac(beat, 1) })
     }
-    h.engine.addPedal(1, { beat: h.frac(0, 1), length: h.frac(4, 1) })
+    h.engine.pedal.addPedal(1, { beat: h.frac(0, 1), length: h.frac(4, 1) })
     await h.render()
     return document.querySelectorAll('g.pedal path').length
   })
@@ -124,7 +124,7 @@ test('⭐ a very short pedal still reads as two separate signs', async ({ score 
   const { glyphs, sizes, spacing } = await score.evaluate(async () => {
     const h = window.__h
     h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: '16', measure: 1, beat: h.frac(0, 1) })
-    h.engine.addPedal(1, { beat: h.frac(0, 1), length: h.frac(1, 4) })
+    h.engine.pedal.addPedal(1, { beat: h.frac(0, 1), length: h.frac(1, 4) })
     await h.render()
     const stave = h.staves()[0]
     return {
@@ -155,7 +155,7 @@ test('⭐⭐ clears a dynamic and a hairpin in the same bars', async ({ score })
     }
     h.engine.addDynamic(1, { beat: h.frac(0, 1), level: 'p' })
     h.engine.addHairpin(1, { type: 'cresc', beat: h.frac(1, 1), length: h.frac(3, 1) })
-    h.engine.addPedal(1, { beat: h.frac(0, 1), length: h.frac(4, 1) })
+    h.engine.pedal.addPedal(1, { beat: h.frac(0, 1), length: h.frac(4, 1) })
     await h.render()
     return {
       pedals: h.placed('g.pedal text'),
@@ -184,7 +184,7 @@ async function acrossABreak(score: import('@playwright/test').Page) {
     const firstRowY = Math.min(...heads.map(g => g.y))
     const onFirstRow = heads.filter(g => Math.abs(g.y - firstRowY) < 5).length
     // From the LAST bar of system 1, through the first of system 2.
-    h.engine.addPedal(onFirstRow, { beat: h.frac(0, 1), length: h.frac(8, 1) })
+    h.engine.pedal.addPedal(onFirstRow, { beat: h.frac(0, 1), length: h.frac(8, 1) })
     await h.render()
     const glyphs = h.placed('g.pedal text')
     return {
@@ -231,7 +231,7 @@ test('the resumed `(Ped.)` sits LEFT of the music, in the clef\'s space', async 
     const heads = h.placed('g.notehead text')
     const firstRowY = Math.min(...heads.map(g => g.y))
     const onFirstRow = heads.filter(g => Math.abs(g.y - firstRowY) < 5).length
-    h.engine.addPedal(onFirstRow, { beat: h.frac(0, 1), length: h.frac(8, 1) })
+    h.engine.pedal.addPedal(onFirstRow, { beat: h.frac(0, 1), length: h.frac(8, 1) })
     await h.render()
     const glyphs = h.placed('g.pedal text')
     const lastRowY = Math.max(...glyphs.map(g => g.y))
@@ -269,8 +269,8 @@ test('🚨 a pedal on a bar of RESTS begins where the bar does, ⛔ not at the c
       h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: 'q', measure: 1, beat: h.frac(beat, 1) })
     }
     h.engine.addMeasure()
-    const pedal = h.engine.addPedal(1, { beat: h.frac(0, 1), length: h.frac(3, 1) })!
-    h.engine.movePedalToSlot(pedal.id, { measure: 2, beat: h.frac(0, 1) })
+    const pedal = h.engine.pedal.addPedal(1, { beat: h.frac(0, 1), length: h.frac(3, 1) })!
+    h.engine.pedal.movePedalToSlot(pedal.id, { measure: 2, beat: h.frac(0, 1) })
     await h.render()
     const registry = h.engine.getElementRegistry() as unknown as {
       getStaffGeometry: (m: number, s: number) => { noteStartX: number; noteEndX: number } | undefined

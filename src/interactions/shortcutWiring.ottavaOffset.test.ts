@@ -87,7 +87,9 @@ describe('nudging an octave bracket\'s ink from the keyboard', () => {
       resetHairpinEndpointOffset: vi.fn(() => true),
       resizeHairpinBySlot: vi.fn(() => false),
       moveHairpinStartBySlot: vi.fn(() => false),
-      resizePedalBySlot: vi.fn(() => false),
+      pedal: {
+        resizePedalBySlot: vi.fn(() => false),
+      },
       getElementRegistry: () => ({ getByType: () => [] }),
       getSlurById: () => null,
       getNote: () => null,

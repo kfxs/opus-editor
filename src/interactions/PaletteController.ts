@@ -1378,8 +1378,8 @@ export class PaletteController {
     }
     const engine = this.getEngine()
     if (!engine) return
-    const pedal = engine.createPedal(noteIds)
-    dbg(`[Pedal] createPedal on ${noteIds.length} note(s) → ${pedal ? `pedal ${pedal.id}` : 'no valid anchor'}`)
+    const created = engine.pedal.createPedal(noteIds)
+    dbg(`[Pedal] createPedal on ${noteIds.length} note(s) → ${created ? `pedal ${created.id}` : 'no valid anchor'}`)
     this.renderScore()
   }
 

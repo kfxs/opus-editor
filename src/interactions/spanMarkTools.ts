@@ -149,7 +149,7 @@ export const SPAN_MARK_TOOLS: { [K in SpanMarkKind]: SpanMarkToolSpec } = {
     // the bracket UPSERTS per (beat, staff) instead, which is why the rule lives in the row rather
     // than in the driver.
     armedStamp: (state) => armedTool(state, 'pedal')
-      ? { label: 'Add pedal', create: (engine, noteId) => engine.createPedal([noteId]) }
+      ? { label: 'Add pedal', create: (engine, noteId) => engine.pedal.createPedal([noteId]) }
       : null,
 
     // ⭐ The seam carries `PedalOffsetOverride`'s own spelling — two horizontals and ONE screen-signed
@@ -161,16 +161,16 @@ export const SPAN_MARK_TOOLS: { [K in SpanMarkKind]: SpanMarkToolSpec } = {
         : { id: req.pedalId, field: req.which, wanted: req.x },
     )),
 
-    nudgeEnd: (engine, id, which, dx, dy) => engine.nudgePedalEndpoint(id, which, dx, dy),
-    nudgeWhole: (engine, id, dx, dy) => engine.nudgePedal(id, dx, dy),
+    nudgeEnd: (engine, id, which, dx, dy) => engine.pedal.nudgePedalEndpoint(id, which, dx, dy),
+    nudgeWhole: (engine, id, dx, dy) => engine.pedal.nudgePedal(id, dx, dy),
     walkEnd: (engine, id, which, dx) => walkPedalEndpoint(engine, id, which, dx),
     walkWhole: (engine, id, dx) => walkPedalBody(engine, id, dx),
-    resetEnd: (engine, id, which) => engine.resetPedalEndpointOffset(id, which),
-    resetWhole: (engine, id) => engine.resetPedalOffset(id),
-    commitEnd: (engine, which) => engine.commitPedalDrag(which),
-    commitWhole: engine => engine.commitPedalOffsetDrag(),
+    resetEnd: (engine, id, which) => engine.pedal.resetPedalEndpointOffset(id, which),
+    resetWhole: (engine, id) => engine.pedal.resetPedalOffset(id),
+    commitEnd: (engine, which) => engine.pedal.commitPedalDrag(which),
+    commitWhole: engine => engine.pedal.commitPedalOffsetDrag(),
     reanchor: (engine, _state, id, which, direction) =>
-      which === 'end' ? engine.resizePedalBySlot(id, direction) : engine.movePedalStartBySlot(id, direction),
+      which === 'end' ? engine.pedal.resizePedalBySlot(id, direction) : engine.pedal.movePedalStartBySlot(id, direction),
     cycleEnd: (state, registry, step) => cyclePedalEndpoint(state, registry, step),
 
     // ⛔ No conversion, ever: a pedal has one side permanently, so `+ down` means the same thing

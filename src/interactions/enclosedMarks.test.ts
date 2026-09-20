@@ -79,7 +79,7 @@ describe('marksInBox', () => {
 
   it('takes the octave line and the pedal on the same rule', () => {
     engine.ottava.addOttava(1, { beat: frac(0, 1), length: frac(4, 1), shift: 1 })
-    engine.addPedal(1, { beat: frac(0, 1), length: frac(2, 1) })
+    engine.pedal.addPedal(1, { beat: frac(0, 1), length: frac(2, 1) })
     expect(kinds(bar1)).toEqual(['ottava', 'pedal'])
   })
 

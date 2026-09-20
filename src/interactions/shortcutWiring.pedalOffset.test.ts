@@ -44,29 +44,31 @@ describe('nudging a sustain pedal\'s ink from the keyboard', () => {
     resize = vi.fn(() => true)
     adjustPitch = vi.fn()
     const engine = {
-      nudgePedalEndpoint: nudge,
-      // ⭐ The WALK writes through the preview twins since 2026-08-30 — a run of presses is ONE
-      //   undo entry (`./keyRun`). Aliased to the same mocks: what these cases claim is which
-      //   key writes which ink, and that is unchanged.
-      previewPedalEndpointOffset: nudge,
-      previewPedalEndpointRebase: vi.fn(() => true),
-      previewPedalStartAtSlot: vi.fn(() => true),
-      previewPedalLiftAt: vi.fn(() => true),
-      previewPedalOffset: (id: string, dx: number, dy: number) => whole(id, dx, dy),
-      previewPedalOffsetRebase: vi.fn(() => true),
-      previewPedalSlot: vi.fn(() => true),
-      commitPedalDrag: vi.fn(),
-      commitPedalOffsetDrag: vi.fn(),
-      nudgePedal: whole,
-      resetPedalEndpointOffset: reset,
-      resetPedalOffset: resetWhole,
-      resizePedalBySlot: resize,
-      movePedalStartBySlot: vi.fn(() => true),
-      // ⭐ Both squares' horizontals ask the WALK first (`./pedalWalk`); nothing is drawn here, so
-      // "nowhere to go" keeps the press the plain nudge these cases are about.
-      nextPedalStartSlot: vi.fn(() => null),
-      nextPedalLift: vi.fn(() => null),
-      pedalLiftSlot: vi.fn(() => null),
+      pedal: {
+        nudgePedalEndpoint: nudge,
+        // ⭐ The WALK writes through the preview twins since 2026-08-30 — a run of presses is ONE
+        //   undo entry (`./keyRun`). Aliased to the same mocks: what these cases claim is which
+        //   key writes which ink, and that is unchanged.
+        previewPedalEndpointOffset: nudge,
+        previewPedalEndpointRebase: vi.fn(() => true),
+        previewPedalStartAtSlot: vi.fn(() => true),
+        previewPedalLiftAt: vi.fn(() => true),
+        previewPedalOffset: (id: string, dx: number, dy: number) => whole(id, dx, dy),
+        previewPedalOffsetRebase: vi.fn(() => true),
+        previewPedalSlot: vi.fn(() => true),
+        commitPedalDrag: vi.fn(),
+        commitPedalOffsetDrag: vi.fn(),
+        nudgePedal: whole,
+        resetPedalEndpointOffset: reset,
+        resetPedalOffset: resetWhole,
+        resizePedalBySlot: resize,
+        movePedalStartBySlot: vi.fn(() => true),
+        // ⭐ Both squares' horizontals ask the WALK first (`./pedalWalk`); nothing is drawn here, so
+        // "nowhere to go" keeps the press the plain nudge these cases are about.
+        nextPedalStartSlot: vi.fn(() => null),
+        nextPedalLift: vi.fn(() => null),
+        pedalLiftSlot: vi.fn(() => null),
+      },
       getPedalById: () => ({ id: 'P1' }),
       getScore: () => ({ measures: [] }),
       // The families ahead of the pedal in every chain — stubbed to DECLINE, so a case that reaches

@@ -70,7 +70,9 @@ describe('resizing a hairpin from the keyboard', () => {
       // The walk also reads the score (for the end's address) and the drawn wedge (for the system's
       // edge). Neither says anything here, which is the "no picture, no limit" answer.
       getScore: () => ({ measures: [] }),
-      resizePedalBySlot: vi.fn(() => false),
+      pedal: {
+        resizePedalBySlot: vi.fn(() => false),
+      },
       // One drawn fragment, so the mouth keys have something to measure (aperture 1.5, length 40 →
       // the authorable range is 1…2).
       getElementRegistry: () => ({

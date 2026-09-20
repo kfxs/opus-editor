@@ -27,7 +27,7 @@ describe("SpanMarkGeometryController — the pedal's row", () => {
     nudge = vi.fn(() => true)
     render = vi.fn()
     score = { id: 's', title: '', measures: [], engravingOverrides: {} } as unknown as Score
-    const engine = { getScore: () => score, nudgePedalEndpoint: nudge } as unknown as MusicEngine
+    const engine = { getScore: () => score, pedal: { nudgePedalEndpoint: nudge } } as unknown as MusicEngine
     controller = new SpanMarkGeometryController('pedal', () => engine, render)
   })
   afterEach(() => { controller.destroy() })

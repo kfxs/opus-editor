@@ -41,23 +41,25 @@ describe('the span-mark key verbs, at the pedal row', () => {
     resetWhole = vi.fn(() => true)
     handles = vi.fn(() => [])
     engine = {
-      nudgePedalEndpoint: nudge,
-      nudgePedal: whole,
-      // ⭐ The WALK previews since 2026-08-30 — a run of presses is ONE undo entry (`./keyRun`).
-      //   Aliased to the same mocks: the claim here is the ROUTING, which is unchanged.
-      previewPedalEndpointOffset: nudge,
-      previewPedalOffset: (id: string, dx: number, dy: number) => whole(id, dx, dy),
-      previewPedalEndpointRebase: vi.fn(() => true),
-      previewPedalOffsetRebase: vi.fn(() => true),
-      previewPedalStartAtSlot: vi.fn(() => true),
-      previewPedalLiftAt: vi.fn(() => true),
-      previewPedalSlot: vi.fn(() => true),
-      resetPedalEndpointOffset: resetEnd,
-      resetPedalOffset: resetWhole,
-      // Nothing drawn to walk onto, so both horizontals fall through to the ink nudge.
-      nextPedalStartSlot: vi.fn(() => null),
-      nextPedalLift: vi.fn(() => null),
-      pedalLiftSlot: vi.fn(() => null),
+      pedal: {
+        nudgePedalEndpoint: nudge,
+        nudgePedal: whole,
+        // ⭐ The WALK previews since 2026-08-30 — a run of presses is ONE undo entry (`./keyRun`).
+        //   Aliased to the same mocks: the claim here is the ROUTING, which is unchanged.
+        previewPedalEndpointOffset: nudge,
+        previewPedalOffset: (id: string, dx: number, dy: number) => whole(id, dx, dy),
+        previewPedalEndpointRebase: vi.fn(() => true),
+        previewPedalOffsetRebase: vi.fn(() => true),
+        previewPedalStartAtSlot: vi.fn(() => true),
+        previewPedalLiftAt: vi.fn(() => true),
+        previewPedalSlot: vi.fn(() => true),
+        resetPedalEndpointOffset: resetEnd,
+        resetPedalOffset: resetWhole,
+        // Nothing drawn to walk onto, so both horizontals fall through to the ink nudge.
+        nextPedalStartSlot: vi.fn(() => null),
+        nextPedalLift: vi.fn(() => null),
+        pedalLiftSlot: vi.fn(() => null),
+      },
       getPedalById: () => ({ id: 'P1' }),
       getScore: () => ({ measures: [] }),
       getElementRegistry: () => ({ getByType: handles }),

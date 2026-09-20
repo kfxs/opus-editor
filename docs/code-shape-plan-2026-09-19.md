@@ -1,6 +1,6 @@
 # Code shape plan — 2026-09-19
 
-**Status: IN PROGRESS — Phase 1 DONE (2026-09-19), bar item 5's two ⏭️ decisions. Phase 2 DONE. Phase 3.1: the hairpin / ottava / pedal body drags done and checked; the trill's too (`cdb7f05`); the slur's too (`69e927c`); the four SQUARE drags too (`6d903c3`); the slur HANDLE / ENDPOINT and staff-spacing drags too (`8f28f79`); the DYNAMIC and TEMPO drags too (`9a04f88`); bar width, barline join, group span and clef too (`ee31698`); the NOTE drag too (`7d2898e`) — every gesture is a module. **Phase 3.1 DONE** (`25f70a6`). 3.2: the `keys` column + dispatcher and the HAIRPIN on it (`e61626a`); OTTAVA / PEDAL / TRILL too (`14e10e7`); DYNAMIC and TEMPO too (`943fb64`); SLUR and CLEF too (`8382fcc`); the `reanchor` and `cycle` verbs done, awaiting his UI check — **Phase 3.2 DONE with it.** 3.3 (`highlight(ctx)`): the contract + the four span squares (`a7c1076`); the join and group squares (`b772418`); the `ink` column (`f1832e7`); the slur handles (`d3dcb7b`); the anchor guide line (`e2ff597`); the note pass + note-attached kinds (`aa7e5af`); every remaining row done, awaiting his UI check — **Phase 3.3 DONE** (`1efb38d`). 3.4: the panels' `rows` (`4db182d`); the typed `InspectedElement` union done, awaiting his UI check — **3.4 DONE** (`54ab9cc`). 3.5: `spanFromNotes` (4.1) + the OTTAVA family as `engine.ottava.*` done, awaiting his UI check; pedal / trill / hairpin / slur / dynamic / tempo to follow.** Phases are ordered by
+**Status: IN PROGRESS — Phase 1 DONE (2026-09-19), bar item 5's two ⏭️ decisions. Phase 2 DONE. Phase 3.1: the hairpin / ottava / pedal body drags done and checked; the trill's too (`cdb7f05`); the slur's too (`69e927c`); the four SQUARE drags too (`6d903c3`); the slur HANDLE / ENDPOINT and staff-spacing drags too (`8f28f79`); the DYNAMIC and TEMPO drags too (`9a04f88`); bar width, barline join, group span and clef too (`ee31698`); the NOTE drag too (`7d2898e`) — every gesture is a module. **Phase 3.1 DONE** (`25f70a6`). 3.2: the `keys` column + dispatcher and the HAIRPIN on it (`e61626a`); OTTAVA / PEDAL / TRILL too (`14e10e7`); DYNAMIC and TEMPO too (`943fb64`); SLUR and CLEF too (`8382fcc`); the `reanchor` and `cycle` verbs done, awaiting his UI check — **Phase 3.2 DONE with it.** 3.3 (`highlight(ctx)`): the contract + the four span squares (`a7c1076`); the join and group squares (`b772418`); the `ink` column (`f1832e7`); the slur handles (`d3dcb7b`); the anchor guide line (`e2ff597`); the note pass + note-attached kinds (`aa7e5af`); every remaining row done, awaiting his UI check — **Phase 3.3 DONE** (`1efb38d`). 3.4: the panels' `rows` (`4db182d`); the typed `InspectedElement` union done, awaiting his UI check — **3.4 DONE** (`54ab9cc`). 3.5: `spanFromNotes` (4.1) + the OTTAVA (`e684125`); the PEDAL as `engine.pedal.*` done, awaiting his UI check; trill / hairpin / slur / dynamic / tempo to follow.** Phases are ordered by
 value over risk; each one stands alone and can be stopped after. A done item carries ✅ and what
 actually happened where that differs from what was planned.
 
@@ -586,7 +586,22 @@ Run the e2e suite either side of each step.
    `MusicEngine.createOttava.test.ts` → `commands/ottavaCommands.createOttava.test.ts`; seven
    specs' mock engines nest their ottava members under `ottava:`. `commit` and `saveOnly` are
    BOTH still in the context, per command as before — ⏸️ folding them is his call (above).
-   `MusicEngine`: 6,224 → 5,801 lines, kinds 1,130 → **1,051**. ⏸️ Awaiting his UI check.*
+   `MusicEngine`: 6,224 → 5,801 lines, kinds 1,130 → **1,051**. ✅ Passed (`e684125`).*
+
+   *Second family — the PEDAL: `engine/commands/pedalCommands.ts`, `engine.pedal.<command>(…)` —
+   26 commands and its three private guards (`endpointStepAllowed`, `staysInBand`,
+   `liftInkWouldMove`). Same recipe, same names. `DrawnRegistry` gained `getStaffGeometry?` (the
+   lift-ink guard reads a staff's spacing), which let both families drop their inline registry
+   casts. `pedalWalk` / `elementClipboard` / `enclosedMarks` ask for
+   `{ pedal: Pick<PedalCommands, …> }`. Specs moved: `MusicEngine.createPedal.test.ts` and
+   `MusicEngine.pedalLiftInk.test.ts` → `commands/pedalCommands.{createPedal,liftInk}.test.ts`.
+   ⭐ The recipe is two scratch scripts now (cut a family into a commands body; nest a spec's
+   flat mock members under `<family>:`) + a receiver-anchored rename (`engine` / `eng` /
+   `getEngine()` only) that prints every OTHER receiver it left, so `palette.createPedal` and
+   `pedalOps.*` are seen rather than renamed. 🚨 The mock-nesting script still over-reached twice
+   — an IMPORT LIST (`addPedal, removePedal,` lines in `pedalOps.test.ts`) and a PALETTE mock in
+   `lineTools.test.ts`: it matches by member name, so ⇒ read its file list before trusting it.
+   `MusicEngine`: 5,801 → 5,333 lines, kinds 1,051 → **947**. ⏸️ Awaiting his UI check.*
 
    *🚨 Two slips worth keeping. (1) A receiver-anchored regex (`(?<![\w.])engine\.`) skipped
    `h.engine.addOttava(…)` in `e2e/` — untyped inside `page.evaluate`, so `tsc` was silent and only

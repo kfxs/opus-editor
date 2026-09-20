@@ -214,7 +214,7 @@ test('⭐⭐ a PEDAL guide rides the `Ped.` and runs UP to the staff — never t
     for (let i = 0; i < 4; i++) {
       ids.push(h.engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: h.frac(i, 1) })!.id)
     }
-    const pedal = h.engine.createPedal([ids[1], ids[3]])!
+    const pedal = h.engine.pedal.createPedal([ids[1], ids[3]])!
     await h.render()
 
     const entries = h.engine.getElementRegistry().getAll().filter(e => e.id === pedal.id)

@@ -20,7 +20,7 @@ const PEDAL_BODY: BodyDragSpec = {
   // ⚠️ EXPLORATORY: a landing on the very last frame is still owed its settlement. ⛔ It also stops
   // a stale debt reaching the NEXT drag, which would yank the pedal on its first frame.
   beforeCommit: settlePedalLanding,
-  commit: engine => engine.commitPedalOffsetDrag(),
+  commit: engine => engine.pedal.commitPedalOffsetDrag(),
 }
 
 /** ⛔ null = declines to arm: the pedal's staff has no measured geometry, so there is no

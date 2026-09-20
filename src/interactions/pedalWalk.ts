@@ -49,6 +49,7 @@
  * is only where a sign is drawn, which `./pedalLane` measures.
  */
 import type { MusicEngine } from '../engine/MusicEngine'
+import type { PedalCommands } from '@/engine/commands/pedalCommands'
 import type { PedalLiftTarget, PedalSlotTarget } from '../engine/models/pedalOps'
 import { pedalOffsetOverrideOf } from '../engine/models/engravingOverrides'
 import {
@@ -72,18 +73,20 @@ let landed: { id: string; inkY: number } | null = null
 
 /** What the walk needs off the engine — a Pick, so a spec can stand it up without a renderer. */
 type PedalWalkEngine = Pick<MusicEngine,
-  'getPedalById' | 'getScore' | 'getElementRegistry' | 'getNote' | 'runBatch'
-  | 'nextPedalStartSlot' | 'nextPedalLift' | 'pedalLiftSlot'
-  | 'movePedalStartToSlot'
-  | 'nudgePedalEndpoint'
-  | 'previewPedalStartAtSlot' | 'previewPedalLiftAt'
-  | 'previewPedalEndpointOffset' | 'previewPedalEndpointRebase'
-  | 'movePedalToSlot' | 'nudgePedal'
-  | 'previewPedalSlot' | 'previewPedalStaffSlot' | 'previewPedalOffset' | 'previewPedalOffsetRebase'>
+  'getPedalById' | 'getScore' | 'getElementRegistry' | 'getNote' | 'runBatch'> & {
+  pedal: Pick<PedalCommands,
+    'nextPedalStartSlot' | 'nextPedalLift' | 'pedalLiftSlot'
+    | 'movePedalStartToSlot'
+    | 'nudgePedalEndpoint'
+    | 'previewPedalStartAtSlot' | 'previewPedalLiftAt'
+    | 'previewPedalEndpointOffset' | 'previewPedalEndpointRebase'
+    | 'movePedalToSlot' | 'nudgePedal'
+    | 'previewPedalSlot' | 'previewPedalStaffSlot' | 'previewPedalOffset' | 'previewPedalOffsetRebase'>
+}
 
 /**
  * ⭐ **WHAT SEPARATES THE TWO DEVICES, and the whole of it**: a KEY press records its own undo step,
- * a drag FRAME records none and leaves the drop to commit once ({@link MusicEngine.commitPedalDrag}).
+ * a drag FRAME records none and leaves the drop to commit once ({@link MusicEngine.pedal.commitPedalDrag}).
  * Everything else — the stops, the geometry, the identity — is shared, which is what makes a drag and
  * N presses land in the same state rather than in two states that merely look alike (the bracket's
  * arrangement, `./ottavaWalk`, and for its reason).
@@ -109,10 +112,10 @@ interface PedalWrite {
 /** The drag's writes: the same four edits with no undo entry of their own. */
 function previewWrites(engine: PedalWalkEngine, id: string, which: 'start' | 'end'): PedalWrite {
   return {
-    press: (target) => engine.previewPedalStartAtSlot(id, target),
-    lift: (target) => engine.previewPedalLiftAt(id, target),
-    nudge: (dx, dy) => engine.previewPedalEndpointOffset(id, which, dx, dy),
-    rebase: (dx) => engine.previewPedalEndpointRebase(id, which, dx),
+    press: (target) => engine.pedal.previewPedalStartAtSlot(id, target),
+    lift: (target) => engine.pedal.previewPedalLiftAt(id, target),
+    nudge: (dx, dy) => engine.pedal.previewPedalEndpointOffset(id, which, dx, dy),
+    rebase: (dx) => engine.pedal.previewPedalEndpointRebase(id, which, dx),
   }
 }
 
@@ -174,7 +177,7 @@ function endpointDrive(
 
 /**
  * ⭐⭐ **ONE FRAME OF A SQUARE DRAG** — the same journey with the cursor's delta in PIXELS instead of a
- * key's step, and no undo entry (the drop commits once, {@link MusicEngine.commitPedalDrag}). His
+ * key's step, and no undo entry (the drop commits once, {@link MusicEngine.pedal.commitPedalDrag}). His
  * ask, 2026-08-21: *"i think we should do the pedal drag walking"*, the bracket's gesture arriving at
  * the last family that still snapped.
  *
@@ -281,7 +284,7 @@ export function walkPedalBody(engine: PedalWalkEngine, id: string, dx: number): 
  *
  * ⭐⭐ **TWO KINDS OF VERTICAL, and that is the whole design.** Within its own staff's room the `y` is
  * plain INK — the pair's shared height, bounded by the band and the page
- * ({@link MusicEngine.previewPedalOffset}). Past halfway to the neighbouring staff there is nothing
+ * ({@link MusicEngine.pedal.previewPedalOffset}). Past halfway to the neighbouring staff there is nothing
  * continuous to travel through — two systems' x's are not one ruler — so coming down onto the staff
  * below is a JUMP, decided by `./markSystemJump`'s rule and ⛔ NOT by crossing the pentagram.
  *
@@ -350,7 +353,7 @@ function settleLanding(engine: PedalWalkEngine, id: string, staffSpacePx: number
   if (drawn === null || Math.abs(was - drawn) < 0.5) return 0
 
   const debt = was - drawn
-  engine.previewPedalOffsetRebase(id, 0, debt / staffSpacePx)
+  engine.pedal.previewPedalOffsetRebase(id, 0, debt / staffSpacePx)
   dbg(`[Pedal] landing settled | id:${id} | ink ${drawn.toFixed(0)} → ${was.toFixed(0)}`
     + ` (${debt.toFixed(0)}px the ladder gave or took on the new staff)`)
   return debt
@@ -414,7 +417,7 @@ function jumpStaves(
   const fromX = from ? pedalPressX(engine, pedal, from) : null
   const fromEdgeY = from ? pedalStaffEdgeY(engine, pedal.staffId, from.measure) : null
 
-  if (!engine.previewPedalStaffSlot(id, target)) return false
+  if (!engine.pedal.previewPedalStaffSlot(id, target)) return false
 
   const after = engine.getPedalById(id)
   const toX = after ? pedalPressX(engine, after, target) : null
@@ -429,7 +432,7 @@ function jumpStaves(
   // ⛔ A REBASE, not a nudge: the drawn ink does not move, so neither the page limit nor the band has
   // anything to judge — and the band, measured off the render the pedal has just left, would refuse
   // exactly the payment that keeps it still.
-  if (dx || dy) engine.previewPedalOffsetRebase(id, dx, dy)
+  if (dx || dy) engine.pedal.previewPedalOffsetRebase(id, dx, dy)
   // ⚠️ EXPLORATORY: where the ink is meant to stay. The next frame reads what the render really did
   // and pays the difference ({@link settleLanding}). ⛔ The frame's `dx` really is dropped — a jump
   // ends the frame, as it always has, and that x means nothing over there.
@@ -443,7 +446,7 @@ function jumpStaves(
 }
 
 /** The whole pedal's writes during a DRAG: the same edits with no undo entry of their own — the drop
- *  commits once ({@link MusicEngine.commitPedalOffsetDrag}).
+ *  commits once ({@link MusicEngine.pedal.commitPedalOffsetDrag}).
  *
  *  ⚠️ EXPLORATORY (2026-08-30): `throughTheBand` lets the vertical past the limit that would
  *  otherwise pin the ink short of the hand-over line — see {@link dragPedalBody}. */
@@ -453,10 +456,10 @@ function bodyPreviewWrites(
   throughTheBand = false,
 ): PedalWrite {
   return {
-    press: (target) => engine.previewPedalSlot(id, target),
+    press: (target) => engine.pedal.previewPedalSlot(id, target),
     lift: () => false,
-    nudge: (dx, dy) => engine.previewPedalOffset(id, dx, dy, throughTheBand),
-    rebase: (dx) => engine.previewPedalOffsetRebase(id, dx),
+    nudge: (dx, dy) => engine.pedal.previewPedalOffset(id, dx, dy, throughTheBand),
+    rebase: (dx) => engine.pedal.previewPedalOffsetRebase(id, dx),
   }
 }
 
@@ -464,7 +467,7 @@ function bodyPreviewWrites(
 function bodyPort(engine: PedalWalkEngine, id: string, write: PedalWrite): MarkWalkPort {
   return {
     label: 'Pedal',
-    nextStop: (direction) => engine.nextPedalStartSlot(id, direction),
+    nextStop: (direction) => engine.pedal.nextPedalStartSlot(id, direction),
     stopX: (stop) => pressX(engine, id, stop as PedalSlotTarget),
     anchorX: () => {
       const here = pedalPressAddress(engine.getScore(), id)
@@ -497,7 +500,7 @@ function pressPort(engine: PedalWalkEngine, id: string, write: PedalWrite): Mark
     // ⭐ The SAME candidate rule `Ctrl+Shift+←/→` uses, which is why it lives in the model: two rules
     // would mean the two keys landing the press on different notes depending on how far it had been
     // nudged.
-    nextStop: (direction) => engine.nextPedalStartSlot(id, direction),
+    nextStop: (direction) => engine.pedal.nextPedalStartSlot(id, direction),
     stopX: (stop) => pressX(engine, id, stop as PedalSlotTarget),
     anchorX: () => {
       const here = pedalPressAddress(engine.getScore(), id)
@@ -512,11 +515,11 @@ function pressPort(engine: PedalWalkEngine, id: string, write: PedalWrite): Mark
 function liftPort(engine: PedalWalkEngine, id: string, write: PedalWrite): MarkWalkPort {
   return port(engine, id, 'end', write, {
     label: 'Pedal lift',
-    nextStop: (direction) => engine.nextPedalLift(id, direction),
+    nextStop: (direction) => engine.pedal.nextPedalLift(id, direction),
     stopX: (stop) => liftX(engine, id, stop as PedalLiftTarget),
     // ⭐⭐ A MOMENT, ⛔ never "the last covered slot" — see the header.
     anchorX: () => {
-      const here = engine.pedalLiftSlot(id)
+      const here = engine.pedal.pedalLiftSlot(id)
       return here ? liftX(engine, id, here) : null
     },
     reanchor: (stop) => write.lift(stop as PedalLiftTarget),
@@ -561,7 +564,7 @@ function wrapPort(engine: PedalWalkEngine, id: string, which: 'start' | 'end'): 
   return {
     here: () => limitOf(which === 'start'
       ? pedalPressAddress(engine.getScore(), id)
-      : engine.pedalLiftSlot(id)),
+      : engine.pedal.pedalLiftSlot(id)),
     there: (stop) => limitOf(stop as { measure: number }),
     address: (stop) => stop,
   }

@@ -38,7 +38,9 @@ describe('re-anchoring an octave line from the keyboard', () => {
       nudgeNoteOffset: noteOffset,
       resizeHairpinBySlot: vi.fn(() => false),
       moveHairpinStartBySlot: vi.fn(() => false),
-      resizePedalBySlot: vi.fn(() => false),
+      pedal: {
+        resizePedalBySlot: vi.fn(() => false),
+      },
       getElementRegistry: () => ({ getByType: () => [] }),
       getSlurById: () => null,
       getNote: () => null,

@@ -490,7 +490,7 @@ describe('elementClipboard — the TEMPO mark (his ask, 2026-08-19)', () => {
    *
    * ⚠️⚠️ **And its paste MAKES ROOM where the bracket's REPLACES.** Two brackets may overlap — two
    * displacements at different times are readable — but two pedals on one staff cannot: there is one
-   * foot. So this lands through the ENTRY door (`MusicEngine.addPedalOverSpan`), which performs the
+   * foot. So this lands through the ENTRY door (`MusicEngine.pedal.addPedalOverSpan`), which performs the
    * pianist's own gesture, *lift, re-press* (docs/pedal-plan.md §3.3).
    */
   describe('a sustain pedal', () => {
@@ -503,7 +503,7 @@ describe('elementClipboard — the TEMPO mark (his ask, 2026-08-19)', () => {
       for (const beat of [1, 2, 3]) {
         engine.addNoteAtBeat({ step: 'D', octave: 4, duration: 'q', measure: 1, beat: frac(beat, 1) })
       }
-      pedalId = engine.addPedal(1, { beat: frac(0, 1), length: frac(1, 1) })!.id
+      pedalId = engine.pedal.addPedal(1, { beat: frac(0, 1), length: frac(1, 1) })!.id
     })
 
     it('⭐⭐ copies the pedal WITH its length, and with NOTHING else', () => {
@@ -534,7 +534,7 @@ describe('elementClipboard — the TEMPO mark (his ask, 2026-08-19)', () => {
       // ⭐⭐ THE ONE PLACE THIS DIFFERS FROM THE BRACKET'S ARM, and it is the instrument's own fact:
       // one damper. The long pedal is shortened to end where the pasted one begins, which is exactly
       // what the pianist did (docs/pedal-plan.md §3.3).
-      const long = engine.addPedal(1, { beat: frac(1, 1), length: frac(3, 1) })!
+      const long = engine.pedal.addPedal(1, { beat: frac(1, 1), length: frac(3, 1) })!
       const clip = copyElement(engine, { kind: 'pedal', id: pedalId })!
       pasteElement(engine, clip, { measure: 1, beat: frac(2, 1), staff: 0 })
       expect(fracToNumber(engine.getPedalById(long.id)!.length), 'lifted at beat 2').toBe(1)
@@ -549,7 +549,7 @@ describe('elementClipboard — the TEMPO mark (his ask, 2026-08-19)', () => {
     })
 
     it('⛔ …and NOT the drawing: neither sign\'s nudge nor their shared height', () => {
-      engine.nudgePedalEndpoint(pedalId, 'end', 2, 1)
+      engine.pedal.nudgePedalEndpoint(pedalId, 'end', 2, 1)
       const clip = copyElement(engine, { kind: 'pedal', id: pedalId })!
       const pasted = pasteElement(engine, clip, { measure: 1, beat: frac(2, 1), staff: 0 })
       expect(engine.getScore().engravingOverrides?.[idOf(pasted)!], 'the new pedal carries none')
@@ -557,7 +557,7 @@ describe('elementClipboard — the TEMPO mark (his ask, 2026-08-19)', () => {
     })
 
     it('⛔ copies nothing for a pedal that is no longer in the score', () => {
-      engine.removePedal(pedalId)
+      engine.pedal.removePedal(pedalId)
       expect(copyElement(engine, { kind: 'pedal', id: pedalId })).toBeNull()
     })
   })

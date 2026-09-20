@@ -32,7 +32,7 @@ interface MarkEndRow {
 const MARK_END_DRAGS = {
   hairpin: { label: 'Hairpin end', drag: dragHairpinEndpoint, commit: (engine, which) => engine.commitHairpinDrag(which) },
   ottava: { label: 'Ottava end', drag: dragOttavaEndpoint, commit: (engine, which) => engine.ottava.commitOttavaDrag(which) },
-  pedal: { label: 'Pedal end', drag: dragPedalEndpoint, commit: (engine, which) => engine.commitPedalDrag(which) },
+  pedal: { label: 'Pedal end', drag: dragPedalEndpoint, commit: (engine, which) => engine.pedal.commitPedalDrag(which) },
   trill: { label: 'Trill end', drag: dragTrillEndpoint, commit: (engine, which) => engine.commitTrillDrag(which) },
 } as const satisfies Record<string, MarkEndRow>
 

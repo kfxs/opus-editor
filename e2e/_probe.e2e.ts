@@ -11,7 +11,7 @@ test('probe', async ({ score }) => {
         h.engine.addNoteAtBeat({ step: 'C', octave: 5, duration: 'q', measure: m, beat: h.frac(beat, 1) })
       }
     }
-    const pedal = h.engine.addPedal(3, { beat: h.frac(0, 1), length: h.frac(16, 1) })!
+    const pedal = h.engine.pedal.addPedal(3, { beat: h.frac(0, 1), length: h.frac(16, 1) })!
     await h.render()
 
     const registry = h.engine.getElementRegistry()
@@ -36,8 +36,8 @@ test('probe', async ({ score }) => {
       return g ? g.noteEndX - 0.4 * g.lineSpacing : null
     }
 
-    const lift = h.engine.pedalLiftSlot(pedal.id)
-    const next = h.engine.nextPedalLift(pedal.id, 1)
+    const lift = h.engine.pedal.pedalLiftSlot(pedal.id)
+    const next = h.engine.pedal.nextPedalLift(pedal.id, 1)
     return {
       systems,
       lift: lift && { m: lift.measure, b: `${lift.beat.num}/${lift.beat.den}` },

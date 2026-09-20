@@ -102,7 +102,7 @@ describe("stampSpanMarkAtClick — the pedal's row", () => {
     // The entry door's truncation rule (docs/pedal-plan.md §3.3) reached through the gesture: two
     // overlapping dampers is not a stack, it is a contradiction — one foot.
     stampSpanMarkAtClick('pedal', state, engine, hits(ids[0]), 10, 10, render)
-    engine.setPedalLength(pedals()[0].id, frac(4, 1)) // hold the whole bar…
+    engine.pedal.setPedalLength(pedals()[0].id, frac(4, 1)) // hold the whole bar…
     stampSpanMarkAtClick('pedal', state, engine, hits(ids[2]), 10, 10, render) // …then re-press at beat 2
 
     const all = pedals().map(p => `${fracToNumber(p.beat)}+${fracToNumber(p.length)}`)

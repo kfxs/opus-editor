@@ -617,7 +617,7 @@ export function wireShortcuts(
             // The pedal only — never the notes it holds. ⚠️ Like the ottava above, deleting it
             // CHANGES WHAT THEY SOUND: the notes stop ringing to the lift and fall back to their own
             // written lengths (docs/pedal-plan.md §9). Visible and audible, and both intended.
-            eng.removePedal(element.id)
+            eng.pedal.removePedal(element.id)
             state.selectedElement = null
             renderer.renderScore()
             return

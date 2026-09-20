@@ -27,6 +27,7 @@
  */
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { OttavaCommands } from '@/engine/commands/ottavaCommands'
+import type { PedalCommands } from '@/engine/commands/pedalCommands'
 import type { Fraction, NoteDuration, Ottava, TempoMark, TrillContinuationLabel } from '../types/music'
 import type { SelectedElement } from './EditorState'
 import type { PasteAnchor } from './pasteAnchor'
@@ -183,7 +184,10 @@ type ElementClipEngine = Pick<MusicEngine,
   | 'getSlurById' | 'slurSpanOf' | 'createSlurOverSpan'
   | 'getTrillById' | 'trillSpanBeats' | 'createTrillOverSpan'
   | 'getOttavaById'
-  | 'getPedalById' | 'addPedalOverSpan'> & { ottava: Pick<OttavaCommands, 'addOttava'> }
+  | 'getPedalById'> & {
+  ottava: Pick<OttavaCommands, 'addOttava'>
+  pedal: Pick<PedalCommands, 'addPedalOverSpan'>
+}
 
 /** The clip for the currently selected element, or null when that kind cannot travel (yet). */
 export function copyElement(engine: ElementClipEngine, element: SelectedElement | null): ElementClip | null {
@@ -314,7 +318,7 @@ export function pasteElement(engine: ElementClipEngine, clip: ElementClip, ancho
       // on a slot of its own lane and governs a REGION, so it needs a place rather than a notehead
       // (⛔ not the slur's and the trill's rule, which need a NOTE named).
       //
-      // ⚠️⚠️ **IT LANDS THROUGH THE ENTRY DOOR, so it MAKES ROOM** — {@link MusicEngine.addPedalOverSpan},
+      // ⚠️⚠️ **IT LANDS THROUGH THE ENTRY DOOR, so it MAKES ROOM** — {@link MusicEngine.pedal.addPedalOverSpan},
       // ⛔ never `addPedal`. Two pedals overlapping on one staff is a contradiction (one damper), and
       // the model already knows how a pianist resolves it: *lift, re-press* (docs/pedal-plan.md §3.3).
       // ⭐ That is the difference from the ottava's arm beside it — two brackets may not SHARE a beat,
@@ -325,7 +329,7 @@ export function pasteElement(engine: ElementClipEngine, clip: ElementClip, ancho
       // clamped where it is READ (`pedalOps.pedalSpan`), so a pedal pasted near the end draws short
       // and grows back if it is moved home — the bracket's rule verbatim.
       const staffId = engine.staffIdForIndex(anchor.staff)
-      const created = engine.addPedalOverSpan(
+      const created = engine.pedal.addPedalOverSpan(
         anchor.measure, anchor.beat, clip.length, staffId ?? undefined)
       return created ? { kind: 'pedal', id: created.id } : null
     }

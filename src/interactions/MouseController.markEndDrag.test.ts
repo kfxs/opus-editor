@@ -74,13 +74,15 @@ const FAMILIES: Family[] = [
   },
   {
     kind: 'pedal', handleType: 'pedal-endpoint', idField: 'pedalId',
-    previewOffset: 'previewPedalEndpointOffset', commitDrag: 'commitPedalDrag',
+    previewOffset: 'previewPedalEndpointOffset', commitDrag: 'commitPedalDrag', commands: 'pedal',
     extra: {
       getPedalById: () => ({ id: 'M1' }),
-      nextPedalStartSlot: () => null,
-      nextPedalLift: () => null,
+      pedal: {
+        nextPedalStartSlot: () => null,
+        nextPedalLift: () => null,
+        previewPedalEndpointRebase: () => true,
+      },
       previewPedalEnd: () => false,
-      previewPedalEndpointRebase: () => true,
     },
   },
   {
