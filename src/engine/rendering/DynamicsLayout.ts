@@ -356,7 +356,7 @@ export function registerDynamics(pass: RenderPass, measure: Measure): void {
         // line) makes the attachment line TRACK the note when its pitch moves — the bar redraws
         // on a pitch change, so this recaptures at the new position. Drives the dashed
         // attachment-line visualization when the dynamic is selected
-        // (HighlightController.applyAnchorGuideLine) — never hit-testing. The annotation carries
+        // (`elements/anchorGuideLine`) — never hit-testing. The annotation carries
         // its anchor note (VexFlow Modifier.getNote); positions are final here (post-draw).
         const note = annotation.getNote() as EngravedNote | undefined
         const ys = note ? noteRuler(note).headYs : undefined

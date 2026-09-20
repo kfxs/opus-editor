@@ -419,7 +419,7 @@ export interface ElementInfo {
    * ⭐⭐ **THE ATTACHMENT GUIDES** — the dashed lines a SELECTED element draws to whatever it hangs
    * off (Dorico/MuseScore style). Pure visualization: never engraved, never hit-tested, never
    * serialized. Measured HERE, at render, because both ends are facts about drawn ink; drawn by
-   * `HighlightController.applyAnchorGuideLine`, which is the only reader.
+   * `elements/anchorGuideLine.paintAnchorGuideLine`, which is the only reader.
    *
    * ⭐ **A LIST, because a SPANNER has two ends.** A dynamic, a tempo mark and a trill each attach at
    * one place and carry one line; a hairpin attaches at a start beat AND an end beat, and drawing one

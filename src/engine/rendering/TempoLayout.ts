@@ -467,7 +467,7 @@ export function drawTempoMarks(
           },
           // ⭐⭐ THE ATTACHMENT GUIDE'S TWO ENDS — the second kind to draw one (his call, 2026-08-17,
           // the dynamic's having been the first). Both are captured here because both are
-          // measurements, and `HighlightController.applyAnchorGuideLine` only draws what the render
+          // measurements, and `elements/anchorGuideLine.paintAnchorGuideLine` only draws what the render
           // measured (docs/dynamic-offset-plan.md).
           //
           // ⭐ **What a tempo mark is attached to is a PLACE IN TIME, not a note** — which is why

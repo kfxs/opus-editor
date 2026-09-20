@@ -2,8 +2,7 @@
 /**
  * The dashed ATTACHMENT LINE a selected dynamic draws to the note it hangs off.
  *
- * Subject: {@link HighlightController}, a chapter beside `HighlightController.test.ts` (slur handles)
- * and `.barline.test.ts`. The registry is FABRICATED, which is what makes this testable in jsdom at
+ * Subject: {@link paintAnchorGuideLine}. The registry is FABRICATED, which is what makes this testable in jsdom at
  * all: the line is drawn from `ElementInfo.bbox` and `ElementInfo.anchor`, two numbers the engine
  * measures at render — so with those handed in, WHICH corner the line leaves from is ordinary
  * arithmetic and not a glyph measurement (`reference_jsdom_cannot_measure_glyphs`).
@@ -13,10 +12,11 @@
  * — which on an expression WORD sent it back across the whole word to reach a note near its start.
  */
 import { describe, it, expect } from 'vitest'
-import { HighlightController } from './HighlightController'
-import { createEditorState } from './EditorState'
-import { ElementRegistry } from '../engine/ElementRegistry'
-import type { MusicEngine } from '../engine/MusicEngine'
+import { HighlightController } from '../HighlightController'
+import { createEditorState } from '../EditorState'
+import { ElementRegistry } from '@/engine/ElementRegistry'
+import type { MusicEngine } from '@/engine/MusicEngine'
+import { paintAnchorGuideLine } from './anchorGuideLine'
 
 /** A selected dynamic with the given guide, and the line that comes out. */
 function anchorLineFor(from: { x: number; y: number }, to = { x: 140, y: 60 }) {
@@ -35,7 +35,7 @@ function anchorLineFor(from: { x: number; y: number }, to = { x: 140, y: 60 }) {
   const state = createEditorState()
   state.selectedElement = { kind: 'dynamic', id: 'D1' }
 
-  new HighlightController(() => engine, () => canvas, state).applyAnchorGuideLine()
+  paintAnchorGuideLine(new HighlightController(() => engine, () => canvas, state).context()!)
   return svg.querySelector('line.dynamic-anchor-line')
 }
 
@@ -60,7 +60,7 @@ describe('the attachment guide', () => {
     const state = createEditorState()
     state.selectedElement = { kind: 'dynamic', id: 'D1' }
 
-    new HighlightController(() => engine, () => canvas, state).applyAnchorGuideLine()
+    paintAnchorGuideLine(new HighlightController(() => engine, () => canvas, state).context()!)
     expect(svg.querySelector('line.dynamic-anchor-line')).toBeNull()
   })
 
@@ -83,7 +83,7 @@ describe('the attachment guide', () => {
     const state = createEditorState()
     state.selectedElement = { kind: 'hairpin', id: 'H1' }
 
-    new HighlightController(() => engine, () => canvas, state).applyAnchorGuideLine()
+    paintAnchorGuideLine(new HighlightController(() => engine, () => canvas, state).context()!)
     expect(svg.querySelectorAll('line.dynamic-anchor-line')).toHaveLength(2)
   })
 })

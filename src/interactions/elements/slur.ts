@@ -7,6 +7,7 @@
  */
 import { dbg } from '@/utils/debug'
 import type { ClickableElementSpec } from './chain'
+import { paintAnchorGuideLine } from './anchorGuideLine'
 import { beginSlurBodyDrag } from '../drags/slurBody'
 import { SLUR_KEYS } from './slurKeys'
 import { paintArmedSlurAnchorNote, paintSlurHandles } from './slurHandles'
@@ -72,7 +73,7 @@ export const SLUR_ELEMENT: ClickableElementSpec = {
   highlight: ctx => {
     paintSlurHandles(ctx)
     paintArmedSlurAnchorNote(ctx)
-    ctx.controller.applyAnchorGuideLine()
+    paintAnchorGuideLine(ctx)
   },
   // In ITS voice's colour (V1 blue, V2 green — matches the notehead/tie highlight). ⚠️ `Slur.voice`
   // is unreliable (created as 0), so it is read off the start NOTE.

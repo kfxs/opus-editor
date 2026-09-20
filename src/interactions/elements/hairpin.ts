@@ -10,6 +10,7 @@
  */
 import { dbg } from '@/utils/debug'
 import type { ClickableElementSpec } from './chain'
+import { paintAnchorGuideLine } from './anchorGuideLine'
 import { distToSegment } from './slur'
 import { beginHairpinBodyDrag } from '../drags/hairpinBody'
 import { HAIRPIN_KEYS } from './hairpinKeys'
@@ -57,7 +58,7 @@ export const HAIRPIN_ELEMENT: ClickableElementSpec = {
   // ⚠️ The RECOLOUR is `ink` below and not here: a passage box can select this kind too, and the
   // ink has to paint for every selected one — not only for the one a click picked.
   highlight: ctx => {
-    ctx.controller.applyAnchorGuideLine()
+    paintAnchorGuideLine(ctx)
     const selected = selectedOf(ctx.state, 'hairpin')
     if (!selected) return
     paintEndpointHandles(ctx, 'hairpin', selected, hairpinEndpointHandles(ctx.registry.getByType('hairpin'), selected.id))

@@ -6,6 +6,7 @@
  */
 import { dbg } from '@/utils/debug'
 import type { ClickableElementSpec } from './chain'
+import { paintAnchorGuideLine } from './anchorGuideLine'
 import { beginTempoDrag } from '../drags/tempo'
 import { TEMPO_KEYS } from './tempoKeys'
 import { ELEMENT_SELECTION_FILL } from '@/utils/selectionColors'
@@ -56,7 +57,7 @@ export const TEMPO_ELEMENT: ClickableElementSpec = {
   // ⚠️ The RECOLOUR is not here since 2026-08-19: it moved to the SET pass in `RenderController`
   // (the dynamic's own arrangement), because a box and a Ctrl-press can now select this kind too
   // and the ink has to paint for every selected one — not only for the one a click picked.
-  highlight: ctx => ctx.controller.applyAnchorGuideLine(),
+  highlight: ctx => paintAnchorGuideLine(ctx),
   // Inside the mark's OWN `<g>` — the one `TempoLayout` opens (`#<id>`) — so the colour cannot bleed
   // onto neighbouring marks.
   ink: (ctx, id) => {

@@ -32,6 +32,7 @@
  */
 import { dbg } from '@/utils/debug'
 import type { ClickableElementSpec } from './chain'
+import { paintAnchorGuideLine } from './anchorGuideLine'
 import { pedalTetherAt, pedalTethers, tetherDashArray, TETHER_HIT } from './pedalTether'
 import { pedalStaffSpacePx } from '../pedalLane'
 import { ELEMENT_SELECTION_FILL } from '@/utils/selectionColors'
@@ -104,7 +105,7 @@ export const PEDAL_ELEMENT: ClickableElementSpec = {
   // pedals, and *which `✻` closes which `Ped.`* is the question it asks hardest (his report,
   // 2026-08-21). The ink pass runs BEFORE this row, so a handle sits over the line, not under it.
   highlight: ctx => {
-    ctx.controller.applyAnchorGuideLine()
+    paintAnchorGuideLine(ctx)
     const selected = selectedOf(ctx.state, 'pedal')
     if (!selected) return
     paintEndpointHandles(ctx, 'pedal', selected, pedalEndpointHandles(ctx.registry.getByType('pedal'), selected.id))

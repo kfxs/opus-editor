@@ -15,6 +15,7 @@
  */
 import { dbg } from '@/utils/debug'
 import type { ClickableElementSpec } from './chain'
+import { paintAnchorGuideLine } from './anchorGuideLine'
 import { distToSegment } from './slur'
 import { beginTrillBodyDrag } from '../drags/trillBody'
 import { spanMarkKeys } from '../spanMarkKeys'
@@ -69,7 +70,7 @@ export const TRILL_ELEMENT: ClickableElementSpec = {
   // ⚠️ The RECOLOUR is `ink` below and not here: a passage box can select this kind too, and the
   // ink has to paint for every selected one — not only for the one a click picked.
   highlight: ctx => {
-    ctx.controller.applyAnchorGuideLine()
+    paintAnchorGuideLine(ctx)
     const selected = selectedOf(ctx.state, 'trill')
     if (!selected) return
     paintEndpointHandles(ctx, 'trill', selected, trillEndpointHandles(ctx.registry.getByType('trill'), selected.id))
