@@ -14,7 +14,7 @@ import { hasArticulation } from './EngravedArticulation'
 import { drawLedgerLines } from '@/engine/engrave/notes/ledgerLines'
 import { placeDots } from './dotPlacement'
 import { GHOST_GROUP_SELECTOR, drawNoteGhost, drawToolGhost } from './GhostRenderer'
-import type { ToolGhost } from './ghostTypes'
+import type { GhostNote, ToolGhost } from './ghostTypes'
 import { CROSS_SYSTEM_BEAM_WIDTH, CROSS_SYSTEM_BEAM_MARGIN, crossSystemStub } from './beamInk'
 import {
   beamLevelRun, beamLineStartX, beamRunInkBox, fillBeamQuad,
@@ -42,7 +42,7 @@ import type { Scene } from '@/engine/scene/Scene'
 // Engine-owned notation styles (cursor ghosts, selection highlight). Imported here
 // so they travel with the renderer — no UI-framework wiring required. See notation.css.
 import './notation.css'
-import type { Score, Measure, Clef, KeySignature, Tuplet, ChordRest, Fraction, GhostNote, TimeSignature } from '@/types/music'
+import type { Score, Measure, Clef, KeySignature, Tuplet, ChordRest, Fraction, TimeSignature } from '@/types/music'
 import { fracToNumber, fracEq, fracCompare, fracLte, fracIsZero } from '@/utils/fraction'
 import { effectiveClefBefore, resolveStaffClefs, type StaffClefs } from '@/utils/clefUtils'
 import { resolveStaffKeys, type StaffKeys } from '@/utils/keySignature'

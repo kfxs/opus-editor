@@ -155,3 +155,12 @@ export interface MeasurePlacement {
   /** Built by tier 1 when the measure is (re)drawn; restored from the snapshot when it is reused. */
   stave: EngravedStave
 }
+
+/**
+ * Pixel coordinates — a point on the rendered page, which is why it lives with the renderer's
+ * types and not in the score's (`types/music.ts`).
+ */
+export interface PixelCoordinates {
+  x: number
+  y: number
+}

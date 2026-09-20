@@ -2520,52 +2520,6 @@ interface ScorePlayback {
 }
 
 /**
- * Ghost note preview shown while hovering before note entry.
- * Pitch is stored as spelling (step/alter/octave) — same as NotePitch.
- */
-export interface GhostNote {
-  step: PitchStep
-  alter: PitchAlter
-  octave: number
-  duration: NoteDuration
-  measure: number
-  beat: number
-  /** 0-based staff index the preview renders on (multi-staff; absent = staff 0). */
-  staff?: number
-  rawX?: number
-  rawY?: number
-  dots?: number
-  articulations?: ArticulationType[]
-  /** The armed entry tremolo, drawn on the ghost — "this click enters a note wearing this mark".
-   *  Absent = no tremolo armed. Same modifier the engraved mark uses, so the preview cannot
-   *  disagree with what lands. */
-  tremolo?: TremoloMark
-  /** Show a natural (♮) even though `alter` is 0 — the preview for an armed natural accidental,
-   *  which otherwise has no glyph (alter 0 draws nothing). Sharp/flat carry their own sign via alter. */
-  forceAccidental?: boolean
-  /**
-   * The armed tuplet's mark, drawn above the ghost — the preview for "this click starts a tuplet".
-   * Absent = no tuplet armed, and the ghost is an ordinary note.
-   *
-   * The same RUNS the engraved mark is drawn from (`tupletMarkRuns`), because they are drawn at
-   * different sizes — a preview carrying one joined string could not look like the thing it previews.
-   */
-  tupletLabel?: TupletMarkRun[]
-  /** Ghost paint colour = the active voice's colour (V1 blue, V2 green). Defaults
-   *  to the app's blue when omitted. See utils/voiceColors. */
-  fillColor?: string
-  strokeColor?: string
-}
-
-/**
- * Pixel coordinates
- */
-export interface PixelCoordinates {
-  x: number
-  y: number
-}
-
-/**
  * Parameters for creating or updating a note.
  *
  * Pitch is specified as step + alter + octave (PitchSpelling).

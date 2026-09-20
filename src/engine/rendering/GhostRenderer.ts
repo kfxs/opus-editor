@@ -29,8 +29,8 @@
  * an empty articulation list): that is about the MARK, not about the page.
  */
 import type { DrawContext } from '@/engine/paint/DrawContext'
-import type { Score, Clef, GhostNote, NoteDuration, PitchStep, ArticulationType } from '@/types/music'
-import type { ToolGhost } from './ghostTypes'
+import type { Score, Clef, NoteDuration, PitchStep, ArticulationType } from '@/types/music'
+import type { GhostNote, ToolGhost } from './ghostTypes'
 import { fracToNumber, fracCreate, fracAdd } from '@/utils/fraction'
 import { beatToFrac } from '@/utils/musicUtils'
 import { measureCapacityFrac } from '@/utils/measureCapacity'

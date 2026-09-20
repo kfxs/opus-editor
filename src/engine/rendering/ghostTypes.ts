@@ -25,13 +25,15 @@
  * The `MarkingTool → ToolGhost` step is `interactions/toolGhost.ts`, on the editor side where the
  * armed state lives. Adding a ghost is a member here, a row in `GHOST_DRAWERS`, and a case there.
  *
- * ⚠️ NOT here: the ghost NOTE. It is not a marking tool — it rides the armed duration / accidental /
- * tuplet and is drawn IN the bar it will land in (it needs the render's own layout), so it keeps its
- * own path through `drawGhostNote` / `renderScoreWithPreview`. See {@link GhostRenderer}'s header
- * for the two families.
+ * ⚠️ NOT in the union: the ghost NOTE ({@link GhostNote}, declared at the foot of this file — it is
+ * the editor's preview, not score content, so it left `types/music.ts`). It is not a marking tool —
+ * it rides the armed duration / accidental / tuplet and is drawn IN the bar it will land in (it
+ * needs the render's own layout), so it keeps its own path through `drawGhostNote` /
+ * `renderScoreWithPreview`. See {@link GhostRenderer}'s header for the two families.
  */
 import type {
   Clef, TimeSignature, KeySignature, TempoMark, Dynamic, ArticulationType, TremoloMark, NoteDuration, Ottava,
+  PitchStep, PitchAlter, TupletMarkRun,
   Accidental as ScoreAccidental,
 } from '@/types/music'
 import type { PlacedBarlineSign } from '@/engine/layout/barlineSign'
@@ -128,3 +130,41 @@ export type ToolGhost =
    * nobody places them, so no click can be previewing one. See `./BarlineGhost`.
    */
   | { kind: 'barline'; sign: PlacedBarlineSign }
+
+/**
+ * Ghost note preview shown while hovering before note entry.
+ * Pitch is stored as spelling (step/alter/octave) — same as NotePitch.
+ */
+export interface GhostNote {
+  step: PitchStep
+  alter: PitchAlter
+  octave: number
+  duration: NoteDuration
+  measure: number
+  beat: number
+  /** 0-based staff index the preview renders on (multi-staff; absent = staff 0). */
+  staff?: number
+  rawX?: number
+  rawY?: number
+  dots?: number
+  articulations?: ArticulationType[]
+  /** The armed entry tremolo, drawn on the ghost — "this click enters a note wearing this mark".
+   *  Absent = no tremolo armed. Same modifier the engraved mark uses, so the preview cannot
+   *  disagree with what lands. */
+  tremolo?: TremoloMark
+  /** Show a natural (♮) even though `alter` is 0 — the preview for an armed natural accidental,
+   *  which otherwise has no glyph (alter 0 draws nothing). Sharp/flat carry their own sign via alter. */
+  forceAccidental?: boolean
+  /**
+   * The armed tuplet's mark, drawn above the ghost — the preview for "this click starts a tuplet".
+   * Absent = no tuplet armed, and the ghost is an ordinary note.
+   *
+   * The same RUNS the engraved mark is drawn from (`tupletMarkRuns`), because they are drawn at
+   * different sizes — a preview carrying one joined string could not look like the thing it previews.
+   */
+  tupletLabel?: TupletMarkRun[]
+  /** Ghost paint colour = the active voice's colour (V1 blue, V2 green). Defaults
+   *  to the app's blue when omitted. See utils/voiceColors. */
+  fillColor?: string
+  strokeColor?: string
+}
