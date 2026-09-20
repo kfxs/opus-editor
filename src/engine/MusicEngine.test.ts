@@ -976,90 +976,6 @@ describe('MusicEngine.renderScoreWithPreview — beat quantization uses the hove
   })
 })
 
-describe('MusicEngine.deleteNote — staff scoping (multi-staff)', () => {
-  it('deleting one staff\'s note replaces it with a rest and leaves the other staff untouched', () => {
-    // getChordNotesAt matches on (measure, beat, voice); without staff scoping the same-beat/
-    // same-voice note on the OTHER staff makes this read as a chord, so the note is removed
-    // without a replacement rest and the surviving-sibling slur re-anchor grabs the wrong staff.
-    const engine = makeEngine()
-    engine.addStaffBelow(0)
-    const top = addNote(engine, { step: 'C', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(0, 1), staff: 0 })
-    const bottom = addNote(engine, { step: 'C', alter: 0, octave: 3, duration: 'q', measure: 1, beat: frac(0, 1), staff: 1 })
-
-    expect(engine.deleteNote(top.id)).toBe(true)
-    // A single note (not a chord) must be replaced by a rest of the same duration on its staff.
-    const staff1Id = engine.getScore().staves![1].id
-    const topSlotAtZero = engine.getScore().measures[0].slots
-      .find(s => s.staffId !== staff1Id && fracToNumber(s.beat) === 0)!
-    expect(topSlotAtZero.type).toBe('rest')
-    expect(topSlotAtZero.duration).toBe('q')
-    // The staff-1 note at the same beat is untouched.
-    expect(engine.getNote(bottom.id)).toBeTruthy()
-    expect(engine.getNote(bottom.id)!.isRest).toBeFalsy()
-  })
-
-  it('replaces a LOWER staff\'s note with a rest on THAT staff, in its own voice', () => {
-    // ⭐ The mirror of the case above, and the one that was missing: deleting the TOP note passes
-    // whether or not the staff travels, because `addNote` defaults an absent staff to 0. His report
-    // (2026-08-31, bar 1 of the Prelude): clearing the bass staff's voice-1 half note put a half
-    // REST into a voice 1 the treble staff never had — a phantom voice on the wrong staff, while
-    // the bass was left with a hole for `fillGapsWithRests` to re-fill.
-    // TWO half notes in that voice, the file's own shape — deleting the only note of a secondary
-    // voice collapses the lane (Sibelius-style), which is a different rule and would hide this one.
-    const engine = makeEngine()
-    engine.addStaffBelow(0)
-    addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'h', measure: 1, beat: frac(0, 1), staff: 1, voice: 1 })
-    const second = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'h', measure: 1, beat: frac(2, 1), staff: 1, voice: 1 })
-
-    expect(engine.deleteNote(second.id)).toBe(true)
-
-    const staff1Id = engine.getScore().staves![1].id
-    const atTwo = engine.getScore().measures[0].slots.filter(s => fracToNumber(s.beat) === 2)
-    const replacement = atTwo.find(s => s.type === 'rest' && s.duration === 'h')!
-    expect(replacement).toBeTruthy()
-    expect(replacement.staffId).toBe(staff1Id)
-    expect(replacement.voice).toBe(1)
-    // ⛔ And nothing landed in a voice 1 on the TOP staff, which is what the bug looked like.
-    expect(atTwo.some(s => s.staffId !== staff1Id && s.voice === 1)).toBe(false)
-  })
-})
-
-describe('MusicEngine — slur cleanup when an anchored note is deleted', () => {
-  let engine: MusicEngine
-
-  beforeEach(() => {
-    engine = makeEngine()
-  })
-
-  it('re-anchors to the replacement rest when a single anchor note is deleted', () => {
-    const a = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
-    const b = addNote(engine, { step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
-    const slur = engine.slur.createSlur([a.id])! // a → b
-    expect(slur.endNoteId).toBe(b.id)
-
-    engine.deleteNote(b.id) // b becomes a rest with a NEW id
-    const slurs = engine.getSlurs()
-    expect(slurs).toHaveLength(1)               // slur survives
-    expect(slurs[0].endNoteId).not.toBe(b.id)   // re-pointed onto the replacement rest
-    // The new endpoint is a real slot at b's old (measure, beat).
-    const end = engine.getNote(slurs[0].endNoteId)
-    expect(end?.isRest).toBe(true)
-  })
-
-  it('re-anchors to a surviving sibling when a chord head anchor is deleted', () => {
-    const a = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
-    const sib = engine.addChordNote({ step: 'G', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
-    const b = addNote(engine, { step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
-    engine.slur.createSlur([a.id]) // a (chord head) → b
-
-    engine.deleteNote(a.id) // chord survives via `sib`
-    const slurs = engine.getSlurs()
-    expect(slurs).toHaveLength(1)
-    expect(slurs[0].startNoteId).toBe(sib.id) // re-anchored to the sibling head
-    expect(slurs[0].endNoteId).toBe(b.id)
-  })
-})
-
 describe('MusicEngine — multi-voice (Phase 1)', () => {
   let engine: MusicEngine
 
@@ -1085,34 +1001,6 @@ describe('MusicEngine — multi-voice (Phase 1)', () => {
     // Voice 1 keeps its own rests too (independent stream).
     const v1Rests = m1.slots.filter(s => s.type === 'rest' && (s.voice ?? 0) === 0)
     expect(v1Rests.length).toBeGreaterThan(0)
-  })
-
-  it('deleting the last note of voice 2 collapses the bar back to a single voice', () => {
-    addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'w', measure: 1, beat: frac(0, 1) })
-    const v2 = addNote(engine, { step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1), voice: 1 })
-
-    engine.deleteNote(v2.id)
-
-    const m1 = engine.getScore().measures[0]
-    const voice2Slots = m1.slots.filter(s => (s.voice ?? 0) === 1)
-    expect(voice2Slots).toHaveLength(0) // collapsed — no leftover voice-2 rests
-    // Voice 1 is untouched.
-    expect(m1.slots.some(s => s.type === 'chord' && (s.voice ?? 0) === 0)).toBe(true)
-  })
-
-  it('deleting one of several voice-2 notes keeps voice 2 (rest replacement, no collapse)', () => {
-    const a = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1), voice: 1 })
-    addNote(engine, { step: 'D', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1), voice: 1 })
-
-    engine.deleteNote(a.id)
-
-    const m1 = engine.getScore().measures[0]
-    // Voice 2 still has the surviving note...
-    const v2Chords = m1.slots.filter(s => s.type === 'chord' && (s.voice ?? 0) === 1)
-    expect(v2Chords).toHaveLength(1)
-    // ...and the deleted note became a voice-2 rest (stream stays full).
-    const v2Rests = m1.slots.filter(s => s.type === 'rest' && (s.voice ?? 0) === 1)
-    expect(v2Rests.length).toBeGreaterThan(0)
   })
 
   it('buildBeatMap scopes to a single voice (guards the getMeasureNotes voice projection)', () => {

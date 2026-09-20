@@ -1,6 +1,6 @@
 # Code shape plan — 2026-09-19
 
-**Status: IN PROGRESS — Phase 1 DONE (2026-09-19), bar item 5's two ⏭️ decisions. Phase 2 DONE. Phase 3.1: the hairpin / ottava / pedal body drags done and checked; the trill's too (`cdb7f05`); the slur's too (`69e927c`); the four SQUARE drags too (`6d903c3`); the slur HANDLE / ENDPOINT and staff-spacing drags too (`8f28f79`); the DYNAMIC and TEMPO drags too (`9a04f88`); bar width, barline join, group span and clef too (`ee31698`); the NOTE drag too (`7d2898e`) — every gesture is a module. **Phase 3.1 DONE** (`25f70a6`). 3.2: the `keys` column + dispatcher and the HAIRPIN on it (`e61626a`); OTTAVA / PEDAL / TRILL too (`14e10e7`); DYNAMIC and TEMPO too (`943fb64`); SLUR and CLEF too (`8382fcc`); the `reanchor` and `cycle` verbs done, awaiting his UI check — **Phase 3.2 DONE with it.** 3.3 (`highlight(ctx)`): the contract + the four span squares (`a7c1076`); the join and group squares (`b772418`); the `ink` column (`f1832e7`); the slur handles (`d3dcb7b`); the anchor guide line (`e2ff597`); the note pass + note-attached kinds (`aa7e5af`); every remaining row done, awaiting his UI check — **Phase 3.3 DONE** (`1efb38d`). 3.4: the panels' `rows` (`4db182d`); the typed `InspectedElement` union done, awaiting his UI check — **3.4 DONE** (`54ab9cc`). **Phase 3 DONE** — 3.5: all seven mark families are `engine/commands/<family>Commands.ts` (`e684125` … `a8549ad`), with command specs and `commit` / `saveOnly` folded into one `mutate`. **Phase 4 IN PROGRESS** — 4.1: `spanFromNotes`, `reanchorSlurs` → `slurOps`, `tieOps` (`6d720b8`) done; `deleteNote`'s repair, `convertToRest`, `moveSelectionToVoice` next.** Phases are ordered by
+**Status: IN PROGRESS — Phase 1 DONE (2026-09-19), bar item 5's two ⏭️ decisions. Phase 2 DONE. Phase 3.1: the hairpin / ottava / pedal body drags done and checked; the trill's too (`cdb7f05`); the slur's too (`69e927c`); the four SQUARE drags too (`6d903c3`); the slur HANDLE / ENDPOINT and staff-spacing drags too (`8f28f79`); the DYNAMIC and TEMPO drags too (`9a04f88`); bar width, barline join, group span and clef too (`ee31698`); the NOTE drag too (`7d2898e`) — every gesture is a module. **Phase 3.1 DONE** (`25f70a6`). 3.2: the `keys` column + dispatcher and the HAIRPIN on it (`e61626a`); OTTAVA / PEDAL / TRILL too (`14e10e7`); DYNAMIC and TEMPO too (`943fb64`); SLUR and CLEF too (`8382fcc`); the `reanchor` and `cycle` verbs done, awaiting his UI check — **Phase 3.2 DONE with it.** 3.3 (`highlight(ctx)`): the contract + the four span squares (`a7c1076`); the join and group squares (`b772418`); the `ink` column (`f1832e7`); the slur handles (`d3dcb7b`); the anchor guide line (`e2ff597`); the note pass + note-attached kinds (`aa7e5af`); every remaining row done, awaiting his UI check — **Phase 3.3 DONE** (`1efb38d`). 3.4: the panels' `rows` (`4db182d`); the typed `InspectedElement` union done, awaiting his UI check — **3.4 DONE** (`54ab9cc`). **Phase 3 DONE** — 3.5: all seven mark families are `engine/commands/<family>Commands.ts` (`e684125` … `a8549ad`), with command specs and `commit` / `saveOnly` folded into one `mutate`. **Phase 4 IN PROGRESS** — 4.1: `spanFromNotes`, `reanchorSlurs` → `slurOps`, `tieOps` (`6d720b8`) done; `deleteNote`'s repair → `deleteNoteOps` done, awaiting his UI check; `convertToRest`, `moveSelectionToVoice` next.** Phases are ordered by
 value over risk; each one stands alone and can be stopped after. A done item carries ✅ and what
 actually happened where that differs from what was planned.
 
@@ -748,6 +748,24 @@ The only phase that fixes a broken principle rather than a shape.
    invariant) had been filed under `MusicEngine.test.ts`'s `createSlur` chapter since they were
    written, and rode it into `commands/slurCommands.test.ts` last step. They are
    `MusicEngine.ties.test.ts` now.*
+
+   *`deleteNote`'s REPAIR done, 2026-09-20 — `engine/models/deleteNoteOps.ts`.
+   `deleteNoteWithRepair(model, id)` holds what a delete IS for each thing an id can name (a fanned
+   member · a chord head · a single note → a rest of its own length in its own voice AND staff,
+   with every incoming tie and slur re-pointed · a rest → the gap or the tuplet's remainder
+   refilled) and the voice collapse; it takes a `DeleteNoteModel` (what `ScoreModel` answers).
+   `chordNotesAt` went with it (the facade's private `getChordNotesAt` is gone; `slotPitchIdsFor`
+   asks the module until `convertToRest` follows). ⭐ The UNDO LABEL stays on the facade — his
+   question, answered: "Delete C4" is the history's wording, read BEFORE the note is gone, so the
+   ops function answers a boolean and `MusicEngine.deleteNote` is label + ops call + one `mutate`.
+   Spec: `deleteNoteOps.test.ts` (13) — the staff-scoping, slur-cleanup and voice-collapse chapters
+   of `MusicEngine.test.ts` and the two-ties case of `MusicEngine.ties.test.ts` MOVED, plus new
+   cases for the rest branch, the fan member and `chordNotesAt`. Break-tested: dropping the staff,
+   the tie re-point, the collapse, or the member branch each fails it. The fan-member chapter of
+   `MusicEngine.fanMemberCommands.test.ts` stays — it is that feature's command-layer story (undo
+   included). ⏭️ Not done here: `clearOps`'s `deleteOne` still goes through the facade; pointing it
+   at the ops function is 4.3's (`ClearRangeDeps` goes). `MusicEngine` kinds 536 → 513. ⏸️ Awaiting
+   his UI check. Left in 4.1: `convertToRest`, `moveSelectionToVoice`.*
 
 2. `NoteEntryCoordinator`'s model-only half — overflow, erosion, tie-split, overwrite, the
    tuplet builders — into `engine/models/noteEntryOps`. The coordinator keeps pixel resolution,

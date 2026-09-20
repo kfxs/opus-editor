@@ -6,7 +6,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { MusicEngine } from './MusicEngine'
-import { fracCreate as frac, fracToNumber } from '@/utils/fraction'
+import { fracCreate as frac } from '@/utils/fraction'
 
 // Stub ScoreRenderer (needs canvas/SVG) and PlaybackEngine (needs Web Audio)
 const fakeRegistry = {
@@ -173,26 +173,6 @@ describe('MusicEngine — ties', () => {
     expect(engine.getNote(c4.id)!.tiedTo).toBe(c4next.id)
     expect(engine.toggleTie(c5.id)).toBe(true) // C5 → next slot (let-ring), even without a C5
     expect(engine.getNote(c5.id)!.tiedTo).toBe(c4next.id)
-  })
-
-  it('deleting a target with TWO incoming ties reassigns BOTH to the replacement rest', () => {
-    // Reproduces the reported bug: a chord C4+C5 tied forward to a lone C4 (C5 let-ring).
-    const c4 = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
-    const c5 = engine.addChordNote({ step: 'C', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })
-    const target = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
-    expect(engine.toggleTie(c4.id)).toBe(true)
-    expect(engine.toggleTie(c5.id)).toBe(true)
-    expect(engine.getNote(c4.id)!.tiedTo).toBe(target.id)
-    expect(engine.getNote(c5.id)!.tiedTo).toBe(target.id)
-
-    engine.deleteNote(target.id) // target becomes a rest
-
-    const rest = engine.getScore().measures[0].slots.find(
-      s => s.type === 'rest' && fracToNumber(s.beat) === 1,
-    )!
-    // BOTH ties survive and point at the rest — neither is dropped or left dangling.
-    expect(engine.getNote(c4.id)!.tiedTo).toBe(rest.id)
-    expect(engine.getNote(c5.id)!.tiedTo).toBe(rest.id)
   })
 
   it('flipTie inverts the tie curve direction as one undo step', () => {

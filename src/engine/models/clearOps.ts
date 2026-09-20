@@ -125,7 +125,7 @@ export function clearNoteRange(score: Score, noteIds: readonly string[], deps: C
   }
 
   for (const target of targets) {
-    // Arcs ARRIVING keep their shape, the let-ring rule `MusicEngine.deleteNote` already follows —
+    // Arcs ARRIVING keep their shape, the let-ring rule `deleteNoteOps.deleteNoteWithRepair` already follows —
     // scan-based, so a chord tied into this one keeps every arc. A source INSIDE the cleared range
     // is going too; it simply won't be found again when the time comes to re-point it.
     for (const pitch of allPitches(score)) {

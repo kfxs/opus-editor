@@ -30,9 +30,10 @@ import { NoteEntryCoordinator, INVALID_NOTE_ENTRY_TYPES } from './NoteEntryCoord
 import { getStaves, keyStaffId, staffIdAtIndex } from './models/staffContent'
 import { midiToNoteName, beatToFrac, compareByPosition, measureAccidentalNotes, deriveTupletM, tupletMarkRuns } from '@/utils/musicUtils'
 import { measureCapacityQuarters } from '@/utils/measureCapacity'
-import { fracToNumber, fracEq } from '@/utils/fraction'
+import { fracToNumber } from '@/utils/fraction'
 import { quantizeBeat } from '@/utils/durations'
 import { reanchorSlurs } from './models/slurOps'
+import { chordNotesAt, deleteNoteWithRepair } from './models/deleteNoteOps'
 import { applyTiePairs, planTieSelection, toggleTie } from './models/tieOps'
 import type { CommandContext } from './commands/commandContext'
 import { ottavaCommands } from './commands/ottavaCommands'
@@ -1435,13 +1436,6 @@ export class MusicEngine {
 
   // --- Mutation ---
 
-  /** Returns all non-rest notes at the given beat AND voice AND staff in a measure (chord members).
-   *  Staff-scoped: two staves holding a note at the same beat/voice is ordinary, not a chord. */
-  private getChordNotesAt(measureNumber: number, beat: Fraction, voice: number = 0, staff: number = 0): Note[] {
-    return this.scoreModel.getNotesInMeasure(measureNumber)
-      .filter(n => !n.isRest && voiceOf(n) === voice && staffOf(n) === staff && fracEq(n.beat, beat))
-  }
-
   /**
    * Update a note (pitch/duration/etc). The overflow / cross-barline split / rest-fill
    * logic lives in NoteEntryCoordinator, which records its own undo entry via onCommit;
@@ -2629,11 +2623,11 @@ export class MusicEngine {
   }
 
   /** Every pitch id sharing `note`'s slot — its chord siblings and itself. Scoped to the note's own
-   *  (voice, staff) via {@link getChordNotesAt}: two staves holding a note at the same beat in voice 0
+   *  (voice, staff) via {@link chordNotesAt}: two staves holding a note at the same beat in voice 0
    *  is ordinary, not a chord, and re-anchoring the OTHER staff's slurs onto this rest would be a real
    *  bug. `noteId` is appended defensively so the note being converted is always covered. */
   private slotPitchIdsFor(note: Note, noteId: string): string[] {
-    const ids = this.getChordNotesAt(note.measure, note.beat, voiceOf(note), staffOf(note))
+    const ids = chordNotesAt(this.scoreModel, note.measure, note.beat, voiceOf(note), staffOf(note))
       .map(n => n.id)
     return ids.includes(noteId) ? ids : [...ids, noteId]
   }
@@ -2652,100 +2646,11 @@ export class MusicEngine {
       ? `Delete ${midiToNoteName(spellingToMidi(note.step, note.alter ?? 0, note.octave!))}`
       : 'Delete rest'
 
-    // ⭐ A FANNED MEMBER deletes as a MEMBER, and must never reach the slot bookkeeping below: the
-    // model takes the pitch out (and the member with it, when it was the last one — the group is one
-    // shorter), while everything after this is about a SLOT leaving the bar. A member reports the
-    // slot's beat, so `getChordNotesAt` would answer for the OWNER's chord — one note — and the
-    // "single note becomes a rest" branch would drop a rest into a bar that still has its event in
-    // it. Nothing here is a guard: each line below is simply a different edit.
-    //
-    // A slur can anchor to a member, so one that just lost its anchor is dropped — but only when the
-    // whole MEMBER went. Losing one pitch of a member that has others leaves the anchor standing.
-    if (this.scoreModel.isFanMember(noteId)) {
-      const wholeMember = (this.scoreModel.fanMemberPitches(noteId)?.length ?? 0) <= 1
-      if (!this.scoreModel.deleteNote(noteId)) return false
-      if (wholeMember) reanchorSlurs(this.scoreModel.getScore(), noteId, null)
-      this.mutate(description)
-      return true
-    }
-
-    // Check if this note is part of a chord (multiple notes at same beat, same voice, same staff)
-    const notesAtSameBeat = this.getChordNotesAt(note.measure, note.beat, voiceOf(note), staffOf(note))
-    const isPartOfChord = notesAtSameBeat.length > 1
-
-    // Save EVERY tie that targets this note before deletion clears them. When a single
-    // note is replaced by a rest, we re-link each source tie onto the new rest so the
-    // tie survives the delete (the owner of the tie is the source, not the target) and
-    // simply re-points to the rest. Scan-based (not the note's single `tiedFrom`) so a
-    // chord tied into this note keeps every arc, and no tie is left dangling.
-    const tieSourceIds = !note.isRest && !isPartOfChord
-      ? this.scoreModel.getAllNotes().filter(n => !n.isRest && n.tiedTo === noteId).map(n => n.id)
-      : []
-
-    // A surviving chord sibling (if any) to re-anchor dependent slurs onto.
-    const slurSiblingId = isPartOfChord
-      ? notesAtSameBeat.find(n => n.id !== noteId)?.id
-      : undefined
-
-    // Delete the note
-    const result = this.scoreModel.deleteNote(noteId)
-
-    // If it's a single note (not a chord), replace with a rest of the same duration
-    if (result && !isPartOfChord && !note.isRest) {
-      const replacementRest = this.scoreModel.addNote({
-        duration: note.duration,
-        measure: note.measure,
-        beat: note.beat,
-        isRest: true,
-        dots: note.dots,
-        tupletId: note.tupletId, // Preserve tuplet membership
-        ...(note.voice && { voice: note.voice }), // keep the rest in the note's own voice
-        // ⭐ …and in the note's own STAFF. `addNote` defaults an absent `staff` to 0, so every rest
-        // replacing a note on a lower staff was minted on the TOP one — his report, 2026-08-31,
-        // deleting the second half of bar 1 of the Prelude: the bass `C4 h` in voice 1 came back as
-        // a half rest in a voice 1 the TREBLE staff never had, and the bass's `8.`/`q` came back as
-        // rests on the treble that `evictRestsOverlapping` then used to delete the treble's OWN
-        // rests. One staff's delete was editing another staff's bar, and `fillGapsWithRests`
-        // re-filled the holes it left, so the damage looked like a spacing bug rather than a
-        // misplaced slot. Every other site that mints a rest (`addRestAtPosition`, both tuplet
-        // fills, the Keyboard's rest key) already passed the staff; this one alone did not.
-        ...(note.staff && { staff: note.staff }),
-      })
-
-      // Re-point every tie that targeted the deleted note onto the replacement rest,
-      // so deleting a tie's target reassigns the tie instead of dropping it. (The rest
-      // records one `tiedFrom` for bookkeeping; the arcs themselves are owned by the
-      // source notes' `tiedTo`, which all now point at the rest.)
-      if (replacementRest && tieSourceIds.length) {
-        for (const sid of tieSourceIds) {
-          this.scoreModel.updateNote(sid, { tiedTo: replacementRest.id })
-        }
-        this.scoreModel.updateNote(replacementRest.id, { tiedFrom: tieSourceIds[0] })
-      }
-      // A slur anchored to this head follows the note onto its replacement rest
-      // (the rest gets a NEW id), or is dropped if the rest couldn't be placed.
-      if (result) reanchorSlurs(this.scoreModel.getScore(), noteId, replacementRest?.id ?? null)
-    } else if (result && isPartOfChord) {
-      // Chord head removed but the chord survives — re-anchor slurs to a sibling head.
-      reanchorSlurs(this.scoreModel.getScore(), noteId, slurSiblingId ?? null)
-    } else if (result && !isPartOfChord && note.isRest && !note.tupletId) {
-      // Standalone rest deleted without replacement — re-fill the measure to close the gap
-      this.scoreModel.repairMeasureGaps(note.measure)
-      reanchorSlurs(this.scoreModel.getScore(), noteId, null) // the rest anchor is gone — drop dependent slurs
-    } else if (result && !isPartOfChord && note.isRest && note.tupletId) {
-      // Rest inside a tuplet deleted — fill the empty gap it left behind
-      const measure = this.scoreModel.getMeasure(note.measure)
-      const tuplet = measure?.tuplets?.find(t => t.id === note.tupletId)
-      if (tuplet) this.scoreModel.refillTupletRemainder(note.measure, tuplet, voiceOf(note))
-      reanchorSlurs(this.scoreModel.getScore(), noteId, null)
-    }
-
-    // If that deletion emptied a secondary voice (no notes left, only rests), drop it
-    // so the bar reverts to a single voice (Sibelius-style collapse).
-    if (result) this.scoreModel.collapseEmptyVoices(note.measure)
-
-    if (result) this.mutate(description)
-    return result
+    // What a delete IS (a fanned member, a chord head, a single note, a rest) and the repair each
+    // one owes the bar is `engine/models/deleteNoteOps`; this adds the undo entry.
+    if (!deleteNoteWithRepair(this.scoreModel, noteId)) return false
+    this.mutate(description)
+    return true
   }
 
   /**

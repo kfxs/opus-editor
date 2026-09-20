@@ -2377,7 +2377,7 @@ export class ScoreModel {
    * that difference is real, so it stays at the call sites rather than becoming a flag here.
    *
    * The tie target is the only thing that varies by kind: a chord's first pitch, or the rest itself
-   * (both can be tied INTO — the let-ring rule; see MusicEngine.deleteNote).
+   * (both can be tied INTO — the let-ring rule; see deleteNoteOps.deleteNoteWithRepair).
    */
   /**
    * The shared "which same-voice/staff rests does this span cover?" scan. Partitions the
@@ -3116,7 +3116,7 @@ export class ScoreModel {
    * no representation, exactly as "dot one head of a chord" doesn't (see the `dots` note in
    * EditorState). A chord of any size becomes ONE rest.
    *
-   * Ties are handled per direction, mirroring `MusicEngine.deleteNote`'s let-ring rule:
+   * Ties are handled per direction, mirroring `deleteNoteOps.deleteNoteWithRepair`'s let-ring rule:
    * arcs LEAVING (`tiedTo`) die, since a rest has nothing to carry into the next note; arcs ARRIVING
    * (`tiedFrom`) SURVIVE and re-point at the rest, so tying into a slot and silencing it lets the
    * previous note ring rather than silently dropping its arc.

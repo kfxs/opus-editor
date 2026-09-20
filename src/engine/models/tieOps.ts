@@ -10,7 +10,7 @@
  * "let ring" / l.v. tie.
  *
  * ⚠️ Two notes tying into one target is fine: a tie is owned by each source's `tiedTo`, and deleting
- * the target reassigns ALL of them onto the replacement rest (`MusicEngine.deleteNote`).
+ * the target reassigns ALL of them onto the replacement rest (`deleteNoteOps.deleteNoteWithRepair`).
  *
  * ⛔ A FANNED MEMBER cannot carry a tie: a tie is a pitch-to-pitch continuation, and a member has
  * no length of its own to continue into (docs/fanned-beam-pitches-plan.md §3). A single-note ask is
