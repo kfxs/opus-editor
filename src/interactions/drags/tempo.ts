@@ -101,7 +101,7 @@ export function beginTempoDrag(host: DragHost, id: string, drawnMarkX: (id: stri
     end() {
       const engine = host.getEngine()
       if (engine && changed) {
-        engine.commitTempoDrag()
+        engine.tempo.commitTempoDrag()
         // ⛔ THE DROP RENDERS FOR REAL — see `./bodyDrag`. Here it also re-engraves the mark's bar,
         // which the preview frames deliberately did not. ⚠️ Traced either side: a difference is the
         // DROP moving the mark, which no other line in the trace can see.

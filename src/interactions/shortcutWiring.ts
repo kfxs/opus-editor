@@ -685,14 +685,14 @@ export function wireShortcuts(
             return
           }
           case 'dynamic':
-            eng.removeDynamic(element.id)
+            eng.dynamic.removeDynamic(element.id)
             state.selectedElement = null
             renderer.renderScore()
             return
           case 'tempo':
             // Removing the mark reverts the score to the previous mark's tempo (or
             // DEFAULT_TEMPO if it was the only one) — there is no global to fall back to.
-            eng.removeTempoMark(element.id)
+            eng.tempo.removeTempoMark(element.id)
             state.selectedElement = null
             renderer.renderScore()
             return

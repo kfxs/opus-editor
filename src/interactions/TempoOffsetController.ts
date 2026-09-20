@@ -13,7 +13,7 @@ import { dbg } from '../utils/debug'
  *
  * The twin of the keyboard surface in `shortcutWiring` (which nudges a selected tempo mark by ±¼ / 1
  * staff-space); this is the durable, precise input. Both land on the same
- * `MusicEngine.nudgeTempoOffset`, so both save one undo step per commit, both read back through the
+ * `MusicEngine.tempo.nudgeTempoOffset`, so both save one undo step per commit, both read back through the
  * same id-keyed override — and ⭐ both are stopped by the same page limit, which is exactly the point
  * of routing the typed value through the nudge rather than writing the override directly.
  */
@@ -39,7 +39,7 @@ export class TempoOffsetController {
     // ⚠️ ONE call, not one per axis: two nudges would be two undo entries for one commit, and the
     // page limit would judge the halves separately — a diagonal that must be refused whole could
     // then get its x through.
-    if (!engine.nudgeTempoOffset(tempoId, dx, dy)) return
+    if (!engine.tempo.nudgeTempoOffset(tempoId, dx, dy)) return
     this.renderScore()
     dbg(`[Tempo] Properties set offset ${tempoId} → (${x}, ${y}) staff-space(s)`)
   }

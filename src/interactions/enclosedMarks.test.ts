@@ -46,7 +46,7 @@ describe('marksInBox', () => {
   })
 
   it('takes a dynamic sitting under the notes', () => {
-    const id = engine.addDynamic(1, { beat: frac(1, 1), text: levelToGlyphString('f'), voice: 0 })!.id
+    const id = engine.dynamic.addDynamic(1, { beat: frac(1, 1), text: levelToGlyphString('f'), voice: 0 })!.id
     expect(marksInBox(engine.getScore(), bar1)).toEqual([{ kind: 'dynamic', id }])
   })
 
@@ -84,10 +84,10 @@ describe('marksInBox', () => {
   })
 
   it('⭐ takes the TEMPO mark in the window — system-level, so no staff test applies', () => {
-    const id = engine.addTempoMark(1, { beat: frac(0, 1), text: 'Allegro' })!.id
+    const id = engine.tempo.addTempoMark(1, { beat: frac(0, 1), text: 'Allegro' })!.id
     expect(marksInBox(engine.getScore(), bar1)).toEqual([{ kind: 'tempo', id }])
     // …and leaves the one in the next bar, which is what makes the window the test.
-    engine.addTempoMark(2, { beat: frac(0, 1), text: 'Adagio' })
+    engine.tempo.addTempoMark(2, { beat: frac(0, 1), text: 'Adagio' })
     expect(marksInBox(engine.getScore(), bar1)).toEqual([{ kind: 'tempo', id }])
   })
 
@@ -96,15 +96,15 @@ describe('marksInBox', () => {
   })
 
   it('⭐⭐ agrees with the COPY — the highlight is a promise about what travels', () => {
-    engine.addDynamic(1, { beat: frac(0, 1), text: levelToGlyphString('p'), voice: 0 })
+    engine.dynamic.addDynamic(1, { beat: frac(0, 1), text: levelToGlyphString('p'), voice: 0 })
     engine.hairpin.addHairpin(1, { type: 'dim', beat: frac(1, 1), length: frac(2, 1), voice: 0 })
     engine.trill.addTrill({ startNoteId: bar1[2] })
     engine.ottava.addOttava(1, { beat: frac(0, 1), length: frac(4, 1), shift: -1 })
-    engine.addTempoMark(1, { beat: frac(0, 1), text: 'Allegro' })
+    engine.tempo.addTempoMark(1, { beat: frac(0, 1), text: 'Allegro' })
     // ⭐ A wedge that STARTS in the box and runs past it — in BOTH, since 2026-08-19.
     engine.hairpin.addHairpin(1, { type: 'cresc', beat: frac(3, 1), length: frac(3, 1), voice: 0 })
     // …and two that must be in NEITHER, both because they start in the NEXT bar.
-    engine.addDynamic(2, { beat: frac(0, 1), text: levelToGlyphString('f'), voice: 0 })
+    engine.dynamic.addDynamic(2, { beat: frac(0, 1), text: levelToGlyphString('f'), voice: 0 })
     engine.trill.addTrill({ startNoteId: bar2[2] })
 
     const clip = buildClipboardFromSelection(engine.getScore(), bar1)!

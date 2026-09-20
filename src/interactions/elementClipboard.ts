@@ -26,6 +26,8 @@
  * authored against other music.
  */
 import type { MusicEngine } from '../engine/MusicEngine'
+import type { TempoCommands } from '@/engine/commands/tempoCommands'
+import type { DynamicCommands } from '@/engine/commands/dynamicCommands'
 import type { SlurCommands } from '@/engine/commands/slurCommands'
 import type { HairpinCommands } from '@/engine/commands/hairpinCommands'
 import type { TrillCommands } from '@/engine/commands/trillCommands'
@@ -180,7 +182,7 @@ export type ElementClip =
   | TrillElementClip | OttavaElementClip | PedalElementClip
 
 /** What the element clipboard needs off the engine — a Pick, so a spec needs no renderer. */
-type ElementClipEngine = Pick<MusicEngine, 'getDynamicById' | 'addDynamic' | 'staffIdForIndex' | 'getTempoMarkById' | 'addTempoMark' | 'removeTempoMark' | 'getScore' | 'runBatch' | 'getHairpinById' | 'getSlurById' | 'slurSpanOf' | 'getTrillById' | 'trillSpanBeats' | 'getOttavaById' | 'getPedalById'> & { slur: Pick<SlurCommands, 'createSlurOverSpan'> } & { hairpin: Pick<HairpinCommands, 'addHairpin'> } & {
+type ElementClipEngine = Pick<MusicEngine, 'getDynamicById' | 'staffIdForIndex' | 'getTempoMarkById' | 'getScore' | 'runBatch' | 'getHairpinById' | 'getSlurById' | 'slurSpanOf' | 'getTrillById' | 'trillSpanBeats' | 'getOttavaById' | 'getPedalById'> & { tempo: Pick<TempoCommands, 'addTempoMark' | 'removeTempoMark'> } & { dynamic: Pick<DynamicCommands, 'addDynamic'> } & { slur: Pick<SlurCommands, 'createSlurOverSpan'> } & { hairpin: Pick<HairpinCommands, 'addHairpin'> } & {
   trill: Pick<TrillCommands, 'createTrillOverSpan'>
   ottava: Pick<OttavaCommands, 'addOttava'>
   pedal: Pick<PedalCommands, 'addPedalOverSpan'>
@@ -259,7 +261,7 @@ export function pasteElement(engine: ElementClipEngine, clip: ElementClip, ancho
       // scoped to voice 2, and onto anything else came back scoped to voice 1 — a copy could never
       // reproduce a staff-wide mark. See docs/dynamic-voice-scope-plan.md (his call is owed here).
       const staffId = engine.staffIdForIndex(anchor.staff)
-      const created = engine.addDynamic(anchor.measure, {
+      const created = engine.dynamic.addDynamic(anchor.measure, {
         beat: anchor.beat,
         text: clip.text,
         ...(clip.voice !== undefined ? { voice: clip.voice } : {}),
@@ -367,8 +369,8 @@ export function pasteElement(engine: ElementClipEngine, clip: ElementClip, ancho
       const sitting = tempoAtStop(engine.getScore(), stop)
       let created: TempoMark | null = null
       engine.runBatch(`Paste tempo mark at measure ${stop.measure}`, () => {
-        if (sitting) engine.removeTempoMark(sitting.id)
-        created = engine.addTempoMark(stop.measure, {
+        if (sitting) engine.tempo.removeTempoMark(sitting.id)
+        created = engine.tempo.addTempoMark(stop.measure, {
           beat: stop.beat,
           ...(clip.text !== undefined ? { text: clip.text } : {}),
           ...(clip.unit !== undefined ? { unit: clip.unit } : {}),

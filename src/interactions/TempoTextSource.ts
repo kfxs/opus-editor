@@ -249,7 +249,7 @@ export class TempoTextSource implements EditableTextSource {
 
     if (!parsed.ok) {
       if (parsed.reason === 'empty') {
-        this.engine.removeTempoMark(this.targetId)
+        this.engine.tempo.removeTempoMark(this.targetId)
         this.render()
       } else {
         console.warn(`[Tempo] "${text}" — bpm must be between ${MIN_BPM} and ${MAX_BPM}; edit discarded`)
@@ -260,7 +260,7 @@ export class TempoTextSource implements EditableTextSource {
     // The string is stored AS TYPED (bar a shorthand unit becoming its glyph); unit/dots/bpm are
     // what playback reads, parsed back out of it. Nothing re-composes the string, so nothing can
     // lose the brackets you deleted or the words you put after the number.
-    this.engine.updateTempoMark(this.targetId, {
+    this.engine.tempo.updateTempoMark(this.targetId, {
       text: parsed.text,
       unit: parsed.unit,
       dots: parsed.dots,
@@ -272,7 +272,7 @@ export class TempoTextSource implements EditableTextSource {
   /** Escape: a freshly placed mark leaves nothing behind; an existing one is untouched. */
   cancel(): void {
     if (this.isNew) {
-      this.engine.removeTempoMark(this.targetId)
+      this.engine.tempo.removeTempoMark(this.targetId)
       this.render()
     }
   }

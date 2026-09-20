@@ -10,8 +10,10 @@ function makeEngine(dyn: Dynamic | null) {
   const group = { style: { opacity: '1' } } as unknown as SVGGElement
   return {
     getDynamicById: vi.fn((_id: string) => dyn),
-    updateDynamic: vi.fn(),
-    removeDynamic: vi.fn(),
+    dynamic: {
+      updateDynamic: vi.fn(),
+      removeDynamic: vi.fn(),
+    },
     getDynamicSVGGroup: vi.fn((_id: string) => group),
     setSuppressedDynamicId: vi.fn(),
     getElementRegistry: vi.fn(() => ({ getByType: () => [] as Array<{ id: string; bbox: unknown }> })),
@@ -56,8 +58,8 @@ describe('DynamicTextSource', () => {
     const source = new DynamicTextSource('d1', false, engine as unknown as MusicEngine, () => null, render)
     source.commit(`  ${levelToGlyphString('f')}  `)
 
-    expect(engine.updateDynamic).toHaveBeenCalledWith('d1', { text: levelToGlyphString('f') })
-    expect(engine.removeDynamic).not.toHaveBeenCalled()
+    expect(engine.dynamic.updateDynamic).toHaveBeenCalledWith('d1', { text: levelToGlyphString('f') })
+    expect(engine.dynamic.removeDynamic).not.toHaveBeenCalled()
     expect(render).toHaveBeenCalledTimes(1)
   })
 
@@ -66,8 +68,8 @@ describe('DynamicTextSource', () => {
     const source = new DynamicTextSource('d1', false, engine as unknown as MusicEngine, () => null, render)
     source.commit('  p  ') // plain ASCII 'p', not the glyph
 
-    expect(engine.updateDynamic).toHaveBeenCalledWith('d1', { text: 'p' })
-    expect(engine.removeDynamic).not.toHaveBeenCalled()
+    expect(engine.dynamic.updateDynamic).toHaveBeenCalledWith('d1', { text: 'p' })
+    expect(engine.dynamic.removeDynamic).not.toHaveBeenCalled()
   })
 
   it('commit of a plain word stores it as expression text', () => {
@@ -75,8 +77,8 @@ describe('DynamicTextSource', () => {
     const source = new DynamicTextSource('d1', false, engine as unknown as MusicEngine, () => null, render)
     source.commit('  dolce  ')
 
-    expect(engine.updateDynamic).toHaveBeenCalledWith('d1', { text: 'dolce' })
-    expect(engine.removeDynamic).not.toHaveBeenCalled()
+    expect(engine.dynamic.updateDynamic).toHaveBeenCalledWith('d1', { text: 'dolce' })
+    expect(engine.dynamic.removeDynamic).not.toHaveBeenCalled()
     expect(render).toHaveBeenCalledTimes(1)
   })
 
@@ -85,21 +87,21 @@ describe('DynamicTextSource', () => {
     const source = new DynamicTextSource('d1', false, engine as unknown as MusicEngine, () => null, render)
     source.commit('   ')
 
-    expect(engine.removeDynamic).toHaveBeenCalledWith('d1')
-    expect(engine.updateDynamic).not.toHaveBeenCalled()
+    expect(engine.dynamic.removeDynamic).toHaveBeenCalledWith('d1')
+    expect(engine.dynamic.updateDynamic).not.toHaveBeenCalled()
     expect(render).toHaveBeenCalledTimes(1)
   })
 
   it('cancel deletes a NEW mark but leaves an existing one untouched', () => {
     const newEngine = makeEngine(textDynamic(''))
     new DynamicTextSource('d1', true, newEngine as unknown as MusicEngine, () => null, render).cancel()
-    expect(newEngine.removeDynamic).toHaveBeenCalledWith('d1')
+    expect(newEngine.dynamic.removeDynamic).toHaveBeenCalledWith('d1')
     expect(render).toHaveBeenCalledTimes(1)
 
     const existingEngine = makeEngine(textDynamic('espr.'))
     const r2: Mock<() => void> = vi.fn()
     new DynamicTextSource('d1', false, existingEngine as unknown as MusicEngine, () => null, r2).cancel()
-    expect(existingEngine.removeDynamic).not.toHaveBeenCalled()
+    expect(existingEngine.dynamic.removeDynamic).not.toHaveBeenCalled()
     expect(r2).not.toHaveBeenCalled()
   })
 

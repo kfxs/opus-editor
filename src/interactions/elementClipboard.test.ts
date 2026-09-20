@@ -44,7 +44,7 @@ describe('elementClipboard', () => {
     engine = new MusicEngine({ container: {} as unknown as HTMLElement, width: 800, height: 400 })
     engine.addMeasure()
     engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
-    dynamicId = engine.addDynamic(1, { beat: frac(0, 1), text: 'dolce', voice: 0, placement: 'below' })!.id
+    dynamicId = engine.dynamic.addDynamic(1, { beat: frac(0, 1), text: 'dolce', voice: 0, placement: 'below' })!.id
   })
 
   it('copies the MARK — its text and how it reads — and no id', () => {
@@ -86,7 +86,7 @@ describe('elementClipboard', () => {
   // ⭐ The reversal this replaced: the anchor used to win, so an ALL mark could never be pasted.
   it('a mark governing ALL voices stays ALL, even pasted onto a voice-2 note', () => {
     // No `voice` at all — the stamp sites' shape since P1, meaning "every voice of this staff".
-    const all = engine.addDynamic(1, { beat: frac(2, 1), text: 'dolce', placement: 'below' })!
+    const all = engine.dynamic.addDynamic(1, { beat: frac(2, 1), text: 'dolce', placement: 'below' })!
     expect(all.voice).toBeUndefined()
     const clip = copyElement(engine, { kind: 'dynamic', id: all.id })!
     pasteElement(engine, clip, { measure: 2, beat: frac(0, 1), voice: 2 })
@@ -94,7 +94,7 @@ describe('elementClipboard', () => {
   })
 
   it('a glyph level travels verbatim — the mark IS its text', () => {
-    const level = engine.addDynamic(1, { beat: frac(2, 1), text: levelToGlyphString('ff') })!
+    const level = engine.dynamic.addDynamic(1, { beat: frac(2, 1), text: levelToGlyphString('ff') })!
     const clip = copyElement(engine, { kind: 'dynamic', id: level.id })!
     pasteElement(engine, clip, { measure: 2, beat: frac(0, 1) })
     expect(engine.getScore().measures[1].dynamics![0].text).toBe(levelToGlyphString('ff'))
@@ -123,7 +123,7 @@ describe('elementClipboard — the TEMPO mark (his ask, 2026-08-19)', () => {
     engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'h', measure: 1, beat: frac(0, 1) })
     engine.addNoteAtBeat({ step: 'E', octave: 4, duration: 'h', measure: 1, beat: frac(2, 1) })
     engine.addNoteAtBeat({ step: 'G', octave: 4, duration: 'q', measure: 2, beat: frac(0, 1) })
-    tempoId = engine.addTempoMark(1, { beat: frac(0, 1), text: 'Allegro', unit: 'q', bpm: 144 })!.id
+    tempoId = engine.tempo.addTempoMark(1, { beat: frac(0, 1), text: 'Allegro', unit: 'q', bpm: 144 })!.id
   })
 
   it('copies the mark — its text AND what it sounds — and no id', () => {
@@ -153,7 +153,7 @@ describe('elementClipboard — the TEMPO mark (his ask, 2026-08-19)', () => {
   })
 
   it('⭐ REPLACES the mark sitting on that beat — one tempo per beat — and one undo puts it back', () => {
-    const other = engine.addTempoMark(2, { beat: frac(0, 1), text: 'Adagio' })!.id
+    const other = engine.tempo.addTempoMark(2, { beat: frac(0, 1), text: 'Adagio' })!.id
     const clip = copyElement(engine, { kind: 'tempo', id: tempoId })!
     pasteElement(engine, clip, { measure: 2, beat: frac(0, 1) })
     expect(tempos()).toEqual(['1@0:Allegro', '2@0:Allegro'])

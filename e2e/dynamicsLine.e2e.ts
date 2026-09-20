@@ -32,8 +32,8 @@ test('⭐⭐ two marks under notes an octave apart share ONE baseline', async ({
     // note's lowest point, so before the line these came out at two different heights.
     h.engine.addNoteAtBeat({ step: 'G', octave: 5, duration: 'h', measure: 1, beat: h.frac(0, 1) })
     h.engine.addNoteAtBeat({ step: 'D', octave: 4, duration: 'h', measure: 1, beat: h.frac(2, 1) })
-    h.engine.addDynamic(1, { beat: h.frac(0, 1), text: 'p' })
-    h.engine.addDynamic(1, { beat: h.frac(2, 1), text: 'f' })
+    h.engine.dynamic.addDynamic(1, { beat: h.frac(0, 1), text: 'p' })
+    h.engine.dynamic.addDynamic(1, { beat: h.frac(2, 1), text: 'f' })
     await h.render()
   })
 
@@ -50,7 +50,7 @@ test('⭐ a high passage puts its mark OUTSIDE the staff — the defect the line
     for (const beat of [0, 1, 2, 3]) {
       h.engine.addNoteAtBeat({ step: 'A', octave: 5, duration: 'q', measure: 1, beat: h.frac(beat, 1) })
     }
-    h.engine.addDynamic(1, { beat: h.frac(0, 1), text: 'mf' })
+    h.engine.dynamic.addDynamic(1, { beat: h.frac(0, 1), text: 'mf' })
     await h.render()
   })
 
@@ -74,7 +74,7 @@ test('⭐⭐ a low note in a LATER bar leaves the earlier bar\'s mark where it w
     h.engine.addMeasure()
     h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: 'w', measure: 1, beat: h.frac(0, 1) })
     h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: 'w', measure: 2, beat: h.frac(0, 1) })
-    h.engine.addDynamic(1, { beat: h.frac(0, 1), text: 'p' })
+    h.engine.dynamic.addDynamic(1, { beat: h.frac(0, 1), text: 'p' })
     await h.render()
     return window.__h.placed('g.annotation text')[0].y
   })
@@ -98,8 +98,8 @@ test('⭐ …but a mark standing OVER the dip deviates, alone', async ({ score }
     // One bar: an ordinary note on beat 0, three ledger lines down on beat 2, a mark on each.
     h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: 'h', measure: 1, beat: h.frac(0, 1) })
     h.engine.addNoteAtBeat({ step: 'A', octave: 2, duration: 'h', measure: 1, beat: h.frac(2, 1) })
-    h.engine.addDynamic(1, { beat: h.frac(0, 1), text: 'p' })
-    h.engine.addDynamic(1, { beat: h.frac(2, 1), text: 'f' })
+    h.engine.dynamic.addDynamic(1, { beat: h.frac(0, 1), text: 'p' })
+    h.engine.dynamic.addDynamic(1, { beat: h.frac(2, 1), text: 'f' })
     await h.render()
     return window.__h.placed('g.annotation text')
   })
@@ -114,7 +114,7 @@ test('a second render moves nothing — the pass is idempotent on a reused bar',
   const [first, second] = await score.evaluate(async () => {
     const h = window.__h
     h.engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'w', measure: 1, beat: h.frac(0, 1) })
-    h.engine.addDynamic(1, { beat: h.frac(0, 1), text: 'ff' })
+    h.engine.dynamic.addDynamic(1, { beat: h.frac(0, 1), text: 'ff' })
     await h.render()
     const one = window.__h.placed('g.annotation text')[0].y
     await h.render()
@@ -142,8 +142,8 @@ test('⭐ a LEVEL straddles its notehead; a WORD is anchored to it', async ({ sc
     // dynamicForte), and a typed ASCII `f` is deliberately NOT a level (`utils/dynamics`). Pass
     // 'ff' here and the mark is expression TEXT, which is anchored rather than centred — the test
     // would then be checking the other branch while claiming to check this one.
-    h.engine.addDynamic(1, { beat: h.frac(0, 1), text: String.fromCharCode(0xe522).repeat(2) })
-    h.engine.addDynamic(1, { beat: h.frac(2, 1), text: 'dolce' })
+    h.engine.dynamic.addDynamic(1, { beat: h.frac(0, 1), text: String.fromCharCode(0xe522).repeat(2) })
+    h.engine.dynamic.addDynamic(1, { beat: h.frac(2, 1), text: 'dolce' })
     await h.render()
     // Each mark's drawn ink box, and the notehead it belongs to.
     const marks = [...document.querySelectorAll('g.annotation text')].map(t => {
@@ -167,8 +167,8 @@ test('⭐ `p dolce` shares a baseline — the co-located pair is no longer centr
   const marks = await score.evaluate(async () => {
     const h = window.__h
     h.engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'w', measure: 1, beat: h.frac(0, 1) })
-    h.engine.addDynamic(1, { beat: h.frac(0, 1), text: 'p' })
-    h.engine.addDynamic(1, { beat: h.frac(0, 1), text: 'dolce' })
+    h.engine.dynamic.addDynamic(1, { beat: h.frac(0, 1), text: 'p' })
+    h.engine.dynamic.addDynamic(1, { beat: h.frac(0, 1), text: 'dolce' })
     await h.render()
     return window.__h.placed('g.annotation text')
   })
@@ -193,8 +193,8 @@ test('⭐⭐ the GUIDE POINT sits on the ink, not on the box — and it differs 
     const h = window.__h
     h.engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: h.frac(0, 1) })
     h.engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: h.frac(1, 1) })
-    const p = h.engine.addDynamic(1, { beat: h.frac(0, 1), text: '', placement: 'below' })!
-    const f = h.engine.addDynamic(1, { beat: h.frac(1, 1), text: '', placement: 'below' })!
+    const p = h.engine.dynamic.addDynamic(1, { beat: h.frac(0, 1), text: '', placement: 'below' })!
+    const f = h.engine.dynamic.addDynamic(1, { beat: h.frac(1, 1), text: '', placement: 'below' })!
     await h.render()
 
     const reg = h.engine.getElementRegistry()

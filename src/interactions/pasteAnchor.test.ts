@@ -80,7 +80,7 @@ describe('pasteAnchor', () => {
   })
 
   it('a selected DYNAMIC points at its own anchor', () => {
-    const id = engine.addDynamic(1, { beat: frac(2, 1), text: levelToGlyphString('f'), voice: 0 })!.id
+    const id = engine.dynamic.addDynamic(1, { beat: frac(2, 1), text: levelToGlyphString('f'), voice: 0 })!.id
     const anchor = anchorOfElement(engine, { kind: 'dynamic', id })
     expect(at(anchor)).toBe('1@2')
     expect(anchor?.voice).toBe(0)

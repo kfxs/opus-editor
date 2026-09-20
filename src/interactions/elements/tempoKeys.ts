@@ -17,8 +17,8 @@ import type { KeysOf } from './keys'
 
 export const TEMPO_KEYS: KeysOf<'tempo'> = {
   nudge({ engine, afterMarkPress }, { id }, dx, dy) {
-    const moved = dy === 0 && dx !== 0 ? walkTempo(engine, id, dx) : engine.nudgeTempoOffset(id, dx, -dy)
-    if (moved) afterMarkPress('tempo', id, dx, dy, () => engine.commitTempoDrag())
+    const moved = dy === 0 && dx !== 0 ? walkTempo(engine, id, dx) : engine.tempo.nudgeTempoOffset(id, dx, -dy)
+    if (moved) afterMarkPress('tempo', id, dx, dy, () => engine.tempo.commitTempoDrag())
     return moved
   },
 
@@ -26,14 +26,14 @@ export const TEMPO_KEYS: KeysOf<'tempo'> = {
    *  ⚠️ DECLINES at either end of the score and on a beat another tempo mark already holds (one mark
    *  per beat, `engine/models/tempoOps`), so the chord falls through to the note offset behind it. */
   reanchor({ engine, render }, { id }, direction) {
-    const moved = engine.moveTempoBySlot(id, direction)
+    const moved = engine.tempo.moveTempoBySlot(id, direction)
     if (moved) render()
     return moved
   },
 
   /** DECLINEs when the mark was never nudged, so the key falls through. */
   reset({ engine, render }, { id }) {
-    const was = engine.resetTempoOffset(id)
+    const was = engine.tempo.resetTempoOffset(id)
     if (was) render()
     return was
   },

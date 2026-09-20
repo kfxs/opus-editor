@@ -17,8 +17,8 @@ import type { KeysOf } from './keys'
 
 export const DYNAMIC_KEYS: KeysOf<'dynamic'> = {
   nudge({ engine, afterMarkPress }, { id }, dx, dy) {
-    const moved = dy === 0 && dx !== 0 ? walkDynamic(engine, id, dx) : engine.nudgeDynamicOffset(id, dx, dy)
-    if (moved) afterMarkPress('dynamic', id, dx, dy, () => engine.commitDynamicDrag())
+    const moved = dy === 0 && dx !== 0 ? walkDynamic(engine, id, dx) : engine.dynamic.nudgeDynamicOffset(id, dx, dy)
+    if (moved) afterMarkPress('dynamic', id, dx, dy, () => engine.dynamic.commitDynamicDrag())
     return moved
   },
 
@@ -27,7 +27,7 @@ export const DYNAMIC_KEYS: KeysOf<'dynamic'> = {
    *  be pointing at. ⚠️ The MODEL, and audible — the level applies from the beat this writes; the
    *  model drops the mark's own nudge on the way. */
   reanchor({ engine, render }, { id }, direction) {
-    const moved = engine.moveDynamicBySlot(id, direction)
+    const moved = engine.dynamic.moveDynamicBySlot(id, direction)
     if (moved) render()
     return moved
   },
@@ -35,7 +35,7 @@ export const DYNAMIC_KEYS: KeysOf<'dynamic'> = {
   /** DECLINEs when the mark was never nudged, so the key falls through to the note spacing / bar
    *  width behind it. */
   reset({ engine, render }, { id }) {
-    const was = engine.resetDynamicOffset(id)
+    const was = engine.dynamic.resetDynamicOffset(id)
     if (was) render()
     return was
   },

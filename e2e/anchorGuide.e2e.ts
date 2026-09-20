@@ -28,7 +28,7 @@ test('⭐⭐ a TEMPO mark points at its PLACE IN TIME — the bar opening, at th
   const seen = await score.evaluate(async () => {
     const h = window.__h
     h.engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: h.frac(0, 1) })
-    const mark = h.engine.addTempoMark(1, { beat: h.frac(0, 1), text: 'Allegro', bpm: 120 })!
+    const mark = h.engine.tempo.addTempoMark(1, { beat: h.frac(0, 1), text: 'Allegro', bpm: 120 })!
     await h.render()
 
     const e = h.engine.getElementRegistry().getById(mark.id)!
@@ -73,8 +73,8 @@ test('⭐⭐ the near end TRAVELS with the element — the defect that shipped',
     for (let i = 0; i < 4; i++) {
       h.engine.addNoteAtBeat({ step: 'A', octave: 5, duration: 'q', measure: 1, beat: h.frac(i, 1) })
     }
-    const tempo = h.engine.addTempoMark(1, { beat: h.frac(0, 1), text: 'Allegro', bpm: 120 })!
-    const dyn = h.engine.addDynamic(1, { beat: h.frac(0, 1), text: '', placement: 'below' })!
+    const tempo = h.engine.tempo.addTempoMark(1, { beat: h.frac(0, 1), text: 'Allegro', bpm: 120 })!
+    const dyn = h.engine.dynamic.addDynamic(1, { beat: h.frac(0, 1), text: '', placement: 'below' })!
     await h.render()
 
     const reg = h.engine.getElementRegistry()

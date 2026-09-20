@@ -180,7 +180,7 @@ describe('MusicEngine — a hand nudge may not be written past the edge of the p
 
     const hairpin = engine.hairpin.addHairpin(1, { beat: frac(0, 1), length: frac(1, 1), type: 'cresc' })!
     const ottava = engine.ottava.addOttava(1, { beat: frac(0, 1), length: frac(1, 1), shift: 1 })!
-    const dynamic = engine.addDynamic(1, { beat: frac(0, 1), text: 'f' })!
+    const dynamic = engine.dynamic.addDynamic(1, { beat: frac(0, 1), text: 'f' })!
 
     // Everything drawn off the left edge of the sheet.
     drawn('hairpin', hairpin.id, OFF_LEFT)
@@ -192,7 +192,7 @@ describe('MusicEngine — a hand nudge may not be written past the edge of the p
     expect(engine.hairpin.nudgeHairpinEndpoint(hairpin.id, 'start', -1, 0), 'hairpin end').toBe(false)
     expect(engine.hairpin.nudgeHairpin(hairpin.id, -1, 0), 'whole hairpin').toBe(false)
     expect(engine.ottava.nudgeOttavaEndpoint(ottava.id, 'start', -1, 0), 'ottava').toBe(false)
-    expect(engine.nudgeDynamicOffset(dynamic.id, -1, 0), 'dynamic / expression').toBe(false)
+    expect(engine.dynamic.nudgeDynamicOffset(dynamic.id, -1, 0), 'dynamic / expression').toBe(false)
     expect(engine.nudgeNoteOffset(first, -1), 'note').toBe(false)
 
     for (const key of [hairpin.id, ottava.id, dynamic.id]) {
@@ -201,7 +201,7 @@ describe('MusicEngine — a hand nudge may not be written past the edge of the p
     // …and each one comes back on the first press the other way.
     expect(engine.hairpin.nudgeHairpinEndpoint(hairpin.id, 'start', 1, 0)).toBe(true)
     expect(engine.ottava.nudgeOttavaEndpoint(ottava.id, 'start', 1, 0)).toBe(true)
-    expect(engine.nudgeDynamicOffset(dynamic.id, 1, 0)).toBe(true)
+    expect(engine.dynamic.nudgeDynamicOffset(dynamic.id, 1, 0)).toBe(true)
     expect(engine.nudgeNoteOffset(first, 1)).toBe(true)
   })
 

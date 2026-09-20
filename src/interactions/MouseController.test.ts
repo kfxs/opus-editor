@@ -280,7 +280,9 @@ describe('MouseController', () => {
         getElementRegistry: () => ({ getByType: () => [], getByMeasure: vi.fn(() => []) }),
         getScore: () => ({ measures: [1, 2].map(number => ({ number, slots: [{ beat: frac(0, 1) }] })) }),
         getNote: () => null,
-        addTempoMark,
+        tempo: {
+          addTempoMark,
+        },
         // `TempoTextSource` measures the drawn mark on construction; nothing is drawn here.
         getTempoSVGGroup: () => null,
         getTempoMarkById: () => ({ id: 't1', text: '' }),

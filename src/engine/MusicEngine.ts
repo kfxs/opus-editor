@@ -1,13 +1,11 @@
 import { dbg, debugEnabled } from '@/utils/debug'
 import { ScoreModel } from './models/ScoreModel'
-import { restPositionKey, restShiftOverrideOf, restHiddenOf, resolveStaffSpacingAbove, staffSystemSpacingKey, dynamicOffsetOverrideOf, tempoOffsetOverrideOf, noteOffsetOverrideOf, spacingPositionKey, leadingSpaceOverrideOf, barlineSpaceKey, barlineSpaceOf, barWidthKey, measureStretch, BAR_STRETCH_MIN } from './models/engravingOverrides'
+import { restPositionKey, restShiftOverrideOf, restHiddenOf, resolveStaffSpacingAbove, staffSystemSpacingKey, noteOffsetOverrideOf, spacingPositionKey, leadingSpaceOverrideOf, barlineSpaceKey, barlineSpaceOf, barWidthKey, measureStretch, BAR_STRETCH_MIN } from './models/engravingOverrides'
 import { resolveStaffSize, STAFF_SPACE_PX } from './models/staffSize'
 import { barlineJoinsBelow } from './models/barlineJoin'
 import * as staffGroupOps from './models/staffGroupOps'
 import * as clearOps from './models/clearOps'
 import { clefOffsetOverrideOf } from './models/engravingOverrides'
-import type { DynamicSlotTarget, DynamicStaffSlotTarget } from './models/dynamicOps'
-import type { Stop as TempoStop } from './models/tempoOps'
 import { staveHeightPx, systemStaffTops, minSpacingAboveSpaces, spacingAbovePx, MIN_SPACING_ABOVE_AT_PAGE_TOP } from './layout/staffStride'
 import { ScoreRenderer } from './rendering/ScoreRenderer'
 import type { Scene } from './scene/Scene'
@@ -37,17 +35,17 @@ import { quantizeBeat } from '@/utils/durations'
 import { reanchorSlurs } from './models/slurOps'
 import type { CommandContext } from './commands/commandContext'
 import { ottavaCommands } from './commands/ottavaCommands'
+import { dynamicCommands } from './commands/dynamicCommands'
 import { hairpinCommands } from './commands/hairpinCommands'
 import { pedalCommands } from './commands/pedalCommands'
 import { slurCommands } from './commands/slurCommands'
+import { tempoCommands } from './commands/tempoCommands'
 import { trillCommands } from './commands/trillCommands'
 import { spellingToMidi, accidentalToAlter, formatPitch } from '@/utils/pitchSpelling'
 import { alterInForceAt } from '@/utils/accidentalState'
 import type { BeamRole } from '@/utils/beaming'
 import { fifthsOf, keyAt } from '@/utils/keySignature'
 import type { KeySignature, Score, Note, NoteParams, Fraction, PixelCoordinates, Tuplet, TupletFormat, TupletMarkRun, TupletShape, TupletNumberStyle, NoteDuration, ArticulationType, Accidental, PitchSpelling, GhostNote, Clef, TimeSignature, Dynamic, DynamicLevel, Hairpin, Ottava, Pedal, TempoMark, Slur, Trill, PitchAlter, PitchStep, TremoloMark, FanMark, SoundRef, BarlineStyle, StaffGroup, FractionalBeamSide } from '@/types/music'
-import { dynamicLabel } from '@/utils/dynamics'
-import { tempoLabel } from '@/utils/tempoMap'
 import type { ElementRegistry, ElementInfo, ElementType } from './ElementRegistry'
 import { headCentreX } from './ElementRegistry'
 import type { Clip, ClipTarget } from '@/utils/clip'
@@ -1146,6 +1144,13 @@ export class MusicEngine {
   }
 
   // ==================== Dynamic Operations ====================
+  //
+  // ⭐ The family's COMMANDS are `engine/commands/dynamicCommands` — `engine.dynamic.<command>(…)`,
+  // the ottava's arrangement. What stays here is its reads (and `staffIdForIndex`, which every
+  // staff-anchored family shares).
+
+  /** Every edit the editor can make to a dynamic or expression word. */
+  readonly dynamic = dynamicCommands(this.commandContext())
 
   /**
    * The `staffId` string to stamp for a 0-based staff index, following the write
@@ -1157,59 +1162,6 @@ export class MusicEngine {
   staffIdForIndex(index: number | undefined): string | undefined {
     if (!index) return undefined
     return staffIdAtIndex(this.scoreModel.getScore(), index)
-  }
-
-  /**
-   * Add a dynamic at (measure, dynamic.beat). `beat` must be a slot-boundary beat.
-   * Replaces any existing dynamic at the same (beat, voice). Interpreted level
-   * marks affect playback loudness; custom text marks are silent. Saves undo state
-   * when added.
-   * @returns the stored Dynamic, or null if the measure does not exist.
-   */
-  addDynamic(measureNumber: number, dynamic: Omit<Dynamic, 'id'>): Dynamic | null {
-    const created = this.scoreModel.addDynamic(measureNumber, dynamic)
-    if (created) {
-      this.commit(`Add dynamic ${dynamicLabel(created)} at measure ${measureNumber}`)
-    }
-    return created
-  }
-
-  /**
-   * Edit an existing dynamic (level / text / placement / beat / voice) by id.
-   * Saves undo state when found. @returns the updated Dynamic, or null if missing.
-   */
-  updateDynamic(id: string, updates: Partial<Omit<Dynamic, 'id'>>): Dynamic | null {
-    const updated = this.scoreModel.updateDynamic(id, updates)
-    if (updated) {
-      this.commit(`Edit dynamic ${dynamicLabel(updated)}`)
-    }
-    return updated
-  }
-
-  /**
-   * ⭐⭐ Move a dynamic — a level or an expression WORD, the same object — to the other lane: above
-   * the staff ⇄ below it (his ask, 2026-08-22). The wedge's key, one family over;
-   * `dynamicOps.flipDynamicPlacement` carries the rule about which offsets survive.
-   *
-   * ⚠️ A CONTENT edit — which side a mark stands on is engraving the writer authored, not a nudge —
-   * so it saves undo state. @returns the side it now sits on.
-   */
-  flipDynamicPlacement(id: string): 'above' | 'below' | null {
-    const placement = this.scoreModel.flipDynamicPlacement(id)
-    if (placement) this.commit(`Move dynamic ${placement} the staff`)
-    return placement
-  }
-
-  /**
-   * Remove a dynamic by id. Saves undo state when removed.
-   * @returns true if a dynamic was removed.
-   */
-  removeDynamic(id: string): boolean {
-    const removed = this.scoreModel.removeDynamic(id)
-    if (removed) {
-      this.commit('Remove dynamic')
-    }
-    return removed
   }
 
   /**
@@ -1242,80 +1194,6 @@ export class MusicEngine {
       dbg(`[Scope] ${id} → ${scope === 'all' ? 'ALL voices' : `voice ${scope + 1}`}`)
     }
     return ok
-  }
-
-  moveDynamicBySlot(id: string, direction: 1 | -1): boolean {
-    const ok = this.scoreModel.moveDynamicBySlot(id, direction)
-    if (ok) {
-      this.commit(direction === -1 ? 'Move dynamic back' : 'Move dynamic on')
-      dbg(`[Dynamic] re-anchored ${id} ${direction === -1 ? 'back' : 'on'} one slot`)
-    }
-    return ok
-  }
-
-  /** Record ONE undo entry after a dynamic drag settles. */
-  commitDynamicDrag(): void {
-    this.commitPreviewed('Move dynamic')
-  }
-
-  /**
-   * Live (preview) re-anchor of a dragged dynamic onto `target` — writes the model but records no
-   * undo; {@link commitDynamicDrag} records the gesture once on the drop.
-   *
-   * ⚠️ **The whole-slot flavour**, so it drops the mark's sideways nudge like any re-anchor: the
-   * drag reaches for this only when the ink has crossed onto ANOTHER STAFF
-   * (`interactions/dynamicLane.systemSlotFor`), which is a jump and not a walk. Ordinary
-   * within-lane crossings go through {@link previewDynamicSlotKeepingOffset} below, where the
-   * whole point is that nothing visibly changes.
-   *
-   * ⭐ `target` names a STAFF as well as an address (2026-08-21): the staff below is a place a
-   * dragged mark can land, not only the system below (`dynamicOps.setDynamicAtStaffSlot`).
-   */
-  previewDynamicSlot(id: string, target: DynamicStaffSlotTarget): boolean {
-    this.markModelDirty() // live drag, undo deferred to commitDynamicDrag
-    return this.scoreModel.setDynamicAtStaffSlot(id, target)
-  }
-
-  /** Hand a dynamic onto the lane slot at `target` KEEPING its hand-nudged offset, where
-   *  {@link moveDynamicBySlot} drops it — one crossing of the mark's walk (`interactions/dynamicWalk`).
-   *  No undo entry: {@link commitDynamicDrag} records the whole gesture once. */
-  previewDynamicSlotKeepingOffset(id: string, target: DynamicSlotTarget): boolean {
-    this.markModelDirty() // live drag, undo deferred to commitDynamicDrag
-    return this.scoreModel.setDynamicAtSlotKeepingOffset(id, target)
-  }
-
-  /** The walk's RE-BASE: bookkeeping, not a hand nudge, so ⛔ never judged by the page limit
-   *  ({@link previewHairpinEndpointRebase} has the reason). No undo entry of its own.
-   *  ⚠️ EXPLORATORY (2026-08-31): a `dy` too, for the same reason `previewHairpinOffsetRebase` has
-   *  one — a landing on another staff pays back what the ladder over there gave it, and that
-   *  payment leaves the DRAWN mark exactly where the hand has it. */
-  previewDynamicOffsetRebase(dynamicId: string, dx: number, dy = 0): boolean {
-    if (!this.scoreModel.getDynamicById(dynamicId)) return false
-    this.markModelDirty()
-    return this.scoreModel.nudgeDynamicOffset(dynamicId, dx, dy)
-  }
-
-  /** Live (preview) side of the staff a dynamic is drawn on, no undo entry — the drop commits once.
-   *  `previewHairpinPlacement`'s twin, and the drag's only writer of it: {@link
-   *  flipDynamicPlacement} is the KEY's, and commits. */
-  previewDynamicPlacement(id: string, placement: 'above' | 'below'): boolean {
-    this.markModelDirty()
-    return !!this.scoreModel.updateDynamic(id, { placement })
-  }
-
-  /** The undo-free twin of {@link nudgeDynamicOffset} — accumulates the same way, keeps the same
-   *  page limit, records no undo step. One frame of a dynamic drag. */
-  previewDynamicOffset(dynamicId: string, dx: number, dy: number): boolean {
-    if (!this.nudgeStaysOnPage('dynamic', dynamicId, dx, dy)) return false
-    if (!this.scoreModel.getDynamicById(dynamicId)) return false
-    this.markModelDirty()
-    return this.scoreModel.nudgeDynamicOffset(dynamicId, dx, dy)
-  }
-
-  /** Where {@link moveDynamicBySlot} would put the mark, without putting it there — the walk reads
-   *  it to measure how far away the next stop is drawn (`dynamicOps.nextDynamicSlot`). */
-  nextDynamicSlot(id: string, direction: 1 | -1): DynamicSlotTarget | null {
-    return this.scoreModel.nextDynamicSlot(id, direction)
   }
 
   /** A measure's dynamics, sorted ascending by beat (a copy; empty if none). */
@@ -1425,54 +1303,11 @@ export class MusicEngine {
 
   // ==================== Tempo Mark Operations ====================
   //
-  // A tempo mark is SYSTEM-level — it governs the clock, not a staff — so unlike the
-  // dynamics facades above, none of these take a staff index. commit() gives undo/redo
-  // and JSON for free. There is no setTempo(): the global was deleted (P1).
+  // ⭐ The family's COMMANDS are `engine/commands/tempoCommands` — `engine.tempo.<command>(…)`.
+  // What stays here is its reads. There is no setTempo(): the global was deleted (P1).
 
-  /**
-   * Add a tempo mark at (measure, mark.beat) — a word ('Allegro'), a metronome (♩ = 120),
-   * or both. `beat` must be a slot-boundary beat; an existing mark on that beat is
-   * REPLACED (one clock statement per point in time). `text` is what gets PRINTED, `bpm` what
-   * SOUNDS — and a mark can sound without printing its number (the word 'Allegro' quietly
-   * meaning 144), which is why they are separate fields.
-   * Saves undo state when added.
-   * @returns the stored TempoMark, or null if the measure does not exist.
-   * @throws if bpm is outside 20..300.
-   */
-  addTempoMark(measureNumber: number, mark: Omit<TempoMark, 'id'>): TempoMark | null {
-    const created = this.scoreModel.addTempoMark(measureNumber, mark)
-    if (created) {
-      this.commit(`Add tempo ${tempoLabel(created)} at measure ${measureNumber}`)
-    }
-    return created
-  }
-
-  /**
-   * Edit an existing tempo mark by id (text / unit / dots / bpm / beat). The mark IS its text:
-   * `text` is stored verbatim and `unit`/`dots`/`bpm` are the speed parsed out of it, so the two
-   * are written together (utils/tempoText).
-   * Saves undo state when found. @returns the updated TempoMark, or null if missing.
-   */
-  updateTempoMark(id: string, updates: Partial<Omit<TempoMark, 'id'>>): TempoMark | null {
-    const updated = this.scoreModel.updateTempoMark(id, updates)
-    if (updated) {
-      this.commit(`Edit tempo ${tempoLabel(updated)}`)
-    }
-    return updated
-  }
-
-  /**
-   * Remove a tempo mark by id. The score reverts to the previous mark's tempo (or
-   * DEFAULT_TEMPO if it was the only one). Saves undo state when removed.
-   * @returns true if a mark was removed.
-   */
-  removeTempoMark(id: string): boolean {
-    const removed = this.scoreModel.removeTempoMark(id)
-    if (removed) {
-      this.commit('Remove tempo mark')
-    }
-    return removed
-  }
+  /** Every edit the editor can make to a tempo mark. */
+  readonly tempo = tempoCommands(this.commandContext())
 
   /** A measure's tempo marks, sorted ascending by beat (a copy; empty if none). */
   getTempoMarks(measureNumber: number): TempoMark[] {
@@ -2286,132 +2121,6 @@ export class MusicEngine {
     this.saveOnly('Reset bar width')
     dbg(`[BarWidth] reset bar ${measureNumber}`)
     return true
-  }
-
-  /**
-   * Nudge a selected dynamic's position offset by `(dx, dy)` staff-spaces and save ONE undo step
-   * (the ←→↑↓ / Ctrl+arrow keyboard fine-positioning — see docs/dynamic-offset-plan.md). The
-   * override is element-id-keyed (dynamics have durable ids), so this delegates straight to the
-   * model with the dynamic id. A no-op for a missing id.
-   * @returns true if the dynamic was nudged.
-   */
-  nudgeDynamicOffset(dynamicId: string, dx: number, dy: number): boolean {
-    if (!this.nudgeStaysOnPage('dynamic', dynamicId, dx, dy)) return false
-    if (!this.scoreModel.getDynamicById(dynamicId)) return false
-    const ok = this.scoreModel.nudgeDynamicOffset(dynamicId, dx, dy)
-    if (ok) {
-      this.saveOnly('Nudge dynamic')
-      const off = dynamicOffsetOverrideOf(this.scoreModel.getScore(), dynamicId)
-      dbg(`[Dynamic] nudge ${dynamicId} by (${dx}, ${dy}) → offset (${off?.x ?? 0}, ${off?.y ?? 0}) staff-space(s)`)
-    }
-    return ok
-  }
-
-  /**
-   * Nudge a selected TEMPO mark's position offset by `(dx, dy)` staff-spaces and save ONE undo step
-   * — the ←→↑↓ / Ctrl+arrow fine-positioning, his ask of 2026-08-19.
-   *
-   * {@link nudgeDynamicOffset} above in all but one respect: same page limit, same id-keyed override,
-   * same accumulate-and-clear-at-zero in the model — but ⚠️ **`dy` is OUTWARD here, +up**, because a
-   * tempo mark is always drawn above the staff and a number a human types about it means *how far
-   * from the staff*. See {@link TempoOffsetOverride}; the sign is converted here and in the render,
-   * nowhere else.
-   * @returns true if the mark was nudged; false for an unknown id or a step the page refuses.
-   */
-  nudgeTempoOffset(tempoId: string, dx: number, dy: number): boolean {
-    // 🚨 `dy` is OUTWARD (+up) for this mark alone — see `TempoOffsetOverride`. The page limit reasons
-    // in SCREEN pixels, so the sign is flipped for it and only for it.
-    if (!this.nudgeStaysOnPage('tempo', tempoId, dx, -dy)) return false
-    if (!this.scoreModel.getTempoMarkById(tempoId)) return false
-    const ok = this.scoreModel.nudgeTempoOffset(tempoId, dx, dy)
-    if (ok) {
-      this.saveOnly('Nudge tempo mark')
-      const off = tempoOffsetOverrideOf(this.scoreModel.getScore(), tempoId)
-      dbg(`[Tempo] nudge ${tempoId} by (${dx}, ${dy}) → offset (${off?.x ?? 0}, ${off?.y ?? 0}) staff-space(s)`)
-    }
-    return ok
-  }
-
-  /**
-   * Move a tempo mark one onset back (−1) or on (+1) — `Ctrl+Shift+←/→` with the mark selected, the
-   * RE-ANCHOR (his ask, 2026-08-19).
-   *
-   * ⚠️ **A CONTENT edit, and an AUDIBLE one**, where the plain / `Ctrl` arrow on the same selection
-   * writes an engraving override: the tempo applies from the beat this writes, so the tempo map and
-   * every scheduled note after it move with the mark. Two chords, two categories — `moveDynamicBySlot`
-   * above is the same arrangement on the letters. Saves ONE undo entry per press.
-   * @returns true when the mark moved; false (declining the key) at either end of the score, when the
-   *   stop it would land on already holds a mark, or for an id no longer in the score.
-   */
-  moveTempoBySlot(id: string, direction: 1 | -1): boolean {
-    const ok = this.scoreModel.moveTempoBySlot(id, direction)
-    if (ok) {
-      this.commit(direction === -1 ? 'Move tempo mark back' : 'Move tempo mark on')
-      dbg(`[Tempo] re-anchored ${id} ${direction === -1 ? 'back' : 'on'} one onset`)
-    }
-    return ok
-  }
-
-  /** Hand a tempo mark onto `target` KEEPING its hand-nudged offset, where {@link moveTempoBySlot}
-   *  drops it — one crossing of the mark's walk (`interactions/tempoWalk`). No undo entry:
-   *  {@link commitTempoDrag} records the whole gesture once. */
-  previewTempoSlotKeepingOffset(id: string, target: TempoStop): boolean {
-    this.markModelDirty() // live drag, undo deferred to commitTempoDrag
-    return this.scoreModel.setTempoAtSlotKeepingOffset(id, target)
-  }
-
-  /** The whole-stop flavour, undo-free: what a drag lands with when the ink has left the mark's own
-   *  SYSTEM (`interactions/tempoWalk`), which is a jump and not a walk — so it drops the nudge. */
-  previewTempoSlot(id: string, target: TempoStop): boolean {
-    this.markModelDirty()
-    return this.scoreModel.setTempoAtSlot(id, target)
-  }
-
-  /** The walk's RE-BASE: bookkeeping, not a hand nudge, so ⛔ never judged by the page limit
-   *  ({@link previewHairpinEndpointRebase} has the reason). No undo entry of its own. ⚠️ `dx` only:
-   *  no walk has a vertical, so the mark's OUTWARD `dy` never comes through here. */
-  previewTempoOffsetRebase(id: string, dx: number): boolean {
-    if (!this.scoreModel.getTempoMarkById(id)) return false
-    this.markModelDirty()
-    return this.scoreModel.nudgeTempoOffset(id, dx, 0)
-  }
-
-  /** The undo-free twin of {@link nudgeTempoOffset} — accumulates the same way, keeps the same page
-   *  limit (and its OUTWARD `dy`), records no undo step. One frame of a tempo drag. */
-  previewTempoOffset(id: string, dx: number, dy: number): boolean {
-    if (!this.nudgeStaysOnPage('tempo', id, dx, -dy)) return false
-    if (!this.scoreModel.getTempoMarkById(id)) return false
-    this.markModelDirty()
-    return this.scoreModel.nudgeTempoOffset(id, dx, dy)
-  }
-
-  /** Record ONE undo entry after a tempo drag settles. */
-  commitTempoDrag(): void {
-    this.commitPreviewed('Move tempo mark')
-  }
-
-  /** Where {@link moveTempoBySlot} would put the mark, without putting it there — the walk reads it
-   *  to measure how far away the next stop is drawn. */
-  nextTempoSlot(id: string, direction: 1 | -1): TempoStop | null {
-    return this.scoreModel.nextTempoSlot(id, direction)
-  }
-
-  /**
-   * `Ctrl+Backspace` on a selected DYNAMIC / TEMPO mark: drop its hand nudge (his report,
-   * 2026-08-19 — *"the ctr backspace is not working for me"*, on the tempo offset built that day;
-   * the dynamic had the same hole since its own offset shipped).
-   * @returns false when the mark carries no nudge, so the key falls through to its other tenants.
-   */
-  resetDynamicOffset(id: string): boolean {
-    const ok = this.scoreModel.resetDynamicOffset(id)
-    if (ok) this.saveOnly('Reset dynamic nudge')
-    return ok
-  }
-
-  resetTempoOffset(id: string): boolean {
-    const ok = this.scoreModel.resetTempoOffset(id)
-    if (ok) this.saveOnly('Reset tempo nudge')
-    return ok
   }
 
   /**

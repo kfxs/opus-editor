@@ -45,6 +45,7 @@
  * so there is no anchor above or below to arrive at.
  */
 import type { MusicEngine } from '../engine/MusicEngine'
+import type { DynamicCommands } from '@/engine/commands/dynamicCommands'
 import type { DynamicSlotTarget } from '../engine/models/dynamicOps'
 import {
   dynamicAddress, dynamicLaneHeads, dynamicSlotX, dynamicSystemInkLimit, markInkY, systemSlotFor,
@@ -58,19 +59,14 @@ import { withoutAnEntry } from './keyRun'
 import { dbg } from '../utils/debug'
 
 /** What the walk needs off the engine — a Pick, so a spec can stand it up without a renderer. */
-type DynamicWalkEngine = Pick<MusicEngine,
-  'getDynamicById' | 'getScore' | 'getElementRegistry' | 'getNote'
-  | 'nextDynamicSlot' | 'nudgeDynamicOffset' | 'runBatch'
-  | 'previewDynamicOffsetRebase'
-  | 'previewDynamicSlotKeepingOffset' | 'previewDynamicOffset' | 'previewDynamicSlot'
-  | 'previewDynamicPlacement'>
+type DynamicWalkEngine = Pick<MusicEngine, 'getDynamicById' | 'getScore' | 'getElementRegistry' | 'getNote' | 'runBatch'> & { dynamic: Pick<DynamicCommands, 'nextDynamicSlot' | 'nudgeDynamicOffset' | 'previewDynamicOffsetRebase' | 'previewDynamicSlotKeepingOffset' | 'previewDynamicOffset' | 'previewDynamicSlot' | 'previewDynamicPlacement'> }
 
 /**
  * ⭐ **THE DYNAMIC'S PORT** — where its stops are, how far away they are drawn, and which model ops
  * move it. The arithmetic is `./markWalk`'s; this is the whole of what is dynamic-specific about it.
  *
  * The `write` pair is what separates the two devices: a KEY press records its own undo step, a drag
- * FRAME records none and leaves the drop to commit once ({@link MusicEngine.commitDynamicDrag}).
+ * FRAME records none and leaves the drop to commit once ({@link MusicEngine.dynamic.commitDynamicDrag}).
  */
 function dynamicPort(
   engine: DynamicWalkEngine,
@@ -94,7 +90,7 @@ function dynamicPort(
   return {
     label: 'Dynamic',
     // ⭐ The SAME candidate rule `Ctrl+Shift+←/→` uses, which is why it lives in the model.
-    nextStop: (direction) => engine.nextDynamicSlot(id, direction),
+    nextStop: (direction) => engine.dynamic.nextDynamicSlot(id, direction),
     stopX: (stop) => drawnX(stop as DynamicSlotTarget),
     anchorX: () => {
       const here = dynamicAddress(engine.getScore(), id)
@@ -147,9 +143,9 @@ function wrapPort(engine: DynamicWalkEngine, id: string): BreakWrapPort {
 export function walkDynamic(engine: DynamicWalkEngine, id: string, dx: number): boolean {
   if (dx === 0) return false
   const port = dynamicPort(engine, id, {
-    reanchor: (i, target) => engine.previewDynamicSlotKeepingOffset(i, target),
-    nudge: (i, ddx, ddy) => engine.previewDynamicOffset(i, ddx, ddy),
-    rebase: (i, ddx) => engine.previewDynamicOffsetRebase(i, ddx),
+    reanchor: (i, target) => engine.dynamic.previewDynamicSlotKeepingOffset(i, target),
+    nudge: (i, ddx, ddy) => engine.dynamic.previewDynamicOffset(i, ddx, ddy),
+    rebase: (i, ddx) => engine.dynamic.previewDynamicOffsetRebase(i, ddx),
   })
 
   // ⭐ A POINT MARK ON THE SHARED DRIVER (`./markDrive`) — no armed end and no length, which is the
@@ -165,7 +161,7 @@ export function walkDynamic(engine: DynamicWalkEngine, id: string, dx: number): 
 
 /**
  * ⭐⭐ **ONE FRAME OF A DYNAMIC DRAG** — the same move, with the cursor's delta in PIXELS instead of
- * a key's step, and no undo entry (the drop commits once, {@link MusicEngine.commitDynamicDrag}).
+ * a key's step, and no undo entry (the drop commits once, {@link MusicEngine.dynamic.commitDynamicDrag}).
  *
  * ⭐ **The mouse and the arrows are now the SAME gesture.** The drag used to snap the mark to the
  * nearest notehead of its lane within 150 px and re-anchor outright, so the mark teleported, could
@@ -206,9 +202,9 @@ export function dragDynamic(
   dyPx: number,
 ): boolean | null {
   const port = dynamicPort(engine, id, {
-    reanchor: (i, target) => engine.previewDynamicSlotKeepingOffset(i, target),
-    nudge: (i, ddx, ddy) => engine.previewDynamicOffset(i, ddx, ddy),
-    rebase: (i, ddx) => engine.previewDynamicOffsetRebase(i, ddx),
+    reanchor: (i, target) => engine.dynamic.previewDynamicSlotKeepingOffset(i, target),
+    nudge: (i, ddx, ddy) => engine.dynamic.previewDynamicOffset(i, ddx, ddy),
+    rebase: (i, ddx) => engine.dynamic.previewDynamicOffsetRebase(i, ddx),
   })
   const ss = port.staffSpacePx()
   if (!ss) return null
@@ -274,7 +270,7 @@ function jumpStaves(
   const here = dynamicAddress(engine.getScore(), id)
   const fromX = here ? dynamicSlotX(engine, here, dynamic.staffId) : null
   const toX = dynamicSlotX(engine, target, target.staffId)
-  if (!engine.previewDynamicSlot(id, target)) return false
+  if (!engine.dynamic.previewDynamicSlot(id, target)) return false
 
   // ⚠️⚠️ EXPLORATORY (2026-08-31) — **IT ARRIVES ON THE SIDE IT CAME FROM.** His report: *"it jumps
   // to the ladder that is down, is not going to the upside"*. The vertical is a LADDER of the places
@@ -282,7 +278,7 @@ function jumpStaves(
   // next rung is ABOVE the staff below, which is also where the hand already has the ink. ⛔ Landing
   // on the far side skips a rung and drops the mark a whole staff past the hand. The wedge's rule
   // verbatim (`hairpinWalk.jumpStaves`, 2026-08-20).
-  engine.previewDynamicPlacement(id, dyPx > 0 ? 'above' : 'below')
+  engine.dynamic.previewDynamicPlacement(id, dyPx > 0 ? 'above' : 'below')
 
   // ⚠️⚠️ EXPLORATORY (2026-08-31) — **A RE-ANCHOR DOES NOT MOVE THE DRAWING** (*"the movement should
   // be smooth"*). Measured on the Prelude: the anchor 257 → 201 with the offset zeroed, so the mark
@@ -291,11 +287,11 @@ function jumpStaves(
   // different staff, where the ladder gives it whatever it has left — so it is settled from the
   // render instead ({@link settleDynamicLanding}).
   const lift = dynamicOffsetOverrideOf(engine.getScore(), id)?.y ?? 0
-  if (lift !== 0) engine.previewDynamicOffset(id, 0, -lift)
+  if (lift !== 0) engine.dynamic.previewDynamicOffset(id, 0, -lift)
   // ⚠️ Whatever the picture could not say is paid as 0 — `./markWalk`'s no-guessing rule.
   const dx = fromX !== null && toX !== null ? (fromX - toX) / staffSpacePx : 0
   // ⛔ A REBASE, not a nudge: the drawn ink does not move, so no page limit has anything to judge.
-  if (dx) engine.previewDynamicOffsetRebase(id, dx)
+  if (dx) engine.dynamic.previewDynamicOffsetRebase(id, dx)
   landed = { id, inkY: inkY + dyPx }
   dbg(`[Dynamic] jumped ${dyPx > 0 ? 'above' : 'below'} the staff it crossed | id:${id}`
     + ` → m${target.measure} staff:${target.staffId ?? 0}`
@@ -329,7 +325,7 @@ export function settleDynamicLanding(engine: DynamicWalkEngine, id: string): boo
 
   const debt = was - drawn
   // ⛔ A REBASE, not a nudge: the drawn ink does not move, so the page limit has nothing to judge.
-  engine.previewDynamicOffsetRebase(id, 0, debt / staffSpacePx)
+  engine.dynamic.previewDynamicOffsetRebase(id, 0, debt / staffSpacePx)
   dbg(`[Dynamic] landing settled | id:${id} | ink ${drawn.toFixed(1)} → ${was.toFixed(1)}`
     + ` (${debt.toFixed(1)}px the other staff's ladder gave or took)`)
   return true

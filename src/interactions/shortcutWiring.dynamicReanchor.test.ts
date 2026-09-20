@@ -31,15 +31,18 @@ describe('moving a dynamic from the keyboard', () => {
     nudgeOffset = vi.fn(() => true)
     noteOffset = vi.fn(() => true)
     const engine = {
-      moveDynamicBySlot: reanchor,
-      nudgeDynamicOffset: nudgeOffset,
-      // ⭐ The WALK writes through the preview twins since 2026-08-30 — a run of presses is ONE
-      //   undo entry (`./keyRun`). Aliased to the same mocks: what these cases claim is which
-      //   key writes which ink, and that is unchanged.
-      previewDynamicOffset: nudgeOffset,
-      previewDynamicOffsetRebase: vi.fn(() => true),
-      previewDynamicSlotKeepingOffset: vi.fn(() => true),
-      commitDynamicDrag: vi.fn(),
+      dynamic: {
+        moveDynamicBySlot: reanchor,
+        nudgeDynamicOffset: nudgeOffset,
+        // ⭐ The WALK writes through the preview twins since 2026-08-30 — a run of presses is ONE
+        //   undo entry (`./keyRun`). Aliased to the same mocks: what these cases claim is which
+        //   key writes which ink, and that is unchanged.
+        previewDynamicOffset: nudgeOffset,
+        previewDynamicOffsetRebase: vi.fn(() => true),
+        previewDynamicSlotKeepingOffset: vi.fn(() => true),
+        commitDynamicDrag: vi.fn(),
+        nextDynamicSlot: () => null,
+      },
       nudgeNoteOffset: noteOffset,
       hairpin: {
         resizeHairpinBySlot: vi.fn(() => false),
@@ -60,7 +63,6 @@ describe('moving a dynamic from the keyboard', () => {
       getDynamicById: () => null,
       // ⚠️ …and what lies ahead, which the walk asks before it decides anything. Null = nothing to
       // arrive at, so the press stays the plain nudge these cases are about.
-      nextDynamicSlot: () => null,
       // ⚠️ `Ctrl+Shift+←/→` also ends at the CLEF move, which reads the beat map. An empty score =
       // no slot to step to, so that branch DECLINES — which is what the clef case below asserts.
       getScore: () => ({ measures: [] }),

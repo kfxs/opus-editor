@@ -2299,7 +2299,7 @@ export class PaletteController {
     const selectedTempo = selectedOf(this.state, 'tempo')
     if (tool && selectedTempo) {
       const engine = this.getEngine()
-      const updated = engine?.updateTempoMark(selectedTempo.id, tool)
+      const updated = engine?.tempo.updateTempoMark(selectedTempo.id, tool)
       if (updated) dbg(`✓ Tempo mark → ${tempoLabel(updated)}`)
       this.renderScore()
       return
@@ -2327,7 +2327,7 @@ export class PaletteController {
     const note = engine.getNote(this.state.selectedNoteId)
     if (!note) return
     // No staffId, no voice — the mark governs the clock, not the staff it was placed from.
-    const created = engine.addTempoMark(note.measure, { beat: note.beat, ...tool })
+    const created = engine.tempo.addTempoMark(note.measure, { beat: note.beat, ...tool })
     if (created) {
       dbg(`✓ Tempo ${tempoLabel(created)} at measure ${note.measure} beat ${fracToNumber(note.beat).toFixed(3)} (on selected note)`)
     }
@@ -2351,7 +2351,7 @@ export class PaletteController {
     // staffId = staff 0 keeps single-staff output byte-identical.
     const staffId = engine.staffIdForIndex(staffOf(note))
     const staffParam = staffId ? { staffId } : {}
-    engine.addDynamic(note.measure, { beat: note.beat, text: dynamicTextFromTool(tool), placement: 'below', ...staffParam })
+    engine.dynamic.addDynamic(note.measure, { beat: note.beat, text: dynamicTextFromTool(tool), placement: 'below', ...staffParam })
     dbg(`✓ Dynamic ${tool} at measure ${note.measure} beat ${beatStr} staff ${staffOf(note)} (on selected note ${this.state.selectedNoteId})`)
     this.renderScore()
   }

@@ -232,8 +232,8 @@ describe('SelectionController — Shift range select', () => {
   it('pulls a dynamic inside the box into the selection (so it highlights)', () => {
     const dynKey = (id: string) => itemKey({ kind: 'dynamic', id })
     // A dynamic under beat 1 (inside the n0..n2 box) and one under beat 3 (outside it).
-    const dIn = engine.addDynamic(1, { beat: frac(1, 1), text: levelToGlyphString('f'), voice: 0 })!.id
-    const dOut = engine.addDynamic(1, { beat: frac(3, 1), text: levelToGlyphString('p'), voice: 0 })!.id
+    const dIn = engine.dynamic.addDynamic(1, { beat: frac(1, 1), text: levelToGlyphString('f'), voice: 0 })!.id
+    const dOut = engine.dynamic.addDynamic(1, { beat: frac(3, 1), text: levelToGlyphString('p'), voice: 0 })!.id
 
     selection.selectNote(n0)
     selection.extendSelectionTo(n2)      // box = beats 0..2
@@ -673,7 +673,7 @@ describe('SelectionController — a note selection replaces the element selectio
 
   it('⭐ selectNotes takes the MARKS the notes enclose — what a paste just wrote is all selected', () => {
     // His report, 2026-08-19: a paste selected only the notes, understating what had landed.
-    const dynId = engine.addDynamic(1, { beat: frac(0, 1), text: levelToGlyphString('f'), voice: 0 })!.id
+    const dynId = engine.dynamic.addDynamic(1, { beat: frac(0, 1), text: levelToGlyphString('f'), voice: 0 })!.id
     const hairpinId = engine.hairpin.addHairpin(1, { type: 'cresc', beat: frac(0, 1), length: frac(2, 1), voice: 0 })!.id
     selection.selectNotes([noteA, noteB])
     const kinds = [...state.selectedItems.values()].map(i => i.kind).sort()
@@ -687,7 +687,7 @@ describe('SelectionController — a note selection replaces the element selectio
   it('⭐⭐ a Ctrl-click GROWS a single-element selection instead of clearing it', () => {
     // His report, 2026-08-19: click the dynamic, Ctrl-click the hairpin, and the dynamic vanished —
     // a plain click on a MARK lands in `selectedElement`, and the toggle used to throw it away.
-    const dynId = engine.addDynamic(1, { beat: frac(0, 1), text: levelToGlyphString('f'), voice: 0 })!.id
+    const dynId = engine.dynamic.addDynamic(1, { beat: frac(0, 1), text: levelToGlyphString('f'), voice: 0 })!.id
     const hairpinId = engine.hairpin.addHairpin(1, { type: 'cresc', beat: frac(0, 1), length: frac(2, 1), voice: 0 })!.id
     state.selectedElement = { kind: 'dynamic', id: dynId }
 
@@ -698,14 +698,14 @@ describe('SelectionController — a note selection replaces the element selectio
   })
 
   it('…and a Ctrl-click on a NOTE grows it the same way', () => {
-    const dynId = engine.addDynamic(1, { beat: frac(0, 1), text: levelToGlyphString('f'), voice: 0 })!.id
+    const dynId = engine.dynamic.addDynamic(1, { beat: frac(0, 1), text: levelToGlyphString('f'), voice: 0 })!.id
     state.selectedElement = { kind: 'dynamic', id: dynId }
     selection.toggleNote(noteA)
     expect([...state.selectedItems.values()].map(i => i.kind).sort()).toEqual(['dynamic', 'note'])
   })
 
   it('⛔ a Ctrl-click on the mark that IS the single selection still removes it', () => {
-    const dynId = engine.addDynamic(1, { beat: frac(0, 1), text: levelToGlyphString('f'), voice: 0 })!.id
+    const dynId = engine.dynamic.addDynamic(1, { beat: frac(0, 1), text: levelToGlyphString('f'), voice: 0 })!.id
     state.selectedElement = { kind: 'dynamic', id: dynId }
     selection.toggleMark({ kind: 'dynamic', id: dynId })
     expect(state.selectedItems.size, 'absorbed, then toggled back out').toBe(0)

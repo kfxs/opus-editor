@@ -15,14 +15,19 @@ import { DYNAMIC_KEYS } from './dynamicKeys'
 import { ELEMENT_SPECS } from './chain'
 
 describe('DYNAMIC_KEYS', () => {
-  const engine = { moveDynamicBySlot: vi.fn(() => true), nudgeDynamicOffset: vi.fn(() => true), resetDynamicOffset: vi.fn(() => true), commitDynamicDrag: vi.fn() }
+  const engine = {
+    dynamic: {
+      moveDynamicBySlot: vi.fn(() => true), nudgeDynamicOffset: vi.fn(() => true),
+      resetDynamicOffset: vi.fn(() => true), commitDynamicDrag: vi.fn(),
+    },
+  }
   let ctx: KeysCtx
   const mark = { kind: 'dynamic', id: 'D1' } as const
 
   beforeEach(() => {
     vi.clearAllMocks()
-    engine.nudgeDynamicOffset.mockReturnValue(true)
-    engine.resetDynamicOffset.mockReturnValue(true)
+    engine.dynamic.nudgeDynamicOffset.mockReturnValue(true)
+    engine.dynamic.resetDynamicOffset.mockReturnValue(true)
     walk.walkDynamic.mockReturnValue(true)
     ctx = { engine: engine as unknown as MusicEngine, state: {} as KeysCtx['state'], render: vi.fn(), afterMarkPress: vi.fn() }
   })
@@ -34,12 +39,12 @@ describe('DYNAMIC_KEYS', () => {
   it('⭐ the HORIZONTAL walks the mark, ⛔ not a plain nudge', () => {
     DYNAMIC_KEYS.nudge!(ctx, mark, 0.25, 0)
     expect(walk.walkDynamic).toHaveBeenCalledWith(engine, 'D1', 0.25)
-    expect(engine.nudgeDynamicOffset).not.toHaveBeenCalled()
+    expect(engine.dynamic.nudgeDynamicOffset).not.toHaveBeenCalled()
   })
 
   it('`↑` (a NEGATIVE screen dy) is stored as it comes — a dynamic\'s offset is screen-signed', () => {
     DYNAMIC_KEYS.nudge!(ctx, mark, 0, -0.25)
-    expect(engine.nudgeDynamicOffset).toHaveBeenCalledWith('D1', 0, -0.25)
+    expect(engine.dynamic.nudgeDynamicOffset).toHaveBeenCalledWith('D1', 0, -0.25)
   })
 
   it('an accepted press is handed to the key RUN — in SCREEN terms — with the mark\'s own commit', () => {
@@ -47,7 +52,7 @@ describe('DYNAMIC_KEYS', () => {
     const [kind, id, dx, dy, commit] = (ctx.afterMarkPress as ReturnType<typeof vi.fn>).mock.calls[0]
     expect([kind, id, dx, dy]).toEqual(['dynamic', 'D1', 0, -0.25])
     commit()
-    expect(engine.commitDynamicDrag).toHaveBeenCalledTimes(1)
+    expect(engine.dynamic.commitDynamicDrag).toHaveBeenCalledTimes(1)
   })
 
   it('🚨 a REFUSED press DECLINES, and hands nothing to the run', () => {
@@ -57,14 +62,14 @@ describe('DYNAMIC_KEYS', () => {
   })
 
   it('⭐ reanchor moves the WHOLE mark through the music by one stop — no armed-square gate: it is a point', () => {
-    engine.moveDynamicBySlot.mockReturnValue(true)
+    engine.dynamic.moveDynamicBySlot.mockReturnValue(true)
     expect(DYNAMIC_KEYS.reanchor!(ctx, mark, 1)).toBe(true)
-    expect(engine.moveDynamicBySlot).toHaveBeenCalledWith('D1', 1)
+    expect(engine.dynamic.moveDynamicBySlot).toHaveBeenCalledWith('D1', 1)
     expect(ctx.render).toHaveBeenCalledTimes(1)
   })
 
   it('reanchor DECLINES, and draws nothing, when the model refuses — the chord falls through', () => {
-    engine.moveDynamicBySlot.mockReturnValue(false)
+    engine.dynamic.moveDynamicBySlot.mockReturnValue(false)
     expect(DYNAMIC_KEYS.reanchor!(ctx, mark, -1)).toBe(false)
     expect(ctx.render).not.toHaveBeenCalled()
   })
@@ -76,7 +81,7 @@ describe('DYNAMIC_KEYS', () => {
   it('reset renders when it took a nudge back, and DECLINES — without rendering — when there was none', () => {
     expect(DYNAMIC_KEYS.reset!(ctx, mark)).toBe(true)
     expect(ctx.render).toHaveBeenCalledTimes(1)
-    engine.resetDynamicOffset.mockReturnValue(false)
+    engine.dynamic.resetDynamicOffset.mockReturnValue(false)
     expect(DYNAMIC_KEYS.reset!(ctx, mark)).toBe(false)
     expect(ctx.render).toHaveBeenCalledTimes(1)
   })

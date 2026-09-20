@@ -23,7 +23,7 @@ describe('DynamicOffsetController', () => {
     nudge = vi.fn(() => true)
     render = vi.fn()
     score = { id: 's', title: '', measures: [], engravingOverrides: {} } as unknown as Score
-    const engine = { getScore: () => score, nudgeDynamicOffset: nudge } as unknown as MusicEngine
+    const engine = { getScore: () => score, dynamic: { nudgeDynamicOffset: nudge } } as unknown as MusicEngine
     controller = new DynamicOffsetController(() => engine, render)
   })
   afterEach(() => { controller.destroy() })

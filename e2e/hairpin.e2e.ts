@@ -170,7 +170,7 @@ test('⭐⭐ the wedge sits on the DYNAMICS LINE — level with the letters besi
     }
     // A `p` on beat 0 and a wedge over beats 1–4: the mark and the wedge are one family, so the
     // wedge's axis must land on the letters' OPTICAL CENTRE, not merely somewhere below the staff.
-    h.engine.addDynamic(1, { beat: h.frac(0, 1), text: 'p' })
+    h.engine.dynamic.addDynamic(1, { beat: h.frac(0, 1), text: 'p' })
     h.engine.hairpin.addHairpin(1, { type: 'cresc', beat: h.frac(1, 1), length: h.frac(3, 1) })
     await h.render()
   })
@@ -221,10 +221,10 @@ test('🚨🚨 a NUDGED dynamic moves ITSELF and not the wedge — no pushing', 
     // An `f` anchored to the wedge's LAST note — the anchor the old skyline owned, and the shape of
     // his bar 2. ⚠️ A REAL dynamics glyph, ⛔ not the ASCII letter: an ASCII `f` is prose in a serif
     // face and carries no centring translate, which is a different measurement entirely.
-    const mark = h.engine.addDynamic(1, { beat: h.frac(3, 1), text: '𝆑' })!
+    const mark = h.engine.dynamic.addDynamic(1, { beat: h.frac(3, 1), text: '𝆑' })!
     // …then dragged four staff-spaces LEFT, so it sits INSIDE the wedge rather than at its end.
     // His gesture exactly, and where the old rule started eating the wedge.
-    h.engine.nudgeDynamicOffset(mark.id, -4, 0)
+    h.engine.dynamic.nudgeDynamicOffset(mark.id, -4, 0)
     await h.render()
     const segs = window.__h.segments('g.hairpin path')
     return { x1: segs[0].x1, x2: segs[segs.length - 1].x2, count: segs.length }
@@ -487,7 +487,7 @@ test('⭐⭐ a dynamic INSIDE the span breaks the wedge in two', async ({ score 
     // prose in a serif face (`utils/dynamics`' text-as-truth rule), it carries no centring translate,
     // and it therefore misses the whole class of bug these tests exist for — his report of
     // 2026-08-18 was invisible to a prose fixture.
-    h.engine.addDynamic(1, { beat: h.frac(2, 1), text: '\ue522' })
+    h.engine.dynamic.addDynamic(1, { beat: h.frac(2, 1), text: '\ue522' })
     await h.render()
   })
 
@@ -514,7 +514,7 @@ test('⭐⭐ …and the two halves lie on ONE pair of straight lines — the ang
     // prose in a serif face (`utils/dynamics`' text-as-truth rule), it carries no centring translate,
     // and it therefore misses the whole class of bug these tests exist for — his report of
     // 2026-08-18 was invisible to a prose fixture.
-    h.engine.addDynamic(1, { beat: h.frac(2, 1), text: '\ue522' })
+    h.engine.dynamic.addDynamic(1, { beat: h.frac(2, 1), text: '\ue522' })
     await h.render()
   })
 
@@ -550,7 +550,7 @@ test('⭐⭐ the hole is a WINDOW, not a gap — a small padding either side of 
     // prose in a serif face (`utils/dynamics`' text-as-truth rule), it carries no centring translate,
     // and it therefore misses the whole class of bug these tests exist for — his report of
     // 2026-08-18 was invisible to a prose fixture.
-    h.engine.addDynamic(1, { beat: h.frac(2, 1), text: '\ue522' })
+    h.engine.dynamic.addDynamic(1, { beat: h.frac(2, 1), text: '\ue522' })
     await h.render()
   })
 
@@ -589,7 +589,7 @@ test('🚨🚨 a NUDGED wedge that is also broken stays straight — it does not
       h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: 'q', measure: 1, beat: h.frac(beat, 1) })
     }
     const hp = h.engine.hairpin.addHairpin(1, { type: 'cresc', beat: h.frac(0, 1), length: h.frac(4, 1) })!
-    h.engine.addDynamic(1, { beat: h.frac(2, 1), text: '\ue522' })
+    h.engine.dynamic.addDynamic(1, { beat: h.frac(2, 1), text: '\ue522' })
     await h.render()
     const was = h.segments('g.hairpin path').map(a => a.y1)
     // ⚠️ Both ends lifted by the same SMALL amount — his JSON's shape (`{start: {y}, end: {y}}`) but
@@ -628,7 +628,7 @@ test('⭐⭐ lift the WEDGE clear of the mark and it is drawn WHOLE — no hole 
       h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: 'q', measure: 1, beat: h.frac(beat, 1) })
     }
     const hp = h.engine.hairpin.addHairpin(1, { type: 'cresc', beat: h.frac(0, 1), length: h.frac(4, 1) })!
-    h.engine.addDynamic(1, { beat: h.frac(2, 1), text: '\ue522' })
+    h.engine.dynamic.addDynamic(1, { beat: h.frac(2, 1), text: '\ue522' })
     await h.render()
     h.engine.hairpin.nudgeHairpin(hp.id, 0, -3)   // three spaces up: past the top of the `f`'s ink
     await h.render()
@@ -644,9 +644,9 @@ test('⭐ …and lifting the MARK instead does it too — either one moving is e
       h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: 'q', measure: 1, beat: h.frac(beat, 1) })
     }
     h.engine.hairpin.addHairpin(1, { type: 'cresc', beat: h.frac(0, 1), length: h.frac(4, 1) })
-    const dyn = h.engine.addDynamic(1, { beat: h.frac(2, 1), text: '\ue522' })!
+    const dyn = h.engine.dynamic.addDynamic(1, { beat: h.frac(2, 1), text: '\ue522' })!
     await h.render()
-    h.engine.nudgeDynamicOffset(dyn.id, 0, 3)   // the mark DOWN, away from the wedge
+    h.engine.dynamic.nudgeDynamicOffset(dyn.id, 0, 3)   // the mark DOWN, away from the wedge
     await h.render()
   })
 
@@ -660,9 +660,9 @@ test('🚨 …but a mark still ON the wedge keeps its hole — the test is CLASH
       h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: 'q', measure: 1, beat: h.frac(beat, 1) })
     }
     h.engine.hairpin.addHairpin(1, { type: 'cresc', beat: h.frac(0, 1), length: h.frac(4, 1) })
-    const dyn = h.engine.addDynamic(1, { beat: h.frac(2, 1), text: '\ue522' })!
+    const dyn = h.engine.dynamic.addDynamic(1, { beat: h.frac(2, 1), text: '\ue522' })!
     await h.render()
-    h.engine.nudgeDynamicOffset(dyn.id, 0, 0.25)  // a quarter space: still through the arms
+    h.engine.dynamic.nudgeDynamicOffset(dyn.id, 0, 0.25)  // a quarter space: still through the arms
     await h.render()
   })
 
@@ -684,7 +684,7 @@ test('⭐⭐ a mark hidden behind its editor KEEPS its hole', async ({ score }) 
       h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: 'q', measure: 1, beat: h.frac(beat, 1) })
     }
     h.engine.hairpin.addHairpin(1, { type: 'cresc', beat: h.frac(0, 1), length: h.frac(4, 1) })
-    const dyn = h.engine.addDynamic(1, { beat: h.frac(2, 1), text: '\ue522' })!
+    const dyn = h.engine.dynamic.addDynamic(1, { beat: h.frac(2, 1), text: '\ue522' })!
     await h.render()
     // …and now the editor opens on it.
     h.engine.setSuppressedDynamicId(dyn.id)
@@ -702,7 +702,7 @@ test('⭐⭐ …and the hole GROWS with what is being typed', async ({ score }) 
       h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: 'q', measure: 1, beat: h.frac(beat, 1) })
     }
     h.engine.hairpin.addHairpin(1, { type: 'cresc', beat: h.frac(0, 1), length: h.frac(4, 1) })
-    const dyn = h.engine.addDynamic(1, { beat: h.frac(2, 1), text: '\ue522' })!
+    const dyn = h.engine.dynamic.addDynamic(1, { beat: h.frac(2, 1), text: '\ue522' })!
     await h.render()
 
     /** The empty span between the two fragments, in px. */

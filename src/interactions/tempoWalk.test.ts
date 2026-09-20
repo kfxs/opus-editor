@@ -89,7 +89,7 @@ describe('walkTempo', () => {
     engine.addMeasure()
     ids = (['C', 'D', 'E', 'F'] as const).map((step, i) =>
       engine.addNoteAtBeat({ step, octave: 4, duration: 'q', measure: 1, beat: frac(i, 1) })!.id)
-    markId = engine.addTempoMark(1, { beat: frac(1, 1), text: 'Allegro' })!.id
+    markId = engine.tempo.addTempoMark(1, { beat: frac(1, 1), text: 'Allegro' })!.id
     render()
   })
 
@@ -110,7 +110,7 @@ describe('walkTempo', () => {
   it('⭐⭐ keeps the mark’s hand-set LIFT through the crossing', () => {
     // ⚠️ `y` is OUTWARD here (+up), the one offset in the compartment that is — and the walk must not
     // touch it either way.
-    engine.nudgeTempoOffset(markId, 0, 2)
+    engine.tempo.nudgeTempoOffset(markId, 0, 2)
     for (let i = 0; i < 10; i++) walkTempo(engine, markId, 1)
     expect(at(), 'it did cross').toBe('1@2')
     expect(offsetY(), 'the lift survives').toBeCloseTo(2)
@@ -167,7 +167,7 @@ describe('walkTempo', () => {
   it('⛔ …and stops at an onset another tempo mark is sitting on', () => {
     // One mark per beat: the model refuses the crossing write, so the walk stops there — the same
     // answer it gives at the end of the score, and ⛔ never an overwrite.
-    const other = engine.addTempoMark(1, { beat: frac(2, 1), text: 'Presto' })!.id
+    const other = engine.tempo.addTempoMark(1, { beat: frac(2, 1), text: 'Presto' })!.id
     for (let i = 0; i < 20; i++) walkTempo(engine, markId, 1)
     expect(at()).toBe('1@1')
     expect(engine.getTempoMarkById(other)).not.toBeNull()
@@ -189,14 +189,14 @@ describe('walkTempo', () => {
     //   settled before there is anything to undo, which in the app is `shortcutWiring`'s 150 ms
     //   settle (`./keyRun`). ⭐ And the ink presses go back with it: one undo returns to where the
     //   key went down, where the old rule left the nine nudges standing at 9 spaces.
-    engine.commitTempoDrag()
+    engine.tempo.commitTempoDrag()
     engine.undo()
     expect(at()).toBe('1@1')
     expect(offsetX()).toBeCloseTo(0)
   })
 
   it('⭐⭐ it is AUDIBLE — a crossing moves the tempo map, an ink nudge does not', () => {
-    engine.updateTempoMark(markId, { bpm: 144 })
+    engine.tempo.updateTempoMark(markId, { bpm: 144 })
     const before = engine.getEffectiveTempoAt(1, frac(1, 1))
     for (let i = 0; i < 9; i++) walkTempo(engine, markId, 1) // ink only
     expect(engine.getEffectiveTempoAt(1, frac(1, 1)), 'ink changes nothing').toBe(before)
@@ -208,7 +208,7 @@ describe('walkTempo', () => {
   it('⭐⭐ …and the LIFT is the walk’s business either way — ↑/↓ stay a pure offset', () => {
     // ⚠️ The horizontal is all this device has: `walkTempo` takes one `dx` and nothing else, so a
     //    mark's OUTWARD `y` cannot be touched by a press that crosses.
-    engine.nudgeTempoOffset(markId, 0, -1.5)
+    engine.tempo.nudgeTempoOffset(markId, 0, -1.5)
     for (let i = 0; i < 10; i++) walkTempo(engine, markId, 1)
     expect(at()).toBe('1@2')
     expect(offsetY()).toBeCloseTo(-1.5)

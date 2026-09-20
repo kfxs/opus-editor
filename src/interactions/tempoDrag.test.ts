@@ -87,7 +87,7 @@ describe('dragTempo', () => {
     ids = (['C', 'D', 'E', 'F'] as const).map((step, i) =>
       engine.addNoteAtBeat({ step, octave: 4, duration: 'q', measure: 1, beat: frac(i, 1) })!.id)
     // Anchored on beat 1 — the engraver draws it at x 205, with a stop 100 px either side.
-    markId = engine.addTempoMark(1, { beat: frac(1, 1), text: 'Allegro' })!.id
+    markId = engine.tempo.addTempoMark(1, { beat: frac(1, 1), text: 'Allegro' })!.id
     render()
   })
 
@@ -152,7 +152,7 @@ describe('dragTempo', () => {
     // The whole-stop write (`tempoOps.setTempoAtSlot`): the `x` said *"a little left of THAT
     // element"* and is stale the moment the mark is on another one; the `y` says how far off the
     // ladder's row it sits, which every row answers the same way. ⚠️ `y` is OUTWARD here (+up).
-    engine.nudgeTempoOffset(markId, 3, 2)
+    engine.tempo.nudgeTempoOffset(markId, 3, 2)
     dragTempo(engine, markId, 305, 0)
     expect(at()).toBe('1@2')
     expect(offsetX(), 'the nudge went with the anchor').toBe(0)
@@ -168,7 +168,7 @@ describe('dragTempo', () => {
   it('⛔ …and stops at an onset another tempo mark is sitting on', () => {
     // One mark per beat: the model refuses the write, so the drag stops there — the same answer it
     // gives at the end of the score, and ⛔ never an overwrite.
-    const other = engine.addTempoMark(1, { beat: frac(2, 1), text: 'Presto' })!.id
+    const other = engine.tempo.addTempoMark(1, { beat: frac(2, 1), text: 'Presto' })!.id
     dragTempo(engine, markId, 1000, 0)
     expect(at(), 'the anchor stopped at the taken beat').toBe('1@1')
     expect(engine.getTempoMarkById(other)).not.toBeNull()
@@ -189,7 +189,7 @@ describe('dragTempo', () => {
   })
 
   it('⭐⭐ it is AUDIBLE — a re-anchor moves the tempo map', () => {
-    engine.updateTempoMark(markId, { bpm: 144 })
+    engine.tempo.updateTempoMark(markId, { bpm: 144 })
     dragTempo(engine, markId, 305, 0)
     expect(engine.getEffectiveTempoAt(1, frac(2, 1))).toBe(144)
     expect(engine.getEffectiveTempoAt(1, frac(1, 1))).not.toBe(144)
@@ -276,7 +276,7 @@ describe('dragTempo — the vertical, on a grand staff', () => {
     // old rule has something to land on (it is what his log picked).
     const n1 = engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'w', measure: 1, beat: frac(0, 1) })!
     const n2 = engine.addNoteAtBeat({ step: 'D', octave: 4, duration: 'w', measure: 2, beat: frac(0, 1) })!
-    markId = engine.addTempoMark(1, { beat: frac(0, 1), text: 'Allegro' })!.id
+    markId = engine.tempo.addTempoMark(1, { beat: frac(0, 1), text: 'Allegro' })!.id
 
     drawn.entries = [
       { type: 'note', id: n1.id, staff: 0, bbox: { x: 150, y: 296, width: 10, height: 10 } },

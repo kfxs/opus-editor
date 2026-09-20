@@ -7,8 +7,10 @@ import type { TempoMark } from '../types/music'
 function makeEngine(mark: TempoMark | null) {
   return {
     getTempoMarkById: vi.fn((_id: string) => mark),
-    updateTempoMark: vi.fn(),
-    removeTempoMark: vi.fn(),
+    tempo: {
+      updateTempoMark: vi.fn(),
+      removeTempoMark: vi.fn(),
+    },
     setSuppressedTempoId: vi.fn(),
     // null → the source falls back to the registry bbox + fallback font (the no-DOM path
     // these tests run in). The real browser path measures the engraved <g> instead.
@@ -42,7 +44,7 @@ describe('TempoTextSource \u2014 the whole mark is the editable text', () => {
     const { engine, render, source } = sourceFor(mark({ text: 'Allegro (\u2669 = 144)', unit: 'q', bpm: 144 }))
     source.commit('Allegro (\u2669 = 120)')
 
-    expect(engine.updateTempoMark).toHaveBeenCalledWith('t1', {
+    expect(engine.tempo.updateTempoMark).toHaveBeenCalledWith('t1', {
       text: 'Allegro (\u2669 = 120)', unit: 'q', dots: undefined, bpm: 120,
     })
     expect(render).toHaveBeenCalled()
@@ -53,7 +55,7 @@ describe('TempoTextSource \u2014 the whole mark is the editable text', () => {
     const { engine, source } = sourceFor(mark({ text: 'Moderato (\u2669 = 112)', unit: 'q', bpm: 112 }))
     source.commit('Moderato \u2669 = 112')
 
-    expect(engine.updateTempoMark).toHaveBeenCalledWith('t1', {
+    expect(engine.tempo.updateTempoMark).toHaveBeenCalledWith('t1', {
       text: 'Moderato \u2669 = 112', unit: 'q', dots: undefined, bpm: 112,
     })
   })
@@ -62,7 +64,7 @@ describe('TempoTextSource \u2014 the whole mark is the editable text', () => {
     const { engine, source } = sourceFor(mark({ text: 'Moderato (\u2669 = 112)', unit: 'q', bpm: 112 }))
     source.commit('Moderato (\u2669 = 112) sempre')
 
-    expect(engine.updateTempoMark).toHaveBeenCalledWith('t1', {
+    expect(engine.tempo.updateTempoMark).toHaveBeenCalledWith('t1', {
       text: 'Moderato (\u2669 = 112) sempre', unit: 'q', dots: undefined, bpm: 112,
     })
   })
@@ -71,7 +73,7 @@ describe('TempoTextSource \u2014 the whole mark is the editable text', () => {
     const { engine, source } = sourceFor(mark({ text: 'Adagio' }))
     source.commit('Adagio (\u2669 = 60)')
 
-    expect(engine.updateTempoMark).toHaveBeenCalledWith('t1', {
+    expect(engine.tempo.updateTempoMark).toHaveBeenCalledWith('t1', {
       text: 'Adagio (\u2669 = 60)', unit: 'q', dots: undefined, bpm: 60,
     })
   })
@@ -80,7 +82,7 @@ describe('TempoTextSource \u2014 the whole mark is the editable text', () => {
     const { engine, source } = sourceFor(mark({ text: 'Allegro (\u2669 = 144)', unit: 'q', bpm: 144 }))
     source.commit('Allegro')
 
-    expect(engine.updateTempoMark).toHaveBeenCalledWith('t1', {
+    expect(engine.tempo.updateTempoMark).toHaveBeenCalledWith('t1', {
       text: 'Allegro', unit: undefined, dots: undefined, bpm: undefined,
     })
   })
@@ -88,16 +90,16 @@ describe('TempoTextSource \u2014 the whole mark is the editable text', () => {
   it('an empty string removes the mark \u2014 it would say nothing at all', () => {
     const { engine, source } = sourceFor(mark({ text: 'Allegro (\u2669 = 144)', bpm: 144 }))
     source.commit('   ')
-    expect(engine.removeTempoMark).toHaveBeenCalledWith('t1')
-    expect(engine.updateTempoMark).not.toHaveBeenCalled()
+    expect(engine.tempo.removeTempoMark).toHaveBeenCalledWith('t1')
+    expect(engine.tempo.updateTempoMark).not.toHaveBeenCalled()
   })
 
   it('rejects a nonsense bpm rather than producing an impossible clock', () => {
     for (const bad of ['\u2669 = 0', '\u2669 = 5000']) {
       const { engine, source } = sourceFor(mark({ text: '\u2669 = 120', unit: 'q', bpm: 120 }))
       source.commit(bad)
-      expect(engine.updateTempoMark, `"${bad}" must be rejected`).not.toHaveBeenCalled()
-      expect(engine.removeTempoMark, `"${bad}" must not delete the mark`).not.toHaveBeenCalled()
+      expect(engine.tempo.updateTempoMark, `"${bad}" must be rejected`).not.toHaveBeenCalled()
+      expect(engine.tempo.removeTempoMark, `"${bad}" must not delete the mark`).not.toHaveBeenCalled()
     }
   })
 })
@@ -109,11 +111,11 @@ describe('TempoTextSource — lifecycle', () => {
   it('Escape on a freshly placed mark removes it; an existing one is untouched', () => {
     const fresh = makeEngine(mark({ text: 'Allegro' }))
     new TempoTextSource('t1', true, fresh as unknown as MusicEngine, () => null, render).cancel()
-    expect(fresh.removeTempoMark).toHaveBeenCalledWith('t1')
+    expect(fresh.tempo.removeTempoMark).toHaveBeenCalledWith('t1')
 
     const existing = makeEngine(mark({ text: 'Allegro' }))
     new TempoTextSource('t1', false, existing as unknown as MusicEngine, () => null, render).cancel()
-    expect(existing.removeTempoMark).not.toHaveBeenCalled()
+    expect(existing.tempo.removeTempoMark).not.toHaveBeenCalled()
   })
 
   it('hideOriginal suppresses the whole mark — the overlay shows the whole mark', () => {

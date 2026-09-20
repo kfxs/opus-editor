@@ -22,7 +22,7 @@ describe('TempoOffsetController', () => {
     nudge = vi.fn(() => true)
     render = vi.fn()
     score = { id: 's', title: '', measures: [], engravingOverrides: {} } as unknown as Score
-    const engine = { getScore: () => score, nudgeTempoOffset: nudge } as unknown as MusicEngine
+    const engine = { getScore: () => score, tempo: { nudgeTempoOffset: nudge } } as unknown as MusicEngine
     controller = new TempoOffsetController(() => engine, render)
   })
   afterEach(() => { controller.destroy() })

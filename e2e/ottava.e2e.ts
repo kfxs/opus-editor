@@ -285,7 +285,7 @@ test('⭐⭐ …and the TEMPO mark clears the 8va in turn — the rung above it'
     const h = window.__h
     h.engine.addNoteAtBeat({ step: 'B', octave: 6, duration: 'w', measure: 1, beat: h.frac(0, 1) })
     h.engine.ottava.addOttava(1, { beat: h.frac(0, 1), length: h.frac(4, 1), shift: 1 })
-    h.engine.addTempoMark(1, { beat: h.frac(0, 1), text: 'Allegro' })
+    h.engine.tempo.addTempoMark(1, { beat: h.frac(0, 1), text: 'Allegro' })
     await h.render()
     return {
       ottava: h.placed('g.ottava text')[0],

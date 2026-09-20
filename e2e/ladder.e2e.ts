@@ -35,8 +35,8 @@ async function threeFamilies(score: import('@playwright/test').Page, octave = 6)
     const h = window.__h
     const id = h.engine.addNoteAtBeat({ step: 'B', octave: oct, duration: 'w', measure: 1, beat: h.frac(0, 1) })!.id
     h.engine.trill.addTrill({ startNoteId: id })
-    h.engine.addDynamic(1, { beat: h.frac(0, 1), text: 'p', placement: 'above' })
-    h.engine.addTempoMark(1, { beat: h.frac(0, 1), text: 'Allegro' })
+    h.engine.dynamic.addDynamic(1, { beat: h.frac(0, 1), text: 'p', placement: 'above' })
+    h.engine.tempo.addTempoMark(1, { beat: h.frac(0, 1), text: 'Allegro' })
     await h.render()
     const stave = h.staves()[0]
     return {
@@ -86,11 +86,11 @@ test('⭐⭐ a tempo mark CLEARS a dynamic placed above the staff — the consta
   const { withDynamic, alone, top } = await score.evaluate(async () => {
     const h = window.__h
     h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: 'w', measure: 1, beat: h.frac(0, 1) })
-    h.engine.addTempoMark(1, { beat: h.frac(0, 1), text: 'Allegro' })
+    h.engine.tempo.addTempoMark(1, { beat: h.frac(0, 1), text: 'Allegro' })
     await h.render()
     const alone = h.placed('g.tempo text')[0].y
 
-    h.engine.addDynamic(1, { beat: h.frac(0, 1), text: 'p', placement: 'above' })
+    h.engine.dynamic.addDynamic(1, { beat: h.frac(0, 1), text: 'p', placement: 'above' })
     await h.render()
     return { withDynamic: h.placed('g.tempo text')[0].y, alone, top: h.staves()[0].top }
   })
@@ -105,7 +105,7 @@ test('⭐ …and it clears LEDGER LINES, which the constant was also blind to', 
   const { high, low, top } = await score.evaluate(async () => {
     const h = window.__h
     const id = h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: 'w', measure: 1, beat: h.frac(0, 1) })!.id
-    h.engine.addTempoMark(1, { beat: h.frac(0, 1), text: 'Allegro' })
+    h.engine.tempo.addTempoMark(1, { beat: h.frac(0, 1), text: 'Allegro' })
     await h.render()
     const low = h.placed('g.tempo text')[0].y
 
@@ -138,7 +138,7 @@ test('⭐⭐ the tempo mark’s hit-box is a TEXT LINE, and does not swallow the
     // His fixture: a C5 whole note, a trill on it, and a metronome mark on the downbeat.
     const id = h.engine.addNoteAtBeat({ step: 'C', octave: 5, duration: 'w', measure: 1, beat: h.frac(0, 1) })!.id
     h.engine.trill.addTrill({ startNoteId: id })
-    h.engine.addTempoMark(1, { beat: h.frac(0, 1), text: 'Allegretto ♩ = 60', unit: 'q', bpm: 60 })
+    h.engine.tempo.addTempoMark(1, { beat: h.frac(0, 1), text: 'Allegretto ♩ = 60', unit: 'q', bpm: 60 })
     await h.render()
     const boxes = h.engine.getElementRegistry().getAll()
     const of = (type: string) => boxes.filter(e => e.type === type).map(e => e.bbox)[0]
@@ -167,7 +167,7 @@ test('⚠️ rendering again does not move the mark — the translate is idempot
   const { first, second, third } = await score.evaluate(async () => {
     const h = window.__h
     h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: 'w', measure: 1, beat: h.frac(0, 1) })
-    h.engine.addTempoMark(1, { beat: h.frac(0, 1), text: 'Allegro' })
+    h.engine.tempo.addTempoMark(1, { beat: h.frac(0, 1), text: 'Allegro' })
     await h.render()
     const first = h.placed('g.tempo text')[0].y
     await h.render()
@@ -211,7 +211,7 @@ async function belowStaffPair(score: import('@playwright/test').Page) {
     h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: 'q', measure: 1, beat: h.frac(2, 1) })
     h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: 'q', measure: 1, beat: h.frac(3, 1) })
     h.engine.ottava.addOttava(1, { beat: h.frac(0, 1), length: h.frac(4, 1), shift: -1 })
-    h.engine.addDynamic(1, { beat: h.frac(3, 1), text: 'p' })
+    h.engine.dynamic.addDynamic(1, { beat: h.frac(3, 1), text: 'p' })
     await h.render()
     const stave = h.staves()[0]
     const flat = (seg: { x1: number; y1: number; x2: number; y2: number }) => Math.abs(seg.y2 - seg.y1) < 1
@@ -258,7 +258,7 @@ test('⭐ …and on ordinary music the FLOORS keep the same order', async ({ sco
       h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: 'q', measure: 1, beat: h.frac(beat, 1) })
     }
     h.engine.ottava.addOttava(1, { beat: h.frac(0, 1), length: h.frac(4, 1), shift: -1 })
-    h.engine.addDynamic(1, { beat: h.frac(0, 1), text: 'p' })
+    h.engine.dynamic.addDynamic(1, { beat: h.frac(0, 1), text: 'p' })
     await h.render()
     const stave = h.staves()[0]
     const flat = (seg: { x1: number; y1: number; x2: number; y2: number }) => Math.abs(seg.y2 - seg.y1) < 1
@@ -306,15 +306,15 @@ test('⭐⭐ a POSITIVE tempo offset lifts the mark AWAY from the staff', async 
     const heads = h.placed('g.notehead text')
     const firstRowY = Math.min(...heads.map(g => g.y))
     const onFirstRow = heads.filter(g => Math.abs(g.y - firstRowY) < 5).length
-    const mark = h.engine.addTempoMark(onFirstRow + 1, { beat: h.frac(0, 1), text: 'Allegro' })!
+    const mark = h.engine.tempo.addTempoMark(onFirstRow + 1, { beat: h.frac(0, 1), text: 'Allegro' })!
     await h.render()
     const y = () => h.placed('g.tempo text')[0].y
 
     const before = y()
-    h.engine.nudgeTempoOffset(mark.id, 0, 2)   // +2 staff-spaces OUTWARD
+    h.engine.tempo.nudgeTempoOffset(mark.id, 0, 2)   // +2 staff-spaces OUTWARD
     await h.render()
     const after = y()
-    h.engine.nudgeTempoOffset(mark.id, 0, -4)  // …and back down past where it started
+    h.engine.tempo.nudgeTempoOffset(mark.id, 0, -4)  // …and back down past where it started
     await h.render()
     return { before, after, lower: y() }
   })

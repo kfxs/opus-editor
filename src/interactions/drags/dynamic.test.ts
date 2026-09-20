@@ -17,7 +17,7 @@ import { beginDynamicDrag } from './dynamic'
 
 describe('beginDynamicDrag', () => {
   const commit = vi.fn()
-  const engine = { commitDynamicDrag: commit } as unknown as MusicEngine
+  const engine = { dynamic: { commitDynamicDrag: commit } } as unknown as MusicEngine
   let host: DragHost
   let previews: number
 

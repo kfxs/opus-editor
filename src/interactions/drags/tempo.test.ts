@@ -17,7 +17,7 @@ import { beginTempoDrag } from './tempo'
 
 describe('beginTempoDrag', () => {
   const commit = vi.fn()
-  const engine = { commitTempoDrag: commit } as unknown as MusicEngine
+  const engine = { tempo: { commitTempoDrag: commit } } as unknown as MusicEngine
   let host: DragHost
 
   beforeEach(() => {

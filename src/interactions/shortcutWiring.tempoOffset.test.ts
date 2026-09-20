@@ -30,17 +30,22 @@ describe('nudging a tempo mark from the keyboard', () => {
     reanchor = vi.fn(() => true)
     renderScore = vi.fn()
     const engine = {
-      nudgeTempoOffset: nudge,
-      // ⭐ The WALK writes through the preview twins now — a run of presses is one undo entry
-      //   (`./keyRun`). Same mock: the claim here is which key writes which ink, unchanged.
-      previewTempoOffset: nudge,
-      previewTempoOffsetRebase: vi.fn(() => true),
-      previewTempoSlotKeepingOffset: vi.fn(() => true),
-      commitTempoDrag: vi.fn(),
-      resetTempoOffset: reset,
-      moveTempoBySlot: reanchor,
-      resetDynamicOffset: vi.fn(() => false),
-      nudgeDynamicOffset: vi.fn(() => false),
+      tempo: {
+        nudgeTempoOffset: nudge,
+        // ⭐ The WALK writes through the preview twins now — a run of presses is one undo entry
+        //   (`./keyRun`). Same mock: the claim here is which key writes which ink, unchanged.
+        previewTempoOffset: nudge,
+        previewTempoOffsetRebase: vi.fn(() => true),
+        previewTempoSlotKeepingOffset: vi.fn(() => true),
+        commitTempoDrag: vi.fn(),
+        resetTempoOffset: reset,
+        moveTempoBySlot: reanchor,
+        nextTempoSlot: () => null,
+      },
+      dynamic: {
+        resetDynamicOffset: vi.fn(() => false),
+        nudgeDynamicOffset: vi.fn(() => false),
+      },
       nudgeNoteOffset: vi.fn(() => false),
       resetNoteSpacing: vi.fn(() => false),
       resetBarWidth: vi.fn(() => false),
@@ -51,7 +56,6 @@ describe('nudging a tempo mark from the keyboard', () => {
       // ⚠️ The horizontal ink chords run through the interpolating walk (`./tempoWalk`), which asks
       // what lies ahead before it decides. Null = nothing to arrive at, so the press is the plain
       // nudge these cases are about; the walk's own arithmetic is proven in `tempoWalk.test.ts`.
-      nextTempoSlot: () => null,
       getScore: () => ({ measures: [] }),
       // ⚠️ The clef shares all three of these chords now (the plain and `Ctrl` arrows nudge its ink,
       // `Ctrl+Shift` moves it). `false` = "nothing to offset here", so the branch DECLINES and the

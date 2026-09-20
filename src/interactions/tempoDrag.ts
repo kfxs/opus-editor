@@ -10,7 +10,7 @@
  * arrived at the next onset. That is still what ←/→ do. It is no longer what the mouse does.
  *
  * ⭐ **The ANCHOR snaps; the INK trails.** The hand carries the anchor point along, and when it
- * reaches the next onset the mark is re-anchored there (`MusicEngine.previewTempoSlot`). What is
+ * reaches the next onset the mark is re-anchored there (`MusicEngine.tempo.previewTempoSlot`). What is
  * left over between the anchor and the hand is written as the offset ({@link trailTheHand}), so the
  * drawn mark is under the hand at all times and the snap happens underneath it.
  *
@@ -43,6 +43,7 @@
  * compartment that is OUTWARD (+up), converted here and nowhere else.
  */
 import type { MusicEngine } from '../engine/MusicEngine'
+import type { TempoCommands } from '@/engine/commands/tempoCommands'
 import type { Stop } from '../engine/models/tempoOps'
 import { tempoStops } from '../engine/models/tempoOps'
 import { tempoOffsetOverrideOf } from '../engine/models/engravingOverrides'
@@ -53,9 +54,7 @@ import {
 import { dbg, debugEnabled } from '../utils/debug'
 
 /** What the drag needs off the engine — a Pick, so a spec can stand it up without a renderer. */
-type TempoDragEngine = Pick<MusicEngine,
-  'getScore' | 'getElementRegistry' | 'getNote'
-  | 'previewTempoSlot' | 'previewTempoOffset'>
+type TempoDragEngine = Pick<MusicEngine, 'getScore' | 'getElementRegistry' | 'getNote'> & { tempo: Pick<TempoCommands, 'previewTempoSlot' | 'previewTempoOffset'> }
 
 /** Where the mark's anchor is drawn right now — what a gesture measures its hand against at the
  *  press (see {@link dragTempo}'s `handX`). Null when the last render drew neither the mark nor the
@@ -75,7 +74,7 @@ export interface TempoDragFrame {
 
 /**
  * ⭐⭐ **ONE FRAME OF A TEMPO MARK DRAG.** No undo entry (the drop commits once,
- * {@link MusicEngine.commitTempoDrag}); three things in order, and the order is the content:
+ * {@link MusicEngine.tempo.commitTempoDrag}); three things in order, and the order is the content:
  *
  *  1. **the SYSTEM**, if the hand has taken the mark to another one — that ends the frame, or this
  *     frame's horizontal would be spent against stops the hand was never near;
@@ -114,7 +113,7 @@ export function dragTempo(
   const snapped = snapToAnchorUnderHand(engine, id, handX) !== 0
   const trailed = trailTheHand(engine, id, handX, ss)
   // ⚠️ Screen-down → OUTWARD. This mark's stored `y` is the one in the compartment that is +up.
-  const lifted = dyPx !== 0 && engine.previewTempoOffset(id, 0, -dyPx / ss)
+  const lifted = dyPx !== 0 && engine.tempo.previewTempoOffset(id, 0, -dyPx / ss)
   const now = drawnX(engine, id, ss)
   return {
     moved: lifted || snapped || trailed,
@@ -173,7 +172,7 @@ function trailTheHand(
   // ⛔ A frame that asks for nothing writes nothing — the caller repaints on `moved`, and a repaint
   //    per mouse event that moved the mark by a millionth of a space is a repaint for nobody.
   if (Math.abs(delta) < 1e-6) return false
-  return engine.previewTempoOffset(id, delta, 0)
+  return engine.tempo.previewTempoOffset(id, delta, 0)
 }
 
 /**
@@ -209,7 +208,7 @@ function snapToAnchorUnderHand(engine: TempoDragEngine, id: string, handX: numbe
     if (direction === 1 ? handX < next.x : handX > next.x) break
     // ⚠️ The model refuses a beat another tempo mark already holds (one mark per beat, `tempoOps`),
     //    and the drag stops there — the same answer it gives at the end of the score.
-    if (!engine.previewTempoSlot(id, next.stop)) break
+    if (!engine.tempo.previewTempoSlot(id, next.stop)) break
     if (debugEnabled()) {
       dbg(`[TempoDrag] hand ${handX.toFixed(1)} reached the next anchor ${next.x.toFixed(1)}`
         + ` — re-anchored to m${next.stop.measure} beat ${next.stop.beat.num}/${next.stop.beat.den}`)
@@ -269,10 +268,10 @@ function jumpSystems(
     // A tempo mark is always engraved ABOVE the staff — it has no `placement` to ask.
     above: () => true,
   }, handX, inkY + dyPx)
-  if (!target || !engine.previewTempoSlot(id, target)) return false
+  if (!target || !engine.tempo.previewTempoSlot(id, target)) return false
 
   const lift = tempoOffsetOverrideOf(engine.getScore(), id)?.y ?? 0
-  if (lift !== 0) engine.previewTempoOffset(id, 0, -lift)
+  if (lift !== 0) engine.tempo.previewTempoOffset(id, 0, -lift)
   dbg(`[Tempo] jumped to the system it now belongs to | id:${id} → m${target.measure}`)
   return true
 }

@@ -72,7 +72,7 @@ describe('wireSelectionInspection', () => {
   // while an arrow key walks a dynamic around, this is the path that has to reach it.
   it('refreshes when an ENGRAVING OVERRIDE on the selected element is nudged', async () => {
     const engine = makeEngine()
-    const dynamic = engine.addDynamic(1, { text: 'p', beat: frac(0, 1) })!
+    const dynamic = engine.dynamic.addDynamic(1, { text: 'p', beat: frac(0, 1) })!
 
     const state = createEditorState()
     state.selectedElement = { kind: 'dynamic', id: dynamic.id }
@@ -80,7 +80,7 @@ describe('wireSelectionInspection', () => {
 
     expect(bus.inspection.get()[0].overrides).toBeUndefined()
 
-    engine.nudgeDynamicOffset(dynamic.id, 0, -1)
+    engine.dynamic.nudgeDynamicOffset(dynamic.id, 0, -1)
     await Promise.resolve()
 
     expect(bus.inspection.get()[0].overrides).toEqual([
@@ -95,17 +95,17 @@ describe('wireSelectionInspection', () => {
   // against itself says "no change". Anything holding the model's own objects has this hazard.
   it('refreshes on every nudge, not just the first', async () => {
     const engine = makeEngine()
-    const dynamic = engine.addDynamic(1, { text: 'p', beat: frac(0, 1) })!
+    const dynamic = engine.dynamic.addDynamic(1, { text: 'p', beat: frac(0, 1) })!
     const state = createEditorState()
     state.selectedElement = { kind: 'dynamic', id: dynamic.id }
     const stop = wireSelectionInspection(state, () => engine, () => () => {})
 
-    engine.nudgeDynamicOffset(dynamic.id, 0, -1)
+    engine.dynamic.nudgeDynamicOffset(dynamic.id, 0, -1)
     await Promise.resolve()
 
     const seen = vi.fn()
     const unsubscribe = bus.inspection.onChange(seen)
-    engine.nudgeDynamicOffset(dynamic.id, 0, -1)
+    engine.dynamic.nudgeDynamicOffset(dynamic.id, 0, -1)
     await Promise.resolve()
 
     expect(seen).toHaveBeenCalled()

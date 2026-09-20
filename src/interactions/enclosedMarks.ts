@@ -22,7 +22,8 @@
  * carries are asserted to be the same marks, so the two cannot drift apart in silence.
  */
 import type { Fraction, Measure, Score } from '../types/music'
-import type { MusicEngine } from '../engine/MusicEngine'
+import type { TempoCommands } from '@/engine/commands/tempoCommands'
+import type { DynamicCommands } from '@/engine/commands/dynamicCommands'
 import type { SlurCommands } from '@/engine/commands/slurCommands'
 import type { HairpinCommands } from '@/engine/commands/hairpinCommands'
 import type { TrillCommands } from '@/engine/commands/trillCommands'
@@ -197,7 +198,7 @@ export function markItems(items: Iterable<SelectionItem>): { kind: MarkKind; id:
 }
 
 /** What each kind's removal is called on the engine — the one place the six are mapped. */
-type MarkRemover = Pick<MusicEngine, 'removeDynamic' | 'removeTempoMark'> & { slur: Pick<SlurCommands, 'removeSlur'> } & { hairpin: Pick<HairpinCommands, 'removeHairpin'> } & {
+type MarkRemover = { tempo: Pick<TempoCommands, 'removeTempoMark'> } & { dynamic: Pick<DynamicCommands, 'removeDynamic'> } & { slur: Pick<SlurCommands, 'removeSlur'> } & { hairpin: Pick<HairpinCommands, 'removeHairpin'> } & {
   trill: Pick<TrillCommands, 'removeTrill'>
   ottava: Pick<OttavaCommands, 'removeOttava'>
   pedal: Pick<PedalCommands, 'removePedal'>
@@ -212,13 +213,13 @@ type MarkRemover = Pick<MusicEngine, 'removeDynamic' | 'removeTempoMark'> & { sl
 export function removeMarks(engine: MarkRemover, marks: { kind: MarkKind; id: string }[]): void {
   for (const mark of marks) {
     switch (mark.kind) {
-      case 'dynamic': engine.removeDynamic(mark.id); break
+      case 'dynamic': engine.dynamic.removeDynamic(mark.id); break
       case 'slur': engine.slur.removeSlur(mark.id); break
       case 'hairpin': engine.hairpin.removeHairpin(mark.id); break
       case 'trill': engine.trill.removeTrill(mark.id); break
       case 'ottava': engine.ottava.removeOttava(mark.id); break
       case 'pedal': engine.pedal.removePedal(mark.id); break
-      case 'tempo': engine.removeTempoMark(mark.id); break
+      case 'tempo': engine.tempo.removeTempoMark(mark.id); break
     }
   }
 }

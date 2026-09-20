@@ -77,7 +77,7 @@ describe('walkDynamic', () => {
     // Four quarters in one bar, one voice: C4 D4 E4 F4, with an `f` on the second of them.
     ids = (['C', 'D', 'E', 'F'] as const).map((step, i) =>
       engine.addNoteAtBeat({ step, octave: 4, duration: 'q', measure: 1, beat: frac(i, 1) })!.id)
-    dynamicId = engine.addDynamic(1, { beat: frac(1, 1), text: levelToGlyphString('f') })!.id
+    dynamicId = engine.dynamic.addDynamic(1, { beat: frac(1, 1), text: levelToGlyphString('f') })!.id
     render()
   })
 
@@ -101,7 +101,7 @@ describe('walkDynamic', () => {
     // The reason this walk needed a model op of its own: the ordinary re-anchor (`Ctrl+Shift+←/→`)
     // drops the whole offset, which is right for "not that note" and wrong for a ¼-space press that
     // happens to step over a notehead.
-    engine.nudgeDynamicOffset(dynamicId, 0, -2)
+    engine.dynamic.nudgeDynamicOffset(dynamicId, 0, -2)
     for (let i = 0; i < 10; i++) walkDynamic(engine, dynamicId, 1)
     expect(at(), 'it did cross').toBe('1@2')
     expect(offsetY(), 'the lift survives').toBeCloseTo(-2)
@@ -185,7 +185,7 @@ describe('walkDynamic', () => {
     expect(at()).toBe('1@2')
     // ⭐⭐ THE RUN IS THE UNDO ENTRY, ⛔ not the press — settle it first, as
     //   `shortcutWiring`'s 150 ms does in the app (`./keyRun`).
-    engine.commitDynamicDrag()
+    engine.dynamic.commitDynamicDrag()
     engine.undo()
     expect(at()).toBe('1@1')
     expect(offsetX()).toBeCloseTo(0)

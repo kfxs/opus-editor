@@ -68,7 +68,7 @@ const FLIP_ELEMENT: {
   // 🚨 `Dynamic.placement` rendered but had no instrument at all — the trill's own argument for this
   // key: *"a field with no way to set it is a dead field"*. Same rule about the offsets as the wedge
   // above, stated once in `dynamicOps.flipDynamicPlacement`.
-  dynamic: (engine, el) => engine.flipDynamicPlacement(el.id),
+  dynamic: (engine, el) => engine.dynamic.flipDynamicPlacement(el.id),
   // ⭐ A trill flips its SIDE, and unlike the hairpin above it really is a side: `placement` is the
   // trill's own field and it shares no line with anything (a trill is not a baseline family), so
   // moving it moves nothing else. `below` is the multi-voice case (docs/trill-plan.md §1 rule 2),

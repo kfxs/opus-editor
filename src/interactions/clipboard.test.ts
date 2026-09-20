@@ -632,7 +632,7 @@ describe('clipboard — dynamics travel (Phase 2)', () => {
       engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!.id,
       engine.addNoteAtBeat({ step: 'D', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })!.id,
     ]
-    engine.addDynamic(1, { beat: frac(0, 1), text: levelToGlyphString('f'), voice: 0 })
+    engine.dynamic.addDynamic(1, { beat: frac(0, 1), text: levelToGlyphString('f'), voice: 0 })
 
     const payload = buildClipboardFromSelection(engine.getScore(), ids)!
     expect(payload.dynamics).toHaveLength(1)
@@ -647,7 +647,7 @@ describe('clipboard — dynamics travel (Phase 2)', () => {
     // C@0, D@1, E@2, F@3 — copy the whole bar; dynamic on beat 2.
     const ids = [0, 1, 2, 3].map(b =>
       engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(b, 1) })!.id)
-    engine.addDynamic(1, { beat: frac(2, 1), text: levelToGlyphString('p'), voice: 0 })
+    engine.dynamic.addDynamic(1, { beat: frac(2, 1), text: levelToGlyphString('p'), voice: 0 })
 
     const payload = buildClipboardFromSelection(engine.getScore(), ids)!
     expect(fracToNumber(payload.dynamics[0].offset)).toBe(2)
@@ -664,7 +664,7 @@ describe('clipboard — dynamics travel (Phase 2)', () => {
       engine.addNoteAtBeat({ step: 'D', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })!.id,
     ]
     engine.addNoteAtBeat({ step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(2, 1) })
-    engine.addDynamic(1, { beat: frac(2, 1), text: levelToGlyphString('f'), voice: 0 })
+    engine.dynamic.addDynamic(1, { beat: frac(2, 1), text: levelToGlyphString('f'), voice: 0 })
 
     const payload = buildClipboardFromSelection(engine.getScore(), ids)!
     expect(payload.dynamics).toHaveLength(0)
@@ -672,9 +672,9 @@ describe('clipboard — dynamics travel (Phase 2)', () => {
 
   it('overwrites a destination dynamic in the paste window (no stacking)', () => {
     const c = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!.id
-    engine.addDynamic(1, { beat: frac(0, 1), text: levelToGlyphString('f'), voice: 0 })
+    engine.dynamic.addDynamic(1, { beat: frac(0, 1), text: levelToGlyphString('f'), voice: 0 })
     // Destination bar already has a 'p' at beat 0 that the paste should replace.
-    engine.addDynamic(2, { beat: frac(0, 1), text: levelToGlyphString('p'), voice: 0 })
+    engine.dynamic.addDynamic(2, { beat: frac(0, 1), text: levelToGlyphString('p'), voice: 0 })
 
     const payload = buildClipboardFromSelection(engine.getScore(), [c])!
     engine.pasteEvents(payload, { measure: 2, beat: frac(0, 1), voice: 0 })
@@ -717,8 +717,8 @@ describe('clipboard — dynamics travel (Phase 2)', () => {
       engine.addNoteAtBeat({ step, alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(i, 1) })!.id)
     const slur = engine.slur.createSlur(ids)!
     engine.slur.nudgeSlurEndpoint(slur.id, 'end', 1, -2)
-    const mark = engine.addTempoMark(1, { beat: frac(0, 1), text: 'Allegro' })!
-    engine.nudgeTempoOffset(mark.id, 3, 1)
+    const mark = engine.tempo.addTempoMark(1, { beat: frac(0, 1), text: 'Allegro' })!
+    engine.tempo.nudgeTempoOffset(mark.id, 3, 1)
 
     const payload = buildClipboardFromSelection(engine.getScore(), ids)!
     expect(payload.slurs[0].engraving, 'the curve').toHaveLength(1)
@@ -734,8 +734,8 @@ describe('clipboard — dynamics travel (Phase 2)', () => {
 
   it('carries a hand-nudged offset (client #8) with the pasted dynamic', () => {
     const c = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!.id
-    const d = engine.addDynamic(1, { beat: frac(0, 1), text: levelToGlyphString('f'), voice: 0 })!
-    engine.nudgeDynamicOffset(d.id, 2, -3) // hand-nudge the source mark
+    const d = engine.dynamic.addDynamic(1, { beat: frac(0, 1), text: levelToGlyphString('f'), voice: 0 })!
+    engine.dynamic.nudgeDynamicOffset(d.id, 2, -3) // hand-nudge the source mark
 
     const payload = buildClipboardFromSelection(engine.getScore(), [c])!
     // ⭐ A LIST since 2026-08-20 — whatever the mark carries, verbatim, so a kind with three
@@ -755,7 +755,7 @@ describe('clipboard — dynamics travel (Phase 2)', () => {
     engine.addStaffBelow(2) // staves 0..3
     const s0 = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1), staff: 0 })!.id
     const s1 = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 3, duration: 'q', measure: 1, beat: frac(0, 1), staff: 1 })!.id
-    engine.addDynamic(1, { beat: frac(0, 1), text: levelToGlyphString('mf'), voice: 0, staffId: engine.staffIdForIndex(1) })
+    engine.dynamic.addDynamic(1, { beat: frac(0, 1), text: levelToGlyphString('mf'), voice: 0, staffId: engine.staffIdForIndex(1) })
 
     const payload = buildClipboardFromSelection(engine.getScore(), [s0, s1])!
     expect(payload.dynamics[0]).toMatchObject({ staff: 1, text: levelToGlyphString('mf') }) // relative staff 1 (bottom copied)

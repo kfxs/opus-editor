@@ -1,10 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { levelToGlyphString, dynamicLevelOf } from '@/utils/dynamics'
 import { MusicEngine } from './MusicEngine'
-import { dynamicOffsetOverrideOf, noteOffsetOverrideOf } from './models/engravingOverrides'
+import { noteOffsetOverrideOf } from './models/engravingOverrides'
 import { fracCreate as frac, fracToNumber } from '@/utils/fraction'
 import { buildBeatMap, navBeatMap } from '@/utils/beatMap'
-import { DEFAULT_TEMPO } from '@/utils/tempoMap'
 
 // Stub ScoreRenderer (needs canvas/SVG) and PlaybackEngine (needs Web Audio)
 const fakeRegistry = {
@@ -570,105 +568,6 @@ describe('MusicEngine — measure rest duration change (regression)', () => {
     const total = slots.reduce((sum, s) => sum + fracToNumber(s.actualDuration!), 0)
     expect(total).toBeCloseTo(3, 5)            // exactly the 6/8 bar length
     expect(slots.some(s => s.type === 'rest' && (s as { isMeasureRest?: boolean }).isMeasureRest)).toBe(false)
-  })
-})
-
-describe('MusicEngine — dynamics', () => {
-  let engine: MusicEngine
-  beforeEach(() => { engine = makeEngine() })
-
-  const dynsOf = (m: number) => engine.getScore().measures.find(x => x.number === m)!.dynamics
-
-  it('adds a dynamic and returns it with an id', () => {
-    const d = engine.addDynamic(1, { beat: frac(0, 1), text: levelToGlyphString('p') })
-    expect(d?.id).toBeTruthy()
-    expect(engine.getDynamics(1)).toHaveLength(1)
-  })
-
-  // Multi-staff: dynamics are stamped with the placing staff's id so they render on that
-  // staff (the placement paths resolve it via engine.staffIdForIndex). Index 0 → absent.
-  it('staffIdForIndex follows the write convention (0 → absent, later → real id)', () => {
-    engine.addStaffBelow(0)
-    expect(engine.staffIdForIndex(0)).toBeUndefined()
-    expect(engine.staffIdForIndex(1)).toBe(engine.getScore().staves![1].id)
-  })
-
-  it('stamps the staffId on a dynamic placed on a later staff', () => {
-    engine.addStaffBelow(0)
-    const staff1Id = engine.getScore().staves![1].id
-    const d = engine.addDynamic(1, { beat: frac(0, 1), text: levelToGlyphString('f'), staffId: staff1Id })
-    expect(d?.staffId).toBe(staff1Id)
-  })
-
-  it('undo/redo restores and re-applies an added dynamic', () => {
-    engine.addDynamic(1, { beat: frac(0, 1), text: levelToGlyphString('f') })
-    expect(dynsOf(1)).toHaveLength(1)
-
-    expect(engine.undo()).toBe(true)
-    expect(dynsOf(1)).toBeUndefined()
-
-    expect(engine.redo()).toBe(true)
-    expect(dynamicLevelOf(dynsOf(1)![0])).toBe('f')
-  })
-
-  it('updates a dynamic and undo restores the prior value', () => {
-    const d = engine.addDynamic(1, { beat: frac(0, 1), text: levelToGlyphString('p') })!
-    engine.updateDynamic(d.id, { text: levelToGlyphString('f') })
-    expect(dynamicLevelOf(engine.getDynamics(1)[0])).toBe('f')
-
-    expect(engine.undo()).toBe(true)
-    expect(dynamicLevelOf(engine.getDynamics(1)[0])).toBe('p')
-  })
-
-  it('removes a dynamic and undo restores it', () => {
-    const d = engine.addDynamic(1, { beat: frac(0, 1), text: levelToGlyphString('p') })!
-    expect(engine.removeDynamic(d.id)).toBe(true)
-    expect(engine.getDynamics(1)).toEqual([])
-
-    expect(engine.undo()).toBe(true)
-    expect(engine.getDynamics(1)).toHaveLength(1)
-  })
-
-  it('resolves the active level through the engine', () => {
-    engine.addDynamic(1, { beat: frac(0, 1), text: levelToGlyphString('p') })
-    expect(engine.getActiveLevel(1, frac(2, 1))).toBe('p')
-    expect(engine.getActiveLevel(2, frac(0, 1))).toBe('p') // inherited into measure 2
-  })
-})
-
-describe('MusicEngine.nudgeDynamicOffset — client #8 position nudge', () => {
-  let engine: MusicEngine
-  beforeEach(() => { engine = makeEngine() })
-
-  const offsetOf = (id: string) => dynamicOffsetOverrideOf(engine.getScore(), id)
-
-  it('accumulates dx/dy onto any existing offset', () => {
-    const d = engine.addDynamic(1, { beat: frac(0, 1), text: levelToGlyphString('p') })!
-    expect(engine.nudgeDynamicOffset(d.id, 0, -0.25)).toBe(true)
-    expect(engine.nudgeDynamicOffset(d.id, 1, -0.25)).toBe(true)
-    expect(offsetOf(d.id)).toMatchObject({ kind: 'dynamicOffset', x: 1, y: -0.5 })
-  })
-
-  it('clears the override when the net offset returns to (0,0)', () => {
-    const d = engine.addDynamic(1, { beat: frac(0, 1), text: levelToGlyphString('f') })!
-    engine.nudgeDynamicOffset(d.id, 1, -1)
-    expect(offsetOf(d.id)).toBeDefined()
-    engine.nudgeDynamicOffset(d.id, -1, 1)
-    expect(offsetOf(d.id)).toBeUndefined() // absent = default, JSON stays clean
-  })
-
-  it('is a no-op for a missing dynamic id', () => {
-    expect(engine.nudgeDynamicOffset('no-such-id', 1, 1)).toBe(false)
-  })
-
-  it('undo restores the prior offset (one step per press)', () => {
-    const d = engine.addDynamic(1, { beat: frac(0, 1), text: levelToGlyphString('p') })!
-    engine.nudgeDynamicOffset(d.id, 0, -1)
-    engine.nudgeDynamicOffset(d.id, 0, -1)
-    expect(offsetOf(d.id)).toMatchObject({ y: -2 })
-
-    expect(engine.undo()).toBe(true)
-    expect(offsetOf(d.id)).toMatchObject({ y: -1 })
   })
 })
 
@@ -1267,96 +1166,6 @@ describe('MusicEngine — multi-voice (Phase 1)', () => {
     // Cursor on a voice it belongs to → stays scoped to that voice.
     const scoped = navBeatMap(score, c.id, 0)
     expect(scoped.allFlat.every(n => (n.voice ?? 0) === 0)).toBe(true)
-  })
-})
-
-describe('MusicEngine tempo marks', () => {
-  let engine: MusicEngine
-  beforeEach(() => { engine = makeEngine() })
-
-  const marksOf = (m: number) => engine.getTempoMarks(m)
-
-  it('adds a word, a metronome, or both — the TEXT says which; the bpm says how fast', () => {
-    // A word that sounds without printing its number; a bare metronome; both together. The mark is
-    // its text, so "is the metronome printed?" is answered by looking at it — there is no flag.
-    engine.addTempoMark(1, { beat: frac(0, 1), text: 'Allegro', bpm: 144 })
-    engine.addTempoMark(1, { beat: frac(1, 1), text: '♩ = 120', unit: 'q', bpm: 120 })
-    engine.addTempoMark(1, { beat: frac(2, 1), text: 'Adagio (♩ = 65)', unit: 'q', bpm: 65 })
-
-    expect(marksOf(1).map(t => [t.text, t.bpm])).toEqual([
-      ['Allegro', 144],
-      ['♩ = 120', 120],
-      ['Adagio (♩ = 65)', 65],
-    ])
-  })
-
-  it('a word-only mark sounds at the prevailing tempo (it prints, it does not re-clock)', () => {
-    engine.addTempoMark(1, { beat: frac(0, 1), bpm: 60 })
-    engine.addTempoMark(1, { beat: frac(2, 1), text: 'dolce' }) // no bpm
-    expect(engine.getEffectiveTempoAt(1, frac(3, 1))).toBe(60)
-  })
-
-  it('resolves the tempo positionally, falling back to DEFAULT_TEMPO (no score.tempo)', () => {
-    expect(engine.getEffectiveTempoAt(1, frac(0, 1))).toBe(DEFAULT_TEMPO)
-    engine.addTempoMark(1, { beat: frac(2, 1), unit: 'h', bpm: 60 }) // 𝅗𝅥 = 60 → 120 qpm
-    expect(engine.getEffectiveTempoAt(1, frac(1, 1))).toBe(DEFAULT_TEMPO) // before the mark
-    expect(engine.getEffectiveTempoAt(1, frac(2, 1))).toBe(120) // the unit is half the meaning
-  })
-
-  it('replaces a mark already on the beat (one clock statement per point in time)', () => {
-    engine.addTempoMark(1, { beat: frac(0, 1), text: 'Largo', bpm: 50 })
-    engine.addTempoMark(1, { beat: frac(0, 1), text: 'Presto', bpm: 185 })
-    expect(marksOf(1)).toHaveLength(1) // NOT stacked (that is the dynamics rule)
-    expect(marksOf(1)[0].text).toBe('Presto')
-  })
-
-  it('rejects a bpm that would make the clock nonsense', () => {
-    expect(() => engine.addTempoMark(1, { beat: frac(0, 1), bpm: 0 })).toThrow(/between 20 and 300/)
-    expect(() => engine.addTempoMark(1, { beat: frac(0, 1), bpm: 500 })).toThrow(/between 20 and 300/)
-    expect(marksOf(1)).toHaveLength(0)
-  })
-
-  it('editing the word leaves the bpm untouched, and vice versa (decision D2)', () => {
-    const mark = engine.addTempoMark(1, { beat: frac(0, 1), text: 'Allegro', bpm: 144 })!
-
-    engine.updateTempoMark(mark.id, { text: 'Allegro con brio' })
-    expect(marksOf(1)[0]).toMatchObject({ id: mark.id, text: 'Allegro con brio', bpm: 144 })
-
-    engine.updateTempoMark(mark.id, { bpm: 152 })
-    expect(marksOf(1)[0]).toMatchObject({ id: mark.id, text: 'Allegro con brio', bpm: 152 })
-  })
-
-  it('removes a mark, reverting to the previous tempo', () => {
-    engine.addTempoMark(1, { beat: frac(0, 1), bpm: 60 })
-    const second = engine.addTempoMark(1, { beat: frac(2, 1), bpm: 180 })!
-
-    expect(engine.removeTempoMark(second.id)).toBe(true)
-    expect(engine.getEffectiveTempoAt(1, frac(3, 1))).toBe(60)
-    expect(engine.removeTempoMark('nope')).toBe(false)
-  })
-
-  it('drops the array when the last mark is removed (no empty tempos: [] in JSON)', () => {
-    const mark = engine.addTempoMark(1, { beat: frac(0, 1), bpm: 60 })!
-    engine.removeTempoMark(mark.id)
-    expect(engine.getScore().measures[0].tempos).toBeUndefined()
-  })
-
-  it('undo/redo restores and re-applies add, edit and remove', () => {
-    const mark = engine.addTempoMark(1, { beat: frac(0, 1), text: 'Allegro', bpm: 144 })!
-    expect(engine.undo()).toBe(true)
-    expect(marksOf(1)).toHaveLength(0) // the add is undone
-    expect(engine.redo()).toBe(true)
-    expect(marksOf(1)).toHaveLength(1)
-
-    engine.updateTempoMark(marksOf(1)[0].id, { bpm: 60 })
-    expect(engine.undo()).toBe(true)
-    expect(marksOf(1)[0].bpm).toBe(144) // the edit is undone
-
-    engine.removeTempoMark(marksOf(1)[0].id)
-    expect(marksOf(1)).toHaveLength(0)
-    expect(engine.undo()).toBe(true)
-    expect(marksOf(1)[0]).toMatchObject({ text: 'Allegro', bpm: 144 }) // the removal is undone
-    void mark
   })
 })
 

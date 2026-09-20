@@ -89,7 +89,7 @@ describe('flipSelection — the `x` key', () => {
   it('⭐⭐ a DYNAMIC — a level or an expression WORD — flips the same lane (his ask, 2026-08-22)', () => {
     // 🚨 `Dynamic.placement` rendered but had NO instrument before this: the trill's own argument for
     //    this key, *"a field with no way to set it is a dead field"*.
-    const dynamic = engine.addDynamic(1, { text: 'dolce', beat: frac(0, 1) })!
+    const dynamic = engine.dynamic.addDynamic(1, { text: 'dolce', beat: frac(0, 1) })!
     state.selectedElement = { kind: 'dynamic', id: dynamic.id }
 
     expect(flipSelection(state, engine)).toBe(true)

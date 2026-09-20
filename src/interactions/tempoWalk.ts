@@ -28,6 +28,7 @@
  * OUTWARD (+up), unlike every sibling ({@link TempoOffsetOverride}); nothing in the walk touches it.
  */
 import type { MusicEngine } from '../engine/MusicEngine'
+import type { TempoCommands } from '@/engine/commands/tempoCommands'
 import type { Stop } from '../engine/models/tempoOps'
 import { tempoOffsetOverrideOf } from '../engine/models/engravingOverrides'
 import { type MarkWalkPort } from './markWalk'
@@ -37,11 +38,7 @@ import { withoutAnEntry } from './keyRun'
 import { nextAnchorPoint, onsetAnchorX, staffSpacePxOf, tempoAddress } from './tempoAnchors'
 
 /** What the walk needs off the engine — a Pick, so a spec can stand it up without a renderer. */
-type TempoWalkEngine = Pick<MusicEngine,
-  'getScore' | 'getElementRegistry' | 'getNote' | 'runBatch'
-  | 'nudgeTempoOffset'
-  | 'previewTempoOffsetRebase'
-  | 'previewTempoSlotKeepingOffset' | 'previewTempoOffset' | 'previewTempoSlot'>
+type TempoWalkEngine = Pick<MusicEngine, 'getScore' | 'getElementRegistry' | 'getNote' | 'runBatch'> & { tempo: Pick<TempoCommands, 'nudgeTempoOffset' | 'previewTempoOffsetRebase' | 'previewTempoSlotKeepingOffset' | 'previewTempoOffset' | 'previewTempoSlot'> }
 
 /** The port: everything `./markWalk` needs of this mark, and the whole of what is tempo-specific. */
 function tempoPort(
@@ -118,9 +115,9 @@ function wrapPort(engine: TempoWalkEngine, id: string): BreakWrapPort {
 export function walkTempo(engine: TempoWalkEngine, id: string, dx: number): boolean {
   if (dx === 0) return false
   const port = tempoPort(engine, id, {
-    reanchor: (i, target) => engine.previewTempoSlotKeepingOffset(i, target),
-    nudge: (i, ddx, ddy) => engine.previewTempoOffset(i, ddx, ddy),
-    rebase: (i, ddx) => engine.previewTempoOffsetRebase(i, ddx),
+    reanchor: (i, target) => engine.tempo.previewTempoSlotKeepingOffset(i, target),
+    nudge: (i, ddx, ddy) => engine.tempo.previewTempoOffset(i, ddx, ddy),
+    rebase: (i, ddx) => engine.tempo.previewTempoOffsetRebase(i, ddx),
   })
 
   // ⭐ THE SECOND POINT MARK ON THE SHARED DRIVER (`./markDrive`), and with the dynamic the pair that

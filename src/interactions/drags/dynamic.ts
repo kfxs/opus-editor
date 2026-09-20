@@ -42,7 +42,7 @@ const DYNAMIC: BodyDragSpec = {
   // the mark is only knowable once it has been drawn there, so the payment is made after the draw
   // and inside the same mouse event. It writes at most once per landing.
   afterFrame: (engine, id) => settleDynamicLanding(engine, id),
-  commit: engine => engine.commitDynamicDrag(),
+  commit: engine => engine.dynamic.commitDynamicDrag(),
 }
 
 export function beginDynamicDrag(host: DragHost, id: string): Gesture {

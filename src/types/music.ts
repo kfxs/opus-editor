@@ -1460,7 +1460,7 @@ export interface TempoOffsetOverride extends EngravingOverride {
    * types about a mark means *how far from the staff*, and for a mark that is always drawn ABOVE
    * the staff that direction is up. A dynamic hangs BELOW, so its screen-down `y` already reads as
    * "further away" and needs no such rule. ⚠️ The two are converted at exactly two places — the
-   * render (`rendering/TempoLayout`) and the page limit (`MusicEngine.nudgeTempoOffset`) — and
+   * render (`rendering/TempoLayout`) and the page limit (`MusicEngine.tempo.nudgeTempoOffset`) — and
    * nothing else may assume a sign.
    */
   y: number

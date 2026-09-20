@@ -145,7 +145,7 @@ test('⭐ the trill sits NEARER the staff than a dynamic would — it is the inn
     const h = window.__h
     const id = h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: 'w', measure: 1, beat: h.frac(0, 1) })!.id
     h.engine.trill.addTrill({ startNoteId: id })
-    h.engine.addDynamic(1, { beat: h.frac(0, 1), text: 'p', placement: 'above' })
+    h.engine.dynamic.addDynamic(1, { beat: h.frac(0, 1), text: 'p', placement: 'above' })
     await h.render()
     return {
       trillY: h.placed('g.trill text')[0].y,
@@ -547,7 +547,7 @@ async function slurOverTrill(
     })!.id)
     const created = slur ? h.engine.slur.createSlur([ids[0], ids[3]]) : null
     h.engine.trill.addTrill({ startNoteId: ids[1] })
-    h.engine.addDynamic(1, { beat: h.frac(1, 1), text: 'p', placement: 'above' })
+    h.engine.dynamic.addDynamic(1, { beat: h.frac(1, 1), text: 'p', placement: 'above' })
     // ⭐ The hand's move goes in BEFORE the render being measured — this is the drawn page after a
     //   drag, not a preview frame.
     const nudged = created && nudge !== undefined ? h.engine.slur.nudgeSlur(created.id, 0, nudge) : false

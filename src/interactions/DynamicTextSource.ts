@@ -88,7 +88,7 @@ const DYNAMIC_INSERT_KEYS: ReadonlyArray<{ key: string; shift?: boolean; alt?: b
  * {@link EditableTextSource} for ANY dynamic — level ('p'/'f'…) or custom text.
  * Bridges the generic text editor to the dynamics model + renderer: seeds from the
  * mark as painted (a level's glyph or the text), reads its engraved font off the DOM,
- * writes back via `engine.updateDynamic`, positions over the registry bbox, and
+ * writes back via `engine.dynamic.updateDynamic`, positions over the registry bbox, and
  * hides/restores the engraved glyph during the edit.
  */
 export class DynamicTextSource implements EditableTextSource {
@@ -278,11 +278,11 @@ export class DynamicTextSource implements EditableTextSource {
   commit(text: string): void {
     const trimmed = text.replace(/\u00A0/g, ' ').trim()
     if (trimmed === '') {
-      this.engine.removeDynamic(this.targetId)
+      this.engine.dynamic.removeDynamic(this.targetId)
       this.render()
       return
     }
-    this.engine.updateDynamic(this.targetId, { text: trimmed })
+    this.engine.dynamic.updateDynamic(this.targetId, { text: trimmed })
     this.render()
   }
 
@@ -290,7 +290,7 @@ export class DynamicTextSource implements EditableTextSource {
    *  mark is untouched. */
   cancel(): void {
     if (this.isNew) {
-      this.engine.removeDynamic(this.targetId)
+      this.engine.dynamic.removeDynamic(this.targetId)
       this.render()
     }
   }

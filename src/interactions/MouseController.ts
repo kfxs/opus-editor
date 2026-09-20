@@ -394,7 +394,7 @@ export class MouseController {
     // SCOPE note above. ⚠️ NOT the clicked note's voice: a mark is placed AT a note, not INTO it.
     const staffId = engine.staffIdForIndex(staffOf(note))
     const staffParam = staffId ? { staffId } : {}
-    const created = engine.addDynamic(note.measure, {
+    const created = engine.dynamic.addDynamic(note.measure, {
       beat: note.beat, text: DEFAULT_DYNAMIC_TEXT, placement: 'below', ...staffParam,
     })
     if (!created) return
@@ -1161,7 +1161,7 @@ export class MouseController {
     const engine = this.getEngine()
     const textEdit = this.getTextEdit()
     if (!engine || !textEdit || this.state.editingText) return
-    const created = engine.addTempoMark(stop.measure, { beat: stop.beat, text: DEFAULT_TEMPO_TEXT })
+    const created = engine.tempo.addTempoMark(stop.measure, { beat: stop.beat, text: DEFAULT_TEMPO_TEXT })
     if (!created) return
     // ⭐ The selection that SAID WHERE is spent — his call, 2026-08-31: *"if we select a measure and
     //   then chose to enter tempo… the measure should not be selected anymore (we are doing tempo
@@ -1413,7 +1413,7 @@ export class MouseController {
     const staff = engine.getElementRegistry().staffIndexAtY(measureNum, y)
     const staffId = engine.staffIdForIndex(staff)
     const staffParam = staffId ? { staffId } : {}
-    engine.addDynamic(measureNum, { beat, text: dynamicTextFromTool(tool), placement: 'below', ...staffParam })
+    engine.dynamic.addDynamic(measureNum, { beat, text: dynamicTextFromTool(tool), placement: 'below', ...staffParam })
     dbg(`✓ Dynamic ${tool} at measure ${measureNum} beat ${fracToNumber(beat).toFixed(3)} staff ${staff}`)
     this.render.renderScore()
     return true
@@ -1433,7 +1433,7 @@ export class MouseController {
     const staff = engine.getElementRegistry().staffIndexAtY(measureNum, y)
     const staffId = engine.staffIdForIndex(staff)
     const staffParam = staffId ? { staffId } : {}
-    const created = engine.addDynamic(measureNum, { beat, text: DEFAULT_DYNAMIC_TEXT, placement: 'below', ...staffParam })
+    const created = engine.dynamic.addDynamic(measureNum, { beat, text: DEFAULT_DYNAMIC_TEXT, placement: 'below', ...staffParam })
     // Disarm to selection mode either way — the click is consumed. (Reassign, never mutate: the
     // observable Proxy only traps the SET.)
     this.state.selectedMarkingTool = null
@@ -1456,7 +1456,7 @@ export class MouseController {
   private placeTempoEntryAtClick(engine: MusicEngine, x: number, measureNum: number): boolean {
     if (!armedTool(this.state, 'tempoEntry')) return false
     const beat = this.resolveSlotBeat(engine, x, measureNum)
-    const created = engine.addTempoMark(measureNum, { beat, text: DEFAULT_TEMPO_TEXT })
+    const created = engine.tempo.addTempoMark(measureNum, { beat, text: DEFAULT_TEMPO_TEXT })
     // Disarm to selection mode either way — the click is consumed. (Reassign, never mutate.)
     this.state.selectedMarkingTool = null
     this.state.selectedTool = 'selection'
@@ -1485,7 +1485,7 @@ export class MouseController {
     // `tempoFieldsFromTool` is the one place the two meet — from then on the string is the truth,
     // and deleting the brackets in the editor deletes them for good. The ghost preview goes
     // through it too, so what you see under the cursor is what gets engraved.
-    const created = engine.addTempoMark(measureNum, { beat, ...tempoFieldsFromTool(tool) })
+    const created = engine.tempo.addTempoMark(measureNum, { beat, ...tempoFieldsFromTool(tool) })
     if (created) {
       dbg(`✓ Tempo ${tempoLabel(created)} at measure ${measureNum} beat ${fracToNumber(beat).toFixed(3)}`)
     }

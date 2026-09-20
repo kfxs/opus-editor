@@ -43,7 +43,7 @@ describe('ClipboardController — copying one element', () => {
     state = createEditorState()
     ids = (['C', 'D', 'E', 'F'] as const).map((step, i) =>
       engine.addNoteAtBeat({ step, octave: 4, duration: 'q', measure: 1, beat: frac(i, 1) })!.id)
-    dynamicId = engine.addDynamic(1, { beat: frac(0, 1), text: 'dolce', voice: 0, placement: 'below' })!.id
+    dynamicId = engine.dynamic.addDynamic(1, { beat: frac(0, 1), text: 'dolce', voice: 0, placement: 'below' })!.id
     const selection = { selectNote: vi.fn(), selectNotes: vi.fn() } as unknown as SelectionController
     const render = { renderScore: vi.fn() } as unknown as RenderController
     clipboard = new ClipboardController(() => engine, state, selection, render)
@@ -111,7 +111,7 @@ describe('ClipboardController — copying one element', () => {
   })
 
   it('⭐ a selected TEMPO mark travels with the clip and lands at the paste', () => {
-    const tempoId = engine.addTempoMark(1, { beat: frac(0, 1), text: 'Allegro' })!.id
+    const tempoId = engine.tempo.addTempoMark(1, { beat: frac(0, 1), text: 'Allegro' })!.id
     const notes = [ids[0], ids[1]]
     state.selectedItems = new Map<string, { kind: 'note' | 'tempo'; id: string }>([
       ...notes.map(id => [`note:${id}`, { kind: 'note' as const, id }] as const),
@@ -125,7 +125,7 @@ describe('ClipboardController — copying one element', () => {
   })
 
   it('…and stays behind when it is NOT selected', () => {
-    engine.addTempoMark(1, { beat: frac(0, 1), text: 'Allegro' })
+    engine.tempo.addTempoMark(1, { beat: frac(0, 1), text: 'Allegro' })
     const notes = [ids[0], ids[1]]
     state.selectedItems = new Map(notes.map(id => [`note:${id}`, { kind: 'note', id }]))
     clipboard.copy()

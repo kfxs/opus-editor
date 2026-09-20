@@ -153,7 +153,7 @@ test('⭐⭐ clears a dynamic and a hairpin in the same bars', async ({ score })
     for (const beat of [0, 1, 2, 3]) {
       h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: 'q', measure: 1, beat: h.frac(beat, 1) })
     }
-    h.engine.addDynamic(1, { beat: h.frac(0, 1), level: 'p' })
+    h.engine.dynamic.addDynamic(1, { beat: h.frac(0, 1), level: 'p' })
     h.engine.hairpin.addHairpin(1, { type: 'cresc', beat: h.frac(1, 1), length: h.frac(3, 1) })
     h.engine.pedal.addPedal(1, { beat: h.frac(0, 1), length: h.frac(4, 1) })
     await h.render()

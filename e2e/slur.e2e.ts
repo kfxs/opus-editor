@@ -327,7 +327,7 @@ test('🚨🚨 a DYNAMIC under a covered note does not touch the arch — his re
     // ⚠️ A `p` under a note MID-SPAN, not under an endpoint: an obstacle within a whisker of an end
     // is deliberately left uncleared (`slurObstacles`, SLUR_OBSTACLE_MAX_LIFT_RATIO), so a mark on
     // the first note proves nothing either way.
-    h.engine.addDynamic(1, { beat: h.frac(2, 1), text: 'p', placement: 'below' })
+    h.engine.dynamic.addDynamic(1, { beat: h.frac(2, 1), text: 'p', placement: 'below' })
     await h.render()
     const after = h.curveSamples('g.slur path', 40)
     const staff = h.staves()[0]

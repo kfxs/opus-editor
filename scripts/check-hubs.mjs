@@ -34,11 +34,11 @@ import { readFileSync } from 'node:fs'
 
 /** A hub, its ceilings, and the functions counted out of it. `lines: null` = reported, not held. */
 const HUBS = [
-  { file: 'src/engine/MusicEngine.ts', kinds: 668, lines: null },
+  { file: 'src/engine/MusicEngine.ts', kinds: 543, lines: null },
   { file: 'src/engine/models/ScoreModel.ts', kinds: 1105, lines: null },
   { file: 'src/engine/rendering/ScoreRenderer.ts', kinds: 891, lines: null },
   { file: 'src/interactions/MouseController.ts', kinds: 307, lines: 1100 },
-  { file: 'src/interactions/PaletteController.ts', kinds: 494, lines: null },
+  { file: 'src/interactions/PaletteController.ts', kinds: 489, lines: null },
   { file: 'src/interactions/HighlightController.ts', kinds: 9, lines: 117 },
   { file: 'src/interactions/shortcutWiring.ts', kinds: 67, lines: 431, except: ['deleteSelected'] },
   { file: 'src/windows/properties/PropertiesWidget.ts', kinds: 0, lines: 73 },
@@ -73,6 +73,18 @@ function stripComments(text) {
   return text
     .replace(/\/\*[\s\S]*?\*\//g, m => m.replace(/[^\n]/g, ''))
     .replace(/(^|[^:'"`\\])\/\/.*$/gm, '$1')
+}
+
+/**
+ * ⭐ `engine.dynamic.addDynamic(…)` names its kind ONCE, as `engine.addDynamic(…)` did. A mark family's
+ * commands are reached through a namespace on the facade (`engine/commands/<family>Commands`,
+ * docs/code-shape-plan-2026-09-19.md Phase 3.5), and that accessor carries no knowledge the command's
+ * own name does not already carry — so it is not a second mention. ⚠️ Narrow on purpose: only a
+ * MEMBER access (`.family.`) that is itself followed by a member, and only these families.
+ */
+const COMMAND_NAMESPACES = ['ottava', 'pedal', 'trill', 'hairpin', 'slur', 'dynamic', 'tempo']
+function withoutCommandNamespaces(code) {
+  return code.replace(new RegExp(`\\.(?:${COMMAND_NAMESPACES.join('|')})\\.(?=[A-Za-z_])`, 'g'), '.')
 }
 
 /** Remove the body of `name` — `name: (…) => {`, `function name(`, or a method `name(` — by brace
@@ -122,7 +134,7 @@ const failures = []
 const falls = []
 
 for (const hub of HUBS) {
-  let code = stripComments(readFileSync(hub.file, 'utf8'))
+  let code = withoutCommandNamespaces(stripComments(readFileSync(hub.file, 'utf8')))
   for (const name of hub.except ?? []) code = withoutFunction(code, name, hub.file)
 
   const perKind = new Map()

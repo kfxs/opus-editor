@@ -102,7 +102,7 @@ describe('repeatSelectedPassage — R copies the selected bars forward', () => {
   })
 
   it('carries the enclosed MARKS with the music', () => {
-    engine.addDynamic(1, { beat: frac(0, 1), text: 'mp', voice: 0, placement: 'below' })
+    engine.dynamic.addDynamic(1, { beat: frac(0, 1), text: 'mp', voice: 0, placement: 'below' })
     box(1, 1)
     repeatSelectedPassage(engine, state, selection)
     const bar2 = engine.getScore().measures.find(m => m.number === 2)!
