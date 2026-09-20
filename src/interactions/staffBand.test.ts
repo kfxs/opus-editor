@@ -32,7 +32,7 @@ describe('inStaffBand', () => {
 
   it('⭐ the pad matches the drawn measure box, which is what makes the rule sayable', () => {
     // "Click where the box would be → select", and now → stamp. If this number ever diverges from
-    // `HighlightController.applyMeasureBox`'s ±12, the promise the highlight makes stops being true.
+    // `elements/measureRange.paintMeasureBox`'s ±12, the promise the highlight makes stops being true.
     expect(STAFF_BAND_PAD_PX).toBe(12)
   })
 })

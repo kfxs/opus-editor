@@ -23,6 +23,10 @@
  */
 import { dbg } from '@/utils/debug'
 import type { ClickableElementSpec } from './chain'
+import type { HighlightContext } from './highlightContext'
+import { ELEMENT_SELECTION_FILL } from '@/utils/selectionColors'
+import { scoreTextClass } from '@/engine/rendering/ScoreHeaderPass'
+import { selectedOf } from '../EditorState'
 
 export const SCORE_TEXT_ELEMENT: ClickableElementSpec = {
   kind: 'scoreText',
@@ -66,5 +70,26 @@ export const SCORE_TEXT_ELEMENT: ClickableElementSpec = {
     return false
   },
 
-  highlight: ctx => ctx.controller.applyScoreTextSelectionHighlight(),
+  highlight: paintSelectedScoreText,
+}
+
+/**
+ * 🚧 **THE SKETCHED HEADER LINE, LIT** — the title or the composer at the head of the first page,
+ * recoloured in the element-selection ink (`engine/rendering/ScoreHeaderPass`; ⛔ read its note
+ * before building on it).
+ *
+ * ⭐ It lights only the line that was SELECTED, which is what makes the two separable at all: the
+ * class the pass wrote onto each `<text>` names its field, so the selection's own `field` finds
+ * exactly one of them.
+ *
+ * ⭐ FILL only, never a stroke. It is text: an outlined glyph reads as BOLD, which is the mistake
+ * the note highlight names out loud, and it would be worse on a 4.4-space title than anywhere.
+ */
+export function paintSelectedScoreText(ctx: HighlightContext): void {
+  const selected = selectedOf(ctx.state, 'scoreText')
+  if (!selected) return
+  const text = ctx.svg.querySelector(`.${scoreTextClass(selected.field)}`) as SVGElement | null
+  if (!text) return
+  ctx.setAttr(text, 'fill', ELEMENT_SELECTION_FILL)
+  ctx.setStyleProp(text, 'fill', ELEMENT_SELECTION_FILL)
 }

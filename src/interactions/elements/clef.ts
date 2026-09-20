@@ -7,6 +7,9 @@
 import { dbg } from '@/utils/debug'
 import { staffOf } from '@/utils/lanes'
 import type { ClickableElementSpec } from './chain'
+import type { HighlightContext } from './highlightContext'
+import { selectedOf } from '../EditorState'
+import { paintGlyphsInBBox } from './headerGlyphs'
 import { beginClefDrag } from '../drags/clef'
 import { CLEF_KEYS } from './clefKeys'
 
@@ -35,6 +38,31 @@ export const CLEF_ELEMENT: ClickableElementSpec = {
     )
   },
 
-  highlight: ctx => ctx.controller.applyClefSelectionHighlight(),
+  highlight: paintSelectedClef,
   keys: CLEF_KEYS,
+}
+
+export function paintSelectedClef(ctx: HighlightContext): void {
+  const engine = ctx.engine
+  const selected = selectedOf(ctx.state, 'clef')
+  if (!selected) return
+
+  const registry = engine.getElementRegistry()
+  const targetBeat = selected.beat
+  // Scope by staff — clef is per-staff, so at (measure, beat) each stacked staff has
+  // its own opening-clef element. Matching on measure+beat alone highlights the first
+  // (staff 0) regardless of which staff's clef was actually selected.
+  const clefEl = registry.getByType('clef').find(
+    el => el.measure === selected.measure && (el.beat ?? 0) === targetBeat
+      && staffOf(el) === selected.staff,
+  )
+  if (!clefEl) return
+
+  const svg = ctx.svg
+
+  // Scope the scan to the selected measure's own group so the recolor can't reach a
+  // neighbour's clef; fall back to the whole SVG only if the group can't be resolved.
+  const root = engine.getMeasureSVGGroup(clefEl.measure ?? 0, staffOf(clefEl)) ?? svg
+  // The clef glyph is a filled path/text near the measure's left edge.
+  paintGlyphsInBBox(ctx, root, clefEl.bbox, 'selected-clef')
 }

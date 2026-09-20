@@ -7,6 +7,7 @@ import type { MusicEngine } from '../engine/MusicEngine'
 import type { ViewMode } from '@/engine/layout/layoutConfig'
 import { paintSlurHandles } from './elements/slurHandles'
 import { paintSelectedNotes } from './elements/notePaint'
+import { paintMeasureBox } from './elements/measureRange'
 
 /**
  * P3 — the highlight layer must be REMOVABLE without a redraw (docs/render-performance-plan.md §5a).
@@ -88,7 +89,7 @@ describe('clearHighlights — the inverse of a highlight pass', () => {
     const before = [...svg.children]
     expect(svg.lastChild).toBe(sibling)
 
-    hc.applyMeasureBox() // no measure range selected → adds nothing
+    paintMeasureBox(hc.context()!) // no measure range selected → adds nothing
     paintSelectedNotes(hc.context()!)
     expect(svg.lastChild).toBe(group) // raised to the front
 

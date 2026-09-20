@@ -7,6 +7,9 @@
  */
 import { dbg } from '@/utils/debug'
 import type { ClickableElementSpec } from './chain'
+import type { HighlightContext } from './highlightContext'
+import { selectedOf } from '../EditorState'
+import { barlineGapGroup, barlineSignGroup, paintBarlineHalf } from './barlineInk'
 import { beginBarWidthDrag } from '../drags/barWidth'
 import { paintBarlineJoinSquares } from './barlineJoinSquares'
 
@@ -139,5 +142,53 @@ export const BARLINE_ELEMENT: ClickableElementSpec = {
     )
   },
 
-  highlight: ctx => { ctx.controller.applyBarlineSelectionHighlight(); paintBarlineJoinSquares(ctx) },
+  highlight: ctx => { paintSelectedBarline(ctx); paintBarlineJoinSquares(ctx) },
+}
+
+/**
+ * Highlight the selected barline — the sign at the boundary that ENDS the selected measure.
+ *
+ * ⭐⭐ **IT COLOURS THE SIGN WE DREW, whatever that sign is.** 🚨 **His report, 2026-08-26** —
+ * *"when i select a barline the highlight is a little bit confusing… are we overlapping the blue
+ * to another black barline?"*, and then *"why was the highlight before starting this project
+ * better than now?"* Both were right, and the second names the cause exactly.
+ *
+ * This used to PAINT one 2 px rect at `noteEndX`, which was correct while every barline was
+ * VexFlow's 1.6 px line — the rect covered it, and the line read blue. P2 made us draw the signs
+ * ourselves, and a sign is much more ink: a final bar is thin (0.16) + gap (0.32) + THICK (0.50),
+ * all of it to the LEFT of the boundary, and an end repeat adds two dots 1.5 spaces out. The 2 px
+ * rect then covered the last half-pixel of the thick line and laid the rest of itself on blank
+ * staff to the RIGHT of the sign — a blue sliver beside a black sign, which is what he saw.
+ *
+ * ⚠️ **This is a RECOLOUR, and the rule it looks like it breaks does not apply to it.**
+ * `docs/barline-selection.md` §3 says PAINT, don't RECOLOUR — but read what that rule is about:
+ * recolouring **VexFlow's** nodes. Every failure it lists is a *finding* failure of that DOM (one
+ * barline was two rects, the second not always in the group you expect, and the coordinates lie on
+ * a bar that was reused and translated). None of it survives P2:
+ *
+ *  - the sign is ONE group of ours, `barline-<measure>-<staff>-<side>`, with an id we chose;
+ *  - the pass is rebuilt from scratch every render, from the PLACEMENT and not from a stale stave
+ *    ({@link BarlinePlacement}), so there is nothing stale to find and no coordinate to trust —
+ *    this method reads no geometry at all now;
+ *  - and colouring the group's own ink cannot miss a half of the sign, because the sign IS the
+ *    group. The dots come with it, still drawn by the font.
+ *
+ * ⭐ **Which group.** A boundary carries ONE sign (`signAtBoundary`): normally the one bar *N*
+ * draws at its end, but when bar *N+1* opens a repeat there, bar *N* draws nothing and the sign is
+ * the neighbour's `-start`. So: bar *N*'s end group, else bar *N+1*'s start group. ⛔ Never both —
+ * a displaced `|:` (one pushed past a clef, `BarlineRenderer.displacedRepeatX`) is not at this
+ * boundary at all, and bar *N* keeps its own line there, which the first branch already found.
+ *
+ * Drawn on EVERY staff of that measure, like the time signature's highlight and for the same
+ * reason: one barline, stated once for the system, drawn once per staff.
+ */
+export function paintSelectedBarline(ctx: HighlightContext): void {
+  const measure = selectedOf(ctx.state, 'barline')?.measure ?? null
+  if (measure === null) return
+  // The END half: the sign's ink LEFT of the divider, plus the divider itself — on the staff, and
+  // in the gap below it when the two are joined.
+  paintBarlineHalf(ctx, 'end', (svg, staff) => [
+    barlineSignGroup(svg, measure, staff),
+    barlineGapGroup(svg, measure, staff),
+  ])
 }

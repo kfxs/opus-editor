@@ -313,8 +313,8 @@ export const ELEMENT_HIT_ORDER: ReadonlyArray<ClickableElementSpec> = [
  *
  * ⭐ A row is handed a {@link HighlightContext} — the layer's painting toolkit, bound to its undo
  * log — so the painting lives in the kind's own module (docs/code-shape-plan-2026-09-19.md, 3.3;
- * the span squares are the first, `./endpointHandles`). ⏳ A row that still reads
- * `ctx.controller.apply…()` has a body the step has not reached yet.
+ * every row does). The layer itself — the undo log, `clearHighlights`, the entry keyboard cursor —
+ * is all `HighlightController` still is.
  */
 export const ELEMENT_SPECS: Record<SelectedElement['kind'], ElementKindSpec> = {
   clef: CLEF_ELEMENT,

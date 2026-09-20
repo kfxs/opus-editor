@@ -9,7 +9,7 @@
  * P2 made us draw the signs ourselves (a final bar is ~1 space of ink, all of it left of the
  * boundary, and the hinting pass may nudge a plain line off the registry's x by half a device pixel).
  *
- * ⚠️ So this is now a RECOLOUR, and the header of `applyBarlineSelectionHighlight` records why the
+ * ⚠️ So this is now a RECOLOUR, and the header of `barline.paintSelectedBarline` records why the
  * PAINT-don't-RECOLOUR rule does not reach it: that rule is about VexFlow's nodes, and every failure
  * it lists is a *finding* failure of a DOM we no longer read.
  *
@@ -19,9 +19,11 @@
  */
 import { describe, it, expect, beforeEach } from 'vitest'
 import { MusicEngine } from '@/engine/MusicEngine'
-import { HighlightController } from './HighlightController'
-import { createEditorState } from './EditorState'
-import type { EditorState } from './EditorState'
+import { HighlightController } from '../HighlightController'
+import { paintSelectedBarline } from './barline'
+import { paintSelectedRepeatStart } from './repeatStart'
+import { createEditorState } from '../EditorState'
+import type { EditorState } from '../EditorState'
 import { ELEMENT_SELECTION_FILL } from '@/utils/selectionColors'
 
 describe('barline selection highlight', () => {
@@ -41,14 +43,14 @@ describe('barline selection highlight', () => {
   const select = (measure: number) => {
     highlight.clearHighlights()
     state.selectedElement = { kind: 'barline', measure }
-    highlight.applyBarlineSelectionHighlight()
+    paintSelectedBarline(highlight.context()!)
   }
 
   /** Select the `|:` that OPENS `measure` — the other half of the family (`./elements/repeatStart`). */
   const selectOpenRepeat = (measure: number) => {
     highlight.clearHighlights()
     state.selectedElement = { kind: 'repeatStart', measure }
-    highlight.applyRepeatStartSelectionHighlight()
+    paintSelectedRepeatStart(highlight.context()!)
   }
 
   beforeEach(() => {
@@ -65,7 +67,7 @@ describe('barline selection highlight', () => {
   })
 
   it('marks nothing when no barline is selected', () => {
-    highlight.applyBarlineSelectionHighlight()
+    paintSelectedBarline(highlight.context()!)
     expect(marked()).toHaveLength(0)
   })
 

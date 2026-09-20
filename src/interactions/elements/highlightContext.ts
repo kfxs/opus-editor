@@ -15,7 +15,6 @@
 import type { MusicEngine } from '@/engine/MusicEngine'
 import type { ElementRegistry } from '@/engine/ElementRegistry'
 import type { EditorState } from '../EditorState'
-import type { HighlightController } from '../HighlightController'
 
 export interface HighlightContext {
   engine: MusicEngine
@@ -35,10 +34,4 @@ export interface HighlightContext {
    *  (unison heads, two voices' rests on one spot, overlapping tuplet brackets). The layer puts it
    *  back on clear — the reorder only means anything while the element is selected. */
   raiseToFront(group: Element): void
-  /**
-   * ⏳ **TRANSITIONAL** — the painters that have not moved to their kind's module yet. A row that
-   * still reads `ctx.controller.apply…()` is a row Phase 3.3 has not reached; this member goes when
-   * the last one stops.
-   */
-  controller: HighlightController
 }

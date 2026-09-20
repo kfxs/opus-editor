@@ -1,6 +1,6 @@
 # Code shape plan — 2026-09-19
 
-**Status: IN PROGRESS — Phase 1 DONE (2026-09-19), bar item 5's two ⏭️ decisions. Phase 2 DONE. Phase 3.1: the hairpin / ottava / pedal body drags done and checked; the trill's too (`cdb7f05`); the slur's too (`69e927c`); the four SQUARE drags too (`6d903c3`); the slur HANDLE / ENDPOINT and staff-spacing drags too (`8f28f79`); the DYNAMIC and TEMPO drags too (`9a04f88`); bar width, barline join, group span and clef too (`ee31698`); the NOTE drag too (`7d2898e`) — every gesture is a module. **Phase 3.1 DONE** (`25f70a6`). 3.2: the `keys` column + dispatcher and the HAIRPIN on it (`e61626a`); OTTAVA / PEDAL / TRILL too (`14e10e7`); DYNAMIC and TEMPO too (`943fb64`); SLUR and CLEF too (`8382fcc`); the `reanchor` and `cycle` verbs done, awaiting his UI check — **Phase 3.2 DONE with it.** 3.3 (`highlight(ctx)`): the contract + the four span squares (`a7c1076`); the join and group squares (`b772418`); the `ink` column (`f1832e7`); the slur handles (`d3dcb7b`); the anchor guide line (`e2ff597`); the note pass + the six note-attached kinds done, awaiting his UI check.** Phases are ordered by
+**Status: IN PROGRESS — Phase 1 DONE (2026-09-19), bar item 5's two ⏭️ decisions. Phase 2 DONE. Phase 3.1: the hairpin / ottava / pedal body drags done and checked; the trill's too (`cdb7f05`); the slur's too (`69e927c`); the four SQUARE drags too (`6d903c3`); the slur HANDLE / ENDPOINT and staff-spacing drags too (`8f28f79`); the DYNAMIC and TEMPO drags too (`9a04f88`); bar width, barline join, group span and clef too (`ee31698`); the NOTE drag too (`7d2898e`) — every gesture is a module. **Phase 3.1 DONE** (`25f70a6`). 3.2: the `keys` column + dispatcher and the HAIRPIN on it (`e61626a`); OTTAVA / PEDAL / TRILL too (`14e10e7`); DYNAMIC and TEMPO too (`943fb64`); SLUR and CLEF too (`8382fcc`); the `reanchor` and `cycle` verbs done, awaiting his UI check — **Phase 3.2 DONE with it.** 3.3 (`highlight(ctx)`): the contract + the four span squares (`a7c1076`); the join and group squares (`b772418`); the `ink` column (`f1832e7`); the slur handles (`d3dcb7b`); the anchor guide line (`e2ff597`); the note pass + note-attached kinds (`aa7e5af`); every remaining row done, awaiting his UI check — **Phase 3.3 DONE with it.** 3.4 (Properties panels) is next.** Phases are ordered by
 value over risk; each one stands alone and can be stopped after. A done item carries ✅ and what
 actually happened where that differs from what was planned.
 
@@ -474,11 +474,22 @@ Run the e2e suite either side of each step.
    `articulation.paintSelectedArticulations`, run by `RenderController` beside the notes and the
    marks (it is keyed by `noteId`, not `id`, so it is not an `ink` row). Specs: the tie / tremolo /
    fanned-member chapters → `elements/notePaint.test.ts`; `clearHighlights` stays the
-   controller's. Hub: kinds 118 → **55**, file → 718 lines. ⏸️ Awaiting his UI check.*
+   controller's. Hub: kinds 118 → **55**, file → 718 lines. ✅ Passed (`aa7e5af`).*
 
-   *⏭️ What is left on the controller, and its shape: (a) ✅ the note pass — above. (b) the header signs — clef / meter / key (`highlightGlyphsInBBox`). (c) the
-   barline / repeat-start family (`recolourBarlineHalf` + the group finders). (d) tuplet, score
-   text, measure box, keyboard cursor.*
+   *Seventh slice — every remaining ROW, so `ctx.controller` is GONE: clef + meter
+   (`paintSelectedClef` / `paintSelectedTimeSignature` over the shared CTM-aware scan,
+   `elements/headerGlyphs.paintGlyphsInBBox`); barline + open repeat (`paintSelectedBarline` /
+   `paintSelectedRepeatStart` over `elements/barlineInk` — `paintBarlineHalf`, the group finders,
+   `HIGHLIGHT_WEIGHT_PX`); key signature, score text, tuplet, and the measure box
+   (`measureRange.paintMeasureBox`), each in its own module as its `highlight` row. Spec:
+   `HighlightController.barline.test.ts` → `elements/barlineInk.test.ts`. ⭐ **`HighlightController`
+   is now only the LAYER** — the undo log and its five writes, `clearHighlights`, `context()`, and
+   the entry keyboard cursor (not a kind's, so it stays): kinds 55 → **9**, 2,172 → **183** file
+   lines, 117 code lines — and its code-line ceiling STARTS here. ⏸️ Awaiting his UI check;
+   **3.3 DONE with it.** 3.4 (Properties panels: `rows` yes, `report` no) is next.*
+
+   *⏭️ What is left on the controller, and its shape: (a) ✅ the note pass — above. (b)–(d) ✅ the seventh slice,
+   below; the keyboard cursor stays the layer's own.*
 4. **Properties panels**: `windows/properties/panels/<kind>.ts` exporting `report` and `rows`,
    keyed by kind. *(review)* **Recommended: `rows` yes, `report` no.** The `paint` ladder is
    where this window grows (977 code lines, 25 kind tests), its specs are *already* split by kind

@@ -6,6 +6,10 @@
  */
 import { dbg } from '@/utils/debug'
 import type { ClickableElementSpec } from './chain'
+import type { HighlightContext } from './highlightContext'
+import { staffOf } from '@/utils/lanes'
+import { selectedOf } from '../EditorState'
+import { paintGlyphsInBBox } from './headerGlyphs'
 
 export const TIME_SIGNATURE_ELEMENT: ClickableElementSpec = {
   kind: 'timeSignature',
@@ -30,5 +34,29 @@ export const TIME_SIGNATURE_ELEMENT: ClickableElementSpec = {
     return deps.pick({ kind: 'timeSignature', measure: timeSigAt.measure })
   },
 
-  highlight: ctx => ctx.controller.applyTimeSignatureSelectionHighlight(),
+  highlight: paintSelectedTimeSignature,
+}
+
+export function paintSelectedTimeSignature(ctx: HighlightContext): void {
+  const engine = ctx.engine
+  const selectedTs = selectedOf(ctx.state, 'timeSignature')
+  if (!selectedTs) return
+
+  const registry = engine.getElementRegistry()
+  // A time signature is system-wide: it applies to every staff and is drawn once
+  // per staff, so highlight the TS glyph in ALL staves of the measure, not just the
+  // one that was clicked. Each staff has its own timeSignature element at this measure.
+  const tsEls = registry.getByType('timeSignature').filter(
+    el => el.measure === selectedTs.measure,
+  )
+  if (tsEls.length === 0) return
+
+  const svg = ctx.svg
+
+  for (const tsEl of tsEls) {
+    // Scope each staff's recolor to that staff's own group (see `clef.paintSelectedClef`).
+    const root = engine.getMeasureSVGGroup(tsEl.measure ?? 0, staffOf(tsEl)) ?? svg
+    // The TS glyph is filled number paths/text in a narrow column after the clef.
+    paintGlyphsInBBox(ctx, root, tsEl.bbox, 'selected-timesig')
+  }
 }

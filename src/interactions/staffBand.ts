@@ -24,7 +24,7 @@
 
 /**
  * Vertical margin (px) added above and below a staff's five lines. Matches the drawn measure box's
- * own ±12 extent (`HighlightController.applyMeasureBox`), which is what makes the rule sayable:
+ * own ±12 extent (`elements/measureRange.paintMeasureBox`), which is what makes the rule sayable:
  * **click where the box would be, and the gesture lands.**
  */
 export const STAFF_BAND_PAD_PX = 12

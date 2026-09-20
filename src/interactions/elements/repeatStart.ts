@@ -35,6 +35,9 @@
  */
 import { dbg } from '@/utils/debug'
 import type { ClickableElementSpec } from './chain'
+import type { HighlightContext } from './highlightContext'
+import { selectedOf } from '../EditorState'
+import { paintBarlineHalf, signGroupById } from './barlineInk'
 
 export const REPEAT_START_ELEMENT: ClickableElementSpec = {
   kind: 'repeatStart',
@@ -75,5 +78,26 @@ export const REPEAT_START_ELEMENT: ClickableElementSpec = {
     return deps.pick({ kind: 'repeatStart', measure })
   },
 
-  highlight: ctx => ctx.controller.applyRepeatStartSelectionHighlight(),
+  highlight: paintSelectedRepeatStart,
+}
+
+/**
+ * ⭐⭐ **THE OPEN REPEAT'S OWN HIGHLIGHT** — the `|:` that opens a bar, lit without lighting the
+ * end repeat it may be standing back-to-back with.
+ *
+ * ⭐ **WHICH GROUP.** The sign is drawn by whichever bar owns the pen at that spot, which is not
+ * always the bar it belongs to: a displaced `|:` (pushed past its own clef/meter) and a
+ * system-opening one are drawn by their OWN bar as its `-start` group; a `|:` standing on an
+ * ordinary boundary is drawn by the PREVIOUS bar, inside that bar's `-end` group, either alone or
+ * as the right half of a `:||:`. So: this bar's start group, else the previous bar's end group —
+ * the mirror of {@link barlineSignGroup}, and `data-half` is what keeps the second case honest.
+ */
+export function paintSelectedRepeatStart(ctx: HighlightContext): void {
+  const measure = selectedOf(ctx.state, 'repeatStart')?.measure ?? null
+  if (measure === null) return
+  paintBarlineHalf(ctx, 'start', (svg, staff) => [
+    signGroupById(svg, `${measure}-${staff}-start`) ?? signGroupById(svg, `${measure - 1}-${staff}-end`),
+    // …and the same line's ink in the gap below that staff, filed by the bar that drew it.
+    signGroupById(svg, `gap-${measure}-${staff}-start`) ?? signGroupById(svg, `gap-${measure - 1}-${staff}-end`),
+  ])
 }
