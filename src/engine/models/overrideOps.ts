@@ -565,3 +565,36 @@ export function clearClearedSpanOverrides(
   if (removed) dbg(`[overrides] cleared ${removed} entr(ies) with the content of ${spans.length} cleared span(s)`)
   return removed
 }
+
+/** The fields each bracket-shaped span's offset carries: a horizontal per END, and ONE vertical. */
+interface SpanOffsetKeys {
+  ottavaOffset: 'startX' | 'endX' | 'outward'
+  pedalOffset: 'startX' | 'endX' | 'y'
+  trillOffset: 'startX' | 'endX' | 'outward'
+}
+export type SpanOffsetFields<K extends keyof SpanOffsetKeys> = Partial<Record<SpanOffsetKeys[K], number>>
+
+/** The order the fields are WRITTEN in — a serialized score's key order is observable. */
+const SPAN_OFFSET_ORDER = ['startX', 'endX', 'outward', 'y'] as const
+
+/**
+ * Write a span mark's offset SPARSELY: a field that is 0 (or absent) is not written, and an entry
+ * with no field left is cleared — what `ottavaOps`, `pedalOps` and `trillOps` each spelled.
+ *
+ * ⚠️ The shared vertical is what forces the sparseness: a purely horizontal nudge computes
+ * `vertical = 0 + 0`, and written down that zero is a number the OTHER square then reports as a
+ * nudge of its own — so `Ctrl+Backspace` on an untouched square would answer instead of falling
+ * through to the note-spacing and bar-width resets. ⭐ It also keeps "absent = none" literally true.
+ */
+export function writeSpanOffset<K extends keyof SpanOffsetKeys>(
+  score: Score, id: string, kind: K, next: SpanOffsetFields<K>,
+): void {
+  const fields = next as Partial<Record<(typeof SPAN_OFFSET_ORDER)[number], number>>
+  const kept: EngravingOverride & Record<string, unknown> = { kind }
+  for (const key of SPAN_OFFSET_ORDER) if (fields[key]) kept[key] = fields[key]
+  if (Object.keys(kept).length === 1) {
+    clearEngravingOverride(score, id, kind)
+    return
+  }
+  setEngravingOverride(score, id, kept)
+}

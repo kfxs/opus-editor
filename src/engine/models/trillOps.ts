@@ -16,10 +16,10 @@
  * a fact the model holds — it is derived, through {@link trillSpan}, from where the anchors landed
  * this instant. `hairpinOps.measureHairpins` exists because a hairpin genuinely lives on a bar.
  */
-import type { Score, Trill, TrillContinuationLabel, TrillOffsetOverride, Fraction, Measure, ChordRest, NotePitch } from '@/types/music'
+import type { Score, Trill, TrillContinuationLabel, Fraction, Measure, ChordRest, NotePitch } from '@/types/music'
 import { v4 as uuidv4 } from 'uuid'
 import { findSlot } from './slotLookup'
-import { clearEngravingOverride, setEngravingOverride } from './overrideOps'
+import { clearEngravingOverride, writeSpanOffset, type SpanOffsetFields } from './overrideOps'
 import { trillOffsetOverrideOf } from './engravingOverrides'
 import { voiceOf } from '@/utils/lanes'
 import { measureStartOffsets as measureStarts } from '@/utils/measureCapacity'
@@ -168,23 +168,8 @@ export function setTrillEndpointOffset(
  * OTHER square then reports as a nudge of its own — so `Ctrl+Backspace` on an untouched square would
  * answer instead of falling through.
  */
-function writeTrillOffset(
-  score: Score,
-  id: string,
-  next: { startX?: number; endX?: number; outward?: number },
-): void {
-  const kept: TrillOffsetOverride = {
-    kind: 'trillOffset',
-    ...(next.startX ? { startX: next.startX } : {}),
-    ...(next.endX ? { endX: next.endX } : {}),
-    ...(next.outward ? { outward: next.outward } : {}),
-  }
-  if (kept.startX === undefined && kept.endX === undefined && kept.outward === undefined) {
-    clearEngravingOverride(score, id, 'trillOffset')
-    return
-  }
-  setEngravingOverride(score, id, kept)
-}
+const writeTrillOffset = (score: Score, id: string, next: SpanOffsetFields<'trillOffset'>): void =>
+  writeSpanOffset(score, id, 'trillOffset', next)
 
 /**
  * ⭐⭐ **MOVE THE WHOLE ORNAMENT** — the same `dx` onto both ends, accumulating: the arrows with a

@@ -20,13 +20,13 @@
  * ⚠️ Re-anchoring ottavas across a re-bar is NOT here — that is `rebarOps`, which owns every
  * beat-anchored thing that has to survive the barlines moving. The same split as `hairpinOps`.
  */
-import type { Fraction, Score, Ottava, Measure, OttavaOffsetOverride } from '@/types/music'
+import type { Fraction, Score, Ottava, Measure } from '@/types/music'
 import { v4 as uuidv4 } from 'uuid'
-import { fracCompare, fracAdd, fracSub, fracCreate, fracIsPositive } from '@/utils/fraction'
-import { measureCapacityFrac } from '@/utils/measureCapacity'
-import { slotLength } from '@/utils/durations'
+import { fracCompare, fracAdd, fracSub, fracIsPositive } from '@/utils/fraction'
+import { measureCapacityFrac, measureStartOffsets } from '@/utils/measureCapacity'
 import { matchesStaff } from './staffContent'
-import { clearEngravingOverride, setEngravingOverride } from './overrideOps'
+import { locateSpan, staffOnsets } from './spanLane'
+import { clearEngravingOverride, writeSpanOffset, type SpanOffsetFields } from './overrideOps'
 import { ottavaOffsetOverrideOf } from './engravingOverrides'
 
 /** A measure's ottavas (the live array; empty if none), sorted ascending by start beat. */
@@ -187,23 +187,8 @@ export function setOttavaEndpointOffset(
  * Found by the spec case that asserts exactly that decline. ⭐ It also keeps "absent = none" literally
  * true for this kind, which is what every reader of the compartment assumes.
  */
-function writeOttavaOffset(
-  score: Score,
-  id: string,
-  next: { startX?: number; endX?: number; outward?: number },
-): void {
-  const kept: OttavaOffsetOverride = {
-    kind: 'ottavaOffset',
-    ...(next.startX ? { startX: next.startX } : {}),
-    ...(next.endX ? { endX: next.endX } : {}),
-    ...(next.outward ? { outward: next.outward } : {}),
-  }
-  if (kept.startX === undefined && kept.endX === undefined && kept.outward === undefined) {
-    clearEngravingOverride(score, id, 'ottavaOffset')
-    return
-  }
-  setEngravingOverride(score, id, kept)
-}
+const writeOttavaOffset = (score: Score, id: string, next: SpanOffsetFields<'ottavaOffset'>): void =>
+  writeSpanOffset(score, id, 'ottavaOffset', next)
 
 /**
  * ⭐⭐ **MOVE THE WHOLE BRACKET** — the same delta onto BOTH ends, accumulating: the arrows with an
@@ -430,7 +415,7 @@ export interface OttavaSlotTarget {
 export function setOttavaStartAtSlot(score: Score, id: string, target: OttavaSlotTarget): boolean {
   const placed = locate(score, id)
   if (!placed) return false
-  const { ottava, startMeasure, endAbs, lane } = placed
+  const { mark: ottava, startMeasure, endAbs, lane } = placed
 
   const slot = lane.find(s => s.measure === target.measure && fracCompare(s.beat, target.beat) === 0)
   if (!slot) return false
@@ -480,7 +465,7 @@ export function setOttavaStartAtSlot(score: Score, id: string, target: OttavaSlo
 export function setOttavaAtSlot(score: Score, id: string, target: OttavaSlotTarget): boolean {
   const placed = locate(score, id)
   if (!placed) return false
-  const { ottava, startMeasure, lane } = placed
+  const { mark: ottava, startMeasure, lane } = placed
 
   const slot = lane.find(s => s.measure === target.measure && fracCompare(s.beat, target.beat) === 0)
   if (!slot) return false
@@ -534,30 +519,8 @@ export function applyOttavaDrag(score: Score, id: string, write: OttavaDragWrite
 
 /** Everything the three span-editing ops above read: the line, where it currently reaches, and the
  *  onsets of its STAFF it may be moved between. */
-function locate(score: Score, id: string): {
-  ottava: Ottava
-  startMeasure: number
-  startAbs: Fraction
-  endAbs: Fraction
-  lane: ReturnType<typeof staffOnsets>
-} | null {
-  const span = ottavaSpan(score, id)
-  const ottava = span ? getOttavaById(score, id) : null
-  if (!span || !ottava) return null
-
-  const starts = measureStartOffsets(score)
-  const base = starts.get(span.startMeasure)
-  if (base === undefined) return null
-  const startAbs = fracAdd(base, span.startBeat)
-
-  return {
-    ottava,
-    startMeasure: span.startMeasure,
-    startAbs,
-    endAbs: fracAdd(startAbs, ottava.length),
-    lane: staffOnsets(score, ottava.staffId, starts),
-  }
-}
+const locate = (score: Score, id: string) =>
+  locateSpan(score, ottavaSpan(score, id), getOttavaById(score, id))
 
 /** A lane onset named by its address **and by the staff it stands on** — what a VERTICAL drag lands
  *  on, where {@link OttavaSlotTarget} is what a sideways one lands on. `PedalStaffSlotTarget`'s
@@ -603,7 +566,7 @@ export function setOttavaAtStaffSlot(score: Score, id: string, target: OttavaSta
   const sameAddress = here.number === target.measure && fracCompare(ottava.beat, target.beat) === 0
   if (!staffMoves && sameAddress) return false
 
-  const lane = staffOnsets(score, target.staffId, measureStartOffsets(score))
+  const lane = staffOnsets(score, target.staffId)
   const slot = lane.find(s => s.measure === target.measure && fracCompare(s.beat, target.beat) === 0)
   if (!slot) return false
 
@@ -634,38 +597,6 @@ function moveOttavaToMeasure(score: Score, ottava: Ottava, measureNumber: number
   if (!target.ottavas) target.ottavas = []
   target.ottavas.push(ottava)
   return true
-}
-
-/**
- * Every onset of one STAFF, by absolute quarter-beat, with the slot's own length and address —
- * de-duplicated by beat (two voices attacking together are one onset) and sorted.
- *
- * ⚠️ De-duplicating keeps the LONGEST slot at a shared onset, which is what "reach through the next
- * slot" has to mean when two voices start together and one is longer: the shorter one's end is
- * inside the longer one's note, so stopping there would put the bracket's end at a position no
- * onset occupies — and the next press would then have to skip the rest of that note.
- */
-function staffOnsets(
-  score: Score,
-  staffId: string | undefined,
-  starts: Map<number, Fraction>,
-): Array<{ abs: Fraction; length: Fraction; measure: number; beat: Fraction }> {
-  const at = new Map<string, { abs: Fraction; length: Fraction; measure: number; beat: Fraction }>()
-  for (const measure of score.measures) {
-    const base = starts.get(measure.number)
-    if (base === undefined) continue
-    for (const slot of measure.slots) {
-      if (!matchesStaff(slot.staffId, staffId, score)) continue
-      const abs = fracAdd(base, slot.beat)
-      const length = slotLength(slot)
-      const key = `${abs.num}/${abs.den}`
-      const seen = at.get(key)
-      if (!seen || fracCompare(length, seen.length) > 0) {
-        at.set(key, { abs, length, measure: measure.number, beat: slot.beat })
-      }
-    }
-  }
-  return [...at.values()].sort((a, b) => fracCompare(a.abs, b.abs))
 }
 
 /**
@@ -748,7 +679,7 @@ export function addOttavaOverNotes(
   end: { measure: number; beat: Fraction; length: Fraction },
   staffId?: string,
 ): Ottava | null {
-  const starts = measureStartOffsets(score)
+  const starts = measureStartOffsets(score.measures)
   const absStart = starts.get(start.measure)
   const absEnd = starts.get(end.measure)
   if (absStart === undefined || absEnd === undefined) return null
@@ -762,17 +693,6 @@ export function addOttavaOverNotes(
     shift,
     ...(staffId !== undefined ? { staffId } : {}),
   })
-}
-
-/** Cumulative quarter-beat offset of each measure's start, keyed by measure number. */
-function measureStartOffsets(score: Score): Map<number, Fraction> {
-  const out = new Map<number, Fraction>()
-  let base = fracCreate(0, 1)
-  for (const m of [...score.measures].sort((a, b) => a.number - b.number)) {
-    out.set(m.number, base)
-    base = fracAdd(base, measureCapacityFrac(m))
-  }
-  return out
 }
 
 /**

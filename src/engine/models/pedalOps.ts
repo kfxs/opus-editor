@@ -31,14 +31,14 @@
  * ⚠️ Re-anchoring pedals across a re-bar is NOT here — that is `rebarOps`, which owns every
  * beat-anchored thing that has to survive the barlines moving. The same split as `hairpinOps`.
  */
-import type { Fraction, Score, Pedal, Measure, PedalOffsetOverride } from '@/types/music'
+import type { Fraction, Score, Pedal, Measure } from '@/types/music'
 import { v4 as uuidv4 } from 'uuid'
 import { fracCompare, fracAdd, fracSub, fracIsPositive } from '@/utils/fraction'
 import { measureCapacityFrac, measureStartOffsets as measureStarts } from '@/utils/measureCapacity'
-import { slotLength } from '@/utils/durations'
 import { matchesStaff } from './staffContent'
+import { locateSpan, staffOnsets } from './spanLane'
 import { pedalOffsetOverrideOf } from './engravingOverrides'
-import { clearEngravingOverride, setEngravingOverride } from './overrideOps'
+import { clearEngravingOverride, writeSpanOffset, type SpanOffsetFields } from './overrideOps'
 
 /** A measure's pedals (the live array; empty if none), sorted ascending by start beat. */
 export function measurePedals(measure: Measure): Pedal[] {
@@ -288,7 +288,7 @@ export function nextPedalLift(
 ): PedalLiftTarget | null {
   const placed = locate(score, id)
   if (!placed) return null
-  const { pedal, startMeasure, startAbs, endAbs, lane } = placed
+  const { mark: pedal, startMeasure, startAbs, endAbs, lane } = placed
 
   let nextLift: Fraction
   if (direction === 1) {
@@ -441,7 +441,7 @@ export interface PedalLiftTarget {
 export function setPedalStartAtSlot(score: Score, id: string, target: PedalSlotTarget): boolean {
   const placed = locate(score, id)
   if (!placed) return false
-  const { pedal, startMeasure, endAbs, lane } = placed
+  const { mark: pedal, startMeasure, endAbs, lane } = placed
 
   const slot = lane.find(s => s.measure === target.measure && fracCompare(s.beat, target.beat) === 0)
   if (!slot) return false
@@ -492,7 +492,7 @@ export function setPedalStartAtSlot(score: Score, id: string, target: PedalSlotT
 export function setPedalAtSlot(score: Score, id: string, target: PedalSlotTarget): boolean {
   const placed = locate(score, id)
   if (!placed) return false
-  const { pedal, startMeasure, lane } = placed
+  const { mark: pedal, startMeasure, lane } = placed
 
   const slot = lane.find(s => s.measure === target.measure && fracCompare(s.beat, target.beat) === 0)
   if (!slot) return false
@@ -542,7 +542,7 @@ export function setPedalAtStaffSlot(score: Score, id: string, target: PedalStaff
   const sameAddress = here.number === target.measure && fracCompare(pedal.beat, target.beat) === 0
   if (!staffMoves && sameAddress) return false
 
-  const lane = staffOnsets(score, target.staffId, measureStarts(score.measures))
+  const lane = staffOnsets(score, target.staffId)
   const slot = lane.find(s => s.measure === target.measure && fracCompare(s.beat, target.beat) === 0)
   if (!slot) return false
 
@@ -577,65 +577,8 @@ function movePedalToMeasure(score: Score, pedal: Pedal, measureNumber: number): 
 
 /** Where a pedal is now and what it can step to — the shared read behind both endpoint gestures, so
  *  the two squares cannot come to disagree about the lane they walk. `ottavaOps.locate`'s twin. */
-function locate(score: Score, id: string): {
-  pedal: Pedal
-  startMeasure: number
-  startAbs: Fraction
-  endAbs: Fraction
-  lane: ReturnType<typeof staffOnsets>
-} | null {
-  const span = pedalSpan(score, id)
-  const pedal = span ? getPedalById(score, id) : null
-  if (!span || !pedal) return null
-
-  const starts = measureStarts(score.measures)
-  const base = starts.get(span.startMeasure)
-  if (base === undefined) return null
-  const startAbs = fracAdd(base, span.startBeat)
-
-  return {
-    pedal,
-    startMeasure: span.startMeasure,
-    startAbs,
-    endAbs: fracAdd(startAbs, pedal.length),
-    lane: staffOnsets(score, pedal.staffId, starts),
-  }
-}
-
-/**
- * Every onset of the pedal's STAFF, by absolute quarter-beat, with the slot's own length and address
- * — every VOICE (a pedal has none of its own: one damper, one foot), de-duplicated by beat so two
- * voices attacking together are ONE step rather than two presses of the key for one move, and
- * sorted.
- *
- * ⚠️ De-duplicating keeps the LONGEST slot at a shared onset, which is what "reach through the next
- * slot" has to mean when two voices start together and one is longer: the shorter one's end is
- * inside the longer one's note, so lifting there would put the release at a position no onset
- * occupies — and the next press would have to skip the rest of that note. `ottavaOps.staffOnsets`'
- * rule, which the inline lane this replaced did not have (it kept whichever slot it met first).
- */
-function staffOnsets(
-  score: Score,
-  staffId: string | undefined,
-  starts: Map<number, Fraction>,
-): Array<{ abs: Fraction; length: Fraction; measure: number; beat: Fraction }> {
-  const at = new Map<string, { abs: Fraction; length: Fraction; measure: number; beat: Fraction }>()
-  for (const measure of score.measures) {
-    const base = starts.get(measure.number)
-    if (base === undefined) continue
-    for (const slot of measure.slots) {
-      if (!matchesStaff(slot.staffId, staffId, score)) continue
-      const abs = fracAdd(base, slot.beat)
-      const length = slotLength(slot)
-      const key = `${abs.num}/${abs.den}`
-      const seen = at.get(key)
-      if (!seen || fracCompare(length, seen.length) > 0) {
-        at.set(key, { abs, length, measure: measure.number, beat: slot.beat })
-      }
-    }
-  }
-  return [...at.values()].sort((a, b) => fracCompare(a.abs, b.abs))
-}
+const locate = (score: Score, id: string) =>
+  locateSpan(score, pedalSpan(score, id), getPedalById(score, id))
 
 /**
  * ⭐⭐ **NUDGE ONE SIGN'S INK** — a plain or `Ctrl` arrow with that square armed. Staff-spaces,
@@ -679,23 +622,8 @@ export function setPedalEndpointOffset(
  * square then reports as a nudge of its own — so `Ctrl+Backspace` on an untouched square would
  * answer instead of falling through.
  */
-function writePedalOffset(
-  score: Score,
-  id: string,
-  next: { startX?: number; endX?: number; y?: number },
-): void {
-  const kept: PedalOffsetOverride = {
-    kind: 'pedalOffset',
-    ...(next.startX ? { startX: next.startX } : {}),
-    ...(next.endX ? { endX: next.endX } : {}),
-    ...(next.y ? { y: next.y } : {}),
-  }
-  if (kept.startX === undefined && kept.endX === undefined && kept.y === undefined) {
-    clearEngravingOverride(score, id, 'pedalOffset')
-    return
-  }
-  setEngravingOverride(score, id, kept)
-}
+const writePedalOffset = (score: Score, id: string, next: SpanOffsetFields<'pedalOffset'>): void =>
+  writeSpanOffset(score, id, 'pedalOffset', next)
 
 /**
  * ⭐⭐ **MOVE THE WHOLE PEDAL** — the same `dx` onto both signs, accumulating: the arrows with a

@@ -16,6 +16,7 @@ import { ScoreModel } from './ScoreModel'
 import { restPositionKey, restShiftOverrideOf, restHiddenOf, staffSpacingOverrideOf, staffSpacingAbove, tempoOffsetOverrideOf, dynamicOffsetOverrideOf } from './engravingOverrides'
 import type { EngravingOverride } from '@/types/music'
 import { fracCreate as frac } from '@/utils/fraction'
+import { setEngravingOverride, writeSpanOffset } from './overrideOps'
 
 /**
  * Phase 0 of the engraving-overrides plan: the compartment is pure infrastructure —
@@ -276,5 +277,27 @@ describe('ScoreModel.setStaffSpacing / resetStaffSpacing (absolute, id-keyed)', 
     expect(staffSpacingAbove(restored.getScore(), 'staff-1')).toBe(-2)
     const snapshot = JSON.parse(JSON.stringify(model.getScore()))
     expect(snapshot.engravingOverrides['staff-1']).toEqual([{ kind: 'staffSpacing', above: -2 }])
+  })
+})
+
+describe('overrideOps.writeSpanOffset (sparse — a zero is not written)', () => {
+  it('writes only the non-zero fields, in a fixed key order', () => {
+    const score = new ScoreModel().getScore()
+    writeSpanOffset(score, 'o1', 'ottavaOffset', { outward: 1.5, startX: 0, endX: -2 })
+    expect(JSON.stringify(score.engravingOverrides!['o1'])).toBe('[{"kind":"ottavaOffset","endX":-2,"outward":1.5}]')
+  })
+
+  it('carries the pedal\'s own vertical, `y`', () => {
+    const score = new ScoreModel().getScore()
+    writeSpanOffset(score, 'p1', 'pedalOffset', { startX: 1, y: 2 })
+    expect(score.engravingOverrides!['p1']).toEqual([{ kind: 'pedalOffset', startX: 1, y: 2 }])
+  })
+
+  it('CLEARS the entry when no field is left, and leaves other kinds alone', () => {
+    const score = new ScoreModel().getScore()
+    setEngravingOverride(score, 't1', { kind: 'somethingElse' })
+    writeSpanOffset(score, 't1', 'trillOffset', { startX: 1 })
+    writeSpanOffset(score, 't1', 'trillOffset', { startX: 0, outward: undefined })
+    expect(score.engravingOverrides!['t1']).toEqual([{ kind: 'somethingElse' }])
   })
 })
