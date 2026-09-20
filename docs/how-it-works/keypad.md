@@ -129,8 +129,50 @@ a press from the pad, the numpad or the toolbar is one action lighting one set o
 
 The fan pair is a RADIO, like the tremolo counts: a note carries one fan, so pressing the lit direction
 takes it off and pressing the other turns it round. `pressFan` owned both rules already — the pad only
-routes to it. Their drawings are documented in `keypadLayouts.ts` (named recipes in the `TREMOLO` map,
-baked to one SVG by `tremoloBake.ts`).
+routes to it. Their drawings are documented in `keypadLayouts.ts` (named recipes in the `TREMOLO` map).
+
+⭐ **The Beams/Tremolos page is drawn from BAKED OUTLINES** (2026-09-20). Each drawing is a hand-stacked
+recipe of music-font glyphs — `g(glyph, size, dy, dx)`, against a 26-unit key — and until then it was put
+on the key as SVG *text*, which the browser lays out: a browser ZOOM re-rounds that layout and the strokes
+slid against their note. Now `npm run bake:keypad` (`e2e/keypadIcons.bake.ts`, its own Playwright config)
+measures each drawing in a real browser at 100% zoom, turns the glyphs into outlines with opentype.js from
+the same `public/fonts/Bravura.otf`, PROVES the outlines sit on the text drawing (it refuses to write
+otherwise — measured 0.03–0.66% of the ink differing, all anti-aliasing), and writes
+`windows/keypad/keypadBakedIcons.ts`. The outlines are filed under the RECIPE they came from, so tuning a
+number makes that key fall back to the live text form at once; re-bake when it looks right.
+`keypadBakedIcons.test.ts` is red in between.
+
+🚨 **An outline has no HINTING**, and at key size that shows (his two reports the same day, with screenshots
+at 90 / 100 / 110%): a beam bar is ~3½ px tall with a 2 px gap to the next, so anti-aliased edges that miss
+the pixel grid fill the gap with grey and two bars read as one — the text form never showed it because the
+font rasteriser snaps such edges. So `tremoloBake.bakedPathsSvg` draws the drawing as TWO paths by kind of
+edge: glyphs made only of horizontal and vertical edges (`isAxisAligned` — the bars, a bare stem) are
+`shape-rendering: crispEdges`, snapped to whole pixels at every zoom; everything curved or slanted stays
+smooth (a snapped notehead is a staircase). Each kind is ONE merged path, because glyphs filled one by one
+blend their overlapping edges twice and show a seam. ⚠️ "Thick enough" is part of the test (≥ 2 units): a
+bare stem is ~0.6 px at key size, and snapped it becomes a solid 1 px line that reads heavier than the grey
+hairline stems the NOTE glyphs carry beside it.
+
+⭐ **Where a beam ends is MEASURED, not eyeballed** (Bravura.otf, in the 26-unit box): a quarter @22 placed at
+`dx` has its stem's OUTER edge at `13 + dx + 3.65`; a bar @30 placed at `dx` spans `13 + dx ∓ 5.13`. The last
+bar ends ~½ unit PAST that stem edge on purpose — the bar is snapped and the stem is a hairline, so a bar
+ending exactly ON the edge rounds short at some zooms and leaves the stem standing outside the beam.
+
+⚠️ **What is still NOT solved, and why** (measured): at 90% zoom one of two identical bars is 2 px where its
+neighbour is 3 (3 / 3 at 100% and 110%). `crispEdges` rounds each EDGE on its own, and at a non-round zoom
+nothing lands on the grid — the browser does the same to CSS borders. Sibelius's keypad looks perfect because
+its pictures are BITMAPS drawn by hand for one size. The only full fix for a vector is to do the pixel
+fitting ourselves at paint time (a canvas sized by `ResizeObserver`'s `device-pixel-content-box`, one rounded
+thickness / gap / stem width for the whole page) — proposed, and ⛔ deliberately NOT built:
+
+⭐⭐ **His direction, 2026-09-20: these hand-stacked drawings "always was a momentary solution" — in the end
+the keypad gets DEDICATED GLYPHS.** So nothing more is invested in the stacking. What carries over is the
+renderer: a key is drawn from a table of path data (`keypadBakedIcons`), and a dedicated glyph is path data
+too — or, better, a small keypad ICON FONT, which is the one route where the font rasteriser does the pixel
+fitting at every zoom. 💡 Also his, for later: a dev-shell tool to drag a recipe's glyphs and read the numbers
+off, rather than tuning them in code. 🚨 Two opentype.js traps the bake found: `toPathData`'s
+default optimiser DROPS A CORNER of a contour the font leaves unclosed (Bravura's bare stem came out a
+wedge), and the options form flips the picture unless `flipY: false`.
 
 ⚠️ **A key that lights from the SCORE needs its own `onHighlight` subscription in `KeypadWidget`.** The
 mark cluster had none: pressing a tremolo on the selected note changes the score and no other seam, so

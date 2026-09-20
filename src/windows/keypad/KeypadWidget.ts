@@ -7,7 +7,8 @@ import { CHROME } from '../../utils/chromeColors'
 import { keypadPageSelection } from './keypadPageSelection'
 import { keypadPage, VOICES, type GlyphSpec, type Icon, type KeypadCell } from './keypadLayouts'
 import { pressKeypadCell } from './keypadPress'
-import { bakeGlyphStack } from './tremoloBake'
+import { bakeGlyphStack, bakedPathsSvg, bakeRecipeKey } from './tremoloBake'
+import { KEYPAD_BAKED_ICONS } from './keypadBakedIcons'
 
 /**
  * The Keypad, as a window's content.
@@ -431,8 +432,12 @@ function renderIcon(icon: Icon): HTMLElement {
   // span-stack. Sized to the SAME GLYPH×GLYPH box the spans use, so its 26-unit viewBox scales to
   // GLYPH/26 px per unit — the spans' exact arithmetic. Overflow shows (the note's stem runs past the
   // little box) and the button clips it, just as with the spans.
+  // ⭐ Drawn from the BAKED OUTLINES when the recipe still matches what was baked (`npm run
+  // bake:keypad`), so a browser zoom cannot re-lay the glyphs; a recipe tuned since falls back to the
+  // live text form, which is what shows the new numbers at once.
   if ('bake' in icon) {
-    const svg = bakeGlyphStack(icon.bake, MUSIC_FONT)
+    const baked = KEYPAD_BAKED_ICONS.get(bakeRecipeKey(icon.bake))
+    const svg = baked ? bakedPathsSvg(baked) : bakeGlyphStack(icon.bake, MUSIC_FONT)
     svg.style.width = `${GLYPH}px`
     svg.style.height = `${GLYPH}px`
     svg.style.overflow = 'visible'

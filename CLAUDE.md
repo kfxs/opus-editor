@@ -85,6 +85,8 @@ npm run build      # Production build
 npm run build:check # Type check + build
 npm run test       # Run unit tests (vitest)
 npm run test:e2e   # Run the browser GEOMETRY suite (playwright; starts its own vite on :5199)
+npm run bake:keypad # Re-bake the Keypad's Beams/Tremolos drawings to outlines after tuning a recipe
+                   #   (docs/how-it-works/keypad.md); `keypadBakedIcons.test.ts` is red until you do
 npm run audit:tests # Report source modules with no spec naming them
 ```
 

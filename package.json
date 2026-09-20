@@ -18,7 +18,8 @@
     "lint": "eslint . --ext .ts",
     "preview": "vite preview",
     "test": "vitest",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "bake:keypad": "playwright test --config playwright.bake.config.ts"
   },
   "dependencies": {
     "jspdf": "^4.2.1",
