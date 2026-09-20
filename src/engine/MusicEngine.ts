@@ -32,7 +32,6 @@ import { midiToNoteName, beatToFrac, measureAccidentalNotes, deriveTupletM, tupl
 import { measureCapacityQuarters } from '@/utils/measureCapacity'
 import { fracToNumber } from '@/utils/fraction'
 import { quantizeBeat } from '@/utils/durations'
-import { reanchorSlurs } from './models/slurOps'
 import { deleteNoteWithRepair } from './models/deleteNoteOps'
 import { convertSlotToRest } from './models/convertToRestOps'
 import { moveSelectionToVoice } from './models/voiceOps'
@@ -2660,13 +2659,10 @@ export class MusicEngine {
     this.runBatch(`Delete ${noteIds.length} note(s)`, () => {
       cleared = clearOps.clearNoteRange(this.scoreModel.getScore(), noteIds, {
         removeSlot: id => this.scoreModel.deleteNote(id),
-        deleteOne: id => this.deleteNote(id),
-        fillMeasureGaps: m => this.scoreModel.fillMeasureGaps(m),
-        collapseEmptyVoices: m => this.scoreModel.collapseEmptyVoices(m),
-        reanchorSlurs: (oldId, newId) => reanchorSlurs(this.scoreModel.getScore(), oldId, newId),
+        deleteOne: id => deleteNoteWithRepair(this.scoreModel, id),
       })
-      // `deleteOne` commits for the ids it took, but the cleared REGION is this module's own write
-      // — without this the batch would see no change for a plain range and push no undo entry.
+      // Nothing inside commits — `deleteOne` is the ops' repair, the cleared REGION is `clearOps`'
+      // own write — so this is what tells the batch that something changed.
       if (cleared) this.mutate(`Delete ${cleared} note(s)`)
     })
     return cleared

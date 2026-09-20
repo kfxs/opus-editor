@@ -123,7 +123,9 @@ src/
   shortcuts/        # Keyboard shortcut definitions
   engine/           # Framework-agnostic music engine
     MusicEngine.ts        # Facade — coordinates the components below
-    NoteEntryCoordinator.ts # Note placement, overflow, cross-barline tie-splits
+    NoteEntryCoordinator.ts # Note placement: click → beat, collision, the ORDER of the steps, the commit.
+                          #   ⛔ What the entry DOES to the score is `models/` (spanningNoteOps · entryOverwriteOps ·
+                          #   durationChangeOps · tupletEntryOps) — a new entry rule goes there, not back here
     commands/             # ⭐ One module per MARK family — `<family>Commands(ctx)`, the editor's
                           #   half of an edit: the ops call, the LIMIT that may refuse a hand-nudge,
                           #   the undo entry. `commandContext` is what they are built from;
@@ -137,6 +139,11 @@ src/
                           #   🚧 scoreTextOps (the title + composer as ONE table — SKETCH),
                           #   spanFromNotes (⭐ "which notes did the user mean?" — ONE answer for
                           #     the five span creates) + tieOps (ONE rule for a tie's target)
+                          #   + deleteNoteOps / convertToRestOps (⭐ one note's delete / silencing, and the
+                          #     REPAIR the bar is owed; the facade keeps the undo LABEL + one `mutate`)
+                          #   + restFillOps · slotPlacementOps · measureOps (the fill, the rests a new slot
+                          #     evicts, making a measure — ⛔ `rebarOps`/`voiceOps`/`tupletOps` IMPORT these:
+                          #     there is no `*Deps` callback bundle left but `ClearRangeDeps`' two)
     layout/               # WHAT the music is drawn on, HOW MUCH ROOM the music earns, and
                           #   derived-view arithmetic off the LAST RENDER (⛔ layout/ may not import
                           #   rendering/ — lint:boundary; MeasureLayout, the HORIZONTAL casting-off,

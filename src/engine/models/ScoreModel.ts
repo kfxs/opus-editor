@@ -35,6 +35,7 @@ import { keyAt } from '@/utils/keySignature'
 import * as rebarOps from './rebarOps'
 import * as overrideOps from './overrideOps'
 import { swapSlotForRest } from './convertToRestOps'
+import * as measureOps from './measureOps'
 import { fillGapsWithRests, pushRestSlot } from './restFillOps'
 import { addRestSlot, computeActualDurationForSlot, dropRestHiddenOf, evictRestsOverlappingChord, fmtSlot, replaceRestsWithChord } from './slotPlacementOps'
 import * as slurOps from './slurOps'
@@ -61,7 +62,7 @@ import type { BarlineSignKind } from './boundarySign'
 import { isBarlineStyle, isValidRepeatTimes } from './barlineOps'
 import { flatNoteOf, flatRestOf } from './noteProjection'
 import { findSlot, writeAttackMarks, projectAttackMarks, type FoundSlot } from './slotLookup'
-import { staffIndexOfId, matchesStaff, staffIdAtIndex, firstStaffId } from './staffContent'
+import { staffIndexOfId, matchesStaff, staffIdForParams, firstStaffId } from './staffContent'
 import * as tupletOps from './tupletOps'
 import * as scoreTextOps from './scoreTextOps'
 import type { ScoreTextField } from './scoreTextOps'
@@ -281,64 +282,10 @@ export class ScoreModel {
     return staffGroupOps.applyGroupSymbol(this.score, staffIds, symbol)
   }
 
-  /**
-   * Insert a fresh measure immediately AFTER the measure numbered `afterNumber`
-   * (`afterNumber === 0` inserts at the very front; `afterNumber === length`
-   * appends). Subsequent measures — and each of their slots' `.measure` field —
-   * are renumbered, mirroring {@link removeMeasure}'s splice+renumber pattern.
-   *
-   * The new bar is rest-filled for its meter. A mid-score inserted bar is a
-   * continuation, NOT an explicit change, so it is left unmarked — EXCEPT measure
-   * 1, which always carries the score's opening time signature explicitly. Rebar
-   * uses this to push a downstream TS change forward by materialising over the
-   * inserted bars; `materializeBar` overwrites the rest-fill wholesale.
-   *
-   * With no explicit `timeSignature`, the bar inherits the meter in effect at the
-   * measure it follows — so a bar added inside a 3/4 region is a 3/4 bar. (An empty
-   * score has nothing to inherit from: DEFAULT_TIME_SIGNATURE.)
-   */
+  /** Insert a new measure immediately AFTER `afterNumber` (0 = the very front), renumbering what
+   *  follows. See {@link measureOps.insertMeasureAfter} for the why. */
   insertMeasureAfter(afterNumber: number, timeSignature?: TimeSignature): Measure {
-    // Resolved BEFORE the splice below, so `afterNumber` still means the preceding bar.
-    const ts = copyTimeSignature(timeSignature ?? effectiveTimeSignature(this.score, afterNumber))
-    const measure: Measure = {
-      id: uuidv4(),
-      number: afterNumber + 1,
-      slots: [],
-      timeSignature: ts,
-      tuplets: [],
-    }
-    // Measure 1 always carries the score's opening time signature explicitly.
-    if (afterNumber === 0) measure.timeSignatureChange = true
-
-    // Splice in right after `afterNumber` (front when 0, end when not found).
-    const idx = afterNumber === 0 ? -1 : this.score.measures.findIndex((m) => m.number === afterNumber)
-    const insertIdx = idx === -1 ? (afterNumber === 0 ? 0 : this.score.measures.length) : idx + 1
-    this.score.measures.splice(insertIdx, 0, measure)
-
-    // Renumber this measure + everything after it (and their slots' .measure).
-    for (let i = insertIdx; i < this.score.measures.length; i++) {
-      this.score.measures[i].number = i + 1
-      this.score.measures[i].slots.forEach((slot) => {
-        slot.measure = i + 1
-      })
-    }
-
-    // Fill the measure with rests to match the time signature
-    this.fillMeasureWithRests(measure)
-
-    return measure
-  }
-
-  /**
-   * Fill an empty measure with rests for its time signature. An empty bar
-   * collapses to a single measure rest in every meter (see {@link fillRests}).
-   */
-  private fillMeasureWithRests(measure: Measure): void {
-    const meter = getMeterInfo(measure.timeSignature)
-    const rests = fillRests(fracCreate(0, 1), measureCapacityFrac(measure), meter)
-    for (const rest of rests) {
-      pushRestSlot(measure, rest, 0)
-    }
+    return measureOps.insertMeasureAfter(this.score, afterNumber, timeSignature)
   }
 
   /**
@@ -1764,12 +1711,12 @@ export class ScoreModel {
 
     if (rewrite === 'rebar' && extent === 'toNextChange') {
       // rebarRegion flattens the region (old meter) first, then re-bars it.
-      rebarOps.rebarRegion(this.score, this.rebarDeps, measureNumber, ts)
+      rebarOps.rebarRegion(this.score, measureNumber, ts)
       return true
     }
 
     // Legacy keep-crowded path: set the TS, reconcile rests, propagate.
-    measure.timeSignature = copyTimeSignature(ts)
+    measure.timeSignature = measureOps.copyTimeSignature(ts)
     this.reconcileMeasureRests(measure)
     if (extent === 'toNextChange') {
       this.propagateTimeSignature(measureNumber, ts)
@@ -1804,9 +1751,9 @@ export class ScoreModel {
     if (rewrite === 'rebar') {
       // rebarRegion flattens the region using the CURRENT (removed) meter, then
       // applies the inherited meter and re-lays the music across moved barlines.
-      rebarOps.rebarRegion(this.score, this.rebarDeps, measureNumber, inherited)
+      rebarOps.rebarRegion(this.score, measureNumber, inherited)
     } else {
-      measure.timeSignature = copyTimeSignature(inherited)
+      measure.timeSignature = measureOps.copyTimeSignature(inherited)
       this.reconcileMeasureRests(measure)
       this.propagateTimeSignature(measureNumber, inherited)
     }
@@ -1867,7 +1814,7 @@ export class ScoreModel {
     for (const m of this.score.measures) {
       if (m.number <= fromMeasure) continue
       if (m.timeSignatureChange) break // next explicit change owns its region
-      m.timeSignature = copyTimeSignature(ts)
+      m.timeSignature = measureOps.copyTimeSignature(ts)
       this.reconcileMeasureRests(m)
     }
   }
@@ -1889,7 +1836,7 @@ export class ScoreModel {
    * inside the paste window (for selecting the pasted material).
    */
   pasteEvents(clip: Clip, target: ClipTarget): string[] {
-    return rebarOps.pasteEvents(this.score, this.rebarDeps, clip, target)
+    return rebarOps.pasteEvents(this.score, clip, target)
   }
 
   /**
@@ -1898,20 +1845,6 @@ export class ScoreModel {
    * shares with the rest of the model (measure insertion, gap-fill, engraving overrides, tie /
    * slur repair). Built per call; rebar is not a hot path.
    */
-  private get rebarDeps(): rebarOps.RebarDeps {
-    return {
-      insertMeasureAfter: (afterNumber, ts) => this.insertMeasureAfter(afterNumber, ts),
-      addMeasure: (ts) => this.addMeasure(ts),
-      collapseEmptyVoices: (n) => this.collapseEmptyVoices(n),
-      staffIdForParams: (staff) => this.staffIdForParams(staff),
-      addSlur: (slur) => this.addSlur(slur),
-      addTrill: (trill) => this.addTrill(trill),
-      findSlot: (id) => this.findSlot(id),
-      setEngravingOverride: (id, override) => this.setEngravingOverride(id, override),
-      clearEngravingOverride: (id, kind) => this.clearEngravingOverride(id, kind),
-    }
-  }
-
   // ==================== Internal helpers ====================
 
   /**
@@ -2085,8 +2018,7 @@ export class ScoreModel {
    * stamps its real id. See docs/multi-staff-plan.md §4.
    */
   private staffIdForParams(staff: number | undefined): string | undefined {
-    if (!staff) return undefined
-    return staffIdAtIndex(this.score, staff)
+    return staffIdForParams(this.score, staff)
   }
 
   addNote(params: NoteParams): Note {
@@ -2943,7 +2875,7 @@ export class ScoreModel {
     this.score.measures.forEach(measure => {
       measure.slots = []
       measure.tuplets = []
-      this.fillMeasureWithRests(measure)
+      measureOps.fillMeasureWithRests(measure)
     })
   }
 
@@ -3075,13 +3007,4 @@ export class ScoreModel {
       }
     }
   }
-}
-
-/** Deep-copy a time signature, including any additive grouping array. */
-function copyTimeSignature(ts: TimeSignature): TimeSignature {
-  // SPREAD, then deep-copy the one field that is a reference. Listing the fields by hand is what
-  // silently dropped `symbol`: the meter reached the model as 4/4 with a C on it and was stored as
-  // a bare 4/4, so the ghost drew C and the score drew 4/4. Every field added to TimeSignature from
-  // here on survives this function without anyone remembering to come back to it.
-  return ts.grouping ? { ...ts, grouping: [...ts.grouping] } : { ...ts }
 }

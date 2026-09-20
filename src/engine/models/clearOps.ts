@@ -2,7 +2,7 @@
  * ⭐⭐ **CLEARING A RANGE — what silence a deleted PASSAGE leaves behind.**
  *
  * Deleting ONE note replaces it with a rest of its own length: that is an edit of a single event,
- * and the length is authored (`MusicEngine.deleteNote`). Deleting a RANGE is a different question —
+ * and the length is authored (`deleteNoteOps.deleteNoteWithRepair`). Deleting a RANGE is a different question —
  * it is a HOLE in the bar, and a hole is filled by the meter, not by the notes that used to be in
  * it. His report, 2026-08-31, on bar 1 of the Prelude: clearing the second half of the bar left
  * `8 + 16×6` on the treble and `16 + 8. + q` on the bass, when the answer in 4/4 is **one half
@@ -42,24 +42,22 @@ import { voiceOf } from '@/utils/lanes'
 import { findSlot } from './slotLookup'
 import { keyStaffId, staffIndexOfId } from './staffContent'
 import * as overrideOps from './overrideOps'
+import { fillGapsWithRests } from './restFillOps'
+import { reanchorSlurs } from './slurOps'
+import { collapseEmptyVoices } from './voiceOps'
 
 /**
- * The callbacks a range clear calls back into — the {@link voiceOps.VoiceDeps} idiom, and for its
- * reason: removal, rest-fill and slur re-anchoring are machinery this operation USES and does not
- * own. `removeSlot` is the raw model delete (no replacement rest); `deleteOne` is the caller's
- * ordinary single-note delete, for the three kinds above that must not change.
+ * The two operations a range clear needs of the MODEL — both go through note entry (`addNote`, the
+ * flat `Note` projection), which is `ScoreModel`'s. `removeSlot` is the raw model delete (no
+ * replacement rest); `deleteOne` is the ordinary single-note delete-with-repair, for the three
+ * kinds above that must not change. Everything else this module used to be handed — the rest fill,
+ * the voice collapse, the slur re-anchor — is a `(score)` function now and is imported.
  */
 export interface ClearRangeDeps {
   /** Raw slot/pitch removal — `ScoreModel.deleteNote`, with its fan/chord/tie bookkeeping. */
   removeSlot(noteId: string): boolean
-  /** The unchanged single-note delete — `MusicEngine.deleteNote`. */
+  /** The unchanged single-note delete — `deleteNoteOps.deleteNoteWithRepair`. */
   deleteOne(noteId: string): boolean
-  /** Meter-aware rest fill for one bar — `ScoreModel.fillMeasureGaps`. */
-  fillMeasureGaps(measureNumber: number): void
-  /** Drop a secondary voice left holding only rests — `ScoreModel.collapseEmptyVoices`. */
-  collapseEmptyVoices(measureNumber: number): void
-  /** Move every slur anchored to `oldId` onto `newId`, or drop it when that is null. */
-  reanchorSlurs(oldId: string, newId: string | null): void
 }
 
 /** One slot the clear will take out, resolved BEFORE anything moves. */
@@ -155,7 +153,8 @@ export function clearNoteRange(score: Score, noteIds: readonly string[], deps: C
   //    the bar and hands each hole to `fillRests`, so one call answers the whole rectangle.
   const touched = [...new Set(targets.map(t => t.measure))].sort((a, b) => a - b)
   for (const measureNumber of touched) {
-    deps.fillMeasureGaps(measureNumber)
+    const measure = score.measures.find(m => m.number === measureNumber)
+    if (measure) fillGapsWithRests(score, measure)
     dbg(`[clearRange] m${measureNumber} refilled meter-aware after ${targets.filter(t => t.measure === measureNumber).length} slot(s) cleared`)
   }
 
@@ -164,7 +163,7 @@ export function clearNoteRange(score: Score, noteIds: readonly string[], deps: C
   //    there (the head's own lane collapsed, or the bar had no room left).
   for (const target of targets) {
     const rest = restCovering(score, target)
-    for (const head of target.headIds) deps.reanchorSlurs(head, rest?.id ?? null)
+    for (const head of target.headIds) reanchorSlurs(score, head, rest?.id ?? null)
     if (!rest) continue
     let repointed = 0
     for (const sourceId of target.tieSources) {
@@ -180,7 +179,7 @@ export function clearNoteRange(score: Score, noteIds: readonly string[], deps: C
   }
 
   // A secondary voice left holding only rests collapses, exactly as after a single delete.
-  for (const measureNumber of touched) deps.collapseEmptyVoices(measureNumber)
+  for (const measureNumber of touched) collapseEmptyVoices(score, measureNumber)
 
   return targets.length + inPlace.length
 }

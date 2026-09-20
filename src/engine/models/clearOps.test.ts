@@ -23,28 +23,24 @@ import type { Note, NoteDuration, RestShiftOverride } from '@/types/music'
  *  - a single note is a range of one, so the same rule answers it.
  *
  * The deps are a real `ScoreModel` — the fill and the removal are the model's own machinery, and
- * stubbing them would test nothing — with `deleteOne` and `reanchorSlurs` spied, since those are
- * the two the module must be shown to REFUSE to use (the exception kinds) and to use (an anchor
- * whose note has gone).
+ * stubbing them would test nothing — with `deleteOne` spied, since it is the one the module must
+ * be shown to REFUSE to use except for the exception kinds. The slur re-anchor is asked of real
+ * slurs: it is `slurOps`' own function now, not a callback.
  */
 
 interface Spy {
   deleteOne: string[]
-  reanchored: Array<{ from: string; to: string | null }>
 }
 
 function depsFor(model: ScoreModel, spy: Spy): ClearRangeDeps {
   return {
     removeSlot: id => model.deleteNote(id),
     deleteOne: id => { spy.deleteOne.push(id); return model.deleteNote(id) },
-    fillMeasureGaps: m => model.fillMeasureGaps(m),
-    collapseEmptyVoices: m => model.collapseEmptyVoices(m),
-    reanchorSlurs: (from, to) => { spy.reanchored.push({ from, to }) },
   }
 }
 
 function newSpy(): Spy {
-  return { deleteOne: [], reanchored: [] }
+  return { deleteOne: [] }
 }
 
 /** `duration@beat` for every rest in bar 1's lane (voice 0, staff 0 unless asked otherwise). */
@@ -153,18 +149,15 @@ describe('clearNoteRange — the meter decides the silence', () => {
 
   it('re-anchors a cleared head onto the rest that replaced it', () => {
     const model = new ScoreModel('Clear')
-    put(model, 0, 'h')
+    const kept = put(model, 0, 'h')
     const doomed = [put(model, 2, 'q'), put(model, 3, 'q')]
-    const spy = newSpy()
+    for (const head of doomed) model.addSlur({ startNoteId: kept.id, endNoteId: head.id })
 
-    clearNoteRange(model.getScore(), doomed.map(n => n.id), depsFor(model, spy))
+    clearNoteRange(model.getScore(), doomed.map(n => n.id), depsFor(model, newSpy()))
 
-    // BOTH heads point at the ONE half rest that covers the span they shared.
+    // BOTH slurs now end on the ONE half rest that covers the span their heads shared.
     const restId = model.getScore().measures[0].slots.find(s => s.type === 'rest')!.id
-    expect(spy.reanchored).toEqual([
-      { from: doomed[0].id, to: restId },
-      { from: doomed[1].id, to: restId },
-    ])
+    expect(model.getSlurs().map(s => s.endNoteId)).toEqual([restId, restId])
   })
 })
 

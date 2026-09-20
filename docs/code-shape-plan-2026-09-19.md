@@ -1,6 +1,6 @@
 # Code shape plan — 2026-09-19
 
-**Status: IN PROGRESS — Phase 1 DONE (2026-09-19), bar item 5's two ⏭️ decisions. Phase 2 DONE. Phase 3.1: the hairpin / ottava / pedal body drags done and checked; the trill's too (`cdb7f05`); the slur's too (`69e927c`); the four SQUARE drags too (`6d903c3`); the slur HANDLE / ENDPOINT and staff-spacing drags too (`8f28f79`); the DYNAMIC and TEMPO drags too (`9a04f88`); bar width, barline join, group span and clef too (`ee31698`); the NOTE drag too (`7d2898e`) — every gesture is a module. **Phase 3.1 DONE** (`25f70a6`). 3.2: the `keys` column + dispatcher and the HAIRPIN on it (`e61626a`); OTTAVA / PEDAL / TRILL too (`14e10e7`); DYNAMIC and TEMPO too (`943fb64`); SLUR and CLEF too (`8382fcc`); the `reanchor` and `cycle` verbs done, awaiting his UI check — **Phase 3.2 DONE with it.** 3.3 (`highlight(ctx)`): the contract + the four span squares (`a7c1076`); the join and group squares (`b772418`); the `ink` column (`f1832e7`); the slur handles (`d3dcb7b`); the anchor guide line (`e2ff597`); the note pass + note-attached kinds (`aa7e5af`); every remaining row done, awaiting his UI check — **Phase 3.3 DONE** (`1efb38d`). 3.4: the panels' `rows` (`4db182d`); the typed `InspectedElement` union done, awaiting his UI check — **3.4 DONE** (`54ab9cc`). **Phase 3 DONE** — 3.5: all seven mark families are `engine/commands/<family>Commands.ts` (`e684125` … `a8549ad`), with command specs and `commit` / `saveOnly` folded into one `mutate`. **Phase 4 IN PROGRESS** — 4.1: `spanFromNotes`, `reanchorSlurs` → `slurOps`, `tieOps` (`6d720b8`) done; `deleteNote`'s repair → `deleteNoteOps` (`ab182f4`); `convertToRest` → `convertToRestOps` (`e20ca48`); `moveSelectionToVoice` → `voiceOps` (`5f6fa03`) — **4.1 DONE**. 4.2 split a–d: **a** the spanning note → `spanningNoteOps` (`551b39a`); **b** the overwrite → `entryOverwriteOps` (`ad381dd`); **c** the duration change → `durationChangeOps` (`cf41ba4`) + the chord-overflow FIX as its own commit (`6b97a8f`); **d** the tuplet builders + entry INTO a tuplet → `tupletEntryOps` (`6116fb8`) — **4.2 DONE** (coordinator 1,602 → 734 lines). 4.3 split a–e: **a** the three `repairDangling*` → `tieOps` / `slurOps` / `trillOps` (`1eed47b`); **b** the rest fill → `restFillOps` (`243d35c`); **c** slot placement + `insertPitch` → `slotPlacementOps` (`4323899`); **d** the model's `convertToRest` → `convertToRestOps.swapSlotForRest` (`5da6ce1`); **e1** `addRestSlot` — `VoiceDeps` GONE — done, awaiting his check; e2 `RebarDeps` + `ClearRangeDeps` next.** Phases are ordered by
+**Status: IN PROGRESS — Phase 1 DONE (2026-09-19), bar item 5's two ⏭️ decisions. Phase 2 DONE. Phase 3.1: the hairpin / ottava / pedal body drags done and checked; the trill's too (`cdb7f05`); the slur's too (`69e927c`); the four SQUARE drags too (`6d903c3`); the slur HANDLE / ENDPOINT and staff-spacing drags too (`8f28f79`); the DYNAMIC and TEMPO drags too (`9a04f88`); bar width, barline join, group span and clef too (`ee31698`); the NOTE drag too (`7d2898e`) — every gesture is a module. **Phase 3.1 DONE** (`25f70a6`). 3.2: the `keys` column + dispatcher and the HAIRPIN on it (`e61626a`); OTTAVA / PEDAL / TRILL too (`14e10e7`); DYNAMIC and TEMPO too (`943fb64`); SLUR and CLEF too (`8382fcc`); the `reanchor` and `cycle` verbs done, awaiting his UI check — **Phase 3.2 DONE with it.** 3.3 (`highlight(ctx)`): the contract + the four span squares (`a7c1076`); the join and group squares (`b772418`); the `ink` column (`f1832e7`); the slur handles (`d3dcb7b`); the anchor guide line (`e2ff597`); the note pass + note-attached kinds (`aa7e5af`); every remaining row done, awaiting his UI check — **Phase 3.3 DONE** (`1efb38d`). 3.4: the panels' `rows` (`4db182d`); the typed `InspectedElement` union done, awaiting his UI check — **3.4 DONE** (`54ab9cc`). **Phase 3 DONE** — 3.5: all seven mark families are `engine/commands/<family>Commands.ts` (`e684125` … `a8549ad`), with command specs and `commit` / `saveOnly` folded into one `mutate`. **Phase 4 IN PROGRESS** — 4.1: `spanFromNotes`, `reanchorSlurs` → `slurOps`, `tieOps` (`6d720b8`) done; `deleteNote`'s repair → `deleteNoteOps` (`ab182f4`); `convertToRest` → `convertToRestOps` (`e20ca48`); `moveSelectionToVoice` → `voiceOps` (`5f6fa03`) — **4.1 DONE**. 4.2 split a–d: **a** the spanning note → `spanningNoteOps` (`551b39a`); **b** the overwrite → `entryOverwriteOps` (`ad381dd`); **c** the duration change → `durationChangeOps` (`cf41ba4`) + the chord-overflow FIX as its own commit (`6b97a8f`); **d** the tuplet builders + entry INTO a tuplet → `tupletEntryOps` (`6116fb8`) — **4.2 DONE** (coordinator 1,602 → 734 lines). 4.3 split a–e: **a** the three `repairDangling*` → `tieOps` / `slurOps` / `trillOps` (`1eed47b`); **b** the rest fill → `restFillOps` (`243d35c`); **c** slot placement + `insertPitch` → `slotPlacementOps` (`4323899`); **d** the model's `convertToRest` → `convertToRestOps.swapSlotForRest` (`5da6ce1`); **e1** `addRestSlot` — `VoiceDeps` GONE (`4e0e6b0`); **e2** `measureOps` — `RebarDeps` GONE, `ClearRangeDeps` 5 → 2 — done, awaiting his check — **4.3 DONE with it**; 4.5 (split `types/music.ts`) next.** Phases are ordered by
 value over risk; each one stands alone and can be stopped after. A done item carries ✅ and what
 actually happened where that differs from what was planned.
 
@@ -994,8 +994,39 @@ The only phase that fixes a broken principle rather than a shape.
    on a half rest replaces it). Break-tested ×2. ⛔ Still on `ScoreModel`: `fillGapWithRests`
    (singular) — moving it into `restFillOps` would make `restFillOps ⇄ slotPlacementOps` a cycle; it
    wants its own home or to be retired with the float paths. `ScoreModel` kinds 961 → 957.
-   ⏸️ Awaiting his check. LEFT for e2: `insertMeasureAfter` / `addMeasure` → a measure ops module,
+   ✅ `4e0e6b0`. LEFT for e2: `insertMeasureAfter` / `addMeasure` → a measure ops module,
    then `RebarDeps` (9, all forwarders by then) and `ClearRangeDeps` go.*
+
+   *4.3e, SECOND HALF done, 2026-09-20 — `engine/models/measureOps.ts`: `insertMeasureAfter(score,
+   …)` + `addMeasure(score, …)` + `fillMeasureWithRests` + `copyTimeSignature`, bodies verbatim;
+   `staffIdForParams(score, staff)` joined `staffContent`. With those two bodies out, every one of
+   `RebarDeps`' nine was a function `rebarOps` could import — ⭐ **`RebarDeps` is GONE**: the
+   interface, the `deps` parameter threaded through ~25 internal functions, and
+   `ScoreModel.rebarDeps`. `rebarOps.rebarRegion(score, from, ts)` / `pasteEvents(score, clip,
+   target)`. (⚠️ Scripted; two helpers took `deps` and NO score — `stampOverrides`, `linkTieById`,
+   `materializeVoiceBar` — and gained `score`; `tsc` named each.)*
+
+   *`ClearRangeDeps` 5 → 2, ⛔ not zero, and the reason is real: `removeSlot` (`ScoreModel.deleteNote`)
+   and `deleteOne` (`deleteNoteWithRepair`) go through note entry — `addNote`, the flat `Note`
+   projection — which IS the model; a `(score)` function cannot do them. The other three (rest
+   fill, voice collapse, slur re-anchor) are imported. ⭐ `deleteOne` now points at
+   `deleteNoteWithRepair` directly, as 4.1 promised — the facade's per-note `mutate` inside the
+   batch went, and `deleteNotes`' one `mutate` is what tells the batch something changed (same one
+   undo entry). `clearOps.test.ts`'s re-anchor case asks REAL slurs now instead of spying a
+   callback — a stronger case for free.*
+
+   *Spec: `measureOps.test.ts` (6, new): append in the meter in force · splice + RENUMBER bars AND
+   their slots · a front insert states its meter · the meter is COPIED (grouping too) ·
+   `copyTimeSignature` keeps `symbol` · an empty bar gets one measure rest in every meter.
+   Break-tested ×3. `ScoreModel` 3,189 → 3,010 lines, kinds 957 → 940; `MusicEngine` kinds
+   510 → 506. ⏸️ Awaiting his check (a meter change, a paste that grows the score, Add/Insert
+   measure, Delete on a selection).*
+
+   ***4.3 is DONE with it.** What it leaves on `ScoreModel` on purpose: `addNote`'s CHORD branch and
+   `deleteNote` (the flat-`Note` projection lives with them), `updateNote`, `fillGapWithRests`
+   singular (a cycle if moved into `restFillOps`), `removeMeasure`, and the forwarders (4.4: they
+   stay). `ScoreModel` 3,745 → 3,010 over the phase; no `*Deps` bundle is left but
+   `ClearRangeDeps`' two.*
 
 4. New features call `xOps.fn(model.getScore(), …)` rather than adding a forwarder, so the
    forwarder count stops growing. Existing forwarders stay.

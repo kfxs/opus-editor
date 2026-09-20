@@ -12,7 +12,7 @@
  * motion out of ScoreModel; the rebar / paste / time-signature test suites are the net.
  */
 import type {
-  Score, Measure, Note, Chord, NotePitch, Rest, TimeSignature, Clef, Dynamic, TempoMark, Hairpin, Ottava, Pedal,
+  Score, Measure, Note, Chord, NotePitch, TimeSignature, Clef, Dynamic, TempoMark, Hairpin, Ottava, Pedal,
   Slur, Trill, EngravingOverride, RestShiftOverride, RestHiddenOverride,
   LeadingSpaceOverride, NoteOffsetOverride } from '@/types/music'
 import { restShiftOverrideOf, restHiddenOf, restPositionKey, noteOffsetOverrideOf, spacingPositionKey, measureLeadingSpaces } from './engravingOverrides'
@@ -22,40 +22,22 @@ import { flattenRegion, relayEvents, type RebarPiece, type RebarEvent, type BarP
 import type { Clip, ClipSlur, ClipSlurPitch, ClipTrill, ClipTarget } from '@/utils/clip'
 import { type Fraction, fracCreate, fracAdd, fracSub, fracCompare, fracEq, fracLt, fracGte } from '@/utils/fraction'
 import { measureCapacityFrac } from '@/utils/measureCapacity'
-import { staffIndexOfId, matchesStaff, staffIdAtIndex, keyStaffId, staffMeasureView } from './staffContent'
+import { staffIndexOfId, matchesStaff, staffIdAtIndex, staffIdForParams, keyStaffId, staffMeasureView } from './staffContent'
 import { laneOfSlot, pairIsValid } from '@/utils/tremoloPair'
 import { fillGapsWithRests, pushRestSlot } from './restFillOps'
 import { repairDanglingTies } from './tieOps'
-import { repairDanglingSlurs } from './slurOps'
-import { repairDanglingTrills } from './trillOps'
+import { addSlur, repairDanglingSlurs } from './slurOps'
+import { addTrill, repairDanglingTrills } from './trillOps'
+import { addMeasure, insertMeasureAfter } from './measureOps'
+import { collapseEmptyVoices } from './voiceOps'
+import { findSlot } from './slotLookup'
+import { clearEngravingOverride, setEngravingOverride } from './overrideOps'
 import { cloneFanFresh, chordStoredPitches, fanMemberBeats } from '@/utils/fannedBeam'
 import { v4 as uuidv4 } from 'uuid'
 import { voiceOf } from '@/utils/lanes'
 import { dbg } from '@/utils/debug'
 
-// ==================== Callback surface + captured-state types ====================
-
-/** The slot lookup result `findSlot` returns (only the chord case is used by rebar). */
-type FindSlotResult =
-  | { type: 'chord'; chord: Chord; pitch: NotePitch }
-  | { type: 'rest'; rest: Rest }
-
-/**
- * The ScoreModel operations the rebar machinery calls back into — the "few callbacks" the
- * clefOps/tupletOps idiom passes, bundled because rebar needs a dozen. Each is a real
- * ScoreModel method used elsewhere too, so it stays there and is threaded in here.
- */
-export interface RebarDeps {
-  insertMeasureAfter(afterNumber: number, timeSignature?: TimeSignature): Measure
-  addMeasure(timeSignature?: TimeSignature): Measure
-  collapseEmptyVoices(measureNumber: number): void
-  staffIdForParams(staff: number | undefined): string | undefined
-  addSlur(slur: Omit<Slur, 'id'>): Slur
-  addTrill(trill: Omit<Trill, 'id'>): Trill | null
-  findSlot(noteId: string): FindSlotResult | undefined
-  setEngravingOverride(elementId: string, override: EngravingOverride): void
-  clearEngravingOverride(elementId: string, kind?: string): boolean
-}
+// ==================== Captured-state types ====================
 
 /**
  * A beat-anchored annotation (clef change, dynamic or tempo mark) snapshotted before a
@@ -159,7 +141,7 @@ function copyTimeSignature(ts: TimeSignature): TimeSignature {
  * the next explicit TS change (or score end); overflow GROWS the region in place (pushing
  * that next change forward) rather than cramming.
  */
-export function rebarRegion(score: Score, deps: RebarDeps, fromMeasure: number, ts: TimeSignature): void {
+export function rebarRegion(score: Score, fromMeasure: number, ts: TimeSignature): void {
   const ordered = [...score.measures].sort((a, b) => a.number - b.number)
   const fromIdx = ordered.findIndex((m) => m.number === fromMeasure)
   if (fromIdx === -1) return
@@ -189,19 +171,19 @@ export function rebarRegion(score: Score, deps: RebarDeps, fromMeasure: number, 
   // Capture beat-anchored annotations (clef changes + dynamics) by their ABSOLUTE
   // offset from the region start, using the OLD capacities — before the meter is
   // overwritten below. They are re-anchored after rebar (see restoreBeatAnchors).
-  const anchors = captureBeatAnchors(score, deps, regionMeasures)
+  const anchors = captureBeatAnchors(score, regionMeasures)
 
   // Capture manual rest shifts the same way — by absolute region-relative offset, before
   // rest-fill regenerates every rest with a fresh id. Re-stamped after materialise.
-  const restShifts = captureRestShifts(score, deps, regionMeasures)
+  const restShifts = captureRestShifts(score, regionMeasures)
 
   // …and the authored leading spaces (client #10), keyed by offset alone — a space belongs to
   // the column, so it has neither a voice nor a staff to capture.
-  const leadingSpaces = captureLeadingSpaces(score, deps, regionMeasures)
+  const leadingSpaces = captureLeadingSpaces(score, regionMeasures)
 
   // …and the note horizontal offsets (client #12), slot-keyed and so re-minted by the rebar —
   // captured by (voice, staff, offset), re-stamped onto the slot that starts there afterwards.
-  const noteOffsets = captureNoteOffsets(score, deps, regionMeasures)
+  const noteOffsets = captureNoteOffsets(score, regionMeasures)
   // Two-note tremolos travel by POSITION across the re-tile, and must be captured for the same
   // reason as the offsets above: the relay cannot carry the relation, so anything not snapshotted
   // here is silently un-paired by the rebuild.
@@ -257,7 +239,7 @@ export function rebarRegion(score: Score, deps: RebarDeps, fromMeasure: number, 
   const lastRegionNumber = regionMeasures[regionMeasures.length - 1].number
   const grow = maxBars - targetBars
   for (let i = 0; i < grow; i++) {
-    deps.insertMeasureAfter(lastRegionNumber + i, ts)
+    insertMeasureAfter(score, lastRegionNumber + i, ts)
   }
 
   // The region now occupies a contiguous run of `maxBars` bars from fromMeasure.
@@ -265,37 +247,37 @@ export function rebarRegion(score: Score, deps: RebarDeps, fromMeasure: number, 
   for (let i = 0; i < maxBars; i++) regionNumbers.push(fromMeasure + i)
 
   // Materialise every (staff, voice) lane additively (clear-once → per-lane fill → collapse).
-  materializeRegion(score, deps, regionNumbers, lanes)
+  materializeRegion(score, regionNumbers, lanes)
 
   // Re-barring regenerated the region's slot ids, so a tie that crossed the
   // region boundary now points at a deleted id. Re-attach it to the rebar'd
   // note at the boundary (same pitch/position); anything unrestorable is then
   // severed so no pointer is left dangling (would crash tie editing).
-  restoreBoundaryTies(score, deps, fromMeasure, regionNumbers[regionNumbers.length - 1], boundary)
+  restoreBoundaryTies(score, fromMeasure, regionNumbers[regionNumbers.length - 1], boundary)
   repairDanglingTies(score)
 
   // Re-attach captured slurs to the rebar'd notes (by onset offset + pitch); drop any
   // that can't be re-found, so none is left pointing at a regenerated/deleted id.
-  restoreSlurs(score, deps, regionNumbers, slurState)
+  restoreSlurs(score, regionNumbers, slurState)
   repairDanglingSlurs(score)
-  restoreTrills(score, deps, regionNumbers, trillState)
+  restoreTrills(score, regionNumbers, trillState)
   repairDanglingTrills(score)
 
   // Re-anchor the captured clef changes / dynamics into the new bar layout,
   // mapping each absolute offset to the (measure, beat) it now lands on.
-  restoreBeatAnchors(score, deps, regionNumbers, anchors)
+  restoreBeatAnchors(score, regionNumbers, anchors)
 
   // Re-stamp the captured rest shifts onto whatever rest now starts at each offset
   // (dropped where the new tiling has no rest start — plan §4).
-  restoreRestShifts(score, deps, regionNumbers, restShifts)
+  restoreRestShifts(score, regionNumbers, restShifts)
 
   // …and the authored leading spaces onto whatever column now starts at each offset. Dropped
   // where the new meter has no column there at all — see restoreLeadingSpaces.
-  restoreLeadingSpaces(score, deps, regionNumbers, leadingSpaces)
+  restoreLeadingSpaces(score, regionNumbers, leadingSpaces)
 
   // …and the note offsets onto whatever slot now starts at each offset (dropped where the new
   // tiling has none — see restoreNoteOffsets).
-  restoreNoteOffsets(score, deps, regionNumbers, noteOffsets)
+  restoreNoteOffsets(score, regionNumbers, noteOffsets)
   restoreTremoloPairs(score, regionNumbers, tremoloPairs)
 }
 
@@ -318,7 +300,6 @@ export function rebarRegion(score: Score, deps: RebarDeps, fromMeasure: number, 
  */
 export function pasteEvents(
   score: Score,
-  deps: RebarDeps,
   clip: Clip,
   target: ClipTarget,
 ): string[] {
@@ -354,15 +335,15 @@ export function pasteEvents(
   const boundary = captureBoundaryTies(score, regionMeasures)
   const slurState = captureSlurs(score, regionMeasures)
   const trillState = captureTrills(score, regionMeasures)
-  const anchors = captureBeatAnchors(score, deps, regionMeasures)
+  const anchors = captureBeatAnchors(score, regionMeasures)
   // Preserve the destination's own rest shifts across the rebar (those outside the paste
   // window survive; ones whose rest the paste overwrites are dropped). The clip's shifts
   // are stamped ON TOP afterwards (last wins) — see §6.5 threading.
-  const restShifts = captureRestShifts(score, deps, regionMeasures)
+  const restShifts = captureRestShifts(score, regionMeasures)
   // Same for the destination's authored leading spaces; the clip's are stamped on top below.
-  const leadingSpaces = captureLeadingSpaces(score, deps, regionMeasures)
+  const leadingSpaces = captureLeadingSpaces(score, regionMeasures)
   // And the destination's own note offsets (client #12); the clip's land on top afterwards.
-  const noteOffsets = captureNoteOffsets(score, deps, regionMeasures)
+  const noteOffsets = captureNoteOffsets(score, regionMeasures)
   // Two-note tremolos travel by POSITION across the re-tile, and must be captured for the same
   // reason as the offsets above: the relay cannot carry the relation, so anything not snapshotted
   // here is silently un-paired by the rebuild.
@@ -478,22 +459,22 @@ export function pasteEvents(
 
   const regionNumbers = regionMeasures.map((m) => m.number)
   for (let i = targetBars; i < maxBars; i++) {
-    regionNumbers.push(deps.addMeasure(ts).number)
+    regionNumbers.push(addMeasure(score, ts).number)
   }
 
-  const created = materializeRegion(score, deps, regionNumbers, lanes)
-  restoreBoundaryTies(score, deps, targetMeasure, regionNumbers[regionNumbers.length - 1], boundary)
+  const created = materializeRegion(score, regionNumbers, lanes)
+  restoreBoundaryTies(score, targetMeasure, regionNumbers[regionNumbers.length - 1], boundary)
   repairDanglingTies(score)
-  restoreSlurs(score, deps, regionNumbers, slurState)
+  restoreSlurs(score, regionNumbers, slurState)
   repairDanglingSlurs(score)
-  restoreTrills(score, deps, regionNumbers, trillState)
+  restoreTrills(score, regionNumbers, trillState)
   repairDanglingTrills(score)
   // Re-anchor the clip's own slurs onto the freshly-pasted notes (Phase 3), mapping rel→abs
   // staff (drop overflow) + re-voicing single-voice clips — the slur analogue of clip dynamics.
-  restoreClipSlurs(score, deps, regionNumbers, clipSlurs, targetStaff, targetVoice, singleVoice, pasteStart, staffCount)
+  restoreClipSlurs(score, regionNumbers, clipSlurs, targetStaff, targetVoice, singleVoice, pasteStart, staffCount)
   // …and the clip's own trills, on the same staff-aware lookup (docs/trill-plan.md §2.3).
-  restoreClipTrills(score, deps, regionNumbers, clipTrills, targetStaff, targetVoice, singleVoice, pasteStart, staffCount)
-  restoreBeatAnchors(score, deps, regionNumbers, survivingAnchors)
+  restoreClipTrills(score, regionNumbers, clipTrills, targetStaff, targetVoice, singleVoice, pasteStart, staffCount)
+  restoreBeatAnchors(score, regionNumbers, survivingAnchors)
   // Re-anchor the clip's own dynamics on top (Phase 2): re-base each clip-relative offset by the
   // paste start, map the RELATIVE staff onto an absolute one (clamped — drop overflow lanes), and
   // re-voice a single-voice clip into the target voice (mirroring the destVoices rule). Routed
@@ -600,14 +581,14 @@ export function pasteEvents(
       ...(ct.engraving?.length ? { overrides: ct.engraving } : {}),
     })
   }
-  restoreBeatAnchors(score, deps, regionNumbers, clipAnchors)
+  restoreBeatAnchors(score, regionNumbers, clipAnchors)
   // Re-stamp the destination's own rest shifts; the clip's shifts are applied after this,
   // so they win on any position collision.
-  restoreRestShifts(score, deps, regionNumbers, restShifts)
+  restoreRestShifts(score, regionNumbers, restShifts)
   // The destination's own leading spaces, likewise — the clip's land on top further down.
-  restoreLeadingSpaces(score, deps, regionNumbers, leadingSpaces)
+  restoreLeadingSpaces(score, regionNumbers, leadingSpaces)
   // The destination's own note offsets, likewise — the clip's are stamped on top further down.
-  restoreNoteOffsets(score, deps, regionNumbers, noteOffsets)
+  restoreNoteOffsets(score, regionNumbers, noteOffsets)
   restoreTremoloPairs(score, regionNumbers, tremoloPairs)
 
   // Apply the clip's rest shifts at the paste window: re-base each clip-relative offset by
@@ -635,14 +616,14 @@ export function pasteEvents(
       clipCaptured.push({ voice: destVoice, staffId: destStaffId, absBeat: fracAdd(pasteStart, rh.offset), steps: 0, hidden: true })
     }
   }
-  restoreRestShifts(score, deps, regionNumbers, clipCaptured)
+  restoreRestShifts(score, regionNumbers, clipCaptured)
 
   // The clip's authored spaces (client #10) travel the same way, and are the simplest of the lot:
   // a space carries no voice and no staff, so re-basing its offset by the paste start is the whole
   // of the mapping — there is nothing to re-voice and nothing to re-staff. Stamped after the
   // destination's, so the clip wins where both spaced the same column.
   restoreLeadingSpaces(
-    score, deps, regionNumbers,
+    score, regionNumbers,
     clipSpaces.map((cs) => ({ absBeat: fracAdd(pasteStart, cs.offset), space: cs.space })),
   )
 
@@ -658,7 +639,7 @@ export function pasteEvents(
       clipCapturedOffsets.push({ voice: destVoice, staffId: destStaffId, absBeat: fracAdd(pasteStart, no.offset), x: no.x, member: no.member })
     }
   }
-  restoreNoteOffsets(score, deps, regionNumbers, clipCapturedOffsets)
+  restoreNoteOffsets(score, regionNumbers, clipCapturedOffsets)
 
   // ⭐ The clip's TWO-NOTE TREMOLOS, re-based and re-voiced exactly like its note offsets — "I should
   // be able to paste what I copied". They travel outside `events` on purpose (see
@@ -762,38 +743,38 @@ function rangeForOffset(
  * The originals are wiped by {@link clearMeasureForRebar}; {@link restoreBeatAnchors}
  * re-creates them (fresh ids) at the position each offset maps to afterwards.
  */
-function captureBeatAnchors(score: Score, deps: RebarDeps, regionMeasures: Measure[]): CapturedAnchor[] {
+function captureBeatAnchors(score: Score, regionMeasures: Measure[]): CapturedAnchor[] {
   const out: CapturedAnchor[] = []
   forEachRegionMeasure(regionMeasures, (m, base) => {
     for (const c of m.clefs ?? []) {
       out.push({ kind: 'clef', absBeat: fracAdd(base, c.beat), clef: c.clef, staffId: c.staffId })
     }
     for (const d of m.dynamics ?? []) {
-      out.push({ kind: 'dynamic', absBeat: fracAdd(base, d.beat), dyn: d, ...takeOverrides(score, deps, d.id) })
+      out.push({ kind: 'dynamic', absBeat: fracAdd(base, d.beat), dyn: d, ...takeOverrides(score, d.id) })
     }
     // Tempo marks are beat-anchored too, so a meter change would silently DELETE them
     // (clearMeasureForRebar drops the array) unless they ride this seam. They carry no
     // staff/voice — a tempo mark is system-level — so the offset is the whole key.
     for (const t of m.tempos ?? []) {
-      out.push({ kind: 'tempo', absBeat: fracAdd(base, t.beat), mark: t, ...takeOverrides(score, deps, t.id) })
+      out.push({ kind: 'tempo', absBeat: fracAdd(base, t.beat), mark: t, ...takeOverrides(score, t.id) })
     }
     // Hairpins ride the same seam as the dynamics above, for the same reason and with one extra:
     // clearMeasureForRebar deletes the array, so anything not captured here is gone. The wedge's
     // `length` travels verbatim (see the CapturedAnchor comment).
     for (const h of m.hairpins ?? []) {
-      out.push({ kind: 'hairpin', absBeat: fracAdd(base, h.beat), hairpin: h, ...takeOverrides(score, deps, h.id) })
+      out.push({ kind: 'hairpin', absBeat: fracAdd(base, h.beat), hairpin: h, ...takeOverrides(score, h.id) })
     }
     // Octave lines ride it too, and the cost of missing this loop is the loudest on the seam: an
     // ottava dropped by a meter change does not merely disappear from the page, it silently
     // transposes the passage back an octave.
     for (const o of m.ottavas ?? []) {
-      out.push({ kind: 'ottava', absBeat: fracAdd(base, o.beat), ottava: o, ...takeOverrides(score, deps, o.id) })
+      out.push({ kind: 'ottava', absBeat: fracAdd(base, o.beat), ottava: o, ...takeOverrides(score, o.id) })
     }
     // Sustain pedals, on the same terms — and clearMeasureForRebar deletes their array too, so a
     // pedal missing from this loop is gone rather than stale. What that costs is heard as well as
     // seen: the notes it held stop ringing.
     for (const p of m.pedals ?? []) {
-      out.push({ kind: 'pedal', absBeat: fracAdd(base, p.beat), pedal: p, ...takeOverrides(score, deps, p.id) })
+      out.push({ kind: 'pedal', absBeat: fracAdd(base, p.beat), pedal: p, ...takeOverrides(score, p.id) })
     }
   })
   return out
@@ -818,18 +799,18 @@ function captureBeatAnchors(score: Score, deps: RebarDeps, regionMeasures: Measu
  * are keyed by `{measureId}:…` rather than by a mark's id, and they ride `captureRestShifts` — the
  * twin — because what they are about is a PLACE in the destination, not a thing that travelled.
  */
-function takeOverrides(score: Score, deps: RebarDeps, id: string): { overrides?: EngravingOverride[] } {
+function takeOverrides(score: Score, id: string): { overrides?: EngravingOverride[] } {
   const held = score.engravingOverrides?.[id]
   if (!held?.length) return {}
   const overrides = held.map(o => ({ ...o }))
-  deps.clearEngravingOverride(id)
+  clearEngravingOverride(score, id)
   return { overrides }
 }
 
 /** Put a captured mark's overrides back, under the id it has NOW — {@link takeOverrides}' other
  *  half, and the reason a mark keeps its hand work across a rebar or a paste. */
-function stampOverrides(deps: RebarDeps, id: string, overrides?: EngravingOverride[]): void {
-  for (const override of overrides ?? []) deps.setEngravingOverride(id, override)
+function stampOverrides(score: Score, id: string, overrides?: EngravingOverride[]): void {
+  for (const override of overrides ?? []) setEngravingOverride(score, id, override)
 }
 
 /**
@@ -839,7 +820,7 @@ function stampOverrides(deps: RebarDeps, id: string, overrides?: EngravingOverri
  * past the (defensively) rebuilt region is clamped to the last bar. A collision
  * at the same beat (+ voice, for dynamics) is overwritten — last wins.
  */
-function restoreBeatAnchors(score: Score, deps: RebarDeps, regionNumbers: number[], anchors: CapturedAnchor[]): void {
+function restoreBeatAnchors(score: Score, regionNumbers: number[], anchors: CapturedAnchor[]): void {
   if (anchors.length === 0) return
 
   const ranges = regionRanges(score, regionNumbers)
@@ -868,7 +849,7 @@ function restoreBeatAnchors(score: Score, deps: RebarDeps, regionNumbers: number
       const tempoId = uuidv4()
       m.tempos.push({ ...a.mark, id: tempoId, beat })
       m.tempos.sort((x, y) => fracCompare(x.beat, y.beat))
-      stampOverrides(deps, tempoId, a.overrides)
+      stampOverrides(score, tempoId, a.overrides)
     } else if (a.kind === 'hairpin') {
       // Hairpins take the DYNAMICS rule, not the clef one: they may stack at a beat, so no dedupe.
       // Only the start moves — `length` is carried through untouched.
@@ -881,7 +862,7 @@ function restoreBeatAnchors(score: Score, deps: RebarDeps, regionNumbers: number
       const hairpinId = uuidv4()
       m.hairpins.push({ ...a.hairpin, id: hairpinId, beat })
       m.hairpins.sort((x, y) => fracCompare(x.beat, y.beat))
-      stampOverrides(deps, hairpinId, a.overrides)
+      stampOverrides(score, hairpinId, a.overrides)
     } else if (a.kind === 'ottava') {
       // ⭐ Ottavas take the CLEF rule, not the hairpin one that stands two branches up: at most one
       // per (beat, STAFF), last wins. Two wedges at a beat are two readable marks; two octave
@@ -897,7 +878,7 @@ function restoreBeatAnchors(score: Score, deps: RebarDeps, regionNumbers: number
       const ottavaId = uuidv4()
       m.ottavas.push({ ...a.ottava, id: ottavaId, beat })
       m.ottavas.sort((x, y) => fracCompare(x.beat, y.beat))
-      stampOverrides(deps, ottavaId, a.overrides)
+      stampOverrides(score, ottavaId, a.overrides)
     } else if (a.kind === 'pedal') {
       // ⭐ Pedals take the CLEF rule the branch above takes, and the reason is physical rather than
       // notational: two octave shifts on a beat are a contradiction a reader cannot resolve, two
@@ -917,14 +898,14 @@ function restoreBeatAnchors(score: Score, deps: RebarDeps, regionNumbers: number
       const pedalId = uuidv4()
       m.pedals.push({ ...a.pedal, id: pedalId, beat })
       m.pedals.sort((x, y) => fracCompare(x.beat, y.beat))
-      stampOverrides(deps, pedalId, a.overrides)
+      stampOverrides(score, pedalId, a.overrides)
     } else {
       // Dynamics may stack at one (beat, voice) — keep them all (no dedupe).
       if (!m.dynamics) m.dynamics = []
       const newId = uuidv4()
       m.dynamics.push({ ...a.dyn, id: newId, beat })
       m.dynamics.sort((x, y) => fracCompare(x.beat, y.beat))
-      stampOverrides(deps, newId, a.overrides)
+      stampOverrides(score, newId, a.overrides)
     }
   }
 }
@@ -938,7 +919,7 @@ function restoreBeatAnchors(score: Score, deps: RebarDeps, regionNumbers: number
  * are regenerated, or intentionally dropped if the new tiling has no rest at that offset.
  * The position-keyed twin of {@link captureBeatAnchors}. See docs/rest-shift-plan.md §3.2.
  */
-function captureRestShifts(score: Score, deps: RebarDeps, regionMeasures: Measure[]): CapturedRestShift[] {
+function captureRestShifts(score: Score, regionMeasures: Measure[]): CapturedRestShift[] {
   const out: CapturedRestShift[] = []
   forEachRegionMeasure(regionMeasures, (m, base) => {
     for (const s of m.slots) {
@@ -951,8 +932,8 @@ function captureRestShifts(score: Score, deps: RebarDeps, regionMeasures: Measur
       const hidden = restHiddenOf(score, key)
       if (steps === 0 && !hidden) continue
       out.push({ voice, staffId: s.staffId, absBeat: fracAdd(base, s.beat), steps, hidden })
-      if (steps !== 0) deps.clearEngravingOverride(key, 'restShift')
-      if (hidden) deps.clearEngravingOverride(key, 'restHidden')
+      if (steps !== 0) clearEngravingOverride(score, key, 'restShift')
+      if (hidden) clearEngravingOverride(score, key, 'restHidden')
     }
   })
   return out
@@ -970,7 +951,7 @@ function captureRestShifts(score: Score, deps: RebarDeps, regionMeasures: Measur
  * clip's offsets by the paste start and routes them through this same path.
  * See docs/rest-shift-plan.md §3.2 / §6.4.
  */
-function restoreRestShifts(score: Score, deps: RebarDeps, regionNumbers: number[], captured: CapturedRestShift[]): void {
+function restoreRestShifts(score: Score, regionNumbers: number[], captured: CapturedRestShift[]): void {
   if (captured.length === 0) return
 
   const ranges = regionRanges(score, regionNumbers)
@@ -991,11 +972,11 @@ function restoreRestShifts(score: Score, deps: RebarDeps, regionNumbers: number[
     // Re-stamp BOTH captured rest engraving overrides at the new position (client #5/#6).
     if (c.steps !== 0) {
       const next: RestShiftOverride = { kind: 'restShift', steps: c.steps }
-      deps.setEngravingOverride(key, next)
+      setEngravingOverride(score, key, next)
     }
     if (c.hidden) {
       const next: RestHiddenOverride = { kind: 'restHidden' }
-      deps.setEngravingOverride(key, next)
+      setEngravingOverride(score, key, next)
     }
   }
 }
@@ -1010,7 +991,7 @@ function restoreRestShifts(score: Score, deps: RebarDeps, regionNumbers: number[
  * {@link captureRestShifts}; it covers BOTH chords and rests, because a note offset hangs off the
  * whole slot (a chord moves as a unit). See docs/note-offset-plan.md.
  */
-function captureNoteOffsets(score: Score, deps: RebarDeps, regionMeasures: Measure[]): CapturedNoteOffset[] {
+function captureNoteOffsets(score: Score, regionMeasures: Measure[]): CapturedNoteOffset[] {
   const out: CapturedNoteOffset[] = []
   forEachRegionMeasure(regionMeasures, (m, base) => {
     for (const s of m.slots) {
@@ -1018,7 +999,7 @@ function captureNoteOffsets(score: Score, deps: RebarDeps, regionMeasures: Measu
       const ov = noteOffsetOverrideOf(score, s.id)
       if (ov && ov.x !== 0) {
         out.push({ voice: voiceOf(s), staffId: s.staffId, absBeat, x: ov.x })
-        deps.clearEngravingOverride(s.id, 'noteOffset')
+        clearEngravingOverride(score, s.id, 'noteOffset')
       }
       // ⭐ …and every FANNED MEMBER's own offset, at the SLOT's beat plus its index. A member has no
       // beat the tiling can hand back (it lives between the slot's column and the next), so the
@@ -1030,7 +1011,7 @@ function captureNoteOffsets(score: Score, deps: RebarDeps, regionMeasures: Measu
         const mov = noteOffsetOverrideOf(score, id)
         if (!mov || mov.x === 0) return
         out.push({ voice: voiceOf(s), staffId: s.staffId, absBeat, x: mov.x, member: k + 1 })
-        deps.clearEngravingOverride(id, 'noteOffset')
+        clearEngravingOverride(score, id, 'noteOffset')
       })
     }
   })
@@ -1051,7 +1032,7 @@ function captureNoteOffsets(score: Score, deps: RebarDeps, regionMeasures: Measu
  * one, has no member `k` to carry it. Neither drop is an error; both are the tiling saying the thing
  * that was offset is not there any more.
  */
-function restoreNoteOffsets(score: Score, deps: RebarDeps, regionNumbers: number[], captured: CapturedNoteOffset[]): void {
+function restoreNoteOffsets(score: Score, regionNumbers: number[], captured: CapturedNoteOffset[]): void {
   if (captured.length === 0) return
 
   const ranges = regionRanges(score, regionNumbers)
@@ -1071,7 +1052,7 @@ function restoreNoteOffsets(score: Score, deps: RebarDeps, regionNumbers: number
       if (!key) continue // the slot that arrived carries no member k → drop, same rule one level in
     }
     const next: NoteOffsetOverride = { kind: 'noteOffset', x: c.x }
-    deps.setEngravingOverride(key, next)
+    setEngravingOverride(score, key, next)
   }
 }
 
@@ -1145,12 +1126,12 @@ function restoreTremoloPairs(score: Score, regionNumbers: number[], captured: Ca
  * a voice nor a staff, because a space belongs to the *column*, not to a note in it. One space per
  * rhythmic position, however many voices and staves happen to sound there.
  */
-function captureLeadingSpaces(score: Score, deps: RebarDeps, regionMeasures: Measure[]): CapturedLeadingSpace[] {
+function captureLeadingSpaces(score: Score, regionMeasures: Measure[]): CapturedLeadingSpace[] {
   const out: CapturedLeadingSpace[] = []
   forEachRegionMeasure(regionMeasures, (m, base) => {
     for (const { beat, space } of measureLeadingSpaces(score, m.id)) {
       out.push({ absBeat: fracAdd(base, beat), space })
-      deps.clearEngravingOverride(spacingPositionKey(m.id, beat), 'leadingSpace')
+      clearEngravingOverride(score, spacingPositionKey(m.id, beat), 'leadingSpace')
     }
   })
   return out
@@ -1187,7 +1168,7 @@ function columnExistsAt(m: Measure, beat: Fraction): boolean {
   })
 }
 
-function restoreLeadingSpaces(score: Score, deps: RebarDeps, regionNumbers: number[], captured: CapturedLeadingSpace[]): void {
+function restoreLeadingSpaces(score: Score, regionNumbers: number[], captured: CapturedLeadingSpace[]): void {
   if (captured.length === 0) return
 
   const ranges = regionRanges(score, regionNumbers)
@@ -1200,7 +1181,7 @@ function restoreLeadingSpaces(score: Score, deps: RebarDeps, regionNumbers: numb
     const m = target.measure
     if (!columnExistsAt(m, beat)) continue // no column → no space
     const next: LeadingSpaceOverride = { kind: 'leadingSpace', space: c.space }
-    deps.setEngravingOverride(spacingPositionKey(m.id, beat), next)
+    setEngravingOverride(score, spacingPositionKey(m.id, beat), next)
   }
 }
 
@@ -1248,18 +1229,17 @@ function captureBoundaryTies(score: Score, regionMeasures: Measure[]): {
 /** Re-attach captured boundary ties to the rebar'd note at the boundary. */
 function restoreBoundaryTies(
   score: Score,
-  deps: RebarDeps,
   firstMeasure: number,
   lastMeasure: number,
   boundary: ReturnType<typeof captureBoundaryTies>,
 ): void {
   for (const { externalId, pitch, voice } of boundary.incoming) {
     const targetId = boundaryPitchId(score, firstMeasure, pitch, 'first', voice)
-    if (targetId) linkTieById(deps, externalId, targetId)
+    if (targetId) linkTieById(score, externalId, targetId)
   }
   for (const { externalId, pitch, voice } of boundary.outgoing) {
     const sourceId = boundaryPitchId(score, lastMeasure, pitch, 'last', voice)
-    if (sourceId) linkTieById(deps, sourceId, externalId)
+    if (sourceId) linkTieById(score, sourceId, externalId)
   }
 }
 
@@ -1285,9 +1265,9 @@ function boundaryPitchId(
 }
 
 /** Directly link `fromId` →(tiedTo)→ `toId` on their chord pitches. */
-function linkTieById(deps: RebarDeps, fromId: string, toId: string): void {
-  const from = deps.findSlot(fromId)
-  const to = deps.findSlot(toId)
+function linkTieById(score: Score, fromId: string, toId: string): void {
+  const from = findSlot(score, fromId)
+  const to = findSlot(score, toId)
   if (!from || from.type !== 'chord' || !to || to.type !== 'chord') return
   from.pitch.tiedTo = toId
   to.pitch.tiedFrom = fromId
@@ -1348,7 +1328,7 @@ function slurAnchorKey(offset: Fraction, pitch: SlurPitch, voice: number): strin
  * overwritten/dropped), or that collapses to a single point, is removed — never left
  * dangling. Mirrors {@link restoreBoundaryTies}.
  */
-function restoreSlurs(score: Score, deps: RebarDeps, regionNumbers: number[], captured: CapturedSlur[]): void {
+function restoreSlurs(score: Score, regionNumbers: number[], captured: CapturedSlur[]): void {
   if (captured.length === 0) return
   const slurs = score.slurs
   if (!slurs) return
@@ -1384,7 +1364,7 @@ function restoreSlurs(score: Score, deps: RebarDeps, regionNumbers: number[], ca
     const newEnd = resolve(c.end)
     if (!newStart || !newEnd || newStart === newEnd) {
       slurs.splice(idx, 1)
-      deps.clearEngravingOverride(c.slur.id) // auto-reset (§3.3): endpoint unrecoverable on rebar → slur dropped
+      clearEngravingOverride(score, c.slur.id) // auto-reset (§3.3): endpoint unrecoverable on rebar → slur dropped
       continue
     }
     c.slur.startNoteId = newStart
@@ -1456,7 +1436,7 @@ function captureTrills(score: Score, regionMeasures: Measure[]): CapturedTrill[]
  * is exactly the state to fall back to. A slur has no such fallback (an arc needs two ends), which
  * is why it drops on either.
  */
-function restoreTrills(score: Score, deps: RebarDeps, regionNumbers: number[], captured: CapturedTrill[]): void {
+function restoreTrills(score: Score, regionNumbers: number[], captured: CapturedTrill[]): void {
   if (captured.length === 0) return
   const trills = score.trills
   if (!trills) return
@@ -1490,7 +1470,7 @@ function restoreTrills(score: Score, deps: RebarDeps, regionNumbers: number[], c
     const newStart = resolve(c.start)
     if (!newStart) {
       trills.splice(idx, 1)
-      deps.clearEngravingOverride(c.trill.id) // auto-reset (§3.3): the sign's own note is unrecoverable
+      clearEngravingOverride(score, c.trill.id) // auto-reset (§3.3): the sign's own note is unrecoverable
       dbg('[rebar.restoreTrills] start unrecoverable — trill dropped')
       continue
     }
@@ -1510,7 +1490,6 @@ function restoreTrills(score: Score, deps: RebarDeps, regionNumbers: number[], c
  */
 function restoreClipTrills(
   score: Score,
-  deps: RebarDeps,
   regionNumbers: number[],
   clipTrills: ClipTrill[],
   targetStaff: number,
@@ -1558,7 +1537,7 @@ function restoreClipTrills(
       ? resolve(ct.endStaff ?? ct.startStaff, ct.endVoice ?? ct.startVoice, ct.endOffset, ct.endPitch)
       : undefined
     const voice = (singleVoice ? targetVoice : ct.startVoice) as 0 | 1 | 2 | 3
-    const trill = deps.addTrill({
+    const trill = addTrill(score, {
       startNoteId: startId,
       ...(endId !== undefined && endId !== startId ? { endNoteId: endId } : {}),
       voice,
@@ -1566,7 +1545,7 @@ function restoreClipTrills(
     })
     // ⭐ …and whatever the sign carried travels with it, re-stamped under the id it has now — the
     // same seam every other mark rides ({@link stampOverrides}).
-    if (trill) stampOverrides(deps, trill.id, ct.engraving)
+    if (trill) stampOverrides(score, trill.id, ct.engraving)
   }
 }
 
@@ -1582,7 +1561,6 @@ function restoreClipTrills(
  */
 function restoreClipSlurs(
   score: Score,
-  deps: RebarDeps,
   regionNumbers: number[],
   clipSlurs: ClipSlur[],
   targetStaff: number,
@@ -1629,7 +1607,7 @@ function restoreClipSlurs(
     const endId = resolve(cs.endStaff, cs.endVoice, cs.endOffset, cs.endPitch)
     if (!startId || !endId || startId === endId) continue
     const voice = (singleVoice ? targetVoice : cs.startVoice) as 0 | 1 | 2 | 3
-    const slur = deps.addSlur({
+    const slur = addSlur(score, {
       startNoteId: startId,
       endNoteId: endId,
       voice,
@@ -1637,7 +1615,7 @@ function restoreClipSlurs(
     })
     // ⭐ The curve's SHAPE rides along: its endpoint nudges and its arc deltas are overrides keyed by
     // the slur's id, and a paste mints a new one ({@link stampOverrides}).
-    stampOverrides(deps, slur.id, cs.engraving)
+    stampOverrides(score, slur.id, cs.engraving)
   }
 }
 
@@ -1672,7 +1650,7 @@ function clearMeasureForRebar(measure: Measure): void {
  * stays stored as `undefined` (data-model invariant — see `pushRestSlot`).
  */
 function materializeVoiceBar(
-  deps: RebarDeps,
+  score: Score,
   measure: Measure,
   plan: RebarPiece[],
   voice: number,
@@ -1681,7 +1659,7 @@ function materializeVoiceBar(
 ): void {
   // The staffId this lane's slots carry (absent = staff 0, byte-identical at N=1). Tuplet
   // (atomic) slots already carry it via structuredClone of the captured source slots.
-  const staffId = deps.staffIdForParams(staff)
+  const staffId = staffIdForParams(score, staff)
   for (const piece of plan) {
     if (piece.atomic && piece.payload) {
       // Tuplet: structuredClone preserves the source slot's voice AND staff — no args.
@@ -1755,7 +1733,6 @@ function materializeVoiceBar(
  */
 function materializeRegion(
   score: Score,
-  deps: RebarDeps,
   regionNumbers: number[],
   lanes: Array<{ staff: number; voice: number; plan: BarPlan[] }>,
 ): Array<{ piece: RebarPiece; chord: Chord }> {
@@ -1769,7 +1746,7 @@ function materializeRegion(
     const created: Array<{ piece: RebarPiece; chord: Chord }> = []
     for (let i = 0; i < plan.length; i++) {
       const m = getMeasure(score, regionNumbers[i])
-      if (m) materializeVoiceBar(deps, m, plan[i], voice, staff, created)
+      if (m) materializeVoiceBar(score, m, plan[i], voice, staff, created)
     }
     linkRebarTies(created) // per-(staff,voice) chain only
     allCreated.push(...created)
@@ -1778,7 +1755,7 @@ function materializeRegion(
   for (const num of regionNumbers) {
     const m = getMeasure(score, num)
     if (m) fillGapsWithRests(score, m) // adds the missing voice-0 rest in grown bars
-    deps.collapseEmptyVoices(num) // drop a secondary voice that re-laid to all-rests
+    collapseEmptyVoices(score, num) // drop a secondary voice that re-laid to all-rests
   }
 
   return allCreated

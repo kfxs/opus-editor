@@ -25,7 +25,7 @@ import { v4 as uuidv4 } from 'uuid'
 import { restPositionKey } from './engravingOverrides'
 import * as overrideOps from './overrideOps'
 import { fillGapsWithRests } from './restFillOps'
-import { matchesStaff, staffIdAtIndex } from './staffContent'
+import { matchesStaff, staffIdForParams } from './staffContent'
 
 /**
  * Compact, voice-tagged one-line summary of a slot for debug logs, e.g.
@@ -261,8 +261,8 @@ function migrateRestTieTo(score: Score, restId: string, newNotePitchId: string):
  * ⚠️ Evicts, and deliberately does NOT fill — see {@link evictRestsOverlapping}.
  */
 export function addRestSlot(score: Score, measure: Measure, params: NoteParams): Rest {
-  // Which staff this slot belongs to (absent = staff 0) — see `ScoreModel.staffIdForParams`.
-  const targetStaffId = params.staff ? staffIdAtIndex(score, params.staff) : undefined
+  // Which staff this slot belongs to (absent = staff 0).
+  const targetStaffId = staffIdForParams(score, params.staff)
   const rest: Rest = {
     id: uuidv4(),
     type: 'rest',

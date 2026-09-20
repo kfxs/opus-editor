@@ -196,3 +196,14 @@ export function staffMeasureView(measure: Measure, staffId: string | undefined, 
     ottavas: c.ottavas, pedals: c.pedals, tuplets: c.tuplets,
   }
 }
+
+/**
+ * Resolve a 0-based staff index (from `NoteParams.staff`) to the `staffId` to stamp on a new slot.
+ * Mirrors the voice convention: the FIRST staff (index 0 / undefined) stamps NO `staffId` (absent =
+ * staff 0, keeps single-staff output byte-identical); any later staff stamps its real id.
+ * See docs/multi-staff-plan.md §4.
+ */
+export function staffIdForParams(score: Score, staff: number | undefined): string | undefined {
+  if (!staff) return undefined
+  return staffIdAtIndex(score, staff)
+}
