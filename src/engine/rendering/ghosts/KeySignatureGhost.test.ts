@@ -13,7 +13,7 @@
  * the browser suite's to measure.
  */
 import { describe, it, expect, beforeEach } from 'vitest'
-import { MusicEngine } from '../MusicEngine'
+import { MusicEngine } from '../../MusicEngine'
 import { KEY_SIGNATURE_GHOST_GROUP_CLASS, drawKeySignatureGhost } from './KeySignatureGhost'
 import { GHOST_GROUP_SELECTOR, GHOST_DRAWERS } from './GhostRenderer'
 import { keyFromFifths, C_MAJOR } from '@/utils/keySignature'

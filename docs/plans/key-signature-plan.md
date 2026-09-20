@@ -923,7 +923,7 @@ override key built from an ORDINAL needs it.
 - **`MarkingTool` gains `keySignature`** + its `MARKING_TOOL_USES_ARMED_LENGTH` row + `toolGhost` case +
   `GHOST_CAUSE` label. ⛔ **No `cautionary` field** — the clef's and the meter's ride along because a
   DIALOG decided it; nothing decides a key's courtesy today, and P6 is the engraving's own answer.
-- **`engine/rendering/KeySignatureGhost.ts`** — the row of signs at the pointer, drawn on their real
+- **`engine/rendering/ghosts/KeySignatureGhost.ts`** — the row of signs at the pointer, drawn on their real
   staff LINES (`keySignatureLines`) so G major and F major are told apart by their picture. It shares
   `SIGN_CHARS` and `SIGN_FONT_SIZE` with the pass, so a preview cannot show a glyph the click will not
   engrave. ⛔ An empty signature previews NOTHING and says so — the signpost's hole, not papered over.

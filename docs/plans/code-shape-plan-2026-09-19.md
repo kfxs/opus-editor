@@ -1036,7 +1036,7 @@ The only phase that fixes a broken principle rather than a shape.
    *4.5 split a–b. **a** DONE (awaiting his word to commit): the two left the score's types — but
    ⚠️ not "to the editor side": all eight files that name them are under `engine/`, which may not
    import `interactions/`, so they went to the ENGINE's own vocabulary files. `GhostNote` →
-   `engine/rendering/ghostTypes.ts` (beside `ToolGhost`, still NOT a member of that union);
+   `engine/rendering/ghosts/ghostTypes.ts` (beside `ToolGhost`, still NOT a member of that union);
    `PixelCoordinates` → `engine/rendering/renderTypes.ts` (beside `MeasureBounds`, which
    `CoordinateMapper` already read). No re-export left behind in `types/music.ts` (2,617 → 2,571
    lines). Type-only: tsc · eslint · 7,019 specs · `build:check` green, nothing for a UI check.
@@ -1270,6 +1270,19 @@ feature's module exists does not say every item of its plan shipped — so, ⛔ 
 rules an agent reads every session — his eye first) and items 1–2, the ~220-file source-folder moves.
 ✅ Item 5 done with this batch: `DESIGN-PRINCIPLES.md` gained the two boundary cases — the staff seam
 (re-measured: 147 raw `measure.slots` reads against 5 `staffSlots` callers) and the undo clone's cost.
+
+*Phase 6 item 1 STARTED — the tool, and the first group (awaiting his word). **`scripts/move-source.py
+<folder> <sub> <Name…>`** moves each NAME with its specs (`git mv`), re-derives every relative specifier from
+where the file NOW is and keeps `@/` ones aliased — `import`/`export … from`, `import()`, `vi.mock` /
+`vi.importActual` — and rewrites the PROSE mentions too (`rendering/<Name>` → `rendering/<sub>/<Name>` in
+comments, docs, scripts and the lint configs: there are 1,257 of those for `rendering/` alone, and no lint
+reads them). First group, the most self-contained: **`engine/rendering/ghosts/`** — the fourteen `*Ghost` /
+`GhostRenderer` / `ghostCursor` / `ghostTypes` files and `loneNote` (27 with specs); imports rewritten in 31
+files, prose in 35. ⚠️ **The trap checked before anything else**: the boundary lint names the folder as
+`**/rendering/*`, and a `*` that stopped at `/` would have let the score layer import `rendering/ghosts/…`
+silently. PROVED it still bites — a probe file in `engine/models/` importing `ghostTypes` from the new
+folder, by alias and by relative path, is refused twice. tsc · eslint · `build:check` · 7,062 specs ·
+the BROWSER suite (300) green.*
 
 ### Later — before orchestral scores
 

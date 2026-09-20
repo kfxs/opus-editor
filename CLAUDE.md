@@ -298,7 +298,7 @@ now also holds the layer arrows: `engine/`/`interactions/`/`bus/` may not import
 `interactions/` or `bus/`. ⚠️ That last arrow was documented in three places and checked
 in none until 2026-07-28: a `tool: MarkingTool` parameter in `ScoreRenderer` passed all
 four gates. When the engine needs to be told what the editor has armed, the ENGINE
-declares the vocabulary and the editor translates into it — `engine/rendering/ghostTypes.ts`
+declares the vocabulary and the editor translates into it — `engine/rendering/ghosts/ghostTypes.ts`
 + `interactions/toolGhost.ts`, the same shape as `engine/RenderProbe.ts`.
 
 ## Core Types (src/types/music.ts)

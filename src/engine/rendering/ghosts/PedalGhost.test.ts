@@ -16,7 +16,7 @@
  * the pointer — the side of the staff the mark goes — is measured in `e2e/ghosts.e2e.ts`.
  */
 import { describe, it, expect, beforeEach } from 'vitest'
-import { MusicEngine } from '../MusicEngine'
+import { MusicEngine } from '../../MusicEngine'
 import { PEDAL_GHOST_GROUP_CLASS } from './PedalGhost'
 import { GHOST_GROUP_SELECTOR, GHOST_DRAWERS } from './GhostRenderer'
 

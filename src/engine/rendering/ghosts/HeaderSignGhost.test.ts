@@ -9,7 +9,7 @@
  * (`docs/history/vexflow-removal-map.md` S11a). Pinned here: which group, which glyph, and nothing loose.
  */
 import { describe, it, expect, beforeEach } from 'vitest'
-import { MusicEngine } from '../MusicEngine'
+import { MusicEngine } from '../../MusicEngine'
 import { GHOST_GROUP_SELECTOR } from './GhostRenderer'
 
 describe('HeaderSignGhost', () => {

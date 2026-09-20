@@ -351,7 +351,7 @@ with no local contract between them:
 | module | now specced by | how |
 |---|---|---|
 | `models/rebarOps.ts` (1,387) | `rebarOps.anchors` / `.spans` / `.voices` / `.timeSignature.test.ts` | 28 `it`s moved out of `ScoreModel.test.ts` (2,518 → 1,967 lines) |
-| `rendering/GhostRenderer.ts` (1,017) | `GhostRenderer.contextLeak.test.ts` | renamed from `ghostContextLeak.test.ts`, and off the `lint:testnames` allowlist |
+| `rendering/ghosts/GhostRenderer.ts` (1,017) | `GhostRenderer.contextLeak.test.ts` | renamed from `ghostContextLeak.test.ts`, and off the `lint:testnames` allowlist |
 | `rendering/FanPass.ts` (746) | `FanPass.test.ts` | renamed from `ScoreRenderer.fan.test.ts` |
 
 Both renames are decision 4 applied one level further in: the file builds a `MusicEngine` / a

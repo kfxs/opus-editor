@@ -7,7 +7,7 @@
  * of every cursor ghost's ink against the previous commit (`docs/history/vexflow-removal-map.md` S11c).
  */
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest'
-import { MusicEngine } from '../MusicEngine'
+import { MusicEngine } from '../../MusicEngine'
 import { GHOST_GROUP_SELECTOR } from './GhostRenderer'
 import { TEMPO_GHOST_GROUP_CLASS } from './TempoGhost'
 

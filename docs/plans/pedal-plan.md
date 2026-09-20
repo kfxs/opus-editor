@@ -478,7 +478,7 @@ two table rows are saved by not being wrong.
 > renderer's answer AFTER the click. What a cursor has to answer is WHAT the click makes, and a blue
 > caret does that no better under this tool than under any other.
 
-`engine/rendering/PedalGhost.ts` — its own module, a `GHOST_DRAWERS` row, `{ kind: 'pedal' }` on
+`engine/rendering/ghosts/PedalGhost.ts` — its own module, a `GHOST_DRAWERS` row, `{ kind: 'pedal' }` on
 `ToolGhost`, and the sign drawn through the pass's own (now exported) `drawPedalSign`, so the preview
 cannot become a different glyph from the engraved mark. The tool also leaves `scoreCursorClass`'s
 blue-pointer list, since a caret on top of the glyph it stood in for is two indicators for one tool.
@@ -517,7 +517,7 @@ That put the glyph under the arrow:
 came from doing exactly that: this one (covered by the pointer) and the ottava's (`8va` above,
 `8vb` below, so the eye had to re-find it on every switch). The accidental ghost's position — just
 LEFT of the pointer, centred on its line — is the reference, and it now lives in
-`engine/rendering/ghostCursor.ts` as ONE definition that the accidental, the `tr`, the octave
+`engine/rendering/ghosts/ghostCursor.ts` as ONE definition that the accidental, the `tr`, the octave
 numerals and `Ped.` all draw through. ⛔ The dot ghost's mirror (parking RIGHT) is not an exception:
 that pair says which side of a NOTEHEAD the gesture works on, which is about the gesture, not about
 a rung above or below the staff.

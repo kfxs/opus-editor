@@ -161,7 +161,7 @@ lists it as owed to his eye.
 | `NOTE_GLYPH_SCALE` (note in a ratio mark) | 0.55 × figure size | rendering/ScoreTuplet.ts:32 | "0.55 lands it a little taller than the figures" | tuplet-extension-plan.md §9 |
 | `MARK_SPACE_EM` | 0.15 em | rendering/ScoreTuplet.ts:38 | "About a thin space at 24px" | tuplet-extension-plan.md §9 |
 | `BRACKET_END_GAP` (`beforeNext`) | 6 px @10 | rendering/ScoreRenderer.ts:3220 | "stops a little short of that note" | tuplet-extension-plan.md §9 (modes only) |
-| `GHOST_TUPLET_NUMBER_GAP` | 1.5 sp | rendering/GhostRenderer.ts:81 | "Tune here." | tuplet-extension-plan.md §"The ghost" — ghost only; the page's number is VexFlow's (⚠️ 2026-09-19: ours since S12a, `ScoreTuplet`) |
+| `GHOST_TUPLET_NUMBER_GAP` | 1.5 sp | rendering/ghosts/GhostRenderer.ts:81 | "Tune here." | tuplet-extension-plan.md §"The ghost" — ghost only; the page's number is VexFlow's (⚠️ 2026-09-19: ours since S12a, `ScoreTuplet`) |
 
 ### Accidentals & dots (3) · Ledger lines (3) · Noteheads & stems (1) · Beams (3)
 
@@ -172,7 +172,7 @@ lists it as owed to his eye.
 | `MIN_SHARED_COLUMN_LINES` (fan accidental columns) | 2.5 lines (a sixth) | rendering/chordAccidentalColumns.ts:44 | "Closer than that and a sharp's … arms run into the one above" | ⭐ ALREADY ANSWERED: accidental-dot-research.md §A row A3 (Gould p. 88 "an octave or more") + §4 row A3; ⚠️ `layout/spacingPadding.ts:286` uses a seventh |
 | `LEDGER_OVERHANG_BESIDE_ACCIDENTAL` | 2 px @10 = 0.2 sp | rendering/ledgerAccidentalClearance.ts:75 | "Two thirds of the default: still a visible overhang" | accidental-dot-engines.md §A row A5 (LilyPond shortens to the midpoint); accidental-dot-research.md §4 A5 |
 | rest supporting-ledger overhang `PAD` | 2 px @10 per side | rendering/ScoreRenderer.ts:2390 | "px the ledger overhangs the rest glyph on each side" | rest-shift-plan.md §10 (convention sourced, number not); ⚠️ note ledgers are 3 px (accidental-dot-engines.md §2.4) |
-| ghost rest ledger overhang `PAD` | 3 px @10 per side | rendering/GhostRenderer.ts:461 | "reads as a staff line, not a strike-through" | ⚠️ disagrees with the real render's 2 px above |
+| ghost rest ledger overhang `PAD` | 3 px @10 per side | rendering/ghosts/GhostRenderer.ts:461 | "reads as a staff line, not a strike-through" | ⚠️ disagrees with the real render's 2 px above |
 | `FAN_MIN_STEM_SPACES` | 2 sp | rendering/FannedBeam.ts:137 | "PROVISIONAL" | ⭐ ALREADY ANSWERED: note-engraving-plan.md §3.5 (books' floor 2.5 sp); stem-length-research.md §1; fanned-beams-plan.md §1 |
 | `CROSS_SYSTEM_BEAM_STUB_LINE_END` | 22 px @10 (2.2 sp) | rendering/beamInk.ts:36 | "these are tuned by eye" | cross-barline-beaming-plan.md §"What stays whole-group, and the two stub ends" (describes); beam-hook-research.md §8 decision A (stub length) |
 | `CROSS_SYSTEM_BEAM_STUB_LINE_START` | 12 px @10 (1.2 sp) | rendering/beamInk.ts:37 | "tuned by eye" | (as above) |
@@ -185,7 +185,7 @@ lists it as owed to his eye.
 | `LAYOUT_CONFIG.MAX_MEASURE_WIDTH` | 40 sp | rendering/layoutConfig.ts:100 | "so one measure can't dominate" (no citation) | layout-plan.md §1 "What we have today, named honestly"; spacing-model-research.md §3; bar-width-plan.md §3 |
 | `USER_SPACE_LINE_FRACTION` | 0.6 of line width | rendering/MeasureLayout.ts:514 | "How much of a line the user may claim with authored space" | bar-width-plan.md §3 "Justification"; note-spacing-plan.md §3 "option B" |
 | format-width right reserve (`noteAreaWidth − 15`) | 15 px @10 | rendering/ScoreRenderer.ts:2180 | bare literal | note-spacing-plan.md §4 "Render — shift the columns, never the glyphs" + §"Review record (2026-07-21)" R6 (records it, no source) |
-| ghost format-width reserve + floor | 15 px / 50 px | rendering/GhostRenderer.ts:272-273 | `const rightPadding = 15`, no comment | ⚠️ a duplicate of ScoreRenderer.ts:2180 |
+| ghost format-width reserve + floor | 15 px / 50 px | rendering/ghosts/GhostRenderer.ts:272-273 | `const rightPadding = 15`, no comment | ⚠️ a duplicate of ScoreRenderer.ts:2180 |
 | `SYSTEM_GAP_SPACES` | 11 sp | layout/staffStride.ts:108 | "The number itself is still arbitrary — the books give no figure for it" | vertical-spacing-research.md §3.1–3.2 (Gould pp. 489/558 system gaps MEASURED 7.95 / 8.25 sp), §5 UNKNOWN, §6 |
 | `LAYOUT_CONFIG.STAVE_HEIGHT` | 12 sp | rendering/layoutConfig.ts:125 | "five lines plus what hangs off them — 12 staff-spaces" | vertical-spacing-research.md §0/§1 (gaps now line-to-line); staff-size-plan.md §1; staff-spacing-plan.md |
 | sketch canvas | 1000 px wide, 20 px margin | layout/surface.ts:104 | "the 1000 px column with a 20 px margin the editor has always drawn" | layout-plan.md §1 ("1000 px isn't any paper size"), §2 |

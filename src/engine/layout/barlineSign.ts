@@ -105,7 +105,7 @@ export type { BarlineSignKind }
  * speaks (`interactions/barlineStamp.ts`, its ghost, docs/plans/barline-types-plan.md P4).
  *
  * Declared HERE and narrowed from {@link BarlineSignKind} rather than listed again over there, for
- * the reason `engine/rendering/ghostTypes.ts` exists at all: the engine owns the vocabulary and the
+ * the reason `engine/rendering/ghosts/ghostTypes.ts` exists at all: the engine owns the vocabulary and the
  * editor translates into it (CLAUDE.md). The one member left out is `repeatBoth`, which is DRAWN
  * from two bars' statements and stored nowhere — there is no single field a stamp could write it to.
  * (The Properties chooser CAN say it, because it names a LINE and writes both owners:

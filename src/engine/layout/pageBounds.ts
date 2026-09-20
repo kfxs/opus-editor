@@ -184,7 +184,7 @@ export function nudgeFitsOnPage(
  * ⚠️ **It must cover `interactions/elements/ottavaHandles.OTTAVA_HANDLE_GAP_PX`** (10, the daylight
  * between the mark and its square) **plus the square's own half-side** (6). ⛔ It cannot import them:
  * the engine may not read `interactions/`. So this is the ENGINE declaring the vocabulary and the
- * editor drawing inside it — `rendering/ghostTypes.ts`' arrangement, and for its reason.
+ * editor drawing inside it — `rendering/ghosts/ghostTypes.ts`' arrangement, and for its reason.
  *
  * ⭐ Deliberately ONE number for every span family: two handle sizes would be two things for the hand
  * to learn, and the editor already draws them all alike.

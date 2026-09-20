@@ -13,8 +13,8 @@ import { accidentalsOn } from './EngravedAccidental'
 import { hasArticulation } from './EngravedArticulation'
 import { drawLedgerLines } from '@/engine/engrave/notes/ledgerLines'
 import { placeDots } from './dotPlacement'
-import { GHOST_GROUP_SELECTOR, drawNoteGhost, drawToolGhost } from './GhostRenderer'
-import type { GhostNote, ToolGhost } from './ghostTypes'
+import { GHOST_GROUP_SELECTOR, drawNoteGhost, drawToolGhost } from './ghosts/GhostRenderer'
+import type { GhostNote, ToolGhost } from './ghosts/ghostTypes'
 import { CROSS_SYSTEM_BEAM_WIDTH, CROSS_SYSTEM_BEAM_MARGIN, crossSystemStub } from './beamInk'
 import {
   beamLevelRun, beamLineStartX, beamRunInkBox, fillBeamQuad,

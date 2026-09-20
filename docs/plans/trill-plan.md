@@ -362,7 +362,7 @@ its key**:
   much better."*
   ⭐ **The argument was about the wrong question.** WHERE the mark lands is the renderer's answer
   after the click; what a cursor has to say is WHAT the click makes — the licence the accidental, dot
-  and tie ghosts already take. `engine/rendering/TrillGhost.ts` (its own module + a `GHOST_DRAWERS`
+  and tie ghosts already take. `engine/rendering/ghosts/TrillGhost.ts` (its own module + a `GHOST_DRAWERS`
   row) draws the sign through the pass's own `drawTrillSign`, so preview and engraved mark cannot
   drift; plain, never `(tr)`, since the brackets are a fact about a trill on an EARLIER system.
   ⚠️ And the tool LEAVES `scoreCursorClass`'s blue-pointer list in the same edit: that list is exactly

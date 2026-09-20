@@ -1055,7 +1055,7 @@ spec that the three gestures still land where they are asked.
 
 **P4 — the gesture. ✅ DONE 2026-08-26** — `interactions/barlineStamp.ts` (+ spec),
 `PaletteController.pressBarline`, the `barline` member of `MarkingTool`, one row in
-`MouseController`'s dispatch chain, `engine/rendering/BarlineGhost.ts` (+ spec), and the dev
+`MouseController`'s dispatch chain, `engine/rendering/ghosts/BarlineGhost.ts` (+ spec), and the dev
 palette's three buttons wired to it.
 
 > ⚠️ **Those buttons are GONE (2026-08-26).** They grew to five (P6c) and were deleted the same day
@@ -1163,7 +1163,7 @@ is the shipped precedent for having both). The palette's three buttons stop logg
 | gesture | what it costs |
 |---|---|
 | **select-then-press** (a barline is already selectable, and `←`/`→` already walk barlines) | `barlineOps` + one `PaletteController` method. Nothing else. |
-| **arm-then-click** | a member in the `selectedMarkingTool` union (`interactions/EditorState.ts`), a row in **`MARKING_TOOL_USES_ARMED_LENGTH`** — ⚠️ one of the four tables `npm run lint:tables` holds TOTAL, so this is enforced, not optional — and, if the armed tool previews, a `GHOST_DRAWERS` row + a `ToolGhost` member (`engine/rendering/ghostTypes.ts` + `interactions/toolGhost.ts`, since the engine may not import the editor's vocabulary) |
+| **arm-then-click** | a member in the `selectedMarkingTool` union (`interactions/EditorState.ts`), a row in **`MARKING_TOOL_USES_ARMED_LENGTH`** — ⚠️ one of the four tables `npm run lint:tables` holds TOTAL, so this is enforced, not optional — and, if the armed tool previews, a `GHOST_DRAWERS` row + a `ToolGhost` member (`engine/rendering/ghosts/ghostTypes.ts` + `interactions/toolGhost.ts`, since the engine may not import the editor's vocabulary) |
 
 ⭐ That asymmetry is an argument, not a verdict: *"a barline is already a thing you select"* is the
 cheapest route **and** the one that reuses a gesture the user already has. ⛔ But arm-then-click is

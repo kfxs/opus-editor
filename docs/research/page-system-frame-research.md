@@ -25,7 +25,7 @@ The rows come from `docs/research/engraving-number-inventory.md`: §2 "Page / sy
 | R3 | `LAYOUT_CONFIG.MAX_MEASURE_WIDTH` | 40 sp | `rendering/layoutConfig.ts:100` | T |
 | R4 | `USER_SPACE_LINE_FRACTION` | 0.6 of the line | `rendering/MeasureLayout.ts:514` (read at `:547`) | T |
 | R5 | format-width right reserve | 15 px = 1.5 sp (fixed at 10 px/sp) | `rendering/ScoreRenderer.ts:2180` | T |
-| R5′ | ⚠️ its ghost duplicate: reserve, floor, fallback | 15 px / 50 px / `staveWidth − 100` | `rendering/GhostRenderer.ts:272-273` | ? (the inventory calls it a duplicate) |
+| R5′ | ⚠️ its ghost duplicate: reserve, floor, fallback | 15 px / 50 px / `staveWidth − 100` | `rendering/ghosts/GhostRenderer.ts:272-273` | ? (the inventory calls it a duplicate) |
 | R6 | `SKETCH_CANVAS` | 1000 px wide with a 20 px margin (100 sp, 2 sp margin, 96 sp of content) | `layout/surface.ts:104` | T |
 | R7 | `A4_NORMAL` margins | 15 mm on every side = 8.57 sp | `layout/surface.ts:111` | ⭐ already answered (§1) |
 | R8 | staff size on the page | 1.75 mm per sp | `layout/surface.ts:73` | S (already sourced) |
@@ -249,7 +249,7 @@ in the same units, so every ratio below is exact whatever Verovio's physical siz
 | R3 | `min(max(natural, MIN + signRoom), MAX + signRoom)`, then max'ed with the incompressible floor | `rendering/MeasureLayout.ts:326-333` | T (the cap); the floor-over-cap was reported by him (`bar-width-plan.md`) |
 | R4 | The authored leading space on a line is scaled down once it exceeds 0.6 × the available width. The stretch pool is not capped. | `rendering/MeasureLayout.ts:547` | T; the uncapping was reported from use (`bar-width-plan.md` §3) |
 | R5 | `formatWidth = max(noteAreaWidth − 15 − userSpacePx, 50)` feeds `formatter.format`. ⚠️ Then `applySpacingPass` **overwrites every tick x** from `room`, which contains **no 15 px term** (`:2202-2203`). The 15 px decides placement only when that pass returns `null`: fewer than 2 columns, no contexts, or a bad meter (`rendering/spacingPass.ts:114-125`). It came from commit `4e4295b` (2025-12-19), *"Padding before barline"*, with no source. | `rendering/ScoreRenderer.ts:2180` | T |
-| R5′ | The same 15 px and 50 px, but **without** subtracting user space, and with a separate `staveWidth − 100` fallback when the note area is ≤ 0. Nothing ties it to R5. | `rendering/GhostRenderer.ts:272-273` | T |
+| R5′ | The same 15 px and 50 px, but **without** subtracting user space, and with a separate `staveWidth − 100` fallback when the note area is ≤ 0. Nothing ties it to R5. | `rendering/ghosts/GhostRenderer.ts:272-273` | T |
 | R6 | `{ kind: 'canvas', widthPx: 1000, marginPx: 20 }`: 100 sp wide, 2 sp on every side, 96 sp of content. It is the non-layout surface in `PaletteController.ts:307`. | `layout/surface.ts:104` | T (called *"historical"*) |
 | R7 | A4 with 15 mm on every side. At 1.75 mm/sp that is a 120 × 169.7 sp page, 8.57 sp margins and 102.86 sp of content (1028.6 px). It is the app's default surface (`App.ts:716`). | `layout/surface.ts:107-113` | sourced (§1) |
 | R8 | `PX_PER_MM = STAFF_SPACE_PX / 1.75` | `layout/surface.ts:73, 94` | S (MuseScore `spatium`) |

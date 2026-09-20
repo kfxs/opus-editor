@@ -22,8 +22,8 @@
  */
 import { describe, it, expect, beforeEach } from 'vitest'
 import { STAVE_LINE_WIDTH_PX } from '@/engine/engrave/staff/staffLines'
-import { MusicEngine } from '../MusicEngine'
-import type { PixelCoordinates } from './renderTypes'
+import { MusicEngine } from '../../MusicEngine'
+import type { PixelCoordinates } from '../renderTypes'
 
 /**
  * The context's paint, as the next `openGroup` would read it. Covers `stroke-width` too: the ghost

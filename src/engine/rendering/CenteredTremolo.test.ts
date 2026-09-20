@@ -3,7 +3,7 @@ import { describe, it, expect } from 'vitest'
 import { SvgPainter } from './SvgPainter'
 import { EngravedNote, drawNoteInkThrough } from './EngravedNote'
 import { EngravedStave } from './EngravedStave'
-import { formatLoneNote } from './loneNote'
+import { formatLoneNote } from './ghosts/loneNote'
 import { CenteredTremolo } from './CenteredTremolo'
 import { attachModifier } from './EngravedModifier'
 

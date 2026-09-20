@@ -306,7 +306,7 @@ export function mountDevToolbar(host: HTMLElement, deps: DevToolbarDeps): DevToo
    *
    * ⭐ Nothing was lost with them, and it is worth saying which nothing: the row had no armed-state
    * light to give up — an armed grouping stamp says so with its **GHOST**
-   * (`engine/rendering/GroupSignGhost`), which the menu path arms identically.
+   * (`engine/rendering/ghosts/GroupSignGhost`), which the menu path arms identically.
    *
    * ⭐ The SUB-BRACKET keeps its console door (`__groups.subBracket()`) — his call, and unaffected:
    * it never had a palette button to lose.

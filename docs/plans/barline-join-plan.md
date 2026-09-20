@@ -370,7 +370,7 @@ Lusk — three hits, none about barlines), so its rules would have to come from 
   written down and has bitten this repo before.
 - 🚨 **THE PREVIEW IS A RENDER, ⛔ NOT A GHOST.** An earlier draft said `GhostRenderer`, and that is
   the wrong seam: `ToolGhost` / `GHOST_DRAWERS` is the table of what an **armed MARKING TOOL** will
-  do to *the next click* (`engine/rendering/ghostTypes.ts` — *"a `MarkingTool` says what the NEXT
+  do to *the next click* (`engine/rendering/ghosts/ghostTypes.ts` — *"a `MarkingTool` says what the NEXT
   CLICK will do; a `ToolGhost` says what is on the page now"*), and a join drag is neither armed nor
   a tool. ⭐ The house pattern for a DRAG preview is the bar-width drag's, one gesture over: write
   the provisional value and `renderScore()` (`previewBarWidth` → `RenderController.renderScore`).

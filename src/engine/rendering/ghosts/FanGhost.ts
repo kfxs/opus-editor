@@ -29,12 +29,12 @@
  */
 import type { DrawContext } from '@/engine/paint/DrawContext'
 import type { NoteDuration } from '@/types/music'
-import { convertDuration } from './NoteBuilder'
-import { EngravedNote, drawNoteInkThrough } from './EngravedNote'
-import { EngravedStave } from './EngravedStave'
-import { attachEngravedDots } from './EngravedDot'
+import { convertDuration } from '../NoteBuilder'
+import { EngravedNote, drawNoteInkThrough } from '../EngravedNote'
+import { EngravedStave } from '../EngravedStave'
+import { attachEngravedDots } from '../EngravedDot'
 import { formatLoneNote } from './loneNote'
-import { standOn } from './staveFrame'
+import { standOn } from '../staveFrame'
 
 /** The class `ScoreRenderer.clearGhosts` sweeps this ghost by — it must be in
  *  {@link GHOST_GROUP_SELECTOR}, or the ghost smears one copy per mouse position. */

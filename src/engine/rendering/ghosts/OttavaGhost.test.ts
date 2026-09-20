@@ -17,7 +17,7 @@
  * pointer its bracket goes, is measured in `e2e/ghosts.e2e.ts`.
  */
 import { describe, it, expect, beforeEach } from 'vitest'
-import { MusicEngine } from '../MusicEngine'
+import { MusicEngine } from '../../MusicEngine'
 import { OTTAVA_GHOST_GROUP_CLASS } from './OttavaGhost'
 import { GHOST_GROUP_SELECTOR, GHOST_DRAWERS } from './GhostRenderer'
 

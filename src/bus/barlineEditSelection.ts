@@ -36,7 +36,7 @@ export interface BarlineEditRequest {
   endsMeasure: number | null
   /** What should stand on that line, when the SIGN is what changed. ⚠️ `BarlineSignKind`, ⛔ not a
    *  copy of the union: the ENGINE owns the vocabulary and the editor translates into it
-   *  (`engine/rendering/ghostTypes.ts`'s rule). Absent = leave the sign alone. */
+   *  (`engine/rendering/ghosts/ghostTypes.ts`'s rule). Absent = leave the sign alone. */
   sign?: BarlineSignKind
   /**
    * ⭐ Whether the sign is drawn with WINGS — the flared tips at the top and bottom of its thick

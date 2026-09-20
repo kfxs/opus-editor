@@ -75,7 +75,7 @@ export type MarkingTool =
    * ⛔ It carries no LENGTH — a signature is a boundary statement (`false` in
    * {@link MARKING_TOOL_USES_ARMED_LENGTH}).
    *
-   * ⭐ It DOES ghost — the row of signs follows the pointer (`engine/rendering/KeySignatureGhost.ts`),
+   * ⭐ It DOES ghost — the row of signs follows the pointer (`engine/rendering/ghosts/KeySignatureGhost.ts`),
    * so this tool is NOT in {@link scoreCursorClass}'s blue-pointer list. His standing call, from the
    * barline's day: *"we need ghosts for every case using the glyph"* — and five palette buttons that
    * arm identically behind one blue caret is the `8va`/`8vb` case exactly.
@@ -96,7 +96,7 @@ export type MarkingTool =
    * ⛔ It carries no LENGTH — a click names a STAFF, and the armed duration says nothing about that
    * (`false` in {@link MARKING_TOOL_USES_ARMED_LENGTH}).
    *
-   * ⭐ **It DOES ghost** — the sign follows the pointer (`engine/rendering/GroupSignGhost.ts`), so
+   * ⭐ **It DOES ghost** — the sign follows the pointer (`engine/rendering/ghosts/GroupSignGhost.ts`), so
    * this tool is NOT in {@link scoreCursorClass}'s blue-pointer list. ⚠️ It shipped ghostless in P5
    * on the objection that *"a grouping sign's preview needs the STAFF SPAN the click will make"* —
    * which was the BARLINE's objection verbatim and wrong for its reason: the armed click applies to
@@ -190,7 +190,7 @@ export type MarkingTool =
    * extent from the notes it is placed over — never from the armed duration (`false` in
    * {@link MARKING_TOOL_USES_ARMED_LENGTH}).
    *
-   * ⭐ It DOES ghost — the NUMERAL follows the pointer (`engine/rendering/OttavaGhost.ts`), so this
+   * ⭐ It DOES ghost — the NUMERAL follows the pointer (`engine/rendering/ghosts/OttavaGhost.ts`), so this
    * tool is NOT in {@link scoreCursorClass}'s blue-pointer list. His call, 2026-08-17, the day after
    * the trill's and in the same words (*"same thing"*), and this is the tool it helps most: two
    * palette rows differing in one signed number armed IDENTICALLY behind a blue caret. ⛔ The
@@ -207,7 +207,7 @@ export type MarkingTool =
    * extent comes from the ties, so there is nothing for a click to size (`false` in
    * {@link MARKING_TOOL_USES_ARMED_LENGTH}).
    *
-   * ⭐ It DOES ghost — a `tr` follows the pointer (`engine/rendering/TrillGhost.ts`), and so it is
+   * ⭐ It DOES ghost — a `tr` follows the pointer (`engine/rendering/ghosts/TrillGhost.ts`), and so it is
    * NOT in {@link scoreCursorClass}'s blue-pointer list. It was, until his call of 2026-08-17: the
    * old reading was that a trill is drawn ABOVE music the click has not picked, so a ghost would
    * preview a position nothing has chosen — but what the cursor has to say is WHAT the click makes.
@@ -228,7 +228,7 @@ export type MarkingTool =
    * takes its extent from the notes it is placed over — never from the armed duration (`false` in
    * {@link MARKING_TOOL_USES_ARMED_LENGTH}).
    *
-   * ⭐ It DOES ghost — `Ped.` follows the pointer (`engine/rendering/PedalGhost.ts`), parked BELOW it
+   * ⭐ It DOES ghost — `Ped.` follows the pointer (`engine/rendering/ghosts/PedalGhost.ts`), parked BELOW it
    * since that is the side of the staff the mark goes, so this tool is NOT in
    * {@link scoreCursorClass}'s blue-pointer list. His call, 2026-08-17, completing the ladder family
    * the trill and the ottava started that day. ⛔ The LIFT (`✻`) is not previewed — a pedalling has a
@@ -253,7 +253,7 @@ export type MarkingTool =
    * ⛔ It carries no LENGTH — a barline is a BOUNDARY, and the armed duration means nothing to it
    * (`false` in {@link MARKING_TOOL_USES_ARMED_LENGTH}).
    *
-   * ⭐ It DOES ghost — the SIGN follows the pointer (`engine/rendering/BarlineGhost.ts`), so this
+   * ⭐ It DOES ghost — the SIGN follows the pointer (`engine/rendering/ghosts/BarlineGhost.ts`), so this
    * tool is NOT in {@link scoreCursorClass}'s blue-pointer list. It shipped without one, on the
    * argument that a barline stands on a boundary and never at the pointer; ⭐⭐ HIS call the same
    * day — *"where is the ghost? … we need ghosts for every case using the glyph"* — and the argument
@@ -836,7 +836,7 @@ export function scoreCursorClass(state: EditorState): 'cursor-none' | 'cursor-pl
   // place-cursor: two indicators for one armed tool, the blue caret sitting on the very glyph it
   // stood in for. What is left are the tools with genuinely nothing to draw.
   // ⚠️ The BARLINE stamp was listed here for one afternoon on 2026-08-26 and does NOT belong: it
-  // draws its sign at the pointer (`engine/rendering/BarlineGhost.ts`), and a tool that ghosts must
+  // draws its sign at the pointer (`engine/rendering/ghosts/BarlineGhost.ts`), and a tool that ghosts must
   // not also take the place-cursor — see the note about the ladder family just above.
   if (kind === 'dynamicEntry' || kind === 'tempoEntry' || kind === 'slur' || kind === 'hairpin') {
     return 'cursor-place'

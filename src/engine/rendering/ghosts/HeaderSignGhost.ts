@@ -15,9 +15,9 @@ import type { DrawContext } from '@/engine/paint/DrawContext'
 import type { Clef, TimeSignature } from '@/types/music'
 import type { StaffFrame } from '@/engine/engrave/staff/staffFrame'
 import { STAVE_LINE_DISTANCE_PX } from '@/engine/engrave/inheritedDefaults'
-import { EngravedClef } from './EngravedClef'
-import { EngravedTimeSignature } from './EngravedTimeSignature'
-import type { StaveSign } from './staveSign'
+import { EngravedClef } from '../EngravedClef'
+import { EngravedTimeSignature } from '../EngravedTimeSignature'
+import type { StaveSign } from '../staveSign'
 import { centreGhostOnCursor, sweepIntoGhostGroup } from './ghostCursor'
 
 /** The throwaway stave's headroom, in spaces — VexFlow's `spaceAboveStaffLn` default. */

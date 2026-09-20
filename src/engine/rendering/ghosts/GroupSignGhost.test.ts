@@ -11,7 +11,7 @@
  * the pointer is the browser suite's to measure.
  */
 import { describe, it, expect, beforeEach } from 'vitest'
-import { MusicEngine } from '../MusicEngine'
+import { MusicEngine } from '../../MusicEngine'
 import { GROUP_SIGN_GHOST_GROUP_CLASS } from './GroupSignGhost'
 import { GHOST_GROUP_SELECTOR, GHOST_DRAWERS } from './GhostRenderer'
 

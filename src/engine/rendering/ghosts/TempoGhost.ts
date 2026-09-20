@@ -8,7 +8,7 @@
  */
 import type { DrawContext } from '@/engine/paint/DrawContext'
 import type { TempoMark } from '@/types/music'
-import { drawTempoText } from './TempoLayout'
+import { drawTempoText } from '../TempoLayout'
 import { drawSignGhost } from './ghostCursor'
 
 /** The class `clearGhosts` sweeps this ghost by — the bare name `openGroup` writes. */

@@ -752,7 +752,7 @@ glyph-vs-curve question is genuinely open rather than a formality.
 > | the dev shell's `Group:` row | ⭐ **live** — it logged and drew nothing before |
 > | `dev/groupSignConsole` | rewired through the model, so `__groups.*` is undoable too |
 >
-> ✅ **THE GHOST — BUILT** (`engine/rendering/GroupSignGhost.ts`). ⛔ The objection recorded here was
+> ✅ **THE GHOST — BUILT** (`engine/rendering/ghosts/GroupSignGhost.ts`). ⛔ The objection recorded here was
 > the BARLINE's objection verbatim and wrong for its reason: *"its preview needs the staff span the
 > click will make."* The ARMED click applies to **ONE staff**, so there is no span to know — and the
 > cursor says WHAT the click makes, not where the engraver puts it.

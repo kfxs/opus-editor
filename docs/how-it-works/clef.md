@@ -474,7 +474,7 @@ in `e2e/` or, where our own primitives draw it, in the SCENE.
 | where | what it draws |
 |---|---|
 | `rendering/GutterRenderer.ts:118` | the frozen gutter clef — `stave.addClef(staff.clef)`, full size |
-| `rendering/GhostRenderer.ts` `drawClefGhost` | the armed-clef preview: one glyph on a **0-line stave**, following the cursor |
+| `rendering/ghosts/GhostRenderer.ts` `drawClefGhost` | the armed-clef preview: one glyph on a **0-line stave**, following the cursor |
 | `windows/clefWindow.ts` | the picker's four rows — 5 lines + a Bravura glyph, `font-size = 4 × SPACE` because **SMuFL's em square IS the staff height** |
 
 ⭐ **A small STAFF scales its clef for free.** A staff is drawn inside a `<g transform="scale(k)">`

@@ -191,7 +191,7 @@ that answering "no" costs nothing already spent.
 object naming both. The shape that respects the fence is **two tables**: `SPAN_MARK_MODEL` in
 `engine/models/` (ops + geometry + style + ghost, engine-owned vocabulary) and `SPAN_MARK_TOOLS` in
 `interactions/` (port builders + handles + stamp), keyed by the same kind. This is the same split
-`engine/rendering/ghostTypes.ts` + `interactions/toolGhost.ts` already uses, and it is the answer
+`engine/rendering/ghosts/ghostTypes.ts` + `interactions/toolGhost.ts` already uses, and it is the answer
 this plan assumes.
 
 ---
@@ -522,7 +522,7 @@ excluded, since this repo's files are mostly prose):
 |---|---|---|
 | `interactions/pedalStamp.ts` | 77 / **37** | **deleted** |
 | `interactions/PedalGeometryController.ts` | 71 / **36** | **deleted** |
-| `engine/rendering/PedalGhost.ts` | 79 / **28** | 55 / **7** |
+| `engine/rendering/ghosts/PedalGhost.ts` | 79 / **28** | 55 / **7** |
 | its five closures in `shortcutWiring` | — / **17** | — / **0** |
 | its rows in the two tables | — | — / **28** |
 
@@ -539,7 +539,7 @@ first arrow — the same cycle-shaped mistake Phase 1 hit when the driver could 
   compartment, **0** where the mark carries no nudge.
 - `interactions/spanMarkTools.ts` — `SPAN_MARK_TOOLS`, the EDITOR's. It may name `MusicEngine`, the
   `bus` and the registry freely, and it does.
-- `engine/rendering/ghostCursor.ts` — `drawSignGhost`, and **not a table at all**. The ghost
+- `engine/rendering/ghosts/ghostCursor.ts` — `drawSignGhost`, and **not a table at all**. The ghost
   duplication was never per-kind dispatch (`GHOST_DRAWERS` is already total); it was 35 lines of
   open-group → measure → recolour → park written out identically in three drawers. A helper is the
   honest shape, and it leaves a drawer as its SIGN and nothing else.
@@ -599,7 +599,7 @@ In that order — increasing distance from the shared shape.
   |---|---|
   | `interactions/ottavaStamp.ts` | **38** → deleted |
   | `interactions/OttavaGeometryController.ts` | **36** → deleted |
-  | `engine/rendering/OttavaGhost.ts` | **31** → **11** |
+  | `engine/rendering/ghosts/OttavaGhost.ts` | **31** → **11** |
   | its five closures in `shortcutWiring` | **23** → **0** |
   | its two rows | — → **34** |
 

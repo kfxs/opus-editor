@@ -37,7 +37,7 @@
  * system", which is a fact about a pedal that does not exist yet.
  */
 import type { DrawContext } from '@/engine/paint/DrawContext'
-import { drawPedalSign } from './PedalRenderer'
+import { drawPedalSign } from '../PedalRenderer'
 import { drawSignGhost } from './ghostCursor'
 
 /** The class `ScoreRenderer.clearGhosts` sweeps this ghost by — it must be in

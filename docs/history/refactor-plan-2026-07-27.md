@@ -682,7 +682,7 @@ the renderer.
 
 Then the ghost family (~900 lines). The previous plan parked this as *"worthwhile only if
 ScoreRenderer keeps growing"* — it grew **+2,167 lines in nine days**, so the condition is
-met. → `rendering/GhostRenderer.ts`.
+met. → `rendering/ghosts/GhostRenderer.ts`.
 
 **6b. Facade.** `MusicEngine.barWidthRoom:1584` is **217 lines** with a 160-line branch — a
 self-contained algorithm over `(measureLayoutInfo, registry measurements, viewMode)` that
@@ -727,7 +727,7 @@ new ghost specs). No behaviour changed anywhere.
 |---|---|---|
 | `rendering/ScoreRenderer.ts` | 5,491 | **3,744** |
 | `MusicEngine.ts` | 3,696 | **3,256** |
-| new: `rendering/GhostRenderer.ts` | — | 1,017 |
+| new: `rendering/ghosts/GhostRenderer.ts` | — | 1,017 |
 | new: `rendering/FanPass.ts` | — | 746 |
 | new: `layout/barWidthRoom.ts` | — | 355 |
 | new: `layout/measuredRoom.ts` | — | 163 |

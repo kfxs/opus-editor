@@ -268,7 +268,7 @@ Finale Broadway 0.19 and MuseJazz 0.20. ⛔ Thickness stays decided; this only f
   single-width cases in one sentence.
 - **Fans**: `FAN_LEDGER_OVERHANG = 3` px (`src/engine/rendering/FanPass.ts:120`, chosen at `:165-169`).
 - **Rests**: `PAD = 2` px = **0.20 sp** past the rest glyph (`src/engine/rendering/ScoreRenderer.ts:2390`).
-- **Ghost preview**: a plain VexFlow `StaveNote`, so 3 px (`src/engine/rendering/GhostRenderer.ts:162-164`).
+- **Ghost preview**: a plain VexFlow `StaveNote`, so 3 px (`src/engine/rendering/ghosts/GhostRenderer.ts:162-164`).
   (⚠️ 2026-09-19: VexFlow is removed — the ghost is our `EngravedNote`, whose overhang is the same
   `LEDGER_OVERHANG_PX` row, still 3 px.)
 - **Spacing reserve**: `INK.ledgerLeft` **0.30**, `INK.ledgerRight` **1.50** from the head anchor, 1.80 sp

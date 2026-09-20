@@ -346,7 +346,7 @@ invert the arrow, and be invisible until someone tried to publish the engine.
 
 The fix is one type, and it costs nothing: the ghost payload is **engine-owned**.
 
-- **New `engine/rendering/ghostTypes.ts`** — a `ToolGhost` union of what the engine can actually
+- **New `engine/rendering/ghosts/ghostTypes.ts`** — a `ToolGhost` union of what the engine can actually
   draw (`{kind:'clef', clef}`, `{kind:'rest', duration, dots}`, …). It is the engine's vocabulary, not
   the editor's armed state, and the two are not the same thing: the rest ghost carries the **armed
   length** rather than a tool field, and tempo/dynamic carry a resolved *mark*, not a tool.
@@ -393,7 +393,7 @@ clean. Four layers of forwarding are now two, and **31 methods are gone**:
 Adding a ghost is now a `ToolGhost` member, a `GHOST_DRAWERS` row and a `toolGhost` case — three
 edits in three files that each *say something*, instead of four files of which two said nothing.
 
-- **The type is engine-owned**, as the amendment demanded: `engine/rendering/ghostTypes.ts`. The
+- **The type is engine-owned**, as the amendment demanded: `engine/rendering/ghosts/ghostTypes.ts`. The
   `MarkingTool → ToolGhost` step went to a module of its own, `interactions/toolGhost.ts`, rather
   than staying in the controller — it is a pure function, so it gets a real spec (`toolGhost.test.ts`,
   11 tests) instead of only being reachable through a draw. That is the rule from Phase 0 and from

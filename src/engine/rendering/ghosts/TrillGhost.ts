@@ -29,7 +29,7 @@
  * system", which is a fact about a trill that does not exist yet.
  */
 import type { DrawContext } from '@/engine/paint/DrawContext'
-import { drawTrillSign } from './TrillRenderer'
+import { drawTrillSign } from '../TrillRenderer'
 import { drawSignGhost } from './ghostCursor'
 
 /** The class `ScoreRenderer.clearGhosts` sweeps this ghost by — it must be in

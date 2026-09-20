@@ -213,7 +213,7 @@ grow the file further.
 - Float → Fraction migration of `NoteEntryCoordinator.updateNote` /
   `updateNonTupletNote` internals (the thinnest spot of the Fraction invariant; works
   today, epsilon-guarded, but a candidate once touched for other reasons).
-- Extracting the ghost family into `rendering/GhostRenderer.ts` (~900 lines) — worthwhile
+- Extracting the ghost family into `rendering/ghosts/GhostRenderer.ts` (~900 lines) — worthwhile
   only if ScoreRenderer keeps growing.
 - App.vue's repeated palette markup — resolved by the planned Vue-palette DELETION, not by
   refactoring; don't polish what is scheduled to go.

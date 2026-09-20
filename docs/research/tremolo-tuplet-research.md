@@ -23,7 +23,7 @@ the plates and the engines would put in its place. Values are in staff spaces (*
 | `NOTE_GLYPH_SCALE` 0.55 | :161 | `ScoreTuplet.ts:32` |
 | `MARK_SPACE_EM` 0.15 | :162 | `ScoreTuplet.ts:38` |
 | `BRACKET_END_GAP` 6 px | :163 | `ScoreRenderer.ts:3220` |
-| `GHOST_TUPLET_NUMBER_GAP` 1.5 sp | :164 | `rendering/GhostRenderer.ts:81` |
+| `GHOST_TUPLET_NUMBER_GAP` 1.5 sp | :164 | `rendering/ghosts/GhostRenderer.ts:81` |
 | bracket air 5 px | §5b, :288 | `ScoreTuplet.ts:147-148`, `ScoreRenderer.ts:3304` |
 | bracket leg 10 px | :289 | `ScoreTuplet.ts:180-181` |
 | bracket thickness 1 px ⚠️ conflict | :290 | `ScoreTuplet.ts:170-181`, `ScoreRenderer.ts:3331` |

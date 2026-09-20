@@ -8,7 +8,7 @@
  * (`docs/history/vexflow-removal-map.md` S11d).
  */
 import { describe, it, expect, beforeEach } from 'vitest'
-import { MusicEngine } from '../MusicEngine'
+import { MusicEngine } from '../../MusicEngine'
 import { REST_GHOST_GROUP_CLASS } from './RestGhost'
 import { GHOST_GROUP_SELECTOR } from './GhostRenderer'
 

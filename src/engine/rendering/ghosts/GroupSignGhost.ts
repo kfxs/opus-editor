@@ -34,8 +34,8 @@
  */
 import type { DrawContext } from '@/engine/paint/DrawContext'
 import { scalingAbout } from '@/engine/paint/Affine'
-import { drawGroupOf } from './svgDrawGroup'
-import { drawGlyph } from './glyphPainter'
+import { drawGroupOf } from '../svgDrawGroup'
+import { drawGlyph } from '../glyphPainter'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { drawSignGhost } from './ghostCursor'
 import { glyphBox } from '@/engine/fonts/fontMetrics'

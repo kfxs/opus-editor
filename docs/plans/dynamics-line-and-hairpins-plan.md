@@ -800,7 +800,7 @@ side.
 
 🔎 A pleasant consequence of dropping the ghost (§8): with no `ToolGhost` member and no
 `GHOST_DRAWERS` row, this feature never touches the engine↔editor vocabulary seam
-(`engine/rendering/ghostTypes.ts` ⇄ `interactions/toolGhost.ts`) at all. One fewer arrow to get
+(`engine/rendering/ghosts/ghostTypes.ts` ⇄ `interactions/toolGhost.ts`) at all. One fewer arrow to get
 backwards.
 
 **6 — a statement that can change mid-score is positional.** The hairpin is positional by

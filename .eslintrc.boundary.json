@@ -99,7 +99,7 @@
               },
               {
                 "group": ["@/interactions", "@/interactions/*", "**/interactions/*", "@/bus", "@/bus/*", "**/bus/*"],
-                "message": "The arrow is App.ts -> interactions -> engine, never back: the engine may not import an editor controller, EditorState, or the UI bus (docs/ARCHITECTURE.md, DESIGN-PRINCIPLES.md §5). The engine declares the vocabulary it wants and the editor translates into it — see src/engine/rendering/ghostTypes.ts, which exists because a `tool: MarkingTool` parameter in the renderer passed all four gates before this rule (docs/history/modularity-plan-2026-07-28.md Phase 2)."
+                "message": "The arrow is App.ts -> interactions -> engine, never back: the engine may not import an editor controller, EditorState, or the UI bus (docs/ARCHITECTURE.md, DESIGN-PRINCIPLES.md §5). The engine declares the vocabulary it wants and the editor translates into it — see src/engine/rendering/ghosts/ghostTypes.ts, which exists because a `tool: MarkingTool` parameter in the renderer passed all four gates before this rule (docs/history/modularity-plan-2026-07-28.md Phase 2)."
               }
             ]
           }

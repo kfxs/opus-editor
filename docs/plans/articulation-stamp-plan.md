@@ -55,9 +55,9 @@ Tenuto}` → `pressArticulation`) routes to one of three behaviours by context:
   reuse the dynamic-ghost's `getSVGElement()` trick, because `Articulation.draw()` opens no
   group of its own. Multiple armed articulations are stacked with an explicit `textLine` each.
   ⚠️ **2026-09-19: VexFlow is removed, and this path is gone** — the ghost is
-  `rendering/MarkGhost.drawArticulationGhost` (S11b), reached from `GhostRenderer`'s drawer table: the
+  `rendering/ghosts/MarkGhost.drawArticulationGhost` (S11b), reached from `GhostRenderer`'s drawer table: the
   armed marks are `EngravedArticulation`s on one lone quarter formatted by our own columns
-  (`rendering/loneNote`), drawn on our surface and parked on the pointer by `drawSignGhost`. Still one
+  (`rendering/ghosts/loneNote`), drawn on our surface and parked on the pointer by `drawSignGhost`. Still one
   `textLine` per mark.
 - Keypad highlight: `PaletteController.noteHas{Accent,Staccato,Tenuto}` — **while the stamp is
   armed, only the armed set lights**; the note-entry flags are ignored there (they can be stale

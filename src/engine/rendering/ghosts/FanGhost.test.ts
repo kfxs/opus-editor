@@ -12,7 +12,7 @@
  * exactly the claim the module makes.
  */
 import { describe, it, expect, beforeEach } from 'vitest'
-import { MusicEngine } from '../MusicEngine'
+import { MusicEngine } from '../../MusicEngine'
 import { FAN_GHOST_GROUP_CLASS } from './FanGhost'
 import { GHOST_GROUP_SELECTOR } from './GhostRenderer'
 

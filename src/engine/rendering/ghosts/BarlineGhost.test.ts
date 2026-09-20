@@ -13,7 +13,7 @@
  * suite's to measure.
  */
 import { describe, it, expect, beforeEach } from 'vitest'
-import { MusicEngine } from '../MusicEngine'
+import { MusicEngine } from '../../MusicEngine'
 import { BARLINE_GHOST_GROUP_CLASS } from './BarlineGhost'
 import { GHOST_GROUP_SELECTOR, GHOST_DRAWERS } from './GhostRenderer'
 

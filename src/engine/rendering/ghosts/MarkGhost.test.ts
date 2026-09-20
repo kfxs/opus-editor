@@ -9,7 +9,7 @@
  * ghost's ink against the previous commit (`docs/history/vexflow-removal-map.md` S11b).
  */
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest'
-import { MusicEngine } from '../MusicEngine'
+import { MusicEngine } from '../../MusicEngine'
 import { GHOST_GROUP_SELECTOR } from './GhostRenderer'
 
 const proto = SVGElement.prototype as unknown as { getBBox?: () => DOMRect }

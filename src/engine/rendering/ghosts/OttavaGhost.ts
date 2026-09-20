@@ -31,7 +31,7 @@
  */
 import type { DrawContext } from '@/engine/paint/DrawContext'
 import type { Ottava } from '@/types/music'
-import { drawOttavaNumeral } from './OttavaRenderer'
+import { drawOttavaNumeral } from '../OttavaRenderer'
 import { drawSignGhost } from './ghostCursor'
 
 /** The class `ScoreRenderer.clearGhosts` sweeps this ghost by — it must be in

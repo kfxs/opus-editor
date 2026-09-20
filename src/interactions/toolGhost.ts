@@ -20,7 +20,7 @@ import { dynamicTextFromTool } from '../utils/dynamics'
 import type { NoteDuration } from '../types/music'
 import type { MarkingTool } from './EditorState'
 import { assertNeverTool } from './EditorState'
-import type { GhostColor, ToolGhost } from '../engine/rendering/ghostTypes'
+import type { GhostColor, ToolGhost } from '../engine/rendering/ghosts/ghostTypes'
 
 /**
  * What the REST ghost (and only the rest ghost) reads off editor state — the armed note-entry
@@ -83,7 +83,7 @@ export function toolGhost(tool: MarkingTool, armed: ArmedRestFields): ToolGhost 
     // drawn ABOVE the music at a height the click has not decided, so a `tr` at the pointer previews
     // a position nothing has chosen. What that missed is that a cursor ghost answers WHAT the click
     // makes and not where the engraver will put it — the same licence the accidental, dot and tie
-    // ghosts already take. See `engine/rendering/TrillGhost`.
+    // ghosts already take. See `engine/rendering/ghosts/TrillGhost`.
     case 'trill': return { kind: 'trill' }
     // ⭐ The OTTAVA followed it the next day, on his *"same thing"* — and it is the tool the ghost
     // helps MOST: `8va` and `8vb` are two palette rows differing in one signed number, so with only
@@ -95,7 +95,7 @@ export function toolGhost(tool: MarkingTool, armed: ArmedRestFields): ToolGhost 
     // `Ped.` is not merely at an undecided height, it is not at the pointer at all, but on a rung
     // below the staff. That argued about WHERE, which is the renderer's answer after the click; the
     // cursor's job is WHAT. ⛔ The LIFT (`✻`) is never previewed: a pedalling has a length the click
-    // has not picked. See `engine/rendering/PedalGhost`.
+    // has not picked. See `engine/rendering/ghosts/PedalGhost`.
     case 'pedal': return { kind: 'pedal' }
     // The one stamp whose ghost carries a VALUE, and it reads it from the ARMED length rather than
     // from the tool: a rest IS its duration + dots, and those are the note-entry fields the

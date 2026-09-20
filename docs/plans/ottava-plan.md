@@ -774,7 +774,7 @@ band machinery.
   ⭐⭐ **AMENDED 2026-08-17, TWICE, both his calls — the ghost row and the shortcut are now BUILT**,
   with the planned version kept above so it cannot creep back:
   - **A NUMERAL GHOST** (*"now the 8va and 8vb, same thing, we should show the ghost for stamp"*).
-    `engine/rendering/OttavaGhost.ts` + a `GHOST_DRAWERS` row + `{ kind: 'ottava'; shift }` on
+    `engine/rendering/ghosts/OttavaGhost.ts` + a `GHOST_DRAWERS` row + `{ kind: 'ottava'; shift }` on
     `ToolGhost`, drawn through the pass's own (now exported) `drawOttavaNumeral`. ⭐ **This is the
     tool a ghost helps most**: `8va` and `8vb` are two palette rows differing in ONE signed number,
     so behind a blue caret they armed identically and the only way to tell was which button was lit.
@@ -785,7 +785,7 @@ band machinery.
     above the pointer and `8vb` below it, mirroring where each line is engraved: *"the position of
     the ghost 8vb in relation with the pointer is different than the position of ghost 8va — this is
     not good."* A cursor ghost is ONE indicator and its position is how the eye finds it; the
-    direction is the GLYPH's to state. Both now park through `engine/rendering/ghostCursor.ts`, the
+    direction is the GLYPH's to state. Both now park through `engine/rendering/ghosts/ghostCursor.ts`, the
     accidental ghost's position, which is his stated reference for the whole family
     (`docs/plans/pedal-plan.md` §7 carries the rule in full).
   - ⭐ **THE ATTACHMENT GUIDE** — a selected bracket draws the dashed line to where it is anchored

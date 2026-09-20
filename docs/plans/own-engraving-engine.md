@@ -1892,7 +1892,7 @@ is unverified.
 `vexflow-boundary.md` §5 P3, still open: the preview ghost formats its own temporary stave and does
 not run the spacing pass. It is the last VexFlow-formatted thing in the app and it moves with
 whichever piece reaches it first. (⚠️ 2026-09-19: nothing is VexFlow-formatted any more — a ghost's
-note is formatted alone through OUR columns, `rendering/loneNote` (S11); it still does not run the
+note is formatted alone through OUR columns, `rendering/ghosts/loneNote` (S11); it still does not run the
 spacing pass.)
 
 ### 6.6 ⚠️ The reference sources are gone
