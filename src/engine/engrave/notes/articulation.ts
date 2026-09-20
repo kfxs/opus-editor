@@ -22,7 +22,7 @@
  * `Articulation.format` — the *"real engraving thinking we have never had a complaint about"* that
  * `own-engraving-engine.md` §"Not on this list" keeps on a **port-if-needed** list.
  *
- * 🚨 And this repo has already MEASURED what taking it half-way costs: `rendering/fanArticulations`
+ * 🚨 And this repo has already MEASURED what taking it half-way costs: `rendering/beams/fanArticulations`
  * tried a hand-rolled *"one staff space per mark"* rule for a fan's members and it put a staccato
  * **2 px** off where the library puts the identical mark on the note beside it, *"because a
  * between-lines glyph gets snapped into a space and re-originned"*. ⇒ ⭐ the ink moves, the placement

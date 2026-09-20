@@ -8,7 +8,7 @@
  * curves, anchored to notes and margins). {@link cutSpanAtSystems} is what the four LINE families
  * each spelled on top of it: the same segments as plain x-ranges on a line.
  */
-import { lineLeftEdgeX, lineRightEdgeX, type SystemEdgeLookup } from '../systemEdges'
+import { lineLeftEdgeX, lineRightEdgeX, type SystemEdgeLookup } from '../staff/systemEdges'
 
 /**
  * One drawn piece of a span. A same-line span is a single `single`; one crossing

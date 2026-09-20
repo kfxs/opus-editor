@@ -14,8 +14,8 @@
  * turns that into a red build instead.
  */
 import { describe, it, expect } from 'vitest'
-import { EngravedStave } from './EngravedStave'
-import { SvgPainter } from './SvgPainter'
+import { EngravedStave } from './engraved/EngravedStave'
+import { SvgPainter } from './painter/SvgPainter'
 
 function ctx() {
   const div = document.createElement('div')

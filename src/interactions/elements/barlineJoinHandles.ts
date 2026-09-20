@@ -53,7 +53,7 @@ import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
  * ⚠️ PIXELS, like every other handle in the editor — the squares are drawn on the highlight layer at a
  * constant on-screen size, so one stays the same size to the hand at every zoom, and a SMALL staff's
  * squares stand as far off its lines as a full-size one's. ⭐ That is the gap ink's own rule one level
- * up (`rendering/barlineGap`: the ink between two staves is the SCORE's, not either staff's).
+ * up (`rendering/staff/barlineGap`: the ink between two staves is the SCORE's, not either staff's).
  */
 export const BARLINE_JOIN_HANDLE_GAP_PX = 10
 
@@ -95,7 +95,7 @@ export interface BarlineBoxRegistry {
  * ⭐ **Each square takes its x from ITS OWN staff's box**, not from the upper one's for both. Normally
  * they are identical; where they are not — a start repeat displaced past a header on one staff only
  * (`BarlineRenderer.displacedRepeatX`) — each square still sits on the line it hangs off, and it is
- * `rendering/barlineGap` that declines to draw a kinked join. ⛔ Never split the difference.
+ * `rendering/staff/barlineGap` that declines to draw a kinked join. ⛔ Never split the difference.
  */
 export function barlineJoinHandles(
   registry: BarlineBoxRegistry,
@@ -192,7 +192,7 @@ function boundaryX(bbox: { x: number; width: number }): number {
  * COORDINATE; what the eye centres a handle against is INK
  * ([[feedback_every_space_needs_a_quotation]]'s rule, in miniature).
  *
- * ⭐ **And it is the STROKES' span, which is exactly what the join draws.** `rendering/barlineGap`
+ * ⭐ **And it is the STROKES' span, which is exactly what the join draws.** `rendering/staff/barlineGap`
  * fills `parts.strokes` and ⛔ never `parts.dots` (the lines run through, the dots do not), so the
  * square centres on the very ink the gap will hold. That matters far more than 0.8 px on the signs
  * that are not plain: a final bar's and an end repeat's strokes are **entirely to the LEFT** of the

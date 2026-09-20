@@ -10,7 +10,7 @@ if it is done any other way.
 
 > ⚠️ **2026-09-19: VexFlow is removed** (`docs/history/vexflow-removal-map.md` §9). Every class this file
 > names as VexFlow's is now our transcription of it, with the same behaviour — `StemmableNote`/`StaveNote`
-> (the flag and stem gates) → `rendering/EngravedNote`, `Stem` → `EngravedStem`, `Beam` →
+> (the flag and stem gates) → `rendering/engraved/EngravedNote`, `Stem` → `EngravedStem`, `Beam` →
 > `EngravedBeam` (the partial-beam walk in `engrave/beams/beamLineSpans`). The mechanics below hold as
 > written; read "VexFlow's" as "the rule we took from VexFlow".
 

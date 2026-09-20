@@ -5,7 +5,7 @@
  *
  * Pure: no stave, no context, no score. That is deliberate and it is §6.2's first item — **ONE OWNER
  * FOR THE SIGN'S EXTENT.** Four consumers need the same number and none of them may compute its own:
- * the pass that draws it (`rendering/BarlineRenderer`), the width the bar reserves for it (§5.1), the
+ * the pass that draws it (`rendering/staff/BarlineRenderer`), the width the bar reserves for it (§5.1), the
  * hit-box the drag grabs (§6.2), and the selection highlight that should cover the whole sign
  * (§8 P5). ⛔ A lookup into the drawing pass would not do: `ElementRegistry` registers a barline box
  * for **every bar in the score, painted or not**, so the extent must be answerable for a bar the pass
@@ -21,7 +21,7 @@
  * first, then thin, then dots, all inside the bar it opens.
  *
  * ⭐ The invariant this protects is the one four readers already depend on: **`x` IS the bar
- * boundary** (`rendering/barlineInk`). The spacing model measures the lead-in from it, the registry's
+ * boundary** (`rendering/staff/barlineInk`). The spacing model measures the lead-in from it, the registry's
  * `noteEndX` hit-box sits at it, the selection highlight paints from it, and `barWidth.e2e` asserts a
  * drawn barline sits at the stave's own `x2`. Under this rule `x` never moves for any sign, so the
  * bar-width drag arithmetic is untouched — the bar merely has to RESERVE the sign's width, which is

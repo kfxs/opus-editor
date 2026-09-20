@@ -14,7 +14,7 @@
 import type { Clearance, MarkInk } from '@/engine/layout/inkBand'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { DYNAMIC_TEXT_FONT } from '../dynamics/dynamicStyle'
-import { drawnFontPx } from '../../drawnFontSize'
+import { drawnFontPx } from '../../painter/drawnFontSize'
 
 /** SMuFL `ornamentTrill` — the `tr` itself. */
 export const TRILL_SIGN_GLYPH = ''

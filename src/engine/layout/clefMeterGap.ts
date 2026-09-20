@@ -125,7 +125,7 @@ const state: { rule: ClefMeterRuleName; generation: number } = {
 
 /**
  * ⭐ **The armed clear white, in staff spaces, INK TO INK** — the one number both the reservation
- * (`layout/headerInk`) and the drawing (`rendering/EngravedStave.addTimeSignature`) read.
+ * (`layout/headerInk`) and the drawing (`rendering/engraved/EngravedStave.addTimeSignature`) read.
  */
 export function armedClefMeterInk(): number {
   return CLEF_METER_RULES[state.rule].ink

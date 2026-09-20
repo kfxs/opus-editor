@@ -16,10 +16,10 @@
  */
 import type { Clearance, MarkInk } from '@/engine/layout/inkBand'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
-import { drawnFontPx } from '../../drawnFontSize'
+import { drawnFontPx } from '../../painter/drawnFontSize'
 import { MUSIC_FONT_STACK } from '@/engine/engrave/inheritedFonts'
 import { textFirstFamily } from '@/utils/fontStack'
-import type { TextRunFont } from '../../glyphPainter'
+import type { TextRunFont } from '../../painter/glyphPainter'
 
 /**
  * The size of the metronome's note glyph (`♩`), overriding VexFlow's default.

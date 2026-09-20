@@ -36,7 +36,7 @@
  * here clamps or nudges: a flag that looks wrong is a stem-length question (⏭️ P3's stem piece,
  * where Gould's pp. 16–19 rules go).
  *
- * ## ⚠️ Why it stamps its own glyph instead of calling `rendering/glyphPainter`
+ * ## ⚠️ Why it stamps its own glyph instead of calling `rendering/painter/glyphPainter`
  *
  * ⭐ Because the font is **already resolved** — see `engrave/glyph.ts`, which is where those two
  * lines moved when P3d gave them a second owner.

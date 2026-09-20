@@ -1144,7 +1144,7 @@ carries brand-new, unhinted rects."* On a mark-drag frame nothing is re-engraved
 translated, so there are no new rects and the previous stamp is still correct.
 
 ⚠️⚠️ **THIS SAVING WAS SPENT ON 2026-08-26, and the reason is structural rather than a regression.**
-`rendering/BarlineRenderer` took the barline drawing from VexFlow (docs/plans/barline-types-plan.md §4.6),
+`rendering/staff/BarlineRenderer` took the barline drawing from VexFlow (docs/plans/barline-types-plan.md §4.6),
 and it is a **score-level pass rebuilt from scratch on every render** — which is what makes a stale
 barline impossible when a boundary's sign depends on its neighbour. The consequence here is exact:
 **every barline rect on the page is now brand-new and unhinted on every render**, so the gate below

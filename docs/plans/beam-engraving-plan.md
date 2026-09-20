@@ -171,7 +171,7 @@ left out**, which is the middle ground between yesterday's picture and the flatt
 - ⚠️ **One honest limit, written down so it is not discovered later**: a rule currently returns a
   **budget** (the most a beam may climb) and the search picks inside it — VexFlow's solver, ours
   since S7a (`engrave/beams/beamSlopeFit`). LilyPond and Verovio both want to **choose** the rise
-  outright. ⇒ that needs one more line in `rendering/EngravedBeam.calculateSlope` — take the chosen
+  outright. ⇒ that needs one more line in `rendering/engraved/EngravedBeam.calculateSlope` — take the chosen
   slope instead of searching (the stems are lengthened after it, so nothing is re-run). ⛔ Deliberately not written until somebody is actually comparing, because
   an untested branch that exists is worse than a documented one that does not.
 - ⏭️ **If comparing by eye on the same page becomes the job**, the next step is a dev-only setter so
@@ -206,11 +206,11 @@ appears in VexFlow's loop and twice more in the cross-barline fragments. It has 
 ### 1.2 What landed
 
 - ⭐ **`engine/engrave/beams/beamLines.ts` — the ONE owner** of the quad ({@link fillBeamQuad}, moved
-  out of `rendering/beamInk`), of a whole beam's run of them ({@link drawBeamLines}), and of the
+  out of `rendering/beams/beamInk`), of a whole beam's run of them ({@link drawBeamLines}), and of the
   level stack ({@link beamLevelY} + `BEAM_LEVEL_STRIDE`). Pure, no DOM, no `vexflow`.
-- ⭐ **`engine/rendering/EngravedBeam.ts`** — the adapter, the same seam shape as `EngravedNote` /
+- ⭐ **`engine/rendering/engraved/EngravedBeam.ts`** — the adapter, the same seam shape as `EngravedNote` /
   `EngravedStem`: `setInkSurface` + `drawBeamInkThrough`, and an override of the public `draw()`.
-- ⭐ `rendering/beamInk.ts` keeps only what is genuinely the renderer's: the cross-**system** stub
+- ⭐ `rendering/beams/beamInk.ts` keeps only what is genuinely the renderer's: the cross-**system** stub
   lengths and the fragment's width, which are measured against `measureBounds` rather than drawn by
   anyone else.
 - ⭐⭐ **The first beam ink in the SCENE.** `ScoreRenderer.scene.test.ts` gained a chapter that
@@ -237,7 +237,7 @@ object itself — and since S7e that is ours too: `EngravedBeam` no longer exten
 ⚠️ The stems keep the VexFlow context, deliberately: `drawStems` hands it to each `Stem`, and an
 `EngravedStem` ignores it in favour of its own ink surface anyway (P3c).
 (⚠️ 2026-09-19: VexFlow is removed — there is no VexFlow context left for the stems to keep; every
-context is our `rendering/SvgPainter`.)
+context is our `rendering/painter/SvgPainter`.)
 
 ---
 

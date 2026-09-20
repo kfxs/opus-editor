@@ -63,7 +63,7 @@ score, and export/import JSON.
   coming; `lint:boundary` refuses framework imports. New UI follows `windows/` and `menus/`:
   a module that builds its own elements and subscribes to state.
 - **Notation Rendering**: our own engine (`engine/engrave`, `engine/rendering`, painted by
-  `rendering/SvgPainter`). ⭐ VexFlow is GONE from `package.json` (S14 of
+  `rendering/painter/SvgPainter`). ⭐ VexFlow is GONE from `package.json` (S14 of
   `docs/history/vexflow-removal-map.md`), and `lint:boundary` refuses the import in every file, specs and
   `e2e/` included. The code ported from it is credited in `NOTICE`. S15 took the names too (`ScoreRenderer`; the
   SVG's groups carry their BARE class and id — no `vf-` prefix).
@@ -247,7 +247,7 @@ src/
                           #   + `notes/keyLines` (S6d — ⭐ WHAT EACH KEY PUTS ON THE STAFF: its LINE
                           #   (`staffLineForSpelling`, the rule the fan already used), its head GLYPH, and
                           #   VexFlow's coarse second-apart flag; ⛔ NOT the displacement walk, which is
-                          #   `rendering/chordHeadLayout`'s and answers a different question)
+                          #   `rendering/format/chordHeadLayout`'s and answers a different question)
                           #   + `notes/stemLength` (S6e — ⭐ HOW FAR A STEM RUNS: its tip, its base, the
                           #   signed stroke; 3½ sp is `STEM_LENGTH_PX`, the ONE inherited row the research
                           #   CONFIRMS; ⛔ not how much EXTENSION the note asks for — that reads a flag)
@@ -259,8 +259,8 @@ src/
                           #   `dotStack` / `accidentalStack` / `articulationStack` /
                           #   `annotationStack` (S9c–g — ⭐ the RULES a column runs: VexFlow's `StaveNote/
                           #   Dot/Accidental/Articulation/Annotation.format` transcribed EXACTLY, run by
-                          #   `rendering/modifierColumns` — ⛔ no opinion added; the research docs are
-                          #   their menu). ⭐ `rendering/EngravedNote` WAS the seam where a
+                          #   `rendering/format/modifierColumns` — ⛔ no opinion added; the research docs are
+                          #   their menu). ⭐ `rendering/engraved/EngravedNote` WAS the seam where a
                           #   `StaveNote` kept answering while it stopped painting; since S12j-d3
                           #   it is a plain class of ours, importing nothing of VexFlow's.
                           #   + `staff/staffFrame` (⭐⭐ THE ONE module that does staff-line
@@ -269,7 +269,7 @@ src/
                           #   of a drawn note — ⛔ not its BOX, which is P6b's per-reader work)
                           #   + `staff/signRun` (the signs a bar opens and ends with, and where)
                           #   + `staff/signWalk` + `staff/barlineMetrics` (⭐ OUR walk — `Stave.format()`
-                          #   transcribed — sets each sign's own `signX`, `rendering/staveSign`)
+                          #   transcribed — sets each sign's own `signX`, `rendering/staff/staveSign`)
                           #   + `header/clefSign` / `header/meterSign` (what a clef / a meter DRAWS —
                           #   glyph, line, face, the meter's rows from the MODEL — today's rows)
                           #   + `inheritedDefaults` / `inheritedFonts` (the numbers and faces

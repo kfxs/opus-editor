@@ -312,7 +312,7 @@ test('🚨🚨 a DYNAMIC under a covered note does not touch the arch — his re
   // by a tuning error: a dynamic is attached to its note as a VexFlow `Annotation` so it can have an
   // anchor, `StaveNote.getBoundingBox()` unions EVERY modifier into the note's box, and the obstacle
   // scan read that box. So the mark the dynamics line is about to translate somewhere else counted
-  // as ink the curve had to bow over. `rendering/noteInkBox.ts` is the fix and this is its picture.
+  // as ink the curve had to bow over. `rendering/engraved/noteInkBox.ts` is the fix and this is its picture.
   const r = await score.evaluate(async () => {
     const h = window.__h
     // ⚠️ LOW notes, so the stems go UP and the slur goes BELOW them — the side a `below` dynamic
@@ -662,7 +662,7 @@ test('⭐ …and the two are within half a space of each other', async ({ score 
  * h: 122}` for one of the notes it covers — the whole system, from the origin — and lifted the arch
  * 361 px to clear it. The box came from `StaveNote.getBoundingBox()` merging a FLAG that had never
  * been positioned, because P3b took the flag's ink without keeping VexFlow's `setX`/`setY`
- * write-back (`rendering/EngravedNote`, and `EngravedNote.test.ts` asserts the box itself).
+ * write-back (`rendering/engraved/EngravedNote`, and `EngravedNote.test.ts` asserts the box itself).
  *
  * ⚠️ **Why the shape belongs in the browser suite even though the cause is a unit test**: the arch
  * is where the two meet, and it is the thing he was looking at. The unit test says the ruler is

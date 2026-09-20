@@ -20,7 +20,7 @@
  *
  * [[project_hairpin_handles]]'s rule, and the join square's: the square sits on the sign's own drawn
  * end, ⛔ not on a nominal staff coordinate. The sign's box is registered by the pen in SVG space
- * (`rendering/systemStart.registerSignBox`), so that box IS the ink and the squares hang off it.
+ * (`rendering/staff/systemStart.registerSignBox`), so that box IS the ink and the squares hang off it.
  */
 
 /**

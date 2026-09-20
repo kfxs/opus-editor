@@ -192,8 +192,8 @@ publishes no default (`staff-line-research.md` §5.1), so every row is one font'
 - **Ink:** `drawStem(ctx, stem, thickness)` strokes one line (`src/engine/engrave/notes/stem.ts:65-71`).
   Every caller passes VexFlow's **`Stem.WIDTH` = 1.5 px = 0.15 sp** — ⭐ since S1b (2026-09-14) as the
   attributed row `STEM_THICKNESS_PX` in `src/engine/engrave/inheritedDefaults.ts`, same value:
-  - `EngravedStem.draw` (`src/engine/rendering/EngravedNote.ts:96-100`);
-  - both `FanPass` stems (`src/engine/rendering/FanPass.ts:477-481, 581`).
+  - `EngravedStem.draw` (`src/engine/rendering/engraved/EngravedNote.ts:96-100`);
+  - both `FanPass` stems (`src/engine/rendering/beams/FanPass.ts:477-481, 581`).
   The module's header already names this a two-source question (`stem.ts:37-43`).
 - **Room:** the ink table's arithmetic spends **Bravura's `stemThickness` 0.12**
   (`src/engine/fonts/bravuraMetrics.ts:360`; `fontMetrics.ts:249, 277`). ⚠️ So the room reserved and
@@ -203,7 +203,7 @@ publishes no default (`staff-line-research.md` §5.1), so every row is one font'
   ⇒ **today's ratio is 0.15 / 0.11 = 1.36×**: thicker than the staff line, the LilyPond/Verovio/VexFlow
   side.
 - **Scaling:** ✅ with staff size, because a staff's glyphs are painted inside `<g transform="scale(k)">`
-  (`src/engine/rendering/staffScaleGroup.ts:10`), which scales the stroke. Grace/cue: **n/a**, since
+  (`src/engine/rendering/staff/staffScaleGroup.ts:10`), which scales the stroke. Grace/cue: **n/a**, since
   the engine has no grace notes. Beamed and unbeamed stems: **the same** width (one `Stem.WIDTH`).
 
 ## 5. ⭐ PRESET ROWS

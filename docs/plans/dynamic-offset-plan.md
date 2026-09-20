@@ -89,7 +89,7 @@ All four items below are closed. Kept for the record.
 The offset is applied as an **SVG-transform translate** on the rendered annotation
 group — the same technique `layoutCoLocatedDynamics` uses, because VexFlow's modifier
 shifts are awkward to control for annotations. (⚠️ 2026-09-19: VexFlow is removed — the annotation
-is ours, `rendering/EngravedAnnotation`, placed by `engrave/notes/annotationPlacement`; the translate
+is ours, `rendering/engraved/EngravedAnnotation`, placed by `engrave/notes/annotationPlacement`; the translate
 is still how the offset is applied.) `applyDynamicOffsets` runs LAST (after
 `registerDynamics` and `layoutCoLocatedDynamics`) and **composes** with any co-location
 transform by prepending its own translate; both are pure translations, so they add

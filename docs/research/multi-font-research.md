@@ -85,7 +85,7 @@ Which system face a given browser would pick is **UNKNOWN** (§7).
 
 | VexFlow's | take it? | why |
 |---|---|---|
-| Registering faces with `block` for music and `swap` for words | ✅ **already taken** (`fonts/fontFiles.ts:40–47,50–54`, registered by `rendering/musicFontFaces.ts`) | A `.notdef` box engraved as a notehead is wrong ink, so music waits for its font |
+| Registering faces with `block` for music and `swap` for words | ✅ **already taken** (`fonts/fontFiles.ts:40–47,50–54`, registered by `rendering/painter/musicFontFaces.ts`) | A `.notdef` box engraved as a notehead is wrong ink, so music waits for its font |
 | The `Font.FILES` catalogue | ❌ not at run time | It only restates npm package paths, already in `smufl-fonts-research.md` §5 |
 | Runtime `measureText` | ❌ **a workaround** | VexFlow measures because it carries no metadata. It gives an advance where ink was wanted, needs a canvas, and cannot run in jsdom (`fonts/fontMetrics.ts:7–15`) |
 | A CSS stack as the fallback chain | ❌ **a workaround** | It is not a SMuFL fallback: the next family is a text font with no PUA glyphs (§1.2) |
@@ -283,14 +283,14 @@ for this.
 and 18 non-test files import it.
 
 - **Boxes:** `glyphBox` / `glyphNameOf` are called from 14 files outside `engine/fonts/`, e.g.
-  `rendering/KeySignaturePass.ts`, `scene/sceneBox.ts`, `layout/barlineSign.ts`. `glyphNameOf` answers
+  `rendering/staff/KeySignaturePass.ts`, `scene/sceneBox.ts`, `layout/barlineSign.ts`. `glyphNameOf` answers
   `null` for a character we did not measure (`fontMetrics.ts:96–110`).
 - **Engraving defaults:** `engravingDefault(...)` is called by:
   - `layout/barlineSign.ts:60,84`
   - `rendering/thinLineWeight.ts:60,146`
   - `rendering/curves/curveStyle.ts:280,284`
   - `rendering/layoutConfig.ts:265`
-  - `rendering/beamInk.ts:48`
+  - `rendering/beams/beamInk.ts:48`
   - the compositions `secondDisplacement`, `flagInkRight` and `ledgerExtension` (`fontMetrics.ts:248–250,271–278,301–303`)
 - ⭐ **Anchors: `anchor()` has no caller outside its own test** (`fontMetrics.test.ts:152–166`; grep of
   `src/` for `anchor(` outside `engine/fonts/`). Stems are still placed by VexFlow's advance-edge rule
@@ -336,15 +336,15 @@ no consumer today but are P3's prerequisite.
 ## 6. What must not be lost when VexFlow is removed
 
 > ⚠️ **2026-09-19: VexFlow IS removed** (`docs/history/vexflow-removal-map.md` §9). This section is kept as
-> the checklist it was: the faces are ours (`fonts/fontFiles` + `rendering/musicFontFaces`), every glyph
-> is resolved, measured and stamped by `rendering/glyphPainter` with faces from `fonts/fontCategories`
+> the checklist it was: the faces are ours (`fonts/fontFiles` + `rendering/painter/musicFontFaces`), every glyph
+> is resolved, measured and stamped by `rendering/painter/glyphPainter` with faces from `fonts/fontCategories`
 > (the same `'Bravura,Academico'` stack), and the numbers below are rows in `engrave/inheritedDefaults`.
 
 ⭐ **There is no multi-font engraving knowledge in VexFlow 5 to lose** (§1). What is at stake is
 behaviour:
 
 1. **The faces themselves.** VexFlow's import installs six faces (`entry/vexflow.js:12–17`). Ours now
-   installs three from `public/fonts/` (`fonts/fontFiles.ts:50–54`, `rendering/musicFontFaces.ts`).
+   installs three from `public/fonts/` (`fonts/fontFiles.ts:50–54`, `rendering/painter/musicFontFaces.ts`).
    **Gonville, Petaluma and Petaluma Script will leave the page with the package.** (⚠️ They have.) A grep of `src/`,
    `e2e/` and `index.html` finds those names only in comments (`fontFiles.ts:14–15,23`,
    `BarlineRenderer.ts:132`, `e2e/musicFontFaces.e2e.ts:8`), so nothing draws with them today. A future

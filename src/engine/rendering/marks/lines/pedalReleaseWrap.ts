@@ -36,7 +36,7 @@
  * two being only how far inside its line each release already sat. ⭐ One x, in one space, all the way
  * to the glyph.
  */
-import { lineLeftEdgeX, lineRightEdgeX, type SystemEdgeLookup } from '../../systemEdges'
+import { lineLeftEdgeX, lineRightEdgeX, type SystemEdgeLookup } from '../../staff/systemEdges'
 
 /** Where the release should be drawn: which line, and the x on it — ⚠️ **INK**, the hand's nudge
  *  already inside it ({@link wrapReleaseOntoNextLine}). */

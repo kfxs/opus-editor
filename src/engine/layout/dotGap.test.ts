@@ -3,7 +3,7 @@
  * exist, and the two facts about the rows that the survey turned up.
  *
  * ⛔ These assert the TABLE, ⛔ not the drawing: what the armed row does to the ink is
- * `rendering/dotPlacement.test.ts` (the two shifts) and `e2e/notes.e2e.ts` (where it lands).
+ * `rendering/format/dotPlacement.test.ts` (the two shifts) and `e2e/notes.e2e.ts` (where it lands).
  */
 import { describe, it, expect, afterEach } from 'vitest'
 import {

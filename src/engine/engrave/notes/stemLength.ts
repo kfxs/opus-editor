@@ -73,7 +73,7 @@ export function stemReach(extension: number): number {
  *
  * ⚠️ **`baseY` is the OUTER head and `tipY` the free end**, whichever way the stem points: for a stem
  * down the tip is BELOW the base, so `tipY > baseY`. ⛔ Neither name means "smaller y" — VexFlow calls
- * the tip `topY` for historical reasons and `rendering/noteRuler` renames it to `stemTipY` at the seam,
+ * the tip `topY` for historical reasons and `rendering/engraved/noteRuler` renames it to `stemTipY` at the seam,
  * which is the name every reader in this editor actually uses.
  */
 export function stemExtents(span: StemSpan): { tipY: number; baseY: number } {

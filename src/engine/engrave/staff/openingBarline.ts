@@ -1,11 +1,11 @@
 /**
  * ⭐⭐ **THE LINE THAT OPENS A STAVE, AS INK — P5b's last piece of drawing**
- * (`docs/plans/own-engraving-engine.md` P5; the seam is `rendering/EngravedBarline`).
+ * (`docs/plans/own-engraving-engine.md` P5; the seam is `rendering/engraved/EngravedBarline`).
  *
  * ⚠️ **It is not one of the barlines `BarlineRenderer` draws, and that is a statement about the
  * MARK rather than about this repo's history.** Every line that *divides two bars* — plain, final,
  * both repeats — is a SIGN at a boundary, and the pass that owns them exists because a boundary's
- * two neighbours have to agree on who draws it (`rendering/BarlineRenderer`, §3.2's *ONE OWNER PER
+ * two neighbours have to agree on who draws it (`rendering/staff/BarlineRenderer`, §3.2's *ONE OWNER PER
  * LINE*). This line divides nothing: it CLOSES the staff on its left, has no neighbour to agree
  * with, and is drawn once per system rather than once per bar. ⇒ it is part of the STAVE, which is
  * why it lives beside {@link module:engine/engrave/staff/staffLines} and not in `layout/barlineSign`.

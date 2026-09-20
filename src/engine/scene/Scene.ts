@@ -60,7 +60,7 @@ export type ScenePathOp =
   | { op: 'closePath' }
 
 /** The face a run of text was drawn in. ⚠️ `size` is whatever the caller handed the context —
- *  points for a bare number, per `rendering/drawnFontSize`. */
+ *  points for a bare number, per `rendering/painter/drawnFontSize`. */
 export interface SceneFont {
   family?: string
   size?: string | number

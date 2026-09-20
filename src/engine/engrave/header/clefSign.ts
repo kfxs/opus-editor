@@ -2,7 +2,7 @@
  * ⭐⭐ **WHAT A CLEF IS, AS OURS — its glyph, the staff line it names, and its face.**
  * S4b0 of `docs/history/vexflow-removal-map.md`.
  *
- * `rendering/EngravedClef` used to draw the glyph text, the line and the size VexFlow's `Clef` had
+ * `rendering/engraved/EngravedClef` used to draw the glyph text, the line and the size VexFlow's `Clef` had
  * resolved from its own `Clef.types` table and `Clef.getPoint`. They are rows here now, with today's
  * values exactly — ⛔ no pixel moves.
  *

@@ -5,7 +5,7 @@
  *
  * | reader | what it does with a row |
  * |---|---|
- * | `rendering/musicFontFaces` | registers it with the browser, so `font-family: Bravura` renders |
+ * | `rendering/painter/musicFontFaces` | registers it with the browser, so `font-family: Bravura` renders |
  * | `export/exportFonts` | parses it with opentype.js and OUTLINES the glyphs into the PDF |
  *
  * ## 🚨 Why this exists (`docs/history/vexflow-removal-map.md` S1)

@@ -519,7 +519,7 @@ export function noteOffsetOverrideOf(score: Score, slotId: string): NoteOffsetOv
 /**
  * The inline clef's hand-nudged horizontal offset, if any (his ask, 2026-08-28). `x` is in
  * **staff-spaces**, +right; the renderer folds it into the drawn glyph's `setXShift`
- * (`rendering/clefOffsetPass`), so the hit box and the clef's pixel↔pitch region move with the ink.
+ * (`rendering/staff/clefOffsetPass`), so the hit box and the clef's pixel↔pitch region move with the ink.
  * Keyed by the {@link ClefChange} id — see {@link ClefOffsetOverride} for why that key and not a
  * position. Absent = no offset (the clef sits where the engraver put it).
  */

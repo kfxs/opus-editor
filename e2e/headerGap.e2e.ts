@@ -1,6 +1,6 @@
 /**
  * ⭐⭐ **THE CLEF → TIME SIGNATURE GAP** — `engine/layout/clefMeterGap`,
- * `docs/research/header-spacing-research.md` §4.4/§4.5/§5.6, placed by `rendering/headerPlacementPass`.
+ * `docs/research/header-spacing-research.md` §4.4/§4.5/§5.6, placed by `rendering/staff/headerPlacementPass`.
  *
  * 🚨 **Why this is a browser spec and cannot be a unit one.** `Stave.format()`'s begin walk reads
  * `padding = modifier.getPadding(i + offset)` and then `if (padding + width === 0) offset--`. In

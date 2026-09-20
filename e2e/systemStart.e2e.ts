@@ -180,7 +180,7 @@ test('⛔ a group with no symbol draws nothing at all — the gate, at the pen',
  * have been asserting the ascender-to-descender extent of Bravura and calling it a brace.
  * ⛔ `getBBox()` is out for the same reason the rest of this suite avoids it on glyphs.
  *
- * ⭐ So the brace's contract lives in `src/engine/rendering/systemStart.test.ts`, on the **transform**
+ * ⭐ So the brace's contract lives in `src/engine/rendering/staff/systemStart.test.ts`, on the **transform**
  * — which is the actual drawing instruction, not a derived box: that the scale is non-uniform, that
  * `sx × the glyph's own ink width` is the CONSTANT depth at 2 staves and at 4, and that the group is
  * translated flush to the connector's ends.

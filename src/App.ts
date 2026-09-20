@@ -289,7 +289,7 @@ export function createEditorApp(host: HTMLElement): EditorApp {
     if (engine) {
       // ⭐ Zoom changes what a pixel is, and the barlines are drawn ON pixels. A zoom is a CSS
       // transform over a finished SVG — nothing re-renders — so this is the one thing that has to
-      // be told: two attributes per barline, no engraving (`engine/rendering/barlineInk.ts`).
+      // be told: two attributes per barline, no engraving (`engine/rendering/staff/barlineInk.ts`).
       //
       // Called unconditionally, on scroll as much as on zoom. ⛔ Do NOT re-add a "did the zoom
       // change?" guard here: the model's zoom and the scale the score is DRAWN at are not the same

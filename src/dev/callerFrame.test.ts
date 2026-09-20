@@ -54,7 +54,7 @@ describe('callerFrame', () => {
  */
 describe('frameName — one V8 stack line', () => {
   it('⭐ names a plain function', () => {
-    expect(frameName('    at hintBarlines (http://localhost:5199/src/engine/rendering/barlineInk.ts:124:31)'))
+    expect(frameName('    at hintBarlines (http://localhost:5199/src/engine/rendering/staff/barlineInk.ts:124:31)'))
       .toBe('hintBarlines')
   })
 

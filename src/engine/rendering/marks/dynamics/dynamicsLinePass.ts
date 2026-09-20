@@ -29,7 +29,7 @@
  * one line; a mark over a dip deviates, alone. `columnsUnder` is the scope, and it is why this pass
  * hands the layout module ONE column rather than the system's.
  */
-import type { EngravedStave } from '../../EngravedStave'
+import type { EngravedStave } from '../../engraved/EngravedStave'
 import type { Measure } from '@/types/music'
 import type { Column } from '@/engine/layout/spacing'
 import { type MarkInk } from '@/engine/layout/inkBand'
@@ -37,12 +37,12 @@ import type { DynamicsLinePlan } from './dynamicsLinePlan'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { DYNAMIC_GLYPH_INK_ABOVE, DYNAMIC_GLYPH_INK_BELOW } from './dynamicStyle'
 import { dynamicMarkAnchorShift } from './dynamicMarkAnchor'
-import { drawnTextOrigin, firstDrawnText } from '../../drawnText'
+import { drawnTextOrigin, firstDrawnText } from '../../painter/drawnText'
 import { placeDynamicMark } from './dynamicMarkTransform'
-import { staffSpacesToPixels } from '../../staffSpace'
+import { staffSpacesToPixels } from '../../staff/staffSpace'
 import type { RenderPass } from '../../RenderPass'
 import { staffDynamics } from '@/engine/models/staffContent'
-import { staveFrame } from '../../staveFrame'
+import { staveFrame } from '../../staff/staveFrame'
 import { staffLineY } from '@/engine/engrave/staff/staffFrame'
 
 /**

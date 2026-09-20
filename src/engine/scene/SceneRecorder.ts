@@ -140,7 +140,7 @@ export class SceneRecorder implements DrawContext {
    *   placements, tags and discards reach the real page as well as the scene.
    *
    *   🚨 **It is a parameter because `scene/` may not import `rendering/`.** The wrapper for the SVG
-   *   painter is `rendering/svgDrawGroup`, which knows the DOM; this module must not. ⚠️ Omitting it
+   *   painter is `rendering/painter/svgDrawGroup`, which knows the DOM; this module must not. ⚠️ Omitting it
    *   while teeing is a real (and silent) failure mode — group operations would be recorded and
    *   never painted — which is why {@link SceneRecorder.forward} and this travel together.
    */

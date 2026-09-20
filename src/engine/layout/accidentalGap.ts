@@ -16,7 +16,7 @@
  *
  * ⇒ what this table does instead, and it is the thing actually worth having: **one number the
  * DRAWING and the RESERVATION both read.** `accidentalExtent` adds the armed row's DIFFERENCE from
- * VexFlow's 0.30 and `rendering/accidentalPlacement` shifts the ink by the same difference, so
+ * VexFlow's 0.30 and `rendering/format/accidentalPlacement` shifts the ink by the same difference, so
  * ⭐ the room and the ink cannot drift however the row is armed. ⛔ The armed row IS 0.30, so nothing
  * moved when the table arrived.
  *
@@ -51,7 +51,7 @@ export const ACCIDENTAL_GAP_RULES = {
   /**
    * ✅ **What the page draws, and what it has always drawn** — VexFlow's standoff, which is
    * `Accidental.noteheadAccidentalPadding` (1 px) plus the literal 2 px `getModifierStartXY` gives
-   * every LEFT modifier (`rendering/ledgerAccidentalClearance` reads both rather than restating
+   * every LEFT modifier (`rendering/format/ledgerAccidentalClearance` reads both rather than restating
    * them).
    *
    * ⭐⭐ **And it is also GOULD'S DRAWING**, which is the reason this is a comfortable default rather
@@ -101,7 +101,7 @@ const state: { rule: AccidentalGapRuleName; generation: number } = {
   rule: ACTIVE_ACCIDENTAL_GAP_RULE, generation: 0,
 }
 
-/** The rule in force right now — read by `layout/spacingPadding` AND `rendering/accidentalPlacement`,
+/** The rule in force right now — read by `layout/spacingPadding` AND `rendering/format/accidentalPlacement`,
  *  which is the whole point: ⭐ ONE number, both halves. */
 export function armedAccidentalGap(): AccidentalGapRule {
   return ACCIDENTAL_GAP_RULES[state.rule]

@@ -7,7 +7,7 @@
 import type { Measure, Clef, KeySignature, Fraction, TimeSignature } from '@/types/music'
 import type { LeadIn } from '@/engine/layout/measureColumns'
 import type { Column } from '@/engine/layout/spacing'
-import type { EngravedStave } from './EngravedStave'
+import type { EngravedStave } from './engraved/EngravedStave'
 
 /**
  * Bounds information for a rendered measure

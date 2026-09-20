@@ -12,7 +12,7 @@
  * the clef's and meter's from `../header/clefSign` and `../header/meterSign`, a barline's from
  * `./barlineMetrics`.
  *
- * ⚠️ **Most of what it places is placed AGAIN** by `rendering/headerPlacementPass` — the line-opening
+ * ⚠️ **Most of what it places is placed AGAIN** by `rendering/staff/headerPlacementPass` — the line-opening
  * clef and every meter are set from ink. What the walk alone decides today: the opening barline (on the
  * boundary), a MID-LINE clef change (5 px after it — `./barlineMetrics`), the CLOSING signs, and the note
  * area's end.

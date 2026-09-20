@@ -48,7 +48,7 @@
 
 /**
  * What a beam looks like to a slope rule. ⛔ Plain numbers — no `StaveNote`, no stave, no pixels:
- * the adapter (`rendering/EngravedBeam`) is what knows how to measure these.
+ * the adapter (`rendering/engraved/EngravedBeam`) is what knows how to measure these.
  */
 export interface BeamShape {
   /** ⭐ The outer notes' distance in **DIATONIC STEPS**: 1 = a second, 7 = an octave, 8+ beyond. */

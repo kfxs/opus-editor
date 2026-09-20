@@ -677,7 +677,7 @@ the renderer.
 **6a. Renderer.** The fan cluster is already a coherent unit (~500 lines:
 `drawFannedBeams`, `drawCrossBarFanBeams`, `drawFanGroups`, `fanSlotDrawing`,
 `reconcileFanJoinLines`, `registerFanInk`, `drawFanLedgerLines`, `drawFanPrefixStems`) →
-`rendering/FanPass.ts`, beside the existing `TieRenderer` / `SlurRenderer` /
+`rendering/beams/FanPass.ts`, beside the existing `TieRenderer` / `SlurRenderer` /
 `DynamicsLayout`.
 
 Then the ghost family (~900 lines). The previous plan parked this as *"worthwhile only if
@@ -728,10 +728,10 @@ new ghost specs). No behaviour changed anywhere.
 | `rendering/ScoreRenderer.ts` | 5,491 | **3,744** |
 | `MusicEngine.ts` | 3,696 | **3,256** |
 | new: `rendering/ghosts/GhostRenderer.ts` | — | 1,017 |
-| new: `rendering/FanPass.ts` | — | 746 |
+| new: `rendering/beams/FanPass.ts` | — | 746 |
 | new: `layout/barWidthRoom.ts` | — | 355 |
 | new: `layout/measuredRoom.ts` | — | 163 |
-| new: `rendering/beamInk.ts` | — | 53 |
+| new: `rendering/beams/beamInk.ts` | — | 53 |
 
 **6a — the renderer.** The fan cluster and the ghost family, both as free functions over the
 passed-in `RenderPass` / context, in the `TieRenderer` / `SlurRenderer` idiom. `ScoreModel` was
@@ -740,7 +740,7 @@ it is a *content* judgement, not this pass's shape one.
 
 **⭐ Four dependencies had to find a home before the code could move, and each one is the real
 finding — an extraction is only as clean as what the moved code reaches for:**
-1. **`fillBeamQuad` + the `CROSS_SYSTEM_BEAM_*` family → `rendering/beamInk.ts`.** THREE passes
+1. **`fillBeamQuad` + the `CROSS_SYSTEM_BEAM_*` family → `rendering/beams/beamInk.ts`.** THREE passes
    draw beam quads (cross-barline beams, the two-note tremolo, the fan) and after the split no two
    of them live in the same file. A constant reached for from three places is not one file's
    private business.

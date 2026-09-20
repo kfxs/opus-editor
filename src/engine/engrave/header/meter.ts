@@ -1,6 +1,6 @@
 /**
  * ⭐⭐ **THE TIME SIGNATURE'S INK — P5b, and the second symbol of the HEADER that is ours**
- * (`docs/plans/own-engraving-engine.md` P5; the adapter is `rendering/EngravedTimeSignature`).
+ * (`docs/plans/own-engraving-engine.md` P5; the adapter is `rendering/engraved/EngravedTimeSignature`).
  *
  * ## What P5 said this step was
  *

@@ -1,10 +1,10 @@
-import type { EngravedNote } from '../../EngravedNote'
+import type { EngravedNote } from '../../engraved/EngravedNote'
 import { describe, it, expect } from 'vitest'
 import { anchorX, splitRuns } from './TempoLayout'
 import { fracCreate as frac } from '@/utils/fraction'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import type { ChordRest, TempoMark } from '@/types/music'
-import { EngravedStave } from '../../EngravedStave'
+import { EngravedStave } from '../../engraved/EngravedStave'
 
 const mark = (extra: Partial<TempoMark>): TempoMark => ({ id: 't', beat: frac(0, 1), ...extra })
 

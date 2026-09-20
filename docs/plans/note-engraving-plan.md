@@ -14,7 +14,7 @@
 > ⚠️ **2026-09-19: VexFlow is REMOVED** (S14, `docs/history/vexflow-removal-map.md` §9). Every piece this
 > plan leaves *"VexFlow's"* — the head objects, the stem's reach, the articulation's placement, the
 > ghost, the fan's marks, the painter itself — is our code now (`EngravedNote`, `EngravedHead`,
-> `engrave/notes/stemLength`, `engrave/notes/articulationPlacement`, `rendering/SvgPainter`…). The
+> `engrave/notes/stemLength`, `engrave/notes/articulationPlacement`, `rendering/painter/SvgPainter`…). The
 > sections below are the record of how the ink moved, ⛔ not a description of today's owners.
 >
 > 🚨🚨 **READ §1b.5 BEFORE EMPTYING ANOTHER `draw()`.** VexFlow writes POSITION as a side effect of
@@ -47,7 +47,7 @@ it**: `SlurRenderer`, `TieRenderer`, `TrillRenderer`, `OttavaRenderer`, `PedalRe
 replacement.
 
 ⭐ **So the shape of P3 is: keep the object, empty the drawing, one method at a time.**
-`engine/rendering/EngravedNote.ts` is that seam — a `StaveNote` subclass whose override list is the
+`engine/rendering/engraved/EngravedNote.ts` is that seam — a `StaveNote` subclass whose override list is the
 progress bar. ⛔ It is not a monkeypatch: the audit names the live `getModifierStartXY` patch as
 *"the shape of the whole problem"* (§2.4), and this is typed, one file, and undone by deleting a
 method.
@@ -115,7 +115,7 @@ hand and by nobody in particular.
   arriving with the directory it governs, exactly as `paint/` and `scene/` did).
 - ⭐ **`engine/engrave/` exists**, and its first inhabitant is `notes/`. §8.3's rule held: *"a file
   migrates into its `engrave/` folder on the commit that touches it anyway"* — ⛔ no rename move.
-- ⭐ `engine/rendering/EngravedNote.ts` — the subclass seam (§0), plus `drawNoteInkThrough` (points a
+- ⭐ `engine/rendering/engraved/EngravedNote.ts` — the subclass seam (§0), plus `drawNoteInkThrough` (points a
   bar's notes at the render's own surface, so the ink we have taken back reaches the SCENE) and
   `trimLedgers`.
 - ⭐ **One `renderOptions` poke retired.** `clearLedgersForAccidentals` used to write
@@ -258,7 +258,7 @@ where it is*, and it does not exist on the other side.
 
 ⇒ ⏭️ **P6b's next kind should be the NOTE's own box, ⛔ not the dot or the articulation.** It is the
 box with the most consumers, it is the one this bug cost an afternoon on, and taking it would also
-retire `rendering/noteInkBox`'s splice hack — which today lifts the dynamics `Annotation` out of
+retire `rendering/engraved/noteInkBox`'s splice hack — which today lifts the dynamics `Annotation` out of
 VexFlow's LIVE modifier array, asks `getBoundingBox()`, and puts it back, because *"a union cannot be
 un-merged"*. ⭐ The scene answer to that is `sceneInkBox`'s *"the caller chooses which children
 count"*, which P6a built and which P3f/P3g's per-mark groups made findable.
@@ -268,7 +268,7 @@ something may be leaning on the number without knowing it.
 
 ### 1b.4 ⚠️ The one rule it bends, and the sentence that keeps it honest
 
-`rendering/glyphPainter` is *"the one place VexFlow still paints a glyph"*, and `flag.ts` stamps its
+`rendering/painter/glyphPainter` is *"the one place VexFlow still paints a glyph"*, and `flag.ts` stamps its
 own. ⭐ **That is not a second copy**: what `glyphPainter` owns is **font RESOLUTION** — `new
 Element(tag)` turning a tag into a `FontInfo`, its own header's *"the tag is not a comment, it
 selects the font"*. The flag's face is already resolved, so `Element.renderText` is exactly the two
@@ -368,7 +368,7 @@ overridable too — but its `new NoteHead(…)` sits at the bottom of **forty li
 second-interval displacement walk, and §6.7's rule cuts both ways: *"port the ALGORITHM, not the
 FILE"* — copying that loop to change one constructor would re-import the dependency under another
 name. ⭐ So the head objects stay VexFlow's and only their **ink** moves. (⚠️ Since S12j-a the head
-is ours, `rendering/EngravedHead`, and the displacement walk is `rendering/chordHeadLayout`'s.)
+is ours, `rendering/engraved/EngravedHead`, and the displacement walk is `rendering/format/chordHeadLayout`'s.)
 
 What the override transcribes, from `NoteHead.draw()` inside `Element.drawWithStyle()`:
 
@@ -395,7 +395,7 @@ What the override transcribes, from `NoteHead.draw()` inside `Element.drawWithSt
 P3b wrote `setFont` + `fillText` inside `engrave/notes/flag.ts`. P3d needed the same two lines.
 ⇒ `engine/engrave/glyph.ts` — *"putting one music glyph down, in a face that is already resolved"* —
 collected on the commit that produced the second owner rather than after a third. ⭐ It is
-deliberately **not** `rendering/glyphPainter`: that module owns font RESOLUTION (`new Element(tag)`
+deliberately **not** `rendering/painter/glyphPainter`: that module owns font RESOLUTION (`new Element(tag)`
 → `Metrics.getFontInfo(tag)`), and here the face arrives as a value, which is what keeps `engrave/`
 free of `vexflow`.
 
@@ -451,10 +451,10 @@ still VexFlow's, asserted as a passing fact so the day it moves, it fails and sa
 |---|---|
 | the accidental's ink + **its one rule** (*it hangs LEFT: the ink's right edge meets the point the note offers*) | `engine/engrave/notes/accidental.ts` |
 | the dot's ink + **its one rule** (*lifted out of a staff line by half a space, in STAFF SPACES so a small staff lifts less*) | `engine/engrave/notes/augmentationDot.ts` |
-| the seams | `rendering/EngravedAccidental.ts`, `rendering/EngravedDot.ts` |
+| the seams | `rendering/engraved/EngravedAccidental.ts`, `rendering/engraved/EngravedDot.ts` |
 
 ⭐ Both are `InkSurfaceAware` — the membership `EngravedStave`'s modifier walk already asked
-(P5b, `rendering/inkSurface.ts`). `drawNoteInkThrough` now walks `note.getModifiers()` and hands the
+(P5b, `rendering/painter/inkSurface.ts`). `drawNoteInkThrough` now walks `note.getModifiers()` and hands the
 surface to anything that accepts one, so ⛔ **the third and fourth members were a ROW, not a third and
 fourth `instanceof`** (`CLAUDE.md`'s rule: *a slice too thin to be logic is still a slice*).
 
@@ -488,7 +488,7 @@ would let us choose our own is **`docs/research/accidental-dot-research.md`** (t
 **`docs/research/accidental-dot-engines.md`** (LilyPond / MuseScore / Verovio / VexFlow), commissioned
 2026-09-14 for exactly this reason. ⛔ Until they are read, the placement stays VexFlow's — the same
 split the clef took in P5b. ⭐ **Both are OURS as transcriptions since S9c/S9d**
-(`engrave/notes/dotStack`, `engrave/notes/accidentalStack`, run by `rendering/modifierColumns`) — VexFlow's
+(`engrave/notes/dotStack`, `engrave/notes/accidentalStack`, run by `rendering/format/modifierColumns`) — VexFlow's
 rules kept exactly, so choosing another from the surveys is now an edit to those modules.
 
 ⚠️ **Two VexFlow branches are deliberately not transcribed**, and both are guarded rather than
@@ -518,7 +518,7 @@ ours, and the seam is a point that VexFlow has just finished computing. ⇒ **th
 gated on research; it was gated on a reading of the class.**
 
 🚨 And the cost of the other choice was already MEASURED in this repo, which is what makes this
-more than a preference: `rendering/fanArticulations` hand-rolled a *"one staff space per mark"* rule
+more than a preference: `rendering/beams/fanArticulations` hand-rolled a *"one staff space per mark"* rule
 for a fan's members and landed a staccato **2 px** off the identical mark on the note beside it,
 *"because a between-lines glyph gets snapped into a space and re-originned"*. ⭐ §3.1 of the parent
 (*"the second owner is the tell"*), applied BEFORE writing the second owner instead of after.
@@ -532,7 +532,7 @@ where an articulation's ink separates.
 | | where |
 |---|---|
 | the ink, and the one thing it says (*an articulation STRADDLES its point — its siblings meet it or sit on it*) | `engine/engrave/notes/articulation.ts` |
-| the seam | `rendering/EngravedArticulation.ts` — `InkSurfaceAware`, so joining `drawNoteInkThrough`'s walk was a ROW and nothing else |
+| the seam | `rendering/engraved/EngravedArticulation.ts` — `InkSurfaceAware`, so joining `drawNoteInkThrough`'s walk was a ROW and nothing else |
 | the builder | `NoteBuilder` builds ours; ⛔ `GhostRenderer`'s and `fanArticulations`' stay VexFlow's (P3/U2 territory, both allowlisted) — ⚠️ ours too since S11/S12 |
 
 ⭐ **The census is now COMPLETE for an ordinary bar** — the test that used to assert *"exactly ONE
@@ -572,7 +572,7 @@ since S12f — `engrave/notes/articulationPlacement`.)
 ⭐ One part of the placement was ALREADY ours and stays so: notehead-vs-stem alignment on the stem
 side (`docs/how-it-works/articulation-stem-align.md`), which reaches the ink inside the x.
 
-⛔ **The FAN's marks** (`rendering/fanArticulations`) and ⛔ **the GHOST's**. Both draw inside groups
+⛔ **The FAN's marks** (`rendering/beams/fanArticulations`) and ⛔ **the GHOST's**. Both draw inside groups
 opened on VexFlow's context — U2's nesting argument, unchanged by this step. (⚠️ 2026-09-19: there
 is no VexFlow context left — every group is opened on our `DrawContext`, `npm run lint:paint` at 0.)
 
@@ -597,7 +597,7 @@ its own.**
 can be matched to the hit box a click already resolves against.
 
 ✅ **And P6b took the first of the three the same day** (2026-09-14): the **ACCIDENTAL's hit box is
-now computed from its own stamp** (`rendering/drawnHitBox`), so the box the registry files and the
+now computed from its own stamp** (`rendering/painter/drawnHitBox`), so the box the registry files and the
 box `__bbox.ink()` draws are the same rectangle. ⚠️ The dot and the articulation still store
 `Element.getBoundingBox()` — and the articulation should follow its own taste call rather than lead,
 because its VexFlow box is the one that goes NaN in jsdom (§1g.4 above).
@@ -854,7 +854,7 @@ renderer already applies — and applied it twice.
 
 ### 3.5 ⏳ `FAN_MIN_STEM_SPACES` — 2 spaces, and the books say 2½
 
-`rendering/FannedBeam.ts` sets the shortest stem a fanned MEMBER may keep before the beam line is
+`rendering/beams/FannedBeam.ts` sets the shortest stem a fanned MEMBER may keep before the beam line is
 pushed away to give it room:
 
 ```ts

@@ -215,7 +215,7 @@ like a spacing bug and are a cache bug.
 
 `followingSpace(quarters, rule)` and `spaceColumns(columns, target, rule)` **already take the rule**,
 defaulting to `DEFAULT_SPACING`. Six call sites pass nothing today: three in `layout/fanRampRoom.ts`,
-one each in `rendering/FanPass.ts` and `rendering/FannedBeam.ts`, plus `spacing.ts`'s own
+one each in `rendering/beams/FanPass.ts` and `rendering/beams/FannedBeam.ts`, plus `spacing.ts`'s own
 `gapsBetween`. Threading a score-derived rule is passing an argument, the same shape as the
 `StaffSizeResolver` threaded on 2026-07-31.
 

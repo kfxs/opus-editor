@@ -60,7 +60,7 @@ export const STAFF_GROUP_ELEMENT: ClickableElementSpec = {
 
   // ⭐⭐ **PAINTED BY RECOLOURING ITS OWN GROUP.** Every part of the sign — the bracket's rod and its
   // two serif glyphs, the brace's single stretched glyph, the sub-bracket's three rectangles — is
-  // drawn inside ONE `systemsign` group carrying the group's id (`rendering/systemStart`). So the
+  // drawn inside ONE `systemsign` group carrying the group's id (`rendering/staff/systemStart`). So the
   // highlight is a sweep of that group's ink, ⛔ not a box drawn over the top.
   highlight: ctx => {
     const selected = selectedOf(ctx.state, 'staffGroup')

@@ -17,7 +17,7 @@ import { test, expect } from './fixtures'
  * | a STROKED path (stem, tie) | the GEOMETRY — ⛔ a zero-width line for a stem | the INK, half a pen wider on every side | ours = theirs + `lineWidth` |
  * | a glyph (`<text>`) | the FONT'S LINE BOX — ~160 px tall for a notehead | the glyph's own outline | ours ⊂ theirs, by a lot |
  *
- * 🚨 **Row 1 is a finding.** `rendering/barlineInk.hintBarlines` is a POST-PASS that snaps a
+ * 🚨 **Row 1 is a finding.** `rendering/staff/barlineInk.hintBarlines` is a POST-PASS that snaps a
  * barline's rect onto whole device pixels for crispness: we DRAW 1.6 px and the page CARRIES 2.
  * Both are true — of different moments — and the scene records the first. ⭐ It is the same shape as
  * the `inkBarlines` repair P5b deleted, except this one is deliberate and still there, so the ruler

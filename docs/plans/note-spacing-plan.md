@@ -136,8 +136,8 @@ still carry `userSpace`, since `calculateLinearMeasureWidths` sets `finalWidth =
 ## 4. Render — shift the columns, never the glyphs
 
 > ⚠️ **2026-09-19: VexFlow is REMOVED.** The `Formatter` / `TickContext` / `joinVoices` machinery
-> below is ours now — `rendering/columnFormat` (the format and its tick columns), `rendering/spacingPass`
-> (where each column goes), `rendering/barVoice` (the voice); the VexFlow file:line citations point at
+> below is ours now — `rendering/format/columnFormat` (the format and its tick columns), `rendering/format/spacingPass`
+> (where each column goes), `rendering/format/barVoice` (the voice); the VexFlow file:line citations point at
 > the source it was transcribed from (`~/dev/engine-sources/vexflow-5.0.0-npm/package`).
 
 `note.getAbsoluteX()` is `tickContext.getX() + stave.getNoteStartX()`

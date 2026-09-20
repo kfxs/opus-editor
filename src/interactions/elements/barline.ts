@@ -38,7 +38,7 @@ import { paintBarlineJoinSquares } from './barlineJoinSquares'
 export const BARLINE_PRESS_PAD_PX = 6
 
 /** One box a press could be answering: the line's ink ON a staff, or the piece of the same line
- *  crossing the GAP below one (`engine/rendering/barlineGap`). The two resolve to the SAME
+ *  crossing the GAP below one (`engine/rendering/staff/barlineGap`). The two resolve to the SAME
  *  selection; `inGap` only changes which join square the press is handed. */
 interface Candidate {
   el: { measure?: number; staff?: number; bbox: { x: number; y: number; width: number; height: number } }
@@ -81,7 +81,7 @@ export const BARLINE_ELEMENT: ClickableElementSpec = {
     // them does, with the same width drag armed.
     //
     // ⚠️ ⛔ NO `isPainted` filter, unlike above: these are registered by the DRAWING pass
-    // (`rendering/barlineGap`), so their existence already IS the proof they were drawn — and the
+    // (`rendering/staff/barlineGap`), so their existence already IS the proof they were drawn — and the
     // filter would be wrong as well as redundant, since the bar a gap's line ENDS is not always the
     // bar that drew it.
     for (const el of registry.getByType('barline-gap')) {

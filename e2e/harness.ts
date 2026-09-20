@@ -21,9 +21,9 @@
  */
 import { MusicEngine } from '@/engine/MusicEngine'
 import { walkScene } from '@/engine/scene/Scene'
-import { drawnInkBox } from '@/engine/rendering/sceneInk'
-import { musicFontReady } from '@/engine/rendering/musicFontReady'
-import { isOwnFontFace } from '@/engine/rendering/musicFontFaces'
+import { drawnInkBox } from '@/engine/rendering/painter/sceneInk'
+import { musicFontReady } from '@/engine/rendering/painter/musicFontReady'
+import { isOwnFontFace } from '@/engine/rendering/painter/musicFontFaces'
 import { A4_NORMAL, SKETCH_CANVAS } from '@/engine/layout/surface'
 import { exportScorePdf } from '@/engine/export/pdfExport'
 import { censusColumns, type BarSpacing } from '@/dev/spacingCensus'
@@ -77,16 +77,16 @@ export interface Harness {
   frac: typeof fracCreate
   /**
    * ⭐⭐ **P6: OUR RULER, in the browser.** `walkScene` walks what a `recordScene` render wrote down
-   * and `drawnInkBox` computes a box from it (`engine/scene/sceneBox` + `rendering/sceneInk`), so a
+   * and `drawnInkBox` computes a box from it (`engine/scene/sceneBox` + `rendering/painter/sceneInk`), so a
    * spec can hold our answer against the page's own `getBBox()` — which is the whole of P6a's
    * proof. ⛔ Re-exported rather than reimplemented: a spec that computed its own box would be
    * agreeing with itself.
    */
   walkScene: typeof walkScene
   drawnInkBox: typeof drawnInkBox
-  /** Whether a face in `document.fonts` is one WE installed (`rendering/musicFontFaces`, removal S1). */
+  /** Whether a face in `document.fonts` is one WE installed (`rendering/painter/musicFontFaces`, removal S1). */
   isOwnFontFace: typeof isOwnFontFace
-  /** Wait for the score's fonts WITHOUT rendering — `engine/rendering/musicFontReady`, the gate every
+  /** Wait for the score's fonts WITHOUT rendering — `engine/rendering/painter/musicFontReady`, the gate every
    *  engraving path takes. A spec that draws before `render()` must await this first. */
   fontReady(): Promise<void>
   /** Re-engrave. Awaits the font before the first one, so nothing measures fallback metrics. */
@@ -119,7 +119,7 @@ export interface Harness {
    * Every barline, left to right (VexFlow draws a thin barline as a `<rect>`).
    *
    * ⚠️ `x` is where the barline **is** — the bar boundary the layout put it on. `inkX`/`width` are
-   * where its ink actually landed, which is not the same number: `engine/rendering/barlineInk.ts`
+   * where its ink actually landed, which is not the same number: `engine/rendering/staff/barlineInk.ts`
    * hints the ink onto whole device pixels, moving it by up to half a pixel. Ask for `x` unless the
    * question is specifically about the drawing.
    */
@@ -291,7 +291,7 @@ const harness: Harness = {
   async render(): Promise<void> {
     // VexFlow ships Bravura/Academico as web fonts and every glyph is a `<text>`, so a render that
     // beats the font measures FALLBACK metrics and engraves to them — the same requirement the
-    // editor's own first render and the PDF path wait on (`engine/rendering/musicFontReady.ts`).
+    // editor's own first render and the PDF path wait on (`engine/rendering/painter/musicFontReady.ts`).
     await musicFontReady()
     engine.renderScore()
   },

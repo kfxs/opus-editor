@@ -1,7 +1,7 @@
 import { test, expect } from './fixtures'
 
 /**
- * How a barline is inked, and where that ink lands (`src/engine/rendering/barlineInk.ts`).
+ * How a barline is inked, and where that ink lands (`src/engine/rendering/staff/barlineInk.ts`).
  *
  * Here rather than in the unit suite because both answers depend on a real drawing: VexFlow writes
  * its 1px literal deep inside `Stave.draw`, and hinting reads `getScreenCTM()`, which in jsdom is

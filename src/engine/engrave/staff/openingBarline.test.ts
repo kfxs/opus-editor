@@ -1,7 +1,7 @@
 /**
  * Subject: `./openingBarline` — the line that opens a stave, as ink (P5b).
  *
- * ⭐ **Three of these assertions moved here from `rendering/barlineInk.test.ts` with the code they
+ * ⭐ **Three of these assertions moved here from `rendering/staff/barlineInk.test.ts` with the code they
  * describe** (*"a spec moves with its module"*): the ink grows RIGHTWARD from `x`, it is measured in
  * staff spaces so a small staff's own `<g>` scales it, and the group it lands in is the one every
  * other reader of a barline looks for. What did NOT move is the pass they used to be about —

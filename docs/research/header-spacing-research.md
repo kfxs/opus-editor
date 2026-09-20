@@ -25,7 +25,7 @@ At the head of a system there is a run of signs:
 ```
 
 Every gap in that run is an engraving decision. Today they are VexFlow's `Stave` defaults on the
-drawing side (⚠️ 2026-09-19: VexFlow is removed — the drawing side is now OUR `rendering/EngravedStave`
+drawing side (⚠️ 2026-09-19: VexFlow is removed — the drawing side is now OUR `rendering/engraved/EngravedStave`
 + `engrave/staff/signWalk`, `Stave.format()` transcribed, with the inherited numbers as rows in
 `engrave/inheritedDefaults`) and `engine/layout/headerInk.ts`'s measurements on the reservation side — the
 *two-sets-of-numbers* pair `own-engraving-engine.md` §P5 names as the problem's last hiding place.
@@ -380,7 +380,7 @@ number in `headerInk.ts` is a **measurement of VexFlow's drawing written down** 
 so — so it describes the picture rather than choosing it. `e2e/spacing.e2e.ts` re-measures them.
 
 > ⚠️ **2026-09-19: VexFlow is removed.** Wherever this section (a snapshot of 2026-09-01/12) says
-> VexFlow's `Stave` places or pads something, read our own port: `rendering/EngravedStave` +
+> VexFlow's `Stave` places or pads something, read our own port: `rendering/engraved/EngravedStave` +
 > `engrave/staff/signWalk` (`Stave.format()` transcribed), its numbers — `Stave.padding`,
 > `customPadding` — now rows in `engrave/inheritedDefaults`. The history below is kept as written.
 
@@ -506,7 +506,7 @@ sheets is **white space**, not an origin distance."*
 🚨 **So the SAME GAP is engraved two different ways depending on whether a key signature is present**:
 with one, WE place the meter from ink at a number we chose; without one, VexFlow places it from an
 advance plus a padding nobody chose. (⚠️ Superseded: the meter after a clef is now PLACED too —
-`rendering/headerPlacementPass` from `layout/clefMeterGap`; and since 2026-09-19 there is no VexFlow
+`rendering/staff/headerPlacementPass` from `layout/clefMeterGap`; and since 2026-09-19 there is no VexFlow
 at all, `customPadding` survives only as a row in `engrave/inheritedDefaults`.) ⭐ `BETWEEN_PARTS` is the only gap in the header run still
 expressed **box to box**, which is the odd-one-out he spotted by eye.
 
@@ -760,7 +760,7 @@ At the default 10 px staff space, a stave with barline + clef + key signature + 
 number `layout/measureColumns.ts:312` and `rendering/ScoreRenderer.ts:5019` already record.
 
 ⚠️ **We no longer use VexFlow's key signature** — signatures are ours
-(`rendering/EngravedStave.ts:23`, `rendering/KeySignaturePass.ts`) — so the 1.0 sp clef→key row above
+(`rendering/engraved/EngravedStave.ts:23`, `rendering/staff/KeySignaturePass.ts`) — so the 1.0 sp clef→key row above
 is VexFlow's and not what we draw. The **barline (5 px), the clef, the time signature's 15 px and the
 12 px `Stave.padding` still are.** (⚠️ 2026-09-19: as OUR walk's inherited rows — no VexFlow is left.)
 

@@ -43,7 +43,7 @@
  * - *"Ledger lines of adjacent notes should not join up; the lines may be slightly shortened in
  *   cramped conditions."* ⏭️ The horizontal half of that is already the ink table's
  *   (`INK.ledgerLeft`/`ledgerRight` and the `note↔ledger` padding row); the **shortening** half is
- *   `rendering/ledgerAccidentalClearance`, which is the one case we shorten for today.
+ *   `rendering/format/ledgerAccidentalClearance`, which is the one case we shorten for today.
  * - *"When the displaced note is on a line, the ledger line extends the full width of both notes;
  *   when the displaced note is in a space, the last ledger line is shortened to single notehead
  *   width."* ⭐ {@link ledgerLineRuns} states that as one sentence — **a run reaches from the

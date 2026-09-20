@@ -35,7 +35,7 @@
  * on the way in, which is the same conversion `planSpanSegments` makes and for the same reason
  * (a cross-system slur on a small staff used to stop 30% short of the margin).
  */
-import type { EngravedStave } from '../../EngravedStave'
+import type { EngravedStave } from '../../engraved/EngravedStave'
 import type { Score, Measure, Hairpin, Dynamic, Fraction, HairpinEndpointOffsetOverride } from '@/types/music'
 import type { Column } from '@/engine/layout/spacing'
 import { hairpinSpan, type HairpinSpan } from '@/engine/models/hairpinOps'
@@ -53,13 +53,13 @@ import { dynamicLabel } from '@/utils/dynamics'
 import { HAIRPIN_LINE_SPACES } from '@/engine/layout/thinLineWeight'
 import { cutSpanAtSystems } from '../spanSegments'
 import { staffIndexOfId } from '@/engine/models/staffContent'
-import { inStaffSpace } from '../../staffScaleGroup'
-import { staffSpacesToPixels } from '../../staffSpace'
+import { inStaffSpace } from '../../staff/staffScaleGroup'
+import { staffSpacesToPixels } from '../../staff/staffSpace'
 import type { RenderPass } from '../../RenderPass'
-import { drawGroupOf, svgNode } from '../../svgDrawGroup'
-import { staveFrame } from '../../staveFrame'
+import { drawGroupOf, svgNode } from '../../painter/svgDrawGroup'
+import { staveFrame } from '../../staff/staveFrame'
 import { staffBottomLineY, staffLineY, type StaffFrame } from '@/engine/engrave/staff/staffFrame'
-import { noteRuler } from '../../noteRuler'
+import { noteRuler } from '../../engraved/noteRuler'
 
 /**
  * What the pass needs of a `MeasurePlacement`, declared structurally so the renderer that calls

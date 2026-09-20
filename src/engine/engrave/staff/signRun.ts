@@ -9,9 +9,9 @@
  *
  * ⚠️ **In the stave's OWN space**, like `./staffFrame`. ⚠️ A bar has two runs, as it has two frames
  * (S4e): where it was BUILT, for ink inside its group, and where it IS this render, for ink outside it
- * (`rendering/signRun.placedSignRun`) — `rendering/staveFrame`'s header says which a reader asks.
+ * (`rendering/staff/signRun.placedSignRun`) — `rendering/staff/staveFrame`'s header says which a reader asks.
  *
- * ⛔ The key signature is not a sign in this run: it is drawn by `rendering/KeySignaturePass`, which
+ * ⛔ The key signature is not a sign in this run: it is drawn by `rendering/staff/KeySignaturePass`, which
  * answers its own ink (`keySignatureInkRight`).
  */
 

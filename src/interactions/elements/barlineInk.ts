@@ -59,7 +59,7 @@ export function paintBarlineHalf(
     //
     // ⭐⭐ **SEVERAL GROUPS, because one line is now drawn in several pieces.** A joined barline is
     // this staff's own sign PLUS the segment crossing the gap below it, which cannot be drawn in
-    // the staff's scale group and so is a group of its own (`engine/rendering/barlineGap`). They
+    // the staff's scale group and so is a group of its own (`engine/rendering/staff/barlineGap`). They
     // are one line to the eye and must be one line to the selection: lighting only the sign leaves
     // black ink between the staves, which is his *"are we overlapping the blue to another black
     // barline?"* report arriving in a new place.

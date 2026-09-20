@@ -13,7 +13,7 @@
  * | a slot's ink | its left edge | ruler |
  * |---|---|---|
  * | a notehead | `headCentreX` − half the font's notehead width × the staff's line spacing | `headX` + `fonts/` |
- * | its accidental | the accidental's own hit box | ⭐ ours since P6b (`rendering/drawnHitBox`) |
+ * | its accidental | the accidental's own hit box | ⭐ ours since P6b (`rendering/painter/drawnHitBox`) |
  * | a rest | its glyph box | ⚠️ still VexFlow's — the rest has not migrated |
  *
  * ⚠️ A note registered without a `headX` (a ghost's plain `StaveNote`), or on a staff with no geometry,

@@ -77,7 +77,7 @@ export interface DrawContext {
   fillRect(x: number, y: number, width: number, height: number): void
 
   // ── Text ─────────────────────────────────────────────────────────────────────────────────────
-  /** ⚠️ Prefer `rendering/glyphPainter`, which owns the font resolution. These two are the layer
+  /** ⚠️ Prefer `rendering/painter/glyphPainter`, which owns the font resolution. These two are the layer
    *  under it — declared because the painter needs them, not as a second way to stamp a glyph. */
   setFont(font?: string | object, size?: string | number, weight?: string | number, style?: string): void
   fillText(text: string, x: number, y: number): void

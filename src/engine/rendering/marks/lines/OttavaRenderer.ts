@@ -44,8 +44,8 @@
  * the SVG — so it is divided by the scale on the way in, the same conversion `planSpanSegments`
  * makes. `TrillRenderer`'s note, and it applies here verbatim.
  */
-import type { EngravedStave } from '../../EngravedStave'
-import { drawGlyph, drawTextRun } from '../../glyphPainter'
+import type { EngravedStave } from '../../engraved/EngravedStave'
+import { drawGlyph, drawTextRun } from '../../painter/glyphPainter'
 import type { Score, Ottava, Measure, Fraction } from '@/types/music'
 import type { Column } from '@/engine/layout/spacing'
 import { ottavaSpan, type OttavaSpan } from '@/engine/models/ottavaOps'
@@ -54,8 +54,8 @@ import { measureStartOffsets, type OccupiedSpan } from '@/engine/layout/outsideS
 import { fracCompare } from '@/utils/fraction'
 import { cutSpanAtSystems } from '../spanSegments'
 import { barSlice, bracketBaseline, bracketFragmentClaim } from './bracketSpanBand'
-import { inStaffSpace } from '../../staffScaleGroup'
-import { staffSpacesToPixels } from '../../staffSpace'
+import { inStaffSpace } from '../../staff/staffScaleGroup'
+import { staffSpacesToPixels } from '../../staff/staffSpace'
 import { THIN_LINE_SPACES } from '@/engine/layout/thinLineWeight'
 import {
   OTTAVA_CONTINUATION_INSET, OTTAVA_DASH_GAP, OTTAVA_DASH_LENGTH, OTTAVA_END_AIR, OTTAVA_GLYPH_SIZE,
@@ -64,10 +64,10 @@ import {
   OTTAVA_PAREN_FONT, OTTAVA_PAREN_LEFT, OTTAVA_PAREN_RAISE, OTTAVA_PAREN_RIGHT, OTTAVA_PAREN_SCALE,
 } from './ottavaStyle'
 import type { RenderPass } from '../../RenderPass'
-import { drawGroupOf, svgNode } from '../../svgDrawGroup'
-import { staveFrame } from '../../staveFrame'
+import { drawGroupOf, svgNode } from '../../painter/svgDrawGroup'
+import { staveFrame } from '../../staff/staveFrame'
 import { staffBottomLineY, staffLineY } from '@/engine/engrave/staff/staffFrame'
-import { noteRuler } from '../../noteRuler'
+import { noteRuler } from '../../engraved/noteRuler'
 
 /**
  * What the pass needs of a `MeasurePlacement`, declared structurally so the renderer that calls this

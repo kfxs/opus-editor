@@ -38,13 +38,13 @@
  * where a bar landed in the SVG — so it is divided by the scale on the way in, which is the same
  * conversion `planSpanSegments` makes and for the same reason.
  */
-import type { EngravedStave } from '../../EngravedStave'
-import { drawGlyph, drawTextRun, measureGlyph } from '../../glyphPainter'
+import type { EngravedStave } from '../../engraved/EngravedStave'
+import { drawGlyph, drawTextRun, measureGlyph } from '../../painter/glyphPainter'
 import type { Score, Trill, TrillContinuationLabel, Measure, Fraction } from '@/types/music'
 import type { Column } from '@/engine/layout/spacing'
 import { trillSpan, type TrillSpan } from '@/engine/models/trillOps'
 import { trillOffsetOverrideOf } from '@/engine/models/engravingOverrides'
-import { lineLeftEdgeX, lineRightEdgeX, type SystemEdgeLookup } from '../../systemEdges'
+import { lineLeftEdgeX, lineRightEdgeX, type SystemEdgeLookup } from '../../staff/systemEdges'
 import { clearanceBaseline, columnsBetween, mergeInkBands, staffInkBand, type InkBand } from '@/engine/layout/inkBand'
 import { curveObstacleBand } from '@/engine/layout/curveObstacleBand'
 import { markBand, measureStartOffsets, type OccupiedSpan } from '@/engine/layout/outsideStaffBand'
@@ -52,8 +52,8 @@ import { measureCapacityFrac } from '@/utils/measureCapacity'
 import { fracAdd, fracCompare, fracGt } from '@/utils/fraction'
 import { voiceOf } from '@/utils/lanes'
 import { cutSpanAtSystems } from '../spanSegments'
-import { inStaffSpace } from '../../staffScaleGroup'
-import { staffSpacesToPixels } from '../../staffSpace'
+import { inStaffSpace } from '../../staff/staffScaleGroup'
+import { staffSpacesToPixels } from '../../staff/staffSpace'
 import {
   TRILL_CONTINUATION_INSET, TRILL_END_INSET, TRILL_GLYPH_SIZE, TRILL_LINE, TRILL_MARK_INK,
   TRILL_PAREN_LEFT, TRILL_PAREN_RIGHT,
@@ -61,10 +61,10 @@ import {
   TRILL_WIGGLE_GLYPH,
 } from './trillStyle'
 import type { RenderPass } from '../../RenderPass'
-import { drawGroupOf, svgNode } from '../../svgDrawGroup'
-import { staveFrame } from '../../staveFrame'
+import { drawGroupOf, svgNode } from '../../painter/svgDrawGroup'
+import { staveFrame } from '../../staff/staveFrame'
 import { staffLineY, type StaffFrame } from '@/engine/engrave/staff/staffFrame'
-import { noteRuler } from '../../noteRuler'
+import { noteRuler } from '../../engraved/noteRuler'
 
 /**
  * What the pass needs of a `MeasurePlacement`, declared structurally so the renderer that calls this

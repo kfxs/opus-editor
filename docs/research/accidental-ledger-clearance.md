@@ -58,7 +58,7 @@ Two measurements closed the other options:
 
 ## The shape
 
-`engine/rendering/ledgerAccidentalClearance.ts` — pure arithmetic plus one VexFlow-facing pass (⚠️ 2026-09-19: facing our `EngravedNote` now — VexFlow is removed):
+`engine/rendering/format/ledgerAccidentalClearance.ts` — pure arithmetic plus one VexFlow-facing pass (⚠️ 2026-09-19: facing our `EngravedNote` now — VexFlow is removed):
 
 - `accidentalMeetsLedger(line, headLines)` — does a sign on this line stand beside any of the note's
   ledger lines? An accidental glyph reaches ~1.4 lines either side of its own, so a sign hanging in

@@ -258,7 +258,7 @@ Finale Broadway 0.19 and MuseJazz 0.20. ⛔ Thickness stays decided; this only f
 ### 4.1 The ordinary line
 
 - **Overhang 3 px = 0.30 sp a side**, VexFlow's constant kept on purpose:
-  `EngravedNote.ledgerOverhang = StaveNote.LEDGER_LINE_OFFSET` (`src/engine/rendering/EngravedNote.ts:124-128`)
+  `EngravedNote.ledgerOverhang = StaveNote.LEDGER_LINE_OFFSET` (`src/engine/rendering/engraved/EngravedNote.ts:124-128`)
   — ⭐ since S1b (2026-09-14) the attributed row `LEDGER_OVERHANG_PX` in `src/engine/engrave/inheritedDefaults.ts`,
   same 3 px,
   drawn at `:162-178`. On Bravura's 1.18 head that is **1.78 sp** total
@@ -266,7 +266,7 @@ Finale Broadway 0.19 and MuseJazz 0.20. ⛔ Thickness stays decided; this only f
 - **The rule**: `ledgerLineRuns` (`ledgerLines.ts:105-129`) reaches from the leftmost head at that level
   to the rightmost head's right edge, ± overhang. That covers Gould p. 27's full-width and
   single-width cases in one sentence.
-- **Fans**: `FAN_LEDGER_OVERHANG = 3` px (`src/engine/rendering/FanPass.ts:120`, chosen at `:165-169`).
+- **Fans**: `FAN_LEDGER_OVERHANG = 3` px (`src/engine/rendering/beams/FanPass.ts:120`, chosen at `:165-169`).
 - **Rests**: `PAD = 2` px = **0.20 sp** past the rest glyph (`src/engine/rendering/ScoreRenderer.ts:2390`).
 - **Ghost preview**: a plain VexFlow `StaveNote`, so 3 px (`src/engine/rendering/ghosts/GhostRenderer.ts:162-164`).
   (⚠️ 2026-09-19: VexFlow is removed — the ghost is our `EngravedNote`, whose overhang is the same

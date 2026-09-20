@@ -126,7 +126,7 @@ ElementRegistry's hit-test, `staveNoteMap`, the selection recolour's SVG group, 
 anchors, the articulations, the dynamic's anchor. Suppress it and each of those has to be answered
 again, one at a time, silently — and "a stemless note has extents but no ink" is the lesson the
 two-note tremolo paid for twice. So the renderer keeps VexFlow's note (⚠️ 2026-09-19: ours since the
-removal — `rendering/EngravedNote`), suppresses only its FLAG (a
+removal — `rendering/engraved/EngravedNote`), suppresses only its FLAG (a
 `Beam` already does exactly that) and re-tips its stem to meet the fanned line, then paints across
 the slot's x-span:
 - `count - 1` further stems and noteheads, all at the slot's own pitch (P1 does not have per-note
@@ -153,7 +153,7 @@ clicking one of its notes.
 
 VexFlow cannot do this — `Beam.drawBeamLines` steps every level by a constant `beamWidth * 1.5` on
 one shared slope, and the line count comes from the note's written duration. (⚠️ 2026-09-19:
-VexFlow is removed, and that limit with it — the ordinary beam is ours now, `rendering/EngravedBeam`,
+VexFlow is removed, and that limit with it — the ordinary beam is ours now, `rendering/engraved/EngravedBeam`,
 its rule transcribed; the fan's lines are `FannedBeam`'s.) The precedent for
 drawing beam lines ourselves is `drawCrossBarSideBeam` (the cross-system overhang) and
 `TwoNoteTremolo` (a stroke stack at VexFlow's own thickness and step).

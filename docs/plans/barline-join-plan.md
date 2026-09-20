@@ -8,7 +8,7 @@ per-boundary mix, Mensurstrich, instrument-aware defaults). The research is
 question below; do not re-run it.
 
 **What is on disk:** `StaffInfo.barlineJoinBelow` · `engine/models/barlineJoin.ts` (the resolver +
-the write) · `engine/rendering/barlineGap.ts` (the ink) · one call at each of `renderBarlines`' three
+the write) · `engine/rendering/staff/barlineGap.ts` (the ink) · one call at each of `renderBarlines`' three
 draw sites · `HighlightController` lighting gap ink with the sign's, and painting the square ·
 `interactions/elements/barlineJoinHandles.ts` (where the square is, what a press grabbed, what the
 cursor then means) · `MouseController`'s `barlineJoin` drag · `MusicEngine.setBarlineJoinBelow` +

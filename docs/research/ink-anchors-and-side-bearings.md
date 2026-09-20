@@ -27,7 +27,7 @@ spaces**, `fClef` **+0.02**, `gClef` **0**.
 
 Two places in our code perform that conversion, and they use **opposite signs for the bearing**:
 
-- **`src/engine/rendering/headerPlacementPass.ts`**, `meterOrigin()` — the two arms, with the
+- **`src/engine/rendering/staff/headerPlacementPass.ts`**, `meterOrigin()` — the two arms, with the
   contradiction stated in its own 🚨🚨 comment. The key-signature arm returns
   `keySignatureInkRight(...) + KEY_TO_METER_INK * space + bearing`; the clef arm calls
   `meterOriginX(inkRight + armedClefMeterInk() * space, glyphBox('timeSig4').left, space)`.
@@ -38,7 +38,7 @@ for both anchors, `e2e/headerGap` measured the clef→meter white at **0.80** ag
 written the other way, `e2e/keySignature` measured the key→meter gap at **1.31** against the
 stated 1.15. Both wrong by exactly **2 × 0.08 = 0.16 sp**. One conversion cannot be both, so one of
 the two **anchors** — the ink-right of a key signature (`keySignatureInkRight`, in
-`src/engine/rendering/KeySignaturePass.ts`) or the ink-right of a clef taken from the font table —
+`src/engine/rendering/staff/KeySignaturePass.ts`) or the ink-right of a clef taken from the font table —
 is off by twice a bearing.
 
 ⭐ **What was asked of the engines was not "what is the right sign" but "why do they never have to

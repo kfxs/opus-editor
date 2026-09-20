@@ -32,7 +32,7 @@
  * ## ⛔ What is NOT here
  *
  * - **Where a head sits ACROSS the stem.** That is the chord-displacement walk, and it has its own
- *   owner — `rendering/chordHeadLayout`, shared with the fan. {@link secondApartFlags} answers only
+ *   owner — `rendering/format/chordHeadLayout`, shared with the fan. {@link secondApartFlags} answers only
  *   VexFlow's *other*, coarser adjacency flag (`keyProps[i].displaced`), which marks BOTH members of
  *   a close pair and is what a note's displaced-head ROOM is measured from (S6b).
  * - **A REST's line.** A rest has no pitch; `NoteBuilder.restKey` decides its line and spells it as a
@@ -124,7 +124,7 @@ export function keyStaffLine(key: string, clef: Clef, octaveShift: number = 0): 
  * `keyProps[i].displaced`, and **both** members of a close pair are flagged, ⛔ not just the one that
  * moves.
  *
- * ⚠️ **This is not the displacement walk** (`rendering/chordHeadLayout`), and the two answer
+ * ⚠️ **This is not the displacement walk** (`rendering/format/chordHeadLayout`), and the two answer
  * different questions on purpose: this one says *"this chord is tight here"*, which is what a note's
  * displaced-head ROOM is reserved from (`noteGeometry.displacedHeadRoom`, S6b); the walk says
  * *"this head crosses the stem"*, which is what the head is DRAWN from. A three-note cluster flags

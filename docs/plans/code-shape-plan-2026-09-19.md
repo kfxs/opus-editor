@@ -1299,6 +1299,21 @@ counted — and every ceiling FELL to the new measure (ScoreRenderer 891 → 853
 MusicEngine 506 → 490, MouseController 307 → 282, PaletteController 455 → 449, shortcutWiring 67 → 59,
 selectionSnapshot 7 → 3). tsc · eslint · `build:check` · 7,062 specs green.*
 
+*Groups 4–8, and **`engine/rendering/` is DONE**: `engraved/` (the `Engraved*` classes, `NoteBuilder`,
+`ScoreTuplet`, the two tremolos, `noteRuler`, `noteInkBox` — 40 files with specs) · `beams/` (11) ·
+`format/` (the column format, the modifier columns, `spacingPass`, the accidental / dot / chord-head
+placement — 17) · `painter/` (`SvgPainter`, `svgDrawGroup`, `glyphPainter`, the ink readers, the font faces
+— 18) · `staff/` (the stave frame and signs, the barlines, the key signature, the header and clef passes,
+the system edges — 21). What stays at the folder's top is the renderer's CORE: `ScoreRenderer` ·
+`RenderPass` · `renderTypes` · `CoordinateMapper` · the two redraw-key files · `PagePass` ·
+`ScoreHeaderPass` · `GutterRenderer` · `hiddenElements`. 129 flat files → 10 + eight folders. Fence
+re-proved against all five new folders (5 of 5 refused); `lint:paint` followed its definition file;
+tsc · eslint · `build:check` · 7,062 specs · the BROWSER suite (300) green. ⏭️ NOT done, and named in the
+plan: renaming the adapter twins that share a basename with their `engrave/` interface (`noteRuler`,
+`signRun`, `staveFrame`) — a rename is a separate decision from a move.
+⭐ His word, 2026-09-20: these moves are mechanical, so each group is committed once its checks pass,
+to the end of this task.*
+
 ### Later — before orchestral scores
 
 Undo clones the whole score with JSON on every edit, three times on an undo. Measured on a

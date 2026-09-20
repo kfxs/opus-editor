@@ -105,9 +105,9 @@ we chose as the default, `docs/plans/dynamic-voice-scope-plan.md`); keep a
 *Verified against the installed **VexFlow 5.0.0** source (`node_modules/vexflow/build/esm/src`), not docs.*
 
 > ⚠️ **2026-09-19: VexFlow is REMOVED** (`docs/history/vexflow-removal-map.md` §9). What follows is what the
-> library did when this was written. Today the annotation is ours (`rendering/EngravedAnnotation`, its
-> stacking `engrave/notes/annotationStack`), the group ids come from our `rendering/SvgPainter` (bare since S15c),
-> and faces resolve through `engine/fonts/fontCategories` + `rendering/glyphPainter`, not a VexFlow
+> library did when this was written. Today the annotation is ours (`rendering/engraved/EngravedAnnotation`, its
+> stacking `engrave/notes/annotationStack`), the group ids come from our `rendering/painter/SvgPainter` (bare since S15c),
+> and faces resolve through `engine/fonts/fontCategories` + `rendering/painter/glyphPainter`, not a VexFlow
 > font stack. The VexFlow source is kept at `~/dev/engine-sources/vexflow-5.0.0-npm/package`.
 
 - **`TextDynamics`** (`textdynamics.js`) is, in v5, just a thin `Note` subclass that maps the letters
@@ -393,7 +393,7 @@ visible by **Phase 4**, user-placeable by **Phase 5**, and editable/deletable by
   render-layer setting. Because level dynamics are stored as SMuFL codepoints (font-agnostic across the
   ~20 SMuFL fonts VexFlow ships/loads — Bravura, Petaluma, Leland, Gonville, Gootville, Finale*,
   MuseJazz…) and VexFlow resolves all glyphs through one global font stack (⚠️ 2026-09-19: ours now —
-  `engine/fonts/fontCategories` + `rendering/glyphPainter`), switching the score's
+  `engine/fonts/fontCategories` + `rendering/painter/glyphPainter`), switching the score's
   engraving font makes clefs, noteheads, **and** dynamics change together automatically. The `Dynamic`
   model stores only the *semantic* `level`; the level→codepoint map lives in the render layer, so
   there is **zero font coupling in the data**. **Prerequisite for this to "just work": Phase 4 must use

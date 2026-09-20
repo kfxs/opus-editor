@@ -76,8 +76,8 @@ Both must be scoped to the active voice. `CollisionDetector` itself is fine.
 
 > ⚠️ **2026-09-19: VexFlow is removed** (`docs/history/vexflow-removal-map.md` §9). This section records the
 > API the plan was built on in 2026-06; each piece is now our own transcription — `Voice` →
-> `rendering/barVoice`, `Formatter` → `rendering/columnFormat` + `spacingPass`, the modifier contexts →
-> `rendering/modifierColumns`, `StaveNote` → `rendering/EngravedNote`, `alignRests` →
+> `rendering/format/barVoice`, `Formatter` → `rendering/format/columnFormat` + `spacingPass`, the modifier contexts →
+> `rendering/format/modifierColumns`, `StaveNote` → `rendering/engraved/EngravedNote`, `alignRests` →
 > `engrave/notes/restAlign`, the multi-voice collision rule → `engrave/notes/voiceStack`.
 
 The render approach is idiomatic VexFlow and matches our current single-voice calls almost exactly:
@@ -277,7 +277,7 @@ rule.
 - `interactions/PaletteController.ts` — `setActiveVoice(voice: 1|2|3|4)`.
 - `engine/rendering/ScoreRenderer.ts` — `forcedStem`/`restShift` key on `v % 2` (stems-up = even
   model index).
-- `engine/rendering/NoteBuilder.ts` (tuplet bracket side), `TieRenderer.ts`, `SlurRenderer.ts` —
+- `engine/rendering/engraved/NoteBuilder.ts` (tuplet bracket side), `TieRenderer.ts`, `SlurRenderer.ts` —
   direction defaults flipped from `voice === 0` to `voice % 2 === 0`.
 - Keypad already rendered V1–V4 + All buttons (`keypadLayouts.ts VOICES`); V3/V4 now show their real
   colours via `voiceFillColor(i)`. (The keypad's own `this.voice` is still **not** wired to editor
@@ -319,7 +319,7 @@ changed.
 `Formatter.format`) does four things to colliding voices that fight our voice model:
 
 > ⭐ **2026-09-18 (S9g):** the rule is OURS now — `engine/engrave/notes/voiceStack`, VexFlow's
-> `StaveNote.format` transcribed exactly, run by `rendering/modifierColumns`. Nothing below changed: it
+> `StaveNote.format` transcribed exactly, run by `rendering/format/modifierColumns`. Nothing below changed: it
 > still does these four things, and the renderer still undoes them.
 
 1. **Vertically nudges rests** to dodge collisions (can lift V1's centred rest off the middle line).

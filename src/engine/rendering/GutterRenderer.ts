@@ -1,16 +1,16 @@
-import { SvgPainter } from './SvgPainter'
+import { SvgPainter } from './painter/SvgPainter'
 import { GUTTER_WIDTH, type GutterState } from '@/engine/layout/layoutConfig'
 import { INDICATOR_INK } from '../../utils/selectionColors'
-import { THIN_BARLINE_PX, staffBarlineExtent } from './barlineInk'
+import { THIN_BARLINE_PX, staffBarlineExtent } from './staff/barlineInk'
 import { scaling } from '@/engine/paint/Affine'
 import type { DrawContext } from '@/engine/paint/DrawContext'
-import { drawGroupOf } from './svgDrawGroup'
+import { drawGroupOf } from './painter/svgDrawGroup'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { staffLineY, type StaffFrame } from '@/engine/engrave/staff/staffFrame'
 import { STAVE_LINE_WIDTH_PX, drawStaffLines, staffLinesInk } from '@/engine/engrave/staff/staffLines'
 import { walkSigns } from '@/engine/engrave/staff/signWalk'
-import { EngravedBarline } from './EngravedBarline'
-import { EngravedClef } from './EngravedClef'
+import { EngravedBarline } from './engraved/EngravedBarline'
+import { EngravedClef } from './engraved/EngravedClef'
 
 /**
  * The gutter's ink. Sibelius tints its Panorama gutter blue, and the tint is doing real work: it

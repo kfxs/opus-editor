@@ -21,7 +21,7 @@ import { staffLineAtY, staffLineY, type StaffFrame } from '@/engine/engrave/staf
 export type ElementType =
   /**
    * ⭐ A GROUPING SIGN at a system's left edge — the brace, bracket or sub-bracket
-   * (`rendering/systemStart`). Registered from the PEN, in SVG space.
+   * (`rendering/staff/systemStart`). Registered from the PEN, in SVG space.
    *
    * ⚠️ **It has to be**, and that is not a style choice: the brace is drawn inside a NON-UNIFORM
    * `scale(sx, sy)` group, and {@link ElementRegistry.withScale} takes ONE number — so a box filed
@@ -77,13 +77,13 @@ export type ElementType =
    *
    * ⛔ A bar whose signature is EMPTY (C major, an open key) registers nothing, because it draws
    * nothing — the first element whose valid state is zero ink, and why a SIGNPOST is owed
-   * (docs/plans/key-signature-plan.md §5). See `engine/rendering/KeySignaturePass`.
+   * (docs/plans/key-signature-plan.md §5). See `engine/rendering/staff/KeySignaturePass`.
    */
   | 'keySignature'
   | 'barline'
   /**
    * ⭐⭐ **THE PART OF A JOINED BARLINE THAT CROSSES THE GAP** between two staves — the ink
-   * `rendering/barlineGap` draws, made clickable (docs/plans/barline-join-plan.md). His ask, 2026-08-28:
+   * `rendering/staff/barlineGap` draws, made clickable (docs/plans/barline-join-plan.md). His ask, 2026-08-28:
    * *"if the barline is join and i click on in the empty space of the two staves i want to be able to
    * select it too and move and do the normal barline operations"*.
    *
@@ -119,7 +119,7 @@ export type ElementType =
    * (`measure`), which at a `:||:` junction is the bar on the far side of the line.
    *
    * ⚠️ Registered only when PAINTED, so unlike `'barline'` it needs no `isPainted` filter at press
-   * time. See `engine/rendering/BarlineRenderer.registerRepeatStart`.
+   * time. See `engine/rendering/staff/BarlineRenderer.registerRepeatStart`.
    */
   | 'repeatStart'
   | 'beam'

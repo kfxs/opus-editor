@@ -106,7 +106,7 @@ export type NodeFilter = (node: SceneNode) => boolean
  * and `fonts/`), and ⛔ `fonts/` may not either: it *"is the FONT AS DATA and must not know who draws
  * with it"*.
  *
- * ⇒ the caller supplies the reader, and `rendering/sceneInk` is the one that speaks VexFlow.
+ * ⇒ the caller supplies the reader, and `rendering/painter/sceneInk` is the one that speaks VexFlow.
  * ⭐ Same shape as P3b's flag reach: **the unit is a NAMED ARGUMENT, ⛔ not a hidden constant.**
  *
  * @returns null when the size is in a form the reader cannot interpret — the text is then

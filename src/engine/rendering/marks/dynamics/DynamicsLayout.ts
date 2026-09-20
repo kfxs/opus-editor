@@ -12,29 +12,29 @@
  * {@link buildDynamicAnnotation} is also used by the renderer's dynamic-ghost preview,
  * so it is exported.
  */
-import type { EngravedNote } from '../../EngravedNote'
-import { EngravedAnnotation } from '../../EngravedAnnotation'
-import { attachModifier } from '../../EngravedModifier'
+import type { EngravedNote } from '../../engraved/EngravedNote'
+import { EngravedAnnotation } from '../../engraved/EngravedAnnotation'
+import { attachModifier } from '../../engraved/EngravedModifier'
 import { ANNOTATION_ALIGN } from '@/engine/engrave/notes/annotationPlacement'
-import type { EngravedStave } from '../../EngravedStave'
+import type { EngravedStave } from '../../engraved/EngravedStave'
 import type { ChordRest, Measure, Dynamic, Fraction } from '@/types/music'
 import { fracCompare, fracGte, fracToNumber } from '@/utils/fraction'
 import { splitDynamicRuns, dynamicLabel, composeDynamicGlyphs } from '@/utils/dynamics'
 import { DYNAMIC_ANNOTATION_FONT, DYNAMIC_GLYPH_SIZE, DYNAMIC_TEXT_SIZE, DYNAMIC_TEXT_FONT, DYNAMIC_GLYPH_INK_ABOVE, DYNAMIC_GLYPH_INK_BELOW } from './dynamicStyle'
 import { dynamicOffsetOverrideOf } from '../../../models/engravingOverrides'
 import { setDynamicMarkNudge, shiftDynamicMark } from './dynamicMarkTransform'
-import { drawnTextOrigin, firstDrawnText } from '../../drawnText'
+import { drawnTextOrigin, firstDrawnText } from '../../painter/drawnText'
 import { dynamicInkReachSpaces } from './dynamicMarkInk'
 // ⚠️ The UNSCALED staff space, exactly as `DYNAMIC_GLYPH_INK_ABOVE` is an unscaled px constant: the
 // boxes here are read from `getBBox`, i.e. in the mark's OWN user space, inside whatever `scale(k)`
 // group its staff carries. Converting through `staffSpacesToPixels` would apply k twice.
 import { STAFF_SPACE_PX } from '../../../models/staffSize'
-import { staffSpacesToPixels } from '../../staffSpace'
+import { staffSpacesToPixels } from '../../staff/staffSpace'
 import type { RenderPass } from '../../RenderPass'
 import { voiceOf } from '@/utils/lanes'
-import { noteFrame, staveFrame } from '../../staveFrame'
+import { noteFrame, staveFrame } from '../../staff/staveFrame'
 import { staffBottomLineY } from '@/engine/engrave/staff/staffFrame'
-import { noteRuler } from '../../noteRuler'
+import { noteRuler } from '../../engraved/noteRuler'
 
 /**
  * ⭐ **The slot a mark hangs off**, by the fall-forward rule: the first slot at-or-after its beat,

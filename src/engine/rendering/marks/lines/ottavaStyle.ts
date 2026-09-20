@@ -11,7 +11,7 @@
  * itself ships (`build/esm/src/glyphs.js`), so they are the font's own, not remembered.
  */
 import type { Clearance, MarkInk } from '@/engine/layout/inkBand'
-import { inkSpaces } from '../../drawnFontSize'
+import { inkSpaces } from '../../painter/drawnFontSize'
 import { DYNAMIC_TEXT_FONT } from '../dynamics/dynamicStyle'
 
 /**

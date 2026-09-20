@@ -27,14 +27,14 @@
  * drawn at a fractional zoom far more often than not, and a barline whose ink ends half a staff-line
  * thickness past the staff has that overhang land on a fraction of a device pixel — visible as a
  * dark nib at the corner of the staff. It is the same family of reasoning as
- * `rendering/barlineInk.hintBarlines`, which exists because of a measured version of it.
+ * `rendering/staff/barlineInk.hintBarlines`, which exists because of a measured version of it.
  *
  * ## ⛔ The two riders that come WITH LilyPond's version
  *
  * 1. ⭐ **A line CONTINUING past the staff is not shortened at that end.** LilyPond reverts the
  *    narrowing on whichever side a span bar joins (`bar-line::widen-bar-extent-on-span`), so the join
  *    and the line it joins are one stroke. ⚠️ Here that falls out of the geometry instead of needing
- *    a flag: `rendering/barlineGap` draws the piece BETWEEN two staves from one staff line's centre
+ *    a flag: `rendering/staff/barlineGap` draws the piece BETWEEN two staves from one staff line's centre
  *    to the other's, so it overlaps the outer half of both lines and meets the bars exactly.
  * 2. ⚠️ **A barline in a DIFFERENT COLOUR from its staff should keep the full outer extent** — the
  *    shortening is invisible only while the staff line's outer half is the same colour as the line

@@ -154,7 +154,7 @@
             "patterns": [
               {
                 "group": ["vexflow", "@/engine/rendering/*", "**/rendering/*", "@/engine/models/*", "**/models/*"],
-                "message": "src/engine/scene knows `paint/` and nothing else — no VexFlow, no renderer, no model. ⚠️ It needs a way to wrap the real painter's groups; that arrives as the `wrapGroup` CONSTRUCTOR PARAMETER (ScoreRenderer passes `rendering/svgDrawGroup`), never as an import."
+                "message": "src/engine/scene knows `paint/` and nothing else — no VexFlow, no renderer, no model. ⚠️ It needs a way to wrap the real painter's groups; that arrives as the `wrapGroup` CONSTRUCTOR PARAMETER (ScoreRenderer passes `rendering/painter/svgDrawGroup`), never as an import."
               }
             ]
           }
@@ -201,7 +201,7 @@
             "patterns": [
               {
                 "group": ["vexflow"],
-                "message": "⛔ src/engine/engrave may not import vexflow (docs/plans/own-engraving-engine.md §8.2 rule 11). ⭐ The ADAPTER is what holds VexFlow — `engine/rendering/EngravedNote` and friends hand this layer plain numbers. A rule that needed a `StaveNote` to state itself is a rule that cannot be unit-tested and cannot be painted to PDF."
+                "message": "⛔ src/engine/engrave may not import vexflow (docs/plans/own-engraving-engine.md §8.2 rule 11). ⭐ The ADAPTER is what holds VexFlow — `engine/rendering/engraved/EngravedNote` and friends hand this layer plain numbers. A rule that needed a `StaveNote` to state itself is a rule that cannot be unit-tested and cannot be painted to PDF."
               }
             ]
           }

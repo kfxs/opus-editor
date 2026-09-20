@@ -138,7 +138,7 @@ export function laneFingerprint(lane: Measure): string {
       clefMeterGapGeneration(),
       barlineMeterGapGeneration(),
       // 🚨 …and the armed DOT-GAP row (2026-09-14): the gap is bought as a `setWidth` on every dot
-      //    (`rendering/dotPlacement.reserveDotRoom`), so a wider one makes a dotted bar WIDER.
+      //    (`rendering/format/dotPlacement.reserveDotRoom`), so a wider one makes a dotted bar WIDER.
       //    ⛔ Out of this key, arming a row would hand back memoised widths and move nothing.
       dotGapGeneration(),
       // 🚨 …and the armed ACCIDENTAL gap: `accidentalExtent` prices a sign's room from it.

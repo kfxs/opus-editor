@@ -4,11 +4,11 @@
  *
  * These are the numbers VexFlow's `Barline` constructor sets (`stavebarline.js:35–90`), copied exactly
  * and attributed: a width, a padding, and the layout metrics the closing walk reads. ⛔ They are ROOM,
- * not ink — a barline's ink is `./openingBarline` and `rendering/BarlineRenderer`.
+ * not ink — a barline's ink is `./openingBarline` and `rendering/staff/BarlineRenderer`.
  *
  * ⚠️ **One of them is visible on the page.** Every kind is 5 px wide, and a mid-line clef change is
  * walked in straight after the opening barline — so it stands 5 px (0.5 sp) right of the boundary.
- * That is the "0.5 sp nobody chose" of `rendering/headerPlacementPass`: the CLEF REVIEW's question,
+ * That is the "0.5 sp nobody chose" of `rendering/staff/headerPlacementPass`: the CLEF REVIEW's question,
  * kept here at today's value (rule 13).
  */
 

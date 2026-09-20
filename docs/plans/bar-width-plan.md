@@ -24,7 +24,7 @@ Bar width is the opposite gesture and therefore much cheaper: **hand the formatt
 stop.** VexFlow re-distributes the columns by duration on its own — that IS the "proportional
 recalculation". No tick-context walk, and no per-staff sync problem, because every staff in the bar
 formats into the same widened note area. (⚠️ 2026-09-19: VexFlow is removed — the formatter is ours,
-`rendering/columnFormat`, and where each column goes is `rendering/spacingPass`'s.)
+`rendering/format/columnFormat`, and where each column goes is `rendering/format/spacingPass`'s.)
 
 **And on a justified line you are not making a bar bigger — you are moving a barline.** The system
 total is fixed at `availableWidth`, so the room comes from the bar's neighbours. A bar *alone* on

@@ -5,7 +5,7 @@ numbers mean, and what is still unknown. The fixes are named only far enough to 
 measurement points at them*; choosing and sequencing them is a separate exercise.
 
 > ⚠️ 2026-09-19: VexFlow is removed. The `Formatter`, `Voice`s and `StaveNote`s measured below are now our
-> own transcriptions (`rendering/columnFormat`, `barVoice`, `EngravedNote`); the numbers are of the code as it was
+> own transcriptions (`rendering/format/columnFormat`, `barVoice`, `EngravedNote`); the numbers are of the code as it was
 > on 2026-07-13.
 
 The question it answers: **you can add measures without limit — at what size does the editor stop

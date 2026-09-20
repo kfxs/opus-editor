@@ -1,6 +1,6 @@
 /**
  * ⭐⭐ **THE CLEF'S INK — P5b, and the first symbol of the HEADER that is ours**
- * (`docs/plans/own-engraving-engine.md` P5; the adapter is `rendering/EngravedClef`).
+ * (`docs/plans/own-engraving-engine.md` P5; the adapter is `rendering/engraved/EngravedClef`).
  *
  * ## What P5 said this step was
  *
@@ -53,7 +53,7 @@ export type { GlyphFont }
  * What a clef is anchored to, as the ink cares about it.
  *
  * ⚠️ `x` is the glyph's ORIGIN — the left edge of where it is stamped, which is where the header's
- * placement put it (`rendering/headerPlacementPass`, from {@link clefOriginX}) plus a hand offset if
+ * placement put it (`rendering/staff/headerPlacementPass`, from {@link clefOriginX}) plus a hand offset if
  * one was nudged in (`clefOffsetPass`). ⛔ Not a centre.
  */
 export interface ClefAnchor {
@@ -84,7 +84,7 @@ export function clefPlacement(anchor: ClefAnchor): ClefPlacement {
 
 /**
  * ⭐⭐ **THE OTHER HALF OF "WHERE A CLEF GOES" — its ORIGIN x, stated from the boundary it is
- * indented from** (P5b's placement step; the caller is `rendering/headerPlacementPass`).
+ * indented from** (P5b's placement step; the caller is `rendering/staff/headerPlacementPass`).
  *
  * A clef's INK begins `indent` staff spaces inside the staff's left edge — 0.7 by his call, three
  * sources agreeing (`layout/headerInk.CLEF_INDENT`). ⚠️ **The ink, ⛔ not the origin**: a glyph's ink

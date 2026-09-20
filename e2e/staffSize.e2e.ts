@@ -232,7 +232,7 @@ test('the STAVE CONNECTOR still joins the two staves when they are different siz
     // The connector is the tall thin rect at the system's left edge — the one piece of §4.3 that
     // cannot live in either staff's scale, because it runs between two of them. It is drawn inside
     // a top-level `stavebarline` group so the barline hinting pass collects it with the lines it
-    // joins (`engine/rendering/barlineInk.ts`).
+    // joins (`engine/rendering/staff/barlineInk.ts`).
     const rects = [...document.querySelectorAll<SVGRectElement>('svg > g.stavebarline > rect')]
       .map(r => ({ x: Number(r.getAttribute('x')), y: Number(r.getAttribute('y')), h: Number(r.getAttribute('height')) }))
     return { top: staves.find(s => s.staff === 0)!, bottom: staves.find(s => s.staff === 1)!, rects }

@@ -146,20 +146,20 @@ lists it as owed to his eye.
 
 | name | value | file:line | comment words | possibly-covering doc |
 |---|---|---|---|---|
-| stroke stack centred on the free stem (rule) | stem middle | rendering/CenteredTremolo.ts:27 | "CENTRING IS OUR RULE, NOT GOULD'S" | tremolo-plan.md §4 "The conventions, and which of them we follow" (Gould ~pp. 224–226) |
-| `TREMOLO_FLAG_STEM_STRETCH` | 0.25 × stem length | rendering/CenteredTremolo.ts:55 | "as a fraction of the stem's own length" | tremolo-plan.md §4 "The two stem stretches" — "She gives no number for either" |
-| `TREMOLO_STROKE_CLEARANCE` | 0.25 sp each end | rendering/CenteredTremolo.ts:65 | "the *chosen* number in the fit rule" | tremolo-plan.md §4 "The two stem stretches" |
-| `PAIR_STROKE_CLEARANCE_SPACES` | 1 sp | rendering/TwoNoteTremolo.ts:34 | "Both are chosen by eye and tunable" | two-note-tremolo-plan.md §2 (describes, no source) |
-| `PAIR_STROKE_CLEARANCE_RATIO` | 0.25 × stem gap | rendering/TwoNoteTremolo.ts:35 | "chosen by eye and tunable" | (as above) |
-| `PAIR_STROKE_MAX_CLEARANCE_RATIO` | 0.35 × stem gap | rendering/TwoNoteTremolo.ts:42 | "The hard ceiling on that clearance" | (as above) |
+| stroke stack centred on the free stem (rule) | stem middle | rendering/engraved/CenteredTremolo.ts:27 | "CENTRING IS OUR RULE, NOT GOULD'S" | tremolo-plan.md §4 "The conventions, and which of them we follow" (Gould ~pp. 224–226) |
+| `TREMOLO_FLAG_STEM_STRETCH` | 0.25 × stem length | rendering/engraved/CenteredTremolo.ts:55 | "as a fraction of the stem's own length" | tremolo-plan.md §4 "The two stem stretches" — "She gives no number for either" |
+| `TREMOLO_STROKE_CLEARANCE` | 0.25 sp each end | rendering/engraved/CenteredTremolo.ts:65 | "the *chosen* number in the fit rule" | tremolo-plan.md §4 "The two stem stretches" |
+| `PAIR_STROKE_CLEARANCE_SPACES` | 1 sp | rendering/engraved/TwoNoteTremolo.ts:34 | "Both are chosen by eye and tunable" | two-note-tremolo-plan.md §2 (describes, no source) |
+| `PAIR_STROKE_CLEARANCE_RATIO` | 0.25 × stem gap | rendering/engraved/TwoNoteTremolo.ts:35 | "chosen by eye and tunable" | (as above) |
+| `PAIR_STROKE_MAX_CLEARANCE_RATIO` | 0.35 × stem gap | rendering/engraved/TwoNoteTremolo.ts:42 | "The hard ceiling on that clearance" | (as above) |
 
 ### Tuplets (5)
 
 | name | value | file:line | comment words | possibly-covering doc |
 |---|---|---|---|---|
-| `TUPLET_FONT_SIZE` | 26 px @10 | rendering/ScoreTuplet.ts:20 | "THE knob for how big the numbers are" | tuplet-extension-plan.md §9 "The FORMAT" (names the knob, no source) |
-| `NOTE_GLYPH_SCALE` (note in a ratio mark) | 0.55 × figure size | rendering/ScoreTuplet.ts:32 | "0.55 lands it a little taller than the figures" | tuplet-extension-plan.md §9 |
-| `MARK_SPACE_EM` | 0.15 em | rendering/ScoreTuplet.ts:38 | "About a thin space at 24px" | tuplet-extension-plan.md §9 |
+| `TUPLET_FONT_SIZE` | 26 px @10 | rendering/engraved/ScoreTuplet.ts:20 | "THE knob for how big the numbers are" | tuplet-extension-plan.md §9 "The FORMAT" (names the knob, no source) |
+| `NOTE_GLYPH_SCALE` (note in a ratio mark) | 0.55 × figure size | rendering/engraved/ScoreTuplet.ts:32 | "0.55 lands it a little taller than the figures" | tuplet-extension-plan.md §9 |
+| `MARK_SPACE_EM` | 0.15 em | rendering/engraved/ScoreTuplet.ts:38 | "About a thin space at 24px" | tuplet-extension-plan.md §9 |
 | `BRACKET_END_GAP` (`beforeNext`) | 6 px @10 | rendering/ScoreRenderer.ts:3220 | "stops a little short of that note" | tuplet-extension-plan.md §9 (modes only) |
 | `GHOST_TUPLET_NUMBER_GAP` | 1.5 sp | rendering/ghosts/GhostRenderer.ts:81 | "Tune here." | tuplet-extension-plan.md §"The ghost" — ghost only; the page's number is VexFlow's (⚠️ 2026-09-19: ours since S12a, `ScoreTuplet`) |
 
@@ -167,16 +167,16 @@ lists it as owed to his eye.
 
 | name | value | file:line | comment words | possibly-covering doc |
 |---|---|---|---|---|
-| `LEDGER_ACCIDENTAL_GAP` | 2 px @10 = 0.2 sp | rendering/ledgerAccidentalClearance.ts:57 | "the air VexFlow itself leaves … less a whisker" | accidental-dot-research.md §4 row A5; accidental-dot-engines.md §A row A5; accidental-ledger-clearance.md §"What the engraving sources say" |
-| `FAN_ACCIDENTAL_GAP` | 2 px @10 = 0.2 sp | rendering/FanPass.ts:123 | "PROVISIONAL, like every fan number" | accidental-dot-research.md §A row A1 (Gould: no number); accidental-dot-engines.md §A; ⚠️ the note's own gap is the `accidentalGap` preset table (0.3) |
-| `MIN_SHARED_COLUMN_LINES` (fan accidental columns) | 2.5 lines (a sixth) | rendering/chordAccidentalColumns.ts:44 | "Closer than that and a sharp's … arms run into the one above" | ⭐ ALREADY ANSWERED: accidental-dot-research.md §A row A3 (Gould p. 88 "an octave or more") + §4 row A3; ⚠️ `layout/spacingPadding.ts:286` uses a seventh |
-| `LEDGER_OVERHANG_BESIDE_ACCIDENTAL` | 2 px @10 = 0.2 sp | rendering/ledgerAccidentalClearance.ts:75 | "Two thirds of the default: still a visible overhang" | accidental-dot-engines.md §A row A5 (LilyPond shortens to the midpoint); accidental-dot-research.md §4 A5 |
+| `LEDGER_ACCIDENTAL_GAP` | 2 px @10 = 0.2 sp | rendering/format/ledgerAccidentalClearance.ts:57 | "the air VexFlow itself leaves … less a whisker" | accidental-dot-research.md §4 row A5; accidental-dot-engines.md §A row A5; accidental-ledger-clearance.md §"What the engraving sources say" |
+| `FAN_ACCIDENTAL_GAP` | 2 px @10 = 0.2 sp | rendering/beams/FanPass.ts:123 | "PROVISIONAL, like every fan number" | accidental-dot-research.md §A row A1 (Gould: no number); accidental-dot-engines.md §A; ⚠️ the note's own gap is the `accidentalGap` preset table (0.3) |
+| `MIN_SHARED_COLUMN_LINES` (fan accidental columns) | 2.5 lines (a sixth) | rendering/format/chordAccidentalColumns.ts:44 | "Closer than that and a sharp's … arms run into the one above" | ⭐ ALREADY ANSWERED: accidental-dot-research.md §A row A3 (Gould p. 88 "an octave or more") + §4 row A3; ⚠️ `layout/spacingPadding.ts:286` uses a seventh |
+| `LEDGER_OVERHANG_BESIDE_ACCIDENTAL` | 2 px @10 = 0.2 sp | rendering/format/ledgerAccidentalClearance.ts:75 | "Two thirds of the default: still a visible overhang" | accidental-dot-engines.md §A row A5 (LilyPond shortens to the midpoint); accidental-dot-research.md §4 A5 |
 | rest supporting-ledger overhang `PAD` | 2 px @10 per side | rendering/ScoreRenderer.ts:2390 | "px the ledger overhangs the rest glyph on each side" | rest-shift-plan.md §10 (convention sourced, number not); ⚠️ note ledgers are 3 px (accidental-dot-engines.md §2.4) |
 | ghost rest ledger overhang `PAD` | 3 px @10 per side | rendering/ghosts/GhostRenderer.ts:461 | "reads as a staff line, not a strike-through" | ⚠️ disagrees with the real render's 2 px above |
-| `FAN_MIN_STEM_SPACES` | 2 sp | rendering/FannedBeam.ts:137 | "PROVISIONAL" | ⭐ ALREADY ANSWERED: note-engraving-plan.md §3.5 (books' floor 2.5 sp); stem-length-research.md §1; fanned-beams-plan.md §1 |
-| `CROSS_SYSTEM_BEAM_STUB_LINE_END` | 22 px @10 (2.2 sp) | rendering/beamInk.ts:36 | "these are tuned by eye" | cross-barline-beaming-plan.md §"What stays whole-group, and the two stub ends" (describes); beam-hook-research.md §8 decision A (stub length) |
-| `CROSS_SYSTEM_BEAM_STUB_LINE_START` | 12 px @10 (1.2 sp) | rendering/beamInk.ts:37 | "tuned by eye" | (as above) |
-| `CROSS_SYSTEM_BEAM_MARGIN` | 10 px @10 (1 sp past barline) | rendering/beamInk.ts:38 | same "tuned by eye" block | (as above) |
+| `FAN_MIN_STEM_SPACES` | 2 sp | rendering/beams/FannedBeam.ts:137 | "PROVISIONAL" | ⭐ ALREADY ANSWERED: note-engraving-plan.md §3.5 (books' floor 2.5 sp); stem-length-research.md §1; fanned-beams-plan.md §1 |
+| `CROSS_SYSTEM_BEAM_STUB_LINE_END` | 22 px @10 (2.2 sp) | rendering/beams/beamInk.ts:36 | "these are tuned by eye" | cross-barline-beaming-plan.md §"What stays whole-group, and the two stub ends" (describes); beam-hook-research.md §8 decision A (stub length) |
+| `CROSS_SYSTEM_BEAM_STUB_LINE_START` | 12 px @10 (1.2 sp) | rendering/beams/beamInk.ts:37 | "tuned by eye" | (as above) |
+| `CROSS_SYSTEM_BEAM_MARGIN` | 10 px @10 (1 sp past barline) | rendering/beams/beamInk.ts:38 | same "tuned by eye" block | (as above) |
 
 ### Spacing (4) · Page / system layout (4)
 
@@ -292,9 +292,9 @@ Engine-copied or borrowed without a citation:
 - `LAYOUT_CONFIG.BARLINE_PADDING` 1 sp, rendering/layoutConfig.ts:122 — ⚠️ **apparently DEAD**: only comments reference it (measureColumns.ts:289, MeasureLayout.ts:171). barline-types-plan.md §5.
 - format-width floor 50 px, rendering/ScoreRenderer.ts:2180 — a degenerate-bar clamp rather than a look. note-spacing-plan.md §4, R6.
 - two-note tremolo tip offset ×1.5, rendering/ScoreRenderer.ts:1227 — "THIS is the one line to turn". It matches the beam level stride (beam-engraving-plan.md §2.1). two-note-tremolo-plan.md §"Beamed, or apart with flags".
-- tuplet bracket air 5 px @10, rendering/ScoreTuplet.ts:147-175 + ScoreRenderer.ts:3304 — probably VexFlow's `tuplet.js`, but uncited. tuplet-control-plan.md §1–§2.
-- tuplet bracket leg 10 px @10, rendering/ScoreTuplet.ts:180-181 — bare `location * 10`, which is VexFlow's. tuplet-control-plan.md §2.
-- tuplet bracket thickness 1 px @10, rendering/ScoreTuplet.ts:170-180 + ScoreRenderer.ts:3331 — ⚠️ **conflicts** with thinLineWeight.ts's claim that tuplet brackets share 0.16 sp. staff-line-research.md §4.3.
+- tuplet bracket air 5 px @10, rendering/engraved/ScoreTuplet.ts:147-175 + ScoreRenderer.ts:3304 — probably VexFlow's `tuplet.js`, but uncited. tuplet-control-plan.md §1–§2.
+- tuplet bracket leg 10 px @10, rendering/engraved/ScoreTuplet.ts:180-181 — bare `location * 10`, which is VexFlow's. tuplet-control-plan.md §2.
+- tuplet bracket thickness 1 px @10, rendering/engraved/ScoreTuplet.ts:170-180 + ScoreRenderer.ts:3331 — ⚠️ **conflicts** with thinLineWeight.ts's claim that tuplet brackets share 0.16 sp. staff-line-research.md §4.3.
 - `MARK_INK` (dynamics ink in sp), rendering/marks/dynamics/dynamicsLinePass.ts:74 — a re-export of `dynamicStyle` 0.68/0.18. Don't count it twice.
 - `TRILL_LINE.padding` 0.5 sp, rendering/marks/lines/trillStyle.ts:157 — ⚠️ **conflicting comments**: "LilyPond's `TrillSpanner` defaults" here, while ottavaStyle.ts:164 says the trill's 0.5/1.0 "were tuned by looking". trill-plan.md §1 rule 8, §10 P2.
 - wiggle glyph size `/10`, rendering/marks/lines/TrillRenderer.ts:918 — `STAFF_SPACE_PX` inlined. A unit conversion, but the sign and the wiggle take different size paths. above-staff-ladder.md §pt vs px.

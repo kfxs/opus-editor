@@ -17,7 +17,7 @@ matches the user's model — *the dynamic FONT is the flag*:
   `glyphsToLetters(glyphRun)` matched against `DYNAMIC_VELOCITY`. Nothing is inferred from spelling.
 - **Rendering.** One Annotation per mark, drawn at the TEXT size so every mark shares one baseline
   (VexFlow placed "below" by `textHeight` — ours since S9f/S12g, `engrave/notes/annotationStack` +
-  `rendering/EngravedAnnotation`); a post-draw pass (`enlargeDynamicGlyphRuns`) grows the
+  `rendering/engraved/EngravedAnnotation`); a post-draw pass (`enlargeDynamicGlyphRuns`) grows the
   glyph runs to the glyph size via `<tspan>`, upward from the fixed baseline. Same helper feeds the
   ghost. `registerDynamics` rebuilds the tight bbox for any glyph-bearing mark.
 - **Editor.** The in-canvas box seeds glyph runs as atomic `contenteditable="false"` chips (big

@@ -8,7 +8,7 @@
  * deliberately VexFlow's global stack (Bravura + text fallback) so it follows the
  * score's engraving font — only custom text pins a serif face (below).
  */
-import { drawnFontPx } from '../../drawnFontSize'
+import { drawnFontPx } from '../../painter/drawnFontSize'
 
 export const DYNAMIC_GLYPH_SIZE = 30
 /**

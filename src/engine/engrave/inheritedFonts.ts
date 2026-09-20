@@ -10,7 +10,7 @@
  * attributed, because the library is MIT and its notice travels with what we took.
  *
  * ⚠️ **A size here is POINTS** — the number the drawing context writes as `Npt`, 4/3 px each
- * (`rendering/drawnFontSize`). ⛔ Do not convert on the way in.
+ * (`rendering/painter/drawnFontSize`). ⛔ Do not convert on the way in.
  *
  * ## ⭐ Only the INHERITED faces live here
  *

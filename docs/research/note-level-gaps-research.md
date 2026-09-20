@@ -13,14 +13,14 @@ the three engines give for the same quantity. Rows are from `docs/research/engra
 
 | # | number | today | file:line |
 |---|---|---|---|
-| 1 | `FAN_ACCIDENTAL_GAP` | 2 px @10 = 0.2 sp | `src/engine/rendering/FanPass.ts:123` |
-| 2 | `CROSS_SYSTEM_BEAM_STUB_LINE_START` / `…LINE_END` / `CROSS_SYSTEM_BEAM_MARGIN` | 12 / 22 / 10 px @10 = 1.2 / 2.2 / 1.0 sp | `src/engine/rendering/beamInk.ts:36-38` |
+| 1 | `FAN_ACCIDENTAL_GAP` | 2 px @10 = 0.2 sp | `src/engine/rendering/beams/FanPass.ts:123` |
+| 2 | `CROSS_SYSTEM_BEAM_STUB_LINE_START` / `…LINE_END` / `CROSS_SYSTEM_BEAM_MARGIN` | 12 / 22 / 10 px @10 = 1.2 / 2.2 / 1.0 sp | `src/engine/rendering/beams/beamInk.ts:36-38` |
 | 3 | `KERN_CLEARANCE` | 0.35 sp | `src/engine/layout/kerning.ts:88` |
 | 4 | `pairPadding` note↔note (the fall-through) | 0.3 sp | `src/engine/layout/spacingPadding.ts:420` |
 | 5 | `pairPadding` dot→next | 0.5 sp | `src/engine/layout/spacingPadding.ts:415` |
 | 6 | `INK.firstDot` / `INK.dotStep` | 1.7 / 0.9 sp | `src/engine/layout/spacingPadding.ts:98,100` |
 | 7 | `BETWEEN_PARTS` | 1.0 sp | `src/engine/layout/headerInk.ts:243` |
-| 8 | meter `lineShift` | ±½ line | VexFlow `timesignature.js:82`; folded in at `src/engine/rendering/EngravedTimeSignature.ts:127,134` |
+| 8 | meter `lineShift` | ±½ line | VexFlow `timesignature.js:82`; folded in at `src/engine/rendering/engraved/EngravedTimeSignature.ts:127,134` |
 
 ⛔ **Out of scope, and covered elsewhere:**
 - ledger overhang beside an accidental or under a rest, `LEDGER_ACCIDENTAL_GAP`, and the ghost's

@@ -554,7 +554,7 @@ WALK or the two disagree by a whole bar, which is exactly what he saw.
 
 ### The fix: resolve the beat against the SYSTEM'S COLUMN GRID
 
-`anchorX` now takes the bar's `SpacedColumns` (`rendering/spacingPass` — the solve's own answer, kept
+`anchorX` now takes the bar's `SpacedColumns` (`rendering/format/spacingPass` — the solve's own answer, kept
 per bar on `RenderPass.solvedColumns` for `FanPass`) and:
 
 1. the time-signature rule is unchanged (Gould p. 183, every source);

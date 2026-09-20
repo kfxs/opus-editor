@@ -29,15 +29,15 @@
  * is a fact about the mark's system and this is a fact about the mark.
  */
 import type { Measure } from '@/types/music'
-import type { EngravedStave } from '../../EngravedStave'
+import type { EngravedStave } from '../../engraved/EngravedStave'
 import type { Column } from '@/engine/layout/spacing'
 import type { RenderPass } from '../../RenderPass'
 import { tempoOffsetOverrideOf } from '@/engine/models/engravingOverrides'
 import { setTempoMarkBase, setTempoMarkOffset } from './tempoMarkTransform'
 import { tempoAnchorTravelPx } from './tempoAnchorInk'
-import { staffSpacesToPixels } from '../../staffSpace'
+import { staffSpacesToPixels } from '../../staff/staffSpace'
 import { dbg } from '@/utils/debug'
-import { staveFrame } from '../../staveFrame'
+import { staveFrame } from '../../staff/staveFrame'
 
 /** What this pass needs of a `MeasurePlacement` — the shape `./tempoLinePass` already declares. */
 interface TempoNudgePlacement {

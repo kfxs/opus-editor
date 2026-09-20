@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { wrapReleaseOntoNextLine } from './pedalReleaseWrap'
-import { type SystemEdgeLookup } from '../../systemEdges'
+import { type SystemEdgeLookup } from '../../staff/systemEdges'
 import type { MeasureWidthInfo } from '@/engine/layout/layoutConfig'
 import type { MeasureBounds } from '../../renderTypes'
 

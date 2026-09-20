@@ -622,11 +622,11 @@ band machinery.
   ⭐ **A pre-existing defect was found and fixed on the way, and it is worth its own note.** Three
   render passes read a drawn mark's baseline back with `parseFloat(el.getAttribute('y') ?? '')`.
   **VexFlow's SVG context omits the attribute when the value is 0, and SVG defines a missing one AS
-  0** (⚠️ 2026-09-19: still true — our `rendering/SvgPainter` transcribes that context, omission included) — so an ordinary mark that lands on 0 read back as `NaN` and every one of those sites treated
+  0** (⚠️ 2026-09-19: still true — our `rendering/painter/SvgPainter` transcribes that context, omission included) — so an ordinary mark that lands on 0 read back as `NaN` and every one of those sites treated
   it as *nothing drew here*. In `dynamicsLinePass` that meant the mark was **silently never placed on
   the dynamics line** (found with a `p` above a B6); in `DynamicsLayout` it meant the tight hit-box
   silently fell back to the ballooned group box it exists to replace. ⭐ Fixed as a MODULE, not three
-  patches — `engine/rendering/drawnText.ts` owns the rule and keeps "no element" and "no attribute"
+  patches — `engine/rendering/painter/drawnText.ts` owns the rule and keeps "no element" and "no attribute"
   as different answers. ⛔ Do not read those attributes off drawn ink anywhere else.
 - ✅ **P1 — THE MODEL. BUILT 2026-08-13.** `Ottava` (§4 verbatim — id, beat, length, signed `shift`,
   optional `staffId`, and no voice), `Measure.ottavas`, `engine/models/ottavaOps.ts` in the

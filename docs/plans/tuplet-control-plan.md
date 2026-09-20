@@ -14,7 +14,7 @@ scope** for now.
 > class once still `extended Tuplet` for the note GRAPH — ✅ no longer since S12a of `docs/history/vexflow-removal-map.md`: a plain class of ours.
 > Read `tuplet.js` below only as the origin of the transcription. ⚠️ 2026-09-19: VexFlow is REMOVED
 > (`docs/history/vexflow-removal-map.md` S14) — the tuplet's tick math, its `draw()` and its `options` are all
-> `rendering/ScoreTuplet` now, so every "VexFlow can/cannot" below is a fact about our transcription
+> `rendering/engraved/ScoreTuplet` now, so every "VexFlow can/cannot" below is a fact about our transcription
 > (⛔ a limit gone, not a decision taken).
 
 This document records *why* tuplet bracket positioning behaves the way it does, what VexFlow
@@ -235,7 +235,7 @@ Documented, not scheduled. When picked up:
 Horizontal extend/shrink, leg length, slope, independent number X, draggable bracket handles,
 self-rendering the bracket, and owning beam/modifier collision-avoidance. If/when needed,
 mirror the slur migration: model as source of truth → low-level draw from `TupletGeometry` →
-handles. ~~VexFlow stays the rhythm/spacing engine regardless.~~ (⚠️ 2026-09-19: VexFlow is removed — the rhythm/spacing engine is ours: `ScoreTuplet`, `rendering/barVoice`, `columnFormat`, `spacingPass`.)
+handles. ~~VexFlow stays the rhythm/spacing engine regardless.~~ (⚠️ 2026-09-19: VexFlow is removed — the rhythm/spacing engine is ours: `ScoreTuplet`, `rendering/format/barVoice`, `columnFormat`, `spacingPass`.)
 
 ---
 
@@ -243,7 +243,7 @@ handles. ~~VexFlow stays the rhythm/spacing engine regardless.~~ (⚠️ 2026-09
 
 - `src/engine/rendering/ScoreRenderer.ts` — `buildScoreTuplets`, `drawAndRegisterTuplets`,
   `resolveTupletLocation` call site.
-- `src/engine/rendering/NoteBuilder.ts` — `resolveTupletLocation`, `TUPLET_LOCATION_*`.
+- `src/engine/rendering/engraved/NoteBuilder.ts` — `resolveTupletLocation`, `TUPLET_LOCATION_*`.
 - `src/engine/ElementRegistry.ts` — `TupletGeometry`, `getTupletAt`.
 - `src/interactions/HighlightController.ts` — `applyTupletSelectionHighlight` (front-floats the
   selected group so overlapping brackets don't hide the highlight).

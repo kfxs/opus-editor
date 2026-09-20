@@ -73,7 +73,7 @@ export function staffLineMidY(y: number, thickness: number): number {
  *
  * ⚠️ **The staff's outer edge, and ⛔ not where a BARLINE stops** — those are two different rules and
  * this module owns only the first. A mark FLUSH with the staff ends here (the brace and the bracket's
- * rod, `rendering/systemStart`); a barline stops half a thickness earlier, at
+ * rod, `rendering/staff/systemStart`); a barline stops half a thickness earlier, at
  * {@link staffLineMidY} (`./barlineExtent`, and LilyPond makes exactly this distinction).
  *
  * 🚨 It exists because VexFlow's `Stave.getBottomLineBottomY()` answers `y + (getStyle().lineWidth ??

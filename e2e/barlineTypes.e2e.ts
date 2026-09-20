@@ -102,7 +102,7 @@ test('⭐⭐ an open repeat draws INSIDE the bar it opens, and the bar before it
   expect(Math.abs(dots[0].y - dots[1].y), 'one space apart').toBeCloseTo(SPACE, 1)
   // ⚠️ **Within a pixel, not to a pixel, and the slack is a real half-pixel that belongs to VexFlow.**
   // A drawn stave line is snapped half a pixel off the geometric grid (that is what keeps it crisp —
-  // see `rendering/barlineInk`), while every glyph in the score is placed on the grid itself. So a
+  // see `rendering/staff/barlineInk`), while every glyph in the score is placed on the grid itself. So a
   // dot centred on the middle line reads half a pixel above the LINE the harness measures, exactly
   // as a notehead on that line does. ⛔ Tightening this would be asserting VexFlow's snap, not our
   // placement.

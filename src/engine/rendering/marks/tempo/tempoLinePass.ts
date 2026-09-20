@@ -35,7 +35,7 @@
  *
  * ⛔ It does not look at pixels. See {@link tempoScope} for the one place that costs something.
  */
-import type { EngravedStave } from '../../EngravedStave'
+import type { EngravedStave } from '../../engraved/EngravedStave'
 import type { Fraction, Measure, TempoMark } from '@/types/music'
 import type { Column } from '@/engine/layout/spacing'
 import { clearanceBaseline, columnsBetween, mergeInkBands, staffInkBand } from '@/engine/layout/inkBand'
@@ -43,11 +43,11 @@ import { bandOver, measureStartOffsets } from '@/engine/layout/outsideStaffBand'
 import { measureCapacityFrac } from '@/utils/measureCapacity'
 import { fracAdd } from '@/utils/fraction'
 import { TEMPO_LINE, TEMPO_MARK_INK } from './tempoStyle'
-import { drawnTextOrigin, firstDrawnText } from '../../drawnText'
-import { staffSpacesToPixels } from '../../staffSpace'
+import { drawnTextOrigin, firstDrawnText } from '../../painter/drawnText'
+import { staffSpacesToPixels } from '../../staff/staffSpace'
 import type { RenderPass } from '../../RenderPass'
 import { placeTempoMark } from './tempoMarkTransform'
-import { staveFrame } from '../../staveFrame'
+import { staveFrame } from '../../staff/staveFrame'
 import { staffLineY } from '@/engine/engrave/staff/staffFrame'
 
 /** What the pass needs of a `MeasurePlacement` — declared structurally, the shape the dynamics and

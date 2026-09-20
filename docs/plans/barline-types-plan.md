@@ -7,7 +7,7 @@
 >
 > **WHERE THE FEATURE LIVES, for a reader arriving cold:**
 > `engine/models/barlineOps.ts` (the score ops) · `engine/layout/barlineSign.ts` (⭐ what a sign is
-> MADE OF — and the `SignHalf` rule three other things read) · `engine/rendering/BarlineRenderer.ts`
+> MADE OF — and the `SignHalf` rule three other things read) · `engine/rendering/staff/BarlineRenderer.ts`
 > (we draw every barline) · `engine/audio/repeatPlan.ts` (the PLAY ORDER) ·
 > `interactions/barlineStamp.ts` (the gesture) · `interactions/elements/barline.ts` +
 > `./repeatStart.ts` (the two selections) · **Insert ▸ Barline** and the Properties chooser (the
@@ -86,7 +86,7 @@ load-bearing:
 - **The drawing agrees**: a bar draws only the line that ENDS it (`ScoreRenderer.ts:2409` turns the
   opening line off except at bar 1 and a line start). That rule is a bug fix — two coincident lines
   cover their shared anti-aliased edge twice, and every interior barline read heavier than the ones
-  opening and closing a system (`engine/rendering/barlineInk.ts`).
+  opening and closing a system (`engine/rendering/staff/barlineInk.ts`).
 
 Two places already point at this feature by name: `selectionSnapshot.ts:355` calls the measure a
 barline closes *"the address a barline TYPE would eventually be stored at"*, and
@@ -527,7 +527,7 @@ dots. There is no accumulated correctness in `fillRect(x, topY, 1, height)`.
 
 #### 4.6.3 ⭐⭐ The pass, and what it DISSOLVES
 
-`engine/rendering/BarlineRenderer.ts` — a **score-level pass**, taking the shape the four beside it
+`engine/rendering/staff/BarlineRenderer.ts` — a **score-level pass**, taking the shape the four beside it
 already take (`ScoreRenderer.ts:3922–3954`):
 
 ```ts
@@ -961,7 +961,7 @@ all read — is already built and unit-tested.
 The single largest step, and the one that decides
 whether §4.6.3's silent stale-picture bug can exist at all.
 
-- `engine/rendering/BarlineRenderer.ts` — a **score-level pass**, `renderBarlines(pass, score,
+- `engine/rendering/staff/BarlineRenderer.ts` — a **score-level pass**, `renderBarlines(pass, score,
   placements, staffIds)`, beside `renderHairpins` / `renderTrills` / `renderOttavas` /
   `renderPedals` (`ScoreRenderer.ts:3922–3954`). ⛔ Not a VexFlow `Barline`; our context, our
   primitives (`own-engraving-engine.md`'s rule).

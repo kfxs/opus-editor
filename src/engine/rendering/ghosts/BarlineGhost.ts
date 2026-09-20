@@ -36,7 +36,7 @@
  * `BarlineRenderer`, where the staff is real and the four-space box would be a lie.
  */
 import type { DrawContext } from '@/engine/paint/DrawContext'
-import { drawGlyph } from '../glyphPainter'
+import { drawGlyph } from '../painter/glyphPainter'
 import type { PlacedBarlineSign } from '@/engine/layout/barlineSign'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { drawSignGhost } from './ghostCursor'

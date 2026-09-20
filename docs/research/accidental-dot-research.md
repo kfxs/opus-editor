@@ -28,7 +28,7 @@
 
 On **2026-09-14** the accidental's and the augmentation dot's **INK** became ours
 (`engine/engrave/notes/accidental.ts`, `engine/engrave/notes/augmentationDot.ts`,
-`engine/rendering/EngravedAccidental.ts` — `docs/plans/own-engraving-engine.md` P3). They were the last
+`engine/rendering/engraved/EngravedAccidental.ts` — `docs/plans/own-engraving-engine.md` P3). They were the last
 two glyphs VexFlow still painted on an ordinary score, and they were invisible to `lint:paint`
 because a modifier never touches `vexContext`; a scene census found them.
 
@@ -48,7 +48,7 @@ and the inherited numbers below are rows in `engrave/inheritedDefaults`.)
 
 So there are three numbers on the page that nobody in this repo has chosen: the accidental's
 standoff, the gap between two accidental columns, and the dot's standoff. One of them —
-the dot's — **was** chosen, by `engine/rendering/dotPlacement.ts`, in answer to his report *"the dot
+the dot's — **was** chosen, by `engine/rendering/format/dotPlacement.ts`, in answer to his report *"the dot
 is too close to the notehead"*; that module cites Gould for the figure it uses, and §4 below checks
 the citation against the book.
 
@@ -188,7 +188,7 @@ investigation — see the header table.
 
 ### 2.5 ⚠️ The one sentence this repo already cites — and it is not a treatise
 
-`src/engine/rendering/ledgerAccidentalClearance.ts` quotes *"An expert engraver will shorten a
+`src/engine/rendering/format/ledgerAccidentalClearance.ts` quotes *"An expert engraver will shorten a
 ledger line to allow closer spacing with accidentals"* and attributes it to *"LilyPond's engraving
 essay"*. **The attribution is exact.** It is `Documentation/en/essay/engraving.itely`, node *Ledger
 lines*, lines 368–375 at `~/dev/engine-sources/lilypond` HEAD `beedbfa`:
@@ -232,9 +232,9 @@ only source in this investigation that names the accidental case at all.
 
 ## 4. What WE draw today, against the books
 
-Read from `src/engine/rendering/dotPlacement.ts`, `src/engine/engrave/notes/augmentationDot.ts`,
-`src/engine/engrave/notes/accidental.ts`, `src/engine/rendering/ledgerAccidentalClearance.ts`,
-`src/engine/rendering/chordAccidentalColumns.ts`, and the VexFlow that still owns the placement
+Read from `src/engine/rendering/format/dotPlacement.ts`, `src/engine/engrave/notes/augmentationDot.ts`,
+`src/engine/engrave/notes/accidental.ts`, `src/engine/rendering/format/ledgerAccidentalClearance.ts`,
+`src/engine/rendering/format/chordAccidentalColumns.ts`, and the VexFlow that still owns the placement
 (`Accidental.format`, `Accidental.checkCollision`, `Dot.format`, `Tables.accidentalColumns`).
 ⚠️ Since ported exactly — `engrave/notes/accidentalStack` + `dotStack` (§1) — and VexFlow is removed
 (2026-09-19): where the table says *VexFlow*, read *VexFlow's rule, transcribed into ours*.

@@ -12,7 +12,7 @@ import type { Scene, SceneNode } from './Scene'
 import { IDENTITY, scaling, translation } from '@/engine/paint/Affine'
 import { sceneInkBox, sceneInkBoxDetail, type SpacePxReader } from './sceneBox'
 
-/** A dialect where one staff space is 10px at size 40 — the shape `rendering/sceneInk` supplies. */
+/** A dialect where one staff space is 10px at size 40 — the shape `rendering/painter/sceneInk` supplies. */
 const spacePx: SpacePxReader = font => (typeof font.size === 'number' ? font.size / 4 : null)
 
 const NO_STYLE = { fill: undefined, stroke: undefined, lineWidth: undefined, lineDash: undefined }
@@ -147,7 +147,7 @@ describe('a group', () => {
   })
 
   it('⭐⭐ THE CALLER CHOOSES WHAT COUNTS — the one thing VexFlow’s box cannot do', () => {
-    // The reason `rendering/noteInkBox` had to exist: `StaveNote.getBoundingBox()` unions every
+    // The reason `rendering/engraved/noteInkBox` had to exist: `StaveNote.getBoundingBox()` unions every
     // modifier hanging off the note, so a head's "box" spans its accidentals and dots.
     const head = group([rect(0, 0, 10, 10)], { cls: 'notehead' })
     const accidental = group([rect(-20, 0, 8, 10)], { cls: 'accidental' })

@@ -4,8 +4,8 @@
  * A note's length in VexFlow's clock, summed the way VexFlow's `Fraction` sums it — **transcribed, not
  * improved**: `add` puts both sides over their LCM and ⛔ never reduces. That matters, because a bar's
  * columns are KEYED by a running sum's NUMERATOR at the voices' shared resolution
- * (`rendering/columnFormat`, `rendering/modifierColumns`), and the resolution itself is a sum's
- * DENOMINATOR (`rendering/barVoice`). A reducing sum would key a triplet's columns differently.
+ * (`rendering/format/columnFormat`, `rendering/format/modifierColumns`), and the resolution itself is a sum's
+ * DENOMINATOR (`rendering/format/barVoice`). A reducing sum would key a triplet's columns differently.
  *
  * ⛔ No vexflow, no DOM — plain integers. A tickable's ticks arrive as anything with a numerator and a
  * denominator, which VexFlow's own `Fraction` is.

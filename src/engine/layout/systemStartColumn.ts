@@ -241,7 +241,7 @@ export function signOutwardReachSpaces(symbol: ResolvedStaffGroup['symbol']): nu
     //   of Gould's examples; MuseScore and LilyPond both give it zero).
     case 'brace': return 0
     // The rod passes the line, the wing is stamped a little INSIDE that end, and its own box rises
-    // from there — `rendering/systemStart.drawBracket` composes exactly these three.
+    // from there — `rendering/staff/systemStart.drawBracket` composes exactly these three.
     case 'bracket':
       return BRACKET_ROD_PROJECTION_SPACES - BRACKET_SERIF_INSET_SPACES + glyphBox('bracketTop').up
     // Its arms sit ON the outer lines and are a staff line thick, so it reaches out by half of one.

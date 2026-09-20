@@ -71,7 +71,7 @@ test('a beamed pair draws ONE quad, half a staff space thick, spanning stem to s
   // ⭐ …and horizontally the beam OVERHANGS both stems — ⚠️ ASYMMETRICALLY, which is the measurement
   //   worth having. Both ends are computed from `getStemX() − Stem.WIDTH / 2`, and only the right one
   //   then gets VexFlow's `+1` seam-closer (`BEAM_END_OVERSHOOT`, read out of `beam.js` and recorded
-  //   in `rendering/EngravedBeam`). So the left clears its stem by half a stem-width and the right by
+  //   in `rendering/engraved/EngravedBeam`). So the left clears its stem by half a stem-width and the right by
   //   `1 − 0.75` = a quarter of a pixel. ⚠️ Pixels, not spaces: these are device fudges, not
   //   engraving numbers, and P4b's research expects them to die when the line's ends become ours.
   expect(left.x1 - beam.left, 'half a stem-width of overhang at the start').toBeCloseTo(0.75, 1)

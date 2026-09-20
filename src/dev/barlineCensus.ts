@@ -44,7 +44,7 @@ function barlinesOnScreen(
   const out: BarlineOnScreen[] = []
   for (const rect of root.querySelectorAll<SVGRectElement>('g.stavebarline rect')) {
     // ⭐ **Composite signs are not measured here, because they are deliberately not HINTED.** A final
-    // bar and the two repeats opt out of the device-grid pass (`rendering/BarlineRenderer` marks
+    // bar and the two repeats opt out of the device-grid pass (`rendering/staff/BarlineRenderer` marks
     // their group `data-no-hint`: a sign is aligned as a whole or not at all, or its own white gap
     // changes width from bar to bar). Counting their strokes would report them as "not crisp" and
     // bury the one number this instrument exists to show — how many of the PLAIN lines, which are

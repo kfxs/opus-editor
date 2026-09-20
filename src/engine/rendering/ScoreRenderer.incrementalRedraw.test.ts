@@ -17,7 +17,7 @@ import { describe, it, expect, vi } from 'vitest'
 import { levelToGlyphString } from '@/utils/dynamics'
 import { ScoreModel } from '../models/ScoreModel'
 import { ScoreRenderer } from './ScoreRenderer'
-import { SvgPainter } from './SvgPainter'
+import { SvgPainter } from './painter/SvgPainter'
 import { laneFingerprint } from '@/engine/layout/MeasureWidthCache'
 import { measureShapeKey } from './MeasureRedrawKey'
 import type { Measure } from '@/types/music'
@@ -29,8 +29,8 @@ import { fracCreate as frac } from '@/utils/fraction'
  * (`reference_jsdom_cannot_measure_glyphs`) — and the whole question is the argument, not the ink.
  */
 const hintCalls = vi.hoisted(() => [] as { force?: boolean }[])
-vi.mock('./barlineInk', async (importOriginal) => {
-  const real = await importOriginal<typeof import('./barlineInk')>()
+vi.mock('./staff/barlineInk', async (importOriginal) => {
+  const real = await importOriginal<typeof import('./staff/barlineInk')>()
   return {
     ...real,
     hintBarlines: (svg: SVGElement, opts: { force?: boolean } = {}) => {

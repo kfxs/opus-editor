@@ -1,6 +1,6 @@
 import { ScoreRenderer } from '../rendering/ScoreRenderer'
 import { LAYOUT_CONFIG } from '@/engine/layout/layoutConfig'
-import { musicFontReady } from '../rendering/musicFontReady'
+import { musicFontReady } from '../rendering/painter/musicFontReady'
 import { resolveSurface, SKETCH_CANVAS, type Surface } from '@/engine/layout/surface'
 import type { Score } from '@/types/music'
 

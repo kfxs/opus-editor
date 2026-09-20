@@ -38,14 +38,14 @@ import { ScoreModel } from '../models/ScoreModel'
 import { ScoreRenderer } from './ScoreRenderer'
 import { scenePrimitives, sceneGroups, walkScene } from '@/engine/scene/Scene'
 import { LEDGER_LINE_STYLE } from '@/engine/layout/layoutConfig'
-import { THIN_BARLINE_PX } from './barlineInk'
+import { THIN_BARLINE_PX } from './staff/barlineInk'
 import { STAVE_LINE_WIDTH_PX, staffLineMidY } from '@/engine/engrave/staff/staffLines'
 import { meterOriginX } from '@/engine/engrave/header/meter'
 import { armedClefMeterInk } from '@/engine/layout/clefMeterGap'
 import { glyphBox } from '@/engine/fonts/fontMetrics'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { fracCreate as frac } from '@/utils/fraction'
-import { resetBeamSlope, setBeamSlopeRule } from './beamSlopeExperiment'
+import { resetBeamSlope, setBeamSlopeRule } from './beams/beamSlopeExperiment'
 
 function makeRenderer() {
   const container = document.createElement('div')

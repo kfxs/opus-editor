@@ -316,7 +316,7 @@ The finding as it was written down when it was found:
 Written down at the moment it was found (F2, 2026-08-16), because it is the plan's own prediction
 coming true: *"the one place P2 makes the picture better rather than only better-founded"*.
 
-`rendering/NoteBuilder.ts` gives **every** rest the key `b/4`, and VexFlow puts a rest exactly where
+`rendering/engraved/NoteBuilder.ts` gives **every** rest the key `b/4`, and VexFlow puts a rest exactly where
 its key says — `getLineForRest()` returns the key's line unchanged, with no correction of its own.
 (⚠️ 2026-09-19: VexFlow is removed — `EngravedNote.getLineForRest` is that method, transcribed.)
 So all six rests land on the **middle line**. For a minim rest that is right; for a **semibreve rest
@@ -431,7 +431,7 @@ cross-check the JSON's `glyphBBoxes` against the OTF's own boxes and ⭐ **repor
 which is the cheap half of the same question.
 
 > ⚠️ **2026-09-19: VexFlow is removed, and so is its woff2.** Since S1 (2026-09-14) the screen draws in
-> the faces we ship (`engine/fonts/fontFiles` → `rendering/musicFontFaces`) — the same
+> the faces we ship (`engine/fonts/fontFiles` → `rendering/painter/musicFontFaces`) — the same
 > `public/fonts/Bravura.otf` the PDF outlines — so the table's first row (VexFlow's woff2) is history.
 
 ✅ **Answered for two of the three, by F1's cross-check (2026-08-16): the skew is REAL and it is
@@ -583,7 +583,7 @@ if anything moves, a transcription was wrong, and that is worth knowing.
 
 ### F4 — the payoff
 ⚠️ **Checked, and this was overstated: it is already true.** Nothing in `layout/` calls
-`measureText` — the only callers are `rendering/musicFontReady.ts` and the e2e. Our ink is
+`measureText` — the only callers are `rendering/painter/musicFontReady.ts` and the e2e. Our ink is
 *constants*, and a constant does not race a font. `measureText` is how the numbers were **obtained**
 (by hand, in Chrome), not how they are read.
 
@@ -597,7 +597,7 @@ checks them** — and the real payoffs, in order:
 3. ⭐⭐ **P3's anchors**, which have no other source at all.
 
 The `musicFontReady` gate stays while VexFlow draws — it must, because VexFlow still measures. (⚠️
-2026-09-19: VexFlow is removed; `rendering/glyphPainter` measures now, off a canvas the same way, so the
+2026-09-19: VexFlow is removed; `rendering/painter/glyphPainter` measures now, off a canvas the same way, so the
 gate still stands.)
 
 ⭐ **Stop after F2 and it was worth it** (payoffs 1 and 2 are both in F2). F3 is tidying. F4 is a
@@ -606,7 +606,7 @@ paragraph in a doc, not a piece of work.
 > ### ✅ BUILT 2026-08-16 — and it turned out to have exactly one piece of work in it
 >
 > Re-verified first: `grep` finds `measureText` in `engine/layout/` **only inside comments**, and the
-> single runtime measurer left in `src/` is `rendering/musicFontReady.ts`. So the payoff really was
+> single runtime measurer left in `src/` is `rendering/painter/musicFontReady.ts`. So the payoff really was
 > already banked, and writing a paragraph claiming it would have been the whole of F4.
 >
 > ⭐⭐ **A claim nobody checks is how this drifts back.** So F4 is a RATCHET, in the shape this repo

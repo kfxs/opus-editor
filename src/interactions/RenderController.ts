@@ -9,7 +9,7 @@ import { paintSelectedArticulations } from './elements/articulation'
 import type { HighlightController } from './HighlightController'
 import { voiceFillColor, voiceStrokeColor } from '../utils/voiceColors'
 import { renderProbe } from '../engine/RenderProbe' // P0 instrument seam — temporary, see §8
-import { musicFontReady } from '../engine/rendering/musicFontReady'
+import { musicFontReady } from '../engine/rendering/painter/musicFontReady'
 import type { MarkPreviewKind } from '../engine/rendering/marks/markPreviewPass'
 import { dbg } from '../utils/debug'
 
@@ -93,7 +93,7 @@ export class RenderController {
     const engine = this.getEngine()
     if (!engine) return
     // ⭐⭐ **Nothing is ENGRAVED before the music font exists** — see
-    // `engine/rendering/musicFontReady.ts` for the measurement. VexFlow has no metrics table: it
+    // `engine/rendering/painter/musicFontReady.ts` for the measurement. VexFlow has no metrics table: it
     // measures every glyph off a canvas, so a render that beats Bravura engraves to the FALLBACK
     // face and each empty bar's whole rest lands ~9.7px (about a staff space) left of its centre.
     //

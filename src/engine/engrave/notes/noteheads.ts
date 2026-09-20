@@ -6,13 +6,13 @@
  *
  * Three of `StaveNote.draw()`'s five drawing calls already have a module in this folder —
  * `ledgerLines` (P3a), `flag` (P3b), `stem` (P3c). ⭐ **P3d took the heads' ink too, but left it
- * INLINE in `rendering/EngravedNote`**, so the one piece of the note that is pure glyph-stamping was
+ * INLINE in `rendering/engraved/EngravedNote`**, so the one piece of the note that is pure glyph-stamping was
  * also the one piece with no home beside its siblings. This is that home; the override now reads as
  * the adapter it is.
  *
  * ## ⭐ The SECOND OWNER: the fan's members (S10, 2026-09-18)
  *
- * `rendering/FanPass` paints each fanned member's head through here (`drawFanHead`, which is
+ * `rendering/beams/FanPass` paints each fanned member's head through here (`drawFanHead`, which is
  * `NoteHead.draw` transcribed), on `pass.context`, inside the member's own group. ⚠️ It waited on
  * that GROUP, ⛔ not on the notehead: the highlight reads the member group back as a DOM node, so the
  * group had to open on our surface too (the counted `svgNode` escape), and the member's sign, ledgers

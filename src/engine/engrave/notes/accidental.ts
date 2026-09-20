@@ -9,7 +9,7 @@
  * That sentence is the whole module, and it is the only thing about an accidental that is ours.
  * ⛔ **Which COLUMN it stands in is not here** — a chord's accidentals are packed into columns by
  * `./accidentalStack` (VexFlow's `Accidental.format`, transcribed in S9d), and a fan's members by
- * our own `rendering/chordAccidentalColumns` (Gould's rule, its own packing). ⭐ Same split as the clef's in P5b: **the INK moves, the
+ * our own `rendering/format/chordAccidentalColumns` (Gould's rule, its own packing). ⭐ Same split as the clef's in P5b: **the INK moves, the
  * PLACEMENT stays**, and the seam is that the caller hands over a point it already knows.
  *
  * ## 🚨 Why this was the last glyph on an ordinary score, and why nothing had noticed

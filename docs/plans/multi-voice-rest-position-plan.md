@@ -44,7 +44,7 @@
   second, quietly disagreeing copy of it in `SelectionController` (§4.2).
 - ⛔ It is **not** a rendering change. VexFlow keeps drawing the glyph; we keep deciding the line, as
   we already do (`restPlacement.ts`). (⚠️ 2026-09-19: VexFlow is removed — the glyph is drawn by our
-  `rendering/EngravedNote` now.) Nothing in `docs/plans/own-engraving-engine.md`'s P3 is started here,
+  `rendering/engraved/EngravedNote` now.) Nothing in `docs/plans/own-engraving-engine.md`'s P3 is started here,
   and its golden-image gate is not touched.
 - ⭐ It is **not** *one* call site, which the first draft claimed. Two modules answer this question
   today and they have never agreed (§4.2); the point of the module is that afterwards only one does.
@@ -157,7 +157,7 @@ than from `getBBox()`, so the whole function stays pure (research §7).
 ⭐ **`others` is what SOUNDS, not what STARTS.** A held half note under a 16th rest is the prelude's
 whole problem. LilyPond says it in a comment — *"Include notes that started any time"*
 (`rest-collision-engraver.cc:75`) — and it is the one thing VexFlow structurally cannot see, since
-its `ModifierContext` is keyed on the start tick. (⚠️ Our `rendering/modifierColumns`, its transcription
+its `ModifierContext` is keyed on the start tick. (⚠️ Our `rendering/format/modifierColumns`, its transcription
 since S9b, keeps the same keying.)
 
 > ⚠️ **The span is `slotLength`, ⛔ never `writtenLength`.** `utils/durations.ts` says so at the

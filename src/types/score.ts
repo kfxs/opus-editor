@@ -208,7 +208,7 @@ export interface StaffGroup {
    *
    * ⭐ `subBracket` is the thin secondary sign that groups a subset inside a bracket — divisi
    * strings under the section's own bracket. ⛔ It has **no SMuFL glyph** and is not a thinner rod:
-   * Gould draws it as a hairline `[` — see `engine/rendering/systemStart.drawSubBracket`.
+   * Gould draws it as a hairline `[` — see `engine/rendering/staff/systemStart.drawSubBracket`.
    */
   symbol?: 'brace' | 'bracket' | 'subBracket'
 }

@@ -633,7 +633,7 @@ export interface BarWidthOverride extends EngravingOverride {
  * *"when the clef is not in the beguining of a line (i mean a header clef) i want to be able to
  * offset it horizontally either by keys in the keyboard or be the property"*). `x` is in
  * **staff-spaces**, +right — added at render via the clef's own `setXShift`
- * (`rendering/clefOffsetPass`), which moves its reported geometry so the hit box and the clef's
+ * (`rendering/staff/clefOffsetPass`), which moves its reported geometry so the hit box and the clef's
  * pixel↔pitch region follow it.
  *
  * ⚠️ **An OFFSET, not a space** — {@link NoteOffsetOverride}'s rule and for its reason: applied

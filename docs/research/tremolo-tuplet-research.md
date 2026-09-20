@@ -12,14 +12,14 @@ the plates and the engines would put in its place. Values are in staff spaces (*
 
 | inventory row | inventory line | code |
 |---|---|---|
-| stroke stack centred on the free stem (a RULE) | §2 Tremolo, :149 | `rendering/CenteredTremolo.ts:27` |
+| stroke stack centred on the free stem (a RULE) | §2 Tremolo, :149 | `rendering/engraved/CenteredTremolo.ts:27` |
 | `TREMOLO_FLAG_STEM_STRETCH` 0.25 × stem | :150 | `CenteredTremolo.ts:55` |
 | `TREMOLO_STROKE_CLEARANCE` 0.25 sp each end | :151 | `CenteredTremolo.ts:65` |
-| `PAIR_STROKE_CLEARANCE_SPACES` 1 sp | :152 | `rendering/TwoNoteTremolo.ts:34` |
+| `PAIR_STROKE_CLEARANCE_SPACES` 1 sp | :152 | `rendering/engraved/TwoNoteTremolo.ts:34` |
 | `PAIR_STROKE_CLEARANCE_RATIO` 0.25 × gap | :153 | `TwoNoteTremolo.ts:35` |
 | `PAIR_STROKE_MAX_CLEARANCE_RATIO` 0.35 × gap | :154 | `TwoNoteTremolo.ts:42` |
 | two-note tip offset ×1.5 | §5b, :287 | `rendering/ScoreRenderer.ts:1226-1227` |
-| `TUPLET_FONT_SIZE` 26 | §2 Tuplets, :160 | `rendering/ScoreTuplet.ts:20` |
+| `TUPLET_FONT_SIZE` 26 | §2 Tuplets, :160 | `rendering/engraved/ScoreTuplet.ts:20` |
 | `NOTE_GLYPH_SCALE` 0.55 | :161 | `ScoreTuplet.ts:32` |
 | `MARK_SPACE_EM` 0.15 | :162 | `ScoreTuplet.ts:38` |
 | `BRACKET_END_GAP` 6 px | :163 | `ScoreRenderer.ts:3220` |

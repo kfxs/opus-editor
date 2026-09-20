@@ -2,7 +2,7 @@
  * ⭐⭐ **PUTTING ONE MUSIC GLYPH DOWN, in a face that is already resolved** —
  * `docs/plans/note-engraving-plan.md`, the shared half of P3b and P3d.
  *
- * ## ⚠️ Why this is not `rendering/glyphPainter`, and the distinction is the whole reason both exist
+ * ## ⚠️ Why this is not `rendering/painter/glyphPainter`, and the distinction is the whole reason both exist
  *
  * `glyphPainter` is *"the one place VexFlow still paints a glyph"*, and it earns that name by owning
  * **font RESOLUTION**: `new Element(tag)` runs `Metrics.getFontInfo(tag)`, and its own header warns

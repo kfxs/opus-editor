@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect } from 'vitest'
 import type { DrawContext } from './DrawContext'
-import { SvgPainter } from '@/engine/rendering/SvgPainter'
+import { SvgPainter } from '@/engine/rendering/painter/SvgPainter'
 
 /**
  * ⭐⭐ **THE PAGE'S PAINTER SATISFIES OUR `DrawContext`.**

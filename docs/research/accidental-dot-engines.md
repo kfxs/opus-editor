@@ -29,13 +29,13 @@ Verovio's unit claim was checked, not assumed: `Doc::GetDrawingStaffSize` = `uni
 
 **Why VexFlow is the fourth witness:** it is the engine this editor ran (⚠️ 2026-09-19: VexFlow is REMOVED — its
 placement rules below were transcribed EXACTLY into ours in S9c–f: `engrave/notes/accidentalStack`, `dotStack`,
-`modifierStart`, run by `rendering/modifierColumns` — so its numbers are still what this editor does). As of 2026-09-14 the
+`modifierStart`, run by `rendering/format/modifierColumns` — so its numbers are still what this editor does). As of 2026-09-14 the
 accidental's and the dot's **ink** are ours (`src/engine/engrave/notes/accidental.ts`,
 `src/engine/engrave/notes/augmentationDot.ts`) while their **placement** is still VexFlow's
 (`Accidental.format`, `Dot.format`, `StaveNote.getModifierStartXY`) — with three of our own modules
-already overriding pieces of it: `src/engine/rendering/dotPlacement.ts` (the notehead→dot gap),
-`src/engine/rendering/ledgerAccidentalClearance.ts` (the accidental beside a ledger line) and
-`src/engine/rendering/chordAccidentalColumns.ts` (the chord ORDER).
+already overriding pieces of it: `src/engine/rendering/format/dotPlacement.ts` (the notehead→dot gap),
+`src/engine/rendering/format/ledgerAccidentalClearance.ts` (the accidental beside a ledger line) and
+`src/engine/rendering/format/chordAccidentalColumns.ts` (the chord ORDER).
 
 Glyph widths used for the white-gap arithmetic, from `verovio/fonts/Bravura/bravura_metadata.json`:
 `augmentationDot` **0.4 sp** wide (±0.2 tall), `noteheadBlack` 1.18 sp, `accidentalFlat` 0.904,
@@ -434,7 +434,7 @@ cases at `accidental.js:110-143`. Groups of **7 or more** fall out of the table 
 repeating pattern whose length grows until no collision remains (`:145-166`).
 
 Note that this editor already **replaces the ORDER** with its own `chordAccidentalColumns`
-(`src/engine/rendering/chordAccidentalColumns.ts`), keeping VexFlow's packing machinery (⚠️ ported since S9d: `engrave/notes/accidentalStack`).
+(`src/engine/rendering/format/chordAccidentalColumns.ts`), keeping VexFlow's packing machinery (⚠️ ported since S9d: `engrave/notes/accidentalStack`).
 
 **A4 — `Accidental.accidentalSpacing = 3` px = 0.30 sp** (`metrics.js:76`), added after each
 accidental within a line (`accidental.js:87`, `:197`); column x-offsets accumulate the widest line
@@ -446,7 +446,7 @@ is added to `state.leftShift` afterwards (`:201`) for whatever stands further le
 `StaveNote.LEDGER_LINE_OFFSET = 3` px = **0.3 sp overhang per side** (`stavenote.js:34-36`; grace
 notes 2 px, `gracenote.js:9-11`). Because that 3 px equals the 3 px accidental standoff above, a
 ledger line's tip lands *exactly* on the accidental's right arm — which is why this editor added
-`src/engine/rendering/ledgerAccidentalClearance.ts` (shifts the sign out to a 2 px = 0.2 sp ink gap
+`src/engine/rendering/format/ledgerAccidentalClearance.ts` (shifts the sign out to a 2 px = 0.2 sp ink gap
 **and** trims the ledger's overhang beside it from 3 px to 2 px).
 
 **B1 — 2 px = 0.20 sp.** `StaveNote.getModifierStartXY`'s RIGHT branch (`stavenote.js:528-534`)
@@ -463,7 +463,7 @@ is a second away (`lastLine - line === 0.5`), or the target space is already `pr
 
 **B3 — `dotSpacing = 1` px = 0.10 sp** (`dot.js:31`, stepped at `:91`) — the tightest dot-to-dot
 figure of the four by a factor of 2.5. This editor widens it: `reserveDotRoom` in
-`src/engine/rendering/dotPlacement.ts` inflates each dot's width so the step lands at half a space.
+`src/engine/rendering/format/dotPlacement.ts` inflates each dot's width so the step lands at half a space.
 
 **B4 — rests: same x, and a per-glyph y.** `dot.js:85-87` *accumulates* (`+=`) into `dotShiftY` for
 a rest instead of assigning, and `halfShiftY` is only recomputed for non-rests — so a rest dot takes

@@ -14,7 +14,7 @@
  *
  * ## ⛔ What is NOT here
  *
- * - **The gap from the notehead** — `rendering/dotPlacement` moves every dot by the armed standoff
+ * - **The gap from the notehead** — `rendering/format/dotPlacement` moves every dot by the armed standoff
  *   after this runs (the `__dots` knob; `layout/dotGap`).
  * - **The ink** — `./augmentationDot`.
  * - **Which rule the books prefer for a chord's dots** — `docs/research/accidental-dot-research.md` B2 (Gould,

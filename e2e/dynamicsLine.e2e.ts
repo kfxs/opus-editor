@@ -61,7 +61,7 @@ test('⭐ a high passage puts its mark OUTSIDE the staff — the defect the line
   // nothing hanging below an ordinary stem, the line sits at the floor (2.1 spaces, one stem's
   // worth) and the baseline a glyph's ink-above (2.72) under that — `engine/layout/dynamicsLine.ts`.
   // 🚨 It was 4.14 until 2026-08-21: the ink table read the glyph size as PIXELS where VexFlow draws
-  // it in POINTS, so every mark's ink was modelled a quarter too small (`rendering/drawnFontSize`).
+  // it in POINTS, so every mark's ink was modelled a quarter too small (`rendering/painter/drawnFontSize`).
   // ⚠️ Within a pixel, not to the pixel: the drawn stave line sits half a pixel off the model's own
   // (`reference_thin_lines_need_half_pixel_offset`), so `staff.bottom` is that much lower than the
   // `getYForLine(4)` the line is measured from.
@@ -126,7 +126,7 @@ test('a second render moves nothing — the pass is idempotent on a reused bar',
   // renders of nothing would also satisfy. C4 hangs a ledger line below the staff, so here the ink
   // decides rather than the minimum: notehead bottom 5.6 + padding 0.6 + the glyph's 2.72, which is
   // 4.87 spaces under the bottom line (2.04 and 4.24 before the pt→px correction of 2026-08-21,
-  // `rendering/drawnFontSize`).
+  // `rendering/painter/drawnFontSize`).
   expect(Math.abs(first - staff.bottom - 4.87 * staff.spacing)).toBeLessThan(1)
   // The trap this pins: translating a mark that already carries last render's transform. Prepend
   // instead of recomposing and the mark walks down the page, one line's worth per render.

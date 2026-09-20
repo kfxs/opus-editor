@@ -2,7 +2,7 @@
  * ⭐⭐ **WHAT A TIME SIGNATURE DRAWS, AS OURS — its glyph rows, where each row stands, and how wide it is.**
  * S4b0 of `docs/history/vexflow-removal-map.md`.
  *
- * `rendering/EngravedTimeSignature` used to draw the rows VexFlow's `TimeSignature` had composed in
+ * `rendering/engraved/EngravedTimeSignature` used to draw the rows VexFlow's `TimeSignature` had composed in
  * `makeTimeSignatureGlyph`: the numeral string of each row, the offsets that centre the rows on each
  * other, the half-line shift for a tall glyph, and the lines the rows name. All of that is decided
  * here now, from the MODEL's `TimeSignature`, with today's values — ⛔ no pixel moves.
@@ -11,7 +11,7 @@
  *
  * A row's width is a MEASUREMENT of its glyphs set in the music font, and ⛔ `engrave/` measures
  * nothing at run time. So it arrives as a named argument, {@link meterLayout}'s `widthOf` — the P3b
- * flag-reach playbook. The renderer measures it through `rendering/glyphPainter`, the same canvas
+ * flag-reach playbook. The renderer measures it through `rendering/painter/glyphPainter`, the same canvas
  * `measureText` VexFlow used, so the answer is the one it has always been (and 0 in jsdom, as before).
  *
  * ## ⚠️ Rows of TODAY, and one of them is a known UNKNOWN

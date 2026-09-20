@@ -60,7 +60,7 @@ But look at what one feature costs. `A fanned beam is one note, drawn as many` �
 
 ```
 NEW MODULES — the rule working:     utils/fannedBeam.ts   +184
-                                    rendering/FannedBeam.ts +173
+                                    rendering/beams/FannedBeam.ts +173
 
 THE SPINE — the tax:                ScoreRenderer  +141    ScoreModel   +54
                                     PaletteController +46    types/music  +44

@@ -313,7 +313,7 @@ accidental can **never** share horizontal space.
 
 Rest placement is a key line (`stavenote.js:508-517`, `getLineForRest`), optionally moved by
 `Formatter.AlignRestsToNotes`, which is vertical only (`formatter.js:137-170`). ⚠️ The editor no longer
-takes x from VexFlow's formatter (`src/engine/rendering/spacingPass.ts:6-9`), so this row describes the
+takes x from VexFlow's formatter (`src/engine/rendering/format/spacingPass.ts:6-9`), so this row describes the
 library, not the app.
 
 ### 3.5 Rest glyph extents, cross-checked (question 3)

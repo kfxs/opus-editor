@@ -3,7 +3,7 @@
  *
  * A rest is the one drawn thing whose vertical position is not a pitch: it goes at a fixed place on
  * the staff that depends only on its duration. Two parts of the app need that place and they used to
- * decide it separately — `rendering/NoteBuilder.ts` by picking a VexFlow key, `layout/spacingPadding`
+ * decide it separately — `rendering/engraved/NoteBuilder.ts` by picking a VexFlow key, `layout/spacingPadding`
  * by naming a band — which is exactly how they came to disagree (below). ⛔ **So neither of them
  * decides it any more.** They both read this.
  *

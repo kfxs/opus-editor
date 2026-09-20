@@ -12,7 +12,7 @@
  * > one is the one that steps aside.
  *
  * The rule answers with {@link VoiceStep}s, in the order VexFlow made them, and the room the column
- * grows to its right. `rendering/modifierColumns` applies the steps through the notes' own setters.
+ * grows to its right. `rendering/format/modifierColumns` applies the steps through the notes' own setters.
  *
  * ## ⚠️ Most of what it decides is UNDONE — and it is ported anyway
  *

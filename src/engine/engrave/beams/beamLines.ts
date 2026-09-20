@@ -75,7 +75,7 @@ export function beamLevelY(firstLevelY: number, level: number, thickness: number
  * the thickness applied downward.
  *
  * ⛔ **Opens no group.** Three of its four callers have no beam object to name one after, and the
- * fourth (`rendering/EngravedBeam`) opens its own `beam` group around the whole run — the
+ * fourth (`rendering/engraved/EngravedBeam`) opens its own `beam` group around the whole run — the
  * group belongs to the OBJECT's identity, as it does for a stem.
  */
 export function fillBeamQuad(

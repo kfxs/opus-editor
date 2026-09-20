@@ -324,14 +324,14 @@ export const STAFF_SPACE_PX = 10
 ```
 
 ⇒ **we draw 0.100 staff spaces**, as a *pixel constant*, and there are two consumers:
-`EngravedStave` (the five lines themselves, `rendering/EngravedStave.ts:102`) and
+`EngravedStave` (the five lines themselves, `rendering/engraved/EngravedStave.ts:102`) and
 `KeySignaturePass.drawOpenStaffTail` (the bare staff after a cautionary signature,
-`rendering/KeySignaturePass.ts:300`). ⭐ Since P5a both go through
+`rendering/staff/KeySignaturePass.ts:300`). ⭐ Since P5a both go through
 `staffLines.staffLineStrokeY(y, thickness)`, which derives the stroke offset from the thickness — so
 the number can move without the two owners coming apart.
 
 ✅ **It DOES scale with staff size, by construction.** A small staff is painted inside an SVG
-`<g transform="scale(k)">` (`rendering/staffScaleGroup.ts`, `ScoreRenderer.ts:359, 4627`), and the
+`<g transform="scale(k)">` (`rendering/staff/staffScaleGroup.ts`, `ScoreRenderer.ts:359, 4627`), and the
 constant lives in that group's own coordinates where a space is always 10 units. So a 0.7-size staff
 renders its lines at 0.7 px, and the ratio stays **0.10 sp at every staff size** — which is the
 behaviour §3.2 measured on Gould's rastral table. ⚠️ The *value* is a pixel literal against
@@ -349,7 +349,7 @@ behaviour §3.2 measured on Gould's rastral table. ⚠️ The *value* is a pixel
 | **LEDGER line** | `rendering/layoutConfig.ts:265–267` | `1 px × (legerLineThickness / staffLineThickness)` = `1 × 1.23` | **0.123 sp** |
 | **BRACKET rod projection** | `layout/systemStartColumn.ts:146–147` | `staffLineThickness + BRACKET_DEPTH/2` | includes 0.13 |
 | **BRACKET serif inset** | `layout/systemStartColumn.ts:153` | `staffLineThickness / 2` | 0.065 sp |
-| **SUB-BRACKET arm** | `layout/systemStartColumn.ts:248`, `rendering/systemStart.ts:287` | `staffLineThickness` (arm thickness), `/2` (reach) | **0.13 sp** |
+| **SUB-BRACKET arm** | `layout/systemStartColumn.ts:248`, `rendering/staff/systemStart.ts:287` | `staffLineThickness` (arm thickness), `/2` (reach) | **0.13 sp** |
 
 🚨 **So the repo has already adopted 0.13 as "the thickness of a staff line" everywhere the phrase is
 used to define something else — and the staff line is the one member of the family that does not use
@@ -389,7 +389,7 @@ these constants do not:
 5. The **sub-bracket** arms and the **bracket** serif inset / rod projection (0.13-derived).
 6. The **thin-line family** — thin barline, octave line, tuplet bracket, pedal line, lyric extender —
    all `THIN_LINE_SPACES = engravingDefault('thinBarlineThickness')` = **0.16 sp**
-   (`rendering/thinLineWeight.ts:60`, `rendering/barlineInk.ts:29`). Their ratio to the staff line
+   (`rendering/thinLineWeight.ts:60`, `rendering/staff/barlineInk.ts:29`). Their ratio to the staff line
    goes 1.60 → 1.23.
 7. **Stems** — VexFlow's, not ours (⚠️ 2026-09-19: ours now — `EngravedNote` draws the stem and its
    width is the inherited row `STEM_THICKNESS_PX`, same 1.5 px); a stem is 1.5 px by VexFlow default = 0.15 sp, which is already
@@ -397,7 +397,7 @@ these constants do not:
    line to 0.13 narrows that inversion; it does not fix it. ⛔ Not researched here — that belongs to
    the stem, `docs/research/stem-length-research.md` §5.
 8. **Pixel hinting.** At 1 px a staff line lands on the device grid and stays crisp; at 1.3 px it does
-   not (`rendering/barlineInk.ts`'s hinting pass exists for exactly this, and
+   not (`rendering/staff/barlineInk.ts`'s hinting pass exists for exactly this, and
    `staffLines.ts`'s header spells out that VexFlow's `lineWidth % 2 ? 0.5 : 0` correction is only
    valid for **odd integers**). ⚠️ The screen and the printed page want different answers here.
 

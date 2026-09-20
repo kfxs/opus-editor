@@ -1598,7 +1598,7 @@ nearest staff line (`harness.paths()` + `harness.staves()` give both).
 > with `cp1: 8 / cp2: 12` — a 4 px belly against our 2.7 — and, under a length cutoff,
 > `cp1Short: 2`, an apex of **0.1 sp where ours is 0.4**. The same tie changed shape when it crossed
 > a break, and again the moment you committed it.
-> ✅ **`rendering/systemEdges.ts`** — `lineLeftEdgeX`/`lineRightEdgeX` extracted from `SlurRenderer`,
+> ✅ **`rendering/staff/systemEdges.ts`** — `lineLeftEdgeX`/`lineRightEdgeX` extracted from `SlurRenderer`,
 > since `TieRenderer` must not import it and a shared answer belongs to neither.
 > ✅ **The hit-target** (§12 Phase 7's item, folded in): a tie is hit-tested against its sampled arc
 > like the slur, where it was a padded rectangle — the last span element selectable by empty air.
@@ -1625,7 +1625,7 @@ this phase. ✅ The armed tool's ghost is already on `drawCurveArc` and needs no
 ⚠️ **Why this is no longer "small": `StaveTie` computes its own x.** It runs itself to the system
 edge; we would have to say where that edge is, and the two helpers that know
 (`lineLeftEdgeX`/`lineRightEdgeX`) are exports of **`SlurRenderer`**. ⛔ `TieRenderer` must not import
-`SlurRenderer` — extract them to `rendering/systemEdges.ts` first (one move, both callers), which is
+`SlurRenderer` — extract them to `rendering/staff/systemEdges.ts` first (one move, both callers), which is
 the ⭐ rule's answer here as well.
 
 ⭐ **Fold Phase 7's "the tie's hit-target is a padded rectangle" into this phase.** `drawCurveArc`
@@ -1771,7 +1771,7 @@ the stroke of the slur)"* — and it settled at **0.16 sp**. Thinning the slur's
 >
 > ### ✅ 2026-08-16 (later the same day) — #1 IS BUILT, AND IT PULLED A SECOND FAULT OUT WITH IT
 >
-> **A. The continuation now starts at the header's INK** (`rendering/systemEdges.ts`'s
+> **A. The continuation now starts at the header's INK** (`rendering/staff/systemEdges.ts`'s
 > `lineLeftCurveX`, `CURVE.curveFromHeader`). ⭐ **And it needed no glyph measuring at all**: the
 > header's ink edge is `noteStartX − HEADER_TO_NOTE × STAFF_SPACE_PX`, because `applyLeadIn` builds
 > `noteStartX` as `staveX + (HEADER_TO_NOTE + headerExtent) × STAFF_SPACE_PX` and a line-opening bar
@@ -2281,7 +2281,7 @@ carrying a dynamic would register a box reaching all the way down to the dynamic
 the choke point for glyph REGISTRATION only. Code that asks a `StaveNote` for its box directly was
 never covered.
 
-**Fix:** `rendering/noteInkBox.ts` — the note's own ink, with the lane's modifiers lifted out of
+**Fix:** `rendering/engraved/noteInkBox.ts` — the note's own ink, with the lane's modifiers lifted out of
 VexFlow's live array, its own `getBoundingBox()` asked, and the array restored from a snapshot in a
 `finally`. ⛔ Not re-derived from noteheads + stem + flag: a union cannot be un-merged, and a rebuilt
 copy would have to be kept in step with VexFlow for ever. Both readers in `SlurRenderer` go through

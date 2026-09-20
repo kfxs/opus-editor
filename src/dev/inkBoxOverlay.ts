@@ -40,7 +40,7 @@
 import type { MusicEngine } from '@/engine/MusicEngine'
 import type { SceneGroup, SceneNode } from '@/engine/scene/Scene'
 import { walkScene } from '@/engine/scene/Scene'
-import { drawnInkBoxDetail } from '@/engine/rendering/sceneInk'
+import { drawnInkBoxDetail } from '@/engine/rendering/painter/sceneInk'
 
 const NS = 'http://www.w3.org/2000/svg'
 const OVERLAY_ID = 'ink-box-overlay'
@@ -107,7 +107,7 @@ export function createInkBoxOverlay(getEngine: () => MusicEngine | null): InkBox
  * ⭐⭐ **A group's box is its OWN ink — a nested group is drawn on its own line, ⛔ not folded into
  * its parent's.** His report, 2026-09-14: *"the `__bbox.ink()` of the notehead becomes bigger with
  * articulation, is this correct?"* — it was a truthful UNION and a useless ruler, and it is the same
- * complaint that made `rendering/noteInkBox` exist on VexFlow's side (*"`StaveNote.getBoundingBox()`
+ * complaint that made `rendering/engraved/noteInkBox` exist on VexFlow's side (*"`StaveNote.getBoundingBox()`
  * unions every attached modifier"*). ⭐ `sceneInkBox` was built to answer it: **the CALLER chooses
  * which children count**. This is that choice, made for the picture — every mark now has a box, and
  * the head's box is the head.

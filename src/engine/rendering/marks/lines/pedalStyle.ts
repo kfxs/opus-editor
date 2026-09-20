@@ -16,7 +16,7 @@
  * `style` field precisely so this file can be rewritten without touching a score.
  */
 import type { Clearance, MarkInk } from '@/engine/layout/inkBand'
-import { inkSpaces } from '../../drawnFontSize'
+import { inkSpaces } from '../../painter/drawnFontSize'
 import { DYNAMIC_TEXT_FONT } from '../dynamics/dynamicStyle'
 
 /** `keyboardPedalPed` — the `Ped.` sign, where the foot goes DOWN. */

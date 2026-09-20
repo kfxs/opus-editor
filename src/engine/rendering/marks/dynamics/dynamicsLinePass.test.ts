@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi } from 'vitest'
-import type { EngravedStave } from '../../EngravedStave'
+import type { EngravedStave } from '../../engraved/EngravedStave'
 import type { Dynamic, Measure } from '@/types/music'
 import { fracCreate as frac } from '@/utils/fraction'
 import { plainColumn, type Column } from '@/engine/layout/spacing'

@@ -90,7 +90,7 @@ const state: { rule: BarlineMeterRuleName; generation: number } = {
 
 /**
  * ⭐ **The armed clear white, in staff spaces, INK TO INK** — the one number both the reservation
- * (`layout/headerInk.barlineToMeterGap`) and the drawing (`rendering/headerPlacementPass`) read.
+ * (`layout/headerInk.barlineToMeterGap`) and the drawing (`rendering/staff/headerPlacementPass`) read.
  */
 export function armedBarlineMeterInk(): number {
   return BARLINE_METER_RULES[state.rule].ink

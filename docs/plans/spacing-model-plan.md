@@ -666,7 +666,7 @@ still wrong and is owed a one-line fix** — a repo fact that rotted, cf.
 - `TickContext.setX` resets `xBase` and zeroes `xOffset`. Anything that sets an *offset* must
   therefore run after the pass, never before it.
 
-- `engine/rendering/spacingPass.ts` — the adapter: collect extents from the built notes, call
+- `engine/rendering/format/spacingPass.ts` — the adapter: collect extents from the built notes, call
   `spaceColumns`, write the x's. The **one** caller of the pure rule from the renderer. (⭐ The
   adapter is the renderer's; the *rule* stays in `engine/layout/` — §1.4.)
 - ⚠️ Ordering inside `drawMeasureContent`: the pass replaces `shareFanRoom` (pre-format) and absorbs
@@ -681,7 +681,7 @@ still wrong and is owed a one-line fix** — a repo fact that rotted, cf.
 - A **temporary** `dev/` toggle to A/B the old and new spacing, so he can compare by eye on real
   scores. Removal condition stated in the code: it goes when P5 lands.
 
-**As built** — `engine/rendering/spacingPass.ts`, ~40 lines, called between `format()` and
+**As built** — `engine/rendering/format/spacingPass.ts`, ~40 lines, called between `format()` and
 `centerMeasureRests`. **Measured on the page, and the rule is now what is drawn:**
 
 | | before the model | after P2/P3 | after P4 | the rule |

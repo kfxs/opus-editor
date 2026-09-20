@@ -22,7 +22,7 @@
  * ⚠️ The head width is still MEASURED at run time (`getGlyphWidth`, a `measureText`) — S6d moves it to
  * the font's own box, and that is the step that may move a sub-pixel. ⛔ Not this one.
  *
- * ⛔ No note, no stave, no VexFlow: the caller reads the note (`rendering/EngravedNote`).
+ * ⛔ No note, no stave, no VexFlow: the caller reads the note (`rendering/engraved/EngravedNote`).
  */
 import { STEM_THICKNESS_PX } from '@/engine/engrave/inheritedDefaults'
 

@@ -50,7 +50,7 @@ on his say-so, one at a time, with his eye on each — the way decisions A, D an
 | **4** | **WHICH LINE each clef names** — the anchor table | `clef-research.md` §2; the books state it | Still VexFlow's `Clef.types` — transcribed as our row `CLEF_LINES` (`engrave/header/clefSign`) since the removal, same lines, ⛔ unchosen. ⛔ Parked as a named parameter in `engrave/header/clef`, deliberately |
 | **5** | **The cramped floor around a clef** — Gould's ½ stave-space | `clef-research.md` §5.2; stated three times by one author | The same question as `header-spacing-research.md` §8 **G**, which is the one row of the header run still open. ⛔ Answer it once, not twice |
 | 🚨 **7** | **A MID-BAR clef COLLIDES with the note it precedes — no room is reserved for it.** HIS report, 2026-09-13, with a score: bar 3 = quarter rest, chord A3 at beat 1, half rest at beat 2, alto clef change at beat 1 ⇒ *"the glyph sometime is over the note"*. ⭐ **The RULE is not missing** — `clef-spacing-research.md` §4.3 has it MEASURED off Gould p. 8: **0.75 sp before the clef, 0.80 sp after** (her *recommended* version; her *"rather than"* version draws 1.25 / 0.55), with Ross p. 167 and Gerou & Lusk pp. 51–52 on WHERE it goes and ⛔ Stone p. 46 refusing to give one (*"there are no specific rules for clef changes within a measure"*) | ⚠️ Diagnosed by reading (§2.3) — ✅ **MEASURED in Chromium 2026-09-19** (§2.3a): a change at beat 1 stands **0.36 sp** of white from the note it precedes (Gould 0.80) and **3.69 sp** after the note before it; the same clef at beat 0 (a bar's opening sign) stands **2.84 sp** from its note — ⚠️ the beat-0 side is ROW 1's (header spacing for a clef that belongs before the barline), see §2.3a; beat 1 is this row's (tight, under half of Gould) | ⏭️ Not built. It is a SPACING fix, ⛔ not a drawing one, and it widens the bar |
-| ⏸️ **8** | **A clef change AFTER a bar's last onset is placed by VexFlow's SOFTMAX — the only x the softmax still decides.** It is appended past the last note (the bar's END tick); our spacing (`layout/spacing` via `rendering/spacingPass`) has no column there, and the room the bar reserves for an inline clef (`headerInk.inlineClefExtent`) is not placed between the last note and the barline. Measured in Chromium 2026-09-18: in a bar of quarters it lands between the last note and the barline (254 of 237…282); in a bar of eighths it **crowds the last eighth** (512 against a head at 509). ⛔ No column-derived x fits: the barline column puts it ON the barline, 3.6 sp before it puts it before the last eighth | ⭐ HIS call, 2026-09-18 (S9h-b of `vexflow-removal-map.md`): *keep the picture exactly, review it later* — so VexFlow's softmax was PORTED (`layout/softmaxSpacing`) just for this. ⚠️ Likely the same question as row 1 (Gould p. 8, *"the clef always goes before the barline"*): a change written after the last onset belongs before the NEXT bar's barline, with its room reserved there | ⏭️ A clef RULE, out of the migration. ⭐ **When it is decided, `layout/softmaxSpacing` is DELETED** — nothing else reads its x's (`vexflow-removal-map.md` §9.4 #5) |
+| ⏸️ **8** | **A clef change AFTER a bar's last onset is placed by VexFlow's SOFTMAX — the only x the softmax still decides.** It is appended past the last note (the bar's END tick); our spacing (`layout/spacing` via `rendering/format/spacingPass`) has no column there, and the room the bar reserves for an inline clef (`headerInk.inlineClefExtent`) is not placed between the last note and the barline. Measured in Chromium 2026-09-18: in a bar of quarters it lands between the last note and the barline (254 of 237…282); in a bar of eighths it **crowds the last eighth** (512 against a head at 509). ⛔ No column-derived x fits: the barline column puts it ON the barline, 3.6 sp before it puts it before the last eighth | ⭐ HIS call, 2026-09-18 (S9h-b of `vexflow-removal-map.md`): *keep the picture exactly, review it later* — so VexFlow's softmax was PORTED (`layout/softmaxSpacing`) just for this. ⚠️ Likely the same question as row 1 (Gould p. 8, *"the clef always goes before the barline"*): a change written after the last onset belongs before the NEXT bar's barline, with its room reserved there | ⏭️ A clef RULE, out of the migration. ⭐ **When it is decided, `layout/softmaxSpacing` is DELETED** — nothing else reads its x's (`vexflow-removal-map.md` §9.4 #5) |
 | **6** | **Octave clefs** — the `8`/`15` numeral, and the model behind it | `clef-research.md` §8 | ⏳ unbuilt entirely (`docs/plans/octave-clefs-plan.md`). ⭐ And the research found the model needs widening before it is built — see §0.3 |
 
 ### ✅ 0.1a **HIS DECISION on row 1, 2026-09-13 — and it is TWO statements, not one**
@@ -283,7 +283,7 @@ they are derivations.
   `reference: a hit box written from a constant drifts off its glyph`.
 - **The hand offset** is client #14 of the overrides compartment: `ClefOffsetOverride { x }` in staff
   spaces, keyed by the **`ClefChange` id** so an upsert keeps it and a MOVE drops it.
-  `docs/clef-offset*`, `rendering/clefOffsetPass.ts`. ⭐⭐ *"Is this a header clef?"* is answered by
+  `docs/clef-offset*`, `rendering/staff/clefOffsetPass.ts`. ⭐⭐ *"Is this a header clef?"* is answered by
   **the INK** — `MusicEngine.clefIsOffsettable` asks the registry for a drawn, non-`immovable` box —
   ⛔ never by the model, because whether a clef is engraved in a system's header is a casting-off
   fact.
@@ -337,7 +337,7 @@ row, because the PICTURE depends on it.
 ⚠️ **This section is a DIAGNOSIS from reading the code, ⛔ not a measurement.** It is written down so
 the next person starts from a hypothesis with an address rather than from a screenshot. ⭐ The
 instrument to confirm it is the browser suite (`e2e/`, `h.inkSizes` on `g.clef text` against the
-notehead). ⭐ Since S12j-e (2026-09-19) the mid-bar clef is ours (`rendering/EngravedClefChange`, which
+notehead). ⭐ Since S12j-e (2026-09-19) the mid-bar clef is ours (`rendering/engraved/EngravedClefChange`, which
 replaced VexFlow's `ClefNote`) and stamps through the pass's surface, so its POSITION is in the scene; its
 ink EXTENT still needs a font (the browser).
 
@@ -357,7 +357,7 @@ ink EXTENT still needs a font (the browser).
    *where a note sits* (stem direction, ledger lines). ⇒ a column whose tick also carries a clef is
    priced as if it did not, so the solve grants it no extra width;
 4. our own `spacingPass` then places that column at the model's x. ⛔ **Whatever room VexFlow's
-   formatter (ours now, `rendering/columnFormat`) would have made for the extra tickable is not what decides the picture** — we overwrite
+   formatter (ours now, `rendering/format/columnFormat`) would have made for the extra tickable is not what decides the picture** — we overwrite
    it — so the clef lands on top of the notehead.
 
 ⇒ ⭐ **If the diagnosis holds, the fix belongs in the COLUMN INK, not in the renderer**: the clef's
@@ -455,7 +455,7 @@ Width is charged **once** per measure even when several staves warn (`MeasureLay
 > (`engrave/inheritedFonts`) — ⛔ same values, unchosen. The `g.clef` group id stands (`engrave/header/clef`).
 
 - ⭐ **The INK is becoming ours** — `src/engine/engrave/header/clef.ts` (+ its adapter
-  `rendering/EngravedClef.ts`): `clefPlacement()` states the one vertical rule and `drawClef()`
+  `rendering/engraved/EngravedClef.ts`): `clefPlacement()` states the one vertical rule and `drawClef()`
   stamps the glyph into the SCENE. ⛔ No DOM, ⛔ no vexflow.
 - ⛔ **The PLACEMENT is still `Stave.format()`**, plus two nudge passes that run **before** the stave
   draws: `clefIndentPass.applyClefIndent` (the engraved indentation, line-opening bars only) and

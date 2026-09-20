@@ -47,7 +47,7 @@ export const STEM_LENGTH_PX = (35 * STAFF_SPACE_PX) / 10
 /**
  * How far a ledger line runs past the notehead on each side — 0.3 staff spaces. Taken from
  * `StaveNote.LEDGER_LINE_OFFSET` = 3 (`stavenote.js:34`). ⚠️ Beside an accidental it is trimmed to
- * `rendering/ledgerAccidentalClearance`'s own `LEDGER_OVERHANG_BESIDE_ACCIDENTAL`, which is decided.
+ * `rendering/format/ledgerAccidentalClearance`'s own `LEDGER_OVERHANG_BESIDE_ACCIDENTAL`, which is decided.
  */
 export const LEDGER_OVERHANG_PX = (3 * STAFF_SPACE_PX) / 10
 

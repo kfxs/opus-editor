@@ -7,12 +7,12 @@
  * ⚠️ Only the ink's SHAPE survives a ghost's parking — the group is moved by its ink box — so the
  * meter and width are the old throwaway voice's, kept, not chosen.
  */
-import type { EngravedNote } from '../EngravedNote'
-import type { EngravedStave } from '../EngravedStave'
-import { BarVoice } from '../barVoice'
-import { attachModifierColumns } from '../modifierColumns'
-import { formatColumns } from '../columnFormat'
-import { standOn } from '../staveFrame'
+import type { EngravedNote } from '../engraved/EngravedNote'
+import type { EngravedStave } from '../engraved/EngravedStave'
+import { BarVoice } from '../format/barVoice'
+import { attachModifierColumns } from '../format/modifierColumns'
+import { formatColumns } from '../format/columnFormat'
+import { standOn } from '../staff/staveFrame'
 
 /**
  * Format `note`, already on `stave` and carrying its modifiers, as the only note of a soft `meter` bar

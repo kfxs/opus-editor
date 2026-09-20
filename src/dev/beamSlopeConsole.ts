@@ -16,7 +16,7 @@
  * ```
  *
  * ⛔ **SCAFFOLDING, and it deletes cleanly**: the setting lives in the ENGINE
- * (`engine/rendering/beamSlopeExperiment` — `engine/` may not import `dev/`), this is the entry
+ * (`engine/rendering/beams/beamSlopeExperiment` — `engine/` may not import `dev/`), this is the entry
  * point, and `App.ts` wires it. ⏭️ When his eye has chosen, the winner is frozen with his choice as
  * the citation and both files go — the same contract as `dev/slurShapeConsole`.
  *
@@ -27,7 +27,7 @@
 import { dbg } from '@/utils/debug'
 import {
   beamSlopeSettings, resetBeamSlope, setBeamSlopeRule,
-} from '@/engine/rendering/beamSlopeExperiment'
+} from '@/engine/rendering/beams/beamSlopeExperiment'
 import { BEAM_SLOPE_RULES, type BeamSlopeRuleName } from '@/engine/engrave/beams/beamSlope'
 
 /**

@@ -20,24 +20,24 @@
  * `./glyphPainter` — the same text/glyph primitive `StaveTempo.draw()` uses internally — so we lose
  * no engraving quality, only its opinions.
  */
-import type { EngravedNote } from '../../EngravedNote'
-import type { EngravedStave } from '../../EngravedStave'
+import type { EngravedNote } from '../../engraved/EngravedNote'
+import type { EngravedStave } from '../../engraved/EngravedStave'
 import type { DrawContext } from '@/engine/paint/DrawContext'
-import { drawGlyph, drawTextRun } from '../../glyphPainter'
+import { drawGlyph, drawTextRun } from '../../painter/glyphPainter'
 import type { ChordRest, Fraction, Measure, NoteDuration, TempoMark } from '@/types/music'
 import { fracCompare, fracToNumber } from '@/utils/fraction'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
-import type { SpacedColumns } from '../../spacingPass'
+import type { SpacedColumns } from '../../format/spacingPass'
 import { UNIT_GLYPH, MET_NOTE_GLYPH, MET_AUGMENTATION_DOT } from '@/utils/tempoText'
 import { TEMPO_GLYPH_FONT_SIZE, TEMPO_INK_ABOVE, TEMPO_INK_BELOW, TEMPO_TEXT_FONT } from './tempoStyle'
 import type { RenderPass } from '../../RenderPass'
 import { setTempoMarkOffset } from './tempoMarkTransform'
 import { tempoOffsetOverrideOf } from '../../../models/engravingOverrides'
-import { staffSpacesToPixels } from '../../staffSpace'
-import { barFrame, staveFrame } from '../../staveFrame'
+import { staffSpacesToPixels } from '../../staff/staffSpace'
+import { barFrame, staveFrame } from '../../staff/staveFrame'
 import { staffLineY, textRowAboveY } from '@/engine/engrave/staff/staffFrame'
-import { noteRuler } from '../../noteRuler'
-import { signRun } from '../../signRun'
+import { noteRuler } from '../../engraved/noteRuler'
+import { signRun } from '../../staff/signRun'
 
 /**
  * The SMuFL glyph each note character is engraved as (`♩` → `metNoteQuarterUp`) — the same

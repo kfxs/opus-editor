@@ -60,7 +60,7 @@ export type FractionalBeamSide = 'left' | 'right'
 
 /**
  * Where one note sits in its bar, as a fractional-beam rule needs it. ⛔ Plain values — no
- * `StaveNote`, no pixels: `rendering/EngravedBeam`'s caller is what knows how to measure these.
+ * `StaveNote`, no pixels: `rendering/engraved/EngravedBeam`'s caller is what knows how to measure these.
  */
 export interface FractionalBeamPlace {
   /** Where the note begins, in **quarter-note units from the bar's start**. */

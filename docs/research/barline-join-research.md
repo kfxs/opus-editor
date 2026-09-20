@@ -1022,7 +1022,7 @@ the authorities say.
 | `StaffGroup { id, staffIds, symbol?: 'brace' \| 'bracket' }` | `src/types/music.ts:2258` | grouping exists; **no barline-join field**, and `symbol` rendering is deferred (`docs/plans/multi-staff-plan.md` §11) |
 | `Score.staffGroups?: StaffGroup[]` | `src/types/music.ts:2307` | a list, length 1 today; written in exactly one place (`ScoreModel.ts:284–293`) |
 | the **systemic barline** | `ScoreRenderer.drawSystemConnector` (`:4369`), called at `:4040` | drawn by hand, top staff line 0 → bottom staff's last line, at **every** system's first measure, `if (staffList.length > 1)` — **unconditional, and it does not consult `StaffGroup` at all** |
-| every **interior** barline | `engine/rendering/BarlineRenderer.ts` | one line **per placement**, i.e. per measure per staff, in a group keyed `barline-{measure}-{staffIndex}-{side}` (`:327`). There is no between-staff segment and no span object. |
+| every **interior** barline | `engine/rendering/staff/BarlineRenderer.ts` | one line **per placement**, i.e. per measure per staff, in a group keyed `barline-{measure}-{staffIndex}-{side}` (`:327`). There is no between-staff segment and no span object. |
 | the sign's **extent** | `engine/layout/barlineSign.ts` | ⭐ "ONE OWNER FOR THE SIGN'S EXTENT" — but it is the **horizontal** extent (strokes and dots in staff spaces). The **vertical** extent is not modelled anywhere; each drawn line simply takes its own stave's height. |
 | the **per-staff scope** field | `docs/plans/barline-types-plan.md` §2 | already stored, **absent = the whole system**, *"Nothing in P1 reads it"* |
 
@@ -1200,7 +1200,7 @@ Short, and it is not a plan.
 20. `src/types/music.ts:2018–2029` (`BarlineStatement`, incl. `staffId?`), `:2205–2216`
     (`Measure.barline` / `repeatStart` / `repeatEnd`), `:2256–2264` (`StaffGroup`), `:2307`
     (`Score.staffGroups`); `src/engine/layout/barlineSign.ts` (header);
-    `src/engine/rendering/BarlineRenderer.ts` (header, `:311–330`, `:442–470`);
+    `src/engine/rendering/staff/BarlineRenderer.ts` (header, `:311–330`, `:442–470`);
     `src/engine/rendering/ScoreRenderer.ts:4022–4041, 4360–4389` (`drawSystemConnector`);
     `src/interactions/elements/barline.ts`; `docs/plans/barline-types-plan.md` §0.1, §2, §3.1, §4.5;
     `docs/plans/multi-staff-plan.md` §11.
@@ -2647,7 +2647,7 @@ score expressed as local overrides.
 | `ScoreGroup::barLineSpan` (score-order template, `scoreorder.h:49`) | nothing | |
 | `InstrumentTemplate::barlineSpan` (instruments.xml) | nothing — we have no instrument object at all | |
 | `BarLine::m_spanStaff` per item | nothing | |
-| `BarLine::calcY()` computing `y1..y2` across the gap | `BarlineRenderer` `signStaff` (`src/engine/rendering/BarlineRenderer.ts:312-322`) — `topY = stave.getTopLineTopY()`, `botY = stave.getBottomLineBottomY()`, always **one** stave | |
+| `BarLine::calcY()` computing `y1..y2` across the gap | `BarlineRenderer` `signStaff` (`src/engine/rendering/staff/BarlineRenderer.ts:312-322`) — `topY = stave.getTopLineTopY()`, `botY = stave.getBottomLineBottomY()`, always **one** stave | |
 | `TDraw::draw(BarLine)` — one `drawLine(y1,y2)` | `ctx.fillRect(x + stroke.x*space, topY, stroke.width*space, botY - topY)` (`BarlineRenderer.ts:198`) | ours is a fillRect per stroke per staff |
 | `barlineSign` equivalent (stroke/dot geometry) | `src/engine/layout/barlineSign.ts` — **x-geometry only, deliberately**: *"The vertical position is NOT here: it is read off the STAFF"* (`:163-164`) | MuseScore has no analogue; its stroke offsets are inline in `TDraw` |
 | `drawTips` guarded by `isTop()`/`isBottom()` (`tdraw.cpp:695-712`) | our wings are drawn on **every** staff — `BarlineRenderer.ts:453-460` records this as a deliberate divergence, on his instruction, *"⭐ Both of those follow from a barline that SPANS the staves, and ours does not"* | |

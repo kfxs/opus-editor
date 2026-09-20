@@ -28,7 +28,7 @@ Everything below was measured, not assumed.
 
 ---
 
-## The barline ink — FIXED 2026-07-31 (`src/engine/rendering/barlineInk.ts`)
+## The barline ink — FIXED 2026-07-31 (`src/engine/rendering/staff/barlineInk.ts`)
 
 Reported as *"in Firefox the thickness of the barlines is uneven; in Chrome it is not"*, at rest,
 with no zooming involved. Three defects, each measured, each fixed:
@@ -196,7 +196,7 @@ cost; the raster cost needs `performance` timings around the zoom step.
 
 ## Files
 
-- `src/engine/rendering/barlineInk.ts` — the barline's thickness AND its hinting onto the pixel
+- `src/engine/rendering/staff/barlineInk.ts` — the barline's thickness AND its hinting onto the pixel
   grid; `src/dev/barlineCensus.ts` (`__barlines.dump()`) is the instrument for both.
 - `src/interactions/ViewportHost.ts` — `applyZoom()`, the single writer of the sizer size and the
   layer transform.

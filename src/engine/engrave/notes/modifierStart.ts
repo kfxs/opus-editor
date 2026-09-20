@@ -24,7 +24,7 @@
  * to reach this answer by replacing the note's method per note at render time, the repo's one live
  * monkeypatch (`own-engraving-engine.md` §2.4). They are now an input.
  *
- * ⛔ No note, no stave, no VexFlow: the caller reads the note (`rendering/EngravedNote`).
+ * ⛔ No note, no stave, no VexFlow: the caller reads the note (`rendering/engraved/EngravedNote`).
  */
 import {
   MODIFIER_LEFT_OFFSET_PX, MODIFIER_RIGHT_GAP_PX, REST_MODIFIER_LINE_SHIFT,

@@ -1025,7 +1025,7 @@ join* — ⛔ and it means the lossiness is on **export**, which `docs/plans/jso
 
 `ScoreRenderer.drawSystemConnector` (`:4390`) already draws the vertical line joining a system's
 staves, and its own comment states the rule this feature needs: *"a system bracket belongs to the
-system, not to either staff's ink"*. `engine/rendering/barlineGap.ts` then made that rule a **module**,
+system, not to either staff's ink"*. `engine/rendering/staff/barlineGap.ts` then made that rule a **module**,
 with the sharper reason:
 
 > 🚨🚨 **Ink crossing two staves may NOT be drawn inside `inStaffSpace`** — a 0.7 small staff's

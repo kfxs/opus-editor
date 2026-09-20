@@ -176,7 +176,7 @@ The measured defaults, so the by-eye tuning starts somewhere real:
 ⭐ **0.16 sp is a number we already draw with.** It is Bravura's `thinBarlineThickness`,
 `legerLineThickness`, `octaveLineThickness` and `tupletBracketThickness` too — the whole thin-line
 family is one weight — and it is the same 0.16 our barline ink already uses
-(`rendering/barlineInk.ts`, and the PDF keeps the true 0.16 where the editor hints it to the pixel
+(`rendering/staff/barlineInk.ts`, and the PDF keeps the true 0.16 where the editor hints it to the pixel
 grid). So the hairpin's stroke is not a new constant to invent: it is that one, and it should be
 *named* as the shared thin-line weight rather than re-typed. (LilyPond's 1.0 × staff-line is the same
 idea expressed relatively; Bravura's staff line is 0.13, so its hairpin is ~1.2× a staff line. Either

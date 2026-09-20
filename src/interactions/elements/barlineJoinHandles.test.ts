@@ -100,7 +100,7 @@ describe('the join squares of a selected barline', () => {
   it('🚨 …which for a final bar or a repeat is a whole sign to the LEFT of the boundary', () => {
     // Every stroke of an end sign is left of the line (thin · gap · THICK, the thick's right edge on
     // the boundary), so the ink spans `[-0.98sp, 0]` and its centre is 4.9 px left. ⛔ And the DOTS
-    // are not in it — they never cross the gap (`rendering/barlineGap`), so they cannot move the
+    // are not in it — they never cross the gap (`rendering/staff/barlineGap`), so they cannot move the
     // handle that marks where the join runs.
     const wide = [box(0, 100, 300, 15), box(1, 250, 300, 15)]
     const handles = barlineJoinHandles(registryOf(wide), MEASURE, 'repeatEnd')

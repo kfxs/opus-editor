@@ -185,7 +185,7 @@ test('⭐⭐ the wedge sits on the DYNAMICS LINE — level with the letters besi
   // mostly above the line it is set on). Same two constants the line itself is built from
   // (`dynamicStyle`: 2.72 above, 0.72 below), so the offset is (0.72 − 2.72)/2 = −1.0 spaces.
   // 🚨 −0.75 until 2026-08-21, when the ink table stopped reading a POINT size as pixels
-  // (`rendering/drawnFontSize`) — the two constants grew by the same ×4/3 and so did their midpoint.
+  // (`rendering/painter/drawnFontSize`) — the two constants grew by the same ×4/3 and so did their midpoint.
   expect(axis - mark.y).toBeCloseTo(-1.0 * staff.spacing, 0)
 })
 

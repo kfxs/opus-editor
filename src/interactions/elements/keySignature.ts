@@ -7,7 +7,7 @@
  * (docs/plans/key-signature-plan.md §5).
  *
  * ⭐ **ONE BOX FOR THE WHOLE ROW**, registered by the drawing pass itself
- * (`engine/rendering/KeySignaturePass`): the signature is what you select and delete — there is no
+ * (`engine/rendering/staff/KeySignaturePass`): the signature is what you select and delete — there is no
  * removing the C♯ from D major and keeping the F♯ — so the target is the statement, not its letters.
  *
  * ⚠️ **No `isPainted` filter, unlike the clef and the meter above.** Their boxes are TIER 1 records,

@@ -15,7 +15,7 @@
  *
  * ## ⛔ What is NOT here, and it has an owner already
  *
- * **How far a dot stands from its notehead** is `rendering/dotPlacement` — his report (*"the dot is
+ * **How far a dot stands from its notehead** is `rendering/format/dotPlacement` — his report (*"the dot is
  * too close to the notehead"*), answered with half a staff space edge to edge, bought in two places
  * because VexFlow sets the drawn x and the reserved width apart from each other. That module moves
  * the dot by `setXShift`; ⭐ this one draws whatever x it ended up with, which is why the shift is

@@ -728,7 +728,7 @@ export type SelectedElement =
    * 🚨 His report, 2026-08-29: *"i'm not able to select bracket or brace… i should be able to click
    * on it and select."* ⭐ It carries the GROUP'S ID, not a staff range: the sign IS the group, and
    * Delete removes that group wherever it spans. Its box is registered from the pen in SVG space
-   * (`rendering/systemStart.registerSignBox`), because the brace's non-uniform scale has no
+   * (`rendering/staff/systemStart.registerSignBox`), because the brace's non-uniform scale has no
    * representation in `ElementRegistry.withScale`.
    */
   | { kind: 'staffGroup'; groupId: string; symbol: 'brace' | 'bracket' | 'subBracket' }

@@ -222,9 +222,9 @@ file, and no note reserving it:
 
 | lines | symbol |
 |---|---|
-| 60 | `engine/rendering/NoteBuilder.ts:376` · `createTupletsForMeasure` — superseded by `ScoreTuplet` / `buildScoreTuplets` |
+| 60 | `engine/rendering/engraved/NoteBuilder.ts:376` · `createTupletsForMeasure` — superseded by `ScoreTuplet` / `buildScoreTuplets` |
 | 1 | `menus/expressionMenu.ts:74` · `EXPRESSION_WORDS` — a convenience projection nothing consumes |
-| 1 | `rendering/ledgerAccidentalClearance.ts:66` · `VEXFLOW_LEDGER_OVERHANG` — ⚠️ arguably **keep**: it documents the default beside the trimmed `LEDGER_OVERHANG_BESIDE_ACCIDENTAL`. His call. |
+| 1 | `rendering/format/ledgerAccidentalClearance.ts:66` · `VEXFLOW_LEDGER_OVERHANG` — ⚠️ arguably **keep**: it documents the default beside the trimmed `LEDGER_OVERHANG_BESIDE_ACCIDENTAL`. His call. |
 
 **Over-exposed** — ~~~80~~ **`[correction]` 242** symbols exported but referenced only inside their
 own module. Not dead, just public API nothing asked for, which makes the real seams harder to find.

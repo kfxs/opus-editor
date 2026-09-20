@@ -107,7 +107,7 @@ comes from VexFlow's `Metrics` (Bravura at the Tuplet category's size, which §9
 stale; the text is SMuFL tuplet digits (`tuplet0`…`tuplet9` = U+E880 + d, `tupletColon` = U+E88A) —
 a port of VexFlow's private `Tuplet.resolveGlyphs()`. Codepoints are written as escapes: `Glyphs` is
 CJS-only and `undefined` in the browser build. (⚠️ 2026-09-19: VexFlow is removed — the mark is drawn
-by our `drawTupletMark` through `rendering/glyphPainter`, the face from `engine/fonts/`; no `Element`,
+by our `drawTupletMark` through `rendering/painter/glyphPainter`, the face from `engine/fonts/`; no `Element`,
 no `Metrics`.)
 
 Since §9 it draws the SAME runs, through the same `layoutTupletMark`, and asks for the armed
@@ -368,7 +368,7 @@ An adjacent one went with it: when that clamp dropped the dots, the chord-member
 - `src/utils/tupletPresets.ts` — the eight presets + `tupletPresetAction`
 - `src/engine/models/tupletOps.ts` — `createTuplet` (writes the format), `refillTupletRemainder`
 - `src/engine/NoteEntryCoordinator.ts` — `buildTupletWithFirstNote`, `applyTupletToNote`, `tupletFitsBar`, `updateTupletNote` (all exact — §12)
-- `src/engine/rendering/ScoreTuplet.ts` — the drawn mark and bracket: `TUPLET_FONT_SIZE`, `NOTE_GLYPH_SCALE`, `layoutTupletMark`
+- `src/engine/rendering/engraved/ScoreTuplet.ts` — the drawn mark and bracket: `TUPLET_FONT_SIZE`, `NOTE_GLYPH_SCALE`, `layoutTupletMark`
 - `src/interactions/EditorState.ts` — `armedTuplet` (+ its `format` and `deriveM`), `armedTupletM`, `spendArmedTuplet`
 - `src/interactions/PaletteController.ts` — `armTuplet`, `armTupletPreset` (the deriving one), `armTupletInTimeOf`
 - `src/interactions/tupletSelection.ts` — the window → `keypadSync` → controller seam

@@ -28,12 +28,12 @@
  * an invented placeholder glyph.
  */
 import type { DrawContext } from '@/engine/paint/DrawContext'
-import { drawGlyph } from '../glyphPainter'
+import { drawGlyph } from '../painter/glyphPainter'
 import type { KeySignature } from '@/types/music'
 import { KEY_ACCIDENTAL_GAP, keySignatureLines, signGlyph } from '@/engine/layout/keySignatureLayout'
 import { glyphBox } from '@/engine/fonts/fontMetrics'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
-import { SIGN_CHARS, SIGN_FONT_SIZE } from '../KeySignaturePass'
+import { SIGN_CHARS, SIGN_FONT_SIZE } from '../staff/KeySignaturePass'
 import { drawSignGhost } from './ghostCursor'
 
 /** The class `ScoreRenderer.clearGhosts` sweeps this ghost by — it must be in

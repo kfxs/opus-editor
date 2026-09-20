@@ -16,11 +16,11 @@
  *
  * ## ⛔ What is NOT here
  *
- * - **The gap from the notehead** — `rendering/accidentalPlacement` moves the whole stack to the armed
- *   row after this runs (`__accidentals`), and `rendering/ledgerAccidentalClearance` steps it out past
+ * - **The gap from the notehead** — `rendering/format/accidentalPlacement` moves the whole stack to the armed
+ *   row after this runs (`__accidentals`), and `rendering/format/ledgerAccidentalClearance` steps it out past
  *   a ledger line.
  * - **The ink** — `./accidental`.
- * - **Gould's column rule** — `rendering/chordAccidentalColumns` is ours and the FAN uses it; the
+ * - **Gould's column rule** — `rendering/format/chordAccidentalColumns` is ours and the FAN uses it; the
  *   ordinary chord still packs by THIS table. Switching it is a picture change, ⛔ not a port.
  *   The research is `docs/research/accidental-dot-research.md` A3/A4.
  *

@@ -5,7 +5,7 @@
  * ## Why this became a table, and it is the strongest case yet for one
  *
  * The number shipped first — half a staff space, edge to edge, in answer to his report *"the dot is
- * too close to the notehead"* — and `rendering/dotPlacement` has carried it since. Then the survey
+ * too close to the notehead"* — and `rendering/format/dotPlacement` has carried it since. Then the survey
  * arrived (`docs/research/accidental-dot-research.md`, `docs/research/accidental-dot-engines.md`) and said three
  * things at once:
  *
@@ -55,7 +55,7 @@ export interface DotGapRule {
 export const DOT_GAP_RULES = {
   /**
    * ✅ **What we draw, and what he chose** — half a space for both, in answer to his report that the
-   * dot sat too close (`rendering/dotPlacement`, 2026-08).
+   * dot sat too close (`rendering/format/dotPlacement`, 2026-08).
    *
    * ⭐ Now that the survey is in, it can be said precisely what this row IS: **MuseScore's first gap
    * and Ross's second**, which is also Gerou & Lusk's *"spacing equal to that of the first dot"*.
@@ -124,7 +124,7 @@ const state: { rule: DotGapRuleName; generation: number } = {
   rule: ACTIVE_DOT_GAP_RULE, generation: 0,
 }
 
-/** The rule in force right now — what `rendering/dotPlacement` reads. */
+/** The rule in force right now — what `rendering/format/dotPlacement` reads. */
 export function armedDotGap(): DotGapRule {
   return DOT_GAP_RULES[state.rule]
 }

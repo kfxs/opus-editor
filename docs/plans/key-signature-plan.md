@@ -382,7 +382,7 @@ not re-measuring someone else's. Say so where it is written.
 - **one new row in `engine/layout/headerInk.ts`** — a `key` part beside `clef` and `meter`, priced
   the way they are (extent + `BETWEEN_PARTS`) — reserves the room, in the width model AND in the
   drawing, by construction;
-- **one new score-level pass**, `engine/rendering/KeySignaturePass.ts`, draws the glyphs into that
+- **one new score-level pass**, `engine/rendering/staff/KeySignaturePass.ts`, draws the glyphs into that
   room through our own primitives and the Bravura metrics P2 already landed (`engine/fonts/`);
 - **`stave.addKeySignature` is never called.**
 

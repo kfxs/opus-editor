@@ -302,7 +302,7 @@ sounding length, so the group's total time is unchanged by construction.
     width and export: the pain moves, it does not go. And "remove the fan and the note you typed is
     still there" would become a reconstruction — assertion → consequence is a function, the reverse
     is not (§0).
-  - Drawn by `engine/rendering/fanArticulations.ts`: a stand-in `StaveNote` at the member's own
+  - Drawn by `engine/rendering/beams/fanArticulations.ts`: a stand-in `StaveNote` at the member's own
     pitches, clef, stem direction and stem length, formatted by the library, then translated to the
     member's head. ⛔ Not by a hand-rolled "one staff space per mark" rule — that puts a staccato 2px
     off the identical mark on the note beside it, because a between-lines glyph is snapped into a
@@ -384,7 +384,7 @@ not `StaveNote`'s:
 - **Seconds cross the stem** — the stem runs between the pair, upper note right, lower note left; a
   cluster of three or more alternates from there so its outer notes stay in the column. Which one
   MOVES follows from the stem (up ⇒ the upper, down ⇒ the lower). `chordHeadDisplacement`
-  (`engine/rendering/chordHeadLayout.ts`) — deliberately VexFlow's own walk (`buildNoteHeads`), so a
+  (`engine/rendering/format/chordHeadLayout.ts`) — deliberately VexFlow's own walk (`buildNoteHeads`), so a
   member and the fan's own note can never disagree about the same three pitches, and the flag is
   handed to `NoteHead`, which owns the arithmetic that turns it into an x (today ours,
   `EngravedHead`). **Unisons displace too**,

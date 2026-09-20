@@ -29,7 +29,7 @@ function box(measure: number, x: number, staff = 0): ElementInfo {
 }
 
 /** The piece of a JOINED line crossing the gap below `staffAbove`, registered by the drawing pass
- *  (`engine/rendering/barlineGap`) — `measure` is the bar the line ENDS, and the box is the space
+ *  (`engine/rendering/staff/barlineGap`) — `measure` is the bar the line ENDS, and the box is the space
  *  between the two staves. Here: staff 0's lines end at y 40, staff 1's begin at y 190. */
 function gapBox(measure: number, x: number, staffAbove = 0): ElementInfo {
   return { type: 'barline-gap', measure, staff: staffAbove, bbox: { x, y: 40, width: 1.6, height: 150 } } as ElementInfo

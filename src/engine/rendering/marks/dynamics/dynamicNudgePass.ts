@@ -28,13 +28,13 @@
  * row is a fact about the mark's SYSTEM and this is a fact about the mark.
  */
 import type { Measure } from '@/types/music'
-import type { EngravedStave } from '../../EngravedStave'
+import type { EngravedStave } from '../../engraved/EngravedStave'
 import type { RenderPass } from '../../RenderPass'
 import { staffDynamics } from '@/engine/models/staffContent'
 import { dynamicOffsetOverrideOf } from '@/engine/models/engravingOverrides'
 import { setDynamicMarkNudge } from './dynamicMarkTransform'
-import { staffSpacesToPixels } from '../../staffSpace'
-import { staveFrame } from '../../staveFrame'
+import { staffSpacesToPixels } from '../../staff/staffSpace'
+import { staveFrame } from '../../staff/staveFrame'
 
 /** What this pass needs of a `MeasurePlacement` — the shape `./dynamicsLinePass` already declares. */
 interface DynamicNudgePlacement {

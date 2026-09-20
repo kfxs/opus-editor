@@ -42,7 +42,7 @@ returns, so a live render during the export's async tail still finds the editor'
 
 Every glyph VexFlow draws is a `<text>` in Bravura, and VexFlow ships Bravura/Academico as base64
 **woff2** installed into `document.fonts`. (⚠️ 2026-09-19: VexFlow is removed — our `SvgPainter` draws
-the `<text>`, and since S1 the page installs the `.otf`s below itself, `rendering/musicFontFaces` +
+the `<text>`, and since S1 the page installs the `.otf`s below itself, `rendering/painter/musicFontFaces` +
 `fonts/fontFiles`; no woff2 is involved any more.) No PDF writer embeds woff2, and jsPDF cannot embed
 OTF/CFF outlines as text even given the file. Outlining sidesteps the question entirely: the PDF
 carries no font dependency at all.
@@ -65,7 +65,7 @@ Three rules earn their keep:
   tempo mark's word/glyph joins are made of them) is dropped rather than becoming a `<text>` node
   containing one invisible space; a space *inside* a kept run stays, or `p sub.` becomes `psub.`.
 - **Weight is a face, not an effect.** Academico's bold is registered as a real face (by VexFlow
-  once; by `fonts/fontFiles` + `rendering/musicFontFaces` since VexFlow's removal) and tempo
+  once; by `fonts/fontFiles` + `rendering/painter/musicFontFaces` since VexFlow's removal) and tempo
   marks are set in it, so `public/fonts/AcademicoBold.otf` is shipped too and the outliner picks by
   the run's weight. Outlining a bold word from the regular file silently un-bolds it.
 

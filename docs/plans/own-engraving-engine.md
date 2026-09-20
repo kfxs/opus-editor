@@ -30,10 +30,10 @@
 > `package.json`, nothing in `src/` or `e2e/` imports it, and `npm run lint:boundary` refuses the
 > import everywhere, specs included; `NOTICE` carries its MIT licence for the ported code. Every job
 > it did at run time is our code under `src/engine/` — the note, heads, stem, flag, beam, stave,
-> signs, modifiers, tuplet, the `Voice` (`rendering/barVoice`), the `Formatter`
-> (`rendering/columnFormat` + `spacingPass`), the `ModifierContext` (`rendering/modifierColumns`),
+> signs, modifiers, tuplet, the `Voice` (`rendering/format/barVoice`), the `Formatter`
+> (`rendering/format/columnFormat` + `spacingPass`), the `ModifierContext` (`rendering/format/modifierColumns`),
 > the ticks (`layout/tickCount`), the fonts (`fonts/fontCategories`, `fontFace`,
-> `rendering/glyphPainter`) and the painter (`rendering/SvgPainter`). ⚠️ **So every *"still
+> `rendering/painter/glyphPainter`) and the painter (`rendering/painter/SvgPainter`). ⚠️ **So every *"still
 > VexFlow's"*, *"VexFlow paints / places / measures"* below is a statement about the day it is dated,
 > ⛔ not about today.** Still spelled "VexFlow" until S15: `ScoreRenderer` and the `vf-` SVG prefix (⚠️ both gone since S15a/S15c)
 > (now emitted by `SvgPainter`). §8's adapter directory `engrave/vexflow/` does not exist.
@@ -85,7 +85,7 @@ delaying engraving work by one day.
 > retired (code-shape plan, Phase 1.8) — `lint:boundary`'s import ban is the guard now.
 >
 > ✅ **Progress (2026-09-14):** S0 the census · S1a the fonts are ours (`engine/fonts/fontFiles` +
-> `rendering/musicFontFaces` — the page no longer depends on VexFlow's import to have Bravura) · S1b the
+> `rendering/painter/musicFontFaces` — the page no longer depends on VexFlow's import to have Bravura) · S1b the
 > inherited numbers are rows (`engine/engrave/inheritedDefaults`) · S1c the faces each category resolved
 > are rows (`engine/engrave/inheritedFonts`) · S2a the staff's lines are asked of ONE module
 > (`engine/engrave/staff/staffFrame`) · S2b the bar's horizontal frame (`BarFrame`) and ONE stale shift.
@@ -162,7 +162,7 @@ and P3 is the work of moving the note into that half — so P3 builds the rest o
 goes, element by element. ⛔ **P1e** (a painter of ours) stays after P3, for the reason that demoted
 P1 originally and still holds: while VexFlow objects paint themselves, a replacement painter must
 implement *their* interface too. (✅ 2026-09-19: no VexFlow object paints any more, and P1e is done —
-`rendering/SvgPainter`, S13b.)
+`rendering/painter/SvgPainter`, S13b.)
 
 🚨 §9 still carries the pre-correction sentence *"the one thing to do now: P1"*. It is marked stale
 there — ⚠️ note that its *conclusion* has now come back round to being right, by a different route
@@ -204,7 +204,7 @@ moves pixels waits for his eye, ONE at a time.
 - **≈1,200 lines of comments explain what VexFlow does** — rewritten when their file is touched
   (the map's rule); the port attribution lines stay.
 - **Stale references, not VexFlow's** (left by the doc sweep): `clef.md` names `clefIndentPass` (now
-  `rendering/headerPlacementPass`); `header-spacing-research.md` cites
+  `rendering/staff/headerPlacementPass`); `header-spacing-research.md` cites
   `ScoreRenderer.placeMeterAfterKeySignature()`, which no longer exists by that name;
   `fan-ramp-range-plan.md` cites `VexFlowRenderer.fan.test.ts` (now `FanPass.test.ts`);
   `note-spacing-plan.md` / `engraving-overrides-plan.md` cite `VEXFLOW_DEFAULT_STAFF_SPACE_PX`
@@ -219,8 +219,8 @@ moves pixels waits for his eye, ONE at a time.
 
 | # | rule | binds | argued in |
 |---|---|---|---|
-| 1 | ⭐⭐ **A new drawn element draws through OUR context and OUR primitives — never by instantiating a VexFlow class.** ⭐ The one sanctioned way to put a music glyph down is `rendering/glyphPainter.ts` (P1a) — ⛔ not `new Element(...)` in your own file. | **now** — ✅ held through 277 commits, re-checked 2026-09-01 (§2.2) | §9, §5 P1a |
-| 2 | **We decide the geometry; we increasingly own the INK.** VexFlow's job shrinks to glyph shapes we do not want to invent. ✅ *2026-09-19: shrunk to nothing — VexFlow is removed; the glyph shapes are the font's, stamped by `rendering/glyphPainter`.* | **now** | §9 |
+| 1 | ⭐⭐ **A new drawn element draws through OUR context and OUR primitives — never by instantiating a VexFlow class.** ⭐ The one sanctioned way to put a music glyph down is `rendering/painter/glyphPainter.ts` (P1a) — ⛔ not `new Element(...)` in your own file. | **now** — ✅ held through 277 commits, re-checked 2026-09-01 (§2.2) | §9, §5 P1a |
+| 2 | **We decide the geometry; we increasingly own the INK.** VexFlow's job shrinks to glyph shapes we do not want to invent. ✅ *2026-09-19: shrunk to nothing — VexFlow is removed; the glyph shapes are the font's, stamped by `rendering/painter/glyphPainter`.* | **now** | §9 |
 | 3 | ⭐ **Where we have no engraving opinion: PORT it, attributed — do not invent.** VexFlow is MIT; the notice travels with the code (`NOTICE`, at the repo root), and you port the ALGORITHM, not the file. | **now** | §6.7 |
 | 4 | ⭐ **A new drawn element = a MODULE + a ROW in its table + an EXISTING scene primitive.** A new primitive needs a reason. | **now** (the module+row half is already `CLAUDE.md`) | §8.2 |
 | 5 | ⛔ **No inverse mapping written as straight-staff arithmetic.** Ask the placement; never compute `(staffTop − y) / spacing` by hand. | **now** | §7.5.4 |
@@ -355,7 +355,7 @@ So the algorithmic residue is **~7,500 LOC**, and it is not one lump:
 | `stave` | 577 | used as a coordinate system, not a drawer |
 | The render CONTEXT — `svgcontext`, `renderer`, `rendercontext` | **526** | 20 primitives |
 | `articulation` | 281 | ⛔ no complaint — leave it |
-| `annotation`, `tuplet`, `timesignature`, `clef`, `stavebarline`, `curve`, `tremolo` | ~1,050 | mixed; `curve` already reimplemented, and ✅ **`stavebarline` is now ours for every line that ENDS a bar** (`rendering/BarlineRenderer`, 2026-08-26) — only the line that opens a system is still drawn from it |
+| `annotation`, `tuplet`, `timesignature`, `clef`, `stavebarline`, `curve`, `tremolo` | ~1,050 | mixed; `curve` already reimplemented, and ✅ **`stavebarline` is now ours for every line that ENDS a bar** (`rendering/staff/BarlineRenderer`, 2026-08-26) — only the line that opens a system is still drawn from it |
 
 ### 2.3 What VexFlow has BECOME here — the call profile
 
@@ -429,7 +429,7 @@ Three things make it the canonical example:
   Bravura the moment the face lands, so it *looks* like a proper whole rest at a wrong coordinate.
 - **Re-rendering cannot fix it** — a measure whose `MeasureRedrawKey` is unchanged is moved by
   transform, and the font is not in that key. It needed a gate
-  (`engine/rendering/musicFontReady.ts`), not a retry.
+  (`engine/rendering/painter/musicFontReady.ts`), not a retry.
 
 ⭐ A font-metrics layer of our own would have made this unrepresentable.
 
@@ -601,7 +601,7 @@ knot, so P1 is cut there.
 | **P1b** | `DrawContext` — our interface, and the signatures retyped | ✅ **DONE 2026-09-01** |
 | **P1c** | the **group handle** — the four things a group is used for | ✅ **DONE 2026-09-01** |
 | **P1d** | ⭐⭐ an **implementation of our own — and it is the RECORDER**: `scene/`, the golden net | ✅ **DONE 2026-09-01** |
-| **P1e** ✅ **2026-09-19 (S13b of `vexflow-removal-map.md`): `rendering/SvgPainter`** — VexFlow's `SVGContext` transcribed, byte-identical; ⏭️ the POINTER RECT question below is still open (kept, as drawn) | the **SVG painter** — `paint/svg/`, closing the four gotchas ⭐ **+ the POINTER RECT question**, deferred here by him 2026-09-01 (`note-engraving-plan.md` §1e: audited, and NOTHING in this repo consumes it — but a painter of ours emits a hit surface only if something asks) | ✅ **done 2026-09-19** — it was ⛔ BLOCKED by a CONDITION, ⛔ not by a milestone; see the row below |
+| **P1e** ✅ **2026-09-19 (S13b of `vexflow-removal-map.md`): `rendering/painter/SvgPainter`** — VexFlow's `SVGContext` transcribed, byte-identical; ⏭️ the POINTER RECT question below is still open (kept, as drawn) | the **SVG painter** — `paint/svg/`, closing the four gotchas ⭐ **+ the POINTER RECT question**, deferred here by him 2026-09-01 (`note-engraving-plan.md` §1e: audited, and NOTHING in this repo consumes it — but a painter of ours emits a hit surface only if something asks) | ✅ **done 2026-09-19** — it was ⛔ BLOCKED by a CONDITION, ⛔ not by a milestone; see the row below |
 
 🚨🚨 **WHAT ACTUALLY GATES P1e — corrected 2026-09-01, because the old wording misled a reader.**
 
@@ -620,7 +620,7 @@ and the beam's lines did not reduce it, because the objects still painting thems
 |---|---|---|
 | **`Stave`** — ⛔ no longer for INK, ⭐ but it still PLACES the clef/meter `headerInk` already measures | `ScoreRenderer` | ✅ **P5 took all of it**: the LINES (2026-09-01), the CLEF's glyph (09-02), the METER's (09-12), the opening BARLINE's (09-13) and the header's PLACEMENT (09-13) |
 | ~~**`Curve`** — the tie's and slur's arc~~ | ~~`rendering/curves/curveArc` (4), `TieRenderer` (1)~~ | ✅ **U1, 2026-09-14** — `engine/engrave/curves/curveInk` |
-| ~~**`NoteHead` / `Accidental`** painted directly, ⛔ not through an `EngravedNote`~~ | ~~`rendering/FanPass` (2)~~ | ✅ **S10, 2026-09-18** — on our surface; see U2 |
+| ~~**`NoteHead` / `Accidental`** painted directly, ⛔ not through an `EngravedNote`~~ | ~~`rendering/beams/FanPass` (2)~~ | ✅ **S10, 2026-09-18** — on our surface; see U2 |
 
 ⇒ ⭐⭐ **ONE ROW IS LEFT, and it is the fan's.** The other five code uses are the beam's and the
 stem's `.draw()` plumbing (their INK is already ours — P3c/P4a — and what goes through `vexContext`
@@ -758,7 +758,7 @@ records, but nothing re-emits a branch. ⚠️ And a selection is a PICTURE-ONLY
 **OVERLAY** (a box drawn on top) needs neither mutation nor re-render — ⛔ but it can only frame ink,
 never recolour a glyph, so it is a complement and not a replacement.
 
-#### ✅ P1a — `engine/rendering/glyphPainter.ts` (2026-09-01)
+#### ✅ P1a — `engine/rendering/painter/glyphPainter.ts` (2026-09-01)
 
 ⚠️ **The first measurement inverted the step order, and it is the useful finding.** A pure signature
 retype could not go first: **our own renderers do not draw glyphs through context primitives — they
@@ -930,7 +930,7 @@ order they come back in, what each one costs, and the research per piece.
 > DRAWING, one method at a time.** The same `StaveNote` is the RULER seven of our own renderers read
 > (§2.3), so it must keep *answering* while it stops *painting* — which rules out a big-bang
 > replacement and rules in a subclass whose override list is the progress bar
-> (`rendering/EngravedNote.ts`).
+> (`rendering/engraved/EngravedNote.ts`).
 >
 > ✅ **P3a — the ledger lines (2026-09-01).** Chosen first because it was the only piece with
 > **three owners already** — VexFlow's `StaveNote.drawLedgerLines`, `FanPass.drawFanLedgerLines` and
@@ -978,7 +978,7 @@ order they come back in, what each one costs, and the research per piece.
 > learnt. The spec now asserts `document.fonts.check(...)` before believing a number.
 >
 > ⚠️ One rule bent, and both files say so: `engrave/notes/flag.ts` stamps its own glyph rather than
-> calling `rendering/glyphPainter`. ⭐ What that module owns is font RESOLUTION, and the flag's face
+> calling `rendering/painter/glyphPainter`. ⭐ What that module owns is font RESOLUTION, and the flag's face
 > is already resolved — so `Element.renderText` is exactly the two primitives we own. It has to be
 > that way round: `engrave/` may not import `vexflow`, and a layer needing an `Element` to put a
 > glyph down could never be painted to PDF or recorded as a scene.
@@ -1030,7 +1030,7 @@ order they come back in, what each one costs, and the research per piece.
 > argument for asserting COUNTS rather than presence.
 >
 > ⭐ And the glyph stamp got a home — `engine/engrave/glyph.ts` — because the flag and the notehead
-> were two owners of the same `setFont` + `fillText`. ⛔ Not `rendering/glyphPainter`: that one owns
+> were two owners of the same `setFont` + `fillText`. ⛔ Not `rendering/painter/glyphPainter`: that one owns
 > font RESOLUTION, and here the face arrives as a value.
 
 > ✅✅ **P3f — the ACCIDENTAL and the DOT (2026-09-14), and P3g — the ARTICULATION (same day).**
@@ -1094,7 +1094,7 @@ and hooks.
 
 | step | what | state |
 |---|---|---|
-| **P5a** | the staff's own **FIVE LINES** | ✅ **2026-09-01** — `engrave/staff/staffLines` + `rendering/EngravedStave`. ⭐ The dividend is that **staff-line geometry is now a unit test**: the lines are in the SCENE, where before they were VexFlow's and needed a browser |
+| **P5a** | the staff's own **FIVE LINES** | ✅ **2026-09-01** — `engrave/staff/staffLines` + `rendering/engraved/EngravedStave`. ⭐ The dividend is that **staff-line geometry is now a unit test**: the lines are in the SCENE, where before they were VexFlow's and needed a browser |
 | **P5b** | ⏳ the **HEADER RUN** — clef, key, meter, and the gaps between them | ⭐ **the CLEF's INK is ours as of 2026-09-02** (below), and TWO of the run's gaps were decided and built the day before (`docs/research/header-spacing-research.md` §8): **A** the clef's indentation 0.7 sp, and **D** the header→first-note gap keyed on what ends the header (2½ / 2). ⚠️ Of the nine rows the research raised, **only E and G are genuinely open** — B/C settled by his own earlier reports, F blocked by VexFlow, H unknown in every book, I settled by `key-signature-plan.md` §4.0b. ✅ **the METER's ink followed on 2026-09-12** and ✅ **the opening BARLINE's on 2026-09-13** (both below) ⇒ ⭐⭐ **the INK is COMPLETE**. ⏭️ What is LEFT: every **PLACEMENT** moving off `Stave.format()` |
 | **P5c** | the staff line's **THICKNESS** | ✅ **2026-09-01 — HIS call, and he took Gould**: 0.11 sp, what her engraved staves measure, ⛔ not Bravura's 0.13 (which is a FONT's number, not a spec's — `docs/research/staff-line-research.md` §5.1). `engrave/staff/staffLines.STAVE_LINE_WIDTH_PX`. ⚠️ A **default**, ⛔ not a law: *"the user will be able to change this"* |
 
@@ -1127,7 +1127,7 @@ still paint themselves — that is P5b, and it is the half with the engraving qu
 
 ⭐ Same shape as P5a and P3b: **the ink moves to a module of ours and enters the SCENE, and the
 numbers that decide WHERE stay exactly where they were, as named inputs.** `engrave/header/clef` +
-`rendering/EngravedClef`, substituted onto every score stave by one `EngravedStave.addClef` override.
+`rendering/engraved/EngravedClef`, substituted onto every score stave by one `EngravedStave.addClef` override.
 ⛔ **No pixel moved** — 6218 unit tests and all 279 e2e green either side, and `lint:paint` unchanged
 at 18/18.
 
@@ -1153,7 +1153,7 @@ browser *and* a font the day before.
 | the clef's **x** | `Stave.format()`'s BEGIN-modifier walk, plus `clefIndentPass` and `clefOffsetPass` nudging by `setX`/`setXShift` | this is the *"`headerInk` MEASURES, `Stave` PLACES"* pair P5 is named after — the next step, not this one |
 | **which line** each clef names | `Clef.types` | ⏳ question 2 of the clef research |
 | the **⅔** a mid-score clef is reduced by | `Clef.getPoint` | ⏳ question 3 of the clef research — ⚠️ and nothing in this repo ever chose it. A spec now says the number out loud so a change cannot be quiet |
-| the **inline** clef (a change at `beat > 0`) | ✅ ours since S12j-e — `rendering/EngravedClefChange` (was VexFlow's `ClefNote` + `Clef`) | the header clef's rows at `'small'`, stamped through the pass's surface |
+| the **inline** clef (a change at `beat > 0`) | ✅ ours since S12j-e — `rendering/engraved/EngravedClefChange` (was VexFlow's `ClefNote` + `Clef`) | the header clef's rows at `'small'`, stamped through the pass's surface |
 | the **METER** and the opening **BARLINE** | stave modifiers | the rest of P5b |
 
 (⚠️ 2026-09-19: VexFlow is removed — every row above is ours: the x is our walk, `engrave/staff/signWalk` (S4b1); the clef's line and
@@ -1183,7 +1183,7 @@ and nothing moved"*.
 > *"yes"* — his call, taken on the recommendation that the meter's ink was the small, checkable step
 > and the PLACEMENT the risky one.
 
-⭐ Same shape as P5a, P3b and the clef: `engrave/header/meter` + `rendering/EngravedTimeSignature`,
+⭐ Same shape as P5a, P3b and the clef: `engrave/header/meter` + `rendering/engraved/EngravedTimeSignature`,
 substituted onto every score stave by one `EngravedStave.addTimeSignature` override. ⛔ **No pixel
 moved** — 6251 unit tests and all 279 e2e green either side, and `lint:paint` unchanged at 18/18
 `vexContext` and 10/10 `svgNode`.
@@ -1230,7 +1230,7 @@ and it comes here when the PLACEMENT does. The spec now carries that as a passin
 placement becomes ours, it FAILS and says why.
 
 ⭐ **One structural addition, and it is `CLAUDE.md`'s rule rather than taste:**
-`rendering/inkSurface.ts`. The stave's modifier walk was one `instanceof` away from being a family —
+`rendering/painter/inkSurface.ts`. The stave's modifier walk was one `instanceof` away from being a family —
 *"a slice too thin to be logic is still a slice"* — so the members (`EngravedClef`,
 `EngravedTimeSignature`) now declare an `InkSurfaceAware` interface and the walk asks a membership.
 ⭐ The opening barline joins by implementing it, ⛔ not by adding a third branch.
@@ -1259,7 +1259,7 @@ through us.
 #### ✅ P5b, third step — the OPENING BARLINE (2026-09-13)
 
 ⭐ Same shape as P5a, the clef and the meter: `engine/engrave/staff/openingBarline` +
-`rendering/EngravedBarline`, put on every score stave by the `EngravedStave` **constructor** (⚠️ not
+`rendering/engraved/EngravedBarline`, put on every score stave by the `EngravedStave` **constructor** (⚠️ not
 an `addX` override — `Stave`'s own constructor hard-codes `new Barline(...)` into `modifiers[0]` and
 `[1]`, and `setBegBarType`/`setEndBarType` write the TYPE into those two slots by index, so the
 substitution has to be a replacement in place). ⛔ **No pixel moved** — 6274 unit + 282 e2e green,
@@ -1296,7 +1296,7 @@ post-pass repairing the very ink it is taking, the repair comes with it.
 | every other **TYPE** — `DOUBLE`, `END`, both repeats | `Barline.draw`, via `super.draw()` | ⭐⭐ **porting them would import a rule we have already replaced.** `BarlineRenderer` exists because those rules are unsayable through `Barline` (the 3 px thick line, the fixed pixel layout, the dots' ≈0.1-space fudge, none of it scaling with its staff). A score stave's BEGIN bar is `SINGLE` or `NONE` and its END bar is always `NONE`, so the fall-through is a guard against a future caller, ⛔ not a case that runs |
 
 (⚠️ 2026-09-19: VexFlow is removed — the line's x is our walk, `engrave/staff/signWalk` (S4b1), and
-`rendering/EngravedBarline` has no `Barline` under it: it draws plain or none and refuses any other
+`rendering/engraved/EngravedBarline` has no `Barline` under it: it draws plain or none and refuses any other
 kind, which `BarlineRenderer` draws.)
 
 🚨 **One finding, reported and ⛔ not fixed in that commit — ✅ and then fixed in the next one, which
@@ -1393,7 +1393,7 @@ feeds the RESERVATION the same number, so the two sets of numbers became one.
 
 #### ✅ P5b, fifth step — THE PLACEMENT (2026-09-13): the header run is PLACED, not walked
 
-⭐⭐ `rendering/headerPlacementPass` replaces `clefIndentPass`. **A line-opening CLEF is placed from
+⭐⭐ `rendering/staff/headerPlacementPass` replaces `clefIndentPass`. **A line-opening CLEF is placed from
 the staff's own edge** — its INK at `CLEF_INDENT` 0.7 sp, the origin set back by the glyph's left
 bearing (`engrave/header/clef.clefOriginX`) — and **the METER is placed from the INK of whatever
 precedes it**, the key signature or the clef.
@@ -1505,10 +1505,10 @@ real finding, because it means the box is not a dependency we are content with:
 
 | who refuses it | why |
 |---|---|
-| `rendering/noteInkBox` | `StaveNote.getBoundingBox()` **unions every attached modifier**, so a note's "box" spans its accidentals, dots and articulations — his report |
-| `rendering/CenteredTremolo` | *"NOT `Element.getBoundingBox()`… that box is built from `this.x`/`this.y`"* — a mark left at the origin reports the origin |
+| `rendering/engraved/noteInkBox` | `StaveNote.getBoundingBox()` **unions every attached modifier**, so a note's "box" spans its accidentals, dots and articulations — his report |
+| `rendering/engraved/CenteredTremolo` | *"NOT `Element.getBoundingBox()`… that box is built from `this.x`/`this.y`"* — a mark left at the origin reports the origin |
 | `rendering/marks/dynamics/DynamicsLayout` | reads the **rendered SVG** instead, because the modifier's width is deliberately zeroed |
-| `rendering/clefOffsetPass` | depends on the `x + xShift` behaviour, and says so — everything downstream of an offset clef is measured from that box |
+| `rendering/staff/clefOffsetPass` | depends on the `x + xShift` behaviour, and says so — everything downstream of an offset clef is measured from that box |
 
 **(b) The PAGE, read back — ~24 `getBBox()` code sites in `engine/`** (GhostRenderer ×9,
 DynamicsLayout ×5, HairpinRenderer ×2, TempoLayout, dynamicsLinePass, ScoreHeaderPass, FanGhost,
@@ -1591,7 +1591,7 @@ the same shift.
    ⛔ Read, ⛔ never transcribed — 96 insertions to the generated file and **no measured number moved**.
 2. **The pt→px dialect is a PARAMETER** (`SpacePxReader`). A bare `30` handed to `setFont` means
    POINTS — a fact about **VexFlow**, not about the drawing. `scene/` may not know it, and ⛔ nor may
-   `fonts/`, which *"must not know who draws with it"*. ⇒ `rendering/sceneInk` speaks that dialect
+   `fonts/`, which *"must not know who draws with it"*. ⇒ `rendering/painter/sceneInk` speaks that dialect
    and hands it in. ⭐ P3b's flag reach again: **the unit is a named argument.**
 
 ##### 🚨 What checking it against a browser FOUND — three, and none of them arithmetic
@@ -1645,7 +1645,7 @@ filed a separate box per mark all along (`docs/plans/note-engraving-plan.md` §1
 ##### ✅ P6b, FIRST KIND — THE ACCIDENTAL'S HIT BOX IS OURS (2026-09-14)
 
 ⭐⭐ **The registry now files what the sign's ink COVERS**, computed from the stamp that drew it:
-`rendering/drawnHitBox.accidentalHitBox` ← `EngravedAccidental.drawnInk()` ← `sceneInk.drawnInkBoxOf`.
+`rendering/painter/drawnHitBox.accidentalHitBox` ← `EngravedAccidental.drawnInk()` ← `sceneInk.drawnInkBoxOf`.
 ⛔ One kind only — the dot, the articulation and the rest still store `Element.getBoundingBox()`.
 
 ⭐⭐ **THE PAYOFF, MEASURED: in jsdom VexFlow's ruler answers `0×0` for a sharp and ours answers
@@ -1701,7 +1701,7 @@ the right place, the whole time; what was wrong was a *field*. ⇒ P6 is not onl
 argument and a reflow argument. **It removes a whole failure class**, and that class has now fired.
 
 ⏭️ **So the queue changes.** The NOTE's own box goes ahead of the dot and the articulation: it has
-the most consumers, it is the one that failed, and taking it also retires `rendering/noteInkBox`'s
+the most consumers, it is the one that failed, and taking it also retires `rendering/engraved/noteInkBox`'s
 splice hack — lifting the dynamics `Annotation` out of VexFlow's live modifier array, asking
 `getBoundingBox()`, and putting it back, because *"a union cannot be un-merged"*. ⭐ `sceneInkBox`
 answers that natively (*the caller chooses which children count*), and P3f/P3g's per-mark groups are
@@ -1762,7 +1762,7 @@ never had a complaint about. §6.1 is why that matters more than it sounds.
 ⭐ **(2026-09-16) Both STACKING rules were then ported as exact transcriptions** — removing VexFlow
 needed them — `engrave/notes/accidentalStack` and `engrave/notes/articulationStack` (S9d/S9e,
 `docs/history/vexflow-removal-map.md` §5.2). No opinion was added; `Articulation.draw` stays VexFlow's.
-(⚠️ 2026-09-19: not any more — it is ours, transcribed, in `rendering/EngravedArticulation`.)
+(⚠️ 2026-09-19: not any more — it is ours, transcribed, in `rendering/engraved/EngravedArticulation`.)
 
 ⚠️ **Read this as PLACEMENT, ⛔ never as the INK** — both marks' glyphs came back to us on
 2026-09-14 (P3f, P3g) without either rule being touched, and the two halves are separable precisely
@@ -1787,7 +1787,7 @@ have to satisfy their interface as well as ours, at the highest blast radius in 
 exchange for four small gotchas. ⛔ So it is **P1e — and after P5, not after P3**: see the corrected
 gate under §5's P1 table. The count is unchanged at **18/18**, and the four gotchas stay open.
 (✅ 2026-09-19: the condition is gone — no VexFlow object paints, and P1e is done as
-`rendering/SvgPainter`, S13b, a byte-identical transcription of VexFlow's `SVGContext`.)
+`rendering/painter/SvgPainter`, S13b, a byte-identical transcription of VexFlow's `SVGContext`.)
 
 ⭐⭐ **But the OTHER implementation has no such constraint, and it is the one §7.2 has been pointing
 at all along:**
@@ -1818,7 +1818,7 @@ for free, so **the scene's coverage and the migration's progress are one measure
 🚨 **Two bugs the recorder's own spec caught, both silent, both worth recording:**
 1. **The tee forwarded no GROUP operations.** The real painter hands back its raw `SVGGElement`, not
    a handle, so every placement, tag and discard was recorded and **never painted**. ⇒ the recorder
-   takes a `wrapGroup` constructor parameter (`rendering/svgDrawGroup`), because `scene/` may not
+   takes a `wrapGroup` constructor parameter (`rendering/painter/svgDrawGroup`), because `scene/` may not
    import `rendering/`.
 2. **`node()` answered the scene group while teeing.** Six highlight maps store what it returns and
    the editor recolours it later — they would have filled with objects no highlight can paint. ⇒ it
@@ -1913,7 +1913,7 @@ charge… to deal in the Software without restriction, including without limitat
 use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies."* © 2010–2022 Mohit
 Muthanna Cheppudira; © 2023–present VexFlow contributors.
 
-And **we have already done exactly this once** — `rendering/chordAccidentalColumns.ts`, which is
+And **we have already done exactly this once** — `rendering/format/chordAccidentalColumns.ts`, which is
 careful to say what it is and is not:
 
 > ⛔ *Not a re-implementation of VexFlow's `Accidental.format`. That one needs `Accidental`s attached
@@ -2073,7 +2073,7 @@ measurement rather than by taste.
 > importing `vexflow`, and **nothing outside it may hold a `StaveNote`.**
 
 ✅ **2026-09-19: superseded by the removal.** The adapter was never built; the VexFlow objects were
-replaced by ours one at a time (`rendering/EngravedNote` and its siblings — the map's §9), and now
+replaced by ours one at a time (`rendering/engraved/EngravedNote` and its siblings — the map's §9), and now
 no file imports `vexflow`.
 
 That rule ends the 40-signature problem in §2.1, it is checkable by the ratchet we already have, and

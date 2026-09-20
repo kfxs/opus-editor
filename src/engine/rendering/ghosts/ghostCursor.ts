@@ -32,7 +32,7 @@
 
 import type { DrawContext } from '@/engine/paint/DrawContext'
 import { translation } from '@/engine/paint/Affine'
-import { drawGroupOf, svgNode } from '../svgDrawGroup'
+import { drawGroupOf, svgNode } from '../painter/svgDrawGroup'
 
 /** Px a cursor ghost is parked LEFT of the pointer. Taste, and the one number to tune. */
 const GHOST_CURSOR_GAP_PX = 10

@@ -15,7 +15,7 @@
  * ⭐⭐ **…and since P6b (2026-09-14) they assert the BOX as well** — which this header used to say was
  * impossible: *"in jsdom an `Accidental`'s box comes back 0×0, and whether the box sits under the
  * glyph is the browser suite's question."* True of VexFlow's ruler, and no longer true of ours: the
- * registry now files what the sign's own ink covers (`rendering/drawnHitBox`), computed from the
+ * registry now files what the sign's own ink covers (`rendering/painter/drawnHitBox`), computed from the
  * font, so a hit box is a unit test. ⚠️ Its SIZE is; its PLACE still leans on a runtime `measureText`
  * — see `EngravedAccidental`'s header.
  */

@@ -61,7 +61,7 @@ Two things worth saying before the list, because they change how it reads:
 | what | where | since |
 |---|---|---|
 | **A bar's width** | `MeasureLayout.noteSpaceForMeasure` → `engine/layout/spacing.ts` | P2 — no VexFlow in the width path at all |
-| **Where every column lands inside a bar** | `rendering/spacingPass.ts` (`TickContext.setX` after `format()`) | P4 |
+| **Where every column lands inside a bar** | `rendering/format/spacingPass.ts` (`TickContext.setX` after `format()`) | P4 |
 | The duration curve | `spacing.ts` — one field, two published laws | P1 / the LilyPond change |
 | Every ink extent and pair padding | `spacingPadding.ts` | P3 |
 | The bar's **lead-in** (headerless bars) | `applyLeadIn` → `stave.setNoteStartX` | P3.2 |
@@ -71,7 +71,7 @@ Two things worth saying before the list, because they change how it reads:
 | **The arc's INK** — every slur and tie, the two cubic passes | `engine/engrave/curves/curveInk` — ⭐ ours since **U1**, 2026-09-14; ⛔ it was `Curve.renderCurve` | `own-engraving-engine.md` U1 |
 | **Fanned beams entirely** — heads, stems, ramp lines | `FannedBeam` + `FanPass` | the fan plans |
 | Cross-barline beams; two-note tremolo strokes | `CrossBarBeams`, `TwoNoteTremolo`, `beamInk` | |
-| **Every BARLINE that ends a bar** — the plain line, the final bar, both repeats | `rendering/BarlineRenderer` (the pass) + `layout/barlineSign` (the geometry) | 2026-08-26, `docs/plans/barline-types-plan.md` P2 |
+| **Every BARLINE that ends a bar** — the plain line, the final bar, both repeats | `rendering/staff/BarlineRenderer` (the pass) + `layout/barlineSign` (the geometry) | 2026-08-26, `docs/plans/barline-types-plan.md` P2 |
 | Chord head displacement and accidental columns **for hand-drawn heads** | `chordHeadLayout`, `chordAccidentalColumns` | fan members |
 | Augmentation dot distance | `dotPlacement` (overrides VexFlow's 2px) | reported by eye |
 | Accidental ↔ ledger-line clearance | `ledgerAccidentalClearance` | reported by eye |
@@ -83,7 +83,7 @@ Two things worth saying before the list, because they change how it reads:
 > ⚠️ **2026-09-19: every row below is ours now** — the stave `EngravedStave`, the note and its stem
 > `EngravedNote`, flags `EngravedFlag`, beams `EngravedBeam`, accidentals `EngravedAccidental`
 > (stacked by `engrave/notes/accidentalStack`), articulations `EngravedArticulation`, the formatter
-> `rendering/columnFormat` + `modifierColumns`, the fonts `engine/fonts/*` + `rendering/glyphPainter`.
+> `rendering/format/columnFormat` + `modifierColumns`, the fonts `engine/fonts/*` + `rendering/painter/glyphPainter`.
 > `Stave.padding` is the row `NOTE_AREA_PADDING_PX`. The "no setter" limits are gone; ⛔ no number
 > or rule changed with them. The table is the 2026-07-30 inventory.
 

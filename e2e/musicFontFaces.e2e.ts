@@ -2,7 +2,7 @@ import { test, expect } from './fixtures'
 
 /**
  * ⭐⭐ **THE SCORE IS DRAWN IN THE FONTS WE SHIP — not the copies VexFlow's import installs.**
- * S1 of `docs/history/vexflow-removal-map.md`; the module is `engine/rendering/musicFontFaces`.
+ * S1 of `docs/history/vexflow-removal-map.md`; the module is `engine/rendering/painter/musicFontFaces`.
  *
  * Until this step nothing in the repo installed a font face: the page had Bravura only because
  * importing VexFlow registers six embedded faces (Bravura, Academico ×2, Gonville, Petaluma, Petaluma

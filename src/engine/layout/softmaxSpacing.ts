@@ -4,7 +4,7 @@
  *
  * ## ⚠️ Why this exists at all
  *
- * The spacing rule is OURS (`./spacing`, Gould's): `rendering/spacingPass` writes every column's x
+ * The spacing rule is OURS (`./spacing`, Gould's): `rendering/format/spacingPass` writes every column's x
  * after this runs, so for almost everything this file computes is thrown away. **One x survives** —
  * a clef change written AFTER a bar's last onset. It is appended past the last note (its column is
  * the bar's END tick), `spacingPass` has no column there to write (the barline's is a position, not

@@ -2,7 +2,7 @@
  * ⭐ The accidental-gap TABLE — sourced rows, refusal on a typo, and the two facts about the rows
  * that matter when reading them.
  *
- * ⛔ Not the drawing: the ink's half is `rendering/accidentalPlacement.test.ts`.
+ * ⛔ Not the drawing: the ink's half is `rendering/format/accidentalPlacement.test.ts`.
  */
 import { describe, it, expect, afterEach } from 'vitest'
 import {

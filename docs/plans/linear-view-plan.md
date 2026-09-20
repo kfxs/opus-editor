@@ -75,7 +75,7 @@ That last one is not a limitation they tolerated. It is the correct design, and 
 
 ## 3. What VexFlow gives us: nothing — and that's fine
 
-> ⚠️ **2026-09-19: VexFlow is removed.** The `Formatter` below is ours now (`rendering/columnFormat` +
+> ⚠️ **2026-09-19: VexFlow is removed.** The `Formatter` below is ours now (`rendering/format/columnFormat` +
 > `spacingPass`), and `preCalculateMinTotalWidth` is no longer called — a bar's width comes from
 > `layout/spacing` + `spacingPadding`. Kept as the 2026-07 reasoning; its point, that all wrapping
 > is ours, still holds.

@@ -29,7 +29,7 @@ Two consequences fall out of that and neither is incidental:
   *n + 1*. `SelectionController.navigateBarline` needs no geometry at all.
 
 > ⚠️ *"…and both bars draw one there"* was true of the DRAWING until 2026-07-31 and is not any more
-> — the boundary is drawn once, by the bar it ends (`src/engine/rendering/barlineInk.ts`). The
+> — the boundary is drawn once, by the bar it ends (`src/engine/rendering/staff/barlineInk.ts`). The
 > identity above is unaffected: it was always about the model, where a barline has no object at all.
 
 ## 1a. ⭐ A press may only reach INK
@@ -88,7 +88,7 @@ never a painting one. Four of them, all reported from use:
 1. **One barline on screen is TWO drawn rects.** Bar *n*'s end and bar *n+1*'s begin sit at the same
    x; the later group paints over the earlier, so colouring one left a faint shadow.
 
-   > ⚠️ **No longer true of the drawing, as of 2026-07-31** (`src/engine/rendering/barlineInk.ts`):
+   > ⚠️ **No longer true of the drawing, as of 2026-07-31** (`src/engine/rendering/staff/barlineInk.ts`):
    > the duplicate was a defect in its own right — two coincident lines cover their shared
    > anti-aliased edge pixels twice, so every interior barline came out heavier than the one opening
    > or closing a system — and a bar now draws only the barline that ENDS it. It stays on this list
@@ -132,7 +132,7 @@ Two details that cost a round-trip each, both about SVG rather than music:
 Since P2 of `docs/plans/barline-types-plan.md` **we draw every barline ourselves** — one `<g>` per
 (measure, staff, side), id `barline-<measure>-<staff>-end`, built from scratch on every render and
 positioned from the *placement* rather than from a stave that may be stale
-(`rendering/BarlineRenderer`). Every failure §3 lists is a failure of *finding* VexFlow's rects, and
+(`rendering/staff/BarlineRenderer`). Every failure §3 lists is a failure of *finding* VexFlow's rects, and
 not one of them survives that:
 
 | §3's failure | why it cannot happen now |

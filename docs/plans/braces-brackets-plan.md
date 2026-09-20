@@ -218,7 +218,7 @@ content. See the question put on 2026-08-29.
 
 ### P1 — THE OWNER (a refactor; no picture change) — ✅ **BUILT 2026-08-29**
 
-> ✅ `engine/rendering/systemStart.ts` + `systemStart.test.ts` (11 specs, all four mutations caught).
+> ✅ `engine/rendering/staff/systemStart.ts` + `systemStart.test.ts` (11 specs, all four mutations caught).
 > The **pass** moved, not just the method — `renderSystemStarts(pass, placements, staffCount,
 > drawnKeys)`, with `drawnKeys: null` meaning culling is off. `ScoreRenderer` keeps a four-line
 > call and lost `drawSystemConnector`, `systemIsDrawn` and its `THIN_BARLINE_PX` import.
@@ -226,7 +226,7 @@ content. See the question put on 2026-08-29.
 > **Green: 5627 unit + 265 e2e, `build:check` clean, picture unchanged.**
 
 `ScoreRenderer.drawSystemConnector` (`:4390`) is the **first member of the left-edge family**.
-Move it to `engine/rendering/systemStart.ts`.
+Move it to `engine/rendering/staff/systemStart.ts`.
 
 - ⭐ Why first: CLAUDE.md's rule — the family gets **ONE OWNER**, the way the barlines did
   (`docs/plans/barline-types-plan.md` §4.6). ⛔ Otherwise the brace becomes a second slice in the facade.
@@ -363,7 +363,7 @@ its own header which key owns the indent, so the next element in this family doe
 
 ### P3 — THE BRACKET — ✅ **BUILT 2026-08-29**, and its geometry took SIX passes
 
-> ✅ `engine/rendering/systemStart.ts` (+ unit specs) with **6 e2e** measuring the ink
+> ✅ `engine/rendering/staff/systemStart.ts` (+ unit specs) with **6 e2e** measuring the ink
 > (`e2e/systemStart.e2e.ts`). **Green: 5668 unit + 271 e2e, `build:check` clean.**
 >
 > #### ✅ The numbers, as drawn, each with its source
@@ -441,7 +441,7 @@ its own header which key owns the indent, so the next element in this family doe
 > multi-staff system's opening bar suppresses VexFlow's begin barline, and `systemStart` is the ONE
 > OWNER of that line. ⛔ A single-staff score keeps VexFlow's — it has no connector.
 > (⚠️ 2026-09-19: VexFlow is removed — that stave-opening line is ours now,
-> `rendering/EngravedBarline` + `engrave/staff/openingBarline`; the ownership rule is unchanged.)
+> `rendering/engraved/EngravedBarline` + `engrave/staff/openingBarline`; the ownership rule is unchanged.)
 >
 > #### 🔧 A CONSOLE TOOL, because P5 does not exist yet
 >
@@ -496,7 +496,7 @@ the same commit: it identifies the connector by *being tall*, and it is about to
 
 ### P4 — THE BRACE — ✅ **BUILT 2026-08-29**, and decision 6 was ANSWERED BY MEASUREMENT
 
-> ✅ Drawn in `engine/rendering/systemStart.ts` (+ unit specs). **Green: 5672 unit + 271 e2e,
+> ✅ Drawn in `engine/rendering/staff/systemStart.ts` (+ unit specs). **Green: 5672 unit + 271 e2e,
 > `build:check` clean.** ⏳ **HIS EYE IS NOT SATISFIED YET** — *"i'm still not sure about how the
 > brace looks"* (2026-08-29). ⛔ Do not read what follows as closed; the numbers below are each
 > measured, and it is the SHAPE he is still weighing.
@@ -676,7 +676,7 @@ citation; a glyph is ink a type designer drew.
 ⛔ **P4 has no mechanism step for the one thing P4b requires.** *"Stretches only in y, at a depth of
 ≈0.85–1.00 sp"* off a glyph that is **4 sp tall and 0.320 sp wide** means a **NON-UNIFORM**
 `scale(sx, sy)` — roughly `scale(2.78, 4)` for a two-staff brace. **Nothing in this renderer does
-that.** `Element.setFontSize` scales uniformly, and `rendering/staffScaleGroup.ts` — the one module
+that.** `Element.setFontSize` scales uniformly, and `rendering/staff/staffScaleGroup.ts` — the one module
 that transforms a group at all — is deliberately uniform-only.
 
 🚨 **And its second line is the problem:**

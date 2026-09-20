@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { planSpanSegments, cutSpanAtSystems, type SpanSegment } from './spanSegments'
 import type { MeasureWidthInfo } from '@/engine/layout/layoutConfig'
 import type { MeasureBounds } from '../renderTypes'
-import { type SystemEdgeLookup } from '../systemEdges'
+import { type SystemEdgeLookup } from '../staff/systemEdges'
 
 /**
  * Fabricate the narrow {@link SystemEdgeLookup} slice the segment planner reads. We only set the fields they touch (`lineNumber`,

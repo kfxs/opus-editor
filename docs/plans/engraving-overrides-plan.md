@@ -12,7 +12,7 @@ Phase 2 is scheduled.
 > getEngravingOverride / setEngravingOverride (upsert by kind) / clearEngravingOverride (one
 > kind or all; prunes empties so absent = none)`, and a render-boundary helper
 > `pixelsToStaffSpaces / staffSpacesToPixels(px|ss, stave)` in
-> `src/engine/rendering/staffSpace.ts`.
+> `src/engine/rendering/staff/staffSpace.ts`.
 
 > **Phase 1 — done (NOT committed).** Slur `cps` migrated into the compartment as client
 > #1 — identical on-screen behavior, content model + JSON now pixel-free:
@@ -391,7 +391,7 @@ anything changing in the score"*** — the value was stored, logged, and drawn n
    source. **The shift goes on the inner `Clef` element**, whose `Element.renderText` draws at
    `x + xShift` and whose `getBoundingBox` reports it — which is also what makes the hit box and the
    clef's pixel↔pitch segment follow the ink.
-   ⭐ Since S12j-e the carrier is ours (`rendering/EngravedClefChange`) and the inner shift is its
+   ⭐ Since S12j-e the carrier is ours (`rendering/engraved/EngravedClefChange`) and the inner shift is its
    `glyphShift` — same rule, drawn and boxed.
 2. ⭐⭐ **A bar's OPENING clef is not an inline glyph at all.** `interleaveClefNotes` filters
    `beat > 0`; a beat-0 clef is a **stave modifier**, so it needs its own pass

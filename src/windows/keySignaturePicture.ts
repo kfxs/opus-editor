@@ -8,7 +8,7 @@ import {
   keySignatureLines,
   signGlyph,
 } from '@/engine/layout/keySignatureLayout'
-import { SIGN_CHARS } from '@/engine/rendering/KeySignaturePass'
+import { SIGN_CHARS } from '@/engine/rendering/staff/KeySignaturePass'
 
 /**
  * ⭐⭐ **THE SIGNATURE, DRAWN — a five-line staff with a clef and the signs where the score would put

@@ -29,7 +29,7 @@
  *
  * - **Which side the tuplet goes on.** `location` arrives decided.
  * - **The bracket's own drawing** — its ends, its legs, the gap it leaves for the numeral. That is
- *   `rendering/ScoreTuplet.draw`, which has two deliberate differences from VexFlow's and documents them.
+ *   `rendering/engraved/ScoreTuplet.draw`, which has two deliberate differences from VexFlow's and documents them.
  * - **How many tuplets are nested.** Counting the stack is a question about the note graph;
  *   {@link TupletPlacement.nestedDepth} arrives counted.
  */

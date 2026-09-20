@@ -34,7 +34,7 @@
  * ⚠️ **This module is only the END.** Marks in the MIDDLE of the run are still the obstacle solver's,
  * and whether they should be is the open row in §8.6.
  */
-import type { NoteInkRect } from '../noteInkBox'
+import type { NoteInkRect } from '../engraved/noteInkBox'
 
 /** Just enough of a drawn note to find its marks — structural, so a spec needs no VexFlow. */
 export interface MarkedNote {

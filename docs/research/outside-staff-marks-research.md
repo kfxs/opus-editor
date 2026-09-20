@@ -17,8 +17,8 @@ that value measure?** The second half matters as much as the first. A "distance 
 ink-to-staff in one source, baseline-to-staff in another, and a starting offset in a third.
 
 Units. Our glyph sizes are **points** handed to VexFlow (⚠️ 2026-09-19: VexFlow is removed — to our
-own `rendering/glyphPainter` / `SvgPainter`, which keep its point→pixel factor). A point draws at 4/3 px
-(`rendering/drawnFontSize.ts:43-52`), and our staff space is 10 px. So **1 pt = 0.1333 sp**, and
+own `rendering/painter/glyphPainter` / `SvgPainter`, which keep its point→pixel factor). A point draws at 4/3 px
+(`rendering/painter/drawnFontSize.ts:43-52`), and our staff space is 10 px. So **1 pt = 0.1333 sp**, and
 **1 SMuFL em = 4 sp = 30 pt** here.
 
 | # | row (inventory §2 / §5b) | file:line | today | in sp |

@@ -32,7 +32,7 @@ const DOC = 'docs/plans/own-engraving-engine.md'
 const SVG_NODE_CEILING = 16
 
 /** The escape's own definition does not count against its ceiling. */
-const DEFINITION = 'engine/rendering/svgDrawGroup.ts'
+const DEFINITION = 'engine/rendering/painter/svgDrawGroup.ts'
 
 function isComment(line) {
   const t = line.trim()

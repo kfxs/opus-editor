@@ -63,7 +63,7 @@ interchange formats.
 | LilyPond · MuseScore · Verovio | `~/dev/engine-sources/…` | ⛔ never `/tmp` |
 | VexFlow 5.0.0 | `node_modules/vexflow/build/esm/src/clef.js`, `stave.js` | |
 | Bravura 1.481 | `scripts/vendor/Bravura.json`; our own copy of three clef boxes in `src/engine/fonts/bravuraMetrics.ts:154–156` | |
-| **ours** | `src/engine/layout/headerInk.ts` · `engine/engrave/header/clef.ts` · `rendering/clefIndentPass.ts` · `rendering/clefOffsetPass.ts` · `utils/clefUtils.ts` · `engine/models/clefOps.ts` | |
+| **ours** | `src/engine/layout/headerInk.ts` · `engine/engrave/header/clef.ts` · `rendering/clefIndentPass.ts` · `rendering/staff/clefOffsetPass.ts` · `utils/clefUtils.ts` · `engine/models/clefOps.ts` | |
 
 ⚠️ **The OCR is NOT quotable** (Gould's opening lines read `IVE G333"DE TO MU`). It locates a page;
 the **scan** is then rendered (`pdftoppm -r 450`) and read. ⭐⭐ **A SCAN BEATS AN OCR whenever the

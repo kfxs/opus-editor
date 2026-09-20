@@ -28,7 +28,7 @@ too (the §6a-ii tripwire already RESULT-polices them, so low priority).
 > ⭐⭐ **2026-09-14 — the ACCIDENTAL has left this plan's world entirely.** Everything below
 > is about getting VexFlow's own box *down to* the glyph: pick the LEAF object, not the
 > container, and police the result. **P6b now computes that box from the ink we drew**
-> (`rendering/drawnHitBox` ← `sceneInk.drawnInkBoxOf`, `docs/plans/own-engraving-engine.md` §5 P6),
+> (`rendering/painter/drawnHitBox` ← `sceneInk.drawnInkBoxOf`, `docs/plans/own-engraving-engine.md` §5 P6),
 > so for this one kind there is no container to fall back into and no measurement to
 > inflate: the box IS the glyph's outline, by construction. ⭐ Measured: in jsdom VexFlow
 > answers `0×0` for a sharp and ours answers 9.96 × 27.92 px — which is also the first time

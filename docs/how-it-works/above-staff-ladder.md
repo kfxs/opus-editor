@@ -198,7 +198,7 @@ is working well with the pedal lane"*) the decisive clue — it separated "the l
 
 ### The fix
 
-`rendering/drawnFontSize.ts` — `drawnFontPx(sizePt)` and `inkSpaces(sizePt, ratio)`, used by all five
+`rendering/painter/drawnFontSize.ts` — `drawnFontPx(sizePt)` and `inkSpaces(sizePt, ratio)`, used by all five
 style modules. ⚠️ It reaches past the ladder: `DynamicsLayout.registerDynamics` rebuilds a mark's
 HIT-BOX from the same two constants, so the dynamic's clickable box was a quarter short too.
 

@@ -154,7 +154,7 @@ glyphs"* — so `tremoloFingered1–5` (E225–E229) are never used here.
 TIPS** and marches toward the noteheads — where a beam over the pair would sit, which for a beamed
 pair it literally is. And a redonda is **not** a separate case: `hasStem()` is false but VexFlow
 still built the `Stem`, so `getStemExtents()` gives the imaginary stem to hang from. (⚠️ 2026-09-19:
-VexFlow is removed — the note is ours, `rendering/EngravedNote`, and its `getStemExtents()` answers
+VexFlow is removed — the note is ours, `rendering/engraved/EngravedNote`, and its `getStemExtents()` answers
 the same imaginary stem.) Only its
 horizontal **span** parts company — with no stem ink at the stem's x, `getStemX()` puts both ends on
 the right edge of each notehead and the bar reads shoved right, so a stemless pair runs notehead to
@@ -289,7 +289,7 @@ built at the doubled duration, so it carries twice the ticks its slot has.
 (`setTuplet` → `applyTickMultiplier(notesOccupied, noteCount)`), which is why the formatter then
 spaces the pair over its real length and `pickVoiceMode` still answers FULL.
 
-Both halves belong in `rendering/NoteBuilder.createStaveNotesFromSlots`, side by side, because the
+Both halves belong in `rendering/engraved/NoteBuilder.createStaveNotesFromSlots`, side by side, because the
 **width** path builds its notes through that same function (`MeasureLayout.noteSpaceForLane` →
 formatter → the cached lane width). Double on the draw side only and the two disagree about what is
 in the bar; double without the multiplier and a FULL-mode voice is handed twice the bar's ticks and
