@@ -16,6 +16,7 @@ import { sameTimeSignature } from '../utils/meter'
 import { tempoLabel } from '../utils/tempoMap'
 import { dynamicTextFromTool } from '../utils/dynamics'
 import { selectedNoteIds, selectedArticulationNoteIds, multipleNotesSelected } from './selection'
+import { pressSpanTool, SPAN_TOOL_PRESSES, type SpanToolHost } from './spanToolPress'
 import { featherSelectedNote, featherContext } from './fanStamp'
 import { applyBarlineSign, barlineTargetFromSelection, type BarlineSign } from './barlineStamp'
 import { applyKeySignature, keyTargetFromSelection } from './keySignatureStamp'
@@ -118,6 +119,17 @@ export class PaletteController {
     this.state.selectedElement = null
     this.state.selectedTool = 'entry'
     this.showArmedGhost()
+  }
+
+  /** What {@link pressSpanTool} is handed: the state it routes on and the four things it may do. */
+  private spanToolHost(): SpanToolHost {
+    return {
+      state: this.state,
+      getEngine: () => this.getEngine(),
+      arm: tool => this.armMarkingTool(tool),
+      disarm: () => this.disarmMarkingTool(),
+      render: () => this.renderScore(),
+    }
   }
 
   /**
@@ -1272,31 +1284,32 @@ export class PaletteController {
    * with an empty set, and that reads as "nothing selected".
    */
   createSlur(): void {
-    const engine = this.getEngine()
-    if (!engine) return
-    // (0) A re-press of the armed stamp turns it off — and falls back to selection mode, the
-    // `disarmMarkingTool` half of the split, like every other key-armed stamp.
-    if (armedTool(this.state, 'slur')) {
-      dbg('[Slur] stamp disarmed (re-press)')
-      this.disarmMarkingTool()
-      return
-    }
-    // (1) Something note-like is selected → the press is about it. The scalar anchor counts only in
-    // ENTRY mode, where it IS the cursor note; in selection mode an empty set means empty selection
-    // (the tie key's rule, `pressTie`).
-    const ids = selectedNoteIds(this.state.selectedItems.values())
-    const noteIds = ids.length
-      ? ids
-      : (this.state.selectedTool === 'entry' && this.state.selectedNoteId ? [this.state.selectedNoteId] : [])
-    if (noteIds.length === 0) {
-      // (2) Nothing to slur → the only thing the press can sensibly mean is "I meant the slur tool".
-      dbg('[Slur] nothing selected → arming the slur stamp')
-      this.armMarkingTool({ kind: 'slur' })
-      return
-    }
-    const created = engine.slur.createSlur(noteIds)
-    dbg(`[Slur] createSlur on ${noteIds.length} note(s) → ${created ? `slur ${created.id}` : 'no valid span'}`)
-    this.renderScore()
+    pressSpanTool(this.spanToolHost(), SPAN_TOOL_PRESSES.slur())
+  }
+
+  /**
+   * ⭐ The OCTAVE LINE's palette door — `8va` (shift +1) and `8vb` (−1) are two rows into one method.
+   *
+   * `createTrill`'s shape below: with notes selected it puts a line over them; with nothing selected
+   * it ARMS the stamp; pressed again while armed it disarms. ⭐ Two rows must arm INDEPENDENTLY, so
+   * the re-press check compares the SHIFT too — pressing `8vb` while `8va` is armed swaps the tool
+   * rather than turning it off, exactly as the two hairpin rows do.
+   */
+  createOttava(shift: -3 | -2 | -1 | 1 | 2 | 3): void {
+    pressSpanTool(this.spanToolHost(), SPAN_TOOL_PRESSES.ottava(shift))
+  }
+
+  /**
+   * The Lines window's **Pedal** row (⛔ and its ONLY door — no keyboard shortcut, his call; `p` is
+   * PLAY). `createOttava`'s shape above, minus the second row: with notes selected it puts a pedal
+   * under them; with nothing selected it ARMS the stamp; pressed again while armed it disarms.
+   *
+   * ⭐ There is only one sustain pedal, so unlike the two hairpin rows and the two ottava rows the
+   * re-press check has no value to compare — arming and disarming is the whole of it. Sostenuto and
+   * una corda, when they arrive, are two more ROWS calling this with a type, not a setting on it.
+   */
+  createPedal(): void {
+    pressSpanTool(this.spanToolHost(), SPAN_TOOL_PRESSES.pedal())
   }
 
   /**
@@ -1311,100 +1324,8 @@ export class PaletteController {
    * enough to earn one. So this row is the trill's whole entry surface, which is why it carries both
    * behaviours rather than half of them (docs/trill-plan.md §6).
    */
-  /**
-   * ⭐ The OCTAVE LINE's palette door — `8va` (shift +1) and `8vb` (−1) are two rows into one method.
-   *
-   * `createTrill`'s shape below: with notes selected it puts a line over them; with nothing selected
-   * it ARMS the stamp; pressed again while armed it disarms. ⭐ Two rows must arm INDEPENDENTLY, so
-   * the re-press check compares the SHIFT too — pressing `8vb` while `8va` is armed swaps the tool
-   * rather than turning it off, exactly as the two hairpin rows do.
-   */
-  createOttava(shift: -3 | -2 | -1 | 1 | 2 | 3): void {
-    // ⚠️ The engine is fetched in the CREATE branch, not here — `createHairpin`'s rule, and its
-    // comment says why: arming and disarming are decisions about the editor's own state and touch
-    // no score, so guarding on an engine up front would make the tool unarmable in any context that
-    // has none, and would say (wrongly) that these branches depend on one.
-    const armed = armedTool(this.state, 'ottava')
-    if (armed && armed.shift === shift) {
-      dbg('[Ottava] stamp disarmed (re-press)')
-      this.disarmMarkingTool()
-      return
-    }
-    // Something note-like is selected → the press is about it. The scalar anchor counts only in
-    // ENTRY mode, where it IS the cursor note (the tie/slur/hairpin/trill rule).
-    const ids = selectedNoteIds(this.state.selectedItems.values())
-    const noteIds = ids.length
-      ? ids
-      : (this.state.selectedTool === 'entry' && this.state.selectedNoteId ? [this.state.selectedNoteId] : [])
-    if (noteIds.length === 0) {
-      dbg(`[Ottava] nothing selected → arming the ${shift > 0 ? '8va' : '8vb'} stamp`)
-      this.armMarkingTool({ kind: 'ottava', shift })
-      return
-    }
-    const engine = this.getEngine()
-    if (!engine) return
-    const created = engine.ottava.createOttava(noteIds, shift)
-    dbg(`[Ottava] createOttava on ${noteIds.length} note(s) → ${created ? `ottava ${created.id}` : 'no valid anchor'}`)
-    this.renderScore()
-  }
-
-  /**
-   * The Lines window's **Pedal** row (⛔ and its ONLY door — no keyboard shortcut, his call; `p` is
-   * PLAY). `createOttava`'s shape above, minus the second row: with notes selected it puts a pedal
-   * under them; with nothing selected it ARMS the stamp; pressed again while armed it disarms.
-   *
-   * ⭐ There is only one sustain pedal, so unlike the two hairpin rows and the two ottava rows the
-   * re-press check has no value to compare — arming and disarming is the whole of it. Sostenuto and
-   * una corda, when they arrive, are two more ROWS calling this with a type, not a setting on it.
-   */
-  createPedal(): void {
-    // ⚠️ The engine is fetched in the CREATE branch, not here — `createOttava`'s rule and its reason:
-    // arming and disarming are decisions about the editor's own state and touch no score.
-    if (armedTool(this.state, 'pedal')) {
-      dbg('[Pedal] stamp disarmed (re-press)')
-      this.disarmMarkingTool()
-      return
-    }
-    // Something note-like is selected → the press is about it. The scalar anchor counts only in
-    // ENTRY mode, where it IS the cursor note (the tie/slur/hairpin/trill/ottava rule).
-    const ids = selectedNoteIds(this.state.selectedItems.values())
-    const noteIds = ids.length
-      ? ids
-      : (this.state.selectedTool === 'entry' && this.state.selectedNoteId ? [this.state.selectedNoteId] : [])
-    if (noteIds.length === 0) {
-      dbg('[Pedal] nothing selected → arming the pedal stamp')
-      this.armMarkingTool({ kind: 'pedal' })
-      return
-    }
-    const engine = this.getEngine()
-    if (!engine) return
-    const created = engine.pedal.createPedal(noteIds)
-    dbg(`[Pedal] createPedal on ${noteIds.length} note(s) → ${created ? `pedal ${created.id}` : 'no valid anchor'}`)
-    this.renderScore()
-  }
-
   createTrill(): void {
-    const engine = this.getEngine()
-    if (!engine) return
-    if (armedTool(this.state, 'trill')) {
-      dbg('[Trill] stamp disarmed (re-press)')
-      this.disarmMarkingTool()
-      return
-    }
-    // Something note-like is selected → the press is about it. The scalar anchor counts only in
-    // ENTRY mode, where it IS the cursor note (the tie/slur/hairpin rule).
-    const ids = selectedNoteIds(this.state.selectedItems.values())
-    const noteIds = ids.length
-      ? ids
-      : (this.state.selectedTool === 'entry' && this.state.selectedNoteId ? [this.state.selectedNoteId] : [])
-    if (noteIds.length === 0) {
-      dbg('[Trill] nothing selected → arming the trill stamp')
-      this.armMarkingTool({ kind: 'trill' })
-      return
-    }
-    const created = engine.trill.createTrill(noteIds)
-    dbg(`[Trill] createTrill on ${noteIds.length} note(s) → ${created ? `trill ${created.id}` : 'no valid anchor'}`)
-    this.renderScore()
+    pressSpanTool(this.spanToolHost(), SPAN_TOOL_PRESSES.trill())
   }
 
   /** `H` / the Lines window's *Cresc.* row — see {@link createHairpin}. */
@@ -1430,39 +1351,7 @@ export class PaletteController {
    * what step 0's `tool.type === type` test buys and a shared `kind === 'hairpin'` test would lose.
    */
   private createHairpin(type: 'cresc' | 'dim'): void {
-    // ⚠️ The engine is fetched in the CREATE branch, not here: arming and disarming are decisions
-    // about the editor's own state and touch no score, so guarding on an engine up front would
-    // make the tool unarmable in any context that has none — and would say, wrongly, that these
-    // branches depend on one.
-    const name = type === 'cresc' ? 'Cresc' : 'Dim'
-
-    const armed = this.state.selectedMarkingTool
-    // (0) A re-press of THIS wedge's stamp turns it off. The OTHER wedge's falls through to (2),
-    // where `armMarkingTool` replaces it — pressing Shift+H with cresc. armed switches tools.
-    if (armed?.kind === 'hairpin' && armed.type === type) {
-      dbg(`[${name}] stamp disarmed (re-press)`)
-      this.disarmMarkingTool()
-      return
-    }
-
-    // (1) Something note-like is selected → the press is about it. The scalar anchor counts only in
-    // ENTRY mode, where it IS the cursor note (the tie/slur rule).
-    const ids = selectedNoteIds(this.state.selectedItems.values())
-    const noteIds = ids.length
-      ? ids
-      : (this.state.selectedTool === 'entry' && this.state.selectedNoteId ? [this.state.selectedNoteId] : [])
-    if (noteIds.length === 0) {
-      // (2) Nothing to cover → the press can only mean "I meant the hairpin tool".
-      dbg(`[${name}] nothing selected → arming the ${type} stamp`)
-      this.armMarkingTool({ kind: 'hairpin', type })
-      return
-    }
-
-    const engine = this.getEngine()
-    if (!engine) return
-    const created = engine.hairpin.createHairpin(noteIds, type)
-    dbg(`[${name}] createHairpin on ${noteIds.length} note(s) → ${created ? created.id : 'no valid span'}`)
-    this.renderScore()
+    pressSpanTool(this.spanToolHost(), SPAN_TOOL_PRESSES.hairpin(type))
   }
 
   /**
