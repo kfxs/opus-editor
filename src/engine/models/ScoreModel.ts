@@ -2,7 +2,7 @@ import { dbg } from '@/utils/debug'
 import { isTestRun } from '@/utils/env'
 import type { KeySignature, PitchInsert, Score, Measure, Note, NoteParams, TimeSignature, Tuplet, TupletFormat, NoteDuration, ChordRest, Chord, Rest, NotePitch, PitchAlter, PitchStep, Clef, Dynamic, Hairpin, Ottava, Pedal, TempoMark, Slur, Trill, TrillContinuationLabel, StaffInfo, StaffGroup, EngravingOverride, CurveControlPointDeltas, SlurSegmentAddress, SlurSegmentEndpointAddress, CautionaryOverride, CautionaryClefOverride, TremoloMark, FanMark, SoundRef, SoundAssignment, BarlineStyle, ClefChange, FractionalBeamSide } from '@/types/music'
 import { engravingOverridesOf, engravingOverrideOf, cautionaryKey, cautionaryAllowedOf, cautionaryClefKey, cautionaryClefAllowedOf, restPositionKey } from './engravingOverrides'
-import { tupletSpan, tupletScale, noteSpansOverlapFrac, splitBeatsIntoDurations } from '@/utils/musicUtils'
+import { tupletScale, noteSpansOverlapFrac, splitBeatsIntoDurations } from '@/utils/musicUtils'
 import { measureCapacityFrac, getMeasureDurationFrac } from '@/utils/measureCapacity'
 import { durationToFraction, slotLength, writtenLength } from '@/utils/durations'
 import {
@@ -11,7 +11,7 @@ import {
   effectiveTimeSignature,
   sameTimeSignature,
 } from '@/utils/meter'
-import { fillRests, type RestSlot } from '@/utils/restFill'
+import { fillRests } from '@/utils/restFill'
 import { beamRoleAtRef, type BeamRole } from '@/utils/beaming'
 import { cloneFanFresh, fanMemberPitches, fanMemberBeats } from '@/utils/fannedBeam'
 import { alterToString } from '@/utils/pitchSpelling'
@@ -23,8 +23,6 @@ import {
   fracSub,
   fracMul,
   fracCompare,
-  fracLt,
-  fracLte,
   fracGt,
   fracGte,
   fracEq,
@@ -37,6 +35,7 @@ import * as keyOps from './keyOps'
 import { keyAt } from '@/utils/keySignature'
 import * as rebarOps from './rebarOps'
 import * as overrideOps from './overrideOps'
+import { fillGapsWithRests, pushRestSlot } from './restFillOps'
 import * as slurOps from './slurOps'
 import { repairDanglingTies } from './tieOps'
 import * as trillOps from './trillOps'
@@ -354,31 +353,8 @@ export class ScoreModel {
     const meter = getMeterInfo(measure.timeSignature)
     const rests = fillRests(fracCreate(0, 1), measureCapacityFrac(measure), meter)
     for (const rest of rests) {
-      this.pushRestSlot(measure, rest, 0)
+      pushRestSlot(measure, rest, 0)
     }
-  }
-
-  /**
-   * Materialise a {@link RestSlot} produced by `fillRests` into a measure slot.
-   * Measure rests store the true bar length as `actualDuration` (the `duration`
-   * stays `'w'`); the voice is only recorded when non-default.
-   */
-  private pushRestSlot(measure: Measure, rest: RestSlot, voice: number, staffId?: string): void {
-    const slot: Rest = {
-      id: uuidv4(),
-      type: 'rest',
-      duration: rest.duration,
-      measure: measure.number,
-      beat: rest.beat,
-      actualDuration: rest.isMeasureRest ? measureCapacityFrac(measure) : writtenLength(rest),
-    }
-    if (rest.dots) slot.dots = rest.dots
-    if (rest.isMeasureRest) slot.isMeasureRest = true
-    if (voice !== 0) slot.voice = voice as 0 | 1 | 2 | 3
-    // Multi-staff: filler rests belong to the staff whose gap they fill. The first staff
-    // uses an absent staffId (the N=1 convention), so single-staff output is unchanged.
-    if (staffId !== undefined) slot.staffId = staffId
-    measure.slots.push(slot)
   }
 
   /**
@@ -409,7 +385,7 @@ export class ScoreModel {
     // Refill this staff with the default rest fill (collapses to one measure rest per meter).
     const meter = getMeterInfo(measure.timeSignature)
     const rests = fillRests(fracCreate(0, 1), measureCapacityFrac(measure), meter)
-    for (const rest of rests) this.pushRestSlot(measure, rest, 0, staffId)
+    for (const rest of rests) pushRestSlot(measure, rest, 0, staffId)
     return true
   }
 
@@ -1920,7 +1896,7 @@ export class ScoreModel {
    */
   private reconcileMeasureRests(measure: Measure): void {
     measure.slots = measure.slots.filter((s) => s.type !== 'rest' || !!s.tupletId)
-    this.fillGapsWithRests(measure)
+    fillGapsWithRests(this.score, measure)
   }
 
   /**
@@ -1943,7 +1919,6 @@ export class ScoreModel {
    *  voice move uses but does not own. */
   private get voiceDeps(): voiceOps.VoiceDeps {
     return {
-      fillGapsWithRests: (m) => this.fillGapsWithRests(m),
       insertPitch: (m, payload) => this.insertPitch(m, payload),
       refillTupletRemainder: (n, t, voice) => this.refillTupletRemainder(n, t, voice),
     }
@@ -1953,9 +1928,7 @@ export class ScoreModel {
     return {
       insertMeasureAfter: (afterNumber, ts) => this.insertMeasureAfter(afterNumber, ts),
       addMeasure: (ts) => this.addMeasure(ts),
-      fillGapsWithRests: (m) => this.fillGapsWithRests(m),
       collapseEmptyVoices: (n) => this.collapseEmptyVoices(n),
-      pushRestSlot: (m, rest, voice, staffId) => this.pushRestSlot(m, rest, voice, staffId),
       staffIdForParams: (staff) => this.staffIdForParams(staff),
       addSlur: (slur) => this.addSlur(slur),
       addTrill: (trill) => this.addTrill(trill),
@@ -2388,7 +2361,7 @@ export class ScoreModel {
     measure.slots.push(chord)
 
     // Fill gaps with rests
-    this.fillGapsWithRests(measure)
+    fillGapsWithRests(this.score, measure)
 
     // Sort by beat
     measure.slots.sort((a, b) => fracCompare(a.beat, b.beat))
@@ -2420,7 +2393,7 @@ export class ScoreModel {
     }
 
     measure.slots = remaining
-    this.fillGapsWithRests(measure)
+    fillGapsWithRests(this.score, measure)
     measure.slots.sort((a, b) => fracCompare(a.beat, b.beat))
   }
 
@@ -2450,7 +2423,7 @@ export class ScoreModel {
    */
   fillMeasureGaps(measureNumber: number): void {
     const measure = this.getMeasure(measureNumber)
-    if (measure) this.fillGapsWithRests(measure)
+    if (measure) fillGapsWithRests(this.score, measure)
   }
 
   /**
@@ -2465,117 +2438,6 @@ export class ScoreModel {
     for (const restDuration of splitBeatsIntoDurations(beats)) {
       this.addRest(restDuration, measureNumber, currentBeat, voice, staff)
       currentBeat = fracAdd(currentBeat, durationToFraction(restDuration))
-    }
-  }
-
-  /**
-   * Fill gaps in a measure with engraving-correct rests, per voice.
-   *
-   * Each voice (defaulting to 0) is an independent rhythmic stream that must sum
-   * to the bar length, so gaps are found and filled per voice. Within a voice,
-   * tuplet spans are skipped and gaps are trimmed at tuplet boundaries — that
-   * tuplet-awareness stays here; the meter-aware decomposition is delegated to
-   * the tuplet-unaware {@link fillRests}.
-   */
-  private fillGapsWithRests(measure: Measure): void {
-    const meter = getMeterInfo(measure.timeSignature)
-    const barEnd = measureCapacityFrac(measure)
-    const tuplets = measure.tuplets || []
-
-    // Partition by STAFF before voice (multi-staff): each staff is an independent
-    // rest-fill lane, exactly like each voice — a note on staff 2 must not suppress the
-    // rest-fill of staff 1's own stream. `match` selects the lane's slots; `stamp` is put
-    // on its filler rests. The first staff stamps `undefined` (the absent-staffId = staff 0
-    // convention), so a single-staff score is byte-identical to the pre-multi-staff model.
-    const staves = this.score.staves ?? []
-    const staffLanes: Array<{ match: string | undefined; stamp: string | undefined }> =
-      staves.length > 0
-        ? staves.map((s, i) => ({ match: s.id, stamp: i === 0 ? undefined : s.id }))
-        : [{ match: undefined, stamp: undefined }]
-
-    // The measure header is logged lazily — only once, and only if some lane/voice
-    // actually has a gap to fill. A bar with nothing to do stays silent.
-    let headerLogged = false
-    const logHeaderOnce = () => {
-      if (headerLogged) return
-      headerLogged = true
-      dbg(`[Model.fillGaps] m${measure.number} barLen=${fracToNumber(barEnd).toFixed(3)} TS=${measure.timeSignature.numerator}/${measure.timeSignature.denominator} staves=${staffLanes.length}`)
-    }
-
-    for (let laneIndex = 0; laneIndex < staffLanes.length; laneIndex++) {
-      const lane = staffLanes[laneIndex]
-      const laneSlots = measure.slots.filter(slot => matchesStaff(slot.staffId, lane.match, this.score))
-      const laneTuplets = tuplets.filter(tuplet => matchesStaff(tuplet.staffId, lane.match, this.score))
-
-      // Distinct voices present in THIS staff (always include voice 0 so an empty bar fills).
-      const voices = new Set<number>([0])
-      for (const slot of laneSlots) voices.add(voiceOf(slot))
-
-      for (const voice of voices) {
-        const voiceSlots = laneSlots
-          .filter(slot => voiceOf(slot) === voice)
-          .sort((a, b) => fracCompare(a.beat, b.beat))
-
-        // Only this staff+voice's tuplets may govern its gaps. A tuplet's voice is
-        // derived from its member slots (a tuplet is a single-voice run), so a
-        // voice-0 triplet must not block the rest-fill of an empty voice-1 bar.
-        const voiceTuplets = laneTuplets.filter(tuplet => {
-          const slot = laneSlots.find(s => s.tupletId === tuplet.id)
-          return (slot?.voice ?? 0) === voice
-        })
-
-        // Find gaps in this voice's stream.
-        const gaps: Array<{ start: Fraction; end: Fraction }> = []
-        let currentBeat: Fraction = fracCreate(0, 1)
-        for (const slot of voiceSlots) {
-          if (fracLt(currentBeat, slot.beat)) {
-            gaps.push({ start: currentBeat, end: slot.beat })
-          }
-          const slotDurFrac = slotLength(slot)
-          currentBeat = fracAdd(slot.beat, slotDurFrac)
-        }
-        if (fracLt(currentBeat, barEnd)) {
-          gaps.push({ start: currentBeat, end: barEnd })
-        }
-
-        // Skip gaps that start inside a tuplet's span (the tuplet owns that time).
-        const filteredGaps = gaps.filter(gap => {
-          for (const tuplet of voiceTuplets) {
-            const tupletEndFrac = fracAdd(
-              tuplet.startBeat,
-              tupletSpan(tuplet),
-            )
-            if (fracGte(gap.start, tuplet.startBeat) && fracLt(gap.start, tupletEndFrac)) {
-              return false
-            }
-          }
-          return true
-        })
-
-        // Only log a voice that actually has gaps — "gaps=none" lines are pure noise.
-        if (filteredGaps.length) {
-          logHeaderOnce()
-          const gapStr = filteredGaps.map(g => `[${fracToNumber(g.start).toFixed(3)}→${fracToNumber(g.end).toFixed(3)}]`).join(' ')
-          dbg(`[Model.fillGaps]   staff${laneIndex} v${voice}: ${voiceSlots.length} existing slot(s), gaps=${gapStr}`)
-        }
-
-        for (const gap of filteredGaps) {
-          let adjustedEnd = gap.end
-          // Trim a gap that runs into a later tuplet so fillRests never spans one.
-          for (const tuplet of voiceTuplets) {
-            if (fracGt(tuplet.startBeat, gap.start) && fracLt(tuplet.startBeat, adjustedEnd)) {
-              adjustedEnd = tuplet.startBeat
-            }
-          }
-          if (fracLte(adjustedEnd, gap.start)) continue
-
-          for (const rest of fillRests(gap.start, adjustedEnd, meter)) {
-            this.pushRestSlot(measure, rest, voice, lane.stamp)
-            const dots = rest.dots ? '.'.repeat(rest.dots) : ''
-            dbg(`[Model.fillGaps]     fill staff${laneIndex} v${voice} REST ${rest.duration}${dots} @b${fracToNumber(rest.beat).toFixed(3)}${rest.isMeasureRest ? ' [measure-rest]' : ''}`)
-          }
-        }
-      }
     }
   }
 
@@ -3268,7 +3130,7 @@ export class ScoreModel {
           existingChord.duration = payload.duration
           existingChord.dots = payload.dots
           existingChord.actualDuration = this.computeActualDurationForSlot(existingChord, measure)
-          this.fillGapsWithRests(measure) // reclaim the freed time as rests
+          fillGapsWithRests(this.score, measure) // reclaim the freed time as rests
         }
       }
       dbg(`[Model.insertPitch] merge ${notePitch.step}${alterToString(notePitch.alter)}${notePitch.octave} → chord ${fmtSlot(existingChord)} (now ${existingChord.notes.length} note(s), dur ${existingChord.duration})`)
@@ -3419,7 +3281,7 @@ export class ScoreModel {
    * Delete a tuplet and replace it with an appropriate rest
    */
   deleteTuplet(tupletId: string): boolean {
-    return tupletOps.deleteTuplet(this.score, tupletId, measure => this.fillGapsWithRests(measure))
+    return tupletOps.deleteTuplet(this.score, tupletId)
   }
 
   /**
@@ -3428,7 +3290,7 @@ export class ScoreModel {
   repairMeasureGaps(measureNumber: number): void {
     const measure = this.getMeasure(measureNumber)
     if (measure) {
-      this.fillGapsWithRests(measure)
+      fillGapsWithRests(this.score, measure)
     }
   }
 
@@ -3437,7 +3299,7 @@ export class ScoreModel {
    */
   repairAllMeasureGaps(): void {
     for (const measure of this.score.measures) {
-      this.fillGapsWithRests(measure)
+      fillGapsWithRests(this.score, measure)
     }
     this.checkMeasuresWellFormed()
   }

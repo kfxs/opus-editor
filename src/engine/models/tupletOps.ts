@@ -5,9 +5,9 @@
  * Create / query / refill / delete of tuplets and their slots. Each function takes
  * the `score` it operates on as a parameter (no shared instance state), matching the
  * `utils/rebar.ts` / `clefOps.ts` idiom. Two operations reach back into ScoreModel's
- * larger note-entry machinery — `refillTupletRemainder` needs `addNote` and
- * `deleteTuplet` needs `fillGapsWithRests` — so those are passed in as callbacks
- * rather than duplicated here.
+ * One operation reaches back into ScoreModel's larger note-entry machinery —
+ * `refillTupletRemainder` needs `addNote` — so that is passed in as a callback rather than
+ * duplicated here. (`deleteTuplet`'s rest fill was a callback too, until it became `restFillOps`.)
  */
 import type { Score, Measure, Note, NoteParams, Tuplet, TupletFormat, NoteDuration, Fraction } from '@/types/music'
 import {
@@ -18,6 +18,7 @@ import {
   splitBeatsIntoDurations,
 } from '@/utils/musicUtils'
 import { durationToFraction, slotLength, writtenLength } from '@/utils/durations'
+import { fillGapsWithRests } from './restFillOps'
 import {
   fracCreate,
   fracAdd,
@@ -315,13 +316,11 @@ export function refillTupletRemainder(
 }
 
 /**
- * Delete a tuplet and replace it with an appropriate rest.
- * `fillGapsWithRests` is injected (it stays on ScoreModel).
+ * Delete a tuplet and replace it with an appropriate rest (`restFillOps`).
  */
 export function deleteTuplet(
   score: Score,
   tupletId: string,
-  fillGapsWithRests: (measure: Measure) => void,
 ): boolean {
   for (const measure of score.measures) {
     if (!measure.tuplets) continue
@@ -336,7 +335,7 @@ export function deleteTuplet(
     measure.tuplets.splice(tupletIndex, 1)
 
     // Re-fill gaps with rests
-    fillGapsWithRests(measure)
+    fillGapsWithRests(score, measure)
 
     return true
   }

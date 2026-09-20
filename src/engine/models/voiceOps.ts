@@ -28,6 +28,7 @@ import { compareByPosition, tupletSpan, tupletSlotDuration } from '@/utils/music
 import { alterToString } from '@/utils/pitchSpelling'
 import { staffIndexOfId } from './staffContent'
 import { findSlot } from './slotLookup'
+import { fillGapsWithRests } from './restFillOps'
 import * as markOps from './markOps'
 import * as tupletOps from './tupletOps'
 
@@ -37,8 +38,6 @@ import * as tupletOps from './tupletOps'
  * voice move USES but does not own, so they are handed in rather than duplicated or dragged along.
  */
 export interface VoiceDeps {
-  /** Fill any hole a departure left in the source lane. */
-  fillGapsWithRests(measure: Measure): void
   /** Put the pitch into the target lane — merging into a same-beat chord, or making a new slot. */
   insertPitch(measure: Measure, payload: PitchInsert): void
   /** Fill the remainder of a freshly made tuplet with rests. */
@@ -176,7 +175,7 @@ export function moveNoteToVoice(score: Score, deps: VoiceDeps, pitchId: string, 
   // Repair the source voice if removing a whole slot left a gap, THEN collapse
   // an emptied secondary voice (order matters — plan Phase 1 step 8).
   if (removedWholeSlot) {
-    deps.fillGapsWithRests(measure)
+    fillGapsWithRests(score, measure)
     collapseEmptyVoices(score, measure.number)
   }
 
@@ -411,14 +410,14 @@ function moveTupletNoteToVoice(score: Score, deps: VoiceDeps, measure: Measure, 
     deps.refillTupletRemainder(measure.number, sourceTuplet, from)
     const sourceHasNote = measure.slots.some(s => s.tupletId === sourceTuplet.id && s.type === 'chord')
     if (!sourceHasNote) {
-      tupletOps.deleteTuplet(score, sourceTuplet.id, m => deps.fillGapsWithRests(m))
+      tupletOps.deleteTuplet(score, sourceTuplet.id)
     }
   }
 
   // Fill any remaining per-voice gaps (e.g. a brand-new target voice's bar
   // outside the tuplet span), collapse an emptied secondary voice, and prune
   // any tuplet left with no member slots.
-  deps.fillGapsWithRests(measure)
+  fillGapsWithRests(score, measure)
   collapseEmptyVoices(score, measure.number)
   if (measure.tuplets) {
     measure.tuplets = measure.tuplets.filter(t => measure.slots.some(s => s.tupletId === t.id))

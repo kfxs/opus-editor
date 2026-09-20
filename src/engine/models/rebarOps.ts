@@ -18,13 +18,13 @@ import type {
 import { restShiftOverrideOf, restHiddenOf, restPositionKey, noteOffsetOverrideOf, spacingPositionKey, measureLeadingSpaces } from './engravingOverrides'
 import { slotLength, writtenLength } from '@/utils/durations'
 import { getMeterInfo } from '@/utils/meter'
-import type { RestSlot } from '@/utils/restFill'
 import { flattenRegion, relayEvents, type RebarPiece, type RebarEvent, type BarPlan } from '@/utils/rebar'
 import type { Clip, ClipSlur, ClipSlurPitch, ClipTrill, ClipTarget } from '@/utils/clip'
 import { type Fraction, fracCreate, fracAdd, fracSub, fracCompare, fracEq, fracLt, fracGte } from '@/utils/fraction'
 import { measureCapacityFrac } from '@/utils/measureCapacity'
 import { staffIndexOfId, matchesStaff, staffIdAtIndex, keyStaffId, staffMeasureView } from './staffContent'
 import { laneOfSlot, pairIsValid } from '@/utils/tremoloPair'
+import { fillGapsWithRests, pushRestSlot } from './restFillOps'
 import { repairDanglingTies } from './tieOps'
 import { repairDanglingSlurs } from './slurOps'
 import { repairDanglingTrills } from './trillOps'
@@ -48,9 +48,7 @@ type FindSlotResult =
 export interface RebarDeps {
   insertMeasureAfter(afterNumber: number, timeSignature?: TimeSignature): Measure
   addMeasure(timeSignature?: TimeSignature): Measure
-  fillGapsWithRests(measure: Measure): void
   collapseEmptyVoices(measureNumber: number): void
-  pushRestSlot(measure: Measure, rest: RestSlot, voice: number, staffId?: string): void
   staffIdForParams(staff: number | undefined): string | undefined
   addSlur(slur: Omit<Slur, 'id'>): Slur
   addTrill(trill: Omit<Trill, 'id'>): Trill | null
@@ -1691,7 +1689,7 @@ function materializeVoiceBar(
       continue
     }
     if (piece.isRest) {
-      deps.pushRestSlot(
+      pushRestSlot(
         measure,
         { beat: piece.beat, duration: piece.duration, dots: piece.dots, isMeasureRest: piece.isMeasureRest },
         voice,
@@ -1779,7 +1777,7 @@ function materializeRegion(
 
   for (const num of regionNumbers) {
     const m = getMeasure(score, num)
-    if (m) deps.fillGapsWithRests(m) // adds the missing voice-0 rest in grown bars
+    if (m) fillGapsWithRests(score, m) // adds the missing voice-0 rest in grown bars
     deps.collapseEmptyVoices(num) // drop a secondary voice that re-laid to all-rests
   }
 
