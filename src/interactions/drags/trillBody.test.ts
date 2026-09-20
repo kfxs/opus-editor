@@ -13,11 +13,11 @@ const walk = vi.hoisted(() => ({
   settleTrillLanding: vi.fn(() => false),
   beginTrillBodySpan: vi.fn(),
   endTrillBodySpan: vi.fn(),
-  endTrillHandTrace: vi.fn(),
-  traceTrillHandVsInk: vi.fn(),
 }))
+const trace = vi.hoisted(() => ({ endTrillHandTrace: vi.fn(), traceTrillHandVsInk: vi.fn() }))
 const lane = vi.hoisted(() => ({ trillStaffSpacePx: vi.fn<() => number | null>(() => 10) }))
 vi.mock('../trillWalk', () => walk)
+vi.mock('../trillTrace', () => trace)
 vi.mock('../trillLane', () => lane)
 
 import { beginTrillBodyDrag } from './trillBody'

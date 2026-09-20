@@ -25,9 +25,9 @@
  */
 import { trillStaffSpacePx } from '../trillLane'
 import {
-  beginTrillBodySpan, dragTrillBody, endTrillBodySpan, endTrillHandTrace, settleTrillLanding,
-  traceTrillHandVsInk,
+  beginTrillBodySpan, dragTrillBody, endTrillBodySpan, settleTrillLanding,
 } from '../trillWalk'
+import { endTrillHandTrace, traceTrillHandVsInk } from '../trillTrace'
 import { beginHeldDrag } from './heldDrag'
 import type { DragHost, Gesture } from './gesture'
 

@@ -285,6 +285,12 @@ function drawnSlot(registry: ElementRegistry, id: string) {
     ?? registry.getByType('rest').find(el => el.id === id)
 }
 
+/** The ornament's own drawn x in the last render — the LEFT of its ink, which is where the `tr` is.
+ *  Null when it drew nothing. {@link trillInkY}'s horizontal twin. */
+export function trillInkX(registry: ElementRegistry, trillId: string): number | null {
+  return registry.getByType('trill').find(el => el.id === trillId)?.bbox.x ?? null
+}
+
 /**
  * ⭐ **WHERE THE ORNAMENT'S INK WAS DRAWN, VERTICALLY** — the band's middle, which is where its two
  * squares ride. Null when the last render drew none.
