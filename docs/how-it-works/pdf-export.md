@@ -9,7 +9,7 @@ scales and prints at any size.
 | Step | Module | What it does |
 | --- | --- | --- |
 | 1 | `engine/export/scoreSvg.ts` | Engraves the **whole** score afresh into its own off-screen SVG. |
-| 2 | `engine/export/outlineText.ts` | Turns the music glyphs into outlines; leaves word-runs as text. |
+| 2 | `engine/export/outlineText.ts` | Turns the music glyphs into outlines; leaves word-runs as text. ⚠️ Through `engine/export/glyphOutline.ts` (`glyphPathData`), ⛔ never opentype.js's `path.toPathData(3)` — see below. |
 | 3 | `engine/export/pdfExport.ts` | svg2pdf + jsPDF → a saved file. |
 
 ### 1. Why a second render
@@ -147,3 +147,23 @@ thing, the rest's supporting ledger line, which is a bare stroke on the shared c
 - **No page numbers, headers or title block.** A page is a size and four margins, and nothing else
   yet — docs/plans/layout-plan.md §7 lists what a later iteration adds.
 - The PDF machinery (~730 kB) is loaded on demand by the button, not at startup.
+
+## 🚨 The opentype.js trap `glyphOutline.ts` exists for (2026-09-20)
+
+opentype.js is a good library and stays; ONE of its defaults is wrong for us. `path.toPathData(n)` runs an
+OPTIMISER that drops a contour's last point when it lies within **1 unit of the contour's start** — meant to
+remove a redundant closing line, but measured in OUTPUT units. On a thin shape drawn small, a REAL corner is
+"close enough", and goes. Bravura's bare stem (`E204`) is four points with no closing `Z`; at size 26 it came
+out a three-point wedge. Found by the keypad bake's picture proof (`docs/how-it-works/keypad.md`), not by the
+PDF.
+
+Measured over the whole font: at the score's glyph size (40) **70 of 2,932 glyphs** lose a corner — and none
+of the ones a score normally draws (noteheads, clefs, accidentals, rests, flags, digits, dynamics,
+articulations, trill, pedal, ottava), so no exported PDF was visibly wrong. At size 26, 179 do, the stem
+among them. It was a trap waiting for a small staff, a cue size or a rarer glyph.
+
+`glyphPathData(path)` is now THE one place an opentype path becomes SVG path data — for this export and for
+the keypad's bake — with `{ optimize: false, flipY: false }`. ⚠️ `flipY: false` because the OPTIONS form of
+`toPathData` flips the picture unless told not to (the bare-number form does not). The only cost is a few
+harmless redundant points. Its spec is font-free: a synthetic open four-point contour, which the library's
+own default writes as three.

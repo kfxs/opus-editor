@@ -1,6 +1,7 @@
 import type { Font } from 'opentype.js'
 import { loadAllExportFonts, fontKey } from './exportFonts'
 import { dbg } from '@/utils/debug'
+import { glyphPathData } from './glyphOutline'
 
 const SVG_NS = 'http://www.w3.org/2000/svg'
 
@@ -95,7 +96,7 @@ function outlineOneText(text: SVGTextElement, fonts: Map<string, Font>): void {
     }
     flushText()
     const path = font.getPath(placement.char, placement.x, placement.y, placement.style.sizePx)
-    const d = path.toPathData(3)
+    const d = glyphPathData(path)
     if (!d) continue // a space, or any character with no outline
     const node = document.createElementNS(SVG_NS, 'path')
     node.setAttribute('d', d)
