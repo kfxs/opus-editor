@@ -23,6 +23,7 @@
  */
 import type { Fraction, Measure, Score } from '../types/music'
 import type { MusicEngine } from '../engine/MusicEngine'
+import type { OttavaCommands } from '@/engine/commands/ottavaCommands'
 import type { SelectionItem } from './selection'
 import { dynamicsInBox, slursInBox } from '../utils/beatMap'
 import { getMeasureNotes } from '../utils/musicUtils'
@@ -193,7 +194,8 @@ export function markItems(items: Iterable<SelectionItem>): { kind: MarkKind; id:
 
 /** What each kind's removal is called on the engine — the one place the six are mapped. */
 type MarkRemover = Pick<MusicEngine,
-  'removeDynamic' | 'removeSlur' | 'removeHairpin' | 'removeTrill' | 'removeOttava' | 'removePedal' | 'removeTempoMark'>
+  'removeDynamic' | 'removeSlur' | 'removeHairpin' | 'removeTrill' | 'removePedal' | 'removeTempoMark'>
+  & { ottava: Pick<OttavaCommands, 'removeOttava'> }
 
 /**
  * ⭐ **DELETE TAKES WHAT THE HIGHLIGHT SHOWED.** A box that paints a hairpin as selected must
@@ -208,7 +210,7 @@ export function removeMarks(engine: MarkRemover, marks: { kind: MarkKind; id: st
       case 'slur': engine.removeSlur(mark.id); break
       case 'hairpin': engine.removeHairpin(mark.id); break
       case 'trill': engine.removeTrill(mark.id); break
-      case 'ottava': engine.removeOttava(mark.id); break
+      case 'ottava': engine.ottava.removeOttava(mark.id); break
       case 'pedal': engine.removePedal(mark.id); break
       case 'tempo': engine.removeTempoMark(mark.id); break
     }

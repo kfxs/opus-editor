@@ -59,18 +59,18 @@ describe('MusicEngine — a hand nudge may not be written past the edge of the p
     let id: string
     beforeEach(() => {
       engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
-      id = engine.addOttava(1, { beat: frac(0, 1), length: frac(1, 1), shift: 1 })!.id
+      id = engine.ottava.addOttava(1, { beat: frac(0, 1), length: frac(1, 1), shift: 1 })!.id
     })
 
     it('⭐⭐ REFUSES the write once the bracket is off the sheet — the value does not accumulate', () => {
       drawn('ottava', id, OFF_LEFT)
-      expect(engine.nudgeOttavaEndpoint(id, 'start', -1, 0)).toBe(false)
+      expect(engine.ottava.nudgeOttavaEndpoint(id, 'start', -1, 0)).toBe(false)
       expect(overrides(id), 'nothing stored at all').toHaveLength(0)
     })
 
     it('⭐⭐ …and the very first press BACK moves it — which is the whole point of refusing the write', () => {
       drawn('ottava', id, OFF_LEFT)
-      expect(engine.nudgeOttavaEndpoint(id, 'start', 1, 0)).toBe(true)
+      expect(engine.ottava.nudgeOttavaEndpoint(id, 'start', 1, 0)).toBe(true)
       expect(overrides(id)).toHaveLength(1)
       // ⛔ If the limit had clamped the DRAWING instead, the stored value would be somewhere off at
       // −45 and this press would have moved nothing the eye could see.
@@ -82,7 +82,7 @@ describe('MusicEngine — a hand nudge may not be written past the edge of the p
       // note offset and I see we can go out of the page."* A backwards-looking rule waves this
       // through, because the ink is comfortably on the sheet when it is asked.
       drawn('ottava', id, INSIDE)
-      expect(engine.nudgeOttavaEndpoint(id, 'start', -900, 0)).toBe(false)
+      expect(engine.ottava.nudgeOttavaEndpoint(id, 'start', -900, 0)).toBe(false)
       expect(overrides(id), 'nothing stored').toHaveLength(0)
     })
 
@@ -91,24 +91,24 @@ describe('MusicEngine — a hand nudge may not be written past the edge of the p
       // whole-space step. ⚠️ The square is `SPAN_HANDLE_ROOM_PX` outside the ink, which is the point
       // the limit is measured at (his report — an end at the very edge cannot be grabbed back).
       drawn('ottava', id, 5 + SPAN_HANDLE_ROOM_PX)
-      expect(engine.nudgeOttavaEndpoint(id, 'start', -1, 0)).toBe(false)
-      expect(engine.nudgeOttavaEndpoint(id, 'start', -0.25, 0), 'a quarter-space still fits').toBe(true)
+      expect(engine.ottava.nudgeOttavaEndpoint(id, 'start', -1, 0)).toBe(false)
+      expect(engine.ottava.nudgeOttavaEndpoint(id, 'start', -0.25, 0), 'a quarter-space still fits').toBe(true)
     })
 
     it('allows every direction while the bracket is on the sheet', () => {
       drawn('ottava', id, INSIDE)
-      expect(engine.nudgeOttavaEndpoint(id, 'start', -1, 0)).toBe(true)
-      expect(engine.nudgeOttavaEndpoint(id, 'end', 1, 0)).toBe(true)
+      expect(engine.ottava.nudgeOttavaEndpoint(id, 'start', -1, 0)).toBe(true)
+      expect(engine.ottava.nudgeOttavaEndpoint(id, 'end', 1, 0)).toBe(true)
     })
 
     it('⛔ imposes NO limit on a canvas — his call, no boundaries in the linear view', () => {
       engine.setSurface(SKETCH_CANVAS)
       drawn('ottava', id, -9000)
-      expect(engine.nudgeOttavaEndpoint(id, 'start', -1, 0)).toBe(true)
+      expect(engine.ottava.nudgeOttavaEndpoint(id, 'start', -1, 0)).toBe(true)
     })
 
     it('⚠️ allows the nudge when nothing is DRAWN — refusing on no evidence makes it unmovable', () => {
-      expect(engine.nudgeOttavaEndpoint(id, 'start', -1, 0)).toBe(true)
+      expect(engine.ottava.nudgeOttavaEndpoint(id, 'start', -1, 0)).toBe(true)
     })
 
     it('🚨🚨 the two ends are judged SEPARATELY — a bracket off BOTH edges must not go DEAD', () => {
@@ -124,10 +124,10 @@ describe('MusicEngine — a hand nudge may not be written past the edge of the p
         // TWO (`pageBoxAt`) and the case says nothing.
         bbox: { x: OFF_LEFT, y: 100, width: PAGE.widthPx + 20, height: 10 },
       } as never)
-      expect(engine.nudgeOttavaEndpoint(id, 'start', 1, 0), 'the beginning comes home').toBe(true)
-      expect(engine.nudgeOttavaEndpoint(id, 'end', -1, 0), 'and so does the end').toBe(true)
-      expect(engine.nudgeOttavaEndpoint(id, 'start', -1, 0), '⛔ neither may go further out').toBe(false)
-      expect(engine.nudgeOttavaEndpoint(id, 'end', 1, 0)).toBe(false)
+      expect(engine.ottava.nudgeOttavaEndpoint(id, 'start', 1, 0), 'the beginning comes home').toBe(true)
+      expect(engine.ottava.nudgeOttavaEndpoint(id, 'end', -1, 0), 'and so does the end').toBe(true)
+      expect(engine.ottava.nudgeOttavaEndpoint(id, 'start', -1, 0), '⛔ neither may go further out').toBe(false)
+      expect(engine.ottava.nudgeOttavaEndpoint(id, 'end', 1, 0)).toBe(false)
     })
   })
 
@@ -179,7 +179,7 @@ describe('MusicEngine — a hand nudge may not be written past the edge of the p
     const first = notes[0].type === 'chord' ? notes[0].notes[0].id : notes[0].id
 
     const hairpin = engine.addHairpin(1, { beat: frac(0, 1), length: frac(1, 1), type: 'cresc' })!
-    const ottava = engine.addOttava(1, { beat: frac(0, 1), length: frac(1, 1), shift: 1 })!
+    const ottava = engine.ottava.addOttava(1, { beat: frac(0, 1), length: frac(1, 1), shift: 1 })!
     const dynamic = engine.addDynamic(1, { beat: frac(0, 1), text: 'f' })!
 
     // Everything drawn off the left edge of the sheet.
@@ -191,7 +191,7 @@ describe('MusicEngine — a hand nudge may not be written past the edge of the p
     // …and every leftward nudge is refused, with nothing written.
     expect(engine.nudgeHairpinEndpoint(hairpin.id, 'start', -1, 0), 'hairpin end').toBe(false)
     expect(engine.nudgeHairpin(hairpin.id, -1, 0), 'whole hairpin').toBe(false)
-    expect(engine.nudgeOttavaEndpoint(ottava.id, 'start', -1, 0), 'ottava').toBe(false)
+    expect(engine.ottava.nudgeOttavaEndpoint(ottava.id, 'start', -1, 0), 'ottava').toBe(false)
     expect(engine.nudgeDynamicOffset(dynamic.id, -1, 0), 'dynamic / expression').toBe(false)
     expect(engine.nudgeNoteOffset(first, -1), 'note').toBe(false)
 
@@ -200,7 +200,7 @@ describe('MusicEngine — a hand nudge may not be written past the edge of the p
     }
     // …and each one comes back on the first press the other way.
     expect(engine.nudgeHairpinEndpoint(hairpin.id, 'start', 1, 0)).toBe(true)
-    expect(engine.nudgeOttavaEndpoint(ottava.id, 'start', 1, 0)).toBe(true)
+    expect(engine.ottava.nudgeOttavaEndpoint(ottava.id, 'start', 1, 0)).toBe(true)
     expect(engine.nudgeDynamicOffset(dynamic.id, 1, 0)).toBe(true)
     expect(engine.nudgeNoteOffset(first, 1)).toBe(true)
   })
@@ -220,9 +220,9 @@ describe('MusicEngine — a hand nudge may not be written past the edge of the p
 
   it('⭐ the limit is the SHEET the ink is on, not the first one — a score has many pages', () => {
     engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
-    const id = engine.addOttava(1, { beat: frac(0, 1), length: frac(1, 1), shift: 1 })!.id
+    const id = engine.ottava.addOttava(1, { beat: frac(0, 1), length: frac(1, 1), shift: 1 })!.id
     // Well past sheet one's right edge — but comfortably inside sheet two.
     drawn('ottava', id, PAGE.widthPx + 200)
-    expect(engine.nudgeOttavaEndpoint(id, 'start', 1, 0)).toBe(true)
+    expect(engine.ottava.nudgeOttavaEndpoint(id, 'start', 1, 0)).toBe(true)
   })
 })

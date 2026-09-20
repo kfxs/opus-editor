@@ -15,7 +15,7 @@ const OTTAVA_BODY: BodyDragSpec = {
   // ⚠️ EXPLORATORY: a landing on the very last frame is still owed its settlement. ⛔ It also stops
   // a stale debt reaching the NEXT drag, which would yank the bracket on its first frame.
   beforeCommit: settleOttavaLanding,
-  commit: engine => engine.commitOttavaOffsetDrag(),
+  commit: engine => engine.ottava.commitOttavaOffsetDrag(),
 }
 
 /** ⛔ null = declines to arm: the bracket is not measurably drawn, and a gesture in pixels needs a

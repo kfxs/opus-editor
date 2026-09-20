@@ -609,7 +609,7 @@ export function wireShortcuts(
             // SOUND (the written pitch stays, so the passage drops back an octave), which is the
             // one Delete here whose audible effect is bigger than its visible one. That is the
             // whole point of storing written pitch, not a surprise to guard against.
-            eng.removeOttava(element.id)
+            eng.ottava.removeOttava(element.id)
             state.selectedElement = null
             renderer.renderScore()
             return

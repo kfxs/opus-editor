@@ -318,7 +318,12 @@ Score: { id, title, composer?, measures[], staves?, staffGroups?, slurs?,
 
 The `MusicEngine` class is the main interface between UI and engine. Curated
 summary — see the class for the full surface (clefs, meter, dynamics, tempo,
-slurs, tuplets, staff spacing, engraving overrides each have their own methods):
+slurs, tuplets, staff spacing, engraving overrides each have their own methods).
+⭐ A mark FAMILY's commands are leaving the facade one at a time for `engine/commands/<family>Commands.ts`
+(built from a `CommandContext` — the undo seams + the page/band limits), reached as
+`engine.<family>.<command>(…)`: the OTTAVA is the first (`engine.ottava.nudgeOttava(…)`). ⛔ A new
+command for such a family goes in its commands module, never back on `MusicEngine`; the facade keeps
+the family's READS. See docs/code-shape-plan-2026-09-19.md, Phase 3.5:
 
 ```typescript
 // Note / rest entry — returns the flat Note; null when placement is rejected

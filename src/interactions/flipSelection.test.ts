@@ -48,7 +48,7 @@ describe('flipSelection — the `x` key', () => {
   })
 
   it('⭐⭐ an OTTAVA flips its DIRECTION — 8va → 8vb, his request of 2026-08-17', () => {
-    const ottava = engine.createOttava([noteIds[0]], 1)!
+    const ottava = engine.ottava.createOttava([noteIds[0]], 1)!
     state.selectedElement = { kind: 'ottava', id: ottava.id }
 
     expect(flipSelection(state, engine)).toBe(true)

@@ -48,6 +48,7 @@
  * begins and ends, which `./ottavaLane` measures.
  */
 import type { MusicEngine } from '../engine/MusicEngine'
+import type { OttavaCommands } from '@/engine/commands/ottavaCommands'
 import type { OttavaSlotTarget } from '../engine/models/ottavaOps'
 import { ottavaOffsetOverrideOf } from '../engine/models/engravingOverrides'
 import {
@@ -71,17 +72,19 @@ let landed: { id: string; inkY: number } | null = null
 
 /** What the walk needs off the engine — a Pick, so a spec can stand it up without a renderer. */
 type OttavaWalkEngine = Pick<MusicEngine,
-  'getOttavaById' | 'getScore' | 'getElementRegistry' | 'getNote' | 'runBatch'
-  | 'nextOttavaStartSlot' | 'nextOttavaEndSlot' | 'ottavaEndSlot'
-  | 'moveOttavaStartToSlot'
-  | 'nudgeOttavaEndpoint'
-  | 'previewOttavaEnd' | 'previewOttavaEndpointOffset' | 'previewOttavaEndpointRebase'
-  | 'nudgeOttava'
-  | 'previewOttavaSlot' | 'previewOttavaStaffSlot' | 'previewOttavaOffset' | 'previewOttavaOffsetRebase'>
+  'getOttavaById' | 'getScore' | 'getElementRegistry' | 'getNote' | 'runBatch'> & {
+  ottava: Pick<OttavaCommands,
+    'nextOttavaStartSlot' | 'nextOttavaEndSlot' | 'ottavaEndSlot'
+    | 'moveOttavaStartToSlot'
+    | 'nudgeOttavaEndpoint'
+    | 'previewOttavaEnd' | 'previewOttavaEndpointOffset' | 'previewOttavaEndpointRebase'
+    | 'nudgeOttava'
+    | 'previewOttavaSlot' | 'previewOttavaStaffSlot' | 'previewOttavaOffset' | 'previewOttavaOffsetRebase'>
+}
 
 /**
  * ⭐ **WHAT SEPARATES THE TWO DEVICES, and the whole of it**: a KEY press records its own undo step, a
- * drag FRAME records none and leaves the drop to commit once ({@link MusicEngine.commitOttavaDrag}).
+ * drag FRAME records none and leaves the drop to commit once ({@link MusicEngine.ottava.commitOttavaDrag}).
  * Everything else — the stops, the geometry, the identity — is shared, which is what makes a drag and
  * N presses land in the same state rather than in two states that merely look alike
  * (`./hairpinWalk`'s arrangement, and for its reason).
@@ -102,9 +105,9 @@ interface OttavaWrite {
 /** The drag's writes: the same three edits with no undo entry of their own. */
 function previewWrites(engine: OttavaWalkEngine, id: string, which: 'start' | 'end'): OttavaWrite {
   return {
-    reanchor: (target) => engine.previewOttavaEnd(id, { at: which, ...target }),
-    nudge: (dx, outward) => engine.previewOttavaEndpointOffset(id, which, dx, outward),
-    rebase: (dx) => engine.previewOttavaEndpointRebase(id, which, dx),
+    reanchor: (target) => engine.ottava.previewOttavaEnd(id, { at: which, ...target }),
+    nudge: (dx, outward) => engine.ottava.previewOttavaEndpointOffset(id, which, dx, outward),
+    rebase: (dx) => engine.ottava.previewOttavaEndpointRebase(id, which, dx),
   }
 }
 
@@ -167,7 +170,7 @@ function endpointDrive(
 
 /**
  * ⭐⭐ **ONE FRAME OF A SQUARE DRAG** — the same journey with the cursor's delta in PIXELS instead of a
- * key's step, and no undo entry (the drop commits once, {@link MusicEngine.commitOttavaDrag}). His
+ * key's step, and no undo entry (the drop commits once, {@link MusicEngine.ottava.commitOttavaDrag}). His
  * ask, 2026-08-21: *"now lets do the drag walking"*.
  *
  * ⭐ **The mouse and the arrows become ONE gesture.** The drag used to SNAP the grabbed end to the
@@ -269,7 +272,7 @@ export function walkOttavaBody(engine: OttavaWalkEngine, id: string, dx: number)
  *
  * ⭐⭐ **TWO KINDS OF VERTICAL, and that is the whole design.** Within its own staff's room the `y` is
  * plain INK — the bracket's shared height, bounded by the band
- * ({@link MusicEngine.previewOttavaOffset}). Past halfway to the neighbouring staff there is nothing
+ * ({@link MusicEngine.ottava.previewOttavaOffset}). Past halfway to the neighbouring staff there is nothing
  * continuous to travel through — two systems' x's are not one ruler — so coming down onto the staff
  * below is a JUMP, decided by `./markSystemJump`'s rule and ⛔ NOT by crossing the pentagram. The two
  * meet exactly: the band refuses the ink at the same halfway line the jump fires on.
@@ -348,7 +351,7 @@ function settleLanding(engine: OttavaWalkEngine, id: string, staffSpacePx: numbe
 
   const debt = was - drawn
   const above = (engine.getOttavaById(id)?.shift ?? 1) > 0
-  engine.previewOttavaOffsetRebase(id, 0, (above ? -debt : debt) / staffSpacePx)
+  engine.ottava.previewOttavaOffsetRebase(id, 0, (above ? -debt : debt) / staffSpacePx)
   dbg(`[Ottava] landing settled | id:${id} | ink ${drawn.toFixed(0)} → ${was.toFixed(0)}`
     + ` (${debt.toFixed(0)}px the ladder gave or took on the new staff)`)
   return debt
@@ -409,7 +412,7 @@ function jumpStaves(
   const fromX = from ? ottavaEdgeX(engine, ottava, from, 'start') : null
   const fromEdgeY = from ? ottavaStaffEdgeY(engine, ottava.staffId, from.measure, above) : null
 
-  if (!engine.previewOttavaStaffSlot(id, target)) return false
+  if (!engine.ottava.previewOttavaStaffSlot(id, target)) return false
 
   const after = engine.getOttavaById(id)
   const toX = after ? ottavaEdgeX(engine, after, target, 'start') : null
@@ -427,7 +430,7 @@ function jumpStaves(
   // ⛔ A REBASE, not a nudge: the drawn ink does not move, so neither the page limit nor the band
   // has anything to judge — and the band, measured off the render the mark has just left, would
   // refuse exactly the payment that keeps it still.
-  if (dx || outward) engine.previewOttavaOffsetRebase(id, dx, outward)
+  if (dx || outward) engine.ottava.previewOttavaOffsetRebase(id, dx, outward)
   // ⚠️ EXPLORATORY: where the ink is meant to stay. The next frame reads what the render really did
   // and pays the difference ({@link settleLanding}). ⛔ The frame's `dx` really is dropped — a jump
   // ends the frame, as it always has, and that x means nothing over there.
@@ -441,12 +444,12 @@ function jumpStaves(
 }
 
 /** The body's writes during a DRAG: the same three edits with no undo entry of their own — the drop
- *  commits once ({@link MusicEngine.commitOttavaOffsetDrag}). */
+ *  commits once ({@link MusicEngine.ottava.commitOttavaOffsetDrag}). */
 function bodyPreviewWrites(engine: OttavaWalkEngine, id: string): OttavaWrite {
   return {
-    reanchor: (target) => engine.previewOttavaSlot(id, target),
-    nudge: (dx, outward) => engine.previewOttavaOffset(id, dx, outward),
-    rebase: (dx) => engine.previewOttavaOffsetRebase(id, dx),
+    reanchor: (target) => engine.ottava.previewOttavaSlot(id, target),
+    nudge: (dx, outward) => engine.ottava.previewOttavaOffset(id, dx, outward),
+    rebase: (dx) => engine.ottava.previewOttavaOffsetRebase(id, dx),
   }
 }
 
@@ -454,7 +457,7 @@ function bodyPreviewWrites(engine: OttavaWalkEngine, id: string): OttavaWrite {
 function bodyPort(engine: OttavaWalkEngine, id: string, write: OttavaWrite): MarkWalkPort {
   return {
     label: 'Ottava',
-    nextStop: (direction) => engine.nextOttavaStartSlot(id, direction),
+    nextStop: (direction) => engine.ottava.nextOttavaStartSlot(id, direction),
     stopX: (stop) => edgeX(engine, id, stop as OttavaSlotTarget, 'start'),
     anchorX: () => {
       const here = ottavaStartAddress(engine.getScore(), id)
@@ -481,7 +484,7 @@ function wrapPort(engine: OttavaWalkEngine, id: string, which: 'start' | 'end'):
   return {
     here: () => limitOf(which === 'start'
       ? ottavaStartAddress(engine.getScore(), id)
-      : engine.ottavaEndSlot(id)),
+      : engine.ottava.ottavaEndSlot(id)),
     there: (stop) => limitOf(stop as OttavaSlotTarget),
     address: (stop) => stop,
   }
@@ -506,7 +509,7 @@ function startPort(engine: OttavaWalkEngine, id: string, write: OttavaWrite): Ma
     // ⭐ The SAME candidate rule `Ctrl+Shift+←/→` uses, which is why it lives in the model: two rules
     // would mean the two keys landing the beginning on different notes depending on how far it had
     // been nudged.
-    nextStop: (direction) => engine.nextOttavaStartSlot(id, direction),
+    nextStop: (direction) => engine.ottava.nextOttavaStartSlot(id, direction),
     stopX: (stop) => edgeX(engine, id, stop as OttavaSlotTarget, 'start'),
     anchorX: () => {
       const here = ottavaStartAddress(engine.getScore(), id)
@@ -521,11 +524,11 @@ function startPort(engine: OttavaWalkEngine, id: string, write: OttavaWrite): Ma
 function endPort(engine: OttavaWalkEngine, id: string, write: OttavaWrite): MarkWalkPort {
   return port(engine, id, 'end', write, {
     label: 'Ottava end',
-    nextStop: (direction) => engine.nextOttavaEndSlot(id, direction),
+    nextStop: (direction) => engine.ottava.nextOttavaEndSlot(id, direction),
     stopX: (stop) => edgeX(engine, id, stop as OttavaSlotTarget, 'end'),
     // ⭐⭐ The LAST COVERED slot, ⛔ never the span's exclusive end — see the header.
     anchorX: () => {
-      const here = engine.ottavaEndSlot(id)
+      const here = engine.ottava.ottavaEndSlot(id)
       return here ? edgeX(engine, id, here, 'end') : null
     },
     reanchor: (stop) => write.reanchor(stop as OttavaSlotTarget),

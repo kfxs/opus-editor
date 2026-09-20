@@ -159,20 +159,22 @@ describe("the span-mark key verbs, at the ottava row — screen → outward", ()
 
   /** An engine whose only interesting answer is which side the bracket is drawn on. */
   const engineFor = (): MusicEngine => ({
-    nudgeOttavaEndpoint: nudge,
-    nudgeOttava: whole,
-    // ⭐ As the pedal row above: the walk previews, the run commits (`./keyRun`).
-    previewOttavaEndpointOffset: nudge,
-    previewOttavaOffset: (id: string, dx: number, dy: number) => whole(id, dx, dy),
-    previewOttavaEndpointRebase: vi.fn(() => true),
-    previewOttavaOffsetRebase: vi.fn(() => true),
-    previewOttavaEnd: vi.fn(() => true),
-    previewOttavaSlot: vi.fn(() => true),
+    ottava: {
+      nudgeOttavaEndpoint: nudge,
+      nudgeOttava: whole,
+      // ⭐ As the pedal row above: the walk previews, the run commits (`./keyRun`).
+      previewOttavaEndpointOffset: nudge,
+      previewOttavaOffset: (id: string, dx: number, dy: number) => whole(id, dx, dy),
+      previewOttavaEndpointRebase: vi.fn(() => true),
+      previewOttavaOffsetRebase: vi.fn(() => true),
+      previewOttavaEnd: vi.fn(() => true),
+      previewOttavaSlot: vi.fn(() => true),
+      nextOttavaStartSlot: vi.fn(() => null),
+      nextOttavaEndSlot: vi.fn(() => null),
+      ottavaEndSlot: vi.fn(() => null),
+    },
     getOttavaById: () => ({ id: 'O1', shift }),
     // Nothing drawn to walk onto, so a horizontal press stays the plain ink nudge.
-    nextOttavaStartSlot: vi.fn(() => null),
-    nextOttavaEndSlot: vi.fn(() => null),
-    ottavaEndSlot: vi.fn(() => null),
     getScore: () => ({ measures: [] }),
     getElementRegistry: () => ({ getByType: () => [] }),
   } as unknown as MusicEngine)
@@ -272,16 +274,19 @@ describe("the span-mark key verbs, at the trill row — screen → outward", () 
  */
 describe('spanMarkKeys — a span mark\'s row of the keys column', () => {
   const engine = {
-    nudgeOttavaEndpoint: vi.fn(() => true),
-    nudgeOttava: vi.fn(() => true),
+    // The family's COMMANDS hang off `engine.ottava` (`engine/commands/ottavaCommands`).
+    ottava: {
+      nudgeOttavaEndpoint: vi.fn(() => true),
+      nudgeOttava: vi.fn(() => true),
+      resetOttavaEndpointOffset: vi.fn(() => true),
+      resetOttavaOffset: vi.fn(() => false),
+      commitOttavaDrag: vi.fn(),
+      commitOttavaOffsetDrag: vi.fn(),
+      resizeOttavaBySlot: vi.fn(() => true),
+      moveOttavaStartBySlot: vi.fn(() => true),
+    },
     getOttavaById: () => ({ id: 'O1', shift: 1 }),
-    resetOttavaEndpointOffset: vi.fn(() => true),
-    resetOttavaOffset: vi.fn(() => false),
-    commitOttavaDrag: vi.fn(),
-    commitOttavaOffsetDrag: vi.fn(),
     commitTrillDrag: vi.fn(),
-    resizeOttavaBySlot: vi.fn(() => true),
-    moveOttavaStartBySlot: vi.fn(() => true),
   }
   let ctx: KeysCtx
   let state: EditorState
@@ -301,17 +306,17 @@ describe('spanMarkKeys — a span mark\'s row of the keys column', () => {
 
   it('an ARMED square nudges that end, and the run commits THAT end', () => {
     expect(spanMarkKeys('ottava').nudge!(ctx, select('end'), 0, -0.25)).toBe(true)
-    expect(engine.nudgeOttavaEndpoint).toHaveBeenCalled()
+    expect(engine.ottava.nudgeOttavaEndpoint).toHaveBeenCalled()
     expect((ctx.afterMarkPress as Mock).mock.calls[0].slice(0, 4)).toEqual(['ottava', 'O1', 0, -0.25])
     commitOf()()
-    expect(engine.commitOttavaDrag).toHaveBeenCalledWith('end')
+    expect(engine.ottava.commitOttavaDrag).toHaveBeenCalledWith('end')
   })
 
   it('NOTHING armed nudges the whole mark, and the run commits the WHOLE-mark drag', () => {
     expect(spanMarkKeys('ottava').nudge!(ctx, select(), 0, 0.25)).toBe(true)
-    expect(engine.nudgeOttava).toHaveBeenCalled()
+    expect(engine.ottava.nudgeOttava).toHaveBeenCalled()
     commitOf()()
-    expect(engine.commitOttavaOffsetDrag).toHaveBeenCalledTimes(1)
+    expect(engine.ottava.commitOttavaOffsetDrag).toHaveBeenCalledTimes(1)
   })
 
   it('⚠️ a TRILL\'s whole-mark run commits through its START — the ornament has one drag commit', () => {
@@ -320,31 +325,31 @@ describe('spanMarkKeys — a span mark\'s row of the keys column', () => {
   })
 
   it('🚨 a REFUSED press DECLINES, and hands nothing to the run', () => {
-    engine.nudgeOttava.mockReturnValueOnce(false)
+    engine.ottava.nudgeOttava.mockReturnValueOnce(false)
     expect(spanMarkKeys('ottava').nudge!(ctx, select(), 0, 0.25)).toBe(false)
     expect(ctx.afterMarkPress).not.toHaveBeenCalled()
   })
 
   it('⭐ reanchor: the armed SQUARE is the gate — END resizes, START moves the beginning, nothing armed DECLINES', () => {
-    engine.resizeOttavaBySlot.mockReturnValue(true)
-    engine.moveOttavaStartBySlot.mockReturnValue(true)
+    engine.ottava.resizeOttavaBySlot.mockReturnValue(true)
+    engine.ottava.moveOttavaStartBySlot.mockReturnValue(true)
     expect(spanMarkKeys('ottava').reanchor!(ctx, select('end'), 1)).toBe(true)
-    expect(engine.resizeOttavaBySlot).toHaveBeenCalledWith('O1', 1)
+    expect(engine.ottava.resizeOttavaBySlot).toHaveBeenCalledWith('O1', 1)
     expect(spanMarkKeys('ottava').reanchor!(ctx, select('start'), -1)).toBe(true)
-    expect(engine.moveOttavaStartBySlot).toHaveBeenCalledWith('O1', -1)
+    expect(engine.ottava.moveOttavaStartBySlot).toHaveBeenCalledWith('O1', -1)
     expect(ctx.render).toHaveBeenCalledTimes(2)
     expect(spanMarkKeys('ottava').reanchor!(ctx, select(), 1)).toBe(false)
   })
 
   it('reanchor DECLINES, and draws nothing, when the model refuses', () => {
-    engine.resizeOttavaBySlot.mockReturnValue(false)
+    engine.ottava.resizeOttavaBySlot.mockReturnValue(false)
     expect(spanMarkKeys('ottava').reanchor!(ctx, select('end'), -1)).toBe(false)
     expect(ctx.render).not.toHaveBeenCalled()
   })
 
   it('reset: armed → that end, and it renders; nothing to take back → DECLINES, and does not', () => {
     expect(spanMarkKeys('ottava').reset!(ctx, select('start'))).toBe(true)
-    expect(engine.resetOttavaEndpointOffset).toHaveBeenCalledWith('O1', 'start')
+    expect(engine.ottava.resetOttavaEndpointOffset).toHaveBeenCalledWith('O1', 'start')
     expect(ctx.render).toHaveBeenCalledTimes(1)
     expect(spanMarkKeys('ottava').reset!(ctx, select())).toBe(false)
     expect(ctx.render).toHaveBeenCalledTimes(1)

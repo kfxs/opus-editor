@@ -61,8 +61,10 @@ describe('moving a sustain pedal\'s ends from the keyboard', () => {
       getScore: () => ({ measures: [] }),
       resizeHairpinBySlot: vi.fn(() => false),
       moveHairpinStartBySlot: vi.fn(() => false),
-      resizeOttavaBySlot: vi.fn(() => false),
-      moveOttavaStartBySlot: vi.fn(() => false),
+      ottava: {
+        resizeOttavaBySlot: vi.fn(() => false),
+        moveOttavaStartBySlot: vi.fn(() => false),
+      },
       getElementRegistry: () => ({ getByType: () => [] }),
       getSlurById: () => null,
       getNote: () => null,

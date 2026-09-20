@@ -191,7 +191,7 @@ export const SPAN_MARK_TOOLS: { [K in SpanMarkKind]: SpanMarkToolSpec } = {
       return tool
         ? {
           label: `Add ${tool.shift > 0 ? '8va' : '8vb'}`,
-          create: (engine, noteId) => engine.createOttava([noteId], tool.shift),
+          create: (engine, noteId) => engine.ottava.createOttava([noteId], tool.shift),
         }
         : null
     },
@@ -204,16 +204,16 @@ export const SPAN_MARK_TOOLS: { [K in SpanMarkKind]: SpanMarkToolSpec } = {
         : { id: req.ottavaId, field: req.which, wanted: req.x },
     )),
 
-    nudgeEnd: (engine, id, which, dx, outward) => engine.nudgeOttavaEndpoint(id, which, dx, outward),
-    nudgeWhole: (engine, id, dx, outward) => engine.nudgeOttava(id, dx, outward),
+    nudgeEnd: (engine, id, which, dx, outward) => engine.ottava.nudgeOttavaEndpoint(id, which, dx, outward),
+    nudgeWhole: (engine, id, dx, outward) => engine.ottava.nudgeOttava(id, dx, outward),
     walkEnd: (engine, id, which, dx) => walkOttavaEndpoint(engine, id, which, dx),
     walkWhole: (engine, id, dx) => walkOttavaBody(engine, id, dx),
-    resetEnd: (engine, id, which) => engine.resetOttavaEndpointOffset(id, which),
-    resetWhole: (engine, id) => engine.resetOttavaOffset(id),
-    commitEnd: (engine, which) => engine.commitOttavaDrag(which),
-    commitWhole: engine => engine.commitOttavaOffsetDrag(),
+    resetEnd: (engine, id, which) => engine.ottava.resetOttavaEndpointOffset(id, which),
+    resetWhole: (engine, id) => engine.ottava.resetOttavaOffset(id),
+    commitEnd: (engine, which) => engine.ottava.commitOttavaDrag(which),
+    commitWhole: engine => engine.ottava.commitOttavaOffsetDrag(),
     reanchor: (engine, _state, id, which, direction) =>
-      which === 'end' ? engine.resizeOttavaBySlot(id, direction) : engine.moveOttavaStartBySlot(id, direction),
+      which === 'end' ? engine.ottava.resizeOttavaBySlot(id, direction) : engine.ottava.moveOttavaStartBySlot(id, direction),
     cycleEnd: (state, registry, step) => cycleOttavaEndpoint(state, registry, step),
 
     // ⭐⭐ THE ONE ROW THAT FLIPS. Screen-up arrives as a NEGATIVE `dy`, and above the staff "up" IS

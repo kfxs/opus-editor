@@ -34,11 +34,11 @@ import { readFileSync } from 'node:fs'
 
 /** A hub, its ceilings, and the functions counted out of it. `lines: null` = reported, not held. */
 const HUBS = [
-  { file: 'src/engine/MusicEngine.ts', kinds: 1130, lines: null },
+  { file: 'src/engine/MusicEngine.ts', kinds: 1051, lines: null },
   { file: 'src/engine/models/ScoreModel.ts', kinds: 1105, lines: null },
   { file: 'src/engine/rendering/ScoreRenderer.ts', kinds: 891, lines: null },
   { file: 'src/interactions/MouseController.ts', kinds: 307, lines: 1100 },
-  { file: 'src/interactions/PaletteController.ts', kinds: 504, lines: null },
+  { file: 'src/interactions/PaletteController.ts', kinds: 502, lines: null },
   { file: 'src/interactions/HighlightController.ts', kinds: 9, lines: 117 },
   { file: 'src/interactions/shortcutWiring.ts', kinds: 67, lines: 431, except: ['deleteSelected'] },
   { file: 'src/windows/properties/PropertiesWidget.ts', kinds: 0, lines: 73 },

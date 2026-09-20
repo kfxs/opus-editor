@@ -429,7 +429,7 @@ describe('elementClipboard — the TEMPO mark (his ask, 2026-08-19)', () => {
     beforeEach(() => {
       engine.addNoteAtBeat({ step: 'D', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
       engine.addNoteAtBeat({ step: 'E', octave: 4, duration: 'q', measure: 1, beat: frac(2, 1) })
-      bracketId = engine.addOttava(1, { shift: 1, beat: frac(0, 1), length: frac(2, 1) })!.id
+      bracketId = engine.ottava.addOttava(1, { shift: 1, beat: frac(0, 1), length: frac(2, 1) })!.id
     })
 
     it('⭐⭐ copies the bracket WITH its length — an octave line is an amount of music', () => {
@@ -442,7 +442,7 @@ describe('elementClipboard — the TEMPO mark (his ask, 2026-08-19)', () => {
     })
 
     it('⭐ the SHIFT travels — an 8vb pastes as an 8vb, a 15ma as a 15ma', () => {
-      const low = engine.addOttava(2, { shift: -2, beat: frac(0, 1), length: frac(1, 1) })!
+      const low = engine.ottava.addOttava(2, { shift: -2, beat: frac(0, 1), length: frac(1, 1) })!
       const clip = copyElement(engine, { kind: 'ottava', id: low.id })!
       pasteElement(engine, clip, { measure: 1, beat: frac(2, 1), staff: 0 })
       expect(brackets()).toContain('1@2:-2/1')
@@ -470,7 +470,7 @@ describe('elementClipboard — the TEMPO mark (his ask, 2026-08-19)', () => {
     })
 
     it('⛔ …and NOT the drawing: neither end nudge nor the shared height', () => {
-      engine.nudgeOttavaEndpoint(bracketId, 'end', 2, 1)
+      engine.ottava.nudgeOttavaEndpoint(bracketId, 'end', 2, 1)
       const clip = copyElement(engine, { kind: 'ottava', id: bracketId })!
       const pasted = pasteElement(engine, clip, { measure: 1, beat: frac(2, 1), staff: 0 })
       expect(engine.getScore().engravingOverrides?.[idOf(pasted)!], 'the new bracket carries none')
@@ -478,7 +478,7 @@ describe('elementClipboard — the TEMPO mark (his ask, 2026-08-19)', () => {
     })
 
     it('⛔ copies nothing for a bracket that is no longer in the score', () => {
-      engine.removeOttava(bracketId)
+      engine.ottava.removeOttava(bracketId)
       expect(copyElement(engine, { kind: 'ottava', id: bracketId })).toBeNull()
     })
   })

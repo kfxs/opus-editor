@@ -4,7 +4,7 @@
  * ⭐ `PaletteController.hairpin.test.ts`'s chapter, for the second pair of rows that behaves this
  * way, and it needs no engine for that file's reason: what a press MEANS depends only on what is
  * armed and what is selected. Whether the resulting line covers the right music is
- * `MusicEngine.createOttava.test.ts`'s question; whether it is drawn right is the browser suite's.
+ * `engine/commands/ottavaCommands.createOttava.test.ts`'s question; whether it is drawn right is the browser suite's.
  *
  * ⚠️ **The switch-not-disarm rule is here because break-testing found nothing else pinned it.** A
  * shared `kind === 'ottava'` disarm test compiles, passes every other spec, and quietly makes

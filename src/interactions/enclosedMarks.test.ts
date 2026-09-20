@@ -78,7 +78,7 @@ describe('marksInBox', () => {
   })
 
   it('takes the octave line and the pedal on the same rule', () => {
-    engine.addOttava(1, { beat: frac(0, 1), length: frac(4, 1), shift: 1 })
+    engine.ottava.addOttava(1, { beat: frac(0, 1), length: frac(4, 1), shift: 1 })
     engine.addPedal(1, { beat: frac(0, 1), length: frac(2, 1) })
     expect(kinds(bar1)).toEqual(['ottava', 'pedal'])
   })
@@ -99,7 +99,7 @@ describe('marksInBox', () => {
     engine.addDynamic(1, { beat: frac(0, 1), text: levelToGlyphString('p'), voice: 0 })
     engine.addHairpin(1, { type: 'dim', beat: frac(1, 1), length: frac(2, 1), voice: 0 })
     engine.addTrill({ startNoteId: bar1[2] })
-    engine.addOttava(1, { beat: frac(0, 1), length: frac(4, 1), shift: -1 })
+    engine.ottava.addOttava(1, { beat: frac(0, 1), length: frac(4, 1), shift: -1 })
     engine.addTempoMark(1, { beat: frac(0, 1), text: 'Allegro' })
     // ⭐ A wedge that STARTS in the box and runs past it — in BOTH, since 2026-08-19.
     engine.addHairpin(1, { type: 'cresc', beat: frac(3, 1), length: frac(3, 1), voice: 0 })

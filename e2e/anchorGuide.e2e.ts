@@ -170,7 +170,7 @@ test('⭐⭐ an OTTAVA guide follows the SHIFT — 8va points down to the top li
       ids.push(h.engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: h.frac(i, 1) })!.id)
     }
     const read = (shift: 1 | -1) => {
-      const line = h.engine.createOttava([ids[1], ids[2]], shift)!
+      const line = h.engine.ottava.createOttava([ids[1], ids[2]], shift)!
       return line.id
     }
     const alta = read(1)

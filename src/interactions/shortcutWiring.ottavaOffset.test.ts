@@ -42,31 +42,33 @@ describe('nudging an octave bracket\'s ink from the keyboard', () => {
     resize = vi.fn(() => true)
     adjustPitch = vi.fn()
     const engine = {
-      nudgeOttavaEndpoint: nudge,
-      // ⭐ The WALK writes through the preview twins since 2026-08-30 — a run of presses is ONE
-      //   undo entry (`./keyRun`). Aliased to the same mocks: what these cases claim is which
-      //   key writes which ink, and that is unchanged.
-      previewOttavaEndpointOffset: nudge,
-      previewOttavaEndpointRebase: vi.fn(() => true),
-      previewOttavaEnd: vi.fn(() => true),
-      previewOttavaOffset: (id: string, dx: number, dy: number) => whole(id, dx, dy),
-      previewOttavaOffsetRebase: vi.fn(() => true),
-      previewOttavaSlot: vi.fn(() => true),
-      commitOttavaDrag: vi.fn(),
-      commitOttavaOffsetDrag: vi.fn(),
-      nudgeOttava: whole,
-      resetOttavaOffset: vi.fn(() => true),
-      // ⚠️ The wiring asks which SIDE the bracket is on, to turn the key's screen direction into the
-      // model's outward-from-the-staff one. An 8va here; the 8vb case has its own test below.
+      ottava: {
+        nudgeOttavaEndpoint: nudge,
+        // ⭐ The WALK writes through the preview twins since 2026-08-30 — a run of presses is ONE
+        //   undo entry (`./keyRun`). Aliased to the same mocks: what these cases claim is which
+        //   key writes which ink, and that is unchanged.
+        previewOttavaEndpointOffset: nudge,
+        previewOttavaEndpointRebase: vi.fn(() => true),
+        previewOttavaEnd: vi.fn(() => true),
+        previewOttavaOffset: (id: string, dx: number, dy: number) => whole(id, dx, dy),
+        previewOttavaOffsetRebase: vi.fn(() => true),
+        previewOttavaSlot: vi.fn(() => true),
+        commitOttavaDrag: vi.fn(),
+        commitOttavaOffsetDrag: vi.fn(),
+        nudgeOttava: whole,
+        resetOttavaOffset: vi.fn(() => true),
+        // ⚠️ The wiring asks which SIDE the bracket is on, to turn the key's screen direction into the
+        // model's outward-from-the-staff one. An 8va here; the 8vb case has its own test below.
+        resetOttavaEndpointOffset: reset,
+        resizeOttavaBySlot: resize,
+        moveOttavaStartBySlot: vi.fn(() => true),
+        // ⭐ Both squares' horizontals ask the WALK first (`./ottavaWalk`); nothing is drawn here, so
+        // "nowhere to go" keeps the press the plain nudge these cases are about.
+        nextOttavaStartSlot: vi.fn(() => null),
+        nextOttavaEndSlot: vi.fn(() => null),
+        ottavaEndSlot: vi.fn(() => null),
+      },
       getOttavaById: () => ({ id: 'O1', shift: side }),
-      resetOttavaEndpointOffset: reset,
-      resizeOttavaBySlot: resize,
-      moveOttavaStartBySlot: vi.fn(() => true),
-      // ⭐ Both squares' horizontals ask the WALK first (`./ottavaWalk`); nothing is drawn here, so
-      // "nowhere to go" keeps the press the plain nudge these cases are about.
-      nextOttavaStartSlot: vi.fn(() => null),
-      nextOttavaEndSlot: vi.fn(() => null),
-      ottavaEndSlot: vi.fn(() => null),
       // The hairpin's own branches sit ahead of the ottava's in every chain — stubbed so the last
       // case can prove they answer FIRST for a wedge rather than crashing past it.
       nudgeHairpinEndpoint: vi.fn(() => true),

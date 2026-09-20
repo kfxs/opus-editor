@@ -38,6 +38,9 @@ interface Family {
   previewOffset: string
   /** …and the one the drop commits with. */
   commitDrag: string
+  /** ⭐ Where those two live, for a family whose commands have left the facade
+   *  (`engine/commands/<family>Commands`): `engine.<commands>.<method>`. Absent = still flat. */
+  commands?: string
   /** Whatever else its port reads, beyond the shared stubs. */
   extra: Record<string, unknown>
 }
@@ -57,14 +60,16 @@ const FAMILIES: Family[] = [
   },
   {
     kind: 'ottava', handleType: 'ottava-endpoint', idField: 'ottavaId',
-    previewOffset: 'previewOttavaEndpointOffset', commitDrag: 'commitOttavaDrag',
+    previewOffset: 'previewOttavaEndpointOffset', commitDrag: 'commitOttavaDrag', commands: 'ottava',
     extra: {
       getOttavaById: () => ({ id: 'M1', shift: 1 }),
-      nextOttavaStartSlot: () => null,
-      nextOttavaEndSlot: () => null,
-      ottavaEndSlot: () => null,
-      previewOttavaEnd: () => false,
-      previewOttavaEndpointRebase: () => true,
+      ottava: {
+        nextOttavaStartSlot: () => null,
+        nextOttavaEndSlot: () => null,
+        ottavaEndSlot: () => null,
+        previewOttavaEnd: () => false,
+        previewOttavaEndpointRebase: () => true,
+      },
     },
   },
   {
@@ -145,9 +150,13 @@ describe.each(FAMILIES)('the $kind square drag, through the one shared handler',
       getScore: () => ({ measures: [{ number: 1, slots: [] }] }),
       pixelToMeasure: () => 1,
       runBatch: (_d: string, fn: () => void) => { fn(); return true },
-      [family.previewOffset]: preview,
-      [family.commitDrag]: commit,
       ...family.extra,
+      ...(family.commands
+        ? { [family.commands]: {
+          ...(family.extra[family.commands] as Record<string, unknown> | undefined),
+          [family.previewOffset]: preview, [family.commitDrag]: commit,
+        } }
+        : { [family.previewOffset]: preview, [family.commitDrag]: commit }),
     }
 
     mc = new MouseController(

@@ -37,7 +37,7 @@ async function overQuarters(
     for (const beat of [0, 1, 2, 3]) {
       h.engine.addNoteAtBeat({ step: 'B', octave, duration: 'q', measure: 1, beat: h.frac(beat, 1) })
     }
-    h.engine.addOttava(1, { beat: h.frac(0, 1), length: h.frac(covers, 1), shift })
+    h.engine.ottava.addOttava(1, { beat: h.frac(0, 1), length: h.frac(covers, 1), shift })
     await h.render()
     const stave = h.staves()[0]
     return {
@@ -109,7 +109,7 @@ test('the dashed line is DASHED, and the numeral comes before it', async ({ scor
     for (const beat of [0, 1, 2, 3]) {
       h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: 'q', measure: 1, beat: h.frac(beat, 1) })
     }
-    h.engine.addOttava(1, { beat: h.frac(0, 1), length: h.frac(4, 1), shift: 1 })
+    h.engine.ottava.addOttava(1, { beat: h.frac(0, 1), length: h.frac(4, 1), shift: 1 })
     await h.render()
     const paths = [...document.querySelectorAll('g.ottava path')]
     return {
@@ -206,7 +206,7 @@ async function acrossABreak(score: import('@playwright/test').Page) {
     const firstRowY = Math.min(...heads.map(g => g.y))
     const onFirstRow = heads.filter(g => Math.abs(g.y - firstRowY) < 5).length
     // From the LAST bar of system 1, through the first of system 2.
-    h.engine.addOttava(onFirstRow, { beat: h.frac(0, 1), length: h.frac(8, 1), shift: 1 })
+    h.engine.ottava.addOttava(onFirstRow, { beat: h.frac(0, 1), length: h.frac(8, 1), shift: 1 })
     await h.render()
     const heads2 = h.placed('g.notehead text').filter(g => g.y > firstRowY + 5)
     const staves2 = h.staves().filter(s => s.measure > onFirstRow)
@@ -269,7 +269,7 @@ test('⭐⭐ an 8va clears a TRILL under it — LilyPond\'s 400 against 50', asy
     const h = window.__h
     const id = h.engine.addNoteAtBeat({ step: 'B', octave: 6, duration: 'w', measure: 1, beat: h.frac(0, 1) })!.id
     h.engine.addTrill({ startNoteId: id })
-    h.engine.addOttava(1, { beat: h.frac(0, 1), length: h.frac(4, 1), shift: 1 })
+    h.engine.ottava.addOttava(1, { beat: h.frac(0, 1), length: h.frac(4, 1), shift: 1 })
     await h.render()
     return {
       trill: h.placed('g.trill text')[0],
@@ -284,7 +284,7 @@ test('⭐⭐ …and the TEMPO mark clears the 8va in turn — the rung above it'
   const { ottava, tempo } = await score.evaluate(async () => {
     const h = window.__h
     h.engine.addNoteAtBeat({ step: 'B', octave: 6, duration: 'w', measure: 1, beat: h.frac(0, 1) })
-    h.engine.addOttava(1, { beat: h.frac(0, 1), length: h.frac(4, 1), shift: 1 })
+    h.engine.ottava.addOttava(1, { beat: h.frac(0, 1), length: h.frac(4, 1), shift: 1 })
     h.engine.addTempoMark(1, { beat: h.frac(0, 1), text: 'Allegro' })
     await h.render()
     return {
@@ -303,7 +303,7 @@ test('an 8va does NOT move a notehead — written pitch, so no bar gets wider', 
     }
     await h.render()
     const before = h.placed('g.notehead text').map(g => ({ x: g.x, y: g.y }))
-    h.engine.addOttava(1, { beat: h.frac(0, 1), length: h.frac(4, 1), shift: 1 })
+    h.engine.ottava.addOttava(1, { beat: h.frac(0, 1), length: h.frac(4, 1), shift: 1 })
     await h.render()
     return { before, after: h.placed('g.notehead text').map(g => ({ x: g.x, y: g.y })) }
   })
@@ -331,17 +331,17 @@ async function nudgedBracket(
     for (const beat of [0, 1, 2, 3]) {
       h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: 'q', measure: 1, beat: h.frac(beat, 1) })
     }
-    const ottava = h.engine.addOttava(1, { beat: h.frac(0, 1), length: h.frac(4, 1), shift: offset.shift ?? 1 })!
+    const ottava = h.engine.ottava.addOttava(1, { beat: h.frac(0, 1), length: h.frac(4, 1), shift: offset.shift ?? 1 })!
     await h.render()
     const before = {
       glyphs: h.placed('g.ottava text'),
       segments: h.segments('g.ottava path'),
     }
     // The two squares' own writes, through the same door the arrow keys use.
-    if (offset.startX) h.engine.nudgeOttavaEndpoint(ottava.id, 'start', offset.startX, 0)
-    if (offset.endX) h.engine.nudgeOttavaEndpoint(ottava.id, 'end', offset.endX, 0)
+    if (offset.startX) h.engine.ottava.nudgeOttavaEndpoint(ottava.id, 'start', offset.startX, 0)
+    if (offset.endX) h.engine.ottava.nudgeOttavaEndpoint(ottava.id, 'end', offset.endX, 0)
     // ⭐ The vertical is OUTWARD from the staff, not a screen y — see `OttavaOffsetOverride`.
-    if (offset.outward) h.engine.nudgeOttavaEndpoint(ottava.id, 'start', 0, offset.outward)
+    if (offset.outward) h.engine.ottava.nudgeOttavaEndpoint(ottava.id, 'start', 0, offset.outward)
     await h.render()
     return {
       before,
@@ -418,11 +418,11 @@ test('⭐⭐ a big nudge is NOT clamped at the barline — the hand overrules th
         h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: 'q', measure, beat: h.frac(beat, 1) })
       }
     }
-    const ottava = h.engine.addOttava(2, { beat: h.frac(0, 1), length: h.frac(4, 1), shift: 1 })!
+    const ottava = h.engine.ottava.addOttava(2, { beat: h.frac(0, 1), length: h.frac(4, 1), shift: 1 })!
     await h.render()
     const before = { glyphs: h.placed('g.ottava text'), segments: h.segments('g.ottava path') }
     // Six presses of `←`, one staff space each — the gesture, not one big write.
-    for (let i = 0; i < 6; i++) h.engine.nudgeOttavaEndpoint(ottava.id, 'start', -1, 0)
+    for (let i = 0; i < 6; i++) h.engine.ottava.nudgeOttavaEndpoint(ottava.id, 'start', -1, 0)
     await h.render()
     const stave = h.staves()[0]
     return {

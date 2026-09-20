@@ -210,7 +210,7 @@ async function belowStaffPair(score: import('@playwright/test').Page) {
     h.engine.addNoteAtBeat({ step: 'C', octave: 2, duration: 'h', measure: 1, beat: h.frac(0, 1) })
     h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: 'q', measure: 1, beat: h.frac(2, 1) })
     h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: 'q', measure: 1, beat: h.frac(3, 1) })
-    h.engine.addOttava(1, { beat: h.frac(0, 1), length: h.frac(4, 1), shift: -1 })
+    h.engine.ottava.addOttava(1, { beat: h.frac(0, 1), length: h.frac(4, 1), shift: -1 })
     h.engine.addDynamic(1, { beat: h.frac(3, 1), text: 'p' })
     await h.render()
     const stave = h.staves()[0]
@@ -257,7 +257,7 @@ test('⭐ …and on ordinary music the FLOORS keep the same order', async ({ sco
     for (const beat of [0, 1, 2, 3]) {
       h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: 'q', measure: 1, beat: h.frac(beat, 1) })
     }
-    h.engine.addOttava(1, { beat: h.frac(0, 1), length: h.frac(4, 1), shift: -1 })
+    h.engine.ottava.addOttava(1, { beat: h.frac(0, 1), length: h.frac(4, 1), shift: -1 })
     h.engine.addDynamic(1, { beat: h.frac(0, 1), text: 'p' })
     await h.render()
     const stave = h.staves()[0]

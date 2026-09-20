@@ -26,6 +26,7 @@
  * authored against other music.
  */
 import type { MusicEngine } from '../engine/MusicEngine'
+import type { OttavaCommands } from '@/engine/commands/ottavaCommands'
 import type { Fraction, NoteDuration, Ottava, TempoMark, TrillContinuationLabel } from '../types/music'
 import type { SelectedElement } from './EditorState'
 import type { PasteAnchor } from './pasteAnchor'
@@ -181,8 +182,8 @@ type ElementClipEngine = Pick<MusicEngine,
   | 'getHairpinById' | 'addHairpin'
   | 'getSlurById' | 'slurSpanOf' | 'createSlurOverSpan'
   | 'getTrillById' | 'trillSpanBeats' | 'createTrillOverSpan'
-  | 'getOttavaById' | 'addOttava'
-  | 'getPedalById' | 'addPedalOverSpan'>
+  | 'getOttavaById'
+  | 'getPedalById' | 'addPedalOverSpan'> & { ottava: Pick<OttavaCommands, 'addOttava'> }
 
 /** The clip for the currently selected element, or null when that kind cannot travel (yet). */
 export function copyElement(engine: ElementClipEngine, element: SelectedElement | null): ElementClip | null {
@@ -300,7 +301,7 @@ export function pasteElement(engine: ElementClipEngine, clip: ElementClip, ancho
       // displacement is true (docs/ottava-plan.md §7.8). ⭐ It needs no batch here, since that op is
       // one write and records one undo entry.
       const staffId = engine.staffIdForIndex(anchor.staff)
-      const created = engine.addOttava(anchor.measure, {
+      const created = engine.ottava.addOttava(anchor.measure, {
         beat: anchor.beat,
         length: clip.length,
         shift: clip.shift,

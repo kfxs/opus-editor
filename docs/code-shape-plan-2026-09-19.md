@@ -1,6 +1,6 @@
 # Code shape plan — 2026-09-19
 
-**Status: IN PROGRESS — Phase 1 DONE (2026-09-19), bar item 5's two ⏭️ decisions. Phase 2 DONE. Phase 3.1: the hairpin / ottava / pedal body drags done and checked; the trill's too (`cdb7f05`); the slur's too (`69e927c`); the four SQUARE drags too (`6d903c3`); the slur HANDLE / ENDPOINT and staff-spacing drags too (`8f28f79`); the DYNAMIC and TEMPO drags too (`9a04f88`); bar width, barline join, group span and clef too (`ee31698`); the NOTE drag too (`7d2898e`) — every gesture is a module. **Phase 3.1 DONE** (`25f70a6`). 3.2: the `keys` column + dispatcher and the HAIRPIN on it (`e61626a`); OTTAVA / PEDAL / TRILL too (`14e10e7`); DYNAMIC and TEMPO too (`943fb64`); SLUR and CLEF too (`8382fcc`); the `reanchor` and `cycle` verbs done, awaiting his UI check — **Phase 3.2 DONE with it.** 3.3 (`highlight(ctx)`): the contract + the four span squares (`a7c1076`); the join and group squares (`b772418`); the `ink` column (`f1832e7`); the slur handles (`d3dcb7b`); the anchor guide line (`e2ff597`); the note pass + note-attached kinds (`aa7e5af`); every remaining row done, awaiting his UI check — **Phase 3.3 DONE** (`1efb38d`). 3.4: the panels' `rows` (`4db182d`); the typed `InspectedElement` union done, awaiting his UI check — **3.4 DONE with it.** 3.5 (mark commands off the facade) is next.** Phases are ordered by
+**Status: IN PROGRESS — Phase 1 DONE (2026-09-19), bar item 5's two ⏭️ decisions. Phase 2 DONE. Phase 3.1: the hairpin / ottava / pedal body drags done and checked; the trill's too (`cdb7f05`); the slur's too (`69e927c`); the four SQUARE drags too (`6d903c3`); the slur HANDLE / ENDPOINT and staff-spacing drags too (`8f28f79`); the DYNAMIC and TEMPO drags too (`9a04f88`); bar width, barline join, group span and clef too (`ee31698`); the NOTE drag too (`7d2898e`) — every gesture is a module. **Phase 3.1 DONE** (`25f70a6`). 3.2: the `keys` column + dispatcher and the HAIRPIN on it (`e61626a`); OTTAVA / PEDAL / TRILL too (`14e10e7`); DYNAMIC and TEMPO too (`943fb64`); SLUR and CLEF too (`8382fcc`); the `reanchor` and `cycle` verbs done, awaiting his UI check — **Phase 3.2 DONE with it.** 3.3 (`highlight(ctx)`): the contract + the four span squares (`a7c1076`); the join and group squares (`b772418`); the `ink` column (`f1832e7`); the slur handles (`d3dcb7b`); the anchor guide line (`e2ff597`); the note pass + note-attached kinds (`aa7e5af`); every remaining row done, awaiting his UI check — **Phase 3.3 DONE** (`1efb38d`). 3.4: the panels' `rows` (`4db182d`); the typed `InspectedElement` union done, awaiting his UI check — **3.4 DONE** (`54ab9cc`). 3.5: `spanFromNotes` (4.1) + the OTTAVA family as `engine.ottava.*` done, awaiting his UI check; pedal / trill / hairpin / slur / dynamic / tempo to follow.** Phases are ordered by
 value over risk; each one stands alone and can be stopped after. A done item carries ✅ and what
 actually happened where that differs from what was planned.
 
@@ -560,6 +560,39 @@ Run the e2e suite either side of each step.
    that logic goes to its ops module first (Phase 4.1's slice for that family) and the command
    moves after — otherwise this step carries it into `engine/commands/` and Phase 4 moves it a
    second time.
+
+   *First family done — the OTTAVA, with its Phase 4.1 slice first.*
+
+   *4.1: `engine/models/spanFromNotes.ts` — "which notes did the user mean?", ONE answer where
+   `MusicEngine` held five copies (`createSlur` / `createHairpin` / `createTrill` /
+   `createOttava` / `createPedal`): resolve the ids, keep the first note's LANE, order as the
+   music reads. `{ byVoice, sounding }` are the two ways the five differed (a staff-wide mark keeps
+   both voices; only a slur may take a rest's slot). It takes a `SpanNoteSource` (`getNote` +
+   `fanMemberIndexOf`, which `ScoreModel` answers) rather than a bare `Score`, because the flat
+   `Note` projection is the model's. `compareForSpan` went with it. All five creates use it now.*
+
+   *3.5: `engine/commands/commandContext.ts` is what a family is built from — `model()` /
+   `registry()` (⚠️ FUNCTIONS: undo, redo and load replace the `ScoreModel`), the four undo seams
+   (`commit` · `saveOnly` · `markDirty` · `commitPreviewed`), `staffIdForIndex`, and `limits`
+   (`nudgeStaysOnPage` · `nudgeStaysInBand` · `spanEndStaysOnPage` — shared by every family, so
+   they stay on the facade and are handed over). `engine/commands/ottavaCommands.ts` holds the
+   family's 23 commands and its two private guards; `MusicEngine` keeps
+   `readonly ottava = ottavaCommands(this.commandContext())` and its READS (`getOttavaById`,
+   `getOttavas`, `getOttavaSpan`, the SVG group). ⭐ **Method names are UNCHANGED** —
+   `engine.nudgeOttava(…)` is `engine.ottava.nudgeOttava(…)` — so the move is a grep and the
+   shorter names are a later, separate taste call. The three `Pick<MusicEngine, …>` that named
+   ottava commands (`ottavaWalk`, `elementClipboard`, `enclosedMarks`) became
+   `Pick<MusicEngine, reads> & { ottava: Pick<OttavaCommands, …> }`. Spec moved:
+   `MusicEngine.createOttava.test.ts` → `commands/ottavaCommands.createOttava.test.ts`; seven
+   specs' mock engines nest their ottava members under `ottava:`. `commit` and `saveOnly` are
+   BOTH still in the context, per command as before — ⏸️ folding them is his call (above).
+   `MusicEngine`: 6,224 → 5,801 lines, kinds 1,130 → **1,051**. ⏸️ Awaiting his UI check.*
+
+   *🚨 Two slips worth keeping. (1) A receiver-anchored regex (`(?<![\w.])engine\.`) skipped
+   `h.engine.addOttava(…)` in `e2e/` — untyped inside `page.evaluate`, so `tsc` was silent and only
+   the browser suite said so (23 failures). ⇒ after a rename, grep `e2e/` for the OLD names.
+   (2) The same regex renamed `palette.createOttava` — a `PaletteController` method with the
+   engine's name. ⇒ audit the RECEIVERS of a scripted rename before trusting it.*
 
 After each step, lower that hub's kind-mention ceiling, and start its code-line ceiling once the
 hub's steps are done.

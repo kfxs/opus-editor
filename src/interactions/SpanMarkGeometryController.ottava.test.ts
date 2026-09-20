@@ -29,7 +29,7 @@ describe("SpanMarkGeometryController — the ottava's row", () => {
     nudge = vi.fn(() => true)
     render = vi.fn()
     score = { id: 's', title: '', measures: [], engravingOverrides: {} } as unknown as Score
-    const engine = { getScore: () => score, nudgeOttavaEndpoint: nudge } as unknown as MusicEngine
+    const engine = { getScore: () => score, ottava: { nudgeOttavaEndpoint: nudge } } as unknown as MusicEngine
     controller = new SpanMarkGeometryController('ottava', () => engine, render)
   })
   afterEach(() => { controller.destroy() })

@@ -9,7 +9,6 @@ import { clefOffsetOverrideOf } from './models/engravingOverrides'
 import type { HairpinDragWrite, HairpinEndStop, HairpinSlotTarget, HairpinStaffSlotTarget } from './models/hairpinOps'
 import type { DynamicSlotTarget, DynamicStaffSlotTarget } from './models/dynamicOps'
 import type { Stop as TempoStop } from './models/tempoOps'
-import type { OttavaDragWrite, OttavaSlotTarget, OttavaStaffSlotTarget } from './models/ottavaOps'
 import type { PedalLiftTarget, PedalSlotTarget, PedalStaffSlotTarget } from './models/pedalOps'
 import { PEDAL_SIGN_GAP } from './rendering/pedalStyle'
 import { staveHeightPx, systemStaffTops, minSpacingAboveSpaces, spacingAbovePx, MIN_SPACING_ABOVE_AT_PAGE_TOP } from './layout/staffStride'
@@ -38,6 +37,9 @@ import { midiToNoteName, beatToFrac, compareByPosition, measureAccidentalNotes, 
 import { measureCapacityQuarters } from '@/utils/measureCapacity'
 import { fracToNumber, fracEq } from '@/utils/fraction'
 import { quantizeBeat, slotLength } from '@/utils/durations'
+import { spanFromNotes } from './models/spanFromNotes'
+import type { CommandContext } from './commands/commandContext'
+import { ottavaCommands } from './commands/ottavaCommands'
 import { spellingToMidi, accidentalToAlter, formatPitch } from '@/utils/pitchSpelling'
 import { alterInForceAt } from '@/utils/accidentalState'
 import type { BeamRole } from '@/utils/beaming'
@@ -537,54 +539,6 @@ export class MusicEngine {
    * ⛔ **The walk's RE-BASE does not come through here**, and must not: it does not move the drawn
    * mark at all ({@link previewHairpinEndpointRebase}).
    */
-  /**
-   * ⭐⭐ **Both limits an octave bracket's ink must satisfy** — the wedge's pair, one lane over: it may
-   * not leave its SHEET ({@link spanEndStaysOnPage} horizontally, {@link nudgeStaysOnPage}
-   * vertically) and it may not move into a neighbouring staff's room ({@link nudgeStaysInBand}).
-   *
-   * 🚨 **His report, 2026-08-21, on the new vertical drag**: *"we should not go crazy, we have to
-   * limit the user somehow here in the y so the ottava is on the system it belongs to"* — the same
-   * sentence that produced the band rule for the slur and then the wedge, arriving a third time. ⛔ So
-   * it is not a new rule: the bracket simply had no vertical drag to be judged until now.
-   *
-   * ⚠️ Shared by the keyboard nudge and every drag frame, so the two devices cannot disagree about
-   * what is allowed. ⛔ The walk's RE-BASE does not come through here and must not: it moves no ink
-   * ({@link previewHairpinEndpointRebase}).
-   *
-   * @param dy SCREEN staff-spaces (+down) — ⚠️ the caller converts its OUTWARD number first, since
-   *   both limits predict where INK lands.
-   */
-  private ottavaEndpointOffsetAllowed(
-    id: string,
-    which: 'start' | 'end',
-    dx: number,
-    dy: number,
-  ): boolean {
-    if (!this.spanEndStaysOnPage('ottava', id, which, dx)) return false
-    if (dy === 0) return true
-    return this.nudgeStaysOnPage('ottava', id, 0, dy) && this.ottavaStaysInBand(id, dy)
-  }
-
-  /**
-   * ⭐ **Would this lift put any piece of the bracket in a neighbour's room?** — {@link
-   * nudgeStaysInBand} asked of the whole line, because an octave bracket's vertical is ONE number and
-   * every fragment rises with it.
-   *
-   * ⚠️ **Each fragment is judged against ITS OWN system's band**, exactly as the page limit judges
-   * each against its own sheet: a bracket cut by a system break has pieces on two staves, and one
-   * staff's neighbours say nothing about the other's. Any piece the step would push into a
-   * neighbour's room blocks it, since the height they share is one field.
-   */
-  private ottavaStaysInBand(id: string, dy: number): boolean {
-    const registry = this.renderer.getElementRegistry() as {
-      getByType?: (t: ElementType) => ElementInfo[]
-    }
-    return (registry.getByType?.('ottava') ?? [])
-      .filter((e: ElementInfo) => e.id === id)
-      .every((e: ElementInfo) => e.measure === undefined
-        || this.nudgeStaysInBand([e.bbox], e.measure, e.staff ?? 0, dy))
-  }
-
   private hairpinEndpointOffsetAllowed(id: string, which: 'start' | 'end', dx: number, dy: number): boolean {
     // 🚨 TWO AXES, TWO QUESTIONS — his report, 2026-08-21: *"take care that the endpoint is not out
     // of the page, now half is out of the page"*. The horizontal moves ONE TIP and its square
@@ -627,6 +581,29 @@ export class MusicEngine {
     this.undoRequests++ // a batch around it must still see that something happened
     if (this.undoSuppressed) return
     this.undoRedoManager.pushState(this.scoreModel.getScore(), description)
+  }
+
+  /**
+   * What a command family is built from (`engine/commands/commandContext`) — the undo seams above
+   * and the limits below, handed over as functions so a family never holds the facade.
+   *
+   * ⚠️ `model` and `registry` are read at CALL time: undo, redo and load replace `scoreModel`.
+   */
+  private commandContext(): CommandContext {
+    return {
+      model: () => this.scoreModel,
+      registry: () => this.renderer.getElementRegistry(),
+      commit: description => this.commit(description),
+      saveOnly: description => this.saveOnly(description),
+      markDirty: () => this.markModelDirty(),
+      commitPreviewed: description => this.commitPreviewed(description),
+      staffIdForIndex: staff => this.staffIdForIndex(staff),
+      limits: {
+        nudgeStaysOnPage: (type, id, dx, dy) => this.nudgeStaysOnPage(type, id, dx, dy),
+        nudgeStaysInBand: (drawn, measure, staff, dy) => this.nudgeStaysInBand(drawn, measure, staff, dy),
+        spanEndStaysOnPage: (type, id, which, dx, pick) => this.spanEndStaysOnPage(type, id, which, dx, pick),
+      },
+    }
   }
 
   /**
@@ -1453,151 +1430,12 @@ export class MusicEngine {
 
   // ==================== Ottava operations ====================
   //
-  // One-line delegations, the hairpin block's arrangement below. Everything an octave line IS lives
-  // in `engine/models/ottavaOps`; what these add is the editor's own concern and nothing else — an
-  // undo entry per edit. ⚠️ There is no `createOttava` here yet: *which notes did the user mean* is
-  // the entry phase's question (docs/ottava-plan.md P5), and inventing it early would give the
-  // palette and the stamp two different answers to it.
+  // ⭐ The family's COMMANDS are `engine/commands/ottavaCommands` — `engine.ottava.<command>(…)`
+  // (docs/code-shape-plan-2026-09-19.md, Phase 3.5). What stays here is what the family shares with
+  // the others (the page limit below) and its reads.
 
-  /**
-   * Add an octave line starting at (measure, `ottava.beat`) covering `ottava.length` of music,
-   * REPLACING any line already on that (beat, staff) — the clef's rule, see
-   * {@link ottavaOps.addOttava}. `beat` must be a slot-boundary beat. Saves undo state when added.
-   * @returns the stored Ottava, or null if the measure is missing or the length is not positive.
-   */
-  addOttava(measureNumber: number, ottava: Omit<Ottava, 'id'>): Ottava | null {
-    const created = this.scoreModel.addOttava(measureNumber, ottava)
-    if (created) this.commit(`Add ${created.shift > 0 ? '8va' : '8vb'} at measure ${measureNumber}`)
-    return created
-  }
-
-  /**
-   * ⭐ **Create an octave line over the notes the user meant** — the Lines window's row and the armed
-   * stamp's click both arrive here, so a line made one way is the line the other would have made.
-   *
-   * ⭐⭐ **The lane is a STAFF, not a (staff, voice) pair** — the one place this parts company with
-   * `createSlur` / `createHairpin` / `createTrill`, all of which narrow to the first note's voice
-   * and drop the rest. An ottava governs the staff, so a selection spanning two voices of one staff
-   * produces ONE line covering both, and narrowing would silently leave half the selection sounding
-   * where it was. Notes on OTHER staves are still dropped: an octave line cannot govern two.
-   *
-   * ⭐ **The span COVERS the last note** (`addOttavaOverNotes` adds that note's own length), which
-   * for one selected note means the line covers exactly that note. Unlike the hairpin's — where "end
-   * where the next note begins" was his correction — that is not a matter of taste here: the span is
-   * half-open, so an end on the last note's onset would leave it drawn under the bracket and
-   * sounding un-shifted.
-   *
-   * ⛔ **A REST cannot anchor one**, the hairpin's refusal and for its reason: an octave line
-   * displaces sounding music, and the engine resolves by slot, so it would happily start from
-   * silence.
-   *
-   * ⏭️ **§7.3, THE OPEN QUESTION, and this is where it is answered by hand.** Selecting a high
-   * passage and pressing 8va can either (a) leave the noteheads and let the passage sound an octave
-   * higher — Sibelius's, and what this does — or (b) drop every covered note's written pitch an
-   * octave in the same batch so the SOUND is unchanged and the noteheads come down off their ledger
-   * lines — Dorico's. (b) is one added loop over the covered notes calling `updateNote`, inside this
-   * same `runBatch`, and it is **not a stored flag** either way (docs/ottava-plan.md §2's tail).
-   * Shipping (a) first because it is the literal reading of the gesture — the command adds a MARK —
-   * and because it is not destructive: (b) rewrites pitches, and a wrong default there is undone one
-   * `Ctrl+Z` at a time on real music.
-   *
-   * @returns the stored Ottava, or null when there is no usable span.
-   */
-  createOttava(noteIds: string[], shift: Ottava['shift']): Ottava | null {
-    const resolved = noteIds
-      .map(id => this.scoreModel.getNote(id))
-      .filter((n): n is Note => !!n && !n.isRest)
-    if (resolved.length === 0) return null
-
-    const staff = staffOf(resolved[0])
-    const selected = resolved
-      .filter(n => staffOf(n) === staff)
-      .sort((a, b) => this.compareForSpan(a, b))
-    if (selected.length === 0) return null
-
-    const startNote = selected[0]
-    const endNote = selected[selected.length - 1]
-
-    const created = this.scoreModel.addOttavaOverNotes(
-      shift,
-      { measure: startNote.measure, beat: startNote.beat },
-      { measure: endNote.measure, beat: endNote.beat, length: slotLength(endNote) },
-      this.staffIdForIndex(staff),
-    )
-    if (created) this.saveOnly(`Add ${shift > 0 ? '8va' : '8vb'}`)
-    return created
-  }
-
-  /**
-   * ⭐ Flip a selected octave line's DIRECTION — 8va ↔ 8vb, 15ma ↔ 15mb — the `x` key's ottava
-   * branch (`interactions/flipSelection.ts`). His request, 2026-08-17.
-   *
-   * ⚠️ **`commit`, not `saveOnly`, and that is the difference from the trill's branch of the same
-   * key.** Flipping a trill swaps a SIDE — nothing audible — so it only records undo. An ottava's
-   * shift is what the covered notes SOUND (`soundingShiftAt`), which is `commit`'s stated condition
-   * and the hairpin's reason for using it too. ⚠️ The resync inside `commit` re-hands the SAME live
-   * score object today (`ScoreModel.getScore` returns the model's own), so what this actually buys
-   * is the convention, not a fix for a stale-playback bug — but the classification is the part a
-   * future non-live score would depend on. @returns the new shift, or null if no ottava has that id.
-   */
-  toggleOttavaDirection(id: string): Ottava['shift'] | null {
-    const shift = this.scoreModel.toggleOttavaDirection(id)
-    if (shift) this.commit(`Flip octave line to ${shift > 0 ? '8va' : '8vb'}`)
-    return shift
-  }
-
-  /**
-   * Re-anchor an octave line's END by one slot of its staff — `Ctrl+Shift+→` / `←` with its end
-   * square armed. Saves undo state when it changed. See {@link ottavaOps.resizeOttavaBySlot}.
-   *
-   * ⚠️ **A CONTENT edit, like the flip above it**: the notes the bracket newly covers (or lets go)
-   * change octave when they SOUND. Hence `commit`, not `saveOnly`.
-   */
-  resizeOttavaBySlot(id: string, direction: 1 | -1): boolean {
-    const ok = this.scoreModel.resizeOttavaBySlot(id, direction)
-    if (ok) this.commit(direction === 1 ? 'Lengthen octave line' : 'Shorten octave line')
-    return ok
-  }
-
-  /**
-   * Move an octave line's BEGINNING by one slot of its staff, holding its end — `Ctrl+Shift+←/→`
-   * with its start square armed. Saves undo state when it changed. See
-   * {@link ottavaOps.moveOttavaStartBySlot}.
-   */
-  moveOttavaStartBySlot(id: string, direction: 1 | -1): boolean {
-    const ok = this.scoreModel.moveOttavaStartBySlot(id, direction)
-    if (ok) this.commit('Move octave line start')
-    return ok
-  }
-
-  /**
-   * ⭐⭐ **Nudge the armed end of an octave bracket's INK** — a plain or `Ctrl` arrow with that square
-   * armed. Staff-spaces; screen-down is +y.
-   *
-   * ⭐ **`outward` moves the WHOLE bracket** however it is asked for, because an octave line is a
-   * straight horizontal rule and {@link OttavaOffsetOverride} has nowhere to put a second height.
-   * That is his rule, kept in the model's SHAPE rather than in the code that writes it.
-   *
-   * ⭐⭐ **`outward` is a distance FROM THE STAFF, not a screen delta** — `+` is up for an 8va and
-   * down for an 8vb (his correction: a screen value reads backwards on one side). ⚠️ Callers that
-   * speak screen convert on the way in; `shortcutWiring` is the one that does, because `↑` is a
-   * screen direction. `dx` is unaffected — right is right on both sides of the staff.
-   *
-   * ⚠️ An override, so `saveOnly` rather than `commit`: moving ink changes nothing audible, unlike
-   * the extent edits above it.
-   */
-  nudgeOttavaEndpoint(id: string, which: 'start' | 'end', dx: number, outward: number): boolean {
-    // ⚠️ The PAGE LIMIT predicts where ink lands, so it needs a SCREEN delta — the second of the two
-    // places that convert (the renderer is the other). Above the staff, further out is further UP.
-    const above = (this.getOttavaById(id)?.shift ?? 1) > 0
-    // 🚨🚨 **TWO AXES, TWO QUESTIONS, because they move DIFFERENT INK** (his report, 2026-08-21).
-    // The horizontal moves ONE EDGE of the bracket; the vertical is a single shared number and lifts
-    // the WHOLE line — and only it can enter a neighbour's room. {@link ottavaEndpointOffsetAllowed}.
-    if (!this.ottavaEndpointOffsetAllowed(id, which, dx, above ? -outward : outward)) return false
-    const ok = this.scoreModel.setOttavaEndpointOffset(id, which, dx, outward)
-    if (ok) this.saveOnly('Nudge octave line')
-    return ok
-  }
+  /** Every edit the editor can make to an octave line. */
+  readonly ottava = ottavaCommands(this.commandContext())
 
   /**
    * ⭐⭐ **May this END's ink take one horizontal step and stay on the paper?** — the page limit asked
@@ -1647,207 +1485,6 @@ export class MusicEngine {
       ? { x: (axis?.startX ?? piece.bbox.x) - SPAN_HANDLE_ROOM_PX, y: axis?.y ?? piece.bbox.y }
       : { x: (axis?.endX ?? piece.bbox.x + piece.bbox.width) + SPAN_HANDLE_ROOM_PX, y: axis?.y ?? piece.bbox.y }
     return edgeStepFitsOnPage(resolveSurface(this.surface), at, dx * STAFF_SPACE_PX)
-  }
-
-  /**
-   * ⭐⭐ **Move the WHOLE octave bracket** by a staff-space delta and save ONE undo step — the arrows
-   * with an ottava selected and NO square armed.
-   *
-   * ⚠️ `outward` is a distance FROM THE STAFF, like its per-end twin, and the page limit needs a
-   * SCREEN delta to predict where the ink lands — so the same negation happens here.
-   */
-  nudgeOttava(id: string, dx: number, outward: number): boolean {
-    const above = (this.getOttavaById(id)?.shift ?? 1) > 0
-    const dy = above ? -outward : outward
-    // ⭐ The whole-object page rule is right HERE, unlike the per-end nudge: this really does
-    // translate every piece. ⚠️ The BAND is the same question either way — see
-    // {@link ottavaEndpointOffsetAllowed} for his report.
-    if (!this.nudgeStaysOnPage('ottava', id, dx, dy)) return false
-    if (dy !== 0 && !this.ottavaStaysInBand(id, dy)) return false
-    const ok = this.scoreModel.setOttavaOffset(id, dx, outward)
-    if (ok) this.saveOnly('Nudge octave line')
-    return ok
-  }
-
-  /**
-   * ⭐⭐ **Move the whole bracket onto `target`, keeping its length** — the body walk's crossing write
-   * (`interactions/ottavaWalk`). It keeps both ends' nudges (`ottavaOps` writes no override here): the
-   * crossing is meant to be invisible, and the caller re-bases the offset rather than wiping it. No
-   * undo entry of its own; {@link commitOttavaOffsetDrag} records the gesture once.
-   */
-  previewOttavaSlot(id: string, target: OttavaSlotTarget): boolean {
-    this.markModelDirty() // live drag, undo deferred to commitOttavaOffsetDrag
-    return this.scoreModel.setOttavaAtSlot(id, target)
-  }
-
-  /**
-   * ⭐⭐ **…and onto ANOTHER STAFF's onset** — the VERTICAL half of the same drag (his ask,
-   * 2026-08-21), the last of the five families to get it: `ottavaOps.setOttavaAtStaffSlot`.
-   *
-   * ⚠️⚠️ **AUDIBLE, and more so than its siblings' landings**: an octave line TRANSPOSES the staff it
-   * is filed under, so moving it moves which notes sound an octave away.
-   *
-   * ⚠️ Its own method rather than a wider `target` on {@link previewOttavaSlot}: that one is also the
-   * BODY WALK's re-anchor, which travels sideways inside one lane and has no staff to say.
-   */
-  previewOttavaStaffSlot(id: string, target: OttavaStaffSlotTarget): boolean {
-    this.markModelDirty() // live drag, undo deferred to commitOttavaOffsetDrag
-    return this.scoreModel.setOttavaAtStaffSlot(id, target)
-  }
-
-  /**
-   * Live (preview) nudge of the WHOLE bracket's ink — a BODY drag. {@link nudgeOttava} without the
-   * undo, and accumulating like it; the page and band limits still refuse the write.
-   *
-   * ⚠️ `outward` is a distance FROM THE STAFF, like every other ottava vertical — the caller converts
-   * its screen delta on the way in.
-   */
-  previewOttavaOffset(id: string, dx: number, outward: number): boolean {
-    const above = (this.getOttavaById(id)?.shift ?? 1) > 0
-    const dy = above ? -outward : outward
-    if (!this.nudgeStaysOnPage('ottava', id, dx, dy)) return false
-    if (dy !== 0 && !this.ottavaStaysInBand(id, dy)) return false
-    this.markModelDirty() // live drag, undo deferred to commitOttavaOffsetDrag
-    return this.scoreModel.setOttavaOffset(id, dx, outward)
-  }
-
-  /** The whole bracket's RE-BASE — both ends by the same delta, no undo of its own, and ⛔ never
-   *  judged by the page limit or the band ({@link previewHairpinEndpointRebase} has the reason).
-   *
-   *  ⚠️ `outward` is the second half of the same bookkeeping and is unjudged for the same reason: a
-   *  re-base pays back a move the ANCHOR made, so the drawn ink does not move and there is nothing
-   *  for a limit to have an opinion about (`interactions/ottavaWalk.jumpStaves`). */
-  previewOttavaOffsetRebase(id: string, dx: number, outward = 0): boolean {
-    this.markModelDirty()
-    return this.scoreModel.setOttavaOffset(id, dx, outward)
-  }
-
-  /** Record ONE undo entry after a bracket BODY drag settles. */
-  commitOttavaOffsetDrag(): void {
-    this.commitPreviewed('Move octave line')
-  }
-
-  /** `Ctrl+Backspace` with a bracket selected and nothing armed: every nudge dropped. DECLINEs when
-   *  it carries none. */
-  resetOttavaOffset(id: string): boolean {
-    const ok = this.scoreModel.resetOttavaOffset(id)
-    if (ok) this.saveOnly('Reset octave line nudge')
-    return ok
-  }
-
-  /** `Ctrl+Backspace` on an armed square: that end's `x` and the shared `y` back to the engraver's
-   *  own. @returns false when it carries no nudge, so the key falls through. */
-  resetOttavaEndpointOffset(id: string, which: 'start' | 'end'): boolean {
-    const ok = this.scoreModel.resetOttavaEndpointOffset(id, which)
-    if (ok) this.saveOnly('Reset octave line nudge')
-    return ok
-  }
-
-  /**
-   * Where {@link resizeOttavaBySlot} would put the HOOK, WITHOUT putting it there — a pure read, no
-   * undo entry. The interpolating walk (`interactions/ottavaWalk`) asks before it decides whether a
-   * press re-anchors or only nudges ink, and asks THIS so the two keys can never land the bracket's
-   * end on different notes. @returns null at either end of the road.
-   */
-  nextOttavaEndSlot(id: string, direction: 1 | -1): OttavaSlotTarget | null {
-    return this.scoreModel.nextOttavaEndSlot(id, direction)
-  }
-
-  /** Where {@link moveOttavaStartBySlot} would put the BEGINNING, without putting it there —
-   *  {@link nextOttavaEndSlot}'s twin at the other square, and for its reason. */
-  nextOttavaStartSlot(id: string, direction: 1 | -1): OttavaSlotTarget | null {
-    return this.scoreModel.nextOttavaStartSlot(id, direction)
-  }
-
-  /** The slot the bracket's hook closes around TODAY — the address every drawn thing about its end
-   *  is drawn at. ⚠️ ⛔ NOT the span's exclusive end ({@link ottavaOps.ottavaEndSlot}). */
-  ottavaEndSlot(id: string): OttavaSlotTarget | null {
-    return this.scoreModel.ottavaEndSlot(id)
-  }
-
-  /**
-   * Put the bracket's BEGINNING on `target`, **holding its end** — the walk's crossing write at the
-   * START square, and the keyboard twin of what a drag of that square does frame by frame.
-   *
-   * ⚠️ A CONTENT edit ({@link moveOttavaStartBySlot}'s own): both model fields in one step, one undo
-   * state, and AUDIBLE — it changes which notes are displaced.
-   *
-   * ⭐ It keeps that end's `ottavaOffset` by construction (`ottavaOps` writes no override here),
-   * which is what the walk needs: the crossing is meant to be invisible, and the offset is re-based
-   * by the caller rather than wiped.
-   */
-  moveOttavaStartToSlot(id: string, target: OttavaSlotTarget): boolean {
-    const ok = this.scoreModel.applyOttavaDrag(id, { at: 'start', ...target })
-    if (ok) this.commit('Move octave line start')
-    return ok
-  }
-
-  /**
-   * Live (preview) end-move used **while dragging one of an ottava's squares** — writes the model
-   * but does NOT record undo; call {@link commitOttavaDrag} on the drop for the single entry. The
-   * hairpin's `previewHairpinEnd` / `commitHairpinDrag` pair verbatim, and for its reason: every
-   * frame of a drag would otherwise be its own undo step.
-   *
-   * `write` carries the address AND which end of the bracket lands on it — two cases, not the
-   * wedge's three (see {@link OttavaDragWrite}). @returns true when the model changed.
-   */
-  previewOttavaEnd(id: string, write: OttavaDragWrite): boolean {
-    this.markModelDirty() // live drag, undo deferred to commitOttavaDrag
-    return this.scoreModel.applyOttavaDrag(id, write)
-  }
-
-  /**
-   * Live (preview) nudge of ONE end's ink used **while dragging an ottava's SQUARE** — writes the
-   * override but records NO undo; the drop commits once ({@link commitOttavaDrag}).
-   *
-   * ⭐ It is {@link nudgeOttavaEndpoint} without the undo, and ACCUMULATING like it: the caller passes
-   * the delta since the last accepted frame, never a total. The page limit still refuses the write,
-   * so an end dragged off the sheet simply stops moving (⛔ the drawing is never clamped).
-   *
-   * ⭐⭐ **`outward` moves the WHOLE bracket, whichever square is dragged** — the keyboard's rule
-   * arriving at the mouse, and it needs no code: {@link OttavaOffsetOverride} has ONE vertical, so
-   * either end writes the same field. ⛔ Do not "fix" this into a per-end pair to match the wedge — a
-   * tilted octave bracket is not a shape.
-   *
-   * ⚠️ **`outward` is a distance FROM THE STAFF**, like every other ottava vertical: the caller
-   * converts its screen delta on the way in (`interactions/ottavaWalk.dragOttavaEndpoint`, the drag's
-   * twin of `shortcutWiring`'s conversion for the keys).
-   *
-   * 🚨 TWO AXES, TWO QUESTIONS at the page limit — {@link spanEndStaysOnPage}: the horizontal moves
-   * ONE END and its square, the vertical moves the whole drawn bracket.
-   */
-  previewOttavaEndpointOffset(
-    id: string,
-    which: 'start' | 'end',
-    dx: number,
-    outward = 0,
-  ): boolean {
-    // ⚠️ Both limits predict where INK lands, so they need a SCREEN delta. Above the staff, further
-    // out is further UP.
-    const above = (this.getOttavaById(id)?.shift ?? 1) > 0
-    if (!this.ottavaEndpointOffsetAllowed(id, which, dx, above ? -outward : outward)) return false
-    this.markModelDirty() // live drag, undo deferred to commitOttavaDrag
-    return this.scoreModel.setOttavaEndpointOffset(id, which, dx, outward)
-  }
-
-  /** One end's RE-BASE: no undo entry of its own, and ⛔ never judged by the page limit
-   *  ({@link previewHairpinEndpointRebase} has the reason). ⚠️ `dx` only: the bracket's vertical is
-   *  ONE number for the whole line and no walk touches it. */
-  previewOttavaEndpointRebase(id: string, which: 'start' | 'end', dx: number): boolean {
-    this.markModelDirty() // live drag, undo deferred to commitOttavaDrag
-    return this.scoreModel.setOttavaEndpointOffset(id, which, dx, 0)
-  }
-
-  /** Record ONE undo entry after an ottava-square drag settles. */
-  commitOttavaDrag(which: 'start' | 'end'): void {
-    this.commitPreviewed(which === 'start' ? 'Move octave line start' : 'Resize octave line')
-  }
-
-  /** Remove an octave line by id. Saves undo state when one was removed. */
-  removeOttava(id: string): boolean {
-    const removed = this.scoreModel.removeOttava(id)
-    if (removed) this.commit('Remove octave line')
-    return removed
   }
 
   /** The octave lines STARTING in a measure, sorted by beat (empty if none or no such measure). */
@@ -1903,19 +1540,9 @@ export class MusicEngine {
    * @returns the stored Pedal, or null when there is no usable span.
    */
   createPedal(noteIds: string[]): Pedal | null {
-    const resolved = noteIds
-      .map(id => this.scoreModel.getNote(id))
-      .filter((n): n is Note => !!n && !n.isRest)
-    if (resolved.length === 0) return null
-
-    const staff = staffOf(resolved[0])
-    const selected = resolved
-      .filter(n => staffOf(n) === staff)
-      .sort((a, b) => this.compareForSpan(a, b))
-    if (selected.length === 0) return null
-
-    const startNote = selected[0]
-    const endNote = selected[selected.length - 1]
+    const span = spanFromNotes(this.scoreModel, noteIds, { byVoice: false, sounding: true })
+    if (!span) return null
+    const { start: startNote, end: endNote, staff } = span
 
     const created = this.scoreModel.addPedalOverNotes(
       { measure: startNote.measure, beat: startNote.beat },
@@ -2392,27 +2019,16 @@ export class MusicEngine {
    * @returns the stored Hairpin, or null when there is no usable span.
    */
   createHairpin(noteIds: string[], type: Hairpin['type']): Hairpin | null {
-    const resolved = noteIds
-      .map(id => this.scoreModel.getNote(id))
-      .filter((n): n is Note => !!n && !n.isRest)
-    if (resolved.length === 0) return null
-
-    const voice = voiceOf(resolved[0])
-    const staff = staffOf(resolved[0])
-    const selected = resolved
-      .filter(n => voiceOf(n) === voice && staffOf(n) === staff)
-      .sort((a, b) => this.compareForSpan(a, b))
-    if (selected.length === 0) return null
-
-    const startNote = selected[0]
+    const span = spanFromNotes(this.scoreModel, noteIds, { byVoice: true, sounding: true })
+    if (!span) return null
     // The LAST SELECTED note, even when that is the only one — the span is the selection's, and
     // `addHairpinOverNotes` adds that note's own length so the wedge ends where the next begins.
-    const endNote = selected[selected.length - 1]
+    // ⭐⭐ The lane CHOOSES the notes; it does not become the wedge's SCOPE. `byVoice` filtered the
+    // selection to one stream (a wedge cannot span two), and the voice is deliberately NOT passed
+    // on: a wedge with no voice governs every voice of its staff, which is the default the user
+    // asked for. Narrowing it is a second, explicit act. See docs/dynamic-voice-scope-plan.md.
+    const { start: startNote, end: endNote, staff } = span
 
-    // ⭐⭐ The lane CHOOSES the notes; it does not become the wedge's SCOPE. `voice` above filtered
-    // the selection to one stream (a wedge cannot span two), and it is deliberately NOT passed on:
-    // a wedge with no voice governs every voice of its staff, which is the default the user asked
-    // for. Narrowing it is a second, explicit act. See docs/dynamic-voice-scope-plan.md.
     const created = this.scoreModel.addHairpinOverNotes(
       type,
       { measure: startNote.measure, beat: startNote.beat },
@@ -3113,22 +2729,10 @@ export class MusicEngine {
     // A slur lives in ONE voice. Derive it from the selection (the first resolved
     // note's voice) and keep only that voice's notes — so a voice-2 selection makes a
     // voice-2 slur. (Was hardcoded to voice 0, so `s` did nothing in any other voice.)
-    const resolved = noteIds
-      .map(id => this.scoreModel.getNote(id))
-      .filter((n): n is Note => !!n)
-    if (resolved.length === 0) return null
-
-    const slurVoice = voiceOf(resolved[0])
-    const slurStaff = staffOf(resolved[0])
-    const selected = resolved
-      .filter(n => voiceOf(n) === slurVoice && staffOf(n) === slurStaff)
-      .sort((a, b) => this.compareForSpan(a, b))
-    if (selected.length === 0) return null
-
-    const startNote = selected[0]
-    const endNote = selected.length >= 2
-      ? selected[selected.length - 1]
-      : this.nextDistinctSlot(startNote)
+    const span = spanFromNotes(this.scoreModel, noteIds, { byVoice: true, sounding: false })
+    if (!span) return null
+    const { start: startNote, voice: slurVoice } = span
+    const endNote = span.notes.length >= 2 ? span.end : this.nextDistinctSlot(startNote)
     if (!endNote || endNote.id === startNote.id) return null
 
     const existing = this.scoreModel.findSlurByEndpoints(startNote.id, endNote.id)
@@ -3231,20 +2835,10 @@ export class MusicEngine {
    * @returns the created (or pre-existing) Trill, or null if no valid anchor resolved.
    */
   createTrill(noteIds: string[]): Trill | null {
-    const resolved = noteIds
-      .map(id => this.scoreModel.getNote(id))
-      .filter((n): n is Note => !!n && !n.isRest)
-    if (resolved.length === 0) return null
-
-    const voice = voiceOf(resolved[0])
-    const staff = staffOf(resolved[0])
-    const inLane = resolved
-      .filter(n => voiceOf(n) === voice && staffOf(n) === staff)
-      .sort((a, b) => this.compareForSpan(a, b))
-    if (inLane.length === 0) return null
-
-    const start = inLane[0]
-    const end = inLane.length >= 2 ? inLane[inLane.length - 1] : undefined
+    const span = spanFromNotes(this.scoreModel, noteIds, { byVoice: true, sounding: true })
+    if (!span) return null
+    const { start, voice } = span
+    const end = span.notes.length >= 2 ? span.end : undefined
     const created = this.scoreModel.addTrill({
       startNoteId: start.id,
       ...(end && end.id !== start.id ? { endNoteId: end.id } : {}),
@@ -4760,23 +4354,6 @@ export class MusicEngine {
    * next musical event, skipping sibling chord heads that share `start`'s beat.
    * `getAllNotes()` emits one entry per pitch, hence the dedupe.
    */
-  /**
-   * ⭐ Order two notes for a SPAN — by position, and INSIDE a fan by member index.
-   *
-   * ⚠️ Position alone cannot order members: every one reports the SLOT's beat (deliberately — that
-   * is what keeps `pixelXToBeat` seeing one column), so `compareByPosition` calls them simultaneous
-   * and the sort keeps whatever order they were CLICKED in. A slur built from that is drawn
-   * backwards — right head to left head — which is exactly as broken as it sounds, and only when
-   * you happened to select the later member first.
-   */
-  private compareForSpan(a: Note, b: Note): number {
-    const byPosition = compareByPosition(a, b)
-    if (byPosition !== 0) return byPosition
-    const ia = this.scoreModel.fanMemberIndexOf(a.id)
-    const ib = this.scoreModel.fanMemberIndexOf(b.id)
-    return ia !== null && ib !== null ? ia - ib : 0
-  }
-
   private nextDistinctSlot(start: Note): Note | undefined {
     // ⭐ Inside a FAN, "the next thing" is the next MEMBER (his ask).
     //

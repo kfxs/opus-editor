@@ -78,7 +78,7 @@ const FLIP_ELEMENT: {
   // use shortcut x to switch 8va to 8vb when selected"*). The hairpin's kind of flip, one degree
   // stronger: `shift` is what the covered notes SOUND, so this is the only row on the table that
   // moves the music rather than the ink. The sign is NEGATED, so the distance survives the flip.
-  ottava: (engine, el) => engine.toggleOttavaDirection(el.id),
+  ottava: (engine, el) => engine.ottava.toggleOttavaDirection(el.id),
   // A tie flips its curve direction (up ↔ below), staying notehead-anchored. ⚠️ Keyed by the note it
   // comes FROM, not by an id of its own — a tie is a relation between two notes.
   tie: (engine, el) => engine.flipTie(el.fromNoteId),

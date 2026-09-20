@@ -7,7 +7,7 @@ import { fracCreate as frac, fracToNumber } from '@/utils/fraction'
  * `MusicEngine.createPedal` — **which notes did the user mean**, the editor half of the split that
  * `pedalOps.addPedalOverNotes` owns the other side of (docs/pedal-plan.md §7).
  *
- * ⭐⭐ **The chapter this file exists for is the LANE**, `MusicEngine.createOttava.test.ts`'s reason
+ * ⭐⭐ **The chapter this file exists for is the LANE**, `commands/ottavaCommands.createOttava.test.ts`'s reason
  * with a physical rather than a notational argument behind it. `createSlur`, `createHairpin` and
  * `createTrill` all narrow a selection to the first note's `(staff, voice)` and drop the rest,
  * because each of those marks lives in one voice. A pedal does not: there is ONE FOOT, so a

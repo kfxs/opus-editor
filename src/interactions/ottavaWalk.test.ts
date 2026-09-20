@@ -103,7 +103,7 @@ describe('walkOttavaEndpoint', () => {
       engine.addNoteAtBeat({ step, octave: 4, duration: 'q', measure: 1, beat: frac(i, 1) })!.id)
     // Beats 0 → 2: it covers the first TWO notes, so the hook closes around the second (x 200…210)
     // and there are stops on both sides of either end.
-    bracketId = engine.addOttava(1, { shift: 1, beat: frac(0, 1), length: frac(2, 1) })!.id
+    bracketId = engine.ottava.addOttava(1, { shift: 1, beat: frac(0, 1), length: frac(2, 1) })!.id
     render()
   })
 
@@ -130,7 +130,7 @@ describe('walkOttavaEndpoint', () => {
     })
 
     it('⭐ keeps the OTHER end’s own nudge through the crossing', () => {
-      engine.nudgeOttavaEndpoint(bracketId, 'end', 1.5, 0)
+      engine.ottava.nudgeOttavaEndpoint(bracketId, 'end', 1.5, 0)
       for (let i = 0; i < 10; i++) walkOttavaEndpoint(engine, bracketId, 'start', 1)
       expect(span().beat, 'it did cross').toBe(1)
       expect(offset('end')).toBeCloseTo(1.5)
@@ -163,7 +163,7 @@ describe('walkOttavaEndpoint', () => {
       //   has to be settled before there is anything to undo. In the app that is
       //   `shortcutWiring`'s settle, 150 ms after the repeats stop (`./keyRun`); here it is the
       //   family's own commit, which is exactly what the run calls.
-      engine.commitOttavaDrag('start')
+      engine.ottava.commitOttavaDrag('start')
       engine.undo()
       expect(span()).toEqual({ beat: 0, length: 2 })
       // ⭐⭐ **AND THE INK PRESSES GO BACK WITH IT.** Under the old rule only the CROSSING press
@@ -192,7 +192,7 @@ describe('walkOttavaEndpoint', () => {
     })
 
     it('⭐ keeps the BEGINNING’s own nudge through the crossing', () => {
-      engine.nudgeOttavaEndpoint(bracketId, 'start', -1.5, 0)
+      engine.ottava.nudgeOttavaEndpoint(bracketId, 'start', -1.5, 0)
       for (let i = 0; i < 10; i++) walkOttavaEndpoint(engine, bracketId, 'end', 1)
       expect(span().length, 'it did cross').toBe(3)
       expect(offset('start')).toBeCloseTo(-1.5)
@@ -219,7 +219,7 @@ describe('walkOttavaEndpoint', () => {
       //   has to be settled before there is anything to undo. In the app that is
       //   `shortcutWiring`'s settle, 150 ms after the repeats stop (`./keyRun`); here it is the
       //   family's own commit, which is exactly what the run calls.
-      engine.commitOttavaDrag('end')
+      engine.ottava.commitOttavaDrag('end')
       engine.undo()
       expect(span()).toEqual({ beat: 0, length: 2 })
       // ⭐⭐ **AND THE INK PRESSES GO BACK WITH IT.** Under the old rule only the CROSSING press
@@ -248,8 +248,8 @@ describe('walkOttavaEndpoint', () => {
       }))
       // The bracket now covers the whole of bar 1: its hook is on the fourth note (right edge 410),
       // two spaces short of where the line's music ends.
-      engine.resizeOttavaBySlot(bracketId, 1)
-      engine.resizeOttavaBySlot(bracketId, 1)
+      engine.ottava.resizeOttavaBySlot(bracketId, 1)
+      engine.ottava.resizeOttavaBySlot(bracketId, 1)
       expect(span()).toEqual({ beat: 0, length: 4 })
     }
 
@@ -280,7 +280,7 @@ describe('walkOttavaEndpoint', () => {
       //   has to be settled before there is anything to undo. In the app that is
       //   `shortcutWiring`'s settle, 150 ms after the repeats stop (`./keyRun`); here it is the
       //   family's own commit, which is exactly what the run calls.
-      engine.commitOttavaDrag('end')
+      engine.ottava.commitOttavaDrag('end')
       engine.undo()
       expect(span()).toEqual({ beat: 0, length: 4 })
       expect(offset('end')).toBeCloseTo(0)
@@ -288,7 +288,7 @@ describe('walkOttavaEndpoint', () => {
 
     it('⭐⭐ …and it is symmetric: the BEGINNING wraps back onto the line above', () => {
       // Move the bracket's beginning onto bar 2, then walk it left off the front of that line.
-      engine.moveOttavaStartToSlot(bracketId, { measure: 2, beat: frac(1, 1) })
+      engine.ottava.moveOttavaStartToSlot(bracketId, { measure: 2, beat: frac(1, 1) })
       for (let i = 0; i < 10; i++) walkOttavaEndpoint(engine, bracketId, 'start', -1)
       expect(engine.getOttavaById(bracketId)!.beat, 'back onto bar 2\'s first note').toEqual(frac(0, 1))
     })
@@ -357,7 +357,7 @@ describe('walkOttavaEndpoint', () => {
       // entry (that is its whole difference), so `undo()` here would take back the bracket itself.
       for (let i = 0; i < 10; i++) walkOttavaEndpoint(engine, bracketId, 'end', 1)
       const pressed = { ...span(), ink: offset('end') }
-      engine.resizeOttavaBySlot(bracketId, -1)
+      engine.ottava.resizeOttavaBySlot(bracketId, -1)
       expect(span(), 'wound back').toEqual({ beat: 0, length: 2 })
 
       frame('end', 310, 100)
@@ -379,7 +379,7 @@ describe('walkOttavaEndpoint', () => {
       frame('end', 310, 100)
       frame('end', 410, 100)
       expect(span()).toEqual({ beat: 0, length: 4 })
-      engine.commitOttavaDrag('end')
+      engine.ottava.commitOttavaDrag('end')
       engine.undo()
       expect(span(), 'one undo takes the whole drag back').toEqual({ beat: 0, length: 2 })
     })
@@ -631,7 +631,7 @@ describe('walkOttavaEndpoint', () => {
       //   has to be settled before there is anything to undo. In the app that is
       //   `shortcutWiring`'s settle, 150 ms after the repeats stop (`./keyRun`); here it is the
       //   family's own commit, which is exactly what the run calls.
-      engine.commitOttavaOffsetDrag()
+      engine.ottava.commitOttavaOffsetDrag()
       engine.undo()
       expect(span()).toEqual({ beat: 0, length: 2 })
       expect(ink()).toBeCloseTo(0)
@@ -696,7 +696,7 @@ describe('walkOttavaEndpoint', () => {
     it('⚠️ crosses at most ONE slot per press, however far ahead the ink has been pushed', () => {
       // The trill's report, 2026-08-20: an end nudged far past its own note is already beyond every
       // stop between, and an unbounded loop would hop them all in one keystroke — invisibly.
-      engine.nudgeOttavaEndpoint(bracketId, 'end', 40, 0)
+      engine.ottava.nudgeOttavaEndpoint(bracketId, 'end', 40, 0)
       walkOttavaEndpoint(engine, bracketId, 'end', 1)
       expect(span().length, 'exactly one slot').toBe(3)
     })

@@ -1343,8 +1343,8 @@ export class PaletteController {
     }
     const engine = this.getEngine()
     if (!engine) return
-    const ottava = engine.createOttava(noteIds, shift)
-    dbg(`[Ottava] createOttava on ${noteIds.length} note(s) → ${ottava ? `ottava ${ottava.id}` : 'no valid anchor'}`)
+    const created = engine.ottava.createOttava(noteIds, shift)
+    dbg(`[Ottava] createOttava on ${noteIds.length} note(s) → ${created ? `ottava ${created.id}` : 'no valid anchor'}`)
     this.renderScore()
   }
 
