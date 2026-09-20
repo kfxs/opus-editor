@@ -4,19 +4,21 @@
  * should have the color of tempo and dynamic … the case of the trill is not the same, a trill is
  * always associated to a note, so the trill has the color of the note voice it is anchored to"*.
  *
- * Subject: {@link HighlightController}, a chapter beside `.hairpin.test.ts` and `.anchorLine.test.ts`.
- * The question is a RULE, not a hex: a mark that governs a region takes the element ink, and only ink
+ * Subject: {@link paintSelectedMarkInk} — the ink pass, which hands each selected id to its kind's own
+ * `ink` row. The question is a RULE, not a hex: a mark that governs a region takes the element ink, and only ink
  * that belongs to one voice's notes takes a voice colour (`utils/selectionColors`).
  *
  * ⚠️ jsdom draws nothing, so the engine hands back real (empty) SVG groups with one child each —
  * which is all the recolour touches. No geometry is asserted here; that is the browser suite's.
  */
 import { describe, it, expect } from 'vitest'
-import { HighlightController } from './HighlightController'
-import { createEditorState, type SelectedElement } from './EditorState'
-import type { MusicEngine } from '../engine/MusicEngine'
-import { ELEMENT_SELECTION_FILL } from '../utils/selectionColors'
-import { voiceFillColor } from '../utils/voiceColors'
+import { HighlightController } from '../HighlightController'
+import { createEditorState, type SelectedElement } from '../EditorState'
+import { ElementRegistry } from '@/engine/ElementRegistry'
+import type { MusicEngine } from '@/engine/MusicEngine'
+import { ELEMENT_SELECTION_FILL } from '@/utils/selectionColors'
+import { voiceFillColor } from '@/utils/voiceColors'
+import { paintSelectedMarkInk } from './selectedInk'
 
 const SVG_NS = 'http://www.w3.org/2000/svg'
 
@@ -40,6 +42,7 @@ function paint(
   opts: { anchorVoice?: 0 | 1 | 2 | 3; scope?: 0 | 1 | 2 | 3 } = {},
 ) {
   const group = markGroup()
+  const registry = new ElementRegistry()
   const scoped = { ...(opts.scope !== undefined ? { voice: opts.scope } : {}) }
   const engine = {
     getHairpinSVGGroup: () => group,
@@ -51,7 +54,8 @@ function paint(
     getTrillSVGGroup: () => group,
     getTrillById: () => ({ id: 'T1', startNoteId: 'n1', voice: 0 }),
     getNote: () => ({ id: 'n1', voice: opts.anchorVoice }),
-    getElementRegistry: () => ({ getAll: () => [] }),
+    // A real, EMPTY registry: the pedal's ink draws its tether off it, and nothing was rendered.
+    getElementRegistry: () => registry,
   } as unknown as MusicEngine
 
   const canvas = document.createElement('div')
@@ -60,11 +64,7 @@ function paint(
   state.selectedElement = selected
 
   const highlight = new HighlightController(() => engine, () => canvas, state)
-  if (selected.kind === 'hairpin') highlight.applyHairpinSelectionHighlight()
-  if (selected.kind === 'dynamic') highlight.applyDynamicSelectionHighlight()
-  if (selected.kind === 'ottava') highlight.applyOttavaSelectionHighlight()
-  if (selected.kind === 'pedal') highlight.applyPedalSelectionHighlight()
-  if (selected.kind === 'trill') highlight.applyTrillSelectionHighlight()
+  paintSelectedMarkInk(highlight.context()!)
   return group
 }
 
@@ -129,5 +129,26 @@ describe('the DYNAMICS FAMILY asks its SCOPE, because it is the only kind that h
     const all = strokeOf(paint({ kind: 'hairpin', id: 'H1' }))
     expect(narrowed).toBe(voiceFillColor(0))
     expect(narrowed).not.toBe(all)
+  })
+})
+
+describe('however the mark came to be selected', () => {
+  it('⭐ a PASSAGE BOX member is painted too — with no single-click element at all', () => {
+    const group = markGroup()
+    const engine = {
+      getOttavaSVGGroup: () => group,
+      getElementRegistry: () => new ElementRegistry(),
+    } as unknown as MusicEngine
+    const canvas = document.createElement('div')
+    canvas.appendChild(document.createElementNS(SVG_NS, 'svg'))
+    const state = createEditorState()
+    state.selectedItems = new Map([['ottava:O1', { kind: 'ottava', id: 'O1' }]])
+
+    const highlight = new HighlightController(() => engine, () => canvas, state)
+    paintSelectedMarkInk(highlight.context()!)
+    expect(strokeOf(group)).toBe(ELEMENT_SELECTION_FILL)
+
+    highlight.clearHighlights()
+    expect(strokeOf(group), 'off with the layer').toBeNull()
   })
 })

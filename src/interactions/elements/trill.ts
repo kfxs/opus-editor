@@ -19,6 +19,8 @@ import { distToSegment } from './slur'
 import { beginTrillBodyDrag } from '../drags/trillBody'
 import { spanMarkKeys } from '../spanMarkKeys'
 import { selectedOf } from '../EditorState'
+import { voiceFillColor } from '@/utils/voiceColors'
+import { paintFill } from './recolour'
 import { paintEndpointHandles } from './endpointHandles'
 import { trillEndpointHandles } from './trillHandles'
 
@@ -64,14 +66,27 @@ export const TRILL_ELEMENT: ClickableElementSpec = {
   // auxiliary is a step above that pitch, so the note is what the ornament is computed from.
   // …and the two endpoint squares, one beyond each end (`./trillHandles`, 2026-08-18) — the
   // family's pair, one look for every span in the editor.
-  // ⚠️ The RECOLOUR is not here since 2026-08-19: it moved to the SET pass in `RenderController`
-  // (the dynamic's own arrangement), because a passage box can now select this kind too and the
+  // ⚠️ The RECOLOUR is `ink` below and not here: a passage box can select this kind too, and the
   // ink has to paint for every selected one — not only for the one a click picked.
   highlight: ctx => {
     ctx.controller.applyAnchorGuideLine()
     const selected = selectedOf(ctx.state, 'trill')
     if (!selected) return
     paintEndpointHandles(ctx, 'trill', selected, trillEndpointHandles(ctx.registry.getByType('trill'), selected.id))
+  },
+  // ⚠️ **Drawn as TEXT, not as paths** — the `tr` and every wiggle repeat are `<text>` glyphs
+  // (`TrillRenderer`) — so `fill` carries the colour and `stroke` would do nothing, silently. Every
+  // fragment lives in the SAME group even when the ornament repeats on a later system.
+  // ⭐ **A VOICE colour, and the one in this family that should be** (his call, 2026-08-19): *"a
+  // trill is always associated to a note, so the trill has the color of the note voice it is
+  // anchored to"*. ⚠️ Read off the anchor NOTE, not `Trill.voice` — the field is written at
+  // creation and a later voice move does not chase it (the slur's rule).
+  ink: (ctx, id) => {
+    const group = ctx.engine.getTrillSVGGroup(id)
+    if (!group) return
+    const trill = ctx.engine.getTrillById(id)
+    const anchorVoice = trill ? ctx.engine.getNote(trill.startNoteId)?.voice : undefined
+    paintFill(ctx, group.querySelectorAll('text'), voiceFillColor(anchorVoice ?? trill?.voice ?? 0))
   },
   keys: spanMarkKeys('trill'),
 }

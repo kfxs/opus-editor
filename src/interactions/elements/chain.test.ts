@@ -11,6 +11,7 @@
 import { describe, it, expect } from 'vitest'
 import { ELEMENT_HIT_ORDER, ELEMENT_SPECS } from './chain'
 import type { SelectedElement } from '../EditorState'
+import { MARK_KINDS } from '../enclosedMarks'
 
 /** Every kind in the union, as `SelectedElement['kind']` — the list `assertNeverElement` polices. */
 const ALL_KINDS: SelectedElement['kind'][] = [
@@ -31,6 +32,15 @@ describe('ELEMENT_SPECS — total over the union', () => {
 
   it('every kind says how it paints — a twenty-third cannot be added without deciding', () => {
     for (const key of ALL_KINDS) expect(typeof ELEMENT_SPECS[key].highlight).toBe('function')
+  })
+})
+
+describe('ELEMENT_SPECS — the `ink` column', () => {
+  it('⭐ is exactly the kinds a passage box can hold — a missing row is a mark that never lights', () => {
+    // 🚨 Pinned by NAME for the `keys` column's reason below: a lost row is SILENT — the ink pass
+    // skips the kind and a selected mark simply stays black.
+    const painting = Object.values(ELEMENT_SPECS).filter(spec => spec.ink).map(spec => spec.kind).sort()
+    expect(painting).toEqual([...MARK_KINDS].sort())
   })
 })
 

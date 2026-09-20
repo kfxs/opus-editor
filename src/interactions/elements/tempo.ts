@@ -8,6 +8,8 @@ import { dbg } from '@/utils/debug'
 import type { ClickableElementSpec } from './chain'
 import { beginTempoDrag } from '../drags/tempo'
 import { TEMPO_KEYS } from './tempoKeys'
+import { ELEMENT_SELECTION_FILL } from '@/utils/selectionColors'
+import { paintTextMark } from './recolour'
 
 export const TEMPO_ELEMENT: ClickableElementSpec = {
   kind: 'tempo',
@@ -55,5 +57,12 @@ export const TEMPO_ELEMENT: ClickableElementSpec = {
   // (the dynamic's own arrangement), because a box and a Ctrl-press can now select this kind too
   // and the ink has to paint for every selected one — not only for the one a click picked.
   highlight: ctx => ctx.controller.applyAnchorGuideLine(),
+  // Inside the mark's OWN `<g>` — the one `TempoLayout` opens (`#<id>`) — so the colour cannot bleed
+  // onto neighbouring marks.
+  ink: (ctx, id) => {
+    const group = ctx.engine.getTempoSVGGroup(id)
+    if (!group) return
+    paintTextMark(ctx, group, ELEMENT_SELECTION_FILL, 'selected-tempo')
+  },
   keys: TEMPO_KEYS,
 }

@@ -32,7 +32,11 @@
  */
 import { dbg } from '@/utils/debug'
 import type { ClickableElementSpec } from './chain'
-import { pedalTetherAt } from './pedalTether'
+import { pedalTetherAt, pedalTethers, tetherDashArray, TETHER_HIT } from './pedalTether'
+import { pedalStaffSpacePx } from '../pedalLane'
+import { ELEMENT_SELECTION_FILL } from '@/utils/selectionColors'
+import type { HighlightContext } from './highlightContext'
+import { paintFill } from './recolour'
 import { beginPedalBodyDrag } from '../drags/pedalBody'
 import { spanMarkKeys } from '../spanMarkKeys'
 import { selectedOf } from '../EditorState'
@@ -94,18 +98,79 @@ export const PEDAL_ELEMENT: ClickableElementSpec = {
   //
   // …and the two endpoint squares, one beyond each sign (`./pedalHandles`, 2026-08-18) — the
   // ottava's pair, one look for every span in the editor.
-  // ⚠️ The RECOLOUR is not here since 2026-08-19: it moved to the SET pass in `RenderController`
-  // (the dynamic's own arrangement), because a passage box can now select this kind too and the
+  // ⚠️ The RECOLOUR is `ink` below and not here: a passage box can select this kind too, and the
   // ink has to paint for every selected one — not only for the one a click picked.
-  // ⚠️ The DASHED TETHER is not here either, and for the recolour's reason: a passage box can hold
-  // several pedals, and *which `✻` closes which `Ped.`* is the question it asks hardest (his report,
-  // 2026-08-21). It runs in the SET pass beside the recolour — `RenderController.applyHighlights` —
-  // and still before this row, so a handle sits over the line rather than under it (`./pedalTether`).
+  // ⚠️ The DASHED TETHER is `ink`'s too, for the recolour's reason: a passage box can hold several
+  // pedals, and *which `✻` closes which `Ped.`* is the question it asks hardest (his report,
+  // 2026-08-21). The ink pass runs BEFORE this row, so a handle sits over the line, not under it.
   highlight: ctx => {
     ctx.controller.applyAnchorGuideLine()
     const selected = selectedOf(ctx.state, 'pedal')
     if (!selected) return
     paintEndpointHandles(ctx, 'pedal', selected, pedalEndpointHandles(ctx.registry.getByType('pedal'), selected.id))
   },
+  // ⭐ **TEXT only**: the pedal draws no `path` at all (docs/pedal-plan.md — the two-glyph dress).
+  // ⚠️ The day the bracket style arrives this needs the ottava's stroke half. One group holds every
+  // sign the pedal drew, other systems' included, so a broken pedal lights up whole. ⭐ The ELEMENT
+  // ink, for the ottava's reason: one damper serves the staff, whatever voices its music is in.
+  ink: (ctx, id) => {
+    const group = ctx.engine.getPedalSVGGroup(id)
+    if (group) paintFill(ctx, group.querySelectorAll('text'), ELEMENT_SELECTION_FILL)
+    // ⛔ The tether is PRESSABLE only on the single-click selection — the line the handles are
+    // drawn on. A box member's tether is a picture; making it a press target would let a click
+    // inside the passage silently swap the selection for one pedal's drag.
+    paintPedalTether(ctx, id, id === selectedOf(ctx.state, 'pedal')?.id)
+  },
   keys: spanMarkKeys('pedal'),
+}
+
+/**
+ * ⭐⭐ **A SELECTED PEDAL'S DASHED TETHER** — a broken line in the empty space between `Ped.` and
+ * `✻`, so the eye can see which release belongs to which press (his ask, 2026-08-21).
+ *
+ * ⭐ **A HINT, ⛔ not the mark**: it exists only while the pedal is selected and is removed with the
+ * rest of the highlight, so the printed dress stays Gould's two signs with nothing between them.
+ * The geometry — one segment per ROW, neighbours only — is `./pedalTether`'s.
+ *
+ * ⭐⭐ **EVERY SELECTED PEDAL GETS ONE, including the ones a PASSAGE BOX swept up** (his report,
+ * 2026-08-21): a box member gets colour but not handles, because a handle edits ONE mark — but a
+ * tether edits nothing. It answers *which `✻` belongs to which `Ped.`*, which a box selection asks
+ * harder than a click does, since it can hold several pedals at once.
+ */
+function paintPedalTether(ctx: HighlightContext, pedalId: string, pressable: boolean): void {
+  // ⛔ No fallback size — the tether's dashes are staff-space measures, and a guessed scale would
+  // draw a small staff's hint in a normal staff's dashes.
+  const staffSpacePx = pedalStaffSpacePx(ctx.registry, pedalId)
+  if (!staffSpacePx) return
+
+  // ⭐ The registry goes in so a row that carries on to the next system can run its dashes to the
+  // line's edge (`./pedalTether`, his ask 2026-08-21).
+  for (const tether of pedalTethers(ctx.registry.getByType('pedal'), pedalId, ctx.registry)) {
+    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line')
+    line.setAttribute('x1', String(tether.x1))
+    line.setAttribute('x2', String(tether.x2))
+    line.setAttribute('y1', String(tether.y))
+    line.setAttribute('y2', String(tether.y))
+    line.setAttribute('stroke', ELEMENT_SELECTION_FILL)
+    line.setAttribute('stroke-width', '1.5')
+    line.setAttribute('stroke-dasharray', tetherDashArray(staffSpacePx))
+    line.setAttribute('class', 'pedal-tether')
+    ctx.addNode(ctx.svg, line)
+
+    // ⭐⭐ …and it is PRESSABLE while it is drawn (his ask, 2026-08-21: *"the dashed line should be
+    // selectable too for the draging, now is invisible for the click"*). ⚠️ The entry lives exactly
+    // as long as the line does — `clearHighlights` removes it — so the rule *a press may only reach
+    // INK* still holds: an unselected pedal owns nothing between its signs.
+    if (!pressable) continue
+    ctx.registry.add({
+      type: 'pedal-tether',
+      pedalId,
+      bbox: {
+        x: Math.min(tether.x1, tether.x2),
+        y: tether.y - TETHER_HIT,
+        width: Math.abs(tether.x2 - tether.x1),
+        height: TETHER_HIT * 2,
+      },
+    })
+  }
 }

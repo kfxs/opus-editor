@@ -3,6 +3,7 @@ import type { EditorState } from './EditorState'
 import { activeVoiceToModel } from './EditorState'
 import { toolGhost, GHOST_CAUSE } from './toolGhost'
 import { ELEMENT_SPECS } from './elements/chain'
+import { paintSelectedMarkInk } from './elements/selectedInk'
 import type { HighlightController } from './HighlightController'
 import { voiceFillColor, voiceStrokeColor } from '../utils/voiceColors'
 import { renderProbe } from '../engine/RenderProbe' // P0 instrument seam — temporary, see §8
@@ -35,24 +36,16 @@ export class RenderController {
     // single-select element happens to be: the notes, the articulation groups, and every MARK a
     // box drags along with them (`interactions/enclosedMarks`).
     //
-    // ⭐ Each of these paints the single-click selection of its kind TOO — one pass per kind, asked
-    // "which ids of yours are selected?" (`HighlightController.selectedIdsOf`), so the ink of a
-    // selected mark is painted in exactly one place however it came to be selected. The kind's row
-    // in `ELEMENT_SPECS` is then only the EXTRA a single click earns: the anchor guide, the handles.
+    //
+    // ⭐ The MARKS paint the single-click selection of their kind TOO — each kind's `ink` row is
+    // asked once per selected id (`elements/selectedInk`), so the ink of a selected mark is painted
+    // in exactly one place however it came to be selected. The kind's `highlight` row is then only
+    // the EXTRA a single click earns: the anchor guide, the handles. ⚠️ Ink BEFORE highlight, so
+    // the endpoint squares of the pedal a click picked land OVER its tether.
     this.highlight.applySelectionHighlight()
     this.highlight.applyArticulationHighlight()
-    this.highlight.applyDynamicSelectionHighlight()
-    this.highlight.applySlurSelectionHighlight()
-    this.highlight.applyHairpinSelectionHighlight()
-    this.highlight.applyTrillSelectionHighlight()
-    this.highlight.applyOttavaSelectionHighlight()
-    this.highlight.applyPedalSelectionHighlight()
-    // ⭐ The pedal's DASHED TETHER is a set pass too (his report, 2026-08-21) — it is a picture of
-    // WHICH `✻` closes which `Ped.`, not a handle, so every selected pedal gets one however it came
-    // to be selected. ⚠️ Before `applySelectedElementHighlight`, so the endpoint squares of the one
-    // a click picked land OVER the line.
-    this.highlight.applyPedalTether()
-    this.highlight.applyTempoSelectionHighlight()
+    const ctx = this.highlight.context()
+    if (ctx) paintSelectedMarkInk(ctx)
     this.applySelectedElementHighlight()
     this.highlight.applyKeyboardCursor()
   }

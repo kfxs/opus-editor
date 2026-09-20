@@ -14,6 +14,8 @@ import { distToSegment } from './slur'
 import { beginHairpinBodyDrag } from '../drags/hairpinBody'
 import { HAIRPIN_KEYS } from './hairpinKeys'
 import { selectedOf } from '../EditorState'
+import { markSelectionColor } from '@/utils/selectionColors'
+import { paintStroke } from './recolour'
 import { paintEndpointHandles } from './endpointHandles'
 import { hairpinEndpointHandles } from './hairpinHandles'
 
@@ -52,14 +54,23 @@ export const HAIRPIN_ELEMENT: ClickableElementSpec = {
   // visible as ink, so what the guide adds is where the gesture is anchored.
   // …plus the two endpoint SQUARES, one per end of the wedge (his ask, 2026-08-17). Drawing only
   // for now — see `./hairpinHandles`, which owns where they sit.
-  // ⚠️ The RECOLOUR is not here since 2026-08-19: it moved to the SET pass in `RenderController`
-  // (the dynamic's own arrangement), because a passage box can now select this kind too and the
+  // ⚠️ The RECOLOUR is `ink` below and not here: a passage box can select this kind too, and the
   // ink has to paint for every selected one — not only for the one a click picked.
   highlight: ctx => {
     ctx.controller.applyAnchorGuideLine()
     const selected = selectedOf(ctx.state, 'hairpin')
     if (!selected) return
     paintEndpointHandles(ctx, 'hairpin', selected, hairpinEndpointHandles(ctx.registry.getByType('hairpin'), selected.id))
+  },
+  // ⭐ **In the colour its SCOPE says**: the element ink for a wedge governing the whole staff, that
+  // voice's colour for one narrowed to a voice (`markSelectionColor`, P2 of
+  // docs/dynamic-voice-scope-plan.md) — a voice colour is for ink that BELONGS to one voice's notes.
+  // The wedge is STROKED, never filled (two open polylines — see `HairpinRenderer`): setting `fill`
+  // as well would paint the triangle the two arms enclose, which is not ink the score has.
+  ink: (ctx, id) => {
+    const group = ctx.engine.getHairpinSVGGroup(id)
+    if (!group) return
+    paintStroke(ctx, group.querySelectorAll('path'), markSelectionColor(ctx.engine.getHairpinById(id) ?? {}))
   },
   keys: HAIRPIN_KEYS,
 }

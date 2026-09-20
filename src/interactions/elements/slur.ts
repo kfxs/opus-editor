@@ -9,6 +9,8 @@ import { dbg } from '@/utils/debug'
 import type { ClickableElementSpec } from './chain'
 import { beginSlurBodyDrag } from '../drags/slurBody'
 import { SLUR_KEYS } from './slurKeys'
+import { voiceFillColor } from '@/utils/voiceColors'
+import { paintFill, paintStroke } from './recolour'
 
 /** Shortest distance from point (px,py) to the line segment a→b (clamped to the
  *  segment, so endpoints don't over-grab). Used for arc-proximity slur hit-testing. */
@@ -70,6 +72,21 @@ export const SLUR_ELEMENT: ClickableElementSpec = {
     ctx.controller.applySlurHandles()
     ctx.controller.applyArmedSlurAnchorNote()
     ctx.controller.applyAnchorGuideLine()
+  },
+  // In ITS voice's colour (V1 blue, V2 green — matches the notehead/tie highlight). ⚠️ `Slur.voice`
+  // is unreliable (created as 0), so it is read off the start NOTE.
+  // An arc emits TWO paths — a stroke-only outline and a fill-only body (`engrave/curves/curveInk`)
+  // — so fill AND stroke are set on each, or a selected slur shows a coloured body with a dark
+  // outline (docs/slur-plan.md §7.3).
+  ink: (ctx, id) => {
+    const group = ctx.engine.getSlurSVGGroup(id)
+    if (!group) return
+    const slur = ctx.engine.getScore().slurs?.find(s => s.id === id)
+    const color = voiceFillColor(slur ? (ctx.engine.getNote(slur.startNoteId)?.voice ?? 0) : 0)
+    const paths = group.querySelectorAll('path')
+    paintFill(ctx, paths, color)
+    paintStroke(ctx, paths, color)
+    paths.forEach(el => ctx.addClass(el, 'selected-slur'))
   },
   keys: SLUR_KEYS,
 }

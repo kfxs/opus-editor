@@ -19,6 +19,8 @@ import { distToSegment } from './slur'
 import { beginOttavaBodyDrag } from '../drags/ottavaBody'
 import { spanMarkKeys } from '../spanMarkKeys'
 import { selectedOf } from '../EditorState'
+import { ELEMENT_SELECTION_FILL } from '@/utils/selectionColors'
+import { paintFill, paintStroke } from './recolour'
 import { paintEndpointHandles } from './endpointHandles'
 import { ottavaEndpointHandles } from './ottavaHandles'
 
@@ -61,14 +63,23 @@ export const OTTAVA_ELEMENT: ClickableElementSpec = {
   // only, and to a PLACE rather than a note — an octave line governs a region, so it belongs to no
   // single pitch. Its side follows the shift, like everything else about the bracket.
   // …and the two endpoint squares, one beyond each end (`./ottavaHandles`) — the hairpin's pair.
-  // ⚠️ The RECOLOUR is not here since 2026-08-19: it moved to the SET pass in `RenderController`
-  // (the dynamic's own arrangement), because a passage box can now select this kind too and the
+  // ⚠️ The RECOLOUR is `ink` below and not here: a passage box can select this kind too, and the
   // ink has to paint for every selected one — not only for the one a click picked.
   highlight: ctx => {
     ctx.controller.applyAnchorGuideLine()
     const selected = selectedOf(ctx.state, 'ottava')
     if (!selected) return
     paintEndpointHandles(ctx, 'ottava', selected, ottavaEndpointHandles(ctx.registry.getByType('ottava'), selected.id))
+  },
+  // ⭐ **The one mark drawn in BOTH kinds of ink**: the numeral (and its continuation parens) are
+  // `<text>` that must be FILLED, the dashed line and the hook are `<path>`s that must be STROKED.
+  // ⭐ The ELEMENT ink, not a voice's (his call, 2026-08-19): an ottava HAS no voice — it governs the
+  // staff, whose music may be in any of them (`Ottava.staffId`). See `utils/selectionColors`.
+  ink: (ctx, id) => {
+    const group = ctx.engine.getOttavaSVGGroup(id)
+    if (!group) return
+    paintFill(ctx, group.querySelectorAll('text'), ELEMENT_SELECTION_FILL)
+    paintStroke(ctx, group.querySelectorAll('path'), ELEMENT_SELECTION_FILL)
   },
   keys: spanMarkKeys('ottava'),
 }

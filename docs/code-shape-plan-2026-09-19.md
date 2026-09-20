@@ -1,6 +1,6 @@
 # Code shape plan — 2026-09-19
 
-**Status: IN PROGRESS — Phase 1 DONE (2026-09-19), bar item 5's two ⏭️ decisions. Phase 2 DONE. Phase 3.1: the hairpin / ottava / pedal body drags done and checked; the trill's too (`cdb7f05`); the slur's too (`69e927c`); the four SQUARE drags too (`6d903c3`); the slur HANDLE / ENDPOINT and staff-spacing drags too (`8f28f79`); the DYNAMIC and TEMPO drags too (`9a04f88`); bar width, barline join, group span and clef too (`ee31698`); the NOTE drag too (`7d2898e`) — every gesture is a module. **Phase 3.1 DONE** (`25f70a6`). 3.2: the `keys` column + dispatcher and the HAIRPIN on it (`e61626a`); OTTAVA / PEDAL / TRILL too (`14e10e7`); DYNAMIC and TEMPO too (`943fb64`); SLUR and CLEF too (`8382fcc`); the `reanchor` and `cycle` verbs done, awaiting his UI check — **Phase 3.2 DONE with it.** 3.3 (`highlight(ctx)`): the contract + the four span squares (`a7c1076`); the join and group squares done, awaiting his UI check.** Phases are ordered by
+**Status: IN PROGRESS — Phase 1 DONE (2026-09-19), bar item 5's two ⏭️ decisions. Phase 2 DONE. Phase 3.1: the hairpin / ottava / pedal body drags done and checked; the trill's too (`cdb7f05`); the slur's too (`69e927c`); the four SQUARE drags too (`6d903c3`); the slur HANDLE / ENDPOINT and staff-spacing drags too (`8f28f79`); the DYNAMIC and TEMPO drags too (`9a04f88`); bar width, barline join, group span and clef too (`ee31698`); the NOTE drag too (`7d2898e`) — every gesture is a module. **Phase 3.1 DONE** (`25f70a6`). 3.2: the `keys` column + dispatcher and the HAIRPIN on it (`e61626a`); OTTAVA / PEDAL / TRILL too (`14e10e7`); DYNAMIC and TEMPO too (`943fb64`); SLUR and CLEF too (`8382fcc`); the `reanchor` and `cycle` verbs done, awaiting his UI check — **Phase 3.2 DONE with it.** 3.3 (`highlight(ctx)`): the contract + the four span squares (`a7c1076`); the join and group squares (`b772418`); the `ink` column (seven mark recolours) done, awaiting his UI check.** Phases are ordered by
 value over risk; each one stands alone and can be stopped after. A done item carries ✅ and what
 actually happened where that differs from what was planned.
 
@@ -432,8 +432,22 @@ Run the e2e suite either side of each step.
    `staffGroup.test.ts` (it had none). 🚨 Found on the way: nothing removed the `staff-group-handle`
    entries — `clearHighlights` listed every other highlight-owned type — so they piled up across
    skipped renders (harmless only because the press guards on the selection). It removes them now.
-   Hub: kinds 256 → **239**, file → 1,855 lines. ⏸️ Awaiting his UI check. Next: the recolours,
-   family by family.*
+   Hub: kinds 256 → **239**, file → 1,855 lines. ✅ Passed (`b772418`).*
+
+   *Third slice — the seven MARK recolours, as a second column: **`ink?: (ctx, id)`** on
+   `ElementKindSpec`. The recolours were never `highlight`'s: they are a SET pass (a passage box
+   selects marks too), which `RenderController` ran as seven per-kind calls. It is now one loop,
+   `elements/selectedInk.paintSelectedMarkInk` — for each `MARK_KINDS` kind, each `selectedIdsOf`
+   id goes to that kind's own `ink` row — and `highlight` stays what a single click ADDS. The
+   pedal's dashed tether is part of the pedal's `ink` (it was a set pass for the same reason),
+   pressable only for the single-click one. `elements/recolour.ts` holds the three shared writes
+   (`paintFill` / `paintStroke` / `paintTextMark`). Off the controller: eight `apply…` passes,
+   seven `recolor…`, `drawPedalTether`, its private `selectedIdsOf`. Spec moved:
+   `HighlightController.markColor.test.ts` → `elements/selectedInk.test.ts` (+ a box-member case);
+   `chain.test.ts` pins the `ink` rows to exactly `MARK_KINDS` (a lost row is a mark that never
+   lights, silently). Hub: kinds 239 → **171**, file → 1,521 lines. ⏸️ Awaiting his UI check.
+   Next: the slur's handles + armed anchor note, then the anchor guide line, then the note-attached
+   kinds (articulation / dot / accidental / tremolo / stem / tie) and the header signs.*
 4. **Properties panels**: `windows/properties/panels/<kind>.ts` exporting `report` and `rows`,
    keyed by kind. *(review)* **Recommended: `rows` yes, `report` no.** The `paint` ladder is
    where this window grows (977 code lines, 25 kind tests), its specs are *already* split by kind

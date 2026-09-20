@@ -7,6 +7,8 @@ import { dbg } from '@/utils/debug'
 import type { ClickableElementSpec } from './chain'
 import { beginDynamicDrag } from '../drags/dynamic'
 import { DYNAMIC_KEYS } from './dynamicKeys'
+import { markSelectionColor } from '@/utils/selectionColors'
+import { paintTextMark } from './recolour'
 
 export const DYNAMIC_ELEMENT: ClickableElementSpec = {
   kind: 'dynamic',
@@ -57,5 +59,13 @@ export const DYNAMIC_ELEMENT: ClickableElementSpec = {
   // dynamic"*) — a second kind adds this same call to ITS row, plus the two endpoints in the pass
   // that draws it. Nothing about the line itself is dynamic-shaped any more.
   highlight: ctx => ctx.controller.applyAnchorGuideLine(),
+  // ⭐ THE COLOUR IS THE MARK'S OWN, asked per id: a box can sweep up a staff-wide `p` and a voice-2
+  // `f` together, and they do not paint alike (`markSelectionColor`, P2 of
+  // docs/dynamic-voice-scope-plan.md).
+  ink: (ctx, id) => {
+    const group = ctx.engine.getDynamicSVGGroup(id)
+    if (!group) return
+    paintTextMark(ctx, group, markSelectionColor(ctx.engine.getDynamicById(id) ?? {}), 'selected-dynamic')
+  },
   keys: DYNAMIC_KEYS,
 }

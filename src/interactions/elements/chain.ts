@@ -182,6 +182,14 @@ export interface ElementKindSpec {
   hit?: ElementHit
   /** What extra painting this kind gets when it is the ONE selected element. */
   highlight: (ctx: HighlightContext) => void
+  /**
+   * Paint ONE selected mark of this kind in its selection colour — asked once per selected id,
+   * **however it came to be selected**: the one a click picked AND every one a passage box swept
+   * into `selectedItems` (`./selectedInk`). So a mark's ink is painted in exactly one place, and
+   * `highlight` above is only the EXTRA a single click earns — the anchor guide, the handles.
+   * ABSENT = the kind is not one a box can hold by id, and its `highlight` paints its ink.
+   */
+  ink?: (ctx: HighlightContext, id: string) => void
   /** What the arrows and their backspace do to this kind when it is selected (`./keys`). ABSENT
    *  = the kind does not answer them, and the key falls through. ⚠️ Typed for the union here; a
    *  kind's own module types its row with `KeysOf<'kind'>`, and the dispatcher hands each row the
