@@ -166,7 +166,7 @@ All of it under `npm run lint:boundary`.
 
 ⚠️ **A menu that ships may not import `dev/`.** The shell has to keep deleting cleanly, so two
 modules graduated out of it when the bar reached them: `dev/staffSizeToggle` → `interactions/`, and
-`dev/scoreFile` → `utils/` with the actions it needed collected into `interactions/scoreFileIo.ts`
+`dev/scoreFile` → `utils/` with the actions it needed collected into `interactions/io/scoreFileIo.ts`
 (one implementation, called by the dev panel, the dev toolbar button and the File menu alike).
 
 ## The look, and the three things that were wrong before they were right

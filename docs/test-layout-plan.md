@@ -122,7 +122,7 @@ entries do have a subject sitting beside them, just not in their name
    4a. **The two `utils`-named files in `engine/models/` are ScoreModel chapters,
    not misplaced utils specs.** `models/tremoloPair.test.ts` imports
    `./ScoreModel`, `@/types/music`, `@/utils/fraction` and
-   `@/interactions/clipboard` — it never imports `@/utils/tremoloPair`.
+   `@/interactions/clipboard/clipboard` — it never imports `@/utils/tremoloPair`.
    `models/restFill.baseline.test.ts` imports `./ScoreModel` and `fraction`,
    nothing else. `utils/tremoloPair.test.ts` and `utils/restFill.test.ts` already
    exist and test the real utils modules. Moving the models pair into `utils/`

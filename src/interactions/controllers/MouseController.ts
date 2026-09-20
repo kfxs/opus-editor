@@ -9,25 +9,25 @@ import type { EditorState, SelectedElement } from '../state/EditorState'
 import { activeVoiceToModel, armedTool, armedNormalSide, armedTupletM, selectedOf, spendArmedTuplet } from '../state/EditorState'
 import { tempoLabel } from '../../utils/tempoMap'
 import { tempoFieldsFromTool } from '../../utils/tempoText'
-import { TempoTextSource } from '../TempoTextSource'
+import { TempoTextSource } from '../text/TempoTextSource'
 import type { SelectionController } from './SelectionController'
 import type { RenderController } from './RenderController'
-import type { TextEditController } from '../TextEditController'
-import type { ClipboardController } from '../ClipboardController'
-import { DynamicTextSource } from '../DynamicTextSource'
+import type { TextEditController } from '../text/TextEditController'
+import type { ClipboardController } from '../clipboard/ClipboardController'
+import { DynamicTextSource } from '../text/DynamicTextSource'
 import { fracToNumber } from '../../utils/fraction'
 import { dynamicTextFromTool, DEFAULT_DYNAMIC_TEXT } from '../../utils/dynamics'
 import { staffOf } from '@/utils/lanes'
 import { nearestSlotBoundaryBeat } from '../../engine/layout/slotBoundary'
-import { stampFanAtClick } from '../fanStamp'
-import { stampSlurAtClick } from '../slurStamp'
+import { stampFanAtClick } from '../stamps/fanStamp'
+import { stampSlurAtClick } from '../stamps/slurStamp'
 import { tempoInsertStop } from '../tempoInsertAnchor'
 import type { Stop as TempoStop } from '../../engine/models/tempoOps'
 import { pickSlurHandleAt } from '../slurHandlePick'
-import { stampSpanMarkAtClick } from '../spanMarkStamp'
-import { stampHairpinAtClick } from '../hairpinStamp'
-import { stampBarlineAtClick } from '../barlineStamp'
-import { stampKeySignatureAtClick } from '../keySignatureStamp'
+import { stampSpanMarkAtClick } from '../stamps/spanMarkStamp'
+import { stampHairpinAtClick } from '../stamps/hairpinStamp'
+import { stampBarlineAtClick } from '../stamps/barlineStamp'
+import { stampKeySignatureAtClick } from '../stamps/keySignatureStamp'
 import { STAFF_BAND_PAD_PX } from '../state/staffBand'
 import { ELEMENT_HIT_ORDER, type DoubleClickMark, type ElementChainDeps, type GestureDoor, type MouseDownCtx } from '../elements/chain'
 import { armHairpinEndpointAt } from '../elements/hairpinHandles'
@@ -50,7 +50,7 @@ import { markAtPress } from '../state/markGroupSelect'
 const DEFAULT_TEMPO_TEXT = 'Tempo'
 import { beatToFrac } from '../../utils/musicUtils'
 import { passageOf, passageNoteIds, spansStaves } from '../state/measurePassage'
-import { stampGroupAtClick } from '../groupStamp'
+import { stampGroupAtClick } from '../stamps/groupStamp'
 import { measureCapacityQuarters } from '../../utils/measureCapacity'
 import { accidentalToAlter, formatPitch } from '../../utils/pitchSpelling'
 
@@ -1308,7 +1308,7 @@ export class MouseController {
     // is MuseScore's polarity and all four apps' default (plan §5.1).
     if (stampKeySignatureAtClick(this.state, engine, y, measureNum, event, () => this.render.renderScore())) return
     // ⭐ The GROUPING SIGN's armed click — his third case, and the only one that reaches the score
-    //   through a click rather than through a selection (`interactions/groupStamp`).
+    //   through a click rather than through a selection (`interactions/stamps/groupStamp`).
     if (stampGroupAtClick(this.state, engine, y, measureNum, () => this.render.renderScore())) return
     if (this.placeDynamicAtClick(engine, x, y, measureNum)) return
     if (this.placeDynamicEntryAtClick(engine, x, y, measureNum)) return
@@ -1320,10 +1320,10 @@ export class MouseController {
     if (this.stampDotAtClick(engine, registry, x, y)) return
     if (this.stampTremoloAtClick(engine, registry, x, y)) return
     if (this.stampRestAtClick(engine, x, y)) return
-    // The feather stamp's whole click lives in its own module (interactions/fanStamp); this is the
+    // The feather stamp's whole click lives in its own module (interactions/stamps/fanStamp); this is the
     // row that gives it a turn.
     if (stampFanAtClick(this.state, engine, x, y, () => this.render.renderScore())) return
-    // The slur stamp's click lives in its own module too (interactions/slurStamp); this is its turn.
+    // The slur stamp's click lives in its own module too (interactions/stamps/slurStamp); this is its turn.
     if (stampSlurAtClick(this.state, engine, registry, x, y, () => this.render.renderScore())) return
     if (stampHairpinAtClick(this.state, engine, registry, x, y, () => this.render.renderScore())) return
     // …and the TRILL's, the OTTAVA's and the PEDAL's, through the family's one driver

@@ -11,7 +11,7 @@
 import { describe, it, expect } from 'vitest'
 import { ELEMENT_HIT_ORDER, ELEMENT_SPECS } from './chain'
 import type { SelectedElement } from '../state/EditorState'
-import { MARK_KINDS } from '../enclosedMarks'
+import { MARK_KINDS } from '../clipboard/enclosedMarks'
 
 /** Every kind in the union, as `SelectedElement['kind']` — the list `assertNeverElement` polices. */
 const ALL_KINDS: SelectedElement['kind'][] = [

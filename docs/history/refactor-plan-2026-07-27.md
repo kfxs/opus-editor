@@ -55,7 +55,7 @@ production core code imports from outside itself is `uuid`.** So the core is alr
 package; it simply has no `package.json`. That is a much stronger starting position than a
 project usually has at this point, and the job of this plan is to *not spend it*.
 
-*(One test — `ScoreModel.tremoloPair.test.ts:5` — imports `interactions/clipboard`. By this
+*(One test — `ScoreModel.tremoloPair.test.ts:5` — imports `interactions/clipboard/clipboard`. By this
 project's own test-layout rule that is a feature test and belongs in a `__tests__/`. Not a
 production leak; worth moving when convenient.)*
 
@@ -479,10 +479,10 @@ Three signatures collapse to one, and the next travelling attribute is a field, 
 position-independent stream *"the canonical currency for **portable musical material**, not a
 private detail of re-barring"*, and principle 5 puts operations on musical material in the
 score layer. Today that is half-true: `RebarEvent` lives in `utils/rebar.ts` (core), but
-`ClipboardPayload` / `ClipboardLane` live in `interactions/clipboard.ts` (editor) — **the
+`ClipboardPayload` / `ClipboardLane` live in `interactions/clipboard/clipboard.ts` (editor) — **the
 container sits one layer above its own contents.**
 
-So the new type lands beside `RebarEvent` in the core, and `interactions/clipboard.ts` keeps
+So the new type lands beside `RebarEvent` in the core, and `interactions/clipboard/clipboard.ts` keeps
 only what is genuinely editorial: reading the *selection* to build one, and the DOM/system
 clipboard plumbing. Two payoffs beyond tidiness:
 

@@ -42,7 +42,7 @@ Neither field exists by default: a fresh `ScoreModel` writes no `title` key at a
 | The highlight | `HighlightController.applyScoreTextSelectionHighlight` |
 | Delete | the `scoreText` case in `shortcutWiring`'s Delete switch |
 | The dialog | `windows/scoreTextWindow.ts` (one window, both fields) |
-| Dialog → engine | `bus/scoreTextSelection.ts` → `interactions/ScoreTextController.ts` |
+| Dialog → engine | `bus/scoreTextSelection.ts` → `interactions/propertyControllers/ScoreTextController.ts` |
 | The menu rows | `menus/scoreMenu.ts`, under a separator |
 
 ⭐ **One selection kind for both lines** — `{ kind: 'scoreText'; field }` — because they differ in

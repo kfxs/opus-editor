@@ -13,7 +13,7 @@ import type { MenuItem } from './MenuItem'
  * shelf grows, which is the whole reason this is a module and not four rows inlined in `fileMenu`.
  *
  * ⚠️ **Opening one REPLACES the open score, with no confirmation** — the same warning Import carries,
- * and for the same reason: it is the same load path (`interactions/scoreFileIo.ts`), reached from a
+ * and for the same reason: it is the same load path (`interactions/io/scoreFileIo.ts`), reached from a
  * row that is one click away rather than a file picker away. ⛔ Never a second loader.
  */
 

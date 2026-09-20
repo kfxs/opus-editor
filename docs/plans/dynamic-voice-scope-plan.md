@@ -101,10 +101,10 @@ and follow the errors" here. The list is short enough to BE the checklist:
 | `engine/rendering/marks/dynamics/HairpinRenderer:130,305,313` (its lane + the dynamics it clears) | any voice on its staff |
 | `engine/models/hairpinOps:311,362` (`addHairpinOverNotes` dedup, `hairpinSpan`) | a wedge with no voice covers the staff |
 | `interactions/dynamicLane:58`, `elements/hairpinHandles:169` | the lane the walk/handles read |
-| `interactions/attachedMarks:85,100` (the Properties list for a note) | an ALL mark is attached to every voice's note — ⚠️ and it tests voice but **not staff**, so a staff-2 hairpin would list under a staff-1 note. Same fix, same commit |
+| `interactions/clipboard/attachedMarks:85,100` (the Properties list for a note) | an ALL mark is attached to every voice's note — ⚠️ and it tests voice but **not staff**, so a staff-2 hairpin would list under a staff-1 note. Same fix, same commit |
 | `engine/MusicEngine.createHairpin:1355` | 🚨 see below |
-| `interactions/clipboard:319,404` + `rebarOps.pasteEvents:505,524` | 🚨 the paste trap |
-| `interactions/elementClipboard:101` | 🚨 the SECOND paste trap |
+| `interactions/clipboard/clipboard:319,404` + `rebarOps.pasteEvents:505,524` | 🚨 the paste trap |
+| `interactions/clipboard/elementClipboard:101` | 🚨 the SECOND paste trap |
 
 🚨 **The POSITION rows of this table were later overturned** — the walk, the drag, the drawn anchor
 and the wedge's tips ask the STAFF, not the scope. See *"scope is NOT position"* below; the table is
@@ -200,7 +200,7 @@ happened to give the right answer, so the first version of the test passed eithe
 **P4 — the Keypad and `Alt+1…5`. ✅ BUILT 2026-08-19.** `bus.voice` widens to `1|2|3|4|'all'`; `keypadSync:361` lights the
 SELECTED mark's scope (not the entry voice) when one is selected; the row's "All" button and a new
 `Alt+5` press through the same seam. ⭐ Per the module rule, what a voice press DOES with a mark is
-its own module (`interactions/markVoiceScope`), not a fifth branch inside
+its own module (`interactions/stamps/markVoiceScope`), not a fifth branch inside
 `PaletteController.setActiveVoice` — the palette gains one delegation. Three traps:
 
 - ⛔ **`EditorState.activeVoice` stays `1|2|3|4`.** It is the ENTRY voice, and there is no entering
@@ -215,7 +215,7 @@ its own module (`interactions/markVoiceScope`), not a fifth branch inside
   and `selection.ts` does not know what an `EditorState` is.)
 
 ⭐ **What P4 landed**: `dynamicOps.setDynamicVoiceScope` + `hairpinOps.setHairpinVoiceScope` (the
-`delete`), one `MusicEngine.setMarkVoiceScope` over both kinds, `interactions/markVoiceScope` (+ its
+`delete`), one `MusicEngine.setMarkVoiceScope` over both kinds, `interactions/stamps/markVoiceScope` (+ its
 spec) holding the rule and the Keypad's light, `bus.voice` widened to `1|2|3|4|'all'`, the row's
 fifth button wired to the same seam it always sat beside, `Alt+5` → `setMarkScopeAllVoices`, and one
 delegation at the top of `PaletteController.setActiveVoice`. 🧪 Break-tested the two load-bearing

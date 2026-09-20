@@ -116,7 +116,7 @@ export function removeKeyAt(score: Score, measureNumber: number, staffId?: strin
  * deliberately carries no clef change and resolves to the universal `'treble'` default, because
  * "which clef" is a fact about the INSTRUMENT and the user is expected to say. A key signature is a
  * fact about the MUSIC — one statement for the system in every classical score, which is why a plain
- * drop writes all staves (`interactions/keySignatureStamp`, MuseScore's polarity). Defaulting a new
+ * drop writes all staves (`interactions/stamps/keySignatureStamp`, MuseScore's polarity). Defaulting a new
  * staff to C major would be answering that question wrongly rather than leaving it open.
  *
  * ⚠️ Copies from the REFERENCE staff rather than from staff 0, so an added staff joins the hand it

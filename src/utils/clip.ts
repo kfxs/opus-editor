@@ -5,7 +5,7 @@
  * This is the container for the {@link RebarEvent} stream that DESIGN-PRINCIPLES §2 calls
  * *"the canonical currency for portable musical material, not a private detail of
  * re-barring"* — so it lives in the core, beside the events it holds, and not in the editor.
- * The clipboard is one producer of a clip (`interactions/clipboard.ts` reads a selection into
+ * The clipboard is one producer of a clip (`interactions/clipboard/clipboard.ts` reads a selection into
  * one, and adds the serialization envelope a system clipboard needs); a transposition, an
  * augmentation or an import could be another, with no editor present.
  *

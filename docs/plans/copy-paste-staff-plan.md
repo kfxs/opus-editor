@@ -90,7 +90,7 @@ reports none. `ClipboardController` falls back to selecting the slots the window
   including ottava and ped in the selection then copy and paste but the ottava and ped does not
   paste"* (a 6-beat 8va and a 5-beat pedal over the 4-beat bar he copied), and then *"when we select
   the measure we should select ottava and pedal too"* — so the BOX selection moved with it
-  (`interactions/enclosedMarks`).
+  (`interactions/clipboard/enclosedMarks`).
 
   ⭐ **A span belongs to where it BEGINS**, which is the model's own filing rule: each is stored on
   the bar its start lands in, carrying its own extent (`types/music.ts`), precisely so it may run

@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { MusicEngine } from '../../engine/MusicEngine'
-import { buildClipboardFromSelection } from '../clipboard'
+import { buildClipboardFromSelection } from '../clipboard/clipboard'
 import { fracCreate as frac } from '../../utils/fraction'
 import type { TremoloMark } from '../../types/music'
 import { makeEngine } from '@/testing/makeEngine'

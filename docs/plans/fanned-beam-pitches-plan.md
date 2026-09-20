@@ -76,13 +76,13 @@ member-level clipboard question (§3) closed — you can never end up holding a 
 directions.** Checked against the code:
 
 - `selectedSpans` resolves ids through `getMeasureNotes`, i.e. `slot.notes` only
-  (`interactions/clipboard.ts:165`). A member id produces NO span, so copying a member is a **silent
+  (`interactions/clipboard/clipboard.ts:165`). A member id produces NO span, so copying a member is a **silent
   no-op** today, not "an ordinary note". It has to resolve a member to its slot.
 - The capture is by WINDOW, not by id: `flattenRegion` puts `fan` on the event for any slot inside
   the span (`utils/rebar.ts:217`). So a partial selection pastes a WHOLE fan unless `fan` is
   actively stripped at capture.
 - The payload would carry `NotePitch` ids, against its own stated invariant ("No model ids are
-  stored" — `interactions/clipboard.ts` header). Strip the ids at capture; they are minted at
+  stored" — `interactions/clipboard/clipboard.ts` header). Strip the ids at capture; they are minted at
   materialisation anyway (`engine/models/rebarOps.ts:1262-1275`, the one place a relay piece becomes
   a chord — and the one line P1 owes for fresh ids, since two copies sharing a pitch id means the
   first in tree order silently wins).

@@ -439,7 +439,7 @@ is taken: `p` is PLAY (`src/shortcuts/`).
 
 One **row in `dev/linePalette.ts`** (whose doc comment already names the pedal as a future row),
 ⚠️ **that palette was deleted 2026-08-23** — the family's door is now the Lines window
-(`src/windows/lines/`, Insert ▸ Lines or `L`) and the routing is `interactions/lineTools.ts`; the
+(`src/windows/lines/`, Insert ▸ Lines or `L`) and the routing is `interactions/stamps/lineTools.ts`; the
 row below still describes what was built, at the place it was built.
 running a `PaletteController.createPedal()` that already means two things:
 

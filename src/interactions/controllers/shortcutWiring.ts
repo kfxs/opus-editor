@@ -6,17 +6,17 @@ import type { KeysCtx } from '../elements/keys'
 import type { Fraction } from '@/types/music'
 import type { EditorState } from '../state/EditorState'
 import { assertNeverElement, selectedOf } from '../state/EditorState'
-import { keySignatureStavesAt } from '../keySignatureScope'
+import { keySignatureStavesAt } from '../stamps/keySignatureScope'
 import type { SelectionController } from './SelectionController'
 import type { PaletteController } from './PaletteController'
 import type { KeyboardController } from './KeyboardController'
 import type { RenderController } from './RenderController'
-import type { ClipboardController } from '../ClipboardController'
+import type { ClipboardController } from '../clipboard/ClipboardController'
 import type { ViewportHost } from './ViewportHost'
 import { ShortcutManager } from '../../shortcuts'
 import { beatToFrac } from '../../utils/musicUtils'
 import { selectedArticulationNoteIds } from '../state/selection'
-import { markItems, marksLabel, removeMarks } from '../enclosedMarks'
+import { markItems, marksLabel, removeMarks } from '../clipboard/enclosedMarks'
 import { passageOf, spansStaves } from '../state/measurePassage'
 import { flipSelection } from '../state/flipSelection'
 import { repeatSelectedPassage } from '../state/repeatPassage'
@@ -382,7 +382,7 @@ export function wireShortcuts(
     setActiveVoice3: () => palette.setActiveVoice(3),
     setActiveVoice4: () => palette.setActiveVoice(4),
     // ⭐ Alt+5 — the MARK half alone: `'all'` returns before touching the entry voice, so this key
-    // is inert unless a dynamic or a hairpin is selected (`interactions/markVoiceScope`).
+    // is inert unless a dynamic or a hairpin is selected (`interactions/stamps/markVoiceScope`).
     setMarkScopeAllVoices: () => palette.setActiveVoice('all'),
     copySelection: () => clipboard.copy(),
     pasteClipboard: () => clipboard.paste(),

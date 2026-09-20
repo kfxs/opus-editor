@@ -13,12 +13,12 @@ mark joined the family on the same day (below).
 > *"when pasting we just select the notes… but all element pasted should be selected"*
 
 Both are the same bug seen from two sides: **the selection understated itself.** The copy had always
-taken the enclosed hairpins, trills, octave lines and pedals (`interactions/clipboard`'s `*InWindow`
+taken the enclosed hairpins, trills, octave lines and pedals (`interactions/clipboard/clipboard`'s `*InWindow`
 builders), and a paste had always written them — but neither the box nor the paste said so.
 
 ## ⭐ The highlight is a promise about the copy
 
-One module answers "what else came with these notes": `interactions/enclosedMarks.ts`, and everything
+One module answers "what else came with these notes": `interactions/clipboard/enclosedMarks.ts`, and everything
 downstream reads its answer instead of restating the rule.
 
 | Reader | What it does with the answer |

@@ -649,7 +649,7 @@ later.
 - Consumers: `interactions/controllers/MouseController.ts` (per-type handlers, chain at 458),
   `interactions/controllers/HighlightController.ts` (`highlightGlyphsInBBox` 653, caret 124/129,
   attachment line 815, rest-branch annotation skip 321),
-  `interactions/DynamicTextSource.ts:46` / `TempoTextSource.ts` (text overlays).
+  `interactions/text/DynamicTextSource.ts:46` / `TempoTextSource.ts` (text overlays).
 - VexFlow 5 (read, not modified): `element.js:186` (`getBoundingBox` = ink),
   `element.js:339` (`measureText` → `actualBoundingBox*`), `stavenote.js`
   (`getBoundingBox` modifier union; pointer-rect drawn from it),

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { buildCreateMenu, type InsertMenuActions } from './insertMenu'
-import { BARLINE_SIGNS } from '@/interactions/barlineStamp'
+import { BARLINE_SIGNS } from '@/interactions/stamps/barlineStamp'
 import type { MenuItem } from './MenuItem'
 import type { WindowLayer } from '@/windows/WindowLayer'
 

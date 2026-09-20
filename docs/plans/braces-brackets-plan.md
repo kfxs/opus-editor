@@ -747,7 +747,7 @@ glyph-vs-curve question is genuinely open rather than a formality.
 > |---|---|
 > | `engine/models/staffGroupOps.ts` | the SCORE op — `applyGroupSymbol` (⭐ `undefined` REMOVES) + `pruneStaffGroups`. 17 specs |
 > | `MusicEngine.applyGroupSymbol` | the one **undoable** write, indices → ids |
-> | `interactions/groupStamp.ts` | `groupTargetFromSelection` (APPLIES-else-ARMS) + `stampGroupAtClick`. 11 specs |
+> | `interactions/stamps/groupStamp.ts` | `groupTargetFromSelection` (APPLIES-else-ARMS) + `stampGroupAtClick`. 11 specs |
 > | `MarkingTool` `{ kind: 'group', symbol }` | + its three tables — `MARKING_TOOL_USES_ARMED_LENGTH`, `promoteStampToNoteEntry`, `toolGhost` |
 > | the dev shell's `Group:` row | ⭐ **live** — it logged and drew nothing before |
 > | `dev/groupSignConsole` | rewired through the model, so `__groups.*` is undoable too |

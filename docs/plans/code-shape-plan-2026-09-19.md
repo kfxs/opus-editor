@@ -1093,7 +1093,7 @@ rule change and HIS call. The trill has no lane of this kind (it walks note ids)
 (5) + 3 `writeSpanOffset` cases; break-tested — flipping longest→shortest fails the new spec AND
 `ottavaOps`' own two-voice case.*
 
-*`pressSpanTool(row)` DONE (awaiting his word to commit) — `interactions/spanToolPress.ts`: the one
+*`pressSpanTool(row)` DONE (awaiting his word to commit) — `interactions/stamps/spanToolPress.ts`: the one
 routing (re-press disarms · notes selected → create over them · nothing selected → arm) and
 `SPAN_TOOL_PRESSES`, five rows — `slur` · `trill` · `pedal` · `ottava(shift)` · `hairpin(type)`; a re-press
 matches the whole TOOL, payload included, which is what makes `8vb`-while-`8va` a swap. The palette's five

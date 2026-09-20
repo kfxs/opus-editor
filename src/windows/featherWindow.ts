@@ -23,7 +23,7 @@ import { Button, Checkbox, GlyphSelect, Label, NumberInput, RadioGroup } from '.
  * there is nothing to convert until the note exists. Same contract the Tuplet window's OK has, and
  * the same route — {@link bus.fanStamp} → `keypadSync` → `PaletteController.armFanStamp` — after
  * which the pointer carries a ghost NOTEHEAD of the value typed here, and one click writes the whole
- * gesture (`interactions/fanStamp`).
+ * gesture (`interactions/stamps/fanStamp`).
  *
  * ⭐ **AND WHAT OK DOES DEPENDS ON WHAT IS SELECTED** — one dialog, three acts, in his order:
  *

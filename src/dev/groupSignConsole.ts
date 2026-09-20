@@ -22,7 +22,7 @@
  * ## ⭐⭐ AND IT HONOURS THE SAME SELECTION RULE THE PALETTE WILL
  *
  * His rule of 2026-08-29 — *"if multiple staves are selected we apply to those staves; if just one
- * staff, just that staff; if none, arm a stamp"* — lives in `interactions/groupStamp`, and this tool
+ * staff, just that staff; if none, arm a stamp"* — lives in `interactions/stamps/groupStamp`, and this tool
  * asks **that** function rather than a copy of it. ⚠️ The one thing it cannot do is ARM: a console
  * call has no click to follow it, so where the palette would arm, this falls back to the whole
  * score and says so.
@@ -33,7 +33,7 @@
 import type { MusicEngine } from '@/engine/MusicEngine'
 import type { StaffGroup } from '@/types/music'
 import { groupsAt } from '@/engine/models/staffGroups'
-import { groupTargetFromSelection } from '@/interactions/groupStamp'
+import { groupTargetFromSelection } from '@/interactions/stamps/groupStamp'
 import type { EditorState } from '@/interactions/state/EditorState'
 import { systemStartColumn, scoreSystemStartIndentSpaces, scoreSystemStartIndentPx } from '@/engine/layout/systemStartColumn'
 
@@ -70,7 +70,7 @@ export function groupSignConsole(
     // (`MusicEngine.applyGroupSymbol` → `models/staffGroupOps`). ⚠️ This used to set `symbol`
     // straight on the score and re-engrave by hand, which meant no undo and no model notification.
     // ⛔ That hack is gone; what is left here is only the *targeting*, which the real gesture takes
-    // from the selection (`interactions/groupStamp`).
+    // from the selection (`interactions/stamps/groupStamp`).
     const target = targetFromSelection() ?? { fromStaff: 0, toStaff: staves.length - 1 }
     const changed = engine.applyGroupSymbol(target.fromStaff, target.toStaff, symbol)
     console.log(

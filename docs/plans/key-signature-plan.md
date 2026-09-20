@@ -927,7 +927,7 @@ override key built from an ORDINAL needs it.
   staff LINES (`keySignatureLines`) so G major and F major are told apart by their picture. It shares
   `SIGN_CHARS` and `SIGN_FONT_SIZE` with the pass, so a preview cannot show a glyph the click will not
   engrave. ⛔ An empty signature previews NOTHING and says so — the signpost's hole, not papered over.
-- **`interactions/keySignatureStamp.ts`** — a click places at the HEAD of the bar it lands in (⛔ not the
+- **`interactions/stamps/keySignatureStamp.ts`** — a click places at the HEAD of the bar it lands in (⛔ not the
   barline stamp's nearest-LINE rule: a key is a statement about a BAR, which is why `keyOps` takes no
   beat). ⭐ **Plain drop = ALL staves, `Ctrl`/`Cmd` = the clicked staff** — MuseScore's polarity, all four
   apps' default (§5.1), and ONE undo batch for the whole gesture.
@@ -972,7 +972,7 @@ so seven sharps move it right and one flat moves it left on their own.
 hour later *"and if i remove i remove the first stave only."*** Both were one bug: the selection was
 scoped to the staff whose ink was clicked.
 
-⭐⭐ **`interactions/keySignatureScope.ts` — the scope is READ FROM THE MODEL, not decided.** Every staff
+⭐⭐ **`interactions/stamps/keySignatureScope.ts` — the scope is READ FROM THE MODEL, not decided.** Every staff
 whose signature at that bar IS the selected one (`getKeyAt` + `keysEqual`, so a system-head REPRINT
 that stores nothing still counts). Two staves in one key light and delete together, because they are
 one statement; ⭐ **two staves in genuinely different keys stay separate** — his own warning the same

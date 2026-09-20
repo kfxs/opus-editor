@@ -6,7 +6,7 @@ import type { NoteDuration } from '../types/music'
 import { durationHighlight } from '../interactions/controllers/keypadSync'
 import { DEV_SOUNDS } from '../engine/audio/WebAudioFontInstrument'
 import { bus } from '../bus'
-import { exportScorePdfFile } from '../interactions/scoreFileIo'
+import { exportScorePdfFile } from '../interactions/io/scoreFileIo'
 import { isSelectedStaffSmall, toggleSelectedStaffSize } from '../interactions/controllers/staffSizeToggle'
 
 /**
@@ -353,7 +353,7 @@ export function mountDevToolbar(host: HTMLElement, deps: DevToolbarDeps): DevToo
   //     row of buttons here until the Lines window arrived — Insert ▸ Lines, or L. A dev-shell
   //     palette earns its place while a feature has no real door; this one now has one, and keeping
   //     both would mean two things to change whenever the family gains a line. What the buttons did
-  //     is `interactions/lineTools`, which the window reaches through `bus.line`. ---
+  //     is `interactions/stamps/lineTools`, which the window reaches through `bus.line`. ---
 
   // --- Playback ---
   const play = el('button', '', '▶ Play')

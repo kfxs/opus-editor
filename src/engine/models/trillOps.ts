@@ -482,7 +482,7 @@ export function trillMayAnchorOn(
 
 /**
  * ⭐ **HOW MUCH MUSIC THIS TRILL COVERS, in quarter beats** — what a COPY carries of it
- * (`interactions/elementClipboard`), and `slurOps.slurSpanOf`'s twin for the same reason: a span is
+ * (`interactions/clipboard/elementClipboard`), and `slurOps.slurSpanOf`'s twin for the same reason: a span is
  * the one part of a note-anchored mark that means anything anywhere else. ⚠️ **ZERO for the one-note
  * trill**, whose extent is its own note's sounding duration and travels by being absent.
  */

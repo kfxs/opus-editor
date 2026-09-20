@@ -1,7 +1,7 @@
 import { dbg, setDebugLogging } from '@/utils/debug'
 import './app.css'
 import { MusicEngine } from './engine/MusicEngine'
-import { attachedMarksOf } from './interactions/attachedMarks'
+import { attachedMarksOf } from './interactions/clipboard/attachedMarks'
 import { ScoreModel } from './engine/models/ScoreModel'
 import { VIEWPORT_HEIGHT } from '@/engine/layout/layoutConfig'
 import { DEFAULT_ZOOM } from './engine/ViewportModel'
@@ -13,27 +13,27 @@ import { SelectionController } from './interactions/controllers/SelectionControl
 import { PaletteController } from './interactions/controllers/PaletteController'
 import { KeyboardController } from './interactions/controllers/KeyboardController'
 import { MouseController } from './interactions/controllers/MouseController'
-import { TextEditController } from './interactions/TextEditController'
-import { DomTextEdit } from './interactions/DomTextEdit'
+import { TextEditController } from './interactions/text/TextEditController'
+import { DomTextEdit } from './interactions/text/DomTextEdit'
 import { GutterController } from './interactions/controllers/GutterController'
-import { ClipboardController } from './interactions/ClipboardController'
-import { NoteOffsetController } from './interactions/NoteOffsetController'
-import { ClefOffsetController } from './interactions/ClefOffsetController'
-import { DynamicOffsetController } from './interactions/DynamicOffsetController'
-import { TempoOffsetController } from './interactions/TempoOffsetController'
-import { SpanMarkGeometryController } from './interactions/SpanMarkGeometryController'
-import { FanEditController } from './interactions/FanEditController'
-import { TrillEditController } from './interactions/TrillEditController'
-import { BarlineEditController } from './interactions/BarlineEditController'
-import { CautionaryKeyGapController } from './interactions/CautionaryKeyGapController'
-import { ScoreTextController } from './interactions/ScoreTextController'
+import { ClipboardController } from './interactions/clipboard/ClipboardController'
+import { NoteOffsetController } from './interactions/propertyControllers/NoteOffsetController'
+import { ClefOffsetController } from './interactions/propertyControllers/ClefOffsetController'
+import { DynamicOffsetController } from './interactions/propertyControllers/DynamicOffsetController'
+import { TempoOffsetController } from './interactions/propertyControllers/TempoOffsetController'
+import { SpanMarkGeometryController } from './interactions/propertyControllers/SpanMarkGeometryController'
+import { FanEditController } from './interactions/propertyControllers/FanEditController'
+import { TrillEditController } from './interactions/propertyControllers/TrillEditController'
+import { BarlineEditController } from './interactions/propertyControllers/BarlineEditController'
+import { CautionaryKeyGapController } from './interactions/propertyControllers/CautionaryKeyGapController'
+import { ScoreTextController } from './interactions/propertyControllers/ScoreTextController'
 import { openScoreTextWindow } from './windows/scoreTextWindow'
 import { scoreText, type ScoreTextField } from './engine/models/scoreTextOps'
-import { HairpinEditController } from './interactions/HairpinEditController'
-import { SlurGeometryController } from './interactions/SlurGeometryController'
-import { HairpinGeometryController } from './interactions/HairpinGeometryController'
-import { ArticulationStemAlignController } from './interactions/ArticulationStemAlignController'
-import { FractionalBeamSideController } from './interactions/FractionalBeamSideController'
+import { HairpinEditController } from './interactions/propertyControllers/HairpinEditController'
+import { SlurGeometryController } from './interactions/propertyControllers/SlurGeometryController'
+import { HairpinGeometryController } from './interactions/propertyControllers/HairpinGeometryController'
+import { ArticulationStemAlignController } from './interactions/propertyControllers/ArticulationStemAlignController'
+import { FractionalBeamSideController } from './interactions/propertyControllers/FractionalBeamSideController'
 import { createViewportHost } from './interactions/controllers/ViewportHost'
 import { playbackStartMeasure } from './interactions/controllers/playbackStart'
 import { PASTEBOARD_MARGIN } from './engine/pasteboard'
@@ -43,7 +43,7 @@ import { wireSelectionInspection } from './interactions/controllers/selectionIns
 import { wireSoundSync } from './interactions/controllers/soundSync'
 import { wirePlayRepeatsSync } from './interactions/controllers/playRepeatsSync'
 import { isSelectedStaffSmall, toggleSelectedStaffSize } from './interactions/controllers/staffSizeToggle'
-import { exportScoreJson, exportScorePdfFile, importScoreJson, openExampleScore } from './interactions/scoreFileIo'
+import { exportScoreJson, exportScorePdfFile, importScoreJson, openExampleScore } from './interactions/io/scoreFileIo'
 import { renderCensus, buildSyntheticScore } from './dev/renderCensus' // P0 instrument — temporary
 import { layoutFlushCensus } from './dev/layoutFlushCensus' // P0 instrument — temporary
 import { groupSignConsole } from './dev/groupSignConsole'
@@ -400,13 +400,13 @@ export function createEditorApp(host: HTMLElement): EditorApp {
   menuActions.insertTempo = () => mouse.insertTempo()
   // ⭐ Insert ▸ Barline ▸ … — the palette's own command, so a row APPLIES to a selected line and ARMS
   // the stamp when nothing is selected. ⛔ Not a second implementation of "place a barline": that
-  // gesture is `interactions/barlineStamp` and it changed twice on the day it was written (the Edit
+  // gesture is `interactions/stamps/barlineStamp` and it changed twice on the day it was written (the Edit
   // menu's rule — "a row is not a second implementation of its key").
   // ⚠️ Since 2026-08-26 this is the family's ONLY door: the dev shell's five buttons were deleted
   // when it arrived, on the rule the Lines row went out under.
   menuActions.pressBarline = (sign) => palette.pressBarline(sign)
   // ⭐⭐ …and the way back to a mark whose ink has been nudged off screen: right-click ▸ Select lists
-  // what hangs off the ONE selected note (`interactions/attachedMarks`, whose header explains why no
+  // what hangs off the ONE selected note (`interactions/clipboard/attachedMarks`, whose header explains why no
   // affordance drawn ON the ink can serve). The row assigns the very selection a click on that ink
   // would have made, so every existing repair — the squares, the arrows, Ctrl+Backspace, the
   // Properties reset — then works unchanged.
@@ -468,7 +468,7 @@ export function createEditorApp(host: HTMLElement): EditorApp {
   }
 
   // File — the same three doors the dev shell has, through the one implementation
-  // (`interactions/scoreFileIo.ts`). ⚠️ Import REPLACES the open score with no confirmation; see the
+  // (`interactions/io/scoreFileIo.ts`). ⚠️ Import REPLACES the open score with no confirmation; see the
   // warning on `fileMenu.ts`.
   const withEngine = (fn: (e: MusicEngine) => void) => () => { const e = getEngine(); if (e) fn(e) }
   menuActions.exportPdf = { run: withEngine(e => { void exportScorePdfFile(e) }) }

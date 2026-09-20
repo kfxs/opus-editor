@@ -5,7 +5,7 @@ import type { SelectionItem } from './selection'
 import type { ViewMode } from '@/engine/layout/layoutConfig'
 // TYPE-ONLY, and it has to be: `barlineStamp` imports this file for `selectedOf`, so a value import
 // here would close a runtime cycle. The sign vocabulary lives with the gesture that places it.
-import type { BarlineSign } from '../barlineStamp'
+import type { BarlineSign } from '../stamps/barlineStamp'
 import type { ScoreTextField } from '@/engine/models/scoreTextOps'
 
 /** A value armed on the dynamics palette: an interpreted level, or the custom-text tool. */
@@ -58,7 +58,7 @@ export type MarkingTool =
   | { kind: 'timeSignature'; timeSignature: TimeSignature; cautionary?: boolean; pickup?: Fraction | null }
   /**
    * ⭐ The KEY SIGNATURE stamp — a click puts `key` at the head of the bar it lands on
-   * (`interactions/keySignatureStamp.ts`, docs/plans/key-signature-plan.md §5).
+   * (`interactions/stamps/keySignatureStamp.ts`, docs/plans/key-signature-plan.md §5).
    *
    * ⭐ **It CARRIES THE SIGNATURE ITSELF**, ⛔ never a `fifths` integer: the model stores a LIST of
    * altered letters precisely so a custom signature (mixed sharps and flats, authored order) is
@@ -83,7 +83,7 @@ export type MarkingTool =
   | { kind: 'keySignature'; key: KeySignature }
   /**
    * ⭐⭐ The GROUPING-SIGN stamp — a click puts a brace or a bracket on the staff it lands on
-   * (P5 of docs/plans/braces-brackets-plan.md, `interactions/groupStamp.ts`).
+   * (P5 of docs/plans/braces-brackets-plan.md, `interactions/stamps/groupStamp.ts`).
    *
    * ⭐ **It is the ARM half of his rule of 2026-08-29**: *"if no staff is selected we arm a stamp and
    * apply to the staff we click."* The APPLY half never reaches here — a selection that names staves
@@ -159,7 +159,7 @@ export type MarkingTool =
    *
    * It previews NO ghost — the blue pointer says "click a note to place one" — because a slur is
    * drawn between two notes and there is no such pair until the click picks the first. See
-   * {@link scoreCursorClass} and `interactions/slurStamp.ts`.
+   * {@link scoreCursorClass} and `interactions/stamps/slurStamp.ts`.
    */
   | { kind: 'slur' }
   /**
@@ -174,7 +174,7 @@ export type MarkingTool =
    * ⛔ NO ghost — the blue pointer, like the slur, and for the slur's reason: a wedge is drawn
    * BETWEEN two points and the click has only picked one, so a ghost wedge at the pointer would be
    * previewing a length the click is not going to make. See {@link scoreCursorClass} and
-   * `interactions/hairpinStamp.ts`.
+   * `interactions/stamps/hairpinStamp.ts`.
    */
   | { kind: 'hairpin'; type: 'cresc' | 'dim' }
   /**
@@ -245,7 +245,7 @@ export type MarkingTool =
   /**
    * ⭐ The BARLINE stamp — the final bar, the open repeat, the end repeat — armed by a palette press
    * with nothing (or a note) selected. A click puts the sign on the clicked BAR, on that sign's own
-   * SIDE of it (`interactions/barlineStamp.ts`, docs/plans/barline-types-plan.md P4).
+   * SIDE of it (`interactions/stamps/barlineStamp.ts`, docs/plans/barline-types-plan.md P4).
    *
    * ⭐ It CARRIES ITS SIGN, like the hairpin's `type` and the ottava's `shift` and for their reason:
    * three palette buttons that must light independently, not one tool with a setting.

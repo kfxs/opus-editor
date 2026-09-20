@@ -426,7 +426,7 @@ export function setSlurSegmentEndpointOffset(
 /**
  * ⭐⭐ **HOW MUCH MUSIC A SLUR COVERS** — the distance between its two anchors, in quarter beats.
  *
- * ⭐ It is what a COPIED slur carries (`interactions/elementClipboard`), and the reason a slur can be
+ * ⭐ It is what a COPIED slur carries (`interactions/clipboard/elementClipboard`), and the reason a slur can be
  * pasted at all: a slur's identity is two NOTE IDS, which mean nothing anywhere else, but *"a slur
  * over this much music"* travels. The hairpin's `length` exactly, arrived at from the other side —
  * there the model stores the amount and the ends are derived; here the model stores the ends and the

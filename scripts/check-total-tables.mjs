@@ -33,10 +33,10 @@ import { readFileSync } from 'node:fs'
 /** Each entry: the table, the union it must be total over, and where it lives. */
 const TABLES = [
   { name: 'SPAN_MARK_MODEL', union: 'SpanMarkKind', file: 'src/engine/models/spanMarkModel.ts' },
-  { name: 'SPAN_MARK_TOOLS', union: 'SpanMarkKind', file: 'src/interactions/spanMarkTools.ts' },
+  { name: 'SPAN_MARK_TOOLS', union: 'SpanMarkKind', file: 'src/interactions/stamps/spanMarkTools.ts' },
   { name: 'ELEMENT_SPECS', union: "SelectedElement['kind']", file: 'src/interactions/elements/chain.ts' },
   { name: 'MARKING_TOOL_USES_ARMED_LENGTH', union: "MarkingTool['kind']", file: 'src/interactions/state/EditorState.ts' },
-  { name: 'BARLINE_SIGNS', union: 'BarlineSign', file: 'src/interactions/barlineStamp.ts' },
+  { name: 'BARLINE_SIGNS', union: 'BarlineSign', file: 'src/interactions/stamps/barlineStamp.ts' },
 ]
 
 const failures = []

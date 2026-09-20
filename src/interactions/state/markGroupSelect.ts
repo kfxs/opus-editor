@@ -23,7 +23,7 @@
  */
 import type { MouseDownCtx, ElementChainDeps } from '../elements/chain'
 import { ELEMENT_HIT_ORDER } from '../elements/chain'
-import { MARK_KINDS, type MarkKind } from '../enclosedMarks'
+import { MARK_KINDS, type MarkKind } from '../clipboard/enclosedMarks'
 
 /**
  * The press chain, filtered to the kinds a group can hold — in `ELEMENT_HIT_ORDER`'s own order, so

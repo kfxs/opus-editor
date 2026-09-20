@@ -8,7 +8,7 @@
  * the guide — lands OVER what this draws (the pedal's tether).
  */
 import { selectedIdsOf } from '../state/EditorState'
-import { MARK_KINDS, type MarkKind } from '../enclosedMarks'
+import { MARK_KINDS, type MarkKind } from '../clipboard/enclosedMarks'
 import { ELEMENT_SPECS } from './chain'
 import type { HighlightContext } from './highlightContext'
 

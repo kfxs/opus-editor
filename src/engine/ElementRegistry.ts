@@ -1727,7 +1727,7 @@ export class ElementRegistry {
   /**
    * ⭐⭐ **THE NOTE OR REST WHOSE OWN INK IS UNDER (x, y)** — nearest AND actually hit, which is the
    * pair every spanner stamp asks for: a mark that attaches to an existing event must land ON one,
-   * ⛔ never merely near one (`interactions/slurStamp` and its five siblings; the paste click for a
+   * ⛔ never merely near one (`interactions/stamps/slurStamp` and its five siblings; the paste click for a
    * slur, 2026-08-20 — *"for slurring a note we should be really close to the bbox of that note"*).
    *
    * ⭐ The two calls were written out six times before this; they are one question.

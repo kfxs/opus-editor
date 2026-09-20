@@ -24,7 +24,7 @@ import type { Chord, Rest } from '@/types/music'
  *
  * ⚠️ The table does not IMPLEMENT anything — it records a decision and forces it to be taken. The
  * carrying lives in `utils/rebar` (the event and piece shapes) and `engine/models/rebarOps` (the
- * materialiser); `interactions/clipboard` owns the side channels. `slotFieldTravel.test.ts` is what
+ * materialiser); `interactions/clipboard/clipboard` owns the side channels. `slotFieldTravel.test.ts` is what
  * checks the table against what those actually do.
  */
 

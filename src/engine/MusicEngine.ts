@@ -1186,7 +1186,7 @@ export class MusicEngine {
   /**
    * ⭐⭐ **Set which voices a dynamic or a hairpin GOVERNS** — one method for both kinds, because
    * `Alt+1…5` does not ask which one is selected: it asks what the selection can take
-   * (`interactions/markVoiceScope`, docs/plans/dynamic-voice-scope-plan.md P4).
+   * (`interactions/stamps/markVoiceScope`, docs/plans/dynamic-voice-scope-plan.md P4).
    *
    * `'all'` is the absence — the mark governs every voice of its staff — and the model DELETES the
    * field for it rather than storing an `undefined` (`dynamicOps.setDynamicVoiceScope`).

@@ -5,7 +5,7 @@ import type { MenuCommand } from './menuCommands'
 /**
  * The **File** menu — getting a score out of the editor and back in.
  *
- * Three commands, and they are the three the editor actually has (`interactions/scoreFileIo.ts`).
+ * Three commands, and they are the three the editor actually has (`interactions/io/scoreFileIo.ts`).
  * What is NOT here says as much: no New, no Open Recent, no Save. There is nothing to save TO — the
  * editor has no document store, and a Save that quietly downloaded a file would be a promise about
  * persistence that nothing behind it keeps. Export/Import is the honest shape of what exists.

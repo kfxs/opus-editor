@@ -9,7 +9,7 @@
 > `engine/models/barlineOps.ts` (the score ops) · `engine/layout/barlineSign.ts` (⭐ what a sign is
 > MADE OF — and the `SignHalf` rule three other things read) · `engine/rendering/staff/BarlineRenderer.ts`
 > (we draw every barline) · `engine/audio/repeatPlan.ts` (the PLAY ORDER) ·
-> `interactions/barlineStamp.ts` (the gesture) · `interactions/elements/barline.ts` +
+> `interactions/stamps/barlineStamp.ts` (the gesture) · `interactions/elements/barline.ts` +
 > `./repeatStart.ts` (the two selections) · **Insert ▸ Barline** and the Properties chooser (the
 > doors) · **Play ▸ Play Repeats** + the dev shell's 🔁 (the performance).
 >
@@ -1053,7 +1053,7 @@ spec that the three gestures still land where they are asked.
 
 </details>
 
-**P4 — the gesture. ✅ DONE 2026-08-26** — `interactions/barlineStamp.ts` (+ spec),
+**P4 — the gesture. ✅ DONE 2026-08-26** — `interactions/stamps/barlineStamp.ts` (+ spec),
 `PaletteController.pressBarline`, the `barline` member of `MarkingTool`, one row in
 `MouseController`'s dispatch chain, `engine/rendering/ghosts/BarlineGhost.ts` (+ spec), and the dev
 palette's three buttons wired to it.

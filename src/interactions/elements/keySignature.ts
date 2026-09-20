@@ -25,7 +25,7 @@ import { staffOf } from '@/utils/lanes'
 import type { ClickableElementSpec } from './chain'
 import type { HighlightContext } from './highlightContext'
 import { ELEMENT_SELECTION_FILL } from '@/utils/selectionColors'
-import { keySignatureStavesAt } from '../keySignatureScope'
+import { keySignatureStavesAt } from '../stamps/keySignatureScope'
 import { selectedOf } from '../state/EditorState'
 
 export const KEY_SIGNATURE_ELEMENT: ClickableElementSpec = {

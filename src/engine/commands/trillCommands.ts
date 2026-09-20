@@ -73,7 +73,7 @@ export function trillCommands(ctx: CommandContext) {
     },
 
     /**
-     * ⭐⭐ **THE SAME TRILL, OVER THERE** — what a PASTE makes (`interactions/elementClipboard`), and
+     * ⭐⭐ **THE SAME TRILL, OVER THERE** — what a PASTE makes (`interactions/clipboard/elementClipboard`), and
      * `createSlurOverSpan`'s twin, rule for rule.
      *
      * ⭐ **It starts from a NOTE, ⛔ never an address**: an address always resolves to SOMETHING, which

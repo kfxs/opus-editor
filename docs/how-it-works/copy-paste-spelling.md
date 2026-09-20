@@ -94,7 +94,7 @@ Three commits, smallest first.
    **around** the paste — never selected, never copied — was being re-spelled too.
 
 ⛔ **Not touched, and must stay that way:** copying a single **element** (a hairpin, a dynamic, a
-tempo mark) goes through `interactions/elementClipboard` — no relay, no flatten, no overwrite of any
+tempo mark) goes through `interactions/clipboard/elementClipboard` — no relay, no flatten, no overwrite of any
 music. Selecting an element clears the note selection, so the two clipboards can never both have
 something to copy (`ClipboardController.ts:61`).
 

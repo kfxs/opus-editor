@@ -15,7 +15,7 @@ stamp* instead of entering a note. There are **ten**:
 | | `tie` | *nothing* | ties the note clicked to the next slot |
 | | `dot` | *nothing* | dots the note **or rest** clicked |
 | **place a length** | `rest` | *nothing — it reads the armed length* | **places** a rest at the beat clicked, replacing what it covers |
-| **place a sign on a LINE** | `barline` | one of the five `PlacedBarlineSign`s | ⭐ puts it on the barline **NEAREST THE POINTER**, ⛔ not in the bar clicked (`interactions/barlineStamp.ts`) |
+| **place a sign on a LINE** | `barline` | one of the five `PlacedBarlineSign`s | ⭐ puts it on the barline **NEAREST THE POINTER**, ⛔ not in the bar clicked (`interactions/stamps/barlineStamp.ts`) |
 
 They are **mutually exclusive**: exactly one is armed, or none.
 

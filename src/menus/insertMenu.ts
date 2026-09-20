@@ -36,7 +36,7 @@ export interface InsertMenuActions {
   insertTempo?: () => void
   /**
    * ⭐⭐ **The marks hanging off the SELECTED NOTE, as rows that select them** — the way back to a mark
-   * whose ink has been nudged off screen (`interactions/attachedMarks`, and its header for why no
+   * whose ink has been nudged off screen (`interactions/clipboard/attachedMarks`, and its header for why no
    * on-ink affordance can serve).
    *
    * ⚠️ Read at OPEN time, not at build time, because the answer changes with the selection — which is

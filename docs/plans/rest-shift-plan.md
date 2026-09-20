@@ -277,7 +277,7 @@ the score lookup lives in the renderer's resolver closure.
 `types/music.ts`, `engine/models/engravingOverrides.ts`,
 `engine/models/ScoreModel.ts` (mutator + `captureRestShifts`/`restoreRestShifts`
 + wiring into `rebarRegion` & `pasteEvents`), `engine/MusicEngine.ts`,
-`interactions/clipboard.ts` (+ paste threading in `ClipboardController` /
+`interactions/clipboard/clipboard.ts` (+ paste threading in `ClipboardController` /
 `MusicEngine`), `composables/useShortcuts.ts`,
 `engine/rendering/ScoreRenderer.ts`, `engine/rendering/engraved/NoteBuilder.ts`
 (+ co-located tests). `lint:boundary` and `build:check` must stay green.

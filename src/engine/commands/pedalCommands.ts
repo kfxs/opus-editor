@@ -207,7 +207,7 @@ export function pedalCommands(ctx: CommandContext) {
 
     /**
      * ⭐⭐ **Put a pedal at an ADDRESS, holding `length` of music, making room as it lands** — what a
-     * PASTE of a copied pedal needs (`interactions/elementClipboard`, his ask 2026-08-21), and
+     * PASTE of a copied pedal needs (`interactions/clipboard/elementClipboard`, his ask 2026-08-21), and
      * `createSlurOverSpan`'s twin at the other grain.
      *
      * ⭐ **It goes through the ENTRY door** (`pedalOps.addPedalOverNotes`), ⛔ never `addPedal`: two

@@ -7,7 +7,7 @@ import { PaletteSelection } from './paletteSelection'
  * ⭐⭐ **The vocabulary lives HERE because the window cannot see the other side of the app.** The
  * Lines window (`windows/lines`) has no `PaletteController` to call, and `interactions/` must not
  * know a dialog exists. So the KIND is declared on the bus, the window presses one, and
- * `interactions/lineTools` is the single place that says what pressing it does. Same shape as
+ * `interactions/stamps/lineTools` is the single place that says what pressing it does. Same shape as
  * `engine/rendering/ghosts/ghostTypes` one layer down: the side that cannot import declares the words, and
  * the side that can translates them.
  *

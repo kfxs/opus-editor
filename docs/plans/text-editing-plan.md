@@ -105,7 +105,7 @@ Dynamics supply a `DynamicTextSource` implementation (reads/writes `Dynamic.text
 `engine.updateDynamic`; rect from registry bbox + container offset; font from the annotation). Future
 text types each supply their own — the controller is untouched.
 
-### 4.3 The editor — `TextEditController` (`src/interactions/TextEditController.ts`)
+### 4.3 The editor — `TextEditController` (`src/interactions/text/TextEditController.ts`)
 Framework-agnostic, vanilla DOM. Responsibilities:
 - `open(source: EditableTextSource)`: create the overlay element, seed text, position + font-match,
   `source.hideOriginal(true)`, focus, place caret.

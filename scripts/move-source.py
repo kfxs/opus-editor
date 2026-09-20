@@ -68,7 +68,7 @@ for old, new in moved.items():
 
 # prose: `<folder>/<Name>` → `<folder>/<sub>/<Name>`, wherever a path is written down
 folder = os.path.basename(base)
-prose = re.compile(r'\b' + re.escape(folder) + r'/(' + '|'.join(sorted(map(re.escape, names), key=len, reverse=True)) + r')\b')
+prose = re.compile(r'\b' + re.escape(folder) + r'/(' + '|'.join(sorted(map(re.escape, names), key=len, reverse=True)) + r')\b(?!/)')   # ⚠️ (?!/): a NAME that is also its new folder (`clipboard`) must not re-match the rewritten path
 touched = 0
 for root in ('src', 'e2e', 'perf', 'docs', 'scripts'):
     for d, dirs, files in os.walk(root):

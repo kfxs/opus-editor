@@ -90,7 +90,7 @@ export function measureStartQuarters(measures: Measure[], measureNumber: number)
  * ⭐ **One walk, one answer.** Two marks either side of a barline, or in different families, can only
  * be compared on one timeline, and a second copy of this is a second answer to where bar 7 begins.
  * It has been that copy four times (`layout/outsideStaffBand`, `models/hairpinOps`,
- * `models/pedalOps`, `interactions/clipboard`) before landing here, beside
+ * `models/pedalOps`, `interactions/clipboard/clipboard`) before landing here, beside
  * {@link measureStartQuarters} — its FLOAT twin, which answers the same question for playback.
  *
  * ⚠️ Sorted by bar NUMBER rather than by array order, so a score whose array was built out of order

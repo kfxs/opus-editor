@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { MusicEngine } from '../../engine/MusicEngine'
-import { buildClipboardFromSelection } from '../clipboard'
+import { buildClipboardFromSelection } from '../clipboard/clipboard'
 import { getMeasureNotes } from '../../utils/musicUtils'
 import { fracCreate as frac } from '../../utils/fraction'
 import { spacingPositionKey, leadingSpaceOverrideOf, measureLeadingSpaces } from '../../engine/models/engravingOverrides'

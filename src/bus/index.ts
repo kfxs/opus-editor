@@ -107,7 +107,7 @@ interface EditorBus {
   fanStamp: ReturnType<typeof createFanStampSelection>
   /**
    * The LINES family — slur, the two hairpins, trill, the two octave lines, pedal. Highlight lights
-   * the armed one; a press means "apply, or arm", which `interactions/lineTools` routes.
+   * the armed one; a press means "apply, or arm", which `interactions/stamps/lineTools` routes.
    */
   line: ReturnType<typeof createLineSelection>
   /** Selection mode as a Keypad key (the Select arrow). */

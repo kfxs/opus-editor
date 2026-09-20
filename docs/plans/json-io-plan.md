@@ -56,7 +56,7 @@ being deleted. Those files are genuinely dead. That is what the console message 
 
 > ⚠️ **2026-07-31 — it moved, and it SHIPS now.** The demo's File menu offers Export PDF / Export
 > JSON / Import JSON, and nothing that ships may import `dev/`. So the envelope went to `utils/`
-> (pure, unchanged) and the three actions to `interactions/scoreFileIo.ts`, called by the dev panel,
+> (pure, unchanged) and the three actions to `interactions/io/scoreFileIo.ts`, called by the dev panel,
 > the dev toolbar and the menu alike. **None of it got more finished by moving.** In particular:
 > *Import still REPLACES the open score with no confirmation*, which mattered less when the only door
 > was a dev button. That guard is the first thing this should grow. The File menu itself is demo

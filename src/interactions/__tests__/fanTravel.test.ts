@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { MusicEngine } from '../../engine/MusicEngine'
-import { buildClipboardFromSelection } from '../clipboard'
+import { buildClipboardFromSelection } from '../clipboard/clipboard'
 import { fracCreate as frac } from '../../utils/fraction'
 import { DEFAULT_FAN_COUNT, DEFAULT_FAN_BEAMS } from '../../utils/fannedBeam'
 import type { FanMark } from '../../types/music'

@@ -1,5 +1,5 @@
 import type { MusicEngine } from '../engine/MusicEngine'
-import { exportScoreJson, importScoreJson } from '../interactions/scoreFileIo'
+import { exportScoreJson, importScoreJson } from '../interactions/io/scoreFileIo'
 
 /**
  * The live Score-JSON panel — development scaffolding, deliberately kept (docs/history/remove-vue-plan.md).
@@ -13,7 +13,7 @@ import { exportScoreJson, importScoreJson } from '../interactions/scoreFileIo'
  * dump, because they are the same provisional thing: a way to get the model in and out while it is
  * still changing weekly. They will not ship here — and since the bar's File menu now offers the same
  * two commands, what they DO is no longer here either: both surfaces call
- * `interactions/scoreFileIo`, and these buttons keep only the status line.
+ * `interactions/io/scoreFileIo`, and these buttons keep only the status line.
  *
  * `Copy` stays local, because it is the panel's own: it exists because the `<pre>` below is
  * re-rendered every 400ms and so cannot be drag-selected. A menu has no dump to copy.

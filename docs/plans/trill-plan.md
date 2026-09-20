@@ -371,7 +371,7 @@ its key**:
   `docs/plans/pedal-plan.md` §7 for the position rule the three now share.
 - A row in `dev/linePalette.ts` — ⚠️ **and an edit to its header, which does not name the trill.**
   (⚠️ That palette was deleted 2026-08-23: the row is now a picture in the Lines window,
-  `src/windows/lines/linePictures.ts`, and the routing is `interactions/lineTools.ts`.)
+  `src/windows/lines/linePictures.ts`, and the routing is `interactions/stamps/lineTools.ts`.)
   That file calls the Lines family *"spanners drawn BETWEEN notes rather than on one: the slur today,
   and (when they exist) the hairpin, the octave line, the glissando, the pedal line"* — a sentence
   the trill contradicts, since its sign sits on ONE note and the line is an optional extension. The
@@ -545,7 +545,7 @@ follows in every respect — but ⚠️ **a branch alone will not do**:
   described a family "drawn BETWEEN notes rather than on one", which the trill disproves.
 - **P6 — the continuation label. ✅ BUILT 2026-08-13** (unplanned; it came out of the research).
   `Trill.continuationLabel`, `trillOps.setTrillContinuationLabel`, `bus/trillEditSelection.ts`,
-  `interactions/TrillEditController.ts`, and a `<select>` row in `PropertiesWidget`. The renderer
+  `interactions/propertyControllers/TrillEditController.ts`, and a `<select>` row in `PropertiesWidget`. The renderer
   honours both the label AND its position rule (rule 6). — 2 model specs, 3 browser specs.
   ⭐ A bus seam + a controller + one widget row: no per-kind slice anywhere, and the widget stays a
   dumb publisher that cannot reach the engine.
@@ -998,7 +998,7 @@ arriving on the mouse, and both sides now run the SAME ports.
 ### ⭐⭐ Copy/paste as a single element
 
 *"the last thing: we should be able to copy/paste a trill as a single element."* A row in
-`interactions/elementClipboard`, beside the dynamic, the tempo mark, the hairpin and the slur.
+`interactions/clipboard/elementClipboard`, beside the dynamic, the tempo mark, the hairpin and the slur.
 
 - ⭐⭐ **The SPAN travels, in beats** — the slur's shape for the slur's reason: a trill's identity is a
   NOTE plus an extent, and a note id means nothing anywhere else. The paste resolves the far end

@@ -90,7 +90,7 @@ Fold the flag into the existing rest capture/restore (one traversal, true twin):
   pair to `captureRestEngraving` / `restoreRestEngraving`. Lean: keep the names,
   just extend — minimal churn, the methods already only touch rests.
 
-### 5. Clipboard travel — `src/interactions/clipboard.ts` (+ `ClipboardController.ts`)
+### 5. Clipboard travel — `src/interactions/clipboard/clipboard.ts` (+ `ClipboardController.ts`)
 Mirror the `restShifts` payload field so copy/paste of a hidden rest keeps it
 hidden (parity with the shift, which already travels this way):
 

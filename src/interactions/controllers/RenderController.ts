@@ -36,7 +36,7 @@ export class RenderController {
   private applyHighlights(): void {
     // The passes that read the multi-selection SET (`selectedItems`), so they run whatever the
     // single-select element happens to be: the notes, the articulation groups, and every MARK a
-    // box drags along with them (`interactions/enclosedMarks`).
+    // box drags along with them (`interactions/clipboard/enclosedMarks`).
     //
     //
     // ⭐ The MARKS paint the single-click selection of their kind TOO — each kind's `ink` row is

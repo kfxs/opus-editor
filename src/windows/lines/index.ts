@@ -12,7 +12,7 @@ import { LINE_CHOICES } from './linePictures'
  * of pictures you scroll, one of them lit, and Cancel / OK underneath.
  *
  * ⭐⭐ **OK IS THE LINES PALETTE'S BUTTON.** Committing presses `bus.line`, which
- * `interactions/lineTools` routes to the very `PaletteController` method the dev shell's *Lines:*
+ * `interactions/stamps/lineTools` routes to the very `PaletteController` method the dev shell's *Lines:*
  * row calls — so with notes selected the mark is made, with nothing selected the STAMP is armed (the
  * blue pointer; the next click places it), and pressing the armed one again turns it off. The dialog
  * adds a door, never a second behaviour: that is why it knows no palette, no engine and no model,

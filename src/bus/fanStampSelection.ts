@@ -14,7 +14,7 @@ import type { NoteDuration } from '@/types/music'
  * a highlight that means nothing.
  *
  * The payload is what the dialog was TOLD — "6 attacks in the time of a half, opening" — not the
- * {@link FanMark} it comes to. The mark is built where the note is placed (`interactions/fanStamp`),
+ * {@link FanMark} it comes to. The mark is built where the note is placed (`interactions/stamps/fanStamp`),
  * so the window cannot arm a shape the stamp would have built differently.
  */
 export interface ArmedFanStamp {

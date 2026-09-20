@@ -34,7 +34,7 @@ import type { MusicEngine } from '../../engine/MusicEngine'
 import type { SelectionController } from '../controllers/SelectionController'
 import { selectedOf, type EditorState } from './EditorState'
 import { passageOf, passageNoteIds, spansStaves, type MeasurePassage } from './measurePassage'
-import { buildClipboardFromSelection } from '../clipboard'
+import { buildClipboardFromSelection } from '../clipboard/clipboard'
 import { fracCreate } from '../../utils/fraction'
 
 /** What the repeat needs of the selection — a Pick, so a spec can drive it without a controller. */

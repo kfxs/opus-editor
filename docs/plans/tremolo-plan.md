@@ -528,7 +528,7 @@ migration, ever.
 dropped in silence — the hole `beamOver` fell into.
 
 **Rebar + clipboard — five edits, not two.** Clipboard lanes *are* `RebarEvent[]`
-(`interactions/clipboard.ts:40`), so paste rides along with rebar; a time-signature change uses the
+(`interactions/clipboard/clipboard.ts:40`), so paste rides along with rebar; a time-signature change uses the
 same relay. Miss any one link and the mark vanishes:
 
 | | |

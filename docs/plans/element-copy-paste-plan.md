@@ -31,9 +31,9 @@ uses for the music: **what travels** and **where it lands** are two objects, not
 
 | Module | Question |
 |---|---|
-| `interactions/elementClipboard.ts` | WHAT travels, and what a paste writes |
-| `interactions/pasteAnchor.ts` | WHERE it lands, given the selection |
-| `interactions/ClipboardController.ts` | the dispatch, the arming, and the one call into the engine |
+| `interactions/clipboard/elementClipboard.ts` | WHAT travels, and what a paste writes |
+| `interactions/clipboard/pasteAnchor.ts` | WHERE it lands, given the selection |
+| `interactions/clipboard/ClipboardController.ts` | the dispatch, the arming, and the one call into the engine |
 
 ### What travels
 
@@ -187,7 +187,7 @@ normal slur creation, and to arm the **slur stamp** when nothing is selected.
 🚨 **That proposal was right, and the first answer to it here was WRONG.** It read *"there is no slur
 in `MarkingTool`, so a stamp would be the editor's only two-click tool"* — from a truncated read of
 the union. There IS one: `s` with nothing selected arms `{ kind: 'slur' }`, and
-`interactions/slurStamp.ts` turns ONE click on a note into a slur to the next slot. ⭐ The lesson is
+`interactions/stamps/slurStamp.ts` turns ONE click on a note into a slur to the next slot. ⭐ The lesson is
 the cheap one: **when the user says "we already have that", check the code before arguing** — the
 claim shaped an entire design discussion.
 
@@ -216,7 +216,7 @@ armed for every other element kind.
 
 *"Are we duplicating code?"* — yes. **Where each bar begins on the score's one timeline** existed
 FOUR times (`layout/outsideStaffBand`, `models/hairpinOps`, `models/pedalOps`, a private copy in
-`interactions/clipboard`) and this feature had just written a fifth. They now all call
+`interactions/clipboard/clipboard`) and this feature had just written a fifth. They now all call
 `utils/measureCapacity.measureStartOffsets`, beside its float twin `measureStartQuarters`.
 ⚠️ `outsideStaffBand`'s own comment had warned that *"a second copy of this walk is a second answer
 to where bar 7 begins"* — which is exactly what four copies are.

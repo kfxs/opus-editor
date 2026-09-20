@@ -1088,7 +1088,7 @@ Each is separately visible and separately testable.
   **Luck of geometry** — the regression test starts in the LAST bar of a system and was break-tested
   against the old code.
 - **P4 — the UX. ✅ BUILT.** Two Lines-palette rows (Cresc./Dim.), `H` / `Shift+H`,
-  selection→create, the stamp (`interactions/hairpinStamp.ts`, **no ghost** — the blue pointer),
+  selection→create, the stamp (`interactions/stamps/hairpinStamp.ts`, **no ghost** — the blue pointer),
   `Ctrl+←/→` resize (**moved to `Ctrl+Shift+←/→` on 2026-08-17** — see the end of this file),
   selection + highlight + Delete, the Properties report, and 🔎 **`x`** (his call, 2026-08-12 —
   added after the phase, when `toggleHairpinType` turned out to be model API with no way to reach

@@ -310,7 +310,7 @@ Built 2026-08-23, LOOK-FIRST like the other two: the seven pictures were drawn a
 commit, and wired in the next. It is the Clef window's shape — a scrolling box of drawings, one lit,
 Cancel / OK — with three things worth copying:
 
-- **It PRESSES; it does not arm.** OK fires `bus.line`, and `interactions/lineTools` routes that to
+- **It PRESSES; it does not arm.** OK fires `bus.line`, and `interactions/stamps/lineTools` routes that to
   the `PaletteController` method the family already had. So one press means all three of *make the
   mark over the selection*, *arm the stamp when nothing is selected*, and *disarm when this one is
   already armed — and the dialog decides none of them. Contrast Clef, which arms a VALUE the window
@@ -328,7 +328,7 @@ Cancel / OK — with three things worth copying:
 
 ⚠️ **It replaced the dev shell's `Lines:` palette, which is deleted.** Two doors onto one family
 meant two things to change whenever the family grew an eighth line. What made the deletion clean is
-that the routing had already moved OUT of `dev/` into `interactions/lineTools.ts`: removing the
+that the routing had already moved OUT of `dev/` into `interactions/stamps/lineTools.ts`: removing the
 buttons removed only buttons. The keyboard is still a door for three of the seven (`s`, `h`,
 `Shift+H`), through `ShortcutConfig` actions that reach the same methods.
 

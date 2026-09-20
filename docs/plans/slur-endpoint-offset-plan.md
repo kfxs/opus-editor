@@ -289,7 +289,7 @@ window"*. The result is that every one of a slur's grabbable points now answers 
 three surfaces — mouse, keyboard, typed number — and none of them is a second copy of the
 geometry.
 
-Modules: `interactions/slurHandleNudge.ts` (+ its spec), `interactions/SlurGeometryController.ts`,
+Modules: `interactions/slurHandleNudge.ts` (+ its spec), `interactions/propertyControllers/SlurGeometryController.ts`,
 `bus/slurGeometrySelection.ts`, rows in `windows/properties/PropertiesWidget.ts`,
 `slurOps.resetSlurShape` / `resetSlurEndpointOffset` / `resetSlurSegmentEndpointOffset`.
 
@@ -592,7 +592,7 @@ nothing asserts WHICH box the engine passes. Testing it needs the engine plus a 
 
 ## P6 — REACHING A MARK WHOSE INK IS OFF SCREEN
 
-`interactions/attachedMarks.ts` + a `Select` submenu on the score's right-click menu. The bug it answers
+`interactions/clipboard/attachedMarks.ts` + a `Select` submenu on the score's right-click menu. The bug it answers
 is the other half of P5's: a limit stops NEW cases and gives no route into a file that already carries
 one, and **every affordance for repairing a displaced mark lives ON the ink** — both endpoint squares,
 both arc dots, the arc as a hit target — so a big offset carries the whole repair kit out of the

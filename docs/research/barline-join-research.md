@@ -2671,7 +2671,7 @@ score expressed as local overrides.
 5. **The stored per-staff SCOPE is unread.** `BarlineStatement.staffId?`, `RepeatStart.staffId?`,
    `RepeatEnd.staffId?` (`src/types/music.ts:2021-2029, 2043-2045, 2084-2094`) are written by
    `barlineOps` and round-trip through JSON, but `BarlineRenderer`, `barlineSign`,
-   `interactions/elements/barline.ts` and `interactions/barlineStamp.ts` contain **zero** `staffId`
+   `interactions/elements/barline.ts` and `interactions/stamps/barlineStamp.ts` contain **zero** `staffId`
    references.
    ⚠️ And the model's own doc comment is right to warn against conflating them —
    `src/types/music.ts:2010-2015`: *"⛔ Do not read it as 'which staves the line spans': span is a

@@ -3,7 +3,7 @@ import { ScoreModel } from './ScoreModel'
 import { moveSelectionToVoice } from './voiceOps'
 import { fracCreate as frac, fracToNumber } from '@/utils/fraction'
 import type { Chord } from '@/types/music'
-import { buildClipboardFromSelection } from '@/interactions/clipboard'
+import { buildClipboardFromSelection } from '@/interactions/clipboard/clipboard'
 
 /**
  * The TWO-NOTE tremolo MODEL — one field on the FIRST slot (docs/plans/two-note-tremolo-plan.md §1).

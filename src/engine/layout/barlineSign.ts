@@ -102,7 +102,7 @@ export type { BarlineSignKind }
 
 /**
  * ⭐ **The signs a user PLACES** — the palette's three, and the vocabulary the editor's barline stamp
- * speaks (`interactions/barlineStamp.ts`, its ghost, docs/plans/barline-types-plan.md P4).
+ * speaks (`interactions/stamps/barlineStamp.ts`, its ghost, docs/plans/barline-types-plan.md P4).
  *
  * Declared HERE and narrowed from {@link BarlineSignKind} rather than listed again over there, for
  * the reason `engine/rendering/ghosts/ghostTypes.ts` exists at all: the engine owns the vocabulary and the
@@ -114,7 +114,7 @@ export type { BarlineSignKind }
  * ⭐ **`plain` IS placeable, and it is the eraser** — his ask, 2026-08-26: *"let's add normal to the
  * barline palette, and the ghost is the normal barline, but it is another way to rewrite the open,
  * final and end repeat."* Stamping it says *"this bar's barlines are ordinary"*, which is the only
- * member of this union that clears rather than writes (`interactions/barlineStamp`).
+ * member of this union that clears rather than writes (`interactions/stamps/barlineStamp`).
  */
 export type PlacedBarlineSign = Extract<BarlineSignKind, 'plain' | 'invisible' | 'final' | 'repeatStart' | 'repeatEnd'>
 

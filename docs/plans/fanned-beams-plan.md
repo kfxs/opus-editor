@@ -313,8 +313,8 @@ not by which surface you asked from.
 | you have | what happens | who does it |
 |---|---|---|
 | a PASSAGE selected | it collapses into ONE gesture — the notes are the attacks, their span is the length | `collapseIntoFan`, through `pressFan` |
-| ONE note selected | the feather lands on it: its pitch, its place, the dialog's value/attacks/direction | `interactions/fanStamp.featherSelectedNote` |
-| nothing selected | the STAMP arms; the next click writes the gesture, ghosted as a bare notehead | `interactions/fanStamp.stampFanAtClick` |
+| ONE note selected | the feather lands on it: its pitch, its place, the dialog's value/attacks/direction | `interactions/stamps/fanStamp.featherSelectedNote` |
+| nothing selected | the STAMP arms; the next click writes the gesture, ghosted as a bare notehead | `interactions/stamps/fanStamp.stampFanAtClick` |
 
 ⭐ **Insert ▸ Feathered Beam (`Ctrl+F`) asks the same question in all three cases.** The window
 publishes one sentence — attacks, written value, direction — and `PaletteController.armFanStamp`

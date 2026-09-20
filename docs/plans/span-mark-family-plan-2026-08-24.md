@@ -92,7 +92,7 @@ slur included since it is the fifth member of the same idea):
 | `windows/properties/PropertiesWidget.ts` | 35 | 16 | 20 | 42 | 30 | **143** |
 | `interactions/controllers/PaletteController.ts` | 24 | 17 | 18 | 26 | 37 | **122** |
 | `interactions/state/EditorState.ts` | 21 | 16 | 24 | 24 | 33 | **118** |
-| `interactions/clipboard.ts` | 16 | 20 | 16 | 28 | 35 | **115** |
+| `interactions/clipboard/clipboard.ts` | 16 | 20 | 16 | 28 | 35 | **115** |
 | `interactions/elements/chain.ts` | 11 | 10 | 13 | 14 | 15 | **63** |
 
 **~4,900 mentions across 14 hub files.** ⭐ The honest statement of the cost is therefore: **a sixth
@@ -453,7 +453,7 @@ Two tables, per D2, keyed by the same `SpanMarkKind`:
 
 ```
 engine/models/spanMarkModel.ts     SPAN_MARK_MODEL  — ops, geometry, style, ghost
-interactions/spanMarkTools.ts      SPAN_MARK_TOOLS  — port builders, handles, stamp
+interactions/stamps/spanMarkTools.ts      SPAN_MARK_TOOLS  — port builders, handles, stamp
 ```
 
 ⚠️ Both are **frozen `Record`s of pure specs — data, not state**, so `lint:singletons` must not move.
@@ -537,7 +537,7 @@ first arrow — the same cycle-shaped mistake Phase 1 hit when the driver could 
   it holds the `noun`, the `endNoun`, how the vertical is **signed** (`'screen' | 'outward'`) and
   `offsetOf(score, id, field)` — three numbers (two ends + one shared vertical) read off the
   compartment, **0** where the mark carries no nudge.
-- `interactions/spanMarkTools.ts` — `SPAN_MARK_TOOLS`, the EDITOR's. It may name `MusicEngine`, the
+- `interactions/stamps/spanMarkTools.ts` — `SPAN_MARK_TOOLS`, the EDITOR's. It may name `MusicEngine`, the
   `bus` and the registry freely, and it does.
 - `engine/rendering/ghosts/ghostCursor.ts` — `drawSignGhost`, and **not a table at all**. The ghost
   duplication was never per-kind dispatch (`GHOST_DRAWERS` is already total); it was 35 lines of
@@ -652,7 +652,7 @@ silently corrupted paste, which no pixel will show.
 
 ### ⚠️ `[A5]` Make `SCOPED_KINDS` total while D1 is open
 
-`interactions/markVoiceScope.ts:41` is the one registry where partiality is a **hazard rather than a
+`interactions/stamps/markVoiceScope.ts:41` is the one registry where partiality is a **hazard rather than a
 design choice**:
 
 ```ts
@@ -775,7 +775,7 @@ that starts life with hand-maintained exceptions is the rot `check-test-names.mj
 warns about, and it would only ever have seen filenames, never duplication.
 
 **⏭️ `[A5]` `SCOPED_KINDS` was NOT done and is not part of this.** It is still
-`ReadonlyArray<SelectionItem['kind']> = ['dynamic', 'hairpin']` in `interactions/markVoiceScope.ts` —
+`ReadonlyArray<SelectionItem['kind']> = ['dynamic', 'hairpin']` in `interactions/stamps/markVoiceScope.ts` —
 a partial registry that fails **silently at playback** rather than loudly at build. That is a real
 bug class and it stands on its own merits; ⛔ it should not be bundled with a phase whose premise did
 not hold.

@@ -4,7 +4,7 @@ import type { ArticulationType, Accidental, NoteDuration, BeamMode, Clef, TimeSi
 import type { MusicEngine } from '../../engine/MusicEngine'
 import type { ViewMode } from '@/engine/layout/layoutConfig'
 import type { EditorState, DynamicTool, TempoTool, MarkingTool } from '../state/EditorState'
-import { applyMarkVoiceScope } from '../markVoiceScope'
+import { applyMarkVoiceScope } from '../stamps/markVoiceScope'
 import { activeVoiceToModel, armedTool, armedToolUsesLength, selectedOf, DEFAULT_DURATION, DEFAULT_DOTS, DEFAULT_BEAM } from '../state/EditorState'
 import { durationHighlight, beamHighlight, beamRoleHighlight, secondaryBreakHighlight, beamOverHighlight, tremoloHighlight, tremoloPairHighlight, fanHighlight } from './keypadSync'
 import { fracToNumber } from '../../utils/fraction'
@@ -16,11 +16,11 @@ import { sameTimeSignature } from '../../utils/meter'
 import { tempoLabel } from '../../utils/tempoMap'
 import { dynamicTextFromTool } from '../../utils/dynamics'
 import { selectedNoteIds, selectedArticulationNoteIds, multipleNotesSelected } from '../state/selection'
-import { pressSpanTool, SPAN_TOOL_PRESSES, type SpanToolHost } from '../spanToolPress'
-import { featherSelectedNote, featherContext } from '../fanStamp'
-import { applyBarlineSign, barlineTargetFromSelection, type BarlineSign } from '../barlineStamp'
-import { applyKeySignature, keyTargetFromSelection } from '../keySignatureStamp'
-import { groupTargetFromSelection } from '../groupStamp'
+import { pressSpanTool, SPAN_TOOL_PRESSES, type SpanToolHost } from '../stamps/spanToolPress'
+import { featherSelectedNote, featherContext } from '../stamps/fanStamp'
+import { applyBarlineSign, barlineTargetFromSelection, type BarlineSign } from '../stamps/barlineStamp'
+import { applyKeySignature, keyTargetFromSelection } from '../stamps/keySignatureStamp'
+import { groupTargetFromSelection } from '../stamps/groupStamp'
 import { keysEqual } from '@/utils/keySignature'
 import { bus } from '@/bus'
 import type { ArmedFanStamp } from '@/bus'
@@ -2033,7 +2033,7 @@ export class PaletteController {
    *
    * *"same behaviour of any palette: if nothing selected stamp, if a barline is selected apply to
    * the barline, if a whole measure is selected apply in relationship with the semantic"* — his rule,
-   * and the whole of it lives in `interactions/barlineStamp.ts`: which bar a selection names is the
+   * and the whole of it lives in `interactions/stamps/barlineStamp.ts`: which bar a selection names is the
    * one question, and the sign's SIDE answers it (see {@link barlineTargetFromSelection}).
    *
    * The selection STAYS after an apply, like the Time Signature window's box: you are looking at the

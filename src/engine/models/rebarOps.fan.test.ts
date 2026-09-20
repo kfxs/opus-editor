@@ -12,7 +12,7 @@
  */
 import { describe, it, expect, beforeEach } from 'vitest'
 import { ScoreModel } from './ScoreModel'
-import { buildClipboardFromSelection } from '@/interactions/clipboard'
+import { buildClipboardFromSelection } from '@/interactions/clipboard/clipboard'
 import { fracCreate as frac, fracToNumber } from '@/utils/fraction'
 import { slotLength, writtenLength } from '@/utils/durations'
 import { DEFAULT_FAN_COUNT, DEFAULT_FAN_BEAMS } from '@/utils/fannedBeam'
