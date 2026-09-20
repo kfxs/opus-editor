@@ -26,7 +26,7 @@ import { staffOf, voiceOf } from '@/utils/lanes'
 import { measureCapacityQuarters } from '@/utils/measureCapacity'
 import { durationToBeats, tupletScale, tupletSpan } from '@/utils/musicUtils'
 import { chordNotesAt } from './deleteNoteOps'
-import { splitExistingNoteWithTie, type SpanningNoteModel } from './spanningNoteOps'
+import { splitChordWithTie, type SpanningNoteModel } from './spanningNoteOps'
 
 /** What a duration change needs of the score — `ScoreModel` answers all of it. */
 export interface DurationChangeModel extends SpanningNoteModel {
@@ -106,14 +106,10 @@ export function changeNote(model: DurationChangeModel, noteId: string, updates: 
           }
         }
 
-        // Split chord members (other notes at the same beat)
-        for (const chordNote of chordNotes) {
-          if (chordNote.id === noteId) continue
-          splitExistingNoteWithTie(model, chordNote, newDuration, overflowAmount, newDots)
-        }
-
-        // Split the target note itself
-        splitExistingNoteWithTie(model, existingNote, newDuration, overflowAmount, newDots)
+        // Split every head of the slot — the chord's other members, then the target note itself.
+        // Each head's erosion of the next bar spares the other heads' continuations
+        // (`spanningNoteOps`); it used to delete them, and only the last head stayed tied.
+        splitChordWithTie(model, [...chordNotes.filter(c => c.id !== noteId), existingNote], newDuration, overflowAmount, newDots)
 
         return { note: model.getNote(noteId)!, commit: 'Update note duration' }
       }

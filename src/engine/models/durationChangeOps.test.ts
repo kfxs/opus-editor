@@ -81,13 +81,10 @@ describe('changeNote', () => {
       expect(model.getNote(m1Note.tiedTo!)).toMatchObject({ measure: 2, step: 'A' })
     })
 
-    // 🚨 A KNOWN BUG, found writing this spec and NOT fixed in the move (it predates it — the same
-    // result at `5876ef6`, before Phase 4.2): the heads are split one at a time, and each split
-    // ERODES the next bar's overflow zone first — so the second head's erosion deletes the
-    // continuation the first head just placed there. [C E] q at beat 3 → whole leaves C tied across
-    // and E a bare half with nothing in bar 2. `it.fails` states what SHOULD hold; it turns into a
-    // plain `it` with the fix (erode once, before any head is split).
-    it.fails('overflow: every head of a CHORD crosses the barline', () => {
+    // 🚨 Was a bug (found writing this spec, predating Phase 4.2): the heads were split one at a
+    // time and each split ERODED the next bar first, so the second head's erosion deleted the
+    // continuation the first had just placed. An erosion now spares the slot's own continuations.
+    it('overflow: every head of a CHORD crosses the barline', () => {
       const [c, e] = [add('C', 2), add('E', 2)]
       changeNote(model, c.id, { duration: 'w' })
       for (const head of [c, e]) {

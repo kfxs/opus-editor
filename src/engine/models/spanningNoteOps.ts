@@ -19,7 +19,7 @@ import type { Measure, Note, NoteParams } from '@/types/music'
 import { dbg } from '@/utils/debug'
 import { durationToFraction, splitBeatsIntoLengths } from '@/utils/durations'
 import type { Fraction } from '@/utils/fraction'
-import { fracAdd, fracFromInt, fracToNumber } from '@/utils/fraction'
+import { fracAdd, fracEq, fracFromInt, fracToNumber } from '@/utils/fraction'
 import { staffOf, voiceOf } from '@/utils/lanes'
 import { beatToFrac, durationToBeats } from '@/utils/musicUtils'
 
@@ -79,8 +79,25 @@ export function placeSpanningNote(model: SpanningNoteModel, p: {
     return null
   }
 
-  // Erode notes in the overflow zone of the next measure (Sibelius-style)
-  erodeOverflowZone(model, nextMeasureNumber, beatsInNextMeasure, voiceOf(p), staffOf(p))
+  // Erode notes in the overflow zone of the next measure (Sibelius-style).
+  //
+  // ⭐ …but never the continuation of THIS SLOT'S OWN CHORD. A chord crosses the barline one head at
+  // a time — three heads lengthened together, or a chord built click by click — and each head's
+  // pieces land in the same zone: eroding them deleted every head's continuation but the last
+  // one's (`[C E]` lengthened across the barline left E a bare half). A piece is the slot's own when
+  // its tie chain leads back to a head on the chain's starting beat, in its voice and staff.
+  // ⚠️ Except the head being RE-SPLIT: its old continuation is what the new chain replaces.
+  const ownContinuation = (note: Note): boolean => {
+    let cur: Note | undefined = note
+    for (let guard = 0; cur?.tiedFrom && guard < 64; guard++) {
+      cur = model.getNote(cur.tiedFrom)
+      if (cur && cur.measure === p.startMeasure && fracEq(cur.beat, p.startBeat)) {
+        return cur.id !== p.existingHeadId && voiceOf(cur) === voiceOf(p) && staffOf(cur) === staffOf(p)
+      }
+    }
+    return false
+  }
+  erodeOverflowZone(model, nextMeasureNumber, beatsInNextMeasure, voiceOf(p), staffOf(p), ownContinuation)
 
   const pitch = { step: p.step, alter: p.alter, octave: p.octave, ...(p.voice && { voice: p.voice }), ...(p.staff && { staff: p.staff }) }
 
@@ -198,7 +215,11 @@ export function addSplitNoteWithTie(model: SpanningNoteModel, noteParams: NotePa
  * Notes that straddle the boundary are trimmed and moved to start at overflowBeats.
  * Notes with a downstream tiedTo are deleted (punt case).
  */
-export function erodeOverflowZone(model: SpanningNoteModel, measureNumber: number, overflowBeats: number, voice: number = 0, staff: number = 0): void {
+export function erodeOverflowZone(
+  model: SpanningNoteModel, measureNumber: number, overflowBeats: number, voice: number = 0, staff: number = 0,
+  /** Notes the erosion must leave alone — the arriving chord's own continuations. */
+  spare: (note: Note) => boolean = () => false,
+): void {
   const epsilon = 0.001
   const notes = model.getNotesInMeasure(measureNumber)
   for (const note of notes) {
@@ -206,6 +227,7 @@ export function erodeOverflowZone(model: SpanningNoteModel, measureNumber: numbe
     // Only erode the overflowing note's own voice/staff — other streams are independent.
     if (voiceOf(note) !== voice) continue
     if (staffOf(note) !== staff) continue
+    if (spare(note)) continue
     const noteBeat = fracToNumber(note.beat)
     if (noteBeat >= overflowBeats - epsilon) continue
     erodeNoteAtBoundary(model, note, overflowBeats)
@@ -284,4 +306,12 @@ function erodeNoteAtBoundary(model: SpanningNoteModel, note: Note, overflowBeats
       currentBeat = fracAdd(currentBeat, durationToFraction(duration, dots))
     }
   }
+}
+
+/**
+ * Split every head of a CHORD across the barline — the heads share one length, so they cross
+ * together. Each head's pieces are spared by the next head's erosion (see `placeSpanningNote`).
+ */
+export function splitChordWithTie(model: SpanningNoteModel, heads: readonly Note[], newDuration: NoteParams['duration'], overflowAmount: number, newDots: number = 0): void {
+  for (const head of heads) splitExistingNoteWithTie(model, head, newDuration, overflowAmount, newDots)
 }

@@ -7,7 +7,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { ScoreModel } from './ScoreModel'
 import { fracCreate as frac, fracToNumber } from '@/utils/fraction'
-import { addSplitNoteWithTie, splitExistingNoteWithTie } from './spanningNoteOps'
+import { addSplitNoteWithTie, splitChordWithTie, splitExistingNoteWithTie } from './spanningNoteOps'
 
 describe('splitExistingNoteWithTie — a duration change that overflows the bar', () => {
   let scoreModel: ScoreModel
@@ -242,5 +242,57 @@ describe('erodeOverflowZone — Sibelius-style erosion of what the chain lands o
       expect(scoreModel.getNote(kept.id)).toMatchObject({ duration: 'h' })
       expect(fracToNumber(scoreModel.getNote(kept.id)!.beat)).toBe(0)
     }
+  })
+})
+
+describe('splitChordWithTie — a chord crosses the barline together', () => {
+  let scoreModel: ScoreModel
+  beforeEach(() => {
+    scoreModel = new ScoreModel('Test')
+    scoreModel.addMeasure()
+  })
+
+  const head = (step: 'C' | 'E' | 'G') =>
+    scoreModel.addNote({ step, alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(2, 1) })
+  const continuationOf = (id: string) => scoreModel.getNote(scoreModel.getNote(id)!.tiedTo!)
+
+  it('⭐ EVERY head keeps its continuation — an erosion spares the slot\'s own pieces', () => {
+    // The bug: each head's split eroded bar 2 first, deleting the piece the previous head had just
+    // placed there, so only the LAST head split stayed tied.
+    const heads = [head('C'), head('E'), head('G')]
+    splitChordWithTie(scoreModel, heads, 'w', 2)
+
+    for (const h of heads) {
+      expect(scoreModel.getNote(h.id)!.duration).toBe('h')
+      expect(continuationOf(h.id)).toMatchObject({ measure: 2, duration: 'h', step: h.step, tiedFrom: h.id })
+    }
+    scoreModel.repairAllMeasureGaps() // both bars exactly full
+  })
+
+  it('…and what stood in the zone BEFORE the chord arrived is still eroded', () => {
+    const foreign = scoreModel.addNote({ step: 'A', alter: 0, octave: 4, duration: 'h', measure: 2, beat: frac(0, 1) })
+    splitChordWithTie(scoreModel, [head('C'), head('E')], 'w', 2)
+    expect(scoreModel.getNote(foreign.id)).toBeFalsy()
+    expect(scoreModel.getNotesInMeasure(2).filter(n => !n.isRest).map(n => n.step).sort()).toEqual(['C', 'E'])
+  })
+
+  it('⭐ a chord built ONE CLICK AT A TIME: the head already tied across keeps its continuation', () => {
+    // The mouse path skips a head that is already tied (it has crossed already), so nothing but the
+    // erosion's own rule protects its piece in bar 2.
+    const entered = (step: 'C' | 'E') =>
+      addSplitNoteWithTie(scoreModel, { step, alter: 0, octave: 4, duration: 'w', measure: 1, beat: frac(2, 1) }, 2)!
+    const c = entered('C')
+    const e = entered('E')
+    for (const h of [c, e]) expect(continuationOf(h.id)).toMatchObject({ measure: 2, duration: 'h', step: h.step })
+    scoreModel.repairAllMeasureGaps()
+  })
+
+  it('⚠️ a head being RE-SPLIT is not spared — its old continuation is what the new chain replaces', () => {
+    const c = head('C')
+    splitExistingNoteWithTie(scoreModel, c, 'w', 2)                    // h | h
+    splitExistingNoteWithTie(scoreModel, scoreModel.getNote(c.id)!, 'w', 4, 1) // dotted whole: h | w
+    const pieces = scoreModel.getNotesInMeasure(2).filter(n => !n.isRest)
+    expect(pieces.map(n => `${n.step}${n.duration}`)).toEqual(['Cw']) // the old `h` went; no duplicate
+    expect(pieces[0].tiedFrom).toBe(c.id)
   })
 })

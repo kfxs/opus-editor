@@ -1,6 +1,6 @@
 # Code shape plan — 2026-09-19
 
-**Status: IN PROGRESS — Phase 1 DONE (2026-09-19), bar item 5's two ⏭️ decisions. Phase 2 DONE. Phase 3.1: the hairpin / ottava / pedal body drags done and checked; the trill's too (`cdb7f05`); the slur's too (`69e927c`); the four SQUARE drags too (`6d903c3`); the slur HANDLE / ENDPOINT and staff-spacing drags too (`8f28f79`); the DYNAMIC and TEMPO drags too (`9a04f88`); bar width, barline join, group span and clef too (`ee31698`); the NOTE drag too (`7d2898e`) — every gesture is a module. **Phase 3.1 DONE** (`25f70a6`). 3.2: the `keys` column + dispatcher and the HAIRPIN on it (`e61626a`); OTTAVA / PEDAL / TRILL too (`14e10e7`); DYNAMIC and TEMPO too (`943fb64`); SLUR and CLEF too (`8382fcc`); the `reanchor` and `cycle` verbs done, awaiting his UI check — **Phase 3.2 DONE with it.** 3.3 (`highlight(ctx)`): the contract + the four span squares (`a7c1076`); the join and group squares (`b772418`); the `ink` column (`f1832e7`); the slur handles (`d3dcb7b`); the anchor guide line (`e2ff597`); the note pass + note-attached kinds (`aa7e5af`); every remaining row done, awaiting his UI check — **Phase 3.3 DONE** (`1efb38d`). 3.4: the panels' `rows` (`4db182d`); the typed `InspectedElement` union done, awaiting his UI check — **3.4 DONE** (`54ab9cc`). **Phase 3 DONE** — 3.5: all seven mark families are `engine/commands/<family>Commands.ts` (`e684125` … `a8549ad`), with command specs and `commit` / `saveOnly` folded into one `mutate`. **Phase 4 IN PROGRESS** — 4.1: `spanFromNotes`, `reanchorSlurs` → `slurOps`, `tieOps` (`6d720b8`) done; `deleteNote`'s repair → `deleteNoteOps` (`ab182f4`); `convertToRest` → `convertToRestOps` (`e20ca48`); `moveSelectionToVoice` → `voiceOps` (`5f6fa03`) — **4.1 DONE**. 4.2 split a–d: **a** the spanning note → `spanningNoteOps` (`551b39a`); **b** the overwrite → `entryOverwriteOps` (`ad381dd`); **c** the duration change → `durationChangeOps` done, awaiting his UI check (🚨 a chord-overflow BUG found, his call); d tuplets next.** Phases are ordered by
+**Status: IN PROGRESS — Phase 1 DONE (2026-09-19), bar item 5's two ⏭️ decisions. Phase 2 DONE. Phase 3.1: the hairpin / ottava / pedal body drags done and checked; the trill's too (`cdb7f05`); the slur's too (`69e927c`); the four SQUARE drags too (`6d903c3`); the slur HANDLE / ENDPOINT and staff-spacing drags too (`8f28f79`); the DYNAMIC and TEMPO drags too (`9a04f88`); bar width, barline join, group span and clef too (`ee31698`); the NOTE drag too (`7d2898e`) — every gesture is a module. **Phase 3.1 DONE** (`25f70a6`). 3.2: the `keys` column + dispatcher and the HAIRPIN on it (`e61626a`); OTTAVA / PEDAL / TRILL too (`14e10e7`); DYNAMIC and TEMPO too (`943fb64`); SLUR and CLEF too (`8382fcc`); the `reanchor` and `cycle` verbs done, awaiting his UI check — **Phase 3.2 DONE with it.** 3.3 (`highlight(ctx)`): the contract + the four span squares (`a7c1076`); the join and group squares (`b772418`); the `ink` column (`f1832e7`); the slur handles (`d3dcb7b`); the anchor guide line (`e2ff597`); the note pass + note-attached kinds (`aa7e5af`); every remaining row done, awaiting his UI check — **Phase 3.3 DONE** (`1efb38d`). 3.4: the panels' `rows` (`4db182d`); the typed `InspectedElement` union done, awaiting his UI check — **3.4 DONE** (`54ab9cc`). **Phase 3 DONE** — 3.5: all seven mark families are `engine/commands/<family>Commands.ts` (`e684125` … `a8549ad`), with command specs and `commit` / `saveOnly` folded into one `mutate`. **Phase 4 IN PROGRESS** — 4.1: `spanFromNotes`, `reanchorSlurs` → `slurOps`, `tieOps` (`6d720b8`) done; `deleteNote`'s repair → `deleteNoteOps` (`ab182f4`); `convertToRest` → `convertToRestOps` (`e20ca48`); `moveSelectionToVoice` → `voiceOps` (`5f6fa03`) — **4.1 DONE**. 4.2 split a–d: **a** the spanning note → `spanningNoteOps` (`551b39a`); **b** the overwrite → `entryOverwriteOps` (`ad381dd`); **c** the duration change → `durationChangeOps` (`cf41ba4`); 🚨 the chord-overflow BUG FIX is in the tree UNCOMMITTED, awaiting his decision (a fix, on a branch that is for SHAPE); d tuplets next.** Phases are ordered by
 value over risk; each one stands alone and can be stopped after. A done item carries ✅ and what
 actually happened where that differs from what was planned.
 
@@ -870,8 +870,26 @@ The only phase that fixes a broken principle rather than a shape.
    of E in bar 2. ⭐ MEASURED to predate this phase (same result in a worktree at `5876ef6`), and
    ⚠️ it makes 4.2a's UI check item 4 ("every head splits and ties") a wrong promise. The same
    shape is in the MOUSE path (`placeSplitNote`: chord heads, then the new note). Pinned as
-   `it.fails` with what SHOULD hold. The likely fix: erode ONCE, before any head is split
-   (`placeSpanningNote` gains a "zone already cleared" input) — a rule change, so its own step.*
+   `it.fails` with what SHOULD hold. ✅ `cf41ba4`.*
+
+   *THE FIX — written 2026-09-20 at his word ("fix the chord bug first"), ⏸️ UNCOMMITTED and
+   awaiting his decision, because he then said what this branch is: **"this project is not for
+   changing rules, is for optimize the code shape."** ⭐ NO RULE CHANGES: a note standing in the
+   next bar's overflow zone is still deleted when covered and trimmed when it straddles — every
+   erosion case that moved with the module passes untouched. What stops is an ACCIDENT of order:
+   the heads of one chord cross one at a time, and each head's erosion mistook the previous
+   head's freshly placed continuation for a foreign note. `placeSpanningNote` now hands
+   `erodeOverflowZone` a `spare` test — a piece whose tie chain leads back to a head on the
+   chain's own starting beat, voice and staff is the slot's own and is left alone; ⚠️ except the
+   head being RE-SPLIT, whose old continuation is what the new chain replaces. (⛔ NOT the "erode
+   once" first proposed: a chord built ONE CLICK AT A TIME skips the head that already crossed, so
+   only the erosion's own test protects its piece — probed, and it was broken the same way.)
+   `splitChordWithTie` is the loop both callers use. Spec: the `it.fails` is a plain `it`; four new
+   cases in `spanningNoteOps.test.ts` (three heads, foreign notes still eroded, click-by-click, the
+   re-split); break-tested ×2. It is a BEHAVIOUR change all the same — kept in its own commit, or
+   taken out by inverse edit and carried elsewhere, as he decides. ⚠️ SEEN, NOT TOUCHED: re-splitting
+   a head already tied across to a SHORTER overflow (`h|h` → dotted half) trims its old
+   continuation like any straddler and leaves it standing beside the new piece.*
 
 3. `ScoreModel`'s remaining logic (`fillGapsWithRests`, `pushRestSlot`, `insertPitch`,
    `convertToRest`, the three `repairDangling*`) into ops modules; then `rebarOps` imports ops

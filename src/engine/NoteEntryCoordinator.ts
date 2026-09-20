@@ -15,7 +15,7 @@ import { spellingToMidi, formatPitch } from '@/utils/pitchSpelling'
 import { entryAlteration } from './models/entryAlteration'
 import { changeNote } from './models/durationChangeOps'
 import { applyEntryOverwrites, overwriteOverlappedNotes } from './models/entryOverwriteOps'
-import { addSplitNoteWithTie, splitExistingNoteWithTie } from './models/spanningNoteOps'
+import { addSplitNoteWithTie, splitChordWithTie } from './models/spanningNoteOps'
 import { ElementRegistry } from './ElementRegistry'
 import type { ElementInfo } from './ElementRegistry'
 import { staffOf, voiceOf } from '@/utils/lanes'
@@ -482,9 +482,9 @@ export class NoteEntryCoordinator {
     const splitStaff = staffOf(noteParams)
     const existingChordNotes = this.getScoreModel().getNotesInMeasure(measureNumber)
       .filter(n => !n.isRest && voiceOf(n) === splitVoice && staffOf(n) === splitStaff && fracEq(n.beat, finalBeat) && spellingToMidi(n.step!, n.alter!, n.octave!) !== pitchMidi && !n.tiedTo)
-    for (const chordNote of existingChordNotes) {
-      splitExistingNoteWithTie(this.getScoreModel(), chordNote, duration, overflowAmount, dots)
-    }
+    // The slot crosses the barline as ONE chord: the heads already there, then the new one. Each
+    // head's erosion of the next bar spares the others' continuations (`spanningNoteOps`).
+    splitChordWithTie(this.getScoreModel(), existingChordNotes, duration, overflowAmount, dots)
 
     const splitNote = addSplitNoteWithTie(this.getScoreModel(), noteParams, overflowAmount)
     if (splitNote) {
