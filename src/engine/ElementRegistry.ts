@@ -590,6 +590,100 @@ export function headCentreX(element: ElementInfo): number {
   return element.headX ?? element.bbox.x + element.bbox.width / 2
 }
 
+/** What {@link mapElementCoordinates} does to an x, to a y, and to a LENGTH (a width, a height, a
+ *  thickness, a relative offset — anything that is ink but not a place). */
+interface CoordinateMap {
+  x(value: number): number
+  y(value: number): number
+  length(value: number): number
+}
+
+/**
+ * ⭐⭐ **THE ONE WALK over every coordinate-bearing field of an {@link ElementInfo}** — what
+ * {@link offsetElement} and {@link scaleElement} each spelled field by field
+ * (docs/code-shape-plan-2026-09-19.md, Phase 5).
+ *
+ * ⚠️ **A new coordinate field is taught HERE, once**, and to `EVERY_COORDINATE` in
+ * `ElementRegistry.coordinates.test.ts`. A missed one does not crash and does not look wrong: it
+ * makes the *hit-box* drift away from the *glyph*. 🚨 `segmentEndpoints` was missing from BOTH
+ * walkers until 2026-08-17 — a cross-system slur's round handles are placed and dragged from it,
+ * not from `slurEndpoints` (that one holds the true note ends, for the square re-anchor handles), so
+ * a segment on a bar that moved put its handles where the bar used to be, and one on a REDUCED staff
+ * put them off the arc by a factor of `k`. Found by auditing every field against the two walkers and
+ * `shiftById`; the table and the reasoning are in docs/dynamic-offset-plan.md.
+ *
+ * ⛔ **NOT {@link ElementRegistry.shiftById}**, which is no third caller: it moves the element and
+ * the guides' `from` ends while the `to` ends deliberately STAY — a different statement, not a
+ * different function of the same one.
+ *
+ * Returns a copy; the element handed in is never mutated.
+ */
+function mapElementCoordinates(element: ElementInfo, map: CoordinateMap): ElementInfo {
+  const point = (p: { x: number; y: number }) => ({ x: map.x(p.x), y: map.y(p.y) })
+  const mapped: ElementInfo = {
+    ...element,
+    bbox: {
+      x: map.x(element.bbox.x),
+      y: map.y(element.bbox.y),
+      width: map.length(element.bbox.width),
+      height: map.length(element.bbox.height),
+    },
+  }
+
+  // True notehead-centre X — the hit-box selection actually uses (not the bbox centre).
+  if (element.headX !== undefined) mapped.headX = map.x(element.headX)
+
+  // The attachment guides (visualization only), BOTH ends of each: a bar that moves takes the
+  // element AND what it is attached to with it, and a reduced staff registers in its own scaled
+  // space — a line left at full-size coordinates would point off the staff it belongs to.
+  if (element.guides) mapped.guides = element.guides.map(g => ({ from: point(g.from), to: point(g.to) }))
+
+  // Sampled arc points (slur proximity hit-testing).
+  if (element.points) mapped.points = element.points.map(point)
+
+  // The ottava bracket's axis — three coordinates on the element, so all three go with it.
+  if (element.ottavaAxis) {
+    mapped.ottavaAxis = {
+      y: map.y(element.ottavaAxis.y),
+      startX: map.x(element.ottavaAxis.startX),
+      endX: map.x(element.ottavaAxis.endX),
+    }
+  }
+
+  // Slur handle geometry. `direction` is a SIGN, never a length, so it is carried across untouched.
+  if (element.controlPoints) {
+    mapped.controlPoints = [point(element.controlPoints[0]), point(element.controlPoints[1])]
+  }
+  if (element.slurEndpoints) {
+    const e = element.slurEndpoints
+    mapped.slurEndpoints = { p0: point(e.p0), p1: point(e.p1), direction: e.direction }
+  }
+  if (element.segmentEndpoints) {
+    const e = element.segmentEndpoints
+    mapped.segmentEndpoints = { p0: point(e.p0), p1: point(e.p1), direction: e.direction }
+  }
+
+  // Tuplet bracket: x/y/notationCenterX are PLACES; width and the *Offset fields are lengths —
+  // a move leaves them alone, a scale takes them, since every one of them is ink.
+  if (element.tupletGeometry) {
+    const t = element.tupletGeometry
+    mapped.tupletGeometry = {
+      ...t,
+      x: map.x(t.x),
+      y: map.y(t.y),
+      width: map.length(t.width),
+      notationCenterX: map.x(t.notationCenterX),
+      bracketLegLength: map.length(t.bracketLegLength),
+      bracketThickness: map.length(t.bracketThickness),
+      bracketPadding: map.length(t.bracketPadding),
+      textYOffset: map.length(t.textYOffset),
+      yOffset: map.length(t.yOffset),
+    }
+  }
+
+  return mapped
+}
+
 /**
  * Translate one registered element by (dx, dy) — P5.4b, a measure that **moved** rather than
  * changed (docs/render-performance-plan.md §7a).
@@ -604,80 +698,8 @@ export function headCentreX(element: ElementInfo): number {
  * Returns a copy; the captured snapshot is never mutated (see {@link ElementRegistry.addAll}).
  */
 export function offsetElement(element: ElementInfo, dx: number, dy: number): ElementInfo {
-  const moved: ElementInfo = {
-    ...element,
-    bbox: {
-      x: element.bbox.x + dx,
-      y: element.bbox.y + dy,
-      width: element.bbox.width,
-      height: element.bbox.height,
-    },
-  }
-
-  // True notehead-centre X — the hit-box selection actually uses (not the bbox centre).
-  if (element.headX !== undefined) moved.headX = element.headX + dx
-
-  // The attachment guides (visualization only) — coordinates, so they move with the bar. ⚠️ BOTH ends
-  // here, unlike `shiftById`: a bar that moves takes the element AND what it is attached to with it.
-  if (element.guides) {
-    moved.guides = element.guides.map(g => ({
-      from: { x: g.from.x + dx, y: g.from.y + dy },
-      to: { x: g.to.x + dx, y: g.to.y + dy },
-    }))
-  }
-
-  // Sampled arc points (slur proximity hit-testing).
-  if (element.points) moved.points = element.points.map(p => ({ x: p.x + dx, y: p.y + dy }))
-
-  // The ottava bracket's axis — three coordinates on the element, so all three move with it.
-  if (element.ottavaAxis) {
-    moved.ottavaAxis = {
-      y: element.ottavaAxis.y + dy,
-      startX: element.ottavaAxis.startX + dx,
-      endX: element.ottavaAxis.endX + dx,
-    }
-  }
-
-  // Slur handle geometry.
-  if (element.controlPoints) {
-    moved.controlPoints = [
-      { x: element.controlPoints[0].x + dx, y: element.controlPoints[0].y + dy },
-      { x: element.controlPoints[1].x + dx, y: element.controlPoints[1].y + dy },
-    ]
-  }
-  if (element.slurEndpoints) {
-    moved.slurEndpoints = {
-      p0: { x: element.slurEndpoints.p0.x + dx, y: element.slurEndpoints.p0.y + dy },
-      p1: { x: element.slurEndpoints.p1.x + dx, y: element.slurEndpoints.p1.y + dy },
-      direction: element.slurEndpoints.direction,
-    }
-  }
-  // 🚨 …AND THE PER-SEGMENT ONES, which were missing until 2026-08-17. A cross-system slur's round
-  // handles are placed and dragged from `segmentEndpoints`, not from `slurEndpoints` (that one holds
-  // the true note ends, for the square re-anchor handles) — so a segment on a bar that MOVED rather
-  // than re-engraved put its handles where the bar used to be. Found by auditing every coordinate
-  // field on `ElementInfo` against this function, `scaleElement` and `shiftById`; the table and the
-  // reasoning are in docs/dynamic-offset-plan.md. ⛔ A coordinate here is not finished when it is
-  // written — three functions have to be taught about it, and nothing in the types says so.
-  if (element.segmentEndpoints) {
-    moved.segmentEndpoints = {
-      p0: { x: element.segmentEndpoints.p0.x + dx, y: element.segmentEndpoints.p0.y + dy },
-      p1: { x: element.segmentEndpoints.p1.x + dx, y: element.segmentEndpoints.p1.y + dy },
-      direction: element.segmentEndpoints.direction,
-    }
-  }
-
-  // Tuplet bracket: x/y/notationCenterX are absolute; width and the *Offset fields are relative.
-  if (element.tupletGeometry) {
-    moved.tupletGeometry = {
-      ...element.tupletGeometry,
-      x: element.tupletGeometry.x + dx,
-      y: element.tupletGeometry.y + dy,
-      notationCenterX: element.tupletGeometry.notationCenterX + dx,
-    }
-  }
-
-  return moved
+  // A move leaves every LENGTH alone — widths, heights and the tuplet's relative offsets.
+  return mapElementCoordinates(element, { x: v => v + dx, y: v => v + dy, length: v => v })
 }
 
 /** Translate a staff's geometry by (dx, dy). See {@link offsetElement} for the hazard. */
@@ -695,79 +717,8 @@ export function offsetElement(element: ElementInfo, dx: number, dy: number): Ele
  * Returns a copy; the element handed in is never mutated.
  */
 export function scaleElement(element: ElementInfo, k: number): ElementInfo {
-  const scaled: ElementInfo = {
-    ...element,
-    bbox: {
-      x: element.bbox.x * k,
-      y: element.bbox.y * k,
-      width: element.bbox.width * k,
-      height: element.bbox.height * k,
-    },
-  }
-
-  if (element.headX !== undefined) scaled.headX = element.headX * k
-  // ⚠️ The guides, BOTH ends of each: a reduced staff registers in its own scaled space, so a line
-  // left at full-size coordinates would point off the staff it belongs to — the bug class
-  // `docs/staff-size-plan.md` calls "visual coords in a scaled scope".
-  if (element.guides) {
-    scaled.guides = element.guides.map(g => ({
-      from: { x: g.from.x * k, y: g.from.y * k },
-      to: { x: g.to.x * k, y: g.to.y * k },
-    }))
-  }
-  if (element.points) scaled.points = element.points.map(p => ({ x: p.x * k, y: p.y * k }))
-  // The ottava bracket's axis — three coordinates, so all three scale (a small staff draws its
-  // numeral and line in its own space, and a handle left unscaled would sit off the bracket).
-  if (element.ottavaAxis) {
-    scaled.ottavaAxis = {
-      y: element.ottavaAxis.y * k,
-      startX: element.ottavaAxis.startX * k,
-      endX: element.ottavaAxis.endX * k,
-    }
-  }
-  if (element.controlPoints) {
-    scaled.controlPoints = [
-      { x: element.controlPoints[0].x * k, y: element.controlPoints[0].y * k },
-      { x: element.controlPoints[1].x * k, y: element.controlPoints[1].y * k },
-    ]
-  }
-  if (element.slurEndpoints) {
-    scaled.slurEndpoints = {
-      p0: { x: element.slurEndpoints.p0.x * k, y: element.slurEndpoints.p0.y * k },
-      p1: { x: element.slurEndpoints.p1.x * k, y: element.slurEndpoints.p1.y * k },
-      direction: element.slurEndpoints.direction,
-    }
-  }
-  // 🚨 …and this one's twin, missing until 2026-08-17 (see {@link offsetElement} for the audit that
-  // found it). ⚠️ The symptom was staff-size-only: a cross-system slur on a REDUCED staff registers
-  // its arc in that staff's own scaled space, so unscaled segment endpoints put the round handles at
-  // full-size coordinates — off the arc they belong to by a factor of `k`. `direction` is a SIGN,
-  // never a length, so it is carried across untouched exactly as `slurEndpoints`' is.
-  if (element.segmentEndpoints) {
-    scaled.segmentEndpoints = {
-      p0: { x: element.segmentEndpoints.p0.x * k, y: element.segmentEndpoints.p0.y * k },
-      p1: { x: element.segmentEndpoints.p1.x * k, y: element.segmentEndpoints.p1.y * k },
-      direction: element.segmentEndpoints.direction,
-    }
-  }
-  // The tuplet bracket: positions AND the lengths, since every one of them is ink.
-  if (element.tupletGeometry) {
-    const t = element.tupletGeometry
-    scaled.tupletGeometry = {
-      ...t,
-      x: t.x * k,
-      y: t.y * k,
-      width: t.width * k,
-      notationCenterX: t.notationCenterX * k,
-      bracketLegLength: t.bracketLegLength * k,
-      bracketThickness: t.bracketThickness * k,
-      bracketPadding: t.bracketPadding * k,
-      textYOffset: t.textYOffset * k,
-      yOffset: t.yOffset * k,
-    }
-  }
-
-  return scaled
+  const times = (v: number) => v * k
+  return mapElementCoordinates(element, { x: times, y: times, length: times })
 }
 
 /** {@link scaleElement} for a staff's own geometry. `lineSpacing` scales with the lines, which is

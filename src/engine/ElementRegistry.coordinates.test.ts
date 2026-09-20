@@ -39,6 +39,7 @@ const EVERY_COORDINATE: ElementInfo = {
   slurEndpoints: { p0: { x: 9, y: 10 }, p1: { x: 11, y: 12 }, direction: -1 },
   segmentEndpoints: { p0: { x: 13, y: 14 }, p1: { x: 15, y: 16 }, direction: 1 },
   guides: [{ from: { x: 17, y: 18 }, to: { x: 19, y: 20 } }],
+  ottavaAxis: { y: 30, startX: 31, endX: 32 },
   tupletGeometry: {
     x: 21, y: 22, width: 23, notationCenterX: 24,
     bracketLegLength: 25, bracketThickness: 26, bracketPadding: 27,
@@ -65,6 +66,10 @@ describe('offsetElement — a bar that MOVED takes every coordinate with it', ()
 
   it('shifts BOTH ends of an attachment guide — the bar took the element and its anchor alike', () => {
     expect(moved.guides).toEqual([{ from: { x: 27, y: 38 }, to: { x: 29, y: 40 } }])
+  })
+
+  it('shifts all three coordinates of an ottava bracket’s axis', () => {
+    expect(moved.ottavaAxis).toEqual({ y: 50, startX: 41, endX: 42 })
   })
 
   it('shifts the tuplet bracket’s absolute fields and leaves its LENGTHS alone', () => {
@@ -103,6 +108,10 @@ describe('scaleElement — a REDUCED staff registers in its own space', () => {
 
   it('scales both ends of an attachment guide', () => {
     expect(scaled.guides).toEqual([{ from: { x: 8.5, y: 9 }, to: { x: 9.5, y: 10 } }])
+  })
+
+  it('scales all three coordinates of an ottava bracket’s axis', () => {
+    expect(scaled.ottavaAxis).toEqual({ y: 15, startX: 15.5, endX: 16 })
   })
 
   it('scales every length of the tuplet bracket — all of them are ink', () => {
