@@ -101,15 +101,20 @@ src/
   dev/              # SCAFFOLDING, deliberately kept: devToolbar + scoreJsonPanel
                     #   (the strip around the viewport) + renderCensus. Reads state,
                     #   calls the palette; the viewport never knows it exists.
-  interactions/     # Framework-agnostic controllers (Mouse/Keyboard/Selection/
-                    #   Highlight/Palette/Clipboard…) + EditorState + ViewportHost
-                    #   (DOM⇄viewport) + shortcutWiring.
+  interactions/     # The framework-agnostic EDITOR — folders only at its top level:
+                    #   controllers/ (Mouse/Keyboard/Selection/Highlight/Palette/Render/Gutter +
+                    #     ViewportHost (DOM⇄viewport) + shortcutWiring + the sync modules) ·
+                    #   state/ (EditorState, the selection, inspectedElement, toolGhost) ·
+                    #   propertyControllers/ (one per Properties seam) · stamps/ (what a click of an
+                    #     armed tool makes, + the span-tool tables) · walks/ (what a drag or the arrows
+                    #     do to a mark) · lanes/ (what the last render says a mark may step to) ·
+                    #   clipboard/ · text/ · io/
                     #   elements/ — one module per selectable kind: its hit-test, how it paints,
                     #     the drag it arms and its `keys` row (`<kind>Keys.ts`); `chain.ts` is the table.
                     #   drags/ — ⭐ one GESTURE per drag, state in its closure. `MouseController` holds
                     #     ONE and knows none: `gesture.ts` is the contract, `bodyDrag` / `heldDrag`
                     #     the two frames a mark's walk is a row of, `markEnd` the squares' table.
-  bus/              # The UI NOTICEBOARD: one `EditorBus` object of ~21 publish/subscribe
+  bus/              # The UI NOTICEBOARD: one `EditorBus` object of 40 publish/subscribe
                     #   seams that `interactions/` and `windows/` both pin to, so neither
                     #   imports the other. Import `{ bus }` from '@/bus' — never a store
                     #   by name. Per-store modules keep their doc comments.
@@ -170,7 +175,13 @@ src/
                           #   + ⏸️ softmaxSpacing (VexFlow's softmax, PORTED only because a clef change
                           #   after a bar's last onset still stands where it puts it — his call;
                           #   ⛔ don't build on it: it goes with the clef review, map §9.4 #5)
-    rendering/            # ScoreRenderer, CoordinateMapper, FanPass, GhostRenderer
+    rendering/            # ⭐ The renderer's CORE at the top (ScoreRenderer, RenderPass, renderTypes,
+                          #   CoordinateMapper, the redraw keys, PagePass) and eight folders:
+                          #   engraved/ (the `Engraved*` classes, NoteBuilder) · format/ (columns,
+                          #   modifier columns, spacingPass) · painter/ (SvgPainter, glyphPainter,
+                          #   svgDrawGroup) · staff/ (stave frame + signs, barlines, key signature) ·
+                          #   beams/ · curves/ (slur + tie) · marks/{dynamics,tempo,lines}/ · ghosts/.
+                          #   What follows names the modules that carry a rule — FanPass, GhostRenderer
                           #   (+ HeaderSignGhost / MarkGhost — S11: a ghost drawn by the score's OWN
                           #   classes on our surface, ⛔ never a throwaway VexFlow stave/voice/formatter),
                           #   PagePass (the sheets, drawn behind the music)
