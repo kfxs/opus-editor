@@ -11462,9 +11462,13 @@
       "33db1b1d-4b4c-4837-9566-2744926ca612": [
         {
           "kind": "hairpinEndpointOffset",
+          "start": {
+            "x": 0,
+            "y": -0.5
+          },
           "end": {
             "x": -7,
-            "y": 0
+            "y": -0.5
           }
         }
       ],
@@ -11714,19 +11718,12 @@
           "kind": "hairpinEndpointOffset",
           "start": {
             "x": 0,
-            "y": 0
+            "y": -0.5
           },
           "end": {
             "x": 0,
-            "y": 0
+            "y": -0.5
           }
-        }
-      ],
-      "978c8fed-960c-498e-baca-07e0333b36c8": [
-        {
-          "kind": "slurOffset",
-          "x": 0,
-          "y": 0.75
         }
       ],
       "3659b502-adb3-4e76-9abb-e48d70a4dd22@b4a0e603-caf7-4aef-a184-ad7676ffe64f": [
