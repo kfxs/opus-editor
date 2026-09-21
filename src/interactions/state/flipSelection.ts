@@ -27,8 +27,9 @@
  * (his call for the hairpin, 2026-08-12; for the ottava, 2026-08-17).
  */
 import type { MusicEngine } from '../../engine/MusicEngine'
+import { stemFlipTargets } from '../../engine/models/stemOps'
 import type { EditorState, SelectedElement } from './EditorState'
-import { selectedArticulationNoteIds } from './selection'
+import { selectedArticulationNoteIds, selectedNoteIds } from './selection'
 
 /** The kinds `x` answers for — every other member of {@link SelectedElement} has no two sides. */
 type FlippableKind = 'slur' | 'hairpin' | 'dynamic' | 'trill' | 'ottava' | 'tie' | 'tuplet'
@@ -88,7 +89,7 @@ const FLIP_ELEMENT: {
 
 /**
  * Flip whatever is selected: the element in {@link FLIP_ELEMENT}, else every selected articulation,
- * else the selected note's stem.
+ * else the stem of every selected note.
  *
  * ⚠️ DECLINES — returns false without touching the score — when nothing selected has two sides. The
  * caller must not repaint on a false: `x` with an empty selection is a key that did nothing, and a
@@ -115,7 +116,18 @@ export function flipSelection(state: EditorState, engine: MusicEngine): boolean 
     return true
   }
 
-  // …and the fallback that gives the key its name: with a plain note selected, `x` flips its stem.
+  // …and the fallback that gives the key its name: with plain notes selected, `x` flips their stems.
+  // ⭐ EVERY selected note, as one undoable action — his report, 2026-09-21: *"i select all that
+  //   notes, and hit X but only the first is flipping"*. This used to read `selectedNoteId` alone,
+  //   the selection's ANCHOR. Each beam group is turned once however many of its notes are selected
+  //   (`models/stemOps.stemFlipTargets`); the anchor is still the answer when it is all there is.
+  const noteIds = selectedNoteIds(state.selectedItems.values())
+  if (noteIds.length > 1) {
+    const targets = stemFlipTargets(engine.getScore(), noteIds)
+    return engine.runBatch(`Flip ${targets.length} stem(s)`, () => {
+      for (const noteId of targets) engine.flipStemDirection(noteId)
+    })
+  }
   if (!state.selectedNoteId) return false
   engine.flipStemDirection(state.selectedNoteId)
   return true

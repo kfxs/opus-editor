@@ -13,7 +13,7 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import type { Chord, Score } from '@/types/music'
 import { ScoreModel } from './ScoreModel'
 import { fracCreate as frac } from '@/utils/fraction'
-import { beamGroupStemDirection, flipStems } from './stemOps'
+import { beamGroupStemDirection, flipStems, stemFlipTargets } from './stemOps'
 
 describe('flipStems — the group is the unit', () => {
   let model: ScoreModel
@@ -85,6 +85,52 @@ describe('flipStems — the group is the unit', () => {
 
   it('⛔ …and on an id the score does not hold', () => {
     expect(flipStems(score, 'nope')).toBeNull()
+  })
+})
+
+describe('stemFlipTargets — `x` over a selection (his report, 2026-09-21)', () => {
+  let model: ScoreModel
+  let score: Score
+  const chords = () => score.measures[0].slots.filter((s): s is Chord => s.type === 'chord')
+  /** What `x` does with the answer: one {@link flipStems} per target. */
+  const press = (ids: string[]) => { for (const id of stemFlipTargets(score, ids)) flipStems(score, id) }
+
+  beforeEach(() => {
+    // His bar: four quarters high on the staff, every stem DOWN by itself.
+    model = new ScoreModel()
+    ;(['C', 'D', 'E', 'F'] as const).forEach((step, i) =>
+      model.addNote({ step, octave: 5, alter: 0, duration: 'q', measure: 1, beat: frac(i, 1) } as never))
+    score = model.getScore()
+  })
+
+  it('🚨 names EVERY selected note that has its own stem — not only the first', () => {
+    const ids = chords().map(c => c.notes[0].id)
+    expect(stemFlipTargets(score, ids)).toEqual(ids)
+    press(ids)
+    expect(chords().map(c => c.stemDirection)).toEqual(['up', 'up', 'up', 'up'])
+    press(ids) // …and the second press releases them all back to auto, as it does for one note.
+    expect(chords().map(c => c.stemDirection)).toEqual([undefined, undefined, undefined, undefined])
+  })
+
+  it('⚠️ ONE target per chord — two selected heads must not flip it there and back', () => {
+    const top = model.addNote({ step: 'A', octave: 5, alter: 0, duration: 'q', measure: 1, beat: frac(0, 1) } as never)
+    const [first] = chords()
+    expect(first.notes).toHaveLength(2)
+    expect(stemFlipTargets(score, [first.notes[0].id, top.id])).toHaveLength(1)
+    press([first.notes[0].id, top.id])
+    expect(first.stemDirection).toBe('up')
+  })
+
+  it('…and ONE per BEAM — a beam has one side', () => {
+    const beamed = new ScoreModel()
+    const a = beamed.addNote({ step: 'C', octave: 5, alter: 0, duration: '8', measure: 1, beat: frac(0, 1) } as never)
+    const b = beamed.addNote({ step: 'D', octave: 5, alter: 0, duration: '8', measure: 1, beat: frac(1, 2) } as never)
+    expect(stemFlipTargets(beamed.getScore(), [a.id, b.id])).toEqual([a.id])
+  })
+
+  it('rests and unknown ids have no stem to turn', () => {
+    const empty = new ScoreModel().getScore()
+    expect(stemFlipTargets(empty, [empty.measures[0].slots[0].id, 'nobody'])).toEqual([])
   })
 })
 

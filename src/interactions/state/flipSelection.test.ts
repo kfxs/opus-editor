@@ -103,6 +103,18 @@ describe('flipSelection — the `x` key', () => {
     expect(engine.getTrills()[0].placement).toBe('below')
   })
 
+  it('🚨 a MULTI-selection of notes flips EVERY stem, as ONE undo — his report, 2026-09-21', () => {
+    // C4 ×2, stems UP by themselves. The selection's ANCHOR is only the first of them.
+    state.selectedNoteId = noteIds[0]
+    state.selectedItems = new Map(noteIds.map(id => [`note:${id}`, { kind: 'note' as const, id }]))
+
+    expect(flipSelection(state, engine)).toBe(true)
+    expect(noteIds.map(id => engine.getNote(id)!.stemDirection)).toEqual(['down', 'down'])
+
+    engine.undo()
+    expect(noteIds.map(id => engine.getNote(id)!.stemDirection ?? 'auto')).toEqual(['auto', 'auto'])
+  })
+
   it('⚠️ DECLINES when nothing selected has two sides — the caller must not repaint', () => {
     expect(flipSelection(state, engine), 'nothing selected at all').toBe(false)
     // A selected element whose kind is absent from the table is NOT a decline on its own — it falls

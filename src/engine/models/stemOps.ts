@@ -120,6 +120,29 @@ export function flipStems(score: Score, noteId: string): string[] | null {
   return chords.map(c => c.id)
 }
 
+/**
+ * ⭐ **WHICH NOTES TO PRESS, to turn a whole SELECTION around** — his report, 2026-09-21: *"i select
+ * all that notes, and hit X but only the first is flipping… X should affect all"*.
+ *
+ * ⚠️ **One note per beam group.** {@link flipStems} is a toggle on the GROUP, so pressing it once
+ * per selected head would turn a two-note chord around and back again — every even-sized selection
+ * inside one group a silent no-op. This answers the first selected note of each group (a chord that
+ * is not beamed is a group of one), in selection order; rests and unknown ids have no stem and are
+ * dropped. Each group then answers for ITSELF — a pinned one goes back to auto while an auto one
+ * beside it is turned — exactly as a single press does.
+ */
+export function stemFlipTargets(score: Score, noteIds: readonly string[]): string[] {
+  const covered = new Set<string>()
+  const targets: string[] = []
+  for (const noteId of noteIds) {
+    const found = locate(score, noteId)
+    if (!found || found.slot.type !== 'chord' || covered.has(found.slot.id)) continue
+    for (const member of beamGroupOf(score, found.measure, found.staffId, found.slot)) covered.add(member.id)
+    targets.push(noteId)
+  }
+  return targets
+}
+
 /** The slot with this note id (a chord's own id or one of its pitches'), with where it lives. */
 function locate(
   score: Score,
