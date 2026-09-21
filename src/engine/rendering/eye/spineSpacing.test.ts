@@ -103,5 +103,15 @@ describe('spacing where the DEEPEST ink stands — a loop’s inside is shorter 
     expect(repeated).toBeGreaterThan(plain)
     expect(naturalSpineLength(m.getScore()) - natural).toBeCloseTo(repeated - plain, 6)
   })
+  it('⭐ a bar that draws a HEADER owes its room — a key change moves its bar\'s first note right', () => {
+    const m = model(2)
+    add(m, 1, 0, 1, 'q')
+    add(m, 2, 0, 1, 'q')
+    const plain = spaceBarsOnSpine(m.getScore(), 0, 0, false)[1]
+    const before = plain.columnAt(beat(0)) - plain.start
+    m.setKeyAt(2, { alterations: [{ step: 'F', alter: 1 }, { step: 'C', alter: 1 }], mode: 'major' })
+    const changed = spaceBarsOnSpine(m.getScore(), 0, 0, false)[1]
+    expect(changed.columnAt(beat(0)) - changed.start).toBeGreaterThan(before)
+  })
 })
 

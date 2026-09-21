@@ -47,8 +47,6 @@ const NOTES_PER_BAR = 4
 /** Room around the spine for what stands outside it — stems, ledger lines. */
 const MARGIN_PX = 90
 
-/** How much spine an automatic size gives the header, and each quarter note of music. */
-const AUTO_HEADER_PX = 90
 /** How much looser than its natural width the music is laid out when the spine is sized for it. */
 const AUTO_BREATHING = 1.15
 const AUTO_MIN_RADIUS = 160
@@ -110,7 +108,8 @@ export function spineConsole(deps: SpineConsoleDeps): SpineConsole {
   const layOut = (score: Score, shape: Shape): { spine: Spine; width: number; height: number } => {
     // ⭐ Sized from what the MUSIC asks (`eye/spineSpacing` — the page's spacing, one endless line), so a
     //    circle's justified system is stretched as little as its minimum radius allows.
-    const length = AUTO_HEADER_PX + naturalSpineLength(score) * AUTO_BREATHING
+    // ⭐ The header's room is IN that length: each bar's lead-in carries the signs it draws (`eye/spineHeader`).
+    const length = naturalSpineLength(score) * AUTO_BREATHING
     if (shape.kind === 'straight') {
       return { spine: straightSpine(MARGIN_PX, MARGIN_PX, length), width: length + 2 * MARGIN_PX, height: 2 * MARGIN_PX + 40 }
     }

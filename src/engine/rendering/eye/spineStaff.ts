@@ -24,14 +24,12 @@ import { placementAt, pointAt } from '@/engine/engrave/staff/staffSpine'
 import { drawSpineLines } from '@/engine/engrave/staff/spineLines'
 import { staffLineY } from '@/engine/engrave/staff/staffFrame'
 import { staveLineWidthPx } from '@/engine/engrave/staff/staffLines'
-import type { Clef, NoteDuration, PitchAlter, PitchStep, TimeSignature } from '@/types/music'
+import type { Clef, NoteDuration, PitchAlter, PitchStep } from '@/types/music'
 import { middleLineDiatonicPos } from '@/utils/clefUtils'
 import { spellingDiatonicPos, spellingToNoteKey } from '@/utils/pitchSpelling'
-import { EngravedClef } from '../engraved/EngravedClef'
 import { EngravedBeam, drawBeamInkThrough } from '../engraved/EngravedBeam'
 import { EngravedNote, drawNoteInkThrough } from '../engraved/EngravedNote'
 import { EngravedStave } from '../engraved/EngravedStave'
-import { EngravedTimeSignature } from '../engraved/EngravedTimeSignature'
 import { noteRuler } from '../engraved/noteRuler'
 import { BarVoice } from '../format/barVoice'
 import { formatColumns } from '../format/columnFormat'
@@ -237,14 +235,14 @@ export function drawSpineNote(ctx: DrawContext, spine: Spine, note: SpineNote, c
 }
 
 /** The frame a block is drawn against: the page's own staff, its top line ON the spine. */
-const blockFrame = () => ({ ...staveFrame(new EngravedStave(0, 0, BLOCK_STAVE_WIDTH)), topLineY: 0 })
+export const blockFrame = () => ({ ...staveFrame(new EngravedStave(0, 0, BLOCK_STAVE_WIDTH)), topLineY: 0 })
 
 /**
  * ⭐ A header SIGN — a clef, a meter — is a rigid block like a note: the score's own sign class draws
  * it upright at its own origin, and the group is placed so the sign runs from `s` along the spine.
  * Answers how far along the spine it reaches, so the next block knows where it may start.
  */
-function drawSpineSign(ctx: DrawContext, spine: Spine, sign: StaveSign, s: number): number {
+export function drawSpineSign(ctx: DrawContext, spine: Spine, sign: StaveSign, s: number): number {
   const group = drawGroupOf(ctx.openGroup(SPINE_BLOCK_CLASS))
   try {
     sign.drawSign(ctx, blockFrame(), ctx)
@@ -256,21 +254,6 @@ function drawSpineSign(ctx: DrawContext, spine: Spine, sign: StaveSign, s: numbe
   const width = sign.walkInput().width
   group?.setPlacement(compose(translation(-width / 2, 0), placementAt(spine, s + width / 2)))
   return s + width
-}
-
-/**
- * The staff's HEADER from `s` on — the clef, then the meter — and where along the spine it ends.
- * ⚠️ Each sign is preceded by its own walk padding, the page's inherited row; ⛔ not the header
- * PLACEMENT's researched gaps (`staff/headerPlacementPass`), which are plan B's to bring here.
- */
-export function drawSpineHeader(
-  ctx: DrawContext, spine: Spine, s: number, header: { clef: Clef; meter?: TimeSignature },
-): number {
-  const signs: StaveSign[] = [new EngravedClef(header.clef, 'default')]
-  if (header.meter) signs.push(new EngravedTimeSignature(header.meter))
-  let at = s
-  for (const sign of signs) at = drawSpineSign(ctx, spine, sign, at + sign.walkInput().padding)
-  return at
 }
 
 /**

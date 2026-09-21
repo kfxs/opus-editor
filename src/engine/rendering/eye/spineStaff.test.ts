@@ -3,7 +3,7 @@ import { apply, isTranslation } from '@/engine/paint/Affine'
 import { circleSpine, straightSpine } from '@/engine/engrave/staff/staffSpine'
 import { SceneRecorder } from '@/engine/scene/SceneRecorder'
 import { sceneGroups, scenePrimitives } from '@/engine/scene/Scene'
-import { SPINE_BLOCK_CLASS, drawSpineHeader, drawSpineStaff, type SpineNote } from './spineStaff'
+import { SPINE_BLOCK_CLASS, drawSpineStaff, type SpineNote } from './spineStaff'
 
 /**
  * ⭐ A bent staff as a SCENE — so *"every note stands on the circle, turned to its tangent"* is
@@ -74,32 +74,5 @@ describe('drawSpineStaff', () => {
     const straight = straightSpine(50, 100, 600)
     const flat = record(ctx => drawSpineStaff(ctx, straight, [quarter(100), quarter(300)]))
     for (const block of sceneGroups(flat, SPINE_BLOCK_CLASS)) expect(isTranslation(block.placement)).toBe(true)
-  })
-})
-
-describe('drawSpineHeader — a clef and a meter are rigid blocks too', () => {
-  const spine = circleSpine(400, 400, 250)
-  const FOUR_FOUR = { numerator: 4, denominator: 4 }
-
-  it('draws one placed block per sign, the meter only when asked for', () => {
-    const both = record(ctx => { drawSpineHeader(ctx, spine, 0, { clef: 'treble', meter: FOUR_FOUR }) })
-    expect(sceneGroups(both, SPINE_BLOCK_CLASS)).toHaveLength(2)
-    const clefOnly = record(ctx => { drawSpineHeader(ctx, spine, 0, { clef: 'bass' }) })
-    expect(sceneGroups(clefOnly, SPINE_BLOCK_CLASS)).toHaveLength(1)
-  })
-
-  it('⭐ answers where it ENDS, never before where it began — the next block starts from there', () => {
-    let end = -1
-    record(ctx => { end = drawSpineHeader(ctx, spine, 100, { clef: 'treble', meter: FOUR_FOUR }) })
-    expect(end).toBeGreaterThanOrEqual(100)
-  })
-
-  it('a sign is turned, never deformed', () => {
-    const scene = record(ctx => { drawSpineHeader(ctx, spine, spine.length / 4, { clef: 'treble' }) })
-    const [clef] = sceneGroups(scene, SPINE_BLOCK_CLASS)
-    const o = apply(clef.placement, 0, 0)
-    const p = apply(clef.placement, 30, 40)
-    expect(Math.hypot(p.x - o.x, p.y - o.y)).toBeCloseTo(50, 9)
-    expect(isTranslation(clef.placement)).toBe(false)
   })
 })

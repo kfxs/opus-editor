@@ -30,7 +30,8 @@
  */
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { keyStaffId } from '@/engine/models/staffContent'
-import { repeatStartRoom } from '@/engine/layout/barlineSign'
+import { HEADER_TO_REPEAT, repeatStartRoom } from '@/engine/layout/barlineSign'
+import { headerToNoteGap } from '@/engine/layout/headerInk'
 import { INK } from '@/engine/layout/spacingPadding'
 import { clefResolverFor, keyResolverFor, measureColumns, measureLeadIn } from '@/engine/layout/measureColumns'
 import { naturalWidth, spaceColumns, type Column } from '@/engine/layout/spacing'
@@ -39,6 +40,7 @@ import { fracCompare } from '@/utils/fraction'
 import { resolveStaffClefs } from '@/utils/clefUtils'
 import { resolveStaffKeys } from '@/utils/keySignature'
 import type { Measure, Score } from '@/types/music'
+import { spineBarHeader, spineHeaderWidth } from './spineHeader'
 
 /** One bar's room along the spine, in px of `s`. */
 export interface SpineBar {
@@ -58,27 +60,37 @@ interface AskedBar {
   natural: number
 }
 
-function ask(score: Score, measure: Measure): AskedBar {
+function ask(score: Score, measure: Measure, index: number): AskedBar {
   const firstStaffId = keyStaffId(score, 0)
-  const clefs = new Map([[firstStaffId, resolveStaffClefs(score, firstStaffId)]])
-  const keys = new Map([[firstStaffId, resolveStaffKeys(score, firstStaffId)]])
+  const staffClefs = resolveStaffClefs(score, firstStaffId)
+  const staffKeys = resolveStaffKeys(score, firstStaffId)
+  const clefs = new Map([[firstStaffId, staffClefs]])
+  const keys = new Map([[firstStaffId, staffKeys]])
   const clefFor = clefResolverFor(measure, clefs, firstStaffId)
   const keyFor = keyResolverFor(measure, keys, firstStaffId)
   const columns = measureColumns(measure, clefFor, () => 1, keyFor)
   const lead = measureLeadIn(measure, clefFor, () => 1, keyFor)
+  // ⭐ A bar that draws a HEADER (`./spineHeader` — the staff's head, or a clef / key / meter change)
+  //    owes the header's own spine, then the page's header→note gap in place of the barline's
+  //    padding (`MeasureLayout`'s swap). A `|:` stands between the two: after the header by
+  //    `HEADER_TO_REPEAT` (Gould p. 234 — the repeat goes AFTER a new clef, key or meter), else on
+  //    the boundary. The END sign's reach is already in the columns.
+  const header = spineBarHeader(score, staffClefs, staffKeys, index)
+  const opensRepeat = measure.repeatStart !== undefined
+  const before = header
+    ? spineHeaderWidth(header) / STAFF_SPACE_PX + (opensRepeat ? HEADER_TO_REPEAT : 0) + headerToNoteGap(header, lead.accidentals)
+    : lead.padding
   return {
     columns,
-    // ⭐ A `|:` opening the bar stands between the boundary and the lead-in, as on the page
-    //    (`MeasureLayout`'s `repeatStartRoom`). The END sign's reach is already in the columns.
-    leadIn: (lead.padding + lead.extent + repeatStartRoom(measure)) * STAFF_SPACE_PX,
+    leadIn: (before + lead.extent + repeatStartRoom(measure)) * STAFF_SPACE_PX,
     natural: naturalWidth(columns) * STAFF_SPACE_PX,
   }
 }
 
 /** How long a spine the score's bars ask for, in px — what an open spine takes and a circle is sized from. */
 export function naturalSpineLength(score: Score): number {
-  return score.measures.reduce((total, measure) => {
-    const bar = ask(score, measure)
+  return score.measures.reduce((total, measure, index) => {
+    const bar = ask(score, measure, index)
     return total + bar.leadIn + bar.natural
   }, 0)
 }
@@ -90,11 +102,11 @@ export function naturalSpineLength(score: Score): number {
 export function deepestInkPx(score: Score): number {
   const STAFF_DEPTH_SPACES = 4
   let deepest = STAFF_DEPTH_SPACES
-  for (const measure of score.measures) {
-    for (const column of ask(score, measure).columns) {
+  score.measures.forEach((measure, index) => {
+    for (const column of ask(score, measure, index).columns) {
       for (const box of column.ink) deepest = Math.max(deepest, box.bottom)
     }
-  }
+  })
   return deepest * STAFF_SPACE_PX
 }
 
@@ -119,7 +131,7 @@ export function spaceBarsOnSpine(
     const out = (s: number): number => from + s / innerRatio
     return inner.map(bar => ({ start: out(bar.start), end: out(bar.end), columnAt: beat => out(bar.columnAt(beat)) }))
   }
-  const asked = score.measures.map(measure => ask(score, measure))
+  const asked = score.measures.map((measure, index) => ask(score, measure, index))
   const leadIns = asked.reduce((total, bar) => total + bar.leadIn, 0)
   const naturals = asked.reduce((total, bar) => total + bar.natural, 0)
   // ⭐ The lead-ins are RIGID (a barline's clearance is not a spring); the music shares what is left.

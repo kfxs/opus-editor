@@ -2,6 +2,7 @@ import type { EngravedStave } from '../engraved/EngravedStave'
 import { drawGlyph } from '../painter/glyphPainter'
 import type { Clef, KeySignature } from '@/types/music'
 import type { RenderPass } from '../RenderPass'
+import type { DrawContext } from '@/engine/paint/DrawContext'
 import {
   BARLINE_TO_KEY_INK, CLEF_TO_KEY_INK, KEY_ACCIDENTAL_GAP, keySignatureLines, signGlyph,
 } from '@/engine/layout/keySignatureLayout'
@@ -259,7 +260,7 @@ function drawCautionary(pass: RenderPass, placement: KeySignaturePlacement): voi
   ))
   inStaffSpace(pass, staffIndex, group, () => {
     const inkLeft = barlineX + BARLINE_TO_CAUTIONARY_KEY_INK * space
-    const inkRight = drawSignRow(pass, row, placement.clef, frame, inkLeft)
+    const inkRight = drawKeySignatureRow(pass.context, row, placement.clef, frame, inkLeft)
     // ⚠️ `??`, never `||`: a gap of 0 is a real answer ("no tail after the signs") and must not fall
     //    back to the default.
     const trailing = placement.cautionaryKeyTrailing ?? CAUTIONARY_KEY_TO_LINE_END
@@ -338,8 +339,8 @@ function drawOpenStaffTail(
  * than its glyphs and would put the open staff tail's start inside dead air. ⭐ `keySignatureInkRight`
  * makes the same distinction for the head row, and for the same reason.
  */
-function drawSignRow(
-  pass: RenderPass, key: KeySignature, clef: Clef, frame: StaffFrame, startX: number,
+export function drawKeySignatureRow(
+  ctx: DrawContext, key: KeySignature, clef: Clef, frame: StaffFrame, startX: number,
 ): number {
   const space = frame.spacePx
   const lines = keySignatureLines(key, clef)
@@ -354,7 +355,7 @@ function drawSignRow(
     const y = noteLineY(frame, lines[i])
     const char = SIGN_CHARS[glyph]
     if (!char) return
-    drawGlyph(pass.context, 'KeySignaturePass.sign', char, x, y, SIGN_FONT_SIZE)
+    drawGlyph(ctx, 'KeySignaturePass.sign', char, x, y, SIGN_FONT_SIZE)
     // ⚠️ The step is the FONT's advance plus our own gap — the same arithmetic `keySignatureExtent`
     // reserved room with, so the last sign ends where the meter was pushed to. ⛔ Never the DRAWN
     // width of the glyph just rendered: in jsdom that is 0, and this pass would silently stack every
@@ -389,7 +390,7 @@ export function renderKeySignatures(pass: RenderPass, placements: KeySignaturePl
       const x = firstSignX(placedSignRun(placement), placedBarFrame(placement), frame.spacePx, placement.clef)
       // Before the ink, so a drawer that throws still leaves no half-registered box behind.
       registerKeySignature(pass, placement, key, x)
-      drawSignRow(pass, key, placement.clef, frame, x)
+      drawKeySignatureRow(pass.context, key, placement.clef, frame, x)
     })
 
     pass.context.closeGroup?.()

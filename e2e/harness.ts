@@ -312,7 +312,7 @@ const harness: Harness = {
   drawSpine(asked: number): string {
     // A NEGATIVE radius sizes the circle the way the dev console does: from what the music asks.
     const radius = asked < 0
-      ? Math.max(160, (90 + naturalSpineLength(engine.getScore()) * 1.15) / (2 * Math.PI) + deepestInkPx(engine.getScore()))
+      ? Math.max(160, (naturalSpineLength(engine.getScore()) * 1.15) / (2 * Math.PI) + deepestInkPx(engine.getScore()))
       : asked
     document.getElementById('spine')?.remove()
     const panel = document.createElement('div')
