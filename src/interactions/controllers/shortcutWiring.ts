@@ -18,6 +18,7 @@ import { beatToFrac } from '../../utils/musicUtils'
 import { selectedArticulationNoteIds } from '../state/selection'
 import { markItems, marksLabel, removeMarks } from '../clipboard/enclosedMarks'
 import { passageOf, spansStaves } from '../state/measurePassage'
+import { nudgeSelectedRests } from './restShiftKeys'
 import { flipSelection } from '../state/flipSelection'
 import { repeatSelectedPassage } from '../state/repeatPassage'
 import { nudgeArmedHairpinMouth, resetArmedHairpinMouth } from '../elements/hairpinHandles'
@@ -187,19 +188,10 @@ export function wireShortcuts(
     return true
   }
 
-  // ↑/↓ on a SINGLE selected rest = nudge its vertical shift by one staff-step (+up), instead
-  // of the pitch edit (which skips rests anyway). One undo per press. See docs/plans/rest-shift-plan.md.
-  const nudgeSelectedRest = (delta: number): boolean => {
-    const eng = getEngine()
-    if (!eng || state.selectedItems.size !== 1) return false
-    const item = [...state.selectedItems.values()][0]
-    if (item.kind !== 'note') return false
-    const note = eng.getNote(item.id)
-    if (!note || !note.isRest) return false
-    if (!eng.nudgeRestShift(item.id, delta)) return false
-    renderer.renderScore()
-    return true
-  }
+  // ↑/↓ on a selection made of RESTS = shift them by one staff-step (+up), instead of the pitch
+  // edit (which skips rests anyway). One or many, one undo per press — `./restShiftKeys`.
+  const nudgeSelectedRest = (delta: number): boolean =>
+    nudgeSelectedRests(getEngine(), state, delta, () => renderer.renderScore())
 
   // Ctrl+Shift+←/→ (wide) / Shift+Alt+←/→ (fine) on a SINGLE selected note or rest = nudge its
   // horizontal offset by a staff-space delta (+right), an OFFSET off its natural column (NOT
