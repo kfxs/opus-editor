@@ -36,26 +36,28 @@ import { FONT_FILES, fontFileUrl } from '@/engine/fonts/fontFiles'
  * bold, so outlining a bold word from the regular face silently un-bolds it, which is exactly what
  * the first cut did. Bravura has one weight and needs no more; music glyphs are never bold.
  */
-function fontFileOf(family: string, bold: boolean): string | undefined {
+function fontFileOf(family: string, bold: boolean, italic = false): string | undefined {
   const name = fontKey(family, false)
-  return FONT_FILES.find(row => fontKey(row.family, false) === name && (row.weight === 'bold') === bold)?.file
+  return FONT_FILES.find(row => fontKey(row.family, false) === name
+    && (row.weight === 'bold') === bold && (row.style === 'italic') === italic)?.file
 }
 
 /** `family` or `family|bold` — how a weighted face is named in the loaded map. */
-export function fontKey(family: string, bold: boolean): string {
+export function fontKey(family: string, bold: boolean, italic = false): string {
   const name = family.trim().replace(/^['"]|['"]$/g, '').toLowerCase()
-  return bold ? `${name}|bold` : name
+  // ⭐ Italic is a separate FILE like bold (`fonts/textFont`): `edwin|bold|italic`.
+  return `${name}${bold ? '|bold' : ''}${italic ? '|italic' : ''}`
 }
 
 /** Parsed fonts, keyed by {@link fontKey}. One fetch+parse per face per page load. */
 const cache = new Map<string, Promise<Font>>()
 
 /** Load one face of one of {@link FONT_FILES}, or null if we ship no such face. */
-function loadExportFont(family: string, bold = false): Promise<Font> | null {
-  const file = fontFileOf(family, bold)
+function loadExportFont(family: string, bold = false, italic = false): Promise<Font> | null {
+  const file = fontFileOf(family, bold, italic)
   if (!file) return null
 
-  const key = fontKey(family, bold)
+  const key = fontKey(family, bold, italic)
   let pending = cache.get(key)
   if (!pending) {
     pending = fetch(fontFileUrl(file))
@@ -71,10 +73,10 @@ function loadExportFont(family: string, bold = false): Promise<Font> | null {
 /** Every face we ship, parsed and keyed by {@link fontKey} — resolved once so the outliner can
  *  work synchronously. */
 export async function loadAllExportFonts(): Promise<Map<string, Font>> {
-  const wanted = FONT_FILES.map(row => [row.family, row.weight === 'bold'] as [string, boolean])
+  const wanted = FONT_FILES.map(row => [row.family, row.weight === 'bold', row.style === 'italic'] as const)
   const entries = await Promise.all(
-    wanted.map(async ([family, bold]) =>
-      [fontKey(family, bold), await loadExportFont(family, bold)!] as const),
+    wanted.map(async ([family, bold, italic]) =>
+      [fontKey(family, bold, italic), await loadExportFont(family, bold, italic)!] as const),
   )
   return new Map(entries)
 }

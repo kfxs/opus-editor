@@ -13,7 +13,7 @@
  */
 import type { Clearance, MarkInk } from '@/engine/layout/inkBand'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
-import { DYNAMIC_TEXT_FONT } from '../dynamics/dynamicStyle'
+import { expressionTextFamily } from '../dynamics/dynamicStyle'
 import { drawnFontPx } from '../../painter/drawnFontSize'
 
 /** SMuFL `ornamentTrill` — the `tr` itself. */
@@ -56,7 +56,10 @@ export const TRILL_WIGGLE_GLYPH = ''
  * continuation segment; revisit both the convention and the glyphs when it lands.
  */
 /** The serif stack the parens are set in — the one face in play with a true italic. */
-export const TRILL_PAREN_FONT = DYNAMIC_TEXT_FONT
+/** A function: the italic of the active text face (`fonts/textFont`). */
+export function trillParenFont(): string {
+  return expressionTextFamily()
+}
 
 export const TRILL_PAREN_LEFT = '('
 export const TRILL_PAREN_RIGHT = ')'

@@ -76,6 +76,7 @@ import { headerGapGeneration } from '@/engine/layout/headerAccidentalLadder'
 import { dotGapGeneration } from '@/engine/layout/dotGap'
 import { accidentalGapGeneration } from '@/engine/layout/accidentalGap'
 import { musicFontGeneration } from '@/engine/fonts/musicFont'
+import { textFontGeneration } from '@/engine/fonts/textFont'
 import { clefMeterGapGeneration } from '@/engine/layout/clefMeterGap'
 import { barlineMeterGapGeneration } from '@/engine/layout/barlineMeterGap'
 import { attachDynamicsToSlots, layoutCoLocatedDynamics, applyDynamicOffsets, registerDynamics, applyMixedDynamicRuns } from './marks/dynamics/DynamicsLayout'
@@ -610,6 +611,7 @@ export class ScoreRenderer {
       // 🚧 The chosen MUSIC FACE (`fonts/musicFont`) — a WIDTH too: the casting-off made in one face
       //    is not the other's.
       musicFontGeneration(),
+      textFontGeneration(),
       [...this.linearStaffSpacing.entries()].sort((a, b) => a[0].localeCompare(b[0])),
       this.suppressedDynamicId,
       this.suppressedTempoId,

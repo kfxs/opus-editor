@@ -28,6 +28,8 @@
  * uses it is `rendering/painter/musicFontFaces.loadMusicFont`'s job.
  */
 
+import { textFamily } from './textFont'
+
 export type MusicFontId = 'bravura' | 'leipzig' | 'sebastian'
 
 export interface MusicFontRow {
@@ -46,8 +48,6 @@ export const MUSIC_FONTS: readonly MusicFontRow[] = [
 /** The face every metrics table, spec and UI picture is pinned to, and every other face's fallback. */
 export const DEFAULT_MUSIC_FONT: MusicFontId = 'bravura'
 
-/** The text face behind the music faces — where a letter in a music-first stack lands. */
-const TEXT_FALLBACK = 'Academico'
 
 let active: MusicFontId = DEFAULT_MUSIC_FONT
 let generation = 0
@@ -94,5 +94,8 @@ export function musicOnlyStack(): string {
 export function musicFontStack(): string {
   const chosen = activeMusicFont().family
   const fallback = rowOf(DEFAULT_MUSIC_FONT).family
-  return chosen === fallback ? `${fallback},${TEXT_FALLBACK}` : `${chosen},${fallback},${TEXT_FALLBACK}`
+  // ⭐ The words' face ends the stack — where a letter in a music-first run lands (`fonts/textFont`;
+  //    `'Academico'` by default, the string this always was).
+  const words = textFamily('regular')
+  return chosen === fallback ? `${fallback},${words}` : `${chosen},${fallback},${words}`
 }

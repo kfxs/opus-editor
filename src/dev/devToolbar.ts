@@ -7,6 +7,7 @@ import { durationHighlight } from '../interactions/controllers/keypadSync'
 import { DEV_SOUNDS } from '../engine/audio/WebAudioFontInstrument'
 import { bus } from '../bus'
 import { buildMusicFontPicker } from './musicFontPicker'
+import { buildTextFontPicker } from './textFontPicker'
 import { exportScorePdfFile } from '../interactions/io/scoreFileIo'
 import { isSelectedStaffSmall, toggleSelectedStaffSize } from '../interactions/controllers/staffSizeToggle'
 
@@ -397,6 +398,8 @@ export function mountDevToolbar(host: HTMLElement, deps: DevToolbarDeps): DevToo
 
   // 🔧 DEV music font — `./musicFontPicker` (docs/plans/music-font-switch-plan.md, Phase A).
   row.appendChild(buildMusicFontPicker(renderScore))
+  // 🔧 DEV text font — `./textFontPicker` (docs/plans/text-font-switch-plan.md). A SEPARATE choice.
+  row.appendChild(buildTextFontPicker(renderScore))
 
   /*
    * ⭐ **TAKE THE REPEATS?** — his ask, 2026-08-26: *"by default playback should repeat, and I guess

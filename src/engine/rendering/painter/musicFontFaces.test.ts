@@ -39,8 +39,8 @@ describe('registerMusicFontFaces', () => {
     const { registerMusicFontFaces, isOwnFontFace } = await import('./musicFontFaces')
     const { FONT_FILES } = await import('@/engine/fonts/fontFiles')
     await registerMusicFontFaces()
-    // ⛔ Not Leipzig or Sebastian: a music face nobody chose is not fetched (`loadMusicFont`).
-    const opening = FONT_FILES.filter(row => row.role === 'text' || row.family === 'Bravura')
+    // ⛔ Not Leipzig, Sebastian, Edwin or Nepomuk: a face nobody chose is not fetched (`loadMusicFont`).
+    const opening = FONT_FILES.filter(row => row.family === 'Academico' || row.family === 'Bravura')
     expect(added.map(face => [face.family, face.descriptors.weight, face.descriptors.display]))
       .toEqual(opening.map(row => [row.family, row.weight, row.display]))
     expect(added[0].source).toMatch(/^url\(.*fonts\/Bravura\.otf\)$/)

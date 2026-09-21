@@ -2,7 +2,7 @@ import type { MusicEngine } from '../../engine/MusicEngine'
 import type { EditableTextSource, TextEditInsert, TextEditInsertion } from './TextEditController'
 import type { MenuItem } from '../../menus/MenuItem'
 import { buildExpressionMenu } from '../../menus/expressionMenu'
-import { DYNAMIC_TEXT_FONT, DYNAMIC_TEXT_SIZE, DYNAMIC_GLYPH_SIZE } from '../../engine/rendering/marks/dynamics/dynamicStyle'
+import { expressionTextFamily, DYNAMIC_TEXT_SIZE, DYNAMIC_GLYPH_SIZE } from '../../engine/rendering/marks/dynamics/dynamicStyle'
 import { dbg } from '@/utils/debug'
 import { musicOnlyStack } from '@/engine/fonts/musicFont'
 import { dynamicLabel, levelToGlyphString, splitDynamicRuns } from '../../utils/dynamics'
@@ -263,7 +263,7 @@ export class DynamicTextSource implements EditableTextSource {
    */
   getFontCSS(): { fontFamily: string; fontSize: string; fontStyle: string; color: string } {
     return {
-      fontFamily: `${DYNAMIC_TEXT_FONT}, ${musicOnlyStack()}`,
+      fontFamily: `${expressionTextFamily()}, ${musicOnlyStack()}`,
       fontSize: `${DYNAMIC_TEXT_SIZE * this.getZoom()}pt`,
       fontStyle: 'italic',
       color: '#000000',

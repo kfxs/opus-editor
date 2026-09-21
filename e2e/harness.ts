@@ -25,6 +25,7 @@ import { drawnInkBox } from '@/engine/rendering/painter/sceneInk'
 import { musicFontReady } from '@/engine/rendering/painter/musicFontReady'
 import { isOwnFontFace, loadMusicFont } from '@/engine/rendering/painter/musicFontFaces'
 import { MUSIC_FONTS, setActiveMusicFont, type MusicFontId } from '@/engine/fonts/musicFont'
+import { TEXT_FONTS, setActiveTextFont, type TextFontId } from '@/engine/fonts/textFont'
 import { A4_NORMAL, SKETCH_CANVAS } from '@/engine/layout/surface'
 import { exportScorePdf } from '@/engine/export/pdfExport'
 import { censusColumns, type BarSpacing } from '@/dev/spacingCensus'
@@ -90,6 +91,8 @@ export interface Harness {
   /** 🚧 Choose the music face the way the dev shell's picker does — load it, THEN write the choice
    *  (`fonts/musicFont`, docs/plans/music-font-switch-plan.md). The caller renders. */
   setMusicFont(id: MusicFontId): Promise<void>
+  /** 🚧 …and the WORDS' face, the same way (`fonts/textFont`, docs/plans/text-font-switch-plan.md). */
+  setTextFont(id: TextFontId): Promise<void>
   /** Wait for the score's fonts WITHOUT rendering — `engine/rendering/painter/musicFontReady`, the gate every
    *  engraving path takes. A spec that draws before `render()` must await this first. */
   fontReady(): Promise<void>
@@ -293,6 +296,10 @@ const harness: Harness = {
   async setMusicFont(id: MusicFontId): Promise<void> {
     await loadMusicFont(MUSIC_FONTS.find(row => row.id === id)!.family)
     setActiveMusicFont(id)
+  },
+  async setTextFont(id: TextFontId): Promise<void> {
+    await loadMusicFont(TEXT_FONTS.find(row => row.id === id)!.family)
+    setActiveTextFont(id)
   },
   fontReady: musicFontReady,
 

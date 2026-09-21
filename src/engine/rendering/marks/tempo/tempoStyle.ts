@@ -17,8 +17,8 @@
 import type { Clearance, MarkInk } from '@/engine/layout/inkBand'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { drawnFontPx } from '../../painter/drawnFontSize'
-import { musicFontStack } from '@/engine/engrave/inheritedFonts'
-import { textFirstFamily } from '@/utils/fontStack'
+import { musicOnlyStack } from '@/engine/fonts/musicFont'
+import { textFamily } from '@/engine/fonts/textFont'
 import type { TextRunFont } from '../../painter/glyphPainter'
 
 /**
@@ -76,7 +76,10 @@ export const TEMPO_TEXT_FONT_SIZE = 18
  */
 export function tempoTextFont(): TextRunFont {
   return {
-    family: textFirstFamily(musicFontStack()),
+    // ⭐ The WORDS' face, in the bold the books ask of a tempo (Gould p. 182) — `fonts/textFont` —
+    //    with the music faces behind it for the glyphs. For the defaults this is `'Academico, Bravura'`,
+    //    the string `textFirstFamily(musicFontStack())` always gave.
+    family: `${textFamily('bold')}, ${musicOnlyStack()}`,
     sizePt: TEMPO_TEXT_FONT_SIZE,
     weight: 'bold',
     style: 'normal',

@@ -12,51 +12,28 @@
  * (plan B4). The note beside the select says how many glyphs the face lacks and took WHOLE from
  * Bravura; its tooltip names them, so a bracket that does not match is explained, not puzzling.
  */
-import { MUSIC_FONTS, activeMusicFont, setActiveMusicFont, type MusicFontId } from '../engine/fonts/musicFont'
-import { loadMusicFont } from '../engine/rendering/painter/musicFontFaces'
+import { MUSIC_FONTS, activeMusicFont, setActiveMusicFont } from '../engine/fonts/musicFont'
 import { fallbackDefaults, fallbackGlyphs } from '../engine/fonts/fontMetrics'
+import { buildDevFontSelect } from './devFontSelect'
 
 export function buildMusicFontPicker(renderScore: () => void): HTMLElement {
-  const label = document.createElement('label')
-  label.className = 'flex items-center gap-1 ml-2 px-2 py-1 rounded border border-dashed border-amber-500/70 '
-    + 'text-amber-300 text-xs'
-  label.textContent = '🔧 DEV font: '
-  label.title = 'Experimental music-font switch — the face and its own line weights; most spacing ink is still Bravura’s. Not saved.'
-
-  const select = document.createElement('select')
-  select.className = 'bg-gray-700 rounded px-1 py-0.5 text-white text-xs'
-  for (const row of MUSIC_FONTS) {
-    const option = document.createElement('option')
-    option.value = row.id
-    option.textContent = row.label
-    select.appendChild(option)
-  }
-  select.value = activeMusicFont().id
-
-  const borrowed = document.createElement('span')
-  borrowed.className = 'text-amber-200/80'
-  const showBorrowed = () => {
-    const glyphs = fallbackGlyphs()
-    const defaults = fallbackDefaults()
-    borrowed.textContent = glyphs.length ? ` ${glyphs.length} from Bravura` : ''
-    borrowed.title = [
-      glyphs.length ? `Glyphs this face lacks, drawn and measured in Bravura: ${glyphs.join(', ')}` : '',
-      defaults.length ? `Engraving defaults it does not state (Bravura’s): ${defaults.join(', ')}` : '',
-    ].filter(Boolean).join('\n')
-  }
-  showBorrowed()
-
-  select.addEventListener('change', async () => {
-    const chosen = MUSIC_FONTS.find(row => row.id === (select.value as MusicFontId))
-    if (!chosen) return
-    await loadMusicFont(chosen.family)
-    // ⚠️ A later pick may have overtaken this one while its face loaded — the select is the truth.
-    if (select.value !== chosen.id) return
-    if (setActiveMusicFont(chosen.id)) renderScore()
-    showBorrowed()
+  return buildDevFontSelect({
+    label: '🔧 DEV font: ',
+    title: 'Experimental music-font switch — the face, its line weights and its ink. Not saved.',
+    rows: MUSIC_FONTS,
+    active: () => activeMusicFont().id,
+    choose: setActiveMusicFont,
+    note: () => {
+      const glyphs = fallbackGlyphs()
+      const defaults = fallbackDefaults()
+      return {
+        text: glyphs.length ? ` ${glyphs.length} from Bravura` : '',
+        title: [
+          glyphs.length ? `Glyphs this face lacks, drawn and measured in Bravura: ${glyphs.join(', ')}` : '',
+          defaults.length ? `Engraving defaults it does not state (Bravura’s): ${defaults.join(', ')}` : '',
+        ].filter(Boolean).join('\n'),
+      }
+    },
+    renderScore,
   })
-
-  label.appendChild(select)
-  label.appendChild(borrowed)
-  return label
 }

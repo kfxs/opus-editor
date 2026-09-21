@@ -37,6 +37,8 @@ export interface FontFile {
   file: string
   /** A separate file per weight, never a synthesised bold (a tempo mark is set in the real one). */
   weight: 'normal' | 'bold'
+  /** A real italic is a separate FILE too — ⛔ never a slanted roman (absent means upright). */
+  style?: 'italic'
   /** Music glyphs or the words around them. */
   role: 'music' | 'text'
   /**
@@ -56,6 +58,16 @@ export const FONT_FILES: readonly FontFile[] = [
   { family: 'Sebastian', file: 'Sebastian.otf', weight: 'normal', role: 'music', display: 'block' },
   { family: 'Academico', file: 'Academico.otf', weight: 'normal', role: 'text', display: 'swap' },
   { family: 'Academico', file: 'AcademicoBold.otf', weight: 'bold', role: 'text', display: 'swap' },
+  // 🚧 EXPERIMENTAL — the dev shell's other TEXT faces (`fonts/textFont`,
+  // docs/plans/text-font-switch-plan.md). OFL 1.1; licences beside them as `<Family>-OFL.txt`.
+  // Edwin 0.54 from MuseScore's tree (`fonts/edwin/` @ 929d1e9); Nepomuk from `fkretlow/nepomuk`
+  // `redist/otf` @ c9681b3 — ⚠️ its author calls it unfinished, and it has no bold.
+  { family: 'Edwin', file: 'Edwin-Roman.otf', weight: 'normal', role: 'text', display: 'swap' },
+  { family: 'Edwin', file: 'Edwin-Italic.otf', weight: 'normal', style: 'italic', role: 'text', display: 'swap' },
+  { family: 'Edwin', file: 'Edwin-Bold.otf', weight: 'bold', role: 'text', display: 'swap' },
+  { family: 'Edwin', file: 'Edwin-BdIta.otf', weight: 'bold', style: 'italic', role: 'text', display: 'swap' },
+  { family: 'Nepomuk', file: 'Nepomuk-Regular.otf', weight: 'normal', role: 'text', display: 'swap' },
+  { family: 'Nepomuk', file: 'Nepomuk-Italic.otf', weight: 'normal', style: 'italic', role: 'text', display: 'swap' },
 ]
 
 /** Where a font file is served — Vite's base path, so a non-root deployment finds it too. */

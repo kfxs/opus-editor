@@ -10,6 +10,7 @@
  */
 import { drawnFontPx } from '../../painter/drawnFontSize'
 import { musicOnlyStack } from '@/engine/fonts/musicFont'
+import { textFamily } from '@/engine/fonts/textFont'
 
 export const DYNAMIC_GLYPH_SIZE = 30
 /**
@@ -52,9 +53,15 @@ export const DYNAMIC_TEXT_SIZE = 16
 export const DYNAMIC_GLYPH_INK_ABOVE = drawnFontPx(DYNAMIC_GLYPH_SIZE) * 0.68 // baseline → glyph top
 export const DYNAMIC_GLYPH_INK_BELOW = drawnFontPx(DYNAMIC_GLYPH_SIZE) * 0.18 // baseline → glyph bottom
 
-/** Serif stack for custom-text dynamics — has a true italic face (the music font
- *  doesn't), so expression text actually slants. Styling will be user-configurable later. */
-export const DYNAMIC_TEXT_FONT = 'Georgia, "Times New Roman", Times, serif'
+/**
+ * The face EXPRESSION words are set in (`dolce`, `cresc.`) — ITALIC (Gould p. 492), so it is the
+ * active text face's italic (`fonts/textFont`). ⭐ A function since the text face became a choice.
+ * For Academico, which has no italic, that is the system serif stack this always was — chosen
+ * because it has a true italic face (the music font doesn't), so expression text actually slants.
+ */
+export function expressionTextFamily(): string {
+  return textFamily('italic')
+}
 
 /**
  * ⭐ The face a dynamic's annotation is set in — italic serif first, the music font LAST as the
@@ -63,7 +70,7 @@ export const DYNAMIC_TEXT_FONT = 'Georgia, "Times New Roman", Times, serif'
  */
 export function dynamicAnnotationFont() {
   return {
-    family: `${DYNAMIC_TEXT_FONT}, ${musicOnlyStack()}`,
+    family: `${expressionTextFamily()}, ${musicOnlyStack()}`,
     size: DYNAMIC_TEXT_SIZE,
     weight: 'normal',
     style: 'italic',

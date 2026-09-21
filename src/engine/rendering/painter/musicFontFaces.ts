@@ -14,13 +14,14 @@
  */
 import { FONT_FILES, fontFileUrl, type FontFile } from '@/engine/fonts/fontFiles'
 import { DEFAULT_MUSIC_FONT, MUSIC_FONTS, activeMusicFont } from '@/engine/fonts/musicFont'
+import { DEFAULT_TEXT_FONT, TEXT_FONTS, activeTextFont } from '@/engine/fonts/textFont'
 
 let registered: Promise<void> | undefined
 const ours = new Set<FontFace>()
 const loadedFamilies = new Map<string, Promise<void>>()
 
 function install(row: FontFile): Promise<unknown> {
-  const face = new FontFace(row.family, `url(${fontFileUrl(row.file)})`, { weight: row.weight, display: row.display })
+  const face = new FontFace(row.family, `url(${fontFileUrl(row.file)})`, { weight: row.weight, style: row.style ?? 'normal', display: row.display })
   document.fonts.add(face)
   ours.add(face)
   return face.load()
@@ -43,16 +44,18 @@ export function registerMusicFontFaces(): Promise<void> {
   registered ??= (() => {
     if (!hasFontLoading()) return Promise.resolve()
     const defaultFamily = MUSIC_FONTS.find(row => row.id === DEFAULT_MUSIC_FONT)!.family
-    const opening = FONT_FILES.filter(row => row.role === 'text' || row.family === defaultFamily)
+    const defaultText = TEXT_FONTS.find(row => row.id === DEFAULT_TEXT_FONT)!.family
+    const opening = FONT_FILES.filter(row => row.family === defaultText || row.family === defaultFamily)
     for (const row of opening) loadedFamilies.set(row.family, Promise.resolve())
     const loads = opening.map(install)
-    return Promise.allSettled([...loads, loadMusicFont(activeMusicFont().family)]).then(() => undefined)
+    return Promise.allSettled([...loads, loadMusicFont(activeMusicFont().family), loadMusicFont(activeTextFont().family)])
+      .then(() => undefined)
   })()
   return registered
 }
 
 /**
- * Install one music face's file and resolve once it has loaded or failed — ⛔ a render in a face
+ * Install one face's files (a music face, or every style of a TEXT face — `fonts/textFont`) and resolve once it has loaded or failed — ⛔ a render in a face
  * that has not arrived engraves Bravura (the stack's fallback) and MEASURES it, so a switch awaits
  * this first. Memoized per family; resolves immediately for a face already in, and in jsdom.
  */

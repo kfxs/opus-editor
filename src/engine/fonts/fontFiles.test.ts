@@ -11,8 +11,8 @@ describe('FONT_FILES', () => {
     expect(FONT_FILES.filter(row => row.role === 'music').map(row => row.family)).toEqual(['Bravura', 'Leipzig', 'Sebastian'])
   })
 
-  it('no face is listed twice — one file per family and weight', () => {
-    const keys = FONT_FILES.map(row => `${row.family}|${row.weight}`)
+  it('no face is listed twice — one file per family, weight and style', () => {
+    const keys = FONT_FILES.map(row => `${row.family}|${row.weight}|${row.style ?? 'normal'}`)
     expect(new Set(keys).size).toBe(keys.length)
   })
 

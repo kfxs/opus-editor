@@ -57,7 +57,7 @@ import { staffSpacesToPixels } from '../../staff/staffSpace'
 import {
   TRILL_CONTINUATION_INSET, TRILL_END_INSET, TRILL_GLYPH_SIZE, TRILL_LINE, TRILL_MARK_INK,
   TRILL_PAREN_LEFT, TRILL_PAREN_RIGHT,
-  TRILL_PAREN_FONT, TRILL_PAREN_RAISE, TRILL_PAREN_SCALE, TRILL_SIGN_GAP, TRILL_SIGN_GLYPH,
+  trillParenFont, TRILL_PAREN_RAISE, TRILL_PAREN_SCALE, TRILL_SIGN_GAP, TRILL_SIGN_GLYPH,
   TRILL_WIGGLE_GLYPH,
 } from './trillStyle'
 import type { RenderPass } from '../../RenderPass'
@@ -886,7 +886,7 @@ export function drawTrillSign(ctx: RenderPass['context'], x: number, y: number, 
   const parenY = y - size * TRILL_PAREN_RAISE
   const paren = (text: string, at: number): number =>
     drawTextRun(ctx, 'TrillRenderer.paren', text, at, parenY,
-      { family: TRILL_PAREN_FONT, sizePt: size, style: 'italic' })
+      { family: trillParenFont(), sizePt: size, style: 'italic' })
 
   let width = paren(TRILL_PAREN_LEFT, x)
   width += glyph(TRILL_SIGN_GLYPH, x + width)

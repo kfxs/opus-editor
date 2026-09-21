@@ -108,6 +108,14 @@ a SMuFL name, present only in Bravura and partly Sebastian.
 
 ### Text companions
 
+> 🚨 **CORRECTED 2026-09-21 — the paragraph below mixes TWO kinds of font, and the difference is the
+> whole point.** A WORDS face (Academico, Edwin, Nepomuk) sets `Allegro` and `dolce`. A SMuFL **"… Text"**
+> font (Bravura Text, Leland Text, **Sebastian Text**) is *music symbols cut to sit inside a line of
+> words* — measured: Sebastian Text is 986 SMuFL glyphs in one style, and its ASCII slots hold Finale's
+> legacy symbol layout (`q` is a quarter note), ⛔ not letters. See
+> `docs/research/music-text-fonts-research.md`. ⚠️ And Nepomuk ships TWO files upstream (regular,
+> italic), not the six weights reported below.
+
 A SMuFL font is normally a **pair** — the music font and a text font for dynamics, tempo and
 expression. Free ones, all OFL-1.1: **Academico** (Bravura's, ✅ we already ship it), **Bravura Text**,
 **Leland Text**, **Petaluma Text** + **Petaluma Script**, **MuseJazz Text**, **Sebastian Text**,

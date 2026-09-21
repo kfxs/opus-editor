@@ -1,5 +1,6 @@
 import { dotGapGeneration } from '@/engine/layout/dotGap'
 import { musicFontGeneration } from '@/engine/fonts/musicFont'
+import { textFontGeneration } from '@/engine/fonts/textFont'
 import { accidentalGapGeneration } from '@/engine/layout/accidentalGap'
 import { renderProbe } from '@/engine/RenderProbe' // TEMPORARY — the §9 layout-breakdown probes
 import type { Measure } from '@/types/music'
@@ -148,6 +149,8 @@ export function laneFingerprint(lane: Measure): string {
       //    glyphs measured on the canvas are width inputs, and — because the SHAPE key embeds this
       //    fingerprint — this one line is also what re-engraves every bar in the new face.
       musicFontGeneration(),
+      // 🚧 …and the chosen TEXT face (`fonts/textFont`): a bar's words are drawn inside its group too.
+      textFontGeneration(),
       lane.slots,
       lane.clefs ?? null,
       // ⚠️ The key signature is here for what it does to the NOTES, not for the room it takes: it

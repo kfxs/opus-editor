@@ -12,7 +12,7 @@
  */
 import type { Clearance, MarkInk } from '@/engine/layout/inkBand'
 import { inkSpaces } from '../../painter/drawnFontSize'
-import { DYNAMIC_TEXT_FONT } from '../dynamics/dynamicStyle'
+import { expressionTextFamily } from '../dynamics/dynamicStyle'
 
 /**
  * ⭐⭐ **The numeral, keyed by the SIGNED shift — HIS CALL, 2026-08-13: `8va` and `8ba`.**
@@ -75,7 +75,10 @@ export const OTTAVA_PAREN_RIGHT = ')'
 
 /** The serif stack the parens are set in — the one face in play with a TRUE italic. Shared with the
  *  trill's, so the two families' brackets cannot drift apart. */
-export const OTTAVA_PAREN_FONT = DYNAMIC_TEXT_FONT
+/** A function: the italic of the active text face (`fonts/textFont`). */
+export function ottavaParenFont(): string {
+  return expressionTextFamily()
+}
 
 /**
  * Paren size as a fraction of {@link OTTAVA_GLYPH_SIZE} — a fraction, not its own px value, so the

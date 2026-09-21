@@ -61,7 +61,7 @@ import {
   OTTAVA_CONTINUATION_INSET, OTTAVA_DASH_GAP, OTTAVA_DASH_LENGTH, OTTAVA_END_AIR, OTTAVA_GLYPH_SIZE,
   OTTAVA_HOOK, OTTAVA_LINE,
   OTTAVA_LINE_RAISE_ABOVE, OTTAVA_LINE_RAISE_BELOW, OTTAVA_MARK_INK, OTTAVA_MIN_LINE, OTTAVA_NUMERAL_GAP, OTTAVA_NUMERAL_GLYPHS,
-  OTTAVA_PAREN_FONT, OTTAVA_PAREN_LEFT, OTTAVA_PAREN_RAISE, OTTAVA_PAREN_RIGHT, OTTAVA_PAREN_SCALE,
+  ottavaParenFont, OTTAVA_PAREN_LEFT, OTTAVA_PAREN_RAISE, OTTAVA_PAREN_RIGHT, OTTAVA_PAREN_SCALE,
 } from './ottavaStyle'
 import type { RenderPass } from '../../RenderPass'
 import { drawGroupOf, svgNode } from '../../painter/svgDrawGroup'
@@ -629,7 +629,7 @@ export function drawOttavaNumeral(
   const parenY = y - size * OTTAVA_PAREN_RAISE
   const paren = (text: string, at: number): number =>
     drawTextRun(ctx, 'OttavaRenderer.paren', text, at, parenY,
-      { family: OTTAVA_PAREN_FONT, sizePt: size, style: 'italic' })
+      { family: ottavaParenFont(), sizePt: size, style: 'italic' })
 
   let width = paren(OTTAVA_PAREN_LEFT, x)
   width += glyph(numeral, x + width)

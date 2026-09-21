@@ -193,7 +193,13 @@ function pickFont(style: RunStyle, char: string, fonts: Map<string, Font>): Font
   for (const family of style.families) {
     // A family with no bold file of its own falls back to its regular face — the same one the
     // browser would synthesise from, and closer than dropping the whole run to a text face.
-    const font = fonts.get(fontKey(family, style.bold)) ?? fonts.get(fontKey(family, false))
+    // ⭐ An italic run wants the italic FILE. ⛔ Never the upright face for a family that ships no
+    //    italic: outlining `dolce` from a roman would silently un-slant it — better to leave the run
+    //    as text. Music glyphs are exempt (a dynamic's letters ride an italic run, and no music face
+    //    is italic).
+    const font = style.italic && !musical
+      ? fonts.get(fontKey(family, style.bold, true)) ?? fonts.get(fontKey(family, false, true))
+      : fonts.get(fontKey(family, style.bold)) ?? fonts.get(fontKey(family, false))
     if (!font) {
       if (musical) continue // a text face cannot be drawing this — keep looking for the music font
       return null

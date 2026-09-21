@@ -20,7 +20,7 @@ import type { EngravedStave } from '../../engraved/EngravedStave'
 import type { ChordRest, Measure, Dynamic, Fraction } from '@/types/music'
 import { fracCompare, fracGte, fracToNumber } from '@/utils/fraction'
 import { splitDynamicRuns, dynamicLabel, composeDynamicGlyphs } from '@/utils/dynamics'
-import { dynamicAnnotationFont, DYNAMIC_GLYPH_SIZE, DYNAMIC_TEXT_SIZE, DYNAMIC_TEXT_FONT, DYNAMIC_GLYPH_INK_ABOVE, DYNAMIC_GLYPH_INK_BELOW } from './dynamicStyle'
+import { dynamicAnnotationFont, DYNAMIC_GLYPH_SIZE, DYNAMIC_TEXT_SIZE, expressionTextFamily, DYNAMIC_GLYPH_INK_ABOVE, DYNAMIC_GLYPH_INK_BELOW } from './dynamicStyle'
 import { dynamicOffsetOverrideOf } from '../../../models/engravingOverrides'
 import { setDynamicMarkNudge, shiftDynamicMark } from './dynamicMarkTransform'
 import { drawnTextOrigin, firstDrawnText } from '../../painter/drawnText'
@@ -278,7 +278,7 @@ export function enlargeDynamicGlyphRuns(text: SVGTextElement, dyn: Dynamic): voi
       // tighter shape for free. See composeDynamicGlyphs.
       tspan.textContent = composeDynamicGlyphs(run.text)
     } else {
-      tspan.setAttribute('font-family', DYNAMIC_TEXT_FONT)
+      tspan.setAttribute('font-family', expressionTextFamily())
       tspan.setAttribute('font-style', 'italic')
       // SVG collapses whitespace at a run's edges; a non-breaking space survives (see TempoLayout).
       tspan.textContent = run.text.replace(/ /g, ' ')
