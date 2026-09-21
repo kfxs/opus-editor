@@ -26,6 +26,9 @@ import { musicFontReady } from '@/engine/rendering/painter/musicFontReady'
 import { isOwnFontFace, loadMusicFont } from '@/engine/rendering/painter/musicFontFaces'
 import { MUSIC_FONTS, setActiveMusicFont, type MusicFontId } from '@/engine/fonts/musicFont'
 import { TEXT_FONTS, setActiveTextFont, type TextFontId } from '@/engine/fonts/textFont'
+import { circleSpine, straightSpine } from '@/engine/engrave/staff/staffSpine'
+import { drawScoreOnSpine } from '@/engine/rendering/eye/spineScore'
+import { SvgPainter } from '@/engine/rendering/painter/SvgPainter'
 import { A4_NORMAL, SKETCH_CANVAS } from '@/engine/layout/surface'
 import { exportScorePdf } from '@/engine/export/pdfExport'
 import { censusColumns, type BarSpacing } from '@/dev/spacingCensus'
@@ -93,6 +96,9 @@ export interface Harness {
   setMusicFont(id: MusicFontId): Promise<void>
   /** 🚧 …and the WORDS' face, the same way (`fonts/textFont`, docs/plans/text-font-switch-plan.md). */
   setTextFont(id: TextFontId): Promise<void>
+  /** ⭐ The open score drawn on a BENT STAFF (`rendering/eye/spineScore`) into its own `<div id="spine">`
+   *  — a circle of `radius`, or a straight spine when it is 0. Returns the panel's element id. */
+  drawSpine(radius: number): string
   /** Wait for the score's fonts WITHOUT rendering — `engine/rendering/painter/musicFontReady`, the gate every
    *  engraving path takes. A spec that draws before `render()` must await this first. */
   fontReady(): Promise<void>
@@ -300,6 +306,18 @@ const harness: Harness = {
   async setTextFont(id: TextFontId): Promise<void> {
     await loadMusicFont(TEXT_FONTS.find(row => row.id === id)!.family)
     setActiveTextFont(id)
+  },
+  drawSpine(radius: number): string {
+    document.getElementById('spine')?.remove()
+    const panel = document.createElement('div')
+    panel.id = 'spine'
+    document.body.appendChild(panel)
+    const size = radius > 0 ? 2 * (radius + 80) : 900
+    const painter = new SvgPainter(panel)
+    painter.resize(size, radius > 0 ? size : 200)
+    const spine = radius > 0 ? circleSpine(size / 2, size / 2, radius) : straightSpine(40, 80, 800)
+    drawScoreOnSpine(painter, engine.getScore(), spine)
+    return panel.id
   },
   fontReady: musicFontReady,
 

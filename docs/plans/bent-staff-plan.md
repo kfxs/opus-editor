@@ -117,7 +117,7 @@ start to port it there."* Read from the source (`eye/spineScore.ts`, `eye/spineS
 | 2 | clef + meter at the start | BLOCK | ✅ `drawSpineHeader` | — |
 | 3 | note · chord · rest · accidental · dot · articulation · ledger lines · stem · FLAG | BLOCK | ✅ one block per slot, through the page's `NoteBuilder` | — |
 | 4 | plain barline | BLOCK | ✅ `drawSpineBarline` | — |
-| 5 | **BEAMS** | BLOCK (the GROUP is the block) | ⛔ every eighth draws a flag | **§6 — next** |
+| 5 | **BEAMS** | BLOCK (the GROUP is the block) | ✅ `drawBeamedBlock` — option (a), §6 | heads riding the arc = option (b), a row to add |
 | 6 | key signature in the header; mid-score clef / meter / key CHANGES; cautionaries | BLOCK | ⛔ the header is clef + meter, once | the signs are `StaveSign`s already (`drawSpineSign` takes any) — needs the positional walk (`resolveStaffClefs/Keys` per bar) and room for them (#14) |
 | 7 | barline TYPES — final, double, repeats with dots and wings | BLOCK | ⛔ plain only | `layout/barlineSign.barlineSignParts` is pure: draw its strokes + dots in a block |
 | 8 | tuplet number + bracket | BLOCK (with its group) | ⛔ | rides #5's group block; ⚠️ `ScoreTuplet` still draws straight on the painter (`scene/` cannot see it) |
@@ -138,7 +138,7 @@ start to port it there."* Read from the source (`eye/spineScore.ts`, `eye/spineS
 12 staves → B (17–19). Blocks first because they reuse the page's classes; ROOM (#14) early because
 every block's `s` comes from it; SPANS last because each is a re-solve, not a placement.
 
-## 6. BEAMS on the spine — possible, and how (NEXT, awaiting his word)
+## 6. BEAMS on the spine — ✅ option (a) BUILT 2026-09-21 (his word: *"start with beams"*)
 
 **Possible, and the plan always meant it**: `placementAt` places a BLOCK, and §1's plate shows what a
 beamed group is on a bent staff — *beams STRAIGHT, the group's stems PARALLEL, one rigid block*.
@@ -164,3 +164,22 @@ beamed group is on a bent staff — *beams STRAIGHT, the group's stems PARALLEL,
   - **(c) break long groups by beat** on a tight radius — a beaming decision, ⛔ changes the music's
     look, so not by default.
   Build (a) first — it is the smallest and shows the problem honestly — with (b) as a row to switch.
+
+> ✅ **As built.** Step 1: `rendering/beams/beamGroups.ts` — `buildBeams` + `PLACEHOLDER_BEAM` moved out of
+> `ScoreRenderer` UNCHANGED (the body used nothing of the renderer's but a one-line delegation; the 305
+> browser tests are the proof nothing moved), with its own spec. Step 2: `eye/spineStaff.drawBeamedBlock`
+> — the group's notes in ONE `BarVoice`, `formatColumns`, then each column `setX` to its distance along
+> the path (the same last word `format/spacingPass` has on the page), the page's `EngravedBeam` drawn
+> inside, the block placed at the group's MIDDLE `s`. `eye/spineScore` asks `buildBeams` BEFORE any
+> note is formatted, so a beamed note reserves no flag room. ⚠️ A group holding a FAN gets no `Beam`
+> from `buildBeams` (the page draws fans by hand) — its notes stay lone blocks until row 10.
+> Seen in Chromium (`e2e/spineBeams.e2e.ts` holds the structure; `window.__h.drawSpine(radius)` draws
+> the open score on a spine in the harness).
+>
+> 🚨 **The sagitta is REAL in the console, not only on paper**: `__spine.circle()` keeps a minimum radius
+> of 160, so a SHORT score is stretched round it — one bar of eighths round R = 200 puts each pair
+> 157 px apart and its end heads **1.5 sp off their lines** (seen). At the console's own density
+> (48 px per quarter, four bars) a pair is 24 px and sits right. ⇒ option (b) matters exactly when the
+> music is sparse for its circle — his eye to call.
+> ⚠️ The sixteenths CROWD (12 px apart, tighter than a notehead): that is row 14 — the spine's spacing
+> is still time-proportional — ⛔ not a beam problem.

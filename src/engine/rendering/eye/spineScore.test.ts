@@ -91,3 +91,30 @@ describe('drawScoreOnSpine', () => {
     expect(new Set(xs).size).toBe(4)
   })
 })
+
+describe('drawScoreOnSpine — BEAMS (docs/plans/bent-staff-plan.md §6)', () => {
+  const addEighth = (m: ScoreModel, measure: number, halfBeat: number, step: PitchStep = 'C') =>
+    m.addNote({ step, octave: 5, duration: '8', measure, beat: { num: halfBeat, den: 2 }, staff: 0 })
+
+  it('⭐ a beam group is ONE block — fewer blocks than slots, by the notes that share a beam', () => {
+    const m = model(1)
+    for (let i = 0; i < 4; i++) addEighth(m, 1, i)
+    const beamGroups = 2 // the page's grouper: four eighths in 4/4 are two beats of two
+    const beamedNotes = 4
+    expect(blocksOf(m)).toHaveLength(HEADER_BLOCKS + (slotCount(m) - beamedNotes) + beamGroups + 1)
+  })
+
+  it('a lone eighth stays its own block — nothing to beam with', () => {
+    const m = model(1)
+    addEighth(m, 1, 1)
+    expect(blocksOf(m)).toHaveLength(HEADER_BLOCKS + slotCount(m) + 1)
+  })
+
+  it('a beamed block is placed by a rotation at its MIDDLE — not upright, on a circle', () => {
+    const m = model(1)
+    for (let i = 4; i < 6; i++) addEighth(m, 1, i)
+    const placed = blocksOf(m).map(group => group.placement).filter(p => p && Math.abs(p.b) > 1e-6)
+    expect(placed.length).toBeGreaterThan(0)
+  })
+})
+

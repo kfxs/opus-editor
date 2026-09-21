@@ -4,10 +4,11 @@ import { tremoloOn, TREMOLO_FLAG_STEM_STRETCH, TREMOLO_STROKE_CLEARANCE, usableS
 import { twoNoteTremoloStrokes } from './engraved/TwoNoteTremolo'
 import { TREMOLO_PAIR_GROUP, pairDrawing, pairIsJoined, pairRoleAt, pairStrokesDrawn } from '@/utils/tremoloPair'
 import { fanStemExtension } from './beams/FannedBeam'
-import { drawFannedBeams, drawCrossBarFanBeams, type FanJoin } from './beams/FanPass'
+import { drawFannedBeams, drawCrossBarFanBeams } from './beams/FanPass'
+import { PLACEHOLDER_BEAM, buildBeams } from './beams/beamGroups'
 import { clearLedgersForAccidentals } from './format/ledgerAccidentalClearance'
 import { armedStandoffPx, placeAccidentals } from './format/accidentalPlacement'
-import { EngravedNote, drawNoteInkThrough, type NoteBeam } from './engraved/EngravedNote'
+import { EngravedNote, drawNoteInkThrough } from './engraved/EngravedNote'
 import { accidentalHitBox } from './painter/drawnHitBox'
 import { accidentalsOn } from './engraved/EngravedAccidental'
 import { hasArticulation } from './engraved/EngravedArticulation'
@@ -21,7 +22,7 @@ import {
   drawBeamLines as fillBeamRun,
 } from '@/engine/engrave/beams/beamLines'
 import { beamLineYAt } from '@/engine/engrave/beams/beamSlopeFit'
-import { EngravedBeam, applyFractionalBeamSides, drawBeamInkThrough } from './engraved/EngravedBeam'
+import { EngravedBeam, drawBeamInkThrough } from './engraved/EngravedBeam'
 import { EngravedStave, drawStaveInkThrough } from './engraved/EngravedStave'
 import { measureGroupKey, type MeasureBounds, type MeasurePlacement } from './renderTypes'
 import type { DrawContext } from '@/engine/paint/DrawContext'
@@ -51,8 +52,7 @@ import { pairPadding } from '@/engine/layout/spacingPadding'
 import { glyphBox } from '@/engine/fonts/fontMetrics'
 import { tupletBracketed, tupletBracketEnd, tupletMarkRuns } from '@/utils/musicUtils'
 import { measureCapacityFrac } from '@/utils/measureCapacity'
-import { getMeterInfo, type MeterInfo } from '@/utils/meter'
-import { computeBeamGroups, secondaryBreakIndices } from '@/utils/beaming'
+import { getMeterInfo } from '@/utils/meter'
 import { planCrossBarBeams, laneKey, type CrossBarBeamPlan, type CrossBarJoin, type CrossBarFanJoin, type CrossBarSide, type LaneBeamPlan } from './beams/CrossBarBeams'
 import { ElementRegistry, offsetStaffGeometry, type TupletGeometry, type ClefSegment, type ElementInfo, type StaffGeometry } from '@/engine/ElementRegistry'
 import { measureShapeKey } from './MeasureRedrawKey'
@@ -226,19 +226,6 @@ function localPlacement(p: MeasurePlacement): MeasurePlacement {
   if (p.scale === 1) return p
   return { ...p, x: p.x / p.scale, y: p.y / p.scale, width: p.width / p.scale }
 }
-
-/**
- * The stand-in a note wears while its real beam does not exist yet — a note beamed across a barline,
- * between its own bar's draw and the post-measure pass that builds the joined `Beam`
- * (docs/plans/cross-barline-beaming-plan.md).
- *
- * It is never drawn and never asked anything: VexFlow only tests `note.beam` for *existence* when
- * deciding to draw a flag (`shouldDrawFlag`) or a stem (`draw`), and the one method it does call on
- * it — `postFormat`, forwarded by `StemmableNote.postFormat` during formatting — is the no-op below.
- * A real `Beam` cannot serve: its constructor throws on fewer than two notes, and `♪ | ♪` (one note
- * each side of the barline) is the canonical case this feature exists for.
- */
-const PLACEHOLDER_BEAM: NoteBeam = { postFormat: () => {} }
 
 /**
  * Everything one drawn (measure, staff) produced, kept so the **next** render can reuse it instead
@@ -1983,7 +1970,7 @@ export class ScoreRenderer {
         // groups this bar builds itself, and which of its notes are waiting for a beam that spans
         // the barline (docs/plans/cross-barline-beaming-plan.md).
         const lane = beamPlan?.lanes.get(laneKey(measure.number, staffIndex, g.voice))
-        const { beams, fanJoins } = this.buildBeams(g.staveNotes, g.slots, meter, clefForBeat, g.forcedStem, lane?.inBar)
+        const { beams, fanJoins } = buildBeams(g.staveNotes, g.slots, meter, clefForBeat, g.forcedStem, lane?.inBar)
         // A two-note tremolo whose DRAWN value is beamable owns its own beam — the meter never gives
         // it one (`pairRoleAt` breaks the group in the pure grouper), so without this the pair draws
         // with flags. Built here, with the others, because it must exist BEFORE the format pass.
@@ -2792,90 +2779,6 @@ export class ScoreRenderer {
     }
 
     return { scoreTuplets, tupletStaveNoteMap }
-  }
-
-  /**
-   * This lane's beams — plus the JOINED FAN GROUPS, which get no `Beam` at all.
-   *
-   * ⭐ A group holding a fanned slot is the fan's (docs/plans/fan-beam-join-plan.md P1): its beam is drawn
-   * by hand from end to end, because "VexFlow's beam meets our ramp at the shared stem" would be a
-   * polyline of three slopes where a beam group must be one straight edge, and it would put two
-   * owners on one stem tip. One line, one owner, one pass. So all this does for such a group is
-   * settle the stem direction and suppress the prefix's own stems and flags; {@link drawFannedBeams}
-   * draws it once the geometry is real.
-   */
-  private buildBeams(
-    staveNotes: EngravedNote[],
-    sortedSlots: ChordRest[],
-    meter: MeterInfo,
-    clefForBeat: (beat: Fraction) => Clef,
-    forcedStemDirection?: number,
-    /** This lane's groups, when a cross-barline plan owns them (docs/plans/cross-barline-beaming-plan.md).
-     *  A lane whose barline is open cannot be grouped from its own slots alone — a leading
-     *  `continue` reads as an orphan — so the plan's answer replaces the per-bar one. */
-    inBarGroups?: number[][],
-  ): { beams: EngravedBeam[]; fanJoins: FanJoin[] } {
-    const groupIndices = inBarGroups ?? computeBeamGroups(sortedSlots, meter)
-    const beams: EngravedBeam[] = []
-    const fanJoins: FanJoin[] = []
-
-    for (const indices of groupIndices) {
-      try {
-        const groupSlots = indices.map(i => sortedSlots[i])
-        // A beam group lies within one clef region; use the clef at its first slot.
-        const groupClef = groupSlots.length ? clefForBeat(groupSlots[0].beat) : 'treble'
-
-        // ⭐ THE JOINED FAN — or fanS: P2 puts a whole CHAIN of them on one beam, each joined to the
-        // one before it, and the fans are always the group's TAIL (nothing but a fan may follow a
-        // fan), so everything in front of the first one is the prefix.
-        const fans = indices.filter(i => { const slot = sortedSlots[i]; return slot.type === 'chord' && !!slot.fan })
-        if (fans.length) {
-          // Rests are dropped: a `beamOver` rest is inside the span but has no stem to aim, and the
-          // line simply runs over it.
-          const prefix = indices.filter(i => i < fans[0] && sortedSlots[i].type === 'chord')
-          // A group of one is not a beam. The grouper drops those already; this is the same rule for
-          // a group the renderer sees through the cross-barline plan's own `inBarGroups`.
-          if (prefix.length + fans.length < 2) continue
-          // Every fan's OWNER votes on the direction with its own notes — they are members of this
-          // group, and a beam group has one direction.
-          // ⏭ Open: whether the fans' MEMBER pitches vote too. They are not in `slot.notes`, so
-          // `calculateBeamGroupStemDirection` cannot see them today.
-          const stemDirection = this.calculateBeamGroupStemDirection(groupSlots, groupClef, forcedStemDirection)
-          for (const i of prefix) {
-            // The placeholder goes on AFTER the direction — `setStemDirection` CLEARS `note.beam`.
-            staveNotes[i].setStemDirection(stemDirection)
-            staveNotes[i].setBeam(PLACEHOLDER_BEAM)
-          }
-          // ⚠️ THE OWNERS ARE LEFT ALONE, and that is not a shortcut. `StaveNote.draw` skips the stem
-          // whenever `note.beam` is set, so a placeholder there would delete the one stem this whole
-          // feature anchors its line to; and `getStemExtension()` answers `stemBeamExtension` once
-          // `beam` is set, which MOVES the tip and would make a joined fan sit at a different height
-          // from an unjoined one. Nothing is bought either way — `NoteBuilder` already builds a
-          // fanned slot as a plain quarter, so there is no flag to suppress.
-          for (const i of fans) staveNotes[i].setStemDirection(stemDirection)
-          fanJoins.push({ prefix, fans })
-          continue
-        }
-
-        const beamStemDirection = this.calculateBeamGroupStemDirection(groupSlots, groupClef, forcedStemDirection)
-        const groupNotes = indices.map(i => staveNotes[i])
-        for (const staveNote of groupNotes) {
-          staveNote.setStemDirection(beamStemDirection)
-        }
-        const beam = new EngravedBeam(groupNotes)
-        // Secondary beam breaks — VexFlow's own primitive, no geometry of ours. The index translation
-        // (our flag is on the note the break is IN FRONT OF; VexFlow wants the note the beam ends
-        // AFTER) lives in the pure module beside the grouping.
-        const breaks = secondaryBreakIndices(groupSlots)
-        if (breaks.length) beam.breakSecondaryAt(breaks)
-        applyFractionalBeamSides(beam, groupSlots)
-        beams.push(beam)
-      } catch (beamError) {
-        console.warn(`Could not create beam: ${beamError}`)
-      }
-    }
-
-    return { beams, fanJoins }
   }
 
   /**

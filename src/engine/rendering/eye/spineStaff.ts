@@ -28,14 +28,18 @@ import type { Clef, NoteDuration, PitchAlter, PitchStep, TimeSignature } from '@
 import { middleLineDiatonicPos } from '@/utils/clefUtils'
 import { spellingDiatonicPos, spellingToNoteKey } from '@/utils/pitchSpelling'
 import { EngravedClef } from '../engraved/EngravedClef'
+import { EngravedBeam, drawBeamInkThrough } from '../engraved/EngravedBeam'
 import { EngravedNote, drawNoteInkThrough } from '../engraved/EngravedNote'
 import { EngravedStave } from '../engraved/EngravedStave'
 import { EngravedTimeSignature } from '../engraved/EngravedTimeSignature'
 import { noteRuler } from '../engraved/noteRuler'
+import { BarVoice } from '../format/barVoice'
+import { formatColumns } from '../format/columnFormat'
+import { attachModifierColumns } from '../format/modifierColumns'
 import { formatLoneNote } from '../ghosts/loneNote'
 import { drawGroupOf } from '../painter/svgDrawGroup'
 import { ledgerLineStyle } from '@/engine/layout/layoutConfig'
-import { staveFrame } from '../staff/staveFrame'
+import { standOn, staveFrame } from '../staff/staveFrame'
 import type { StaveSign } from '../staff/staveSign'
 
 /** One note to stand on a spine — a pitch, a length, and where along the spine its head is. */
@@ -82,6 +86,59 @@ export function drawNoteBlock(ctx: DrawContext, spine: Spine, engraved: Engraved
 }
 
 /** Draw ONE pitch as a rigid block on `spine` — {@link drawNoteBlock} for a caller with no score. */
+/** How far into its block stave a beamed group's first column stands — room for an accidental in front. */
+const BLOCK_LEAD_IN_PX = 40
+
+/**
+ * ⭐⭐ **A BEAMED GROUP IS ONE RIGID BLOCK** (`docs/plans/bent-staff-plan.md` §6): its notes are formatted
+ * TOGETHER on one straight stave, each column set to its distance along the path from the group's
+ * first note; the page's own `EngravedBeam` — slope, stem lengths, secondary and fractional beams —
+ * is drawn inside; and the block is placed by ONE affine at the group's MIDDLE (a wide block placed by
+ * an end leaves the curved lines at the other — the header's lesson). Beams straight, stems parallel:
+ * what the *Bike Ride* plate draws.
+ *
+ * ⚠️ Option (a) of the plan, deliberately: on a curve the END heads leave their lines by the sagitta
+ * `L² / 8R` — invisible for a beat of eighths, visible for a long group on a tight radius. Letting
+ * the heads ride the arc is option (b), a row to add once his eye has seen this one.
+ *
+ * `notes[i]` stands at `ss[i]` along the spine; `beam` was built over exactly these notes
+ * (`beams/beamGroups.buildBeams`), BEFORE this runs, so no note reserves room for a flag.
+ */
+export function drawBeamedBlock(
+  ctx: DrawContext, spine: Spine, notes: readonly EngravedNote[], beam: EngravedBeam, ss: readonly number[],
+): void {
+  if (notes.length === 0) return
+  const span = ss[ss.length - 1] - ss[0]
+  const stave = new EngravedStave(0, 0, span + 2 * BLOCK_STAVE_WIDTH)
+    .setOpeningBarline('none').setClosingBarline('none')
+  stave.setDefaultLedgerLineStyle(ledgerLineStyle())
+
+  const voice = new BarVoice({ numerator: 1, denominator: 4 }, 'soft')
+  for (const note of notes) voice.add(note)
+  attachModifierColumns([voice])
+  const columns = formatColumns([voice], span + BLOCK_FORMAT_WIDTH)
+  // ⭐ The model's x's, post-format — the same last word `format/spacingPass` has on the page.
+  columns.list.forEach((tick, i) => columns.map[tick].setX(BLOCK_LEAD_IN_PX + (ss[i] - ss[0])))
+  for (const note of notes) standOn(note, stave)
+
+  const group = drawGroupOf(ctx.openGroup(SPINE_BLOCK_CLASS))
+  try {
+    drawNoteInkThrough([...notes], ctx)
+    for (const note of notes) note.setContext(ctx).draw()
+    drawBeamInkThrough([beam], ctx)
+    beam.setContext(ctx).draw()
+  } finally {
+    ctx.closeGroup()
+  }
+  // The block's own point that goes to the group's middle `s`: the first head's centre, plus half the span.
+  const first = noteRuler(notes[0])
+  const middleX = (first.headLeftX + first.headRightX) / 2 + span / 2
+  group?.setPlacement(compose(
+    translation(-middleX, -staveFrame(stave).topLineY),
+    placementAt(spine, (ss[0] + ss[ss.length - 1]) / 2),
+  ))
+}
+
 export function drawSpineNote(ctx: DrawContext, spine: Spine, note: SpineNote, clef: Clef): void {
   const engraved = new EngravedNote({
     keys: [spellingToNoteKey(note.step, note.alter, note.octave)],

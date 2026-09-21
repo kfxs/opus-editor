@@ -30,9 +30,12 @@ import { fracToNumber } from '@/utils/fraction'
 import { resolveStaffKeys } from '@/utils/keySignature'
 import { voiceOf } from '@/utils/lanes'
 import { measureCapacityFrac } from '@/utils/measureCapacity'
+import { getMeterInfo } from '@/utils/meter'
 import { createStaveNotesFromSlots } from '../engraved/NoteBuilder'
 import { thinBarlinePx } from '../staff/barlineInk'
-import { drawNoteBlock, drawSpineBarline, drawSpineHeader, drawSpineStaffLines } from './spineStaff'
+import { buildBeams } from '../beams/beamGroups'
+import type { EngravedNote } from '../engraved/EngravedNote'
+import { drawBeamedBlock, drawNoteBlock, drawSpineBarline, drawSpineHeader, drawSpineStaffLines } from './spineStaff'
 
 /** Clear spine after the header, and after each barline, before the first beat. Changeable defaults. */
 const HEADER_TO_BAR_PX = 12
@@ -77,12 +80,22 @@ export function drawScoreOnSpine(ctx: DrawContext, score: Score, spine: Spine): 
         .sort((a, b) => fracToNumber(a.beat) - fracToNumber(b.beat))
       const forcedStem = voices.length > 1 ? (voice % 2 === 0 ? 1 : -1) : undefined
       const notes = createStaveNotesFromSlots(slots, clef, forcedStem, 0, keys.get(measure.number))
-      notes.forEach((note, n) => {
-        const slot = slots[n]
+      const at = slots.map(slot => {
         // A whole-bar rest stands in the MIDDLE of its bar, as on the page.
         const share = slot.type === 'rest' && slot.isMeasureRest ? 0.5 : fracToNumber(slot.beat) / capacities[i]
-        drawNoteBlock(ctx, spine, note, barStart + BAR_LEAD_IN_PX + share * (barLength - BAR_LEAD_IN_PX))
+        return barStart + BAR_LEAD_IN_PX + share * (barLength - BAR_LEAD_IN_PX)
       })
+      // ⭐ WHICH notes beam together is the PAGE's answer (`beams/beamGroups`) — asked BEFORE any
+      //    note is formatted, so a beamed note reserves no room for a flag it will not draw.
+      //    ⚠️ A group holding a FAN gets no `Beam` there (the page draws it by hand): its notes stay
+      //    lone blocks here until fans are ported (plan §5 row 10).
+      const { beams } = buildBeams(notes, slots, getMeterInfo(measure.timeSignature), () => clef, forcedStem)
+      const beamed = new Set<EngravedNote>()
+      for (const beam of beams) {
+        for (const note of beam.notes) beamed.add(note)
+        drawBeamedBlock(ctx, spine, beam.notes, beam, beam.notes.map(note => at[notes.indexOf(note)]))
+      }
+      notes.forEach((note, n) => { if (!beamed.has(note)) drawNoteBlock(ctx, spine, note, at[n]) })
     }
     barStart += barLength
     drawSpineBarline(ctx, spine, barStart, thinBarlinePx())
