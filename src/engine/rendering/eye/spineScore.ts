@@ -23,6 +23,7 @@
  */
 import type { DrawContext } from '@/engine/paint/DrawContext'
 import type { Spine } from '@/engine/engrave/staff/staffSpine'
+import { innerLengthRatio } from '@/engine/engrave/staff/staffSpine'
 import { keyStaffId, staffMeasureView } from '@/engine/models/staffContent'
 import type { Score } from '@/types/music'
 import { resolveStaffClefs } from '@/utils/clefUtils'
@@ -34,7 +35,7 @@ import { createStaveNotesFromSlots } from '../engraved/NoteBuilder'
 import { thinBarlinePx } from '../staff/barlineInk'
 import { buildBeams } from '../beams/beamGroups'
 import type { EngravedNote } from '../engraved/EngravedNote'
-import { spaceBarsOnSpine } from './spineSpacing'
+import { deepestInkPx, spaceBarsOnSpine } from './spineSpacing'
 import { drawBeamedBlock, drawNoteBlock, drawSpineBarline, drawSpineHeader, drawSpineStaffLines } from './spineStaff'
 
 /** Clear spine after the header, and after each barline, before the first beat. Changeable defaults. */
@@ -65,7 +66,8 @@ export function drawScoreOnSpine(ctx: DrawContext, score: Score, spine: Spine): 
   //    the spine is ONE JUSTIFIED SYSTEM — a circle's length is fixed by its radius, and an open
   //    spine's last barline closes its staff lines, as a line's does on the page. Whoever makes the
   //    spine sizes it from `naturalSpineLength`, so the stretch stays small.
-  const bars = spaceBarsOnSpine(score, musicStart, musicEnd, true)
+  // ⭐ …spaced on the arc where the DEEPEST ink stands — a loop's inside is shorter than its spine.
+  const bars = spaceBarsOnSpine(score, musicStart, musicEnd, true, innerLengthRatio(spine, deepestInkPx(score)))
   score.measures.forEach((measure, i) => {
     const bar = bars[i]
     const lane = staffMeasureView(measure, staffId, score)

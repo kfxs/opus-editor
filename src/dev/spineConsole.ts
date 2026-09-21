@@ -25,7 +25,7 @@
  * (`engine/engrave/staff/staffSpine` · `spineLines` · `engine/rendering/eye/*`), this is the entry
  * point, and `App.ts` wires it.
  */
-import { naturalSpineLength } from '../engine/rendering/eye/spineSpacing'
+import { deepestInkPx, naturalSpineLength } from '../engine/rendering/eye/spineSpacing'
 import { musicFontGeneration } from '../engine/fonts/musicFont'
 import { textFontGeneration } from '../engine/fonts/textFont'
 import { dbg } from '@/utils/debug'
@@ -114,7 +114,9 @@ export function spineConsole(deps: SpineConsoleDeps): SpineConsole {
     if (shape.kind === 'straight') {
       return { spine: straightSpine(MARGIN_PX, MARGIN_PX, length), width: length + 2 * MARGIN_PX, height: 2 * MARGIN_PX + 40 }
     }
-    const radius = shape.radius ?? Math.max(AUTO_MIN_RADIUS, length / (2 * Math.PI))
+    // ⭐ `length` is what the music asks where its DEEPEST ink stands — the inner arc — so the spine
+    //    itself is that much further out (`eye/spineSpacing.deepestInkPx`).
+    const radius = shape.radius ?? Math.max(AUTO_MIN_RADIUS, length / (2 * Math.PI) + deepestInkPx(score))
     const size = 2 * (radius + MARGIN_PX)
     return { spine: circleSpine(size / 2, size / 2, radius), width: size, height: size }
   }

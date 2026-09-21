@@ -81,10 +81,41 @@ export function naturalSpineLength(score: Score): number {
 }
 
 /**
- * Every bar's room between `from` and `to` along the spine. `justify` makes the bars FILL that room
- * (a closed spine); otherwise each takes its natural width from `from` on and `to` is ignored.
+ * ⭐ How far below the spine the score's DEEPEST ink reaches, in px — never less than the staff itself
+ * (the clef and the meter fill it). What {@link spaceBarsOnSpine}'s `innerRatio` is asked of.
  */
-export function spaceBarsOnSpine(score: Score, from: number, to: number, justify: boolean): SpineBar[] {
+export function deepestInkPx(score: Score): number {
+  const STAFF_DEPTH_SPACES = 4
+  let deepest = STAFF_DEPTH_SPACES
+  for (const measure of score.measures) {
+    for (const column of ask(score, measure).columns) {
+      for (const box of column.ink) deepest = Math.max(deepest, box.bottom)
+    }
+  }
+  return deepest * STAFF_SPACE_PX
+}
+
+/**
+ * Every bar's room between `from` and `to` along the spine. `justify` makes the bars FILL that room;
+ * otherwise each takes its natural width from `from` on and `to` is ignored.
+ *
+ * ⭐⭐ **`innerRatio` — the music is spaced where its DEEPEST INK stands** (his report, 2026-09-21: low
+ * notes and their accidentals collided round the circle). `s` is measured on the spine, the TOP staff
+ * line; ink inside a loop stands on a SHORTER arc (`staffSpine.innerLengthRatio`), so room that is
+ * right on the top line is a third too little six spaces down. So the law is given the inner arc's
+ * length — there, nothing stands closer than it would on the page — and each answer is mapped back
+ * out to the spine by its angle (÷ ratio). Everything nearer the rim gets more room, which is what a
+ * circle is. 1 on a straight spine: nothing changes.
+ */
+export function spaceBarsOnSpine(
+  score: Score, from: number, to: number, justify: boolean, innerRatio: number = 1,
+): SpineBar[] {
+  if (innerRatio !== 1) {
+    // Lay the bars out in the INNER arc's own distances, from 0 — then every `s` goes back out.
+    const inner = spaceBarsOnSpine(score, 0, (to - from) * innerRatio, justify)
+    const out = (s: number): number => from + s / innerRatio
+    return inner.map(bar => ({ start: out(bar.start), end: out(bar.end), columnAt: beat => out(bar.columnAt(beat)) }))
+  }
   const asked = score.measures.map(measure => ask(score, measure))
   const leadIns = asked.reduce((total, bar) => total + bar.leadIn, 0)
   const naturals = asked.reduce((total, bar) => total + bar.natural, 0)

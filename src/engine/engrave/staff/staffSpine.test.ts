@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { apply, isTranslation } from '@/engine/paint/Affine'
-import { circleSpine, placementAt, pointAt, straightSpine } from './staffSpine'
+import { circleSpine, innerLengthRatio, placementAt, pointAt, straightSpine } from './staffSpine'
 
 /**
  * ⭐ Pure arithmetic — a bent staff's whole contract runs in jsdom (`docs/plans/bent-staff-plan.md` A2).
@@ -95,3 +95,19 @@ describe('circleSpine', () => {
     close(circleSpine(0, 0, 10, 0).at(0), 10, 0)         // three o'clock
   })
 })
+
+describe('innerLengthRatio — a loop’s inside is shorter than its spine', () => {
+  it('a circle’s arc at depth d is 2π(R − d): the ratio is (R − d) / R', () => {
+    expect(innerLengthRatio(circleSpine(0, 0, 200), 50)).toBeCloseTo(150 / 200, 10)
+  })
+
+  it('an open spine loses nothing; depth 0 loses nothing', () => {
+    expect(innerLengthRatio(straightSpine(0, 0, 900), 50)).toBe(1)
+    expect(innerLengthRatio(circleSpine(0, 0, 200), 0)).toBe(1)
+  })
+
+  it('never collapses — a depth past the centre is floored', () => {
+    expect(innerLengthRatio(circleSpine(0, 0, 40), 60)).toBe(0.25)
+  })
+})
+

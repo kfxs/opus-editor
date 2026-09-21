@@ -186,8 +186,13 @@ src/
                           #   eye/ (⭐ a BENT STAFF — `engrave/staff/staffSpine`: a staff is a PATH; lines
                           #   drawn FROM it, each note/clef/barline a RIGID BLOCK placed ON it by ONE
                           #   affine, ⛔ never deformed. `spineScore` reads the open score; shown by
-                          #   `__spine.circle()` in its own panel — ⛔ the real canvas asks no spine yet:
-                          #   docs/plans/bent-staff-plan.md).
+                          #   `__spine.circle()` in its own panel — ⛔ the real canvas asks no spine yet.
+                          #   ⭐ `spineSpacing`: WHERE a column stands is the PAGE's spacing asked for one
+                          #   justified line — spacing is 1-D, the path only maps it — spaced on the arc
+                          #   where the DEEPEST ink stands (a loop's inside is shorter). A BEAMED GROUP is
+                          #   one block (`beams/beamGroups` is the page's grouping, shared): beam straight,
+                          #   stems parallel, each HEAD placed where the path puts it at its own depth.
+                          #   ⭐ docs/plans/bent-staff-plan.md §5 is the PORT MAP — what the spine lacks).
                           #   What follows names the modules that carry a rule — FanPass, GhostRenderer
                           #   (+ HeaderSignGhost / MarkGhost — S11: a ghost drawn by the score's OWN
                           #   classes on our surface, ⛔ never a throwaway VexFlow stave/voice/formatter),

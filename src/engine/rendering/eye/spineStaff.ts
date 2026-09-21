@@ -20,7 +20,7 @@
 import type { DrawContext } from '@/engine/paint/DrawContext'
 import { compose, translation } from '@/engine/paint/Affine'
 import type { Spine } from '@/engine/engrave/staff/staffSpine'
-import { placementAt } from '@/engine/engrave/staff/staffSpine'
+import { placementAt, pointAt } from '@/engine/engrave/staff/staffSpine'
 import { drawSpineLines } from '@/engine/engrave/staff/spineLines'
 import { staffLineY } from '@/engine/engrave/staff/staffFrame'
 import { staveLineWidthPx } from '@/engine/engrave/staff/staffLines'
@@ -115,7 +115,16 @@ export function drawBeamedBlock(
   // ⭐ Option (b): WHERE the path puts each note, seen from the block — the block's frame is the
   //    path's tangent at the group's middle, so on a straight spine every `y` is 0 and every `x` the
   //    plain distance, and on a curve the ends fall away toward the centre by the sagitta.
-  const local = ss.map(s => toBlockSpace(spine, middle, s))
+  // ⚠️ …asked at each note's OWN DEPTH, not on the top line (his report, 2026-09-21: adjacent blocks
+  //    collided). A low head hangs spaces below the spine, and inside the block it hangs along the
+  //    BLOCK's down — which at the block's ends is not the path's own down, so deep heads swung
+  //    outward by `depth × tilt`, into the next block. So the question is where the path puts the
+  //    HEAD, and the note's stave is set so the head lands there.
+  const depths = notes.map(headDepth)
+  const local = ss.map((s, i) => {
+    const head = toBlockSpace(spine, middle, s, depths[i])
+    return { x: head.x, y: head.y - depths[i] }
+  })
   const span = local[local.length - 1].x - local[0].x
 
   const voice = new BarVoice({ numerator: 1, denominator: 4 }, 'soft')
@@ -153,10 +162,25 @@ export function drawBeamedBlock(
   ))
 }
 
-/** The spine's point at `s`, in the frame of the block placed at `middle`: x along its tangent, y across it. */
-function toBlockSpace(spine: Spine, middle: number, s: number): { x: number; y: number } {
+/**
+ * How far below its stave's top line a note's head stands, px — the middle of a chord's heads. Asked
+ * of the note on a stave at y = 0, before it is given the stave it will be drawn on.
+ */
+function headDepth(note: EngravedNote): number {
+  const probe = new EngravedStave(0, 0, BLOCK_STAVE_WIDTH)
+  standOn(note, probe)
+  const ys = noteRuler(note).headYs
+  if (ys.length === 0) return 0
+  return (Math.min(...ys) + Math.max(...ys)) / 2 - staveFrame(probe).topLineY
+}
+
+/**
+ * The path's point at `s` and `depth` below it, in the frame of the block placed at `middle`: x along
+ * that block's tangent, y across it.
+ */
+function toBlockSpace(spine: Spine, middle: number, s: number, depth: number = 0): { x: number; y: number } {
   const origin = spine.at(middle)
-  const point = spine.at(s)
+  const point = pointAt(spine, s, depth)
   const dx = point.x - origin.x
   const dy = point.y - origin.y
   const cos = Math.cos(origin.angle)

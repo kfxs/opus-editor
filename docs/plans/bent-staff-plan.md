@@ -205,3 +205,27 @@ consumes it. ⭐ **Spacing is ONE-DIMENSIONAL; the path only maps it.** There is
   INSIDE a circle has less arc, by `(R − d) / R` at depth `d` — on R = 160 the bottom line is 25 %
   shorter, so low notes sit closer than the law says (his score's first sixteenth stands near the
   meter). Options when it bothers: measure `s` along the MIDDLE line, or space by the innermost ink.
+
+## 8. COLLISIONS round the circle — two causes found and fixed, one left (2026-09-21, his report)
+
+His second score: low notes with accidentals, in beamed groups, colliding round the circle.
+
+1. ✅ **The music is spaced where its DEEPEST ink stands.** `s` is the TOP staff line; ink inside a loop
+   stands on a shorter arc — for any closed curve that turns once, the offset curve at depth `d` is
+   shorter by `2π·d` (`staffSpine.innerLengthRatio`; a circle's `(R − d) / R`). Low notes six spaces
+   down on R ≈ 170 had a third less room than the law gave them. ⇒ `spineSpacing.spaceBarsOnSpine`
+   takes an `innerRatio`: the law is given the INNER arc's length (there nothing stands closer than on
+   the page) and every answer goes back out to the spine by its angle; everything nearer the rim gets
+   more room. `deepestInkPx(score)` reads the columns' own ink boxes; the console adds it to the
+   radius it sizes. ⚠️ Assumes EVEN curvature (true of a circle).
+2. ✅ **A beamed head is placed where the path puts it AT ITS OWN DEPTH.** §7 lowered each note to the
+   path under it on the top line — but a low head hangs spaces deeper, along the BLOCK's down, which
+   at a block's ends is not the path's own down: deep heads swung outward by `depth × tilt`, into the
+   NEXT block. `drawBeamedBlock` now asks `pointAt(spine, s, headDepth)` and sets the note's stave so
+   the head lands there.
+3. ⏭️ **Left: a note's MODIFIERS are tilted with the block, not with the path.** At a long block's ends
+   an accidental stands up-left of its head (along the block's horizontal) instead of beside it along
+   the arc — by `L / 2R`, ≈ 17° for four sixteenths on R ≈ 175. Clear of collisions, not yet right.
+   The cure is a note as its own rotated sub-block (head + accidental + dots + articulation at the
+   LOCAL angle) with only the stems and the beam in the group's frame. ⚠️ And it shrinks by itself as
+   the circle grows: a two-bar demo is the worst case this will ever see.

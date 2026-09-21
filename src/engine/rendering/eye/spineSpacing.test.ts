@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { ScoreModel } from '@/engine/models/ScoreModel'
 import type { NoteDuration } from '@/types/music'
-import { naturalSpineLength, spaceBarsOnSpine } from './spineSpacing'
+import { deepestInkPx, naturalSpineLength, spaceBarsOnSpine } from './spineSpacing'
 
 /**
  * WHERE the columns stand along a spine is the PAGE's spacing (`layout/measureColumns` + `layout/spacing`)
@@ -63,3 +63,35 @@ describe('spaceBarsOnSpine', () => {
     expect(at[3]).toBeLessThan(bar.end)
   })
 })
+
+describe('spacing where the DEEPEST ink stands — a loop’s inside is shorter than its spine', () => {
+  it('deepestInkPx is never less than the staff, and grows with a note below it', () => {
+    const empty = model(1)
+    expect(deepestInkPx(empty.getScore())).toBe(40)
+    const low = model(1)
+    low.addNote({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: { num: 0, den: 1 }, staff: 0 })
+    expect(deepestInkPx(low.getScore())).toBeGreaterThan(40)
+  })
+
+  it('⭐ on the inner arc the columns stand exactly as the law says; on the spine they are that much further apart', () => {
+    const m = model(1)
+    for (let i = 0; i < 4; i++) add(m, 1, i, 1, 'q')
+    const score = m.getScore()
+    const ratio = 0.7
+    const onSpine = spaceBarsOnSpine(score, 100, 100 + 700, true, ratio)[0]
+    const onInnerArc = spaceBarsOnSpine(score, 0, 700 * ratio, true)[0]
+    const gap = (bar: typeof onSpine) => bar.columnAt(beat(2)) - bar.columnAt(beat(1))
+    expect(gap(onSpine) * ratio).toBeCloseTo(gap(onInnerArc), 6)
+    expect(onSpine.end).toBeCloseTo(800, 6)
+    expect(onSpine.start).toBe(100)
+  })
+
+  it('a ratio of 1 — a straight spine — changes nothing', () => {
+    const m = model(1)
+    add(m, 1, 0, 1, 'q')
+    const a = spaceBarsOnSpine(m.getScore(), 10, 500, true)[0]
+    const b = spaceBarsOnSpine(m.getScore(), 10, 500, true, 1)[0]
+    expect([b.start, b.end, b.columnAt(beat(0))]).toEqual([a.start, a.end, a.columnAt(beat(0))])
+  })
+})
+

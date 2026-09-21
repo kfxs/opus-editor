@@ -106,6 +106,27 @@ export function circleSpine(cx: number, cy: number, radius: number, startAngle: 
  * ⭐⭐ **WHERE A RIGID BLOCK SITS** — the block's own origin lands on the spine at `s`, its x axis
  * along the direction of travel. ⛔ A BLOCK, not a note: a beamed group is placed by this same call.
  */
+/**
+ * ⭐ **How much SHORTER the path is at `depth` below the spine** (px, toward the inside) — the ratio
+ * of the offset curve's length to the spine's own.
+ *
+ * A staff bent into a loop has less arc on its inner lines than on the line the spine IS: for any
+ * closed curve that turns once, the offset curve at depth `d` is shorter by exactly `2π·d` (a circle's
+ * `2π(R − d)` is the plain case). An OPEN spine that does not turn loses nothing.
+ *
+ * It exists because spacing is a promise about INK not touching, and ink deep inside a circle stands
+ * on the short arc: `eye/spineSpacing` spaces the music along the arc where the deepest ink is, so
+ * that promise holds there, and everything nearer the rim simply gets more.
+ *
+ * ⚠️ Treats the curvature as EVEN along the path (true of a circle) — a path that bends sharply in
+ * one place crowds its inside THERE more than this says. ⚠️ And "inside" is the staff's DOWNWARD side,
+ * which is where `circleSpine` puts the centre.
+ */
+export function innerLengthRatio(spine: Spine, depth: number): number {
+  if (!spine.closed || spine.length <= 0) return 1
+  return Math.max(0.25, (spine.length - 2 * Math.PI * depth) / spine.length)
+}
+
 export function placementAt(spine: Spine, s: number): Affine {
   const { x, y, angle } = spine.at(s)
   return compose(rotation(angle), translation(x, y))

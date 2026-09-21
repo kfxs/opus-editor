@@ -28,6 +28,7 @@ import { MUSIC_FONTS, setActiveMusicFont, type MusicFontId } from '@/engine/font
 import { TEXT_FONTS, setActiveTextFont, type TextFontId } from '@/engine/fonts/textFont'
 import { circleSpine, straightSpine } from '@/engine/engrave/staff/staffSpine'
 import { drawScoreOnSpine } from '@/engine/rendering/eye/spineScore'
+import { deepestInkPx, naturalSpineLength } from '@/engine/rendering/eye/spineSpacing'
 import { SvgPainter } from '@/engine/rendering/painter/SvgPainter'
 import { A4_NORMAL, SKETCH_CANVAS } from '@/engine/layout/surface'
 import { exportScorePdf } from '@/engine/export/pdfExport'
@@ -97,7 +98,8 @@ export interface Harness {
   /** 🚧 …and the WORDS' face, the same way (`fonts/textFont`, docs/plans/text-font-switch-plan.md). */
   setTextFont(id: TextFontId): Promise<void>
   /** ⭐ The open score drawn on a BENT STAFF (`rendering/eye/spineScore`) into its own `<div id="spine">`
-   *  — a circle of `radius`, or a straight spine when it is 0. Returns the panel's element id. */
+   *  — a circle of `radius`, a straight spine when it is 0, the console's own sizing when negative.
+   *  Returns the panel's element id. */
   drawSpine(radius: number): string
   /** Wait for the score's fonts WITHOUT rendering — `engine/rendering/painter/musicFontReady`, the gate every
    *  engraving path takes. A spec that draws before `render()` must await this first. */
@@ -307,7 +309,11 @@ const harness: Harness = {
     await loadMusicFont(TEXT_FONTS.find(row => row.id === id)!.family)
     setActiveTextFont(id)
   },
-  drawSpine(radius: number): string {
+  drawSpine(asked: number): string {
+    // A NEGATIVE radius sizes the circle the way the dev console does: from what the music asks.
+    const radius = asked < 0
+      ? Math.max(160, (90 + naturalSpineLength(engine.getScore()) * 1.15) / (2 * Math.PI) + deepestInkPx(engine.getScore()))
+      : asked
     document.getElementById('spine')?.remove()
     const panel = document.createElement('div')
     panel.id = 'spine'
