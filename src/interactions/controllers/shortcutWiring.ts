@@ -1,7 +1,6 @@
 import { dbg } from '@/utils/debug'
 import { TUPLET_PRESETS, tupletPresetAction } from '@/utils/tupletPresets'
 import type { MusicEngine } from '../../engine/MusicEngine'
-import { ELEMENT_SPECS } from '../elements/chain'
 import type { KeysCtx } from '../elements/keys'
 import type { Fraction } from '@/types/music'
 import type { EditorState } from '../state/EditorState'
@@ -19,6 +18,7 @@ import { selectedArticulationNoteIds } from '../state/selection'
 import { markItems, marksLabel, removeMarks } from '../clipboard/enclosedMarks'
 import { passageOf, spansStaves } from '../state/measurePassage'
 import { nudgeSelectedRests } from './restShiftKeys'
+import { selectedElementKeys } from '../elements/selectedKeys'
 import { flipSelection } from '../state/flipSelection'
 import { repeatSelectedPassage } from '../state/repeatPassage'
 import { nudgeArmedHairpinMouth, resetArmedHairpinMouth } from '../elements/hairpinHandles'
@@ -126,38 +126,11 @@ export function wireShortcuts(
     })
   }
 
-  /**
-   * ⭐⭐ **THE ARROWS ASK THE SELECTED ELEMENT'S OWN ROW** (`elements/keys`, the `keys` column of
-   * `ELEMENT_SPECS`). ⛔ No per-kind closure and no `||` link per kind here: a kind that answers the
-   * arrows says so in `elements/<kind>Keys`. DECLINEs when nothing is selected, or the kind has no
-   * answer — and then the key carries on down whatever is left of its chain.
-   */
+  // ⭐ The arrows ask the selected element's own row, or the GROUP of marks — `elements/selectedKeys`.
   const keysCtx = (engine: MusicEngine): KeysCtx =>
     ({ engine, state, render: () => renderer.renderScore(), afterMarkPress })
-  const nudgeSelectedElement = (dx: number, dy: number): boolean => {
-    const eng = getEngine()
-    const element = state.selectedElement
-    if (!eng || !element) return false
-    return ELEMENT_SPECS[element.kind].keys?.nudge?.(keysCtx(eng), element, dx, dy) ?? false
-  }
-  const resetSelectedElement = (): boolean => {
-    const eng = getEngine()
-    const element = state.selectedElement
-    if (!eng || !element) return false
-    return ELEMENT_SPECS[element.kind].keys?.reset?.(keysCtx(eng), element) ?? false
-  }
-  const reanchorSelectedElement = (direction: 1 | -1): boolean => {
-    const eng = getEngine()
-    const element = state.selectedElement
-    if (!eng || !element) return false
-    return ELEMENT_SPECS[element.kind].keys?.reanchor?.(keysCtx(eng), element, direction) ?? false
-  }
-  const cycleSelectedElement = (step: 1 | -1): boolean => {
-    const eng = getEngine()
-    const element = state.selectedElement
-    if (!eng || !element) return false
-    return ELEMENT_SPECS[element.kind].keys?.cycle?.(keysCtx(eng), element, step) ?? false
-  }
+  const { nudge: nudgeSelectedElement, reset: resetSelectedElement, reanchor: reanchorSelectedElement, cycle: cycleSelectedElement } =
+    selectedElementKeys(getEngine, state, keysCtx)
 
   /**
    * ⭐⭐ **Shift+↑/↓ opens and closes the MOUTH** of the selected wedge, with its mouth-bearing square
