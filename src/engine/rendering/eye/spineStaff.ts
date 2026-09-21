@@ -18,7 +18,7 @@
  * its notehead's centre stands along it.
  */
 import type { DrawContext } from '@/engine/paint/DrawContext'
-import { compose, translation } from '@/engine/paint/Affine'
+import { compose, rotationAbout, translation } from '@/engine/paint/Affine'
 import type { Spine } from '@/engine/engrave/staff/staffSpine'
 import { placementAt, pointAt } from '@/engine/engrave/staff/staffSpine'
 import { drawSpineLines } from '@/engine/engrave/staff/spineLines'
@@ -54,6 +54,9 @@ export interface SpineNote {
 
 /** The class of a placed block's group — what a scene reader (and the spec) finds them by. */
 export const SPINE_BLOCK_CLASS = 'spine-block'
+
+/** The class of one note's own ink INSIDE a beamed block — the group the local tilt turns. */
+export const SPINE_NOTE_CLASS = 'spine-note'
 
 /** The stand-in stave a lone note is formatted on. Only the block's SHAPE survives the placement. */
 const BLOCK_STAVE_WIDTH = 200
@@ -144,14 +147,45 @@ export function drawBeamedBlock(
   })
 
   const group = drawGroupOf(ctx.openGroup(SPINE_BLOCK_CLASS))
+  // ⭐ Each note's OWN ink — heads, accidentals, dots, articulations, ledger lines — in a group of its
+  //    own, turned below to the path's LOCAL angle. A beamed note draws no stem (the beam draws them
+  //    all, `EngravedBeam.drawStems`), so what `note.draw()` paints is exactly what must turn, and the
+  //    stems and the beam stay in the block's frame: parallel, and straight.
+  const noteGroups: (ReturnType<typeof drawGroupOf>)[] = []
   try {
     drawNoteInkThrough([...notes], ctx)
-    for (const note of notes) note.setContext(ctx).draw()
+    for (const note of notes) {
+      noteGroups.push(drawGroupOf(ctx.openGroup(SPINE_NOTE_CLASS)))
+      try {
+        note.setContext(ctx).draw()
+      } finally {
+        ctx.closeGroup()
+      }
+    }
     drawBeamInkThrough([beam], ctx)
     beam.setContext(ctx).draw()
   } finally {
     ctx.closeGroup()
   }
+  // ⭐⭐ THE LOCAL TILT (plan §8.3). The block stands on the tangent at its MIDDLE, so toward its ends
+  //    "beside the head" along the block is not beside it along the ARC: an accidental stood up-left
+  //    of its head by `L / 2R` — ≈ 17° for four sixteenths on R ≈ 175 (seen, 2026-09-21). So each
+  //    note's ink is turned about the CENTRE of its heads by how far the path has turned between the
+  //    block's middle and the note. ⚠️ About the heads' centre and nothing else: that point is where
+  //    `local` put the note ON the path (its own depth), and a turn about it moves it nowhere — the
+  //    heads stay on their lines. The stem meets a head turned by a few degrees a fraction of a
+  //    pixel off its edge, inside the overlap the two already have.
+  //    On a straight spine every tilt is 0 and the placement is the identity.
+  const blockAngle = spine.at(middle).angle
+  notes.forEach((note, i) => {
+    const tilt = spine.at(ss[i]).angle - blockAngle
+    if (tilt === 0) return
+    const ruler = noteRuler(note)
+    if (ruler.headYs.length === 0) return
+    const cx = (ruler.headLeftX + ruler.headRightX) / 2
+    const cy = (Math.min(...ruler.headYs) + Math.max(...ruler.headYs)) / 2
+    noteGroups[i]?.setPlacement(rotationAbout(tilt, cx, cy))
+  })
   // The block's own point that goes to the group's middle `s`: the first head's centre is `local[0].x`
   // from it along the tangent, and a stave at y = 0 has its top line at `blockFrame().topLineY`… = 0.
   const first = noteRuler(notes[0])

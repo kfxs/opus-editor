@@ -223,9 +223,19 @@ His second score: low notes with accidentals, in beamed groups, colliding round 
    at a block's ends is not the path's own down: deep heads swung outward by `depth × tilt`, into the
    NEXT block. `drawBeamedBlock` now asks `pointAt(spine, s, headDepth)` and sets the note's stave so
    the head lands there.
-3. ⏭️ **Left: a note's MODIFIERS are tilted with the block, not with the path.** At a long block's ends
-   an accidental stands up-left of its head (along the block's horizontal) instead of beside it along
-   the arc — by `L / 2R`, ≈ 17° for four sixteenths on R ≈ 175. Clear of collisions, not yet right.
-   The cure is a note as its own rotated sub-block (head + accidental + dots + articulation at the
-   LOCAL angle) with only the stems and the beam in the group's frame. ⚠️ And it shrinks by itself as
-   the circle grows: a two-bar demo is the worst case this will ever see.
+3. ✅ **A note's OWN ink turns with the PATH, not with the block** (BUILT 2026-09-21, his word: *"yes
+   do it"*). At a long block's ends an accidental stood up-left of its head (along the block's
+   horizontal) instead of beside it along the arc — by `L / 2R`, ≈ 17° for four sixteenths on
+   R ≈ 175 — and a ledger line cut across the staff lines at the same angle. ⇒ In `drawBeamedBlock`
+   each note draws into a group of its own (`SPINE_NOTE_CLASS`), turned about the CENTRE OF ITS HEADS
+   by `angle(s_note) − angle(s_middle)`. ⭐ It costs nothing structurally: a beamed note draws no stem
+   (the beam draws them all), so `note.draw()` paints exactly what must turn — heads, accidentals,
+   dots, articulations, ledger lines — and the stems and the beam stay in the block's frame, parallel
+   and straight. ⭐ The pivot is the point `local` had already put ON the path at the note's own
+   depth, so the turn moves no head off its line. ⚠️ The stem now meets a head turned by a few
+   degrees — a fraction of a pixel off its edge, inside the overlap the two already have.
+   Proof (`spineScore.test.ts`): block turn + note turn = the circle's tangent where the note stands
+   (read back from the scene alone); the two ends turn equal and opposite; stems and beam are NOT in
+   the note groups; a straight spine turns nothing. Looked at in Chromium, before and after, on his
+   worst case (low sixteenths with accidentals, beamed in fours).
+   ⏭️ Left: a TUPLET's bracket and a slur are not notes and do not turn (port map #8, #13).

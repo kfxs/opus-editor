@@ -2,9 +2,9 @@ import { describe, it, expect } from 'vitest'
 import { circleSpine, straightSpine } from '@/engine/engrave/staff/staffSpine'
 import { ScoreModel } from '@/engine/models/ScoreModel'
 import { SceneRecorder } from '@/engine/scene/SceneRecorder'
-import { sceneGroups, scenePrimitives } from '@/engine/scene/Scene'
+import { sceneGroups, scenePrimitives, type SceneGroup } from '@/engine/scene/Scene'
 import type { PitchStep } from '@/types/music'
-import { SPINE_BLOCK_CLASS } from './spineStaff'
+import { SPINE_BLOCK_CLASS, SPINE_NOTE_CLASS } from './spineStaff'
 import { drawScoreOnSpine } from './spineScore'
 
 /**
@@ -115,6 +115,62 @@ describe('drawScoreOnSpine — BEAMS (docs/plans/bent-staff-plan.md §6)', () =>
     for (let i = 4; i < 6; i++) addEighth(m, 1, i)
     const placed = blocksOf(m).map(group => group.placement).filter(p => p && Math.abs(p.b) > 1e-6)
     expect(placed.length).toBeGreaterThan(0)
+  })
+
+  describe('⭐ the LOCAL TILT — a note’s own ink turns with the PATH, not with the block (plan §8.3)', () => {
+    /** The rotation a placement carries, radians — `atan2(b, a)` of the matrix. */
+    const turn = (group: SceneGroup) => Math.atan2(group.placement.b, group.placement.a)
+
+    const beamedPair = (spine = circleSpine(400, 400, 250)) => {
+      const m = model(1)
+      for (let i = 4; i < 6; i++) addEighth(m, 1, i)
+      const block = blocksOf(m, spine).find(group => sceneGroups(group, SPINE_NOTE_CLASS).length > 0)!
+      return { block, notes: sceneGroups(block, SPINE_NOTE_CLASS) }
+    }
+
+    it('each beamed note has a group of its own inside the block', () => {
+      expect(beamedPair().notes).toHaveLength(2)
+    })
+
+    it('⭐ the two ends turn by EQUAL and OPPOSITE angles about the block’s middle', () => {
+      const [first, last] = beamedPair().notes.map(turn)
+      expect(Math.abs(first)).toBeGreaterThan(1e-3)
+      expect(first + last).toBeCloseTo(0, 9)
+      // …and the first note is BEFORE the middle, so it is turned back against the path's turning.
+      expect(Math.sign(first)).toBe(-Math.sign(last))
+    })
+
+    it('⭐⭐ block turn + note turn = the PATH’s own angle where the note stands', () => {
+      // Read back from the scene alone: a rotation about a point leaves that point where it was, so
+      // the note's pivot is the fixed point of its placement — (I − R)·c = (e, f). Through the
+      // block's placement that is a PAGE point, and on a circle the tangent there is square to the
+      // radius through it — at any depth, since a deeper head is on the same radius.
+      const centre = { x: 400, y: 400 }
+      const { block, notes } = beamedPair(circleSpine(centre.x, centre.y, 250))
+      for (const note of notes) {
+        const { a, b, c, d, e, f } = note.placement
+        const det = (1 - a) * (1 - d) - c * b
+        const pivot = { x: ((1 - d) * e + c * f) / det, y: (b * e + (1 - a) * f) / det }
+        const B = block.placement
+        const page = { x: B.a * pivot.x + B.c * pivot.y + B.e, y: B.b * pivot.x + B.d * pivot.y + B.f }
+        const radial = Math.atan2(page.y - centre.y, page.x - centre.x)
+        const drawn = turn(block) + turn(note)
+        // Square to the radius, whichever way round the path runs: cos of the difference is 0.
+        expect(Math.cos(drawn - radial)).toBeCloseTo(0, 6)
+      }
+    })
+
+    it('⛔ the STEMS and the BEAM stay in the block’s frame — parallel, and straight', () => {
+      const { block, notes } = beamedPair()
+      for (const note of notes) expect(sceneGroups(note, 'stem')).toHaveLength(0)
+      expect(sceneGroups(block, 'stem')).toHaveLength(2)
+      expect(sceneGroups(block, 'beam').length).toBeGreaterThan(0)
+      for (const note of notes) expect(sceneGroups(note, 'beam')).toHaveLength(0)
+    })
+
+    it('on a STRAIGHT spine nothing turns — the page’s own picture', () => {
+      for (const note of beamedPair(straightSpine(0, 100, 2000)).notes) expect(turn(note)).toBe(0)
+    })
   })
 })
 
