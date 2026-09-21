@@ -37,8 +37,8 @@ import { describe, it, expect } from 'vitest'
 import { ScoreModel } from '../models/ScoreModel'
 import { ScoreRenderer } from './ScoreRenderer'
 import { scenePrimitives, sceneGroups, walkScene } from '@/engine/scene/Scene'
-import { LEDGER_LINE_STYLE } from '@/engine/layout/layoutConfig'
-import { THIN_BARLINE_PX } from './staff/barlineInk'
+import { ledgerLineStyle } from '@/engine/layout/layoutConfig'
+import { thinBarlinePx } from './staff/barlineInk'
 import { STAVE_LINE_WIDTH_PX, staffLineMidY } from '@/engine/engrave/staff/staffLines'
 import { meterOriginX } from '@/engine/engrave/header/meter'
 import { armedClefMeterInk } from '@/engine/layout/clefMeterGap'
@@ -194,8 +194,8 @@ describe('⭐⭐ P3a — the LEDGER LINES, the first piece of a NOTE in the scen
       // ⭐ The ink this editor already decided (`layoutConfig.LEDGER_LINE_STYLE`) — black, and
       // Bravura's `legerLineThickness / staffLineThickness` ratio, ⛔ not VexFlow's grey 2 px.
       // P3a inherited it unchanged; `ledgerLineStyle.test.ts` is where it is pinned.
-      expect(p.style.stroke, 'black, not VexFlow’s grey').toBe(LEDGER_LINE_STYLE.strokeStyle)
-      expect(p.style.lineWidth).toBeCloseTo(LEDGER_LINE_STYLE.lineWidth, 10)
+      expect(p.style.stroke, 'black, not VexFlow’s grey').toBe(ledgerLineStyle().strokeStyle)
+      expect(p.style.lineWidth).toBeCloseTo(ledgerLineStyle().lineWidth, 10)
       // ⚠️ jsdom measures every glyph 0 wide, so the notehead contributes nothing here — what is
       // left is the overhang at both ends, and that is arithmetic rather than font.
       expect(p.ops[1].x - p.ops[0].x, 'two overhangs of 3 px').toBeCloseTo(6, 6)
@@ -793,7 +793,7 @@ describe('⭐⭐ P5b — the OPENING BARLINE in the scene, and the DOM repair th
     const { scene } = render(4)
     const rects = barlineRects(scene)
     expect(rects.length, 'the opening line, plus one per bar boundary').toBeGreaterThanOrEqual(5)
-    for (const r of rects) expect(r.width, 'one weight for every line on the page').toBeCloseTo(THIN_BARLINE_PX, 10)
+    for (const r of rects) expect(r.width, 'one weight for every line on the page').toBeCloseTo(thinBarlinePx(), 10)
   })
 
   // 🚨 The break-test: an empty scene, or a leftmost rect that is really an end barline, would slip

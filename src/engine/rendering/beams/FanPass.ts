@@ -38,7 +38,7 @@ import {
   type FanGeometryOptions,
   type FanQuad,
 } from './FannedBeam'
-import { CROSS_SYSTEM_BEAM_WIDTH } from './beamInk'
+import { crossSystemBeamWidth } from './beamInk'
 import { fillBeamQuad } from '@/engine/engrave/beams/beamLines'
 import { ledgerLineRuns, drawLedgerLines } from '@/engine/engrave/notes/ledgerLines'
 import { drawStem } from '@/engine/engrave/notes/stem'
@@ -453,7 +453,7 @@ function drawFanGroups(pass: RenderPass, drawings: FanSlotDrawing[], fanJoins: F
           left: behind,
           right: geometry,
           toX: geometry.stems[0].stemX,
-          thickness: CROSS_SYSTEM_BEAM_WIDTH * stemDirection,
+          thickness: crossSystemBeamWidth() * stemDirection,
           // THIS fan's spread — the crossing lines land on its stems, so they keep its gap.
           spread: slot.fan?.spread,
         })
@@ -821,12 +821,12 @@ function fanSlotDrawing(input: {
       // a 32nd prefix joined to a one-beam fan is the case that under-reserves otherwise.
       minStemLength: staveFrame(stave).spacePx * FAN_MIN_STEM_SPACES
         + Math.max(
-          fanStemExtension(slot.fan.beams, CROSS_SYSTEM_BEAM_WIDTH, slot.fan.spread),
+          fanStemExtension(slot.fan.beams, crossSystemBeamWidth(), slot.fan.spread),
           // ⚠️ No spread: the prefix's levels are ORDINARY beams at the ordinary gap.
-          fanStemExtension(prefixBeams, CROSS_SYSTEM_BEAM_WIDTH),
+          fanStemExtension(prefixBeams, crossSystemBeamWidth()),
         ),
       stemDirection,
-      beamWidth: CROSS_SYSTEM_BEAM_WIDTH,
+      beamWidth: crossSystemBeamWidth(),
     },
   }
 }

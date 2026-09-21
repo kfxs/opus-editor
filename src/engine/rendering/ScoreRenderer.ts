@@ -15,7 +15,7 @@ import { drawLedgerLines } from '@/engine/engrave/notes/ledgerLines'
 import { placeDots } from './format/dotPlacement'
 import { GHOST_GROUP_SELECTOR, drawNoteGhost, drawToolGhost } from './ghosts/GhostRenderer'
 import type { GhostNote, ToolGhost } from './ghosts/ghostTypes'
-import { CROSS_SYSTEM_BEAM_WIDTH, CROSS_SYSTEM_BEAM_MARGIN, crossSystemStub } from './beams/beamInk'
+import { crossSystemBeamWidth, CROSS_SYSTEM_BEAM_MARGIN, crossSystemStub } from './beams/beamInk'
 import {
   beamLevelRun, beamLineStartX, beamRunInkBox, fillBeamQuad,
   drawBeamLines as fillBeamRun,
@@ -111,7 +111,7 @@ import { restShiftOverrideOf, restHiddenOf, restPositionKey, resolveStaffSpacing
 import { STAFF_SPACE_PX, resolveStaffSize } from '@/engine/models/staffSize'
 import { staffSpacesToPixels } from './staff/staffSpace'
 import { getStaves, staffMeasureView, firstStaffId, staffIndexOfId, staffIdAtIndex } from '@/engine/models/staffContent'
-import { LAYOUT_CONFIG, LEDGER_LINE_STYLE, type MeasureWidthInfo, type StaffSpacingLayout, type ViewMode } from '@/engine/layout/layoutConfig'
+import { LAYOUT_CONFIG, ledgerLineStyle, type MeasureWidthInfo, type StaffSpacingLayout, type ViewMode } from '@/engine/layout/layoutConfig'
 import { resolveSurface, SKETCH_CANVAS, type Surface, type SurfaceMetrics } from '@/engine/layout/surface'
 import { pageCastOff, opensPage } from '@/engine/layout/pageCastOff'
 import { inScaledStaffGroup } from './staff/staffScaleGroup'
@@ -913,7 +913,7 @@ export class ScoreRenderer {
       if (slot.type !== 'chord' || !slot.fan) continue
       const stem = staveNotes[i].getStem()
       if (!stem) continue
-      const extra = fanStemExtension(slot.fan.beams, CROSS_SYSTEM_BEAM_WIDTH, slot.fan.spread)
+      const extra = fanStemExtension(slot.fan.beams, crossSystemBeamWidth(), slot.fan.spread)
       if (extra > 0) stem.setExtension(stem.getExtension() + extra)
     }
   }
@@ -1024,7 +1024,7 @@ export class ScoreRenderer {
         minClearance: !pair.beamed && pair.flags > 0 ? noteRuler(first).glyphWidth : 0,
         joined,
         staffSpace,
-        beamWidth: CROSS_SYSTEM_BEAM_WIDTH,
+        beamWidth: crossSystemBeamWidth(),
       })
       if (quads.length === 0) continue
 
@@ -1074,7 +1074,7 @@ export class ScoreRenderer {
    * top stroke reads too close to the first note's flag, THIS is the one line to turn.
    */
   private twoNoteTremoloTipOffset(pair: { flags: number }): number {
-    return pair.flags * CROSS_SYSTEM_BEAM_WIDTH * 1.5
+    return pair.flags * crossSystemBeamWidth() * 1.5
   }
 
   /**
@@ -2407,7 +2407,7 @@ export class ScoreRenderer {
     scale: number = 1,
   ): EngravedStave {
     const stave = new EngravedStave(x, y, width)
-    stave.setDefaultLedgerLineStyle(LEDGER_LINE_STYLE)
+    stave.setDefaultLedgerLineStyle(ledgerLineStyle())
 
     // ⭐ **A barline belongs to the END of a bar, and is drawn ONCE.** VexFlow gives every stave both
     // a begin and an end barline, so every interior boundary was being drawn TWICE — bar N's end and
@@ -3003,7 +3003,7 @@ export class ScoreRenderer {
     stem.setContext(pass.painter).drawWithStyle()
 
     const levels = side.members[0].beamCount
-    const beamThickness = CROSS_SYSTEM_BEAM_WIDTH * noteRuler(note).stemDirection
+    const beamThickness = crossSystemBeamWidth() * noteRuler(note).stemDirection
     const beamY0 = stem.getExtents().topY // the stem tip, flat — a lone note has no slope to continue.
     const startX = beamLineStartX(noteRuler(note).stemX, STEM_THICKNESS_PX)
     // Left is the short fixed stub; right runs to the barline (see crossSystemOverhangEndX).

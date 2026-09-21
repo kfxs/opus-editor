@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect } from 'vitest'
-import { THIN_BARLINE_PX, hintBarlines } from './barlineInk'
+import { thinBarlinePx, hintBarlines } from './barlineInk'
 
 /**
  * Attributes, not geometry: jsdom has no layout and no fonts, so nothing here asks where the ink
@@ -33,7 +33,7 @@ function measureGroup(rects: { x: number; width: number }[]): SVGGElement {
 
 describe('barlineInk', () => {
   it('is 0.16 staff spaces — heavier than a stem (1.5) and a staff line (1)', () => {
-    expect(THIN_BARLINE_PX).toBeCloseTo(1.6)
+    expect(thinBarlinePx()).toBeCloseTo(1.6)
   })
 })
 
@@ -48,7 +48,7 @@ describe('hintBarlines', () => {
     const svg = document.createElementNS(NS, 'svg')
     // ⭐ At the width they are DRAWN at since P5b — this used to build 1 px rects and call
     // `inkBarlines` on them, which is the pass that no longer exists.
-    const group = measureGroup(xs.map(x => ({ x, width: THIN_BARLINE_PX })))
+    const group = measureGroup(xs.map(x => ({ x, width: thinBarlinePx() })))
     svg.appendChild(group)
     const ctm = { a: scale, b: 0, c: 0, d: scale, e: 0, f: 0 } as DOMMatrix
     for (const el of [svg, ...svg.querySelectorAll('rect')]) {

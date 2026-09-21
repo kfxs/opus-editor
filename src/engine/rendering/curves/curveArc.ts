@@ -10,7 +10,8 @@ import { CURVE_PX } from './curveStyle'
  * ⛔ Authored in STAFF SPACES next door (`./curveStyle`), with the belly swell every caller passes
  * as `thickness`. This file APPLIES a weight; it does not choose one.
  */
-const CURVE_OUTLINE = CURVE_PX.outline
+/** Asked per use — `CURVE_PX.outline` is the active music face's weight (`curveStyle`). */
+const curveOutline = (): number => CURVE_PX.outline
 
 /**
  * ⭐ **Verovio's thickness coefficient** (`boundingbox.cpp:945`), and the reason the authored weight
@@ -20,7 +21,7 @@ const CURVE_OUTLINE = CURVE_PX.outline
  * `CURVE.thickness` the number a book can be read against.
  */
 export function curveFillGap(nominalThickness: number): number {
-  return (nominalThickness - CURVE_OUTLINE) / 0.75
+  return (nominalThickness - curveOutline()) / 0.75
 }
 
 /**
@@ -57,7 +58,7 @@ export function drawCurveArc(
 ): { bbox: { x: number; y: number; width: number; height: number }; points: CurvePoint[]; c0: CurvePoint; c1: CurvePoint } {
   const arc: CurveArc = { p0, p1, cps, direction }
   pass.context.save()
-  pass.context.setLineWidth(CURVE_OUTLINE)
+  pass.context.setLineWidth(curveOutline())
   // The nominal the caller asked for, turned into the gap the two passes want (see above).
   drawCurveArcInk(pass.context, arc, curveFillGap(thickness))
   pass.context.restore()

@@ -1,4 +1,5 @@
-import { describe, it, expect } from 'vitest'
+import { afterEach, describe, it, expect } from 'vitest'
+import { DEFAULT_MUSIC_FONT, setActiveMusicFont } from '@/engine/fonts/musicFont'
 import { INK, INK_HEIGHT, accidentalExtent, accidentalHeight, restBand, restExtent } from './spacingPadding'
 import {
   accidentalGlyph,
@@ -278,5 +279,20 @@ describe('⛔ the overrides — every place we knowingly differ, and nowhere els
       Object.keys(INK_HEIGHT).filter(key => !coveredHeights.has(key)),
       'unsourced INK_HEIGHT rows',
     ).toEqual([])
+  })
+})
+
+describe('🚧 the rest band follows the ACTIVE music face (music-font-switch-plan B4)', () => {
+  afterEach(() => { setActiveMusicFont(DEFAULT_MUSIC_FONT) })
+
+  it('another face answers from its own glyph box; Bravura from its literals, unchanged', () => {
+    const bravura = restBand('q')
+    setActiveMusicFont('leipzig')
+    const box = glyphBox('restQuarter')
+    const leipzig = restBand('q')
+    expect(leipzig.bottom - leipzig.top).toBeCloseTo(box.up + box.down, 10)
+    expect(leipzig).not.toEqual(bravura)
+    setActiveMusicFont('bravura')
+    expect(restBand('q')).toEqual(bravura)
   })
 })

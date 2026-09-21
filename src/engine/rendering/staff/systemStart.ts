@@ -44,7 +44,7 @@ import { drawGlyph } from '../painter/glyphPainter'
 import { compose, scaling, translation } from '@/engine/paint/Affine'
 import { drawGroupOf } from '../painter/svgDrawGroup'
 import type { Score } from '@/types/music'
-import { THIN_BARLINE_PX, staffBarlineExtent } from './barlineInk'
+import { thinBarlinePx, staffBarlineExtent } from './barlineInk'
 import { STAVE_LINE_WIDTH_PX, staffLineInkBottomY } from '@/engine/engrave/staff/staffLines'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { glyphBox } from '@/engine/fonts/fontMetrics'
@@ -521,7 +521,7 @@ function drawSystemConnector(
   // deciding that it wants to be pixel-snapped too — docs/plans/braces-brackets-plan.md P3.
   ctx.openGroup('stavebarline')
   try {
-    ctx.fillRect(top.x, topY, THIN_BARLINE_PX, bottomY - topY)
+    ctx.fillRect(top.x, topY, thinBarlinePx(), bottomY - topY)
   } finally {
     ctx.closeGroup()
   }

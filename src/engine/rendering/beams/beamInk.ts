@@ -45,7 +45,9 @@ export const CROSS_SYSTEM_BEAM_MARGIN = 10
  * beam quads in the staff's own scale-group coordinates (see the note above), not in staff spaces.
  * The conversion belongs here, once, rather than at each of them.
  */
-export const CROSS_SYSTEM_BEAM_WIDTH = engravingDefault('beamThickness') * STAFF_SPACE_PX
+export function crossSystemBeamWidth(): number {
+  return engravingDefault('beamThickness') * STAFF_SPACE_PX
+}
 
 /** The stub length for an open end, by the direction it points: right (+1) runs off the line end. */
 export const crossSystemStub = (direction: number): number =>

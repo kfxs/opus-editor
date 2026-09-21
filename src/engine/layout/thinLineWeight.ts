@@ -57,7 +57,11 @@
  */
 import { engravingDefault } from '@/engine/fonts/fontMetrics'
 
-export const THIN_LINE_SPACES = engravingDefault('thinBarlineThickness')
+// ⚠️ A FUNCTION, not a constant: the weight is the ACTIVE music face's (`fonts/fontMetrics` reads
+// one table per face — docs/plans/music-font-switch-plan.md B3), so it is asked per use.
+export function thinLineSpaces(): number {
+  return engravingDefault('thinBarlineThickness')
+}
 
 /**
  * ⭐⭐ **A HAIRPIN IS DRAWN AT THE WEIGHT OF A STAFF LINE — 0.13 spaces, and it is the FONT's
@@ -143,4 +147,6 @@ export const THIN_LINE_SPACES = engravingDefault('thinBarlineThickness')
  * ⭐ And per his standing directive, this is a HOUSE STYLE'S answer: the user will be able to set a
  * different hairpin weight (`project_engraving_defaults_are_a_house_style`).
  */
-export const HAIRPIN_LINE_SPACES = engravingDefault('staffLineThickness')
+export function hairpinLineSpaces(): number {
+  return engravingDefault('staffLineThickness')
+}

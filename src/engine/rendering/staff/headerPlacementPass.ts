@@ -63,7 +63,7 @@ import { clefOriginX } from '@/engine/engrave/header/clef'
 import { meterOriginX } from '@/engine/engrave/header/meter'
 import { clefGlyph, glyphBox } from '@/engine/fonts/fontMetrics'
 import { keySignatureInkRight } from './KeySignaturePass'
-import { THIN_BARLINE_PX } from './barlineInk'
+import { thinBarlinePx } from './barlineInk'
 import { barFrame, staveFrame } from './staveFrame'
 import { signRun } from './signRun'
 
@@ -165,7 +165,7 @@ function meterOrigin(
   //   the boundary (`engrave/staff/openingBarline`'s rule 2), so its ink ends a thickness later.
   if (!clefSign) {
     return meterOriginX(
-      barFrame(stave).x + THIN_BARLINE_PX + armedBarlineMeterInk() * space, bearing, space)
+      barFrame(stave).x + thinBarlinePx() + armedBarlineMeterInk() * space, bearing, space)
   }
   // ⚠️ The clef's ink from the FONT, ⛔ not its modifier box: the box is a `measureText`, and a
   // placement built on one cannot be checked without a browser. ⭐ `firstSignX` already reads the

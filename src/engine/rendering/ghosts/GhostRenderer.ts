@@ -49,7 +49,7 @@ import { convertDuration, restKey, ARTICULATION_RENDER_ORDER } from '../engraved
 import { drawsTimeSignature } from '@/engine/layout/headerInk'
 import { drawCurveArc } from '../curves/curveArc'
 import { CURVE_PX } from '../curves/curveStyle'
-import { LEDGER_LINE_STYLE, type MeasureWidthInfo, type StaffSpacingLayout } from '@/engine/layout/layoutConfig'
+import { ledgerLineStyle, type MeasureWidthInfo, type StaffSpacingLayout } from '@/engine/layout/layoutConfig'
 import { drawFanGhost, FAN_GHOST_GROUP_CLASS } from './FanGhost'
 import { drawTrillGhost, TRILL_GHOST_GROUP_CLASS } from './TrillGhost'
 import { drawOttavaGhost, OTTAVA_GHOST_GROUP_CLASS } from './OttavaGhost'
@@ -181,7 +181,7 @@ export function drawNoteGhost(
     // ⭐ S11e: the score's own stave class, given its signs the way `ScoreRenderer` gives a bar its
     // own — so the note area the ghost is formatted into is walked by the same rule.
     const tempStave = new EngravedStave(measureX / scale, measureY / scale, staveWidth / scale)
-    tempStave.setDefaultLedgerLineStyle(LEDGER_LINE_STYLE)
+    tempStave.setDefaultLedgerLineStyle(ledgerLineStyle())
     if (ghostNote.measure === 1 || isFirstInLine) {
       tempStave.addClefSign(openingClef, 'default')
     } else if (hasClefChange) {

@@ -31,7 +31,7 @@ import { resolveStaffKeys } from '@/utils/keySignature'
 import { voiceOf } from '@/utils/lanes'
 import { measureCapacityFrac } from '@/utils/measureCapacity'
 import { createStaveNotesFromSlots } from '../engraved/NoteBuilder'
-import { THIN_BARLINE_PX } from '../staff/barlineInk'
+import { thinBarlinePx } from '../staff/barlineInk'
 import { drawNoteBlock, drawSpineBarline, drawSpineHeader, drawSpineStaffLines } from './spineStaff'
 
 /** Clear spine after the header, and after each barline, before the first beat. Changeable defaults. */
@@ -85,6 +85,6 @@ export function drawScoreOnSpine(ctx: DrawContext, score: Score, spine: Spine): 
       })
     }
     barStart += barLength
-    drawSpineBarline(ctx, spine, barStart, THIN_BARLINE_PX)
+    drawSpineBarline(ctx, spine, barStart, thinBarlinePx())
   })
 }

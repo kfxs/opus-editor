@@ -1,11 +1,11 @@
 import { describe, it, expect } from 'vitest'
 import { engravingDefault } from '@/engine/fonts/fontMetrics'
 import { STAVE_LINE_WIDTH_PX } from '@/engine/engrave/staff/staffLines'
-import { THIN_LINE_SPACES, HAIRPIN_LINE_SPACES } from '@/engine/layout/thinLineWeight'
-import { THIN_BARLINE_SPACES } from '../staff/barlineInk'
+import { thinLineSpaces, hairpinLineSpaces } from '@/engine/layout/thinLineWeight'
+import { thinBarlineSpaces } from '../staff/barlineInk'
 import { CURVE } from '../curves/curveStyle'
-import { CROSS_SYSTEM_BEAM_WIDTH } from '../beams/beamInk'
-import { LEDGER_LINE_STYLE } from '@/engine/layout/layoutConfig'
+import { crossSystemBeamWidth } from '../beams/beamInk'
+import { ledgerLineStyle } from '@/engine/layout/layoutConfig'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 
 /**
@@ -61,13 +61,13 @@ describe('the thin-line family', () => {
       'hairpinThickness',
     ] as const
     for (const name of family) {
-      expect(engravingDefault(name), `${name} is in the family`).toBe(THIN_LINE_SPACES)
+      expect(engravingDefault(name), `${name} is in the family`).toBe(thinLineSpaces())
     }
   })
 
   it('the barline is the same number under its own name', () => {
     // `THIN_BARLINE_SPACES` is the alias the family was first extracted from; it must not drift.
-    expect(THIN_BARLINE_SPACES).toBe(THIN_LINE_SPACES)
+    expect(thinBarlineSpaces()).toBe(thinLineSpaces())
   })
 
   it('⭐⭐ the HAIRPIN is NOT drawn at this weight — it takes a STAFF LINE\'s (Gould p. 103)', () => {
@@ -78,9 +78,9 @@ describe('the thin-line family', () => {
     // ⚠️ The FONT still puts `hairpinThickness` in the thin-line family; we deliberately disagree,
     //    because the treatises name the staff line and the font's own thin-line family is about
     //    BARLINES. Pinning both halves means a font upgrade that changed either one fails here.
-    expect(engravingDefault('hairpinThickness')).toBe(THIN_LINE_SPACES) // the font's grouping…
-    expect(HAIRPIN_LINE_SPACES).toBe(engravingDefault('staffLineThickness')) // …and our rule
-    expect(HAIRPIN_LINE_SPACES).not.toBe(THIN_LINE_SPACES)
+    expect(engravingDefault('hairpinThickness')).toBe(thinLineSpaces()) // the font's grouping…
+    expect(hairpinLineSpaces()).toBe(engravingDefault('staffLineThickness')) // …and our rule
+    expect(hairpinLineSpaces()).not.toBe(thinLineSpaces())
   })
 })
 
@@ -106,13 +106,13 @@ describe('the curve weights', () => {
 
 describe('the beam', () => {
   it('⭐ is Bravura\'s `beamThickness`, converted once', () => {
-    expect(CROSS_SYSTEM_BEAM_WIDTH).toBe(engravingDefault('beamThickness') * STAFF_SPACE_PX)
+    expect(crossSystemBeamWidth()).toBe(engravingDefault('beamThickness') * STAFF_SPACE_PX)
   })
 
   it('⚠️ and is the 5 px it has always been — F3 moved no pixel here', () => {
     // The value this replaced, kept as an assertion because F3's promise is "no visible change by
     // construction, and if anything moves a transcription was wrong". Nothing moved.
-    expect(CROSS_SYSTEM_BEAM_WIDTH).toBe(5)
+    expect(crossSystemBeamWidth()).toBe(5)
   })
 })
 
@@ -121,7 +121,7 @@ describe('the ledger line — the one weight that is a RATIO, not a thickness', 
     // 0.16 spaces is 1.6 px at our staff size. Taking it would put a ledger line half again over
     // the 1.1 px staff line we draw beside it (Gould's 0.11 sp).
     const absolute = engravingDefault('legerLineThickness') * STAFF_SPACE_PX
-    expect(LEDGER_LINE_STYLE.lineWidth).toBeLessThan(absolute)
+    expect(ledgerLineStyle().lineWidth).toBeLessThan(absolute)
   })
 
   it('⭐⭐ is the font\'s ledger-to-staff-line RATIO, against the staff line WE draw', () => {
@@ -134,13 +134,13 @@ describe('the ledger line — the one weight that is a RATIO, not a thickness', 
     // followed it (1.23 → 1.354 px) and this assertion never had to change. A spec pinned to `1.23`
     // would have failed and taught somebody to "fix" it by breaking the relationship.
     const ratio = engravingDefault('legerLineThickness') / engravingDefault('staffLineThickness')
-    expect(LEDGER_LINE_STYLE.lineWidth).toBeCloseTo(STAVE_LINE_WIDTH_PX * ratio, 10)
+    expect(ledgerLineStyle().lineWidth).toBeCloseTo(STAVE_LINE_WIDTH_PX * ratio, 10)
     // …and the two things the ratio claims: heavier than a staff line, nowhere near VexFlow's 2.
-    expect(LEDGER_LINE_STYLE.lineWidth).toBeGreaterThan(STAVE_LINE_WIDTH_PX)
-    expect(LEDGER_LINE_STYLE.lineWidth).toBeLessThan(2 * STAVE_LINE_WIDTH_PX)
+    expect(ledgerLineStyle().lineWidth).toBeGreaterThan(STAVE_LINE_WIDTH_PX)
+    expect(ledgerLineStyle().lineWidth).toBeLessThan(2 * STAVE_LINE_WIDTH_PX)
   })
 
   it('is still black — the other half of that override', () => {
-    expect(LEDGER_LINE_STYLE.strokeStyle).toBe('#000000')
+    expect(ledgerLineStyle().strokeStyle).toBe('#000000')
   })
 })

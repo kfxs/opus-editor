@@ -277,11 +277,13 @@ export const CURVE = {
    * with this size (cause it match better with other elements, for example the stroke of the slur)"*
    * — at 0.16 sp. Thinning the slur's middle moves it TOWARD the hairpin, not away.
    */
-  thickness: engravingDefault('slurMidpointThickness'),
+  // ⚠️ A GETTER (and `outline` below): the weight is the ACTIVE music face's — asked per use, ⛔ not
+  // frozen at import (docs/plans/music-font-switch-plan.md B3). For Bravura it is 0.22, as it was.
+  get thickness(): number { return engravingDefault('slurMidpointThickness') },
   /** Stroke width pinned around the curve so its fill taper reads as sharp tips — and, at the tip
    *  where the two passes meet, it IS the ink: 0.10 sp = Bravura's `slurEndpointThickness` exactly
    *  (§13.6). ✅ Already correct; ⛔ don't change it to fix the middle. */
-  outline: engravingDefault('slurEndpointThickness'),
+  get outline(): number { return engravingDefault('slurEndpointThickness') },
 } as const
 
 /**
@@ -432,6 +434,10 @@ export function curvePx(staffSpaces: number): number {
  * ⚠️ Every value here is EXACTLY the literal it replaced (`curveStyle.test.ts` pins all nine), so
  * introducing this file moved no ink. ⛔ Never author a number here: change the staff-space one.
  */
-export const CURVE_PX: { [K in keyof typeof CURVE]: number } = Object.fromEntries(
-  Object.entries(CURVE).map(([key, spaces]) => [key, curvePx(spaces)]),
-) as { [K in keyof typeof CURVE]: number }
+export const CURVE_PX: { readonly [K in keyof typeof CURVE]: number } = Object.defineProperties(
+  {},
+  // ⚠️ LIVE, row by row: two of `CURVE`'s rows are the active face's (its getters), so a px copy
+  //    made once at import would be Bravura's for ever.
+  Object.fromEntries((Object.keys(CURVE) as (keyof typeof CURVE)[]).map(key =>
+    [key, { enumerable: true, get: () => curvePx(CURVE[key]) }])),
+) as { readonly [K in keyof typeof CURVE]: number }

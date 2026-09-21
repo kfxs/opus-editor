@@ -42,9 +42,51 @@ import {
   GLYPH_CODEPOINTS,
   type GlyphName,
 } from './bravuraMetrics'
+import * as leipzig from './leipzigMetrics'
+import * as sebastian from './sebastianMetrics'
+import { activeMusicFont, type MusicFontId } from './musicFont'
 import type { NoteDuration } from '@/types/music'
 
 export { BRAVURA }
+
+/**
+ * ⭐⭐ **ONE TABLE PER MUSIC FACE, and every lookup below reads the ACTIVE one** — Phase B2 of
+ * `docs/plans/music-font-switch-plan.md`. The tables are generated to one shape and are TOTAL over
+ * {@link GlyphName}: a glyph a face does not draw is Bravura's row, whole (box and anchors, because
+ * the drawing is Bravura's too), and the face's table says which ({@link fallbackGlyphs}).
+ *
+ * ⚠️ So nothing that calls this module may FREEZE an answer at import — a module-level
+ * `const X = engravingDefault(…)` is Bravura's forever. Ask per use.
+ *
+ * ⛔ The codepoints are not per face: a SMuFL name is one codepoint in every font.
+ */
+interface FontTable {
+  boxes: Record<GlyphName, GlyphBox>
+  anchors: Partial<Record<GlyphName, Record<string, readonly [number, number]>>>
+  defaults: Record<keyof typeof ENGRAVING_DEFAULTS, number>
+  fallbackGlyphs: readonly GlyphName[]
+  fallbackDefaults: readonly string[]
+}
+
+const FONT_TABLES: Record<MusicFontId, FontTable> = {
+  bravura: { boxes: GLYPH_BOXES, anchors: GLYPH_ANCHORS, defaults: ENGRAVING_DEFAULTS, fallbackGlyphs: [], fallbackDefaults: [] },
+  leipzig: { boxes: leipzig.GLYPH_BOXES, anchors: leipzig.GLYPH_ANCHORS, defaults: leipzig.ENGRAVING_DEFAULTS, fallbackGlyphs: leipzig.FALLBACK_GLYPHS, fallbackDefaults: leipzig.FALLBACK_DEFAULTS },
+  sebastian: { boxes: sebastian.GLYPH_BOXES, anchors: sebastian.GLYPH_ANCHORS, defaults: sebastian.ENGRAVING_DEFAULTS, fallbackGlyphs: sebastian.FALLBACK_GLYPHS, fallbackDefaults: sebastian.FALLBACK_DEFAULTS },
+}
+
+function activeTable(): FontTable {
+  return FONT_TABLES[activeMusicFont().id]
+}
+
+/** The glyphs the ACTIVE face does not draw — Bravura's, whole. Empty for Bravura itself. */
+export function fallbackGlyphs(): readonly GlyphName[] {
+  return activeTable().fallbackGlyphs
+}
+
+/** The engraving defaults the ACTIVE face's metadata does not state — Bravura's values. */
+export function fallbackDefaults(): readonly string[] {
+  return activeTable().fallbackDefaults
+}
 export type { GlyphName }
 
 /**
@@ -82,7 +124,7 @@ export interface GlyphBox {
  * failure mode `reference_vexflow_measures_glyphs_at_render_time` is about, one layer down.
  */
 export function glyphBox(name: GlyphName): GlyphBox {
-  return GLYPH_BOXES[name]
+  return activeTable().boxes[name]
 }
 
 /**
@@ -123,7 +165,7 @@ const CODEPOINT_TO_NAME = new Map<number, GlyphName>(
  * than `[0, 0]`, which would be a plausible answer and therefore a believed one.
  */
 export function anchor(glyph: GlyphName, which: string): readonly [number, number] | null {
-  return GLYPH_ANCHORS[glyph]?.[which] ?? null
+  return activeTable().anchors[glyph]?.[which] ?? null
 }
 
 /** The names {@link engravingDefault} answers for — SMuFL's own, all 30 of them. */
@@ -140,7 +182,7 @@ type EngravingDefault = keyof typeof ENGRAVING_DEFAULTS
  * overruled the font — the hairpin, twice — the override stays and keeps its reason.
  */
 export function engravingDefault(name: EngravingDefault): number {
-  return ENGRAVING_DEFAULTS[name]
+  return activeTable().defaults[name]
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

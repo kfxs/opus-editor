@@ -20,7 +20,7 @@
  */
 import type { DrawContext } from '@/engine/paint/DrawContext'
 import { drawOpeningBarline, openingBarlineInk } from '@/engine/engrave/staff/openingBarline'
-import { THIN_BARLINE_PX, staffBarlineExtent } from '../staff/barlineInk'
+import { thinBarlinePx, staffBarlineExtent } from '../staff/barlineInk'
 import { newSignId, type StaveSign } from '../staff/staveSign'
 import { BARLINE_ROWS, type BarlineKind } from '@/engine/engrave/staff/barlineMetrics'
 import type { WalkSign } from '@/engine/engrave/staff/signWalk'
@@ -65,7 +65,7 @@ export class EngravedBarline implements StaveSign {
   drawSign(surface: DrawContext, frame: StaffFrame, page: DrawContext): void {
     if (this.kind === 'single') {
       const extent = staffBarlineExtent(frame)
-      drawOpeningBarline(surface, openingBarlineInk(this.signX, extent.topY, extent.bottomY, THIN_BARLINE_PX), this.id)
+      drawOpeningBarline(surface, openingBarlineInk(this.signX, extent.topY, extent.bottomY, thinBarlinePx()), this.id)
       return
     }
     if (this.kind === 'none') {

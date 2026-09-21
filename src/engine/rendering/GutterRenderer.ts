@@ -1,7 +1,7 @@
 import { SvgPainter } from './painter/SvgPainter'
 import { GUTTER_WIDTH, type GutterState } from '@/engine/layout/layoutConfig'
 import { INDICATOR_INK } from '../../utils/selectionColors'
-import { THIN_BARLINE_PX, staffBarlineExtent } from './staff/barlineInk'
+import { thinBarlinePx, staffBarlineExtent } from './staff/barlineInk'
 import { scaling } from '@/engine/paint/Affine'
 import type { DrawContext } from '@/engine/paint/DrawContext'
 import { drawGroupOf } from './painter/svgDrawGroup'
@@ -163,7 +163,7 @@ export class GutterRenderer {
       const bottomY = staffBarlineExtent(last.frame).bottomY * last.size
       // Its width is deliberately NOT scaled: a system line belongs to the system, not to either
       // staff's ink — the same call the score makes.
-      ctx.fillRect(GUTTER_INSET, topY, THIN_BARLINE_PX, bottomY - topY)
+      ctx.fillRect(GUTTER_INSET, topY, thinBarlinePx(), bottomY - topY)
     }
 
     // The bar number: the clef says WHAT you are reading, this says WHERE you are — the other

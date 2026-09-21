@@ -259,10 +259,13 @@ export interface GutterState {
  * ({@link Stave.setDefaultLedgerLineStyle}) — every stave that can carry a note off the staff needs
  * it, including the ghost's.
  */
-export const LEDGER_LINE_STYLE = {
-  strokeStyle: '#000000',
-  lineWidth: STAVE_LINE_WIDTH_PX
-    * (engravingDefault('legerLineThickness') / engravingDefault('staffLineThickness')),
+export function ledgerLineStyle(): { strokeStyle: string; lineWidth: number } {
+  // ⚠️ A function: the RATIO is the active music face's (docs/plans/music-font-switch-plan.md B3).
+  return {
+    strokeStyle: '#000000',
+    lineWidth: STAVE_LINE_WIDTH_PX
+      * (engravingDefault('legerLineThickness') / engravingDefault('staffLineThickness')),
+  }
 }
 
 /**

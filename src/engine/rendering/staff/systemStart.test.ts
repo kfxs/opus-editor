@@ -16,7 +16,7 @@
 import { describe, it, expect } from 'vitest'
 import type { EngravedStave } from '../engraved/EngravedStave'
 import { renderSystemStarts, type SystemStartPlacement } from './systemStart'
-import { THIN_BARLINE_PX } from './barlineInk'
+import { thinBarlinePx } from './barlineInk'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { STAVE_LINE_WIDTH_PX, staffLineInkBottomY, staffLineMidY } from '@/engine/engrave/staff/staffLines'
 import { glyphBox } from '@/engine/fonts/fontMetrics'
@@ -123,7 +123,7 @@ describe('the systemic barline — where its ink lands', () => {
     const { rects, pass } = recorder()
     renderSystemStarts(pass, noSigns, [at(1, 0, 0, { x: 73.5 }), at(1, 1, 200, { x: 73.5 })], 2, null)
     expect(rects[0].x).toBe(73.5)
-    expect(rects[0].w).toBe(THIN_BARLINE_PX)
+    expect(rects[0].w).toBe(thinBarlinePx())
   })
 
   it('⭐⭐ composes EACH END through its OWN staff’s scale — the reason this cannot sit in `inStaffSpace`', () => {

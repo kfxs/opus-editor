@@ -43,14 +43,16 @@
 import type { Measure } from '@/types/music'
 import type { BarlineSignKind } from '@/engine/models/boundarySign'
 import { engravingDefault, glyphBox } from '@/engine/fonts/fontMetrics'
-import { THIN_LINE_SPACES } from './thinLineWeight'
+import { thinLineSpaces } from './thinLineWeight'
 
 /**
  * The thin stroke — **0.16 spaces**, the weight every thin structural line in this score shares
  * (`rendering/thinLineWeight`). Gould gives no number for it (*"thicker than a stave-line"*, p. 38)
  * and her engraved finals measure 0.15–0.20, which is where this sits.
  */
-const THIN = THIN_LINE_SPACES
+// ⚠️ Functions, not constants — the weights are the ACTIVE face's (plan B3 of
+// docs/plans/music-font-switch-plan.md); each reader below asks once, at its top.
+const thinSpaces = (): number => thinLineSpaces()
 
 /**
  * The thick stroke — **0.50 spaces**, and this is the strongest-sourced number in the family: Gould
@@ -58,7 +60,7 @@ const THIN = THIN_LINE_SPACES
  * final bars measure 0.45–0.50 at 450 dpi [M]; Bravura's `thickBarlineThickness` is 0.5 [E]. Three
  * independent sources, and the seam was already wired.
  */
-const THICK = engravingDefault('thickBarlineThickness')
+const thickSpaces = (): number => engravingDefault('thickBarlineThickness')
 
 /**
  * The white gap between the two strokes — **0.32 spaces**, and ⚠️ this is the one number where the
@@ -82,7 +84,7 @@ const SEPARATION = 0.32
  * **1.464** wide [E]. With 0.16 the parts here sum to 1.54, within 0.08 of both; with Gould's 0.35 it
  * would be 1.73, past the pair of them.
  */
-const DOT_SEPARATION = engravingDefault('repeatBarlineDotSeparation')
+const dotSeparation = (): number => engravingDefault('repeatBarlineDotSeparation')
 
 /**
  * The repeat dot's width — **measured off `public/fonts/Bravura.otf`**, the font we engrave with, and
@@ -94,7 +96,7 @@ const DOT_SEPARATION = engravingDefault('repeatBarlineDotSeparation')
  * `GetGlyphWidth(SMUFL_E044_repeatDot, …)` respectively. This is that, in our seam. ⛔ Not a literal:
  * the number and the ink would be free to drift, which is the whole reason the metrics are generated.
  */
-const DOT_WIDTH = glyphBox('repeatDot').advance
+const dotWidth = (): number => glyphBox('repeatDot').advance
 
 /** The family's kinds are the score's (`models/boundarySign`, with `signAtBoundary`); re-exported
  *  because every signature below speaks them. */
@@ -185,6 +187,8 @@ export interface BarlineSignParts {
  *  ⭐ Dots are never `shared`: they sit off the boundary, so the direction they grow in IS their
  *  half — leftward dots close a repeat, rightward dots open one. */
 function dotsAt(edge: number, direction: 1 | -1): SignDots {
+  const DOT_SEPARATION = dotSeparation()
+  const DOT_WIDTH = dotWidth()
   const left = direction === 1 ? edge + DOT_SEPARATION : edge - DOT_SEPARATION - DOT_WIDTH
   return { x: left, width: DOT_WIDTH, half: direction === 1 ? 'start' : 'end' }
 }
@@ -236,6 +240,8 @@ function parts(strokes: SignStroke[], dots: SignDots[], divider: number): Barlin
  * repeat signs side by side, which is the one thing she rules out.
  */
 export function barlineSignParts(kind: BarlineSignKind): BarlineSignParts {
+  const THIN = thinSpaces()
+  const THICK = thickSpaces()
   switch (kind) {
     case 'plain':
     // ⭐⭐ **AN INVISIBLE LINE IS A PLAIN LINE, GEOMETRICALLY** — and sharing the case is the point,

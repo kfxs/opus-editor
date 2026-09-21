@@ -56,7 +56,7 @@ import { cutSpanAtSystems } from '../spanSegments'
 import { barSlice, bracketBaseline, bracketFragmentClaim } from './bracketSpanBand'
 import { inStaffSpace } from '../../staff/staffScaleGroup'
 import { staffSpacesToPixels } from '../../staff/staffSpace'
-import { THIN_LINE_SPACES } from '@/engine/layout/thinLineWeight'
+import { thinLineSpaces } from '@/engine/layout/thinLineWeight'
 import {
   OTTAVA_CONTINUATION_INSET, OTTAVA_DASH_GAP, OTTAVA_DASH_LENGTH, OTTAVA_END_AIR, OTTAVA_GLYPH_SIZE,
   OTTAVA_HOOK, OTTAVA_LINE,
@@ -525,7 +525,7 @@ function drawOttava(
     // close, and only if it actually drew a horizontal to close: a hook alone would tell the reader
     // the line stopped there, which at a system break is exactly the wrong thing to say.
     if (piece.final && hasLine) {
-      ctx.setLineWidth(px(THIN_LINE_SPACES))
+      ctx.setLineWidth(px(thinLineSpaces()))
       ctx.beginPath()
       ctx.moveTo(lineEnd, lineY)
       // Turns TOWARD the staff — down under an 8va, up over an 8vb.
@@ -652,7 +652,7 @@ function drawDashes(
   y: number,
   px: (spaces: number) => number,
 ): void {
-  ctx.setLineWidth(px(THIN_LINE_SPACES))
+  ctx.setLineWidth(px(thinLineSpaces()))
   ctx.setLineDash([px(OTTAVA_DASH_LENGTH), px(OTTAVA_DASH_GAP)])
   ctx.beginPath()
   ctx.moveTo(startX, y)

@@ -41,6 +41,8 @@ import type { NoteDuration } from '@/types/music'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { restStaffLine } from './restPlacement'
 import { armedAccidentalGap } from './accidentalGap'
+import { glyphBox, restGlyph } from '@/engine/fonts/fontMetrics'
+import { DEFAULT_MUSIC_FONT, activeMusicFont } from '@/engine/fonts/musicFont'
 
 /**
  * What sits at one edge of a gap. Not "what the event IS" — what its ink at that edge IS, which is
@@ -223,7 +225,14 @@ const REST_HEIGHT: Record<NoteDuration, { up: number; down: number }> = {
  */
 export function restBand(duration: NoteDuration): { top: number; bottom: number } {
   const line = restStaffLine(duration)
-  const height = REST_HEIGHT[duration] ?? REST_HEIGHT.q
+  // 🚧 B4 of docs/plans/music-font-switch-plan.md — the ONE ink row that follows the music face, because
+  //    it is the one row that IS the font's box, digit for digit (`spacingPadding.font.test.ts` holds
+  //    the literals to Bravura). Bravura keeps its literals; another face answers from its own table.
+  //    ⛔ Every other row here stays Bravura's for every face: each mixes glyph ink with a measured
+  //    distance or a rounding that is a house judgement — the plan's follow-up, not a lookup.
+  const height = activeMusicFont().id === DEFAULT_MUSIC_FONT
+    ? REST_HEIGHT[duration] ?? REST_HEIGHT.q
+    : glyphBox(restGlyph(duration))
   return { top: line - height.up, bottom: line + height.down }
 }
 

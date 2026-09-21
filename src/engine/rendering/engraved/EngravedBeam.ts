@@ -44,7 +44,7 @@ import { STEM_THICKNESS_PX } from '@/engine/engrave/inheritedDefaults'
 import { fractionalBeamSides } from '@/engine/engrave/beams/fractionalBeam'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { armedBeamSlopeRule } from '../beams/beamSlopeExperiment'
-import { CROSS_SYSTEM_BEAM_WIDTH } from '../beams/beamInk'
+import { crossSystemBeamWidth } from '../beams/beamInk'
 
 /**
  * The context VexFlow's own stems still draw on — named through the note's own `setContext`, so this
@@ -87,7 +87,7 @@ export class EngravedBeam {
    * ⭐ One beam line's thickness, in px — Bravura's `beamThickness`, half a space, which is the 5
    * VexFlow's `renderOptions.beamWidth` defaulted to (`./beamInk`).
    */
-  readonly beamWidth = CROSS_SYSTEM_BEAM_WIDTH
+  readonly beamWidth = crossSystemBeamWidth()
 
   /** Rise over run, solved by {@link calculateSlope}. */
   slope = 0

@@ -1,6 +1,6 @@
 import { staffBottomLineY, staffLineY, type StaffFrame } from '@/engine/engrave/staff/staffFrame'
 import { STAFF_SPACE_PX } from '../../models/staffSize'
-import { THIN_LINE_SPACES } from '@/engine/layout/thinLineWeight'
+import { thinLineSpaces } from '@/engine/layout/thinLineWeight'
 import { STAVE_LINE_WIDTH_PX } from '@/engine/engrave/staff/staffLines'
 import { barlineExtent, type BarlineExtent } from '@/engine/engrave/staff/barlineExtent'
 
@@ -29,11 +29,15 @@ import { barlineExtent, type BarlineExtent } from '@/engine/engrave/staff/barlin
  * already tried and reverted: it ruins the staff-line spacing, and it would move the barline off
  * the bar boundary the spacing model puts it on.
  */
-export const THIN_BARLINE_SPACES = THIN_LINE_SPACES
+export function thinBarlineSpaces(): number {
+  return thinLineSpaces()
+}
 
 /** The thin barline in px at staff size 1. A bar's `<g>` carries the staff's scale, so a rect
  *  written in this unit inside that group is already proportional to its staff. */
-export const THIN_BARLINE_PX = THIN_BARLINE_SPACES * STAFF_SPACE_PX
+export function thinBarlinePx(): number {
+  return thinBarlineSpaces() * STAFF_SPACE_PX
+}
 
 /**
  * ⭐⭐ **HOW FAR ONE STAVE'S BARLINES REACH** — the rule of `engrave/staff/barlineExtent`, asked of a
@@ -163,7 +167,7 @@ export function hintBarlines(
       // are already gone, above. ⭐ Since P5b every line reaching this test is DRAWN at
       // `THIN_BARLINE_PX`, the opening one included — it used to arrive as VexFlow's 1 px rect and
       // depend on `inkBarlines` having run first.)
-      if (parseFloat(rect.getAttribute('width') ?? '') !== THIN_BARLINE_PX) continue
+      if (parseFloat(rect.getAttribute('width') ?? '') !== thinBarlinePx()) continue
       base = rect.getAttribute('x') ?? '0'
       rect.dataset[BASE_X] = base
     }
@@ -178,7 +182,7 @@ export function hintBarlines(
     const leftDev = (ctm.a * asked + ctm.e) * dpr
     // At least one whole device pixel: a barline may be too thin to see, but it may never be too
     // thin to EXIST. Below ~62% zoom the conventional 0.16 spaces rounds to nothing.
-    const widthDev = Math.max(1, Math.round(THIN_BARLINE_PX * k))
+    const widthDev = Math.max(1, Math.round(thinBarlinePx() * k))
     plans.push({
       rect,
       x: asked + (Math.round(leftDev) - leftDev) / k,

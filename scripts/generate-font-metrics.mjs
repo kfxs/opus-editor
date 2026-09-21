@@ -437,3 +437,170 @@ if (disagreements.length) {
   console.log('  ✅ every box agrees with Steinberg\'s published metadata to 0.001 spaces')
 }
 console.log()
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ⭐⭐ THE OTHER FACES — Phase B1 of `docs/plans/music-font-switch-plan.md`.
+//
+// Everything above is Bravura, untouched: it is the DEFAULT, the table every spec is pinned to, and
+// — here — every other face's FALLBACK. Each face below is measured the same way (boxes from the
+// OTF we ship, anchors and weights from its own vendored metadata) into a table of the SAME shape,
+// total over the same `GlyphName` union.
+//
+// ⭐ **A glyph the face lacks is not a refusal here: it is taken WHOLE from Bravura** — its box AND
+// its anchors, because the DRAWING of that glyph is Bravura's too (`fonts/musicFont`'s stack puts
+// Bravura behind the face). ⛔ Never a Bravura anchor on another face's outline, and never the
+// reverse: a glyph the face DOES draw gets only the anchors its own metadata states.
+// Every such row is DECLARED, in `FALLBACK_GLYPHS` and in the generated header. An engraving
+// default the face does not state falls back the same way, into `FALLBACK_DEFAULTS`.
+//
+// ⚠️ An OPTIONAL glyph (Bravura's brace alternates, U+F400–F403) is looked up at BRAVURA'S
+// codepoint: the drawing asks for that codepoint whatever the face, so the honest question is
+// "what does this face draw THERE". Sebastian draws braces there (measured 2026-09-21: 4 sp tall,
+// the same small→flat order) though its metadata does not name them; Leipzig draws nothing.
+
+const OTHER_FACES = [
+  {
+    constant: 'LEIPZIG',
+    otf: 'public/fonts/Leipzig.otf',
+    metadata: 'scripts/vendor/Leipzig.json',
+    out: 'src/engine/fonts/leipzigMetrics.ts',
+    licence: 'public/fonts/Leipzig-OFL.txt',
+  },
+  {
+    constant: 'SEBASTIAN',
+    otf: 'public/fonts/Sebastian.otf',
+    metadata: 'scripts/vendor/Sebastian.json',
+    out: 'src/engine/fonts/sebastianMetrics.ts',
+    licence: 'public/fonts/Sebastian-OFL.txt',
+  },
+]
+
+for (const face of OTHER_FACES) {
+  const faceFont = opentype.parse(read(face.otf, 'a music face the dev shell offers').buffer)
+  const faceMetadata = JSON.parse(read(face.metadata, "the face's own SMuFL metadata"))
+  const faceSpace = faceFont.unitsPerEm / 4
+
+  const faceBoxes = {}
+  const faceAnchors = {}
+  const fallbackGlyphs = []
+  const faceDisagreements = []
+
+  for (const name of names) {
+    const glyph = faceFont.charToGlyph(String.fromCodePoint(codepoints[name]))
+    const box = glyph && glyph.index !== 0 ? glyph.getBoundingBox() : null
+    const inkless = box && box.x1 === 0 && box.x2 === 0 && box.y1 === 0 && box.y2 === 0
+    if (!box || inkless) {
+      fallbackGlyphs.push(name)
+      faceBoxes[name] = boxes[name]
+      if (anchors[name]) faceAnchors[name] = anchors[name]
+      continue
+    }
+    faceBoxes[name] = {
+      left: round(-box.x1 / faceSpace),
+      right: round(box.x2 / faceSpace),
+      up: round(box.y2 / faceSpace),
+      down: round(-box.y1 / faceSpace),
+      advance: round(glyph.advanceWidth / faceSpace),
+    }
+    const published = faceMetadata.glyphBBoxes?.[name]
+    if (published) {
+      const [right, up] = published.bBoxNE
+      const [left, down] = published.bBoxSW
+      const drift = Math.max(
+        Math.abs(right - faceBoxes[name].right),
+        Math.abs(up - faceBoxes[name].up),
+        Math.abs(-left - faceBoxes[name].left),
+        Math.abs(-down - faceBoxes[name].down),
+      )
+      // ⚠️ 0.01, not Bravura's 0.001: these metadata files publish boxes to 2–3 places.
+      if (drift > 0.01) faceDisagreements.push(`${name} — off by ${drift.toFixed(3)} spaces`)
+    }
+    const anchorSet = faceMetadata.glyphsWithAnchors?.[name]
+    if (anchorSet) {
+      faceAnchors[name] = Object.fromEntries(
+        Object.entries(anchorSet).map(([which, [x, y]]) => [which, [round(x), round(y)]]),
+      )
+    }
+  }
+
+  const fallbackDefaults = []
+  const faceDefaults = Object.fromEntries(Object.keys(defaults).map(name => {
+    const stated = faceMetadata.engravingDefaults?.[name]
+    if (isWeight(stated)) return [name, stated]
+    fallbackDefaults.push(name)
+    return [name, defaults[name]]
+  }))
+
+  const faceRevision = faceFont.tables.head?.fontRevision
+  const group = lines => Object.entries(GLYPHS)
+    .map(([title, list]) => `  // ${title}\n${list.filter(name => faceBoxes[name]).map(lines).join('\n')}`)
+    .join('\n')
+  const mark = name => (fallbackGlyphs.includes(name) ? ' // ← Bravura' : '')
+  const list = items => (items.length ? items.map(item => `\`${item}\``).join(', ') : 'none')
+
+  const faceSource = `/**
+ * ⛔⛔ **GENERATED — DO NOT EDIT.** \`node scripts/generate-font-metrics.mjs\`
+ *
+ * ${faceMetadata.fontName}'s table for the ${names.length} glyphs the editor draws — the SAME shape as
+ * \`bravuraMetrics.ts\`, total over the same \`GlyphName\` union, read by \`fontMetrics\` when the face is
+ * the active one (\`fonts/musicFont\`, \`docs/plans/music-font-switch-plan.md\` Phase B).
+ *
+ * ⭐ **Boxes measured from \`${face.otf}\`**; anchors and engraving defaults from the face's own
+ * metadata (\`${face.metadata}\`), which is the only place they exist.
+ *
+ * 🚨 **${fallbackGlyphs.length} glyph(s) this face does not draw are BRAVURA'S, whole** — box and anchors
+ * together, because the drawing is Bravura's too (the font stack falls through to it):
+ * ${list(fallbackGlyphs)}.
+ * ⛔ A glyph the face DOES draw never borrows a Bravura anchor: it has what its own metadata states.
+ *
+ * ⚠️ Engraving defaults the face does not state, taken from Bravura: ${list(fallbackDefaults)}.
+ *
+ * ${faceDisagreements.length === 0
+    ? `⭐ Every measured box that the face's metadata also publishes agrees with it to 0.01 spaces.`
+    : `🚨 ${faceDisagreements.length} measured box(es) DISAGREE with the face's published metadata (the numbers below are the OTF's — the file we draw with):\n${faceDisagreements.map(d => ` *   · ${d}`).join('\n')}`}
+ *
+ * ${faceMetadata.fontName} — OTF ${faceRevision}, metadata ${faceMetadata.fontVersion}. SIL OFL 1.1.
+ * Sources: \`${face.licence}\`, \`scripts/vendor/PROVENANCE.md\`.
+ */
+
+import type { GlyphBox } from './fontMetrics'
+import type { GlyphName } from './bravuraMetrics'
+
+export const ${face.constant} = {
+  name: ${str(faceMetadata.fontName)},
+  otfRevision: ${faceRevision},
+  metadataVersion: ${JSON.stringify(faceMetadata.fontVersion)},
+} as const
+
+/** The glyphs below that are Bravura's, not this face's — drawn, measured and anchored in Bravura. */
+export const FALLBACK_GLYPHS: readonly GlyphName[] = [${fallbackGlyphs.map(str).join(', ')}]
+
+/** The engraving defaults below that this face's metadata does not state — Bravura's values. */
+export const FALLBACK_DEFAULTS: readonly string[] = [${fallbackDefaults.map(str).join(', ')}]
+
+export const GLYPH_BOXES: Record<GlyphName, GlyphBox> = {
+${group(name => `  ${quote(name)}: ${asBox(faceBoxes[name])},${mark(name)}`)}
+}
+
+export const GLYPH_ANCHORS: Partial<Record<GlyphName, Record<string, readonly [number, number]>>> = {
+${Object.entries(faceAnchors).map(([name, set]) =>
+    `  ${quote(name)}: { ${Object.entries(set).map(([which, [x, y]]) => `${quote(which)}: [${x}, ${y}]`).join(', ')} },${mark(name)}`).join('\n')}
+}
+
+export const ENGRAVING_DEFAULTS = {
+${Object.entries(faceDefaults).map(([name, value]) =>
+    `  ${quote(name)}: ${value},${fallbackDefaults.includes(name) ? ' // ← Bravura' : ''}`).join('\n')}
+} as const
+`
+  writeFileSync(face.out, faceSource)
+
+  console.log(face.out)
+  console.log(`  ${faceMetadata.fontName} OTF ${faceRevision}, metadata ${faceMetadata.fontVersion} · em ${faceFont.unitsPerEm}`)
+  console.log(`  ⭐ ${names.length - fallbackGlyphs.length} glyphs measured · ${fallbackGlyphs.length} from Bravura: ${fallbackGlyphs.join(', ') || '—'}`)
+  console.log(`  ${Object.keys(faceAnchors).length} carry anchors · defaults from Bravura: ${fallbackDefaults.join(', ') || '—'}`)
+  if (faceDisagreements.length) {
+    console.log(`  🚨 ${faceDisagreements.length} box(es) disagree with the face's own metadata:`)
+    for (const line of faceDisagreements) console.log(`     · ${line}`)
+  }
+  console.log()
+}

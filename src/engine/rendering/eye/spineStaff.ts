@@ -34,7 +34,7 @@ import { EngravedTimeSignature } from '../engraved/EngravedTimeSignature'
 import { noteRuler } from '../engraved/noteRuler'
 import { formatLoneNote } from '../ghosts/loneNote'
 import { drawGroupOf } from '../painter/svgDrawGroup'
-import { LEDGER_LINE_STYLE } from '@/engine/layout/layoutConfig'
+import { ledgerLineStyle } from '@/engine/layout/layoutConfig'
 import { staveFrame } from '../staff/staveFrame'
 import type { StaveSign } from '../staff/staveSign'
 
@@ -63,7 +63,7 @@ const BLOCK_FORMAT_WIDTH = 150
  */
 export function drawNoteBlock(ctx: DrawContext, spine: Spine, engraved: EngravedNote, s: number): void {
   const stave = new EngravedStave(0, 0, BLOCK_STAVE_WIDTH).setOpeningBarline('none').setClosingBarline('none')
-  stave.setDefaultLedgerLineStyle(LEDGER_LINE_STYLE)
+  stave.setDefaultLedgerLineStyle(ledgerLineStyle())
   formatLoneNote(engraved, stave, { numerator: 1, denominator: 4 }, BLOCK_FORMAT_WIDTH)
 
   const group = drawGroupOf(ctx.openGroup(SPINE_BLOCK_CLASS))

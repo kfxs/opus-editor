@@ -40,6 +40,7 @@ const NO_SPEC_EXPECTED = [
   /\/src\/types\//,         // the score's TYPES, one chapter per domain — `interface`s and `type`s only
   /\/commandContext\.ts$/,     // an `interface` and nothing else — no runtime to have a contract
   /\/fakeCommandContext\.ts$/, // spec SUPPORT for `engine/commands/*.test.ts` — no contract of its own
+  /\/(leipzig|sebastian)Metrics\.ts$/, // GENERATED, like the row below — contract: `fontMetrics.faces.test.ts`
   /\/bravuraMetrics\.ts$/,   // GENERATED font data — its contract is `fontMetrics.test.ts`, and a
                              //   spec of its own could only restate what the script emitted
 ]
