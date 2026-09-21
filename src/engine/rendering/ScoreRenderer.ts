@@ -7,6 +7,7 @@ import { fanStemExtension } from './beams/FannedBeam'
 import { drawFannedBeams, drawCrossBarFanBeams } from './beams/FanPass'
 import { PLACEHOLDER_BEAM, buildBeams } from './beams/beamGroups'
 import { clearLedgersForAccidentals } from './format/ledgerAccidentalClearance'
+import { dodgeDestinationAccidentals } from './format/crossStaffAccidentals'
 import { armedStandoffPx, placeAccidentals } from './format/accidentalPlacement'
 import { EngravedNote, drawNoteInkThrough } from './engraved/EngravedNote'
 import { accidentalHitBox } from './painter/drawnHitBox'
@@ -2090,6 +2091,11 @@ export class ScoreRenderer {
         // ledger pass, which is then told where the sign actually stands — ⛔ otherwise a wide row
         // buys the ledger clearance twice.
         placeAccidentals(staveNotes)
+        // ⭐ Cross-staff, a QUICK FIX (`format/crossStaffAccidentals`): a crossed head's sign steps
+        //    clear of the sign the staff it is written on already has in this column.
+        dodgeDestinationAccidentals(staveNotes, sortedSlots,
+          pass.score.measures.find(m => m.number === measure.number) ?? measure,
+          id => { const built = pass.staveNoteMap.get(id)?.staveNote; return built instanceof EngravedNote ? built : undefined })
         clearLedgersForAccidentals(staveNotes, armedStandoffPx())
         // …and an augmentation dot stands half a staff space off its notehead, not the 2px VexFlow
         // leaves it. Same window, same reason: the ink moves here, the room was bought in the builder.
