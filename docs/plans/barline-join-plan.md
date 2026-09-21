@@ -315,6 +315,18 @@ Lusk — three hits, none about barlines), so its rules would have to come from 
   weight from a small staff's own line, which `drawSign` DOES scale. `BarlineRenderer.drawSign`'s
   closing note names this as the day to revisit that; the honest answer for now is that the two
   disagree and the disagreement is recorded here.
+  ✅ **SETTLED 2026-09-21 (his report: a `:|` joined across a 0.7 staff — the thick line changed
+  width where it crossed, the thin line and dots stood closer in).** The per-staff sign now keeps the
+  SYSTEM's unit for every horizontal measure (`BarlineRenderer.SignStaff.signSpace` = the staff's
+  space ÷ k inside its scale group), so staves and gap are ONE x-layout at one weight. Evidence:
+  Gould's plates measured at 600 dpi (p. 576 cue stave: 4.3 px on both staves and through the gap;
+  p. 497 ossia: thin-double strokes AND their 13.3 px separation identical on both; her staff LINES
+  do scale), Ross p. 151, Verovio (`view_page.cpp:826-833`, size 100 always), MuseScore's default.
+  ⚠️ LilyPond's `\magnifyStaff` scales them — the one dissent. ⛔ No book STATES it. The dots' SIZE
+  is the one open choice, a row: `layout/barlineSign.REPEAT_DOT_SIZE` (`staff` = Verovio, armed;
+  `system` = MuseScore); their y is each staff's own, which every engine agrees on.
+  ⚠️ LEFT: the tier-1 barline HIT BOX (`ScoreRenderer.registerMeasureElements`) still reaches left
+  by the sign's extent in the STAFF's space, so on a small staff it is ≈30 % short of the dots.
 - 🚨 **THE HINTING PASS HAS TO BE TOLD ABOUT IT.** `hintBarlines` collects `g.stavebarline rect`,
   rounds each onto whole device pixels, skips any rect whose parent carries `data-no-hint`, and on
   first sight skips any rect that is not exactly `THIN_BARLINE_PX` wide. ⇒ the gap segment must join

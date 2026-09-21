@@ -2299,6 +2299,22 @@ Palette / single-item duplicate of the whole draw: `src/engraving/rendering/sing
 the next measure of the same system is corrected at `barline.cpp:293-332` by taking `min(y1, y1Next)`
 and (non-spanning only) `max(y2, y2Next)`, and only when `rtick().isNotZero()`.
 
+> ⭐⭐ **2026-09-21 — the SAME question asked of all three engines and of the books** (his report: a
+> `:|` joined across a 0.7 staff changed width where it crossed). Read from source:
+>
+> | | LilyPond (`\magnifyStaff`) | Verovio | MuseScore (default) |
+> |---|---|---|---|
+> | thin + thick strokes | scale per staff (`hair-thickness`/`thick-thickness` are in magnifyStaff's shrinkable props, `music-functions-init.ly:1156-1159`) | **fixed at size 100** — a measure barline has no staff ancestor (`view_page.cpp:826-833`) | **fixed** (`tlayout.cpp:1110`) |
+> | separation | scales (`kern`, same list) | fixed (`view_page.cpp:833`) | fixed |
+> | dot GLYPH | scales | **scales** (`GetGlyphWidth(…repeatDot, staffSize…)`, `:963-971`) | **fixed** (`magS()` follows the barline's mag, `engravingitem.cpp:332,1848`) |
+> | dot x | the thin line's left edge is the shared anchor (`bar-line.scm:760-798`) | the sign's — every x term is `GetDrawingUnit(100)` (`:958-966`) | the sign's, right-aligned in the segment (`measurelayout.cpp:950-959`) |
+> | dot y | the staff's own | the staff's own | the staff's own |
+> | the gap segment | ONE model BarLine's thickness (`bar-line.scm:952-954, 1102-1105`) | the same size-100 call (`:802`) | the upper staff's barline, extended (`barline.cpp:284`) |
+>
+> ⭐ All agree on two things: the dots' Y is each staff's own, and the gap takes its weight from ONE
+> source. The books are `reference/README.md`'s 2026-09-21 entry (Gould's plates: one weight, one
+> separation). ✅ What we built is in `docs/plans/barline-join-plan.md` §3.
+
 **Small staves.** `Sid::scaleBarlines` (default **false** — a barline divides the system) decides
 whether the item takes the staff's mag at all, `tlayout.cpp:1110`:
 

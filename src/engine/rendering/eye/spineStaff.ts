@@ -272,6 +272,7 @@ export function drawSpineBarline(
   try {
     paintBarlineSign(ctx, kind, 0, {
       space: frame.spacePx,
+      signSpace: frame.spacePx,
       topY: staffLineY(frame, 0),
       botY: staffLineY(frame, frame.lineCount - 1) + staveLineWidthPx(),
       numLines: frame.lineCount,

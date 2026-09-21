@@ -322,6 +322,28 @@ export function dotLines(numLines: number): [number, number] {
 }
 
 /**
+ * ⭐ **WHOSE SIZE THE REPEAT DOTS TAKE on a staff that is not the system's size** — the one part of a
+ * barline sign with a real choice; the strokes, their separation and every x are the SYSTEM's
+ * (`rendering/staff/BarlineRenderer.SignStaff.signSpace` has the evidence).
+ *
+ * | row | the dot glyph on a small staff | source |
+ * |---|---|---|
+ * | `staff` | the staff's own size — the dots shrink with it, keeping the x the sign gave them | Verovio: `GetGlyphWidth(SMUFL_E044_repeatDot, staffSize…)`, x from `GetDrawingUnit(100)` (`view_page.cpp:958-971`) |
+ * | `system` | full size on every staff | MuseScore's default: `magS()` follows the barline's mag, 1.0 while `Sid::scaleBarlines` is false |
+ *
+ * ⛔ No book says, and no plate was found (searched 2026-09-21: Gould pp. 421, 497, 575–577, 627–628;
+ * Gerou & Lusk p. 104) — UNKNOWN in the literature. ⭐ `staff` is armed because the dots sit IN the
+ * staff's spaces: a 0.4-space dot at full size fills 57 % of a 0.7 staff's space. What every engine
+ * agrees on is their Y — each staff's own spaces — which is not a choice and not here.
+ */
+export const REPEAT_DOT_SIZE: 'staff' | 'system' = 'staff'
+
+/** Do a repeat's dots take their own staff's size? — see {@link REPEAT_DOT_SIZE}. */
+export function repeatDotsFollowStaff(): boolean {
+  return REPEAT_DOT_SIZE === 'staff'
+}
+
+/**
  * ⭐ **Does this sign carry a half belonging to `half`?** — i.e. is there ink here that the bar on
  * that side of the boundary is the owner of.
  *

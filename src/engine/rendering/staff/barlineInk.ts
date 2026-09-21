@@ -33,6 +33,19 @@ export function thinBarlineSpaces(): number {
   return thinLineSpaces()
 }
 
+/**
+ * ⭐ The attribute a barline group carries when its sign was drawn in a unit other than its own
+ * space's — `./BarlineRenderer` writes `1 / k` on a staff drawn at scale `k`, where the sign keeps
+ * the SYSTEM's weight. Absent = 1.
+ */
+export const SIGN_UNIT_ATTR = 'data-sign-unit'
+
+/** The unit a barline rect's sign was drawn in, relative to its own space — 1 when its group says nothing. */
+function signUnitOf(rect: Element): number {
+  const unit = parseFloat(rect.parentElement?.getAttribute(SIGN_UNIT_ATTR) ?? '')
+  return Number.isFinite(unit) && unit > 0 ? unit : 1
+}
+
 /** The thin barline in px at staff size 1. A bar's `<g>` carries the staff's scale, so a rect
  *  written in this unit inside that group is already proportional to its staff. */
 export function thinBarlinePx(): number {
@@ -167,7 +180,10 @@ export function hintBarlines(
       // are already gone, above. ⭐ Since P5b every line reaching this test is DRAWN at
       // `THIN_BARLINE_PX`, the opening one included — it used to arrive as VexFlow's 1 px rect and
       // depend on `inkBarlines` having run first.)
-      if (parseFloat(rect.getAttribute('width') ?? '') !== thinBarlinePx()) continue
+      // ⭐ …in the unit it was DRAWN in: a line on a small staff is the system's weight inside the
+      //    staff's `scale(k)` group, so its own-space width is `THIN ÷ k` and its group says so
+      //    (`SIGN_UNIT_ATTR`). ⚠️ A tolerance, because the painter writes 3 decimal places.
+      if (Math.abs(parseFloat(rect.getAttribute('width') ?? '') - thinBarlinePx() * signUnitOf(rect)) > 1e-3) continue
       base = rect.getAttribute('x') ?? '0'
       rect.dataset[BASE_X] = base
     }
@@ -182,7 +198,7 @@ export function hintBarlines(
     const leftDev = (ctm.a * asked + ctm.e) * dpr
     // At least one whole device pixel: a barline may be too thin to see, but it may never be too
     // thin to EXIST. Below ~62% zoom the conventional 0.16 spaces rounds to nothing.
-    const widthDev = Math.max(1, Math.round(thinBarlinePx() * k))
+    const widthDev = Math.max(1, Math.round(thinBarlinePx() * signUnitOf(rect) * k))
     plans.push({
       rect,
       x: asked + (Math.round(leftDev) - leftDev) / k,

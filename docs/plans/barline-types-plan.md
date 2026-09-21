@@ -615,6 +615,11 @@ outside the measure group, so it scales explicitly (`inStaffSpace` / `staffSpace
 SYSTEM, which is an argument for not scaling it — but P2 must now write one line saying which it did,
 where §2's per-staff work and `docs/small-staff-spacing` will find it.
 
+> ✅ **DECIDED 2026-09-21: the sign does NOT scale with its staff** — it keeps the system's weight,
+> separation and x on every staff; only the strokes' reach, the dots' spaces and (a row,
+> `layout/barlineSign.REPEAT_DOT_SIZE`) the dots' size follow the staff. His report, the plates and the
+> engines: `docs/plans/barline-join-plan.md` §3.
+
 #### 4.6.7 ⏳ The scope consequence, stated plainly
 
 ⚠️ **This takes ALL barlines, not only the three signs**, and that is a real widening of the ask.

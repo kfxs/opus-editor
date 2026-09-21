@@ -138,6 +138,41 @@ test('⭐ a SMALL staff’s join is not distorted — the gap is drawn in SCORE 
   expect(after.gap[0].width, 'the gap ink does not shrink with the staff').toBeCloseTo(before.gap[0].width, 1)
 })
 
+test('⭐⭐ a REPEAT across a small staff is ONE sign — strokes collinear and of one weight, dots aligned', async ({ score }) => {
+  // 🚨 His report, 2026-09-21 (screenshot): a `:|` joined across a 0.7 staff and a full one — the
+  // thick line changed width where it crossed, and the small staff's thin line and dots stood
+  // closer in. The sign scaled with its staff while the gap kept the score's weight.
+  await joinedGrandStaff(score)
+  await score.evaluate(async () => {
+    const h = window.__h
+    h.engine.setRepeatEnd(1, true)
+    h.engine.setStaffSize(0, 0.7)
+    await h.render()
+  })
+  const after = await drawn(score)
+  const dots = await score.evaluate(() => ({
+    upper: window.__h.inkSizes('g[id="barline-1-0-end"] text'),
+    lower: window.__h.inkSizes('g[id="barline-1-1-end"] text'),
+  }))
+
+  const byX = <T extends { x: number }>(list: T[]) => [...list].sort((a, b) => a.x - b.x)
+  const [upper, lower, gap] = [byX(after.upperSign), byX(after.lowerSign), byX(after.gap)]
+  expect(upper.length, 'thin + thick on the small staff').toBe(2)
+  for (const i of [0, 1]) {
+    // ⭐ Gould's plates (pp. 576, 497), Verovio and MuseScore's default: the SYSTEM's weight and x.
+    expect(upper[i].x, 'the small staff’s stroke stands where the full one’s does').toBeCloseTo(lower[i].x, 1)
+    expect(upper[i].width, '…at the same weight').toBeCloseTo(lower[i].width, 1)
+    expect(gap[i].x, '…and the gap continues it').toBeCloseTo(lower[i].x, 1)
+    expect(gap[i].width).toBeCloseTo(lower[i].width, 1)
+  }
+  // ⭐ The dots keep the edge facing the thin line (so the stroke-to-dot gap is one number), and
+  //    take their own staff's SIZE — `layout/barlineSign.REPEAT_DOT_SIZE`, the armed row.
+  expect(dots.upper.length).toBe(2)
+  const right = (d: { x: number; width: number }) => d.x + d.width
+  expect(right(dots.upper[0]), 'near edges aligned across the staves').toBeCloseTo(right(dots.lower[0]), 0)
+  expect(dots.upper[0].width, 'the small staff’s dots are smaller').toBeLessThan(dots.lower[0].width * 0.85)
+})
+
 test('⭐ an INVISIBLE barline is invisible in the gap too', async ({ score }) => {
   await joinedGrandStaff(score)
   const shown = await score.evaluate(async () => {

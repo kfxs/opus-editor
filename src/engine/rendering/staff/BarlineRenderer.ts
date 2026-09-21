@@ -61,12 +61,12 @@
  * the stave's begin bar is turned off and this pass draws it.
  */
 import type { EngravedStave } from '../engraved/EngravedStave'
-import { staffBarlineExtent } from './barlineInk'
+import { SIGN_UNIT_ATTR, staffBarlineExtent } from './barlineInk'
 import { drawGlyph } from '../painter/glyphPainter'
 import type { DrawGroup } from '@/engine/paint/DrawGroup'
 import { drawGroupOf, svgNode } from '../painter/svgDrawGroup'
 import type { Measure, Score } from '@/types/music'
-import { HEADER_TO_REPEAT, barlineSignParts, dotLines, signHasHalf, signWings, type BarlineSignKind, type SignHalf } from '@/engine/layout/barlineSign'
+import { HEADER_TO_REPEAT, barlineSignParts, dotLines, repeatDotsFollowStaff, signHasHalf, signWings, type BarlineSignKind, type SignHalf } from '@/engine/layout/barlineSign'
 import { signAtBoundary } from '@/engine/models/boundarySign'
 import { inStaffSpace } from './staffScaleGroup'
 import { drawBarlineGap } from './barlineGap'
@@ -153,8 +153,26 @@ const WING_GLYPHS = {
  *  (`./staveFrame`). Its own type so {@link paintBarlineSign} reads as ink on a staff rather than
  *  as five loose parameters. */
 export interface SignStaff {
-  /** Space between two staff lines, in the drawing's own units — every part of the sign scales by it. */
+  /** Space between two of THIS staff's lines, in the drawing's own units — what the repeat dots'
+   *  glyph is sized by when they follow their staff ({@link repeatDotsFollowStaff}). */
   space: number
+  /**
+   * ⭐⭐ **THE SIGN'S OWN UNIT — the SYSTEM's staff space, ⛔ not this staff's.** Every HORIZONTAL
+   * measure of the sign — stroke widths, the thin-to-thick separation, where the dots and wings
+   * stand — is stated in it, so a sign crossing a small staff and a full one is ONE x-layout: the
+   * strokes are collinear, of one weight, and continuous with the gap segment (`./barlineGap`,
+   * which has always drawn at the score's own space). Equal to {@link space} on a full-size staff.
+   *
+   * His report, 2026-09-21 (screenshot: a `:|` joined across a 0.7 staff and a full one — the thick
+   * line changed width at the small staff, its thin line and dots stood closer in). The evidence:
+   * Gould's own plates hold the barline at ONE absolute weight across a ¾ cue stave and the main
+   * one, the thin-double separation too (pp. 576, 497 — measured; her staff LINES do scale); Ross
+   * p. 151 (*"most plate engravers use the same cutting tool for two or three different sized
+   * staves"*); Verovio draws every measure barline at size 100 (`view_page.cpp:826-833`);
+   * MuseScore's `Sid::scaleBarlines` is false. ⚠️ Only LilyPond's `\magnifyStaff` scales them.
+   * ⛔ No book STATES it — a default, from drawings and engines.
+   */
+  signSpace: number
   /** Top and bottom of the drawn lines: how far the strokes reach. */
   topY: number
   botY: number
@@ -190,8 +208,11 @@ export function paintBarlineSign(
   ctx: RenderPass['context'], kind: BarlineSignKind, x: number, staff: SignStaff,
   group: DrawGroup | null | undefined, wings: boolean,
 ): void {
-  const { space, topY, botY, numLines } = staff
+  const { space, signSpace, topY, botY, numLines } = staff
   const parts = barlineSignParts(kind)
+  // ⭐ The dots' GLYPH is the one part with a choice (`layout/barlineSign.repeatDotsFollowStaff`);
+  //    their x is the sign's either way, and their y is always the staff's own spaces.
+  const dotSpace = repeatDotsFollowStaff() ? space : signSpace
 
   // ⭐⭐ **EACH PIECE OF INK SAYS WHOSE IT IS** — `data-half`, read back by the two selection
   // highlights so a `:||:` lights the half that was clicked and not the whole junction (his report,
@@ -207,12 +228,17 @@ export function paintBarlineSign(
   }
 
   for (const stroke of parts.strokes) {
-    ctx.fillRect(x + stroke.x * space, topY, stroke.width * space, botY - topY)
+    ctx.fillRect(x + stroke.x * signSpace, topY, stroke.width * signSpace, botY - topY)
     tag(stroke.half)
   }
   for (const dot of parts.dots) {
+    // ⭐ A dot smaller than the sign's unit keeps its NEAR edge — the one facing the thin line — where
+    //    the sign put it, so the stroke-to-dot gap is the same on every staff (Verovio's
+    //    `x - barLineWidth/2 - (dotSeparation + dotWidth)`, the width being the scaled glyph's).
+    //    An END repeat's dots grow leftward, so theirs is the RIGHT edge; 0 when the units agree.
+    const nearEdgeShift = dot.half === 'end' ? dot.width * (signSpace - dotSpace) : 0
     for (const line of dotLines(numLines)) {
-      drawRepeatDot(ctx, x + dot.x * space, staff.yForLine(line), space)
+      drawRepeatDot(ctx, x + dot.x * signSpace + nearEdgeShift, staff.yForLine(line), dotSpace)
       tag(dot.half)
     }
   }
@@ -226,9 +252,10 @@ export function paintBarlineSign(
   if (!wings) return
   for (const wing of signWings(kind)) {
     const glyphs = WING_GLYPHS[wing.flare]
-    drawWing(ctx, glyphs.top, x + wing.x * space, topY, space)
+    // The tips spring from the THICK stroke, so they are the sign's size, like it.
+    drawWing(ctx, glyphs.top, x + wing.x * signSpace, topY, signSpace)
     tag(wing.half)
-    drawWing(ctx, glyphs.bottom, x + wing.x * space, botY, space)
+    drawWing(ctx, glyphs.bottom, x + wing.x * signSpace, botY, signSpace)
     tag(wing.half)
   }
 }
@@ -290,7 +317,7 @@ function registerRepeatStart(
     bbox: {
       x: boundaryX,
       y: staff.topY,
-      width: barlineSignParts(kind).extent.right * staff.space,
+      width: barlineSignParts(kind).extent.right * staff.signSpace,
       height: staff.botY - staff.topY,
     },
   })
@@ -299,14 +326,16 @@ function registerRepeatStart(
 /**
  * Draw one sign, centred on `boundaryX` **in the stave's own space**.
  *
- * ⭐ **It scales with its staff**, and this is now a decision rather than an accident (§4.6.6). It
- * used to be one: `inkBarlines` wrote a px width inside a group that happened to carry the staff's
- * scale, so a small staff got a proportionally thinner barline because of which `<g>` the rect landed
- * in. ⚠️ That accident still stands for the OPENING line, deliberately — `EngravedBarline`'s own
- * note says so, and says this comment is the argument for keeping it. Drawing outside the measure group means saying so — and the answer keeps today's picture:
- * a cue-size staff's own divider is part of that staff's ink. ⚠️ The argument the other way is real
- * and is MuseScore's default (`Sid::scaleBarlines` is false — a barline divides the SYSTEM); the day
- * §2's per-staff work meets `docs/small-staff-spacing`, this is the line to revisit.
+ * ⭐⭐ **THE SIGN KEEPS THE SYSTEM'S WEIGHT ON EVERY STAFF — since 2026-09-21, his report** (a `:|`
+ * joined across a 0.7 staff and a full one: the thick line changed width where it crossed, the thin
+ * line and the dots stood closer in on the small staff). Until then it scaled with its staff, which
+ * this comment defended as *"a cue-size staff's own divider is part of that staff's ink"* and named
+ * as the line to revisit. The evidence that settled it is on {@link SignStaff.signSpace}: Gould's
+ * plates, Ross, Verovio and MuseScore's default all draw ONE sign for the system. What still follows
+ * the staff is what stands IN it: how far the strokes reach, which spaces the dots sit in, and (a
+ * changeable row) the dots' size.
+ * ⚠️ The OPENING line of a single-staff system is `EngravedBarline`'s and still scales with its
+ * staff; on a system of several staves that line is the connector's, which never did.
  */
 function drawSign(
   pass: RenderPass,
@@ -326,8 +355,12 @@ function drawSign(
   // ⭐ Where a barline STOPS is one rule for the whole family — `engrave/staff/barlineExtent`, via
   // `./barlineInk`. ⛔ Not the staff's outer ink edges, which is what this read before 2026-09-13.
   const extent = staffBarlineExtent(frame)
+  // ⭐ This ink is drawn inside the staff's own `scale(k)` group, so the SYSTEM's space is this
+  //    staff's ÷ k there — the rule `docs/plans/staff-size-plan.md` states for every gap inside one.
+  const signSpace = space / placement.scale
   const signStaff: SignStaff = {
     space,
+    signSpace,
     topY: extent.topY,
     botY: extent.bottomY,
     numLines: frame.lineCount,
@@ -356,6 +389,9 @@ function drawSign(
   // width in every bar that has one. ⛔ So the sign opts out, exactly as VexFlow's 3 px thick line
   // always has. It is 0.5 spaces of ink; it does not vanish for want of alignment.
   if (group && kind !== 'plain' && kind !== 'invisible') group.tag('data-no-hint', '1')
+  // ⭐ …and a PLAIN line on a small staff tells the hinting pass the unit it was drawn in: its width
+  //    is no longer `THIN_BARLINE_PX` in its own space, which is how that pass knows a thin line.
+  if (group && placement.scale !== 1) group.tag(SIGN_UNIT_ATTR, String(1 / placement.scale))
 
   // ⭐⭐ **THE INVISIBLE LINE, AND WHO IS LOOKING** — his ask, 2026-08-26: *"what we do on screen we
   // use the same colour of hidden we are using for rest, and not printing it on PDF export."*

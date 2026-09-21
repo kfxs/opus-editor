@@ -1072,3 +1072,23 @@ what we draw, not applied (`docs/plans/text-font-switch-plan.md` §6).
   its ASCII slots are Finale's legacy symbol layout, ⛔ not letters) is `docs/research/music-text-fonts-research.md`.
   SMuFL routes that served on 2026-09-21: `smufl.formats.music/latest/…` and
   `www.w3.org/2021/03/smufl14/…`; ⛔ `w3c.github.io/smufl/latest/specification/…` **404**s.
+
+### What was asked of it on 2026-09-21 (a BARLINE SIGN on a SMALL staff), and what came back
+
+The question: a system holds a ¾-size staff and a full one and their barlines are JOINED — does the
+sign on the small staff (strokes, thin-to-thick separation, repeat dots) scale with it? ⛔ **No book
+says so in words.** ⭐ The answer is in two of Gould's PLATES, measured at 600 dpi (ink integrals; the
+scans are ≈238 ppi native, so a barline is ≈1.7 native px — consistent, not precise):
+
+| what | where | what it says |
+|---|---|---|
+| the cue stave's size, and that it is joined | **Gould pp. 575–576** | *"A cue stave is about three-quarters of the full-sized stave."* · *"Where barlines coincide, join the cue and the player's stave together with dotted or solid barlines"* |
+| ⭐⭐ the barline's WEIGHT across the two | **Gould p. 576** (Ravel Trio, cue over cello; staff spaces 17.6 / 23.6 px = 0.746) | barlines **4.31–4.40 px on the cue stave, 4.22–4.35 on the main one, 4.25–4.33 through the gap** ⇒ ONE absolute weight. Her staff LINES do scale (1.74 vs 2.27 px) |
+| ⭐⭐ a composite sign's SEPARATION | **Gould p. 497** (ossia over cello, thin double on both; 20.1 / 26.75 px = 0.75) | strokes 4.87 / 5.13 px vs 4.85 / 5.12; centroids at the SAME x on both staves; separation **13.3 px on both** — not scaled, collinear |
+| plate practice | **Ross p. 151** | *"most plate engravers use the same cutting tool for two or three different sized staves"* |
+| the ossia's dotted barlines | **Gould p. 497** | *"connect each bar to the main stave with dotted barlines. A solid barline connects both staves at the beginning of a system"* |
+| ⛔ a REPEAT or FINAL bar on a small staff; whether the DOTS scale | — | **UNKNOWN** — no plate found (Gould pp. 421, 497, 575–577, 627–628; G&L p. 104; greps of all four text layers). NOT rendered: Gould pp. 424, 515, 523, 597, 614, 625 |
+
+⚠️ The plates cannot tell "constant absolute size" from "constant ratio to the MAIN staff". The engines
+(read from source the same day) are in `docs/research/barline-join-research.md`, *Small staves*.
+
