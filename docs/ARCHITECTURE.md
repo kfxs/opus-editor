@@ -725,6 +725,16 @@ Yes → it must be a **span anchor** (`ScoreRenderer.spanAnchors`). Otherwise cu
 holding its endpoint and your element draws detached, or vanishes when the user scrolls. Slurs and
 ties already do this.
 
+⚠️ **The second half of question 3: does its ink depend on notes BETWEEN its ends?** A span anchor
+pins a bar against being *translated* — a bar that only moved keeps the notes it was drawn with, and
+those still report their old coordinates. Two end bars are enough for a span solved from its ends (a
+tie, a hairpin, an octave line). 🚨 A **slur** is not one: its arch is solved over the ink of every
+note under it (`curves/slurObstacles`), so it pins **every bar it covers**. It pinned only its ends
+until 2026-09-21, when a system dragged down in the Gymnopédie left one covered bar translated, its
+notes reporting the old y, and a flat slur arched over the place they used to be — a fault that only
+exists across two renders of one engine, so a fresh engrave never showed it
+(`e2e/slurAfterMove.e2e.ts`). A new span that reads what lies under it owes the same answer.
+
 ### Every wrong answer here is silent
 
 Nothing throws. No test goes red. Miss the **shape key** and your element simply *never redraws* —

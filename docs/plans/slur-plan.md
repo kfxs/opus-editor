@@ -515,6 +515,17 @@ our own Bézier** — same endpoints, same above/below logic, same two-half syst
       slurs show no handles. Deselecting clears the dots.
 
 ### Phase 8 — Nested / overlapping-slur disambiguation — DONE & COMMITTED (2d248e8)
+
+> 🚨 **2026-09-21 — the obstacle solve has a RENDER-REUSE obligation, and it was unpaid.** The arch is
+> solved over `staveNoteMap`'s drawn notes for every chord the slur covers (`slurObstaclesOf`). A bar
+> the incremental renderer merely TRANSLATES keeps notes reporting where they were first drawn, and
+> `ScoreRenderer.spanAnchors` pinned only a slur's two END bars — sound while a slur read two notes,
+> wrong from the day it read them all. His report (the Gymnopédie, a system dragged down): a flat
+> slur became a huge arch, because one covered bar's obstacles stayed at the old y. Measured by
+> printing the obstacle boxes: all moved 100 px but that bar's four. ⇒ a slur now pins EVERY bar it
+> covers. Pinned by `e2e/slurAfterMove.e2e.ts` (the picture) and
+> `ScoreRenderer.incrementalRedraw.test.ts` (the rule; a hairpin twin keeps the endpoints-only case).
+
 - [x] **Render-time containment depth, not a create-time counter (deviation from the original sketch).**
       `utils/slurs.slurNestDepths(score)` (pure, unit-tested) returns each slur's nesting *level* in its
       voice: innermost = 0; a slur enclosing nested slurs is `1 + max(level of slurs it strictly

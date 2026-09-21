@@ -1534,7 +1534,9 @@ export class ScoreRenderer {
    * > fresh, so no offset is ever needed anywhere.
    *
    * The cost is small and bounded: only the two *endpoint* bars of a span, never the bars it merely
-   * crosses. A slur over bars 4–15 redraws 4 and 15; 5–14 still just translate.
+   * crosses — ⚠️ **except a SLUR, which pins every bar it covers** (2026-09-21): its arch is solved
+   * over the notes under it, so those notes must be fresh too. A tie over a barline, a hairpin over
+   * bars 4–15 still redraw two bars; a slur over 4–15 redraws all twelve, when they move.
    *
    * A **cross-barline beam** is a span in exactly this sense and joins the same list: it is drawn
    * outside every measure group, from its notes' drawn coordinates, so none of its bars may be
@@ -1599,7 +1601,23 @@ export class ScoreRenderer {
 
     // Slurs name their endpoints by note id.
     for (const slur of score.slurs ?? []) {
-      add(homeOfPitch.get(slur.startNoteId), homeOfPitch.get(slur.endNoteId))
+      const from = homeOfPitch.get(slur.startNoteId)
+      const to = homeOfPitch.get(slur.endNoteId)
+      add(from, to)
+      // 🚨🚨 **…and a slur pins EVERY bar it covers, ⛔ not only its two ends** — his report,
+      //   2026-09-21 (the Gymnopédie): dragging a system down turned a flat slur into a huge arch.
+      //   A slur's arch is solved over the ink of every note UNDER it (`curves/slurObstacles`, read
+      //   off `staveNoteMap` by `SlurRenderer.slurObstaclesOf`), so a covered bar that is merely
+      //   TRANSLATED hands it notes still reporting where they were drawn — measured: every obstacle
+      //   moved 100 px with the system except bar 27's four, and the slur arched over the place bar
+      //   27 used to be. Bars 28–30 happened to be re-engraved only because hairpins end in them.
+      //   ⚠️ This is the cost the header said a span never pays ("the bars it merely crosses"); that
+      //   was true while a slur read two notes, and stopped being true the day it read them all.
+      //   Paid only when the bars MOVE, and only for slurs — a tie covers nothing, a hairpin's and
+      //   a line's ink is solved from its ends.
+      if (from && to) {
+        for (let m = Math.min(from.measure, to.measure) + 1; m < Math.max(from.measure, to.measure); m++) measures.add(m)
+      }
     }
 
     // ⭐ Hairpins. Their ends are POSITIONS, not note ids, so the far bar is derived by walking the

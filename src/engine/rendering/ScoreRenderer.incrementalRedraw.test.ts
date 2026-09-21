@@ -391,11 +391,14 @@ describe('P5.4b — a bar that only moved is translated', () => {
     expect(registrySnapshot(incremental, 12)).toEqual(registrySnapshot(fresh, 12))
   })
 
-  it("a SPAN's endpoint bars are re-engraved when they move — never translated", () => {
-    // Ties and slurs are redrawn every render from their endpoint notes' `StaveNote`s, and a
-    // translated bar keeps the StaveNotes it was DRAWN with — which still report the old
-    // coordinates. So an anchor bar must be redrawn when it moves, or the slur detaches from its
-    // notes. The bars a span merely CROSSES are unaffected and still translate.
+  it('🚨 a SLUR re-engraves EVERY bar it covers when they move — its arch is solved over their notes', () => {
+    // Ties and slurs are redrawn every render from their notes' `StaveNote`s, and a translated bar
+    // keeps the StaveNotes it was DRAWN with — which still report the old coordinates.
+    // ⚠️ This test used to pin "endpoints only: the bars a span merely CROSSES still translate", and
+    // for a slur that stopped being true the day its arch was solved over the ink of every note
+    // UNDER it (`curves/slurObstacles`). His report, 2026-09-21 (the Gymnopédie): a system dragged
+    // down left one covered bar translated, its notes reporting the old y, and the slur arched over
+    // the place they used to be. `e2e/slurAfterMove.e2e.ts` holds the picture; this holds the rule.
     const model = buildScore()
     const m4 = model.getScore().measures[3].slots.find(s => s.type === 'chord')!
     const m7 = model.getScore().measures[6].slots.find(s => s.type === 'chord')!
@@ -409,9 +412,26 @@ describe('P5.4b — a bar that only moved is translated', () => {
     renderer.renderScore(model.getScore())
     const after = groupNodes(renderer, 12)
 
-    const redrawn = redrawnMeasures(before, after)
-    expect(redrawn, 'the edited bar plus the slur ENDPOINTS').toEqual([2, 4, 7])
-    // The bars the slur merely crosses still just translate.
+    expect(redrawnMeasures(before, after), 'the edited bar plus every bar UNDER the slur').toEqual([2, 4, 5, 6, 7])
+    // …and the bars beyond it still just translate.
+    expect(after.get(8)!.getAttribute('transform')).toMatch(/^translate\(/)
+  })
+
+  it('a HAIRPIN pins only its ENDPOINT bars — the bars it merely crosses still translate', () => {
+    // The old rule, still true of every span whose ink is solved from its ENDS alone.
+    const model = buildScore()
+    const beat0 = { num: 0, den: 1 }
+    model.addHairpinOverNotes('cresc', { measure: 4, beat: beat0 }, { measure: 7, beat: beat0, length: { num: 1, den: 1 } })
+
+    const renderer = linearRenderer()
+    renderer.renderScore(model.getScore())
+    const before = groupNodes(renderer, 12)
+
+    widenBar2(model)
+    renderer.renderScore(model.getScore())
+    const after = groupNodes(renderer, 12)
+
+    expect(redrawnMeasures(before, after), 'the edited bar plus the wedge’s ENDPOINTS').toEqual([2, 4, 7])
     expect(after.get(5)!.getAttribute('transform')).toMatch(/^translate\(/)
     expect(after.get(6)!.getAttribute('transform')).toMatch(/^translate\(/)
   })
