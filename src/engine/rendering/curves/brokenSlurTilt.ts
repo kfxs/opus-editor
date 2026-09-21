@@ -100,7 +100,10 @@ export function brokenSlurOpenRise(
   // a fragment below a run climbing away from its anchor already sits as close to that run as it may
   // come, so a lean toward a higher continuation has nowhere to go. Which case counts as "outward"
   // flips with the side, so this is not an asymmetry in the rule, only in the coordinate.
-  const wanted = clearanceRise + Math.max(tilt, 0)
+  // ⭐ The music beside the open end decides its height — WITHIN what still reads as open-ended
+  // (`brokenSlurBeginMaxDip` / `brokenSlurEndMinRise`, his eye on the Gymnopédie, 2026-09-21).
+  const floor = half === 'begin' ? -CURVE_PX.brokenSlurBeginMaxDip : CURVE_PX.brokenSlurEndMinRise
+  const wanted = Math.max(clearanceRise, floor) + Math.max(tilt, 0)
   // ⭐ THE TWO CEILINGS, and they are what keep this rule from drawing the two shapes his eye caught:
   //   • a SHORT fragment is FLAT, never a comma — the rise may not exceed the fragment's own length
   //     times `brokenSlurMaxSlope`. A slur ending on the first note of a system has almost no room,
@@ -113,7 +116,9 @@ export function brokenSlurOpenRise(
   // 2 * unit) && (abs(x1 - x2) < 2 * staffSize)` (`src/slur.cpp`). A long fragment that runs half a
   // system is in no danger of being read as a tie, and forcing a space of rise onto it was the other
   // half of the air. So the floor applies only inside `brokenSlurTieLikeSpan`.
-  if (lengthPx < CURVE_PX.brokenSlurTieLikeSpan && rise < CURVE_PX.brokenSlurMinRise) {
+  // ⚠️ BEGIN halves only since 2026-09-21: an END half already stands `brokenSlurEndMinRise` clear
+  // of level, and a full space across a 6-space continuation drew a tilted hat (his eye, Gymnopédie).
+  if (half === 'begin' && lengthPx < CURVE_PX.brokenSlurTieLikeSpan && rise < CURVE_PX.brokenSlurMinRise) {
     return Math.min(CURVE_PX.brokenSlurMinRise, lengthPx * BROKEN_SLUR_MAX_SLOPE)
   }
   return rise

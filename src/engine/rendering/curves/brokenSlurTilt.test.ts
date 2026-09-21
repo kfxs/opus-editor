@@ -19,7 +19,8 @@ describe('brokenSlurOpenRise — Gould p. 112, via Verovio and LilyPond', () => 
     // under a rising run ended up 2.95 spaces below the staff while its music had climbed away.
     // LilyPond measures the open end against the music BESIDE it; with no such music, flat.
     expect(brokenSlurOpenRise(0, 'begin', ABOVE, LONG)).toBe(0)
-    expect(brokenSlurOpenRise(0, 'end', ABOVE, LONG)).toBe(0)
+    // ⚠️ …but an END half never opens level with the note it arrives on: `brokenSlurEndMinRise`.
+    expect(brokenSlurOpenRise(0, 'end', ABOVE, LONG)).toBe(CURVE_PX.brokenSlurEndMinRise)
   })
 
   it('⭐ the two halves point AT each other — the whole slur tilts one way', () => {
@@ -28,7 +29,8 @@ describe('brokenSlurOpenRise — Gould p. 112, via Verovio and LilyPond', () => 
     // ⚠️ Which of the pair moves depends on the side, because the lean only ever acts OUTWARD (see
     // below); above the staff a rising continuation is the begin half's case.
     expect(brokenSlurOpenRise(UP_A_SIXTH, 'begin', ABOVE, LONG)).toBeGreaterThan(0)
-    expect(brokenSlurOpenRise(UP_A_SIXTH, 'end', ABOVE, LONG)).toBe(0)
+    // ⚠️ "does not" = it gets no LEAN: it keeps the END half's own least rise and nothing more.
+    expect(brokenSlurOpenRise(UP_A_SIXTH, 'end', ABOVE, LONG)).toBe(CURVE_PX.brokenSlurEndMinRise)
   })
 
   it('…and mirror for a falling continuation', () => {
@@ -62,6 +64,18 @@ describe('brokenSlurOpenRise — Gould p. 112, via Verovio and LilyPond', () => 
     // end belongs up there with it. The old fixed base drove it 1.4 spaces the other way, and the
     // white left between the arc and the run is what he reported as "the air in the measure before".
     expect(brokenSlurOpenRise(0, 'begin', BELOW, LONG, -SP)).toBe(-SP)
+  })
+
+  it('⭐⭐ …WITHIN what still reads as open-ended — his eye on the 1ère Gymnopédie, 2026-09-21', () => {
+    // A BEGIN half over a long descending line followed the music 2.5–3.5 spaces below its anchor and
+    // landed on the last note like a complete slur (Gould p. 112 forbids exactly that). He pulled
+    // them back by hand to about −1.5; the 2026-08-16 figure above (−1) is inside the cap and unmoved.
+    expect(brokenSlurOpenRise(0, 'begin', ABOVE, 50 * SP, -3.5 * SP)).toBe(-CURVE_PX.brokenSlurBeginMaxDip)
+    expect(brokenSlurOpenRise(0, 'begin', ABOVE, 50 * SP, -SP)).toBe(-SP)
+    // An END half that would open BELOW the note it arrives on reads as a new slur starting there.
+    expect(brokenSlurOpenRise(0, 'end', ABOVE, 60 * SP, -SP)).toBe(CURVE_PX.brokenSlurEndMinRise)
+    expect(CURVE.brokenSlurBeginMaxDip).toBe(1.5)
+    expect(CURVE.brokenSlurEndMinRise).toBe(0.5)
   })
 
   it('⭐ never flattens into something a reader would take for a TIE — but only when SHORT', () => {

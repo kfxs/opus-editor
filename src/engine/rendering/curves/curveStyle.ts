@@ -77,6 +77,24 @@ export const CURVE = {
    */
   brokenSlurMaxRise: 2.0,
   /**
+   * ⚠️ **How far a BEGIN half's open end may sit INWARD of its own note — OURS, the twin of the row
+   * above, and his eye's number** (2026-09-21, the 1ère Gymnopédie). The open end follows the music
+   * beside it (`./brokenSlurTilt`), and over a long descending line that took it 2.5–3.5 spaces
+   * below its anchor: apex at the first fifth, then a straight diagonal landing on the last note —
+   * a COMPLETE slur, which is what Gould p. 112 forbids (*"each side of the system break will
+   * appear to take a separate slur"*). He pulled three of them back by hand to −1.5 / −1.5 / −1.25.
+   * ⭐ An absolute, ⛔ not a slope: the 2026-08-16 *"air in the measure before"* fix is a 1.5-space
+   * dip across 15 spaces and has to survive; these were 0.06 of their length and did not look it.
+   */
+  brokenSlurBeginMaxDip: 1.5,
+  /**
+   * ⚠️ **The least an END half's open end sits OUTWARD of its own note — OURS, his eye's number**
+   * (same report). A continuation that opens BELOW the note it arrives on reads as a new slur
+   * starting on the system's first note; his three hand-set ones are +0.5 / +0.5 / +0.25. ⛔ A
+   * short one is still held by `BROKEN_SLUR_MAX_SLOPE`, which wins.
+   */
+  brokenSlurEndMinRise: 0.5,
+  /**
    * ⭐⭐ **WHERE A CONTINUATION BEGINS: this far past the header's INK**, at a system start — the gap
    * between the last header glyph (clef, key, meter) and the open end of the fragment that resumes.
    *
