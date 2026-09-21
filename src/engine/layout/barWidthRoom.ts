@@ -15,7 +15,7 @@
 import type { MeasureWidthInfo, ViewMode } from './layoutConfig'
 import { lineOpeningClefPremium } from './headerInk'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
-import { EMPTY_BAR_FLOOR_PX } from './spacingPadding'
+import { emptyBarFloorPx } from './spacingPadding'
 import type { SurfaceMetrics } from './surface'
 import { authoredScales, growthPayerShares, squeezedWidth } from './MeasureLayout'
 import { BAR_STRETCH_MIN, BAR_STRETCH_MAX } from '@/engine/models/engravingOverrides'
@@ -354,7 +354,7 @@ export function barWidthRoom(input: {
   // the picture stands still — a dead press, which is the thing every one of these limits exists to
   // avoid. ⚠️ The two must name the SAME number or the press dies one step early or one step late,
   // which is why both read {@link EMPTY_BAR_FLOOR_PX}.
-  const layoutFloor = info.stretchScalesShare ? EMPTY_BAR_FLOOR_PX / info.noteSpace : 0
+  const layoutFloor = info.stretchScalesShare ? emptyBarFloorPx() / info.noteSpace : 0
 
   return {
     stretch,

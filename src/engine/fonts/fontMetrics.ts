@@ -44,7 +44,7 @@ import {
 } from './bravuraMetrics'
 import * as leipzig from './leipzigMetrics'
 import * as sebastian from './sebastianMetrics'
-import { activeMusicFont, type MusicFontId } from './musicFont'
+import { DEFAULT_MUSIC_FONT, activeMusicFont, type MusicFontId } from './musicFont'
 import type { NoteDuration } from '@/types/music'
 
 export { BRAVURA }
@@ -74,8 +74,34 @@ const FONT_TABLES: Record<MusicFontId, FontTable> = {
   sebastian: { boxes: sebastian.GLYPH_BOXES, anchors: sebastian.GLYPH_ANCHORS, defaults: sebastian.ENGRAVING_DEFAULTS, fallbackGlyphs: sebastian.FALLBACK_GLYPHS, fallbackDefaults: sebastian.FALLBACK_DEFAULTS },
 }
 
+/** Set only inside {@link differenceFromDefault}, while it asks the DEFAULT face the same question. */
+let pinnedTable: FontTable | null = null
+
 function activeTable(): FontTable {
-  return FONT_TABLES[activeMusicFont().id]
+  return pinnedTable ?? FONT_TABLES[activeMusicFont().id]
+}
+
+/**
+ * ⭐ **How much a font quantity differs, in the active face, from the DEFAULT face's** — `quantity`
+ * is any expression over this module's lookups (`() => noteheadInk('q')`), asked of both tables.
+ *
+ * It exists for tables whose rows are the default face's numbers PLUS a judgement — `layout/
+ * spacingPadding`'s ink table, measured off a Bravura drawing and rounded by hand. Such a row cannot
+ * be re-derived from another face's box without losing its judgement; it CAN be moved by exactly how
+ * much that face's glyph differs (`docs/plans/music-font-switch-plan.md`, follow-up 1).
+ *
+ * ⭐ **Exactly 0 for the default face — not "nearly"**: the question is not even asked, so no row
+ * moves by a float's last digit while Bravura is selected.
+ */
+export function differenceFromDefault(quantity: () => number): number {
+  if (activeMusicFont().id === DEFAULT_MUSIC_FONT) return 0
+  const here = quantity()
+  pinnedTable = FONT_TABLES[DEFAULT_MUSIC_FONT]
+  try {
+    return here - quantity()
+  } finally {
+    pinnedTable = null
+  }
 }
 
 /** The glyphs the ACTIVE face does not draw — Bravura's, whole. Empty for Bravura itself. */

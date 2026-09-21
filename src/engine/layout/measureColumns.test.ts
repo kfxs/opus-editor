@@ -3,7 +3,7 @@ import { ScoreModel } from '@/engine/models/ScoreModel'
 import { fracCreate as frac } from '@/utils/fraction'
 import { followingSpace, naturalWidth } from './spacing'
 import { measureColumns } from './measureColumns'
-import { INK, MIN_COLUMN_GAP, pairPadding } from './spacingPadding'
+import { INK, minColumnGap, pairPadding } from './spacingPadding'
 import type { KeySignature, Measure, NoteParams } from '@/types/music'
 import { C_MAJOR, keyFromFifths } from '@/utils/keySignature'
 
@@ -325,9 +325,9 @@ describe('the INK half (P3) — what an event draws buys its own minimum', () =>
     for (const [i, column] of gaps.slice(0, 31).entries()) {
       expect(naturalWidth([column, gaps[i + 1]]), 'the curve, not the floor').toBeCloseTo(1.5, 6)
     }
-    expect(MIN_COLUMN_GAP, 'the floor is still there, just no longer the binding term')
+    expect(minColumnGap(), 'the floor is still there, just no longer the binding term')
       .toBeCloseTo(1.43, 6)
-    expect(followingSpace(frac(1, 16)), 'a 64th is where it takes over').toBeLessThan(MIN_COLUMN_GAP)
+    expect(followingSpace(frac(1, 16)), 'a 64th is where it takes over').toBeLessThan(minColumnGap())
   })
 })
 

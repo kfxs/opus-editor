@@ -16,7 +16,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { MusicEngine } from './MusicEngine'
 import { fracCreate } from '@/utils/fraction'
-import { MIN_COLUMN_GAP } from './layout/spacingPadding'
+import { minColumnGap } from './layout/spacingPadding'
 import { STAFF_SPACE_PX } from './models/staffSize'
 import { SKETCH_CANVAS } from './layout/surface'
 
@@ -459,7 +459,7 @@ describe('shrinking an EMPTY bar', () => {
     let last = 1
     for (let i = 0; i < 40; i++) { last = engine.nudgeBarWidth(3, -10)!; engine.renderScore() }
     expect(engine.nudgeBarWidth(3, -10)).toBeCloseTo(last, 6)
-    expect(width(3)).toBeGreaterThan(MIN_COLUMN_GAP * STAFF_SPACE_PX)
+    expect(width(3)).toBeGreaterThan(minColumnGap() * STAFF_SPACE_PX)
   })
 
   it('a bar WITH music keeps the floor as planned — its music still sets its claim', () => {
@@ -477,7 +477,7 @@ describe('shrinking an EMPTY bar', () => {
     engine.nudgeBarWidth(1, -10); engine.renderScore()
     expect(width(1), 'it has stopped — the presses are dead now').toBeCloseTo(settled, 6)
     expect(settled, 'and it stopped at or above its own music\'s floor')
-      .toBeGreaterThanOrEqual(8 * MIN_COLUMN_GAP * STAFF_SPACE_PX)
+      .toBeGreaterThanOrEqual(8 * minColumnGap() * STAFF_SPACE_PX)
     // ⚠️ It gives up very little now, and that IS its music setting its claim: these eighths are on
     //    C4, which in treble is a LEDGER note, and a ledger line is 1.80 staff spaces against a bare
     //    notehead's 1.13 (docs/plans/spacing-model-plan.md P3.1). A run of ledgered eighths is nearly

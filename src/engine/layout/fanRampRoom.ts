@@ -2,7 +2,7 @@ import type { Fraction, FanMark, Measure } from '@/types/music'
 import { fracAdd, fracEq, fracLt, fracSub } from '@/utils/fraction'
 import { fanMembers } from '@/utils/fannedBeam'
 import { slotLength } from '@/utils/durations'
-import { INK, MIN_COLUMN_GAP } from './spacingPadding'
+import { INK, minColumnGap } from './spacingPadding'
 import { followingSpace, type Column } from './spacing'
 
 /**
@@ -150,7 +150,7 @@ export function fanRampRoomSpaces(
   if (!(gap > 0)) return undefined
 
   const { ramp } = fanRampSpaces(fan, slotLength)
-  const natural = ramp + MIN_COLUMN_GAP
+  const natural = ramp + minColumnGap()
   if (!(natural > 0)) return undefined
   return gap * (ramp / natural)
 }

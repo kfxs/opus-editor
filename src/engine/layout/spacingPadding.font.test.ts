@@ -1,6 +1,6 @@
 import { afterEach, describe, it, expect } from 'vitest'
 import { DEFAULT_MUSIC_FONT, setActiveMusicFont } from '@/engine/fonts/musicFont'
-import { INK, INK_HEIGHT, accidentalExtent, accidentalHeight, restBand, restExtent } from './spacingPadding'
+import { INK, INK_HEIGHT, accidentalExtent, accidentalHeight, minColumnGap, pairPadding, restBand, restExtent } from './spacingPadding'
 import {
   accidentalGlyph,
   engravingDefault,
@@ -60,7 +60,7 @@ const OVERRIDES = {
     font: () => noteheadInk('q'),
     why: '⏭️ HIS EYE (§3.6 #2). 1.13 is the DISPLACEMENT we measured off VexFlow wearing the ink\'s '
       + 'name; the font\'s head is 1.18. Taking it moves EVERY note-to-note gap and lifts '
-      + 'MIN_COLUMN_GAP 1.43 → 1.48, which is the drag floor and the empty-bar floor.',
+      + 'minColumnGap() 1.43 → 1.48, which is the drag floor and the empty-bar floor.',
   },
   'INK.secondDisplacement': {
     ours: INK.secondDisplacement,
@@ -282,8 +282,35 @@ describe('⛔ the overrides — every place we knowingly differ, and nowhere els
   })
 })
 
-describe('🚧 the rest band follows the ACTIVE music face (music-font-switch-plan B4)', () => {
+describe('🚧 the table follows the ACTIVE music face by its DIFFERENCE from Bravura (music-font-switch-plan, follow-up 1)', () => {
   afterEach(() => { setActiveMusicFont(DEFAULT_MUSIC_FONT) })
+
+  it('⭐ a font-fact row is its Bravura literal, moved by how much the face’s glyph differs', () => {
+    const bravuraHead = glyphBox('noteheadBlack').right
+    const bravuraRow = INK.notehead
+    expect(bravuraRow, 'Bravura: the literal, exactly').toBe(1.13)
+    setActiveMusicFont('leipzig')
+    const shift = glyphBox('noteheadBlack').right - bravuraHead
+    expect(shift).not.toBe(0)
+    expect(INK.notehead).toBeCloseTo(1.13 + shift, 10)
+    expect(INK.firstDot).toBeCloseTo(1.7 + shift, 10)
+    expect(minColumnGap()).toBeCloseTo(1.13 + shift + pairPadding('note', 'note'), 10)
+    expect(restExtent('q')).not.toBe(1.1)
+    expect(accidentalHeight('b').up).not.toBe(1.8)
+  })
+
+  it('⛔ a JUDGEMENT row is one house style for every face', () => {
+    const before = [INK.accidentalToHead, pairPadding('note', 'note'), pairPadding('rest', 'barline')]
+    setActiveMusicFont('sebastian')
+    expect([INK.accidentalToHead, pairPadding('note', 'note'), pairPadding('rest', 'barline')]).toEqual(before)
+  })
+
+  it('…and back on Bravura every row is its literal again — exactly, not nearly', () => {
+    setActiveMusicFont('leipzig')
+    setActiveMusicFont('bravura')
+    expect([INK.notehead, INK.ledgerRight, INK.flagReach, INK_HEIGHT.flagFromTip, minColumnGap()])
+      .toEqual([1.13, 1.5, 1.0, 3.3, 1.13 + pairPadding('note', 'note')])
+  })
 
   it('another face answers from its own glyph box; Bravura from its literals, unchanged', () => {
     const bravura = restBand('q')

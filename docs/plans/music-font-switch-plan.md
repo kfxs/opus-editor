@@ -26,6 +26,10 @@
 4. **A missing glyph comes WHOLE from Bravura** (MuseScore's rule): its drawing, its box and its
    anchors from the one font — ⛔ never a Bravura number on another font's outline. Every fallback is
    a DECLARED row, reported by the generator, never silent.
+   🚨 **ONE EXCEPTION — the CHANGE CLEF** (his rule, 2026-09-21, `docs/how-it-works/clef.md` §0.2b): a
+   face without `gClefChange`/`cClefChange`/`fClefChange` draws ITS OWN full clef reduced by the
+   ratio, as today — ⛔ never Bravura's small clef in another face's score. When the `*Change` glyphs
+   are adopted they must NOT join `FALLBACK_GLYPHS`, and the test asks the chosen face alone.
 5. **The UI chrome keeps Bravura.** The Keypad (baked outlines), the windows' pictures and the menus
    name Bravura on purpose; they are the interface's face, not the score's.
 6. A new feature adds a MODULE: the active font is `engine/fonts/musicFont.ts`, ⛔ not a field on
@@ -135,7 +139,14 @@ back on Bravura nothing has moved (unit + e2e green, unchanged). ⏸️ Stop for
 > rule is right only while the staff line itself is the font's, which it is not yet (follow-up 2).
 >
 > **Follow-ups — none blocks; each keeps today's value until decided:**
-> 1. **The rest of the ink table per face.** Proposal, not built: a DELTA — `literal + (this face's
+> 1. ✅ **BUILT 2026-09-21 (his word: "lets do 1").** `fontMetrics.differenceFromDefault(quantity)` —
+>    exactly 0 on Bravura, the question not even asked — and `layout/spacingPadding`'s font-fact rows
+>    are `literal + that difference`: `INK`/`INK_HEIGHT` rows are getters, `REST_WIDTH`/`REST_HEIGHT`/
+>    `ACCIDENTAL_WIDTH`/`ACCIDENTAL_HEIGHT` shift inside their functions, and `MIN_COLUMN_GAP` /
+>    `EMPTY_BAR_FLOOR_PX` thawed into `minColumnGap()` / `emptyBarFloorPx()`. ⛔ Judgement rows
+>    (`accidentalToHead`, `pairPadding`, `STEM_REACH`) are one house style for every face. Measured:
+>    notehead row 1.13 → Leipzig 1.206 · Sebastian 1.230; min column gap 1.43 → 1.506 · 1.530; flag
+>    drop 3.3 → Leipzig 2.835. The proposal as written was: a DELTA — `literal + (this face's
 >    glyph quantity − Bravura's)`, row by row (`INK.notehead` by `noteheadBlack.right`, `REST_WIDTH` by
 >    the rest's `right`, `ACCIDENTAL_WIDTH`/`HEIGHT` by the sign's box, `flagReach`, `dotWidth`,
 >    ledgers by `legerLineExtension`). Zero for Bravura by construction, keeps each row's house

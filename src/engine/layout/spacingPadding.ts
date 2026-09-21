@@ -41,8 +41,36 @@ import type { NoteDuration } from '@/types/music'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { restStaffLine } from './restPlacement'
 import { armedAccidentalGap } from './accidentalGap'
-import { glyphBox, restGlyph } from '@/engine/fonts/fontMetrics'
-import { DEFAULT_MUSIC_FONT, activeMusicFont } from '@/engine/fonts/musicFont'
+import {
+  accidentalGlyph,
+  differenceFromDefault,
+  engravingDefault,
+  flagDropFromTip,
+  flagInkRight,
+  glyphBox,
+  ledgerExtension,
+  noteheadInk,
+  restGlyph,
+  secondDisplacement,
+} from '@/engine/fonts/fontMetrics'
+
+/**
+ * ⭐⭐ **THE TABLE FOLLOWS THE MUSIC FACE BY A DIFFERENCE** (`docs/plans/music-font-switch-plan.md`,
+ * follow-up 1). Every literal below is BRAVURA's row — measured off a Bravura drawing, rounded by
+ * hand, several of them deliberate overrides of the font. Another face does not replace a row: it
+ * MOVES it, by exactly how much that face's glyph differs from Bravura's
+ * (`fontMetrics.differenceFromDefault`). The judgement in the literal survives; the font's fact
+ * shifts it. ⭐ For Bravura the shift is exactly 0 — not asked, not computed — so no number here moved.
+ *
+ * ⚠️ So the font-fact rows of {@link INK} / {@link INK_HEIGHT} are GETTERS, and `minColumnGap()` /
+ * `emptyBarFloorPx()` are functions: ⛔ never copy one into a module-level constant.
+ * ⛔ The JUDGEMENT rows — `accidentalToHead`, `pairPadding`, `STEM_REACH`, the accidental column's
+ * share interval — are one house style for every face, and stay literals.
+ */
+const shifted = (literal: number, quantity: () => number): number => literal + differenceFromDefault(quantity)
+
+const headInk = (): number => noteheadInk('q')
+const dotInk = (): number => glyphBox('augmentationDot').right
 
 /**
  * What sits at one edge of a gap. Not "what the event IS" — what its ink at that edge IS, which is
@@ -75,7 +103,7 @@ export const INK = {
    * see {@link INK.secondDisplacement}, which is what that measurement actually answers. The 0.05
    * was never an error; it was a second question wearing this one's name (plan §3.1a).
    */
-  notehead: 1.13,
+  get notehead(): number { return shifted(1.13, headInk) },
   /**
    * ⭐ **How far a chord displaces the second of two adjacent noteheads** — the two heads share the
    * stem they hang on, so they overlap by its width instead of sitting edge to edge.
@@ -83,7 +111,7 @@ export const INK = {
    * FONT: 1.12 (`noteheadInk 1.18 − stemThickness 0.12 / 2`). Ours is the 1.13 measured in Chrome,
    * kept because 0.01 spaces is a tenth of a pixel and re-measuring it is not worth a redraw.
    */
-  secondDisplacement: 1.13,
+  get secondDisplacement(): number { return shifted(1.13, () => secondDisplacement('q')) },
   /**
    * ⭐ A LEDGER LINE reaches from **−0.30 to +1.50** of the notehead's anchor — 1.80 spaces wide,
    * against the notehead's own 1.13, so a ledgered note is **0.67 spaces wider than a bare one** and
@@ -94,14 +122,14 @@ export const INK = {
    * P3.1: the model gave those notes a bare notehead's extent, the gaps came out at 1.64 spaces, and
    * the ink needed 2.15.
    */
-  ledgerLeft: 0.3,
-  ledgerRight: 1.5,
+  get ledgerLeft(): number { return shifted(0.3, ledgerExtension) },
+  get ledgerRight(): number { return shifted(1.5, () => headInk() + ledgerExtension()) },
   /** Where the first augmentation dot lands, past the notehead's anchor. */
-  firstDot: 1.7,
+  get firstDot(): number { return shifted(1.7, headInk) },
   /** …and each dot after it. */
-  dotStep: 0.9,
+  get dotStep(): number { return shifted(0.9, dotInk) },
   /** The dot glyph's own width. */
-  dotWidth: 0.4,
+  get dotWidth(): number { return shifted(0.4, dotInk) },
   /**
    * The extra separation the measured total showed between the nearest accidental column and the
    * notehead — ⚠️ **⛔ NOT the white gap the page draws.** That gap is **0.30 sp** and it is already
@@ -134,7 +162,7 @@ export const INK = {
    * on whichever notehead ink is chosen (§3.6 item 2), so it is an OVERRIDE until that is settled.
    * `fonts/fontMetrics.flagInkRight` is the formula, and the check test holds the two together.
    */
-  flagReach: 1.0,
+  get flagReach(): number { return shifted(1.0, () => flagInkRight('8', true) - noteheadInk('8')) },
 } as const
 
 /**
@@ -167,11 +195,13 @@ export const INK = {
  */
 export const INK_HEIGHT = {
   /** A notehead, up and down from its own line. 0.6 both ways — the measured 0.5/0.6, rounded OUT. */
-  notehead: 0.6,
+  get notehead(): number {
+    return shifted(0.6, () => Math.max(glyphBox('noteheadBlack').up, glyphBox('noteheadBlack').down))
+  },
   /** An augmentation dot. */
-  dot: 0.2,
+  get dot(): number { return shifted(0.2, () => glyphBox('augmentationDot').up) },
   /** A ledger line: a hairline, but its BAND spans head→staff rather than the head alone. */
-  ledger: 0.15,
+  get ledger(): number { return shifted(0.15, () => engravingDefault('legerLineThickness') / 2) },
   /**
    * ⭐ A FLAG hangs **3.3 staff spaces from the stem TIP back toward the notehead** — down for an
    * up-stem, up for a down-stem — which is nearly the whole stem. Measured, and the same for the 8th,
@@ -180,7 +210,7 @@ export const INK_HEIGHT = {
    * ⚠️ It is a band from the TIP, not around an anchor, which is why the flag box is built from the
    * stem's own geometry in `measureColumns` rather than from a `± height` like the others.
    */
-  flagFromTip: 3.3,
+  get flagFromTip(): number { return shifted(3.3, () => flagDropFromTip('8', true)) },
 } as const
 
 /**
@@ -225,14 +255,14 @@ const REST_HEIGHT: Record<NoteDuration, { up: number; down: number }> = {
  */
 export function restBand(duration: NoteDuration): { top: number; bottom: number } {
   const line = restStaffLine(duration)
-  // 🚧 B4 of docs/plans/music-font-switch-plan.md — the ONE ink row that follows the music face, because
-  //    it is the one row that IS the font's box, digit for digit (`spacingPadding.font.test.ts` holds
-  //    the literals to Bravura). Bravura keeps its literals; another face answers from its own table.
-  //    ⛔ Every other row here stays Bravura's for every face: each mixes glyph ink with a measured
-  //    distance or a rounding that is a house judgement — the plan's follow-up, not a lookup.
-  const height = activeMusicFont().id === DEFAULT_MUSIC_FONT
-    ? REST_HEIGHT[duration] ?? REST_HEIGHT.q
-    : glyphBox(restGlyph(duration))
+  // The band follows the music face like every font-fact row here — by the difference from Bravura
+  // (for these six rows the literal IS Bravura's box, so another face gets its own box).
+  const literal = REST_HEIGHT[duration] ?? REST_HEIGHT.q
+  const glyph = restGlyph(duration)
+  const height = {
+    up: shifted(literal.up, () => glyphBox(glyph).up),
+    down: shifted(literal.down, () => glyphBox(glyph).down),
+  }
   return { top: line - height.up, bottom: line + height.down }
 }
 
@@ -247,7 +277,12 @@ const ACCIDENTAL_HEIGHT: Record<string, { up: number; down: number }> = {
 
 /** The vertical reach of one accidental sign, defaulting to a sharp's. */
 export function accidentalHeight(sign: string): { up: number; down: number } {
-  return ACCIDENTAL_HEIGHT[sign] ?? ACCIDENTAL_HEIGHT['#']
+  const literal = ACCIDENTAL_HEIGHT[sign] ?? ACCIDENTAL_HEIGHT['#']
+  const glyph = accidentalGlyph(sign) ?? 'accidentalSharp'
+  return {
+    up: shifted(literal.up, () => glyphBox(glyph).up),
+    down: shifted(literal.down, () => glyphBox(glyph).down),
+  }
 }
 
 /**
@@ -292,6 +327,12 @@ const ACCIDENTAL_WIDTH: Record<string, number> = {
  * everything above it come out at one x. That is also the engraver's own rule, so the drawing and
  * the tradition agree here and the number is not ours to choose.
  */
+/** One sign's column — Bravura's measured row, moved by how much WIDER this face's sign is. */
+function accidentalColumnWidth(sign: string): number {
+  const glyph = accidentalGlyph(sign) ?? 'accidentalSharp'
+  return shifted(ACCIDENTAL_WIDTH[sign] ?? ACCIDENTAL_WIDTH['#'], () => glyphBox(glyph).left + glyphBox(glyph).right)
+}
+
 const ACCIDENTAL_SHARE_INTERVAL = 6
 
 /**
@@ -319,7 +360,7 @@ const REST_WIDTH: Record<NoteDuration, number> = {
 
 /** How wide a rest of this duration is, in staff spaces. */
 export function restExtent(duration: NoteDuration): number {
-  return REST_WIDTH[duration] ?? REST_WIDTH.q
+  return shifted(REST_WIDTH[duration] ?? REST_WIDTH.q, () => glyphBox(restGlyph(duration)).right)
 }
 
 /**
@@ -339,7 +380,7 @@ export function accidentalExtent(signs: { position: number; sign: string }[]): n
   /** Per column: the lowest position placed in it so far, and its widest sign. */
   const columns: { lowest: number; width: number }[] = []
   for (const { position, sign } of sorted) {
-    const width = ACCIDENTAL_WIDTH[sign] ?? ACCIDENTAL_WIDTH['#']
+    const width = accidentalColumnWidth(sign)
     const room = columns.find(column => column.lowest - position >= ACCIDENTAL_SHARE_INTERVAL)
     if (room) {
       room.lowest = position
@@ -440,7 +481,9 @@ export function pairPadding(left: InkKind, right: InkKind): number {
  * engraving one. If a column ever becomes hard to *click* at 1.43 spaces, that is a hit-box question
  * and belongs to the registry, not to the spacing.
  */
-export const MIN_COLUMN_GAP = INK.notehead + pairPadding('note', 'note')
+export function minColumnGap(): number {
+  return INK.notehead + pairPadding('note', 'note')
+}
 
 /**
  * How narrow an EMPTY bar's note area may be squeezed, in PIXELS — one column's worth.
@@ -455,4 +498,6 @@ export const MIN_COLUMN_GAP = INK.notehead + pairPadding('note', 'note')
  * pair never comes up. Reading it as though it did would make an empty bar shrink *less* far, and
  * he has reported three times that empty bars already do not shrink far enough.
  */
-export const EMPTY_BAR_FLOOR_PX = MIN_COLUMN_GAP * STAFF_SPACE_PX
+export function emptyBarFloorPx(): number {
+  return minColumnGap() * STAFF_SPACE_PX
+}

@@ -180,6 +180,32 @@ its consequence:
 ⇒ ⚠️ **The capability test is different for the two**, and a design that treats them as one thing will
 work for the change clef and silently do nothing for the small staff.
 
+### 🚨 0.2b **HIS RULE, 2026-09-21 — the change clef NEVER falls back to BRAVURA's glyph**
+
+Said once the music face became a choice (`docs/plans/music-font-switch-plan.md`): *"now bravura have a
+small clef glyph for changing clef, we are not using but we will use this soon… in the case of new
+fonts for changing clef we should not use bravura small glyph but the solution we are using now."*
+
+⚠️ **Why it needs saying: the font switch made the wrong answer the AUTOMATIC one.** A glyph the
+chosen face lacks is taken WHOLE from Bravura — by the CSS stack (`fonts/musicFont.musicFontStack` puts
+Bravura behind every face) and by the metrics generator (`FALLBACK_GLYPHS`). That is right for a
+`bracket`. For `gClefChange` / `cClefChange` / `fClefChange` it would put **Bravura's clef in the
+middle of another face's score**, beside that face's own full-size clef at the start of the line.
+
+⇒ ⭐⭐ **The `*Change` family is the EXCEPTION to "missing ⇒ Bravura":**
+
+| the ACTIVE face… | a clef change is drawn as |
+|---|---|
+| ships the `*Change` glyph | that face's glyph, at its natural size (§0.2a) |
+| does NOT ship it | **that face's own FULL clef, reduced by the ratio** — what we do today (`engrave/inheritedFonts.SMALL_CLEF_RATIO`) — ⛔ never Bravura's `*Change` |
+
+⚠️ So the day §0.2a is built, the capability test must ask the **chosen face alone** — ⛔ not "does the
+stack draw U+E07A" (it always will, Bravura is in it), and ⛔ not the generated table's row (a missing
+glyph's row is Bravura's). `*Change` glyphs must therefore NOT join the generator's Bravura fallback:
+absent means absent, and the caller scales. Today nothing draws a `*Change` glyph, so nothing is wrong
+yet; Leipzig and Sebastian both ship all three (table above), the Finale handwritten faces and
+Gootville do not.
+
 ### ⏭️ 0.3 …and one MODEL widening the research asked for
 
 ⭐ **The octave numeral's slot is not an octave slot.** Stone p. 57 puts a **5** and a **4** in it for

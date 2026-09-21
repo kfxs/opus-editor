@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { INK, MIN_COLUMN_GAP, accidentalExtent, dotExtent, pairPadding } from './spacingPadding'
+import { INK, minColumnGap, accidentalExtent, dotExtent, pairPadding } from './spacingPadding'
 
 /**
  * The ink half's table (docs/plans/spacing-model-plan.md P3).
@@ -82,7 +82,7 @@ describe('the pair table', () => {
     // Plan §1.1 predicts this number without measuring anything: "a notehead is ~1.18 spaces plus a
     // note↔note padding of ~0.25 gives ~1.43 — which is Sibelius's 32nd (1.41) and LilyPond's (1.5)
     // to two decimals. Model the ink and the bottom of the table arrives on its own."
-    expect(MIN_COLUMN_GAP).toBeCloseTo(1.43, 6)
-    expect(MIN_COLUMN_GAP).toBe(INK.notehead + pairPadding('note', 'note'))
+    expect(minColumnGap()).toBeCloseTo(1.43, 6)
+    expect(minColumnGap()).toBe(INK.notehead + pairPadding('note', 'note'))
   })
 })

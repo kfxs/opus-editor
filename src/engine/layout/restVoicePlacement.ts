@@ -76,7 +76,8 @@ const BOTTOM_LINE = 1
 const GAP = 0.75
 
 /** Half a notehead, from `INK_HEIGHT` — measured data, like every other ink number here. */
-const NOTEHEAD_HALF = INK_HEIGHT.notehead
+/** Asked per use — the row follows the music face (`spacingPadding`). */
+const noteheadHalf = (): number => INK_HEIGHT.notehead
 
 /**
  * ⚠️ Float dust guard for the outward quantisation. The candidates are sums of measured decimals
@@ -247,8 +248,8 @@ export function restLineForVoice(input: RestVoicePlacement): number {
   // number in `others`, and only `max` and `+` can make it so.
   if (others.length > 0) {
     candidates.push(dir > 0
-      ? Math.max(...others) + NOTEHEAD_HALF + GAP + ink.below
-      : Math.min(...others) - NOTEHEAD_HALF - GAP - ink.above)
+      ? Math.max(...others) + noteheadHalf() + GAP + ink.below
+      : Math.min(...others) - noteheadHalf() - GAP - ink.above)
   }
 
   // `laneOrder` — ⭐ the SAME clearance shape as above, with the inner voice's REST in place of a

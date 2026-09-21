@@ -67,7 +67,7 @@ import { measureLeadingSpaces, noteOffsetOverrideOf } from '@/engine/models/engr
 import { inScaledStaffGroup } from '../staff/staffScaleGroup'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { followingSpace } from '@/engine/layout/spacing'
-import { MIN_COLUMN_GAP } from '@/engine/layout/spacingPadding'
+import { minColumnGap } from '@/engine/layout/spacingPadding'
 import { staffSpacesToPixels } from '../staff/staffSpace'
 import { barFrame, staveFrame, maybeStaveOf } from '../staff/staveFrame'
 import { noteLineY } from '@/engine/engrave/staff/staffFrame'
@@ -797,7 +797,7 @@ function fanSlotDrawing(input: {
       // asked for the room this implies (`fanColumns`); this is what SPENDS it.
       // ⭐ P5 — the same floor two ORDINARY noteheads get (`MIN_COLUMN_GAP`: a notehead plus
       //   note↔note padding), not a ratio of its own. A fanned head is a notehead.
-      minHeadGap: MIN_COLUMN_GAP * STAFF_SPACE_PX,
+      minHeadGap: minColumnGap() * STAFF_SPACE_PX,
       // ⭐ …and the group stands off the NEXT note by an ordinary column. P5 makes that literal: the
       // last member's own duration earns it, exactly as any other note's does, so this is the
       // spacing rule and no longer a constant standing in for one.

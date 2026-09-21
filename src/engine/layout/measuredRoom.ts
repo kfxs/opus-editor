@@ -26,7 +26,7 @@ import type { ElementRegistry } from '@/engine/ElementRegistry'
 import { fracToNumber } from '@/utils/fraction'
 import { staffOf } from '@/utils/lanes'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
-import { INK, MIN_COLUMN_GAP, pairPadding, restExtent } from './spacingPadding'
+import { INK, minColumnGap, pairPadding, restExtent } from './spacingPadding'
 import { barlineSignExtent, ownEndSignKind } from './barlineSign'
 
 /**
@@ -85,7 +85,7 @@ export function measuredShrinkRoom(registry: ElementRegistry, measureNumber: num
     //   and it is in STAFF SPACES, so a staff drawn small floors at its own smaller number. It used
     //   to be `MIN_NOTE_SPACING`, an absolute pixel count that was the same on every staff whatever
     //   its size, and 1.8 spaces where the ink needs 1.43 (docs/plans/spacing-model-plan.md P3).
-    const slack = (columns[at].x - leftX) / staffSpacePx - MIN_COLUMN_GAP
+    const slack = (columns[at].x - leftX) / staffSpacePx - minColumnGap()
     room = room === null ? Math.max(0, slack) : Math.min(room, Math.max(0, slack))
   }
   return room
@@ -126,7 +126,7 @@ export function fanMemberShrinkRoom(
 
   const geometry = registry.getStaffGeometry(measureNumber, staffOf(here))
   const staffSpacePx = geometry?.lineSpacing ?? STAFF_SPACE_PX
-  const minGap = MIN_COLUMN_GAP * staffSpacePx
+  const minGap = minColumnGap() * staffSpacePx
   return Math.max(0, (x - prevX - minGap) / staffSpacePx)
 }
 
@@ -245,7 +245,7 @@ export function measuredBarShrinkPx(registry: ElementRegistry, measureNumber: nu
       // is a FLOOR and the difference between the widest and narrowest rest is half a staff space.
       ? restExtent('q') + pairPadding('rest', 'barline')
       : INK.notehead + pairPadding('note', 'barline')
-    const spaces = Math.max(0, columns.size - 1) * MIN_COLUMN_GAP + toBarline
+    const spaces = Math.max(0, columns.size - 1) * minColumnGap() + toBarline
     const mine = Math.max(0, drawn - spaces * (geometry.lineSpacing ?? STAFF_SPACE_PX))
     slack = slack === null ? mine : Math.min(slack, mine)
   }

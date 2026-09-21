@@ -15,7 +15,7 @@ import { cautionaryExtent, headerExtent, headerToNoteGap, inlineClefExtent } fro
 import { cautionaryKeyAt, cautionaryKeyRoom } from '@/engine/layout/cautionaryKey'
 import { cautionaryKeyGapOf } from '@/engine/models/engravingOverrides'
 import { naturalWidth, minimumWidth } from '@/engine/layout/spacing'
-import { EMPTY_BAR_FLOOR_PX } from '@/engine/layout/spacingPadding'
+import { emptyBarFloorPx } from '@/engine/layout/spacingPadding'
 import { renderProbe } from '@/engine/RenderProbe' // TEMPORARY — the §9 layout-breakdown probes
 import { drawsTimeSignature } from './headerInk'
 
@@ -108,7 +108,7 @@ function noteSpaceForMeasure(
     //   not the rest glyph's extent. Deliberate, and the one thing left of the old special case: an
     //   empty bar is allowed to get out of a neighbour's way completely (docs/plans/bar-width-plan.md §2),
     //   which is a statement about a bar nobody has written into, not about how wide a rest is.
-    floor: isEmptyBar(measure) ? EMPTY_BAR_FLOOR_PX : minimumWidth(columns) * STAFF_SPACE_PX,
+    floor: isEmptyBar(measure) ? emptyBarFloorPx() : minimumWidth(columns) * STAFF_SPACE_PX,
   }
   if (probing) renderProbe().layoutSub('columns', performance.now() - t0)
   return answer
@@ -448,7 +448,7 @@ function measureWidthParts(
 
   if (empty) {
     const scalable = Math.max(0, intrinsic - overhead)
-    const scaled = Math.max(EMPTY_BAR_FLOOR_PX, scalable * stretch)
+    const scaled = Math.max(emptyBarFloorPx(), scalable * stretch)
     return {
       minWidth: overhead + scaled + userSpace,
       userSpace,
