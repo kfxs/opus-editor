@@ -42,7 +42,7 @@ import { clearanceBaseline, columnsBetween, mergeInkBands, staffInkBand } from '
 import { bandOver, measureStartOffsets } from '@/engine/layout/outsideStaffBand'
 import { measureCapacityFrac } from '@/utils/measureCapacity'
 import { fracAdd } from '@/utils/fraction'
-import { TEMPO_LINE, TEMPO_MARK_INK } from './tempoStyle'
+import { TEMPO_LINE, tempoMarkInk } from './tempoStyle'
 import { drawnTextOrigin, firstDrawnText } from '../../painter/drawnText'
 import { staffSpacesToPixels } from '../../staff/staffSpace'
 import type { RenderPass } from '../../RenderPass'
@@ -153,7 +153,7 @@ export function placeTempoMarksOnLine(
           fracAdd(measureStart, from), fracAdd(measureStart, to), staffIds[0])
 
         const baseline = clearanceBaseline(
-          mergeInkBands(music, taken), 'above', TEMPO_MARK_INK, TEMPO_LINE)
+          mergeInkBands(music, taken), 'above', tempoMarkInk(), TEMPO_LINE)
 
         // ⚠️ Both sides in the STAVE's own coordinates, which is what makes this correct for a
         //    measure that merely MOVED: its stave and its ink keep the coordinates they were drawn

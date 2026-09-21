@@ -80,7 +80,7 @@ import { textFontGeneration } from '@/engine/fonts/textFont'
 import { clefMeterGapGeneration } from '@/engine/layout/clefMeterGap'
 import { barlineMeterGapGeneration } from '@/engine/layout/barlineMeterGap'
 import { attachDynamicsToSlots, layoutCoLocatedDynamics, applyDynamicOffsets, registerDynamics, applyMixedDynamicRuns } from './marks/dynamics/DynamicsLayout'
-import { placeDynamicsOnLine, MARK_INK } from './marks/dynamics/dynamicsLinePass'
+import { placeDynamicsOnLine, markInk } from './marks/dynamics/dynamicsLinePass'
 import { drawTempoMarks } from './marks/tempo/TempoLayout'
 import { placeTempoMarksOnLine } from './marks/tempo/tempoLinePass'
 import {
@@ -4218,7 +4218,7 @@ export class ScoreRenderer {
     const ottavaBands = planOttavaBands(pass, score, plans, staffList.map(staff => staff.id))
     before.hairpin = entryState()
     const dynamicsPlan = planDynamicsLines(
-      score, plans, staffList.map(staff => staff.id), MARK_INK, pass.occupiedBands)
+      score, plans, staffList.map(staff => staff.id), markInk(), pass.occupiedBands)
 
     // ⭐ Every dynamic onto its system's line, now that every bar of every system is standing —
     // including the ones this render REUSED, which is the point: a mark's y is a fact about its

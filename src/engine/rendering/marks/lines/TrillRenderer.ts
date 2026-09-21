@@ -38,6 +38,7 @@
  * where a bar landed in the SVG — so it is divided by the scale on the way in, which is the same
  * conversion `planSpanSegments` makes and for the same reason.
  */
+import { textRoleSlant, textRoleWeight } from '@/engine/engrave/textRoles'
 import type { EngravedStave } from '../../engraved/EngravedStave'
 import { drawGlyph, drawTextRun, measureGlyph } from '../../painter/glyphPainter'
 import type { Score, Trill, TrillContinuationLabel, Measure, Fraction } from '@/types/music'
@@ -886,7 +887,7 @@ export function drawTrillSign(ctx: RenderPass['context'], x: number, y: number, 
   const parenY = y - size * TRILL_PAREN_RAISE
   const paren = (text: string, at: number): number =>
     drawTextRun(ctx, 'TrillRenderer.paren', text, at, parenY,
-      { family: trillParenFont(), sizePt: size, style: 'italic' })
+      { family: trillParenFont(), sizePt: size, weight: textRoleWeight('lineParenthesis'), style: textRoleSlant('lineParenthesis') })
 
   let width = paren(TRILL_PAREN_LEFT, x)
   width += glyph(TRILL_SIGN_GLYPH, x + width)

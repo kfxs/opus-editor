@@ -74,6 +74,45 @@ range we draw, so a words-first stack cannot steal a music glyph today. Re-check
 - The picker (`dev/textFontPicker`) names the styles the face lacks; its tooltip says where each
   role's style actually goes.
 
+## 5. The ROLE table — BUILT 2026-09-21 (his word: *"yes, start the table"*)
+
+`docs/research/score-text-roles-research.md` found the shape every engine shares — document-level
+faces, and under them a flat table of ROLES (face · style · size) that every draw site asks — and
+that we had the roles and no table: sizes were constants beside each mark, in four units. He asked
+whether to fix that before the metronome work; the answer was yes for the TABLE only, because the
+metronome's ♩ is one of its rows, and another constant beside a mark would have to move again.
+
+`engine/engrave/textRoles.ts` — `TEXT_ROLES`, total over `TextRole`:
+
+| role | face | style | size | was |
+|---|---|---|---|---|
+| `tempoWords` | words | bold | 2.40 sp (18 pt) | `TEMPO_TEXT_FONT_SIZE` |
+| `tempoSymbol` | **music** | regular | 2.67 sp (20 pt) | `TEMPO_GLYPH_FONT_SIZE` |
+| `expression` | words | italic | 2.13 sp (16 pt) | `DYNAMIC_TEXT_SIZE` |
+| `dynamicLetters` | **music** | regular | 4 sp (30 pt) | `DYNAMIC_GLYPH_SIZE` |
+| `lineParenthesis` | words | italic | `'ofItsSign'` — 0.52 of the sign, his eye; the fraction stays in `trillStyle` / `ottavaStyle` | two `…_PAREN_FONT` constants |
+
+- ⭐ **No pixel moved**: each row is that day's value restated in staff spaces; `textRoleSizePt` rounds
+  to a millionth of a point so `18` comes back as `18` (a size is written into the SVG).
+- The constants became functions (`tempoTextSizePt()`, `dynamicGlyphSizePt()`, `tempoInkAbove()`,
+  `tempoMarkInk()`, `markInk()` …) — ⛔ nothing freezes a row at import, so a per-face row or a
+  house style can change one later.
+- ⭐ The two `'music'` rows ARE the *symbols inside words* — a third value of the `face` column is
+  the door for the music-text companion (`docs/research/music-text-fonts-research.md`).
+- Decided shape: FLAT and complete (MuseScore's), and ⛔ a role joins the union the day something
+  DRAWS it. The survey's other options stay open: a default row to inherit from (B), sizes as an
+  x-height (D — the only form that survives a face switch exactly), a `followsStaffSize` column (G —
+  today it is decided by PLACEMENT).
+
+⏭️ **Open, his call — differences from the consensus the survey found, NOT fixed here:**
+1. There is no ROMAN (regular) role: nothing in the editor writes technique / staff text yet
+   (Gould p. 492's first category). It gets its row the day the feature exists.
+2. **Bar numbers**: the consensus is the words' face, *italic*, 1.6–1.8 sp (Gould p. 484); ours are
+   the gutter's sans upright 1.1 sp — editor chrome — and the ENGRAVED bar number is not drawn at all
+   (`MEASURE_NUMBER_SIZE_PT` has no reader). A feature with a taste call in it.
+3. The tuplet's digits and the `tr` / `8va` / `Ped.` signs are music glyphs at 26 pt, sized beside
+   their marks — candidates for rows, not moved here (they are signs, not words).
+
 ## 4. Not here
 
 - The music-text companion (Sebastian Text…) · the ROLE table with sizes (both: the two surveys above) ·

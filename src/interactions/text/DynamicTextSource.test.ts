@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi, type Mock } from 'vitest'
 import { DynamicTextSource } from './DynamicTextSource'
 import { composeDynamicGlyphs, levelToGlyphString } from '../../utils/dynamics'
-import { DYNAMIC_GLYPH_SIZE, DYNAMIC_TEXT_SIZE } from '../../engine/rendering/marks/dynamics/dynamicStyle'
+import { dynamicGlyphSizePt, dynamicTextSizePt } from '../../engine/rendering/marks/dynamics/dynamicStyle'
 import type { MusicEngine } from '../../engine/MusicEngine'
 import type { Dynamic } from '../../types/music'
 
@@ -113,7 +113,7 @@ describe('DynamicTextSource', () => {
     // thing that knows about zoom (getFontCSS), so an absolute chip drifts against it: it shipped as
     // `30pt` flat and at the default 0.7 zoom came out 3:1 against 9.8pt text instead of 2.1:1 — a
     // huge `f` — inverting past zoom 1.0. Asserting the UNIT is the point of this line.
-    expect(html).toContain(`font-size:${DYNAMIC_GLYPH_SIZE / DYNAMIC_TEXT_SIZE}em`)
+    expect(html).toContain(`font-size:${dynamicGlyphSizePt() / dynamicTextSizePt()}em`)
     expect(html).not.toContain('pt')                           // …no absolute size anywhere
     expect(html).toContain('contenteditable="false"')          // …as an ATOMIC chip
     expect(html).toContain(levelToGlyphString('mp'))            // the mp glyph
@@ -122,7 +122,7 @@ describe('DynamicTextSource', () => {
     // A BARE level is styled too — its glyph is a big span, so anything typed around it
     // (the box base is the small text size) comes out expression-sized right away.
     const bare = new DynamicTextSource('d1', false, makeEngine(levelDynamic('f')) as unknown as MusicEngine, () => null, render).getSeedHtml()!
-    expect(bare).toContain(`font-size:${DYNAMIC_GLYPH_SIZE / DYNAMIC_TEXT_SIZE}em`)
+    expect(bare).toContain(`font-size:${dynamicGlyphSizePt() / dynamicTextSizePt()}em`)
     expect(bare).toContain(levelToGlyphString('f'))
 
     // Pure text has no glyph run → seeded as plain text (no HTML).

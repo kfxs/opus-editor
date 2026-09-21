@@ -54,7 +54,7 @@ import { planTrillBands, renderTrills } from './lines/TrillRenderer'
 import { renderHairpins } from './dynamics/HairpinRenderer'
 import { renderSlurs } from '../curves/SlurRenderer'
 import { planDynamicsLines } from './dynamics/dynamicsLinePlan'
-import { MARK_INK } from './dynamics/dynamicsLinePass'
+import { markInk } from './dynamics/dynamicsLinePass'
 import { applyTempoNudges } from './tempo/tempoNudgePass'
 import { tempoAnchorTravelPx } from './tempo/tempoAnchorInk'
 import { dbg } from '@/utils/debug'
@@ -210,7 +210,7 @@ const MARK_PREVIEW_FAMILIES: Record<MarkPreviewKind, MarkPreviewFamily> = {
     placed: (pass, id) => pass.hairpinGroupMap.has(id),
     draw: ({ pass, score, placements, staffIds }) =>
       renderHairpins(pass, score, placements,
-        planDynamicsLines(score, placements, staffIds, MARK_INK, pass.occupiedBands)),
+        planDynamicsLines(score, placements, staffIds, markInk(), pass.occupiedBands)),
   },
   slur: {
     // ⭐ No plan either: a curve is solved from its own anchors.
@@ -351,7 +351,7 @@ const MARK_PREVIEW_FAMILIES: Record<MarkPreviewKind, MarkPreviewFamily> = {
     //   stop short of them. Swap the last two and a wedge breaks around a letter's previous place.
     draw: ({ pass, score, placements, staffIds }) => {
       applyDynamicNudges(pass, placements, staffIds)
-      const plan = planDynamicsLines(score, placements, staffIds, MARK_INK, pass.occupiedBands)
+      const plan = planDynamicsLines(score, placements, staffIds, markInk(), pass.occupiedBands)
       placeDynamicsOnLine(pass, placements, plan, staffIds)
       renderHairpins(pass, score, placements, plan)
     },

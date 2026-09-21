@@ -5,7 +5,7 @@ import { plainColumn, type Column } from '@/engine/layout/spacing'
 import type { InkBox } from '@/engine/layout/kerning'
 import { bandOver, type OccupiedSpan } from '@/engine/layout/outsideStaffBand'
 import { planDynamicsLines, type DynamicsPlanPlacement } from './dynamicsLinePlan'
-import { MARK_INK } from './dynamicsLinePass'
+import { markInk } from './dynamicsLinePass'
 
 /**
  * THE DYNAMICS PLAN'S LADDER CLAIM — what the family tells the families placed OUTSIDE it
@@ -42,7 +42,7 @@ function planWith(placements: DynamicsPlanPlacement[], staffIds: (string | undef
   for (const p of placements) if (!bars.has(p.measureNumber)) bars.set(p.measureNumber, p.view)
   const score = { measures: [...bars.values()] } as unknown as Score
   const occupied: OccupiedSpan[] = []
-  const plan = planDynamicsLines(score, placements, staffIds, MARK_INK, occupied)
+  const plan = planDynamicsLines(score, placements, staffIds, markInk(), occupied)
   return { plan, occupied }
 }
 
@@ -58,7 +58,7 @@ describe('planDynamicsLines — the occupied-band sink', () => {
     const { plan, occupied } = planWith(placements)
     const bars = new Map([[1, placements[0].view]])
     const score = { measures: [...bars.values()] } as unknown as Score
-    expect(planDynamicsLines(score, placements, [undefined], MARK_INK)).toEqual(plan)
+    expect(planDynamicsLines(score, placements, [undefined], markInk())).toEqual(plan)
     expect(occupied).toHaveLength(1)
   })
 
@@ -106,12 +106,12 @@ describe('planDynamicsLines — the occupied-band sink', () => {
     const wedgeLine = plan.get('h@0')!
 
     // The premise of the test: the chain really did move the letter off its own answer.
-    expect(letter).toBeGreaterThan(2.1 + MARK_INK.above)
+    expect(letter).toBeGreaterThan(2.1 + markInk().above)
     expect(letter).toBeCloseTo(wedgeLine, 6)
 
     const claim = occupied.find(o => o.from.num === 0 && o.to.num === 0)!
-    expect(claim.band.top).toBeCloseTo(letter - MARK_INK.above, 6)
-    expect(claim.band.bottom).toBeCloseTo(letter + MARK_INK.below, 6)
+    expect(claim.band.top).toBeCloseTo(letter - markInk().above, 6)
+    expect(claim.band.bottom).toBeCloseTo(letter + markInk().below, 6)
   })
 
   it('carries the SYSTEM and the STAFF, so a later family cannot read the wrong one', () => {
@@ -129,7 +129,7 @@ describe('planDynamicsLines — the occupied-band sink', () => {
     ])
     const found = bandOver(occupied, 0, undefined, 'below', frac(0, 1), frac(4, 1), undefined)
     expect(found).not.toBeNull()
-    expect(found!.top).toBeCloseTo(plan.get('a')! - MARK_INK.above, 6)
+    expect(found!.top).toBeCloseTo(plan.get('a')! - markInk().above, 6)
   })
 
   it('files nothing at all for a score with no dynamics', () => {

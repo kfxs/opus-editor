@@ -17,7 +17,7 @@
  */
 import type { Clearance, MarkInk } from '@/engine/layout/inkBand'
 import { inkSpaces } from '../../painter/drawnFontSize'
-import { expressionTextFamily } from '../dynamics/dynamicStyle'
+import { textRoleFamily } from '@/engine/engrave/textRoles'
 
 /** `keyboardPedalPed` — the `Ped.` sign, where the foot goes DOWN. */
 export const PEDAL_DOWN_GLYPH = '\uE650'
@@ -47,9 +47,9 @@ export const PEDAL_PAREN_RIGHT = '\uE677'
 /** The serif stack a TEXT paren would be set in, if his eye moves this family the way it moved the
  *  ottava's. Unused while the SMuFL pair above is in play — kept named so the swap is three
  *  constants rather than a new decision. */
-/** A function: the italic of the active text face (`fonts/textFont`). */
+/** The `lineParenthesis` row of `engrave/textRoles` — the words' face, in italic. */
 export function pedalParenFont(): string {
-  return expressionTextFamily()
+  return textRoleFamily('lineParenthesis')
 }
 
 /**

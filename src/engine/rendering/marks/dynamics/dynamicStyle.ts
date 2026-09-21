@@ -10,9 +10,12 @@
  */
 import { drawnFontPx } from '../../painter/drawnFontSize'
 import { musicOnlyStack } from '@/engine/fonts/musicFont'
-import { textFamily } from '@/engine/fonts/textFont'
+import { textRoleFamily, textRoleSizePt, textRoleSlant, textRoleWeight } from '@/engine/engrave/textRoles'
 
-export const DYNAMIC_GLYPH_SIZE = 30
+// ⭐ The NUMBER is a row of `engrave/textRoles` (`dynamicLetters`, 30 pt) since 2026-09-21 — asked per use.
+export function dynamicGlyphSizePt(): number {
+  return textRoleSizePt('dynamicLetters')
+}
 /**
  * ⭐ The size of the ITALIC PROSE beside a level — `dolce`, `espressivo`, `sempre` — in points.
  *
@@ -36,7 +39,10 @@ export const DYNAMIC_GLYPH_SIZE = 30
  * {@link DYNAMIC_GLYPH_INK_ABOVE}/`_BELOW`, which are fractions of the glyph size alone.
  * ⛔ So do not "fix" that ratio into a constant — it is what keeps the two independent.
  */
-export const DYNAMIC_TEXT_SIZE = 16
+// ⭐ The NUMBER is a row of `engrave/textRoles` (`expression`, 16 pt) since 2026-09-21 — asked per use.
+export function dynamicTextSizePt(): number {
+  return textRoleSizePt('expression')
+}
 
 /*
  * Tight VERTICAL ink extent of a level glyph, measured from its text baseline, in px.
@@ -50,8 +56,12 @@ export const DYNAMIC_TEXT_SIZE = 16
  * the group height entirely (horizontal extent is left as measured). First-cut proportions of the
  * glyph size — tune to taste.
  */
-export const DYNAMIC_GLYPH_INK_ABOVE = drawnFontPx(DYNAMIC_GLYPH_SIZE) * 0.68 // baseline → glyph top
-export const DYNAMIC_GLYPH_INK_BELOW = drawnFontPx(DYNAMIC_GLYPH_SIZE) * 0.18 // baseline → glyph bottom
+export function dynamicGlyphInkAbove(): number {
+  return drawnFontPx(dynamicGlyphSizePt()) * 0.68 // baseline → glyph top
+}
+export function dynamicGlyphInkBelow(): number {
+  return drawnFontPx(dynamicGlyphSizePt()) * 0.18 // baseline → glyph bottom
+}
 
 /**
  * The face EXPRESSION words are set in (`dolce`, `cresc.`) — ITALIC (Gould p. 492), so it is the
@@ -60,7 +70,7 @@ export const DYNAMIC_GLYPH_INK_BELOW = drawnFontPx(DYNAMIC_GLYPH_SIZE) * 0.18 //
  * because it has a true italic face (the music font doesn't), so expression text actually slants.
  */
 export function expressionTextFamily(): string {
-  return textFamily('italic')
+  return textRoleFamily('expression')
 }
 
 /**
@@ -71,8 +81,8 @@ export function expressionTextFamily(): string {
 export function dynamicAnnotationFont() {
   return {
     family: `${expressionTextFamily()}, ${musicOnlyStack()}`,
-    size: DYNAMIC_TEXT_SIZE,
-    weight: 'normal',
-    style: 'italic',
+    size: dynamicTextSizePt(),
+    weight: textRoleWeight('expression'),
+    style: textRoleSlant('expression'),
   }
 }

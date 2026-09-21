@@ -14,7 +14,7 @@ import { describe, it, expect } from 'vitest'
 import { dynamicInkReachSpaces } from './dynamicMarkInk'
 import { levelToGlyphString } from '@/utils/dynamics'
 import { glyphBox } from '@/engine/fonts/fontMetrics'
-import { DYNAMIC_GLYPH_INK_ABOVE } from './dynamicStyle'
+import { dynamicGlyphInkAbove } from './dynamicStyle'
 import { STAFF_SPACE_PX } from '../../../models/staffSize'
 
 describe('dynamicInkReachSpaces', () => {
@@ -28,7 +28,7 @@ describe('dynamicInkReachSpaces', () => {
 
   it('⭐⭐ …and the box constant is TALLER THAN BOTH — the air he reported, measured', () => {
     // `DYNAMIC_GLYPH_INK_ABOVE` is `0.68 × the glyph size`, in px at full staff size.
-    const boxAboveSpaces = DYNAMIC_GLYPH_INK_ABOVE / STAFF_SPACE_PX
+    const boxAboveSpaces = dynamicGlyphInkAbove() / STAFF_SPACE_PX
     const p = dynamicInkReachSpaces(levelToGlyphString('p'))!
     expect(boxAboveSpaces).toBeGreaterThan(p.above)
     // Nearly a whole staff space of nothing above a `p` — ~9px at full size, which is what the

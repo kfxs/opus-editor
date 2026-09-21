@@ -18,7 +18,7 @@ import type { Clearance, MarkInk } from '@/engine/layout/inkBand'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { drawnFontPx } from '../../painter/drawnFontSize'
 import { musicOnlyStack } from '@/engine/fonts/musicFont'
-import { textFamily } from '@/engine/fonts/textFont'
+import { textRoleFamily, textRoleSizePt, textRoleSlant, textRoleWeight } from '@/engine/engrave/textRoles'
 import type { TextRunFont } from '../../painter/glyphPainter'
 
 /**
@@ -38,7 +38,10 @@ import type { TextRunFont } from '../../painter/glyphPainter'
  * because the ink extents below are stated against it, and `TempoLayout` needs those extents in turn
  * for the mark's hit-box — putting the constant there makes the two modules import each other.
  */
-export const TEMPO_GLYPH_FONT_SIZE = 20
+// ⭐ The NUMBER is a row of `engrave/textRoles` (`tempoSymbol`, 20 pt) since 2026-09-21 — asked per use.
+export function tempoGlyphSizePt(): number {
+  return textRoleSizePt('tempoSymbol')
+}
 
 /**
  * ⭐ The size of the mark's WORDS, in POINTS — ours now, applied over VexFlow's `StaveTempo.fontSize`
@@ -62,7 +65,10 @@ export const TEMPO_GLYPH_FONT_SIZE = 20
  * tempo mark outranks an expression word on the page — MuseScore states the same gap, 12 pt against
  * 10 pt. ⚠️ Taste from here on — one constant.
  */
-export const TEMPO_TEXT_FONT_SIZE = 18
+// ⭐ The NUMBER is a row of `engrave/textRoles` (`tempoWords`, 18 pt) since 2026-09-21 — asked per use.
+export function tempoTextSizePt(): number {
+  return textRoleSizePt('tempoWords')
+}
 
 /**
  * ⭐ The face of a tempo mark's WORDS — bold, at {@link TEMPO_TEXT_FONT_SIZE}: what VexFlow's
@@ -79,10 +85,10 @@ export function tempoTextFont(): TextRunFont {
     // ⭐ The WORDS' face, in the bold the books ask of a tempo (Gould p. 182) — `fonts/textFont` —
     //    with the music faces behind it for the glyphs. For the defaults this is `'Academico, Bravura'`,
     //    the string `textFirstFamily(musicFontStack())` always gave.
-    family: `${textFamily('bold')}, ${musicOnlyStack()}`,
-    sizePt: TEMPO_TEXT_FONT_SIZE,
-    weight: 'bold',
-    style: 'normal',
+    family: `${textRoleFamily('tempoWords')}, ${musicOnlyStack()}`,
+    sizePt: tempoTextSizePt(),
+    weight: textRoleWeight('tempoWords'),
+    style: textRoleSlant('tempoWords'),
   }
 }
 
@@ -99,13 +105,16 @@ export function tempoTextFont(): TextRunFont {
  * - **below** is the TEXT's descender. `Allegro` has a `g`, and a mark that cleared only its
  *   baseline would sit a descender deep into the family below it.
  */
-export const TEMPO_INK_ABOVE = drawnFontPx(TEMPO_GLYPH_FONT_SIZE) * 0.75 // baseline → the ♩'s top
-export const TEMPO_INK_BELOW = drawnFontPx(TEMPO_TEXT_FONT_SIZE) * 0.22 // baseline → the `g`'s tail
+export function tempoInkAbove(): number {
+  return drawnFontPx(tempoGlyphSizePt()) * 0.75 // baseline → the ♩'s top
+}
+export function tempoInkBelow(): number {
+  return drawnFontPx(tempoTextSizePt()) * 0.22 // baseline → the `g`'s tail
+}
 
 /** How far the mark's ink reaches either side of its own text baseline, in staff spaces. */
-export const TEMPO_MARK_INK: MarkInk = {
-  above: TEMPO_INK_ABOVE / STAFF_SPACE_PX,
-  below: TEMPO_INK_BELOW / STAFF_SPACE_PX,
+export function tempoMarkInk(): MarkInk {
+  return { above: tempoInkAbove() / STAFF_SPACE_PX, below: tempoInkBelow() / STAFF_SPACE_PX }
 }
 
 /**

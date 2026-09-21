@@ -7,7 +7,7 @@ import { plainColumn, type Column } from '@/engine/layout/spacing'
 import type { InkBox } from '@/engine/layout/kerning'
 import type { RenderPass } from '../../RenderPass'
 import type { Score } from '@/types/music'
-import { placeDynamicsOnLine, MARK_INK, type DynamicsLinePlacement } from './dynamicsLinePass'
+import { placeDynamicsOnLine, markInk, type DynamicsLinePlacement } from './dynamicsLinePass'
 import { planDynamicsLines } from './dynamicsLinePlan'
 
 /**
@@ -80,7 +80,7 @@ function place(
   const bars = new Map<number, Measure>()
   for (const p of numbered) if (!bars.has(p.measureNumber)) bars.set(p.measureNumber, p.view)
   const score = { measures: [...bars.values()] } as unknown as Score
-  placeDynamicsOnLine(pass, placements, planDynamicsLines(score, numbered, staffIds, MARK_INK))
+  placeDynamicsOnLine(pass, placements, planDynamicsLines(score, numbered, staffIds, markInk()))
 }
 
 describe('placeDynamicsOnLine', () => {

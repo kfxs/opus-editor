@@ -12,7 +12,7 @@
  */
 import type { Clearance, MarkInk } from '@/engine/layout/inkBand'
 import { inkSpaces } from '../../painter/drawnFontSize'
-import { expressionTextFamily } from '../dynamics/dynamicStyle'
+import { textRoleFamily } from '@/engine/engrave/textRoles'
 
 /**
  * ⭐⭐ **The numeral, keyed by the SIGNED shift — HIS CALL, 2026-08-13: `8va` and `8ba`.**
@@ -75,9 +75,9 @@ export const OTTAVA_PAREN_RIGHT = ')'
 
 /** The serif stack the parens are set in — the one face in play with a TRUE italic. Shared with the
  *  trill's, so the two families' brackets cannot drift apart. */
-/** A function: the italic of the active text face (`fonts/textFont`). */
+/** The `lineParenthesis` row of `engrave/textRoles` — the words' face, in italic. */
 export function ottavaParenFont(): string {
-  return expressionTextFamily()
+  return textRoleFamily('lineParenthesis')
 }
 
 /**

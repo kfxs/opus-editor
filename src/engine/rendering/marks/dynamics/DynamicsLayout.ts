@@ -20,7 +20,7 @@ import type { EngravedStave } from '../../engraved/EngravedStave'
 import type { ChordRest, Measure, Dynamic, Fraction } from '@/types/music'
 import { fracCompare, fracGte, fracToNumber } from '@/utils/fraction'
 import { splitDynamicRuns, dynamicLabel, composeDynamicGlyphs } from '@/utils/dynamics'
-import { dynamicAnnotationFont, DYNAMIC_GLYPH_SIZE, DYNAMIC_TEXT_SIZE, expressionTextFamily, DYNAMIC_GLYPH_INK_ABOVE, DYNAMIC_GLYPH_INK_BELOW } from './dynamicStyle'
+import { dynamicAnnotationFont, dynamicGlyphSizePt, dynamicTextSizePt, expressionTextFamily, dynamicGlyphInkAbove, dynamicGlyphInkBelow } from './dynamicStyle'
 import { dynamicOffsetOverrideOf } from '../../../models/engravingOverrides'
 import { setDynamicMarkNudge, shiftDynamicMark } from './dynamicMarkTransform'
 import { drawnTextOrigin, firstDrawnText } from '../../painter/drawnText'
@@ -261,8 +261,8 @@ export function enlargeDynamicGlyphRuns(text: SVGTextElement, dyn: Dynamic): voi
 
   // The mark was drawn at the text size; scale glyph runs up by the glyph/text ratio so they match
   // a standalone level glyph, whatever unit VexFlow rendered the base size in.
-  const basePx = parseFloat(getComputedStyle(text).fontSize) || DYNAMIC_TEXT_SIZE
-  const glyphPx = basePx * (DYNAMIC_GLYPH_SIZE / DYNAMIC_TEXT_SIZE)
+  const basePx = parseFloat(getComputedStyle(text).fontSize) || dynamicTextSizePt()
+  const glyphPx = basePx * (dynamicGlyphSizePt() / dynamicTextSizePt())
   const NS = 'http://www.w3.org/2000/svg'
 
   while (text.firstChild) text.removeChild(text.firstChild) // keep the <text>'s x / baseline y
@@ -386,8 +386,8 @@ export function registerDynamics(pass: RenderPass, measure: Measure): void {
           const textBox = textEl?.getBBox ? textEl.getBBox() : null
           if (textBox) { bx = textBox.x; bw = textBox.width }
           if (origin) {
-            by = origin.y - DYNAMIC_GLYPH_INK_ABOVE
-            bh = DYNAMIC_GLYPH_INK_ABOVE + DYNAMIC_GLYPH_INK_BELOW
+            by = origin.y - dynamicGlyphInkAbove()
+            bh = dynamicGlyphInkAbove() + dynamicGlyphInkBelow()
           }
         }
         // ⭐⭐ WHERE A GUIDE MAY TOUCH THIS MARK — a point ON THE INK, which the box is not.

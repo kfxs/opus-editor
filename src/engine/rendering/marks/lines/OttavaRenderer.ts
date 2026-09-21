@@ -44,6 +44,7 @@
  * the SVG — so it is divided by the scale on the way in, the same conversion `planSpanSegments`
  * makes. `TrillRenderer`'s note, and it applies here verbatim.
  */
+import { textRoleSlant, textRoleWeight } from '@/engine/engrave/textRoles'
 import type { EngravedStave } from '../../engraved/EngravedStave'
 import { drawGlyph, drawTextRun } from '../../painter/glyphPainter'
 import type { Score, Ottava, Measure, Fraction } from '@/types/music'
@@ -629,7 +630,7 @@ export function drawOttavaNumeral(
   const parenY = y - size * OTTAVA_PAREN_RAISE
   const paren = (text: string, at: number): number =>
     drawTextRun(ctx, 'OttavaRenderer.paren', text, at, parenY,
-      { family: ottavaParenFont(), sizePt: size, style: 'italic' })
+      { family: ottavaParenFont(), sizePt: size, weight: textRoleWeight('lineParenthesis'), style: textRoleSlant('lineParenthesis') })
 
   let width = paren(OTTAVA_PAREN_LEFT, x)
   width += glyph(numeral, x + width)

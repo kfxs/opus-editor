@@ -29,7 +29,7 @@ import { fracCompare, fracToNumber } from '@/utils/fraction'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import type { SpacedColumns } from '../../format/spacingPass'
 import { UNIT_GLYPH, MET_NOTE_GLYPH, MET_AUGMENTATION_DOT } from '@/utils/tempoText'
-import { TEMPO_GLYPH_FONT_SIZE, TEMPO_INK_ABOVE, TEMPO_INK_BELOW, tempoTextFont } from './tempoStyle'
+import { tempoGlyphSizePt, tempoInkAbove, tempoInkBelow, tempoTextFont } from './tempoStyle'
 import type { RenderPass } from '../../RenderPass'
 import { setTempoMarkOffset } from './tempoMarkTransform'
 import { tempoOffsetOverrideOf } from '../../../models/engravingOverrides'
@@ -134,7 +134,7 @@ export function drawTempoText(ctx: DrawContext, text: string, x: number, y: numb
     // font moved to the back (`./tempoStyle` says why). The two faces VexFlow's `StaveTempo.glyph`
     // and `StaveTempo.name` categories resolved, as rows of ours.
     x += run.glyph
-      ? drawGlyph(ctx, 'TempoLayout.glyph', run.glyph, x, y, TEMPO_GLYPH_FONT_SIZE)
+      ? drawGlyph(ctx, 'TempoLayout.glyph', run.glyph, x, y, tempoGlyphSizePt())
       : drawTextRun(ctx, 'TempoLayout.text', keepSpaces(run.text!), x, y, tempoTextFont())
   }
 }
@@ -461,9 +461,9 @@ export function drawTempoMarks(
           // and it is why those two constants are shared with the row rather than private to it.
           bbox: {
             x: box.x,
-            y: y - TEMPO_INK_ABOVE,
+            y: y - tempoInkAbove(),
             width: box.width,
-            height: TEMPO_INK_ABOVE + TEMPO_INK_BELOW,
+            height: tempoInkAbove() + tempoInkBelow(),
           },
           // ⭐⭐ THE ATTACHMENT GUIDE'S TWO ENDS — the second kind to draw one (his call, 2026-08-17,
           // the dynamic's having been the first). Both are captured here because both are
@@ -483,7 +483,7 @@ export function drawTempoMarks(
           // ⚠️ From the tight extents rather than the font table: a tempo mark is mostly PROSE in a
           // serif face, which Bravura cannot speak for (`./dynamicMarkInk` answers null for exactly
           // this). `TEMPO_INK_BELOW` is the descender depth these constants already state.
-          guides: [{ from: { x: box.x, y: y + TEMPO_INK_BELOW }, to: { x, y: staffLineY(staveFrame(stave), 0) } }],
+          guides: [{ from: { x: box.x, y: y + tempoInkBelow() }, to: { x, y: staffLineY(staveFrame(stave), 0) } }],
           // ⭐ The stave's line spacing where this mark was DRAWN — what the interpolating walk
           // (`interactions/walks/tempoWalk`) converts a measured pixel gap into staff-spaces with. ⛔ It
           // refuses to guess one, so this is the only route.

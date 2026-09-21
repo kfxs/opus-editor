@@ -2,7 +2,7 @@ import type { MusicEngine } from '../../engine/MusicEngine'
 import type { EditableTextSource, TextEditInsert, TextEditInsertion } from './TextEditController'
 import type { MenuItem } from '../../menus/MenuItem'
 import { buildExpressionMenu } from '../../menus/expressionMenu'
-import { expressionTextFamily, DYNAMIC_TEXT_SIZE, DYNAMIC_GLYPH_SIZE } from '../../engine/rendering/marks/dynamics/dynamicStyle'
+import { expressionTextFamily, dynamicTextSizePt, dynamicGlyphSizePt } from '../../engine/rendering/marks/dynamics/dynamicStyle'
 import { dbg } from '@/utils/debug'
 import { musicOnlyStack } from '@/engine/fonts/musicFont'
 import { dynamicLabel, levelToGlyphString, splitDynamicRuns } from '../../utils/dynamics'
@@ -32,7 +32,8 @@ function escapeHtml(s: string): string {
  * it inserts as ordinary text and inherits the box's font. Nothing sized on its own, nothing to
  * drift. The chip exists here only because a dynamic mixes two sizes in one box.)
  */
-const GLYPH_EM = DYNAMIC_GLYPH_SIZE / DYNAMIC_TEXT_SIZE
+/** Asked per use — both sizes are rows of `engrave/textRoles`. */
+const glyphEm = (): number => dynamicGlyphSizePt() / dynamicTextSizePt()
 
 /**
  * One glyph run as an ATOMIC CHIP: a `contenteditable="false"` span at the big music size.
@@ -48,7 +49,7 @@ function glyphChipHtml(glyph: string): string {
   // it survives pinning the line-height on the box (measured: h 15 → 20, baseline down 2.7px). At
   // zero the chip contributes no height at all and simply overflows, which is what an oversized
   // glyph should do — the line is the words', and the glyph hangs off it.
-  return `<span contenteditable="false" style="font-size:${GLYPH_EM}em;font-style:normal;line-height:0">${escapeHtml(glyph)}</span>`
+  return `<span contenteditable="false" style="font-size:${glyphEm()}em;font-style:normal;line-height:0">${escapeHtml(glyph)}</span>`
 }
 
 /**
@@ -264,7 +265,7 @@ export class DynamicTextSource implements EditableTextSource {
   getFontCSS(): { fontFamily: string; fontSize: string; fontStyle: string; color: string } {
     return {
       fontFamily: `${expressionTextFamily()}, ${musicOnlyStack()}`,
-      fontSize: `${DYNAMIC_TEXT_SIZE * this.getZoom()}pt`,
+      fontSize: `${dynamicTextSizePt() * this.getZoom()}pt`,
       fontStyle: 'italic',
       color: '#000000',
     }

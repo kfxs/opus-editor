@@ -44,7 +44,7 @@ import { measureCapacityFrac } from '@/utils/measureCapacity'
 import { fracCompare, fracEq, fracGte } from '@/utils/fraction'
 import { hairpinLineKey, type DynamicsLinePlan } from './dynamicsLinePlan'
 import { voiceOf } from '@/utils/lanes'
-import { MARK_INK } from './dynamicsLinePass'
+import { markInk } from './dynamicsLinePass'
 import { dynamicMarkTranslate } from './dynamicMarkTransform'
 import { HAIRPIN, fragmentOpening, resolveHairpinShape, type WedgeRole } from './hairpinShape'
 import { breakWedgeAtGaps, inksClash, rampAt, type InkBand, type WedgeGap } from './hairpinBreaks'
@@ -91,7 +91,7 @@ interface HairpinPlacement {
 function axisOffsetSpaces(): number {
   // A mark's ink runs from `baseline − above` to `baseline + below`, so its middle is half the
   // difference — negative for a dynamic glyph, which sits mostly above its baseline.
-  return (MARK_INK.below - MARK_INK.above) / 2
+  return (markInk().below - markInk().above) / 2
 }
 
 /**
