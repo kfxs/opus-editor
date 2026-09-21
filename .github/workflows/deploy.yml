@@ -25,13 +25,22 @@ concurrency:
   group: pages
   cancel-in-progress: false
 
+# ⚠️ THE ACTIONS' OWN RUNTIME is a different thing from `node-version` below. `node-version: 24` is
+# the Node OUR build runs on; each JavaScript action also declares the Node IT runs on (`using:` in
+# its action.yml). GitHub retired node20 for actions and force-runs them on node24 with a warning
+# (2026-09-21: "Node 20 is being deprecated…"). The cure is the major of each action that declares
+# node24 — read off their action.yml, not guessed: checkout v7 · setup-node v7 · configure-pages v6 ·
+# deploy-pages v5 (upload-pages-artifact is a composite and runs no Node of its own).
+# Checked on the way up: upload-pages-artifact ≥ v4 leaves DOTFILES out of the artifact (`dist/` has
+# none); setup-node ≥ v5 auto-caches from a `packageManager` field (we have none, and ask for
+# `cache: npm` ourselves).
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: npm
@@ -55,9 +64,9 @@ jobs:
       # build:check is kept browser-free (see CLAUDE.md §Testing).
       - run: npm run build:check
 
-      - uses: actions/configure-pages@v5
+      - uses: actions/configure-pages@v6
 
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: dist
 
@@ -68,9 +77,9 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: npm
@@ -87,4 +96,4 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
