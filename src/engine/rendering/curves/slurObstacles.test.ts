@@ -39,9 +39,9 @@ describe('the fit factor', () => {
 
   it('⭐ …and nothing when the curve already clears it', () => {
     // ⚠️ Measured, not guessed: the apex sits 1.05 sp above the chord and the margin at this length
-    //    is the full 0.5 sp, so a box CLEARS only if its top edge is under 0.55 sp. Centred at
-    //    +0.2 sp its top is at −0.3, comfortably below.
-    expect(slurArchFit(p0, p1, H0, H1, ABOVE, [head(10 * SP, 0.2 * SP)])).toBe(1)
+    //    is the full 0.75 sp (0.5 until 2026-09-21), so a box CLEARS only if its top edge is under
+    //    0.30 sp. Centred at +0.5 sp its top is ON the chord, comfortably below.
+    expect(slurArchFit(p0, p1, H0, H1, ABOVE, [head(10 * SP, 0.5 * SP)])).toBe(1)
   })
 
   it('⭐⭐ grows the arch when something stands in the way', () => {

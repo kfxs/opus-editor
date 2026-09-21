@@ -176,8 +176,13 @@ export const CURVE = {
    * against the wrong axis. On a near-level slur it is 1 either way.
    */
   slurObstacleMarginMin: 0.1,
-  /** …and the ceiling, reached at 12.5 sp of span — see {@link CURVE.slurObstacleMarginMin}. */
-  slurObstacleMarginMax: 0.5,
+  /**
+   * …and the ceiling, reached at 18.75 sp of span — see {@link CURVE.slurObstacleMarginMin}.
+   * ⚠️ **OURS, his eye's number** (2026-09-21, the 1ère Gymnopédie's long slurs): MuseScore and Verovio
+   * both publish 0.5, and what he signed off on screen was 0.75 — a quarter space more air under a
+   * slur long enough to run nearly parallel to its music. Set it to 0.5 for the published value.
+   */
+  slurObstacleMarginMax: 0.75,
   /**
    * ⚠️⚠️ **OURS, and provisional** — how far the slant ceiling may lift an endpoint away from its own
    * note (`./slurSlantLimit`, §12 Phase 6). Verovio's `GetAdjustedSlurAngle` has no such bound and
