@@ -45,6 +45,7 @@ import { armPedalEndpointAt } from '../elements/pedalHandles'
 import { armTrillEndpointAt } from '../elements/trillHandles'
 import { articulationHit } from '../elements/articulation'
 import { markAtPress } from '../state/markGroupSelect'
+import { armMarkGroupDrag } from '../drags/markGroup'
 /** Placeholder for a Ctrl+Alt+T tempo mark — exists only so the mark renders a measurable box; the
  *  edit box opens blank over it and an empty commit deletes it, so it is never actually seen. */
 const DEFAULT_TEMPO_TEXT = 'Tempo'
@@ -665,9 +666,8 @@ export class MouseController {
     // {@link ELEMENT_HIT_ORDER}, with the comments that argue it: the dot before the note, the
     // tremolo before the stem, the barline last of all. Twelve `if`s here, and twelve bodies four
     // hundred lines below, said the same thing in two places that could disagree.
-    for (const element of ELEMENT_HIT_ORDER) {
-      if (element.hit(ctx, this.elementDeps)) return
-    }
+    if (armMarkGroupDrag(ctx, this.state, this.elementDeps, this.dragHost)) return // a GROUP of marks
+    for (const element of ELEMENT_HIT_ORDER) if (element.hit(ctx, this.elementDeps)) return
     this.handleNoteOrEmptyMouseDown(ctx)
   }
 

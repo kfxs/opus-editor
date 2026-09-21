@@ -26,6 +26,7 @@ export type DragKind =
   | 'slurHandle' | 'slurEndpoint' | 'slurBody'
   | 'dynamic' | 'tempo'
   | 'markEnd' | 'hairpinBody' | 'ottavaBody' | 'pedalBody' | 'trillBody'
+  | 'markGroup'
 
 export interface Gesture {
   kind: DragKind
