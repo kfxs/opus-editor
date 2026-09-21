@@ -34,7 +34,7 @@ import { readFileSync } from 'node:fs'
 
 /** A hub, its ceilings, and the functions counted out of it. `lines: null` = reported, not held. */
 const HUBS = [
-  { file: 'src/engine/MusicEngine.ts', kinds: 490, lines: null },
+  { file: 'src/engine/MusicEngine.ts', kinds: 485, lines: null },
   { file: 'src/engine/models/ScoreModel.ts', kinds: 916, lines: null },
   { file: 'src/engine/rendering/ScoreRenderer.ts', kinds: 853, lines: null },
   { file: 'src/interactions/controllers/MouseController.ts', kinds: 282, lines: 1100 },

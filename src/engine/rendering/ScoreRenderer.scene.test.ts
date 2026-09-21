@@ -35,6 +35,7 @@
  */
 import { describe, it, expect } from 'vitest'
 import { ScoreModel } from '../models/ScoreModel'
+import { nudgeTieOffset } from '../models/tieOps'
 import { ScoreRenderer } from './ScoreRenderer'
 import { scenePrimitives, sceneGroups, walkScene } from '@/engine/scene/Scene'
 import { ledgerLineStyle } from '@/engine/layout/layoutConfig'
@@ -839,6 +840,24 @@ describe('⭐⭐ U1 — the CURVE in the scene: a tie’s arc, drawn by us', () 
     for (const p of paths) {
       expect(p.ops.filter(o => o.op === 'bezierCurveTo'), 'two cubic passes').toHaveLength(2)
     }
+  })
+
+  it('⭐ a hand NUDGE moves the whole arc by that many staff spaces — his ask, 2026-09-21', () => {
+    // C4 hangs under the treble staff, so no staff line runs alongside the arc either before or
+    // after: the clearance repair cannot muddy the difference.
+    const startY = (model: ScoreModel) => {
+      const first = tiePaths(renderModel(model).scene)[0].ops[0]
+      if (first.op !== 'moveTo') throw new Error('not an arc')
+      return first.y
+    }
+    const before = startY(tiedPair())
+
+    const nudged = tiedPair()
+    const from = nudged.getScore().measures[0].slots
+      .flatMap(sl => (sl.type === 'chord' ? sl.notes : [])).find(p => p.tiedTo)!
+    nudgeTieOffset(nudged.getScore(), from.id, 1.5)
+
+    expect(startY(nudged) - before).toBeCloseTo(1.5 * STAFF_SPACE_PX, 6)
   })
 
   it('⭐⭐ …and it runs between its two noteheads, bowing clear of them', () => {

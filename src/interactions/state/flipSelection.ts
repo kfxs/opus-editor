@@ -82,7 +82,7 @@ const FLIP_ELEMENT: {
   ottava: (engine, el) => engine.ottava.toggleOttavaDirection(el.id),
   // A tie flips its curve direction (up ↔ below), staying notehead-anchored. ⚠️ Keyed by the note it
   // comes FROM, not by an id of its own — a tie is a relation between two notes.
-  tie: (engine, el) => engine.flipTie(el.fromNoteId),
+  tie: (engine, el) => engine.tie.flipTie(el.fromNoteId),
   // A tuplet flips its bracket/number side (above ↔ below).
   tuplet: (engine, el) => engine.flipTuplet(el.id),
 }

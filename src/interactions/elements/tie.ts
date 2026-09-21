@@ -14,6 +14,7 @@ import type { HighlightContext } from './highlightContext'
 import { selectedOf } from '../state/EditorState'
 import { voiceFillColor } from '@/utils/voiceColors'
 import { distToSegment } from './slur'
+import { TIE_KEYS } from './tieKeys'
 
 export const TIE_ELEMENT: ClickableElementSpec = {
   kind: 'tie',
@@ -46,6 +47,7 @@ export const TIE_ELEMENT: ClickableElementSpec = {
   },
 
   highlight: paintSelectedTie,
+  keys: TIE_KEYS,
 }
 
 export function paintSelectedTie(ctx: HighlightContext): void {

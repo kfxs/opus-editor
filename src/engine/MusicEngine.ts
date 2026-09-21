@@ -46,6 +46,7 @@ import { pedalCommands } from './commands/pedalCommands'
 import { slurCommands } from './commands/slurCommands'
 import { tempoCommands } from './commands/tempoCommands'
 import { trillCommands } from './commands/trillCommands'
+import { tieCommands } from './commands/tieCommands'
 import { spellingToMidi, accidentalToAlter } from '@/utils/pitchSpelling'
 import { alterInForceAt } from '@/utils/accidentalState'
 import type { BeamRole } from '@/utils/beaming'
@@ -2434,30 +2435,8 @@ export class MusicEngine {
     return true
   }
 
-  /** Flip the tie starting at `fromNoteId` with a Sibelius-style `x` toggle: auto ↔ flipped.
-   *  A tie stays flat and notehead-anchored, so this only inverts the arc (and its endpoint
-   *  lift), unlike {@link flipSlur} which is stem-aware. When the tie already carries an
-   *  explicit `tieDirection`, clear it back to the auto default; otherwise set an explicit
-   *  direction opposite to whatever was last *drawn* (read from the registry), so the first
-   *  press always visibly flips. Two presses round-trip to auto. Saves one undo step.
-   *  @returns true if it flipped. */
-  flipTie(fromNoteId: string): boolean {
-    const pitch = this.scoreModel.getNotePitch(fromNoteId)
-    if (!pitch || !pitch.tiedTo) return false
-    if (pitch.tieDirection !== undefined) {
-      // Overridden → return to the auto default.
-      this.scoreModel.clearTieDirection(fromNoteId)
-      this.mutate('Reset tie to auto')
-      return true
-    }
-    // Auto → pin the opposite of the last-drawn side. Guarded so a stubbed/headless
-    // renderer just falls back to "down" (+1).
-    const el = this.renderer.getElementRegistry?.()?.getByType?.('tie').find(e => e.fromNoteId === fromNoteId)
-    const currentDir = el?.tieDirection ?? 1
-    if (!this.scoreModel.setTieDirection(fromNoteId, currentDir === -1 ? 1 : -1)) return false
-    this.mutate('Flip tie')
-    return true
-  }
+  // ⭐ A tie's COMMANDS — `flipTie`, the vertical nudge and its reset — are `engine/commands/tieCommands`.
+  readonly tie = tieCommands(this.commandContext())
 
   /** All phrasing slurs (live array; empty if none). */
   getSlurs(): Slur[] {

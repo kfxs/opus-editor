@@ -1,4 +1,4 @@
-import type { Score, EngravingOverride, CurveShapeOverride, SegmentCurveShapeOverride, SlurEndpointOffsetOverride, SlurOffsetOverride, SegmentEndpointOffsetOverride, HairpinEndpointOffsetOverride, HairpinApertureOverride, OttavaOffsetOverride, PedalOffsetOverride, TrillOffsetOverride, RestShiftOverride, StaffSpacingOverride, DynamicOffsetOverride, NoteOffsetOverride, ClefOffsetOverride, LeadingSpaceOverride, BarlineSpaceOverride, BarWidthOverride, CurveControlPointDeltas, Fraction, TempoOffsetOverride, CautionaryKeyGapOverride } from '@/types/music'
+import type { Score, EngravingOverride, CurveShapeOverride, SegmentCurveShapeOverride, SlurEndpointOffsetOverride, SlurOffsetOverride, SegmentEndpointOffsetOverride, HairpinEndpointOffsetOverride, HairpinApertureOverride, OttavaOffsetOverride, PedalOffsetOverride, TrillOffsetOverride, RestShiftOverride, StaffSpacingOverride, DynamicOffsetOverride, NoteOffsetOverride, ClefOffsetOverride, LeadingSpaceOverride, BarlineSpaceOverride, BarWidthOverride, CurveControlPointDeltas, Fraction, TempoOffsetOverride, CautionaryKeyGapOverride, TieOffsetOverride } from '@/types/music'
 import { fracCreate } from '@/utils/fraction'
 import { STAFF_SPACE_PX } from './staffSize'
 
@@ -570,3 +570,7 @@ export function resolveStaffSpacingAbove(score: Score, staffId: string, openingM
   return staffSpacingAbove(score, staffId)
 }
 
+/** A tie's vertical hand nudge, keyed by the pitch it comes FROM — see {@link TieOffsetOverride}. */
+export function tieOffsetOverrideOf(score: Score, fromNoteId: string): TieOffsetOverride | undefined {
+  return engravingOverrideOf(score, fromNoteId, 'tieOffset') as TieOffsetOverride | undefined
+}

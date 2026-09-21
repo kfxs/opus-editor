@@ -16,7 +16,9 @@
  * no length of its own to continue into (docs/plans/fanned-beam-pitches-plan.md §3). A single-note ask is
  * refused; in a selection the member is DROPPED, since the other notes were selected too.
  */
-import type { Note, NoteParams, Score } from '@/types/music'
+import type { Note, NoteParams, Score, TieOffsetOverride } from '@/types/music'
+import { tieOffsetOverrideOf } from './engravingOverrides'
+import { clearEngravingOverride, setEngravingOverride } from './overrideOps'
 import { dbg } from '@/utils/debug'
 import { fracToNumber } from '@/utils/fraction'
 import { staffOf, voiceOf } from '@/utils/lanes'
@@ -171,3 +173,32 @@ export function repairDanglingTies(score: Score): void {
     }
   }
 }
+
+/**
+ * ⭐ Move a tie's arc by `dy` staff spaces (screen-signed, + is down), **accumulating** — the arrows
+ * on a selected tie ({@link TieOffsetOverride}). A net 0 deletes the entry, so "absent = the
+ * engraver's place" holds and the JSON stays clean. No undo entry here: the command owns it.
+ *
+ * @returns false when `fromNoteId` owns no tie — there is nothing to move.
+ */
+export function nudgeTieOffset(score: Score, fromNoteId: string, dy: number): boolean {
+  if (!ownsTie(score, fromNoteId)) return false
+  const y = (tieOffsetOverrideOf(score, fromNoteId)?.y ?? 0) + dy
+  if (y === 0) clearEngravingOverride(score, fromNoteId, 'tieOffset')
+  else setEngravingOverride(score, fromNoteId, { kind: 'tieOffset', y } as TieOffsetOverride)
+  return true
+}
+
+/** Back to where the engraver put it. ⚠️ False when it was never moved — `Ctrl+Backspace` has other
+ *  tenants behind it, and a "yes" for no change would swallow the press. */
+export function resetTieOffset(score: Score, fromNoteId: string): boolean {
+  return clearEngravingOverride(score, fromNoteId, 'tieOffset')
+}
+
+function ownsTie(score: Score, fromNoteId: string): boolean {
+  for (const measure of score.measures) for (const slot of measure.slots) {
+    if (slot.type === 'chord' && slot.notes.some(p => p.id === fromNoteId && !!p.tiedTo)) return true
+  }
+  return false
+}
+

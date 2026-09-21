@@ -696,4 +696,22 @@ export interface NoteOffsetOverride extends EngravingOverride {
  * render-time default when no entry exists. Stored as a plain object — NOT a Map — so
  * it round-trips through `JSON.stringify` (undo snapshots, export) unchanged.
  */
+/**
+ * A TIE's hand-nudged VERTICAL offset, in staff spaces, screen-signed (+ is DOWN) — his ask,
+ * 2026-09-21: *"a tie if selected can not be offseted vertically with the arrow"*.
+ *
+ * Keyed by the id of the pitch the tie comes FROM — a tie has no id of its own, it is `tiedTo` on
+ * that pitch (`elements/tie`). ⛔ **Vertical only**: a tie's ends are its two noteheads (Gould p. 308,
+ * *"The tie must connect the noteheads"*), so there is no horizontal to author. The whole arc moves
+ * as one — both halves of a cross-system tie — and its staff-line clearance is re-asked where it
+ * lands. Absent = where the engraver put it; a net 0 deletes the entry.
+ *
+ * ⚠️ A pitch id does not survive a re-bar (the relay mints fresh pitches and re-links the ties), so
+ * neither does this — the same cost every id-keyed client on a note pays.
+ */
+export interface TieOffsetOverride extends EngravingOverride {
+  kind: 'tieOffset'
+  y: number
+}
+
 export type EngravingOverrides = Record<string, EngravingOverride[]>

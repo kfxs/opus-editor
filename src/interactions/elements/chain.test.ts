@@ -51,7 +51,7 @@ describe('ELEMENT_SPECS — the `keys` column', () => {
     // built — an edit dropped `keys:` INSIDE a multi-line `highlight` body, where it parses as a
     // LABELLED STATEMENT: `tsc` accepts it (the lint does not — `no-unused-labels`).
     const answering = Object.values(ELEMENT_SPECS).filter(spec => spec.keys).map(spec => spec.kind).sort()
-    expect(answering).toEqual(['clef', 'dynamic', 'hairpin', 'ottava', 'pedal', 'slur', 'tempo', 'trill'])
+    expect(answering).toEqual(['clef', 'dynamic', 'hairpin', 'ottava', 'pedal', 'slur', 'tempo', 'tie', 'trill'])
   })
 
   it('⭐ …these MOVE THROUGH THE MUSIC on `Ctrl+Shift+←/→`, and these have handles for `Tab` to walk', () => {

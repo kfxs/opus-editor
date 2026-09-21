@@ -25,6 +25,8 @@ import { tieEndpointX, tieEndpointY, type TieHead } from './tieEndpoints'
 import { tieArcGrowth } from './tieStaffLineClearance'
 import { lineLeftCurveX, lineRightEdgeX } from '../staff/systemEdges'
 import { staffIndexOfId } from '@/engine/models/staffContent'
+import { tieOffsetOverrideOf } from '@/engine/models/engravingOverrides'
+import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { inStaffSpace } from '../staff/staffScaleGroup'
 import { noteFrame } from '../staff/staveFrame'
 import { staffLineY, type StaffFrame } from '@/engine/engrave/staff/staffFrame'
@@ -159,6 +161,10 @@ export function renderTies(pass: RenderPass, score: Score): void {
             // note alias for registry callbacks below
             const note = { id: pitch.id, tiedTo: pitch.tiedTo, measure: fromMeasure }
 
+            // ⭐ The hand's vertical nudge (`TieOffsetOverride`, staff spaces, + is down) — the whole arc
+            //   moves as one, both halves of a cross-system tie; its staff-line clearance is then
+            //   asked where it LANDS. Drawn in the staff's own space, so its own spaces are the unit.
+            const nudgeY = (tieOffsetOverrideOf(score, pitch.id)?.y ?? 0) * STAFF_SPACE_PX
             const fromHead = headOf(noteRuler(fromInfo.staveNote), fromInfo.noteIndex)
             const toHead = headOf(noteRuler(toInfo.staveNote), toInfo.noteIndex)
             if (!fromHead || !toHead) continue
@@ -212,7 +218,7 @@ export function renderTies(pass: RenderPass, score: Score): void {
                 register(drawTieArc(pass, {
                   firstX: tieEndpointX(fromHead, 'from'),
                   lastX: tieEndpointX(toHead, 'to'),
-                  y: tieEndpointY(fromHead.headY, tieDirection),
+                  y: tieEndpointY(fromHead.headY, tieDirection) + nudgeY,
                   direction: tieDirection,
                 }, noteFrame(fromInfo.staveNote)), fromLine)
               } else {
@@ -231,7 +237,7 @@ export function renderTies(pass: RenderPass, score: Score): void {
                   register(drawTieArc(pass, {
                     firstX: tieEndpointX(fromHead, 'from'),
                     lastX: rightEdge / scale,
-                    y: tieEndpointY(fromHead.headY, tieDirection),
+                    y: tieEndpointY(fromHead.headY, tieDirection) + nudgeY,
                     direction: tieDirection,
                   }, noteFrame(fromInfo.staveNote)), fromLine, 'end')
                 }
@@ -239,7 +245,7 @@ export function renderTies(pass: RenderPass, score: Score): void {
                   register(drawTieArc(pass, {
                     firstX: leftEdge / scale,
                     lastX: tieEndpointX(toHead, 'to'),
-                    y: tieEndpointY(toHead.headY, tieDirection),
+                    y: tieEndpointY(toHead.headY, tieDirection) + nudgeY,
                     direction: tieDirection,
                   }, noteFrame(toInfo.staveNote)), toLine, 'start')
                 }

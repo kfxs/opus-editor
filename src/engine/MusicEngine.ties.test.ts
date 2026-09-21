@@ -191,18 +191,18 @@ describe('MusicEngine — ties', () => {
     expect(dirOf()).toBeUndefined() // auto (no override yet)
 
     // First flip from auto stores an explicit ±1 direction.
-    expect(engine.flipTie(a.id)).toBe(true)
+    expect(engine.tie.flipTie(a.id)).toBe(true)
     const after = dirOf()
     expect(after === -1 || after === 1).toBe(true)
 
     // Second flip round-trips back to auto (Sibelius-style x).
-    engine.flipTie(a.id)
+    engine.tie.flipTie(a.id)
     expect(dirOf()).toBeUndefined()
 
     // Undo reverts the reset (one step) → back to the explicit direction.
     expect(engine.undo()).toBe(true)
     expect(dirOf()).toBe(after)
 
-    expect(engine.flipTie('nope')).toBe(false) // unknown id
+    expect(engine.tie.flipTie('nope')).toBe(false) // unknown id
   })
 })
