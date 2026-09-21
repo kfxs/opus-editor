@@ -934,9 +934,18 @@ export function createEditorApp(host: HTMLElement): EditorApp {
     // ⚠️ EXPERIMENT, HIS (2026-09-14) — the ACCIDENTAL's gap, and the step that CLOSED the 0.10-vs-
     // 0.30 mismatch between what the model reserved and what the page drew (engine/layout/accidentalGap).
     w.__accidentals = accidentalGapConsole(() => renderer.renderScore())
-    // ⭐ 2026-09-21 — a BENT STAFF's machinery, in its own panel beside the score: a staff is a path,
-    // a note a rigid block placed on it (docs/plans/bent-staff-plan.md A; src/dev/spineConsole.ts).
-    w.__spine = spineConsole()
+    // ⭐ 2026-09-21 — a BENT STAFF's machinery, in its own draggable panel, drawn LIVE from the open
+    // score: a staff is a path, a note a rigid block placed on it (docs/plans/bent-staff-plan.md A; src/dev/spineConsole.ts).
+    w.__spine = spineConsole({
+      getScore: () => engine?.getScore() ?? null,
+      exportJSON: () => engine?.exportJSON() ?? '',
+      load: json => {
+        if (!engine) return
+        selection.selectNote(null)
+        engine.loadJSON(json)
+        renderer.renderScore()
+      },
+    })
     // ⏱ 2026-08-30 — **THE LOG ITSELF IS A COST, and it has to be switchable to be measured.**
     //   His report: a held arrow key *"freezes somehow"*, *"sometime ok sometime not"*. The console
     //   is charged per character AND per line, and DevTools charges more as its buffer fills — so a
@@ -959,7 +968,7 @@ export function createEditorApp(host: HTMLElement): EditorApp {
     dbg("[header] CLEF→METER gap: __header.clefMeter('stone'|'books'|'rossCompass'|'lilypond') / .dumpClefMeter() / .resetClefMeter()")
     dbg("[accidentals] accidental→notehead gap: __accidentals.gap('house'|'musescore'|'lilypond'|'ross') / .dump() / .reset()")
     dbg("[dots] augmentation-dot gaps: __dots.gap('house'|'gould'|'gouldDrawn'|'ross'|'lilypond'|'musescore'|'verovio'|'vexflow') / .dump() / .reset() — ⚠️ look at a DOUBLE dot")
-    dbg('[spine] a bent staff: __spine.circle({ notes: 8, radius: 200 }) / .straight() / .clear()')
+    dbg('[spine] a bent staff, LIVE from the open score: __spine.circle({ notes: 8 }) loads fourths · .show() bends what is open · .straight() / .clear()')
     dbg("[spacing] law experiment: __spacing.law('lilypond'|'gould'|'musescore'|'verovio'|'finale'|'dorico'|'even'|'proportional') / .dump() / .reset()")
   }
 

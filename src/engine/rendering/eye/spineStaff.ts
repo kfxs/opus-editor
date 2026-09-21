@@ -22,6 +22,7 @@ import { compose, translation } from '@/engine/paint/Affine'
 import type { Spine } from '@/engine/engrave/staff/staffSpine'
 import { placementAt } from '@/engine/engrave/staff/staffSpine'
 import { drawSpineLines } from '@/engine/engrave/staff/spineLines'
+import { staffLineY } from '@/engine/engrave/staff/staffFrame'
 import { STAVE_LINE_WIDTH_PX } from '@/engine/engrave/staff/staffLines'
 import type { Clef, NoteDuration, PitchAlter, PitchStep, TimeSignature } from '@/types/music'
 import { middleLineDiatonicPos } from '@/utils/clefUtils'
@@ -55,20 +56,14 @@ const BLOCK_STAVE_WIDTH = 200
 const BLOCK_FORMAT_WIDTH = 150
 
 /**
- * Draw ONE note as a rigid block on `spine`. The block is drawn upright on a stand-in stave; the
- * placement then carries the head's centre, on the stave's top line, to the spine at `note.s`.
+ * ⭐ **ANY built note as a rigid block** — formatted ALONE and upright on a stand-in stave, drawn into
+ * its own group, and that group placed so the head's centre, on the stave's top line, lands on the
+ * spine at `s`. The note may be the score's own (`engraved/NoteBuilder`) — chord, rest, accidentals,
+ * dots and all: the block is whatever the note draws.
  */
-export function drawSpineNote(ctx: DrawContext, spine: Spine, note: SpineNote, clef: Clef): void {
+export function drawNoteBlock(ctx: DrawContext, spine: Spine, engraved: EngravedNote, s: number): void {
   const stave = new EngravedStave(0, 0, BLOCK_STAVE_WIDTH).setOpeningBarline('none').setClosingBarline('none')
   stave.setDefaultLedgerLineStyle(LEDGER_LINE_STYLE)
-  const engraved = new EngravedNote({
-    keys: [spellingToNoteKey(note.step, note.alter, note.octave)],
-    duration: note.duration,
-    clef,
-    autoStem: false,
-  })
-  // The page's own rule for one note: down from the middle line up, up below it.
-  engraved.setStemDirection(spellingDiatonicPos(note.step, note.octave) >= middleLineDiatonicPos(clef) ? -1 : 1)
   formatLoneNote(engraved, stave, { numerator: 1, denominator: 4 }, BLOCK_FORMAT_WIDTH)
 
   const group = drawGroupOf(ctx.openGroup(SPINE_BLOCK_CLASS))
@@ -82,8 +77,21 @@ export function drawSpineNote(ctx: DrawContext, spine: Spine, note: SpineNote, c
   const headCentreX = (ruler.headLeftX + ruler.headRightX) / 2
   group?.setPlacement(compose(
     translation(-headCentreX, -staveFrame(stave).topLineY),
-    placementAt(spine, note.s),
+    placementAt(spine, s),
   ))
+}
+
+/** Draw ONE pitch as a rigid block on `spine` — {@link drawNoteBlock} for a caller with no score. */
+export function drawSpineNote(ctx: DrawContext, spine: Spine, note: SpineNote, clef: Clef): void {
+  const engraved = new EngravedNote({
+    keys: [spellingToNoteKey(note.step, note.alter, note.octave)],
+    duration: note.duration,
+    clef,
+    autoStem: false,
+  })
+  // The page's own rule for one note: down from the middle line up, up below it.
+  engraved.setStemDirection(spellingDiatonicPos(note.step, note.octave) >= middleLineDiatonicPos(clef) ? -1 : 1)
+  drawNoteBlock(ctx, spine, engraved, note.s)
 }
 
 /** The frame a block is drawn against: the page's own staff, its top line ON the spine. */
@@ -121,6 +129,26 @@ export function drawSpineHeader(
   let at = s
   for (const sign of signs) at = drawSpineSign(ctx, spine, sign, at + sign.walkInput().padding)
   return at
+}
+
+/**
+ * A plain BARLINE across the staff at `s` — a rigid block too: one straight stroke from the top line
+ * to the bottom one, square to the spine there. ⚠️ Plain only; WHICH sign a boundary carries
+ * (`models/boundarySign`) is plan B's to bring here.
+ */
+export function drawSpineBarline(ctx: DrawContext, spine: Spine, s: number, thickness: number): void {
+  const frame = blockFrame()
+  const group = drawGroupOf(ctx.openGroup(SPINE_BLOCK_CLASS))
+  try {
+    ctx.setLineWidth(thickness)
+    ctx.beginPath()
+    ctx.moveTo(0, staffLineY(frame, 0))
+    ctx.lineTo(0, staffLineY(frame, frame.lineCount - 1) + STAVE_LINE_WIDTH_PX)
+    ctx.stroke()
+  } finally {
+    ctx.closeGroup()
+  }
+  group?.setPlacement(placementAt(spine, s))
 }
 
 /** The five lines along all of `spine`. */

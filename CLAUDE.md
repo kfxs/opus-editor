@@ -178,11 +178,16 @@ src/
                           #   after a bar's last onset still stands where it puts it — his call;
                           #   ⛔ don't build on it: it goes with the clef review, map §9.4 #5)
     rendering/            # ⭐ The renderer's CORE at the top (ScoreRenderer, RenderPass, renderTypes,
-                          #   CoordinateMapper, the redraw keys, PagePass) and eight folders:
+                          #   CoordinateMapper, the redraw keys, PagePass) and nine folders:
                           #   engraved/ (the `Engraved*` classes, NoteBuilder) · format/ (columns,
                           #   modifier columns, spacingPass) · painter/ (SvgPainter, glyphPainter,
                           #   svgDrawGroup) · staff/ (stave frame + signs, barlines, key signature) ·
-                          #   beams/ · curves/ (slur + tie) · marks/{dynamics,tempo,lines}/ · ghosts/.
+                          #   beams/ · curves/ (slur + tie) · marks/{dynamics,tempo,lines}/ · ghosts/ ·
+                          #   eye/ (⭐ a BENT STAFF — `engrave/staff/staffSpine`: a staff is a PATH; lines
+                          #   drawn FROM it, each note/clef/barline a RIGID BLOCK placed ON it by ONE
+                          #   affine, ⛔ never deformed. `spineScore` reads the open score; shown by
+                          #   `__spine.circle()` in its own panel — ⛔ the real canvas asks no spine yet:
+                          #   docs/plans/bent-staff-plan.md).
                           #   What follows names the modules that carry a rule — FanPass, GhostRenderer
                           #   (+ HeaderSignGhost / MarkGhost — S11: a ghost drawn by the score's OWN
                           #   classes on our surface, ⛔ never a throwaway VexFlow stave/voice/formatter),

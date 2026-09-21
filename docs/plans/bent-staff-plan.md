@@ -59,11 +59,30 @@ Every piece is its own module; nothing lands on a hub.
 | A1 | `engine/paint/Affine.ts` | `rotation()` / `rotationAbout()` — the one constructor missing |
 | A2 | `engine/engrave/staff/staffSpine.ts` | `Spine`: `length`, `at(s) → { x, y, angle }`; rows `straightSpine`, `circleSpine`; `placementAt(spine, s, offset) → Affine`; the inverse (page point → `s` + offset) asked of the spine (rule 5). Pure, no DOM |
 | A3 | `engine/engrave/staff/spineLines.ts` | the five lines as offsets of a spine (arcs as Béziers — `bezierCurveTo` is already the 20th primitive); thickness from `staffLines.ts` |
-| A4 | `engine/rendering/eye/spineDemoPass.ts` + `dev/spineConsole.ts` | `__spine.circle({ notes, radius })` — quarter notes a fourth apart, each through `formatLoneNote` in its OWN group whose placement is `placementAt(…)` (Belle's one seam, as ours); `__spine.clear()` |
+| A4 | `engine/rendering/eye/spineStaff.ts` + `dev/spineConsole.ts` | `__spine.circle({ notes, radius })` — quarter notes a fourth apart, each through `formatLoneNote` in its OWN group whose placement is `placementAt(…)` (Belle's one seam, as ours); `__spine.clear()` |
 | A5 | specs | `staffSpine.test.ts` (arithmetic) + a scene spec: N groups, placement i = a rotation by 360°/N·i, every note on the radius — jsdom, no browser |
 
 ⭐ `placementAt` places a BLOCK, not a note — so a beamed group becomes a block later with no rework.
 Every number (radius, spacing along the path) is a changeable row, never a blocker.
+
+## 3b. The bridge — the panel draws the OPEN SCORE, live ✅ BUILT 2026-09-21
+
+> His ask: *"what we draw in the circle follows the score model… it generates a real score that I see
+> in the JSON and in the score canvas, so I can edit and see in real time the changes in the circle"*
+> — and ⛔ **no shape in the JSON yet** (his call): the shape is a view of the console.
+
+- `engine/rendering/eye/spineScore.ts` — `drawScoreOnSpine(ctx, score, spine)`. ⭐ Each bar's slots go
+  through the page's own `NoteBuilder`, so chords, rests, accidentals under the key, dots,
+  articulations and stems are the page's decisions; each built note is one rigid block
+  (`spineStaff.drawNoteBlock`). Plain barlines are blocks too (`drawSpineBarline`).
+- `__spine.circle({ notes })` LOADS a real score of fourths and bends it · `__spine.show({ radius })`
+  bends whatever is open · `.straight()` · `.clear()`. The panel is draggable and re-draws when the
+  model's JSON changes (polled, like the JSON panel).
+- ⭐ A CLOSED spine has a SEAM: the music stops short of `s = length`, so the last barline stands in
+  front of the clef, ⛔ not on it (his report — the first build skipped that barline).
+- ⚠️ **Named placeholders**: first staff only · spacing is TIME-proportional, ⛔ not `layout/spacing`
+  · plain barlines (no final thin-thick) · no beams (flags), ties, slurs, tuplet marks, dynamics,
+  hairpins, mid-score header changes · the panel cannot be clicked into.
 
 ## 4. B — the real score asks the path (LATER; his goal, a DECISION list ⛔ not a queue)
 
