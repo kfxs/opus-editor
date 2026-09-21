@@ -34,13 +34,15 @@ describe('registerMusicFontFaces', () => {
     await expect(registerMusicFontFaces()).resolves.toBeUndefined()
   })
 
-  it('⭐ installs every row of the font table, from the files we ship', async () => {
+  it('⭐ installs the faces the page opens with — the words and Bravura — from the files we ship', async () => {
     const added = stubPage()
     const { registerMusicFontFaces, isOwnFontFace } = await import('./musicFontFaces')
     const { FONT_FILES } = await import('@/engine/fonts/fontFiles')
     await registerMusicFontFaces()
+    // ⛔ Not Leipzig or Sebastian: a music face nobody chose is not fetched (`loadMusicFont`).
+    const opening = FONT_FILES.filter(row => row.role === 'text' || row.family === 'Bravura')
     expect(added.map(face => [face.family, face.descriptors.weight, face.descriptors.display]))
-      .toEqual(FONT_FILES.map(row => [row.family, row.weight, row.display]))
+      .toEqual(opening.map(row => [row.family, row.weight, row.display]))
     expect(added[0].source).toMatch(/^url\(.*fonts\/Bravura\.otf\)$/)
     expect(added.every(face => isOwnFontFace(face as unknown as FontFace))).toBe(true)
   })
@@ -51,7 +53,19 @@ describe('registerMusicFontFaces', () => {
     const first = registerMusicFontFaces()
     expect(registerMusicFontFaces()).toBe(first)
     await first
-    expect(added).toHaveLength((await import('@/engine/fonts/fontFiles')).FONT_FILES.length)
+    expect(added).toHaveLength(3)
+  })
+
+  it('⭐ a chosen music face is installed on demand, once', async () => {
+    const added = stubPage()
+    const { registerMusicFontFaces, loadMusicFont, isOwnFontFace } = await import('./musicFontFaces')
+    await registerMusicFontFaces()
+    await loadMusicFont('Leipzig')
+    await loadMusicFont('Leipzig')
+    await loadMusicFont('Bravura')
+    expect(added.map(face => face.family)).toEqual(['Bravura', 'Academico', 'Academico', 'Leipzig'])
+    expect(added[3].source).toMatch(/^url\(.*fonts\/Leipzig\.otf\)$/)
+    expect(isOwnFontFace(added[3] as unknown as FontFace)).toBe(true)
   })
 
   it('a face that fails to load does not hang the gate behind it', async () => {

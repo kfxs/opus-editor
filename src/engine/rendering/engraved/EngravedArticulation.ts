@@ -57,7 +57,7 @@
  */
 import type { EngravedNote } from './EngravedNote'
 import type { DrawContext } from '@/engine/paint/DrawContext'
-import { MUSIC_FONT_SIZE_PT, MUSIC_GLYPH_FONT } from '@/engine/engrave/inheritedFonts'
+import { MUSIC_FONT_SIZE_PT, musicGlyphFont } from '@/engine/engrave/inheritedFonts'
 import { drawArticulation, type ArticulationInk } from '@/engine/engrave/notes/articulation'
 import { ARTICULATION_OUTSIDE_ROW, placeArticulation } from '@/engine/engrave/notes/articulationPlacement'
 import { textRowAboveY, textRowBelowY } from '@/engine/engrave/staff/staffFrame'
@@ -215,7 +215,7 @@ export class EngravedArticulation extends EngravedModifier implements InkSurface
       glyph: this.getText(),
       x: this.x + this.xShift,
       y: this.y + this.yShift,
-      font: MUSIC_GLYPH_FONT,
+      font: musicGlyphFont(),
       id: this.getAttribute('id')!,
     }
   }

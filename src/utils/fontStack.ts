@@ -19,7 +19,7 @@
  */
 
 /** SMuFL music fonts — the ones VexFlow can lead its stack with. */
-const MUSIC_FONT = /^(bravura|petaluma|gonville|leland|sebastian|musejazz|finale\w*)( text)?$/
+const MUSIC_FONT = /^(bravura|leipzig|petaluma|gonville|leland|sebastian|musejazz|finale\w*)( text)?$/
 
 /**
  * The same font stack with its music fonts moved to the back — for anything that draws TEXT.

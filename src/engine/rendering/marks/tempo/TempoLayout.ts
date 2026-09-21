@@ -29,7 +29,7 @@ import { fracCompare, fracToNumber } from '@/utils/fraction'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import type { SpacedColumns } from '../../format/spacingPass'
 import { UNIT_GLYPH, MET_NOTE_GLYPH, MET_AUGMENTATION_DOT } from '@/utils/tempoText'
-import { TEMPO_GLYPH_FONT_SIZE, TEMPO_INK_ABOVE, TEMPO_INK_BELOW, TEMPO_TEXT_FONT } from './tempoStyle'
+import { TEMPO_GLYPH_FONT_SIZE, TEMPO_INK_ABOVE, TEMPO_INK_BELOW, tempoTextFont } from './tempoStyle'
 import type { RenderPass } from '../../RenderPass'
 import { setTempoMarkOffset } from './tempoMarkTransform'
 import { tempoOffsetOverrideOf } from '../../../models/engravingOverrides'
@@ -135,7 +135,7 @@ export function drawTempoText(ctx: DrawContext, text: string, x: number, y: numb
     // and `StaveTempo.name` categories resolved, as rows of ours.
     x += run.glyph
       ? drawGlyph(ctx, 'TempoLayout.glyph', run.glyph, x, y, TEMPO_GLYPH_FONT_SIZE)
-      : drawTextRun(ctx, 'TempoLayout.text', keepSpaces(run.text!), x, y, TEMPO_TEXT_FONT)
+      : drawTextRun(ctx, 'TempoLayout.text', keepSpaces(run.text!), x, y, tempoTextFont())
   }
 }
 

@@ -12,7 +12,7 @@
  * needs a page, so it lives with the SVG painter that is its only possible caller.
  * ⛔ No DOM, no vexflow.
  */
-import { ROOT_FONT_FAMILY, ROOT_FONT_SIZE_PT } from './fontCategories'
+import { rootFontFamily, ROOT_FONT_SIZE_PT } from './fontCategories'
 
 /** A face as the painter and the measurer take it — `FontInfo`: a size is POINTS as a number, or a CSS size. */
 export interface FontInfo {
@@ -49,7 +49,7 @@ export function validateFont(
   } else {
     family = f
   }
-  family = family ?? ROOT_FONT_FAMILY
+  family = family ?? rootFontFamily()
   size = size ?? `${ROOT_FONT_SIZE_PT}pt`
   weight = weight ?? 'normal'
   style = style ?? 'normal'
@@ -71,6 +71,6 @@ export function fontToCss(font: FontInfo | undefined): string {
   const sz = font.size
   // ⚠️ VexFlow's slip, kept: an ABSENT size is written with no space before the family.
   const size = sz === undefined ? `${ROOT_FONT_SIZE_PT}pt` : typeof sz === 'number' ? sz + 'pt ' : sz.trim() + ' '
-  const family = font.family ?? ROOT_FONT_FAMILY
+  const family = font.family ?? rootFontFamily()
   return `${style}${weight}${size}${family}`
 }

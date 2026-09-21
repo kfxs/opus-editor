@@ -75,6 +75,7 @@ import { spacingGeneration } from '@/engine/layout/spacing'
 import { headerGapGeneration } from '@/engine/layout/headerAccidentalLadder'
 import { dotGapGeneration } from '@/engine/layout/dotGap'
 import { accidentalGapGeneration } from '@/engine/layout/accidentalGap'
+import { musicFontGeneration } from '@/engine/fonts/musicFont'
 import { clefMeterGapGeneration } from '@/engine/layout/clefMeterGap'
 import { barlineMeterGapGeneration } from '@/engine/layout/barlineMeterGap'
 import { attachDynamicsToSlots, layoutCoLocatedDynamics, applyDynamicOffsets, registerDynamics, applyMixedDynamicRuns } from './marks/dynamics/DynamicsLayout'
@@ -606,6 +607,9 @@ export class ScoreRenderer {
       // 🚨 …and the armed ACCIDENTAL gap, for the same reason: `accidentalExtent` prices the room
       //    from it, so a bar carrying an accidental is wider or narrower for the armed row.
       accidentalGapGeneration(),
+      // 🚧 The chosen MUSIC FACE (`fonts/musicFont`) — a WIDTH too: the casting-off made in one face
+      //    is not the other's.
+      musicFontGeneration(),
       [...this.linearStaffSpacing.entries()].sort((a, b) => a[0].localeCompare(b[0])),
       this.suppressedDynamicId,
       this.suppressedTempoId,

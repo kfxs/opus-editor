@@ -23,8 +23,8 @@
  * (Bravura, Leland, Petaluma, MuseJazz, Sebastian), arriving the way Bravura already does: a font
  * file in `public/fonts/` plus build-time metadata. A future house style that sets the music in
  * another face is one more ROW here — ⚠️ plus that face's metrics table, which is what
- * `fonts/bravuraMetrics.ts` is for Bravura. ⛔ Nothing here chooses between faces yet: removing
- * VexFlow comes first (`docs/plans/own-engraving-engine.md` §0.2).
+ * `fonts/bravuraMetrics.ts` is for Bravura. ⭐ WHICH music face is drawn is `fonts/musicFont`'s
+ * (`docs/plans/music-font-switch-plan.md`); this table only says what files exist.
  *
  * No DOM: this module is data plus a URL (`engine/fonts/` is fenced by `lint:boundary`).
  */
@@ -49,6 +49,11 @@ export interface FontFile {
 
 export const FONT_FILES: readonly FontFile[] = [
   { family: 'Bravura', file: 'Bravura.otf', weight: 'normal', role: 'music', display: 'block' },
+  // 🚧 EXPERIMENTAL — the dev shell's other music faces (`fonts/musicFont`,
+  // docs/plans/music-font-switch-plan.md). OFL 1.1, from npm `@vexflow-fonts/*` 1.0.1; each face's
+  // licence travels beside it (`public/fonts/<Family>-OFL.txt`).
+  { family: 'Leipzig', file: 'Leipzig.otf', weight: 'normal', role: 'music', display: 'block' },
+  { family: 'Sebastian', file: 'Sebastian.otf', weight: 'normal', role: 'music', display: 'block' },
   { family: 'Academico', file: 'Academico.otf', weight: 'normal', role: 'text', display: 'swap' },
   { family: 'Academico', file: 'AcademicoBold.otf', weight: 'bold', role: 'text', display: 'swap' },
 ]

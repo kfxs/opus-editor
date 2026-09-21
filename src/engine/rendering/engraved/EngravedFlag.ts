@@ -7,7 +7,7 @@
  * ⚠️ A note builds its flag EMPTY and gives it a glyph only when it has one (`buildFlag`); an empty flag
  * is still measured — its height feeds the stem extension, as VexFlow's empty `Flag` did.
  */
-import { NOTE_FONT, type FontRow } from '@/engine/engrave/inheritedFonts'
+import { noteFont, type FontRow } from '@/engine/engrave/inheritedFonts'
 import { measureTextMetrics, type GlyphMetrics } from '../painter/glyphPainter'
 import { ModifierBox } from './EngravedModifier'
 
@@ -15,7 +15,7 @@ export class EngravedFlag {
   private text = ''
   private x = 0
   private y = 0
-  readonly fontInfo: FontRow = NOTE_FONT
+  readonly fontInfo: FontRow = noteFont()
 
   getText(): string {
     return this.text

@@ -23,7 +23,7 @@ import type { DrawContext } from '@/engine/paint/DrawContext'
 import type { TimeSignature as Meter } from '@/types/music'
 import { meterLayout, type MeterLayout, type MeterRowLine } from '@/engine/engrave/header/meterSign'
 import { measureGlyph } from '../painter/glyphPainter'
-import { MUSIC_GLYPH_FONT } from '@/engine/engrave/inheritedFonts'
+import { musicGlyphFont } from '@/engine/engrave/inheritedFonts'
 import { drawMeter, type MeterRow } from '@/engine/engrave/header/meter'
 import { newSignId, type StaveSign } from '../staff/staveSign'
 import { METER_PADDING_PX } from '@/engine/engrave/inheritedDefaults'
@@ -42,7 +42,7 @@ export class EngravedTimeSignature implements StaveSign {
   private readonly layout: MeterLayout
 
   constructor(meter: Meter) {
-    this.layout = meterLayout(meter, glyphs => measureGlyph('EngravedTimeSignature.row', glyphs, MUSIC_GLYPH_FONT.size))
+    this.layout = meterLayout(meter, glyphs => measureGlyph('EngravedTimeSignature.row', glyphs, musicGlyphFont().size))
   }
 
   /** The walk's view of this meter — as wide as its wider row, with the meter's own padding. */
@@ -67,7 +67,7 @@ export class EngravedTimeSignature implements StaveSign {
       glyph: row.glyph,
       x: this.signX + row.dx + shift,
       lineY: rowLineY(frame, row.line),
-      font: MUSIC_GLYPH_FONT,
+      font: musicGlyphFont(),
     }))
   }
 }

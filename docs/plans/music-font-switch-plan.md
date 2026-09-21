@@ -1,6 +1,6 @@
 # Setting the music in another SMuFL font — Leipzig and Sebastian first
 
-> **Status: PLAN, 2026-09-21. Nothing built.** His ask: *"include other SMuFL in the project… start
+> **Status: Phase A BUILT 2026-09-21, awaiting his UI check; B not started.** His ask: *"include other SMuFL in the project… start
 > with Leipzig and Sebastian… in the dev shell a dropdown to select the font so we see how it renders
 > when it changes (still experimental, but worth to manage this from now)."* Decided the same day:
 > **A first, then B.**
@@ -72,6 +72,18 @@ ledger, slur) are still Bravura's. That is B.
 - **A6 — PDF export** asks `activeMusicFont()` for which face to outline, with Bravura as the
   per-glyph fallback (rule 4: `charToGlyph` index 0 ⇒ take the glyph from Bravura).
 
+> ✅ **As built (2026-09-21).** Files from npm `@vexflow-fonts/leipzig` / `sebastian` 1.0.1 (OTF rev
+> 5.200 / 1.010; licences beside them as `public/fonts/<Family>-OFL.txt`). Coverage re-measured on
+> today's 73 glyphs: **Sebastian lacks `bracket`; Leipzig lacks `bracket`, `reversedBracketTop/Bottom`
+> and Bravura's four brace alternates** — all drawn in Bravura through the stack. ⭐ A music face
+> nobody chose is NOT fetched at startup: `musicFontFaces.loadMusicFont` brings it in on the pick.
+> A4 needed ONE line more than planned: the font's generation is in `laneFingerprint` (the width
+> key) as well as `layoutStateKey` — the shape key embeds it, and without it every bar's old `<g>` is
+> replayed (`e2e/musicFontSwitch.e2e.ts`, break-tested). A6 needed no code: the PDF outliner already
+> walks the computed `font-family` stack per character with a coverage check. The picker is
+> `dev/musicFontPicker.ts`; the frozen rows that became functions: `rootFontFamily`, `noteFont`,
+> `musicGlyphFont`, `tempoTextFont`, `dynamicAnnotationFont`.
+
 **Done when:** he picks Leipzig / Sebastian / Bravura in the dev shell and the score re-renders in it;
 back on Bravura nothing has moved (unit + e2e green, unchanged). ⏸️ Stop for his UI check.
 
@@ -110,6 +122,22 @@ Bravura selected every suite is green and unchanged. Specs: one jsdom test per g
   (`stemUpSE` would move Bravura's stems 0.168 sp — a pixel change, its own decision) · the Finale
   faces, Gootville, Gonville (no metadata — `multi-font-research.md` §5) · Leland / Petaluma /
   MuseJazz (each is a row after B; ⛔ not scheduled) · the `ss01` small-staff masters.
+
+## 4a. ⭐ Where this is heading — a CUSTOM GLYPH SET (his note, 2026-09-21)
+
+After seeing A: *"in the future maybe the user can make more custom options, probably for the missing
+glyph select instead of bravura one of another font, probably for some glyph even change the glyph
+for another font (for example i see bravura glyph for whole note is the nicer one and probably in the
+future i will like that glyph in my custom set font)."*
+
+⇒ The real unit is not "a font" but **a glyph set: a base face plus, per glyph, WHICH FACE it is taken
+from** — the fallback is just the rows the base face cannot fill, and a taste override (Bravura's
+whole note inside Sebastian) is the same row chosen by hand. ⛔ Not built here, but B must not close
+the door: B1's tables record **per glyph the face it came from** (that is what `FALLBACK_GLYPHS` is),
+and rule 4 already says the box, anchors and drawing of a glyph travel TOGETHER from that one face —
+which is exactly what a per-glyph override needs. ⚠️ The drawing half is the open part: a CSS stack
+can only express "first face that HAS the glyph", never "prefer Bravura for U+E0A2", so a per-glyph
+choice means `glyphPainter` resolving the family per glyph. Its own plan when he asks for it.
 
 ## 5. Open — his call, none blocks A
 

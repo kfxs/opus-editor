@@ -17,7 +17,7 @@
 import type { Clearance, MarkInk } from '@/engine/layout/inkBand'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { drawnFontPx } from '../../painter/drawnFontSize'
-import { MUSIC_FONT_STACK } from '@/engine/engrave/inheritedFonts'
+import { musicFontStack } from '@/engine/engrave/inheritedFonts'
 import { textFirstFamily } from '@/utils/fontStack'
 import type { TextRunFont } from '../../painter/glyphPainter'
 
@@ -74,11 +74,13 @@ export const TEMPO_TEXT_FONT_SIZE = 18
  * nothing wide, which is why the mark once engraved as `Allegro(♩=144)` however many spaces were in
  * the string. The glyph runs keep the music font first ({@link TEMPO_GLYPH_FONT_SIZE}).
  */
-export const TEMPO_TEXT_FONT: TextRunFont = {
-  family: textFirstFamily(MUSIC_FONT_STACK),
-  sizePt: TEMPO_TEXT_FONT_SIZE,
-  weight: 'bold',
-  style: 'normal',
+export function tempoTextFont(): TextRunFont {
+  return {
+    family: textFirstFamily(musicFontStack()),
+    sizePt: TEMPO_TEXT_FONT_SIZE,
+    weight: 'bold',
+    style: 'normal',
+  }
 }
 
 /**

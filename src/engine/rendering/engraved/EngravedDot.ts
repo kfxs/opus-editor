@@ -49,7 +49,7 @@
  */
 import type { EngravedNote } from './EngravedNote'
 import type { DrawContext } from '@/engine/paint/DrawContext'
-import { MUSIC_FONT_SIZE_PT, MUSIC_GLYPH_FONT } from '@/engine/engrave/inheritedFonts'
+import { MUSIC_FONT_SIZE_PT, musicGlyphFont } from '@/engine/engrave/inheritedFonts'
 import { NOTE_GLYPH_SCALE } from '@/engine/engrave/inheritedDefaults'
 import { dotBaselineY, drawAugmentationDot } from '@/engine/engrave/notes/augmentationDot'
 import type { InkSurfaceAware } from '../painter/inkSurface'
@@ -151,7 +151,7 @@ export class EngravedDot extends EngravedModifier implements InkSurfaceAware {
       glyph: AUGMENTATION_DOT,
       x: this.x + this.getXShift(),
       y: this.y + this.yShift,
-      font: MUSIC_GLYPH_FONT,
+      font: musicGlyphFont(),
       // ⭐ The sign's own id, so its GROUP can be matched back to the hit box the registry
       //   files for it — P6b's seam (`docs/plans/own-engraving-engine.md` §5 P6).
       id: this.getAttribute('id')!,

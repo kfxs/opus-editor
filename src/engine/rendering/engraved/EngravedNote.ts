@@ -67,7 +67,7 @@ import { drawGroupOf, svgNode } from '../painter/svgDrawGroup'
 import { EngravedHead } from './EngravedHead'
 import { LEDGER_OVERHANG_PX, NOTE_AREA_PADDING_PX, NOTEHEAD_MIN_PADDING_PX, NOTE_ANNOTATION_SPACING_PX, NOTE_DURATION_ROWS, NOTE_GLYPH_SCALE, STEM_LENGTH_PX, STEM_THICKNESS_PX } from '@/engine/engrave/inheritedDefaults'
 import { stemExtents, stemLineHeight, type StemSpan } from '@/engine/engrave/notes/stemLength'
-import { NOTE_FONT } from '@/engine/engrave/inheritedFonts'
+import { noteFont } from '@/engine/engrave/inheritedFonts'
 import type { DrawContext } from '@/engine/paint/DrawContext'
 import { ledgerLineRuns, drawLedgerLines } from '@/engine/engrave/notes/ledgerLines'
 import { flagPlacement, drawFlag } from '@/engine/engrave/notes/flag'
@@ -1188,7 +1188,7 @@ export class EngravedNote {
         displaced: crosses[i],
         stemDirection,
         line: row.keyProps.line,
-        font: NOTE_FONT,
+        font: noteFont(),
       })
       // ⚠️ Back into the note's OWN key order — `keys[2]` is `noteHeads[2]`, whatever line it is on.
       heads[row.index] = head
@@ -1421,7 +1421,7 @@ export class EngravedNote {
           glyph: this.headGlyph(index),
           x: originX,
           y: ys[index] + head.getYShift(),
-          font: NOTE_FONT,
+          font: noteFont(),
         }, () => this.drawModifiers(head))
       } finally {
         context.restore()
@@ -1634,7 +1634,7 @@ export class EngravedNote {
       at,
       // ⭐ The note's face, which its flag shares (`engrave/inheritedFonts`) — handed over as a value,
       // which is what keeps `engrave/` free of `vexflow` (see that module's header).
-      NOTE_FONT,
+      noteFont(),
     )
   }
 }

@@ -9,6 +9,7 @@
  * score's engraving font — only custom text pins a serif face (below).
  */
 import { drawnFontPx } from '../../painter/drawnFontSize'
+import { musicOnlyStack } from '@/engine/fonts/musicFont'
 
 export const DYNAMIC_GLYPH_SIZE = 30
 /**
@@ -60,9 +61,11 @@ export const DYNAMIC_TEXT_FONT = 'Georgia, "Times New Roman", Times, serif'
  * per-character fallback, every mark at the TEXT size (`DynamicsLayout.buildDynamicAnnotation` says
  * why). ONE value, because the ghost has to re-apply it on the group it lifts the glyph into.
  */
-export const DYNAMIC_ANNOTATION_FONT = {
-  family: `${DYNAMIC_TEXT_FONT}, Bravura`,
-  size: DYNAMIC_TEXT_SIZE,
-  weight: 'normal',
-  style: 'italic',
+export function dynamicAnnotationFont() {
+  return {
+    family: `${DYNAMIC_TEXT_FONT}, ${musicOnlyStack()}`,
+    size: DYNAMIC_TEXT_SIZE,
+    weight: 'normal',
+    style: 'italic',
+  }
 }

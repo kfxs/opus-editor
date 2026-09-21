@@ -23,7 +23,7 @@ import type { EngravedNote } from './EngravedNote'
 import type { DrawGroup } from '@/engine/paint/DrawGroup'
 import type { AnnotationAlign, AnnotationSide } from '@/engine/engrave/notes/annotationStack'
 import { ANNOTATION_ALIGN, ANNOTATION_SIDE, placeAnnotation } from '@/engine/engrave/notes/annotationPlacement'
-import { ANNOTATION_FONT_SIZE_PT, MUSIC_FONT_STACK } from '@/engine/engrave/inheritedFonts'
+import { ANNOTATION_FONT_SIZE_PT, musicFontStack } from '@/engine/engrave/inheritedFonts'
 import { textRowBelowY, staffLineY } from '@/engine/engrave/staff/staffFrame'
 import { measureTextMetrics } from '../painter/glyphPainter'
 import { fontSizeToPx } from '../painter/drawnFontSize'
@@ -41,7 +41,10 @@ export interface AnnotationFont {
 }
 
 /** The face an annotation has until one is set — the `Annotation` row over the root (`metrics.js:62–66,79`). */
-const DEFAULT_FONT: AnnotationFont = { family: MUSIC_FONT_STACK, size: ANNOTATION_FONT_SIZE_PT, weight: 'normal', style: 'normal' }
+/** A function, not a constant: the music face is a choice (`fonts/musicFont`). */
+function defaultFont(): AnnotationFont {
+  return { family: musicFontStack(), size: ANNOTATION_FONT_SIZE_PT, weight: 'normal', style: 'normal' }
+}
 
 const ALIGN_OF: Readonly<Record<number, AnnotationAlign>> = {
   [ANNOTATION_ALIGN.LEFT]: 'left',
@@ -58,7 +61,7 @@ export class EngravedAnnotation extends EngravedModifier {
   }
 
   private readonly text: string
-  private font: AnnotationFont = { ...DEFAULT_FONT }
+  private font: AnnotationFont = defaultFont()
   private horizontal: number = ANNOTATION_ALIGN.CENTER
   private vertical: number = ANNOTATION_SIDE.TOP
   /** A width written over the measured one — see the header. Dropped by {@link setFont}. */
@@ -82,7 +85,7 @@ export class EngravedAnnotation extends EngravedModifier {
 
   /** `Element.setFont(object)`: the default face with `font` laid over it. Drops a written width. */
   setFont(font: Partial<AnnotationFont>): this {
-    this.font = { ...DEFAULT_FONT, ...font }
+    this.font = { ...defaultFont(), ...font }
     this.widthOverride = null
     return this
   }

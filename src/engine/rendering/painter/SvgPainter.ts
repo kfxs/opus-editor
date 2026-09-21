@@ -25,7 +25,7 @@
  * them), `clearRect`, `measureText`, and the canvas backend.
  */
 import type { DrawContext } from '@/engine/paint/DrawContext'
-import { ROOT_FONT_FAMILY } from '@/engine/fonts/fontCategories'
+import { rootFontFamily } from '@/engine/fonts/fontCategories'
 import { fontToCss, validateFont, type FontInfo } from '@/engine/fonts/fontFace'
 
 const SVG_NS = 'http://www.w3.org/2000/svg'
@@ -80,7 +80,7 @@ export class SvgPainter implements DrawContext {
     this.parent = this.svg
     this.groups = [this.svg]
     const defaultFontAttributes = {
-      'font-family': ROOT_FONT_FAMILY,
+      'font-family': rootFontFamily(),
       'font-size': '10pt',
       'font-weight': 'normal',
       'font-style': 'normal',

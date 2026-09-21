@@ -24,7 +24,7 @@ import { attachModifier } from '../engraved/EngravedModifier'
 import { ARTICULATION_RENDER_ORDER } from '../engraved/NoteBuilder'
 import { formatLoneNote } from './loneNote'
 import { buildDynamicAnnotation, enlargeDynamicGlyphRuns } from '../marks/dynamics/DynamicsLayout'
-import { DYNAMIC_ANNOTATION_FONT } from '../marks/dynamics/dynamicStyle'
+import { dynamicAnnotationFont } from '../marks/dynamics/dynamicStyle'
 import { centreGhostOnCursor, drawSignGhost, ghostCursorOffset, sweepIntoGhostGroup } from './ghostCursor'
 import { standOn } from '../staff/staveFrame'
 
@@ -146,7 +146,7 @@ export function drawDynamicGhost(ctx: DrawContext, svg: SVGElement, cursorX: num
     if (text) enlargeDynamicGlyphRuns(text, dynamic)
     // Re-apply the annotation's face on the group — the one `buildDynamicAnnotation` set — for the
     // text to inherit, as it would from its ancestors in the score.
-    const f = DYNAMIC_ANNOTATION_FONT
+    const f = dynamicAnnotationFont()
     group.setAttribute('font-family', f.family)
     group.setAttribute('font-size', `${f.size}pt`)
     group.setAttribute('font-style', f.style)

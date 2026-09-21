@@ -12,8 +12,13 @@
  * it did, including one nobody passes today. ⛔ The non-font rows (paddings, spacings, styles) are not
  * here: nothing asks this module for them.
  *
+ * ⚠️ ONE departure from the transcription: the root `fontFamily` is not a literal here. It is
+ * `fonts/musicFont.musicFontStack()` — `'Bravura,Academico'` unless the dev shell chose another face
+ * (`docs/plans/music-font-switch-plan.md`). No category row names a family, so every tag follows it.
+ *
  * ⛔ No DOM, no vexflow.
  */
+import { musicFontStack } from './musicFont'
 
 /** A face as a category resolves it — `Metrics.getFontInfo`'s shape: the size is a POINT NUMBER here. */
 export interface CategoryFont {
@@ -34,7 +39,6 @@ interface FontNode {
 
 /** `MetricsDefaults` (`metrics.js`), its font keys only, in its shape. */
 const FONT_TREE: FontNode = {
-  fontFamily: 'Bravura,Academico',
   fontSize: 30,
   fontScale: 1.0,
   fontWeight: 'normal',
@@ -90,7 +94,7 @@ function lookup(key: string): string | number | undefined {
 /** ⭐ The face `tag` resolves to — `Metrics.getFontInfo(tag)`, a fresh object each call. */
 export function categoryFont(tag: string): CategoryFont {
   return {
-    family: lookup(`${tag}.fontFamily`) as string,
+    family: (lookup(`${tag}.fontFamily`) as string | undefined) ?? musicFontStack(),
     size: (lookup(`${tag}.fontSize`) as number) * (lookup(`${tag}.fontScale`) as number),
     weight: lookup(`${tag}.fontWeight`) as string,
     style: lookup(`${tag}.fontStyle`) as string,
@@ -98,5 +102,7 @@ export function categoryFont(tag: string): CategoryFont {
 }
 
 /** The ROOT face's family and size — `Metrics.get('fontFamily')` / `Metrics.get('fontSize')`, unscaled. */
-export const ROOT_FONT_FAMILY = lookup('fontFamily') as string
+export function rootFontFamily(): string {
+  return musicFontStack()
+}
 export const ROOT_FONT_SIZE_PT = lookup('fontSize') as number

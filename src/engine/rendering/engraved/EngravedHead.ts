@@ -22,7 +22,7 @@
  * note's modifiers), and that draw is ours; nothing reads a note's `children`.
  */
 import type { DrawContext } from '@/engine/paint/DrawContext'
-import { NOTE_FONT, type FontRow } from '@/engine/engrave/inheritedFonts'
+import { noteFont, type FontRow } from '@/engine/engrave/inheritedFonts'
 import { STEM_THICKNESS_PX } from '@/engine/engrave/inheritedDefaults'
 import { measureTextMetrics, type GlyphMetrics } from '../painter/glyphPainter'
 
@@ -73,7 +73,7 @@ export class EngravedHead {
     this.displaced = options.displaced === true
     this.stemDirection = options.stemDirection || 1
     this.x = options.x || 0
-    this.fontInfo = options.font ?? NOTE_FONT
+    this.fontInfo = options.font ?? noteFont()
   }
 
   getAttribute(name: string): string | undefined {

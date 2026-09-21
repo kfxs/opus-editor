@@ -7,8 +7,8 @@ import { FONT_FILES, fontFileUrl } from './fontFiles'
  * that cannot load leaves the page on VexFlow's copies, which both of its tests detect.
  */
 describe('FONT_FILES', () => {
-  it('the music is set in Bravura, the face the metrics table measures', () => {
-    expect(FONT_FILES.filter(row => row.role === 'music').map(row => row.family)).toEqual(['Bravura'])
+  it('Bravura leads the music faces — the one the metrics table measures and the others fall back to', () => {
+    expect(FONT_FILES.filter(row => row.role === 'music').map(row => row.family)).toEqual(['Bravura', 'Leipzig', 'Sebastian'])
   })
 
   it('no face is listed twice — one file per family and weight', () => {

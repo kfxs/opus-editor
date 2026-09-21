@@ -4,12 +4,12 @@
  * (`docs/history/vexflow-removal-map.md` S13a); pinned here is what the rows and the walk promise.
  */
 import { describe, it, expect } from 'vitest'
-import { ROOT_FONT_FAMILY, ROOT_FONT_SIZE_PT, categoryFont } from './fontCategories'
+import { rootFontFamily, ROOT_FONT_SIZE_PT, categoryFont } from './fontCategories'
 
 describe('categoryFont', () => {
   it('⭐ a tag with no row is the ROOT face — the music stack at 30 pt', () => {
     expect(categoryFont('EngravedClef.walk')).toEqual({ family: 'Bravura,Academico', size: 30, weight: 'normal', style: 'normal' })
-    expect([ROOT_FONT_FAMILY, ROOT_FONT_SIZE_PT]).toEqual(['Bravura,Academico', 30])
+    expect([rootFontFamily(), ROOT_FONT_SIZE_PT]).toEqual(['Bravura,Academico', 30])
   })
 
   it('a category keeps the deepest value on its path, and the root for the rest', () => {

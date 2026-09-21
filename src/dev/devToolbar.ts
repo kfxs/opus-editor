@@ -6,6 +6,7 @@ import type { NoteDuration } from '../types/music'
 import { durationHighlight } from '../interactions/controllers/keypadSync'
 import { DEV_SOUNDS } from '../engine/audio/WebAudioFontInstrument'
 import { bus } from '../bus'
+import { buildMusicFontPicker } from './musicFontPicker'
 import { exportScorePdfFile } from '../interactions/io/scoreFileIo'
 import { isSelectedStaffSmall, toggleSelectedStaffSize } from '../interactions/controllers/staffSizeToggle'
 
@@ -393,6 +394,9 @@ export function mountDevToolbar(host: HTMLElement, deps: DevToolbarDeps): DevToo
   sound.addEventListener('change', () => bus.sound.press(Number(sound.value)))
   soundLabel.appendChild(sound)
   row.appendChild(soundLabel)
+
+  // 🔧 DEV music font — `./musicFontPicker` (docs/plans/music-font-switch-plan.md, Phase A).
+  row.appendChild(buildMusicFontPicker(renderScore))
 
   /*
    * ⭐ **TAKE THE REPEATS?** — his ask, 2026-08-26: *"by default playback should repeat, and I guess
