@@ -99,3 +99,68 @@ Each step is checked against A's picture.
 6. The beamed group as a rigid block.
 7. The authored shape in the JSON (staff × range → path), and what LAYOUT does with it — spacing is
    along the path's length; casting-off on a closed path is its own question.
+
+## 5. THE PORT MAP — what the engine draws that the spine does not (written 2026-09-21)
+
+His ask: *"make sort of plan to know what is not in the spine that we have in the engine and we should
+start to port it there."* Read from the source (`eye/spineScore.ts`, `eye/spineStaff.ts`), ⛔ not from
+§3b's list. The KIND column is §2's — it says HOW a thing gets onto a path, which is most of the work:
+
+- **BLOCK** — drawn upright in its own space, placed by one affine. Cheap: the page's class, reused.
+- **LINES** — drawn from the path itself.
+- **SPAN** — must be RE-SOLVED along the path; the page's renderer cannot simply be placed.
+- **ROOM** — not ink: where things stand along the path.
+
+| # | what | kind | on the spine today | what it takes |
+|---|---|---|---|---|
+| 1 | staff lines | LINES | ✅ `spineLines` | — |
+| 2 | clef + meter at the start | BLOCK | ✅ `drawSpineHeader` | — |
+| 3 | note · chord · rest · accidental · dot · articulation · ledger lines · stem · FLAG | BLOCK | ✅ one block per slot, through the page's `NoteBuilder` | — |
+| 4 | plain barline | BLOCK | ✅ `drawSpineBarline` | — |
+| 5 | **BEAMS** | BLOCK (the GROUP is the block) | ⛔ every eighth draws a flag | **§6 — next** |
+| 6 | key signature in the header; mid-score clef / meter / key CHANGES; cautionaries | BLOCK | ⛔ the header is clef + meter, once | the signs are `StaveSign`s already (`drawSpineSign` takes any) — needs the positional walk (`resolveStaffClefs/Keys` per bar) and room for them (#14) |
+| 7 | barline TYPES — final, double, repeats with dots and wings | BLOCK | ⛔ plain only | `layout/barlineSign.barlineSignParts` is pure: draw its strokes + dots in a block |
+| 8 | tuplet number + bracket | BLOCK (with its group) | ⛔ | rides #5's group block; ⚠️ `ScoreTuplet` still draws straight on the painter (`scene/` cannot see it) |
+| 9 | tremolo (one-note strokes) | BLOCK | ✅ if `NoteBuilder` attaches it — ⚠️ NOT VERIFIED on the spine | look |
+| 10 | two-note tremolo · fanned (feathered) beams · cross-BAR beams | BLOCK spanning slots / bars | ⛔ | after #5; a cross-bar beam is a block that crosses a barline block |
+| 11 | second VOICE | BLOCK | ◐ drawn, stems forced up/down — ⚠️ no `voiceStack` (shared column shifts, rest displacement) since each note is formatted ALONE | format the COLUMN (all voices at one beat) as one block |
+| 12 | more than one STAFF; brace / bracket / system-start line; joined barlines | LINES + BLOCK | ⛔ first staff only | concentric spines (a second staff is the same path at another offset); `systemStart` as a block at s = 0 |
+| 13 | ties · slurs | SPAN | ⛔ | re-solve the curve between two placed notes in PAGE space (both ends are known points; the arc must clear a curved staff) — the multi-system-slur reasoning |
+| 14 | **SPACING** — `layout/spacing` (the spring law, the ink table) | ROOM | ⛔ TIME-proportional, 48 px per quarter | run the page's casting-off for ONE endless system and read its column x's as `s`. ⚠️ On a CLOSED path the total length is FIXED by the radius — justification on a circle is its own question (B7) |
+| 15 | hairpins · ottava · pedal · trill lines | SPAN | ⛔ | offsets of the path between two `s`, like the staff lines (the *Bike Ride* plate's hairpin follows the rim, §1) |
+| 16 | dynamics · tempo marks · expression words | BLOCK on a LANE (an offset from the path) | ⛔ | a lane is `pointAt(spine, s, offset)`; the ladder's offsets are the page's. Text rotates with the block (the plate rotates all text) |
+| 17 | clicking / selecting / dragging | — | ⛔ the panel cannot be clicked into | B3: `ElementRegistry.withSpace(affine)`; the inverse is `spine.locate` (built) |
+| 18 | the shape in the score JSON | — | ⛔ his call: not yet | B7 |
+| 19 | PDF export · playback cursor | — | ⛔ | after B2 (they read the page's geometry) |
+
+**Suggested order** (⛔ a suggestion — his pick): **5 beams** → 7 barline types → 6 header changes →
+14 spacing → 11 voices as columns → 8 tuplets → 13 ties/slurs → 16 marks on lanes → 15 line spans →
+12 staves → B (17–19). Blocks first because they reuse the page's classes; ROOM (#14) early because
+every block's `s` comes from it; SPANS last because each is a re-solve, not a placement.
+
+## 6. BEAMS on the spine — possible, and how (NEXT, awaiting his word)
+
+**Possible, and the plan always meant it**: `placementAt` places a BLOCK, and §1's plate shows what a
+beamed group is on a bent staff — *beams STRAIGHT, the group's stems PARALLEL, one rigid block*.
+
+- **How**: a beam group's notes are formatted TOGETHER on one straight block stave, at x's equal to
+  their distances along the path from the group's middle; the page's `EngravedBeam` is built over them
+  and drawn in the block; the block is placed by ONE affine at the group's middle `s`. The slope, the
+  stem lengths, secondary beams, fractional beams — all the page's decisions, untouched.
+- 🚨 **What must be extracted first**: WHICH notes beam together, their shared stem direction, secondary
+  breaks and fractional sides are decided in a PRIVATE method of `ScoreRenderer` (≈ lines 2780–2880,
+  interleaved with the fan joins). The spine cannot ask it. ⇒ step 1 is a pure module
+  (`rendering/beams/beamGroups.ts`) the page and the spine both call — ⛔ no behaviour change on the
+  page (A/B the scene), and the hub SHRINKS.
+- ⚠️ **The straight block on a curved staff — the one real question, and it has a number.** A chord of
+  length `L` across an arc of radius `R` leaves its END noteheads off their lines by the sagitta
+  `L² / 8R`, and tilted by `L / 2R` against the lines under them. At the console's defaults (48 px per
+  quarter, R ≥ 160): two eighths (24 px) → **0.05 sp, 4°** — invisible; four eighths (72 px) →
+  **0.4 sp, 13°** — visible; a full bar of sixteenths → worse. Options, his eye to choose:
+  - **(a) pure rigid block** — what the plate does; short groups look right, long ones drift.
+  - **(b) the heads RIDE the arc, the beam stays straight** — inside the block each note is shifted
+    toward the centre by its own sagitta, so every head sits on its line; stems stay parallel and the
+    beam straight (stems then differ slightly in length, as they do under any sloped beam).
+  - **(c) break long groups by beat** on a tight radius — a beaming decision, ⛔ changes the music's
+    look, so not by default.
+  Build (a) first — it is the smallest and shows the problem honestly — with (b) as a row to switch.
