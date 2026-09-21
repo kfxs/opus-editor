@@ -31,6 +31,7 @@ import { addTrill, repairDanglingTrills } from './trillOps'
 import { addMeasure, insertMeasureAfter } from './measureOps'
 import { collapseEmptyVoices } from './voiceOps'
 import { findSlot } from './slotLookup'
+import { keepLegalCrossings } from './crossStaffOps'
 import { clearEngravingOverride, setEngravingOverride } from './overrideOps'
 import { cloneFanFresh, chordStoredPitches, fanMemberBeats } from '@/utils/fannedBeam'
 import { v4 as uuidv4 } from 'uuid'
@@ -1648,6 +1649,7 @@ function materializeVoiceBar(
       notes: (piece.pitches ?? []).map((p) => {
         const np: NotePitch = { id: uuidv4(), step: p.step, alter: p.alter, octave: p.octave }
         if (p.forceAccidental) np.forceAccidental = true
+        if (p.displayStaffId !== undefined) np.displayStaffId = p.displayStaffId
         return np
       }),
     }
@@ -1678,6 +1680,12 @@ function materializeVoiceBar(
     measure.slots.push(chord)
     created.push({ piece, chord })
   }
+
+  // ⭐ A head's `displayStaffId` travelled here verbatim (a relay piece, a tuplet's cloned slots, a
+  // clip). It is an ABSOLUTE id, so it is only still a crossing if it is legal from the staff the
+  // chord has just landed on — a paste onto a far staff brings the head home rather than leaving
+  // a stem across three staves. Idempotent, so every chord of the bar may be asked.
+  for (const slot of measure.slots) if (slot.type === 'chord') keepLegalCrossings(score, slot)
 
   measure.slots.sort((a, b) => fracCompare(a.beat, b.beat))
 }

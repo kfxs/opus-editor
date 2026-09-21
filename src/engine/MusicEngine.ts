@@ -4,6 +4,7 @@ import { restPositionKey, restShiftOverrideOf, restHiddenOf, resolveStaffSpacing
 import { resolveStaffSize, STAFF_SPACE_PX } from './models/staffSize'
 import { barlineJoinsBelow } from './models/barlineJoin'
 import * as staffGroupOps from './models/staffGroupOps'
+import { crossStaffProblems } from './models/crossStaffOps'
 import * as clearOps from './models/clearOps'
 import { clefOffsetOverrideOf } from './models/engravingOverrides'
 import { staveHeightPx, systemStaffTops, minSpacingAboveSpaces, spacingAbovePx, MIN_SPACING_ABOVE_AT_PAGE_TOP } from './layout/staffStride'
@@ -3481,6 +3482,8 @@ export class MusicEngine {
    */
   loadJSON(json: string): void {
     const loaded = ScoreModel.fromJSON(json)
+    // Report, never repair (docs/plans/json-io-plan.md) — a crossed head this build cannot draw.
+    for (const problem of crossStaffProblems(loaded.getScore())) console.warn(`[score-file] ${problem}`)
     this.scoreModel = loaded
     this.playbackEngine.setScore(this.scoreModel.getScore())
     this.markModelDirty()

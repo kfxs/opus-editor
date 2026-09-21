@@ -416,6 +416,25 @@ export interface NotePitch {
    * anchored to the noteheads, so flipping only inverts the arc direction.
    */
   tieDirection?: -1 | 1
+  /**
+   * ⭐⭐ **THE STAFF THIS HEAD IS WRITTEN ON, when that is not its chord's own** — cross-staff
+   * notation (docs/plans/cross-staff-plan.md). A {@link StaffInfo} id; **ABSENT = the chord's own
+   * staff**, which is every head that has not crossed.
+   *
+   * ⭐ It is per HEAD, not per chord, because the chord it was built for is split: Satie's
+   * *Gymnopédie No. 1* keeps B2 on the bass staff and writes D4 + F♯4 on the treble, on one stem
+   * (Gould p. 305). MusicXML's `<staff>` and MEI's `@staff` are per note for the same reason.
+   *
+   * ⛔ **It moves NOTHING but where the head is written.** The chord's {@link Chord.staffId} and
+   * `voice` still own rhythm, rest fill, rebar, paste and playback. It is CONTENT, not an engraving
+   * override: it decides the clef the head is read in, and it holds no pixels.
+   *
+   * 🚨 **A REAL id, always — ⛔ NOT the slot convention.** On a slot an absent `staffId` means the
+   * FIRST staff; here absent means HOME, so a bass-staff head written on the first staff carries
+   * the first staff's real id. Write it only through `engine/models/crossStaffOps`, which also
+   * guarantees it never names the home staff (that is spelled by deleting the field).
+   */
+  displayStaffId?: string
 }
 
 /**
@@ -439,6 +458,8 @@ export interface PitchInsert {
   tiedTo?: string
   tiedFrom?: string
   tieDirection?: -1 | 1
+  /** {@link NotePitch.displayStaffId}, travelling with the head it belongs to. */
+  displayStaffId?: string
   duration: NoteDuration
   dots?: number
   beat: Fraction

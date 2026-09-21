@@ -72,6 +72,10 @@ export interface RebarPitch {
   alter: PitchAlter
   octave: number
   forceAccidental?: boolean
+  /** `NotePitch.displayStaffId`, verbatim — the staff the head is WRITTEN on (absent = home).
+   *  ⚠️ An absolute id: what materialises it re-checks that it is still legal from the lane it
+   *  lands in (`crossStaffOps.keepLegalCrossings`), so a paste onto a far staff brings the head home. */
+  displayStaffId?: string
 }
 
 /** Opaque payload preserved verbatim for an atomic (tuplet) event. */
@@ -345,6 +349,7 @@ export function flattenRegion(
           alter: p.alter,
           octave: p.octave,
           forceAccidental: p.forceAccidental,
+          ...(p.displayStaffId !== undefined ? { displayStaffId: p.displayStaffId } : {}),
         })),
         stemDirection: slot.stemDirection,
         articulations: slot.articulations,
