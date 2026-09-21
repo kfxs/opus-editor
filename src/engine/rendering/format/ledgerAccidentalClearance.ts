@@ -144,10 +144,10 @@ export function clearLedgersForAccidentals(notes: EngravedNote[], standoffPx = A
     const accidentals = accidentalsOn(note)
     if (!accidentals.length) continue
     const props = note.getKeyProps()
-    const headLines = props.map(p => p.line)
     const shift = Math.max(...accidentals.map(acc => ledgerAccidentalClearance(
       props[acc.checkIndex()]?.line ?? 0,
-      headLines,
+      // ⭐ Only the heads on the sign's OWN staff have ledger lines it could touch (cross-staff).
+      props.filter(p => p.lift === props[acc.checkIndex()]?.lift).map(p => p.line),
       LEDGER_OVERHANG_BESIDE_ACCIDENTAL,
       standoffPx,
     )))

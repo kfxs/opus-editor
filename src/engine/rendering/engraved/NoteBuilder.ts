@@ -5,7 +5,8 @@ import { attachEngravedDots } from './EngravedDot'
 import { CenteredTremolo } from './CenteredTremolo'
 import { attachModifier, MODIFIER_POSITION } from './EngravedModifier'
 import { reserveDotRoom } from '../format/dotPlacement'
-import type { Measure, NoteDuration, Clef, ArticulationType, Chord, ChordRest, Fraction, KeySignature } from '@/types/music'
+import type { Measure, NoteDuration, Clef, ArticulationType, Chord, ChordRest, Fraction, KeySignature, NotePitch } from '@/types/music'
+import type { KeyCrossing } from '@/engine/engrave/notes/keyLines'
 import { fracCompare, fracLte } from '@/utils/fraction'
 import { middleLineDiatonicPos } from '@/utils/clefUtils'
 import { doubleDuration, noteDurationToken, slotLength } from '@/utils/durations'
@@ -128,6 +129,12 @@ export function createStaveNotesFromSlots(
   forcedStemDirection?: number,
   restLineShift: number | ((slot: ChordRest) => number) = 0,
   key: KeySignature = C_MAJOR,
+  /**
+   * ⭐ CROSS-STAFF — where a head written on another staff stands (`rendering/crossStaff`), or
+   * `undefined` for a head on its own. ⚠️ Only the DRAW path passes it: the width path builds its
+   * notes here too, and a bar's width does not depend on where its heads sit vertically.
+   */
+  crossingOf?: (slot: Chord, pitch: NotePitch) => KeyCrossing | undefined,
 ): EngravedNote[] {
   const resolveClef: (beat: Fraction) => Clef =
     typeof clefForBeat === 'function' ? clefForBeat : () => clefForBeat
@@ -181,6 +188,9 @@ export function createStaveNotesFromSlots(
 
     // Clef in effect at this slot's beat (mid-measure changes move notes).
     const slotClef = resolveClef(slot.beat)
+    // ⭐ Cross-staff: per key, where a crossed head is written — all `undefined` for an ordinary chord.
+    const crossings = crossingOf ? sortedPitches.map(p => crossingOf(slot, p)) : undefined
+    const crossedLift = crossings?.find(c => c !== undefined)?.lift
 
     /**
      * ⭐ TWO-NOTE TREMOLO — is this slot in a pair, and if so which end?
@@ -205,6 +215,12 @@ export function createStaveNotesFromSlots(
       stemDirection = 1
     } else if (explicitStem === 'down') {
       stemDirection = -1
+    } else if (crossedLift !== undefined) {
+      // ⭐ A chord with a head on another staff points its stem TOWARD that staff: from the home
+      //   heads, across the gap, past the crossed ones (Gould p. 305's figure; the Satie bar). It
+      //   outranks the voice default below — a second voice on the bass staff is stem-DOWN by
+      //   parity, and its chord reaching up into the treble is exactly the case this exists for.
+      stemDirection = crossedLift > 0 ? 1 : -1
     } else if (forcedStemDirection !== undefined) {
       // Multi-voice default (V1 up / V2 down); an explicit override above still wins.
       stemDirection = forcedStemDirection
@@ -257,7 +273,7 @@ export function createStaveNotesFromSlots(
     // spacing model retired the whole problem: the members are ordinary COLUMNS in
     // `measureColumns`, so the bar asks for their room directly, and `spacingPass` writes the x's
     // rather than letting the tick-proportional formatter decide them.
-    const noteStruct = { keys, duration: durationToken, clef: slotClef, autoStem: false }
+    const noteStruct = { keys, duration: durationToken, clef: slotClef, autoStem: false, crossings }
     // ⭐ {@link EngravedNote}, ⛔ not a bare `StaveNote`: the seam P3 empties one drawn part at a
     // time (P3a took the ledger lines). Everything else about it is still VexFlow's, including the
     // whole geometry API seven of our own renderers read.

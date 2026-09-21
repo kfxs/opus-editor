@@ -65,18 +65,36 @@ adjacent only; 🚨 a REAL staff id — ⛔ not the slot convention where absent
 - Fanned members and rests are refused. ⚠️ "Deleting a staff returns its visitors home" was planned
   and is moot: the editor has no staff deletion. Whoever builds it calls `keepLegalCrossings`.
 
-**Phase 2 — the drawing.** Each head's y comes from ITS display staff: the key's LINE is asked of
-the display staff's clef at that beat (`engrave/notes/keyLines`), its y of that staff's PLACED frame
-(the ink stands outside the home bar's group — the S4e pattern in `rendering/staff/staveFrame`).
-Stem tip/base then follow from `getYs` as they do today. Ledger lines per display staff
-(`engrave/notes/ledgerLines`). Stem direction when `auto`: toward the crossed heads (the only
-direction one stem can join them). Head displacement for seconds: only among heads on the SAME
-staff (Verovio `chord.cpp:160`). ⚠️ To decide while building, not before: whether `EngravedNote`
-holds a per-head frame, or the crossed head is expressed as a far LINE of the home frame — the
-second is smaller but breaks when the two staves differ in SIZE. Redraw keys: a chord with a
-crossed head depends on the staff gap, so the gap joins its bar's shape key
-(`rendering/MeasureRedrawKey`). Proof: a scene test (head y's on two frames, one stem) + an e2e
-geometry check.
+**Phase 2 — the drawing. ✅ BUILT 2026-09-21.** A head keeps its TRUE line on the staff it is
+written on and gains a **lift** — how many staff lines that staff stands above the note's own
+(`engrave/notes/keyLines`: `KeyRow.lift`, `geoLine`, `KeyCrossing`). ⭐ The two are not folded into
+one number because the gap between staves is not a whole count of lines (10.5 at the default), and a
+dot's dodge and a ledger line are decided by the line's parity.
+- **Who asks which.** `geoLine` (where the head STANDS): the key sort, each head's y, a second's
+  displacement, the stem's extremes, `getLineNumber` (articulations, beams), the accidental stack.
+  The TRUE line: ledger lines — asked staff by staff in `EngravedNote.drawLedgerLines` — the
+  ledger/accidental clearance (own staff's heads only), the dot's dodge.
+- **The per-head frame question is settled: the far-LINE route, made exact by the lift.** One frame,
+  one affine, nothing new on `EngravedNote` but the struct's `crossings`. ⚠️ Its cost is the one
+  predicted: EQUAL STAFF SIZES only — a head crossing onto a smaller staff lands on the right line at
+  the home staff's size.
+- **`rendering/crossStaff.ts`** (the renderer's half, ⛔ not in `ScoreRenderer`):
+  `attachCrossStaffNeighbours` tells a bar holding a crossed head where that staff stands (`dy`) and
+  its clef — once the measure's staves have their y's, so ⭐ ONE pass, as decision 6 promised;
+  `crossingResolver` is what `NoteBuilder` asks per head. `MeasurePlacement.crossStaff` is a row of
+  the SHAPE key (`crossStaffKey`): change the staff gap or the neighbour's clef and the bar
+  re-engraves. `lane.slots` already carried the field into both keys.
+- **Stem:** toward the crossed heads, and that OUTRANKS the voice default — the Satie chord is a
+  second voice (stem-down by parity) reaching up. An explicit `x` flip still wins. The "past an
+  octave from the middle line" extension is skipped for a split chord: the gap is already its length.
+- **Proof:** `ScoreRenderer.crossStaff.test.ts` (scene) — ⭐ *the crossed D4 stands at the y of the
+  treble staff's OWN D4* (so the clef is the other staff's too), one stem from the bass head past
+  the top crossed head, ledger lines 2 → 0; `crossStaff.test.ts`, `keyLines.test.ts`. Unit 7202 ✓,
+  e2e 306 ✓ (no pixel of an uncrossed score moved), and the bar looked at in Chromium.
+- ⚠️ **Seen, not fixed (his call):** the second voice's beat-1 quarter rest stands BELOW the bass
+  staff (the voice rule); Satie's engraver lifts it toward the treble — that is the existing
+  rest-shift. Dots of heads on two staves are still stacked as one column by their true lines.
+  The width path does not know a head crossed (`measureColumns` prices it on its home staff).
 
 **Phase 3 — the editor.** Two rows in `shortcuts/ShortcutConfig.ts`; the action in the note's
 `keys` module (⛔ not a closure in `shortcutWiring`), one `runBatch` for a multi-selection, one undo

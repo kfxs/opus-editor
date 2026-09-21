@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { keyRows, keyStaffLine, secondApartFlags, headGlyph, noteDurationOf } from './keyLines'
+import { geoLine, keyRows, keyStaffLine, secondApartFlags, headGlyph, noteDurationOf } from './keyLines'
 import { staffLineForSpelling } from '@/utils/clefUtils'
 import { GLYPH_CODEPOINTS } from '@/engine/fonts/bravuraMetrics'
 
@@ -122,3 +122,28 @@ describe('keyRows', () => {
     expect(keyRows(['c/4'], 'treble', 'q', false)[0].intValue).toBe(48)
   })
 })
+
+describe('keyRows — CROSS-STAFF (docs/plans/cross-staff-plan.md)', () => {
+  it('an ordinary chord has lift 0 on every key', () => {
+    expect(keyRows(['c/4', 'e/4'], 'treble', 'q', false).map(r => r.lift)).toEqual([0, 0])
+  })
+
+  it('⭐ a crossed key keeps its TRUE line in the other clef, and carries that staff’s lift', () => {
+    // B2 at home on a bass staff; D4 written on the treble staff 10.5 lines above.
+    const [b2, d4] = keyRows(['b/2', 'd/4'], 'bass', 'h', false, 0, [undefined, { clef: 'treble', lift: 10.5 }])
+    expect(b2.line).toBe(keyStaffLine('b/2', 'bass'))
+    expect(d4.line).toBe(keyStaffLine('d/4', 'treble')) // ⛔ not its bass-clef line
+    expect(geoLine(b2)).toBe(b2.line)
+    expect(geoLine(d4)).toBe(d4.line + 10.5)
+  })
+
+  it('heads on different staves are never a SECOND, whatever their lines say', () => {
+    // F2 under a bass staff and D4 under a treble one hang from the SAME line number.
+    const home = keyStaffLine('f/2', 'bass')
+    const away = keyStaffLine('d/4', 'treble')
+    expect(Math.abs(home - away)).toBeLessThan(1) // the trap the lift defuses
+    const rows = keyRows(['f/2', 'd/4'], 'bass', 'h', false, 0, [undefined, { clef: 'treble', lift: 10.5 }])
+    expect(rows.map(r => r.displaced)).toEqual([false, false])
+  })
+})
+

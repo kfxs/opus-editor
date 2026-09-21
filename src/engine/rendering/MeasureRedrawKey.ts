@@ -1,6 +1,7 @@
 import type { Clef, KeySignature, Measure, Score, TimeSignature } from '@/types/music'
 import type { Fraction } from '@/utils/fraction'
 import { laneFingerprint } from '@/engine/layout/MeasureWidthCache'
+import { crossStaffKey, type CrossStaffNeighbour } from './renderTypes'
 
 /**
  * **The shape key** (docs/history/render-performance-plan.md §7a) — "does this measure still *look* the
@@ -84,6 +85,10 @@ interface ShapeKeyInputs {
    * today (`MeasureLayout.noteSpaceForMeasure` recomputes), so the picture is the only reader.
    */
   key: KeySignature
+  /** ⚠️ Where the staves this bar's CROSSED heads are written on stand, and in which clef — the
+   *  second place (after {@link crossBarBeams}) a bar's picture is decided outside its own lane.
+   *  @see MeasurePlacement.crossStaff */
+  crossStaff?: CrossStaffNeighbour[]
   hasClefChange: boolean
   cautionaryEndClef?: Clef
   cautionaryEndTimeSig?: TimeSignature
@@ -202,6 +207,8 @@ export function measureShapeKey(
     // later bar's key unchanged, so P5 would reuse their drawn groups — the new clef on the stave,
     // the old noteheads underneath it, at the wrong pitches, forever.
     clef,
+    // ⚠️ …and, for a bar with a head written on ANOTHER staff, where that staff stands and its clef.
+    crossStaffKey(input.crossStaff),
     // ⚠️ …and the signature GOVERNING this bar — inherited, so no field of `view` can express it.
     //    See the `key` row on ShapeKeyInputs for what goes silently wrong without it.
     input.key,

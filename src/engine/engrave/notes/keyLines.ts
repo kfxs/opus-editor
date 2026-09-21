@@ -61,6 +61,30 @@ export interface KeyRow {
   readonly code: string
   /** @see secondApartFlags */
   readonly displaced: boolean
+  /**
+   * ⭐ **CROSS-STAFF** (docs/plans/cross-staff-plan.md): how many staff lines HIGHER than {@link line}
+   * this head stands in the note's own frame, because it is written on another staff — positive for
+   * the staff above, negative for the one below, **0 for every head that has not crossed**.
+   *
+   * ⭐ `line` stays the head's TRUE line on the staff it is written on: that is what its ledger
+   * lines, its dot's dodge and its clef are read from. Everything that asks where the head IS — the
+   * sort, its y, the stem, a second's displacement — asks {@link geoLine}. ⚠️ `lift` is rarely a
+   * whole number (the gap between staves is not a whole count of lines), which is exactly why the
+   * two are not folded into one.
+   */
+  readonly lift: number
+}
+
+/** Where a head stands in its note's own frame, in staff lines — its line, plus the {@link KeyRow.lift}
+ *  of the staff it is written on. */
+export function geoLine(row: { line: number; lift?: number }): number {
+  return row.line + (row.lift ?? 0)
+}
+
+/** One key's place on ANOTHER staff: the clef it is read in there, and that staff's {@link KeyRow.lift}. */
+export interface KeyCrossing {
+  clef: Clef
+  lift: number
 }
 
 const CLEFS: readonly Clef[] = ['treble', 'bass', 'alto', 'tenor']
@@ -175,13 +199,18 @@ export function keyRows(
   duration: NoteDuration,
   isRest: boolean,
   octaveShift: number = 0,
+  /** ⭐ Per key, in the keys' order: where a CROSSED head is written. Absent / `undefined` = home. */
+  crossings?: readonly (KeyCrossing | undefined)[],
 ): KeyRow[] {
   if (!CLEFS.includes(clef as Clef)) {
     throw new Error(`[keyLines] not a clef this editor writes: "${clef}"`)
   }
   const parsed = keys.map(parseKey)
-  const lines = parsed.map(p => staffLineForSpelling(p.step, p.octave - octaveShift, clef as Clef))
-  const flags = secondApartFlags(lines)
+  const lines = parsed.map((p, i) =>
+    staffLineForSpelling(p.step, p.octave - octaveShift, crossings?.[i]?.clef ?? (clef as Clef)))
+  const lifts = parsed.map((_, i) => crossings?.[i]?.lift ?? 0)
+  // ⭐ A second is two heads a step apart WHERE THEY STAND — heads on different staves never are.
+  const flags = secondApartFlags(lines.map((line, i) => line + lifts[i]))
   const code = headGlyph(duration, isRest)
   return parsed.map((p, i) => ({
     key: p.name,
@@ -190,5 +219,6 @@ export function keyRows(
     intValue: (p.octave - octaveShift) * 12 + chromaticValue(p.step, p.alter),
     code,
     displaced: flags[i],
+    lift: lifts[i],
   }))
 }

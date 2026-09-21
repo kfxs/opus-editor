@@ -4,7 +4,7 @@
  * imports THIS file, so it does not import `ScoreRenderer` (4,000 lines, and a runtime cycle for
  * any module the renderer also imports — `systemStart` was one).
  */
-import type { Measure, Clef, KeySignature, Fraction, TimeSignature } from '@/types/music'
+import type { Measure, Clef, ClefChange, KeySignature, Fraction, TimeSignature } from '@/types/music'
 import type { LeadIn } from '@/engine/layout/measureColumns'
 import type { Column } from '@/engine/layout/spacing'
 import type { EngravedStave } from './engraved/EngravedStave'
@@ -65,6 +65,21 @@ export function measureGroupKey(measureNumber: number, staffIndex: number): stri
  * Hit-testing, scroll-into-view, playback-follow and pixel↔position all read tier 1, so they keep
  * working off-screen.
  */
+/** One staff a bar's crossed heads are written on. @see MeasurePlacement.crossStaff */
+export interface CrossStaffNeighbour {
+  staffId: string
+  /** That staff's top line less this bar's own, in PAGE px — negative when it stands above. */
+  dy: number
+  /** The clef it opens this bar in, and its mid-bar changes. */
+  clef: Clef
+  clefs: ClefChange[]
+}
+
+/** {@link MeasurePlacement.crossStaff} as the shape key carries it — absent stays absent. */
+export function crossStaffKey(neighbours: CrossStaffNeighbour[] | undefined): string | null {
+  return neighbours?.length ? JSON.stringify(neighbours) : null
+}
+
 export interface MeasurePlacement {
   /** This staff's own lane of the measure (`staffMeasureView`), not the shared measure. */
   view: Measure
@@ -135,6 +150,16 @@ export interface MeasurePlacement {
    * underneath it, forever. That is the governing-CLEF bug verbatim (see `clef` above).
    */
   key: KeySignature
+  /**
+   * ⭐ **CROSS-STAFF** (docs/plans/cross-staff-plan.md) — set ONLY on a bar holding a head written on
+   * another staff: for each such staff, how far its top line stands from this one's (`dy`, PAGE px,
+   * negative = above) and the clef it reads in, this bar (`clef` opening + `clefs` mid-bar).
+   *
+   * ⚠️ The one place a bar's picture is decided by where ANOTHER staff stands, so it is a row in the
+   * shape key too ({@link crossStaffKey}): change the staff gap, or the neighbour's clef, and this
+   * bar re-engraves. ⭐ A `dy`, never the two y's — a system that moves as a whole changes nothing.
+   */
+  crossStaff?: CrossStaffNeighbour[]
   hasClefChange: boolean
   cautionaryEndClef?: Clef
   cautionaryEndTimeSig?: TimeSignature

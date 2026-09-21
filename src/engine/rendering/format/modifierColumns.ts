@@ -25,6 +25,7 @@ import { type ArticulationSide, stackArticulations } from '@/engine/engrave/note
 import { STAVE_LINE_DISTANCE_PX, UNISON_SHARES_HEAD } from '@/engine/engrave/inheritedDefaults'
 import { stackAnnotations } from '@/engine/engrave/notes/annotationStack'
 import { stackVoices } from '@/engine/engrave/notes/voiceStack'
+import { geoLine } from '@/engine/engrave/notes/keyLines'
 import { EngravedAnnotation } from '../engraved/EngravedAnnotation'
 import { fontSizeToPx } from '../painter/drawnFontSize'
 import { EngravedArticulation } from '../engraved/EngravedArticulation'
@@ -247,7 +248,8 @@ export class ColumnModifiers {
     const { xShifts, leftShift } = stackAccidentals(ours.map(sign => {
       const note = sign.getNote()
       if (!(note instanceof EngravedNote)) throw new Error('ColumnModifiers: an accidental on a note that is not an EngravedNote')
-      const keyLine = note.getKeyProps()[sign.checkIndex()].line
+      // ⭐ Where the head STANDS — two signs on different staves are not neighbours.
+      const keyLine = geoLine(note.getKeyProps()[sign.checkIndex()])
       const frame = noteFrame(note)
       return {
         line: frame ? Math.round((staffLineY(frame, keyLine) / frame.spacePx) * 2) / 2 : keyLine,

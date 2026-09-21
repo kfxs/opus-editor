@@ -111,6 +111,7 @@ import {
 import { restShiftOverrideOf, restHiddenOf, restPositionKey, resolveStaffSpacingAbove, measureLeadingSpaces, measureUserSpacePx, noteOffsetOverrideOf } from '@/engine/models/engravingOverrides'
 import { STAFF_SPACE_PX, resolveStaffSize } from '@/engine/models/staffSize'
 import { staffSpacesToPixels } from './staff/staffSpace'
+import { attachCrossStaffNeighbours, crossingResolver } from './crossStaff'
 import { getStaves, staffMeasureView, firstStaffId, staffIndexOfId, staffIdAtIndex } from '@/engine/models/staffContent'
 import { LAYOUT_CONFIG, ledgerLineStyle, type MeasureWidthInfo, type StaffSpacingLayout, type ViewMode } from '@/engine/layout/layoutConfig'
 import { resolveSurface, SKETCH_CANVAS, type Surface, type SurfaceMetrics } from '@/engine/layout/surface'
@@ -1507,6 +1508,9 @@ export class ScoreRenderer {
           scale: spacing.staffSize[currentLine]?.[staffIndex] ?? 1,
         })
       })
+      // ⭐ Cross-staff: a bar holding a head written on another staff learns where that staff stands
+      //   — now, while the measure's staves are side by side (`./crossStaff`).
+      attachCrossStaffNeighbours(placements.slice(-staffList.length), staffList.map(st => st.id))
 
       currentX += widthInfo.finalWidth
     }
@@ -1915,7 +1919,8 @@ export class ScoreRenderer {
         // explicit `staff-position` overrides its own collision result.
         const restShiftFor = (slot: ChordRest): number =>
           derivedRestShift(slot) + (restShiftOverrideOf(pass.score, restPositionKey(measure.id, voiceOf(slot), slot.beat, slot.staffId))?.steps ?? 0)
-        const staveNotes = createStaveNotesFromSlots(slots, clefForBeat, forcedStem, restShiftFor, key)
+        const staveNotes = createStaveNotesFromSlots(slots, clefForBeat, forcedStem, restShiftFor, key,
+          crossingResolver(placement.crossStaff, placement.scale))
         for (const sn of staveNotes) {
           // Non-measure rests only: measure (whole-bar) rests are centred separately and
           // reset() would disturb that. Their lane line is what draw must honour.

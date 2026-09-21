@@ -80,7 +80,7 @@ import { modifierStart, type MarkAnchor, type ModifierSide } from '@/engine/engr
 import {
   displacedHeadRoom, headsLeftX, headsRightX, stemX, tieLeftX, type NoteXInputs,
 } from '@/engine/engrave/notes/noteGeometry'
-import { keyRows, noteDurationOf, type KeyRow } from '@/engine/engrave/notes/keyLines'
+import { geoLine, keyRows, noteDurationOf, type KeyCrossing, type KeyRow } from '@/engine/engrave/notes/keyLines'
 import type { ColumnVoiceNote } from '@/engine/engrave/notes/voiceStack'
 import { chordHeadDisplacement } from '../format/chordHeadLayout'
 import { noteRuler } from './noteRuler'
@@ -101,8 +101,8 @@ export function columnVoiceNoteOf(note: EngravedNote): ColumnVoiceNote {
   const isRest = note.isRest()
   const restMetrics = isRest ? heads[0].getTextMetrics() : undefined
   return {
-    bottomLine: bottom.line,
-    topLine: top.line,
+    bottomLine: geoLine(bottom),
+    topLine: geoLine(top),
     isRest,
     restAscentPx: restMetrics?.actualBoundingBoxAscent ?? 0,
     restDescentPx: restMetrics?.actualBoundingBoxDescent ?? 0,
@@ -377,6 +377,12 @@ export interface EngravedNoteStruct {
   alignCenter?: boolean
   octaveShift?: number
   dots?: number
+  /**
+   * ⭐ CROSS-STAFF — per key, in `keys`' order: the clef a crossed head is read in and how many
+   * staff lines its staff stands above this note's own (`engrave/notes/keyLines`' `KeyCrossing`).
+   * Absent, or `undefined` at an index, = the head is on the note's own staff.
+   */
+  crossings?: readonly (KeyCrossing | undefined)[]
 }
 
 /** A modifier as the note holds it — the contract `./EngravedModifier` keeps. */
@@ -468,6 +474,8 @@ export class EngravedNote {
   private ledgerLineStyle: Record<string, unknown> = {}
   readonly clef: string
   readonly octaveShift: number
+  /** @see EngravedNoteStruct.crossings */
+  private readonly crossings: readonly (KeyCrossing | undefined)[] | undefined
   displaced = false
 
   constructor(noteStruct: EngravedNoteStruct) {
@@ -481,6 +489,7 @@ export class EngravedNote {
     if (noteStruct.alignCenter) this.setCenterAlignment(noteStruct.alignCenter)
     this.clef = noteStruct.clef ?? 'treble'
     this.octaveShift = noteStruct.octaveShift ?? 0
+    this.crossings = noteStruct.crossings
     this.calculateKeyProps()
     this.buildStem()
     if (noteStruct.autoStem) this.autoStem()
@@ -903,8 +912,10 @@ export class EngravedNote {
 
   getLineNumber(isTopNote?: boolean): number {
     if (!this.keyProps.length) throw new Error("EngravedNote: can't get a line — the note has no key props.")
-    let resultLine = this.keyProps[0].line
-    for (const { line } of this.keyProps) {
+    // ⭐ Where the head STANDS (`geoLine`) — a crossed head's own line is counted on another staff.
+    let resultLine = geoLine(this.keyProps[0])
+    for (const row of this.keyProps) {
+      const line = geoLine(row)
       if (isTopNote ? line > resultLine : line < resultLine) resultLine = line
     }
     return resultLine
@@ -1020,8 +1031,8 @@ export class EngravedNote {
   /** `StaveNote.calculateOptimalStemDirection`: up when the keys' middle is below the middle line. ⚠️ Writes `minLine`/`maxLine`. */
   calculateOptimalStemDirection(): number {
     const sorted = this.sortedKeyProps
-    this.minLine = sorted[0].keyProps.line
-    this.maxLine = sorted[this.keyProps.length - 1].keyProps.line
+    this.minLine = geoLine(sorted[0].keyProps)
+    this.maxLine = geoLine(sorted[this.keyProps.length - 1].keyProps)
     return (this.minLine + this.maxLine) / 2 < 3 ? 1 : -1
   }
 
@@ -1072,6 +1083,9 @@ export class EngravedNote {
       base = flagHeight > STEM_LENGTH_PX * scale ? flagHeight - STEM_LENGTH_PX * scale : 0
     }
     if (!row.stem) return base
+    // ⭐ A chord split across two staves already has a stem as long as the gap between them — the
+    //   "past an octave from the middle line" rule below is about ledger-line notes, not about it.
+    if (this.hasCrossedHead()) return base
     const stemDirection = this.getStemDirection()
     if (stemDirection !== this.calculateOptimalStemDirection()) return base
     const MIDDLE_LINE = 3
@@ -1137,13 +1151,14 @@ export class EngravedNote {
       noteDurationOf(this.duration),
       this.noteType === 'r',
       this.octaveShift ?? 0,
+      this.crossings,
     )
     const props = rows.map(row => ({ ...row }))
     this.displaced = rows.some(row => row.displaced)
     this.keyProps.push(...props)
     const sorted = this.sortedKeyProps
     sorted.push(...props.map((keyProps, index) => ({ keyProps, index })))
-    sorted.sort((a, b) => a.keyProps.line - b.keyProps.line)
+    sorted.sort((a, b) => geoLine(a.keyProps) - geoLine(b.keyProps))
   }
 
   /**
@@ -1179,7 +1194,7 @@ export class EngravedNote {
     const stemDirection = this.getStemDirection()
     const rows = this.sortedKeyProps
     // ⭐ In the sorted order the walk expects — bottom-to-top, the stem's base first.
-    const crosses = chordHeadDisplacement(rows.map(row => row.keyProps.line), stemDirection)
+    const crosses = chordHeadDisplacement(rows.map(row => geoLine(row.keyProps)), stemDirection)
     const heads: EngravedHead[] = new Array(rows.length)
     rows.forEach((row, i) => {
       // ⭐ S12j-a: a head of OURS (`./EngravedHead`) — its glyph the key row's, its face the note's.
@@ -1187,7 +1202,9 @@ export class EngravedNote {
         glyph: row.keyProps.code,
         displaced: crosses[i],
         stemDirection,
-        line: row.keyProps.line,
+        // ⭐ Where it STANDS: a head's line is what its y is asked from (`getYs`), so a crossed head
+        //   carries its staff's lift here. Its TRUE line stays on the key row (`drawLedgerLines`).
+        line: geoLine(row.keyProps),
         font: noteFont(),
       })
       // ⚠️ Back into the note's OWN key order — `keys[2]` is `noteHeads[2]`, whatever line it is on.
@@ -1221,19 +1238,33 @@ export class EngravedNote {
     if (this.isRest()) return
     const stave = staveOf(this)
     const frame = staveFrame(stave)
-    const runs = ledgerLineRuns(
-      this.heads().map(head => ({ line: head.getLine(), x: head.getAbsoluteX() })),
-      noteRuler(this).glyphWidth,
-      this.ledgerOverhang,
-    )
-    drawLedgerLines(
-      this.inkSurface ?? this.checkContext(),
-      runs,
-      line => noteLineY(frame, line),
-      // The stave's ledger style with this note's own on top — VexFlow's own merge, kept because
-      // `hiddenElements` recolours a note by that second half.
-      { ...stave.getDefaultLedgerLineStyle(), ...this.getLedgerLineStyle() },
-    )
+    // ⭐ CROSS-STAFF: ledger lines belong to the staff a head is WRITTEN on, so the heads are asked
+    //   staff by staff — each group by its TRUE lines, drawn `lift` lines up the note's own frame.
+    //   An ordinary note is one group with lift 0, which is the code that was always here.
+    const heads = this.heads()
+    const lifts = [...new Set(this.keyProps.map(row => row.lift))]
+    for (const lift of lifts) {
+      const runs = ledgerLineRuns(
+        heads
+          .filter((_, i) => this.keyProps[i].lift === lift)
+          .map(head => ({ line: head.getLine() - lift, x: head.getAbsoluteX() })),
+        noteRuler(this).glyphWidth,
+        this.ledgerOverhang,
+      )
+      drawLedgerLines(
+        this.inkSurface ?? this.checkContext(),
+        runs,
+        line => noteLineY(frame, line + lift),
+        // The stave's ledger style with this note's own on top — VexFlow's own merge, kept because
+        // `hiddenElements` recolours a note by that second half.
+        { ...stave.getDefaultLedgerLineStyle(), ...this.getLedgerLineStyle() },
+      )
+    }
+  }
+
+  /** Is any head of this note written on another staff? @see EngravedNoteStruct.crossings */
+  hasCrossedHead(): boolean {
+    return this.keyProps.some(row => row.lift !== 0)
   }
 
   /**
