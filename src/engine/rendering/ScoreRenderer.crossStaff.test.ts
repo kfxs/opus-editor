@@ -107,6 +107,19 @@ describe('a head written on the other staff', () => {
     expect(stem.bottom - stem.top).toBeGreaterThan(b2.y - f4.y)
   })
 
+  it('an `x` flip turns the split chord’s stem around — DOWN from the top crossed head, past the bass head', () => {
+    const { model, b } = satie(true)
+    const slot = model.getScore().measures[0].slots.find(s => s.type === 'chord' && s.notes.some(p => p.id === b.id))!
+    ;(slot as { stemDirection?: string }).stemDirection = 'down'
+    const scene = renderModel(model)
+    const drawn = heads(scene)
+    const chordX = Math.min(...drawn.map(h => h.x))
+    const [b2, , f4] = drawn.filter(h => h.x === chordX).sort((x, y) => y.y - x.y)
+    const stem = stems(scene).sort((x, y) => (y.bottom - y.top) - (x.bottom - x.top))[0]
+    expect(stem.top).toBeCloseTo(f4.y, 0)
+    expect(stem.bottom).toBeGreaterThan(b2.y) // it runs on past the lowest head, as any down-stem does
+  })
+
   it('⭐ ledger lines belong to the staff a head is WRITTEN on', () => {
     // On the bass staff D4 and F4 stand above it, on ledger lines 6 and 7. Written on the treble
     // they are inside or beside it (D4 hangs under the bottom line) and owe none.

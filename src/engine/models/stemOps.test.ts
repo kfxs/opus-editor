@@ -14,6 +14,7 @@ import type { Chord, Score } from '@/types/music'
 import { ScoreModel } from './ScoreModel'
 import { fracCreate as frac } from '@/utils/fraction'
 import { beamGroupStemDirection, flipStems, stemFlipTargets } from './stemOps'
+import { crossPitches } from './crossStaffOps'
 
 describe('flipStems — the group is the unit', () => {
   let model: ScoreModel
@@ -131,6 +132,55 @@ describe('stemFlipTargets — `x` over a selection (his report, 2026-09-21)', ()
   it('rests and unknown ids have no stem to turn', () => {
     const empty = new ScoreModel().getScore()
     expect(stemFlipTargets(empty, [empty.measures[0].slots[0].id, 'nobody'])).toEqual([])
+  })
+})
+
+describe('flipStems — CROSS-STAFF (his report, 2026-09-21: "pressing x… is not possible")', () => {
+  let model: ScoreModel
+  let score: Score
+  const chordOf = (id: string) => score.measures[0].slots
+    .find((s): s is Chord => s.type === 'chord' && s.notes.some(p => p.id === id))!
+
+  /** Treble over bass; every note below is entered on the BASS staff. */
+  beforeEach(() => {
+    model = new ScoreModel()
+    model.addStaffBelow(0)
+    model.setClef(1, 'bass', model.getScore().staves![1].id)
+    score = model.getScore()
+  })
+  const add = (step: string, octave: number, duration = 'h', beat = frac(0, 1)) =>
+    model.addNote({ step, octave, alter: 0, duration, measure: 1, beat, staff: 1 } as never)
+
+  it('🚨 HIS CHORD: A3·C4·E4 with two heads on the treble is drawn UP — so the first press writes DOWN', () => {
+    const a = add('A', 3)
+    const c = add('C', 4)
+    const e = add('E', 4)
+    crossPitches(score, [c.id, e.id], -1)
+
+    // ⛔ The pitches alone, against the bass staff's middle line, say "down" — and the old flip
+    //    therefore wrote 'up', which is what a split chord already is.
+    expect(beamGroupStemDirection([chordOf(a.id)], 'bass')).toBe(-1)
+
+    flipStems(score, a.id)
+    expect(chordOf(a.id).stemDirection).toBe('down')
+    flipStems(score, a.id)
+    expect(chordOf(a.id).stemDirection, 'and the second press releases it').toBeUndefined()
+  })
+
+  it('a chord split DOWNWARD (home on the upper staff) is drawn down — the press writes UP', () => {
+    const top = model.addNote({ step: 'E', octave: 4, alter: 0, duration: 'h', measure: 1, beat: frac(0, 1), staff: 0 } as never)
+    const low = model.addNote({ step: 'C', octave: 4, alter: 0, duration: 'h', measure: 1, beat: frac(0, 1), staff: 0 } as never)
+    crossPitches(score, [low.id], 1)
+    flipStems(score, top.id)
+    expect(chordOf(top.id).stemDirection).toBe('up')
+  })
+
+  it('a chord written ENTIRELY on the other staff is read in THAT staff’s clef', () => {
+    // D4: far above the bass staff's middle line ("down"), but BELOW the treble's ("up").
+    const d = add('D', 4)
+    crossPitches(score, [d.id], -1)
+    flipStems(score, d.id)
+    expect(chordOf(d.id).stemDirection, 'drawn UP on the treble ⇒ the press writes DOWN').toBe('down')
   })
 })
 

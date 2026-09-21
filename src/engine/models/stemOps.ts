@@ -36,7 +36,8 @@ import { effectiveClefAt, middleLineDiatonicPos } from '@/utils/clefUtils'
 import { fracCompare } from '@/utils/fraction'
 import { spellingDiatonicPos } from '@/utils/pitchSpelling'
 import { voiceOf } from '@/utils/lanes'
-import { staffSlots } from './staffContent'
+import { staffIdAtIndex, staffIndexOfId, staffSlots } from './staffContent'
+import { displayStaffIndex } from './crossStaffOps'
 
 /**
  * ⭐⭐ **THE SIDE A BEAM GROUP'S STEMS TAKE** — the drawing's rule, and since 2026-08-31 the flip's
@@ -111,13 +112,65 @@ export function flipStems(score: Score, noteId: string): string[] | null {
   const forced = chords.every(c => c.stemDirection === 'up' || c.stemDirection === 'down')
   let direction: StemDirection | undefined
   if (!forced) {
-    const clef = effectiveClefAt(score, measure.number, slot.beat, staffId)
-    const drawn = beamGroupStemDirection(group, clef, laneForcedStem(score, measure, staffId, slot))
+    const drawn = drawnGroupDirection(score, measure, staffId, slot, group)
     direction = drawn === -1 ? 'up' : 'down'
   }
 
   for (const chord of chords) chord.stemDirection = direction
   return chords.map(c => c.id)
+}
+
+/**
+ * ⭐⭐ **WHICH WAY THE GROUP IS DRAWN, as the renderer decides it** — what {@link flipStems} writes
+ * the OPPOSITE of. 🚨 His report, 2026-09-21, on a chord split across two staves: *"I'm pressing x
+ * to flip the stem but is not possible"*. The flip read the pitches against the HOME staff's middle
+ * line (A3·C4·E4 in bass clef → "down") and wrote 'up' — which a split chord already is, because
+ * its stem runs TOWARD the staff its other heads are written on. Written, undone on the next press,
+ * and never visible: the August bug again, one feature later — ⛔ a flip must be measured against
+ * the rule that DRAWS.
+ *
+ * The renderer's order (`rendering/engraved/NoteBuilder`, `rendering/beams/beamGroups`), mirrored:
+ *  - a chord SPLIT across two staves (unbeamed) → toward the other staff, outranking the voice default;
+ *  - a chord, or a whole beam group, written ENTIRELY on the other staff → the ordinary rule, read
+ *    in THAT staff's clef;
+ *  - everything else → the ordinary rule in the home clef.
+ *
+ * ⚠️ A beam group written on BOTH staves is drawn with stems pointing inward — two directions, so
+ * there is no opposite to write. It gets the ordinary rule's answer, which turns the group into
+ * Gould's *"beam above or below the system"* (p. 314 b) and is a visible change. ⚠️ Except when the
+ * renderer had already declined the cross-staff beam (stems under its 2½-space floor): that needs
+ * the staff gap, which the score does not hold, so that one press writes what is already drawn.
+ */
+function drawnGroupDirection(
+  score: Score,
+  measure: Measure,
+  staffId: string | undefined,
+  slot: ChordRest,
+  group: ChordRest[],
+): number {
+  const home = staffIndexOfId(score, staffId)
+  const chords = group.filter((s): s is Chord => s.type === 'chord')
+
+  /** The ONE staff a chord is written on, or null when it is split. */
+  const writtenOn = (chord: Chord): number | null => {
+    const indices = new Set(chord.notes.map(p => displayStaffIndex(score, chord, p.id)))
+    return indices.size === 1 ? [...indices][0] : null
+  }
+
+  if (chords.length === 1 && writtenOn(chords[0]) === null) {
+    const away = chords[0].notes
+      .map(p => displayStaffIndex(score, chords[0], p.id))
+      .find(index => index !== home) ?? home
+    return away < home ? 1 : -1 // the staff ABOVE has the smaller index
+  }
+
+  const staves = chords.map(writtenOn)
+  const elsewhere = staves[0]
+  const clefStaffId = elsewhere !== null && elsewhere !== home && staves.every(i => i === elsewhere)
+    ? staffIdAtIndex(score, elsewhere)
+    : staffId
+  const clef = effectiveClefAt(score, measure.number, slot.beat, clefStaffId)
+  return beamGroupStemDirection(group, clef, laneForcedStem(score, measure, staffId, slot))
 }
 
 /**
