@@ -10,7 +10,7 @@
 > font files, and lists options **unranked** (§5). It chooses nothing.
 >
 > 📄 The engraving BOOKS' side of the same question is the sibling survey written in parallel,
-> `symbol-in-text-baseline-books.md` (this folder, in progress) — ⛔ nothing here is a claim about what the books
+> `docs/research/symbol-in-text-baseline-books.md` — ⛔ nothing here is a claim about what the books
 > say. Read with `docs/research/music-text-fonts-research.md` (what a SMuFL "Text" font is, and
 > MuseScore's / Verovio's FONT choice — its §3 is not repeated here, only extended to the vertical
 > and the size) and `docs/research/score-text-roles-research.md` (the role table the sizes live in).
@@ -285,7 +285,7 @@ Stated intent found in the fonts' own logs — the only two:
 | **LilyPond's `\rhythm` markup and the newer `\tempo`-with-markup paths** | `define-markup-commands.scm:1921` was not read; only `format-metronome-markup` (the default `metronomeMarkFormatter`) was |
 | **WHY LilyPond chose `Y DOWN`** | the line carries no comment; no history to ask |
 | **Dorico, Sibelius, Finale** | not in scope (no source). Dorico's tempo note source is already UNKNOWN in `music-text-fonts-research.md` §7 |
-| **What the BOOKS say** | ⛔ deliberately not searched here — `symbol-in-text-baseline-books.md` (this folder, in progress) |
+| **What the BOOKS say** | ⛔ deliberately not searched here — `docs/research/symbol-in-text-baseline-books.md` |
 | **Down-stem and beamed/equation forms** (`metNoteQuarterDown`, `♩ = ♩.`) | not measured; MuseScore's tempo patterns and Verovio's import use the up-stem forms only (`tempotext.cpp:174–178`, `iomusxml.cpp:4735–4742`) |
 | **How a browser's text layout treats a 2012/−2012 music font inside a words line** | irrelevant to our single-baseline SVG runs; still open for the DOM text editor (same row in `music-text-fonts-research.md` §7) |
 

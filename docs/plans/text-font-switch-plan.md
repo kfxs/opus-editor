@@ -136,12 +136,26 @@ the text."*
   but i think it was not based in any real rule"* — the 20 pt note beside 18 pt words, and now this
   baseline rule, are his eye's. Two surveys were commissioned the same hour and will supply the
   presets: `docs/research/symbol-in-text-baseline-engines.md` (✅ landed — MuseScore · LilyPond · Verovio, and the
-  fonts measured) and `symbol-in-text-baseline-books.md` (the treatises' words, and their
+  fonts measured) and `docs/research/symbol-in-text-baseline-books.md` (✅ landed — the treatises' words, and their
   engraved examples MEASURED).
 - ⛔ **THE SURVEYS DO NOT CHANGE THE PICTURE BY THEMSELVES** — his word, 2026-09-21: *"i like the way
   it looks what we have now, so lets not change it automatically after the research, we just have to
   contrast the information before make a decision."* ⇒ when they land: a CONTRAST (ours · each engine
   · each book), ⛔ no edit to a row; the decision is his.
+- 📊 **THE CONTRAST, as the two surveys landed (2026-09-21) — information, ⛔ no row was changed:**
+
+  | | where the note sits | note height ÷ cap-height |
+  |---|---|---|
+  | **ours** | head's bottom ON the words' baseline | ≈ 1.05 (Sebastian) – 1.26 (Bravura) |
+  | the BOOKS, 17 engraved marks measured | on the baseline 10 · a hair below 3 · above 4 · ⛔ **centred on it: 0** | Gould 1.36–1.49 · Stone ≈1.38 · Ross 1.55–1.66 · Gerou & Lusk 1.69–1.72 |
+  | LilyPond · Bravura Text · Sebastian's cut | on the baseline (LilyPond aligns it in source) | LilyPond ≈ 2.0 |
+  | MuseScore | no shift — hangs slightly below | ≈ 1.30 (20 pt symbol, 12 pt words) |
+  | Verovio | no shift — head CENTRED on the baseline | ≈ 1.65 |
+
+  ⇒ The VERTICAL rule his eye chose is the books' and LilyPond's. The SIZE is where we stand apart:
+  ours is smaller against a capital than every book and engine (the books name it a *"cue size note"*
+  — Ross p. A-45, Gerou & Lusk p. 143 — and draw it 2.5–3.1 sp tall; ours is ≈ 2.2–2.6 sp). ⛔ His
+  to decide; he likes what is drawn today.
 - ⏭️ Not done: the DOM text editor over a tempo mark (`TempoTextSource`) still shows the note where
   the browser's line box puts it.
 

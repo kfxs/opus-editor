@@ -1034,3 +1034,41 @@ The question was **the SLUR and the TIE** — thickness, arch, attachment, avoid
 | ⛔ Stone on any shape number | **Stone pp. 35–39** + his index | **Nothing** — no thickness, no arch, no gap. His section is position, direction and the line break only. ⛔ Do not check again. |
 | ⛔ Gould's SLUR arch, as a measured table | — | **NOT MEASURED.** Her slur plates run the arc over noteheads, stems and beams inside the same x-window, so a column ink profile cannot separate curve from music without hand-tracing. `gould-scans/` p. 111 stays the only slur plate this project has measured. A real piece of work, not done. |
 | ⛔ a fifth treatise both our sources point at | **Wanske, *Musiknotation*** | **UNKNOWN — not on disk, never fetched.** LilyPond's tie-direction code cites it by name and page: `/* Default: Put the tie oppositie of the stem [Wanske p231] … The direction of the Tie is more complicated (See [Ross] p136 and further). */` (`lily/tie.cc:84-93`). ⭐ Note that its **other** citation, Ross p. 136ff, **is** on disk and was read for the first time today. |
+
+### What was asked of it on 2026-09-21, and what came back
+
+The question was **a music SYMBOL inside a line of WORDS** — today only the note of a metronome mark,
+`Allegro ♩ = 120`: where it sits against the words' baseline, and how big it is — asked the day the
+tempo's note was stood on its words' baseline (`rendering/marks/tempo/tempoStyle.tempoSymbolRaisePx`,
+the `tempoSymbol` row of `engine/engrave/textRoles`). Two surveys: the books
+(`docs/research/symbol-in-text-baseline-books.md`) and the engines
+(`docs/research/symbol-in-text-baseline-engines.md`). ⛔ By his word the surveys were CONTRASTED with
+what we draw, not applied (`docs/plans/text-font-switch-plan.md` §6).
+
+| question | where | what came back |
+|---|---|---|
+| ⭐ the SIZE, in words | **Ross p. A-45 (PDF 267)** · **Gerou & Lusk p. 143 (PDF 73)** | Ross: *"A cue size note to match the type is used. A regular size note is never used."*; initials *"bold Roman type about lyric size"*, numbers *"medium Roman type of the same size"*. G&L: *"The type is slightly smaller than that of the tempo and is usually enclosed in parentheses. The note is cue size or smaller."* |
+| ⛔ the note's VERTICAL position, the gaps round `=`, the stem length — in words | Gould, Ross, Stone, G&L | **No book states any of the three.** ⛔ Do not check again — only their engraved examples answer, below. |
+| ⭐⭐ the vertical, MEASURED (17 printed marks with a baseline, 4 books, 600–720 dpi renders, ± 0.03–0.05 cap-height) | Gould PDF 197, 203–206 … · G&L PDF 73 · Ross PDF 267 · Stone PDF 57, 75, 90 | notehead BOTTOM on the words' baseline **10 of 17** (every computer-set example) · a hair below 3 (G&L — a round letter's overshoot) · above 4 (Ross; Stone's hand paste-up) · 🚨 **head CENTRED on the baseline — the position a SMuFL MUSIC face cuts — 0 of 17** |
+| ⭐ the size, MEASURED | same | note height ÷ cap-height: Gould **1.36–1.49** · Stone ≈1.38 · Ross 1.55–1.66 · G&L 1.69–1.72. In staff spaces: Gould **2.85–3.07 sp** whole with a 0.83–0.88 sp head · Stone 2.55 / 0.70. ⚠️ G&L, which WRITES "cue size or smaller", DRAWS the tallest note |
+| brackets round a metronome mark | **Gould p. 183 (PDF 203)** | *"only to confirm a current or previously stated tempo"* |
+| cue-sized notes between tempi | **Gould p. 185 (PDF 205)** | *"Cue-sized notes above the stave indicate note-value equivalents between tempi."* |
+| Stone on metronome marks | **Stone pp. 128 (PDF 75), 159 (PDF 90, right half)**; running-text marks pp. 92–93 (PDF 57), with a quoted Carter plate | *"The usual indications should be used, but large enough for easy reading."* |
+| ⛔ Gardner Read, *Music Notation* | — | **UNKNOWN — not on disk.** |
+| the ENGINES (source read, ⚠️ none installed here — no rendering) | LilyPond `scm/translation-functions.scm:120,136` · MuseScore `rendering/score/textlayout.cpp:353–374,416–438`, `style/styledef.cpp:1210,2156` · Verovio `src/view_text.cpp:397–404,615–621`, `src/doc.cpp:2142–2145` | **LilyPond** aligns the note's bottom to the words' baseline (`make-general-align-markup Y DOWN`) and BUILDS the note (head + drawn 3 sp stem), ≈ 2.0 caps tall. **MuseScore**: no shift (`musicSymbolBaseLineAdjust` is 0 outside a Marker); `tempoMusicalSymbolSize` 20 beside `tempoFontSize` 12 ⇒ ≈ 1.30 caps; a missing glyph switches the whole fragment to Bravura Text. **Verovio**: no shift, the music font at 8/4.5 of the words' size ⇒ head CENTRED on the baseline, ≈ 1.65 caps |
+| the FONTS, measured (opentype.js, `metNoteQuarterUp` head bottom, 1/1000 em) | the OTFs in `public/fonts/` and `~/dev/engine-sources/MuseScore/fonts/` | music cuts hang BELOW the baseline — Bravura −141 · Leland −172 · Petaluma −148 · Leipzig −126; text cuts stand ON it — Bravura Text +7 · Sebastian +7 (Leland Text −57, Petaluma Text −118 do not). Bravura's FONTLOG:302: `metNote…` have *"2.75sp stems to balance with text"* |
+
+⚠️ **Paging notes this run learned:**
+- **Ross's APPENDIX does not follow the body's `+12` offset**: the metronome paragraph is **p. A-45 =
+  PDF 267**; A-46 (PDF 268) is *Tempo marks* (our A-46 citations are for that rule, and are right).
+- **Gerou & Lusk's PDF is 2-UP**: PDF 73 = printed pp. 142–143.
+- **Native scan resolutions** (`pdfimages -list`): Gould 238 ppi grey JPEG · G&L 300 ppi 1-bit JBIG2
+  (+100 ppi background) · Ross 360 ppi 1-bit JBIG2 (+120 ppi background) · Stone 300 ppi grey.
+  ⇒ rendering Gould above ≈ 480 dpi adds no information; this file's "450 dpi, 1 sp = 20 px" stands.
+- **Where Gould's metronome marks are** (PDF pages, from a regex over the text layer): 197, 203–206,
+  306, 313, 319, 324, 346, 385, 402, 428, 570, 580, 584, 598, 613, 622, 626, 630–636, 638–639, 644,
+  647, 655 (a half-note unit), 666, 668.
+- ⭐ **Sebastian Text / SMuFL "Text" fonts** — what such a font IS (music symbols cut for a text line;
+  its ASCII slots are Finale's legacy symbol layout, ⛔ not letters) is `docs/research/music-text-fonts-research.md`.
+  SMuFL routes that served on 2026-09-21: `smufl.formats.music/latest/…` and
+  `www.w3.org/2021/03/smufl14/…`; ⛔ `w3c.github.io/smufl/latest/specification/…` **404**s.

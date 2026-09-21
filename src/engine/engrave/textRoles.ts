@@ -68,8 +68,10 @@ export interface TextRoleRow {
  * - `'asCut'` — drawn where the face's designer put it.
  *
  * `offsetSpaces` is then added on top — staff spaces, positive = UP — the free vertical preset.
- * ⚠️ 0 today, and the RULE above is his eye's, ⛔ not a sourced convention yet: two surveys were
- * commissioned the same day (`docs/plans/text-font-switch-plan.md` §6) and will supply the presets.
+ * ⚠️ 0 today. ⭐ The RULE was his eye's, and the surveys of the same day bear it out: 10 of 17 marks
+ * measured in the books stand the head's bottom on the baseline and NONE centres it there; LilyPond
+ * aligns it so in source; MuseScore and Verovio apply no shift (`docs/plans/text-font-switch-plan.md`
+ * §6, `docs/research/symbol-in-text-baseline-books.md`). They are the preset menu, ⛔ not a change.
  */
 export interface SymbolBaseline {
   rule: 'onWordsBaseline' | 'asCut'
@@ -94,7 +96,11 @@ export const TEXT_ROLES: Record<TextRole, TextRoleRow> = {
    * The ♩ of a metronome mark — a SYMBOL INSIDE WORDS, from the music font's text-sized `metNote…`
    * cut (U+ECA0–ECB7), **20 pt = 2.67 sp** against the 18 pt words. ⚠️ **TRIAL AND ERROR, his own
    * words (2026-09-21): *"we did it by trial and error… not based in any real rule"*** — so both this
-   * size and its {@link SymbolBaseline} are open rows, not findings. ⚠️ Where the glyph sits against the words' baseline is the FACE's:
+   * size and its {@link SymbolBaseline} are open rows, not findings.
+   * 📊 What the sources do (2026-09-21, CONTRASTED with this row, ⛔ not applied — his word): the
+   * books name it *"a cue size note"* (Ross p. A-45; Gerou & Lusk p. 143) and draw it 1.36–1.72 × the
+   * words' cap-height (Gould 2.85–3.07 sp tall); MuseScore ≈ 1.30, Verovio ≈ 1.65, LilyPond ≈ 2.0;
+   * this row gives ≈ 1.05–1.26. `docs/research/symbol-in-text-baseline-books.md` · `…-engines.md`. ⚠️ Where the glyph sits against the words' baseline is the FACE's:
    * Bravura's and Leipzig's hang below it (−141 / −126 of 1000), Sebastian's sits on it.
    */
   tempoSymbol: {
