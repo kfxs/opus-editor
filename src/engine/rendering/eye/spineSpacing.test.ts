@@ -93,5 +93,15 @@ describe('spacing where the DEEPEST ink stands — a loop’s inside is shorter 
     const b = spaceBarsOnSpine(m.getScore(), 10, 500, true, 1)[0]
     expect([b.start, b.end, b.columnAt(beat(0))]).toEqual([a.start, a.end, a.columnAt(beat(0))])
   })
+  it('⭐ a `|:` opening a bar takes its room BEFORE the lead-in — the first note moves right by it', () => {
+    const m = model(1)
+    add(m, 1, 0, 1, 'q')
+    const plain = spaceBarsOnSpine(m.getScore(), 0, 0, false)[0].columnAt(beat(0))
+    const natural = naturalSpineLength(m.getScore())
+    m.getScore().measures[0].repeatStart = {}
+    const repeated = spaceBarsOnSpine(m.getScore(), 0, 0, false)[0].columnAt(beat(0))
+    expect(repeated).toBeGreaterThan(plain)
+    expect(naturalSpineLength(m.getScore()) - natural).toBeCloseTo(repeated - plain, 6)
+  })
 })
 

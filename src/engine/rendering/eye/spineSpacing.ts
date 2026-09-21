@@ -30,6 +30,7 @@
  */
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { keyStaffId } from '@/engine/models/staffContent'
+import { repeatStartRoom } from '@/engine/layout/barlineSign'
 import { INK } from '@/engine/layout/spacingPadding'
 import { clefResolverFor, keyResolverFor, measureColumns, measureLeadIn } from '@/engine/layout/measureColumns'
 import { naturalWidth, spaceColumns, type Column } from '@/engine/layout/spacing'
@@ -67,7 +68,9 @@ function ask(score: Score, measure: Measure): AskedBar {
   const lead = measureLeadIn(measure, clefFor, () => 1, keyFor)
   return {
     columns,
-    leadIn: (lead.padding + lead.extent) * STAFF_SPACE_PX,
+    // ⭐ A `|:` opening the bar stands between the boundary and the lead-in, as on the page
+    //    (`MeasureLayout`'s `repeatStartRoom`). The END sign's reach is already in the columns.
+    leadIn: (lead.padding + lead.extent + repeatStartRoom(measure)) * STAFF_SPACE_PX,
     natural: naturalWidth(columns) * STAFF_SPACE_PX,
   }
 }

@@ -38,7 +38,9 @@ import { formatColumns } from '../format/columnFormat'
 import { attachModifierColumns } from '../format/modifierColumns'
 import { formatLoneNote } from '../ghosts/loneNote'
 import { drawGroupOf } from '../painter/svgDrawGroup'
+import type { BarlineSignKind } from '@/engine/layout/barlineSign'
 import { ledgerLineStyle } from '@/engine/layout/layoutConfig'
+import { paintBarlineSign } from '../staff/BarlineRenderer'
 import { standOn, staveFrame } from '../staff/staveFrame'
 import type { StaveSign } from '../staff/staveSign'
 
@@ -272,19 +274,26 @@ export function drawSpineHeader(
 }
 
 /**
- * A plain BARLINE across the staff at `s` — a rigid block too: one straight stroke from the top line
- * to the bottom one, square to the spine there. ⚠️ Plain only; WHICH sign a boundary carries
- * (`models/boundarySign`) is plan B's to bring here.
+ * A BARLINE SIGN across the staff at `s` — a rigid block too, square to the spine there: the page's
+ * own sign (`staff/BarlineRenderer.paintBarlineSign` — strokes, repeat dots, wings) painted at the
+ * block's origin, so `s` is the BOUNDARY and the ink falls either side of it as it does on the page.
+ * ⭐ WHICH sign stands there is the score's (`models/boundarySign`), asked by the caller.
+ * ⚠️ An `invisible` line draws nothing here: the panel is not the editor, which greys it instead.
  */
-export function drawSpineBarline(ctx: DrawContext, spine: Spine, s: number, thickness: number): void {
+export function drawSpineBarline(
+  ctx: DrawContext, spine: Spine, s: number, kind: BarlineSignKind = 'plain', wings = false,
+): void {
+  if (kind === 'invisible') return
   const frame = blockFrame()
   const group = drawGroupOf(ctx.openGroup(SPINE_BLOCK_CLASS))
   try {
-    ctx.setLineWidth(thickness)
-    ctx.beginPath()
-    ctx.moveTo(0, staffLineY(frame, 0))
-    ctx.lineTo(0, staffLineY(frame, frame.lineCount - 1) + staveLineWidthPx())
-    ctx.stroke()
+    paintBarlineSign(ctx, kind, 0, {
+      space: frame.spacePx,
+      topY: staffLineY(frame, 0),
+      botY: staffLineY(frame, frame.lineCount - 1) + staveLineWidthPx(),
+      numLines: frame.lineCount,
+      yForLine: line => staffLineY(frame, line),
+    }, group, wings)
   } finally {
     ctx.closeGroup()
   }

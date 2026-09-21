@@ -119,7 +119,7 @@ start to port it there."* Read from the source (`eye/spineScore.ts`, `eye/spineS
 | 4 | plain barline | BLOCK | ✅ `drawSpineBarline` | — |
 | 5 | **BEAMS** | BLOCK (the GROUP is the block) | ✅ `drawBeamedBlock` — option (b), the heads ride the path (§6, §7) | — |
 | 6 | key signature in the header; mid-score clef / meter / key CHANGES; cautionaries | BLOCK | ⛔ the header is clef + meter, once | the signs are `StaveSign`s already (`drawSpineSign` takes any) — needs the positional walk (`resolveStaffClefs/Keys` per bar) and room for them (#14) |
-| 7 | barline TYPES — final, double, repeats with dots and wings | BLOCK | ⛔ plain only | `layout/barlineSign.barlineSignParts` is pure: draw its strokes + dots in a block |
+| 7 | barline TYPES — final, both repeats, the back-to-back `:||:`, wings, invisible | BLOCK | ✅ `drawSpineBarline(kind, wings)` (2026-09-21) — the page's own `paintBarlineSign` in a block, WHICH sign from `models/boundarySign`; a `|:` on bar 1 stands at the bar's start and its room is in `spineSpacing`'s lead-in. ⚠️ an invisible line draws NOTHING on the panel (the editor greys it) | — |
 | 8 | tuplet number + bracket | BLOCK (with its group) | ⛔ | rides #5's group block; ⚠️ `ScoreTuplet` still draws straight on the painter (`scene/` cannot see it) |
 | 9 | tremolo (one-note strokes) | BLOCK | ✅ if `NoteBuilder` attaches it — ⚠️ NOT VERIFIED on the spine | look |
 | 10 | two-note tremolo · fanned (feathered) beams · cross-BAR beams | BLOCK spanning slots / bars | ⛔ | after #5; a cross-bar beam is a block that crosses a barline block |

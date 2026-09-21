@@ -11,19 +11,17 @@
  *
  * - The FIRST staff only, every voice of it (two voices take the page's up/down stems).
  * - The header is bar 1's clef and meter; a bar's notes stand on the clef its bar OPENS with.
- * - Every boundary is a PLAIN barline — the last one too (⛔ not yet the final bar's thin-thick sign).
- * - ⛔ No beams (an eighth wears its flag), ties, slurs, tuplet marks, dynamics, hairpins or mid-score
- *   header changes. Each is one of plan B's steps, and a beamed group is one BLOCK when it comes.
- *
- * ## ⚠️ The spacing is TIME, ⛔ not the page's spacing rule
- *
- * After the header the spine is shared by the bars in proportion to their length in time, and a slot
- * stands at its beat's share of its bar. That is a placeholder with a name: the page's rule
- * (`layout/spacing` — ink-aware springs) measured ALONG the spine is plan B §4.7's question.
+ * - Every boundary carries the score's own SIGN (`models/boundarySign`): plain, final, either repeat,
+ *   the back-to-back `:||:`, wings — painted by the page's `paintBarlineSign` in a block.
+ * - Beamed groups are one block each (`./spineStaff.drawBeamedBlock`); WHERE a column stands is the
+ *   page's spacing asked for one justified line (`./spineSpacing`).
+ * - ⛔ No ties, slurs, tuplet marks, dynamics, hairpins or mid-score header changes — the port map is
+ *   `docs/plans/bent-staff-plan.md` §5.
  */
 import type { DrawContext } from '@/engine/paint/DrawContext'
 import type { Spine } from '@/engine/engrave/staff/staffSpine'
 import { innerLengthRatio } from '@/engine/engrave/staff/staffSpine'
+import { signAtBoundary } from '@/engine/models/boundarySign'
 import { keyStaffId, staffMeasureView } from '@/engine/models/staffContent'
 import type { Score } from '@/types/music'
 import { resolveStaffClefs } from '@/utils/clefUtils'
@@ -32,7 +30,7 @@ import { resolveStaffKeys } from '@/utils/keySignature'
 import { voiceOf } from '@/utils/lanes'
 import { getMeterInfo } from '@/utils/meter'
 import { createStaveNotesFromSlots } from '../engraved/NoteBuilder'
-import { thinBarlinePx } from '../staff/barlineInk'
+import { boundaryWinged } from '../staff/BarlineRenderer'
 import { buildBeams } from '../beams/beamGroups'
 import type { EngravedNote } from '../engraved/EngravedNote'
 import { deepestInkPx, spaceBarsOnSpine } from './spineSpacing'
@@ -95,6 +93,15 @@ export function drawScoreOnSpine(ctx: DrawContext, score: Score, spine: Spine): 
       }
       notes.forEach((note, n) => { if (!beamed.has(note)) drawNoteBlock(ctx, spine, note, at[n]) })
     }
-    drawSpineBarline(ctx, spine, bar.end, thinBarlinePx())
+    // ⭐ WHICH sign a boundary carries is the SCORE's answer (`models/boundarySign`) — final, either
+    //    repeat, the back-to-back `:||:` from the two bars that meet there — as on the page.
+    // ⚠️ The spine is ONE system, so the only opening edge is bar 1's: a `|:` there stands at the
+    //    bar's own start (its room is in the lead-in, `./spineSpacing`).
+    if (i === 0 && measure.repeatStart !== undefined) {
+      drawSpineBarline(ctx, spine, bar.start, 'repeatStart', boundaryWinged(undefined, measure))
+    }
+    const next = score.measures[i + 1]
+    const kind = signAtBoundary(measure, next)
+    if (kind) drawSpineBarline(ctx, spine, bar.end, kind, boundaryWinged(measure, next))
   })
 }

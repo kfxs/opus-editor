@@ -152,7 +152,7 @@ const WING_GLYPHS = {
 /** The staff a sign is drawn ON, as the numbers painting it needs — taken from the bar's PLACED frame
  *  (`./staveFrame`). Its own type so {@link paintBarlineSign} reads as ink on a staff rather than
  *  as five loose parameters. */
-interface SignStaff {
+export interface SignStaff {
   /** Space between two staff lines, in the drawing's own units — every part of the sign scales by it. */
   space: number
   /** Top and bottom of the drawn lines: how far the strokes reach. */
@@ -166,6 +166,17 @@ interface SignStaff {
 }
 
 /**
+ * Did either bar at this boundary ask for WINGS? — the statement only; whether the sign drawn there
+ * can carry them is `signWings`' answer. Its own function since the bent staff asks it too
+ * (`eye/spineScore`).
+ */
+export function boundaryWinged(ends: Measure | undefined, begins: Measure | undefined): boolean {
+  return ends?.barline?.winged === true
+    || ends?.repeatEnd?.winged === true
+    || begins?.repeatStart?.winged === true
+}
+
+/**
  * ⭐ **PAINT ONE SIGN** — its strokes as strokes, its dots as the glyph — centred on `x`, on the staff
  * described by `staff`. What stays in the caller is everything ABOUT a staff: the group, the scale,
  * the hinting opt-out, and where the boundary is.
@@ -175,7 +186,7 @@ interface SignStaff {
  * sits on a nominal five-line staff, which is the one case the font's fixed 4-space box is right;
  * this function exists because an ENGRAVED sign has to span whatever staff it is drawn on.
  */
-function paintBarlineSign(
+export function paintBarlineSign(
   ctx: RenderPass['context'], kind: BarlineSignKind, x: number, staff: SignStaff,
   group: DrawGroup | null | undefined, wings: boolean,
 ): void {
@@ -510,10 +521,7 @@ export function renderBarlines(
      * (**`docs/plans/barline-join-plan.md`**, which names this very comment in §3), this is the line to
      * revisit — and the two engines already agree on what it should become.
      */
-    const wingsOn = (ends: Measure | undefined, begins: Measure | undefined): boolean =>
-      ends?.barline?.winged === true
-      || ends?.repeatEnd?.winged === true
-      || begins?.repeatStart?.winged === true
+    const wingsOn = boundaryWinged
     const line = lineOf(n)
     const neighbour = (offset: -1 | 1): BarlinePlacement | undefined =>
       lineOf(n + offset) === line ? at.get(`${n + offset}:${placement.staffIndex}`) : undefined

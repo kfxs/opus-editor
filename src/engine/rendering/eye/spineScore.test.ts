@@ -60,6 +60,61 @@ describe('drawScoreOnSpine', () => {
     }
   })
 
+  describe('⭐⭐ every boundary carries the SCORE\'s own sign — the page\'s, in a block', () => {
+    /** The rects (strokes) and texts (repeat dots, wings) of each block past the header and slots. */
+    const signsOf = (m: ScoreModel, spine = straightSpine(0, 0, 900)) =>
+      blocksOf(m, spine)
+        .filter(block => scenePrimitives(block).every(p => p.kind === 'rect' || p.kind === 'text'))
+        .filter(block => scenePrimitives(block).some(p => p.kind === 'rect'))
+        .map(block => ({
+          s: block.placement.e,
+          strokes: scenePrimitives(block).filter(p => p.kind === 'rect').length,
+          glyphs: scenePrimitives(block).filter(p => p.kind === 'text').length,
+        }))
+
+    it('a plain line is one stroke; a FINAL bar is thin + thick, its thick edge ON the boundary', () => {
+      const m = model(2)
+      addQuarter(m, 1, 0)
+      m.getScore().measures[1].barline = { style: 'final' }
+      const [plain, final] = signsOf(m)
+      expect(plain).toMatchObject({ strokes: 1, glyphs: 0 })
+      expect(final).toMatchObject({ strokes: 2, glyphs: 0 })
+      expect(final.s).toBeCloseTo(900, 6) // the BOUNDARY is where the block stands, not the ink's middle
+    })
+
+    it('an end repeat adds its two dots; two repeats meeting draw ONE `:||:`, ⛔ not two signs', () => {
+      const m = model(2)
+      addQuarter(m, 1, 0)
+      m.getScore().measures[0].repeatEnd = {}
+      expect(signsOf(m)[0]).toMatchObject({ strokes: 2, glyphs: 2 })
+      m.getScore().measures[1].repeatStart = {}
+      const signs = signsOf(m)
+      expect(signs).toHaveLength(2)
+      expect(signs[0]).toMatchObject({ strokes: 3, glyphs: 4 })
+    })
+
+    it('a `|:` on bar 1 stands at the bar\'s own start — the one opening edge a single system has', () => {
+      const m = model(1)
+      addQuarter(m, 1, 0)
+      const before = signsOf(m)
+      m.getScore().measures[0].repeatStart = {}
+      const after = signsOf(m)
+      expect(after).toHaveLength(before.length + 1)
+      expect(after[0]).toMatchObject({ strokes: 2, glyphs: 2 })
+      expect(after[0].s).toBeLessThan(after[1].s)
+    })
+
+    it('WINGS are drawn when the bar asks for them, and an INVISIBLE line draws nothing', () => {
+      const m = model(2)
+      addQuarter(m, 1, 0)
+      m.getScore().measures[0].repeatEnd = { winged: true }
+      expect(signsOf(m)[0].glyphs).toBe(2 + 2) // two dots + the top and bottom tips
+      m.getScore().measures[0].repeatEnd = undefined
+      m.getScore().measures[0].barline = { style: 'invisible' }
+      expect(signsOf(m)).toHaveLength(1)
+    })
+  })
+
   it('⭐ on a CLOSED spine the last barline stands short of the clef, ⛔ not on top of it', () => {
     const m = model(2)
     addQuarter(m, 1, 0)
