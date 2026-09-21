@@ -2246,7 +2246,7 @@ guess — the beams do not bend either.** Rendered from the ICMC PDF at 600 and 
 | **beams** | 🚨 **STRAIGHT.** Every triplet group's beam is a straight chord *crossing* the arcs beneath it. ⛔ Not an arc, not a wedge |
 | stems inside a group | **parallel to each other**, tilted as a unit — not radially splayed |
 | tuplet numerals, `Molto accelerando!!!`, `pp` / `p` | rotated with their group |
-| the `pp` line, the long lead line | drawn **straight**; the score does not insist that spans follow the rim |
+| the line after `pp` | 🚨 **CORRECTED 2026-09-21 — this row said "drawn straight", and it is not.** Re-read on `bike-ride-rim-detail-600dpi.png`: it is a HAIRPIN that **follows the rim**, curving with the staff and opening into two lines; a second one runs under the inner staff. ⇒ the plate DOES contain spine-following spans (kind 3 below). The wheel's spokes are the straight lines. `docs/plans/bent-staff-plan.md` §1 |
 
 ⭐⭐ **So the rigid unit is the BEAMED GROUP, and the whole group is placed by ONE affine.** The
 curvature is absorbed *between* fragments, never inside one — a polygon of straight groups laid on a
