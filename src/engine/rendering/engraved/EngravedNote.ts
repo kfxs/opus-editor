@@ -1262,6 +1262,23 @@ export class EngravedNote {
     }
   }
 
+  /**
+   * The lift of the ONE staff every head of this note is written on — 0 for an ordinary note — or
+   * `null` for a chord SPLIT across two staves. What a cross-staff beam asks of each member
+   * (`engrave/beams/crossStaffBeam`).
+   */
+  writtenLift(): number | null {
+    const lift = this.keyProps[0]?.lift ?? 0
+    return this.keyProps.every(row => row.lift === lift) ? lift : null
+  }
+
+  /** The clef this note is read in where it is WRITTEN — the other staff's when it crossed whole,
+   *  else its own. What a beam group written entirely on the other staff decides its side by. */
+  writtenClef(): string {
+    const lift = this.writtenLift()
+    return (lift !== null && lift !== 0 ? this.crossings?.find(c => c !== undefined)?.clef : undefined) ?? this.clef
+  }
+
   /** Is any head of this note written on another staff? @see EngravedNoteStruct.crossings */
   hasCrossedHead(): boolean {
     return this.keyProps.some(row => row.lift !== 0)

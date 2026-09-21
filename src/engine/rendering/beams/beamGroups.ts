@@ -13,6 +13,8 @@ import type { Fraction } from '@/utils/fraction'
 import { computeBeamGroups, secondaryBreakIndices } from '@/utils/beaming'
 import type { MeterInfo } from '@/utils/meter'
 import { beamGroupStemDirection } from '@/engine/models/stemOps'
+import { crossStaffBeamPlan, type CrossStaffBeamPlan } from '@/engine/engrave/beams/crossStaffBeam'
+import { BEAM_LEVEL_STRIDE } from '@/engine/engrave/beams/beamLines'
 import { EngravedBeam, applyFractionalBeamSides } from '../engraved/EngravedBeam'
 import type { EngravedNote, NoteBeam } from '../engraved/EngravedNote'
 import type { FanJoin } from './FanPass'
@@ -93,12 +95,23 @@ export function buildBeams(
         continue
       }
 
-      const beamStemDirection = beamGroupStemDirection(groupSlots, groupClef, forcedStemDirection)
       const groupNotes = indices.map(i => staveNotes[i])
-      for (const staveNote of groupNotes) {
-        staveNote.setStemDirection(beamStemDirection)
+      // ⭐ A group written on TWO staves is a beam BETWEEN them — stems pointing into the system,
+      //   one horizontal line (`engrave/beams/crossStaffBeam`, Gould pp. 314–315). `null` for every
+      //   other group, and for one that declines: then it is the ordinary beam below.
+      const crossStaff = crossStaffPlanFor(groupSlots, groupNotes)
+      if (crossStaff) {
+        groupNotes.forEach((staveNote, i) => staveNote.setStemDirection(crossStaff.stemDirections[i]))
+      } else {
+        // ⭐ A group written ENTIRELY on the other staff is an ordinary beam THERE: its side is read
+        //   against that staff's middle line, ⛔ not the home clef's.
+        const writtenClef = groupNotes.every(n => n.writtenLift() !== null && n.writtenLift() !== 0)
+          ? groupNotes[0].writtenClef() as Clef : groupClef
+        const beamStemDirection = beamGroupStemDirection(groupSlots, writtenClef, forcedStemDirection)
+        for (const staveNote of groupNotes) staveNote.setStemDirection(beamStemDirection)
       }
       const beam = new EngravedBeam(groupNotes)
+      if (crossStaff) beam.standOnLine(crossStaff.beamLine)
       // Secondary beam breaks — VexFlow's own primitive, no geometry of ours. The index translation
       // (our flag is on the note the break is IN FRONT OF; VexFlow wants the note the beam ends
       // AFTER) lives in the pure module beside the grouping.
@@ -113,3 +126,26 @@ export function buildBeams(
 
   return { beams, fanJoins }
 }
+
+/**
+ * The cross-staff plan for one ordinary beam group, or `null`. Declines — so the group keeps ONE
+ * direction — when any member is pinned by an explicit `x` flip (Gould's *"above or below the
+ * system"*, his to choose), when a member is a chord SPLIT across the staves, or a rest, and when
+ * the rule itself declines (one staff; stems under its 2½-space floor).
+ */
+function crossStaffPlanFor(groupSlots: ChordRest[], groupNotes: EngravedNote[]): CrossStaffBeamPlan | null {
+  if (!groupNotes.some(note => note.hasCrossedHead())) return null
+  if (groupSlots.some(slot => slot.type !== 'chord' || slot.stemDirection === 'up' || slot.stemDirection === 'down')) return null
+  const chords = []
+  let levels = 1
+  for (const note of groupNotes) {
+    const lift = note.writtenLift()
+    if (lift === null) return null
+    chords.push({ topLine: note.getLineNumber(true), bottomLine: note.getLineNumber(), lift })
+    levels = Math.max(levels, note.getBeamCount() || 1)
+  }
+  // The whole stack of beam lines, in spaces: a line is half a space thick, levels 1½ thicknesses apart.
+  const stackSpaces = 0.5 * (1 + (levels - 1) * BEAM_LEVEL_STRIDE)
+  return crossStaffBeamPlan(chords, stackSpaces)
+}
+

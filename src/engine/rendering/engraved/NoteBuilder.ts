@@ -190,7 +190,12 @@ export function createStaveNotesFromSlots(
     const slotClef = resolveClef(slot.beat)
     // ⭐ Cross-staff: per key, where a crossed head is written — all `undefined` for an ordinary chord.
     const crossings = crossingOf ? sortedPitches.map(p => crossingOf(slot, p)) : undefined
-    const crossedLift = crossings?.find(c => c !== undefined)?.lift
+    // ⭐ A SPLIT chord (some heads home, some away) and a WHOLLY crossed one are different questions:
+    //   the split chord's one stem must run toward the other staff to join its heads; a chord written
+    //   entirely on the other staff is an ordinary chord THERE, and takes that staff's stem rule.
+    const away = crossings?.filter(c => c !== undefined) ?? []
+    const splitLift = away.length > 0 && away.length < sortedPitches.length ? away[0]!.lift : undefined
+    const writtenClef = away.length === sortedPitches.length && away.length > 0 ? away[0]!.clef : slotClef
 
     /**
      * ⭐ TWO-NOTE TREMOLO — is this slot in a pair, and if so which end?
@@ -215,17 +220,18 @@ export function createStaveNotesFromSlots(
       stemDirection = 1
     } else if (explicitStem === 'down') {
       stemDirection = -1
-    } else if (crossedLift !== undefined) {
-      // ⭐ A chord with a head on another staff points its stem TOWARD that staff: from the home
+    } else if (splitLift !== undefined) {
+      // ⭐ A chord SPLIT across two staves points its stem TOWARD the other staff: from the home
       //   heads, across the gap, past the crossed ones (Gould p. 305's figure; the Satie bar). It
       //   outranks the voice default below — a second voice on the bass staff is stem-DOWN by
       //   parity, and its chord reaching up into the treble is exactly the case this exists for.
-      stemDirection = crossedLift > 0 ? 1 : -1
+      stemDirection = splitLift > 0 ? 1 : -1
     } else if (forcedStemDirection !== undefined) {
       // Multi-voice default (V1 up / V2 down); an explicit override above still wins.
       stemDirection = forcedStemDirection
     } else {
-      const middleDiatonic = middleLineDiatonicPos(slotClef)
+      // ⭐ …against the middle line of the staff the chord is WRITTEN on (its own, unless it crossed whole).
+      const middleDiatonic = middleLineDiatonicPos(writtenClef)
       let maxDist = 0
       stemDirection = -1  // default down; middle-line notes follow this convention
       // ⭐ A FAN's stem direction is the GROUP's, decided over every member's pitches — because the

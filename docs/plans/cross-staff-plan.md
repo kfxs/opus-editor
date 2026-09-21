@@ -118,9 +118,59 @@ dot's dodge and a ledger line are decided by the line's parity.
 - ⏭️ The width path (`measureColumns`) still prices a crossed head on its home staff (decision 7's
   second half).
 
-**Phase 4 — beams (NOT planned here).** Gould pp. 314–315: beam between the staves, stems inward,
-shortest stems equal, horizontal when in doubt, ≥ 2½ spaces of stem or all stems one way. The engines'
-routes are in the research doc §4. Its own plan when Phase 3 is signed off.
+**Phase 4 — beams.** Sources: Gould pp. 314–315 (scan), Stone p. 12, G&L p. 43, and the engines'
+routes — research doc §4–5. The unit is a beam group whose chords are written on TWO staves (some
+wholly crossed, some at home).
+
+*Settled (each is a default, ⛔ not a blocker — CLAUDE.md's engraving-number rule):*
+1. **Beam BETWEEN the staves, stems pointing inward** — a chord written on the upper staff takes a
+   stem DOWN, on the lower staff UP (Gould p. 315: *"point towards the centre of the system and are
+   joined by a common beam"*). It outranks the voice default, as the split chord's stem does.
+2. **HORIZONTAL, always, for now** — Gould: *"If in doubt use a horizontal beam"*, and *"Horizontal
+   beams… should be placed in the space between the staves"*; it is Sibelius's default too. Her
+   slope rules (p. 315 a–d) are a follow-up, ⛔ not this phase.
+3. **Where the line stands:** *"Position a beam so that the shortest stems in both directions are of
+   equal length"* — midway between the upper chords' lowest head and the lower chords' highest —
+   then moved clear of both staves where the gap allows (*"keep beams clear of the staves where
+   possible… even if this results in unequal stem lengths"*).
+4. **The 2½-space floor:** *"the staves must be far enough apart to give adequate length (at least
+   2½ stave-spaces) to all stems"* — when the shortest stem would be shorter, the group is NOT a
+   cross-staff beam: it falls back to one direction, today's beam (p. 315: *"Place stems in one
+   direction when… the staves cannot be moved further apart"*). ⛔ We do not push the staves apart
+   (Verovio's `RequestStaffSpace`, MuseScore's `minVertSpaceForCrossStaffBeams`) — the gap stays an
+   INPUT; he widens it by hand. ⏭️ A follow-up if wanted.
+5. **An explicit `x` flip on any member wins** — the whole group goes one way, which is Gould's (b),
+   *"above or below the system"*.
+6. ⭐ **All of it is decided in LINE units at build time** (`geoLine`, Phase 2): no y is needed, so
+   the directions are known before the formatter runs — still ONE pass.
+
+*Deferred, said so:* a SPLIT chord inside such a group (the group falls back to one direction);
+a cross-staff group that also crosses a BARLINE (`CrossBarBeams` owns those; untouched); the slope;
+secondary beams on alternate sides to avoid beam corners (Gould p. 316, Stone pp. 13–14).
+
+**✅ BUILT 2026-09-21 — ⏸️ awaiting his UI check.** As planned, with these notes:
+- **4a** — `NoteBuilder` now tells a SPLIT chord (stem toward the other staff) from a WHOLLY crossed
+  one (the ordinary rule, against the middle line of the staff it is written on).
+- **4b** — `engrave/beams/crossStaffBeam.ts`, pure, in line units; `CROSS_STAFF_BEAM` holds its two
+  rows (`minStemSpaces` 2.5 — Gould; `staffClearanceSpaces` 0.5 — ⚠️ unsourced beyond *"keep beams
+  clear of the staves"*).
+- **4c** — `beamGroups.crossStaffPlanFor` asks it; `EngravedBeam.standOnLine` carries the answer as
+  slope 0 + a `lift`, so the stem rule and the beam's ink needed no change at all. A group written
+  ENTIRELY on the other staff is an ordinary beam there, its side read in that staff's clef
+  (`EngravedNote.writtenClef`) — found in the first Chromium render, where it took the home clef's.
+- **Proof:** `crossStaffBeam.test.ts` (the rule), `ScoreRenderer.crossStaff.test.ts` (two stems
+  pointing inward, ending on one line BETWEEN the staves; the uncrossed control; an `x` flip wins),
+  unit 7223 ✓, e2e 306 ✓, eighths and sixteenths looked at in Chromium.
+- ⚠️ **Seen, not fixed:** the other staff's own whole-bar REST stands under notes crossed onto it
+  (nothing tells that staff's rest placement it has visitors); each beat's group finds its own
+  height, so neighbouring cross-staff beams of one bar stand at different levels.
+
+*Steps:* **4a** a wholly-crossed UNBEAMED chord takes the ordinary stem rule of the staff it is
+written on (Phase 2 pointed it at the other staff, which is only right for a split chord) ·
+**4b** `engrave/beams/crossStaffBeam.ts` — pure: directions + the line, or null below the floor ·
+**4c** `beamGroups.buildBeams` asks it; `EngravedBeam` is told the line (slope 0) and the existing
+stem rule (`beamedStems`, which already lengthens a stem AGAINST its beam) does the rest · scene
+test + a look in Chromium.
 
 ## Open — his call, none blocks a phase
 

@@ -43,6 +43,8 @@ import {
 import { stemThicknessPx } from '@/engine/engrave/inheritedDefaults'
 import { fractionalBeamSides } from '@/engine/engrave/beams/fractionalBeam'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
+import { noteLineY } from '@/engine/engrave/staff/staffFrame'
+import { requireNoteFrame } from '../staff/staveFrame'
 import { armedBeamSlopeRule } from '../beams/beamSlopeExperiment'
 import { crossSystemBeamWidth } from '../beams/beamInk'
 
@@ -94,6 +96,15 @@ export class EngravedBeam {
 
   /** How far the line was moved off the first stem's tip to clear an inner stem — VexFlow's `yShift`. */
   lift = 0
+
+  /**
+   * ⭐ CROSS-STAFF (docs/plans/cross-staff-plan.md Phase 4): the staff LINE this beam stands on,
+   * when its notes are written on two staves — decided by `engrave/beams/crossStaffBeam` before the
+   * formatter ran. Set ⇒ the line is HORIZONTAL at that height and the slope search does not run;
+   * the stems then meet it by the ordinary rule, which already lengthens a stem pointing AGAINST its
+   * beam (`engrave/beams/beamedStems`). `null` for every other beam.
+   */
+  private crossStaffLine: number | null = null
 
   /** Fixed at construction, from the first note, as VexFlow's beam fixed it. */
   private readonly stemDirection: number
@@ -149,6 +160,12 @@ export class EngravedBeam {
     this.inkSurface = ctx
   }
 
+  /** @see crossStaffLine */
+  standOnLine(line: number): this {
+    this.crossStaffLine = line
+    return this
+  }
+
   breakSecondaryAt(indexes: number[]): this {
     this.secondaryBreaks = [...indexes]
     return this
@@ -192,6 +209,13 @@ export class EngravedBeam {
    * {@link beamShape} and the search both need.
    */
   private calculateSlope(): void {
+    if (this.crossStaffLine !== null) {
+      // The line is given; `lift` is what carries it, because the stem rule and the ink both read
+      // the line as "the first stem's tip, plus the lift".
+      this.slope = 0
+      this.lift = noteLineY(requireNoteFrame(this.notes[0]), this.crossStaffLine) - this.stems()[0].tipY
+      return
+    }
     const stemDirection = this.stemDirection
     // ⚠️ Read ONCE, before the stems are lengthened — the shape and the search both want these tips.
     const notes = this.stems()

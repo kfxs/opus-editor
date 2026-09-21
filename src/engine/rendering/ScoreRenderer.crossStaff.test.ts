@@ -114,3 +114,77 @@ describe('a head written on the other staff', () => {
     expect(ledgers(renderModel(satie(true).model))).toHaveLength(0)
   })
 })
+
+describe('⭐ Phase 4 — a BEAM between the two staves (Gould pp. 314–315)', () => {
+  const QUARTER_HEAD = 0xe0a4 // `noteheadBlack` — what an eighth is drawn with
+
+  /** Bass staff: an eighth G2, then an eighth E4 — the second written on the treble when `cross`. */
+  function pair(cross: boolean) {
+    const model = new ScoreModel()
+    model.addStaffBelow(0)
+    model.setClef(1, 'bass', model.getScore().staves![1].id)
+    const low = model.addNote({ step: 'G', alter: 0, octave: 2, duration: '8', measure: 1, beat: frac(0, 1), staff: 1 })
+    const high = model.addNote({ step: 'E', alter: 0, octave: 4, duration: '8', measure: 1, beat: frac(1, 2), staff: 1 })
+    if (cross) crossPitches(model.getScore(), [high.id], -1)
+    void low
+    return model
+  }
+
+  const blackHeads = (scene: Scene) => sceneGroups(scene, 'notehead')
+    .flatMap(g => g.children.flatMap(c =>
+      (c.kind === 'text' && c.text.codePointAt(0) === QUARTER_HEAD ? [{ x: c.x, y: c.y }] : [])))
+
+  /** The five lines of each staff, as y's: [treble top … bottom], [bass top … bottom]. */
+  const staffLineYs = (scene: Scene) => [...new Set(sceneGroups(scene, 'stave')
+    .flatMap(g => scenePrimitives(g))
+    .flatMap(p => (p.kind === 'path' && p.ops.length === 2 && p.ops[0].op === 'moveTo' && p.ops[1].op === 'lineTo'
+      && p.ops[0].y === p.ops[1].y ? [p.ops[0].y] : [])))].sort((a, b) => a - b)
+
+  it('stems point INTO the system and meet on one horizontal line in the gap', () => {
+    const scene = renderModel(pair(true))
+    const [high, low] = blackHeads(scene).sort((a, b) => a.y - b.y)
+    const drawn = stems(scene)
+    expect(drawn).toHaveLength(2)
+
+    const lines = staffLineYs(scene)
+    expect(lines).toHaveLength(10)
+    const trebleBottom = lines[4]
+    const bassTop = lines[5]
+
+    const up = drawn.find(s => Math.abs(s.bottom - low.y) < 3)! // from the bass head, UP
+    const down = drawn.find(s => Math.abs(s.top - high.y) < 3)! // from the treble head, DOWN
+    expect(up, 'the bass note’s stem rises from its head').toBeDefined()
+    expect(down, 'the treble note’s stem hangs from its head').toBeDefined()
+    expect(up).not.toBe(down)
+
+    // ⭐ They end on the same line (within a beam's thickness)…
+    expect(Math.abs(up.top - down.bottom)).toBeLessThan(STAFF_SPACE_PX)
+    // …and that line is BETWEEN the staves.
+    for (const y of [up.top, down.bottom]) {
+      expect(y).toBeGreaterThan(trebleBottom)
+      expect(y).toBeLessThan(bassTop)
+    }
+  })
+
+  it('⛔ the control: uncrossed, both stems go the same way', () => {
+    const drawn = stems(renderModel(pair(false)))
+    const heads = blackHeads(renderModel(pair(false)))
+    expect(drawn).toHaveLength(2)
+    // One direction ⇒ both stems start at their heads on the same side: every head is at a stem's
+    // BOTTOM (up) or every head at a stem's TOP (down).
+    const allUp = heads.every(h => drawn.some(s => Math.abs(s.bottom - h.y) < 3))
+    const allDown = heads.every(h => drawn.some(s => Math.abs(s.top - h.y) < 3))
+    expect(allUp || allDown).toBe(true)
+  })
+
+  it('an explicit `x` flip on a member wins — the whole group goes one way', () => {
+    const model = pair(true)
+    const slot = model.getScore().measures[0].slots.find(s => s.type === 'chord')!
+    ;(slot as { stemDirection?: string }).stemDirection = 'up'
+    const scene = renderModel(model)
+    const heads = blackHeads(scene)
+    const drawn = stems(scene)
+    expect(heads.every(h => drawn.some(s => Math.abs(s.bottom - h.y) < 3))).toBe(true)
+  })
+})
+
