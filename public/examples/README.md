@@ -21,9 +21,17 @@ the main bundle — which is already 2 MB — for scores most sessions never ope
 3. Add its row to `EXAMPLES` in `src/menus/examplesMenu.ts` — `{ id, label, file }`. The submenu is
    painted from that table, so the row IS the menu change; nothing else moves.
 
-⚠️ The rows stay greyed until the opener exists: `openExample` on `menuActions`, going through the
-same load path Import uses (`interactions/scoreFileIo.ts` — `beforeLoad` clears the selection,
-`afterLoad` re-renders). ⛔ Never a second loader.
+Opening a row runs `openExampleScore` (`interactions/io/scoreFileIo.ts`), wired in `App.ts` as
+`menuActions.openExample`: it fetches the file and hands the text to the SAME load path Import uses
+— `beforeLoad` clears the selection, `afterLoad` re-renders. ⚠️ It REPLACES the open score with no
+confirmation, as Import does. ⛔ Never a second loader.
+
+## On the shelf
+
+| File | Piece | What it shows |
+|---|---|---|
+| `prelude-bwv846.json` | Bach — Prelude in C, BWV 846 | two staves, a repeating figure, hand-placed rests |
+| `gymnopedie.json` | Satie — 1ère Gymnopédie | **cross-staff** chords (one stem across two staves), long slurs, ties, hairpins |
 
 An example is there to SHOW something — a fanned beam, a four-voice bar, an ottava spanning a system
 break. Keep each one short and about one thing; a demo shelf is not a library.
