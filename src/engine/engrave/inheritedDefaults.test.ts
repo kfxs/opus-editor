@@ -1,3 +1,6 @@
+import { afterEach } from 'vitest'
+import { DEFAULT_MUSIC_FONT, setActiveMusicFont } from '@/engine/fonts/musicFont'
+import { staveLineWidthPx } from '@/engine/engrave/staff/staffLines'
 import { describe, it, expect } from 'vitest'
 import {
   ACCIDENTAL_NOTEHEAD_PADDING_PX,
@@ -8,7 +11,7 @@ import {
   METER_PADDING_PX,
   STAFF_BOTTOM_EDGE_PX,
   STAVE_SIGN_PADDING_PX,
-  STEM_THICKNESS_PX,
+  stemThicknessPx,
   TREMOLO_FONT_SIZE,
   TREMOLO_STROKE_STEP_PX,
 } from './inheritedDefaults'
@@ -23,7 +26,7 @@ import {
  */
 describe('the inherited defaults are the values the editor has always drawn with', () => {
   it('a stem is 1.5 px (0.15 staff spaces) — `Tables.STEM_WIDTH`', () => {
-    expect(STEM_THICKNESS_PX).toBe(1.5)
+    expect(stemThicknessPx()).toBe(1.5)
   })
 
   it('a ledger line overhangs its head by 3 px (0.3 staff spaces) — `StaveNote.LEDGER_LINE_OFFSET`', () => {
@@ -52,5 +55,20 @@ describe('the inherited defaults are the values the editor has always drawn with
   it('a stave sign pads 10 px and a meter 15 — `StaveModifier.padding`, `customPadding`', () => {
     expect(STAVE_SIGN_PADDING_PX).toBe(10)
     expect(METER_PADDING_PX).toBe(15)
+  })
+})
+
+describe('🚧 the line weights follow the music face by RATIO (music-font-switch-plan, follow-up 2)', () => {
+  afterEach(() => { setActiveMusicFont(DEFAULT_MUSIC_FONT) })
+
+  it('Bravura: the stem is 1.5 px and the staff line 1.1 px, exactly as they were', () => {
+    expect(stemThicknessPx()).toBe(1.5)
+    expect(staveLineWidthPx()).toBeCloseTo(1.1, 12)
+  })
+
+  it('another face keeps the house proportion of ITS OWN weight', () => {
+    setActiveMusicFont('leipzig')
+    expect(stemThicknessPx()).toBeCloseTo(1.5 * (0.076 / 0.12), 10)
+    expect(staveLineWidthPx()).toBeCloseTo(1.1 * (0.08 / 0.13), 10)
   })
 })

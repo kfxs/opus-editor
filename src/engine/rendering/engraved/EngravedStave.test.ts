@@ -14,7 +14,7 @@ import { describe, it, expect } from 'vitest'
 import { ScoreModel } from '../../models/ScoreModel'
 import { ScoreRenderer } from '../ScoreRenderer'
 import { scenePrimitives, sceneGroups } from '@/engine/scene/Scene'
-import { STAVE_LINE_WIDTH_PX } from '@/engine/engrave/staff/staffLines'
+import { staveLineWidthPx } from '@/engine/engrave/staff/staffLines'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { fracCreate as frac } from '@/utils/fraction'
 import { EngravedStave } from './EngravedStave'
@@ -69,7 +69,7 @@ describe('⭐⭐ the stave draws its own five lines, through our primitives', ()
 
   it('⭐ each is stroked at OUR thickness — ⛔ never whatever the context happened to carry', () => {
     for (const lines of staveLines(render(2).scene)) {
-      for (const line of lines) expect(line.lineWidth).toBe(STAVE_LINE_WIDTH_PX)
+      for (const line of lines) expect(line.lineWidth).toBe(staveLineWidthPx())
     }
   })
 
@@ -82,12 +82,12 @@ describe('⭐⭐ the stave draws its own five lines, through our primitives', ()
     // (offset = thickness / 2) rather than an artefact of one value.
     const [lines] = staveLines(render(1).scene)
     for (const line of lines) {
-      const top = line.y - STAVE_LINE_WIDTH_PX / 2
-      expect(line.y - top, 'half a thickness').toBeCloseTo(STAVE_LINE_WIDTH_PX / 2, 10)
+      const top = line.y - staveLineWidthPx() / 2
+      expect(line.y - top, 'half a thickness').toBeCloseTo(staveLineWidthPx() / 2, 10)
       // …and consecutive lines are still exactly one staff space apart at their INK's top edge.
       expect(Number.isFinite(top)).toBe(true)
     }
-    const tops = lines.map(l => l.y - STAVE_LINE_WIDTH_PX / 2)
+    const tops = lines.map(l => l.y - staveLineWidthPx() / 2)
     for (let i = 1; i < tops.length; i++) {
       expect(tops[i] - tops[i - 1]).toBeCloseTo(STAFF_SPACE_PX, 6)
     }

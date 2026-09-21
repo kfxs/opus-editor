@@ -7,7 +7,7 @@ import type { DrawContext } from '@/engine/paint/DrawContext'
 import { drawGroupOf } from './painter/svgDrawGroup'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { staffLineY, type StaffFrame } from '@/engine/engrave/staff/staffFrame'
-import { STAVE_LINE_WIDTH_PX, drawStaffLines, staffLinesInk } from '@/engine/engrave/staff/staffLines'
+import { staveLineWidthPx, drawStaffLines, staffLinesInk } from '@/engine/engrave/staff/staffLines'
 import { walkSigns } from '@/engine/engrave/staff/signWalk'
 import { EngravedBarline } from './engraved/EngravedBarline'
 import { EngravedClef } from './engraved/EngravedClef'
@@ -133,7 +133,7 @@ export class GutterRenderer {
           // ⭐ At the SCORE's thickness (the user's call, 2026-09-14): a staff line in the gutter is the same line
           //   as the one it repeats. It used to be 1 px — the SVG context's default stroke, which VexFlow's
           //   `Stave.draw` never overrode — against the score's 0.11 sp.
-          drawStaffLines(surface, staffLinesInk(x, width, ys, STAVE_LINE_WIDTH_PX))
+          drawStaffLines(surface, staffLinesInk(x, width, ys, staveLineWidthPx()))
         } finally {
           surface.closeGroup()
         }

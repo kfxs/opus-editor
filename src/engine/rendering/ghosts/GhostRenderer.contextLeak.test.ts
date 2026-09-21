@@ -21,7 +21,7 @@
  * right answer for a ghost or a highlight, because it recolours without re-engraving.
  */
 import { describe, it, expect, beforeEach } from 'vitest'
-import { STAVE_LINE_WIDTH_PX } from '@/engine/engrave/staff/staffLines'
+import { staveLineWidthPx } from '@/engine/engrave/staff/staffLines'
 import { MusicEngine } from '../../MusicEngine'
 import type { PixelCoordinates } from '../renderTypes'
 
@@ -88,7 +88,7 @@ describe('ghost renders must not leak paint into the shared context', () => {
     // exactly as the renderer's old `setLineWidth` pin did; only the number changed (1 → 0.11 sp,
     // Gould — `docs/research/staff-line-research.md` §8 A). ⭐ The leak assertions below compare against THIS
     // baseline, so they test what they always tested.
-    expect(clean['stroke-width']).toBe(STAVE_LINE_WIDTH_PX)
+    expect(clean['stroke-width']).toBe(staveLineWidthPx())
 
     // A3 whole note in treble: ledger lines, no stem.
     fresh.addNoteAtBeat({

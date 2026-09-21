@@ -19,7 +19,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { MusicEngine } from '../MusicEngine'
 import { engravingDefault } from '@/engine/fonts/fontMetrics'
-import { STAVE_LINE_WIDTH_PX } from '@/engine/engrave/staff/staffLines'
+import { staveLineWidthPx } from '@/engine/engrave/staff/staffLines'
 
 /** What the font says a ledger is worth in staff lines — the whole of the decision under test. */
 const LEDGER_TO_STAFF_LINE =
@@ -30,7 +30,7 @@ const LEDGER_TO_STAFF_LINE =
  * ⛔ no longer 1 px (`docs/research/staff-line-research.md` §8 A). Written as the product rather than a baked
  * number so the ledger keeps FOLLOWING the staff line, which is the entire point of a ratio.
  */
-const LEDGER_WIDTH_PX = STAVE_LINE_WIDTH_PX * LEDGER_TO_STAFF_LINE
+const LEDGER_WIDTH_PX = staveLineWidthPx() * LEDGER_TO_STAFF_LINE
 
 let container: HTMLElement
 let engine: MusicEngine
@@ -79,8 +79,8 @@ describe('ledger line ink', () => {
       expect(drawn).toBeCloseTo(LEDGER_WIDTH_PX, 6)
       // …and the two things that ratio is claiming, said plainly: heavier than a staff line, and
       // nothing like VexFlow's double.
-      expect(drawn, 'heavier than a staff line').toBeGreaterThan(STAVE_LINE_WIDTH_PX)
-      expect(drawn, 'and not VexFlow\'s double').toBeLessThan(2 * STAVE_LINE_WIDTH_PX)
+      expect(drawn, 'heavier than a staff line').toBeGreaterThan(staveLineWidthPx())
+      expect(drawn, 'and not VexFlow\'s double').toBeLessThan(2 * staveLineWidthPx())
     }
   })
 

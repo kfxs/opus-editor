@@ -18,7 +18,7 @@ import type { EngravedStave } from '../engraved/EngravedStave'
 import { EngravedHead } from '../engraved/EngravedHead'
 import { headGlyph } from '@/engine/engrave/notes/keyLines'
 import type { DrawContext } from '@/engine/paint/DrawContext'
-import { STEM_THICKNESS_PX } from '@/engine/engrave/inheritedDefaults'
+import { stemThicknessPx } from '@/engine/engrave/inheritedDefaults'
 import type { Score, Clef, Chord, ChordRest, FanMemberChord, Fraction, KeySignature, NotePitch } from '@/types/music'
 import { fracToNumber } from '@/utils/fraction'
 import { spellingToMidi } from '@/utils/pitchSpelling'
@@ -491,7 +491,7 @@ function drawFanGroups(pass: RenderPass, drawings: FanSlotDrawing[], fanJoins: F
           x: geometry.stems[0].stemX,
           fromY: note.getStemExtents().topY,
           toY: geometry.stems[0].tipY,
-        }, STEM_THICKNESS_PX)
+        }, stemThicknessPx())
       }
       // The joined group's own stems, re-aimed onto the line.
       drawFanPrefixStems(ctx, prefixNotes, geometry.prefixStems)
@@ -592,7 +592,7 @@ function drawFanGroups(pass: RenderPass, drawings: FanSlotDrawing[], fanJoins: F
           // ⭐ P3c — the same ink as every other stem on the page (`engrave/notes/stem`), where
           //   these four lines used to be written out here and once more above. ⛔ No group: a
           //   member's stem shares its member's, which the highlight recolours.
-          drawStem(ctx, { x: member.stemX, fromY: member.baseY, toY: member.tipY }, STEM_THICKNESS_PX)
+          drawStem(ctx, { x: member.stemX, fromY: member.baseY, toY: member.tipY }, stemThicknessPx())
           // The slot's articulation, on THIS head. The mark belongs to the gesture and playback
           // already spends it across the whole group, so drawing it once on member 0 made the
           // picture disagree with the sound — see `fanArticulations`. Inside the member's group,

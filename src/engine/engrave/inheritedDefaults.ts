@@ -25,9 +25,20 @@
  * one before steps S2–S7 would move our ink off its own geometry.
  */
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
+import { engravingDefault, ratioToDefault } from '@/engine/fonts/fontMetrics'
 
 /** A stem's stroke — 0.15 staff spaces. Taken from `Tables.STEM_WIDTH` = 1.5 (`tables.js:595`). */
-export const STEM_THICKNESS_PX = (15 * STAFF_SPACE_PX) / 100
+export const STEM_THICKNESS_SPACES = 0.15
+
+/**
+ * ⭐ A FUNCTION since the music face became a choice (`docs/plans/music-font-switch-plan.md`,
+ * follow-up 2): 0.15 sp is the weight AGAINST BRAVURA (whose `stemThickness` is 0.12), and another
+ * face keeps that proportion of its own — Leipzig's 0.076 draws at 0.095 sp, Sebastian's 0.125 at
+ * 0.156. Exactly 1.5 px for Bravura. ⛔ Never freeze it in a module constant.
+ */
+export function stemThicknessPx(): number {
+  return ((STEM_THICKNESS_SPACES * 100 * STAFF_SPACE_PX) / 100) * ratioToDefault(() => engravingDefault('stemThickness'))
+}
 
 /**
  * ⭐⭐ **A STEM'S DEFAULT LENGTH — 3.5 staff spaces, measured from the notehead the stem stands on.**

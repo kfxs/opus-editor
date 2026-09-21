@@ -34,7 +34,7 @@ import { placeHeaderRun } from './staff/headerPlacementPass'
 import { keyStaffId } from '@/engine/models/staffContent'
 import { keySignatureInkRight, renderKeySignatures } from './staff/KeySignaturePass'
 import { SvgPainter } from './painter/SvgPainter'
-import { NOTE_AREA_PADDING_PX, STEM_THICKNESS_PX } from '@/engine/engrave/inheritedDefaults'
+import { NOTE_AREA_PADDING_PX, stemThicknessPx } from '@/engine/engrave/inheritedDefaults'
 import { scaling } from '@/engine/paint/Affine'
 import { drawGroupOf, svgNode } from './painter/svgDrawGroup'
 import { SceneRecorder } from '@/engine/scene/SceneRecorder'
@@ -1169,7 +1169,7 @@ export class ScoreRenderer {
         beat,
         // The drawn line is STEM_THICKNESS_PX wide, centred on x. Clicking it is padded by the registry
         // (STEM_CLICK_PAD) rather than here, so what is stored stays the ink and not a target.
-        bbox: { x: x - STEM_THICKNESS_PX / 2, y, width: STEM_THICKNESS_PX, height },
+        bbox: { x: x - stemThicknessPx() / 2, y, width: stemThicknessPx(), height },
       })
     } catch (_e) { /* stem geometry may not be available pre-draw */ }
   }
@@ -2953,7 +2953,7 @@ export class ScoreRenderer {
     const beamThickness = beam.beamWidth * beam.getStemDirection()
     const beamY0 = beam.getBeamYToDraw()
     const overhang = (edge: EngravedNote, direction: number, levels: number) => {
-      const startX = beamLineStartX(noteRuler(edge).stemX, STEM_THICKNESS_PX)
+      const startX = beamLineStartX(noteRuler(edge).stemX, stemThicknessPx())
       const endX = this.crossSystemOverhangEndX(side, startX, direction, scale)
       fillBeamRun(pass.context, beamLevelRun(
         { startX, endX }, beamY0, beamThickness, levels,
@@ -3005,7 +3005,7 @@ export class ScoreRenderer {
     const levels = side.members[0].beamCount
     const beamThickness = crossSystemBeamWidth() * noteRuler(note).stemDirection
     const beamY0 = stem.getExtents().topY // the stem tip, flat — a lone note has no slope to continue.
-    const startX = beamLineStartX(noteRuler(note).stemX, STEM_THICKNESS_PX)
+    const startX = beamLineStartX(noteRuler(note).stemX, stemThicknessPx())
     // Left is the short fixed stub; right runs to the barline (see crossSystemOverhangEndX).
     const leftEndX = this.crossSystemOverhangEndX(side, startX, -1, scale)
     const rightEndX = this.crossSystemOverhangEndX(side, startX, 1, scale)
@@ -4886,7 +4886,7 @@ export class ScoreRenderer {
  * property, beside the code that now draws it, exactly as its old comment predicted it would.
  * Re-exported here because `KeySignaturePass` and the browser suite reach for it by this path.
  */
-export { STAVE_LINE_WIDTH_PX } from '@/engine/engrave/staff/staffLines'
+export { staveLineWidthPx } from '@/engine/engrave/staff/staffLines'
 
 function noteStartOf(stave: EngravedStave): number {
   return barFrame(stave).noteStartX + NOTE_AREA_PADDING_PX

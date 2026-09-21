@@ -23,7 +23,7 @@
  */
 import type { DrawContext } from '@/engine/paint/DrawContext'
 import { noteFont, type FontRow } from '@/engine/engrave/inheritedFonts'
-import { STEM_THICKNESS_PX } from '@/engine/engrave/inheritedDefaults'
+import { stemThicknessPx } from '@/engine/engrave/inheritedDefaults'
 import { measureTextMetrics, type GlyphMetrics } from '../painter/glyphPainter'
 
 /** What a head stands on — the one question it asks of a stave. */
@@ -125,7 +125,7 @@ export class EngravedHead {
 
   /** Where it is drawn from — `x`, or a displaced head's crossing of the stem (`NoteHead.getAbsoluteX`). */
   getAbsoluteX(): number {
-    return this.x + (this.displaced ? (this.getWidth() - STEM_THICKNESS_PX / 2) * this.stemDirection : 0)
+    return this.x + (this.displaced ? (this.getWidth() - stemThicknessPx() / 2) * this.stemDirection : 0)
   }
 
   /** `NoteHead.setStave`: its y from its line, and the stave's context. */

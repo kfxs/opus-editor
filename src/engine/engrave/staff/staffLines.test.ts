@@ -7,7 +7,7 @@
  */
 import { describe, it, expect } from 'vitest'
 import {
-  STAVE_LINE_WIDTH_PX, staffLineStrokeY, staffLinesInk,
+  staveLineWidthPx, staffLineStrokeY, staffLinesInk,
 } from './staffLines'
 
 /** VexFlow's own correction, transcribed here ONLY so the divergence can be asserted against it. */
@@ -52,13 +52,13 @@ describe("🚨 …and VexFlow's correction only ever agreed at thickness 1", () 
    * did — so the module's own rule is now the only thing keeping the ink where it belongs.
    */
   it('🚨 at the thickness we NOW ship, the two no longer agree', () => {
-    expect(STAVE_LINE_WIDTH_PX).toBeCloseTo(1.1, 10)
-    expect(staffLineStrokeY(40, STAVE_LINE_WIDTH_PX))
-      .not.toBeCloseTo(40 + halfPixelCorrection(STAVE_LINE_WIDTH_PX), 6)
+    expect(staveLineWidthPx()).toBeCloseTo(1.1, 10)
+    expect(staffLineStrokeY(40, staveLineWidthPx()))
+      .not.toBeCloseTo(40 + halfPixelCorrection(staveLineWidthPx()), 6)
   })
 
   it('⭐ …and OURS is the one that puts the ink on [y, y + thickness]', () => {
-    const t = STAVE_LINE_WIDTH_PX
+    const t = staveLineWidthPx()
     // VexFlow's correction is a flat 0.5 for any odd width, so it would hang the ink 0.05 px high.
     expect(40 + halfPixelCorrection(t) - t / 2).toBeCloseTo(39.95, 10)
     expect(staffLineStrokeY(40, t) - t / 2).toBeCloseTo(40, 10)

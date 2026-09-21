@@ -1,5 +1,5 @@
 import type { EngravedNote } from './EngravedNote'
-import { NOTE_GLYPH_SCALE, STEM_THICKNESS_PX, TREMOLO_FONT_SIZE, TREMOLO_STROKE_STEP_PX } from '@/engine/engrave/inheritedDefaults'
+import { NOTE_GLYPH_SCALE, stemThicknessPx, TREMOLO_FONT_SIZE, TREMOLO_STROKE_STEP_PX } from '@/engine/engrave/inheritedDefaults'
 import type { TremoloMark } from '@/types/music'
 import { tremoloGlyph } from '@/utils/tremoloGlyphs'
 import { noteFrame } from '../staff/staveFrame'
@@ -256,7 +256,7 @@ export class CenteredTremolo extends EngravedModifier {
     // a height from — VexFlow builds the `Stem` object regardless — but no stem INK to line up with.
     // Height from the imaginary stem, x from the notehead.
     const x = note.hasStem()
-      ? note.getAbsoluteX() + (stemDirection === STEM_UP ? note.getGlyphWidth() - STEM_THICKNESS_PX / 2 : STEM_THICKNESS_PX / 2)
+      ? note.getAbsoluteX() + (stemDirection === STEM_UP ? note.getGlyphWidth() - stemThicknessPx() / 2 : stemThicknessPx() / 2)
       : note.getAbsoluteX() + note.getGlyphWidth() / 2
 
     const { ascent, descent } = this.measureStroke(scale)

@@ -45,7 +45,7 @@ import { compose, scaling, translation } from '@/engine/paint/Affine'
 import { drawGroupOf } from '../painter/svgDrawGroup'
 import type { Score } from '@/types/music'
 import { thinBarlinePx, staffBarlineExtent } from './barlineInk'
-import { STAVE_LINE_WIDTH_PX, staffLineInkBottomY } from '@/engine/engrave/staff/staffLines'
+import { staveLineWidthPx, staffLineInkBottomY } from '@/engine/engrave/staff/staffLines'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { glyphBox } from '@/engine/fonts/fontMetrics'
 import { groupsAt } from '@/engine/models/staffGroups'
@@ -192,7 +192,7 @@ function spanTopY(top: SystemStartPlacement): number {
  */
 function spanBottomY(bottom: SystemStartPlacement): number {
   const last = staffBottomLineY(staveFrame(bottom.stave))
-  return staffLineInkBottomY(last, STAVE_LINE_WIDTH_PX) * bottom.scale
+  return staffLineInkBottomY(last, staveLineWidthPx()) * bottom.scale
 }
 
 /**

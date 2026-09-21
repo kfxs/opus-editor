@@ -31,7 +31,7 @@
  * arithmetic that turns it into an x. Nothing here reorders anything — `member.pitches[0].id` is
  * the id every fan command addresses a member by, and a sorted copy that leaked back would move it.
  */
-import { STEM_THICKNESS_PX } from '@/engine/engrave/inheritedDefaults'
+import { stemThicknessPx } from '@/engine/engrave/inheritedDefaults'
 
 /**
  * A second, on the line grid `staffLineForSpelling` speaks: 1 = one staff LINE = a third, so a step
@@ -87,5 +87,5 @@ export function chordHeadDisplacement(lines: number[], stemDirection: number): b
  * would be stale.
  */
 export function displacedHeadShiftPx(glyphWidth: number): number {
-  return glyphWidth - STEM_THICKNESS_PX / 2
+  return glyphWidth - stemThicknessPx() / 2
 }

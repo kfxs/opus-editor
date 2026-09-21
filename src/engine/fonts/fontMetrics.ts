@@ -93,6 +93,25 @@ function activeTable(): FontTable {
  * ⭐ **Exactly 0 for the default face — not "nearly"**: the question is not even asked, so no row
  * moves by a float's last digit while Bravura is selected.
  */
+/**
+ * ⭐ **The same question as a RATIO** — active ÷ default — for the quantities that scale rather than
+ * shift: a line WEIGHT. Where a house style set its own weight against Bravura's (the staff line is
+ * Gould's 0.11 where Bravura says 0.13; the stem 0.15 where it says 0.12), another face keeps that
+ * proportion: `house × ratioToDefault(() => engravingDefault('staffLineThickness'))`.
+ * ⭐ Exactly 1 for the default face, the question not asked. ⛔ 1 too if the default states 0.
+ */
+export function ratioToDefault(quantity: () => number): number {
+  if (activeMusicFont().id === DEFAULT_MUSIC_FONT) return 1
+  const here = quantity()
+  pinnedTable = FONT_TABLES[DEFAULT_MUSIC_FONT]
+  try {
+    const there = quantity()
+    return there === 0 ? 1 : here / there
+  } finally {
+    pinnedTable = null
+  }
+}
+
 export function differenceFromDefault(quantity: () => number): number {
   if (activeMusicFont().id === DEFAULT_MUSIC_FONT) return 0
   const here = quantity()

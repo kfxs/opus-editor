@@ -40,6 +40,7 @@
  */
 import type { DrawContext } from '@/engine/paint/DrawContext'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
+import { engravingDefault, ratioToDefault } from '@/engine/fonts/fontMetrics'
 
 /**
  * One staff line's ink — the bar it occupies, ⛔ not the path used to make it.
@@ -176,4 +177,15 @@ export function fillStaffLine(ctx: DrawContext, line: StaffLineInk): void {
  * shape is a swappable set of engraving defaults, the direction `__beams.rule(…)` and
  * `__spacing.law(…)` already point in. See `project_engraving_defaults_are_a_house_style`.
  */
-export const STAVE_LINE_WIDTH_PX = 0.11 * STAFF_SPACE_PX
+export const STAVE_LINE_SPACES = 0.11
+
+/**
+ * The staff line's weight in px. ⭐ A FUNCTION since the music face became a choice
+ * (`docs/plans/music-font-switch-plan.md`, follow-up 2): {@link STAVE_LINE_SPACES} is the house
+ * weight AGAINST BRAVURA (0.11 where Bravura states 0.13), and another face keeps that proportion of
+ * ITS OWN `staffLineThickness` — Leipzig's 0.08 draws at 0.068 sp, Sebastian's 0.13 at 0.11.
+ * ⭐ For Bravura the ratio is exactly 1: 1.1 px, as it was. ⛔ Never freeze it in a module constant.
+ */
+export function staveLineWidthPx(): number {
+  return STAVE_LINE_SPACES * STAFF_SPACE_PX * ratioToDefault(() => engravingDefault('staffLineThickness'))
+}

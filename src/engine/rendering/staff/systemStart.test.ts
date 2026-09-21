@@ -18,7 +18,7 @@ import type { EngravedStave } from '../engraved/EngravedStave'
 import { renderSystemStarts, type SystemStartPlacement } from './systemStart'
 import { thinBarlinePx } from './barlineInk'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
-import { STAVE_LINE_WIDTH_PX, staffLineInkBottomY, staffLineMidY } from '@/engine/engrave/staff/staffLines'
+import { staveLineWidthPx, staffLineInkBottomY, staffLineMidY } from '@/engine/engrave/staff/staffLines'
 import { glyphBox } from '@/engine/fonts/fontMetrics'
 import {
   BRACKET_DEPTH_SPACES, SIGN_SEPARATION_SPACES, SIGN_TO_BARLINE_SPACES, scoreSystemStartIndentPx,
@@ -45,9 +45,9 @@ import type { Score } from '@/types/music'
  * brace and the bracket against the CONNECTOR's rect, which worked only while the two agreed.
  */
 const SPAN_TOP = 0
-const SPAN_BOTTOM = staffLineInkBottomY(240, STAVE_LINE_WIDTH_PX)
-const BAR_TOP = staffLineMidY(0, STAVE_LINE_WIDTH_PX)
-const BAR_BOTTOM = staffLineMidY(240, STAVE_LINE_WIDTH_PX)
+const SPAN_BOTTOM = staffLineInkBottomY(240, staveLineWidthPx())
+const BAR_TOP = staffLineMidY(0, staveLineWidthPx())
+const BAR_BOTTOM = staffLineMidY(240, staveLineWidthPx())
 
 /** A two-staff score with NO grouping symbol — so only the systemic barline is ever drawn. */
 const noSigns = { id: 's', title: '', measures: [], staves: [{ id: 'a' }, { id: 'b' }] } as unknown as Score
@@ -132,9 +132,9 @@ describe('the systemic barline — where its ink lands', () => {
       at(1, 0, 100, { scale: 1 }),      // full size: top line at 100
       at(1, 1, 300, { scale: 0.5 }),    // a SMALL staff: its bottom line's middle at 340.55 × 0.5
     ], 2, null)
-    const top = staffLineMidY(100, STAVE_LINE_WIDTH_PX)
+    const top = staffLineMidY(100, staveLineWidthPx())
     expect(rects[0].y).toBeCloseTo(top, 10)
-    expect(rects[0].h).toBeCloseTo(staffLineMidY(340, STAVE_LINE_WIDTH_PX) * 0.5 - top, 6)
+    expect(rects[0].h).toBeCloseTo(staffLineMidY(340, staveLineWidthPx()) * 0.5 - top, 6)
   })
 
   it('⚠️ draws inside a `stavebarline` group, which is the handle `hintBarlines` collects', () => {

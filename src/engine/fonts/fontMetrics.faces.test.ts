@@ -1,5 +1,8 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import { anchor, engravingDefault, fallbackDefaults, fallbackGlyphs, glyphBox, type GlyphName } from './fontMetrics'
+import {
+  anchor, differenceFromDefault, engravingDefault, fallbackDefaults, fallbackGlyphs, glyphBox, ratioToDefault,
+  type GlyphName,
+} from './fontMetrics'
 import * as bravura from './bravuraMetrics'
 import * as leipzig from './leipzigMetrics'
 import * as sebastian from './sebastianMetrics'
@@ -67,5 +70,33 @@ describe('fontMetrics reads the ACTIVE face', () => {
     setActiveMusicFont('sebastian')
     setActiveMusicFont('bravura')
     expect(engravingDefault('beamThickness')).toBe(bravura.ENGRAVING_DEFAULTS.beamThickness)
+  })
+})
+
+describe('differenceFromDefault / ratioToDefault — how a house row follows the face', () => {
+  const staffLine = () => engravingDefault('staffLineThickness')
+
+  it('⭐ exactly 0 and exactly 1 on Bravura — the question is not even asked', () => {
+    let asked = 0
+    const counted = () => { asked++; return staffLine() }
+    expect(differenceFromDefault(counted)).toBe(0)
+    expect(ratioToDefault(counted)).toBe(1)
+    expect(asked).toBe(0)
+  })
+
+  it('another face answers against Bravura’s table, and the pin does not leak', () => {
+    setActiveMusicFont('leipzig')
+    const own = leipzig.ENGRAVING_DEFAULTS.staffLineThickness
+    const base = bravura.ENGRAVING_DEFAULTS.staffLineThickness
+    expect(differenceFromDefault(staffLine)).toBeCloseTo(own - base, 12)
+    expect(ratioToDefault(staffLine)).toBeCloseTo(own / base, 12)
+    expect(staffLine(), 'still Leipzig’s afterwards').toBe(own)
+  })
+
+  it('a quantity that throws still unpins the table', () => {
+    setActiveMusicFont('leipzig')
+    let calls = 0
+    expect(() => ratioToDefault(() => { if (++calls === 2) throw new Error('x'); return 1 })).toThrow('x')
+    expect(staffLine()).toBe(leipzig.ENGRAVING_DEFAULTS.staffLineThickness)
   })
 })

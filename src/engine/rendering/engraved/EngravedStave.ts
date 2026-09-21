@@ -31,7 +31,7 @@ import type { DrawContext } from '@/engine/paint/DrawContext'
 import type { Clef as ScoreClef, TimeSignature as Meter } from '@/types/music'
 import type { ClefSize } from '@/engine/engrave/header/clefSign'
 import type { BarlineKind } from '@/engine/engrave/staff/barlineMetrics'
-import { STAVE_LINE_WIDTH_PX, drawStaffLines, staffLinesInk } from '@/engine/engrave/staff/staffLines'
+import { staveLineWidthPx, drawStaffLines, staffLinesInk } from '@/engine/engrave/staff/staffLines'
 import { EngravedBarline } from './EngravedBarline'
 import { EngravedClef } from './EngravedClef'
 import { EngravedTimeSignature } from './EngravedTimeSignature'
@@ -369,7 +369,7 @@ export class EngravedStave {
       if (this.options.lineConfig[line].visible) ys.push(staffLineY(frame, line))
     }
     const bar = barFrame(this)
-    return staffLinesInk(bar.x, bar.width, ys, STAVE_LINE_WIDTH_PX)
+    return staffLinesInk(bar.x, bar.width, ys, staveLineWidthPx())
   }
 }
 

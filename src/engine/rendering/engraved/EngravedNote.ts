@@ -65,7 +65,7 @@ import type { ScoreTuplet } from './ScoreTuplet'
 import type { DrawGroup } from '@/engine/paint/DrawGroup'
 import { drawGroupOf, svgNode } from '../painter/svgDrawGroup'
 import { EngravedHead } from './EngravedHead'
-import { LEDGER_OVERHANG_PX, NOTE_AREA_PADDING_PX, NOTEHEAD_MIN_PADDING_PX, NOTE_ANNOTATION_SPACING_PX, NOTE_DURATION_ROWS, NOTE_GLYPH_SCALE, STEM_LENGTH_PX, STEM_THICKNESS_PX } from '@/engine/engrave/inheritedDefaults'
+import { LEDGER_OVERHANG_PX, NOTE_AREA_PADDING_PX, NOTEHEAD_MIN_PADDING_PX, NOTE_ANNOTATION_SPACING_PX, NOTE_DURATION_ROWS, NOTE_GLYPH_SCALE, STEM_LENGTH_PX, stemThicknessPx } from '@/engine/engrave/inheritedDefaults'
 import { stemExtents, stemLineHeight, type StemSpan } from '@/engine/engrave/notes/stemLength'
 import { noteFont } from '@/engine/engrave/inheritedFonts'
 import type { DrawContext } from '@/engine/paint/DrawContext'
@@ -257,7 +257,7 @@ export class EngravedStem {
   }
 
   adjustHeightForBeam(): void {
-    this.renderHeightAdjustment = -STEM_THICKNESS_PX / 2
+    this.renderHeightAdjustment = -stemThicknessPx() / 2
   }
 
   getStyle(): StemStyle {
@@ -360,7 +360,7 @@ export class EngravedStem {
         x,
         fromY: from - stemletOffset + baseOffset,
         toY: from - height - this.renderHeightAdjustment * this.stemDirection,
-      }, STEM_THICKNESS_PX)
+      }, stemThicknessPx())
     } finally {
       ctx.closeGroup()
     }
@@ -1604,7 +1604,7 @@ export class EngravedNote {
     const tipY = (up ? yBottom : yTop) - this.checkStem().getHeight()
     const metrics = this.flag.getTextMetrics()
     const reach = up ? metrics.actualBoundingBoxAscent : metrics.actualBoundingBoxDescent
-    const at = flagPlacement({ x: this.getStemX(), tipY, up }, STEM_THICKNESS_PX, reach)
+    const at = flagPlacement({ x: this.getStemX(), tipY, up }, stemThicknessPx(), reach)
 
     // 🚨🚨 **THE WRITE-BACK, and it is the whole reason this class keeps the object.** VexFlow's own
     // `drawFlag` is `this.flag.setContext(ctx).setX(flagX).setY(flagY).drawWithStyle()` — the

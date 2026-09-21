@@ -1,7 +1,7 @@
 import { staffBottomLineY, staffLineY, type StaffFrame } from '@/engine/engrave/staff/staffFrame'
 import { STAFF_SPACE_PX } from '../../models/staffSize'
 import { thinLineSpaces } from '@/engine/layout/thinLineWeight'
-import { STAVE_LINE_WIDTH_PX } from '@/engine/engrave/staff/staffLines'
+import { staveLineWidthPx } from '@/engine/engrave/staff/staffLines'
 import { barlineExtent, type BarlineExtent } from '@/engine/engrave/staff/barlineExtent'
 
 /**
@@ -57,7 +57,7 @@ export function staffBarlineExtent(frame: StaffFrame): BarlineExtent {
   return barlineExtent(
     staffLineY(frame, 0),
     staffBottomLineY(frame),
-    STAVE_LINE_WIDTH_PX,
+    staveLineWidthPx(),
   )
 }
 

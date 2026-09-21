@@ -1,7 +1,7 @@
 import type { Clef, KeySignature, TimeSignature } from '@/types/music'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { engravingDefault } from '@/engine/fonts/fontMetrics'
-import { STAVE_LINE_WIDTH_PX } from '@/engine/engrave/staff/staffLines'
+import { staveLineWidthPx } from '@/engine/engrave/staff/staffLines'
 
 /**
  * Layout configuration for proportional measure spacing.
@@ -263,7 +263,7 @@ export function ledgerLineStyle(): { strokeStyle: string; lineWidth: number } {
   // ⚠️ A function: the RATIO is the active music face's (docs/plans/music-font-switch-plan.md B3).
   return {
     strokeStyle: '#000000',
-    lineWidth: STAVE_LINE_WIDTH_PX
+    lineWidth: staveLineWidthPx()
       * (engravingDefault('legerLineThickness') / engravingDefault('staffLineThickness')),
   }
 }

@@ -40,7 +40,7 @@ import { beamedStemExtension } from '@/engine/engrave/beams/beamedStems'
 import {
   type BeamLineSpan, type BeamSide, FRACTIONAL_BEAM_LENGTH_PX, TICKS_PER_WHOLE, beamLineSpans,
 } from '@/engine/engrave/beams/beamLineSpans'
-import { STEM_THICKNESS_PX } from '@/engine/engrave/inheritedDefaults'
+import { stemThicknessPx } from '@/engine/engrave/inheritedDefaults'
 import { fractionalBeamSides } from '@/engine/engrave/beams/fractionalBeam'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { armedBeamSlopeRule } from '../beams/beamSlopeExperiment'
@@ -239,7 +239,7 @@ export class EngravedBeam {
   private getBeamLines(duration: string): BeamLineSpan[] {
     return beamLineSpans({
       notes: this.notes.map(note => ({
-        lineX: beamLineStartX(note.getStemX(), STEM_THICKNESS_PX),
+        lineX: beamLineStartX(note.getStemX(), stemThicknessPx()),
         ticks: ticksValue(note.getTicks()),
         intrinsicTicks: note.getIntrinsicTicks(),
       })),

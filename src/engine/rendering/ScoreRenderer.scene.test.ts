@@ -39,7 +39,7 @@ import { ScoreRenderer } from './ScoreRenderer'
 import { scenePrimitives, sceneGroups, walkScene } from '@/engine/scene/Scene'
 import { ledgerLineStyle } from '@/engine/layout/layoutConfig'
 import { thinBarlinePx } from './staff/barlineInk'
-import { STAVE_LINE_WIDTH_PX, staffLineMidY } from '@/engine/engrave/staff/staffLines'
+import { staveLineWidthPx, staffLineMidY } from '@/engine/engrave/staff/staffLines'
 import { meterOriginX } from '@/engine/engrave/header/meter'
 import { armedClefMeterInk } from '@/engine/layout/clefMeterGap'
 import { glyphBox } from '@/engine/fonts/fontMetrics'
@@ -776,9 +776,9 @@ describe('⭐⭐ P5b — the OPENING BARLINE in the scene, and the DOM repair th
     const lines = staffLineYs(scene).slice(0, 5)
     expect(lines.length, 'five lines on the first stave').toBe(5)
     expect(opening.y, 'the top line’s middle')
-      .toBeCloseTo(staffLineMidY(lines[0], STAVE_LINE_WIDTH_PX), 10)
+      .toBeCloseTo(staffLineMidY(lines[0], staveLineWidthPx()), 10)
     expect(opening.y + opening.height, 'the bottom line’s middle')
-      .toBeCloseTo(staffLineMidY(lines[4], STAVE_LINE_WIDTH_PX), 10)
+      .toBeCloseTo(staffLineMidY(lines[4], staveLineWidthPx()), 10)
     // ⭐ …so it is exactly four staff spaces, and ⛔ no longer a staff plus a line thickness.
     expect(opening.height, 'four spaces, whatever the lines are drawn at')
       .toBeCloseTo(lines[4] - lines[0], 10)

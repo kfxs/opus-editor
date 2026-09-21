@@ -23,7 +23,7 @@ import type { Spine } from '@/engine/engrave/staff/staffSpine'
 import { placementAt } from '@/engine/engrave/staff/staffSpine'
 import { drawSpineLines } from '@/engine/engrave/staff/spineLines'
 import { staffLineY } from '@/engine/engrave/staff/staffFrame'
-import { STAVE_LINE_WIDTH_PX } from '@/engine/engrave/staff/staffLines'
+import { staveLineWidthPx } from '@/engine/engrave/staff/staffLines'
 import type { Clef, NoteDuration, PitchAlter, PitchStep, TimeSignature } from '@/types/music'
 import { middleLineDiatonicPos } from '@/utils/clefUtils'
 import { spellingDiatonicPos, spellingToNoteKey } from '@/utils/pitchSpelling'
@@ -143,7 +143,7 @@ export function drawSpineBarline(ctx: DrawContext, spine: Spine, s: number, thic
     ctx.setLineWidth(thickness)
     ctx.beginPath()
     ctx.moveTo(0, staffLineY(frame, 0))
-    ctx.lineTo(0, staffLineY(frame, frame.lineCount - 1) + STAVE_LINE_WIDTH_PX)
+    ctx.lineTo(0, staffLineY(frame, frame.lineCount - 1) + staveLineWidthPx())
     ctx.stroke()
   } finally {
     ctx.closeGroup()
@@ -153,7 +153,7 @@ export function drawSpineBarline(ctx: DrawContext, spine: Spine, s: number, thic
 
 /** The five lines along all of `spine`. */
 export function drawSpineStaffLines(ctx: DrawContext, spine: Spine): void {
-  drawSpineLines(ctx, spine, blockFrame(), STAVE_LINE_WIDTH_PX)
+  drawSpineLines(ctx, spine, blockFrame(), staveLineWidthPx())
 }
 
 /** A whole staff on `spine`: its lines along all of it, then each note as its own placed block. */

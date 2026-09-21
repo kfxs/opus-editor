@@ -24,7 +24,7 @@
  *
  * ⛔ No note, no stave, no VexFlow: the caller reads the note (`rendering/engraved/EngravedNote`).
  */
-import { STEM_THICKNESS_PX } from '@/engine/engrave/inheritedDefaults'
+import { stemThicknessPx } from '@/engine/engrave/inheritedDefaults'
 
 /** A stem pointing UP / DOWN — VexFlow's `Stem.UP` / `Stem.DOWN`. */
 const STEM_UP = 1
@@ -92,5 +92,5 @@ export function stemX(note: NoteXInputs): number {
   const edge = note.stemDirection === STEM_DOWN
     ? note.originX + note.xShift
     : note.originX + note.xShift + note.glyphWidth
-  return edge + (note.stemDirection ? STEM_THICKNESS_PX / (2 * -note.stemDirection) : 0)
+  return edge + (note.stemDirection ? stemThicknessPx() / (2 * -note.stemDirection) : 0)
 }

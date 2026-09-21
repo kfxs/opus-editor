@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   displacedHeadRoom, glyphCentreX, headsLeftX, headsRightX, stemX, tieLeftX, type NoteXInputs,
 } from './noteGeometry'
-import { STEM_THICKNESS_PX } from '@/engine/engrave/inheritedDefaults'
+import { stemThicknessPx } from '@/engine/engrave/inheritedDefaults'
 
 function note(over: Partial<NoteXInputs> = {}): NoteXInputs {
   return { originX: 100, xShift: 4, glyphWidth: 12, stemDirection: 1, isRestType: false, ...over }
@@ -16,11 +16,11 @@ describe('noteGeometry — a note’s x’s', () => {
   })
 
   it('a stem UP stands at the heads’ right edge, half a stroke inside them', () => {
-    expect(stemX(note())).toBe(116 - STEM_THICKNESS_PX / 2)
+    expect(stemX(note())).toBe(116 - stemThicknessPx() / 2)
   })
 
   it('a stem DOWN stands at their left edge, half a stroke inside', () => {
-    expect(stemX(note({ stemDirection: -1 }))).toBe(104 + STEM_THICKNESS_PX / 2)
+    expect(stemX(note({ stemDirection: -1 }))).toBe(104 + stemThicknessPx() / 2)
   })
 
   it('a note with no direction takes the right edge and no half-stroke', () => {

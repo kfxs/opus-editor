@@ -30,6 +30,16 @@
    face without `gClefChange`/`cClefChange`/`fClefChange` draws ITS OWN full clef reduced by the
    ratio, as today — ⛔ never Bravura's small clef in another face's score. When the `*Change` glyphs
    are adopted they must NOT join `FALLBACK_GLYPHS`, and the test asks the chosen face alone.
+   ⚠️ **…and it is probably not the only one — BE AWARE, and write each down here when met** (his
+   note, 2026-09-21). The automatic Bravura fallback is safe for a glyph that stands ALONE (a
+   `bracket`). It is suspect for a glyph that is one of a FAMILY the eye reads together, where one
+   borrowed member sits beside the face's own: the three noteheads, a flag against its stem and head,
+   the meter's digits (one Bravura digit inside `12`), a dynamic's letters (`m` beside the face's
+   `f`), an accidental beside its key signature, a brace alternate beside the face's `brace`. None
+   of these is missing from Leipzig or Sebastian today (their borrowed glyphs are brackets and brace
+   alternates); the rule when one turns up is the clef's — fall back as a FAMILY or to the face's own
+   means, ⛔ not one glyph at a time. `FALLBACK_GLYPHS` and the dev picker's tooltip are where a new
+   case becomes visible.
 5. **The UI chrome keeps Bravura.** The Keypad (baked outlines), the windows' pictures and the menus
    name Bravura on purpose; they are the interface's face, not the score's.
 6. A new feature adds a MODULE: the active font is `engine/fonts/musicFont.ts`, ⛔ not a field on
@@ -151,7 +161,18 @@ back on Bravura nothing has moved (unit + e2e green, unchanged). ⏸️ Stop for
 >    the rest's `right`, `ACCIDENTAL_WIDTH`/`HEIGHT` by the sign's box, `flagReach`, `dotWidth`,
 >    ledgers by `legerLineExtension`). Zero for Bravura by construction, keeps each row's house
 >    rounding, and needs `INK` / `MIN_COLUMN_GAP` / `EMPTY_BAR_FLOOR_PX` thawed like B3.
-> 2. **What does NOT follow the face yet, because it never read the font:** the staff line (1 px),
+> 2. ✅ **BUILT 2026-09-21.** `fontMetrics.ratioToDefault` (exactly 1 on Bravura) — a WEIGHT scales,
+>    it does not shift. The staff line is `staveLineWidthPx()` = Gould's 0.11 × (face's
+>    `staffLineThickness` ÷ Bravura's 0.13): Leipzig 0.068 sp, Sebastian 0.11. The stem is
+>    `stemThicknessPx()` = 0.15 × (face's `stemThickness` ÷ 0.12): Leipzig 0.095, Sebastian 0.156.
+>    ⭐ His house weights are kept as PROPORTIONS of the font's, never replaced by it. ⭐ And this is
+>    what cured Leipzig's ledger line: the ledger is `leger/staff` × the DRAWN staff line, and with the
+>    staff line now the face's too it comes out 0.135 sp in Leipzig — the same as Bravura's — where it
+>    was 2× the staff line. The in-bar BEAM needed nothing: `EngravedBeam` already reads
+>    `crossSystemBeamWidth()`, the face's `beamThickness`, since B3 (all three faces say 0.5).
+>    ⏭️ Still not the face's: the hairpin is the face's RAW `staffLineThickness` (his eye set it
+>    against Bravura's 0.13), stem LENGTH (3½ sp, a rule not a font fact), and the beam gap.
+>    As the follow-up was written: what does NOT follow the face yet, because it never read the font: the staff line (1 px),
 >    the stem (`STEM_WIDTH` 1.5 px, an inherited row — Leipzig says 0.076 sp, Bravura 0.12), beam
 >    thickness in-bar, and every glyph the canvas measures (that already follows, by measurement).
 > 3. The UI chrome and the Keypad's baked icons stay Bravura (rule 5).
@@ -182,6 +203,29 @@ and rule 4 already says the box, anchors and drawing of a glyph travel TOGETHER 
 which is exactly what a per-glyph override needs. ⚠️ The drawing half is the open part: a CSS stack
 can only express "first face that HAS the glyph", never "prefer Bravura for U+E0A2", so a per-glyph
 choice means `glyphPainter` resolving the family per glyph. Its own plan when he asks for it.
+
+## 4b. ⭐ Where this is heading — the HOUSE STYLE owns these decisions (his note, 2026-09-21)
+
+After seeing the weights follow the face: *"in the future we will have housestyle to let also make this
+decisions we do now custom to the user (for example i will like to have a version of leipzig with more
+thicker staff lines)."*
+
+⇒ Everything this plan DECIDED for the user is a house-style row waiting for its owner, and must stay
+shaped so that a user's value can replace ours without touching the code around it:
+
+| what we decide today | where | what a house style would say instead |
+|---|---|---|
+| the music face | `fonts/musicFont` (dev picker) | a face — or a custom glyph set, §4a |
+| a line weight = our proportion × the face's own | `staveLineWidthPx()` · `stemThicknessPx()` (`ratioToDefault`) | **its own weight for that face** — "Leipzig, staff line 0.11" — overriding the derived one |
+| an ink row = Bravura's literal + the face's difference | `layout/spacingPadding` (`differenceFromDefault`) | its own row |
+| the weights taken straight from the face | `engravingDefault(…)`: beam, barlines, slur, ledger ratio, hairpin | any of them, per style |
+| what a missing glyph falls back to | the stack + `FALLBACK_GLYPHS` (Bravura) | another face, per glyph (§4a) |
+
+⭐ The shape that keeps the door open is already the one in use: every one of these is a FUNCTION asked
+per use (nothing frozen at import), so a house style is one more layer in front of the same question —
+*style's value, else the face's derived one*. ⛔ Not built here; ⛔ and no number above is definitive
+(`docs/plans/own-engraving-engine.md` §0.3 rule 13: a default the user will be able to change). A
+"Leipzig with thicker staff lines" is then a style = { face: Leipzig, staffLine: 0.11 }, not a new font.
 
 ## 5. Open — his call, none blocks A
 
