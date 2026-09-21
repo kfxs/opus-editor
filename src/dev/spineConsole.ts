@@ -25,6 +25,8 @@
  * (`engine/engrave/staff/staffSpine` · `spineLines` · `engine/rendering/eye/*`), this is the entry
  * point, and `App.ts` wires it.
  */
+import { musicFontGeneration } from '../engine/fonts/musicFont'
+import { textFontGeneration } from '../engine/fonts/textFont'
 import { dbg } from '@/utils/debug'
 import type { PitchStep, Score } from '@/types/music'
 import { ScoreModel } from '@/engine/models/ScoreModel'
@@ -160,8 +162,11 @@ export function spineConsole(deps: SpineConsoleDeps): SpineConsole {
     document.body.appendChild(panel)
     makeDraggable(panel)
     // ⭐ Redrawn when the MODEL changed, asked the way the JSON panel asks: compare its text.
+    // ⚠️ …AND when a FACE changed (`fonts/musicFont`, `fonts/textFont`): a font switch redraws the
+    //    picture without touching the model, so the JSON alone left the circle in the old face
+    //    (his report, 2026-09-21).
     const refresh = () => {
-      const now = deps.exportJSON()
+      const now = `${musicFontGeneration()}|${textFontGeneration()}|${deps.exportJSON()}`
       if (now === drawn) return
       drawn = now
       draw(shape)

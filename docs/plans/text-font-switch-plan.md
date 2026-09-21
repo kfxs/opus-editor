@@ -135,7 +135,7 @@ the text."*
 - ⚠️ **NOT SOURCED YET, and he said so**: *"what we did before with tempo we did it by trial and error
   but i think it was not based in any real rule"* — the 20 pt note beside 18 pt words, and now this
   baseline rule, are his eye's. Two surveys were commissioned the same hour and will supply the
-  presets: `symbol-in-text-baseline-engines.md` (in the research folder once written — MuseScore · LilyPond · Verovio, and the
+  presets: `docs/research/symbol-in-text-baseline-engines.md` (✅ landed — MuseScore · LilyPond · Verovio, and the
   fonts measured) and `symbol-in-text-baseline-books.md` (the treatises' words, and their
   engraved examples MEASURED).
 - ⛔ **THE SURVEYS DO NOT CHANGE THE PICTURE BY THEMSELVES** — his word, 2026-09-21: *"i like the way
