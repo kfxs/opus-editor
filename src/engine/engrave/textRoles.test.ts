@@ -56,3 +56,14 @@ describe('TEXT_ROLES', () => {
     expect(words.every(role => textRoleFamily(role).startsWith('Edwin,'))).toBe(true)
   })
 })
+
+describe('a symbol inside words — the `baseline` row', () => {
+  it('the tempo’s note stands on its words’ baseline, with no extra offset yet', () => {
+    expect(TEXT_ROLES.tempoSymbol.baseline).toEqual({ rule: 'onWordsBaseline', offsetSpaces: 0 })
+  })
+
+  it('no other role carries one — a dynamic’s letters are cut for a text line already', () => {
+    const others = (Object.keys(TEXT_ROLES) as TextRole[]).filter(role => role !== 'tempoSymbol')
+    expect(others.every(role => TEXT_ROLES[role].baseline === undefined)).toBe(true)
+  })
+})

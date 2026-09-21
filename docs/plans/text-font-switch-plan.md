@@ -113,6 +113,38 @@ metronome's ♩ is one of its rows, and another constant beside a mark would hav
 3. The tuplet's digits and the `tr` / `8va` / `Ped.` signs are music glyphs at 26 pt, sized beside
    their marks — candidates for rows, not moved here (they are signs, not words).
 
+## 6. The tempo's note stands on its words' baseline — BUILT 2026-09-21
+
+His words: the ♩ follows the font picked in DEV font (it already did — it is the music face's
+`metNote…` glyph), and *"for the moment we are using this only in tempo and it should be aligned with
+the text."*
+
+- **Why it was not**: a MUSIC face cuts `metNote…` with the notehead CENTRED on the baseline — Bravura's
+  quarter hangs 0.564 sp of its em below it (141/1000), Leipzig's 0.504 — while a TEXT cut stands the
+  head ON it, and Sebastian's range already is that cut (−0.028). So only Sebastian looked right.
+- **Built**: the seven `metNote…` glyphs joined the generated metrics tables;
+  `tempoStyle.tempoSymbolRaisePx()` raises every glyph run of the mark (note AND augmentation dot, which
+  must stay beside the head) by how far the ACTIVE face's quarter note hangs, ⛔ never negative; the
+  mark's ink band grows by the same. `e2e/tempoSymbolBaseline.e2e.ts` measures the note's real ink
+  against the words' `y` in all three faces (break-tested: Bravura and Leipzig fail without the raise).
+- ⭐ **A house-style row, not a constant** (his note: *"it will be good also in the future if the user
+  have a vertical offset preset for this in the housestyle"*): `TEXT_ROLES.tempoSymbol.baseline =
+  { rule: 'onWordsBaseline' | 'asCut', offsetSpaces }` — the rule, plus a free vertical offset in
+  staff spaces on top (0 today).
+- 🚨 **⚠️ A PIXEL MOVED on the default**: Bravura's tempo note is 3.76 px higher than it was.
+- ⚠️ **NOT SOURCED YET, and he said so**: *"what we did before with tempo we did it by trial and error
+  but i think it was not based in any real rule"* — the 20 pt note beside 18 pt words, and now this
+  baseline rule, are his eye's. Two surveys were commissioned the same hour and will supply the
+  presets: `symbol-in-text-baseline-engines.md` (in the research folder once written — MuseScore · LilyPond · Verovio, and the
+  fonts measured) and `symbol-in-text-baseline-books.md` (the treatises' words, and their
+  engraved examples MEASURED).
+- ⛔ **THE SURVEYS DO NOT CHANGE THE PICTURE BY THEMSELVES** — his word, 2026-09-21: *"i like the way
+  it looks what we have now, so lets not change it automatically after the research, we just have to
+  contrast the information before make a decision."* ⇒ when they land: a CONTRAST (ours · each engine
+  · each book), ⛔ no edit to a row; the decision is his.
+- ⏭️ Not done: the DOM text editor over a tempo mark (`TempoTextSource`) still shows the note where
+  the browser's line box puts it.
+
 ## 4. Not here
 
 - The music-text companion (Sebastian Text…) · the ROLE table with sizes (both: the two surveys above) ·

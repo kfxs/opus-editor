@@ -1,7 +1,7 @@
 /**
  * ⛔⛔ **GENERATED — DO NOT EDIT.** `node scripts/generate-font-metrics.mjs`
  *
- * 73 of Bravura's 3434 glyphs: the ones the editor draws
+ * 80 of Bravura's 3434 glyphs: the ones the editor draws
  * (`docs/plans/font-metrics-plan.md` F1). Hand-editing a number here would recreate by hand the very
  * drift the file exists to end — change the glyph list in the script and re-run.
  *
@@ -23,7 +23,7 @@ import type { GlyphBox } from './fontMetrics'
  * 1.481. The generator cross-checks every box against that metadata, and this is what
  * that check found on the run that wrote this file:
  *
- * 🚨 **1 of 73 DISAGREE** — the rest are identical to within 0.001 spaces:
+ * 🚨 **1 of 80 DISAGREE** — the rest are identical to within 0.001 spaces:
  *   · brace — off by 0.051 spaces
  *
  * ⚠️ The numbers below are the **OTF's**, because that is the file we draw with. Where a glyph
@@ -116,6 +116,13 @@ export type GlyphName =
   | 'braceLarger'
   | 'braceFlat'
   | 'bracket'
+  | 'metNoteWhole'
+  | 'metNoteHalfUp'
+  | 'metNoteQuarterUp'
+  | 'metNote8thUp'
+  | 'metNote16thUp'
+  | 'metNote32ndUp'
+  | 'metAugmentationDot'
 
 /** The ink each glyph draws, in staff spaces from its own origin. See {@link GlyphBox}. */
 export const GLYPH_BOXES: Record<GlyphName, GlyphBox> = {
@@ -205,6 +212,14 @@ export const GLYPH_BOXES: Record<GlyphName, GlyphBox> = {
   braceLarger: { left: 0, right: 0.24, up: 3.988, down: 0, advance: 0.244 },
   braceFlat: { left: 0, right: 0.224, up: 4, down: -0.004, advance: 0.228 },
   bracket: { left: 0, right: 1.876, up: 5.284, down: 1.272, advance: 2.232 },
+  // metronome
+  metNoteWhole: { left: 0, right: 1.836, up: 0.592, down: 0.5, advance: 1.836 },
+  metNoteHalfUp: { left: 0, right: 1.364, up: 2.752, down: 0.564, advance: 1.364 },
+  metNoteQuarterUp: { left: 0, right: 1.328, up: 2.752, down: 0.564, advance: 1.328 },
+  metNote8thUp: { left: 0, right: 2.132, up: 2.784, down: 0.564, advance: 2.136 },
+  metNote16thUp: { left: 0, right: 2.084, up: 2.8, down: 0.564, advance: 2.088 },
+  metNote32ndUp: { left: 0, right: 2.152, up: 3.692, down: 0.564, advance: 2.152 },
+  metAugmentationDot: { left: 0, right: 0.4, up: 0.2, down: 0.2, advance: 0.4 },
 }
 
 /**
@@ -303,6 +318,14 @@ export const GLYPH_CODEPOINTS: Record<GlyphName, number> = {
   braceLarger: 62466,
   braceFlat: 62467,
   bracket: 57346,
+  // metronome
+  metNoteWhole: 60578,
+  metNoteHalfUp: 60579,
+  metNoteQuarterUp: 60581,
+  metNote8thUp: 60583,
+  metNote16thUp: 60585,
+  metNote32ndUp: 60587,
+  metAugmentationDot: 60599,
 }
 
 /**

@@ -29,7 +29,7 @@ import { fracCompare, fracToNumber } from '@/utils/fraction'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import type { SpacedColumns } from '../../format/spacingPass'
 import { UNIT_GLYPH, MET_NOTE_GLYPH, MET_AUGMENTATION_DOT } from '@/utils/tempoText'
-import { tempoGlyphSizePt, tempoInkAbove, tempoInkBelow, tempoTextFont } from './tempoStyle'
+import { tempoGlyphSizePt, tempoInkAbove, tempoInkBelow, tempoSymbolRaisePx, tempoTextFont } from './tempoStyle'
 import type { RenderPass } from '../../RenderPass'
 import { setTempoMarkOffset } from './tempoMarkTransform'
 import { tempoOffsetOverrideOf } from '../../../models/engravingOverrides'
@@ -134,7 +134,8 @@ export function drawTempoText(ctx: DrawContext, text: string, x: number, y: numb
     // font moved to the back (`./tempoStyle` says why). The two faces VexFlow's `StaveTempo.glyph`
     // and `StaveTempo.name` categories resolved, as rows of ours.
     x += run.glyph
-      ? drawGlyph(ctx, 'TempoLayout.glyph', run.glyph, x, y, tempoGlyphSizePt())
+      // ⭐ The note stands on the WORDS' baseline (`tempoStyle.tempoSymbolRaisePx`), not centred on it.
+      ? drawGlyph(ctx, 'TempoLayout.glyph', run.glyph, x, y - tempoSymbolRaisePx(), tempoGlyphSizePt())
       : drawTextRun(ctx, 'TempoLayout.text', keepSpaces(run.text!), x, y, tempoTextFont())
   }
 }

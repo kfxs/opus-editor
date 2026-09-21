@@ -127,6 +127,14 @@ const GLYPHS = {
   //   it is the GHOST's, where a fixed box is correct by construction. Its BOX is needed so the
   //   ghost can be scaled to the brace's height rather than towering over it.
   groupings: ['brace', 'braceSmall', 'braceLarge', 'braceLarger', 'braceFlat', 'bracket'],
+
+  // The text-sized notes of a METRONOME MARK (`utils/tempoText`) — measured so the tempo's note can be
+  // stood on its words' baseline: a music face cuts the notehead CENTRED on the baseline, a text cut
+  // stands it ON it (`rendering/marks/tempo/tempoStyle.tempoSymbolRaisePx`).
+  metronome: [
+    'metNoteWhole', 'metNoteHalfUp', 'metNoteQuarterUp', 'metNote8thUp', 'metNote16thUp', 'metNote32ndUp',
+    'metAugmentationDot',
+  ],
 }
 
 const REQUESTED = Object.values(GLYPHS).flat()

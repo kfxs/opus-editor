@@ -1,7 +1,7 @@
 /**
  * ⛔⛔ **GENERATED — DO NOT EDIT.** `node scripts/generate-font-metrics.mjs`
  *
- * Leipzig's table for the 73 glyphs the editor draws — the SAME shape as
+ * Leipzig's table for the 80 glyphs the editor draws — the SAME shape as
  * `bravuraMetrics.ts`, total over the same `GlyphName` union, read by `fontMetrics` when the face is
  * the active one (`fonts/musicFont`, `docs/plans/music-font-switch-plan.md` Phase B).
  *
@@ -123,6 +123,14 @@ export const GLYPH_BOXES: Record<GlyphName, GlyphBox> = {
   braceLarger: { left: 0, right: 0.24, up: 3.988, down: 0, advance: 0.244 }, // ← Bravura
   braceFlat: { left: 0, right: 0.224, up: 4, down: -0.004, advance: 0.228 }, // ← Bravura
   bracket: { left: 0, right: 1.876, up: 5.284, down: 1.272, advance: 2.232 }, // ← Bravura
+  // metronome
+  metNoteWhole: { left: -0.008, right: 1.656, up: 0.48, down: 0.488, advance: 1.668 },
+  metNoteHalfUp: { left: -0.008, right: 1.232, up: 2.672, down: 0.52, advance: 1.24 },
+  metNoteQuarterUp: { left: -0.008, right: 1.208, up: 2.672, down: 0.504, advance: 1.208 },
+  metNote8thUp: { left: -0.008, right: 2, up: 2.688, down: 0.488, advance: 2.008 },
+  metNote16thUp: { left: -0.008, right: 2.056, up: 2.688, down: 0.488, advance: 2.064 },
+  metNote32ndUp: { left: -0.008, right: 2.04, up: 3.28, down: 0.488, advance: 2.048 },
+  metAugmentationDot: { left: 0, right: 0.388, up: 0.196, down: 0.196, advance: 0.388 },
 }
 
 export const GLYPH_ANCHORS: Partial<Record<GlyphName, Record<string, readonly [number, number]>>> = {

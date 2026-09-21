@@ -18,7 +18,8 @@ import type { Clearance, MarkInk } from '@/engine/layout/inkBand'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { drawnFontPx } from '../../painter/drawnFontSize'
 import { musicOnlyStack } from '@/engine/fonts/musicFont'
-import { textRoleFamily, textRoleSizePt, textRoleSlant, textRoleWeight } from '@/engine/engrave/textRoles'
+import { glyphBox } from '@/engine/fonts/fontMetrics'
+import { TEXT_ROLES, textRoleFamily, textRoleSizePt, textRoleSlant, textRoleWeight } from '@/engine/engrave/textRoles'
 import type { TextRunFont } from '../../painter/glyphPainter'
 
 /**
@@ -105,8 +106,35 @@ export function tempoTextFont(): TextRunFont {
  * - **below** is the TEXT's descender. `Allegro` has a `g`, and a mark that cleared only its
  *   baseline would sit a descender deep into the family below it.
  */
+/**
+ * ⭐⭐ **THE TEMPO'S NOTE STANDS ON ITS WORDS' BASELINE** — his rule, 2026-09-21: *"for the moment we
+ * are using this only in tempo and it should be aligned with the text."*
+ *
+ * A MUSIC face cuts its `metNote…` glyphs with the notehead CENTRED on the baseline (they are made to
+ * sit on a staff line), so beside words half the head hangs below the line the letters stand on —
+ * Bravura by 0.564 sp of its em (141/1000), Leipzig by 0.504. A face's TEXT cut stands the head ON the
+ * baseline instead; Sebastian's `metNote…` range already is that cut (its head sits 0.028 sp ABOVE),
+ * which is why only Sebastian looked right (`docs/research/music-text-fonts-research.md` §2).
+ *
+ * ⇒ Every glyph run of the mark — the note AND its augmentation dot, which must stay beside the head —
+ * is raised by how far the active face's quarter note hangs below its baseline, read from the face's
+ * own table (`fonts/fontMetrics`). ⛔ Never negative: a face that already stands the note on the line
+ * (or a hair above, as Sebastian does) is left as its designer cut it.
+ *
+ * ⚠️ `glyphBox` is in staff spaces of the glyph's own em (em = 4 sp), so the px is that fraction of
+ * the size the symbol is DRAWN at — the `tempoSymbol` row, not the staff's space.
+ */
+export function tempoSymbolRaisePx(): number {
+  // ⭐ WHICH rule, and the free offset on top of it, are the `tempoSymbol` row's (`engrave/textRoles`
+  //    — a house-style preset one day); HOW FAR the rule lifts is the active face's own box.
+  const baseline = TEXT_ROLES.tempoSymbol.baseline
+  const hangs = baseline?.rule === 'onWordsBaseline' ? Math.max(0, glyphBox('metNoteQuarterUp').down) : 0
+  return (hangs / 4) * drawnFontPx(tempoGlyphSizePt()) + (baseline?.offsetSpaces ?? 0) * STAFF_SPACE_PX
+}
+
 export function tempoInkAbove(): number {
-  return drawnFontPx(tempoGlyphSizePt()) * 0.75 // baseline → the ♩'s top
+  // The ♩'s top — and the note now stands ON the baseline, so its top is higher by what it was raised.
+  return drawnFontPx(tempoGlyphSizePt()) * 0.75 + tempoSymbolRaisePx()
 }
 export function tempoInkBelow(): number {
   return drawnFontPx(tempoTextSizePt()) * 0.22 // baseline → the `g`'s tail

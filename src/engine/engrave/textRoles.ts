@@ -50,6 +50,30 @@ export interface TextRoleRow {
   style: TextStyle
   /** The em in STAFF SPACES — or `'ofItsSign'`: a fraction of the sign it wraps, owned by that sign. */
   size: number | 'ofItsSign'
+  /**
+   * For a SYMBOL INSIDE WORDS only: where it sits against the words' baseline — see
+   * {@link SymbolBaseline}. Absent on a row whose glyphs are cut for a text line already.
+   */
+  baseline?: SymbolBaseline
+}
+
+/**
+ * ⭐ **WHERE A MUSIC SYMBOL SITS AGAINST THE WORDS IT IS SET IN** — a house-style row (his note,
+ * 2026-09-21: *"it will be good also in the future if the user have a vertical offset preset for this
+ * in the housestyle"*).
+ *
+ * - `'onWordsBaseline'` — the symbol is raised until its ink stands ON the line the letters stand on.
+ *   A music face cuts a metronome note with the head CENTRED on the baseline (it is made for a staff
+ *   line), so without this half the head hangs below the words.
+ * - `'asCut'` — drawn where the face's designer put it.
+ *
+ * `offsetSpaces` is then added on top — staff spaces, positive = UP — the free vertical preset.
+ * ⚠️ 0 today, and the RULE above is his eye's, ⛔ not a sourced convention yet: two surveys were
+ * commissioned the same day (`docs/plans/text-font-switch-plan.md` §6) and will supply the presets.
+ */
+export interface SymbolBaseline {
+  rule: 'onWordsBaseline' | 'asCut'
+  offsetSpaces: number
 }
 
 /** Points per staff space: `STAFF_SPACE_PX` px at the 4/3 px-per-pt every size here is drawn at. */
@@ -68,11 +92,15 @@ export const TEXT_ROLES: Record<TextRole, TextRoleRow> = {
   tempoWords: { face: 'words', style: 'bold', size: pt(18) },
   /**
    * The ♩ of a metronome mark — a SYMBOL INSIDE WORDS, from the music font's text-sized `metNote…`
-   * cut (U+ECA0–ECB7), **20 pt = 2.67 sp** against the 18 pt words: tuned by eye so the note reads
-   * with `Allegro (♩ = 144)`. ⚠️ Where the glyph sits against the words' baseline is the FACE's:
+   * cut (U+ECA0–ECB7), **20 pt = 2.67 sp** against the 18 pt words. ⚠️ **TRIAL AND ERROR, his own
+   * words (2026-09-21): *"we did it by trial and error… not based in any real rule"*** — so both this
+   * size and its {@link SymbolBaseline} are open rows, not findings. ⚠️ Where the glyph sits against the words' baseline is the FACE's:
    * Bravura's and Leipzig's hang below it (−141 / −126 of 1000), Sebastian's sits on it.
    */
-  tempoSymbol: { face: 'music', style: 'regular', size: pt(20) },
+  tempoSymbol: {
+    face: 'music', style: 'regular', size: pt(20),
+    baseline: { rule: 'onWordsBaseline', offsetSpaces: 0 },
+  },
   /**
    * Expression words and a dynamic's prose (`dolce`, `cresc.`, `sempre`) — **italic, never bold**
    * (Gould pp. 101, 492), **16 pt = 2.13 sp**: near the top of the band (MuseScore 2.02 · LilyPond
