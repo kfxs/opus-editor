@@ -41,10 +41,11 @@ export function attachCrossStaffNeighbours(
     if (wanted.size === 0) continue
     const neighbours: CrossStaffNeighbour[] = []
     for (const staffId of wanted) {
-      const other = bars[staffIds.indexOf(staffId)]
+      const staffIndex = staffIds.indexOf(staffId)
+      const other = bars[staffIndex]
       // An id naming no staff of this score: the head is drawn at HOME (`crossStaffOps` reports it).
       if (!other || other === bar) continue
-      neighbours.push({ staffId, dy: other.y - bar.y, clef: other.clef, clefs: other.view.clefs ?? [] })
+      neighbours.push({ staffId, staffIndex, dy: other.y - bar.y, clef: other.clef, clefs: other.view.clefs ?? [] })
     }
     if (neighbours.length) bar.crossStaff = neighbours
   }
@@ -75,4 +76,17 @@ export function crossingResolver(
     // Up the page is a smaller y and a HIGHER line, hence the sign.
     return { clef: clefAt(neighbour, slot.beat), lift: -neighbour.dy / scale / STAFF_SPACE_PX }
   }
+}
+
+/**
+ * What a crossed head adds to its `ElementRegistry` entry: the staff it is WRITTEN on, so its hit
+ * target is asked where the ink is (`ElementInfo.headStaff`). Empty for every other head, and for an
+ * id naming no staff (that head is drawn at home).
+ */
+export function crossedHeadStaff(
+  neighbours: CrossStaffNeighbour[] | undefined,
+  pitch: NotePitch,
+): { headStaff?: number } {
+  const neighbour = neighbours?.find(n => n.staffId === pitch.displayStaffId)
+  return neighbour ? { headStaff: neighbour.staffIndex } : {}
 }

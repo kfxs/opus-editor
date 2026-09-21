@@ -24,7 +24,7 @@ import {
 import { beamLineYAt } from '@/engine/engrave/beams/beamSlopeFit'
 import { EngravedBeam, drawBeamInkThrough } from './engraved/EngravedBeam'
 import { EngravedStave, drawStaveInkThrough } from './engraved/EngravedStave'
-import { measureGroupKey, type MeasureBounds, type MeasurePlacement } from './renderTypes'
+import { measureGroupKey, type CrossStaffNeighbour, type MeasureBounds, type MeasurePlacement } from './renderTypes'
 import type { DrawContext } from '@/engine/paint/DrawContext'
 import { hintBarlines } from './staff/barlineInk'
 import { renderBarlines } from './staff/BarlineRenderer'
@@ -111,7 +111,7 @@ import {
 import { restShiftOverrideOf, restHiddenOf, restPositionKey, resolveStaffSpacingAbove, measureLeadingSpaces, measureUserSpacePx, noteOffsetOverrideOf } from '@/engine/models/engravingOverrides'
 import { STAFF_SPACE_PX, resolveStaffSize } from '@/engine/models/staffSize'
 import { staffSpacesToPixels } from './staff/staffSpace'
-import { attachCrossStaffNeighbours, crossingResolver } from './crossStaff'
+import { attachCrossStaffNeighbours, crossedHeadStaff, crossingResolver } from './crossStaff'
 import { getStaves, staffMeasureView, firstStaffId, staffIndexOfId, staffIdAtIndex } from '@/engine/models/staffContent'
 import { LAYOUT_CONFIG, ledgerLineStyle, type MeasureWidthInfo, type StaffSpacingLayout, type ViewMode } from '@/engine/layout/layoutConfig'
 import { resolveSurface, SKETCH_CANVAS, type Surface, type SurfaceMetrics } from '@/engine/layout/surface'
@@ -2175,7 +2175,7 @@ export class ScoreRenderer {
           scoreTuplets, tupletStaveNoteMap, measure, multiVoice,
           new Map(groups.map(g => [g.voice, g.staveNotes])), stave,
         )
-        this.registerSlotElements(sortedSlots, staveNotes, measure, staffIndex)
+        this.registerSlotElements(sortedSlots, staveNotes, measure, staffIndex, placement.crossStaff)
         // Hidden rests (client #6) render gray. Recolor them via the DOM AFTER draw/register —
         // the established pattern (ghost notes, selection highlight). NOT VexFlow setStyle: that
         // leaks the stroke colour into the shared context and grays the rest of the score.
@@ -3109,6 +3109,8 @@ export class ScoreRenderer {
     staveNotes: EngravedNote[],
     measure: Measure,
     staffIndex: number = 0,
+    /** Where this bar's crossed heads are written (`./crossStaff`) — absent for every other bar. */
+    crossStaff?: CrossStaffNeighbour[],
   ): void {
     for (let si = 0; si < sortedSlots.length && si < staveNotes.length; si++) {
       const slot = sortedSlots[si]
@@ -3186,6 +3188,7 @@ export class ScoreRenderer {
                 tupletId: slot.tupletId,
                 bbox: { x: box.x, y: box.y, width: box.w, height: box.h },
                 headX: engraved?.headCentreX(keyIndex) ?? columnCenterX,
+                ...crossedHeadStaff(crossStaff, pitch),
               })
 
               // keyIndex matches VexFlow's sorted pitch order

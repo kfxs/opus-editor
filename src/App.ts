@@ -38,6 +38,7 @@ import { createViewportHost } from './interactions/controllers/ViewportHost'
 import { playbackStartMeasure } from './interactions/controllers/playbackStart'
 import { PASTEBOARD_MARGIN } from './engine/pasteboard'
 import { wireShortcuts } from './interactions/controllers/shortcutWiring'
+import { crossStaffActions } from './interactions/controllers/crossStaffKeys'
 import { wireKeypadSync } from './interactions/controllers/keypadSync'
 import { wireSelectionInspection } from './interactions/controllers/selectionInspectionSync'
 import { wireSoundSync } from './interactions/controllers/soundSync'
@@ -441,6 +442,8 @@ export function createEditorApp(host: HTMLElement): EditorApp {
     // second implementation of it.
     () => { void togglePlayback() },
   )
+  // Cross-staff's two actions live in their own module and register themselves here.
+  shortcuts.register(crossStaffActions(getEngine, state, () => renderer.renderScore()))
 
   // The Edit menu's commands. ⭐ Each is the REGISTERED ACTION the accelerator runs, invoked by name
   // — not a second call into the controllers. `deleteSelected` alone is a switch over every

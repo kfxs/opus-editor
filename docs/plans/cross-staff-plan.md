@@ -96,13 +96,27 @@ dot's dodge and a ledger line are decided by the line's parity.
   rest-shift. Dots of heads on two staves are still stacked as one column by their true lines.
   The width path does not know a head crossed (`measureColumns` prices it on its home staff).
 
-**Phase 3 — the editor.** Two rows in `shortcuts/ShortcutConfig.ts`; the action in the note's
-`keys` module (⛔ not a closure in `shortcutWiring`), one `runBatch` for a multi-selection, one undo
-entry. Hit-testing and highlight: the crossed head must be pressable and paint selected where it is
-DRAWN (`ElementRegistry` records it from the drawn box — verify, do not assume). Pitch arrows on a
-crossed head keep working (the pitch is the pitch; only the line is read in another clef).
-Accidental context per decision 8 (`models/entryAlteration` + the renderer's accidental state).
-Kerning/columns per decision 7.
+**Phase 3 — the editor. ✅ BUILT 2026-09-21 — ⏸️ awaiting his UI check.** `Ctrl+Shift+↑/↓`
+(`shortcuts/ShortcutConfig`: `crossStaffUp` / `crossStaffDown`).
+- ⚠️ **Deviation — not a `keys` row.** That table is the ONE `selectedElement`'s; notes are the
+  multi-selection (`selectedItems`). So the action is `interactions/controllers/crossStaffKeys.ts`
+  (which heads, the log, the render) over `MusicEngine.crossNotesToStaff` (the ops call + ONE
+  `mutate`; ⛔ none for a press that refused every head).
+- ⭐ **It registers ITSELF**: `wireShortcuts(…).register`, called from `App.ts`. `shortcutWiring` was
+  at its line ceiling (431/431), and the seam is the point — the next feature's actions need no entry
+  in that map either. The one line was paid for by folding the seven `addChord<Letter>` rows the way
+  the tuplet presets above them already are; the ceiling FELL to 428 (`scripts/check-hubs.mjs`).
+- **Hit-testing:** a note's click target is asked `pitchToPixelY(pitch, …, staff)`, and a crossed
+  head was filed under its HOME staff — so its target stood on the staff it left. `ElementInfo`
+  gains `headStaff` (absent = `staff`), written by `rendering/crossStaff.crossedHeadStaff`, read at
+  all eight pitch→y sites (`ElementRegistry` ×6, `MouseController` ×2). `staff` stays HOME: that is
+  the lane the note is edited, navigated and played in.
+- ⏭️ **NOT built, and said so: decision 8** (a crossed head's accidental decided in the staff it is
+  WRITTEN on). Today it is decided in its home lane — Sibelius's behaviour. `displayedAccidentals`
+  walks ONE lane in order; doing this honestly means walking two staves' heads as one stream, which
+  is its own step. The Gymnopédie does not need it (its F♯ is the key signature's).
+- ⏭️ The width path (`measureColumns`) still prices a crossed head on its home staff (decision 7's
+  second half).
 
 **Phase 4 — beams (NOT planned here).** Gould pp. 314–315: beam between the staves, stems inward,
 shortest stems equal, horizontal when in doubt, ≥ 2½ spaces of stem or all stems one way. The engines'

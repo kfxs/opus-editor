@@ -168,6 +168,18 @@ export const SHORTCUTS: Record<string, ShortcutDefinition> = {
     description: 'Lower selected note by one octave',
   },
 
+  // Cross-staff (docs/plans/cross-staff-plan.md): write the selected heads on the adjacent staff.
+  // Sibelius's and MuseScore's keys. ⭐ Per HEAD — `Alt+↑/↓` picks one note of a chord first, so a
+  // chord can be split across the two staves on one stem. Handlers: `controllers/crossStaffKeys`.
+  'Ctrl+Shift+ArrowUp': {
+    action: 'crossStaffUp',
+    description: 'Write the selected note(s) on the staff above (cross-staff)',
+  },
+  'Ctrl+Shift+ArrowDown': {
+    action: 'crossStaffDown',
+    description: 'Write the selected note(s) on the staff below (cross-staff)',
+  },
+
   // Slur endpoint / dynamic COARSE horizontal nudge. The plain/Ctrl VERTICAL + plain horizontal
   // arrows are handled modally inside the pitch/nav/octave handlers above; only this
   // horizontal-coarse pair is otherwise unbound. Its handlers DECLINE (return false) when no slur

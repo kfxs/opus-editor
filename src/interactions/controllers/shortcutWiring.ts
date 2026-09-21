@@ -56,7 +56,7 @@ export function wireShortcuts(
   /** Start playback, or stop it if it is running — the SAME toggle the dev shell's ▶ button runs
    *  (`App.togglePlayback`), so one gesture cannot drift from the other. */
   togglePlayback: () => void,
-): { enable: () => void; disable: () => void; run: (action: string) => void } {
+): { enable: () => void; disable: () => void; run: (action: string) => void; register: (actions: Record<string, () => void>) => void } {
   const shortcutManager = new ShortcutManager()
 
   // Focal point for keyboard zoom = the viewport center (screen coords); the keys carry no
@@ -999,13 +999,9 @@ export function wireShortcuts(
     enterNoteE: () => keyboard.enterNoteByLetter('e'),
     enterNoteF: () => keyboard.enterNoteByLetter('f'),
     enterNoteG: () => keyboard.enterNoteByLetter('g'),
-    addChordA: () => keyboard.addChordNoteByLetter('a'),
-    addChordB: () => keyboard.addChordNoteByLetter('b'),
-    addChordC: () => keyboard.addChordNoteByLetter('c'),
-    addChordD: () => keyboard.addChordNoteByLetter('d'),
-    addChordE: () => keyboard.addChordNoteByLetter('e'),
-    addChordF: () => keyboard.addChordNoteByLetter('f'),
-    addChordG: () => keyboard.addChordNoteByLetter('g'),
+    ...Object.fromEntries((['a', 'b', 'c', 'd', 'e', 'f', 'g'] as const).map(letter => [
+      `addChord${letter.toUpperCase()}`, () => keyboard.addChordNoteByLetter(letter),
+    ])),
   })
 
   return {
@@ -1014,5 +1010,8 @@ export function wireShortcuts(
     // A MENU ROW runs its command through here — the same handler the accelerator runs, never a
     // copy of it. See `ShortcutManager.run`.
     run: (action: string) => shortcutManager.run(action),
+    // ⭐ A feature registers its OWN actions from its OWN module (`./crossStaffKeys` is the first) —
+    //   ⛔ not as more entries in the map above. This file is at its ceiling on purpose (`lint:hubs`).
+    register: actions => shortcutManager.registerActions(actions),
   }
 }

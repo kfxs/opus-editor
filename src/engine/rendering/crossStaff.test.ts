@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { attachCrossStaffNeighbours, crossingResolver } from './crossStaff'
+import { attachCrossStaffNeighbours, crossedHeadStaff, crossingResolver } from './crossStaff'
 import type { CrossStaffNeighbour, MeasurePlacement } from './renderTypes'
 import type { Chord, Measure, NotePitch } from '@/types/music'
 import { fracCreate as frac } from '@/utils/fraction'
@@ -22,7 +22,7 @@ describe('attachCrossStaffNeighbours', () => {
     attachCrossStaffNeighbours([top, bottom], ['S0', 'S1'])
 
     expect(top.crossStaff).toBeUndefined()
-    expect(bottom.crossStaff).toEqual([{ staffId: 'S0', dy: -105, clef: 'treble', clefs: [] }])
+    expect(bottom.crossStaff).toEqual([{ staffId: 'S0', staffIndex: 0, dy: -105, clef: 'treble', clefs: [] }])
   })
 
   it('an id naming no staff — or the bar’s own — attaches nothing: the head draws at home', () => {
@@ -34,7 +34,7 @@ describe('attachCrossStaffNeighbours', () => {
 
 describe('crossingResolver', () => {
   const above: CrossStaffNeighbour = {
-    staffId: 'S0', dy: -105, clef: 'treble', clefs: [{ id: 'k', beat: frac(2, 1), clef: 'alto' }] as CrossStaffNeighbour['clefs'],
+    staffId: 'S0', staffIndex: 0, dy: -105, clef: 'treble', clefs: [{ id: 'k', beat: frac(2, 1), clef: 'alto' }] as CrossStaffNeighbour['clefs'],
   }
 
   it('is absent for a bar with no neighbours — the ordinary path pays nothing', () => {
@@ -49,7 +49,7 @@ describe('crossingResolver', () => {
   })
 
   it('a staff BELOW is a negative lift, and a scaled home bar counts the distance in ITS spaces', () => {
-    const below: CrossStaffNeighbour = { staffId: 'S2', dy: 105, clef: 'bass', clefs: [] }
+    const below: CrossStaffNeighbour = { staffId: 'S2', staffIndex: 2, dy: 105, clef: 'bass', clefs: [] }
     expect(crossingResolver([below], 1)!(chord([]), pitch('d', 'S2'))!.lift).toBe(-10.5)
     expect(crossingResolver([below], 0.5)!(chord([]), pitch('d', 'S2'))!.lift).toBe(-21)
   })
@@ -58,5 +58,14 @@ describe('crossingResolver', () => {
     const resolve = crossingResolver([above], 1)!
     expect(resolve(chord([], 1), pitch('d', 'S0'))!.clef).toBe('treble')
     expect(resolve(chord([], 2), pitch('d', 'S0'))!.clef).toBe('alto')
+  })
+})
+
+describe('crossedHeadStaff', () => {
+  const above: CrossStaffNeighbour = { staffId: 'S0', staffIndex: 0, dy: -105, clef: 'treble', clefs: [] }
+  it('files a crossed head under the staff it is WRITTEN on, and adds nothing to any other', () => {
+    expect(crossedHeadStaff([above], pitch('d', 'S0'))).toEqual({ headStaff: 0 })
+    expect(crossedHeadStaff([above], pitch('home'))).toEqual({})
+    expect(crossedHeadStaff(undefined, pitch('d', 'S0'))).toEqual({})
   })
 })

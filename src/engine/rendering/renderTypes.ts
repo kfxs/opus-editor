@@ -68,6 +68,8 @@ export function measureGroupKey(measureNumber: number, staffIndex: number): stri
 /** One staff a bar's crossed heads are written on. @see MeasurePlacement.crossStaff */
 export interface CrossStaffNeighbour {
   staffId: string
+  /** Its 0-based place in the score's staves — what a crossed head's hit target is filed under. */
+  staffIndex: number
   /** That staff's top line less this bar's own, in PAGE px — negative when it stands above. */
   dy: number
   /** The clef it opens this bar in, and its mid-bar changes. */

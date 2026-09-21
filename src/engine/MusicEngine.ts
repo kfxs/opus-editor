@@ -4,7 +4,7 @@ import { restPositionKey, restShiftOverrideOf, restHiddenOf, resolveStaffSpacing
 import { resolveStaffSize, STAFF_SPACE_PX } from './models/staffSize'
 import { barlineJoinsBelow } from './models/barlineJoin'
 import * as staffGroupOps from './models/staffGroupOps'
-import { crossStaffProblems } from './models/crossStaffOps'
+import { crossPitches, crossStaffProblems, type CrossDirection, type CrossOutcome } from './models/crossStaffOps'
 import * as clearOps from './models/clearOps'
 import { clefOffsetOverrideOf } from './models/engravingOverrides'
 import { staveHeightPx, systemStaffTops, minSpacingAboveSpaces, spacingAbovePx, MIN_SPACING_ABOVE_AT_PAGE_TOP } from './layout/staffStride'
@@ -2798,6 +2798,18 @@ export class MusicEngine {
    */
   getTupletAtBeat(measureNumber: number, beat: Fraction, voice?: number, staff?: number): Tuplet | undefined {
     return this.scoreModel.getTupletAtBeat(measureNumber, beat, voice, staff)
+  }
+
+  /**
+   * ⭐ Write these heads on the staff above (−1) or below (+1) — cross-staff notation
+   * (docs/plans/cross-staff-plan.md). What may cross, and what coming home means, is
+   * `models/crossStaffOps.crossPitches`; this is the facade's undo entry — ⛔ none for a press that
+   * refused every head.
+   */
+  crossNotesToStaff(pitchIds: readonly string[], direction: CrossDirection): CrossOutcome[] {
+    const { changed, outcomes } = crossPitches(this.scoreModel.getScore(), pitchIds, direction)
+    if (changed) this.mutate(`Cross ${outcomes.filter(o => o.result !== 'refused').length} note(s) to the staff ${direction < 0 ? 'above' : 'below'}`)
+    return outcomes
   }
 
   /**

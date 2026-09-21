@@ -416,6 +416,13 @@ export interface ElementInfo {
    */
   headX?: number
   /**
+   * ⭐ CROSS-STAFF — the 0-based staff this head is WRITTEN on, when that is not {@link staff}
+   * (docs/plans/cross-staff-plan.md). `staff` stays the note's HOME — the lane it is edited, navigated
+   * and played in; this is only where its head stands, so it is what a pitch→y question must ask:
+   * ⛔ `pitchToPixelY(…, el.staff)` puts a crossed head's hit target on the staff it left.
+   */
+  headStaff?: number
+  /**
    * ⭐⭐ **THE ATTACHMENT GUIDES** — the dashed lines a SELECTED element draws to whatever it hangs
    * off (Dorico/MuseScore style). Pure visualization: never engraved, never hit-tested, never
    * serialized. Measured HERE, at render, because both ends are facts about drawn ink; drawn by
@@ -1615,7 +1622,7 @@ export class ElementRegistry {
         let noteY: number
         if (note.pitch !== undefined) {
           // Calculate actual Y position from pitch using staff geometry (clef region at the note's X)
-          const pitchY = this.pitchToPixelY(note.pitch, measure, centerX, note.staff)
+          const pitchY = this.pitchToPixelY(note.pitch, measure, centerX, note.headStaff ?? note.staff)
           noteY = pitchY !== null ? pitchY : note.bbox.y + note.bbox.height / 2
         } else {
           noteY = note.bbox.y + note.bbox.height / 2
@@ -1672,7 +1679,7 @@ export class ElementRegistry {
         if (element.type === 'note' && element.pitch !== undefined && element.measure !== undefined) {
           // For notes (incl. chords), use the pitch-based Y position computed from the
           // note's OWN (measure, staff) geometry (clef region at the note's X).
-          const pitchY = this.pitchToPixelY(element.pitch, element.measure, centerX, element.staff)
+          const pitchY = this.pitchToPixelY(element.pitch, element.measure, centerX, element.headStaff ?? element.staff)
           elementY = pitchY !== null ? pitchY : element.bbox.y + element.bbox.height / 2
         } else {
           // For rests (and notes without pitch), use bbox center
@@ -1703,7 +1710,7 @@ export class ElementRegistry {
     const centerX = el.headX ?? el.bbox.x + el.bbox.width / 2
     let elementY: number
     if (el.type === 'note' && el.pitch !== undefined && el.measure !== undefined) {
-      const pitchY = this.pitchToPixelY(el.pitch, el.measure, centerX, el.staff)
+      const pitchY = this.pitchToPixelY(el.pitch, el.measure, centerX, el.headStaff ?? el.staff)
       elementY = pitchY !== null ? pitchY : el.bbox.y + el.bbox.height / 2
     } else {
       elementY = el.bbox.y + el.bbox.height / 2
@@ -1742,9 +1749,9 @@ export class ElementRegistry {
     // would otherwise skew the bbox center and misplace the head hit-box).
     const centerX = el.headX ?? el.bbox.x + el.bbox.width / 2
     if (el.type === 'note' && el.pitch !== undefined && el.measure !== undefined) {
-      const pitchY = this.pitchToPixelY(el.pitch, el.measure, centerX, el.staff)
+      const pitchY = this.pitchToPixelY(el.pitch, el.measure, centerX, el.headStaff ?? el.staff)
       if (pitchY !== null) {
-        const sp = this.getStaffGeometry(el.measure, el.staff)?.lineSpacing ?? 10
+        const sp = this.getStaffGeometry(el.measure, el.headStaff ?? el.staff)?.lineSpacing ?? 10
         const halfW = sp * 1.1 // head ≈ 1.3 spaces wide + click margin
         const halfH = sp * 0.9 // head ≈ 1 space tall + click margin (< one full space)
         return Math.abs(x - centerX) <= halfW && Math.abs(y - pitchY) <= halfH
