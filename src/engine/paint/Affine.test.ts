@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   IDENTITY, apply, compose, invert, isIdentity, isScaling, isTranslation,
-  scaling, scalingAbout, translation,
+  rotation, rotationAbout, scaling, scalingAbout, translation,
 } from './Affine'
 
 /**
@@ -69,6 +69,45 @@ describe('scalingAbout', () => {
     // The grouping-sign ghost's shape: scaled about the cursor's y, x untouched at the origin.
     const m = scalingAbout(2, 2, 0, 100)
     expect(apply(m, 10, 110)).toEqual({ x: 20, y: 120 })
+  })
+})
+
+describe('rotation — the first placement with off-diagonal terms (bent-staff-plan A1)', () => {
+  it('⭐ a rotation by 0 IS the identity — exactly, so the fast path still fires', () => {
+    expect(rotation(0)).toEqual(IDENTITY)
+    expect(isIdentity(rotation(0))).toBe(true)
+  })
+
+  // 🚨 THE SENSE TEST: y grows downward, so a positive quarter turn carries +x onto +y — CLOCKWISE
+  // on the page, SVG's `rotate()`. The other sense would send it to −y.
+  it('⭐⭐ positive is CLOCKWISE on the page: +x turns onto +y', () => {
+    const at = apply(rotation(Math.PI / 2), 10, 0)
+    expect(at.x).toBeCloseTo(0, 10)
+    expect(at.y).toBeCloseTo(10, 10)
+  })
+
+  it('is neither a scaling nor a translation — the SVG shorthand must fall through to matrix()', () => {
+    const m = rotation(Math.PI / 6)
+    expect(isScaling(m)).toBe(false)
+    expect(isTranslation(m)).toBe(false)
+  })
+
+  it('inverts to the opposite turn', () => {
+    const back = invert(rotation(0.7))!
+    const there = apply(rotation(0.7), 3, 4)
+    const home = apply(back, there.x, there.y)
+    expect(home.x).toBeCloseTo(3, 10)
+    expect(home.y).toBeCloseTo(4, 10)
+  })
+
+  it('rotationAbout leaves its centre where it was, and turns the rest around it', () => {
+    const m = rotationAbout(Math.PI, 40, 90)
+    const centre = apply(m, 40, 90)
+    expect(centre.x).toBeCloseTo(40, 10)
+    expect(centre.y).toBeCloseTo(90, 10)
+    const opposite = apply(m, 50, 90)
+    expect(opposite.x).toBeCloseTo(30, 10)
+    expect(opposite.y).toBeCloseTo(90, 10)
   })
 })
 

@@ -43,7 +43,13 @@ saved in the JSON beside the content, keyed staff × range like `staffSpacing`, 
 global and ⛔ not element-keyed `engravingOverrides`. Take it away and the same score draws straight.
 The exact field is decided in B, not now.
 
-## 3. A — the machinery, and a circle in the console (NOW)
+## 3. A — the machinery, and a circle in the console ✅ BUILT 2026-09-21
+
+> `__spine.circle({ notes, radius })` / `.straight()` / `.clear()` — seen in Chromium. A4 landed as
+> `engine/rendering/eye/spineStaff.ts`, and gained a CLEF + METER (his ask): header signs are rigid
+> blocks like notes. ⭐ Found on the way: a wide block is placed by its MIDDLE — by its left edge it
+> leaves the curved lines at its far end. The panel is the console's, ⛔ not the machinery's: the
+> drawing takes any `DrawContext`.
 
 A separate small drawing beside the score; the real score is untouched. No beams — quarter notes.
 Every piece is its own module; nothing lands on a hub.

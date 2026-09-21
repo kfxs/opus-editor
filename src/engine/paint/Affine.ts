@@ -83,6 +83,27 @@ export function scalingAbout(sx: number, sy: number, cx: number, cy: number): Af
   return compose(compose(translation(-cx, -cy), scaling(sx, sy)), translation(cx, cy))
 }
 
+/**
+ * ⭐ **A rotation about the origin, in RADIANS** — the constructor §7.5 said would arrive, and the
+ * first placement whose `b` and `c` are not 0 (`docs/plans/bent-staff-plan.md` A1).
+ *
+ * ⚠️ **Positive turns CLOCKWISE on the page**, because y grows downward — SVG's own `rotate()` sense,
+ * so `matrix(…)` of this and `rotate(θ°)` are the same attribute. The x axis turns toward +y.
+ *
+ * ⚠️ `0 - sin`, ⛔ not `-sin`: a rotation by 0 must BE {@link IDENTITY}, and `-0` is not `0` to a
+ * deep-equality assertion.
+ */
+export function rotation(radians: number): Affine {
+  const cos = Math.cos(radians)
+  const sin = Math.sin(radians)
+  return { a: cos, b: sin, c: 0 - sin, d: cos, e: 0, f: 0 }
+}
+
+/** A rotation that leaves the point `(cx, cy)` where it is — {@link scalingAbout}'s sibling. */
+export function rotationAbout(radians: number, cx: number, cy: number): Affine {
+  return compose(compose(translation(-cx, -cy), rotation(radians)), translation(cx, cy))
+}
+
 /** Is this the placement of something engraved normally? — the fast path everywhere. */
 export function isIdentity(m: Affine): boolean {
   return m.a === 1 && m.b === 0 && m.c === 0 && m.d === 1 && m.e === 0 && m.f === 0
