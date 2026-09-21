@@ -117,7 +117,7 @@ start to port it there."* Read from the source (`eye/spineScore.ts`, `eye/spineS
 | 2 | clef + meter at the start | BLOCK | ✅ `drawSpineHeader` | — |
 | 3 | note · chord · rest · accidental · dot · articulation · ledger lines · stem · FLAG | BLOCK | ✅ one block per slot, through the page's `NoteBuilder` | — |
 | 4 | plain barline | BLOCK | ✅ `drawSpineBarline` | — |
-| 5 | **BEAMS** | BLOCK (the GROUP is the block) | ✅ `drawBeamedBlock` — option (a), §6 | heads riding the arc = option (b), a row to add |
+| 5 | **BEAMS** | BLOCK (the GROUP is the block) | ✅ `drawBeamedBlock` — option (b), the heads ride the path (§6, §7) | — |
 | 6 | key signature in the header; mid-score clef / meter / key CHANGES; cautionaries | BLOCK | ⛔ the header is clef + meter, once | the signs are `StaveSign`s already (`drawSpineSign` takes any) — needs the positional walk (`resolveStaffClefs/Keys` per bar) and room for them (#14) |
 | 7 | barline TYPES — final, double, repeats with dots and wings | BLOCK | ⛔ plain only | `layout/barlineSign.barlineSignParts` is pure: draw its strokes + dots in a block |
 | 8 | tuplet number + bracket | BLOCK (with its group) | ⛔ | rides #5's group block; ⚠️ `ScoreTuplet` still draws straight on the painter (`scene/` cannot see it) |
@@ -126,7 +126,7 @@ start to port it there."* Read from the source (`eye/spineScore.ts`, `eye/spineS
 | 11 | second VOICE | BLOCK | ◐ drawn, stems forced up/down — ⚠️ no `voiceStack` (shared column shifts, rest displacement) since each note is formatted ALONE | format the COLUMN (all voices at one beat) as one block |
 | 12 | more than one STAFF; brace / bracket / system-start line; joined barlines | LINES + BLOCK | ⛔ first staff only | concentric spines (a second staff is the same path at another offset); `systemStart` as a block at s = 0 |
 | 13 | ties · slurs | SPAN | ⛔ | re-solve the curve between two placed notes in PAGE space (both ends are known points; the arc must clear a curved staff) — the multi-system-slur reasoning |
-| 14 | **SPACING** — `layout/spacing` (the spring law, the ink table) | ROOM | ⛔ TIME-proportional, 48 px per quarter | run the page's casting-off for ONE endless system and read its column x's as `s`. ⚠️ On a CLOSED path the total length is FIXED by the radius — justification on a circle is its own question (B7) |
+| 14 | **SPACING** — `layout/spacing` (the spring law, the ink table) | ROOM | ✅ `eye/spineSpacing` (§7) | run the page's casting-off for ONE endless system and read its column x's as `s`. ⚠️ On a CLOSED path the total length is FIXED by the radius — justification on a circle is its own question (B7) |
 | 15 | hairpins · ottava · pedal · trill lines | SPAN | ⛔ | offsets of the path between two `s`, like the staff lines (the *Bike Ride* plate's hairpin follows the rim, §1) |
 | 16 | dynamics · tempo marks · expression words | BLOCK on a LANE (an offset from the path) | ⛔ | a lane is `pointAt(spine, s, offset)`; the ladder's offsets are the page's. Text rotates with the block (the plate rotates all text) |
 | 17 | clicking / selecting / dragging | — | ⛔ the panel cannot be clicked into | B3: `ElementRegistry.withSpace(affine)`; the inverse is `spine.locate` (built) |
@@ -183,3 +183,25 @@ beamed group is on a bent staff — *beams STRAIGHT, the group's stems PARALLEL,
 > music is sparse for its circle — his eye to call.
 > ⚠️ The sixteenths CROWD (12 px apart, tighter than a notehead): that is row 14 — the spine's spacing
 > is still time-proportional — ⛔ not a beam problem.
+
+## 7. SPACING on the spine — ✅ BUILT 2026-09-21 (his report: sixteenths piled up round the circle)
+
+He asked whether **Belle** has a solution. Checked in its source: Belle never bends a staff, but its
+answer is the right one anyway — its spacer (`belle-spacing.h`, `belle-springs.h`: minimum widths plus
+springs) produces ONE number per instant, `TypesetX`, and placement (`belle-placement.h:354`) merely
+consumes it. ⭐ **Spacing is ONE-DIMENSIONAL; the path only maps it.** There is no "circle spacing".
+
+- `eye/spineSpacing.ts` — the PAGE's columns (`layout/measureColumns`: each event's measured ink, the
+  padding its neighbours are owed) and law (`layout/spacing`: Gould's `3.5 × √t`, the spring solve),
+  asked for one endless line; what they answer is distance along the path. The spine is ONE JUSTIFIED
+  SYSTEM: bars share the room in proportion to what they ask, lead-ins stay rigid, springs stretch
+  inside each bar. `naturalSpineLength(score)` is what the console sizes the circle from (× 1.15).
+- 🚨 **Real spacing made option (b) NECESSARY at once**: four sixteenths became a 130 px block on a
+  radius of 160 — end heads 1.3 sp off their lines (seen). `drawBeamedBlock` now lowers each note to
+  where the PATH is under it (`toBlockSpace` — asked of the spine, so any path, not only a circle),
+  each on its own undrawn stave; stems stay parallel, the beam straight. ⚠️ Left over: end heads are
+  tilted against their lines by `L / 2R` — the plate's look.
+- ⚠️ **Not corrected**: `s` is measured along the spine's reference line (the top staff line); ink
+  INSIDE a circle has less arc, by `(R − d) / R` at depth `d` — on R = 160 the bottom line is 25 %
+  shorter, so low notes sit closer than the law says (his score's first sixteenth stands near the
+  meter). Options when it bothers: measure `s` along the MIDDLE line, or space by the innermost ink.

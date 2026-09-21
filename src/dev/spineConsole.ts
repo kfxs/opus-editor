@@ -25,6 +25,7 @@
  * (`engine/engrave/staff/staffSpine` · `spineLines` · `engine/rendering/eye/*`), this is the entry
  * point, and `App.ts` wires it.
  */
+import { naturalSpineLength } from '../engine/rendering/eye/spineSpacing'
 import { musicFontGeneration } from '../engine/fonts/musicFont'
 import { textFontGeneration } from '../engine/fonts/textFont'
 import { dbg } from '@/utils/debug'
@@ -34,8 +35,6 @@ import type { Spine } from '@/engine/engrave/staff/staffSpine'
 import { circleSpine, straightSpine } from '@/engine/engrave/staff/staffSpine'
 import { drawScoreOnSpine } from '@/engine/rendering/eye/spineScore'
 import { SvgPainter } from '@/engine/rendering/painter/SvgPainter'
-import { fracToNumber } from '@/utils/fraction'
-import { measureCapacityFrac } from '@/utils/measureCapacity'
 
 const STEPS: PitchStep[] = ['C', 'D', 'E', 'F', 'G', 'A', 'B']
 
@@ -50,7 +49,8 @@ const MARGIN_PX = 90
 
 /** How much spine an automatic size gives the header, and each quarter note of music. */
 const AUTO_HEADER_PX = 90
-const AUTO_PX_PER_QUARTER = 48
+/** How much looser than its natural width the music is laid out when the spine is sized for it. */
+const AUTO_BREATHING = 1.15
 const AUTO_MIN_RADIUS = 160
 
 /** How often the panel asks whether the score changed — the JSON panel's own way of keeping up. */
@@ -108,8 +108,9 @@ export function spineConsole(deps: SpineConsoleDeps): SpineConsole {
 
   /** The spine for `shape`, sized to the music unless told otherwise, and the panel it needs. */
   const layOut = (score: Score, shape: Shape): { spine: Spine; width: number; height: number } => {
-    const quarters = score.measures.reduce((sum, m) => sum + fracToNumber(measureCapacityFrac(m)), 0)
-    const length = AUTO_HEADER_PX + quarters * AUTO_PX_PER_QUARTER
+    // ⭐ Sized from what the MUSIC asks (`eye/spineSpacing` — the page's spacing, one endless line), so a
+    //    circle's justified system is stretched as little as its minimum radius allows.
+    const length = AUTO_HEADER_PX + naturalSpineLength(score) * AUTO_BREATHING
     if (shape.kind === 'straight') {
       return { spine: straightSpine(MARGIN_PX, MARGIN_PX, length), width: length + 2 * MARGIN_PX, height: 2 * MARGIN_PX + 40 }
     }

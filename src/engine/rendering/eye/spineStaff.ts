@@ -97,9 +97,12 @@ const BLOCK_LEAD_IN_PX = 40
  * an end leaves the curved lines at the other — the header's lesson). Beams straight, stems parallel:
  * what the *Bike Ride* plate draws.
  *
- * ⚠️ Option (a) of the plan, deliberately: on a curve the END heads leave their lines by the sagitta
- * `L² / 8R` — invisible for a beat of eighths, visible for a long group on a tight radius. Letting
- * the heads ride the arc is option (b), a row to add once his eye has seen this one.
+ * ⭐ Option (b) of the plan — the HEADS RIDE THE PATH: a purely rigid block (option a) leaves its END
+ * heads off their lines by the sagitta `L² / 8R`, and once the spine took the page's real spacing a
+ * group of four sixteenths was 130 px long on a radius of 160 — 1.3 sp adrift (seen, 2026-09-21). So
+ * each note is lowered to where the path is under it; stems stay parallel, the beam straight.
+ * ⚠️ What is left: the end heads are upright in the BLOCK's frame, so they are tilted against the
+ * lines under them by `L / 2R` — the plate's look, and the price of a straight beam.
  *
  * `notes[i]` stands at `ss[i]` along the spine; `beam` was built over exactly these notes
  * (`beams/beamGroups.buildBeams`), BEFORE this runs, so no note reserves room for a flag.
@@ -108,18 +111,28 @@ export function drawBeamedBlock(
   ctx: DrawContext, spine: Spine, notes: readonly EngravedNote[], beam: EngravedBeam, ss: readonly number[],
 ): void {
   if (notes.length === 0) return
-  const span = ss[ss.length - 1] - ss[0]
-  const stave = new EngravedStave(0, 0, span + 2 * BLOCK_STAVE_WIDTH)
-    .setOpeningBarline('none').setClosingBarline('none')
-  stave.setDefaultLedgerLineStyle(ledgerLineStyle())
+  const middle = (ss[0] + ss[ss.length - 1]) / 2
+  // ⭐ Option (b): WHERE the path puts each note, seen from the block — the block's frame is the
+  //    path's tangent at the group's middle, so on a straight spine every `y` is 0 and every `x` the
+  //    plain distance, and on a curve the ends fall away toward the centre by the sagitta.
+  const local = ss.map(s => toBlockSpace(spine, middle, s))
+  const span = local[local.length - 1].x - local[0].x
 
   const voice = new BarVoice({ numerator: 1, denominator: 4 }, 'soft')
   for (const note of notes) voice.add(note)
   attachModifierColumns([voice])
   const columns = formatColumns([voice], span + BLOCK_FORMAT_WIDTH)
   // ⭐ The model's x's, post-format — the same last word `format/spacingPass` has on the page.
-  columns.list.forEach((tick, i) => columns.map[tick].setX(BLOCK_LEAD_IN_PX + (ss[i] - ss[0])))
-  for (const note of notes) standOn(note, stave)
+  columns.list.forEach((tick, i) => columns.map[tick].setX(BLOCK_LEAD_IN_PX + (local[i].x - local[0].x)))
+  // ⭐ Each note stands on ITS OWN stave, lowered by where the path is under it — so every head sits
+  //    on its line while the stems stay parallel and the beam, which reads the stems' tips, straight.
+  //    None of these staves is drawn: the lines are the path's (`spineLines`).
+  notes.forEach((note, i) => {
+    const stave = new EngravedStave(0, local[i].y, span + 2 * BLOCK_STAVE_WIDTH)
+      .setOpeningBarline('none').setClosingBarline('none')
+    stave.setDefaultLedgerLineStyle(ledgerLineStyle())
+    standOn(note, stave)
+  })
 
   const group = drawGroupOf(ctx.openGroup(SPINE_BLOCK_CLASS))
   try {
@@ -130,13 +143,25 @@ export function drawBeamedBlock(
   } finally {
     ctx.closeGroup()
   }
-  // The block's own point that goes to the group's middle `s`: the first head's centre, plus half the span.
+  // The block's own point that goes to the group's middle `s`: the first head's centre is `local[0].x`
+  // from it along the tangent, and a stave at y = 0 has its top line at `blockFrame().topLineY`… = 0.
   const first = noteRuler(notes[0])
-  const middleX = (first.headLeftX + first.headRightX) / 2 + span / 2
+  const middleX = (first.headLeftX + first.headRightX) / 2 - local[0].x
   group?.setPlacement(compose(
-    translation(-middleX, -staveFrame(stave).topLineY),
-    placementAt(spine, (ss[0] + ss[ss.length - 1]) / 2),
+    translation(-middleX, -staveFrame(new EngravedStave(0, 0, BLOCK_STAVE_WIDTH)).topLineY),
+    placementAt(spine, middle),
   ))
+}
+
+/** The spine's point at `s`, in the frame of the block placed at `middle`: x along its tangent, y across it. */
+function toBlockSpace(spine: Spine, middle: number, s: number): { x: number; y: number } {
+  const origin = spine.at(middle)
+  const point = spine.at(s)
+  const dx = point.x - origin.x
+  const dy = point.y - origin.y
+  const cos = Math.cos(origin.angle)
+  const sin = Math.sin(origin.angle)
+  return { x: dx * cos + dy * sin, y: -dx * sin + dy * cos }
 }
 
 export function drawSpineNote(ctx: DrawContext, spine: Spine, note: SpineNote, clef: Clef): void {

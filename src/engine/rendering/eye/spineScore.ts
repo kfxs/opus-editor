@@ -29,18 +29,16 @@ import { resolveStaffClefs } from '@/utils/clefUtils'
 import { fracToNumber } from '@/utils/fraction'
 import { resolveStaffKeys } from '@/utils/keySignature'
 import { voiceOf } from '@/utils/lanes'
-import { measureCapacityFrac } from '@/utils/measureCapacity'
 import { getMeterInfo } from '@/utils/meter'
 import { createStaveNotesFromSlots } from '../engraved/NoteBuilder'
 import { thinBarlinePx } from '../staff/barlineInk'
 import { buildBeams } from '../beams/beamGroups'
 import type { EngravedNote } from '../engraved/EngravedNote'
+import { spaceBarsOnSpine } from './spineSpacing'
 import { drawBeamedBlock, drawNoteBlock, drawSpineBarline, drawSpineHeader, drawSpineStaffLines } from './spineStaff'
 
 /** Clear spine after the header, and after each barline, before the first beat. Changeable defaults. */
 const HEADER_TO_BAR_PX = 12
-const BAR_LEAD_IN_PX = 22
-
 /**
  * ⭐ On a CLOSED spine the music stops this far short of where it began, so the LAST barline stands
  * clear in front of the clef — ⛔ not on top of it, which is where `s = length` is. A changeable default.
@@ -61,16 +59,15 @@ export function drawScoreOnSpine(ctx: DrawContext, score: Score, spine: Spine): 
     meter: first.timeSignature,
   })
 
-  const capacities = score.measures.map(m => fracToNumber(measureCapacityFrac(m)))
-  const totalTime = capacities.reduce((a, b) => a + b, 0)
-  if (totalTime <= 0) return
   const musicStart = headerEnd + HEADER_TO_BAR_PX
   const musicEnd = spine.length - (spine.closed ? CLOSED_SEAM_PX : 0)
-  const pxPerQuarter = (musicEnd - musicStart) / totalTime
-
-  let barStart = musicStart
+  // ⭐ WHERE each column stands is the PAGE's spacing, asked for one endless line (`./spineSpacing`):
+  //    the spine is ONE JUSTIFIED SYSTEM — a circle's length is fixed by its radius, and an open
+  //    spine's last barline closes its staff lines, as a line's does on the page. Whoever makes the
+  //    spine sizes it from `naturalSpineLength`, so the stretch stays small.
+  const bars = spaceBarsOnSpine(score, musicStart, musicEnd, true)
   score.measures.forEach((measure, i) => {
-    const barLength = capacities[i] * pxPerQuarter
+    const bar = bars[i]
     const lane = staffMeasureView(measure, staffId, score)
     const clef = clefs.get(measure.number) ?? 'treble'
     const voices = [...new Set(lane.slots.map(voiceOf))].sort()
@@ -82,8 +79,7 @@ export function drawScoreOnSpine(ctx: DrawContext, score: Score, spine: Spine): 
       const notes = createStaveNotesFromSlots(slots, clef, forcedStem, 0, keys.get(measure.number))
       const at = slots.map(slot => {
         // A whole-bar rest stands in the MIDDLE of its bar, as on the page.
-        const share = slot.type === 'rest' && slot.isMeasureRest ? 0.5 : fracToNumber(slot.beat) / capacities[i]
-        return barStart + BAR_LEAD_IN_PX + share * (barLength - BAR_LEAD_IN_PX)
+        return slot.type === 'rest' && slot.isMeasureRest ? (bar.start + bar.end) / 2 : bar.columnAt(slot.beat)
       })
       // ⭐ WHICH notes beam together is the PAGE's answer (`beams/beamGroups`) — asked BEFORE any
       //    note is formatted, so a beamed note reserves no room for a flag it will not draw.
@@ -97,7 +93,6 @@ export function drawScoreOnSpine(ctx: DrawContext, score: Score, spine: Spine): 
       }
       notes.forEach((note, n) => { if (!beamed.has(note)) drawNoteBlock(ctx, spine, note, at[n]) })
     }
-    barStart += barLength
-    drawSpineBarline(ctx, spine, barStart, thinBarlinePx())
+    drawSpineBarline(ctx, spine, bar.end, thinBarlinePx())
   })
 }
