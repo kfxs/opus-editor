@@ -38,6 +38,8 @@ export const EXAMPLES: ExampleScore[] = [
   // A plain hyphen with spaces around it, not an em dash: at menu-row size the long rule reads as a
   // gap in the title rather than as a separator between the composer and the piece.
   { id: 'prelude-bwv846', label: 'Bach - Prelude in C, BWV 846', file: 'prelude-bwv846.json' },
+  // Cross-staff notation: the left hand's chords are split across the two staves on one stem.
+  { id: 'gymnopedie', label: 'Satie - 1ère Gymnopédie', file: 'gymnopedie.json' },
 ]
 
 /** What the menu ASKS THE APP FOR: the load itself. The menu never fetches and never engraves. */
