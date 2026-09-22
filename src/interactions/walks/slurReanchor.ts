@@ -27,6 +27,10 @@ import type { MusicEngine } from '../../engine/MusicEngine'
 import type { EditorState } from '../state/EditorState'
 import { selectedOf } from '../state/EditorState'
 import { buildBeatMap, type FlatNote } from '../../utils/beatMap'
+import type { GraceNote, Note, Score } from '../../types/music'
+import { findSlot } from '../../engine/models/slotLookup'
+import { isGraceNote } from '../../engine/models/graceOps'
+import { graceGroupOf } from '../../utils/graceNotes'
 import { fracEq } from '../../utils/fraction'
 import { staffOf, voiceOf } from '../../utils/lanes'
 import { dbg } from '../../utils/debug'
@@ -96,13 +100,23 @@ export function nextSlurAnchorStop(
   // there is no selection to lose here — a slur that silently jumped voices would be a wrong slur,
   // not a recovered one. Rests are dropped: a phrase mark ends on a note, and a rest under a slur is
   // something to span, not to land on.
-  const stops = buildBeatMap(engine.getScore(), voiceOf(anchor), staffOf(anchor))
-    .beats.filter(n => !n.isRest)
+  const score = engine.getScore()
+  // Graces FIRST, then the rests go: a grace waiting on a REST (D7 reversed) is a place to stand.
+  const stops = withGraceStops(score, buildBeatMap(score, voiceOf(anchor), staffOf(anchor)).beats)
+    .filter(n => !n.isRest)
+  const graceIds = new Set(stops.filter(n => isGraceNote(score, n.id)).map(n => n.id))
 
   // ⚠️ Located by POSITION, not by id: a chord's representative in the beat map is its LOWEST note,
   // so an endpoint anchored on any other member of the chord would not be found by id at all.
-  const at = (n: FlatNote, m: number, beat: FlatNote['beat']) => n.measureNumber === m && fracEq(n.beat, beat)
-  const from = stops.findIndex(n => at(n, anchor.measure, anchor.beat))
+  // ⭐ …EXCEPT a GRACE, which reports its main note's position: it is found by id (its first pitch —
+  // the stop's id), and a position lookup skips the graces, or it would land on one.
+  const at = (n: FlatNote, m: number, beat: FlatNote['beat']) =>
+    !graceIds.has(n.id) && n.measureNumber === m && fracEq(n.beat, beat)
+  const locate = (id: string, note: FlatNote | Note) =>
+    graceIds.has(id) || isGraceNote(score, id)
+      ? stops.findIndex(n => n.id === graceStopId(score, id))
+      : stops.findIndex(n => at(n, note.measure, note.beat))
+  const from = locate(anchorId, anchor)
   if (from === -1) return null
 
   const dest = stops[from + direction]
@@ -112,11 +126,36 @@ export function nextSlurAnchorStop(
   // thing by excluding that note from its snap). Located by position again, for the chord reason
   // above; a partner in another lane simply is not on this map, and then there is nothing to clamp.
   const other = engine.getNote(otherId)
-  const stop = other ? stops.findIndex(n => at(n, other.measure, other.beat)) : -1
+  const stop = other ? locate(otherId, other) : -1
   if (stop !== -1) {
     const destIndex = from + direction
     if (which === 'start' ? destIndex >= stop : destIndex <= stop) return null
   }
 
   return dest
+}
+
+/**
+ * ⭐ The lane's stops with its GRACES in them — each grace one stop (its first pitch), BEFORE its main
+ * note for a grace before, AFTER it for a grace after, in the group's order. A slur may start or end on a
+ * grace (his report, 2026-09-22: an endpoint dragged off a grace could not walk onto its note); the beat
+ * map knows only slots, so this is where a grace becomes a place an endpoint can stand.
+ */
+function withGraceStops(score: Score, stops: FlatNote[]): FlatNote[] {
+  const out: FlatNote[] = []
+  for (const stop of stops) {
+    const found = findSlot(score, stop.id)
+    const slot = found?.type === 'chord' ? found.chord : found?.type === 'rest' ? found.rest : undefined
+    const graceStop = (note: GraceNote): FlatNote => ({ ...stop, id: note.pitches[0].id, isRest: false })
+    for (const note of slot ? graceGroupOf(slot, 'before')?.notes ?? [] : []) out.push(graceStop(note))
+    out.push(stop)
+    for (const note of slot ? graceGroupOf(slot, 'after')?.notes ?? [] : []) out.push(graceStop(note))
+  }
+  return out
+}
+
+/** The stop id a grace pitch stands at — its grace's FIRST pitch (a grace chord is one stop). */
+function graceStopId(score: Score, pitchId: string): string {
+  const found = findSlot(score, pitchId, { graceNotes: true })
+  return found?.grace?.note.pitches[0]?.id ?? pitchId
 }

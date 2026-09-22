@@ -2909,7 +2909,19 @@ Asked for after his screenshot of a dotted grace (*"i think the position of the 
 should see how the normal note use the dot position and aply to the grace proportionally"*), and his
 *"send an agent to inspect the literature and the engines for the dot"*. Builds on
 `docs/research/accidental-dot-engines.md` / `accidental-dot-research.md` (normal notes). §F.1 the engines;
-⏳ §F.2 the literature — the agent was still running at this commit, folded in when it reports.
+§F.2 the literature.
+
+⭐⭐ **The two halves DISAGREE on the gap, and it is his call** (`docs/plans/grace-notes-plan.md`):
+
+| | the dot's SIZE | the head→dot and dot→dot GAPS |
+|---|---|---|
+| **the books** (no dotted GRACE is drawn anywhere; dotted CUE notes measured instead — Gould pp. 449, 469, 570–572; Stone p. 161) | scaled (Gould's cue dot 0.38 sp against 0.49–0.53 full) | ⛔ **NOT scaled** — Gould's cue gaps 0.27–0.60 sp against 0.33–0.38 full; Stone 0.28 against 0.22 |
+| **MuseScore** | scaled (`notedot.cpp:64-67`) | ✅ scaled where it DRAWS (`chordlayout.cpp:3192-3194`, `correctMag`) — ⚠️ its ROOM uses the staff's size only (`:106-107`); the two agents each read one of those lines, and both are right |
+| **Verovio · LilyPond** | scaled | scaled (§F.1 Q1) |
+| **VexFlow** | scaled | its literal 2 px / 1 px — unscaled |
+| **what we draw** (`graceDotXs`) | scaled | scaled — the three engines' answer |
+
+
 
 ⭐ **What was built on it** (`layout/graceRoom.graceDotXs`, `rendering/GracePass.drawGraceDots`): the
 NORMAL note's dot rule (`rendering/format/dotPlacement` + `engrave/notes/modifierStart`) run at the grace's
@@ -3193,4 +3205,129 @@ own (unscaled) units, because the grace head sits on the same staff positions:
    Other fonts change the numbers.
 5. Dorico, Sibelius, Finale: whether dot gaps scale with grace size. Not documented in the pages found.
 6. No engine has a regression test of a dotted **unbeamed stem-up** grace (Q2's case).
+
+### F.2 — The literature: no dotted grace drawn; dotted CUE notes measured instead
+
+Research 2026-09-22. Sources: the four books in `reference/` (`reference/README.md` page offsets: Gould PDF = printed+20; Ross +12; Stone 2-up, printed = 2*PDF - 22 (left half); G&L 2-up, printed P on PDF P/2+2). Every quotation below was read off a rendered scan (110 or 600 dpi), not the OCR. Builds on `docs/research/accidental-dot-research.md` (full-size dots) and `docs/research/grace-notes-research.md` Parts C/E (grace notes) — not redone.
+
+**Method.** Pages rendered with `pdftoppm -r 600`. 1 sp = the staff-line pitch **on the same plate** (Gould 26.25–27.0 px, Stone 28.4–29.1 px, G&L 25.0 px cue staff / 38.0 px full staff on p. 54, 50 px on p. 21's magnified example staff). Blob/row-profile PIL loops (`scratchpad/meas.py`, `prof.py`), ink threshold grey < 128. All horizontal numbers are **INK to INK**: *gap* = right-most ink of the head (incl. an up-stem, which stands at the head's right edge) → left edge of the dot. ⚠️ ±1–2 px anti-alias uncertainty = ±0.05 sp; treat numbers as ±0.05.
+
+---
+
+#### ⛔ The headline: no book DRAWS a dotted GRACE note
+
+Pages searched for a dotted grace / dotted small appoggiatura: **Gould pp. 125–131, 136–138** (whole *Grace notes* chapter + trill starting/finishing notes); **Ross pp. 189–191**; **Stone pp. 20–22, 48–49**; **G&L pp. 54–55, 72–74**. **None contains a dotted grace note, a dotted appoggiatura, or a dotted grace group.** (Every grace in those figures is an undotted quaver/semiquaver/demisemiquaver.) ⇒ everything measured below is on **CUE-sized dotted notes**, the nearest drawn relative (Gould p. 125: *"The grace note is slightly smaller than a cue note, which is ¾ of a full-sized note"*; Ross p. 190 and G&L p. 72 say the same). Whether a grace's dot follows the cue practice is an **inference**, not a source.
+
+---
+
+#### Q1 — every dotted SMALL note drawn, measured
+
+##### Gould (cue notes; full-size dotted notes on the SAME plate where marked ⭐)
+
+| source | page (PDF) | what is drawn | dot size (sp) | head→dot gap (sp) | vertical | same-plate full-size dot: size / gap |
+|---|---|---|---|---|---|---|
+| Gould ⭐ | **449** (469), *Alternative rhythms*, ex. 3 ("now, — plai-sir") | cue ♩. stem up, head in top space | **0.38** (10 px @ 26.5) | **0.34–0.36** | dot in the head's space, centred to 0.02 sp | ex. 1 same row: full ♩. in space 2, stem down → **0.52 / 0.33** |
+| Gould ⭐ | **469** (489), *Alternative text layout* ex. (a), beat 1 | TWO cue ♩. (one stem up, one stem down, spaces 1 & 2) right of full half-note chord; dots in ONE vertical column | **0.38 / 0.38** | **0.53 / 0.53** (up-stem voice from its stem; down-stem voice from its head) | each in its head's space (0.47 / 1.53 sp below top line) | beat 3, same example: full ♩. ×2 → **0.49 / 0.38**; the up-voice head on the top line takes its dot in the space above (+0.5 sp) |
+| Gould | **570** (590), Flute cue, bar 1 ("Tpt.") | cue ♪. beamed, stem up, head ON the 2nd ledger line below | **0.38** | **0.53** (to the stem; the dot also clears the ledger line's end by ≈0.3 sp) | dot in the space ABOVE the ledger line | — |
+| Gould ⭐ | **571** (591), Bruckner 9, bar 5 ("Vln. 1") | cue ♩. above the stave, head in the space above the 3rd ledger | **0.38** | **0.60** | dot in the head's space | bar 22 same system: full ♩. on the middle line → **0.53 / 0.34**, dot in the space above |
+| Gould | **571** (591), *Cue bars without rests* ("Clt.") bar 1 | cue ♪. beamed, stem up, head in the space below the 2nd ledger | **0.38** | **0.30** | dot in the head's space | — |
+| Gould ⭐ | **572** (592), Horn, bar 18 ("Ob.") | cue ♯♩. stem up, head ON the top line (tie follows) | **0.38** | **0.27–0.30** | dot in the space above (+0.5 sp) | last bar same line: full 𝅗𝅥. in top space → **0.50 / 0.34** |
+
+**Gould summary (6 cue dots, 4 full-size dots on the same plates):**
+- **Dot SIZE is SCALED.** All six cue dots are the same glyph, **0.38 sp** wide; the full dots on the same plates are **0.49–0.53 sp** (her p. 54 plate: 0.48 raw). Ratio **≈0.72–0.78 ≈ ¾** — her own cue size (p. 569 *"about three-quarters"*). Cue heads on these plates measure ≈0.8–0.9 sp wide (incl. stem) vs ≈1.3–1.45 full, i.e. ≈0.65–0.7.
+- **The GAP is NOT scaled.** Cue gaps **0.27 · 0.30 · 0.34 · 0.53 · 0.53 · 0.60 sp** (median ≈0.44) vs full **0.33 · 0.34 · 0.34 · 0.38** (median 0.34) — and her p. 54 plate 0.37–0.44. A gap scaled by ¾ would be ≈0.25–0.28; only one cue dot is that close, and three are wider than any full-size gap. As a fraction of the cue's own scale (÷0.75): 0.36–0.80 "cue-spaces". ⇒ her engraving keeps **a full-size (or larger) standoff with a smaller dot**; the spread (0.27–0.60) says it is not a fixed rule either. The widest ones (0.53–0.60) are all at ledger-line / multi-voice positions (the p. 469 pair shares one column across two voices; p. 570 clears a ledger line's end), so context may be pushing them — ⚠️ inference.
+- **Vertical: the FULL-SIZE rule, in full-staff spaces, unchanged.** Head in a space → dot centred in that space (6/6, within 0.03 sp); head on a line or ledger line → dot in the space above (2/2: p. 572 top line, p. 570 ledger line). The dot's vertical grid is the staff's, not scaled — necessarily, since the cue head sits on the full staff's lines/spaces.
+- **Flag:** ⛔ none of the six is an UNBEAMED stem-up flagged note (the two quavers are beamed) ⇒ the flag question is **UNKNOWN from her drawings**.
+
+##### Stone
+
+| source | page (PDF) | what is drawn | dot size (sp) | head→dot gap (sp) | vertical | full-size comparison |
+|---|---|---|---|---|---|---|
+| Stone ⭐ | **161** (91 right), *Playing-Cues*, "Substitute part" Cl. II bar 3 | cue ♭♩. stem up, head in top space | **0.38** (11 px @ 28.9) | **0.28** | dot in the head's space | same page, "Original part" Ob. III bar 3: full ♭♩. on 2nd line → **0.45–0.48 / 0.22**, dot in the space above |
+| Stone | **20** (21 left), glissando durations item 3 | cue ♩. rhythm ABOVE the stave (no staff under it) | **0.28** (8 px @ 28.6) | **0.28** | level with the head centre | — |
+| Stone | **21** (21 right), undulating glissando item 4 | cue ♩. in a rhythm "cue-line", no staff | **≈0.33** (9–10 px @ 28.4; dot touches the tie ink) | **≈0.26** | level with the head centre | p. 125 (PDF 73 right), *Dotted Notes* A.1, full ♩. two voices: **≈0.49–0.55 / 0.28–0.31** (different plate) |
+
+Stone agrees with Gould: **dot scaled (0.28–0.38 vs 0.45–0.55 → ≈0.6–0.8), gap NOT scaled (0.26–0.28 vs 0.22–0.31).** ⚠️ Stone is a heavy photo-offset; ink is fat.
+
+##### Ross — ⛔ nothing drawn. pp. 189–191 cue and grace figures carry no dotted note; the p. 190 small-staff solo part has none either.
+
+##### Gerou & Lusk — a cue-size STAFF, not cue notes on a full staff
+
+| source | page (PDF) | what is drawn | dot size | gap | vertical | comparison |
+|---|---|---|---|---|---|---|
+| G&L | **54** (29 left), *Piano accompaniment parts may include a cue-size solo part above the grand staff* | two ♩. on a cue-size STAFF (its sp 25.0 px vs the grand staff's 38.0 px on the same figure = **66%**) | **0.26 own sp = 0.17 full sp** | **0.32 own sp = 0.21 full sp** | dot in the head's space (≈0.08 sp high) | full ♩. on p. 21 (PDF 12 right, *Augmentation dot* "For a space note"), magnified example staff: **0.34 / 0.38 sp** — ⚠️ different plate |
+
+Here the whole STAFF is reduced, so dot **and** gap shrink with it (≈0.17/0.21 full sp). That is the "small staff" case (the staff space itself is smaller), not the "small note on a normal staff" case, and it does not bear on graces.
+
+---
+
+#### Q2 — written rules about dots on grace / cue notes
+
+| source | page | quotation (from the scan) | bears on the dot? |
+|---|---|---|---|
+| Gould | 125 | *"Grace notes are notated as small noteheads with stems shortened to about 2¼ stave-spaces. Tails, beams, articulation and accidentals are also scaled down proportionally."* | ⚠️ lists what scales — **dots are not named** |
+| Gould | 569 | *"Cue notation is about three-quarters the size of full-sized notation, so that it is conspicuously smaller than the player's material. All notation symbols that are part of the cue (including rests, accidentals, articulation and dynamics) are scaled down."* | ✅ by implication (a dot is a notation symbol of the cue) — **but no word "dot"**; and nothing about the GAP. ⚠️ p. 571 then says *"Rests are full-sized."* (for the player's whole-bar rests beside a cue) |
+| Gould | 569 | *"Note spacing should be closed up within a cue: space characters in proportion to the reduced note size."* | horizontal note spacing, not the dot standoff — ⚠️ yet her own dot standoffs are NOT closed up (Q1) |
+| Gould | 449 | *"The alternative rhythm takes cue-sized notes with opposite stem directions. Both rhythms share full-sized noteheads except when one part is dotted. Place the alternative rhythms after the main note, except when it is the main note that has the dot."* | a dot rule for small + full notes together: the cue note goes LEFT of a dotted main note so the dot stays against its head |
+| Gould | 469 | *"Place duplicating notes as close as possible to the full-sized notes. A cue-sized note goes to the right unless the main notes are dotted (see example (a) below, beat 3), or are semibreves (b)."* | same rule, second statement, with the drawn example measured above |
+| Ross | 189 | *"Its size is determined by the staff and tool sizes used. For staff sizes one, two and three, the note size for staff six is used; for staff sizes four, five and six, the note size for staff seven is used."* | cue = a smaller staff's TOOLS ⇒ by implication a smaller staff's dot; not stated |
+| Ross | 190 | *"The grace note is slightly smaller than the cue note … Most sets of tools used by engravers contain a note head, sharp, flat and natural sign to be used as a grace note."* | ⭐ the grace toolset he lists has **no dot** — a note head and three accidentals only |
+| Ross | 169 (via accidental-dot-research) | *"Mention should be made of the dot's size in relation to the characters for a particular staff size."* | dot size tracks the staff size — silent on grace/cue |
+| G&L | 54 | *"All musical elements associated with the cue notes will also be at cue size."* | ✅ the closest to a sentence covering the dot (size); gap not mentioned |
+| G&L | 72 | *"Grace notes are notated at cue size or slightly smaller (65% of normal size works well)."* | chains with p. 54 ⇒ grace dot at cue size, by implication |
+| Stone | 49 | grace stems ≈2½, cues ≈3 sp | nothing on dots |
+
+⛔ **No book states a dot rule for grace notes, and no book says anything about the head→dot GAP of a small note.**
+
+---
+
+#### Q3 — same book, same plate: the scaling question answered by one engraver
+
+| engraver | plate | cue dot / full dot | cue gap / full gap | verdict |
+|---|---|---|---|---|
+| Gould | p. 449 | 0.38 / 0.52 (0.73) | 0.34–0.36 / 0.33 (≈1.05) | size scaled, gap not |
+| Gould | p. 469 (a) | 0.38 / 0.49 (0.78) | 0.53 / 0.38 (1.4) | size scaled, gap wider |
+| Gould | p. 571 | 0.38 / 0.53 (0.72) | 0.60 / 0.34 (1.8) | size scaled, gap wider |
+| Gould | p. 572 | 0.38 / 0.50 (0.76) | 0.27–0.30 / 0.34 (≈0.85) | size scaled, gap ≈ full |
+| Stone | p. 161 | 0.38 / 0.45–0.48 (≈0.8) | 0.28 / 0.22 (1.3) | size scaled, gap not |
+
+⭐ **Five plates, two engravers, one answer: the dot GLYPH shrinks (≈¾), the head→dot STANDOFF does not** (it is full-size or wider; never the ¾ it would be if scaled). Vertical placement is the full staff's space grid in every case.
+
+---
+
+#### Q4 — web / standards / engines
+
+| source | URL | finding |
+|---|---|---|
+| SMuFL, *Individual notes* | https://smufl.formats.music/latest/tables/individual-notes.html | `augmentationDot` U+E1E7 (and U+1D16D), description *"Augmentation dot"*; **no implementation note, no small/cue/grace variant** |
+| Bravura 1.392 metadata (`~/dev/engine-sources/MuseScore/fonts/bravura/bravura_metadata.json`) | — | set **ss01 "opticalVariantsSmall — Smaller optical size for small staves"** (49 glyphs: `noteheadBlackSmall`, `accidental*Small`, `artic*Small`, clefs, time-sig digits, dynamics) — **no `augmentationDotSmall`**. `augmentationDot` bbox 0.4 × 0.4 sp. ⭐ ss02 **"flagsShort — Short flags (to avoid augmentation dots)"** — the flag/dot clash handled by a shorter FLAG, full-size notes only. No `engravingDefaults` row for a dot gap |
+| SMuFL on optical variants (search) | https://w3c-cg.github.io/smufl/latest/about/recommended-chars-optional-glyphs.html | optional small-staff variants exist as a stylistic set; ⚠️ page not fetched in full |
+| Dorico help, grace notes | https://www.steinberg.help/r/dorico-pro/5.1/en/dorico/topics/notation_reference/notation_reference_grace_notes/notation_reference_grace_notes_c.html · https://archive.steinberg.help/dorico/v2/en/dorico/topics/notation_reference/notation_reference_grace_notes_size_c.html | grace scale factor (default 3/5) in Engraving Options > Notes > Grace Notes; ⛔ nothing on grace dots (per search summary; not fetched verbatim) |
+| Steinberg forum *Dotted grace notes* | https://forums.steinberg.net/t/dotted-grace-notes/838303 | users only: *"It appears that dotted grace notes are not possible"*, then a workaround (16th grid + Alt-Shift-Right). No Steinberg staff answer; nothing on dot size/gap |
+| Steinberg forum *Grace note dot* | https://forums.steinberg.net/t/grace-note-dot/1035689 | how to ENTER a dot on a grace; no geometry |
+| MuseScore forum *Formating dotted grace note* | https://musescore.org/en/node/102566 | ⛔ **UNVERIFIED** — 403 on fetch; the search snippet says two dotted graces on one chord overlap their dots |
+| MuseScore source (`~/dev/engine-sources/MuseScore` @ `929d1e9`) | — | ⭐ `notedot.cpp:66` — the dot's mag = *"parentItem()->mag() * style().styleD(Sid::dotMag)"* ⇒ **the dot glyph scales with the grace** (grace mag 0.7 via the chord's intrinsic mag, per grace-notes-research Part B); `chordlayout.cpp:106–107` — *"double mag_ = item->staff() ? item->staff()->staffMag(item) : 1.0; … dotNoteDistance = …styleAbsolute(Sid::dotNoteDistance) * mag_"* ⇒ **the gap is scaled by the STAFF's mag only, not the grace's** (`dotNoteDistance` 0.5 sp, `dotDotDistance` 0.65 sp, `styledef.cpp:304–306`). ⇒ MuseScore = scaled dot, full-size gap — **the same shape as Gould's and Stone's plates** |
+| VexFlow 5.0.0 (grace-notes-research Part A §6) | — | dot drawn **full size** on a grace (no `Dot` scale row), placed by ordinary `Dot.format` |
+| LilyPond / Verovio (grace-notes-research Part B) | — | LilyPond: Dots `font-size -3` (0.707) on graces; Verovio: cue size applied to dots. ⛔ How each treats the GAP was not read — UNKNOWN |
+| Scoring Notes | — | ⛔ no article on dotted graces found |
+
+---
+
+#### What nobody answers (UNKNOWN)
+
+1. **A dotted grace note, drawn** — none in the four books (pages listed above). Everything is inferred from cue notes.
+2. **The flag**: a dotted stem-up FLAGGED small note is drawn nowhere (all measured quavers are beamed). Whether a grace's dot goes past the (small) flag or tucks next to the head is **UNKNOWN**. The full-size rule is unanimous (Ross p. 171 *"DO place the dot after the flag!"*, G&L p. 22, Gould p. 55 — move the dot right of the tail *or* lengthen the stem).
+3. **The GAP in words** — no book states a head→dot distance for a small note.
+4. **Double dots on a small note** — none drawn, none stated.
+5. **A dotted grace on a chord / in a beamed grace group** — nothing.
+6. Dorico's / Sibelius's actual rule for grace dot size and gap — docs found say nothing; ⛔ not verified by running either program.
+7. MuseScore forum thread 102566 — unreadable (403).
+
+#### Disagreements
+
+1. **Gould's words vs her plates, on the gap**: p. 569 *"space characters in proportion to the reduced note size"* reads as "shrink the spacing", but her dot standoffs on cue notes are full-size or wider (0.27–0.60 vs 0.33–0.38 full). The sentence is about note-to-note spacing; the plates show the dot standoff was not closed up.
+2. **Gould's own spread**: her cue gaps range 0.27 → 0.60 sp — twice the spread of her full-size gaps (0.33–0.38). Not a fixed number.
+3. **Engines**: VexFlow scales neither dot nor gap (full-size dot); MuseScore scales the dot but not the gap (= the plates); LilyPond/Verovio scale the dot (gap unread).
+4. **G&L's cue STAFF** scales dot and gap together (≈0.17/0.21 full sp) — consistent with a whole reduced staff, and not in conflict with the cue-note plates, but a reader must not mix the two cases.
+5. Ross p. 190's grace tool list (head + ♯♭♮) has no dot, i.e. no dedicated small dot die is named — whereas Gould and Stone plainly engrave a smaller dot on cue notes.
 

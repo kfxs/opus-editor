@@ -360,7 +360,16 @@ selectable in this plan; the press toggles it (§3.2).
   With the grace tool armed, an articulation key arms FOR the next grace (the accidental's fall-through,
   `MARKING_TOOL_ENTERS_PITCH`); `EditorState.pendingArticulations` is the one reader. ⚠️ Inside the staff
   the snap dominates, so a grace's staccato lands where a normal note's would — the normal notes' rule.
-  ⏭️ **Open after P1:** a real slur's shape at a grace · `X` (the stem flip — the stem-down picture and its
+  ⭐ **REAL SLURS on graces** (his reports: *"slur is not working for grace"*, *"not reanchoring to the
+  note after"*): `S` on a lone grace slurs it to the next grace of its group, else to its main note, and a
+  grace + its note read grace → note whatever the click order (`models/spanFromNotes` — `graceRank` and the
+  walk on from a grace); an endpoint walks onto and off a grace by drag, arrow and Ctrl+arrow
+  (`walks/slurReanchor.withGraceStops`: each grace one stop before / after its note, found by id). The shape
+  is the ordinary slur rules' — his eye.
+  ⏳ **OPEN (his call): the DOT's gap on a grace** — proportional (MuseScore · Verovio · LilyPond; what is
+  built, `graceDotXs`) or full-size (the books' dotted CUE notes — no book draws a dotted grace;
+  research §0 Part F). One number either way; the proportional default stands until he picks.
+  ⏭️ **Open after P1:** a real slur's shape at a grace (the slur rules at a small note — his eye) · `X` (the stem flip — the stem-down picture and its
   mirrored slash, P6) · a grace CHORD's dots and accidentals (one column, no collision walk). The ghost previews
   the armed articulations too (the page's `placeArticulation` at the snapped pitch; a stack steps one text
   line per mark — a preview's approximation of `articulationStack`) · the slash

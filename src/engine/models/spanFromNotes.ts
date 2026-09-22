@@ -17,8 +17,10 @@
  * sounding music, and the engine resolves by slot, so it would happily anchor one to silence. A slur
  * may end on a rest's slot, so it asks for them.
  */
-import type { Note } from '@/types/music'
+import type { GraceSide, Note, Score } from '@/types/music'
 import { staffOf, voiceOf } from '@/utils/lanes'
+import { findSlot } from './slotLookup'
+import { graceGroupOf } from '@/utils/graceNotes'
 import { fracEq } from '@/utils/fraction'
 import { compareByPosition } from '@/utils/musicUtils'
 
@@ -28,6 +30,36 @@ export interface SpanNoteSource {
   /** A fanned MEMBER's index in its group, or null. Members share their event's (measure, beat), so
    *  position alone cannot order them. */
   fanMemberIndexOf(noteId: string): number | null
+  /** ⭐ The score, when there is one — how a GRACE is recognised (a spec's fake may omit it: no graces). */
+  getScore?(): Score
+}
+
+/** Where a GRACE pitch stands: its side, its place in the group, and the ids around it. */
+interface GracePlace {
+  side: GraceSide
+  index: number
+  /** The first pitch of the grace AFTER it in its group, if any. */
+  nextId: string | undefined
+  /** The main note it belongs to — its chord's first pitch, or the REST it waits on (D7 reversed). */
+  hostId: string
+}
+
+/** A grace pitch's place, or null for any other id. */
+function graceAt(source: SpanNoteSource, noteId: string): GracePlace | null {
+  const score = source.getScore?.()
+  if (!score) return null
+  const found = findSlot(score, noteId, { graceNotes: true })
+  if (!found?.grace) return null
+  const slot = found.type === 'chord' ? found.chord : found.rest
+  const group = graceGroupOf(slot, found.grace.side)
+  const hostId = found.type === 'chord' ? found.chord.notes[0]?.id ?? noteId : found.rest.id
+  return { side: found.grace.side, index: found.grace.index, nextId: group?.notes[found.grace.index + 1]?.pitches[0]?.id, hostId }
+}
+
+/** At ONE beat, the reading order: the graces before (in their order), the note, the graces after. */
+function graceRank(source: SpanNoteSource, noteId: string): number {
+  const g = graceAt(source, noteId)
+  return g ? (g.side === 'before' ? -1000 + g.index : 1000 + g.index) : 0
 }
 
 /** …and what walking ON from a note needs besides. */
@@ -58,6 +90,10 @@ export interface SpanFromNotes {
 export function compareForSpan(source: SpanNoteSource, a: Note, b: Note): number {
   const byPosition = compareByPosition(a, b)
   if (byPosition !== 0) return byPosition
+  // ⭐ A GRACE reports its main note's beat (it has none of its own): at one beat it reads BEFORE the
+  //    note (a grace before) or after it (a grace after) — or a slur over grace + note is drawn backwards.
+  const byGrace = graceRank(source, a.id) - graceRank(source, b.id)
+  if (byGrace !== 0) return byGrace
   const ia = source.fanMemberIndexOf(a.id)
   const ib = source.fanMemberIndexOf(b.id)
   return ia !== null && ib !== null ? ia - ib : 0
@@ -95,6 +131,15 @@ export function nextDistinctSlot(source: SlotWalkSource, start: Note): Note | un
   // typed note means "the whole event"; it does not, once you are working member by member.) To
   // slur a fan to something outside it, select BOTH ends — that path never asks this question.
   let walkFromId = start.id
+  // ⭐ From a GRACE, "the next thing" is the next grace of its group, else what it leads into: a grace
+  //    BEFORE → its main note (`s` on a lone grace slurs it to its note — the grace slur); a grace AFTER →
+  //    on from its note's slot. Graces are not in `getAllNotes`, so this is the only way on from one.
+  const grace = graceAt(source, start.id)
+  if (grace) {
+    if (grace.nextId) return source.getNote(grace.nextId)
+    if (grace.side === 'before') return source.getNote(grace.hostId)
+    walkFromId = grace.hostId
+  }
   const group = source.fanMembersOfSlot(start.id)
   if (group) {
     const at = source.fanMemberIndexOf(start.id) ?? -1

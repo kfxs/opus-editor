@@ -148,3 +148,41 @@ describe('reanchorArmedSlurEndpoint', () => {
     expect(engine.getSlurById(restBar.id)!.startNoteId).toBe(ids[0])
   })
 })
+
+describe('reanchorArmedSlurEndpoint — a slur on a GRACE (his report: "not reanchoring to the note after")', () => {
+  let engine: MusicEngine
+  let state: EditorState
+  let host: string
+  let after: string
+  let grace: string
+  beforeEach(() => {
+    engine = new MusicEngine({ container: {} as unknown as HTMLElement, width: 800, height: 400 })
+    engine.addMeasure()
+    engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    host = engine.addNoteAtBeat({ step: 'E', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })!.id
+    after = engine.addNoteAtBeat({ step: 'G', octave: 4, duration: 'q', measure: 1, beat: frac(2, 1) })!.id
+    grace = engine.grace.addGrace(host, 'before', { step: 'D', alter: 0, octave: 4 }, 'appoggiatura', { duration: '8' })!.pitches[0].id
+    state = createEditorState()
+  })
+
+  it('⭐ the START walks off the grace onto its MAIN note — the grace is a stop just before it', () => {
+    const slurId = engine.slur.createSlur([grace, after])!.id
+    state.selectedElement = { kind: 'slur', id: slurId, endpoint: 'start' }
+    expect(reanchorArmedSlurEndpoint(state, engine, 1)).toBe(true)
+    expect(engine.getSlurById(slurId)?.startNoteId).toBe(host)
+  })
+
+  it('…and walks back LEFT onto the grace', () => {
+    const slurId = engine.slur.createSlur([host, after])!.id
+    state.selectedElement = { kind: 'slur', id: slurId, endpoint: 'start' }
+    expect(reanchorArmedSlurEndpoint(state, engine, -1)).toBe(true)
+    expect(engine.getSlurById(slurId)?.startNoteId).toBe(grace)
+  })
+
+  it('an END on the main note may not walk back onto its own grace past the start', () => {
+    const slurId = engine.slur.createSlur([grace])!.id // grace → host
+    state.selectedElement = { kind: 'slur', id: slurId, endpoint: 'end' }
+    expect(reanchorArmedSlurEndpoint(state, engine, -1)).toBe(false)
+    expect(engine.getSlurById(slurId)?.endNoteId).toBe(host)
+  })
+})
