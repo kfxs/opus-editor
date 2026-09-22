@@ -1337,7 +1337,7 @@ export class MouseController {
     // The feather stamp's whole click lives in its own module (interactions/stamps/fanStamp); this is the
     // row that gives it a turn.
     if (stampFanAtClick(this.state, engine, x, y, () => this.render.renderScore())) return
-    if (stampGraceAtClick(this.state, engine, registry, x, y, () => this.render.renderScore())) return
+    if (stampGraceAtClick(this.state, engine, registry, x, y, () => this.render.renderScore(), id => this.selection.moveCaretTo(id))) return
     // The slur stamp's click lives in its own module too (interactions/stamps/slurStamp); this is its turn.
     if (stampSlurAtClick(this.state, engine, registry, x, y, () => this.render.renderScore())) return
     if (stampHairpinAtClick(this.state, engine, registry, x, y, () => this.render.renderScore())) return

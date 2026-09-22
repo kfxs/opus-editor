@@ -56,6 +56,16 @@ describe('graceOps', () => {
       expect('slash' in chordOf(b.id).graceBefore!).toBe(false)
     })
 
+    it('⭐ an INDEX puts the new grace where the click was — first, between, clamped past the end (P2a)', () => {
+      const host = quarter()
+      const F4 = { step: 'F' as const, alter: 0 as const, octave: 4 }
+      graceOps.addGrace(score, host.id, 'before', D4, 'appoggiatura', EIGHTH)
+      graceOps.addGrace(score, host.id, 'before', E4, 'appoggiatura', EIGHTH, 0)
+      graceOps.addGrace(score, host.id, 'before', F4, 'appoggiatura', EIGHTH, 1)
+      graceOps.addGrace(score, host.id, 'before', D4, 'appoggiatura', EIGHTH, 99)
+      expect(chordOf(host.id).graceBefore!.notes.map(n => n.pitches[0].step)).toEqual(['E', 'F', 'D', 'D'])
+    })
+
     it('a second press APPENDS, left to right — and the form is read only when the group is created', () => {
       const host = quarter()
       graceOps.addGrace(score, host.id, 'before', D4, 'appoggiatura', { duration: '16' })
@@ -163,6 +173,29 @@ describe('graceOps', () => {
       expect(grace.duration).toBe('8') // a rhythm field is the SLOT's — ignored, as for a fan member
       expect(chordOf(host.id).notes[0]).toMatchObject({ step: 'C', octave: 4 })
       expect(chordOf(host.id).articulations).toBeUndefined()
+    })
+  })
+
+  describe('addGracePitch — a grace CHORD (P2a, note entry\'s chord rule)', () => {
+    it('⭐ adds the pitch to THAT grace, which takes the click\'s written value', () => {
+      const host = quarter()
+      const grace = graceOps.addGrace(score, host.id, 'before', D4, 'appoggiatura', EIGHTH)!
+      const before = rhythm()
+      const pitch = graceOps.addGracePitch(score, grace.pitches[0].id, E4, { duration: '16' })
+      expect(pitch).toMatchObject(E4)
+      expect(grace.pitches.map(p => p.step)).toEqual(['D', 'E'])
+      expect(grace.duration).toBe('16')
+      expect(chordOf(host.id).graceBefore!.notes).toHaveLength(1)
+      expect(rhythm()).toEqual(before)
+    })
+
+    it('⛔ refuses a pitch the grace already SOUNDS (an enharmonic too), and anything not a grace', () => {
+      const host = quarter()
+      const grace = graceOps.addGrace(score, host.id, 'before', E4, 'appoggiatura', EIGHTH)!
+      expect(graceOps.addGracePitch(score, grace.pitches[0].id, E4)).toBeNull()
+      expect(graceOps.addGracePitch(score, grace.pitches[0].id, { step: 'F', alter: -1, octave: 4 })).toBeNull()
+      expect(graceOps.addGracePitch(score, host.id, D4)).toBeNull()
+      expect(grace.pitches).toHaveLength(1)
     })
   })
 

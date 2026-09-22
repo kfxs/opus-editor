@@ -112,7 +112,8 @@ export function toolGhost(tool: MarkingTool, armed: ArmedRestFields): ToolGhost 
     // the dialog that armed it said how long the gesture lasts (see the `fan` member of MarkingTool).
     case 'fan': return { kind: 'fan', duration: tool.unit, dots: tool.dots }
     // A grace reads the ARMED value, as the rest does (MARKING_TOOL_USES_ARMED_LENGTH), and shows
-    // the slash the click will make. ⛔ No dots: a dotted grace is not drawn yet (P1).
+    // the slash the click will make. ⭐ Its x follows the pointer SMOOTHLY, as the note ghost's does
+    // (his call, 2026-09-22: a ghost snapped to the column it would hit jumped — *"not smooth"*).
     case 'grace': return {
       kind: 'grace', duration: armed.duration, dots: armed.dots, slash: tool.form === 'acciaccatura',
       accidental: armed.accidental ?? null, articulations: armed.articulations ?? [],

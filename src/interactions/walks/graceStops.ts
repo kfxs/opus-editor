@@ -51,3 +51,14 @@ export function locateStop(
   return lane.stops.findIndex(n =>
     !lane.graceIds.has(n.id) && n.measureNumber === at.measure && fracEq(n.beat, at.beat))
 }
+
+/**
+ * The note a GRACE hangs on — its chord's first pitch, or its rest — or null for any other id. ⭐ Where
+ * the keyboard caret AFTER a grace types (his rule, 2026-09-22: *"the grace stamp should behave similar
+ * to note stamp"* — the stamped grace is the caret, and the next letter is its main note).
+ */
+export function graceHostId(score: Score, id: string): string | null {
+  const found = findSlot(score, id, { graceNotes: true })
+  if (!found?.grace) return null
+  return found.type === 'chord' ? found.chord.notes[0]?.id ?? null : found.rest.id
+}

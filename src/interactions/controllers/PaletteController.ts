@@ -130,6 +130,7 @@ export class PaletteController {
       getEngine: () => this.getEngine(),
       arm: tool => this.armMarkingTool(tool),
       disarm: () => this.disarmMarkingTool(),
+      disarmToEntry: () => this.disarmToEntry(),
       render: () => this.renderScore(),
     }
   }

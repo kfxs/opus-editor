@@ -24,8 +24,10 @@ export function pressGraceTool(host: SpanToolHost, form: GraceForm, side: GraceS
   if (armed && armed.form === form && armed.side === side) {
     // What was armed FOR the grace goes with it — or it would mark the next typed note.
     clearEntryMarks(host.state)
-    host.disarm()
-    dbg(`[grace] ${form} stamp disarmed`)
+    // ⭐ Back to NOTE ENTRY, ⛔ not selection (his report, 2026-09-22: *"im just disarming the grace and
+    //    not entering in select mode"*) — a grace is entered among notes, as the clef's re-press does.
+    host.disarmToEntry()
+    dbg(`[grace] ${form} stamp disarmed — note entry`)
     return
   }
   // Read BEFORE arming, as the rest tool does: nothing lit ⇒ nothing was chosen, so the convention's

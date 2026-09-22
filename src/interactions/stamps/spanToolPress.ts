@@ -29,7 +29,10 @@ export interface SpanToolHost {
   state: EditorState
   getEngine(): MusicEngine | null
   arm(tool: MarkingTool): void
+  /** Disarm and fall back to SELECTION mode — a span tool's re-press. */
   disarm(): void
+  /** Disarm but STAY in note entry — the clef / meter / dynamic / tempo re-press, and the grace's. */
+  disarmToEntry(): void
   render(): void
 }
 

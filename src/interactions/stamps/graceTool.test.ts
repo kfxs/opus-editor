@@ -13,6 +13,7 @@ describe('pressGraceTool', () => {
       getEngine: () => null,
       arm: vi.fn((tool: MarkingTool) => { state.selectedMarkingTool = tool; state.selectedTool = 'entry' }),
       disarm: vi.fn(() => { state.selectedMarkingTool = null; state.selectedTool = 'selection' }),
+      disarmToEntry: vi.fn(() => { state.selectedMarkingTool = null }),
       render: vi.fn(),
     }
   })
@@ -38,5 +39,13 @@ describe('pressGraceTool', () => {
     expect(state.selectedMarkingTool).toEqual({ kind: 'grace', form: 'appoggiatura', side: 'before' })
     pressGraceTool(host, 'appoggiatura', 'before')
     expect(state.selectedMarkingTool).toBeNull()
+  })
+
+  it('🚨 the disarm STAYS in note entry — ⛔ never selection mode (his report, 2026-09-22)', () => {
+    pressGraceTool(host, 'appoggiatura', 'before')
+    pressGraceTool(host, 'appoggiatura', 'before')
+    expect(host.disarmToEntry).toHaveBeenCalledOnce()
+    expect(host.disarm).not.toHaveBeenCalled()
+    expect(state.selectedTool).toBe('entry')
   })
 })

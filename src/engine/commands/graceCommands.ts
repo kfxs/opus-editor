@@ -5,10 +5,10 @@
  *
  * ⛔ No `mutate` on a refusal: an edit that changed nothing leaves no undo entry.
  */
-import { addGrace, isGraceNote, type GraceForm, type GraceSpelling, type GraceWritten } from '../models/graceOps'
-import type { ArticulationType, Fraction, GraceNote, GraceSide } from '@/types/music'
+import { addGrace, addGracePitch, isGraceNote, type GraceForm, type GraceSpelling, type GraceWritten } from '../models/graceOps'
+import type { ArticulationType, Fraction, GraceNote, GraceSide, NotePitch } from '@/types/music'
 import { beatRestAt } from '../models/restGraceOps'
-import { offsetTargetOf } from '../models/slotLookup'
+import { findSlot, offsetTargetOf } from '../models/slotLookup'
 import type { CommandContext } from './commandContext'
 import { nudgeNoteOffset } from '../models/overrideOps'
 import { noteOffsetOverrideOf } from '../models/engravingOverrides'
@@ -26,14 +26,33 @@ export function graceCommands(ctx: CommandContext) {
       hostNoteId: string, side: GraceSide, spelling: GraceSpelling, form: GraceForm, written: GraceWritten, beat?: Fraction,
       /** The articulations armed for it — note entry's, in the same undo entry. */
       marks?: ArticulationType[],
+      /** Where it stands in the group (the clicked gap); absent = the end. @see addGrace */
+      index?: number,
     ): GraceNote | null {
       const score = ctx.model().getScore()
       const host = beat ? beatRestAt(score, hostNoteId, beat)?.id ?? hostNoteId : hostNoteId
-      const grace = addGrace(score, host, side, spelling, form, written)
+      const grace = addGrace(score, host, side, spelling, form, written, index)
       if (!grace) return null
       if (marks?.length) grace.articulations = [...marks]
       ctx.mutate(form === 'acciaccatura' ? 'Add acciaccatura' : 'Add appoggiatura')
       return grace
+    },
+
+    /**
+     * ⭐ A click in a grace's column — its pitch joins that grace, a grace CHORD (P2a, note entry's chord
+     * rule) — see {@link addGracePitch}. The armed articulations join the grace's own, as a chord's do.
+     * ⛔ A refusal (the same pitch) leaves no undo entry.
+     */
+    addGracePitch(
+      gracePitchId: string, spelling: GraceSpelling, written?: GraceWritten, marks?: ArticulationType[],
+    ): NotePitch | null {
+      const score = ctx.model().getScore()
+      const pitch = addGracePitch(score, gracePitchId, spelling, written)
+      if (!pitch) return null
+      const grace = findSlot(score, pitch.id, { graceNotes: true })?.grace?.note
+      if (grace && marks?.length) grace.articulations = [...new Set([...(grace.articulations ?? []), ...marks])]
+      ctx.mutate('Add grace chord note')
+      return pitch
     },
 
     /**

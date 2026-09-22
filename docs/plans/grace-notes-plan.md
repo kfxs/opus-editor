@@ -1,6 +1,6 @@
 # Grace notes — appoggiatura, acciaccatura, Nachschlag: the plan
 
-> **Status: P0 and P1 committed (2026-09-22), + the offset, the arrows and the rest fixes. Next: P2 (groups) — or the open list under P1.** 📄 The research is `docs/research/grace-notes-research.md`
+> **Status: P0 and P1 committed (2026-09-22), + the offset, the arrows and the rest fixes; P2 planned, P2a (the click behaves like note entry) committed. Next: P2b (the beam).** 📄 The research is `docs/research/grace-notes-research.md`
 > (four sources folded into one file; its §0 is the synthesis this plan reads). ⛔ This plan is the place
 > the DECISIONS get made: §0 marks each as ✅ DECIDED (his word, with the date) or ⏳ PROPOSED — until he
 > says so it is a default, not a decision (`feedback_an_open_question_is_not_a_decision`). ✅ D1 · D2 ·
@@ -127,8 +127,21 @@ the fan member's in `deleteNoteWithRepair`, and no bar repair, because nothing r
    The click is `interactions/stamps/graceStamp.ts`: **a hit-test, not a position** — it names the NOTE
    the press lands nearest (`findClosestNoteOrRest`), because a grace is attached to something that
    exists, like the articulation stamp and unlike the fan's; the pitch is the click's **y** through
-   `pixelToPosition`. Clicking the same note again APPENDS to its group — that is how a group of three
-   is typed. The tool stays armed (a stamp is used in runs). Written value = the ARMED duration
+   `pixelToPosition`. ⭐ **His rule (2026-09-22): a click in the SPACE adds the NEXT grace to the note's
+   group** — that is how a group of three is typed — **and a click ON a grace adds its pitch to that
+   grace: a grace CHORD** — ⭐ *"it should behave like note entry"*: x is a COLUMN, y a PITCH; in a
+   grace's column a new pitch chords and the same pitch is refused, in a gap a new grace stands THERE
+   (first, between, last); the ghost's x follows the pointer SMOOTHLY, as the note ghost's does. (P1 built only "append at the end";
+   the rest is P2a, below.) The tool stays armed (a stamp is used in runs); ⭐ its re-press DISARMS
+   back to NOTE ENTRY, ⛔ not selection (his report, 2026-09-22 — the clef's re-press, `disarmToEntry`).
+   ⭐ **The stamped grace is the CARET, as an entered note is** (his rule, same day: *"the grace stamp
+   should behave similar to note stamp"*): selected (`moveCaretTo`), the blue line after it at the next
+   STEP — the next grace, or its main note (`controllers/keyboardCaret`) — and a typed LETTER is its main
+   note, entered AT the main note's place (`KeyboardController.enterNoteAtCursorPosition`): on a rest it
+   takes the rest's place and keeps the grace (D7). ⚠️ **On a NOTE it OVERWRITES that note and the grace
+   goes with it** — the existing overwrite drops a replaced chord's graces (a click over the note does the
+   same); ⏳ his call whether a note that takes a note's place takes its graces, as it takes a rest's.
+   ⏭️ SPACE (a typed rest) after a grace is not wired. Written value = the ARMED duration
    (`selectedDuration` + `selectedDots`); the default a press finds there is the convention's: an
    **8th** for a single grace, and the second click on a note makes both **16ths** (Gould p. 125: *"two
    beams recommended"* for a group, G&L: two = 16ths). ⚠️ Provisional, one function
@@ -387,8 +400,84 @@ selectable in this plan; the press toggles it (§3.2).
   on the 8th/16th has no knob (the font's) · ⏳ **a HOUSE STYLE the score's user sets** (these rows, saved
   in the file, with an options UI — one design for every engraving number, his call when). ⭐ `lint:hubs`
   re-baselined once for P0 (his call — code-shape plan, *After the plan*).
-- **P2 — GROUPS.** A second click on the same note appends; two beams at the group's scale; the slash on the first stem;
-  `graceWrittenValue`; the slur from the first grace. *End state: a three-note grace run.*
+- **P2 — GROUPS: the BEAM** (planned 2026-09-22). *End state: a beamed three-note grace run, slashed
+  when it is an acciaccatura.* ✅ Already true before P2: a click in the space APPENDS the next grace (P1).
+
+  **P2a — the grace click BEHAVES LIKE NOTE ENTRY** (his rule, 2026-09-22; §3 rule 1). ✅ BUILT
+  2026-09-22, ⏳ his UI check: `stamps/graceTarget` (the ONE resolver; `GRACE_CLICK` rows: column margin
+  0, group reach 1.5 sp, host reach 45 px) · `graceOps.addGracePitch` + `addGrace(…, index)` ·
+  `graceCommands.addGracePitch`. A chord pitch brings the grace to the armed
+  value (note entry's chord rule); the armed marks JOIN the grace's. Note entry
+  (`NoteEntryCoordinator.addNoteAtPosition`) reads the click's **x as a COLUMN** and its **y as a
+  PITCH**: in an existing note's column a different pitch makes a CHORD and the same pitch is refused;
+  in a gap it places a new note; ⛔ it never asks for a hit on a head. The grace group is read the same
+  way, its graces as small columns:
+  - **x in a grace's column** (within its head's half-width + a margin — a ROW, the grace's own scale of
+    note entry's thresholds) → the click's pitch joins THAT grace: a grace CHORD. A pitch it already has
+    → refused, no change (note entry's same-pitch rule). New op: `graceOps.addGracePitch`.
+  - **x in a gap** → a new grace stands THERE: before the first grace → first, between two → between,
+    between the last and the main note → last. Its index = the graces whose column is LEFT of the click;
+    `addGrace` takes an `index` (absent = the end, as today).
+  - **Which group**: a click inside a group's drawn extent (its leftmost ink → its main note) belongs to
+    that group's host first — today `stamps/graceStamp.nearestHost` measures only from the main note's
+    head within 45 px, so a click left of a long group goes to the previous note or nowhere. Outside every
+    group, the nearest note as now.
+  - **The resolver** (`interactions/stamps/graceTarget.ts`, pure over the registry's grace heads):
+    `{ host, chordWith?: graceId, index }`. ⛔ **The ghost does NOT snap to it** — his call after the UI
+    check (2026-09-22: *"the movement should be smooth like the normal ghost note"*): the note ghost's x
+    is the raw pointer (`rawX`) and only its PITCH snaps, so the grace ghost's is too. (A first build
+    snapped the ghost to the column or the gap's middle; it jumped between them — reverted.)
+    ⭐ **…and the click is judged at the GHOST's HEAD, not the pointer** (his rule, same day: *"the
+    reference must be the ghost head and not the pointer"*). The grace ghost parks its head LEFT of the
+    arrow, and a grace column is ~8 px: judged at the pointer, the ghost head ON a grace clicked the gap
+    right of it. `GraceGhost.graceGhostHead` is the ONE placement — the ghost is drawn there and
+    `graceClickAt` reads the click there. (The note ghost starts its head AT the pointer and snaps a click
+    within 25–40 px, so it never showed the gap; a grace's columns are too narrow for that.)
+  - Spelling, armed accidental, articulations, the written value: exactly what the stamp does today.
+
+  **What beams.** The flagged graces of ONE group (8th and shorter, `NOTE_DURATION_ROWS[d].flag`), in a
+  run: a quarter/half/whole grace breaks it, a run of one keeps its flag. ⛔ Never joined to the principal
+  (all three engines, research §0.4). One beam per run, one group's `stemDirection` (up today; `X` is P6 —
+  written direction-agnostic so P6 adds no branch).
+
+  **Where the code goes** — ⭐ the PAGE's beam rules, fed plain numbers; ⛔ not `EngravedBeam`, which is
+  built on `EngravedNote`s a grace does not have:
+  - `engine/engrave/notes/graceBeam.ts` (new, pure, jsdom-tested as arithmetic): the runs; the line —
+    `beamSlope`'s ACTIVE rule for the budget (his table: the same rule as the page, ⛔ no grace row) →
+    `beamSlopeFit.fitBeamSlope` → `beamedStems.beamedStemExtension` per stem → `beamLineSpans` per level
+    (so an 8th + 16th pair gets its fractional beam by the page's rule) → `beamLines` quads. Everything in
+    the GRACE's own px, so the `scaling(k)` group makes the beam *"thinner by the size factor"* (Gould p.
+    125) for free: thickness = the page's `beamWidth`, level stride = `BEAM_LEVEL_STRIDE`.
+  - `rendering/GracePass.ts`: a beamed grace draws its stem to the beam's line and NO flag; the beam is
+    drawn inside the group's `<g class="grace">` but OUTSIDE every `gracenote` group — the fan's rule: a
+    selected grace lights its head and stem, never the shared beam. The stem keeps the system's weight
+    (÷ k, as now). The slur anchor's `tipY` becomes the beamed tip.
+  - `layout/graceRoom.graceDotXs`: a beamed grace has no flag to push its dot past. ⭐ Nothing else in
+    the ROOM changes — the group's width is heads + gaps (`graceLayout`), and a flag never paid for any.
+
+  **The slash on a beam** (acciaccatura, `group.slash`): ⭐ ONE, on the FIRST stem, diagonal to the beam
+  (Gould p. 126 *may* · Stone *must* · G&L *never* — a preset row, default ON because the stamp says
+  acciaccatura). No font has anchors for it (research §0.5), so its geometry is VexFlow's recipe
+  (research §"Beamed", `calcBeamedNotesSlashBBox`): a point on the stem and a point along the beam, each
+  0.8 GRACE spaces in from the corner, the stroke overhanging 0.6 (stem side) / 0.5 (beam side) — ROWS
+  in `graceGroup.GRACE_SLASH`, ⭐ his eye decides, ⛔ not a blocker.
+
+  **The written value** — `graceWrittenValue(groupSize)` (§3, his *"lets say yes"* as a DEFAULT to run):
+  1 → 8th, 2+ → 16ths (Gould: *"two beams are recommended"*). On an APPEND, the graces still at the
+  previous default value (`graceWrittenValue(n − 1)`) move to the new one; ⭐ a value set by hand is
+  never touched (the only way to tell, without storing provenance — ⚠️ a hand-set 8th in a pair of 8ths
+  is indistinguishable; his UI check says whether that matters). The armed duration still wins when it
+  is not the tool's default.
+
+  **Steps, his UI check between each:** P2a the click behaves like note entry (column → chord, gap → a grace there; the ghost follows the pointer smoothly) · P2b the beam (runs, line,
+  stems, quads — flags off) · P2c the slash on a beam · P2d `graceWrittenValue` on append. ⚠️ Renderer change ⇒ the browser suite either
+  side of P2b/P2c (⛔ never with vitest at once). Scene tests (`GracePass.test.ts`): a run of 3 draws ONE
+  beam group, no flags, stems parallel, every tip on the line; a quarter breaks the run; 8th + 16th draws
+  one full line and one fractional; the beam is outside every `gracenote` group.
+
+  ⏭️ **Not P2:** beam COUNT presets (Ross 2–3 = 16ths, 4+ = 32nds; G&L 5–6 = 32nds — rows for the house
+  style) · the stem-down beam and slash (P6) · grace AFTER groups (P5) · a beam across a grace CHORD's
+  displaced heads (the chord's own stem rule, already P1's).
 - **P3 — PLAYBACK.** §6, the first preset, `playbackSchedule.grace.test.ts` — checkable because the
   collector is pure. *End state: it sounds.*
 - **P4 — the OTHER ways in.** ⏳ §3 rules 2–3, once he has felt the stamp and picked: what a press does

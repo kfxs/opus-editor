@@ -15,6 +15,7 @@ function makeHost(state: EditorState, engine: MusicEngine | null) {
     getEngine: () => engine,
     arm: vi.fn((tool: MarkingTool) => { state.selectedMarkingTool = tool }),
     disarm: vi.fn(() => { state.selectedMarkingTool = null }),
+    disarmToEntry: vi.fn(() => { state.selectedMarkingTool = null }),
     render: vi.fn(),
   }
   return host satisfies SpanToolHost

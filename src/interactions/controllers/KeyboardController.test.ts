@@ -152,6 +152,24 @@ describe('KeyboardController', () => {
     })
   })
 
+  describe('enterNoteByLetter — after a GRACE (his rule, 2026-09-22: the grace stamp behaves like note entry)', () => {
+    it('⭐ the letter is the grace\'s MAIN note — on a rest it takes the rest\'s place, and keeps the grace', () => {
+      engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+      const rest = measure1(engine).slots.find(s => s.type === 'rest' && fracEq(s.beat, frac(1, 1)))!
+      const grace = engine.grace.addGrace(rest.id, 'before', { step: 'A', alter: 0, octave: 4 }, 'appoggiatura', { duration: '8' })!
+      state.selectedTool = 'entry'
+      state.selectedNoteId = grace.pitches[0].id
+
+      kb.enterNoteByLetter('g')
+
+      const placed = notesAtBeat(engine, 1)
+      expect(placed.map(n => `${n.step}${n.octave}`)).toEqual(['G4']) // AT the main note's place; G nearest the grace's A4
+      const slot = measure1(engine).slots.find(s => fracEq(s.beat, frac(1, 1)))!
+      expect(slot.type === 'chord' && slot.graceBefore?.notes).toHaveLength(1)
+      expect(state.selectedNoteId).toBe(placed[0].id) // the caret moves on, as after any typed note
+    })
+  })
+
   describe('addChordNoteByLetter (Shift + letter)', () => {
     it('adds a higher note to the chord at the selected note', () => {
       const id = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!.id

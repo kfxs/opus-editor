@@ -75,3 +75,19 @@ describe('graceCommands.previewOffset / commitOffset', () => {
     expect(model.getScore().engravingOverrides?.[graceId]).toBeUndefined()
   })
 })
+
+describe('graceCommands.addGracePitch', () => {
+  it('⭐ one undo entry, and the armed marks JOIN the grace\'s own; a refusal leaves none', () => {
+    const model = new ScoreModel()
+    const host = model.addNote({ step: 'E', octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const ctx = fakeCommandContext(model)
+    const cmds = graceCommands(ctx)
+    const grace = cmds.addGrace(host.id, 'before', { step: 'D', alter: 0, octave: 5 }, 'appoggiatura', { duration: '8' }, undefined, ['staccato'])!
+    ctx.log.length = 0
+    expect(cmds.addGracePitch(grace.pitches[0].id, { step: 'F', alter: 0, octave: 5 }, undefined, ['staccato', 'accent'])).not.toBeNull()
+    expect(grace.articulations).toEqual(['staccato', 'accent'])
+    expect(ctx.log).toEqual(['mutate:Add grace chord note'])
+    expect(cmds.addGracePitch(grace.pitches[0].id, { step: 'F', alter: 0, octave: 5 })).toBeNull()
+    expect(ctx.undoEntries()).toBe(1)
+  })
+})

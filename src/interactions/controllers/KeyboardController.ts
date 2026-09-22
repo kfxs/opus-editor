@@ -4,6 +4,7 @@ import type { MusicEngine } from '../../engine/MusicEngine'
 import type { EditorState } from '../state/EditorState'
 import { activeVoiceToModel, armedTool, armedNormalSide, armedTupletM, spendArmedTuplet } from '../state/EditorState'
 import { navBeatMap, type FlatNote } from '../../utils/beatMap'
+import { graceHostId } from '../walks/graceStops'
 import { getMeasureNotes } from '../../utils/musicUtils'
 import { measureCapacityFrac } from '../../utils/measureCapacity'
 import { fracToNumber, fracEq, fracFromInt, fracSub } from '../../utils/fraction'
@@ -256,13 +257,16 @@ export class KeyboardController {
     // must stay in it, not in whatever voice the palette toggle last held. Fall
     // back to the active voice only when the cursor note has no resolvable voice.
     const cursorNote = engine.getNote(this.state.selectedNoteId)
+    // ⭐ A GRACE as the caret (the stamp leaves it there): the letter typed is its MAIN note — entered
+    //    AT the main note's place, not after it (his rule, 2026-09-22; `./keyboardCaret` draws it).
+    const graceHost = graceHostId(score, this.state.selectedNoteId)
     const cursorVoice = cursorNote ? voiceOf(cursorNote) : activeVoiceToModel(this.state.activeVoice)
     // Keyboard entry also CONTINUES the cursor note's staff (falling back to the active staff
     // when the cursor note has none), so a run of entered notes stays on one staff.
     const cursorStaff = cursorNote ? staffOf(cursorNote) : this.state.activeStaff
-    const { allFlat, beats } = navBeatMap(score, this.state.selectedNoteId, cursorVoice, cursorStaff)
+    const { allFlat, beats } = navBeatMap(score, graceHost ?? this.state.selectedNoteId, cursorVoice, cursorStaff)
 
-    const currentNote = allFlat.find(n => n.id === this.state.selectedNoteId)
+    const currentNote = allFlat.find(n => n.id === (graceHost ?? this.state.selectedNoteId))
     if (!currentNote) {
       dbg('[Cursor] enterNoteAtCursorPosition: currentNote not found for id', this.state.selectedNoteId)
       return
@@ -274,7 +278,9 @@ export class KeyboardController {
       return
     }
 
-    const next = this.nextEntryPosition(currentNote, beats, currentIndex, score)
+    const next = graceHost
+      ? { targetMeasure: currentNote.measureNumber, targetBeat: currentNote.beat }
+      : this.nextEntryPosition(currentNote, beats, currentIndex, score)
     if (!next) {
       dbg('[Cursor] enterNoteAtCursorPosition: cursor is at end of score, nowhere to place note')
       return
@@ -283,8 +289,10 @@ export class KeyboardController {
 
     dbg(`[Cursor] position: m${currentNote.measureNumber} beat:${fracToNumber(currentNote.beat).toFixed(4)} (${currentNote.isRest ? 'rest' : `${currentNote.step ?? '?'}${currentNote.octave ?? ''}`}${currentNote.tupletId ? ' tuplet' : ''}) → targeting m${targetMeasure} beat:${fracToNumber(targetBeat).toFixed(4)}`)
 
-    const referenceMidi = (!currentNote.isRest && currentNote.step)
-      ? spellingToMidi(currentNote.step, currentNote.alter!, currentNote.octave!)
+    // The octave is the nearest to the note the caret sits on — the GRACE's own pitch, after a grace.
+    const reference = graceHost && cursorNote ? cursorNote : currentNote
+    const referenceMidi = (!reference.isRest && reference.step)
+      ? spellingToMidi(reference.step, reference.alter!, reference.octave!)
       : this.getContextPitch()
     const naturalPitchClass = STEP_SEMITONES[step]
     const k = Math.round((referenceMidi - naturalPitchClass) / 12)

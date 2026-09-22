@@ -38,6 +38,21 @@ export const GRACE_GHOST_GROUP_CLASS = 'ghost-grace-group'
  *  arrow, whose body runs down-right from its tip. */
 const GAP_X = 5
 
+/**
+ * ⭐ **Where the ghost's HEAD stands for a pointer at `cursorX`** — its left and right edge, page px. The
+ * ONE placement: the ghost is drawn here, and the stamp reads a click HERE (his rule, 2026-09-22: *"the
+ * reference must be the ghost head and not the pointer"* — the head parks LEFT of the arrow, so a click
+ * judged at the pointer landed in the gap right of the grace the ghost stood on).
+ * @param staffSpacePx the space of the staff under the pointer (a small staff scales the head).
+ */
+export function graceGhostHead(
+  cursorX: number, duration: NoteDuration, staffSpacePx: number = STAFF_SPACE_PX,
+): { left: number; right: number } {
+  const width = noteheadInk(duration) * staffSpacePx * graceScale()
+  const right = cursorX - GAP_X
+  return { left: right - width, right }
+}
+
 /** The top line's NOTE-line number (`staffFrame.noteLineY`: the bottom line is 1). */
 const NOTE_LINE_TOP = 5
 
@@ -93,8 +108,8 @@ export function drawGraceGhost(
       })
     })
     if (!group) return false
-    const headWidth = glyphWidth * k * staffScale
-    group.setAttribute('transform', `translate(${cursorX - GAP_X - headWidth}, ${y}) scale(${k * staffScale})`)
+    const head = graceGhostHead(cursorX, duration, staffScale * STAFF_SPACE_PX)
+    group.setAttribute('transform', `translate(${head.left}, ${y}) scale(${k * staffScale})`)
     return true
   } catch (_e) {
     return false

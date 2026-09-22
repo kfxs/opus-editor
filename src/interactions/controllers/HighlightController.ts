@@ -1,7 +1,7 @@
 import type { MusicEngine } from '../../engine/MusicEngine'
 import type { EditorState } from '../state/EditorState'
 import { activeVoiceToModel } from '../state/EditorState'
-import { navBeatMap } from '../../utils/beatMap'
+import { keyboardCaretAt } from './keyboardCaret'
 import { voiceFillColor } from '../../utils/voiceColors'
 import type { HighlightContext } from '../elements/highlightContext'
 
@@ -131,34 +131,10 @@ export class HighlightController {
     const svg = scoreCanvas.querySelector('svg')
     if (!svg) return
 
-    const score = engine.getScore()
     const registry = engine.getElementRegistry()
-    // Cursor follows the active voice's stream ON the active staff (matches
-    // enterNoteAtCursorPosition).
-    const { allFlat, beats } = navBeatMap(score, this.state.selectedNoteId, activeVoiceToModel(this.state.activeVoice), this.state.activeStaff)
-
-    const currentNote = allFlat.find(n => n.id === this.state.selectedNoteId)
-    if (!currentNote) return
-    const currentKey = `${currentNote.measureNumber}:${currentNote.beat.num}/${currentNote.beat.den}`
-    const currentIndex = beats.findIndex(n => `${n.measureNumber}:${n.beat.num}/${n.beat.den}` === currentKey)
-    if (currentIndex === -1) return
-
-    const nextBeat = beats[currentIndex + 1]
-
-    let cursorX: number
-    let cursorMeasure: number
-
-    if (nextBeat) {
-      const nextInfo = engine.getElementById(nextBeat.id)
-      if (!nextInfo) return
-      cursorX = nextInfo.bbox.x
-      cursorMeasure = nextBeat.measureNumber
-    } else {
-      const currentInfo = engine.getElementById(this.state.selectedNoteId)
-      if (!currentInfo) return
-      cursorX = currentInfo.bbox.x + currentInfo.bbox.width
-      cursorMeasure = currentNote.measureNumber
-    }
+    const caret = keyboardCaretAt(engine, this.state.selectedNoteId, activeVoiceToModel(this.state.activeVoice), this.state.activeStaff)
+    if (!caret) return
+    const { x: cursorX, measure: cursorMeasure } = caret
 
     // The cursor draws on the active staff's lines (the note it advances from lives there).
     const staffGeometry = registry.getStaffGeometry(cursorMeasure, this.state.activeStaff)

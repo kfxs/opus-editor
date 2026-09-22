@@ -14,6 +14,7 @@ import type { Chord, GraceGroup, GraceNote, GraceSide, NoteDuration, NotePitch, 
 import { dbg } from '@/utils/debug'
 import { GRACE_SIDES, graceGroupOf, graceKey } from '@/utils/graceNotes'
 import { chordStoredPitches } from '@/utils/fannedBeam'
+import { spellingToMidi } from '@/utils/pitchSpelling'
 import { findSlot, type FoundSlot } from './slotLookup'
 import { clearEngravingOverride, moveNoteOffsetKey } from './overrideOps'
 
@@ -52,6 +53,10 @@ type GraceHost = { graceBefore?: GraceGroup; graceAfter?: GraceGroup }
  *   between two tied notes would be struck into a note that is not struck;
  * - **a note TIED ON, for a grace AFTER** — the same, from the other end: a Nachschlag belongs to the
  *   END of its note (D2), and the end is the chain's last piece.
+ *
+ * @param index where it stands in the group, left to right — ⭐ the click's place (P2a: *"it should
+ *   behave like note entry"*, a grace lands in the gap that was clicked). Absent = the end, beside the
+ *   main note; clamped to the group.
  */
 export function addGrace(
   score: Score,
@@ -60,6 +65,7 @@ export function addGrace(
   spelling: GraceSpelling,
   form: GraceForm,
   written: GraceWritten,
+  index?: number,
 ): GraceNote | null {
   const found = findSlot(score, hostNoteId)
   if (!found) {
@@ -70,7 +76,7 @@ export function addGrace(
     dbg(`[graceOps.addGrace] refused: a grace AFTER a rest`)
     return null
   }
-  if (found.type === 'rest') return appendGrace(found.rest, side, spelling, form, written)
+  if (found.type === 'rest') return appendGrace(found.rest, side, spelling, form, written, index)
   const chord = found.chord
   if (side === 'before' && chord.notes.every(p => p.tiedFrom)) {
     dbg(`[graceOps.addGrace] refused: a grace BEFORE a tied continuation — the attack is at the chain's head`)
@@ -81,26 +87,61 @@ export function addGrace(
     return null
   }
 
-  return appendGrace(chord, side, spelling, form, written)
+  return appendGrace(chord, side, spelling, form, written, index)
 }
 
-/** Append one grace to `host`'s group on `side`, creating the group (its slash from `form`). */
-function appendGrace(
-  host: Chord | Rest, side: GraceSide, spelling: GraceSpelling, form: GraceForm, written: GraceWritten,
-): GraceNote {
+/**
+ * ⭐ **A click in a grace's COLUMN adds its pitch: a grace CHORD** (P2a — note entry's chord rule).
+ * The pitch is spelled as the caller spelled it; the grace takes the written value the click carries,
+ * as a note-entry chord note brings its chord to the armed duration.
+ * @returns the new pitch, or null when refused: not a grace, or ⛔ a pitch it already HAS (by sound —
+ *   note entry's same-pitch rule).
+ */
+export function addGracePitch(
+  score: Score, gracePitchId: string, spelling: GraceSpelling, written?: GraceWritten,
+): NotePitch | null {
+  const found = findSlot(score, gracePitchId, { graceNotes: true })
+  if (!found?.grace) return null
+  const note = found.grace.note
+  const midi = spellingToMidi(spelling.step, spelling.alter, spelling.octave)
+  if (note.pitches.some(p => spellingToMidi(p.step, p.alter, p.octave) === midi)) {
+    dbg(`[graceOps.addGracePitch] refused: the grace already sounds ${spelling.step}${spelling.octave}`)
+    return null
+  }
+  const pitch = newGracePitch(spelling)
+  note.pitches.push(pitch)
+  if (written) {
+    note.duration = written.duration
+    if (written.dots) note.dots = written.dots
+    else delete note.dots
+  }
+  dbg(`[graceOps.addGracePitch] +${spelling.step}${spelling.octave} → a grace chord of ${note.pitches.length}`)
+  return pitch
+}
+
+function newGracePitch(spelling: GraceSpelling): NotePitch {
   const pitch: NotePitch = { id: uuidv4(), step: spelling.step, alter: spelling.alter, octave: spelling.octave }
   // An explicitly armed sign the running rule would hide (a ♮ in C major) — note entry's courtesy.
   if (spelling.forceAccidental) pitch.forceAccidental = true
-  const grace: GraceNote = { pitches: [pitch], duration: written.duration }
+  return pitch
+}
+
+/** Put one grace into `host`'s group on `side` at `index` (absent = the end), creating the group (its
+ *  slash from `form`). */
+function appendGrace(
+  host: Chord | Rest, side: GraceSide, spelling: GraceSpelling, form: GraceForm, written: GraceWritten, index?: number,
+): GraceNote {
+  const grace: GraceNote = { pitches: [newGracePitch(spelling)], duration: written.duration }
   if (written.dots) grace.dots = written.dots
 
   const at = host as GraceHost
   const key = graceKey(side)
   const group: GraceGroup = at[key] ?? { notes: [] }
   if (!at[key] && form === 'acciaccatura') group.slash = true
-  group.notes.push(grace)
+  const place = index === undefined ? group.notes.length : Math.max(0, Math.min(index, group.notes.length))
+  group.notes.splice(place, 0, grace)
   at[key] = group
-  dbg(`[graceOps.addGrace] ${side} ${host.type} ${host.id}: +${spelling.step}${spelling.octave} ${written.duration} (${group.notes.length} in the group${group.slash ? ', slashed' : ''})`)
+  dbg(`[graceOps.addGrace] ${side} ${host.type} ${host.id}: +${spelling.step}${spelling.octave} ${written.duration} at ${place} (${group.notes.length} in the group${group.slash ? ', slashed' : ''})`)
   return grace
 }
 

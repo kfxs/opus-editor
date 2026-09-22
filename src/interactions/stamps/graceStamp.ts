@@ -3,37 +3,32 @@
  * a click hangs a grace on the NOTE (or REST — D7 reversed) it lands nearest, at the click's PITCH,
  * drawn as the armed value.
  *
- * ⭐ **A hit-test, not a position** — a grace attaches to something that EXISTS, like the
- * articulation stamp and unlike the fan's. The host is the nearest ordinary note of the clicked bar
- * and staff by x (a grace before is placed just LEFT of it, so the click lands in the gap, not on the
- * head); the pitch is the click's y through `pixelToPosition`, the note-entry rule.
+ * ⭐ **It behaves like NOTE ENTRY** (P2a, his rule): x is a COLUMN, y a PITCH — `./graceTarget` says
+ * where. In a grace's column the pitch joins that grace (a grace CHORD; the same pitch is refused); in a
+ * gap a new grace stands THERE — first, between two, or last. The pitch is the click's y through
+ * `pixelToPosition`, the note-entry rule.
  *
  * The tool stays armed (a stamp is used in runs) and every click is ours while it is — a miss is a
  * no-op, never a note entered by accident.
  */
 import { dbg } from '@/utils/debug'
-import { measureCapacityQuarters } from '@/utils/measureCapacity'
-import { staffOf } from '@/utils/lanes'
 import { entryAlteration } from '../../engine/models/entryAlteration'
 import type { MusicEngine } from '../../engine/MusicEngine'
-import type { ElementInfo, ElementRegistry } from '../../engine/ElementRegistry'
+import type { ElementRegistry } from '../../engine/ElementRegistry'
 import { armedTool, pendingArticulations, type EditorState } from '../state/EditorState'
-
-/** How far (px) the click may be from its host's head in x — `findClosestNoteOrRest`'s tolerance,
- *  widened by the room a grace takes before its note. */
-const HOST_REACH_PX = 45
+import { graceClickAt } from './graceTarget'
 
 export function stampGraceAtClick(
   state: EditorState, engine: MusicEngine, registry: ElementRegistry, x: number, y: number, render: () => void,
+  /** Put the keyboard caret on what the click made — `SelectionController.moveCaretTo`, the note click's. */
+  caretTo: (noteId: string) => void = () => {},
 ): boolean {
   const tool = armedTool(state, 'grace')
   if (!tool) return false
 
-  const measureNumber = engine.pixelToMeasure({ x, y })
-  const measure = engine.getScore().measures.find(m => m.number === measureNumber)
-  const position = engine.pixelToPosition({ x, y }, measure ? measureCapacityQuarters(measure) : 4)
-  const host = nearestHost(registry, engine, position.measure, position.staff, x)
-  if (!host?.id) {
+  const { position, target } = graceClickAt(engine, registry, x, y, state.selectedDuration)
+  const host = target?.host
+  if (!target || !host?.id) {
     dbg('· Grace stamp: no note near the click — no change')
     return true
   }
@@ -50,35 +45,34 @@ export function stampGraceAtClick(
     engine.getScore(), { measure: position.measure, beat: hostBeat, staff: position.staff }, step, octave, state.selectedAccidental,
   )
   const spelling = { step, octave, alter, ...(state.selectedAccidental === 'n' && { forceAccidental: true }) }
+  const written = { duration: state.selectedDuration, ...(state.selectedDots && { dots: state.selectedDots }) }
+  // ⭐ In a grace's COLUMN: a grace CHORD — note entry's chord rule, the same pitch refused.
+  if (target.chordWith) {
+    const pitch = engine.grace.addGracePitch(target.chordWith, spelling, written, pendingArticulations(state))
+    dbg(pitch
+      ? `✓ Grace chord | +${spelling.step}${state.selectedAccidental ?? ''}${spelling.octave} on grace ${target.chordWith}`
+      : `· Grace chord: the grace already has ${spelling.step}${spelling.octave} — no change`)
+    if (pitch) {
+      caretTo(pitch.id)
+      render()
+    }
+    return true
+  }
   const grace = engine.grace.addGrace(
-    host.id, tool.side, spelling, tool.form, { duration: state.selectedDuration, ...(state.selectedDots && { dots: state.selectedDots }) },
+    host.id, tool.side, spelling, tool.form, written,
     host.type === 'rest' ? position.beat : undefined,
     pendingArticulations(state),
+    target.index,
   )
   if (!grace) {
     dbg(`· Grace stamp: note ${host.id} refused it (see graceOps.addGrace) — no change`)
     return true
   }
-  dbg(`✓ Grace stamped | ${tool.form} ${spelling.step}${state.selectedAccidental ?? ''}${spelling.octave} ${state.selectedDuration} before ${host.type} ${host.id}`)
-  // PLACING ends keyboard entry, as the rest stamp's click does; the tool stays armed.
-  state.selectedNoteId = null
+  dbg(`✓ Grace stamped | ${tool.form} ${spelling.step}${state.selectedAccidental ?? ''}${spelling.octave} ${state.selectedDuration} before ${host.type} ${host.id} at ${target.index}`)
+  // ⭐ The grace is the CARET, as an entered note is (his rule, 2026-09-22: *"the grace stamp should
+  //    behave similar to note stamp"*): selected, the blue line after it, and a typed letter is its main
+  //    note (`controllers/keyboardCaret`). The tool stays armed.
+  caretTo(grace.pitches[0].id)
   render()
   return true
-}
-
-/** The ordinary note or rest of this bar and staff nearest the click in x — ⛔ never a grace head
- *  (it is registered as a note too, `rendering/GracePass`), and never beyond {@link HOST_REACH_PX}. */
-function nearestHost(registry: ElementRegistry, engine: MusicEngine, measure: number, staff: number, x: number): ElementInfo | null {
-  let best: ElementInfo | null = null
-  let bestDistance = HOST_REACH_PX
-  for (const el of [...registry.getByType('note'), ...registry.getByType('rest')]) {
-    if (el.measure !== measure || staffOf(el) !== staff || !el.id) continue
-    if (el.type === 'note' && engine.isGraceNote(el.id)) continue
-    const distance = Math.abs((el.headX ?? el.bbox.x + el.bbox.width / 2) - x)
-    if (distance <= bestDistance) {
-      best = el
-      bestDistance = distance
-    }
-  }
-  return best
 }
