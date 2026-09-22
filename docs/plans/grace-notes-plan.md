@@ -1,9 +1,11 @@
 # Grace notes — appoggiatura, acciaccatura, Nachschlag: the plan
 
-> **Status: WRITTEN 2026-09-22, nothing built.** 📄 The research is `docs/research/grace-notes-research.md`
+> **Status: P0 in progress (2026-09-22).** 📄 The research is `docs/research/grace-notes-research.md`
 > (four sources folded into one file; its §0 is the synthesis this plan reads). ⛔ This plan is the place
-> the DECISIONS get made, and §0 lists them as PROPOSED — each is his call, and until he says so it is
-> a default, not a decision (`feedback_an_open_question_is_not_a_decision`).
+> the DECISIONS get made: §0 marks each as ✅ DECIDED (his word, with the date) or ⏳ PROPOSED — until he
+> says so it is a default, not a decision (`feedback_an_open_question_is_not_a_decision`). ✅ D1 · D2 ·
+> D3 · D7 were decided on 2026-09-22, one by one, from the research; D4 · D5 · D6 are still open and
+> are asked when the phase that needs them starts (P3, P1, P4).
 >
 > ⚠️ **THE UI IS THE DEV SHELL'S** — `src/dev/devToolbar.ts`, three buttons in a row, the way the
 > two-note tremolo shipped (`docs/plans/two-note-tremolo-plan.md` §0). The real interface is undecided;
@@ -17,17 +19,17 @@
 
 ---
 
-## 0. ⏳ The decisions this plan is built on — PROPOSED, his call
+## 0. The decisions this plan is built on — ✅ decided or ⏳ proposed, his call
 
-| # | decision | proposed | why this and not the other |
-|---|---|---|---|
-| **D1** | **where a grace lives** | ⭐⭐ a **CHILD of its main chord** (`Chord.graceBefore` / `graceAfter`), ⛔ never a slot | MuseScore, VexFlow and Dorico's *"mini-score at a rhythmic position"* all do this; LilyPond's first-class grace moment buys generality and pays for it with its own Known Issues list (barlines and key signatures shifting on the other staves, MIDI *"going back in time"* — research §0.2). ⭐ And it is the FAN's shape: rebar, rest fill, capacity, collision, columns, undo and JSON never see it (`docs/plans/fanned-beams-plan.md` §0) |
-| **D2** | **a grace AFTER** | stored on the note it **follows** (`graceAfter`), drawn as that note's right ink | Stone p. 140: graces *"belong to a main note"*; MuseScore stores it there too and only its LAYOUT pre-appends it to the following segment (research §B.3.1). MusicXML has no attachment and importers guess — we should not have to |
-| **D3** | **the slur** | a **flag on the group**, drawn by the grace module from the first grace to the main note, ⛔ not an entry in `Score.slurs` | Gould p. 130: *each group its own slur, even inside a phrase slur* — so it is part of the group's picture, as LilyPond's auto-slur is (`spanner-id 'grace`). A real slur anchored to a grace id stays possible later; today it would drag the slur family's drag/flip/reanchor into P1 for no picture the flag does not give |
-| **D4** | **playback** | **MuseScore's rule as the first preset**: every grace ON the beat, the main note delayed — slashed graces a physical **65 ms** each, unslashed **½** of the main note (⅔ dotted); a grace after takes the **end** of its note | the only complete rule found; LilyPond's 9/40-from-the-previous and Dorico's before-the-beat are the second and third rows of the same table (research §0.3). ⛔ A number is never a blocker (`CLAUDE.md`) |
-| **D5** | **size** | **2/3** as the first row (`GRACE_SCALE`) | the fonts draw it (Bravura 0.66, Sebastian 0.64), VexFlow used it, Gould's plate measures 0.60–0.65; Dorico's 0.6 and MuseScore's 0.7 are the presets either side (research §0.4) |
-| **D6** | **entry** | the fan's TWO WAYS (§3): a press with a note selected ADDS a grace of that pitch; with nothing selected it ARMS a tool that reads the armed length | the same rule the Time Signature window and the feather dialog follow: *"apply to what is selected, otherwise arm"* |
-| **D7** | **a grace on a REST** | ⛔ **refused** in this plan, like the fan | no book on disk says what it looks like (research §0.7); a refusal is honest and reversible |
+| # | decision | status | chosen | why this and not the other |
+|---|---|---|---|---|
+| **D1** | **where a grace lives** | ✅ 2026-09-22 | ⭐⭐ a **CHILD of its main chord** (`Chord.graceBefore` / `graceAfter`), ⛔ never a slot | MuseScore, VexFlow and Dorico's *"mini-score at a rhythmic position"* all do this; LilyPond's first-class grace moment buys generality and pays for it with its own Known Issues list (barlines and key signatures shifting on the other staves, MIDI *"going back in time"* — research §0.2). ⭐ And it is the FAN's shape: rebar, rest fill, capacity, collision, columns, undo and JSON never see it (`docs/plans/fanned-beams-plan.md` §0) |
+| **D2** | **a grace AFTER** | ✅ 2026-09-22 | stored on the note it **follows** (`graceAfter`), drawn as that note's right ink | Stone p. 140: graces *"belong to a main note"*; MuseScore stores it there too and only its LAYOUT pre-appends it to the following segment (research §B.3.1). MusicXML has no attachment and importers guess — we should not have to |
+| **D3** | **the slur** | ✅ 2026-09-22 | a **flag on the group**, drawn by the grace module from the first grace to the main note, ⛔ not an entry in `Score.slurs` | Gould p. 130: *each group its own slur, even inside a phrase slur* — so it is part of the group's picture, as LilyPond's auto-slur is (`spanner-id 'grace`). A real slur anchored to a grace id stays possible later; today it would drag the slur family's drag/flip/reanchor into P1 for no picture the flag does not give |
+| **D4** | **playback** | ⏳ asked at P3 | **MuseScore's rule as the first preset**: every grace ON the beat, the main note delayed — slashed graces a physical **65 ms** each, unslashed **½** of the main note (⅔ dotted); a grace after takes the **end** of its note | the only complete rule found; LilyPond's 9/40-from-the-previous and Dorico's before-the-beat are the second and third rows of the same table (research §0.3). ⛔ A number is never a blocker (`CLAUDE.md`) |
+| **D5** | **size** | ⏳ asked at P1 | **2/3** as the first row (`GRACE_SCALE`) | the fonts draw it (Bravura 0.66, Sebastian 0.64), VexFlow used it, Gould's plate measures 0.60–0.65; Dorico's 0.6 and MuseScore's 0.7 are the presets either side (research §0.4) |
+| **D6** | **entry** | ⏳ asked at P1/P4 | the fan's TWO WAYS (§3): a press with a note selected ADDS a grace of that pitch; with nothing selected it ARMS a tool that reads the armed length | the same rule the Time Signature window and the feather dialog follow: *"apply to what is selected, otherwise arm"* |
+| **D7** | **a grace on a REST** | ✅ 2026-09-22 ⚠️ REVERSIBLE | ⛔ **refused** in this plan, like the fan | no book on disk says what it looks like (research §0.7 — UNKNOWN, not silent); MuseScore's `Rest` has no storage for one, Dorico and Sibelius allow it, Verovio half-draws it. ⭐ **This is REVERSIBLE by design**: the refusal is only that `graceBefore`/`graceAfter` sit on `Chord` and not on `Rest`, plus one `addGrace` check — allowing it later is a field on `Rest` and a picture for P1 to judge, nothing else is shaped by it. The realistic case, a trill ending on a rest, is already covered the other way: its finishing notes are a `graceAfter` on the trilled note (Gould p. 127) |
 
 Everything below follows from these seven. Change one and its section changes; nothing else does.
 
@@ -267,6 +269,27 @@ selectable in this plan; the press toggles it (§3.2).
 - **P0 — the model, the ops, what travels.** §1, §1.1, §1.2, §2. `graceOps` with its spec on a real
   `ScoreModel`; `findSlotByNoteId` / `attackOf` / delete; the relay links each proved by removal; JSON
   report. Nothing drawn. *End state: a grace can be added, found, deleted, pasted and undone in tests.*
+  ✅ **BUILT 2026-09-22, uncommitted** — types in `types/notes.ts`; `engine/models/graceOps` (add · remove ·
+  the three flags · `graceProblems` · the chain-end hand-over); `utils/graceNotes` (the copy with fresh ids);
+  `findSlot`'s `graceNotes` opt-in + `attackOf`; `getNote` / `getNotePitch` / `updateNote` opt in (no new
+  `ScoreModel` method); `deleteNoteOps` grace branch; `MusicEngine.isGraceNote` + the `loadJSON` report.
+  Specs: `graceOps.test.ts`, `graceNotes.test.ts`, `__tests__/graceTravel.test.ts`, the travel table's.
+  ⭐ 25 links broken one at a time — all 25 turn a spec red. Three rules the code needed that §1.1 did
+  not spell out, ⚠️ each a default, his to change:
+  1. **The voice move carries the graces only with the chord's LAST head**: one head leaving a chord leaves
+     them on the chord they were played into. They move as the SAME objects (the slot moved, it was not
+     copied), and a destination chord's own group wins, the rule every slot statement there follows.
+  2. **A duration change across the barline hands the grace AFTER to the new END**: `spanningNoteOps`
+     rebuilds the continuations from the pitch alone, so the group is taken off the old chain's end
+     before the erosion and hung on the new last piece. Shortening breaks the tie and leaves the
+     continuation standing, with its grace.
+  3. **An INTERIOR grace** (after a note tied on, before a tied continuation): `addGrace` refuses both,
+     but a file or a tie added later can hold one; a paste's tie collapse moves it to the nearest END
+     of the chain, unless that end has its own.
+  ⏭️ **Owed to P1, not done here**: no `engine/commands/graceCommands` yet (the press needs one —
+  one `mutate` per op); facade commands that act on the SLOT (tie, duration, beam, tremolo…) do not yet
+  REFUSE a grace id the way `refusesFanMember` does — they fail closed at the model, but a grace can't
+  be selected until P1 registers it, so the guards come with the first way to select one.
 - **P1 — ONE grace before a note, on the page.** §3 rule 1 (the press on a selected note, the three
   buttons), §4 (`graceRoom`, the `'grace'` ink kind and its rows), §5 for the single-grace case (head,
   stem, flag, slash, ledger, accidental, the slur), the ElementRegistry registration so the arrows

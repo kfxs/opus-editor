@@ -140,6 +140,11 @@ export function moveNoteToVoice(score: Score, pitchId: string, targetVoice: numb
     // A fan is a PROPERTY of the event like the tremolo, not a relation, so it simply comes along
     // — there is no partner it can be torn away from.
     fan: chord.fan,
+    // ⭐ The GRACES go only with the LAST pitch — when the whole slot moves. One head leaving a chord
+    // leaves them on the chord they were played into; moving every head carries them on the last
+    // one out (docs/plans/grace-notes-plan.md §1.1). The SAME objects, not a copy: the slot is moving,
+    // not being duplicated, so their ids — like the pitch's own — stay.
+    ...(chord.notes.length <= 1 && { graceBefore: chord.graceBefore, graceAfter: chord.graceAfter }),
   }
 
   // Remove the pitch from the source slot.

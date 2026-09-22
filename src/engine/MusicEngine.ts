@@ -6,6 +6,7 @@ import { barlineJoinsBelow } from './models/barlineJoin'
 import * as staffGroupOps from './models/staffGroupOps'
 import { crossPitches, crossStaffProblems, type CrossDirection, type CrossOutcome } from './models/crossStaffOps'
 import * as clearOps from './models/clearOps'
+import * as graceOps from './models/graceOps'
 import { clefOffsetOverrideOf } from './models/engravingOverrides'
 import { staveHeightPx, systemStaffTops, minSpacingAboveSpaces, spacingAbovePx, MIN_SPACING_ABOVE_AT_PAGE_TOP } from './layout/staffStride'
 import { ScoreRenderer } from './rendering/ScoreRenderer'
@@ -1471,6 +1472,11 @@ export class MusicEngine {
    */
   isFanMember(noteId: string): boolean {
     return this.scoreModel.isFanMember(noteId)
+  }
+
+  /** Is this id a GRACE NOTE's pitch? See {@link graceOps.isGraceNote}. */
+  isGraceNote(noteId: string): boolean {
+    return graceOps.isGraceNote(this.scoreModel.getScore(), noteId)
   }
 
   private refusesFanMember(noteId: string, what: string): boolean {
@@ -3475,6 +3481,7 @@ export class MusicEngine {
     const loaded = ScoreModel.fromJSON(json)
     // Report, never repair (docs/plans/json-io-plan.md) — a crossed head this build cannot draw.
     for (const problem of crossStaffProblems(loaded.getScore())) console.warn(`[score-file] ${problem}`)
+    for (const problem of graceOps.graceProblems(loaded.getScore())) console.warn(`[score-file] ${problem}`)
     this.scoreModel = loaded
     this.playbackEngine.setScore(this.scoreModel.getScore())
     this.markModelDirty()

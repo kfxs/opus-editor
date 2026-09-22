@@ -7,7 +7,8 @@
  * the slot that holds it. `ScoreModel` keeps a private delegator, so its own mutators read exactly
  * as they did.
  */
-import type { ArticulationType, Attack, Note, Score, Chord, FanMemberChord, NotePitch, Rest } from '@/types/music'
+import type { ArticulationType, Attack, Note, Score, Chord, FanMemberChord, GraceNote, GraceSide, NotePitch, Rest } from '@/types/music'
+import { GRACE_SIDES, graceGroupOf } from '@/utils/graceNotes'
 
 /** What an id resolved to: a pitch inside a chord (possibly a fanned MEMBER), or a rest slot. */
 export type FoundSlot =
@@ -19,6 +20,9 @@ export type FoundSlot =
        *  carries beyond its pitches (its articulations) is addressed through this and not through
        *  the SLOT's chord above. `pitches` stays for the readers that only ever wanted those. */
       member?: { index: number; pitches: NotePitch[]; chord: FanMemberChord }
+      /** ⭐ A GRACE NOTE's pitch: `chord` is its MAIN chord (the slot), `note` the grace itself —
+       *  the attack its marks live on. `index` is its place in the group, left to right. */
+      grace?: { side: GraceSide; index: number; note: GraceNote }
     }
   | { type: 'rest'; rest: Rest }
 
@@ -38,7 +42,11 @@ export type FoundSlot =
  * — `getNote`, `getNotePitch`, `slotIdForNote`, `updateNote`, `deleteNote` — opt in, and each
  * states what it does with a member.
  */
-export function findSlot(score: Score, noteId: string, opts?: { fanMembers?: boolean }): FoundSlot | undefined {
+export function findSlot(
+  score: Score,
+  noteId: string,
+  opts?: { fanMembers?: boolean; graceNotes?: boolean },
+): FoundSlot | undefined {
   for (const measure of score.measures) {
     for (const slot of measure.slots) {
       if (slot.type === 'rest' && slot.id === noteId) {
@@ -55,6 +63,18 @@ export function findSlot(score: Score, noteId: string, opts?: { fanMembers?: boo
             if (found) return { type: 'chord', chord: slot, pitch: found, member: { index: k + 1, pitches: slot.fan.members[k].pitches, chord: slot.fan.members[k] } }
           }
         }
+        // ⭐ A GRACE's pitch, on the same terms as a member's: found ONLY when asked for, so every
+        // mutator that assumes `slot.notes` refuses one instead of half-writing it
+        // (docs/plans/grace-notes-plan.md §2).
+        if (opts?.graceNotes) {
+          for (const side of GRACE_SIDES) {
+            const notes = graceGroupOf(slot, side)?.notes ?? []
+            for (let k = 0; k < notes.length; k++) {
+              const found = notes[k].pitches.find(n => n.id === noteId)
+              if (found) return { type: 'chord', chord: slot, pitch: found, grace: { side, index: k, note: notes[k] } }
+            }
+          }
+        }
       }
     }
   }
@@ -64,8 +84,8 @@ export function findSlot(score: Score, noteId: string, opts?: { fanMembers?: boo
 /**
  * ⭐ **The ATTACK an id belongs to** — the thing a mark is written on and read from.
  *
- * The member when the id is a fanned member's, the chord otherwise, and `null` for a rest (silence
- * is not struck). This one line is what lets a mark operation have ONE body: before it existed,
+ * The member when the id is a fanned member's, the GRACE when it is a grace's, the chord otherwise,
+ * and `null` for a rest (silence is not struck). This one line is what lets a mark operation have ONE body: before it existed,
  * every such operation forked on `found.member` and wrote the same code twice, which is how a
  * member came to be missing marks the slot had had for a year.
  *
@@ -76,7 +96,7 @@ export function findSlot(score: Score, noteId: string, opts?: { fanMembers?: boo
  */
 export function attackOf(found: FoundSlot): Attack | null {
   if (found.type === 'rest') return null
-  return found.member?.chord ?? found.chord
+  return found.grace?.note ?? found.member?.chord ?? found.chord
 }
 
 /**

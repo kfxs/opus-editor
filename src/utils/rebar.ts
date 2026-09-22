@@ -39,6 +39,7 @@ import type {
   ArticulationType,
   TremoloMark,
   FanMark,
+  GraceGroup,
   BeamMode,
   FractionalBeamSide,
   Tuplet,
@@ -60,6 +61,7 @@ import { tupletSpan } from '@/utils/musicUtils'
 import { getMeterInfo, type MeterInfo } from '@/utils/meter'
 import { fillRests, decomposeSpan } from '@/utils/restFill'
 import { cloneFanFresh } from '@/utils/fannedBeam'
+import { cloneGraceFresh } from '@/utils/graceNotes'
 import { voiceOf } from '@/utils/lanes'
 
 // ---------------------------------------------------------------------------
@@ -145,6 +147,12 @@ export interface RebarEvent {
    *  of a tie-split ONLY: a fan cut in half at a barline is a cross-barline fan nobody asked for,
    *  and the split has already destroyed the group the mark was an assertion about. */
   fan?: FanMark
+  /** ⭐ The GRACES played into the event (docs/plans/grace-notes-plan.md §1.1). Carried for the fan's
+   *  reason, and split by what each group belongs to: a grace BEFORE rides the FIRST piece of a
+   *  tie-split (it is played into the attack), a grace AFTER the LAST (a Nachschlag belongs to the
+   *  END of its note, and the end is where the split put it). */
+  graceBefore?: GraceGroup
+  graceAfter?: GraceGroup
   /**
    * The note's explicit BEAM statement, carried for the reason {@link tremolo} and {@link fan} are:
    * a slot field the relay does not list is a slot field the relay eats, and this one is authored
@@ -188,6 +196,9 @@ export interface RebarPiece {
   tremolo?: TremoloMark
   /** Fanned beam. See {@link RebarEvent.fan} — only the FIRST piece of a split event keeps it. */
   fan?: FanMark
+  /** Graces. See {@link RebarEvent.graceBefore} — BEFORE on the first piece, AFTER on the last. */
+  graceBefore?: GraceGroup
+  graceAfter?: GraceGroup
   /** Explicit beam statement. See {@link RebarEvent.beam} — which piece keeps it depends on the mode. */
   beam?: BeamMode
   /** Secondary-beam break. See {@link RebarEvent.secondaryBreak} — the FIRST piece only. */
@@ -363,6 +374,9 @@ export function flattenRegion(
         // was edited (reference_live_model_objects_break_dedup); with member pitches inside, it
         // would also hand the payload live model ids.
         fan: slot.fan && cloneFanFresh(slot.fan),
+        // A COPY for the fan's reason: the stream is also the clipboard's payload.
+        graceBefore: slot.graceBefore && cloneGraceFresh(slot.graceBefore),
+        graceAfter: slot.graceAfter && cloneGraceFresh(slot.graceAfter),
         beam: slot.beam,
         secondaryBreak: slot.secondaryBreak,
         // Collapse marker: the whole chord is tied forward into the next slot.
@@ -410,6 +424,12 @@ function collapseTies(events: FlatEvent[]): RebarEvent[] {
       // unknown makes the whole chain unknown, and the relay re-derives — which it must, because a
       // partial sequence would not sum to the length.
       prev.written = prev.written && ev.written ? [...prev.written, ...ev.written] : undefined
+      // ⭐ The chain's GRACES are its ENDS': the head's grace before (prev keeps it) and the TAIL's
+      // grace after. `graceOps.addGrace` refuses the two interior ones, but a file or a later tie can
+      // still hold them, so each moves to the end it is nearest rather than being dropped — unless
+      // that end has its own, which wins (one group per side).
+      prev.graceAfter = ev.graceAfter ?? prev.graceAfter
+      prev.graceBefore = prev.graceBefore ?? ev.graceBefore
     } else {
       out.push({ ...ev })
     }
@@ -559,6 +579,8 @@ export function relayEvents(events: RebarEvent[], meter: MeterInfo, opts: RelayO
           // and the group it described is gone. Copying it like the tremolo would silently mint the
           // cross-barline fan docs/plans/fanned-beams-plan.md §4 excludes, on both halves, twice over.
           fan: pieces.length === 0 ? ev.fan : undefined,
+          // The FIRST piece, for the attack's reason — see {@link RebarEvent.graceBefore}.
+          graceBefore: pieces.length === 0 ? ev.graceBefore : undefined,
         }
         bars[i].push(piece)
         pieces.push(piece)
@@ -571,6 +593,8 @@ export function relayEvents(events: RebarEvent[], meter: MeterInfo, opts: RelayO
       if (k > 0) pieces[k].tieFromPrev = true
       if (k < pieces.length - 1) pieces[k].tieToNext = true
     }
+    // …and a grace AFTER on the LAST piece, once the pieces are known: the note ENDS there.
+    if (ev.graceAfter && pieces.length > 0) pieces[pieces.length - 1].graceAfter = ev.graceAfter
     // The BEAM statement, once the pieces are known — and unlike the tremolo (every piece) or the
     // fan (the first), it is not one rule, because the modes do not all talk about the same end of
     // the note. `begin`/`continue` say where the group STARTS, and the note starts at its first

@@ -88,6 +88,11 @@ export const SLOT_FIELD_TRAVEL = {
   /** Onto the FIRST piece only: a fan cut in half at a barline is a fan nobody asked for. A
    *  collapsed fan's `length` is dropped when the piece is re-tiled (`rebarOps`). */
   fan: 'carried',
+  /** ⭐ Graces (docs/plans/grace-notes-plan.md §1.1): a PROPERTY of the chord, like the fan — onto the
+   *  FIRST piece of a split, since they are played into the attack. Fresh ids on the way out. */
+  graceBefore: 'carried',
+  /** …and a Nachschlag onto the LAST piece: it belongs to the END of its note (D2). */
+  graceAfter: 'carried',
   /** Which piece keeps it depends on WHAT it says — `begin` the first, `end` the last (`relayEvents`). */
   beam: 'carried',
   /** ⭐ An authored override of one stub's direction (`docs/research/beam-hook-research.md` §8). Carried for

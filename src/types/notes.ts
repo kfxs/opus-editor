@@ -241,6 +241,52 @@ export interface FanMemberChord extends Attack {
 }
 
 /**
+ * ⭐ **One GRACE NOTE — or grace chord: an ATTACK with a written value and NO counted duration.**
+ * `docs/plans/grace-notes-plan.md` §1 (D1, decided 2026-09-22).
+ *
+ * A sibling of {@link FanMemberChord}, not a reuse of it. Both are attacks that are not slots — real
+ * pitch ids, so a click selects one and the arrows re-pitch it through `attackOf` — and they differ
+ * in the one thing the fan model exists to forbid its members: a fan member has NO written value
+ * (its length is the ramp's), a grace HAS one and no sounding one.
+ *
+ * ⚠️ What it does NOT have — `beat`, `voice`, `staffId`, `tupletId`, `beam` — it inherits from its
+ * main chord. Nothing rhythmic ever counts it: not the bar, not rebar, not the columns.
+ */
+export interface GraceNote extends Attack {
+  /** Real NotePitches with ids — one for a grace note, several for a grace chord. */
+  pitches: NotePitch[]
+  /** What it is DRAWN as. ⛔ Never counted. */
+  duration: NoteDuration
+  /** Absent, never 0 — `laneFingerprint` stringifies the slot for the width-cache key. */
+  dots?: number
+}
+
+/** Which side of its main chord a grace group stands on (D2: an AFTER group is stored on the note it
+ *  FOLLOWS — Stone p. 140, *"grace notes belong to a main note"*). */
+export type GraceSide = 'before' | 'after'
+
+/**
+ * ⭐ **The graces on ONE side of ONE main chord** — Dorico's *"mini-score at a rhythmic position"*.
+ * The array IS the order, left to right (⛔ no index field: MuseScore's is admitted *"not well-
+ * maintained"*). A group with no notes is DELETED, never stored as `{ notes: [] }`.
+ *
+ * ⚠️ Absent is the only spelling of every default, for the width-cache key's reason.
+ */
+export interface GraceGroup {
+  notes: GraceNote[]
+  /** Acciaccatura — ONE flag for the group (Gould p. 126). Absent = appoggiatura. */
+  slash?: true
+  /** Absent = UP, whatever the pitches (all four books, all three engines — research §0.4). */
+  stemDirection?: 'up' | 'down'
+  /**
+   * `false` = no slur (Stone p. 22). Absent = the group's own slur from its first grace to the main
+   * note (Gould p. 129) — D3: a mark of the GROUP, drawn with it, ⛔ not an entry in `Score.slurs`
+   * (Gould p. 130: *"each grace-note group [takes] an independent slur, even … within a standard slur"*).
+   */
+  slur?: false
+}
+
+/**
  * Stem direction for notes
  * - 'auto': Calculate based on pitch and clef (default)
  * - 'up': Force stem up
@@ -479,6 +525,10 @@ export interface PitchInsert {
   tremoloPair?: true
   tremoloPairStyle?: 'joined' | 'open'
   fan?: FanMark
+  /** The chord's GRACES — carried only when the pitch takes the WHOLE slot with it (`voiceOps`):
+   *  one head leaving a chord leaves the graces on the chord they were played into. */
+  graceBefore?: GraceGroup
+  graceAfter?: GraceGroup
 }
 
 /**
@@ -606,6 +656,18 @@ export interface Chord extends Attack {
    * vertical identity is the pair `(staffId, voice)`. See docs/plans/multi-staff-plan.md §4.
    */
   staffId?: string
+  /**
+   * ⭐ The GRACE NOTES played into this chord (D1: a CHILD of the chord, ⛔ never a slot — so rebar,
+   * rest fill, capacity, collision, the columns, undo and JSON never see them, exactly as a fan's
+   * members). See {@link GraceGroup}; the operations are `engine/models/graceOps`.
+   *
+   * ⚠️ On `Chord` ONLY — {@link Rest} has no such field, and that absence IS the refusal of a grace on
+   * a rest (D7). ⭐ Deliberately REVERSIBLE: no book on disk shows one (research §0.7), so allowing it
+   * later is this field on `Rest` plus a picture to judge — nothing else is shaped by its absence.
+   */
+  graceBefore?: GraceGroup
+  /** The graces AFTER this chord — a Nachschlag, stored on the note it FOLLOWS (D2). See {@link graceBefore}. */
+  graceAfter?: GraceGroup
   notes: NotePitch[]
 }
 

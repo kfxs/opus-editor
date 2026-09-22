@@ -60,8 +60,8 @@ import * as barlineOps from './barlineOps'
 import * as staffGroupOps from './staffGroupOps'
 import type { BarlineSignKind } from './boundarySign'
 import { isBarlineStyle, isValidRepeatTimes } from './barlineOps'
-import { flatNoteOf, flatRestOf } from './noteProjection'
-import { findSlot, writeAttackMarks, projectAttackMarks, type FoundSlot } from './slotLookup'
+import { flatNoteOf, flatRestOf, projectGraceNote } from './noteProjection'
+import { attackOf, findSlot, writeAttackMarks, projectAttackMarks, type FoundSlot } from './slotLookup'
 import { staffIndexOfId, matchesStaff, staffIdForParams, firstStaffId } from './staffContent'
 import * as tupletOps from './tupletOps'
 import * as scoreTextOps from './scoreTextOps'
@@ -1863,7 +1863,7 @@ export class ScoreModel {
    * — {@link getNote}, {@link getNotePitch}, {@link slotIdForNote}, {@link updateNote},
    * {@link deleteNote} — opt in, and each states what it does with a member.
    */
-  private findSlot(noteId: string, opts?: { fanMembers?: boolean }): FoundSlot | undefined {
+  private findSlot(noteId: string, opts?: { fanMembers?: boolean; graceNotes?: boolean }): FoundSlot | undefined {
     return findSlot(this.score, noteId, opts)
   }
 
@@ -2186,7 +2186,7 @@ export class ScoreModel {
    * note owns this?" has exactly one answer, and it is member 0 — the note you typed.
    */
   getNote(noteId: string): Note | undefined {
-    const found = this.findSlot(noteId, { fanMembers: true })
+    const found = this.findSlot(noteId, { fanMembers: true, graceNotes: true })
     if (!found) return undefined
     if (found.type === 'rest') return this.restToFlatNote(found.rest)
     const note = this.toFlatNote(found.chord, found.pitch)
@@ -2200,6 +2200,9 @@ export class ScoreModel {
       // carry nothing. Projected from the ATTACK, so a mark field added to that type arrives here.
       projectAttackMarks(note, found.member.chord)
     }
+    // ⭐ A GRACE projects as ITSELF: its own written value and marks, none of the slot's statements
+    // (docs/plans/grace-notes-plan.md §2) — the member rule above, for the member's reason.
+    if (found.grace) projectGraceNote(note, found.grace.note)
     return note
   }
 
@@ -2300,9 +2303,9 @@ export class ScoreModel {
     return markOps.tremoloPairAcceptsJoined(this.score, noteId)
   }
 
-  /** The raw NotePitch behind a note id (chord head or FANNED MEMBER; rests have no pitch). */
+  /** The raw NotePitch behind a note id (chord head, FANNED MEMBER or GRACE; rests have no pitch). */
   getNotePitch(noteId: string): NotePitch | null {
-    const found = this.findSlot(noteId, { fanMembers: true })
+    const found = this.findSlot(noteId, { fanMembers: true, graceNotes: true })
     return found && found.type === 'chord' ? found.pitch : null
   }
 
@@ -2348,7 +2351,7 @@ export class ScoreModel {
    * Update a note
    */
   updateNote(noteId: string, updates: Partial<NoteParams>): Note {
-    const found = this.findSlot(noteId, { fanMembers: true })
+    const found = this.findSlot(noteId, { fanMembers: true, graceNotes: true })
     if (!found) {
       throw new Error(`Note ${noteId} not found`)
     }
@@ -2363,7 +2366,10 @@ export class ScoreModel {
     // member has no length of its own to continue into. The commands that own those refuse a member
     // up front (`MusicEngine`'s `isFanMember` guards) so nothing mints an undo entry either; this is
     // the floor under them.
-    if (found.type === 'chord' && found.member) {
+    //
+    // ⭐ A GRACE is a pitch on the same terms (docs/plans/grace-notes-plan.md §2): the one branch serves
+    // both, and its marks land on the grace through the same `attackOf`.
+    if (found.type === 'chord' && (found.member || found.grace)) {
       const { chord, pitch } = found
       if (updates.step !== undefined) pitch.step = updates.step
       if (updates.alter !== undefined) pitch.alter = updates.alter
@@ -2374,10 +2380,10 @@ export class ScoreModel {
       // width-cache key, so `[]` and absent would be two keys for one piece of music.
       // The marks go on the ATTACK, which for a member is the member — same writer the ordinary
       // chord branch below uses, so the two cannot drift.
-      writeAttackMarks(found.member.chord, updates)
+      writeAttackMarks(attackOf(found)!, updates)
       const ignored = Object.keys(updates).filter(k => !FAN_MEMBER_UPDATE_FIELDS.has(k))
-      if (ignored.length) dbg(`[Model.updateNote] fan member ${noteId}: ignored {${ignored.join(', ')}} — a member is a pitch`)
-      return this.toFlatNote(chord, pitch)
+      if (ignored.length) dbg(`[Model.updateNote] ${found.grace ? 'grace' : 'fan member'} ${noteId}: ignored {${ignored.join(', ')}} — it is a pitch`)
+      return found.grace ? this.getNote(noteId)! : this.toFlatNote(chord, pitch)
     }
 
     const before = found.type === 'rest' ? found.rest : found.chord

@@ -341,6 +341,10 @@ export function insertPitch(score: Score, measure: Measure, payload: PitchInsert
     // its pitches leaves), and two live slots holding ONE members array means two heads with the
     // same pitch id — see {@link cloneFanFresh}.
     if (payload.fan && !existingChord.fan && !existingChord.tremolo) existingChord.fan = cloneFanFresh(payload.fan)
+    // Graces: the destination's own group wins, the rule every statement here follows. Not cloned —
+    // they come from a slot that has just been REMOVED (`voiceOps` hands them only with its last pitch).
+    if (payload.graceBefore && !existingChord.graceBefore) existingChord.graceBefore = payload.graceBefore
+    if (payload.graceAfter && !existingChord.graceAfter) existingChord.graceAfter = payload.graceAfter
     if (payload.secondaryBreak && existingChord.secondaryBreak === undefined) {
       existingChord.secondaryBreak = true
     }
@@ -377,6 +381,8 @@ export function insertPitch(score: Score, measure: Measure, payload: PitchInsert
   if (payload.tremoloPair) chord.tremoloPair = true
   if (payload.tremoloPairStyle) chord.tremoloPairStyle = payload.tremoloPairStyle
   if (payload.fan) chord.fan = cloneFanFresh(payload.fan) // fresh member ids — see the merge branch
+  if (payload.graceBefore) chord.graceBefore = payload.graceBefore
+  if (payload.graceAfter) chord.graceAfter = payload.graceAfter
   if (targetVoice) chord.voice = targetVoice as 0 | 1 | 2 | 3
   if (payload.staffId !== undefined) chord.staffId = payload.staffId
   chord.actualDuration = computeActualDurationForSlot(chord, measure)

@@ -15,19 +15,21 @@
  * of its own downstream is deleted (the punt case — too complex to rewire). Only the overflowing
  * note's own voice and staff: other streams are independent.
  */
-import type { Measure, Note, NoteParams } from '@/types/music'
+import type { Measure, Note, NoteParams, Score } from '@/types/music'
 import { dbg } from '@/utils/debug'
 import { durationToFraction, splitBeatsIntoLengths } from '@/utils/durations'
 import type { Fraction } from '@/utils/fraction'
 import { fracAdd, fracEq, fracFromInt, fracToNumber } from '@/utils/fraction'
 import { staffOf, voiceOf } from '@/utils/lanes'
 import { beatToFrac, durationToBeats } from '@/utils/musicUtils'
+import { attachGraceAfter, detachGraceAfterOfChain } from './graceOps'
 
 /** Safety cap on the addMeasure() loop that extends the score to reach a target measure. */
 const MAX_MEASURE_CREATE_ATTEMPTS = 20
 
 /** What a spanning note needs of the score — `ScoreModel` answers all of it. */
 export interface SpanningNoteModel {
+  getScore(): Score
   getMeasure(measureNumber: number): Measure | undefined
   addMeasure(): Measure
   getNotesInMeasure(measureNumber: number): Note[]
@@ -97,6 +99,11 @@ export function placeSpanningNote(model: SpanningNoteModel, p: {
     }
     return false
   }
+  // ⭐ A grace AFTER belongs to the END of the note (docs/plans/grace-notes-plan.md D2), and the end is
+  // about to move: the chain is rebuilt from the pitch alone, so the group is taken off the old end
+  // HERE — before the erosion can delete it — and hung on the new last piece below.
+  const graceAfter = p.existingHeadId ? detachGraceAfterOfChain(model.getScore(), p.existingHeadId) : undefined
+
   erodeOverflowZone(model, nextMeasureNumber, beatsInNextMeasure, voiceOf(p), staffOf(p), ownContinuation)
 
   const pitch = { step: p.step, alter: p.alter, octave: p.octave, ...(p.voice && { voice: p.voice }), ...(p.staff && { staff: p.staff }) }
@@ -152,6 +159,8 @@ export function placeSpanningNote(model: SpanningNoteModel, p: {
     previousNoteId = note.id
     nextBeat = fracAdd(nextBeat, durationToFraction(duration, dots))
   }
+
+  if (graceAfter && previousNoteId) attachGraceAfter(model.getScore(), previousNoteId, graceAfter)
 
   dbg('Placed spanning note with tie:', {
     head: p.existingHeadId ?? firstNote?.id, currentDurations: currentMeasureDurations,

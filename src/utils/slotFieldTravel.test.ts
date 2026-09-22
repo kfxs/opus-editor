@@ -38,6 +38,8 @@ const loadedChord = (): Chord => ({
   tremolo: 3,
   beam: 'begin',
   secondaryBreak: true,
+  graceBefore: { notes: [{ pitches: [{ id: 'g1', step: 'D', alter: 0, octave: 4 }], duration: '8' }], slash: true },
+  graceAfter: { notes: [{ pitches: [{ id: 'g2', step: 'F', alter: 1, octave: 4 }], duration: '16' }], slur: false },
   notes: [{ id: 'n1', step: 'E', alter: 0, octave: 4, forceAccidental: true }],
 })
 
@@ -96,6 +98,18 @@ describe('what the table calls CARRIED really is', () => {
   it('beam', () => { expect(piece.beam).toBe('begin') })
   it('secondaryBreak', () => { expect(piece.secondaryBreak).toBe(true) })
 
+  // ⭐ Compared WITHOUT the pitch ids: the relay copies with fresh ones (`cloneGraceFresh`), so a
+  // payload pasted twice cannot mint two heads with one id — the id is what must NOT survive.
+  const noIds = (g: unknown) => JSON.parse(JSON.stringify(g, (k, v) => (k === 'id' ? undefined : v)))
+  it('graceBefore — the group, its flags and its written values', () => {
+    expect(noIds(piece.graceBefore)).toEqual({ notes: [{ pitches: [{ step: 'D', alter: 0, octave: 4 }], duration: '8' }], slash: true })
+    expect(piece.graceBefore!.notes[0].pitches[0].id).not.toBe('g1')
+  })
+  it('graceAfter — the slur\'s off-switch travels with it', () => {
+    expect(noIds(piece.graceAfter)).toEqual({ notes: [{ pitches: [{ step: 'F', alter: 1, octave: 4 }], duration: '16' }], slur: false })
+    expect(piece.graceAfter!.notes[0].pitches[0].id).not.toBe('g2')
+  })
+
   it('fan — carried on its own fixture, since it cannot share a slot with a tremolo', () => {
     const fanned: Chord = { ...loadedChord(), tremolo: undefined, fan: { direction: 'accel', count: 6, beams: 3 } }
     expect(roundTrip(fanned).fan).toEqual({ direction: 'accel', count: 6, beams: 3 })
@@ -109,6 +123,7 @@ describe('what the table calls CARRIED really is', () => {
     const asserted: SlotField[] = [
       'duration', 'dots', 'notes', 'stemDirection', 'articulations', 'articulationPlacement',
       'articulationStemAlign', 'fractionalBeamSide', 'tremolo', 'beam', 'secondaryBreak', 'fan',
+      'graceBefore', 'graceAfter',
     ]
     expect([...CARRIED_SLOT_FIELDS].sort()).toEqual([...asserted].sort())
   })

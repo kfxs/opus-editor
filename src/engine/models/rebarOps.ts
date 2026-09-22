@@ -34,6 +34,7 @@ import { findSlot } from './slotLookup'
 import { keepLegalCrossings } from './crossStaffOps'
 import { clearEngravingOverride, setEngravingOverride } from './overrideOps'
 import { cloneFanFresh, chordStoredPitches, fanMemberBeats } from '@/utils/fannedBeam'
+import { cloneGraceFresh, gracePitchesOf } from '@/utils/graceNotes'
 import { v4 as uuidv4 } from 'uuid'
 import { voiceOf } from '@/utils/lanes'
 import { dbg } from '@/utils/debug'
@@ -683,6 +684,8 @@ export function pasteEvents(
       // `ClipboardController.placeAt` feeds it straight to `selectNotes`. Pasting a fan and being
       // left holding only its owner was this walk, not the selection.
       for (const np of chordStoredPitches(chord)) pastedIds.push(np.id)
+      // …and its GRACES, which are heads you can click too (docs/plans/grace-notes-plan.md §7).
+      for (const np of gracePitchesOf(chord)) pastedIds.push(np.id)
     }
   }
   return pastedIds
@@ -1674,6 +1677,9 @@ function materializeVoiceBar(
     // a passage could be collapsed into one (`engine/models/fanCollapse.ts`). The music keeps its
     // total length either way — the tied piece holds what the ramp gave up.
     if (chord.fan?.length && !fracEq(chord.fan.length, writtenLength(piece))) delete chord.fan.length
+    // Graces: fresh pitch ids, for the fan's reason just above (docs/plans/grace-notes-plan.md §1.1).
+    if (piece.graceBefore) chord.graceBefore = cloneGraceFresh(piece.graceBefore)
+    if (piece.graceAfter) chord.graceAfter = cloneGraceFresh(piece.graceAfter)
     if (piece.beam) chord.beam = piece.beam
     if (piece.secondaryBreak) chord.secondaryBreak = true
     if (piece.fractionalBeamSide) chord.fractionalBeamSide = piece.fractionalBeamSide
@@ -1753,6 +1759,10 @@ function materializeAtomicPiece(measure: Measure, piece: RebarPiece): void {
         tiedTo: undefined,
         tiedFrom: undefined,
       }))
+      // ⭐ …and its GRACES' ids: `structuredClone` copies them verbatim, and a pasted tuplet would
+      // otherwise hold the same grace pitch ids as its source (a grace in a tuplet is the chord's).
+      if (slot.graceBefore) slot.graceBefore = cloneGraceFresh(slot.graceBefore)
+      if (slot.graceAfter) slot.graceAfter = cloneGraceFresh(slot.graceAfter)
     }
     measure.slots.push(slot)
   }

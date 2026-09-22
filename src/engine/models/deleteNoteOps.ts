@@ -9,6 +9,7 @@
  * Which edit a delete IS depends on what the id names:
  *
  * - a **FANNED MEMBER** deletes as a member — see {@link deleteNoteWithRepair};
+ * - a **GRACE NOTE** deletes as a grace (`graceOps.removeGrace`) — no repair, nothing rhythmic left;
  * - a **CHORD HEAD** leaves the chord standing, and its slurs move to a surviving sibling;
  * - a **SINGLE NOTE** becomes a rest of its own length, in its own voice AND staff, and every tie
  *   and slur that targeted it re-points onto that rest (which has a NEW id);
@@ -22,6 +23,7 @@ import type { Fraction, Measure, Note, NoteParams, NotePitch, Score, Tuplet } fr
 import { fracEq } from '@/utils/fraction'
 import { staffOf, voiceOf } from '@/utils/lanes'
 import { reanchorSlurs } from './slurOps'
+import { isGraceNote, removeGrace } from './graceOps'
 
 /** What the repair needs of the score — `ScoreModel` answers all of it. */
 export interface DeleteNoteModel {
@@ -56,6 +58,13 @@ export function chordNotesAt(
 export function deleteNoteWithRepair(model: DeleteNoteModel, noteId: string): boolean {
   const note = model.getNote(noteId)
   if (!note) return false
+
+  // ⭐ A GRACE deletes as a GRACE, before any of the slot bookkeeping below — for the member's reason:
+  // it reports its main chord's beat, so `chordNotesAt` would answer for that chord and the "single
+  // note becomes a rest" branch would silence the note it was played into. Nothing rhythmic leaves
+  // the bar, so there is nothing to repair; and no slur anchors to a grace (its slur is the group's
+  // own flag — docs/plans/grace-notes-plan.md D3).
+  if (isGraceNote(model.getScore(), noteId)) return removeGrace(model.getScore(), noteId)
 
   // ⭐ A FANNED MEMBER deletes as a MEMBER, and must never reach the slot bookkeeping below: the
   // model takes the pitch out (and the member with it, when it was the last one — the group is one

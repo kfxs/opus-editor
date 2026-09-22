@@ -7,7 +7,8 @@
  * internal↔public boundary in one named home. See `src/types/music.ts` for the
  * authoritative model/flat definitions.
  */
-import type { Note, Chord, NotePitch, Rest, Score } from '@/types/music'
+import type { Note, Chord, GraceNote, NotePitch, Rest, Score } from '@/types/music'
+import { projectAttackMarks } from './slotLookup'
 import { staffIndexOfId } from './staffContent'
 
 /**
@@ -82,4 +83,18 @@ export function flatNoteOf(score: Score, chord: Chord, pitch: NotePitch): Note {
 /** {@link flatNoteOf}'s rest twin. */
 export function flatRestOf(score: Score, rest: Rest): Note {
   return restToFlatNote(rest, staffIndexOfId(score, rest.staffId))
+}
+
+/**
+ * ⭐ Turn a flat Note projected through a GRACE's main chord into the GRACE's own
+ * (docs/plans/grace-notes-plan.md §2): its written value and its marks, and none of the statements
+ * about the SLOT — the beam, the fan, the tremolo, the tuplet's recomputed length. The beat, voice
+ * and staff stay the main chord's: a grace has none of its own, it stands at its chord's.
+ */
+export function projectGraceNote(note: Note, grace: GraceNote): void {
+  note.duration = grace.duration
+  if (grace.dots) note.dots = grace.dots
+  else delete note.dots
+  for (const k of ['fan', 'beam', 'secondaryBreak', 'fractionalBeamSide', 'tremolo', 'tremoloPair', 'tremoloPairStyle', 'actualDuration', 'articulationStemAlign', 'stemDirection'] as const) delete note[k]
+  projectAttackMarks(note, grace)
 }
