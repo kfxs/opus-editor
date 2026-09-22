@@ -1,6 +1,6 @@
 # Grace notes — appoggiatura, acciaccatura, Nachschlag: the plan
 
-> **Status: P0 and P1 committed (2026-09-22), + the offset, the arrows and the rest fixes; P2 planned, P2a (the click behaves like note entry) committed, P2b (the beam) + a selected grace's form committed, P2c (the slash — the font's glyph) committed; ⛔ P2d dropped (the user's value is correct). P2 COMPLETE. Next: his pick — P3 (playback) or the open list.** 📄 The research is `docs/research/grace-notes-research.md`
+> **Status: P0 and P1 committed (2026-09-22), + the offset, the arrows and the rest fixes; P2 planned, P2a (the click behaves like note entry) committed, P2b (the beam) + a selected grace's form committed, P2c (the slash — the font's glyph) committed; ⛔ P2d dropped (the user's value is correct). P2 COMPLETE. P3 (playback) built. Next: his pick.** 📄 The research is `docs/research/grace-notes-research.md`
 > (four sources folded into one file; its §0 is the synthesis this plan reads). ⛔ This plan is the place
 > the DECISIONS get made: §0 marks each as ✅ DECIDED (his word, with the date) or ⏳ PROPOSED — until he
 > says so it is a default, not a decision (`feedback_an_open_question_is_not_a_decision`). ✅ D1 · D2 ·
@@ -251,27 +251,33 @@ after the clef, as after every header sign, until someone has a reason.
 
 ---
 
-## 6. Playback — `engine/audio/playbackSchedule.ts`, `collectGraceAttacks`
+## 6. Playback — `engine/audio/graceAttacks.ts` + `collectScheduledNotes`
 
-Beside `collectFanAttacks`, read by the same walk, ⭐ **from the same group the drawing reads** —
-picture and sound out of one object, as the fan's `fanMembers` guarantees for it. D4's preset as rows
-in a `GRACE_PLAYBACK` table (the tremolo's `UNMEASURED_PERIOD_SECONDS` shape: a physical span,
-converted to beats at the onset through the tempo map):
+✅ **BUILT (P3), 2026-09-22.** `engine/audio/graceAttacks.graceTiming` lays a group out in BEATS;
+`collectScheduledNotes` emits it from the same group the drawing reads, and moves and shortens the main
+note ONCE, before its branches (pair, fan, tremolo, trill, plain), so every kind of main note gives up
+what its graces take. Each grace takes its OWN marks on the slot's dynamic, and the slot's octave line;
+a grace CHORD strikes together.
 
-| case | first rule | source |
-|---|---|---|
-| **slashed** (acciaccatura) | each grace **`GRACE_CRUSH_SECONDS` = 0.065 s**, ON the beat; the main note starts after the run and is shortened by it | MuseScore, *"determined empirically"* |
-| **unslashed** (appoggiatura), single | **½** of the main note's sounding length (⅔ when dotted); the main note takes the rest | MuseScore; Dorico for ≥ 8th |
-| unslashed, a group | the run shares the appoggiatura's half equally | MuseScore (research §B.3.11) |
-| **grace after** | each grace `GRACE_CRUSH_SECONDS`, taken from the END of its note | MuseScore; LilyPond's `afterGraceFraction` ¾ is the second row |
-| a grace whose main note is tied on | shortens the chain's head; the continuation is untouched | — |
+⭐ **The first preset is MuseScore's, read in its SOURCE** (`src/engraving/playback/renderers/
+gracechordcontext.cpp`, MuseScore 4) — `GRACE_PLAYBACK`:
 
-⛔ **Before-the-beat (steal from the PREVIOUS note)** is the SECOND preset, not built here: it needs
-the previous event's duration cut after the fact, and the first preset does not. Stone's *"always
-before the beat"* and LilyPond's 9/40 wait in the table with their sources.
+| case | rule |
+|---|---|
+| every grace | plays its **WRITTEN value** (the user's choice is what sounds) — until the cap |
+| a single **appoggiatura**, or graces **after** | the group may take **½** of the main note — **⅔** in a compound meter (`sig.h`: numerator > 3, divisible by 3) when the main note is longer than an 8th |
+| an **acciaccatura**, or a GROUP of appoggiaturas before | **one 64th per grace** (`DEMISEMIQUAVER_TICKS / 2`), never more than ½ of the main note |
+| over the cap | every grace scaled by ONE factor (its written ratios survive) |
+| graces **before** | start **ON the beat**; the main note starts after them, shortened by them |
+| graces **after** | take the **END** of the main note; it keeps its start |
+| a grace on a **REST** (D7) | sounds on the rest's beat, same caps; nothing shortened — ⭐ ours (MuseScore has none) |
 
-Velocity and articulation per attack as a fan member's (`articulationEffect` on the grace's own
-marks); the dynamic is the slot's.
+⛔ The first table here (0.065 s per acciaccatura grace, *"determined empirically"*) is **not** what this
+MuseScore does — replaced by the source. Every cap is a fixed amount of BEATS, so no tempo map is read.
+
+⏭️ Not built: a grace AFTER on the end of a TIE chain sounds over the head's held note (the head is not
+shortened); the second preset (before the beat — Stone's *"always before the beat"*, LilyPond's 9/40)
+waits with its sources; presets armed from the console, if he wants to compare.
 
 ---
 
@@ -532,7 +538,8 @@ selectable in this plan; the press toggles it (§3.2).
   style) · the stem-down beam and slash (P6) · grace AFTER groups (P5) · a beam across a grace CHORD's
   displaced heads (the chord's own stem rule, already P1's).
 - **P3 — PLAYBACK.** §6, the first preset, `playbackSchedule.grace.test.ts` — checkable because the
-  collector is pure. *End state: it sounds.*
+  collector is pure. *End state: it sounds.* ✅ BUILT 2026-09-22 (MuseScore's rule, from its source),
+  ⏳ his ear.
 - **P4 — the OTHER ways in.** ⏳ §3 rules 2–3, once he has felt the stamp and picked: what a press does
   to a selected NOTE (transform it? add to it?) and to a selected GRACE. *End state: his, after
   iteration.*

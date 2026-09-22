@@ -17,7 +17,7 @@
  * dynamic", which was the leak, not the design. What is still deferred is anything BEYOND "which
  * marks reach this slot" — a staff-level balance is not a thing the model says.
  */
-import type { Score, Chord, ChordRest, DynamicLevel, FanMark, Measure, NotePitch, PitchSpelling } from '@/types/music'
+import type { Score, Chord, ChordRest, DynamicLevel, FanMark, GraceGroup, Measure, NotePitch, PitchSpelling } from '@/types/music'
 import { durationToBeats } from '@/utils/musicUtils'
 import { measureCapacityQuarters } from '@/utils/measureCapacity'
 import { doubleDuration, durationFlags, slotLength } from '@/utils/durations'
@@ -34,6 +34,8 @@ import { voiceOf } from '@/utils/lanes'
 import { applySoundingShift, soundingShiftBySlot } from '@/utils/soundingShift'
 import { pedalWindows, pedalWindowCovers, type PedalWindow } from '@/utils/pedalScope'
 import { trillAttacks, TRILL_PERIOD_SECONDS } from './trillAttacks'
+import { graceTiming, isCompoundMeter, type GraceTiming } from './graceAttacks'
+import { GRACE_SIDES, graceGroupOf } from '@/utils/graceNotes'
 import { trillSpan } from '@/engine/models/trillOps'
 import { trillAuxiliary } from '@/utils/trillPitch'
 import { keyAt } from '@/utils/keySignature'
@@ -341,7 +343,20 @@ export function collectScheduledNotes(
     const lanes = laneIndexOfMeasure(measure)
 
     for (const slot of measure.slots) {
-      if (slot.type === 'rest') continue
+      if (slot.type === 'rest') {
+        // ⭐ A GRACE hung on a REST (D7 reversed) sounds on the rest's beat, under the same caps;
+        //    nothing is shortened — a rest has no sound to give up. (MuseScore has no such grace.)
+        if (slot.graceBefore) {
+          staffMarks.push({ from: events.length, staffId: slot.staffId })
+          const restStart = measureStartBeats + fracToNumber(slot.beat)
+          const restBeats = slot.actualDuration ? fracToNumber(slot.actualDuration) : durationToBeats(slot.duration, slot.dots || 0)
+          emitGraces(events, slot.graceBefore, graceTiming({
+            group: slot.graceBefore, side: 'before', mainStartBeats: restStart, mainBeats: restBeats,
+            compound: isCompoundMeter(measure.timeSignature),
+          }), DYNAMIC_VELOCITY[DEFAULT_DYNAMIC], shifts.get(slot.id) ?? 0)
+        }
+        continue
+      }
       const chord = slot
       // Everything appended from here until the next mark belongs to this slot's staff. Before any
       // branch, so the two `continue`s below (a tremolo pair's second slot, a fan) cannot skip it.
@@ -355,10 +370,28 @@ export function collectScheduledNotes(
       const shift = shifts.get(chord.id) ?? 0
       const baseVelocity = DYNAMIC_VELOCITY[chordLevels.get(chord.id) ?? DEFAULT_DYNAMIC]
       const velocity = Math.min(1, baseVelocity * artic.velocityScale)
-      const startBeats = measureStartBeats + fracToNumber(chord.beat)
-      const baseDurationBeats = chord.actualDuration
+      const writtenStart = measureStartBeats + fracToNumber(chord.beat)
+      const writtenBeats = chord.actualDuration
         ? fracToNumber(chord.actualDuration)
         : durationToBeats(chord.duration, chord.dots || 0)
+
+      // ⭐⭐ The GRACES — before its onset and after it (`./graceAttacks`, MuseScore's preset). They
+      // sound FIRST, and the main note gives up what they take: it starts later (graces before) and
+      // ends sooner (either side) — ONCE, here, so every branch below (a pair, a fan, a tremolo, a
+      // trill, a plain note) plays the shortened note without knowing why.
+      let startBeats = writtenStart
+      let baseDurationBeats = writtenBeats
+      for (const side of GRACE_SIDES) {
+        const group = graceGroupOf(chord, side)
+        if (!group) continue
+        const timing = graceTiming({
+          group, side, mainStartBeats: writtenStart, mainBeats: writtenBeats,
+          compound: isCompoundMeter(measure.timeSignature),
+        })
+        emitGraces(events, group, timing, baseVelocity, shift)
+        startBeats += timing.mainDelayBeats
+        baseDurationBeats -= timing.mainTrimBeats
+      }
 
       // ⭐ A TWO-NOTE TREMOLO alternates whole PITCH SETS, so it branches on the SLOT — here, before
       // the per-pitch loop, and not beside the single-note expansion inside it. That one runs one
@@ -528,6 +561,28 @@ export function collectScheduledNotes(
   holdUnderPedals(events, score)
 
   return events
+}
+
+/**
+ * One grace group's attacks, appended to `events` — each grace at its own time
+ * (`./graceAttacks`), every pitch of a grace CHORD at once. ⭐ Each grace takes its OWN marks on the
+ * slot's dynamic (a fan member's rule, plan §6), and the slot's octave line.
+ */
+function emitGraces(events: ScheduledNote[], group: GraceGroup, timing: GraceTiming, baseVelocity: number, shift: number): void {
+  group.notes.forEach((grace, i) => {
+    const at = timing.graces[i]
+    if (!at) return
+    const artic = articulationEffect(grace.articulations)
+    const velocity = Math.min(1, baseVelocity * artic.velocityScale)
+    for (const p of grace.pitches) {
+      events.push({
+        pitch: applySoundingShift({ step: p.step, alter: p.alter, octave: p.octave }, shift),
+        startBeats: at.startBeats,
+        durationBeats: at.durationBeats * artic.durationFactor,
+        velocity,
+      })
+    }
+  })
 }
 
 /** Fill in each event's staff from the contiguous run its slot opened. See `staffMarks`. */
