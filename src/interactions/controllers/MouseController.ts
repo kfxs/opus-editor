@@ -395,7 +395,9 @@ export class MouseController {
     // SCOPE note above. ⚠️ NOT the clicked note's voice: a mark is placed AT a note, not INTO it.
     const staffId = engine.staffIdForIndex(staffOf(note))
     const staffParam = staffId ? { staffId } : {}
-    const created = engine.dynamic.addDynamic(note.measure, {
+    // ⭐ A PREVIEW, not an edit: the typed text commits placement + text as ONE undo entry
+    // (`dynamicCommands.placeDynamicForTyping`), so `Ctrl+Z` never stops at the placeholder.
+    const created = engine.dynamic.placeDynamicForTyping(note.measure, {
       beat: note.beat, text: DEFAULT_DYNAMIC_TEXT, placement: 'below', ...staffParam,
     })
     if (!created) return
@@ -1161,7 +1163,9 @@ export class MouseController {
     const engine = this.getEngine()
     const textEdit = this.getTextEdit()
     if (!engine || !textEdit || this.state.editingText) return
-    const created = engine.tempo.addTempoMark(stop.measure, { beat: stop.beat, text: DEFAULT_TEMPO_TEXT })
+    // ⭐ A PREVIEW, not an edit: the typed text commits placement + text as ONE undo entry
+    // (`tempoCommands.placeTempoMarkForTyping`), so `Ctrl+Z` never stops at the placeholder.
+    const created = engine.tempo.placeTempoMarkForTyping(stop.measure, { beat: stop.beat, text: DEFAULT_TEMPO_TEXT })
     if (!created) return
     // ⭐ The selection that SAID WHERE is spent — his call, 2026-08-31: *"if we select a measure and
     //   then chose to enter tempo… the measure should not be selected anymore (we are doing tempo
@@ -1433,7 +1437,8 @@ export class MouseController {
     const staff = engine.getElementRegistry().staffIndexAtY(measureNum, y)
     const staffId = engine.staffIdForIndex(staff)
     const staffParam = staffId ? { staffId } : {}
-    const created = engine.dynamic.addDynamic(measureNum, { beat, text: DEFAULT_DYNAMIC_TEXT, placement: 'below', ...staffParam })
+    // ⭐ A PREVIEW until the text is typed — `editDynamicOnSelection`'s reason.
+    const created = engine.dynamic.placeDynamicForTyping(measureNum, { beat, text: DEFAULT_DYNAMIC_TEXT, placement: 'below', ...staffParam })
     // Disarm to selection mode either way — the click is consumed. (Reassign, never mutate: the
     // observable Proxy only traps the SET.)
     this.state.selectedMarkingTool = null
@@ -1456,7 +1461,8 @@ export class MouseController {
   private placeTempoEntryAtClick(engine: MusicEngine, x: number, measureNum: number): boolean {
     if (!armedTool(this.state, 'tempoEntry')) return false
     const beat = this.resolveSlotBeat(engine, x, measureNum)
-    const created = engine.tempo.addTempoMark(measureNum, { beat, text: DEFAULT_TEMPO_TEXT })
+    // ⭐ A PREVIEW until the text is typed — `editTempoAt`'s reason.
+    const created = engine.tempo.placeTempoMarkForTyping(measureNum, { beat, text: DEFAULT_TEMPO_TEXT })
     // Disarm to selection mode either way — the click is consumed. (Reassign, never mutate.)
     this.state.selectedMarkingTool = null
     this.state.selectedTool = 'selection'

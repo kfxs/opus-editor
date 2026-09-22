@@ -266,13 +266,13 @@ describe('MouseController', () => {
    * edit box opens: *"we are doing tempo editing now and no measure selection operations"*.
    */
   describe('insertTempo', () => {
-    let addTempoMark: ReturnType<typeof vi.fn>
+    let placeTempoMarkForTyping: ReturnType<typeof vi.fn>
     let armTempoEntry: ReturnType<typeof vi.fn<() => void>>
     let opened: ReturnType<typeof vi.fn>
     let tempo: MouseController
 
     beforeEach(() => {
-      addTempoMark = vi.fn(() => ({ id: 't1' }))
+      placeTempoMarkForTyping = vi.fn(() => ({ id: 't1' }))
       armTempoEntry = vi.fn<() => void>()
       opened = vi.fn()
       engine = {
@@ -281,7 +281,7 @@ describe('MouseController', () => {
         getScore: () => ({ measures: [1, 2].map(number => ({ number, slots: [{ beat: frac(0, 1) }] })) }),
         getNote: () => null,
         tempo: {
-          addTempoMark,
+          placeTempoMarkForTyping,
         },
         // `TempoTextSource` measures the drawn mark on construction; nothing is drawn here.
         getTempoSVGGroup: () => null,
@@ -298,7 +298,7 @@ describe('MouseController', () => {
     it('⭐⭐ a BARLINE puts the mark in the bar AFTER it', () => {
       state.selectedElement = { kind: 'barline', measure: 1 }
       tempo.insertTempo()
-      expect(addTempoMark).toHaveBeenCalledWith(2, expect.objectContaining({ beat: frac(0, 1) }))
+      expect(placeTempoMarkForTyping).toHaveBeenCalledWith(2, expect.objectContaining({ beat: frac(0, 1) }))
     })
 
     it('⭐⭐ …and the selection that said WHERE is spent — the bar is no longer selected', () => {
@@ -306,14 +306,14 @@ describe('MouseController', () => {
         kind: 'measureRange', anchor: 2, focus: 2, staff: 0, focusStaff: 0, boxStyle: 'single',
       }
       tempo.insertTempo()
-      expect(addTempoMark).toHaveBeenCalledWith(2, expect.objectContaining({ beat: frac(0, 1) }))
+      expect(placeTempoMarkForTyping).toHaveBeenCalledWith(2, expect.objectContaining({ beat: frac(0, 1) }))
       expect(selection.selectNote).toHaveBeenCalledWith(null)
       expect(opened, 'and the edit box opened on the new mark').toHaveBeenCalled()
     })
 
     it('⛔ a selection that names no place arms the click-to-place tool instead', () => {
       tempo.insertTempo()
-      expect(addTempoMark).not.toHaveBeenCalled()
+      expect(placeTempoMarkForTyping).not.toHaveBeenCalled()
       expect(armTempoEntry).toHaveBeenCalled()
     })
   })

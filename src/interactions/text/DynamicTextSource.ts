@@ -280,19 +280,25 @@ export class DynamicTextSource implements EditableTextSource {
   commit(text: string): void {
     const trimmed = text.replace(/\u00A0/g, ' ').trim()
     if (trimmed === '') {
-      this.engine.dynamic.removeDynamic(this.targetId)
+      // ⭐ A NEW mark was only previewed (`dynamicCommands.placeDynamicForTyping`): discarding it
+      // leaves no undo entry, where clearing an EXISTING mark is a removal the user can undo.
+      if (this.isNew) this.engine.dynamic.discardTypedDynamic(this.targetId)
+      else this.engine.dynamic.removeDynamic(this.targetId)
       this.render()
       return
     }
-    this.engine.dynamic.updateDynamic(this.targetId, { text: trimmed })
+    // ⭐ A NEW mark's first text is ONE undo entry with its placement (his report, 2026-09-22:
+    // `Ctrl+Z` after a first entry left the placeholder `Text` behind); an existing mark's is an edit.
+    if (this.isNew) this.engine.dynamic.commitTypedDynamic(this.targetId, trimmed)
+    else this.engine.dynamic.updateDynamic(this.targetId, { text: trimmed })
     this.render()
   }
 
-  /** Escape: a freshly placed (still-blank) mark leaves nothing behind; an existing
-   *  mark is untouched. */
+  /** Escape: a freshly placed (still-blank) mark leaves nothing behind — not even an undo entry;
+   *  an existing mark is untouched. */
   cancel(): void {
     if (this.isNew) {
-      this.engine.dynamic.removeDynamic(this.targetId)
+      this.engine.dynamic.discardTypedDynamic(this.targetId)
       this.render()
     }
   }

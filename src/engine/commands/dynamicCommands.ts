@@ -34,6 +34,41 @@ export function dynamicCommands(ctx: CommandContext) {
     },
 
     /**
+     * ⭐ **A TYPED-IN DYNAMIC IS ONE EDIT — placement and text together.** `Ctrl+E` (and the
+     * click-to-type tool) put a placeholder mark on the score so the inline box has ink to stand
+     * over, then the typing replaces the placeholder. Written as two commands that was two undo
+     * entries, and `Ctrl+Z` after a first entry undid only the text: his report, 2026-09-22 —
+     * *"after ctr Z i have a Text there… undo should know when dynamic is enter for first time and
+     * when is just edit"*. So the placement is a PREVIEW (dirty, no entry — a drag frame's rule),
+     * {@link commitTypedDynamic} is the one entry, and {@link discardTypedDynamic} takes an
+     * abandoned box away leaving no trace. ⛔ Not for a mark that already exists: an EDIT of one is
+     * {@link updateDynamic}, and undoing it should give the old text back.
+     */
+    placeDynamicForTyping(measureNumber: number, dynamic: Omit<Dynamic, 'id'>): Dynamic | null {
+      const created = ctx.model().addDynamic(measureNumber, dynamic)
+      if (created) ctx.markDirty()
+      return created
+    },
+
+    /** The typed text lands and the whole entry — placement + text — becomes ONE undo entry. */
+    commitTypedDynamic(id: string, text: string): Dynamic | null {
+      const updated = ctx.model().updateDynamic(id, { text })
+      // ⚠️ `mutate`, not the drag's `commitPreviewed`: that seam pushes the entry WITHOUT marking the
+      // model dirty (a drag's frames already rendered), so the picture kept the placeholder while the
+      // model held the text — his report within the hour: *"you break something… enter is broken"*.
+      if (updated) ctx.mutate(`Add dynamic ${dynamicLabel(updated)}`)
+      return updated
+    },
+
+    /** The box was closed empty or cancelled: the previewed mark goes, and no undo entry says it
+     *  was ever there. */
+    discardTypedDynamic(id: string): boolean {
+      const removed = ctx.model().removeDynamic(id)
+      if (removed) ctx.markDirty()
+      return removed
+    },
+
+    /**
      * Edit an existing dynamic (level / text / placement / beat / voice) by id.
      * Saves undo state when found. @returns the updated Dynamic, or null if missing.
      */

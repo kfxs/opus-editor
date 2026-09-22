@@ -95,6 +95,51 @@ describe('dynamicCommands — through the facade', () => {
     expect(dynamicLevelOf(dynsOf(1)![0])).toBe('f')
   })
 
+  describe('⭐ a typed-in dynamic is ONE edit (his report, 2026-09-22)', () => {
+    it('the placement is a preview: no undo entry until the text is committed', () => {
+      const before = engine.canUndo()
+      const d = engine.dynamic.placeDynamicForTyping(1, { beat: frac(0, 1), text: 'Text' })!
+      expect(dynsOf(1)).toHaveLength(1)
+      expect(engine.canUndo()).toBe(before)
+      engine.dynamic.commitTypedDynamic(d.id, 'dolce')
+      expect(dynsOf(1)![0].text).toBe('dolce')
+      expect(engine.canUndo()).toBe(true)
+    })
+
+    it('🚨 ONE Ctrl+Z takes the whole mark away — never back to the placeholder', () => {
+      const d = engine.dynamic.placeDynamicForTyping(1, { beat: frac(0, 1), text: 'Text' })!
+      engine.dynamic.commitTypedDynamic(d.id, 'dolce')
+      expect(engine.undo()).toBe(true)
+      expect(dynsOf(1) ?? []).toHaveLength(0)
+      expect(engine.redo()).toBe(true)
+      expect(dynsOf(1)![0].text).toBe('dolce')
+    })
+
+    it('🚨 the commit leaves the picture STALE — the text must reach the screen (his report: “enter is broken”)', () => {
+      const d = engine.dynamic.placeDynamicForTyping(1, { beat: frac(0, 1), text: 'Text' })!
+      engine.renderScore()
+      expect(engine.isRenderStale()).toBe(false)
+      engine.dynamic.commitTypedDynamic(d.id, 'dolce')
+      expect(engine.isRenderStale()).toBe(true)
+    })
+
+    it('an EDIT of an existing mark still undoes to its old text', () => {
+      const d = engine.dynamic.placeDynamicForTyping(1, { beat: frac(0, 1), text: 'Text' })!
+      engine.dynamic.commitTypedDynamic(d.id, 'dolce')
+      engine.dynamic.updateDynamic(d.id, { text: 'espr.' })
+      engine.undo()
+      expect(dynsOf(1)![0].text).toBe('dolce')
+    })
+
+    it('a discarded preview leaves no mark and no undo entry', () => {
+      const before = engine.canUndo()
+      const d = engine.dynamic.placeDynamicForTyping(1, { beat: frac(0, 1), text: 'Text' })!
+      expect(engine.dynamic.discardTypedDynamic(d.id)).toBe(true)
+      expect(dynsOf(1) ?? []).toHaveLength(0)
+      expect(engine.canUndo()).toBe(before)
+    })
+  })
+
   it('updates a dynamic and undo restores the prior value', () => {
     const d = engine.dynamic.addDynamic(1, { beat: frac(0, 1), text: levelToGlyphString('p') })!
     engine.dynamic.updateDynamic(d.id, { text: levelToGlyphString('f') })

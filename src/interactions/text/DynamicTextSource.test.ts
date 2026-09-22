@@ -13,6 +13,8 @@ function makeEngine(dyn: Dynamic | null) {
     dynamic: {
       updateDynamic: vi.fn(),
       removeDynamic: vi.fn(),
+      commitTypedDynamic: vi.fn(),
+      discardTypedDynamic: vi.fn(),
     },
     getDynamicSVGGroup: vi.fn((_id: string) => group),
     setSuppressedDynamicId: vi.fn(),
@@ -92,10 +94,30 @@ describe('DynamicTextSource', () => {
     expect(render).toHaveBeenCalledTimes(1)
   })
 
-  it('cancel deletes a NEW mark but leaves an existing one untouched', () => {
+  it('⭐ a NEW mark commits placement + text as ONE entry, an existing mark as an EDIT (his report, 2026-09-22)', () => {
+    const fresh = makeEngine(textDynamic('Text'))
+    new DynamicTextSource('d1', true, fresh as unknown as MusicEngine, () => null, render).commit(' dolce ')
+    expect(fresh.dynamic.commitTypedDynamic).toHaveBeenCalledWith('d1', 'dolce')
+    expect(fresh.dynamic.updateDynamic).not.toHaveBeenCalled()
+
+    const existing = makeEngine(textDynamic('espr.'))
+    new DynamicTextSource('d1', false, existing as unknown as MusicEngine, () => null, render).commit(' dolce ')
+    expect(existing.dynamic.updateDynamic).toHaveBeenCalledWith('d1', { text: 'dolce' })
+    expect(existing.dynamic.commitTypedDynamic).not.toHaveBeenCalled()
+  })
+
+  it('an empty commit DISCARDS a new mark (no undo entry) and REMOVES an existing one', () => {
+    const fresh = makeEngine(textDynamic('Text'))
+    new DynamicTextSource('d1', true, fresh as unknown as MusicEngine, () => null, render).commit('  ')
+    expect(fresh.dynamic.discardTypedDynamic).toHaveBeenCalledWith('d1')
+    expect(fresh.dynamic.removeDynamic).not.toHaveBeenCalled()
+  })
+
+  it('cancel discards a NEW mark but leaves an existing one untouched', () => {
     const newEngine = makeEngine(textDynamic(''))
     new DynamicTextSource('d1', true, newEngine as unknown as MusicEngine, () => null, render).cancel()
-    expect(newEngine.dynamic.removeDynamic).toHaveBeenCalledWith('d1')
+    expect(newEngine.dynamic.discardTypedDynamic).toHaveBeenCalledWith('d1')
+    expect(newEngine.dynamic.removeDynamic).not.toHaveBeenCalled()
     expect(render).toHaveBeenCalledTimes(1)
 
     const existingEngine = makeEngine(textDynamic('espr.'))

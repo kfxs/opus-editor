@@ -38,6 +38,37 @@ export function tempoCommands(ctx: CommandContext) {
     },
 
     /**
+     * ⭐ **A TYPED-IN TEMPO MARK IS ONE EDIT — placement and text together**, the dynamic's rule
+     * (`dynamicCommands.placeDynamicForTyping`), his report of the same day, 2026-09-22: *"i try
+     * Tempo and is similar it replace for the word Tempo"* — `Ctrl+Z` after a first entry undid only
+     * the text and left the placeholder. The placement is a PREVIEW (dirty, no entry — a drag frame's
+     * rule), {@link commitTypedTempoMark} is the one entry, and {@link discardTypedTempoMark} takes
+     * an abandoned box away leaving no trace. ⛔ Not for a mark that already exists: an EDIT of one
+     * is {@link updateTempoMark}, and undoing it should give the old text back.
+     */
+    placeTempoMarkForTyping(measureNumber: number, mark: Omit<TempoMark, 'id'>): TempoMark | null {
+      const created = ctx.model().addTempoMark(measureNumber, mark)
+      if (created) ctx.markDirty()
+      return created
+    },
+
+    /** The typed text lands and the whole entry — placement + text — becomes ONE undo entry. */
+    commitTypedTempoMark(id: string, updates: Partial<Omit<TempoMark, 'id'>>): TempoMark | null {
+      const updated = ctx.model().updateTempoMark(id, updates)
+      // ⚠️ `mutate`, not `commitPreviewed` — the dynamic's reason: the write must mark the model dirty.
+      if (updated) ctx.mutate(`Add tempo ${tempoLabel(updated)}`)
+      return updated
+    },
+
+    /** The box was closed empty or cancelled: the previewed mark goes, and no undo entry says it
+     *  was ever there. */
+    discardTypedTempoMark(id: string): boolean {
+      const removed = ctx.model().removeTempoMark(id)
+      if (removed) ctx.markDirty()
+      return removed
+    },
+
+    /**
      * Edit an existing tempo mark by id (text / unit / dots / bpm / beat). The mark IS its text:
      * `text` is stored verbatim and `unit`/`dots`/`bpm` are the speed parsed out of it, so the two
      * are written together (utils/tempoText).

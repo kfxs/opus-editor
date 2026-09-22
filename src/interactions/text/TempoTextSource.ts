@@ -249,7 +249,10 @@ export class TempoTextSource implements EditableTextSource {
 
     if (!parsed.ok) {
       if (parsed.reason === 'empty') {
-        this.engine.tempo.removeTempoMark(this.targetId)
+        // ⭐ A NEW mark was only previewed (`tempoCommands.placeTempoMarkForTyping`): discarding it
+        // leaves no undo entry, where clearing an EXISTING mark is a removal the user can undo.
+        if (this.isNew) this.engine.tempo.discardTypedTempoMark(this.targetId)
+        else this.engine.tempo.removeTempoMark(this.targetId)
         this.render()
       } else {
         console.warn(`[Tempo] "${text}" — bpm must be between ${MIN_BPM} and ${MAX_BPM}; edit discarded`)
@@ -260,19 +263,19 @@ export class TempoTextSource implements EditableTextSource {
     // The string is stored AS TYPED (bar a shorthand unit becoming its glyph); unit/dots/bpm are
     // what playback reads, parsed back out of it. Nothing re-composes the string, so nothing can
     // lose the brackets you deleted or the words you put after the number.
-    this.engine.tempo.updateTempoMark(this.targetId, {
-      text: parsed.text,
-      unit: parsed.unit,
-      dots: parsed.dots,
-      bpm: parsed.bpm,
-    })
+    const updates = { text: parsed.text, unit: parsed.unit, dots: parsed.dots, bpm: parsed.bpm }
+    // ⭐ A NEW mark's first text is ONE undo entry with its placement (his report, 2026-09-22:
+    // `Ctrl+Z` after a first entry left the placeholder behind); an existing mark's is an edit.
+    if (this.isNew) this.engine.tempo.commitTypedTempoMark(this.targetId, updates)
+    else this.engine.tempo.updateTempoMark(this.targetId, updates)
     this.render()
   }
 
-  /** Escape: a freshly placed mark leaves nothing behind; an existing one is untouched. */
+  /** Escape: a freshly placed mark leaves nothing behind — not even an undo entry; an existing one
+   *  is untouched. */
   cancel(): void {
     if (this.isNew) {
-      this.engine.tempo.removeTempoMark(this.targetId)
+      this.engine.tempo.discardTypedTempoMark(this.targetId)
       this.render()
     }
   }

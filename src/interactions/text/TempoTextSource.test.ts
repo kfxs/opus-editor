@@ -10,6 +10,8 @@ function makeEngine(mark: TempoMark | null) {
     tempo: {
       updateTempoMark: vi.fn(),
       removeTempoMark: vi.fn(),
+      commitTypedTempoMark: vi.fn(),
+      discardTypedTempoMark: vi.fn(),
     },
     setSuppressedTempoId: vi.fn(),
     // null → the source falls back to the registry bbox + fallback font (the no-DOM path
@@ -108,10 +110,30 @@ describe('TempoTextSource — lifecycle', () => {
   let render: Mock<() => void>
   beforeEach(() => { render = vi.fn() })
 
-  it('Escape on a freshly placed mark removes it; an existing one is untouched', () => {
+  it('⭐ a NEW mark commits placement + text as ONE entry, an existing mark as an EDIT (his report, 2026-09-22)', () => {
+    const { engine: fresh, source: freshSource } = sourceFor(mark({ text: 'Tempo' }), true)
+    freshSource.commit('Allegro (\u2669 = 120)')
+    expect(fresh.tempo.commitTypedTempoMark).toHaveBeenCalledWith('t1', expect.objectContaining({ text: 'Allegro (\u2669 = 120)', bpm: 120 }))
+    expect(fresh.tempo.updateTempoMark).not.toHaveBeenCalled()
+
+    const { engine: existing, source: existingSource } = sourceFor(mark({ text: 'Allegro' }))
+    existingSource.commit('Adagio')
+    expect(existing.tempo.updateTempoMark).toHaveBeenCalledWith('t1', expect.objectContaining({ text: 'Adagio' }))
+    expect(existing.tempo.commitTypedTempoMark).not.toHaveBeenCalled()
+  })
+
+  it('an empty commit DISCARDS a new mark (no undo entry) and REMOVES an existing one', () => {
+    const { engine: fresh, source } = sourceFor(mark({ text: 'Tempo' }), true)
+    source.commit('  ')
+    expect(fresh.tempo.discardTypedTempoMark).toHaveBeenCalledWith('t1')
+    expect(fresh.tempo.removeTempoMark).not.toHaveBeenCalled()
+  })
+
+  it('Escape on a freshly placed mark discards it; an existing one is untouched', () => {
     const fresh = makeEngine(mark({ text: 'Allegro' }))
     new TempoTextSource('t1', true, fresh as unknown as MusicEngine, () => null, render).cancel()
-    expect(fresh.tempo.removeTempoMark).toHaveBeenCalledWith('t1')
+    expect(fresh.tempo.discardTypedTempoMark).toHaveBeenCalledWith('t1')
+    expect(fresh.tempo.removeTempoMark).not.toHaveBeenCalled()
 
     const existing = makeEngine(mark({ text: 'Allegro' }))
     new TempoTextSource('t1', false, existing as unknown as MusicEngine, () => null, render).cancel()

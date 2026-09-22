@@ -127,6 +127,51 @@ describe('tempoCommands — through the facade', () => {
     expect(engine.getScore().measures[0].tempos).toBeUndefined()
   })
 
+  describe('⭐ a typed-in tempo mark is ONE edit (his report, 2026-09-22)', () => {
+    it('the placement is a preview: no undo entry until the text is committed', () => {
+      const before = engine.canUndo()
+      const t = engine.tempo.placeTempoMarkForTyping(1, { beat: frac(0, 1), text: 'Tempo' })!
+      expect(marksOf(1)).toHaveLength(1)
+      expect(engine.canUndo()).toBe(before)
+      engine.tempo.commitTypedTempoMark(t.id, { text: 'Allegro', bpm: 144 })
+      expect(marksOf(1)[0]).toMatchObject({ text: 'Allegro', bpm: 144 })
+      expect(engine.canUndo()).toBe(true)
+    })
+
+    it('🚨 ONE Ctrl+Z takes the whole mark away — never back to the placeholder', () => {
+      const t = engine.tempo.placeTempoMarkForTyping(1, { beat: frac(0, 1), text: 'Tempo' })!
+      engine.tempo.commitTypedTempoMark(t.id, { text: 'Allegro', bpm: 144 })
+      expect(engine.undo()).toBe(true)
+      expect(marksOf(1)).toHaveLength(0)
+      expect(engine.redo()).toBe(true)
+      expect(marksOf(1)[0].text).toBe('Allegro')
+    })
+
+    it('🚨 the commit leaves the picture STALE — the text must reach the screen', () => {
+      const t = engine.tempo.placeTempoMarkForTyping(1, { beat: frac(0, 1), text: 'Tempo' })!
+      engine.renderScore()
+      expect(engine.isRenderStale()).toBe(false)
+      engine.tempo.commitTypedTempoMark(t.id, { text: 'Allegro', bpm: 144 })
+      expect(engine.isRenderStale()).toBe(true)
+    })
+
+    it('an EDIT of an existing mark still undoes to its old text', () => {
+      const t = engine.tempo.placeTempoMarkForTyping(1, { beat: frac(0, 1), text: 'Tempo' })!
+      engine.tempo.commitTypedTempoMark(t.id, { text: 'Allegro', bpm: 144 })
+      engine.tempo.updateTempoMark(t.id, { text: 'Adagio' })
+      engine.undo()
+      expect(marksOf(1)[0].text).toBe('Allegro')
+    })
+
+    it('a discarded preview leaves no mark and no undo entry', () => {
+      const before = engine.canUndo()
+      const t = engine.tempo.placeTempoMarkForTyping(1, { beat: frac(0, 1), text: 'Tempo' })!
+      expect(engine.tempo.discardTypedTempoMark(t.id)).toBe(true)
+      expect(marksOf(1)).toHaveLength(0)
+      expect(engine.canUndo()).toBe(before)
+    })
+  })
+
   it('undo/redo restores and re-applies add, edit and remove', () => {
     const mark = engine.tempo.addTempoMark(1, { beat: frac(0, 1), text: 'Allegro', bpm: 144 })!
     expect(engine.undo()).toBe(true)
