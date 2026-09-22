@@ -91,10 +91,20 @@ export function flatRestOf(score: Score, rest: Rest): Note {
  * about the SLOT — the beam, the fan, the tremolo, the tuplet's recomputed length. The beat, voice
  * and staff stay the main chord's: a grace has none of its own, it stands at its chord's.
  */
-export function projectGraceNote(note: Note, grace: GraceNote): void {
+export function projectGraceNote(note: Note, pitch: NotePitch, grace: GraceNote): Note {
+  // The PITCH is the grace's own — over a REST host's flat note there is none to inherit.
+  note.id = pitch.id
+  note.step = pitch.step
+  note.alter = pitch.alter
+  note.octave = pitch.octave
+  if (pitch.forceAccidental) note.forceAccidental = true
+  else delete note.forceAccidental
+  delete note.isRest
+  delete note.isMeasureRest
   note.duration = grace.duration
   if (grace.dots) note.dots = grace.dots
   else delete note.dots
   for (const k of ['fan', 'beam', 'secondaryBreak', 'fractionalBeamSide', 'tremolo', 'tremoloPair', 'tremoloPairStyle', 'actualDuration', 'articulationStemAlign', 'stemDirection'] as const) delete note[k]
   projectAttackMarks(note, grace)
+  return note
 }

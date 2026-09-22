@@ -21,6 +21,7 @@ import { addSplitNoteWithTie, splitChordWithTie } from './models/spanningNoteOps
 import { ElementRegistry } from './ElementRegistry'
 import type { ElementInfo } from './ElementRegistry'
 import { staffOf, voiceOf } from '@/utils/lanes'
+import { isGraceNote, setGraceWritten } from './models/graceOps'
 
 const CLOSE_THRESHOLD = 25
 const FAR_THRESHOLD = 40
@@ -477,6 +478,15 @@ export class NoteEntryCoordinator {
       // changed" and SKIPS THE REPAINT. The member moves in the model and not on the page until
       // some later edit forces a redraw. (His report, first thing he tried.)
       this.onCommit('Update note')
+      return updated
+    }
+    // ⭐ A GRACE likewise (docs/plans/grace-notes-plan.md §2) — it takes NO metric time, so none of
+    // the machinery below may see it: handed a grace id, `changeNote` reshaped the host's BAR. Its
+    // written value is its own (`graceOps.setGraceWritten`); the spelling and marks are the model's.
+    if (isGraceNote(this.getScoreModel().getScore(), noteId)) {
+      setGraceWritten(this.getScoreModel().getScore(), noteId, { duration: updates.duration, dots: updates.dots })
+      const updated = this.getScoreModel().updateNote(noteId, updates)
+      this.onCommit('Update grace note')
       return updated
     }
     // What a duration change does to the bar — the overflow split, the tuplet clamp, the overlap

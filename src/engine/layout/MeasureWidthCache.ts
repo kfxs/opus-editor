@@ -1,13 +1,6 @@
-import { dotGapGeneration } from '@/engine/layout/dotGap'
-import { musicFontGeneration } from '@/engine/fonts/musicFont'
-import { textFontGeneration } from '@/engine/fonts/textFont'
-import { accidentalGapGeneration } from '@/engine/layout/accidentalGap'
+import { widthRowGenerations } from '@/engine/layout/widthRowGenerations'
 import { renderProbe } from '@/engine/RenderProbe' // TEMPORARY — the §9 layout-breakdown probes
 import type { Measure } from '@/types/music'
-import { spacingGeneration } from '@/engine/layout/spacing'
-import { headerGapGeneration } from '@/engine/layout/headerAccidentalLadder'
-import { clefMeterGapGeneration } from '@/engine/layout/clefMeterGap'
-import { barlineMeterGapGeneration } from '@/engine/layout/barlineMeterGap'
 
 /**
  * Memo for the expensive half of the width calc: the VexFlow `Formatter` call that decides how
@@ -130,27 +123,8 @@ export function laneFingerprint(lane: Measure): string {
       // fails. ⭐ Cheap: one number, identical for every lane, so it invalidates all of them at once
       // and only when he arms something. (`reference_render_width_key_vs_shape_key` — and P4b was
       // caught by the same trap one level shallower, in the SHAPE key.)
-      spacingGeneration(),
-      // 🚨 …and the armed HEADER-GAP row, for exactly the same reason (his experiment, 2026-09-02):
-      // closing the gap in front of an accidental makes a bar NARROWER, so a memoised width would be
-      // served back unchanged and the console would report a success that moved nothing.
-      headerGapGeneration(),
-      // 🚨 A WIDTH, like the line above it: arming a clef→meter row makes every header narrower or
-      //    wider, so it must invalidate memoised widths AND re-cast the score (`layout/clefMeterGap`).
-      clefMeterGapGeneration(),
-      barlineMeterGapGeneration(),
-      // 🚨 …and the armed DOT-GAP row (2026-09-14): the gap is bought as a `setWidth` on every dot
-      //    (`rendering/format/dotPlacement.reserveDotRoom`), so a wider one makes a dotted bar WIDER.
-      //    ⛔ Out of this key, arming a row would hand back memoised widths and move nothing.
-      dotGapGeneration(),
-      // 🚨 …and the armed ACCIDENTAL gap: `accidentalExtent` prices a sign's room from it.
-      accidentalGapGeneration(),
-      // 🚧 …and the chosen MUSIC FACE (`fonts/musicFont`, docs/plans/music-font-switch-plan.md A4):
-      //    glyphs measured on the canvas are width inputs, and — because the SHAPE key embeds this
-      //    fingerprint — this one line is also what re-engraves every bar in the new face.
-      musicFontGeneration(),
-      // 🚧 …and the chosen TEXT face (`fonts/textFont`): a bar's words are drawn inside its group too.
-      textFontGeneration(),
+      // ⭐ Every armed width ROW, one list shared with the renderer's layout key — see there.
+      ...widthRowGenerations(),
       lane.slots,
       lane.clefs ?? null,
       // ⚠️ The key signature is here for what it does to the NOTES, not for the room it takes: it

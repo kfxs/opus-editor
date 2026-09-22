@@ -37,7 +37,8 @@ import * as overrideOps from './overrideOps'
 import { swapSlotForRest } from './convertToRestOps'
 import * as measureOps from './measureOps'
 import { fillGapsWithRests, pushRestSlot } from './restFillOps'
-import { addRestSlot, computeActualDurationForSlot, dropRestHiddenOf, evictRestsOverlappingChord, fmtSlot, replaceRestsWithChord } from './slotPlacementOps'
+import { convertRestToChord } from './restToChordOps'
+import { addRestSlot, computeActualDurationForSlot, evictRestsOverlappingChord, fmtSlot, replaceRestsWithChord } from './slotPlacementOps'
 import * as slurOps from './slurOps'
 import { repairDanglingTies } from './tieOps'
 import * as trillOps from './trillOps'
@@ -2188,6 +2189,13 @@ export class ScoreModel {
   getNote(noteId: string): Note | undefined {
     const found = this.findSlot(noteId, { fanMembers: true, graceNotes: true })
     if (!found) return undefined
+    // ⭐ A GRACE projects as ITSELF: its own written value and marks, none of its host's statements
+    // (docs/plans/grace-notes-plan.md §2) — the member rule below, for the member's reason. Its host
+    // is a chord, or a REST (D7 reversed).
+    if (found.grace && found.pitch) {
+      const host = found.type === 'rest' ? this.restToFlatNote(found.rest) : this.toFlatNote(found.chord, found.pitch)
+      return projectGraceNote(host, found.pitch, found.grace.note)
+    }
     if (found.type === 'rest') return this.restToFlatNote(found.rest)
     const note = this.toFlatNote(found.chord, found.pitch)
     if (found.member) {
@@ -2200,9 +2208,6 @@ export class ScoreModel {
       // carry nothing. Projected from the ATTACK, so a mark field added to that type arrives here.
       projectAttackMarks(note, found.member.chord)
     }
-    // ⭐ A GRACE projects as ITSELF: its own written value and marks, none of the slot's statements
-    // (docs/plans/grace-notes-plan.md §2) — the member rule above, for the member's reason.
-    if (found.grace) projectGraceNote(note, found.grace.note)
     return note
   }
 
@@ -2306,7 +2311,7 @@ export class ScoreModel {
   /** The raw NotePitch behind a note id (chord head, FANNED MEMBER or GRACE; rests have no pitch). */
   getNotePitch(noteId: string): NotePitch | null {
     const found = this.findSlot(noteId, { fanMembers: true, graceNotes: true })
-    return found && found.type === 'chord' ? found.pitch : null
+    return found?.pitch ?? null
   }
 
   /** Set the explicit tie-curve direction (-1 up / +1 down) on the tie starting at
@@ -2369,8 +2374,8 @@ export class ScoreModel {
     //
     // ⭐ A GRACE is a pitch on the same terms (docs/plans/grace-notes-plan.md §2): the one branch serves
     // both, and its marks land on the grace through the same `attackOf`.
-    if (found.type === 'chord' && (found.member || found.grace)) {
-      const { chord, pitch } = found
+    if (found.pitch && (found.grace || (found.type === 'chord' && found.member))) {
+      const { pitch } = found
       if (updates.step !== undefined) pitch.step = updates.step
       if (updates.alter !== undefined) pitch.alter = updates.alter
       if (updates.octave !== undefined) pitch.octave = updates.octave
@@ -2383,7 +2388,7 @@ export class ScoreModel {
       writeAttackMarks(attackOf(found)!, updates)
       const ignored = Object.keys(updates).filter(k => !FAN_MEMBER_UPDATE_FIELDS.has(k))
       if (ignored.length) dbg(`[Model.updateNote] ${found.grace ? 'grace' : 'fan member'} ${noteId}: ignored {${ignored.join(', ')}} — it is a pitch`)
-      return found.grace ? this.getNote(noteId)! : this.toFlatNote(chord, pitch)
+      return found.type === 'rest' || found.grace ? this.getNote(noteId)! : this.toFlatNote(found.chord, pitch)
     }
 
     const before = found.type === 'rest' ? found.rest : found.chord
@@ -2393,48 +2398,10 @@ export class ScoreModel {
     if (found.type === 'rest') {
       const rest = found.rest
 
-      // Convert rest → chord when isRest is explicitly set to false
+      // Convert rest → chord when isRest is explicitly set to false — `./restToChordOps`.
       if (updates.isRest === false && updates.step !== undefined) {
-        const measure = this.getMeasure(rest.measure)
-        if (!measure) throw new Error(`Measure ${rest.measure} does not exist`)
-
-        const notePitch: NotePitch = {
-          id: rest.id,   // reuse rest ID so the caller's selectedNoteId stays valid
-          step: updates.step!,
-          alter: (updates.alter ?? 0) as PitchAlter,
-          octave: updates.octave!,
-          forceAccidental: updates.forceAccidental,
-          tiedFrom: rest.tiedFrom,  // preserve incoming tie
-        }
-        const chord: Chord = {
-          id: uuidv4(),
-          type: 'chord',
-          beat: updates.beat ?? rest.beat,
-          duration: updates.duration ?? rest.duration,
-          dots: updates.dots ?? rest.dots,
-          measure: rest.measure,
-          voice: rest.voice,  // a rest converted to a note keeps its voice
-          staffId: rest.staffId,  // ...and its staff — else it jumps to staff 0
-          tupletId: updates.tupletId ?? rest.tupletId,
-          actualDuration: rest.actualDuration,
-          articulations: updates.articulations,
-          articulationPlacement: updates.articulationPlacement,
-          articulationStemAlign: updates.articulationStemAlign,
-          notes: [notePitch],
-        }
-        chord.actualDuration = computeActualDurationForSlot(chord, measure)
-
-        measure.slots = measure.slots.filter(s => s.id !== rest.id)
-        measure.slots.push(chord)
-        measure.slots.sort((a, b) => fracCompare(a.beat, b.beat))
-
-        // ⭐ The rest's hand-positioning goes with the rest (his report, 2026-08-30): hiding a rest
-        // and then typing a note over it left `restHidden` filed under the position the note now
-        // occupies. The position keeps holding a slot, so `clearRemovedContentOverrides` never
-        // sees it — only this operation knows a rest just stopped existing here.
-        dropRestHiddenOf(this.score, measure, rest)
-
-        return this.toFlatNote(chord, notePitch)
+        const { chord, pitch } = convertRestToChord(this.score, rest, updates)
+        return this.toFlatNote(chord, pitch)
       }
 
       const oldMeasure = rest.measure

@@ -33,12 +33,14 @@
 import { readFileSync } from 'node:fs'
 
 /** A hub, its ceilings, and the functions counted out of it. `lines: null` = reported, not held. */
+// ⚠️ MusicEngine 494 / ScoreModel 928 were RAISED once (grace notes P1, 2026-09-22) — the reason is in
+// docs/plans/code-shape-plan-2026-09-19.md, *After the plan*.
 const HUBS = [
-  { file: 'src/engine/MusicEngine.ts', kinds: 485, lines: null },
-  { file: 'src/engine/models/ScoreModel.ts', kinds: 916, lines: null },
-  { file: 'src/engine/rendering/ScoreRenderer.ts', kinds: 853, lines: null },
-  { file: 'src/interactions/controllers/MouseController.ts', kinds: 282, lines: 1100 },
-  { file: 'src/interactions/controllers/PaletteController.ts', kinds: 449, lines: null },
+  { file: 'src/engine/MusicEngine.ts', kinds: 494, lines: null },
+  { file: 'src/engine/models/ScoreModel.ts', kinds: 917, lines: null },
+  { file: 'src/engine/rendering/ScoreRenderer.ts', kinds: 821, lines: null },
+  { file: 'src/interactions/controllers/MouseController.ts', kinds: 277, lines: 1076 },
+  { file: 'src/interactions/controllers/PaletteController.ts', kinds: 427, lines: null },
   { file: 'src/interactions/controllers/HighlightController.ts', kinds: 9, lines: 117 },
   { file: 'src/interactions/controllers/shortcutWiring.ts', kinds: 59, lines: 398, except: ['deleteSelected'] },
   { file: 'src/windows/properties/PropertiesWidget.ts', kinds: 0, lines: 73 },

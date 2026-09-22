@@ -1359,6 +1359,18 @@ and the three dangling doc links (`kerning`, `small-staff-spacing` — repointed
 hold those rules — and `docs/how-it-works/tuning-systems-and-alteration.md`, written that day; `npm run lint:doclinks`
 now holds all of them).
 
+*⭐ **After the plan — the first ceiling RAISED, and why (2026-09-22, grace notes P1, his call).** The kind
+vocabulary is read out of `EditorState`'s unions, so a kind is counted only from the commit that adds its
+`kind: '…'`. Grace notes' P0 (`docs/plans/grace-notes-plan.md`) wrote its model code before the tool existed —
+`ScoreModel.getNote`/`updateNote`'s `graceNotes` opt-in and projection, `MusicEngine.isGraceNote` and the load
+report — and P1's `{ kind: 'grace' }` made that reviewed code visible at once. He chose to RE-BASELINE rather
+than extract it: `ScoreModel` 916 → **928** (exactly P0's twelve), `MusicEngine` 485 → **494** (P0's six + the
+command family's `readonly grace = graceCommands(…)` and its import, the facade's one-line delegation in the
+`engine.tie` shape). ⛔ It is not licence for the next feature: P1's own code went into modules, and the
+two hubs it touched FELL by extraction — `PaletteController` 449 → **427** (`promoteStampToNoteEntry` →
+`interactions/state/stampPromotion`), `MouseController` 282 → **277**, lines 1100 → **1076** (the articulation
+stamp → `interactions/stamps/articulationStamp`).*
+
 ---
 
 ## 4. Not worth doing

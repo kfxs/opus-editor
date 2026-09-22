@@ -62,8 +62,8 @@ export function deleteNoteWithRepair(model: DeleteNoteModel, noteId: string): bo
   // ⭐ A GRACE deletes as a GRACE, before any of the slot bookkeeping below — for the member's reason:
   // it reports its main chord's beat, so `chordNotesAt` would answer for that chord and the "single
   // note becomes a rest" branch would silence the note it was played into. Nothing rhythmic leaves
-  // the bar, so there is nothing to repair; and no slur anchors to a grace (its slur is the group's
-  // own flag — docs/plans/grace-notes-plan.md D3).
+  // the bar, so there is nothing to repair; and no slur anchors to a grace yet (a slur on one is the
+  // user's, a real one — docs/plans/grace-notes-plan.md D3, reversed 2026-09-22).
   if (isGraceNote(model.getScore(), noteId)) return removeGrace(model.getScore(), noteId)
 
   // ⭐ A FANNED MEMBER deletes as a MEMBER, and must never reach the slot bookkeeping below: the

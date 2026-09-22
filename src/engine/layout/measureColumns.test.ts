@@ -3,6 +3,8 @@ import { ScoreModel } from '@/engine/models/ScoreModel'
 import { fracCreate as frac } from '@/utils/fraction'
 import { followingSpace, naturalWidth } from './spacing'
 import { measureColumns } from './measureColumns'
+import { graceLayout } from './graceRoom'
+import { addGrace } from '@/engine/models/graceOps'
 import { INK, minColumnGap, pairPadding } from './spacingPadding'
 import type { KeySignature, Measure, NoteParams } from '@/types/music'
 import { C_MAJOR, keyFromFifths } from '@/utils/keySignature'
@@ -431,5 +433,38 @@ describe('LEDGER LINES (P3.1) — ink that depends on where a note SITS', () => 
       }
       expect(gBar(G_MAJOR)).toBeCloseTo(gBar(C_MAJOR), 6)
     })
+  })
+})
+
+describe('measureColumns — a GRACE before is LEFT ink of its host column (grace-notes-plan §4)', () => {
+  const graced = (spelling: { step: 'C' | 'D' | 'E' | 'F' | 'G' | 'A' | 'B'; alter: -1 | 0 | 1; octave: number }) => {
+    const model = new ScoreModel()
+    model.addNote({ step: 'C', octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const host = model.addNote({ step: 'E', octave: 5, duration: 'q', measure: 1, beat: frac(1, 1) })
+    addGrace(model.getScore(), host.id, 'before', spelling, 'acciaccatura', { duration: '8' })
+    return bar(model)
+  }
+
+  it('⭐ adds ONE grace box to the host column, reaching as far as `graceLayout` says — and no column', () => {
+    const measure = graced({ step: 'D', alter: 0, octave: 5 })
+    const columns = measureColumns(measure)
+    const plain = new ScoreModel()
+    plain.addNote({ step: 'C', octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })
+    plain.addNote({ step: 'E', octave: 5, duration: 'q', measure: 1, beat: frac(1, 1) })
+    expect(beats(measure), 'a grace mints no column').toEqual(beats(bar(plain)))
+    const box = columns[1].ink.filter(b => b.kind === 'grace')
+    expect(box).toHaveLength(1)
+    const host = measure.slots.find(s => s.type === 'chord' && s.graceBefore)!
+    if (host.type !== 'chord') throw new Error('unreachable')
+    const { reach } = graceLayout(host.graceBefore!, () => null, 'treble', 0)
+    expect(box[0].left).toBeCloseTo(reach, 9)
+    expect(box[0].right).toBe(0)
+    expect(columns[1].extent.left).toBeCloseTo(reach, 9)
+  })
+
+  it('a grace with an ACCIDENTAL reaches further left, by its sign at the grace size', () => {
+    const plain = measureColumns(graced({ step: 'D', alter: 0, octave: 5 }))[1].extent.left
+    const sharp = measureColumns(graced({ step: 'D', alter: 1, octave: 5 }))[1].extent.left
+    expect(sharp).toBeGreaterThan(plain)
   })
 })

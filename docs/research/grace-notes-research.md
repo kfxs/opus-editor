@@ -69,6 +69,7 @@ Verovio sits between: a sibling `<note grace=…>` of zero alignment duration, w
 | **stem** | Gould p. 125 prose **2¼**, ⭐ her own 12 drawn graces **2.22–2.67, median ≈2½** — the drawing sides with Stone p. 49's **2½**; ≈0.75 of a full stem, not scaled with the head. Engines: LilyPond 0.8×, MuseScore 0.7×, Verovio 0.75×, all with the middle-line rule OFF; Dorico: normal stems | §C.1 · §B.1.4/2.4/3.4 |
 | **stem direction** | UP regardless of pitch — all four books, all three engines, Dorico/Sibelius/Finale; the one shared exception is the lower part on a shared stave (voice parity checked BEFORE the grace rule in MuseScore) | §C.2 · §B · §D.5 |
 | **slash** | Gould drawn, 600 dpi: **≈2.1–2.2 sp long, 38–43°, crossing ≈1.15–1.24 sp below the tip (mid-stem), ≈0.5 sp outside / ≈1.15 sp on the flag side, ≈0.09 sp thick**; Ross p. 190 *"lower left to upper right … bisect the flag"*; MuseScore `stemSlashPosition 2.0 sp` / `stemSlashAngle 40°` / `stemSlashThickness 0.125 sp` (the only engine with a full geometry); SMuFL anchors on Bravura's 8th flags ⇒ 1.93 × 1.66 sp (41°) stem-up; VexFlow a hand-stroked 45° at half the stem | §C.3 · §B.3.6 · §0.5 · §A.3 |
+| ⭐ **slash — the deep pass** | measured from the STEM TIP; a ledger line is cleared by LENGTHENING the stem, never by moving the slash; staff lines are not avoided; no book slashes an unflagged grace | **§0.8, Part E** |
 | **slash on a beamed group** | ONE, on the first stem, diagonal to the beam (Gould p. 126 *may*; Stone *must*; G&L *never*; LilyPond draws NONE — a Known Issue; Verovio none) | §C.3 · §B.1.6/2.6 |
 | **slur** | Gould p. 129 *"below the grace note, from notehead to notehead"*, above only when it would hit the main note's accidental or ledgers (pp. 129–130); each group its own slur even inside a phrase slur (p. 130); Stone omits it. Only LilyPond auto-adds one (forced DOWN); VexFlow's `showSlur` is a tie from the FIRST grace to the host | §C.4 · §B.1.8 · §A.5 |
 | **beams** | a group's own beam, thinner by the size factor, never joined to the principal; the count differs in all four books (§C.5) | §C.5 · §B |
@@ -127,13 +128,23 @@ stem up and down (U+E560–E563), and a standalone slash for each stem direction
 
 - A grace note vs a **clef / key / meter change at the same point** — no book (Gould 43, 125–131; G&L
   52, 72–74; Ross 189–191; Stone 21–22, 46, 50–51); engines default to after the header signs.
-- A grace before a **REST** — no book.
+- A grace before a **REST** — no book. ⭐ Built anyway (D7 reversed, his call 2026-09-22): the picture is our default.
 - The **half-value** appoggiatura rule as a stated rule — no book.
 - Grace **beam thickness** and **flag length** — Gould *"scaled down proportionally"* only.
 - **Dorico / Sibelius / Finale `steal-time` behaviour** on MusicXML, and Dorico's default grace length.
 - VexFlow: grace across a barline, grace + tuplet, a main-voice slur onto a grace, two groups at one
   tick in two voices — untested there.
 - Gardner Read, *Music Notation* — not on disk.
+
+### 0.8 ⭐ The slash, the stem and the ledger lines (Part E, 2026-09-22)
+
+| question | books | engines | ⇒ for us |
+|---|---|---|---|
+| **where the slash sits** | ⭐ Gould (11 correct instances, stems 2.21–3.77 sp): measured from the **stem TIP**, not the head — crossing **1.05–1.17 sp below the tip**, ends ≈0.2 and ≈1.5 sp below it, ≈0.47 sp left / ≈1.05–1.2 sp right of the stem, **≈2.0 sp long at ≈40.5°**, thickness ≈ the stem's (§E.2 Q4) | MuseScore 1.4 sp below the tip → the flag's right edge, 40° (48° for 16th+ in Bravura, a "HACK"); Verovio fixed 45° from the flag top; LilyPond a glyph on the flag; SMuFL anchors on the 8th flag (Bravura, Petaluma — ⛔ not Leland) — §E.1 Q4 | the slash is a property of the stem's END — which is what the font's flag anchors encode too |
+| **ledger lines** | ⭐ Gould p. 126: *"a sufficiently long stem for the diagonal stroke not to obscure a ledger line"* — her and/not pair: the stem grows (2.65 → 3.25 sp, tip from the E4 to the G4 line), **the slash keeps its place under the tip** and clears the C4 ledger by 0.36 sp; every correct low grace's tip reaches ≈ the G4 line. ⚠️ G&L p. 73 draws the forbidden case (A3, 2.15 sp stem, slash on the C4 ledger) | ⛔ **nobody implements it** — Verovio's flag-clears-the-first-ledger lengthening is the nearest (flagged notes only); MuseScore's grace stems reach the 2nd line from the outside; LilyPond, Verovio never extend | ⭐ lengthen the stem until the slash clears the nearest ledger — derived threshold (no book states it): tip ≥ ≈1.8 sp beyond the ledger nearest the staff; a grace ABOVE the staff never needs it (its ledgers are on the head's far side) |
+| **staff lines** | ⛔ **not avoided**: in 8 of 11 correct instances a staff line runs through the slash, 3 cross the stem exactly on one. Only LEDGERS are protected — Gould p. 26, ledgers must be countable *"at a glance"* | nobody moves the slash for anything (VexFlow's FIXME) | no rule against a staff line |
+| **a slashed QUARTER / half** | ⛔ **no book shows one**: Gould *"a small quaver"*, Stone *"notated as eighths"*, G&L *"considered eighth notes"* and p. 73 *"The slanted line is only for single, flagged grace notes"*; the only flagless slash anywhere is Stone p. 141's spatial-notation beam | MuseScore and Verovio draw one (MuseScore 0.924 sp below the tip, head-width wide); **LilyPond and Finale do not**; Dorico, Sibelius UNKNOWN | ⏳ his call — refuse it, draw it (MuseScore's), or make the acciaccatura an 8th |
+| **stem length** | Stone ≈2½ sp; Gould's plate 2.21–3.77 (the long ones are the ledger cases) | MuseScore 2.45 · Verovio 2.625 · LilyPond 2.8 · VexFlow ≈2.33 sp | ours 2.5 sp — in the range |
 
 ---
 
@@ -2387,3 +2398,503 @@ music21 `priority`, MusicXML by order/`steal-time-previous`)**.
    exist only in the project's local library manifest).
 10. The SMuFL version in which the `graceNoteSlash*` anchors were added (changelog entry seen, version not captured).
 11. Which existing treatise text settles "before or after the clef/key change" for a grace at a bar start — nothing found online.
+
+---
+
+## Part E — The SLASH, the STEM and the LEDGER LINES — the deep pass (2026-09-22)
+
+Asked for after P1's first picture (his words: *"the slash on a 4th looks really ugly … position on the
+stem when we have ledger lines how to manage this, it is something in the literature also about this?"*).
+Two agents, one per half: the engines' SOURCE (§E.1) and the BOOKS' scans, measured (§E.2). The
+synthesis is §0.8. ⚠️ Both name renders and scripts in a session scratchpad that did not survive the
+session — the page numbers and pixel coordinates given are enough to re-measure every number.
+
+### E.1 — The engines: how they draw the slash, and how long a grace stem is
+
+Sources read on disk (`~/dev/engine-sources/`, revisions: MuseScore `929d1e9` 2026-08-18, Verovio `efff0bc` 2026-08-18,
+LilyPond `beedbfa` 2026-08-03, VexFlow `8879d09` 2025-03-05 + the 5.0.0 npm build, musxdom). Paths below are relative to each
+repo. Units: **sp** = staff space. "Derived" = arithmetic I did from the cited code, not a number the code states.
+
+Coordinate reminders: MuseScore and VexFlow use y DOWN; Verovio's layout y is UP (`ToDeviceContextY` flips); LilyPond/METAFONT y is UP.
+
+---
+
+#### 0. The prior knowledge — verified
+
+| Claim | Verified at |
+|---|---|
+| MuseScore `TLayout::layoutStemSlash`, `stemSlashPosition` 2.0 sp, `stemSlashAngle` 40°, `stemSlashThickness` 0.125 sp, `heightReduction` 0.66 when no hook | `src/engraving/rendering/score/tlayout.cpp:5399-5467`; `src/engraving/style/styledef.cpp:280-282` |
+| Verovio `View::DrawAcciaccaturaSlash`, hard-coded cue-unit offsets, not in a beam | `src/view_element.cpp:2035-2079`, gate at `:1789` |
+| LilyPond slash = a flag-stroke glyph `flags.ugrace`/`dgrace`; `beam::slashed-stencil` for beams | `mf/feta-flags.mf:1228-1297`, `lily/flag.cc:140-160`, `scm/output-lib.scm:350-440` |
+
+All three confirmed.
+
+---
+
+#### Q1. A slashed grace with NO FLAG (quarter / half / whole)
+
+##### MuseScore — YES for quarter and half; NO for whole
+* A slash is created for any chord with `showStemSlash()` that has a stem and is not a non-first member of a beam:
+  `rendering/score/chordlayout.cpp:1243-1266` (returns early at `:1243` when `!item->stem()`; the slash is added at `:1259-1263`).
+  Nothing in that gate or in `layoutStemSlash` looks at duration.
+* `showStemSlash` defaults to true only for `NoteType::ACCIACCATURA` (`dom/chord.cpp:296`, `:1695`), but the Properties panel
+  offers "Show stem slash" on **every** grace type (`GRACE4` quarter, `APPOGGIATURA`, …): visible when `noteType() != NORMAL`,
+  enabled when `!chord->noStem()` — `src/propertiespanel/.../chords/chordsettingsmodel.cpp:89-119`; label in
+  `.../stems/StemSettings.qml:62-65`.
+* Whole notes: comment "Notes without a stem (including whole notes) don't draw a slash." (`tlayout.cpp:5413`), and the stem gate above.
+* **Geometry without a hook** (`tlayout.cpp:5415-5462`), `mag` = chord mag (grace = `graceNoteMag` 0.7, `styledef.cpp:517`):
+  * start x = stem right edge − `noteHeadWidth·mag/2`
+  * start y = stem tip + (towards the head) `stemSlashPosition(2.0 sp)·mag·0.66` = **0.924 sp** from the tip at mag 0.7 (the
+    0.66 `heightReduction` applies when `straight || !hook`, `:5431-5432`)
+  * end x = stem right edge + (`noteHeadWidth·mag/2 − stemWidth`) — "subtract the stem width so the slash is optically centered on
+    the stem" (`:5456-5458`)
+  * end y = start y ∓ (endX − startX)·tan(40°) (rises away from the head)
+  * thickness `stemSlashThickness 0.125 sp · mag` = 0.0875 sp; drawn as a **FlatCap** pen line (`tdraw.cpp:2918-2924`)
+  * Derived: horizontal run ≈ `noteHeadWidth·mag − stemWidth` ≈ one grace head width; so the unflagged slash is a short ~1 sp
+    stroke, centred on the stem, starting ~0.9 sp below the tip.
+
+##### Verovio — YES for quarter and half; NO for whole
+* Gate: `(stem->GetGrace() == GRACE_unacc) && !stem->IsInBeam()` (`view_element.cpp:1789`); no duration test. Whole notes: the
+  stem is virtual and the function returns before (`:1771`, "Do not draw virtual (e.g., whole note) stems").
+* With no `Flag` child, `y` stays at the stem tip (`:2050-2060`); for a stem-down note without a flag, `y -= unit/3` (`:2061-2063`).
+* Geometry is the same hard-coded shape as with a flag (see Q4).
+
+##### LilyPond — NO slash on a quarter/half/whole `\acciaccatura`
+* `\acciaccatura` only does `\temporary \override Flag.stroke-style = "grace"` (`ly/grace-init.ly:40-48`); the stroke is added
+  inside `Flag::print` (`lily/flag.cc:141-160`).
+* A `Flag` grob is created only when `Stem::duration_log (stem_) > 2`, i.e. 8th or shorter (`lily/stem-engraver.cc:154-161`), and is
+  killed when the stem is beamed (`:165-173`). So a quarter/half acciaccatura has no Flag ⇒ no stroke.
+* Corroborated by the snippet `Documentation/snippets/using-grace-note-slashes-with-normal-heads.ly` (`\override Flag.stroke-style =
+  "grace"  c8( d2) e8( f4)`) — only the eighths can carry it, by the code above. No regression test for a quarter acciaccatura found
+  (`input/regression/grace*.ly`, `slashed-*.ly` listed; none exercises durlog ≤ 2 with a stroke).
+* Known issue text is about BEAMED graces only: "A multi-note beamed acciaccatura is printed without a slash"
+  (`Documentation/en/notation/rhythms.itely:4804-4806`).
+
+##### VexFlow — YES for quarter and half; by code reading ALSO whole
+* Gate: `if (this.slash && stem)` (`src/gracenote.ts:53`). `StaveNote.buildStem()` creates a `Stem` for every note, hidden only for
+  rests (`src/stavenote.ts:417`, `:459-460`), so `this.stem` is truthy for a whole note too. I did not render it; by the code a whole
+  GraceNote with `slash: true` would get the head-anchored slash (it does not depend on a drawn stem). Treat as *code reading only*.
+* Geometry for the unbeamed case does not depend on flag or duration (see Q4): centre at (stem x, head top − `STEM_HEIGHT·scale/2`),
+  ±`noteHeadWidth` in x and y, i.e. 45°.
+
+##### Finale — NO (documented)
+* Document Options › Grace Notes: "Always Slash Flagged Grace Notes — It's customary to place a small diagonal slash through the
+  flag of any grace note that's not beamed" — http://usermanuals.finalemusic.com/Finale2012Mac/Content/Finale/IDD_GRACENOTEOPTIONS.htm
+* "Normally, Finale adds slashes only to flagged (unbeamed) grace notes." — https://usermanuals.finalemusic.com/Finale2012Win/Content/Finale/Grace_notes6.htm
+* musxdom (a reader of Finale files, not Finale itself) models it the same: slash iff `(slashGrace || slashFlaggedGraceNotes) &&
+  calcCanBeBeamed() && calcUnbeamed()`, where "can be beamed" = duration < quarter — `musxdom/src/musx/dom/Entries.cpp:1260-1275`;
+  field doc "a non-beamed grace note with flags (8th note or smaller)" — `Entries.h:437-439`.
+
+##### Dorico — UNKNOWN for unflagged
+* "If there is a single grace note, the slash appears across its stem and flag, *if applicable*, and extends either side of the stem."
+  (Dorico help, "Grace note slashes", as returned by search from https://www.steinberg.help/r/dorico-elements/6.1/en/dorico/topics/notation_reference/notation_reference_grace_notes/notation_reference_grace_notes_slashes_c.html —
+  the page itself now 301-redirects; text is from the search snippet). "if applicable" suggests a flagless stem can carry one, but
+  that is not an explicit statement ⇒ UNKNOWN.
+
+##### Sibelius — UNKNOWN (no source found).
+
+| Engine | Quarter/half slashed? | Whole? | Source |
+|---|---|---|---|
+| MuseScore | yes (any grace type with a stem; default only for ACCIACCATURA) | no | chordlayout.cpp:1243-1266; chord.cpp:296; chordsettingsmodel.cpp:89-119; tlayout.cpp:5413 |
+| Verovio | yes | no | view_element.cpp:1771, 1789 |
+| LilyPond | **no** (stroke lives on the Flag grob) | no | stem-engraver.cc:154-161; flag.cc:141-160; grace-init.ly:40-48 |
+| VexFlow | yes | yes by code reading | gracenote.ts:53; stavenote.ts:417,459-460 |
+| Finale | **no** (flagged, unbeamed only) | no | Finale manual URLs above; musxdom Entries.cpp:1260 |
+| Dorico | UNKNOWN ("flag, if applicable") | UNKNOWN | Dorico help (search snippet) |
+| Sibelius | UNKNOWN | UNKNOWN | — |
+
+---
+
+#### Q2. Grace stem length, esp. with ledger lines
+
+##### MuseScore (`rendering/score/stemlayout.cpp`)
+* Base: `stemLength` 3.5 sp (`styledef.cpp:259`) in quarter-spaces, scaled by `intrinsicMag` (0.7) ⇒ **2.45 sp** nominal
+  (`stemlayout.cpp:60`, `:125`).
+* Shortening when the stem points out of the staff: `maxReduction` table (`:345-395`); for grace-sized (intrinsicMag < 1) stems with a
+  traditional hook, the reduction is capped at 0.5 sp — "reducing by the full amount puts the hooks too low. Limit reduction to 0.5sp"
+  (`:373-379`). Floor `shortestStem` 2.5 sp (`styledef.cpp:261`), also ×mag.
+* Extension into the staff for notes outside it: `minStaffOverlap(..., isFullSize = !(isGrace()||isSmall()))` (`:80-82`, `:162-180`).
+  For a grace (not full size) `staffLineOffset = 4` ⇒ `staffOverlap = min(8, (lines−4)·4) = 4` quarter-spaces on a 5-line staff, so a
+  stem-UP grace tip must reach at least **3 sp below the top line (the 4th line)**; a stem-DOWN grace at least the 2nd line. Full-size
+  notes must reach the middle line. Enforced by the `extraLength` block (`:126-158`: "when the chord's magnitude is < 1, the stem
+  length with mag can find itself below the middle line… add the extra amount").
+* **No slash-specific or ledger-line-specific lengthening.** The only ledger-ish rule is this "reach the 2nd line from the outside"
+  minimum. Nothing reads the slash when computing the stem (grep of `stemSlash` in `rendering/`: only layout/draw/kerning sites).
+
+##### Verovio (`src/calcstemfunctor.cpp`, `src/note.cpp`)
+* Base: `STANDARD_STEMLENGTH` 7 units = 3.5 sp (`include/vrv/vrvdef.h:753`), minus a shortening of 0–6 thirds-of-a-unit when the stem
+  points away from the staff, capped at 4 (up) / 3 (down) thirds for unbeamed flagged notes (`note.cpp:570-610`); then ×`graceFactor`
+  0.75 (`calcstemfunctor.cpp:378`; option `options.cpp:1326-1328`) ⇒ **2.625 sp** nominal.
+* Grace stems are **not** extended to the middle line: "Do not adjust the length of grace notes - this is debatable and should
+  probably become a styling option. However we still want flags from grace notes not to overlap with ledger lines"
+  (`calcstemfunctor.cpp:472-476`). Stem-mod adjustment is also skipped for graces (`:479`).
+* Ledger lines: `AdjustFlagPlacement` runs for graces too (`:484`, no grace gate). If the note has ledger lines on the stem side, the
+  stem is lengthened in whole units until the flag's far end clears the first ledger line (`ledgerPosition = verticalCenter −
+  6·dir·unit`, i.e. 3 sp from the middle line) — `:667-693`, comment "Make sure that flags don't overlap with first (top or bottom)
+  ledger line (effectively avoiding all ledgers)". Since the slash sits within the flag's vertical span (Q4), this indirectly keeps a
+  flagged grace's slash off the ledger lines. **A quarter/half grace (no flag) gets no such adjustment** (the function is only called
+  `if (flag)`, `:484`).
+
+##### LilyPond
+* `general-grace-settings`: `Stem length-fraction 0.8`, `Stem no-stem-extend #t`, `Stem/Flag/NoteHead font-size -3`, `Beam
+  length-fraction 0.8`, `beam-thickness 0.384` (`scm/music-functions.scm:674-688`); `score-grace-settings` adds `Stem direction UP`
+  (`:690-694`).
+* `Stem details lengths (3.5 3.5 3.5 4.25 5.0 …)` (`scm/define-grobs.scm:3454`) × `length-fraction` 0.8 (`lily/stem.cc:555`) ⇒
+  **2.8 sp** for quarter/8th/16th graces, 3.4 sp for 32nd.
+* `stem-shorten (1.0 0.5 0.25)` only for stems pointing away from the staff centre (`stem.cc:519-553`).
+* `no-stem-extend #t` ⇒ grace stems are never extended to the middle line (`stem.cc:589-592`; regression
+  `input/regression/grace-stems.ly`). `input/regression/grace-stem-length.ly`: "Stem lengths for grace notes should be shorter than
+  normal notes, if possible. They should never be longer."
+* **No ledger-line / slash lengthening found.**
+
+##### VexFlow
+* `Stem.HEIGHT` = `Tables.STEM_HEIGHT` 35 px (3.5 sp at 10 px/sp; `tables.ts:294`, `stem.ts:55-57`); GraceNote `getStemExtension`
+  returns `HEIGHT·fontScale − HEIGHT + super` (`gracenote.ts:39-46`), `fontScale` 2/3 (`metrics.ts:132-134`) ⇒ **≈2.33 sp**.
+* No ledger or slash logic ("FIXME: avoid staff lines, ledger lines or others", `gracenote.ts:95`).
+
+##### Dorico / Sibelius / Finale
+* Sibelius: Scoring Notes says Sibelius's default grace stems "are generally too short, especially problematic when notes appear on
+  ledger lines where the diagonal slash can obscure the lines", fixed only by the *Adjust Grace Note Stem Lengths* plug-in (options:
+  slashed / unslashed / all; per-font settings for Opus, Helsinki, Norfolk). The same article says Dorico "handles grace note stem
+  lengths correctly by default" while Sibelius, Finale and MuseScore do not —
+  https://www.scoringnotes.com/tips/adjust-grace-note-stem-lengths-with-sibelius-plug-in/ . The plug-in's numbers: UNKNOWN.
+* Dorico's actual rule: UNKNOWN (only the Scoring Notes judgement above).
+* Finale grace stem length: UNKNOWN (the Grace Notes options page lists none).
+
+| Engine | Nominal grace stem | Extended into staff? | Ledger/slash rule | Source |
+|---|---|---|---|---|
+| MuseScore | 3.5 × 0.7 = 2.45 sp | yes, to the 2nd line from the outside (not middle) | none | stemlayout.cpp:60,80-82,126-180; styledef.cpp:259,517 |
+| Verovio | 3.5 × 0.75 = 2.625 sp | **no** | flag must clear the 1st ledger line (flagged only) | calcstemfunctor.cpp:378,472-476,667-693; note.cpp:570-610 |
+| LilyPond | 3.5 × 0.8 = 2.8 sp | **no** (`no-stem-extend`) | none | music-functions.scm:674-688; stem.cc:505-592 |
+| VexFlow | 3.5 × 2/3 ≈ 2.33 sp | no logic | none (FIXME) | gracenote.ts:39-46,95; metrics.ts:132 |
+| Sibelius | UNKNOWN (reported too short) | UNKNOWN | plug-in only | Scoring Notes URL |
+| Dorico | UNKNOWN (reported right) | UNKNOWN | UNKNOWN | Scoring Notes URL |
+| Finale | UNKNOWN | UNKNOWN | UNKNOWN | — |
+
+Gould's p.126 ledger-line rule is implemented as such by **nobody** read here; Verovio's flag-vs-first-ledger lengthening is the
+closest, and it only fires for flagged notes.
+
+---
+
+#### Q3. Does any engine move/shorten the slash itself to avoid lines, heads, accidentals?
+
+| Engine | Vertical collision logic for the slash | Horizontal | Source |
+|---|---|---|---|
+| MuseScore | none — fixed geometry from stem/hook | the slash is part of the chord `Shape`, so spacing kerns other items away from it; allowed to collide with chords of its own grace beam group | chordlayout.cpp:3413-3416; horizontalspacing.cpp:1731-1732,1781-1805 |
+| Verovio | none (drawn at draw time, "HARDCODED"); only the stem-lengthening of Q2 | none found | view_element.cpp:2064-2079 |
+| LilyPond | none — the stroke is part of the Flag stencil, so it enters the flag's skyline like any ink | as flag ink | flag.cc:158 (`flag.add_stencil (stroke)`) |
+| VexFlow | none — "FIXME: avoid staff lines, ledger lines or others." | none | gracenote.ts:95 |
+| Dorico/Sibelius/Finale | UNKNOWN | UNKNOWN | — |
+
+---
+
+#### Q4. Where on the flag
+
+##### MuseScore (`tlayout.cpp:5424-5450`)
+* start x = stem right − `noteHeadWidth·mag/2` (left overhang = half a grace head)
+* start y = tip + 2.0 sp · mag = **1.4 sp** from the tip toward the head (full `stemSlashPosition`, no 0.66 with a curved hook)
+* end x = **right edge of the hook's bbox** ("always ends at the right bbox margin of the hook", `:5444`)
+* end y = start y ∓ (endX − startX)·tan(angle); angle 40°, ×1.2 (= 48°) for ≥2 flags (16th+) with Bravura / Finale Maestro /
+  Gonville — "HACK: adjust slash angle for fonts with 'fat' hooks. In future, we must use smufl cutOut" (`:5440-5443`)
+* Straight flags (`useStraightNoteFlags`) use the 0.66 reduction (`:5432`).
+* **SMuFL `graceNoteSlash*` anchors are NOT used** (no reference in `src/engraving/rendering`).
+* Derived with Leland (default font: flag8thUp width 1.157 sp, `fonts/leland/leland_metadata.json`) and a ~1.18 sp head: dx ≈ 0.41 +
+  0.81 = 1.22 sp, rise ≈ 1.02 sp ⇒ ends ≈0.38 sp below the tip.
+
+##### Verovio (`view_element.cpp:2035-2079`)
+* `positionShift = unit·graceFactor` = 0.5 sp · 0.75 = **0.375 sp** (unit = half a staff space, `options.cpp:1202`).
+* Reference y = stem tip + flag glyph top (stem up) / bottom (stem down) at cue size (`:2050-2060`). In Leipzig (default)
+  `flag8thUp`/`flag16thUp` tops are 0 (`data/Leipzig.xml:94,312`), `flag32ndUp` top = +190/1000 em (≈0.57 sp at cue) (`:313`) — so for a
+  32nd the reference moves up to the top of the flag glyph.
+* Stem up: line from (stemX − 0.375, y − 1.5 sp) to (stemX + 0.75, y − 0.375 sp) ⇒ **45°**, length ≈ 1.59 sp, spanning 1.5 → 0.375 sp
+  below the reference. Not anchored to the flag's width or anchors.
+* Stem down, 8th flag or no flag: reference shifted by `unit/3` (≈0.17 sp) further out (`:2061-2063`).
+* Pen = `stemWidth·1.2` = 0.2 unit ·1.2 = **0.12 sp**, not cue-scaled (`:2041`; `options.cpp:1532-1533`; `doc.cpp:2062-2064`).
+
+##### LilyPond (`mf/feta-flags.mf:1228-1297`)
+* One glyph `flags.ugrace` for every flag count (the lookup is `"flags." + flag_style + dir + "grace"`, falling back to `dir +
+  "grace"`, `flag.cc:150-155`) — a 16th/32nd gets the same stroke, placed at the flag origin (stem end).
+* Up stroke: `hip_depth_ratio .72`, `flare = 1 sp`, `foot_depth = 3 sp`, `hip_width = upflag_width − hip_thickness/2`; z1 = (−0.72·hip_width,
+  −2.16 sp), z2 = (hip_width, −1.0 sp); pen `1.5 stemthickness` (`stemthickness = 1.3 stafflinethickness`, `feta-params.mf:65`);
+  `upflag_width = .65 black_notehead_width + stemthickness/2` (`feta-flags.mf:29`).
+  At grace `font-size -3` (factor 2^(−½) ≈ 0.707) ⇒ from ≈**1.53 sp** below the tip, left of the stem by 0.72·hip_width, to ≈**0.71 sp**
+  below the tip at the flag's right edge (derived). Exact degrees UNKNOWN without the compiled font's notehead width.
+* Down stroke: `flare .99 sp`, depth `2.85 sp`, `downflag_width = .833 black_notehead_width + stemthickness/2`, then `y_mirror_char`
+  (`feta-flags.mf:1263-1297`).
+* Straight flags: `add-stroke-straight` — "starts for up-flags at upper-end-of-flag + (0,length/2) and ends at (0,
+  vertical-center-of-flag-end) − (flag-x-width/2, flag-x-width + flag-thickness)" (`scm/flag-styles.scm:35-55`).
+
+##### VexFlow (`gracenote.ts:66-91`)
+* Ignores the flag: centre x = `getAbsoluteX() + noteHeadWidth` (stem up) / `getAbsoluteX()` (down); centre y = head top −
+  `STEM_HEIGHT·scale/2` (35·⅔/2 ≈ 11.7 px ≈ 1.17 sp from the head's edge); segment ±`noteHeadWidth` in both axes (45°).
+  `lineWidth = 1·scale` px ("FIXME: use more appropriate value", `:97`).
+
+##### SMuFL anchors (fonts on disk)
+* Bravura and Petaluma define `graceNoteSlashSW (−0.644, −2.456)` / `graceNoteSlashNE (1.284, −0.796)` on `flag8thUp` and
+  `graceNoteSlashNW (−0.596, 2.168)` / `graceNoteSlashSE (1.328, 0.628)` on `flag8thDown` — **8th flags only**, none on 16th/32nd;
+  Leland defines none (`MuseScore/fonts/{bravura,petaluma,leland}/*_metadata.json`). Derived slope Bravura up: rise 1.66 over run
+  1.928 ⇒ ≈40.7°. No engine read here consumes these anchors.
+
+| Engine | Anchor | Start (from tip, toward head) | End | Angle | Thickness | Source |
+|---|---|---|---|---|---|---|
+| MuseScore | stem + hook bbox right | 1.4 sp (mag .7), x = stem − ½ head | hook bbox right | 40° (48° 16th+ in 3 fonts) | 0.0875 sp | tlayout.cpp:5424-5465 |
+| Verovio | stem tip + flag glyph top | 1.5 sp, x = stem − 0.375 | 0.375 sp, x = stem + 0.75 | 45° | 0.12 sp | view_element.cpp:2035-2079 |
+| LilyPond | flag origin (glyph) | ≈1.53 sp, x = −0.72·hip_w | ≈0.71 sp, x = hip_w | UNKNOWN exact (~40° order) | 1.5 stem thickness ×0.707 | feta-flags.mf:1228-1261 |
+| VexFlow | notehead (not flag) | head top − 1.17 sp ± head width | — | 45° | ⅔ px | gracenote.ts:66-99 |
+| SMuFL Bravura | `graceNoteSlashSW/NE` | 2.456 sp below flag origin | 0.796 sp | ≈40.7° | — | bravura_metadata.json |
+
+---
+
+#### Q5. Stem-down graces
+
+| Engine | Direction | Source |
+|---|---|---|
+| MuseScore | **mirrored**: `up = +1` for down stems flips both the start offset and the rise, so the slash falls to the right (start above the tip, end lower right) | tlayout.cpp:5419, 5431, 5445, 5458 |
+| Verovio | **mirrored** (sign of Y1/Y2 flipped), plus the unit/3 shift for 8th/no flag | view_element.cpp:2061-2078 |
+| LilyPond | **mirrored** — `dgrace` is a separate glyph with `y_mirror_char` and slightly different flare/depth (0.99 / 2.85 sp) | feta-flags.mf:1263-1297 |
+| VexFlow | **mirrored**: down = (x−w, y−w)→(x+w, y+w) | gracenote.ts:77-83 |
+| SMuFL | separate `flag8thDown` anchors NW/SE (mirrored) | bravura_metadata.json |
+| Dorico/Sibelius/Finale | UNKNOWN | — |
+
+No engine read here draws an always-rising slash on a down stem.
+
+---
+
+#### Q6. Beamed groups (brief)
+
+| Engine | Which stems | Geometry | Source |
+|---|---|---|---|
+| MuseScore | first chord of the beam only (`beam()->elements().front()`); toggling the property sets it on every chord of the beam | start as the no-hook case (0.924 sp from the beam-end tip); length **2 sp** (×1.1 when the beam angle is obtuse to the slash); angle = 40° + ½ beam angle | chordlayout.cpp:1259; chord.cpp:2212-2226; tlayout.cpp:5446-5455 |
+| Verovio | **none** (`!stem->IsInBeam()`) | — | view_element.cpp:1789 |
+| LilyPond | `\acciaccatura` beamed: **none** (documented known issue); `\slashedGrace`: `beam::slashed-stencil` — `slash-side` LEFT, `slash-stem-fraction` 0.3, `over-beam-height` 0.75 sp, `slash-X-positions (-0.5 . 1)`, `slash-slope` 2, thickness = stem thickness·line-thickness | rhythms.itely:4804; grace-init.ly:50-58; output-lib.scm:350-440 |
+| VexFlow | every note with `slash: true`; `calcBeamedNotesSlashBBox(8·scale, 8·scale, {stem: 6·scale, beam: 5·scale})` — a point 8 px along the beam and 8 px down the stem, extended by protrusions; "FIXME: should render slash after beam?" | gracenote.ts:57-65, 106-143 |
+| Dorico | "slashes appear at the beginning of grace note beams"; property *Slash protrusion from beam* | Dorico help (search snippet); https://archive.steinberg.help/dorico/v1/en/dorico/topics/notation_reference/notation_reference_grace_notes_slashes_length_changing_individually_t.html |
+| Finale | none by default ("Normally, Finale adds slashes only to flagged (unbeamed) grace notes"); workaround = a custom expression shape | https://usermanuals.finalemusic.com/Finale2012Win/Content/Finale/Grace_notes6.htm |
+
+---
+
+#### Q7. User-facing options
+
+| Product | Option | Default | Source |
+|---|---|---|---|
+| MuseScore | Style `stemSlashPosition` / `stemSlashAngle` / `stemSlashThickness` | 2.0 sp / 40° / 0.125 sp | styledef.cpp:280-282 |
+| MuseScore | per chord "Show stem slash" | on for acciaccatura | StemSettings.qml:62; chord.cpp:1695 |
+| Verovio | `--grace-factor` (scales the slash offsets); `--stem-width` (slash = ×1.2) | 0.75 / 0.20 unit | options.cpp:1326-1328, 1532-1533 |
+| LilyPond | `Flag.stroke-style`, `Beam.details` slash-* keys (Q6) | "grace" under `\acciaccatura` | grace-init.ly; output-lib.scm |
+| Dorico | Engraving Options › Notes › Grace Notes: thickness of slashes, default length, position relative to the end of the stem (forum names the section "Slash on Stem") | **values UNKNOWN** | https://archive.steinberg.help/dorico_pro/v2/en/dorico/topics/notation_reference/notation_reference_grace_notes_slashes_c.html ; https://forums.steinberg.net/t/grace-note-global-settings-with-slashes/939477 |
+| Dorico | Properties › Grace Notes: *Slash inset from stem tip*, *Slash offset to right*, *Slash length*, *Slash protrusion from beam* (activating *Slash length* resets it to 0) | UNKNOWN | https://archive.steinberg.help/dorico/v1/en/dorico/topics/notation_reference/notation_reference_grace_notes_slashes_position_changing_individually_t.html ; …_slashes_length_changing_individually_t.html |
+| Finale | Document Options › Grace Notes: *Grace Note Slash Thickness*; *Always Slash Flagged Grace Notes*; Grace Note Size 50% | thickness value not in the manual; musxdom test files store `graceSlashWidth` **115 EFIX** = 115/64 EVPU ≈ **0.075 sp** (1 sp = 24 EVPU) | Finale manual URL (Q1); musxdom `src/musx/dom/Options.h:525-526`, `Fundamentals.h:62,89-92`, `tests/data/*.enigmaxml` |
+| Sibelius | Engraving Rules › Notes and Tremolos: grace note size; no slash options found; stem-length plug-in | UNKNOWN | Scoring Notes URL (Q2) |
+
+Note: Dorico exposes no *angle* option in anything found — only inset (vertical), offset to right, length, thickness, protrusion.
+
+---
+
+#### What nobody answers (UNKNOWN)
+
+1. Dorico's default values for slash inset, offset, length, thickness, protrusion — the manual names the options but gives no numbers.
+2. Whether Dorico and Sibelius slash a flagless (quarter/half) acciaccatura, and how.
+3. Dorico's and Sibelius's grace stem-length rules (Scoring Notes judges Dorico "correct", Sibelius "too short", gives no numbers).
+4. No engine read implements Gould p.126 as stated (lengthen the stem so the *slash* clears a ledger line). Verovio's flag-vs-first-ledger
+   lengthening comes closest and only for flagged notes; MuseScore, LilyPond and VexFlow have nothing.
+5. No engine moves the slash itself vertically to avoid staff lines, ledger lines, heads or accidentals.
+6. LilyPond's exact slash angle in degrees (needs the compiled Emmentaler notehead width; font not built on disk).
+7. SMuFL `graceNoteSlash*` anchors exist only on 8th flags (Bravura, Petaluma); no engine read here uses them, and there is no anchor
+   for 16th/32nd flags or for flagless stems.
+8. VexFlow on a whole note: by code reading a slash is drawn; not rendered to confirm.
+
+
+### E.2 — The literature: every slashed grace measured, ledger lines above all
+
+Follows `docs/research/grace-notes-research.md` Part C §3 / §10. Sources are the books in `reference/`,
+used as `reference/README.md` says: the OCR was used only to find pages, every quotation below comes
+from a rendered scan, and every number was measured off the scan.
+
+**How it was measured.** Gould: PDF = printed + 20, rendered at **600 dpi** (`pdftoppm -r 600 -gray`),
+where 1 sp = 26.5–27.5 px, taken from each figure's own staff lines. Ross: PDF = printed + 12, 600 dpi,
+1 sp ≈ 34.1 px. Stone: PDF 22 / 48 / 81 (2-up). Gerou & Lusk (G&L): PDF 38 = printed 72–73, 600 dpi,
+1 sp ≈ 57 px. Ink means gray < 128, read from ASCII pixel dumps with PIL.
+- **Stem length** is measured from the centre of the head's ink box to the tip. Where the tip merges into a staff line, it is taken at the line's centre (±1 px).
+- **Slash length and angle** are measured between the two end points of the stroke's centre line.
+- **Crossing** is where that centre line meets the stem's centre column.
+
+⚠️ Every page render and pixel dump is in this session's scratchpad (`g600-*.png`, `r600-*.png`,
+`s600-022.png`, `gl600-38.png`, `m.py`, `gm.py`), and the scratchpad does not last. The page numbers
+and pixel coordinates below are enough to measure everything again.
+
+---
+
+#### ⭐ Headline findings
+
+1. **Gould places the slash relative to the STEM TIP, not the notehead.** In 11 correctly drawn up-stem singles:
+   - the slash crosses the stem **1.05–1.17 sp below the tip**;
+   - its lower-left end sits **1.42–1.57 sp** below the tip;
+   - its upper-right end sits **0.16–0.25 sp** below the tip.
+
+   This holds whatever the stem length, and her stem lengths run from 2.21 to 3.77 sp. So the crossing's
+   *fraction* of the stem varies (0.30–0.50) while its *distance from the tip* stays fixed. Dorico's option
+   *"Position of grace note stem slashes relative to the end of the stem"* and SMuFL's slash anchors on the
+   **flag** glyph encode the same model.
+2. **The ledger-line rule is carried out by making the stem LONGER, never by moving the slash.**
+   - p. 126's pair, a G3 grace: the "not" version has a 2.65 sp stem, and its slash crosses the stem
+     **exactly on the C4 ledger line**. The correct version has a 3.25 sp stem, and its slash clears the
+     C4 ledger by 0.36 sp.
+   - p. 130: an F3 grace on the 3rd ledger has a **3.77 sp** stem.
+   - In every correct low case the stem tip reaches about the **G4 line** (2nd line of the staff).
+3. **Staff lines are NOT avoided.** In 8 of Gould's 11 correct instances a staff line runs through the
+   slash. In 3 of them it crosses the stem **exactly on a staff line** (p. 126 G3 on the E4 line; p. 130 B3
+   on the E4 line; p. 129 D4 on the G4 line). The ban is on ledger lines only. The obvious reason is
+   Gould p. 26: *"a player … can take in the number of ledger lines at a glance"*. A stroke on a ledger
+   line confuses the count, while a stroke on a staff line confuses nothing.
+4. **Gerou & Lusk draw exactly the case Gould forbids.** G&L p. 73 has an A3 grace with a 2.15 sp stem,
+   and its slash crosses the stem on the C4 ledger line. This matches their sentence that ledger-line
+   grace stems *"do not have to be lengthened"*. Their sentence is about the middle line, but their
+   drawing is the configuration Gould forbids.
+5. **No source shows or discusses a slashed crotchet or minim grace.** Three books define the single slashed grace as an EIGHTH:
+   - Gould: *"a small quaver"*;
+   - Stone: *"notated as eighths"*;
+   - G&L: *"considered eighth notes"*.
+
+   The one flagless slash anywhere is Stone p. 141's *"extra beam with slash"* on full-size grace notes in spatial notation.
+
+---
+
+#### Q1. Ledger lines and the slash
+
+| source | page | quotation (from the scan) | measured drawing |
+|---|---|---|---|
+| Gould | 126 | *"Ensure that a grace note on ledger lines has a sufficiently long stem for the diagonal stroke not to obscure a ledger line:"* — then an *and / not* pair. (See also *Ledger lines*, p. 26.) | **The pair is a G3 grace (hanging below the A3 ledger, with the C4 ledger above it) before an A3 crotchet.** **CORRECT:** head centre y 1706.5, tip y 1617 (on the G4 line) ⇒ **stem 3.25 sp**. The slash (1510,1656)→(1551,1621.5) is 1.95 sp long at 40–41°. It crosses the stem at y 1646, **1.05 sp below the tip, i.e. ON the bottom staff line (E4, y 1643, within 0.1 sp)**. Its lower end is **0.36 sp above the C4 ledger**. **NOT:** head centre y 1709.5, tip y 1639 (at the bottom line) ⇒ **stem 2.65 sp**. The slash is 2.08 sp at 40.6° and crosses the stem 1.17 sp below the tip, at y 1670, **i.e. ON the C4 ledger (y 1669)** — the fault. So the stem grows by ≈0.6 sp (one staff step, tip from the E4 line to the G4 line) while the slash **keeps its place relative to the tip**. |
+| Gould | 26 | *"Ledger lines … are about twice as thick"* [as stave-lines] · *"It is important that ledger lines are visibly thicker than stave-lines so that a player reading a passage of ledger-line notes can take in the number of ledger lines at a glance."* · *"Grace notes take ledger lines that are shorter and thinner than full-sized notes, in proportion to their smaller noteheads"* | The figure is an unslashed beamed grace group on ledgers. The p. 26 sentence is the likely **rationale** for the p. 126 rule: the ledger COUNT has to stay readable. ⚠️ That is my inference. Gould does not tie the two together. |
+| Gould | 130 (*Articulation*, grace 3) | (figure only) | **F3 on the 3rd ledger** (ledgers C4 y 4285.5, A3 4311, F3 4338.5; sp 26.5). Tip y 4238, 0.26 sp below the G4 line ⇒ **stem 3.77 sp**. The slash is 2.02 sp at 41.6°. It crosses the stem **1.13 sp below the tip**, in the D4 space (0.38 sp under the E4 line). The E4 staff line cuts the slash on the flag side. Its lower end is **0.23 sp above the C4 ledger**. |
+| Gould | 130 (*Articulation*, grace 2) | (figure only) | **B3 under one C4 ledger.** Tip on the G4 line ⇒ **stem 2.68 sp**, i.e. hardly longer than normal, because the slash already clears the one ledger. The slash is 2.09 sp at 39.1° and crosses **1.17 sp below the tip, exactly ON the bottom staff line (E4)**. Its lower end is **0.6 sp above the C4 ledger**. |
+| Gould | 129 (*Slurs*, grace 4) | (figure only) | **D4 under the staff, no ledger**, stem 2.64 sp. The slash is 2.17 sp at 37.7° and crosses the stem 1.14 sp below the tip, **exactly on the G4 line**. |
+| Gould | 130 (top pair, *"and not"*) | *"A slur should always be placed above the notes when it would otherwise collide with the accidentals of a measured value"* | **A HIGH grace: D6 above the C6 ledger, with the A5 ledger below that.** Stem **2.37 sp (normal)**. The slash is 2.02 sp at 40.5° and crosses 1.10 sp below the tip. Nothing is near it. ⭐ **For an up-stem grace ABOVE the staff the ledgers lie between the head and the staff, i.e. on the far side from the stem and slash, so the rule can never apply.** Only graces BELOW the staff (ledgers between head and staff, crossed by the up-stem) need a longer stem. |
+| Gould | 144 | (glissando figures, a low slashed grace before a glissando) | seen, not measured |
+| Ross | 191 | *"When grace notes appear among leger lines, the slur should be placed so as to avoid coming in contact with the leger lines."* (CONFUSING / CORRECT) | The figure is a beamed, **unslashed** group, and the rule is about the slur. His p. 191 slur figure has single slashed graces **above** the staff on ledgers, with normal stems. ⛔ **Ross draws no slashed grace below the staff with ledgers.** |
+| G&L | 73 | *"Stems for grace notes on leger lines do not have to be lengthened to meet the middle line."* | Three up-stem slashed graces. The low one is **A3 on the 2nd ledger** (sp 57 px; C4 ledger at local y ≈1207.5, A3 ledger ≈1266.5). Tip at the bottom staff line ⇒ **stem 2.15 sp**. The slash (4371,1225)→(4436,1176) is **1.43 sp at 37°**, crossing the stem 1.17 sp below the tip (0.55 of the stem) at y 1212, **i.e. ON the C4 ledger line (0.08 sp from its centre)**. ⇒ **G&L's drawing is Gould's p. 126 "not".** |
+| Stone | 22, 49 | (grace stems *"about 2½ spaces"*, p. 49) | ⛔ No ledger-line slashed grace found in the scans read (pp. 21–22, 49–51, 74–75, 140–141). |
+
+**The stem-length pattern (Gould, measured):**
+- In the staff: 2.21–2.64 sp.
+- Below the staff with ledgers above the head: 2.68 (B3, 1 ledger), 3.25 (G3, 2 ledgers), 3.77 (F3, 3 ledgers).
+- The distance from the tip down to the topmost (C4) ledger is 2.2 / 1.82 / 1.79 sp in the three correct cases, and **1.13 sp in the "not"**.
+
+**A rule implied by her drawings (derived, not stated anywhere):** the lower end of the slash (≈1.5 sp below the tip) must clear the topmost ledger line by about 0.2 sp or more. That means a tip at least ≈1.8 sp above the ledger nearest the staff. In practice the tip reaches about the G4 line (treble).
+
+#### Q2. The slash against STAFF LINES
+
+| source | page | quotation | measured drawing |
+|---|---|---|---|
+| Gould | 126 | *"Place the diagonal stroke so that, ideally, white space shows through between the stem, the tail or beam and the diagonal."* | The white space she means is **inside the stem–flag angle**. The sentence is not about staff lines. |
+| Gould | 125, 126, 129, 130 (11 correct instances) | — | **8 of 11 have a staff line passing through the slash.** 3 cross the stem exactly on a staff line: p. 126 G3 (E4), p. 130 B3 (E4), p. 129 D4 (G4). Others cross it within 0.15–0.19 sp of a line: p. 130 A4 (D5 line), p. 130 D5 (F5 line). **No sign of the slash being placed BETWEEN lines.** The crossing point is fixed relative to the tip, wherever that puts it on the staff. |
+| Ross | 190 | rule 2: *"The slash should bisect the flag in such a manner as to permit white space to be seen towards the end of the stem joining the flag."* | The white space again means **inside the stem/flag join**. Nothing about staff lines. |
+| Stone, G&L | — | nothing | G&L's p. 73 in-staff examples also have lines through their slashes (seen, not measured). |
+
+⇒ **No source asks the slash to avoid staff lines. Every drawing in all four books lets a staff line cross the slash. The one line a slash must not obscure is a LEDGER line (Gould p. 126).**
+
+#### Q3. A slash without a flag, and the written value of an acciaccatura
+
+| source | page | quotation (scan) | drawing |
+|---|---|---|---|
+| Gould | 125 | *"A single grace note is a small quaver with a diagonal stroke that intersects the tail."* · *"A diagonal stroke may be placed through the beam if grace notes might otherwise be confused with an appoggiatura."* · *"It is common practice to place a diagonal line through a single beam."* | The only slash placements she names are **tail** (flag) and **beam**. Every slashed single in pp. 125–131 and 144 is a quaver. |
+| Stone | 22 | *"Single grace notes should be notated as eighths; two or more grace notes as sixteenths. Single grace notes must have a thin slanted line through stem and flag; two or more grace notes must have the slanted line through stem and beams.\*"* Footnote: *"If the slanted line is omitted, single grace notes turn into appoggiaturas, which have measured durations depending on the durational context in which they occur:"* | The footnote figure has an unslashed **quaver** and an unslashed **crotchet** appoggiatura ("may be performed" as measured notes). There is **no slashed crotchet**. |
+| Stone | 75 | *"If a trill is to begin with two or more opening notes, small sixteenth notes with a slash should precede the trill note"* | beamed group, slashed |
+| Stone | 141 | *"Another solution is to use an extra beam with slash for grace notes:"* … *"This notation is more legible because all note-heads are equally large. Its drawback is that full-size grace notes generally take up more horizontal space than they should in spatial notation."* | ⭐ **The only flagless slash in the four books**: in spatial notation, FULL-SIZE grace notes hang from an extra beam carrying the slash. It sits on a beam, not a bare stem. |
+| G&L | 72–73 | *"Single grace notes are considered eighth notes."* · *"For single grace notes with a flag, a small line can intersect the flag…"* · *"Multiple grace notes should never have a slanted line through the stems or beams. The slanted line is only for single, flagged grace notes."* | Every slashed grace drawn is a flagged eighth. |
+| Ross | 190–191 | *"1. The slash through the stem and flag goes…"* · *"Two or three beamed grace notes bear the value of sixteenth notes. Four or more have the value of thirty-second notes."* | All his slashes are on flagged eighths. |
+
+⇒ **Four for four: a slash is drawn through a FLAG (G&L: only there; Gould and Stone: also on a beam).** Three
+books state that a single slashed grace is written as an eighth. **No book shows or discusses a slashed crotchet, minim or other unflagged
+single grace.** Whether one may exist is **UNKNOWN** in the literature. The engines are another matter
+(research doc Part B §3.6): MuseScore's `StemSlash` has an explicit branch for an unbeamed chord with
+**no hook**, starting at `2.0 sp × 0.66` below the tip, so the software supports it. The books do not.
+
+#### Q4. Slash geometry — per instance
+
+Gould, up-stem singles, 600 dpi. "Left" and "right" are the stroke's ends measured from the stem's centre
+line. "Down" is how far below the tip. Thickness: every correct stroke has a 5 px horizontal run, i.e.
+≈3.2 px perpendicular ≈ **0.12 sp**, against a stem of 3–4 px ≈ **0.11–0.13 sp**. ⇒ the slash is about as
+thick as the stem (the threshold sets the exact value; the earlier pass read 0.09).
+
+| # | page / figure | head | stem (sp) | slash length (sp) | angle | crossing below tip (sp) | as a fraction of the stem | left end ← stem (sp) | right end → stem (sp) | upper end ↓ tip | lower end ↓ tip | lines cut |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 1 | 126 *diagonal… notehead*, "and", grace 1 | D5 (line) | 2.24 | 2.06 | 40.2° | 1.07 | 0.48 | 0.50 | 1.07 | 0.17 | 1.50 | F5 line cuts the lower-left part |
+| 2 | 126 ledger pair, "and" | G3 (2 ledgers) | **3.25** | 1.95 | 40.9° | 1.05 | 0.32 | 0.47 | 1.02 | 0.16 | 1.42 | crosses the stem ON the E4 line; clears C4 by 0.36 |
+| 3 | 129 *Slurs*, grace 1 | E4 (line) | 2.64 | 2.13 | 39.3° | 1.16 | 0.44 | 0.49 | 1.16 | 0.21 | 1.55 | B4 line; lower end touches the G4 line |
+| 4 | 129 *Slurs*, grace 3 | G4 (line) | 2.60 | 2.01 | 40.5° | 1.06 | 0.41 | 0.49 | 1.05 | 0.17 | 1.48 | D5 line; lower end touches the B4 line |
+| 5 | 129 *Slurs*, grace 4 | D4 (below) | 2.64 | 2.17 | 37.7° | 1.14 | 0.43 | 0.49 | 1.23 | 0.19 | 1.51 | crosses the stem ON the G4 line |
+| 6 | 130 *Articulation*, grace 1 | A4 (space) | 2.45 | 2.02 | 40.1° | 1.13 | 0.46 | 0.47 | 1.08 | 0.23 | 1.53 | D5 line |
+| 7 | 130 *Articulation*, grace 2 | B3 (1 ledger) | 2.68 | 2.09 | 39.1° | 1.17 | 0.44 | 0.49 | 1.13 | 0.25 | 1.57 | crosses the stem ON the E4 line |
+| 8 | 130 *Articulation*, grace 3 | F3 (3 ledgers) | **3.77** | 2.02 | 41.6° | 1.13 | 0.30 | 0.45 | 1.06 | 0.19 | 1.53 | E4 line; clears C4 by 0.23 |
+| 9 | 130 *Articulation*, grace 4 | D5 (line) | 2.21 | 2.02 | 40.8° | 1.10 | 0.50 | 0.45 | 1.08 | 0.17 | 1.49 | F5 line |
+| 10 | 130 top pair, "and" | D6 (above the staff) | 2.37 | 2.02 | 40.5° | 1.10 | 0.46 | 0.49 | 1.05 | 0.21 | 1.51 | none |
+| — | earlier pass (Part C §3), pp. 125/126/129 | — | 2.3–2.7 | 2.1–2.2 | 38–39° | 1.14–1.17 | ≈0.5 | ≈0.5 | ≈1.15 | — | — | — |
+| ✗ | 126 ledger pair, "**not**" | G3 | 2.65 | 2.08 | 40.6° | 1.17 | 0.44 | 0.75 | 0.83 | — | — | **ON the C4 ledger** |
+| ✗ | 126 *diagonal… notehead*, "**not**", grace 1 | D5 | ≈2.3 | ≈2.6 | ≈44° | **≈1.64** | **≈0.72** | — | — | — | at head level | the slash runs into the NOTEHEAD (the fault shown) |
+
+**Gould's slash, correct instances only:**
+- length **1.95–2.17 sp** (median ≈2.02);
+- angle **37.7–41.6°** (median ≈40.5°), rising to the right on an up-stem;
+- it crosses the stem **1.05–1.17 sp below the tip**;
+- ≈**0.47 sp** of it lies left of the stem (the head side) and ≈**1.05–1.2 sp** right of it (the flag side);
+- its upper-right end is ≈0.2 sp below the tip and passes the flag's outer curve by a few px;
+- its lower-left end is ≈1.5 sp below the tip.
+
+⚠️ The distance from the head does NOT stay constant: it is whatever is left of the stem.
+
+**Other books:**
+
+| source | page | instance | measured |
+|---|---|---|---|
+| Ross | 190 (example above rule 1) | up-stem grace, G4 (on the line) | ⚠️ low confidence: the 1970 plate's staff lines are 0.17 sp thick and merge with the stroke. Stem ≈**1.96 sp** (tip at the B4 line). Slash ≈**1.3 sp at ≈30°**, crossing ≈1.2 sp below the tip (≈0.6 of the stem). |
+| Ross | 190 rule 2, CORRECT up-stem glyph (drawn alone, no staff ⇒ no sp scale) | isolated | Slash **≈19°**, crossing at **0.59 of the stem from the tip**, length ≈0.85 × the stem. It passes below the flag's join, leaving the white triangle rule 2 asks for. |
+| Ross | 190 rule 2, INCORRECT | isolated | The slash is drawn through the flag's far end (lower), with no white space at the stem/flag join (seen). |
+| G&L | 73 | A3 on a ledger (above) | 1.43 sp, 37°, crossing 1.17 sp below the tip; stem 2.15 sp |
+| Stone | 22, 75 | small plates | seen, not measured. The p. 22 plate is too coarse at this size to separate the slash from the flag. |
+| SMuFL / Bravura (my arithmetic on the anchors quoted in Part D §4; not a published number) | `flag8thUp`: `graceNoteSlashSW [-0.644,-2.456]`, `graceNoteSlashNE [1.284,-0.796]` | full-size flag | 2.54 sp at 40.7°, both ends placed relative to the **flag origin = the stem tip**. At a 0.63 grace scale that is ≈1.6 sp long, lower end ≈1.55 sp and upper end ≈0.5 sp below the tip, crossing ≈1.2 sp below the tip. ⇒ **the same model as Gould's drawing and almost the same crossing depth.** Gould's stroke is longer (≈2.0 sp) and runs higher, to ≈0.2 sp below the tip. |
+
+#### Q5. Other literature and online sources
+
+| source | where | quotation | status |
+|---|---|---|---|
+| Scoring Notes, Philip Rothman, 25 Aug 2020, "Adjust grace note stem lengths with Sibelius plug-in" | https://www.scoringnotes.com/tips/adjust-grace-note-stem-lengths-with-sibelius-plug-in/ | Quotes Gould p. 126 *"Ensure that a grace note on ledger lines has a sufficiently long stem for the diagonal stroke not to obscure a ledger line."* Says Sibelius's default is *"generally unappealing"*, **Dorico gets it right without intervention**, and Finale and MuseScore also need adjusting. Bob Zawalich's *Adjust Grace Note Stem Lengths* plug-in lengthens the stems (settings for slashed, unslashed or both; Opus/Helsinki/Norfolk). | fetched; the page gives no numbers (WebFetch summary, ⚠️ not a full verbatim read) |
+| Dorico 2 manual, *Grace note slashes* | https://archive.steinberg.help/dorico_pro/v2/en/dorico/topics/notation_reference/notation_reference_grace_notes_slashes_c.html | Engraving Options: *"Thickness of grace note stem slashes"*, *"Default length of grace note stem slashes"*, *"Position of grace note stem slashes relative to the end of the stem"* | fetched. The values are **UNKNOWN**. ⭐ The position is measured from the STEM END, the same model as Gould's drawing. |
+| Dorico 2 manual, *Grace note stems* | https://archive.steinberg.help/dorico/v2/en/dorico/topics/notation_reference/notation_reference_grace_notes_stems_c.html | *"Grace notes are scaled-down notes, so the length of grace note stems is determined by your project-wide settings for the stem length of all notes."* | fetched. The page does not say how Dorico lengthens a stem for ledgers: **UNKNOWN**. |
+| Dorico blog, Development diary part 10 (2015) | https://blog.dorico.com/2015/03/development-diary-part-10/ | grace notes *"typically around two thirds or three fifths the size of normal notes"*; a grace beam ≈0.3 sp thick with a 0.15 sp gap | fetched; nothing on the slash |
+| SMuFL, *Common ornaments* | https://smufl.formats.music/latest/tables/common-ornaments.html | U+E560 `graceNoteAcciaccaturaStemUp` *"Slashed grace note stem up"* … U+E564 `graceNoteSlashStemUp` *"Slash for stem up grace note"*. Note: *"Scoring applications should draw grace notes in the same way as they draw regular notes, rather than using the precomposed glyphs."* | fetched (WebFetch rendering). There is no slashed-quarter glyph. |
+| SMuFL, *Glyphs with anchors* | https://smufl.formats.music/latest/specification/glyphswithanchors.html | `graceNoteSlashNE`: *"The Cartesian coordinates in staff spaces of the top right corner of a diagonal line drawn instead of using the glyph graceNoteSlashStemUp"* (+ SW/NW/SE) — anchors of **unbeamed grace-note flags** | fetched. ⭐ The spec ties the slash to the FLAG glyph. |
+| Wikipedia, *Acciaccatura* | https://en.wikipedia.org/wiki/Acciaccatura | *"It is written using a grace note (often a quaver, or eighth note), with an oblique stroke through the stem."* | tertiary; the "often" is unsourced |
+| Clinton Roemer, *The Art of Music Copying* | only bookseller/Goodreads/Scribd listings found | — | **UNKNOWN** (no text reachable) |
+| Gardner Read, *Music Notation* | Google Books listing only (id `pGQJAQAAMAAJ`, no preview) | — | **UNKNOWN** (not on disk, no text reachable) |
+| MOLA Guidelines | Scribd copies only; notat.io t=656 (the README marks notat.io as Cloudflare-gated) | — | **UNKNOWN** |
+
+---
+
+#### What nobody answers (UNKNOWN)
+
+- **A stated rule** for the slash's angle, length, crossing point or thickness. No book gives one. Gould's
+  drawings are the only numbers (≈2.0 sp, ≈40°, ≈1.1 sp below the tip, stem thickness).
+- **A stated rule** for HOW MUCH to lengthen a ledger-line grace stem. Gould: *"sufficiently long"*. The
+  ≈1.8 sp-above-the-top-ledger threshold is my reading of three drawings.
+- Whether a slash may cross a staff line. No one discusses it. The drawings say yes.
+- A slashed crotchet, minim or other unflagged single grace — unmentioned and undrawn in all four books.
+- Dorico's default values for slash length, thickness and position, and its ledger-lengthening rule.
+- Roemer, Gardner Read, MOLA: not reached.
+- Down-stem ledger cases (a lower-voice grace above the staff whose down-stem passes ledgers): no figure found.
+
+#### Where the sources disagree
+
+1. **Lengthening the stem for ledgers.** Gould p. 126: lengthen it so the slash clears the ledger, with a
+   drawn and/not pair. **G&L p. 73**: *"do not have to be lengthened to meet the middle line"*, and their
+   figure puts the slash **on the C4 ledger**, exactly Gould's "not". Strictly, the two sentences answer
+   different questions (clearing a ledger vs. reaching the middle line). The drawings do conflict.
+2. **Slash angle and length.** Gould ≈40°, ≈2.0 sp (≈0.8 of the stem). G&L ≈37°, 1.43 sp. Ross ≈19–30° and
+   short (low confidence). Bravura's anchors ≈41°, ≈1.6 sp at grace scale.
+3. **Where it crosses.** Gould fixes the crossing ≈1.1 sp below the tip, so it moves up and down the stem as
+   the stem changes. Ross draws it lower on the stem (≈0.6 of the stem from the tip) but keeps it clear of the
+   flag join by rule 2. MuseScore (Part B) starts at 1.4 sp × grace mag below the tip.
+4. **The slash on beams** (repeated from Part C): Stone *must*, G&L *never*, Gould *may*. Stone p. 141 alone
+   also puts one on a beam of FULL-SIZE grace notes.
+5. **Written value.** Gould, Stone and G&L agree the single slashed grace is an eighth. Group values
+   differ (Part C §5).
+

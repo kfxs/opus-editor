@@ -82,7 +82,7 @@ const dotInk = (): number => glyphBox('augmentationDot').right
  * does is *block* — it is the piece hanging through the space a low accidental would otherwise tuck
  * into, and a horizontal-only ink model had no reason to name it.
  */
-export type InkKind = 'note' | 'rest' | 'accidental' | 'dot' | 'ledger' | 'stem' | 'flag' | 'barline'
+export type InkKind = 'note' | 'rest' | 'accidental' | 'dot' | 'ledger' | 'stem' | 'flag' | 'barline' | 'grace'
 
 /**
  * The ink an event's own glyphs take, in staff spaces, measured off the drawing (see the header).
@@ -467,6 +467,10 @@ export function pairPadding(left: InkKind, right: InkKind): number {
   // ⭐ A LEDGER LINE wants a shade more clearance than two noteheads do — MuseScore's own
   //   `note↔ledger`. Two ledgers that merely touch read as one long line through both notes.
   if (left === 'ledger' || right === 'ledger') return 0.35
+  // ⭐ A GRACE group (`layout/graceRoom`) takes the rows above as they stand — ⚠️ UNRESEARCHED, the
+  //   first thing his eye judges on the page (`docs/plans/grace-notes-plan.md` §4): a note before it
+  //   gets a note's 0.3, a dot or a rest their 0.5, and a BARLINE the lead-in's 1.2 — where Gould's
+  //   drawing measures 1.0 (her p. 43 allows ½), a row the 1.2's note-start constraint keeps closed.
   return 0.3
 }
 

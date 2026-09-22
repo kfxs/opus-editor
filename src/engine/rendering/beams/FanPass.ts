@@ -43,7 +43,7 @@ import { fillBeamQuad } from '@/engine/engrave/beams/beamLines'
 import { ledgerLineRuns, drawLedgerLines } from '@/engine/engrave/notes/ledgerLines'
 import { drawStem } from '@/engine/engrave/notes/stem'
 import { drawNoteHead } from '@/engine/engrave/notes/noteheads'
-import { drawGroupOf, svgNode } from '../painter/svgDrawGroup'
+import { openMemberGroup } from '../memberGroup'
 import { EngravedAccidental } from '../engraved/EngravedAccidental'
 import { stampGlyph } from '@/engine/engrave/glyph'
 import { accidentalFont } from '@/engine/engrave/inheritedFonts'
@@ -506,7 +506,7 @@ function drawFanGroups(pass: RenderPass, drawings: FanSlotDrawing[], fanJoins: F
         // what lets P3 highlight one by an ordinary recolour.
         // ⚠️ The highlight and the incremental redraw read this group back as a DOM node
         // (`fanMemberGroupMap`) — the counted `svgNode` escape, like the hairpin's and the slur's.
-        const memberGroup = svgNode(drawGroupOf(ctx.openGroup(FAN_HEAD_GROUP, `${FAN_HEAD_GROUP}-${slot.id}-${k}`)))
+        const memberGroup = openMemberGroup(ctx, FAN_HEAD_GROUP, `${FAN_HEAD_GROUP}-${slot.id}-${k}`)
         try {
           const memberHeads = heads[k] ?? []
           const glyphWidth = note.getGlyphWidth()

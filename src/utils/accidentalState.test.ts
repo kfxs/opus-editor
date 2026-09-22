@@ -113,6 +113,19 @@ describe('displayedAccidentals', () => {
     expect([signs.get('a'), signs.get('m1'), signs.get('m2')]).toEqual(['#', null, null])
   })
 
+  it('⭐ a GRACE before is walked BEFORE its chord, a grace after AFTER it — its sign holds on (MuseScore\'s order)', () => {
+    const graced: Chord = {
+      ...chord('s1', [pitch('a', 'F', 1)], 0),
+      graceBefore: { notes: [{ pitches: [pitch('g1', 'F', 1)], duration: '8' }] },
+      graceAfter: { notes: [{ pitches: [pitch('g2', 'F', 0)], duration: '16' }] },
+    }
+    const signs = displayedAccidentals([graced, chord('s2', [pitch('b', 'F', 0)], 1)], C_MAJOR)
+    expect(signs.get('g1'), 'the grace states the sharp').toBe('#')
+    expect(signs.get('a'), '…so the main note does not repeat it').toBeNull()
+    expect(signs.get('g2'), 'the grace after cancels it').toBe('n')
+    expect(signs.get('b'), '…and the natural holds on').toBeNull()
+  })
+
   /**
    * ⭐⭐ THE KEY SIGNATURE'S HALF of the rule (docs/plans/key-signature-plan.md §3). The key is the
    * FALLBACK consulted where the bar has said nothing at a position — never a pre-fill of the map,

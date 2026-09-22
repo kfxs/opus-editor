@@ -15,6 +15,7 @@ stamp* instead of entering a note. There are **ten**:
 | | `tie` | *nothing* | ties the note clicked to the next slot |
 | | `dot` | *nothing* | dots the note **or rest** clicked |
 | **place a length** | `rest` | *nothing — it reads the armed length* | **places** a rest at the beat clicked, replacing what it covers |
+| **stamp a written value** | `grace` | its `form` (acciaccatura / appoggiatura) and `side` — ⭐ and it reads the armed length, as the rest does | hangs a grace, at the click's PITCH, on the note or rest nearest the click in x; on a whole-bar rest it first makes a one-beat rest at the clicked beat (`interactions/stamps/graceStamp.ts`, `docs/plans/grace-notes-plan.md` §3) |
 | **place a sign on a LINE** | `barline` | one of the five `PlacedBarlineSign`s | ⭐ puts it on the barline **NEAREST THE POINTER**, ⛔ not in the bar clicked (`interactions/stamps/barlineStamp.ts`) |
 
 They are **mutually exclusive**: exactly one is armed, or none.
@@ -42,8 +43,9 @@ neither: it is **a length**, and a length is the one thing the note-entry keys a
 - It arms `{ kind: 'rest' }` — **valueless**. It does *not* carry a `duration`. Copying the length
   into the tool would be a second source of truth to keep in step with `selectedDuration` /
   `selectedDots`, which is the exact N² problem this union was built to delete.
-- It is the **only** tool the duration and dot keys stay live under. They light, and pressing one
-  **retunes the armed rest** rather than ending the tool. That is not an exception list: it is the
+- It was the **first** tool the duration and dot keys stay live under — the GRACE stamp is the second
+  (a grace is DRAWN as a written value, 2026-09-22). They light, and pressing one **retunes the armed
+  rest** rather than ending the tool. That is not an exception list: it is the
   property `MARKING_TOOL_USES_ARMED_LENGTH` asks of every kind, and a tenth tool cannot be added
   without answering it (the same trick as `MEASURE_RENDER_ROLE`).
 - Its click is **positional**, not a hit-test: it is note entry with `isRest`, so you click a place

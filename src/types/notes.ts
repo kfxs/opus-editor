@@ -278,12 +278,8 @@ export interface GraceGroup {
   slash?: true
   /** Absent = UP, whatever the pitches (all four books, all three engines — research §0.4). */
   stemDirection?: 'up' | 'down'
-  /**
-   * `false` = no slur (Stone p. 22). Absent = the group's own slur from its first grace to the main
-   * note (Gould p. 129) — D3: a mark of the GROUP, drawn with it, ⛔ not an entry in `Score.slurs`
-   * (Gould p. 130: *"each grace-note group [takes] an independent slur, even … within a standard slur"*).
-   */
-  slur?: false
+  // ⛔ No slur flag: a grace draws NO slur of its own — a slur is the user's, a real one (his call,
+  // 2026-09-22, reversing D3; docs/plans/grace-notes-plan.md).
 }
 
 /**
@@ -661,9 +657,8 @@ export interface Chord extends Attack {
    * rest fill, capacity, collision, the columns, undo and JSON never see them, exactly as a fan's
    * members). See {@link GraceGroup}; the operations are `engine/models/graceOps`.
    *
-   * ⚠️ On `Chord` ONLY — {@link Rest} has no such field, and that absence IS the refusal of a grace on
-   * a rest (D7). ⭐ Deliberately REVERSIBLE: no book on disk shows one (research §0.7), so allowing it
-   * later is this field on `Rest` plus a picture to judge — nothing else is shaped by its absence.
+   * ⭐ A {@link Rest} carries one too (D7 REVERSED, his call 2026-09-22: *"attach the grace to the rest
+   * and when the rest is changed for a note reattach the grace"*) — see `Rest.graceBefore`.
    */
   graceBefore?: GraceGroup
   /** The graces AFTER this chord — a Nachschlag, stored on the note it FOLLOWS (D2). See {@link graceBefore}. */
@@ -707,6 +702,13 @@ export interface Rest {
    * which is also when the beaming context it describes has changed.
    */
   beamOver?: boolean
+  /**
+   * ⭐ GRACE NOTES written before this silence — D7 REVERSED (his call, 2026-09-22): the user enters
+   * the grace FIRST, on an empty bar, and the note after. When a note takes this rest's place at the
+   * same beat, the group MOVES onto it (`engine/models/restGraceOps`). BEFORE only: a grace after a
+   * rest is not a notation. ⚠️ No book on disk draws one (research §0.7): its picture is a default.
+   */
+  graceBefore?: GraceGroup
 }
 
 export type ChordRest = Chord | Rest

@@ -144,7 +144,12 @@ export function swapSlotForRest(score: Score, noteId: string): Rest | null {
     ...(chord.actualDuration !== undefined && { actualDuration: chord.actualDuration }),
     ...(chord.staffId !== undefined && { staffId: chord.staffId }),
     ...(tieSourceIds.length > 0 && { tiedFrom: tieSourceIds[0] }),
+    // ⭐ A grace BEFORE stays with the silenced slot — rule 2 of `./restGraceOps` run backwards (D7
+    //    reversed): the note goes, the grace written for that beat does not. A grace AFTER has no
+    //    home on a rest (a grace after a silence is not a notation) and goes with the note.
+    ...(chord.graceBefore && { graceBefore: chord.graceBefore }),
   }
+  if (chord.graceAfter) dbg(`[Model.convertToRest] the grace AFTER ${fmtSlot(chord)} goes with it — a rest takes none`)
 
   for (const measure of score.measures) {
     const idx = measure.slots.findIndex(s => s.id === chord.id)

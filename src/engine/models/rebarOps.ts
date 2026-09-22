@@ -1640,6 +1640,9 @@ function materializeVoiceBar(
         voice,
         staffId,
       )
+      // ⭐ A grace written on the rest rides its first piece (D7 reversed) — fresh ids, as a chord's.
+      const rest = measure.slots[measure.slots.length - 1]
+      if (piece.graceBefore && rest?.type === 'rest') rest.graceBefore = cloneGraceFresh(piece.graceBefore)
       continue
     }
     const chord: Chord = {

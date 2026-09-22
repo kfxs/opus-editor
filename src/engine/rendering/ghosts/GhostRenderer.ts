@@ -51,6 +51,7 @@ import { drawCurveArc } from '../curves/curveArc'
 import { CURVE_PX } from '../curves/curveStyle'
 import { ledgerLineStyle, type MeasureWidthInfo, type StaffSpacingLayout } from '@/engine/layout/layoutConfig'
 import { drawFanGhost, FAN_GHOST_GROUP_CLASS } from './FanGhost'
+import { drawGraceGhost, GRACE_GHOST_GROUP_CLASS } from './GraceGhost'
 import { drawTrillGhost, TRILL_GHOST_GROUP_CLASS } from './TrillGhost'
 import { drawOttavaGhost, OTTAVA_GHOST_GROUP_CLASS } from './OttavaGhost'
 import { drawPedalGhost, PEDAL_GHOST_GROUP_CLASS } from './PedalGhost'
@@ -86,7 +87,7 @@ import { noteRuler } from '../engraved/noteRuler'
  * full render that used to hide the leak.)
  */
 export const GHOST_GROUP_SELECTOR =
-  `.ghost-note-group, .${REST_GHOST_GROUP_CLASS}, .${FAN_GHOST_GROUP_CLASS}, .ghost-clef-group, .ghost-timesig-group, .ghost-dynamic-group, .ghost-articulation, .ghost-accidental, .ghost-tie, .ghost-dot, .ghost-tremolo, .${TEMPO_GHOST_GROUP_CLASS}, .${TRILL_GHOST_GROUP_CLASS}, .${OTTAVA_GHOST_GROUP_CLASS}, .${PEDAL_GHOST_GROUP_CLASS}, .${BARLINE_GHOST_GROUP_CLASS}, .${KEY_SIGNATURE_GHOST_GROUP_CLASS}, .${GROUP_SIGN_GHOST_GROUP_CLASS}`
+  `.ghost-note-group, .${REST_GHOST_GROUP_CLASS}, .${FAN_GHOST_GROUP_CLASS}, .${GRACE_GHOST_GROUP_CLASS}, .ghost-clef-group, .ghost-timesig-group, .ghost-dynamic-group, .ghost-articulation, .ghost-accidental, .ghost-tie, .ghost-dot, .ghost-tremolo, .${TEMPO_GHOST_GROUP_CLASS}, .${TRILL_GHOST_GROUP_CLASS}, .${OTTAVA_GHOST_GROUP_CLASS}, .${PEDAL_GHOST_GROUP_CLASS}, .${BARLINE_GHOST_GROUP_CLASS}, .${KEY_SIGNATURE_GHOST_GROUP_CLASS}, .${GROUP_SIGN_GHOST_GROUP_CLASS}`
 
 /**
  * How far the ghost's tuplet number floats above the note, in STAFF SPACES — measured from the stem
@@ -526,6 +527,7 @@ export const GHOST_DRAWERS: {
   dot: (ctx, _svg, x, y) => drawDotGhost(ctx, x, y),
   rest: (ctx, svg, x, y, g) => drawRestGhost(ctx, svg, x, y, g.duration, g.dots, g.color),
   fan: (ctx, svg, x, y, g) => drawFanGhost(ctx, svg, x, y, g.duration, g.dots),
+  grace: (ctx, svg, x, y, g) => drawGraceGhost(ctx, svg, x, y, g.duration, g.slash),
   trill: (ctx, _svg, x, y) => drawTrillGhost(ctx, x, y),
   ottava: (ctx, _svg, x, y, g) => drawOttavaGhost(ctx, x, y, g.shift),
   pedal: (ctx, _svg, x, y) => drawPedalGhost(ctx, x, y),

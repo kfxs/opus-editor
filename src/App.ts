@@ -53,6 +53,7 @@ import { beamSlopeConsole } from './dev/beamSlopeConsole'
 import { spineConsole } from './dev/spineConsole'
 import { headerGapConsole } from './dev/headerGapConsole'
 import { dotGapConsole } from './dev/dotGapConsole'
+import { graceConsole } from './dev/graceConsole'
 import { accidentalGapConsole } from './dev/accidentalGapConsole'
 import { spacingConsole } from './dev/spacingConsole'
 import { dumpSpacingCensus, spacingBars } from './dev/spacingCensus' // P0 instrument — temporary
@@ -937,6 +938,9 @@ export function createEditorApp(host: HTMLElement): EditorApp {
     // ⚠️ EXPERIMENT, HIS (2026-09-14) — the ACCIDENTAL's gap, and the step that CLOSED the 0.10-vs-
     // 0.30 mismatch between what the model reserved and what the page drew (engine/layout/accidentalGap).
     w.__accidentals = accidentalGapConsole(() => renderer.renderScore())
+    // ⚠️ EXPERIMENT, HIS (2026-09-22) — the GRACE note's size, every row the research found
+    // (engine/layout/graceRoom). Armed row = D5's 2/3, so building the knob moved nothing.
+    w.__grace = graceConsole(() => renderer.renderScore())
     // ⭐ 2026-09-21 — a BENT STAFF's machinery, in its own draggable panel, drawn LIVE from the open
     // score: a staff is a path, a note a rigid block placed on it (docs/plans/bent-staff-plan.md A; src/dev/spineConsole.ts).
     w.__spine = spineConsole({
@@ -971,6 +975,7 @@ export function createEditorApp(host: HTMLElement): EditorApp {
     dbg("[header] CLEF→METER gap: __header.clefMeter('stone'|'books'|'rossCompass'|'lilypond') / .dumpClefMeter() / .resetClefMeter()")
     dbg("[accidentals] accidental→notehead gap: __accidentals.gap('house'|'musescore'|'lilypond'|'ross') / .dump() / .reset()")
     dbg("[dots] augmentation-dot gaps: __dots.gap('house'|'gould'|'gouldDrawn'|'ross'|'lilypond'|'musescore'|'verovio'|'vexflow') / .dump() / .reset() — ⚠️ look at a DOUBLE dot")
+    dbg("[grace] grace-note size: __grace.size('house'|'dorico'|'gould'|'musescore'|'lilypond'|…|0.62) / .dump() / .reset() · no-flag slash: __grace.slash({ length, angle, crossBelowTip }) / .resetSlash()")
     dbg('[spine] a bent staff, LIVE from the open score: __spine.circle({ notes: 8 }) loads fourths · .show() bends what is open · .straight() / .clear()')
     dbg("[spacing] law experiment: __spacing.law('lilypond'|'gould'|'musescore'|'verovio'|'finale'|'dorico'|'even'|'proportional') / .dump() / .reset()")
   }

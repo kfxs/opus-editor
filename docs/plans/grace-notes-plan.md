@@ -1,11 +1,11 @@
 # Grace notes — appoggiatura, acciaccatura, Nachschlag: the plan
 
-> **Status: P0 in progress (2026-09-22).** 📄 The research is `docs/research/grace-notes-research.md`
+> **Status: P0 and P1 committed (2026-09-22). Next: P2 (groups) — or the open list under P1.** 📄 The research is `docs/research/grace-notes-research.md`
 > (four sources folded into one file; its §0 is the synthesis this plan reads). ⛔ This plan is the place
 > the DECISIONS get made: §0 marks each as ✅ DECIDED (his word, with the date) or ⏳ PROPOSED — until he
 > says so it is a default, not a decision (`feedback_an_open_question_is_not_a_decision`). ✅ D1 · D2 ·
-> D3 · D7 were decided on 2026-09-22, one by one, from the research; D4 · D5 · D6 are still open and
-> are asked when the phase that needs them starts (P3, P1, P4).
+> D3 · D4 · D5 · D7 were decided on 2026-09-22, one by one, from the research; D6 is decided for the
+> STAMP and open for what a press does to a SELECTED note — a UI-feel question he will iterate on.
 >
 > ⚠️ **THE UI IS THE DEV SHELL'S** — `src/dev/devToolbar.ts`, three buttons in a row, the way the
 > two-note tremolo shipped (`docs/plans/two-note-tremolo-plan.md` §0). The real interface is undecided;
@@ -25,11 +25,11 @@
 |---|---|---|---|---|
 | **D1** | **where a grace lives** | ✅ 2026-09-22 | ⭐⭐ a **CHILD of its main chord** (`Chord.graceBefore` / `graceAfter`), ⛔ never a slot | MuseScore, VexFlow and Dorico's *"mini-score at a rhythmic position"* all do this; LilyPond's first-class grace moment buys generality and pays for it with its own Known Issues list (barlines and key signatures shifting on the other staves, MIDI *"going back in time"* — research §0.2). ⭐ And it is the FAN's shape: rebar, rest fill, capacity, collision, columns, undo and JSON never see it (`docs/plans/fanned-beams-plan.md` §0) |
 | **D2** | **a grace AFTER** | ✅ 2026-09-22 | stored on the note it **follows** (`graceAfter`), drawn as that note's right ink | Stone p. 140: graces *"belong to a main note"*; MuseScore stores it there too and only its LAYOUT pre-appends it to the following segment (research §B.3.1). MusicXML has no attachment and importers guess — we should not have to |
-| **D3** | **the slur** | ✅ 2026-09-22 | a **flag on the group**, drawn by the grace module from the first grace to the main note, ⛔ not an entry in `Score.slurs` | Gould p. 130: *each group its own slur, even inside a phrase slur* — so it is part of the group's picture, as LilyPond's auto-slur is (`spanner-id 'grace`). A real slur anchored to a grace id stays possible later; today it would drag the slur family's drag/flip/reanchor into P1 for no picture the flag does not give |
-| **D4** | **playback** | ⏳ asked at P3 | **MuseScore's rule as the first preset**: every grace ON the beat, the main note delayed — slashed graces a physical **65 ms** each, unslashed **½** of the main note (⅔ dotted); a grace after takes the **end** of its note | the only complete rule found; LilyPond's 9/40-from-the-previous and Dorico's before-the-beat are the second and third rows of the same table (research §0.3). ⛔ A number is never a blocker (`CLAUDE.md`) |
-| **D5** | **size** | ⏳ asked at P1 | **2/3** as the first row (`GRACE_SCALE`) | the fonts draw it (Bravura 0.66, Sebastian 0.64), VexFlow used it, Gould's plate measures 0.60–0.65; Dorico's 0.6 and MuseScore's 0.7 are the presets either side (research §0.4) |
-| **D6** | **entry** | ⏳ asked at P1/P4 | the fan's TWO WAYS (§3): a press with a note selected ADDS a grace of that pitch; with nothing selected it ARMS a tool that reads the armed length | the same rule the Time Signature window and the feather dialog follow: *"apply to what is selected, otherwise arm"* |
-| **D7** | **a grace on a REST** | ✅ 2026-09-22 ⚠️ REVERSIBLE | ⛔ **refused** in this plan, like the fan | no book on disk says what it looks like (research §0.7 — UNKNOWN, not silent); MuseScore's `Rest` has no storage for one, Dorico and Sibelius allow it, Verovio half-draws it. ⭐ **This is REVERSIBLE by design**: the refusal is only that `graceBefore`/`graceAfter` sit on `Chord` and not on `Rest`, plus one `addGrace` check — allowing it later is a field on `Rest` and a picture for P1 to judge, nothing else is shaped by it. The realistic case, a trill ending on a rest, is already covered the other way: its finishing notes are a `graceAfter` on the trilled note (Gould p. 127) |
+| **D3** | **the slur** | ✅ 2026-09-22 ⚠️ **REVERSED the same day** | ⛔ **a grace draws NO slur of its own** — his words: *"this is not wanted the user is the responsable for enter a real slur if they want"*. A slur on a grace is a REAL one (`Score.slurs`), anchored to the grace's pitch id | the first answer (a flag on the group, drawn by the grace module — Gould p. 130) was built in P1 and felt wrong in use: not selectable, not the user's. The model field (`GraceGroup.slur`) went with it. ⏳ A real slur to or from a grace is STORED and now DRAWN (the grace files its anchor where the slur renderer looks, the fan member's way), but its geometry around a small note is not right yet — its own step |
+| **D4** | **playback** | ✅ 2026-09-22 | **MuseScore's rule as the first preset**: every grace ON the beat, the main note delayed — slashed graces a physical **65 ms** each, unslashed **½** of the main note (⅔ dotted); a grace after takes the **end** of its note | the only complete rule found; LilyPond's 9/40-from-the-previous and Dorico's before-the-beat are the second and third rows of the same table (research §0.3). ⛔ A number is never a blocker (`CLAUDE.md`) |
+| **D5** | **size** | ✅ 2026-09-22 | **2/3** as the first row (`GRACE_SCALE`) | the fonts draw it (Bravura 0.66, Sebastian 0.64), VexFlow used it, Gould's plate measures 0.60–0.65; Dorico's 0.6 and MuseScore's 0.7 are the presets either side (research §0.4) |
+| **D6** | **entry** | ✅ 2026-09-22 the STAMP · ⏳ the rest OPEN | ⭐ **A grace is STAMPED**: arm the grace tool, click a note, a grace appears attached to it at the click's pitch with the armed length (§3). ⏳ **What a press does with a NOTE SELECTED is undecided** — his words: *"probably if a note is selected and we hit grace we just transform that note in a grace, i dont know this is user interaction and needs iteration cause it depends on the feel of the app"*. ⛔ Not MuseScore's "add a grace of the same pitch" by default: that was a proposal, not his call | the stamp is how every attached mark enters (articulation, accidental); the selected-note gesture is a FEEL question, found by trying it (`feedback_an_open_question_is_not_a_decision`: build what does not depend on the answer, ask when it is reached) |
+| **D7** | **a grace on a REST** | ✅ 2026-09-22 ⚠️ **REVERSED the same day** | ⭐ **a grace BEFORE a rest is taken** — his words: *"the user wants to enter this first we should not force the user to enter a note before"* · *"attach the grace to the rest and when the rest is changed for a note reattach the grace"* · *"grace in empty measure makes no sense"*. So: `Rest.graceBefore` (⛔ no grace AFTER a rest); on a whole-bar rest the stamp first makes a ONE-BEAT rest at the clicked beat (the meter's felt beat, the bar refilled around it); a slot that takes the rest's place at the SAME beat takes the group (`engine/models/restGraceOps`), and silencing a note keeps its grace on the rest — the rule run backwards. ⚠️ A note that COVERS the beat without starting on it drops the group (logged) — a default | the refusal made the stamp useless on an empty bar (eight silent refusals in a row, his log). The plan's own escape hatch (*"a field on `Rest`"*) was right about the field and silent about the hand-over; the paths a rest leaves the bar by were each proved: the eviction (`slotPlacementOps.evictRestsOverlapping`, beside the tie it already migrated), the keyboard's rest-into-note (`restToChordOps`, extracted from `ScoreModel`), the silencing (`convertToRestOps`), the meter relay (`utils/rebar`: a graced rest travels as content). ⚠️ No book on disk draws a grace before a rest — its picture is a default |
 
 Everything below follows from these seven. Change one and its section changes; nothing else does.
 
@@ -120,23 +120,29 @@ the fan member's in `deleteNoteWithRepair`, and no bar repair, because nothing r
 **Three buttons** in `devToolbar.ts`: `acciacc.` · `appogg.` · `after`. Each calls ONE
 `PaletteController` method, `pressGrace(form, side)`, which applies D6:
 
-1. **A note selected** → `graceOps.addGrace` on it with **the note's own pitch** (MuseScore's
-   behaviour: the grace appears, you move it with the arrows). Pressing again APPENDS a second grace to
-   the same group — that is how a group of three is typed. Written value = the ARMED duration
-   (`selectedDuration` + `selectedDots`), which for a fresh score is what the duration keys say; the
-   default a press finds there is the convention's: an **8th** for a single grace, and the second press
-   of a group makes both **16ths** (Gould p. 125: *"two beams recommended"* for a group, G&L: two =
-   16ths). ⚠️ Provisional, one function (`graceWrittenValue(groupSize)`), his eye.
-2. **A GRACE selected** → the same press toggles the group's `slash` when the form differs from the
-   group's (acciaccatura pressed on an appoggiatura group and back), and appends when it is the same.
-3. **Nothing selected** → arms `{ kind: 'grace'; form; side }` on the `MarkingTool` union — it joins
-   the union, `MARKING_TOOL_USES_ARMED_LENGTH` answers **true** (it reads the armed length like the rest
-   tool, `docs/how-it-works/marking-tools.md`), and it ghosts (`GHOST_DRAWERS` + `ToolGhost` row: one small
-   note following the pointer, at `GRACE_SCALE`, slashed when the form is). The click is
-   `interactions/stamps/graceStamp.ts`: **a hit-test, not a position** — it names the NOTE the press
-   lands nearest (`findClosestNoteOrRest`), because a grace is attached to something that exists, like
-   the articulation stamp and unlike the fan's; the pitch is the click's **y** through
-   `pixelToPosition`. The tool stays armed (a stamp is used in runs).
+1. ⭐ **THE STAMP (decided).** The press arms `{ kind: 'grace'; form; side }` on the `MarkingTool`
+   union — it joins the union, `MARKING_TOOL_USES_ARMED_LENGTH` answers **true** (it reads the armed
+   length like the rest tool, `docs/how-it-works/marking-tools.md`), and it ghosts (`GHOST_DRAWERS` +
+   `ToolGhost` row: one small note following the pointer, at `GRACE_SCALE`, slashed when the form is).
+   The click is `interactions/stamps/graceStamp.ts`: **a hit-test, not a position** — it names the NOTE
+   the press lands nearest (`findClosestNoteOrRest`), because a grace is attached to something that
+   exists, like the articulation stamp and unlike the fan's; the pitch is the click's **y** through
+   `pixelToPosition`. Clicking the same note again APPENDS to its group — that is how a group of three
+   is typed. The tool stays armed (a stamp is used in runs). Written value = the ARMED duration
+   (`selectedDuration` + `selectedDots`); the default a press finds there is the convention's: an
+   **8th** for a single grace, and the second click on a note makes both **16ths** (Gould p. 125: *"two
+   beams recommended"* for a group, G&L: two = 16ths). ⚠️ Provisional, one function
+   (`graceWrittenValue(groupSize)`), ✅ his *"lets say yes"* on 2026-09-22 as a DEFAULT to run, ⛔ not a
+   rule — *"after testing in the real UI things can change"*; a value set by hand with the duration keys
+   is always respected.
+2. ⏳ **A NOTE SELECTED when the button is pressed — OPEN, his to find by iteration.** Candidates he
+   named: *transform that note into a grace* (Sibelius's `;` — the slot leaves the bar, its time is
+   refilled, and the grace hangs on the note that follows); the fan's *"apply to what is selected"*
+   (add a grace of the note's own pitch, MuseScore's way) was the plan's proposal and is NOT chosen.
+   ⛔ Until he picks, a press with a note selected does what a press with nothing selected does: it
+   arms the stamp. Nothing is built on either candidate.
+3. ⏳ **A GRACE selected** — the same: open. (The plan proposed the press toggling the group's
+   `slash`; `setGraceSlash` exists in the ops for whatever gesture he settles on.)
 
 **The row lights** by the selected note's own groups, through one `graceHighlight(state, engine)`
 read by the toolbar's single subscriber — the tremolo row's shape, three sources in a fixed order.
@@ -209,12 +215,13 @@ is the precedent):
 
 | row | first value | source |
 |---|---|---|
-| `GRACE_SCALE` (head, flag, beam, accidental, ledger) | **2/3** (D5) | fonts 0.64–0.66; Gould 0.60–0.65; Dorico 3/5; MuseScore 0.7 |
+| the SIZE (head, flag, beam, accidental, ledger, slash) | **2/3** (D5) — ⭐ a preset table since 2026-09-22 (`graceRoom.GRACE_SIZE_RULES`, armed from the console: `__grace.size('dorico' \| … \| 0.62)`), his eye to choose | fonts 0.64–0.66; Gould 0.60–0.65; G&L 0.65; Dorico/Sibelius 0.6; MuseScore 0.7; LilyPond 0.707; Verovio 0.75 |
 | `GRACE_STEM_SPACES` (head centre → tip, in the group's own spaces) | **2½ → 3.75 system-sp × k = 2.5** | Stone p. 49; ⭐ Gould's own plate (2.22–2.67, median 2.5) against her text's 2¼; ≈0.75 of a full stem, NOT `3.5 × k` |
 | middle-line rule for grace stems | **OFF** | all three engines switch it off |
+| ⭐ a grace on LEDGER lines below the staff | ✅ 2026-09-22, his *"yes do it"*: the STEM grows until its tip stands **1.8 sp beyond the ledger nearest the staff** (`graceRoom.GRACE_ROWS.ledgerClearance`); the slash keeps its place under the tip | Gould p. 126 — *"a sufficiently long stem for the diagonal stroke not to obscure a ledger line"*, her and/not pair measured (research §0.8, §E.2); ⚠️ the 1.8 is DERIVED from her drawings (G3 3.25 · F3 3.77 · B3 2.68 sp) — no book states a number; ⛔ no engine implements it |
 | stem thickness | **unscaled** (system weight) | Gould's grace plate does not thin it (`docs/research/stem-thickness-research.md` §2.4); ⚠️ the `scale(k)` group WOULD thin it — the stem's stroke is `/k`, as the barline sign keeps the system's weight on a small staff |
 | stem direction | **up** (D1's group flag) | research §0.4 |
-| slash: length · angle · crossing | **2.1 sp · 40° · mid-stem** (Gould, measured), thickness = staff line | MuseScore `2.0 sp · 40° · 0.125`; SMuFL's Bravura anchors on `flag8thUp` (1.93 × 1.66 sp, 41°) are the sourced row for the 8th-flag case in that face alone — read through `fontMetrics.anchor`, null elsewhere, then the rule |
+| slash: where it runs | ⭐ **the FONT's anchors** — `graceNoteSlashSW`→`NE` on the flag (Bravura's 8th: 1.93 × 1.66 sp at full size ⇒ ≈1.3 × 1.1 at 2/3); where a face or a flag has none, **Bravura's 8th anchors as the rows**; weight **0.09 sp** | ✅ his call 2026-09-22 after a side-by-side (*"very ugly"*): the first rows, measured off Gould's plate (2.1 sp · 40° · 1.15 sp past the stem), reached far past the flag of a 2/3 note. MuseScore (flag's right edge, 40°), Verovio (0.375 left → 0.75 right, 45°) and LilyPond (a flag-stroke GLYPH, ≈0.4 → 0.55) all stay inside the flag; ⛔ never SMuFL's precomposed E560–E563 (SMuFL; Leipzig has none) |
 | slash on a beamed group | **one, on the first stem, diagonal to the beam** | Gould p. 126 *may*; Stone *must*; G&L *never* (a preset later) |
 | slur | **below, notehead to notehead**; above when it would hit the main note's accidental or ledgers | Gould pp. 129–130; measured: starts at the grace head's centre, ends 0.17 sp left of the main head's, 0.35–0.5 sp below |
 | beams in a group | the group's own beam, at `GRACE_SCALE`; two 16ths = two beams | Gould p. 125; never joined to the principal (all three engines) |
@@ -290,21 +297,68 @@ selectable in this plan; the press toggles it (§3.2).
   one `mutate` per op); facade commands that act on the SLOT (tie, duration, beam, tremolo…) do not yet
   REFUSE a grace id the way `refusesFanMember` does — they fail closed at the model, but a grace can't
   be selected until P1 registers it, so the guards come with the first way to select one.
-- **P1 — ONE grace before a note, on the page.** §3 rule 1 (the press on a selected note, the three
-  buttons), §4 (`graceRoom`, the `'grace'` ink kind and its rows), §5 for the single-grace case (head,
+- **P1 — ONE grace before a note, on the page.** §3 rule 1 (the STAMP: the `MarkingTool` member,
+  `MARKING_TOOL_USES_ARMED_LENGTH`, the ghost row, `graceStamp`, the three buttons), §4 (`graceRoom`, the `'grace'` ink kind and its rows), §5 for the single-grace case (head,
   stem, flag, slash, ledger, accidental, the slur), the ElementRegistry registration so the arrows
-  work. *End state: press `acciacc.` on a note and see a slashed small note before it, spaced, the bar
-  widened, selectable, re-pitchable.* ⭐ This is the step his eye judges the rows on.
-- **P2 — GROUPS.** A second press appends; two beams at the group's scale; the slash on the first stem;
+  work. *End state: arm `acciacc.`, click a note at a pitch, and see a slashed small note before it at that
+  pitch, spaced, the bar widened, selectable, re-pitchable.* ⭐ This is the step his eye judges the rows on.
+  ✅ **BUILT AND COMMITTED 2026-09-22**, after his UI rounds. Room: `engine/layout/graceRoom`
+  (`GRACE_ROWS` toMain · between · stem · ledgerClearance; `GRACE_SIZE_RULES`; `graceLayout` places AND
+  reserves) + one `'grace'` box in `measureColumns.slotInk` + the `'grace'` `InkKind`. Ink:
+  `engine/engrave/notes/graceGroup` (the slash, pure) + `engine/rendering/GracePass` (one `scaling(k)`
+  group per group; `drawGraceStem` shared with the ghost) + `rendering/memberGroup` (the highlight's DOM
+  handle, shared with the fan). Entry: the `{ kind: 'grace' }` tool · `ghosts/GraceGhost` ·
+  `stamps/graceStamp` (click) · `stamps/graceTool` (press + light) · `engine/commands/graceCommands`
+  (`engine.grace.addGrace`, one `mutate`) · two dev-toolbar buttons (`after` present, disabled until P5).
+  Rests: `engine/models/restGraceOps` + `restToChordOps` (extracted from `ScoreModel`). Knobs:
+  `__grace.size(…)` · `__grace.slash({…})` (`dev/graceConsole`); their generations join the one width/
+  shape list, `layout/widthRowGenerations` (both keys used to keep a copy each). Specs: `GracePass.test.ts`
+  (scene), `graceRoom` · `graceGroup` · `measureColumns` · `accidentalState` · `graceCommands` ·
+  `graceStamp` · `graceTool` · `restGraceOps` · `NoteEntryCoordinator`; break-tested where a path could
+  silently vanish. ⭐ **What his UI rounds CHANGED from the first build:**
+  - **D3 reversed** — no slur of its own (*"the user is the responsable for enter a real slur"*); a REAL
+    slur to/from a grace is stored and drawn (the grace files its anchor on the fan member's terms), but its
+    shape around a small note is not right yet ⏭️.
+  - **D7 reversed** — a grace BEFORE a rest; on a whole-bar rest the stamp makes a one-beat rest at the
+    clicked beat; the slot taking the rest's place takes the grace (§0 D7).
+  - **The slash**: the FONT's anchors on a flag (Bravura's 8th; its 8th anchors as the rows elsewhere) —
+    the first rows, measured off Gould, were *"very ugly"*; a stem with NO flag gets its own position
+    (centred, the 8th's angle and depth, length 1.8 grace sp — his eye between *"to little"* and *"too
+    big"*, tunable); no stem, no slash. ⚠️ keyed on `NOTE_DURATION_ROWS`, ⛔ never a list of durations
+    (*"in the future we will have more durations"*).
+  - **Ledger lines** (Gould p. 126, his *"yes do it"*): a low grace's stem grows until its tip stands
+    1.8 sp beyond the ledger nearest the staff (research §0.8, Part E).
+  - **The size** is a preset table (`__grace.size`), D5's 2/3 armed.
+
+  ⚠️ **Defaults P1 chose — each his to change:**
+  1. **A grace's accidental holds** into its main note and on through the bar — the ONE walk
+     (`displayedAccidentals`) visits grace-before → main → fan members → grace-after, MuseScore's order.
+  2. **The pair rows** a grace meets are the ones that ran: note → grace 0.3, dot/rest → grace 0.5,
+     barline → grace **1.2** (the lead-in's note-start constraint) where Gould's drawing measures 1.0.
+  3. **Unfixed ink**: a grace fits into a quarter's gap without moving anything; only a tight gap widens.
+  4. **The host is the nearest ordinary note or rest by x** within 45 px of the click, in the clicked bar and staff.
+  5. **Nothing lit ⇒ an 8th**; a lit duration key wins. The buttons light by the ARMED tool only.
+  6. **A duration key on a selected grace sets its WRITTEN value** — 🚨 found while building: handed a
+     grace id, `changeNote` reshaped the host's bar (3 slots → 2); `NoteEntryCoordinator.updateNote` now
+     routes a grace as it routes a fan member (`graceOps.setGraceWritten`). Pinned, break-tested.
+  7. **A note that COVERS a grace's beat without starting on it drops the grace** (logged).
+
+  ⏭️ **Open after P1:** a real slur's shape at a grace · `X` (the stem flip — the stem-down picture and its
+  mirrored slash, P6) · a DOTTED grace's dot · a grace CHORD's accidentals stack in one column · the slash
+  on the 8th/16th has no knob (the font's) · ⏳ **a HOUSE STYLE the score's user sets** (these rows, saved
+  in the file, with an options UI — one design for every engraving number, his call when). ⭐ `lint:hubs`
+  re-baselined once for P0 (his call — code-shape plan, *After the plan*).
+- **P2 — GROUPS.** A second click on the same note appends; two beams at the group's scale; the slash on the first stem;
   `graceWrittenValue`; the slur from the first grace. *End state: a three-note grace run.*
 - **P3 — PLAYBACK.** §6, the first preset, `playbackSchedule.grace.test.ts` — checkable because the
   collector is pure. *End state: it sounds.*
-- **P4 — the ARMED tool.** §3 rule 3: the `MarkingTool` member, `MARKING_TOOL_USES_ARMED_LENGTH`, the
-  ghost row, `graceStamp`. *End state: arm, click a note at a pitch, a grace appears there.*
+- **P4 — the OTHER ways in.** ⏳ §3 rules 2–3, once he has felt the stamp and picked: what a press does
+  to a selected NOTE (transform it? add to it?) and to a selected GRACE. *End state: his, after
+  iteration.*
 - **P5 — grace AFTER.** `graceAfter` through every seam above (right ink, the last piece of a split,
   the end of the note in playback); the third button comes alive.
-- **P6 — the toggles.** §3 rule 2 (slash toggle on a selected grace); `setGraceStem` / `setGraceSlur`
-  reachable from the console until Properties has rows.
+- **P6 — the toggles.** The slash toggle on a selected grace (whatever gesture P4 settles on);
+  `setGraceStem` / `setGraceSlur` reachable from the console until Properties has rows.
 
 ⛔ **Never `vitest` + e2e at once**; the browser suite runs either side of P1, P2 and P5 (renderer
 changes), `build:check` after every phase.
@@ -320,6 +374,8 @@ changes), `build:check` after every phase.
   to its main note** (the appoggiatura tied over — a real notation, later).
 - **The second and third playback presets** (before the beat; LilyPond's fraction) — rows written,
   not wired.
+- **Sibelius's `;`** — turning a selected REAL note into a grace of the next one (and its inverse):
+  a real feature, a candidate for §3 rule 2, ⏳ his call after P1.
 - **The Keypad key** (MuseScore's `/`), **menus**, **Properties rows**, **MusicXML/MEI** — the model
   carries what the formats agree on (research §0.1) so the exporter, when it exists, has nothing to
   invent.

@@ -121,6 +121,11 @@ export type ToolGhost =
    */
   | { kind: 'fan'; duration: NoteDuration; dots: number }
   /**
+   * ⭐ The GRACE stamp (`docs/plans/grace-notes-plan.md` §3): one small note of the ARMED value, at
+   * the grace size, slashed when the tool makes an acciaccatura — the picture the click will add.
+   */
+  | { kind: 'grace'; duration: NoteDuration; slash: boolean }
+  /**
    * ⭐ The BARLINE stamp's sign — the final bar, the open repeat or the end repeat, whichever is
    * armed. It CARRIES ITS SIGN because the three are three different pictures, and the ghost is what
    * tells three identically-armed palette buttons apart (the `8va`/`8vb` lesson).

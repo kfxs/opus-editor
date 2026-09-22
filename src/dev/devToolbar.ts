@@ -4,6 +4,7 @@ import type { PaletteController } from '../interactions/controllers/PaletteContr
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { NoteDuration } from '../types/music'
 import { durationHighlight } from '../interactions/controllers/keypadSync'
+import { graceToolLit, pressGraceTool } from '../interactions/stamps/graceTool'
 import { DEV_SOUNDS } from '../engine/audio/WebAudioFontInstrument'
 import { bus } from '../bus'
 import { buildMusicFontPicker } from './musicFontPicker'
@@ -220,6 +221,20 @@ export function mountDevToolbar(host: HTMLElement, deps: DevToolbarDeps): DevToo
       () => durationHighlight(state) === d, () => palette.setDuration(d))
   }
   row.appendChild(durBox)
+
+  // --- Grace notes (docs/plans/grace-notes-plan.md §3) — a press ARMS the stamp; a click on a note
+  //     hangs a grace on it at the click's pitch, drawn as the lit duration. `after` is P5's. ---
+  const graceBox = group('Grace:')
+  const GRACE_BTN = 'px-2 py-1 rounded text-sm'
+  toggle(graceBox, GRACE_BTN, 'acciacc.', 'Acciaccatura (slashed) — click a note to add one before it',
+    () => graceToolLit(state, 'acciaccatura', 'before'),
+    () => pressGraceTool(palette.spanToolHost(), 'acciaccatura', 'before'))
+  toggle(graceBox, GRACE_BTN, 'appogg.', 'Appoggiatura — click a note to add one before it',
+    () => graceToolLit(state, 'appoggiatura', 'before'),
+    () => pressGraceTool(palette.spanToolHost(), 'appoggiatura', 'before'))
+  toggle(graceBox, GRACE_BTN, 'after', 'Grace AFTER a note (Nachschlag) — not built yet (plan P5)',
+    () => false, () => {}, ON, () => false)
+  row.appendChild(graceBox)
 
   // --- Beam ---
   // REMOVED: the beam palette (auto/single/begin/continue/end + subdivide + beam-rest) was a DEV tool,

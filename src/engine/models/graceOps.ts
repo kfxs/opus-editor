@@ -10,11 +10,11 @@
  * real id, so those go through `attackOf` and `ScoreModel.updateNote` exactly as a fan member's do.
  */
 import { v4 as uuidv4 } from 'uuid'
-import type { Chord, GraceGroup, GraceNote, GraceSide, NoteDuration, NotePitch, PitchSpelling, Score } from '@/types/music'
+import type { Chord, GraceGroup, GraceNote, GraceSide, NoteDuration, NotePitch, PitchSpelling, Rest, Score } from '@/types/music'
 import { dbg } from '@/utils/debug'
 import { GRACE_SIDES, graceGroupOf, graceKey } from '@/utils/graceNotes'
 import { chordStoredPitches } from '@/utils/fannedBeam'
-import { findSlot } from './slotLookup'
+import { findSlot, type FoundSlot } from './slotLookup'
 
 /** The two forms a press makes. ⚠️ Read only when the GROUP is created: after that the slash is the
  *  group's own flag ({@link setGraceSlash}), one for the group (Gould p. 126). */
@@ -29,16 +29,19 @@ export interface GraceWritten {
 /** Is this id a GRACE NOTE's pitch? The public face of `findSlot`'s opt-in — for the commands that
  *  must refuse one (a tie, a duration change: they are the SLOT's, and a grace is not one). */
 export function isGraceNote(score: Score, noteId: string): boolean {
-  const found = findSlot(score, noteId, { graceNotes: true })
-  return found?.type === 'chord' && found.grace !== undefined
+  return findSlot(score, noteId, { graceNotes: true })?.grace !== undefined
 }
+
+/** Where a grace group can hang: a chord (either side) or — BEFORE only — a rest (D7 reversed). */
+type GraceHost = { graceBefore?: GraceGroup; graceAfter?: GraceGroup }
 
 /**
  * Append a grace of `spelling` to the chord holding `hostNoteId`, on `side`, creating the group.
  * @returns the new grace, or null when refused:
  *
- * - **a REST** — D7 (decided 2026-09-22, ⚠️ reversible): no book shows one, and `Rest` carries no
- *   grace field;
+ * - **a grace AFTER a rest** — ⭐ a grace BEFORE a rest is taken (D7 reversed, his call 2026-09-22:
+ *   the user enters the grace first, on an empty bar; the note that later takes the rest's place
+ *   takes the group — `restGraceOps`). After a silence it is not a notation;
  * - **a fan MEMBER or a GRACE** as host — neither resolves without its opt-in, so both fail closed:
  *   the host is a SLOT's chord;
  * - **a tied CONTINUATION, for a grace BEFORE** — the attack is at the chain's head, and a grace
@@ -59,10 +62,11 @@ export function addGrace(
     dbg(`[graceOps.addGrace] refused: ${hostNoteId} is not a slot's note (a fan member, a grace, or gone)`)
     return null
   }
-  if (found.type === 'rest') {
-    dbg(`[graceOps.addGrace] refused: a grace on a REST (plan D7)`)
+  if (found.type === 'rest' && side === 'after') {
+    dbg(`[graceOps.addGrace] refused: a grace AFTER a rest`)
     return null
   }
+  if (found.type === 'rest') return appendGrace(found.rest, side, spelling, form, written)
   const chord = found.chord
   if (side === 'before' && chord.notes.every(p => p.tiedFrom)) {
     dbg(`[graceOps.addGrace] refused: a grace BEFORE a tied continuation — the attack is at the chain's head`)
@@ -73,17 +77,30 @@ export function addGrace(
     return null
   }
 
+  return appendGrace(chord, side, spelling, form, written)
+}
+
+/** Append one grace to `host`'s group on `side`, creating the group (its slash from `form`). */
+function appendGrace(
+  host: Chord | Rest, side: GraceSide, spelling: PitchSpelling, form: GraceForm, written: GraceWritten,
+): GraceNote {
   const pitch: NotePitch = { id: uuidv4(), step: spelling.step, alter: spelling.alter, octave: spelling.octave }
   const grace: GraceNote = { pitches: [pitch], duration: written.duration }
   if (written.dots) grace.dots = written.dots
 
+  const at = host as GraceHost
   const key = graceKey(side)
-  const group: GraceGroup = chord[key] ?? { notes: [] }
-  if (!chord[key] && form === 'acciaccatura') group.slash = true
+  const group: GraceGroup = at[key] ?? { notes: [] }
+  if (!at[key] && form === 'acciaccatura') group.slash = true
   group.notes.push(grace)
-  chord[key] = group
-  dbg(`[graceOps.addGrace] ${side} chord ${chord.id}: +${spelling.step}${spelling.octave} ${written.duration} (${group.notes.length} in the group${group.slash ? ', slashed' : ''})`)
+  at[key] = group
+  dbg(`[graceOps.addGrace] ${side} ${host.type} ${host.id}: +${spelling.step}${spelling.octave} ${written.duration} (${group.notes.length} in the group${group.slash ? ', slashed' : ''})`)
   return grace
+}
+
+/** The slot a found grace hangs on. */
+function hostOf(found: FoundSlot): GraceHost {
+  return found.type === 'chord' ? found.chord : found.rest
 }
 
 /**
@@ -92,18 +109,19 @@ export function addGrace(
  */
 export function removeGrace(score: Score, pitchId: string): boolean {
   const found = findSlot(score, pitchId, { graceNotes: true })
-  if (found?.type !== 'chord' || !found.grace) return false
-  const { chord, pitch, grace } = found
+  if (!found?.grace || !found.pitch) return false
+  const { pitch, grace } = found
+  const host = hostOf(found)
   const key = graceKey(grace.side)
-  const group = chord[key]!
+  const group = host[key]!
   if (grace.note.pitches.length > 1) {
     grace.note.pitches.splice(grace.note.pitches.indexOf(pitch), 1)
     dbg(`[graceOps.removeGrace] one pitch of grace ${grace.index} (${grace.note.pitches.length} left)`)
     return true
   }
   group.notes.splice(grace.index, 1)
-  if (group.notes.length === 0) delete chord[key]
-  dbg(`[graceOps.removeGrace] grace ${grace.index} ${grace.side} chord ${chord.id} removed (${group.notes.length} left)`)
+  if (group.notes.length === 0) delete host[key]
+  dbg(`[graceOps.removeGrace] grace ${grace.index} ${grace.side} ${found.type} removed (${group.notes.length} left)`)
   return true
 }
 
@@ -136,16 +154,39 @@ export function attachGraceAfter(score: Score, noteId: string, group: GraceGroup
 }
 
 /**
+ * ⭐ **A grace's WRITTEN value** — what a duration key or the dot key does to a selected grace (plan §3:
+ * *"a value set by hand with the duration keys is always respected"*). ⛔ Never counted, so nothing in
+ * the bar moves. `dots: 0` deletes the field (absent is the only spelling of the default).
+ * @returns whether anything changed.
+ */
+export function setGraceWritten(score: Score, pitchId: string, written: Partial<GraceWritten>): boolean {
+  const found = findSlot(score, pitchId, { graceNotes: true })
+  if (!found?.grace) return false
+  const note = found.grace.note
+  let changed = false
+  if (written.duration !== undefined && note.duration !== written.duration) {
+    note.duration = written.duration
+    changed = true
+  }
+  if (written.dots !== undefined && (note.dots ?? 0) !== written.dots) {
+    if (written.dots > 0) note.dots = written.dots
+    else delete note.dots
+    changed = true
+  }
+  return changed
+}
+
+/**
  * The group on `side` of the chord `noteId` names — the id may be a pitch of the MAIN chord or of a
  * grace in that very group. A grace of the OTHER side's group answers undefined: the caller named a
  * group that id is not in.
  */
-function groupAt(score: Score, noteId: string, side: GraceSide): { chord: Chord; group: GraceGroup } | undefined {
+function groupAt(score: Score, noteId: string, side: GraceSide): { group: GraceGroup } | undefined {
   const found = findSlot(score, noteId, { graceNotes: true })
-  if (found?.type !== 'chord' || found.member) return undefined
+  if (!found || (found.type === 'chord' && found.member)) return undefined
   if (found.grace && found.grace.side !== side) return undefined
-  const group = graceGroupOf(found.chord, side)
-  return group ? { chord: found.chord, group } : undefined
+  const group = graceGroupOf(found.type === 'chord' ? found.chord : found.rest, side)
+  return group ? { group } : undefined
 }
 
 /** Slash the group (acciaccatura) or not (appoggiatura). @returns whether it changed. */
@@ -167,15 +208,6 @@ export function setGraceStem(score: Score, noteId: string, side: GraceSide, dire
   return true
 }
 
-/** The group's own slur (D3): on = the default (absent), off = `false`. @returns whether it changed. */
-export function setGraceSlur(score: Score, noteId: string, side: GraceSide, on: boolean): boolean {
-  const at = groupAt(score, noteId, side)
-  if (!at || (at.group.slur !== false) === on) return false
-  if (on) delete at.group.slur
-  else at.group.slur = false
-  return true
-}
-
 /**
  * ⛔ **Report, never repair** (`docs/plans/json-io-plan.md`) — what a loaded file says about graces
  * that this build cannot hold as written. `MusicEngine.loadJSON` warns each line; nothing is changed.
@@ -186,9 +218,8 @@ export function graceProblems(score: Score): string[] {
   for (const measure of score.measures) {
     for (const slot of measure.slots) {
       if (slot.type === 'rest') {
-        for (const side of GRACE_SIDES) {
-          if (graceKey(side) in slot) problems.push(`bar ${measure.number}: a REST carries ${graceKey(side)} — a grace needs a note to belong to`)
-        }
+        if ('graceAfter' in slot) problems.push(`bar ${measure.number}: a REST carries graceAfter — a grace after a silence is not a notation`)
+        seen.add(slot.id)
         continue
       }
       for (const p of chordStoredPitches(slot)) seen.add(p.id)
@@ -196,7 +227,6 @@ export function graceProblems(score: Score): string[] {
   }
   for (const measure of score.measures) {
     for (const slot of measure.slots) {
-      if (slot.type !== 'chord') continue
       for (const side of GRACE_SIDES) {
         const group = graceGroupOf(slot, side)
         if (!group) continue

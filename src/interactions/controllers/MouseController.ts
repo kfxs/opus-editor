@@ -20,12 +20,14 @@ import { dynamicTextFromTool, DEFAULT_DYNAMIC_TEXT } from '../../utils/dynamics'
 import { staffOf } from '@/utils/lanes'
 import { nearestSlotBoundaryBeat } from '../../engine/layout/slotBoundary'
 import { stampFanAtClick } from '../stamps/fanStamp'
+import { stampGraceAtClick } from '../stamps/graceStamp'
 import { stampSlurAtClick } from '../stamps/slurStamp'
 import { tempoInsertStop } from '../lanes/tempoInsertAnchor'
 import type { Stop as TempoStop } from '../../engine/models/tempoOps'
 import { pickSlurHandleAt } from '../walks/slurHandlePick'
 import { stampSpanMarkAtClick } from '../stamps/spanMarkStamp'
 import { stampHairpinAtClick } from '../stamps/hairpinStamp'
+import { stampArticulationAtClick } from '../stamps/articulationStamp'
 import { stampBarlineAtClick } from '../stamps/barlineStamp'
 import { stampKeySignatureAtClick } from '../stamps/keySignatureStamp'
 import { STAFF_BAND_PAD_PX } from '../state/staffBand'
@@ -1326,7 +1328,7 @@ export class MouseController {
     if (this.placeDynamicEntryAtClick(engine, x, y, measureNum)) return
     if (this.placeTempoAtClick(engine, x, measureNum)) return
     if (this.placeTempoEntryAtClick(engine, x, measureNum)) return
-    if (this.stampArticulationAtClick(engine, registry, x, y)) return
+    if (stampArticulationAtClick(this.state, engine, registry, x, y, () => this.render.renderScore())) return
     if (this.stampAccidentalAtClick(engine, registry, x, y)) return
     if (this.stampTieAtClick(engine, registry, x, y)) return
     if (this.stampDotAtClick(engine, registry, x, y)) return
@@ -1335,6 +1337,7 @@ export class MouseController {
     // The feather stamp's whole click lives in its own module (interactions/stamps/fanStamp); this is the
     // row that gives it a turn.
     if (stampFanAtClick(this.state, engine, x, y, () => this.render.renderScore())) return
+    if (stampGraceAtClick(this.state, engine, registry, x, y, () => this.render.renderScore())) return
     // The slur stamp's click lives in its own module too (interactions/stamps/slurStamp); this is its turn.
     if (stampSlurAtClick(this.state, engine, registry, x, y, () => this.render.renderScore())) return
     if (stampHairpinAtClick(this.state, engine, registry, x, y, () => this.render.renderScore())) return
@@ -1508,45 +1511,8 @@ export class MouseController {
   }
 
   /**
-   * Articulation stamp tool: add the armed articulation(s) to the note clicked. Only a real note
-   * counts — a rest, empty staff space, or any other element is a no-op (but still consumes the
-   * click, since the tool is armed). Uses the same note-body hit-test as selection-mode clicks
-   * ({@link ElementRegistry.hitsNoteOrRestBody}), so clicking near-but-not-on a note does nothing.
-   * Only the armed articulations the note LACKS are added (adding one it already has is meaningless);
-   * the additions land as ONE undo entry via runBatch. Returns true whenever the stamp tool is armed
-   * (the click is ours either way).
-   */
-  private stampArticulationAtClick(engine: MusicEngine, registry: ElementRegistry, x: number, y: number): boolean {
-    const types = armedTool(this.state, 'articulation')?.types
-    if (!types?.length) return false
-
-    const el = registry.findClosestNoteOrRest(x, y)
-    if (!el?.id || !registry.hitsNoteOrRestBody(el, x, y)) {
-      dbg(`· Articulation stamp: click not on a note — no change`)
-      return true
-    }
-    const noteId = el.id
-    const note = engine.getNote(noteId)
-    if (!note || note.isRest) {
-      dbg(`· Articulation stamp: ${note?.isRest ? 'rest' : 'non-note'} — no change`)
-      return true
-    }
-    const missing = types.filter(t => !note.articulations?.includes(t))
-    if (missing.length === 0) {
-      dbg(`· Articulation stamp: note ${noteId} already has ${types.join('+')} — no change`)
-      return true
-    }
-    engine.runBatch(`Add ${missing.join('+')}`, () => {
-      for (const t of missing) engine.toggleArticulation(noteId, t) // each adds (note lacks it)
-    })
-    dbg(`✓ Articulation stamped | ${missing.join('+')} on note ${noteId}`)
-    this.render.renderScore()
-    return true
-  }
-
-  /**
    * Accidental stamp tool: a click SETS the armed accidental on the hovered note, changing its
-   * pitch (existing notes only). Mirrors {@link stampArticulationAtClick} — same note-body hit-test,
+   * pitch (existing notes only). Mirrors `stamps/articulationStamp` — same note-body hit-test,
    * one `runBatch` = one undo — but SINGLE-valued and IDEMPOTENT: clicking a note that already shows
    * that accidental does nothing (removal is the Delete key, not a re-stamp). Consumes any click
    * while the tool is armed (returns true) so a near-miss doesn't fall through to note entry.

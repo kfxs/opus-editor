@@ -6,7 +6,7 @@
  * In `utils/` for `fannedBeam`'s reason: the relay lives here and may not import `engine/`.
  */
 import { v4 as uuidv4 } from 'uuid'
-import type { Chord, GraceGroup, GraceNote, GraceSide, NotePitch } from '@/types/music'
+import type { ChordRest, GraceGroup, GraceNote, GraceSide, NotePitch } from '@/types/music'
 
 /** Both sides, in drawing order. */
 export const GRACE_SIDES: readonly GraceSide[] = ['before', 'after']
@@ -16,14 +16,15 @@ export function graceKey(side: GraceSide): 'graceBefore' | 'graceAfter' {
   return side === 'before' ? 'graceBefore' : 'graceAfter'
 }
 
-/** The chord's group on that side, if it has one. */
-export function graceGroupOf(chord: Chord, side: GraceSide): GraceGroup | undefined {
-  return chord[graceKey(side)]
+/** The slot's group on that side, if it has one — a REST holds a group BEFORE only (D7 reversed). */
+export function graceGroupOf(slot: ChordRest, side: GraceSide): GraceGroup | undefined {
+  if (slot.type === 'rest') return side === 'before' ? slot.graceBefore : undefined
+  return slot[graceKey(side)]
 }
 
-/** Every grace pitch the chord carries, before-group first, left to right — the ids a click on a
+/** Every grace pitch the slot carries, before-group first, left to right — the ids a click on a
  *  grace can name, so the ids a paste must hand back as "the notes that landed". */
-export function gracePitchesOf(chord: Chord): NotePitch[] {
+export function gracePitchesOf(chord: ChordRest): NotePitch[] {
   const out: NotePitch[] = []
   for (const side of GRACE_SIDES) {
     for (const note of graceGroupOf(chord, side)?.notes ?? []) out.push(...note.pitches)
@@ -43,7 +44,6 @@ export function cloneGraceFresh(group: GraceGroup): GraceGroup {
   const out: GraceGroup = { notes: group.notes.map(copyGraceNote) }
   if (group.slash) out.slash = true
   if (group.stemDirection) out.stemDirection = group.stemDirection
-  if (group.slur === false) out.slur = false
   return out
 }
 

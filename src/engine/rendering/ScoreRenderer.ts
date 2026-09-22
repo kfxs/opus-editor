@@ -72,14 +72,7 @@ import { pedalSpan } from '@/engine/models/pedalOps'
 import { beamGroupStemDirection } from '@/engine/models/stemOps'
 import { slurShapeGeneration } from './curves/slurShapeExperiment'
 import { beamSlopeGeneration } from './beams/beamSlopeExperiment'
-import { spacingGeneration } from '@/engine/layout/spacing'
-import { headerGapGeneration } from '@/engine/layout/headerAccidentalLadder'
-import { dotGapGeneration } from '@/engine/layout/dotGap'
-import { accidentalGapGeneration } from '@/engine/layout/accidentalGap'
-import { musicFontGeneration } from '@/engine/fonts/musicFont'
-import { textFontGeneration } from '@/engine/fonts/textFont'
-import { clefMeterGapGeneration } from '@/engine/layout/clefMeterGap'
-import { barlineMeterGapGeneration } from '@/engine/layout/barlineMeterGap'
+import { widthRowGenerations } from '@/engine/layout/widthRowGenerations'
 import { attachDynamicsToSlots, layoutCoLocatedDynamics, applyDynamicOffsets, registerDynamics, applyMixedDynamicRuns } from './marks/dynamics/DynamicsLayout'
 import { placeDynamicsOnLine, markInk } from './marks/dynamics/dynamicsLinePass'
 import { drawTempoMarks } from './marks/tempo/TempoLayout'
@@ -99,6 +92,8 @@ import { clefResolverFor, keyResolverFor, measureColumns, measureLeadIn, type St
 import { BARLINE_BOX_STRADDLE_PX, barlineSignExtent, ownEndSignKind, repeatStartRoom } from '@/engine/layout/barlineSign'
 import { drawsTimeSignature, headerExtent, headerToNoteGap } from '@/engine/layout/headerInk'
 import { applySpacingPass, type SpacedColumns } from './format/spacingPass'
+import { drawGraceNotes } from './GracePass'
+import { gracePitchesOf } from '@/utils/graceNotes'
 import { attachModifierColumns } from './format/modifierColumns'
 import { formatColumns, type TickColumns } from './format/columnFormat'
 import { BarVoice, drawBarVoice, type BarTickable } from './format/barVoice'
@@ -290,8 +285,9 @@ interface MeasureSnapshot {
 /** Every FANNED MEMBER pitch id in a measure — the ids `captureById`'s default list cannot reach,
  *  since they live inside `slot.fan` rather than in `slot.notes`. */
 function fanMemberIdsOf(view: Measure): string[] {
+  // ⭐ …and the GRACE pitches, which `./GracePass` files in the same maps on the same terms.
   return view.slots.flatMap(s =>
-    s.type === 'chord' ? (s.fan?.members ?? []).flatMap(m => m.pitches).map(p => p.id) : [])
+    s.type === 'chord' ? [...(s.fan?.members ?? []).flatMap(m => m.pitches), ...gracePitchesOf(s)].map(p => p.id) : [])
 }
 
 /**
@@ -580,27 +576,11 @@ export class ScoreRenderer {
       getStaves(score).map(staff => resolveStaffSize(score, staff.id)),
       this.justifyLastLine,
       this.surface,
-      // ⚠️ HIS EXPERIMENT (2026-09-01) — the armed SPACING law. ⭐ Here and not merely in the view
-      //    key: a spacing law changes WIDTHS, so the casting-off itself depends on it.
-      spacingGeneration(),
-      // ⚠️ HIS EXPERIMENT (2026-09-02) — the armed header-gap row (`layout/headerAccidentalLadder`).
-      //    Here for the same reason as the line above: the gap is a WIDTH, so the casting-off
-      //    depends on it.
-      headerGapGeneration(),
-      // 🚨 A WIDTH, like the line above it: arming a clef→meter row makes every header narrower or
-      //    wider, so it must invalidate memoised widths AND re-cast the score (`layout/clefMeterGap`).
-      clefMeterGapGeneration(),
-      barlineMeterGapGeneration(),
-      // 🚨 And the armed DOT-GAP row (2026-09-14) — also a WIDTH: the gap is bought per dot, so a
-      //    dotted bar is wider or narrower for it and the casting-off has to be redone.
-      dotGapGeneration(),
-      // 🚨 …and the armed ACCIDENTAL gap, for the same reason: `accidentalExtent` prices the room
-      //    from it, so a bar carrying an accidental is wider or narrower for the armed row.
-      accidentalGapGeneration(),
-      // 🚧 The chosen MUSIC FACE (`fonts/musicFont`) — a WIDTH too: the casting-off made in one face
-      //    is not the other's.
-      musicFontGeneration(),
-      textFontGeneration(),
+      // ⭐ Every armed ROW that changes a WIDTH — the spacing law, the header / clef→meter /
+      //    barline→meter / dot / accidental gaps, the grace size, the music and text faces. Here and not
+      //    merely in the view key: a width moves the casting-off. ONE list (`layout/widthRowGenerations`),
+      //    shared with the width-cache fingerprint, so the two keys cannot disagree.
+      ...widthRowGenerations(),
       [...this.linearStaffSpacing.entries()].sort((a, b) => a[0].localeCompare(b[0])),
       this.suppressedDynamicId,
       this.suppressedTempoId,
@@ -2186,6 +2166,8 @@ export class ScoreRenderer {
             placement.scale,
             key,
           )
+          // ⭐ The GRACE groups before this lane's chords — `./GracePass`, over the notes just drawn.
+          drawGraceNotes(pass, groups[gi].slots, groups[gi].staveNotes, measure.number, staffIndex, clefForBeat, key)
         }
 
         // Supporting ledger line for any whole/half rest a shift pushed off the staff

@@ -38,6 +38,7 @@ import { spellingDiatonicPos } from '@/utils/pitchSpelling'
 import { lineLeftCurveX } from '../staff/systemEdges'
 import { planSpanSegments } from '../marks/spanSegments'
 import { voiceOf } from '@/utils/lanes'
+import { gracePitchesOf } from '@/utils/graceNotes'
 import { noteFrame } from '../staff/staveFrame'
 import { staffBottomLineY, staffLineY, type StaffFrame } from '@/engine/engrave/staff/staffFrame'
 import { STAFF_BOTTOM_EDGE_PX } from '@/engine/engrave/inheritedDefaults'
@@ -67,6 +68,8 @@ function measureOfNoteId(score: Score, noteId: string): number | undefined {
       // A FANNED MEMBER lives inside the slot, not in `slot.notes` — and a slur can be anchored to
       // one (docs/plans/fanned-beam-pitches-plan.md), so it has to name its measure like any other end.
       if (s.type === 'chord' && (s.fan?.members ?? []).some(mm => mm.pitches.some(p => p.id === noteId))) return m.number
+      // …and so can a GRACE note — the user's real slur (a grace draws none of its own).
+      if (s.type === 'chord' && gracePitchesOf(s).some(p => p.id === noteId)) return m.number
     }
   }
   return undefined
@@ -548,7 +551,8 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
     const startSlot = fromMeasureData?.slots.find(
       s => s.type === 'chord' && (
         s.notes.some(p => p.id === slur.startNoteId)
-        || (s.fan?.members ?? []).some(mm => mm.pitches.some(p => p.id === slur.startNoteId))),
+        || (s.fan?.members ?? []).some(mm => mm.pitches.some(p => p.id === slur.startNoteId))
+        || gracePitchesOf(s).some(p => p.id === slur.startNoteId)),
     )
     const slurVoice = startSlot?.voice ?? voiceOf(slur)
     const multiVoice = fromMeasureData

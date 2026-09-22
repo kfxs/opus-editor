@@ -154,10 +154,20 @@ export function displayedAccidentals(slots: ChordRest[], key: KeySignature): Map
   }
 
   for (const slot of slots) {
-    if (slot.type !== 'chord') continue
+    // A grace written before a REST (D7 reversed) is a note in the bar like any other.
+    if (slot.type === 'rest') {
+      for (const note of slot.graceBefore?.notes ?? []) for (const p of note.pitches) decide(p)
+      continue
+    }
+    // ⭐ A GRACE is a note in the bar too, walked where it sounds: the group BEFORE, the main
+    //   chord, then the group AFTER — MuseScore's order (`dom/chord.cpp:1170-1225`, research
+    //   `docs/research/grace-notes-research.md` §B.3.9). So a grace's sign holds into its main note
+    //   and on through the bar. ⚠️ A default (no book on disk states it), his to change.
+    for (const note of slot.graceBefore?.notes ?? []) for (const p of note.pitches) decide(p)
     for (const p of slot.notes) decide(p)
     // The fan's other members, in the order they sound — inside this slot, before the next one.
     for (const member of slot.fan?.members ?? []) for (const p of member.pitches) decide(p)
+    for (const note of slot.graceAfter?.notes ?? []) for (const p of note.pitches) decide(p)
   }
   return signs
 }

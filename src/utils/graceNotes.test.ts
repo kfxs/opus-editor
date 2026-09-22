@@ -12,7 +12,6 @@ const group = (): GraceGroup => ({
   ],
   slash: true,
   stemDirection: 'down',
-  slur: false,
 })
 
 const chord = (extra: Partial<Chord> = {}): Chord => ({

@@ -7,6 +7,8 @@ import type { ViewMode } from '@/engine/layout/layoutConfig'
 // here would close a runtime cycle. The sign vocabulary lives with the gesture that places it.
 import type { BarlineSign } from '../stamps/barlineStamp'
 import type { ScoreTextField } from '@/engine/models/scoreTextOps'
+import type { GraceForm } from '@/engine/models/graceOps'
+import type { GraceSide } from '@/types/music'
 
 /** A value armed on the dynamics palette: an interpreted level, or the custom-text tool. */
 export type DynamicTool = DynamicLevel | 'text'
@@ -145,6 +147,14 @@ export type MarkingTool =
    * translates it.
    */
   | { kind: 'fan'; attacks: number; unit: NoteDuration; dots: number; direction: 'accel' | 'rit' }
+  /**
+   * ⭐ The GRACE stamp (`docs/plans/grace-notes-plan.md` §3, D6 — decided 2026-09-22): a click on a
+   * note hangs a grace on it, at the click's PITCH, drawn as the ARMED length — the rest tool's rule,
+   * and for its reason: the tool is armed beside the duration keys, which stay lit and live, so what
+   * you see is what it places ({@link MARKING_TOOL_USES_ARMED_LENGTH}). `form` is read only when the
+   * click CREATES the group (the slash is the group's, Gould p. 126); `side` — ⏭️ P5 brings `after`.
+   */
+  | { kind: 'grace'; form: GraceForm; side: GraceSide }
   /** VALUELESS — Ctrl+E with nothing selected. The click-to-type expression tool: it places a
    *  custom-text dynamic and opens the inline editor BLANK (no placeholder to clear), rather than
    *  dropping a placeholder like `{ kind:'dynamic'; dynamic:'text' }`. It previews NO ghost — a blue
@@ -289,6 +299,7 @@ export const DEFAULT_BEAM: BeamMode = 'auto'
  */
 export const MARKING_TOOL_USES_ARMED_LENGTH: Record<MarkingTool['kind'], boolean> = {
   rest: true,        // a rest is nothing without a length
+  grace: true,       // a grace is DRAWN as a written value (never counted), read off the lit keys like the rest's
   fan: false,        // ALSO a length — but its OWN, typed in the dialog that armed it (see the member)
   clef: false,       // the four below place OBJECTS — a length means nothing to them
   timeSignature: false,

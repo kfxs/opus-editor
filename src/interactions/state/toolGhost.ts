@@ -107,6 +107,9 @@ export function toolGhost(tool: MarkingTool, armed: ArmedRestFields): ToolGhost 
     // The other tool with a value to show — and it reads it from the TOOL, not the armed length:
     // the dialog that armed it said how long the gesture lasts (see the `fan` member of MarkingTool).
     case 'fan': return { kind: 'fan', duration: tool.unit, dots: tool.dots }
+    // A grace reads the ARMED value, as the rest does (MARKING_TOOL_USES_ARMED_LENGTH), and shows
+    // the slash the click will make. ⛔ No dots: a dotted grace is not drawn yet (P1).
+    case 'grace': return { kind: 'grace', duration: armed.duration, slash: tool.form === 'acciaccatura' }
     // Click-to-type entry: a blue cursor, no ghost. See the header.
     case 'dynamicEntry':
     case 'tempoEntry': return null
@@ -160,6 +163,7 @@ export const GHOST_CAUSE: Record<ToolGhost['kind'], string> = {
   dot: 'ghost:dot',
   rest: 'ghost:rest',
   fan: 'ghost:fan',
+  grace: 'ghost:grace',
   trill: 'ghost:trill',
   ottava: 'ghost:ottava',
   pedal: 'ghost:pedal',

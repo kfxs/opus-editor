@@ -39,7 +39,7 @@ const loadedChord = (): Chord => ({
   beam: 'begin',
   secondaryBreak: true,
   graceBefore: { notes: [{ pitches: [{ id: 'g1', step: 'D', alter: 0, octave: 4 }], duration: '8' }], slash: true },
-  graceAfter: { notes: [{ pitches: [{ id: 'g2', step: 'F', alter: 1, octave: 4 }], duration: '16' }], slur: false },
+  graceAfter: { notes: [{ pitches: [{ id: 'g2', step: 'F', alter: 1, octave: 4 }], duration: '16' }], stemDirection: 'down' },
   notes: [{ id: 'n1', step: 'E', alter: 0, octave: 4, forceAccidental: true }],
 })
 
@@ -105,8 +105,8 @@ describe('what the table calls CARRIED really is', () => {
     expect(noIds(piece.graceBefore)).toEqual({ notes: [{ pitches: [{ step: 'D', alter: 0, octave: 4 }], duration: '8' }], slash: true })
     expect(piece.graceBefore!.notes[0].pitches[0].id).not.toBe('g1')
   })
-  it('graceAfter — the slur\'s off-switch travels with it', () => {
-    expect(noIds(piece.graceAfter)).toEqual({ notes: [{ pitches: [{ step: 'F', alter: 1, octave: 4 }], duration: '16' }], slur: false })
+  it('graceAfter — its stem flag travels with it', () => {
+    expect(noIds(piece.graceAfter)).toEqual({ notes: [{ pitches: [{ step: 'F', alter: 1, octave: 4 }], duration: '16' }], stemDirection: 'down' })
     expect(piece.graceAfter!.notes[0].pitches[0].id).not.toBe('g2')
   })
 

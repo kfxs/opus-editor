@@ -24,7 +24,13 @@ export type FoundSlot =
        *  the attack its marks live on. `index` is its place in the group, left to right. */
       grace?: { side: GraceSide; index: number; note: GraceNote }
     }
-  | { type: 'rest'; rest: Rest }
+  | {
+      type: 'rest'
+      rest: Rest
+      /** ⭐ Set only for a GRACE hung on this rest (D7 reversed) — its pitch and its place, as above. */
+      pitch?: NotePitch
+      grace?: { side: 'before'; index: number; note: GraceNote }
+    }
 
 /**
  * Find the slot containing the given note/pitch ID.
@@ -51,6 +57,14 @@ export function findSlot(
     for (const slot of measure.slots) {
       if (slot.type === 'rest' && slot.id === noteId) {
         return { type: 'rest', rest: slot }
+      }
+      // ⭐ A GRACE hung on a REST (D7 reversed), found on the same opt-in terms as a chord's.
+      if (slot.type === 'rest' && opts?.graceNotes && slot.graceBefore) {
+        const notes = slot.graceBefore.notes
+        for (let k = 0; k < notes.length; k++) {
+          const found = notes[k].pitches.find(n => n.id === noteId)
+          if (found) return { type: 'rest', rest: slot, pitch: found, grace: { side: 'before', index: k, note: notes[k] } }
+        }
       }
       if (slot.type === 'chord') {
         const pitch = slot.notes.find(n => n.id === noteId)
@@ -95,7 +109,7 @@ export function findSlot(
  * member has none of its own.
  */
 export function attackOf(found: FoundSlot): Attack | null {
-  if (found.type === 'rest') return null
+  if (found.type === 'rest') return found.grace?.note ?? null
   return found.grace?.note ?? found.member?.chord ?? found.chord
 }
 

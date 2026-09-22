@@ -81,10 +81,23 @@ describe('graceOps', () => {
       expect(dotted.dots).toBe(1)
     })
 
-    it('⛔ refuses a REST (D7 — reversible, but no book shows one)', () => {
+    it('⭐ hangs a grace BEFORE a REST (D7 reversed) — found, projected and removed like a chord\'s', () => {
+      quarter(0)
       const rest = model.getMeasure(1)!.slots.find(s => s.type === 'rest')!
-      expect(graceOps.addGrace(score, rest.id, 'before', D4, 'appoggiatura', EIGHTH)).toBeNull()
-      expect(Object.keys(rest)).not.toContain('graceBefore')
+      const grace = graceOps.addGrace(score, rest.id, 'before', D4, 'acciaccatura', EIGHTH)!
+      expect(rest.type === 'rest' && rest.graceBefore?.notes).toEqual([grace])
+      const id = grace.pitches[0].id
+      expect(graceOps.isGraceNote(score, id)).toBe(true)
+      expect(model.getNote(id)).toMatchObject({ id, step: 'D', octave: 4, duration: '8' })
+      expect(model.getNote(id)?.isRest).toBeFalsy()
+      expect(model.getNotePitch(id)?.id).toBe(id)
+      expect(graceOps.removeGrace(score, id)).toBe(true)
+      expect('graceBefore' in rest).toBe(false)
+    })
+
+    it('⛔ refuses a grace AFTER a rest — after a silence it is not a notation', () => {
+      const rest = model.getMeasure(1)!.slots.find(s => s.type === 'rest')!
+      expect(graceOps.addGrace(score, rest.id, 'after', D4, 'appoggiatura', EIGHTH)).toBeNull()
     })
 
     it('⛔ refuses a FAN MEMBER and a GRACE as host — the host is a slot\'s chord', () => {
@@ -215,16 +228,6 @@ describe('graceOps', () => {
       expect('stemDirection' in chordOf(host.id).graceBefore!).toBe(false)
     })
 
-    it('the slur (D3): off is `false`, on is ABSENT', () => {
-      const host = quarter()
-      graceOps.addGrace(score, host.id, 'before', D4, 'appoggiatura', EIGHTH)
-      expect(graceOps.setGraceSlur(score, host.id, 'before', true)).toBe(false) // already the default
-      expect(graceOps.setGraceSlur(score, host.id, 'before', false)).toBe(true)
-      expect(chordOf(host.id).graceBefore!.slur).toBe(false)
-      expect(graceOps.setGraceSlur(score, host.id, 'before', true)).toBe(true)
-      expect('slur' in chordOf(host.id).graceBefore!).toBe(false)
-    })
-
     it('refuses a side with no group, and a grace of the OTHER side\'s group', () => {
       const host = quarter()
       const before = graceOps.addGrace(score, host.id, 'before', D4, 'appoggiatura', EIGHTH)!
@@ -259,18 +262,18 @@ describe('graceOps', () => {
       expect(graceOps.graceProblems(score)).toEqual([])
     })
 
-    it('reports a grace on a rest, an empty group, a grace with no pitches, and a shared id — and changes none of them', () => {
+    it('reports a grace AFTER a rest, an empty group, a grace with no pitches, and a shared id — and changes none of them', () => {
       const host = quarter(0)
       const other = quarter(1)
       chordOf(host.id).graceBefore = { notes: [] }
       chordOf(host.id).graceAfter = { notes: [{ pitches: [], duration: '8' }] }
       chordOf(other.id).graceBefore = { notes: [{ pitches: [{ id: host.id, ...D4 }], duration: '8' }] }
       const rest = model.getMeasure(1)!.slots.find(s => s.type === 'rest')!
-      ;(rest as unknown as Record<string, unknown>).graceBefore = { notes: [] }
+      ;(rest as unknown as Record<string, unknown>).graceAfter = { notes: [] }
 
       const problems = graceOps.graceProblems(score)
       expect(problems).toHaveLength(4)
-      expect(problems.join('\n')).toMatch(/REST carries graceBefore/)
+      expect(problems.join('\n')).toMatch(/REST carries graceAfter/)
       expect(problems.join('\n')).toMatch(/group with no notes/)
       expect(problems.join('\n')).toMatch(/has no pitches/)
       expect(problems.join('\n')).toMatch(/not unique/)
@@ -282,10 +285,30 @@ describe('graceOps', () => {
     const host = quarter()
     graceOps.addGrace(score, host.id, 'before', D4, 'acciaccatura', EIGHTH)
     graceOps.addGrace(score, host.id, 'after', E4, 'appoggiatura', { duration: '16' })
-    graceOps.setGraceSlur(score, host.id, 'after', false)
+    graceOps.setGraceStem(score, host.id, 'after', 'down')
     const loaded = ScoreModel.fromJSON(model.toJSON())
     const found = findSlot(loaded.getScore(), host.id)
     expect(found?.type === 'chord' && found.chord.graceBefore).toEqual(chordOf(host.id).graceBefore)
     expect(found?.type === 'chord' && found.chord.graceAfter).toEqual(chordOf(host.id).graceAfter)
+  })
+})
+
+describe('graceOps.setGraceWritten — a grace\'s written value (plan §3)', () => {
+  it('⭐ sets the duration and the dots on the GRACE, and nothing in the bar moves', () => {
+    const model = new ScoreModel()
+    const host = model.addNote({ step: 'E', octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const grace = graceOps.addGrace(model.getScore(), host.id, 'before', { step: 'D', alter: 0, octave: 5 }, 'appoggiatura', { duration: '8' })!
+    const slotsBefore = JSON.stringify(model.getMeasure(1)!.slots.map(s => [s.type, s.duration, fracToNumber(s.beat)]))
+    expect(graceOps.setGraceWritten(model.getScore(), grace.pitches[0].id, { duration: '16', dots: 1 })).toBe(true)
+    expect(grace).toMatchObject({ duration: '16', dots: 1 })
+    expect(graceOps.setGraceWritten(model.getScore(), grace.pitches[0].id, { dots: 0 })).toBe(true)
+    expect('dots' in grace, 'absent is the only spelling of no dots').toBe(false)
+    expect(JSON.stringify(model.getMeasure(1)!.slots.map(s => [s.type, s.duration, fracToNumber(s.beat)]))).toBe(slotsBefore)
+  })
+
+  it('answers false for a slot\'s own note — it is not a grace', () => {
+    const model = new ScoreModel()
+    const host = model.addNote({ step: 'E', octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })
+    expect(graceOps.setGraceWritten(model.getScore(), host.id, { duration: '16' })).toBe(false)
   })
 })

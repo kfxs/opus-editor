@@ -1,0 +1,233 @@
+/**
+ * ⭐⭐ **GRACE NOTES, drawn** (`docs/plans/grace-notes-plan.md` §5) — free functions over the passed-in
+ * {@link RenderPass}, like {@link FanPass}: the groups BEFORE each chord of one lane of one bar,
+ * inside that bar's measure group, after the notes they hang on have been drawn.
+ *
+ * ⭐ **A grace is COMPOSED from a normal note's parts at a scale, placed by ONE affine** — ⛔ never
+ * SMuFL's precomposed grace glyphs (SMuFL says so itself; Leipzig has none; a glyph cannot take an
+ * accidental, a ledger or a beam). One `<g class="grace">` per group carries `scaling(k)`, so every
+ * piece inside is drawn in the grace's own coordinates (the staff's ÷ k) and comes out k× smaller —
+ * head, flag, accidental, and the ledger lines *"shorter … in proportion"* (Gould p. 26).
+ * ⚠️ Except the STROKES the rows keep at the SYSTEM's weight: the stem (Gould's grace plate does not
+ * thin it) and the ledger lines (G&L p. 75) are drawn at `weight ÷ k`, which the transform brings
+ * back to the full note's.
+ *
+ * WHERE each head stands is `layout/graceRoom.graceLayout` — the same call `measureColumns.slotInk`
+ * reserved the room with, so the drawing cannot stand anywhere the width did not pay for.
+ *
+ * ⭐ A grace head is registered as a NOTE under its pitch id (the fan member's terms,
+ * `docs/plans/fanned-beam-pitches-plan.md` §2), so a click selects it and the arrows re-pitch it —
+ * ⚠️ WITHOUT a `beat`: `ElementRegistry.pixelXToBeat` keeps the LEFTMOST head of a beat as its
+ * anchor, and a grace stands left of its principal. Its group joins `fanMemberGroupMap` — the map of
+ * pitches drawn outside their `StaveNote` — which is what the selection highlight reads.
+ */
+import type { ChordRest, Clef, Fraction, GraceGroup, KeySignature, NoteDuration } from '@/types/music'
+import type { DrawContext } from '@/engine/paint/DrawContext'
+import type { RenderPass } from './RenderPass'
+import type { EngravedNote } from './engraved/EngravedNote'
+import type { EngravedStave } from './engraved/EngravedStave'
+import { EngravedAccidental } from './engraved/EngravedAccidental'
+import { drawGroupOf } from './painter/svgDrawGroup'
+import { openMemberGroup } from './memberGroup'
+import { maybeStaveOf, staveFrame } from './staff/staveFrame'
+import { chordHeadDisplacement } from './format/chordHeadLayout'
+import { scaling } from '@/engine/paint/Affine'
+import { noteLineY } from '@/engine/engrave/staff/staffFrame'
+import { headGlyph } from '@/engine/engrave/notes/keyLines'
+import { drawNoteHead } from '@/engine/engrave/notes/noteheads'
+import { drawStem } from '@/engine/engrave/notes/stem'
+import { flagPlacement } from '@/engine/engrave/notes/flag'
+import { drawLedgerLines, ledgerLineRuns } from '@/engine/engrave/notes/ledgerLines'
+import { GRACE_SLASH, graceSlash, graceSlashUnflagged } from '@/engine/engrave/notes/graceGroup'
+import { stampGlyph } from '@/engine/engrave/glyph'
+import { accidentalFont, noteFont } from '@/engine/engrave/inheritedFonts'
+import { NOTE_DURATION_ROWS, stemThicknessPx } from '@/engine/engrave/inheritedDefaults'
+import { flagGlyph, glyphBox, noteheadInk } from '@/engine/fonts/fontMetrics'
+import { GLYPH_CODEPOINTS } from '@/engine/fonts/bravuraMetrics'
+import { accidentalExtent } from '@/engine/layout/spacingPadding'
+import { graceLayout, graceScale, graceStemSpaces, hostLeftReach, type SignOf } from '@/engine/layout/graceRoom'
+import { displayedAccidentals } from '@/utils/accidentalState'
+import { staffLineForSpelling } from '@/utils/clefUtils'
+import { spellingDiatonicPos, spellingToMidi } from '@/utils/pitchSpelling'
+import { C_MAJOR } from '@/utils/keySignature'
+
+/** The group class — one per grace group, carrying the scale. */
+export const GRACE_GROUP = 'grace'
+/** One grace note (or chord) inside it — the unit the selection highlight recolours. */
+export const GRACE_NOTE_GROUP = 'gracenote'
+/** How far a grace's ledger line runs past its head, in the GRACE's own px — the fan's 3 px, which
+ *  the group's scale shortens in proportion. */
+const GRACE_LEDGER_OVERHANG = 3
+
+/**
+ * Draw every grace group BEFORE a chord of this lane. `slots` / `staveNotes` are the lane's, index
+ * for index (the fan pass's contract).
+ */
+export function drawGraceNotes(
+  pass: RenderPass,
+  slots: ChordRest[],
+  staveNotes: EngravedNote[],
+  measureNumber: number,
+  staffIndex: number,
+  clefForBeat: (beat: Fraction) => Clef,
+  /** The key governing this lane's bar — the graces' signs are decided with the notes' (one walk). */
+  key: KeySignature = C_MAJOR,
+): void {
+  if (!slots.some(s => s.graceBefore)) return
+  const signs = displayedAccidentals(slots, key)
+  const signOf: SignOf = id => signs.get(id)
+  for (let i = 0; i < slots.length && i < staveNotes.length; i++) {
+    const slot = slots[i]
+    if (!slot.graceBefore) continue
+    const stave = maybeStaveOf(staveNotes[i])
+    if (!stave) continue
+    drawGraceGroup(pass, slot, slot.graceBefore, staveNotes[i], stave, clefForBeat(slot.beat), signOf, measureNumber, staffIndex)
+  }
+}
+
+function drawGraceGroup(
+  pass: RenderPass,
+  /** A chord — or a REST (D7 reversed), whose notes are none. */
+  host: ChordRest,
+  group: GraceGroup,
+  hostNote: EngravedNote,
+  stave: EngravedStave,
+  clef: Clef,
+  signOf: SignOf,
+  measureNumber: number,
+  staffIndex: number,
+): void {
+  const ctx = pass.context
+  const frame = staveFrame(stave)
+  const space = frame.spacePx
+  const k = graceScale()
+  /** Staff px → the grace's own px (inside the `scaling(k)` group). */
+  const local = (v: number): number => v / k
+  const lineOf = (p: { step: Parameters<typeof staffLineForSpelling>[0]; octave: number }) =>
+    staffLineForSpelling(p.step, p.octave, clef)
+
+  const hostX = hostNote.getNoteHeadBeginX()
+  const hostPitches = host.type === 'chord' ? host.notes : []
+  const layout = graceLayout(group, signOf, clef, hostLeftReach(hostPitches, signOf, clef))
+  const ledgerStyle = stave.getDefaultLedgerLineStyle()
+
+  const opened = drawGroupOf(ctx.openGroup(GRACE_GROUP, `${GRACE_GROUP}-${host.id}-before`))
+  opened?.setPlacement(scaling(k))
+  try {
+    for (const place of layout.places) {
+      const { note } = place
+      const headLeft = hostX + place.headX * space // staff px
+      const glyphWidth = noteheadInk(note.duration) * space // the grace's own px: the transform scales it
+      const lines = note.pitches.map(lineOf)
+      const ys = lines.map(line => noteLineY(frame, line))
+      const displaced = chordHeadDisplacement(lines, 1)
+      const headXs = displaced.map(d => local(headLeft) + (d ? glyphWidth : 0)) // grace px
+
+      const noteGroup = openMemberGroup(ctx, GRACE_NOTE_GROUP, `${GRACE_NOTE_GROUP}-${note.pitches[0]?.id}`)
+      try {
+        drawLedgerLines(
+          ctx,
+          ledgerLineRuns(lines.map((line, h) => ({ line, x: headXs[h] })), glyphWidth, GRACE_LEDGER_OVERHANG),
+          line => local(noteLineY(frame, line)),
+          { ...ledgerStyle, lineWidth: (ledgerStyle.lineWidth ?? 1) / k },
+        )
+
+        for (let h = 0; h < note.pitches.length; h++) {
+          const pitch = note.pitches[h]
+          drawNoteHead(ctx, { glyph: headGlyph(note.duration, false), x: headXs[h], y: local(ys[h]), font: noteFont() })
+          const sign = signOf(pitch.id)
+          if (typeof sign === 'string') {
+            // One column: the sign's own extent left of the head (`layout/graceRoom` reserved the same).
+            const reach = accidentalExtent([{ position: spellingDiatonicPos(pitch.step, pitch.octave), sign }]) * space
+            const glyph = new EngravedAccidental(sign).getText()
+            stampGlyph(ctx, glyph, local(headLeft) - reach, local(ys[h]), accidentalFont(glyph))
+          }
+          // ⭐ Registered in STAFF px (the measure's own `withScale` takes it to the page) — and with
+          //    no `beat`, see the header.
+          const headWidthPx = glyphWidth * k
+          const x = headXs[h] * k
+          pass.elementRegistry.add({
+            type: 'note',
+            id: pitch.id,
+            measure: measureNumber,
+            staff: staffIndex,
+            pitch: spellingToMidi(pitch.step, pitch.alter, pitch.octave),
+            duration: note.duration,
+            headX: x + headWidthPx / 2,
+            bbox: { x, y: ys[h] - (space * k) / 2, width: headWidthPx, height: space * k },
+          })
+          if (noteGroup) pass.fanMemberGroupMap.set(pitch.id, { group: noteGroup, noteIndex: h })
+          // ⭐ …and its GEOMETRY, on the fan member's terms, so a REAL slur (the user's — a grace draws
+          //    none of its own) can spring from or land on it: `SlurRenderer` resolves an end here first.
+          pass.fanMemberAnchorMap.set(pitch.id, {
+            staveNote: hostNote, leftX: x, rightX: x + headWidthPx, headY: ys[h],
+            tipY: NOTE_DURATION_ROWS[note.duration].stem ? Math.min(...ys) - graceStemSpaces(lines) * space : ys[h],
+            stemDirection: 1,
+          })
+        }
+
+        drawGraceStem(ctx, {
+          headLeft: local(headLeft), highY: local(Math.min(...ys)), lowY: local(Math.max(...ys)),
+          duration: note.duration, slash: !!group.slash, space, stemSpaces: graceStemSpaces(lines),
+        })
+      } finally {
+        ctx.closeGroup()
+      }
+    }
+
+  } finally {
+    ctx.closeGroup()
+  }
+}
+
+/** One grace's stem, flag and slash, in the GRACE's own px (inside its `scaling(k)` group). */
+export interface GraceStemInk {
+  /** The head's left edge. */
+  headLeft: number
+  /** The highest and lowest head's y. */
+  highY: number
+  lowY: number
+  duration: NoteDuration
+  slash: boolean
+  /** The STAFF's space, px — the rows are staff spaces of the page, not of the grace. */
+  space: number
+  /** How long the stem is, highest head → tip, staff spaces — `graceStemSpaces`, which grows it for
+   *  a grace on ledger lines (Gould p. 126). */
+  stemSpaces: number
+}
+
+/**
+ * ⭐ **A grace's stem, flag and slash** — shared by the page and the tool's ghost, so the preview is the
+ * picture. UP, always (research §0.4), from the lowest head to `stemSpaces` past the highest;
+ * the stem and the slash keep the SYSTEM's weight (÷ k here, × k by the group).
+ */
+export function drawGraceStem(ctx: DrawContext, ink: GraceStemInk): void {
+  // ⭐ What the note HAS — a stem, a flag — asked of the ONE table the real notes read
+  //    (`NOTE_DURATION_ROWS`), ⛔ never a list of today's durations: a new value brings its row.
+  const row = NOTE_DURATION_ROWS[ink.duration]
+  if (!row.stem) return // no stem, no slash either
+  const k = graceScale()
+  const local = (v: number): number => v / k
+  const { space } = ink
+  const stemWeight = local(stemThicknessPx())
+  const glyphWidth = noteheadInk(ink.duration) * space
+  const stemX = ink.headLeft + glyphWidth - stemWeight / 2
+  const tipY = ink.highY - local(ink.stemSpaces * space)
+  drawStem(ctx, { x: stemX, fromY: ink.lowY, toY: tipY }, stemWeight)
+  const flag = row.flag ? flagGlyph(ink.duration, true) : null
+  // Where the flag glyph stands — its origin is also where the slash's anchors are measured from.
+  const at = flagPlacement({ x: stemX, tipY, up: true }, stemWeight, flag ? glyphBox(flag).up * space : 0)
+  if (flag) stampGlyph(ctx, String.fromCodePoint(GLYPH_CODEPOINTS[flag]), at.x, at.baselineY, noteFont())
+  if (ink.slash) {
+    // In the grace's own px, where the flag glyph is full size — the font's anchors are in its units.
+    // ⭐ A FLAG's slash is the font's; a stem with none (a quarter, a half) gets its own position.
+    const slash = row.flag
+      ? graceSlash({ x: at.x, y: at.baselineY }, flag, space)
+      : graceSlashUnflagged(stemX, tipY, space)
+    ctx.beginPath()
+    ctx.setLineWidth(local(GRACE_SLASH.thickness.value * space))
+    ctx.moveTo(slash.x1, slash.y1)
+    ctx.lineTo(slash.x2, slash.y2)
+    ctx.stroke()
+  }
+}

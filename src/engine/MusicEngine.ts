@@ -48,6 +48,7 @@ import { slurCommands } from './commands/slurCommands'
 import { tempoCommands } from './commands/tempoCommands'
 import { trillCommands } from './commands/trillCommands'
 import { tieCommands } from './commands/tieCommands'
+import { graceCommands } from './commands/graceCommands'
 import { spellingToMidi, accidentalToAlter } from '@/utils/pitchSpelling'
 import { alterInForceAt } from '@/utils/accidentalState'
 import type { BeamRole } from '@/utils/beaming'
@@ -2443,6 +2444,8 @@ export class MusicEngine {
 
   // ⭐ A tie's COMMANDS — `flipTie`, the vertical nudge and its reset — are `engine/commands/tieCommands`.
   readonly tie = tieCommands(this.commandContext())
+  /** ⭐ GRACE NOTES' commands — `engine/commands/graceCommands`. */
+  readonly grace = graceCommands(this.commandContext())
 
   /** All phrasing slurs (live array; empty if none). */
   getSlurs(): Slur[] {

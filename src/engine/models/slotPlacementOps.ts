@@ -26,6 +26,7 @@ import { restPositionKey } from './engravingOverrides'
 import * as overrideOps from './overrideOps'
 import { fillGapsWithRests } from './restFillOps'
 import { matchesStaff, staffIdForParams } from './staffContent'
+import { rehomeRestGraces, takeRestGraces, type OrphanGraces } from './restGraceOps'
 
 /**
  * Compact, voice-tagged one-line summary of a slot for debug logs, e.g.
@@ -149,7 +150,12 @@ export function dropRestHiddenOf(score: Score, measure: Measure, rest: Rest): vo
   )
 }
 
-export function evictRestsOverlapping(score: Score, measure: Measure, incoming: ChordRest): string | undefined {
+export function evictRestsOverlapping(
+  score: Score, measure: Measure, incoming: ChordRest,
+  /** ⭐ Where the evicted rests' GRACES go (D7 reversed) — the caller re-homes them once the bar is
+   *  whole again (`restGraceOps.rehomeRestGraces`), exactly as the tie below is migrated. */
+  orphans: OrphanGraces[] = [],
+): string | undefined {
   const incomingDurFrac = slotLength(incoming)
   const incomingVoice = voiceOf(incoming)
   const tieTarget: { id: string; tiedFrom?: string } | undefined =
@@ -178,6 +184,7 @@ export function evictRestsOverlapping(score: Score, measure: Measure, incoming: 
     }
   }
 
+  orphans.push(...takeRestGraces(evicted))
   measure.slots = remaining
   return inheritedTupletId
 }
@@ -187,7 +194,8 @@ export function evictRestsOverlapping(score: Score, measure: Measure, incoming: 
  * Also inherits tupletId from any replaced tuplet rest.
  */
 export function replaceRestsWithChord(score: Score, measure: Measure, chord: Chord): void {
-  const inheritedTupletId = evictRestsOverlapping(score, measure, chord)
+  const orphans: OrphanGraces[] = []
+  const inheritedTupletId = evictRestsOverlapping(score, measure, chord, orphans)
 
   // Apply inherited tupletId
   if (inheritedTupletId && !chord.tupletId) {
@@ -203,6 +211,8 @@ export function replaceRestsWithChord(score: Score, measure: Measure, chord: Cho
 
   // Sort by beat
   measure.slots.sort((a, b) => fracCompare(a.beat, b.beat))
+  // ⭐ The note that took a rest's place takes its GRACE (his rule, 2026-09-22).
+  rehomeRestGraces(measure, orphans)
 }
 
 /**
@@ -224,6 +234,7 @@ export function evictRestsOverlappingChord(score: Score, measure: Measure, chord
   )
   if (evicted.length === 0) return
 
+  const orphans = takeRestGraces(evicted)
   for (const existing of evicted) {
     dbg(`[Model.evictRests] remove overlapping ${fmtSlot(existing)} (chord grew, v${chordVoice})`)
     if (chord.notes.length > 0) migrateRestTieTo(score, existing.id, chord.notes[0].id)
@@ -233,6 +244,7 @@ export function evictRestsOverlappingChord(score: Score, measure: Measure, chord
   measure.slots = remaining
   fillGapsWithRests(score, measure)
   measure.slots.sort((a, b) => fracCompare(a.beat, b.beat))
+  rehomeRestGraces(measure, orphans)
 }
 
 /**
@@ -280,9 +292,11 @@ export function addRestSlot(score: Score, measure: Measure, params: NoteParams):
   // This branch used to `push` and nothing else, which is how a bar reached six beats in 4/4
   // (see evictRestsOverlapping). No gap fill here: this is often the gap-filler's OWN addNote.
   dbg(`[Model.addNote] add REST ${fmtSlot(rest)} → m${measure.number}, replacing same-voice rests`)
-  evictRestsOverlapping(score, measure, rest)
+  const orphans: OrphanGraces[] = []
+  evictRestsOverlapping(score, measure, rest, orphans)
   measure.slots.push(rest)
   measure.slots.sort((a, b) => fracCompare(a.beat, b.beat))
+  rehomeRestGraces(measure, orphans)
   return rest
 }
 

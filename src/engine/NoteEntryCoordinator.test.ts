@@ -7,6 +7,7 @@ import { ElementRegistry } from './ElementRegistry'
 import { fracCreate as frac, fracToNumber } from '@/utils/fraction'
 import { durationToFraction, slotLength } from '@/utils/durations'
 import { staffIndexOfId } from './models/staffContent'
+import { addGrace } from './models/graceOps'
 import type { NoteDuration } from '@/types/music'
 import { tupletSpan, tupletSlotDuration } from '@/utils/musicUtils'
 
@@ -352,5 +353,20 @@ describe('NoteEntryCoordinator — a tuplet governs only its own STAFF', () => {
     const note = coordinator.addNoteAtBeat({ step: 'E', alter: 0, octave: 5, duration: '8', measure: 1, beat: frac(0, 1), staff: 0 })
     expect(note!.tupletId, 'an entry inside its own staff’s tuplet joins it').toBeDefined()
     expect(bottomStaffNotes().every(n => n.tupletId === undefined)).toBe(true)
+  })
+})
+
+/** 🚨 Found 2026-09-22 (grace notes P1): handed a GRACE id, `changeNote` reshaped the host's BAR. */
+describe('NoteEntryCoordinator.updateNote — a GRACE never reaches the rhythm machinery', () => {
+  it('⭐ a duration key on a grace sets its WRITTEN value; the bar keeps every slot', () => {
+    const scoreModel = new ScoreModel('Test')
+    const host = scoreModel.addNote({ step: 'E', octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })
+    scoreModel.addNote({ step: 'E', octave: 5, duration: 'q', measure: 1, beat: frac(1, 1) })
+    const grace = addGrace(scoreModel.getScore(), host.id, 'before', { step: 'D', alter: 0, octave: 5 }, 'acciaccatura', { duration: '8' })!
+    const shape = () => scoreModel.getMeasure(1)!.slots.map(s => `${s.type}:${s.duration}@${fracToNumber(s.beat)}`)
+    const before = shape()
+    makeCoordinator(scoreModel).updateNote(grace.pitches[0].id, { duration: 'h', dots: 0 })
+    expect(shape()).toEqual(before)
+    expect(grace.duration).toBe('h')
   })
 })

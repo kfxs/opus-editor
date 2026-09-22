@@ -1,0 +1,43 @@
+/**
+ * ⭐ **The GRACE tool's PRESS and its LIGHT** (`docs/plans/grace-notes-plan.md` §3) — what the dev
+ * toolbar's `acciacc.` / `appogg.` buttons do, in its own module (`CLAUDE.md`: a new feature adds a
+ * MODULE; the palette lends it its arm/disarm, {@link SpanToolHost}).
+ *
+ * ⭐ D6 (decided 2026-09-22): a press ARMS the stamp. ⏳ What a press does to a SELECTED note is open —
+ * his to find by iteration (plan §3 rule 2) — so until he picks, it arms the stamp exactly as with
+ * nothing selected. ⛔ Nothing is built on either candidate.
+ */
+import { dbg } from '@/utils/debug'
+import type { GraceSide } from '@/types/music'
+import type { GraceForm } from '@/engine/models/graceOps'
+import { armedTool, type EditorState } from '../state/EditorState'
+import { durationHighlight } from '../controllers/keypadSync'
+import type { SpanToolHost } from './spanToolPress'
+
+/** A grace's written value when the duration keys say nothing — an 8th (the convention for a single
+ *  grace, Gould p. 125). ⚠️ A DEFAULT, his *"lets say yes"* on 2026-09-22; a value set by hand wins. */
+const GRACE_DEFAULT_DURATION = '8'
+
+/** Arm the grace stamp for `form` / `side` — or disarm it, when the same one is armed already. */
+export function pressGraceTool(host: SpanToolHost, form: GraceForm, side: GraceSide): void {
+  const armed = armedTool(host.state, 'grace')
+  if (armed && armed.form === form && armed.side === side) {
+    host.disarm()
+    dbg(`[grace] ${form} stamp disarmed`)
+    return
+  }
+  // Read BEFORE arming, as the rest tool does: nothing lit ⇒ nothing was chosen, so the convention's
+  // value; a lit key is a value somebody chose, and it stays.
+  if (!armed && durationHighlight(host.state) === null) {
+    host.state.selectedDuration = GRACE_DEFAULT_DURATION
+    host.state.selectedDots = 0
+  }
+  host.arm({ kind: 'grace', form, side })
+  dbg(`[grace] ${form} stamp armed (${side}, ${host.state.selectedDuration})`)
+}
+
+/** Is the button for `form` / `side` lit? While a tool is armed, only by the ARMED grace tool. */
+export function graceToolLit(state: EditorState, form: GraceForm, side: GraceSide): boolean {
+  const armed = armedTool(state, 'grace')
+  return !!armed && armed.form === form && armed.side === side
+}
