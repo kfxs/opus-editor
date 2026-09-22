@@ -36,6 +36,32 @@ export const GRACE_SLASH = {
 } as const
 
 /**
+ * ⭐ **…and on a stem-DOWN flag** (P6's flip) — the VERTICAL MIRROR: it falls left to right. The font
+ * says so (SMuFL's `graceNoteSlashNW`/`SE` on the down flags; its own glyph U+E565 is E564 mirrored), and
+ * so do Gould (drawn twice, pp. 125–126) and MuseScore. ⚠️ G&L p. 72 and Ross p. 190 say it ALWAYS
+ * rises — a preset if he wants it, not built. Bravura's `flag8thDown` anchors are the rows where a face
+ * or a flag has none.
+ */
+export const GRACE_SLASH_DOWN = {
+  /** Upper-left end — where the glyph E565's origin goes. Staff spaces from the flag origin, y UP. */
+  northWest: { value: [-0.596, 2.168] as const, source: 'Bravura flag8thDown graceNoteSlashNW' },
+  /** Lower-right end. */
+  southEast: { value: [1.328, 0.628] as const, source: 'Bravura flag8thDown graceNoteSlashSE' },
+} as const
+
+/** Where a stem-DOWN flag's slash glyph (E565) stands — its upper-left corner, the grace's own px. */
+export function graceSlashDownOrigin(origin: { x: number; y: number }, flag: GlyphName | null, spacePx: number): { x: number; y: number } {
+  const nw = (flag && anchor(flag, 'graceNoteSlashNW')) || GRACE_SLASH_DOWN.northWest.value
+  return { x: origin.x + nw[0] * spacePx, y: origin.y - nw[1] * spacePx }
+}
+
+/** A stroke reflected about the horizontal line `y = axisY` — a stem-UP slash turned into its stem-DOWN
+ *  mirror (P6). */
+export function mirrorSegment(s: Segment, axisY: number): Segment {
+  return { x1: s.x1, y1: 2 * axisY - s.y1, x2: s.x2, y2: 2 * axisY - s.y2 }
+}
+
+/**
  * The slash for a stem-UP grace, in the grace's OWN px (inside its `scaling(k)` group, where the flag
  * glyph is drawn at full size): from the flag's anchors when the face has them, else {@link GRACE_SLASH}'s
  * rows. `origin` is where the flag glyph is stamped (`flagPlacement`) — or, for a stem with no flag,
@@ -249,6 +275,8 @@ export interface BeamSlashAt {
   /** The page's staff space, px, and the grace size — a page length L is L × space / k here. */
   space: number
   k: number
+  /** The group's stems: `1` up (the default), `-1` down — the slash is then the MIRROR (P6). */
+  stemDirection?: number
 }
 
 /** What a beamed group's slash is — a drawn STROKE, or the font's GLYPH stamped at a baseline point. */
@@ -258,6 +286,19 @@ export type BeamSlash =
 
 /** ⭐ The ARMED preset's slash, grace px — or null for `none`. */
 export function graceSlashOnBeam(at: BeamSlashAt, rule: GraceBeamSlashRule = armedBeamSlash): BeamSlash | null {
+  if (at.stemDirection === -1) {
+    // ⭐ Stems DOWN: the stem-up slash, mirrored about the tip (the beam's edge) — the glyph is E565,
+    //    E564's own mirror, its origin its box's upper-left corner.
+    if (rule === 'bravura') {
+      return {
+        kind: 'glyph', glyph: 'graceNoteSlashStemDown',
+        x: at.stemX - beamSlashAdjust.glyphLeft * at.space,
+        y: at.tipY - beamSlashAdjust.glyphDown * at.space,
+      }
+    }
+    const up = graceSlashOnBeam({ ...at, stemDirection: 1, slope: -at.slope, headY: 2 * at.tipY - at.headY }, rule)
+    return up?.kind === 'stroke' ? { ...up, segment: mirrorSegment(up.segment, at.tipY) } : up
+  }
   const page = (sp: number) => (sp * at.space) / at.k // a page length, in the grace's own px
   if (rule === 'bravura') {
     // The glyph's origin is its box's lower-left corner (E564: 0 → 2.02 right, 0 → 1.604 up).

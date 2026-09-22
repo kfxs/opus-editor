@@ -12,6 +12,7 @@ import { GRACE_BEAM_GROUP, GRACE_GROUP, GRACE_NOTE_GROUP } from './GracePass'
 import { sceneGroups, scenePrimitives, type SceneGroup } from '@/engine/scene/Scene'
 import { graceScale } from '@/engine/layout/graceRoom'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
+import { GLYPH_CODEPOINTS } from '@/engine/fonts/bravuraMetrics'
 import { fracCreate as frac } from '@/utils/fraction'
 import type { NoteDuration, PitchSpelling } from '@/types/music'
 
@@ -293,5 +294,40 @@ describe('GracePass — a BEAMED group (P2b)', () => {
   it('a QUARTER breaks the run — no beam, and the 8ths keep their flags', () => {
     const g = group('8', 'q', '8')
     expect(sceneGroups(g, GRACE_BEAM_GROUP)).toHaveLength(0)
+  })
+})
+
+describe('GracePass — STEMS DOWN (P6, `X`)', () => {
+  const glyphs = (g: SceneGroup) => scenePrimitives(g).flatMap(p => (p.kind === 'text' ? [p.text] : []))
+  /** The graces before bar 1's second note, flipped when `down`. */
+  const drawn = (down: boolean, durations: NoteDuration[] = ['8'], form: GraceForm = 'acciaccatura') => {
+    const { model, host } = build()
+    const steps: PitchSpelling['step'][] = ['D', 'C', 'B']
+    durations.forEach((duration, i) =>
+      addGrace(model.getScore(), host.id, 'before', { step: steps[i], alter: 0, octave: 5 }, form, { duration }))
+    const slot = model.getMeasure(1)!.slots.find(s => s.type === 'chord' && s.graceBefore)!
+    if (down && slot.type === 'chord') slot.graceBefore!.stemDirection = 'down'
+    return sceneGroups(render(model).scene, GRACE_GROUP)[0]
+  }
+
+  it('⭐ a flipped grace takes the DOWN flag and the DOWN slash glyph (E565) — ⛔ neither up one', () => {
+    const up = glyphs(drawn(false))
+    const down = glyphs(drawn(true))
+    const cp = (name: keyof typeof GLYPH_CODEPOINTS) => String.fromCodePoint(GLYPH_CODEPOINTS[name])
+    expect(up).toEqual(expect.arrayContaining([cp('flag8thUp'), cp('graceNoteSlashStemUp')]))
+    expect(down).toEqual(expect.arrayContaining([cp('flag8thDown'), cp('graceNoteSlashStemDown')]))
+    expect(down).not.toContain(cp('flag8thUp'))
+    expect(down).not.toContain(cp('graceNoteSlashStemUp'))
+  })
+
+  it('⭐ a flipped BEAMED group: its beam lies BELOW the heads; its slash is E565', () => {
+    const lowestY = (g: SceneGroup) => Math.max(...scenePrimitives(g).flatMap(p => (p.kind === 'path'
+      ? p.ops.flatMap(op => ('y' in op ? [op.y as number] : [])) : [])))
+    const headY = (g: SceneGroup) => Math.max(...sceneGroups(g, 'notehead').flatMap(n => n.children.flatMap(c => (c.kind === 'text' ? [c.y] : []))))
+    const up = drawn(false, ['8', '8'])
+    const down = drawn(true, ['8', '8'])
+    expect(lowestY(sceneGroups(up, GRACE_BEAM_GROUP)[0])).toBeLessThan(headY(up))
+    expect(lowestY(sceneGroups(down, GRACE_BEAM_GROUP)[0])).toBeGreaterThan(headY(down))
+    expect(glyphs(sceneGroups(down, GRACE_BEAM_GROUP)[0])).toEqual([String.fromCodePoint(GLYPH_CODEPOINTS.graceNoteSlashStemDown)])
   })
 })

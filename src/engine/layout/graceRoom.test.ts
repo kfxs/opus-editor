@@ -91,9 +91,23 @@ describe('graceStemSpaces — Gould p. 126: a grace on ledger lines gets a stem 
   it('a chord measures from its HIGHEST head', () => {
     expect(graceStemSpaces([-1.5, 1])).toBe(GRACE_ROWS.stem.value) // the E4 head already reaches
   })
+
+  it('⭐ stems DOWN (P6): the MIRROR — a grace ABOVE the staff on ledgers grows; below it never does', () => {
+    expect(graceStemSpaces([7.5], true)).toBeCloseTo(3.3, 9) // mirror of G3's 3.3
+    expect(graceStemSpaces([8], true)).toBeCloseTo(3.8, 9)
+    expect(graceStemSpaces([-1.5], true)).toBe(GRACE_ROWS.stem.value) // below: its ledgers are on the far side
+    expect(graceStemSpaces([7.5, 5], true)).toBe(GRACE_ROWS.stem.value) // measured from the LOWEST head
+  })
 })
 
 describe('graceLayout — a DOTTED grace: the NORMAL note\'s dot rule, at the grace\'s size', () => {
+  it('⭐ a stem-DOWN grace\'s flag hangs under its head — nothing for the dot to clear (P6)', () => {
+    const [up] = graceDotXs({ duration: '8', dots: 1 })
+    const [down] = graceDotXs({ duration: '8', dots: 1 }, false, true)
+    expect(down).toBeLessThan(up)
+    expect(down).toBeCloseTo(graceDotXs({ duration: '8', dots: 1 }, true)[0], 9) // as a beamed one
+  })
+
   const px = (sp: number) => sp * STAFF_SPACE_PX
   it('⭐ a flagged (stem-up) grace: head + VexFlow\'s 2 px + the FLAG\'s width — as a normal dotted 8th', () => {
     const [first] = graceDotXs({ duration: '8', dots: 1 })

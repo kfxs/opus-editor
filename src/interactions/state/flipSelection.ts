@@ -121,7 +121,18 @@ export function flipSelection(state: EditorState, engine: MusicEngine): boolean 
   //   notes, and hit X but only the first is flipping"*. This used to read `selectedNoteId` alone,
   //   the selection's ANCHOR. Each beam group is turned once however many of its notes are selected
   //   (`models/stemOps.stemFlipTargets`); the anchor is still the answer when it is all there is.
-  const noteIds = selectedNoteIds(state.selectedItems.values())
+  // ⭐ GRACES flip their GROUP's stems (P6) — a grace's direction is its group's, not its own — and
+  //    the other notes flip as before, all in ONE undo entry.
+  const allIds = selectedNoteIds(state.selectedItems.values())
+  const graceIds = allIds.filter(id => engine.isGraceNote(id))
+  if (graceIds.length) {
+    const others = allIds.filter(id => !graceIds.includes(id))
+    return engine.runBatch('Flip stems', () => {
+      engine.grace.flipGraceStems(graceIds)
+      for (const noteId of stemFlipTargets(engine.getScore(), others)) engine.flipStemDirection(noteId)
+    })
+  }
+  const noteIds = allIds
   if (noteIds.length > 1) {
     const targets = stemFlipTargets(engine.getScore(), noteIds)
     return engine.runBatch(`Flip ${targets.length} stem(s)`, () => {

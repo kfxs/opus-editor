@@ -279,6 +279,17 @@ describe('graceOps', () => {
       expect('slash' in chordOf(host.id).graceBefore!).toBe(false)
     })
 
+    it('⭐ flipGraceStems (P6, `X`): up ↔ down, each GROUP once however many of its graces are named', () => {
+      const host = quarter()
+      const a = graceOps.addGrace(score, host.id, 'before', D4, 'appoggiatura', EIGHTH)!
+      const b = graceOps.addGrace(score, host.id, 'before', E4, 'appoggiatura', EIGHTH)!
+      expect(graceOps.flipGraceStems(score, [a.pitches[0].id, b.pitches[0].id])).toBe(1)
+      expect(chordOf(host.id).graceBefore!.stemDirection).toBe('down')
+      expect(graceOps.flipGraceStems(score, [b.pitches[0].id])).toBe(1)
+      expect('stemDirection' in chordOf(host.id).graceBefore!).toBe(false) // UP is absent
+      expect(graceOps.flipGraceStems(score, [host.id])).toBe(0)
+    })
+
     it('the stem: null DELETES the field rather than pinning UP', () => {
       const host = quarter()
       graceOps.addGrace(score, host.id, 'before', D4, 'appoggiatura', EIGHTH)

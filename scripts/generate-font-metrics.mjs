@@ -73,7 +73,7 @@ const GLYPHS = {
   //   are not using a glyph for the slash … an hand engraver had a tool for this"*) — stamped on a
   //   beamed acciaccatura's first stem. ⛔ Not the precomposed graces (E560–E563): SMuFL asks engines to
   //   build a grace from its parts, and this slash IS one of the parts.
-  graces: ['graceNoteSlashStemUp'],
+  graces: ['graceNoteSlashStemUp', 'graceNoteSlashStemDown'],
 
   // ⭐ The REPEAT BARLINE'S WINGS — the flared tips a "winged" repeat carries at the top and bottom
   //   of its thick line (his ask, 2026-08-26). ⛔ SMuFL has no wing glyph: every engine that draws

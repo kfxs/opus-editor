@@ -5,7 +5,7 @@
  *
  * ⛔ No `mutate` on a refusal: an edit that changed nothing leaves no undo entry.
  */
-import { addGrace, addGracePitch, isGraceNote, setGraceForm, setGraceWritten, type GraceForm, type GraceSpelling, type GraceWritten } from '../models/graceOps'
+import { addGrace, addGracePitch, flipGraceStems, isGraceNote, setGraceForm, setGraceWritten, type GraceForm, type GraceSpelling, type GraceWritten } from '../models/graceOps'
 import type { ArticulationType, Fraction, GraceNote, GraceSide, NotePitch } from '@/types/music'
 import { beatRestAt } from '../models/restGraceOps'
 import { findSlot, offsetTargetOf } from '../models/slotLookup'
@@ -50,6 +50,16 @@ export function graceCommands(ctx: CommandContext) {
       for (const id of gracePitchIds) changed = setGraceWritten(score, id, written) || changed
       if (changed) ctx.mutate('Grace value')
       return changed
+    },
+
+    /**
+     * ⭐ `X` on selected graces — their groups' stems up ↔ down (P6), ONE undo entry.
+     * @see flipGraceStems
+     */
+    flipGraceStems(gracePitchIds: readonly string[]): boolean {
+      if (!flipGraceStems(ctx.model().getScore(), gracePitchIds)) return false
+      ctx.mutate('Flip grace stems')
+      return true
     },
 
     /**

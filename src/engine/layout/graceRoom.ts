@@ -118,17 +118,25 @@ export function resetGraceSize(): void {
 }
 
 /**
- * A grace's stem length, from its HIGHEST head's centre to the tip (the stem is always up), in staff
- * spaces — {@link GRACE_ROWS}.stem, ⭐ lengthened for a grace on ledger lines BELOW the staff until the
- * tip stands {@link GRACE_ROWS}.ledgerClearance beyond the ledger nearest the staff (Gould p. 126).
- * A grace above the staff never needs it: its ledgers are on the head's far side from the stem.
+ * A grace's stem length, from the head NEAREST its tip (the highest, stems up; the lowest, stems down)
+ * to the tip, in staff spaces — {@link GRACE_ROWS}.stem, ⭐ lengthened when the stem runs THROUGH the
+ * ledger lines (a grace BELOW the staff stems up, or ABOVE it stems down) until the tip stands
+ * {@link GRACE_ROWS}.ledgerClearance beyond the ledger nearest the staff (Gould p. 126). A stem that
+ * runs away from its ledgers never needs it.
  *
  * @param lines the grace's heads as staff lines (`staffLineForSpelling`: bottom line 1, the first
- *   ledger below it 0). Absent = the plain length (the tool's ghost, which stands on no staff).
+ *   ledger below it 0, the first above it 6). Absent = the plain length (the tool's ghost).
+ * @param down the group's stems point DOWN (`GraceGroup.stemDirection`, P6's flip) — the rule mirrored.
  */
-export function graceStemSpaces(lines: readonly number[] = []): number {
+export function graceStemSpaces(lines: readonly number[] = [], down = false): number {
   const base = GRACE_ROWS.stem.value
-  if (lines.length === 0 || Math.min(...lines) > 0) return base
+  if (lines.length === 0) return base
+  if (down) {
+    // The ledger nearest the staff above it is line 6; the tip must reach line 6 − clearance.
+    if (Math.max(...lines) < 6) return base
+    return Math.max(base, Math.min(...lines) - (6 - GRACE_ROWS.ledgerClearance.value))
+  }
+  if (Math.min(...lines) > 0) return base
   // The ledger nearest the staff is line 0; the tip must reach line 0 + clearance.
   return Math.max(base, GRACE_ROWS.ledgerClearance.value - Math.max(...lines))
 }
@@ -192,10 +200,11 @@ export interface GracePlace {
  * ⚠️ "Flagged" is the duration's own count (`durationFlags`) — ⭐ unless the grace is BEAMED (P2b,
  * `engrave/notes/graceBeam`): a beamed grace draws no flag, so its dot has none to clear.
  */
-export function graceDotXs(note: Pick<GraceNote, 'duration' | 'dots'>, beamed = false): number[] {
+export function graceDotXs(note: Pick<GraceNote, 'duration' | 'dots'>, beamed = false, down = false): number[] {
   const px = (v: number) => v / STAFF_SPACE_PX
   const base = px(MODIFIER_RIGHT_GAP_PX)
-  const flag = !beamed && durationFlags(note.duration) > 0 ? flagGlyph(note.duration, true) : null
+  // A stem-DOWN flag hangs under the head from its left edge: nothing for a dot to clear (P6).
+  const flag = !beamed && !down && durationFlags(note.duration) > 0 ? flagGlyph(note.duration, true) : null
   const push = flag ? glyphBox(flag).right : Math.max(0, armedDotGap().head - base)
   const first = noteheadInk(note.duration) + base + push
   const step = glyphBox('augmentationDot').right + Math.max(px(VEXFLOW_DOT_SPACING), armedDotGap().dot)
@@ -203,8 +212,8 @@ export function graceDotXs(note: Pick<GraceNote, 'duration' | 'dots'>, beamed = 
 }
 
 /** How far right of its anchor a grace's dots reach, own staff spaces — 0 with none. */
-function graceDotReach(note: GraceNote, beamed: boolean): number {
-  const xs = graceDotXs(note, beamed)
+function graceDotReach(note: GraceNote, beamed: boolean, down: boolean): number {
+  const xs = graceDotXs(note, beamed, down)
   return xs.length ? xs[xs.length - 1] + glyphBox('augmentationDot').right : 0
 }
 
@@ -241,7 +250,7 @@ export function graceLayout(group: GraceGroup, signOf: SignOf, clef: Clef, hostR
     const note = group.notes[i]
     const headWidth = headsWidth(note.pitches) * k
     // A DOT stands between this grace and whatever follows it: the gap is measured to its ink.
-    const rightInk = Math.max(headWidth, graceDotReach(note, beamed.has(i)) * k)
+    const rightInk = Math.max(headWidth, graceDotReach(note, beamed.has(i), group.stemDirection === 'down') * k)
     const headX = right - rightInk
     places.unshift({ note, headX, headWidth, rightInk })
     leftEdge = headX - leftInk(note.pitches, signOf, clef) * k

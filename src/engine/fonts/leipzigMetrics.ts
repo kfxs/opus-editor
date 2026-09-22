@@ -1,16 +1,16 @@
 /**
  * ⛔⛔ **GENERATED — DO NOT EDIT.** `node scripts/generate-font-metrics.mjs`
  *
- * Leipzig's table for the 81 glyphs the editor draws — the SAME shape as
+ * Leipzig's table for the 82 glyphs the editor draws — the SAME shape as
  * `bravuraMetrics.ts`, total over the same `GlyphName` union, read by `fontMetrics` when the face is
  * the active one (`fonts/musicFont`, `docs/plans/music-font-switch-plan.md` Phase B).
  *
  * ⭐ **Boxes measured from `public/fonts/Leipzig.otf`**; anchors and engraving defaults from the face's own
  * metadata (`scripts/vendor/Leipzig.json`), which is the only place they exist.
  *
- * 🚨 **8 glyph(s) this face does not draw are BRAVURA'S, whole** — box and anchors
+ * 🚨 **9 glyph(s) this face does not draw are BRAVURA'S, whole** — box and anchors
  * together, because the drawing is Bravura's too (the font stack falls through to it):
- * `graceNoteSlashStemUp`, `reversedBracketTop`, `reversedBracketBottom`, `braceSmall`, `braceLarge`, `braceLarger`, `braceFlat`, `bracket`.
+ * `graceNoteSlashStemUp`, `graceNoteSlashStemDown`, `reversedBracketTop`, `reversedBracketBottom`, `braceSmall`, `braceLarge`, `braceLarger`, `braceFlat`, `bracket`.
  * ⛔ A glyph the face DOES draw never borrows a Bravura anchor: it has what its own metadata states.
  *
  * ⚠️ Engraving defaults the face does not state, taken from Bravura: `thinThickBarlineSeparation`.
@@ -31,7 +31,7 @@ export const LEIPZIG = {
 } as const
 
 /** The glyphs below that are Bravura's, not this face's — drawn, measured and anchored in Bravura. */
-export const FALLBACK_GLYPHS: readonly GlyphName[] = ['graceNoteSlashStemUp', 'reversedBracketTop', 'reversedBracketBottom', 'braceSmall', 'braceLarge', 'braceLarger', 'braceFlat', 'bracket']
+export const FALLBACK_GLYPHS: readonly GlyphName[] = ['graceNoteSlashStemUp', 'graceNoteSlashStemDown', 'reversedBracketTop', 'reversedBracketBottom', 'braceSmall', 'braceLarge', 'braceLarger', 'braceFlat', 'bracket']
 
 /** The engraving defaults below that this face's metadata does not state — Bravura's values. */
 export const FALLBACK_DEFAULTS: readonly string[] = ['thinThickBarlineSeparation']
@@ -67,6 +67,7 @@ export const GLYPH_BOXES: Record<GlyphName, GlyphBox> = {
   repeatDot: { left: 0, right: 0.4, up: 0.2, down: 0.2, advance: 0.4 },
   // graces
   graceNoteSlashStemUp: { left: 0, right: 2.02, up: 1.604, down: 0, advance: 2.02 }, // ← Bravura
+  graceNoteSlashStemDown: { left: 0, right: 2.02, up: 0, down: 1.604, advance: 2.02 }, // ← Bravura
   // barlineWings
   bracketTop: { left: 0, right: 1.596, up: 1.128, down: 0, advance: 1.596 },
   bracketBottom: { left: 0, right: 1.596, up: 0, down: 1.128, advance: 1.596 },

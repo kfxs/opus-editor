@@ -272,6 +272,25 @@ export function setGraceStem(score: Score, noteId: string, side: GraceSide, dire
 }
 
 /**
+ * ⭐ **Flip the STEMS of the groups these graces belong to** — up ↔ down, `X` on selected graces (P6;
+ * Gould p. 126: the lower part of two on a stave takes down-stems). The direction is the GROUP's, so
+ * each group turns ONCE however many of its graces are named; UP is absent (the default's only
+ * spelling). @returns how many groups turned.
+ */
+export function flipGraceStems(score: Score, gracePitchIds: readonly string[]): number {
+  const turned = new Set<GraceGroup>()
+  for (const id of gracePitchIds) {
+    const found = findSlot(score, id, { graceNotes: true })
+    if (!found?.grace) continue
+    const group = graceGroupOf(found.type === 'chord' ? found.chord : found.rest, found.grace.side)
+    if (!group || turned.has(group)) continue
+    turned.add(group)
+    setGraceStem(score, id, found.grace.side, group.stemDirection === 'down' ? null : 'down')
+  }
+  return turned.size
+}
+
+/**
  * ⛔ **Report, never repair** (`docs/plans/json-io-plan.md`) — what a loaded file says about graces
  * that this build cannot hold as written. `MusicEngine.loadJSON` warns each line; nothing is changed.
  */

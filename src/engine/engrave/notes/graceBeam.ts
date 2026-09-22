@@ -28,7 +28,8 @@ export interface GraceBeamNote {
   stemX: number
   /** The stem's free end before the beam (`graceRoom.graceStemSpaces` past the highest head) — grace px. */
   tipY: number
-  /** The staff line (VexFlow's: 1 = a space) of the head NEAREST the beam — the highest, stems up. */
+  /** The staff line (VexFlow's: 1 = a space) of the head NEAREST the beam — the highest stems up, the
+   *  lowest stems down. */
   beamSideLine: number
 }
 
@@ -44,6 +45,8 @@ export interface GraceBeamInput {
   stemWidth: number
   /** The page beam's closing overshoot past its last stem (`EngravedBeam`'s), px. */
   endOvershoot?: number
+  /** The group's stems: `1` up (the default), `-1` down — P6's flip. */
+  stemDirection?: number
 }
 
 export interface GraceBeam {
@@ -51,14 +54,11 @@ export interface GraceBeam {
   tipYs: number[]
   /** Every line of the beam. */
   lines: BeamLineInk[]
-  /** One line's thickness, SIGNED as the page's is (stems up ⇒ the lines stack toward the heads). */
+  /** One line's thickness, SIGNED as the page's is — the lines stack toward the heads either way. */
   thickness: number
   /** Rise over run — what the slash on it is tilted by (P2c). */
   slope: number
 }
-
-/** Stems UP (the group's `stemDirection`, P1: always up until P6's `X`). */
-const STEM_UP = 1
 
 /**
  * ⭐ **Which graces of a group share a beam** — runs of consecutive FLAGGED graces (an 8th or shorter,
@@ -94,6 +94,7 @@ function writtenTicks(duration: NoteDuration, dots = 0): number {
 /** ⭐ One run's beam — see the module header. The run must be two or more graces, in order. */
 export function graceBeam(input: GraceBeamInput): GraceBeam {
   const { notes, space, beamWidth } = input
+  const dir = input.stemDirection ?? 1
   const first = notes[0]
   const last = notes[notes.length - 1]
   const levels = notes.map(n => NOTE_DURATION_ROWS[n.duration].beamCount ?? 0)
@@ -110,18 +111,19 @@ export function graceBeam(input: GraceBeamInput): GraceBeam {
     }, input.rule) / widthSpaces
     : 0
   const { slope, lift } = fitBeamSlope({
-    stemDirection: STEM_UP,
+    stemDirection: dir,
     notes: notes.map(n => ({ stemX: n.stemX, tipY: n.tipY, counts: true })),
     range,
   })
 
   // Every stem to the line — its new tip is the line's y at its x.
-  const line = { firstStemX: first.stemX, firstY: first.tipY, slope, lift, stemDirection: STEM_UP, beamWidth }
+  const line = { firstStemX: first.stemX, firstY: first.tipY, slope, lift, stemDirection: dir, beamWidth }
+  // An extension lengthens the stem AWAY from its head: up for stems up, down for stems down.
   const tipYs = notes.map((n, i) =>
-    n.tipY - beamedStemExtension({ stemX: n.stemX, tipY: n.tipY, extension: 0, stemDirection: STEM_UP, beamLevels: levels[i] }, line))
+    n.tipY - dir * beamedStemExtension({ stemX: n.stemX, tipY: n.tipY, extension: 0, stemDirection: dir, beamLevels: levels[i] }, line))
 
   // The lines, level by level — the page's spans, so an 8th + 16th draws a fractional beam by its rule.
-  const thickness = beamWidth * STEM_UP
+  const thickness = beamWidth * dir
   const firstLevelY = tipYs[0]
   const lines: BeamLineInk[] = []
   const spanNotes = notes.map(n => {

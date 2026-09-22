@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach } from 'vitest'
-import { BEAM_SLASH_ADJUST_DEFAULT, GRACE_SLASH, GRACE_SLASH_UNFLAGGED, graceBeamSlashRule, resetBeamSlashAdjustment, setBeamSlashAdjustment, graceSlash, graceSlashOnBeam, setGraceBeamSlashRule, type BeamSlashAt, type Segment, graceSlashGeneration, graceSlashUnflagged, resetUnflaggedSlash, setUnflaggedSlash, unflaggedSlashSettings } from './graceGroup'
+import { BEAM_SLASH_ADJUST_DEFAULT, GRACE_SLASH_DOWN, graceSlashDownOrigin, mirrorSegment, GRACE_SLASH, GRACE_SLASH_UNFLAGGED, graceBeamSlashRule, resetBeamSlashAdjustment, setBeamSlashAdjustment, graceSlash, graceSlashOnBeam, setGraceBeamSlashRule, type BeamSlashAt, type Segment, graceSlashGeneration, graceSlashUnflagged, resetUnflaggedSlash, setUnflaggedSlash, unflaggedSlashSettings } from './graceGroup'
 import { anchor } from '@/engine/fonts/fontMetrics'
 
 describe('graceSlash — where the font says the slash goes', () => {
@@ -129,5 +129,34 @@ describe('graceSlashOnBeam — ONE slash across a beamed group\'s first stem (P2
     expect(setGraceBeamSlashRule('lilypond')).toBe(true)
     expect(graceSlashGeneration()).toBe(before + 1)
     setGraceBeamSlashRule('bravura')
+  })
+})
+
+describe('stems DOWN (P6) — the slash is the MIRROR (the font, Gould, MuseScore; ⚠️ G&L and Ross say it always rises)', () => {
+  const SPACE = 10
+  const at: BeamSlashAt = { stemX: 100, stemWeight: 1.5, tipY: 90, headY: 55, slope: 0, headWidth: 11.8, space: SPACE, k: 2 / 3, stemDirection: -1 }
+  afterEach(() => resetBeamSlashAdjustment())
+
+  it('a down FLAG\'s slash glyph stands at its NW anchor — Bravura\'s flag8thDown values where a face has none', () => {
+    const o = graceSlashDownOrigin({ x: 0, y: 0 }, null, SPACE)
+    const [nx, ny] = GRACE_SLASH_DOWN.northWest.value
+    expect(o).toEqual({ x: nx * SPACE, y: -ny * SPACE })
+  })
+
+  it('⭐ BRAVURA on a down beam: E565, its upper-left corner ABOVE the tip by the same glyphDown', () => {
+    expect(graceSlashOnBeam(at)).toEqual({
+      kind: 'glyph', glyph: 'graceNoteSlashStemDown',
+      x: 100 - BEAM_SLASH_ADJUST_DEFAULT.glyphLeft * SPACE,
+      y: 90 - BEAM_SLASH_ADJUST_DEFAULT.glyphDown * SPACE,
+    })
+  })
+
+  it('MUSESCORE and LILYPOND on a down beam: the stem-up stroke reflected about the tip', () => {
+    for (const rule of ['musescore', 'lilypond'] as const) {
+      const down = graceSlashOnBeam(at, rule)!
+      const up = graceSlashOnBeam({ ...at, stemDirection: 1, headY: 2 * at.tipY - at.headY }, rule)!
+      if (down.kind !== 'stroke' || up.kind !== 'stroke') throw new Error('strokes')
+      expect(down.segment).toEqual(mirrorSegment(up.segment, at.tipY))
+    }
   })
 })

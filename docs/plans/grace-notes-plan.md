@@ -1,6 +1,6 @@
 # Grace notes — appoggiatura, acciaccatura, Nachschlag: the plan
 
-> **Status: P0 and P1 committed (2026-09-22), + the offset, the arrows and the rest fixes; P2 planned, P2a (the click behaves like note entry) committed, P2b (the beam) + a selected grace's form committed, P2c (the slash — the font's glyph) committed; ⛔ P2d dropped (the user's value is correct). P2 COMPLETE. P3 (playback) built. Next: his pick.** 📄 The research is `docs/research/grace-notes-research.md`
+> **Status: P0 and P1 committed (2026-09-22), + the offset, the arrows and the rest fixes; P2 planned, P2a (the click behaves like note entry) committed, P2b (the beam) + a selected grace's form committed, P2c (the slash — the font's glyph) committed; ⛔ P2d dropped (the user's value is correct). P2 COMPLETE. P3 (playback) committed, P6's flip (`X`) built. Next: his pick.** 📄 The research is `docs/research/grace-notes-research.md`
 > (four sources folded into one file; its §0 is the synthesis this plan reads). ⛔ This plan is the place
 > the DECISIONS get made: §0 marks each as ✅ DECIDED (his word, with the date) or ⏳ PROPOSED — until he
 > says so it is a default, not a decision (`feedback_an_open_question_is_not_a_decision`). ✅ D1 · D2 ·
@@ -237,7 +237,7 @@ is the precedent):
 | middle-line rule for grace stems | **OFF** | all three engines switch it off |
 | ⭐ a grace on LEDGER lines below the staff | ✅ 2026-09-22, his *"yes do it"*: the STEM grows until its tip stands **1.8 sp beyond the ledger nearest the staff** (`graceRoom.GRACE_ROWS.ledgerClearance`); the slash keeps its place under the tip | Gould p. 126 — *"a sufficiently long stem for the diagonal stroke not to obscure a ledger line"*, her and/not pair measured (research §0.8, §E.2); ⚠️ the 1.8 is DERIVED from her drawings (G3 3.25 · F3 3.77 · B3 2.68 sp) — no book states a number; ⛔ no engine implements it |
 | stem thickness | **unscaled** (system weight) | Gould's grace plate does not thin it (`docs/research/stem-thickness-research.md` §2.4); ⚠️ the `scale(k)` group WOULD thin it — the stem's stroke is `/k`, as the barline sign keeps the system's weight on a small staff |
-| stem direction | **up** (D1's group flag) | research §0.4 |
+| stem direction | **up** (D1's group flag) — `X` flips the group DOWN (P6) | research §0.4; Gould p. 126 (the lower part of two takes down-stems) |
 | slash: where it runs | ⭐ **the FONT's anchors** — `graceNoteSlashSW`→`NE` on the flag (Bravura's 8th: 1.93 × 1.66 sp at full size ⇒ ≈1.3 × 1.1 at 2/3); where a face or a flag has none, **Bravura's 8th anchors as the rows**; weight **0.09 sp** | ✅ his call 2026-09-22 after a side-by-side (*"very ugly"*): the first rows, measured off Gould's plate (2.1 sp · 40° · 1.15 sp past the stem), reached far past the flag of a 2/3 note. MuseScore (flag's right edge, 40°), Verovio (0.375 left → 0.75 right, 45°) and LilyPond (a flag-stroke GLYPH, ≈0.4 → 0.55) all stay inside the flag; ⛔ never SMuFL's precomposed E560–E563 (SMuFL; Leipzig has none) |
 | slash on a beamed group | **one, on the first stem** — ⭐ a PRESET (P2c): `musescore` armed · `lilypond` · `none` | Gould p. 126 *may*; Stone *must*; G&L *never*; MuseScore draws one, LilyPond only under `\slashedGrace`, Verovio none |
 | slur | **below, notehead to notehead**; above when it would hit the main note's accidental or ledgers | Gould pp. 129–130; measured: starts at the grace head's centre, ends 0.17 sp left of the main head's, 0.35–0.5 sp below |
@@ -545,8 +545,19 @@ selectable in this plan; the press toggles it (§3.2).
   iteration.*
 - **P5 — grace AFTER.** `graceAfter` through every seam above (right ink, the last piece of a split,
   the end of the note in playback); the third button comes alive.
-- **P6 — the toggles.** The slash toggle on a selected grace (whatever gesture P4 settles on);
-  `setGraceStem` / `setGraceSlur` reachable from the console until Properties has rows.
+- **P6 — the toggles.** ✅ **The slash** is a grace button on a selected grace (§3 rule 2, P2b's commit).
+  ✅ **THE FLIP — BUILT 2026-09-22, ⏳ his UI check:** `X` on selected graces turns their GROUP's stems
+  up ↔ down (`graceOps.flipGraceStems`, once per group, ONE undo entry, with any other selected notes'
+  stems; `interactions/state/flipSelection`). Gould p. 126: *"Grace notes take up-stems … the lower part
+  [of two on a stave] takes down-stems"*. Everything that drew UP draws the MIRROR: the stem on the head's
+  left edge past the lowest head · the down FLAG · the ledger rule mirrored (a grace ABOVE the staff grows,
+  `graceStemSpaces(lines, down)`) · a displaced chord head goes LEFT · the auto articulation side flips ·
+  the dot has no flag to clear · the slur anchor · the BEAM under the heads (`graceBeam`'s `stemDirection`)
+  · the SLASH mirrored — ⭐ the font's own U+E565 at the down flag's `graceNoteSlashNW` (Bravura's
+  `flag8thDown` values stand in), and on a down beam E565 by the same `glyphLeft`/`glyphDown`, above the
+  tip (the drawn presets reflected about the tip). ⚠️ G&L p. 72 and Ross p. 190: the slash ALWAYS rises,
+  whatever the stem — a preset if he wants it, not built. E565 joins the font tables.
+  ⏭️ `setGraceSlur` is gone (D3 reversed); the ghost still previews a stem-up grace.
 
 ⛔ **Never `vitest` + e2e at once**; the browser suite runs either side of P1, P2 and P5 (renderer
 changes), `build:check` after every phase.

@@ -43,6 +43,24 @@ describe('flipSelection — the `x` key', () => {
       engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(i, 1) })!.id)
   })
 
+  it('⭐ GRACES flip their GROUP\'s stems (P6) — once per group, and their main note is untouched', () => {
+    const g1 = engine.grace.addGrace(noteIds[1], 'before', { step: 'D', alter: 0, octave: 4 }, 'appoggiatura', { duration: '8' })!
+    const g2 = engine.grace.addGrace(noteIds[1], 'before', { step: 'E', alter: 0, octave: 4 }, 'appoggiatura', { duration: '8' })!
+    const ids = [g1.pitches[0].id, g2.pitches[0].id]
+    state.selectedItems = new Map(ids.map(id => [`note:${id}`, { kind: 'note' as const, id }]))
+    state.selectedNoteId = ids[0]
+    const group = () => {
+      const slot = engine.getScore().measures[0].slots.find(s => s.type === 'chord' && s.graceBefore)!
+      return slot.type === 'chord' ? slot.graceBefore! : null
+    }
+    const mainStem = engine.getNote(noteIds[1])!.stemDirection
+    expect(flipSelection(state, engine)).toBe(true)
+    expect(group()!.stemDirection).toBe('down')
+    expect(engine.getNote(noteIds[1])!.stemDirection).toBe(mainStem)
+    engine.undo()
+    expect(group()!.stemDirection).toBeUndefined() // ONE undo entry
+  })
+
   it('⭐⭐ an OTTAVA flips its DIRECTION — 8va → 8vb, his request of 2026-08-17', () => {
     const ottava = engine.ottava.createOttava([noteIds[0]], 1)!
     state.selectedElement = { kind: 'ottava', id: ottava.id }
