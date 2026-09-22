@@ -1,8 +1,12 @@
 import { describe, it, expect, afterEach } from 'vitest'
 import type { GraceGroup, Measure, NotePitch } from '@/types/music'
-import { GRACE_ROWS, graceLayout, graceScale, graceSizeGeneration, graceStemSpaces, graceSizeSettings, hostLeftReach, resetGraceSize, setGraceSize } from './graceRoom'
+import { GRACE_ROWS, graceDotXs, graceLayout, graceScale, graceSizeGeneration, graceStemSpaces, graceSizeSettings, hostLeftReach, resetGraceSize, setGraceSize } from './graceRoom'
 import { laneFingerprint } from './MeasureWidthCache'
 import { INK, accidentalExtent } from './spacingPadding'
+import { armedDotGap } from './dotGap'
+import { glyphBox, noteheadInk } from '@/engine/fonts/fontMetrics'
+import { MODIFIER_RIGHT_GAP_PX } from '@/engine/engrave/inheritedDefaults'
+import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 
 const p = (id: string, step: NotePitch['step'], octave = 5, alter: NotePitch['alter'] = 0): NotePitch =>
   ({ id, step, alter, octave })
@@ -86,5 +90,28 @@ describe('graceStemSpaces — Gould p. 126: a grace on ledger lines gets a stem 
 
   it('a chord measures from its HIGHEST head', () => {
     expect(graceStemSpaces([-1.5, 1])).toBe(GRACE_ROWS.stem.value) // the E4 head already reaches
+  })
+})
+
+describe('graceLayout — a DOTTED grace: the NORMAL note\'s dot rule, at the grace\'s size', () => {
+  const px = (sp: number) => sp * STAFF_SPACE_PX
+  it('⭐ a flagged (stem-up) grace: head + VexFlow\'s 2 px + the FLAG\'s width — as a normal dotted 8th', () => {
+    const [first] = graceDotXs({ duration: '8', dots: 1 })
+    expect(px(first)).toBeCloseTo(px(noteheadInk('8')) + MODIFIER_RIGHT_GAP_PX + px(glyphBox('flag8thUp').right), 9)
+  })
+  it('⭐ an unflagged grace: head + the ARMED dot gap (never under the 2 px) — as a normal dotted quarter', () => {
+    const [first] = graceDotXs({ duration: 'q', dots: 1 })
+    expect(px(first)).toBeCloseTo(px(noteheadInk('q')) + Math.max(MODIFIER_RIGHT_GAP_PX, px(armedDotGap().head)), 9)
+  })
+  it('each further dot: one dot + the armed dot→dot gap', () => {
+    const [a, b] = graceDotXs({ duration: 'q', dots: 2 })
+    expect(b - a).toBeCloseTo(glyphBox('augmentationDot').right + armedDotGap().dot, 9)
+  })
+  it('its dot stands between it and the host: the gap is measured to the DOT, so the head moves left', () => {
+    const plain = graceLayout({ notes: [{ pitches: [p('g', 'D')], duration: 'q' }] }, none, 'treble', 0)
+    const dotted = graceLayout({ notes: [{ pitches: [p('g', 'D')], duration: 'q', dots: 1 }] }, none, 'treble', 0)
+    const reach = graceDotXs({ duration: 'q', dots: 1 })[0] + glyphBox('augmentationDot').right
+    expect(dotted.places[0].rightInk).toBeCloseTo(reach * graceScale(), 9)
+    expect(dotted.places[0].headX).toBeLessThan(plain.places[0].headX)
   })
 })

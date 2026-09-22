@@ -89,6 +89,10 @@ export const MODIFIER_LEFT_OFFSET_PX = 2
 /** Where every RIGHT modifier begins past the head and the note's own shift — the literal `+ 2` in `StaveNote.getModifierStartXY`. */
 export const MODIFIER_RIGHT_GAP_PX = 2
 
+/** `Dot.format`'s own dot-to-dot gap — a literal `dotSpacing = 1` in VexFlow. Here beside its sibling so
+ *  the grace's dots (`layout/graceRoom`) run the same rule the notes' do (`rendering/format/dotPlacement`). */
+export const VEXFLOW_DOT_SPACING = 1
+
 /**
  * How far a modifier's y moves off a REST's own line, in staff spaces, by the rest's glyph — the switch in
  * `StaveNote.getModifierStartXY`. ⚠️ Keyed by codepoint (`restWhole` U+E4E3 …), because that switch keys by

@@ -19,6 +19,11 @@ import type { Clef, GraceGroup, GraceNote, NotePitch } from '@/types/music'
 import { spellingDiatonicPos } from '@/utils/pitchSpelling'
 import { staffLineForSpelling } from '@/utils/clefUtils'
 import { INK, accidentalExtent } from './spacingPadding'
+import { durationFlags } from '@/utils/durations'
+import { armedDotGap } from './dotGap'
+import { flagGlyph, glyphBox, noteheadInk } from '@/engine/fonts/fontMetrics'
+import { MODIFIER_RIGHT_GAP_PX, VEXFLOW_DOT_SPACING } from '@/engine/engrave/inheritedDefaults'
+import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 
 /** One row: its value and where it came from. */
 export interface GraceRow {
@@ -169,6 +174,36 @@ export interface GracePlace {
   headX: number
   /** How wide its heads are, at the grace's size. */
   headWidth: number
+  /** How far RIGHT of its anchor its ink reaches — the heads, or its augmentation DOTS — at the grace's size. */
+  rightInk: number
+}
+
+/**
+ * ⭐ Where a grace's augmentation dots stand (each dot's LEFT edge), in its OWN staff spaces past its
+ * head's anchor — ⭐⭐ **the NORMAL note's rule, run at the grace's size** (his ask, 2026-09-22: *"see how
+ * the normal note use the dot position and aply to the grace proportionally"*). The rule is
+ * `rendering/format/dotPlacement` + `engrave/notes/modifierStart`'s, and it reads the SAME rows:
+ * the head's width + VexFlow's `MODIFIER_RIGHT_GAP_PX`, then either the FLAG's width (a stem-up flagged
+ * note — `forceFlagRight`; a grace's stem is always up) or what the armed dot gap adds over that base
+ * (`layout/dotGap` — `__dots.gap`); each further dot one dot's width + the armed dot→dot gap (never
+ * under VexFlow's 1 px). Every px row is divided by `STAFF_SPACE_PX`: the grace's scale is its group's.
+ * ⭐ So the ROOM ({@link graceLayout}) and the INK (`rendering/GracePass`) read one answer.
+ * ⚠️ "Flagged" is the duration's own count (`durationFlags`); ⏭️ a BEAMED grace (P2) has no flag.
+ */
+export function graceDotXs(note: Pick<GraceNote, 'duration' | 'dots'>): number[] {
+  const px = (v: number) => v / STAFF_SPACE_PX
+  const base = px(MODIFIER_RIGHT_GAP_PX)
+  const flag = durationFlags(note.duration) > 0 ? flagGlyph(note.duration, true) : null
+  const push = flag ? glyphBox(flag).right : Math.max(0, armedDotGap().head - base)
+  const first = noteheadInk(note.duration) + base + push
+  const step = glyphBox('augmentationDot').right + Math.max(px(VEXFLOW_DOT_SPACING), armedDotGap().dot)
+  return Array.from({ length: Math.max(0, note.dots ?? 0) }, (_, i) => first + i * step)
+}
+
+/** How far right of its anchor a grace's dots reach, own staff spaces — 0 with none. */
+function graceDotReach(note: GraceNote): number {
+  const xs = graceDotXs(note)
+  return xs.length ? xs[xs.length - 1] + glyphBox('augmentationDot').right : 0
 }
 
 /** A group's placement and the room it asks for. */
@@ -202,8 +237,10 @@ export function graceLayout(group: GraceGroup, signOf: SignOf, clef: Clef, hostR
   for (let i = group.notes.length - 1; i >= 0; i--) {
     const note = group.notes[i]
     const headWidth = headsWidth(note.pitches) * k
-    const headX = right - headWidth
-    places.unshift({ note, headX, headWidth })
+    // A DOT stands between this grace and whatever follows it: the gap is measured to its ink.
+    const rightInk = Math.max(headWidth, graceDotReach(note) * k)
+    const headX = right - rightInk
+    places.unshift({ note, headX, headWidth, rightInk })
     leftEdge = headX - leftInk(note.pitches, signOf, clef) * k
     right = leftEdge - GRACE_ROWS.between.value
   }

@@ -37,6 +37,13 @@ export interface ArticulationPlacementInput {
   headLine: number
   /** Half a space outside the staff on this side — `Stave.getYForTopText/BottomText(-0.5)`. */
   outsideStaffY: number
+  /**
+   * ⭐ OPT-IN, default 1: scales the step OUT from the note (the text lines and the one space / half a
+   * space) — ⛔ never the snap, which stays the real staff's. A GRACE passes its size, so its mark
+   * steps off its small head in proportion and still lands in a space of the staff it is on
+   * (`rendering/GracePass`, his call 2026-09-22). Every other caller omits it and nothing moves.
+   */
+  outwardScale?: number
 }
 
 /** Where the mark is drawn from, and whether it is centred on that point. */
@@ -66,7 +73,7 @@ export function placeArticulation(i: ArticulationPlacementInput): ArticulationPl
   const above = i.side === 'above'
   const onStemTip = i.hasStem && (above ? i.stemDirection === 1 : i.stemDirection === -1)
   const initialOffset = onStemTip ? 0.5 : 1
-  const outward = (i.textLine + initialOffset) * i.staffSpace
+  const outward = (i.textLine + initialOffset) * i.staffSpace * (i.outwardScale ?? 1)
   let y = above ? reachY(i) - outward : reachY(i) + outward
   if (!i.canSitBetweenLines) y = above ? Math.min(i.outsideStaffY, y) : Math.max(i.outsideStaffY, y)
 

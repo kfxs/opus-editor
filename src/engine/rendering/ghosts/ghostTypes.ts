@@ -124,7 +124,7 @@ export type ToolGhost =
    * ⭐ The GRACE stamp (`docs/plans/grace-notes-plan.md` §3): one small note of the ARMED value, at
    * the grace size, slashed when the tool makes an acciaccatura — the picture the click will add.
    */
-  | { kind: 'grace'; duration: NoteDuration; slash: boolean }
+  | { kind: 'grace'; duration: NoteDuration; dots: number; slash: boolean; accidental: ScoreAccidental | null; articulations: ArticulationType[] }
   /**
    * ⭐ The BARLINE stamp's sign — the final bar, the open repeat or the end repeat, whichever is
    * armed. It CARRIES ITS SIGN because the three are three different pictures, and the ghost is what

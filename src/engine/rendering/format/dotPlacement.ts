@@ -63,7 +63,7 @@ import type { EngravedNote } from '../engraved/EngravedNote'
 import { dotsOn } from '../engraved/EngravedDot'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { armedDotGap } from '@/engine/layout/dotGap'
-import { MODIFIER_RIGHT_GAP_PX } from '@/engine/engrave/inheritedDefaults'
+import { MODIFIER_RIGHT_GAP_PX, VEXFLOW_DOT_SPACING } from '@/engine/engrave/inheritedDefaults'
 
 /** A stem pointing up — VexFlow's `Stem.UP`. */
 const STEM_UP = 1
@@ -97,8 +97,8 @@ function dotToDotPx(): number {
   return armedDotGap().dot * STAFF_SPACE_PX
 }
 
-/** `Dot.format`'s own dot-to-dot gap — a literal `dotSpacing = 1` in VexFlow. */
-export const VEXFLOW_DOT_SPACING = 1
+/** `Dot.format`'s own dot-to-dot gap — re-exported from `engrave/inheritedDefaults`, where it lives. */
+export { VEXFLOW_DOT_SPACING }
 
 /**
  * The extra width each dot reserves: what the **DOT→DOT** gap asks for beyond the 1px VexFlow

@@ -474,3 +474,21 @@ describe('ElementRegistry guides — which end a move is allowed to touch', () =
     expect(() => registry.repointGuidesById('nope', 10)).not.toThrow()
   })
 })
+
+describe('ElementRegistry.staffGeometryAt — the staff under a pointer (the grace ghost stands on it)', () => {
+  const geometry = (measure: number, staff: number, top: number, startX: number, endX: number) => ({
+    measure, staff, lineYPositions: [top, top + 10, top + 20, top + 30, top + 40] as [number, number, number, number, number],
+    lineSpacing: 10, noteStartX: startX, noteEndX: endX, clef: 'treble' as const,
+  })
+  it('finds the bar spanning x, then the staff nearest y — ledger space included; null off every bar', () => {
+    const registry = new ElementRegistry()
+    registry.setStaffGeometry(geometry(1, 0, 100, 50, 250) as never)
+    registry.setStaffGeometry(geometry(1, 1, 200, 50, 250) as never)
+    registry.setStaffGeometry(geometry(2, 0, 100, 260, 450) as never)
+    expect(registry.staffGeometryAt(100, 120)).toMatchObject({ measure: 1, staff: 0 })
+    expect(registry.staffGeometryAt(100, 165), 'below staff 0 on its ledgers, nearer it').toMatchObject({ measure: 1, staff: 0 })
+    expect(registry.staffGeometryAt(100, 190)).toMatchObject({ measure: 1, staff: 1 })
+    expect(registry.staffGeometryAt(300, 120)).toMatchObject({ measure: 2 })
+    expect(registry.staffGeometryAt(900, 120)).toBeNull()
+  })
+})

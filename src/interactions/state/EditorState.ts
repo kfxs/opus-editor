@@ -387,6 +387,56 @@ export function armedTupletM(
   return deriveTupletM(armed.numNotes, unit, unitDots, meter, beat) ?? armed.notesOccupied
 }
 
+/**
+ * ⭐ **Does the tool place a PITCH of its own?** — then an accidental press is a statement about THAT
+ * pitch, exactly as in note entry, and it arms `selectedAccidental` for the next click instead of
+ * swapping to the accidental stamp (his report, 2026-09-22: *"i select the grace to stamp, then select
+ * the accidental … what is expected is that we arm grace + accidental"*).
+ *
+ * The same shape as {@link MARKING_TOOL_USES_ARMED_LENGTH} and for its reason: total over the union
+ * (`lint:tables`), so a new tool cannot arrive without answering it.
+ */
+export const MARKING_TOOL_ENTERS_PITCH: Record<MarkingTool['kind'], boolean> = {
+  grace: true,          // a grace is a NOTE, at the click's pitch — the one tool that writes a pitch
+  rest: false,          // a rest has no pitch
+  fan: false,           // its pitch is the click's, but the fan is ENTRY of its own (the dialog's)
+  clef: false,
+  timeSignature: false,
+  keySignature: false,
+  group: false,
+  dynamic: false,
+  dynamicEntry: false,
+  tempo: false,
+  tempoEntry: false,
+  articulation: false,
+  accidental: false,    // it IS the accidental — a press swaps or disarms it (`setAccidental` case 0)
+  tie: false,
+  slur: false,
+  trill: false,
+  ottava: false,
+  pedal: false,
+  hairpin: false,
+  dot: false,
+  tremolo: false,
+  barline: false,
+}
+
+/** The articulations armed for the next note entered — or the next GRACE stamped (the note-entry
+ *  flags `accent` / `staccato` / `tenuto`); undefined when none. */
+export function pendingArticulations(state: EditorState): ArticulationType[] | undefined {
+  const arts: ArticulationType[] = []
+  if (state.accent) arts.push('accent')
+  if (state.staccato) arts.push('staccato')
+  if (state.tenuto) arts.push('tenuto')
+  return arts.length ? arts : undefined
+}
+
+/** Whether the armed tool (if any) places a pitch of its own — see {@link MARKING_TOOL_ENTERS_PITCH}. */
+export function armedToolEntersPitch(state: EditorState): boolean {
+  const tool = state.selectedMarkingTool
+  return tool ? MARKING_TOOL_ENTERS_PITCH[tool.kind] : false
+}
+
 /** Whether the armed tool (if any) uses the armed length — see {@link MARKING_TOOL_USES_ARMED_LENGTH}.
  *  False with nothing armed: the keys are live then for the ordinary reason (note entry). */
 export function armedToolUsesLength(state: EditorState): boolean {

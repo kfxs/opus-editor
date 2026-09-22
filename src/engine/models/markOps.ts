@@ -28,7 +28,7 @@ import { staffIndexOfId } from './staffContent'
 import { fracEq } from '@/utils/fraction'
 import { writtenLength } from '@/utils/durations'
 import { findSlot, attackOf } from './slotLookup'
-import { flatNoteOf } from './noteProjection'
+import { flatNoteOf, flatRestOf, projectGraceNote } from './noteProjection'
 import { clearFanMemberOffsets } from './overrideOps'
 
 /** Find a measure by its number (mirrors `ScoreModel.getMeasure`). */
@@ -46,11 +46,20 @@ export function flipArticulationPlacement(score: Score, noteId: string): Note | 
   // ⭐ `fanMembers: true` + `attackOf`: ONE body for both, because a flip is a fact about the ATTACK
   // and a fan has N of those. A member flips itself and nothing else — his report was that flipping
   // the owner flipped all six, which is what one side per gesture means.
-  const found = findSlot(score, noteId, { fanMembers: true })
-  if (!found || found.type === 'rest') return null
-  const { chord, pitch } = found
+  const found = findSlot(score, noteId, { fanMembers: true, graceNotes: true })
+  if (!found) return null
   const attack = attackOf(found)
   if (!attack?.articulations?.length) return null
+  // ⭐ A GRACE's marks flip like any attack's; its AUTO side is below — a grace's stem is always up
+  // (`rendering/GracePass`, `fanArticulationPosition(1)`), and it may hang on a REST (D7 reversed).
+  if (found.grace && found.pitch) {
+    if (attack.articulationPlacement !== undefined) delete attack.articulationPlacement
+    else attack.articulationPlacement = 'above'
+    const host = found.type === 'rest' ? flatRestOf(score, found.rest) : flatNoteOf(score, found.chord, found.pitch)
+    return projectGraceNote(host, found.pitch, found.grace.note)
+  }
+  if (found.type === 'rest') return null
+  const { chord, pitch } = found
   // Sibelius-style `x` toggle: auto ↔ flipped (mirrors flipTuplet/flipSlur/flipTie).
   // An explicit override returns to the context-aware auto default; an auto mark pins
   // the opposite of the side it's currently drawn on, so the first press always visibly

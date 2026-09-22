@@ -24,7 +24,7 @@ function makeRenderer() {
 }
 
 /** Bar 1: C5 E5 quarters; bar 2: two quarters. A grace before the bar's SECOND note, unless told. */
-function build(opts: { grace?: PitchSpelling; form?: GraceForm; hostBeat?: number; sixteenths?: boolean; written?: NoteDuration } = {}) {
+function build(opts: { grace?: PitchSpelling; form?: GraceForm; hostBeat?: number; sixteenths?: boolean; written?: NoteDuration; dots?: number } = {}) {
   const model = new ScoreModel()
   model.addMeasure()
   const duration = opts.sixteenths ? '16' : 'q'
@@ -33,7 +33,7 @@ function build(opts: { grace?: PitchSpelling; form?: GraceForm; hostBeat?: numbe
   const second = model.addNote({ step: 'E', octave: 5, duration, measure: 1, beat: step })
   const host = (opts.hostBeat ?? 1) === 0 ? first : second
   const grace = opts.grace
-    ? addGrace(model.getScore(), host.id, 'before', opts.grace, opts.form ?? 'acciaccatura', { duration: opts.written ?? '8' })
+    ? addGrace(model.getScore(), host.id, 'before', opts.grace, opts.form ?? 'acciaccatura', { duration: opts.written ?? '8', ...(opts.dots && { dots: opts.dots }) })
     : null
   return { model, first, second, host, grace }
 }
@@ -181,5 +181,47 @@ describe('GracePass — the slash by what the note HAS (his rule, 2026-09-22)', 
   })
   it('⛔ a WHOLE (no stem) draws no slash', () => {
     expect(strokes('acciaccatura', 'w')).toBe(strokes('appoggiatura', 'w'))
+  })
+})
+
+describe('GracePass — a DOTTED grace', () => {
+  const dotTexts = (dots: number, step: PitchSpelling['step']) => {
+    const { scene } = render(build({ grace: { step, alter: 0, octave: 5 }, dots }).model)
+    const note = sceneGroups(sceneGroups(scene, GRACE_GROUP)[0], GRACE_NOTE_GROUP)[0]
+    return scenePrimitives(note).flatMap(p => (p.kind === 'text' && p.text === String.fromCodePoint(0xe1e7) ? [p] : []))
+  }
+  it('⭐ draws its dots, right of the head', () => {
+    expect(dotTexts(1, 'D')).toHaveLength(1)
+    expect(dotTexts(2, 'D')).toHaveLength(2)
+    expect(dotTexts(0, 'D')).toHaveLength(0)
+  })
+  it('a head on a LINE lifts its dot into the space above; one in a space keeps it level', () => {
+    const headAndDot = (step: PitchSpelling['step']) => {
+      const { scene } = render(build({ grace: { step, alter: 0, octave: 5 }, dots: 1 }).model)
+      const note = sceneGroups(sceneGroups(scene, GRACE_GROUP)[0], GRACE_NOTE_GROUP)[0]
+      const texts = scenePrimitives(note).flatMap(p => (p.kind === 'text' ? [p] : []))
+      const dot = texts.find(t => t.text === String.fromCodePoint(0xe1e7))!
+      const head = sceneGroups(note, 'notehead')[0].children.find(c => c.kind === 'text')!
+      return { dotY: dot.y, headY: head.kind === 'text' ? head.y : NaN }
+    }
+    const onLine = headAndDot('D') // D5 — the 4th line in treble
+    expect(onLine.dotY).toBeLessThan(onLine.headY)
+    const inSpace = headAndDot('E') // E5 — the space above it
+    expect(inSpace.dotY).toBeCloseTo(inSpace.headY, 6)
+  })
+})
+
+describe('GracePass — a grace\'s ARTICULATIONS (Gould p. 125: "scaled down proportionally")', () => {
+  it('⭐ draws the mark inside the grace, and registers it on the grace\'s pitch so it can be clicked', () => {
+    const { model, grace } = build({ grace: { step: 'D', alter: 0, octave: 5 }, form: 'appoggiatura' })
+    grace!.articulations = ['staccato']
+    const { renderer, scene } = render(model)
+    const note = sceneGroups(sceneGroups(scene, GRACE_GROUP)[0], GRACE_NOTE_GROUP)[0]
+    const plain = render(build({ grace: { step: 'D', alter: 0, octave: 5 }, form: 'appoggiatura' }).model).scene
+    const plainNote = sceneGroups(sceneGroups(plain, GRACE_GROUP)[0], GRACE_NOTE_GROUP)[0]
+    const texts = (g: SceneGroup) => scenePrimitives(g).filter(p => p.kind === 'text').length
+    expect(texts(note), 'one more glyph: the staccato').toBe(texts(plainNote) + 1)
+    const entry = renderer.getElementRegistry().getByType('articulation').find(e => e.noteId === grace!.pitches[0].id)
+    expect(entry?.articulationType).toBe('staccato')
   })
 })

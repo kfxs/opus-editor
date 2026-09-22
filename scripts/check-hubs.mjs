@@ -40,7 +40,7 @@ const HUBS = [
   { file: 'src/engine/models/ScoreModel.ts', kinds: 917, lines: null },
   { file: 'src/engine/rendering/ScoreRenderer.ts', kinds: 821, lines: null },
   { file: 'src/interactions/controllers/MouseController.ts', kinds: 277, lines: 1076 },
-  { file: 'src/interactions/controllers/PaletteController.ts', kinds: 427, lines: null },
+  { file: 'src/interactions/controllers/PaletteController.ts', kinds: 424, lines: null },
   { file: 'src/interactions/controllers/HighlightController.ts', kinds: 9, lines: 117 },
   { file: 'src/interactions/controllers/shortcutWiring.ts', kinds: 59, lines: 398, except: ['deleteSelected'] },
   { file: 'src/windows/properties/PropertiesWidget.ts', kinds: 0, lines: 73 },

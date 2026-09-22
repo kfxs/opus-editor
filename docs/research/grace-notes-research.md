@@ -548,9 +548,11 @@ group's `minTotalWidth` (§2). Specifics:
   (`metrics.ts:102-104`). `Accidental.applyAccidentals` recurses into every `GraceNoteGroup` of a note
   (`accidental.ts:493-497`; changelog 1.2.84, `changelog/CHANGELOG.md:48`) so automatic accidentals
   reach grace notes.
-- **Dot**: `Dot.buildAndAttach([grace], { all: true })` works (`tests/gracenote_tests.ts:85`). `dot.ts`
-  never consults the note's font scale and `MetricsDefaults` has no `Dot` row (grep), so a dot on a
-  grace note is drawn at the root 30 pt — full size — and placed by the ordinary `Dot.format`.
+- **Dot**: `Dot.buildAndAttach([grace], { all: true })` works (`tests/gracenote_tests.ts:85`).
+  🚨 **CORRECTED 2026-09-22 (Part F.1):** this line used to say the dot is drawn full size. It is NOT —
+  `Dot.setNote` copies the note's font (`this.font = note.font`, `dot.ts:140-144`; 5.0.0 `dot.js:106-110`)
+  and a `GraceNote`'s font is 30 × 2/3 = 20 pt, re-measured at that size. What stays full size are its
+  two GAPS — the literal 2 px head→dot and 1 px dot→dot (`stavenote.js:531`, `dot.js:32, 92`).
 - **Articulation / annotation**: `articulation.ts:66-150` treats `GraceNote` exactly like `StaveNote`
   for its top/bottom y (`isStaveOrGraceNote`); no scaling.
 - **Tremolo**: scaled — `ySpacing = Tremolo.spacing(7) × stemDirection × scale`, `fontInfo.size =
@@ -607,7 +609,8 @@ lines, stem and heads (`stavenote.ts:1208-1212`).
 8. `gracenote.ts:36` `this.width = 3` is overwritten by `preFormat`.
 9. The group's internal spacing ignores duration (formatter run with `justifyWidth 0`, `formatter.ts:708`); its ticks serve only the beam levels.
 10. Slur: one shape only (first grace → host, chord index 0, side from the first grace's stem); no slur for RIGHT groups; recreated every draw.
-11. Dots on grace notes are full size (no `Dot` scale); stems keep full thickness (1.5 px).
+11. Dots on grace notes are drawn at the grace's size (🚨 corrected 2026-09-22, Part F.1 — this said full
+    size), but their 2 px / 1 px GAPS are literals, unscaled; stems keep full thickness (1.5 px).
 12. Grace across a barline / grace before the barline belonging to the next bar: no concept — a group is a left modifier of ONE host; the only "after" form is `Position.RIGHT`. Untested: UNKNOWN how it interacts with the end-of-bar justification.
 13. Grace before the first note of a bar: nothing special — the first tick context is placed at `totalLeftPx` (`formatter.ts:691`), so the group sits between the signs and the note. Tests do this in every block (`stem`, `slash`, `slashWithBeams`).
 14. Grace notes in chords: yes (grace chords), and on chord hosts: the group's `shift` takes the host's `getLeftDisplacedHeadPx()` (`gracenotegroup.ts:64-70`), i.e. a displaced host head pushes the group out.
@@ -2897,4 +2900,297 @@ thick as the stem (the threshold sets the exact value; the earlier pass read 0.0
    also puts one on a beam of FULL-SIZE grace notes.
 5. **Written value.** Gould, Stone and G&L agree the single slashed grace is an eighth. Group values
    differ (Part C §5).
+
+---
+
+## Part F — DOTS on grace notes — the deep pass (2026-09-22)
+
+Asked for after his screenshot of a dotted grace (*"i think the position of the dot is not correct, we
+should see how the normal note use the dot position and aply to the grace proportionally"*), and his
+*"send an agent to inspect the literature and the engines for the dot"*. Builds on
+`docs/research/accidental-dot-engines.md` / `accidental-dot-research.md` (normal notes). §F.1 the engines;
+⏳ §F.2 the literature — the agent was still running at this commit, folded in when it reports.
+
+⭐ **What was built on it** (`layout/graceRoom.graceDotXs`, `rendering/GracePass.drawGraceDots`): the
+NORMAL note's dot rule (`rendering/format/dotPlacement` + `engrave/notes/modifierStart`) run at the grace's
+size — glyph AND both gaps scaled, which is what MuseScore, Verovio and LilyPond do (§F.1 Q1); pushed past
+the flag on a stem-up flagged grace, VexFlow's and MuseScore's answer (§F.1 Q2 — the engines split);
+a head on a line lifts its dot half of the STAFF's space (§F.1 Q3 — every engine). Measured against a
+normal note in the same render: 16.2 px against 25 × ⅔ = 16.7 (an 8th), 11.2 against 17 × ⅔ = 11.3 (a
+quarter).
+
+### F.1 — The engines: how a grace note's dot is sized, spaced and pushed
+
+Research only; no repo file edited. This builds on `docs/research/accidental-dot-engines.md` (dots on NORMAL
+notes) and `docs/research/grace-notes-research.md` Parts B/E (grace scale factors). Paths are relative to
+`~/dev/engine-sources/<engine>/`. **sp** means page staff spaces (the staff the grace sits on). **g-sp** means the same
+distance divided by the grace factor, i.e. "in the grace's own staff spaces". A number marked **≈** is derived
+from source arithmetic and was not run or measured.
+
+Scale factors (from grace-notes-research, re-checked here):
+MuseScore `graceNoteMag` 0.7 (`src/engraving/style/styledef.cpp:517`, applied in `Chord::intrinsicMag`,
+`dom/chord.cpp:2063-2076`) · Verovio `graceFactor` 0.75 (`src/options.cpp:1326-1327`) · LilyPond `font-size -3` =
+2^(−3/6) = 0.7071 (`scm/music-functions.scm:674-688`, `magstep` at `scm/lily-library.scm:1718-1719`) · VexFlow
+`GraceNote.fontScale` 2/3 (`build/esm/src/metrics.js:99-101`).
+
+---
+
+#### ⚠️ Correction to an existing doc first
+
+`docs/research/grace-notes-research.md:551-553` and `:610` say VexFlow draws a dot on a grace note at the full
+30 pt ("`dot.ts` never consults the note's font scale"). **The source says otherwise.** `Dot.setNote` copies the
+note's font: `this.font = note.font` (`vexflow-5.0.0-npm/package/build/esm/src/dot.js:106-110`; the same line is in
+the TS repo, `vexflow/src/dot.ts:140-144`). A `GraceNote`'s font is built from its category, so it is
+`Metrics.getFontInfo('GraceNote')` = 30 × 2/3 = **20 pt** (`element.js:56-63`, `metrics.js:12-23, 99-101`).
+`setFont` clears `metricsValid` (`element.js:205-211`), so the dot's width is measured again at 20 pt the next
+time it is read (`element.js:275-278, 339-349`). `Note.addModifier` calls `setNote` (`note.js:282`). **The dot
+on a VexFlow grace note is therefore drawn at 2/3 size, and its width is measured at 2/3 size.** VexFlow's gaps
+are still unscaled, as described below.
+
+---
+
+#### Q1: Glyph size, head→dot gap, dot→dot gap
+
+##### MuseScore 4 (Bravura)
+- **Glyph:** scaled. `NoteDot::mag() = parentItem()->mag() * dotMag` (`dom/notedot.cpp:64-67`). A grace note's
+  `mag()` is its chord's `mag()` (`dom/note.cpp:2430-2437`), which already includes `graceNoteMag`. The dot's bbox
+  is `symBbox(augmentationDot)` at the note's magS (`rendering/score/tlayout.cpp:4268-4278`; `symWidth` uses
+  `magS()`, `dom/engravingitem.cpp:1874-1877`).
+- **Gaps:** scaled. Grace chords are laid out in `layoutChords3` (`rendering/score/chordlayout.cpp:1689-1690`),
+  and their notes go through the same `layoutNote2`. The code there is:
+  ```cpp
+  double correctMag = chord->notes().size() > 1 ? chord->mag() : item->mag();   // :3192
+  double d  = ctx.conf().point(ctx.conf().styleS(Sid::dotNoteDistance)) * correctMag;  // :3193
+  double dd = ctx.conf().point(ctx.conf().styleS(Sid::dotDotDistance)) * correctMag;   // :3194
+  ```
+  The anchor `dotPosX` is the head's right edge, `noteX + headBodyWidth()` (`:2800`). `headBodyWidth` is the
+  head glyph at the grace mag (`dom/note.cpp:1103-1110, 1203-1206`). Placement is `visibleX = x + d; … visibleX += dd`
+  (`:3225-3231`).
+- **Quirk: the reserved room uses full-size gaps.** `layoutPitched` reserves right-side room (`rrr`) with
+  `dotNoteDistance * mag_` and `dotDotDistance * mag_`, where `mag_` is `staffMag` only, not the grace mag
+  (`chordlayout.cpp:106-107, 264-268`). The dot width added there *is* scaled (`symWidth`). So a grace chord's
+  `spaceRw` reserves 0.5 + 0.28 sp for the first dot, while it draws at 0.35 + 0.28. Whether `spaceRw` is ever read
+  for a grace chord is **UNKNOWN**. Grace groups are spaced by shapes (`tlayout.cpp:2765-2790`), and a note's shape
+  contains its dots (`tlayout.cpp:4218-4222`).
+- **Padding to the next item:** `NOTEDOT→NOTE` = max(0.5, 0.65) = 0.65 sp (`rendering/paddingtable.cpp:94-95`),
+  multiplied by the average mag of the two items (`rendering/score/horizontalspacing.cpp:1460, 1468`). Grace dot to
+  grace note: 0.65 × 0.7 = **0.455 sp**. Grace dot to main note: 0.65 × 0.85 = **0.5525 sp**, raised to at least
+  `graceToMainNoteDist` only when the pair is note→note (`:1513-1515`).
+
+##### Verovio (Leipzig, the default font, `src/options.cpp:1306-1307`)
+- **The grace flag reaches the dots:** `PrepareCueSizeFunctor` sets `m_drawingCueSize` on every grace element
+  (`src/preparedatafunctor.cpp:218-219`). `LayerElement::IsGraceNote` is true for a DOTS element through its
+  ancestor note (`src/layerelement.cpp:194-201`), and DOTS also inherit it explicitly (`preparedatafunctor.cpp:252-257`).
+- **Glyph:** scaled. The dot is a drawn circle, not a glyph. `r = DoubleUnit/5` (0.2 sp), then
+  `if (dimin) r *= m_graceFactor` (`src/view_graph.cpp:203-210`).
+- **Head→dot:** scaled at both of its stages.
+  1. The anchor is `xRel = 2 * radius` (`src/calcdotsfunctor.cpp:121-122`), where the radius is half the head's width
+     at cue size (`src/layerelement.cpp:658`; `Doc::GetGlyphWidth` multiplies by `graceFactor`, `src/doc.cpp:1877-1885`).
+  2. At draw time `x = dots->GetDrawingX() + unit * offsetFactor`, with
+     `offsetFactor = cue ? m_graceFactor : 1.0` (`src/view_element.cpp:891, 899`).
+- **Dot→dot:** scaled. `DrawDotsPart(…, bool dimin)` computes `distance = dimin ? m_graceFactor : 1.0`, then
+  `x += unit * 1.5 * distance` (`src/view_element.cpp:2084-2100`, marked `// HARDCODED`). `dimin` comes from
+  `dots->GetDrawingCueSize()` for a note (`:903-904`) and from `chord->GetDrawingCueSize()` for a chord (`:684-686`).
+
+##### LilyPond (Emmentaler)
+- **Glyph:** scaled. `(Voice Dots font-size -3)` is set in `general-grace-settings`
+  (`scm/music-functions.scm:679`). The glyph is the font's `dots.dot` (`scm/output-lib.scm:666-683`).
+- **Head→dot:** scaled, because it is defined as *one dot width*. `DotColumn.padding` =
+  `dot-column-interface::pad-by-one-dot-width` (`scm/define-grobs.scm:1264`), which is the max X-extent of the
+  column's dot stencils (`scm/output-lib.scm:692-704`), so the grace-sized one here. It is added to the head/stem/flag
+  skyline edge (`lily/dot-column.cc:229-232`, `lily/dot-configuration.cc:125-133`).
+  `Dot_column_engraver` lives in Staff (`ly/engraver-init.ly:73`) and makes one column per timestep
+  (`lily/dot-column-engraver.cc:46-60`). A grace timestep therefore gets its own DotColumn, containing only grace dots.
+  Note that `DotColumn` itself gets no font-size override: its padding is scaled only because its *dots* are.
+- **Dot→dot:** scaled. `ly:dots::print` stacks the dots with `padding = the dot stencil's own X-extent`
+  (`scm/output-lib.scm:686-690`).
+- The dot diameter is `(staff_space − stafflinethickness)/2` = 0.45 sp at full size (`mf/feta-dots.mf:23`) ⇒
+  **≈0.318 sp** at font-size −3.
+
+##### VexFlow 5.0.0 (Bravura, 10 px = 1 sp)
+- **Glyph:** scaled to 2/3 (see the correction above).
+- **Head→dot:** NOT scaled. The draw start is `getGlyphWidth() + xShift + 2` px (`stavenote.js:530-531`), and
+  the first dot's `xShift` is `getFirstDotPx()`, which is 0 without displaced heads or parentheses (`note.js:307-314`,
+  `dot.js:45, 68, 91`). The 2 px is a literal. The head width it adds to is the grace head (20 pt:
+  `stavenote.js:351` copies the note's fontInfo onto each notehead).
+- **Dot→dot:** half-scaled. `dotShift += dot.getWidth() + dotSpacing` with `dotSpacing = 1` px (`dot.js:32, 92`).
+  The width is the 2/3 dot, but the 1 px is a literal.
+- The room `Dot.format` reserves (`state.rightShift += xWidth`, `dot.js:97`) leaves out the 2 px start offset and
+  any flag shift, both of which are added only at draw (`dot.js:121`). The same is true on normal notes.
+
+##### Table 1: numbers
+Dot glyph widths: Bravura 0.40 sp, Leipzig drawn circle 0.40 sp, Emmentaler 0.45 sp (full size).
+
+| | MuseScore (×0.7) | Verovio (×0.75) | LilyPond (×0.707) | VexFlow (×2/3) |
+|---|---|---|---|---|
+| dot width, sp | 0.28 | 0.30 | ≈0.318 | 0.267 |
+| head→dot WHITE, full-size note, sp | 0.50 | 0.30 | 0.45 | 0.20 |
+| head→dot WHITE on grace, **sp** | **0.35** | **0.225** (centre at +0.375, minus r 0.15) | **≈0.318** | **0.20** |
+| … in g-sp | 0.50 | 0.30 | 0.45 | **0.30** (grows) |
+| dot→dot ORIGIN step on grace, sp | 0.455 (0.65×0.7) | 0.5625 (0.75×0.75, centre to centre) | ≈0.636 (2 dot widths) | 0.367 (0.267 + 0.1) |
+| dot→dot WHITE on grace, **sp** | **0.175** | **0.2625** | **≈0.318** | **0.10** |
+| … in g-sp | 0.25 | 0.35 | 0.45 | **0.15** (grows) |
+| verdict | everything × mag | everything × graceFactor | everything × font-size (the gaps *are* the dot width) | glyph scaled, gaps are fixed px |
+
+Three of the four engines scale all three things (glyph, head→dot, dot→dot), so a dotted grace is a uniformly
+shrunk dotted note. VexFlow scales only the glyph. Its gaps stay full size on the page, so they are
+proportionally 1.5× wider on a grace.
+
+---
+
+#### Q2: Stem-up FLAGGED grace (8th/16th, unbeamed)
+
+##### MuseScore: yes, pushed past the flag, with a vertical test
+`chordlayout.cpp:3202-3211`:
+```cpp
+if (chord->up() && hook && hook->visible()) {
+    double hookRight = hook->width() + hook->x() + chord->pos().x();
+    double hookBottom = hook->height() + hook->y() + chord->pos().y() + (0.25 * item->spatium());
+    double dotY = chord->notes().back()->y() + chord->notes().back()->dots().front()->pos().y();
+    if (chord->dotPosX() < hookRight && dotY < hookBottom) { d = hook->width(); }
+}
+```
+The same code runs for graces. The hook is grace-sized, so `d` = flag8thUp width 1.056 × 0.7 = **0.739 sp**
+(full-size note: 1.056 sp; Bravura metadata, `fonts/bravura/bravura_metadata.json`). The dot's left edge then sits
+one hook-width right of the head's right edge, which is at the flag's right edge. The `+0.25 sp` margin uses
+`item->spatium()`, the staff spatium, which is not scaled for graces (`dom/engravingitem.cpp:266-273`,
+`dom/staff.cpp:784-787`).
+
+Does the condition fire? ≈ Yes, for any ordinary unbeamed stem-up grace:
+- The grace stem is ≈3.5 × 0.7 = 2.45 sp (`stemLength × intrinsicMag`, `rendering/score/stemlayout.cpp:60, 128`;
+  hook minimums not evaluated).
+- The flag hangs 3.276 × 0.7 = 2.29 sp from the tip, so its bottom is ≈0.16 sp above the head centre, and
+  `hookBottom` ≈ +0.09 sp (y points down).
+- The dot sits at 0 sp (head in a space) or −0.5 sp (head on a line). Both are < +0.09, so the dot is shifted.
+
+A full-size 8th fires the same way (≈+0.03 sp).
+
+##### Verovio: pushed right by 0.8 × a cue flag width, only if the flag would overlap the dot
+`calcdotsfunctor.cpp:110-121`: the shift applies when the stem is up, the note is not in a beam, `GetDrawingStemLen() < 3`
+(always true for up stems, whose length is stored negative, `calcstemfunctor.cpp:395, 432`), and `IsDotOverlappingWithFlag` is true.
+The shift is `GetGlyphWidth(flag8thUp, staffSize, drawingCueSize) * 0.8` (`// HARDCODED`), which is cue-scaled.
+
+The overlap test (`:179-197`):
+`dotMargin = flag.y − note.y − flagHeight(cue) − radius(cue)/2 − dotLocShift·unit`, overlap if < 0.
+The flag height uses the 8th's own glyph for an 8th and the 16th glyph for 16th and shorter. Grace stems are not
+lengthened (`calcstemfunctor.cpp:471-476`, "Do not adjust the length of grace notes"). Their base stem is
+7 units × graceFactor (`calcstemfunctor.cpp:375-378`, `STANDARD_STEMLENGTH 7`, `include/vrv/vrvdef.h:753`).
+
+Leipzig metrics (`data/Leipzig.xml:23, 94, 312`; 1 sp = 250 units): noteheadBlack width 1.256 sp · flag8thUp
+width 1.104 sp, height 2.776 sp · flag16thUp height 3.116 sp. For a note low enough that no stem shortening
+applies (`src/note.cpp:583-606`):
+
+| Verovio | stem | flag h | r/2 | margin, head in a SPACE | margin, head on a LINE (dot +0.5) | shift |
+|---|---|---|---|---|---|---|
+| full 8th | 3.5 | 2.776 | 0.314 | +0.41 → none | −0.09 → **shift 0.883 sp** | 0.8×1.104 |
+| grace 8th | 2.625 | 2.082 | 0.236 | ≈+0.31 → none | ≈−0.19 → **shift 0.662 sp** | 0.8×1.104×0.75 |
+| grace 16th | 2.625 | 2.337 | 0.236 | ≈+0.05 → none | ≈−0.45 → **shift 0.662 sp** | same |
+
+(All values ≈ and in sp.) Chords behave differently: they skip the overlap test. The top note, if not flipped, gets
+the 0.8 × flag shift whenever the stem is up, the chord is shorter than a quarter and it is not in a beam (`:82-94`).
+
+##### LilyPond: pushed only if the dot's staff position meets the flag's box
+The flag is one of the boxes in the dots' head skyline. Its Y-extent is converted to staff positions:
+`Box (flag X-extent, flag Y-extent * 2/ss)` (`lily/dot-column.cc:127-138`). The dot's x is the skyline height at
+the dot's own staff position (`lily/dot-configuration.cc:125-133`). So the dot clears the flag only when the flag
+reaches down to the dot's row. Regression test for normal notes: `input/regression/dot-flag-collision.ly`
+("Dots move to the right when a collision with the (up)flag happens.").
+
+For graces, ≈: the grace stem is 3.5 sp × `length-fraction 0.8` = 2.8 sp (`scm/define-grobs.scm:3454`,
+`lily/stem.cc:505-515, 557`; font-size does not enter the length). The Emmentaler up-flag is ≈3 sp deep at full size
+(`mf/feta-flags.mf:159`, `total_depth = (3 − shortening)·staff_space − blot/2`), so ≈2.12 sp at −3. Its bottom is then
+≈0.68 sp (≈1.36 staff positions) above the head, which is above both a space-dot (pos 0) and a line-dot (pos +1).
+**≈ A dotted unbeamed 8th grace keeps its dot next to the head.** This is not verified by rendering; no LilyPond
+binary is on this machine.
+
+##### VexFlow: always pushed by the full (grace-sized) flag width, with no vertical test
+`Dot.draw` calls `getModifierStartXY(RIGHT, index, { forceFlagRight: true })` (`dot.js:121`), which adds
+`this.flag.getWidth()` whenever the stem is up and `hasFlag()` (`stavenote.js:532-536`).
+`hasFlag` is false when beamed (`stemmablenote.js:168-170`). The flag has the grace font (`stemmablenote.js:42`),
+so the shift is 10.56 × 2/3 = **7.04 px = 0.704 sp**, on top of the unscaled 2 px. The dot's left edge ends up
+≈0.2 sp past the flag's right edge.
+
+##### Table 2: first dot of an unbeamed stem-up grace 8th, measured from the head's right edge
+| | head in space | head on line | rule |
+|---|---|---|---|
+| MuseScore | 0.739 sp (hook width) | 0.739 sp | hook box + 0.25 sp vertical test, ≈always fires |
+| Verovio | 0.225 sp white (no shift) | 0.225 + 0.662 = ≈0.887 sp | per-note overlap test |
+| LilyPond | ≈0.318 sp (no shift) | ≈0.318 sp (no shift) | skyline at the dot's row |
+| VexFlow | 0.2 + 0.704 = 0.904 sp | 0.904 sp | unconditional |
+
+---
+
+#### Q3: Vertical placement
+
+No engine has a grace-specific vertical rule. In every engine the half-space move is measured in the staff's
+own (unscaled) units, because the grace head sits on the same staff positions:
+- **MuseScore:** grace chords get the same `layoutChords3` direction pass (`chordlayout.cpp:1690, 2689-2750`) and
+  the same `placeDots` (`:2462-2558`). The y is `dotMove/2 × note->spatium() × lineDistance` (`:2560-2595`), where
+  `spatium()` is the staff's and does not include the grace mag (`dom/staff.cpp:784-787`). A head on a line moves
+  ±0.5 sp.
+- **Verovio:** the same `CalcOptimalDotLocations` (`calcdotsfunctor.cpp:103-104`). `DrawDotsPart` raises an on-line
+  dot by one *unscaled* unit, 0.5 sp (`view_element.cpp:2086-2089`). The dot loc `y + loc * unit` also uses the
+  unscaled unit (`:903`).
+- **LilyPond:** the same `Dot_configuration` optimiser in staff positions (`lily/dot-column.cc:201-224`,
+  `lily/dot-configuration.cc:26-98`). No grace branch exists (a grep for "grace" in `lily/dot-column*.cc`
+  and `lily/dots*.cc` finds nothing).
+- **VexFlow:** the same `Dot.format` on `keyProps.line` (`dot.js:70-89`), then `y = start.y + dotShiftY × stave line
+  spacing` (`dot.js:120, 126`). The line spacing is the stave's 10 px, unscaled.
+
+| | head on line → dot | grace-specific? |
+|---|---|---|
+| MuseScore | ±0.5 sp, direction by `dotPosition` + claimed slots | no |
+| Verovio | +0.5 sp (primary), safety net raises by 0.5 sp | no |
+| LilyPond | ±0.5 sp by optimiser (prefers up) | no (own DotColumn per grace timestep) |
+| VexFlow | −0.5 (up) | no |
+
+---
+
+#### Q4: Dotted graces: refused, special-cased, tested?
+
+- **MuseScore:** allowed. `NoteInput::toggleDots` applies the dotted duration to a selected grace through
+  `undoChangeChordRestLen` (`src/engraving/editing/noteinput.cpp:1492-1515, 1619-1622`; the same branch appears in
+  `editing/editduration.cpp:134-135`). Graces are *created* undotted (`dom/note.cpp:1930-1954`, `setGraceNote` with
+  plain divisions). The mixed-mag chord case keeps dots aligned: "if chords have notes with different mag, dots
+  must still align" (`chordlayout.cpp:3191-3201`). No vtest score contains a dotted grace: a scan of
+  `vtest/scores/*.mscx` for `<dots>` inside a grace `<Chord>` found none.
+- **Verovio:** no grace check in `calcdotsfunctor.cpp`, `adjustdotsfunctor.cpp` or the dot draw path (grep). The
+  cue scaling is the only special case. This checkout has no test suite: **UNKNOWN**.
+- **LilyPond:** no refusal. Grace music is ordinary music at a grace timestep. No regression file in
+  `input/regression/` has a dotted grace; the regex hits were false positives (`grace-alternative.ly:15` dots the
+  main note, not the grace).
+- **VexFlow:** no refusal. The only tests with a dotted grace are `tests/gracenote_tests.js:65` and `:154`, and in
+  both the dotted 8th grace is in a **beamed** group (`.beamNotes()`, `:82`), so the flag path of Q2 is untested.
+  The first is also in a RIGHT (Nachschlag) group.
+
+---
+
+#### Dorico / Sibelius / Finale (documentation only)
+- **Dorico:** graces are scaled "by a ratio that is set by default to 3/5 of a normal note", set in Engraving
+  Options > Notes > Grace Notes
+  ([Grace note size, v2](https://archive.steinberg.help/dorico/v2/en/dorico/topics/notation_reference/notation_reference_grace_notes_size_c.html),
+  [v5](https://archive.steinberg.help/dorico/v5/en/dorico/topics/notation_reference/notation_reference_grace_notes/notation_reference_grace_notes_size_c.html)).
+  Rhythm-dot options exist on the Notes page
+  ([notes engraving options](https://archive.steinberg.help/dorico/v1/zh/dorico/topics/notation_reference/notation_reference_notes_project_wide_engraving_options_c.html)).
+  **UNKNOWN** whether dot gaps scale with the grace ratio: the docs do not say.
+- **Finale:** the Augmentation Dots options are "Space Between Dot and Note", "Space Between Dots", "Vertical
+  Adjustment of Dot" and "Horizontal Adjustment for Upstem Flags", the last described as "By default, Finale
+  positions the dot to the right of the flag to avoid collision"
+  ([Augmentation Dots](http://usermanuals.finalemusic.com/Finale2012Mac/Content/Finale/IDD_AUGDOTOPTIONS.htm)).
+  Grace Note Size defaults to 50%
+  ([Grace Notes](http://usermanuals.finalemusic.com/Finale2012Mac/Content/Finale/IDD_GRACENOTEOPTIONS.htm)).
+  Neither page says whether dot spacing is reduced with the grace: **UNKNOWN**.
+- **Sibelius:** nothing found on dots of grace notes. Engraving Rules has an "Accidentals and Dots" page
+  ([What's new in Sibelius 2020](https://www.avid.com/resource-center/whats-new-in-sibelius-2020)). **UNKNOWN**.
+
+---
+
+#### UNKNOWNs
+1. MuseScore: whether the grace chord's `spaceRw` (reserved with unscaled dot gaps) is read anywhere for a grace.
+2. MuseScore: exact grace stem length after `calcMinStemLength` and hook minimums, so the Q2 "fires" verdict is ≈.
+3. LilyPond: exact Emmentaler `flags.u3` extent at font-size −3 (no font or binary on disk), so the Q2 verdict is ≈.
+4. Verovio: the Q2 table assumes no stem shortening (note ≥ 2.5 sp below the top line) and the Leipzig font.
+   Other fonts change the numbers.
+5. Dorico, Sibelius, Finale: whether dot gaps scale with grace size. Not documented in the pages found.
+6. No engine has a regression test of a dotted **unbeamed stem-up** grace (Q2's case).
 

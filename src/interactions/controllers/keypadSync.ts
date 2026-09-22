@@ -1,6 +1,6 @@
 import type { EditorState, StateListener } from '../state/EditorState'
 import type { BeamMode, FanMark, NoteDuration, TremoloMark } from '../../types/music'
-import { armedToolUsesLength, selectedOf } from '../state/EditorState'
+import { armedToolEntersPitch, armedToolUsesLength, selectedOf } from '../state/EditorState'
 import type { BeamRole } from '../../utils/beaming'
 import type { PaletteController } from './PaletteController'
 import { bus } from '@/bus'
@@ -354,7 +354,9 @@ export function wireKeypadSync(
     bus.accidental.setHighlight(
       armed?.kind === 'accidental' ? armed.sign
       : selectedAccidentalGlyph ? accidentalTypeToKey(selectedAccidentalGlyph.type)
-      : armed || noNoteInSelection(state) ? null
+      // A tool that places a pitch of its own (the grace stamp) carries the note-entry accidental.
+      : armed ? (armedToolEntersPitch(state) ? state.selectedAccidental : null)
+      : noNoteInSelection(state) ? null
       : state.selectedAccidental
     )
     // The Clef window lights the clef that is ARMED, and nothing otherwise: unlike a duration,

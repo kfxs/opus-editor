@@ -22,6 +22,8 @@ const GRACE_DEFAULT_DURATION = '8'
 export function pressGraceTool(host: SpanToolHost, form: GraceForm, side: GraceSide): void {
   const armed = armedTool(host.state, 'grace')
   if (armed && armed.form === form && armed.side === side) {
+    // What was armed FOR the grace goes with it — or it would mark the next typed note.
+    clearEntryMarks(host.state)
     host.disarm()
     dbg(`[grace] ${form} stamp disarmed`)
     return
@@ -32,8 +34,18 @@ export function pressGraceTool(host: SpanToolHost, form: GraceForm, side: GraceS
     host.state.selectedDuration = GRACE_DEFAULT_DURATION
     host.state.selectedDots = 0
   }
+  // A stale note-entry accidental or articulation is not a choice made for the grace (the rest tool's rule).
+  if (!armed) clearEntryMarks(host.state)
   host.arm({ kind: 'grace', form, side })
   dbg(`[grace] ${form} stamp armed (${side}, ${host.state.selectedDuration})`)
+}
+
+/** The note-entry marks a grace reads — its accidental and articulations. */
+function clearEntryMarks(state: EditorState): void {
+  state.selectedAccidental = null
+  state.accent = false
+  state.staccato = false
+  state.tenuto = false
 }
 
 /** Is the button for `form` / `side` lit? While a tool is armed, only by the ARMED grace tool. */

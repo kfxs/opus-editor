@@ -72,6 +72,52 @@ describe('stampGraceAtClick', () => {
     expect(chord.type === 'chord' && chord.graceBefore?.notes).toHaveLength(2)
   })
 
+  it('⭐ the ARMED accidental spells the grace, as in note entry', () => {
+    state.selectedMarkingTool = { kind: 'grace', form: 'acciaccatura', side: 'before' }
+    state.selectedAccidental = '#'
+    stampGraceAtClick(state, engine, registry([at('note', hostId, 100)]), 85, 50, render)
+    const chord = engine.getScore().measures[0].slots.find(s => s.type === 'chord')!
+    expect(chord.type === 'chord' && chord.graceBefore?.notes[0].pitches[0]).toMatchObject({ step: 'D', alter: 1 })
+    expect(state.selectedAccidental, 'it stays armed — a stamp is used in runs').toBe('#')
+  })
+
+  it('⭐ an armed NATURAL is forced, as in note entry — a ♮ in C major would otherwise never show (his report)', () => {
+    state.selectedMarkingTool = { kind: 'grace', form: 'appoggiatura', side: 'before' }
+    state.selectedAccidental = 'n'
+    stampGraceAtClick(state, engine, registry([at('note', hostId, 100)]), 85, 50, render)
+    const chord = engine.getScore().measures[0].slots.find(s => s.type === 'chord')!
+    expect(chord.type === 'chord' && chord.graceBefore?.notes[0].pitches[0]).toMatchObject({ step: 'D', alter: 0, forceAccidental: true })
+  })
+
+  it('⭐ with nothing armed it takes what is IN FORCE, as note entry does — the bar\'s running accidental', () => {
+    // A D♯ on beat 0 — so a D grace before the beat-1 note is a D♯ too.
+    engine.addNoteAtBeat({ step: 'D', alter: 1, octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })
+    state.selectedMarkingTool = { kind: 'grace', form: 'appoggiatura', side: 'before' }
+    stampGraceAtClick(state, engine, registry([at('note', hostId, 100)]), 85, 50, render)
+    const chord = engine.getScore().measures[0].slots.find(s => s.id !== undefined && s.type === 'chord' && s.graceBefore)!
+    expect(chord.type === 'chord' && chord.graceBefore?.notes[0].pitches[0]).toMatchObject({ step: 'D', alter: 1 })
+  })
+
+  it('⭐ the armed DOTS go on the grace (his report — the dot key was ignored)', () => {
+    state.selectedMarkingTool = { kind: 'grace', form: 'appoggiatura', side: 'before' }
+    state.selectedDots = 1
+    stampGraceAtClick(state, engine, registry([at('note', hostId, 100)]), 85, 50, render)
+    const chord = engine.getScore().measures[0].slots.find(s => s.type === 'chord' && s.graceBefore)!
+    expect(chord.type === 'chord' && chord.graceBefore?.notes[0]).toMatchObject({ duration: '8', dots: 1 })
+  })
+
+  it('⭐ the ARMED articulations go on the grace, as note entry\'s go on the note — one undo entry', () => {
+    state.selectedMarkingTool = { kind: 'grace', form: 'appoggiatura', side: 'before' }
+    state.staccato = true
+    state.accent = true
+    stampGraceAtClick(state, engine, registry([at('note', hostId, 100)]), 85, 50, render)
+    const chord = engine.getScore().measures[0].slots.find(s => s.type === 'chord' && s.graceBefore)!
+    expect(chord.type === 'chord' && chord.graceBefore?.notes[0].articulations?.sort()).toEqual(['accent', 'staccato'])
+    engine.undo()
+    const after = engine.getScore().measures[0].slots.find(s => s.type === 'chord')!
+    expect(after.type === 'chord' && after.graceBefore, 'ONE undo takes grace and marks together').toBeFalsy()
+  })
+
   it('a click far from every note is a no-op', () => {
     state.selectedMarkingTool = { kind: 'grace', form: 'acciaccatura', side: 'before' }
     expect(stampGraceAtClick(state, engine, registry([at('note', hostId, 100)]), 400, 50, render)).toBe(true)

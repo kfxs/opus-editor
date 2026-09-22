@@ -343,8 +343,27 @@ selectable in this plan; the press toggles it (§3.2).
      routes a grace as it routes a fan member (`graceOps.setGraceWritten`). Pinned, break-tested.
   7. **A note that COVERS a grace's beat without starting on it drops the grace** (logged).
 
+  ✅ **After the commit, his next rounds (2026-09-22):** an accidental pressed with the grace tool armed
+  arms it FOR the grace (`EditorState.MARKING_TOOL_ENTERS_PITCH`, a total table) and the grace is spelled
+  exactly as note entry spells a click (`entryAlteration`; an armed ♮ is forced) · the ghost shows the
+  accidental, SNAPS to the pitch over a staff and draws its ledger lines (`ElementRegistry.staffGeometryAt`,
+  handed to every tool ghost) · ⭐ DOTTED graces: the stamp passes the armed dots; `graceRoom.graceDotXs`
+  (the real notes' `INK` dot rows, pushed past the flag's reach on a flagged grace — `modifierStart`'s
+  `forceFlagRight`) places them for the room AND the ink; a head on a line lifts its dot.
+  ⭐ **ARTICULATIONS** (his *"we should have articulation in the grace"*; Gould p. 125 *"scaled down
+  proportionally"*): the model already stored them (P0 — a grace is an `Attack`) but NOTHING drew them —
+  an invisible mark. Now `GracePass.drawGraceArticulations` places them by the real notes' rule through the
+  fan members' stand-in (`beams/fanArticulations.placeMemberArticulations`, split out of the fan's draw),
+  on the REAL staff so a mark still snaps into a space, centred on the grace's head, its step out scaled
+  (`articulationPlacement.outwardScale`, opt-in, default 1), the glyph at the grace's size; registered on
+  the grace's pitch so it can be clicked; `markOps.flipArticulationPlacement` flips it (auto side: below).
+  With the grace tool armed, an articulation key arms FOR the next grace (the accidental's fall-through,
+  `MARKING_TOOL_ENTERS_PITCH`); `EditorState.pendingArticulations` is the one reader. ⚠️ Inside the staff
+  the snap dominates, so a grace's staccato lands where a normal note's would — the normal notes' rule.
   ⏭️ **Open after P1:** a real slur's shape at a grace · `X` (the stem flip — the stem-down picture and its
-  mirrored slash, P6) · a DOTTED grace's dot · a grace CHORD's accidentals stack in one column · the slash
+  mirrored slash, P6) · a grace CHORD's dots and accidentals (one column, no collision walk). The ghost previews
+  the armed articulations too (the page's `placeArticulation` at the snapped pitch; a stack steps one text
+  line per mark — a preview's approximation of `articulationStack`) · the slash
   on the 8th/16th has no knob (the font's) · ⏳ **a HOUSE STYLE the score's user sets** (these rows, saved
   in the file, with an options UI — one design for every engraving number, his call when). ⭐ `lint:hubs`
   re-baselined once for P0 (his call — code-shape plan, *After the plan*).

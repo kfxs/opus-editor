@@ -5,7 +5,7 @@ import { attachedMarksOf } from './interactions/clipboard/attachedMarks'
 import { ScoreModel } from './engine/models/ScoreModel'
 import { VIEWPORT_HEIGHT } from '@/engine/layout/layoutConfig'
 import { DEFAULT_ZOOM } from './engine/ViewportModel'
-import { createObservableEditorState, scoreCursorClass, selectedOf } from './interactions/state/EditorState'
+import { createObservableEditorState, pendingArticulations, scoreCursorClass, selectedOf } from './interactions/state/EditorState'
 import { HighlightController } from './interactions/controllers/HighlightController'
 import { RenderController } from './interactions/controllers/RenderController'
 import { runWheelGesture } from '@/interactions/controllers/wheelGestures'
@@ -367,7 +367,7 @@ export function createEditorApp(host: HTMLElement): EditorApp {
   const keyboard = new KeyboardController(
     getEngine,
     state,
-    () => palette.getPendingArticulations(),
+    () => pendingArticulations(state),
     () => renderer.renderScore(),
     (id) => selection.moveCaretTo(id),
     () => selection.getContextPitch(),
@@ -387,7 +387,7 @@ export function createEditorApp(host: HTMLElement): EditorApp {
     state,
     selection,
     renderer,
-    () => palette.getPendingArticulations(),
+    () => pendingArticulations(state),
     () => textEdit,
     clipboard,
     () => palette.armDynamicEntry(),

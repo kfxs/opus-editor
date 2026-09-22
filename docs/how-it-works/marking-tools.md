@@ -45,7 +45,14 @@ neither: it is **a length**, and a length is the one thing the note-entry keys a
   `selectedDots`, which is the exact N² problem this union was built to delete.
 - It was the **first** tool the duration and dot keys stay live under — the GRACE stamp is the second
   (a grace is DRAWN as a written value, 2026-09-22). They light, and pressing one **retunes the armed
-  rest** rather than ending the tool. That is not an exception list: it is the
+  rest** rather than ending the tool.
+- ⭐ **The grace stamp also takes the note-entry ACCIDENTAL and ARTICULATIONS** — a second property,
+  `MARKING_TOOL_ENTERS_PITCH` (total over the union, `lint:tables`): a tool that places a PITCH of its own
+  keeps ♯ / ♭ / ♮ and accent / staccato / tenuto as statements about that pitch, exactly as note entry
+  does, instead of swapping to the accidental or articulation stamp. `setAccidental` and
+  `pressArticulation` skip the "switch tools" rule for it and fall through to the entry-mode arm; the
+  stamp spells the grace with `entryAlteration` (an armed ♮ is forced) and hands it
+  `pendingArticulations(state)`; the ghost shows both. Arming or disarming the grace clears them. That is not an exception list: it is the
   property `MARKING_TOOL_USES_ARMED_LENGTH` asks of every kind, and a tenth tool cannot be added
   without answering it (the same trick as `MEASURE_RENDER_ROLE`).
 - Its click is **positional**, not a hit-test: it is note entry with `isRest`, so you click a place

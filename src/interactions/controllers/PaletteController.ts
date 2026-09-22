@@ -5,7 +5,7 @@ import type { MusicEngine } from '../../engine/MusicEngine'
 import type { ViewMode } from '@/engine/layout/layoutConfig'
 import type { EditorState, DynamicTool, TempoTool, MarkingTool } from '../state/EditorState'
 import { applyMarkVoiceScope } from '../stamps/markVoiceScope'
-import { activeVoiceToModel, armedTool, armedToolUsesLength, selectedOf, DEFAULT_DURATION, DEFAULT_DOTS, DEFAULT_BEAM } from '../state/EditorState'
+import { activeVoiceToModel, armedTool, armedToolEntersPitch, armedToolUsesLength, selectedOf, DEFAULT_DURATION, DEFAULT_DOTS, DEFAULT_BEAM } from '../state/EditorState'
 import { durationHighlight, beamHighlight, beamRoleHighlight, secondaryBreakHighlight, beamOverHighlight, tremoloHighlight, tremoloPairHighlight, fanHighlight } from './keypadSync'
 import { fracToNumber } from '../../utils/fraction'
 import { navBeatMap } from '../../utils/beatMap'
@@ -196,15 +196,6 @@ export class PaletteController {
    */
   private selectionHoldsNotes(): boolean {
     return selectedNoteIds(this.state.selectedItems.values()).length > 0
-  }
-
-  /** Returns the articulations currently armed for the next note entry. */
-  getPendingArticulations(): ArticulationType[] | undefined {
-    const arts: ArticulationType[] = []
-    if (this.state.accent) arts.push('accent')
-    if (this.state.staccato) arts.push('staccato')
-    if (this.state.tenuto) arts.push('tenuto')
-    return arts.length ? arts : undefined
   }
 
   /**
@@ -453,7 +444,9 @@ export class PaletteController {
     // A DIFFERENT marking tool is armed → switch to this one. ONE check: the union has no sibling
     // list to enumerate, so this cannot go stale when a ninth tool appears — which is exactly how
     // the old version let a press arm two tools at once.
-    if (armed) {
+    // ⭐ …UNLESS it places a PITCH of its own (`MARKING_TOOL_ENTERS_PITCH` — the grace stamp): then the
+    // press is about THAT pitch, and falls through to the entry-mode arm (3) with the tool kept.
+    if (armed && !armedToolEntersPitch(this.state)) {
       this.armAccidentalTool(accidental)
       return
     }
@@ -972,8 +965,9 @@ export class PaletteController {
       return
     }
 
-    // A DIFFERENT marking tool is armed → switch to this one. ONE check (see setAccidental).
-    if (armed) {
+    // A DIFFERENT marking tool is armed → switch to this one. ONE check (see setAccidental) — ⭐ unless
+    // it places a PITCH of its own (the grace stamp): then the press arms for ITS next click (3).
+    if (armed && !armedToolEntersPitch(this.state)) {
       this.armArticulationTool([type])
       this.refreshArticulationSelection()
       return
@@ -2350,8 +2344,10 @@ export class PaletteController {
    * stale flag through. The list encoded no real distinction: "arms into entry mode, enters no note"
    * is true of every marking tool.
    */
+  /** A marking tool is armed that places NO pitch of its own — under one that does (the grace stamp,
+   *  `MARKING_TOOL_ENTERS_PITCH`) the entry articulations are in play, as in note entry. */
   private markingToolArmed(): boolean {
-    return this.state.selectedMarkingTool !== null
+    return this.state.selectedMarkingTool !== null && !armedToolEntersPitch(this.state)
   }
 
 

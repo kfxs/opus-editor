@@ -17,7 +17,7 @@
  */
 import { tempoFieldsFromTool } from '../../utils/tempoText'
 import { dynamicTextFromTool } from '../../utils/dynamics'
-import type { NoteDuration } from '../../types/music'
+import type { Accidental, ArticulationType, NoteDuration } from '../../types/music'
 import type { MarkingTool } from './EditorState'
 import { assertNeverTool } from './EditorState'
 import type { GhostColor, ToolGhost } from '../../engine/rendering/ghosts/ghostTypes'
@@ -36,6 +36,10 @@ interface ArmedRestFields {
   duration: NoteDuration
   dots: number
   color: GhostColor
+  /** The note-entry accidental — read by a tool that places a PITCH (`MARKING_TOOL_ENTERS_PITCH`). */
+  accidental?: Accidental | null
+  /** …and the note-entry articulations, on the same terms. */
+  articulations?: ArticulationType[]
 }
 
 /**
@@ -109,7 +113,10 @@ export function toolGhost(tool: MarkingTool, armed: ArmedRestFields): ToolGhost 
     case 'fan': return { kind: 'fan', duration: tool.unit, dots: tool.dots }
     // A grace reads the ARMED value, as the rest does (MARKING_TOOL_USES_ARMED_LENGTH), and shows
     // the slash the click will make. ⛔ No dots: a dotted grace is not drawn yet (P1).
-    case 'grace': return { kind: 'grace', duration: armed.duration, slash: tool.form === 'acciaccatura' }
+    case 'grace': return {
+      kind: 'grace', duration: armed.duration, dots: armed.dots, slash: tool.form === 'acciaccatura',
+      accidental: armed.accidental ?? null, articulations: armed.articulations ?? [],
+    }
     // Click-to-type entry: a blue cursor, no ghost. See the header.
     case 'dynamicEntry':
     case 'tempoEntry': return null

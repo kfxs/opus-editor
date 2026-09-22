@@ -14,9 +14,10 @@
 import { dbg } from '@/utils/debug'
 import { measureCapacityQuarters } from '@/utils/measureCapacity'
 import { staffOf } from '@/utils/lanes'
+import { entryAlteration } from '../../engine/models/entryAlteration'
 import type { MusicEngine } from '../../engine/MusicEngine'
 import type { ElementInfo, ElementRegistry } from '../../engine/ElementRegistry'
-import { armedTool, type EditorState } from '../state/EditorState'
+import { armedTool, pendingArticulations, type EditorState } from '../state/EditorState'
 
 /** How far (px) the click may be from its host's head in x — `findClosestNoteOrRest`'s tolerance,
  *  widened by the room a grace takes before its note. */
@@ -38,16 +39,27 @@ export function stampGraceAtClick(
   }
   // ⭐ A REST is a host too (D7 reversed, his call 2026-09-22): the grace is entered first, the note
   //    after it takes it over. On a whole-bar rest the click's BEAT names where it belongs.
-  // ⛔ No dots: a dotted grace is not drawn yet (P1) — the armed DURATION only.
+  // ⭐ Spelled EXACTLY as note entry spells a click (his words: *"the grace should behaive like normal
+  //    note entry"*): the ARMED accidental wins; none armed = what is in force where the grace sounds —
+  //    the bar's running accidental, else the key (`entryAlteration`); an armed ♮ is FORCED, or a
+  //    natural that cancels nothing would never show (`NoteEntryCoordinator`'s rule). It stays armed:
+  //    a stamp is used in runs.
+  const { step, octave } = position.spelling
+  const hostBeat = host.type === 'rest' ? position.beat : engine.getNote(host.id)?.beat ?? position.beat
+  const alter = entryAlteration(
+    engine.getScore(), { measure: position.measure, beat: hostBeat, staff: position.staff }, step, octave, state.selectedAccidental,
+  )
+  const spelling = { step, octave, alter, ...(state.selectedAccidental === 'n' && { forceAccidental: true }) }
   const grace = engine.grace.addGrace(
-    host.id, tool.side, position.spelling, tool.form, { duration: state.selectedDuration },
+    host.id, tool.side, spelling, tool.form, { duration: state.selectedDuration, ...(state.selectedDots && { dots: state.selectedDots }) },
     host.type === 'rest' ? position.beat : undefined,
+    pendingArticulations(state),
   )
   if (!grace) {
     dbg(`· Grace stamp: note ${host.id} refused it (see graceOps.addGrace) — no change`)
     return true
   }
-  dbg(`✓ Grace stamped | ${tool.form} ${position.spelling.step}${position.spelling.octave} ${state.selectedDuration} before note ${host.id}`)
+  dbg(`✓ Grace stamped | ${tool.form} ${spelling.step}${state.selectedAccidental ?? ''}${spelling.octave} ${state.selectedDuration} before ${host.type} ${host.id}`)
   // PLACING ends keyboard entry, as the rest stamp's click does; the tool stays armed.
   state.selectedNoteId = null
   render()

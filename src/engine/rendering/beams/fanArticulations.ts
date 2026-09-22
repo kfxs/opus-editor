@@ -54,7 +54,7 @@ import { standOn } from '../staff/staveFrame'
  */
 
 /** VexFlow's articulation codes, by our type — the same table `NoteBuilder` uses. */
-const ARTICULATION_CODES: Record<ArticulationType, string> = {
+export const ARTICULATION_CODES: Record<ArticulationType, string> = {
   accent: 'a>',
   staccato: 'a.',
   tenuto: 'a-',
@@ -90,6 +90,14 @@ interface PlacedFanArticulation {
   rect: { x: number; y: number; width: number; height: number }
 }
 
+/** One PLACED mark, before any ink — the glyph, where it stamps, and the box the rule measured. */
+export interface PlacedArticulationInk {
+  type: ArticulationType
+  ink: ReturnType<EngravedArticulation['inkAt']>
+  /** Its measured box (zero-sized in jsdom, where glyphs measure nothing). */
+  box: { x: number; y: number; w: number; h: number } | null
+}
+
 /** One member's marks, and where its head and stem actually landed. */
 interface FanMemberArticulationTarget {
   /** THIS member's own articulations — empty draws nothing. */
@@ -116,6 +124,29 @@ export function drawFanMemberArticulations(
   target: FanMemberArticulationTarget,
   opts: { position: ModifierPositionValue; stemDirection: number },
 ): PlacedFanArticulation[] {
+  const placed: PlacedFanArticulation[] = []
+  for (const { type, ink, box } of placeMemberArticulations(stave, target, opts)) {
+    // The ink on OUR surface, the mark's own glyph, face and shifts — ⚠️ with no group of its own.
+    stampGlyph(ctx, ink.glyph, ink.x, ink.y, ink.font)
+    if (box) placed.push({ type, rect: { x: box.x, y: box.y, width: box.w, height: box.h } })
+  }
+  return placed
+}
+
+/**
+ * ⭐ The PLACEMENT half of {@link drawFanMemberArticulations}, for a head the note rules never saw —
+ * a fan member's, or a GRACE's (`rendering/GracePass`, which stamps each mark at its own size about
+ * the point this chose). Same stand-in, same column, same rules; no ink.
+ */
+export function placeMemberArticulations(
+  stave: EngravedStave,
+  target: FanMemberArticulationTarget,
+  opts: {
+    position: ModifierPositionValue; stemDirection: number
+    /** A GRACE's size: the step out from the head scales with it, the snap does not. Absent = 1. */
+    outwardScale?: number
+  },
+): PlacedArticulationInk[] {
   if (!target.types.length || !target.keys.length) return []
 
   // ⭐ The member's OWN side wins over the group's. Flipping the owner used to flip all six, which
@@ -149,6 +180,7 @@ export function drawFanMemberArticulations(
     // BEFORE the note sees it: this is what swaps `aboveCode`/`belowCode` (`setPosition` calls
     // `reset`), so the mark wears the glyph of the side it is actually on and not its mirror.
     art.setPosition(position)
+    if (opts.outwardScale !== undefined) art.setOutwardScale(opts.outwardScale)
     attachModifier(probe, art, 0)
     return art
   })
@@ -166,19 +198,15 @@ export function drawFanMemberArticulations(
   // Where the stand-in's head ended up, so the move to the real one is a single delta.
   const dx = target.headX - probe.getNoteHeadBeginX()
 
-  const placed: PlacedFanArticulation[] = []
+  const placed: PlacedArticulationInk[] = []
   for (let i = 0; i < marks.length; i++) {
     const art = marks[i]
     art.place() // x/y and the origin shifts — the placement member 0 got
     art.moveX(dx)
-    // The ink on OUR surface, the mark's own glyph, face and shifts — ⚠️ with no group of its own.
-    const ink = art.inkAt()
-    stampGlyph(ctx, ink.glyph, ink.x, ink.y, ink.font)
-    // The rect the CALLER registers, so a member's mark can be clicked like the owner's. Taken from
-    // the glyph the same way the owner's is (`modifier.getBoundingBox()`), and only after the draw —
-    // geometry is only real once the ink is down.
+    // The box the CALLER registers, so a member's mark can be clicked like the owner's — taken from
+    // the glyph the same way the owner's is (`modifier.getBoundingBox()`).
     const box = art.getBoundingBox()
-    if (box) placed.push({ type: sorted[i], rect: { x: box.x, y: box.y, width: box.w, height: box.h } })
+    placed.push({ type: sorted[i], ink: art.inkAt(), box: box ? { x: box.x, y: box.y, w: box.w, h: box.h } : null })
   }
   return placed
 }

@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { PaletteController } from './PaletteController'
 import { createEditorState, armedTool, selectedOf, type EditorState, type MarkingTool } from '../state/EditorState'
 import { dotHighlight, durationHighlight } from './keypadSync'
+import { pressGraceTool } from '../stamps/graceTool'
 
 // PaletteController is framework-agnostic; stub its callbacks.
 function makeController(state: EditorState): PaletteController {
@@ -2017,5 +2018,52 @@ describe('PaletteController — enterSelectionMode (Keypad Select arrow)', () =>
     p.enterSelectionMode()
     expect(selectNote).toHaveBeenCalledWith(null)
     expect(state.selectedTool).toBe('selection')
+  })
+})
+
+describe('PaletteController — an accidental under a tool that places a PITCH (the grace stamp)', () => {
+  // His report, 2026-09-22: "i select the grace to stamp, then select the accidental … what is
+  // expected is that we arm grace + accidental".
+  let state: EditorState
+  let palette: PaletteController
+  beforeEach(() => {
+    state = createEditorState()
+    palette = makeController(state)
+    pressGraceTool(palette.spanToolHost(), 'appoggiatura', 'before')
+  })
+
+  it('⭐ keeps the grace armed and arms the accidental for its next click', () => {
+    palette.setAccidental('#')
+    expect(armedTool(state, 'grace')).toMatchObject({ form: 'appoggiatura', side: 'before' })
+    expect(state.selectedAccidental).toBe('#')
+    palette.setAccidental('#')
+    expect(state.selectedAccidental, 'the same key again toggles it off').toBeNull()
+    expect(armedTool(state, 'grace')).not.toBeNull()
+  })
+
+  it('⛔ under any other tool the press still SWAPS to the accidental stamp', () => {
+    state.selectedMarkingTool = { kind: 'tie' }
+    palette.setAccidental('#')
+    expect(armedTool(state, 'accidental')?.sign).toBe('#')
+  })
+
+  it('⭐ an ARTICULATION press keeps the grace armed and arms the mark for its next click', () => {
+    palette.toggleStaccato()
+    expect(armedTool(state, 'grace')).not.toBeNull()
+    expect(armedTool(state, 'articulation')).toBeNull()
+    expect(state.staccato).toBe(true)
+  })
+
+  it('disarming the grace takes its accidental with it', () => {
+    palette.setAccidental('b')
+    pressGraceTool(palette.spanToolHost(), 'appoggiatura', 'before')
+    expect(armedTool(state, 'grace')).toBeNull()
+    expect(state.selectedAccidental).toBeNull()
+  })
+
+  it('…and its articulations', () => {
+    palette.toggleAccent()
+    pressGraceTool(palette.spanToolHost(), 'appoggiatura', 'before')
+    expect(state.accent).toBe(false)
   })
 })

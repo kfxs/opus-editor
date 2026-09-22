@@ -116,6 +116,14 @@ export class EngravedArticulation extends EngravedModifier implements InkSurface
    * Whether this mark may sit between the staff lines — read by the column rule
    * (`engrave/notes/articulationStack`, S9e) and by the placement.
    */
+  /** The opt-in scale of the step out from the note — a GRACE's size (`articulationPlacement.outwardScale`). */
+  private outwardScale = 1
+
+  setOutwardScale(scale: number): this {
+    this.outwardScale = scale
+    return this
+  }
+
   canSitBetweenLines(): boolean {
     return this.row.betweenLines
   }
@@ -196,6 +204,7 @@ export class EngravedArticulation extends EngravedModifier implements InkSurface
       headY: ruler.headYs[index],
       headLine: Number(note.getKeyProps()[index].line),
       outsideStaffY: side === 'above' ? textRowAboveY(frame, ARTICULATION_OUTSIDE_ROW) : textRowBelowY(frame, ARTICULATION_OUTSIDE_ROW),
+      ...(this.outwardScale !== 1 && { outwardScale: this.outwardScale }),
     })
     // ⚠️ BEFORE the new x/y, as VexFlow ordered it (see the header).
     if (centred) this.setOrigin(0.5, 0.5)

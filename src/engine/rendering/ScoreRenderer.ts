@@ -4763,7 +4763,10 @@ export class ScoreRenderer {
    * ⚠️ The ghost NOTE is not one of these — see {@link drawGhostNote} above.
    */
   renderScoreWithToolGhost(cursorX: number, cursorY: number, ghost: ToolGhost): boolean {
-    return this.ghostOverlay((ctx, svg) => drawToolGhost(ctx, svg, cursorX, cursorY, ghost))
+    // The staff under the pointer, for a ghost that previews a PITCH (its line, its ledger lines).
+    const g = this.elementRegistry.staffGeometryAt(cursorX, cursorY)
+    const staff = g ? { topLineY: g.lineYPositions[0], spacePx: g.lineSpacing, lineCount: 5 } : null
+    return this.ghostOverlay((ctx, svg) => drawToolGhost(ctx, svg, cursorX, cursorY, ghost, staff))
   }
 }
 

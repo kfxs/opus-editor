@@ -68,6 +68,13 @@ describe('toolGhost — the armed tool becomes what the engine draws', () => {
       .toEqual({ kind: 'rest', duration: '16', dots: 0, color: V2 })
   })
 
+  it('⭐ the GRACE ghost takes the armed length AND the armed accidental (his report, 2026-09-22)', () => {
+    const tool = { kind: 'grace', form: 'acciaccatura', side: 'before' } as const
+    expect(toolGhost(tool, { ...ARMED, accidental: '#', articulations: ['staccato'] }))
+      .toEqual({ kind: 'grace', duration: 'h', dots: 1, slash: true, accidental: '#', articulations: ['staccato'] })
+    expect(toolGhost(tool, ARMED)).toMatchObject({ accidental: null, articulations: [] })
+  })
+
   it('⭐⭐ …and the ACTIVE VOICE’s colour, which no other tool ghost carries', () => {
     // His report, 2026-08-31: "the colour of the ghost rest dont match the color of the voice".
     // A rest is the only marking tool that enters CONTENT INTO A VOICE, so it is the only preview

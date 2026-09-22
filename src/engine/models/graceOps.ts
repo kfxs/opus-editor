@@ -20,6 +20,9 @@ import { findSlot, type FoundSlot } from './slotLookup'
  *  group's own flag ({@link setGraceSlash}), one for the group (Gould p. 126). */
 export type GraceForm = 'acciaccatura' | 'appoggiatura'
 
+/** A grace's pitch — a spelling, and whether its sign is FORCED (an armed ♮ the key would hide). */
+export type GraceSpelling = PitchSpelling & { forceAccidental?: boolean }
+
 /** What a grace is DRAWN as — its written value. ⛔ Never counted. */
 export interface GraceWritten {
   duration: NoteDuration
@@ -53,7 +56,7 @@ export function addGrace(
   score: Score,
   hostNoteId: string,
   side: GraceSide,
-  spelling: PitchSpelling,
+  spelling: GraceSpelling,
   form: GraceForm,
   written: GraceWritten,
 ): GraceNote | null {
@@ -82,9 +85,11 @@ export function addGrace(
 
 /** Append one grace to `host`'s group on `side`, creating the group (its slash from `form`). */
 function appendGrace(
-  host: Chord | Rest, side: GraceSide, spelling: PitchSpelling, form: GraceForm, written: GraceWritten,
+  host: Chord | Rest, side: GraceSide, spelling: GraceSpelling, form: GraceForm, written: GraceWritten,
 ): GraceNote {
   const pitch: NotePitch = { id: uuidv4(), step: spelling.step, alter: spelling.alter, octave: spelling.octave }
+  // An explicitly armed sign the running rule would hide (a ♮ in C major) — note entry's courtesy.
+  if (spelling.forceAccidental) pitch.forceAccidental = true
   const grace: GraceNote = { pitches: [pitch], duration: written.duration }
   if (written.dots) grace.dots = written.dots
 

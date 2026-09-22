@@ -1,6 +1,6 @@
 import type { MusicEngine } from '../../engine/MusicEngine'
 import type { EditorState } from '../state/EditorState'
-import { activeVoiceToModel } from '../state/EditorState'
+import { activeVoiceToModel, pendingArticulations } from '../state/EditorState'
 import { toolGhost, GHOST_CAUSE } from '../state/toolGhost'
 import { ELEMENT_SPECS } from '../elements/chain'
 import { paintSelectedMarkInk } from '../elements/selectedInk'
@@ -292,6 +292,8 @@ export class RenderController {
       duration: this.state.selectedDuration,
       dots: this.state.selectedDots,
       color: { fill: voiceFillColor(restVoice), stroke: voiceStrokeColor(restVoice) },
+      accidental: this.state.selectedAccidental,
+      articulations: pendingArticulations(this.state) ?? [],
     })
     // A tool with no preview (the click-to-type entry tools) draws nothing AND skips the repaint —
     // the blue cursor is the signal, and there is nothing to put on the page.

@@ -52,6 +52,7 @@ import { CURVE_PX } from '../curves/curveStyle'
 import { ledgerLineStyle, type MeasureWidthInfo, type StaffSpacingLayout } from '@/engine/layout/layoutConfig'
 import { drawFanGhost, FAN_GHOST_GROUP_CLASS } from './FanGhost'
 import { drawGraceGhost, GRACE_GHOST_GROUP_CLASS } from './GraceGhost'
+import type { StaffFrame } from '@/engine/engrave/staff/staffFrame'
 import { drawTrillGhost, TRILL_GHOST_GROUP_CLASS } from './TrillGhost'
 import { drawOttavaGhost, OTTAVA_GHOST_GROUP_CLASS } from './OttavaGhost'
 import { drawPedalGhost, PEDAL_GHOST_GROUP_CLASS } from './PedalGhost'
@@ -513,6 +514,8 @@ export const GHOST_DRAWERS: {
   [K in ToolGhost['kind']]: (
     ctx: DrawContext, svg: SVGElement, cursorX: number, cursorY: number,
     ghost: Extract<ToolGhost, { kind: K }>,
+    /** The staff under the pointer, or null off every staff — for a ghost that previews a PITCH. */
+    staff: StaffFrame | null,
   ) => boolean
 } = {
   clef: (ctx, svg, x, y, g) => drawClefGhost(ctx, svg, x, y, g.clef),
@@ -527,7 +530,7 @@ export const GHOST_DRAWERS: {
   dot: (ctx, _svg, x, y) => drawDotGhost(ctx, x, y),
   rest: (ctx, svg, x, y, g) => drawRestGhost(ctx, svg, x, y, g.duration, g.dots, g.color),
   fan: (ctx, svg, x, y, g) => drawFanGhost(ctx, svg, x, y, g.duration, g.dots),
-  grace: (ctx, svg, x, y, g) => drawGraceGhost(ctx, svg, x, y, g.duration, g.slash),
+  grace: (ctx, svg, x, y, g, staff) => drawGraceGhost(ctx, svg, x, y, g.duration, g.slash, g.accidental, staff, g.dots, g.articulations),
   trill: (ctx, _svg, x, y) => drawTrillGhost(ctx, x, y),
   ottava: (ctx, _svg, x, y, g) => drawOttavaGhost(ctx, x, y, g.shift),
   pedal: (ctx, _svg, x, y) => drawPedalGhost(ctx, x, y),
@@ -546,9 +549,10 @@ export const GHOST_DRAWERS: {
  */
 export function drawToolGhost(
   ctx: DrawContext, svg: SVGElement, cursorX: number, cursorY: number, ghost: ToolGhost,
+  staff: StaffFrame | null = null,
 ): boolean {
   const draw = GHOST_DRAWERS[ghost.kind] as (
-    ctx: DrawContext, svg: SVGElement, x: number, y: number, ghost: ToolGhost,
+    ctx: DrawContext, svg: SVGElement, x: number, y: number, ghost: ToolGhost, staff: StaffFrame | null,
   ) => boolean
-  return draw(ctx, svg, cursorX, cursorY, ghost)
+  return draw(ctx, svg, cursorX, cursorY, ghost, staff)
 }

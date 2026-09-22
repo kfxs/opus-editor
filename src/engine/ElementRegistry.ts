@@ -1065,6 +1065,28 @@ export class ElementRegistry {
    * on ledger lines above/below still resolves to its own staff). Falls back to 0 when the
    * measure has no registered geometry. At N=1 there is one staff, so this always returns 0.
    */
+  /**
+   * ⭐ The STAFF under a pointer — the geometry whose bar spans `x` (a little past its note area either
+   * side) and whose lines are vertically nearest `y` — or null off every staff. What a tool ghost that
+   * previews a PITCH stands on (the grace stamp's: its snapped line, its ledger lines).
+   */
+  staffGeometryAt(x: number, y: number): StaffGeometry | null {
+    let best: StaffGeometry | null = null
+    let bestDist = Infinity
+    for (const g of this.staffGeometries.values()) {
+      const pad = 2 * g.lineSpacing
+      if (x < g.noteStartX - pad || x > g.noteEndX + pad) continue
+      const top = g.lineYPositions[0]
+      const bottom = g.lineYPositions[4]
+      const dist = y < top ? top - y : y > bottom ? y - bottom : 0
+      if (dist < bestDist) {
+        bestDist = dist
+        best = g
+      }
+    }
+    return best
+  }
+
   staffIndexAtY(measure: number, y: number): number {
     let best = 0
     let bestDist = Infinity

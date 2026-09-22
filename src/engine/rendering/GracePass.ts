@@ -21,13 +21,14 @@
  * anchor, and a grace stands left of its principal. Its group joins `fanMemberGroupMap` — the map of
  * pitches drawn outside their `StaveNote` — which is what the selection highlight reads.
  */
-import type { ChordRest, Clef, Fraction, GraceGroup, KeySignature, NoteDuration } from '@/types/music'
+import type { ChordRest, Clef, Fraction, GraceGroup, GraceNote, KeySignature, NoteDuration } from '@/types/music'
 import type { DrawContext } from '@/engine/paint/DrawContext'
 import type { RenderPass } from './RenderPass'
 import type { EngravedNote } from './engraved/EngravedNote'
 import type { EngravedStave } from './engraved/EngravedStave'
 import { EngravedAccidental } from './engraved/EngravedAccidental'
 import { drawGroupOf } from './painter/svgDrawGroup'
+import { fanArticulationPosition, placeMemberArticulations } from './beams/fanArticulations'
 import { openMemberGroup } from './memberGroup'
 import { maybeStaveOf, staveFrame } from './staff/staveFrame'
 import { chordHeadDisplacement } from './format/chordHeadLayout'
@@ -40,15 +41,15 @@ import { flagPlacement } from '@/engine/engrave/notes/flag'
 import { drawLedgerLines, ledgerLineRuns } from '@/engine/engrave/notes/ledgerLines'
 import { GRACE_SLASH, graceSlash, graceSlashUnflagged } from '@/engine/engrave/notes/graceGroup'
 import { stampGlyph } from '@/engine/engrave/glyph'
-import { accidentalFont, noteFont } from '@/engine/engrave/inheritedFonts'
+import { accidentalFont, musicGlyphFont, noteFont } from '@/engine/engrave/inheritedFonts'
 import { NOTE_DURATION_ROWS, stemThicknessPx } from '@/engine/engrave/inheritedDefaults'
 import { flagGlyph, glyphBox, noteheadInk } from '@/engine/fonts/fontMetrics'
 import { GLYPH_CODEPOINTS } from '@/engine/fonts/bravuraMetrics'
 import { accidentalExtent } from '@/engine/layout/spacingPadding'
-import { graceLayout, graceScale, graceStemSpaces, hostLeftReach, type SignOf } from '@/engine/layout/graceRoom'
+import { graceDotXs, graceLayout, graceScale, graceStemSpaces, hostLeftReach, type SignOf } from '@/engine/layout/graceRoom'
 import { displayedAccidentals } from '@/utils/accidentalState'
 import { staffLineForSpelling } from '@/utils/clefUtils'
-import { spellingDiatonicPos, spellingToMidi } from '@/utils/pitchSpelling'
+import { spellingDiatonicPos, spellingToMidi, spellingToNoteKey } from '@/utils/pitchSpelling'
 import { C_MAJOR } from '@/utils/keySignature'
 
 /** The group class — one per grace group, carrying the scale. */
@@ -57,7 +58,7 @@ export const GRACE_GROUP = 'grace'
 export const GRACE_NOTE_GROUP = 'gracenote'
 /** How far a grace's ledger line runs past its head, in the GRACE's own px — the fan's 3 px, which
  *  the group's scale shortens in proportion. */
-const GRACE_LEDGER_OVERHANG = 3
+export const GRACE_LEDGER_OVERHANG = 3
 
 /**
  * Draw every grace group BEFORE a chord of this lane. `slots` / `staveNotes` are the lane's, index
@@ -166,6 +167,10 @@ function drawGraceGroup(
           })
         }
 
+        drawGraceDots(ctx, local(headLeft), ys.map(local), lines, note, space)
+        drawGraceArticulations(pass, {
+          note, stave, clef, headLeft, glyphWidth, stemPx: graceStemSpaces(lines) * space, measureNumber, staffIndex,
+        })
         drawGraceStem(ctx, {
           headLeft: local(headLeft), highY: local(Math.min(...ys)), lowY: local(Math.max(...ys)),
           duration: note.duration, slash: !!group.slash, space, stemSpaces: graceStemSpaces(lines),
@@ -177,6 +182,25 @@ function drawGraceGroup(
 
   } finally {
     ctx.closeGroup()
+  }
+}
+
+/**
+ * ⭐ A grace's augmentation DOTS, in the grace's own px — at {@link graceDotXs} past the head's anchor
+ * (the room's own numbers), one row per head: a head on a LINE moves its dot up into the space above
+ * (the real notes' rule, `engrave/notes/dotStack`). Shared with the tool's ghost.
+ */
+export function drawGraceDots(
+  ctx: DrawContext, headLeft: number, headYs: readonly number[], lines: readonly number[],
+  note: Pick<GraceNote, 'duration' | 'dots'>, space: number,
+): void {
+  const xs = graceDotXs(note)
+  if (xs.length === 0) return
+  const glyph = String.fromCodePoint(GLYPH_CODEPOINTS.augmentationDot)
+  const rows = new Set<number>()
+  lines.forEach((line, h) => rows.add(Number.isInteger(line) ? headYs[h] - space / 2 : headYs[h]))
+  for (const y of rows) {
+    for (const x of xs) stampGlyph(ctx, glyph, headLeft + x * space, y, musicGlyphFont())
   }
 }
 
@@ -229,5 +253,60 @@ export function drawGraceStem(ctx: DrawContext, ink: GraceStemInk): void {
     ctx.moveTo(slash.x1, slash.y1)
     ctx.lineTo(slash.x2, slash.y2)
     ctx.stroke()
+  }
+}
+
+/**
+ * ⭐ **A grace's ARTICULATIONS** (his call, 2026-09-22: *"we should have articulation in the grace"*;
+ * Gould p. 125 — *"Tails, beams, articulation and accidentals are also scaled down proportionally"*).
+ *
+ * PLACED by the real notes' rule — the fan members' stand-in (`beams/fanArticulations`
+ * `placeMemberArticulations`: the same column, `articulationStack` + `articulationPlacement`), standing
+ * on the REAL staff so a mark inside it still snaps off a line into a space — centred on the grace's
+ * own head, its step OUT from the head scaled by the grace's size (`outwardScale`: proportional, as the
+ * dots are). Then each glyph is stamped at the GRACE's size about the point the rule chose.
+ * The side: the notehead's (a grace's stem is always up ⇒ below), unless the grace was flipped.
+ * Registered like a fan member's mark, keyed on the grace's first pitch, so it can be clicked.
+ */
+function drawGraceArticulations(
+  pass: RenderPass,
+  a: {
+    note: GraceNote; stave: EngravedStave; clef: Clef
+    /** The head's left edge and the head glyph's FULL-size width, staff px. */
+    headLeft: number; glyphWidth: number
+    stemPx: number; measureNumber: number; staffIndex: number
+  },
+): void {
+  const types = a.note.articulations ?? []
+  if (!types.length) return
+  const k = graceScale()
+  const ctx = pass.context
+  // The stand-in is a FULL-size note: stand it so its head's CENTRE is the grace head's.
+  const centreX = a.headLeft + (a.glyphWidth * k) / 2
+  const placed = placeMemberArticulations(a.stave, {
+    types,
+    keys: a.note.pitches.map(p => spellingToNoteKey(p.step, p.alter, p.octave)),
+    clef: a.clef,
+    headX: centreX - a.glyphWidth / 2,
+    stemLengthPx: a.stemPx,
+    placement: a.note.articulationPlacement,
+  }, { position: fanArticulationPosition(1), stemDirection: 1, outwardScale: k })
+  for (const { type, ink, box } of placed) {
+    // Scale the mark about its own centre: the point the rule chose stays, the glyph shrinks to k.
+    const cx = box ? box.x + box.w / 2 : ink.x
+    const cy = box ? box.y + box.h / 2 : ink.y
+    const sx = cx + (ink.x - cx) * k
+    const sy = cy + (ink.y - cy) * k
+    stampGlyph(ctx, ink.glyph, sx / k, sy / k, ink.font)
+    if (box) {
+      pass.elementRegistry.add({
+        type: 'articulation',
+        noteId: a.note.pitches[0].id,
+        articulationType: type,
+        measure: a.measureNumber,
+        staff: a.staffIndex,
+        bbox: { x: cx - (box.w * k) / 2, y: cy - (box.h * k) / 2, width: box.w * k, height: box.h * k },
+      })
+    }
   }
 }
