@@ -128,6 +128,29 @@ things chose to:
   the marks pull; the paste needed the pull, so the pull moved into `selectNotes` and the passage
   method is now a one-line alias under the name the gesture has.
 
+## ⭐ What the keys do to the GROUP
+
+Once several marks are selected together — boxed or Ctrl-clicked — three chords act on all of
+them at once, each as ONE undo entry and one render, and each by handing every member to its own
+kind's `keys` row (`interactions/elements/groupKeys.ts`, `alignRow.ts`): nothing about moving a mark
+is reinvented for the group.
+
+- **↑/↓ and Ctrl+↑/↓** move every member by the same distance (his report, 2026-09-21: two
+  Ctrl-clicked hairpins would not move). ⛔ ←/→ decline: a horizontal arrow is an interpolating
+  WALK that can re-anchor a mark, and running several at once is a different feature.
+- **Ctrl+Backspace** puts every member back to the engraver's place.
+- **Ctrl+Shift+R — Align in a Row** (Sibelius's `Layout › Align in a Row`, his ask 2026-09-22): every
+  member onto one line, the AVERAGE of where they were drawn. A member's height is the centre of its
+  box in the last render — and for the dynamics family that centre IS the dynamics line, for a `p`
+  and a wedge alike (`DynamicsLayout`'s box is `baseline − above … baseline + below`, whose middle is
+  the hairpin's `axisOffsetSpaces`), so letters and wedges aligned together land on one line rather
+  than Sibelius's famously low hairpins. The journey is measured in each member's own staff-spaces,
+  so a small staff's mark travels the same pixels. A member the render did not draw is left out; a
+  member its family refuses (the page or band limit) stays put. ⚠️ The chord never declines to the
+  browser, whose own Ctrl+Shift+R is a hard reload.
+
+⛔ A selection holding a NOTE is a passage, not a group: the arrows re-pitch it, as they always did.
+
 ## Where the ink is painted
 
 ⭐ **One pass per kind, asked "which ids of yours are selected?"** —

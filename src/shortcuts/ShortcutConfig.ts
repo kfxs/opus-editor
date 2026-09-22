@@ -211,6 +211,17 @@ export const SHORTCUTS: Record<string, ShortcutDefinition> = {
     action: 'resetMove',
     description: 'Reset the armed slur handle / hairpin end / a dynamic or tempo mark’s nudge / the space before the selected note / the bar’s width',
   },
+  // ⭐ ALIGN IN A ROW — Sibelius's `Layout › Align in a Row`, on its own chord (his ask, 2026-09-22):
+  // every mark of a GROUP selection (Ctrl-clicked or boxed hairpins, dynamics, tempo marks, spans)
+  // onto one line, the average of where they were drawn (`interactions/elements/alignRow`). No
+  // `Align in a Column` and no reset of its own: `Ctrl+Backspace` on the group already takes every
+  // member back to the engraver's place. ⚠️ Lowercase `r`, like every letter chord here. ⚠️ The
+  // browser's own meaning of this chord is a HARD RELOAD, so the handler never declines it — see
+  // `shortcutWiring`'s `alignInRow`.
+  'Ctrl+Shift+r': {
+    action: 'alignInRow',
+    description: 'Align the selected marks in a row — all onto one line, the average of where they sit',
+  },
 
   // Note horizontal offset (client #12 — docs/plans/note-offset-plan.md). A free nudge of a single
   // selected note/rest off its natural column, on top of automatic spacing. It rides the deliberate

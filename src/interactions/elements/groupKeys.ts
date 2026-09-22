@@ -25,8 +25,9 @@ import type { SelectionItem } from '../state/selection'
 import { ELEMENT_SPECS } from './chain'
 import type { KeysCtx } from './keys'
 
-/** The group's members that have a row to ask — or null when this selection is not a group of marks. */
-function markGroup(ctx: KeysCtx): SelectionItem[] | null {
+/** The group's members that have a row to ask — or null when this selection is not a group of marks.
+ *  Shared with `./alignRow`, the third verb over the group. */
+export function markGroup(ctx: KeysCtx): SelectionItem[] | null {
   const items = [...ctx.state.selectedItems.values()]
   if (items.length < 2 || items.some(item => item.kind === 'note')) return null
   // `note` is excluded above; every other item kind is a row of the table.
@@ -35,7 +36,7 @@ function markGroup(ctx: KeysCtx): SelectionItem[] | null {
 }
 
 /** One verb over the group, as ONE undo entry and one render. @returns whether any member answered. */
-function overGroup(
+export function overGroup(
   ctx: KeysCtx,
   description: string,
   run: (quiet: KeysCtx, element: SelectedElement) => boolean,

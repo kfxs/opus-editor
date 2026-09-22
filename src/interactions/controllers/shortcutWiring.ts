@@ -129,7 +129,7 @@ export function wireShortcuts(
   // ⭐ The arrows ask the selected element's own row, or the GROUP of marks — `elements/selectedKeys`.
   const keysCtx = (engine: MusicEngine): KeysCtx =>
     ({ engine, state, render: () => renderer.renderScore(), afterMarkPress })
-  const { nudge: nudgeSelectedElement, reset: resetSelectedElement, reanchor: reanchorSelectedElement, cycle: cycleSelectedElement } =
+  const { nudge: nudgeSelectedElement, reset: resetSelectedElement, reanchor: reanchorSelectedElement, cycle: cycleSelectedElement, alignRow: alignSelectedRow } =
     selectedElementKeys(getEngine, state, keysCtx)
 
   /**
@@ -878,8 +878,11 @@ export function wireShortcuts(
       nudgeSelectedElement(NUDGE_COARSE_SS, 0)
       || nudgeSelectedNoteSpacing(NOTE_SPACING_STEP_SS) || nudgeSelectedBarWidth(BAR_WIDTH_STEP_PX),
     // Ctrl+Backspace = reset the MOVE (the space before the note / the bar's width).
-    resetMove: () => resetSelectedElement()
-      || resetSelectedNoteSpacing() || resetSelectedBarWidth(),
+    resetMove: () => resetSelectedElement() || resetSelectedNoteSpacing() || resetSelectedBarWidth(),
+    // Ctrl+Shift+R = ALIGN IN A ROW: the group of selected marks onto one line
+    //    (`elements/alignRow`). ⚠️ Never declines: a declined key is left to the browser, and the
+    //    browser's Ctrl+Shift+R is a HARD RELOAD of the editor. With nothing to align it does nothing.
+    alignInRow: () => { alignSelectedRow() },
 
     // ── Note OFFSET (the small, deliberate nudge off the natural column) rides the harder chords:
     //    Ctrl+Shift+←/→ = WIDE (1 space), Shift+Alt+←/→ = FINE (¼ space). "Should not offset that
