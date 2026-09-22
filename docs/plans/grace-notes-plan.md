@@ -1,6 +1,6 @@
 # Grace notes — appoggiatura, acciaccatura, Nachschlag: the plan
 
-> **Status: P0 and P1 committed (2026-09-22), + the offset, the arrows and the rest fixes; P2 planned, P2a (the click behaves like note entry) committed, P2b (the beam) + a selected grace's form committed, P2c (the slash — the font's glyph) committed. Next: P2d (16ths on append).** 📄 The research is `docs/research/grace-notes-research.md`
+> **Status: P0 and P1 committed (2026-09-22), + the offset, the arrows and the rest fixes; P2 planned, P2a (the click behaves like note entry) committed, P2b (the beam) + a selected grace's form committed, P2c (the slash — the font's glyph) committed; ⛔ P2d dropped (the user's value is correct). P2 COMPLETE. Next: his pick — P3 (playback) or the open list.** 📄 The research is `docs/research/grace-notes-research.md`
 > (four sources folded into one file; its §0 is the synthesis this plan reads). ⛔ This plan is the place
 > the DECISIONS get made: §0 marks each as ✅ DECIDED (his word, with the date) or ⏳ PROPOSED — until he
 > says so it is a default, not a decision (`feedback_an_open_question_is_not_a_decision`). ✅ D1 · D2 ·
@@ -142,12 +142,12 @@ the fan member's in `deleteNoteWithRepair`, and no bar repair, because nothing r
    goes with it** — the existing overwrite drops a replaced chord's graces (a click over the note does the
    same); ⏳ his call whether a note that takes a note's place takes its graces, as it takes a rest's.
    ⏭️ SPACE (a typed rest) after a grace is not wired. Written value = the ARMED duration
-   (`selectedDuration` + `selectedDots`); the default a press finds there is the convention's: an
-   **8th** for a single grace, and the second click on a note makes both **16ths** (Gould p. 125: *"two
-   beams recommended"* for a group, G&L: two = 16ths). ⚠️ Provisional, one function
-   (`graceWrittenValue(groupSize)`), ✅ his *"lets say yes"* on 2026-09-22 as a DEFAULT to run, ⛔ not a
-   rule — *"after testing in the real UI things can change"*; a value set by hand with the duration keys
-   is always respected.
+   (`selectedDuration` + `selectedDots`) — ⭐ **WHAT THE USER CHOSE IS CORRECT** (his rule, 2026-09-22:
+   *"the idea is that the user choose the value they want for the grace and what the user decide is
+   correct"*). The only value the editor supplies is the 8th the tool arms when NO duration is lit; it is
+   the user's to change, before the click or after (the duration keys reach every selected grace).
+   ⛔ **No automatic value change** — the convention's *"a group is 16ths"* (Gould p. 125 *"two beams
+   recommended"*, G&L two = 16ths) was planned as P2d and DROPPED (see §8).
 2. ⭐ **A GRACE SELECTED (selection mode) when a button is pressed — DECIDED 2026-09-22** (his report:
    *"with the grace selected i press acciacc … is not editing the grace selected but arming"*): the
    button EDITS — its group becomes that FORM (`graceOps.setGraceForm`, one undo entry; the slash is the
@@ -514,15 +514,16 @@ selectable in this plan; the press toggles it (§3.2).
   0.8 GRACE spaces in from the corner, the stroke overhanging 0.6 (stem side) / 0.5 (beam side) — ROWS
   in `graceGroup.GRACE_SLASH`, ⭐ his eye decides, ⛔ not a blocker.
 
-  **The written value** — `graceWrittenValue(groupSize)` (§3, his *"lets say yes"* as a DEFAULT to run):
-  1 → 8th, 2+ → 16ths (Gould: *"two beams are recommended"*). On an APPEND, the graces still at the
-  previous default value (`graceWrittenValue(n − 1)`) move to the new one; ⭐ a value set by hand is
-  never touched (the only way to tell, without storing provenance — ⚠️ a hand-set 8th in a pair of 8ths
-  is indistinguishable; his UI check says whether that matters). The armed duration still wins when it
-  is not the tool's default.
+  ⛔ **P2d — DROPPED (his call, 2026-09-22).** It was `graceWrittenValue(groupSize)`: 1 → 8th, 2+ → 16ths
+  (Gould p. 125 *"two beams are recommended"*), rewriting the graces still at the old default on every
+  APPEND. His rule wins: *"the user choose the value they want for the grace and what the user decide is
+  correct"* — the rule changed graces already entered, and it could not tell a deliberate 8th from the
+  tool's default (the same state), so it would overrule a real choice. A grace is the value ARMED at its
+  click; the user changes it with the duration keys. ⛔ Don't bring it back as an automatic step — a
+  beam-count convention belongs in the house-style presets, as a value the USER picks (⏭️ Not P2, below).
 
   **Steps, his UI check between each:** P2a the click behaves like note entry (column → chord, gap → a grace there; the ghost follows the pointer smoothly) · P2b the beam (runs, line,
-  stems, quads — flags off) · P2c the slash on a beam · P2d `graceWrittenValue` on append. ⚠️ Renderer change ⇒ the browser suite either
+  stems, quads — flags off) · P2c the slash on a beam · ~~P2d~~ dropped. ⚠️ Renderer change ⇒ the browser suite either
   side of P2b/P2c (⛔ never with vitest at once). Scene tests (`GracePass.test.ts`): a run of 3 draws ONE
   beam group, no flags, stems parallel, every tip on the line; a quarter breaks the run; 8th + 16th draws
   one full line and one fractional; the beam is outside every `gracenote` group.
