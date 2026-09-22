@@ -1,6 +1,6 @@
 # Grace notes — appoggiatura, acciaccatura, Nachschlag: the plan
 
-> **Status: P0 and P1 committed (2026-09-22), + the offset, the arrows and the rest fixes; P2 planned, P2a (the click behaves like note entry) committed, P2b (the beam) + a selected grace's form committed, P2c (the slash — the font's glyph) committed; ⛔ P2d dropped (the user's value is correct). P2 COMPLETE. P3 (playback) committed, P6's flip (`X`) built. Next: his pick.** 📄 The research is `docs/research/grace-notes-research.md`
+> **Status: P0 and P1 committed (2026-09-22), + the offset, the arrows and the rest fixes; P2 planned, P2a (the click behaves like note entry) committed, P2b (the beam) + a selected grace's form committed, P2c (the slash — the font's glyph) committed; ⛔ P2d dropped (the user's value is correct). P2 COMPLETE. P3 (playback) committed, P6's flip (`X`) committed, P4 (a note becomes a grace, and a grace a note again) committed. Next: his pick.** 📄 The research is `docs/research/grace-notes-research.md`
 > (four sources folded into one file; its §0 is the synthesis this plan reads). ⛔ This plan is the place
 > the DECISIONS get made: §0 marks each as ✅ DECIDED (his word, with the date) or ⏳ PROPOSED — until he
 > says so it is a default, not a decision (`feedback_an_open_question_is_not_a_decision`). ✅ D1 · D2 ·
@@ -152,7 +152,28 @@ the fan member's in `deleteNoteWithRepair`, and no bar repair, because nothing r
    *"with the grace selected i press acciacc … is not editing the grace selected but arming"*): the
    button EDITS — its group becomes that FORM (`graceOps.setGraceForm`, one undo entry; the slash is the
    group's, so the whole group changes) — and arms nothing. In ENTRY mode (a stamp in hand) it still arms.
-   ⏳ **A NOTE SELECTED when the button is pressed — OPEN, his to find by iteration.** Candidates he
+   ⭐ **A NOTE SELECTED (selection mode) when a button is pressed — DECIDED 2026-09-22, P4** (his rule:
+   *"i have a note, i converted to a grace so in the space of the note now is a rest and of course the
+   grace is in the left part of the rest"* · *"if the note … already have a group of grace we just add the
+   pitch to the end of the group and everything like if there was not grace"*): the note's slot becomes a
+   REST of its own length (`convertToRestOps.swapSlotForRest` — nothing after it moves) and the note a
+   grace BEFORE that rest, written as it was (value, dots, pitches — a chord → a grace chord —
+   articulations), at the END of any group already there; the button's form is the group's; its ties go;
+   its pitch ids stay (a slur to it still lands); ⛔ no voice collapse. `models/noteToGraceOps`,
+   `graceCommands.convertNotesToGraces` (ONE undo entry), and the new graces are the selection. A note
+   that later takes the rest's place takes the graces (D7).
+   ⭐ **…and TOGGLED OFF — the inverse, DECIDED 2026-09-22** (his rule: *"if a grace is selected and we toggle
+   off … we get the parent duration and we override the pitch … if … just one is selected then we drop all
+   the grace notes that follow … if a group … is selected … we simple clear the group"*): the button of the
+   group's OWN form pressed on selected graces (the other form still just re-forms) — per group, once:
+   a LONE grace, or one of a group → the FIRST selected becomes its main slot's note (the slot's duration,
+   the grace's pitches and articulations; the main note's old pitches go with their ties, a slur on them
+   moves to the new one), the graces AFTER it go, the ones before stay; a whole group of TWO OR MORE
+   selected → the group goes, the main note untouched. On P4's rest it is the original note back.
+   `models/graceToNoteOps` (`graceToNote` · `clearGraceGroup`), `graceCommands.pressGraceForm` (ONE undo
+   entry); the notes made are the selection. ⭐ A SELECTED grace LIGHTS its group's form in the palette
+   (`graceTool.graceToolLit`, his report: *"when i select a grace i dont see its status … so i cannot
+   toggle off"*) — the lit button is the one that toggles it off. ⏳ The candidates below are superseded: Candidates he
    named: *transform that note into a grace* (Sibelius's `;` — the slot leaves the bar, its time is
    refilled, and the grace hangs on the note that follows); the fan's *"apply to what is selected"*
    (add a grace of the note's own pitch, MuseScore's way) was the plan's proposal and is NOT chosen.
@@ -540,9 +561,9 @@ selectable in this plan; the press toggles it (§3.2).
 - **P3 — PLAYBACK.** §6, the first preset, `playbackSchedule.grace.test.ts` — checkable because the
   collector is pure. *End state: it sounds.* ✅ BUILT 2026-09-22 (MuseScore's rule, from its source),
   ⏳ his ear.
-- **P4 — the OTHER ways in.** ⏳ §3 rules 2–3, once he has felt the stamp and picked: what a press does
-  to a selected NOTE (transform it? add to it?) and to a selected GRACE. *End state: his, after
-  iteration.*
+- **P4 — the OTHER ways in.** ✅ BUILT 2026-09-22, ⏳ his UI check — §3 rule 2: a selected GRACE takes
+  the button's form (its OWN form toggles it off — back to a note, or the group gone); a selected NOTE
+  becomes a grace before the rest that takes its place. In ENTRY mode the button still arms the stamp.
 - **P5 — grace AFTER.** `graceAfter` through every seam above (right ink, the last piece of a split,
   the end of the note in playback); the third button comes alive.
 - **P6 — the toggles.** ✅ **The slash** is a grace button on a selected grace (§3 rule 2, P2b's commit).

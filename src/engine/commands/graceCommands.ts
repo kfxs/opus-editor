@@ -6,8 +6,10 @@
  * ⛔ No `mutate` on a refusal: an edit that changed nothing leaves no undo entry.
  */
 import { addGrace, addGracePitch, flipGraceStems, isGraceNote, setGraceForm, setGraceWritten, type GraceForm, type GraceSpelling, type GraceWritten } from '../models/graceOps'
-import type { ArticulationType, Fraction, GraceNote, GraceSide, NotePitch } from '@/types/music'
+import type { ArticulationType, Fraction, GraceGroup, GraceNote, GraceSide, NotePitch } from '@/types/music'
 import { beatRestAt } from '../models/restGraceOps'
+import { convertNoteToGrace } from '../models/noteToGraceOps'
+import { clearGraceGroup, graceGroupAt, graceToNote, wholeGroupSelected } from '../models/graceToNoteOps'
 import { findSlot, offsetTargetOf } from '../models/slotLookup'
 import type { CommandContext } from './commandContext'
 import { nudgeNoteOffset } from '../models/overrideOps'
@@ -50,6 +52,57 @@ export function graceCommands(ctx: CommandContext) {
       for (const id of gracePitchIds) changed = setGraceWritten(score, id, written) || changed
       if (changed) ctx.mutate('Grace value')
       return changed
+    },
+
+    /**
+     * ⭐ A grace button with NOTES selected — each becomes a grace before the rest that takes its place
+     * (P4, his rule; `models/noteToGraceOps`). ONE undo entry for all of them.
+     * @returns the new graces' first pitch ids (the notes' own), for the caller to select.
+     */
+    convertNotesToGraces(noteIds: readonly string[], form: GraceForm): string[] {
+      const score = ctx.model().getScore()
+      const made = noteIds.flatMap(id => convertNoteToGrace(score, id, form)?.graceId ?? [])
+      if (made.length) ctx.mutate(made.length > 1 ? `Convert ${made.length} notes to graces` : 'Convert note to grace')
+      return made
+    },
+
+    /**
+     * ⭐ A grace BUTTON pressed with GRACES selected (plan §3 rule 2, his rules of 2026-09-22) — per GROUP,
+     * once: the OTHER form → the group takes it; its OWN form → TOGGLED OFF: a whole group of TWO OR MORE
+     * selected → the group goes (`clearGraceGroup`); otherwise (a lone grace too) the FIRST selected grace
+     * becomes its main slot's note
+     * and the graces after it go (`graceToNote`). ONE undo entry; none when nothing changed.
+     * @returns the notes made (their first pitch ids — the graces' own), for the caller to select.
+     */
+    pressGraceForm(gracePitchIds: readonly string[], form: GraceForm): { changed: boolean; madeNotes: string[] } {
+      const score = ctx.model().getScore()
+      const selected = new Set(gracePitchIds)
+      const done = new Set<GraceGroup>()
+      const madeNotes: string[] = []
+      let changed = false
+      for (const id of gracePitchIds) {
+        const at = graceGroupAt(score, id)
+        if (!at || done.has(at.group)) continue
+        done.add(at.group)
+        const own: GraceForm = at.group.slash ? 'acciaccatura' : 'appoggiatura'
+        if (own !== form) {
+          changed = setGraceForm(score, id, form) || changed
+        } else if (at.group.notes.length > 1 && wholeGroupSelected(score, id, selected)) {
+          // ⚠️ A GROUP of two or more, all selected. A LONE grace is a whole group too — but his first
+          //    case: it becomes the note, below.
+          changed = clearGraceGroup(score, id) || changed
+        } else {
+          // The FIRST selected grace of this group (the lowest index) is the one that becomes the note.
+          const first = gracePitchIds
+            .map(g => ({ g, at: graceGroupAt(score, g) }))
+            .filter(x => x.at?.group === at.group)
+            .sort((a, b) => a.at!.index - b.at!.index)[0]?.g ?? id
+          const made = graceToNote(score, first)
+          if (made) { madeNotes.push(made); changed = true }
+        }
+      }
+      if (changed) ctx.mutate(madeNotes.length ? 'Grace to note' : 'Grace form')
+      return { changed, madeNotes }
     },
 
     /**

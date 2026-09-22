@@ -227,10 +227,10 @@ export function mountDevToolbar(host: HTMLElement, deps: DevToolbarDeps): DevToo
   const graceBox = group('Grace:')
   const GRACE_BTN = 'px-2 py-1 rounded text-sm'
   toggle(graceBox, GRACE_BTN, 'acciacc.', 'Acciaccatura (slashed) — click a note to add one before it',
-    () => graceToolLit(state, 'acciaccatura', 'before'),
+    () => graceToolLit(state, 'acciaccatura', 'before', getEngine()),
     () => pressGraceTool(palette.spanToolHost(), 'acciaccatura', 'before'))
   toggle(graceBox, GRACE_BTN, 'appogg.', 'Appoggiatura — click a note to add one before it',
-    () => graceToolLit(state, 'appoggiatura', 'before'),
+    () => graceToolLit(state, 'appoggiatura', 'before', getEngine()),
     () => pressGraceTool(palette.spanToolHost(), 'appoggiatura', 'before'))
   toggle(graceBox, GRACE_BTN, 'after', 'Grace AFTER a note (Nachschlag) — not built yet (plan P5)',
     () => false, () => {}, ON, () => false)

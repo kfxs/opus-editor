@@ -13,7 +13,9 @@ import type { GraceForm } from '@/engine/models/graceOps'
 import { armedTool, type EditorState } from '../state/EditorState'
 import { durationHighlight } from '../controllers/keypadSync'
 import type { SpanToolHost } from './spanToolPress'
-import { selectedNoteIds } from '../state/selection'
+import { itemKey, selectedNoteIds, type SelectionItem } from '../state/selection'
+import type { MusicEngine } from '@/engine/MusicEngine'
+import { graceGroupAt } from '@/engine/models/graceToNoteOps'
 
 /** A grace's written value when the duration keys say nothing — an 8th (the convention for a single
  *  grace, Gould p. 125). ⚠️ A DEFAULT, his *"lets say yes"* on 2026-09-22; a value set by hand wins. */
@@ -21,17 +23,35 @@ const GRACE_DEFAULT_DURATION = '8'
 
 /**
  * Arm the grace stamp for `form` / `side` — or disarm it, when the same one is armed already.
- * ⭐ In SELECTION mode with graces selected it arms nothing: it makes their groups this FORM (his rule,
- * 2026-09-22 — plan §3 rule 2: *"with the grace selected i press acciacc"*).
+ * ⭐ In SELECTION mode with something selected it arms nothing (plan §3 rule 2, his rules of 2026-09-22):
+ * - selected GRACES become this FORM (*"with the grace selected i press acciacc"*) — or, pressed with
+ *   their OWN form, are TOGGLED OFF: the first selected becomes its main slot's note and the graces after
+ *   it go; a whole group selected just goes (`models/graceToNoteOps`);
+ * - selected NOTES become GRACES of this form, each before the rest that takes its place (*"i have a note,
+ *   i converted to a grace so in the space of the note now is a rest and of course the grace is in the
+ *   left part of the rest"*) — and what was made (graces, or notes) is the selection.
  */
 export function pressGraceTool(host: SpanToolHost, form: GraceForm, side: GraceSide): void {
   const engine = host.getEngine()
-  const graces = host.state.selectedTool === 'selection' && engine
-    ? selectedNoteIds(host.state.selectedItems.values()).filter(id => engine.isGraceNote(id))
-    : []
-  if (engine && graces.length) {
-    if (engine.grace.setGraceForm(graces, form)) host.render()
-    dbg(`[grace] ${graces.length} selected grace(s) → ${form}`)
+  const ids = host.state.selectedTool === 'selection' && engine ? selectedNoteIds(host.state.selectedItems.values()) : []
+  const graces = engine ? ids.filter(id => engine.isGraceNote(id)) : []
+  const notes = engine ? ids.filter(id => !engine.isGraceNote(id) && engine.getNote(id)?.isRest === false) : []
+  if (engine && (graces.length || notes.length)) {
+    let made: string[] = []
+    const changed = engine.runBatch(form === 'acciaccatura' ? 'Make acciaccatura' : 'Make appoggiatura', () => {
+      // Graces: the other form → re-formed; their own form → TOGGLED OFF (back to a note, or the group gone).
+      if (graces.length) made.push(...engine.grace.pressGraceForm(graces, form).madeNotes)
+      if (notes.length) made = [...made, ...engine.grace.convertNotesToGraces(notes, form)]
+    })
+    // REASSIGN, never mutate: the observable state only sees a top-level write. What was made is the
+    // selection; failing that, what is still there (a cleared group's graces are gone).
+    const keep = made.length ? made : ids.filter(id => engine.getNote(id))
+    if (made.length || keep.length !== ids.length) {
+      host.state.selectedItems = new Map(keep.map((id): [string, SelectionItem] => [itemKey({ kind: 'note', id }), { kind: 'note', id }]))
+      host.state.selectedNoteId = keep[0] ?? null
+    }
+    if (changed) host.render()
+    dbg(`[grace] selection → ${form}: ${graces.length} grace(s) re-formed, ${made.length} note(s) made graces`)
     return
   }
   const armed = armedTool(host.state, 'grace')
@@ -64,8 +84,19 @@ function clearEntryMarks(state: EditorState): void {
   state.tenuto = false
 }
 
-/** Is the button for `form` / `side` lit? While a tool is armed, only by the ARMED grace tool. */
-export function graceToolLit(state: EditorState, form: GraceForm, side: GraceSide): boolean {
+/**
+ * Is the button for `form` / `side` lit? By the ARMED grace tool — or, ⭐ with none armed, in SELECTION
+ * mode, by a SELECTED grace whose group is that form (his report, 2026-09-22: *"when i select a grace i
+ * dont see its status as grace in the grace palette (so i cannot toggle off)"* — the lit button is the
+ * one that toggles it off).
+ */
+export function graceToolLit(state: EditorState, form: GraceForm, side: GraceSide, engine?: MusicEngine | null): boolean {
   const armed = armedTool(state, 'grace')
-  return !!armed && armed.form === form && armed.side === side
+  if (armed) return armed.form === form && armed.side === side
+  if (!engine || state.selectedTool !== 'selection') return false
+  const score = engine.getScore()
+  return selectedNoteIds(state.selectedItems.values()).some(id => {
+    const at = graceGroupAt(score, id)
+    return !!at && (at.group.slash ? 'acciaccatura' : 'appoggiatura') === form
+  })
 }
