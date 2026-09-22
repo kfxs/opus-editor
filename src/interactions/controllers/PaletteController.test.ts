@@ -1620,6 +1620,7 @@ describe('PaletteController — dot stamp tool', () => {
     const fakeEngine = {
       getNote: (id: string) => notes[id] ?? null,
       updateNote,
+      isGraceNote: () => false,
       runBatch: (_label: string, fn: () => void) => fn(),
     } as unknown as import('../../engine/MusicEngine').MusicEngine
     palette = new PaletteController(

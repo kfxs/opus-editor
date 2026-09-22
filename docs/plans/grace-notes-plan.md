@@ -1,6 +1,6 @@
 # Grace notes — appoggiatura, acciaccatura, Nachschlag: the plan
 
-> **Status: P0 and P1 committed (2026-09-22), + the offset, the arrows and the rest fixes; P2 planned, P2a (the click behaves like note entry) committed, P2b (the beam) + a selected grace's form committed. Next: P2c (the slash on a beam).** 📄 The research is `docs/research/grace-notes-research.md`
+> **Status: P0 and P1 committed (2026-09-22), + the offset, the arrows and the rest fixes; P2 planned, P2a (the click behaves like note entry) committed, P2b (the beam) + a selected grace's form committed, P2c (the slash — the font's glyph) committed. Next: P2d (16ths on append).** 📄 The research is `docs/research/grace-notes-research.md`
 > (four sources folded into one file; its §0 is the synthesis this plan reads). ⛔ This plan is the place
 > the DECISIONS get made: §0 marks each as ✅ DECIDED (his word, with the date) or ⏳ PROPOSED — until he
 > says so it is a default, not a decision (`feedback_an_open_question_is_not_a_decision`). ✅ D1 · D2 ·
@@ -239,7 +239,7 @@ is the precedent):
 | stem thickness | **unscaled** (system weight) | Gould's grace plate does not thin it (`docs/research/stem-thickness-research.md` §2.4); ⚠️ the `scale(k)` group WOULD thin it — the stem's stroke is `/k`, as the barline sign keeps the system's weight on a small staff |
 | stem direction | **up** (D1's group flag) | research §0.4 |
 | slash: where it runs | ⭐ **the FONT's anchors** — `graceNoteSlashSW`→`NE` on the flag (Bravura's 8th: 1.93 × 1.66 sp at full size ⇒ ≈1.3 × 1.1 at 2/3); where a face or a flag has none, **Bravura's 8th anchors as the rows**; weight **0.09 sp** | ✅ his call 2026-09-22 after a side-by-side (*"very ugly"*): the first rows, measured off Gould's plate (2.1 sp · 40° · 1.15 sp past the stem), reached far past the flag of a 2/3 note. MuseScore (flag's right edge, 40°), Verovio (0.375 left → 0.75 right, 45°) and LilyPond (a flag-stroke GLYPH, ≈0.4 → 0.55) all stay inside the flag; ⛔ never SMuFL's precomposed E560–E563 (SMuFL; Leipzig has none) |
-| slash on a beamed group | **one, on the first stem, diagonal to the beam** | Gould p. 126 *may*; Stone *must*; G&L *never* (a preset later) |
+| slash on a beamed group | **one, on the first stem** — ⭐ a PRESET (P2c): `musescore` armed · `lilypond` · `none` | Gould p. 126 *may*; Stone *must*; G&L *never*; MuseScore draws one, LilyPond only under `\slashedGrace`, Verovio none |
 | slur | **below, notehead to notehead**; above when it would hit the main note's accidental or ledgers | Gould pp. 129–130; measured: starts at the grace head's centre, ends 0.17 sp left of the main head's, 0.35–0.5 sp below |
 | beams in a group | the group's own beam, at `GRACE_SCALE`; two 16ths = two beams | Gould p. 125; never joined to the principal (all three engines) |
 
@@ -442,8 +442,50 @@ selectable in this plan; the press toggles it (§3.2).
   **P2b — the BEAM.** ✅ BUILT 2026-09-22, ⏳ his UI check: `engrave/notes/graceBeam` (runs · the page's
   slope rule + fit · every stem to the line · the page's level spans · quads) · `GracePass` measures every
   grace first, draws a beamed stem to its beam with NO flag, and each beam in its own `gracebeam` group
-  outside every `gracenote` · `graceRoom.graceDotXs(note, beamed)`. ⚠️ A beamed ACCIACCATURA shows no
-  slash until P2c (the flag's slash has no flag to sit on).
+  outside every `gracenote` · `graceRoom.graceDotXs(note, beamed)`. ✅ Its slash: P2c.
+
+  **P2c — the SLASH on a beam.** ✅ BUILT 2026-09-22, ⏳ his UI check. ⭐ A PRESET TABLE, his call (*"lets
+  try musescore numbers, and if not we can always go back … presets so the user can change it"*), after
+  reading the three engines' SOURCES (⛔ not VexFlow — *"those are the professional engines"*):
+  `graceGroup.GRACE_BEAM_SLASH_RULES`, armed by `__grace.beamSlash(…)`:
+  - `bravura` ✅ ARMED — ⭐ his: the FONT's own slash GLYPH, U+E564 `graceNoteSlashStemUp`, STAMPED (*"why
+    we are not using a glyph for the slash … an hand engraver had a tool for this"*; its measure, off
+    Bravura's outline: 37.5°, 2.49 × 0.24 grace spaces — MuseScore's drawn one is 3.0 × 0.125). Added to
+    the font tables (`scripts/generate-font-metrics.mjs`; Leipzig draws Bravura's). Placed by its BOX:
+    `glyphLeft` 0.8 left of the stem, `glyphDown` 1.1 below the tip — his eye: first 0.9 · 1.2 (where his
+    accepted MuseScore look started, lifted after *"too low"*), then *"it looks better than ever … almost
+    nothing to the right and almost nothing … up"*; tunable, `__grace.beamSlash({ glyphLeft, glyphDown })`.
+    ⭐ GLYPH, not a drawn line (his *"if you think is better to draw it we can"* — kept the glyph: the
+    designer's shape with its round ends, and it follows the face). ⚠️ A punch: it does not lean with
+    the beam — a steep beam is the case to watch.
+  ⭐ **…and the SINGLE grace's slash matches it** (his: *"the style should match … the one in the group"*):
+  on a flag, the same glyph E564 with its lower-left corner on the flag's `graceNoteSlashSW` anchor —
+  what SMuFL made those anchors for (Bravura's 8th-flag anchors are the rows where a face has none). A
+  stem with NO flag (quarter, half) keeps its drawn, tuned slash, at the glyph's weight (0.238 grace sp).
+  ⚠️ **Whose rule is it** (his question, 2026-09-22): the RULE is SMuFL's — `graceNoteSlashSW` is *"the
+  position at which the glyph graceNoteSlashStemUp should be positioned relative to the stem-up flag of an
+  unbeamed grace note; alternatively, the bottom left corner of a diagonal line"* (research, *Anchors*); the
+  NUMBERS are the face's — Bravura states them on its 8th flags only. ⭐ OURS: Bravura's 8th values stand in
+  on a 16th/32nd flag and in Sebastian and Leipzig (no slash anchors) — a borrowed value, no rule; and the
+  BEAMED slash's place (SMuFL covers only an unbeamed grace). Bravura's anchors (1.93 × 1.66) and its E564
+  box (2.02 × 1.60) differ by ≈0.1 sp: the glyph is placed by SW alone, as the spec says.
+  - `musescore` — `TLayout::layoutStemSlash`, beam branch: from half a notehead left of the
+    stem's right edge, `stemSlashPosition` 2.0 × 0.66 × mag below the tip, at 40° + HALF the beam's
+    angle, 2 STAFF spaces long (× 1.1 on a rising beam), 0.125 sp × mag thick; first chord only.
+  - `lilypond` — `beam::slashed-stencil` (only under `\slashedGrace`): −0.5 → +1 sp of the first stem,
+    from 1 sp + 0.3 of the stem below the beam to 0.75 sp over it. ⚠️ Its `\acciaccatura` draws NONE
+    (a documented Known Issue).
+  - `none` — Verovio (a slash only on a stem NOT in a beam), and LilyPond's default.
+  Drawn with the beam in its `gracebeam` group (`graceBeam` answers its `slope`). ⛔ The first build used
+  VexFlow's recipe — replaced.
+  ⭐ **His eye on `musescore`** (first look: *"looks too big but maybe is the position — a little more to the
+  left and … a little down"*): `BEAM_SLASH_ADJUST` moves its start LEFT and DOWN and scales its length,
+  grace spaces — first guess left 0.4 · down 0.3 · length × 1, ⏳ his to tune (`__grace.beamSlash({ left,
+  down, length })`). MuseScore's own numbers stay the rows; the adjustment is the house's.
+
+  **A duration or dot key with graces selected** (his report, same day: *"only affecting the first"*):
+  every selected grace takes it, ONE undo entry (`controllers/selectionWrittenValue` →
+  `graceCommands.setGraceWritten`); an ordinary anchor note keeps the old path.
 
   **What beams.** The flagged graces of ONE group (8th and shorter, `NOTE_DURATION_ROWS[d].flag`), in a
   run: a quarter/half/whole grace breaks it, a run of one keeps its flag. ⛔ Never joined to the principal

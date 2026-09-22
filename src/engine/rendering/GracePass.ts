@@ -39,7 +39,7 @@ import { drawNoteHead } from '@/engine/engrave/notes/noteheads'
 import { drawStem } from '@/engine/engrave/notes/stem'
 import { flagPlacement } from '@/engine/engrave/notes/flag'
 import { drawLedgerLines, ledgerLineRuns } from '@/engine/engrave/notes/ledgerLines'
-import { GRACE_SLASH, graceSlash, graceSlashUnflagged } from '@/engine/engrave/notes/graceGroup'
+import { GRACE_SLASH, graceSlash, graceSlashOnBeam, graceSlashUnflagged } from '@/engine/engrave/notes/graceGroup'
 import { graceBeam, graceBeamRuns } from '@/engine/engrave/notes/graceBeam'
 import { drawBeamLines } from '@/engine/engrave/beams/beamLines'
 import { armedBeamSlopeRule } from './beams/beamSlopeExperiment'
@@ -146,7 +146,8 @@ function drawGraceGroup(
       endOvershoot: BEAM_END_OVERSHOOT,
     })
     run.forEach((i, r) => beamTips.set(i, beam.tipYs[r]))
-    return beam
+    const lead = drawn[run[0]]
+    return { beam, first: { ...lead.stem, headY: local(Math.max(...lead.ys)), duration: lead.note.duration } }
   })
 
   const opened = drawGroupOf(ctx.openGroup(GRACE_GROUP, `${GRACE_GROUP}-${host.id}-before`))
@@ -217,14 +218,29 @@ function drawGraceGroup(
     }
     // ⭐ Each beam in its OWN group, outside every `gracenote` group — the fan's rule: a selected grace
     //    lights its head and stem, never the beam it shares.
-    for (const beam of beams) {
+    beams.forEach(({ beam, first }) => {
       ctx.openGroup(GRACE_BEAM_GROUP)
       try {
         drawBeamLines(ctx, beam.lines, beam.thickness)
+        // ⭐ P2c — an acciaccatura's ONE slash, across the FIRST stem and its beam: the ARMED preset's
+        //    (`graceGroup.GRACE_BEAM_SLASH_RULES` — MuseScore's, his call; `none` draws nothing).
+        const slash = group.slash ? graceSlashOnBeam({
+          stemX: first.stemX, stemWeight: first.stemWeight, tipY: beam.tipYs[0], headY: first.headY,
+          slope: beam.slope, headWidth: noteheadInk(first.duration) * space, space, k,
+        }) : null
+        if (slash?.kind === 'glyph') {
+          stampGlyph(ctx, String.fromCodePoint(GLYPH_CODEPOINTS[slash.glyph]), slash.x, slash.y, noteFont())
+        } else if (slash) {
+          ctx.beginPath()
+          ctx.setLineWidth(slash.thickness)
+          ctx.moveTo(slash.segment.x1, slash.segment.y1)
+          ctx.lineTo(slash.segment.x2, slash.segment.y2)
+          ctx.stroke()
+        }
       } finally {
         ctx.closeGroup()
       }
-    }
+    })
   } finally {
     ctx.closeGroup()
   }
@@ -266,7 +282,7 @@ export interface GraceStemInk {
    *  a grace on ledger lines (Gould p. 126). */
   stemSpaces: number
   /** ⭐ A BEAMED grace's tip, ON its beam (P2b, `engrave/notes/graceBeam`) — the stem runs to it and
-   *  draws NO flag; the slash on a beam is P2c's. Absent = unbeamed. */
+   *  draws NO flag and no slash of its own: a beamed group's ONE slash is drawn with its beam (P2c). */
   beamTipY?: number
 }
 
@@ -293,25 +309,29 @@ export function drawGraceStem(ctx: DrawContext, ink: GraceStemInk): void {
   //    (`NOTE_DURATION_ROWS`), ⛔ never a list of today's durations: a new value brings its row.
   const row = NOTE_DURATION_ROWS[ink.duration]
   if (!row.stem) return // no stem, no slash either
-  const k = graceScale()
-  const local = (v: number): number => v / k
   const { space } = ink
   const { stemX, tipY: freeTip, stemWeight } = graceStemLine(ink)
   const tipY = ink.beamTipY ?? freeTip
   drawStem(ctx, { x: stemX, fromY: ink.lowY, toY: tipY }, stemWeight)
-  if (ink.beamTipY !== undefined) return // beamed: the beam is its flag (the slash on a beam is P2c)
+  if (ink.beamTipY !== undefined) return // beamed: the beam is its flag, and the group's slash is the beam's
   const flag = row.flag ? flagGlyph(ink.duration, true) : null
   // Where the flag glyph stands — its origin is also where the slash's anchors are measured from.
   const at = flagPlacement({ x: stemX, tipY, up: true }, stemWeight, flag ? glyphBox(flag).up * space : 0)
   if (flag) stampGlyph(ctx, String.fromCodePoint(GLYPH_CODEPOINTS[flag]), at.x, at.baselineY, noteFont())
   if (ink.slash) {
     // In the grace's own px, where the flag glyph is full size — the font's anchors are in its units.
-    // ⭐ A FLAG's slash is the font's; a stem with none (a quarter, a half) gets its own position.
-    const slash = row.flag
-      ? graceSlash({ x: at.x, y: at.baselineY }, flag, space)
-      : graceSlashUnflagged(stemX, tipY, space)
+    // ⭐ A FLAG's slash is the FONT's GLYPH, E564, its lower-left corner on the flag's `graceNoteSlashSW`
+    //    anchor — what SMuFL made the anchors for (his call, 2026-09-22: the single grace's slash must
+    //    MATCH the group's, which is the glyph). A stem with none (a quarter, a half) keeps its own drawn
+    //    position, at the glyph's WEIGHT.
+    if (row.flag) {
+      const sw = graceSlash({ x: at.x, y: at.baselineY }, flag, space)
+      stampGlyph(ctx, String.fromCodePoint(GLYPH_CODEPOINTS.graceNoteSlashStemUp), sw.x1, sw.y1, noteFont())
+      return
+    }
+    const slash = graceSlashUnflagged(stemX, tipY, space)
     ctx.beginPath()
-    ctx.setLineWidth(local(GRACE_SLASH.thickness.value * space))
+    ctx.setLineWidth(GRACE_SLASH.thickness.value * space)
     ctx.moveTo(slash.x1, slash.y1)
     ctx.lineTo(slash.x2, slash.y2)
     ctx.stroke()

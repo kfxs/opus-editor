@@ -5,7 +5,7 @@
  *
  * ⛔ No `mutate` on a refusal: an edit that changed nothing leaves no undo entry.
  */
-import { addGrace, addGracePitch, isGraceNote, setGraceForm, type GraceForm, type GraceSpelling, type GraceWritten } from '../models/graceOps'
+import { addGrace, addGracePitch, isGraceNote, setGraceForm, setGraceWritten, type GraceForm, type GraceSpelling, type GraceWritten } from '../models/graceOps'
 import type { ArticulationType, Fraction, GraceNote, GraceSide, NotePitch } from '@/types/music'
 import { beatRestAt } from '../models/restGraceOps'
 import { findSlot, offsetTargetOf } from '../models/slotLookup'
@@ -36,6 +36,20 @@ export function graceCommands(ctx: CommandContext) {
       if (marks?.length) grace.articulations = [...marks]
       ctx.mutate(form === 'acciaccatura' ? 'Add acciaccatura' : 'Add appoggiatura')
       return grace
+    },
+
+    /**
+     * ⭐ The WRITTEN value of every one of these graces — a duration or dot key with graces selected
+     * (his report, 2026-09-22: *"i select some graces and changed the duration but it is only affecting
+     * the first"*). A grace's value is never counted, so nothing is rebarred. ONE undo entry; none when
+     * nothing changed. @see setGraceWritten
+     */
+    setGraceWritten(gracePitchIds: readonly string[], written: Partial<GraceWritten>): boolean {
+      const score = ctx.model().getScore()
+      let changed = false
+      for (const id of gracePitchIds) changed = setGraceWritten(score, id, written) || changed
+      if (changed) ctx.mutate('Grace value')
+      return changed
     },
 
     /**

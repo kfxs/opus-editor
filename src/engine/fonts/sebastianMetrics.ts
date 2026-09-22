@@ -1,7 +1,7 @@
 /**
  * ⛔⛔ **GENERATED — DO NOT EDIT.** `node scripts/generate-font-metrics.mjs`
  *
- * Sebastian's table for the 80 glyphs the editor draws — the SAME shape as
+ * Sebastian's table for the 81 glyphs the editor draws — the SAME shape as
  * `bravuraMetrics.ts`, total over the same `GlyphName` union, read by `fontMetrics` when the face is
  * the active one (`fonts/musicFont`, `docs/plans/music-font-switch-plan.md` Phase B).
  *
@@ -68,6 +68,8 @@ export const GLYPH_BOXES: Record<GlyphName, GlyphBox> = {
   // dots
   augmentationDot: { left: 0, right: 0.496, up: 0.244, down: 0.244, advance: 0.496 },
   repeatDot: { left: 0, right: 0.4, up: 0.2, down: 0.2, advance: 0.4 },
+  // graces
+  graceNoteSlashStemUp: { left: 0, right: 2.02, up: 1.604, down: 0, advance: 2.02 },
   // barlineWings
   bracketTop: { left: 0.004, right: 1.576, up: 1.1, down: 0, advance: 1.576 },
   bracketBottom: { left: 0.004, right: 1.576, up: 0, down: 1.1, advance: 0.496 },

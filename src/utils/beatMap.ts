@@ -3,6 +3,7 @@ import { fracCompare } from '../utils/fraction'
 import { getMeasureNotes, measureFanMemberNotes, measureSelectableNotes } from '../utils/musicUtils'
 import { spellingToMidi } from '../utils/pitchSpelling'
 import { staffOf, voiceOf } from '../utils/lanes'
+import { GRACE_SIDES, graceGroupOf } from '../utils/graceNotes'
 
 /**
  * A note augmented with its parent measure number (for cross-measure sorting).
@@ -114,11 +115,6 @@ export function navBeatMap(
   return buildBeatMap(score, undefined, staff)
 }
 
-/** The (measure, beat) position key for a flat note — same form buildBeatMap keys by. */
-function posKey(n: FlatNote): string {
-  return `${n.measureNumber}:${n.beat.num}/${n.beat.den}`
-}
-
 /**
  * The beat map SELECTION works on: every note/rest **plus every fanned member**, each at the beat
  * it sounds on.
@@ -167,24 +163,54 @@ export function buildSelectionBeatMap(score: Score): { allFlat: FlatNote[]; beat
  * is an index range over sorted POSITIONS, and it never turns one back into a duration.
  */
 export function notesInBox(score: Score, currentIds: string[], targetId: string): string[] {
-  const { allFlat, beats } = buildSelectionBeatMap(score)
-  const byId = new Map(allFlat.map(n => [n.id, n]))
-  const endpoints = [...currentIds, targetId].map(id => byId.get(id)).filter(Boolean) as FlatNote[]
+  const { allFlat } = buildSelectionBeatMap(score)
+  // ⭐ …and every GRACE, a position of its own beside its main note (his report, 2026-09-22: *"i cannot
+  //    shift click a group of graces"* — a grace was in no map, so two made an EMPTY box).
+  const all: BoxPlace[] = [
+    ...allFlat.map(n => ({ id: n.id, measure: n.measureNumber, beat: n.beat, rank: 0, staff: staffOf(n) })),
+    ...gracePlaces(score),
+  ]
+  const byId = new Map(all.map(n => [n.id, n]))
+  const endpoints = [...currentIds, targetId].map(id => byId.get(id)).filter(Boolean) as BoxPlace[]
   if (!endpoints.length) return byId.has(targetId) ? [targetId] : []
 
-  let idxLo = Infinity, idxHi = -Infinity, staffLo = Infinity, staffHi = -Infinity
+  let lo = endpoints[0], hi = endpoints[0], staffLo = Infinity, staffHi = -Infinity
   for (const n of endpoints) {
-    const i = beats.findIndex(b => posKey(b) === posKey(n))
-    if (i < 0) continue
-    idxLo = Math.min(idxLo, i); idxHi = Math.max(idxHi, i)
-    staffLo = Math.min(staffLo, staffOf(n)); staffHi = Math.max(staffHi, staffOf(n))
+    if (comparePlaces(n, lo) < 0) lo = n
+    if (comparePlaces(n, hi) > 0) hi = n
+    staffLo = Math.min(staffLo, n.staff); staffHi = Math.max(staffHi, n.staff)
   }
-  if (idxHi < 0) return byId.has(targetId) ? [targetId] : []
-
-  const rangeKeys = new Set(beats.slice(idxLo, idxHi + 1).map(posKey))
-  return allFlat
-    .filter(n => rangeKeys.has(posKey(n)) && staffOf(n) >= staffLo && staffOf(n) <= staffHi)
+  return all
+    .filter(n => comparePlaces(n, lo) >= 0 && comparePlaces(n, hi) <= 0 && n.staff >= staffLo && n.staff <= staffHi)
     .map(n => n.id)
+}
+
+/** A place in the box's order: its moment, and — at one moment — a grace's rank against its note. */
+interface BoxPlace { id: string; measure: number; beat: Fraction; rank: number; staff: number }
+
+/** Time order; at one moment, the graces BEFORE (in their order), the note, the graces AFTER. */
+function comparePlaces(a: BoxPlace, b: BoxPlace): number {
+  return a.measure - b.measure || fracCompare(a.beat, b.beat) || a.rank - b.rank
+}
+
+/** Every grace pitch as a box place, at its main note's moment — ranked before it or after it. */
+function gracePlaces(score: Score): BoxPlace[] {
+  const staffIndex = (staffId?: string) => Math.max(0, (score.staves ?? []).findIndex(s => s.id === staffId))
+  const out: BoxPlace[] = []
+  for (const m of score.measures) {
+    for (const slot of m.slots) {
+      for (const side of GRACE_SIDES) {
+        const notes = graceGroupOf(slot, side)?.notes ?? []
+        notes.forEach((note, i) => {
+          const rank = side === 'before' ? i - notes.length : i + 1
+          for (const p of note.pitches) {
+            out.push({ id: p.id, measure: m.number, beat: slot.beat, rank, staff: staffIndex(slot.staffId) })
+          }
+        })
+      }
+    }
+  }
+  return out
 }
 
 /**

@@ -115,12 +115,14 @@ describe('GracePass — one grace before a note', () => {
     expect(graced[0]).toBeGreaterThan(plain[0])
   })
 
-  it('an acciaccatura draws a SLASH, an appoggiatura does not', () => {
-    const strokes = (form: GraceForm) => {
+  it('⭐ an acciaccatura draws a SLASH — the FONT\'s glyph, E564, as the beamed group\'s is; an appoggiatura does not', () => {
+    const slashes = (form: GraceForm) => {
       const { scene } = render(build({ grace: { step: 'D', alter: 0, octave: 5 }, form }).model)
-      return scenePrimitives(sceneGroups(scene, GRACE_GROUP)[0]).filter(p => p.kind === 'path').length
+      return scenePrimitives(sceneGroups(scene, GRACE_GROUP)[0])
+        .filter(p => p.kind === 'text' && p.text === String.fromCodePoint(0xe564)).length
     }
-    expect(strokes('acciaccatura'), 'the slash is one more stroke').toBe(strokes('appoggiatura') + 1)
+    expect(slashes('acciaccatura')).toBe(1)
+    expect(slashes('appoggiatura')).toBe(0)
   })
 
   it('⛔ draws NO slur of its own — a slur is the user\'s (his call, 2026-09-22)', () => {
@@ -265,6 +267,27 @@ describe('GracePass — a BEAMED group (P2b)', () => {
   it('two 16ths draw TWO lines; an 8th + a 16th a full one and a fractional one', () => {
     expect(scenePrimitives(sceneGroups(group('16', '16'), GRACE_BEAM_GROUP)[0]).filter(p => p.kind === 'path')).toHaveLength(2)
     expect(scenePrimitives(sceneGroups(group('8', '16'), GRACE_BEAM_GROUP)[0]).filter(p => p.kind === 'path')).toHaveLength(2)
+  })
+
+  it('⭐ P2c — an ACCIACCATURA\'s beam carries ONE slash — the FONT\'s glyph, E564; an appoggiatura\'s none', () => {
+    const beamStrokes = (form: GraceForm) => {
+      const { model, host } = build()
+      for (const step of ['D', 'C', 'B'] as const)
+        addGrace(model.getScore(), host.id, 'before', { step, alter: 0, octave: 5 }, form, { duration: '8' })
+      const g = sceneGroups(render(model).scene, GRACE_GROUP)[0]
+      const strokes = (n: SceneGroup) => scenePrimitives(n).filter(p => p.kind === 'path' && p.painted === 'stroke').length
+      const slashes = (n: SceneGroup) => scenePrimitives(n).filter(p => p.kind === 'text' && p.text === String.fromCodePoint(0xe564)).length
+      return {
+        onBeam: slashes(sceneGroups(g, GRACE_BEAM_GROUP)[0]),
+        // A grace's own group holds its stem (a stroke) — and no slash of its own.
+        perGrace: sceneGroups(g, GRACE_NOTE_GROUP).map(strokes),
+      }
+    }
+    const acc = beamStrokes('acciaccatura')
+    const app = beamStrokes('appoggiatura')
+    expect(acc.onBeam).toBe(1)
+    expect(app.onBeam).toBe(0)
+    expect(acc.perGrace).toEqual(app.perGrace)
   })
 
   it('a QUARTER breaks the run — no beam, and the 8ths keep their flags', () => {

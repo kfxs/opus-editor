@@ -69,6 +69,12 @@ const GLYPHS = {
   //   both size the sign from its measured width rather than from a constant. See `BarlineRenderer`.
   dots: ['augmentationDot', 'repeatDot'],
 
+  // ⭐ The GRACE NOTE's slash as the FONT draws it (grace-notes-plan P2c, his call 2026-09-22: *"why we
+  //   are not using a glyph for the slash … an hand engraver had a tool for this"*) — stamped on a
+  //   beamed acciaccatura's first stem. ⛔ Not the precomposed graces (E560–E563): SMuFL asks engines to
+  //   build a grace from its parts, and this slash IS one of the parts.
+  graces: ['graceNoteSlashStemUp'],
+
   // ⭐ The REPEAT BARLINE'S WINGS — the flared tips a "winged" repeat carries at the top and bottom
   //   of its thick line (his ask, 2026-08-26). ⛔ SMuFL has no wing glyph: every engine that draws
   //   them re-uses the STAFF BRACKET's own tips, which is what these are (MuseScore's `drawTips`

@@ -1,7 +1,7 @@
 /**
  * ⛔⛔ **GENERATED — DO NOT EDIT.** `node scripts/generate-font-metrics.mjs`
  *
- * 80 of Bravura's 3434 glyphs: the ones the editor draws
+ * 81 of Bravura's 3434 glyphs: the ones the editor draws
  * (`docs/plans/font-metrics-plan.md` F1). Hand-editing a number here would recreate by hand the very
  * drift the file exists to end — change the glyph list in the script and re-run.
  *
@@ -23,7 +23,7 @@ import type { GlyphBox } from './fontMetrics'
  * 1.481. The generator cross-checks every box against that metadata, and this is what
  * that check found on the run that wrote this file:
  *
- * 🚨 **1 of 80 DISAGREE** — the rest are identical to within 0.001 spaces:
+ * 🚨 **1 of 81 DISAGREE** — the rest are identical to within 0.001 spaces:
  *   · brace — off by 0.051 spaces
  *
  * ⚠️ The numbers below are the **OTF's**, because that is the file we draw with. Where a glyph
@@ -66,6 +66,7 @@ export type GlyphName =
   | 'flag32ndDown'
   | 'augmentationDot'
   | 'repeatDot'
+  | 'graceNoteSlashStemUp'
   | 'bracketTop'
   | 'bracketBottom'
   | 'reversedBracketTop'
@@ -154,6 +155,8 @@ export const GLYPH_BOXES: Record<GlyphName, GlyphBox> = {
   // dots
   augmentationDot: { left: 0, right: 0.4, up: 0.2, down: 0.2, advance: 0.4 },
   repeatDot: { left: 0, right: 0.4, up: 0.2, down: 0.2, advance: 0.4 },
+  // graces
+  graceNoteSlashStemUp: { left: 0, right: 2.02, up: 1.604, down: 0, advance: 2.02 },
   // barlineWings
   bracketTop: { left: 0, right: 1.876, up: 1.18, down: 0, advance: 1.876 },
   bracketBottom: { left: 0, right: 1.876, up: 0, down: 1.18, advance: 1.876 },
@@ -260,6 +263,8 @@ export const GLYPH_CODEPOINTS: Record<GlyphName, number> = {
   // dots
   augmentationDot: 57831,
   repeatDot: 57412,
+  // graces
+  graceNoteSlashStemUp: 58724,
   // barlineWings
   bracketTop: 57347,
   bracketBottom: 57348,

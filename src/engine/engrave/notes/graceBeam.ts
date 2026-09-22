@@ -53,6 +53,8 @@ export interface GraceBeam {
   lines: BeamLineInk[]
   /** One line's thickness, SIGNED as the page's is (stems up ⇒ the lines stack toward the heads). */
   thickness: number
+  /** Rise over run — what the slash on it is tilted by (P2c). */
+  slope: number
 }
 
 /** Stems UP (the group's `stemDirection`, P1: always up until P6's `X`). */
@@ -143,6 +145,6 @@ export function graceBeam(input: GraceBeamInput): GraceBeam {
       })
     }
   }
-  return { tipYs, lines, thickness }
+  return { tipYs, lines, thickness, slope }
 }
 

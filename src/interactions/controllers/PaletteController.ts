@@ -17,6 +17,7 @@ import { tempoLabel } from '../../utils/tempoMap'
 import { dynamicTextFromTool } from '../../utils/dynamics'
 import { selectedNoteIds, selectedArticulationNoteIds, multipleNotesSelected } from '../state/selection'
 import { pressSpanTool, SPAN_TOOL_PRESSES, type SpanToolHost } from '../stamps/spanToolPress'
+import { writeSelectionValue } from './selectionWrittenValue'
 import { featherSelectedNote, featherContext } from '../stamps/fanStamp'
 import { applyBarlineSign, barlineTargetFromSelection, type BarlineSign } from '../stamps/barlineStamp'
 import { applyKeySignature, keyTargetFromSelection } from '../stamps/keySignatureStamp'
@@ -383,7 +384,7 @@ export class PaletteController {
     const engine = this.getEngine()
     if (this.state.selectedNoteId && engine && this.state.selectedTool === 'selection') {
       const before = engine.getNote(this.state.selectedNoteId)
-      engine.updateNote(this.state.selectedNoteId, { duration, dots: 0 })
+      writeSelectionValue(engine, this.state, { duration, dots: 0 })
       if (before && !before.isRest) {
         const pitch = formatPitch(before)
         const oldDur = `${before.duration}${'.'.repeat(before.dots ?? 0)}`
@@ -1351,7 +1352,7 @@ export class PaletteController {
     this.state.selectedDots = newValue
     if (this.state.selectedNoteId && engine && this.state.selectedTool === 'selection') {
       const before = engine.getNote(this.state.selectedNoteId)
-      engine.updateNote(this.state.selectedNoteId, { dots: newValue })
+      writeSelectionValue(engine, this.state, { dots: newValue })
       if (before && !before.isRest) {
         const pitch = formatPitch(before)
         const oldDur = `${before.duration}${'.'.repeat(before.dots ?? 0)}`

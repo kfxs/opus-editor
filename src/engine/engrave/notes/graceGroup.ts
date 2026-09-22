@@ -30,8 +30,9 @@ export const GRACE_SLASH = {
   southWest: { value: [-0.644, -2.456] as const, source: 'Bravura flag8thUp graceNoteSlashSW' },
   /** Upper-right end. */
   northEast: { value: [1.284, -0.796] as const, source: 'Bravura flag8thUp graceNoteSlashNE' },
-  /** Its weight, in SYSTEM staff spaces (the group's scale is undone by the caller). */
-  thickness: { value: 0.09, source: 'Gould, measured ≈0.09 sp; MuseScore stemSlashThickness 0.125 × grace 0.7 = 0.0875' },
+  /** ⭐ The DRAWN slash's weight (a stem with no flag — a flag's slash is the glyph), in the GRACE's own
+   *  staff spaces: the glyph's, so the two match (his call, 2026-09-22). Was 0.09 SYSTEM sp (Gould). */
+  thickness: { value: 0.238, source: 'Bravura E564 graceNoteSlashStemUp, measured off its outline — the glyph every other slash stamps' },
 } as const
 
 /**
@@ -129,6 +130,172 @@ export function graceSlashUnflagged(stemX: number, tipY: number, spacePx: number
   const a = (angle * Math.PI) / 180
   const cy = tipY + crossBelowTip * spacePx
   return { x1: stemX - half * Math.cos(a), y1: cy + half * Math.sin(a), x2: stemX + half * Math.cos(a), y2: cy - half * Math.sin(a) }
+}
+
+/**
+ * ⭐ **The slash on a BEAMED group** (P2c) — ONE, on the FIRST stem. The books split (Gould p. 126
+ * *may*, Stone *must*, G&L *never*) and so do the engines, so it is a TABLE OF PRESETS, armed from the
+ * console (`dev/graceConsole` — `__grace.beamSlash(…)`), ⭐ his call (2026-09-22): *"lets try musescore
+ * numbers, and if not we can always go back … presets so the user can change it"*. Sources read in the
+ * engines themselves (`~/dev/engine-sources`, 2026-09-22):
+ *
+ * | preset | what it draws |
+ * |---|---|
+ * | `bravura` ✅ ARMED | ⭐ HIS: the FONT's own slash GLYPH, stamped — U+E564 `graceNoteSlashStemUp` (*"why we are not using a glyph for the slash … an hand engraver had a tool for this"*; 37.5°, 2.49 × 0.24 grace spaces, measured off its outline). Placed by its BOX: its left edge {@link BeamSlashAdjust}`.glyphLeft` left of the stem, its bottom `.glyphDown` below the tip. ⚠️ A punch: it does NOT lean with the beam. After his look at `musescore`: *"a little bit long … not thick enough"*, then *"too low"*. |
+ * | `musescore` | `TLayout::layoutStemSlash`, beam branch: from half a notehead left of the stem's right edge, `stemSlashPosition` 2.0 sp × 0.66 × the grace size below the tip; at `stemSlashAngle` 40° PLUS half the beam's own angle; 2 sp long (the STAFF's spatium — ⛔ not scaled by the grace), × 1.1 when the beam rises; `stemSlashThickness` 0.125 sp × the grace size. On the beam's first chord only (`chordlayout.cpp:1259`). |
+ * | `lilypond` | `beam::slashed-stencil` (`scm/output-lib.scm`, `\slashedGrace`) at its defaults: x from −0.5 to +1 sp of the first stem; starting `slash-slope` 2 × 0.5 = 1 sp plus `slash-stem-fraction` 0.3 of the stem below the beam; ending `over-beam-height` 0.75 sp above it; `slash-thickness` 0.1 sp. ⚠️ LilyPond's own `\acciaccatura` draws NONE — a documented Known Issue. |
+ * | `none` | Verovio (`view_element.cpp`: a slash only when the stem is NOT in a beam), and LilyPond's default. |
+ *
+ * Every length is in the page's staff spaces; the caller's `k` turns them into the grace's own px.
+ */
+export const GRACE_BEAM_SLASH_RULES = ['bravura', 'musescore', 'lilypond', 'none'] as const
+export type GraceBeamSlashRule = typeof GRACE_BEAM_SLASH_RULES[number]
+
+/** MuseScore's numbers (`styledef.cpp` + `layoutStemSlash`). */
+export const MUSESCORE_BEAM_SLASH = {
+  position: { value: 2.0, source: 'Sid::stemSlashPosition 2.0 sp' },
+  heightReduction: { value: 0.66, source: 'layoutStemSlash heightReduction (no hook)' },
+  angle: { value: 40, source: 'Sid::stemSlashAngle 40°' },
+  length: { value: 2, source: 'layoutStemSlash: 2 × spatium (the staff’s)' },
+  lengthIncrease: { value: 1.1, source: 'layoutStemSlash lengthIncrease — an obtuse (rising) beam' },
+  thickness: { value: 0.125, source: 'Sid::stemSlashThickness 0.125 sp × mag' },
+} as const
+
+/** LilyPond's `beam::slashed-stencil` defaults. */
+export const LILYPOND_BEAM_SLASH = {
+  xLeft: { value: -0.5, source: 'details.slash-X-positions (-0.5 . 1)' },
+  xRight: { value: 1, source: 'details.slash-X-positions (-0.5 . 1)' },
+  slope: { value: 2, source: 'details.slash-slope 2' },
+  stemFraction: { value: 0.3, source: 'details.slash-stem-fraction 0.3' },
+  overBeam: { value: 0.75, source: 'details.over-beam-height 0.75' },
+  thickness: { value: 0.1, source: 'details.slash-thickness 0.1 (the manual’s default)' },
+} as const
+
+let armedBeamSlash: GraceBeamSlashRule = 'bravura'
+
+/**
+ * ⭐ **HIS EYE on the `musescore` preset** — where it STARTS, moved, and how long it runs, scaled; the
+ * GRACE's own staff spaces. His first look (2026-09-22): *"musescore slash looks too big but maybe is
+ * the position (it should go a little more to the left and probably to compensate that a little
+ * down)"* — so the first guess moves it, and keeps MuseScore's length. Tunable from the console
+ * (`__grace.beamSlash({ left, down, length })`); ⛔ a guess, his to set.
+ */
+export interface BeamSlashAdjust {
+  /** `musescore`: how far LEFT of MuseScore's start (half a head left of the stem's right edge). */
+  left: number
+  /** `musescore`: how far BELOW MuseScore's start (1.32 sp × the grace size below the tip). */
+  down: number
+  /** `musescore`: × MuseScore's length (2 staff spaces). */
+  length: number
+  /** `bravura`: how far LEFT of the stem's centre the GLYPH's box starts. */
+  glyphLeft: number
+  /** `bravura`: how far BELOW the stem's tip the GLYPH's box bottom stands — its lower-left end. */
+  glyphDown: number
+}
+/** ⭐ The glyph's place is HIS EYE: first where his accepted `musescore` look started (0.9 left of the
+ *  stem, 1.2 below the tip — after *"too low"*), then *"almost nothing to the right and almost nothing
+ *  … up"* (2026-09-22): 0.8 · 1.1 — crossing the stem ≈0.46 below the tip, clearing the beam by ≈0.5. */
+export const BEAM_SLASH_ADJUST_DEFAULT: Readonly<BeamSlashAdjust> = { left: 0.4, down: 0.3, length: 1, glyphLeft: 0.8, glyphDown: 1.1 }
+let beamSlashAdjust: BeamSlashAdjust = { ...BEAM_SLASH_ADJUST_DEFAULT }
+
+/** The adjustment as armed. */
+export function beamSlashAdjustment(): BeamSlashAdjust {
+  return { ...beamSlashAdjust }
+}
+
+/** Arm any of the three. ⛔ Refused out of range (left/down −3…3, length 0.3…2); re-engraves. */
+export function setBeamSlashAdjustment(change: Partial<BeamSlashAdjust>): boolean {
+  const next = { ...beamSlashAdjust, ...change }
+  const ok = Math.abs(next.left) <= 3 && Math.abs(next.down) <= 3 && next.length >= 0.3 && next.length <= 2
+    && Math.abs(next.glyphLeft) <= 3 && Math.abs(next.glyphDown) <= 4
+  if (!ok) return false
+  beamSlashAdjust = next
+  slashState.generation++
+  return true
+}
+
+export function resetBeamSlashAdjustment(): void {
+  beamSlashAdjust = { ...BEAM_SLASH_ADJUST_DEFAULT }
+  slashState.generation++
+}
+
+/** The beamed-slash preset as armed. */
+export function graceBeamSlashRule(): GraceBeamSlashRule {
+  return armedBeamSlash
+}
+
+/** Arm a preset (`__grace.beamSlash(…)`). ⛔ An unknown name is refused. Re-engraves every bar with a
+ *  grace ({@link graceSlashGeneration}). */
+export function setGraceBeamSlashRule(rule: GraceBeamSlashRule): boolean {
+  if (!GRACE_BEAM_SLASH_RULES.includes(rule)) return false
+  armedBeamSlash = rule
+  slashState.generation++
+  return true
+}
+
+/** What a beamed group's slash is measured from — the grace's own px. */
+export interface BeamSlashAt {
+  /** The first stem's centre line and its stroke. */
+  stemX: number
+  stemWeight: number
+  /** The beam's edge at that stem — the stem's tip. */
+  tipY: number
+  /** The stem's other end — the head it grows from. */
+  headY: number
+  /** The beam's rise over run (y down). */
+  slope: number
+  /** A notehead's full-size width. */
+  headWidth: number
+  /** The page's staff space, px, and the grace size — a page length L is L × space / k here. */
+  space: number
+  k: number
+}
+
+/** What a beamed group's slash is — a drawn STROKE, or the font's GLYPH stamped at a baseline point. */
+export type BeamSlash =
+  | { kind: 'stroke'; segment: Segment; thickness: number }
+  | { kind: 'glyph'; glyph: GlyphName; x: number; y: number }
+
+/** ⭐ The ARMED preset's slash, grace px — or null for `none`. */
+export function graceSlashOnBeam(at: BeamSlashAt, rule: GraceBeamSlashRule = armedBeamSlash): BeamSlash | null {
+  const page = (sp: number) => (sp * at.space) / at.k // a page length, in the grace's own px
+  if (rule === 'bravura') {
+    // The glyph's origin is its box's lower-left corner (E564: 0 → 2.02 right, 0 → 1.604 up).
+    return {
+      kind: 'glyph', glyph: 'graceNoteSlashStemUp',
+      x: at.stemX - beamSlashAdjust.glyphLeft * at.space,
+      y: at.tipY + beamSlashAdjust.glyphDown * at.space,
+    }
+  }
+  if (rule === 'musescore') {
+    const m = MUSESCORE_BEAM_SLASH
+    const beamAngle = Math.atan(at.slope)
+    // Stems up: MuseScore's `up` is −1, so `angle += up × beamAngle / 2` SUBTRACTS it (y down).
+    const angle = (m.angle.value * Math.PI) / 180 - beamAngle / 2
+    const adjust = beamSlashAdjust
+    const length = page(m.length.value) * (beamAngle < 0 ? m.lengthIncrease.value : 1) * adjust.length
+    const x1 = at.stemX + at.stemWeight / 2 - at.headWidth / 2 - adjust.left * at.space
+    const y1 = at.tipY + (m.position.value * m.heightReduction.value + adjust.down) * at.space // × mag: the grace's own
+    return {
+      kind: 'stroke',
+      segment: { x1, y1, x2: x1 + length * Math.cos(angle), y2: y1 - length * Math.sin(angle) },
+      thickness: m.thickness.value * at.space,
+    }
+  }
+  if (rule === 'lilypond') {
+    const l = LILYPOND_BEAM_SLASH
+    const x1 = at.stemX + page(l.xLeft.value)
+    const x2 = at.stemX + page(l.xRight.value)
+    return {
+      kind: 'stroke',
+      segment: {
+        x1, y1: at.tipY + page(-l.xLeft.value * l.slope.value) + l.stemFraction.value * (at.headY - at.tipY),
+        x2, y2: at.tipY + (x2 - at.stemX) * at.slope - page(l.overBeam.value),
+      },
+      thickness: page(l.thickness.value),
+    }
+  }
+  return null
 }
 
 /** A straight stroke. */

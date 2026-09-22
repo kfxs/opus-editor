@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { ScoreModel } from '@/engine/models/ScoreModel'
+import { addGrace } from '@/engine/models/graceOps'
 import { buildSelectionBeatMap, notesInBox } from './beatMap'
 import { measureFanMemberNotes, getMeasureNotes } from './musicUtils'
 import { fracCreate as frac } from './fraction'
@@ -96,5 +97,31 @@ describe('notesInBox reaches into a fan', () => {
     for (const id of memberIds) {
       expect(box, `member ${id} was skipped by a range drawn straight over it`).toContain(id)
     }
+  })
+})
+
+describe('notesInBox — GRACES are in the box (his report, 2026-09-22: "i cannot shift click a group of graces")', () => {
+  /** C at beat 0, then E at beat 1 with graces G, A, B before it. */
+  const setup = () => {
+    const model = new ScoreModel()
+    const c = model.addNote({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const e = model.addNote({ step: 'E', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
+    const score = model.getScore()
+    const [g1, g2, g3] = (['G', 'A', 'B'] as const).map(step =>
+      addGrace(score, e.id, 'before', { step, alter: 0, octave: 4 }, 'appoggiatura', { duration: '8' })!.pitches[0].id)
+    return { score, c: c.id, e: e.id, g1, g2, g3 }
+  }
+
+  it('🚨 grace → grace selects exactly the graces between — not their main note', () => {
+    const { score, g1, g2, g3 } = setup()
+    expect(notesInBox(score, [g1], g3).sort()).toEqual([g1, g2, g3].sort())
+    expect(notesInBox(score, [g3], g2).sort()).toEqual([g2, g3].sort())
+  })
+
+  it('⭐ note → grace takes the graces up to it in order; grace → its main note takes the rest of the group', () => {
+    const { score, c, e, g1, g2, g3 } = setup()
+    expect(notesInBox(score, [c], g2)).toEqual(expect.arrayContaining([c, g1, g2]))
+    expect(notesInBox(score, [c], g2)).not.toContain(g3)
+    expect(notesInBox(score, [g2], e).sort()).toEqual([g2, g3, e].sort())
   })
 })
