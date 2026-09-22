@@ -170,6 +170,57 @@ describe('KeyboardController', () => {
     })
   })
 
+  describe('GRACES from the keyboard (his ask, 2026-09-22) — the grace stamp armed in note entry', () => {
+    it('⭐ letters type graces before the caret\'s next place; Shift adds a pitch; disarmed, the letter is the MAIN note', () => {
+      const c = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })!
+      state.selectedTool = 'entry'
+      state.selectedNoteId = c.id
+      state.selectedDuration = '16'
+      state.selectedMarkingTool = { kind: 'grace', form: 'appoggiatura', side: 'before' }
+
+      kb.enterNoteByLetter('d') // → a grace D5 before beat 1
+      kb.enterNoteByLetter('e') // → the next grace, after it
+      kb.addChordNoteByLetter('g') // → G joins E: a grace chord
+      const slotAt1 = () => measure1(engine).slots.find(s => fracEq(s.beat, frac(1, 1)))!
+      const group = slotAt1().graceBefore!
+      expect(group.notes.map(n => n.pitches.map(p => `${p.step}${p.octave}`))).toEqual([['D5'], ['E5', 'G5']])
+      expect(group.notes.every(n => n.duration === '16')).toBe(true)
+      expect(engine.isGraceNote(state.selectedNoteId!)).toBe(true) // the caret is on the last grace
+
+      state.selectedMarkingTool = null // the lit button pressed again
+      state.selectedDuration = 'q'
+      kb.enterNoteByLetter('f')
+      const main = slotAt1()
+      expect(main.type).toBe('chord')
+      expect(main.type === 'chord' && main.notes[0].step).toBe('F')
+      expect(main.graceBefore!.notes).toHaveLength(2) // the note took the graces
+    })
+  })
+
+  describe('startEntryAtSelection — SPACE on a selection (his ask, 2026-09-22)', () => {
+    it('on a note: entry starts, nothing armed', () => {
+      const c = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })!
+      state.selectedTool = 'selection'
+      state.selectedNoteId = c.id
+      expect(kb.startEntryAtSelection()).toBe(true)
+      expect(state.selectedTool).toBe('entry')
+      expect(state.selectedMarkingTool).toBeNull()
+    })
+
+    it('⭐ on a GRACE: entry starts AND its status comes with it — the grace stamp in its group\'s form', () => {
+      const c = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })!
+      const g = engine.grace.addGrace(c.id, 'before', { step: 'D', alter: 0, octave: 5 }, 'acciaccatura', { duration: '16' })!
+      state.selectedTool = 'selection'
+      state.selectedNoteId = g.pitches[0].id
+      expect(kb.startEntryAtSelection()).toBe(true)
+      expect(state.selectedTool).toBe('entry')
+      expect(state.selectedMarkingTool).toEqual({ kind: 'grace', form: 'acciaccatura', side: 'before' })
+      kb.enterNoteByLetter('e') // …and the next letter is a GRACE, after it
+      const slot = measure1(engine).slots.find(s => s.type === 'chord')!
+      expect(slot.graceBefore!.notes.map(n => n.pitches[0].step)).toEqual(['D', 'E'])
+    })
+  })
+
   describe('addChordNoteByLetter (Shift + letter)', () => {
     it('adds a higher note to the chord at the selected note', () => {
       const id = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!.id

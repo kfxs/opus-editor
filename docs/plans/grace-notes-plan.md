@@ -1,6 +1,6 @@
 # Grace notes — appoggiatura, acciaccatura, Nachschlag: the plan
 
-> **Status: P0 and P1 committed (2026-09-22), + the offset, the arrows and the rest fixes; P2 planned, P2a (the click behaves like note entry) committed, P2b (the beam) + a selected grace's form committed, P2c (the slash — the font's glyph) committed; ⛔ P2d dropped (the user's value is correct). P2 COMPLETE. P3 (playback) committed, P6's flip (`X`) committed, P4 (a note becomes a grace, and a grace a note again) committed. Next: his pick.** 📄 The research is `docs/research/grace-notes-research.md`
+> **Status: P0 and P1 committed (2026-09-22), + the offset, the arrows and the rest fixes; P2 planned, P2a (the click behaves like note entry) committed, P2b (the beam) + a selected grace's form committed, P2c (the slash — the font's glyph) committed; ⛔ P2d dropped (the user's value is correct). P2 COMPLETE. P3 (playback) committed, P6's flip (`X`) committed, P4 (a note becomes a grace, and a grace a note again) committed; graces from the KEYBOARD (letters, Shift+letter, Space on a grace) committed. Next: his pick.** 📄 The research is `docs/research/grace-notes-research.md`
 > (four sources folded into one file; its §0 is the synthesis this plan reads). ⛔ This plan is the place
 > the DECISIONS get made: §0 marks each as ✅ DECIDED (his word, with the date) or ⏳ PROPOSED — until he
 > says so it is a default, not a decision (`feedback_an_open_question_is_not_a_decision`). ✅ D1 · D2 ·
@@ -148,6 +148,18 @@ the fan member's in `deleteNoteWithRepair`, and no bar repair, because nothing r
    the user's to change, before the click or after (the duration keys reach every selected grace).
    ⛔ **No automatic value change** — the convention's *"a group is 16ths"* (Gould p. 125 *"two beams
    recommended"*, G&L two = 16ths) was planned as P2d and DROPPED (see §8).
+   ⭐ **From the KEYBOARD** (his ask, 2026-09-22: *"i want to be able to enter grace in keyboard mode entry
+   similar as we do with notes"*) — the grace stamp armed in NOTE ENTRY (the caret stays): a LETTER types a
+   grace instead of a note, exactly where and as note entry would (the caret's next position, the nearest
+   octave, the key and bar accidentals, the armed sign and value — the duration keys keep the stamp armed)
+   — at the END of the group before that place, or right after the grace the caret is on; the caret moves
+   onto it. SHIFT+letter on a grace adds that pitch (a grace chord). The lit button pressed again → note
+   entry, and the next letter is the MAIN note there, taking the graces. `stamps/graceKeyboard`, branched
+   into `KeyboardController` after the note's own spelling is worked out.
+   ⭐ **SPACE on a selected grace** starts entry from it as it does from a note — the palette already holds
+   its value (the selection synced it) — ⭐ and its STATUS comes too: the grace stamp is armed in its group's
+   form, so the next letters go on typing graces (his ask, 2026-09-22: *"we inherit the duration of the
+   grace and its grace status"*; `KeyboardController.startEntryAtSelection`, `graceKeyboard.continuingStamp`).
 2. ⭐ **A GRACE SELECTED (selection mode) when a button is pressed — DECIDED 2026-09-22** (his report:
    *"with the grace selected i press acciacc … is not editing the grace selected but arming"*): the
    button EDITS — its group becomes that FORM (`graceOps.setGraceForm`, one undo entry; the slash is the

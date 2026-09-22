@@ -319,9 +319,7 @@ export function wireShortcuts(
       // caret on — armed or not (the rest tool need not be selected first). It DECLINES (returns
       // false) in every other case, so the key keeps its original job below (start entry) untouched.
       if (keyboard.enterRestAtCursor()) return
-      if (state.selectedTool !== 'selection' || !state.selectedNoteId) return
-      state.selectedTool = 'entry'
-      renderer.renderScore()
+      if (keyboard.startEntryAtSelection()) renderer.renderScore()
     },
     togglePlayback: () => togglePlayback(),
     setActiveVoice1: () => palette.setActiveVoice(1),

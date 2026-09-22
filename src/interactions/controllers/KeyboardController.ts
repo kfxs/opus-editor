@@ -5,6 +5,7 @@ import type { EditorState } from '../state/EditorState'
 import { activeVoiceToModel, armedTool, armedNormalSide, armedTupletM, spendArmedTuplet } from '../state/EditorState'
 import { navBeatMap, type FlatNote } from '../../utils/beatMap'
 import { graceHostId } from '../walks/graceStops'
+import { continuingStamp, gracePitchesAt, typeGraceAtCaret } from '../stamps/graceKeyboard'
 import { getMeasureNotes } from '../../utils/musicUtils'
 import { measureCapacityFrac } from '../../utils/measureCapacity'
 import { fracToNumber, fracEq, fracFromInt, fracSub } from '../../utils/fraction'
@@ -247,6 +248,21 @@ export class KeyboardController {
     return true
   }
 
+  /**
+   * SPACE in selection mode on a selected note: start keyboard entry FROM it (the palette already holds
+   * its value — the selection synced it). ⭐ On a note that carries a stamp's STATUS — a GRACE, its
+   * form — that stamp is armed too, so the letters go on typing what was selected (his ask, 2026-09-22;
+   * `../stamps/graceKeyboard.continuingStamp`). @returns whether entry started.
+   */
+  startEntryAtSelection(): boolean {
+    if (this.state.selectedTool !== 'selection' || !this.state.selectedNoteId) return false
+    this.state.selectedTool = 'entry'
+    const engine = this.getEngine()
+    const stamp = engine ? continuingStamp(engine, this.state.selectedNoteId) : null
+    if (stamp) this.state.selectedMarkingTool = stamp
+    return true
+  }
+
   enterNoteAtCursorPosition(step: PitchStep): void {
     const engine = this.getEngine()
     if (!this.state.selectedNoteId || !engine) return
@@ -306,6 +322,19 @@ export class KeyboardController {
       score, { measure: targetMeasure, beat: targetBeat, staff: cursorStaff },
       step, octave, this.state.selectedAccidental,
     )
+
+    // ⭐ The GRACE stamp armed: the letter types a GRACE there instead (`../stamps/graceKeyboard`).
+    if (armedTool(this.state, 'grace')) {
+      const grace = typeGraceAtCaret(engine, this.state, this.state.selectedNoteId,
+        { measure: targetMeasure, beat: targetBeat, voice: cursorVoice, staff: cursorStaff },
+        { step, alter, octave, ...(this.state.selectedAccidental === 'n' && { forceAccidental: true }) })
+      if (!grace) return
+      this.state.selectedAccidental = null // one note's accidental, as for a typed note
+      this.setSelectedNote(grace)
+      this.renderScore()
+      this.scrollSelectedNoteIntoView()
+      return
+    }
 
     const existingTuplet = engine.getTupletAtBeat(targetMeasure, targetBeat, cursorVoice, cursorStaff)
     dbg(`KeyboardEntry RAW | ${step}${alter !== 0 ? (alter > 0 ? '#' : 'b') : ''} dur:${this.state.selectedDuration} measure:${targetMeasure} beat:${fracToNumber(targetBeat).toFixed(3)} tuplet:${this.state.armedTuplet ? `${this.state.armedTuplet.numNotes}:${this.state.armedTuplet.notesOccupied}` : 'off'} existingTuplet:${existingTuplet ? existingTuplet.id : 'none'}`)
@@ -443,7 +472,9 @@ export class KeyboardController {
     // ordinary path below — reads the whole slot and then adds to `slot.notes`, which put the new
     // note on the group's FIRST head (his report).
     const memberPitches = engine.fanMemberPitches(this.state.selectedNoteId)
-    const chordMidis = (memberPitches ?? (measure ? getMeasureNotes(measure, score) : [])
+    // ⭐ …and a GRACE is its own chord too: stack on ITS pitches, add to IT (a grace chord).
+    const gracePitches = gracePitchesAt(engine, this.state.selectedNoteId)
+    const chordMidis = (gracePitches ?? memberPitches ?? (measure ? getMeasureNotes(measure, score) : [])
       .filter(n => !n.isRest && fracEq(n.beat, note.beat) && voiceOf(n) === noteVoice && staffOf(n) === noteStaff))
       .map(n => spellingToMidi(n.step!, n.alter!, n.octave!))
     const baseMidi = chordMidis.length > 0
@@ -463,7 +494,10 @@ export class KeyboardController {
       step, octave, this.state.selectedAccidental,
     )
 
-    const newNote = memberPitches
+    const spelledForce = this.state.selectedAccidental === 'n' ? { forceAccidental: true } : {}
+    const newNote = gracePitches
+      ? engine.grace.addGracePitch(this.state.selectedNoteId, { step, alter, octave, ...spelledForce })
+      : memberPitches
       ? engine.addFanMemberPitch(this.state.selectedNoteId, { step, alter, octave })
       : engine.addChordNote({
         step,
