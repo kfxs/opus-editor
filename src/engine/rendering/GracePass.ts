@@ -40,6 +40,11 @@ import { drawStem } from '@/engine/engrave/notes/stem'
 import { flagPlacement } from '@/engine/engrave/notes/flag'
 import { drawLedgerLines, ledgerLineRuns } from '@/engine/engrave/notes/ledgerLines'
 import { GRACE_SLASH, graceSlash, graceSlashUnflagged } from '@/engine/engrave/notes/graceGroup'
+import { graceBeam, graceBeamRuns } from '@/engine/engrave/notes/graceBeam'
+import { drawBeamLines } from '@/engine/engrave/beams/beamLines'
+import { armedBeamSlopeRule } from './beams/beamSlopeExperiment'
+import { crossSystemBeamWidth } from './beams/beamInk'
+import { BEAM_END_OVERSHOOT } from './engraved/EngravedBeam'
 import { stampGlyph } from '@/engine/engrave/glyph'
 import { accidentalFont, musicGlyphFont, noteFont } from '@/engine/engrave/inheritedFonts'
 import { NOTE_DURATION_ROWS, stemThicknessPx } from '@/engine/engrave/inheritedDefaults'
@@ -57,6 +62,8 @@ import { noteOffsetOverrideOf } from '@/engine/models/engravingOverrides'
 export const GRACE_GROUP = 'grace'
 /** One grace note (or chord) inside it — the unit the selection highlight recolours. */
 export const GRACE_NOTE_GROUP = 'gracenote'
+/** A beam across a run of graces (P2b) — inside the group, outside every {@link GRACE_NOTE_GROUP}. */
+export const GRACE_BEAM_GROUP = 'gracebeam'
 /** How far a grace's ledger line runs past its head, in the GRACE's own px — the fan's 3 px, which
  *  the group's scale shortens in proportion. */
 export const GRACE_LEDGER_OVERHANG = 3
@@ -113,20 +120,43 @@ function drawGraceGroup(
   const layout = graceLayout(group, signOf, clef, hostLeftReach(hostPitches, signOf, clef))
   const ledgerStyle = stave.getDefaultLedgerLineStyle()
 
+  // ⭐ Every grace's geometry FIRST, so a beam (P2b) can be solved over its run before a stem is drawn.
+  const drawn = layout.places.map(place => {
+    const { note } = place
+    // ⭐ + its hand OFFSET (keyed like a fan member's, `ScoreModel.offsetTargetOf`): ink only — the
+    //    room `graceLayout` reserved stays, as a note offset leaves its bar's width alone.
+    const offset = noteOffsetOverrideOf(pass.score, note.pitches[0]?.id ?? '')?.x ?? 0
+    const headLeft = hostX + (place.headX + offset) * space // staff px
+    const lines = note.pitches.map(lineOf)
+    const ys = lines.map(line => noteLineY(frame, line))
+    const stem = graceStemLine({
+      headLeft: local(headLeft), highY: local(Math.min(...ys)), duration: note.duration, space, stemSpaces: graceStemSpaces(lines),
+    })
+    return { note, headLeft, lines, ys, stem }
+  })
+  // ⭐ The BEAMS — runs of flagged graces, each solved by the page's own beam rule (`graceBeam`).
+  const beamTips = new Map<number, number>()
+  const beams = graceBeamRuns(group.notes).map(run => {
+    const beam = graceBeam({
+      notes: run.map(i => ({
+        duration: drawn[i].note.duration, dots: drawn[i].note.dots,
+        stemX: drawn[i].stem.stemX, tipY: drawn[i].stem.tipY, beamSideLine: Math.max(...drawn[i].lines),
+      })),
+      space, rule: armedBeamSlopeRule(), beamWidth: crossSystemBeamWidth(), stemWidth: drawn[run[0]].stem.stemWeight,
+      endOvershoot: BEAM_END_OVERSHOOT,
+    })
+    run.forEach((i, r) => beamTips.set(i, beam.tipYs[r]))
+    return beam
+  })
+
   const opened = drawGroupOf(ctx.openGroup(GRACE_GROUP, `${GRACE_GROUP}-${host.id}-before`))
   opened?.setPlacement(scaling(k))
   try {
-    for (const place of layout.places) {
-      const { note } = place
-      // ⭐ + its hand OFFSET (keyed like a fan member's, `ScoreModel.offsetTargetOf`): ink only — the
-      //    room `graceLayout` reserved stays, as a note offset leaves its bar's width alone.
-      const offset = noteOffsetOverrideOf(pass.score, note.pitches[0]?.id ?? '')?.x ?? 0
-      const headLeft = hostX + (place.headX + offset) * space // staff px
+    for (const [index, { note, headLeft, lines, ys }] of drawn.entries()) {
       const glyphWidth = noteheadInk(note.duration) * space // the grace's own px: the transform scales it
-      const lines = note.pitches.map(lineOf)
-      const ys = lines.map(line => noteLineY(frame, line))
       const displaced = chordHeadDisplacement(lines, 1)
       const headXs = displaced.map(d => local(headLeft) + (d ? glyphWidth : 0)) // grace px
+      const beamTipY = beamTips.get(index)
 
       const noteGroup = openMemberGroup(ctx, GRACE_NOTE_GROUP, `${GRACE_NOTE_GROUP}-${note.pitches[0]?.id}`)
       try {
@@ -166,24 +196,35 @@ function drawGraceGroup(
           //    none of its own) can spring from or land on it: `SlurRenderer` resolves an end here first.
           pass.fanMemberAnchorMap.set(pitch.id, {
             staveNote: hostNote, leftX: x, rightX: x + headWidthPx, headY: ys[h],
-            tipY: NOTE_DURATION_ROWS[note.duration].stem ? Math.min(...ys) - graceStemSpaces(lines) * space : ys[h],
+            tipY: beamTipY !== undefined ? beamTipY * k
+              : NOTE_DURATION_ROWS[note.duration].stem ? Math.min(...ys) - graceStemSpaces(lines) * space : ys[h],
             stemDirection: 1,
           })
         }
 
-        drawGraceDots(ctx, local(headLeft), ys.map(local), lines, note, space)
+        drawGraceDots(ctx, local(headLeft), ys.map(local), lines, note, space, beamTipY !== undefined)
         drawGraceArticulations(pass, {
           note, stave, clef, headLeft, glyphWidth, stemPx: graceStemSpaces(lines) * space, measureNumber, staffIndex,
         })
         drawGraceStem(ctx, {
           headLeft: local(headLeft), highY: local(Math.min(...ys)), lowY: local(Math.max(...ys)),
           duration: note.duration, slash: !!group.slash, space, stemSpaces: graceStemSpaces(lines),
+          ...(beamTipY !== undefined && { beamTipY }),
         })
       } finally {
         ctx.closeGroup()
       }
     }
-
+    // ⭐ Each beam in its OWN group, outside every `gracenote` group — the fan's rule: a selected grace
+    //    lights its head and stem, never the beam it shares.
+    for (const beam of beams) {
+      ctx.openGroup(GRACE_BEAM_GROUP)
+      try {
+        drawBeamLines(ctx, beam.lines, beam.thickness)
+      } finally {
+        ctx.closeGroup()
+      }
+    }
   } finally {
     ctx.closeGroup()
   }
@@ -197,8 +238,10 @@ function drawGraceGroup(
 export function drawGraceDots(
   ctx: DrawContext, headLeft: number, headYs: readonly number[], lines: readonly number[],
   note: Pick<GraceNote, 'duration' | 'dots'>, space: number,
+  /** A BEAMED grace has no flag for its dot to clear (P2b). */
+  beamed = false,
 ): void {
-  const xs = graceDotXs(note)
+  const xs = graceDotXs(note, beamed)
   if (xs.length === 0) return
   const glyph = String.fromCodePoint(GLYPH_CODEPOINTS.augmentationDot)
   const rows = new Set<number>()
@@ -222,6 +265,22 @@ export interface GraceStemInk {
   /** How long the stem is, highest head → tip, staff spaces — `graceStemSpaces`, which grows it for
    *  a grace on ledger lines (Gould p. 126). */
   stemSpaces: number
+  /** ⭐ A BEAMED grace's tip, ON its beam (P2b, `engrave/notes/graceBeam`) — the stem runs to it and
+   *  draws NO flag; the slash on a beam is P2c's. Absent = unbeamed. */
+  beamTipY?: number
+}
+
+/** Where a grace's stem stands and where its free end is before any beam — grace px. */
+export function graceStemLine(ink: Pick<GraceStemInk, 'headLeft' | 'highY' | 'duration' | 'space' | 'stemSpaces'>):
+  { stemX: number; tipY: number; stemWeight: number } {
+  const k = graceScale()
+  const stemWeight = stemThicknessPx() / k
+  const glyphWidth = noteheadInk(ink.duration) * ink.space
+  return {
+    stemX: ink.headLeft + glyphWidth - stemWeight / 2,
+    tipY: ink.highY - (ink.stemSpaces * ink.space) / k,
+    stemWeight,
+  }
 }
 
 /**
@@ -237,11 +296,10 @@ export function drawGraceStem(ctx: DrawContext, ink: GraceStemInk): void {
   const k = graceScale()
   const local = (v: number): number => v / k
   const { space } = ink
-  const stemWeight = local(stemThicknessPx())
-  const glyphWidth = noteheadInk(ink.duration) * space
-  const stemX = ink.headLeft + glyphWidth - stemWeight / 2
-  const tipY = ink.highY - local(ink.stemSpaces * space)
+  const { stemX, tipY: freeTip, stemWeight } = graceStemLine(ink)
+  const tipY = ink.beamTipY ?? freeTip
   drawStem(ctx, { x: stemX, fromY: ink.lowY, toY: tipY }, stemWeight)
+  if (ink.beamTipY !== undefined) return // beamed: the beam is its flag (the slash on a beam is P2c)
   const flag = row.flag ? flagGlyph(ink.duration, true) : null
   // Where the flag glyph stands — its origin is also where the slash's anchors are measured from.
   const at = flagPlacement({ x: stemX, tipY, up: true }, stemWeight, flag ? glyphBox(flag).up * space : 0)

@@ -8,7 +8,7 @@ import { ScoreModel } from '../models/ScoreModel'
 import { addGrace, type GraceForm } from '../models/graceOps'
 import { beatRestAt } from '../models/restGraceOps'
 import { ScoreRenderer } from './ScoreRenderer'
-import { GRACE_GROUP, GRACE_NOTE_GROUP } from './GracePass'
+import { GRACE_BEAM_GROUP, GRACE_GROUP, GRACE_NOTE_GROUP } from './GracePass'
 import { sceneGroups, scenePrimitives, type SceneGroup } from '@/engine/scene/Scene'
 import { graceScale } from '@/engine/layout/graceRoom'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
@@ -235,5 +235,40 @@ describe('GracePass — a grace\'s ARTICULATIONS (Gould p. 125: "scaled down pro
     expect(texts(note), 'one more glyph: the staccato').toBe(texts(plainNote) + 1)
     const entry = renderer.getElementRegistry().getByType('articulation').find(e => e.noteId === grace!.pitches[0].id)
     expect(entry?.articulationType).toBe('staccato')
+  })
+})
+
+describe('GracePass — a BEAMED group (P2b)', () => {
+  /** A group of graces before bar 1's second note, of these written values. */
+  const group = (...durations: NoteDuration[]) => {
+    const { model, host } = build()
+    const steps: PitchSpelling['step'][] = ['D', 'C', 'B', 'A']
+    durations.forEach((duration, i) =>
+      addGrace(model.getScore(), host.id, 'before', { step: steps[i], alter: 0, octave: 5 }, 'appoggiatura', { duration }))
+    return sceneGroups(render(model).scene, GRACE_GROUP)[0]
+  }
+  /** The glyphs drawn inside each grace's own group — a head, plus a flag when it has one. */
+  const glyphsPerGrace = (g: SceneGroup) =>
+    sceneGroups(g, GRACE_NOTE_GROUP).map(n => scenePrimitives(n).filter(p => p.kind === 'text').length)
+
+  it('⭐ three 8ths: ONE beam, drawn OUTSIDE every grace\'s own group, and no flags', () => {
+    const g = group('8', '8', '8')
+    const beams = sceneGroups(g, GRACE_BEAM_GROUP)
+    expect(beams).toHaveLength(1)
+    for (const note of sceneGroups(g, GRACE_NOTE_GROUP)) expect(sceneGroups(note, GRACE_BEAM_GROUP)).toHaveLength(0)
+    expect(scenePrimitives(beams[0]).filter(p => p.kind === 'path')).toHaveLength(1) // one line
+    const lone = sceneGroups(render(build({ grace: { step: 'D', alter: 0, octave: 5 }, form: 'appoggiatura' }).model).scene, GRACE_GROUP)[0]
+    const flagged = glyphsPerGrace(lone)[0]
+    expect(glyphsPerGrace(g)).toEqual([flagged - 1, flagged - 1, flagged - 1]) // the flag is gone
+  })
+
+  it('two 16ths draw TWO lines; an 8th + a 16th a full one and a fractional one', () => {
+    expect(scenePrimitives(sceneGroups(group('16', '16'), GRACE_BEAM_GROUP)[0]).filter(p => p.kind === 'path')).toHaveLength(2)
+    expect(scenePrimitives(sceneGroups(group('8', '16'), GRACE_BEAM_GROUP)[0]).filter(p => p.kind === 'path')).toHaveLength(2)
+  })
+
+  it('a QUARTER breaks the run — no beam, and the 8ths keep their flags', () => {
+    const g = group('8', 'q', '8')
+    expect(sceneGroups(g, GRACE_BEAM_GROUP)).toHaveLength(0)
   })
 })

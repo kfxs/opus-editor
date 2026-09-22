@@ -22,6 +22,7 @@ import { INK, accidentalExtent } from './spacingPadding'
 import { durationFlags } from '@/utils/durations'
 import { armedDotGap } from './dotGap'
 import { flagGlyph, glyphBox, noteheadInk } from '@/engine/fonts/fontMetrics'
+import { graceBeamRuns } from '@/engine/engrave/notes/graceBeam'
 import { MODIFIER_RIGHT_GAP_PX, VEXFLOW_DOT_SPACING } from '@/engine/engrave/inheritedDefaults'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 
@@ -188,12 +189,13 @@ export interface GracePlace {
  * (`layout/dotGap` — `__dots.gap`); each further dot one dot's width + the armed dot→dot gap (never
  * under VexFlow's 1 px). Every px row is divided by `STAFF_SPACE_PX`: the grace's scale is its group's.
  * ⭐ So the ROOM ({@link graceLayout}) and the INK (`rendering/GracePass`) read one answer.
- * ⚠️ "Flagged" is the duration's own count (`durationFlags`); ⏭️ a BEAMED grace (P2) has no flag.
+ * ⚠️ "Flagged" is the duration's own count (`durationFlags`) — ⭐ unless the grace is BEAMED (P2b,
+ * `engrave/notes/graceBeam`): a beamed grace draws no flag, so its dot has none to clear.
  */
-export function graceDotXs(note: Pick<GraceNote, 'duration' | 'dots'>): number[] {
+export function graceDotXs(note: Pick<GraceNote, 'duration' | 'dots'>, beamed = false): number[] {
   const px = (v: number) => v / STAFF_SPACE_PX
   const base = px(MODIFIER_RIGHT_GAP_PX)
-  const flag = durationFlags(note.duration) > 0 ? flagGlyph(note.duration, true) : null
+  const flag = !beamed && durationFlags(note.duration) > 0 ? flagGlyph(note.duration, true) : null
   const push = flag ? glyphBox(flag).right : Math.max(0, armedDotGap().head - base)
   const first = noteheadInk(note.duration) + base + push
   const step = glyphBox('augmentationDot').right + Math.max(px(VEXFLOW_DOT_SPACING), armedDotGap().dot)
@@ -201,8 +203,8 @@ export function graceDotXs(note: Pick<GraceNote, 'duration' | 'dots'>): number[]
 }
 
 /** How far right of its anchor a grace's dots reach, own staff spaces — 0 with none. */
-function graceDotReach(note: GraceNote): number {
-  const xs = graceDotXs(note)
+function graceDotReach(note: GraceNote, beamed: boolean): number {
+  const xs = graceDotXs(note, beamed)
   return xs.length ? xs[xs.length - 1] + glyphBox('augmentationDot').right : 0
 }
 
@@ -234,11 +236,12 @@ export function graceLayout(group: GraceGroup, signOf: SignOf, clef: Clef, hostR
   const places: GracePlace[] = []
   let right = -(hostReach + GRACE_ROWS.toMain.value)
   let leftEdge = right
+  const beamed = new Set(graceBeamRuns(group.notes).flat())
   for (let i = group.notes.length - 1; i >= 0; i--) {
     const note = group.notes[i]
     const headWidth = headsWidth(note.pitches) * k
     // A DOT stands between this grace and whatever follows it: the gap is measured to its ink.
-    const rightInk = Math.max(headWidth, graceDotReach(note) * k)
+    const rightInk = Math.max(headWidth, graceDotReach(note, beamed.has(i)) * k)
     const headX = right - rightInk
     places.unshift({ note, headX, headWidth, rightInk })
     leftEdge = headX - leftInk(note.pitches, signOf, clef) * k

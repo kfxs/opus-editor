@@ -5,7 +5,7 @@
  *
  * ⛔ No `mutate` on a refusal: an edit that changed nothing leaves no undo entry.
  */
-import { addGrace, addGracePitch, isGraceNote, type GraceForm, type GraceSpelling, type GraceWritten } from '../models/graceOps'
+import { addGrace, addGracePitch, isGraceNote, setGraceForm, type GraceForm, type GraceSpelling, type GraceWritten } from '../models/graceOps'
 import type { ArticulationType, Fraction, GraceNote, GraceSide, NotePitch } from '@/types/music'
 import { beatRestAt } from '../models/restGraceOps'
 import { findSlot, offsetTargetOf } from '../models/slotLookup'
@@ -36,6 +36,19 @@ export function graceCommands(ctx: CommandContext) {
       if (marks?.length) grace.articulations = [...marks]
       ctx.mutate(form === 'acciaccatura' ? 'Add acciaccatura' : 'Add appoggiatura')
       return grace
+    },
+
+    /**
+     * ⭐ The FORM of the groups these graces belong to — a grace button pressed with graces SELECTED
+     * (his rule, 2026-09-22; plan §3 rule 2). ONE undo entry; ⛔ none when nothing changed.
+     * @see setGraceForm
+     */
+    setGraceForm(gracePitchIds: readonly string[], form: GraceForm): boolean {
+      const score = ctx.model().getScore()
+      let changed = false
+      for (const id of gracePitchIds) changed = setGraceForm(score, id, form) || changed
+      if (changed) ctx.mutate(form === 'acciaccatura' ? 'Make acciaccatura' : 'Make appoggiatura')
+      return changed
     },
 
     /**

@@ -74,7 +74,7 @@ const VALID_BEAM_DURATIONS = ['4', '8', '16', '32', '64']
  * kept HERE rather than in `engrave/`: it is a fudge that closes the seam where a beam meets its
  * last stem, not a rule anyone would state — and P4a moves no pixel.
  */
-const BEAM_END_OVERSHOOT = 1
+export const BEAM_END_OVERSHOOT = 1
 
 let lastBeamId = 0
 

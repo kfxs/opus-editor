@@ -267,6 +267,18 @@ describe('graceOps', () => {
       expect('slash' in chordOf(host.id).graceBefore!).toBe(false)
     })
 
+    it('⭐ setGraceForm: a GRACE names its group\'s form — the whole group changes; not a grace, no change', () => {
+      const host = quarter()
+      const a = graceOps.addGrace(score, host.id, 'before', D4, 'appoggiatura', EIGHTH)!
+      graceOps.addGrace(score, host.id, 'before', E4, 'appoggiatura', EIGHTH)
+      expect(graceOps.setGraceForm(score, a.pitches[0].id, 'acciaccatura')).toBe(true)
+      expect(chordOf(host.id).graceBefore!.slash).toBe(true)
+      expect(graceOps.setGraceForm(score, a.pitches[0].id, 'acciaccatura')).toBe(false)
+      expect(graceOps.setGraceForm(score, host.id, 'appoggiatura')).toBe(false)
+      expect(graceOps.setGraceForm(score, a.pitches[0].id, 'appoggiatura')).toBe(true)
+      expect('slash' in chordOf(host.id).graceBefore!).toBe(false)
+    })
+
     it('the stem: null DELETES the field rather than pinning UP', () => {
       const host = quarter()
       graceOps.addGrace(score, host.id, 'before', D4, 'appoggiatura', EIGHTH)

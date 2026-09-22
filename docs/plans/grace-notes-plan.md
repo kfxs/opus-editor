@@ -1,6 +1,6 @@
 # Grace notes — appoggiatura, acciaccatura, Nachschlag: the plan
 
-> **Status: P0 and P1 committed (2026-09-22), + the offset, the arrows and the rest fixes; P2 planned, P2a (the click behaves like note entry) committed. Next: P2b (the beam).** 📄 The research is `docs/research/grace-notes-research.md`
+> **Status: P0 and P1 committed (2026-09-22), + the offset, the arrows and the rest fixes; P2 planned, P2a (the click behaves like note entry) committed, P2b (the beam) + a selected grace's form committed. Next: P2c (the slash on a beam).** 📄 The research is `docs/research/grace-notes-research.md`
 > (four sources folded into one file; its §0 is the synthesis this plan reads). ⛔ This plan is the place
 > the DECISIONS get made: §0 marks each as ✅ DECIDED (his word, with the date) or ⏳ PROPOSED — until he
 > says so it is a default, not a decision (`feedback_an_open_question_is_not_a_decision`). ✅ D1 · D2 ·
@@ -148,7 +148,11 @@ the fan member's in `deleteNoteWithRepair`, and no bar repair, because nothing r
    (`graceWrittenValue(groupSize)`), ✅ his *"lets say yes"* on 2026-09-22 as a DEFAULT to run, ⛔ not a
    rule — *"after testing in the real UI things can change"*; a value set by hand with the duration keys
    is always respected.
-2. ⏳ **A NOTE SELECTED when the button is pressed — OPEN, his to find by iteration.** Candidates he
+2. ⭐ **A GRACE SELECTED (selection mode) when a button is pressed — DECIDED 2026-09-22** (his report:
+   *"with the grace selected i press acciacc … is not editing the grace selected but arming"*): the
+   button EDITS — its group becomes that FORM (`graceOps.setGraceForm`, one undo entry; the slash is the
+   group's, so the whole group changes) — and arms nothing. In ENTRY mode (a stamp in hand) it still arms.
+   ⏳ **A NOTE SELECTED when the button is pressed — OPEN, his to find by iteration.** Candidates he
    named: *transform that note into a grace* (Sibelius's `;` — the slot leaves the bar, its time is
    refilled, and the grace hangs on the note that follows); the fan's *"apply to what is selected"*
    (add a grace of the note's own pitch, MuseScore's way) was the plan's proposal and is NOT chosen.
@@ -434,6 +438,12 @@ selectable in this plan; the press toggles it (§3.2).
     `graceClickAt` reads the click there. (The note ghost starts its head AT the pointer and snaps a click
     within 25–40 px, so it never showed the gap; a grace's columns are too narrow for that.)
   - Spelling, armed accidental, articulations, the written value: exactly what the stamp does today.
+
+  **P2b — the BEAM.** ✅ BUILT 2026-09-22, ⏳ his UI check: `engrave/notes/graceBeam` (runs · the page's
+  slope rule + fit · every stem to the line · the page's level spans · quads) · `GracePass` measures every
+  grace first, draws a beamed stem to its beam with NO flag, and each beam in its own `gracebeam` group
+  outside every `gracenote` · `graceRoom.graceDotXs(note, beamed)`. ⚠️ A beamed ACCIACCATURA shows no
+  slash until P2c (the flag's slash has no flag to sit on).
 
   **What beams.** The flagged graces of ONE group (8th and shorter, `NOTE_DURATION_ROWS[d].flag`), in a
   run: a quarter/half/whole grace breaks it, a run of one keeps its flag. ⛔ Never joined to the principal

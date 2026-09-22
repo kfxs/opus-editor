@@ -241,6 +241,17 @@ function groupAt(score: Score, noteId: string, side: GraceSide): { group: GraceG
   return group ? { group } : undefined
 }
 
+/**
+ * ⭐ Make the group a SELECTED grace belongs to an acciaccatura (slashed) or an appoggiatura — what a
+ * grace button does to a selected grace (his rule, 2026-09-22; plan §3 rule 2). The FORM is the
+ * group's (one slash per group, Gould p. 126), so every grace in it changes. @returns whether it changed.
+ */
+export function setGraceForm(score: Score, gracePitchId: string, form: GraceForm): boolean {
+  const found = findSlot(score, gracePitchId, { graceNotes: true })
+  if (!found?.grace) return false
+  return setGraceSlash(score, gracePitchId, found.grace.side, form === 'acciaccatura')
+}
+
 /** Slash the group (acciaccatura) or not (appoggiatura). @returns whether it changed. */
 export function setGraceSlash(score: Score, noteId: string, side: GraceSide, on: boolean): boolean {
   const at = groupAt(score, noteId, side)

@@ -13,13 +13,27 @@ import type { GraceForm } from '@/engine/models/graceOps'
 import { armedTool, type EditorState } from '../state/EditorState'
 import { durationHighlight } from '../controllers/keypadSync'
 import type { SpanToolHost } from './spanToolPress'
+import { selectedNoteIds } from '../state/selection'
 
 /** A grace's written value when the duration keys say nothing — an 8th (the convention for a single
  *  grace, Gould p. 125). ⚠️ A DEFAULT, his *"lets say yes"* on 2026-09-22; a value set by hand wins. */
 const GRACE_DEFAULT_DURATION = '8'
 
-/** Arm the grace stamp for `form` / `side` — or disarm it, when the same one is armed already. */
+/**
+ * Arm the grace stamp for `form` / `side` — or disarm it, when the same one is armed already.
+ * ⭐ In SELECTION mode with graces selected it arms nothing: it makes their groups this FORM (his rule,
+ * 2026-09-22 — plan §3 rule 2: *"with the grace selected i press acciacc"*).
+ */
 export function pressGraceTool(host: SpanToolHost, form: GraceForm, side: GraceSide): void {
+  const engine = host.getEngine()
+  const graces = host.state.selectedTool === 'selection' && engine
+    ? selectedNoteIds(host.state.selectedItems.values()).filter(id => engine.isGraceNote(id))
+    : []
+  if (engine && graces.length) {
+    if (engine.grace.setGraceForm(graces, form)) host.render()
+    dbg(`[grace] ${graces.length} selected grace(s) → ${form}`)
+    return
+  }
   const armed = armedTool(host.state, 'grace')
   if (armed && armed.form === form && armed.side === side) {
     // What was armed FOR the grace goes with it — or it would mark the next typed note.
