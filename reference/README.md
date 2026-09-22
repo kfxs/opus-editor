@@ -1092,3 +1092,19 @@ scans are ≈238 ppi native, so a barline is ≈1.7 native px — consistent, no
 ⚠️ The plates cannot tell "constant absolute size" from "constant ratio to the MAIN staff". The engines
 (read from source the same day) are in `docs/research/barline-join-research.md`, *Small staves*.
 
+
+### What was asked of it on 2026-09-22 (GRACE NOTES), and what came back
+
+The question: everything the library says about appoggiaturas, acciaccaturas and grace notes after a
+note — size, stem, slash, slur, beaming, spacing, the barline, the meaning — before the feature is
+designed. 📄 The whole of it, with the three engines' source and the interchange formats beside it,
+is `docs/research/grace-notes-research.md` (Part C is the treatises). What the books answered, by page:
+
+| what | where | what it says |
+|---|---|---|
+| the grace note's DESIGN | ⭐⭐ **Gould pp. 125–131** (*Grace notes*), rendered; the figures on **125, 126, 127, 129 measured at 600 dpi** | *"small noteheads with stems shortened to about **2¼** stave-spaces"* (p. 125) — ⭐ and her own twelve drawn graces measure **2.22–2.67, median ≈2½**, i.e. the drawing sides with **Stone p. 49** (*"about 2½ spaces"*): the seventh *drawing-vs-sentence* case in this library. Head ≈**0.60–0.65** of full (p. 125: *"slightly smaller than a cue note, which is ¾"*). Slash drawn ≈2.1 sp at 38–43°, crossing mid-stem. Slur *"below the grace note, from notehead to notehead"* (p. 129), above when it would hit an accidental or ledgers (pp. 129–130), each group its own slur (p. 130). Graces on a first beat AFTER the barline; 3+ before-beat graces MAY go before it; other parts align with the PRINCIPAL (pp. 127–128, 159) |
+| the slash, in words | **Ross pp. 189–191** (PDF 201–203) | *"lower left to upper right"*, must *"bisect the flag"* leaving white space; ⛔ nothing on spacing or meaning |
+| the MEANING | **Stone pp. 21–22** | *"as fast as possible … always before the beat"*; no slash ⇒ a measured appoggiatura (p. 22 fn). ⚠️ Gould pp. 127–129 make the placement INDEPENDENT of performance — a real disagreement |
+| grace vs FREE notation | ⭐ **Gould pp. 630–631** (Table 2) · **Stone pp. 140–141** | Gould keeps *"conventional grace-note groups – to indicate playing a group as fast as possible"* inside proportional notation, drawn unchanged; Stone: graces *"belong to a main note"*, unstemmed heads are independent |
+| the rest | **G&L pp. 54–55, 72–74** | *"65% of normal size works well"*; grace ledger lines *"the same thickness as staff lines, but shorter"* (p. 75) |
+| ⛔ UNKNOWN | all four | a grace vs a clef/key/meter change at the same point · a grace before a REST · the half-value rule as a stated rule · grace beam/flag thickness · Gould **p. 78** (accidentals scaled only before a grace or cue) located in the OCR, ⚠️ NOT rendered |
