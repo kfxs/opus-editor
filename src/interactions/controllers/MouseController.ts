@@ -191,9 +191,7 @@ export class MouseController {
   /** Document-level pan release. Resolves drag-vs-tap and tears the gesture down. */
   private handleDocPanUp(): void {
     if (!this.isPanArmed) return
-    const wasPanning = this.isPanning
-    const clears = this.pendingTapClearsSelection
-    const tapCoords = this.pendingTapCoords
+    const { isPanning: wasPanning, pendingTapClearsSelection: clears, pendingTapCoords: tapCoords } = this
     this.detachPanListeners()
     this.isPanArmed = false
     this.isPanning = false
@@ -1240,6 +1238,16 @@ export class MouseController {
       return
     }
     // Not on a staff/bar: defer to a pan (drag pans; tap-release clears the selection).
+    //
+    // 🚨 **The box goes BACK before the pan is armed** — his report, 2026-09-22: *"i mark the first
+    //   bar… then i drag so im going now in the page… then i decided to go back… the elements of the
+    //   bar are highlighted but the blue square disappear."* The press cleared `selectedElement` on
+    //   its way past the element chain ({@link boxBeforePress}), and a real pan KEEPS the selection
+    //   ({@link handleDocPanUp}) — but kept only what was left, which was the notes and not their box.
+    //   The pan's own renders then repainted a passage with no box. A tap-release still decides for
+    //   itself: it selects the bar under it or clears everything, so putting the box back here
+    //   changes nothing about a tap.
+    if (this.boxBeforePress) this.state.selectedElement = this.boxBeforePress
     this.pendingTapCoords = { x, y }
     this.armPan(event, true)
   }

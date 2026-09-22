@@ -121,6 +121,15 @@ describe('a press inside the selected measure box', () => {
     expect(selectNote, 'and nothing was reselected').not.toHaveBeenCalled()
   })
 
+  it('🚨 a press on the PASTEBOARD keeps the box — a pan keeps the selection, box included (his report, 2026-09-22)', () => {
+    selectTheBox()
+    // Outside every bar: x past bar 1's right edge, and `selectMeasureAt` refuses it there.
+    mc.handleMouseDown(ev({ clientX: 400, clientY: 110 }))
+    expect(state.selectedElement, 'the box survived the press that armed the pan')
+      .toMatchObject({ kind: 'measureRange', anchor: 1, boxStyle: 'single' })
+    expect(selectNote).not.toHaveBeenCalled()
+  })
+
   // ⛔ The other half of the fallback — *no* box showing, so the press SELECTS the bar
   // (`selectMeasureAt`) — is not here: it needs a real `ScoreModel` projection and a real
   // `SelectionController`, which is the engine's own chapter. What this file owns is the ORDER.
