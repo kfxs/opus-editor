@@ -285,9 +285,11 @@ interface MeasureSnapshot {
 /** Every FANNED MEMBER pitch id in a measure — the ids `captureById`'s default list cannot reach,
  *  since they live inside `slot.fan` rather than in `slot.notes`. */
 function fanMemberIdsOf(view: Measure): string[] {
-  // ⭐ …and the GRACE pitches, which `./GracePass` files in the same maps on the same terms.
+  // ⭐ …and the GRACE pitches, which `./GracePass` files in the same maps on the same terms — ⚠️ a
+  //    REST's too (D7 reversed): filed under chords only, a replayed bar dropped them, and a grace on
+  //    a rest could be clicked but never lit (his report, 2026-09-22).
   return view.slots.flatMap(s =>
-    s.type === 'chord' ? [...(s.fan?.members ?? []).flatMap(m => m.pitches), ...gracePitchesOf(s)].map(p => p.id) : [])
+    [...(s.type === 'chord' ? s.fan?.members ?? [] : []).flatMap(m => m.pitches), ...gracePitchesOf(s)].map(p => p.id))
 }
 
 /**

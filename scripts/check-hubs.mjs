@@ -37,12 +37,12 @@ import { readFileSync } from 'node:fs'
 // docs/plans/code-shape-plan-2026-09-19.md, *After the plan*.
 const HUBS = [
   { file: 'src/engine/MusicEngine.ts', kinds: 494, lines: null },
-  { file: 'src/engine/models/ScoreModel.ts', kinds: 917, lines: null },
+  { file: 'src/engine/models/ScoreModel.ts', kinds: 916, lines: null },
   { file: 'src/engine/rendering/ScoreRenderer.ts', kinds: 821, lines: null },
   { file: 'src/interactions/controllers/MouseController.ts', kinds: 277, lines: 1076 },
   { file: 'src/interactions/controllers/PaletteController.ts', kinds: 424, lines: null },
   { file: 'src/interactions/controllers/HighlightController.ts', kinds: 9, lines: 117 },
-  { file: 'src/interactions/controllers/shortcutWiring.ts', kinds: 59, lines: 398, except: ['deleteSelected'] },
+  { file: 'src/interactions/controllers/shortcutWiring.ts', kinds: 59, lines: 389, except: ['deleteSelected'] },
   { file: 'src/windows/properties/PropertiesWidget.ts', kinds: 0, lines: 73 },
   { file: 'src/interactions/state/selectionSnapshot.ts', kinds: 3, lines: null, except: ['selectedElements'] },
 ]

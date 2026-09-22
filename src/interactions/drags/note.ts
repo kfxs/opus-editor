@@ -47,6 +47,7 @@ import { measureCapacityQuarters } from '../../utils/measureCapacity'
 import { spellingToMidi } from '../../utils/pitchSpelling'
 import type { EditorState } from '../state/EditorState'
 import { entryAlteration } from '../../engine/models/entryAlteration'
+import { isGraceNote } from '../../engine/models/graceOps'
 import { DRAG_DISTANCE_THRESHOLD_PX, type DragHost, type Gesture } from './gesture'
 
 /** What the horizontal half needs, captured at the press. */
@@ -76,6 +77,18 @@ function grabSpacing(engine: MusicEngine, note: Note | undefined): SpacingGrab |
   }
 }
 
+/** A grabbed GRACE's offset at the press, and its staff's scale — null for anything else. */
+function grabGraceOffset(
+  engine: MusicEngine, note: Note | undefined,
+): { id: string; baseline: number; staffSpacePx: number } | null {
+  if (!note || !isGraceNote(engine.getScore(), note.id)) return null
+  return {
+    id: note.id,
+    baseline: engine.getNoteOffset(note.id),
+    staffSpacePx: engine.getElementRegistry().getStaffGeometry(note.measure, staffOf(note))?.lineSpacing ?? 10,
+  }
+}
+
 /**
  * @param state The grabbed note is the SELECTED one — the press selected it — and is read from the
  *   selection on every frame, so a selection that goes away mid-press leaves the move to the
@@ -88,8 +101,19 @@ export function beginNoteDrag(
   /** A rest has nothing to re-pitch; its vertical drag is owned and does nothing. */
   const pitched = !!grabbed?.step
   const spacing = grabSpacing(engine, grabbed)
+  const graceOffset = grabGraceOffset(engine, grabbed)
   let axis: 'undecided' | 'pitch' | 'spacing' = 'undecided'
   let spacingChanged = false
+  let offsetChanged = false
+
+  /** A GRACE has no column to space: its horizontal half is its OFFSET (his call, 2026-09-22). */
+  const dragGraceOffset = (eng: MusicEngine, id: string, mx: number): void => {
+    if (!graceOffset) return
+    if (eng.grace.previewOffset(id, graceOffset.baseline + (mx - x) / graceOffset.staffSpacePx)) {
+      offsetChanged = true
+      host.render.renderScore()
+    }
+  }
 
   const dragSpacing = (eng: MusicEngine, mx: number): void => {
     if (!spacing) return
@@ -130,7 +154,10 @@ export function beginNoteDrag(
         axis = Math.abs(dx) > Math.abs(dy) ? 'spacing' : 'pitch'
         dbg(`Note drag axis | ${axis} (dx:${dx.toFixed(1)} dy:${dy.toFixed(1)})`)
       }
-      if (axis === 'spacing') dragSpacing(eng, mx)
+      if (axis === 'spacing') {
+        if (graceOffset) dragGraceOffset(eng, id, mx)
+        else dragSpacing(eng, mx)
+      }
       else if (pitched) dragPitch(eng, id, mx, my)
       return true
     },
@@ -141,6 +168,10 @@ export function beginNoteDrag(
         eng.commitNoteSpacing()
         dbg(`Note spacing set | bar ${spacing.measure} beat ${spacing.beat.num}/${spacing.beat.den}`
           + ` → ${eng.getNoteSpacing(spacing.measure, spacing.beat)} ss`)
+      }
+      if (axis === 'spacing' && offsetChanged && eng && graceOffset) {
+        eng.grace.commitOffset()
+        dbg(`Grace offset set | ${graceOffset.id} → ${eng.getNoteOffset(graceOffset.id)} ss`)
       }
       host.release()
     },

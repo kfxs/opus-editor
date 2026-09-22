@@ -1,6 +1,6 @@
 # Grace notes — appoggiatura, acciaccatura, Nachschlag: the plan
 
-> **Status: P0 and P1 committed (2026-09-22). Next: P2 (groups) — or the open list under P1.** 📄 The research is `docs/research/grace-notes-research.md`
+> **Status: P0 and P1 committed (2026-09-22), + the offset, the arrows and the rest fixes. Next: P2 (groups) — or the open list under P1.** 📄 The research is `docs/research/grace-notes-research.md`
 > (four sources folded into one file; its §0 is the synthesis this plan reads). ⛔ This plan is the place
 > the DECISIONS get made: §0 marks each as ✅ DECIDED (his word, with the date) or ⏳ PROPOSED — until he
 > says so it is a default, not a decision (`feedback_an_open_question_is_not_a_decision`). ✅ D1 · D2 ·
@@ -364,8 +364,19 @@ selectable in this plan; the press toggles it (§3.2).
   note after"*): `S` on a lone grace slurs it to the next grace of its group, else to its main note, and a
   grace + its note read grace → note whatever the click order (`models/spanFromNotes` — `graceRank` and the
   walk on from a grace); an endpoint walks onto and off a grace by drag, arrow and Ctrl+arrow
-  (`walks/slurReanchor.withGraceStops`: each grace one stop before / after its note, found by id). The shape
+  (`walks/graceStops`: each grace one stop before / after its note, found by id — ⭐ the ARROWS walk the same stops, `SelectionController.navigateSelection`). The shape
   is the ordinary slur rules' — his eye.
+  ⭐ **A grace's OFFSET** (his call, 2026-09-22: *"a normal offset with the grace, not a move — moving the
+  parent also moves the grace"*): the note offset, keyed by the grace's first pitch (`slotLookup.offsetTargetOf`),
+  ink only (the room stays). Every horizontal gesture reaches it — the drag (`graceCommands.previewOffset`),
+  Ctrl+←/→ (a note with no column of its own, `interactions/controllers/noteOffsetKeys`), Ctrl+Shift / Shift+Alt,
+  the resets, and the Properties offset row, where a grace is now reported as `grace` (`noteReportKind`).
+  🚨 **A grace on a REST is a grace everywhere a chord's is** (his reports, 2026-09-22 — *"i cannot select
+  the last 3 grace"*, *"im trying to make a slur but i see nothing on screen"*): two readers asked for
+  grace pitches on CHORDS only — the replayed bar's snapshot list (`ScoreRenderer.fanMemberIdsOf`: a
+  reused bar lost the rest's graces' highlight group and slur anchor) and the slur's bar lookup
+  (`SlurRenderer.measureOfNoteId`: its slur had no measure and was skipped). Both now read
+  `gracePitchesOf(slot)`, which knows a rest. ⛔ Never `s.type === 'chord' && gracePitchesOf(s)`.
   ⏳ **OPEN (his call): the DOT's gap on a grace** — proportional (MuseScore · Verovio · LilyPond; what is
   built, `graceDotXs`) or full-size (the books' dotted CUE notes — no book draws a dotted grace;
   research §0 Part F). One number either way; the proportional default stands until he picks.

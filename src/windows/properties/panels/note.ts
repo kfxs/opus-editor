@@ -6,10 +6,11 @@ import { BISHOP, commitOnFirstStep } from '../rows'
 import { live, overrideOf, type PanelRows } from './panel'
 
 /**
- * A NOTE or a REST — the panel's FIRST real control (client #12 — docs/plans/note-offset-plan.md §B): its
- * horizontal offset, an absolute value in staff-spaces. A note adds what only a note has.
+ * A NOTE, a REST or a GRACE — the panel's FIRST real control (client #12 — docs/plans/note-offset-plan.md
+ * §B): its horizontal offset, an absolute value in staff-spaces. A note adds what only a note has; a
+ * grace has only the offset so far (its group's flags are grace-notes-plan P6).
  */
-export const noteRows: PanelRows<'note' | 'rest'> = (element) => {
+export const noteRows: PanelRows<'note' | 'rest' | 'grace'> = (element) => {
   const note = live(element.data)
   if (!note) return []
   const id = note.id
@@ -318,6 +319,6 @@ function canCarryFractionalBeam(note: Note): boolean {
 /** The note/rest's current horizontal offset in staff-spaces (0 when none), read from the element's
  *  own overrides — the entry at whichever key the engine writes (the slot's, or a fanned MEMBER's
  *  own; `selectionSnapshot` resolves it through `offsetTargetOf`, so a member shows ITS number). */
-function currentNoteOffset(element: InspectedOf<'note' | 'rest'>): number {
+function currentNoteOffset(element: InspectedOf<'note' | 'rest' | 'grace'>): number {
   return overrideOf<NoteOffsetOverride>(element, 'noteOffset')?.x ?? 0
 }

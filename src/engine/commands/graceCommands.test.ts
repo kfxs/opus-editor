@@ -36,3 +36,42 @@ describe('graceCommands.addGrace', () => {
     expect(ctx.undoEntries()).toBe(1)
   })
 })
+
+describe('graceCommands.previewOffset / commitOffset', () => {
+  const setup = () => {
+    const model = new ScoreModel()
+    const host = model.addNote({ step: 'E', octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const ctx = fakeCommandContext(model)
+    const grace = graceCommands(ctx).addGrace(host.id, 'before', { step: 'D', alter: 0, octave: 5 }, 'appoggiatura', { duration: '8' })!
+    ctx.log.length = 0
+    return { model, host, ctx, graceId: grace.pitches[0].id }
+  }
+
+  it('⭐ a drag frame writes the grace\'s OWN offset, flags dirty, records nothing; the drop records ONE entry', () => {
+    const { model, host, ctx, graceId } = setup()
+    const cmds = graceCommands(ctx)
+    expect(cmds.previewOffset(graceId, -0.5)).toBe(true)
+    expect(cmds.previewOffset(graceId, -1)).toBe(true)
+    expect(model.getScore().engravingOverrides?.[graceId]).toEqual([{ kind: 'noteOffset', x: -1 }])
+    // …and its main note is NOT moved.
+    expect(model.getScore().engravingOverrides?.[model.offsetTargetOf(host.id)!.key]).toBeUndefined()
+    expect(ctx.undoEntries()).toBe(0)
+    cmds.commitOffset()
+    expect(ctx.log).toEqual(['dirty', 'dirty', 'previewed:Nudge grace'])
+  })
+
+  it('⛔ refuses a NON-grace (a note\'s horizontal drag is its column\'s spacing) and an unchanged value', () => {
+    const { host, ctx, graceId } = setup()
+    const cmds = graceCommands(ctx)
+    expect(cmds.previewOffset(host.id, 1)).toBe(false)
+    expect(cmds.previewOffset(graceId, 0)).toBe(false)
+    expect(ctx.log).toEqual([])
+  })
+
+  it('⛔ a frame the page limit refuses writes nothing', () => {
+    const { model, ctx, graceId } = setup()
+    ctx.allow.page = false
+    expect(graceCommands(ctx).previewOffset(graceId, 3)).toBe(false)
+    expect(model.getScore().engravingOverrides?.[graceId]).toBeUndefined()
+  })
+})

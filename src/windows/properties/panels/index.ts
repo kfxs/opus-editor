@@ -27,6 +27,7 @@ import { trillRows } from './trill'
 const PANELS: { readonly [K in InspectedElement['kind']]?: (element: InspectedOf<K>) => HTMLElement[] } = {
   note: noteRows,
   rest: noteRows,
+  grace: noteRows,
   clef: clefRows,
   dynamic: dynamicRows,
   tempo: tempoRows,

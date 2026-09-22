@@ -82,6 +82,18 @@ describe('GracePass — one grace before a note', () => {
     expect(graceWidth).toBeLessThan(1.15 + 1.2)
   })
 
+  it('⭐ its OFFSET moves the grace alone — by that many staff spaces; its principal and the bar stay put', () => {
+    const plain = build({ grace: { step: 'D', alter: 0, octave: 5 } })
+    const moved = build({ grace: { step: 'D', alter: 0, octave: 5 } })
+    moved.model.nudgeNoteOffset(moved.grace!.pitches[0].id, -1)
+    const a = render(plain.model).scene
+    const b = render(moved.model).scene
+    expect(mainHeadXs(b)).toEqual(mainHeadXs(a))
+    const [graceA] = graceHeadXs(sceneGroups(a, GRACE_GROUP)[0])
+    const [graceB] = graceHeadXs(sceneGroups(b, GRACE_GROUP)[0])
+    expect((graceA - graceB) / STAFF_SPACE_PX).toBeCloseTo(1, 6)
+  })
+
   it('⭐ the bar makes ROOM for it — where the gap is tight, the principal stands further off', () => {
     // ⚠️ 16ths: a quarter's own space already holds one grace (the floor never binds there — the
     //    grace is UNFIXED ink of the gap, plan §4), so only a dense bar shows the room being bought.

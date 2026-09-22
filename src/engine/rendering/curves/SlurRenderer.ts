@@ -68,8 +68,10 @@ function measureOfNoteId(score: Score, noteId: string): number | undefined {
       // A FANNED MEMBER lives inside the slot, not in `slot.notes` — and a slur can be anchored to
       // one (docs/plans/fanned-beam-pitches-plan.md), so it has to name its measure like any other end.
       if (s.type === 'chord' && (s.fan?.members ?? []).some(mm => mm.pitches.some(p => p.id === noteId))) return m.number
-      // …and so can a GRACE note — the user's real slur (a grace draws none of its own).
-      if (s.type === 'chord' && gracePitchesOf(s).some(p => p.id === noteId)) return m.number
+      // …and so can a GRACE note — the user's real slur (a grace draws none of its own). ⚠️ A REST's
+      // grace too (D7 reversed): read on chords only, its slur had no measure and was skipped (his
+      // report, 2026-09-22: *"im trying to make a slur but i see nothing on screen"*).
+      if (gracePitchesOf(s).some(p => p.id === noteId)) return m.number
     }
   }
   return undefined

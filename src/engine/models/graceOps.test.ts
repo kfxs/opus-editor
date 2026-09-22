@@ -133,6 +133,8 @@ describe('graceOps', () => {
       expect(found?.type === 'chord' && found.grace).toMatchObject({ side: 'before', index: 0 })
       expect(graceOps.isGraceNote(score, id)).toBe(true)
       expect(graceOps.isGraceNote(score, host.id)).toBe(false)
+      // ⭐ …and its OFFSET is its own, at its first pitch — not its main chord's.
+      expect(model.offsetTargetOf(id)).toEqual({ key: id, memberIndex: 0 })
     })
 
     it('attackOf answers the GRACE, so its marks are its own', () => {
@@ -181,6 +183,19 @@ describe('graceOps', () => {
       grace.pitches.push({ id: 'g-upper', ...E4 })
       expect(graceOps.removeGrace(score, 'g-upper')).toBe(true)
       expect(chordOf(host.id).graceBefore!.notes[0].pitches.map(p => p.step)).toEqual(['D'])
+    })
+
+    it('⭐ its OFFSET dies with the grace, and follows the first pitch when that one goes', () => {
+      const host = quarter()
+      const grace = graceOps.addGrace(score, host.id, 'before', D4, 'appoggiatura', EIGHTH)!
+      const first = grace.pitches[0].id
+      grace.pitches.push({ id: 'g-upper', ...E4 })
+      model.nudgeNoteOffset(first, -1)
+      expect(graceOps.removeGrace(score, first)).toBe(true)
+      expect(score.engravingOverrides?.[first]).toBeUndefined()
+      expect(score.engravingOverrides?.['g-upper']).toEqual([{ kind: 'noteOffset', x: -1 }])
+      expect(graceOps.removeGrace(score, 'g-upper')).toBe(true)
+      expect(score.engravingOverrides?.['g-upper']).toBeUndefined()
     })
 
     it('refuses anything that is not a grace', () => {

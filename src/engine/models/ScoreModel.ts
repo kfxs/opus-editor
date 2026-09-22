@@ -62,7 +62,7 @@ import * as staffGroupOps from './staffGroupOps'
 import type { BarlineSignKind } from './boundarySign'
 import { isBarlineStyle, isValidRepeatTimes } from './barlineOps'
 import { flatNoteOf, flatRestOf, projectGraceNote } from './noteProjection'
-import { attackOf, findSlot, writeAttackMarks, projectAttackMarks, type FoundSlot } from './slotLookup'
+import { attackOf, findSlot, offsetTargetOf, writeAttackMarks, projectAttackMarks, type FoundSlot } from './slotLookup'
 import { staffIndexOfId, matchesStaff, staffIdForParams, firstStaffId } from './staffContent'
 import * as tupletOps from './tupletOps'
 import * as scoreTextOps from './scoreTextOps'
@@ -1961,11 +1961,7 @@ export class ScoreModel {
    * selected by, so it answers with its slot, which is where it is drawn.
    */
   offsetTargetOf(noteId: string): { key: string; memberIndex: number } | undefined {
-    const found = this.findSlot(noteId, { fanMembers: true })
-    if (!found) return undefined
-    if (found.type === 'rest') return { key: found.rest.id, memberIndex: 0 }
-    if (!found.member) return { key: found.chord.id, memberIndex: 0 }
-    return { key: found.member.pitches[0].id, memberIndex: found.member.index }
+    return offsetTargetOf(this.score, noteId)
   }
 
   /**

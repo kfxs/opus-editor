@@ -74,7 +74,7 @@ describe('selectedElements', () => {
  */
 describe('selectedElements — engraving overrides', () => {
   const scoreWith = (overrides: Record<string, { kind: string }[]>) => ({
-    measures: [{ number: 1, id: 'm1' }],
+    measures: [{ number: 1, id: 'm1', slots: [] }],
     staves: undefined,
     engravingOverrides: overrides,
   })

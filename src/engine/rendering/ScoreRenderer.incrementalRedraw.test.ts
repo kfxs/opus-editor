@@ -22,6 +22,7 @@ import { laneFingerprint } from '@/engine/layout/MeasureWidthCache'
 import { measureShapeKey } from './MeasureRedrawKey'
 import type { Measure } from '@/types/music'
 import { fracCreate as frac } from '@/utils/fraction'
+import { addGrace } from '../models/graceOps'
 
 /**
  * ⭐ The real {@link hintBarlines}, wrapped so a spec can see WHETHER IT WAS FORCED. Its own effect
@@ -693,5 +694,43 @@ describe('the barline hint runs on every editor render, because the pass rebuild
 
     expect(hintCalls, 'translated bars land on a different device pixel').toHaveLength(1)
     expect(hintCalls[0].force).toBe(true)
+  })
+})
+
+/**
+ * 🚨 …and its GRACES — on a chord AND on a REST (his report, 2026-09-22: *"i cannot select the last 3
+ * grace"* — three graces on a rest, clickable, never lit). The snapshot's id list read chords only.
+ */
+describe('a reused measure keeps its graces', () => {
+  function gracedScore() {
+    const model = new ScoreModel()
+    model.addMeasure()
+    model.addMeasure()
+    const note = model.addNote({ step: 'G', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const rest = model.getMeasure(1)!.slots.find(s => s.type === 'rest')!
+    const score = model.getScore()
+    const spell = (step: 'A' | 'G') => ({ step, alter: 0 as const, octave: 4 })
+    const ids = [
+      addGrace(score, note.id, 'before', spell('A'), 'appoggiatura', { duration: '8' })!,
+      addGrace(score, rest.id, 'before', spell('A'), 'appoggiatura', { duration: '8' })!,
+      addGrace(score, rest.id, 'before', spell('G'), 'appoggiatura', { duration: '8' })!,
+    ].map(g => g.pitches[0].id)
+    return { model, ids }
+  }
+
+  it('⭐ an edit in ANOTHER bar leaves every grace — a rest\'s too — still highlightable and anchored', () => {
+    const { model, ids } = gracedScore()
+    const renderer = makeRenderer()
+    renderer.renderScore(model.getScore())
+    const before = renderer.getMeasureSVGGroup(1, 0)
+    model.addNote({ step: 'A', octave: 3, duration: 'w', measure: 3, beat: frac(0, 1) })
+    renderer.renderScore(model.getScore())
+
+    expect(renderer.getMeasureSVGGroup(1, 0)).toBe(before) // reused — the precondition
+    for (const id of ids) {
+      const info = renderer.getFanMemberSVGGroup(id)
+      expect(info, `grace ${id} after a reuse`).not.toBeNull()
+      expect(info!.group.isConnected).toBe(true)
+    }
   })
 })

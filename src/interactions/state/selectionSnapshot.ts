@@ -15,6 +15,7 @@ import { boundarySign, boundaryWinged } from '@/engine/models/barlineOps'
 import { scoreText } from '@/engine/models/scoreTextOps'
 import { fifthsOf, keyAt } from '@/utils/keySignature'
 import { CAUTIONARY_KEY_TO_LINE_END } from '@/engine/layout/cautionaryKey'
+import { noteReportKind } from './noteReportKind'
 
 /**
  * What is selected in the score, resolved to the OBJECTS behind it.
@@ -101,7 +102,7 @@ export function selectedElements(state: EditorState, engine: MusicEngine | null)
     // A note whose id no longer resolves is worth SHOWING, not hiding: a stale selection is exactly
     // the kind of thing this window exists to make visible.
     out.push({
-      kind: note?.isRest ? 'rest' : 'note',
+      kind: note ? noteReportKind(score, note) : 'note',
       data: note ?? { id, missing: true },
       overrides: note ? overridesAtAny(score, noteOverrideKeys(score, engine, note)) : undefined,
     })

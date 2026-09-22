@@ -2,6 +2,7 @@ import type { Clef, KeySignature, Measure, Score, TimeSignature } from '@/types/
 import type { Fraction } from '@/utils/fraction'
 import { laneFingerprint } from '@/engine/layout/MeasureWidthCache'
 import { crossStaffKey, type CrossStaffNeighbour } from './renderTypes'
+import { GRACE_SIDES, graceGroupOf } from '@/utils/graceNotes'
 
 /**
  * **The shape key** (docs/history/render-performance-plan.md §7a) — "does this measure still *look* the
@@ -251,6 +252,9 @@ export function measureShapeKey(
     view.slots.map(s => (s.type === 'chord' && s.fan?.members
       ? s.fan.members.map(m => (m.pitches[0] ? score.engravingOverrides?.[m.pitches[0].id] ?? null : null))
       : null)),
+    // ⚠️ …and a GRACE's offset, keyed by the grace's first pitch id — the member's trap again.
+    view.slots.map(s => GRACE_SIDES.map(side => (graceGroupOf(s, side)?.notes ?? [])
+      .map(g => score.engravingOverrides?.[g.pitches[0]?.id] ?? null))),
     // ⚠️ …and an inline/opening CLEF's hand-nudged OFFSET (2026-08-28), the dynamic's trap exactly:
     // it is keyed by the CLEF CHANGE's uuid, which `overridesFor` (position keys only) never sees,
     // and `view.clefs` itself is unchanged by a nudge. Leave this out and the bar keeps its drawn

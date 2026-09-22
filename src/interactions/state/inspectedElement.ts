@@ -71,6 +71,8 @@ interface OnNote { noteId: string; note: Note | undefined }
 export type InspectedElement =
   | Report<'note', Located<Note>>
   | Report<'rest', Located<Note>>
+  /** ⭐ A GRACE NOTE — selected as a note (its pitch id), reported as what it is. */
+  | Report<'grace', Located<Note>>
   | Report<'dynamic', Located<Dynamic>>
   | Report<'tempo', Located<TempoMark>>
   | Report<'slur', Located<Slur>, {

@@ -18,6 +18,9 @@ import { selectedArticulationNoteIds } from '../state/selection'
 import { markItems, marksLabel, removeMarks } from '../clipboard/enclosedMarks'
 import { passageOf, spansStaves } from '../state/measurePassage'
 import { nudgeSelectedRests } from './restShiftKeys'
+import {
+  nudgeSelectedNoteOffset as nudgeNoteOffsetKey, resetSelectedNoteOffset as resetNoteOffsetKey, selectedHasNoColumn,
+} from './noteOffsetKeys'
 import { selectedElementKeys } from '../elements/selectedKeys'
 import { flipSelection } from '../state/flipSelection'
 import { repeatSelectedPassage } from '../state/repeatPassage'
@@ -166,34 +169,11 @@ export function wireShortcuts(
   const nudgeSelectedRest = (delta: number): boolean =>
     nudgeSelectedRests(getEngine(), state, delta, () => renderer.renderScore())
 
-  // Ctrl+Shift+←/→ (wide) / Shift+Alt+←/→ (fine) on a SINGLE selected note or rest = nudge its
-  // horizontal offset by a staff-space delta (+right), an OFFSET off its natural column (NOT
-  // spacing — the bar keeps its width). Rides the deliberate chords, not the easy key: a note's
-  // plain ←/→ is navigation and the easy Ctrl+←/→ is the MOVE (spacing/bar width). Returns true
-  // when it consumed the key, false to DECLINE so it falls through. One undo per press. The engine
-  // keys the override by SLOT, so a chord (and a rest) moves as a unit. See docs/plans/note-offset-plan.md §C.
-  const nudgeSelectedNoteOffset = (dx: number): boolean => {
-    const eng = getEngine()
-    if (!eng || state.selectedItems.size !== 1) return false
-    const item = [...state.selectedItems.values()][0]
-    if (item.kind !== 'note') return false
-    if (!eng.nudgeNoteOffset(item.id, dx)) return false
-    renderer.renderScore()
-    return true
-  }
-
-  // Ctrl+Shift+Backspace / Shift+Alt+Backspace on a SINGLE selected note/rest = reset it to its
-  // natural column outright (drop the offset entry, the first-class reset every override client gets
-  // — not a walk back to 0). DECLINEs (false) when there is nothing to reset, keeping the key free.
-  const resetSelectedNoteOffset = (): boolean => {
-    const eng = getEngine()
-    if (!eng || state.selectedItems.size !== 1) return false
-    const item = [...state.selectedItems.values()][0]
-    if (item.kind !== 'note') return false
-    if (!eng.resetNoteOffset(item.id)) return false
-    renderer.renderScore()
-    return true
-  }
+  // The note OFFSET on the keys, and the MOVE keys on a note with no column (a grace) — `./noteOffsetKeys`.
+  const nudgeSelectedNoteOffset = (dx: number): boolean =>
+    nudgeNoteOffsetKey(getEngine(), state, dx, () => renderer.renderScore())
+  const resetSelectedNoteOffset = (): boolean =>
+    resetNoteOffsetKey(getEngine(), state, () => renderer.renderScore())
 
   // Shift+↑/↓ (fine) / Alt+↑/↓ (coarse) on a plain-click SINGLE measure box = Sibelius
   // "space above staff": nudge the clicked staff's vertical spacing by `delta` staff-spaces
@@ -230,6 +210,7 @@ export function wireShortcuts(
   }
 
   const nudgeSelectedNoteSpacing = (delta: number): boolean => {
+    if (selectedHasNoColumn(getEngine(), state)) return nudgeSelectedNoteOffset(delta)
     const eng = getEngine()
     const column = selectedColumn()
     if (!eng || !column) return false
@@ -316,6 +297,7 @@ export function wireShortcuts(
   }
 
   const resetSelectedNoteSpacing = (): boolean => {
+    if (selectedHasNoColumn(getEngine(), state)) return resetSelectedNoteOffset()
     const eng = getEngine()
     const column = selectedColumn()
     if (!eng || !column) return false

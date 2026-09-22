@@ -6,6 +6,7 @@ import type { Rect } from '../../engine/ViewportModel'
 import type { EditorState } from '../state/EditorState'
 import { modelVoiceToActive, selectedOf } from '../state/EditorState'
 import { buildVoiceNavBeatMap, notesInBox, expandTieChains } from '../../utils/beatMap'
+import { locateStop, withGraceStops } from '../walks/graceStops'
 import { isMarkKind, marksInBox, type MarkKind } from '../clipboard/enclosedMarks'
 import { fracEq, fracCompare, fracToNumber } from '../../utils/fraction'
 import { getMeasureNotes, measureAccidentalNotes } from '../../utils/musicUtils'
@@ -453,19 +454,22 @@ export class SelectionController {
       ?? (selectedPos && allFlat.find(n =>
         n.measureNumber === selectedPos.measure && fracEq(n.beat, selectedPos.beat)))
     if (!currentNote) return
-    const currentKey = `${currentNote.measureNumber}:${currentNote.beat.num}/${currentNote.beat.den}`
-    const currentIndex = beats.findIndex(n => `${n.measureNumber}:${n.beat.num}/${n.beat.den}` === currentKey)
+    // ⭐ The GRACES are stops too, each beside its main note (`walks/graceStops`) — his report,
+    //    2026-09-22: the arrows walked past a grace, and from a grace skipped its own note.
+    const lane = withGraceStops(score, beats)
+    const currentIndex = locateStop(score, lane, this.state.selectedNoteId,
+      { measure: currentNote.measureNumber, beat: currentNote.beat })
     if (currentIndex === -1) return
 
     const newIndex = currentIndex + direction
-    if (newIndex < 0 || newIndex >= beats.length) {
+    if (newIndex < 0 || newIndex >= lane.stops.length) {
       this.selectNote(null)
       this.renderScore()
       return
     }
 
-    const dest = beats[newIndex]
-    const destNote = allFlat.find(n => n.id === dest.id)
+    const dest = lane.stops[newIndex]
+    const destNote = allFlat.find(n => n.id === dest.id) ?? engine.getNote(dest.id)
     const destDesc = destNote
       ? (destNote.isRest ? `rest m${dest.measureNumber} beat:${dest.beat.num / dest.beat.den}` : `${destNote.step}${destNote.alter !== 0 ? (destNote.alter! > 0 ? '#' : 'b') : ''}${destNote.octave} m${dest.measureNumber} beat:${dest.beat.num / dest.beat.den}`)
       : `id:${dest.id}`

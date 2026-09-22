@@ -15,6 +15,7 @@ import { dbg } from '@/utils/debug'
 import { GRACE_SIDES, graceGroupOf, graceKey } from '@/utils/graceNotes'
 import { chordStoredPitches } from '@/utils/fannedBeam'
 import { findSlot, type FoundSlot } from './slotLookup'
+import { clearEngravingOverride, moveNoteOffsetKey } from './overrideOps'
 
 /** The two forms a press makes. ⚠️ Read only when the GROUP is created: after that the slash is the
  *  group's own flag ({@link setGraceSlash}), one for the group (Gould p. 126). */
@@ -119,12 +120,17 @@ export function removeGrace(score: Score, pitchId: string): boolean {
   const host = hostOf(found)
   const key = graceKey(grace.side)
   const group = host[key]!
+  // ⭐ Its OFFSET is keyed by the grace's first pitch (`ScoreModel.offsetTargetOf`): the key moves
+  //    with the first pitch, and dies with the grace — the fan member's sweep.
+  const offsetKey = grace.note.pitches[0].id
   if (grace.note.pitches.length > 1) {
     grace.note.pitches.splice(grace.note.pitches.indexOf(pitch), 1)
+    if (pitch.id === offsetKey) moveNoteOffsetKey(score, offsetKey, grace.note.pitches[0].id)
     dbg(`[graceOps.removeGrace] one pitch of grace ${grace.index} (${grace.note.pitches.length} left)`)
     return true
   }
   group.notes.splice(grace.index, 1)
+  clearEngravingOverride(score, offsetKey, 'noteOffset')
   if (group.notes.length === 0) delete host[key]
   dbg(`[graceOps.removeGrace] grace ${grace.index} ${grace.side} ${found.type} removed (${group.notes.length} left)`)
   return true

@@ -5,10 +5,13 @@
  *
  * ⛔ No `mutate` on a refusal: an edit that changed nothing leaves no undo entry.
  */
-import { addGrace, type GraceForm, type GraceSpelling, type GraceWritten } from '../models/graceOps'
+import { addGrace, isGraceNote, type GraceForm, type GraceSpelling, type GraceWritten } from '../models/graceOps'
 import type { ArticulationType, Fraction, GraceNote, GraceSide } from '@/types/music'
 import { beatRestAt } from '../models/restGraceOps'
+import { offsetTargetOf } from '../models/slotLookup'
 import type { CommandContext } from './commandContext'
+import { nudgeNoteOffset } from '../models/overrideOps'
+import { noteOffsetOverrideOf } from '../models/engravingOverrides'
 
 export type GraceCommands = ReturnType<typeof graceCommands>
 
@@ -31,6 +34,30 @@ export function graceCommands(ctx: CommandContext) {
       if (marks?.length) grace.articulations = [...marks]
       ctx.mutate(form === 'acciaccatura' ? 'Add acciaccatura' : 'Add appoggiatura')
       return grace
+    },
+
+    /**
+     * ⭐ A live DRAG frame of a grace's horizontal offset: set it to `x` staff spaces (+right), no undo
+     * entry — {@link commitOffset} records the one on drop. The same override the note-offset keys
+     * write (`MusicEngine.nudgeNoteOffset`), at the grace's own key (`slotLookup.offsetTargetOf`).
+     * A grace has no column of its own, so the drag that SPACES a note's column offsets a grace.
+     * @returns whether the offset changed — refused when not a grace, unchanged, or off the page.
+     */
+    previewOffset(noteId: string, x: number): boolean {
+      const score = ctx.model().getScore()
+      if (!isGraceNote(score, noteId)) return false
+      const target = offsetTargetOf(score, noteId)
+      if (!target) return false
+      const dx = Math.round(x * 100) / 100 - (noteOffsetOverrideOf(score, target.key)?.x ?? 0)
+      if (dx === 0 || !ctx.limits.nudgeStaysOnPage('note', noteId, dx, 0)) return false
+      nudgeNoteOffset(score, target.key, dx)
+      ctx.markDirty()
+      return true
+    },
+
+    /** The ONE undo entry for a grace-offset drag whose frames went through {@link previewOffset}. */
+    commitOffset(): void {
+      ctx.commitPreviewed('Nudge grace')
     },
   }
 }

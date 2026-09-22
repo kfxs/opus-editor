@@ -148,3 +148,18 @@ export function projectAttackMarks(note: Note, attack: Attack): void {
   if (attack.articulationPlacement) note.articulationPlacement = attack.articulationPlacement
   else delete note.articulationPlacement
 }
+
+/**
+ * ⭐ The KEY a note's horizontal offset is stored at — see `ScoreModel.offsetTargetOf`, its public
+ * face, for the fan member's reasons. ⭐ A GRACE is keyed the member's way, by its own first pitch id,
+ * and moves alone: its main note and the columns stay put (his call, 2026-09-22: *"a normal offset
+ * with the grace"*).
+ */
+export function offsetTargetOf(score: Score, noteId: string): { key: string; memberIndex: number } | undefined {
+  const found = findSlot(score, noteId, { fanMembers: true, graceNotes: true })
+  if (!found) return undefined
+  if (found.grace) return { key: found.grace.note.pitches[0].id, memberIndex: 0 }
+  if (found.type === 'rest') return { key: found.rest.id, memberIndex: 0 }
+  if (!found.member) return { key: found.chord.id, memberIndex: 0 }
+  return { key: found.member.pitches[0].id, memberIndex: found.member.index }
+}

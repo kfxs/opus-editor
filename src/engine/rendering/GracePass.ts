@@ -51,6 +51,7 @@ import { displayedAccidentals } from '@/utils/accidentalState'
 import { staffLineForSpelling } from '@/utils/clefUtils'
 import { spellingDiatonicPos, spellingToMidi, spellingToNoteKey } from '@/utils/pitchSpelling'
 import { C_MAJOR } from '@/utils/keySignature'
+import { noteOffsetOverrideOf } from '@/engine/models/engravingOverrides'
 
 /** The group class — one per grace group, carrying the scale. */
 export const GRACE_GROUP = 'grace'
@@ -117,7 +118,10 @@ function drawGraceGroup(
   try {
     for (const place of layout.places) {
       const { note } = place
-      const headLeft = hostX + place.headX * space // staff px
+      // ⭐ + its hand OFFSET (keyed like a fan member's, `ScoreModel.offsetTargetOf`): ink only — the
+      //    room `graceLayout` reserved stays, as a note offset leaves its bar's width alone.
+      const offset = noteOffsetOverrideOf(pass.score, note.pitches[0]?.id ?? '')?.x ?? 0
+      const headLeft = hostX + (place.headX + offset) * space // staff px
       const glyphWidth = noteheadInk(note.duration) * space // the grace's own px: the transform scales it
       const lines = note.pitches.map(lineOf)
       const ys = lines.map(line => noteLineY(frame, line))
