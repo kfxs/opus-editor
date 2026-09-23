@@ -87,9 +87,9 @@ export function pressKeypadCell(cell: KeypadCell): void {
       bus.beamOver.press('beamOver')
       break
     case 'momentary':
-      // A blank, unassigned key. It does
+      // A blank, unassigned key — every one of the Grace page's own fifteen, today. It does
       // NOTHING, which is the right nothing: a numpad key over an unwired cell must not fall through to
-      // some other page's meaning, and an unwired key shows no light (the beam cluster above is wired).
+      // some other page's meaning, and an unwired key shows no light.
       break
     case 'mode':
       // The arrow ACTIVATES selection mode. Its light follows the editor, not this click, so there

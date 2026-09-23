@@ -150,7 +150,7 @@ export class KeypadWidget implements Widget {
     this.unsubscribeBeam = bus.beam.onHighlight(() => this.paint())
     this.unsubscribeSubdivide = bus.subdivide.onHighlight(() => this.paint())
     this.unsubscribeBeamOver = bus.beamOver.onHighlight(() => this.paint())
-    // ⚠️ And page 2's MARK cluster, which had no subscription at all: pressing a tremolo (or a
+    // ⚠️ And the Beams/Tremolos page's MARK cluster, which had no subscription at all: pressing a tremolo (or a
     // feathered beam) on the selected note changes the SCORE and no other seam, so every other store
     // short-circuits on "no change" and the pad never repainted — the key you just pressed stayed
     // dark until something else happened to move. Each of these is engine-read; each needs its own.
@@ -251,7 +251,7 @@ export class KeypadWidget implements Widget {
     if (cell.select === 'page') return
 
     this.paint()
-    // Wired keys report their light; an unwired `momentary` cell (a feathered beam) always reads ` off`.
+    // Wired keys report their light; an unwired `momentary` cell (a blank Grace key) always reads ` off`.
     const state = this.isLit(cell) ? ' on' : ' off'
     dbg(`[keypad] ${cell.action}${state} — key ${cell.key}, voice ${this.voice != null ? VOICES[this.voice] : 'none'}`)
   }
@@ -259,9 +259,9 @@ export class KeypadWidget implements Widget {
   /**
    * Is this key lit? The one place the question is answered, for both {@link paint} and the press log.
    * By kind: the tool mode (the arrow), the armed duration/accidental/dot, the tie, the rest, the active
-   * articulations (a set), and page 2's beam cluster (the beam MODE set, the subdivide, the beam-rest).
+   * articulations (a set), and the Beams/Tremolos page's beam cluster (the beam MODE set, the subdivide, the beam-rest).
    * EVERY light on the panel comes from an editor store — the widget holds none of its own, so it cannot
-   * show you a state the score does not have. An unwired `momentary` cell (a feathered beam) stays dark.
+   * show you a state the score does not have. An unwired `momentary` cell (a blank Grace key) stays dark.
    */
   private isLit(cell: KeypadCell): boolean {
     if (cell.select === 'mode') return bus.mode.get() === 'selection'
@@ -280,7 +280,7 @@ export class KeypadWidget implements Widget {
     if (cell.select === 'tremoloPair') return bus.tremoloPair.get() === 'tremoloPair'
     // The feathered beams are a radio like the tremolo counts — a note carries ONE fan.
     if (cell.select === 'fan') return !!cell.fan && cell.fan === bus.fan.get()
-    // An unwired key (the feathered beams on page 2) shows no light.
+    // An unwired key (the Grace page's blank keys) shows no light.
     if (cell.select === 'momentary') return false
     return cell.select === 'rest' && bus.rest.get() === 'rest'
   }
@@ -481,6 +481,7 @@ function glyphSpan(spec: GlyphSpec): HTMLElement {
   el.style.fontSize = `${Math.round(GLYPH * (spec.size ?? 26) / 26)}px`
   const tx = spec.dx ? (GLYPH * spec.dx) / 26 : 0
   const ty = spec.dy ? (GLYPH * spec.dy) / 26 : 0
-  if (tx || ty) el.style.transform = `translate(${tx}px, ${ty}px)`
+  const moves = [tx || ty ? `translate(${tx}px, ${ty}px)` : '', spec.rotate ? `rotate(${spec.rotate}deg)` : '']
+  if (moves[0] || moves[1]) el.style.transform = moves.filter(Boolean).join(' ')
   return el
 }

@@ -393,12 +393,12 @@ export function wireKeypadSync(
     palette.refreshArticulationSelection()
     palette.refreshTieSelection()
     palette.refreshRestSelection()
-    // The beam cluster on page 2, all engine-read too: the beam MODE lights the authored beam and the
+    // The beam cluster on the Beams/Tremolos page, all engine-read too: the beam MODE lights the authored beam and the
     // role it engraves (a set), the subdivide reads `secondaryBreak`, the beam-rest reads `beamOver`.
     palette.refreshBeamSelection()
     palette.refreshSubdivideSelection()
     palette.refreshBeamOverSelection()
-    // The tremolo cluster on page 2, engine-read like the rest: the six marks are a radio (a note
+    // The tremolo cluster on that same page, engine-read like the rest: the six marks are a radio (a note
     // carries one), the pair is a SECOND AXIS that lights beside the count.
     palette.refreshTremoloSelection()
     palette.refreshTremoloPairSelection()

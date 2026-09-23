@@ -8,12 +8,17 @@ That sentence is the whole design. Everything below follows from taking it liter
 
 ## Pages
 
-The pad is multi-page (Sibelius has several layouts). Today there are two:
+The pad is multi-page (Sibelius has several layouts). Today there are three:
 
 | id | name | what's on it |
 |---|---|---|
 | `noteEntry` | Note entry | durations, accidentals, articulations, tie, rest, dot |
+| `grace` | Grace | **nothing yet** — fifteen empty `momentary` keys (no picture, no light, a press that does nothing). The place the grace keys get built; the arrow and `+` still arrive from `withControls`, so you can always turn off it |
 | `beamsTremolos` | Beams/Tremolos | **fully wired** — the beam cluster (`/ * - 7 8 9`), the tremolos (`1`–`6`, `Enter`) and the feathered beams (`0`, `.`) |
+
+⭐ **What Sibelius's own panel does — key by key, quoted from its Reference — is
+`docs/research/sibelius-keypad.md`.** Read it before deciding what one of our keys should DO: the
+Grace page is a picture of Sibelius's second layout and none of it is wired yet.
 
 `+` turns the page, from the panel or the pad. Every page carries the same two controls in fixed
 spots — the select arrow (top-left) and the page-turn `+` — injected by `withControls`, so a new
@@ -107,7 +112,7 @@ Details worth knowing:
 - A code the pad doesn't define returns `false`, which *declines* the key rather than swallowing it.
 - `NumLock` is deliberately unbound — it's the OS's key — so the select arrow stays mouse-only.
 
-## Page 2: the beam cluster is wired, the tremolos are not
+## The Beams/Tremolos page: the beam cluster
 
 The top-left cluster (`/ * - 7 8 9`) drives the beam palette — the SAME `PaletteController` methods the
 dev toolbar's Beam row calls, which is the point: the beam palette is going away, and the keypad is

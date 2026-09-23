@@ -22,7 +22,28 @@ const OUT = 'src/windows/keypad/keypadBakedIcons.ts'
 const SCALE = 20 // on-screen px per unit of the 26-unit box
 const PAD = 26 // units of margin around the box, so a stem that overflows it is still in the shot
 
-interface Measured { name: string; recipe: string; layers: { cp: number; x: number; y: number; size: number }[] }
+interface Measured { name: string; recipe: string; layers: { cp: number; x: number; y: number; dx: number; dy: number; rotate: number; size: number }[] }
+
+/** The 26-unit box every recipe is drawn in — the same REF `tremoloBake` uses. */
+const BOX = 26
+
+/**
+ * Apply a layer's own placement to its OUTLINE, in the order the svg applies it to the text: turn it
+ * about the box's centre (where the glyph is anchored), then slide it. ⛔ Rotating after the slide
+ * would swing the glyph around the box instead of turning it in place.
+ */
+function place(path: opentype.Path, dx: number, dy: number, rotate: number): void {
+  const a = (rotate * Math.PI) / 180
+  const [cos, sin] = [Math.cos(a), Math.sin(a)]
+  for (const c of path.commands as unknown as Record<string, number>[]) {
+    for (const [px, py] of [['x', 'y'], ['x1', 'y1'], ['x2', 'y2']]) {
+      if (typeof c[px] !== 'number') continue
+      const [ox, oy] = [c[px] - BOX / 2, c[py] - BOX / 2]
+      c[px] = BOX / 2 + (rotate ? ox * cos - oy * sin : ox) + dx
+      c[py] = BOX / 2 + (rotate ? ox * sin + oy * cos : oy) + dy
+    }
+  }
+}
 
 test('bake the keypad drawings to outlines', async ({ page }) => {
   await page.goto('/opus-editor/e2e/harness.html')
@@ -53,11 +74,18 @@ test('bake the keypad drawings to outlines', async ({ page }) => {
       const placed = []
       for (const text of Array.from(svg.querySelectorAll('text'))) {
         const p = text.getStartPositionOfChar(0)
-        const t = /translate\(([-\d.]+),\s*([-\d.]+)\)/.exec(text.getAttribute('transform') ?? '')
+        const move = text.getAttribute('transform') ?? ''
+        const t = /translate\(([-\d.]+),\s*([-\d.]+)\)/.exec(move)
+        const r = /rotate\(([-\d.]+)/.exec(move)
         placed.push({
           cp: text.textContent.codePointAt(0),
-          x: p.x + (t ? Number(t[1]) : 0),
-          y: p.y + (t ? Number(t[2]) : 0),
+          // ⭐ The glyph's own place, and the layer's move kept APART: the outline has to be turned
+          // about the box centre before it is slid, exactly as the svg turns the text.
+          x: p.x,
+          y: p.y,
+          dx: t ? Number(t[1]) : 0,
+          dy: t ? Number(t[2]) : 0,
+          rotate: r ? Number(r[1]) : 0,
           size: Number(text.getAttribute('font-size')),
         })
       }
@@ -73,7 +101,11 @@ test('bake the keypad drawings to outlines', async ({ page }) => {
     name: m.name,
     recipe: m.recipe,
     // ⚠️ Through `glyphPathData`, ⛔ never `toPathData(3)`: its optimiser drops a real corner of a thin shape.
-    paths: m.layers.map(l => glyphPathData(font.charToGlyph(String.fromCodePoint(l.cp)).getPath(l.x, l.y, l.size))),
+    paths: m.layers.map(l => {
+      const path = font.charToGlyph(String.fromCodePoint(l.cp)).getPath(l.x, l.y, l.size)
+      place(path, l.dx, l.dy, l.rotate)
+      return glyphPathData(path)
+    }),
   }))
 
   // ---- the proof: outlines over text, picture by picture

@@ -34,10 +34,10 @@
  * for (the tie, the drag hints) are hand-drawn SVG.
  *
  * Some pictures are MORE than one glyph — a tremolo is a note wearing its strokes; a two-note tremolo
- * is two notes with beams between. SMuFL has no single glyph for these, so page 2 HAND-DRAWS them as a
- * STACK of glyphs, each slid into place by `dx`/`dy` (against 26). Every such drawing is NAMED (page 1's
+ * is two notes with beams between. SMuFL has no single glyph for these, so the Beams/Tremolos page HAND-DRAWS them as a
+ * STACK of glyphs, each slid into place by `dx`/`dy` (against 26). Every such drawing is NAMED (the note-entry page's
  * {@link ICON} map is the model — see the `TREMOLO` map) and referenced from the layout by name, so a
- * page-2 line reads as clean as page 1's `['tie', ICON.tie, 'tie']`. The named recipe is BAKED to one
+ * tremolo line reads as clean as note entry's `['tie', ICON.tie, 'tie']`. The named recipe is BAKED to one
  * svg at draw time ({@link tremolo} → an `Icon.bake` → `KeypadWidget.bakeGlyphStack`) — this is the
  * SHIPPING path; a VexFlow re-engraving was tried and rejected (it changed the look and fought the font
  * metrics). To REWORK a drawing, swap its `tremolo(` for {@link rework}, which renders the SAME stack
@@ -45,8 +45,10 @@
  */
 import type { Accidental, ArticulationType, BeamMode, NoteDuration, TremoloMark } from '../../types/music'
 
-/** One music-font glyph, its `size`, `dx` and `dy` all quoted against a 26px reference (see {@link g}). */
-export type GlyphSpec = { glyph: string; size?: number; dx?: number; dy?: number }
+/** One music-font glyph, its `size`, `dx` and `dy` all quoted against a 26px reference (see {@link g}).
+ *  `rotate` turns it CLOCKWISE by that many degrees, about the box's centre — where the glyph is
+ *  anchored — so a stroke the font draws at one slope can be laid at another. */
+export type GlyphSpec = { glyph: string; size?: number; dx?: number; dy?: number; rotate?: number }
 
 /**
  * A cell's picture: a single glyph, a ROW of glyphs each sized on its own, a `bake` (a STACK of glyphs
@@ -167,7 +169,7 @@ const ICON = {
  * where the eye expects it. Both `size` and `dy` are quoted against a 26px glyph and scale with
  * the key.
  */
-const g = (glyph: string, size?: number, dy?: number, dx?: number): GlyphSpec => ({ glyph, size, dy, dx })
+const g = (glyph: string, size?: number, dy?: number, dx?: number, rotate?: number): GlyphSpec => ({ glyph, size, dy, dx, rotate })
 
 /** How far a stemmed note drops, so its NOTEHEAD sits centred rather than its bounding box. */
 const STEM_DROP = 6
@@ -179,10 +181,45 @@ const ARTIC_SIZE = 34
 /** The accidentals (natural, sharp, flat) — already tall, so a gentler bump than the articulations. */
 const ACC_SIZE = 32
 
-/** Stem-DOWN note glyphs — page 1's own notes are stem-up; page 2 starts from the down-stem note. */
+/** Stem-DOWN note glyphs — note entry's own notes are stem-up; the tremolos start from the down-stem note. */
 const NOTE_DOWN = { half: '\uE1D4', quarter: '\uE1D6', sixteenth: '\uE1DA' }
 /** Tremolo strokes — combining marks that ride a note's stem. */
 const TREM = { one: '\uE220', two: '\uE221', three: '\uE222', four: '\uE223', five: '\uE224', penderecki: '\uE22B' }
+/** The GRACE glyphs — SMuFL draws a grace note whole, slash and all, so the page needs no stack:
+ *  `graceNoteAppoggiaturaStemUp` (no slash), `graceNoteAcciaccaturaStemUp` (slashed) and the bare
+ *  `graceNoteSlashStemUp` the `.` key shows on its own. They are drawn SMALL by design — hence
+ *  {@link GRACE_SIZE}, which is what brings them up to the size of page one's notes. */
+const GRACE = { plain: '\uE562', slashed: '\uE560', slash: '\uE564' }
+
+/** The durations page one has no room for — the four SHORT notes (each a flag longer than the last)
+ *  and the two LONG ones. The longa has no glyph at all; {@link ICON.longa} draws it. */
+const NOTE_SHORT = { sixtyFourth: '\uE1DD', hundredTwentyEighth: '\uE1DF', twoHundredFiftySixth: '\uE1E1', fiveHundredTwelfth: '\uE1E3' }
+const BREVE = '\uE0A0'
+/** The LONGA is drawn, not named: SMuFL stops at the breve, so the key stacks the SQUARE breve
+ *  head (`noteheadDoubleWholeSquare`) and the bare `stem` glyph running down its right side. */
+const HEAD_SQUARE = '\uE0A1'
+const STEM = '\uE210'
+
+/** The bracket PAIR (`noteheadParenthesis`) — drawn empty on one key and around a notehead on another. */
+const PARENS = '\uE0CE'
+const HEAD = { black: '\uE0A4', whole: '\uE0A2' }
+/** A whole rest hanging from its leger line — the way a BAR REST is drawn. */
+const REST_BAR = '\uE4F4'
+
+/** A grace glyph is engraved small (about ⅗ of a full note), so it is drawn BIG here to sit beside
+ *  page one's notes at the same size on the key. */
+const GRACE_SIZE = 34
+/** The four short notes share ONE size, so their NOTEHEADS match across the keys and only the flag
+ *  stack grows — which is what the Sibelius drawing shows. */
+const SHORT_SIZE = 19
+/** A breve is wide and low; at page one's size it would be a pebble. */
+const BREVE_SIZE = 36
+/** The brackets, drawn tall enough to read as brackets. */
+const PARENS_SIZE = 50
+/** The ROUND BRACKET key draws the same pair with nothing inside, so it carries the picture alone
+ *  and is drawn a size up from the pair that frames the pre-bend's notehead. */
+const ROUND_BRACKET_SIZE = 58
+
 /** The numpad keys, in the reading order the cells must follow. Three of them are merged keys. */
 export const KEYS = [
   'NumLock', '/', '*', '-',
@@ -237,7 +274,7 @@ const withControls = (own: CellSpec[]): CellSpec[] => {
  *  accidental and articulation keys carry their model value (`'q'`, `'#'`, `'accent'`, …); the tie,
  *  rest and dot keys are their own value, so they carry none. Its OWN keys only — the arrow and `+`
  *  come from {@link withControls}. */
-const page1: CellSpec[] = [
+const pageNoteEntry: CellSpec[] = [
   ['accent', g(ARTIC.accent, ARTIC_SIZE), 'articulation', 'accent'], ['staccato', g(ARTIC.staccato, ARTIC_SIZE), 'articulation', 'staccato'], ['tenuto', g(ARTIC.tenuto, ARTIC_SIZE), 'articulation', 'tenuto'],
   ['natural', g(ACC.natural, ACC_SIZE), 'accidental', 'n'], ['sharp', g(ACC.sharp, ACC_SIZE), 'accidental', '#'], ['flat', g(ACC.flat, ACC_SIZE, 3), 'accidental', 'b'],
   ['quarter', g(NOTE.quarter, undefined, STEM_DROP), 'duration', 'q'], ['half', g(NOTE.half, undefined, STEM_DROP), 'duration', 'h'], ['whole', g(NOTE.whole, undefined, STEM_DROP), 'duration', 'w'],
@@ -247,9 +284,9 @@ const page1: CellSpec[] = [
 
 /**
  * Bake a hand-drawing into ONE svg icon. The argument is the SAME `layers` recipe — a stack of
- * music-font glyphs, each offset by `dx`/`dy` against 26 — that page 2 has always used; `tremolo()`
+ * music-font glyphs, each offset by `dx`/`dy` against 26 — that the tremolo drawings have always used; `tremolo()`
  * marks it for the widget to render to one svg at draw time (renderIcon bakes it — it needs the DOM).
- * The page-1 shape: an icon via a helper, exactly like `ICON.tie = draw('<path .../>')`. The
+ * The note-entry shape: an icon via a helper, exactly like `ICON.tie = draw('<path .../>')`. The
  * hand-drawing is KEPT as the argument — the source, reproducible.
  *
  * ⭐⭐ **What the keypad DRAWS is the recipe's baked OUTLINES** (`./keypadBakedIcons`, GENERATED by
@@ -284,6 +321,65 @@ const tremolo = (layers: GlyphSpec[]): Icon => ({ bake: layers })
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const rework = (layers: GlyphSpec[]): Icon => ({ layers })
 
+/** One spelled note of the cue-size picture: a flat and its notehead, in a fixed relationship — the
+ *  flat a shade smaller and one unit up, standing `gap` to the LEFT of the head. The PAIR moves as
+ *  one; only the gap says how far the head stands off its flat. */
+const cueNote = (size: number, dy: number, dx: number, gap = 6, flatDy = dy - 1): GlyphSpec[] => [
+  g(ACC.flat, Math.round(size * 0.92), flatDy, dx - gap),
+  g(HEAD.whole, size, dy, dx),
+]
+
+/**
+ * The two Grace-page pictures SMuFL has no single glyph for — a stack, each piece slid into place by
+ * `dx`/`dy` against 26, exactly like the tremolos below. Baked to one svg at draw time.
+ */
+const GRACE_ICON = {
+  /** A notehead standing inside the bracket pair. */
+  bracketedNote: tremolo([g(PARENS, PARENS_SIZE, 4), g(HEAD.black, 24, 6)]),
+  /** The LONGA — the square breve head with a stem down its right side. */
+  longa: tremolo([g(HEAD_SQUARE, 34, -4), g(STEM, 16, 12, 7)]),
+  /** The extra DOTS — a stack, not a row, so the spacing between them is ours rather than the
+   *  widget's fixed row gap. */
+  doubleDot: tremolo([g(NOTE.dot, 34, 4, -4), g(NOTE.dot, 34, 4, 4)]),
+  tripleDot: tremolo([g(NOTE.dot, 34, 4, -8), g(NOTE.dot, 34, 4, 0), g(NOTE.dot, 34, 4, 8)]),
+  /** CUE SIZE — the same note twice, full size over cue size, with a stroke between: the RATIO is
+   *  the picture. Each note is a PAIR ({@link cueNote}) whose flat keeps its place beside the head,
+   *  so the two pairs are moved apart by ONE number each — their `dy`. */
+  cueSize: tremolo([
+    ...cueNote(30, -11, 0, 12, -10),
+    g(GRACE.slash, 38, 7, -1.5, 10),
+    ...cueNote(21, 14, 8, 8, 15),
+  ]),
+} as const
+
+/**
+ * `grace` — Sibelius 6's SECOND keypad layout ("more notes"), as a picture: the grace notes, the
+ * durations page one has no room for (the four short ones, the breve and the longa), the extra dots
+ * and the brackets.
+ *
+ * ⛔ NOTHING IS WIRED. Every key is `momentary` — it lights nothing and does nothing; a click just
+ * logs its `action` ({@link KeypadWidget} does the logging), which is how page two started too. The
+ * drawing comes first and the behaviour follows, key by key, once we know what each one means.
+ *
+ * ⚠️ The `action` names say what the key IS, ⛔ not what one repertoire calls it. Sibelius names two
+ * of them for a single USE — its `-` is the guitar "pre-bend note" and its `.` the guitar "slide"
+ * (`docs/research/sibelius-keypad.md`) — but the same bracketed grace note is how a trill says WHICH
+ * note to trill to, and the same line between two notes is a glissando wherever it is not a guitar
+ * slide. A name taken from one use would have to be renamed the first time the other arrives, so
+ * they are `bracketed grace` and `gliss` here.
+ *
+ * ⚠️ The rest are read off the DRAWING — what the key LOOKS like, not a decided behaviour. The four
+ * short notes in particular are a ladder of flag counts.
+ * OWN keys only — the arrow and `+` come from {@link withControls}.
+ */
+const pageGrace: CellSpec[] = [
+  ['grace note', g(GRACE.plain, GRACE_SIZE, 9), 'momentary'], ['acciaccatura', g(GRACE.slashed, GRACE_SIZE, 9), 'momentary'], ['bracketed grace', GRACE_ICON.bracketedNote, 'momentary'],
+  ['512th', g(NOTE_SHORT.fiveHundredTwelfth, SHORT_SIZE, 15.6), 'momentary'], ['breve', g(BREVE, BREVE_SIZE, 3), 'momentary'], ['longa', GRACE_ICON.longa, 'momentary'],
+  ['64th', g(NOTE_SHORT.sixtyFourth, SHORT_SIZE, 12.4), 'momentary'], ['128th', g(NOTE_SHORT.hundredTwentyEighth, SHORT_SIZE, 13.5), 'momentary'], ['256th', g(NOTE_SHORT.twoHundredFiftySixth, SHORT_SIZE, 14.5), 'momentary'],
+  ['round bracket', g(PARENS, ROUND_BRACKET_SIZE), 'momentary'], ['double dot', GRACE_ICON.doubleDot, 'momentary'], ['triple dot', GRACE_ICON.tripleDot, 'momentary'], ['cue size', GRACE_ICON.cueSize, 'momentary'],
+  ['bar rest', g(REST_BAR, 46, 1), 'momentary'], ['gliss', g(GRACE.slash, 34, 8), 'momentary'],
+]
+
 /** A single-note tremolo: a down-stem quarter wearing N stem strokes. Sibelius: "1 tremolo" … "5
  *  tremolos" (keys 1–5); key 6 is the PENDERECKI mark (E22B).
  *
@@ -303,7 +399,7 @@ const barred = (dx = 0, ndx = 0): Icon =>
  * `beamsTremolos` — Sibelius 6's Beams/Tremolos keypad, as a picture. Every drawing is NAMED here (the
  * note-entry page's
  * {@link ICON} map, for tremolos) and baked to one svg; the layout table references the name, so a
- * page-2 line reads as clean as page 1's `['tie', ICON.tie, 'tie']`. The recipe (the hand-drawing) is
+ * tremolo line reads as clean as note entry's `['tie', ICON.tie, 'tie']`. The recipe (the hand-drawing) is
  * kept as each entry's argument — the source, reproducible. Names are Sibelius 6's own, by numpad
  * position; the `⚠️` ones are best guesses from the drawing (confirm against Sibelius and rename).
  * OWN keys only — the arrow and `+` come from {@link withControls}.
@@ -343,7 +439,10 @@ const TREMOLO = {
  * what the keypad draws, so browser zoom cannot re-lay the glyphs. See `./tremoloBake`.
  */
 export const KEYPAD_BAKE_RECIPES: Record<string, GlyphSpec[]> = Object.fromEntries(
-  Object.entries(TREMOLO).flatMap(([name, icon]) => ('bake' in icon ? [[name, icon.bake]] : [])),
+  // ⭐ EVERY page's stacked drawings, not just the tremolos — a recipe left out of this table is a
+  // recipe `npm run bake:keypad` never sees, and it would draw from the browser's own text layout
+  // for ever (which a zoom re-rounds).
+  Object.entries({ ...TREMOLO, ...GRACE_ICON }).flatMap(([name, icon]) => ('bake' in icon ? [[name, icon.bake]] : [])),
 )
 
 // ⭐ THE WHOLE PAGE IS WIRED. The beam cluster (numpad `/ * - 7 8 9`) and
@@ -357,7 +456,7 @@ export const KEYPAD_BAKE_RECIPES: Record<string, GlyphSpec[]> = Object.fromEntri
 // lights beside `1`–`6` rather than instead of one (docs/plans/two-note-tremolo-plan.md §4). And the pair's
 // stroke STYLE is on the beam keys above — `begin` joins them, `single` floats them — because on a
 // pair those keys choose how its lines are drawn (§2).
-const page2: CellSpec[] = [
+const pageBeamsTremolos: CellSpec[] = [
   ['subdivide', TREMOLO.stemBeams, 'subdivide'], ['beam single', g(NOTE_DOWN.sixteenth, undefined, -10), 'beam', 'single'],
   ['beam rest', TREMOLO.twoNoteQuarters, 'beamOver'],
   ['beam begin', TREMOLO.oneBeam, 'beam', 'begin'],
@@ -401,8 +500,9 @@ const toCells = (page: CellSpec[]): KeypadCell[] =>
  * `name` is what a human is shown; Sibelius 6's own layout names are used wherever ours matches one.
  */
 const PAGES = [
-  { id: 'noteEntry', name: 'Note entry', own: page1 },
-  { id: 'beamsTremolos', name: 'Beams/Tremolos', own: page2 },
+  { id: 'noteEntry', name: 'Note entry', own: pageNoteEntry },
+  { id: 'grace', name: 'Grace', own: pageGrace },
+  { id: 'beamsTremolos', name: 'Beams/Tremolos', own: pageBeamsTremolos },
 ] as const
 
 /** The id union, DERIVED from the list above — so adding a page widens it for free, and no caller can
@@ -422,7 +522,7 @@ export const KEYPAD_PAGES: KeypadPage[] = PAGES.map(({ id, name, own }) => ({
   cells: toCells(withControls(own)),
 }))
 
-/** The page an id names. Throws rather than falling back to page 1: a page that has been renamed away
+/** The page an id names. Throws rather than falling back to the first page: a page that has been renamed away
  *  should fail LOUD, not quietly show the wrong layout. */
 export function keypadPage(id: KeypadPageId): KeypadPage {
   const page = KEYPAD_PAGES.find(p => p.id === id)

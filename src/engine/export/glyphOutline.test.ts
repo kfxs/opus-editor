@@ -33,4 +33,22 @@ describe('glyphPathData', () => {
     const wide = openRect(0, 0, 10, 5)
     expect(glyphPathData(wide)).toBe(wide.toPathData(3))
   })
+
+  it('🚨 writes a coordinate whose fraction is below 1e-6 as a NUMBER — the library writes `NaN`', () => {
+    // A measured position carries float32 noise: a browser hands back 11.3 as 11.300000190734863,
+    // and a shift of −4 lands on 9.000000190734863. opentype's rounding is string arithmetic, so
+    // that fraction stringifies in exponential form and `Math.round` of it is NaN — the coordinate
+    // is written as the text `NaN` and the browser draws NOTHING (the keypad's dot key, 2026-09-23).
+    const noisy = openRect(9.000000190734863, 0, 4, 4)
+    const d = glyphPathData(noisy)
+    expect(d).not.toContain('NaN')
+    expect(d).toContain('13 0') // 9.000000190734863 + 4, rounded to the places we print
+    // …and the library's own writer really does produce it, which is why the rounding is ours:
+    expect(openRect(9.000000190734863, 0, 4, 4).toPathData(3)).toContain('NaN')
+  })
+
+  it('rounds to the places it prints, and leaves a well-behaved number alone', () => {
+    expect(glyphPathData(openRect(1.23456, 0, 2, 2))).toContain('3.235')
+    expect(glyphPathData(openRect(1.5, 0, 2, 2))).toContain('3.5')
+  })
 })
