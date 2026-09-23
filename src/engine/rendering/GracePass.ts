@@ -51,11 +51,11 @@ import { NOTE_DURATION_ROWS, stemThicknessPx } from '@/engine/engrave/inheritedD
 import { flagGlyph, glyphBox, noteheadInk } from '@/engine/fonts/fontMetrics'
 import { GLYPH_CODEPOINTS } from '@/engine/fonts/bravuraMetrics'
 import { accidentalExtent } from '@/engine/layout/spacingPadding'
-import { graceDotXs, graceLayout, graceScale, graceStemSpaces, hostLeftReach, type SignOf } from '@/engine/layout/graceRoom'
+import { graceDotXs, graceEnclosure, graceLayout, graceScale, graceStemSpaces, hostLeftReach, type SignOf } from '@/engine/layout/graceRoom'
 import { displayedAccidentals } from '@/utils/accidentalState'
 import { beforeSideLayout } from '@/engine/layout/bracketedRoom'
 import { drawBracketedGraces } from './BracketedGracePass'
-import { drawEnclosures } from './EnclosurePass'
+import { drawEnclosures, stampEnclosure } from './EnclosurePass'
 import { staffLineForSpelling } from '@/utils/clefUtils'
 import { spellingDiatonicPos, spellingToMidi, spellingToNoteKey } from '@/utils/pitchSpelling'
 import { C_MAJOR } from '@/utils/keySignature'
@@ -224,6 +224,12 @@ function drawGraceGroup(
         }
 
         drawGraceDots(ctx, local(headLeft), ys.map(local), lines, note, space, beamTipY !== undefined, down)
+        // ⭐ Its BRACKETS, when parenthesised — the grace's own layout (`graceRoom.graceEnclosure`, which
+        //    reserved the room), at the grace's size, inside its own member group so the highlight reaches them.
+        const brackets = graceEnclosure(note, beamTipY !== undefined, down, signOf, clef)
+        if (brackets) {
+          stampEnclosure(ctx, brackets, sp => local(headLeft) + sp * space, line => local(noteLineY(frame, line)), musicGlyphFont())
+        }
         drawGraceArticulations(pass, {
           note, stave, clef, headLeft, glyphWidth, stemPx: graceStemSpaces(lines, down) * space, measureNumber, staffIndex,
           stemDirection: dir,

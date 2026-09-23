@@ -1,6 +1,6 @@
 # The parenthesised note — a head in brackets, still a real note: the plan
 
-> **Status (2026-09-23): P0 + P1 committed; P2 BUILT, ⏸️ his UI check.** The `paren.` button (dev
+> **Status (2026-09-23): P0–P2 committed; P3 BUILT, ⏸️ his UI check.** The `paren.` button (dev
 > toolbar, `Note:` group) toggles brackets on the selected notes; `layout/headEnclosure` places them and
 > reserves their room; `rendering/EnclosurePass` stamps them (called from `GracePass.drawGraceNotes`, the
 > lane's one pass over the drawn notes — a call in `ScoreRenderer` itself counts a `clef` word against
@@ -97,7 +97,14 @@ export type HeadEnclosure = 'round'
   - ⏳ **Left as it is, for his eye:** the accidental keeps the house gap from its head (Gould's p. 337
     measures 0.53 inside brackets); two VOICES in one column each place their own brackets, not against
     each other.
-- **P3: graces.** `GracePass` + `graceRoom`, at the grace's scale.
+- ✅ **P3: graces** (built 2026-09-23, ⏸️ his eye). `graceRoom.graceEnclosure` runs the NOTE's rule on a
+  grace's heads — its own dots (`graceDotXs`), its own flag (none when beamed; a stem-down flag hangs clear)
+  — in the grace's own staff spaces, scaled with the grace (D5: *everything* a grace draws is at its size).
+  `graceLayout` packs each grace with its brackets as its outermost ink (the `between` gap then runs from
+  `)`); `GracePass` stamps them through `EnclosurePass.stampEnclosure` (the one place a pair becomes ink)
+  INSIDE the grace's own member group — so the selection highlight already colours a grace's brackets.
+  ⏳ His eye: brackets SCALED with the grace (the bracketed grace's `gould` form is full size — a row if he
+  wants the same here).
 - **P4: selection ink.** The highlight colours the brackets with their note.
 - **P5: the chord switch (N3).** `enclosureSpan`, one tall pair round the bracketed heads, and its Properties control.
 - **Later, only when asked:** the Keypad `1` key; a Properties control; `'square'`; rests; a playback

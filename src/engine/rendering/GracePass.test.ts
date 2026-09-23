@@ -7,6 +7,8 @@ import { describe, it, expect } from 'vitest'
 import { ScoreModel } from '../models/ScoreModel'
 import { addGrace, type GraceForm } from '../models/graceOps'
 import { beatRestAt } from '../models/restGraceOps'
+import { setEnclosure } from '../models/enclosureOps'
+import { ENCLOSURE_GLYPHS } from '@/engine/layout/headEnclosure'
 import { ScoreRenderer } from './ScoreRenderer'
 import { GRACE_BEAM_GROUP, GRACE_GROUP, GRACE_NOTE_GROUP } from './GracePass'
 import { sceneGroups, scenePrimitives, type SceneGroup } from '@/engine/scene/Scene'
@@ -347,3 +349,18 @@ describe('GracePass — the AUTHORED beam (his report, 2026-09-23: "similar to n
     expect(beams()).toBe(1)
   })
 })
+
+describe('GracePass — a PARENTHESISED grace (parenthesised-note-plan P3)', () => {
+  it('⭐ its round pair is stamped INSIDE its own member group (so the highlight reaches it), at the grace\'s size', () => {
+    const { model, grace } = build({ grace: { step: 'D', alter: 0, octave: 5 } })
+    setEnclosure(model.getScore(), [grace!.pitches[0].id], 'round')
+    const { scene } = render(model)
+    const outer = sceneGroups(scene, GRACE_GROUP)[0]
+    expect(outer.placement.a).toBeCloseTo(graceScale(), 9)
+    const texts = scenePrimitives(sceneGroups(outer, GRACE_NOTE_GROUP)[0]).flatMap(p => (p.kind === 'text' ? [p.text] : []))
+    const char = (n: keyof typeof GLYPH_CODEPOINTS) => String.fromCodePoint(GLYPH_CODEPOINTS[n])
+    expect(texts).toContain(char(ENCLOSURE_GLYPHS.round.left))
+    expect(texts).toContain(char(ENCLOSURE_GLYPHS.round.right))
+  })
+})
+

@@ -7,9 +7,12 @@
  * `measureColumns.slotInk` reserved the room with. The head, its accidental, its dots and its stem are the
  * note's own, drawn by the note; this pass adds only the brackets.
  *
- * ⏳ P1: a chord's heads. A grace's brackets are P3; the selection colouring them is P4.
+ * A GRACE's brackets are stamped by `GracePass`, inside the grace's own scaled group, through
+ * {@link stampEnclosure} — the one place a pair becomes ink.
  */
 import type { ChordRest, Clef, Fraction, KeySignature } from '@/types/music'
+import type { DrawContext } from '@/engine/paint/DrawContext'
+import type { GlyphFont } from '@/engine/engrave/glyph'
 import type { RenderPass } from './RenderPass'
 import type { EngravedNote } from './engraved/EngravedNote'
 import { maybeStaveOf, staveFrame } from './staff/staveFrame'
@@ -17,7 +20,7 @@ import { noteLineY } from '@/engine/engrave/staff/staffFrame'
 import { stampGlyph } from '@/engine/engrave/glyph'
 import { musicGlyphFont } from '@/engine/engrave/inheritedFonts'
 import { GLYPH_CODEPOINTS } from '@/engine/fonts/bravuraMetrics'
-import { ENCLOSURE_GLYPHS, enclosureLayout } from '@/engine/layout/headEnclosure'
+import { ENCLOSURE_GLYPHS, enclosureLayout, type EnclosureLayout } from '@/engine/layout/headEnclosure'
 import { displayedAccidentals } from '@/utils/accidentalState'
 import { C_MAJOR } from '@/utils/keySignature'
 
@@ -54,14 +57,24 @@ export function drawEnclosures(
     const x = (sp: number): number => hostX + sp * frame.spacePx
     ctx.openGroup(ENCLOSURE_GROUP, `${ENCLOSURE_GROUP}-${slot.id}`)
     try {
-      for (const pair of layout.pairs) {
-        const glyphs = ENCLOSURE_GLYPHS[pair.shape]
-        const y = noteLineY(frame, pair.line)
-        stampGlyph(ctx, String.fromCodePoint(GLYPH_CODEPOINTS[glyphs.left]), x(pair.leftParenX), y, font)
-        stampGlyph(ctx, String.fromCodePoint(GLYPH_CODEPOINTS[glyphs.right]), x(pair.rightParenX), y, font)
-      }
+      stampEnclosure(ctx, layout, x, line => noteLineY(frame, line), font)
     } finally {
       ctx.closeGroup()
     }
+  }
+}
+
+/**
+ * ⭐ Stamp every pair of a layout — THE one place a bracket becomes ink, for a note and a grace alike.
+ * @param x staff spaces from the head's anchor → the drawing's px.
+ * @param y a staff line → the drawing's px.
+ */
+export function stampEnclosure(
+  ctx: DrawContext, layout: EnclosureLayout, x: (sp: number) => number, y: (line: number) => number, font: GlyphFont,
+): void {
+  for (const pair of layout.pairs) {
+    const glyphs = ENCLOSURE_GLYPHS[pair.shape]
+    stampGlyph(ctx, String.fromCodePoint(GLYPH_CODEPOINTS[glyphs.left]), x(pair.leftParenX), y(pair.line), font)
+    stampGlyph(ctx, String.fromCodePoint(GLYPH_CODEPOINTS[glyphs.right]), x(pair.rightParenX), y(pair.line), font)
   }
 }

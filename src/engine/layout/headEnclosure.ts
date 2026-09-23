@@ -86,6 +86,9 @@ export interface EnclosedChord {
   stemDown?: boolean
   /** ⭐ It DRAWS an up-flag (the beaming rule's answer, which each caller has) — `)` then stands past it. */
   upFlag?: boolean
+  /** How far right of the anchor its dots reach, when that is NOT a normal note's `dotExtent(dots)` — a
+   *  GRACE's dots follow its own rule (`layout/graceRoom.graceDotXs`). */
+  dotReach?: number
 }
 
 const onLedger = (line: number): boolean => line <= 0 || line >= 6
@@ -124,7 +127,9 @@ export function enclosureLayout(chord: EnclosedChord, signOf: (pitchId: string) 
   const rightEdge = Math.max(
     heads + ENCLOSURE_ROWS.head.value,
     ledgered ? heads + INK.ledgerRight - INK.notehead + ENCLOSURE_ROWS.ledger.value : 0,
-    chord.dots ? dotExtent(chord.dots) + ENCLOSURE_ROWS.dot.value : 0,
+    chord.dotReach !== undefined
+      ? (chord.dotReach > 0 ? chord.dotReach + ENCLOSURE_ROWS.dot.value : 0)
+      : chord.dots ? dotExtent(chord.dots) + ENCLOSURE_ROWS.dot.value : 0,
     chord.upFlag ? INK.notehead + INK.flagReach + ENCLOSURE_ROWS.flag.value : 0,
   )
 

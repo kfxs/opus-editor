@@ -23,7 +23,7 @@ import { durationFlags } from '@/utils/durations'
 import { armedDotGap } from './dotGap'
 import { flagGlyph, glyphBox, noteheadInk } from '@/engine/fonts/fontMetrics'
 import { graceBeamRuns } from '@/engine/engrave/notes/graceBeam'
-import { enclosureLayout } from './headEnclosure'
+import { enclosureLayout, type EnclosureLayout } from './headEnclosure'
 import { MODIFIER_RIGHT_GAP_PX, VEXFLOW_DOT_SPACING } from '@/engine/engrave/inheritedDefaults'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 
@@ -218,6 +218,23 @@ function graceDotReach(note: GraceNote, beamed: boolean, down: boolean): number 
   return xs.length ? xs[xs.length - 1] + glyphBox('augmentationDot').right : 0
 }
 
+/**
+ * ⭐ A PARENTHESISED grace's brackets (`layout/headEnclosure`, the note's own rule) — in the grace's OWN
+ * staff spaces, from its head's anchor: the caller scales by {@link graceScale}, as for everything a
+ * grace draws (D5). Its dots are the grace's own ({@link graceDotXs}), its flag the grace's (none when
+ * beamed, and a stem-down flag hangs clear of `)`). ⭐ ONE answer for the room ({@link graceLayout}) and
+ * the ink (`rendering/GracePass`). Null when no head wears brackets.
+ */
+export function graceEnclosure(note: GraceNote, beamed: boolean, down: boolean, signOf: SignOf, clef: Clef): EnclosureLayout | null {
+  if (!note.pitches.some(p => p.enclosure)) return null
+  return enclosureLayout({
+    notes: note.pitches,
+    stemDown: down,
+    upFlag: !beamed && !down && durationFlags(note.duration) > 0,
+    dotReach: graceDotReach(note, beamed, down),
+  }, signOf, clef)
+}
+
 /** A group's placement and the room it asks for. */
 export interface GraceLayout {
   /** Left to right, the group's order. */
@@ -256,11 +273,14 @@ export function graceLayout(
   for (let i = group.notes.length - 1; i >= 0; i--) {
     const note = group.notes[i]
     const headWidth = headsWidth(note.pitches) * k
+    const down = group.stemDirection === 'down'
+    // ⭐ Its BRACKETS, when parenthesised — the outermost ink on both sides.
+    const brackets = graceEnclosure(note, beamed.has(i), down, signOf, clef)
     // A DOT stands between this grace and whatever follows it: the gap is measured to its ink.
-    const rightInk = Math.max(headWidth, graceDotReach(note, beamed.has(i), group.stemDirection === 'down') * k)
+    const rightInk = Math.max(headWidth, graceDotReach(note, beamed.has(i), down) * k, (brackets?.right ?? 0) * k)
     const headX = right - rightInk
     places.unshift({ note, headX, headWidth, rightInk })
-    leftEdge = headX - leftInk(note.pitches, signOf, clef) * k
+    leftEdge = headX - Math.max(leftInk(note.pitches, signOf, clef), brackets?.left ?? 0) * k
     right = leftEdge - GRACE_ROWS.between.value
   }
   return { places, reach: Math.max(0, -leftEdge) }
