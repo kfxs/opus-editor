@@ -1108,3 +1108,24 @@ is `docs/research/grace-notes-research.md` (Part C is the treatises). What the b
 | grace vs FREE notation | ⭐ **Gould pp. 630–631** (Table 2) · **Stone pp. 140–141** | Gould keeps *"conventional grace-note groups – to indicate playing a group as fast as possible"* inside proportional notation, drawn unchanged; Stone: graces *"belong to a main note"*, unstemmed heads are independent |
 | the rest | **G&L pp. 54–55, 72–74** | *"65% of normal size works well"*; grace ledger lines *"the same thickness as staff lines, but shorter"* (p. 75) |
 | ⛔ UNKNOWN | all four | a grace vs a clef/key/meter change at the same point · a grace before a REST · the half-value rule as a stated rule · grace beam/flag thickness · Gould **p. 78** (accidentals scaled only before a grace or cue) located in the OCR, ⚠️ NOT rendered |
+
+### What was asked of it on 2026-09-23 (CUE-SIZE notes), and what came back
+
+The question: a CUE-SIZE note is a real note in the bar, drawn small. How small is it, what shrinks
+with it, and what stays full? Asked before the feature was planned. 📄 The whole answer is in
+`docs/research/cue-size-research.md`, Part B, with the engines and apps beside it. The plan is
+`docs/plans/cue-size-plan.md`. What the books answered, by page:
+
+| what | where | what it says |
+|---|---|---|
+| ⭐⭐ the SIZE, written vs DRAWN | **Gould pp. 569, 125** (words) · **pp. 570–571** (three cues measured at 480 dpi, sp = 21.3 px) | *"about three-quarters the size of full-sized notation"* (p. 569) · ⭐ **drawn heads ≈0.61–0.63** of full, and the SAME size as her grace heads on p. 125 (0.89 × 0.65 sp). That is the eighth *drawing-vs-sentence* case in this library |
+| the size, other books | **Ross pp. 189–190** · **G&L pp. 54, 72–73** · **Stone p. 49** | Ross: the staff-6/7 punch; *"the ratio of … the solo staff to … the piano-accompaniment staff is the same as … a cue note to a normal note"*; measured 0.72 (staff) / 0.77 (heads); grace ≈0.57. G&L: *"65–75% of normal note size"*, a drawn 65/75/100 ruler (measured 0.61 / 0.71); grace *"65%"*. Stone: no ratio; cue stems ≈3 sp (low-confidence 2-up scan ≈0.66) |
+| what SCALES | **Gould pp. 569, 78** · **G&L pp. 54, 88, 100–101** · **Ross p. A-13** | *"All notation symbols that are part of the cue (including rests, accidentals, articulation and dynamics) are scaled down"* · *"An accidental is scaled down in size only when placed before a grace note… or a cue note"* · stems, beams and an 8va at cue size. Measured on Gould p. 571: beam ≈0.75, a rest inside the cue 0.76 |
+| ⭐ the LEDGER lines | **Gould p. 569** | *"the same vertical distance apart as full-sized ledger lines (although they are thinner)"* |
+| ⭐ the SPACING | **Gould p. 569** | *"Note spacing should be closed up within a cue: space characters in proportion to the reduced note size"* |
+| the PLAYER's rests beside a cue | **Gould p. 571** · **Stone p. 161** · **Ross p. 189** | *"Rests are full-sized"* · *"full-size rests"* · full-size multi-rests drawn |
+| stems of a cue passage | **Gould p. 570** · **Stone p. 51** · **Ross p. 189** · **G&L p. 54** | two styles: reversed away from the stave (kept one way through a cue), or ordinary |
+| the cue CLEF | **Gould p. 573** · **G&L p. 51** | ⅔, the size of a mid-system clef · 75% |
+| brackets round a small head | **Gould pp. 139, 378, 497** (measured) | ≈2 sp (full size) on pp. 139 and 378; ≈1.69 sp (≈0.85) on p. 497 |
+| "cue-sized" that is NOT a cue | **Gould pp. 185, 208, 348, 449–450, 469, 471, 497, 552** · **G&L pp. 55, 76–77, 104** | ossias, alternative rhythms, hummed notes, enharmonic helpers, reductions, harmonics' sounding note: *"Not all notes that are cue size are used as a cue"* (G&L p. 55) |
+| ⛔ UNKNOWN | all four | a GRACE inside a cue (Gould's whole chapter, pp. 566–578, was searched) · the thickness of ties and slurs on cue notes · an "editorial note" size · Read, Chlapík, Wanske, Powell, Vienna, Hal Leonard (none on disk) |
