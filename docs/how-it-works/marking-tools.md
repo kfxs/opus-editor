@@ -16,6 +16,7 @@ stamp* instead of entering a note. There are **ten**:
 | | `dot` | *nothing* | dots the note **or rest** clicked |
 | **place a length** | `rest` | *nothing — it reads the armed length* | **places** a rest at the beat clicked, replacing what it covers |
 | **stamp a written value** | `grace` | its `form` (acciaccatura / appoggiatura) and `side` — ⭐ and it reads the armed length, as the rest does | hangs a grace, at the click's PITCH, on the note or rest nearest the click in x; on a whole-bar rest it first makes a one-beat rest at the clicked beat (`interactions/stamps/graceStamp.ts`, `docs/plans/grace-notes-plan.md` §3) |
+| | `bracketedGrace` | its `side` — ⭐ and it reads the armed length (what its HEAD is drawn as) | puts a bracketed grace (a head in round brackets, no stem), at the click's PITCH, before the note, REST or GRACE nearest the ghost — in a grace group, before the grace to the right of the gap; on a whole-bar rest it first makes a one-beat rest. Its click goes through the grace stamp's door (`interactions/stamps/bracketedStamp.ts`, `docs/plans/bracketed-grace-plan.md`) |
 | **place a sign on a LINE** | `barline` | one of the five `PlacedBarlineSign`s | ⭐ puts it on the barline **NEAREST THE POINTER**, ⛔ not in the bar clicked (`interactions/stamps/barlineStamp.ts`) |
 
 They are **mutually exclusive**: exactly one is armed, or none.
@@ -44,9 +45,11 @@ neither: it is **a length**, and a length is the one thing the note-entry keys a
   into the tool would be a second source of truth to keep in step with `selectedDuration` /
   `selectedDots`, which is the exact N² problem this union was built to delete.
 - It was the **first** tool the duration and dot keys stay live under — the GRACE stamp is the second
-  (a grace is DRAWN as a written value, 2026-09-22). They light, and pressing one **retunes the armed
+  (a grace is DRAWN as a written value, 2026-09-22), the BRACKETED grace stamp the third (its head is,
+  2026-09-23). They light, and pressing one **retunes the armed
   rest** rather than ending the tool.
-- ⭐ **The grace stamp also takes the note-entry ACCIDENTAL and ARTICULATIONS** — a second property,
+- ⭐ **The grace stamp also takes the note-entry ACCIDENTAL and ARTICULATIONS** (the bracketed grace stamp the
+  ACCIDENTAL only — it carries no marks) — a second property,
   `MARKING_TOOL_ENTERS_PITCH` (total over the union, `lint:tables`): a tool that places a PITCH of its own
   keeps ♯ / ♭ / ♮ and accent / staccato / tenuto as statements about that pitch, exactly as note entry
   does, instead of swapping to the accidental or articulation stamp. `setAccidental` and

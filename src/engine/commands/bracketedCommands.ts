@@ -7,6 +7,8 @@
  */
 import type { BracketedGrace, Fraction, NoteDuration, NotePitch } from '@/types/music'
 import { beatRestAt } from '../models/restGraceOps'
+import { bracketedToGrace, bracketedToNote, convertNoteToBracketed, graceToBracketed } from '../models/noteToBracketedOps'
+import type { GraceForm } from '../models/graceOps'
 import type { BracketedSide } from '@/utils/bracketedGraces'
 import {
   addBracketed, addBracketedPitch, bracketedProblems, findBracketed, isBracketedGrace, removeBracketed, setBracketedPitch,
@@ -40,6 +42,49 @@ export function bracketedCommands(ctx: CommandContext) {
     addPitch(bracketedPitchId: string, spelling: BracketedSpelling): NotePitch | null {
       const made = addBracketedPitch(score(), bracketedPitchId, spelling)
       if (made) ctx.mutate('Add bracketed pitch')
+      return made
+    },
+
+    /**
+     * ⭐ The `bracket.` button with NOTES selected (his rule, 2026-09-23) — each becomes a bracketed grace
+     * before the rest that takes its place (`models/noteToBracketedOps`). ONE undo entry for all of them.
+     * @returns the new bracketed graces' first pitch ids (the notes' own), for the caller to select.
+     */
+    convertNotes(noteIds: readonly string[]): string[] {
+      const made = noteIds.flatMap(id => convertNoteToBracketed(score(), id)?.bracketedId ?? [])
+      if (made.length) ctx.mutate(made.length > 1 ? `Convert ${made.length} notes to bracketed graces` : 'Convert note to bracketed grace')
+      return made
+    },
+
+    /**
+     * ⭐ The `bracket.` button with GRACES selected (his rule, 2026-09-23): each becomes a bracketed grace
+     * whose target is what stands to its right (`noteToBracketedOps.graceToBracketed`); the rest of its
+     * group stays. ONE undo entry. @returns the new bracketed graces' first pitch ids, for the selection.
+     */
+    convertGraces(gracePitchIds: readonly string[]): string[] {
+      const made = gracePitchIds.flatMap(id => graceToBracketed(score(), id) ?? [])
+      if (made.length) ctx.mutate(made.length > 1 ? `Convert ${made.length} graces to bracketed graces` : 'Convert grace to bracketed grace')
+      return made
+    },
+
+    /**
+     * ⭐ A GRACE button with bracketed graces selected (his rule, 2026-09-23): each becomes a grace, keeping
+     * its target (`noteToBracketedOps.bracketedToGrace`). ONE undo entry. @returns the new graces' ids.
+     */
+    toGraces(pitchIds: readonly string[], form: GraceForm): string[] {
+      const made = pitchIds.flatMap(id => bracketedToGrace(score(), id, form) ?? [])
+      if (made.length) ctx.mutate(made.length > 1 ? `Convert ${made.length} bracketed graces to graces` : 'Convert bracketed grace to grace')
+      return made
+    },
+
+    /**
+     * ⭐ The `bracket.` button toggled OFF with bracketed graces selected (his rule, 2026-09-23): each one's
+     * TARGET takes its pitch, keeping its value, and the bracketed grace goes (`noteToBracketedOps.bracketedToNote`).
+     * ONE undo entry. @returns the re-pitched notes' first pitch ids, for the caller to select.
+     */
+    toNotes(pitchIds: readonly string[]): string[] {
+      const made = pitchIds.flatMap(id => bracketedToNote(score(), id) ?? [])
+      if (made.length) ctx.mutate(made.length > 1 ? `Convert ${made.length} bracketed graces to notes` : 'Convert bracketed grace to note')
       return made
     },
 

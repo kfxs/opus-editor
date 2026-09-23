@@ -238,7 +238,7 @@ export function mountDevToolbar(host: HTMLElement, deps: DevToolbarDeps): DevToo
   //    round brackets — Sibelius's "pre-bend", and the same form a trill uses to say which note to trill
   //    to (named for what it IS, the Keypad's rule).
   toggle(graceBox, GRACE_BTN, 'bracket.', 'Bracketed grace (stemless, in brackets) — click a note to add one before it',
-    () => bracketedToolLit(state, 'before'),
+    () => bracketedToolLit(state, 'before', getEngine()),
     () => pressBracketedTool(palette.spanToolHost(), 'before'))
   toggle(graceBox, GRACE_BTN, 'after', 'Grace AFTER a note (Nachschlag) — not built yet (plan P5)',
     () => false, () => {}, ON, () => false)

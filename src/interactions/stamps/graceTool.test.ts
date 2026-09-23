@@ -192,3 +192,29 @@ describe('graceToolLit — a SELECTED grace lights its group\'s form (his report
     expect(graceToolLit(state, 'appoggiatura', 'before', engine)).toBe(true)
   })
 })
+
+describe('pressGraceTool — a SELECTED bracketed grace (his rule, 2026-09-23: "maintaining it targets")', () => {
+  it('⭐ becomes a grace of the pressed form, joining its target\'s group — ONE undo entry, and it is the selection', () => {
+    const engine = makeEngine()
+    const note = engine.addNoteAtBeat({ step: 'E', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })!
+    const made = engine.bracketed.add(note.id, 'before', { step: 'D', alter: 0, octave: 5 })!
+    const id = made.pitches[0].id
+    const state = createEditorState()
+    state.selectedTool = 'selection'
+    state.selectedItems = new Map([[itemKey({ kind: 'note', id }), { kind: 'note', id }]])
+    const host: SpanToolHost = {
+      state, getEngine: () => engine,
+      arm: vi.fn((t: MarkingTool) => { state.selectedMarkingTool = t }),
+      disarm: vi.fn(), disarmToEntry: vi.fn(), render: vi.fn(),
+    }
+    pressGraceTool(host, 'acciaccatura', 'before')
+    expect(state.selectedMarkingTool).toBeNull()
+    expect(engine.isGraceNote(id)).toBe(true)
+    expect(engine.bracketed.isBracketed(id)).toBe(false)
+    const slot = engine.getScore().measures[0].slots.find(s => s.type === 'chord')!
+    expect(slot.type === 'chord' && slot.graceBefore?.slash).toBe(true)
+    expect(state.selectedNoteId).toBe(id)
+    engine.undo()
+    expect(engine.bracketed.isBracketed(id)).toBe(true)
+  })
+})

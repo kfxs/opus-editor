@@ -61,4 +61,25 @@ describe('bracketedCommands', () => {
     cmds.setPitch(a.pitches[0].id, { step: 'A', alter: 0, octave: 3 })
     expect(ctx.log).toEqual(['mutate:Add bracketed pitch', 'mutate:Bracketed pitch'])
   })
+
+  it('⭐ convertNotes: each note becomes a bracketed grace before its rest — ONE undo entry for all', () => {
+    const { ctx, cmds, host } = setup()
+    const second = ctx.score.addNote({ step: 'D', octave: 4, duration: 'q', measure: 1, beat: fracCreate(1, 1) })
+    expect(cmds.convertNotes([host.id, second.id])).toEqual([host.id, second.id])
+    expect(ctx.log).toEqual(['mutate:Convert 2 notes to bracketed graces'])
+    expect(cmds.isBracketed(host.id)).toBe(true)
+    ctx.log.length = 0
+    expect(cmds.convertNotes(['nobody'])).toEqual([])
+    expect(ctx.undoEntries()).toBe(0)
+  })
+
+  it('⭐ toNotes: the lit button toggled off — ONE undo entry', () => {
+    const { ctx, cmds, host } = setup()
+    const a = cmds.add(host.id, 'before', Bb3)!
+    ctx.log.length = 0
+    expect(cmds.toNotes([a.pitches[0].id])).toEqual([a.pitches[0].id])
+    expect(ctx.log).toEqual(['mutate:Convert bracketed grace to note'])
+    expect(cmds.toNotes(['nobody'])).toEqual([])
+    expect(ctx.undoEntries()).toBe(1)
+  })
 })

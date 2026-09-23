@@ -116,6 +116,34 @@ re-pitch it through the same path a grace uses (`slotLookup` learns to find the 
   run keeps the group's one form. `beforeSideLayout` lays the group out RUN BY RUN from the right —
   `[run] (●) [run] (●) M` — as ONE grace layout in the group's order, so `GracePass` is unchanged.
   Deleting the bracket joins the beam again: nothing but the bracket was stored (B4).
+- ✅ **A selected NOTE becomes a bracketed grace** (2026-09-23, his rule: *"if a note is selected and we
+  press the bracket this note becomes a bracket and we fill the note slot with a rest of it duration,
+  similar to grace"*). The `bracket.` press with notes selected arms nothing: each note's slot becomes a
+  rest of its length and its pitches (ids kept, a chord → a bracketed chord) a bracketed grace before it,
+  written at the note's value; its dots and articulations go, logged (`models/noteToBracketedOps`). ONE
+  undo entry; what was made is the selection.
+- ✅ **A selected GRACE becomes a bracketed grace** (2026-09-23, his rule: *"when a grace note is selected and i
+  hit bracket button we convert that into a bracket and the target is what we have to the right, other
+  members of the grace group remains"*). Its target is the NEXT grace of its group — so the beam splits
+  there (B4) — or, for the last, the slot itself. It keeps its pitches (ids) and written value; ⛔ its dots
+  and articulations go, logged. It stands FIRST in its target's list, where it stood, with the brackets bent
+  into it still in front; a slur on it moves to the target (one collapsing to a single note goes). ⛔ The
+  last grace of a group AFTER is refused — nothing of its own stands to its right
+  (`noteToBracketedOps.graceToBracketed`).
+- ✅ **A selected bracketed grace becomes a GRACE** (2026-09-23, his rule: *"if a bracket is selected and we
+  press any grace button we convert the bracket into a grace maintaining it targets: if the target is a grace
+  we just make the bracket part of the grace group at that position"*). Target a grace → it joins that group
+  just before it; target the note (or rest) → the note's group, last; AFTER → the after group, first. ⭐ The
+  group it joins takes the PRESSED form (his follow-up: *"when the bracket joins the group also transfomr it
+  type"*). The picture keeps its order: brackets left of it bend into the new grace, those right of it stay
+  on the target (`noteToBracketedOps.bracketedToGrace`, routed from `stamps/graceTool`).
+- ✅ **…and the way BACK** (2026-09-23, his rule: *"when a bracket is selected and I toggle of the button then
+  we get the target maintain the duration but repitch it (similar to grace) and then of course the bracket
+  is gone"*). With nothing armed, a SELECTED bracketed grace lights `bracket.` (his report: *"i dont see the
+  state in the bracket pallete button"*); pressed, its TARGET takes its pitch and keeps its value — a rest
+  becomes the note (so note → bracketed → off is the note back), a note is re-pitched (duration and marks
+  kept), a grace is re-pitched (its value kept) — and the bracketed grace goes; others on the target stay
+  (`noteToBracketedOps.bracketedToNote`).
 - **P4: the conversions.** What a target becoming a rest, a grace becoming a note (and back), or a
   chord losing the head does to its brackets. ⏳ Each is his call when reached. The first default is
   that the bracket goes with its target where the target survives, and is dropped (logged) where it

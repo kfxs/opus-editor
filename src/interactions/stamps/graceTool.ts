@@ -27,6 +27,8 @@ const GRACE_DEFAULT_DURATION = '8'
  * - selected GRACES become this FORM (*"with the grace selected i press acciacc"*) — or, pressed with
  *   their OWN form, are TOGGLED OFF: the first selected becomes its main slot's note and the graces after
  *   it go; a whole group selected just goes (`models/graceToNoteOps`);
+ * - selected BRACKETED graces become GRACES of this form, keeping their targets (his rule, 2026-09-23:
+ *   *"if the target is a grace we just make the bracket part of the grace group at that position"*);
  * - selected NOTES become GRACES of this form, each before the rest that takes its place (*"i have a note,
  *   i converted to a grace so in the space of the note now is a rest and of course the grace is in the
  *   left part of the rest"*) — and what was made (graces, or notes) is the selection.
@@ -35,13 +37,16 @@ export function pressGraceTool(host: SpanToolHost, form: GraceForm, side: GraceS
   const engine = host.getEngine()
   const ids = host.state.selectedTool === 'selection' && engine ? selectedNoteIds(host.state.selectedItems.values()) : []
   const graces = engine ? ids.filter(id => engine.isGraceNote(id)) : []
-  const notes = engine ? ids.filter(id => !engine.isGraceNote(id) && engine.getNote(id)?.isRest === false) : []
-  if (engine && (graces.length || notes.length)) {
+  // ⭐ Selected BRACKETED graces become graces of this form, keeping their targets (his rule, 2026-09-23).
+  const bracketed = engine ? ids.filter(id => engine.bracketed.isBracketed(id)) : []
+  const notes = engine ? ids.filter(id => !engine.isGraceNote(id) && !engine.bracketed.isBracketed(id) && engine.getNote(id)?.isRest === false) : []
+  if (engine && (graces.length || notes.length || bracketed.length)) {
     let made: string[] = []
     const changed = engine.runBatch(form === 'acciaccatura' ? 'Make acciaccatura' : 'Make appoggiatura', () => {
       // Graces: the other form → re-formed; their own form → TOGGLED OFF (back to a note, or the group gone).
       if (graces.length) made.push(...engine.grace.pressGraceForm(graces, form).madeNotes)
       if (notes.length) made = [...made, ...engine.grace.convertNotesToGraces(notes, form)]
+      if (bracketed.length) made = [...made, ...engine.bracketed.toGraces(bracketed, form)]
     })
     // REASSIGN, never mutate: the observable state only sees a top-level write. What was made is the
     // selection; failing that, what is still there (a cleared group's graces are gone).
