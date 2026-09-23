@@ -86,8 +86,14 @@ export function pressKeypadCell(cell: KeypadCell): void {
       // Beam over the selected rest, on/off like the subdivide: PRESS routes to palette.toggleBeamOver.
       bus.beamOver.press('beamOver')
       break
+    case 'grace':
+      // ⭐ The Grace page's `/`, `*` and `-` — PRESS the value; `interactions/controllers/keypadGraceWiring`
+      //    routes it to the SAME functions the dev toolbar's grace buttons call (arm the stamp, or act on the
+      //    selection), and lights the keys back from their own lit rules.
+      if (cell.grace) bus.grace.press(cell.grace)
+      break
     case 'momentary':
-      // A blank, unassigned key — every one of the Grace page's own fifteen, today. It does
+      // A blank, unassigned key — the Grace page's own twelve left after its three grace keys. It does
       // NOTHING, which is the right nothing: a numpad key over an unwired cell must not fall through to
       // some other page's meaning, and an unwired key shows no light.
       break

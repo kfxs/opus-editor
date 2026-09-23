@@ -13,12 +13,12 @@ The pad is multi-page (Sibelius has several layouts). Today there are three:
 | id | name | what's on it |
 |---|---|---|
 | `noteEntry` | Note entry | durations, accidentals, articulations, tie, rest, dot |
-| `grace` | Grace | **nothing yet** — fifteen empty `momentary` keys (no picture, no light, a press that does nothing). The place the grace keys get built; the arrow and `+` still arrive from `withControls`, so you can always turn off it |
+| `grace` | Grace | Sibelius's second layout, drawn. ⭐ **Three keys wired** (2026-09-23) — `/` appoggiatura, `*` acciaccatura, `-` bracketed grace — the dev toolbar's grace buttons exactly: a press goes through `bus.grace` to `interactions/controllers/keypadGraceWiring`, which calls the SAME `pressGraceTool` / `pressBracketedTool` (arm the stamp, or act on the selection) and lights the keys from the SAME `graceToolLit` / `bracketedToolLit`. The other twelve are still `momentary` (a picture: no light, a press that does nothing) |
 | `beamsTremolos` | Beams/Tremolos | **fully wired** — the beam cluster (`/ * - 7 8 9`), the tremolos (`1`–`6`, `Enter`) and the feathered beams (`0`, `.`) |
 
 ⭐ **What Sibelius's own panel does — key by key, quoted from its Reference — is
 `docs/research/sibelius-keypad.md`.** Read it before deciding what one of our keys should DO: the
-Grace page is a picture of Sibelius's second layout and none of it is wired yet.
+Grace page is a picture of Sibelius's second layout, and only its three grace keys are wired yet.
 
 `+` turns the page, from the panel or the pad. Every page carries the same two controls in fixed
 spots — the select arrow (top-left) and the page-turn `+` — injected by `withControls`, so a new
@@ -136,7 +136,8 @@ The fan pair is a RADIO, like the tremolo counts: a note carries one fan, so pre
 takes it off and pressing the other turns it round. `pressFan` owned both rules already — the pad only
 routes to it. Their drawings are documented in `keypadLayouts.ts` (named recipes in the `TREMOLO` map).
 
-⭐ **The Beams/Tremolos page is drawn from BAKED OUTLINES** (2026-09-20). Each drawing is a hand-stacked
+⭐ **Every page's STACKED drawings are drawn from BAKED OUTLINES** (2026-09-20; the Grace page joined
+them 2026-09-23). Each drawing is a hand-stacked
 recipe of music-font glyphs — `g(glyph, size, dy, dx)`, against a 26-unit key — and until then it was put
 on the key as SVG *text*, which the browser lays out: a browser ZOOM re-rounds that layout and the strokes
 slid against their note. Now `npm run bake:keypad` (`e2e/keypadIcons.bake.ts`, its own Playwright config)
@@ -146,6 +147,22 @@ otherwise — measured 0.03–0.66% of the ink differing, all anti-aliasing), an
 `windows/keypad/keypadBakedIcons.ts`. The outlines are filed under the RECIPE they came from, so tuning a
 number makes that key fall back to the live text form at once; re-bake when it looks right.
 `keypadBakedIcons.test.ts` is red in between.
+
+⚠️ **`KEYPAD_BAKE_RECIPES` is what the bake can SEE, and it is the whole pad's table** — it was the
+tremolos' alone until the Grace page was drawn. A stacked drawing left out of it is never baked and
+draws as live text for ever, silently: nothing fails, the picture is simply the zoom-fragile one.
+
+⚠️ **A layer may be TURNED** — `GlyphSpec.rotate`, degrees clockwise about the box's centre, where
+every layer is anchored (the cue-size key's stroke uses it). THREE places have to agree about a
+placement or the picture changes the moment it is baked: the live spans (`KeypadWidget`), the svg
+text form (`tremoloBake.bakeGlyphStack`) and the outline baker (`e2e/keypadIcons.bake.ts`, which turns
+the path about the same centre BEFORE sliding it).
+
+🚨 **And the recipe KEY is load-bearing.** `bakeRecipeKey` is what matches a drawing to its baked
+outlines, so a layer that is not turned must key exactly as it did before `rotate` existed. Widening
+the key for every layer missed every outline already baked and dropped the whole panel back to the
+live text form — visible only as a drawing that had moved (his report, 2026-09-23). `tremoloBake.rotate.test.ts`
+pins it.
 
 🚨 **An outline has no HINTING**, and at key size that shows (his two reports the same day, with screenshots
 at 90 / 100 / 110%): a beam bar is ~3½ px tall with a 2 px gap to the next, so anti-aliased edges that miss
@@ -175,9 +192,14 @@ the keypad gets DEDICATED GLYPHS.** So nothing more is invested in the stacking.
 renderer: a key is drawn from a table of path data (`keypadBakedIcons`), and a dedicated glyph is path data
 too — or, better, a small keypad ICON FONT, which is the one route where the font rasteriser does the pixel
 fitting at every zoom. 💡 Also his, for later: a dev-shell tool to drag a recipe's glyphs and read the numbers
-off, rather than tuning them in code. 🚨 Two opentype.js traps the bake found: `toPathData`'s
-default optimiser DROPS A CORNER of a contour the font leaves unclosed (Bravura's bare stem came out a
-wedge), and the options form flips the picture unless `flipY: false`.
+off, rather than tuning them in code. 🚨 Three opentype.js traps the bake found, all now handled in
+`engine/export/glyphOutline.ts` (the ONE place a path becomes SVG data, so the PDF export gets them
+too): `toPathData`'s default optimiser DROPS A CORNER of a contour the font leaves unclosed
+(Bravura's bare stem came out a wedge); the options form flips the picture unless `flipY: false`; and
+its rounding is string arithmetic, so a coordinate whose fraction is below ~1e-6 becomes the literal
+text `NaN` and the browser draws NOTHING AT ALL. A measured position carries exactly that float32
+noise — 11.3 comes back as 11.300000190734863 — which is how the dot key came out invisible
+(2026-09-23). Every coordinate is rounded to the places we print before `toPathData` sees it.
 
 ⚠️ **A key that lights from the SCORE needs its own `onHighlight` subscription in `KeypadWidget`.** The
 mark cluster had none: pressing a tremolo on the selected note changes the score and no other seam, so

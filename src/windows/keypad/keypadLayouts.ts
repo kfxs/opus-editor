@@ -44,6 +44,7 @@
  * LIVE as spans so `dx`/`dy` can be tuned by eye, then swap back to re-bake.
  */
 import type { Accidental, ArticulationType, BeamMode, NoteDuration, TremoloMark } from '../../types/music'
+import type { GraceKey } from '@/bus'
 
 /** One music-font glyph, its `size`, `dx` and `dy` all quoted against a 26px reference (see {@link g}).
  *  `rotate` turns it CLOCKWISE by that many degrees, about the box's centre — where the glyph is
@@ -99,7 +100,7 @@ export type Icon =
  *   like `momentary`, but it re-lays the grid rather than acting on a note. On every page, so you
  *   can always turn back.
  */
-export type Select = 'duration' | 'accidental' | 'articulation' | 'dot' | 'tie' | 'rest' | 'beam' | 'subdivide' | 'beamOver' | 'tremolo' | 'tremoloPair' | 'fan' | 'momentary' | 'mode' | 'page'
+export type Select = 'duration' | 'accidental' | 'articulation' | 'dot' | 'tie' | 'rest' | 'beam' | 'subdivide' | 'beamOver' | 'tremolo' | 'tremoloPair' | 'fan' | 'grace' | 'momentary' | 'mode' | 'page'
 
 export interface KeypadCell {
   /** The numpad key this cell mirrors. It is the cell's identity, and its tooltip. */
@@ -120,6 +121,8 @@ export interface KeypadCell {
   tremolo?: TremoloMark
   /** The direction a `fan` cell presses — the feathered beam opens right (`accel`) or left (`rit`). */
   fan?: 'accel' | 'rit'
+  /** ⭐ The grace a `grace` cell presses — the Grace page's `/`, `*` and `-` (`bus/graceSelection`). */
+  grace?: GraceKey
 }
 
 /**
@@ -236,7 +239,7 @@ export const VOICES = ['1', '2', '3', '4', 'All']
  *  model value it carries (the 4th slot: a NoteDuration on a duration key, an Accidental on an
  *  accidental key, an ArticulationType on an articulation key; absent otherwise). `toCells` files it
  *  under the field `select` calls for. */
-type CellSpec = [string, Icon, Select, (NoteDuration | Accidental | ArticulationType | BeamMode | TremoloMark | 'accel' | 'rit')?]
+type CellSpec = [string, Icon, Select, (NoteDuration | Accidental | ArticulationType | BeamMode | TremoloMark | 'accel' | 'rit' | GraceKey)?]
 
 /** The two controls every page carries, in their fixed spots — the select arrow (top-left) and the
  *  page-turn `+`. A page never lists these itself; {@link withControls} injects them, so a new page
@@ -373,7 +376,8 @@ const GRACE_ICON = {
  * OWN keys only — the arrow and `+` come from {@link withControls}.
  */
 const pageGrace: CellSpec[] = [
-  ['appoggiatura', g(GRACE.plain, GRACE_SIZE, 9), 'momentary'], ['acciaccatura', g(GRACE.slashed, GRACE_SIZE, 9), 'momentary'], ['bracketed grace', GRACE_ICON.bracketedNote, 'momentary'],
+  // ⭐ WIRED (his ask, 2026-09-23) — the dev toolbar's three grace buttons, the same functions behind them.
+  ['appoggiatura', g(GRACE.plain, GRACE_SIZE, 9), 'grace', 'appoggiatura'], ['acciaccatura', g(GRACE.slashed, GRACE_SIZE, 9), 'grace', 'acciaccatura'], ['bracketed grace', GRACE_ICON.bracketedNote, 'grace', 'bracketed'],
   ['512th', g(NOTE_SHORT.fiveHundredTwelfth, SHORT_SIZE, 15.6), 'momentary'], ['breve', g(BREVE, BREVE_SIZE, 3), 'momentary'], ['longa', GRACE_ICON.longa, 'momentary'],
   ['64th', g(NOTE_SHORT.sixtyFourth, SHORT_SIZE, 12.4), 'momentary'], ['128th', g(NOTE_SHORT.hundredTwentyEighth, SHORT_SIZE, 13.5), 'momentary'], ['256th', g(NOTE_SHORT.twoHundredFiftySixth, SHORT_SIZE, 14.5), 'momentary'],
   ['round bracket', g(PARENS, ROUND_BRACKET_SIZE), 'momentary'], ['double dot', GRACE_ICON.doubleDot, 'momentary'], ['triple dot', GRACE_ICON.tripleDot, 'momentary'], ['cue size', GRACE_ICON.cueSize, 'momentary'],
@@ -487,6 +491,7 @@ const toCells = (page: CellSpec[]): KeypadCell[] =>
     beam: select === 'beam' ? (value as BeamMode) : undefined,
     tremolo: select === 'tremolo' ? (value as TremoloMark) : undefined,
     fan: select === 'fan' ? (value as 'accel' | 'rit') : undefined,
+    grace: select === 'grace' ? (value as GraceKey) : undefined,
   }))
 
 /**

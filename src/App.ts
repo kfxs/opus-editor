@@ -41,6 +41,7 @@ import { PASTEBOARD_MARGIN } from './engine/pasteboard'
 import { wireShortcuts } from './interactions/controllers/shortcutWiring'
 import { crossStaffActions } from './interactions/controllers/crossStaffKeys'
 import { wireKeypadSync } from './interactions/controllers/keypadSync'
+import { wireKeypadGrace } from './interactions/controllers/keypadGraceWiring'
 import { wireSelectionInspection } from './interactions/controllers/selectionInspectionSync'
 import { wireSoundSync } from './interactions/controllers/soundSync'
 import { wirePlayRepeatsSync } from './interactions/controllers/playRepeatsSync'
@@ -584,6 +585,8 @@ export function createEditorApp(host: HTMLElement): EditorApp {
   // window's selection feed. Both were cut over to the state's own change-notification while Vue was
   // still here, which is why neither needed touching to lose it.
   const stopKeypadSync = wireKeypadSync(state, palette, onStateChange, getEngine)
+  // ⭐ …and the Keypad's GRACE keys, wired the dev toolbar's way (`interactions/controllers/keypadGraceWiring`).
+  const stopKeypadGrace = wireKeypadGrace(state, () => palette.spanToolHost(), getEngine, onStateChange)
   const stopSelectionInspection = wireSelectionInspection(state, getEngine, onStateChange)
   // The playback sound: `bus.sound` ⇄ the engine. Two surfaces choose it (the dev picker, Play ▸
   // Score Sound) and neither talks to the engine — this is the one place that does.
@@ -997,6 +1000,7 @@ export function createEditorApp(host: HTMLElement): EditorApp {
       shortcuts.disable()
       stopStateSync()
       stopKeypadSync()
+      stopKeypadGrace()
       stopSelectionInspection()
       stopSoundSync()
       stopPlayRepeatsSync()

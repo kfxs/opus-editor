@@ -3,6 +3,7 @@ import { createArticulationSelection } from './articulationSelection'
 import { createArticulationStemAlignSelection } from './articulationStemAlignSelection'
 import { createFractionalBeamSideSelection } from './fractionalBeamSideSelection'
 import { createBracketedSideSelection } from './bracketedSideSelection'
+import { createGraceSelection } from './graceSelection'
 import { createBeamOverSelection } from './beamOverSelection'
 import { createBeamSelection } from './beamSelection'
 import { createClefSelection } from './clefSelection'
@@ -82,6 +83,8 @@ interface EditorBus {
   fractionalBeamSide: ReturnType<typeof createFractionalBeamSideSelection>
   /** ⭐ A selected bracketed grace's side — before / after its target (bracketed-grace-plan P6). */
   bracketedSide: ReturnType<typeof createBracketedSideSelection>
+  /** ⭐ The Keypad's Grace-page keys — appoggiatura, acciaccatura, bracketed grace (`./graceSelection`). */
+  grace: ReturnType<typeof createGraceSelection>
   /** The beam MODE keys — a set, because authored beam and engraved role can differ. */
   beam: ReturnType<typeof createBeamSelection>
   /** The beam-over-a-rest flag. */
@@ -171,6 +174,7 @@ export function createEditorBus(): EditorBus {
     articulationStemAlign: createArticulationStemAlignSelection(),
     fractionalBeamSide: createFractionalBeamSideSelection(),
     bracketedSide: createBracketedSideSelection(),
+    grace: createGraceSelection(),
     beam: createBeamSelection(),
     beamOver: createBeamOverSelection(),
     clef: createClefSelection(),
@@ -240,3 +244,4 @@ export type { CautionaryKeyGapRequest } from './cautionaryKeyGapSelection'
 export type { ArticulationStemAlignRequest } from './articulationStemAlignSelection'
 export type { FractionalBeamSideRequest } from './fractionalBeamSideSelection'
 export type { BracketedSideRequest } from './bracketedSideSelection'
+export type { GraceKey } from './graceSelection'
