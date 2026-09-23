@@ -1,7 +1,7 @@
 # The bracketed grace — a black head in round brackets, no stem, no flag: the plan
 
 > **Status: P0 and P1 committed (2026-09-23) — drawn before its chord, with its room, `gould` brackets
-> armed (his call). P2a (entry) built, ⏸️ his UI check; P2b next.** The dev toolbar's `bracket.` button still only logs, and the Keypad's Grace-page key `-`
+> armed (his call). P2a committed; P2b (select, arrows, Delete) built, ⏸️ his UI check.** The dev toolbar's `bracket.` button still only logs, and the Keypad's Grace-page key `-`
 > (`bracketed grace`) is drawn but not wired (`docs/research/sibelius-keypad.md`).
 > 📄 The research is `docs/research/grace-notes-research.md` **§0.9** (the synthesis) and **Parts G · H · I**
 > (the books · the engines · the apps and formats). ⛔ This plan is where the decisions get made. §0 marks
@@ -26,7 +26,7 @@
 | **B4** | **a bracket inside a group SPLITS it** | ✅ 2026-09-23 (*"the bracket break the group so now there are two groups … it makes sense that we have diferent beaming"*) | ⭐ proposed shape: **the split is DRAWN, not stored.** The group stays ONE `GraceGroup`. A grace carrying a bracket before it starts a new BEAM RUN (`graceBeamRuns`) and a new slash. So removing the bracket **merges** the group back with no operation at all (✅ *"yes i guess"*), and both halves keep the group's one type (✅ *"the group is one type so the split will be the same"*). A merge of two groups cannot happen, because there is only ever one | the alternative, `graceBefore` becoming a LIST of groups, touches every grace reader (≈70 sites, 18 files: room, ink, playback, rest carry, conversions, relay). ⏳ Two groups with nothing between them is a beaming question he set aside (*"for the moment i think is not important"*); this shape cannot express it, and that is deliberate until he asks |
 | **B5** | **the sides** | ⏳ proposed | **before** (the pre-bend; his case) and **after** (every book's case: trill note, bend target, glissando end, harmonic, §0.9). A chord carries both; a grace carries **before only** | ⚠️ no book draws one BEFORE its note (G.8). Sibelius and every app's pre-bend do. After is its own phase (P5) |
 | **B6** | **it does not sound** | ⏳ proposed | silent: no scheduled event, and ⛔ it never changes the bar's accidental state | every source: *"not separately articulated"* (Gould 144); no engine and no app plays the head itself (§0.9). What it MEANS (bend from, trill to) is for the reader of a later phase |
-| **B7** | **what is drawn** | ⏳ proposed, every number a row | a **black** head whatever its target's value (Gould 418), so **no written value is stored**; ⛔ no stem, flag, dot, beam or slash. **Size** is its own row, `BRACKETED_SIZE_RULES`, defaulting to the grace's `house` 2/3 (presets: Gould trill ≈0.75 · Gould bend ≈0.65 · MuseScore 0.7 · LilyPond 0.63 · Sibelius 0.6) | Gould disagrees with herself (0.75 vs 0.65, §G.4), which is why this is a row of its own: choosing Gould's trill must not resize every grace |
+| **B7** | **what is drawn** | ✅ 2026-09-23 ⚠️ **REVISED the same day** | ⭐ **it HAS a written value — what its HEAD is drawn as** (his call: *"it should have case a half notehead is different than a quater notehead (in this sense the grace do it write)"*): `BracketedGrace.duration`, read off the LIT duration keys as the grace's is (`MARKING_TOOL_USES_ARMED_LENGTH`), a quarter's black head when none is lit; a duration key with one selected changes it. ⛔ Never counted; ⛔ no stem, flag, dot, beam or slash. **Size** is its own row, `BRACKETED_SIZE_RULES`, defaulting to the grace's `house` 2/3 (presets: Gould trill ≈0.75 · Gould bend ≈0.65 · MuseScore 0.7 · LilyPond 0.63 · Sibelius 0.6) | the first answer (*black whatever its target's*, Gould p. 418) was one book's open-string picture; the head IS the value, as a grace's is. Gould disagrees with herself on the size (0.75 vs 0.65, §G.4), which is why it is a row of its own |
 | **B8** | **the accidental: inside the brackets** | ⏳ proposed default, a row | `( ♭● )` (books: all; MuseScore, LilyPond). The other row is `♭( ● )` (Verovio, VexFlow) | the one real split among the engines (§H.0). MusicXML cannot tell the two apart |
 | **B9** | **the brackets: the font's glyphs** | ✅ 2026-09-23 **`gould`** — his call after both on the page: the ACCIDENTAL brackets E26A/E26B at FULL size (Gould's measure ≈2.07 sp); `notehead` stays a row | one pair per HEAD (Stone 76: a chord is stacked pairs), `noteheadParenthesisLeft/Right` E0F5/E0F6, which all three shipped faces carry (§H.6) | MuseScore draws a bezier sized from the heads so it can grow around ledger lines (Gould 388). That is the upgrade if the glyph looks wrong on a ledger note, found in use (his rule above) |
 | **B10** | **a bracket on a REST** | ✅ 2026-09-23 ⚠️ **REVERSED the same day** | ⭐ **a rest IS a target, BEFORE only** — his report on the stamp: *"this should work similar to grace stamp on empty measure"*. It rides the graces' hand-over exactly (`restGraceOps`): a whole-bar rest first becomes a one-beat rest at the clicked beat; the note that takes the rest's place at that beat TAKES its bracketed graces; silencing a note keeps its `bracketedBefore` on the rest (`bracketedAfter` goes with the note, logged) | the first answer (*nothing to bend into or trill*) was the model's; entry is the user's — they write the bracket first, on an empty bar, and the note after, as D7 found for the graces |
@@ -99,16 +99,21 @@ re-pitch it through the same path a grace uses (`slotLookup` learns to find the 
   (`graceStamp`), ⛔ not a new line in `MouseController` (its hub ceiling is full). A ghost of the head in
   its brackets, the armed sign inside (`ghosts/BracketedGhost`, reading `bracketedLayout`). ⏳ A press
   arms the stamp whatever is selected — what it does with a NOTE selected is found by trying it (D6).
-- ⏭️ **P2b: selection, arrows, Delete.** ⚠️ A DECISION first: these go through `ScoreModel.getNote` /
-  `updateNote` (a bracketed pitch must project as ITSELF and take pitch-only updates) — a per-kind branch
-  in a hub. The alternative is a `findSlot` opt-in (`slotLookup`, not a hub) plus the projection in
-  `bracketedGraceOps`, which `getNote` would call.
-- **P3: on a GRACE, and the split.** A click on a grace targets it. `graceBeamRuns` breaks, and the
-  slash is drawn per run. Deleting the bracket re-joins the beam (B4, the merge for free).
-- **P4: the conversions.** What a target becoming a rest, a grace becoming a note (and back), or a
-  chord losing the head does to its brackets. ⏳ Each is his call when reached. The first default is
-  that the bracket goes with its target where the target survives, and is dropped (logged) where it
-  does not.
+- 🔨 **P2b: selection, arrows, Delete** (built 2026-09-23, ⏸️ his UI check) — his pick of the two shapes:
+  a `{ bracketed: true }` opt-in on `slotLookup.findSlot` (⛔ `attackOf` is NULL for one: no mark is struck
+  with information), the projection in `noteProjection.projectBracketedNote`, and ONE admitting line each in
+  `ScoreModel.getNote` / `getNotePitch` / `updateNote` (pitch-only, the grace's branch). Each head is a NOTE
+  in the registry under its pitch id (no beat, the grace's reason) and its group is in the member map (the
+  highlight; a replayed bar files it through `fanMemberIdsOf`). Delete removes it as itself — alone
+  (`deleteNoteOps`) or in a range, IN PLACE (`clearOps`: it leaves no hole). A duration key changes its HEAD
+  (`NoteEntryCoordinator`, `selectionWrittenValue`), ⛔ never the bar. A paste hands its ids back.
+- ⏭️ **FUTURE — the side in PROPERTIES** (his proposal, 2026-09-23 — ⛔ not built, recorded here so it is
+  not lost): *"in the properties we will have a way to place the bracket before or after the target,
+  default is before as now and the user can change it in properties"*. So the stamp keeps entering it
+  BEFORE (today's default), and the Properties window moves a selected bracketed grace to the other side
+  of the same target — an op that takes it off one list and onto the other (`bracketedBefore` ↔
+  `bracketedAfter`), refused where the target has no after side (a grace, a rest — B5). It needs P2b's
+  selection and P5's drawing of the after side first.
 - **P5: AFTER** (the trill note, the bend target). The chord's right ink and its room. ⚠️ Gould p. 139
   puts it *"where there is more room"* and moves it to a tied second note rather than cramp a short one.
   That is a placement rule for later, ⛔ not this phase.

@@ -30,8 +30,8 @@ function splitHalf(chord: Partial<Chord>) {
 describe('rebar — bracketed graces across a split', () => {
   it('BEFORE on the FIRST piece, AFTER on the LAST, fresh ids on both', () => {
     const pieces = splitHalf({
-      bracketedBefore: [{ pitches: [p('b', 'B', 3)] }],
-      bracketedAfter: [{ pitches: [p('a', 'D', 5)] }],
+      bracketedBefore: [{ pitches: [p('b', 'B', 3)], duration: 'q' }],
+      bracketedAfter: [{ pitches: [p('a', 'D', 5)], duration: 'q' }],
     })
     expect(pieces).toHaveLength(2)
     expect(pieces[0].bracketedBefore?.[0].pitches[0]).toMatchObject({ step: 'B', octave: 3 })

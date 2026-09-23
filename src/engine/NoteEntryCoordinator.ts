@@ -22,6 +22,7 @@ import { ElementRegistry } from './ElementRegistry'
 import type { ElementInfo } from './ElementRegistry'
 import { staffOf, voiceOf } from '@/utils/lanes'
 import { isGraceNote, setGraceWritten } from './models/graceOps'
+import { isBracketedGrace, setBracketedWritten } from './models/bracketedGraceOps'
 
 const CLOSE_THRESHOLD = 25
 const FAR_THRESHOLD = 40
@@ -487,6 +488,14 @@ export class NoteEntryCoordinator {
       setGraceWritten(this.getScoreModel().getScore(), noteId, { duration: updates.duration, dots: updates.dots })
       const updated = this.getScoreModel().updateNote(noteId, updates)
       this.onCommit('Update grace note')
+      return updated
+    }
+    // ⭐ …and a BRACKETED grace (bracketed-grace-plan P2b): its value is what its HEAD is drawn as (B7),
+    //    never counted — so, like the grace's, it stays out of the bar's machinery below.
+    if (isBracketedGrace(this.getScoreModel().getScore(), noteId)) {
+      if (updates.duration) setBracketedWritten(this.getScoreModel().getScore(), noteId, updates.duration)
+      const updated = this.getScoreModel().updateNote(noteId, updates)
+      this.onCommit('Update bracketed grace')
       return updated
     }
     // What a duration change does to the bar — the overflow split, the tuplet clamp, the overlap

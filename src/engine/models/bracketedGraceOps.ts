@@ -13,13 +13,16 @@
  * (`slotLookup`). {@link findBracketed} is the one reader that knows where they live.
  */
 import { v4 as uuidv4 } from 'uuid'
-import type { BracketedGrace, ChordRest, NotePitch, PitchSpelling, Score } from '@/types/music'
+import type { BracketedGrace, ChordRest, NoteDuration, NotePitch, PitchSpelling, Score } from '@/types/music'
 import { dbg } from '@/utils/debug'
 import { spellingToMidi } from '@/utils/pitchSpelling'
 import { chordStoredPitches } from '@/utils/fannedBeam'
 import { GRACE_SIDES, graceGroupOf } from '@/utils/graceNotes'
 import { BRACKETED_SIDES, bracketedKey, bracketedOf, type BracketedSide, type BracketedTarget } from '@/utils/bracketedGraces'
 import { findSlot } from './slotLookup'
+
+/** A bracketed grace's written value when nothing says otherwise — a black head (Gould p. 418's picture). */
+export const BRACKETED_DEFAULT_DURATION: NoteDuration = 'q'
 
 /** A bracketed pitch — a spelling, and whether its sign is FORCED (note entry's courtesy). */
 export type BracketedSpelling = PitchSpelling & { forceAccidental?: boolean }
@@ -94,6 +97,8 @@ function targetOf(score: Score, noteId: string): { slot: ChordRest; target: Brac
  */
 export function addBracketed(
   score: Score, targetNoteId: string, side: BracketedSide, spelling: BracketedSpelling, index?: number,
+  /** What its head is drawn as (B7 revised) — the armed length, as a grace's; absent = a quarter's black head. */
+  duration: NoteDuration = BRACKETED_DEFAULT_DURATION,
 ): BracketedGrace | null {
   const at = targetOf(score, targetNoteId)
   if (!at) {
@@ -114,7 +119,7 @@ export function addBracketed(
     dbg(`[bracketedGraceOps.addBracketed] refused: AFTER a note tied on — the note ends at the chain's last piece`)
     return null
   }
-  const bracketed: BracketedGrace = { pitches: [newPitch(spelling)] }
+  const bracketed: BracketedGrace = { pitches: [newPitch(spelling)], duration }
   const key = bracketedKey(side)
   const holder = at.target as { bracketedBefore?: BracketedGrace[]; bracketedAfter?: BracketedGrace[] }
   const list = holder[key] ?? []
@@ -183,6 +188,17 @@ export function setBracketedPitch(score: Score, pitchId: string, spelling: Brack
   return true
 }
 
+/**
+ * ⭐ The WRITTEN value of the bracketed grace holding `pitchId` — what its head is drawn as (B7 revised).
+ * A duration key with it selected. @returns whether it changed.
+ */
+export function setBracketedWritten(score: Score, pitchId: string, duration: NoteDuration): boolean {
+  const found = findBracketed(score, pitchId)
+  if (!found || found.bracketed.duration === duration) return false
+  found.bracketed.duration = duration
+  return true
+}
+
 function newPitch(spelling: BracketedSpelling): NotePitch {
   const pitch: NotePitch = { id: uuidv4(), step: spelling.step, alter: spelling.alter, octave: spelling.octave }
   if (spelling.forceAccidental) pitch.forceAccidental = true
@@ -215,6 +231,7 @@ export function bracketedProblems(score: Score): string[] {
         problems.push(`${where}: bracketed grace ${k} has no pitches`)
         return
       }
+      if (typeof b.duration !== 'string') problems.push(`${where}: bracketed grace ${k} has no written value (duration)`)
       for (const p of b.pitches) {
         if (seen.has(p.id)) problems.push(`${where}: bracketed grace ${k} pitch id "${p.id}" is not unique`)
         seen.add(p.id)

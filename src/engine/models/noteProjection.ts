@@ -7,7 +7,7 @@
  * internal↔public boundary in one named home. See `src/types/music.ts` for the
  * authoritative model/flat definitions.
  */
-import type { Note, Chord, GraceNote, NotePitch, Rest, Score } from '@/types/music'
+import type { BracketedGrace, Note, Chord, GraceNote, NotePitch, Rest, Score } from '@/types/music'
 import { projectAttackMarks } from './slotLookup'
 import { staffIndexOfId } from './staffContent'
 
@@ -91,6 +91,25 @@ export function flatRestOf(score: Score, rest: Rest): Note {
  * about the SLOT — the beam, the fan, the tremolo, the tuplet's recomputed length. The beat, voice
  * and staff stay the main chord's: a grace has none of its own, it stands at its chord's.
  */
+/**
+ * ⭐ A BRACKETED grace projects as ITSELF (docs/plans/bracketed-grace-plan.md P2b) — its pitch and its
+ * written value over its host's flat note; ⛔ none of the host's statements, and no marks: it is
+ * information, not an attack (B6).
+ */
+export function projectBracketedNote(note: Note, pitch: NotePitch, bracketed: BracketedGrace): Note {
+  note.id = pitch.id
+  note.step = pitch.step
+  note.alter = pitch.alter
+  note.octave = pitch.octave
+  if (pitch.forceAccidental) note.forceAccidental = true
+  else delete note.forceAccidental
+  delete note.isRest
+  delete note.isMeasureRest
+  note.duration = bracketed.duration
+  for (const k of ['dots', 'fan', 'beam', 'secondaryBreak', 'fractionalBeamSide', 'tremolo', 'tremoloPair', 'tremoloPairStyle', 'actualDuration', 'articulationStemAlign', 'stemDirection', 'articulations', 'articulationPlacement', 'tiedTo', 'tiedFrom'] as const) delete note[k]
+  return note
+}
+
 export function projectGraceNote(note: Note, pitch: NotePitch, grace: GraceNote): Note {
   // The PITCH is the grace's own — over a REST host's flat note there is none to inherit.
   note.id = pitch.id

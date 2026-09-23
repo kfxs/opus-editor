@@ -136,7 +136,7 @@ export function nearestHost(engine: MusicEngine, registry: ElementRegistry, meas
   let bestDistance = GRACE_CLICK.hostReachPx
   for (const el of [...registry.getByType('note'), ...registry.getByType('rest')]) {
     if (el.measure !== measure || staffOf(el) !== staff || !el.id) continue
-    if (el.type === 'note' && engine.isGraceNote(el.id)) continue
+    if (el.type === 'note' && (engine.isGraceNote(el.id) || engine.bracketed.isBracketed(el.id))) continue
     const distance = Math.abs(hostX(el) - x)
     if (distance <= bestDistance) {
       best = el

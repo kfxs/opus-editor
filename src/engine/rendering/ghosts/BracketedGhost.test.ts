@@ -21,14 +21,14 @@ describe('BracketedGhost', () => {
   })
 
   const draw = (pointerX: number, accidental: 'b' | null = null) => {
-    engine.renderScoreWithToolGhost({ x: pointerX, y: 120 }, { kind: 'bracketedGrace', accidental })
+    engine.renderScoreWithToolGhost({ x: pointerX, y: 120 }, { kind: 'bracketedGrace', duration: 'q', accidental })
     return container.querySelector(`.${BRACKETED_GHOST_GROUP_CLASS}`)
   }
   const ghostX = (pointerX: number) => Number(/^translate\(([-\d.]+),/.exec(draw(pointerX)?.getAttribute('transform') ?? '')?.[1])
 
   it('⭐ parks LEFT of the arrow, where the stamp judges a click — and follows the pointer smoothly', () => {
     const a = ghostX(300)
-    expect(a).toBeCloseTo(bracketedGhostHead(300, null).left, 6)
+    expect(a).toBeCloseTo(bracketedGhostHead(300, 'q', null).left, 6)
     expect(a).toBeLessThan(300)
     expect(ghostX(302.5) - a).toBeCloseTo(2.5, 6)
   })

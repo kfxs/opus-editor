@@ -9,17 +9,19 @@
  * drawn in a `scaling(k)` group at the armed size (B7), composed from a normal note's parts as a grace
  * is; the brackets are drawn at the head's size or at FULL size, as the armed form says (B9).
  *
- * ⛔ It SOUNDS nothing (B6) and — until P2 — registers no hit box: a click cannot select one yet, so no
- * selection can hold an id the lookups do not know.
+ * ⛔ It SOUNDS nothing (B6). ⭐ Since P2b each head is a NOTE in the registry under its pitch id, and its
+ * group is filed in the member map — so a click selects it, the arrows re-pitch it, Delete removes it,
+ * all through the lookups' `{ bracketed: true }` opt-in (`models/slotLookup`).
  */
 import type { ChordRest, Clef, Fraction, KeySignature } from '@/types/music'
-import type { DrawContext } from '@/engine/paint/DrawContext'
 import type { RenderPass } from './RenderPass'
 import type { EngravedNote } from './engraved/EngravedNote'
 import type { EngravedStave } from './engraved/EngravedStave'
 import { EngravedAccidental } from './engraved/EngravedAccidental'
 import { drawGroupOf } from './painter/svgDrawGroup'
 import { maybeStaveOf, staveFrame } from './staff/staveFrame'
+import { openMemberGroup } from './memberGroup'
+import { spellingToMidi } from '@/utils/pitchSpelling'
 import { scaling } from '@/engine/paint/Affine'
 import { noteLineY, type StaffFrame } from '@/engine/engrave/staff/staffFrame'
 import { headGlyph } from '@/engine/engrave/notes/keyLines'
@@ -48,6 +50,8 @@ export function drawBracketedGraces(
   pass: RenderPass,
   slots: ChordRest[],
   staveNotes: EngravedNote[],
+  measureNumber: number,
+  staffIndex: number,
   clefForBeat: (beat: Fraction) => Clef,
   /** The key governing this lane's bar — a bracketed sign is read against it and the bar (B6). */
   key: KeySignature = C_MAJOR,
@@ -68,14 +72,17 @@ export function drawBracketedGraces(
     const ctx = pass.context
     ctx.openGroup(BRACKETED_GROUP, `${BRACKETED_GROUP}-${slot.id}-before`)
     try {
-      for (const place of side.bracketed.places) drawOne(ctx, place, hostX, stave)
+      for (const place of side.bracketed.places) drawOne(pass, place, hostX, stave, measureNumber, staffIndex)
     } finally {
       ctx.closeGroup()
     }
   }
 }
 
-function drawOne(ctx: DrawContext, place: BracketedPlace, hostX: number, stave: EngravedStave): void {
+function drawOne(
+  pass: RenderPass, place: BracketedPlace, hostX: number, stave: EngravedStave, measureNumber: number, staffIndex: number,
+): void {
+  const ctx = pass.context
   const frame: StaffFrame = staveFrame(stave)
   const space = frame.spacePx
   const k = bracketedScale()
@@ -88,8 +95,28 @@ function drawOne(ctx: DrawContext, place: BracketedPlace, hostX: number, stave: 
   const rightParen = String.fromCodePoint(GLYPH_CODEPOINTS[form.right])
   const ledgerStyle = stave.getDefaultLedgerLineStyle()
 
-  ctx.openGroup(BRACKETED_NOTE_GROUP, `${BRACKETED_NOTE_GROUP}-${place.bracketed.pitches[0]?.id}`)
+  // ⭐ Its own group, filed in the member map under each pitch (P2b): a selected bracketed grace recolours
+  //    the way a grace does — the ink is ours (`memberGroup`).
+  const group = openMemberGroup(ctx, BRACKETED_NOTE_GROUP, `${BRACKETED_NOTE_GROUP}-${place.bracketed.pitches[0]?.id}`)
   try {
+    place.heads.forEach((head, h) => {
+      const y = noteLineY(frame, head.line)
+      const left = x(place.headX)
+      const width = place.headWidth * space
+      // ⭐ A NOTE under its pitch id, so a click selects it and the arrows re-pitch it — ⚠️ WITHOUT a
+      //    `beat`, the grace's reason: it stands left of the beat's own head (`GracePass`).
+      pass.elementRegistry.add({
+        type: 'note',
+        id: head.pitch.id,
+        measure: measureNumber,
+        staff: staffIndex,
+        pitch: spellingToMidi(head.pitch.step, head.pitch.alter, head.pitch.octave),
+        duration: place.bracketed.duration,
+        headX: left + width / 2,
+        bbox: { x: left, y: y - (space * k) / 2, width, height: space * k },
+      })
+      if (group) pass.fanMemberGroupMap.set(head.pitch.id, { group, noteIndex: h })
+    })
     const scaled = drawGroupOf(ctx.openGroup('bracketedhead'))
     scaled?.setPlacement(scaling(k))
     try {
@@ -101,8 +128,8 @@ function drawOne(ctx: DrawContext, place: BracketedPlace, hostX: number, stave: 
       )
       for (const head of place.heads) {
         const y = local(noteLineY(frame, head.line))
-        // ⭐ BLACK whatever its target's value (Gould p. 418, B7): a quarter's head.
-        drawNoteHead(ctx, { glyph: headGlyph('q', false), x: local(x(place.headX)), y, font: noteFont() })
+        // ⭐ Its OWN written value's head (B7 revised: a half is hollow, a quarter black).
+        drawNoteHead(ctx, { glyph: headGlyph(place.bracketed.duration, false), x: local(x(place.headX)), y, font: noteFont() })
         if (head.sign && head.accidentalX !== null) {
           const glyph = new EngravedAccidental(head.sign).getText()
           stampGlyph(ctx, glyph, local(x(head.accidentalX)), y, accidentalFont(glyph))

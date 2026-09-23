@@ -190,6 +190,26 @@ describe('bracketedGraceOps', () => {
     })
   })
 
+  describe('the WRITTEN value (B7 revised — his call: "a half notehead is different than a quater")', () => {
+    it('a quarter\'s black head unless told; the armed value when given; setBracketedWritten changes it', () => {
+      const host = quarter()
+      const plain = bracketedOps.addBracketed(score, host.id, 'before', Bb3)!
+      expect(plain.duration).toBe('q')
+      const half = bracketedOps.addBracketed(score, host.id, 'before', D5, undefined, 'h')!
+      expect(half.duration).toBe('h')
+      expect(bracketedOps.setBracketedWritten(score, plain.pitches[0].id, 'w')).toBe(true)
+      expect(plain.duration).toBe('w')
+      expect(bracketedOps.setBracketedWritten(score, plain.pitches[0].id, 'w')).toBe(false)
+    })
+
+    it('a file with no written value is REPORTED, never repaired', () => {
+      const host = quarter()
+      const made = bracketedOps.addBracketed(score, host.id, 'before', Bb3)!
+      delete (made as unknown as Record<string, unknown>).duration
+      expect(bracketedOps.bracketedProblems(score).some(p => p.includes('has no written value'))).toBe(true)
+    })
+  })
+
   describe('setBracketedPitch', () => {
     it('re-spells in place — the id stays; the same spelling is no change', () => {
       const host = quarter()
@@ -214,9 +234,9 @@ describe('bracketedGraceOps', () => {
       const host = quarter()
       const chord = chordOf(host.id)
       chord.bracketedBefore = []
-      chord.bracketedAfter = [{ pitches: [] }, { pitches: [{ id: host.id, ...D5 }] }]
+      chord.bracketedAfter = [{ pitches: [], duration: 'q' }, { pitches: [{ id: host.id, ...D5 }], duration: 'q' }]
       const rest = model.getMeasure(1)!.slots.find(s => s.type === 'rest')!
-      ;(rest as unknown as Record<string, unknown>).bracketedAfter = [{ pitches: [{ id: 'r', ...E4 }] }]
+      ;(rest as unknown as Record<string, unknown>).bracketedAfter = [{ pitches: [{ id: 'r', ...E4 }], duration: 'q' }]
       const grace = graceOps.addGrace(score, host.id, 'before', E4, 'appoggiatura', { duration: '8' })!
       ;(grace as unknown as Record<string, unknown>).bracketedAfter = []
       const problems = bracketedOps.bracketedProblems(score)

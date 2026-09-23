@@ -96,11 +96,19 @@ describe('BracketedGracePass — one bracketed grace before a note', () => {
     expect(texts.some(t => t.codePointAt(0)! >= 0xe240 && t.codePointAt(0)! <= 0xe25f)).toBe(false) // SMuFL flags
   })
 
+  it('⭐ B7 REVISED (his call): its HEAD is its written value\'s — a half\'s is HOLLOW, a quarter\'s black', () => {
+    const { model, bracketed } = build({ bracketed: D5 })
+    bracketed!.duration = 'h'
+    const texts = scenePrimitives(sceneGroups(render(model).scene, BRACKETED_GROUP)[0]).flatMap(p => (p.kind === 'text' ? [p.text] : []))
+    expect(texts).toContain(char('noteheadHalf'))
+    expect(texts).not.toContain(char('noteheadBlack'))
+  })
+
   it('⭐⭐ it stands LEFT of its principal, where the layout says: the head anchor at `headX`', () => {
     const { scene } = render(build({ bracketed: D5 }).model)
     const [, host] = mainHeadXs(scene)
     const { headX } = bracketedHead(scene)
-    const expected = bracketedLayout([{ pitches: [{ id: 'x', ...D5 }] }], () => null, 'treble', 0).places[0].headX
+    const expected = bracketedLayout([{ pitches: [{ id: 'x', ...D5 }], duration: 'q' }], () => null, 'treble', 0).places[0].headX
     expect((headX - host) / STAFF_SPACE_PX).toBeCloseTo(expected, 6)
     expect(headX).toBeLessThan(host)
   })
@@ -151,9 +159,12 @@ describe('BracketedGracePass — one bracketed grace before a note', () => {
     expect(sceneGroups(scene, BRACKETED_GROUP)[0].id).toBe(`${BRACKETED_GROUP}-${rest.id}-before`)
   })
 
-  it('⛔ until P2 it registers NO hit box — a click cannot select an id the lookups do not know', () => {
+  it('⭐ P2b: each head is a NOTE in the registry under its pitch id — WITHOUT a beat, the grace\'s reason', () => {
     const { model, bracketed } = build({ bracketed: D5 })
     const { renderer } = render(model)
-    expect(renderer.getElementRegistry().getByType('note').some(e => e.id === bracketed!.pitches[0].id)).toBe(false)
+    const entry = renderer.getElementRegistry().getByType('note').find(e => e.id === bracketed!.pitches[0].id)
+    expect(entry).toBeDefined()
+    expect(entry!.beat).toBeUndefined()
+    expect(entry!.measure).toBe(1)
   })
 })

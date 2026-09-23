@@ -27,6 +27,18 @@ describe('pressBracketedTool', () => {
     expect(bracketedToolLit(h.state, 'before')).toBe(true)
   })
 
+  it('⭐ B7 revised: it reads the LIT duration — and with none lit, arms a quarter\'s black head', () => {
+    const lit = host()
+    lit.state.selectedTool = 'entry' // in note entry, the duration key is LIT
+    lit.state.selectedDuration = 'h'
+    pressBracketedTool(lit, 'before')
+    expect(lit.state.selectedDuration).toBe('h')
+    const dark = host() // selection mode, nothing selected: no key lit
+    dark.state.selectedDuration = 'h'
+    pressBracketedTool(dark, 'before')
+    expect(dark.state.selectedDuration).toBe('q')
+  })
+
   it('a re-press DISARMS it back to note entry — ⛔ not selection', () => {
     const h = host()
     pressBracketedTool(h, 'before')

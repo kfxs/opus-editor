@@ -94,6 +94,7 @@ import { drawsTimeSignature, headerExtent, headerToNoteGap } from '@/engine/layo
 import { applySpacingPass, type SpacedColumns } from './format/spacingPass'
 import { drawGraceNotes } from './GracePass'
 import { gracePitchesOf } from '@/utils/graceNotes'
+import { bracketedPitchesOf } from '@/utils/bracketedGraces'
 import { attachModifierColumns } from './format/modifierColumns'
 import { formatColumns, type TickColumns } from './format/columnFormat'
 import { BarVoice, drawBarVoice, type BarTickable } from './format/barVoice'
@@ -289,7 +290,7 @@ function fanMemberIdsOf(view: Measure): string[] {
   //    REST's too (D7 reversed): filed under chords only, a replayed bar dropped them, and a grace on
   //    a rest could be clicked but never lit (his report, 2026-09-22).
   return view.slots.flatMap(s =>
-    [...(s.type === 'chord' ? s.fan?.members ?? [] : []).flatMap(m => m.pitches), ...gracePitchesOf(s)].map(p => p.id))
+    [...(s.type === 'chord' ? s.fan?.members ?? [] : []).flatMap(m => m.pitches), ...gracePitchesOf(s), ...bracketedPitchesOf(s)].map(p => p.id))
 }
 
 /**

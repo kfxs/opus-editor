@@ -85,7 +85,7 @@ export function drawGraceNotes(
   key: KeySignature = C_MAJOR,
 ): void {
   // ⭐ The chord's BRACKETED graces first — the rest of its before side (`./BracketedGracePass`).
-  drawBracketedGraces(pass, slots, staveNotes, clefForBeat, key)
+  drawBracketedGraces(pass, slots, staveNotes, measureNumber, staffIndex, clefForBeat, key)
   if (!slots.some(s => s.graceBefore)) return
   const signs = displayedAccidentals(slots, key)
   const signOf: SignOf = id => signs.get(id)

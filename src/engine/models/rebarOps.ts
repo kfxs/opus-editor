@@ -35,7 +35,7 @@ import { keepLegalCrossings } from './crossStaffOps'
 import { clearEngravingOverride, setEngravingOverride } from './overrideOps'
 import { cloneFanFresh, chordStoredPitches, fanMemberBeats } from '@/utils/fannedBeam'
 import { cloneGraceFresh, gracePitchesOf } from '@/utils/graceNotes'
-import { cloneBracketedFresh } from '@/utils/bracketedGraces'
+import { bracketedPitchesOf, cloneBracketedFresh } from '@/utils/bracketedGraces'
 import { v4 as uuidv4 } from 'uuid'
 import { voiceOf } from '@/utils/lanes'
 import { dbg } from '@/utils/debug'
@@ -687,6 +687,8 @@ export function pasteEvents(
       for (const np of chordStoredPitches(chord)) pastedIds.push(np.id)
       // …and its GRACES, which are heads you can click too (docs/plans/grace-notes-plan.md §7).
       for (const np of gracePitchesOf(chord)) pastedIds.push(np.id)
+      // …and its BRACKETED graces — clickable since bracketed-grace-plan P2b.
+      for (const np of bracketedPitchesOf(chord)) pastedIds.push(np.id)
     }
   }
   return pastedIds

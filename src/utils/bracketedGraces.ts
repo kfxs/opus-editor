@@ -6,7 +6,7 @@
  * In `utils/` for `graceNotes`' reason: the relay lives here and may not import `engine/`.
  */
 import { v4 as uuidv4 } from 'uuid'
-import type { BracketedGrace, Chord, GraceNote, NotePitch, Rest } from '@/types/music'
+import type { BracketedGrace, Chord, ChordRest, GraceNote, NotePitch, Rest } from '@/types/music'
 
 /** Which side of its target a bracketed grace stands on (B5). A GRACE target takes `before` only. */
 export type BracketedSide = 'before' | 'after'
@@ -30,15 +30,18 @@ export function bracketedOf(target: BracketedTarget, side: BracketedSide): Brack
 }
 
 /**
- * Every bracketed pitch a CHORD carries — its own lists, and those of every grace it holds, left to
- * right (a `(●) [graces] (●) M (●)` reading). The ids a paste must hand back as "the notes that landed".
+ * Every bracketed pitch a SLOT carries — its own lists, and those of every grace it holds, left to
+ * right (a `(●) [graces] (●) M (●)` reading). A REST holds before only (B10 reversed). The ids a paste
+ * must hand back as "the notes that landed", and the ids a replayed bar's highlight is filed under.
  */
-export function bracketedPitchesOf(chord: Chord): NotePitch[] {
+export function bracketedPitchesOf(slot: ChordRest): NotePitch[] {
   const out: NotePitch[] = []
-  for (const grace of chord.graceBefore?.notes ?? []) pushPitches(out, grace.bracketedBefore)
-  pushPitches(out, chord.bracketedBefore)
-  pushPitches(out, chord.bracketedAfter)
-  for (const grace of chord.graceAfter?.notes ?? []) pushPitches(out, grace.bracketedBefore)
+  for (const grace of slot.graceBefore?.notes ?? []) pushPitches(out, grace.bracketedBefore)
+  pushPitches(out, slot.bracketedBefore)
+  if (slot.type === 'chord') {
+    pushPitches(out, slot.bracketedAfter)
+    for (const grace of slot.graceAfter?.notes ?? []) pushPitches(out, grace.bracketedBefore)
+  }
   return out
 }
 
@@ -60,5 +63,6 @@ export function cloneBracketedFresh(list: readonly BracketedGrace[]): BracketedG
       if (p.forceAccidental) np.forceAccidental = true
       return np
     }),
+    duration: b.duration,
   }))
 }

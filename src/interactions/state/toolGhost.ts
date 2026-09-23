@@ -118,8 +118,9 @@ export function toolGhost(tool: MarkingTool, armed: ArmedRestFields): ToolGhost 
       kind: 'grace', duration: armed.duration, dots: armed.dots, slash: tool.form === 'acciaccatura',
       accidental: armed.accidental ?? null, articulations: armed.articulations ?? [],
     }
-    // ⭐ The BRACKETED grace: its head in its brackets, and the armed sign inside them — ⛔ no value (B7).
-    case 'bracketedGrace': return { kind: 'bracketedGrace', accidental: armed.accidental ?? null }
+    // ⭐ The BRACKETED grace: its head — the ARMED value's, as the grace's (B7 revised) — in its
+    //    brackets, and the armed sign inside them.
+    case 'bracketedGrace': return { kind: 'bracketedGrace', duration: armed.duration, accidental: armed.accidental ?? null }
     // Click-to-type entry: a blue cursor, no ghost. See the header.
     case 'dynamicEntry':
     case 'tempoEntry': return null

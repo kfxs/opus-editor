@@ -45,4 +45,15 @@ describe('writeSelectionValue — a duration/dot key on a selection', () => {
     writeSelectionValue(engine, state, { duration: 'h', dots: 0 })
     expect(engine.getNote(note.id)!.duration).toBe('h')
   })
+
+  it('⭐ every selected BRACKETED grace takes the DURATION too — its head (bracketed-grace-plan B7)', () => {
+    const { engine, note, state, select } = setup()
+    const a = engine.bracketed.add(note.id, 'before', { step: 'D', alter: 0, octave: 5 })!
+    const b = engine.bracketed.add(note.id, 'before', { step: 'F', alter: 0, octave: 5 })!
+    select(a.pitches[0].id, b.pitches[0].id)
+    writeSelectionValue(engine, state, { duration: 'h', dots: 0 })
+    expect([a.duration, b.duration]).toEqual(['h', 'h'])
+    const chord = engine.getScore().measures[0].slots.find(s => s.type === 'chord')!
+    expect(chord.duration).toBe('q') // ⛔ the anchor is a bracketed grace: the note it stands before never moves
+  })
 })

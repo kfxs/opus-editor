@@ -10,6 +10,8 @@ import { dbg } from '@/utils/debug'
 import type { BracketedSide } from '@/utils/bracketedGraces'
 import { armedTool, type EditorState } from '../state/EditorState'
 import type { SpanToolHost } from './spanToolPress'
+import { durationHighlight } from '../controllers/keypadSync'
+import { BRACKETED_DEFAULT_DURATION } from '@/engine/models/bracketedGraceOps'
 
 /** Arm the bracketed stamp for `side` — or disarm it, when the same one is armed already. */
 export function pressBracketedTool(host: SpanToolHost, side: BracketedSide): void {
@@ -20,6 +22,12 @@ export function pressBracketedTool(host: SpanToolHost, side: BracketedSide): voi
     host.disarmToEntry()
     dbg('[bracketed] stamp disarmed — note entry')
     return
+  }
+  // Read BEFORE arming, as the grace does: nothing lit ⇒ nothing was chosen, so a quarter's black head
+  // (B7's picture); a lit key is a value somebody chose, and it stays.
+  if (!armed && durationHighlight(host.state) === null) {
+    host.state.selectedDuration = BRACKETED_DEFAULT_DURATION
+    host.state.selectedDots = 0
   }
   // A stale note-entry accidental is not a choice made for it (the grace's rule).
   if (!armed) host.state.selectedAccidental = null

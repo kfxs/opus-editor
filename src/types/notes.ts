@@ -275,12 +275,17 @@ export interface GraceNote extends Attack {
  * (`bracketedBefore` / `bracketedAfter`) or a grace (`GraceNote.bracketedBefore`) — as a LIST, left to
  * right, the array being the only order stored (B3).
  *
- * ⚠️ What it does NOT have, on purpose: a written value (the head is black whatever its target's,
- * Gould p. 418 — B7), a stem, a beam, a dot, and a sound (B6). Nothing rhythmic ever counts it.
+ * ⭐ It HAS a written value — what its HEAD is drawn as: a half's hollow head is not a quarter's black
+ * one (B7 REVISED, his call 2026-09-23: *"it should have case a half notehead is different than a quater
+ * notehead (in this sense the grace do it write)"*). ⛔ Never counted, as a grace's is not.
+ * ⚠️ What it does NOT have, on purpose: a stem, a beam, a dot, and a sound (B6). Nothing rhythmic ever
+ * counts it.
  */
 export interface BracketedGrace {
   /** Real NotePitches with ids — one head, or several (a double-stop pre-bend): one bracket pair each. */
   pitches: NotePitch[]
+  /** What its HEAD is drawn as (B7). ⛔ Never counted. */
+  duration: NoteDuration
 }
 
 /** Which side of its main chord a grace group stands on (D2: an AFTER group is stored on the note it

@@ -40,6 +40,7 @@ import { fracAdd, fracLt, fracLte, fracToNumber } from '@/utils/fraction'
 import { slotLength } from '@/utils/durations'
 import { voiceOf } from '@/utils/lanes'
 import { findSlot } from './slotLookup'
+import { isBracketedGrace } from './bracketedGraceOps'
 import { keyStaffId, staffIndexOfId } from './staffContent'
 import * as overrideOps from './overrideOps'
 import { fillGapsWithRests } from './restFillOps'
@@ -96,6 +97,9 @@ export function clearNoteRange(score: Score, noteIds: readonly string[], deps: C
   const inPlace: string[] = []
 
   for (const id of ids) {
+    // ⭐ A BRACKETED grace leaves no hole — it takes no time — so it is deleted IN PLACE, as itself
+    //    (`deleteNoteOps`; bracketed-grace-plan P2b).
+    if (isBracketedGrace(score, id)) { inPlace.push(id); continue }
     const found = findSlot(score, id, { fanMembers: true })
     if (!found) continue
     if (found.type === 'chord' && found.member) { inPlace.push(id); continue }

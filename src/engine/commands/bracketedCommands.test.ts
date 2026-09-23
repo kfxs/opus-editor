@@ -42,6 +42,16 @@ describe('bracketedCommands', () => {
     expect(cmds.isBracketed(ids[0])).toBe(false)
   })
 
+  it('setWritten: several, ONE entry; the same value is none', () => {
+    const { ctx, cmds, host } = setup()
+    const a = cmds.add(host.id, 'before', Bb3)!
+    const b = cmds.add(host.id, 'before', D5)!
+    ctx.log.length = 0
+    expect(cmds.setWritten([a.pitches[0].id, b.pitches[0].id], 'h')).toBe(true)
+    expect(cmds.setWritten([a.pitches[0].id], 'h')).toBe(false)
+    expect(ctx.log).toEqual(['mutate:Bracketed grace value'])
+  })
+
   it('addPitch and setPitch: one entry each; the same spelling is none', () => {
     const { ctx, cmds, host } = setup()
     const a = cmds.add(host.id, 'before', Bb3)!

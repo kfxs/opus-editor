@@ -11,15 +11,15 @@ const pitch = (id: string, step: 'C' | 'D' | 'E' | 'F' | 'G' | 'A' | 'B', octave
 
 const grace = (id: string, bracketId?: string): GraceNote => ({
   pitches: [pitch(id, 'D')], duration: '8',
-  ...(bracketId && { bracketedBefore: [{ pitches: [pitch(bracketId, 'C')] }] }),
+  ...(bracketId && { bracketedBefore: [{ pitches: [pitch(bracketId, 'C')], duration: 'q' }] }),
 })
 
 const chord = (): Chord => ({
   id: 'c', type: 'chord', beat: fracCreate(0, 1), duration: 'q', measure: 1,
   notes: [pitch('n', 'E')],
   graceBefore: { notes: [grace('g1', 'bg1'), grace('g2')] },
-  bracketedBefore: [{ pitches: [pitch('b1', 'F')] }],
-  bracketedAfter: [{ pitches: [pitch('a1', 'G'), pitch('a2', 'B')] }],
+  bracketedBefore: [{ pitches: [pitch('b1', 'F')], duration: 'q' }],
+  bracketedAfter: [{ pitches: [pitch('a1', 'G'), pitch('a2', 'B')], duration: 'q' }],
   graceAfter: { notes: [grace('g3', 'bg3')] },
 })
 
@@ -31,7 +31,7 @@ describe('bracketedGraces', () => {
   it('bracketedOf: a chord answers both sides, ⛔ a GRACE answers before only (B5)', () => {
     const c = chord()
     expect(bracketedOf(c, 'after')).toBe(c.bracketedAfter)
-    const g = { ...grace('g', 'bg'), bracketedAfter: [{ pitches: [pitch('x', 'A')] }] } as GraceNote
+    const g = { ...grace('g', 'bg'), bracketedAfter: [{ pitches: [pitch('x', 'A')], duration: 'q' }] } as GraceNote
     expect(bracketedOf(g, 'before')).toBe(g.bracketedBefore)
     expect(bracketedOf(g, 'after')).toBeUndefined()
   })
@@ -41,7 +41,7 @@ describe('bracketedGraces', () => {
   })
 
   it('cloneBracketedFresh: the same heads, FRESH ids, the forced sign kept', () => {
-    const src = [{ pitches: [{ ...pitch('p', 'C'), forceAccidental: true }] }]
+    const src = [{ pitches: [{ ...pitch('p', 'C'), forceAccidental: true }], duration: 'q' as const }]
     const copy = cloneBracketedFresh(src)
     expect(copy[0].pitches[0]).toMatchObject({ step: 'C', alter: 0, octave: 4, forceAccidental: true })
     expect(copy[0].pitches[0].id).not.toBe('p')

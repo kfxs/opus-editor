@@ -30,7 +30,7 @@ export function stampBracketedAtClick(
   const measure = engine.getScore().measures.find(m => m.number === measureNumber)
   const position = engine.pixelToPosition({ x, y }, measure ? measureCapacityQuarters(measure) : 4)
   const space = registry.getStaffGeometry(position.measure, position.staff)?.lineSpacing
-  const head = bracketedGhostHead(x, state.selectedAccidental, space)
+  const head = bracketedGhostHead(x, state.selectedDuration, state.selectedAccidental, space)
   const host = nearestHost(engine, registry, position.measure, position.staff, (head.left + head.right) / 2)
   if (!host?.id) {
     dbg('· Bracketed stamp: no note near the click — no change')
@@ -48,7 +48,8 @@ export function stampBracketedAtClick(
     engine.getScore(), { measure: position.measure, beat: hostBeat, staff: position.staff }, step, octave, state.selectedAccidental,
   )
   const spelling = { step, octave, alter, ...(state.selectedAccidental === 'n' && { forceAccidental: true }) }
-  const made = engine.bracketed.add(host.id, tool.side, spelling, undefined, host.type === 'rest' ? position.beat : undefined)
+  // ⭐ Drawn as the ARMED value, as a grace is (B7 revised: a half's head is hollow).
+  const made = engine.bracketed.add(host.id, tool.side, spelling, undefined, host.type === 'rest' ? position.beat : undefined, state.selectedDuration)
   if (!made) {
     dbg(`· Bracketed stamp: note ${host.id} refused it (see bracketedGraceOps.addBracketed) — no change`)
     return true

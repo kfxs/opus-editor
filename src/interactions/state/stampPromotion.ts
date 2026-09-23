@@ -36,6 +36,7 @@ export function promoteStampToNoteEntry(state: EditorState): number {
       // nowhere to be promoted TO. Placing rests with the mouse is not a property of a note.
       return state.selectedDots
     case 'grace':
+    case 'bracketedGrace':
       // UNREACHABLE for the rest's reason: it reads the armed length, so a duration press retunes it.
       return state.selectedDots
     case 'tremolo':
@@ -51,7 +52,6 @@ export function promoteStampToNoteEntry(state: EditorState): number {
       // would also make the dialog's answer overrulable from outside it, which is the thing the
       // tool carrying its own length exists to prevent (see MarkingTool's `fan` member).
       return 0
-    case 'bracketedGrace': // it has no length to retune (B7) — a duration press ends it, like the objects below
     case 'tie':          // valueless — there is no armed entry-mode tie to become
     case 'slur':         // valueless too: a slur is a span between notes, not a property of one
     case 'ottava':       // a span too, and its length is the MUSIC's — the hairpin's answer exactly

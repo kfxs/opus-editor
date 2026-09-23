@@ -26,7 +26,7 @@ describe('stampBracketedAtClick', () => {
     ({ getByType: (type: string) => elements.filter(e => e.type === type), getStaffGeometry: () => ({ lineSpacing: 10 }) }) as unknown as ElementRegistry
   /** The POINTER x that stands the ghost's head centred on `headCentre` — judged at the ghost (his rule). */
   const aim = (headCentre: number) => {
-    const head = bracketedGhostHead(0, state.selectedAccidental, 10)
+    const head = bracketedGhostHead(0, state.selectedDuration, state.selectedAccidental, 10)
     return headCentre - (head.left + head.right) / 2
   }
   const at = (type: 'note' | 'rest', id: string, headX: number): ElementInfo =>
@@ -50,11 +50,18 @@ describe('stampBracketedAtClick', () => {
   it('⭐ puts a bracketed grace of the CLICK\'s pitch before the nearest note — one undo entry, the tool stays armed', () => {
     state.selectedMarkingTool = { kind: 'bracketedGrace', side: 'before' }
     expect(stampBracketedAtClick(state, engine, registry([at('note', hostId, 100)]), aim(90), 50, render)).toBe(true)
-    expect(chord().bracketedBefore).toEqual([{ pitches: [expect.objectContaining({ step: 'D', alter: 0, octave: 5 })] }])
+    expect(chord().bracketedBefore).toEqual([{ pitches: [expect.objectContaining({ step: 'D', alter: 0, octave: 5 })], duration: 'q' }])
     expect(render).toHaveBeenCalled()
     expect(state.selectedMarkingTool).toEqual({ kind: 'bracketedGrace', side: 'before' })
     engine.undo()
     expect('bracketedBefore' in chord()).toBe(false)
+  })
+
+  it('⭐ its head is the ARMED value — a half key lit, a hollow head (B7 revised)', () => {
+    state.selectedMarkingTool = { kind: 'bracketedGrace', side: 'before' }
+    state.selectedDuration = 'h'
+    stampBracketedAtClick(state, engine, registry([at('note', hostId, 100)]), aim(90), 50, render)
+    expect(chord().bracketedBefore![0].duration).toBe('h')
   })
 
   it('⭐ the ARMED accidental spells it — and an armed ♮ is FORCED', () => {
@@ -71,7 +78,7 @@ describe('stampBracketedAtClick', () => {
     state.selectedMarkingTool = { kind: 'bracketedGrace', side: 'before' }
     expect(stampBracketedAtClick(state, engine, registry([at('rest', restId, 40)]), aim(40), 50, render)).toBe(true)
     const rest = engine.getScore().measures[0].slots.find(s => s.id === restId)!
-    expect(rest.bracketedBefore).toEqual([{ pitches: [expect.objectContaining({ step: 'D', octave: 5 })] }])
+    expect(rest.bracketedBefore).toEqual([{ pitches: [expect.objectContaining({ step: 'D', octave: 5 })], duration: 'q' }])
   })
 
   it('⭐ on a WHOLE-BAR rest, the rest becomes a one-beat rest at the click\'s beat first (the grace\'s rule)', () => {

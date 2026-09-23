@@ -24,6 +24,7 @@ import { fracEq } from '@/utils/fraction'
 import { staffOf, voiceOf } from '@/utils/lanes'
 import { reanchorSlurs } from './slurOps'
 import { isGraceNote, removeGrace } from './graceOps'
+import { isBracketedGrace, removeBracketed } from './bracketedGraceOps'
 
 /** What the repair needs of the score — `ScoreModel` answers all of it. */
 export interface DeleteNoteModel {
@@ -65,6 +66,9 @@ export function deleteNoteWithRepair(model: DeleteNoteModel, noteId: string): bo
   // the bar, so there is nothing to repair; and no slur anchors to a grace yet (a slur on one is the
   // user's, a real one — docs/plans/grace-notes-plan.md D3, reversed 2026-09-22).
   if (isGraceNote(model.getScore(), noteId)) return removeGrace(model.getScore(), noteId)
+  // ⭐ …and a BRACKETED grace as itself, for the same reason (bracketed-grace-plan P2b). Inside a grace
+  //    group that IS the merge (B4): the split was only ever drawn.
+  if (isBracketedGrace(model.getScore(), noteId)) return removeBracketed(model.getScore(), noteId)
 
   // ⭐ A FANNED MEMBER deletes as a MEMBER, and must never reach the slot bookkeeping below: the
   // model takes the pitch out (and the member with it, when it was the last one — the group is one

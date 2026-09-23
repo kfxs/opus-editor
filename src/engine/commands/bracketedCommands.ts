@@ -5,11 +5,12 @@
  *
  * ⛔ No `mutate` on a refusal: an edit that changed nothing leaves no undo entry.
  */
-import type { BracketedGrace, Fraction, NotePitch } from '@/types/music'
+import type { BracketedGrace, Fraction, NoteDuration, NotePitch } from '@/types/music'
 import { beatRestAt } from '../models/restGraceOps'
 import type { BracketedSide } from '@/utils/bracketedGraces'
 import {
   addBracketed, addBracketedPitch, bracketedProblems, findBracketed, isBracketedGrace, removeBracketed, setBracketedPitch,
+  setBracketedWritten,
   type BracketedSpelling, type FoundBracketed,
 } from '../models/bracketedGraceOps'
 import type { CommandContext } from './commandContext'
@@ -24,9 +25,13 @@ export function bracketedCommands(ctx: CommandContext) {
      * whole-bar REST, `beat` (the click's) names the beat it belongs to: the rest becomes a one-beat rest
      * there first (`restGraceOps.beatRestAt`, the grace's rule), in the same undo entry.
      */
-    add(targetNoteId: string, side: BracketedSide, spelling: BracketedSpelling, index?: number, beat?: Fraction): BracketedGrace | null {
+    add(
+      targetNoteId: string, side: BracketedSide, spelling: BracketedSpelling, index?: number, beat?: Fraction,
+      /** What its head is drawn as (B7 revised); absent = a quarter's black head. */
+      duration?: NoteDuration,
+    ): BracketedGrace | null {
       const target = beat ? beatRestAt(score(), targetNoteId, beat)?.id ?? targetNoteId : targetNoteId
-      const made = addBracketed(score(), target, side, spelling, index)
+      const made = addBracketed(score(), target, side, spelling, index, duration)
       if (made) ctx.mutate('Add bracketed grace')
       return made
     },
@@ -43,6 +48,14 @@ export function bracketedCommands(ctx: CommandContext) {
       let changed = false
       for (const id of pitchIds) changed = removeBracketed(score(), id) || changed
       if (changed) ctx.mutate('Delete bracketed grace')
+      return changed
+    },
+
+    /** The written value of every one of these bracketed graces — ONE undo entry, none when nothing changed. */
+    setWritten(pitchIds: readonly string[], duration: NoteDuration): boolean {
+      let changed = false
+      for (const id of pitchIds) changed = setBracketedWritten(score(), id, duration) || changed
+      if (changed) ctx.mutate('Bracketed grace value')
       return changed
     },
 

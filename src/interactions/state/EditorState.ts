@@ -158,8 +158,8 @@ export type MarkingTool =
   | { kind: 'grace'; form: GraceForm; side: GraceSide }
   /**
    * ⭐ The BRACKETED grace stamp (`docs/plans/bracketed-grace-plan.md` P2): a click on a note puts a
-   * bracketed grace beside it, at the click's PITCH. ⛔ No length: the head is black whatever its
-   * target's value (B7), so the duration keys say nothing to it. `side` — ⏭️ P5 brings `after`.
+   * bracketed grace beside it, at the click's PITCH, its head drawn as the ARMED length — the grace's
+   * rule (B7 revised: a half's head is hollow). `side` — ⏭️ P5 brings `after`.
    */
   | { kind: 'bracketedGrace'; side: BracketedSide }
   /** VALUELESS — Ctrl+E with nothing selected. The click-to-type expression tool: it places a
@@ -307,7 +307,7 @@ export const DEFAULT_BEAM: BeamMode = 'auto'
 export const MARKING_TOOL_USES_ARMED_LENGTH: Record<MarkingTool['kind'], boolean> = {
   rest: true,        // a rest is nothing without a length
   grace: true,       // a grace is DRAWN as a written value (never counted), read off the lit keys like the rest's
-  bracketedGrace: false, // ⛔ it has NO written value — a black head whatever its target's (B7)
+  bracketedGrace: true, // its HEAD is drawn as a written value (B7 revised: a half is hollow), read off the lit keys like the grace's
   fan: false,        // ALSO a length — but its OWN, typed in the dialog that armed it (see the member)
   clef: false,       // the four below place OBJECTS — a length means nothing to them
   timeSignature: false,

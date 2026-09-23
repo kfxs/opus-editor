@@ -177,12 +177,13 @@ export function bracketedLayout(list: readonly BracketedGrace[], signOf: SignOf,
   const gs = form.fullSize ? 1 : k
   const L = glyphBox(form.left)
   const R = glyphBox(form.right)
-  const headWidth = noteheadInk('q') * k
   const places: BracketedPlace[] = []
   let right = -(hostReach + BRACKETED_ROWS.toMain.value)
   let leftEdge = right
   for (let i = list.length - 1; i >= 0; i--) {
     const bracketed = list[i]
+    // ⭐ Its OWN head — a half's hollow one is not a quarter's black one (B7 revised).
+    const headWidth = noteheadInk(bracketed.duration) * k
     // Relative to the head's anchor first; placed once the width is known.
     const rightParen = headWidth + form.headGap + R.left * gs
     const rightInk = rightParen + R.right * gs

@@ -40,8 +40,8 @@ const loadedChord = (): Chord => ({
   secondaryBreak: true,
   graceBefore: { notes: [{ pitches: [{ id: 'g1', step: 'D', alter: 0, octave: 4 }], duration: '8' }], slash: true },
   graceAfter: { notes: [{ pitches: [{ id: 'g2', step: 'F', alter: 1, octave: 4 }], duration: '16' }], stemDirection: 'down' },
-  bracketedBefore: [{ pitches: [{ id: 'b1', step: 'B', alter: -1, octave: 3 }] }],
-  bracketedAfter: [{ pitches: [{ id: 'b2', step: 'G', alter: 0, octave: 4, forceAccidental: true }] }],
+  bracketedBefore: [{ pitches: [{ id: 'b1', step: 'B', alter: -1, octave: 3 }], duration: 'q' }],
+  bracketedAfter: [{ pitches: [{ id: 'b2', step: 'G', alter: 0, octave: 4, forceAccidental: true }], duration: 'q' }],
   notes: [{ id: 'n1', step: 'E', alter: 0, octave: 4, forceAccidental: true }],
 })
 
@@ -113,8 +113,8 @@ describe('what the table calls CARRIED really is', () => {
   })
 
   it('bracketedBefore / bracketedAfter — the heads, the forced sign, FRESH ids (bracketed-grace-plan §1)', () => {
-    expect(noIds(piece.bracketedBefore)).toEqual([{ pitches: [{ step: 'B', alter: -1, octave: 3 }] }])
-    expect(noIds(piece.bracketedAfter)).toEqual([{ pitches: [{ step: 'G', alter: 0, octave: 4, forceAccidental: true }] }])
+    expect(noIds(piece.bracketedBefore)).toEqual([{ pitches: [{ step: 'B', alter: -1, octave: 3 }], duration: 'q' }])
+    expect(noIds(piece.bracketedAfter)).toEqual([{ pitches: [{ step: 'G', alter: 0, octave: 4, forceAccidental: true }], duration: 'q' }])
     expect(piece.bracketedBefore![0].pitches[0].id).not.toBe('b1')
   })
 

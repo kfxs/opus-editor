@@ -1621,6 +1621,7 @@ describe('PaletteController — dot stamp tool', () => {
       getNote: (id: string) => notes[id] ?? null,
       updateNote,
       isGraceNote: () => false,
+      bracketed: { isBracketed: () => false },
       runBatch: (_label: string, fn: () => void) => fn(),
     } as unknown as import('../../engine/MusicEngine').MusicEngine
     palette = new PaletteController(

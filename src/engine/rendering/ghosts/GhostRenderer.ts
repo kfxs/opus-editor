@@ -532,7 +532,7 @@ export const GHOST_DRAWERS: {
   rest: (ctx, svg, x, y, g) => drawRestGhost(ctx, svg, x, y, g.duration, g.dots, g.color),
   fan: (ctx, svg, x, y, g) => drawFanGhost(ctx, svg, x, y, g.duration, g.dots),
   grace: (ctx, svg, x, y, g, staff) => drawGraceGhost(ctx, svg, x, y, g.duration, g.slash, g.accidental, staff, g.dots, g.articulations),
-  bracketedGrace: (ctx, svg, x, y, g, staff) => drawBracketedGhost(ctx, svg, x, y, g.accidental, staff),
+  bracketedGrace: (ctx, svg, x, y, g, staff) => drawBracketedGhost(ctx, svg, x, y, g.duration, g.accidental, staff),
   trill: (ctx, _svg, x, y) => drawTrillGhost(ctx, x, y),
   ottava: (ctx, _svg, x, y, g) => drawOttavaGhost(ctx, x, y, g.shift),
   pedal: (ctx, _svg, x, y) => drawPedalGhost(ctx, x, y),

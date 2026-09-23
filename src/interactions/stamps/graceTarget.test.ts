@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { ScoreModel } from '@/engine/models/ScoreModel'
 import { addGrace, isGraceNote } from '@/engine/models/graceOps'
+import { isBracketedGrace } from '@/engine/models/bracketedGraceOps'
 import { fracCreate as frac } from '@/utils/fraction'
 import type { ElementInfo, ElementRegistry } from '../../engine/ElementRegistry'
 import type { MusicEngine } from '../../engine/MusicEngine'
@@ -26,7 +27,10 @@ function setup() {
     getByType: (type: string) => entries.filter(el => el.type === type),
     getStaffGeometry: () => ({ lineSpacing: 10 }),
   } as unknown as ElementRegistry
-  const engine = { getScore: () => score, isGraceNote: (id: string) => isGraceNote(score, id) } as unknown as MusicEngine
+  const engine = {
+    getScore: () => score, isGraceNote: (id: string) => isGraceNote(score, id),
+    bracketed: { isBracketed: (id: string) => isBracketedGrace(score, id) },
+  } as unknown as MusicEngine
   const at = (x: number) => graceTargetAt(engine, registry, 1, 0, x)
   return { c, e, graces, at }
 }

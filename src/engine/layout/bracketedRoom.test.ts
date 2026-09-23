@@ -13,7 +13,7 @@ import type { BracketedGrace, Chord, NotePitch } from '@/types/music'
  * the before side takes (docs/plans/bracketed-grace-plan.md P1). Pure arithmetic on the metric tables.
  */
 const pitch = (id: string, step: NotePitch['step'], octave: number, alter: NotePitch['alter'] = 0): NotePitch => ({ id, step, alter, octave })
-const one = (p: NotePitch): BracketedGrace => ({ pitches: [p] })
+const one = (p: NotePitch): BracketedGrace => ({ pitches: [p], duration: 'q' })
 const none = () => null
 
 afterEach(() => resetBracketed())

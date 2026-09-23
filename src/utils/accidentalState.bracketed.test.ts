@@ -17,14 +17,14 @@ describe('displayedAccidentals — bracketed pitches', () => {
   it('⭐ it READS the bar: a bracketed F after an F♯ shows its ♮', () => {
     const signs = displayedAccidentals([
       chord('a', 0, [p('fs', 'F', 1)]),
-      chord('b', 1, [p('g', 'G')], { bracketedBefore: [{ pitches: [p('bf', 'F')] }] }),
+      chord('b', 1, [p('g', 'G')], { bracketedBefore: [{ pitches: [p('bf', 'F')], duration: 'q' }] }),
     ], C_MAJOR)
     expect(signs.get('bf')).toBe('n')
   })
 
   it('⭐⛔ it WRITES nothing: after a bracketed B♭, the bar\'s next B♭ still shows its flat', () => {
     const signs = displayedAccidentals([
-      chord('a', 0, [p('g', 'G')], { bracketedBefore: [{ pitches: [p('bb', 'B', -1)] }] }),
+      chord('a', 0, [p('g', 'G')], { bracketedBefore: [{ pitches: [p('bb', 'B', -1)], duration: 'q' }] }),
       chord('b', 1, [p('main', 'B', -1)]),
     ], C_MAJOR)
     expect(signs.get('bb')).toBe('b')
@@ -33,7 +33,7 @@ describe('displayedAccidentals — bracketed pitches', () => {
 
   it('…and it writes nothing AFTER its note either — the trill note\'s side', () => {
     const signs = displayedAccidentals([
-      chord('a', 0, [p('c', 'C')], { bracketedAfter: [{ pitches: [p('after', 'D', 1)] }] }),
+      chord('a', 0, [p('c', 'C')], { bracketedAfter: [{ pitches: [p('after', 'D', 1)], duration: 'q' }] }),
       chord('b', 1, [p('d', 'D', 1)]),
     ], C_MAJOR)
     expect(signs.get('after')).toBe('#')
@@ -43,7 +43,7 @@ describe('displayedAccidentals — bracketed pitches', () => {
   it('a bracketed grace bent into a GRACE is read before that grace', () => {
     const signs = displayedAccidentals([
       chord('a', 0, [p('c', 'C')], {
-        graceBefore: { notes: [{ pitches: [p('g', 'E', -1)], duration: '8', bracketedBefore: [{ pitches: [p('bg', 'E')] }] }] },
+        graceBefore: { notes: [{ pitches: [p('g', 'E', -1)], duration: '8', bracketedBefore: [{ pitches: [p('bg', 'E')], duration: 'q' }] }] },
       }),
     ], C_MAJOR)
     // Read BEFORE the grace's E♭ is in force: a plain E in C major shows nothing.
