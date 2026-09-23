@@ -483,6 +483,13 @@ selectable in this plan; the press toggles it (§3.2).
   grace first, draws a beamed stem to its beam with NO flag, and each beam in its own `gracebeam` group
   outside every `gracenote` · `graceRoom.graceDotXs(note, beamed)`. ✅ Its slash: P2c.
 
+  ⭐ **…and the beam KEYS on a grace** (2026-09-23, his report: *"the grace group is not responding to the
+  beaming of the beam palette, it should be posible to do this similar to normal notes"*). `GraceNote.beam`
+  (absent = auto) is written by the beam keys through `updateNote`'s grace branch (`graceOps.setGraceBeam`),
+  and `graceBeamRuns` honours it: `single` never beams, `begin` starts a beam, `end` closes it, `continue`
+  joins the grace before it — even across a bracketed grace's split. The keys light from the grace's ROLE
+  in its group (`models/beamRoleOps` — `ScoreModel.getBeamRole`'s body, extracted so the grace had a home).
+
   **P2c — the SLASH on a beam.** ✅ BUILT 2026-09-22, ⏳ his UI check. ⭐ A PRESET TABLE, his call (*"lets
   try musescore numbers, and if not we can always go back … presets so the user can change it"*), after
   reading the three engines' SOURCES (⛔ not VexFlow — *"those are the professional engines"*):

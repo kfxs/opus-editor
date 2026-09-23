@@ -12,7 +12,8 @@ import {
   sameTimeSignature,
 } from '@/utils/meter'
 import { fillRests } from '@/utils/restFill'
-import { beamRoleAtRef, type BeamRole } from '@/utils/beaming'
+import { type BeamRole } from '@/utils/beaming'
+import { beamRoleOf } from './beamRoleOps'
 import { fanMemberPitches, fanMemberBeats } from '@/utils/fannedBeam'
 import { alterToString } from '@/utils/pitchSpelling'
 import type { Clip, ClipTarget } from '@/utils/clip'
@@ -2227,22 +2228,9 @@ export class ScoreModel {
    * not the `end` its own bar would call it.
    */
   getBeamRole(noteId: string): BeamRole | null {
-    const measureIndex = this.score.measures.findIndex(m => m.slots.some(s =>
-      s.type === 'rest' ? s.id === noteId : s.notes.some(n => n.id === noteId)))
-    if (measureIndex === -1) return null
-
-    const slot = this.score.measures[measureIndex].slots.find(s =>
-      s.type === 'rest' ? s.id === noteId : s.notes.some(n => n.id === noteId))!
-    if (slot.type === 'rest') return null
-
-    const bars = this.score.measures.map(measure => ({
-      slots: measure.slots
-        .filter(s => matchesStaff(s.staffId, slot.staffId, this.score) && voiceOf(s) === voiceOf(slot))
-        .sort((a, b) => fracCompare(a.beat, b.beat)),
-      meter: getMeterInfo(measure.timeSignature),
-    }))
-    return beamRoleAtRef(bars, { bar: measureIndex, slot: bars[measureIndex].slots.indexOf(slot) })
+    return beamRoleOf(this.score, noteId)
   }
+
 
   /** Flip the side (above/below) of the articulations on the slot containing `noteId`. See {@link markOps.flipArticulationPlacement} for the why. */
   flipArticulationPlacement(noteId: string): Note | null {

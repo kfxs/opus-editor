@@ -331,3 +331,19 @@ describe('GracePass — STEMS DOWN (P6, `X`)', () => {
     expect(glyphs(sceneGroups(down, GRACE_BEAM_GROUP)[0])).toEqual([String.fromCodePoint(GLYPH_CODEPOINTS.graceNoteSlashStemDown)])
   })
 })
+
+describe('GracePass — the AUTHORED beam (his report, 2026-09-23: "similar to normal notes")', () => {
+  it('⭐ a `begin` in a beamed group splits it into two beams; `auto` joins it again', () => {
+    const model = new ScoreModel()
+    model.addMeasure()
+    const host = model.addNote({ step: 'E', octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const graces = (['G', 'A', 'B', 'C'] as const).map(step =>
+      addGrace(model.getScore(), host.id, 'before', { step, alter: 0, octave: step === 'C' ? 5 : 4 }, 'appoggiatura', { duration: '8' })!)
+    const beams = () => sceneGroups(sceneGroups(render(model).scene, GRACE_GROUP)[0], GRACE_BEAM_GROUP).length
+    expect(beams()).toBe(1)
+    graces[2].beam = 'begin'
+    expect(beams()).toBe(2)
+    delete graces[2].beam
+    expect(beams()).toBe(1)
+  })
+})

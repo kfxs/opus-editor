@@ -18,6 +18,19 @@ describe('graceBeamRuns', () => {
     expect(isBeamedGrace(d('8', '8', 'q'), 2)).toBe(false)
   })
 
+  it('⭐ the AUTHORED beam, as a note\'s: single never beams, begin starts, end closes (his report)', () => {
+    const e = (beam?: 'single' | 'begin' | 'continue' | 'end') => ({ duration: '8' as const, ...(beam && { beam }) })
+    expect(graceBeamRuns([e(), e('single'), e(), e()])).toEqual([[2, 3]])
+    expect(graceBeamRuns([e(), e(), e('begin'), e()])).toEqual([[0, 1], [2, 3]])
+    expect(graceBeamRuns([e(), e('end'), e(), e()])).toEqual([[0, 1], [2, 3]])
+    expect(graceBeamRuns([e(), e(), e()])).toEqual([[0, 1, 2]]) // auto: unchanged
+  })
+
+  it('⭐ `continue` joins across a bracketed grace\'s split — the one break the author can overrule', () => {
+    const notes = [{ duration: '8' as const }, { duration: '8' as const, bracketedBefore: [{}], beam: 'continue' as const }]
+    expect(graceBeamRuns(notes)).toEqual([[0, 1]])
+  })
+
   it('⭐ B4: a grace carrying a BRACKETED grace starts a new run — the split is drawn, not stored', () => {
     const notes = [{ duration: '8' as const }, { duration: '8' as const }, { duration: '8' as const, bracketedBefore: [{}] }, { duration: '8' as const }]
     expect(graceBeamRuns(notes)).toEqual([[0, 1], [2, 3]])

@@ -10,7 +10,7 @@
  * real id, so those go through `attackOf` and `ScoreModel.updateNote` exactly as a fan member's do.
  */
 import { v4 as uuidv4 } from 'uuid'
-import type { Chord, GraceGroup, GraceNote, GraceSide, NoteDuration, NotePitch, PitchSpelling, Rest, Score } from '@/types/music'
+import type { BeamMode, Chord, GraceGroup, GraceNote, GraceSide, NoteDuration, NotePitch, PitchSpelling, Rest, Score } from '@/types/music'
 import { dbg } from '@/utils/debug'
 import { GRACE_SIDES, graceGroupOf, graceKey } from '@/utils/graceNotes'
 import { chordStoredPitches } from '@/utils/fannedBeam'
@@ -331,4 +331,21 @@ export function graceProblems(score: Score): string[] {
     }
   }
   return problems
+}
+
+/**
+ * ⭐ A grace's authored BEAM statement — a beam key with it selected (his report, 2026-09-23: *"the grace group
+ * is not responding to the beaming of the beam palette"*). `auto` DELETES it (absent is the only spelling of
+ * the default — the width-cache key's reason). @returns whether it changed.
+ */
+export function setGraceBeam(score: Score, pitchId: string, beam: BeamMode): boolean {
+  const found = findSlot(score, pitchId, { graceNotes: true })
+  const grace = found?.grace?.note
+  if (!grace) return false
+  const next = beam === 'auto' ? undefined : beam
+  if (grace.beam === next) return false
+  if (next) grace.beam = next
+  else delete grace.beam
+  dbg(`[graceOps.setGraceBeam] ${grace.pitches[0]?.step}${grace.pitches[0]?.octave} → ${beam}`)
+  return true
 }

@@ -58,6 +58,7 @@ function copyGraceNote(note: GraceNote): GraceNote {
     duration: note.duration,
   }
   if (note.dots) out.dots = note.dots
+  if (note.beam) out.beam = note.beam
   if (note.articulations?.length) out.articulations = [...note.articulations]
   if (note.articulationPlacement) out.articulationPlacement = note.articulationPlacement
   // ⭐ The bracketed graces bent INTO this one travel with it, fresh ids too (bracketed-grace-plan §1).

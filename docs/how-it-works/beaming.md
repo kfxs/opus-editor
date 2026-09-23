@@ -39,6 +39,14 @@ Beaming does **not** depend on clef — a beam group may span a mid-measure clef
 | `continue` | this note is in the middle of a beam — **beamed on both sides** |
 | `end` | close the group after this note |
 
+⭐ **A GRACE takes the same four, inside its own group** (2026-09-23 — `GraceNote.beam`, absent = auto,
+`docs/plans/grace-notes-plan.md` P2b). A grace group's auto rule is simpler than the meter's —
+consecutive flagged graces share one beam (`engrave/notes/graceBeam.graceBeamRuns`) — and the four override
+it the same way: `single` out of any beam, `begin` a beam starts here, `end` it closes after this grace,
+`continue` joined to the grace before it, ⭐ even across a bracketed grace, which otherwise splits the
+group's beam. It never reaches the main note's beam. The keys light from the grace's ROLE in its group
+(`engine/models/beamRoleOps`), as they do from a note's in its lane.
+
 ### `continue` is symmetric (fixed 2026-07-24)
 
 A note marked `continue` has a beam coming in *and* a beam going out. That is what the word means,

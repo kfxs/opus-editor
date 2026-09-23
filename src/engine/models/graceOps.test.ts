@@ -383,3 +383,19 @@ describe('graceOps.setGraceWritten — a grace\'s written value (plan §3)', () 
     expect(graceOps.setGraceWritten(model.getScore(), host.id, { duration: '16' })).toBe(false)
   })
 })
+
+describe('graceOps.setGraceBeam — the beam keys on a grace (his report, 2026-09-23)', () => {
+  it('writes the statement, `auto` deletes it, the same value is no change', () => {
+    const model = new ScoreModel()
+    const note = model.addNote({ step: 'E', octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const g = graceOps.addGrace(model.getScore(), note.id, 'before', { step: 'D', alter: 0, octave: 5 }, 'appoggiatura', { duration: '8' })!
+    const id = g.pitches[0].id
+    expect(graceOps.setGraceBeam(model.getScore(), id, 'single')).toBe(true)
+    expect(g.beam).toBe('single')
+    expect(model.getNote(id)?.beam).toBe('single') // what the keys read back
+    expect(graceOps.setGraceBeam(model.getScore(), id, 'single')).toBe(false)
+    expect(graceOps.setGraceBeam(model.getScore(), id, 'auto')).toBe(true)
+    expect('beam' in g).toBe(false)
+    expect(graceOps.setGraceBeam(model.getScore(), note.id, 'single')).toBe(false) // ⛔ not a grace
+  })
+})

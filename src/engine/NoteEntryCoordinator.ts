@@ -21,7 +21,7 @@ import { addSplitNoteWithTie, splitChordWithTie } from './models/spanningNoteOps
 import { ElementRegistry } from './ElementRegistry'
 import type { ElementInfo } from './ElementRegistry'
 import { staffOf, voiceOf } from '@/utils/lanes'
-import { isGraceNote, setGraceWritten } from './models/graceOps'
+import { isGraceNote, setGraceBeam, setGraceWritten } from './models/graceOps'
 import { isBracketedGrace, setBracketedWritten } from './models/bracketedGraceOps'
 
 const CLOSE_THRESHOLD = 25
@@ -486,6 +486,8 @@ export class NoteEntryCoordinator {
     // written value is its own (`graceOps.setGraceWritten`); the spelling and marks are the model's.
     if (isGraceNote(this.getScoreModel().getScore(), noteId)) {
       setGraceWritten(this.getScoreModel().getScore(), noteId, { duration: updates.duration, dots: updates.dots })
+      // ⭐ …and its BEAM statement, within its group — the beam keys, as on a note (his report, 2026-09-23).
+      if (updates.beam) setGraceBeam(this.getScoreModel().getScore(), noteId, updates.beam)
       const updated = this.getScoreModel().updateNote(noteId, updates)
       this.onCommit('Update grace note')
       return updated

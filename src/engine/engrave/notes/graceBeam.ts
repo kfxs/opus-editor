@@ -12,7 +12,7 @@
  *
  * ⛔ **Never joined to the principal** (all three engines, research §0.4): a run is graces only.
  */
-import type { NoteDuration } from '@/types/music'
+import type { BeamMode, NoteDuration } from '@/types/music'
 import { NOTE_DURATION_ROWS } from '../inheritedDefaults'
 import { beamRiseCap, type BeamSlopeRuleName } from '../beams/beamSlope'
 import { beamLineYAt, fitBeamSlope } from '../beams/beamSlopeFit'
@@ -65,18 +65,33 @@ export interface GraceBeam {
  * `NOTE_DURATION_ROWS[d].flag`); a quarter, half or whole breaks the run, and a run of one keeps its
  * flag. @returns each run's indexes into the group, two or more long.
  *
+ * ⭐ **The AUTHORED beam is honoured** (`GraceNote.beam`: single / begin / continue / end — the beam keys').
+ *
  * ⭐ **A grace carrying a BRACKETED grace starts a new run** (`docs/plans/bracketed-grace-plan.md` B4, his
  * call: *"the bracket break the group so now there are two groups … it makes sense that we have diferent
  * beaming"*). The split is DRAWN, not stored: the group stays one, so removing the bracket joins the
  * beam again with nothing owed.
  */
-export function graceBeamRuns(notes: readonly { duration: NoteDuration; bracketedBefore?: readonly unknown[] }[]): number[][] {
+export function graceBeamRuns(
+  notes: readonly { duration: NoteDuration; bracketedBefore?: readonly unknown[]; beam?: BeamMode }[],
+): number[][] {
   const runs: number[][] = []
   let run: number[] = []
   notes.forEach((note, i) => {
-    if (note.bracketedBefore?.length && run.length) {
+    // ⭐ The AUTHORED beam, as a note's (his report, 2026-09-23): `begin` / `single` break in front of this
+    //    grace, an `end` / `single` on the one before breaks behind it — and `continue` overrides the
+    //    bracketed grace's split, joining the grace before it anyway.
+    const prev = i > 0 ? notes[i - 1].beam : undefined
+    const split = !!note.bracketedBefore?.length && note.beam !== 'continue'
+    const breakHere = split || note.beam === 'begin' || note.beam === 'single' || prev === 'end' || prev === 'single'
+    if (breakHere && run.length) {
       if (run.length > 1) runs.push(run)
       run = []
+    }
+    if (note.beam === 'single') {
+      if (run.length > 1) runs.push(run)
+      run = []
+      return
     }
     if (NOTE_DURATION_ROWS[note.duration].flag) run.push(i)
     else {

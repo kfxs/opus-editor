@@ -124,6 +124,8 @@ export function projectGraceNote(note: Note, pitch: NotePitch, grace: GraceNote)
   if (grace.dots) note.dots = grace.dots
   else delete note.dots
   for (const k of ['fan', 'beam', 'secondaryBreak', 'fractionalBeamSide', 'tremolo', 'tremoloPair', 'tremoloPairStyle', 'actualDuration', 'articulationStemAlign', 'stemDirection'] as const) delete note[k]
+  // ⭐ …but ITS OWN beam statement, within its group — what the beam keys read back.
+  if (grace.beam) note.beam = grace.beam
   projectAttackMarks(note, grace)
   return note
 }

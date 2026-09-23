@@ -1371,6 +1371,11 @@ two hubs it touched FELL by extraction — `PaletteController` 449 → **427** (
 `interactions/state/stampPromotion`), `MouseController` 282 → **277**, lines 1100 → **1076** (the articulation
 stamp → `interactions/stamps/articulationStamp`).*
 
+*⭐ **…and a ceiling FELL by extraction (2026-09-23, the grace's beam keys).** The grace's beam ROLE needed a
+home, and `ScoreModel.getBeamRole` was at its ceiling. Rather than grow it, its whole body went to
+`engine/models/beamRoleOps.beamRoleOf` — the grace branch with it — and the hub keeps a one-line delegation:
+`ScoreModel` 916 → **915**.*
+
 ---
 
 ## 4. Not worth doing

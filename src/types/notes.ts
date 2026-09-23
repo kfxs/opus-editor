@@ -259,6 +259,14 @@ export interface GraceNote extends Attack {
   duration: NoteDuration
   /** Absent, never 0 — `laneFingerprint` stringifies the slot for the width-cache key. */
   dots?: number
+  /**
+   * ⭐ Its authored BEAM statement within its group — the beam keys' four, as a note's (his report,
+   * 2026-09-23: *"the grace group is not responding to the beaming of the beam palette"*). Absent = auto:
+   * consecutive flagged graces share a beam (`engrave/notes/graceBeam.graceBeamRuns`). `single` never beams,
+   * `begin` starts a beam here, `end` closes it here, `continue` joins the grace before it — even across a
+   * bracketed grace, which otherwise splits the beam (B4).
+   */
+  beam?: Exclude<BeamMode, 'auto'>
   /** ⭐ The BRACKETED graces bent into THIS grace — the pre-bend into the first appoggiatura
    *  (`docs/plans/bracketed-grace-plan.md` B2). BEFORE only on a grace (B5). ⚠️ Inside a group, a grace
    *  carrying one starts a new beam run: the split is DRAWN, not stored (B4). Absent, never `[]`. */
