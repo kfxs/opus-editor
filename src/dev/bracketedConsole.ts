@@ -1,6 +1,7 @@
 /**
  * 🔧 **`__bracketed` — the P0 door onto BRACKETED graces** (`docs/plans/bracketed-grace-plan.md` P0).
- * Nothing draws them yet (P1), so this is how the model is poked and its round trip proved:
+ * No stamp enters one yet (P2), so this is how the model is poked, its round trip proved, and — since
+ * P1 — its looks tried:
  *
  * ```js
  *   // select a note (or a grace) first — or pass its pitch id as the last argument
@@ -9,22 +10,35 @@
  *   __bracketed.list()                 // every one in the score, where it hangs
  *   __bracketed.remove(pitchId)        // one undo entry
  *   __bracketed.roundTrip()            // export → load → the same lists? (ids and all)
+ *
+ *   // ⭐ P1 — what it LOOKS like (layout/bracketedRoom), rows for his eye:
+ *   __bracketed.size('gouldTrill')     // house · gouldTrill · gouldBend · musescore · lilypond · sibelius, or 0.3–1
+ *   __bracketed.form('gould')          // 'notehead' (SMuFL's, at the head's size) · 'gould' (full-size, as measured)
+ *   __bracketed.reset()
  * ```
  *
  * ⛔ **SCAFFOLDING, and it deletes cleanly**: it calls `engine.bracketed` and nothing else; `App.ts`
- * wires it. ⏭️ Goes when P2's stamp can enter one by hand.
+ * wires it. ⏭️ Its entry half goes when P2's stamp can enter one by hand; its looks half when his eye has
+ * chosen (the winner becomes the `house` row, the `dev/graceConsole` contract).
  */
 import { dbg } from '@/utils/debug'
 import type { MusicEngine } from '@/engine/MusicEngine'
 import type { BracketedGrace, PitchSpelling, Score } from '@/types/music'
 import { BRACKETED_SIDES, bracketedOf, type BracketedSide } from '@/utils/bracketedGraces'
 import { GRACE_SIDES, graceGroupOf } from '@/utils/graceNotes'
+import {
+  BRACKETED_SIZE_RULES, BRACKET_FORMS, bracketedSettings, resetBracketed, setBracketForm, setBracketedSize,
+  type BracketFormName, type BracketedSizeRuleName,
+} from '@/engine/layout/bracketedRoom'
 
 export interface BracketedConsole {
   add(side: BracketedSide, spelling: string, targetNoteId?: string): string | null
   remove(pitchId: string): boolean
   list(): string[]
   roundTrip(): boolean
+  size(rule: BracketedSizeRuleName | number): ReturnType<typeof bracketedSettings>
+  form(form: BracketFormName): ReturnType<typeof bracketedSettings>
+  reset(): ReturnType<typeof bracketedSettings>
 }
 
 const ALTERS: Record<string, PitchSpelling['alter']> = { '': 0, '#': 1, '##': 2, b: -1, bb: -2, n: 0 }
@@ -60,8 +74,30 @@ function describe(score: Score): string[] {
 export function bracketedConsole(deps: {
   getEngine: () => MusicEngine | null
   selectedNoteId: () => string | null
+  render: () => void
 }): BracketedConsole {
+  const report = () => {
+    const s = bracketedSettings()
+    dbg(`[bracketed] size ${s.size} = ${s.scale.toFixed(3)} · brackets '${s.form}' (${BRACKET_FORMS[s.form].source})`)
+    return s
+  }
   return {
+    size: (rule) => {
+      // ⛔ A typo that looked like it worked would be the worst possible instrument.
+      if (!setBracketedSize(rule)) dbg(`[bracketed] ⛔ no such size: ${rule} — try ${Object.keys(BRACKETED_SIZE_RULES).map(n => `'${n}'`).join(', ')}, or 0.3–1`)
+      else deps.render()
+      return report()
+    },
+    form: (form) => {
+      if (!setBracketForm(form)) dbg(`[bracketed] ⛔ no such form: ${form} — try ${Object.keys(BRACKET_FORMS).map(n => `'${n}'`).join(', ')}`)
+      else deps.render()
+      return report()
+    },
+    reset: () => {
+      resetBracketed()
+      deps.render()
+      return report()
+    },
     add: (side, text, targetNoteId) => {
       const engine = deps.getEngine()
       const target = targetNoteId ?? deps.selectedNoteId()
@@ -72,10 +108,15 @@ export function bracketedConsole(deps: {
       }
       const made = engine.bracketed.add(target, side, spelling)
       if (!made) return null
-      dbg(`[bracketed] + ${side} ${text} → ${made.pitches[0].id} (nothing is drawn until P1)`)
+      deps.render()
+      dbg(`[bracketed] + ${side} ${text} → ${made.pitches[0].id}${side === 'after' ? ' (the AFTER side is not drawn until P5)' : ''}`)
       return made.pitches[0].id
     },
-    remove: (pitchId) => deps.getEngine()?.bracketed.remove([pitchId]) ?? false,
+    remove: (pitchId) => {
+      const removed = deps.getEngine()?.bracketed.remove([pitchId]) ?? false
+      if (removed) deps.render()
+      return removed
+    },
     list: () => {
       const engine = deps.getEngine()
       const lines = engine ? describe(engine.getScore()) : []

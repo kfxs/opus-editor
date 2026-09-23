@@ -39,7 +39,8 @@ import { C_MAJOR, type StaffKeys } from '@/utils/keySignature'
 import { INK, INK_HEIGHT, STEM_REACH, accidentalExtent, accidentalHeight, dotExtent, pairPadding, restBand, restExtent } from './spacingPadding'
 import { edgeKind, mergedReach, type InkBox } from './kerning'
 import type { Column } from './spacing'
-import { graceLayout, graceScale, graceStemSpaces, hostLeftReach } from './graceRoom'
+import { graceScale, graceStemSpaces, hostLeftReach } from './graceRoom'
+import { beforeSideLayout } from './bracketedRoom'
 
 /** Canonical key for an exact beat — `fracCreate` reduces, so equal beats stringify equally. */
 const beatKey = (beat: Fraction): string => `${beat.num}/${beat.den}`
@@ -248,21 +249,41 @@ function slotInk(slot: ChordRest, signs: Map<string, string | null>, clef: Clef,
  * (`layout/graceRoom`, the same function the drawing places the heads with). Its band is the graces'
  * heads up to their stems' tips: a grace's stem is always up (research §0.4). The host is a chord, or
  * a REST (D7 reversed), whose own left ink is nothing.
+ *
+ * ⭐ …and so are the BRACKETED graces standing between the group and the host
+ * (`layout/bracketedRoom.beforeSideLayout` — the one answer the drawing reads too): ONE box for the
+ * whole before side, its band the brackets' too.
  */
 function graceInk(slot: ChordRest, host: NotePitch[], signs: Map<string, string | null>, clef: Clef, staff: string | undefined): RawInk {
+  const bracketedList = slot.type === 'chord' ? slot.bracketedBefore : undefined
   const graces = slot.graceBefore
-  if (!graces) return []
+  if (!graces && !bracketedList?.length) return []
   const signOf = (id: string) => signs.get(id)
   const lineOf = (pitch: NotePitch) => staffLineForSpelling(pitch.step, pitch.octave, clef)
-  const { reach } = graceLayout(graces, signOf, clef, hostLeftReach(host, signOf, clef))
-  const ys = graces.notes.flatMap(note => note.pitches.map(p => yOfLine(lineOf(p))))
-  if (ys.length === 0) return []
+  const side = beforeSideLayout(slot, signOf, clef, hostLeftReach(host, signOf, clef))
+  const tops: number[] = []
+  const bottoms: number[] = []
+  if (graces) {
+    const ys = graces.notes.flatMap(note => note.pitches.map(p => yOfLine(lineOf(p))))
+    if (ys.length) {
+      // The tallest stem of the group — a grace on low ledgers grows one (Gould p. 126).
+      tops.push(Math.min(...ys) - Math.max(...graces.notes.map(note => graceStemSpaces(note.pitches.map(lineOf)))))
+      bottoms.push(Math.max(...ys) + INK_HEIGHT.notehead * graceScale())
+    }
+  }
+  if (side.bracketed) {
+    const ys = side.bracketed.places.flatMap(place => place.heads.map(h => yOfLine(h.line)))
+    if (ys.length) {
+      tops.push(Math.min(...ys) - side.bracketed.up)
+      bottoms.push(Math.max(...ys) + side.bracketed.down)
+    }
+  }
+  if (tops.length === 0) return []
   return [{
-    left: reach,
+    left: side.reach,
     right: 0,
-    // The tallest stem of the group — a grace on low ledgers grows one (Gould p. 126).
-    top: Math.min(...ys) - Math.max(...graces.notes.map(note => graceStemSpaces(note.pitches.map(lineOf)))),
-    bottom: Math.max(...ys) + INK_HEIGHT.notehead * graceScale(),
+    top: Math.min(...tops),
+    bottom: Math.max(...bottoms),
     kind: 'grace',
     staff,
   }]

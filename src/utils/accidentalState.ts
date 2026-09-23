@@ -126,7 +126,9 @@ export function displayedAccidentals(slots: ChordRest[], key: KeySignature): Map
   // absent from the map falls back to the KEY SIGNATURE — never pre-filled from it, see the header.
   const active = new Map<number, PitchAlter>()
 
-  const decide = (p: NotePitch): void => {
+  /** `write` = false: a BRACKETED pitch — its sign is read against what is in force, ⛔ and it puts
+   *  nothing in force (docs/plans/bracketed-grace-plan.md B6: information, not an attack). */
+  const decide = (p: NotePitch, write = true): void => {
     if (p.tiedFrom) {
       signs.set(p.id, null) // a tied continuation re-states nothing
       return
@@ -141,13 +143,13 @@ export function displayedAccidentals(slots: ChordRest[], key: KeySignature): Map
       } else {
         signs.set(p.id, alterToString(p.alter))
       }
-      active.set(dPos, p.alter)
+      if (write) active.set(dPos, p.alter)
     } else if (governing !== 0) {
       signs.set(p.id, 'n') // cancel what is in force here — an earlier accidental, or the key
-      active.set(dPos, 0)
+      if (write) active.set(dPos, 0)
     } else if (p.forceAccidental) {
       signs.set(p.id, 'n') // a courtesy natural, asked for explicitly
-      active.set(dPos, 0)
+      if (write) active.set(dPos, 0)
     } else {
       signs.set(p.id, null)
     }
@@ -156,18 +158,31 @@ export function displayedAccidentals(slots: ChordRest[], key: KeySignature): Map
   for (const slot of slots) {
     // A grace written before a REST (D7 reversed) is a note in the bar like any other.
     if (slot.type === 'rest') {
-      for (const note of slot.graceBefore?.notes ?? []) for (const p of note.pitches) decide(p)
+      for (const note of slot.graceBefore?.notes ?? []) {
+        for (const b of note.bracketedBefore ?? []) for (const p of b.pitches) decide(p, false)
+        for (const p of note.pitches) decide(p)
+      }
       continue
     }
     // ⭐ A GRACE is a note in the bar too, walked where it sounds: the group BEFORE, the main
     //   chord, then the group AFTER — MuseScore's order (`dom/chord.cpp:1170-1225`, research
     //   `docs/research/grace-notes-research.md` §B.3.9). So a grace's sign holds into its main note
     //   and on through the bar. ⚠️ A default (no book on disk states it), his to change.
-    for (const note of slot.graceBefore?.notes ?? []) for (const p of note.pitches) decide(p)
+    // ⭐ A BRACKETED pitch is walked where it STANDS — before its grace, before its chord, after it —
+    //   and read-only (`decide(p, false)`, B6).
+    for (const note of slot.graceBefore?.notes ?? []) {
+      for (const b of note.bracketedBefore ?? []) for (const p of b.pitches) decide(p, false)
+      for (const p of note.pitches) decide(p)
+    }
+    for (const b of slot.bracketedBefore ?? []) for (const p of b.pitches) decide(p, false)
     for (const p of slot.notes) decide(p)
     // The fan's other members, in the order they sound — inside this slot, before the next one.
     for (const member of slot.fan?.members ?? []) for (const p of member.pitches) decide(p)
-    for (const note of slot.graceAfter?.notes ?? []) for (const p of note.pitches) decide(p)
+    for (const b of slot.bracketedAfter ?? []) for (const p of b.pitches) decide(p, false)
+    for (const note of slot.graceAfter?.notes ?? []) {
+      for (const b of note.bracketedBefore ?? []) for (const p of b.pitches) decide(p, false)
+      for (const p of note.pitches) decide(p)
+    }
   }
   return signs
 }

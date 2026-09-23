@@ -944,7 +944,7 @@ export function createEditorApp(host: HTMLElement): EditorApp {
     w.__grace = graceConsole(() => renderer.renderScore())
     // 🔧 P0 of the BRACKETED grace (docs/plans/bracketed-grace-plan.md) — the model, poked by hand
     // before anything draws it (src/dev/bracketedConsole.ts).
-    w.__bracketed = bracketedConsole({ getEngine: () => engine, selectedNoteId: () => state.selectedNoteId })
+    w.__bracketed = bracketedConsole({ getEngine: () => engine, selectedNoteId: () => state.selectedNoteId, render: () => renderer.renderScore() })
     // ⭐ 2026-09-21 — a BENT STAFF's machinery, in its own draggable panel, drawn LIVE from the open
     // score: a staff is a path, a note a rigid block placed on it (docs/plans/bent-staff-plan.md A; src/dev/spineConsole.ts).
     w.__spine = spineConsole({

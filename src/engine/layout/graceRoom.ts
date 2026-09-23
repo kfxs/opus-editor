@@ -240,10 +240,15 @@ export function hostLeftReach(host: readonly NotePitch[], signOf: SignOf, clef: 
  *
  * @param hostReach the host's own left ink ({@link hostLeftReach}), full size.
  */
-export function graceLayout(group: GraceGroup, signOf: SignOf, clef: Clef, hostReach: number): GraceLayout {
+export function graceLayout(
+  group: GraceGroup, signOf: SignOf, clef: Clef, hostReach: number,
+  /** The white to what stands on the group's right — the host ({@link GRACE_ROWS}.toMain), or a
+   *  BRACKETED grace beside it (`layout/bracketedRoom`, which passes its own row). */
+  gapToRight: number = GRACE_ROWS.toMain.value,
+): GraceLayout {
   const k = graceScale()
   const places: GracePlace[] = []
-  let right = -(hostReach + GRACE_ROWS.toMain.value)
+  let right = -(hostReach + gapToRight)
   let leftEdge = right
   const beamed = new Set(graceBeamRuns(group.notes).flat())
   for (let i = group.notes.length - 1; i >= 0; i--) {

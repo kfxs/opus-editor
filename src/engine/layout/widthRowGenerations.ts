@@ -14,6 +14,7 @@ import { barlineMeterGapGeneration } from './barlineMeterGap'
 import { dotGapGeneration } from './dotGap'
 import { accidentalGapGeneration } from './accidentalGap'
 import { graceSizeGeneration } from './graceRoom'
+import { bracketedGeneration } from './bracketedRoom'
 import { graceSlashGeneration } from '@/engine/engrave/notes/graceGroup'
 import { musicFontGeneration } from '@/engine/fonts/musicFont'
 import { textFontGeneration } from '@/engine/fonts/textFont'
@@ -33,6 +34,8 @@ export function widthRowGenerations(): number[] {
     accidentalGapGeneration(),
     // The GRACE size (2026-09-22): a grace's room is its heads at that size (`layout/graceRoom`).
     graceSizeGeneration(),
+    // The BRACKETED grace's size and bracket form (2026-09-23): its room is its head and brackets.
+    bracketedGeneration(),
     // …and the no-flag SLASH (2026-09-22) — ⚠️ NOT a width: in this list because the fingerprint is
     // also the SHAPE key, and a re-armed slash must re-engrave the bars that draw one.
     graceSlashGeneration(),

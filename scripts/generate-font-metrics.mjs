@@ -75,6 +75,11 @@ const GLYPHS = {
   //   build a grace from its parts, and this slash IS one of the parts.
   graces: ['graceNoteSlashStemUp', 'graceNoteSlashStemDown'],
 
+  // ⭐ The BRACKETED grace's two bracket forms (docs/plans/bracketed-grace-plan.md B9): the NOTEHEAD
+  //   brackets SMuFL draws to wrap a head (E0F5/E0F6), and the ACCIDENTAL brackets (E26A/E26B) — ~2 sp
+  //   tall, the size Gould's own trill and bend brackets measure (research §G.4: 2.04–2.11 sp).
+  bracketedGrace: ['noteheadParenthesisLeft', 'noteheadParenthesisRight', 'accidentalParensLeft', 'accidentalParensRight'],
+
   // ⭐ The REPEAT BARLINE'S WINGS — the flared tips a "winged" repeat carries at the top and bottom
   //   of its thick line (his ask, 2026-08-26). ⛔ SMuFL has no wing glyph: every engine that draws
   //   them re-uses the STAFF BRACKET's own tips, which is what these are (MuseScore's `drawTips`

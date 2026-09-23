@@ -53,6 +53,8 @@ import { GLYPH_CODEPOINTS } from '@/engine/fonts/bravuraMetrics'
 import { accidentalExtent } from '@/engine/layout/spacingPadding'
 import { graceDotXs, graceLayout, graceScale, graceStemSpaces, hostLeftReach, type SignOf } from '@/engine/layout/graceRoom'
 import { displayedAccidentals } from '@/utils/accidentalState'
+import { beforeSideLayout } from '@/engine/layout/bracketedRoom'
+import { drawBracketedGraces } from './BracketedGracePass'
 import { staffLineForSpelling } from '@/utils/clefUtils'
 import { spellingDiatonicPos, spellingToMidi, spellingToNoteKey } from '@/utils/pitchSpelling'
 import { C_MAJOR } from '@/utils/keySignature'
@@ -82,6 +84,8 @@ export function drawGraceNotes(
   /** The key governing this lane's bar — the graces' signs are decided with the notes' (one walk). */
   key: KeySignature = C_MAJOR,
 ): void {
+  // ⭐ The chord's BRACKETED graces first — the rest of its before side (`./BracketedGracePass`).
+  drawBracketedGraces(pass, slots, staveNotes, clefForBeat, key)
   if (!slots.some(s => s.graceBefore)) return
   const signs = displayedAccidentals(slots, key)
   const signOf: SignOf = id => signs.get(id)
@@ -117,7 +121,10 @@ function drawGraceGroup(
 
   const hostX = hostNote.getNoteHeadBeginX()
   const hostPitches = host.type === 'chord' ? host.notes : []
-  const layout = graceLayout(group, signOf, clef, hostLeftReach(hostPitches, signOf, clef))
+  // ⭐ The before side's ONE layout: a chord's BRACKETED graces stand between the group and it
+  //    (`layout/bracketedRoom`, which the room was reserved with too).
+  const layout = beforeSideLayout(host, signOf, clef, hostLeftReach(hostPitches, signOf, clef)).graces
+    ?? graceLayout(group, signOf, clef, hostLeftReach(hostPitches, signOf, clef))
   const ledgerStyle = stave.getDefaultLedgerLineStyle()
   /** ⭐ The group's stems — up by default, DOWN when flipped (P6, `X`): `1` / `-1`, VexFlow's sign. */
   const dir = group.stemDirection === 'down' ? -1 : 1

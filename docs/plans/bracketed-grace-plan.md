@@ -1,7 +1,7 @@
 # The bracketed grace — a black head in round brackets, no stem, no flag: the plan
 
-> **Status: P0 built (2026-09-23) — the model, its ops, the relay, the load report, `__bracketed`; nothing is
-> DRAWN yet.** The dev toolbar's `bracket.` button still only logs, and the Keypad's Grace-page key `-`
+> **Status: P0 and P1 committed (2026-09-23) — drawn before its chord, with its room, `gould` brackets
+> armed (his call). Next: P2, entry.** The dev toolbar's `bracket.` button still only logs, and the Keypad's Grace-page key `-`
 > (`bracketed grace`) is drawn but not wired (`docs/research/sibelius-keypad.md`).
 > 📄 The research is `docs/research/grace-notes-research.md` **§0.9** (the synthesis) and **Parts G · H · I**
 > (the books · the engines · the apps and formats). ⛔ This plan is where the decisions get made. §0 marks
@@ -28,7 +28,7 @@
 | **B6** | **it does not sound** | ⏳ proposed | silent: no scheduled event, and ⛔ it never changes the bar's accidental state | every source: *"not separately articulated"* (Gould 144); no engine and no app plays the head itself (§0.9). What it MEANS (bend from, trill to) is for the reader of a later phase |
 | **B7** | **what is drawn** | ⏳ proposed, every number a row | a **black** head whatever its target's value (Gould 418), so **no written value is stored**; ⛔ no stem, flag, dot, beam or slash. **Size** is its own row, `BRACKETED_SIZE_RULES`, defaulting to the grace's `house` 2/3 (presets: Gould trill ≈0.75 · Gould bend ≈0.65 · MuseScore 0.7 · LilyPond 0.63 · Sibelius 0.6) | Gould disagrees with herself (0.75 vs 0.65, §G.4), which is why this is a row of its own: choosing Gould's trill must not resize every grace |
 | **B8** | **the accidental: inside the brackets** | ⏳ proposed default, a row | `( ♭● )` (books: all; MuseScore, LilyPond). The other row is `♭( ● )` (Verovio, VexFlow) | the one real split among the engines (§H.0). MusicXML cannot tell the two apart |
-| **B9** | **the brackets: the font's glyphs** | ⏳ proposed | one pair per HEAD (Stone 76: a chord is stacked pairs), `noteheadParenthesisLeft/Right` E0F5/E0F6, which all three shipped faces carry (§H.6) | MuseScore draws a bezier sized from the heads so it can grow around ledger lines (Gould 388). That is the upgrade if the glyph looks wrong on a ledger note, found in use (his rule above) |
+| **B9** | **the brackets: the font's glyphs** | ✅ 2026-09-23 **`gould`** — his call after both on the page: the ACCIDENTAL brackets E26A/E26B at FULL size (Gould's measure ≈2.07 sp); `notehead` stays a row | one pair per HEAD (Stone 76: a chord is stacked pairs), `noteheadParenthesisLeft/Right` E0F5/E0F6, which all three shipped faces carry (§H.6) | MuseScore draws a bezier sized from the heads so it can grow around ledger lines (Gould 388). That is the upgrade if the glyph looks wrong on a ledger note, found in use (his rule above) |
 | **B10** | **no bracket on a REST** | ⏳ proposed | a rest is never a target | there is nothing to bend into or trill. (A grace group may sit on a rest, D7 of the grace plan. A bracket on that group's grace is fine, because its target is the grace) |
 
 ---
@@ -61,9 +61,9 @@ export interface BracketedGrace {
 | the operations: add, remove, re-pitch, find by pitch id | `engine/models/bracketedGraceOps.ts` |
 | the commands (undo labels, one `mutate`) | `engine/commands/bracketedCommands.ts`, reached as `engine.bracketed.…` |
 | the pure reads (lists of a slot, of a grace) | `utils/bracketedGraces.ts` (in `utils/` for the relay, `graceNotes`' reason) |
-| its ROOM, in staff spaces | `layout/bracketedRoom.ts`, asked by `layout/graceRoom` for the before side |
-| its geometry (head, accidental, the two glyphs) | `engrave/notes/bracketedGrace.ts`, pure |
-| its drawing | `rendering/BracketedGracePass.ts`, inside the grace's `scaling(k)` idea (its own k, B7) |
+| its ROOM **and** where each head, sign and bracket stands (one answer, `graceRoom`'s rule) | `layout/bracketedRoom.ts` — `beforeSideLayout` is the whole before side, read by `measureColumns.slotInk`, `GracePass` and the pass below |
+| its drawing | `rendering/BracketedGracePass.ts`, called by `GracePass` (the before side's pass — ⛔ not `ScoreRenderer`, whose hub ceiling refused the line) |
+| its sign | `utils/accidentalState.displayedAccidentals` — walked where it STANDS, ⭐ read-only (B6) |
 | the stamp and its button's light | `interactions/stamps/bracketedGraceTool.ts`; a `{ kind: 'bracketedGrace', side }` joins `MarkingTool` |
 | the split | ONE rule in `engrave/notes/graceBeam`'s `graceBeamRuns`: a grace with `bracketedBefore` starts a run |
 
@@ -81,9 +81,17 @@ re-pitch it through the same path a grace uses (`slotLookup` learns to find the 
   Poke it with `__bracketed.add('before', 'Bb3')` on a selected note, `.list()`, `.roundTrip()`.
   ⏭️ Left for P2, on purpose: a paste's "what landed" selection does not include bracketed ids yet — the
   selection cannot resolve them until `slotLookup` learns them.
-- **P1: drawn BEFORE a main note.** Black head at its size row, accidental inside, the glyph pair,
-  ledger lines at its scale. Room reserved: the before side's ink is `[grace group] [brackets] M`.
-  Silent (B6). ⏸️ His eye on a ledger note decides glyph vs drawn bracket (B9).
+- ✅ **P1: drawn BEFORE a main note** (2026-09-23). Black head at `BRACKETED_SIZE_RULES`
+  (house 2/3), accidental inside, ledger lines at its scale, the brackets in either FORM (`BRACKET_FORMS`):
+  `notehead` (SMuFL E0F5/E0F6 at the head's size) or ✅ `gould`, ARMED by his call (E26A/E26B at FULL size: her
+  brackets measure ≈2.07 sp, §G.4, which is THIS pair, not the notehead pair at her head's size). The
+  room: the before side is ONE `'grace'` ink box, `[grace group] [brackets] M`. Its sign is read against
+  the bar at its place and ⛔ puts nothing in force (a bracketed F after an F♯ shows ♮; a B♭ after a
+  bracketed B♭ still shows its flat). Silent; no hit box yet (P2). Rows for his eye:
+  `__bracketed.size('gouldTrill')` · `__bracketed.form('gould')` · `__bracketed.reset()`.
+  ⚠️ Gaps `toMain` 0.9 (Gould p. 139, the after side mirrored) · `between` 0.4 and `toGrace` 0.8
+  (UNSOURCED) · `parenToAccidental` 0.2 (Gould). A chord's heads share one column with no
+  second-displacement and unstacked signs — his eye in use. ⏸️ Glyph vs drawn bracket on a ledger note (B9).
 - **P2: entry.** The `bracket.` button arms the stamp; a click on a note puts one before it at the
   click's pitch. Selection, arrows, Delete. ⏳ What a press does with a NOTE selected is found by trying
   it, as D6 was for the graces.

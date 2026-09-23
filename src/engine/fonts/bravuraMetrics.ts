@@ -1,7 +1,7 @@
 /**
  * ⛔⛔ **GENERATED — DO NOT EDIT.** `node scripts/generate-font-metrics.mjs`
  *
- * 82 of Bravura's 3434 glyphs: the ones the editor draws
+ * 86 of Bravura's 3434 glyphs: the ones the editor draws
  * (`docs/plans/font-metrics-plan.md` F1). Hand-editing a number here would recreate by hand the very
  * drift the file exists to end — change the glyph list in the script and re-run.
  *
@@ -23,7 +23,7 @@ import type { GlyphBox } from './fontMetrics'
  * 1.481. The generator cross-checks every box against that metadata, and this is what
  * that check found on the run that wrote this file:
  *
- * 🚨 **1 of 82 DISAGREE** — the rest are identical to within 0.001 spaces:
+ * 🚨 **1 of 86 DISAGREE** — the rest are identical to within 0.001 spaces:
  *   · brace — off by 0.051 spaces
  *
  * ⚠️ The numbers below are the **OTF's**, because that is the file we draw with. Where a glyph
@@ -68,6 +68,10 @@ export type GlyphName =
   | 'repeatDot'
   | 'graceNoteSlashStemUp'
   | 'graceNoteSlashStemDown'
+  | 'noteheadParenthesisLeft'
+  | 'noteheadParenthesisRight'
+  | 'accidentalParensLeft'
+  | 'accidentalParensRight'
   | 'bracketTop'
   | 'bracketBottom'
   | 'reversedBracketTop'
@@ -159,6 +163,11 @@ export const GLYPH_BOXES: Record<GlyphName, GlyphBox> = {
   // graces
   graceNoteSlashStemUp: { left: 0, right: 2.02, up: 1.604, down: 0, advance: 2.02 },
   graceNoteSlashStemDown: { left: 0, right: 2.02, up: 0, down: 1.604, advance: 2.02 },
+  // bracketedGrace
+  noteheadParenthesisLeft: { left: 0, right: 0.436, up: 0.724, down: 0.724, advance: 0.292 },
+  noteheadParenthesisRight: { left: 0.144, right: 0.292, up: 0.724, down: 0.724, advance: 0.292 },
+  accidentalParensLeft: { left: 0, right: 0.564, up: 0.988, down: 0.992, advance: 0.564 },
+  accidentalParensRight: { left: 0, right: 0.564, up: 0.988, down: 0.992, advance: 0.564 },
   // barlineWings
   bracketTop: { left: 0, right: 1.876, up: 1.18, down: 0, advance: 1.876 },
   bracketBottom: { left: 0, right: 1.876, up: 0, down: 1.18, advance: 1.876 },
@@ -268,6 +277,11 @@ export const GLYPH_CODEPOINTS: Record<GlyphName, number> = {
   // graces
   graceNoteSlashStemUp: 58724,
   graceNoteSlashStemDown: 58725,
+  // bracketedGrace
+  noteheadParenthesisLeft: 57589,
+  noteheadParenthesisRight: 57590,
+  accidentalParensLeft: 57962,
+  accidentalParensRight: 57963,
   // barlineWings
   bracketTop: 57347,
   bracketBottom: 57348,
