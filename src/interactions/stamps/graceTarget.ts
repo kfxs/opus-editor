@@ -129,8 +129,9 @@ function drawnGroups(engine: MusicEngine, registry: ElementRegistry, measure: nu
 }
 
 /** The ordinary note or rest of this bar and staff nearest the click in x — ⛔ never a grace head
- *  (it is registered as a note too, `rendering/GracePass`), and never beyond {@link GRACE_CLICK}. */
-function nearestHost(engine: MusicEngine, registry: ElementRegistry, measure: number, staff: number, x: number): ElementInfo | null {
+ *  (it is registered as a note too, `rendering/GracePass`), and never beyond {@link GRACE_CLICK}.
+ *  ⭐ Also the BRACKETED stamp's target (`./bracketedStamp`). */
+export function nearestHost(engine: MusicEngine, registry: ElementRegistry, measure: number, staff: number, x: number): ElementInfo | null {
   let best: ElementInfo | null = null
   let bestDistance = GRACE_CLICK.hostReachPx
   for (const el of [...registry.getByType('note'), ...registry.getByType('rest')]) {

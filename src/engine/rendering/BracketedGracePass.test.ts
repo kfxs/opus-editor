@@ -141,6 +141,16 @@ describe('BracketedGracePass — one bracketed grace before a note', () => {
     expect(withIt[1] - withIt[0]).toBeGreaterThan(plain[1] - plain[0])
   })
 
+  it('⭐ B10 REVERSED: on a REST (an empty beat) it is drawn before the rest, as a grace there is', () => {
+    const model = new ScoreModel()
+    model.addNote({ step: 'C', octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const rest = model.getMeasure(1)!.slots.find(s => s.type === 'rest')!
+    addBracketed(model.getScore(), rest.id, 'before', D5)
+    const { scene } = render(model)
+    expect(sceneGroups(scene, BRACKETED_GROUP)).toHaveLength(1)
+    expect(sceneGroups(scene, BRACKETED_GROUP)[0].id).toBe(`${BRACKETED_GROUP}-${rest.id}-before`)
+  })
+
   it('⛔ until P2 it registers NO hit box — a click cannot select an id the lookups do not know', () => {
     const { model, bracketed } = build({ bracketed: D5 })
     const { renderer } = render(model)

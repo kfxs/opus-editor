@@ -5,7 +5,8 @@
  *
  * ⛔ No `mutate` on a refusal: an edit that changed nothing leaves no undo entry.
  */
-import type { BracketedGrace, NotePitch } from '@/types/music'
+import type { BracketedGrace, Fraction, NotePitch } from '@/types/music'
+import { beatRestAt } from '../models/restGraceOps'
 import type { BracketedSide } from '@/utils/bracketedGraces'
 import {
   addBracketed, addBracketedPitch, bracketedProblems, findBracketed, isBracketedGrace, removeBracketed, setBracketedPitch,
@@ -18,9 +19,14 @@ export type BracketedCommands = ReturnType<typeof bracketedCommands>
 export function bracketedCommands(ctx: CommandContext) {
   const score = () => ctx.model().getScore()
   return {
-    /** Put a bracketed grace beside the target `targetNoteId` names — see {@link addBracketed}. */
-    add(targetNoteId: string, side: BracketedSide, spelling: BracketedSpelling, index?: number): BracketedGrace | null {
-      const made = addBracketed(score(), targetNoteId, side, spelling, index)
+    /**
+     * Put a bracketed grace beside the target `targetNoteId` names — see {@link addBracketed}. ⭐ On a
+     * whole-bar REST, `beat` (the click's) names the beat it belongs to: the rest becomes a one-beat rest
+     * there first (`restGraceOps.beatRestAt`, the grace's rule), in the same undo entry.
+     */
+    add(targetNoteId: string, side: BracketedSide, spelling: BracketedSpelling, index?: number, beat?: Fraction): BracketedGrace | null {
+      const target = beat ? beatRestAt(score(), targetNoteId, beat)?.id ?? targetNoteId : targetNoteId
+      const made = addBracketed(score(), target, side, spelling, index)
       if (made) ctx.mutate('Add bracketed grace')
       return made
     },

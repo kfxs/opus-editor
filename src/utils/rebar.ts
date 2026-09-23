@@ -352,13 +352,15 @@ export function flattenRegion(
         // carrying the shape it is drawn as (see {@link FlattenOptions.keepRests}) — ⭐ and ALWAYS
         // when a GRACE hangs on it (D7 reversed): the grace names this beat, so the rest it hangs on
         // travels like the note it is waiting for, grace on its first piece.
-        if ((!opts.keepRests && !slot.graceBefore) || slot.isMeasureRest) continue
+        if ((!opts.keepRests && !slot.graceBefore && !slot.bracketedBefore) || slot.isMeasureRest) continue
         events.push({
           offset: fracAdd(runningOffset, slot.beat),
           duration: slotActual,
           isRest: true,
           ...(authored ? { written: authored } : {}),
           ...(slot.graceBefore ? { graceBefore: cloneGraceFresh(slot.graceBefore) } : {}),
+          // …and its BRACKETED graces, for the same reason (B10 reversed).
+          ...(slot.bracketedBefore ? { bracketedBefore: cloneBracketedFresh(slot.bracketedBefore) } : {}),
         })
         continue
       }

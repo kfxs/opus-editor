@@ -5,6 +5,7 @@ import type { MusicEngine } from '../engine/MusicEngine'
 import type { NoteDuration } from '../types/music'
 import { durationHighlight } from '../interactions/controllers/keypadSync'
 import { graceToolLit, pressGraceTool } from '../interactions/stamps/graceTool'
+import { bracketedToolLit, pressBracketedTool } from '../interactions/stamps/bracketedGraceTool'
 import { DEV_SOUNDS } from '../engine/audio/WebAudioFontInstrument'
 import { bus } from '../bus'
 import { buildMusicFontPicker } from './musicFontPicker'
@@ -232,13 +233,13 @@ export function mountDevToolbar(host: HTMLElement, deps: DevToolbarDeps): DevToo
   toggle(graceBox, GRACE_BTN, 'appogg.', 'Appoggiatura — click a note to add one before it',
     () => graceToolLit(state, 'appoggiatura', 'before', getEngine()),
     () => pressGraceTool(palette.spanToolHost(), 'appoggiatura', 'before'))
-  // 🔧 BRACKETED GRACE — a door that LOGS, and does nothing else (his call, 2026-09-23: a button *"so we
-  //    can start planning"*). A stemless, flagless head in round brackets — Sibelius's "pre-bend", and
-  //    the same form a trill uses to say which note to trill to (named for what it IS, the Keypad's rule).
-  //    ⛔ DO NOT GROW IT INTO THE FEATURE: where the form lives in the model (the group? the note? the
-  //    trill?) is the open question the research is answering.
-  toggle(graceBox, GRACE_BTN, 'bracket.', 'Bracketed grace (stemless, in parentheses) — not built yet: logs only',
-    () => false, () => console.log('[grace] bracketed grace pressed — not wired'))
+  // ⭐ BRACKETED GRACE (docs/plans/bracketed-grace-plan.md P2) — a press ARMS the stamp; a click on a
+  //    note puts a black head in brackets before it, at the click's pitch. A stemless, flagless head in
+  //    round brackets — Sibelius's "pre-bend", and the same form a trill uses to say which note to trill
+  //    to (named for what it IS, the Keypad's rule).
+  toggle(graceBox, GRACE_BTN, 'bracket.', 'Bracketed grace (stemless, in brackets) — click a note to add one before it',
+    () => bracketedToolLit(state, 'before'),
+    () => pressBracketedTool(palette.spanToolHost(), 'before'))
   toggle(graceBox, GRACE_BTN, 'after', 'Grace AFTER a note (Nachschlag) — not built yet (plan P5)',
     () => false, () => {}, ON, () => false)
   row.appendChild(graceBox)

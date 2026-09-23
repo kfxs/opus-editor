@@ -255,7 +255,7 @@ function slotInk(slot: ChordRest, signs: Map<string, string | null>, clef: Clef,
  * whole before side, its band the brackets' too.
  */
 function graceInk(slot: ChordRest, host: NotePitch[], signs: Map<string, string | null>, clef: Clef, staff: string | undefined): RawInk {
-  const bracketedList = slot.type === 'chord' ? slot.bracketedBefore : undefined
+  const bracketedList = slot.bracketedBefore
   const graces = slot.graceBefore
   if (!graces && !bracketedList?.length) return []
   const signOf = (id: string) => signs.get(id)

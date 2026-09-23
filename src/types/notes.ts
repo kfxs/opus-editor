@@ -739,6 +739,13 @@ export interface Rest {
    * rest is not a notation. ⚠️ No book on disk draws one (research §0.7): its picture is a default.
    */
   graceBefore?: GraceGroup
+  /**
+   * ⭐ BRACKETED graces written before this silence — B10 REVERSED (his report, 2026-09-23: *"this
+   * should work similar to grace stamp on empty measure"*): entered first, on an empty bar, and handed
+   * to the note that takes the rest's place, as {@link graceBefore} is (`engine/models/restGraceOps`).
+   * BEFORE only, the grace's reason.
+   */
+  bracketedBefore?: BracketedGrace[]
 }
 
 export type ChordRest = Chord | Rest

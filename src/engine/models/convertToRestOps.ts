@@ -148,11 +148,12 @@ export function swapSlotForRest(score: Score, noteId: string): Rest | null {
     //    reversed): the note goes, the grace written for that beat does not. A grace AFTER has no
     //    home on a rest (a grace after a silence is not a notation) and goes with the note.
     ...(chord.graceBefore && { graceBefore: chord.graceBefore }),
+    // …and its BRACKETED graces before it — the same rule run backwards (B10 reversed, 2026-09-23).
+    ...(chord.bracketedBefore && { bracketedBefore: chord.bracketedBefore }),
   }
   if (chord.graceAfter) dbg(`[Model.convertToRest] the grace AFTER ${fmtSlot(chord)} goes with it — a rest takes none`)
-  // ⏳ A rest is never a bracketed grace's target (docs/plans/bracketed-grace-plan.md B10) — the
-  //    first default of P4: the chord's own go with it, logged. A GRACE's go with that grace.
-  if (chord.bracketedBefore || chord.bracketedAfter) dbg(`[Model.convertToRest] the bracketed graces of ${fmtSlot(chord)} go with it — a rest is no target`)
+  // A bracketed grace AFTER has no home on a rest (the grace-after's reason) and goes with the note.
+  if (chord.bracketedAfter) dbg(`[Model.convertToRest] the bracketed grace(s) AFTER ${fmtSlot(chord)} go with it — a rest takes none after`)
 
   for (const measure of score.measures) {
     const idx = measure.slots.findIndex(s => s.id === chord.id)

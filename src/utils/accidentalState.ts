@@ -162,6 +162,8 @@ export function displayedAccidentals(slots: ChordRest[], key: KeySignature): Map
         for (const b of note.bracketedBefore ?? []) for (const p of b.pitches) decide(p, false)
         for (const p of note.pitches) decide(p)
       }
+      // …and the rest's own bracketed graces, nearest it (B10 reversed) — read-only.
+      for (const b of slot.bracketedBefore ?? []) for (const p of b.pitches) decide(p, false)
       continue
     }
     // ⭐ A GRACE is a note in the bar too, walked where it sounds: the group BEFORE, the main

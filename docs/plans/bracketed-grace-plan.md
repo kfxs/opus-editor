@@ -1,7 +1,7 @@
 # The bracketed grace — a black head in round brackets, no stem, no flag: the plan
 
 > **Status: P0 and P1 committed (2026-09-23) — drawn before its chord, with its room, `gould` brackets
-> armed (his call). Next: P2, entry.** The dev toolbar's `bracket.` button still only logs, and the Keypad's Grace-page key `-`
+> armed (his call). P2a (entry) built, ⏸️ his UI check; P2b next.** The dev toolbar's `bracket.` button still only logs, and the Keypad's Grace-page key `-`
 > (`bracketed grace`) is drawn but not wired (`docs/research/sibelius-keypad.md`).
 > 📄 The research is `docs/research/grace-notes-research.md` **§0.9** (the synthesis) and **Parts G · H · I**
 > (the books · the engines · the apps and formats). ⛔ This plan is where the decisions get made. §0 marks
@@ -29,7 +29,7 @@
 | **B7** | **what is drawn** | ⏳ proposed, every number a row | a **black** head whatever its target's value (Gould 418), so **no written value is stored**; ⛔ no stem, flag, dot, beam or slash. **Size** is its own row, `BRACKETED_SIZE_RULES`, defaulting to the grace's `house` 2/3 (presets: Gould trill ≈0.75 · Gould bend ≈0.65 · MuseScore 0.7 · LilyPond 0.63 · Sibelius 0.6) | Gould disagrees with herself (0.75 vs 0.65, §G.4), which is why this is a row of its own: choosing Gould's trill must not resize every grace |
 | **B8** | **the accidental: inside the brackets** | ⏳ proposed default, a row | `( ♭● )` (books: all; MuseScore, LilyPond). The other row is `♭( ● )` (Verovio, VexFlow) | the one real split among the engines (§H.0). MusicXML cannot tell the two apart |
 | **B9** | **the brackets: the font's glyphs** | ✅ 2026-09-23 **`gould`** — his call after both on the page: the ACCIDENTAL brackets E26A/E26B at FULL size (Gould's measure ≈2.07 sp); `notehead` stays a row | one pair per HEAD (Stone 76: a chord is stacked pairs), `noteheadParenthesisLeft/Right` E0F5/E0F6, which all three shipped faces carry (§H.6) | MuseScore draws a bezier sized from the heads so it can grow around ledger lines (Gould 388). That is the upgrade if the glyph looks wrong on a ledger note, found in use (his rule above) |
-| **B10** | **no bracket on a REST** | ⏳ proposed | a rest is never a target | there is nothing to bend into or trill. (A grace group may sit on a rest, D7 of the grace plan. A bracket on that group's grace is fine, because its target is the grace) |
+| **B10** | **a bracket on a REST** | ✅ 2026-09-23 ⚠️ **REVERSED the same day** | ⭐ **a rest IS a target, BEFORE only** — his report on the stamp: *"this should work similar to grace stamp on empty measure"*. It rides the graces' hand-over exactly (`restGraceOps`): a whole-bar rest first becomes a one-beat rest at the clicked beat; the note that takes the rest's place at that beat TAKES its bracketed graces; silencing a note keeps its `bracketedBefore` on the rest (`bracketedAfter` goes with the note, logged) | the first answer (*nothing to bend into or trill*) was the model's; entry is the user's — they write the bracket first, on an empty bar, and the note after, as D7 found for the graces |
 
 ---
 
@@ -92,9 +92,17 @@ re-pitch it through the same path a grace uses (`slotLookup` learns to find the 
   ⚠️ Gaps `toMain` 0.9 (Gould p. 139, the after side mirrored) · `between` 0.4 and `toGrace` 0.8
   (UNSOURCED) · `parenToAccidental` 0.2 (Gould). A chord's heads share one column with no
   second-displacement and unstacked signs — his eye in use. ⏸️ Glyph vs drawn bracket on a ledger note (B9).
-- **P2: entry.** The `bracket.` button arms the stamp; a click on a note puts one before it at the
-  click's pitch. Selection, arrows, Delete. ⏳ What a press does with a NOTE selected is found by trying
-  it, as D6 was for the graces.
+- 🔨 **P2a: entry** (built 2026-09-23, ⏸️ his UI check). The `bracket.` button arms a `bracketedGrace`
+  stamp (`stamps/bracketedGraceTool`); a click puts one before the note — ⭐ or the REST (B10 reversed; a
+  whole-bar rest becomes a one-beat rest first) — nearest the GHOST, at the click's pitch, spelled as note
+  entry spells it (`stamps/bracketedStamp`). The click reaches it through the grace stamp's door
+  (`graceStamp`), ⛔ not a new line in `MouseController` (its hub ceiling is full). A ghost of the head in
+  its brackets, the armed sign inside (`ghosts/BracketedGhost`, reading `bracketedLayout`). ⏳ A press
+  arms the stamp whatever is selected — what it does with a NOTE selected is found by trying it (D6).
+- ⏭️ **P2b: selection, arrows, Delete.** ⚠️ A DECISION first: these go through `ScoreModel.getNote` /
+  `updateNote` (a bracketed pitch must project as ITSELF and take pitch-only updates) — a per-kind branch
+  in a hub. The alternative is a `findSlot` opt-in (`slotLookup`, not a hub) plus the projection in
+  `bracketedGraceOps`, which `getNote` would call.
 - **P3: on a GRACE, and the split.** A click on a grace targets it. `graceBeamRuns` breaks, and the
   slash is drawn per run. Deleting the bracket re-joins the beam (B4, the merge for free).
 - **P4: the conversions.** What a target becoming a rest, a grace becoming a note (and back), or a

@@ -41,7 +41,7 @@ export const BRACKETED_NOTE_GROUP = 'bracketednote'
 const LEDGER_OVERHANG = 3
 
 /**
- * Draw every chord's BRACKETED graces before it, for one lane of one bar. `slots` / `staveNotes` are
+ * Draw every slot's BRACKETED graces before it — a chord's, or a rest's — for one lane of one bar. `slots` / `staveNotes` are
  * the lane's, index for index (the fan and grace passes' contract).
  */
 export function drawBracketedGraces(
@@ -52,16 +52,17 @@ export function drawBracketedGraces(
   /** The key governing this lane's bar — a bracketed sign is read against it and the bar (B6). */
   key: KeySignature = C_MAJOR,
 ): void {
-  if (!slots.some(s => s.type === 'chord' && s.bracketedBefore?.length)) return
+  if (!slots.some(s => s.bracketedBefore?.length)) return
   const signs = displayedAccidentals(slots, key)
   const signOf: SignOf = id => signs.get(id)
   for (let i = 0; i < slots.length && i < staveNotes.length; i++) {
     const slot = slots[i]
-    if (slot.type !== 'chord' || !slot.bracketedBefore?.length) continue
+    // A chord's — or a REST's (B10 reversed: entered first, on an empty bar).
+    if (!slot.bracketedBefore?.length) continue
     const stave = maybeStaveOf(staveNotes[i])
     if (!stave) continue
     const clef = clefForBeat(slot.beat)
-    const side = beforeSideLayout(slot, signOf, clef, hostLeftReach(slot.notes, signOf, clef))
+    const side = beforeSideLayout(slot, signOf, clef, hostLeftReach(slot.type === 'chord' ? slot.notes : [], signOf, clef))
     if (!side.bracketed) continue
     const hostX = staveNotes[i].getNoteHeadBeginX()
     const ctx = pass.context

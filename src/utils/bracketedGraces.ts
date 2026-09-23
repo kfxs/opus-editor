@@ -6,7 +6,7 @@
  * In `utils/` for `graceNotes`' reason: the relay lives here and may not import `engine/`.
  */
 import { v4 as uuidv4 } from 'uuid'
-import type { BracketedGrace, Chord, GraceNote, NotePitch } from '@/types/music'
+import type { BracketedGrace, Chord, GraceNote, NotePitch, Rest } from '@/types/music'
 
 /** Which side of its target a bracketed grace stands on (B5). A GRACE target takes `before` only. */
 export type BracketedSide = 'before' | 'after'
@@ -19,13 +19,14 @@ export function bracketedKey(side: BracketedSide): 'bracketedBefore' | 'brackete
   return side === 'before' ? 'bracketedBefore' : 'bracketedAfter'
 }
 
-/** What a bracketed grace can hang on (B2): a main chord (both sides) or a grace (before only). */
-export type BracketedTarget = Chord | GraceNote
+/** What a bracketed grace can hang on (B2): a main chord (both sides), a grace (before only), or —
+ *  B10 REVERSED, his report 2026-09-23 — a REST (before only: entered first, handed to its note). */
+export type BracketedTarget = Chord | GraceNote | Rest
 
-/** The target's list on that side, if it has one — a GRACE holds a list BEFORE only (B5). */
+/** The target's list on that side, if it has one — a GRACE or a REST holds a list BEFORE only (B5). */
 export function bracketedOf(target: BracketedTarget, side: BracketedSide): BracketedGrace[] | undefined {
   if (side === 'before') return target.bracketedBefore
-  return 'type' in target ? target.bracketedAfter : undefined
+  return 'type' in target && target.type === 'chord' ? target.bracketedAfter : undefined
 }
 
 /**

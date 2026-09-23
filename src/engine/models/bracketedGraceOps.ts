@@ -3,8 +3,10 @@
  * `ScoreModel`). `docs/plans/bracketed-grace-plan.md` §2.
  *
  * A bracketed grace belongs to its TARGET (B2, his call 2026-09-23): a main chord
- * (`bracketedBefore` / `bracketedAfter`) or a grace note (`bracketedBefore` only, B5), never a rest
- * (B10). Nothing here touches the bar's arithmetic — it changes no beat, no capacity, no rest.
+ * (`bracketedBefore` / `bracketedAfter`), a grace note (`bracketedBefore` only, B5), or ⭐ a REST
+ * (before only — B10 REVERSED the same day: *"this should work similar to grace stamp on empty
+ * measure"*; the note that takes the rest's place takes it over, `restGraceOps`). Nothing here touches
+ * the bar's arithmetic — it changes no beat, no capacity, no rest.
  *
  * ⭐ **Fail closed.** `findSlot` does not know a bracketed pitch, so every mutator that resolves an id
  * through it REFUSES one instead of half-writing it — the fan member's and the grace's safety rule
@@ -34,11 +36,11 @@ export interface FoundBracketed {
   pitch: NotePitch
 }
 
-/** Every target a slot holds: its graces (both groups), then — a chord only — the chord itself. */
+/** Every target a slot holds: its graces (both groups), then the slot itself. */
 function targetsOf(slot: ChordRest): BracketedTarget[] {
   const out: BracketedTarget[] = []
   for (const side of GRACE_SIDES) out.push(...(graceGroupOf(slot, side)?.notes ?? []))
-  if (slot.type === 'chord') out.push(slot)
+  out.push(slot)
   return out
 }
 
@@ -66,14 +68,14 @@ export function isBracketedGrace(score: Score, pitchId: string): boolean {
 }
 
 /**
- * The target `noteId` names — a main chord (by any of its pitch ids) or a GRACE (by any of its pitch
- * ids, a rest's grace included) — or null. ⛔ A rest, a fan member and a bracketed pitch name none
- * (B10; a member has no sides; a bracket does not carry a bracket, B3).
+ * The target `noteId` names — a main chord (by any of its pitch ids), a GRACE (by any of its pitch
+ * ids, a rest's grace included) or a REST (by its id, B10 reversed) — or null. ⛔ A fan member and a
+ * bracketed pitch name none (a member has no sides; a bracket does not carry a bracket, B3).
  */
 function targetOf(score: Score, noteId: string): { slot: ChordRest; target: BracketedTarget } | null {
   const found = findSlot(score, noteId, { graceNotes: true })
   if (!found) return null
-  if (found.type === 'rest') return found.grace ? { slot: found.rest, target: found.grace.note } : null
+  if (found.type === 'rest') return { slot: found.rest, target: found.grace?.note ?? found.rest }
   return { slot: found.chord, target: found.grace?.note ?? found.chord }
 }
 
@@ -81,8 +83,9 @@ function targetOf(score: Score, noteId: string): { slot: ChordRest; target: Brac
  * Put a bracketed grace of `spelling` beside the target `targetNoteId` names, on `side`.
  * @returns the new bracketed grace, or null when refused:
  *
- * - **no target** — a rest (B10), a fan member, a bracketed pitch, or an id that is gone;
- * - **AFTER a grace** — a grace takes a bracketed grace BEFORE only (B5);
+ * - **no target** — a fan member, a bracketed pitch, or an id that is gone;
+ * - **AFTER a grace or a REST** — each takes a bracketed grace BEFORE only (B5; after a silence is not
+ *   a notation, the grace's reason);
  * - **before a tied CONTINUATION / after a note TIED ON** — the graces' rule for the graces' reason:
  *   what leads into the attack stands at the chain's head, what follows the note at its last piece.
  *
@@ -99,8 +102,8 @@ export function addBracketed(
   }
   const onGrace = at.target !== at.slot
   const chord = at.slot.type === 'chord' ? at.slot : null
-  if (onGrace && side === 'after') {
-    dbg(`[bracketedGraceOps.addBracketed] refused: a bracketed grace AFTER a grace — a grace takes one before only`)
+  if ((onGrace || at.slot.type === 'rest') && side === 'after') {
+    dbg(`[bracketedGraceOps.addBracketed] refused: a bracketed grace AFTER a ${onGrace ? 'grace' : 'rest'} — it takes one before only`)
     return null
   }
   if (chord && !onGrace && side === 'before' && chord.notes.every(p => p.tiedFrom)) {
@@ -119,7 +122,7 @@ export function addBracketed(
   const place = index === undefined ? beside : Math.max(0, Math.min(index, list.length))
   list.splice(place, 0, bracketed)
   holder[key] = list
-  dbg(`[bracketedGraceOps.addBracketed] ${side} ${onGrace ? `a grace of ${at.slot.type}` : 'chord'} ${at.slot.id}: +${spelling.step}${spelling.octave} at ${place} (${list.length} in the list)`)
+  dbg(`[bracketedGraceOps.addBracketed] ${side} ${onGrace ? `a grace of ${at.slot.type}` : at.slot.type} ${at.slot.id}: +${spelling.step}${spelling.octave} at ${place} (${list.length} in the list)`)
   return bracketed
 }
 
@@ -222,8 +225,8 @@ export function bracketedProblems(score: Score): string[] {
     for (const slot of measure.slots) {
       const bar = `bar ${measure.number}`
       if (slot.type === 'rest') {
-        const r = slot as unknown as Record<string, unknown>
-        if ('bracketedBefore' in r || 'bracketedAfter' in r) problems.push(`${bar}: a REST carries bracketed graces — a rest is no target`)
+        if ('bracketedAfter' in (slot as object)) problems.push(`${bar}: a REST carries bracketedAfter — it takes one before only`)
+        check(slot.bracketedBefore, `${bar}, a rest's bracketedBefore`)
         for (const g of slot.graceBefore?.notes ?? []) check(g.bracketedBefore, `${bar}, a grace before a rest`)
         continue
       }

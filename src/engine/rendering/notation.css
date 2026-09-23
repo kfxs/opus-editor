@@ -59,6 +59,19 @@
   fill: #3B82F6 !important;
 }
 
+/* …and the BRACKETED grace stamp's: a black head in its brackets, the armed sign inside. */
+.ghost-bracketed-group {
+  opacity: 0.7;
+  pointer-events: none;
+}
+.ghost-bracketed-group path {
+  fill: #3B82F6 !important;
+  stroke: #2563EB !important;
+}
+.ghost-bracketed-group text {
+  fill: #3B82F6 !important;
+}
+
 /* Free-floating translucent ghost NOTEHEAD that follows the cursor (the armed feather stamp).
    A head and its augmentation dot and nothing else — no stem, no flag (see FanGhost.ts), so the
    glyph rules are all it needs. */

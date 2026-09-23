@@ -17,12 +17,15 @@ import type { MusicEngine } from '../../engine/MusicEngine'
 import type { ElementRegistry } from '../../engine/ElementRegistry'
 import { armedTool, pendingArticulations, type EditorState } from '../state/EditorState'
 import { graceClickAt } from './graceTarget'
+import { stampBracketedAtClick } from './bracketedStamp'
 
 export function stampGraceAtClick(
   state: EditorState, engine: MusicEngine, registry: ElementRegistry, x: number, y: number, render: () => void,
   /** Put the keyboard caret on what the click made — `SelectionController.moveCaretTo`, the note click's. */
   caretTo: (noteId: string) => void = () => {},
 ): boolean {
+  // ⭐ The BRACKETED stamp shares this door — the before side's (`./bracketedStamp`).
+  if (stampBracketedAtClick(state, engine, registry, x, y, render)) return true
   const tool = armedTool(state, 'grace')
   if (!tool) return false
 

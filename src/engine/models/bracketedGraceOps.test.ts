@@ -106,12 +106,24 @@ describe('bracketedGraceOps', () => {
     })
   })
 
-  describe('what is NOT a target', () => {
-    it('⛔ B10: a rest', () => {
+  describe('⭐ a REST is a target — B10 REVERSED (his report, 2026-09-23: "similar to grace stamp on empty measure")', () => {
+    it('BEFORE a rest: its own list, and the bar does not move', () => {
+      quarter()
+      const before = rhythm()
       const rest = model.getMeasure(1)!.slots.find(s => s.type === 'rest')!
-      expect(bracketedOps.addBracketed(score, rest.id, 'before', Bb3)).toBeNull()
-      expect('bracketedBefore' in rest).toBe(false)
+      const made = bracketedOps.addBracketed(score, rest.id, 'before', Bb3)
+      expect(rest.bracketedBefore).toEqual([made])
+      expect(rhythm()).toEqual(before)
     })
+
+    it('⛔ AFTER a rest is refused — after a silence is not a notation', () => {
+      const rest = model.getMeasure(1)!.slots.find(s => s.type === 'rest')!
+      expect(bracketedOps.addBracketed(score, rest.id, 'after', Bb3)).toBeNull()
+      expect('bracketedAfter' in rest).toBe(false)
+    })
+  })
+
+  describe('what is NOT a target', () => {
 
     it('⛔ B3: a bracketed pitch — a bracket does not carry a bracket', () => {
       const host = quarter()
@@ -204,14 +216,14 @@ describe('bracketedGraceOps', () => {
       chord.bracketedBefore = []
       chord.bracketedAfter = [{ pitches: [] }, { pitches: [{ id: host.id, ...D5 }] }]
       const rest = model.getMeasure(1)!.slots.find(s => s.type === 'rest')!
-      ;(rest as unknown as Record<string, unknown>).bracketedBefore = [{ pitches: [{ id: 'r', ...E4 }] }]
+      ;(rest as unknown as Record<string, unknown>).bracketedAfter = [{ pitches: [{ id: 'r', ...E4 }] }]
       const grace = graceOps.addGrace(score, host.id, 'before', E4, 'appoggiatura', { duration: '8' })!
       ;(grace as unknown as Record<string, unknown>).bracketedAfter = []
       const problems = bracketedOps.bracketedProblems(score)
       expect(problems.some(p => p.includes('an empty bracketed list'))).toBe(true)
       expect(problems.some(p => p.includes('has no pitches'))).toBe(true)
       expect(problems.some(p => p.includes('is not unique'))).toBe(true)
-      expect(problems.some(p => p.includes('a REST carries bracketed graces'))).toBe(true)
+      expect(problems.some(p => p.includes('a REST carries bracketedAfter'))).toBe(true)
       expect(problems.some(p => p.includes('bracketedAfter on a grace'))).toBe(true)
       // …and nothing was repaired.
       expect(chord.bracketedBefore).toEqual([])

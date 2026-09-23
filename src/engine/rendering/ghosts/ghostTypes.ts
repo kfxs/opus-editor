@@ -126,6 +126,11 @@ export type ToolGhost =
    */
   | { kind: 'grace'; duration: NoteDuration; dots: number; slash: boolean; accidental: ScoreAccidental | null; articulations: ArticulationType[] }
   /**
+   * ⭐ The BRACKETED grace stamp (`docs/plans/bracketed-grace-plan.md` P2): one black head in its
+   * brackets, the armed accidental inside — ⛔ no value to carry (B7).
+   */
+  | { kind: 'bracketedGrace'; accidental: ScoreAccidental | null }
+  /**
    * ⭐ The BARLINE stamp's sign — the final bar, the open repeat or the end repeat, whichever is
    * armed. It CARRIES ITS SIGN because the three are three different pictures, and the ghost is what
    * tells three identically-armed palette buttons apart (the `8va`/`8vb` lesson).

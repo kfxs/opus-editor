@@ -9,6 +9,7 @@ import type { BarlineSign } from '../stamps/barlineStamp'
 import type { ScoreTextField } from '@/engine/models/scoreTextOps'
 import type { GraceForm } from '@/engine/models/graceOps'
 import type { GraceSide } from '@/types/music'
+import type { BracketedSide } from '@/utils/bracketedGraces'
 
 /** A value armed on the dynamics palette: an interpreted level, or the custom-text tool. */
 export type DynamicTool = DynamicLevel | 'text'
@@ -155,6 +156,12 @@ export type MarkingTool =
    * click CREATES the group (the slash is the group's, Gould p. 126); `side` — ⏭️ P5 brings `after`.
    */
   | { kind: 'grace'; form: GraceForm; side: GraceSide }
+  /**
+   * ⭐ The BRACKETED grace stamp (`docs/plans/bracketed-grace-plan.md` P2): a click on a note puts a
+   * bracketed grace beside it, at the click's PITCH. ⛔ No length: the head is black whatever its
+   * target's value (B7), so the duration keys say nothing to it. `side` — ⏭️ P5 brings `after`.
+   */
+  | { kind: 'bracketedGrace'; side: BracketedSide }
   /** VALUELESS — Ctrl+E with nothing selected. The click-to-type expression tool: it places a
    *  custom-text dynamic and opens the inline editor BLANK (no placeholder to clear), rather than
    *  dropping a placeholder like `{ kind:'dynamic'; dynamic:'text' }`. It previews NO ghost — a blue
@@ -300,6 +307,7 @@ export const DEFAULT_BEAM: BeamMode = 'auto'
 export const MARKING_TOOL_USES_ARMED_LENGTH: Record<MarkingTool['kind'], boolean> = {
   rest: true,        // a rest is nothing without a length
   grace: true,       // a grace is DRAWN as a written value (never counted), read off the lit keys like the rest's
+  bracketedGrace: false, // ⛔ it has NO written value — a black head whatever its target's (B7)
   fan: false,        // ALSO a length — but its OWN, typed in the dialog that armed it (see the member)
   clef: false,       // the four below place OBJECTS — a length means nothing to them
   timeSignature: false,
@@ -398,6 +406,7 @@ export function armedTupletM(
  */
 export const MARKING_TOOL_ENTERS_PITCH: Record<MarkingTool['kind'], boolean> = {
   grace: true,          // a grace is a NOTE, at the click's pitch — the one tool that writes a pitch
+  bracketedGrace: true, // …and so is a bracketed grace: an accidental press is a statement about ITS pitch
   rest: false,          // a rest has no pitch
   fan: false,           // its pitch is the click's, but the fan is ENTRY of its own (the dialog's)
   clef: false,

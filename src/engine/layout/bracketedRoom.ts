@@ -235,10 +235,12 @@ export interface BeforeSideLayout {
  * `GracePass` + `BracketedGracePass` draw at. The bracketed graces stand next to the host; the grace
  * group clears THEIR ink by {@link BRACKETED_ROWS}.toGrace, or the host's by its own `toMain`.
  *
- * ⚠️ P1: a chord's OWN bracketed graces only. A grace's (`GraceNote.bracketedBefore`, the split) is P3.
+ * ⚠️ The SLOT's own bracketed graces (a chord's or a rest's). A grace's (`GraceNote.bracketedBefore`,
+ * the split) is P3.
  */
 export function beforeSideLayout(slot: ChordRest, signOf: SignOf, clef: Clef, hostReach: number): BeforeSideLayout {
-  const list = slot.type === 'chord' ? slot.bracketedBefore : undefined
+  // A chord's — or a REST's (B10 reversed): entered first, on an empty bar.
+  const list = slot.bracketedBefore
   const bracketed = list?.length ? bracketedLayout(list, signOf, clef, hostReach) : null
   const graces = slot.graceBefore
     ? bracketed

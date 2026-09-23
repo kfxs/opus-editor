@@ -8,6 +8,8 @@
  * 1. **A grace names a BEAT, so it cannot hang on a whole-bar rest** — *"grace in empty measure makes
  *    no sense"*. Stamping one on a measure rest first turns that rest into a ONE-BEAT rest at the
  *    clicked beat, the rest of the bar refilled by the meter as everywhere else ({@link beatRestAt}).
+ * ⭐ Both hold for a rest's BRACKETED graces too (B10 reversed, his report 2026-09-23 —
+ *    `docs/plans/bracketed-grace-plan.md`): they ride the same hand-over.
  * 2. **When a slot takes the rest's place at the same beat, the group MOVES onto it** — a note (the
  *    point of it all) or another rest (the rest-fill's churn). {@link takeRestGraces} +
  *    {@link rehomeRestGraces}, called by `slotPlacementOps.evictRestsOverlapping` beside the tie it
@@ -15,7 +17,7 @@
  *    covers it), the group is DROPPED and logged: it belonged to a moment that no longer begins
  *    anything — a default, his to change.
  */
-import type { Fraction, GraceGroup, Measure, Rest, Score } from '@/types/music'
+import type { BracketedGrace, Fraction, GraceGroup, Measure, Rest, Score } from '@/types/music'
 import { dbg } from '@/utils/debug'
 import { fracAdd, fracCompare, fracCreate, fracDiv, fracMul, fracToNumber } from '@/utils/fraction'
 import { getMeterInfo } from '@/utils/meter'
@@ -69,21 +71,28 @@ export function beatRestAt(score: Score, restId: string, beat: Fraction): Rest |
   return beatRest
 }
 
-/** A rest's grace group, taken off it while the rest leaves, with the address it belonged to. */
+/** A rest's grace group — and its BRACKETED graces (B10 reversed) — taken off it while the rest
+ *  leaves, with the address they belonged to. */
 export interface OrphanGraces {
   beat: Fraction
   voice: number
   staffId: string | undefined
-  group: GraceGroup
+  group?: GraceGroup
+  bracketed?: BracketedGrace[]
 }
 
-/** Take the graces off rests that are about to leave the bar. */
+/** Take the graces (and bracketed graces) off rests that are about to leave the bar. */
 export function takeRestGraces(rests: readonly Rest[]): OrphanGraces[] {
   const out: OrphanGraces[] = []
   for (const rest of rests) {
-    if (!rest.graceBefore) continue
-    out.push({ beat: rest.beat, voice: voiceOf(rest), staffId: rest.staffId, group: rest.graceBefore })
+    if (!rest.graceBefore && !rest.bracketedBefore) continue
+    out.push({
+      beat: rest.beat, voice: voiceOf(rest), staffId: rest.staffId,
+      ...(rest.graceBefore && { group: rest.graceBefore }),
+      ...(rest.bracketedBefore && { bracketed: rest.bracketedBefore }),
+    })
     delete rest.graceBefore
+    delete rest.bracketedBefore
   }
   return out
 }
@@ -97,11 +106,23 @@ export function rehomeRestGraces(measure: Measure, orphans: readonly OrphanGrace
   for (const orphan of orphans) {
     const home = measure.slots.find(s =>
       fracCompare(s.beat, orphan.beat) === 0 && voiceOf(s) === orphan.voice && s.staffId === orphan.staffId)
-    if (home && !home.graceBefore) {
-      home.graceBefore = orphan.group
-      dbg(`[restGraceOps.rehome] m${measure.number} b${fracToNumber(orphan.beat).toFixed(3)}: the grace moves onto the ${home.type}`)
-    } else {
-      dbg(`[restGraceOps.rehome] ⚠️ m${measure.number} b${fracToNumber(orphan.beat).toFixed(3)}: ${home ? 'the slot there has its own grace' : 'nothing starts at that beat any more'} — the grace is DROPPED`)
+    const at = `m${measure.number} b${fracToNumber(orphan.beat).toFixed(3)}`
+    if (orphan.group) {
+      if (home && !home.graceBefore) {
+        home.graceBefore = orphan.group
+        dbg(`[restGraceOps.rehome] ${at}: the grace moves onto the ${home.type}`)
+      } else {
+        dbg(`[restGraceOps.rehome] ⚠️ ${at}: ${home ? 'the slot there has its own grace' : 'nothing starts at that beat any more'} — the grace is DROPPED`)
+      }
+    }
+    // ⭐ …and the BRACKETED graces by the same rule (B10 reversed, bracketed-grace-plan).
+    if (orphan.bracketed) {
+      if (home && !home.bracketedBefore) {
+        home.bracketedBefore = orphan.bracketed
+        dbg(`[restGraceOps.rehome] ${at}: the bracketed grace(s) move onto the ${home.type}`)
+      } else {
+        dbg(`[restGraceOps.rehome] ⚠️ ${at}: ${home ? 'the slot there has its own' : 'nothing starts at that beat any more'} — the bracketed grace(s) are DROPPED`)
+      }
     }
   }
 }
