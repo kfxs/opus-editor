@@ -69,7 +69,8 @@ interface OnNote { noteId: string; note: Note | undefined }
  * it to these shapes.
  */
 export type InspectedElement =
-  | Report<'note', Located<Note>>
+  /** ⭐ `derived.enclosureSpan` — a chord head's one-pair switch, present only when every head is bracketed (P5). */
+  | Report<'note', Located<Note>, { enclosureSpan?: 'chord' | null }>
   | Report<'rest', Located<Note>>
   /** ⭐ A GRACE NOTE — selected as a note (its pitch id), reported as what it is. */
   | Report<'grace', Located<Note>>

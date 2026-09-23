@@ -21,6 +21,8 @@ import { stampGlyph } from '@/engine/engrave/glyph'
 import { musicGlyphFont } from '@/engine/engrave/inheritedFonts'
 import { GLYPH_CODEPOINTS } from '@/engine/fonts/bravuraMetrics'
 import { glyphBox } from '@/engine/fonts/fontMetrics'
+import { scalingAbout } from '@/engine/paint/Affine'
+import { drawGroupOf } from './painter/svgDrawGroup'
 import { ENCLOSURE_GLYPHS, enclosureLayout, type EnclosureLayout } from '@/engine/layout/headEnclosure'
 import { displayedAccidentals } from '@/utils/accidentalState'
 import { C_MAJOR } from '@/utils/keySignature'
@@ -29,6 +31,9 @@ import { C_MAJOR } from '@/utils/keySignature'
 export const ENCLOSURE_GROUP = 'enclosure'
 /** One head's pair inside it — the unit the selection highlight recolours (P4). */
 export const ENCLOSURE_PAIR_GROUP = 'enclosurepair'
+
+/** A chord's one pair's glyph, stretched (P5) — nested in its pair group, so the highlight still finds it. */
+export const ENCLOSURE_STRETCH_GROUP = 'enclosurestretch'
 
 /** The DOM id of a head's pair group — what `interactions/elements/enclosure` finds it by. */
 export function enclosurePairId(pitchId: string): string {
@@ -57,7 +62,7 @@ export function drawEnclosures(
     const slot = slots[i]
     if (slot.type !== 'chord') continue
     const stemDown = staveNotes[i].getStemDirection() === -1
-    const layout = enclosureLayout({ notes: slot.notes, duration: slot.duration, dots: slot.dots, stemDown, upFlag: !stemDown && staveNotes[i].hasFlag() }, id => signs.get(id), clefForBeat(slot.beat))
+    const layout = enclosureLayout({ notes: slot.notes, duration: slot.duration, dots: slot.dots, enclosureSpan: slot.enclosureSpan, stemDown, upFlag: !stemDown && staveNotes[i].hasFlag() }, id => signs.get(id), clefForBeat(slot.beat))
     if (!layout) continue
     const stave = maybeStaveOf(staveNotes[i])
     if (!stave) continue
@@ -90,8 +95,23 @@ export function stampEnclosure(
     const glyphs = ENCLOSURE_GLYPHS[pair.shape]
     if (grouped) ctx.openGroup(ENCLOSURE_PAIR_GROUP, enclosurePairId(pair.pitch.id))
     try {
-      stampGlyph(ctx, String.fromCodePoint(GLYPH_CODEPOINTS[glyphs.left]), x(pair.leftParenX), y(pair.line), font)
-      stampGlyph(ctx, String.fromCodePoint(GLYPH_CODEPOINTS[glyphs.right]), x(pair.rightParenX), y(pair.line), font)
+      for (const [name, origin] of [[glyphs.left, pair.leftParenX], [glyphs.right, pair.rightParenX]] as const) {
+        const gx = x(origin)
+        const gy = y(pair.line)
+        const glyph = String.fromCodePoint(GLYPH_CODEPOINTS[name])
+        if (pair.stretch === 1) {
+          stampGlyph(ctx, glyph, gx, gy, font)
+          continue
+        }
+        // ⭐ A CHORD's one pair (P5): the glyph STRETCHED vertically about its own origin — a placement,
+        //    ⛔ never a redrawn outline (rule 8: a placement is a matrix).
+        drawGroupOf(ctx.openGroup(ENCLOSURE_STRETCH_GROUP))?.setPlacement(scalingAbout(1, pair.stretch, gx, gy))
+        try {
+          stampGlyph(ctx, glyph, gx, gy, font)
+        } finally {
+          ctx.closeGroup()
+        }
+      }
     } finally {
       if (grouped) ctx.closeGroup()
     }
@@ -118,7 +138,10 @@ export function registerEnclosure(
         noteId: pair.pitch.id,
         measure: measureNumber,
         staff: staffIndex,
-        bbox: { x: left, y: y(pair.line) - box.up * spacePx, width: x(origin + box.right) - left, height: (box.up + box.down) * spacePx },
+        bbox: {
+          x: left, y: y(pair.line) - box.up * pair.stretch * spacePx,
+          width: x(origin + box.right) - left, height: (box.up + box.down) * pair.stretch * spacePx,
+        },
       })
     }
   }

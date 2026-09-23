@@ -48,6 +48,7 @@ function harness(selected: string) {
     getElementById: () => ({ type: 'note' }),
     getStaveNoteSVGGroup: () => ({ group, noteIndex: 0, stem: null }),
     getFanMemberSVGGroup: () => null,
+    enclosure: { ownerOf: (id: string) => id }, // a head's brackets are filed under itself
     getTieSVGGroup: () => undefined,
   } as unknown as MusicEngine
   const state = createEditorState()

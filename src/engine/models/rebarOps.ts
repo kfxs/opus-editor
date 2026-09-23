@@ -1694,6 +1694,7 @@ function materializeVoiceBar(
     if (piece.beam) chord.beam = piece.beam
     if (piece.secondaryBreak) chord.secondaryBreak = true
     if (piece.fractionalBeamSide) chord.fractionalBeamSide = piece.fractionalBeamSide
+    if (piece.enclosureSpan) chord.enclosureSpan = piece.enclosureSpan
     measure.slots.push(chord)
     created.push({ piece, chord })
   }

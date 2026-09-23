@@ -166,4 +166,52 @@ describe('enclosureOps', () => {
       expect(model.getNote(n.id)!.enclosure).toBe('round')
     })
   })
+
+  describe('⭐ P5 — the chord\'s one-pair switch (his rule: in force only when EVERY head is bracketed)', () => {
+    const chordOf = () => score().measures[0].slots.find(s => s.type === 'chord') as Chord
+    const build = () => {
+      const c = add('C', 0)
+      const e = add('E', 0)
+      return { c, e }
+    }
+
+    it('refused while a head is bare; set once all are; state says so', () => {
+      const { c, e } = build()
+      enclosureOps.setEnclosure(score(), [c.id], 'round')
+      expect(enclosureOps.enclosureSpanState(score(), c.id)!.available).toBe(false)
+      expect(enclosureOps.setEnclosureSpan(score(), c.id, 'chord')).toBe(false)
+      enclosureOps.setEnclosure(score(), [e.id], 'round')
+      expect(enclosureOps.setEnclosureSpan(score(), e.id, 'chord')).toBe(true)
+      expect(enclosureOps.enclosureSpanState(score(), c.id)).toEqual({ span: 'chord', stored: 'chord', available: true })
+    })
+
+    it('⭐ a head unbracketed later: the switch WAITS (kept, not in force); bracket it again and it returns', () => {
+      const { c, e } = build()
+      enclosureOps.setEnclosure(score(), [c.id, e.id], 'round')
+      enclosureOps.setEnclosureSpan(score(), c.id, 'chord')
+      enclosureOps.setEnclosure(score(), [e.id], null)
+      expect(enclosureOps.chordEnclosureSpan(chordOf())).toBeNull()
+      expect(chordOf().enclosureSpan).toBe('chord')
+      enclosureOps.setEnclosure(score(), [e.id], 'round')
+      expect(enclosureOps.chordEnclosureSpan(chordOf())).toBe('chord')
+    })
+
+    it('in force: a selected pair covers EVERY head, and is filed under the first', () => {
+      const { c, e } = build()
+      enclosureOps.setEnclosure(score(), [c.id, e.id], 'round')
+      expect(enclosureOps.enclosureHeads(score(), e.id)).toEqual([e.id])
+      enclosureOps.setEnclosureSpan(score(), c.id, 'chord')
+      expect(enclosureOps.enclosureHeads(score(), e.id).sort()).toEqual([c.id, e.id].sort())
+      expect(enclosureOps.enclosureOwner(score(), e.id)).toBe(chordOf().notes[0].id)
+    })
+
+    it('null DELETES the field (absent = per head)', () => {
+      const { c, e } = build()
+      enclosureOps.setEnclosure(score(), [c.id, e.id], 'round')
+      enclosureOps.setEnclosureSpan(score(), c.id, 'chord')
+      expect(enclosureOps.setEnclosureSpan(score(), c.id, null)).toBe(true)
+      expect('enclosureSpan' in chordOf()).toBe(false)
+    })
+  })
 })
+

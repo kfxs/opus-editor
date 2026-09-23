@@ -143,6 +143,8 @@ export interface RebarEvent {
    *  like `articulationStemAlign`: the stub belongs to the note, so each piece may carry the
    *  statement and the metric default reasserts itself where it is absent. */
   fractionalBeamSide?: FractionalBeamSide
+  /** ⭐ One pair of brackets round the whole chord (`Chord.enclosureSpan`). Onto EVERY piece. */
+  enclosureSpan?: 'chord'
   /** Single-note tremolo on the event. Carried through the relay so a meter change or a paste does
    *  not silently drop it — and carried onto EVERY piece a tie-split makes of this event, because a
    *  tremolo interrupted at a barline is still being played across it. */
@@ -201,6 +203,8 @@ export interface RebarPiece {
   articulationStemAlign?: boolean
   /** Fractional-beam override. See {@link RebarEvent.fractionalBeamSide}. */
   fractionalBeamSide?: FractionalBeamSide
+  /** One pair round the chord. See {@link RebarEvent.enclosureSpan}. */
+  enclosureSpan?: 'chord'
   /** Single-note tremolo. See {@link RebarEvent.tremolo} — every piece of a split event keeps it. */
   tremolo?: TremoloMark
   /** Fanned beam. See {@link RebarEvent.fan} — only the FIRST piece of a split event keeps it. */
@@ -385,6 +389,7 @@ export function flattenRegion(
         articulationPlacement: slot.articulationPlacement,
         articulationStemAlign: slot.type === 'chord' ? slot.articulationStemAlign : undefined,
         fractionalBeamSide: slot.type === 'chord' ? slot.fractionalBeamSide : undefined,
+        ...(slot.type === 'chord' && slot.enclosureSpan && { enclosureSpan: slot.enclosureSpan }),
         tremolo: slot.tremolo,
         // ⚠️ A COPY, not the slot's own mark. The flattened stream is also the clipboard's payload —
         // documented as position-independent and re-pasteable — and `fan` is the one field on an
@@ -597,6 +602,7 @@ export function relayEvents(events: RebarEvent[], meter: MeterInfo, opts: RelayO
           articulationPlacement: ev.articulationPlacement,
           articulationStemAlign: ev.articulationStemAlign,
           fractionalBeamSide: ev.fractionalBeamSide,
+          ...(ev.enclosureSpan && { enclosureSpan: ev.enclosureSpan }),
           // EVERY piece, not just the head: a tremolo interrupted at a barline is still being
           // played across it, so both halves of a tie-split carry the mark.
           tremolo: ev.tremolo,

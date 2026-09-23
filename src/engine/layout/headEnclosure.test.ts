@@ -109,4 +109,25 @@ describe('enclosureLayout', () => {
     const bare = enclosureLayout({ notes: chord.notes }, none, 'treble')!
     expect(chordEnclosure(model.getScore(), chord, 'treble')!.left).toBeCloseTo(bare.left, 9)
   })
+
+  it('⭐ P5 — a chord\'s ONE pair when the switch is in force: one pair, centred between its outer heads, stretched to span them', () => {
+    const notes = [pitch('a', 'C', 5), pitch('b', 'E', 5), pitch('c', 'G', 5)]
+    const each = enclosureLayout({ notes }, none, 'treble')!
+    const one = enclosureLayout({ notes, enclosureSpan: 'chord' }, none, 'treble')!
+    expect(each.pairs).toHaveLength(3)
+    expect(one.pairs).toHaveLength(1)
+    expect(one.pairs[0].pitch.id).toBe('a')
+    expect(one.pairs[0].heads.map(h => h.id)).toEqual(['a', 'b', 'c'])
+    expect(one.pairs[0].line).toBeCloseTo((each.pairs[0].line + each.pairs[2].line) / 2, 9)
+    const glyph = L.up + L.down
+    expect(one.pairs[0].stretch).toBeCloseTo((Math.abs(each.pairs[2].line - each.pairs[0].line) + glyph) / glyph, 9)
+    expect(one.pairs[0].leftParenX).toBeCloseTo(each.pairs[0].leftParenX, 9)
+  })
+
+  it('⛔ the switch set but a head BARE: a pair per bracketed head (his rule)', () => {
+    const notes = [pitch('a', 'C', 5), pitch('b', 'E', 5, false)]
+    const layout = enclosureLayout({ notes, enclosureSpan: 'chord' }, none, 'treble')!
+    expect(layout.pairs.map(p => [p.pitch.id, p.stretch])).toEqual([['a', 1]])
+  })
 })
+

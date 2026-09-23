@@ -25,6 +25,7 @@ import { staffLineForSpelling } from '@/utils/clefUtils'
 import { glyphBox, noteheadInk, type GlyphName } from '@/engine/fonts/fontMetrics'
 import { INK, accidentalExtent, dotExtent } from './spacingPadding'
 import { noteDotXs } from './noteDotXs'
+import { chordEnclosureSpan } from '@/engine/models/enclosureOps'
 
 /** A row: a number and where it came from. */
 interface Row { value: number; source: string }
@@ -58,8 +59,14 @@ export const ENCLOSURE_ROWS = {
 export interface EnclosurePair {
   pitch: NotePitch
   shape: HeadEnclosure
-  /** Its staff line (`staffLineForSpelling`) — the pair is centred on it. */
+  /** Its staff line (`staffLineForSpelling`) — the pair is centred on it. A CHORD's one pair: the middle
+   *  of its heads' lines (possibly between two). */
   line: number
+  /** ⭐ How much the pair is stretched VERTICALLY about its line — 1 for one head; a chord's one pair grows
+   *  to span its heads (Gould p. 610: ≈5.3 sp round a chord, the pair GROWS). */
+  stretch: number
+  /** Every head the pair encloses — one, or a chord's all (P5). `pitch` is the first, whose id files it. */
+  heads: NotePitch[]
   leftParenX: number
   rightParenX: number
 }
@@ -85,6 +92,9 @@ export interface EnclosedChord {
   /** ⭐ Its stem is DOWN — a second then pushes a head to the LEFT of the anchor instead of the right
    *  (`engrave/notes/noteGeometry.displacedHeadRoom`). Absent = up. */
   stemDown?: boolean
+  /** ⭐ P5 — the chord's one-pair switch (`Chord.enclosureSpan`), read through
+   *  `enclosureOps.chordEnclosureSpan`: in force only when EVERY head wears brackets. */
+  enclosureSpan?: 'chord'
   /** ⭐ It DRAWS a stem-UP flag — its DOTS then stand past the flag (`./noteDotXs`), and `)` past them.
    *  ⛔ The flag itself does not push `)` (see {@link enclosureLayout}). */
   upFlag?: boolean
@@ -146,6 +156,28 @@ export function enclosureLayout(chord: EnclosedChord, signOf: (pitchId: string) 
   let right = 0
   let up = 0
   let down = 0
+  // ⭐ P5 — ONE pair round the whole chord when its switch is in force (every head bracketed); filed under
+  //    its first head, centred between its outer heads, stretched to span them.
+  if (chord.notes.length > 1 && chordEnclosureSpan({ notes: [...chord.notes], enclosureSpan: chord.enclosureSpan })) {
+    const shape = chord.notes[0].enclosure!
+    const L = glyphBox(ENCLOSURE_GLYPHS[shape].left)
+    const R = glyphBox(ENCLOSURE_GLYPHS[shape].right)
+    const glyphHeight = Math.max(L.up + L.down, R.up + R.down)
+    const span = Math.max(...lines) - Math.min(...lines)
+    const stretch = (span + glyphHeight) / glyphHeight
+    const leftParenX = -leftEdge - L.right
+    const rightParenX = rightEdge + R.left
+    return {
+      pairs: [{
+        pitch: chord.notes[0], heads: [...chord.notes], shape, stretch,
+        line: (Math.max(...lines) + Math.min(...lines)) / 2, leftParenX, rightParenX,
+      }],
+      left: L.left - leftParenX,
+      right: rightParenX + R.right,
+      up: Math.max(L.up, R.up) * stretch,
+      down: Math.max(L.down, R.down) * stretch,
+    }
+  }
   const pairs = enclosed.map((pitch): EnclosurePair => {
     const shape = pitch.enclosure!
     const L = glyphBox(ENCLOSURE_GLYPHS[shape].left)
@@ -158,7 +190,7 @@ export function enclosureLayout(chord: EnclosedChord, signOf: (pitchId: string) 
     right = Math.max(right, rightParenX + R.right)
     up = Math.max(up, L.up, R.up)
     down = Math.max(down, L.down, R.down)
-    return { pitch, shape, line: staffLineForSpelling(pitch.step, pitch.octave, clef), leftParenX, rightParenX }
+    return { pitch, heads: [pitch], shape, stretch: 1, line: staffLineForSpelling(pitch.step, pitch.octave, clef), leftParenX, rightParenX }
   })
   return { pairs, left, right, up, down }
 }
@@ -188,5 +220,5 @@ export function chordEnclosure(score: Score, chord: Chord, clef: Clef, stem: { s
     .filter(s => s.staffId === chord.staffId && voiceOf(s) === voiceOf(chord))
     .sort((a, b) => fracCompare(a.beat, b.beat))
   const signs = displayedAccidentals(lane, keyAt(score, chord.measure, chord.staffId))
-  return enclosureLayout({ notes: chord.notes, duration: chord.duration, dots: chord.dots, ...stem }, id => signs.get(id), clef)
+  return enclosureLayout({ notes: chord.notes, duration: chord.duration, dots: chord.dots, enclosureSpan: chord.enclosureSpan, ...stem }, id => signs.get(id), clef)
 }

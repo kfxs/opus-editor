@@ -19,6 +19,9 @@ export const noteRows: PanelRows<'note' | 'rest' | 'grace' | 'bracketed'> = (ele
   if (element.kind === 'bracketed' && element.derived) rows.push(buildBracketedSideSelect(id, element.derived))
   if (element.kind !== 'note') return rows
 
+  // ⭐ P5 — a bracketed CHORD's one-pair switch, offered only when every head wears brackets (his rule).
+  if (element.derived?.enclosureSpan !== undefined) rows.push(buildEnclosureSpanSelect(id, element.derived.enclosureSpan))
+
   // Only meaningful when the note carries an articulation (the flag moves stem-side marks).
   if (note.articulations?.length) rows.push(buildStemAlignCheckbox(id, note.articulationStemAlign === true))
 
@@ -367,6 +370,48 @@ function buildBracketedSideSelect(pitchId: string, info: { side: 'before' | 'aft
   }
   select.addEventListener('change', () => {
     bus.bracketedSide.set({ pitchId, side: select.value as 'before' | 'after' })
+  })
+  wrap.appendChild(select)
+  return wrap
+}
+
+/**
+ * ⭐ **A pair per note, or one round the whole chord** — a selected head of a chord whose EVERY head wears
+ * brackets (parenthesised-note-plan N3/P5, his call: both drawable, default per note; his rule: the switch
+ * only works when all the notes are in brackets). A DUMB PUBLISHER: `bus.enclosureSpan`, applied by
+ * `propertyControllers/EnclosureSpanController`.
+ */
+function buildEnclosureSpanSelect(pitchId: string, span: 'chord' | null): HTMLElement {
+  const wrap = document.createElement('label')
+  const ws = wrap.style
+  ws.display = 'flex'
+  ws.alignItems = 'center'
+  ws.gap = '6px'
+  ws.color = BISHOP
+  ws.margin = '2px 0 4px'
+  wrap.title = 'Brackets on a chord: one pair round each note, or one pair round the whole chord.'
+
+  const caption = document.createElement('span')
+  caption.textContent = 'brackets'
+  wrap.appendChild(caption)
+
+  const select = document.createElement('select')
+  const ss = select.style
+  ss.font = 'inherit'
+  ss.color = BISHOP
+  ss.background = 'transparent'
+  ss.border = `1px solid ${BISHOP}`
+  ss.borderRadius = '2px'
+  ss.padding = '1px 4px'
+  for (const [value, label] of [['head', 'each note'], ['chord', 'whole chord']] as const) {
+    const option = document.createElement('option')
+    option.value = value
+    option.textContent = label
+    if ((span ?? 'head') === value) option.selected = true
+    select.appendChild(option)
+  }
+  select.addEventListener('change', () => {
+    bus.enclosureSpan.set({ pitchId, span: select.value === 'chord' ? 'chord' : null })
   })
   wrap.appendChild(select)
   return wrap

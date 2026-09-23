@@ -6,7 +6,9 @@
  * ⛔ No `mutate` on a refusal: an edit that changed nothing leaves no undo entry.
  */
 import type { HeadEnclosure } from '@/types/music'
-import { enclosureOf, enclosureProblems, setEnclosure, toggleEnclosure } from '../models/enclosureOps'
+import {
+  enclosureHeads, enclosureOf, enclosureOwner, enclosureProblems, enclosureSpanState, setEnclosure, setEnclosureSpan, toggleEnclosure,
+} from '../models/enclosureOps'
 import type { CommandContext } from './commandContext'
 
 export type EnclosureCommands = ReturnType<typeof enclosureCommands>
@@ -37,6 +39,23 @@ export function enclosureCommands(ctx: CommandContext) {
       if (pitchIds.some((id, i) => enclosureOf(score(), id) !== before[i])) ctx.mutate(next ? 'Parenthesise notes' : 'Remove parentheses')
       return next
     },
+
+    /** ⭐ P5 — the chord's one-pair switch: one pair round the whole chord, or `null` for a pair per head.
+     *  ⛔ Refused (no undo entry) unless every head wears brackets. */
+    setSpan(pitchId: string, span: 'chord' | null): boolean {
+      if (!setEnclosureSpan(score(), pitchId, span)) return false
+      ctx.mutate(span ? 'Brackets round the chord' : 'Brackets per note')
+      return true
+    },
+
+    /** The heads a selected pair covers (this one, or the whole chord's when its one pair is in force). */
+    headsOf: (pitchId: string): string[] => enclosureHeads(score(), pitchId),
+
+    /** The head whose id names the drawn pair this head's brackets are in. */
+    ownerOf: (pitchId: string): string => enclosureOwner(score(), pitchId),
+
+    /** The chord's switch as the Properties row shows it — see `enclosureSpanState`. */
+    spanOf: (pitchId: string) => enclosureSpanState(score(), pitchId),
 
     /** What a loaded file says that this build cannot draw — see `enclosureProblems`. */
     problems: (): string[] => enclosureProblems(score()),

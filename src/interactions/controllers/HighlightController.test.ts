@@ -47,6 +47,7 @@ describe('clearHighlights — the inverse of a highlight pass', () => {
       getElementById: () => ({ type: 'note' }),
       getStaveNoteSVGGroup: () => ({ group, noteIndex: 0, stem: null }),
       getFanMemberSVGGroup: () => null, // not a fanned member — the ordinary note path
+      enclosure: { ownerOf: (id: string) => id }, // a head's brackets are filed under itself
       getTieSVGGroup: () => undefined, // this note ties to nothing (see the tie tests below)
     } as unknown as MusicEngine
 

@@ -516,7 +516,8 @@ export function wireShortcuts(
             // Takes the head's brackets OFF — the note stays, and stays selected to keep editing,
             // like the dot above (parenthesised-note-plan N10).
             const noteId = element.noteId
-            eng.enclosure.set([noteId], null)
+            // A chord's ONE pair covers every head: Delete takes the brackets off all of them (P5).
+            eng.enclosure.set(eng.enclosure.headsOf(noteId), null)
             state.selectedElement = null
             selection.selectNote(noteId)
             renderer.renderScore()

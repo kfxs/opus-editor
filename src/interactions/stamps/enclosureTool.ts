@@ -50,7 +50,7 @@ export function pressEnclosure(host: SpanToolHost): void {
   // (1) The brackets themselves are selected → take them off.
   const brackets = selectedOf(state, 'headEnclosure')
   if (brackets) {
-    if (engine.enclosure.set([brackets.noteId], null)) {
+    if (engine.enclosure.set(engine.enclosure.headsOf(brackets.noteId), null)) {
       state.selectedElement = null
       host.render()
     }

@@ -7,6 +7,7 @@
 import type { Note, Score } from '@/types/music'
 import { isGraceNote } from '@/engine/models/graceOps'
 import { bracketedSideInfo, isBracketedGrace } from '@/engine/models/bracketedGraceOps'
+import { enclosureSpanState } from '@/engine/models/enclosureOps'
 
 export function noteReportKind(score: Score, note: Note): 'rest' | 'grace' | 'bracketed' | 'note' {
   if (note.isRest) return 'rest'
@@ -20,7 +21,15 @@ export function noteReportKind(score: Score, note: Note): 'rest' | 'grace' | 'br
  * ⭐ What a note report COMPUTES beyond its data — today a BRACKETED grace's side and whether it may stand
  * after its target (bracketed-grace-plan P6, the Properties before/after switch). Empty for every other note.
  */
-export function noteReportDerived(score: Score, note: Note): { derived?: { side: 'before' | 'after'; canBeAfter: boolean } } {
+export function noteReportDerived(score: Score, note: Note): { derived?: NoteReportDerived } {
   const info = bracketedSideInfo(score, note.id)
-  return info ? { derived: info } : {}
+  if (info) return { derived: info }
+  // ⭐ …and a chord head's ONE-PAIR switch (parenthesised-note-plan P5): shown only where it may be used.
+  const span = note.enclosure ? enclosureSpanState(score, note.id) : undefined
+  return span?.available ? { derived: { enclosureSpan: span.span } } : {}
 }
+
+/** What {@link noteReportDerived} computes: a bracketed grace's side, or a chord head's one-pair switch. */
+export type NoteReportDerived =
+  | { side: 'before' | 'after'; canBeAfter: boolean }
+  | { enclosureSpan: 'chord' | null }

@@ -8,9 +8,9 @@
  */
 import { describe, it, expect } from 'vitest'
 import { ScoreModel } from '../models/ScoreModel'
-import { setEnclosure } from '../models/enclosureOps'
+import { setEnclosure, setEnclosureSpan } from '../models/enclosureOps'
 import { ScoreRenderer } from './ScoreRenderer'
-import { ENCLOSURE_GROUP, ENCLOSURE_PAIR_GROUP, enclosurePairId } from './EnclosurePass'
+import { ENCLOSURE_GROUP, ENCLOSURE_PAIR_GROUP, ENCLOSURE_STRETCH_GROUP, enclosurePairId } from './EnclosurePass'
 import { sceneGroups, scenePrimitives, type Scene } from '@/engine/scene/Scene'
 import { ENCLOSURE_GLYPHS, enclosureLayout } from '@/engine/layout/headEnclosure'
 import { GLYPH_CODEPOINTS } from '@/engine/fonts/bravuraMetrics'
@@ -97,6 +97,23 @@ describe('EnclosurePass', () => {
     expect(boxes.map(b => b.noteId)).toEqual([a.id, a.id])
     expect(boxes[0].bbox.x + boxes[0].bbox.width).toBeLessThan(boxes[1].bbox.x)
     expect(boxes[0].bbox.height).toBeGreaterThan(0)
+  })
+
+  it('⭐ P5 — a chord in ONE pair: one pair group, its two glyphs each STRETCHED vertically', () => {
+    const model = new ScoreModel()
+    const a = model.addNote({ step: 'C', octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const b = model.addNote({ step: 'G', octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })
+    setEnclosure(model.getScore(), [a.id, b.id], 'round')
+    setEnclosureSpan(model.getScore(), a.id, 'chord')
+    const scene = render(model)
+    const pairs = sceneGroups(scene, ENCLOSURE_PAIR_GROUP)
+    expect(pairs).toHaveLength(1)
+    const stretched = sceneGroups(pairs[0], ENCLOSURE_STRETCH_GROUP)
+    expect(stretched).toHaveLength(2)
+    for (const g of stretched) {
+      expect(g.placement.a).toBe(1)
+      expect(g.placement.d).toBeGreaterThan(1)
+    }
   })
 })
 

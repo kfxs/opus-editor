@@ -10,7 +10,7 @@
  * ⛔ Absent is the only spelling of "none": taking the brackets off DELETES the field (the width-cache
  * key stringifies the slot, `laneFingerprint`).
  */
-import type { HeadEnclosure, NotePitch, Score } from '@/types/music'
+import type { Chord, HeadEnclosure, NotePitch, Score } from '@/types/music'
 import { dbg } from '@/utils/debug'
 import { chordStoredPitches } from '@/utils/fannedBeam'
 import { gracePitchesOf } from '@/utils/graceNotes'
@@ -84,4 +84,70 @@ export function enclosureProblems(score: Score): string[] {
     }
   }
   return problems
+}
+
+/**
+ * ⭐ **Is the chord's ONE-PAIR switch in force?** (parenthesised-note-plan P5, his rule 2026-09-23: *"the
+ * switch should only work when all the notes are in parenthesis"*). `Chord.enclosureSpan` says `'chord'` AND
+ * every head wears brackets; otherwise each bracketed head keeps its own pair. ⭐ The ONE reader of the
+ * field — the drawing, the room, the tie and the editor all ask this.
+ */
+export function chordEnclosureSpan(chord: Pick<Chord, 'notes' | 'enclosureSpan'>): 'chord' | null {
+  return chord.enclosureSpan === 'chord' && chord.notes.length > 0 && chord.notes.every(p => p.enclosure) ? 'chord' : null
+}
+
+/** The CHORD a head belongs to, when it is a main chord's head (⛔ not a grace's or a fan member's). */
+function mainChordOf(score: Score, pitchId: string): Chord | undefined {
+  const found = findSlot(score, pitchId, { fanMembers: true, graceNotes: true })
+  return found?.type === 'chord' && !found.grace && !found.member ? found.chord : undefined
+}
+
+/**
+ * Set the chord's switch — one pair round the whole chord, or `null` for a pair per head (DELETES the field:
+ * absent is the default's only spelling). ⛔ `'chord'` is refused unless every head wears brackets (his rule:
+ * the switch is offered only then). @returns whether it changed.
+ */
+export function setEnclosureSpan(score: Score, pitchId: string, span: 'chord' | null): boolean {
+  const chord = mainChordOf(score, pitchId)
+  if (!chord || (chord.enclosureSpan ?? null) === span) return false
+  if (span === 'chord' && !chord.notes.every(p => p.enclosure)) return false
+  if (span) chord.enclosureSpan = span
+  else delete chord.enclosureSpan
+  dbg(`[enclosure] chord ${chord.id} → ${span ?? 'per head'}`)
+  return true
+}
+
+/**
+ * ⭐ The heads a selected pair of brackets COVERS — this head alone, or, when its chord's one-pair switch is
+ * in force, every head of the chord (so Delete on the chord's pair takes the brackets off all of them).
+ */
+export function enclosureHeads(score: Score, pitchId: string): string[] {
+  const chord = mainChordOf(score, pitchId)
+  return chord && chordEnclosureSpan(chord) ? chord.notes.map(p => p.id) : [pitchId]
+}
+
+/**
+ * The head whose id names the drawn pair this head's brackets are in — itself, or its chord's FIRST head
+ * when the one-pair switch is in force (`layout/headEnclosure` files the chord's pair under it). What the
+ * selected-note highlight asks, so any head of the chord lights the one pair.
+ */
+export function enclosureOwner(score: Score, pitchId: string): string {
+  const chord = mainChordOf(score, pitchId)
+  return chord && chordEnclosureSpan(chord) ? chord.notes[0].id : pitchId
+}
+
+/**
+ * The chord's switch as the Properties row shows it: what is IN FORCE (`span`), what the user SET
+ * (`stored` — kept while a head is unbracketed, his rule), and whether the switch may be used at all
+ * (`available`: a chord of 2+ heads, every one in brackets). Undefined for a head that is not a main
+ * chord's (a grace's, a fan member's, a rest).
+ */
+export function enclosureSpanState(score: Score, pitchId: string): { span: 'chord' | null; stored: 'chord' | null; available: boolean } | undefined {
+  const chord = mainChordOf(score, pitchId)
+  if (!chord) return undefined
+  return {
+    span: chordEnclosureSpan(chord),
+    stored: chord.enclosureSpan ?? null,
+    available: chord.notes.length > 1 && chord.notes.every(p => p.enclosure),
+  }
 }

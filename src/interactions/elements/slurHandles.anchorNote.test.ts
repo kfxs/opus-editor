@@ -46,6 +46,7 @@ function fabricateScore() {
       return group ? { group, noteIndex: 0, stem: null } : null
     },
     getFanMemberSVGGroup: () => null,
+    enclosure: { ownerOf: (id: string) => id }, // a head's brackets are filed under itself
     getElementById: () => null,
     getNote: () => null,
     getTieSVGGroup: () => null,

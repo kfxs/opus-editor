@@ -234,7 +234,7 @@ export function hostRightReach(chord: Chord, clef: Clef, upFlag = false): HostRi
   const dots = dotExtent(chord.dots ?? 0)
   const flag = upFlag ? INK.notehead + INK.flagReach : 0
   // …or its BRACKETS, when a head is parenthesised (`layout/headEnclosure`) — which enclose its dots.
-  const brackets = enclosureLayout({ notes: chord.notes, duration: chord.duration, dots: chord.dots, upFlag }, () => null, clef)?.right ?? 0
+  const brackets = enclosureLayout({ notes: chord.notes, duration: chord.duration, dots: chord.dots, enclosureSpan: chord.enclosureSpan, upFlag }, () => null, clef)?.right ?? 0
   return { reach: Math.max(heads, ledger, dots, flag, brackets), dotted: dots > 0 && dots >= Math.max(heads, ledger, flag, brackets) }
 }
 

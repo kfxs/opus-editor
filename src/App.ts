@@ -35,6 +35,7 @@ import { HairpinGeometryController } from './interactions/propertyControllers/Ha
 import { ArticulationStemAlignController } from './interactions/propertyControllers/ArticulationStemAlignController'
 import { FractionalBeamSideController } from './interactions/propertyControllers/FractionalBeamSideController'
 import { BracketedSideController } from './interactions/propertyControllers/BracketedSideController'
+import { EnclosureSpanController } from './interactions/propertyControllers/EnclosureSpanController'
 import { createViewportHost } from './interactions/controllers/ViewportHost'
 import { playbackStartMeasure } from './interactions/controllers/playbackStart'
 import { PASTEBOARD_MARGIN } from './engine/pasteboard'
@@ -619,6 +620,8 @@ export function createEditorApp(host: HTMLElement): EditorApp {
   // …and the Properties fractional-beam control, on the same boundary (docs/research/beam-hook-research.md §8).
   const fractionalBeamSide = new FractionalBeamSideController(getEngine, () => renderer.renderScore())
   const bracketedSide = new BracketedSideController(getEngine, () => renderer.renderScore())
+  // ⭐ …and a bracketed chord's one-pair switch (parenthesised-note-plan P5), on the same boundary.
+  const enclosureSpan = new EnclosureSpanController(getEngine, () => renderer.renderScore())
   // The Properties fan inputs publish to `fanEditSelection`; this controller owns the engine apply
   // (docs/plans/fanned-beams-plan.md §3, P4), the same boundary as the two above.
   const fanEdit = new FanEditController(getEngine, () => renderer.renderScore())
@@ -1014,6 +1017,7 @@ export function createEditorApp(host: HTMLElement): EditorApp {
       articulationStemAlign.destroy()
       fractionalBeamSide.destroy()
       bracketedSide.destroy()
+      enclosureSpan.destroy()
       fanEdit.destroy()
       trillEdit.destroy()
       hairpinEdit.destroy()

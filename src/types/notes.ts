@@ -619,6 +619,17 @@ export interface Chord extends Attack {
    * is the field that says where a beam starts and stops.
    */
   fractionalBeamSide?: FractionalBeamSide
+  /**
+   * ⭐ **One pair of brackets round the WHOLE chord**, not one per head (docs/plans/parenthesised-note-plan.md
+   * N3/P5 — his call: both drawable, a Properties switch, default per head). **Absent = per head**, the only
+   * spelling of the default.
+   *
+   * ⭐ His rule (2026-09-23): it is IN FORCE only when EVERY head of the chord wears brackets — a head is
+   * selected and bracketed on its own, so one bracketed head says nothing about the chord. Otherwise the
+   * heads keep their own pairs, and the switch waits (it is not erased: bracket the last head and the
+   * chord's pair returns). Read it through `engine/models/enclosureOps.chordEnclosureSpan`, ⛔ never raw.
+   */
+  enclosureSpan?: 'chord'
   tupletId?: string
   actualDuration?: Fraction
   /** Stem-side articulations align to the stem (modern) not the notehead (default). */

@@ -57,6 +57,7 @@ describe('a selected note lights the tie it owns', () => {
       getElementById: () => ({ type: 'note' }),
       getStaveNoteSVGGroup: () => ({ group, noteIndex: 0, stem: null }),
     getFanMemberSVGGroup: () => null, // not a fanned member — the ordinary note path
+    enclosure: { ownerOf: (id: string) => id }, // a head's brackets are filed under itself
       // Keyed by the FROM note: a note that ties to nothing has no group.
       getTieSVGGroup: (id: string) => (tied && id === 'N1' ? tie : undefined),
     } as unknown as MusicEngine
@@ -128,6 +129,7 @@ describe('a selected note lights the tremolo it carries', () => {
       getElementById: () => ({ type: 'note' }),
       getStaveNoteSVGGroup: () => ({ group, noteIndex: 0, stem: null }),
     getFanMemberSVGGroup: () => null, // not a fanned member — the ordinary note path
+    enclosure: { ownerOf: (id: string) => id }, // a head's brackets are filed under itself
       getTieSVGGroup: () => undefined,
     } as unknown as MusicEngine
 
@@ -211,6 +213,7 @@ describe('the fanned-member highlight', () => {
       getElementById: () => ({ type: 'note' }),
       getStaveNoteSVGGroup: () => null,
       getFanMemberSVGGroup: () => ({ group, noteIndex: 0 }),
+      enclosure: { ownerOf: (id: string) => id }, // a head's brackets are filed under itself
       getTieSVGGroup: () => undefined,
     } as unknown as MusicEngine
 

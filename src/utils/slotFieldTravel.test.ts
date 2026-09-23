@@ -35,6 +35,7 @@ const loadedChord = (): Chord => ({
   articulationPlacement: 'below',
   articulationStemAlign: true,
   fractionalBeamSide: 'right',
+  enclosureSpan: 'chord',
   tremolo: 3,
   beam: 'begin',
   secondaryBreak: true,
@@ -96,6 +97,10 @@ describe('what the table calls CARRIED really is', () => {
     expect(piece.fractionalBeamSide).toBe('right')
   })
 
+  it('⭐ enclosureSpan — a chord\'s one pair of brackets survives a re-lay (parenthesised-note-plan P5)', () => {
+    expect(piece.enclosureSpan).toBe('chord')
+  })
+
   it('tremolo', () => { expect(piece.tremolo).toBe(3) })
   it('beam', () => { expect(piece.beam).toBe('begin') })
   it('secondaryBreak', () => { expect(piece.secondaryBreak).toBe(true) })
@@ -130,7 +135,7 @@ describe('what the table calls CARRIED really is', () => {
   it('⭐ and every carried field has an assertion here', () => {
     const asserted: SlotField[] = [
       'duration', 'dots', 'notes', 'stemDirection', 'articulations', 'articulationPlacement',
-      'articulationStemAlign', 'fractionalBeamSide', 'tremolo', 'beam', 'secondaryBreak', 'fan',
+      'articulationStemAlign', 'fractionalBeamSide', 'enclosureSpan', 'tremolo', 'beam', 'secondaryBreak', 'fan',
       'graceBefore', 'graceAfter', 'bracketedBefore', 'bracketedAfter',
     ]
     expect([...CARRIED_SLOT_FIELDS].sort()).toEqual([...asserted].sort())

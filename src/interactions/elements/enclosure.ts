@@ -21,7 +21,10 @@ import type { HighlightContext } from './highlightContext'
 
 /** Colour the brackets `noteId`'s head wears — a GLYPH, so filled, never stroked (an outline reads bold). */
 export function paintNoteEnclosure(ctx: HighlightContext, noteId: string, color: string): void {
-  const group = ctx.svg.querySelector(`[id="${enclosurePairId(noteId)}"]`)
+  // A chord's ONE pair (P5) is filed under its first head — any head of the chord lights it; a head's own
+  // pair is found first, so the owner is asked only when the head has none of its own.
+  const find = (id: string) => ctx.svg.querySelector(`[id="${enclosurePairId(id)}"]`)
+  const group = find(noteId) ?? find(ctx.engine.enclosure.ownerOf(noteId))
   if (!group) return
   group.querySelectorAll('text').forEach(el => {
     ctx.setAttr(el, 'fill', color)

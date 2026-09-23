@@ -108,6 +108,9 @@ export const SLOT_FIELD_TRAVEL = {
   fractionalBeamSide: 'carried',
   /** The FIRST piece: the break is in front of the note, and the note starts at its first piece. */
   secondaryBreak: 'carried',
+  /** ⭐ One pair round the whole chord (parenthesised-note-plan P5): the chord's statement, on EVERY piece
+   *  of a split, like `fractionalBeamSide` — each piece is still the same chord of bracketed heads. */
+  enclosureSpan: 'carried',
 
   // --- relations: never on the event -------------------------------------------------------------
   /** ⚠️ A RELATION with the NEXT slot, not a property. The relay hands a split event's marks to every

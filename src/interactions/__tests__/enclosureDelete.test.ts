@@ -66,4 +66,13 @@ describe('Delete removes a selected head\'s brackets', () => {
     expect(engine.undo()).toBe(true)
     expect(engine.enclosure.of(noteId)).toBe('round')
   })
+
+  it('⭐ P5 — the chord\'s ONE pair selected: Delete takes the brackets off EVERY head it covers', () => {
+    engine.enclosure.setSpan(noteId, 'chord')
+    state.selectedElement = { kind: 'headEnclosure', noteId: other }
+    pressDelete()
+    expect(engine.enclosure.of(noteId)).toBeUndefined()
+    expect(engine.enclosure.of(other)).toBeUndefined()
+  })
 })
+

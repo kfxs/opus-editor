@@ -3,6 +3,7 @@ import { createArticulationSelection } from './articulationSelection'
 import { createArticulationStemAlignSelection } from './articulationStemAlignSelection'
 import { createFractionalBeamSideSelection } from './fractionalBeamSideSelection'
 import { createBracketedSideSelection } from './bracketedSideSelection'
+import { createEnclosureSpanSelection } from './enclosureSpanSelection'
 import { createGraceSelection } from './graceSelection'
 import { createBeamOverSelection } from './beamOverSelection'
 import { createBeamSelection } from './beamSelection'
@@ -83,6 +84,8 @@ interface EditorBus {
   fractionalBeamSide: ReturnType<typeof createFractionalBeamSideSelection>
   /** ⭐ A selected bracketed grace's side — before / after its target (bracketed-grace-plan P6). */
   bracketedSide: ReturnType<typeof createBracketedSideSelection>
+  /** ⭐ A bracketed chord's one-pair switch — one pair round it, or a pair per head (parenthesised-note-plan P5). */
+  enclosureSpan: ReturnType<typeof createEnclosureSpanSelection>
   /** ⭐ The Keypad's Grace-page keys — appoggiatura, acciaccatura, bracketed grace (`./graceSelection`). */
   grace: ReturnType<typeof createGraceSelection>
   /** The beam MODE keys — a set, because authored beam and engraved role can differ. */
@@ -174,6 +177,7 @@ export function createEditorBus(): EditorBus {
     articulationStemAlign: createArticulationStemAlignSelection(),
     fractionalBeamSide: createFractionalBeamSideSelection(),
     bracketedSide: createBracketedSideSelection(),
+    enclosureSpan: createEnclosureSpanSelection(),
     grace: createGraceSelection(),
     beam: createBeamSelection(),
     beamOver: createBeamOverSelection(),
@@ -244,4 +248,5 @@ export type { CautionaryKeyGapRequest } from './cautionaryKeyGapSelection'
 export type { ArticulationStemAlignRequest } from './articulationStemAlignSelection'
 export type { FractionalBeamSideRequest } from './fractionalBeamSideSelection'
 export type { BracketedSideRequest } from './bracketedSideSelection'
+export type { EnclosureSpanRequest } from './enclosureSpanSelection'
 export type { GraceKey } from './graceSelection'

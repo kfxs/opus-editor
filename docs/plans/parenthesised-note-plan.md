@@ -1,7 +1,6 @@
 # The parenthesised note — a head in brackets, still a real note: the plan
 
-> **Status (2026-09-23): P0–P4 committed; P4b BUILT** (the stamp, the entry brackets, both ghosts), ⏸️ his UI
-> check. Next: P5 (the chord switch). The `paren.` button (dev
+> **Status (2026-09-23): P0–P5 committed** — P5 checked by him on the page (*"working"*). Left: the later list in §3. The `paren.` button (dev
 > toolbar, `Note:` group) toggles brackets on the selected notes; `layout/headEnclosure` places them and
 > reserves their room; `rendering/EnclosurePass` stamps them (called from `GracePass.drawGraceNotes`, the
 > lane's one pass over the drawn notes — a call in `ScoreRenderer` itself counts a `clef` word against
@@ -145,7 +144,23 @@ export type HeadEnclosure = 'round'
     was missing from `GHOST_GROUP_SELECTOR`; the spec stubs `getBBox`, since jsdom's missing one made every
     sign ghost remove itself and HID the leak), and the entry ghost showed no brackets (now drawn inside the
     note ghost's own group).
-- **P5: the chord switch (N3).** `enclosureSpan`, one tall pair round the bracketed heads, and its Properties control.
+- ✅ **P5: the chord switch (N3)** (built 2026-09-23; his check: *"working"*). `Chord.enclosureSpan?: 'chord'` — one tall pair round the WHOLE chord —
+  and its Properties control. ✅ His rule (2026-09-23): *"in a chord we will be able to select individual
+  notes, that means if we make parenthesis in just one note it does not mean that we make parenthesis in the
+  whole chord... so the switch should only work when all the notes are in parenthesis"* — the ONE pair is
+  drawn only when EVERY head of the chord wears brackets; otherwise each bracketed head keeps its own pair,
+  whatever the switch says (the switch is kept, not erased: bracket the last head and the chord pair
+  returns). The Properties control is offered only then.
+  - Built: `enclosureOps.chordEnclosureSpan` — the ONE reader of the field (the drawing, the room, the tie,
+    the editor all ask it); `setEnclosureSpan` refuses `'chord'` while a head is bare. The one pair is filed
+    under the chord's FIRST head, centred between its outer heads and STRETCHED vertically to span them
+    (a placement, `scalingAbout(1, s)` — Gould p. 610: the pair grows round a chord; measured in Chromium, C5+G5:
+    ×2.01, `(` 0.52 sp before the heads, `)` 0.46 after). Clicking it selects it; Delete takes the brackets off
+    EVERY head it covers; any head of the chord selected lights it. Properties: `brackets: each note / whole
+    chord` on a selected head (`bus.enclosureSpan` → `EnclosureSpanController`). The field is `carried`
+    through a re-lay (`slotFieldTravel`), onto every piece of a split.
+  - ⏳ Left for his eye: the stretched glyph's thickness (a vertical scale thins nothing across but lengthens
+    the curve's ends); a grace chord has no switch (its pitches are per head only).
 - **Later, only when asked:** the Keypad `1` key; a Properties control; `'square'`; rests; a playback
   meaning (N6); a tie-chain option (N11); Dorico's per-head "break bracket".
 
