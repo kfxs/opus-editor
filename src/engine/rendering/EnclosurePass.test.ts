@@ -10,8 +10,8 @@ import { describe, it, expect } from 'vitest'
 import { ScoreModel } from '../models/ScoreModel'
 import { setEnclosure } from '../models/enclosureOps'
 import { ScoreRenderer } from './ScoreRenderer'
-import { ENCLOSURE_GROUP } from './EnclosurePass'
-import { sceneGroups, type Scene } from '@/engine/scene/Scene'
+import { ENCLOSURE_GROUP, ENCLOSURE_PAIR_GROUP, enclosurePairId } from './EnclosurePass'
+import { sceneGroups, scenePrimitives, type Scene } from '@/engine/scene/Scene'
 import { ENCLOSURE_GLYPHS, enclosureLayout } from '@/engine/layout/headEnclosure'
 import { GLYPH_CODEPOINTS } from '@/engine/fonts/bravuraMetrics'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
@@ -28,7 +28,7 @@ function render(model: ScoreModel): Scene {
 
 const char = (name: keyof typeof GLYPH_CODEPOINTS) => String.fromCodePoint(GLYPH_CODEPOINTS[name])
 const textsOf = (scene: Scene, group: string) =>
-  sceneGroups(scene, group).flatMap(g => g.children.flatMap(c => (c.kind === 'text' ? [c] : [])))
+  sceneGroups(scene, group).flatMap(g => scenePrimitives(g).flatMap(c => (c.kind === 'text' ? [c] : [])))
 
 describe('EnclosurePass', () => {
   const build = () => {
@@ -76,4 +76,27 @@ describe('EnclosurePass', () => {
     const [enc1, enc2] = headXs(render(model))
     expect(enc2 - enc1).toBeGreaterThan(bare2 - bare1)
   })
+
+  it('⭐ P4: each head\'s pair in its OWN group, id\'d by its pitch — what the selection highlight finds', () => {
+    const { model, a } = build()
+    setEnclosure(model.getScore(), [a.id], 'round')
+    const pairs = sceneGroups(render(model), ENCLOSURE_PAIR_GROUP)
+    expect(pairs.map(g => g.id)).toEqual([enclosurePairId(a.id)])
+    expect(pairs[0].children.filter(c => c.kind === 'text')).toHaveLength(2)
+  })
+
+  it('⭐ each bracket registers its own `headEnclosure` box, keyed by its head — `(` left of `)`', () => {
+    const { model, a } = build()
+    setEnclosure(model.getScore(), [a.id], 'round')
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+    const renderer = new ScoreRenderer(container)
+    renderer.initialize(1200, 800)
+    renderer.renderScore(model.getScore())
+    const boxes = renderer.getElementRegistry().getByType('headEnclosure')
+    expect(boxes.map(b => b.noteId)).toEqual([a.id, a.id])
+    expect(boxes[0].bbox.x + boxes[0].bbox.width).toBeLessThan(boxes[1].bbox.x)
+    expect(boxes[0].bbox.height).toBeGreaterThan(0)
+  })
 })
+

@@ -17,11 +17,11 @@ import { MARK_KINDS } from '../clipboard/enclosedMarks'
 const ALL_KINDS: SelectedElement['kind'][] = [
   'clef', 'timeSignature', 'keySignature', 'tempo', 'dynamic', 'tie', 'slur', 'hairpin', 'trill',
   'ottava', 'pedal', 'accidental', 'articulation', 'dot', 'tremolo', 'stem', 'barline', 'repeatStart',
-  'tuplet', 'measureRange', 'scoreText', 'staffGroup',
+  'tuplet', 'measureRange', 'scoreText', 'staffGroup', 'headEnclosure',
 ]
 
 describe('ELEMENT_SPECS — total over the union', () => {
-  it('answers for all twenty-two kinds, and nothing else', () => {
+  it('answers for all twenty-three kinds, and nothing else', () => {
     expect(Object.keys(ELEMENT_SPECS).sort()).toEqual([...ALL_KINDS].sort())
   })
 
@@ -101,7 +101,10 @@ describe('ELEMENT_HIT_ORDER — the priority chain', () => {
       // ⭐ The pedal follows the ottava, and its position is nearly free: the pedal is drawn BELOW
       // the staff and an 8va above it, so only an 8vb can contend — where the inner mark wins, as
       // everywhere in this run. What matters more is that it claims only its two GLYPH boxes.
-      'tie', 'slur', 'hairpin', 'trill', 'ottava', 'pedal', 'accidental', 'articulation',
+      'tie', 'slur', 'hairpin', 'trill', 'ottava', 'pedal', 'accidental',
+      // ⭐ A head's BRACKETS after its accidental (`(` stands outside the sign) and before the dot.
+      'headEnclosure',
+      'articulation',
       // Dots after the other sub-elements: they sit right beside the head.
       'dot',
       // The tremolo immediately before the stem it is drawn ON, so it wins only inside its own ink.

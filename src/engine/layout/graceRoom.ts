@@ -229,6 +229,7 @@ export function graceEnclosure(note: GraceNote, beamed: boolean, down: boolean, 
   if (!note.pitches.some(p => p.enclosure)) return null
   return enclosureLayout({
     notes: note.pitches,
+    duration: note.duration,
     stemDown: down,
     upFlag: !beamed && !down && durationFlags(note.duration) > 0,
     dotReach: graceDotReach(note, beamed, down),

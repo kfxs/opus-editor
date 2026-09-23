@@ -762,6 +762,13 @@ export type SelectedElement =
    */
   | { kind: 'dot'; noteId: string }
   /**
+   * ⭐ A PARENTHESISED head's BRACKETS — both of them, one pair (docs/plans/parenthesised-note-plan.md
+   * N10, reversed by his ask 2026-09-23: *"i want to be able to select just the parenthesis too so i can
+   * remove it with delete key"*). Named by the head's pitch id: the brackets are `NotePitch.enclosure`,
+   * so each head of a chord has its own pair to select. Delete takes them off, the note stays.
+   */
+  | { kind: 'headEnclosure'; noteId: string }
+  /**
    * A slot's STEM — the anchor note id the stem registers against. A chord has ONE stem, anchored
    * on its lowest pitch, exactly as its dots and articulations are, so "the stem of one head of a
    * chord" has no representation.

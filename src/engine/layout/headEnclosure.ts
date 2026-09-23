@@ -15,14 +15,14 @@
  * ⛔ Every number is one house style's DEFAULT, a changeable row (`CLAUDE.md`). They are Gould's, MEASURED
  * off her full-size drawings (research B.3); no book states one.
  */
-import type { Chord, Clef, HeadEnclosure, NotePitch, Score } from '@/types/music'
+import type { Chord, Clef, HeadEnclosure, NoteDuration, NotePitch, Score } from '@/types/music'
 import { spellingDiatonicPos } from '@/utils/pitchSpelling'
 import { displayedAccidentals } from '@/utils/accidentalState'
 import { keyAt } from '@/utils/keySignature'
 import { voiceOf } from '@/utils/lanes'
 import { fracCompare } from '@/utils/fraction'
 import { staffLineForSpelling } from '@/utils/clefUtils'
-import { glyphBox, type GlyphName } from '@/engine/fonts/fontMetrics'
+import { glyphBox, noteheadInk, type GlyphName } from '@/engine/fonts/fontMetrics'
 import { INK, accidentalExtent, dotExtent } from './spacingPadding'
 
 /** A row: a number and where it came from. */
@@ -80,6 +80,9 @@ export interface EnclosureLayout {
 /** What a chord's own ink is — the brackets clear it. `signOf` answers the sign a head DRAWS. */
 export interface EnclosedChord {
   notes: readonly NotePitch[]
+  /** ⭐ What its HEAD is drawn as — a whole note's head is ½ sp wider than a quarter's (his report,
+   *  2026-09-23: `)` sat on a whole note). Absent = a quarter's. */
+  duration?: NoteDuration
   dots?: number
   /** ⭐ Its stem is DOWN — a second then pushes a head to the LEFT of the anchor instead of the right
    *  (`engrave/notes/noteGeometry.displacedHeadRoom`). Absent = up. */
@@ -115,8 +118,11 @@ export function enclosureLayout(chord: EnclosedChord, signOf: (pitchId: string) 
   })
   const positions = chord.notes.map(p => spellingDiatonicPos(p.step, p.octave)).sort((a, b) => a - b)
   const hasSecond = positions.some((position, i) => i > 0 && position - positions[i - 1] === 1)
+  // The house head row (`INK.notehead`, a quarter's) plus whatever THIS head is wider than a quarter's
+  // glyph — so a quarter is exactly the row, and a whole or a breve its own width.
+  const headWidth = INK.notehead + (chord.duration ? noteheadInk(chord.duration) - noteheadInk('q') : 0)
   const displacedLeft = hasSecond && chord.stemDown ? INK.secondDisplacement : 0
-  const heads = hasSecond && !chord.stemDown ? INK.secondDisplacement + INK.notehead : INK.notehead
+  const heads = hasSecond && !chord.stemDown ? INK.secondDisplacement + headWidth : headWidth
 
   // Each candidate edge is (how far its ink reaches) + (the white a bracket keeps from THAT ink).
   const leftEdge = displacedLeft + Math.max(
@@ -130,7 +136,7 @@ export function enclosureLayout(chord: EnclosedChord, signOf: (pitchId: string) 
     chord.dotReach !== undefined
       ? (chord.dotReach > 0 ? chord.dotReach + ENCLOSURE_ROWS.dot.value : 0)
       : chord.dots ? dotExtent(chord.dots) + ENCLOSURE_ROWS.dot.value : 0,
-    chord.upFlag ? INK.notehead + INK.flagReach + ENCLOSURE_ROWS.flag.value : 0,
+    chord.upFlag ? headWidth + INK.flagReach + ENCLOSURE_ROWS.flag.value : 0,
   )
 
   let left = 0
@@ -167,5 +173,5 @@ export function chordEnclosure(score: Score, chord: Chord, clef: Clef, stem: { s
     .filter(s => s.staffId === chord.staffId && voiceOf(s) === voiceOf(chord))
     .sort((a, b) => fracCompare(a.beat, b.beat))
   const signs = displayedAccidentals(lane, keyAt(score, chord.measure, chord.staffId))
-  return enclosureLayout({ notes: chord.notes, dots: chord.dots, ...stem }, id => signs.get(id), clef)
+  return enclosureLayout({ notes: chord.notes, duration: chord.duration, dots: chord.dots, ...stem }, id => signs.get(id), clef)
 }

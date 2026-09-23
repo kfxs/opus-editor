@@ -38,7 +38,7 @@ describe('a tie on a parenthesised note', () => {
     return model
   }
   const stamps = (scene: Scene) =>
-    sceneGroups(scene, ENCLOSURE_GROUP).flatMap(g => g.children.flatMap(c => (c.kind === 'text' ? [c.x] : [])))
+    sceneGroups(scene, ENCLOSURE_GROUP).flatMap(g => scenePrimitives(g).flatMap(c => (c.kind === 'text' ? [c.x] : [])))
 
   it('⭐ leaves from past the `)` of a bracketed first note', () => {
     const scene = render(build('from'))

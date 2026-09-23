@@ -1,6 +1,7 @@
 # The parenthesised note — a head in brackets, still a real note: the plan
 
-> **Status (2026-09-23): P0–P2 committed; P3 BUILT, ⏸️ his UI check.** The `paren.` button (dev
+> **Status (2026-09-23): P0–P4 committed** (P4 with N10 reversed — the brackets selectable, Delete — and a
+> whole note's head width fixed). **Next: P4b, the STAMP** (his ask), ⏳ one question open (§4); then P5. The `paren.` button (dev
 > toolbar, `Note:` group) toggles brackets on the selected notes; `layout/headEnclosure` places them and
 > reserves their room; `rendering/EnclosurePass` stamps them (called from `GracePass.drawGraceNotes`, the
 > lane's one pass over the drawn notes — a call in `ScoreRenderer` itself counts a `clef` word against
@@ -30,7 +31,7 @@
 | **N7** | **it is part of the bar's accidental state** | ⏳ proposed | the running-accidental rule reads it like any note | nothing in the research treats it otherwise; a restated note repeats its sign anyway |
 | **N8** | **the glyphs: the accidental pair** | ⏳ proposed | `BRACKET_FORMS.gould` (`layout/bracketedRoom`): `accidentalParensLeft/Right` E26A/E26B at FULL size, centred on the head. Its own armed form, separate from the bracketed grace's | ✅ Gould's measured brackets on a full head are **≈2.0 sp** tall and 0.53–0.55 wide; Bravura's accidental pair is 1.98 × 0.564. Verovio and LilyPond draw this pair; ⛔ no engine draws with the notehead pair E0F5/E0F6 (1.45 sp, sized for one head) — only VexFlow did. ⚠️ REVERSES the draft |
 | **N9** | **the gaps: its OWN rows** | ⏳ proposed | `(`→♭ **0.53**, ♭→head as the accidental's own gap, head→`)` **0.53**, `(`→head (no sign) **0.72**, ledger→`)` ≈0.15–0.6 (measured) — rows in `layout/headEnclosure`, ⛔ not the bracketed grace's | ⚠️ the bracketed grace's `parenToAccidental` 0.2 was measured on a SMALL head; Gould's full-size heads (pp. 308, 337) measure 0.53. A grace (P3) may read the bracketed grace's rows — his eye |
-| **N10** | **not selectable on its own** | ⏳ proposed | clicking the brackets selects the NOTE; Delete deletes the note; the button toggles them off. No new `SelectedElement` kind | one fewer kind before he has used it; it can become an element later (Properties, a drag) if use asks |
+| **N10** | **the brackets are SELECTABLE on their own** | ✅ 2026-09-23 ⚠️ **REVERSED** (his ask: *"i want to be able to select just the parenthesis too so i can remove it with delete key"*) | a kind of its own, `headEnclosure` (the head's pitch id): a press on either bracket selects the pair — nearer the HEAD it stays the note's, the dot's rule; Delete takes them off and the note stays selected; one undo step. `interactions/elements/enclosure` (hit + highlight), a row in `ELEMENT_SPECS` and in `ELEMENT_HIT_ORDER` after the accidental. ⚠️ Named `headEnclosure`, not `enclosure`: `lint:hubs` reads every kind name as a word and would count each `engine.enclosure` in `MusicEngine` | the first answer (*one fewer kind before he has used it*) was mine; his use asked for it the same day |
 | **N11** | **a tie chain** | ⏸️ 2026-09-23, deferred (*"this can wait … it is not so important"*) | the button brackets exactly the heads selected — nothing follows the tie | Dorico brackets the FIRST head by default, with "until end of tie chain"; Gould and Stone bracket the RESTATED (tied-to) note |
 
 ---
@@ -105,7 +106,20 @@ export type HeadEnclosure = 'round'
   INSIDE the grace's own member group — so the selection highlight already colours a grace's brackets.
   ⏳ His eye: brackets SCALED with the grace (the bracketed grace's `gould` form is full size — a row if he
   wants the same here).
-- **P4: selection ink.** The highlight colours the brackets with their note.
+- ✅ **P4: selection ink** (built 2026-09-23, ⏸️ his eye). Each head's pair is its own group,
+  `enclosure-<pitchId>` (`EnclosurePass.enclosurePairId`); the selected-NOTE pass calls
+  `interactions/elements/enclosure.paintNoteEnclosure`, which finds it in the score's `<svg>` by id (the
+  key signature's way) and fills both glyphs in the voice colour — THIS head's pair only. A grace's pairs
+  stand loose in its member group (its highlight colours direct children, skipping nested groups), so
+  they were lit since P3.
+  - ⭐ His report (a screenshot): on a WHOLE note `)` sat on the head — the layout took every head as a
+    quarter's. `EnclosedChord.duration` now gives the head its own width (the house quarter row plus what
+    this head's glyph adds over a quarter's), so a quarter did not move.
+- ⏭️ **P4b: the STAMP** (his ask, 2026-09-23: *"i want to be able to stamp parenthesis"*). The grace
+  buttons' pattern: `paren.` with notes selected toggles them (as now); with nothing selected it ARMS a
+  brackets stamp — each click on a note or a grace brackets it, the stamp stays armed, a re-press disarms.
+  Joins the `selectedMarkingTool` union; its own module in `interactions/stamps/`. ⏳ Open: does a click on
+  an already-bracketed head take them OFF (a toggle, MuseScore's rule, proposed) or only ever add?
 - **P5: the chord switch (N3).** `enclosureSpan`, one tall pair round the bracketed heads, and its Properties control.
 - **Later, only when asked:** the Keypad `1` key; a Properties control; `'square'`; rests; a playback
   meaning (N6); a tie-chain option (N11); Dorico's per-head "break bracket".
@@ -115,3 +129,4 @@ export type HeadEnclosure = 'round'
 1. **N3: a chord** — ✅ both, a Properties switch, default one pair per head (P5).
 2. **N6: the sound** — ✅ plays as written, for now.
 3. **N11: a tie chain** — ⏸️ deferred; the selection decides.
+4. **P4b: the stamp on a bracketed head** — ⏳ toggle them off (proposed), or add only?

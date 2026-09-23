@@ -212,6 +212,9 @@ export type ElementType =
   | 'trill-endpoint'
   | 'accidental'
   | 'dot'
+  /** ⭐ One bracket of a PARENTHESISED head — `noteId` is the head's pitch id; each of `(` and `)` its
+   *  own box (`rendering/EnclosurePass`, `GracePass`). */
+  | 'headEnclosure'
   | 'tuplet'
   | 'articulation'
   | 'dynamic'

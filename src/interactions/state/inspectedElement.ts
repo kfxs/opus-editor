@@ -89,6 +89,7 @@ export type InspectedElement =
   | Report<'articulation', OnNote & { type: string | null }>
   | Report<'accidental', OnNote & { type: string | null }>
   | Report<'dot', OnNote>
+  | Report<'headEnclosure', OnNote>
   | Report<'stem', OnNote>
   | Report<'tremolo', OnNote>
   | Report<'tie', { fromNoteId: string; from: Note | undefined }>

@@ -512,6 +512,16 @@ export function wireShortcuts(
             renderer.renderScore()
             return
           }
+          case 'headEnclosure': {
+            // Takes the head's brackets OFF — the note stays, and stays selected to keep editing,
+            // like the dot above (parenthesised-note-plan N10).
+            const noteId = element.noteId
+            eng.enclosure.set([noteId], null)
+            state.selectedElement = null
+            selection.selectNote(noteId)
+            renderer.renderScore()
+            return
+          }
           case 'tremolo': {
             // The whole mark goes, whatever it was: a tremolo is ONE value on the slot, so there is
             // no "remove a stroke" here — that is a different edit (change the mark), and it belongs

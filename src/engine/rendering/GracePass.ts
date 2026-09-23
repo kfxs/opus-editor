@@ -55,7 +55,7 @@ import { graceDotXs, graceEnclosure, graceLayout, graceScale, graceStemSpaces, h
 import { displayedAccidentals } from '@/utils/accidentalState'
 import { beforeSideLayout } from '@/engine/layout/bracketedRoom'
 import { drawBracketedGraces } from './BracketedGracePass'
-import { drawEnclosures, stampEnclosure } from './EnclosurePass'
+import { drawEnclosures, registerEnclosure, stampEnclosure } from './EnclosurePass'
 import { staffLineForSpelling } from '@/utils/clefUtils'
 import { spellingDiatonicPos, spellingToMidi, spellingToNoteKey } from '@/utils/pitchSpelling'
 import { C_MAJOR } from '@/utils/keySignature'
@@ -87,7 +87,7 @@ export function drawGraceNotes(
 ): void {
   // ⭐ The brackets of the lane's PARENTHESISED heads (`./EnclosurePass`) — drawn from here, the lane's
   //    one pass over the notes just drawn, so the renderer's loop stays one call wide.
-  drawEnclosures(pass, slots, staveNotes, clefForBeat, key)
+  drawEnclosures(pass, slots, staveNotes, measureNumber, staffIndex, clefForBeat, key)
   // ⭐ The chord's BRACKETED graces first — the rest of its before side (`./BracketedGracePass`).
   drawBracketedGraces(pass, slots, staveNotes, measureNumber, staffIndex, clefForBeat, key)
   if (!slots.some(s => s.graceBefore)) return
@@ -229,6 +229,8 @@ function drawGraceGroup(
         const brackets = graceEnclosure(note, beamTipY !== undefined, down, signOf, clef)
         if (brackets) {
           stampEnclosure(ctx, brackets, sp => local(headLeft) + sp * space, line => local(noteLineY(frame, line)), musicGlyphFont())
+          // …and its boxes, in STAFF px (the registry's), at the grace's size.
+          registerEnclosure(pass, brackets, sp => headLeft + sp * space * k, line => noteLineY(frame, line), space * k, measureNumber, staffIndex)
         }
         drawGraceArticulations(pass, {
           note, stave, clef, headLeft, glyphWidth, stemPx: graceStemSpaces(lines, down) * space, measureNumber, staffIndex,

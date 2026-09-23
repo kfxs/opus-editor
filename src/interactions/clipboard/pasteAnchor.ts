@@ -132,10 +132,11 @@ export function anchorOfElement(engine: PasteAnchorEngine, element: SelectedElem
       return noteAnchor(engine, score.trills?.find(t => t.id === element.id)?.startNoteId)
     case 'tie':
       return noteAnchor(engine, element.fromNoteId)
-    // The five sub-elements of a note ARE that note, positionally.
+    // The six sub-elements of a note ARE that note, positionally.
     case 'articulation':
     case 'accidental':
     case 'dot':
+    case 'headEnclosure':
     case 'stem':
     case 'tremolo':
       return noteAnchor(engine, element.noteId)

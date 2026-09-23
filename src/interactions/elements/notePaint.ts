@@ -4,7 +4,7 @@
  * `EditorState`), so this has no row in `ELEMENT_SPECS`; it is the set pass `RenderController` runs
  * first, and the painter a kind that points AT a note borrows (the slur's armed anchor).
  *
- * ⭐ **A selected note lights what hangs off it** — accidental, articulations, dots, tie, tremolo —
+ * ⭐ **A selected note lights what hangs off it** — accidental, articulations, dots, brackets, tie, tremolo —
  * and each of those is painted by ITS OWN kind's module (`paintNoteDots`, `paintNoteTie`, …), the
  * same painter that kind's `highlight` row calls. One owner per ink; this only says which belong.
  */
@@ -13,6 +13,7 @@ import { voiceFillColor, voiceStrokeColor } from '@/utils/voiceColors'
 import { paintNoteAccidentals } from './accidental'
 import { paintNoteArticulations } from './articulation'
 import { paintNoteDots } from './dot'
+import { paintNoteEnclosure } from './enclosure'
 import type { HighlightContext } from './highlightContext'
 import { paintNoteTie } from './tie'
 import { paintNoteTremolo } from './tremolo'
@@ -133,11 +134,13 @@ export function paintNote(
     : group.querySelector('g.notehead text, g.notehead path')
   if (head) colorFill(head)
 
-  // Also light this note's accidental (♯/♭/♮), articulations, dots, tie and tremolo, so a selected
-  // note reads as fully selected — head + stem + accidental + articulations + dots + tie + mark.
+  // Also light this note's accidental (♯/♭/♮), articulations, dots, brackets, tie and tremolo, so a
+  // selected note reads as fully selected — head + stem + accidental + articulations + dots + brackets
+  // + tie + mark.
   paintNoteAccidentals(ctx, noteId, group, SELECTION_COLOR)
   paintNoteArticulations(ctx, noteId, SELECTION_COLOR)
   paintNoteDots(ctx, noteId, SELECTION_COLOR)
+  paintNoteEnclosure(ctx, noteId, SELECTION_COLOR)
   paintNoteTie(ctx, noteId, SELECTION_COLOR)
   paintNoteTremolo(ctx, noteId, SELECTION_COLOR)
 

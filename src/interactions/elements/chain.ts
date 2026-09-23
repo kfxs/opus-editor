@@ -60,6 +60,7 @@ import { PEDAL_ELEMENT } from './pedal'
 import { ACCIDENTAL_ELEMENT } from './accidental'
 import { ARTICULATION_ELEMENT } from './articulation'
 import { DOT_ELEMENT } from './dot'
+import { HEAD_ENCLOSURE_ELEMENT } from './enclosure'
 import { TREMOLO_ELEMENT } from './tremolo'
 import { STEM_ELEMENT } from './stem'
 import { BARLINE_ELEMENT } from './barline'
@@ -269,6 +270,9 @@ export const ELEMENT_HIT_ORDER: ReadonlyArray<ClickableElementSpec> = [
   // it claims far less area than its neighbours here (`./pedal`).
   PEDAL_ELEMENT,
   ACCIDENTAL_ELEMENT,
+  // ⭐ A head's BRACKETS after its accidental — `(` stands outside the sign, never on it — and before
+  //   the dot, which a `)` can stand next to. Its handler stands down for a press nearer the head.
+  HEAD_ENCLOSURE_ELEMENT,
   ARTICULATION_ELEMENT,
   // Dots last of the sub-elements: they sit right beside the notehead, so a dot must never win a
   // press that a neighbouring glyph could claim. It still precedes the note itself — a dot's box
@@ -331,6 +335,7 @@ export const ELEMENT_SPECS: Record<SelectedElement['kind'], ElementKindSpec> = {
   accidental: ACCIDENTAL_ELEMENT,
   articulation: ARTICULATION_ELEMENT,
   dot: DOT_ELEMENT,
+  headEnclosure: HEAD_ENCLOSURE_ELEMENT,
   tremolo: TREMOLO_ELEMENT,
   stem: STEM_ELEMENT,
   barline: BARLINE_ELEMENT,

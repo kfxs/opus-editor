@@ -4,7 +4,7 @@ import { ScoreModel } from '@/engine/models/ScoreModel'
 import { setEnclosure } from '@/engine/models/enclosureOps'
 import { fracCreate as frac } from '@/utils/fraction'
 import { INK, accidentalExtent, dotExtent } from './spacingPadding'
-import { glyphBox } from '@/engine/fonts/fontMetrics'
+import { glyphBox, noteheadInk } from '@/engine/fonts/fontMetrics'
 import type { Chord, NotePitch, PitchStep } from '@/types/music'
 
 /**
@@ -31,6 +31,14 @@ describe('enclosureLayout', () => {
     expect(layout.left).toBeCloseTo(L.left - pair.leftParenX, 9)
     expect(layout.right).toBeCloseTo(pair.rightParenX + R.right, 9)
     expect(pair.line).toBe(3)
+  })
+
+  it('⭐ a WHOLE note\'s head is wider — `)` stands past IT, not past a quarter\'s (his report, 2026-09-23)', () => {
+    const quarter = enclosureLayout({ notes: [pitch('a', 'B', 4)], duration: 'q' }, none, 'treble')!
+    const whole = enclosureLayout({ notes: [pitch('a', 'B', 4)], duration: 'w' }, none, 'treble')!
+    expect(quarter.pairs[0].rightParenX - R.left).toBeCloseTo(INK.notehead + ENCLOSURE_ROWS.head.value, 9)
+    expect(whole.pairs[0].rightParenX - quarter.pairs[0].rightParenX).toBeCloseTo(noteheadInk('w') - noteheadInk('q'), 9)
+    expect(whole.pairs[0].leftParenX).toBe(quarter.pairs[0].leftParenX)
   })
 
   it('⭐ the ACCIDENTAL is inside: `(` stands past it by the accidental row', () => {
