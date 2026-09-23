@@ -219,9 +219,9 @@ const SHORT_SIZE = 19
 const BREVE_SIZE = 36
 /** The brackets, drawn tall enough to read as brackets. */
 const PARENS_SIZE = 50
-/** The ROUND BRACKET key draws the same pair with nothing inside, so it carries the picture alone
+/** The PARENTHESISED NOTE key draws the same pair with nothing inside, so it carries the picture alone
  *  and is drawn a size up from the pair that frames the pre-bend's notehead. */
-const ROUND_BRACKET_SIZE = 58
+const PARENTHESISED_NOTE_SIZE = 58
 
 /** The numpad keys, in the reading order the cells must follow. Three of them are merged keys. */
 export const KEYS = [
@@ -380,7 +380,7 @@ const pageGrace: CellSpec[] = [
   ['appoggiatura', g(GRACE.plain, GRACE_SIZE, 9), 'grace', 'appoggiatura'], ['acciaccatura', g(GRACE.slashed, GRACE_SIZE, 9), 'grace', 'acciaccatura'], ['bracketed grace', GRACE_ICON.bracketedNote, 'grace', 'bracketed'],
   ['512th', g(NOTE_SHORT.fiveHundredTwelfth, SHORT_SIZE, 15.6), 'momentary'], ['breve', g(BREVE, BREVE_SIZE, 3), 'momentary'], ['longa', GRACE_ICON.longa, 'momentary'],
   ['64th', g(NOTE_SHORT.sixtyFourth, SHORT_SIZE, 12.4), 'momentary'], ['128th', g(NOTE_SHORT.hundredTwentyEighth, SHORT_SIZE, 13.5), 'momentary'], ['256th', g(NOTE_SHORT.twoHundredFiftySixth, SHORT_SIZE, 14.5), 'momentary'],
-  ['round bracket', g(PARENS, ROUND_BRACKET_SIZE), 'momentary'], ['double dot', GRACE_ICON.doubleDot, 'momentary'], ['triple dot', GRACE_ICON.tripleDot, 'momentary'], ['cue size', GRACE_ICON.cueSize, 'momentary'],
+  ['parenthesised note', g(PARENS, PARENTHESISED_NOTE_SIZE), 'momentary'], ['double dot', GRACE_ICON.doubleDot, 'momentary'], ['triple dot', GRACE_ICON.tripleDot, 'momentary'], ['cue size', GRACE_ICON.cueSize, 'momentary'],
   ['bar rest', g(REST_BAR, 46, 1), 'momentary'], ['gliss', g(GRACE.slash, 34, 8), 'momentary'],
 ]
 

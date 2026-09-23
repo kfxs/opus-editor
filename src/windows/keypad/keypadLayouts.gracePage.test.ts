@@ -74,7 +74,7 @@ describe('the Keypad Grace page', () => {
       ['/', 'appoggiatura'], ['*', 'acciaccatura'], ['-', 'bracketed grace'],
       ['7', '512th'], ['8', 'breve'], ['9', 'longa'],
       ['4', '64th'], ['5', '128th'], ['6', '256th'],
-      ['1', 'round bracket'], ['2', 'double dot'], ['3', 'triple dot'], ['Enter', 'cue size'],
+      ['1', 'parenthesised note'], ['2', 'double dot'], ['3', 'triple dot'], ['Enter', 'cue size'],
       ['0', 'bar rest'], ['.', 'gliss'],
     ]
     for (const [key, action] of drawn) expect(cellFor(key).action).toBe(action)

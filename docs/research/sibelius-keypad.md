@@ -221,17 +221,20 @@ follow the music-font switch.
 | `7` `4` `5` `6` | 512th / 64th / 128th / 256th | E1E3 · E1DD · E1DF · E1E1, ONE size so the heads match and only the flag stack grows |
 | `8` | breve | `noteheadDoubleWhole` E0A0 |
 | `9` | longa | `noteheadDoubleWholeSquare` E0A1 + `stem` E210 (a stack — SMuFL names no longa note) |
-| `1` | round bracket | E0CE alone, its own size |
+| `1` | parenthesised note ⚠️ **our name** | E0CE alone, its own size |
 | `2` `3` | double / triple dot | `augmentationDot` E1E7 ×2, ×3 (a stack, so the spacing is ours) |
 | `Enter` | cue size | flat+whole head, full size over cue size, cut by `graceNoteSlashStemUp` E564 **rotated** |
 | `0` | bar rest | `restWholeLegerLine` E4F4 |
 | `.` | gliss ⚠️ **our name** | E564 |
 
-⚠️ **Two of our names are deliberately NOT Sibelius's.** Sibelius names those keys for ONE use —
+⚠️ **Three of our names are deliberately NOT Sibelius's.** Sibelius names the first two keys for ONE use —
 the guitar pre-bend and the guitar slide — but the same bracketed grace note is how a trill says
 which note to trill to, and the same line between two notes is a glissando wherever it is not a
 guitar slide. So the keys are `bracketed grace` and `gliss` on our pad: the name says what the key
-IS, and neither has to be renamed the first time the other use arrives. ⛔ §1–§4 above keep
+IS, and neither has to be renamed the first time the other use arrives. The third, `1`, is
+Sibelius's "round bracket": that names the SIGN, and the key is what it does to a note — puts it in
+parentheses — so it is `parenthesised note` (the spelling the trill's `(tr)` label already uses, and
+⛔ not "bracketed", which here means the staff bracket and the bracketed grace). ⛔ §1–§4 above keep
 Sibelius's names, because that is what the book says.
 
 The stacked drawings are `bake` recipes: they draw from BAKED OUTLINES once `npm run bake:keypad`
