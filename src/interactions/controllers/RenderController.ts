@@ -237,6 +237,8 @@ export class RenderController {
             style: this.state.armedTuplet.format?.numberStyle,
           }
         : undefined,
+      // ⭐ The armed entry BRACKETS ride on the ghost note too — "this click enters a note in brackets".
+      this.state.selectedEnclosure ?? undefined,
     )
     return ghostRendered
   }

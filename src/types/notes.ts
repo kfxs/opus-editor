@@ -804,6 +804,9 @@ export interface NoteParams {
   measure: number
   beat: Fraction
   forceAccidental?: boolean
+  /** The BRACKETS the new head is entered in — note entry armed with them (parenthesised-note-plan
+   *  P4b). A property of the HEAD (`NotePitch.enclosure`), unlike the slot marks below. */
+  enclosure?: HeadEnclosure
   isRest?: boolean
   dots?: number
   tupletId?: string

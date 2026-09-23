@@ -62,6 +62,11 @@ import { drawGroupSignGhost, GROUP_SIGN_GHOST_GROUP_CLASS } from './GroupSignGho
 import { drawKeySignatureGhost, KEY_SIGNATURE_GHOST_GROUP_CLASS } from './KeySignatureGhost'
 import { drawClefGhost, drawTimeSignatureGhost } from './HeaderSignGhost'
 import { drawArticulationGhost, drawAccidentalGhost, drawTremoloGhost, drawDotGhost, drawDynamicGhost } from './MarkGhost'
+import { ENCLOSURE_GHOST_GROUP_CLASS, drawEnclosureGhost } from './EnclosureGhost'
+import { enclosureLayout } from '@/engine/layout/headEnclosure'
+import { stampEnclosure } from '../EnclosurePass'
+import { noteLineY } from '@/engine/engrave/staff/staffFrame'
+import { musicGlyphFont } from '@/engine/engrave/inheritedFonts'
 import { drawTempoGhost, TEMPO_GHOST_GROUP_CLASS } from './TempoGhost'
 import { drawRestGhost, REST_GHOST_GROUP_CLASS } from './RestGhost'
 import type { SurfaceMetrics } from '@/engine/layout/surface'
@@ -89,7 +94,7 @@ import { noteRuler } from '../engraved/noteRuler'
  * full render that used to hide the leak.)
  */
 export const GHOST_GROUP_SELECTOR =
-  `.ghost-note-group, .${REST_GHOST_GROUP_CLASS}, .${FAN_GHOST_GROUP_CLASS}, .${GRACE_GHOST_GROUP_CLASS}, .${BRACKETED_GHOST_GROUP_CLASS}, .ghost-clef-group, .ghost-timesig-group, .ghost-dynamic-group, .ghost-articulation, .ghost-accidental, .ghost-tie, .ghost-dot, .ghost-tremolo, .${TEMPO_GHOST_GROUP_CLASS}, .${TRILL_GHOST_GROUP_CLASS}, .${OTTAVA_GHOST_GROUP_CLASS}, .${PEDAL_GHOST_GROUP_CLASS}, .${BARLINE_GHOST_GROUP_CLASS}, .${KEY_SIGNATURE_GHOST_GROUP_CLASS}, .${GROUP_SIGN_GHOST_GROUP_CLASS}`
+  `.ghost-note-group, .${REST_GHOST_GROUP_CLASS}, .${FAN_GHOST_GROUP_CLASS}, .${GRACE_GHOST_GROUP_CLASS}, .${BRACKETED_GHOST_GROUP_CLASS}, .ghost-clef-group, .ghost-timesig-group, .ghost-dynamic-group, .ghost-articulation, .ghost-accidental, .ghost-tie, .ghost-dot, .ghost-tremolo, .${ENCLOSURE_GHOST_GROUP_CLASS}, .${TEMPO_GHOST_GROUP_CLASS}, .${TRILL_GHOST_GROUP_CLASS}, .${OTTAVA_GHOST_GROUP_CLASS}, .${PEDAL_GHOST_GROUP_CLASS}, .${BARLINE_GHOST_GROUP_CLASS}, .${KEY_SIGNATURE_GHOST_GROUP_CLASS}, .${GROUP_SIGN_GHOST_GROUP_CLASS}`
 
 /**
  * How far the ghost's tuplet number floats above the note, in STAFF SPACES — measured from the stem
@@ -314,6 +319,22 @@ export function drawNoteGhost(
     drawNoteInkThrough([staveNote], ctx)
     staveNote.setContext(ctx).draw()
 
+    // ⭐ The armed entry BRACKETS round the head — the page's own layout and stamps
+    //    (`layout/headEnclosure`, `EnclosurePass.stampEnclosure`), drawn INSIDE the `childrenBefore` window
+    //    so they are swept into `.ghost-note-group` and tinted with the rest of the ghost.
+    if (ghostNote.enclosure) {
+      const layout = enclosureLayout({
+        notes: [{ id: 'ghost', step: ghostNote.step, alter: ghostNote.alter, octave: ghostNote.octave, enclosure: ghostNote.enclosure }],
+        duration: ghostNote.duration, dots: ghostNote.dots, stemDown: stemDirection === -1,
+        upFlag: stemDirection === 1 && staveNote.hasFlag(),
+      }, () => (ghostNote.alter !== 0 ? alterToString(ghostNote.alter) : ghostNote.forceAccidental ? 'n' : null), clef)
+      if (layout) {
+        const frame = staveFrame(tempStave)
+        const hostX = staveNote.getNoteHeadBeginX()
+        stampEnclosure(ctx, layout, sp => hostX + sp * frame.spacePx, line => noteLineY(frame, line), musicGlyphFont())
+      }
+    }
+
     // The armed tuplet's number, over the ghost — "this click STARTS a 5:4", which a notehead
     // alone cannot say. Drawn by the engraved mark's own `layoutTupletMark`, so the font is the
     // page's (Bravura at the tuplet's own size) rather than a second copy that goes stale, and the
@@ -529,6 +550,7 @@ export const GHOST_DRAWERS: {
   tremolo: (ctx, _svg, x, y, g) => drawTremoloGhost(ctx, x, y, g.mark),
   tie: (ctx, _svg, x, y) => drawTieGhost(ctx, x, y),
   dot: (ctx, _svg, x, y) => drawDotGhost(ctx, x, y),
+  headEnclosure: (ctx, _svg, x, y, g) => drawEnclosureGhost(ctx, x, y, g.shape),
   rest: (ctx, svg, x, y, g) => drawRestGhost(ctx, svg, x, y, g.duration, g.dots, g.color),
   fan: (ctx, svg, x, y, g) => drawFanGhost(ctx, svg, x, y, g.duration, g.dots),
   grace: (ctx, svg, x, y, g, staff) => drawGraceGhost(ctx, svg, x, y, g.duration, g.slash, g.accidental, staff, g.dots, g.articulations),

@@ -4,6 +4,7 @@ import { ScoreModel } from '@/engine/models/ScoreModel'
 import { setEnclosure } from '@/engine/models/enclosureOps'
 import { fracCreate as frac } from '@/utils/fraction'
 import { INK, accidentalExtent, dotExtent } from './spacingPadding'
+import { noteDotXs } from './noteDotXs'
 import { glyphBox, noteheadInk } from '@/engine/fonts/fontMetrics'
 import type { Chord, NotePitch, PitchStep } from '@/types/music'
 
@@ -76,9 +77,21 @@ describe('enclosureLayout', () => {
     expect(second.pairs[0].rightParenX).toBeCloseTo(single.pairs[0].rightParenX, 9)
   })
 
-  it('⭐ an UP-FLAG: `)` stands past the flag by the flag row (it hangs through where `)` would be)', () => {
-    const layout = enclosureLayout({ notes: [pitch('a', 'G', 4)], upFlag: true }, none, 'treble')!
-    expect(layout.pairs[0].rightParenX - R.left).toBeCloseTo(INK.notehead + INK.flagReach + ENCLOSURE_ROWS.flag.value, 9)
+  it('⛔ the FLAG does not push `)` — the brackets hug the head, the stem leaves through the top (Gould p. 308; his eye)', () => {
+    const quarter = enclosureLayout({ notes: [pitch('a', 'G', 4)], duration: 'q' }, none, 'treble')!
+    const eighth = enclosureLayout({ notes: [pitch('a', 'G', 4)], duration: '8' }, none, 'treble')!
+    expect(eighth.pairs[0].rightParenX).toBeCloseTo(quarter.pairs[0].rightParenX, 9)
+  })
+
+  it('⭐ a stem-UP FLAGGED note\'s DOTS stand past its flag — `)` follows THEM (his report: `)` landed on the dot)', () => {
+    const plain = enclosureLayout({ notes: [pitch('a', 'D', 4)], duration: '16', dots: 1 }, none, 'treble')!
+    const flagged = enclosureLayout({ notes: [pitch('a', 'D', 4)], duration: '16', dots: 1, upFlag: true }, none, 'treble')!
+    const push = noteDotXs({ duration: '16', dots: 1 }, true)[0] - noteDotXs({ duration: '16', dots: 1 }, false)[0]
+    expect(push).toBeGreaterThan(0)
+    expect(flagged.pairs[0].rightParenX - plain.pairs[0].rightParenX).toBeCloseTo(push, 9)
+    // …and with no dots, the flag moves nothing.
+    const bare = enclosureLayout({ notes: [pitch('a', 'D', 4)], duration: '16', upFlag: true }, none, 'treble')!
+    expect(bare.pairs[0].rightParenX).toBeCloseTo(enclosureLayout({ notes: [pitch('a', 'D', 4)], duration: '16' }, none, 'treble')!.pairs[0].rightParenX, 9)
   })
 
   it('a SECOND puts the right bracket past the displaced head', () => {

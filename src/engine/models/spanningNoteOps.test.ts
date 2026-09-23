@@ -295,4 +295,15 @@ describe('splitChordWithTie — a chord crosses the barline together', () => {
     expect(pieces.map(n => `${n.step}${n.duration}`)).toEqual(['Cw']) // the old `h` went; no duplicate
     expect(pieces[0].tiedFrom).toBe(c.id)
   })
+
+  it('⭐ an ENTERED note in brackets carries them to EVERY piece, as its tremolo does (parenthesised-note-plan P4b)', () => {
+    const model = new ScoreModel()
+    model.addMeasure()
+    model.addNote({ step: 'C', octave: 5, duration: 'h', measure: 1, beat: frac(0, 1) })
+    model.addNote({ step: 'C', octave: 5, duration: 'q', measure: 1, beat: frac(2, 1) })
+    const head = addSplitNoteWithTie(model, { step: 'E', octave: 5, duration: 'h', measure: 1, beat: frac(3, 1), enclosure: 'round' }, 1)!
+    expect(model.getNote(head.id)!.enclosure).toBe('round')
+    expect(model.getNote(model.getNote(head.id)!.tiedTo!)!.enclosure).toBe('round')
+  })
 })
+

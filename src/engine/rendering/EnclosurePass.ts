@@ -57,8 +57,7 @@ export function drawEnclosures(
     const slot = slots[i]
     if (slot.type !== 'chord') continue
     const stemDown = staveNotes[i].getStemDirection() === -1
-    const upFlag = !stemDown && staveNotes[i].hasFlag()
-    const layout = enclosureLayout({ notes: slot.notes, duration: slot.duration, dots: slot.dots, stemDown, upFlag }, id => signs.get(id), clefForBeat(slot.beat))
+    const layout = enclosureLayout({ notes: slot.notes, duration: slot.duration, dots: slot.dots, stemDown, upFlag: !stemDown && staveNotes[i].hasFlag() }, id => signs.get(id), clefForBeat(slot.beat))
     if (!layout) continue
     const stave = maybeStaveOf(staveNotes[i])
     if (!stave) continue

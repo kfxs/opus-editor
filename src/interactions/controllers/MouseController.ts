@@ -28,6 +28,8 @@ import { pickSlurHandleAt } from '../walks/slurHandlePick'
 import { stampSpanMarkAtClick } from '../stamps/spanMarkStamp'
 import { stampHairpinAtClick } from '../stamps/hairpinStamp'
 import { stampArticulationAtClick } from '../stamps/articulationStamp'
+import { stampTremoloAtClick } from '../stamps/tremoloStamp'
+import { stampEnclosureAtClick } from '../stamps/enclosureStamp'
 import { stampBarlineAtClick } from '../stamps/barlineStamp'
 import { stampKeySignatureAtClick } from '../stamps/keySignatureStamp'
 import { STAFF_BAND_PAD_PX } from '../state/staffBand'
@@ -1332,7 +1334,8 @@ export class MouseController {
     if (this.stampAccidentalAtClick(engine, registry, x, y)) return
     if (this.stampTieAtClick(engine, registry, x, y)) return
     if (this.stampDotAtClick(engine, registry, x, y)) return
-    if (this.stampTremoloAtClick(engine, registry, x, y)) return
+    if (stampTremoloAtClick(this.state, engine, registry, x, y, () => this.render.renderScore())) return
+    if (stampEnclosureAtClick(this.state, engine, registry, x, y, () => this.render.renderScore())) return
     if (this.stampRestAtClick(engine, x, y)) return
     // The feather stamp's whole click lives in its own module (interactions/stamps/fanStamp); this is the
     // row that gives it a turn.
@@ -1543,56 +1546,6 @@ export class MouseController {
   }
 
   /**
-   * Tremolo stamp tool: a click puts the armed tremolo on the note clicked. Mirrors
-   * {@link stampAccidentalAtClick} — one `runBatch` = one undo, SINGLE-valued and IDEMPOTENT (a note
-   * already carrying that mark is a no-op; a note carrying a DIFFERENT one is replaced, because a
-   * note has one tremolo).
-   *
-   * ⚠️ THE ONE STAMP WITH TWO TARGETS: the notehead **or the stem**. Every other stamp takes the
-   * head alone, because that is where its mark lands. A tremolo's strokes ride the STEM, so that is
-   * where the pointer naturally goes — insisting on the head would mean aiming at one place to put
-   * ink in another. The head test runs first and unchanged (a click there still resolves by nearest
-   * note); {@link ElementRegistry.findStemAt} is the second chance, and it hits the stem's OWN
-   * registered rect — a containment test, not a nearest-note one, because a click at the top of a
-   * stem is a whole stem-length from its own notehead, which is exactly where "nearest" picks the
-   * wrong note.
-   *
-   * A REST is refused: you cannot tremolo silence. The click is still consumed — the tool is armed,
-   * so a near-miss must not fall through to note entry.
-   *
-   * No playability ceiling, and none is needed: past the unmeasured threshold nothing is scheduled
-   * as a subdivision at all, so there is no absurd note value to guard against (docs/plans/tremolo-plan.md
-   * §2). A ceiling would also be unenforceable — shortening the note afterwards recreates the same
-   * combination with no stamp in sight.
-   */
-  private stampTremoloAtClick(engine: MusicEngine, registry: ElementRegistry, x: number, y: number): boolean {
-    const tremolo = armedTool(this.state, 'tremolo')?.tremolo
-    if (tremolo === undefined) return false
-
-    const nearest = registry.findClosestNoteOrRest(x, y)
-    const onHead = nearest && registry.hitsNoteOrRestBody(nearest, x, y)
-    // A stem carries `noteId`, never `id` (a stem must never answer a lookup for its note).
-    const noteId = onHead ? nearest.id : registry.findStemAt(x, y)?.noteId
-    if (!noteId) {
-      dbg(`· Tremolo stamp: click not on a notehead or stem — no change`)
-      return true
-    }
-    const note = engine.getNote(noteId)
-    if (!note || note.isRest) {
-      dbg(`· Tremolo stamp: ${note?.isRest ? 'rest' : 'non-note'} — no change`)
-      return true
-    }
-    if (note.tremolo === tremolo) {
-      dbg(`· Tremolo stamp: note ${noteId} already has tremolo ${tremolo} — no change`)
-      return true
-    }
-    engine.runBatch(`Set tremolo ${tremolo}`, () => engine.setTremolo(noteId, tremolo))
-    dbg(`✓ Tremolo stamped | ${tremolo} on note ${noteId}`)
-    this.render.renderScore()
-    return true
-  }
-
-  /**
    * Tie stamp tool: a click TIES the note clicked to the next slot in its own voice and staff (the
    * engine resolves the target — same pitch where there is one, else a let-ring tie into whatever
    * is there). Mirrors {@link stampAccidentalAtClick} — same note-body hit-test, one `runBatch` =
@@ -1726,6 +1679,7 @@ export class MouseController {
             this.state.selectedBeam !== 'auto' ? this.state.selectedBeam : undefined,
             activeVoiceToModel(this.state.activeVoice),
             this.state.selectedTremolo ?? undefined,
+            this.state.selectedEnclosure ?? undefined,
           )
 
           if (note) {
@@ -1794,6 +1748,7 @@ export class MouseController {
           // beside it, so the entered note is BORN with the mark (one undo entry, and the
           // cross-barline split carries it to every piece).
           this.state.selectedTremolo ?? undefined,
+          this.state.selectedEnclosure ?? undefined,
         )
 
         if (note) {

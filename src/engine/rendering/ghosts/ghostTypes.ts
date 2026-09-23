@@ -33,7 +33,7 @@
  */
 import type {
   Clef, TimeSignature, KeySignature, TempoMark, Dynamic, ArticulationType, TremoloMark, NoteDuration, Ottava,
-  PitchStep, PitchAlter, TupletMarkRun,
+  PitchStep, PitchAlter, TupletMarkRun, HeadEnclosure,
   Accidental as ScoreAccidental,
 } from '@/types/music'
 import type { PlacedBarlineSign } from '@/engine/layout/barlineSign'
@@ -69,6 +69,8 @@ export type ToolGhost =
   /** VALUELESS — the mark itself; WHICH note it lands on is resolved at click time. */
   | { kind: 'tie' }
   | { kind: 'dot' }
+  /** ⭐ A PARENTHESISED head's pair — the SHAPE the click will put on a head (parenthesised-note-plan P4b). */
+  | { kind: 'headEnclosure'; shape: HeadEnclosure }
   /**
    * The `tr`, valueless for the same reason — and the one member added AFTER its family had settled
    * on showing nothing.
@@ -162,6 +164,10 @@ export interface GhostNote {
    *  Absent = no tremolo armed. Same modifier the engraved mark uses, so the preview cannot
    *  disagree with what lands. */
   tremolo?: TremoloMark
+  /** ⭐ The armed entry BRACKETS, drawn round the ghost's head (parenthesised-note-plan P4b, his report:
+   *  *"when a note stamp with parenthesis is armed i dont see the parenthesis in the ghost"*). Absent =
+   *  none armed. Placed by the page's own layout, so the preview cannot disagree with what lands. */
+  enclosure?: HeadEnclosure
   /** Show a natural (♮) even though `alter` is 0 — the preview for an armed natural accidental,
    *  which otherwise has no glyph (alter 0 draws nothing). Sharp/flat carry their own sign via alter. */
   forceAccidental?: boolean

@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest'
 import { graceEnclosure, graceLayout, graceScale } from './graceRoom'
-import { enclosureLayout } from './headEnclosure'
 import type { GraceGroup, GraceNote, NotePitch } from '@/types/music'
 
 /**
@@ -18,11 +17,14 @@ describe('graceRoom — a parenthesised grace', () => {
     expect(graceEnclosure(grace(false), false, false, none, 'treble')).toBeNull()
   })
 
-  it('⭐ the note\'s own rule: a flagged grace\'s `)` stands past its flag; a BEAMED one\'s does not need to', () => {
-    const flagged = graceEnclosure(grace(true), false, false, none, 'treble')!
-    const beamed = graceEnclosure(grace(true), true, false, none, 'treble')!
+  it('⭐ the note\'s own rule: a flagged grace\'s DOT stands past its flag, and `)` past the dot; beamed, no flag to clear', () => {
+    const dotted: GraceNote = { ...grace(true), dots: 1 }
+    const flagged = graceEnclosure(dotted, false, false, none, 'treble')!
+    const beamed = graceEnclosure(dotted, true, false, none, 'treble')!
     expect(flagged.right).toBeGreaterThan(beamed.right)
-    expect(beamed.right).toBeCloseTo(enclosureLayout({ notes: [pitch('g', true)], dotReach: 0 }, none, 'treble')!.right, 9)
+    // ⛔ The flag itself pushes nothing — without a dot, flagged and beamed stand alike (his eye, Gould p. 308).
+    expect(graceEnclosure(grace(true), false, false, none, 'treble')!.right)
+      .toBeCloseTo(graceEnclosure(grace(true), true, false, none, 'treble')!.right, 9)
   })
 
   it('⭐ the group reaches further left by the brackets, at the grace\'s size', () => {

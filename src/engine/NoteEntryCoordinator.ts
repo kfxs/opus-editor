@@ -212,6 +212,8 @@ export class NoteEntryCoordinator {
     voice: NoteParams['voice'] = 0,
     /** The armed entry tremolo, if any — a note property like the accidental and the dots. */
     tremolo?: NoteParams['tremolo'],
+    /** The armed entry BRACKETS, if any — the head is born in them (parenthesised-note-plan P4b). */
+    enclosure?: NoteParams['enclosure'],
   ): Note | null {
     const registry = this.elementRegistry
     const entryVoice = voice ?? 0
@@ -327,6 +329,7 @@ export class NoteEntryCoordinator {
       ...(tupletId && { tupletId }),
       ...(articulations?.length && { articulations }),
       ...(tremolo !== undefined && { tremolo }),
+      ...(enclosure && { enclosure }),
       ...(beam && beam !== 'auto' && { beam }),
       ...(entryVoice && { voice: entryVoice }),
       ...(entryStaff && { staff: entryStaff }),

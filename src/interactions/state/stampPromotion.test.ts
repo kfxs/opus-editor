@@ -25,4 +25,12 @@ describe('promoteStampToNoteEntry — a duration press ends the armed tool', () 
     state.selectedMarkingTool = { kind: 'grace', form: 'acciaccatura', side: 'before' }
     expect(promoteStampToNoteEntry(state)).toBe(1)
   })
+
+  it('⭐ the BRACKETS stamp promotes to the entry brackets — the tremolo\'s way (parenthesised-note-plan P4b)', () => {
+    const state = createEditorState()
+    state.selectedMarkingTool = { kind: 'headEnclosure', shape: 'round' }
+    expect(promoteStampToNoteEntry(state)).toBe(0)
+    expect(state.selectedEnclosure).toBe('round')
+    expect(state.selectedMarkingTool).toBeNull()
+  })
 })

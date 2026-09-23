@@ -24,6 +24,7 @@ import { fracCompare } from '@/utils/fraction'
 import { staffLineForSpelling } from '@/utils/clefUtils'
 import { glyphBox, noteheadInk, type GlyphName } from '@/engine/fonts/fontMetrics'
 import { INK, accidentalExtent, dotExtent } from './spacingPadding'
+import { noteDotXs } from './noteDotXs'
 
 /** A row: a number and where it came from. */
 interface Row { value: number; source: string }
@@ -51,9 +52,6 @@ export const ENCLOSURE_ROWS = {
   ledger: { value: 0.38, source: 'Gould p. 308: “(” → ledger 0.38 sp; ⚠️ her ledger → “)” measures 0.15 (p. 337) and 0.6 (p. 308) — the left side’s number, both sides' },
   /** The last dot → `)`. */
   dot: { value: 0.53, source: '⏳ unsourced — Gould p. 497 draws `𝅗𝅥.)` unmeasured; the head’s row' },
-  /** An UP-flag's ink → `)` — the flag hangs from the stem tip to ≈0.2 sp above the head, right through
-   *  where `)` stands. */
-  flag: { value: 0.3, source: 'MuseScore’s paren padding against a HOOK, 0.3 sp (`parenthesislayout.cpp:237-259`, research A.5)' },
 } as const satisfies Record<string, Row>
 
 /** One head's pair. x's are GLYPH ORIGINS, staff spaces from the chord's notehead anchor. */
@@ -87,7 +85,8 @@ export interface EnclosedChord {
   /** ⭐ Its stem is DOWN — a second then pushes a head to the LEFT of the anchor instead of the right
    *  (`engrave/notes/noteGeometry.displacedHeadRoom`). Absent = up. */
   stemDown?: boolean
-  /** ⭐ It DRAWS an up-flag (the beaming rule's answer, which each caller has) — `)` then stands past it. */
+  /** ⭐ It DRAWS a stem-UP flag — its DOTS then stand past the flag (`./noteDotXs`), and `)` past them.
+   *  ⛔ The flag itself does not push `)` (see {@link enclosureLayout}). */
   upFlag?: boolean
   /** How far right of the anchor its dots reach, when that is NOT a normal note's `dotExtent(dots)` — a
    *  GRACE's dots follow its own rule (`layout/graceRoom.graceDotXs`). */
@@ -102,6 +101,11 @@ const onLedger = (line: number): boolean => line <= 0 || line >= 6
  * Left: past whichever of the chord's inks reaches furthest — its accidentals, a ledger line's end, the
  * head — each with its own row of white. Right: past the heads (a second's displaced one too), a ledger's
  * end, or the dots.
+ *
+ * ⛔ **Not the FLAG.** The brackets hug the HEAD and the stem leaves through the top of `)` — Gould p. 308
+ * (a stemmed semiquaver, the stem exiting the bracket's top). P2 pushed `)` past an up-flag (MuseScore's
+ * hook padding) and his eye rejected it (2026-09-23, a screenshot: *"notes with flag … in parenthesis dont
+ * look good … with stem down look good but not with stem up"*).
  *
  * A SECOND displaces one head across the stem: to the RIGHT for a stem up, to the LEFT for a stem down —
  * and on the left, the accidentals stand beyond the displaced head too, so every left candidate moves.
@@ -135,8 +139,7 @@ export function enclosureLayout(chord: EnclosedChord, signOf: (pitchId: string) 
     ledgered ? heads + INK.ledgerRight - INK.notehead + ENCLOSURE_ROWS.ledger.value : 0,
     chord.dotReach !== undefined
       ? (chord.dotReach > 0 ? chord.dotReach + ENCLOSURE_ROWS.dot.value : 0)
-      : chord.dots ? dotExtent(chord.dots) + ENCLOSURE_ROWS.dot.value : 0,
-    chord.upFlag ? headWidth + INK.flagReach + ENCLOSURE_ROWS.flag.value : 0,
+      : chord.dots ? dotExtent(chord.dots) + flaggedDotPush(chord) + ENCLOSURE_ROWS.dot.value : 0,
   )
 
   let left = 0
@@ -158,6 +161,18 @@ export function enclosureLayout(chord: EnclosedChord, signOf: (pitchId: string) 
     return { pitch, shape, line: staffLineForSpelling(pitch.step, pitch.octave, clef), leftParenX, rightParenX }
   })
   return { pairs, left, right, up, down }
+}
+
+/**
+ * How much further right a stem-UP FLAGGED note's dots stand than an unflagged one's — the dot rule's own
+ * difference (`./noteDotXs`: past the flag, instead of past the head). 0 without a drawn up-flag.
+ * 🚨 His report (2026-09-23), measured in Chromium: a dotted 16th's dot at 2.5 sp, the unflagged row at
+ * 1.7 — the `)` placed for 1.7 landed ON the dot.
+ */
+function flaggedDotPush(chord: EnclosedChord): number {
+  if (!chord.upFlag || !chord.dots) return 0
+  const note = { duration: chord.duration ?? 'q', dots: chord.dots }
+  return noteDotXs(note, true)[0] - noteDotXs(note, false)[0]
 }
 
 /**

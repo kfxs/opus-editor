@@ -81,6 +81,8 @@ export function toolGhost(tool: MarkingTool, armed: ArmedRestFields): ToolGhost 
     // note it lands on is resolved at click time.
     case 'tie': return { kind: 'tie' }
     case 'dot': return { kind: 'dot' }
+    // ⭐ The armed PAIR — the shape the click will put on a head (P4b); valueless otherwise, like the dot.
+    case 'headEnclosure': return { kind: 'headEnclosure', shape: tool.shape }
     // ⭐ The `tr` joins those two — valueless for their reason (a stamped trill is ONE note's), and
     // the one tool on this list that CHANGED ITS MIND. HIS call, 2026-08-17: *"we really want to see
     // a tr ghost; this is much better"*. It used to return null on the argument that a trill is
@@ -172,6 +174,7 @@ export const GHOST_CAUSE: Record<ToolGhost['kind'], string> = {
   tremolo: 'ghost:tremolo',
   tie: 'ghost:tie',
   dot: 'ghost:dot',
+  headEnclosure: 'ghost:enclosure',
   rest: 'ghost:rest',
   fan: 'ghost:fan',
   grace: 'ghost:grace',

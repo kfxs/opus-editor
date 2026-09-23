@@ -388,6 +388,8 @@ export class KeyboardController {
         // The armed entry tremolo (docs/plans/tremolo-plan.md §10) — the typed note is born wearing it,
         // exactly as the clicked one is.
         ...(this.state.selectedTremolo !== null && { tremolo: this.state.selectedTremolo }),
+        // …and the armed entry BRACKETS (parenthesised-note-plan P4b).
+        ...(this.state.selectedEnclosure !== null && { enclosure: this.state.selectedEnclosure }),
         ...(this.state.selectedAccidental === 'n' && { forceAccidental: true }),
         ...(existingTuplet && { tupletId: existingTuplet.id }),
         ...(this.state.selectedBeam !== 'auto' && { beam: this.state.selectedBeam }),

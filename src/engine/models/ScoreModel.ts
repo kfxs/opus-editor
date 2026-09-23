@@ -2058,6 +2058,7 @@ export class ScoreModel {
         forceAccidental: params.forceAccidental,
         tiedTo: params.tiedTo,
         tiedFrom: params.tiedFrom,
+        ...(params.enclosure && { enclosure: params.enclosure }),
       }
       if (params.articulations !== undefined) existingChord.articulations = params.articulations
       // Same rule as the articulations above, and for the same reason: both are properties of the
@@ -2090,6 +2091,7 @@ export class ScoreModel {
       forceAccidental: params.forceAccidental,
       tiedTo: params.tiedTo,
       tiedFrom: params.tiedFrom,
+      ...(params.enclosure && { enclosure: params.enclosure }),
     }
 
     const chord: Chord = {

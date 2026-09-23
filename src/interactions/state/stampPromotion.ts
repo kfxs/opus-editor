@@ -45,6 +45,10 @@ export function promoteStampToNoteEntry(state: EditorState): number {
       // "length, then mark". Its own field, not `selectedDots`, so it returns 0 like the rest.
       state.selectedTremolo = armed.tremolo
       return 0
+    case 'headEnclosure':
+      // ⭐ Its entry-mode home (P4b), the tremolo's: brackets, then a length ⇒ note entry wearing them.
+      state.selectedEnclosure = armed.shape
+      return 0
     case 'fan':
       // It HAS a length, unlike the four below — and still promotes nothing. The feather's length
       // is the GESTURE's, typed in the dialog that armed it; a duration press is a statement about

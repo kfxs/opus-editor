@@ -1439,8 +1439,10 @@ export class MusicEngine {
     voice: NoteParams['voice'] = 0,
     /** The armed entry tremolo, if any — the mark the entered note is born with (§10). */
     tremolo?: NoteParams['tremolo'],
+    /** The armed entry brackets, if any (parenthesised-note-plan P4b). */
+    enclosure?: NoteParams['enclosure'],
   ): Note | null {
-    return this.noteEntryCoordinator.addNoteAtPosition(coords, duration, accidental, dots, articulations, beam, voice, tremolo)
+    return this.noteEntryCoordinator.addNoteAtPosition(coords, duration, accidental, dots, articulations, beam, voice, tremolo, enclosure)
   }
 
 
@@ -3187,6 +3189,8 @@ export class MusicEngine {
       deriveM?: boolean
       style?: TupletNumberStyle
     },
+    /** The armed entry BRACKETS, drawn round the ghost's head (parenthesised-note-plan P4b). */
+    enclosure?: NoteParams['enclosure'],
   ): boolean {
     // Resolve the HOVERED measure first (the same order addNoteAtPosition uses), so the
     // beat-quantization fallback in getPositionFromPixels uses THAT measure's capacity — a
@@ -3273,6 +3277,7 @@ export class MusicEngine {
       ...(dots && { dots }),
       ...(articulations?.length && { articulations }),
       ...(tremolo !== undefined && { tremolo }),
+      ...(enclosure && { enclosure }),
       // An armed natural is alter 0 (no glyph of its own) — flag it so the ghost still shows the ♮.
       ...(accidental === 'n' && { forceAccidental: true }),
       ...(tupletLabel && { tupletLabel }),

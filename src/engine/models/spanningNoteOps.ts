@@ -63,6 +63,8 @@ export function placeSpanningNote(model: SpanningNoteModel, p: {
   existingHeadId?: string
   /** The mark the note is being ENTERED with, when there is no existing head to read one off. */
   tremolo?: NoteParams['tremolo']
+  /** …and the brackets it is entered in — they reach every piece, as the tremolo does. */
+  enclosure?: NoteParams['enclosure']
 }): Note | null {
   const beatsInCurrentMeasure = p.totalBeats - p.overflowAmount
   const beatsInNextMeasure = p.overflowAmount
@@ -106,7 +108,13 @@ export function placeSpanningNote(model: SpanningNoteModel, p: {
 
   erodeOverflowZone(model, nextMeasureNumber, beatsInNextMeasure, voiceOf(p), staffOf(p), ownContinuation)
 
-  const pitch = { step: p.step, alter: p.alter, octave: p.octave, ...(p.voice && { voice: p.voice }), ...(p.staff && { staff: p.staff }) }
+  // ⭐ The head's BRACKETS reach every piece, as its tremolo does (parenthesised-note-plan P4b): the entered
+  //    ones, or a re-split head's own — read before the head is retitled.
+  const enclosure = p.enclosure ?? (p.existingHeadId ? model.getNote(p.existingHeadId)?.enclosure : undefined)
+  const pitch = {
+    step: p.step, alter: p.alter, octave: p.octave, ...(p.voice && { voice: p.voice }), ...(p.staff && { staff: p.staff }),
+    ...(enclosure && { enclosure }),
+  }
 
   // A tremolo on the head must reach EVERY piece of the chain: a tremolo interrupted at a barline
   // is still being played across it (docs/plans/tremolo-plan.md §6). Read before the head is retitled,
@@ -215,6 +223,7 @@ export function addSplitNoteWithTie(model: SpanningNoteModel, noteParams: NotePa
     staff: noteParams.staff,
     // An ENTERED mark reaches every piece too — the same rule the existing head's mark follows.
     tremolo: noteParams.tremolo,
+    enclosure: noteParams.enclosure,
   })
 }
 

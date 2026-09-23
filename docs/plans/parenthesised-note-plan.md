@@ -1,7 +1,7 @@
 # The parenthesised note — a head in brackets, still a real note: the plan
 
-> **Status (2026-09-23): P0–P4 committed** (P4 with N10 reversed — the brackets selectable, Delete — and a
-> whole note's head width fixed). **Next: P4b, the STAMP** (his ask), ⏳ one question open (§4); then P5. The `paren.` button (dev
+> **Status (2026-09-23): P0–P4 committed; P4b BUILT** (the stamp, the entry brackets, both ghosts), ⏸️ his UI
+> check. Next: P5 (the chord switch). The `paren.` button (dev
 > toolbar, `Note:` group) toggles brackets on the selected notes; `layout/headEnclosure` places them and
 > reserves their room; `rendering/EnclosurePass` stamps them (called from `GracePass.drawGraceNotes`, the
 > lane's one pass over the drawn notes — a call in `ScoreRenderer` itself counts a `clef` word against
@@ -88,8 +88,14 @@ export type HeadEnclosure = 'round'
   ledger and chord columns:
   - a **stem-down second** pushes `(` out by the displaced head (its head stands LEFT of the anchor,
     `engrave/notes/noteGeometry.displacedHeadRoom`); a stem-up one pushes `)`;
-  - an **up-flag** hangs through where `)` stands, so `)` stands past it by MuseScore's hook padding,
-    0.3 sp (a row, `flag`);
+  - ~~an **up-flag** pushes `)` past it by MuseScore's hook padding, 0.3 sp~~ — ⛔ **REVERSED 2026-09-23 by
+    his eye** (screenshots: *"notes with flag and dot in parenthesis dont look good … with stem down look
+    good but not with stem up"*). The brackets hug the HEAD and the stem leaves through the top of `)`, as
+    Gould draws it (p. 308, a stemmed semiquaver). The flag is not counted. 🚨 **And the real bug**, found by
+    MEASURING in Chromium when that alone did not fix it (his ask: *"reproduce the error and measure"*): a
+    stem-up FLAGGED note draws its DOT past the flag (2.5 sp, against the unflagged 1.7), and `)` had been
+    placed for the unflagged dot — ON the dot. The layout now asks the dot rule itself (`layout/noteDotXs`,
+    lifted out of `graceRoom.graceDotXs` unchanged); measured after: dot → `)` 0.55 sp flagged, 0.53 not;
   - a **tie** runs OUTSIDE the brackets (Gould p. 610; MuseScore): it leaves 0.2 sp past `)` and lands
     0.2 sp short of `(` (`TIE_BRACKET_CLEARANCE_SP`, ⏳ unsourced, a row). `TieRenderer` asks
     `headEnclosure.chordEnclosure`, the same layout the drawing used;
@@ -115,11 +121,30 @@ export type HeadEnclosure = 'round'
   - ⭐ His report (a screenshot): on a WHOLE note `)` sat on the head — the layout took every head as a
     quarter's. `EnclosedChord.duration` now gives the head its own width (the house quarter row plus what
     this head's glyph adds over a quarter's), so a quarter did not move.
-- ⏭️ **P4b: the STAMP** (his ask, 2026-09-23: *"i want to be able to stamp parenthesis"*). The grace
-  buttons' pattern: `paren.` with notes selected toggles them (as now); with nothing selected it ARMS a
-  brackets stamp — each click on a note or a grace brackets it, the stamp stays armed, a re-press disarms.
-  Joins the `selectedMarkingTool` union; its own module in `interactions/stamps/`. ⏳ Open: does a click on
-  an already-bracketed head take them OFF (a toggle, MuseScore's rule, proposed) or only ever add?
+- ✅ **P4b: the STAMP and the ENTRY mark** (built 2026-09-23, ⏸️ his eye) — his rules, 2026-09-23:
+  - *"if nothing selected and nothing armed and we chose parenthesis we stamp just parenthesis"* — `paren.`
+    ARMS a brackets stamp: each click on a note or a grace brackets it; the stamp stays armed; a re-press
+    disarms. ✅ *"clicking an already-bracketed note with the stamp, dont toggle anything is like clicking a
+    sharp on a note that already has a sharp"* — the stamp only ever ADDS (the Delete key, or `paren.` with
+    the note selected, takes them off).
+  - *"if a duration is armed and we chose parenthesis we arm note stamp with parenthesis and other things
+    armed"* — in NOTE ENTRY, `paren.` arms an entry value (`selectedEnclosure`, the tremolo's
+    `selectedTremolo` twin): every note entered is born in brackets, alongside the armed accidental,
+    articulations, dots, tremolo. It persists, like the tremolo.
+  - With NOTES selected, `paren.` toggles them, as since P1.
+  - ⚠️ `MouseController` sits at its `lint:hubs` line ceiling (1076/1076), and the stamp's dispatch line and
+    the entry value's two call sites are lines there. So the TREMOLO stamp's click leaves it first for
+    `interactions/stamps/tremoloStamp` — where every newer stamp already lives, no behaviour change — which
+    makes the room instead of raising the ceiling. ✅ Net: 1076 → 1057 lines, 277 → 258 kind words; the
+    ceilings lowered to match.
+  - Built: `stamps/enclosureTool` (the five-way press), `stamps/enclosureStamp` (the click), `selectedEnclosure`
+    threaded through `NoteParams` → `ScoreModel.addNote` → the split across a barline (every piece, as the
+    tremolo) → `addNoteAtPosition` / the typed note; the stamp's ghost `ghosts/EnclosureGhost` (the pair at
+    the pointer) and the NOTE ghost wearing the entry brackets (`GhostNote.enclosure`).
+  - 🚨 His reports while it was built: the stamp's ghost LEAKED (one pair left per pointer move — its class
+    was missing from `GHOST_GROUP_SELECTOR`; the spec stubs `getBBox`, since jsdom's missing one made every
+    sign ghost remove itself and HID the leak), and the entry ghost showed no brackets (now drawn inside the
+    note ghost's own group).
 - **P5: the chord switch (N3).** `enclosureSpan`, one tall pair round the bracketed heads, and its Properties control.
 - **Later, only when asked:** the Keypad `1` key; a Properties control; `'square'`; rests; a playback
   meaning (N6); a tie-chain option (N11); Dorico's per-head "break bracket".
@@ -129,4 +154,4 @@ export type HeadEnclosure = 'round'
 1. **N3: a chord** — ✅ both, a Properties switch, default one pair per head (P5).
 2. **N6: the sound** — ✅ plays as written, for now.
 3. **N11: a tie chain** — ⏸️ deferred; the selection decides.
-4. **P4b: the stamp on a bracketed head** — ⏳ toggle them off (proposed), or add only?
+4. **P4b: the stamp on a bracketed head** — ✅ nothing: the stamp only adds (his word, like a sharp on a sharp).

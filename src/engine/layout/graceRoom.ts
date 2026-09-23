@@ -20,12 +20,10 @@ import { spellingDiatonicPos } from '@/utils/pitchSpelling'
 import { staffLineForSpelling } from '@/utils/clefUtils'
 import { INK, accidentalExtent } from './spacingPadding'
 import { durationFlags } from '@/utils/durations'
-import { armedDotGap } from './dotGap'
-import { flagGlyph, glyphBox, noteheadInk } from '@/engine/fonts/fontMetrics'
+import { glyphBox } from '@/engine/fonts/fontMetrics'
 import { graceBeamRuns } from '@/engine/engrave/notes/graceBeam'
 import { enclosureLayout, type EnclosureLayout } from './headEnclosure'
-import { MODIFIER_RIGHT_GAP_PX, VEXFLOW_DOT_SPACING } from '@/engine/engrave/inheritedDefaults'
-import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
+import { noteDotXs } from './noteDotXs'
 
 /** One row: its value and where it came from. */
 export interface GraceRow {
@@ -202,14 +200,9 @@ export interface GracePlace {
  * `engrave/notes/graceBeam`): a beamed grace draws no flag, so its dot has none to clear.
  */
 export function graceDotXs(note: Pick<GraceNote, 'duration' | 'dots'>, beamed = false, down = false): number[] {
-  const px = (v: number) => v / STAFF_SPACE_PX
-  const base = px(MODIFIER_RIGHT_GAP_PX)
-  // A stem-DOWN flag hangs under the head from its left edge: nothing for a dot to clear (P6).
-  const flag = !beamed && !down && durationFlags(note.duration) > 0 ? flagGlyph(note.duration, true) : null
-  const push = flag ? glyphBox(flag).right : Math.max(0, armedDotGap().head - base)
-  const first = noteheadInk(note.duration) + base + push
-  const step = glyphBox('augmentationDot').right + Math.max(px(VEXFLOW_DOT_SPACING), armedDotGap().dot)
-  return Array.from({ length: Math.max(0, note.dots ?? 0) }, (_, i) => first + i * step)
+  // The rule itself is `./noteDotXs` (lifted 2026-09-23, unchanged). A stem-DOWN flag hangs under the head
+  // from its left edge: nothing for a dot to clear (P6).
+  return noteDotXs(note, !beamed && !down && durationFlags(note.duration) > 0)
 }
 
 /** How far right of its anchor a grace's dots reach, own staff spaces — 0 with none. */
@@ -231,7 +224,6 @@ export function graceEnclosure(note: GraceNote, beamed: boolean, down: boolean, 
     notes: note.pitches,
     duration: note.duration,
     stemDown: down,
-    upFlag: !beamed && !down && durationFlags(note.duration) > 0,
     dotReach: graceDotReach(note, beamed, down),
   }, signOf, clef)
 }

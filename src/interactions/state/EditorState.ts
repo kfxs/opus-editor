@@ -8,7 +8,7 @@ import type { ViewMode } from '@/engine/layout/layoutConfig'
 import type { BarlineSign } from '../stamps/barlineStamp'
 import type { ScoreTextField } from '@/engine/models/scoreTextOps'
 import type { GraceForm } from '@/engine/models/graceOps'
-import type { GraceSide } from '@/types/music'
+import type { GraceSide, HeadEnclosure } from '@/types/music'
 import type { BracketedSide } from '@/utils/bracketedGraces'
 
 /** A value armed on the dynamics palette: an interpreted level, or the custom-text tool. */
@@ -123,6 +123,11 @@ export type MarkingTool =
    *  Distinct from {@link EditorState.selectedTremolo}, which arms the mark for the next note
    *  ENTERED — the same split the accidental has. See docs/plans/tremolo-plan.md §2 and §10. */
   | { kind: 'tremolo'; tremolo: TremoloMark }
+  /** ⭐ A PARENTHESISED head's brackets (docs/plans/parenthesised-note-plan.md P4b): a click puts `shape`
+   *  on the head clicked — a note's or a grace's. ⛔ ADDITIVE ONLY — a head already in brackets is left as
+   *  it is (his word: *"like clicking a sharp on a note that already has a sharp"*). Distinct from
+   *  {@link EditorState.selectedEnclosure}, which enters notes born in brackets — the tremolo's split. */
+  | { kind: 'headEnclosure'; shape: HeadEnclosure }
   /** VALUELESS — a note ties to the next slot or it does not. */
   | { kind: 'tie' }
   /** VALUELESS — the UI's dot is on or off. The one stamp that also applies to RESTS. */
@@ -333,6 +338,7 @@ export const MARKING_TOOL_USES_ARMED_LENGTH: Record<MarkingTool['kind'], boolean
                       //    the lit duration keys"; a hairpin never does.
   dot: false,
   tremolo: false,     // marks a note that already has its length, like the accidental stamp
+  headEnclosure: false, // a mark on a head that ALREADY has its length and pitch (P4b)
   barline: false,     // ⭐ a BOUNDARY between bars — it has no length of its own and reads nobody's
 }
 
@@ -427,6 +433,7 @@ export const MARKING_TOOL_ENTERS_PITCH: Record<MarkingTool['kind'], boolean> = {
   hairpin: false,
   dot: false,
   tremolo: false,
+  headEnclosure: false, // a mark on a head that ALREADY has its length and pitch (P4b)
   barline: false,
 }
 
@@ -987,6 +994,14 @@ export interface EditorState {
    * articulations it sits beside.
    */
   selectedTremolo: TremoloMark | null
+  /**
+   * ⭐ The BRACKETS note entry is armed with (null = none) — every note entered from here on is born in
+   * them (docs/plans/parenthesised-note-plan.md P4b, his rule: *"if a duration is armed and we chose
+   * parenthesis we arm note stamp with parenthesis and other things armed"*). The {@link selectedTremolo}
+   * twin: an entry value, ⛔ not the stamp (`selectedMarkingTool.kind === 'headEnclosure'`), and it
+   * PERSISTS like the tremolo — Esc / leaving entry mode is the way out.
+   */
+  selectedEnclosure: HeadEnclosure | null
   // --- Palette ---
   /**
    * The voice notes are entered into (Sibelius-style). Voice 1 is the default and
@@ -1142,6 +1157,7 @@ export function createEditorState(): EditorState {
     selectionBase: [],
     selectedElement: null,
     selectedTremolo: null,
+    selectedEnclosure: null,
     selectedDuration: DEFAULT_DURATION,
     selectedAccidental: null,
     selectedDots: DEFAULT_DOTS,
