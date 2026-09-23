@@ -337,7 +337,7 @@ const GRACE_ICON = {
   /** A notehead standing inside the bracket pair. */
   bracketedNote: tremolo([g(PARENS, PARENS_SIZE, 4), g(HEAD.black, 24, 6)]),
   /** The LONGA — the square breve head with a stem down its right side. */
-  longa: tremolo([g(HEAD_SQUARE, 34, -4), g(STEM, 16, 12, 7)]),
+  longa: tremolo([g(HEAD_SQUARE, 34, -4), g(STEM, 24, 12, 7)]),
   /** The extra DOTS — a stack, not a row, so the spacing between them is ours rather than the
    *  widget's fixed row gap. */
   doubleDot: tremolo([g(NOTE.dot, 34, 4, -4), g(NOTE.dot, 34, 4, 4)]),
