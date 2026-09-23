@@ -9,6 +9,8 @@
 > `reference/`, URLs online — §A.n below means Part A, section n): **A** VexFlow 5.0.0 · **B** LilyPond, Verovio, MuseScore · **C** the
 > four treatises on disk · **D** the interchange formats, SMuFL and the shipping applications. §0 is
 > the synthesis, and the one part of this file written by hand rather than found.
+> **G · H · I** (2026-09-23) are the BRACKETED note — the stemless head in round brackets (Sibelius's
+> "pre-bend", a trill's auxiliary): the books, the engines, the apps and formats; §0.9 is their synthesis.
 >
 > ⚠️ **The four chapters were written by four agents in parallel and do not know of each other.** Where
 > two disagree, §0.4 says which one read the source. The scans the literature chapter measured were
@@ -145,6 +147,34 @@ stem up and down (U+E560–E563), and a standalone slash for each stem direction
 | **staff lines** | ⛔ **not avoided**: in 8 of 11 correct instances a staff line runs through the slash, 3 cross the stem exactly on one. Only LEDGERS are protected — Gould p. 26, ledgers must be countable *"at a glance"* | nobody moves the slash for anything (VexFlow's FIXME) | no rule against a staff line |
 | **a slashed QUARTER / half** | ⛔ **no book shows one**: Gould *"a small quaver"*, Stone *"notated as eighths"*, G&L *"considered eighth notes"* and p. 73 *"The slanted line is only for single, flagged grace notes"*; the only flagless slash anywhere is Stone p. 141's spatial-notation beam | MuseScore and Verovio draw one (MuseScore 0.924 sp below the tip, head-width wide); **LilyPond and Finale do not**; Dorico, Sibelius UNKNOWN | ⏳ his call — refuse it, draw it (MuseScore's), or make the acciaccatura an 8th |
 | **stem length** | Stone ≈2½ sp; Gould's plate 2.21–3.77 (the long ones are the ledger cases) | MuseScore 2.45 · Verovio 2.625 · LilyPond 2.8 · VexFlow ≈2.33 sp | ours 2.5 sp — in the range |
+
+
+### 0.9 ⭐⭐ The BRACKETED note — a head in round brackets, no stem, no flag (Parts G · H · I, 2026-09-23)
+
+Sibelius's keypad calls it the guitar **"pre-bend note"**; the same drawing is how a trill says **which
+note to trill to**. Three investigations the same day — **G** the four books on disk (scans read),
+**H** the engines' source, **I** the shipping apps and the interchange formats online. Findings only;
+⛔ nothing here is decided (the discussion of how we model it is not in this file).
+
+| question | books (G) | engines (H) | apps + formats (I) |
+|---|---|---|---|
+| **is it a grace note?** | ⛔ **No** — Gould p. 139: *"Do not use a grace note for the trilling pitch; reserve grace notes for the starting and finishing notes of a trill."* No book names the form; each describes it (*"small notehead in brackets"*, *"small, stemless note-head in parentheses"*, *"cue-size notehead"*) | no engine has the kind: each composes **brackets on a head + no stem + a ROLE**. MuseScore's pre-bend IS a grace (stemless 8th appoggiatura, made a ghost note ⇒ bracketed); its trill note is NOT — a small chord owned by the `Ornament` | Dorico calls both an **"auxiliary note"** and makes neither a typed note: each is GENERATED from a property of its target (the note's *Pre-bend interval*, the trill's *Appearance → Auxiliary note*) |
+| **which side of its note** | ⭐ **AFTER, in every use shown**: trilling pitch (Gould 139, Stone 75–76, G&L 154), bend target (Gould 378), glissando end (Gould 144, Stone 63), harmonic's sounding pitch (Gould 388, 421). 🚨 Gould's one pre-bend (p. 378b) has **no bracketed note** — a microtonal accidental and words | trill note AFTER (MuseScore, LilyPond `\pitchedTrill`, Finale's detector); MuseScore's pre-bend BEFORE | pre-bend BEFORE in every app; trill note AFTER (Gould, Dorico, LilyPond). Sibelius's own help (article 400, 2004): its pre-bend note as a trill note is *"not always ideal because they attach to the previous note"* |
+| **what the brackets mean** | one idea: *this pitch is information, not an attack* — *"not separately articulated"* (Gould 144), *"merely mark the final pitches"* (Stone 63) | — | — |
+| **does it sound** | not articulated (G.7) | never: MuseScore's pre-bend grace is unplayable (`chord.cpp:1393`), its trill note plays by the INTERVAL; LilyPond discards the pitch; Verovio's MIDI ignores the brackets | no app plays the bracketed head — the trill's interval or the bend sounds |
+| **the head** | BLACK *"regardless of duration"* (Gould 418); size disagrees inside Gould: ≈0.75 (trill, p. 139) vs ≈0.65 (bend target, p. 378); G&L "cue-size"; Sibelius 60% | MuseScore 0.7, forced filled; LilyPond size −4 (0.63), `duration-log 2` | — |
+| **the accidental** | **INSIDE** the brackets in every drawing (Gould 139, 144, 145, 378, 388, 421; Stone 76; G&L 154) | ⚠️ **SPLIT**: inside in MuseScore and LilyPond; OUTSIDE (head only) in Verovio and VexFlow | MusicXML cannot say — `<notehead parentheses>` and `<accidental parentheses>` are separate flags |
+| **the brackets** | ≈2.0–2.1 sp tall, growing to enclose ledger lines (Gould 388); one pair PER HEAD — a chord is stacked pairs (Stone 76) | MuseScore: a DRAWN bezier sized from the heads ±0.25 sp, accidental and dots inside (gaps 0.3 / 0.15 sp); Verovio E26A/E26B hugging the head; VexFlow E0F5/E0F6 per key | SMuFL has no dedicated glyph: a notehead + E0F5/E0F6 (or E0CE) |
+| **interchange** | — | MuseScore does not export its trill note, and imports no `<bend>` (an imported pre-bend arrives as a SOUNDING grace) | MusicXML: pre-bend = `<bend><pre-bend/>` on the MAIN note; a trill's interval only `trill-step` + `<accidental-mark>`; MEI `<trill>` keeps only the accidental; MNX nothing |
+
+**The fonts we ship** (H.6, opentype.js): Bravura, Sebastian and Leipzig all carry E0F5/E0F6 and
+E26A–E26D; ⚠️ **Leipzig lacks E0CE** (the one the Keypad's key draws); the precomposed bracketed
+accidentals F5E0–F5E4 are Bravura's only.
+
+**UNKNOWN** (G.8 · H.10 · I.8): a bracketed note BEFORE its note in any book · a bracketed note beside a
+grace group at the same note · several heads inside ONE pair · tab conventions (no tab book on disk) ·
+the pre-bend release · Guitar Pro / Notion on the staff · Dorico's pre-bend playback and export ·
+Sibelius / Dorico source (none on disk).
 
 ---
 
@@ -3331,3 +3361,1098 @@ Here the whole STAFF is reduced, so dot **and** gap shrink with it (≈0.17/0.21
 4. **G&L's cue STAFF** scales dot and gap together (≈0.17/0.21 full sp) — consistent with a whole reduced staff, and not in conflict with the cue-note plates, but a reader must not mix the two cases.
 5. Ross p. 190's grace tool list (head + ♯♭♮) has no dot, i.e. no dedicated small dot die is named — whereas Gould and Stone plainly engrave a smaller dot on cue notes.
 
+---
+
+## Part G — The BRACKETED stemless note (Sibelius's "pre-bend note"): what the literature says
+
+*Researched 2026-09-23. Findings only, no decisions. Sources: Gould, *Behind Bars* (whole PDF; ⚠️ printed
+page = PDF page − 20, checked on every page cited here); Stone, *Music Notation in the Twentieth
+Century* (⚠️ 2-up PDF: printed pp. 62/63 = PDF 42, 74/75 = PDF 48, 76/77 = PDF 49); Gerou & Lusk,
+*Essential Dictionary* (2-up: printed 154/155 = PDF 79); Ross, *Art of Music Engraving* (printed =
+PDF − 12). Sibelius is `docs/research/sibelius-keypad.md` §3a–3b, not re-read. Every drawn claim was
+read off a rendered scan (`pdftoppm`), and the measurements say which page and dpi they came from.*
+
+### G.0 Synthesis
+
+- ⭐⭐ **No book calls this form a grace note, and Gould says outright that it is NOT one.** Gould
+  p. 139, on the trill: *"Notate the trilling pitch as a small notehead in brackets after the measured
+  note. **Do not use a grace note for the trilling pitch**; reserve grace notes for the starting and
+  finishing notes of a trill."* The books have no single name for it. It is described each time from
+  what it looks like: *"a small notehead in brackets"* (Gould 139, 421), *"small, stemless note-head in
+  parentheses"* (Stone 75), *"parenthetical note-head"* (Stone 76), *"cue-size notehead"* (G&L 154),
+  *"small bracketed black notehead"* (Gould 418), *"small stemless notehead"* with *"a bracket
+  around it"* (Gould 144). "Pre-bend note" is Sibelius's word. It appears in none of the four books.
+- ⭐⭐ **In every book use, it stands AFTER the note it belongs to, not before it.** The trilling note
+  (Gould 139, Stone 75–76, G&L 154), the bend's target (Gould 378), a glissando's finishing pitch
+  (Gould 144, Stone 63) and a harmonic's sounding pitch (Gould 388, 421) all come after their note.
+  🚨 **The one pre-bend Gould shows (p. 378 (b)) has NO bracketed note at all.** It is a single note
+  carrying a microtonal accidental, an arrow and the words *"pre-bend string ¼-tone sharp"*. So
+  Sibelius's "bracketed note BEFORE the main note" is the only placement-before we found, and no book
+  on disk supports it. ⚠️ Tab and guitar-method conventions are not in this library (G.8).
+- ⭐ **What the brackets mean is one idea: "this pitch is information, not an attack."** For a
+  trill, it is the pitch to alternate with. At the end of a glissando, it is *"not separately
+  articulated"* (Gould 144) / *"not articulated; they merely mark the final pitches"* (Stone 63). For a
+  harmonic, it is the pitch that sounds, not the one fingered (Gould 421). For an open string, it is a
+  reference pitch (Gould 418). For a bend, it is where the pitch arrives (Gould 378). This supports his
+  view that the form is the same and the context gives the meaning. ⚠️ But in every case the books
+  place it AFTER its note, which a grace note never does.
+- **What is drawn** (G.4): a black head at about cue or grace size, no stem and no flag. A head
+  that stands for a whole note or half note is still black, *"regardless of duration"* (Gould 418).
+  The accidental goes **inside** the brackets (all drawn cases: Gould 139, 144, 145, 378, 388, 421;
+  Stone 76; G&L 154). The round brackets are about **2 sp tall** and grow to enclose ledger lines.
+  Each head gets its own pair of brackets.
+
+### G.1 Names and category (Q1)
+
+| source | name / description | category |
+|---|---|---|
+| **Gould p. 139** (PDF 159) | *"a small notehead in brackets"*; the section heading is **"Trilling note"** | ⛔ explicitly **not a grace note** (quote above) |
+| Gould p. 138 | *"Trilling note — When no trilling note is indicated, it is the upper neighbouring note"* | part of the trill |
+| **Gould p. 144** (PDF 164) | *"Notate the finishing pitch as a grace note **or small stemless notehead**. To indicate that the finishing pitch is not separately articulated, place a bracket around it"* | a glissando's finishing pitch. The bracket goes on either a grace note or a stemless head |
+| Gould p. 145 | *"notate interim pitches in brackets either as small noteheads, or as note-values"* | glissando interim pitches |
+| Gould p. 378 (PDF 398) | the text never names the bracketed note. It shows it at the end of a *bend* line | guitar string bending |
+| Gould p. 418 (PDF 438) | *"Use a small bracketed black notehead (regardless of duration) for the open string"* | string harmonics (open-string reference) |
+| Gould p. 421 (PDF 441) | *"Indicate a sounding pitch as a small notehead in brackets directly above or after the fingered pitches"* | harmonics |
+| **Stone p. 75** (PDF 48 R) | *"a small, stemless note-head in parentheses, following the main note"* | trill: single-step trill |
+| Stone p. 76 (PDF 49 L) | *"parenthetical note-head"* / *"parenthetical trill note-head"* | wide trill (trill tremolo), microtonal trill |
+| Stone p. 63 (PDF 42 R) | *"From a note to a small note-head … The small, parenthetical note-heads are not articulated"* | glissando |
+| **G&L p. 154** (PDF 79) | *"A **cue-size notehead** is sometimes used"*. The drawing puts it in parentheses | trill (an alternative to the accidental on the tr) |
+| Ross pp. 189–191, 197 | — | ❌ **not mentioned**. Ross's trill (p. 197) shows only an accidental beside or above the tr. His grace chapter (pp. 189–191) has no bracketed head |
+| Sibelius (sibelius-keypad.md §3a) | **"pre-bend note"**, Keypad F8 | a note *type* on the grace-note layout |
+
+### G.2 The trill's auxiliary note (Q2)
+
+- **Position: AFTER the main note, on the staff at its own pitch.** Gould p. 139 (quoted above). Stone
+  p. 75: *"following the main note"*. G&L p. 154 draws it right after a half note (`(♭●)`).
+- **Gould p. 139, spacing: short notes.** *"If the first note of a tied trill is a short value, add the
+  trilling note after the second note, where there is more room. This avoids cramping or distorting
+  the spacing of the short note"*. The drawn *"trilling note cramped"* version is the one to avoid.
+  ⇒ The note lives in the white space AFTER a note, and it is moved to a note that has room.
+- **Gould p. 139, ties:** *"A tie should not run through a trilling note. It should start from the
+  measured note if there is room; otherwise, after the trilling note"*. Drawn: *recommended* is the
+  tie arching over the bracket, *acceptable* is the tie starting after it.
+- **Gould p. 139, barlines:** *"It is not necessary to indicate that the same trilling note continues
+  over a barline or system break as this is assumed unless otherwise indicated."* A *change* of
+  trilling note is written in again at the new note. The drawn example has one bracketed note in bar
+  1 and another in bar 3.
+- **When it is required (Gould p. 138):** *"A trilling note that is the same note of the scale as the
+  measured note (but with a different accidental) must be written in."* It is also required when the
+  trilling note differs from the previous one. Otherwise it is an option: *"To avoid any possible
+  ambiguity, the trilling note may be written in."*
+- **Alternative form: an accidental alone** (Gould p. 138): *"The accidental follows the trill sign or
+  goes above it. Whichever layout is used depends on the priority for horizontal or vertical
+  space-saving"* (three drawn layouts: `tr♭`, `tr` with the ♭ raised, ♭ over `tr`). Also G&L p. 154:
+  *"placed after the trill sign but before the wavy line"*, and *"may also appear above the trill
+  sign"*. Stone p. 75: *"a small accidental just to the right of the r of the trill sign"*. Stone p. 75
+  also draws a **cautionary natural in parentheses above the tr** `(♮)`. Ross p. 197 draws `tr♮` and
+  `tr` with a raised ♮.
+- **Accidental: INSIDE the brackets.** This holds in every drawing: Gould p. 139 `(♯●)` `(♮●)` `(♭●)`,
+  G&L p. 154 `(♭●)`, and Stone p. 76 `(♭●)` `(♯●)` plus a microtonal sign inside. Stone p. 76 says in
+  words *"A microtonal accidental must be placed in front of the main note, or above the tr of the
+  trill sign, or in front of the parenthetical trill note-head"*. His drawing puts it inside the
+  bracket.
+- **A slur to it — Stone only.** Stone's wide-trill (p. 76) and microtonal (p. 76) examples slur the
+  main note to the bracketed head. Gould and G&L draw no slur.
+- **Lower-neighbour trills (Stone p. 76):** *"only rarely notated with a small, parenthetical note
+  showing the lower pitch"*. It is marked *"Rare (not recommended)"*. Instead, a grace note is used or
+  the main note is lowered.
+- **Wide trills (Stone p. 76):** *"Any trill wider than one whole step is a 'wide' trill and requires a
+  parenthetical note-head following the main note."* The bracketed head can sit BELOW the main note
+  (first example). For a trill on a two-note chord, each head has its own bracket, stacked
+  (`(♭●)` over `(♮)`).
+- **Starting / finishing notes are real grace notes**, stemmed, not bracketed (Gould p. 138 (a)–(d);
+  Stone p. 75 *"a grace note (the upper pitch) should precede the main note"*; Stone p. 77 *Afterbeats*;
+  Ross p. 191).
+
+### G.3 Guitar bends and pre-bends (Q3)
+
+- **Gould p. 378** (PDF 398), *String bending*, the whole rule: *"This is used both as an expressive
+  device and to produce microtones. The left hand remains in the same fret position but stretches a
+  string after it is plucked, to produce an audible bending of pitch (a). By bending the string before
+  plucking it (a 'pre-bend') the player can produce a microtone (b). **Give a verbal instruction in both
+  cases**"*.
+  - (a) **bend**: a string number ②, the word *bend*, and a full crotchet (stem down). A straight
+    line leads from it to **a small stemless black head in round brackets, AFTER the note**, carrying
+    a ¼-tone-sharp arrow-natural **inside** the brackets. The bracketed note is the pitch reached.
+  - (b) **pre-bend**: ③, *"pre-bend string ¼-tone sharp"*, and one ordinary half note carrying the
+    microtonal accidental with an arrow, and a fingering `3`. ⛔ **No bracketed note and no grace
+    note.** The written note IS the pitch that sounds.
+  - Nothing on "full"/"½" labels, bend arrows as curves, release, or tab. That is the whole entry.
+- **Stone:** ❌ no guitar bend. His index has *"bending the pitch — harp, 229; winds, 187"* only, and
+  p. 70ff calls microtonal "bendings" ornamental (PDF 45). Tablature appears only for string artificial
+  harmonics (pp. 310–313, PDF 166–167, OCR only: *"sounding pitches with small note-heads in parentheses, either above the
+  tablature or immediately behind it"*).
+- **G&L:** ❌ no bend. The tablature pages (pp. 140–143) say only that *"tied notes are in parentheses"*
+  on the tab staff.
+- **Ross:** ❌ nothing.
+- **Sibelius** (keypad research §3a): the pre-bend note comes BEFORE the main note, then **J** for the
+  bend. *"On a tab staff, a pre-bend is represented by a vertical arrow"*.
+- ⇒ **How tab conventions differ from the books: UNKNOWN.** No guitar-method or tab book is on disk.
+  The only contrast we can source is Sibelius's (bracketed note before the main note, arrow on tab)
+  against Gould's (verbal instruction plus accidental, no bracketed note for a pre-bend; a bracketed
+  target AFTER a bend).
+
+### G.4 What is drawn — size, stem, brackets, accidentals, dots, ledgers, chords (Q4)
+
+**Measured.** Staff space found from the five staff lines, extents read off black-pixel runs.
+
+| what | Gould p. 139, trill (PDF 159, **600 dpi**, sp = 26.6 px) | Gould p. 378, bend (PDF 398, **600 dpi**, sp = 27.0 px) |
+|---|---|---|
+| bracketed head, w × h | **1.02 × 0.79 sp** (isolated head, tied example) | **0.85 × 0.67 sp** |
+| full black head beside it | ≈1.35 × 1.05 sp (the quaver in the same figure) | ≈1.3 × 1.0 sp |
+| ⇒ ratio | **≈0.75: cue size** | **≈0.65: grace size** |
+| bracket height | **2.07–2.11 sp** (also 1.95 and 2.07 in the first figure) | **2.04 sp** |
+| bracket width (each) | 0.60–0.68 sp | 0.56–0.59 sp |
+| `(` → accidental | 0.15 sp | 0.26 sp |
+| accidental → head | 0.38 sp (♭, itself 1.88 sp tall) | 0.41 sp (arrow-natural) |
+| head → `)` | 0.45 sp | 0.52 sp |
+| main note → `(` | 0.90 sp from a minim head. 0.49 sp from a dotted minim's **dot** (the bracket follows the dot) | 5.1 sp (the bend line runs between) |
+
+- **Size — the two figures in the same book disagree.** Gould's trilling note is about ¾ (cue size).
+  Her bend target is about ⅔ (grace size). Her own prose says only *"small"*. G&L p. 154 says
+  *"cue-size"*. Sibelius's pre-bend note is grace size (60 %, measured at ≈0.65 in the keypad research
+  §3a). ⚠️ Each ratio comes from **one** instance.
+- **Stem: never on the trill form.** Every trill drawing is stemless (Gould 139, Stone 75–76, G&L
+  154). ⚠️ The same brackets **can** enclose a stemmed grace note: Gould p. 144 (a), first figure, a
+  bracketed slashed grace at the end of a glissando. They can also enclose a stemmed small note-value:
+  Gould p. 145, interim glissando pitches `(♭●.)` and `(♩)`. And they can enclose an ossia note on the
+  main note's stem (Gould p. 497). So the bracket is its own sign, not something that belongs only to
+  a stemless head.
+- **Notehead type:** black. For the open string it is black *"regardless of duration"* (Gould p. 418).
+  None of the trill drawings has a white bracketed head. Gould p. 145's interim pitches may be white
+  when they carry a value.
+- **Accidentals: inside the brackets** in every drawing (G.2, G.3; Gould p. 388 `(♭●)` over ledgers).
+  Gould p. 83 on bracketed *accidentals* (a separate sign): *"On a chord, each accidental takes a
+  separate pair of brackets. Brackets force extra horizontal space"*. Ross p. 146: a bracketed
+  accidental is cut *"one size smaller"* by plate engravers, and *"extra space is given as needed"*.
+- **Dots:** ⛔ the trilling note carries no dot. It sits after the main note's dot (Gould p. 139,
+  measured above). Only the stemmed *interim value* on p. 145 is dotted.
+- **Ledger lines:** the head takes its own short ledger (Gould p. 139, tied example: B♭5 over a short
+  ledger). On Gould p. 388 the brackets **grow to enclose the ledger lines** (tall brackets around a
+  head with 2–3 ledgers above the staff) — seen at 200 dpi, not measured.
+- **Chords:** each head gets its own brackets. Stone p. 76 (double wide trill: two bracketed heads
+  stacked). Gould p. 421 (two parts on one staff: *"the sounding pitch for the lower part is offset to
+  the right"*, each in its own brackets). Consecutive *ossia* notes, a different case, need *"only one
+  set of brackets"* (Gould p. 497). ⛔ **Several heads inside ONE pair of brackets: not seen** for the
+  stemless form.
+
+### G.5 Horizontal placement and time (Q5)
+
+- **It takes no time.** In every trill, bend and harmonic drawing it sits in the white space of the
+  note it follows, and the bar's arithmetic ignores it. Gould p. 139's *"where there is more room"*
+  rule is the only spacing rule stated: the note needs room, so it moves to a note that has room.
+  ⛔ Nobody says whether the spacing should *grant* that room. The drawn "cramped" version shows what
+  goes wrong when it does not.
+- ⚠️ **Exception: glissando interim pitches** (Gould p. 145) sit at a rhythmic position in the bar.
+  The drawing places a bracketed head right after a barline, at the start of the bar. That is a
+  timeline position, not a gap after a note.
+- **Distance from the main note:** measured 0.90 sp from a head and 0.49 sp from a dot (Gould p. 139,
+  G.4). No book states a distance.
+- **Relative to other graces:** Gould p. 139 keeps the two apart — graces for the starting and
+  finishing notes, the bracketed head for the trilling pitch. ⛔ No drawing shows both beside one
+  note. **UNKNOWN.**
+- **After a barline:** only *"not necessary to indicate that the same trilling note continues over a
+  barline"* (Gould p. 139), and the interim-pitch drawing (p. 145). ⛔ No rule for a bracketed note
+  *before* a note at the start of a bar, because no book places it before.
+
+### G.6 Other uses of the same written form (Q6)
+
+| use | source | where it stands | stem? |
+|---|---|---|---|
+| trilling (auxiliary) note | Gould 139, Stone 75–76, G&L 154 | after the main note | no |
+| bend target | Gould 378 (a) | after, at the end of the bend line | no |
+| glissando finishing pitch, *"not separately articulated"* | Gould 144 (a), Stone 63 | after, at the end of the gliss line | no (Gould also brackets a stemmed grace here) |
+| glissando interim pitches | Gould 145 | on the rhythmic grid of the bar | no, or stemmed with its value |
+| harmonic sounding pitch | Gould 421 (*"directly above or after"*; *"Do not join a small note to the stem of the harmonic"*), Gould 388 (guitar), Gould 339 (harp: the partial *"in brackets above"* — OCR only), Gould 366 (harp, OCR only: *"the sounding pitch as a small note in brackets"* on one stem with the string), Stone pp. 310–313 (PDF 166–167, OCR only, not rendered) | above or after | on 421, not joined to the stem. On 366 and 418, on one stem |
+| open-string reference for harmonics | Gould 418, *"small bracketed black notehead (regardless of duration)"* | on the harmonic's stem | shares the stem |
+| ossia (alternative) pitch | Gould 497, *"a small note in brackets and placed on the same stem as the preferred pitch"* | same stem | shares the stem |
+| rhythm reminder over harmonics | Gould 418, *"rhythmic values as small notes in brackets over the stave"* | above the staff | stemmed |
+| ⛔ cautionary *pitch* (a bracketed note as a reminder) | — | not found. Brackets for caution go on ACCIDENTALS (Gould 83, Sibelius) and on the trill sign after a system break (Gould 137, Stone 77 `(tr)`) | — |
+| ⛔ tremolo auxiliary | — | not found. Stone's *wide trill = trill tremolo* (p. 76) is the nearest | — |
+
+### G.7 Playback / interpretation (Q7)
+
+- **Trill:** the alternating pitch. Gould p. 134: traditionally the upper neighbour, but *"acceptable
+  to allow a trilling note to include wider … intervals"*. The start of the trill is shown by a grace
+  note, never by the bracketed note (Gould p. 138).
+- **Glissando end:** *"not separately articulated"* (Gould 144). *"Not articulated; they merely mark
+  the final pitches"* (Stone 63). An articulation mark on a grace note means the opposite (Gould 144).
+- **Bend:** the pitch reached by stretching the string after plucking. A pre-bend is bent before
+  plucking (Gould 378). *"Give a verbal instruction in both cases."*
+- **Harmonic:** what sounds, while the fingered notes are what is played (Gould 421). It gives
+  *"flexibility to find alternative fingerings"* (Gould 422).
+- ⛔ No book gives a duration or a sounding length for the bracketed head.
+
+### G.8 UNKNOWN — checked, not found
+
+- **Tab / guitar-method conventions** for pre-bend, release, "full"/"½", bend curves: no such book on
+  disk. Gould 378 is the whole of Gould's bend coverage. Stone, G&L and Ross have none.
+- **A bracketed stemless note placed BEFORE its main note** in any book. Checked: Gould's grace
+  chapter pp. 125–131, trills 134–140, glissandos 141–146, guitar 369–389, harmonics 416–424, ossia 497;
+  Stone 21–22, 62–63, 74–77, 310–313; G&L 72–74, 152–155; Ross 189–191, 197. Only Sibelius does it.
+- **A stated size, bracket size or distance** for the form. Every number in G.4 was measured, and the
+  size disagrees between Gould's two figures (≈0.75 vs ≈0.65).
+- **Several heads in one pair of brackets** (stemless form). **A bracketed note beside a grace group**
+  at one note. **Stem/slash on a bracketed trill note:** never drawn.
+- **The pre-bend's release** (bend back down): not in any book on disk.
+- Gardner Read and the Sibelius Reference's own figures beyond the keypad research: not re-checked here.
+
+---
+
+## Part H — The BRACKETED grace note (a head in round brackets, no stem, no flag) in the engines
+
+> **Findings only**, nothing decided. Written 2026-09-23, read from the trees under
+> `~/dev/engine-sources/` at the same commits as Part B (MuseScore `929d1e9`, Verovio `efff0bc`,
+> LilyPond `beedbfa`) plus `vexflow-5.0.0-npm` and `musxdom`. Each claim carries its `file:line`
+> (MuseScore paths are under `src/engraving/` unless they start `src/importexport/`). Where a source
+> does not say, the answer is **UNKNOWN**. Units follow Part B: `sp` = staff space; LilyPond
+> `font-size` is magstep (`2^(s/6)`: −3 = 0.707, −4 = 0.63, −6 = 0.5, −9 = 0.354).
+>
+> Subject: one picture put to two uses. **(a)** the guitar **pre-bend** (Sibelius's name): a small
+> head before the principal, bracketed, stemless, joined to it by a bend arrow, and **silent**.
+> **(b)** the **trill auxiliary** ("trill-to" note): the note to trill to, a small bracketed
+> stemless head. Part B covers the grace note in general; nothing here repeats it.
+
+### H.0 Synthesis
+
+⭐⭐ **No engine has a "bracketed grace note" type.** Every one of them builds it from three
+separate properties: *parentheses on a head* + *no stem* + *a role* (a grace before the principal,
+or an ornament's helper). The role, not the picture, decides when it plays and where it stands:
+
+| | the parentheses | stemless by | role / where it stands | plays? |
+|---|---|---|---|---|
+| **MuseScore pre-bend** | *generated*: the grace is made a **ghost** note (`guitarbendlayout.cpp:115-119`) and a ghost gets generated parens (`chordlayout.cpp:3174-3181`, `:3268-3292`) | `setNoStem(true)` + `BeamMode::NONE` on the grace chord (`editing/cmd.cpp:787-811`) | an **APPOGGIATURA 8th** grace *before*, a diatonic step below the principal (`cmd.cpp:800-802`) | **no** — `isChordPlayable()` false (`dom/chord.cpp:1393-1395`); the bends renderer skips it (`playback/renderers/bendsrenderer.cpp:106-109`) |
+| **MuseScore trill cue note** | added by `EditParentheses::addParenthesesToNotes` (`dom/ornament.cpp:423-425`) | the cue chord has no duration type (`V_INVALID`), and `hasStem()` is false for it (`dom/durationtype.cpp:222-240`, `durationtype.h:91`) | a chord of its own, `setSmall(true)`, **AFTER** the principal in the same segment (`tlayout.cpp:4330-4369`) | **no** — playback reads the ornament's *interval*, not the note (`playback/renderers/ornamentsrenderer.cpp:317`, `:485-488`) |
+| **LilyPond `\pitchedTrill`** | `TrillPitchParentheses` grob (`scm/define-grobs.scm:4037-4056`) | the head is a bare `TrillPitchHead` — no Stem grob exists | a side-positioned group to the **RIGHT** of the principal (`define-grobs.scm:3995-4012`) | **no** — the pitch is a property of the trill-span EVENT; `articulate.ly` ignores it (§H.3.4) |
+| **LilyPond `\parenthesize`** on a grace | `Parentheses` grob (`lily/parenthesis-engraver.cc:58-107`) | by hand (`\omit Stem` etc.) — nothing automatic | an ordinary grace | yes (a grob property; performers never see it) |
+| **Verovio** | MEI `note@head.mod="paren"` (`view_element.cpp:1587-1596`) | `@stem.visible="false"` (MusicXML `<stem>none` → `iomusxml.cpp:3349`) | an ordinary `@grace` note | yes — `midifunctor.cpp` never reads `head.mod` |
+| **VexFlow** | a `Parenthesis` modifier per key (`parenthesis.js:6-13`) | a stemless duration / `stem` option | — | — |
+| **Finale (musx)** | UNKNOWN in these sources | a **hidden custom stem** | a *singleton grace* moved ≥1 sp right of its main note = "trill-to" (`musxdom/src/musx/dom/Entries.cpp:2252-2284`) | UNKNOWN |
+
+⭐ **One split and one agreement:**
+1. **SPLIT — does the accidental go INSIDE the brackets?** Yes — `( ♭● )`, not `♭( ● )` — in MuseScore (§H.1.3)
+   and LilyPond (§H.3.2). ⚠️ Verovio and VexFlow put the brackets round the HEAD ONLY and leave the
+   accidental outside (§H.2.2, §H.4).
+2. **AGREED — the trill auxiliary is a filled head whatever the principal's value** — LilyPond
+   `TrillPitchHead` `duration-log 2` (`define-grobs.scm:4018`), MuseScore
+   `setHeadType(NoteHeadType::HEAD_QUARTER)` (`ornament.cpp:419`).
+
+⭐ **They split on where the trill auxiliary stands**: LilyPond and MuseScore put it AFTER the
+principal (right of its ink, inside the principal's own column / segment). Finale's plugin also puts
+it to the right, but it models it as a grace moved there by hand. ⛔ No engine puts a trill
+auxiliary BEFORE its principal. The pre-bend (MuseScore) is the one form that stands BEFORE.
+
+⭐ **Size**: MuseScore 0.7 (`smallNoteMag` / `graceNoteMag`, `style/styledef.cpp:515-517`);
+LilyPond trill head −4 = **0.63**; Verovio cue = graceFactor 0.75 (Part B). The brackets scale with
+the head everywhere except LilyPond's pitched trill, whose parens are a fixed −4 (`define-grobs.scm:4039-4041`).
+
+---
+
+### H.1 MuseScore
+
+#### H.1.1 Data model — parentheses are ELEMENTS, owned by the chord, one pair per group of notes
+
+- `Parenthesis : EngravingItem`, one per side, `DirectionH direction` (`dom/parenthesis.h:27-68`).
+  Any item can carry a left and a right one (`dom/engravingitem.h:496-502`, `:763-766`), driven by
+  `ParenthesesMode { NONE, LEFT, RIGHT, BOTH }` (`types/types.h:824-829`) under `Pid::HAS_PARENTHESES`
+  (XML tag `"parentheses"`, `dom/property.cpp:95`).
+- ⭐ **On a NOTE the pair belongs to the CHORD**: `Chord::m_noteParens` is a list of
+  `NoteParenthesisInfo { leftParen, rightParen, std::vector<Note*> notes }` (`dom/chord.h:119-135`,
+  `:181-187`, `:397`). Parenthesising several notes of one chord in one command makes ONE tall pair
+  around all of them (`editing/editparentheses.cpp:117-133`). A note cannot take one side only:
+  *"Notes cannot set left & right parens individually"* (`dom/note.cpp:3245-3249`, `:4029-4033`).
+- Two sources of brackets on a note: **user** (`HAS_PARENTHESES`) and **generated** (a ghost note,
+  or a TAB fret tied across a system break: `useParens = (tieBackParen || item->ghost()) &&
+  !item->hideGeneratedParens()`, `rendering/score/chordlayout.cpp:3174`). `createParenGroups` turns
+  `hasGeneratedParens` into real `Parenthesis` elements marked `generated()`
+  (`chordlayout.cpp:3268-3292`); `HIDE_GENERATED_PARENTHESES` lets the user veto them
+  (`dom/note.cpp:3139-3140`, `:3251-3252`).
+- Legacy (≤ MuseScore 3): the brackets were two `Symbol`s, `noteheadParenthesisLeft/Right`, attached
+  to the note; the 4.x reader turns them into `ParenthesesMode::BOTH` and deletes the symbols
+  (`rw/read400/tread.cpp:3138-3148`).
+
+#### H.1.2 The pre-bend — a stemless, silent, ghost appoggiatura
+
+`GuitarBendType { BEND, PRE_BEND, GRACE_NOTE_BEND, SLIGHT_BEND, DIVE, PRE_DIVE, DIP, SCOOP }`
+(`dom/guitarbend.h:30-40`); `GuitarBend : SLine`, anchored to notes (`:50-70`). Creating a
+`PRE_BEND` (`editing/cmd.cpp:699-846`, `Score::addGuitarBend`):
+
+1. adds a grace chord BEFORE the principal: `setGraceNote(chord, note->pitch(),
+   NoteType::APPOGGIATURA, Constants::DIVISION / 2)` — an **appoggiatura, eighth** (`:800-802`); or
+   adds the note to an existing bend-grace chord (one pre-bend grace chord per principal, `:790-801`);
+2. transposes it **one diatonic step DOWN** (`transposeDiatonic(-1)`; a PRE_DIVE goes up) (`:802`);
+3. on every linked chord (standard staff AND tab): `setNoStem(true)`, `setBeamMode(BeamMode::NONE)` (`:805-810`);
+4. the bend runs grace → principal (`:813-815`).
+
+The brackets are not set here: the bend's LAYOUT sets the start note a ghost, which generates them —
+`if ((PRE_BEND || PRE_DIVE) && !startNote->parenthesisInfo()) { startNote->setGhost(true); …
+layoutChord(…) }` (`rendering/score/guitarbendlayout.cpp:115-120`). Deleting the bend undoes all three:
+`setParenthesesMode(NONE)`, `setNoStem(false)`, `setBeamMode(AUTO)` (`dom/score.cpp:1523-1528`).
+
+- **The arrow**: by default the pre-bend's vertical arrow stands on the END (principal) note, not
+  the grace — `alignPreBendAndPreDiveToGraceNote` defaults **false** (`style/styledef.cpp:1621`;
+  `guitarbendlayout.cpp:428-455` `startOnEndNote`). Line width `guitarBendLineWidth 0.13 sp`, arrow
+  `1.0 × 1.0 sp` (`styledef.cpp:1611-1617`).
+- **Playback**: the grace is **silent** — `Chord::isChordPlayable()` returns false when the first
+  note `isPreBendOrDiveStart()` (`dom/chord.cpp:1390-1396`); the bends renderer: *"ignore the grace
+  note and render only the principal note"* (`playback/renderers/bendsrenderer.cpp:106-109`), and the
+  principal IS rendered despite having a bend back (`:111-120`). The old MIDI path special-cases
+  `PRE_BEND` the same way (`compat/midi/compatmidirenderinternal.cpp:344-349`, `:1120`).
+- `GRACE_NOTE_BEND` (an ordinary grace bent up into the principal) is the SOUNDING sibling: its grace
+  is not a ghost and is not bracketed (only PRE_BEND/PRE_DIVE take the ghost branch, `guitarbendlayout.cpp:115`).
+
+#### H.1.3 Drawing the brackets — a drawn bezier, sized from the HEADS, padded outside the accidental
+
+`rendering/score/parenthesislayout.cpp`:
+
+- **Not a font glyph** on a chord: `symId` stays `noSym`, so `createPathAndShape` draws two cubic
+  beziers (`:159-168`, `:264-337`); the SMuFL route (`createSmuflShape`) is used only for chord
+  symbols with `harmonyParenUseSmuflSym` (`:506-511`). Painted with a round-capped pen of
+  `endPointThickness × spatium × intrinsicMag` (`rendering/score/tdraw.cpp:2501-2507`).
+- **Height** (`setChordValues`, `:416-475`): the union of the bracketed notes' shapes **with
+  accidentals, dots, bends and laissez-vibrer REMOVED** (`getNoteShape`, `:563-571`), then
+  `startY = top − 0.25 sp × intrinsicMag`, `height = shapeHeight + 0.5 sp × intrinsicMag`
+  (`:470-471`). ⇒ ¼ sp above and below the head(s), scaled with the grace/cue mag.
+- **Stroke**: mid thickness `(h/sp)^0.33 × sp/sp0^0.67 × intrinsicMag` (`:442-464`), capped at
+  `MAX_MID_THICKNESS 0.2 sp` (`:40`, `:273-274`); ends `0.05` (`:474`). Shoulder (bulge)
+  `0.2 × h^0.95 × mag^0.1`, never below `0.25 sp × intrinsicMag` (`:285-289`); the bulge's control
+  points sit `0.2 × h` in from each end (`:277`). ⇒ at the default spatium (1.75 mm × 1200 dpi,
+  `styledef.cpp:797`, `dom/mscore.h:70`) a one-head full-size pair (h = 1.5 sp) is ≈ 0.06 sp thick
+  mid-stroke (derived, not stated).
+- ⭐ **Horizontal**: the pair is padded against the whole CHORD's shape minus stem, hook, arpeggio,
+  chord bracket and l.v. (`getParentShape`, `:545-561`) — so **accidentals and dots are INSIDE** the
+  brackets. Internal gaps (`computeInternalParenthesisPadding`, `:210-262`), all × the mean mag of
+  the two items: note **0.3 sp**, accidental **0.3**, stem **0.3**, ledger line **0.3**, dot **0.15**,
+  another parenthesis **1.0**, anything else 0.1. If the bracketed thing is narrower than that
+  paren-to-paren minimum, both brackets are shifted to centre it (`:136-156`).
+- ⭐ **The accidental drops its OWN brackets** when its note is bracketed: `parentNoteHasParentheses()`
+  (`dom/accidental.cpp:269-272`) switches off both the precomposed `accidental*Parens` glyph and the
+  `accidentalParensLeft/Right` pair (`rendering/score/tlayout.cpp:549`, `:590`). ⇒ one pair, round
+  head and accidental together.
+- **External gaps** (bracket ↔ neighbouring items, `rendering/paddingtable.cpp:317-345`), default
+  0.1 sp: before a bracket — note/stem/dot/hook 0.35, rest 0.45, barline `barAccidentalDistance`,
+  keysig 1.6, timesig 0.8, clef 0.6; after a bracket — note/accidental `max(accidentalNoteDistance
+  0.25, 0.35)` = **0.35**, rest/stem `minNoteDistance 0.35`, barline `noteBarDistance`, clef 0.8.
+
+#### H.1.4 The trill cue note — `Ornament::cueNoteChord`
+
+- `Ornament : Articulation` (MuseScore ≥ 4.1) holds `intervalAbove/Below`, `showAccidental`,
+  `startOnUpperNote`, `m_notesAboveAndBelow`, `m_cueNoteChord`, `m_showCueNote` (AUTO/ON/OFF)
+  (`dom/ornament.h:10-80`). A `Trill` spanner owns an `Ornament` and re-parents the cue chord to its
+  start segment (`dom/trill.cpp:227-239`).
+- **When it shows** (`ornament.cpp:244-251`): AUTO ⇒ `(ornament is a trill && trillAlwaysShowCueNote)
+  || intervalAbove.step != SECOND`. `trillAlwaysShowCueNote` defaults **false**
+  (`styledef.cpp:318`). ⇒ a trill to the neighbouring step shows an accidental above the `tr`; a
+  trill to a THIRD or wider shows the bracketed note. When the cue note shows, the accidental-above
+  is deleted (`ornament.cpp:374-381`) — one or the other, never both.
+- **Its pitch**: the principal's upper note cloned and transposed by the interval (AUTO: diatonic step
+  plus whatever alteration the bar's accidental state holds, `ornament.cpp:282-320`).
+- **What it is** (`updateCueNote`, `ornament.cpp:395-431`): a new `Chord` in the principal's segment,
+  `setSmall(true)` (⇒ `smallNoteMag 0.7`, `styledef.cpp:515`), the note forced to
+  `NoteHeadType::HEAD_QUARTER` (filled), bracketed with `addParenthesesToNotes`, flagged
+  `setIsTrillCueNote(true)`. No stem: the chord's duration type stays `V_INVALID`
+  (`durationtype.h:91`) and `hasStem()` lists only real values (`durationtype.cpp:222-240`, used by
+  `Chord::shouldHaveStem`, `dom/chord.cpp:1066-1077`).
+- **Where** (`TLayout::layoutOrnamentCueNote`, `tlayout.cpp:4330-4369`): heads, ledger lines and
+  accidentals laid out as a chord (`:4351-4354`), then `x = minHorizontalDistance(principal chord's
+  shape, cue shape)`, maximised over every voice's chord in the segment (`:4356-4368`) ⇒ **just
+  right of the principal's ink** (dots included) at the normal shape padding. Its accidental is kept
+  close to it (`accidentalslayout.cpp:1146-1149`); nothing kerns under it (`horizontalspacing.cpp:1748-1751`).
+- ⭐ **It takes width**: its shape is added to the SEGMENT's shape (`dom/segment.cpp:2762-2768`) and to
+  the system skyline (`rendering/score/systemlayout.cpp:1729-1736`) ⇒ the next note is pushed.
+- **Playback**: the ornament renderer reads `intervalAbove/Below` (`ornamentsrenderer.cpp:317`,
+  `:485-488`); the cue chord is not an event of its own (parented to the segment but not stored in the segment's element list; not verified further).
+
+#### H.1.5 MusicXML
+
+- **Export**: a bracketed note ⇒ `<notehead parentheses="yes">normal</notehead>`
+  (`src/importexport/musicxml/internal/export/exportmusicxml.cpp:3893-3896`); `noStem` ⇒
+  `<stem>none</stem>` (`:4464-4465`). A pre-bend is written on the PRINCIPAL (its `bendBack`) as
+  `<technical><bend first-beat last-beat><bend-alter>−½·amount</bend-alter><pre-bend/></bend>`
+  (`:4021-4035`) — the grace itself goes out as a grace with the bracketed head and no stem.
+  Ornament accidentals go out as `<accidental-mark>` (`:3524`, `:2946`); ⚠️ the TRILL CUE NOTE is
+  written nowhere (no `cueNoteChord` in the exporter) and, when it shows, the accidental-above has
+  been deleted (§H.1.4) ⇒ a trill to a third leaves MusicXML with **no interval at all** (derived).
+- **Import**: `<notehead parentheses="yes">` ⇒ `setParenthesesMode(BOTH)`
+  (`import/importmusicxmlpass2.cpp:7076`, `:7314-7316`); `<stem>none` ⇒ `setNoStem`
+  (`:7383`); `<accidental parentheses="yes">` or `cautionary="yes"` ⇒ `AccidentalBracket::PARENTHESIS`
+  (`import/importmusicxmlnotepitch.cpp:50-75`). ⛔ **`<bend>` is not imported at all** (no `bend`
+  handling in `import/*.cpp` beyond `brass-bend`), and neither is an `<accidental-mark>` on a trill ⇒
+  an imported pre-bend arrives as a *sounding* bracketed stemless grace.
+
+### H.2 Verovio
+
+#### H.2.1 Data model
+
+- Brackets on a head are MEI **`note@head.mod="paren"`** (`AttNoteHeads`; `libmei/dist/atttypes.h:1412`,
+  `attconverter.cpp:2985`, `:3005`). ⚠️ `Note` does NOT carry `AttEnclosingChars`; `@enclose` exists on
+  accid, arpeg, artic, clef, dynam, fermata, keyAccid, mordent, meterSig, rest, trill, turn (the
+  classes that include it, `include/vrv/*.h`).
+- A grace is `note@grace` (Part B §2.1); stemless is `@stem.visible="false"`. There is no pre-bend
+  and no trill auxiliary note: MEI's `<trill>` carries only `@accidupper/@accidlower`, drawn as a
+  small accidental above/below the `tr` (`src/view_control.cpp:2866-2885`).
+
+#### H.2.2 Drawing — two accidental-bracket GLYPHS hugging the head
+
+`View::DrawNote` (`src/view_element.cpp:1576-1603`), after the head glyph:
+
+```cpp
+case NOTEHEADMODIFIER_paren: {
+    this->DrawSmuflCode(dc, x - note->GetDrawingRadius(m_doc), y, SMUFL_E26A_accidentalParensLeft, …, drawingCueSize, true);
+    this->DrawSmuflCode(dc, x + note->GetDrawingRadius(m_doc) * 2, y, SMUFL_E26B_accidentalParensRight, …, drawingCueSize, true);
+```
+
+- Glyphs: **`accidentalParensLeft/Right` U+E26A/E26B**, not `noteheadParenthesis*`; at cue size when
+  the note is (the grace factor, Part B); vertically on the head's centre line.
+- Place: left glyph origin at `x − r`, right at `x + 2r`, where `r` = half the head glyph's width at
+  that size (`layerelement.cpp:599-658`). With Bravura (E26A 0.564 sp wide, head 1.18 sp ⇒ r 0.59):
+  the left bracket ends **0.026 sp** before the head, the right one starts **exactly** at the head's
+  right edge — no gap (derived from the font, §H.6). No padding constant exists.
+- ⭐ **Head only**: the accidental is a separate child (`DrawLayerChildren`, `:1606`) and is not
+  enclosed. Whether the accidental column avoids the left bracket is UNKNOWN (not traced).
+- Chords: each note brackets itself — no shared pair. Ledger lines, dots: unchanged by `head.mod`.
+
+#### H.2.3 Playback / IO
+
+- MIDI: `head.mod` is never read in `src/midifunctor.cpp` ⇒ a bracketed grace plays like any grace
+  (Part B §2.11). Trills are not expanded (only a comment, `midifunctor.cpp:838`).
+- MusicXML **import only** (Verovio writes MEI/Humdrum, no MusicXML): `<notehead parentheses="yes">`
+  ⇒ `head.mod paren` (`src/iomusxml.cpp:3248`); `<stem>none` ⇒ `stem.visible false` (`:3283`, `:3349`);
+  `<accidental parentheses="yes">` ⇒ `accid@enclose="paren"` (`:4082`), drawn as E26A + glyph + E26B
+  (`src/accid.cpp:326-330`); `<accidental-mark>` after `<trill-mark>` ⇒ `trill@accidupper` (`:3846-3852`);
+  `<bend>` ⇒ `ARTICULATION_bend` — the `<pre-bend/>` child is dropped (`:4620`).
+
+### H.3 LilyPond
+
+#### H.3.1 `\parenthesize` — a Parentheses grob, sticky to its host
+
+- `parenthesize` sets the grob property `parenthesized #t` (on an event chord, with a shared
+  `parenthesis-id` so ONE pair encloses the chord) (`ly/music-functions-init.ly:1657-1668`).
+- `Parenthesis_engraver` makes a sticky `Parentheses` grob per host, or one per `parenthesis-id`
+  per time step, and sets its `font-size` to **its own −6 PLUS the host's** (`lily/parenthesis-engraver.cc:58-107`).
+  ⇒ a normal head: −6 = **0.5**; a grace (−3, Part B): **−9 = 0.354**. Accidentals and TAB heads are
+  excluded — they have their own bracket code (`:61-70`).
+- `Parentheses` defaults: `font-size −6`, `padding 0.2` (`scm/define-grobs.scm:2772-2790`).
+- Glyphs: Feta's `accidentals.leftparen` / `accidentals.rightparen` — the ACCIDENTAL brackets
+  (`scm/output-lib.scm:1222-1227`).
+- ⭐ **Enclosure = host + its "friends"**: `NoteHead` has `parenthesis-friends (accidental-grob dot)`
+  (`define-grobs.scm:2608`; also `ApproximatePitchNoteHead :2489`, `Rest (dot) :2967`, `TabNoteHead (dot) :3746`).
+  `parentheses-interface::print` takes the X extent of hosts + friends, widens it by `padding` each
+  side, and stands the two glyphs at its ends (`output-lib.scm:1229-1256`). ⇒ **accidental and dots
+  INSIDE**; regression `input/regression/parenthesize-notes-accidentals.ly`: *"Parentheses around notes
+  also include accidentals and dots"*.
+- Vertical: centred on the hosts only, *"We don't want the friends, or parenthesized notes with a flat
+  would look bad"* (`output-lib.scm:1259-1277`). ⚠️ The 2.19 regression text says *"the combined enclosed
+  items"*; the code says hosts only.
+- Spacing: *"Parentheses only cause minimum distances to be set. They should not cause more space to
+  be allowed for a note when they do not cause a collision"* (`input/regression/parenthesize-horizontal-spacing-cosy.ly`).
+- Stemless: nothing automatic — a bracketed grace keeps its stem unless the user omits it.
+
+#### H.3.2 `\pitchedTrill` — the trill auxiliary as three grobs to the RIGHT
+
+- `\pitchedTrill main secondary`: *"@var{secondary-note} gets printed as a stemless note head in
+  parentheses"*; it copies the second note's PITCH (and `force-accidental`) onto the main note's
+  `TrillSpanEvent` and discards the second note (`ly/music-functions-init.ly:1800-1827`).
+- `Pitched_trill_engraver::make_trill` (`lily/pitched-trill-engraver.cc:94-161`) builds
+  `TrillPitchHead` at the pitch's staff position (`:127-133`), an optional `TrillPitchAccidental`
+  (`:139-152`), and `TrillPitchParentheses` whose element is the head (`:154-160`), all in a
+  `TrillPitchGroup` supported by the main note's heads, dots, stem and flag (`:63-82`, `:163-168`).
+- Accidental rule: printed unless the bar already holds that alteration for that step, or always
+  for a natural, or when forced (`:100-119`).
+- Grob defaults (`scm/define-grobs.scm`):
+  - `TrillPitchHead` (`:4016-4035`): `font-size −4` (0.63), **`duration-log 2`** (a filled head
+    whatever the trill's value), `parenthesis-friends (accidental-grob)`, `ledgered-interface`
+    (⇒ ledger lines), no stem.
+  - `TrillPitchParentheses` (`:4037-4056`): `font-size −4` fixed — *"different from Parentheses, which
+    has −6 plus the font size of its host"*; `padding 0.3`, *"from a time when parentheses were baked
+    into TrillPitchGroup … It could be revisited (Parentheses has 0.2)"*. ⇒ the accidental is inside.
+  - `TrillPitchAccidental` (`:3975-3993`): `font-size −4`, `padding 0.2`, to the LEFT of the head.
+  - `TrillPitchGroup` (`:3995-4014`): `direction RIGHT`, side-positioned on X, `padding 0.3`,
+    **`minimum-space 2.5`** (*"minimum shift to the right, in case the parent note has no stem"*),
+    `horizon-padding 0.1` (*"to avoid interleaving with augmentation dots"*).
+  ⇒ it stands AFTER the principal, outside its dots; regression *"a small note head in parentheses
+  following the main note … properly ledgered, and parentheses include the accidental"*
+  (`input/regression/trill-spanner-pitched.ly`).
+- Whether the group widens the principal's column is not stated in these sources (UNKNOWN beyond
+  `minimum-space`).
+
+#### H.3.3 Guitar pre-bend — a TAB-only spanner; the standard-staff grace is an ordinary grace
+
+`\preBend` / `\preBendHold` only set `BendSpanner.style` (`ly/music-functions-init.ly:393-409`);
+`Bend_spanner_engraver` is consisted in **`TabVoice` only** (`ly/engraver-init.ly:1173-1178`). The
+manual's own example writes the pre-bend as `\grace f'4\preBend \^ g'1` and prints the standard staff
+with a normal stemmed grace (`Documentation/en/notation/fretted-strings.itely:454-508`). ⛔ No
+automatic brackets or stem removal.
+
+#### H.3.4 MIDI and MusicXML
+
+- The pitched trill's second note is gone before the performer runs (§H.3.2) — it is never played.
+  `articulate.ly` realises a trill with the next diatonic step IN THE KEY (`ac:up`,
+  `ly/articulate.ly:283-292`, `:379-410`, `:602-607`) and never reads the event's `pitch` ⇒ a
+  `\pitchedTrill` to a third still plays as a trill to the second (derived).
+- `\parenthesize` sets grob properties only ⇒ a bracketed grace plays (derived).
+- musicxml2ly: `<notehead parentheses="yes">` ⇒ a `ParenthesizeEvent` (`python/musicxml.py:940-942`);
+  `<accidental-mark>` on a trill ⇒ an accidental above the spanner, with a warning that placement
+  may need fixing (`python/musicexp.py:2258-2279`) — ⛔ it does NOT become a `\pitchedTrill`.
+
+### H.4 VexFlow 5.0.0
+
+`Parenthesis` modifier (`build/esm/src/parenthesis.js`): `buildAndAttach` adds a LEFT and a RIGHT
+one to **every key** of the note (`:6-13`); glyphs **`noteheadParenthesisLeft/Right` U+E0F5/E0F6**
+in the note's font (so they scale with a grace) (`:39-53`). Formatted **before** dots and accidentals
+(`modifiercontext.js:85-89`): the left bracket touches the head (shift = the head's displaced offset,
+no padding, `note.js:299-306`) and the accidental stands OUTSIDE it; the first dot starts after the
+right bracket + 1 px (`note.js:307-314`). No stem/playback logic.
+
+### H.5 Finale (musx / EnigmaXML)
+
+- A "trill-to" note is **recognised, not modelled**: `calcIsAuxiliaryPitchMarker` = a singleton grace
+  with a hidden custom stem (`musxdom/src/musx/dom/Entries.cpp:2252-2261`); `calcIsTrillToGraceEntry`
+  adds *"positioned at least 1 space to the right of the main entry"* — the grace's manual offset minus
+  the grace-entry offset ≥ 1 sp (`:2263-2284`; doc `Entries.h:993-1010`: *"as created by the
+  Parenthesize Trill-To Notes plugin"*). A gliss-to marker is the same grace ending a gliss line
+  (`:2286-2310`).
+- Options: `guitarBendUseParens` *"Guitar Bend Use Parentheses"* (`Options.h:1358`); precomposed
+  bracketed accidentals `parenNatural/Flat/Sharp/DblFlat/DblSharp` (`Options.h:877-881`; the test
+  document maps them to U+F5D5–F5D9, `tests/data/trill-to.enigmaxml:633-637`); an accidental's own
+  flag `parenAcci` (`Entries.h:314`). How the plugin draws the head brackets: UNKNOWN in these sources.
+
+### H.6 SMuFL glyphs, checked in the fonts we ship (opentype.js, 2026-09-23)
+
+Measured in sp (upm/4); `x` = ink extent from the glyph origin.
+
+| glyph | code | Bravura | Sebastian | Leipzig |
+|---|---|---|---|---|
+| `noteheadParenthesisLeft` | U+E0F5 | ✅ adv 0.292, ink 0…0.436, h 1.448 | ✅ **identical to Bravura** | ✅ adv 0.400, ink 0…0.612, h 1.920 |
+| `noteheadParenthesisRight` | U+E0F6 | ✅ adv 0.292, ink −0.144…0.292, h 1.448 | ✅ identical | ✅ ink −0.212…0.400, h 1.920 |
+| `noteheadParenthesis` (both, to overlay a head) | U+E0CE | ✅ ink −0.292…1.472 over a 1.18 head | ✅ identical | ❌ missing |
+| `accidentalParensLeft/Right` | U+E26A/E26B | ✅ 0.564 w, h 1.980 | ✅ 0.388 w, h 1.712 | ✅ 0.652 w, h 2.000 |
+| `accidentalBracketLeft/Right` | U+E26C/E26D | ✅ 0.308 w | ✅ 0.348 w | ✅ 0.360 w |
+| `accidental*Parens` (precomposed, Bravura optional) | U+F5E0–F5E4 | ✅ 2.0–2.8 w | ❌ | ❌ |
+| `noteheadBlack` (for scale) | U+E0A4 | 1.180 | 1.280 | 1.256 |
+| `ornamentTrill` | U+E566 | ✅ 2.084 | ✅ 2.004 | ✅ 1.728 |
+
+- ⭐ **The notehead brackets are designed to kern into the head**: their ink runs **0.144 sp** (Bravura)
+  past the advance toward the head — set `(` advance, then the head, the tips wrap its box. The pair is
+  1.448 sp tall around a 1.0 sp head — ≈ 0.22 sp above and below, next to MuseScore's computed 0.25.
+- The accidental brackets are ~2 sp tall (made for a sharp) — what Verovio and LilyPond use round a head.
+- The precomposed `accidentalFlatParens` etc. are Bravura OPTIONAL glyphs (codepoints from
+  `~/dev/engine-sources/MuseScore/fonts/bravura/bravura_metadata.json`, `optionalGlyphs`); not in
+  `public/smufl/glyphnames.json`. Finale's test file uses a different PUA range (F5D5–F5D9) — present
+  in our Bravura/Sebastian but their identity was NOT checked.
+- ⚠️ Sebastian's E0F5/E0F6/E0CE are byte-for-byte Bravura's numbers — probably copied glyphs.
+- SMuFL `engravingDefaults` has no key for note/accidental parentheses (Bravura's 29 keys in `bravura_metadata.json`; `bracketThickness` is the SYSTEM bracket).
+
+### H.7 Comparison table
+
+| Question | MuseScore | Verovio | LilyPond | VexFlow |
+|---|---|---|---|---|
+| model | `Parenthesis` elements owned by the chord, one pair per note group; ghost ⇒ generated pair | `note@head.mod="paren"` | `Parentheses` grob (`\parenthesize`); trill: `TrillPitch*` grobs off the trill event | `Parenthesis` modifier per key |
+| brackets drawn as | a bezier path (not a glyph) | E26A/E26B glyphs | Feta accidental parens | E0F5/E0F6 glyphs |
+| bracket height | heads ± 0.25 sp × mag | the glyph (≈2 sp × size) | the glyph at −6 + host (trill −4) | the glyph |
+| accidental | **inside** (own bracket suppressed) | outside | **inside** (friend) | outside |
+| dots | inside, 0.15 sp | not enclosed | inside (friend) | after the right bracket |
+| chord | one pair round the group | per note | one pair (shared id) | per key |
+| head size (trill aux) | 0.7, filled | — | 0.63, filled | — |
+| stem | pre-bend: `noStem`; cue: none (no duration) | `@stem.visible=false` | trill head: none; `\parenthesize`: kept | — |
+| where the trill aux stands | after the principal, takes width | — | after, `minimum-space 2.5`, `padding 0.3` | — |
+| plays | pre-bend grace: no; trill cue: no (interval played) | yes | trill head: no; `\parenthesize`: yes | — |
+
+### H.8 Constants (value · unit · source)
+
+| constant | value | source |
+|---|---|---|
+| MuseScore bracket height | heads + **0.25 sp** top and bottom × intrinsicMag | `parenthesislayout.cpp:470-471` |
+| MuseScore bracket mid thickness cap | **0.2 sp** | `parenthesislayout.cpp:40` |
+| MuseScore bracket end pen | **0.05 sp** × intrinsicMag | `parenthesislayout.cpp:474`; `tdraw.cpp:2504` |
+| MuseScore bracket bulge | `0.2·h^0.95·mag^0.1`, min **0.25 sp** × intrinsicMag | `parenthesislayout.cpp:285-289` |
+| MuseScore inner gap to head / accidental / stem / ledger | **0.3 sp** × mean mag | `parenthesislayout.cpp:218-235` |
+| MuseScore inner gap to dot | **0.15 sp** | `parenthesislayout.cpp:230-232` |
+| MuseScore outer gap, bracket → next note | **0.35 sp** | `paddingtable.cpp:340` |
+| MuseScore outer gap, note → bracket | **0.35 sp** | `paddingtable.cpp:328` |
+| MuseScore small / grace mag | **0.7** | `styledef.cpp:515`, `:517` |
+| MuseScore `trillAlwaysShowCueNote` | **false** | `styledef.cpp:318` |
+| MuseScore pre-bend grace | appoggiatura, **8th**, a diatonic step below | `editing/cmd.cpp:800-802` |
+| MuseScore `alignPreBendAndPreDiveToGraceNote` | **false** (arrow on the principal) | `styledef.cpp:1621` |
+| MuseScore bend line / arrow | **0.13 sp** / **1.0 × 1.0 sp** | `styledef.cpp:1611`, `:1616-1617` |
+| Verovio bracket position | left at head x − r, right at head x + 2r (r = ½ head width) | `view_element.cpp:1591-1594` |
+| LilyPond `Parentheses` | `font-size −6` + host's, `padding 0.2` | `define-grobs.scm:2772-2790`; `parenthesis-engraver.cc:97-99` |
+| LilyPond `TrillPitchHead` | `font-size −4` (0.63), `duration-log 2` | `define-grobs.scm:4016-4020` |
+| LilyPond `TrillPitchParentheses` | `font-size −4`, `padding 0.3` | `define-grobs.scm:4037-4047` |
+| LilyPond `TrillPitchAccidental` | `font-size −4`, `padding 0.2` | `define-grobs.scm:3975-3981` |
+| LilyPond `TrillPitchGroup` | `padding 0.3`, `minimum-space 2.5`, `horizon-padding 0.1` | `define-grobs.scm:3995-4004` |
+| Finale trill-to test | grace ≥ **1 sp** right of its main entry, hidden stem | `musxdom/.../Entries.cpp:2263-2284` |
+| Bravura `noteheadParenthesisLeft` | adv 0.292, ink 0.436, h 1.448 sp | §H.6 |
+
+### H.9 Gotchas
+
+- 🚨 **Brackets round the head only vs round head + accidental** is the one real split (MuseScore,
+  LilyPond: inside; Verovio, VexFlow: outside). MusicXML cannot say which: `<notehead parentheses>`
+  and `<accidental parentheses>` are two separate flags (`musicxml.xsd` notehead type: *"If the
+  parentheses attribute is set to yes, the notehead is parenthesized"*; the `parentheses` attribute on
+  accidentals is a separate group).
+- 🚨 **The same picture, opposite playback**: MuseScore's pre-bend grace is silent; a bracketed grace
+  from MusicXML (where `<pre-bend/>` sits on the principal and MuseScore does not import `<bend>`) plays.
+  The silence comes from the ROLE (`isPreBendOrDiveStart`), never from the brackets.
+- 🚨 MuseScore's trill cue note is not exported to MusicXML, and its accidental-mark is deleted while it
+  shows (§H.1.5) — a trill to a third round-trips as a plain trill.
+- ⚠️ LilyPond's `\pitchedTrill` pitch is drawn but never sounds, and `articulate.ly` trills to the key's
+  next step whatever was written (§H.3.4).
+- ⚠️ The trill auxiliary and the pre-bend stand on OPPOSITE sides of the principal: after (MuseScore cue
+  note, LilyPond, Finale's plugin) vs before (pre-bend). Neither side is a grace in LilyPond's or
+  MuseScore's trill model — only Finale stores the trill-to note as a grace.
+- ⚠️ MuseScore's cue note has no duration, so any code that asks a "note" for its value must not reach
+  it; it is flagged `isTrillCueNote` and skipped by voice edits, note input and selection
+  (`editing/editvoice.cpp:94`, `editing/noteinput.cpp:1337`, `notation/internal/notationinteraction.cpp:5540-5562`).
+
+### H.10 UNKNOWN — checked, not found
+
+- Verovio: whether the accidental column avoids a `head.mod="paren"` bracket.
+- LilyPond: whether `TrillPitchGroup` widens the principal's column beyond `minimum-space`.
+- Finale: how the "Parenthesize Trill-To Notes" plugin draws the head's brackets; whether the trill-to
+  grace plays.
+- Sibelius, Dorico: not on disk (no source).
+- The identity of the glyphs at U+F5D5–F5D9 in our Bravura (present, not identified).
+
+---
+
+## Part I — The BRACKETED grace note (stemless head in round brackets): pre-bend and trill auxiliary — industry picture (online research, 2026-09-23)
+
+Scope: the small, **stemless, flagless notehead in round brackets** that stands beside a main note. Two
+uses were researched: the guitar **pre-bend** (Sibelius's F8 `-` key, `docs/research/sibelius-keypad.md` §3a)
+and the **trill auxiliary** / "trill-to" / "trilling pitch". Every claim carries a URL or a local source;
+quotations are verbatim from the fetched page unless marked *(paraphrase)*. **UNKNOWN** means the page
+could not be reached or did not say. ⛔ FINDINGS ONLY — nothing here is a decision.
+
+Method notes that matter for re-checking:
+- `steinberg.help/r/…` (Dorico 5/6 Reader) is a JavaScript shell — curl returns nothing, WebFetch gets a
+  301 to a table of contents. The static pages on **`archive.steinberg.help/dorico_pro/v3.5/…`** and
+  `…/dorico/v3/…` answered, quoted below. Dorico 3.0's feature text came from the **Version History PDF**
+  (`download.steinberg.net/downloads_software/Dorico_3/3.1/Dorico_3.1_Version_History.pdf`, pp. 64–66).
+- `musescore.org/en/handbook/4/…` answers with a normal browser User-Agent (curl `-A "Mozilla/5.0 …"`);
+  `musescore.org/en/node/…` forum threads still answer **403**. MuseScore's source was read on
+  `raw.githubusercontent.com` at tags **v4.4.4, v4.6.0, v4.7.3, v4.7.5**.
+- The Sibelius help-center article and forum threads (`sibelius.com/helpcenter/…`, `…/chat/chat.pl?…&guest=1`)
+  answer to plain curl; the forum banner says it is *"down for maintenance"*, but the archived threads still
+  serve.
+- The SMuFL tables are at **`smufl.formats.music/latest/tables/<range>.html`**. Without `/latest/` they 404.
+- The GitHub issue-search API rate-limited us (unauthenticated) before it returned anything for
+  `w3c-cg/musicxml`, `w3c-cg/mnx` or `w3c-cg/smufl` — see the UNKNOWN list.
+
+---
+
+### I.0 Synthesis
+
+1. **⭐⭐ The two uses are drawn the same way and placed on OPPOSITE sides of the main note.** Every source
+   that places the trill auxiliary puts it **after** (to the right of) the measured note. Every app that
+   makes a pre-bend puts its bracketed head **before** the main note, as a grace note would sit:
+   - Gould, *Behind Bars* p. 139 (read off the rendered scan, PDF p. 159): *"Notate the trilling pitch as a
+     small notehead in brackets after the measured note. **Do not use a grace note for the trilling pitch;**
+     reserve grace notes for the starting and finishing notes of a trill."*
+   - Stone, *Music Notation in the Twentieth Century*, *Trills*, A. Single-Step Trills (local OCR text,
+     dirty, wording checked against the text layer only): *"modified, if needed, by a small accidental just to
+     the right of the tr of the trill sign or by a small, stemless note-head in parentheses, following the
+     main note"*.
+   - Dorico: the auxiliary note is shown *"in the staff immediately to the right of the first note to which
+     the trill applies"*; LilyPond `\pitchedTrill` prints *"the trilled note … as a stemless note head in
+     parentheses"* after the main note.
+   - Sibelius's help center says it outright: the pre-bend note *"attach[es] to the previous note, i.e. they
+     prefer to be positioned to the left of the main note, rather than on the right"*. That is why using the
+     pre-bend key for a trill note is called a workaround there (§I.1).
+2. **⭐ Only Sibelius offers it as a KEY, and there it is a grace note.** The pre-bend note is a grace note
+   with stemless, bracketed heads that does not sound. Dorico and MuseScore **generate** the head from a
+   property of the main note or of the trill. Neither makes it a grace note the user types. Dorico uses one
+   word for both, **"auxiliary note"**, and both of Dorico's bracketed heads come from a property: *Pre-bend
+   interval* on the note, and trill *Appearance → Auxiliary note*.
+3. **⭐ Nothing plays the bracketed head itself.** The Sibelius pre-bend note is *"silent"*, and Bob
+   Zawalich (a Sibelius power user) could not find a way to make it sound. MuseScore's `Chord::isChordPlayable()`
+   returns `false` for a pre-bend start. The trill auxiliary is never played as a note: Sibelius *"won't read"*
+   a written trill accidental, and Dorico and MuseScore play the trill from its INTERVAL property. The
+   pre-bend's sound is the BEND: Dorico 3.0 played none (*"no automatic playback of bends, releases or
+   pre-bends"*); Dorico 3.5 plays *"bends and releases with bend intervals of up to a whole step"*, and
+   whether that covers pre-bends is UNKNOWN.
+4. **⭐ The interchange formats have no object for either written form.** In MusicXML a pre-bend is a `<bend>`
+   with `<pre-bend/>` on the MAIN note (a playback/technical fact with `<bend-alter>`), and a trill's interval
+   is `trill-step` (`whole` / `half` / `unison`) plus an optional `<accidental-mark>`. Nothing says "draw a
+   bracketed auxiliary head here". The generic parts exist: `<grace/>`, `<stem>none</stem>`,
+   `<notehead parentheses="yes">`, `<cue/>`. So a writer can spell the drawing as a separate note, and the
+   meaning is lost. MEI's `<trill>` carries only `@accidupper`/`@accidlower` and has no pitch for the
+   auxiliary. MNX has no trill, no bend, no notehead parentheses and no stemless note.
+5. **Gould uses the bracketed small head for a THIRD thing, a bend's target.** *Behind Bars* p. 378
+   (Classical guitar, *String bending*, rendered PDF p. 398): example (a) "bend" is drawn as a main note, a
+   line, then a **bracketed small notehead after it**. For a pre-bend she prescribes a **verbal
+   instruction**, not a bracketed grace: *"By bending the string before plucking it (a 'pre-bend') the player
+   can produce a microtone (b). Give a verbal instruction in both cases"*. Example (b) is *"pre-bend string
+   ¼-tone sharp"* over an ordinary note. 🔶 The shape of example (a) was read off a 110-dpi render. Render it
+   again at 450 dpi before quoting it as a measurement.
+
+---
+
+### I.1 Sibelius
+
+**What the pre-bend key makes.** Sibelius 6 Reference, p. 130 (re-downloaded 2026-09-23 from
+`https://resources.avid.com/SupportFiles/Sibelius/6/reference.pdf`; the same text is in the 2018.6
+Reference, `https://resources.avid.com/SupportFiles/Sibelius/2018.6/Sibelius_Reference_2018.6.pdf`, §3.8):
+
+> *"Grace note bends and pre-bends — Both these kinds of bends are notated in the same way: first, from the
+> second Keypad layout (shortcut F8), create the grace note (…) or pre-bend note (…, shortcut – on Windows,
+> \* on Mac); hit J to create a bend; then create the second note. On a tab staff, a pre-bend is represented
+> by a vertical arrow."*
+
+> *"Pre-bend and release — … create a pre-bend note followed by a grace note, create a bend, then create a
+> full-size note, and create another bend between the grace note and the full-size note."*
+
+The Reference does not say what the pre-bend note IS or how it plays. The forum does. Bob Zawalich, thread
+*"Sib. 2018.x: Does anyone know how pre-bend notes are implemented?"*,
+https://www.sibelius.com/cgi-bin/helpcenter/chat/chat.pl?com=thread&start=729872&groupid=3&guest=1 :
+
+> *"pre-bend notes (from the 2nd keypad layout)are a form of grace notes. They appear to be parenthesized,
+> stemless and silent. You can't turn the () or and off, though you can change the notehead type. Silencing
+> is not done via the notehead type, play on pass, or live playback. You can change the size by changing the
+> grace note size in Engraving Rules, but of course that changes all grace notes as well."*
+> — and later in the thread: *"Any ideas on a way to make these non silent?"* (no answer in the thread).
+
+The same user, thread *"Sib. 7.1.3: Parentheses trill"*,
+https://www.sibelius.com/cgi-bin/helpcenter/chat/chat.pl?com=thread&start=635651&groupid=3&guest=1 :
+
+> *"the pre-bend notes appear to be grace notes with stemless noteheads with the bracketed property. So like
+> all grace notes, their default position is to the left of the note to which they are attached. Once you
+> create one, you can add more of them, but each will have its own brackets (is that acceptable?). Also a
+> beam will show up and you will need to turm it off in the keypad."*
+
+Wim Hoogewerf in the same thread says the placement moves when the spacing is reset: *"By default the
+bracketed note will set itself at the end of the main note rhythmical value. After Reset Note Spacing it will
+jump back to this Default Position."*
+
+**⭐ Its use as a trill note — Avid's own help center.** Article 400, *"Creating auxiliary notes for
+trills without using grace notes"* (Wim Hoogewerf, versions affected 2 – 7.1, changed 24 Feb 2004),
+http://www.sibelius.com/helpcenter/article.php?id=400 :
+
+> *"Auxiliary notes are often drawn just to the right of trilled notes, to show which note should be trilled
+> to. You can normally use the pre-bend note (a stemless, bracketed grace note on the F9 Keypad layout) for
+> these, but they are not always ideal because they attach to the previous note, i.e. they prefer to be
+> positioned to the left of the main note, rather than on the right, and their position can be volatile (if
+> e.g. you have to reset note spacing)."*
+
+Its alternative: a new notehead with *"Playable"* and *"Stem"* switched off, the trill note entered *"using
+an unused voice, e.g. voice 3"*, set to *"'cue-size' (cue-cue size gives grace note size!) and 'brackets'"*,
+and moved right *"using the X offset … about 3 spaces"*. ⚠️ The article says **F9** where the 6 Reference
+says **F8**. This article is from 2004 and covers Sibelius 2–7.1. Whether the keypad numbering was
+different in those versions is UNKNOWN.
+
+**Forum practice, as recorded.** Thread *"Sib. 7.5: Pre Bend notes - is there a better solution for writing
+a half step trill?"*,
+https://www.sibelius.com/cgi-bin/helpcenter/chat/chat.pl?com=thread&start=671046&groupid=3&guest=1 :
+- David T: *"a trill with a flat note in brackets (parenthesis!!) a half step above the original note and to
+  the right … I found a solution using pre bend notes and moving the x position of the bent note to the
+  right - but it's a bit fiddly … when i copy and paste the bars the X position is not remembered"*.
+- Michael Cryne: *"I instead use voice 2 (or 3 …) to create a 'trill-to' note in parentheses, and turn it off
+  in playback"*.
+- Robert Puff, quoted by Bob Morabito: *"One way is to indicate the trill-to pitch as a stemless, cue sized
+  note in a parenthesis."* The article is
+  https://www.scoringnotes.com/of-note/half-whole-tone-flat-natural-sharp-trill-lines-in-sibelius/ ; it
+  continues *"…this method is somewhat labor-intensive to create in the current software, and furthermore,
+  isn't completely bulletproof in terms of the trill-to pitch maintaining its horizontal positioning after
+  music spacing."*
+
+**Trill playback.** 6 Reference, *Trills* (Playback chapter): *"By default, trills alternate 12 times per
+second with an interval of a diatonic step … To specify an interval in half-steps (semitones), switch off
+Diatonic, then set Half-steps to the desired interval … You can write a small accidental as a symbol above
+the trill to indicate the interval, but Sibelius won't read it directly."* So in Sibelius the trill's sound is
+a property of the trill **line**. No written symbol changes it, whether an accidental or a bracketed note.
+
+**The round-bracket key is separate** (6 Reference p. 165, already in `sibelius-keypad.md` §3b): *"You can
+add parentheses (round brackets) to any notehead (including grace notes) using the button on the second
+Keypad layout"*.
+
+### I.2 Dorico
+
+**Trill interval appearance.** Dorico 3.5 help, *Trill interval appearance*,
+https://archive.steinberg.help/dorico_pro/v3.5/en/dorico/topics/notation_reference/notation_reference_ornaments/notation_reference_ornaments_trills_intervals_appearance_r.html
+(identical text in the 3.1 page, `…/dorico/v3/…`):
+
+> *"Accidental — Indicates the trill interval using accidentals positioned above, below, or beside the tr
+> mark. This is the default trill interval appearance in Dorico Pro for major or minor second trills.*
+> *Hollywood-style — Indicates the trill interval using text. H.T. … W.T. …*
+> *Auxiliary note — Indicates the trill interval using a small, parenthesized, stemless notehead shown in
+> the staff immediately to the right of the first note to which the trill applies, and at the correct staff
+> position for the trilled-to pitch. Auxiliary notes are used for all trill intervals that are not a major or
+> minor second, but are automatically hidden for unison trills if the notehead design of the auxiliary note
+> has not been overridden.*
+> *Note — On tablature, the trilled-to pitch always appears as a parenthesized fret number."*
+
+*Changing the appearance of trill intervals*,
+https://archive.steinberg.help/dorico_pro/v3.5/en/dorico/topics/notation_reference/notation_reference_ornaments/notation_reference_ornaments_trills_intervals_appearance_changing_t.html :
+*"You can only change the trill interval appearance of trills with a major/minor second interval."*, and
+*"You can change the notehead design of individual auxiliary notes, for example, to show that the
+trilled-to note is a harmonic."*
+
+**The interval is the source of truth, and it plays.** *Trill intervals*,
+https://archive.steinberg.help/dorico/v3/en/dorico/topics/notation_reference/notation_reference_ornaments/notation_reference_ornaments_trills_intervals_c.html :
+*"Trill intervals tell performers which notes to play and also affect the pitches used in playback in Dorico
+Pro."* *Trills in playback*,
+https://archive.steinberg.help/dorico_pro/v3.5/en/dorico/topics/notation_reference/notation_reference_ornaments/notation_reference_ornaments_trills_playback_r.html :
+*"Dorico Pro plays back trills by using a combination of sampled trills, when available, and triggering
+multiple notes … When playing generated trills, Dorico Pro incorporates grace notes immediately before and
+after trills. A single unslashed grace note on the initial trill note produces an appoggiatura, while
+multiple grace notes on the initial trill note are included in the trill pattern."* So Dorico's GRACE notes
+next to a trill are start/end notes. That is Gould's division exactly.
+
+**Pre-bend = a property of the note, and its bracketed head is generated.** *Guitar pre-bends and
+pre-dives*,
+https://archive.steinberg.help/dorico_pro/v3.5/en/dorico/topics/notation_reference/notation_reference_guitar_bends/notation_reference_guitar_bends_pre_bends_pre_dives_c.html :
+
+> *"In Dorico Pro, guitar pre-bends and pre-dives are properties of notes belonging to fretted instruments,
+> meaning they only apply to single notes … On notation staves, guitar pre-bends are notated using an angled
+> line between the noteheads at the start and end. However, unlike guitar bends, the parenthesized auxiliary
+> notehead at the start is shown automatically as part of the pre-bend. On tablature, guitar pre-bends are
+> notated using a solid vertical line with an arrowhead at the top, a bend interval above the arrowhead, and
+> a small fret number below the line to indicate the start pitch … On notation staves, guitar pre-dives
+> appear the same as guitar pre-bends."*
+
+Dorico 3.0 feature text (Version History PDF pp. 64–66, link in the method notes): *"Creating a pre-bend. A
+pre-bend is created by activating the Pre-bend interval property in the new Guitar Pre-bends group in the
+Properties panel, and specifying the amount by which you want the string to be pre-bent. Defining a pre-bend
+interval causes a parenthesized auxiliary note with a bend to appear on the notation staff, while in
+tablature a pre-bend is shown by way of a grace-note sized fret number with a vertical arrow"*. Also:
+*"Bends, pre-bends and releases are all notated in the same way on staff notation: an angled line joins the
+start and end noteheads"*. The same document says *"Pre-bends cannot be flipped with F, but you can activate
+the Guitar pre-bend direction property"*, and *"Playback of bends. There is no automatic playback of bends,
+releases or pre-bends in this release of Dorico"*.
+
+Playback today: *Guitar bends* (3.5),
+https://archive.steinberg.help/dorico_pro/v3.5/en/dorico/topics/notation_reference/notation_reference_guitar_bends/notation_reference_guitar_bends_c.html :
+*"Guitar bends and releases with bend intervals of up to a whole step (tone) are reflected in playback."*
+Whether pre-bends are included is **UNKNOWN**. The pages say "bends and releases", and the 3.5 playback page
+for bends could not be found at a guessed URL.
+
+**Bracketed noteheads in general** (not grace-specific),
+https://archive.steinberg.help/dorico_pro/v3.5/en/dorico/topics/notation_reference/notation_reference_notes/notation_reference_notes_bracketed_c.html :
+*"Bracketed noteheads are often used to indicate that notes are optional, editorial, not played in all
+playthroughs in music with repeats, or pressed down but not fully struck on the piano … By default,
+bracketed notes have reduced velocity, causing them to sound quieter in playback than normal notes."* In
+Dorico a bracket on an ordinary note does NOT silence it. It only makes it quieter.
+
+Scoring Notes' review of Dorico 2.2 (when trills were redesigned), https://www.scoringnotes.com/reviews/dorico-2-2/ :
+*"The third option is to show auxiliary notes – small parenthesised noteheads indicating the note to be
+trilled to. Auxiliary notes – generated automatically without workarounds"*.
+
+### I.3 MuseScore 4
+
+**Pre-bend** — Handbook, *Guitar bends & dives*, https://musescore.org/en/handbook/4/guitar-bends :
+*"Pre-bends indicate a string that has been bent prior to being struck. On the standard stave, it is
+represented as a stemless, parenthesised grace note. On the tablature stave, it is illustrated with a
+straight, rather than curved arrow."* Also *"Grace note bends … When you apply a grace note bend to a note,
+it will automatically be entered one diatonic step lower than the note it precedes."* The source (v4.4.4,
+`src/engraving/dom/cmd.cpp`, `Score::addGuitarBend`) shows what the command creates, read directly:
+- it creates a **grace note before the main note**: `setGraceNote(chord, note->pitch(), NoteType::APPOGGIATURA,
+  Constants::DIVISION / 2)` (an eighth appoggiatura), then `graceNote->transposeDiatonic(-1, …)`;
+- on every linked copy, `linkedGrace->setNoStem(true); linkedGrace->setBeamMode(BeamMode::NONE);` (this
+  branch runs for both `PRE_BEND` and `GRACE_NOTE_BEND`);
+- the **brackets are drawn by layout, not stored**: `rendering/dev/guitarbendlayout.cpp:102–103`, *"if
+  (bend->type() == GuitarBendType::PRE_BEND && !startNote->headHasParentheses())
+  startNote->setHeadHasParentheses(true, /\* addToLinked= \*/ false, /\* generated= \*/ true);"*
+- it is **silent**: `dom/chord.cpp` `Chord::isChordPlayable()` → *"if (m_notes.front()->isPreBendStart())
+  { return false; }"*. Removing the bend reverses all of this (`score.cpp`, `case ElementType::GUITAR_BEND`
+  in the remove path: `setHeadHasParentheses(false)`, `setNoStem(false)`, `BeamMode::AUTO`).
+- The sound belongs to the bend: *"Both the bend amount and its playback speed can be adjusted via the
+  Properties panel"* (handbook, same page).
+
+So MuseScore makes the pre-bend's bracketed head a real grace chord (an appoggiatura with its stem and beam
+switched off), bracketed at layout and never played. This matches Sibelius's model, but the bend command
+creates it and no keypad key does.
+
+**Trill auxiliary** — Handbook, *Ornaments*, https://musescore.org/en/handbook/4/ornaments :
+*"Trills can be customized by quality (major, minor, augmented, etc.) and interval number from unison to
+octave. The appropriate accidental or upper auxiliary note will display in the score above or below the
+ornament. For intervals larger than a second, consider using a tremolo."* The source shows it is **not a
+grace note**:
+- v4.4.4 `dom/ornament.cpp` `Ornament::updateCueNote()`: `m_cueNoteChord = Factory::createChord(…);
+  m_cueNoteChord->setSmall(true); cueNote->setHeadHasParentheses(true); cueNote->setHeadType(NoteHeadType::HEAD_QUARTER);
+  … cueNote->setIsTrillCueNote(true);`. It is a small chord OWNED by the ornament (`m_cueNoteChord`), placed
+  in the main chord's segment. It is not a member of the voice.
+- when it shows: v4.4.4 `ornament.h:54` `bool showCueNote() { return _intervalAbove.step != IntervalStep::SECOND; }`.
+  From v4.6.0 on it is a property, `AutoOnOff m_showCueNote = AutoOnOff::AUTO`, and AUTO means
+  *"(hasFullIntervalChoice() && style().styleB(Sid::trillAlwaysShowCueNote)) || _intervalAbove.step != IntervalStep::SECOND"*.
+- ⚠️ the parentheses have changed between versions: v4.4.4 sets them at creation; v4.6.0 uses
+  `setParenthesesMode(ParenthesesMode::BOTH)`; v4.7.3 `EditChord::addChordParentheses(…)`; v4.7.5
+  `score()->cmdAddParenthesesToNotes(notes)`. Issue **#33938**, *"Trill cue note should have parentheses by
+  default"* (opened 24 Jun 2026, closed, project field "MuseScore Studio 4.7.4", status Done),
+  https://github.com/musescore/MuseScore/issues/33938 , quotes Gould: *"On p. 139 of Behind Bars, Elaine
+  Gloud [sic] says 'Notate the trilling pitch as a small notehead in brackets after the measured note.'. In
+  order to achieve this in MuseScore, you have to turn the cue note on, then select the cue note and switch
+  parentheses on."* So some 4.5–4.7 builds shipped the cue note without brackets.
+- Scoring Notes on 4.1, https://www.scoringnotes.com/reviews/musescore-4-1/ : *"Intervals beyond a second
+  are automatically shown as parenthesized noteheads, which look great. Intervals of a second are shown with
+  the accidental above the trill line only. I do wish there was an option to show the trilled note in
+  parentheses for seconds as well."* (From 4.6 the AUTO/ON property answers this.)
+
+**MusicXML out of MuseScore** (v4.4.4 `importexport/musicxml/internal/musicxml/exportxml.cpp`, grepped): the
+ornament's accidentals are written as `<accidental-mark>`
+(`writeAccidental(m_xml, u"accidental-mark", accidental)`). A grep for `TrillCueNote`/`cueNote` and for a
+guitar `<bend>`/`pre-bend` writer found **no match**. The only "bend" string is `brass-bend`. 🔶 So the trill
+cue note and the guitar pre-bend do not appear to be exported. This is inference from a grep, not a test
+export.
+
+### I.4 Finale (discontinued 2024; the docs still serve)
+
+- **Trill to** — *Trills*, https://usermanuals.finalemusic.com/FinaleMac/Content/Finale/ht-trills.htm :
+  *"To let the player know which notes are to be trilled, a small accidental, sometimes in parentheses, is
+  often placed next to the symbol. (This tells the player to raise or lower the written pitch by a half step
+  for the trill.) This symbol, too, is an Articulation"*, and *"The Engraver font includes full size Trill to
+  characters. These noteheads are provided for Trill to notes when they are to be placed outside of the
+  staff."*
+- *"Trill to" Noteheads*, https://usermanuals.finalemusic.com/Finale2011Win/Content/Finale/Fonts14.htm :
+  *"Set One: Full Size — … First enter the notes with any of the Finale note entry methods, then with Special
+  Tools Tool change the notehead, shorten the stem and move it to the desired horizontal position … Set Two:
+  75% Reduction — These noteheads are already reduced to 75% and can be used as "trill to" notes for use
+  within the staff. Enter with the Articulation Tool."* Finale has no trill-to object. It is either a
+  **font glyph entered as an articulation** or an ordinary note restyled by hand.
+- Trill playback: *"Trills defined with one of the default trill articulations playback automatically if
+  Human Playback is enabled"* (same *Trills* page). A trill-to glyph affecting that playback is UNKNOWN.
+- **Guitar bend** — *Guitar bends*, https://usermanuals.finalemusic.com/Finale2012Mac/Content/Finale/Guitar_bends.htm :
+  tablature only: *"By default the second fret number will be hidden. By default, the second fret number of
+  a release will be parenthesized."* A **pre-bend on the standard staff: UNKNOWN**. No Finale page reached
+  described one, and the Engraver-font page `…/FinaleMac/Content/Finale/Engraver_font.htm` answered **403**.
+
+### I.5 Guitar Pro, Notion, LilyPond
+
+- **Guitar Pro 7 User Guide** (`https://blog.guitar-pro.com/wp-content/uploads/2018/10/GuitarPro7-user-guide.pdf`,
+  86 pp., grepped): the bend is a curve on ONE note, *"The Bend window allows you to precisely set the type
+  of the bend you want by adjusting its points"*, and *"The Stylesheet allows you to display the bend in
+  standard notation too."* The trill is a note property with *"the fret of the second note"*, and *"This
+  notation lightens the score, because alternated notes are not displayed."* The words "pre-bend" / "prebend"
+  **do not occur** in the guide. **How GP draws a pre-bend on the standard staff: UNKNOWN.**
+- **Notion: UNKNOWN.** Not reached.
+- **LilyPond** (the one engine with a dedicated construct): *Expressive marks as lines*,
+  https://lilypond.org/doc/v2.24/Documentation/notation/expressive-marks-as-lines :
+  *"Trills that require an auxiliary note with an explicit pitch can be typeset with the \pitchedTrill
+  command. The first argument is the main note, and the second is the trilled note, printed as a stemless
+  note head in parentheses."* and *"The Accidental of the first pitched trill in a measure is always printed,
+  even for naturals … Subsequent accidentals (of the same note in the same measure) will need to be added
+  manually."* Its grobs are `TrillPitchHead`, `TrillPitchParentheses` (*"The parentheses of a pitched
+  trill"*, `font-size: -4`), and `TrillPitchGroup`, all made by `Pitched_trill_engraver`
+  (https://lilypond.org/doc/v2.24/Documentation/internals/trillpitchparentheses). The head is part of the
+  TRILL SPANNER and not a note in the voice.
+
+### I.6 Interchange formats
+
+**MusicXML 4.0** (https://www.w3.org/2021/06/musicxml40/musicxml-reference/elements/…):
+
+| element / attribute | what the spec says (verbatim) | relevant because |
+|---|---|---|
+| `<notehead parentheses="yes">` | *"If yes, the notehead is parenthesized. It is no if not specified."* | the brackets, per note |
+| `<stem>none</stem>` | (value of `<stem>`) — used in the spec's own `<pre-bend>` example | the missing stem |
+| `<grace/>` / `<cue/>` | see Part D §1 | a grace or grace-cue note |
+| `<bend>` (parent `<technical>`) | *"used in guitar notation and tablature. A single note with a bend and release will contain two `<bend>` elements"*; content `<bend-alter>`, then zero or one of `<pre-bend>` / `<release>`, then `<with-bar>?` | the pre-bend lives HERE |
+| `<pre-bend>` | *"indicates that a bend is a pre-bend rather than a normal bend or a release."* Always empty | |
+| `<bend-alter>` | *"the number of semitones in the bend … Negative values indicate pre-bends or releases. The `<pre-bend>` and `<release>` elements are used to distinguish what is intended."* | |
+| `<trill-mark>` | *"represents the trill symbol"*; attributes include `trill-step` (*"The alternating note for playback, relative to the current note. It is whole if not specified."*), `start-note`, `two-note-turn`, `accelerate`, `beats` | the trill's INTERVAL is a playback attribute |
+| `trill-step` data type | *"describes the alternating note of trills and mordents for playback"*; values **`half` · `unison` · `whole`** | ⚠️ no third, no microtone, no spelled pitch |
+| `<accidental-mark>` (in `<ornaments>`) | *"The `<accidental-mark>` element's content is represented the same as an `<accidental>` element, but with a different name to reflect the different musical meaning."* Has `parentheses` and `bracket` attributes | the written accidental of a trill |
+
+The spec's own **pre-bend example**
+(https://www.w3.org/2021/06/musicxml40/musicxml-reference/examples/pre-bend-element/) is a single TAB note
+with no separate grace note:
+
+```xml
+<note>
+  <pitch><step>B</step><alter>-1</alter><octave>3</octave></pitch>
+  <duration>8</duration><voice>1</voice><type>half</type>
+  <stem>none</stem>
+  <notations><technical>
+    <string>3</string><fret>3</fret>
+    <bend><bend-alter>-2</bend-alter><pre-bend/></bend>
+  </technical></notations>
+</note>
+```
+
+⭐ So MusicXML models the pre-bend as a fact about the **struck note** (how far it was pre-bent), and it has
+**no element for a trill auxiliary pitch**. The trill's second pitch is `trill-step` + `<accidental-mark>`,
+both relative to the main note. A drawn bracketed auxiliary has to be written as a separate `<note>`
+(`<grace/>` + `<stem>none</stem>` + `<notehead parentheses="yes">`), and then it cannot be told apart from
+a real grace note. A MusicXML issue proposing a trill-auxiliary element: **UNKNOWN** (search was
+rate-limited; see below). The 4.1 draft pages were not checked.
+
+**MEI 5** (https://music-encoding.org/guidelines/v5/elements/…):
+- `<trill>`: *"Rapid alternation of a note with another (usually at the interval of a second above)."*
+  Attributes include `accidupper` (*"Records the written accidental associated with an upper neighboring
+  note"*), `accidlower`, their `.ges` sounding forms, and `enclose`. It **may not have child elements**.
+  Remarks: *"The interval between the main and auxiliary notes is usually understood to be diatonic unless
+  altered by an accidental."* There is no attribute for the auxiliary's pitch.
+- `<note>` has `@enclose` (*"Records the characters often used to mark accidentals, articulations, and
+  sometimes notes as having a cautionary or editorial function"*; `data.ENCLOSURE` = `paren` · `brack` ·
+  `box` · `none`), `@stem.visible` (*"Determines whether a stem should be displayed"*), `@grace`, `@cue`,
+  `@head.visible`. So an MEI encoder can spell the drawing as `<note grace="…" stem.visible="false"
+  enclose="paren">`, but nothing links it to the trill.
+- `<bend>`: *"A variation in pitch (often micro-tonal) upwards or downwards during the course of a note"*,
+  `@amount` *"the amount of detuning"*. It is a control event and has no pre-bend flag that we found.
+- MEI issues on trill auxiliaries: **UNKNOWN**. A web search found none; GitHub issue search was
+  rate-limited.
+
+**MNX** (object list at https://w3c-cg.github.io/mnx/docs/mnx-reference/objects/ , schema
+`…/docs/mnx-schema.json`): there is a `grace` object (`graceType` = `makeTime` · `stealFollowing` ·
+`stealPrevious`, `slash`), an `accidental-enclosure`, and `stem-direction`. The object list has **no**
+trill/ornament, **no** bend, **no** notehead parentheses, and **no** stemless-note flag. Neither use can be
+encoded in MNX today.
+
+**SMuFL** (https://smufl.formats.music/latest/tables/…):
+- Noteheads: `noteheadParenthesis` U+E0CE (*"Parenthesis notehead"*), `noteheadParenthesisLeft` **U+E0F5**
+  (*"Opening parenthesis"*), `noteheadParenthesisRight` **U+E0F6** (*"Closing parenthesis"*).
+- Standard accidentals: `accidentalParensLeft` **U+E26A**, `accidentalParensRight` **U+E26B**,
+  `accidentalBracketLeft/Right` U+E26C/E26D.
+- Common ornaments: `ornamentTrill` U+E566, and the recommended ligatures `ornamentTrillFlatAbove`
+  (`uniE260_uniE566`), `ornamentTrillNaturalAbove`, `ornamentTrillSharpAbove`.
+- **No glyph for a trill auxiliary note and none for a pre-bend head.** Both are built from a notehead
+  plus the parenthesis glyphs. The W3C list discussed adding more trill-interval glyphs in 2017. Kentaro
+  Sato reported that London copyists *"are rather tired of specifying trill note with small or parenthesized
+  note"* and wanted *"W"* / *"1/2"* trill ligatures. Daniel Spreadbury answered: *"My inclination is that we
+  should not add these glyphs to SMuFL"*
+  (https://lists.w3.org/Archives/Public/public-music-notation-contrib/2017Nov/0004.html ,
+  …/0008.html). A SMuFL issue about a pitched-trill glyph: **UNKNOWN**.
+
+### I.7 Comparison table
+
+| | the bracketed head is… | placed | made by | stem / flag / beam | size | plays? | what carries the SOUND |
+|---|---|---|---|---|---|---|---|
+| **Sibelius** pre-bend (F8 `-`) | a **grace note** with bracketed stemless heads | **left** of the main note (grace position) | a keypad key, then **J** for the bend | none (a beam *"will show up and you will need to turn it off"*) | grace size (60 %) | **no**, *"silent"*, cannot be switched on | the bend line (playback UNKNOWN) |
+| **Sibelius** trill note | no object: the pre-bend note dragged right, or a hidden-voice note with a custom notehead | right, by hand, and it moves when spacing is reset | workaround (help-center art. 400) | off (custom notehead *"Stem"* off) | cue-cue = grace size | off by hand (*"Playable"* off) | trill line's *Diatonic / Half-steps* property |
+| **Dorico** trill auxiliary | a **generated** part of the trill | *"immediately to the right of the first note"* | trill *Appearance → Auxiliary note*; automatic when the interval is not a second | none | *"small"* | the head no; the trill plays its **interval** | trill interval |
+| **Dorico** pre-bend | a **generated** *"parenthesized auxiliary notehead"* | at the start of the bend (before the note) | note property *Pre-bend interval* | UNKNOWN in detail (drawn as a head) | UNKNOWN | UNKNOWN (3.0: no bend playback at all) | the pre-bend interval |
+| **MuseScore** pre-bend | a real **grace chord** (appoggiatura, eighth), stem off, beam off, brackets added at layout | before the main note | guitar palette / bend command | `setNoStem(true)`, `BeamMode::NONE` | grace | **no** (`isChordPlayable` false) | the bend curve |
+| **MuseScore** trill cue note | a small chord **owned by the ornament** (`isTrillCueNote`) | beside the main chord, in its segment | automatic when the interval is not a second; from 4.6 an AUTO/ON/OFF property | quarter head, no stem | `setSmall(true)` | the head no; the ornament plays its **interval** | ornament interval |
+| **Finale** trill-to | a font glyph (Engraver *"Trill to"*, 75 %) entered as an **articulation**, or a restyled real note | by hand | articulation tool / Special Tools | glyph has none | 75 % set, or full size | UNKNOWN | Human Playback of the trill |
+| **LilyPond** `\pitchedTrill` | `TrillPitchHead` + `TrillPitchParentheses`, part of the trill spanner | after the main note | the trill command's 2nd argument | stemless | `font-size -4` | UNKNOWN (not checked) | UNKNOWN |
+| **MusicXML** | no dedicated object; spell as `<note><grace/>…<stem>none</stem><notehead parentheses="yes">` | document order | — | `<stem>none</stem>` | `<cue/>` / `font-size` | a grace note has no `<duration>` | pre-bend: `<bend><bend-alter/><pre-bend/></bend>` on the main note; trill: `trill-step` half/whole/unison + `<accidental-mark>` |
+| **MEI** | no dedicated object; `<note>` with `@enclose="paren"`, `@stem.visible="false"`, `@grace` | — | — | `@stem.visible` | `@cue` / `@fontsize` | — | trill: `@accidupper/@accidlower(.ges)`; `<bend @amount>` |
+| **MNX** | cannot be encoded (no trill, bend, notehead parentheses or stemless flag) | — | — | — | — | — | — |
+| **SMuFL** | no glyph; build from a head + U+E0F5/E0F6 (or U+E0CE) | — | — | — | — | — | — |
+| **Gould** | trill: *"small notehead in brackets after the measured note"*, *"Do not use a grace note"*. Pre-bend: a *"verbal instruction"* | trill: after; bend target: after a line | — | — | small | — | — |
+
+### I.8 UNKNOWN — checked, not answered
+
+- **Sibelius pre-bend playback of the BEND** (not of the head): the 6 and 2018.6 References say nothing
+  about bends playing back. The head is silent (forum).
+- **Sibelius F9 vs F8**: help-center article 400 (2004) names the pre-bend note's layout *"F9"*; the 6
+  Reference names F8. The keypad numbering in Sibelius 2–5 is not researched.
+- **Sibelius MusicXML export of a pre-bend note**: not researched.
+- **Dorico pre-bend playback** after 3.0; the auxiliary note's exact size, and its stem, for a pre-bend;
+  the Dorico 3.5 bends-in-playback page (`…notation_reference_guitar_bends_in_playback_c.html` → 404) and
+  the current `steinberg.help/r/dorico-pro/6.x` pages (a JavaScript shell; nothing fetchable).
+- **Dorico MusicXML export/import** of trill auxiliary notes and pre-bends: not researched.
+- **MuseScore forum** `musescore.org/en/node/356117` (*"trill with parenthetical note"*) and `/node/358238`
+  (*"Guitar bends/prebends/reverse bends"*): **403**. Only a search-engine summary was seen, and it is not
+  quoted as fact.
+- **MuseScore MusicXML import** of a bracketed stemless grace note: not researched. The export conclusion is
+  a grep, not a round trip.
+- **Finale pre-bend on the standard staff** and the Engraver font page
+  (`usermanuals.finalemusic.com/FinaleMac/Content/Finale/Engraver_font.htm` → **403**).
+- **Guitar Pro** standard-notation drawing of a pre-bend (the GP7 guide never says "pre-bend"); **Notion**
+  (not reached).
+- **GitHub issue search** of `w3c-cg/musicxml`, `w3c-cg/mnx`, `w3c-cg/smufl` and
+  `music-encoding/music-encoding` for "trill auxiliary" / "pitched trill" / "pre-bend": the unauthenticated
+  API returned *"API rate limit exceeded"* before any result (repo names under `w3c/…` returned *"Validation
+  Failed"*). Web search surfaced no such issue. That is not evidence that none exists.
+- **MusicXML 4.1 draft** changes to `<trill-mark>` / `<bend>`: not checked.
+- **Gould p. 378 example (a)**: its shape (a bracketed small head AFTER a bend line) was read at 110 dpi.
+  Render PDF p. 398 at 450 dpi before treating it as measured.

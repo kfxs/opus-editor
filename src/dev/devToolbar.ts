@@ -232,6 +232,13 @@ export function mountDevToolbar(host: HTMLElement, deps: DevToolbarDeps): DevToo
   toggle(graceBox, GRACE_BTN, 'appogg.', 'Appoggiatura — click a note to add one before it',
     () => graceToolLit(state, 'appoggiatura', 'before', getEngine()),
     () => pressGraceTool(palette.spanToolHost(), 'appoggiatura', 'before'))
+  // 🔧 BRACKETED GRACE — a door that LOGS, and does nothing else (his call, 2026-09-23: a button *"so we
+  //    can start planning"*). A stemless, flagless head in round brackets — Sibelius's "pre-bend", and
+  //    the same form a trill uses to say which note to trill to (named for what it IS, the Keypad's rule).
+  //    ⛔ DO NOT GROW IT INTO THE FEATURE: where the form lives in the model (the group? the note? the
+  //    trill?) is the open question the research is answering.
+  toggle(graceBox, GRACE_BTN, 'bracket.', 'Bracketed grace (stemless, in parentheses) — not built yet: logs only',
+    () => false, () => console.log('[grace] bracketed grace pressed — not wired'))
   toggle(graceBox, GRACE_BTN, 'after', 'Grace AFTER a note (Nachschlag) — not built yet (plan P5)',
     () => false, () => {}, ON, () => false)
   row.appendChild(graceBox)
