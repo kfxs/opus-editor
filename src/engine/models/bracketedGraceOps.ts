@@ -262,3 +262,37 @@ export function bracketedProblems(score: Score): string[] {
   }
   return problems
 }
+
+/**
+ * ⭐ **Move a bracketed grace to the OTHER side of its target** — P6, his Properties control (2026-09-23:
+ * *"a way to place the bracket before or after the target, default is before as now and the user can
+ * change it in properties"*). Off one list, onto the other, standing NEXT TO its target on the new side
+ * (last of `bracketedBefore`, first of `bracketedAfter`) — where it would have stood had it been entered
+ * there. Its pitches, ids and offset travel with it.
+ * @returns whether it moved — ⛔ refused when it is already there, or when its target has no AFTER side
+ *   (a grace, a rest — B5).
+ */
+export function setBracketedSide(score: Score, pitchId: string, side: BracketedSide): boolean {
+  const found = findBracketed(score, pitchId)
+  if (!found || found.side === side) return false
+  const onChord = found.slot.type === 'chord' && found.target === found.slot
+  if (side === 'after' && !onChord) {
+    dbg(`[bracketedGraceOps.setBracketedSide] refused: its target (a ${found.target === found.slot ? 'rest' : 'grace'}) has no after side`)
+    return false
+  }
+  const holder = found.target as { bracketedBefore?: BracketedGrace[]; bracketedAfter?: BracketedGrace[] }
+  const from = bracketedKey(found.side)
+  holder[from]!.splice(found.index, 1)
+  if (holder[from]!.length === 0) delete holder[from]
+  const to = bracketedKey(side)
+  holder[to] = side === 'before' ? [...(holder[to] ?? []), found.bracketed] : [found.bracketed, ...(holder[to] ?? [])]
+  dbg(`[bracketedGraceOps.setBracketedSide] ${found.pitch.step}${found.pitch.octave} → ${side} its target`)
+  return true
+}
+
+/** ⭐ What the Properties panel asks of a bracketed grace (P6): its side, and whether it may go after. */
+export function bracketedSideInfo(score: Score, pitchId: string): { side: BracketedSide; canBeAfter: boolean } | null {
+  const found = findBracketed(score, pitchId)
+  if (!found) return null
+  return { side: found.side, canBeAfter: found.slot.type === 'chord' && found.target === found.slot }
+}

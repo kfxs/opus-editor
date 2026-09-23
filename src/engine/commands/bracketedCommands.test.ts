@@ -99,4 +99,13 @@ describe('bracketedCommands', () => {
     ctx.allow.page = false
     expect(cmds.previewOffset(id, 3)).toBe(false)
   })
+
+  it('⭐ setSide: ONE undo entry, labelled by where it went; none when refused', () => {
+    const { ctx, cmds, host } = setup()
+    const id = cmds.add(host.id, 'before', Bb3)!.pitches[0].id
+    ctx.log.length = 0
+    expect(cmds.setSide(id, 'after')).toBe(true)
+    expect(cmds.setSide(id, 'after')).toBe(false)
+    expect(ctx.log).toEqual(['mutate:Bracketed grace after its note'])
+  })
 })

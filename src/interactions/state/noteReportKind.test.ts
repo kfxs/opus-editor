@@ -3,7 +3,7 @@ import { ScoreModel } from '@/engine/models/ScoreModel'
 import { addGrace } from '@/engine/models/graceOps'
 import { addBracketed } from '@/engine/models/bracketedGraceOps'
 import { fracCreate as frac } from '@/utils/fraction'
-import { noteReportKind } from './noteReportKind'
+import { noteReportDerived, noteReportKind } from './noteReportKind'
 
 describe('noteReportKind', () => {
   it('⭐ a grace is reported as a GRACE, its main note as a note, a rest as a rest', () => {
@@ -22,5 +22,13 @@ describe('noteReportKind', () => {
     const host = model.addNote({ step: 'E', octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })
     const b = addBracketed(model.getScore(), host.id, 'before', { step: 'B', alter: -1, octave: 4 })!
     expect(noteReportKind(model.getScore(), model.getNote(b.pitches[0].id)!)).toBe('bracketed')
+  })
+
+  it('⭐ P6: a bracketed grace\'s report carries its SIDE and whether it may go after; a note\'s carries nothing', () => {
+    const model = new ScoreModel()
+    const host = model.addNote({ step: 'E', octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const b = addBracketed(model.getScore(), host.id, 'before', { step: 'B', alter: -1, octave: 4 })!
+    expect(noteReportDerived(model.getScore(), model.getNote(b.pitches[0].id)!)).toEqual({ derived: { side: 'before', canBeAfter: true } })
+    expect(noteReportDerived(model.getScore(), model.getNote(host.id)!)).toEqual({})
   })
 })

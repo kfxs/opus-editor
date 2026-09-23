@@ -15,7 +15,7 @@ import { boundarySign, boundaryWinged } from '@/engine/models/barlineOps'
 import { scoreText } from '@/engine/models/scoreTextOps'
 import { fifthsOf, keyAt } from '@/utils/keySignature'
 import { CAUTIONARY_KEY_TO_LINE_END } from '@/engine/layout/cautionaryKey'
-import { noteReportKind } from './noteReportKind'
+import { noteReportDerived, noteReportKind } from './noteReportKind'
 
 /**
  * What is selected in the score, resolved to the OBJECTS behind it.
@@ -105,7 +105,8 @@ export function selectedElements(state: EditorState, engine: MusicEngine | null)
       kind: note ? noteReportKind(score, note) : 'note',
       data: note ?? { id, missing: true },
       overrides: note ? overridesAtAny(score, noteOverrideKeys(score, engine, note)) : undefined,
-    })
+      ...(note && noteReportDerived(score, note)),
+    } as InspectedElement)
   }
 
   const element = state.selectedElement

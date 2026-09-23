@@ -373,7 +373,7 @@ const GRACE_ICON = {
  * OWN keys only — the arrow and `+` come from {@link withControls}.
  */
 const pageGrace: CellSpec[] = [
-  ['grace note', g(GRACE.plain, GRACE_SIZE, 9), 'momentary'], ['acciaccatura', g(GRACE.slashed, GRACE_SIZE, 9), 'momentary'], ['bracketed grace', GRACE_ICON.bracketedNote, 'momentary'],
+  ['appoggiatura', g(GRACE.plain, GRACE_SIZE, 9), 'momentary'], ['acciaccatura', g(GRACE.slashed, GRACE_SIZE, 9), 'momentary'], ['bracketed grace', GRACE_ICON.bracketedNote, 'momentary'],
   ['512th', g(NOTE_SHORT.fiveHundredTwelfth, SHORT_SIZE, 15.6), 'momentary'], ['breve', g(BREVE, BREVE_SIZE, 3), 'momentary'], ['longa', GRACE_ICON.longa, 'momentary'],
   ['64th', g(NOTE_SHORT.sixtyFourth, SHORT_SIZE, 12.4), 'momentary'], ['128th', g(NOTE_SHORT.hundredTwentyEighth, SHORT_SIZE, 13.5), 'momentary'], ['256th', g(NOTE_SHORT.twoHundredFiftySixth, SHORT_SIZE, 14.5), 'momentary'],
   ['round bracket', g(PARENS, ROUND_BRACKET_SIZE), 'momentary'], ['double dot', GRACE_ICON.doubleDot, 'momentary'], ['triple dot', GRACE_ICON.tripleDot, 'momentary'], ['cue size', GRACE_ICON.cueSize, 'momentary'],

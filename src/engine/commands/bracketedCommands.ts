@@ -12,7 +12,7 @@ import type { GraceForm } from '../models/graceOps'
 import type { BracketedSide } from '@/utils/bracketedGraces'
 import {
   addBracketed, addBracketedPitch, bracketedProblems, findBracketed, isBracketedGrace, removeBracketed, setBracketedPitch,
-  setBracketedWritten,
+  setBracketedSide, setBracketedWritten,
   type BracketedSpelling, type FoundBracketed,
 } from '../models/bracketedGraceOps'
 import type { CommandContext } from './commandContext'
@@ -135,6 +135,13 @@ export function bracketedCommands(ctx: CommandContext) {
     /** The ONE undo entry for an offset drag whose frames went through {@link previewOffset}. */
     commitOffset(): void {
       ctx.commitPreviewed('Nudge bracketed grace')
+    },
+
+    /** ⭐ P6 — move it to the other side of its target (the Properties control). ONE undo entry; none refused. */
+    setSide(pitchId: string, side: BracketedSide): boolean {
+      const moved = setBracketedSide(score(), pitchId, side)
+      if (moved) ctx.mutate(side === 'after' ? 'Bracketed grace after its note' : 'Bracketed grace before its note')
+      return moved
     },
 
     /** Is this id a bracketed grace's pitch? */

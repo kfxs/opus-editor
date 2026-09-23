@@ -24,7 +24,7 @@
  * with real rest slots, so every drawn column is already in `measure.slots`. The one exception is a
  * bar holding no slots at all, which draws a single measure rest — one column, at beat 0.
  */
-import type { Measure, Fraction, ChordRest, NotePitch, Clef, KeySignature } from '@/types/music'
+import type { Measure, Fraction, Chord, ChordRest, NotePitch, Clef, KeySignature } from '@/types/music'
 import { fracCompare, fracCreate, fracIsZero, fracSub } from '@/utils/fraction'
 import { measureCapacityFrac } from '@/utils/measureCapacity'
 import { fanSpanRods } from './fanRampRoom'
@@ -40,7 +40,7 @@ import { INK, INK_HEIGHT, STEM_REACH, accidentalExtent, accidentalHeight, dotExt
 import { edgeKind, mergedReach, type InkBox } from './kerning'
 import type { Column } from './spacing'
 import { graceScale, graceStemSpaces, hostLeftReach } from './graceRoom'
-import { beforeSideLayout } from './bracketedRoom'
+import { BRACKETED_ROWS, beforeSideLayout, bracketedAfterLayout, hostRightReach } from './bracketedRoom'
 
 /** Canonical key for an exact beat — `fracCreate` reduces, so equal beats stringify equally. */
 const beatKey = (beat: Fraction): string => `${beat.num}/${beat.den}`
@@ -241,7 +241,29 @@ function slotInk(slot: ChordRest, signs: Map<string, string | null>, clef: Clef,
   }
 
   boxes.push(...graceInk(slot, pitches, signs, clef, staff))
+  boxes.push(...bracketedAfterInk(slot, signs, clef, staff, flagged && pitches.length > 0 && stemUp(slot, clef, multiVoice)))
   return sized(boxes, size)
+}
+
+/**
+ * ⭐ The BRACKETED graces AFTER a chord (bracketed-grace-plan P5 — the trill note, a bend's target) are its
+ * RIGHT ink — one box from the first bracket to the last, placed by `layout/bracketedRoom`'s
+ * `bracketedAfterLayout`, the same call the drawing places them with.
+ */
+function bracketedAfterInk(slot: Chord, signs: Map<string, string | null>, clef: Clef, staff: string | undefined, upFlag: boolean): RawInk {
+  if (!slot.bracketedAfter?.length) return []
+  const layout = bracketedAfterLayout(slot.bracketedAfter, id => signs.get(id), clef, hostRightReach(slot, clef, upFlag))
+  const ys = layout.places.flatMap(place => place.heads.map(h => yOfLine(h.line)))
+  if (!layout.places.length || !ys.length) return []
+  return [{
+    left: -layout.places[0].left,
+    // …and the air it keeps from what follows (`afterToNext` — the room only; nothing is drawn there).
+    right: layout.reach + BRACKETED_ROWS.afterToNext.value,
+    top: Math.min(...ys) - layout.up,
+    bottom: Math.max(...ys) + layout.down,
+    kind: 'grace',
+    staff,
+  }]
 }
 
 /**

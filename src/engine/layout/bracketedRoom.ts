@@ -11,11 +11,11 @@
  * ⛔ Every number is one house style's DEFAULT, a changeable row (`CLAUDE.md`). The research is
  * `docs/research/grace-notes-research.md` §0.9 and §G.4 (Gould's two drawings, measured).
  */
-import type { BracketedGrace, ChordRest, Clef, GraceNote, NotePitch } from '@/types/music'
+import type { BracketedGrace, Chord, ChordRest, Clef, GraceNote, NotePitch } from '@/types/music'
 import { spellingDiatonicPos } from '@/utils/pitchSpelling'
 import { staffLineForSpelling } from '@/utils/clefUtils'
 import { glyphBox, noteheadInk, type GlyphName } from '@/engine/fonts/fontMetrics'
-import { INK, accidentalExtent } from './spacingPadding'
+import { INK, accidentalExtent, dotExtent } from './spacingPadding'
 import { graceLayout, type GraceLayout, type GraceRow, type SignOf } from './graceRoom'
 
 /**
@@ -65,6 +65,14 @@ export const BRACKETED_ROWS = {
   toGrace: { value: 0.8, source: '⏳ the grace’s own `between` (GRACE_ROWS) — unsourced for a bracket' },
   /** White between “(” and the accidental inside it (B8). */
   parenToAccidental: { value: 0.2, source: 'Gould pp. 139 / 378: 0.15–0.26 sp' },
+  /** ⭐ AFTER a note (P5): white between the host's HEAD and the first “(” — Gould p. 139, measured. */
+  afterHead: { value: 0.9, source: 'Gould p. 139: 0.90 sp from a minim head to “(” (600 dpi, research §G.4)' },
+  /** …and between the host's last DOT and the first “(” — the bracket follows the dot. */
+  afterDot: { value: 0.49, source: 'Gould p. 139: 0.49 sp from a dotted minim’s dot to “(” (research §G.4)' },
+  /** …and the air it keeps from what FOLLOWS — on top of the spacing's own 0.3 padding, so the next note
+   *  stands 0.9 from its bracket, the distance the bracket keeps from its own note. ⏳ Unsourced: no book
+   *  measures it. */
+  afterToNext: { value: 0.6, source: '⏳ unsourced — mirrors afterHead (0.9) less the spacing’s 0.3 padding' },
 } as const satisfies Record<string, GraceRow>
 
 const state: { size: BracketedSizeRuleName | 'custom'; scale: number; form: BracketFormName; generation: number } = {
@@ -172,55 +180,118 @@ const onLedger = (line: number) => line <= 0 || line >= 6
  * @param hostReach the host's own left ink, full size (`graceRoom.hostLeftReach`).
  */
 export function bracketedLayout(list: readonly BracketedGrace[], signOf: SignOf, clef: Clef, hostReach: number): BracketedLayout {
+  const places: BracketedPlace[] = []
+  let right = -(hostReach + BRACKETED_ROWS.toMain.value)
+  let leftEdge = right
+  for (let i = list.length - 1; i >= 0; i--) {
+    const shape = shapeOf(list[i], signOf, clef)
+    const place = placed(shape, right - shape.rightInk)
+    places.unshift(place)
+    leftEdge = place.left
+    right = leftEdge - BRACKETED_ROWS.between.value
+  }
+  return { places, reach: places.length ? Math.max(0, -leftEdge) : 0, ...band() }
+}
+
+/**
+ * ⭐ **Where each bracketed grace AFTER its note stands** (P5 — the trill note, a bend's target: every
+ * book's case) — LEFT TO RIGHT from the host's right ink ({@link hostRightReach}): the first one's left
+ * bracket stands {@link BRACKETED_ROWS}.afterHead past a HEAD, or `afterDot` past a DOT (Gould p. 139: the
+ * bracket follows the dot), each later one `between` past the one before.
+ * @returns the layout — its `reach` is how far RIGHT of the host's anchor the list's ink reaches.
+ */
+export function bracketedAfterLayout(list: readonly BracketedGrace[], signOf: SignOf, clef: Clef, host: HostRight): BracketedLayout {
+  const places: BracketedPlace[] = []
+  let left = host.reach + (host.dotted ? BRACKETED_ROWS.afterDot.value : BRACKETED_ROWS.afterHead.value)
+  for (const bracketed of list) {
+    const shape = shapeOf(bracketed, signOf, clef)
+    const place = placed(shape, left - shape.leftInk)
+    places.push(place)
+    left = place.right + BRACKETED_ROWS.between.value
+  }
+  return { places, reach: places.length ? places[places.length - 1].right : 0, ...band() }
+}
+
+/** How far RIGHT of its anchor a chord's own ink reaches, and whether that ink is a DOT. */
+export interface HostRight {
+  reach: number
+  dotted: boolean
+}
+
+/**
+ * ⭐ The HOST's right ink, full size — the column's own rows (`measureColumns.slotInk`): its heads (a
+ * displaced second's too), a ledger's overhang, its DOTS, or ⭐ an UP-FLAG (it reaches right of the stem
+ * and down to the head: a bracket standing after the head alone ran into it), whichever reaches further.
+ * @param upFlag the note DRAWS an up-flag — the beaming rule's answer, which each caller already has
+ *   (the column's `flagged` + stem rule; the drawn note's `hasFlag()` + direction).
+ */
+export function hostRightReach(chord: Chord, clef: Clef, upFlag = false): HostRight {
+  const positions = chord.notes.map(p => spellingDiatonicPos(p.step, p.octave)).sort((a, b) => a - b)
+  const hasSecond = positions.some((position, i) => i > 0 && position - positions[i - 1] === 1)
+  const heads = hasSecond ? INK.secondDisplacement + INK.notehead : INK.notehead
+  const ledger = chord.notes.some(p => onLedger(staffLineForSpelling(p.step, p.octave, clef))) ? heads + INK.ledgerRight - INK.notehead : 0
+  const dots = dotExtent(chord.dots ?? 0)
+  const flag = upFlag ? INK.notehead + INK.flagReach : 0
+  return { reach: Math.max(heads, ledger, dots, flag), dotted: dots > 0 && dots >= Math.max(heads, ledger, flag) }
+}
+
+/** One bracketed grace's shape, relative to its HEAD's anchor — the same for either side. */
+interface Shape {
+  bracketed: BracketedGrace
+  headWidth: number
+  heads: BracketedHead[]
+  leftInk: number
+  rightInk: number
+}
+
+function shapeOf(bracketed: BracketedGrace, signOf: SignOf, clef: Clef): Shape {
   const k = bracketedScale()
   const form = BRACKET_FORMS[state.form]
   const gs = form.fullSize ? 1 : k
   const L = glyphBox(form.left)
   const R = glyphBox(form.right)
-  const places: BracketedPlace[] = []
-  let right = -(hostReach + BRACKETED_ROWS.toMain.value)
-  let leftEdge = right
-  for (let i = list.length - 1; i >= 0; i--) {
-    const bracketed = list[i]
-    // ⭐ Its OWN head — a half's hollow one is not a quarter's black one (B7 revised).
-    const headWidth = noteheadInk(bracketed.duration) * k
-    // Relative to the head's anchor first; placed once the width is known.
-    const rightParen = headWidth + form.headGap + R.left * gs
-    const rightInk = rightParen + R.right * gs
-    let leftInk = 0
-    const heads = bracketed.pitches.map((pitch): BracketedHead => {
-      const line = staffLineForSpelling(pitch.step, pitch.octave, clef)
-      const drawn = signOf(pitch.id)
-      const sign = typeof drawn === 'string' ? drawn : null
-      const accReach = sign ? accidentalExtent([{ position: spellingDiatonicPos(pitch.step, pitch.octave), sign }]) * k : 0
-      const parenInkRight = sign ? -accReach - BRACKETED_ROWS.parenToAccidental.value : -form.headGap
-      const leftParen = parenInkRight - L.right * gs
-      leftInk = Math.min(leftInk, leftParen - L.left * gs, onLedger(line) ? -INK.ledgerLeft * k : 0)
-      return { pitch, line, sign, accidentalX: sign ? -accReach : null, leftParenX: leftParen, rightParenX: rightParen }
-    })
-    const headX = right - rightInk
-    places.unshift({
-      bracketed,
-      headX,
-      headWidth,
-      heads: heads.map(h => ({
-        ...h,
-        accidentalX: h.accidentalX === null ? null : headX + h.accidentalX,
-        leftParenX: headX + h.leftParenX,
-        rightParenX: headX + h.rightParenX,
-      })),
-      left: headX + leftInk,
-      right: headX + rightInk,
-    })
-    leftEdge = headX + leftInk
-    right = leftEdge - BRACKETED_ROWS.between.value
-  }
+  // ⭐ Its OWN head — a half's hollow one is not a quarter's black one (B7 revised).
+  const headWidth = noteheadInk(bracketed.duration) * k
+  const rightParen = headWidth + form.headGap + R.left * gs
+  const rightInk = rightParen + R.right * gs
+  let leftInk = 0
+  const heads = bracketed.pitches.map((pitch): BracketedHead => {
+    const line = staffLineForSpelling(pitch.step, pitch.octave, clef)
+    const drawn = signOf(pitch.id)
+    const sign = typeof drawn === 'string' ? drawn : null
+    const accReach = sign ? accidentalExtent([{ position: spellingDiatonicPos(pitch.step, pitch.octave), sign }]) * k : 0
+    const parenInkRight = sign ? -accReach - BRACKETED_ROWS.parenToAccidental.value : -form.headGap
+    const leftParen = parenInkRight - L.right * gs
+    leftInk = Math.min(leftInk, leftParen - L.left * gs, onLedger(line) ? -INK.ledgerLeft * k : 0)
+    return { pitch, line, sign, accidentalX: sign ? -accReach : null, leftParenX: leftParen, rightParenX: rightParen }
+  })
+  return { bracketed, headWidth, heads, leftInk, rightInk }
+}
+
+/** A shape stood with its head's anchor at `headX` (staff spaces from the host's anchor). */
+function placed(shape: Shape, headX: number): BracketedPlace {
   return {
-    places,
-    reach: places.length ? Math.max(0, -leftEdge) : 0,
-    up: Math.max(L.up, R.up) * gs,
-    down: Math.max(L.down, R.down) * gs,
+    bracketed: shape.bracketed,
+    headX,
+    headWidth: shape.headWidth,
+    heads: shape.heads.map(h => ({
+      ...h,
+      accidentalX: h.accidentalX === null ? null : headX + h.accidentalX,
+      leftParenX: headX + h.leftParenX,
+      rightParenX: headX + h.rightParenX,
+    })),
+    left: headX + shape.leftInk,
+    right: headX + shape.rightInk,
   }
+}
+
+/** How far above / below a head's line the armed brackets reach. */
+function band(): { up: number; down: number } {
+  const form = BRACKET_FORMS[state.form]
+  const gs = form.fullSize ? 1 : bracketedScale()
+  const L = glyphBox(form.left)
+  const R = glyphBox(form.right)
+  return { up: Math.max(L.up, R.up) * gs, down: Math.max(L.down, R.down) * gs }
 }
 
 /** The whole BEFORE side of one slot: its bracketed graces, its grace group, and the bracketed graces

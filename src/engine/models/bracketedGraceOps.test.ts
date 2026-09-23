@@ -249,4 +249,32 @@ describe('bracketedGraceOps', () => {
       expect(chord.bracketedBefore).toEqual([])
     })
   })
+
+  describe('⭐ P6 — setBracketedSide: before ↔ after its target (his Properties control)', () => {
+    it('moves it to the other side, standing NEXT TO its target — its pitches and ids with it', () => {
+      const host = quarter()
+      const near = bracketedOps.addBracketed(score, host.id, 'after', D5)!
+      const made = bracketedOps.addBracketed(score, host.id, 'before', Bb3)!
+      expect(bracketedOps.setBracketedSide(score, made.pitches[0].id, 'after')).toBe(true)
+      expect('bracketedBefore' in chordOf(host.id)).toBe(false)
+      expect(chordOf(host.id).bracketedAfter).toEqual([made, near])
+      expect(bracketedOps.setBracketedSide(score, made.pitches[0].id, 'before')).toBe(true)
+      expect(chordOf(host.id).bracketedBefore).toEqual([made])
+      expect(chordOf(host.id).bracketedAfter).toEqual([near])
+    })
+
+    it('⛔ refused: the side it is on already; AFTER a grace or a rest (B5)', () => {
+      const host = quarter()
+      const made = bracketedOps.addBracketed(score, host.id, 'before', Bb3)!
+      expect(bracketedOps.setBracketedSide(score, made.pitches[0].id, 'before')).toBe(false)
+      const grace = graceOps.addGrace(score, host.id, 'before', E4, 'appoggiatura', { duration: '8' })!
+      const onGrace = bracketedOps.addBracketed(score, grace.pitches[0].id, 'before', D5)!
+      expect(bracketedOps.setBracketedSide(score, onGrace.pitches[0].id, 'after')).toBe(false)
+      const rest = model.getMeasure(1)!.slots.find(s => s.type === 'rest')!
+      const onRest = bracketedOps.addBracketed(score, rest.id, 'before', D5)!
+      expect(bracketedOps.setBracketedSide(score, onRest.pitches[0].id, 'after')).toBe(false)
+      expect(bracketedOps.bracketedSideInfo(score, onRest.pitches[0].id)).toEqual({ side: 'before', canBeAfter: false })
+      expect(bracketedOps.bracketedSideInfo(score, made.pitches[0].id)).toEqual({ side: 'before', canBeAfter: true })
+    })
+  })
 })

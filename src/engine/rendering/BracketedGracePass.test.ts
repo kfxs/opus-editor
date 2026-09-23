@@ -14,8 +14,9 @@ import { ScoreRenderer } from './ScoreRenderer'
 import { BRACKETED_GROUP, BRACKETED_NOTE_GROUP } from './BracketedGracePass'
 import { GRACE_BEAM_GROUP, GRACE_GROUP } from './GracePass'
 import { sceneGroups, scenePrimitives, type Scene, type SceneGroup } from '@/engine/scene/Scene'
-import { bracketedLayout, bracketedScale, resetBracketed, setBracketForm } from '@/engine/layout/bracketedRoom'
+import { bracketedAfterLayout, bracketedLayout, bracketedScale, resetBracketed, setBracketForm } from '@/engine/layout/bracketedRoom'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
+import { INK } from '@/engine/layout/spacingPadding'
 import { GLYPH_CODEPOINTS } from '@/engine/fonts/bravuraMetrics'
 import { fracCreate as frac } from '@/utils/fraction'
 import type { PitchSpelling } from '@/types/music'
@@ -165,7 +166,7 @@ describe('BracketedGracePass — one bracketed grace before a note', () => {
     addBracketed(model.getScore(), rest.id, 'before', D5)
     const { scene } = render(model)
     expect(sceneGroups(scene, BRACKETED_GROUP)).toHaveLength(1)
-    expect(sceneGroups(scene, BRACKETED_GROUP)[0].id).toBe(`${BRACKETED_GROUP}-${rest.id}-before`)
+    expect(sceneGroups(scene, BRACKETED_GROUP)[0].id).toBe(`${BRACKETED_GROUP}-${rest.id}`)
   })
 
   it('⭐ P2b: each head is a NOTE in the registry under its pitch id — WITHOUT a beat, the grace\'s reason', () => {
@@ -237,4 +238,49 @@ describe('BracketedGracePass — its hand OFFSET', () => {
     expect((hitX(a, plain.bracketed!.pitches[0].id) - hitX(b, moved.bracketed!.pitches[0].id)) / STAFF_SPACE_PX).toBeCloseTo(1, 6)
   })
 })
+})
+
+describe('BracketedGracePass — P5: AFTER its note (the trill note, a bend\'s target)', () => {
+  /** C5 then E5 (quarters, or 16ths), a bracketed grace AFTER the FIRST note. */
+  function after(opts: { sixteenths?: boolean; dots?: number } = {}) {
+    const model = new ScoreModel()
+    model.addMeasure()
+    const duration = opts.sixteenths ? '16' : 'q'
+    const first = model.addNote({ step: 'C', octave: 5, duration, measure: 1, beat: frac(0, 1), ...(opts.dots && { dots: opts.dots }) })
+    model.addNote({ step: 'E', octave: 5, duration, measure: 1, beat: opts.sixteenths ? frac(1, 4) : frac(opts.dots ? 3 : 2, 2) })
+    const made = addBracketed(model.getScore(), first.id, 'after', D5)!
+    return { model, first, made }
+  }
+
+  it('⭐ stands RIGHT of its note and LEFT of the next — where the layout says', () => {
+    const { model } = after()
+    const { scene } = render(model)
+    const [host, next] = mainHeadXs(scene)
+    const { headX } = bracketedHead(scene)
+    expect(headX).toBeGreaterThan(host)
+    expect(headX).toBeLessThan(next)
+    const expected = bracketedAfterLayout([{ pitches: [{ id: 'x', ...D5 }], duration: 'q' }], () => null, 'treble', { reach: INK.notehead, dotted: false })
+    expect((headX - host) / STAFF_SPACE_PX).toBeCloseTo(expected.places[0].headX, 6)
+  })
+
+  it('⭐ the bar makes ROOM for it — where the gap is tight, the next note stands further off', () => {
+    const plain = new ScoreModel()
+    plain.addMeasure()
+    plain.addNote({ step: 'C', octave: 5, duration: '16', measure: 1, beat: frac(0, 1) })
+    plain.addNote({ step: 'E', octave: 5, duration: '16', measure: 1, beat: frac(1, 4) })
+    const a = mainHeadXs(render(plain).scene)
+    const b = mainHeadXs(render(after({ sixteenths: true }).model).scene)
+    expect(b[1] - b[0]).toBeGreaterThan(a[1] - a[0])
+  })
+
+  it('it is a NOTE in the registry and is lit like one — its offset moves it alone', () => {
+    const { model, made } = after()
+    const { renderer } = render(model)
+    expect(renderer.getElementRegistry().getByType('note').some(e => e.id === made.pitches[0].id)).toBe(true)
+    const moved = after()
+    moved.model.nudgeNoteOffset(moved.model.offsetTargetOf(moved.made.pitches[0].id)!.key, 1)
+    const x0 = bracketedHead(render(model).scene).headX
+    const x1 = bracketedHead(render(moved.model).scene).headX
+    expect((x1 - x0) / STAFF_SPACE_PX).toBeCloseTo(1, 6)
+  })
 })

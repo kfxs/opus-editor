@@ -1,10 +1,11 @@
 import { describe, it, expect, afterEach } from 'vitest'
 import {
-  BRACKETED_ROWS, BRACKET_FORMS, beforeSideLayout, bracketedGeneration, bracketedLayout, bracketedScale,
-  bracketedSettings, resetBracketed, setBracketForm, setBracketedSize,
+  BRACKETED_ROWS, BRACKET_FORMS, beforeSideLayout, bracketedAfterLayout, bracketedGeneration, bracketedLayout,
+  bracketedScale, bracketedSettings, hostRightReach, resetBracketed, setBracketForm, setBracketedSize,
 } from './bracketedRoom'
 import { GRACE_ROWS, graceLayout } from './graceRoom'
 import { glyphBox, noteheadInk } from '@/engine/fonts/fontMetrics'
+import { INK, dotExtent } from './spacingPadding'
 import { fracCreate } from '@/utils/fraction'
 import type { BracketedGrace, Chord, NotePitch } from '@/types/music'
 
@@ -153,4 +154,43 @@ describe('beforeSideLayout — P3: a bracketed grace bent INTO a grace splits th
     expect(beforeSideLayout(splitChord(), none, 'treble', 0).reach).toBeGreaterThan(beforeSideLayout(plain, none, 'treble', 0).reach)
   })
 })
+})
+
+describe('bracketedAfterLayout — P5: AFTER its note', () => {
+  it('⭐ the first "(" stands `afterHead` past a HEAD (Gould p. 139: 0.90)', () => {
+    const { places } = bracketedAfterLayout([one(pitch('a', 'D', 5))], none, 'treble', { reach: 1.18, dotted: false })
+    expect(places[0].left - 1.18).toBeCloseTo(BRACKETED_ROWS.afterHead.value, 9)
+    expect(places[0].headX).toBeGreaterThan(places[0].left)
+  })
+
+  it('⭐ …and `afterDot` past a DOT — the bracket follows the dot (Gould p. 139: 0.49)', () => {
+    const { places } = bracketedAfterLayout([one(pitch('a', 'D', 5))], none, 'treble', { reach: 2, dotted: true })
+    expect(places[0].left - 2).toBeCloseTo(BRACKETED_ROWS.afterDot.value, 9)
+  })
+
+  it('a LIST runs left to right, each `between` past the last; reach is the last one\'s right ink', () => {
+    const layout = bracketedAfterLayout([one(pitch('a', 'D', 5)), one(pitch('b', 'F', 5))], none, 'treble', { reach: 1.18, dotted: false })
+    expect(layout.places.map(p => p.bracketed.pitches[0].id)).toEqual(['a', 'b'])
+    expect(layout.places[1].left - layout.places[0].right).toBeCloseTo(BRACKETED_ROWS.between.value, 9)
+    expect(layout.reach).toBeCloseTo(layout.places[1].right, 9)
+  })
+})
+
+describe('hostRightReach — where a chord\'s own ink ends on the right', () => {
+  const chord = (notes: NotePitch[], dots?: number): Chord => ({
+    id: 'c', type: 'chord', beat: fracCreate(0, 1), duration: 'q', measure: 1, notes, ...(dots && { dots }),
+  })
+  it('its head; a displaced second\'s; its DOTS — and says when a dot is what ends it', () => {
+    expect(hostRightReach(chord([pitch('a', 'D', 5)]), 'treble')).toEqual({ reach: INK.notehead, dotted: false })
+    expect(hostRightReach(chord([pitch('a', 'D', 5), pitch('b', 'E', 5)]), 'treble').reach).toBeCloseTo(INK.secondDisplacement + INK.notehead, 9)
+    expect(hostRightReach(chord([pitch('a', 'D', 5)], 1), 'treble')).toEqual({ reach: dotExtent(1), dotted: true })
+  })
+
+  it('⭐ an UP-FLAG reaches right of the stem, down to the head — a bracket after it clears the flag', () => {
+    const plain = hostRightReach(chord([pitch('a', 'G', 4)]), 'treble')
+    const flagged = hostRightReach(chord([pitch('a', 'G', 4)]), 'treble', true)
+    expect(flagged.reach).toBeCloseTo(INK.notehead + INK.flagReach, 9)
+    expect(flagged.reach).toBeGreaterThan(plain.reach)
+    expect(flagged.dotted).toBe(false)
+  })
 })

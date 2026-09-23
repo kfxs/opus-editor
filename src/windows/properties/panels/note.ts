@@ -15,6 +15,8 @@ export const noteRows: PanelRows<'note' | 'rest' | 'grace' | 'bracketed'> = (ele
   if (!note) return []
   const id = note.id
   const rows = [buildOffsetInput(id, currentNoteOffset(element))]
+  // ⭐ P6 — a BRACKETED grace's side: before or after its target (his proposal; default before).
+  if (element.kind === 'bracketed' && element.derived) rows.push(buildBracketedSideSelect(id, element.derived))
   if (element.kind !== 'note') return rows
 
   // Only meaningful when the note carries an articulation (the flag moves stem-side marks).
@@ -321,4 +323,51 @@ function canCarryFractionalBeam(note: Note): boolean {
  *  own; `selectionSnapshot` resolves it through `offsetTargetOf`, so a member shows ITS number). */
 function currentNoteOffset(element: InspectedOf<'note' | 'rest' | 'grace' | 'bracketed'>): number {
   return overrideOf<NoteOffsetOverride>(element, 'noteOffset')?.x ?? 0
+}
+
+/**
+ * ⭐ **Before or after its target** — a selected BRACKETED grace (bracketed-grace-plan P6, his proposal,
+ * 2026-09-23: *"in the properties we will have a way to place the bracket before or after the target,
+ * default is before as now and the user can change it in properties"*). `after` is disabled where the
+ * target has no after side (a grace, a rest). A DUMB PUBLISHER: `bus.bracketedSide`, applied by
+ * `propertyControllers/BracketedSideController`.
+ */
+function buildBracketedSideSelect(pitchId: string, info: { side: 'before' | 'after'; canBeAfter: boolean }): HTMLElement {
+  const wrap = document.createElement('label')
+  const ws = wrap.style
+  ws.display = 'flex'
+  ws.alignItems = 'center'
+  ws.gap = '6px'
+  ws.color = BISHOP
+  ws.margin = '2px 0 4px'
+  wrap.title = info.canBeAfter
+    ? 'Which side of its note the bracketed grace stands on: left (before it) or right (after it).'
+    : 'Its note is a grace or a rest, which takes a bracketed grace on its left only.'
+
+  const caption = document.createElement('span')
+  caption.textContent = 'position' // his call: a word the user understands at a glance
+  wrap.appendChild(caption)
+
+  const select = document.createElement('select')
+  const ss = select.style
+  ss.font = 'inherit'
+  ss.color = BISHOP
+  ss.background = 'transparent'
+  ss.border = `1px solid ${BISHOP}`
+  ss.borderRadius = '2px'
+  ss.padding = '1px 4px'
+  for (const side of ['before', 'after'] as const) {
+    const option = document.createElement('option')
+    option.value = side
+    // His call (2026-09-23): the simple words — where it is DRAWN — ⛔ not "before its target".
+    option.textContent = side === 'before' ? 'left' : 'right'
+    if (side === info.side) option.selected = true
+    if (side === 'after' && !info.canBeAfter) option.disabled = true
+    select.appendChild(option)
+  }
+  select.addEventListener('change', () => {
+    bus.bracketedSide.set({ pitchId, side: select.value as 'before' | 'after' })
+  })
+  wrap.appendChild(select)
+  return wrap
 }

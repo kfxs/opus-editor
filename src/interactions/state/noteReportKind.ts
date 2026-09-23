@@ -6,7 +6,7 @@
  */
 import type { Note, Score } from '@/types/music'
 import { isGraceNote } from '@/engine/models/graceOps'
-import { isBracketedGrace } from '@/engine/models/bracketedGraceOps'
+import { bracketedSideInfo, isBracketedGrace } from '@/engine/models/bracketedGraceOps'
 
 export function noteReportKind(score: Score, note: Note): 'rest' | 'grace' | 'bracketed' | 'note' {
   if (note.isRest) return 'rest'
@@ -14,4 +14,13 @@ export function noteReportKind(score: Score, note: Note): 'rest' | 'grace' | 'br
   //    the grace's — the offset — ⛔ not a note's (no stem to align, no beam, no fan).
   if (isBracketedGrace(score, note.id)) return 'bracketed'
   return isGraceNote(score, note.id) ? 'grace' : 'note'
+}
+
+/**
+ * ⭐ What a note report COMPUTES beyond its data — today a BRACKETED grace's side and whether it may stand
+ * after its target (bracketed-grace-plan P6, the Properties before/after switch). Empty for every other note.
+ */
+export function noteReportDerived(score: Score, note: Note): { derived?: { side: 'before' | 'after'; canBeAfter: boolean } } {
+  const info = bracketedSideInfo(score, note.id)
+  return info ? { derived: info } : {}
 }

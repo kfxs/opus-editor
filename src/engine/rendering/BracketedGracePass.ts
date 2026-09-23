@@ -30,7 +30,7 @@ import { drawLedgerLines, ledgerLineRuns } from '@/engine/engrave/notes/ledgerLi
 import { stampGlyph } from '@/engine/engrave/glyph'
 import { MUSIC_FONT_SIZE_PT, accidentalFont, musicFont, musicGlyphFont, noteFont } from '@/engine/engrave/inheritedFonts'
 import { GLYPH_CODEPOINTS } from '@/engine/fonts/bravuraMetrics'
-import { BRACKET_FORMS, bracketForm, bracketedScale, beforeSideLayout, type BracketedPlace } from '@/engine/layout/bracketedRoom'
+import { BRACKET_FORMS, bracketForm, bracketedAfterLayout, bracketedScale, beforeSideLayout, hostRightReach, type BracketedPlace } from '@/engine/layout/bracketedRoom'
 import { hostLeftReach, type SignOf } from '@/engine/layout/graceRoom'
 import { displayedAccidentals } from '@/utils/accidentalState'
 import { C_MAJOR } from '@/utils/keySignature'
@@ -56,22 +56,29 @@ export function drawBracketedGraces(
   /** The key governing this lane's bar — a bracketed sign is read against it and the bar (B6). */
   key: KeySignature = C_MAJOR,
 ): void {
-  if (!slots.some(s => s.bracketedBefore?.length || s.graceBefore?.notes.some(g => g.bracketedBefore?.length))) return
+  const after = (s: ChordRest) => s.type === 'chord' && !!s.bracketedAfter?.length
+  if (!slots.some(s => after(s) || s.bracketedBefore?.length || s.graceBefore?.notes.some(g => g.bracketedBefore?.length))) return
   const signs = displayedAccidentals(slots, key)
   const signOf: SignOf = id => signs.get(id)
   for (let i = 0; i < slots.length && i < staveNotes.length; i++) {
     const slot = slots[i]
-    // A chord's — or a REST's (B10 reversed: entered first, on an empty bar) — and its graces' (P3).
-    if (!slot.bracketedBefore?.length && !slot.graceBefore?.notes.some(g => g.bracketedBefore?.length)) continue
+    // A chord's — or a REST's (B10 reversed: entered first, on an empty bar) — its graces' (P3), and
+    // those AFTER a chord (P5).
+    if (!after(slot) && !slot.bracketedBefore?.length && !slot.graceBefore?.notes.some(g => g.bracketedBefore?.length)) continue
     const stave = maybeStaveOf(staveNotes[i])
     if (!stave) continue
     const clef = clefForBeat(slot.beat)
     const side = beforeSideLayout(slot, signOf, clef, hostLeftReach(slot.type === 'chord' ? slot.notes : [], signOf, clef))
-    const layouts = [...side.graceBracketed.map(g => g.layout), ...(side.bracketed ? [side.bracketed] : [])]
+    // ⭐ P5 — the AFTER side, from the host's RIGHT ink (`bracketedAfterLayout`, the room's own call).
+    const afterLayout = slot.type === 'chord' && slot.bracketedAfter?.length
+      ? bracketedAfterLayout(slot.bracketedAfter, signOf, clef,
+        hostRightReach(slot, clef, staveNotes[i].hasFlag() && staveNotes[i].getStemDirection() === 1))
+      : null
+    const layouts = [...side.graceBracketed.map(g => g.layout), ...(side.bracketed ? [side.bracketed] : []), ...(afterLayout ? [afterLayout] : [])]
     if (!layouts.length) continue
     const hostX = staveNotes[i].getNoteHeadBeginX()
     const ctx = pass.context
-    ctx.openGroup(BRACKETED_GROUP, `${BRACKETED_GROUP}-${slot.id}-before`)
+    ctx.openGroup(BRACKETED_GROUP, `${BRACKETED_GROUP}-${slot.id}`)
     try {
       for (const layout of layouts) for (const place of layout.places) drawOne(pass, place, hostX, stave, measureNumber, staffIndex)
     } finally {

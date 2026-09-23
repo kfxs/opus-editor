@@ -58,7 +58,7 @@ describe('the Keypad Grace page', () => {
     // the same two pictures serve a trill's auxiliary note and a plain glissando, and a name taken
     // from the guitar use would have to be renamed the first time the other one arrives.
     const drawn: Array<[string, string]> = [
-      ['/', 'grace note'], ['*', 'acciaccatura'], ['-', 'bracketed grace'],
+      ['/', 'appoggiatura'], ['*', 'acciaccatura'], ['-', 'bracketed grace'],
       ['7', '512th'], ['8', 'breve'], ['9', 'longa'],
       ['4', '64th'], ['5', '128th'], ['6', '256th'],
       ['1', 'round bracket'], ['2', 'double dot'], ['3', 'triple dot'], ['Enter', 'cue size'],

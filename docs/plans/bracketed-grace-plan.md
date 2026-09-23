@@ -26,7 +26,7 @@
 | **B2** | **it belongs to its TARGET** | ✅ 2026-09-23 (*"ok so the bracket is asociate to the target good"*) | a child of the attack it leads into: a **main chord**, or a **grace note** (the pre-bend into the first appoggiatura) | a pre-bend bends INTO its target and a trill note says what its note trills TO. Dorico makes both properties of the target (§I.2) |
 | **B3** | **the order is not stored** | ⏳ proposed | each attack's bracketed graces stand **immediately beside it**. Several on one target are a **list** on that target, left to right, the array order being the only stored order (the grace group's rule). So: `G (●) M` → on M · `(●) G M` → on G's first grace · `(●) G (●) M` → one each · `(●)(●) M` → two on M | a list rather than a chain (a bracket owning a bracket): no cycles, and it matches "information, not an attack". A playback reader that wants a chain can read it off the order |
 | **B4** | **a bracket inside a group SPLITS it** | ✅ 2026-09-23 (*"the bracket break the group so now there are two groups … it makes sense that we have diferent beaming"*) | ⭐ proposed shape: **the split is DRAWN, not stored.** The group stays ONE `GraceGroup`. A grace carrying a bracket before it starts a new BEAM RUN (`graceBeamRuns`) and a new slash. So removing the bracket **merges** the group back with no operation at all (✅ *"yes i guess"*), and both halves keep the group's one type (✅ *"the group is one type so the split will be the same"*). A merge of two groups cannot happen, because there is only ever one | the alternative, `graceBefore` becoming a LIST of groups, touches every grace reader (≈70 sites, 18 files: room, ink, playback, rest carry, conversions, relay). ⏳ Two groups with nothing between them is a beaming question he set aside (*"for the moment i think is not important"*); this shape cannot express it, and that is deliberate until he asks |
-| **B5** | **the sides** | ⏳ proposed | **before** (the pre-bend; his case) and **after** (every book's case: trill note, bend target, glissando end, harmonic, §0.9). A chord carries both; a grace carries **before only** | ⚠️ no book draws one BEFORE its note (G.8). Sibelius and every app's pre-bend do. After is its own phase (P5) |
+| **B5** | **the sides** | ✅ 2026-09-23 | **before** (the pre-bend; his case) and **after** (every book's case: trill note, bend target, glissando end, harmonic, §0.9). A chord carries both; a grace or a rest **before only**. ⭐ Entered BEFORE by the stamp; the after side is reached by P6's Properties switch — ⛔ no after-stamp (his call) | ⚠️ no book draws one BEFORE its note (G.8). Sibelius and every app's pre-bend do. After is drawn by P5 |
 | **B6** | **it does not sound** | ⏳ proposed | silent: no scheduled event, and ⛔ it never changes the bar's accidental state | every source: *"not separately articulated"* (Gould 144); no engine and no app plays the head itself (§0.9). What it MEANS (bend from, trill to) is for the reader of a later phase |
 | **B7** | **what is drawn** | ✅ 2026-09-23 ⚠️ **REVISED the same day** | ⭐ **it HAS a written value — what its HEAD is drawn as** (his call: *"it should have case a half notehead is different than a quater notehead (in this sense the grace do it write)"*): `BracketedGrace.duration`, read off the LIT duration keys as the grace's is (`MARKING_TOOL_USES_ARMED_LENGTH`), a quarter's black head when none is lit; a duration key with one selected changes it. ⛔ Never counted; ⛔ no stem, flag, dot, beam or slash. **Size** is its own row, `BRACKETED_SIZE_RULES`, defaulting to the grace's `house` 2/3 (presets: Gould trill ≈0.75 · Gould bend ≈0.65 · MuseScore 0.7 · LilyPond 0.63 · Sibelius 0.6) | the first answer (*black whatever its target's*, Gould p. 418) was one book's open-string picture; the head IS the value, as a grace's is. Gould disagrees with herself on the size (0.75 vs 0.65, §G.4), which is why it is a row of its own |
 | **B8** | **the accidental: inside the brackets** | ⏳ proposed default, a row | `( ♭● )` (books: all; MuseScore, LilyPond). The other row is `♭( ● )` (Verovio, VexFlow) | the one real split among the engines (§H.0). MusicXML cannot tell the two apart |
@@ -156,16 +156,24 @@ re-pitch it through the same path a grace uses (`slotLookup` learns to find the 
   (`bracketedCommands.previewOffset` / `commitOffset`, one undo entry on the drop); it has no column, so
   Ctrl+←/→ offset it and Ctrl+Backspace resets it (`noteOffsetKeys`); the Properties window reports it as
   `bracketed`, with the offset row. Removed or toggled off, its offset goes with it.
-- ⏭️ **FUTURE — the side in PROPERTIES** (his proposal, 2026-09-23 — ⛔ not built, recorded here so it is
-  not lost): *"in the properties we will have a way to place the bracket before or after the target,
-  default is before as now and the user can change it in properties"*. So the stamp keeps entering it
-  BEFORE (today's default), and the Properties window moves a selected bracketed grace to the other side
-  of the same target — an op that takes it off one list and onto the other (`bracketedBefore` ↔
-  `bracketedAfter`), refused where the target has no after side (a grace, a rest — B5). It needs P2b's
-  selection and P5's drawing of the after side first.
-- **P5: AFTER** (the trill note, the bend target). The chord's right ink and its room. ⚠️ Gould p. 139
-  puts it *"where there is more room"* and moves it to a tied second note rather than cramp a short one.
-  That is a placement rule for later, ⛔ not this phase.
+- ✅ **P5: the AFTER side, DRAWN** (2026-09-23 — the trill note, a bend's target,
+  every book's case, §0.9). The chord's `bracketedAfter` drawn RIGHT of it (`bracketedAfterLayout`), with
+  its room — ONE right-hand `'grace'` box in `measureColumns`, from the same layout the drawing reads.
+  Measured from the host's own right ink (`hostRightReach`): its head (a displaced second, a ledger), its
+  DOTS, or ⭐ an UP-FLAG — a bracket after the head alone ran into an eighth's flag. Gould p. 139: `(` stands
+  `afterHead` 0.90 sp past a head, `afterDot` 0.49 past a dot. ⏳ `afterToNext` 0.6 (unsourced) — the air
+  kept from what follows, on top of the spacing's 0.3, so the next note stands 0.9 from the bracket (without
+  it the next note's stem touched it). ⭐ His call: ⛔ NO after-stamp — the stamp keeps entering BEFORE, and
+  the after side is reached through P6. Selection, arrows, Delete and the offset already reach it.
+  ⚠️ Gould's *"where there is more room"* (move it to a tied second note rather than cramp a short one) is
+  a placement rule for later, ⛔ not this phase.
+- ✅ **P6: before ↔ after in PROPERTIES** (built 2026-09-23: a **`position`** select — **left** / **right**, his words for the
+  user, ⛔ not "before/after its target" — on a selected bracketed grace — `bus.bracketedSide` → `BracketedSideController` → `bracketed.setSide` → `setBracketedSide`,
+  one undo entry; it stands next to its target on the new side; `after` disabled for a grace or rest target) (his proposal, 2026-09-23: *"in the properties we will have a way to
+  place the bracket before or after the target, default is before as now and the user can change it in
+  properties"*). The Properties window moves a selected bracketed grace to the other side of the same
+  target — off one list, onto the other (`bracketedBefore` ↔ `bracketedAfter`) — refused where the target
+  has no after side (a grace, a rest — B5). ⭐ The ONLY way to the after side (his call).
 
 ## 4. Deliberately NOT in this plan
 
