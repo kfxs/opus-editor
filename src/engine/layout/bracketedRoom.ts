@@ -11,7 +11,7 @@
  * ⛔ Every number is one house style's DEFAULT, a changeable row (`CLAUDE.md`). The research is
  * `docs/research/grace-notes-research.md` §0.9 and §G.4 (Gould's two drawings, measured).
  */
-import type { BracketedGrace, ChordRest, Clef, NotePitch } from '@/types/music'
+import type { BracketedGrace, ChordRest, Clef, GraceNote, NotePitch } from '@/types/music'
 import { spellingDiatonicPos } from '@/utils/pitchSpelling'
 import { staffLineForSpelling } from '@/utils/clefUtils'
 import { glyphBox, noteheadInk, type GlyphName } from '@/engine/fonts/fontMetrics'
@@ -223,9 +223,14 @@ export function bracketedLayout(list: readonly BracketedGrace[], signOf: SignOf,
   }
 }
 
-/** The whole BEFORE side of one slot: its bracketed graces, then its grace group left of them. */
+/** The whole BEFORE side of one slot: its bracketed graces, its grace group, and the bracketed graces
+ *  bent INTO its graces (P3). */
 export interface BeforeSideLayout {
+  /** The slot's OWN bracketed graces, next to it. */
   bracketed: BracketedLayout | null
+  /** ⭐ Bracketed graces whose target is a GRACE (P3 — the pre-bend into it), left to right. */
+  graceBracketed: { grace: GraceNote; layout: BracketedLayout }[]
+  /** The grace group — ONE layout, its places in the group's order, however many runs it was split into. */
   graces: GraceLayout | null
   /** How far LEFT of the host's anchor the side's ink reaches — the `'grace'` box's `left`. */
   reach: number
@@ -233,20 +238,42 @@ export interface BeforeSideLayout {
 
 /**
  * ⭐⭐ **THE one answer for a slot's before side** — what `measureColumns.slotInk` reserves and what
- * `GracePass` + `BracketedGracePass` draw at. The bracketed graces stand next to the host; the grace
- * group clears THEIR ink by {@link BRACKETED_ROWS}.toGrace, or the host's by its own `toMain`.
+ * `GracePass` + `BracketedGracePass` draw at. Walked RIGHT TO LEFT from the host:
  *
- * ⚠️ The SLOT's own bracketed graces (a chord's or a rest's). A grace's (`GraceNote.bracketedBefore`,
- * the split) is P3.
+ * `[run] (●) [run] (●) M` — the slot's own bracketed graces next to it; then the grace group, SPLIT at
+ * every grace that carries bracketed graces (B4: the split is drawn, not stored — `graceBeamRuns` breaks
+ * the beam at the same grace), each run laid out by `graceLayout` against whatever stands to its right,
+ * and that grace's bracketed graces just left of it. A grace clears a bracket by {@link BRACKETED_ROWS}.toGrace;
+ * a bracket clears its target by `toMain`; a run with nothing but the host to its right keeps the grace's
+ * own `toMain`.
  */
 export function beforeSideLayout(slot: ChordRest, signOf: SignOf, clef: Clef, hostReach: number): BeforeSideLayout {
   // A chord's — or a REST's (B10 reversed): entered first, on an empty bar.
-  const list = slot.bracketedBefore
-  const bracketed = list?.length ? bracketedLayout(list, signOf, clef, hostReach) : null
-  const graces = slot.graceBefore
-    ? bracketed
-      ? graceLayout(slot.graceBefore, signOf, clef, bracketed.reach, BRACKETED_ROWS.toGrace.value)
-      : graceLayout(slot.graceBefore, signOf, clef, hostReach)
-    : null
-  return { bracketed, graces, reach: graces?.reach ?? bracketed?.reach ?? 0 }
+  const own = slot.bracketedBefore?.length ? bracketedLayout(slot.bracketedBefore, signOf, clef, hostReach) : null
+  const group = slot.graceBefore
+  if (!group) return { bracketed: own, graceBracketed: [], graces: null, reach: own?.reach ?? 0 }
+
+  // Where each run begins: the first grace, and every grace that carries bracketed graces.
+  const starts = group.notes.flatMap((note, i) => (i === 0 || note.bracketedBefore?.length ? [i] : []))
+  const places: GraceLayout['places'] = []
+  const graceBracketed: BeforeSideLayout['graceBracketed'] = []
+  let reach = own ? own.reach : hostReach
+  let gap: number | undefined = own ? BRACKETED_ROWS.toGrace.value : undefined
+  for (let r = starts.length - 1; r >= 0; r--) {
+    const from = starts[r]
+    const notes = group.notes.slice(from, starts[r + 1] ?? group.notes.length)
+    const run = graceLayout({ ...group, notes }, signOf, clef, reach, gap)
+    run.places.forEach((place, k) => { places[from + k] = place })
+    reach = run.reach
+    const lead = notes[0]
+    if (lead.bracketedBefore?.length) {
+      const layout = bracketedLayout(lead.bracketedBefore, signOf, clef, reach)
+      graceBracketed.unshift({ grace: lead, layout })
+      reach = layout.reach
+      gap = BRACKETED_ROWS.toGrace.value
+    } else {
+      gap = undefined
+    }
+  }
+  return { bracketed: own, graceBracketed, graces: { places, reach }, reach }
 }

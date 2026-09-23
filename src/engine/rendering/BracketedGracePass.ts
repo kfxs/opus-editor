@@ -6,8 +6,8 @@
  *
  * WHERE each head, sign and bracket stands is `layout/bracketedRoom.beforeSideLayout` — the same call
  * `measureColumns.slotInk` reserved the room with. The head, its accidental and its ledger lines are
- * drawn in a `scaling(k)` group at the armed size (B7), composed from a normal note's parts as a grace
- * is; the brackets are drawn at the head's size or at FULL size, as the armed form says (B9).
+ * drawn in its own `scaling(k)` group at the armed size (B7), composed from a normal note's parts as a
+ * grace is; the brackets at the head's size or at FULL size (stamped at 1 / k), as the armed form says (B9).
  *
  * ⛔ It SOUNDS nothing (B6). ⭐ Since P2b each head is a NOTE in the registry under its pitch id, and its
  * group is filed in the member map — so a click selects it, the arrows re-pitch it, Delete removes it,
@@ -18,7 +18,6 @@ import type { RenderPass } from './RenderPass'
 import type { EngravedNote } from './engraved/EngravedNote'
 import type { EngravedStave } from './engraved/EngravedStave'
 import { EngravedAccidental } from './engraved/EngravedAccidental'
-import { drawGroupOf } from './painter/svgDrawGroup'
 import { maybeStaveOf, staveFrame } from './staff/staveFrame'
 import { openMemberGroup } from './memberGroup'
 import { spellingToMidi } from '@/utils/pitchSpelling'
@@ -28,7 +27,7 @@ import { headGlyph } from '@/engine/engrave/notes/keyLines'
 import { drawNoteHead } from '@/engine/engrave/notes/noteheads'
 import { drawLedgerLines, ledgerLineRuns } from '@/engine/engrave/notes/ledgerLines'
 import { stampGlyph } from '@/engine/engrave/glyph'
-import { accidentalFont, musicGlyphFont, noteFont } from '@/engine/engrave/inheritedFonts'
+import { MUSIC_FONT_SIZE_PT, accidentalFont, musicFont, musicGlyphFont, noteFont } from '@/engine/engrave/inheritedFonts'
 import { GLYPH_CODEPOINTS } from '@/engine/fonts/bravuraMetrics'
 import { BRACKET_FORMS, bracketForm, bracketedScale, beforeSideLayout, type BracketedPlace } from '@/engine/layout/bracketedRoom'
 import { hostLeftReach, type SignOf } from '@/engine/layout/graceRoom'
@@ -56,23 +55,24 @@ export function drawBracketedGraces(
   /** The key governing this lane's bar — a bracketed sign is read against it and the bar (B6). */
   key: KeySignature = C_MAJOR,
 ): void {
-  if (!slots.some(s => s.bracketedBefore?.length)) return
+  if (!slots.some(s => s.bracketedBefore?.length || s.graceBefore?.notes.some(g => g.bracketedBefore?.length))) return
   const signs = displayedAccidentals(slots, key)
   const signOf: SignOf = id => signs.get(id)
   for (let i = 0; i < slots.length && i < staveNotes.length; i++) {
     const slot = slots[i]
-    // A chord's — or a REST's (B10 reversed: entered first, on an empty bar).
-    if (!slot.bracketedBefore?.length) continue
+    // A chord's — or a REST's (B10 reversed: entered first, on an empty bar) — and its graces' (P3).
+    if (!slot.bracketedBefore?.length && !slot.graceBefore?.notes.some(g => g.bracketedBefore?.length)) continue
     const stave = maybeStaveOf(staveNotes[i])
     if (!stave) continue
     const clef = clefForBeat(slot.beat)
     const side = beforeSideLayout(slot, signOf, clef, hostLeftReach(slot.type === 'chord' ? slot.notes : [], signOf, clef))
-    if (!side.bracketed) continue
+    const layouts = [...side.graceBracketed.map(g => g.layout), ...(side.bracketed ? [side.bracketed] : [])]
+    if (!layouts.length) continue
     const hostX = staveNotes[i].getNoteHeadBeginX()
     const ctx = pass.context
     ctx.openGroup(BRACKETED_GROUP, `${BRACKETED_GROUP}-${slot.id}-before`)
     try {
-      for (const place of side.bracketed.places) drawOne(pass, place, hostX, stave, measureNumber, staffIndex)
+      for (const layout of layouts) for (const place of layout.places) drawOne(pass, place, hostX, stave, measureNumber, staffIndex)
     } finally {
       ctx.closeGroup()
     }
@@ -95,9 +95,11 @@ function drawOne(
   const rightParen = String.fromCodePoint(GLYPH_CODEPOINTS[form.right])
   const ledgerStyle = stave.getDefaultLedgerLineStyle()
 
-  // ⭐ Its own group, filed in the member map under each pitch (P2b): a selected bracketed grace recolours
-  //    the way a grace does — the ink is ours (`memberGroup`).
-  const group = openMemberGroup(ctx, BRACKETED_NOTE_GROUP, `${BRACKETED_NOTE_GROUP}-${place.bracketed.pitches[0]?.id}`)
+  // ⭐ Its own group, filed in the member map under each pitch (P2b), and ⭐ SCALED ITSELF: every piece of
+  //    its ink — head, accidental, ledger lines, brackets — is a DIRECT child, which is what the selection
+  //    highlight walks (his report, 2026-09-23: a selected bracket's accidental was not lit — it sat in
+  //    a nested scaled group the highlight never enters). A FULL-size bracket is stamped at 1 / k in it.
+  const group = openMemberGroup(ctx, BRACKETED_NOTE_GROUP, `${BRACKETED_NOTE_GROUP}-${place.bracketed.pitches[0]?.id}`, scaling(k))
   try {
     place.heads.forEach((head, h) => {
       const y = noteLineY(frame, head.line)
@@ -117,38 +119,23 @@ function drawOne(
       })
       if (group) pass.fanMemberGroupMap.set(head.pitch.id, { group, noteIndex: h })
     })
-    const scaled = drawGroupOf(ctx.openGroup('bracketedhead'))
-    scaled?.setPlacement(scaling(k))
-    try {
-      drawLedgerLines(
-        ctx,
-        ledgerLineRuns(place.heads.map(h => ({ line: h.line, x: local(x(place.headX)) })), glyphWidth, LEDGER_OVERHANG),
-        line => local(noteLineY(frame, line)),
-        { ...ledgerStyle, lineWidth: (ledgerStyle.lineWidth ?? 1) / k },
-      )
-      for (const head of place.heads) {
-        const y = local(noteLineY(frame, head.line))
-        // ⭐ Its OWN written value's head (B7 revised: a half is hollow, a quarter black).
-        drawNoteHead(ctx, { glyph: headGlyph(place.bracketed.duration, false), x: local(x(place.headX)), y, font: noteFont() })
-        if (head.sign && head.accidentalX !== null) {
-          const glyph = new EngravedAccidental(head.sign).getText()
-          stampGlyph(ctx, glyph, local(x(head.accidentalX)), y, accidentalFont(glyph))
-        }
-        if (!form.fullSize) {
-          stampGlyph(ctx, leftParen, local(x(head.leftParenX)), y, musicGlyphFont())
-          stampGlyph(ctx, rightParen, local(x(head.rightParenX)), y, musicGlyphFont())
-        }
+    drawLedgerLines(
+      ctx,
+      ledgerLineRuns(place.heads.map(h => ({ line: h.line, x: local(x(place.headX)) })), glyphWidth, LEDGER_OVERHANG),
+      line => local(noteLineY(frame, line)),
+      { ...ledgerStyle, lineWidth: (ledgerStyle.lineWidth ?? 1) / k },
+    )
+    const parenFont = form.fullSize ? musicFont(MUSIC_FONT_SIZE_PT / k) : musicGlyphFont()
+    for (const head of place.heads) {
+      const y = local(noteLineY(frame, head.line))
+      // ⭐ Its OWN written value's head (B7 revised: a half is hollow, a quarter black).
+      drawNoteHead(ctx, { glyph: headGlyph(place.bracketed.duration, false), x: local(x(place.headX)), y, font: noteFont() })
+      if (head.sign && head.accidentalX !== null) {
+        const glyph = new EngravedAccidental(head.sign).getText()
+        stampGlyph(ctx, glyph, local(x(head.accidentalX)), y, accidentalFont(glyph))
       }
-    } finally {
-      ctx.closeGroup()
-    }
-    // A FULL-size pair (Gould's measured brackets) stands outside the head's scale.
-    if (form.fullSize) {
-      for (const head of place.heads) {
-        const y = noteLineY(frame, head.line)
-        stampGlyph(ctx, leftParen, x(head.leftParenX), y, musicGlyphFont())
-        stampGlyph(ctx, rightParen, x(head.rightParenX), y, musicGlyphFont())
-      }
+      stampGlyph(ctx, leftParen, local(x(head.leftParenX)), y, parenFont)
+      stampGlyph(ctx, rightParen, local(x(head.rightParenX)), y, parenFont)
     }
   } finally {
     ctx.closeGroup()

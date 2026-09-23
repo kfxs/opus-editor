@@ -271,11 +271,13 @@ function graceInk(slot: ChordRest, host: NotePitch[], signs: Map<string, string 
       bottoms.push(Math.max(...ys) + INK_HEIGHT.notehead * graceScale())
     }
   }
-  if (side.bracketed) {
-    const ys = side.bracketed.places.flatMap(place => place.heads.map(h => yOfLine(h.line)))
+  // The slot's own bracketed graces, and those bent into its graces (P3).
+  for (const layout of [side.bracketed, ...side.graceBracketed.map(g => g.layout)]) {
+    if (!layout) continue
+    const ys = layout.places.flatMap(place => place.heads.map(h => yOfLine(h.line)))
     if (ys.length) {
-      tops.push(Math.min(...ys) - side.bracketed.up)
-      bottoms.push(Math.max(...ys) + side.bracketed.down)
+      tops.push(Math.min(...ys) - layout.up)
+      bottoms.push(Math.max(...ys) + layout.down)
     }
   }
   if (tops.length === 0) return []

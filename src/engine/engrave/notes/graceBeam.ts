@@ -64,11 +64,20 @@ export interface GraceBeam {
  * ⭐ **Which graces of a group share a beam** — runs of consecutive FLAGGED graces (an 8th or shorter,
  * `NOTE_DURATION_ROWS[d].flag`); a quarter, half or whole breaks the run, and a run of one keeps its
  * flag. @returns each run's indexes into the group, two or more long.
+ *
+ * ⭐ **A grace carrying a BRACKETED grace starts a new run** (`docs/plans/bracketed-grace-plan.md` B4, his
+ * call: *"the bracket break the group so now there are two groups … it makes sense that we have diferent
+ * beaming"*). The split is DRAWN, not stored: the group stays one, so removing the bracket joins the
+ * beam again with nothing owed.
  */
-export function graceBeamRuns(notes: readonly { duration: NoteDuration }[]): number[][] {
+export function graceBeamRuns(notes: readonly { duration: NoteDuration; bracketedBefore?: readonly unknown[] }[]): number[][] {
   const runs: number[][] = []
   let run: number[] = []
   notes.forEach((note, i) => {
+    if (note.bracketedBefore?.length && run.length) {
+      if (run.length > 1) runs.push(run)
+      run = []
+    }
     if (NOTE_DURATION_ROWS[note.duration].flag) run.push(i)
     else {
       if (run.length > 1) runs.push(run)

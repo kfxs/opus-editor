@@ -108,4 +108,36 @@ describe('stampBracketedAtClick', () => {
     expect(chord().bracketedBefore).toHaveLength(1)
     expect(chord().graceBefore).toBeUndefined()
   })
+
+  describe('⭐ P3 — in a GRACE group, the click targets a GRACE', () => {
+    /** Two graces before the note, drawn at 60 and 75 (heads 10 wide), the note at 100. */
+    const withGraces = () => {
+      const g1 = engine.grace.addGrace(hostId, 'before', { step: 'G', alter: 0, octave: 4 }, 'appoggiatura', { duration: '8' })!
+      const g2 = engine.grace.addGrace(hostId, 'before', { step: 'A', alter: 0, octave: 4 }, 'appoggiatura', { duration: '8' })!
+      const reg = registry([at('note', g1.pitches[0].id, 60), at('note', g2.pitches[0].id, 75), at('note', hostId, 100)])
+      state.selectedMarkingTool = { kind: 'bracketedGrace', side: 'before' }
+      return { g1, g2, reg }
+    }
+
+    it('a click in the GAP between two graces puts it before the grace to the RIGHT — the pre-bend into it', () => {
+      const { g1, g2, reg } = withGraces()
+      stampBracketedAtClick(state, engine, reg, aim(67.5), 50, render)
+      expect(g2.bracketedBefore).toHaveLength(1)
+      expect('bracketedBefore' in g1).toBe(false)
+      expect('bracketedBefore' in chord()).toBe(false)
+    })
+
+    it('a click ON a grace puts it before THAT grace', () => {
+      const { g1, reg } = withGraces()
+      stampBracketedAtClick(state, engine, reg, aim(60), 50, render)
+      expect(g1.bracketedBefore).toHaveLength(1)
+    })
+
+    it('a click PAST the last grace puts it before the note itself', () => {
+      const { g1, g2, reg } = withGraces()
+      stampBracketedAtClick(state, engine, reg, aim(90), 50, render)
+      expect(chord().bracketedBefore).toHaveLength(1)
+      expect('bracketedBefore' in g1 || 'bracketedBefore' in g2).toBe(false)
+    })
+  })
 })

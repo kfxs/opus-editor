@@ -1,8 +1,10 @@
-# The bracketed grace — a black head in round brackets, no stem, no flag: the plan
+# The bracketed grace — a head in round brackets, no stem, no flag: the plan
 
-> **Status: P0 and P1 committed (2026-09-23) — drawn before its chord, with its room, `gould` brackets
-> armed (his call). P2a committed; P2b (select, arrows, Delete) built, ⏸️ his UI check.** The dev toolbar's `bracket.` button still only logs, and the Keypad's Grace-page key `-`
-> (`bracketed grace`) is drawn but not wired (`docs/research/sibelius-keypad.md`).
+> **Status (2026-09-23): P0 · P1 · P2a · P2b committed — the model, drawn before its target with its
+> room (`gould` brackets, his call), the `bracket.` stamp (notes, rests, graces), selection, arrows,
+> Delete, and a written value for its head. P3 (on a grace, the beam split) built, ⏸️ his UI check.**
+> The Keypad's Grace-page key `-` (`bracketed grace`) is drawn but still not wired
+> (`docs/research/sibelius-keypad.md`).
 > 📄 The research is `docs/research/grace-notes-research.md` **§0.9** (the synthesis) and **Parts G · H · I**
 > (the books · the engines · the apps and formats). ⛔ This plan is where the decisions get made. §0 marks
 > each one ✅ DECIDED (his word, with the date) or ⏳ PROPOSED. A proposed row is a default, not a decision.
@@ -92,14 +94,14 @@ re-pitch it through the same path a grace uses (`slotLookup` learns to find the 
   ⚠️ Gaps `toMain` 0.9 (Gould p. 139, the after side mirrored) · `between` 0.4 and `toGrace` 0.8
   (UNSOURCED) · `parenToAccidental` 0.2 (Gould). A chord's heads share one column with no
   second-displacement and unstacked signs — his eye in use. ⏸️ Glyph vs drawn bracket on a ledger note (B9).
-- 🔨 **P2a: entry** (built 2026-09-23, ⏸️ his UI check). The `bracket.` button arms a `bracketedGrace`
+- ✅ **P2a: entry** (2026-09-23). The `bracket.` button arms a `bracketedGrace`
   stamp (`stamps/bracketedGraceTool`); a click puts one before the note — ⭐ or the REST (B10 reversed; a
   whole-bar rest becomes a one-beat rest first) — nearest the GHOST, at the click's pitch, spelled as note
   entry spells it (`stamps/bracketedStamp`). The click reaches it through the grace stamp's door
   (`graceStamp`), ⛔ not a new line in `MouseController` (its hub ceiling is full). A ghost of the head in
   its brackets, the armed sign inside (`ghosts/BracketedGhost`, reading `bracketedLayout`). ⏳ A press
   arms the stamp whatever is selected — what it does with a NOTE selected is found by trying it (D6).
-- 🔨 **P2b: selection, arrows, Delete** (built 2026-09-23, ⏸️ his UI check) — his pick of the two shapes:
+- ✅ **P2b: selection, arrows, Delete** (2026-09-23) — his pick of the two shapes:
   a `{ bracketed: true }` opt-in on `slotLookup.findSlot` (⛔ `attackOf` is NULL for one: no mark is struck
   with information), the projection in `noteProjection.projectBracketedNote`, and ONE admitting line each in
   `ScoreModel.getNote` / `getNotePitch` / `updateNote` (pitch-only, the grace's branch). Each head is a NOTE
@@ -107,6 +109,18 @@ re-pitch it through the same path a grace uses (`slotLookup` learns to find the 
   highlight; a replayed bar files it through `fanMemberIdsOf`). Delete removes it as itself — alone
   (`deleteNoteOps`) or in a range, IN PLACE (`clearOps`: it leaves no hole). A duration key changes its HEAD
   (`NoteEntryCoordinator`, `selectionWrittenValue`), ⛔ never the bar. A paste hands its ids back.
+- 🔨 **P3: on a GRACE, and the split** (built 2026-09-23, ⏸️ his UI check). The stamp reads a grace group as
+  the grace stamp does (`graceTargetAt`): a click in a gap puts the bracket before the grace to its RIGHT
+  (the pre-bend into it), a click on a grace before THAT grace, a click past the last grace before the
+  note. `graceBeamRuns` breaks at a grace carrying one; the slash was already drawn per beam, so each
+  run keeps the group's one form. `beforeSideLayout` lays the group out RUN BY RUN from the right —
+  `[run] (●) [run] (●) M` — as ONE grace layout in the group's order, so `GracePass` is unchanged.
+  Deleting the bracket joins the beam again: nothing but the bracket was stored (B4).
+- **P4: the conversions.** What a target becoming a rest, a grace becoming a note (and back), or a
+  chord losing the head does to its brackets. ⏳ Each is his call when reached. The first default is
+  that the bracket goes with its target where the target survives, and is dropped (logged) where it
+  does not. (✅ already decided: a note silenced keeps its `bracketedBefore` on the rest, and a note
+  taking a rest's place takes the rest's — B10 reversed, `restGraceOps`.)
 - ⏭️ **FUTURE — the side in PROPERTIES** (his proposal, 2026-09-23 — ⛔ not built, recorded here so it is
   not lost): *"in the properties we will have a way to place the bracket before or after the target,
   default is before as now and the user can change it in properties"*. So the stamp keeps entering it

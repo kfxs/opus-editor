@@ -17,6 +17,14 @@ describe('graceBeamRuns', () => {
     expect(isBeamedGrace(d('8', '8', 'q'), 1)).toBe(true)
     expect(isBeamedGrace(d('8', '8', 'q'), 2)).toBe(false)
   })
+
+  it('⭐ B4: a grace carrying a BRACKETED grace starts a new run — the split is drawn, not stored', () => {
+    const notes = [{ duration: '8' as const }, { duration: '8' as const }, { duration: '8' as const, bracketedBefore: [{}] }, { duration: '8' as const }]
+    expect(graceBeamRuns(notes)).toEqual([[0, 1], [2, 3]])
+    // …a bracket on the FIRST grace breaks nothing; one leaving a single grace on its side unbeams it.
+    expect(graceBeamRuns([{ duration: '8', bracketedBefore: [{}] }, { duration: '8' }])).toEqual([[0, 1]])
+    expect(graceBeamRuns([{ duration: '8' }, { duration: '8', bracketedBefore: [{}] }])).toEqual([])
+  })
 })
 
 describe('graceBeam', () => {

@@ -8,11 +8,11 @@
  */
 import { describe, it, expect, afterEach } from 'vitest'
 import { ScoreModel } from '../models/ScoreModel'
-import { addBracketed } from '../models/bracketedGraceOps'
+import { addBracketed, removeBracketed } from '../models/bracketedGraceOps'
 import { addGrace } from '../models/graceOps'
 import { ScoreRenderer } from './ScoreRenderer'
 import { BRACKETED_GROUP, BRACKETED_NOTE_GROUP } from './BracketedGracePass'
-import { GRACE_GROUP } from './GracePass'
+import { GRACE_BEAM_GROUP, GRACE_GROUP } from './GracePass'
 import { sceneGroups, scenePrimitives, type Scene, type SceneGroup } from '@/engine/scene/Scene'
 import { bracketedLayout, bracketedScale, resetBracketed, setBracketForm } from '@/engine/layout/bracketedRoom'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
@@ -66,9 +66,9 @@ function mainHeadXs(scene: Scene): number[] {
     .flatMap(g => g.children.flatMap(c => (c.kind === 'text' ? [c.x] : [])))
 }
 
-/** The bracketed head's scaled group, and its head's page x. */
+/** The bracketed grace's own (scaled) group, and its head's page x. */
 function bracketedHead(scene: Scene): { head: SceneGroup; headX: number } {
-  const head = sceneGroups(scene, 'bracketedhead')[0]
+  const head = sceneGroups(scene, BRACKETED_NOTE_GROUP)[0]
   const x = sceneGroups(head, 'notehead')[0].children.flatMap(c => (c.kind === 'text' ? [c.x] : []))[0]
   return { head, headX: x * head.placement.a }
 }
@@ -125,13 +125,22 @@ describe('BracketedGracePass — one bracketed grace before a note', () => {
     expect(headX).toBeLessThan(right)
   })
 
-  it('⭐ B9: the ARMED `gould` form draws the ACCIDENTAL brackets at FULL size, outside the head\'s scale', () => {
+  it('⭐ B9: the ARMED `gould` form draws the ACCIDENTAL brackets at FULL size — stamped at 1 / k in the scaled group', () => {
     const { scene } = render(build({ bracketed: D5 }).model)
-    const note = sceneGroups(scene, BRACKETED_NOTE_GROUP)[0]
     const { head } = bracketedHead(scene)
-    expect(xsOf(head, char('accidentalParensLeft'))).toHaveLength(0)
-    expect(xsOf(note, char('accidentalParensLeft'), 1)).toHaveLength(1)
-    expect(xsOf(note, char('accidentalParensRight'), 1)).toHaveLength(1)
+    const parens = head.children.filter(c => c.kind === 'text' && c.text === char('accidentalParensLeft'))
+    expect(parens).toHaveLength(1)
+    const size = parens[0].kind === 'text' ? parseFloat(String(parens[0].font.size)) : 0
+    expect(size * bracketedScale()).toBeCloseTo(30, 6) // MUSIC_FONT_SIZE_PT on the page
+  })
+
+  it('⭐ his report: EVERY piece of its ink is a DIRECT child of its group — what the selection highlight walks', () => {
+    const { scene } = render(build({ bracketed: Bb4 }).model)
+    const { head } = bracketedHead(scene)
+    const direct = head.children.flatMap(c => (c.kind === 'text' ? [c.text] : []))
+    expect(direct).toContain(char('accidentalFlat'))
+    expect(direct).toContain(char('accidentalParensLeft'))
+    expect(head.children.filter(c => c.kind === 'group').every(g => g.kind === 'group' && g.cls === 'notehead')).toBe(true)
   })
 
   it('⭐ with a GRACE group too, the before side reads [grace] (●) main — the grace clears the brackets', () => {
@@ -139,7 +148,7 @@ describe('BracketedGracePass — one bracketed grace before a note', () => {
     const grace = sceneGroups(scene, GRACE_GROUP)[0]
     const graceX = sceneGroups(grace, 'notehead')[0].children.flatMap(c => (c.kind === 'text' ? [c.x * grace.placement.a] : []))[0]
     const note = sceneGroups(scene, BRACKETED_NOTE_GROUP)[0]
-    const [left] = xsOf(note, char('accidentalParensLeft'), 1) // the armed `gould` pair, full size
+    const [left] = xsOf(note, char('accidentalParensLeft')) // the armed `gould` pair
     expect(graceX).toBeLessThan(left)
   })
 
@@ -167,4 +176,50 @@ describe('BracketedGracePass — one bracketed grace before a note', () => {
     expect(entry!.beat).toBeUndefined()
     expect(entry!.measure).toBe(1)
   })
+
+describe('BracketedGracePass — P3: bent INTO a grace, the beam splits', () => {
+  /** E5 with three beamed 8th graces before it — G4 A4 C5. */
+  function graced() {
+    const model = new ScoreModel()
+    model.addMeasure()
+    model.addNote({ step: 'C', octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const host = model.addNote({ step: 'E', octave: 5, duration: 'q', measure: 1, beat: frac(1, 1) })
+    const graces = (['G', 'A', 'C'] as const).map((step, i) =>
+      addGrace(model.getScore(), host.id, 'before', { step, alter: 0, octave: i === 2 ? 5 : 4 }, 'acciaccatura', { duration: '8' })!)
+    return { model, host, graces }
+  }
+  const beams = (scene: Scene) => sceneGroups(sceneGroups(scene, GRACE_GROUP)[0], GRACE_BEAM_GROUP)
+
+  it('⭐ one beam before; a bracket on the SECOND grace breaks it — [g1] (●) [g2 g3], the bracket between', () => {
+    const { model, graces } = graced()
+    expect(beams(render(model).scene)).toHaveLength(1)
+    const made = addBracketed(model.getScore(), graces[1].pitches[0].id, 'before', D5)!
+    const { scene } = render(model)
+    expect(beams(scene)).toHaveLength(1) // g2 g3 beamed; g1 alone keeps its flag
+    const grace = sceneGroups(scene, GRACE_GROUP)[0]
+    const xs = sceneGroups(grace, 'notehead').map(g => g.children.flatMap(c => (c.kind === 'text' ? [c.x * grace.placement.a] : []))[0])
+    const note = sceneGroups(scene, BRACKETED_NOTE_GROUP)[0]
+    const [left] = xsOf(note, char('accidentalParensLeft'))
+    expect(left).toBeGreaterThan(xs[0])
+    expect(left).toBeLessThan(xs[1])
+    expect(made.pitches[0].id).toBeTruthy()
+  })
+
+  it('⭐ B4: removing the bracket JOINS the beam again — nothing was stored but the bracket', () => {
+    const { model, graces } = graced()
+    const made = addBracketed(model.getScore(), graces[1].pitches[0].id, 'before', D5)!
+    removeBracketed(model.getScore(), made.pitches[0].id)
+    const { scene } = render(model)
+    expect(beams(scene)).toHaveLength(1)
+    expect(sceneGroups(beams(scene)[0], 'notehead')).toHaveLength(0)
+    expect(sceneGroups(scene, BRACKETED_GROUP)).toHaveLength(0)
+  })
+
+  it('…and with four graces, [g1 g2] (●) [g3 g4]: TWO beams, each the group\'s own form', () => {
+    const { model, host, graces } = graced()
+    addGrace(model.getScore(), host.id, 'before', { step: 'D', alter: 0, octave: 5 }, 'acciaccatura', { duration: '8' })
+    addBracketed(model.getScore(), graces[2].pitches[0].id, 'before', D5)
+    expect(beams(render(model).scene)).toHaveLength(2)
+  })
+})
 })

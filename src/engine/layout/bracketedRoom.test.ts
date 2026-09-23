@@ -114,4 +114,43 @@ describe('beforeSideLayout — [grace group] [bracketed] main', () => {
     expect(side.reach).toBe(side.bracketed!.reach)
     expect(GRACE_ROWS.toMain.value).toBeGreaterThan(0)
   })
+
+describe('beforeSideLayout — P3: a bracketed grace bent INTO a grace splits the group', () => {
+  const pitchOf = (id: string, step: NotePitch['step']) => pitch(id, step, 5)
+  const splitChord = (): Chord => ({
+    id: 'c', type: 'chord', beat: fracCreate(0, 1), duration: 'q', measure: 1, notes: [pitchOf('n', 'E')],
+    graceBefore: {
+      notes: [
+        { pitches: [pitchOf('g1', 'C')], duration: '8' },
+        { pitches: [pitchOf('g2', 'D')], duration: '8', bracketedBefore: [one(pitch('b', 'B', 4))] },
+        { pitches: [pitchOf('g3', 'F')], duration: '8' },
+      ],
+    },
+  })
+
+  it('⭐ [g1] (●) [g2 g3] M — the bracket stands between g1 and g2, clearing each by its row', () => {
+    const side = beforeSideLayout(splitChord(), none, 'treble', 0)
+    const [g1, g2] = side.graces!.places
+    const bracket = side.graceBracketed[0].layout.places[0]
+    expect(side.graceBracketed.map(g => g.grace.pitches[0].id)).toEqual(['g2'])
+    expect(bracket.right).toBeLessThan(g2.headX)
+    expect(g2.headX - bracket.right).toBeCloseTo(BRACKETED_ROWS.toMain.value, 9) // the bracket clears its TARGET
+    expect(bracket.left - (g1.headX + g1.rightInk)).toBeCloseTo(BRACKETED_ROWS.toGrace.value, 9)
+  })
+
+  it('the places stay in the GROUP\'s order — one layout, however many runs', () => {
+    const side = beforeSideLayout(splitChord(), none, 'treble', 0)
+    expect(side.graces!.places.map(p => p.note.pitches[0].id)).toEqual(['g1', 'g2', 'g3'])
+    const xs = side.graces!.places.map(p => p.headX)
+    expect(xs[0]).toBeLessThan(xs[1])
+    expect(xs[1]).toBeLessThan(xs[2])
+    expect(side.reach).toBeCloseTo(side.graces!.reach, 9)
+  })
+
+  it('…and the split costs room: the side reaches further than the unsplit group', () => {
+    const plain = splitChord()
+    delete plain.graceBefore!.notes[1].bracketedBefore
+    expect(beforeSideLayout(splitChord(), none, 'treble', 0).reach).toBeGreaterThan(beforeSideLayout(plain, none, 'treble', 0).reach)
+  })
+})
 })
