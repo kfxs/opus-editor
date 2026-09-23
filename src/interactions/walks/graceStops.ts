@@ -10,7 +10,7 @@
  * {@link locateStop} does both.
  */
 import type { FlatNote } from '../../utils/beatMap'
-import type { GraceNote, Score } from '../../types/music'
+import type { BracketedGrace, GraceNote, Score } from '../../types/music'
 import { findSlot } from '../../engine/models/slotLookup'
 import { graceGroupOf } from '../../utils/graceNotes'
 import { fracEq, type Fraction } from '../../utils/fraction'
@@ -21,19 +21,41 @@ export interface GraceStops {
   graceIds: ReadonlySet<string>
 }
 
-export function withGraceStops(score: Score, stops: FlatNote[]): GraceStops {
+export function withGraceStops(
+  score: Score, stops: FlatNote[],
+  /**
+   * ⭐ Also a stop for each BRACKETED grace, where it is drawn — before its grace, before its note, or
+   * after the note (his report, 2026-09-23: *"i'm navigating but the bracket is ignored"*;
+   * `docs/plans/bracketed-grace-plan.md`). ⚠️ OPT-IN, for the selection arrows only: a SLUR end walking
+   * onto one would anchor to ink the slur renderer cannot find (`./slurReanchor` does not ask).
+   */
+  opts: { bracketed?: boolean } = {},
+): GraceStops {
   const out: FlatNote[] = []
   const graceIds = new Set<string>()
   for (const stop of stops) {
     const found = findSlot(score, stop.id)
     const slot = found?.type === 'chord' ? found.chord : found?.type === 'rest' ? found.rest : undefined
-    const graceStop = (note: GraceNote): FlatNote => {
-      graceIds.add(note.pitches[0].id)
-      return { ...stop, id: note.pitches[0].id, isRest: false }
+    // A stop found by ID (it reports its host's beat): a grace's first pitch, or a bracketed one's.
+    const byId = (id: string): FlatNote => {
+      graceIds.add(id)
+      return { ...stop, id, isRest: false }
     }
-    for (const note of slot ? graceGroupOf(slot, 'before')?.notes ?? [] : []) out.push(graceStop(note))
+    const bracketed = (list: readonly BracketedGrace[] | undefined) => {
+      if (opts.bracketed) for (const b of list ?? []) out.push(byId(b.pitches[0].id))
+    }
+    const graceStop = (note: GraceNote): FlatNote => byId(note.pitches[0].id)
+    for (const note of slot ? graceGroupOf(slot, 'before')?.notes ?? [] : []) {
+      bracketed(note.bracketedBefore)
+      out.push(graceStop(note))
+    }
+    bracketed(slot?.bracketedBefore)
     out.push(stop)
-    for (const note of slot ? graceGroupOf(slot, 'after')?.notes ?? [] : []) out.push(graceStop(note))
+    if (slot?.type === 'chord') bracketed(slot.bracketedAfter)
+    for (const note of slot ? graceGroupOf(slot, 'after')?.notes ?? [] : []) {
+      bracketed(note.bracketedBefore)
+      out.push(graceStop(note))
+    }
   }
   return { stops: out, graceIds }
 }
@@ -48,6 +70,9 @@ export function locateStop(
 ): number {
   const grace = findSlot(score, id, { graceNotes: true })?.grace
   if (grace) return lane.stops.findIndex(n => n.id === grace.note.pitches[0].id)
+  // …and a BRACKETED grace, by its first pitch — ⛔ never by position, which is its host's.
+  const bracketed = findSlot(score, id, { bracketed: true })?.bracketed
+  if (bracketed) return lane.stops.findIndex(n => n.id === bracketed.note.pitches[0].id)
   return lane.stops.findIndex(n =>
     !lane.graceIds.has(n.id) && n.measureNumber === at.measure && fracEq(n.beat, at.beat))
 }

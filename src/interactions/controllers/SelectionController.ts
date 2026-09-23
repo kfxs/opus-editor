@@ -456,7 +456,8 @@ export class SelectionController {
     if (!currentNote) return
     // ⭐ The GRACES are stops too, each beside its main note (`walks/graceStops`) — his report,
     //    2026-09-22: the arrows walked past a grace, and from a grace skipped its own note.
-    const lane = withGraceStops(score, beats)
+    // …and the BRACKETED graces, where they are drawn (his report, 2026-09-23).
+    const lane = withGraceStops(score, beats, { bracketed: true })
     const currentIndex = locateStop(score, lane, this.state.selectedNoteId,
       { measure: currentNote.measureNumber, beat: currentNote.beat })
     if (currentIndex === -1) return
