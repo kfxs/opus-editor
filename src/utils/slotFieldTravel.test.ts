@@ -40,6 +40,8 @@ const loadedChord = (): Chord => ({
   secondaryBreak: true,
   graceBefore: { notes: [{ pitches: [{ id: 'g1', step: 'D', alter: 0, octave: 4 }], duration: '8' }], slash: true },
   graceAfter: { notes: [{ pitches: [{ id: 'g2', step: 'F', alter: 1, octave: 4 }], duration: '16' }], stemDirection: 'down' },
+  bracketedBefore: [{ pitches: [{ id: 'b1', step: 'B', alter: -1, octave: 3 }] }],
+  bracketedAfter: [{ pitches: [{ id: 'b2', step: 'G', alter: 0, octave: 4, forceAccidental: true }] }],
   notes: [{ id: 'n1', step: 'E', alter: 0, octave: 4, forceAccidental: true }],
 })
 
@@ -110,6 +112,12 @@ describe('what the table calls CARRIED really is', () => {
     expect(piece.graceAfter!.notes[0].pitches[0].id).not.toBe('g2')
   })
 
+  it('bracketedBefore / bracketedAfter — the heads, the forced sign, FRESH ids (bracketed-grace-plan §1)', () => {
+    expect(noIds(piece.bracketedBefore)).toEqual([{ pitches: [{ step: 'B', alter: -1, octave: 3 }] }])
+    expect(noIds(piece.bracketedAfter)).toEqual([{ pitches: [{ step: 'G', alter: 0, octave: 4, forceAccidental: true }] }])
+    expect(piece.bracketedBefore![0].pitches[0].id).not.toBe('b1')
+  })
+
   it('fan — carried on its own fixture, since it cannot share a slot with a tremolo', () => {
     const fanned: Chord = { ...loadedChord(), tremolo: undefined, fan: { direction: 'accel', count: 6, beams: 3 } }
     expect(roundTrip(fanned).fan).toEqual({ direction: 'accel', count: 6, beams: 3 })
@@ -123,7 +131,7 @@ describe('what the table calls CARRIED really is', () => {
     const asserted: SlotField[] = [
       'duration', 'dots', 'notes', 'stemDirection', 'articulations', 'articulationPlacement',
       'articulationStemAlign', 'fractionalBeamSide', 'tremolo', 'beam', 'secondaryBreak', 'fan',
-      'graceBefore', 'graceAfter',
+      'graceBefore', 'graceAfter', 'bracketedBefore', 'bracketedAfter',
     ]
     expect([...CARRIED_SLOT_FIELDS].sort()).toEqual([...asserted].sort())
   })

@@ -93,6 +93,11 @@ export const SLOT_FIELD_TRAVEL = {
   graceBefore: 'carried',
   /** …and a Nachschlag onto the LAST piece: it belongs to the END of its note (D2). */
   graceAfter: 'carried',
+  /** ⭐ Bracketed graces (docs/plans/bracketed-grace-plan.md §1) — the grace's rule for the grace's
+   *  reason: BEFORE onto the FIRST piece of a split (it leads into the attack), fresh ids… */
+  bracketedBefore: 'carried',
+  /** …and AFTER onto the LAST (the trill note, a bend's target: they belong to the note's END). */
+  bracketedAfter: 'carried',
   /** Which piece keeps it depends on WHAT it says — `begin` the first, `end` the last (`relayEvents`). */
   beam: 'carried',
   /** ⭐ An authored override of one stub's direction (`docs/research/beam-hook-research.md` §8). Carried for

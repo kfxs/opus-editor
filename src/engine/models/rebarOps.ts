@@ -35,6 +35,7 @@ import { keepLegalCrossings } from './crossStaffOps'
 import { clearEngravingOverride, setEngravingOverride } from './overrideOps'
 import { cloneFanFresh, chordStoredPitches, fanMemberBeats } from '@/utils/fannedBeam'
 import { cloneGraceFresh, gracePitchesOf } from '@/utils/graceNotes'
+import { cloneBracketedFresh } from '@/utils/bracketedGraces'
 import { v4 as uuidv4 } from 'uuid'
 import { voiceOf } from '@/utils/lanes'
 import { dbg } from '@/utils/debug'
@@ -1683,6 +1684,9 @@ function materializeVoiceBar(
     // Graces: fresh pitch ids, for the fan's reason just above (docs/plans/grace-notes-plan.md §1.1).
     if (piece.graceBefore) chord.graceBefore = cloneGraceFresh(piece.graceBefore)
     if (piece.graceAfter) chord.graceAfter = cloneGraceFresh(piece.graceAfter)
+    // Bracketed graces: fresh ids, for the graces' reason (docs/plans/bracketed-grace-plan.md §1).
+    if (piece.bracketedBefore) chord.bracketedBefore = cloneBracketedFresh(piece.bracketedBefore)
+    if (piece.bracketedAfter) chord.bracketedAfter = cloneBracketedFresh(piece.bracketedAfter)
     if (piece.beam) chord.beam = piece.beam
     if (piece.secondaryBreak) chord.secondaryBreak = true
     if (piece.fractionalBeamSide) chord.fractionalBeamSide = piece.fractionalBeamSide
@@ -1766,6 +1770,8 @@ function materializeAtomicPiece(measure: Measure, piece: RebarPiece): void {
       // otherwise hold the same grace pitch ids as its source (a grace in a tuplet is the chord's).
       if (slot.graceBefore) slot.graceBefore = cloneGraceFresh(slot.graceBefore)
       if (slot.graceAfter) slot.graceAfter = cloneGraceFresh(slot.graceAfter)
+      if (slot.bracketedBefore) slot.bracketedBefore = cloneBracketedFresh(slot.bracketedBefore)
+      if (slot.bracketedAfter) slot.bracketedAfter = cloneBracketedFresh(slot.bracketedAfter)
     }
     measure.slots.push(slot)
   }

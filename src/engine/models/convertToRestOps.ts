@@ -150,6 +150,9 @@ export function swapSlotForRest(score: Score, noteId: string): Rest | null {
     ...(chord.graceBefore && { graceBefore: chord.graceBefore }),
   }
   if (chord.graceAfter) dbg(`[Model.convertToRest] the grace AFTER ${fmtSlot(chord)} goes with it — a rest takes none`)
+  // ⏳ A rest is never a bracketed grace's target (docs/plans/bracketed-grace-plan.md B10) — the
+  //    first default of P4: the chord's own go with it, logged. A GRACE's go with that grace.
+  if (chord.bracketedBefore || chord.bracketedAfter) dbg(`[Model.convertToRest] the bracketed graces of ${fmtSlot(chord)} go with it — a rest is no target`)
 
   for (const measure of score.measures) {
     const idx = measure.slots.findIndex(s => s.id === chord.id)

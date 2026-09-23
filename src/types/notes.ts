@@ -259,6 +259,28 @@ export interface GraceNote extends Attack {
   duration: NoteDuration
   /** Absent, never 0 — `laneFingerprint` stringifies the slot for the width-cache key. */
   dots?: number
+  /** ⭐ The BRACKETED graces bent into THIS grace — the pre-bend into the first appoggiatura
+   *  (`docs/plans/bracketed-grace-plan.md` B2). BEFORE only on a grace (B5). ⚠️ Inside a group, a grace
+   *  carrying one starts a new beam run: the split is DRAWN, not stored (B4). Absent, never `[]`. */
+  bracketedBefore?: BracketedGrace[]
+}
+
+/**
+ * ⭐ **A BRACKETED GRACE — a pitch shown as INFORMATION, not an attack**: a black head in round
+ * brackets, no stem, no flag (`docs/plans/bracketed-grace-plan.md` B1). Sibelius's "pre-bend note", and
+ * the same form a trill uses to say which note to trill to — the reader of the context decides.
+ *
+ * ⛔ NOT a {@link GraceNote} and never a member of a {@link GraceGroup} (Gould p. 139: *"Do not use a
+ * grace note for the trilling pitch"*). It belongs to its TARGET (B2) — a main {@link Chord}
+ * (`bracketedBefore` / `bracketedAfter`) or a grace (`GraceNote.bracketedBefore`) — as a LIST, left to
+ * right, the array being the only order stored (B3).
+ *
+ * ⚠️ What it does NOT have, on purpose: a written value (the head is black whatever its target's,
+ * Gould p. 418 — B7), a stem, a beam, a dot, and a sound (B6). Nothing rhythmic ever counts it.
+ */
+export interface BracketedGrace {
+  /** Real NotePitches with ids — one head, or several (a double-stop pre-bend): one bracket pair each. */
+  pitches: NotePitch[]
 }
 
 /** Which side of its main chord a grace group stands on (D2: an AFTER group is stored on the note it
@@ -525,6 +547,9 @@ export interface PitchInsert {
    *  one head leaving a chord leaves the graces on the chord they were played into. */
   graceBefore?: GraceGroup
   graceAfter?: GraceGroup
+  /** The chord's BRACKETED graces — carried on the graces' terms (the whole slot, `voiceOps`). */
+  bracketedBefore?: BracketedGrace[]
+  bracketedAfter?: BracketedGrace[]
 }
 
 /**
@@ -663,6 +688,11 @@ export interface Chord extends Attack {
   graceBefore?: GraceGroup
   /** The graces AFTER this chord — a Nachschlag, stored on the note it FOLLOWS (D2). See {@link graceBefore}. */
   graceAfter?: GraceGroup
+  /** ⭐ The BRACKETED graces standing BEFORE this chord, nearest it (the pre-bend) — see
+   *  {@link BracketedGrace}. The operations are `engine/models/bracketedGraceOps`. Absent, never `[]`. */
+  bracketedBefore?: BracketedGrace[]
+  /** …and AFTER it (the trill note, a bend's target — every book's case, §0.9 of the research). */
+  bracketedAfter?: BracketedGrace[]
   notes: NotePitch[]
 }
 

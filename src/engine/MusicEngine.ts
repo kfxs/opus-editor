@@ -5,6 +5,7 @@ import { resolveStaffSize, STAFF_SPACE_PX } from './models/staffSize'
 import { barlineJoinsBelow } from './models/barlineJoin'
 import * as staffGroupOps from './models/staffGroupOps'
 import { crossPitches, crossStaffProblems, type CrossDirection, type CrossOutcome } from './models/crossStaffOps'
+import { bracketedProblems } from './models/bracketedGraceOps'
 import * as clearOps from './models/clearOps'
 import * as graceOps from './models/graceOps'
 import { clefOffsetOverrideOf } from './models/engravingOverrides'
@@ -49,6 +50,7 @@ import { tempoCommands } from './commands/tempoCommands'
 import { trillCommands } from './commands/trillCommands'
 import { tieCommands } from './commands/tieCommands'
 import { graceCommands } from './commands/graceCommands'
+import { bracketedCommands } from './commands/bracketedCommands'
 import { spellingToMidi, accidentalToAlter } from '@/utils/pitchSpelling'
 import { alterInForceAt } from '@/utils/accidentalState'
 import type { BeamRole } from '@/utils/beaming'
@@ -2446,6 +2448,8 @@ export class MusicEngine {
   readonly tie = tieCommands(this.commandContext())
   /** ⭐ GRACE NOTES' commands — `engine/commands/graceCommands`. */
   readonly grace = graceCommands(this.commandContext())
+  /** ⭐ BRACKETED graces' commands — `engine/commands/bracketedCommands` (docs/plans/bracketed-grace-plan.md). */
+  readonly bracketed = bracketedCommands(this.commandContext())
 
   /** All phrasing slurs (live array; empty if none). */
   getSlurs(): Slur[] {
@@ -3485,6 +3489,7 @@ export class MusicEngine {
     // Report, never repair (docs/plans/json-io-plan.md) — a crossed head this build cannot draw.
     for (const problem of crossStaffProblems(loaded.getScore())) console.warn(`[score-file] ${problem}`)
     for (const problem of graceOps.graceProblems(loaded.getScore())) console.warn(`[score-file] ${problem}`)
+    for (const problem of bracketedProblems(loaded.getScore())) console.warn(`[score-file] ${problem}`)
     this.scoreModel = loaded
     this.playbackEngine.setScore(this.scoreModel.getScore())
     this.markModelDirty()

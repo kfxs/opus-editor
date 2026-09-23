@@ -359,6 +359,9 @@ export function insertPitch(score: Score, measure: Measure, payload: PitchInsert
     // they come from a slot that has just been REMOVED (`voiceOps` hands them only with its last pitch).
     if (payload.graceBefore && !existingChord.graceBefore) existingChord.graceBefore = payload.graceBefore
     if (payload.graceAfter && !existingChord.graceAfter) existingChord.graceAfter = payload.graceAfter
+    // Bracketed graces: the same rule, the same reason (docs/plans/bracketed-grace-plan.md §1).
+    if (payload.bracketedBefore && !existingChord.bracketedBefore) existingChord.bracketedBefore = payload.bracketedBefore
+    if (payload.bracketedAfter && !existingChord.bracketedAfter) existingChord.bracketedAfter = payload.bracketedAfter
     if (payload.secondaryBreak && existingChord.secondaryBreak === undefined) {
       existingChord.secondaryBreak = true
     }
@@ -397,6 +400,8 @@ export function insertPitch(score: Score, measure: Measure, payload: PitchInsert
   if (payload.fan) chord.fan = cloneFanFresh(payload.fan) // fresh member ids — see the merge branch
   if (payload.graceBefore) chord.graceBefore = payload.graceBefore
   if (payload.graceAfter) chord.graceAfter = payload.graceAfter
+  if (payload.bracketedBefore) chord.bracketedBefore = payload.bracketedBefore
+  if (payload.bracketedAfter) chord.bracketedAfter = payload.bracketedAfter
   if (targetVoice) chord.voice = targetVoice as 0 | 1 | 2 | 3
   if (payload.staffId !== undefined) chord.staffId = payload.staffId
   chord.actualDuration = computeActualDurationForSlot(chord, measure)

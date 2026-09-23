@@ -6,6 +6,7 @@
  * In `utils/` for `fannedBeam`'s reason: the relay lives here and may not import `engine/`.
  */
 import { v4 as uuidv4 } from 'uuid'
+import { cloneBracketedFresh } from '@/utils/bracketedGraces'
 import type { ChordRest, GraceGroup, GraceNote, GraceSide, NotePitch } from '@/types/music'
 
 /** Both sides, in drawing order. */
@@ -59,5 +60,7 @@ function copyGraceNote(note: GraceNote): GraceNote {
   if (note.dots) out.dots = note.dots
   if (note.articulations?.length) out.articulations = [...note.articulations]
   if (note.articulationPlacement) out.articulationPlacement = note.articulationPlacement
+  // ⭐ The bracketed graces bent INTO this one travel with it, fresh ids too (bracketed-grace-plan §1).
+  if (note.bracketedBefore?.length) out.bracketedBefore = cloneBracketedFresh(note.bracketedBefore)
   return out
 }

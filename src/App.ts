@@ -54,6 +54,7 @@ import { spineConsole } from './dev/spineConsole'
 import { headerGapConsole } from './dev/headerGapConsole'
 import { dotGapConsole } from './dev/dotGapConsole'
 import { graceConsole } from './dev/graceConsole'
+import { bracketedConsole } from './dev/bracketedConsole'
 import { accidentalGapConsole } from './dev/accidentalGapConsole'
 import { spacingConsole } from './dev/spacingConsole'
 import { dumpSpacingCensus, spacingBars } from './dev/spacingCensus' // P0 instrument — temporary
@@ -941,6 +942,9 @@ export function createEditorApp(host: HTMLElement): EditorApp {
     // ⚠️ EXPERIMENT, HIS (2026-09-22) — the GRACE note's size, every row the research found
     // (engine/layout/graceRoom). Armed row = D5's 2/3, so building the knob moved nothing.
     w.__grace = graceConsole(() => renderer.renderScore())
+    // 🔧 P0 of the BRACKETED grace (docs/plans/bracketed-grace-plan.md) — the model, poked by hand
+    // before anything draws it (src/dev/bracketedConsole.ts).
+    w.__bracketed = bracketedConsole({ getEngine: () => engine, selectedNoteId: () => state.selectedNoteId })
     // ⭐ 2026-09-21 — a BENT STAFF's machinery, in its own draggable panel, drawn LIVE from the open
     // score: a staff is a path, a note a rigid block placed on it (docs/plans/bent-staff-plan.md A; src/dev/spineConsole.ts).
     w.__spine = spineConsole({

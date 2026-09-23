@@ -1,8 +1,8 @@
 # The bracketed grace — a black head in round brackets, no stem, no flag: the plan
 
-> **Status: PLANNED (2026-09-23), nothing built.** The only code is the dev toolbar's `bracket.` button,
-> which logs and does nothing else, and the Keypad's Grace-page key `-` (`bracketed grace`), which is
-> drawn but not wired (`docs/research/sibelius-keypad.md`).
+> **Status: P0 built (2026-09-23) — the model, its ops, the relay, the load report, `__bracketed`; nothing is
+> DRAWN yet.** The dev toolbar's `bracket.` button still only logs, and the Keypad's Grace-page key `-`
+> (`bracketed grace`) is drawn but not wired (`docs/research/sibelius-keypad.md`).
 > 📄 The research is `docs/research/grace-notes-research.md` **§0.9** (the synthesis) and **Parts G · H · I**
 > (the books · the engines · the apps and formats). ⛔ This plan is where the decisions get made. §0 marks
 > each one ✅ DECIDED (his word, with the date) or ⏳ PROPOSED. A proposed row is a default, not a decision.
@@ -59,7 +59,7 @@ export interface BracketedGrace {
 | what | module |
 |---|---|
 | the operations: add, remove, re-pitch, find by pitch id | `engine/models/bracketedGraceOps.ts` |
-| the commands (undo labels, one `mutate`) | `engine/commands/bracketedGraceCommands.ts`, reached as `engine.bracketed.…` |
+| the commands (undo labels, one `mutate`) | `engine/commands/bracketedCommands.ts`, reached as `engine.bracketed.…` |
 | the pure reads (lists of a slot, of a grace) | `utils/bracketedGraces.ts` (in `utils/` for the relay, `graceNotes`' reason) |
 | its ROOM, in staff spaces | `layout/bracketedRoom.ts`, asked by `layout/graceRoom` for the before side |
 | its geometry (head, accidental, the two glyphs) | `engrave/notes/bracketedGrace.ts`, pure |
@@ -72,8 +72,15 @@ re-pitch it through the same path a grace uses (`slotLookup` learns to find the 
 
 ## 3. Phases, one at a time, his UI check between each
 
-- **P0: model + ops + JSON.** The types, `bracketedGraceOps`, the relay, the problems check, specs.
-  Nothing drawn. Poked from the console (`__grace`-style) to prove the round trip.
+- ✅ **P0: model + ops + JSON** (2026-09-23). The types; `utils/bracketedGraces` (reads + the fresh-id copy,
+  which `cloneGraceFresh` now also runs on a grace's list); `models/bracketedGraceOps` (add · second head ·
+  remove · re-spell · find · `bracketedProblems`, warned by `loadJSON`); `commands/bracketedCommands`; the
+  relay (`slotFieldTravel` rows, `rebar` before → first piece / after → last, the tie-collapse's ends,
+  `rebarOps`, `slotPlacementOps`, `voiceOps`). ⭐ `findSlot` does NOT know a bracketed pitch, so every
+  existing mutator refuses one (fail closed). A chord silenced to a rest drops its own (logged, B10).
+  Poke it with `__bracketed.add('before', 'Bb3')` on a selected note, `.list()`, `.roundTrip()`.
+  ⏭️ Left for P2, on purpose: a paste's "what landed" selection does not include bracketed ids yet — the
+  selection cannot resolve them until `slotLookup` learns them.
 - **P1: drawn BEFORE a main note.** Black head at its size row, accidental inside, the glyph pair,
   ledger lines at its scale. Room reserved: the before side's ink is `[grace group] [brackets] M`.
   Silent (B6). ⏸️ His eye on a ledger note decides glyph vs drawn bracket (B9).

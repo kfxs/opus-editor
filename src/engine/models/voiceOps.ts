@@ -145,6 +145,9 @@ export function moveNoteToVoice(score: Score, pitchId: string, targetVoice: numb
     // one out (docs/plans/grace-notes-plan.md §1.1). The SAME objects, not a copy: the slot is moving,
     // not being duplicated, so their ids — like the pitch's own — stay.
     ...(chord.notes.length <= 1 && { graceBefore: chord.graceBefore, graceAfter: chord.graceAfter }),
+    // …and its BRACKETED graces on the same terms: they belong to the chord, not to one head
+    // (docs/plans/bracketed-grace-plan.md B2).
+    ...(chord.notes.length <= 1 && { bracketedBefore: chord.bracketedBefore, bracketedAfter: chord.bracketedAfter }),
   }
 
   // Remove the pitch from the source slot.

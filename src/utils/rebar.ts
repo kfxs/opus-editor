@@ -40,6 +40,7 @@ import type {
   TremoloMark,
   FanMark,
   GraceGroup,
+  BracketedGrace,
   BeamMode,
   FractionalBeamSide,
   Tuplet,
@@ -62,6 +63,7 @@ import { getMeterInfo, type MeterInfo } from '@/utils/meter'
 import { fillRests, decomposeSpan } from '@/utils/restFill'
 import { cloneFanFresh } from '@/utils/fannedBeam'
 import { cloneGraceFresh } from '@/utils/graceNotes'
+import { cloneBracketedFresh } from '@/utils/bracketedGraces'
 import { voiceOf } from '@/utils/lanes'
 
 // ---------------------------------------------------------------------------
@@ -153,6 +155,10 @@ export interface RebarEvent {
    *  END of its note, and the end is where the split put it). */
   graceBefore?: GraceGroup
   graceAfter?: GraceGroup
+  /** ⭐ The BRACKETED graces beside the event (docs/plans/bracketed-grace-plan.md §1) — the graces'
+   *  split for the graces' reason: BEFORE on the FIRST piece, AFTER on the LAST. */
+  bracketedBefore?: BracketedGrace[]
+  bracketedAfter?: BracketedGrace[]
   /**
    * The note's explicit BEAM statement, carried for the reason {@link tremolo} and {@link fan} are:
    * a slot field the relay does not list is a slot field the relay eats, and this one is authored
@@ -199,6 +205,9 @@ export interface RebarPiece {
   /** Graces. See {@link RebarEvent.graceBefore} — BEFORE on the first piece, AFTER on the last. */
   graceBefore?: GraceGroup
   graceAfter?: GraceGroup
+  /** Bracketed graces. See {@link RebarEvent.bracketedBefore} — the graces' split. */
+  bracketedBefore?: BracketedGrace[]
+  bracketedAfter?: BracketedGrace[]
   /** Explicit beam statement. See {@link RebarEvent.beam} — which piece keeps it depends on the mode. */
   beam?: BeamMode
   /** Secondary-beam break. See {@link RebarEvent.secondaryBreak} — the FIRST piece only. */
@@ -380,6 +389,8 @@ export function flattenRegion(
         // A COPY for the fan's reason: the stream is also the clipboard's payload.
         graceBefore: slot.graceBefore && cloneGraceFresh(slot.graceBefore),
         graceAfter: slot.graceAfter && cloneGraceFresh(slot.graceAfter),
+        bracketedBefore: slot.bracketedBefore && cloneBracketedFresh(slot.bracketedBefore),
+        bracketedAfter: slot.bracketedAfter && cloneBracketedFresh(slot.bracketedAfter),
         beam: slot.beam,
         secondaryBreak: slot.secondaryBreak,
         // Collapse marker: the whole chord is tied forward into the next slot.
@@ -433,6 +444,9 @@ function collapseTies(events: FlatEvent[]): RebarEvent[] {
       // that end has its own, which wins (one group per side).
       prev.graceAfter = ev.graceAfter ?? prev.graceAfter
       prev.graceBefore = prev.graceBefore ?? ev.graceBefore
+      // …and its BRACKETED graces by the same rule: the tail's after, the head's before.
+      prev.bracketedAfter = ev.bracketedAfter ?? prev.bracketedAfter
+      prev.bracketedBefore = prev.bracketedBefore ?? ev.bracketedBefore
     } else {
       out.push({ ...ev })
     }
@@ -584,6 +598,7 @@ export function relayEvents(events: RebarEvent[], meter: MeterInfo, opts: RelayO
           fan: pieces.length === 0 ? ev.fan : undefined,
           // The FIRST piece, for the attack's reason — see {@link RebarEvent.graceBefore}.
           graceBefore: pieces.length === 0 ? ev.graceBefore : undefined,
+          bracketedBefore: pieces.length === 0 ? ev.bracketedBefore : undefined,
         }
         bars[i].push(piece)
         pieces.push(piece)
@@ -598,6 +613,7 @@ export function relayEvents(events: RebarEvent[], meter: MeterInfo, opts: RelayO
     }
     // …and a grace AFTER on the LAST piece, once the pieces are known: the note ENDS there.
     if (ev.graceAfter && pieces.length > 0) pieces[pieces.length - 1].graceAfter = ev.graceAfter
+    if (ev.bracketedAfter && pieces.length > 0) pieces[pieces.length - 1].bracketedAfter = ev.bracketedAfter
     // The BEAM statement, once the pieces are known — and unlike the tremolo (every piece) or the
     // fan (the first), it is not one rule, because the modes do not all talk about the same end of
     // the note. `begin`/`continue` say where the group STARTS, and the note starts at its first
