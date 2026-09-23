@@ -6,6 +6,7 @@ import type { NoteDuration } from '../types/music'
 import { durationHighlight } from '../interactions/controllers/keypadSync'
 import { graceToolLit, pressGraceTool } from '../interactions/stamps/graceTool'
 import { bracketedToolLit, pressBracketedTool } from '../interactions/stamps/bracketedGraceTool'
+import { enclosureEnabled, enclosureLit, pressEnclosure } from '../interactions/stamps/enclosureTool'
 import { DEV_SOUNDS } from '../engine/audio/WebAudioFontInstrument'
 import { bus } from '../bus'
 import { buildMusicFontPicker } from './musicFontPicker'
@@ -243,6 +244,15 @@ export function mountDevToolbar(host: HTMLElement, deps: DevToolbarDeps): DevToo
   toggle(graceBox, GRACE_BTN, 'after', 'Grace AFTER a note (Nachschlag) — not built yet (plan P5)',
     () => false, () => {}, ON, () => false)
   row.appendChild(graceBox)
+
+  // --- PARENTHESISED note (docs/plans/parenthesised-note-plan.md P1) — ⛔ not a stamp: a press toggles
+  //     the brackets on the SELECTED heads, notes and graces alike (`interactions/stamps/enclosureTool`). ---
+  const parenBox = group('Note:')
+  toggle(parenBox, GRACE_BTN, 'paren.', 'Parenthesise the selected notes — press again to remove',
+    () => enclosureLit(state, getEngine()),
+    () => pressEnclosure(palette.spanToolHost()),
+    ON, () => enclosureEnabled(state, getEngine()))
+  row.appendChild(parenBox)
 
   // --- Beam ---
   // REMOVED: the beam palette (auto/single/begin/continue/end + subdivide + beam-rest) was a DEV tool,

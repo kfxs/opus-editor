@@ -23,6 +23,7 @@ import { durationFlags } from '@/utils/durations'
 import { armedDotGap } from './dotGap'
 import { flagGlyph, glyphBox, noteheadInk } from '@/engine/fonts/fontMetrics'
 import { graceBeamRuns } from '@/engine/engrave/notes/graceBeam'
+import { enclosureLayout } from './headEnclosure'
 import { MODIFIER_RIGHT_GAP_PX, VEXFLOW_DOT_SPACING } from '@/engine/engrave/inheritedDefaults'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 
@@ -230,7 +231,8 @@ export interface GraceLayout {
  * not to the bare head (a grace does not stand on its principal's sharp).
  */
 export function hostLeftReach(host: readonly NotePitch[], signOf: SignOf, clef: Clef): number {
-  return leftInk(host, signOf, clef)
+  // …or its BRACKETS, when a head is parenthesised (`layout/headEnclosure`): they are its outermost ink.
+  return Math.max(leftInk(host, signOf, clef), enclosureLayout({ notes: host }, signOf, clef)?.left ?? 0)
 }
 
 /**

@@ -2169,7 +2169,8 @@ export class ScoreRenderer {
             placement.scale,
             key,
           )
-          // ⭐ The GRACE groups before this lane's chords — `./GracePass`, over the notes just drawn.
+          // ⭐ The GRACE groups before this lane's chords — `./GracePass`, over the notes just drawn (and,
+          //    through it, the brackets of its PARENTHESISED heads — `./EnclosurePass`).
           drawGraceNotes(pass, groups[gi].slots, groups[gi].staveNotes, measure.number, staffIndex, clefForBeat, key)
         }
 

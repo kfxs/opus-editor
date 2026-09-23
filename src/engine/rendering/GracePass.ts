@@ -55,6 +55,7 @@ import { graceDotXs, graceLayout, graceScale, graceStemSpaces, hostLeftReach, ty
 import { displayedAccidentals } from '@/utils/accidentalState'
 import { beforeSideLayout } from '@/engine/layout/bracketedRoom'
 import { drawBracketedGraces } from './BracketedGracePass'
+import { drawEnclosures } from './EnclosurePass'
 import { staffLineForSpelling } from '@/utils/clefUtils'
 import { spellingDiatonicPos, spellingToMidi, spellingToNoteKey } from '@/utils/pitchSpelling'
 import { C_MAJOR } from '@/utils/keySignature'
@@ -84,6 +85,9 @@ export function drawGraceNotes(
   /** The key governing this lane's bar — the graces' signs are decided with the notes' (one walk). */
   key: KeySignature = C_MAJOR,
 ): void {
+  // ⭐ The brackets of the lane's PARENTHESISED heads (`./EnclosurePass`) — drawn from here, the lane's
+  //    one pass over the notes just drawn, so the renderer's loop stays one call wide.
+  drawEnclosures(pass, slots, staveNotes, clefForBeat, key)
   // ⭐ The chord's BRACKETED graces first — the rest of its before side (`./BracketedGracePass`).
   drawBracketedGraces(pass, slots, staveNotes, measureNumber, staffIndex, clefForBeat, key)
   if (!slots.some(s => s.graceBefore)) return

@@ -41,6 +41,7 @@ import { edgeKind, mergedReach, type InkBox } from './kerning'
 import type { Column } from './spacing'
 import { graceScale, graceStemSpaces, hostLeftReach } from './graceRoom'
 import { BRACKETED_ROWS, beforeSideLayout, bracketedAfterLayout, hostRightReach } from './bracketedRoom'
+import { enclosureLayout } from './headEnclosure'
 
 /** Canonical key for an exact beat — `fracCreate` reduces, so equal beats stringify equally. */
 const beatKey = (beat: Fraction): string => `${beat.num}/${beat.den}`
@@ -238,6 +239,14 @@ function slotInk(slot: ChordRest, signs: Map<string, string | null>, clef: Clef,
         staff,
       })
     }
+  }
+
+  // ⭐ A PARENTHESISED head's brackets (`layout/headEnclosure` — the same call the drawing stands them
+  //   with): one box per pair, the outermost ink on both sides.
+  const enclosure = enclosureLayout(slot, id => signs.get(id), clef)
+  for (const pair of enclosure?.pairs ?? []) {
+    const y = yOfLine(pair.line)
+    boxes.push({ left: enclosure!.left, right: enclosure!.right, top: y - enclosure!.up, bottom: y + enclosure!.down, kind: 'enclosure', staff })
   }
 
   boxes.push(...graceInk(slot, pitches, signs, clef, staff))

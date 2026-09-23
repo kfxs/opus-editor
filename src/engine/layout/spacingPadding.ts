@@ -81,8 +81,12 @@ const dotInk = (): number => glyphBox('augmentationDot').right
  * stands at its notehead's right edge, so it never reaches past ink that is already counted. What it
  * does is *block* — it is the piece hanging through the space a low accidental would otherwise tuck
  * into, and a horizontal-only ink model had no reason to name it.
+ *
+ * ⭐ `enclosure` — a PARENTHESISED head's brackets (`layout/headEnclosure`), the outermost ink on both
+ * sides of its chord. It takes {@link pairPadding}'s default rows as they stand (⏳ unresearched — his
+ * eye, `docs/plans/parenthesised-note-plan.md` P1) and kerns with nothing.
  */
-export type InkKind = 'note' | 'rest' | 'accidental' | 'dot' | 'ledger' | 'stem' | 'flag' | 'barline' | 'grace'
+export type InkKind = 'note' | 'rest' | 'accidental' | 'dot' | 'ledger' | 'stem' | 'flag' | 'barline' | 'grace' | 'enclosure'
 
 /**
  * The ink an event's own glyphs take, in staff spaces, measured off the drawing (see the header).

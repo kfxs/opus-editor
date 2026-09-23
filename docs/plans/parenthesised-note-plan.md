@@ -1,10 +1,10 @@
 # The parenthesised note — a head in brackets, still a real note: the plan
 
-> **Status (2026-09-23): P0 BUILT** (the model — `NotePitch.enclosure`, `models/enclosureOps`,
-> `commands/enclosureCommands` as `engine.enclosure`, the load report, the copy sites). Nothing is DRAWN
-> yet: P1 is next. The research is `docs/research/parenthesised-note-research.md` (§0 = the synthesis). ⛔ This plan is where the decisions get made: §0 marks each one
-> ✅ DECIDED (his word, with the date) or ⏳ PROPOSED. A proposed row is a default, not a decision.
-> N3 · N6 · N11 were his calls, made 2026-09-23 (§4).
+> **Status (2026-09-23): P0 committed; P1 BUILT, ⏸️ his UI check.** The `paren.` button (dev toolbar,
+> `Note:` group) toggles brackets on the selected notes; `layout/headEnclosure` places them and reserves
+> their room; `rendering/EnclosurePass` stamps them (called from `GracePass.drawGraceNotes`, the lane's
+> one pass over the drawn notes — a call in `ScoreRenderer` itself counts a `clef` word against
+> `lint:hubs`). The research is `docs/research/parenthesised-note-research.md` (§0 = the synthesis).
 >
 > ⚠️ **The UI is the dev shell's** (`src/dev/devToolbar.ts`), his call: a dedicated button first. The
 > Keypad's Grace-page key `1` (`parenthesised note`, `docs/research/sibelius-keypad.md` §3b + §6) stays
@@ -75,8 +75,14 @@ export type HeadEnclosure = 'round'
   for every piece. The brackets are now part of the match. Type, field, projection, the ops, the command with undo, the JSON check, the
   audit of the pitch-copy sites. Specs: the op on a chord head, a grace head, a fan member; the refusal
   on a bracketed grace; undo; copy/paste and rebar keep it.
-- **P1: seen on the page.** The dev button (selection → toggle), and a single full-size head with no
-  accidental and no dots drawn in brackets, with its room. ⏸️ His eye: the form (N8) and gaps (N9).
+- ✅ **P1: seen on the page** (built 2026-09-23, ⏸️ his eye: the form N8 and gaps N9). The dev button
+  (selection → toggle, notes and graces selected alike — a grace's brackets are not DRAWN until P3), and
+  the brackets round a chord's heads with their room. Went further than planned, since the layout had
+  to know the chord's ink anyway: the accidental, dots and head's own ledger are already INSIDE (N4),
+  a chord's pairs stand in two straight columns (they clear the WHOLE chord, MuseScore's rule), and a
+  grace before / bracketed grace after a bracketed note clears the brackets. ⚠️ The accidental still
+  stands at its OWN gap from the head (the house row), not Gould's 0.53; a stem-down chord's displaced
+  second is not counted on the left — both P2.
 - **P2: the rest of a normal note.** Accidental and dots inside (N4), a chord's pair per head (N3), a
   second's displaced head, ledger lines, both stem directions, a bar's first note (the barline gap).
 - **P3: graces.** `GracePass` + `graceRoom`, at the grace's scale.

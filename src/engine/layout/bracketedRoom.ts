@@ -17,6 +17,7 @@ import { staffLineForSpelling } from '@/utils/clefUtils'
 import { glyphBox, noteheadInk, type GlyphName } from '@/engine/fonts/fontMetrics'
 import { INK, accidentalExtent, dotExtent } from './spacingPadding'
 import { graceLayout, type GraceLayout, type GraceRow, type SignOf } from './graceRoom'
+import { enclosureLayout } from './headEnclosure'
 
 /**
  * ⭐ **The size of the head, against a full note** (B7) — its OWN row, so choosing Gould's trill note
@@ -232,7 +233,9 @@ export function hostRightReach(chord: Chord, clef: Clef, upFlag = false): HostRi
   const ledger = chord.notes.some(p => onLedger(staffLineForSpelling(p.step, p.octave, clef))) ? heads + INK.ledgerRight - INK.notehead : 0
   const dots = dotExtent(chord.dots ?? 0)
   const flag = upFlag ? INK.notehead + INK.flagReach : 0
-  return { reach: Math.max(heads, ledger, dots, flag), dotted: dots > 0 && dots >= Math.max(heads, ledger, flag) }
+  // …or its BRACKETS, when a head is parenthesised (`layout/headEnclosure`) — which enclose its dots.
+  const brackets = enclosureLayout(chord, () => null, clef)?.right ?? 0
+  return { reach: Math.max(heads, ledger, dots, flag, brackets), dotted: dots > 0 && dots >= Math.max(heads, ledger, flag, brackets) }
 }
 
 /** One bracketed grace's shape, relative to its HEAD's anchor — the same for either side. */
