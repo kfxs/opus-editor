@@ -14,7 +14,7 @@
  * WHICH WAY the arc bows is {@link ./tieDirection}; WHERE it attaches is {@link ./tieEndpoints};
  * whether a staff line runs through it is {@link ./tieStaffLineClearance}. This file draws.
  */
-import type { Score } from '@/types/music'
+import type { Chord, Score } from '@/types/music'
 import { effectiveClefAt } from '@/utils/clefUtils'
 import type { RenderPass } from '../RenderPass'
 import { drawGroupOf, svgNode } from '../painter/svgDrawGroup'
@@ -22,6 +22,7 @@ import { drawCurveArc } from './curveArc'
 import { CURVE_PX } from './curveStyle'
 import { tieSide } from './tieDirection'
 import { tieEndpointX, tieEndpointY, type TieHead } from './tieEndpoints'
+import { chordEnclosure } from '@/engine/layout/headEnclosure'
 import { tieArcGrowth } from './tieStaffLineClearance'
 import { lineLeftCurveX, lineRightEdgeX } from '../staff/systemEdges'
 import { staffIndexOfId } from '@/engine/models/staffContent'
@@ -46,6 +47,12 @@ function headOf(ruler: NoteRuler, noteIndex: number): TieHead | null {
     rightX: ruler.headRightX,
     headY,
   }
+}
+
+/** What a parenthesised end's brackets must clear of its drawn stem (`layout/headEnclosure`). */
+function stemOf(ruler: NoteRuler): { stemDown: boolean; upFlag: boolean } {
+  const stemDown = ruler.stemDirection === -1
+  return { stemDown, upFlag: !stemDown && ruler.hasFlag }
 }
 
 /** Every staff line's y, for the clearance test. Empty when the stave isn't laid out yet. */
@@ -127,10 +134,12 @@ export function renderTies(pass: RenderPass, score: Score): void {
             const fromMeasure = slot.measure
             // Find the measure containing the target pitch
             let toMeasure: number | undefined
+            let toChord: Chord | undefined
             outer: for (const m of score.measures) {
               for (const s of m.slots) {
                 if (s.type === 'chord' && s.notes.some(p => p.id === pitch.tiedTo)) {
                   toMeasure = m.number
+                  toChord = s
                   break outer
                 }
                 if (s.type === 'rest' && s.id === pitch.tiedTo) {
@@ -168,6 +177,19 @@ export function renderTies(pass: RenderPass, score: Score): void {
             const fromHead = headOf(noteRuler(fromInfo.staveNote), fromInfo.noteIndex)
             const toHead = headOf(noteRuler(toInfo.staveNote), toInfo.noteIndex)
             if (!fromHead || !toHead) continue
+            // ⭐ A PARENTHESISED end: the tie runs OUTSIDE its brackets (`layout/headEnclosure`, the layout
+            //   the drawing stood them with) — from past `)`, to short of `(`.
+            const fromSpace = noteFrame(fromInfo.staveNote)?.spacePx ?? STAFF_SPACE_PX
+            const toSpace = noteFrame(toInfo.staveNote)?.spacePx ?? STAFF_SPACE_PX
+            if (pitch.enclosure) {
+              const layout = chordEnclosure(score, slot, effectiveClefAt(score, fromMeasure, slot.beat, slot.staffId), stemOf(noteRuler(fromInfo.staveNote)))
+              if (layout) fromHead.bracketX = fromHead.leftX + layout.right * fromSpace
+            }
+            const toPitch = toChord?.notes.find(p => p.id === pitch.tiedTo)
+            if (toChord && toPitch?.enclosure) {
+              const layout = chordEnclosure(score, toChord, effectiveClefAt(score, toChord.measure, toChord.beat, toChord.staffId), stemOf(noteRuler(toInfo.staveNote)))
+              if (layout) toHead.bracketX = toHead.leftX - layout.left * toSpace
+            }
 
             // One SVG group per tie (keyed by its from-note id; both cross-line partials
             // live inside it) so the selection highlight can recolor exactly this tie
@@ -216,8 +238,8 @@ export function renderTies(pass: RenderPass, score: Score): void {
 
               if (sameLine) {
                 register(drawTieArc(pass, {
-                  firstX: tieEndpointX(fromHead, 'from'),
-                  lastX: tieEndpointX(toHead, 'to'),
+                  firstX: tieEndpointX(fromHead, 'from', fromSpace),
+                  lastX: tieEndpointX(toHead, 'to', toSpace),
                   y: tieEndpointY(fromHead.headY, tieDirection) + nudgeY,
                   direction: tieDirection,
                 }, noteFrame(fromInfo.staveNote)), fromLine)
@@ -235,7 +257,7 @@ export function renderTies(pass: RenderPass, score: Score): void {
                 const leftEdge = lineLeftCurveX(pass, toLine)
                 if (rightEdge !== undefined) {
                   register(drawTieArc(pass, {
-                    firstX: tieEndpointX(fromHead, 'from'),
+                    firstX: tieEndpointX(fromHead, 'from', fromSpace),
                     lastX: rightEdge / scale,
                     y: tieEndpointY(fromHead.headY, tieDirection) + nudgeY,
                     direction: tieDirection,
@@ -244,7 +266,7 @@ export function renderTies(pass: RenderPass, score: Score): void {
                 if (leftEdge !== undefined) {
                   register(drawTieArc(pass, {
                     firstX: leftEdge / scale,
-                    lastX: tieEndpointX(toHead, 'to'),
+                    lastX: tieEndpointX(toHead, 'to', toSpace),
                     y: tieEndpointY(toHead.headY, tieDirection) + nudgeY,
                     direction: tieDirection,
                   }, noteFrame(toInfo.staveNote)), toLine, 'start')

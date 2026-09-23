@@ -15,8 +15,12 @@
  * ⛔ Every number is one house style's DEFAULT, a changeable row (`CLAUDE.md`). They are Gould's, MEASURED
  * off her full-size drawings (research B.3); no book states one.
  */
-import type { Clef, HeadEnclosure, NotePitch } from '@/types/music'
+import type { Chord, Clef, HeadEnclosure, NotePitch, Score } from '@/types/music'
 import { spellingDiatonicPos } from '@/utils/pitchSpelling'
+import { displayedAccidentals } from '@/utils/accidentalState'
+import { keyAt } from '@/utils/keySignature'
+import { voiceOf } from '@/utils/lanes'
+import { fracCompare } from '@/utils/fraction'
 import { staffLineForSpelling } from '@/utils/clefUtils'
 import { glyphBox, type GlyphName } from '@/engine/fonts/fontMetrics'
 import { INK, accidentalExtent, dotExtent } from './spacingPadding'
@@ -47,6 +51,9 @@ export const ENCLOSURE_ROWS = {
   ledger: { value: 0.38, source: 'Gould p. 308: “(” → ledger 0.38 sp; ⚠️ her ledger → “)” measures 0.15 (p. 337) and 0.6 (p. 308) — the left side’s number, both sides' },
   /** The last dot → `)`. */
   dot: { value: 0.53, source: '⏳ unsourced — Gould p. 497 draws `𝅗𝅥.)` unmeasured; the head’s row' },
+  /** An UP-flag's ink → `)` — the flag hangs from the stem tip to ≈0.2 sp above the head, right through
+   *  where `)` stands. */
+  flag: { value: 0.3, source: 'MuseScore’s paren padding against a HOOK, 0.3 sp (`parenthesislayout.cpp:237-259`, research A.5)' },
 } as const satisfies Record<string, Row>
 
 /** One head's pair. x's are GLYPH ORIGINS, staff spaces from the chord's notehead anchor. */
@@ -74,6 +81,11 @@ export interface EnclosureLayout {
 export interface EnclosedChord {
   notes: readonly NotePitch[]
   dots?: number
+  /** ⭐ Its stem is DOWN — a second then pushes a head to the LEFT of the anchor instead of the right
+   *  (`engrave/notes/noteGeometry.displacedHeadRoom`). Absent = up. */
+  stemDown?: boolean
+  /** ⭐ It DRAWS an up-flag (the beaming rule's answer, which each caller has) — `)` then stands past it. */
+  upFlag?: boolean
 }
 
 const onLedger = (line: number): boolean => line <= 0 || line >= 6
@@ -85,7 +97,8 @@ const onLedger = (line: number): boolean => line <= 0 || line >= 6
  * head — each with its own row of white. Right: past the heads (a second's displaced one too), a ledger's
  * end, or the dots.
  *
- * ⚠️ P1: a stem-DOWN chord's displaced second (its head LEFT of the anchor) is not counted yet (P2).
+ * A SECOND displaces one head across the stem: to the RIGHT for a stem up, to the LEFT for a stem down —
+ * and on the left, the accidentals stand beyond the displaced head too, so every left candidate moves.
  */
 export function enclosureLayout(chord: EnclosedChord, signOf: (pitchId: string) => string | null | undefined, clef: Clef): EnclosureLayout | null {
   const enclosed = chord.notes.filter(p => p.enclosure)
@@ -99,10 +112,11 @@ export function enclosureLayout(chord: EnclosedChord, signOf: (pitchId: string) 
   })
   const positions = chord.notes.map(p => spellingDiatonicPos(p.step, p.octave)).sort((a, b) => a - b)
   const hasSecond = positions.some((position, i) => i > 0 && position - positions[i - 1] === 1)
-  const heads = hasSecond ? INK.secondDisplacement + INK.notehead : INK.notehead
+  const displacedLeft = hasSecond && chord.stemDown ? INK.secondDisplacement : 0
+  const heads = hasSecond && !chord.stemDown ? INK.secondDisplacement + INK.notehead : INK.notehead
 
   // Each candidate edge is (how far its ink reaches) + (the white a bracket keeps from THAT ink).
-  const leftEdge = Math.max(
+  const leftEdge = displacedLeft + Math.max(
     ENCLOSURE_ROWS.head.value,
     signs.length ? accidentalExtent(signs) + ENCLOSURE_ROWS.accidental.value : 0,
     ledgered ? INK.ledgerLeft + ENCLOSURE_ROWS.ledger.value : 0,
@@ -111,6 +125,7 @@ export function enclosureLayout(chord: EnclosedChord, signOf: (pitchId: string) 
     heads + ENCLOSURE_ROWS.head.value,
     ledgered ? heads + INK.ledgerRight - INK.notehead + ENCLOSURE_ROWS.ledger.value : 0,
     chord.dots ? dotExtent(chord.dots) + ENCLOSURE_ROWS.dot.value : 0,
+    chord.upFlag ? INK.notehead + INK.flagReach + ENCLOSURE_ROWS.flag.value : 0,
   )
 
   let left = 0
@@ -132,4 +147,20 @@ export function enclosureLayout(chord: EnclosedChord, signOf: (pitchId: string) 
     return { pitch, shape, line: staffLineForSpelling(pitch.step, pitch.octave, clef), leftParenX, rightParenX }
   })
   return { pairs, left, right, up, down }
+}
+
+/**
+ * ⭐ {@link enclosureLayout} for a chord read out of the SCORE — for a reader that stands outside the bar's
+ * pass (a TIE, which must leave from outside `)`: Gould p. 610, MuseScore's tie clears the brackets,
+ * research B.5 / A.4). Its signs are read from the chord's own LANE (its staff and voice, the bar's key),
+ * the same lane the drawing read them from. Null when the chord wears no brackets.
+ */
+export function chordEnclosure(score: Score, chord: Chord, clef: Clef, stem: { stemDown?: boolean; upFlag?: boolean } = {}): EnclosureLayout | null {
+  if (!chord.notes.some(p => p.enclosure)) return null
+  const measure = score.measures.find(m => m.number === chord.measure)
+  const lane = (measure?.slots ?? [])
+    .filter(s => s.staffId === chord.staffId && voiceOf(s) === voiceOf(chord))
+    .sort((a, b) => fracCompare(a.beat, b.beat))
+  const signs = displayedAccidentals(lane, keyAt(score, chord.measure, chord.staffId))
+  return enclosureLayout({ notes: chord.notes, dots: chord.dots, ...stem }, id => signs.get(id), clef)
 }

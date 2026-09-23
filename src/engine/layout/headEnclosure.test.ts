@@ -1,8 +1,11 @@
 import { describe, it, expect } from 'vitest'
-import { ENCLOSURE_GLYPHS, ENCLOSURE_ROWS, enclosureLayout } from './headEnclosure'
+import { ENCLOSURE_GLYPHS, ENCLOSURE_ROWS, chordEnclosure, enclosureLayout } from './headEnclosure'
+import { ScoreModel } from '@/engine/models/ScoreModel'
+import { setEnclosure } from '@/engine/models/enclosureOps'
+import { fracCreate as frac } from '@/utils/fraction'
 import { INK, accidentalExtent, dotExtent } from './spacingPadding'
 import { glyphBox } from '@/engine/fonts/fontMetrics'
-import type { NotePitch, PitchStep } from '@/types/music'
+import type { Chord, NotePitch, PitchStep } from '@/types/music'
 
 /**
  * Subject: `./headEnclosure` — where a parenthesised head's brackets stand and the room they take
@@ -58,9 +61,31 @@ describe('enclosureLayout', () => {
     expect(layout.pairs[0].rightParenX).toBe(layout.pairs[1].rightParenX)
   })
 
+  it('⭐ a STEM-DOWN second displaces its head to the LEFT: `(` moves out, `)` does not', () => {
+    const single = enclosureLayout({ notes: [pitch('a', 'D', 5)], stemDown: true }, none, 'treble')!
+    const second = enclosureLayout({ notes: [pitch('a', 'D', 5), pitch('b', 'E', 5, false)], stemDown: true }, none, 'treble')!
+    expect(single.pairs[0].leftParenX - second.pairs[0].leftParenX).toBeCloseTo(INK.secondDisplacement, 9)
+    expect(second.pairs[0].rightParenX).toBeCloseTo(single.pairs[0].rightParenX, 9)
+  })
+
+  it('⭐ an UP-FLAG: `)` stands past the flag by the flag row (it hangs through where `)` would be)', () => {
+    const layout = enclosureLayout({ notes: [pitch('a', 'G', 4)], upFlag: true }, none, 'treble')!
+    expect(layout.pairs[0].rightParenX - R.left).toBeCloseTo(INK.notehead + INK.flagReach + ENCLOSURE_ROWS.flag.value, 9)
+  })
+
   it('a SECOND puts the right bracket past the displaced head', () => {
     const single = enclosureLayout({ notes: [pitch('a', 'B', 4)] }, none, 'treble')!
     const second = enclosureLayout({ notes: [pitch('a', 'B', 4), pitch('b', 'C', 5, false)] }, none, 'treble')!
     expect(second.pairs[0].rightParenX - single.pairs[0].rightParenX).toBeCloseTo(INK.secondDisplacement, 9)
+  })
+
+  it('chordEnclosure reads the chord\'s drawn sign from its LANE — a second sharp in the bar draws none', () => {
+    const model = new ScoreModel()
+    model.addNote({ step: 'F', alter: 1, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const b = model.addNote({ step: 'F', alter: 1, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
+    setEnclosure(model.getScore(), [b.id], 'round')
+    const chord = model.getScore().measures[0].slots.find(s => s.type === 'chord' && s.notes[0].id === b.id) as Chord
+    const bare = enclosureLayout({ notes: chord.notes }, none, 'treble')!
+    expect(chordEnclosure(model.getScore(), chord, 'treble')!.left).toBeCloseTo(bare.left, 9)
   })
 })

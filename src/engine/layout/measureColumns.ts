@@ -243,7 +243,8 @@ function slotInk(slot: ChordRest, signs: Map<string, string | null>, clef: Clef,
 
   // ⭐ A PARENTHESISED head's brackets (`layout/headEnclosure` — the same call the drawing stands them
   //   with): one box per pair, the outermost ink on both sides.
-  const enclosure = enclosureLayout(slot, id => signs.get(id), clef)
+  const up = stemUp(slot, clef, multiVoice)
+  const enclosure = enclosureLayout({ notes: pitches, dots: slot.dots, stemDown: !up, upFlag: flagged && up }, id => signs.get(id), clef)
   for (const pair of enclosure?.pairs ?? []) {
     const y = yOfLine(pair.line)
     boxes.push({ left: enclosure!.left, right: enclosure!.right, top: y - enclosure!.up, bottom: y + enclosure!.down, kind: 'enclosure', staff })

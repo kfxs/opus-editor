@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { tieEndpointX, tieEndpointY, type TieHead } from './tieEndpoints'
+import { TIE_BRACKET_CLEARANCE_SP, tieEndpointX, tieEndpointY, type TieHead } from './tieEndpoints'
 import { CURVE, CURVE_PX } from './curveStyle'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 
@@ -34,5 +34,18 @@ describe('tieEndpointY — settled, and here so both coordinates live together',
     expect(tieEndpointY(50, -1)).toBeCloseTo(50 - CURVE_PX.tieLift, 6)
     expect(tieEndpointY(50, 1)).toBeCloseTo(50 + CURVE_PX.tieLift, 6)
     expect(CURVE.tieLift).toBe(0.70)
+  })
+})
+
+describe('tieEndpointX — a PARENTHESISED head: the tie runs outside its brackets (Gould p. 610)', () => {
+  it('⭐ leaves from past `)` and lands short of `(`, by the clearance row', () => {
+    const from = { ...head(100, 50), bracketX: 120 }
+    const to = { ...head(200, 50), bracketX: 180 }
+    expect(tieEndpointX(from, 'from')).toBeCloseTo(120 + TIE_BRACKET_CLEARANCE_SP * SP, 9)
+    expect(tieEndpointX(to, 'to')).toBeCloseTo(180 - TIE_BRACKET_CLEARANCE_SP * SP, 9)
+  })
+
+  it('a bracket INSIDE the usual tip changes nothing — the tip already stands clear', () => {
+    expect(tieEndpointX({ ...head(100, 50), bracketX: 90 }, 'from')).toBe(tieEndpointX(head(100, 50), 'from'))
   })
 })

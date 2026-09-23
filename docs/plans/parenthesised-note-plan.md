@@ -1,9 +1,9 @@
 # The parenthesised note — a head in brackets, still a real note: the plan
 
-> **Status (2026-09-23): P0 committed; P1 BUILT, ⏸️ his UI check.** The `paren.` button (dev toolbar,
-> `Note:` group) toggles brackets on the selected notes; `layout/headEnclosure` places them and reserves
-> their room; `rendering/EnclosurePass` stamps them (called from `GracePass.drawGraceNotes`, the lane's
-> one pass over the drawn notes — a call in `ScoreRenderer` itself counts a `clef` word against
+> **Status (2026-09-23): P0 + P1 committed; P2 BUILT, ⏸️ his UI check.** The `paren.` button (dev
+> toolbar, `Note:` group) toggles brackets on the selected notes; `layout/headEnclosure` places them and
+> reserves their room; `rendering/EnclosurePass` stamps them (called from `GracePass.drawGraceNotes`, the
+> lane's one pass over the drawn notes — a call in `ScoreRenderer` itself counts a `clef` word against
 > `lint:hubs`). The research is `docs/research/parenthesised-note-research.md` (§0 = the synthesis).
 >
 > ⚠️ **The UI is the dev shell's** (`src/dev/devToolbar.ts`), his call: a dedicated button first. The
@@ -83,8 +83,20 @@ export type HeadEnclosure = 'round'
   grace before / bracketed grace after a bracketed note clears the brackets. ⚠️ The accidental still
   stands at its OWN gap from the head (the house row), not Gould's 0.53; a stem-down chord's displaced
   second is not counted on the left — both P2.
-- **P2: the rest of a normal note.** Accidental and dots inside (N4), a chord's pair per head (N3), a
-  second's displaced head, ledger lines, both stem directions, a bar's first note (the barline gap).
+- ✅ **P2: the rest of a normal note** (built 2026-09-23, ⏸️ his eye). On top of P1's accidental, dots,
+  ledger and chord columns:
+  - a **stem-down second** pushes `(` out by the displaced head (its head stands LEFT of the anchor,
+    `engrave/notes/noteGeometry.displacedHeadRoom`); a stem-up one pushes `)`;
+  - an **up-flag** hangs through where `)` stands, so `)` stands past it by MuseScore's hook padding,
+    0.3 sp (a row, `flag`);
+  - a **tie** runs OUTSIDE the brackets (Gould p. 610; MuseScore): it leaves 0.2 sp past `)` and lands
+    0.2 sp short of `(` (`TIE_BRACKET_CLEARANCE_SP`, ⏳ unsourced, a row). `TieRenderer` asks
+    `headEnclosure.chordEnclosure`, the same layout the drawing used;
+  - a bar's FIRST note: the lead-in already merges every ink box of the opening column, so the barline
+    clears `(` with no change.
+  - ⏳ **Left as it is, for his eye:** the accidental keeps the house gap from its head (Gould's p. 337
+    measures 0.53 inside brackets); two VOICES in one column each place their own brackets, not against
+    each other.
 - **P3: graces.** `GracePass` + `graceRoom`, at the grace's scale.
 - **P4: selection ink.** The highlight colours the brackets with their note.
 - **P5: the chord switch (N3).** `enclosureSpan`, one tall pair round the bracketed heads, and its Properties control.

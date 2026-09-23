@@ -28,6 +28,7 @@
  * one place, the way the slur's are.
  */
 import { CURVE_PX } from './curveStyle'
+import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 
 /** One end of a tie, as the numbers this module needs — the drawn notehead, in px. */
 export interface TieHead {
@@ -36,15 +37,28 @@ export interface TieHead {
   rightX: number
   /** The notehead's centre y. */
   headY: number
+  /**
+   * ⭐ When this head is PARENTHESISED, the OUTER ink edge of the bracket on the tie's side — `)` at the
+   * tie's start, `(` at its end, px. The tie runs OUTSIDE its brackets (Gould p. 610: the tie to the next
+   * bar leaves after `)`, the incoming one ends at `(`; MuseScore's tie clears them too — research B.5,
+   * A.4). Absent = a bare head.
+   */
+  bracketX?: number
 }
+
+/** ⭐ The white between a bracket's ink and the tie that leaves it, STAFF SPACES. ⏳ UNSOURCED — Gould p. 610 draws
+ *  it (the tie leaves after `)`) but was not measured; a row, for his eye. */
+export const TIE_BRACKET_CLEARANCE_SP = 0.2
 
 /** Where the arc springs from (`from`) or lands (`to`): a quarter space in from the head's centre,
  *  toward the other end. */
-export function tieEndpointX(head: TieHead, end: 'from' | 'to'): number {
+export function tieEndpointX(head: TieHead, end: 'from' | 'to', spacePx = STAFF_SPACE_PX): number {
   const centre = (head.leftX + head.rightX) / 2
+  const clearance = TIE_BRACKET_CLEARANCE_SP * spacePx
+  // ⭐ …or, for a PARENTHESISED head, just outside its bracket.
   return end === 'from'
-    ? centre + CURVE_PX.tieEndpointInset
-    : centre - CURVE_PX.tieEndpointInset
+    ? Math.max(centre + CURVE_PX.tieEndpointInset, head.bracketX === undefined ? -Infinity : head.bracketX + clearance)
+    : Math.min(centre - CURVE_PX.tieEndpointInset, head.bracketX === undefined ? Infinity : head.bracketX - clearance)
 }
 
 /** The flat y both endpoints share: lifted off the notehead's centre, on the side the tie bows. */
