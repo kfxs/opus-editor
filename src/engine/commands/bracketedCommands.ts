@@ -16,6 +16,9 @@ import {
   type BracketedSpelling, type FoundBracketed,
 } from '../models/bracketedGraceOps'
 import type { CommandContext } from './commandContext'
+import { offsetTargetOf } from '../models/slotLookup'
+import { nudgeNoteOffset } from '../models/overrideOps'
+import { noteOffsetOverrideOf } from '../models/engravingOverrides'
 
 export type BracketedCommands = ReturnType<typeof bracketedCommands>
 
@@ -109,6 +112,29 @@ export function bracketedCommands(ctx: CommandContext) {
       const changed = setBracketedPitch(score(), pitchId, spelling)
       if (changed) ctx.mutate('Bracketed pitch')
       return changed
+    },
+
+    /**
+     * ⭐ One FRAME of a bracketed grace's horizontal drag: set its offset to `x` staff spaces, recording no
+     * undo entry — {@link commitOffset} records the one on drop. The grace's `previewOffset`, for the
+     * grace's reason: it has no column of its own, so the drag that spaces a note's column offsets it.
+     * @returns whether the offset changed — refused when not a bracketed grace, unchanged, or off the page.
+     */
+    previewOffset(pitchId: string, x: number): boolean {
+      const s = score()
+      if (!isBracketedGrace(s, pitchId)) return false
+      const target = offsetTargetOf(s, pitchId)
+      if (!target) return false
+      const dx = Math.round(x * 100) / 100 - (noteOffsetOverrideOf(s, target.key)?.x ?? 0)
+      if (dx === 0 || !ctx.limits.nudgeStaysOnPage('note', pitchId, dx, 0)) return false
+      nudgeNoteOffset(s, target.key, dx)
+      ctx.markDirty()
+      return true
+    },
+
+    /** The ONE undo entry for an offset drag whose frames went through {@link previewOffset}. */
+    commitOffset(): void {
+      ctx.commitPreviewed('Nudge bracketed grace')
     },
 
     /** Is this id a bracketed grace's pitch? */

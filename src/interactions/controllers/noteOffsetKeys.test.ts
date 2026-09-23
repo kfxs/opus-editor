@@ -62,4 +62,18 @@ describe('noteOffsetKeys — the note offset on the keys', () => {
     select('gone')
     expect(selectedHasNoColumn(engine, state)).toBe(false)
   })
+
+  it('⭐ a BRACKETED grace has no column either — Ctrl+←/→ OFFSET it, Ctrl+Backspace resets it (his ask, 2026-09-23)', () => {
+    const b = engine.bracketed.add(note, 'before', { step: 'B', alter: -1, octave: 4 })!.pitches[0].id
+    select(b)
+    expect(selectedHasNoColumn(engine, state)).toBe(true)
+    expect(nudgeSelectedNoteOffset(engine, state, -0.5, render)).toBe(true)
+    expect(engine.getNoteOffset(b)).toBe(-0.5)
+    expect(engine.getNoteOffset(note)).toBe(0) // its note stays put
+    expect(resetSelectedNoteOffset(engine, state, render)).toBe(true)
+    expect(engine.getNoteOffset(b)).toBe(0)
+    engine.nudgeNoteOffset(b, 1)
+    engine.bracketed.remove([b])
+    expect(engine.getScore().engravingOverrides?.[b]).toBeUndefined() // its offset went with it
+  })
 })

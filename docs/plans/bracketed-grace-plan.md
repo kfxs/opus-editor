@@ -149,6 +149,13 @@ re-pitch it through the same path a grace uses (`slotLookup` learns to find the 
   that the bracket goes with its target where the target survives, and is dropped (logged) where it
   does not. (✅ already decided: a note silenced keeps its `bracketedBefore` on the rest, and a note
   taking a rest's place takes the rest's — B10 reversed, `restGraceOps`.)
+- 🔨 **Its horizontal OFFSET** (built 2026-09-23, ⏸️ his UI check — his ask: *"horizontal offset to the bracket
+  similar to [grace] on drag horizontal, ctr arrow and in the properties … (we need also ctr backspace)"*).
+  The grace's offset exactly: keyed by its FIRST pitch id (`slotLookup.offsetTargetOf`), ink only — the room
+  stays; its hit box moves with it; its own row in the redraw key. A horizontal DRAG offsets it
+  (`bracketedCommands.previewOffset` / `commitOffset`, one undo entry on the drop); it has no column, so
+  Ctrl+←/→ offset it and Ctrl+Backspace resets it (`noteOffsetKeys`); the Properties window reports it as
+  `bracketed`, with the offset row. Removed or toggled off, its offset goes with it.
 - ⏭️ **FUTURE — the side in PROPERTIES** (his proposal, 2026-09-23 — ⛔ not built, recorded here so it is
   not lost): *"in the properties we will have a way to place the bracket before or after the target,
   default is before as now and the user can change it in properties"*. So the stamp keeps entering it

@@ -45,6 +45,19 @@ export function bracketedPitchesOf(slot: ChordRest): NotePitch[] {
   return out
 }
 
+/** Every bracketed grace a SLOT carries, in the drawing's left-to-right order — {@link bracketedPitchesOf}'s
+ *  walk, one entry per bracketed grace (the redraw key reads each one's offset). */
+export function bracketedListsOf(slot: ChordRest): BracketedGrace[] {
+  const out: BracketedGrace[] = []
+  for (const grace of slot.graceBefore?.notes ?? []) out.push(...(grace.bracketedBefore ?? []))
+  out.push(...(slot.bracketedBefore ?? []))
+  if (slot.type === 'chord') {
+    out.push(...(slot.bracketedAfter ?? []))
+    for (const grace of slot.graceAfter?.notes ?? []) out.push(...(grace.bracketedBefore ?? []))
+  }
+  return out
+}
+
 function pushPitches(out: NotePitch[], list: readonly BracketedGrace[] | undefined): void {
   for (const b of list ?? []) out.push(...b.pitches)
 }

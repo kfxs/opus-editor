@@ -28,6 +28,7 @@ const PANELS: { readonly [K in InspectedElement['kind']]?: (element: InspectedOf
   note: noteRows,
   rest: noteRows,
   grace: noteRows,
+  bracketed: noteRows,
   clef: clefRows,
   dynamic: dynamicRows,
   tempo: tempoRows,

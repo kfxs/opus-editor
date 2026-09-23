@@ -205,8 +205,11 @@ export function projectAttackMarks(note: Note, attack: Attack): void {
  * with the grace"*).
  */
 export function offsetTargetOf(score: Score, noteId: string): { key: string; memberIndex: number } | undefined {
-  const found = findSlot(score, noteId, { fanMembers: true, graceNotes: true })
+  const found = findSlot(score, noteId, { fanMembers: true, graceNotes: true, bracketed: true })
   if (!found) return undefined
+  // ⭐ A BRACKETED grace is keyed the grace's way, by its own first pitch id, and moves alone (his ask,
+  //    2026-09-23: *"horizontal offset to the bracket similar to [grace]"*).
+  if (found.bracketed) return { key: found.bracketed.note.pitches[0].id, memberIndex: 0 }
   if (found.grace) return { key: found.grace.note.pitches[0].id, memberIndex: 0 }
   if (found.type === 'rest') return { key: found.rest.id, memberIndex: 0 }
   if (!found.member) return { key: found.chord.id, memberIndex: 0 }

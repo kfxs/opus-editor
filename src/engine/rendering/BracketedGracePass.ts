@@ -20,6 +20,7 @@ import type { EngravedStave } from './engraved/EngravedStave'
 import { EngravedAccidental } from './engraved/EngravedAccidental'
 import { maybeStaveOf, staveFrame } from './staff/staveFrame'
 import { openMemberGroup } from './memberGroup'
+import { noteOffsetOverrideOf } from '@/engine/models/engravingOverrides'
 import { spellingToMidi } from '@/utils/pitchSpelling'
 import { scaling } from '@/engine/paint/Affine'
 import { noteLineY, type StaffFrame } from '@/engine/engrave/staff/staffFrame'
@@ -89,7 +90,10 @@ function drawOne(
   const form = BRACKET_FORMS[bracketForm()]
   /** Staff px → the head's own px (inside its `scaling(k)` group). */
   const local = (v: number): number => v / k
-  const x = (sp: number): number => hostX + sp * space // staff px
+  // ⭐ + its hand OFFSET (keyed by its first pitch id, `slotLookup.offsetTargetOf` — the grace's way): ink
+  //    only — the room `beforeSideLayout` reserved stays, as a grace's offset leaves the bar's width alone.
+  const offset = noteOffsetOverrideOf(pass.score, place.bracketed.pitches[0]?.id ?? '')?.x ?? 0
+  const x = (sp: number): number => hostX + (sp + offset) * space // staff px
   const glyphWidth = (place.headWidth / k) * space // the head's own px: the transform scales it
   const leftParen = String.fromCodePoint(GLYPH_CODEPOINTS[form.left])
   const rightParen = String.fromCodePoint(GLYPH_CODEPOINTS[form.right])

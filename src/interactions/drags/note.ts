@@ -48,6 +48,7 @@ import { spellingToMidi } from '../../utils/pitchSpelling'
 import type { EditorState } from '../state/EditorState'
 import { entryAlteration } from '../../engine/models/entryAlteration'
 import { isGraceNote } from '../../engine/models/graceOps'
+import { isBracketedGrace } from '../../engine/models/bracketedGraceOps'
 import { DRAG_DISTANCE_THRESHOLD_PX, type DragHost, type Gesture } from './gesture'
 
 /** What the horizontal half needs, captured at the press. */
@@ -77,13 +78,17 @@ function grabSpacing(engine: MusicEngine, note: Note | undefined): SpacingGrab |
   }
 }
 
-/** A grabbed GRACE's offset at the press, and its staff's scale — null for anything else. */
+/** A grabbed GRACE's — or BRACKETED grace's — offset at the press, and its staff's scale; null for
+ *  anything else. Both have no column of their own: the horizontal drag offsets them. */
 function grabGraceOffset(
   engine: MusicEngine, note: Note | undefined,
-): { id: string; baseline: number; staffSpacePx: number } | null {
-  if (!note || !isGraceNote(engine.getScore(), note.id)) return null
+): { id: string; baseline: number; staffSpacePx: number; bracketed: boolean } | null {
+  if (!note) return null
+  const bracketed = isBracketedGrace(engine.getScore(), note.id)
+  if (!bracketed && !isGraceNote(engine.getScore(), note.id)) return null
   return {
     id: note.id,
+    bracketed,
     baseline: engine.getNoteOffset(note.id),
     staffSpacePx: engine.getElementRegistry().getStaffGeometry(note.measure, staffOf(note))?.lineSpacing ?? 10,
   }
@@ -109,7 +114,8 @@ export function beginNoteDrag(
   /** A GRACE has no column to space: its horizontal half is its OFFSET (his call, 2026-09-22). */
   const dragGraceOffset = (eng: MusicEngine, id: string, mx: number): void => {
     if (!graceOffset) return
-    if (eng.grace.previewOffset(id, graceOffset.baseline + (mx - x) / graceOffset.staffSpacePx)) {
+    const to = graceOffset.baseline + (mx - x) / graceOffset.staffSpacePx
+    if (graceOffset.bracketed ? eng.bracketed.previewOffset(id, to) : eng.grace.previewOffset(id, to)) {
       offsetChanged = true
       host.render.renderScore()
     }
@@ -170,7 +176,8 @@ export function beginNoteDrag(
           + ` → ${eng.getNoteSpacing(spacing.measure, spacing.beat)} ss`)
       }
       if (axis === 'spacing' && offsetChanged && eng && graceOffset) {
-        eng.grace.commitOffset()
+        if (graceOffset.bracketed) eng.bracketed.commitOffset()
+        else eng.grace.commitOffset()
         dbg(`Grace offset set | ${graceOffset.id} → ${eng.getNoteOffset(graceOffset.id)} ss`)
       }
       host.release()

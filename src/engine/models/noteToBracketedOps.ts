@@ -93,6 +93,8 @@ export function bracketedToNote(score: Score, pitchId: string): string | null {
   holder[key]!.splice(at.index, 1)
   if (holder[key]!.length === 0) delete holder[key]
   const pitches = at.note.pitches.map(p => ({ ...p }))
+  // Its hand offset goes with it — keyed by its FIRST pitch; a note's is keyed by its SLOT.
+  clearEngravingOverride(score, at.note.pitches[0].id, 'noteOffset')
 
   if (at.onGrace) {
     for (const old of at.onGrace.pitches) reanchorSlurs(score, old.id, pitches[0].id)

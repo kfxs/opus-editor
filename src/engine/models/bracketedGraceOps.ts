@@ -20,6 +20,7 @@ import { chordStoredPitches } from '@/utils/fannedBeam'
 import { GRACE_SIDES, graceGroupOf } from '@/utils/graceNotes'
 import { BRACKETED_SIDES, bracketedKey, bracketedOf, type BracketedSide, type BracketedTarget } from '@/utils/bracketedGraces'
 import { findSlot } from './slotLookup'
+import { clearEngravingOverride } from './overrideOps'
 
 /** A bracketed grace's written value when nothing says otherwise — a black head (Gould p. 418's picture). */
 export const BRACKETED_DEFAULT_DURATION: NoteDuration = 'q'
@@ -158,6 +159,8 @@ export function removeBracketed(score: Score, pitchId: string): boolean {
   const found = findBracketed(score, pitchId)
   if (!found) return false
   const { target, side, index, bracketed, pitch } = found
+  // Its hand OFFSET is keyed by its FIRST pitch (`offsetTargetOf`): when that pitch goes, the entry goes.
+  if (bracketed.pitches[0] === pitch) clearEngravingOverride(score, pitch.id, 'noteOffset')
   bracketed.pitches = bracketed.pitches.filter(p => p !== pitch)
   if (bracketed.pitches.length === 0) {
     const holder = target as { bracketedBefore?: BracketedGrace[]; bracketedAfter?: BracketedGrace[] }

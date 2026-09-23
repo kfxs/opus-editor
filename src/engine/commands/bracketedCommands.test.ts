@@ -82,4 +82,21 @@ describe('bracketedCommands', () => {
     expect(cmds.toNotes(['nobody'])).toEqual([])
     expect(ctx.undoEntries()).toBe(1)
   })
+
+  it('⭐ previewOffset / commitOffset — the horizontal DRAG: frames write its own offset, the drop ONE entry', () => {
+    const { ctx, cmds, host } = setup()
+    const id = cmds.add(host.id, 'before', Bb3)!.pitches[0].id
+    ctx.log.length = 0
+    expect(cmds.previewOffset(id, -0.5)).toBe(true)
+    expect(cmds.previewOffset(id, -1)).toBe(true)
+    expect(ctx.score.getScore().engravingOverrides?.[id]).toEqual([{ kind: 'noteOffset', x: -1 }])
+    expect(ctx.undoEntries()).toBe(0)
+    cmds.commitOffset()
+    expect(ctx.log).toEqual(['dirty', 'dirty', 'previewed:Nudge bracketed grace'])
+    // ⛔ a note (its drag spaces its column), an unchanged value, a frame off the page
+    expect(cmds.previewOffset(host.id, 1)).toBe(false)
+    expect(cmds.previewOffset(id, -1)).toBe(false)
+    ctx.allow.page = false
+    expect(cmds.previewOffset(id, 3)).toBe(false)
+  })
 })

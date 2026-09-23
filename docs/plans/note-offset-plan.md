@@ -356,3 +356,18 @@ travel test — all mirroring the spacing pass's.
 - **Auto-reset beyond delete.** Clear the override when the note is deleted; do not wire the
   fuller anchor-broken machinery yet.
 - **Vertical (`y`) offset.** One field away, but out of scope until asked.
+
+## Graces and bracketed graces — keyed by their OWN first pitch (2026-09-22 / 2026-09-23)
+
+Two more readers of the same compartment, keyed the member's way (`slotLookup.offsetTargetOf`):
+
+- a **grace** (`docs/plans/grace-notes-plan.md`) — by its first pitch id;
+- a **bracketed grace** (`docs/plans/bracketed-grace-plan.md`) — by ITS first pitch id.
+
+Both are ink of their main note's column, with NO column of their own, so every input surface
+offsets them where a note would space its column instead: the horizontal DRAG (`drags/note.ts` →
+`grace.previewOffset` / `bracketed.previewOffset`, one undo entry on the drop), the MOVE keys
+Ctrl+←/→ and Ctrl+Backspace (`noteOffsetKeys.selectedHasNoColumn`), and the Properties offset row.
+The offset is ink only: the room the bar reserved stays. ⚠️ Each has its own row in the redraw key
+(`MeasureRedrawKey`) — the member's trap again: a key that is neither a slot id nor a position key is
+invisible to the shape key otherwise, and the bar replays its old drawing while the model moves.

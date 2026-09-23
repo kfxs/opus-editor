@@ -6,8 +6,12 @@
  */
 import type { Note, Score } from '@/types/music'
 import { isGraceNote } from '@/engine/models/graceOps'
+import { isBracketedGrace } from '@/engine/models/bracketedGraceOps'
 
-export function noteReportKind(score: Score, note: Note): 'rest' | 'grace' | 'note' {
+export function noteReportKind(score: Score, note: Note): 'rest' | 'grace' | 'bracketed' | 'note' {
   if (note.isRest) return 'rest'
+  // ⭐ …and a BRACKETED grace is reported as what it is (docs/plans/bracketed-grace-plan.md): its panel is
+  //    the grace's — the offset — ⛔ not a note's (no stem to align, no beam, no fan).
+  if (isBracketedGrace(score, note.id)) return 'bracketed'
   return isGraceNote(score, note.id) ? 'grace' : 'note'
 }

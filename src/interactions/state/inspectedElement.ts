@@ -73,6 +73,8 @@ export type InspectedElement =
   | Report<'rest', Located<Note>>
   /** ⭐ A GRACE NOTE — selected as a note (its pitch id), reported as what it is. */
   | Report<'grace', Located<Note>>
+  /** ⭐ A BRACKETED grace — selected as a note (its pitch id), reported as what it is. */
+  | Report<'bracketed', Located<Note>>
   | Report<'dynamic', Located<Dynamic>>
   | Report<'tempo', Located<TempoMark>>
   | Report<'slur', Located<Slur>, {

@@ -222,4 +222,19 @@ describe('BracketedGracePass — P3: bent INTO a grace, the beam splits', () => 
     expect(beams(render(model).scene)).toHaveLength(2)
   })
 })
+
+describe('BracketedGracePass — its hand OFFSET', () => {
+  it('⭐ moves the bracketed grace ALONE, by that many staff spaces — its principal, the bar and the room stay', () => {
+    const plain = build({ bracketed: D5 })
+    const moved = build({ bracketed: D5 })
+    moved.model.nudgeNoteOffset(moved.model.offsetTargetOf(moved.bracketed!.pitches[0].id)!.key, -1)
+    const a = render(plain.model)
+    const b = render(moved.model)
+    expect(mainHeadXs(b.scene)).toEqual(mainHeadXs(a.scene))
+    expect((bracketedHead(a.scene).headX - bracketedHead(b.scene).headX) / STAFF_SPACE_PX).toBeCloseTo(1, 6)
+    // …and its HIT BOX with it, so a click lands where it is drawn.
+    const hitX = (r: ReturnType<typeof render>, id: string) => r.renderer.getElementRegistry().getByType('note').find(e => e.id === id)!.bbox.x
+    expect((hitX(a, plain.bracketed!.pitches[0].id) - hitX(b, moved.bracketed!.pitches[0].id)) / STAFF_SPACE_PX).toBeCloseTo(1, 6)
+  })
+})
 })
