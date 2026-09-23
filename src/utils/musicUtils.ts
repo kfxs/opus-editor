@@ -614,6 +614,7 @@ export function getMeasureNotes(measure: Measure, score?: Score): Note[] {
           beat: slot.beat,
           isRest: false,
           forceAccidental: pitch.forceAccidental,
+          ...(pitch.enclosure && { enclosure: pitch.enclosure }),
           stemDirection: slot.stemDirection,
           tiedTo: pitch.tiedTo,
           tiedFrom: pitch.tiedFrom,

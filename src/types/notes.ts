@@ -378,6 +378,8 @@ export interface Note {
   beat: Fraction
   /** If true, always show the accidental sign even when measure rules would suppress it */
   forceAccidental?: boolean
+  /** The head's brackets (`NotePitch.enclosure`); absent = none. */
+  enclosure?: HeadEnclosure
   /** Whether this note is a rest */
   isRest?: boolean
   /** True for a whole-bar measure rest (its `duration` is the nominal `'w'`, not
@@ -512,7 +514,26 @@ export interface NotePitch {
    * guarantees it never names the home staff (that is spelled by deleting the field).
    */
   displayStaffId?: string
+  /**
+   * ⭐ **The BRACKETS this head is drawn in** — a parenthesised note (docs/plans/parenthesised-note-plan.md).
+   * **ABSENT = none**, the only spelling of it (the width-cache key stringifies the slot), so taking the
+   * brackets off DELETES the field. Write it through `engine/models/enclosureOps`.
+   *
+   * ⭐ A SHAPE, ⛔ not a boolean (N2): `'square'` is the next member, and `true` could not have grown
+   * into it. Per HEAD (N1), so a chord's heads, a grace's and a fan member's all carry their own.
+   *
+   * ⛔ **It moves nothing but the drawing**: the note is counted, played (N6) and read by the
+   * running-accidental rule (N7) exactly as without it. ⛔ Never on a BRACKETED grace's pitch — that is
+   * already in brackets, and the op refuses it.
+   */
+  enclosure?: HeadEnclosure
 }
+
+/**
+ * The brackets a head can be drawn in (docs/plans/parenthesised-note-plan.md N2). One member today;
+ * a new shape is a new member plus one row in the drawing's table.
+ */
+export type HeadEnclosure = 'round'
 
 /**
  * ONE PITCH ON ITS WAY INTO A MEASURE — the payload `ScoreModel.insertPitch` takes.
@@ -537,6 +558,8 @@ export interface PitchInsert {
   tieDirection?: -1 | 1
   /** {@link NotePitch.displayStaffId}, travelling with the head it belongs to. */
   displayStaffId?: string
+  /** `NotePitch.enclosure`, verbatim — the head's brackets travel with it. */
+  enclosure?: HeadEnclosure
   duration: NoteDuration
   dots?: number
   beat: Fraction

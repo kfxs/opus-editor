@@ -35,6 +35,7 @@ import type {
   NoteDuration,
   PitchStep,
   PitchAlter,
+  HeadEnclosure,
   StemDirection,
   ArticulationType,
   TremoloMark,
@@ -80,6 +81,8 @@ export interface RebarPitch {
    *  ⚠️ An absolute id: what materialises it re-checks that it is still legal from the lane it
    *  lands in (`crossStaffOps.keepLegalCrossings`), so a paste onto a far staff brings the head home. */
   displayStaffId?: string
+  /** `NotePitch.enclosure`, verbatim — the head's brackets travel with it. */
+  enclosure?: HeadEnclosure
 }
 
 /** Opaque payload preserved verbatim for an atomic (tuplet) event. */
@@ -375,6 +378,7 @@ export function flattenRegion(
           octave: p.octave,
           forceAccidental: p.forceAccidental,
           ...(p.displayStaffId !== undefined ? { displayStaffId: p.displayStaffId } : {}),
+          ...(p.enclosure && { enclosure: p.enclosure }),
         })),
         stemDirection: slot.stemDirection,
         articulations: slot.articulations,
@@ -479,7 +483,10 @@ function writtenSegments(
 
 function pitchesEqual(a: RebarPitch[], b: RebarPitch[]): boolean {
   if (a.length !== b.length) return false
-  const key = (p: RebarPitch) => `${p.octave}/${p.step}/${p.alter}`
+  // ⭐ The head's BRACKETS are part of the match: a merged chain is re-laid with ONE set of pitches, so
+  //    `(C)` tied to `C` merged would come back with brackets on every piece, or on none. Gould brackets
+  //    the RESTATED note of a tie (p. 610) — the pieces differ, and stay two events.
+  const key = (p: RebarPitch) => `${p.octave}/${p.step}/${p.alter}/${p.enclosure ?? ''}`
   const as = a.map(key).sort()
   const bs = b.map(key).sort()
   return as.every((k, i) => k === bs[i])

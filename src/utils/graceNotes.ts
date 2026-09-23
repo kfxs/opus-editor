@@ -53,6 +53,7 @@ function copyGraceNote(note: GraceNote): GraceNote {
     pitches: note.pitches.map((p) => {
       const np: NotePitch = { id: uuidv4(), step: p.step, alter: p.alter, octave: p.octave }
       if (p.forceAccidental) np.forceAccidental = true
+      if (p.enclosure) np.enclosure = p.enclosure
       return np
     }),
     duration: note.duration,

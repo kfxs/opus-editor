@@ -29,6 +29,7 @@ export function toFlatNote(chord: Chord, pitch: NotePitch, staffIndex = 0): Note
     beat: chord.beat,
     isRest: false,
     forceAccidental: pitch.forceAccidental,
+    ...(pitch.enclosure && { enclosure: pitch.enclosure }),
     stemDirection: chord.stemDirection,
     beam: chord.beam,
     secondaryBreak: chord.secondaryBreak,
@@ -106,7 +107,7 @@ export function projectBracketedNote(note: Note, pitch: NotePitch, bracketed: Br
   delete note.isRest
   delete note.isMeasureRest
   note.duration = bracketed.duration
-  for (const k of ['dots', 'fan', 'beam', 'secondaryBreak', 'fractionalBeamSide', 'tremolo', 'tremoloPair', 'tremoloPairStyle', 'actualDuration', 'articulationStemAlign', 'stemDirection', 'articulations', 'articulationPlacement', 'tiedTo', 'tiedFrom'] as const) delete note[k]
+  for (const k of ['dots', 'fan', 'beam', 'secondaryBreak', 'fractionalBeamSide', 'tremolo', 'tremoloPair', 'tremoloPairStyle', 'actualDuration', 'articulationStemAlign', 'stemDirection', 'articulations', 'articulationPlacement', 'tiedTo', 'tiedFrom', 'enclosure'] as const) delete note[k]
   return note
 }
 
@@ -118,6 +119,8 @@ export function projectGraceNote(note: Note, pitch: NotePitch, grace: GraceNote)
   note.octave = pitch.octave
   if (pitch.forceAccidental) note.forceAccidental = true
   else delete note.forceAccidental
+  if (pitch.enclosure) note.enclosure = pitch.enclosure
+  else delete note.enclosure
   delete note.isRest
   delete note.isMeasureRest
   note.duration = grace.duration

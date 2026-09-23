@@ -318,6 +318,7 @@ export function insertPitch(score: Score, measure: Measure, payload: PitchInsert
     tiedFrom: payload.tiedFrom,
     tieDirection: payload.tieDirection,
     displayStaffId: payload.displayStaffId,
+    ...(payload.enclosure && { enclosure: payload.enclosure }),
   }
   const targetVoice = payload.voice
 

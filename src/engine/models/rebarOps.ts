@@ -1660,6 +1660,7 @@ function materializeVoiceBar(
         const np: NotePitch = { id: uuidv4(), step: p.step, alter: p.alter, octave: p.octave }
         if (p.forceAccidental) np.forceAccidental = true
         if (p.displayStaffId !== undefined) np.displayStaffId = p.displayStaffId
+        if (p.enclosure) np.enclosure = p.enclosure
         return np
       }),
     }

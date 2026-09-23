@@ -55,7 +55,8 @@ export function convertNoteToBracketed(score: Score, noteId: string): NoteToBrac
   const chord = found.chord
   // BEFORE the swap — afterwards the chord is gone. The pitches keep their ids; their ties do not.
   const pitches: NotePitch[] = chord.notes.map(p => {
-    const { tiedTo: _to, tiedFrom: _from, ...rest } = p
+    // ⛔ …nor its own brackets: a bracketed grace IS in brackets (parenthesised-note-plan N5).
+    const { tiedTo: _to, tiedFrom: _from, enclosure: _enclosure, ...rest } = p
     return { ...rest }
   })
   const bracketed: BracketedGrace = { pitches, duration: chord.duration }
@@ -173,7 +174,8 @@ export function graceToBracketed(score: Score, gracePitchId: string): string | n
   if (grace.dots || grace.articulations?.length) {
     dbg(`[graceToBracketed] its ${[grace.dots && 'dots', grace.articulations?.length && 'articulations'].filter(Boolean).join(' and ')} go — a bracketed grace has none`)
   }
-  const pitches = grace.pitches.map(p => ({ ...p }))
+  // ⛔ A grace's own brackets do not travel: a bracketed grace IS in brackets (parenthesised-note-plan N5).
+  const pitches = grace.pitches.map(({ enclosure: _enclosure, ...p }) => ({ ...p }))
   const bracketed: BracketedGrace = { pitches, duration: grace.duration }
   target.bracketedBefore = [...(grace.bracketedBefore ?? []), bracketed, ...(target.bracketedBefore ?? [])]
 

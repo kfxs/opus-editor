@@ -1,7 +1,8 @@
 # The parenthesised note — a head in brackets, still a real note: the plan
 
-> **Status (2026-09-23): DRAFT — the research is IN** (`docs/research/parenthesised-note-research.md`,
-> §0 = the synthesis). Nothing is built. ⛔ This plan is where the decisions get made: §0 marks each one
+> **Status (2026-09-23): P0 BUILT** (the model — `NotePitch.enclosure`, `models/enclosureOps`,
+> `commands/enclosureCommands` as `engine.enclosure`, the load report, the copy sites). Nothing is DRAWN
+> yet: P1 is next. The research is `docs/research/parenthesised-note-research.md` (§0 = the synthesis). ⛔ This plan is where the decisions get made: §0 marks each one
 > ✅ DECIDED (his word, with the date) or ⏳ PROPOSED. A proposed row is a default, not a decision.
 > N3 · N6 · N11 were his calls, made 2026-09-23 (§4).
 >
@@ -69,7 +70,9 @@ export type HeadEnclosure = 'round'
 
 ## 3. Phases (each stops for his UI check)
 
-- **P0: the model.** Type, field, projection, the ops, the command with undo, the JSON check, the
+- ✅ **P0: the model.** ⭐ Found on the way: the relay MERGED a tie chain whose heads matched in
+  pitch only (`utils/rebar` `pitchesEqual`), so `C` tied to `(C)` came back with one set of brackets
+  for every piece. The brackets are now part of the match. Type, field, projection, the ops, the command with undo, the JSON check, the
   audit of the pitch-copy sites. Specs: the op on a chord head, a grace head, a fan member; the refusal
   on a bracketed grace; undo; copy/paste and rebar keep it.
 - **P1: seen on the page.** The dev button (selection → toggle), and a single full-size head with no
