@@ -1,6 +1,6 @@
 # Cue-size notes — a real note, drawn small: the plan
 
-> **Status (2026-09-24): P0–P6 ALL BUILT AND COMMITTED** — P0 `c289873` · P1 `3d9dbe8` · P2 `b2c0da7` · P3 `d83f8fb` · P4 `e36e769` · P5 `0b9457b` · P6 (this commit). ⏭️ Open: ARMING cue for note entry (his rule: entry takes what the palette arms), and the §3 *Later* list. Cue FANS built after P6 (see §3). His calls are in (§4). The research is `docs/research/cue-size-research.md`
+> **Status (2026-09-24): P0–P6 ALL BUILT AND COMMITTED** — P0 `c289873` · P1 `3d9dbe8` · P2 `b2c0da7` · P3 `d83f8fb` · P4 `e36e769` · P5 `0b9457b` · P6 (this commit). ⏭️ Open: the §3 *Later* list. Armed-cue ENTRY and the cue STAMP built after the phases (see §3). Cue FANS built after P6 (see §3). His calls are in (§4). The research is `docs/research/cue-size-research.md`
 > (all three chapters are in; §0 is the synthesis). ⛔ A number never blocks a phase (`CLAUDE.md`).
 >
 > ⚠️ **The UI is the dev shell's** (`src/dev/devToolbar.ts`): one `cue` button, like `paren.`.
@@ -213,6 +213,17 @@ are two ways to make it small, and only one of them keeps those readers honest:
   (`FannedBeam.springScale`, `trailingGap`), and the room the bar reserves (`fanRampRoom.fanSpanRods`). 🚨 A
   size named `k` in `FanPass` collided with the member loop's index `k` — every member grew (caught by eye);
   it is `size` there. Proved: `FanPass.cue` (scene: faces, beam, closed up), `FannedBeam`, `fanRampRoom`.
+- **ARMED cue for NOTE ENTRY** (his rule: *"for note entry what is important is what is armed on the pallette"*). ✅
+  Built 2026-09-24, awaiting his check. `EditorState.selectedCue` — the brackets' twin: the `cue` button in note
+  entry toggles it (lit while armed), Escape clears it with the armed marks. `NoteParams.cue` carries it: a new
+  chord or rest is born cue; a pitch entered into an EXISTING chord (`addChordNote`, Shift+letter) makes that
+  chord cue, as an armed tremolo marks it (⛔ never cleared by entry); every piece of a note split across the
+  barline is cue (a re-split head keeps its own). Mouse entry (both calls), keyboard note, chord and rest entry
+  pass it; the entry GHOST is drawn at the cue size (`GhostNote.cue`). ⭐ And the CUE STAMP (his rule: *"nothing
+  selected and i hit cue and nothing happend … use quarter as default duration"*): `cue` with nothing selected
+  enters note entry with a quarter (`cueTool.CUE_STAMP_DURATION`) and cue armed. ⏭️ Not carried (like the
+  armed brackets): the rest / fan / grace STAMPS and a tuplet's first note. Proved: `NoteEntryCoordinator.cue`,
+  `cueTool`, `e2e/cueSize` (the ghost at ¾).
 - **Later, only when asked:** one head of a chord (C9); a SILENT flag (C3); a cue clef (C10);
   a cue stamp or an entry value (the `paren.` P4b five-way press); the Keypad; MusicXML
   `size="cue"` / `<cue/>`.

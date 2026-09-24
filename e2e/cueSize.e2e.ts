@@ -150,3 +150,22 @@ test('⭐ a bar of cue notes is closed up: its note gaps about ¾ of a full bar�
   expect(gaps.cue / gaps.full).toBeGreaterThan(0.65)
   expect(gaps.cue / gaps.full).toBeLessThan(0.85)
 })
+
+/** ⭐ ENTRY with cue ARMED — the ghost is the note that will land: drawn at the cue size (his rule, 2026-09-24). */
+test('⭐ with cue armed for entry, the note ghost is drawn at the cue size', async ({ score }) => {
+  const sizes = await score.evaluate(async () => {
+    const h = window.__h
+    h.engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: h.frac(0, 1) })
+    await h.render()
+    const real = h.noteheads()
+    const ghostSize = (cue: boolean) => {
+      h.engine.renderScoreWithPreview({ x: real[0].x + 80, y: real[0].y }, 'q',
+        undefined, undefined, undefined, undefined, undefined, undefined, undefined, cue || undefined)
+      const head = [...document.querySelectorAll('.ghost-note-group text')]
+        .find(t => { const cp = (t.textContent ?? '').codePointAt(0) ?? 0; return cp >= 0xe0a0 && cp <= 0xe0ff })!
+      return parseFloat(getComputedStyle(head).fontSize)
+    }
+    return { full: ghostSize(false), cue: ghostSize(true) }
+  })
+  expect(sizes.cue / sizes.full).toBeCloseTo(0.75, 3)
+})

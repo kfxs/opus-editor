@@ -28,6 +28,7 @@
  * real context. What each still guards for itself is its own emptiness (a tempo mark with no text,
  * an empty articulation list): that is about the MARK, not about the page.
  */
+import { slotScale } from '@/engine/layout/cueSize'
 import type { DrawContext } from '@/engine/paint/DrawContext'
 import type { Score, Clef, NoteDuration, PitchStep, ArticulationType } from '@/types/music'
 import type { GhostNote, ToolGhost } from './ghostTypes'
@@ -236,6 +237,8 @@ export function drawNoteGhost(
       duration: durationToken,
       clef,
       autoStem: false,
+      // ⭐ Cue armed for entry — the ghost at the size the note will land (`layout/cueSize`).
+      ...(ghostNote.cue && { glyphScale: slotScale({ cue: true }) }),
     })
     staveNote.setStemDirection(stemDirection)
 

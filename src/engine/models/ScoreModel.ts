@@ -2064,6 +2064,8 @@ export class ScoreModel {
       // Same rule as the articulations above, and for the same reason: both are properties of the
       // SLOT, so a pitch entered into an existing chord with a mark armed marks that chord.
       if (params.tremolo !== undefined) existingChord.tremolo = params.tremolo
+      // …and CUE, armed for entry (cue-size-plan): the slot's, so the chord is cue. ⛔ Never cleared here.
+      if (params.cue) existingChord.cue = true
       existingChord.notes.push(notePitch)
       // Sync duration/dots if new note differs (and neither is a tuplet note)
       if (!existingChord.tupletId && !params.tupletId) {
@@ -2114,6 +2116,8 @@ export class ScoreModel {
     }
     if (params.voice) chord.voice = params.voice
     if (targetStaffId !== undefined) chord.staffId = targetStaffId
+    // ⭐ Entered at cue size when note entry armed it (cue-size-plan: entry takes what the palette arms).
+    if (params.cue) chord.cue = true
     chord.actualDuration = computeActualDurationForSlot(chord, measure)
 
     dbg(`[Model.addNote] new chord ${fmtSlot(chord)} → replacing same-voice rests`)

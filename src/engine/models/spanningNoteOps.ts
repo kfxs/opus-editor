@@ -65,6 +65,8 @@ export function placeSpanningNote(model: SpanningNoteModel, p: {
   tremolo?: NoteParams['tremolo']
   /** …and the brackets it is entered in — they reach every piece, as the tremolo does. */
   enclosure?: NoteParams['enclosure']
+  /** …and CUE, armed for entry — every piece is the same small note (cue-size-plan). */
+  cue?: NoteParams['cue']
 }): Note | null {
   const beatsInCurrentMeasure = p.totalBeats - p.overflowAmount
   const beatsInNextMeasure = p.overflowAmount
@@ -111,9 +113,12 @@ export function placeSpanningNote(model: SpanningNoteModel, p: {
   // ⭐ The head's BRACKETS reach every piece, as its tremolo does (parenthesised-note-plan P4b): the entered
   //    ones, or a re-split head's own — read before the head is retitled.
   const enclosure = p.enclosure ?? (p.existingHeadId ? model.getNote(p.existingHeadId)?.enclosure : undefined)
+  // ⭐ …and CUE: the entered one, or a re-split head's own — an EDIT keeps its size (cue-size-plan).
+  const cue = p.cue ?? (p.existingHeadId ? model.getNote(p.existingHeadId)?.cue : undefined)
   const pitch = {
     step: p.step, alter: p.alter, octave: p.octave, ...(p.voice && { voice: p.voice }), ...(p.staff && { staff: p.staff }),
     ...(enclosure && { enclosure }),
+    ...(cue && { cue }),
   }
 
   // A tremolo on the head must reach EVERY piece of the chain: a tremolo interrupted at a barline
@@ -224,6 +229,7 @@ export function addSplitNoteWithTie(model: SpanningNoteModel, noteParams: NotePa
     // An ENTERED mark reaches every piece too — the same rule the existing head's mark follows.
     tremolo: noteParams.tremolo,
     enclosure: noteParams.enclosure,
+    cue: noteParams.cue,
   })
 }
 

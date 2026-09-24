@@ -840,6 +840,11 @@ export interface NoteParams {
   /** The BRACKETS the new head is entered in — note entry armed with them (parenthesised-note-plan
    *  P4b). A property of the HEAD (`NotePitch.enclosure`), unlike the slot marks below. */
   enclosure?: HeadEnclosure
+  /** ⭐ Entered at CUE size — note entry armed with it (cue-size-plan, his rule: *"for note entry what is important
+   *  is what is armed on the pallette"*). A property of the SLOT (`Chord.cue` / `Rest.cue`): a pitch entered into
+   *  an existing chord with cue armed makes that chord cue, as an armed tremolo marks it. Absent = not armed
+   *  (⛔ never "take cue off" — only a delete does that). */
+  cue?: true
   isRest?: boolean
   dots?: number
   tupletId?: string

@@ -227,6 +227,8 @@ export class KeyboardController {
       beat: targetBeat,
       isRest: true,
       ...(fitted.dots && { dots: fitted.dots }),
+      // ⭐ Entry CUE armed ⇒ a cue rest (cue-size-plan — entry takes what is armed).
+      ...(this.state.selectedCue && { cue: true as const }),
       ...(cursorVoice && { voice: cursorVoice }),
       ...(cursorStaff && { staff: cursorStaff }),
     })
@@ -390,6 +392,8 @@ export class KeyboardController {
         ...(this.state.selectedTremolo !== null && { tremolo: this.state.selectedTremolo }),
         // …and the armed entry BRACKETS (parenthesised-note-plan P4b).
         ...(this.state.selectedEnclosure !== null && { enclosure: this.state.selectedEnclosure }),
+        // …and entry CUE (cue-size-plan).
+        ...(this.state.selectedCue && { cue: true as const }),
         ...(this.state.selectedAccidental === 'n' && { forceAccidental: true }),
         ...(existingTuplet && { tupletId: existingTuplet.id }),
         ...(this.state.selectedBeam !== 'auto' && { beam: this.state.selectedBeam }),
@@ -513,6 +517,8 @@ export class KeyboardController {
         tupletId: note.tupletId,
         voice: noteVoice,
         ...(noteStaff && { staff: noteStaff }),
+        // ⭐ Entry CUE armed ⇒ the chord is cue (its slot's; cue-size-plan — entry takes what is armed).
+        ...(this.state.selectedCue && { cue: true as const }),
       })
     if (!newNote) return
     // Clear the armed accidental after the note, same as enterNoteAtCursorPosition — a chord note is

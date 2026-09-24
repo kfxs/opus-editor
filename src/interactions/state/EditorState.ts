@@ -1002,6 +1002,13 @@ export interface EditorState {
    * PERSISTS like the tremolo — Esc / leaving entry mode is the way out.
    */
   selectedEnclosure: HeadEnclosure | null
+  /**
+   * ⭐ CUE armed for NOTE ENTRY (cue-size-plan, his rule: *"for note entry what is important is what is armed on the
+   * pallette"*) — every note and rest entered is born cue-sized. The brackets' twin: a note-entry value, toggled by
+   * the `cue` button in entry mode (`interactions/stamps/cueTool`), cleared with the armed marks (Escape).
+   * ⚠️ REASSIGN, never mutate (the Proxy traps the set).
+   */
+  selectedCue: boolean
   // --- Palette ---
   /**
    * The voice notes are entered into (Sibelius-style). Voice 1 is the default and
@@ -1158,6 +1165,7 @@ export function createEditorState(): EditorState {
     selectedElement: null,
     selectedTremolo: null,
     selectedEnclosure: null,
+    selectedCue: false,
     selectedDuration: DEFAULT_DURATION,
     selectedAccidental: null,
     selectedDots: DEFAULT_DOTS,

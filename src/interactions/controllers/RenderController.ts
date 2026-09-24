@@ -239,6 +239,7 @@ export class RenderController {
         : undefined,
       // ⭐ The armed entry BRACKETS ride on the ghost note too — "this click enters a note in brackets".
       this.state.selectedEnclosure ?? undefined,
+      this.state.selectedCue || undefined,
     )
     return ghostRendered
   }

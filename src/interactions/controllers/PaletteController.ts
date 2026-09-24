@@ -2295,8 +2295,9 @@ export class PaletteController {
     // NEXT NOTE, not a standing choice like the duration. It persists across every note you enter —
     // Escape is the deliberate way out (docs/plans/tremolo-plan.md §10).
     this.state.selectedTremolo = null
-    // …and the entry BRACKETS, the tremolo's twin (parenthesised-note-plan P4b).
+    // …and the entry BRACKETS, the tremolo's twin (parenthesised-note-plan P4b), and entry CUE (cue-size-plan).
     this.state.selectedEnclosure = null
+    this.state.selectedCue = false
   }
 
   /**

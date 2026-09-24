@@ -214,6 +214,8 @@ export class NoteEntryCoordinator {
     tremolo?: NoteParams['tremolo'],
     /** The armed entry BRACKETS, if any — the head is born in them (parenthesised-note-plan P4b). */
     enclosure?: NoteParams['enclosure'],
+    /** ⭐ CUE armed for entry — the note is born cue-sized (cue-size-plan, his rule). */
+    cue?: NoteParams['cue'],
   ): Note | null {
     const registry = this.elementRegistry
     const entryVoice = voice ?? 0
@@ -330,6 +332,7 @@ export class NoteEntryCoordinator {
       ...(articulations?.length && { articulations }),
       ...(tremolo !== undefined && { tremolo }),
       ...(enclosure && { enclosure }),
+      ...(cue && { cue }),
       ...(beam && beam !== 'auto' && { beam }),
       ...(entryVoice && { voice: entryVoice }),
       ...(entryStaff && { staff: entryStaff }),

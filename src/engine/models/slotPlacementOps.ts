@@ -304,6 +304,8 @@ function addRestSlotBody(score: Score, measure: Measure, params: NoteParams): Re
   }
   if (params.voice) rest.voice = params.voice
   if (targetStaffId !== undefined) rest.staffId = targetStaffId
+  // ⭐ A rest entered with cue armed is a cue rest (cue-size-plan: entry takes what the palette arms).
+  if (params.cue) rest.cue = true
   rest.actualDuration = computeActualDurationForSlot(rest, measure)
   // Through the SAME rule a new chord uses: a rest evicts the same-voice rests it overlaps.
   // This branch used to `push` and nothing else, which is how a bar reached six beats in 4/4

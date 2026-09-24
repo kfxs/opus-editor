@@ -168,6 +168,8 @@ export interface GhostNote {
    *  *"when a note stamp with parenthesis is armed i dont see the parenthesis in the ghost"*). Absent =
    *  none armed. Placed by the page's own layout, so the preview cannot disagree with what lands. */
   enclosure?: HeadEnclosure
+  /** ⭐ CUE armed for entry — the ghost is drawn at the cue size, so the preview is the note that lands. */
+  cue?: true
   /** Show a natural (♮) even though `alter` is 0 — the preview for an armed natural accidental,
    *  which otherwise has no glyph (alter 0 draws nothing). Sharp/flat carry their own sign via alter. */
   forceAccidental?: boolean

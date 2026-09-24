@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { createEditorState, type EditorState, type MarkingTool } from '../state/EditorState'
-import { cueLit, pressCue } from './cueTool'
+import { CUE_STAMP_DURATION, cueLit, pressCue } from './cueTool'
 import type { SpanToolHost } from './spanToolPress'
 import { makeEngine } from '@/testing/makeEngine'
 import { itemKey, type SelectionItem } from '../state/selection'
@@ -60,14 +60,28 @@ describe('pressCue', () => {
     expect(engine.cue.of(b.id)).toBe(true)
   })
 
-  it('⛔ nothing selected → nothing; ⏭️ note entry → nothing yet (arming is not built)', () => {
+  it('⭐ NOTHING selected, in selection → the CUE STAMP: note entry, a quarter, cue armed (his rule, 2026-09-24)', () => {
     state.selectedTool = 'selection'
+    state.selectedDuration = 'h'
+    state.selectedAccidental = '#'
     const a = note(0)
     pressCue(host)
-    state.selectedTool = 'entry'
-    select(a.id)
+    expect(state).toMatchObject({ selectedTool: 'entry', selectedDuration: CUE_STAMP_DURATION, selectedDots: 0, selectedCue: true, selectedAccidental: null })
+    expect(engine.cue.of(a.id), 'the score untouched').toBe(false)
+    expect(cueLit(state, engine)).toBe(true)
     pressCue(host)
+    expect(state.selectedCue, 'a re-press disarms it').toBe(false)
+  })
+
+  it('⭐ NOTE ENTRY → the press ARMS cue for the next notes (lit); again → off — ⛔ the score untouched', () => {
+    state.selectedTool = 'entry'
+    const a = note(0)
+    pressCue(host)
+    expect(state.selectedCue).toBe(true)
+    expect(cueLit(state, engine)).toBe(true)
     expect(engine.cue.of(a.id)).toBe(false)
-    expect(host.render).not.toHaveBeenCalled()
+    pressCue(host)
+    expect(state.selectedCue).toBe(false)
+    expect(cueLit(state, engine)).toBe(false)
   })
 })
