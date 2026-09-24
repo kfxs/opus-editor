@@ -134,8 +134,12 @@ function slotInk(slot: ChordRest, signs: Map<string, string | null>, clef: Clef,
     //   conservative one. ⚠️ Nothing kerns against a rest yet (`MAY_KERN` has no rest row), so this
     //   moves no width; it makes the question askable.
     const band = restBand(slot.duration)
+    // ⭐ A CUE rest's own ink at its size (cue-size-plan P3) — ⛔ not its graces', which keep theirs (P4).
+    const own: RawInk = [{ left: 0, right: restExtent(slot.duration), ...band, kind: 'rest', staff }]
+    const k = slotScale(slot)
+    if (k !== 1) shrinkCueInk(own, k, undefined)
     // ⭐ A grace before a REST (D7 reversed) is the rest's left ink, as a note's is.
-    return sized([{ left: 0, right: restExtent(slot.duration), ...band, kind: 'rest', staff }, ...graceInk(slot, [], signs, clef, staff)], size)
+    return sized([...own, ...graceInk(slot, [], signs, clef, staff)], size)
   }
 
   const pitches: NotePitch[] = slot.notes ?? []
@@ -265,7 +269,7 @@ function slotInk(slot: ChordRest, signs: Map<string, string | null>, clef: Clef,
 }
 
 /**
- * ⭐ **A cue chord's own boxes at its size `k`** — ⚠️ ⛔ not {@link sized}, which scales a whole SMALL STAFF:
+ * ⭐ **A cue chord's — or rest's — own boxes at its size `k`** — ⚠️ ⛔ not {@link sized}, which scales a whole SMALL STAFF:
  * a cue head still stands on the FULL staff's lines, so each box shrinks about where it is. Widths are
  * reaches from the head's left edge, so they scale as they are; a head, dot or sign keeps its CENTRE line
  * and shrinks its height; the stem and flag shrink toward the head they grow from (`stemFromY`); a ledger's

@@ -53,3 +53,16 @@ describe('measureColumns — a cue chord\'s room', () => {
     expect(inkOf(true)('note').right).toBeCloseTo(inkOf(false)('note').right * 0.5, 9)
   })
 })
+
+describe('measureColumns — a cue REST\'s room (P3)', () => {
+  it('⭐ its box is ¾ as wide', () => {
+    const restBox = (cue: boolean) => {
+      const model = new ScoreModel()
+      model.addNote({ step: 'C', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })
+      const rest = model.getMeasure(1)!.slots.find(s => s.type === 'rest')!
+      if (cue) setCue(model.getScore(), [rest.id], true)
+      return measureColumns(model.getMeasure(1)!).flatMap(c => c.ink).find(b => b.kind === 'rest')!
+    }
+    expect(restBox(true).right).toBeCloseTo(restBox(false).right * 0.75, 9)
+  })
+})

@@ -155,6 +155,11 @@ export function createStaveNotesFromSlots(
     if (slot.type === 'rest') {
       // Voice base (multi-voice separation) + any per-rest manual shift, resolved per slot.
       const shift = resolveRestShift(slot)
+      // ⭐ A CUE rest is drawn at its size (cue-size-plan P3): the SAME key line as a full rest, its glyph
+      //   smaller from the same origin — MuseScore's (`restlayout.cpp:135` places the line, `mag` scales
+      //   the glyph). ⏳ A row of its own if his eye wants the small rest placed otherwise.
+      const restScale = slotScale(slot)
+      const sized = restScale !== 1 ? { glyphScale: restScale } : {}
       if (slot.isMeasureRest) {
         // Whole-bar (measure) rest: a centred whole rest, drawn the same way at
         // any bar length. Its voice runs in SOFT mode (`utils/restFill.pickVoiceMode`) so
@@ -164,13 +169,13 @@ export function createStaveNotesFromSlots(
         //   All three reference engines place a measure rest exactly where they place a duration
         //   whole rest, and two of them do not even distinguish the cases: MuseScore's `V_MEASURE`
         //   falls through to `V_WHOLE`, and its `isWholeRest()` answers true for both.
-        const measureRest = new EngravedNote({ keys: [restKey('w')], duration: 'wr', alignCenter: true })
+        const measureRest = new EngravedNote({ keys: [restKey('w')], duration: 'wr', alignCenter: true, ...sized })
         if (shift) measureRest.setKeyLine(0, measureRest.getLineForRest() + shift)
         staveNotes.push(measureRest)
         continue
       }
       const durationToken = convertDuration(slot.duration, slot.dots || 0)
-      const staveNote = new EngravedNote({ keys: [restKey(slot.duration)], duration: durationToken + 'r' })
+      const staveNote = new EngravedNote({ keys: [restKey(slot.duration)], duration: durationToken + 'r', ...sized })
       for (let d = 0; d < (slot.dots || 0); d++) {
         attachEngravedDots(staveNote)
       }
@@ -282,7 +287,7 @@ export function createStaveNotesFromSlots(
     // rather than letting the tick-proportional formatter decide them.
     // ⭐ A CUE chord is drawn at its size (`layout/cueSize.slotScale`, cue-size-plan §2) — the note carries it,
     //   so its heads, flag, stem length, ledgers, dots and accidentals all follow, and every reader that asks
-    //   the note (beam, tie, hit box) gets the drawn answer. ⏭️ A cue REST is P3's.
+    //   the note (beam, tie, hit box) gets the drawn answer. A cue REST takes the same route (above).
     const glyphScale = slotScale(slot)
     const noteStruct = { keys, duration: durationToken, clef: slotClef, autoStem: false, crossings, ...(glyphScale !== 1 && { glyphScale }) }
     // ⭐ {@link EngravedNote}, ⛔ not a bare `StaveNote`: the seam P3 empties one drawn part at a

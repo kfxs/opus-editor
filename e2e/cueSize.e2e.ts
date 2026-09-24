@@ -47,3 +47,64 @@ test('⭐ a cue note’s head, sign, dot and flag are drawn at ¾, and its stem 
   expect(Math.abs(cue.stem!.x - headRight(cue)), 'the cue stem meets the cue head').toBeLessThan(2)
   expect(Math.abs((cue.stem!.x - cue.head!.x) - (full.stem!.x - full.head!.x) * 0.75)).toBeLessThan(1)
 })
+
+/**
+ * ⭐ **A small head shares a full head's CENTRE** — his question, 2026-09-24. The rule: Gould p. 569 (a cue
+ * note keeps the full staff's pitch positions — its ledgers are *"the same vertical distance apart"*);
+ * MuseScore places a note at `(line + stepOffset) × stepDistance` whatever its mag (`chordlayout.cpp:2789`),
+ * Verovio at `CalcPitchPosYRel(loc)`; a SMuFL head is centred on its baseline (Bravura `noteheadBlack`: 0.5 sp
+ * up, 0.5 down), so shrinking it about that point keeps its centre. ⭐ Measured here: the INK centre of a
+ * full, a cue and a grace head — on a line (E4) and in a space (F4) — lands on the same y.
+ *
+ * ⭐⭐ …and that centre IS the middle of the line or space, measured against the staff lines the page drew.
+ * 🚨 The first version compared the heads with EACH OTHER only, and passed while every note stood ½ a staff
+ * line's thickness above the middle — the lines hung DOWN from their y (VexFlow's crispness idiom) while notes
+ * were centred on it. His screenshot caught it (*"touching up line and there is empty space in the low
+ * line"*); fixed 2026-09-24 by centring the line, as LilyPond, MuseScore and Verovio all do
+ * (`engrave/staff/staffLines`).
+ */
+test('⭐ cue and grace heads centre on their line or space — as a full head does', async ({ score }) => {
+  const measured = await score.evaluate(async () => {
+    const h = window.__h
+    const put = (step: string, beat: number) => h.engine.addNoteAtBeat({ step, alter: 0, octave: 4, duration: 'q', measure: 1, beat: h.frac(beat, 1) })!
+    const notes = [put('E', 0), put('F', 1), put('E', 2), put('F', 3)]
+    h.engine.cue.set([notes[2].id, notes[3].id], true)
+    for (const [i, n] of notes.entries()) h.engine.grace.addGrace(n.id, 'before', { step: i % 2 ? 'F' : 'E', alter: 0, octave: 4 }, 'appoggiatura', { duration: '8' })
+    await h.render()
+    const svg = document.querySelector('svg') as SVGGraphicsElement
+    const toPage = svg.getScreenCTM()!.inverse()
+    const ctx = document.createElement('canvas').getContext('2d')!
+    // The first stave's lines, where the page STROKED them (a staff line's path is centred on its line).
+    const strokeYs = [...document.querySelectorAll('g.stave path')].slice(0, 5)
+      .map(p => Number(/M\s*[-\d.]+\s+([-\d.]+)/.exec(p.getAttribute('d') ?? '')?.[1]))
+      .sort((a, b) => a - b)
+    const lines = { bottom: strokeYs[4], second: strokeYs[3] }
+    // Every notehead glyph, left to right, with its ink centre in page y (through any grace group's scale).
+    const heads = [...document.querySelectorAll('text')]
+      .filter(t => { const cp = (t.textContent ?? '').codePointAt(0) ?? 0; return cp >= 0xe0a0 && cp <= 0xe0ff })
+      .map(t => {
+        const style = getComputedStyle(t)
+        ctx.font = `${style.fontSize} ${style.fontFamily}`
+        const m = ctx.measureText(t.textContent!)
+        const x = parseFloat(t.getAttribute('x')!)
+        const y = parseFloat(t.getAttribute('y')!)
+        const M = toPage.multiply((t as SVGGraphicsElement).getScreenCTM()!)
+        const top = new DOMPoint(x, y - m.actualBoundingBoxAscent).matrixTransform(M)
+        const bottom = new DOMPoint(x, y + m.actualBoundingBoxDescent).matrixTransform(M)
+        return { x: top.x, size: style.fontSize, centre: (top.y + bottom.y) / 2 }
+      })
+      .sort((a, b) => a.x - b.x)
+    return { heads, lines }
+  })
+  const { heads: centres, lines } = measured
+  // Left to right: grace E, full E, grace F, full F, grace E, cue E, grace F, cue F.
+  expect(centres).toHaveLength(8)
+  const [gE1, fullE, gF1, fullF, gE2, cueE, gF2, cueF] = centres
+  expect(cueE.size).not.toBe(fullE.size)
+  // ⚠️ Chromium reports ink in whole pixels, so a head's centre is known to ½ px.
+  for (const e of [cueE, gE1, gE2]) expect(Math.abs(e.centre - fullE.centre), 'on the line').toBeLessThanOrEqual(0.5)
+  for (const f of [cueF, gF1, gF2]) expect(Math.abs(f.centre - fullF.centre), 'in the space').toBeLessThanOrEqual(0.5)
+  // ⭐⭐ …against the LINES: E4 on the bottom line's middle, F4 midway between the bottom two.
+  for (const e of [fullE, cueE, gE1, gE2]) expect(Math.abs(e.centre - lines.bottom), 'E4 on the bottom line').toBeLessThanOrEqual(0.5)
+  for (const f of [fullF, cueF, gF1, gF2]) expect(Math.abs(f.centre - (lines.bottom + lines.second) / 2), 'F4 mid-space').toBeLessThanOrEqual(0.5)
+})

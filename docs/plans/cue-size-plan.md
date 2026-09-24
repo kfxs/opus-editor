@@ -1,6 +1,6 @@
 # Cue-size notes — a real note, drawn small: the plan
 
-> **Status (2026-09-24): P0 committed (`c289873`); P1 committed (`3d9dbe8`); P2 BUILT, awaiting his UI check.** His calls are in (§4). The research is `docs/research/cue-size-research.md`
+> **Status (2026-09-24): P0 committed (`c289873`); P1 committed (`3d9dbe8`); P2 committed (`b2c0da7`); P3 BUILT, awaiting his UI check.** His calls are in (§4). The research is `docs/research/cue-size-research.md`
 > (all three chapters are in; §0 is the synthesis). ⛔ A number never blocks a phase (`CLAUDE.md`).
 >
 > ⚠️ **The UI is the dev shell's** (`src/dev/devToolbar.ts`): one `cue` button, like `paren.`.
@@ -144,6 +144,24 @@ are two ways to make it small, and only one of them keeps those readers honest:
     `e2e/cueMarks.e2e.ts` (tuplet number, tremolo — drawn outside the scene).
 - **P3: rests.** A cue rest: the same `EngravedNote` route. ⏳ Where it sits vertically is a question
   for his eye (the books may say).
+  - ✅ **Built 2026-09-24, awaiting his check.** A cue rest (and a cue whole-bar rest) takes the note's route:
+    the same key line as a full rest, the glyph smaller from the same origin — MuseScore's (`restlayout.cpp:135`
+    places the line, `mag` scales the glyph). Its dot follows; its room is ¾ (`measureColumns`). Rests VOTE in
+    `sharedGlyphScale` now (MuseScore: a tuplet is small only when every chord AND rest is, `tupletlayout.cpp:204`).
+  - 🚨 **His report (2026-09-24, screenshot): a small head in a SPACE touches the line above, with a gap below.**
+    Measured at 5×: every small head (cue AND grace) has 0 px above, 8–10 px below. ⭐ Not the scaling: the heads
+    are centred on the note's y (Bravura heads are ±0.5 sp about the baseline; MuseScore, Verovio and LilyPond
+    place a note at the full staff's pitch position and scale the glyph about it — Gould p. 569). ⭐ The STAFF
+    LINES are off: they hang DOWN from their y (`engrave/staff/staffLines.staffLineStrokeY` = `y + t/2`,
+    VexFlow's crispness idiom), while notes and ledgers are centred on it — so every note stands ½ a line's
+    thickness (≈0.55 px) above the middle of its line or space. A full head hides it; a small one shows it. All
+    three engines CENTRE the line on its position (LilyPond `Lookup::horizontal_line` ±th/2; MuseScore and
+    Verovio stroke it). ✅ **FIXED 2026-09-24, his call ("a")**: `staffLines` now centres the line on its y
+    (`staffLineStrokeY` = `y`; edges `staffLineInkTopY`/`InkBottomY` = y ∓ t/2); barline ends (line middles) and
+    the brace/bracket span (outer edges) follow through the module. Measured at 5× after: a cue head 3 px above /
+    5 px below, a grace head 5 / 7 (was 0 / 8–10). `e2e/cueSize.e2e.ts` now checks each head against the page's
+    lines (it breaks by 0.55 px with the old rule). One e2e (`tie.e2e.ts`, the line-note tie) had passed on the
+    half pixel: it now measures the repair's exact 0.3 sp target — the assertion became ≥.
 - **P4: graces and brackets.** A cue grace or bracketed grace at the C4 size. A cue head's brackets
   follow the head: `headEnclosure` takes the head's scale. ⚠️ The armed `gould` form is drawn FULL size
   by design (N8 of `parenthesised-note-plan.md`). Whether a cue head's brackets shrink is the C11 preset.

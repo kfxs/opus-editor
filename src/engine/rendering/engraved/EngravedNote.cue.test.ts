@@ -91,3 +91,53 @@ describe('EngravedNote — a CUE note draws at its size', () => {
     expect(full).toMatchObject({ head: 30, accidental: 30, dot: 30, flag: 30 })
   })
 })
+
+describe('EngravedNote — a CUE REST (P3)', () => {
+  afterEach(() => resetCueSize())
+
+  /** Bar 1 a full dotted quarter rest, bar 2 the same rest cue, bar 3 a cue WHOLE-BAR rest. */
+  function restGlyphs() {
+    const model = new ScoreModel()
+    model.addMeasure()
+    model.addMeasure()
+    for (const bar of [1, 2]) {
+      model.addNote({ step: 'C', alter: 0, octave: 5, duration: 'q', measure: bar, beat: frac(0, 1) })
+      model.updateNote(model.getMeasure(bar)!.slots.find(s => s.type === 'rest')!.id, { duration: 'q', dots: 1 })
+    }
+    const restAt = (bar: number) => model.getMeasure(bar)!.slots.find(s => s.type === 'rest')!.id
+    setCue(model.getScore(), [restAt(2), restAt(3)], true)
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+    const renderer = new ScoreRenderer(container)
+    renderer.initialize(1200, 800)
+    const scene = renderer.recordScene(() => renderer.renderScore(model.getScore())).scene
+    return sceneGroups(scene, 'measure').map(bar => {
+      const texts = sceneGroups(bar, 'notehead').flatMap(g => g.children)
+      const rest = texts.find(c => c.kind === 'text' && (c.text.codePointAt(0) ?? 0) >= 0xe4e0 && (c.text.codePointAt(0) ?? 0) <= 0xe4ff)
+      const dot = sceneGroups(bar, 'dot').flatMap(g => g.children).find(c => c.kind === 'text')
+      return {
+        size: rest?.kind === 'text' ? Number(rest.font.size) : NaN,
+        y: rest?.kind === 'text' ? rest.y : NaN,
+        dot: dot?.kind === 'text' ? Number(dot.font.size) : undefined,
+      }
+    })
+  }
+
+  it('⭐ drawn at ¾, on the SAME line as a full rest (MuseScore: the line placed, the glyph scaled)', () => {
+    const [full, cue] = restGlyphs()
+    expect(full.size).toBe(30)
+    expect(cue.size).toBeCloseTo(22.5, 6)
+    expect(cue.y).toBeCloseTo(full.y, 6)
+  })
+
+  it('⭐ its dot is its size', () => {
+    const [full, cue] = restGlyphs()
+    expect(full.dot).toBe(30)
+    expect(cue.dot).toBeCloseTo(22.5, 6)
+  })
+
+  it('⭐ a cue WHOLE-BAR rest too', () => {
+    const [, , measureRest] = restGlyphs()
+    expect(measureRest.size).toBeCloseTo(22.5, 6)
+  })
+})

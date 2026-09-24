@@ -1744,14 +1744,14 @@ export class EngravedNote {
  * VexFlow's `Stem`, S12i); a stem that is not ours is refused loudly rather than half-served.
  */
 /**
- * ⭐ **The size a GROUP of notes shares** — a beam's or a tuplet's (cue-size-plan C5, C7): the notes' cue
- * size when EVERY note that votes is drawn small, else 1. ⭐ MuseScore takes the max and Verovio requires
- * all to be cue: the two agree. ⚠️ Rests do not vote — a cue rest is not drawn small yet (P3).
+ * ⭐ **The size a GROUP of notes shares** — a beam's or a tuplet's (cue-size-plan C5, C7): their cue size
+ * when EVERY member is drawn small, else 1. ⭐ MuseScore takes the beam's max and makes a tuplet small only
+ * when every chord AND rest under it is (`tupletlayout.cpp:204`); Verovio requires all to be cue — they
+ * agree. ⭐ Rests vote since P3, when a cue rest began to be drawn small: a full rest in the group is full ink.
  */
 export function sharedGlyphScale(notes: readonly EngravedNote[]): number {
-  const voting = notes.filter(note => !note.isRest())
-  if (!voting.length) return 1
-  const largest = Math.max(...voting.map(note => note.getGlyphScale()))
+  if (!notes.length) return 1
+  const largest = Math.max(...notes.map(note => note.getGlyphScale()))
   return largest < 1 ? largest : 1
 }
 
