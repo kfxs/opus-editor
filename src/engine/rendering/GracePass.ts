@@ -51,7 +51,7 @@ import { NOTE_DURATION_ROWS, stemThicknessPx } from '@/engine/engrave/inheritedD
 import { flagGlyph, glyphBox, noteheadInk } from '@/engine/fonts/fontMetrics'
 import { GLYPH_CODEPOINTS } from '@/engine/fonts/bravuraMetrics'
 import { accidentalExtent } from '@/engine/layout/spacingPadding'
-import { graceDotXs, graceEnclosure, graceLayout, graceScale, graceStemSpaces, hostLeftReach, type SignOf } from '@/engine/layout/graceRoom'
+import { graceDotXs, graceEnclosure, graceLayout, graceScale, withGraceGroupScale, graceStemSpaces, hostLeftReach, type SignOf } from '@/engine/layout/graceRoom'
 import { displayedAccidentals } from '@/utils/accidentalState'
 import { beforeSideLayout } from '@/engine/layout/bracketedRoom'
 import { drawBracketedGraces } from './BracketedGracePass'
@@ -98,7 +98,11 @@ export function drawGraceNotes(
     if (!slot.graceBefore) continue
     const stave = maybeStaveOf(staveNotes[i])
     if (!stave) continue
-    drawGraceGroup(pass, slot, slot.graceBefore, staveNotes[i], stave, clefForBeat(slot.beat), signOf, measureNumber, staffIndex)
+    // ⭐ At the group's OWN size — a group of cue graces is the cue-grace size (cue-size-plan C4): every
+    //   helper the draw reaches asks `graceScale()`, which answers this group's inside the scope.
+    const group = slot.graceBefore
+    withGraceGroupScale(group, () =>
+      drawGraceGroup(pass, slot, group, staveNotes[i], stave, clefForBeat(slot.beat), signOf, measureNumber, staffIndex))
   }
 }
 

@@ -30,7 +30,7 @@ import { drawLedgerLines, ledgerLineRuns } from '@/engine/engrave/notes/ledgerLi
 import { stampGlyph } from '@/engine/engrave/glyph'
 import { MUSIC_FONT_SIZE_PT, accidentalFont, musicFont, musicGlyphFont, noteFont } from '@/engine/engrave/inheritedFonts'
 import { GLYPH_CODEPOINTS } from '@/engine/fonts/bravuraMetrics'
-import { BRACKET_FORMS, bracketForm, bracketedAfterLayout, bracketedScale, beforeSideLayout, hostRightReach, type BracketedPlace } from '@/engine/layout/bracketedRoom'
+import { BRACKET_FORMS, bracketForm, bracketedAfterLayout, bracketedItemScale, beforeSideLayout, hostRightReach, type BracketedPlace } from '@/engine/layout/bracketedRoom'
 import { hostLeftReach, type SignOf } from '@/engine/layout/graceRoom'
 import { displayedAccidentals } from '@/utils/accidentalState'
 import { C_MAJOR } from '@/utils/keySignature'
@@ -93,7 +93,8 @@ function drawOne(
   const ctx = pass.context
   const frame: StaffFrame = staveFrame(stave)
   const space = frame.spacePx
-  const k = bracketedScale()
+  // ⭐ Its OWN size — a cue bracketed grace is the cue-grace preset's (`bracketedItemScale`, cue-size-plan P4b).
+  const k = bracketedItemScale(place.bracketed)
   const form = BRACKET_FORMS[bracketForm()]
   /** Staff px → the head's own px (inside its `scaling(k)` group). */
   const local = (v: number): number => v / k

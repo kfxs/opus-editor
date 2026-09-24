@@ -40,7 +40,7 @@ import { C_MAJOR, type StaffKeys } from '@/utils/keySignature'
 import { INK, INK_HEIGHT, STEM_REACH, accidentalExtent, accidentalHeight, dotExtent, pairPadding, restBand, restExtent } from './spacingPadding'
 import { edgeKind, mergedReach, type InkBox } from './kerning'
 import type { Column } from './spacing'
-import { graceScale, graceStemSpaces, hostLeftReach } from './graceRoom'
+import { graceGroupScale, graceStemSpaces, hostLeftReach } from './graceRoom'
 import { BRACKETED_ROWS, beforeSideLayout, bracketedAfterLayout, hostRightReach } from './bracketedRoom'
 import { enclosureLayout } from './headEnclosure'
 
@@ -257,7 +257,7 @@ function slotInk(slot: ChordRest, signs: Map<string, string | null>, clef: Clef,
   // ⭐ A PARENTHESISED head's brackets (`layout/headEnclosure` — the same call the drawing stands them
   //   with): one box per pair, the outermost ink on both sides.
   const up = stemUp(slot, clef, multiVoice)
-  const enclosure = enclosureLayout({ notes: pitches, duration: slot.duration, dots: slot.dots, enclosureSpan: slot.enclosureSpan, stemDown: !up, upFlag: flagged && up }, id => signs.get(id), clef)
+  const enclosure = enclosureLayout({ notes: pitches, duration: slot.duration, dots: slot.dots, enclosureSpan: slot.enclosureSpan, cue: slot.cue, stemDown: !up, upFlag: flagged && up }, id => signs.get(id), clef)
   for (const pair of enclosure?.pairs ?? []) {
     const y = yOfLine(pair.line)
     boxes.push({ left: enclosure!.left, right: enclosure!.right, top: y - enclosure!.up, bottom: y + enclosure!.down, kind: 'enclosure', staff })
@@ -337,7 +337,7 @@ function graceInk(slot: ChordRest, host: NotePitch[], signs: Map<string, string 
     if (ys.length) {
       // The tallest stem of the group — a grace on low ledgers grows one (Gould p. 126).
       tops.push(Math.min(...ys) - Math.max(...graces.notes.map(note => graceStemSpaces(note.pitches.map(lineOf)))))
-      bottoms.push(Math.max(...ys) + INK_HEIGHT.notehead * graceScale())
+      bottoms.push(Math.max(...ys) + INK_HEIGHT.notehead * graceGroupScale(graces))
     }
   }
   // The slot's own bracketed graces, and those bent into its graces (P3).

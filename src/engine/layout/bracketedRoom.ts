@@ -11,12 +11,13 @@
  * ⛔ Every number is one house style's DEFAULT, a changeable row (`CLAUDE.md`). The research is
  * `docs/research/grace-notes-research.md` §0.9 and §G.4 (Gould's two drawings, measured).
  */
+import { graceCueScale } from './cueSize'
 import type { BracketedGrace, Chord, ChordRest, Clef, GraceNote, NotePitch } from '@/types/music'
 import { spellingDiatonicPos } from '@/utils/pitchSpelling'
 import { staffLineForSpelling } from '@/utils/clefUtils'
 import { glyphBox, noteheadInk, type GlyphName } from '@/engine/fonts/fontMetrics'
 import { INK, accidentalExtent, dotExtent } from './spacingPadding'
-import { graceLayout, type GraceLayout, type GraceRow, type SignOf } from './graceRoom'
+import { graceLayout, type GraceLayout, type GraceRow, type SignOf, withGraceGroupScale } from './graceRoom'
 import { enclosureLayout } from './headEnclosure'
 
 /**
@@ -84,6 +85,15 @@ const state: { size: BracketedSizeRuleName | 'custom'; scale: number; form: Brac
 /** The size a bracketed head is drawn at — the ARMED row. Read per draw, ⛔ never frozen. */
 export function bracketedScale(): number {
   return state.scale
+}
+
+/**
+ * ⭐ The size THIS bracketed grace is drawn at: the armed row, or — a CUE one (cue-size-plan C4, P4b) — the
+ * cue-grace preset applied to it (`layout/cueSize.graceCueScale`: `multiply` = bracketed × cue).
+ * One at a time: each is laid out and drawn on its own, so each keeps its own.
+ */
+export function bracketedItemScale(bracketed: { cue?: true }): number {
+  return bracketed.cue ? graceCueScale(state.scale) : state.scale
 }
 
 /** The armed bracket form. */
@@ -191,7 +201,7 @@ export function bracketedLayout(list: readonly BracketedGrace[], signOf: SignOf,
     leftEdge = place.left
     right = leftEdge - BRACKETED_ROWS.between.value
   }
-  return { places, reach: places.length ? Math.max(0, -leftEdge) : 0, ...band() }
+  return { places, reach: places.length ? Math.max(0, -leftEdge) : 0, ...band(list) }
 }
 
 /**
@@ -210,7 +220,7 @@ export function bracketedAfterLayout(list: readonly BracketedGrace[], signOf: Si
     places.push(place)
     left = place.right + BRACKETED_ROWS.between.value
   }
-  return { places, reach: places.length ? places[places.length - 1].right : 0, ...band() }
+  return { places, reach: places.length ? places[places.length - 1].right : 0, ...band(list) }
 }
 
 /** How far RIGHT of its anchor a chord's own ink reaches, and whether that ink is a DOT. */
@@ -234,7 +244,7 @@ export function hostRightReach(chord: Chord, clef: Clef, upFlag = false): HostRi
   const dots = dotExtent(chord.dots ?? 0)
   const flag = upFlag ? INK.notehead + INK.flagReach : 0
   // …or its BRACKETS, when a head is parenthesised (`layout/headEnclosure`) — which enclose its dots.
-  const brackets = enclosureLayout({ notes: chord.notes, duration: chord.duration, dots: chord.dots, enclosureSpan: chord.enclosureSpan, upFlag }, () => null, clef)?.right ?? 0
+  const brackets = enclosureLayout({ notes: chord.notes, duration: chord.duration, dots: chord.dots, enclosureSpan: chord.enclosureSpan, cue: chord.cue, upFlag }, () => null, clef)?.right ?? 0
   return { reach: Math.max(heads, ledger, dots, flag, brackets), dotted: dots > 0 && dots >= Math.max(heads, ledger, flag, brackets) }
 }
 
@@ -248,7 +258,7 @@ interface Shape {
 }
 
 function shapeOf(bracketed: BracketedGrace, signOf: SignOf, clef: Clef): Shape {
-  const k = bracketedScale()
+  const k = bracketedItemScale(bracketed)
   const form = BRACKET_FORMS[state.form]
   const gs = form.fullSize ? 1 : k
   const L = glyphBox(form.left)
@@ -288,10 +298,10 @@ function placed(shape: Shape, headX: number): BracketedPlace {
   }
 }
 
-/** How far above / below a head's line the armed brackets reach. */
-function band(): { up: number; down: number } {
+/** How far above / below a head's line the armed brackets reach — the largest of the list's (a cue one is smaller). */
+function band(list: readonly BracketedGrace[]): { up: number; down: number } {
   const form = BRACKET_FORMS[state.form]
-  const gs = form.fullSize ? 1 : bracketedScale()
+  const gs = form.fullSize ? 1 : Math.max(0, ...list.map(bracketedItemScale))
   const L = glyphBox(form.left)
   const R = glyphBox(form.right)
   return { up: Math.max(L.up, R.up) * gs, down: Math.max(L.down, R.down) * gs }
@@ -336,7 +346,8 @@ export function beforeSideLayout(slot: ChordRest, signOf: SignOf, clef: Clef, ho
   for (let r = starts.length - 1; r >= 0; r--) {
     const from = starts[r]
     const notes = group.notes.slice(from, starts[r + 1] ?? group.notes.length)
-    const run = graceLayout({ ...group, notes }, signOf, clef, reach, gap)
+    // ⭐ Each run at the WHOLE group's size (cue-size-plan P4) — the size `GracePass` draws the group at.
+    const run = withGraceGroupScale(group, () => graceLayout({ ...group, notes }, signOf, clef, reach, gap))
     run.places.forEach((place, k) => { places[from + k] = place })
     reach = run.reach
     const lead = notes[0]

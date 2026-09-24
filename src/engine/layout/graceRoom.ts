@@ -15,6 +15,7 @@
  * ⛔ Every number here is one house style's DEFAULT, a changeable row (`CLAUDE.md`); the research
  * behind each is `docs/research/grace-notes-research.md` §0.4.
  */
+import { graceCueScale } from './cueSize'
 import type { Clef, GraceGroup, GraceNote, NotePitch } from '@/types/music'
 import { spellingDiatonicPos } from '@/utils/pitchSpelling'
 import { staffLineForSpelling } from '@/utils/clefUtils'
@@ -80,9 +81,41 @@ const sizeState: { rule: GraceSizeRuleName | 'custom'; value: number; generation
   rule: 'house', value: GRACE_SIZE_RULES.house.value, generation: 0,
 }
 
-/** The size a grace is drawn at — the ARMED row ({@link GRACE_SIZE_RULES}). Read per draw, ⛔ never frozen. */
+/** @see withGraceGroupScale — the size of the group being laid out or drawn right now, if any. */
+let scopedScale: number | null = null
+
+/**
+ * The size a grace is drawn at — the ARMED row ({@link GRACE_SIZE_RULES}), or, while ONE group is being laid
+ * out or drawn ({@link withGraceGroupScale}), THAT group's size. Read per draw, ⛔ never frozen.
+ */
 export function graceScale(): number {
-  return sizeState.value
+  return scopedScale ?? sizeState.value
+}
+
+/**
+ * ⭐ **A grace group's size** (cue-size-plan C4, P4): the cue-grace size (`layout/cueSize.graceCueScale`) when
+ * EVERY grace in it is cue, else the grace size — the beam's rule (C7): a group is laid out and drawn as ONE
+ * thing (one `scaling(k)` group, one beam), so it has one size. ⏭️ One cue grace inside a full group stays
+ * the group's size.
+ */
+export function graceGroupScale(group: { notes: readonly { cue?: true }[] }): number {
+  const allCue = group.notes.length > 0 && group.notes.every(note => note.cue)
+  return allCue ? graceCueScale(sizeState.value) : sizeState.value
+}
+
+/**
+ * ⭐ **Lay out or draw ONE group at its size.** Every helper below — the stem, the slash, the dots, the
+ * articulations — asks {@link graceScale}, and inside `fn` that answers this group's size: a SCOPE, so the
+ * size reaches them without a parameter threaded through each. Restored after, nested or not.
+ */
+export function withGraceGroupScale<T>(group: { notes: readonly { cue?: true }[] }, fn: () => T): T {
+  const previous = scopedScale
+  scopedScale = graceGroupScale(group)
+  try {
+    return fn()
+  } finally {
+    scopedScale = previous
+  }
 }
 
 /** Which row is armed, and its value. */
@@ -258,6 +291,9 @@ export function graceLayout(
    *  BRACKETED grace beside it (`layout/bracketedRoom`, which passes its own row). */
   gapToRight: number = GRACE_ROWS.toMain.value,
 ): GraceLayout {
+  // ⭐ At the group's size — the caller's scope when one is open (`bracketedRoom` lays a group out in runs,
+  //   and each run is the WHOLE group's size), else this group's own.
+  if (scopedScale === null) return withGraceGroupScale(group, () => graceLayout(group, signOf, clef, hostReach, gapToRight))
   const k = graceScale()
   const places: GracePlace[] = []
   let right = -(hostReach + gapToRight)

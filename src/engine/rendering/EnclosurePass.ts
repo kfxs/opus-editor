@@ -10,6 +10,7 @@
  * A GRACE's brackets are stamped by `GracePass`, inside the grace's own scaled group, through
  * {@link stampEnclosure} — the one place a pair becomes ink.
  */
+import { bracketScale, slotScale } from '@/engine/layout/cueSize'
 import type { ChordRest, Clef, Fraction, KeySignature } from '@/types/music'
 import type { DrawContext } from '@/engine/paint/DrawContext'
 import type { GlyphFont } from '@/engine/engrave/glyph'
@@ -56,13 +57,14 @@ export function drawEnclosures(
 ): void {
   if (!slots.some(s => s.type === 'chord' && s.notes.some(p => p.enclosure))) return
   const signs = displayedAccidentals(slots, key)
-  const font = musicGlyphFont()
   const ctx = pass.context
   for (let i = 0; i < slots.length && i < staveNotes.length; i++) {
     const slot = slots[i]
     if (slot.type !== 'chord') continue
     const stemDown = staveNotes[i].getStemDirection() === -1
-    const layout = enclosureLayout({ notes: slot.notes, duration: slot.duration, dots: slot.dots, enclosureSpan: slot.enclosureSpan, stemDown, upFlag: !stemDown && staveNotes[i].hasFlag() }, id => signs.get(id), clefForBeat(slot.beat))
+    const layout = enclosureLayout({ notes: slot.notes, duration: slot.duration, dots: slot.dots, enclosureSpan: slot.enclosureSpan, cue: slot.cue, stemDown, upFlag: !stemDown && staveNotes[i].hasFlag() }, id => signs.get(id), clefForBeat(slot.beat))
+    // ⭐ A cue head's brackets at the armed C11 row's size — `gould` full, `shrink` the head's (`layout/cueSize`).
+    const font = musicGlyphFont(bracketScale(slotScale(slot)))
     if (!layout) continue
     const stave = maybeStaveOf(staveNotes[i])
     if (!stave) continue

@@ -1,6 +1,6 @@
 import { describe, it, expect, afterEach } from 'vitest'
 import {
-  CUE_SIZE_RULES, cueScale, cueSizeGeneration, cueSizeSettings, ledgerWeightScale, resetCueSize, setCueLedger, setCueSize, slotScale,
+  CUE_SIZE_RULES, cueScale, graceCueScale, setGraceCueSize, cueSizeGeneration, cueSizeSettings, ledgerWeightScale, resetCueSize, setCueLedger, setCueSize, slotScale,
 } from './cueSize'
 
 /** Subject: `./cueSize` — the cue presets (cue-size-plan C2, C6): his defaults, arming, refusals, the width generation. */
@@ -8,7 +8,7 @@ describe('cueSize', () => {
   afterEach(() => resetCueSize())
 
   it('⭐ his defaults: gouldRoss ¾, gould ledgers (thinner by the size)', () => {
-    expect(cueSizeSettings()).toEqual({ rule: 'gouldRoss', value: 0.75, ledger: 'gould' })
+    expect(cueSizeSettings()).toEqual({ rule: 'gouldRoss', value: 0.75, ledger: 'gould', grace: 'multiply', brackets: 'gould' })
     expect(ledgerWeightScale(0.75)).toBe(0.75)
   })
 
@@ -38,5 +38,19 @@ describe('cueSize', () => {
   it('the `full` ledger row keeps the system’s weight', () => {
     setCueLedger('full')
     expect(ledgerWeightScale(0.75)).toBe(1)
+  })
+
+  it('⭐ C4 — a cue GRACE: `multiply` (default) follows both sizes; the fixed rows are the sources’ numbers', () => {
+    expect(graceCueScale(2 / 3)).toBeCloseTo(0.5, 10)
+    setCueSize('musescore')
+    expect(graceCueScale(0.7)).toBeCloseTo(0.49, 10)
+    expect(setGraceCueSize('graceWins')).toBe(true)
+    expect(graceCueScale(2 / 3)).toBeCloseTo(2 / 3, 10)
+    expect(setGraceCueSize('sibelius')).toBe(true)
+    expect(graceCueScale(2 / 3)).toBe(0.45)
+    expect(setGraceCueSize(0.55)).toBe(true)
+    expect(graceCueScale(2 / 3)).toBe(0.55)
+    expect(setGraceCueSize(0.1)).toBe(false)
+    expect(setGraceCueSize('nope' as never)).toBe(false)
   })
 })

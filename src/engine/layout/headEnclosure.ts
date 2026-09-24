@@ -15,6 +15,7 @@
  * ⛔ Every number is one house style's DEFAULT, a changeable row (`CLAUDE.md`). They are Gould's, MEASURED
  * off her full-size drawings (research B.3); no book states one.
  */
+import { bracketScale, cueScale } from './cueSize'
 import type { Chord, Clef, HeadEnclosure, NoteDuration, NotePitch, Score } from '@/types/music'
 import { spellingDiatonicPos } from '@/utils/pitchSpelling'
 import { displayedAccidentals } from '@/utils/accidentalState'
@@ -101,6 +102,9 @@ export interface EnclosedChord {
   /** How far right of the anchor its dots reach, when that is NOT a normal note's `dotExtent(dots)` — a
    *  GRACE's dots follow its own rule (`layout/graceRoom.graceDotXs`). */
   dotReach?: number
+  /** ⭐ Drawn at CUE size (`Chord.cue`, cue-size-plan C11): its heads, signs, ledgers and dots at the cue size,
+   *  its BRACKETS at the armed row's (`layout/cueSize.bracketScale` — `gould` full, `shrink` the head's). */
+  cue?: true
 }
 
 const onLedger = (line: number): boolean => line <= 0 || line >= 6
@@ -123,6 +127,13 @@ const onLedger = (line: number): boolean => line <= 0 || line >= 6
 export function enclosureLayout(chord: EnclosedChord, signOf: (pitchId: string) => string | null | undefined, clef: Clef): EnclosureLayout | null {
   const enclosed = chord.notes.filter(p => p.enclosure)
   if (!enclosed.length) return null
+  // ⭐ C11 — `s` sizes what belongs to the HEAD (its ink), `b` the BRACKETS (their glyphs and their white).
+  const s = chord.cue ? cueScale() : 1
+  const b = bracketScale(s)
+  const box = (name: Parameters<typeof glyphBox>[0]) => {
+    const g = glyphBox(name)
+    return { ...g, left: g.left * b, right: g.right * b, up: g.up * b, down: g.down * b }
+  }
 
   const lines = chord.notes.map(p => staffLineForSpelling(p.step, p.octave, clef))
   const ledgered = lines.some(onLedger)
@@ -134,22 +145,23 @@ export function enclosureLayout(chord: EnclosedChord, signOf: (pitchId: string) 
   const hasSecond = positions.some((position, i) => i > 0 && position - positions[i - 1] === 1)
   // The house head row (`INK.notehead`, a quarter's) plus whatever THIS head is wider than a quarter's
   // glyph — so a quarter is exactly the row, and a whole or a breve its own width.
-  const headWidth = INK.notehead + (chord.duration ? noteheadInk(chord.duration) - noteheadInk('q') : 0)
-  const displacedLeft = hasSecond && chord.stemDown ? INK.secondDisplacement : 0
-  const heads = hasSecond && !chord.stemDown ? INK.secondDisplacement + headWidth : headWidth
+  const headWidth = (INK.notehead + (chord.duration ? noteheadInk(chord.duration) - noteheadInk('q') : 0)) * s
+  const displacedLeft = hasSecond && chord.stemDown ? INK.secondDisplacement * s : 0
+  const heads = hasSecond && !chord.stemDown ? INK.secondDisplacement * s + headWidth : headWidth
+  const white = (row: { value: number }) => row.value * b
 
   // Each candidate edge is (how far its ink reaches) + (the white a bracket keeps from THAT ink).
   const leftEdge = displacedLeft + Math.max(
-    ENCLOSURE_ROWS.head.value,
-    signs.length ? accidentalExtent(signs) + ENCLOSURE_ROWS.accidental.value : 0,
-    ledgered ? INK.ledgerLeft + ENCLOSURE_ROWS.ledger.value : 0,
+    white(ENCLOSURE_ROWS.head),
+    signs.length ? accidentalExtent(signs) * s + white(ENCLOSURE_ROWS.accidental) : 0,
+    ledgered ? INK.ledgerLeft * s + white(ENCLOSURE_ROWS.ledger) : 0,
   )
   const rightEdge = Math.max(
-    heads + ENCLOSURE_ROWS.head.value,
-    ledgered ? heads + INK.ledgerRight - INK.notehead + ENCLOSURE_ROWS.ledger.value : 0,
+    heads + white(ENCLOSURE_ROWS.head),
+    ledgered ? heads + (INK.ledgerRight - INK.notehead) * s + white(ENCLOSURE_ROWS.ledger) : 0,
     chord.dotReach !== undefined
-      ? (chord.dotReach > 0 ? chord.dotReach + ENCLOSURE_ROWS.dot.value : 0)
-      : chord.dots ? dotExtent(chord.dots) + flaggedDotPush(chord) + ENCLOSURE_ROWS.dot.value : 0,
+      ? (chord.dotReach > 0 ? chord.dotReach + white(ENCLOSURE_ROWS.dot) : 0)
+      : chord.dots ? (dotExtent(chord.dots) + flaggedDotPush(chord)) * s + white(ENCLOSURE_ROWS.dot) : 0,
   )
 
   let left = 0
@@ -160,8 +172,8 @@ export function enclosureLayout(chord: EnclosedChord, signOf: (pitchId: string) 
   //    its first head, centred between its outer heads, stretched to span them.
   if (chord.notes.length > 1 && chordEnclosureSpan({ notes: [...chord.notes], enclosureSpan: chord.enclosureSpan })) {
     const shape = chord.notes[0].enclosure!
-    const L = glyphBox(ENCLOSURE_GLYPHS[shape].left)
-    const R = glyphBox(ENCLOSURE_GLYPHS[shape].right)
+    const L = box(ENCLOSURE_GLYPHS[shape].left)
+    const R = box(ENCLOSURE_GLYPHS[shape].right)
     const glyphHeight = Math.max(L.up + L.down, R.up + R.down)
     const span = Math.max(...lines) - Math.min(...lines)
     const stretch = (span + glyphHeight) / glyphHeight
@@ -180,8 +192,8 @@ export function enclosureLayout(chord: EnclosedChord, signOf: (pitchId: string) 
   }
   const pairs = enclosed.map((pitch): EnclosurePair => {
     const shape = pitch.enclosure!
-    const L = glyphBox(ENCLOSURE_GLYPHS[shape].left)
-    const R = glyphBox(ENCLOSURE_GLYPHS[shape].right)
+    const L = box(ENCLOSURE_GLYPHS[shape].left)
+    const R = box(ENCLOSURE_GLYPHS[shape].right)
     // `GlyphBox.left` is a reach LEFTWARD of the origin: `(`'s ink ends `L.right` past its origin, `)`'s
     // begins `R.left` before its own.
     const leftParenX = -leftEdge - L.right
@@ -220,5 +232,5 @@ export function chordEnclosure(score: Score, chord: Chord, clef: Clef, stem: { s
     .filter(s => s.staffId === chord.staffId && voiceOf(s) === voiceOf(chord))
     .sort((a, b) => fracCompare(a.beat, b.beat))
   const signs = displayedAccidentals(lane, keyAt(score, chord.measure, chord.staffId))
-  return enclosureLayout({ notes: chord.notes, duration: chord.duration, dots: chord.dots, enclosureSpan: chord.enclosureSpan, ...stem }, id => signs.get(id), clef)
+  return enclosureLayout({ notes: chord.notes, duration: chord.duration, dots: chord.dots, enclosureSpan: chord.enclosureSpan, cue: chord.cue, ...stem }, id => signs.get(id), clef)
 }

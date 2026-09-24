@@ -1,6 +1,6 @@
 # Cue-size notes — a real note, drawn small: the plan
 
-> **Status (2026-09-24): P0 committed (`c289873`); P1 committed (`3d9dbe8`); P2 committed (`b2c0da7`); P3 BUILT, awaiting his UI check.** His calls are in (§4). The research is `docs/research/cue-size-research.md`
+> **Status (2026-09-24): P0 committed (`c289873`); P1 committed (`3d9dbe8`); P2 committed (`b2c0da7`); P3 committed (`d83f8fb`); P4 BUILT, awaiting his UI check.** His calls are in (§4). The research is `docs/research/cue-size-research.md`
 > (all three chapters are in; §0 is the synthesis). ⛔ A number never blocks a phase (`CLAUDE.md`).
 >
 > ⚠️ **The UI is the dev shell's** (`src/dev/devToolbar.ts`): one `cue` button, like `paren.`.
@@ -165,6 +165,18 @@ are two ways to make it small, and only one of them keeps those readers honest:
 - **P4: graces and brackets.** A cue grace or bracketed grace at the C4 size. A cue head's brackets
   follow the head: `headEnclosure` takes the head's scale. ⚠️ The armed `gould` form is drawn FULL size
   by design (N8 of `parenthesised-note-plan.md`). Whether a cue head's brackets shrink is the C11 preset.
+  - ✅ **Built 2026-09-24, awaiting his check.** P4a — `GRACE_CUE_SIZE_RULES` (C4) in `layout/cueSize`
+    (`multiply` armed, `graceWins`, `musescore`, `sibelius`, `lilypond`, or a number); a GRACE GROUP has ONE size
+    (`graceRoom.graceGroupScale`): the cue-grace size when EVERY grace is cue, else the grace size — the beam's
+    rule, since a group is one scaled drawing and one beam. ⏭️ One cue grace in a full group stays the group's size.
+    The size reaches every helper through a SCOPE (`withGraceGroupScale`: `graceScale()` answers the group's while
+    it is laid out or drawn) — `GracePass`, `graceLayout`, and `bracketedRoom`'s runs (each at the WHOLE group's).
+    P4b — a cue BRACKETED grace is sized on its own (`bracketedItemScale`: the C4 preset applied to the bracketed
+    size); `CUE_BRACKET_RULES` (C11, `gould` armed): `enclosureLayout` measures a cue chord's head inks at the cue
+    size and its brackets' glyphs and white at the armed row's (`gould` full, `shrink` the head's), and
+    `EnclosurePass` stamps them at it. A grace's brackets keep following their group (parenthesised-note P3).
+    `__cue.graceSize(…)`, `__cue.brackets(…)`. Proved: `graceRoom.cue`, `GracePass.cue`, `headEnclosure.cue`,
+    `EnclosurePass.cue`, `BracketedGracePass.cue` (scene placements and font sizes).
 - **P5: what reads it.** Ties and slurs (their endpoints should come free from the note; check them),
   hit boxes and the selection highlight, the entry ghost, the Properties report.
 - **P6: a closed-up cue (C8).** When a whole column is cue, its duration stretch × a row (Gould p. 569;
