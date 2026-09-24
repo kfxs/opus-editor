@@ -1,6 +1,6 @@
 # Cue-size notes — a real note, drawn small: the plan
 
-> **Status (2026-09-24): P0–P6 ALL BUILT AND COMMITTED** — P0 `c289873` · P1 `3d9dbe8` · P2 `b2c0da7` · P3 `d83f8fb` · P4 `e36e769` · P5 `0b9457b` · P6 (this commit). ⏭️ Open: ARMING cue for note entry (his rule: entry takes what the palette arms), a cue FAN's member spacing, and the §3 *Later* list. His calls are in (§4). The research is `docs/research/cue-size-research.md`
+> **Status (2026-09-24): P0–P6 ALL BUILT AND COMMITTED** — P0 `c289873` · P1 `3d9dbe8` · P2 `b2c0da7` · P3 `d83f8fb` · P4 `e36e769` · P5 `0b9457b` · P6 (this commit). ⏭️ Open: ARMING cue for note entry (his rule: entry takes what the palette arms), and the §3 *Later* list. Cue FANS built after P6 (see §3). His calls are in (§4). The research is `docs/research/cue-size-research.md`
 > (all three chapters are in; §0 is the synthesis). ⛔ A number never blocks a phase (`CLAUDE.md`).
 >
 > ⚠️ **The UI is the dev shell's** (`src/dev/devToolbar.ts`): one `cue` button, like `paren.`.
@@ -204,6 +204,15 @@ are two ways to make it small, and only one of them keeps those readers honest:
     never squeezed. `__cue.spacing(…)`. Proved: `measureColumns.cue`, `spacing` (unit), `e2e/cueSize` (a cue bar's
     note gaps ≈ ¾ of a full bar's; exactly 1 with the scale removed). ⏭️ A cue FAN's own member springs
     (`fanRampRoom`) are not closed up.
+- **Cue FANS** (his call 2026-09-24: *"we have to do cue fans too... this is important"*). ✅ Built, awaiting his
+  check. A fan is ONE slot, so it is all cue or not at all (C7). Member 0 is the real note (sized since P1);
+  `FanPass` now draws the rest at `slotScale(slot)`: the members' heads (`noteFont`), their accidentals (glyph,
+  width, gap), ledgers (overhang, and weight by C6), the minimum stem, the feathered beam's thickness (so its
+  stem extension) and the join's, the minimum head gap; the members' marks stand on a stand-in at the fan's size
+  (`placeMemberArticulations`' `glyphScale`). Closed up by C8: each member's earned gap and the gap after the fan
+  (`FannedBeam.springScale`, `trailingGap`), and the room the bar reserves (`fanRampRoom.fanSpanRods`). 🚨 A
+  size named `k` in `FanPass` collided with the member loop's index `k` — every member grew (caught by eye);
+  it is `size` there. Proved: `FanPass.cue` (scene: faces, beam, closed up), `FannedBeam`, `fanRampRoom`.
 - **Later, only when asked:** one head of a chord (C9); a SILENT flag (C3); a cue clef (C10);
   a cue stamp or an entry value (the `paren.` P4b five-way press); the Keypad; MusicXML
   `size="cue"` / `<cue/>`.

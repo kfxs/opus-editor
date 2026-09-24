@@ -940,3 +940,17 @@ describe('the ramp room', () => {
     }
   })
 })
+
+describe('⭐ a CUE fan closes up (cue-size-plan C8): `springScale` shortens each member’s earned gap', () => {
+  it('the ramp at ¾ of its springs is ¾ as long — the room it reserved (`fanRampRoom`) reads the same row', () => {
+    const at = (springScale?: number) => fannedBeamGeometry({
+      members: fanMembers(FAN, frac(2, 1)),
+      memberHeadYs: Array.from({ length: FAN.count }, () => [100]),
+      direction: FAN.direction, beams: FAN.beams, headX: 100, spanEndX: 2000, stemOffset: 10, minHeadGap: 0.1,
+      tipY: 60, minStemLength: MIN_STEM, stemDirection: 1, beamWidth: BEAM_WIDTH,
+      ...(springScale !== undefined && { springScale }),
+    })
+    const span = (g: ReturnType<typeof at>) => g.stems[g.stems.length - 1].stemX - g.stems[0].stemX
+    expect(span(at(0.75))).toBeCloseTo(span(at()) * 0.75, 6)
+  })
+})

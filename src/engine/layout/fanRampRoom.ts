@@ -4,6 +4,7 @@ import { fanMembers } from '@/utils/fannedBeam'
 import { slotLength } from '@/utils/durations'
 import { INK, minColumnGap } from './spacingPadding'
 import { followingSpace, type Column } from './spacing'
+import { cueSpacingScale, slotScale } from './cueSize'
 
 /**
  * ⭐⭐ **HOW WIDE A FAN'S RAMP IS, and how much of the bar's room it gets** — the two halves of one
@@ -76,7 +77,10 @@ export function fanSpanRods(
     const span: number[] = []
     let natural = 0
     for (let k = 0; k + 1 < positions.length; k++) {
-      if (fracLt(positions[k + 1], slot.beat) || !fracLt(positions[k], end)) continue
+      // ⚠️ A gap ENDING on the fan's own beat is the one BEFORE it, ⛔ not its own (his report, 2026-09-24: a
+      //   second fan in a bar came out crushed — it counted the first half's gap as part of its span, spread
+      //   its demand over twice the natural length and asked for half the room). Only gaps ending AFTER it.
+      if (!fracLt(slot.beat, positions[k + 1]) || !fracLt(positions[k], end)) continue
       span.push(k)
       natural += followingSpace(fracSub(positions[k + 1], positions[k]))
     }
@@ -97,7 +101,10 @@ export function fanSpanRods(
     //   demands 0.7 of the room. Left out, a small staff's fan keeps charging the bar full price —
     //   the very thing the ink scaling is for, and the fan is the densest ink there is.
     const { ramp, tail } = fanRampSpaces(slot.fan, length)
-    const wanted = (ramp + tail) * sizeFor(slot.staffId)
+    // ⭐ …and a CUE fan closes up (cue-size-plan, cue fans): its ramp's springs by the armed C8 row, its last
+    //   head's ink at the cue size — the room the drawing (`FanPass`) spends at `k`.
+    const spring = slot.cue ? cueSpacingScale() : 1
+    const wanted = (ramp * spring + tail * slotScale(slot)) * sizeFor(slot.staffId)
     if (natural >= wanted) continue
     const force = wanted / natural
     for (const k of span) {

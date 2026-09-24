@@ -122,7 +122,7 @@ export function drawFanMemberArticulations(
   ctx: DrawContext,
   stave: EngravedStave,
   target: FanMemberArticulationTarget,
-  opts: { position: ModifierPositionValue; stemDirection: number },
+  opts: { position: ModifierPositionValue; stemDirection: number; glyphScale?: number },
 ): PlacedFanArticulation[] {
   const placed: PlacedFanArticulation[] = []
   for (const { type, ink, box } of placeMemberArticulations(stave, target, opts)) {
@@ -145,6 +145,9 @@ export function placeMemberArticulations(
     position: ModifierPositionValue; stemDirection: number
     /** A GRACE's size: the step out from the head scales with it, the snap does not. Absent = 1. */
     outwardScale?: number
+    /** ⭐ A CUE fan's size — the stand-in note is drawn at it, so its marks measure and stamp at it too
+     *  (`EngravedModifier.noteScale`), the way a cue note's own do. Absent = 1. */
+    glyphScale?: number
   },
 ): PlacedArticulationInk[] {
   if (!target.types.length || !target.keys.length) return []
@@ -163,7 +166,7 @@ export function placeMemberArticulations(
 
   // The stand-in: the member's own pitches, clef, stem direction and stem LENGTH, so everything the
   // formatter reads about this note is true of the head we actually drew.
-  const probe = new EngravedNote({ keys: target.keys, duration: 'q', clef: target.clef })
+  const probe = new EngravedNote({ keys: target.keys, duration: 'q', clef: target.clef, ...(opts.glyphScale && opts.glyphScale !== 1 && { glyphScale: opts.glyphScale }) })
   standOn(probe, stave)
   // A column of its own to stand in — the probe asks it only its x (0), as VexFlow's empty context answered.
   new TickColumn().addTickable(probe)

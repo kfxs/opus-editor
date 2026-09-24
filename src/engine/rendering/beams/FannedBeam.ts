@@ -211,6 +211,12 @@ export interface FanGeometryOptions {
    */
   trailingGap?: number
   /**
+   * ⭐ A CUE fan's closed-up spacing (cue-size-plan C8): what each member's EARNED gap (its duration's spring)
+   * is multiplied by — the same row its column closes up by (`layout/cueSize.cueSpacingScale`), so the ramp the
+   * bar reserved (`layout/fanRampRoom`) and the ramp drawn read one number. Absent = 1.
+   */
+  springScale?: number
+  /**
    * Extra room, per member, that its ACCIDENTAL needs to the LEFT of its head — 0 where it carries
    * no sign. The width pass cannot see this (it counts head columns and cannot measure glyphs), so
    * the sign buys its room out of the group's own span rather than out of the bar's.
@@ -417,6 +423,7 @@ export function fannedBeamGeometry(opts: FanGeometryOptions): FanGeometry {
     accidentalRoom, headRightRoom, memberSpaces, memberOffsets, rampRoom, tipY, minStemLength, stemDirection, beamWidth,
     subdivideJoin = true,
     trailingGap = minHeadGap,
+    springScale = 1,
   } = opts
   const prefix = opts.prefix ?? []
   const joined = prefix.length > 0 || !!opts.joined
@@ -496,7 +503,7 @@ export function fannedBeamGeometry(opts: FanGeometryOptions): FanGeometry {
     // and would otherwise land on this head — and by whatever THIS member's own heads reach
     // forward, which is a displaced second under an upward stem.
     floors.push(minHeadGap + (accidentalRoom?.[k + 1] ?? 0) + (headRightRoom?.[k] ?? 0))
-    earned.push(followingSpace(members[k].quarters) * STAFF_SPACE_PX)
+    earned.push(followingSpace(members[k].quarters) * STAFF_SPACE_PX * springScale)
   }
 
   /**

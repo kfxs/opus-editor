@@ -14,6 +14,7 @@
  *  - {@link drawCrossBarFanBeams} — the fans whose beam LEAVES its bar, drawn outside every one.
  * Both build {@link FanSlotDrawing}s and hand them to {@link drawFanGroups}.
  */
+import { cueSpacingScale, ledgerWeightScale, slotScale } from '@/engine/layout/cueSize'
 import type { EngravedStave } from '../engraved/EngravedStave'
 import { EngravedHead } from '../engraved/EngravedHead'
 import { headGlyph } from '@/engine/engrave/notes/keyLines'
@@ -46,7 +47,7 @@ import { drawNoteHead } from '@/engine/engrave/notes/noteheads'
 import { openMemberGroup } from '../memberGroup'
 import { EngravedAccidental } from '../engraved/EngravedAccidental'
 import { stampGlyph } from '@/engine/engrave/glyph'
-import { accidentalFont } from '@/engine/engrave/inheritedFonts'
+import { accidentalFont, noteFont } from '@/engine/engrave/inheritedFonts'
 import { stemOf, EngravedNote } from '../engraved/EngravedNote'
 import type { CrossBarFanJoin } from './CrossBarBeams'
 import type { ElementRegistry } from '@/engine/ElementRegistry'
@@ -160,12 +161,13 @@ function accidentalWidth(sign: string): number {
  * and through `accidentalRoom`, the group's own span — pay for the room. One expression, spent by
  * both the drawing and the reservation, so the two cannot disagree about how wide a member is.
  */
-function fanAccidentalItems(heads: { line: number; sign: string | null }[]): ChordAccidentalItem[] {
+function fanAccidentalItems(heads: { line: number; sign: string | null }[], k = 1): ChordAccidentalItem[] {
   const lines = heads.map(h => h.line)
+  // ⭐ `k` — a CUE fan's size (cue-size-plan, cue fans): its signs, their gap and the ledger trim, all at it.
   return heads.filter(h => h.sign).map(h => ({
     line: h.line,
-    width: accidentalWidth(h.sign as string)
-      + ledgerAccidentalClearance(h.line, lines, LEDGER_OVERHANG_BESIDE_ACCIDENTAL, FAN_ACCIDENTAL_GAP),
+    width: accidentalWidth(h.sign as string) * k
+      + ledgerAccidentalClearance(h.line, lines, LEDGER_OVERHANG_BESIDE_ACCIDENTAL * k, FAN_ACCIDENTAL_GAP * k),
   }))
 }
 
@@ -174,11 +176,11 @@ function fanAccidentalItems(heads: { line: number; sign: string | null }[]): Cho
  * stands beside them, the ordinary one otherwise — the same trade a real note makes
  * (`clearLedgersForAccidentals`), so the two pictures match on a page that has both.
  */
-function fanLedgerOverhang(heads: { line: number; sign: string | null }[]): number {
+function fanLedgerOverhang(heads: { line: number; sign: string | null }[], k = 1): number {
   const lines = heads.map(h => h.line)
-  return heads.some(h => h.sign && accidentalMeetsLedger(h.line, lines))
+  return (heads.some(h => h.sign && accidentalMeetsLedger(h.line, lines))
     ? LEDGER_OVERHANG_BESIDE_ACCIDENTAL
-    : FAN_LEDGER_OVERHANG
+    : FAN_LEDGER_OVERHANG) * k
 }
 
 /**
@@ -439,6 +441,10 @@ function drawFanGroups(pass: RenderPass, drawings: FanSlotDrawing[], fanJoins: F
   for (const drawing of drawings) {
     const { index: i, slot, note, stave, clef, headX, baseY, stemDirection, heads, stored, prefixNotes, options } = drawing
     const { measureNumber, staffIndex } = drawing
+    // ⭐ A CUE fan is drawn at its size (cue-size-plan, cue fans): member 0 is the real note, already sized by
+    //   `NoteBuilder`; the members, their signs, ledgers, marks and the beam are this pass's — all at `size`.
+    //   ⚠️ Not `k`: that is the member loop's index below.
+    const size = slotScale(slot)
     const geometry = fannedBeamGeometry(options)
     geometries.set(i, geometry)
 
@@ -453,7 +459,7 @@ function drawFanGroups(pass: RenderPass, drawings: FanSlotDrawing[], fanJoins: F
           left: behind,
           right: geometry,
           toX: geometry.stems[0].stemX,
-          thickness: crossSystemBeamWidth() * stemDirection,
+          thickness: crossSystemBeamWidth() * size * stemDirection,
           // THIS fan's spread — the crossing lines land on its stems, so they keep its gap.
           spread: slot.fan?.spread,
         })
@@ -517,7 +523,7 @@ function drawFanGroups(pass: RenderPass, drawings: FanSlotDrawing[], fanJoins: F
           // into an x; we only ask where it landed.
           const displaced = chordHeadDisplacement(memberHeads.map(mh => mh.line), stemDirection)
           const noteHeads = memberHeads.map((mh, h) => new EngravedHead({
-            glyph: headGlyph('q', false), line: mh.line, stemDirection, displaced: displaced[h], x: member.headX,
+            glyph: headGlyph('q', false), line: mh.line, stemDirection, displaced: displaced[h], x: member.headX, font: noteFont(size),
           }))
           // ⚠️ READ BEFORE THE DRAW: `NoteHead.draw` writes its own absolute x back into `x`, so a
           // displaced head asked twice displaces twice.
@@ -526,7 +532,7 @@ function drawFanGroups(pass: RenderPass, drawings: FanSlotDrawing[], fanJoins: F
           // that is what the accidentals have to clear.
           const chordLeftX = headXs.length ? Math.min(...headXs) : member.headX
           const signedHeads = memberHeads.map((_, h) => h).filter(h => memberHeads[h].sign)
-          const accidentals = chordAccidentalLayout(fanAccidentalItems(memberHeads), chordLeftX, FAN_ACCIDENTAL_GAP)
+          const accidentals = chordAccidentalLayout(fanAccidentalItems(memberHeads, size), chordLeftX, FAN_ACCIDENTAL_GAP * size)
           // 🚨 LEDGER LINES BY HAND. `drawLedgerLines` belongs to `StaveNote`; a bare `NoteHead`
           // only swaps to the ledger glyph. Members off the staff drew as floating heads before
           // they had their own pitches — a bug then, the ordinary case now. Once per MEMBER, not
@@ -536,7 +542,8 @@ function drawFanGroups(pass: RenderPass, drawings: FanSlotDrawing[], fanJoins: F
             ctx, stave,
             memberHeads.map((mh, h) => ({ line: mh.line, x: headXs[h] })),
             glyphWidth,
-            fanLedgerOverhang(memberHeads),
+            fanLedgerOverhang(memberHeads, size),
+            size,
           )
           for (let h = 0; h < memberHeads.length; h++) {
             const { pitch, line, sign } = memberHeads[h]
@@ -586,7 +593,7 @@ function drawFanGroups(pass: RenderPass, drawings: FanSlotDrawing[], fanJoins: F
               // of each other the moment a member became a real chord.
               // ⭐ S12k: stamped bare, as `Element.renderText` stamped VexFlow's `Accidental` — no group.
               const glyph = new EngravedAccidental(sign).getText()
-              stampGlyph(ctx, glyph, accidentals.xs[signedHeads.indexOf(h)], y, accidentalFont(glyph))
+              stampGlyph(ctx, glyph, accidentals.xs[signedHeads.indexOf(h)], y, accidentalFont(glyph, size))
             }
           }
           // ⭐ P3c — the same ink as every other stem on the page (`engrave/notes/stem`), where
@@ -615,7 +622,7 @@ function drawFanGroups(pass: RenderPass, drawings: FanSlotDrawing[], fanJoins: F
                 (fanBeamFarEdge(geometry.beams, member.stemX, stemDirection) ?? member.tipY) - member.baseY,
               ),
               placement: stored[k - 1]?.articulationPlacement,
-            }, { position: articulationPosition, stemDirection })
+            }, { position: articulationPosition, stemDirection, glyphScale: size })
             // ⭐ REGISTERED like the owner's, keyed on the member's own first pitch — that id is
             // what `selectArticulation` / delete / flip all take, so registering it is the whole of
             // what makes a member's mark clickable. Without this the only selectable articulation in
@@ -726,13 +733,16 @@ function fanSlotDrawing(input: {
   // walks into a displaced head.
   const glyphWidth = note.getGlyphWidth()
   const headShift = displacedHeadShiftPx(glyphWidth)
+  // ⭐ A CUE fan's size (`layout/cueSize.slotScale`) — its room, gaps, stems and beam, at it.
+  //   ⚠️ Not `k`: the member maps below index by it.
+  const size = slotScale(slot)
   const memberDisplaced = heads.map(pitches => chordHeadDisplacement(pitches.map(h => h.line), stemDirection))
   // Member 0's own signs are VexFlow's business — real modifiers on a real note, already inside the
   // formatter's width — but its displaced head reaches past `headX` like anyone else's.
   const accidentalRoom = heads.map((pitches, k) => {
     if (k === 0) return 0
     const headRoom = stemDirection < 0 && memberDisplaced[k].some(Boolean) ? headShift : 0
-    return headRoom + chordAccidentalWidth(fanAccidentalItems(pitches), FAN_ACCIDENTAL_GAP)
+    return headRoom + chordAccidentalWidth(fanAccidentalItems(pitches, size), FAN_ACCIDENTAL_GAP * size)
   })
   const headRightRoom = heads.map((_, k) => (
     stemDirection > 0 && (k === 0 ? note.isDisplaced() : memberDisplaced[k].some(Boolean)) ? headShift : 0
@@ -797,11 +807,15 @@ function fanSlotDrawing(input: {
       // asked for the room this implies (`fanColumns`); this is what SPENDS it.
       // ⭐ P5 — the same floor two ORDINARY noteheads get (`MIN_COLUMN_GAP`: a notehead plus
       //   note↔note padding), not a ratio of its own. A fanned head is a notehead.
-      minHeadGap: minColumnGap() * STAFF_SPACE_PX,
+      minHeadGap: minColumnGap() * STAFF_SPACE_PX * size,
       // ⭐ …and the group stands off the NEXT note by an ordinary column. P5 makes that literal: the
       // last member's own duration earns it, exactly as any other note's does, so this is the
       // spacing rule and no longer a constant standing in for one.
-      trailingGap: followingSpace(fanMembers(slot.fan, slotLength(slot)).slice(-1)[0].quarters) * STAFF_SPACE_PX,
+      // ⭐ …closed up when the fan is cue, as its column is (C8, `layout/cueSize.cueSpacingScale`).
+      trailingGap: followingSpace(fanMembers(slot.fan, slotLength(slot)).slice(-1)[0].quarters) * STAFF_SPACE_PX
+        * (slot.cue ? cueSpacingScale() : 1),
+      // …and each member's earned gap, by the same row (the room `fanRampRoom` reserved reads it too).
+      ...(slot.cue && { springScale: cueSpacingScale() }),
       // ⭐ Break the secondary beams where the join is, unless this fan refuses — his report: an
       // unbroken band made the fan unreadable against the 16ths beamed into it.
       subdivideJoin: fanJoinSubdivides(slot.fan),
@@ -819,14 +833,15 @@ function fanSlotDrawing(input: {
       tipY: topY,
       // ⚠️ The LARGER of the two extensions: the beam levels eat into every stem in the group, and
       // a 32nd prefix joined to a one-beam fan is the case that under-reserves otherwise.
-      minStemLength: staveFrame(stave).spacePx * FAN_MIN_STEM_SPACES
+      minStemLength: staveFrame(stave).spacePx * FAN_MIN_STEM_SPACES * size
         + Math.max(
-          fanStemExtension(slot.fan.beams, crossSystemBeamWidth(), slot.fan.spread),
+          fanStemExtension(slot.fan.beams, crossSystemBeamWidth() * size, slot.fan.spread),
           // ⚠️ No spread: the prefix's levels are ORDINARY beams at the ordinary gap.
-          fanStemExtension(prefixBeams, crossSystemBeamWidth()),
+          fanStemExtension(prefixBeams, crossSystemBeamWidth() * size),
         ),
       stemDirection,
-      beamWidth: crossSystemBeamWidth(),
+      // ⭐ A cue fan's beam is its size (C7: a fan is ONE slot, so it is all-cue or not at all).
+      beamWidth: crossSystemBeamWidth() * size,
     },
   }
 }
@@ -1028,12 +1043,16 @@ function drawFanLedgerLines(
   heads: { line: number; x: number }[],
   glyphWidth: number,
   overhang: number,
+  /** A CUE fan's size — its ledgers' weight by the armed C6 row (`layout/cueSize.ledgerWeightScale`). */
+  k = 1,
 ): void {
+  const style = stave.getDefaultLedgerLineStyle()
+  const weight = ledgerWeightScale(k)
   drawLedgerLines(
     ctx,
     ledgerLineRuns(heads, glyphWidth, overhang),
     line => noteLineY(staveFrame(stave), line),
     // The stave's own ledger style, so these are the same ink as every other ledger on the page.
-    stave.getDefaultLedgerLineStyle(),
+    weight !== 1 && style.lineWidth !== undefined ? { ...style, lineWidth: style.lineWidth * weight } : style,
   )
 }

@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest'
-import { fanRampRoomSpaces, fanRampSpaces } from './fanRampRoom'
+import { fanRampRoomSpaces, fanRampSpaces, fanSpanRods } from './fanRampRoom'
+import { ScoreModel } from '@/engine/models/ScoreModel'
+import { setCue } from '@/engine/models/cueOps'
 import { plainColumn, type Column } from './spacing'
 import { fracCreate as frac } from '@/utils/fraction'
 import type { FanMark } from '@/types/music'
@@ -72,5 +74,34 @@ describe('fanRampRoomSpaces', () => {
     expect(fanRampRoomSpaces(cols, [0, 5], frac(0, 1), FAN, SLOT), 'xs and columns disagree').toBeUndefined()
     expect(fanRampRoomSpaces(cols, [0, 5, 12], frac(2, 1), FAN, SLOT), 'nothing follows it').toBeUndefined()
     expect(fanRampRoomSpaces(cols, [7, 7, 7], frac(0, 1), FAN, SLOT), 'no room at all').toBeUndefined()
+  })
+})
+
+describe('⭐ a CUE fan asks for its closed-up room (cue-size-plan C8)', () => {
+  it('its ramp by the armed spacing row and its last head at the cue size — less than the same fan full', () => {
+    const rodsOf = (cue: boolean) => {
+      const model = new ScoreModel()
+      const n = model.addNote({ step: 'E', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })
+      model.setFan(n.id, { direction: 'accel', count: 8, beams: 3 })
+      if (cue) setCue(model.getScore(), [n.id], true)
+      // A grid too narrow for the ramp, so the fan's demand shows as rods.
+      return fanSpanRods(model.getMeasure(1)!, [frac(0, 1), frac(4, 1)])
+    }
+    const full = rodsOf(false)[0]
+    expect(full).toBeGreaterThan(0)
+    expect(rodsOf(true)[0]).toBeLessThan(full)
+  })
+})
+
+describe('🚨 two fans in one bar ask for the SAME room (his report, 2026-09-24: the second came out crushed)', () => {
+  it('⭐ a gap ENDING on a fan’s beat is not in its span — each half gets the same rod', () => {
+    const model = new ScoreModel()
+    for (const beat of [0, 2]) {
+      const n = model.addNote({ step: 'F', alter: 0, octave: 4, duration: 'h', measure: 1, beat: frac(beat, 1) })
+      model.setFan(n.id, { direction: 'rit', count: 6, beams: 3 })
+    }
+    const rods = fanSpanRods(model.getMeasure(1)!, [frac(0, 1), frac(2, 1), frac(4, 1)])
+    expect(rods[0]).toBeGreaterThan(0)
+    expect(rods[1]).toBeCloseTo(rods[0], 10)
   })
 })
