@@ -1,3 +1,4 @@
+import { bus } from '@/bus'
 import { describe, it, expect, beforeEach, vi, type Mock } from 'vitest'
 import { MusicEngine } from '../../engine/MusicEngine'
 import { PaletteController } from '../controllers/PaletteController'
@@ -89,12 +90,16 @@ describe('pressFan', () => {
     expect(fanOf(id)).toBeUndefined()
   })
 
-  it('does nothing with nothing selected — a fan has nothing to apply to', () => {
+  it('⭐ with nothing selected writes NOTHING to the score — it arms the fan STAMP instead (his rule, 2026-09-24)', () => {
     const id = blanca()
     const before = engine.exportJSON()
+    const armed: string[] = []
+    const off = bus.fanStamp.onPress(a => armed.push(a.direction))
     palette.pressFan('accel')
+    off()
     expect(fanOf(id)).toBeUndefined()
     expect(engine.exportJSON()).toBe(before) // and no undo entry: the score never changed
+    expect(armed, 'the stamp, by the dialog’s route (`stamps/featherPress`)').toEqual(['accel'])
   })
 
   it('does nothing on a selected REST — you cannot accelerate silence', () => {

@@ -44,6 +44,17 @@ describe('FanEditController', () => {
     expect(renders).toBe(1)
   })
 
+  it('⭐ turns the fan round (his ask, 2026-09-24) — ONE field: the count, the beams and the members stay', () => {
+    const id = fanned()
+    const members = fanOf(id)!.members
+    bus.fanEdit.set({ noteId: id, direction: 'rit' })
+    expect(fanOf(id)).toMatchObject({ direction: 'rit', count: 6, beams: 3 })
+    expect(fanOf(id)!.members).toEqual(members)
+    expect(renders).toBe(1)
+    bus.fanEdit.set({ noteId: id, direction: 'rit' })
+    expect(renders, 'the same direction again is no edit').toBe(1)
+  })
+
   it('changes the beams the same way', () => {
     const id = fanned()
     bus.fanEdit.set({ noteId: id, beams: 2 })

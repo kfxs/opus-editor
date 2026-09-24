@@ -1,4 +1,5 @@
 import type { EditorState, StateListener } from '../state/EditorState'
+import { armedFeatherDirection } from '../stamps/featherPress'
 import type { BeamMode, FanMark, NoteDuration, TremoloMark } from '../../types/music'
 import { armedToolEntersPitch, armedToolUsesLength, selectedOf } from '../state/EditorState'
 import type { BeamRole } from '../../utils/beaming'
@@ -268,13 +269,14 @@ export function tremoloPairHighlight(state: EditorState, engine: TremoloSource |
  * undo or a paste changes it without going near the palette — the same live read the articulation,
  * tie, beam-role and two-note-tremolo highlights make.
  *
- * Only the score-derived source, like {@link tremoloPairHighlight} and for the same reason: a fan
- * applies to notes that already exist, so there is no arming state to report and it never lights for
- * one. It reports the DIRECTION rather than a boolean because the two buttons are one axis — a note
+ * The score-derived source, like {@link tremoloPairHighlight} — and, since 2026-09-24, the fan STAMP a press
+ * arms with nothing selected (`stamps/featherPress`, his rule), whose direction lights its key. It reports the DIRECTION rather than a boolean because the two buttons are one axis — a note
  * cannot be accelerating and slowing at once, so lighting `rit.` must dark `accel.`
  */
 export function fanHighlight(state: EditorState, engine: FanSource | null): 'accel' | 'rit' | null {
-  if (state.selectedMarkingTool || !engine) return null
+  // ⭐ …except the STAMP a press armed with nothing selected (`stamps/featherPress`): its key lights.
+  if (state.selectedMarkingTool) return armedFeatherDirection(state)
+  if (!engine) return null
   if (noNoteInSelection(state) || !state.selectedNoteId) return null
   return engine.getNote(state.selectedNoteId)?.fan?.direction ?? null
 }

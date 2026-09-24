@@ -1,4 +1,5 @@
 import { dbg } from '@/utils/debug'
+import { pressWithNothingSelected } from '../stamps/featherPress'
 import type { StaffGroup } from '@/types/music'
 import type { ArticulationType, Accidental, NoteDuration, BeamMode, Clef, TimeSignature, KeySignature, Fraction, TupletFormat, TremoloMark, FanMark } from '../../types/music'
 import type { MusicEngine } from '../../engine/MusicEngine'
@@ -732,6 +733,8 @@ export class PaletteController {
    * that should have CLEARED the fan would re-set it at the default shape instead.
    */
   pressFan(direction: 'accel' | 'rit'): void {
+    // ⭐ Nothing selected ⇒ the STAMP (his rule, 2026-09-24 — `interactions/stamps/featherPress`).
+    if (pressWithNothingSelected(this.state, direction, () => this.disarmMarkingTool())) return
     const engine = this.getEngine()
     if (!engine || !this.state.selectedNoteId) return
 

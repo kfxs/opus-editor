@@ -24,6 +24,11 @@ export interface FanEditRequest {
   /** Beam lines at the wide end. Absent = leave it alone. */
   beams?: number
   /**
+   * ⭐ Which way the ramp runs (his ask, 2026-09-24: the direction switched in Properties). Absent = leave it
+   * alone. ONE field of the mark, as the `accel.`/`rit.` keys turn a fan round — the members and shape stay.
+   */
+  direction?: 'accel' | 'rit'
+  /**
    * Which member the feathering starts on and which it ends on — **0-based, like the model**
    * (docs/plans/fan-ramp-range-plan.md P2). Absent = leave it alone, the same as every field here.
    *

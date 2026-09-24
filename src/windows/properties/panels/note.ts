@@ -202,8 +202,28 @@ function buildFanInputs(noteId: string, fan: FanMark): HTMLElement {
   rs.margin = '2px 0 4px'
 
   const label = document.createElement('span')
-  label.textContent = `fan (${fan.direction})`
+  label.textContent = 'fan'
   row.appendChild(label)
+
+  // ⭐ WHICH WAY IT RUNS (his ask, 2026-09-24) — switched here as the `accel.`/`rit.` keys turn a fan round: one
+  //    field of the mark, the members and the shape kept (`FanEditController`).
+  const direction = document.createElement('select')
+  for (const value of ['accel', 'rit'] as const) {
+    const option = document.createElement('option')
+    option.value = value
+    option.textContent = value
+    direction.appendChild(option)
+  }
+  direction.value = fan.direction
+  direction.title = 'accel. = the notes speed up (open feather) · rit. = they slow down (close feather)'
+  const ds = direction.style
+  ds.font = 'inherit'
+  ds.color = BISHOP
+  ds.background = 'transparent'
+  ds.border = `1px solid ${BISHOP}`
+  ds.borderRadius = '2px'
+  direction.addEventListener('change', () => bus.fanEdit.set({ noteId, direction: direction.value === 'rit' ? 'rit' : 'accel' }))
+  row.appendChild(direction)
 
   const field = (
     title: string, value: number, max: number, publish: (n: number) => void, hint = title,

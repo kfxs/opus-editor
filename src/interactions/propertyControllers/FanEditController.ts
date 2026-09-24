@@ -29,7 +29,7 @@ export class FanEditController {
     this.unsubscribe = bus.fanEdit.onSet((req) => this.apply(req))
   }
 
-  private apply({ noteId, count, beams, rampFrom, rampTo, spread }: FanEditRequest): void {
+  private apply({ noteId, count, beams, direction, rampFrom, rampTo, spread }: FanEditRequest): void {
     const engine = this.getEngine()
     if (!engine) return
     const current = engine.getNote(noteId)?.fan
@@ -43,6 +43,8 @@ export class FanEditController {
     // mutate it — and `normalizeFan` is pure for exactly that reason.
     const next: FanMark = {
       ...current,
+      // ⭐ The DIRECTION too (his ask, 2026-09-24) — one field, as the keys turn a fan round.
+      direction: direction ?? current.direction,
       count: clampFanCount(count ?? current.count),
       beams: clampFanBeams(beams ?? current.beams),
     }
@@ -66,7 +68,7 @@ export class FanEditController {
     const before = fanRampRange(current)
     const after = fanRampRange(next)
     if (
-      next.count === current.count && next.beams === current.beams
+      next.direction === current.direction && next.count === current.count && next.beams === current.beams
       && after.from === before.from && after.to === before.to
       && fanSpread(next) === fanSpread(current)
     ) return
@@ -76,7 +78,7 @@ export class FanEditController {
     // description only when it is inset, 1-based to match what he typed.
     const inset = after.from > 0 || after.to < next.count - 1
     const wide = fanSpread(next) !== 1 ? ` ×${fanSpread(next)}` : ''
-    const label = `Fan ${next.count}×${next.beams}${inset ? ` ${after.from + 1}–${after.to + 1}` : ''}${wide}`
+    const label = `Fan ${next.direction} ${next.count}×${next.beams}${inset ? ` ${after.from + 1}–${after.to + 1}` : ''}${wide}`
     if (!engine.runBatch(label, () => { engine.setFan(noteId, next) })) return
     this.renderScore()
     dbg(`[Fan] Properties set ${noteId} → ${next.count} notes, ${next.beams} beams, ramp ${after.from}…${after.to}, spread ${fanSpread(next)}`)

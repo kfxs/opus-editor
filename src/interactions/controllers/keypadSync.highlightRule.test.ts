@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { multipleNotesSelected, type SelectionItem } from '../state/selection'
-import { beamHighlight, beamRoleHighlight, beamOverHighlight, noNoteInSelection, secondaryBreakHighlight, tremoloHighlight, tremoloPairHighlight, type BeamSource, type TremoloSource } from './keypadSync'
+import { beamHighlight, beamRoleHighlight, beamOverHighlight, fanHighlight, noNoteInSelection, secondaryBreakHighlight, tremoloHighlight, tremoloPairHighlight, type BeamSource, type TremoloSource } from './keypadSync'
 import type { TremoloMark } from '../../types/music'
 import { createEditorState } from '../state/EditorState'
 import { itemKey } from '../state/selection'
@@ -255,5 +255,15 @@ describe('tremoloPairHighlight (the pair button, beside the count)', () => {
     const state = stateWith([note('a')])
     state.selectedMarkingTool = { kind: 'tremolo', tremolo: 5 }
     expect(tremoloPairHighlight(state, paired(true))).toBe(false)
+  })
+})
+
+describe('fanHighlight — the armed fan STAMP lights its key (his rule, 2026-09-24)', () => {
+  it('⭐ a stamp armed with nothing selected lights ITS direction; another tool armed lights neither', () => {
+    const state = createEditorState()
+    state.selectedMarkingTool = { kind: 'fan', attacks: 6, unit: 'h', dots: 0, direction: 'rit' }
+    expect(fanHighlight(state, null)).toBe('rit')
+    state.selectedMarkingTool = { kind: 'dot' }
+    expect(fanHighlight(state, null)).toBeNull()
   })
 })

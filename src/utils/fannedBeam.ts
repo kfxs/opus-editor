@@ -17,7 +17,7 @@
  * No VexFlow, no DOM — pure, and unit-tested as such.
  */
 import { v4 as uuidv4 } from 'uuid'
-import type { BeamMode, Chord, FanMark, FanMemberChord, NotePitch } from '@/types/music'
+import type { BeamMode, Chord, FanMark, FanMemberChord, NotePitch, NoteDuration } from '@/types/music'
 import { type Fraction, fracCreate, fracFromInt, fracAdd, fracMul, fracDiv, fracSub, fracToNumber } from './fraction'
 
 /**
@@ -31,6 +31,15 @@ export const FAN_GROUP = 'fan'
 
 /** How many notes a fan is played as when one is first applied. */
 export const DEFAULT_FAN_COUNT = 6
+
+/**
+ * The written value a NEW feathered gesture is squeezed into when nothing says otherwise — the Feathered Beam
+ * window's opening value, and the fan stamp a palette press arms with nothing selected
+ * (`interactions/stamps/featherPress`). A half: a feather is a gesture you hear over some time, and a half is
+ * where one is long enough to be worth writing — the quarter's worth of attacks is the one you would have
+ * beamed by hand. ONE owner, so the dialog and the button cannot drift.
+ */
+export const DEFAULT_FEATHER_UNIT: NoteDuration = 'h'
 
 /** How many beam lines the WIDE end of a new fan carries. The narrow end is always 1. */
 export const DEFAULT_FAN_BEAMS = 3

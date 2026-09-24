@@ -4,6 +4,7 @@ import type { NoteDuration } from '../types/music'
 import { bus } from '@/bus'
 import type { FanStampContext } from '@/bus'
 import { splitBeatsIntoLengths } from '@/utils/durations'
+import { DEFAULT_FAN_COUNT, DEFAULT_FEATHER_UNIT } from '@/utils/fannedBeam'
 import { Column, GroupBox, Row } from './content/layout'
 import { Button, Checkbox, GlyphSelect, Label, NumberInput, RadioGroup } from './content/widgets'
 
@@ -50,10 +51,9 @@ const FEATHER_UNITS = [
   { value: '32', glyph: '\uE1DB', label: 'Thirty-second' },
 ]
 
-/** The written duration the dialog OPENS on: the half note. A feather is a gesture you hear over
- *  some time, and a half is where one is long enough to be worth writing — the quarter's worth of
- *  attacks is the one you would have beamed by hand. */
-const DEFAULT_UNIT = 'h'
+/** The written duration the dialog OPENS on — `utils/fannedBeam.DEFAULT_FEATHER_UNIT` (the half note),
+ *  shared with the palette's fan stamp so the two cannot drift. */
+const DEFAULT_UNIT = DEFAULT_FEATHER_UNIT
 
 /** The caption column both rows open with, in px — wide enough for "Number of attacks" at the
  *  window's 14px face, with air after it. Stated once because BOTH rows must use the same number:
@@ -80,7 +80,7 @@ export function openFeatherWindow(windows: WindowLayer): Window {
   // The sentence, in the order a player says it: how many attacks, then how long you have for them.
   // SIX is where the dialog opens: at three the ramp has barely started, and six over a half note is
   // the feather you would actually stop to write.
-  const count = new NumberInput({ value: 6, min: 2, width: 56 })
+  const count = new NumberInput({ value: DEFAULT_FAN_COUNT, min: 2, width: 56 })
   const unit = new GlyphSelect(FEATHER_UNITS, { selected: DEFAULT_UNIT, width: 62 })
   const unitDotted = new Checkbox('dotted')
   const type = new RadioGroup(TYPES, { selected: 'accel', direction: 'column' })

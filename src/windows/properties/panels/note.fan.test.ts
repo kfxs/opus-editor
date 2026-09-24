@@ -51,14 +51,25 @@ describe('the fan row', () => {
    */
   const inputs = (fan: FanMark): HTMLInputElement[] => {
     bus.inspection.set(noteElement(fan))
-    const row = [...host.querySelectorAll('div')].find(d => d.firstChild?.textContent?.startsWith('fan ('))
-    return [...(row?.querySelectorAll('input[type=number]') ?? [])] as HTMLInputElement[]
+    return [...(fanRow()?.querySelectorAll('input[type=number]') ?? [])] as HTMLInputElement[]
   }
+
+  /** The fan row — its label is `fan`, then the direction switch (2026-09-24). */
+  const fanRow = () => [...host.querySelectorAll('div')].find(d => d.firstChild?.textContent === 'fan')
 
   const type = (input: HTMLInputElement, value: string) => {
     input.value = value
     input.dispatchEvent(new Event('change'))
   }
+
+  it('⭐ the DIRECTION is a switch (his ask, 2026-09-24): it shows the fan’s, and a change publishes that field alone', () => {
+    bus.inspection.set(noteElement({ direction: 'rit', count: 6, beams: 3 }))
+    const select = fanRow()!.querySelector('select')!
+    expect(select.value).toBe('rit')
+    select.value = 'accel'
+    select.dispatchEvent(new Event('change'))
+    expect(published).toEqual([{ noteId: expect.any(String), direction: 'accel' }])
+  })
 
   it('shows the count, the beams and the wedge’s two ends', () => {
     const [notes, beams, from, to] = inputs(FAN)

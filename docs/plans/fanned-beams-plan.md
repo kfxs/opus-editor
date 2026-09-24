@@ -1,5 +1,24 @@
 # Fanned (feathered) beams — plan
 
+> ⭐ **2026-09-24, his rule — `accel.` / `rit.` with NOTHING selected arm the fan STAMP** (*"it should arm stamp the
+> fan similar to default in the fan dialog but taking into acount if the click was in rit or accel"*; *"in the case a
+> note is armed for stamp … with the duration of the note selected"*; *"if a note is selected in entry mode we do the
+> normal procedure"*). `interactions/stamps/featherPress`: the Feathered Beam window's opening values (6 attacks over
+> a half — now one owner, `utils/fannedBeam.DEFAULT_FEATHER_UNIT`), or the duration armed for note entry; in the
+> pressed direction; armed by the dialog's own route (`bus.fanStamp`); a re-press disarms, the other key turns it
+> round; the armed stamp lights its key (`keypadSync.fanHighlight`). A selection keeps `pressFan`'s rules.
+> 🐛 **2026-09-24, his report — a SECOND fan in a bar came out crushed** (two identical `rit` halves: the first spread,
+> the second squeezed). Not new: `layout/fanRampRoom.fanSpanRods` counted the gap ENDING on a fan's beat — the one
+> before it — as part of its span, so the fan spread its demand over twice the natural length and asked for half
+> the room. Only gaps ending AFTER its beat are its own now; a regression spec holds two fans to one rod.
+> ⭐ **2026-09-24, his ask — the DIRECTION is switched in Properties too**: the fan row's label became `fan` + an
+> accel/rit select, published on `bus.fanEdit` (`direction`) and merged by `FanEditController` as ONE field — the
+> count, beams, ramp and members stay, the keys' own rule. (It had never been there: the row showed the
+> direction in its label only; the switch was the `accel.`/`rit.` keys and the Feathered Beam dialog.) ⏳ Open, his
+> call: whether any selected note of a fan, not only its first, acts on the whole fan (since 2026-07-26 a member is
+> selectable on its own, and the keys, the dialog and Properties see only the first note's fan).
+
+
 A fanned beam is a group whose notes speed up or slow down **within a fixed total duration** — Gould:
 it "indicates free accelerando or rallentando *within the duration*" of the group; the beams converge
 at the slowest point and are fully feathered at the fastest. It is not a tempo change: nothing after
