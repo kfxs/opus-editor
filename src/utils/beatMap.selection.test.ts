@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { ScoreModel } from '@/engine/models/ScoreModel'
 import { addGrace } from '@/engine/models/graceOps'
+import { addBracketed } from '@/engine/models/bracketedGraceOps'
 import { buildSelectionBeatMap, notesInBox } from './beatMap'
 import { measureFanMemberNotes, getMeasureNotes } from './musicUtils'
 import { fracCreate as frac } from './fraction'
@@ -123,5 +124,39 @@ describe('notesInBox — GRACES are in the box (his report, 2026-09-22: "i canno
     expect(notesInBox(score, [c], g2)).toEqual(expect.arrayContaining([c, g1, g2]))
     expect(notesInBox(score, [c], g2)).not.toContain(g3)
     expect(notesInBox(score, [g2], e).sort()).toEqual([g2, g3, e].sort())
+  })
+})
+
+describe('notesInBox — BRACKETED graces are in the box (his report, 2026-09-24: "shift clicking … the selection dont select the bracket")', () => {
+  /**
+   * C at beat 0; E at beat 1 with, left to right: (D) bent into grace G, grace G, grace A, (F) before E, E,
+   * and (B) after E — every kind of bracketed grace (`bracketed-grace-plan`: before a grace, before a note,
+   * after a note), laid out right to left from E exactly as `bracketedRoom.beforeSideLayout` stands them.
+   */
+  const setup = () => {
+    const model = new ScoreModel()
+    const c = model.addNote({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const e = model.addNote({ step: 'E', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
+    const f = model.addNote({ step: 'G', octave: 4, duration: 'q', measure: 1, beat: frac(2, 1) })
+    const score = model.getScore()
+    const [g, a] = (['G', 'A'] as const).map(step =>
+      addGrace(score, e.id, 'before', { step, alter: 0, octave: 4 }, 'appoggiatura', { duration: '8' })!.pitches[0].id)
+    const bEntry = addBracketed(score, e.id, 'before', { step: 'F', alter: 0, octave: 4 })!.pitches[0].id
+    const bOnGrace = addBracketed(score, g, 'before', { step: 'D', alter: 0, octave: 4 })!.pitches[0].id
+    const bAfter = addBracketed(score, e.id, 'after', { step: 'B', alter: 0, octave: 4 })!.pitches[0].id
+    return { score, c: c.id, e: e.id, next: f.id, g, a, bEntry, bOnGrace, bAfter }
+  }
+
+  it('🚨 a box across the note takes EVERY bracketed grace inside it', () => {
+    const { score, c, next, bEntry, bOnGrace, bAfter } = setup()
+    expect(notesInBox(score, [c], next)).toEqual(expect.arrayContaining([bOnGrace, bEntry, bAfter]))
+  })
+
+  it('⭐ in the order they stand: (D) before G; (F) between A and E; (B) after E', () => {
+    const { score, e, g, a, bEntry, bOnGrace, bAfter } = setup()
+    expect(notesInBox(score, [g], a), 'grace → grace: the (D) before G is left of the box').not.toContain(bOnGrace)
+    expect(notesInBox(score, [bOnGrace], g).sort()).toEqual([bOnGrace, g].sort())
+    expect(notesInBox(score, [a], e).sort(), 'A → E: the (F) between them').toEqual([a, bEntry, e].sort())
+    expect(notesInBox(score, [e], bAfter).sort(), 'E → (B)').toEqual([e, bAfter].sort())
   })
 })

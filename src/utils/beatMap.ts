@@ -1,9 +1,10 @@
-import type { Note, Score, Fraction } from '../types/music'
+import type { BracketedGrace, Note, Score, Fraction } from '../types/music'
 import { fracCompare } from '../utils/fraction'
 import { getMeasureNotes, measureFanMemberNotes, measureSelectableNotes } from '../utils/musicUtils'
 import { spellingToMidi } from '../utils/pitchSpelling'
 import { staffOf, voiceOf } from '../utils/lanes'
 import { GRACE_SIDES, graceGroupOf } from '../utils/graceNotes'
+import { bracketedOf } from '../utils/bracketedGraces'
 
 /**
  * A note augmented with its parent measure number (for cross-measure sorting).
@@ -193,21 +194,35 @@ function comparePlaces(a: BoxPlace, b: BoxPlace): number {
   return a.measure - b.measure || fracCompare(a.beat, b.beat) || a.rank - b.rank
 }
 
-/** Every grace pitch as a box place, at its main note's moment — ranked before it or after it. */
+/**
+ * Every grace pitch — and ⭐ every BRACKETED grace's (his report, 2026-09-24: *"shift clicking … the selection
+ * dont select the bracket"*; they were in no map, so no box could hold one) — as a box place at its main
+ * note's moment, ranked in the order they STAND (`layout/bracketedRoom.beforeSideLayout`):
+ * `(●) g (●) g (●) M (●) g` — graces before at −n…−1, the note at 0, graces after at 1…; a bracketed grace
+ * bent into a grace just left of that grace, the slot's own before it between the last grace and the note,
+ * those after it between the note and its after-graces (fractional ranks: a list of k splits the gap).
+ */
 function gracePlaces(score: Score): BoxPlace[] {
   const staffIndex = (staffId?: string) => Math.max(0, (score.staves ?? []).findIndex(s => s.id === staffId))
   const out: BoxPlace[] = []
   for (const m of score.measures) {
     for (const slot of m.slots) {
+      const place = (pitches: readonly { id: string }[], rank: number) => {
+        for (const p of pitches) out.push({ id: p.id, measure: m.number, beat: slot.beat, rank, staff: staffIndex(slot.staffId) })
+      }
+      /** A bracketed list standing in the open gap (after, before) — its items spread inside it, left to right. */
+      const spread = (list: readonly BracketedGrace[] | undefined, after: number, before: number) =>
+        (list ?? []).forEach((b, j, all) => place(b.pitches, after + ((before - after) * (j + 1)) / (all.length + 1)))
       for (const side of GRACE_SIDES) {
         const notes = graceGroupOf(slot, side)?.notes ?? []
         notes.forEach((note, i) => {
           const rank = side === 'before' ? i - notes.length : i + 1
-          for (const p of note.pitches) {
-            out.push({ id: p.id, measure: m.number, beat: slot.beat, rank, staff: staffIndex(slot.staffId) })
-          }
+          place(note.pitches, rank)
+          spread(note.bracketedBefore, rank - 1, rank)
         })
       }
+      spread(bracketedOf(slot, 'before'), -1, 0)
+      spread(bracketedOf(slot, 'after'), 0, 1)
     }
   }
   return out

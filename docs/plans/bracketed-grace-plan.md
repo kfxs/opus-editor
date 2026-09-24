@@ -5,6 +5,9 @@
 > Delete, and a written value for its head. P3 (on a grace, the beam split) built, ⏸️ his UI check.**
 > The Keypad's Grace-page key `-` (`bracketed grace`) is drawn but still not wired
 > (`docs/research/sibelius-keypad.md`).
+> 🐛 **Fixed 2026-09-24 (his report: *"shift clicking … the selection dont select the bracket"*):** a SHIFT-CLICK
+> range (`utils/beatMap.notesInBox`) now holds bracketed graces — every kind, ranked where it stands (before a
+> grace, before the note, after it). They had been in no list since they were built.
 > 📄 The research is `docs/research/grace-notes-research.md` **§0.9** (the synthesis) and **Parts G · H · I**
 > (the books · the engines · the apps and formats). ⛔ This plan is where the decisions get made. §0 marks
 > each one ✅ DECIDED (his word, with the date) or ⏳ PROPOSED. A proposed row is a default, not a decision.
