@@ -1,4 +1,4 @@
-import type { EngravedNote } from './EngravedNote'
+import { sharedGlyphScale, type EngravedNote } from './EngravedNote'
 import type { DrawContext } from '@/engine/paint/DrawContext'
 import type { DrawGroup } from '@/engine/paint/DrawGroup'
 import type { TupletMarkRun } from '@/types/music'
@@ -74,15 +74,17 @@ interface LaidOutMark {
  * not use. Empty runs are dropped rather than measured: they would contribute a stray zero-width
  * piece to the width sum.
  */
-export function layoutTupletMark(runs: TupletMarkRun[]): LaidOutMark {
+export function layoutTupletMark(runs: TupletMarkRun[], scale = 1): LaidOutMark {
   const pieces: MarkPiece[] = []
+  // ⭐ `scale`: a tuplet over ALL-cue notes is drawn at their size (cue-size-plan C5, MuseScore's rule).
+  const figures = TUPLET_FONT_SIZE * scale
   for (const run of runs) {
     if (!run.text) continue
     // Every size and gap relative to the figures', so a retune moves the whole mark together.
-    const sizePt = run.glyph ? TUPLET_FONT_SIZE * NOTE_GLYPH_SCALE : TUPLET_FONT_SIZE
+    const sizePt = run.glyph ? figures * NOTE_GLYPH_SCALE : figures
     // No gap before the FIRST run whatever it asks for: that would be air outside the mark, which
     // shifts it off centre rather than separating anything.
-    const gapBefore = run.space && pieces.length > 0 ? TUPLET_FONT_SIZE * MARK_SPACE_EM : 0
+    const gapBefore = run.space && pieces.length > 0 ? figures * MARK_SPACE_EM : 0
     pieces.push({ text: run.text, sizePt, width: measureGlyph(MARK_TAG, run.text, sizePt), gapBefore })
   }
   return { pieces, width: pieces.reduce((w, p) => w + p.gapBefore + p.width, 0) }
@@ -320,7 +322,7 @@ export class ScoreTuplet {
     // The MARK, laid out: its width is what the bracket makes room for and what the centring is
     // measured from — all the runs, not just the figures. With no runs set (nothing but VexFlow's
     // own construction has happened) its text is drawn as one, which is VexFlow's own behaviour.
-    const mark = layoutTupletMark(this.markRuns.length ? this.markRuns : [{ text: this.markText }])
+    const mark = layoutTupletMark(this.markRuns.length ? this.markRuns : [{ text: this.markText }], this.markScale())
     const textWidth = mark.width
     const notationStartX = xPos + this.width / 2 - textWidth / 2
 
@@ -361,6 +363,14 @@ export class ScoreTuplet {
 
   /** The figures' height at {@link TUPLET_FONT_SIZE} — what sets the mark's baseline. */
   markHeight(): number {
-    return measureGlyphHeight(MARK_TAG, this.markText, TUPLET_FONT_SIZE)
+    return measureGlyphHeight(MARK_TAG, this.markText, TUPLET_FONT_SIZE * this.markScale())
+  }
+
+  /**
+   * ⭐ The mark's size: its notes' cue size when EVERY one is cue, else full (cue-size-plan C5 — MuseScore).
+   * ⛔ The bracket's weight stays full (C6).
+   */
+  private markScale(): number {
+    return sharedGlyphScale(this.notes)
   }
 }

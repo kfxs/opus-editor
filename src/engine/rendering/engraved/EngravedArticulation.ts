@@ -134,7 +134,7 @@ export class EngravedArticulation extends EngravedModifier implements InkSurface
   }
 
   private measured() {
-    return measureGlyphMetrics(MARK_TAG, this.getText(), MUSIC_FONT_SIZE_PT)
+    return measureGlyphMetrics(MARK_TAG, this.getText(), MUSIC_FONT_SIZE_PT * this.noteScale())
   }
 
   getWidth(): number {
@@ -224,7 +224,7 @@ export class EngravedArticulation extends EngravedModifier implements InkSurface
       glyph: this.getText(),
       x: this.x + this.xShift,
       y: this.y + this.yShift,
-      font: musicGlyphFont(),
+      font: musicGlyphFont(this.noteScale()),
       id: this.getAttribute('id')!,
     }
   }

@@ -424,6 +424,8 @@ export interface NoteHeadBounds {
 /** What a note asks of its beam — that there is one, and `postFormat()` (`StemmableNote.postFormat`). */
 export interface NoteBeam {
   postFormat(): unknown
+  /** The size its notes share (`sharedGlyphScale`) — absent on a placeholder (the fan's), which is full. */
+  getGlyphScale?(): number
 }
 
 /** Our notes' ids — their own counter. */
@@ -1090,7 +1092,12 @@ export class EngravedNote {
     if (this.stemExtensionOverride !== undefined) {
       base = this.stemExtensionOverride
     } else if (this.beam) {
-      base = (row.stemBeamExtension as number) * scale
+      // ⭐ A beamed stem's natural length is the BEAM's size (P2, C7), ⛔ not the note's own: an all-cue
+      //   beam stands at the small stems; a MIXED beam's cue stems start full, so the slope search sees
+      //   the notes' pitches and not their sizes (a cue note's short tip would tilt a beam over a repeated
+      //   pitch), and the beam then brings every stem to its line (`engrave/beams/beamedStems`).
+      const k = this.beam.getGlyphScale?.() ?? 1
+      base = (row.stemBeamExtension as number) * scale * k + STEM_LENGTH_PX * scale * (k - 1)
     } else {
       // ⭐ A CUE note's stem is its size's 3½ spaces (cue-size-plan C5): the stem is `STEM_LENGTH_PX` plus
       //   this extension, so the shortfall is a NEGATIVE extension — VexFlow's own shape for its
@@ -1736,6 +1743,18 @@ export class EngravedNote {
  * The stem a note carries — ours, or none. ⭐ The ONE cast back out of the note's API (typed for
  * VexFlow's `Stem`, S12i); a stem that is not ours is refused loudly rather than half-served.
  */
+/**
+ * ⭐ **The size a GROUP of notes shares** — a beam's or a tuplet's (cue-size-plan C5, C7): the notes' cue
+ * size when EVERY note that votes is drawn small, else 1. ⭐ MuseScore takes the max and Verovio requires
+ * all to be cue: the two agree. ⚠️ Rests do not vote — a cue rest is not drawn small yet (P3).
+ */
+export function sharedGlyphScale(notes: readonly EngravedNote[]): number {
+  const voting = notes.filter(note => !note.isRest())
+  if (!voting.length) return 1
+  const largest = Math.max(...voting.map(note => note.getGlyphScale()))
+  return largest < 1 ? largest : 1
+}
+
 export function stemOf(note: { getStem(): unknown }): EngravedStem | undefined {
   const stem = note.getStem()
   if (stem === undefined || stem === null) return undefined

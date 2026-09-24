@@ -1,6 +1,6 @@
 # Cue-size notes — a real note, drawn small: the plan
 
-> **Status (2026-09-24): P0 committed (`c289873`); P1 BUILT, awaiting his UI check.** His calls are in (§4). The research is `docs/research/cue-size-research.md`
+> **Status (2026-09-24): P0 committed (`c289873`); P1 committed (`3d9dbe8`); P2 BUILT, awaiting his UI check.** His calls are in (§4). The research is `docs/research/cue-size-research.md`
 > (all three chapters are in; §0 is the synthesis). ⛔ A number never blocks a phase (`CLAUDE.md`).
 >
 > ⚠️ **The UI is the dev shell's** (`src/dev/devToolbar.ts`): one `cue` button, like `paren.`.
@@ -134,6 +134,14 @@ are two ways to make it small, and only one of them keeps those readers honest:
 - **P2: beams, articulations, tuplets.** An all-cue beam at k (thickness and gap); a mixed beam full,
   with the cue stems reaching it; articulations at the note's size; the tuplet-number rule (C5); the
   one-note tremolo strokes (they read `NOTE_GLYPH_SCALE` today).
+  - ✅ **Built 2026-09-24, awaiting his check.** `EngravedNote.sharedGlyphScale(notes)`: a group's size when EVERY
+    note that votes is cue, else 1 (rests do not vote until P3). A BEAM (`EngravedBeam.beamWidth`, the fractional
+    stub's length) takes it; a beamed note's natural stem is the BEAM's size, ⛔ not its own — so a mixed beam lies
+    where the pitches put it (a cue note's short tip had tilted a beam over a repeated pitch: caught in the scene)
+    and the beam brings every stem to its line. An ARTICULATION and the TREMOLO strokes ask their note
+    (`noteScale()`); a TUPLET's number is `sharedGlyphScale` of its notes (`layoutTupletMark(runs, scale)`), its
+    bracket full (C6). Proved: `EngravedBeam.cue.test.ts`, `EngravedArticulation.cue.test.ts` (scene),
+    `e2e/cueMarks.e2e.ts` (tuplet number, tremolo — drawn outside the scene).
 - **P3: rests.** A cue rest: the same `EngravedNote` route. ⏳ Where it sits vertically is a question
   for his eye (the books may say).
 - **P4: graces and brackets.** A cue grace or bracketed grace at the C4 size. A cue head's brackets

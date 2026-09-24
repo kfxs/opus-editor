@@ -28,7 +28,7 @@
  * ⛔ VexFlow's `flatBeams`, stemlets, `secondaryBreakTicks`, `autoStem` and tablature branches are not
  * carried: nothing in this editor reaches them.
  */
-import type { EngravedNote } from './EngravedNote'
+import { sharedGlyphScale, type EngravedNote } from './EngravedNote'
 import { ticksValue } from '@/engine/layout/tickCount'
 import type { DrawContext } from '@/engine/paint/DrawContext'
 import type { FractionalBeamSide, NoteDuration } from '@/types/music'
@@ -87,9 +87,14 @@ export class EngravedBeam {
 
   /**
    * ⭐ One beam line's thickness, in px — Bravura's `beamThickness`, half a space, which is the 5
-   * VexFlow's `renderOptions.beamWidth` defaulted to (`./beamInk`).
+   * VexFlow's `renderOptions.beamWidth` defaulted to (`./beamInk`). ⭐ An ALL-CUE beam's is its notes'
+   * size (cue-size-plan C7 — `sharedGlyphScale`); the gap between levels is a stride of it, so it follows.
+   * A mixed beam is full.
    */
-  readonly beamWidth = crossSystemBeamWidth()
+  readonly beamWidth: number
+
+  /** The size this beam's notes share — 1 unless every note is cue. Scales the width and a stub's length. */
+  private readonly glyphScale: number
 
   /** Rise over run, solved by {@link calculateSlope}. */
   slope = 0
@@ -137,6 +142,8 @@ export class EngravedBeam {
       throw new Error('BadArguments: Beams can only be applied to notes shorter than a quarter note.')
     }
     this.stemDirection = notes[0].getStemDirection()
+    this.glyphScale = sharedGlyphScale(notes)
+    this.beamWidth = crossSystemBeamWidth() * this.glyphScale
     // ⚠️ The cast is the note's signature, ⛔ not a claim: VexFlow reads only truthiness and
     // `postFormat()` off it (see the header).
     for (const note of notes) note.setBeam(this)
@@ -147,6 +154,11 @@ export class EngravedBeam {
 
   getStemDirection(): number {
     return this.stemDirection
+  }
+
+  /** @see glyphScale — what each note's natural beamed stem is sized by (`EngravedNote.getStemExtension`). */
+  getGlyphScale(): number {
+    return this.glyphScale
   }
 
   /** The VexFlow context the STEMS draw on — see the header. */
@@ -270,7 +282,7 @@ export class EngravedBeam {
       levelDenominator: Number(duration),
       breakIndexes: this.secondaryBreaks,
       forcedSides: this.forcedSides,
-      fractionalLength: FRACTIONAL_BEAM_LENGTH_PX,
+      fractionalLength: FRACTIONAL_BEAM_LENGTH_PX * this.glyphScale,
     })
   }
 

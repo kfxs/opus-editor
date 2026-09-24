@@ -182,8 +182,13 @@ export class CenteredTremolo extends EngravedModifier {
    * canvas is unavailable (jsdom), which under-reports by one stroke in the one environment where
    * nothing is drawn.
    */
+  /** The strokes' size — the inherited note scale, times a CUE note's own (cue-size-plan P2). */
+  private glyphScale(): number {
+    return NOTE_GLYPH_SCALE * this.noteScale()
+  }
+
   strokeStackHeight(): number {
-    const scale = NOTE_GLYPH_SCALE
+    const scale = this.glyphScale()
     const { ink } = this.measureStroke(scale)
     return Math.abs(TREMOLO_STROKE_STEP_PX * scale) * (this.num - 1) + ink
   }
@@ -211,7 +216,7 @@ export class CenteredTremolo extends EngravedModifier {
 
   /** One stroke's advance and ink — the box VexFlow's `Element.getBoundingBox` built (see {@link inkRect}). */
   protected inkMetrics(): ModifierMetrics {
-    return this.strokeMetrics(NOTE_GLYPH_SCALE)
+    return this.strokeMetrics(this.glyphScale())
   }
 
   /**
@@ -243,7 +248,7 @@ export class CenteredTremolo extends EngravedModifier {
     this.setRendered()
 
     const stemDirection = note.getStemDirection()
-    const scale = NOTE_GLYPH_SCALE
+    const scale = this.glyphScale()
     // Signed: positive steps DOWN for a stem-up note, up for stem-down — i.e. always tip → notehead,
     // exactly as VexFlow's loop walks. So the centring below needs no per-direction case.
     const ySpacing = TREMOLO_STROKE_STEP_PX * stemDirection * scale
@@ -312,7 +317,7 @@ export class CenteredTremolo extends EngravedModifier {
    * anchor, which is what puts the box ON the stem instead of beside it.
    */
   private recordInkRect(firstStrokeY: number, ySpacing: number, ascent: number, descent: number): void {
-    const { left, right } = this.strokeMetrics(NOTE_GLYPH_SCALE)
+    const { left, right } = this.strokeMetrics(this.glyphScale())
     const lastStrokeY = firstStrokeY + (this.num - 1) * ySpacing
     const top = Math.min(firstStrokeY, lastStrokeY) - ascent
     const bottom = Math.max(firstStrokeY, lastStrokeY) + descent
