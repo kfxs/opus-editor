@@ -9,7 +9,7 @@
  */
 import { describe, it, expect } from 'vitest'
 import { barlineExtent, barlineHeight } from './barlineExtent'
-import { staveLineWidthPx, staffLineMidY } from './staffLines'
+import { staveLineWidthPx, staffLineInkBottomY, staffLineInkTopY, staffLineMidY } from './staffLines'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 
 /** A five-line treble stave whose top line is y = 40, at this repo's own staff size. */
@@ -20,10 +20,14 @@ const ours = () => barlineExtent(TOP, BOTTOM, staveLineWidthPx())
 describe('⭐⭐ a barline runs between the outer lines’ MIDDLES', () => {
   it('⛔ not between their outer edges — it stops half a thickness inside each', () => {
     const extent = ours()
-    expect(extent.topY, 'below the top line’s own y by half its ink')
-      .toBeCloseTo(TOP + staveLineWidthPx() / 2, 10)
-    expect(extent.bottomY, 'and above the bottom line’s ink bottom by the same')
-      .toBeCloseTo(BOTTOM + staveLineWidthPx() / 2, 10)
+    // ⭐ A staff line is CENTRED on its own y (2026-09-24), so its middle IS that y — half its ink inside
+    //   the top line's top edge and the bottom line's bottom edge.
+    expect(extent.topY, 'the top line’s own y — half its ink below the top edge')
+      .toBeCloseTo(staffLineInkTopY(TOP, staveLineWidthPx()) + staveLineWidthPx() / 2, 10)
+    expect(extent.topY).toBeCloseTo(TOP, 10)
+    expect(extent.bottomY, 'and the bottom line’s — half its ink above the bottom edge')
+      .toBeCloseTo(staffLineInkBottomY(BOTTOM, staveLineWidthPx()) - staveLineWidthPx() / 2, 10)
+    expect(extent.bottomY).toBeCloseTo(BOTTOM, 10)
     // 🚨 The number this module replaced: VexFlow's `getBottomLineBottomY()` is `bottom + 1`, a hard
     // 1 that was its staff-line thickness and stopped being ours at P5c.
     expect(extent.bottomY, '⛔ NOT VexFlow’s bottom + 1').not.toBeCloseTo(BOTTOM + 1, 10)

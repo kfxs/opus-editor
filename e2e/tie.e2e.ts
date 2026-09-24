@@ -145,8 +145,12 @@ test('⭐⭐ a tie on a LINE note keeps that line out of its ink (Gould p. 61)',
   expect(r.headOnLine, 'the fixture is the case under test').toBe(true)
   // ⭐ Break-tested: with the repair removed this measures **0.15 sp** — a staff line running under
   // the arc's flat middle for the tie's whole length, exactly MuseScore's threshold for a bad
-  // intersection. Rounding the arc out takes it past 0.3, and the TIPS never move.
-  expect(r.gapInside).toBeGreaterThan(0.3)
+  // intersection. Rounding the arc out takes it TO 0.3 — LilyPond's `center-staff-line-clearance`, the
+  // repair's own target (`tieStaffLineClearance`) — and the TIPS never move.
+  // ⚠️ AT LEAST 0.3, ⛔ not "more than": it read 0.355 only while the staff lines were drawn half their
+  // thickness BELOW their y (VexFlow's crispness idiom, fixed 2026-09-24 — `engrave/staff/staffLines`);
+  // measured to where the line really is, the repair lands exactly on its target.
+  expect(r.gapInside).toBeGreaterThanOrEqual(0.3 - 1e-6)
 })
 
 test('a tie on a SPACE note is left alone — it already lies inside the space', async ({ score }) => {

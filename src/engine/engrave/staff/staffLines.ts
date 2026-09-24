@@ -3,10 +3,18 @@
  *
  * ## ⭐ What a staff line IS, as ink
  *
- * > A **horizontal bar** running the width of the stave, occupying `[y, y + thickness]` — downward
- * > from the line's own y, ⛔ never centred on it.
+ * > A **horizontal bar** running the width of the stave, **CENTRED on the line's own y**, occupying
+ * > `[y − thickness/2, y + thickness/2]` — the y every note, ledger line and pitch position is measured to.
  *
- * That downward convention is not a choice made here; it is read off the second owner. See below.
+ * ⭐⭐ **CHANGED 2026-09-24, his call** (cue-size-plan §3 P3). It used to hang DOWN from `y` (`[y, y + t]`,
+ * VexFlow's canvas-crispness idiom, the history below), while noteheads and ledger lines were centred ON
+ * `y` — so every note stood half a line's thickness above the middle of its line or space. A full head hid
+ * it by filling the space; a CUE or GRACE head showed it (*"the cue in spaces … is touching up line and there
+ * is empty space in the low line"*, measured 0 px above, 1.6–2 px below). ⭐ All three engines centre the
+ * line on its position: LilyPond `Lookup::horizontal_line` (box ±th/2, `lily/lookup.cc:92`), MuseScore and
+ * Verovio a pen stroke on the line's y.
+ *
+ * ## The history — why it hung downward
  *
  * ## 🚨 Why this was worth a module: TWO OWNERS, TWO PRIMITIVES, AND THEY AGREE BY ACCIDENT
  *
@@ -45,8 +53,8 @@ import { engravingDefault, ratioToDefault } from '@/engine/fonts/fontMetrics'
 /**
  * One staff line's ink — the bar it occupies, ⛔ not the path used to make it.
  *
- * ⚠️ `y` is the LINE's own y (what `Stave.getYForLine` answers), and the ink hangs DOWNWARD from it
- * by {@link thickness}. See the module header for where that convention is read from.
+ * ⚠️ `y` is the LINE's own y (what `Stave.getYForLine` answers), and the ink is CENTRED on it,
+ * {@link thickness} tall. See the module header (changed 2026-09-24 — it used to hang downward).
  */
 export interface StaffLineInk {
   x: number
@@ -56,8 +64,9 @@ export interface StaffLineInk {
 }
 
 /**
- * ⭐⭐ **THE MIDDLE OF A STAFF LINE'S INK** — the line's own y is the TOP of the bar, so its middle is
- * half a thickness below it.
+ * ⭐⭐ **THE MIDDLE OF A STAFF LINE'S INK** — the line's own y, since the line is centred on it (2026-09-24;
+ * it was half a thickness below while the ink hung downward). `thickness` stays in the signature: the rule
+ * is still a statement about a bar of ink, and its readers keep asking it the same way.
  *
  * ⭐ **One expression, two readers, and naming it is what keeps them one rule.** A stroke is centred
  * on what it covers, so {@link staffLineStrokeY} IS this number; and a BARLINE stops at the middle of
@@ -65,12 +74,17 @@ export interface StaffLineInk {
  * too. ⚠️ Those are different statements about the same point — ⛔ writing `y + t / 2` in the second
  * place would have been the "second owner" this module was extracted to prevent.
  */
-export function staffLineMidY(y: number, thickness: number): number {
-  return y + thickness / 2
+export function staffLineMidY(y: number, _thickness: number): number {
+  return y
+}
+
+/** ⭐ The TOP of a staff line's ink — half a thickness above its y (the line is centred on it). */
+export function staffLineInkTopY(y: number, thickness: number): number {
+  return y - thickness / 2
 }
 
 /**
- * ⭐ **The BOTTOM of a staff line's ink** — its own y plus the thickness it hangs by.
+ * ⭐ **The BOTTOM of a staff line's ink** — half a thickness below its y.
  *
  * ⚠️ **The staff's outer edge, and ⛔ not where a BARLINE stops** — those are two different rules and
  * this module owns only the first. A mark FLUSH with the staff ends here (the brace and the bracket's
@@ -81,15 +95,12 @@ export function staffLineMidY(y: number, thickness: number): number {
  * 1)` — a hard **1** that was ITS staff-line thickness, not ours, from P5c onward.
  */
 export function staffLineInkBottomY(y: number, thickness: number): number {
-  return y + thickness
+  return y + thickness / 2
 }
 
 /**
- * ⭐ **Where to STROKE so the ink lands on `[y, y + thickness]`** — the centre of that bar.
- *
- * ⚠️ At `thickness = 1` this is `y + 0.5`, which is VexFlow's `lineWidthCorrection` exactly, so
- * nothing moves. ⛔ It is NOT a transcription of that expression — see the module header for why the
- * two stop agreeing above 1.
+ * ⭐ **Where to STROKE so the ink lands on `[y − t/2, y + t/2]`** — the centre of that bar, which is `y`.
+ * (Until 2026-09-24 it was `y + t/2`, VexFlow's `lineWidthCorrection` — see the module header.)
  */
 export function staffLineStrokeY(y: number, thickness: number): number {
   return staffLineMidY(y, thickness)
@@ -137,7 +148,7 @@ export function drawStaffLines(ctx: DrawContext, lines: readonly StaffLineInk[])
  * agreement by construction.
  */
 export function fillStaffLine(ctx: DrawContext, line: StaffLineInk): void {
-  ctx.fillRect(line.x, line.y, line.width, line.thickness)
+  ctx.fillRect(line.x, staffLineInkTopY(line.y, line.thickness), line.width, line.thickness)
 }
 
 /**

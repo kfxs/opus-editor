@@ -433,7 +433,7 @@ SMuFL font may state a different one, which is exactly what MuseScore and Verovi
 | **Verovio** | **0.075** stated (0.15 MEI units) — ⚠️ **0.0722 actually drawn** | `src/options.cpp:1528–1530`; `src/doc.cpp:2057–2060`. `GetDrawingUnit` returns an `int`, so `0.15 × 90 = 13.5` truncates to **13** ⇒ 13/180 | stroked centreline, `src/view_graph.cpp:40–50` |
 | **VexFlow 5** | **0.10** (1 px) | `stave.js:461–462` — `lineWidth = this.getStyle().lineWidth ?? 1`, and there is **no** `Stave.lineWidth` in `metrics.js:129–136`, so the line inherits the SVG context default `stroke-width: 1` (`svgcontext.js:56`) | ⚠️ `Tables.STAVE_LINE_THICKNESS = 1` (`tables.js:597`) is a **different** constant, used only by `stavebarline.js` and `staveconnector.js` |
 | **Bravura** | 0.13 | `scripts/vendor/Bravura.json:22` | — |
-| **ours** | **0.10** | `engrave/staff/staffLines.ts:133` | a stroke centred by `staffLineStrokeY(y, t) = y + t/2` |
+| **ours** | **0.10** | `engrave/staff/staffLines.ts:133` | a stroke centred ON the line's y (`staffLineStrokeY(y, t) = y`, since 2026-09-24; it was `y + t/2`, hanging downward) |
 
 ⭐⭐ **Read that column again.** Our 0.10 is **LilyPond's exact value**, and Gould's measured plate
 (0.110) is **MuseScore's exact value**. The field runs **0.072 → 0.13**, and 0.13 is its top.

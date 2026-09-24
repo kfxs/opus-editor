@@ -106,7 +106,8 @@ describe('⭐ S12h — the stave object is ours, and answers what a note asks of
     expect(stave.getNumLines()).toBe(5)
     expect(stave.getSpacingBetweenLines()).toBe(10)
     expect(stave.getYForLine(0)).toBe(80) // 40 + 4 spaces
-    expect(stave.getTopLineTopY()).toBe(80)
+    // ⭐ The top line's INK top: half its thickness above its y — a staff line is centred on it (2026-09-24).
+    expect(stave.getTopLineTopY()).toBeCloseTo(80 - staveLineWidthPx() / 2, 10)
     expect(stave.options.lineConfig.every(line => line.visible)).toBe(true)
   })
 

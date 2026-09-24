@@ -522,15 +522,15 @@ describe('⭐⭐ P5b — the CLEF in the scene, the first symbol of the HEADER t
   /**
    * The y of every staff line the STAVE drew, read back out of P5a's own ink.
    *
-   * ⚠️ A staff line is STROKED through the middle of its bar (`staffLineStrokeY` — `y + t/2`),
-   * so the line's own y is the stroke's minus half the thickness. ⭐ Deriving it here rather than
-   * hard-coding 40/50/60… is what makes the assertion below a statement about the RULE.
+   * ⚠️ A staff line is STROKED through the middle of its bar (`staffLineStrokeY`), and since 2026-09-24 that
+   * middle IS the line's own y — the line is centred on it (it used to hang down, `y + t/2`). ⭐ Reading it
+   * from the ink rather than hard-coding 40/50/60… is what makes the assertion below a statement about the RULE.
    */
   function staffLineYs(scene: ReturnType<typeof render>['scene']): number[] {
     return sceneGroups(scene, 'stave')
       .flatMap(g => scenePrimitives(g))
       .flatMap(p => (p.kind === 'path' && p.ops[0]?.op === 'moveTo'
-        ? [p.ops[0].y - (p.style.lineWidth ?? 0) / 2]
+        ? [p.ops[0].y]
         : []))
   }
 
@@ -614,15 +614,15 @@ describe('⭐⭐ P5b — the METER in the scene, the second symbol of the HEADER
   /**
    * The y of every staff line the STAVE drew, read back out of P5a's own ink — the twin of the clef
    * block's, and it is the same derivation for the same reason: a staff line is STROKED through the
-   * middle of its bar (`staffLineStrokeY` — `y + t/2`), so the line's own y is the stroke's minus
-   * half the thickness. ⭐ Deriving it beats hard-coding 40/50/60…, which would make the assertions
+   * middle of its bar (`staffLineStrokeY`), which since 2026-09-24 IS the line's own y (the line is
+   * centred on it). ⭐ Reading it beats hard-coding 40/50/60…, which would make the assertions
    * below statements about numbers rather than about the RULE.
    */
   function staffLineYs(scene: ReturnType<typeof render>['scene']): number[] {
     return sceneGroups(scene, 'stave')
       .flatMap(g => scenePrimitives(g))
       .flatMap(p => (p.kind === 'path' && p.ops[0]?.op === 'moveTo'
-        ? [p.ops[0].y - (p.style.lineWidth ?? 0) / 2]
+        ? [p.ops[0].y]
         : []))
   }
 
@@ -747,7 +747,7 @@ describe('⭐⭐ P5b — the OPENING BARLINE in the scene, and the DOM repair th
     return sceneGroups(scene, 'stave')
       .flatMap(g => scenePrimitives(g))
       .flatMap(p => (p.kind === 'path' && p.ops[0]?.op === 'moveTo'
-        ? [p.ops[0].y - (p.style.lineWidth ?? 0) / 2]
+        ? [p.ops[0].y]
         : []))
   }
 

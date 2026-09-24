@@ -18,7 +18,7 @@ import type { EngravedStave } from '../engraved/EngravedStave'
 import { renderSystemStarts, type SystemStartPlacement } from './systemStart'
 import { thinBarlinePx } from './barlineInk'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
-import { staveLineWidthPx, staffLineInkBottomY, staffLineMidY } from '@/engine/engrave/staff/staffLines'
+import { staveLineWidthPx, staffLineInkBottomY, staffLineMidY, staffLineInkTopY } from '@/engine/engrave/staff/staffLines'
 import { glyphBox } from '@/engine/fonts/fontMetrics'
 import {
   BRACKET_DEPTH_SPACES, SIGN_SEPARATION_SPACES, SIGN_TO_BARLINE_SPACES, scoreSystemStartIndentPx,
@@ -44,7 +44,7 @@ import type { Score } from '@/types/music'
  * and `ly:bar-line::calc-bar-extent` (narrowed by half a line). 🚨 These specs used to measure the
  * brace and the bracket against the CONNECTOR's rect, which worked only while the two agreed.
  */
-const SPAN_TOP = 0
+const SPAN_TOP = staffLineInkTopY(0, staveLineWidthPx())
 const SPAN_BOTTOM = staffLineInkBottomY(240, staveLineWidthPx())
 const BAR_TOP = staffLineMidY(0, staveLineWidthPx())
 const BAR_BOTTOM = staffLineMidY(240, staveLineWidthPx())

@@ -31,7 +31,7 @@ import type { DrawContext } from '@/engine/paint/DrawContext'
 import type { Clef as ScoreClef, TimeSignature as Meter } from '@/types/music'
 import type { ClefSize } from '@/engine/engrave/header/clefSign'
 import type { BarlineKind } from '@/engine/engrave/staff/barlineMetrics'
-import { staveLineWidthPx, drawStaffLines, staffLinesInk } from '@/engine/engrave/staff/staffLines'
+import { staveLineWidthPx, drawStaffLines, staffLineInkTopY, staffLinesInk } from '@/engine/engrave/staff/staffLines'
 import { EngravedBarline } from './EngravedBarline'
 import { EngravedClef } from './EngravedClef'
 import { EngravedTimeSignature } from './EngravedTimeSignature'
@@ -200,8 +200,9 @@ export class EngravedStave {
     return this.getYForLine(this.options.bottomTextPosition + line)
   }
 
+  /** The top line's ink TOP — half its thickness above its y: a staff line is centred on it (2026-09-24). */
   getTopLineTopY(): number {
-    return this.getYForLine(0)
+    return staffLineInkTopY(this.getYForLine(0), staveLineWidthPx())
   }
 
   /** `Stave.getBottomY` — the line past the last, and the space below. */

@@ -1112,6 +1112,10 @@ themselves keep the VexFlow context, and **no pixel moves**.
 derives the offset from the thickness instead (`y + t/2`), which is identical at 1 and correct above
 it — so **P5c cannot silently break P5a**.
 
+⭐⭐ **Superseded 2026-09-24 (his call):** a staff line is now CENTRED on its y (`[y − t/2, y + t/2]`), as
+LilyPond, MuseScore and Verovio draw it. The downward hang left every note half a line's thickness above
+the middle of its line or space — a cue or grace head showed it (`docs/plans/cue-size-plan.md` §3 P3).
+
 ⭐ `STAVE_LINE_WIDTH_PX` moved from `rendering/ScoreRenderer` to the new module, which is exactly
 what its own comment had been waiting for (*"when the engine draws its own staves…"*), and the
 renderer's `setLineWidth` pin is gone: `drawStaffLines` sets the width from the same constant that

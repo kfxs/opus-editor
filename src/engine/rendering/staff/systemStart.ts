@@ -45,7 +45,7 @@ import { compose, scaling, translation } from '@/engine/paint/Affine'
 import { drawGroupOf } from '../painter/svgDrawGroup'
 import type { Score } from '@/types/music'
 import { thinBarlinePx, staffBarlineExtent } from './barlineInk'
-import { staveLineWidthPx, staffLineInkBottomY } from '@/engine/engrave/staff/staffLines'
+import { staveLineWidthPx, staffLineInkBottomY, staffLineInkTopY } from '@/engine/engrave/staff/staffLines'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { glyphBox } from '@/engine/fonts/fontMetrics'
 import { groupsAt } from '@/engine/models/staffGroups'
@@ -175,7 +175,8 @@ function registerSignBox(
 
 /** The y a system-spanning sign starts at: the TOP staff's first line, in the SVG's space. */
 function spanTopY(top: SystemStartPlacement): number {
-  return staffLineY(staveFrame(top.stave), 0) * top.scale
+  // ⭐ The top line's OUTER edge — half its thickness above its y, since a staff line is centred (2026-09-24).
+  return staffLineInkTopY(staffLineY(staveFrame(top.stave), 0), staveLineWidthPx()) * top.scale
 }
 
 /**
