@@ -24,7 +24,7 @@
  * with real rest slots, so every drawn column is already in `measure.slots`. The one exception is a
  * bar holding no slots at all, which draws a single measure rest — one column, at beat 0.
  */
-import { slotScale } from './cueSize'
+import { cueSpacingScale, slotScale } from './cueSize'
 import type { Measure, Fraction, Chord, ChordRest, NotePitch, Clef, KeySignature } from '@/types/music'
 import { fracCompare, fracCreate, fracIsZero, fracSub } from '@/utils/fraction'
 import { measureCapacityFrac } from '@/utils/measureCapacity'
@@ -646,6 +646,8 @@ export function measureColumns(
   const capacity = measureCapacityFrac(measure)
   const beats = new Map<string, Fraction>()
   const ink = new Map<string, ColumnInk>()
+  /** ⭐ C8 — per column: is EVERY slot that starts there cue? (MuseScore's `needsCueSizeSpacing`.) */
+  const allCue = new Map<string, boolean>()
 
   const add = (beat: Fraction, drawn?: ColumnInk): void => {
     // At or past the barline is not a column of this bar: the barline itself is the last one, and a
@@ -667,6 +669,8 @@ export function measureColumns(
 
   for (const slot of measure.slots) {
     add(slot.beat, slotInk(slot, signs, clefFor(slot), multiVoice, flagged.has(slot.id), sizeFor(slot.staffId)))
+    const key = beatKey(slot.beat)
+    if (beats.has(key)) allCue.set(key, (allCue.get(key) ?? true) && slot.cue === true)
 
   }
 
@@ -724,5 +728,7 @@ export function measureColumns(
     ink: inks[i],
     authored: 0,
     rod: rods[i] ?? 0,
+    // ⭐ C8 — a column of nothing but cue notes and rests closes up (Gould p. 569), by the armed row.
+    ...(allCue.get(beatKey(beat)) && cueSpacingScale() !== 1 && { springScale: cueSpacingScale() }),
   }))
 }

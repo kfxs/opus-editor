@@ -8,7 +8,7 @@ describe('cueSize', () => {
   afterEach(() => resetCueSize())
 
   it('⭐ his defaults: gouldRoss ¾, gould ledgers (thinner by the size)', () => {
-    expect(cueSizeSettings()).toEqual({ rule: 'gouldRoss', value: 0.75, ledger: 'gould', grace: 'multiply', brackets: 'gould' })
+    expect(cueSizeSettings()).toEqual({ rule: 'gouldRoss', value: 0.75, ledger: 'gould', grace: 'multiply', brackets: 'gould', spacing: 'gould' })
     expect(ledgerWeightScale(0.75)).toBe(0.75)
   })
 

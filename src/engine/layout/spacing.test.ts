@@ -383,3 +383,20 @@ describe('⭐⭐ the rule that actually SHIPS — LilyPond\'s log law', () => {
     expect(Math.abs(at([1, 2], LILYPOND_SPACING) - 2.25)).toBeLessThan(Math.abs(at([1, 2], GOULD_SPACING) - 2.25))
   })
 })
+
+describe('⭐ a CLOSED-UP cue (cue-size-plan C8): `springScale` shortens the spring, and only the spring', () => {
+  const q = fracCreate(1, 1)
+  const bar = (scale?: number) => [0, 1, 2, 3, 4].map(b => ({
+    ...plainColumn(fracCreate(b, 1), q),
+    ...(scale !== undefined && b < 4 && { springScale: scale }),
+  }))
+
+  it('⭐ every gap after a scaled column asks for that share of its natural length', () => {
+    expect(naturalWidth(bar(0.75))).toBeCloseTo(naturalWidth(bar()) * 0.75, 10)
+  })
+
+  it('⛔ the ink floor does not shrink with it — a gap never goes below its ink', () => {
+    const inked = (scale?: number) => bar(scale).map(c => ({ ...c, rod: 3 }))
+    expect(naturalWidth(inked(0.1))).toBeCloseTo(4 * 3, 10)
+  })
+})

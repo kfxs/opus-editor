@@ -2,7 +2,7 @@ import { describe, it, expect, afterEach } from 'vitest'
 import { ScoreModel } from '@/engine/models/ScoreModel'
 import { setCue } from '@/engine/models/cueOps'
 import { measureColumns } from './measureColumns'
-import { resetCueSize, setCueSize } from './cueSize'
+import { resetCueSize, setCueSize, setCueSpacing } from './cueSize'
 import { fracCreate as frac } from '@/utils/fraction'
 
 /**
@@ -64,5 +64,36 @@ describe('measureColumns — a cue REST\'s room (P3)', () => {
       return measureColumns(model.getMeasure(1)!).flatMap(c => c.ink).find(b => b.kind === 'rest')!
     }
     expect(restBox(true).right).toBeCloseTo(restBox(false).right * 0.75, 9)
+  })
+})
+
+describe('measureColumns — a CLOSED-UP cue (C8, P6)', () => {
+  afterEach(() => resetCueSize())
+
+  /** Four quarters; `cue` says which are cue. The columns' spring scales. */
+  const scales = (cue: boolean[]) => {
+    const model = new ScoreModel()
+    const ids = cue.map((_, b) => model.addNote({ step: 'C', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(b, 1) }).id)
+    setCue(model.getScore(), ids.filter((_, i) => cue[i]), true)
+    return measureColumns(model.getMeasure(1)!).map(c => c.springScale ?? 1)
+  }
+
+  it('⭐ a column of only cue notes: its spring × the cue size (`gould`); a full one: 1', () => {
+    expect(scales([false, true, true, false]).slice(0, 4)).toEqual([1, 0.75, 0.75, 1])
+  })
+
+  it('⛔ a column shared with a FULL note in another voice does not close up', () => {
+    const model = new ScoreModel()
+    const a = model.addNote({ step: 'C', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })
+    model.addNote({ step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1), voice: 1 })
+    setCue(model.getScore(), [a.id], true)
+    expect(measureColumns(model.getMeasure(1)!)[0].springScale).toBeUndefined()
+  })
+
+  it('⭐ the preset reaches it: `dorico` 0.7, `none` nothing', () => {
+    setCueSpacing('dorico')
+    expect(scales([true, false, false, false])[0]).toBe(0.7)
+    setCueSpacing('none')
+    expect(scales([true, false, false, false])[0]).toBe(1)
   })
 })

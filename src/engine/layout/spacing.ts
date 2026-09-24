@@ -320,6 +320,12 @@ export interface Column {
    * 0 for every ordinary column.
    */
   rod: number
+  /**
+   * ⭐ **A CLOSED-UP cue** (cue-size-plan C8): what the SPRING after this column is multiplied by — the armed
+   * `layout/cueSize.cueSpacingScale` when every note and rest starting here is cue, absent (= 1) otherwise.
+   * Only the elastic part: the ink floor is already the small ink's, and authored space is never squeezed.
+   */
+  springScale?: number
 }
 
 /** A column with nothing authored, no ink and no padding — the shorthand a duration-only test wants. */
@@ -346,7 +352,7 @@ function gapsBetween(columns: Column[], rule: SpacingRule): Gap[] {
   return columns.slice(0, -1).map((column, i) => {
     const next = columns[i + 1]
     return {
-      spring: followingSpace(column.duration, rule),
+      spring: followingSpace(column.duration, rule) * (column.springScale ?? 1),
       // ⭐ The floor is a max over box PAIRS once the ink is located — so a pair that can get out of
       //   the other's way costs nothing (`layout/kerning.ts`). With nothing clear it comes out at
       //   exactly the merged expression below, which is why this cannot widen a bar.

@@ -994,7 +994,7 @@ export function createEditorApp(host: HTMLElement): EditorApp {
     dbg("[accidentals] accidental→notehead gap: __accidentals.gap('house'|'musescore'|'lilypond'|'ross') / .dump() / .reset()")
     dbg("[dots] augmentation-dot gaps: __dots.gap('house'|'gould'|'gouldDrawn'|'ross'|'lilypond'|'musescore'|'verovio'|'vexflow') / .dump() / .reset() — ⚠️ look at a DOUBLE dot")
     dbg("[grace] grace-note size: __grace.size('house'|'dorico'|'gould'|'musescore'|'lilypond'|…|0.62) / .dump() / .reset() · no-flag slash: __grace.slash({ length, angle, crossBelowTip }) / .resetSlash() · beamed slash: __grace.beamSlash('bravura'|'musescore'|'lilypond'|'none') / .beamSlash({ glyphLeft, glyphDown }) / .resetBeamSlash()")
-    dbg("[cue] cue-note size: __cue.size('gouldRoss'|'gouldDrawn'|'musescore'|'gerouLusk'|'lilypond'|0.7) / .ledger('gould'|'full') / .graceSize('multiply'|'graceWins'|'musescore'|'sibelius'|'lilypond'|0.5) / .brackets('gould'|'shrink') / .dump() / .reset()")
+    dbg("[cue] cue-note size: __cue.size('gouldRoss'|'gouldDrawn'|'musescore'|'gerouLusk'|'lilypond'|0.7) / .ledger('gould'|'full') / .graceSize('multiply'|'graceWins'|'musescore'|'sibelius'|'lilypond'|0.5) / .brackets('gould'|'shrink') / .spacing('gould'|'dorico'|'none') / .dump() / .reset()")
     dbg('[spine] a bent staff, LIVE from the open score: __spine.circle({ notes: 8 }) loads fourths · .show() bends what is open · .straight() / .clear()')
     dbg("[spacing] law experiment: __spacing.law('lilypond'|'gould'|'musescore'|'verovio'|'finale'|'dorico'|'even'|'proportional') / .dump() / .reset()")
   }

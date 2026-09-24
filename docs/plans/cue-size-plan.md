@@ -1,6 +1,6 @@
 # Cue-size notes — a real note, drawn small: the plan
 
-> **Status (2026-09-24): P0 committed (`c289873`); P1 committed (`3d9dbe8`); P2 committed (`b2c0da7`); P3 committed (`d83f8fb`); P4 committed (`e36e769`); P5 BUILT, awaiting his UI check.** His calls are in (§4). The research is `docs/research/cue-size-research.md`
+> **Status (2026-09-24): P0–P6 ALL BUILT AND COMMITTED** — P0 `c289873` · P1 `3d9dbe8` · P2 `b2c0da7` · P3 `d83f8fb` · P4 `e36e769` · P5 `0b9457b` · P6 (this commit). ⏭️ Open: ARMING cue for note entry (his rule: entry takes what the palette arms), a cue FAN's member spacing, and the §3 *Later* list. His calls are in (§4). The research is `docs/research/cue-size-research.md`
 > (all three chapters are in; §0 is the synthesis). ⛔ A number never blocks a phase (`CLAUDE.md`).
 >
 > ⚠️ **The UI is the dev shell's** (`src/dev/devToolbar.ts`): one `cue` button, like `paren.`.
@@ -196,6 +196,14 @@ are two ways to make it small, and only one of them keeps those readers honest:
       nothing changed. The same toggle as the toolbar's `cue`.
 - **P6: a closed-up cue (C8).** When a whole column is cue, its duration stretch × a row (Gould p. 569;
   MuseScore 0.7, Dorico 70%).
+  - ✅ **Built 2026-09-24, awaiting his check.** `CUE_SPACING_RULES` (C8) in `layout/cueSize`: `gould` (armed) ×
+    the cue size — her *"in proportion to the reduced note size"*, MuseScore 4's `needsCueSizeSpacing`; `dorico`
+    × 0.7; `none` the ink only (MuseScore 3, Verovio, LilyPond). `measureColumns` marks a column whose EVERY
+    starting note and rest is cue (all staves, all voices — MuseScore's segment test) with `springScale`;
+    `spacing.gapsBetween` multiplies only the SPRING — the ink floor is already the small ink's, authored space is
+    never squeezed. `__cue.spacing(…)`. Proved: `measureColumns.cue`, `spacing` (unit), `e2e/cueSize` (a cue bar's
+    note gaps ≈ ¾ of a full bar's; exactly 1 with the scale removed). ⏭️ A cue FAN's own member springs
+    (`fanRampRoom`) are not closed up.
 - **Later, only when asked:** one head of a chord (C9); a SILENT flag (C3); a cue clef (C10);
   a cue stamp or an entry value (the `paren.` P4b five-way press); the Keypad; MusicXML
   `size="cue"` / `<cue/>`.

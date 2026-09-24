@@ -124,3 +124,29 @@ test('⭐ a cue note’s hit box is its drawn head — centre and width', async 
   expect(Math.abs(r.filedX - r.headCentre)).toBeLessThanOrEqual(1)
   expect(Math.abs(r.filedWidth - r.headWidth)).toBeLessThanOrEqual(1)
 })
+
+/**
+ * ⭐ P6 — a CLOSED-UP cue (C8, Gould p. 569): a bar of cue quarters stands them closer than the same bar at full
+ * size — the gap between heads about ¾ as wide under `gould` (the springs × the cue size; the justification
+ * shares the system's surplus by the same springs).
+ */
+test('⭐ a bar of cue notes is closed up: its note gaps about ¾ of a full bar’s', async ({ score }) => {
+  const gaps = await score.evaluate(async () => {
+    const h = window.__h
+    h.engine.addMeasure()
+    const ids: string[] = []
+    for (const bar of [1, 2]) {
+      for (let b = 0; b < 4; b++) {
+        const n = h.engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 5, duration: 'q', measure: bar, beat: h.frac(b, 1) })!
+        if (bar === 2) ids.push(n.id)
+      }
+    }
+    h.engine.cue.set(ids, true)
+    await h.render()
+    const xs = h.noteheads().map(n => n.x).sort((a, b) => a - b)
+    const gap = (from: number) => (xs[from + 3] - xs[from]) / 3
+    return { full: gap(0), cue: gap(4) }
+  })
+  expect(gaps.cue / gaps.full).toBeGreaterThan(0.65)
+  expect(gaps.cue / gaps.full).toBeLessThan(0.85)
+})

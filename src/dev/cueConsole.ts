@@ -12,6 +12,7 @@
  *   __cue.graceSize('graceWins') // a CUE GRACE's size (C4): 'multiply' (✅ grace × cue), 'graceWins',
  *                              //   'musescore' 0.49, 'sibelius' 0.45, 'lilypond' 0.445, or a number 0.2–1
  *   __cue.brackets('shrink')   // a cue head's BRACKETS (C11): 'gould' (✅ full size) or 'shrink' (the head's)
+ *   __cue.spacing('none')     // a CLOSED-UP cue (C8): 'gould' (✅ × the cue size), 'dorico' (× 0.7), 'none'
  *   __cue.reset()
  * ```
  *
@@ -20,8 +21,8 @@
  */
 import { dbg } from '@/utils/debug'
 import {
-  CUE_BRACKET_RULES, CUE_LEDGER_RULES, CUE_SIZE_RULES, GRACE_CUE_SIZE_RULES, cueSizeSettings, graceCueScale, resetCueSize, setCueLedger,
-  setCueBrackets, setCueSize, setGraceCueSize, type CueBracketRuleName, type CueLedgerRuleName, type CueSizeRuleName, type GraceCueSizeRuleName,
+  CUE_BRACKET_RULES, CUE_LEDGER_RULES, CUE_SIZE_RULES, CUE_SPACING_RULES, GRACE_CUE_SIZE_RULES, cueSizeSettings, graceCueScale, resetCueSize, setCueLedger,
+  setCueBrackets, setCueSize, setCueSpacing, setGraceCueSize, type CueBracketRuleName, type CueLedgerRuleName, type CueSpacingRuleName, type CueSizeRuleName, type GraceCueSizeRuleName,
 } from '@/engine/layout/cueSize'
 import { graceScale } from '@/engine/layout/graceRoom'
 
@@ -32,6 +33,7 @@ export interface CueConsole {
   ledger(rule: CueLedgerRuleName): Settings
   graceSize(rule: GraceCueSizeRuleName | number): Settings
   brackets(rule: CueBracketRuleName): Settings
+  spacing(rule: CueSpacingRuleName): Settings
   reset(): Settings
   dump(): void
 }
@@ -43,7 +45,7 @@ const GRACE_ROWS_NAMES = Object.keys(GRACE_CUE_SIZE_RULES) as GraceCueSizeRuleNa
 export function cueConsole(render: () => void): CueConsole {
   const report = () => {
     const armed = cueSizeSettings()
-    dbg(`[cue] armed: size ${armed.rule} = ${armed.value.toFixed(3)} · ledgers ${armed.ledger} · cue grace ${armed.grace} = ${graceCueScale(graceScale()).toFixed(3)} · brackets ${armed.brackets}. __cue.dump() for the table`)
+    dbg(`[cue] armed: size ${armed.rule} = ${armed.value.toFixed(3)} · ledgers ${armed.ledger} · cue grace ${armed.grace} = ${graceCueScale(graceScale()).toFixed(3)} · brackets ${armed.brackets} · spacing ${armed.spacing}. __cue.dump() for the table`)
     return armed
   }
   return {
@@ -80,6 +82,14 @@ export function cueConsole(render: () => void): CueConsole {
       render()
       return report()
     },
+    spacing: (rule) => {
+      if (!setCueSpacing(rule)) {
+        dbg(`[cue] ⛔ no such spacing row: ${rule} — try ${Object.keys(CUE_SPACING_RULES).map(n => `'${n}'`).join(', ')}`)
+        return cueSizeSettings()
+      }
+      render()
+      return report()
+    },
     reset: () => {
       resetCueSize()
       render()
@@ -97,6 +107,8 @@ export function cueConsole(render: () => void): CueConsole {
         const { of, source } = GRACE_CUE_SIZE_RULES[name]
         dbg(`${name === armed.grace ? '✅' : '  '} ${name.padEnd(10)} ${of(graceScale(), armed.value).toFixed(3)}   ${source}`)
       }
+      dbg('[cue] a closed-up cue’s spacing (every note of a column cue):')
+      for (const [name, row] of Object.entries(CUE_SPACING_RULES)) dbg(`${name === armed.spacing ? '✅' : '  '} ${name.padEnd(6)} × ${row.of(armed.value).toFixed(3)}   ${row.source}`)
       dbg('[cue] a cue head’s brackets:')
       for (const [name, row] of Object.entries(CUE_BRACKET_RULES)) dbg(`${name === armed.brackets ? '✅' : '  '} ${name.padEnd(6)} ${row.source}`)
       dbg('[cue] ledger weight:')

@@ -79,12 +79,30 @@ export const CUE_BRACKET_RULES = {
 
 export type CueBracketRuleName = keyof typeof CUE_BRACKET_RULES
 
+/**
+ * ⭐ **C8 — a CLOSED-UP cue**: when EVERY note and rest starting at a column is cue, the duration SPACING after
+ * it (the spring) shrinks too, not only the ink. Gould p. 569: *"Note spacing should be closed up within a cue:
+ * space characters in proportion to the reduced note size."*
+ * - `gould` (default) — × the cue size (¾ today), her *"in proportion"*; MuseScore 4's `needsCueSizeSpacing`
+ *   (× `smallNoteMag` when every chord or rest in the segment is small, `horizontalspacing.cpp:780–834`);
+ * - `dorico` — × 0.7 (Dorico: 70%);
+ * - `none` — the ink only: MuseScore 3, Verovio, LilyPond.
+ */
+export const CUE_SPACING_RULES = {
+  gould: { of: (cue: number) => cue, source: 'Gould p. 569: spacing in proportion to the reduced size; MuseScore 4 × smallNoteMag' },
+  dorico: { of: () => 0.7, source: 'Dorico: cue notes spaced at 70%' },
+  none: { of: () => 1, source: 'the ink only — MuseScore 3, Verovio, LilyPond' },
+} as const satisfies Record<string, { of: (cue: number) => number; source: string }>
+
+export type CueSpacingRuleName = keyof typeof CUE_SPACING_RULES
+
 const state: {
   rule: CueSizeRuleName | 'custom'; value: number; ledger: CueLedgerRuleName
-  graceRule: GraceCueSizeRuleName | 'custom'; graceValue: number; brackets: CueBracketRuleName; generation: number
+  graceRule: GraceCueSizeRuleName | 'custom'; graceValue: number; brackets: CueBracketRuleName
+  spacing: CueSpacingRuleName; generation: number
 } = {
   rule: 'gouldRoss', value: CUE_SIZE_RULES.gouldRoss.value, ledger: 'gould',
-  graceRule: 'multiply', graceValue: 0, brackets: 'gould', generation: 0,
+  graceRule: 'multiply', graceValue: 0, brackets: 'gould', spacing: 'gould', generation: 0,
 }
 
 /** The size a cue note is drawn at — the ARMED row. Read per draw, ⛔ never frozen. */
@@ -115,11 +133,17 @@ export function bracketScale(headScale: number): number {
   return CUE_BRACKET_RULES[state.brackets].shrink ? headScale : 1
 }
 
+/** ⭐ C8 — how much of its duration spacing an ALL-cue column keeps (1 = none closed up). Read per layout. */
+export function cueSpacingScale(): number {
+  return CUE_SPACING_RULES[state.spacing].of(state.value)
+}
+
 /** Which rows are armed. */
 export function cueSizeSettings(): {
-  rule: CueSizeRuleName | 'custom'; value: number; ledger: CueLedgerRuleName; grace: GraceCueSizeRuleName | 'custom'; brackets: CueBracketRuleName
+  rule: CueSizeRuleName | 'custom'; value: number; ledger: CueLedgerRuleName; grace: GraceCueSizeRuleName | 'custom'
+  brackets: CueBracketRuleName; spacing: CueSpacingRuleName
 } {
-  return { rule: state.rule, value: state.value, ledger: state.ledger, grace: state.graceRule, brackets: state.brackets }
+  return { rule: state.rule, value: state.value, ledger: state.ledger, grace: state.graceRule, brackets: state.brackets, spacing: state.spacing }
 }
 
 /** 🚨 A WIDTH — in `layout/widthRowGenerations`, so re-arming re-measures (and re-engraves) every bar. */
@@ -156,6 +180,14 @@ export function setGraceCueSize(rule: GraceCueSizeRuleName | number): boolean {
   return true
 }
 
+/** Arm the closed-up spacing row (C8). ⛔ An unknown name is refused. */
+export function setCueSpacing(rule: CueSpacingRuleName): boolean {
+  if (!(rule in CUE_SPACING_RULES)) return false
+  state.spacing = rule
+  state.generation++
+  return true
+}
+
 /** Arm the brackets row (C11). ⛔ An unknown name is refused. */
 export function setCueBrackets(rule: CueBracketRuleName): boolean {
   if (!(rule in CUE_BRACKET_RULES)) return false
@@ -172,12 +204,13 @@ export function setCueLedger(rule: CueLedgerRuleName): boolean {
   return true
 }
 
-/** Back to the defaults: `gouldRoss`, `gould` ledgers, `multiply`, `gould` brackets. */
+/** Back to the defaults: `gouldRoss`, `gould` ledgers, `multiply`, `gould` brackets, `gould` spacing. */
 export function resetCueSize(): void {
   state.rule = 'gouldRoss'
   state.value = CUE_SIZE_RULES.gouldRoss.value
   state.ledger = 'gould'
   state.graceRule = 'multiply'
   state.brackets = 'gould'
+  state.spacing = 'gould'
   state.generation++
 }
