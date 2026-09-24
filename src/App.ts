@@ -57,6 +57,7 @@ import { spineConsole } from './dev/spineConsole'
 import { headerGapConsole } from './dev/headerGapConsole'
 import { dotGapConsole } from './dev/dotGapConsole'
 import { graceConsole } from './dev/graceConsole'
+import { cueConsole } from './dev/cueConsole'
 import { bracketedConsole } from './dev/bracketedConsole'
 import { accidentalGapConsole } from './dev/accidentalGapConsole'
 import { spacingConsole } from './dev/spacingConsole'
@@ -950,6 +951,9 @@ export function createEditorApp(host: HTMLElement): EditorApp {
     // ⚠️ EXPERIMENT, HIS (2026-09-22) — the GRACE note's size, every row the research found
     // (engine/layout/graceRoom). Armed row = D5's 2/3, so building the knob moved nothing.
     w.__grace = graceConsole(() => renderer.renderScore())
+    // ⚠️ EXPERIMENT, HIS (2026-09-24) — the CUE note's size and its ledger weight (engine/layout/cueSize).
+    //   Armed rows = his calls (gouldRoss ¾, gould ledgers).
+    w.__cue = cueConsole(() => renderer.renderScore())
     // 🔧 P0 of the BRACKETED grace (docs/plans/bracketed-grace-plan.md) — the model, poked by hand
     // before anything draws it (src/dev/bracketedConsole.ts).
     w.__bracketed = bracketedConsole({ getEngine: () => engine, selectedNoteId: () => state.selectedNoteId, render: () => renderer.renderScore() })
@@ -988,6 +992,7 @@ export function createEditorApp(host: HTMLElement): EditorApp {
     dbg("[accidentals] accidental→notehead gap: __accidentals.gap('house'|'musescore'|'lilypond'|'ross') / .dump() / .reset()")
     dbg("[dots] augmentation-dot gaps: __dots.gap('house'|'gould'|'gouldDrawn'|'ross'|'lilypond'|'musescore'|'verovio'|'vexflow') / .dump() / .reset() — ⚠️ look at a DOUBLE dot")
     dbg("[grace] grace-note size: __grace.size('house'|'dorico'|'gould'|'musescore'|'lilypond'|…|0.62) / .dump() / .reset() · no-flag slash: __grace.slash({ length, angle, crossBelowTip }) / .resetSlash() · beamed slash: __grace.beamSlash('bravura'|'musescore'|'lilypond'|'none') / .beamSlash({ glyphLeft, glyphDown }) / .resetBeamSlash()")
+    dbg("[cue] cue-note size: __cue.size('gouldRoss'|'gouldDrawn'|'musescore'|'gerouLusk'|'lilypond'|0.7) / .ledger('gould'|'full') / .dump() / .reset()")
     dbg('[spine] a bent staff, LIVE from the open score: __spine.circle({ notes: 8 }) loads fourths · .show() bends what is open · .straight() / .clear()')
     dbg("[spacing] law experiment: __spacing.law('lilypond'|'gould'|'musescore'|'verovio'|'finale'|'dorico'|'even'|'proportional') / .dump() / .reset()")
   }

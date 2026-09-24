@@ -15,7 +15,13 @@ export class EngravedFlag {
   private text = ''
   private x = 0
   private y = 0
-  readonly fontInfo: FontRow = noteFont()
+  fontInfo: FontRow = noteFont()
+
+  /** ⭐ The note's face at the note's OWN size — a cue note's flag is its size (cue-size-plan §2). */
+  setFont(font: FontRow): this {
+    this.fontInfo = font
+    return this
+  }
 
   getText(): string {
     return this.text

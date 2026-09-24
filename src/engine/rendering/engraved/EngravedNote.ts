@@ -68,6 +68,7 @@ import { EngravedHead } from './EngravedHead'
 import { LEDGER_OVERHANG_PX, NOTE_AREA_PADDING_PX, NOTEHEAD_MIN_PADDING_PX, NOTE_ANNOTATION_SPACING_PX, NOTE_DURATION_ROWS, NOTE_GLYPH_SCALE, STEM_LENGTH_PX, stemThicknessPx } from '@/engine/engrave/inheritedDefaults'
 import { stemExtents, stemLineHeight, type StemSpan } from '@/engine/engrave/notes/stemLength'
 import { noteFont } from '@/engine/engrave/inheritedFonts'
+import { ledgerWeightScale } from '@/engine/layout/cueSize'
 import type { DrawContext } from '@/engine/paint/DrawContext'
 import { ledgerLineRuns, drawLedgerLines } from '@/engine/engrave/notes/ledgerLines'
 import { flagPlacement, drawFlag } from '@/engine/engrave/notes/flag'
@@ -383,6 +384,14 @@ export interface EngravedNoteStruct {
    * Absent, or `undefined` at an index, = the head is on the note's own staff.
    */
   crossings?: readonly (KeyCrossing | undefined)[]
+  /**
+   * ⭐ **The note's OWN size** — 1, or a CUE note's (`layout/cueSize.slotScale`, docs/plans/cue-size-plan.md §2).
+   * Everything the note answers follows it: its heads' face (and so their measured width, the stem's x,
+   * the modifiers' start), its flag, its stem's LENGTH, its ledgers' overhang and weight, and the dots and
+   * accidentals it carries. ⛔ Not where it SITS: the heads stand on the full staff's lines. ⛔ Nor the
+   * stem's THICKNESS (C6). Absent = 1.
+   */
+  glyphScale?: number
 }
 
 /** A modifier as the note holds it — the contract `./EngravedModifier` keeps. */
@@ -477,8 +486,12 @@ export class EngravedNote {
   /** @see EngravedNoteStruct.crossings */
   private readonly crossings: readonly (KeyCrossing | undefined)[] | undefined
   displaced = false
+  /** @see EngravedNoteStruct.glyphScale — set FIRST in the constructor: the heads and flag it builds read it. */
+  private glyphScale = 1
 
   constructor(noteStruct: EngravedNoteStruct) {
+    this.glyphScale = noteStruct.glyphScale ?? 1
+    this.flag.setFont(noteFont(this.glyphScale))
     const parsed = parseNoteDuration(noteStruct.duration, noteStruct.keys ?? [], noteStruct.dots)
     if (!parsed) throw new Error(`EngravedNote: invalid note initialization object: ${JSON.stringify(noteStruct)}`)
     this.keys = noteStruct.keys || []
@@ -1079,8 +1092,12 @@ export class EngravedNote {
     } else if (this.beam) {
       base = (row.stemBeamExtension as number) * scale
     } else {
+      // ⭐ A CUE note's stem is its size's 3½ spaces (cue-size-plan C5): the stem is `STEM_LENGTH_PX` plus
+      //   this extension, so the shortfall is a NEGATIVE extension — VexFlow's own shape for its
+      //   `GraceNote` (`stem height × scale − stem height`). ⏭️ A beamed cue note is P2's.
+      const own = STEM_LENGTH_PX * scale * this.glyphScale
       const flagHeight = this.flag.getHeight()
-      base = flagHeight > STEM_LENGTH_PX * scale ? flagHeight - STEM_LENGTH_PX * scale : 0
+      base = (own - STEM_LENGTH_PX * scale) + (flagHeight > own ? flagHeight - own : 0)
     }
     if (!row.stem) return base
     // ⭐ A chord split across two staves already has a stem as long as the gap between them — the
@@ -1205,13 +1222,18 @@ export class EngravedNote {
         // ⭐ Where it STANDS: a head's line is what its y is asked from (`getYs`), so a crossed head
         //   carries its staff's lift here. Its TRUE line stays on the key row (`drawLedgerLines`).
         line: geoLine(row.keyProps),
-        font: noteFont(),
+        font: noteFont(this.glyphScale),
       })
       // ⚠️ Back into the note's OWN key order — `keys[2]` is `noteHeads[2]`, whatever line it is on.
       heads[row.index] = head
     })
     this._noteHeads = heads
     return heads
+  }
+
+  /** @see EngravedNoteStruct.glyphScale — what this note's modifiers size themselves by. */
+  getGlyphScale(): number {
+    return this.glyphScale
   }
 
   /** @see EngravedNote.ledgerOverhang — the accidental clearance's one lever. */
@@ -1249,7 +1271,8 @@ export class EngravedNote {
           .filter((_, i) => this.keyProps[i].lift === lift)
           .map(head => ({ line: head.getLine() - lift, x: head.getAbsoluteX() })),
         noteRuler(this).glyphWidth,
-        this.ledgerOverhang,
+        // ⭐ A cue note's ledgers run past ITS head by its size's overhang (cue-size-plan C6).
+        this.ledgerOverhang * this.glyphScale,
       )
       drawLedgerLines(
         this.inkSurface ?? this.checkContext(),
@@ -1257,9 +1280,20 @@ export class EngravedNote {
         line => noteLineY(frame, line + lift),
         // The stave's ledger style with this note's own on top — VexFlow's own merge, kept because
         // `hiddenElements` recolours a note by that second half.
-        { ...stave.getDefaultLedgerLineStyle(), ...this.getLedgerLineStyle() },
+        this.ledgerStyle(stave),
       )
     }
+  }
+
+  /**
+   * The stave's ledger style with this note's own on top — and a CUE note's weight, by the armed C6 row
+   * (`layout/cueSize.ledgerWeightScale`: `gould` thins it by the note's size, `full` keeps the system's).
+   */
+  private ledgerStyle(stave: EngravedStave): Record<string, unknown> {
+    const style: Record<string, unknown> = { ...stave.getDefaultLedgerLineStyle(), ...this.getLedgerLineStyle() }
+    const weight = ledgerWeightScale(this.glyphScale)
+    if (weight !== 1 && typeof style.lineWidth === 'number') style.lineWidth = style.lineWidth * weight
+    return style
   }
 
   /**
@@ -1469,7 +1503,7 @@ export class EngravedNote {
           glyph: this.headGlyph(index),
           x: originX,
           y: ys[index] + head.getYShift(),
-          font: noteFont(),
+          font: noteFont(this.glyphScale),
         }, () => this.drawModifiers(head))
       } finally {
         context.restore()
@@ -1682,7 +1716,7 @@ export class EngravedNote {
       at,
       // ⭐ The note's face, which its flag shares (`engrave/inheritedFonts`) — handed over as a value,
       // which is what keeps `engrave/` free of `vexflow` (see that module's header).
-      noteFont(),
+      noteFont(this.glyphScale),
     )
   }
 }

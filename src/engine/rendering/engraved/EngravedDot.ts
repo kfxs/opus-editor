@@ -125,7 +125,7 @@ export class EngravedDot extends EngravedModifier implements InkSurfaceAware {
   }
 
   private measured() {
-    return measureGlyphMetrics(NOTE_FACE_TAG, AUGMENTATION_DOT, MUSIC_FONT_SIZE_PT * NOTE_GLYPH_SCALE)
+    return measureGlyphMetrics(NOTE_FACE_TAG, AUGMENTATION_DOT, MUSIC_FONT_SIZE_PT * NOTE_GLYPH_SCALE * this.noteScale())
   }
 
   protected inkMetrics(): ModifierMetrics {
@@ -151,7 +151,7 @@ export class EngravedDot extends EngravedModifier implements InkSurfaceAware {
       glyph: AUGMENTATION_DOT,
       x: this.x + this.getXShift(),
       y: this.y + this.yShift,
-      font: musicGlyphFont(),
+      font: musicGlyphFont(this.noteScale()),
       // ⭐ The sign's own id, so its GROUP can be matched back to the hit box the registry
       //   files for it — P6b's seam (`docs/plans/own-engraving-engine.md` §5 P6).
       id: this.getAttribute('id')!,

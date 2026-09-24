@@ -136,6 +136,14 @@ export abstract class EngravedModifier {
     return this.note
   }
 
+  /**
+   * ⭐ The size of the note this modifier is attached to — 1, or a cue note's (`EngravedNoteStruct.glyphScale`,
+   * cue-size-plan C5): a modifier that stamps a glyph measures and draws it at this size. 1 before it has a note.
+   */
+  protected noteScale(): number {
+    return this.note?.getGlyphScale() ?? 1
+  }
+
   setIndex(index: number): this {
     this.index = index
     return this

@@ -133,7 +133,7 @@ export class EngravedAccidental extends EngravedModifier implements InkSurfaceAw
   }
 
   private measured() {
-    return measureGlyphMetrics(SIGN_TAG, this.glyph, MUSIC_FONT_SIZE_PT)
+    return measureGlyphMetrics(SIGN_TAG, this.glyph, MUSIC_FONT_SIZE_PT * this.noteScale())
   }
 
   protected inkMetrics(): ModifierMetrics {
@@ -172,7 +172,7 @@ export class EngravedAccidental extends EngravedModifier implements InkSurfaceAw
       glyph: this.glyph,
       x: this.x + this.xShift,
       y: this.y + this.yShift,
-      font: accidentalFont(this.glyph),
+      font: accidentalFont(this.glyph, this.noteScale()),
       id: this.getAttribute('id')!,
     }
     drawAccidental(this.inkSurface ?? context, ink)

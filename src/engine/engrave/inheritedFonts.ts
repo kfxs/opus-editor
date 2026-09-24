@@ -60,9 +60,10 @@ export function musicFont(sizePt: number): FontRow {
 /**
  * A notehead's and its flag's face — the NOTE's, which both copy (`stavenote.js:351`,
  * `stemmablenote.js:42`): the root size times the note's glyph scale.
+ * @param scale THIS note's own size — 1, or a cue note's (`layout/cueSize.slotScale`, cue-size-plan §2).
  */
-export function noteFont(): FontRow {
-  return musicFont(MUSIC_FONT_SIZE_PT * NOTE_GLYPH_SCALE)
+export function noteFont(scale = 1): FontRow {
+  return musicFont(MUSIC_FONT_SIZE_PT * NOTE_GLYPH_SCALE * scale)
 }
 
 /**
@@ -70,8 +71,8 @@ export function noteFont(): FontRow {
  * dot, an articulation, the meter's digits (`Accidental.fontSize` walks up to the root,
  * `accidental.js:295`; `Dot`, `Articulation` and `TimeSignature`'s two text rows never set one).
  */
-export function musicGlyphFont(): FontRow {
-  return musicFont(MUSIC_FONT_SIZE_PT)
+export function musicGlyphFont(scale = 1): FontRow {
+  return musicFont(MUSIC_FONT_SIZE_PT * scale)
 }
 
 /** A cautionary accidental's size — `Accidental.cautionary.fontSize` = 20 (`metrics.js:69`). */
@@ -87,8 +88,8 @@ const ACCIDENTAL_PARENS_LEFT = '\uE26A'
  * than off the object, so the answer is the one the ink will show. ⚠️ A grace note's accidental is
  * 20 too (`accidental.js:304`); this editor has no grace notes, so that would be a second row.
  */
-export function accidentalFont(glyph: string): FontRow {
-  return glyph.startsWith(ACCIDENTAL_PARENS_LEFT) ? musicFont(CAUTIONARY_ACCIDENTAL_SIZE_PT) : musicGlyphFont()
+export function accidentalFont(glyph: string, scale = 1): FontRow {
+  return glyph.startsWith(ACCIDENTAL_PARENS_LEFT) ? musicFont(CAUTIONARY_ACCIDENTAL_SIZE_PT * scale) : musicGlyphFont(scale)
 }
 
 /** How much smaller a `'small'` clef (a change of clef mid-line) is — the `* 2 / 3` in `Clef.getPoint` (`clef.js:102`). */

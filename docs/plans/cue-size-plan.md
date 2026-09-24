@@ -1,6 +1,6 @@
 # Cue-size notes — a real note, drawn small: the plan
 
-> **Status (2026-09-24): P0 BUILT (the model), awaiting his check; P1 next.** His calls are in (§4). The research is `docs/research/cue-size-research.md`
+> **Status (2026-09-24): P0 committed (`c289873`); P1 BUILT, awaiting his UI check.** His calls are in (§4). The research is `docs/research/cue-size-research.md`
 > (all three chapters are in; §0 is the synthesis). ⛔ A number never blocks a phase (`CLAUDE.md`).
 >
 > ⚠️ **The UI is the dev shell's** (`src/dev/devToolbar.ts`): one `cue` button, like `paren.`.
@@ -121,6 +121,16 @@ are two ways to make it small, and only one of them keeps those readers honest:
   heads, stem length, flag, dots, accidentals, ledgers; the spacing ink. An unbeamed note or chord only.
   ⭐ Proved by a SCENE test (head sizes, stem length) and a Chromium measurement of the ink (the flag,
   the accidental), because jsdom's glyphs are 0 wide.
+  - ✅ **Built 2026-09-24, awaiting his check.** `layout/cueSize` (`CUE_SIZE_RULES` C2, `gouldRoss` ¾ armed ·
+    `CUE_LEDGER_RULES` C6, `gould` armed · `slotScale` · a width generation). `EngravedNoteStruct.glyphScale`, handed
+    by `NoteBuilder` from `slotScale(slot)`: the heads' and flag's face (so the measured head width, the stem x and
+    the modifiers' start follow), the stem LENGTH as a negative extension (VexFlow's `GraceNote` shape), the ledger
+    overhang and weight; `EngravedModifier.noteScale()` sizes the dot and the accidental. `measureColumns.shrinkCueInk`:
+    the note's own boxes at its size, each about where it stands. The `cue` button (`interactions/stamps/cueTool`,
+    beside `paren.` in the dev toolbar's Note group) and `__cue` (`dev/cueConsole`).
+    Proved: `EngravedNote.cue.test.ts` (scene: fonts ¾, stem 8.75 px shorter, ledger ¾ long and thin),
+    `e2e/cueSize.e2e.ts` (Chromium: head, sign, dot, flag ¾ within a whole pixel; the stem at the small head's edge),
+    `measureColumns.cue.test.ts`. ⏭️ The press in NOTE ENTRY (arming cue) is not built: it logs and does nothing.
 - **P2: beams, articulations, tuplets.** An all-cue beam at k (thickness and gap); a mixed beam full,
   with the cue stems reaching it; articulations at the note's size; the tuplet-number rule (C5); the
   one-note tremolo strokes (they read `NOTE_GLYPH_SCALE` today).

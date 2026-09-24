@@ -29,7 +29,7 @@ describe('EngravedDot', () => {
     const measured = dot.getWidth()
     dot.setWidth(measured + 4)
     expect(dot.getWidth()).toBe(measured + 4)
-    dot.setNote({} as Parameters<EngravedDot['setNote']>[0])
+    dot.setNote({ getGlyphScale: () => 1 } as unknown as Parameters<EngravedDot['setNote']>[0])
     expect(dot.getWidth()).toBe(measured)
   })
 

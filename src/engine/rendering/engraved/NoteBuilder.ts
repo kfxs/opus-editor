@@ -1,4 +1,5 @@
 import { EngravedNote } from './EngravedNote'
+import { slotScale } from '@/engine/layout/cueSize'
 import { EngravedAccidental } from './EngravedAccidental'
 import { EngravedArticulation } from './EngravedArticulation'
 import { attachEngravedDots } from './EngravedDot'
@@ -279,7 +280,11 @@ export function createStaveNotesFromSlots(
     // spacing model retired the whole problem: the members are ordinary COLUMNS in
     // `measureColumns`, so the bar asks for their room directly, and `spacingPass` writes the x's
     // rather than letting the tick-proportional formatter decide them.
-    const noteStruct = { keys, duration: durationToken, clef: slotClef, autoStem: false, crossings }
+    // ⭐ A CUE chord is drawn at its size (`layout/cueSize.slotScale`, cue-size-plan §2) — the note carries it,
+    //   so its heads, flag, stem length, ledgers, dots and accidentals all follow, and every reader that asks
+    //   the note (beam, tie, hit box) gets the drawn answer. ⏭️ A cue REST is P3's.
+    const glyphScale = slotScale(slot)
+    const noteStruct = { keys, duration: durationToken, clef: slotClef, autoStem: false, crossings, ...(glyphScale !== 1 && { glyphScale }) }
     // ⭐ {@link EngravedNote}, ⛔ not a bare `StaveNote`: the seam P3 empties one drawn part at a
     // time (P3a took the ledger lines). Everything else about it is still VexFlow's, including the
     // whole geometry API seven of our own renderers read.

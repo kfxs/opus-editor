@@ -24,6 +24,7 @@
  * with real rest slots, so every drawn column is already in `measure.slots`. The one exception is a
  * bar holding no slots at all, which draws a single measure rest — one column, at beat 0.
  */
+import { slotScale } from './cueSize'
 import type { Measure, Fraction, Chord, ChordRest, NotePitch, Clef, KeySignature } from '@/types/music'
 import { fracCompare, fracCreate, fracIsZero, fracSub } from '@/utils/fraction'
 import { measureCapacityFrac } from '@/utils/measureCapacity'
@@ -202,10 +203,12 @@ function slotInk(slot: ChordRest, signs: Map<string, string | null>, clef: Clef,
   //   decides most kerning questions. ⛔ A WHOLE note has none, and a BEAMED note's stem runs to a beam
   //   whose height is not a width-time fact, so that one is treated as reaching the far side of the
   //   staff: decline the kern rather than draw ink through ink.
+  let stemFromY: number | undefined
   if (slot.duration !== 'w' && pitches.length > 0) {
     const lines = pitches.map(lineOf)
     const up = stemUp(slot, clef, multiVoice)
     const fromY = yOfLine(up ? Math.max(...lines) : Math.min(...lines))
+    stemFromY = fromY
     // A stem always reaches at least the middle line (y = 2), which for a note just outside the staff
     // is the same statement as `STEM_REACH`.
     const beamed = isBeamableDuration(slot.duration) && !flagged
@@ -241,6 +244,12 @@ function slotInk(slot: ChordRest, signs: Map<string, string | null>, clef: Clef,
     }
   }
 
+  // ⭐ A CUE chord's own ink, at its size (cue-size-plan C8 — ⭐ the INK shrinks first; closing up the
+  //   duration stretch is P6). Only the boxes above, the note's own: the brackets, graces and bracketed
+  //   graces below keep theirs (C11 / C4 are P4's).
+  const k = slotScale(slot)
+  if (k !== 1) shrinkCueInk(boxes, k, stemFromY)
+
   // ⭐ A PARENTHESISED head's brackets (`layout/headEnclosure` — the same call the drawing stands them
   //   with): one box per pair, the outermost ink on both sides.
   const up = stemUp(slot, clef, multiVoice)
@@ -253,6 +262,30 @@ function slotInk(slot: ChordRest, signs: Map<string, string | null>, clef: Clef,
   boxes.push(...graceInk(slot, pitches, signs, clef, staff))
   boxes.push(...bracketedAfterInk(slot, signs, clef, staff, flagged && pitches.length > 0 && stemUp(slot, clef, multiVoice)))
   return sized(boxes, size)
+}
+
+/**
+ * ⭐ **A cue chord's own boxes at its size `k`** — ⚠️ ⛔ not {@link sized}, which scales a whole SMALL STAFF:
+ * a cue head still stands on the FULL staff's lines, so each box shrinks about where it is. Widths are
+ * reaches from the head's left edge, so they scale as they are; a head, dot or sign keeps its CENTRE line
+ * and shrinks its height; the stem and flag shrink toward the head they grow from (`stemFromY`); a ledger's
+ * band is the run back to the staff, which does not move.
+ */
+function shrinkCueInk(boxes: RawInk, k: number, stemFromY: number | undefined): void {
+  for (const box of boxes) {
+    box.left *= k
+    box.right *= k
+    if (box.kind === 'stem' || box.kind === 'flag') {
+      if (stemFromY === undefined) continue
+      box.top = stemFromY + (box.top - stemFromY) * k
+      box.bottom = stemFromY + (box.bottom - stemFromY) * k
+    } else if (box.kind !== 'ledger') {
+      const centre = (box.top + box.bottom) / 2
+      const half = ((box.bottom - box.top) / 2) * k
+      box.top = centre - half
+      box.bottom = centre + half
+    }
+  }
 }
 
 /**

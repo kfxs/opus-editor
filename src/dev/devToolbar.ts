@@ -7,6 +7,7 @@ import { durationHighlight } from '../interactions/controllers/keypadSync'
 import { graceToolLit, pressGraceTool } from '../interactions/stamps/graceTool'
 import { bracketedToolLit, pressBracketedTool } from '../interactions/stamps/bracketedGraceTool'
 import { enclosureLit, pressEnclosure } from '../interactions/stamps/enclosureTool'
+import { cueLit, pressCue } from '../interactions/stamps/cueTool'
 import { DEV_SOUNDS } from '../engine/audio/WebAudioFontInstrument'
 import { bus } from '../bus'
 import { buildMusicFontPicker } from './musicFontPicker'
@@ -253,6 +254,11 @@ export function mountDevToolbar(host: HTMLElement, deps: DevToolbarDeps): DevToo
     'Brackets: toggles the selected notes; with nothing selected ARMS the stamp; in note entry, the next notes are born in brackets',
     () => enclosureLit(state, getEngine()),
     () => pressEnclosure(palette.spanToolHost()))
+  // --- CUE size (docs/plans/cue-size-plan.md P1): the selected notes drawn small (`interactions/stamps/cueTool`). ---
+  toggle(parenBox, GRACE_BTN, 'cue',
+    'Cue size: toggles the selected notes (all cue ⇒ back to full size)',
+    () => cueLit(state, getEngine()),
+    () => pressCue(palette.spanToolHost()))
   row.appendChild(parenBox)
 
   // --- Beam ---
