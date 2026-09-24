@@ -48,6 +48,7 @@ export function convertNoteToGrace(score: Score, noteId: string, form: GraceForm
   if (chord.dots) grace.dots = chord.dots
   if (chord.articulations?.length) grace.articulations = [...chord.articulations]
   if (chord.articulationPlacement) grace.articulationPlacement = chord.articulationPlacement
+  if (chord.cue) grace.cue = true // a cue note → a cue grace (cue-size-plan C4)
 
   const rest = swapSlotForRest(score, noteId)
   if (!rest) return null

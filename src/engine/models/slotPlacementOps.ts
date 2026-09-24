@@ -27,6 +27,7 @@ import * as overrideOps from './overrideOps'
 import { fillGapsWithRests } from './restFillOps'
 import { matchesStaff, staffIdForParams } from './staffContent'
 import { rehomeRestGraces, takeRestGraces, type OrphanGraces } from './restGraceOps'
+import { keepCueSilence } from './cueOps'
 
 /**
  * Compact, voice-tagged one-line summary of a slot for debug logs, e.g.
@@ -194,6 +195,11 @@ export function evictRestsOverlapping(
  * Also inherits tupletId from any replaced tuplet rest.
  */
 export function replaceRestsWithChord(score: Score, measure: Measure, chord: Chord): void {
+  // ⭐ A cue rest the chord lands on PART of: the refilled remainder stays cue (`cueOps.keepCueSilence`).
+  keepCueSilence(score, () => replaceRestsWithChordBody(score, measure, chord), measure)
+}
+
+function replaceRestsWithChordBody(score: Score, measure: Measure, chord: Chord): void {
   const orphans: OrphanGraces[] = []
   const inheritedTupletId = evictRestsOverlapping(score, measure, chord, orphans)
 
@@ -226,6 +232,11 @@ export function replaceRestsWithChord(score: Score, measure: Measure, chord: Cho
  * is safe to call on any duration change; only a genuine grow evicts anything.
  */
 export function evictRestsOverlappingChord(score: Score, measure: Measure, chord: Chord): void {
+  // ⭐ A cue rest the chord grows into: the refilled remainder stays cue (`cueOps.keepCueSilence`).
+  keepCueSilence(score, () => evictRestsOverlappingChordBody(score, measure, chord), measure)
+}
+
+function evictRestsOverlappingChordBody(score: Score, measure: Measure, chord: Chord): void {
   const chordDurFrac = slotLength(chord)
   const chordVoice = voiceOf(chord)
 
@@ -273,6 +284,12 @@ function migrateRestTieTo(score: Score, restId: string, newNotePitchId: string):
  * ⚠️ Evicts, and deliberately does NOT fill — see {@link evictRestsOverlapping}.
  */
 export function addRestSlot(score: Score, measure: Measure, params: NoteParams): Rest {
+  // ⭐ A rest minted inside a cue rest's silence (the refill's own `addNote`, or a rest typed there) is
+  //    cue: only a delete takes cue off (`cueOps.keepCueSilence`).
+  return keepCueSilence(score, () => addRestSlotBody(score, measure, params), measure)
+}
+
+function addRestSlotBody(score: Score, measure: Measure, params: NoteParams): Rest {
   // Which staff this slot belongs to (absent = staff 0).
   const targetStaffId = staffIdForParams(score, params.staff)
   const rest: Rest = {
@@ -403,6 +420,7 @@ export function insertPitch(score: Score, measure: Measure, payload: PitchInsert
   if (payload.graceAfter) chord.graceAfter = payload.graceAfter
   if (payload.bracketedBefore) chord.bracketedBefore = payload.bracketedBefore
   if (payload.bracketedAfter) chord.bracketedAfter = payload.bracketedAfter
+  if (payload.cue) chord.cue = true
   if (targetVoice) chord.voice = targetVoice as 0 | 1 | 2 | 3
   if (payload.staffId !== undefined) chord.staffId = payload.staffId
   chord.actualDuration = computeActualDurationForSlot(chord, measure)

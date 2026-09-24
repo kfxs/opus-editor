@@ -31,6 +31,7 @@ import { addTrill, repairDanglingTrills } from './trillOps'
 import { addMeasure, insertMeasureAfter } from './measureOps'
 import { collapseEmptyVoices } from './voiceOps'
 import { findSlot } from './slotLookup'
+import { keepCueSilence } from './cueOps'
 import { keepLegalCrossings } from './crossStaffOps'
 import { clearEngravingOverride, setEngravingOverride } from './overrideOps'
 import { cloneFanFresh, chordStoredPitches, fanMemberBeats } from '@/utils/fannedBeam'
@@ -302,6 +303,16 @@ export function rebarRegion(score: Score, fromMeasure: number, ts: TimeSignature
  *          selecting the pasted material.
  */
 export function pasteEvents(
+  score: Score,
+  clip: Clip,
+  target: ClipTarget,
+): string[] {
+  // ⭐ Pasted INTO cue silence: the rests the paste leaves there stay cue (`cueOps.keepCueSilence`). The
+  //    pasted notes are ENTRY and carry the clip's own size (his rule, 2026-09-24).
+  return keepCueSilence(score, () => pasteEventsBody(score, clip, target))
+}
+
+function pasteEventsBody(
   score: Score,
   clip: Clip,
   target: ClipTarget,
@@ -1647,6 +1658,7 @@ function materializeVoiceBar(
       const rest = measure.slots[measure.slots.length - 1]
       if (piece.graceBefore && rest?.type === 'rest') rest.graceBefore = cloneGraceFresh(piece.graceBefore)
       if (piece.bracketedBefore && rest?.type === 'rest') rest.bracketedBefore = cloneBracketedFresh(piece.bracketedBefore)
+      if (piece.cue && rest?.type === 'rest') rest.cue = true
       continue
     }
     const chord: Chord = {
@@ -1695,6 +1707,7 @@ function materializeVoiceBar(
     if (piece.secondaryBreak) chord.secondaryBreak = true
     if (piece.fractionalBeamSide) chord.fractionalBeamSide = piece.fractionalBeamSide
     if (piece.enclosureSpan) chord.enclosureSpan = piece.enclosureSpan
+    if (piece.cue) chord.cue = true
     measure.slots.push(chord)
     created.push({ piece, chord })
   }

@@ -149,6 +149,9 @@ export function moveNoteToVoice(score: Score, pitchId: string, targetVoice: numb
     // …and its BRACKETED graces on the same terms: they belong to the chord, not to one head
     // (docs/plans/bracketed-grace-plan.md B2).
     ...(chord.notes.length <= 1 && { bracketedBefore: chord.bracketedBefore, bracketedAfter: chord.bracketedAfter }),
+    // ⭐ Cue size is the SLOT's, like its articulations: the note keeps its size in its new voice
+    // (cue-size-plan P0). A destination chord it merges into keeps its own (`slotPlacementOps`).
+    ...(chord.cue && { cue: true as const }),
   }
 
   // Remove the pitch from the source slot.
@@ -325,7 +328,7 @@ function moveTupletNoteToVoice(score: Score, measure: Measure, chord: Chord, pit
     .filter((s): s is Chord => s.type === 'chord' && voiceOf(s) === targetVoice
       && fracGte(s.beat, startBeat) && fracLt(s.beat, spanEnd))
     .sort((a, b) => fracCompare(a.beat, b.beat))
-    .map(c => ({ beat: c.beat, notes: c.notes }))
+    .map(c => ({ beat: c.beat, notes: c.notes, cue: c.cue }))
 
   // Remove the moved pitch from the source slot.
   let removedSourceSlot = false
@@ -354,21 +357,26 @@ function moveTupletNoteToVoice(score: Score, measure: Measure, chord: Chord, pit
   // already on a grid slot KEEPS it (chord on collision); loose notes pour into
   // the remaining free slots in order, overflow dropped.
   const assignment: (NotePitch[] | undefined)[] = new Array(numNotes).fill(undefined)
-  const placeAt = (g: number, pitches: NotePitch[]) => {
+  // ⭐ Cue size is the user's statement about a note, and only a delete takes it off (his rule,
+  // 2026-09-24): the moved note's and each re-poured chord's go with their pitches. A collision
+  // chord is cue when either was.
+  const cueAt: boolean[] = new Array(numNotes).fill(false)
+  const placeAt = (g: number, pitches: NotePitch[], cue?: true) => {
     assignment[g] = assignment[g] ? [...assignment[g]!, ...pitches] : pitches
+    if (cue) cueAt[g] = true
   }
-  placeAt(idx, [movedPitch])
-  const loose: NotePitch[][] = []
+  placeAt(idx, [movedPitch], chord.cue)
+  const loose: { notes: NotePitch[]; cue?: true }[] = []
   for (const e of existing) {
     const g = gridIndexOf(e.beat)
-    if (g >= 0) placeAt(g, e.notes) // grid-aligned → keep its own slot
-    else loose.push(e.notes)        // loose → ordinal pour below
+    if (g >= 0) placeAt(g, e.notes, e.cue) // grid-aligned → keep its own slot
+    else loose.push(e)                     // loose → ordinal pour below
   }
   let k = 0
-  for (const pitches of loose) {
+  for (const e of loose) {
     while (k < numNotes && assignment[k] !== undefined) k++
     if (k >= numNotes) break // overflow — drop the rest
-    assignment[k] = pitches
+    placeAt(k, e.notes, e.cue)
     k++
   }
 
@@ -389,6 +397,7 @@ function moveTupletNoteToVoice(score: Score, measure: Measure, chord: Chord, pit
     }
     if (targetVoice) newChord.voice = targetVoice as 0 | 1 | 2 | 3
     if (targetStaffId !== undefined) newChord.staffId = targetStaffId
+    if (cueAt[g]) newChord.cue = true
     // The moved note's own beam statement rides along (same reason as the plain path);
     // the target voice's pre-existing notes are re-poured, so theirs is not carried.
     if (g === idx) {

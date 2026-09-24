@@ -1,6 +1,6 @@
 # Cue-size notes — a real note, drawn small: the plan
 
-> **Status (2026-09-23): PLANNED, his calls in (§4).** Nothing is built; P0 is next. The research is `docs/research/cue-size-research.md`
+> **Status (2026-09-24): P0 BUILT (the model), awaiting his check; P1 next.** His calls are in (§4). The research is `docs/research/cue-size-research.md`
 > (all three chapters are in; §0 is the synthesis). ⛔ A number never blocks a phase (`CLAUDE.md`).
 >
 > ⚠️ **The UI is the dev shell's** (`src/dev/devToolbar.ts`): one `cue` button, like `paren.`.
@@ -43,7 +43,8 @@
 - **Flat `Note`** (`noteProjection`) projects it, so the Properties report and `getNote` can see it.
 - **What travels:** a slot field copied BY NAME must learn it. That means `slotFieldTravel` (carried
   through a re-lay, onto every piece of a split, as `enclosureSpan` is), the clipboard, and
-  `convertToRest` (does a cue note turned into a rest stay cue? ⏳ proposed: yes). P0 audits them.
+  `convertToRest` (a cue note turned into a rest is a cue rest). ✅ P0 audited them — see §3 P0 for the list, and
+  his two rules (only a DELETE clears it; ENTRY takes what the palette arms, EDITING keeps it).
 - **JSON:** reported, never repaired. The load reports a `cue` that is not `true`.
 
 ## 2. How it is DRAWN: the note learns its own size
@@ -78,8 +79,8 @@ are two ways to make it small, and only one of them keeps those readers honest:
 
 | module | what it answers |
 |---|---|
-| `engine/models/cueOps.ts` | `setCue(score, ids, on)`: finds each slot or grace, and writes or DELETES the field |
-| `engine/commands/cueCommands.ts` | the ops call, then ONE `mutate('Cue size')`. The facade gains one line (`engine.cue`) |
+| `engine/models/cueOps.ts` | ✅ P0: `setCue` / `toggleCue` / `isCue` (an id → the chord, rest, grace or bracketed grace it sizes; writes or DELETES the field), `cueProblems`, and `keepCueSilence` (his rule: only a delete clears it) |
+| `engine/commands/cueCommands.ts` | ✅ P0: the ops call, then ONE `mutate('Cue size' / 'Full size')`. The facade gained one line (`engine.cue`) |
 | `engine/layout/cueSize.ts` | `CUE_SIZE_RULES` (C2) + `GRACE_CUE_SIZE_RULES` (C4) + arming, `slotScale(slot)` |
 | `EngravedNote` + its modifiers | a `glyphScale` read from the note's options. `NoteBuilder` passes `slotScale(slot)` |
 | `measureColumns.slotInk` | the cue slot's boxes, shrunk around their heads |
@@ -91,6 +92,31 @@ are two ways to make it small, and only one of them keeps those readers honest:
 - **P0: the model.** Type, field, projection, the op, the command with undo, the JSON check, and the
   audit of the slot-field copies. Specs: set and clear on a chord, a rest and a grace; undo; a split
   keeps it; copy and paste keep it.
+  - ✅ **Built 2026-09-24.** `cue?: true` on `Chord`, `Rest`, `GraceNote`, `BracketedGrace`, the flat `Note` and
+    `PitchInsert`; `engine/models/cueOps` (`isCue` · `setCue` · `toggleCue` · `cueProblems`) and
+    `engine/commands/cueCommands` (`engine.cue`, one `mutate`: *Cue size* / *Full size*). An id names what it is the
+    size OF: a head or a fan member → its chord, a rest → itself, a grace or bracketed grace → itself (⛔ never its host).
+  - **The audit — what carries it:** `slotFieldTravel` (`cue: 'carried'`) + the relay (event, piece, materialiser — a
+    chord's and a rest's), `cloneGraceFresh` / `cloneBracketedFresh`, a voice move (a merge keeps the destination's),
+    `convertToRest` (a cue rest), and the conversions note ↔ grace, note → bracketed, grace ↔ bracketed.
+  - ⭐⭐ **His rules (2026-09-24).** (1) *"if a user mark a rest as cue it should carry the cue flag unless the user
+    change it, what only can clean the cue without explicit user intervention is delete"*. (2) *"for note editing the
+    cue value persist, for note entry what is important is what is armed on the pallette"*.
+    - A cue REST travels through a re-bar as content (⛔ not regenerated as a gap; a cue measure rest too).
+    - The model's own rest churn keeps cue SILENCE cue: `cueOps.keepCueSilence` wraps the placement evictions
+      (`replaceRestsWithChord` · `evictRestsOverlappingChord` · `addRestSlot`), a duration change (`changeNote`), a
+      grace's beat rest (`beatRestAt`), a paste (`pasteEvents`) and a tuplet's entry (`buildTupletWithFirstNote`):
+      a REST that afterwards starts inside a stretch a cue rest held is cue.
+    - ⛔ A NOTE ENTERED there (typed, pasted, a tuplet's first note) is sized by what the palette has ARMED; nothing
+      arms cue yet, so it is full. A pasted note keeps the clip's own size.
+    - EDITING keeps it: a note's duration or pitch changed; a rest turned into a note IN PLACE (the same slot);
+      a tuplet note moved to another voice (and the target voice's re-poured notes); a grace or bracketed grace
+      turned into the note of its slot (never takes the note's or the rest's cue off).
+    - ⛔ Delete (`deleteNotes` → `clearOps`) does not wrap: it clears.
+  - ✅ A secondary voice left holding only rests is removed (`collapseEmptyVoices`), cue rests and all: that rule
+    stands as it is (his call, 2026-09-24).
+  - ⏳ **Open:** ARMING cue for entry (his rule 2) — the entry value this plan had filed under *Later* — now has a
+    reader: when to build it.
 - **P1: one cue note on the page.** The button (selection → toggle). `EngravedNote` learns its scale:
   heads, stem length, flag, dots, accidentals, ledgers; the spacing ink. An unbeamed note or chord only.
   ⭐ Proved by a SCENE test (head sizes, stem length) and a Chromium measurement of the ink (the flag,

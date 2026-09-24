@@ -52,7 +52,9 @@ import { tieCommands } from './commands/tieCommands'
 import { graceCommands } from './commands/graceCommands'
 import { bracketedCommands } from './commands/bracketedCommands'
 import { enclosureCommands } from './commands/enclosureCommands'
+import { cueCommands } from './commands/cueCommands'
 import { enclosureProblems } from './models/enclosureOps'
+import { cueProblems } from './models/cueOps'
 import { spellingToMidi, accidentalToAlter } from '@/utils/pitchSpelling'
 import { alterInForceAt } from '@/utils/accidentalState'
 import type { BeamRole } from '@/utils/beaming'
@@ -2456,6 +2458,8 @@ export class MusicEngine {
   readonly bracketed = bracketedCommands(this.commandContext())
   /** ⭐ PARENTHESISED notes' commands — `engine/commands/enclosureCommands` (docs/plans/parenthesised-note-plan.md). */
   readonly enclosure = enclosureCommands(this.commandContext())
+  /** ⭐ CUE-SIZE notes' commands — `engine/commands/cueCommands` (docs/plans/cue-size-plan.md). */
+  readonly cue = cueCommands(this.commandContext())
 
   /** All phrasing slurs (live array; empty if none). */
   getSlurs(): Slur[] {
@@ -3500,6 +3504,7 @@ export class MusicEngine {
     for (const problem of graceOps.graceProblems(loaded.getScore())) console.warn(`[score-file] ${problem}`)
     for (const problem of bracketedProblems(loaded.getScore())) console.warn(`[score-file] ${problem}`)
     for (const problem of enclosureProblems(loaded.getScore())) console.warn(`[score-file] ${problem}`)
+    for (const problem of cueProblems(loaded.getScore())) console.warn(`[score-file] ${problem}`)
     this.scoreModel = loaded
     this.playbackEngine.setScore(this.scoreModel.getScore())
     this.markModelDirty()

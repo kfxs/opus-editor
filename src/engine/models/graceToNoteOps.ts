@@ -64,6 +64,7 @@ export function graceToNote(score: Score, gracePitchId: string): string | null {
       ...(rest.staffId !== undefined && { staffId: rest.staffId }),
       ...(grace.articulations?.length && { articulations: [...grace.articulations] }),
       ...(grace.articulationPlacement && { articulationPlacement: grace.articulationPlacement }),
+      ...((grace.cue || rest.cue) && { cue: true as const }), // the grace's own, or the cue silence it lands in
       ...(rest.graceBefore && { graceBefore: rest.graceBefore }),
     }
     for (const measure of score.measures) {
@@ -95,6 +96,8 @@ export function graceToNote(score: Score, gracePitchId: string): string | null {
     else delete chord.articulations
     if (grace.articulationPlacement) chord.articulationPlacement = grace.articulationPlacement
     else delete chord.articulationPlacement
+    // …and its size — but ⛔ never taken OFF the note: only a delete clears cue (his rule, 2026-09-24).
+    if (grace.cue) chord.cue = true
   }
   clearEngravingOverride(score, gracePitchId, 'noteOffset')
   dbg(`[graceToNote] ${pitches.map(p => `${p.step}${p.octave}`).join('+')} → the note of its ${found.type} (${group.notes.length} grace(s) left before it)`)

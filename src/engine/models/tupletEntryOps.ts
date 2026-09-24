@@ -13,7 +13,7 @@
  * What a tuplet IS — its span, its slots, the filler rests — stays `tupletOps`; this is the ENTRY
  * that stands on it.
  */
-import type { Measure, Note, NoteDuration, NoteParams, PitchSpelling, Tuplet, TupletFormat } from '@/types/music'
+import type { Measure, Note, NoteDuration, NoteParams, PitchSpelling, Score, Tuplet, TupletFormat } from '@/types/music'
 import { dbg } from '@/utils/debug'
 import { durationToFraction, writtenLength } from '@/utils/durations'
 import type { Fraction } from '@/utils/fraction'
@@ -21,6 +21,7 @@ import { fracAdd, fracDiv, fracGt, fracLte, fracMul, fracSub, fracToNumber } fro
 import { staffOf, voiceOf } from '@/utils/lanes'
 import { measureCapacityFrac } from '@/utils/measureCapacity'
 import { beatToFrac, splitBeatsIntoDurations, tupletScale, tupletSpan, tupletWrittenDuration } from '@/utils/musicUtils'
+import { keepCueSilence } from './cueOps'
 
 /** What tuplet entry needs of the score — `ScoreModel` answers all of it. */
 export interface TupletEntryModel {
@@ -36,6 +37,7 @@ export interface TupletEntryModel {
     normal?: { duration: NoteDuration; dots?: number; count?: number }, format?: TupletFormat,
   ): Tuplet
   refillTupletRemainder(measureNumber: number, tuplet: Tuplet, voice?: number): void
+  getScore(): Score
 }
 
 /**
@@ -124,7 +126,13 @@ export function applyTupletToNote(
  * Create a tuplet and place the first note (or chord with an existing note).
  * Shared by createTupletAtPosition and createTupletAtBeat.
  */
-export function buildTupletWithFirstNote(
+export function buildTupletWithFirstNote(...args: Parameters<typeof buildTupletBody>): ReturnType<typeof buildTupletBody> {
+  // ⭐ A tuplet made in cue silence keeps the silence cue — its rests (`cueOps.keepCueSilence`). Its first
+  //    NOTE is entry, sized by what the palette has armed (his rule, 2026-09-24).
+  return keepCueSilence(args[0].getScore(), () => buildTupletBody(...args))
+}
+
+function buildTupletBody(
   model: TupletEntryModel,
   measureNumber: number,
   beat: number,

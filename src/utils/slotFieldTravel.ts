@@ -111,6 +111,9 @@ export const SLOT_FIELD_TRAVEL = {
   /** ⭐ One pair round the whole chord (parenthesised-note-plan P5): the chord's statement, on EVERY piece
    *  of a split, like `fractionalBeamSide` — each piece is still the same chord of bracketed heads. */
   enclosureSpan: 'carried',
+  /** ⭐ Drawn at CUE size (cue-size-plan C1) — a statement about the chord or rest, on EVERY piece of a
+   *  split, for `enclosureSpan`'s reason: each piece is still the same small note. */
+  cue: 'carried',
 
   // --- relations: never on the event -------------------------------------------------------------
   /** ⚠️ A RELATION with the NEXT slot, not a property. The relay hands a split event's marks to every

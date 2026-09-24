@@ -59,7 +59,7 @@ export function convertNoteToBracketed(score: Score, noteId: string): NoteToBrac
     const { tiedTo: _to, tiedFrom: _from, enclosure: _enclosure, ...rest } = p
     return { ...rest }
   })
-  const bracketed: BracketedGrace = { pitches, duration: chord.duration }
+  const bracketed: BracketedGrace = { pitches, duration: chord.duration, ...(chord.cue && { cue: true as const }) }
   if (chord.dots || chord.articulations?.length) {
     dbg(`[noteToBracketed] its ${[chord.dots && 'dots', chord.articulations?.length && 'articulations'].filter(Boolean).join(' and ')} go — a bracketed grace has none`)
   }
@@ -100,6 +100,7 @@ export function bracketedToNote(score: Score, pitchId: string): string | null {
   if (at.onGrace) {
     for (const old of at.onGrace.pitches) reanchorSlurs(score, old.id, pitches[0].id)
     at.onGrace.pitches = pitches
+    if (at.note.cue) at.onGrace.cue = true // its size joins the target's; ⛔ never takes the target's off
   } else if (found.type === 'rest') {
     // The rest becomes the note — the same slot, wearing the other type (`swapSlotForRest` backwards).
     const rest = found.rest
@@ -112,6 +113,7 @@ export function bracketedToNote(score: Score, pitchId: string): string | null {
       ...(rest.staffId !== undefined && { staffId: rest.staffId }),
       ...(rest.graceBefore && { graceBefore: rest.graceBefore }),
       ...(rest.bracketedBefore && { bracketedBefore: rest.bracketedBefore }),
+      ...((at.note.cue || rest.cue) && { cue: true as const }), // its own, or the cue silence it lands in
     }
     for (const measure of score.measures) {
       const i = measure.slots.findIndex(s => s.id === rest.id)
@@ -137,6 +139,7 @@ export function bracketedToNote(score: Score, pitchId: string): string | null {
       reanchorSlurs(score, old.id, pitches[0].id)
     }
     chord.notes = pitches
+    if (at.note.cue) chord.cue = true
   }
   dbg(`[bracketedToNote] ${pitches.map(p => `${p.step}${p.octave}`).join('+')} → its ${at.onGrace ? 'grace' : found.type}, re-pitched; the bracketed grace is gone`)
   return pitches[0].id
@@ -176,7 +179,7 @@ export function graceToBracketed(score: Score, gracePitchId: string): string | n
   }
   // ⛔ A grace's own brackets do not travel: a bracketed grace IS in brackets (parenthesised-note-plan N5).
   const pitches = grace.pitches.map(({ enclosure: _enclosure, ...p }) => ({ ...p }))
-  const bracketed: BracketedGrace = { pitches, duration: grace.duration }
+  const bracketed: BracketedGrace = { pitches, duration: grace.duration, ...(grace.cue && { cue: true as const }) }
   target.bracketedBefore = [...(grace.bracketedBefore ?? []), bracketed, ...(target.bracketedBefore ?? [])]
 
   group.notes.splice(index, 1)
@@ -215,7 +218,7 @@ export function bracketedToGrace(score: Score, pitchId: string, form: GraceForm)
   if (rightOfIt.length) holder[key] = rightOfIt
   else delete holder[key]
 
-  const grace: GraceNote = { pitches: at.note.pitches.map(p => ({ ...p })), duration: at.note.duration }
+  const grace: GraceNote = { pitches: at.note.pitches.map(p => ({ ...p })), duration: at.note.duration, ...(at.note.cue && { cue: true as const }) }
   if (leftOfIt.length && at.side === 'before') grace.bracketedBefore = leftOfIt
   else if (leftOfIt.length) holder[key] = [...leftOfIt, ...(holder[key] ?? [])] // AFTER: they stay between the note and it
 

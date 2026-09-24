@@ -36,6 +36,7 @@ const loadedChord = (): Chord => ({
   articulationStemAlign: true,
   fractionalBeamSide: 'right',
   enclosureSpan: 'chord',
+  cue: true,
   tremolo: 3,
   beam: 'begin',
   secondaryBreak: true,
@@ -68,7 +69,7 @@ describe('the table is total over a real slot', () => {
     const rest: Rest = {
       id: 'r1', type: 'rest', beat: F(0), duration: 'q', dots: 1, measure: 1,
       voice: 1, tupletId: 't1', actualDuration: F(3, 2), tiedFrom: 'x',
-      staffId: 's2', isMeasureRest: false, beamOver: true,
+      staffId: 's2', isMeasureRest: false, beamOver: true, cue: true,
     }
     expect(Object.keys(rest).filter(k => !(k in SLOT_FIELD_TRAVEL))).toEqual([])
   })
@@ -99,6 +100,12 @@ describe('what the table calls CARRIED really is', () => {
 
   it('⭐ enclosureSpan — a chord\'s one pair of brackets survives a re-lay (parenthesised-note-plan P5)', () => {
     expect(piece.enclosureSpan).toBe('chord')
+  })
+
+  it('⭐ cue — a cue-sized chord stays cue-sized (cue-size-plan P0)', () => { expect(piece.cue).toBe(true) })
+  it('⭐ cue — …and a cue-sized REST, when rests travel (a paste)', () => {
+    const rest: Rest = { id: 'r1', type: 'rest', beat: F(0), duration: 'q', measure: 1, cue: true }
+    expect(roundTrip(rest).cue).toBe(true)
   })
 
   it('tremolo', () => { expect(piece.tremolo).toBe(3) })
@@ -135,7 +142,7 @@ describe('what the table calls CARRIED really is', () => {
   it('⭐ and every carried field has an assertion here', () => {
     const asserted: SlotField[] = [
       'duration', 'dots', 'notes', 'stemDirection', 'articulations', 'articulationPlacement',
-      'articulationStemAlign', 'fractionalBeamSide', 'enclosureSpan', 'tremolo', 'beam', 'secondaryBreak', 'fan',
+      'articulationStemAlign', 'fractionalBeamSide', 'enclosureSpan', 'cue', 'tremolo', 'beam', 'secondaryBreak', 'fan',
       'graceBefore', 'graceAfter', 'bracketedBefore', 'bracketedAfter',
     ]
     expect([...CARRIED_SLOT_FIELDS].sort()).toEqual([...asserted].sort())

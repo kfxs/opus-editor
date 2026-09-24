@@ -150,6 +150,8 @@ export function swapSlotForRest(score: Score, noteId: string): Rest | null {
     ...(chord.graceBefore && { graceBefore: chord.graceBefore }),
     // …and its BRACKETED graces before it — the same rule run backwards (B10 reversed, 2026-09-23).
     ...(chord.bracketedBefore && { bracketedBefore: chord.bracketedBefore }),
+    // ⭐ A cue note silenced is a cue REST (cue-size-plan P0): the size is the slot's, not the pitch's.
+    ...(chord.cue && { cue: true as const }),
   }
   if (chord.graceAfter) dbg(`[Model.convertToRest] the grace AFTER ${fmtSlot(chord)} goes with it — a rest takes none`)
   // A bracketed grace AFTER has no home on a rest (the grace-after's reason) and goes with the note.

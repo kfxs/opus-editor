@@ -145,6 +145,8 @@ export interface RebarEvent {
   fractionalBeamSide?: FractionalBeamSide
   /** ⭐ One pair of brackets round the whole chord (`Chord.enclosureSpan`). Onto EVERY piece. */
   enclosureSpan?: 'chord'
+  /** ⭐ Drawn at cue size (`Chord.cue` / `Rest.cue`). Onto EVERY piece, a rest's too. */
+  cue?: true
   /** Single-note tremolo on the event. Carried through the relay so a meter change or a paste does
    *  not silently drop it — and carried onto EVERY piece a tie-split makes of this event, because a
    *  tremolo interrupted at a barline is still being played across it. */
@@ -205,6 +207,8 @@ export interface RebarPiece {
   fractionalBeamSide?: FractionalBeamSide
   /** One pair round the chord. See {@link RebarEvent.enclosureSpan}. */
   enclosureSpan?: 'chord'
+  /** Cue size. See {@link RebarEvent.cue}. */
+  cue?: true
   /** Single-note tremolo. See {@link RebarEvent.tremolo} — every piece of a split event keeps it. */
   tremolo?: TremoloMark
   /** Fanned beam. See {@link RebarEvent.fan} — only the FIRST piece of a split event keeps it. */
@@ -359,12 +363,15 @@ export function flattenRegion(
         // carrying the shape it is drawn as (see {@link FlattenOptions.keepRests}) — ⭐ and ALWAYS
         // when a GRACE hangs on it (D7 reversed): the grace names this beat, so the rest it hangs on
         // travels like the note it is waiting for, grace on its first piece.
-        if ((!opts.keepRests && !slot.graceBefore && !slot.bracketedBefore) || slot.isMeasureRest) continue
+        // ⭐ …and ALWAYS when it is CUE: the user's statement, which only a delete may take off (his rule,
+        //    2026-09-24) — so a re-bar carries the rest instead of regenerating the gap.
+        if ((!opts.keepRests && !slot.graceBefore && !slot.bracketedBefore && !slot.cue) || (slot.isMeasureRest && !slot.cue)) continue
         events.push({
           offset: fracAdd(runningOffset, slot.beat),
           duration: slotActual,
           isRest: true,
           ...(authored ? { written: authored } : {}),
+          ...(slot.cue && { cue: true as const }),
           ...(slot.graceBefore ? { graceBefore: cloneGraceFresh(slot.graceBefore) } : {}),
           // …and its BRACKETED graces, for the same reason (B10 reversed).
           ...(slot.bracketedBefore ? { bracketedBefore: cloneBracketedFresh(slot.bracketedBefore) } : {}),
@@ -390,6 +397,7 @@ export function flattenRegion(
         articulationStemAlign: slot.type === 'chord' ? slot.articulationStemAlign : undefined,
         fractionalBeamSide: slot.type === 'chord' ? slot.fractionalBeamSide : undefined,
         ...(slot.type === 'chord' && slot.enclosureSpan && { enclosureSpan: slot.enclosureSpan }),
+        ...(slot.cue && { cue: true as const }),
         tremolo: slot.tremolo,
         // ⚠️ A COPY, not the slot's own mark. The flattened stream is also the clipboard's payload —
         // documented as position-independent and re-pasteable — and `fan` is the one field on an
@@ -603,6 +611,7 @@ export function relayEvents(events: RebarEvent[], meter: MeterInfo, opts: RelayO
           articulationStemAlign: ev.articulationStemAlign,
           fractionalBeamSide: ev.fractionalBeamSide,
           ...(ev.enclosureSpan && { enclosureSpan: ev.enclosureSpan }),
+          ...(ev.cue && { cue: true as const }),
           // EVERY piece, not just the head: a tremolo interrupted at a barline is still being
           // played across it, so both halves of a tie-split carry the mark.
           tremolo: ev.tremolo,

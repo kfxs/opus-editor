@@ -77,5 +77,6 @@ export function cloneBracketedFresh(list: readonly BracketedGrace[]): BracketedG
       return np
     }),
     duration: b.duration,
+    ...(b.cue && { cue: true as const }),
   }))
 }

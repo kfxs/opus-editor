@@ -30,6 +30,7 @@ export function toFlatNote(chord: Chord, pitch: NotePitch, staffIndex = 0): Note
     isRest: false,
     forceAccidental: pitch.forceAccidental,
     ...(pitch.enclosure && { enclosure: pitch.enclosure }),
+    ...(chord.cue && { cue: true as const }),
     stemDirection: chord.stemDirection,
     beam: chord.beam,
     secondaryBreak: chord.secondaryBreak,
@@ -66,6 +67,7 @@ export function restToFlatNote(rest: Rest, staffIndex = 0): Note {
     actualDuration: rest.actualDuration,
     tiedFrom: rest.tiedFrom,
     beamOver: rest.beamOver,
+    ...(rest.cue && { cue: true as const }),
     voice: rest.voice,
     staff: staffIndex === 0 ? undefined : staffIndex,
   }
@@ -107,6 +109,9 @@ export function projectBracketedNote(note: Note, pitch: NotePitch, bracketed: Br
   delete note.isRest
   delete note.isMeasureRest
   note.duration = bracketed.duration
+  // ⭐ Its OWN size, never its host's (cue-size-plan C4).
+  if (bracketed.cue) note.cue = true
+  else delete note.cue
   for (const k of ['dots', 'fan', 'beam', 'secondaryBreak', 'fractionalBeamSide', 'tremolo', 'tremoloPair', 'tremoloPairStyle', 'actualDuration', 'articulationStemAlign', 'stemDirection', 'articulations', 'articulationPlacement', 'tiedTo', 'tiedFrom', 'enclosure'] as const) delete note[k]
   return note
 }
@@ -124,6 +129,9 @@ export function projectGraceNote(note: Note, pitch: NotePitch, grace: GraceNote)
   delete note.isRest
   delete note.isMeasureRest
   note.duration = grace.duration
+  // ⭐ Its OWN size, never its host's (cue-size-plan C4).
+  if (grace.cue) note.cue = true
+  else delete note.cue
   if (grace.dots) note.dots = grace.dots
   else delete note.dots
   for (const k of ['fan', 'beam', 'secondaryBreak', 'fractionalBeamSide', 'tremolo', 'tremoloPair', 'tremoloPairStyle', 'actualDuration', 'articulationStemAlign', 'stemDirection'] as const) delete note[k]

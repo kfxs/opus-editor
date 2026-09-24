@@ -27,6 +27,7 @@ import { measureCapacityQuarters } from '@/utils/measureCapacity'
 import { durationToBeats, tupletScale, tupletSpan } from '@/utils/musicUtils'
 import { chordNotesAt } from './deleteNoteOps'
 import { splitChordWithTie, type SpanningNoteModel } from './spanningNoteOps'
+import { keepCueSilence } from './cueOps'
 
 /** What a duration change needs of the score — `ScoreModel` answers all of it. */
 export interface DurationChangeModel extends SpanningNoteModel {
@@ -60,6 +61,12 @@ interface NoteUpdateCtx {
 }
 
 export function changeNote(model: DurationChangeModel, noteId: string, updates: Partial<NoteParams>): NoteChange {
+  // ⭐ The rests this churns — eaten by a lengthened note, refilled behind a shortened one — keep a cue
+  //    silence cue: only a delete takes cue off (his rule, 2026-09-24; `cueOps.keepCueSilence`).
+  return keepCueSilence(model.getScore(), () => changeNoteBody(model, noteId, updates))
+}
+
+function changeNoteBody(model: DurationChangeModel, noteId: string, updates: Partial<NoteParams>): NoteChange {
   const existingNote = model.getNote(noteId)
   if (!existingNote) throw new Error(`Note ${noteId} not found`)
 

@@ -260,6 +260,13 @@ export interface GraceNote extends Attack {
   /** Absent, never 0 — `laneFingerprint` stringifies the slot for the width-cache key. */
   dots?: number
   /**
+   * ⭐ **Drawn at CUE size** — a cue grace, whose size is its own preset (C4) (docs/plans/cue-size-plan.md C1, C2). **ABSENT = full
+   * size**, the only spelling of it (the width-cache key stringifies the slot), so switching it off DELETES
+   * the field. Write it through `engine/models/cueOps`. The SIZE is not here: it is a house-style preset
+   * (`layout/cueSize`). ⛔ It moves nothing but the drawing — the note is counted and PLAYED (C3).
+   */
+  cue?: true
+  /**
    * ⭐ Its authored BEAM statement within its group — the beam keys' four, as a note's (his report,
    * 2026-09-23: *"the grace group is not responding to the beaming of the beam palette"*). Absent = auto:
    * consecutive flagged graces share a beam (`engrave/notes/graceBeam.graceBeamRuns`). `single` never beams,
@@ -294,6 +301,8 @@ export interface BracketedGrace {
   pitches: NotePitch[]
   /** What its HEAD is drawn as (B7). ⛔ Never counted. */
   duration: NoteDuration
+  /** ⭐ Drawn at CUE size — the cue GRACE's size (cue-size-plan C4). Absent = its ordinary size; see {@link Chord.cue}. */
+  cue?: true
 }
 
 /** Which side of its main chord a grace group stands on (D2: an AFTER group is stored on the note it
@@ -380,6 +389,8 @@ export interface Note {
   forceAccidental?: boolean
   /** The head's brackets (`NotePitch.enclosure`); absent = none. */
   enclosure?: HeadEnclosure
+  /** Drawn at cue size — its SLOT's (or grace's) `cue`; absent = full size. */
+  cue?: true
   /** Whether this note is a rest */
   isRest?: boolean
   /** True for a whole-bar measure rest (its `duration` is the nominal `'w'`, not
@@ -586,6 +597,8 @@ export interface PitchInsert {
   /** The chord's BRACKETED graces — carried on the graces' terms (the whole slot, `voiceOps`). */
   bracketedBefore?: BracketedGrace[]
   bracketedAfter?: BracketedGrace[]
+  /** `Chord.cue` — the slot's size travels with it, as its articulations do. */
+  cue?: true
 }
 
 /**
@@ -630,6 +643,13 @@ export interface Chord extends Attack {
    * chord's pair returns). Read it through `engine/models/enclosureOps.chordEnclosureSpan`, ⛔ never raw.
    */
   enclosureSpan?: 'chord'
+  /**
+   * ⭐ **Drawn at CUE size** — a real note, small (docs/plans/cue-size-plan.md C1, C2). **ABSENT = full
+   * size**, the only spelling of it (the width-cache key stringifies the slot), so switching it off DELETES
+   * the field. Write it through `engine/models/cueOps`. The SIZE is not here: it is a house-style preset
+   * (`layout/cueSize`). ⛔ It moves nothing but the drawing — the note is counted and PLAYED (C3).
+   */
+  cue?: true
   tupletId?: string
   actualDuration?: Fraction
   /** Stem-side articulations align to the stem (modern) not the notehead (default). */
@@ -779,6 +799,8 @@ export interface Rest {
    * which is also when the beaming context it describes has changed.
    */
   beamOver?: boolean
+  /** ⭐ Drawn at CUE size (cue-size-plan C1) — see {@link Chord.cue}. Absent = full size. */
+  cue?: true
   /**
    * ⭐ GRACE NOTES written before this silence — D7 REVERSED (his call, 2026-09-22): the user enters
    * the grace FIRST, on an empty bar, and the note after. When a note takes this rest's place at the

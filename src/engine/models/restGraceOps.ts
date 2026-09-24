@@ -27,6 +27,7 @@ import { measureCapacityFrac } from '@/utils/measureCapacity'
 import { writtenLength } from '@/utils/durations'
 import { findSlot } from './slotLookup'
 import { fillGapsWithRests } from './restFillOps'
+import { keepCueSilence } from './cueOps'
 
 /**
  * ⭐ Rule 1 — the rest a grace stamped at `beat` hangs on. A MEASURE rest is replaced by a one-beat rest
@@ -63,9 +64,13 @@ export function beatRestAt(score: Score, restId: string, beat: Fraction): Rest |
   if (segment.dots) beatRest.dots = segment.dots
   if (rest.voice) beatRest.voice = rest.voice
   if (rest.staffId !== undefined) beatRest.staffId = rest.staffId
-  measure.slots = measure.slots.filter(s => s !== rest)
-  measure.slots.push(beatRest)
-  fillGapsWithRests(score, measure)
+  // ⭐ A cue measure rest split for the grace stays cue, the beat rest and its refill alike
+  //    (`cueOps.keepCueSilence`: only a delete takes cue off).
+  keepCueSilence(score, () => {
+    measure.slots = measure.slots.filter(s => s !== rest)
+    measure.slots.push(beatRest)
+    fillGapsWithRests(score, measure)
+  }, measure)
   measure.slots.sort((a, b) => fracCompare(a.beat, b.beat))
   dbg(`[restGraceOps.beatRestAt] m${measure.number}: measure rest → ${segment.duration}${'.'.repeat(segment.dots)} rest at b${fracToNumber(start).toFixed(3)} (the grace's beat)`)
   return beatRest

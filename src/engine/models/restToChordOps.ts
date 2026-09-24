@@ -39,6 +39,9 @@ export function convertRestToChord(score: Score, rest: Rest, updates: Partial<No
     articulationStemAlign: updates.articulationStemAlign,
     notes: [notePitch],
   }
+  // ⭐ A cue rest turned into a note IN PLACE is an EDIT of the slot, so its cue persists (his rule,
+  //    2026-09-24: editing keeps the value; only ENTRY takes what the palette has armed).
+  if (rest.cue) chord.cue = true
   chord.actualDuration = computeActualDurationForSlot(chord, measure)
 
   const orphans = takeRestGraces([rest])
