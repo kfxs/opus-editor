@@ -44,6 +44,9 @@ export interface TieHead {
    * A.4). Absent = a bare head.
    */
   bracketX?: number
+  /** ⭐ The head's size — 1, or a CUE note's (cue-size-plan P5): the tie keeps its 0.20 sp from the SMALL head's
+   *  edge ({@link tieEndpointY}). Absent = 1. */
+  headScale?: number
 }
 
 /** ⭐ The white between a bracket's ink and the tie that leaves it, STAFF SPACES. ⏳ UNSOURCED — Gould p. 610 draws
@@ -61,7 +64,19 @@ export function tieEndpointX(head: TieHead, end: 'from' | 'to', spacePx = STAFF_
     : Math.min(centre - CURVE_PX.tieEndpointInset, head.bracketX === undefined ? Infinity : head.bracketX - clearance)
 }
 
-/** The flat y both endpoints share: lifted off the notehead's centre, on the side the tie bows. */
-export function tieEndpointY(headY: number, direction: number): number {
-  return headY + CURVE_PX.tieLift * direction
+/** Half a notehead's height, staff spaces — Bravura's `noteheadBlack` (0.5 up, 0.5 down), the head the
+ *  settled `tieLift` (0.70 = this + 0.20 of white) was stated against. */
+const HEAD_HALF_HEIGHT_SP = 0.5
+
+/**
+ * The flat y both endpoints share: lifted off the notehead's centre, on the side the tie bows.
+ *
+ * ⭐ **0.20 sp clear of the head's EDGE** — `tieLift` (0.70 from the centre) is exactly that for a full head.
+ * A CUE head is smaller, so the tie comes in with it: half the DRAWN head plus the same 0.20 — MuseScore's
+ * own statement (`slurtielayout.cpp:1745–1763`: `note->height() / 2 + 0.20 sp`), and Gould's *"should almost
+ * touch each notehead"* read against the head that is there. A full head moves nothing.
+ */
+export function tieEndpointY(headY: number, direction: number, headScale = 1): number {
+  const smallerBy = (1 - headScale) * HEAD_HALF_HEIGHT_SP * STAFF_SPACE_PX
+  return headY + (CURVE_PX.tieLift - smallerBy) * direction
 }

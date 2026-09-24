@@ -18,6 +18,8 @@
  * it really needs of the ink (`own-engraving-engine.md` §5 P6b), ⛔ never a union of the note's parts.
  */
 export interface NoteRuler {
+  /** ⭐ The note's own size — 1, or a CUE note's (`EngravedNoteStruct.glyphScale`, cue-size-plan §2). */
+  readonly glyphScale: number
   /** Which way the stem points: `1` up, `-1` down — the direction our own code set. */
   readonly stemDirection: number
   /** False for a note drawn without a stem (a whole note), whatever stem object exists underneath. */

@@ -1,6 +1,6 @@
 # Cue-size notes — a real note, drawn small: the plan
 
-> **Status (2026-09-24): P0 committed (`c289873`); P1 committed (`3d9dbe8`); P2 committed (`b2c0da7`); P3 committed (`d83f8fb`); P4 BUILT, awaiting his UI check.** His calls are in (§4). The research is `docs/research/cue-size-research.md`
+> **Status (2026-09-24): P0 committed (`c289873`); P1 committed (`3d9dbe8`); P2 committed (`b2c0da7`); P3 committed (`d83f8fb`); P4 committed (`e36e769`); P5 BUILT, awaiting his UI check.** His calls are in (§4). The research is `docs/research/cue-size-research.md`
 > (all three chapters are in; §0 is the synthesis). ⛔ A number never blocks a phase (`CLAUDE.md`).
 >
 > ⚠️ **The UI is the dev shell's** (`src/dev/devToolbar.ts`): one `cue` button, like `paren.`.
@@ -179,6 +179,21 @@ are two ways to make it small, and only one of them keeps those readers honest:
     `EnclosurePass.cue`, `BracketedGracePass.cue` (scene placements and font sizes).
 - **P5: what reads it.** Ties and slurs (their endpoints should come free from the note; check them),
   hit boxes and the selection highlight, the entry ghost, the Properties report.
+  - ✅ **Checked and built 2026-09-24, awaiting his check.** Measured in Chromium, reader by reader:
+    - HIT BOXES — right already: the registry files `getBoundingBox()` (9 px wide against 12, the shorter stem's
+      height) and the DRAWN head's centre (`headCentreX`). `e2e/cueSize.e2e.ts` now holds it.
+    - TIES — the height was not: a tie stood 0.70 sp from a head's centre whatever its size, so 0.33 sp off a ¾
+      head's edge instead of 0.20. ⭐ `tieEndpoints.tieEndpointY` now states the rule it always meant: half the
+      DRAWN head + 0.20 sp — MuseScore's (`slurtielayout.cpp:1745–1763`, `note->height()/2 + 0.20 sp`) and Gould's
+      *"almost touch"* against the head that is there. A full head moves nothing (0.5 + 0.2 = the settled 0.70).
+      The x (Verovio's 0.25 sp in from the centre) is left as it is — his call. `NoteRuler.glyphScale` carries the size.
+    - SLURS — right: a slur on a cue note springs from its shorter stem's tip / its small head (looked at, 4×).
+    - The selection HIGHLIGHT recolours by group — nothing to do.
+    - ⏭️ The entry GHOST waits for armed-cue entry (not built).
+    - ✅ PROPERTIES — his ask ("yes, add it"): a **cue size** checkbox on a note, a rest, a grace and a bracketed
+      grace (`windows/properties/panels/note.buildCueCheckbox`), publishing on `bus.cueSize`; applied by
+      `interactions/propertyControllers/CueSizeController` through `engine.cue.set` — one undo entry, none when
+      nothing changed. The same toggle as the toolbar's `cue`.
 - **P6: a closed-up cue (C8).** When a whole column is cue, its duration stretch × a row (Gould p. 569;
   MuseScore 0.7, Dorico 70%).
 - **Later, only when asked:** one head of a chord (C9); a SILENT flag (C3); a cue clef (C10);

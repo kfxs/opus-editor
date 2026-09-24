@@ -15,6 +15,9 @@ export const noteRows: PanelRows<'note' | 'rest' | 'grace' | 'bracketed'> = (ele
   if (!note) return []
   const id = note.id
   const rows = [buildOffsetInput(id, currentNoteOffset(element))]
+  // ⭐ CUE size (cue-size-plan P5, his ask 2026-09-24) — every kind here can be cue: a note (its chord), a rest,
+  //    a grace, a bracketed grace. The same toggle the toolbar's `cue` makes.
+  rows.push(buildCueCheckbox(id, note.cue === true))
   // ⭐ P6 — a BRACKETED grace's side: before or after its target (his proposal; default before).
   if (element.kind === 'bracketed' && element.derived) rows.push(buildBracketedSideSelect(id, element.derived))
   if (element.kind !== 'note') return rows
@@ -124,6 +127,30 @@ function buildOffsetInput(noteId: string, current: number): HTMLElement {
  * align to the stem (modern), unchecked = notehead (traditional default). Publishes `{id, align}`
  * to {@link bus.articulationStemAlign}; the controller holds the engine, the window does not.
  */
+/** The "Cue size" checkbox — publishes `{ noteId, cue }` to {@link bus.cueSize}; the panel repaints from the model. */
+function buildCueCheckbox(noteId: string, current: boolean): HTMLElement {
+  const row = document.createElement('label')
+  const rs = row.style
+  rs.display = 'flex'
+  rs.alignItems = 'center'
+  rs.gap = '6px'
+  rs.color = BISHOP
+  rs.margin = '0 0 4px'
+  rs.cursor = 'pointer'
+
+  const input = document.createElement('input')
+  input.type = 'checkbox'
+  input.checked = current
+  input.style.accentColor = BISHOP
+  input.addEventListener('change', () => bus.cueSize.set({ noteId, cue: input.checked }))
+  row.appendChild(input)
+
+  const label = document.createElement('span')
+  label.textContent = 'cue size'
+  row.appendChild(label)
+  return row
+}
+
 function buildStemAlignCheckbox(noteId: string, current: boolean): HTMLElement {
   const row = document.createElement('label')
   const rs = row.style

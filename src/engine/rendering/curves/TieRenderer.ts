@@ -46,6 +46,7 @@ function headOf(ruler: NoteRuler, noteIndex: number): TieHead | null {
     leftX: ruler.headLeftX,
     rightX: ruler.headRightX,
     headY,
+    headScale: ruler.glyphScale,
   }
 }
 
@@ -240,7 +241,7 @@ export function renderTies(pass: RenderPass, score: Score): void {
                 register(drawTieArc(pass, {
                   firstX: tieEndpointX(fromHead, 'from', fromSpace),
                   lastX: tieEndpointX(toHead, 'to', toSpace),
-                  y: tieEndpointY(fromHead.headY, tieDirection) + nudgeY,
+                  y: tieEndpointY(fromHead.headY, tieDirection, fromHead.headScale) + nudgeY,
                   direction: tieDirection,
                 }, noteFrame(fromInfo.staveNote)), fromLine)
               } else {
@@ -259,7 +260,7 @@ export function renderTies(pass: RenderPass, score: Score): void {
                   register(drawTieArc(pass, {
                     firstX: tieEndpointX(fromHead, 'from', fromSpace),
                     lastX: rightEdge / scale,
-                    y: tieEndpointY(fromHead.headY, tieDirection) + nudgeY,
+                    y: tieEndpointY(fromHead.headY, tieDirection, fromHead.headScale) + nudgeY,
                     direction: tieDirection,
                   }, noteFrame(fromInfo.staveNote)), fromLine, 'end')
                 }
@@ -267,7 +268,7 @@ export function renderTies(pass: RenderPass, score: Score): void {
                   register(drawTieArc(pass, {
                     firstX: leftEdge / scale,
                     lastX: tieEndpointX(toHead, 'to', toSpace),
-                    y: tieEndpointY(toHead.headY, tieDirection) + nudgeY,
+                    y: tieEndpointY(toHead.headY, tieDirection, toHead.headScale) + nudgeY,
                     direction: tieDirection,
                   }, noteFrame(toInfo.staveNote)), toLine, 'start')
                 }

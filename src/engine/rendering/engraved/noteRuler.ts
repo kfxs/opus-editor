@@ -12,6 +12,7 @@ import type { NoteRuler } from '@/engine/engrave/notes/noteRuler'
  */
 export function noteRuler(note: EngravedNote): NoteRuler {
   return {
+    get glyphScale() { return note.getGlyphScale() },
     get stemDirection() { return note.getStemDirection() },
     get hasStem() { return note.hasStem() },
     get hasFlag() { return note.hasFlag() },

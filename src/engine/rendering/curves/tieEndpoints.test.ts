@@ -49,3 +49,14 @@ describe('tieEndpointX — a PARENTHESISED head: the tie runs outside its bracke
     expect(tieEndpointX({ ...head(100, 50), bracketX: 90 }, 'from')).toBe(tieEndpointX(head(100, 50), 'from'))
   })
 })
+
+describe('tieEndpointY — a CUE head (cue-size-plan P5): 0.20 sp from the SMALL head’s edge', () => {
+  it('⭐ a full head: exactly the settled 0.70 sp — nothing moved', () => {
+    expect(tieEndpointY(50, 1, 1)).toBeCloseTo(50 + CURVE_PX.tieLift, 10)
+  })
+
+  it('⭐ a ¾ head: half ITS height + the same 0.20 — MuseScore’s `note->height()/2 + 0.20 sp`', () => {
+    expect(tieEndpointY(50, 1, 0.75)).toBeCloseTo(50 + (0.5 * 0.75 + 0.2) * STAFF_SPACE_PX, 10)
+    expect(tieEndpointY(50, -1, 0.75)).toBeCloseTo(50 - (0.5 * 0.75 + 0.2) * STAFF_SPACE_PX, 10)
+  })
+})

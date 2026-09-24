@@ -4,6 +4,7 @@ import { createArticulationStemAlignSelection } from './articulationStemAlignSel
 import { createFractionalBeamSideSelection } from './fractionalBeamSideSelection'
 import { createBracketedSideSelection } from './bracketedSideSelection'
 import { createEnclosureSpanSelection } from './enclosureSpanSelection'
+import { createCueSizeSelection } from './cueSizeSelection'
 import { createGraceSelection } from './graceSelection'
 import { createBeamOverSelection } from './beamOverSelection'
 import { createBeamSelection } from './beamSelection'
@@ -86,6 +87,7 @@ interface EditorBus {
   bracketedSide: ReturnType<typeof createBracketedSideSelection>
   /** ⭐ A bracketed chord's one-pair switch — one pair round it, or a pair per head (parenthesised-note-plan P5). */
   enclosureSpan: ReturnType<typeof createEnclosureSpanSelection>
+  cueSize: ReturnType<typeof createCueSizeSelection>
   /** ⭐ The Keypad's Grace-page keys — appoggiatura, acciaccatura, bracketed grace (`./graceSelection`). */
   grace: ReturnType<typeof createGraceSelection>
   /** The beam MODE keys — a set, because authored beam and engraved role can differ. */
@@ -178,6 +180,7 @@ export function createEditorBus(): EditorBus {
     fractionalBeamSide: createFractionalBeamSideSelection(),
     bracketedSide: createBracketedSideSelection(),
     enclosureSpan: createEnclosureSpanSelection(),
+    cueSize: createCueSizeSelection(),
     grace: createGraceSelection(),
     beam: createBeamSelection(),
     beamOver: createBeamOverSelection(),
@@ -249,4 +252,5 @@ export type { ArticulationStemAlignRequest } from './articulationStemAlignSelect
 export type { FractionalBeamSideRequest } from './fractionalBeamSideSelection'
 export type { BracketedSideRequest } from './bracketedSideSelection'
 export type { EnclosureSpanRequest } from './enclosureSpanSelection'
+export type { CueSizeRequest } from './cueSizeSelection'
 export type { GraceKey } from './graceSelection'

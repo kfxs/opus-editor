@@ -108,3 +108,19 @@ test('⭐ cue and grace heads centre on their line or space — as a full head d
   for (const e of [fullE, cueE, gE1, gE2]) expect(Math.abs(e.centre - lines.bottom), 'E4 on the bottom line').toBeLessThanOrEqual(0.5)
   for (const f of [fullF, cueF, gF1, gF2]) expect(Math.abs(f.centre - (lines.bottom + lines.second) / 2), 'F4 mid-space').toBeLessThanOrEqual(0.5)
 })
+
+/** ⭐ P5 — a cue note's HIT BOX is its small head: the registry files the drawn head's centre and width. */
+test('⭐ a cue note’s hit box is its drawn head — centre and width', async ({ score }) => {
+  const r = await score.evaluate(async () => {
+    const h = window.__h
+    const n = h.engine.addNoteAtBeat({ step: 'A', alter: 0, octave: 4, duration: 'q', measure: 1, beat: h.frac(0, 1) })!
+    h.engine.cue.set([n.id], true)
+    await h.render()
+    const head = (document.querySelector('g.notehead > text') as SVGGraphicsElement).getBBox()
+    const filed = ((h.engine as unknown as { renderer: { getElementRegistry(): { getAll(): { type: string; id: string; headX?: number; bbox: { width: number } }[] } } })
+      .renderer.getElementRegistry().getAll()).find(e => e.type === 'note' && e.id === n.id)!
+    return { headCentre: head.x + head.width / 2, headWidth: head.width, filedX: filed.headX!, filedWidth: filed.bbox.width }
+  })
+  expect(Math.abs(r.filedX - r.headCentre)).toBeLessThanOrEqual(1)
+  expect(Math.abs(r.filedWidth - r.headWidth)).toBeLessThanOrEqual(1)
+})
