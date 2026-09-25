@@ -75,9 +75,21 @@ Every number (radius, spacing along the path) is a changeable row, never a block
   through the page's own `NoteBuilder`, so chords, rests, accidentals under the key, dots,
   articulations and stems are the page's decisions; each built note is one rigid block
   (`spineStaff.drawNoteBlock`). Plain barlines are blocks too (`drawSpineBarline`).
-- `__spine.circle({ notes })` LOADS a real score of fourths and bends it · `__spine.show({ radius })`
-  bends whatever is open · `.straight()` · `.clear()`. The panel is draggable and re-draws when the
-  model's JSON changes (polled, like the JSON panel).
+- `__spine.circle({ notes })` LOADS a real score of fourths and bends it · `__spine.show({ radius, size, zoom })`
+  bends whatever is open · `.straight({ size, zoom })` · `.clear()`. The panel is draggable and re-draws when
+  the model's JSON changes (polled, like the JSON panel).
+- ⭐ **`size` and `zoom` — two measures (his ask + report, 2026-09-25: *"the size is like a zoom … what I want
+  is a staff size, a different measure from the radius"*).** `zoom` scales the CANVAS, circle and all. `size`
+  scales the MUSIC ONLY on the SAME circle: a radius HE gives is canvas px; one sized from the music is what
+  the music asks at the PAGE's size and ⛔ does not follow `size` (the first version let it, which was the
+  zoom he saw). ⚠️ One line, no casting-off: bigger music may not fit — the console says the radius it needs.
+  Both through the page's small-staff mechanism (`staff-size-plan.md` §4.1): ONE group placed by
+  `scaling(zoom · size)`, every rule in the music's units, the radius ÷ size inside. Any positive ratio, as a
+  staff's `size` is — ⛔ not a "small" type. At 1 · 1 no wrapper: byte-identical. `dev/spineConsole.test.ts`.
+- ⭐ **The panel REMEMBERS** (his report, same day: *"if I change first the size and then the zoom it just
+  forgets my previous size"*): every call keeps what the last one set — radius (through a `straight()` and
+  a new `circle()` score too), size, zoom; `radius: 'auto'` returns to the fitted circle; a refused value keeps
+  the armed one; only `clear()` forgets. `__spine.dump()` says what is armed.
 - ⭐ A CLOSED spine has a SEAM: the music stops short of `s = length`, so the last barline stands in
   front of the clef, ⛔ not on it (his report — the first build skipped that barline).
 - ⚠️ **Named placeholders**: first staff only · spacing is TIME-proportional, ⛔ not `layout/spacing`

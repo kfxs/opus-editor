@@ -11,11 +11,30 @@
  *   __spine.circle({ notes: 16 })
  *   __spine.show()                   // bends the score that is ALREADY open, replacing nothing
  *   __spine.show({ radius: 300 })    // a radius of your own; otherwise it grows with the music
- *   __spine.straight()               // the same panel on a straight spine — the control
+ *   __spine.show({ size: 0.5 })      // ⭐ the MUSIC's size — 1 = the page's staff — on the SAME circle
+ *   __spine.show({ radius: 300, size: 0.6 })
+ *   __spine.show({ zoom: 2 })        // ⭐ the CANVAS's size — the whole picture, circle and all
+ *   __spine.show({ radius: 'auto' }) // back to the circle the music asks for
+ *   __spine.straight({ size: 0.5 })  // the same panel on a straight spine — the control
+ *   __spine.dump()                   // what is armed
+ * ```
+ * ⭐ **Every call KEEPS what the last one set** (his report, 2026-09-25: *"if I change first the size and then
+ * the zoom it just forgets my previous size"*): `show({ size: 0.5 })` then `show({ zoom: 2 })` is half-size
+ * music at double zoom. Only `clear()` forgets. `circle()` loads a new score and keeps the sizes too.
+ * ```js
  *   __spine.clear()
  * ```
  *
  * Drag the panel anywhere with the mouse.
+ * ⭐ **`size` and `zoom` are two different measures** (his report, 2026-09-25: *"the size is like a zoom … what
+ * I want is a staff size, a different measure from the radius"*). `zoom` scales the CANVAS — circle, music,
+ * margins, everything. `size` scales the MUSIC ONLY: the circle keeps its radius — the one you gave, or the
+ * one sized from the music at the PAGE's size — and the music is drawn bigger or smaller round it, as a
+ * small staff is drawn on the same page. ⚠️ So at size 2 the music may not FIT the circle (one line, no
+ * casting-off): the console says so, and the radius it would need.
+ * Both are the page's own small-staff mechanism (docs/plans/staff-size-plan.md §4.1): the whole picture
+ * is drawn inside ONE group placed by `scaling(zoom · size)`, so every rule runs in the music's own units
+ * and nothing is re-derived; a radius in canvas px is `radius / size` inside the group.
  *
  * ⚠️ **Its OWN panel and painter, ⛔ not the score canvas**: the real canvas knows nothing of spines yet
  * (plan B), so the panel cannot be clicked into. ⚠️ `circle()` REPLACES the open score, like
@@ -35,6 +54,8 @@ import type { Spine } from '@/engine/engrave/staff/staffSpine'
 import { circleSpine, straightSpine } from '@/engine/engrave/staff/staffSpine'
 import { drawScoreOnSpine } from '@/engine/rendering/eye/spineScore'
 import { SvgPainter } from '@/engine/rendering/painter/SvgPainter'
+import { drawGroupOf } from '@/engine/rendering/painter/svgDrawGroup'
+import { scaling } from '@/engine/paint/Affine'
 
 const STEPS: PitchStep[] = ['C', 'D', 'E', 'F', 'G', 'A', 'B']
 
@@ -83,41 +104,91 @@ export interface SpineConsoleDeps {
   load(json: string): void
 }
 
+/** The two sizes: the MUSIC's (1 = the page's staff space, a ratio like a staff's own `size`) and the CANVAS's. */
+export interface SpineSizes { size?: number; zoom?: number }
+/** A radius in canvas px — or `'auto'`, the circle the music asks for at the page's size. */
+export type SpineRadius = number | 'auto'
+
 export interface SpineConsole {
-  circle(options?: { notes?: number; radius?: number }): void
-  show(options?: { radius?: number }): void
-  straight(): void
+  circle(options?: { notes?: number; radius?: SpineRadius } & SpineSizes): void
+  show(options?: { radius?: SpineRadius } & SpineSizes): void
+  straight(options?: SpineSizes): void
+  /** What is armed — the shape, its radius (or `'auto'`), size and zoom. */
+  dump(): { kind: 'circle' | 'straight'; radius: SpineRadius; size: number; zoom: number }
   clear(): void
 }
 
-type Shape = { kind: 'circle'; radius?: number } | { kind: 'straight' }
+/** What is armed. `radius` is remembered through a `straight()` too (which ignores it), so a `show()` after it
+ *  gets the circle back as it was. */
+type Shape = { kind: 'circle' | 'straight'; radius?: number; size: number; zoom: number }
+
+/** ⛔ A factor that is not a positive number is REFUSED — the armed one KEPT: `scale(0)` would draw nothing and
+ *  `scale(NaN)` a broken transform — a knob that looked like it worked would be the worst instrument. */
+function factorOf(name: 'size' | 'zoom', value: number | undefined, last: number): number {
+  if (value === undefined) return last
+  if (!Number.isFinite(value) || value <= 0) {
+    dbg(`[spine] ⛔ ${name} must be a positive number (1 = ${name === 'size' ? "the page's staff" : 'as drawn'}); got ${value} — keeping ${last}`)
+    return last
+  }
+  return value
+}
+/** The options a call gave, over the ones REMEMBERED: an absent option keeps its last value. */
+function mergedShape(last: Shape, kind: Shape['kind'], options: { radius?: SpineRadius } & SpineSizes): Shape {
+  return {
+    kind,
+    radius: options.radius === undefined ? last.radius : options.radius === 'auto' ? undefined : options.radius,
+    size: factorOf('size', options.size, last.size),
+    zoom: factorOf('zoom', options.zoom, last.zoom),
+  }
+}
+
+const FRESH: Shape = { kind: 'circle', size: 1, zoom: 1 }
 
 export function spineConsole(deps: SpineConsoleDeps): SpineConsole {
   let panel: HTMLElement | null = null
   let timer: ReturnType<typeof setInterval> | undefined
   let drawn = ''
+  /** ⭐ What the last call armed — the next call builds on it; only `clear()` forgets. */
+  let shape: Shape = FRESH
 
   const clear = () => {
     clearInterval(timer)
     panel?.remove()
     panel = null
     drawn = ''
+    shape = FRESH
   }
 
-  /** The spine for `shape`, sized to the music unless told otherwise, and the panel it needs. */
+  /**
+   * The spine for `shape` and the panel it needs — the spine in the MUSIC's units (the page's staff space,
+   * what `drawScoreOnSpine` draws in), the panel in CANVAS px (before `zoom`).
+   *
+   * ⭐ The circle's radius is a CANVAS measure and does not follow `size`: given, it is yours; sized from
+   * the music, it is what the music asks at the PAGE's size (`eye/spineSpacing`, one endless line) — so
+   * `size` draws the music bigger or smaller on the SAME circle, ⛔ never a zoom. Inside the group the
+   * radius is `/ size`; the margin (stems, ledgers — music) is in music units.
+   */
   const layOut = (score: Score, shape: Shape): { spine: Spine; width: number; height: number } => {
-    // ⭐ Sized from what the MUSIC asks (`eye/spineSpacing` — the page's spacing, one endless line), so a
-    //    circle's justified system is stretched as little as its minimum radius allows.
+    const k = shape.size
     // ⭐ The header's room is IN that length: each bar's lead-in carries the signs it draws (`eye/spineHeader`).
     const length = naturalSpineLength(score) * AUTO_BREATHING
     if (shape.kind === 'straight') {
-      return { spine: straightSpine(MARGIN_PX, MARGIN_PX, length), width: length + 2 * MARGIN_PX, height: 2 * MARGIN_PX + 40 }
+      // A straight spine the length the music asks at the page's size — in canvas px, so `size` fills it.
+      const canvasLength = length
+      return { spine: straightSpine(MARGIN_PX, MARGIN_PX, canvasLength / k), width: canvasLength + 2 * MARGIN_PX * k, height: (2 * MARGIN_PX + 40) * k }
     }
     // ⭐ `length` is what the music asks where its DEEPEST ink stands — the inner arc — so the spine
     //    itself is that much further out (`eye/spineSpacing.deepestInkPx`).
-    const radius = shape.radius ?? Math.max(AUTO_MIN_RADIUS, length / (2 * Math.PI) + deepestInkPx(score))
-    const size = 2 * (radius + MARGIN_PX)
-    return { spine: circleSpine(size / 2, size / 2, radius), width: size, height: size }
+    const deepest = deepestInkPx(score)
+    const canvasRadius = shape.radius ?? Math.max(AUTO_MIN_RADIUS, length / (2 * Math.PI) + deepest)
+    const radius = canvasRadius / k
+    // ⚠️ One line, no casting-off: bigger music on the same circle may not fit. Say so, with the radius it needs.
+    const needed = k * (length / (2 * Math.PI) + deepest)
+    if (canvasRadius < needed - 0.5) {
+      dbg(`[spine] ⚠️ at size ${k} the music needs a radius of ≈${Math.ceil(needed)} px; the circle has ${Math.round(canvasRadius)} — it will be squeezed. __spine.show({ radius: ${Math.ceil(needed)}, size: ${k} })`)
+    }
+    const canvasSize = 2 * (canvasRadius + MARGIN_PX * k)
+    return { spine: circleSpine(canvasSize / (2 * k), canvasSize / (2 * k), radius), width: canvasSize, height: canvasSize }
   }
 
   const draw = (shape: Shape) => {
@@ -126,8 +197,24 @@ export function spineConsole(deps: SpineConsoleDeps): SpineConsole {
     const { spine, width, height } = layOut(score, shape)
     panel.replaceChildren()
     const painter = new SvgPainter(panel)
-    painter.resize(width, height)
-    drawScoreOnSpine(painter, score, spine)
+    const { zoom } = shape
+    painter.resize(width * zoom, height * zoom)
+    // ⭐ The music at its SIZE, the canvas at its ZOOM: one group placed by `scaling(zoom · size)` (the page's
+    //    small staff, §4.1) — at 1 · 1 the picture is byte-identical to what it was, wrapper and all.
+    // ⚠️ Skipped only when BOTH are 1 — `zoom: 2, size: 0.5` composes to scale(1) and still needs its group:
+    //    the radius was divided by `size` for it.
+    const k = zoom * shape.size
+    if (zoom === 1 && shape.size === 1) {
+      drawScoreOnSpine(painter, score, spine)
+      return
+    }
+    const group = drawGroupOf(painter.openGroup('spine-size', 'spine-size'))
+    try {
+      group?.setPlacement(scaling(k))
+      drawScoreOnSpine(painter, score, spine)
+    } finally {
+      painter.closeGroup()
+    }
   }
 
   /** ⭐ The panel follows the pointer from wherever it was pressed — so it can be put where it shows. */
@@ -153,8 +240,14 @@ export function spineConsole(deps: SpineConsoleDeps): SpineConsole {
     })
   }
 
-  const open = (shape: Shape) => {
+  const report = () => {
+    const radius = shape.radius ?? 'auto'
+    dbg(`[spine] armed: ${shape.kind} · radius ${radius} · size ${shape.size} · zoom ${shape.zoom} — each call keeps what the last set; __spine.clear() forgets`)
+  }
+
+  const open = (next: Shape) => {
     clear()
+    shape = next
     panel = document.createElement('div')
     panel.className = 'spine-demo-panel'
     Object.assign(panel.style, {
@@ -176,15 +269,22 @@ export function spineConsole(deps: SpineConsoleDeps): SpineConsole {
     refresh()
     timer = setInterval(refresh, POLL_MS)
     dbg('[spine] the panel follows the open score — edit the score and watch it; drag it with the mouse; __spine.clear() removes it')
+    report()
   }
 
   return {
-    circle: ({ notes = 8, radius } = {}) => {
+    circle: ({ notes = 8, ...options } = {}) => {
+      // ⚠️ Remembered BEFORE `clear()` runs inside `open` — a new score keeps the sizes.
+      const next = mergedShape(shape, 'circle', options)
       deps.load(fourthsScore(notes))
-      open({ kind: 'circle', radius })
+      open(next)
     },
-    show: ({ radius } = {}) => open({ kind: 'circle', radius }),
-    straight: () => open({ kind: 'straight' }),
+    show: (options = {}) => open(mergedShape(shape, 'circle', options)),
+    straight: (options = {}) => open(mergedShape(shape, 'straight', options)),
+    dump: () => {
+      report()
+      return { kind: shape.kind, radius: shape.radius ?? 'auto', size: shape.size, zoom: shape.zoom }
+    },
     clear,
   }
 }
