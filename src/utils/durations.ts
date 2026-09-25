@@ -104,14 +104,16 @@ export function doubleDuration(duration: NoteDuration): NoteDuration | null {
 }
 
 /**
- * Exact dot multipliers (× original duration):
- *   0 dots → 1, 1 dot → 3/2, 2 dots → 7/4.
+ * The exact dot multiplier (× the undotted duration): each dot adds half of the previous addition, so
+ * n dots = 2 − 1/2ⁿ = (2ⁿ⁺¹ − 1) / 2ⁿ — 3/2, 7/4, 15/8, 31/16. Computed, ⛔ never tabulated: a table
+ * stopped at two dots and timed a triple-dotted note as a double-dotted one
+ * (docs/plans/multiple-dots-plan.md P0). No dots (or a negative count) is the identity.
  */
-const DOT_MULTIPLIERS: Fraction[] = [
-  { num: 1, den: 1 }, // 0 dots — identity
-  { num: 3, den: 2 }, // 1 dot  — × 3/2
-  { num: 7, den: 4 }, // 2 dots — × 7/4
-]
+function dotMultiplier(dots: number): Fraction {
+  if (dots <= 0) return fracCreate(1, 1)
+  const den = 2 ** dots
+  return fracCreate(2 * den - 1, den)
+}
 
 /**
  * Float multiplier for dotted notes.
@@ -148,8 +150,7 @@ export function quantizeBeat(beat: number, duration: NoteDuration, barQuarters: 
  */
 export function durationToFraction(duration: NoteDuration, dots = 0): Fraction {
   const base = DURATION_INFO[duration].fraction
-  const dotMul = DOT_MULTIPLIERS[Math.min(dots, 2)] ?? DOT_MULTIPLIERS[0]
-  return fracMul(base, dotMul)
+  return fracMul(base, dotMultiplier(dots))
 }
 
 /**

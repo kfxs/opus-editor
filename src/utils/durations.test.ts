@@ -167,6 +167,20 @@ describe('durationToFraction', () => {
   it('double-dotted half = 7/2 beats', () => {
     expect(durationToFraction('h', 2)).toEqual(frac(7, 2))
   })
+
+  it('triple-dotted quarter = 15/8 beats (each dot adds half the previous addition)', () => {
+    expect(durationToFraction('q', 3)).toEqual(frac(15, 8))
+  })
+
+  it('quadruple-dotted half = 31/8 beats — no cap on the count', () => {
+    expect(durationToFraction('h', 4)).toEqual(frac(31, 8))
+  })
+
+  it('agrees with the float getDotMultiplier for 0–4 dots', () => {
+    for (let dots = 0; dots <= 4; dots++) {
+      expect(fracToNumber(durationToFraction('q', dots))).toBe(getDotMultiplier(dots))
+    }
+  })
 })
 
 // ---------------------------------------------------------------------------
