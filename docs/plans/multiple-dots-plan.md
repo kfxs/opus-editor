@@ -1,6 +1,6 @@
 # Double and triple dots — the plan
 
-> **Status (2026-09-25): P0 BUILT (`87df716`) · P1 BUILT (`998ddac`) · P2 BUILT; ALL DECISIONS TAKEN (D1–D7, R1–R7); P3–P4 are PLAN.** The research is IN —
+> **Status (2026-09-25): P0 BUILT (`87df716`) · P1 BUILT (`998ddac`) · P2 BUILT (`2619c9e`) · P3 BUILT; ALL DECISIONS TAKEN (D1–D7, R1–R7); P4 is PLAN.** The research is IN —
 > `docs/research/multiple-dots-research.md` (the literature, the engines, the duration rule). ⛔ A number
 > never blocks a phase (`CLAUDE.md`).
 >
@@ -107,7 +107,7 @@ not ≈0.41; `docs/research/dot-placement.md` still credits the equal gaps to Go
 | **D7** | **graces and fans** | ✅ 2026-09-25, his call (*"of course, grace note are also notes so it should have the same things normal notes have"*) | **a GRACE takes 1–3 dots exactly as a note does** — the same limit (D1), the same radio (D5/D6), the same presets (R1–R4) where they apply to its drawing (`layout/noteDotXs` is already shared with graces). A FAN draws no dots by design; a double-dotted fan unit is timed right and needs nothing here | a grace is a note: ⛔ no special case either way. ⚠️ check `GracePass` / `graceRoom` draw and space n dots, and `graceOps` / `graceKeyboard` carry the count |
 
 | **R1** | **the note's two gaps (`dotGap`'s armed row)** | ✅ 2026-09-25, his rule (*"we will make presets, if we have not making explicit the decision before the default should be gould"*) | the table and `__dots.gap(…)` already exist; the DEFAULT becomes **`gould` — 0.5 / 0.26**. The head→dot 0.5 WAS his explicit call (2026-08, *"the dot is too close to the notehead"*) and is Gould's sentence (p. 54); the dot→dot 0.5 was NEVER his — `642c82f` derived it (*"the same gap twice"*), crediting Gould wrongly — so it takes her plate's 0.26. `house` stays as a row | ⭐ a SINGLE dot does not move: only the dot→dot gap changes, and it shows only with 2+ dots |
-| **R2** | **dots and a stem-up FLAG** | ✅ 2026-09-25, his call (*"same thing, presets with gould as default and other books and engines as posibilitties (including what we have now)"*) | a PRESET table, console-armed. Each row = WHEN the dots are pushed + the white past the flag's box. **`gould` (default)**: only when the flag's tail meets the dot's height (p. 55 *"should the end of a tail coincide with the position of the dot"*), **0.30** past the flag (her eighth, measured) · `ross`: past the flag (p. 171 *"DO place the dot after the flag!"*), 0.20 measured · `gerouLusk`: *"further right, altogether avoiding the flag"* (p. 22), gap still to MEASURE off p. 22 · `lilypond` when level, 0.45 · `musescore` when level (top dot), ≈0 · `verovio` when level, ≈0.09 · `vexflow` = **what we draw now**: EVERY stem-up flagged DURATION, beamed or not (`noteDotXs`/`forceFlagRight`) | ⚠️ a BEAMED note has no flag, and every row but `vexflow` leaves it alone — no book or engine pushes it. Never decided before: `642c82f` left beamed eighths as they were, a scope choice |
+| **R2** | **dots and a stem-up FLAG** | ✅ 2026-09-25, his call (*"same thing, presets with gould as default and other books and engines as posibilitties (including what we have now)"*) | a PRESET table, console-armed. Each row = WHEN the dots are pushed + the white past the flag's box. **`gould` (default)**: only when the flag's tail meets the dot's height (p. 55 *"should the end of a tail coincide with the position of the dot"*), **0.30** past the flag (her eighth, measured) · `ross`: past the flag (p. 171 *"DO place the dot after the flag!"*), 0.20 measured · `gerouLusk`: *"further right, altogether avoiding the flag"* (p. 22), gap still to MEASURE off p. 22 · `lilypond` when level, 0.45 · `musescore` when level (top dot), ≈0 · `verovio` when level, ≈0.09 · `vexflow` = **what we draw now**: EVERY stem-up FLAGGED note, ≈0.35 past the flag (`noteDotXs`/`forceFlagRight`; measured, P3) | ⭐ a BEAMED note is NOT pushed today (P3 measured it; `642c82f`'s note that it was is stale) — and no book or engine pushes one |
 | **R3** | **two voices** | ✅ 2026-09-25, his call (*"yes same thing, presets with gould as default"*) | TWO preset tables, console-armed. **3a — a line note's dot, UP or DOWN:** **`gould` (default)** follows the STEM (down-stem → the space below, p. 56; with p. 58's exception: overlapping parts force a down-stem dot UP) · `byVoice` (LilyPond, MuseScore: voice 2 down) · `vexflow` = **now**, always up. **3b — both voices dotted at one beat, the dots' x:** **`gould` (default)** aligned after both parts (p. 56 *"usually aligned … most compact"*) · `lilypond` always one x per staff · `musescore` aligned when the chords are within a second · `verovio` aligned only when they would collide · `own` = **now**, each note's own | four books + three engines. ⚠️ "now" is READ from `dotStack`, not seen — the first step is a scene test of what we draw today |
 | **R4** | **a dotted REST's gaps** | ✅ 2026-09-25, his call (*"the idea is we use presets as we have we are using, default should be gould and we see what the other engines or other posibiblies are and make it to an instrument similar we have with other measures"*) | a PRESET table for the rest's two gaps, beside `dotGap`'s, armed from the console like `__dots.gap(…)`. **`gould` (default)**: her plates pp. 38 + 162, MEASURED — **0.4** rest ink → dot (quaver-family rests; her crotchet rests measure 0.50–0.55), **0.25** dot → dot. Other rows: `followNotes` (whatever note row is armed) · `lilypond` 0.45 / 0.45 · `musescore` 0.5 / 0.25 · `verovio` (x 1.25 sp for a half rest or longer, else the glyph's width; 0.35 between) · `vexflow` 0.2 / 0.1 (what we drew until now). ⛔ The dot's HEIGHT on a rest is unchanged (Gould p. 38, Ross p. 179 agree with ours) | never decided before: `642c82f` (2026-07-28) left rests on VexFlow's as a SCOPE choice, citing MuseScore's `dotRestDistance`, which MuseScore 4 never reads. Gould's plates, and all three engines, give a rest the note's spacing |
 | **R5** | **a tall chord's dots** | ✅ 2026-09-25, his rule (*"presets, and if we have not maken explicit the decision before gould is default"*) — IN this plan | a PRESET table: **`gould` (default)** — centre the dots on the chord (p. 56 *"rather than placing them in one direction"*) and drop any forced two or more spaces away (*"use only as many dots as cover the number of stave-spaces taken up by the chord"*) · `lilypond` at most 3 rows (`chord-dots-limit`, trimmed from the ends inward) · `keepAll` (MuseScore, Verovio) = **now** (`dotStack` walks top-down, never drops) | one book; applies to single dots on a cluster as much as to double |
@@ -157,12 +157,22 @@ can take it (`stampPromotion`); an ARMED count the armed length cannot take is r
   and space n dots.
 - Specs beside each module; clipboard / rebar / paste carry the count.
 
-### P3 — record what we draw NOW
+### P3 — record what we draw NOW ✅
 
-A scene test (`ScoreRenderer.recordScene`) per rule, pinning today's drawing before any row moves: 2–3
-dots on a note and a rest; a stem-up flagged and a beamed eighth; two dotted voices on a line; a cluster;
-a dotted note tied. ⭐ This is what makes each table's **now** row TRUE rather than read from the code
-(R3's caveat), and what R7's `now` is measured from. Ink the scene cannot see → the browser suite.
+`e2e/dots.e2e.ts` — seven pins, in the BROWSER: 🚨 jsdom cannot hold them (a head measures 0 wide there and
+the scene's dots land INSIDE it — probed 2026-09-25), so the planned scene tests became a browser spec. Break
+test: arming `gould` fails the triple-dot pin (0.26 read against 0.5). ⭐ What it MEASURED, and what that
+changes in the rows:
+
+| case | now (sp) | ⚠️ against what we had READ |
+|---|---|---|
+| triple-dotted quarter | head→dot 0.5, dot→dot 0.5, the 3rd like the 2nd, one height | as read (`house`) |
+| double-dotted half REST | rest→dot **0.2**, dot→dot **0.1** | as read (VexFlow's) |
+| stem-up flagged eighth | dot ≈**0.35** past the flag's box | the `vexflow` row of R2 is 0.35 past the flag |
+| BEAMED dotted eighth | 0.5 off its head — **NOT pushed** | 🚨 `dot-placement.md` said a beamed eighth was pushed; it is not (any more). R2's `vexflow` row = pushed for every stem-up FLAG, ⛔ not beamed |
+| two voices on lines | the stem-down voice's dot goes **UP**; both dots at **ONE x** | 3a as read; 🚨 3b: with the heads at one x the dots ARE aligned — `own` differs from `gould` only where the heads stand apart (to probe in P4d) |
+| a cluster C5–F5 dotted | every dot kept, one column — 🚨 **two dots in ONE space** (D5's drops into C5's) | a COLLISION the research did not know: Gould p. 55 *"Each dot should always have a stave-space to itself"* — P4e's first case |
+| a dotted note tied | the tie starts LEFT of the dot, under the head, and bows below it | R7's `now` ≈ `gould` here (the dot inside the arc) — a stem-down / chord case still to probe in P4g |
 
 ### P4 — the tables, one per step, each defaulting to `gould`
 
