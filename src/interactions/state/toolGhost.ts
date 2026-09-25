@@ -134,6 +134,10 @@ export function toolGhost(tool: MarkingTool, armed: ArmedRestFields): ToolGhost 
     // click has picked one. A ghost wedge at the pointer would be previewing a length the click is
     // not going to make (docs/plans/dynamics-line-and-hairpins-plan.md §8 — his call, 2026-08-12).
     case 'hairpin': return null
+    // ⭐ …and the GLISSANDO stamp: his call, 2026-09-25 — *"no ghost line, I said the blue cursor"*. The click
+    //   picks the note it leaves; where it goes is the music's (the next note), so a line at the pointer would
+    //   preview a direction and a length nothing has chosen. The blue cursor (scoreCursorClass) says it is armed.
+    case 'glissandoLine': return null
     // ⭐ The BARLINE stamp DOES ghost — his call, 2026-08-26, the day it shipped without one:
     // *"where is the ghost? … we need ghosts for every case using the glyph"*. It arrived in the
     // `null` arm above on the argument that a barline stands on a BOUNDARY and never at the pointer,

@@ -27,10 +27,7 @@ import type { Stop as TempoStop } from '../../engine/models/tempoOps'
 import { pickSlurHandleAt } from '../walks/slurHandlePick'
 import { stampSpanMarkAtClick } from '../stamps/spanMarkStamp'
 import { stampHairpinAtClick } from '../stamps/hairpinStamp'
-import { stampArticulationAtClick } from '../stamps/articulationStamp'
-import { stampTremoloAtClick } from '../stamps/tremoloStamp'
-import { stampDotAtClick } from '../stamps/dotStamp'
-import { stampEnclosureAtClick } from '../stamps/enclosureStamp'
+import { stampNoteMarkAtClick } from '../stamps/noteMarkStamps'
 import { stampBarlineAtClick } from '../stamps/barlineStamp'
 import { stampKeySignatureAtClick } from '../stamps/keySignatureStamp'
 import { STAFF_BAND_PAD_PX } from '../state/staffBand'
@@ -1331,12 +1328,11 @@ export class MouseController {
     if (this.placeDynamicEntryAtClick(engine, x, y, measureNum)) return
     if (this.placeTempoAtClick(engine, x, measureNum)) return
     if (this.placeTempoEntryAtClick(engine, x, measureNum)) return
-    if (stampArticulationAtClick(this.state, engine, registry, x, y, () => this.render.renderScore())) return
     if (this.stampAccidentalAtClick(engine, registry, x, y)) return
     if (this.stampTieAtClick(engine, registry, x, y)) return
-    if (stampDotAtClick(this.state, engine, registry, x, y, () => this.render.renderScore())) return
-    if (stampTremoloAtClick(this.state, engine, registry, x, y, () => this.render.renderScore())) return
-    if (stampEnclosureAtClick(this.state, engine, registry, x, y, () => this.render.renderScore())) return
+    // The stamps that mark the head clicked — articulation, dot, tremolo, brackets, glissando — as ONE table
+    // (`interactions/stamps/noteMarkStamps`): each answers only for its own armed tool.
+    if (stampNoteMarkAtClick(this.state, engine, registry, x, y, () => this.render.renderScore())) return
     if (this.stampRestAtClick(engine, x, y)) return
     // The feather stamp's whole click lives in its own module (interactions/stamps/fanStamp); this is the
     // row that gives it a turn.

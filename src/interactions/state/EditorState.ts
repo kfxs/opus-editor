@@ -128,6 +128,10 @@ export type MarkingTool =
    *  it is (his word: *"like clicking a sharp on a note that already has a sharp"*). Distinct from
    *  {@link EditorState.selectedEnclosure}, which enters notes born in brackets — the tremolo's split. */
   | { kind: 'headEnclosure'; shape: HeadEnclosure }
+  /** ⭐ VALUELESS — a GLISSANDO from the head clicked (docs/plans/glissando-plan.md; his ask, 2026-09-25: the
+   *  `gliss` button with nothing selected arms it). ⛔ ADDITIVE ONLY, the brackets' rule — a head that already
+   *  carries one is left as it is. Named `glissandoLine`, the selected kind's name (`lint:hubs`). */
+  | { kind: 'glissandoLine' }
   /** VALUELESS — a note ties to the next slot or it does not. */
   | { kind: 'tie' }
   /** The COUNT a click writes — 1, 2 or 3 (docs/plans/multiple-dots-plan.md D5). The one stamp that also
@@ -327,6 +331,7 @@ export const MARKING_TOOL_USES_ARMED_LENGTH: Record<MarkingTool['kind'], boolean
   articulation: false, // the four stamps mark notes that ALREADY have their length
   accidental: false,
   tie: false,
+  glissandoLine: false, // a line from the head clicked — no length of its own
   slur: false,        // a relation between notes that already have their lengths, like the tie
   trill: false,       // ⭐ a one-note trill is COMPLETE, and a longer one takes its extent from the
                       //    notes it is placed over — never from the armed duration
@@ -427,6 +432,7 @@ export const MARKING_TOOL_ENTERS_PITCH: Record<MarkingTool['kind'], boolean> = {
   articulation: false,
   accidental: false,    // it IS the accidental — a press swaps or disarms it (`setAccidental` case 0)
   tie: false,
+  glissandoLine: false, // a line FROM a note — no pitch of its own
   slur: false,
   trill: false,
   ottava: false,
@@ -930,7 +936,7 @@ export function scoreCursorClass(state: EditorState): 'cursor-none' | 'cursor-pl
   // ⚠️ The BARLINE stamp was listed here for one afternoon on 2026-08-26 and does NOT belong: it
   // draws its sign at the pointer (`engine/rendering/ghosts/BarlineGhost.ts`), and a tool that ghosts must
   // not also take the place-cursor — see the note about the ladder family just above.
-  if (kind === 'dynamicEntry' || kind === 'tempoEntry' || kind === 'slur' || kind === 'hairpin') {
+  if (kind === 'dynamicEntry' || kind === 'tempoEntry' || kind === 'slur' || kind === 'hairpin' || kind === 'glissandoLine') {
     return 'cursor-place'
   }
   return 'cursor-default'

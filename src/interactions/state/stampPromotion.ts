@@ -66,6 +66,7 @@ export function promoteStampToNoteEntry(state: EditorState, duration: NoteDurati
       // would also make the dialog's answer overrulable from outside it, which is the thing the
       // tool carrying its own length exists to prevent (see MarkingTool's `fan` member).
       return 0
+    case 'glissandoLine': // valueless — a glissando is a line FROM a note, not a property of the next one
     case 'tie':          // valueless — there is no armed entry-mode tie to become
     case 'slur':         // valueless too: a slur is a span between notes, not a property of one
     case 'ottava':       // a span too, and its length is the MUSIC's — the hairpin's answer exactly

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { createEditorState, type EditorState } from '../state/EditorState'
+import { createEditorState, type EditorState, type MarkingTool } from '../state/EditorState'
 import { glissandoLit, pressGlissando } from './glissandoTool'
 import type { SpanToolHost } from './spanToolPress'
 import { makeEngine } from '@/testing/makeEngine'
@@ -12,7 +12,7 @@ vi.mock('../../engine/audio/PlaybackEngine', async () => (await import('@/testin
 
 /**
  * Subject: `./glissandoTool` — what a press of `gliss` does (docs/plans/glissando-plan.md P1): each selected
- * head starts one, in one undo entry; nothing selected does nothing.
+ * head starts one, in one undo entry; nothing selected arms the STAMP (the blue cursor).
  */
 describe('pressGlissando', () => {
   let state: EditorState
@@ -22,7 +22,11 @@ describe('pressGlissando', () => {
     state = createEditorState()
     state.selectedTool = 'selection'
     engine = makeEngine()
-    host = { state, getEngine: () => engine, arm: vi.fn(), disarm: vi.fn(), disarmToEntry: vi.fn(), render: vi.fn() }
+    host = {
+      state, getEngine: () => engine, render: vi.fn(), disarmToEntry: vi.fn(),
+      arm: vi.fn((tool: MarkingTool) => { state.selectedMarkingTool = tool }),
+      disarm: vi.fn(() => { state.selectedMarkingTool = null }),
+    }
   })
   const select = (...ids: string[]) => {
     state.selectedItems = new Map(ids.map((id): [string, SelectionItem] => [itemKey({ kind: 'note', id }), { kind: 'note', id }]))
@@ -62,10 +66,13 @@ describe('pressGlissando', () => {
     expect(engine.getScore().glissandi).toHaveLength(2)
   })
 
-  it('nothing selected: nothing happens', () => {
+  it('⭐ nothing selected ARMS the stamp (the blue cursor) — lit; pressed again, it disarms', () => {
     note(0)
     pressGlissando(host)
+    expect(host.arm).toHaveBeenCalledWith({ kind: 'glissandoLine' })
+    expect(glissandoLit(state, engine)).toBe(true)
+    pressGlissando(host)
+    expect(host.disarm).toHaveBeenCalled()
     expect(engine.getScore().glissandi).toBeUndefined()
-    expect(host.arm).not.toHaveBeenCalled()
   })
 })
