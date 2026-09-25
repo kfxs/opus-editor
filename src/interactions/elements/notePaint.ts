@@ -16,6 +16,7 @@ import { paintNoteDots } from './dot'
 import { paintNoteEnclosure } from './enclosure'
 import type { HighlightContext } from './highlightContext'
 import { paintNoteTie } from './tie'
+import { paintNoteGlissando } from './glissando'
 import { paintNoteTremolo } from './tremolo'
 
 export function paintSelectedNotes(ctx: HighlightContext): void {
@@ -134,14 +135,15 @@ export function paintNote(
     : group.querySelector('g.notehead text, g.notehead path')
   if (head) colorFill(head)
 
-  // Also light this note's accidental (♯/♭/♮), articulations, dots, brackets, tie and tremolo, so a
-  // selected note reads as fully selected — head + stem + accidental + articulations + dots + brackets
-  // + tie + mark.
+  // Also light this note's accidental (♯/♭/♮), articulations, dots, brackets, tie, glissando and tremolo,
+  // so a selected note reads as fully selected — head + stem + accidental + articulations + dots + brackets
+  // + tie + glissando + mark.
   paintNoteAccidentals(ctx, noteId, group, SELECTION_COLOR)
   paintNoteArticulations(ctx, noteId, SELECTION_COLOR)
   paintNoteDots(ctx, noteId, SELECTION_COLOR)
   paintNoteEnclosure(ctx, noteId, SELECTION_COLOR)
   paintNoteTie(ctx, noteId, SELECTION_COLOR)
+  paintNoteGlissando(ctx, noteId, SELECTION_COLOR)
   paintNoteTremolo(ctx, noteId, SELECTION_COLOR)
 
   // Multi-voice unison: the other voice draws a notehead at the SAME pixel spot in a

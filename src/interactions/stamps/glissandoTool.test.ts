@@ -40,13 +40,26 @@ describe('pressGlissando', () => {
     expect(host.render).toHaveBeenCalledTimes(1)
   })
 
-  it('a second press makes no second one and does not repaint', () => {
+  it('⭐ a second press TOGGLES it off — one undo step brings it back', () => {
     const a = note(0)
     select(a.id)
     pressGlissando(host)
     pressGlissando(host)
+    expect(engine.getScore().glissandi).toBeUndefined()
+    expect(glissandoLit(state, engine)).toBe(false)
+    expect(host.render).toHaveBeenCalledTimes(2)
+    expect(engine.undo()).toBe(true)
     expect(engine.getScore().glissandi).toHaveLength(1)
-    expect(host.render).toHaveBeenCalledTimes(1)
+  })
+
+  it('a mixed selection (one with, one without) gives the missing one — ⛔ it removes nothing', () => {
+    const a = note(0)
+    const b = note(1)
+    select(a.id)
+    pressGlissando(host)
+    select(a.id, b.id)
+    pressGlissando(host)
+    expect(engine.getScore().glissandi).toHaveLength(2)
   })
 
   it('nothing selected: nothing happens', () => {

@@ -418,3 +418,44 @@ export function buildPointRow(
   row.appendChild(reset)
   return row
 }
+
+/**
+ * A captioned DROPDOWN row — the value a musician picks from a short list, published on change. Shared by the
+ * tuplet's format and the glissando's side / end / direction (it was the tuplet panel's own until a second
+ * panel needed it).
+ */
+export function buildSelect<V extends string>(
+  caption: string, choices: Array<[V, string]>, current: V, title: string, onChange: (value: V) => void,
+): HTMLElement {
+  const wrap = document.createElement('label')
+  const ws = wrap.style
+  ws.display = 'flex'
+  ws.alignItems = 'center'
+  ws.gap = '6px'
+  ws.color = BISHOP
+  ws.margin = '2px 0 4px'
+  wrap.title = title
+
+  const label = document.createElement('span')
+  label.textContent = caption
+  wrap.appendChild(label)
+
+  const select = document.createElement('select')
+  const ss = select.style
+  ss.font = 'inherit'
+  ss.color = BISHOP
+  ss.background = 'transparent'
+  ss.border = `1px solid ${BISHOP}`
+  ss.borderRadius = '2px'
+  ss.padding = '1px 4px'
+  for (const [value, text] of choices) {
+    const option = document.createElement('option')
+    option.value = value
+    option.textContent = text
+    if (value === current) option.selected = true
+    select.appendChild(option)
+  }
+  select.addEventListener('change', () => onChange(select.value as V))
+  wrap.appendChild(select)
+  return wrap
+}

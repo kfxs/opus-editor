@@ -40,10 +40,26 @@ export const GLISSANDO_ELEMENT: ClickableElementSpec = {
 export function paintSelectedGlissando(ctx: HighlightContext): void {
   const id = selectedOf(ctx.state, 'glissandoLine')?.id
   if (!id) return
+  const anchor = ctx.engine.glissando.byId(id)?.noteId
+  paintGlissandoGroup(ctx, id, voiceFillColor((anchor && ctx.engine.getNote(anchor)?.voice) || 0))
+}
+
+/**
+ * ⭐ Colour the glissando a selected NOTE carries (his ask, 2026-09-25: *"if a note that has a gliss is selected
+ * we have to highlight the gliss too"*) — the tie's arrangement (`paintNoteTie`): called by the note's own
+ * highlight (`./notePaint`), so a selected note reads as fully selected. No-op for a note without one.
+ */
+export function paintNoteGlissando(ctx: HighlightContext, noteId: string, color: string): void {
+  // ⚠️ `?.`: the note-highlight specs stand up hand-made engine stubs that carry no glissando family (the
+  //   `commandContext` `registry?.()` precedent) — and "no glissando here" is exactly their answer.
+  const glissando = ctx.engine.glissando?.on(noteId)
+  if (glissando) paintGlissandoGroup(ctx, glissando.id, color)
+}
+
+/** Colour one glissando's drawn group — every stroke, both pieces of a broken one. */
+function paintGlissandoGroup(ctx: HighlightContext, id: string, color: string): void {
   const group = ctx.svg.querySelector(`[id="glissando-${id}"]`)
   if (!group) return
-  const anchor = ctx.engine.glissando.byId(id)?.noteId
-  const color = voiceFillColor((anchor && ctx.engine.getNote(anchor)?.voice) || 0)
   group.querySelectorAll('path').forEach(path => {
     ctx.setAttr(path, 'stroke', color)
     ctx.setStyleProp(path as SVGElement, 'stroke', color)

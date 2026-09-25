@@ -5,6 +5,7 @@
  * His rule, 2026-09-25: *"i select a note, i click the gliss button so it defines the beginning
  * anchor"*. So a press puts one glissando on EACH selected head (a chord: one line per head, G9); where
  * it goes is not asked here — it is derived, every render, from the next note of the lane (G4).
+ * ⭐ And a press where every selected head already has one takes them OFF — the brackets' toggle (his ask).
  *
  * ⏳ Nothing selected does nothing yet (an armed click-stamp is a later phase). The Keypad Grace page's
  * `.` (`gliss`) stays a picture until he says otherwise.
@@ -32,9 +33,10 @@ export function pressGlissando(host: SpanToolHost): void {
     dbg('[glissando] nothing selected — select a note first')
     return
   }
-  const made = engine.glissando.add(ids)
-  dbg(`[glissando] ${made} made on ${ids.length} selected head(s)`)
-  if (made) host.render()
+  // ⭐ A TOGGLE (his ask, 2026-09-25): any selected head without one ⇒ all get one; all with one ⇒ all lose it.
+  const did = engine.glissando.toggle(ids)
+  dbg(`[glissando] ${did ?? 'nothing'} on ${ids.length} selected head(s)`)
+  if (did) host.render()
 }
 
 /** Lit: every selected head already carries one. */

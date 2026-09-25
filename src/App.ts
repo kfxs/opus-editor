@@ -26,6 +26,7 @@ import { FanEditController } from './interactions/propertyControllers/FanEditCon
 import { TrillEditController } from './interactions/propertyControllers/TrillEditController'
 import { BarlineEditController } from './interactions/propertyControllers/BarlineEditController'
 import { TupletEditController } from './interactions/propertyControllers/TupletEditController'
+import { GlissandoEditController } from './interactions/propertyControllers/GlissandoEditController'
 import { TupletOffsetController } from './interactions/propertyControllers/TupletOffsetController'
 import { CautionaryKeyGapController } from './interactions/propertyControllers/CautionaryKeyGapController'
 import { ScoreTextController } from './interactions/propertyControllers/ScoreTextController'
@@ -646,6 +647,7 @@ export function createEditorApp(host: HTMLElement): EditorApp {
   // (docs/plans/barline-types-plan.md §8 P6).
   const barlineEdit = new BarlineEditController(getEngine, () => renderer.renderScore())
   const tupletEdit = new TupletEditController(getEngine, () => renderer.renderScore())
+  const glissandoEdit = new GlissandoEditController(getEngine, () => renderer.renderScore())
   const tupletOffset = new TupletOffsetController(getEngine, () => renderer.renderScore())
   // ⭐ The cautionary key signature's trailing gap, from the Properties panel (his ask, 2026-08-28).
   const cautionaryKeyGap = new CautionaryKeyGapController(getEngine, () => renderer.renderScore())
@@ -1051,6 +1053,7 @@ export function createEditorApp(host: HTMLElement): EditorApp {
       scoreTextEdit.destroy()
       barlineEdit.destroy()
       tupletEdit.destroy()
+      glissandoEdit.destroy()
       tupletOffset.destroy()
       cautionaryKeyGap.destroy()
       slurGeometry.destroy()

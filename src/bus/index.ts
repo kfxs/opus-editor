@@ -16,6 +16,7 @@ import { createFanEditSelection } from './fanEditSelection'
 import { createTrillEditSelection } from './trillEditSelection'
 import { createBarlineEditSelection } from './barlineEditSelection'
 import { createTupletEditSelection } from './tupletEditSelection'
+import { createGlissandoEditSelection } from './glissandoEditSelection'
 import { createTupletOffsetSelection } from './tupletOffsetSelection'
 import { createScoreTextSelection } from './scoreTextSelection'
 import { createHairpinEditSelection } from './hairpinEditSelection'
@@ -110,6 +111,8 @@ interface EditorBus {
   barlineEdit: ReturnType<typeof createBarlineEditSelection>
   /** The Properties tuplet bracket chooser → `TupletEditController`. */
   tupletEdit: ReturnType<typeof createTupletEditSelection>
+  /** The Properties glissando side / end / direction → `GlissandoEditController`. */
+  glissandoEdit: ReturnType<typeof createGlissandoEditSelection>
   /** The Properties tuplet offset box → `TupletOffsetController`. */
   tupletOffset: ReturnType<typeof createTupletOffsetSelection>
   /** 🚧 The Add Title / Add Composer dialog — one field's new text. Command-only, and SCAFFOLDING
@@ -197,6 +200,7 @@ export function createEditorBus(): EditorBus {
     trillEdit: createTrillEditSelection(),
     barlineEdit: createBarlineEditSelection(),
     tupletEdit: createTupletEditSelection(),
+    glissandoEdit: createGlissandoEditSelection(),
     tupletOffset: createTupletOffsetSelection(),
     scoreText: createScoreTextSelection(),
     hairpinEdit: createHairpinEditSelection(),
@@ -245,6 +249,7 @@ export type { FanEditRequest } from './fanEditSelection'
 export type { TrillEditRequest } from './trillEditSelection'
 export type { BarlineEditRequest } from './barlineEditSelection'
 export type { TupletEditRequest } from './tupletEditSelection'
+export type { GlissandoEditRequest } from './glissandoEditSelection'
 export type { TupletOffsetRequest } from './tupletOffsetSelection'
 export type { ScoreTextRequest } from './scoreTextSelection'
 export type { HairpinEditRequest } from './hairpinEditSelection'

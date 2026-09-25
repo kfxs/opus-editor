@@ -2,7 +2,7 @@ import { bus } from '@/bus'
 import type { TupletBracket, TupletBracketEnd, TupletNumberStyle } from '@/types/music'
 import { DEFAULT_TUPLET_BRACKET_END } from '@/utils/musicUtils'
 import type { TupletOffsetOverride } from '@/types/music'
-import { BISHOP, scalarOffsetRow } from '../rows'
+import { buildSelect, scalarOffsetRow } from '../rows'
 import { live, overrideOf, type PanelRows } from './panel'
 
 /**
@@ -60,39 +60,3 @@ const BRACKET_ENDS: Array<[TupletBracketEnd, string]> = [
   ['division', 'full duration'],
   ['beforeNext', 'before the next note'],
 ]
-
-function buildSelect<V extends string>(
-  caption: string, choices: Array<[V, string]>, current: V, title: string, onChange: (value: V) => void,
-): HTMLElement {
-  const wrap = document.createElement('label')
-  const ws = wrap.style
-  ws.display = 'flex'
-  ws.alignItems = 'center'
-  ws.gap = '6px'
-  ws.color = BISHOP
-  ws.margin = '2px 0 4px'
-  wrap.title = title
-
-  const label = document.createElement('span')
-  label.textContent = caption
-  wrap.appendChild(label)
-
-  const select = document.createElement('select')
-  const ss = select.style
-  ss.font = 'inherit'
-  ss.color = BISHOP
-  ss.background = 'transparent'
-  ss.border = `1px solid ${BISHOP}`
-  ss.borderRadius = '2px'
-  ss.padding = '1px 4px'
-  for (const [value, text] of choices) {
-    const option = document.createElement('option')
-    option.value = value
-    option.textContent = text
-    if (value === current) option.selected = true
-    select.appendChild(option)
-  }
-  select.addEventListener('change', () => onChange(select.value as V))
-  wrap.appendChild(select)
-  return wrap
-}

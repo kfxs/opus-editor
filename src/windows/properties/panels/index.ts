@@ -21,6 +21,7 @@ import { slurRows } from './slur'
 import { tempoRows } from './tempo'
 import { trillRows } from './trill'
 import { tupletRows } from './tuplet'
+import { glissandoRows } from './glissando'
 
 // ⚠️ The row type is spelled as a FUNCTION, not as `PanelRows<K>`: a panel serving two kinds
 // (`note | rest`, the two that name a LINE) is a panel for each of them, which holds structurally —
@@ -40,6 +41,7 @@ const PANELS: { readonly [K in InspectedElement['kind']]?: (element: InspectedOf
   hairpin: hairpinRows,
   keySignature: keySignatureRows,
   tuplet: tupletRows,
+  glissandoLine: glissandoRows,
   // The two selections are the same LINE seen from either side, so they are one panel.
   barline: barlineRows,
   repeatStart: barlineRows,

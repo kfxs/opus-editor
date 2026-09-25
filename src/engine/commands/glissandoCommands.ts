@@ -6,7 +6,7 @@
  * ⛔ No `mutate` on a refusal: an edit that changed nothing leaves no undo entry.
  */
 import {
-  addGlissando, getGlissandoById, glissandoOn, glissandoTarget, removeGlissando, setGlissandoDirection, setGlissandoEnd, setGlissandoSide,
+  addGlissando, getGlissandoById, glissandoOn, glissandoTarget, mayAnchorGlissando, removeGlissando, setGlissandoDirection, setGlissandoEnd, setGlissandoSide,
 } from '../models/glissandoOps'
 import type { CommandContext } from './commandContext'
 
@@ -28,6 +28,25 @@ export function glissandoCommands(ctx: CommandContext) {
       }
       if (made) ctx.mutate(made === 1 ? 'Glissando' : 'Glissandi')
       return made
+    },
+
+    /**
+     * ⭐ The BUTTON (his ask, 2026-09-25: *"if a note that has a gliss is selected we have to be able to toggle
+     * off the gliss in the palette"*) — the brackets' rule: any head WITHOUT one ⇒ all get one; all WITH one ⇒
+     * all lose theirs. ONE undo entry. @returns what it did, or null when no id named a head that may carry one.
+     */
+    toggle(pitchIds: readonly string[]): 'added' | 'removed' | null {
+      const heads = pitchIds.filter(id => glissandoOn(score(), id) || mayAnchorGlissando(score(), id))
+      if (!heads.length) return null
+      if (heads.every(id => glissandoOn(score(), id))) {
+        for (const id of heads) removeGlissando(score(), glissandoOn(score(), id)!.id)
+        ctx.mutate(heads.length === 1 ? 'Remove glissando' : 'Remove glissandi')
+        return 'removed'
+      }
+      let made = 0
+      for (const id of heads) if (!glissandoOn(score(), id) && addGlissando(score(), id)) made++
+      if (made) ctx.mutate(made === 1 ? 'Glissando' : 'Glissandi')
+      return 'added'
     },
 
     /** Remove one. @returns false (and no undo entry) when there is none by that id. */
