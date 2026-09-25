@@ -112,6 +112,8 @@ export function pruneGlissandi(score: Score): void {
  * anchor (its chord has more heads than the target) goes to the target's TOP head (MuseScore).
  */
 export function glissandoTarget(score: Score, glissando: Glissando): string | null {
+  // ⭐ A free end on purpose (G5), or a line INTO the note (G3): nowhere to go, whatever follows.
+  if (glissando.side === 'before' || glissando.end === 'none') return null
   const at = anchorOf(score, glissando.noteId)
   if (!at) return null
   const next = nextLaneChord(score, at)
@@ -120,6 +122,54 @@ export function glissandoTarget(score: Score, glissando: Glissando): string | nu
   const targets = lowToHigh(next.notes)
   if (index < 0 || targets.length === 0) return null
   return targets[Math.min(index, targets.length - 1)].id
+}
+
+/**
+ * ⭐ Which side of its note (G3). `'after'` DELETES the field — absent is the only spelling of after — and
+ * ⛔ `'before'` clears `end`, which it makes meaningless (a line into the note has no far end to pin).
+ * @returns false when there is no such glissando or nothing changed.
+ */
+export function setGlissandoSide(score: Score, id: string, side: 'before' | 'after'): boolean {
+  const glissando = getGlissandoById(score, id)
+  if (!glissando || (glissando.side ?? 'after') === side) return false
+  if (side === 'before') {
+    glissando.side = 'before'
+    delete glissando.end
+  } else {
+    delete glissando.side
+  }
+  return true
+}
+
+/**
+ * ⭐ A free end on purpose (`'none'`) or back to following the next note (`'next'`, which DELETES the field).
+ * ⛔ Refused on a line INTO its note (`side: 'before'`): its far end is always free (G5).
+ */
+export function setGlissandoEnd(score: Score, id: string, end: 'none' | 'next'): boolean {
+  const glissando = getGlissandoById(score, id)
+  if (!glissando || glissando.side === 'before') return false
+  if ((glissando.end ?? 'next') === end) return false
+  if (end === 'none') glissando.end = 'none'
+  else delete glissando.end
+  return true
+}
+
+/** ⭐ A free end's direction (G11). Writing the side's usual one DELETES the field (absent = usual). */
+export function setGlissandoDirection(score: Score, id: string, direction: 'up' | 'down'): boolean {
+  const glissando = getGlissandoById(score, id)
+  if (!glissando || glissandoDirection(glissando) === direction) return false
+  if (direction === usualDirection(glissando)) delete glissando.direction
+  else glissando.direction = direction
+  return true
+}
+
+/** A free end's direction, resolved: the stored one, or the side's usual (after falls, before rises). */
+export function glissandoDirection(glissando: Glissando): 'up' | 'down' {
+  return glissando.direction ?? usualDirection(glissando)
+}
+
+function usualDirection(glissando: Glissando): 'up' | 'down' {
+  return glissando.side === 'before' ? 'up' : 'down'
 }
 
 // ==================== Re-bar: the anchor is re-found, or the line goes ====================

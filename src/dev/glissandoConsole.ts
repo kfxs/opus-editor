@@ -5,7 +5,9 @@
  *
  * ```js
  *   __gliss.dump()                 // every row, with its source
- *   __gliss.end('house')           // ✅ ARMED — Gould's angle, a shorter stop (0.3) before an accidental
+ *   __gliss.end('house')           // Gould's angle, 0.3 sp before an accidental's real ink
+ *   __gliss.end('houseClear')      // house, and a sign the line passes CLOSE BY stops it too (the ♭ case)
+ *   __gliss.end('houseBase')       // ✅ ARMED — his idea: the end at the target head's side or base, the start round the head with the angle
  *   __gliss.end('houseBox')        // house, measured to the sign's BOX (the simple way) — compare with 'house'
  *   __gliss.end('gould')           // her plates: clear of the heads, leaning toward each other, 0.8 before a ♯
  *   __gliss.end('musescore')       // aimed through the head CENTRES, cut 0.25 sp off the ink

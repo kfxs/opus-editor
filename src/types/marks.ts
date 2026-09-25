@@ -387,7 +387,7 @@ export interface Trill {
  * (docs/plans/glissando-plan.md). Top-level (`score.glissandi`) beside {@link Trill}, for the trill's
  * reason: it is anchored to a NOTE and crosses barlines and systems freely.
  *
- * ⭐ **ONE anchor, always, and the far end is DERIVED** (plan G2 + G4). The line goes to the NEXT note
+ * ⭐ **ONE anchor, always, and the far end is DERIVED** (plan G2 + G4) — or FREE (P3: {@link side}, {@link end}). The line goes to the NEXT note
  * of the anchor's lane, found every time it is asked (`glissandoOps.glissandoTarget`) — so a slot that
  * is a rest today and a note tomorrow connects without anything being re-written, and a re-bar has no
  * end id to repair. A pinned target (another staff, skipping notes) is a later field (G6).
@@ -404,6 +404,26 @@ export interface Glissando {
   /** The anchor: a chord's head (a {@link NotePitch} id). ⛔ Never a rest, a fanned member or a grace —
    *  `glissandoOps.addGlissando` refuses them. */
   noteId: string
+  /**
+   * ⭐ Which side of its note the line stands (plan G3, his call: *"the same as the parenthesis before or
+   * after"*). Absent = AFTER: it leaves the note — to the next note, or to nothing (a fall, a doit, a bend).
+   * `'before'` = it comes INTO the note from nothing (a scoop, a lift, a plop, a slide-in), and then it has
+   * no target at all.
+   */
+  side?: 'before'
+  /**
+   * `'none'` = a FREE end on purpose, even when a note follows (plan G5: a fall followed by another note
+   * must not snap onto it). Absent = follow the next note, derived every time (G4). ⛔ Refused with
+   * `side: 'before'`, whose far end is always free (one statement, one spelling).
+   */
+  end?: 'none'
+  /**
+   * ⭐ Which way a FREE end's pitch goes (plan G11) — the gesture's meaning; how far it is DRAWN is the
+   * engraving rows' (`engrave/marks/glissandoLine.GLISSANDO_FREE_END_RULES`), ⛔ never a length here.
+   * Absent = each side's usual: AFTER falls (a fall), BEFORE rises into the note (a scoop, from below).
+   * Read only when an end is free.
+   */
+  direction?: 'up' | 'down'
 }
 
 /** How a continuation system labels a resumed trill — see {@link Trill.continuationLabel}. */

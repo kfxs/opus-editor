@@ -8,7 +8,8 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { ScoreModel } from './ScoreModel'
 import {
-  addGlissando, getGlissandi, getGlissandoById, glissandoOn, glissandoTarget, pruneGlissandi, removeGlissando,
+  addGlissando, getGlissandi, getGlissandoById, glissandoDirection, glissandoOn, glissandoTarget, pruneGlissandi, removeGlissando,
+  setGlissandoDirection, setGlissandoEnd, setGlissandoSide,
 } from './glissandoOps'
 import { deleteNoteWithRepair } from './deleteNoteOps'
 import { convertSlotToRest } from './convertToRestOps'
@@ -177,5 +178,47 @@ describe('the anchor through edits', () => {
     const g = addGlissando(model.getScore(), notes[0].id)!
     pruneGlissandi(model.getScore())
     expect(getGlissandi(model.getScore())).toEqual([g])
+  })
+})
+
+describe('P3 — the free ends: side, end, direction', () => {
+  let model: ScoreModel
+  let c: Note
+
+  beforeEach(() => {
+    model = new ScoreModel()
+    c = at(model, 'C', 4, 1, 0)
+    at(model, 'G', 4, 1, 1)
+  })
+
+  it('`end: none` frees the end even with a note next; `next` DELETES the field', () => {
+    const g = addGlissando(model.getScore(), c.id)!
+    expect(setGlissandoEnd(model.getScore(), g.id, 'none')).toBe(true)
+    expect(glissandoTarget(model.getScore(), g)).toBeNull()
+    expect(setGlissandoEnd(model.getScore(), g.id, 'next')).toBe(true)
+    expect('end' in g).toBe(false)
+    expect(glissandoTarget(model.getScore(), g)).not.toBeNull()
+  })
+
+  it('`side: before` has no target, clears `end`, and refuses one; `after` deletes the field', () => {
+    const g = addGlissando(model.getScore(), c.id)!
+    setGlissandoEnd(model.getScore(), g.id, 'none')
+    expect(setGlissandoSide(model.getScore(), g.id, 'before')).toBe(true)
+    expect('end' in g).toBe(false)
+    expect(glissandoTarget(model.getScore(), g)).toBeNull()
+    expect(setGlissandoEnd(model.getScore(), g.id, 'none')).toBe(false)
+    expect(setGlissandoSide(model.getScore(), g.id, 'after')).toBe(true)
+    expect('side' in g).toBe(false)
+  })
+
+  it('direction: absent = the side\'s usual (after falls, before rises); writing the usual deletes it', () => {
+    const g = addGlissando(model.getScore(), c.id)!
+    expect(glissandoDirection(g)).toBe('down')
+    expect(setGlissandoDirection(model.getScore(), g.id, 'up')).toBe(true)
+    expect(g.direction).toBe('up')
+    expect(setGlissandoDirection(model.getScore(), g.id, 'down')).toBe(true)
+    expect('direction' in g).toBe(false)
+    setGlissandoSide(model.getScore(), g.id, 'before')
+    expect(glissandoDirection(g)).toBe('up')
   })
 })

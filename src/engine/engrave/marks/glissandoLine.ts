@@ -58,6 +58,26 @@ export interface GlissandoEndRule {
    *   (`tlayout.cpp`: y shortened in proportion to x) and Verovio (`atan2` of the two positions).
    */
   aim: 'edges' | 'centres'
+  /**
+   * ⭐ The TARGET HEAD as ink (his idea, 2026-09-25: *"the end target should be the base of the notehead and
+   * not the side"*): from the row's own START (fixed — his call), aim at the target head's CENTRE and stop
+   * the gap before its REAL OUTLINE — a steep line then arrives under the head, a shallow one at its side.
+   * Needs the head's outline (`fonts/glyphOutline`); without it the row falls back to its `aim`.
+   */
+  headInk?: boolean
+  /**
+   * ⭐ A NEAR MISS counts too: the line never comes closer than {@link accidentalGap} to the sign's real ink,
+   * even when it would pass it by — his flat report, 2026-09-25: a steep line brushed 0.18 sp under a ♭'s
+   * bowl, because `clear` only guards what the line runs INTO.
+   */
+  nearMiss?: boolean
+  /**
+   * ⭐ Neither END of the line may sit on a staff line — within this many staff spaces of one, the end slides
+   * along the line (the start forward, the end back) until it is clear (his report, 2026-09-25: a line
+   * started on a staff line and merged into it). LilyPond's `tip-staff-line-clearance` **0.225 sp** — the
+   * same rule for a tie's tips (`rendering/curves/tieStaffLineClearance`). Absent = no check.
+   */
+  lineClearance?: number
   /** How the three gaps are measured. */
   gapMeasure: GapMeasure
   /** How far the START leans off its head's centre TOWARD the target's height. */
@@ -71,7 +91,7 @@ export interface GlissandoEndRule {
 }
 
 export const GLISSANDO_END_RULES = {
-  /** ✅ ARMED — HIS, 2026-09-25: *"for the default I like gould angle but the empty space should be
+  /** (Armed until houseBase replaced it, same day.) HIS, 2026-09-25: *"for the default I like gould angle but the empty space should be
    *  shorter, so we need a house preset"*, then *"the empty space is inconsistent"*: Gould's angle, and
    *  before an accidental the `clear` mode — 0.3 sp (the clearance she leaves before a plain HEAD) from the
    *  sign's BOX at every angle. ⚠️ A taste number, his eye's to move (`__gliss.accidentalGap`). */
@@ -86,6 +106,20 @@ export const GLISSANDO_END_RULES = {
     startGap: 0.2, endGap: 0.3, accidentalGap: 0.3, accidental: 'clearBox', aim: 'edges', gapMeasure: 'x',
     startBias: 0.25, endBias: 0.25, sameLineTilt: 0,
     source: 'house, measured to the accidental\'s ink BOX instead of its outline',
+  },
+  /** `house` + {@link GlissandoEndRule.nearMiss}: a sign the line passes close by stops it too. */
+  houseClear: {
+    startGap: 0.2, endGap: 0.3, accidentalGap: 0.3, accidental: 'clear', aim: 'edges', gapMeasure: 'x',
+    startBias: 0.25, endBias: 0.25, sameLineTilt: 0, nearMiss: true,
+    source: 'house, and never closer than the gap to an accidental\'s ink (his ♭ report)',
+  },
+  /** ✅ ARMED — his call, 2026-09-25: *"make houseBase default"*. His idea: `house`'s START, fixed (*"the starting point should be fixed"*); the END aimed at the target
+   *  head's CENTRE and stopped the gap before its real ink — a steep line meets the head's base, a shallow
+   *  one its side. Accidentals as `house`. */
+  houseBase: {
+    startGap: 0.2, endGap: 0.3, accidentalGap: 0.3, accidental: 'clear', aim: 'edges', gapMeasure: 'x',
+    startBias: 0.25, endBias: 0.25, sameLineTilt: 0, headInk: true, lineClearance: 0.225,
+    source: 'his: house\'s start; the end aimed at the target head\'s centre, stopped off its ink (side or base)',
   },
   /** Her plate p. 141 (a), measured at 600 dpi: start ≈0.2 sp after the head (after the ledger when there
    *  is one — the right-hand figure), end 0.2–0.45 sp before the target head (0.3 taken, the plate's
@@ -170,7 +204,7 @@ export const GLISSANDO_SQUEEZE_RULES = {
 export type GlissandoSqueezeRuleName = keyof typeof GLISSANDO_SQUEEZE_RULES
 
 /** What ships. */
-export const ACTIVE_GLISSANDO_END_RULE: GlissandoEndRuleName = 'house'
+export const ACTIVE_GLISSANDO_END_RULE: GlissandoEndRuleName = 'houseBase'
 export const ACTIVE_GLISSANDO_THICKNESS_RULE: GlissandoThicknessRuleName = 'gould'
 export const ACTIVE_GLISSANDO_SQUEEZE_RULE: GlissandoSqueezeRuleName = 'shrinkGaps'
 
@@ -262,6 +296,17 @@ export interface GlissandoFrom {
   inkRightX: number
   /** The head's own centre — where a `centres` row aims from. Absent = the ink's edge. */
   centreX?: number
+  /** The head's REAL outline, px, y DOWN — for a `headInk` row. */
+  headOutline?: Outline
+  /** The note has a stem, and it hangs DOWN (from the head's left) — then a rising line may leave from the
+   *  head's top; a stem UP stands on the side a rising line would leave from. */
+  hasStem?: boolean
+  stemDown?: boolean
+  /** The note's own LEDGER LINES (px, y DOWN): each a horizontal stroke — a `headInk` row keeps the gap from
+   *  them (Gould p. 141 (a): the line starts where the ledger line ends). */
+  ledgers?: ReadonlyArray<Ledger>
+  /** The y of each line of this note's own staff (px) — for {@link GlissandoEndRule.lineClearance}. */
+  staffLines?: ReadonlyArray<number>
 }
 
 /** The target note, as the line arrives — px. */
@@ -271,6 +316,16 @@ export interface GlissandoTo {
   inkLeftX: number
   /** The head's own centre — where a `centres` row aims to. Absent = the ink's edge. */
   centreX?: number
+  /** The head's REAL outline, px, y DOWN — for a `headInk` row. */
+  headOutline?: Outline
+  /** The note's STEM, when it has one: its x and the y span it covers (y DOWN) — a `headInk` row keeps its
+   *  line off it (his report: a steep line to a stem-DOWN note came up through the stem). */
+  stem?: { x: number; top: number; bottom: number }
+  /** The note's own LEDGER LINES — the line ends the gap clear of them (his report, 2026-09-25: the end
+   *  touched a ledger line; ⚠️ the books show only the START side, Gould p. 141 (a) — the end is by symmetry). */
+  ledgers?: ReadonlyArray<Ledger>
+  /** The y of each line of this note's own staff (px) — for {@link GlissandoEndRule.lineClearance}. */
+  staffLines?: ReadonlyArray<number>
   /** The target head's accidental's left edge, when it has one. */
   accidentalLeftX?: number
   /** …and its top and bottom (y grows DOWN), for a `slide` row. */
@@ -281,8 +336,14 @@ export interface GlissandoTo {
   accidentalInk?: readonly InkRect[]
   /** ⭐⭐ …and its REAL OUTLINE, px, y DOWN (`fonts/glyphOutline` — read from the font file): what a
    *  `clear` row measures against when it has it. Absent until the face has loaded. */
-  accidentalOutline?: ReadonlyArray<ReadonlyArray<readonly [number, number]>>
+  accidentalOutline?: Outline
 }
+
+/** A ledger line on the page: its height and its two ends, px. */
+export interface Ledger { y: number; left: number; right: number }
+
+/** A glyph's real outline on the page: contours of `[x, y]` px, y DOWN. */
+export type Outline = ReadonlyArray<ReadonlyArray<readonly [number, number]>>
 
 /** A straight stroke, px. */
 export interface GlissandoStroke {
@@ -369,6 +430,61 @@ export function glissandoStroke(
     ? at(endInkX - endGap)
     : along(len - Math.max(0, (q.x - endInkX) / ux) - endGap)
 
+  // ⭐ The START on a `headInk` row (his calls, 2026-09-25): *"when stem down the beginning point is the top of
+  //   the note (contrary at base on stem up)"* and *"we need a transition while the angle is changing"*. The
+  //   line leaves the source head's REAL outline in its OWN direction (toward the target head's centre), plus
+  //   the gap — so a shallow line leaves from the side, a steep one from the top, and every angle between from
+  //   between: continuous, no threshold. ⛔ Except a RISING line from a stem-UP note: its stem stands on that
+  //   side of the head, so it keeps the row's own start (the one he approved).
+  const stemUpRising = !from.stemDown && from.hasStem === true && y2 < from.y
+  if (rule.headInk && !stemUpRising && from.headOutline && from.centreX !== undefined && to.centreX !== undefined) {
+    const c1 = { x: from.centreX, y: from.y }
+    const dist = Math.hypot(to.centreX - c1.x, to.y - c1.y)
+    if (dist > 0) {
+      const vx = (to.centreX - c1.x) / dist, vy = (to.y - c1.y) / dist
+      const out = lastCrossing(c1, vx, vy, from.headOutline)
+      if (out !== null) {
+        start.x = c1.x + vx * (out + startGap)
+        start.y = c1.y + vy * (out + startGap)
+      }
+    }
+  }
+
+  // ⭐ The TARGET HEAD as ink (`headInk`, his idea): the START stays where the row puts it (his call — *"the
+  //   starting point should be fixed"*); the line aims from there at the target head's CENTRE and stops the
+  //   gap before that head's real outline — the side for a shallow line, the base for a steep one.
+  if (rule.headInk && to.headOutline && to.centreX !== undefined) {
+    const c2 = { x: to.centreX, y: to.y }
+    const d = Math.hypot(c2.x - start.x, c2.y - start.y)
+    if (d > 0) {
+      const vx = (c2.x - start.x) / d, vy = (c2.y - start.y) / d
+      const reach = firstCrossing(c2, -vx, -vy, to.headOutline)
+      if (reach !== null) {
+        const b = d - reach - endGap
+        if (b <= 0) return null
+        const candidate = { x: start.x + vx * b, y: start.y + vy * b }
+        // ⭐ …unless the target's own STEM stands in that path — or the line would come within the gap of it
+        //   (his report: flipped stem-down, the line ended touching the stem): a stem-DOWN note hangs its stem
+        //   from the head's left, so the line then arrives at the SIDE, as the row's own end does.
+        if (!crossesStem(start, candidate, to.stem) && !nearStem(start, candidate, to.stem, endGap)) {
+          end = candidate
+          // Re-express the aim for what follows (the accidental reads `at`).
+          p.x = start.x; p.y = start.y; q.x = c2.x; q.y = c2.y
+        }
+      }
+    }
+  }
+
+  // ⭐ LEDGER LINES (`headInk`): the line keeps the gap from both notes' own ledgers — the end pulled back,
+  //   the start pushed on, along the line.
+  if (rule.headInk) {
+    if (to.ledgers?.length) end = clearOfLedgers(start, end, to.ledgers, endGap, space)
+    if (from.ledgers?.length) {
+      const pushed = clearOfLedgers(end, start, from.ledgers, startGap, space)
+      start.x = pushed.x; start.y = pushed.y
+    }
+  }
+
   // The ACCIDENTAL: cut short of it, on the same line — and a `slide` walks forward while it clears.
   const headEnd = end
   if (sign !== undefined && !reangle) {
@@ -392,8 +508,172 @@ export function glissandoStroke(
     }
   }
 
+  // ⭐ A near miss (`nearMiss`): walk the line and stop where it first comes within the gap of the sign.
+  if (rule.nearMiss && to.accidentalOutline) end = nearMissStop(start, end, to.accidentalOutline, signGap, space)
+
+  // ⭐ Neither end on a staff line (`lineClearance`): each slides along the line until it is clear.
+  if (rule.lineClearance) {
+    const clear = rule.lineClearance * space
+    if (to.staffLines?.length) end = offLines(end, start, to.staffLines, clear, space)
+    if (from.staffLines?.length) {
+      const moved = offLines(start, end, from.staffLines, clear, space)
+      start.x = moved.x; start.y = moved.y
+    }
+  }
+
   const stroke = { x1: start.x, y1: start.y, x2: end.x, y2: end.y }
   return stroke.x2 > stroke.x1 ? stroke : null
+}
+
+/**
+ * An end at `at`, moved toward `other` along the line in 1/50-space steps until it is at least `clear` from
+ * every staff line — at most one space's worth, and ⛔ never past halfway: a line lying ALONG a staff line
+ * cannot be cleared by sliding, and is left as it was.
+ */
+function offLines(
+  at: { x: number; y: number },
+  other: { x: number; y: number },
+  lines: ReadonlyArray<number>,
+  clear: number,
+  space: number,
+): { x: number; y: number } {
+  const onLine = (y: number) => lines.some(l => Math.abs(y - l) < clear)
+  if (!onLine(at.y)) return at
+  const len = Math.hypot(other.x - at.x, other.y - at.y)
+  const reach = Math.min(space, len / 2)
+  const step = space / 50
+  for (let d = step; d <= reach; d += step) {
+    const p = { x: at.x + ((other.x - at.x) / len) * d, y: at.y + ((other.y - at.y) / len) * d }
+    if (!onLine(p.y)) return p
+  }
+  return at
+}
+
+/** Does the segment `a`→`b` cross a stem (a vertical stroke at `x` from `top` to `bottom`)? */
+function crossesStem(
+  a: { x: number; y: number },
+  b: { x: number; y: number },
+  stem: { x: number; top: number; bottom: number } | undefined,
+): boolean {
+  if (!stem || (a.x - stem.x) * (b.x - stem.x) > 0 || a.x === b.x) return false
+  const y = a.y + (b.y - a.y) * ((stem.x - a.x) / (b.x - a.x))
+  return y >= stem.top && y <= stem.bottom
+}
+
+/**
+ * Walking from `from` toward `to` in 1/50-space steps, the last point still at least `gap` from every ledger
+ * line — so the end of the line that is `to` stops clear of them. `from` itself is kept whatever it touches.
+ */
+function clearOfLedgers(
+  from: { x: number; y: number },
+  to: { x: number; y: number },
+  ledgers: ReadonlyArray<Ledger>,
+  gap: number,
+  space: number,
+): { x: number; y: number } {
+  const len = Math.hypot(to.x - from.x, to.y - from.y)
+  const steps = Math.max(1, Math.ceil(len / (space / 50)))
+  const near = (x: number, y: number) => ledgers.some(l =>
+    Math.hypot(Math.max(l.left - x, 0, x - l.right), y - l.y) < gap)
+  let best = from
+  for (let i = 1; i <= steps; i++) {
+    const t = i / steps
+    const x = from.x + (to.x - from.x) * t
+    const y = from.y + (to.y - from.y) * t
+    if (near(x, y)) break
+    best = { x, y }
+  }
+  return best
+}
+
+/** Does the segment `a`→`b` come within `gap` of a stem (a vertical stroke at `x` from `top` to `bottom`)? */
+function nearStem(
+  a: { x: number; y: number },
+  b: { x: number; y: number },
+  stem: { x: number; top: number; bottom: number } | undefined,
+  gap: number,
+): boolean {
+  if (!stem) return false
+  const steps = 64
+  for (let i = 0; i <= steps; i++) {
+    const x = a.x + (b.x - a.x) * (i / steps)
+    const y = a.y + (b.y - a.y) * (i / steps)
+    const dy = Math.max(stem.top - y, 0, y - stem.bottom)
+    if (Math.hypot(x - stem.x, dy) < gap) return true
+  }
+  return false
+}
+
+/** The LAST crossing of the ray `from + t·(vx, vy)` with an outline — where it leaves the ink for good. */
+function lastCrossing(from: { x: number; y: number }, vx: number, vy: number, outline: Outline): number | null {
+  let best = -Infinity
+  for (const contour of outline) {
+    for (let i = 0, j = contour.length - 1; i < contour.length; j = i++) {
+      const [ax, ay] = contour[j]
+      const [bx, by] = contour[i]
+      const ex = bx - ax, ey = by - ay
+      const denom = vx * ey - vy * ex
+      if (Math.abs(denom) < 1e-12) continue
+      const t = ((ax - from.x) * ey - (ay - from.y) * ex) / denom
+      const u = ((ax - from.x) * vy - (ay - from.y) * vx) / denom
+      if (t >= 0 && u >= 0 && u <= 1 && t > best) best = t
+    }
+  }
+  return best === -Infinity ? null : best
+}
+
+/** The first crossing, at distance t ≥ 0, of the ray `from + t·(vx, vy)` with an outline's edges — null if none. */
+function firstCrossing(from: { x: number; y: number }, vx: number, vy: number, outline: Outline): number | null {
+  let best = Infinity
+  for (const contour of outline) {
+    for (let i = 0, j = contour.length - 1; i < contour.length; j = i++) {
+      const [ax, ay] = contour[j]
+      const [bx, by] = contour[i]
+      const ex = bx - ax, ey = by - ay
+      const denom = vx * ey - vy * ex
+      if (Math.abs(denom) < 1e-12) continue
+      const t = ((ax - from.x) * ey - (ay - from.y) * ex) / denom
+      const u = ((ax - from.x) * vy - (ay - from.y) * vx) / denom
+      if (t >= 0 && u >= 0 && u <= 1 && t < best) best = t
+    }
+  }
+  return best === Infinity ? null : best
+}
+
+/** The distance from a point to an outline's nearest edge, px. */
+function distanceToOutline(x: number, y: number, outline: Outline): number {
+  let best = Infinity
+  for (const contour of outline) {
+    for (let i = 0, j = contour.length - 1; i < contour.length; j = i++) {
+      const [ax, ay] = contour[j]
+      const [bx, by] = contour[i]
+      const dx = bx - ax, dy = by - ay
+      const t = Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy || 1)))
+      best = Math.min(best, Math.hypot(x - ax - t * dx, y - ay - t * dy))
+    }
+  }
+  return best
+}
+
+/** Walking from `start` to `end` in 1/50-space steps, the last point still at least `gap` from the outline. */
+function nearMissStop(
+  start: { x: number; y: number },
+  end: { x: number; y: number },
+  outline: Outline,
+  gap: number,
+  space: number,
+): { x: number; y: number } {
+  const len = Math.hypot(end.x - start.x, end.y - start.y)
+  const steps = Math.max(1, Math.ceil(len / (space / 50)))
+  let best = start
+  for (let i = 1; i <= steps; i++) {
+    const t = i / steps
+    const x = start.x + (end.x - start.x) * t
+    const y = start.y + (end.y - start.y) * t
+    if (distanceToOutline(x, y, outline) < gap) break
+    best = { x, y }
+  }
+  return best
 }
 
 /**

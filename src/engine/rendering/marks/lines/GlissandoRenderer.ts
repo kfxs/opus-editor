@@ -19,7 +19,7 @@ import { staffIndexOfId } from '@/engine/models/staffContent'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { spellingToMidi } from '@/utils/pitchSpelling'
 import {
-  glissandoPieces, glissandoStroke, glissandoThicknessSpaces, type GlissandoFrom, type GlissandoStroke, type GlissandoTo,
+  glissandoPieces, glissandoStroke, glissandoThicknessSpaces, type GlissandoFrom, type GlissandoStroke, type GlissandoTo, type Ledger,
 } from '@/engine/engrave/marks/glissandoLine'
 import { lineEndBarlineX, lineHeaderInkX } from '../../staff/systemEdges'
 import { LEDGER_OVERHANG_PX } from '@/engine/engrave/inheritedDefaults'
@@ -121,7 +121,15 @@ function leaving(note: EngravedNote, index: number, frame: StaffFrame): Glissand
     const box = dot.getBoundingBox()
     right = Math.max(right, box.x + box.w)
   }
-  return { y, inkRightX: right, centreX: (ruler.headLeftX + ruler.headRightX) / 2 }
+  const headOutline = headOutlineOf(note, index)
+  const ledgers = ledgersOf(y, ruler.headLeftX, ruler.headRightX, frame)
+  return {
+    y, inkRightX: right, centreX: (ruler.headLeftX + ruler.headRightX) / 2, staffLines: linesOf(frame),
+    ...(headOutline && { headOutline }),
+    ...(ledgers.length && { ledgers }),
+    ...(ruler.hasStem && { hasStem: true }),
+    ...(ruler.hasStem && ruler.stemDirection === -1 && { stemDown: true }),
+  }
 }
 
 /** The target note as the line arrives: its head's height, its left ink, and its accidental. */
@@ -132,18 +140,24 @@ function arriving(note: EngravedNote, index: number, frame: StaffFrame): Glissan
   let left = ruler.headLeftX
   if (onLedger(y, frame)) left -= ledgerOverhang(frame)
   const centreX = (ruler.headLeftX + ruler.headRightX) / 2
+  const headOutline = headOutlineOf(note, index)
+  const stem = ruler.hasStem
+    ? { stem: { x: ruler.stemX, top: Math.min(ruler.stemTipY, ruler.stemBaseY), bottom: Math.max(ruler.stemTipY, ruler.stemBaseY) } }
+    : {}
+  const ledgers = ledgersOf(y, ruler.headLeftX, ruler.headRightX, frame)
+  const head = { ...(headOutline && { headOutline }), ...stem, ...(ledgers.length && { ledgers }), staffLines: linesOf(frame) }
   const accidental = accidentalsOn(note).find(a => a.getIndex() === index)
-  if (!accidental) return { y, inkLeftX: left, centreX }
+  if (!accidental) return { y, inkLeftX: left, centreX, ...head }
   // ⭐ The sign's OWN ink, computed from its stamp (`drawnInk`, P6b's ruler — ⛔ not asked of a
   //   `getBoundingBox()`). Null before it drew: then only its left edge.
   const ink = accidental.drawnInk()
-  if (!ink) return { y, inkLeftX: left, centreX, accidentalLeftX: accidental.getBoundingBox().x }
+  if (!ink) return { y, inkLeftX: left, centreX, ...head, accidentalLeftX: accidental.getBoundingBox().x }
   // ⭐ …and its SHAPE: that box less the corners the font says are empty (`engrave/glyphInkShape`), and
   //   ⭐⭐ its REAL OUTLINE once the face has loaded (`fonts/glyphOutline`), placed where the box stands.
   const name = glyphNameOf(accidental.getText())
   const outline = name ? placedOutline(name, ink) : null
   return {
-    y, inkLeftX: left, centreX,
+    y, inkLeftX: left, centreX, ...head,
     accidentalLeftX: ink.x, accidentalTopY: ink.y, accidentalBottomY: ink.y + ink.height,
     ...(name && { accidentalInk: glyphInkShape(name, ink) }),
     ...(outline && { accidentalOutline: outline }),
@@ -165,4 +179,43 @@ function placedOutline(
   const originX = ink.x - g.left * sp
   const baselineY = ink.y + g.up * sp
   return contours.map(c => c.map(([x, y]) => [originX + x * sp, baselineY - y * sp] as const))
+}
+
+/**
+ * A head's real outline (`fonts/glyphOutline`) placed where the head is drawn: its glyph from the drawn
+ * head, its origin at the heads' left edge on the head's own line, its scale from the drawn width.
+ * Null until the face has loaded, or for a head we cannot name.
+ */
+function headOutlineOf(note: EngravedNote, index: number): Array<Array<readonly [number, number]>> | null {
+  const ruler = noteRuler(note)
+  const head = note.noteHeads[index] ?? note.noteHeads[0]
+  const name = head ? glyphNameOf(head.getText()) : null
+  const y = ruler.headYs[index]
+  if (!name || y === undefined || isNaN(y)) return null
+  const contours = glyphOutline(name)
+  const g = glyphBox(name)
+  const width = ruler.headRightX - ruler.headLeftX
+  if (!contours || !(g.right - g.left > 0) || !(width > 0)) return null
+  const sp = width / (g.right - g.left)
+  const originX = ruler.headLeftX - g.left * sp
+  return contours.map(c => c.map(([x, gy]) => [originX + x * sp, y - gy * sp] as const))
+}
+
+/**
+ * The ledger lines a head at `y` stands on or beyond — one per staff-line position between the staff and
+ * the head — each reaching the ledger overhang past the head on either side (`inheritedDefaults`).
+ */
+function ledgersOf(y: number, headLeftX: number, headRightX: number, frame: StaffFrame): Ledger[] {
+  const space = frame.spacePx
+  const over = ledgerOverhang(frame)
+  const eps = space / 4
+  const out: Ledger[] = []
+  for (let ly = frame.topLineY - space; ly >= y - eps; ly -= space) out.push({ y: ly, left: headLeftX - over, right: headRightX + over })
+  for (let ly = staffBottomLineY(frame) + space; ly <= y + eps; ly += space) out.push({ y: ly, left: headLeftX - over, right: headRightX + over })
+  return out
+}
+
+/** The y of each of the staff's own lines. */
+function linesOf(frame: StaffFrame): number[] {
+  return Array.from({ length: frame.lineCount }, (_, i) => frame.topLineY + i * frame.spacePx)
 }

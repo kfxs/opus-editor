@@ -120,8 +120,9 @@ describe('glissandoStroke — the engines\' rows', () => {
 })
 
 describe('the armed rows', () => {
-  it('ship HOUSE ends (his: Gould\'s angle, a shorter stop before an accidental) and Gould\'s thickness', () => {
-    expect(glissandoSettings()).toMatchObject({ end: 'house', thickness: 'gould', squeeze: 'shrinkGaps' })
+  it('ship HOUSEBASE ends (his call) and Gould\'s thickness; `house` = Gould\'s row but a shorter stop', () => {
+    expect(glissandoSettings()).toMatchObject({ end: 'houseBase', thickness: 'gould', squeeze: 'shrinkGaps' })
+    expect(GLISSANDO_END_RULES.houseBase.headInk).toBe(true)
     const { house, gould: g } = GLISSANDO_END_RULES
     expect({ ...house, accidentalGap: 0, accidental: '', source: '' }).toEqual({ ...g, accidentalGap: 0, accidental: '', source: '' })
     expect(house.accidental).toBe('clear')
@@ -228,5 +229,67 @@ describe('the accidental-gap knob (his eye)', () => {
     setGlissandoAccidentalGap(0.2)
     resetGlissandoRules()
     expect(armedGlissandoEndRule().accidentalGap).toBe(GLISSANDO_END_RULES.house.accidentalGap)
+  })
+})
+
+describe('⭐ `houseBase` (his idea): the heads as ink', () => {
+  const base = GLISSANDO_END_RULES.houseBase
+  /** A head as a square outline, px, centred on (cx, cy), half-size 6. */
+  const head = (cx: number, cy: number) => [[[cx - 6, cy - 5], [cx + 6, cy - 5], [cx + 6, cy + 5], [cx - 6, cy + 5]] as const]
+  const source = (stemDown: boolean) => ({ y: 100, inkRightX: 106, centreX: 100, headOutline: head(100, 100), hasStem: true, ...(stemDown && { stemDown: true }) })
+  const target = (y: number) => ({ y, inkLeftX: 194, centreX: 200, headOutline: head(200, y) })
+
+  it('a STEM-DOWN note: the start slides round the head with the angle — side for shallow, top for steep', () => {
+    const shallow = glissandoStroke(source(true), target(90), SP, 1, base)!
+    const steep = glissandoStroke(source(true), target(10), SP, 1, base)!
+    expect(steep.y1).toBeLessThan(shallow.y1) // leaves higher up the head
+    expect(steep.x1).toBeLessThan(shallow.x1) // …and further round toward its top
+  })
+
+  it('a STEM-UP note, rising: the row\'s own fixed start (its stem stands on that side)', () => {
+    const a = glissandoStroke(source(false), target(90), SP, 1, base)!
+    const b = glissandoStroke(source(false), target(10), SP, 1, base)!
+    expect([a.x1, a.y1]).toEqual([b.x1, b.y1])
+  })
+
+  it('the END aims at the target head\'s centre: a steep line arrives under the head, not at its side', () => {
+    const steep = glissandoStroke(source(false), target(-80), SP, 1, base)!
+    expect(steep.x2).toBeGreaterThan(194) // past the head's left edge — below it
+  })
+
+  it('…unless the target\'s own STEM is in that path: then it arrives at the side', () => {
+    const stemmed = { ...target(10), stem: { x: 194, top: 10, bottom: 45 } }
+    const s = glissandoStroke(source(false), stemmed, SP, 1, base)!
+    expect(s.x2).toBeLessThan(194)
+  })
+
+  it('…and when the line would only come CLOSE to that stem (his flipped-stem report): the side too', () => {
+    // The stem hangs just left of where the base approach would end, never crossed by the line.
+    const plain = glissandoStroke(source(false), target(-80), SP, 1, base)!
+    const stemmed = { ...target(-80), stem: { x: plain.x2 - 1, top: -80, bottom: -45 } }
+    const s = glissandoStroke(source(false), stemmed, SP, 1, base)!
+    expect(s.x2).toBeLessThan(194)
+  })
+
+  it('⭐ LEDGER LINES: the line keeps the gap from the target\'s and the source\'s own ledgers', () => {
+    // A falling line to a head below the staff, on a ledger at y 110 reaching x 190…210.
+    const low = { y: 110, inkLeftX: 194, centreX: 200, headOutline: head(200, 110), ledgers: [{ y: 110, left: 190, right: 210 }] }
+    const s = glissandoStroke({ ...source(false), y: 40, headOutline: head(100, 40) }, low, SP, -1, base)!
+    const toLedger = Math.hypot(Math.max(190 - s.x2, 0, s.x2 - 210), s.y2 - 110)
+    expect(toLedger).toBeGreaterThanOrEqual(0.3 * SP - 0.2)
+    // …and from a source standing on one, rising: the start leaves it the gap clear.
+    const high = { y: 10, inkLeftX: 194, centreX: 200, headOutline: head(200, 10) }
+    const from = { ...source(true), y: 110, headOutline: head(100, 110), ledgers: [{ y: 110, left: 90, right: 110 }] }
+    const r = glissandoStroke(from, high, SP, 1, base)!
+    expect(Math.hypot(Math.max(90 - r.x1, 0, r.x1 - 110), r.y1 - 110)).toBeGreaterThanOrEqual(0.2 * SP - 0.2)
+  })
+
+  it('⭐ neither END on a staff line: an end within 0.225 sp of one slides along the line until clear', () => {
+    const lines = [60, 70, 80, 90, 100]
+    // A falling line whose start would land on the line at y 70.
+    const from = { y: 65, inkRightX: 106, centreX: 100, headOutline: head(100, 65), hasStem: true, stemDown: true, staffLines: lines }
+    const to = { y: 130, inkLeftX: 194, centreX: 200, headOutline: head(200, 130), staffLines: lines }
+    const s = glissandoStroke(from, to, SP, -1, base)!
+    for (const y of [s.y1, s.y2]) expect(Math.min(...lines.map(l => Math.abs(y - l)))).toBeGreaterThanOrEqual(0.225 * SP - 0.01)
   })
 })

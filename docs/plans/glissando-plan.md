@@ -1,6 +1,6 @@
 # The glissando — one line for gliss, portamento, bend and the slide into a note: the plan
 
-> **Status (2026-09-25): P0, P1 + P1b committed; P2 (system break) + the accidental fix built (not committed) — the `gliss` dev button, `engrave/marks/glissandoLine` (Gould armed, `__gliss`), `GlissandoRenderer` via `noteLinePasses`.** His brief: a tool that behaves like Sibelius 6's bend
+> **Status (2026-09-25): P0, P1, P1b, P2 committed; the ENDS rework (`houseBase`, armed — §0.2) committed; P3 started (model fields + ops, not drawn).** The `gliss` dev button, `engrave/marks/glissandoLine` (named rows, `__gliss`), `GlissandoRenderer` via `noteLinePasses`, the real glyph outlines via `fonts/glyphOutline`. His brief: a tool that behaves like Sibelius 6's bend
 > line, but richer — ONE line that can be a gliss or a bend, with no text by default and a Properties
 > switch that shows it later. The research is three files, read before touching this:
 > `docs/research/glissando-books-research.md` (Gould · Ross · Stone · Gerou & Lusk, plates measured),
@@ -61,6 +61,31 @@ become the preset menu later.
 Exact numbers are taken from the research files' measured values when the row is written; a range
 above (0.2–0.5) is written as the plate's measured value, with the range in the row's `source`.
 
+## 0.2 ⭐ Where the line meets its notes — `houseBase`, ARMED (his calls, 2026-09-25)
+
+Built one report at a time on his screen, each reproduced in Chromium before it was changed. The row's
+behaviour, in the order the line is built (`engrave/marks/glissandoLine.glissandoStroke`):
+
+| step | rule | his words / the source |
+|---|---|---|
+| angle | Gould's start: 0.2 sp after the head, leaning 0.25 sp toward the target | *"for the default I like gould angle"* |
+| START, stem-down note or falling line | leaves the source head's REAL outline in the line's own direction, + the gap — slides from side to top with the angle | *"when stem down the beginning point is the top of the note"*, *"we need a transition while the angle is changing"* |
+| START, stem-up note, rising | the fixed Gould start (the stem stands on that shoulder) | *"the starting point should be fixed"* |
+| END | aimed at the target head's CENTRE, stopped 0.3 sp before its real outline — the side for a shallow line, the BASE for a steep one | *"the end target should be the base of the notehead and not the side"* |
+| END, the target's stem in the way or within the gap | the side instead (Gould's end) | *"the end point should be here in the side for not collide the stem"* (flipped stem) |
+| ACCIDENTAL | 0.3 sp before the sign's REAL ink, measured AHEAD of the line (`clear`) — a sharp's left side is a comb each angle meets at a different tooth | *"don't use bbox, use ink"*, *"no, you should not bake"* |
+| LEDGER LINES | both notes' own ledgers kept the gap clear (start 0.2, end 0.3) | Gould p. 141 (a) for the START (*starts where the ledger ends*); ⚠️ the END side is by symmetry, no plate shows it |
+| STAFF LINES | neither end within 0.225 sp of a staff line — the end slides along the line | LilyPond `tip-staff-line-clearance` (the tie's rule, `tieStaffLineClearance`) |
+
+⭐ **The ink is REAL**: glyph outlines are read from the shipped font file at runtime (`fonts/glyphOutline`,
+opentype.js, async, once per face — the app re-renders when it arrives; ⛔ nothing baked). Until then the row
+falls back to boxes for that one render. Works per active music face (he checked Leipzig and Sebastian).
+
+Other rows kept to compare (`__gliss.end(…)`): `house` (Gould's ends + `clear`), `houseClear` (+ a NEAR-MISS
+guard: a sign the line passes close by stops it too — his ♭ report), `houseBox` (the simple box measure),
+`gould`, `musescore`, `verovio`, `lilypond` (each re-read from source — `glissando-engines-research.md` §5b).
+⏳ Open: `houseBase` has no near-miss guard yet (a steep line can brush under a ♭'s bowl) — his call.
+
 ## 1. The model: `types/marks.ts`
 
 ```ts
@@ -86,7 +111,10 @@ export interface Glissando {
 - ⭐ **No `voice`, no `staffId`.** With ONE anchor they are the anchor's, always — a stored copy could
   only go stale (a trill and a slur carry `voice` because their TWO ends may disagree; `voiceOps` has
   to resync it). The lane is asked of the anchor's slot.
-- **P0 needs only `id`, `noteId`.** `side`, `end`, `direction` arrive with the phase that
+- **P0 needs only `id`, `noteId`.** ✅ P3's `side` / `end` / `direction` are now on the type, with
+  `glissandoOps.setGlissandoSide / setGlissandoEnd / setGlissandoDirection / glissandoDirection` (absent
+  direction = the side's usual: after falls, before rises) and `glissandoTarget` answering null for either free
+  case — ⏳ not drawn yet. Free-end size rows measured on Gould p. 411 (c): ≈3.8 sp across × 1.3 sp rise. `side`, `end`, `direction` arrive with the phase that
   first reads them (P3) — ⛔ no field the renderer ignores.
 - **Absent, never `undefined`-valued** (the `laneFingerprint` rule).
 - **JSON**: reported, never repaired — an anchor that names no head, `end` with `side: 'before'`.
@@ -118,7 +146,7 @@ neighbour) — ⛔ never a raised ceiling.
 | **P0** ✅ built | the type + `glissandoOps` (add / remove / `glissandoTarget` incl. chord pairing, a rest ⇒ null, across a barline) + specs. Re-bar (both sites) re-finds the anchor; delete / convert-to-rest / clear / note→bracketed / removed measure prune it (`pruneGlissandi`; `removeMeasure` now calls ONE `danglingAnchors.repairDanglingAnchors`). ⚠️ NOT in P0: **paste carrying a glissando** (the clipboard's `attachedMarks` / `clip.ts` rows — P0b, before P1 if he wants copies to keep it); **a JSON load check** — no note-anchored mark has one today (slurs and trills neither), so it is not invented here; an anchor lost to an edit that is none of the above (e.g. typing over it) is skipped by the renderer, the trill's belt | nothing (green specs) |
 | **P1** ✅ built | `glissandoLine` + `GlissandoRenderer` for note → note ON ONE SYSTEM; straight, Gould's gaps and bias (G12), thickness (G13), a target accidental; chords per head (G9). The dev button (`gliss`) | select a note, press `gliss`: a line to the next note; type into an empty next slot and it connects |
 | **P2** ✅ built | the SYSTEM BREAK (G7): two pieces, header-clearing start on the new system, G7a's rows | a gliss whose target opens the next system |
-| **P3** | the free end: next slot a rest ⇒ a free end (G11's default vector). `side: 'before'`, `end: 'none'`, `direction` — reachable from the dev console / JSON until Properties exists | a gliss before a rest; a fall; a scoop |
+| **P3** 🚧 started | the free end: next slot a rest ⇒ a free end (G11's default vector). `side: 'before'`, `end: 'none'`, `direction` — reachable from the dev console / JSON until Properties exists | a gliss before a rest; a fall; a scoop |
 | **P4** | selection + Delete + highlight (`interactions/elements/glissando`) | click the line, Delete |
 | **later** | ⛔ a decision list, ⛔ not a queue: Properties (side · end · direction · text on/content · style wavy · text along/level) · end-handle drag + offsets (the slur's `SlurEndpointOffsetOverride` shape) · playback (G14) · pinned target / other staff (G6) · arrow cap (Gould p. 143/340) · curved contour (Gould p. 146, 358) · jazz (G15) · the bracketed finishing pitch (G16) · text repeated on a continuation piece (Dorico repeats it; the trill's `continuationLabel` shape) · minimum length as a spacing request (MuseScore 1.2 / 2.0 sp) · MusicXML mapping (engines §6.8) | — |
 

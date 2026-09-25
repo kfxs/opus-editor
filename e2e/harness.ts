@@ -36,6 +36,7 @@ import { censusColumns, type BarSpacing } from '@/dev/spacingCensus'
 import { INK, INK_HEIGHT, accidentalExtent, accidentalHeight, dotExtent } from '@/engine/layout/spacingPadding'
 import { fracCreate } from '@/utils/fraction'
 import { enableGlyphOutlines } from '@/engine/fonts/glyphOutline'
+import { setGlissandoEndRule, type GlissandoEndRuleName } from '@/engine/engrave/marks/glissandoLine'
 
 /** Re-exported so a spec can name what `columnGaps()` hands back. */
 export type { BarSpacing, CensusColumn } from '@/dev/spacingCensus'
@@ -107,6 +108,8 @@ export interface Harness {
   fontReady(): Promise<void>
   /** How many music faces' real OUTLINES have arrived (`engine/fonts/glyphOutline`) — wait on it for the ink. */
   outlinesLoaded(): number
+  /** Arm a glissando END row (`engine/engrave/marks/glissandoLine`) — false for an unknown name. */
+  glissandoEnd(rule: string): boolean
   /** Re-engrave. Awaits the font before the first one, so nothing measures fallback metrics. */
   render(): Promise<void>
   /** Every glyph matching `selector` (default: all of them), left to right. */
@@ -334,6 +337,7 @@ const harness: Harness = {
   },
   fontReady: musicFontReady,
   outlinesLoaded: () => outlinesLoaded,
+  glissandoEnd: (rule: string) => setGlissandoEndRule(rule as GlissandoEndRuleName),
 
   async render(): Promise<void> {
     // VexFlow ships Bravura/Academico as web fonts and every glyph is a `<text>`, so a render that
