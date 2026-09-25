@@ -1,3 +1,4 @@
+import { flagPushedFirstDot, resetDotFlagRule, setDotFlagRule } from './dotFlag'
 import { describe, it, expect, afterEach } from 'vitest'
 import type { GraceGroup, Measure, NotePitch } from '@/types/music'
 import { GRACE_ROWS, graceDotXs, graceLayout, graceScale, graceSizeGeneration, graceStemSpaces, graceSizeSettings, hostLeftReach, resetGraceSize, setGraceSize } from './graceRoom'
@@ -109,9 +110,12 @@ describe('graceLayout — a DOTTED grace: the NORMAL note\'s dot rule, at the gr
   })
 
   const px = (sp: number) => sp * STAFF_SPACE_PX
-  it('⭐ a flagged (stem-up) grace: head + VexFlow\'s 2 px + the FLAG\'s width — as a normal dotted 8th', () => {
-    const [first] = graceDotXs({ duration: '8', dots: 1 })
-    expect(px(first)).toBeCloseTo(px(noteheadInk('8')) + MODIFIER_RIGHT_GAP_PX + px(glyphBox('flag8thUp').right), 9)
+  it('⭐ a flagged (stem-up) grace: the armed FLAG row, as a normal dotted 8th — `vexflow` was head + 2 px + the flag\'s width', () => {
+    setDotFlagRule('vexflow')
+    expect(px(graceDotXs({ duration: '8', dots: 1 })[0])).toBeCloseTo(px(noteheadInk('8')) + MODIFIER_RIGHT_GAP_PX + px(glyphBox('flag8thUp').right), 9)
+    resetDotFlagRule()
+    // `gould` (armed): past the flag's ink by 0.30 — a grace cannot say where its dot stands, so it is LEVEL.
+    expect(graceDotXs({ duration: '8', dots: 1 })[0]).toBeCloseTo(flagPushedFirstDot('8')!, 9)
   })
   it('⭐ an unflagged grace: head + the ARMED dot gap (never under the 2 px) — as a normal dotted quarter', () => {
     const [first] = graceDotXs({ duration: 'q', dots: 1 })

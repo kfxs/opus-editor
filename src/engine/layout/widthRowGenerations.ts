@@ -13,6 +13,7 @@ import { clefMeterGapGeneration } from './clefMeterGap'
 import { barlineMeterGapGeneration } from './barlineMeterGap'
 import { dotGapGeneration } from './dotGap'
 import { restDotGapGeneration } from './restDotGap'
+import { dotFlagGeneration } from './dotFlag'
 import { accidentalGapGeneration } from './accidentalGap'
 import { graceSizeGeneration } from './graceRoom'
 import { bracketedGeneration } from './bracketedRoom'
@@ -34,6 +35,8 @@ export function widthRowGenerations(): number[] {
     dotGapGeneration(),
     // …and a REST's (2026-09-25, `layout/restDotGap`): the same purchase, from the rest's own table.
     restDotGapGeneration(),
+    // …and whether a stem-up FLAG pushes them (2026-09-25, `layout/dotFlag`): a pushed dot is further out.
+    dotFlagGeneration(),
     // The ACCIDENTAL gap: `accidentalExtent` prices a sign's room from it.
     accidentalGapGeneration(),
     // The GRACE size (2026-09-22): a grace's room is its heads at that size (`layout/graceRoom`).

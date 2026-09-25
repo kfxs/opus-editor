@@ -64,6 +64,8 @@ import { dotsOn } from '../engraved/EngravedDot'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { armedDotGap } from '@/engine/layout/dotGap'
 import { armedRestDotGap } from '@/engine/layout/restDotGap'
+import { armedDotFlag, flagPushedFirstDot } from '@/engine/layout/dotFlag'
+import type { NoteDuration } from '@/types/music'
 import { MODIFIER_RIGHT_GAP_PX, VEXFLOW_DOT_SPACING } from '@/engine/engrave/inheritedDefaults'
 
 /** A stem pointing up — VexFlow's `Stem.UP`. */
@@ -152,15 +154,42 @@ export function dotShift(clearsFlag: boolean, gaps: { head: number } = armedDotG
 }
 
 /**
+ * ⭐ How far a stem-up FLAGGED note's dots must move past where they start with no flag in the way — the
+ * armed `layout/dotFlag` row (P4c), in px; 0 when the flag does not push them.
+ *
+ * `vexflow`: the flag's drawn width, as `forceFlagRight` added it. Any other row: the rule's first-dot
+ * position (staff spaces past the head's anchor) less where the dot starts now (the head's measured width
+ * and VexFlow's 2 px) — asked with the dot's HEIGHT and the stem's LENGTH off the drawn note, so `level` is
+ * answered about THIS note.
+ */
+export function flagPushPx(note: EngravedNote): number {
+  if (note.isRest() || !note.hasFlag() || note.getStemDirection() !== STEM_UP) return 0
+  if ('vexflow' in armedDotFlag()) return note.getFlagWidthPx()
+  // ⚠️ Asked of the note's KEYS, ⛔ not its ys: this runs before the note stands on its stave. A line is
+  //    one staff space; the stem-up chord's TOP key is the one its flag meets, and the stem runs to it from
+  //    the BOTTOM key (`getStemLength` is measured from there).
+  const lines = note.getKeyProps().map(row => row.line)
+  const top = lines.indexOf(Math.max(...lines))
+  const dot = dotsOn(note).find(d => d.getIndex() === top)
+  const geometry = {
+    dotY: dot ? dot.getShiftY() : 0,
+    stemLength: note.getStemLength() / STAFF_SPACE_PX - (Math.max(...lines) - Math.min(...lines)),
+  }
+  const pushed = flagPushedFirstDot(note.getDuration() as NoteDuration, geometry)
+  if (pushed === null) return 0
+  return pushed * STAFF_SPACE_PX - (note.getGlyphWidth() + VEXFLOW_DOT_BASE_GAP)
+}
+
+/**
  * Move the ink, after the format. Every dot of a note moves by the SAME amount: `Dot.format` has
- * already spaced them relative to each other, and shifting them apart would undo that.
+ * already spaced them relative to each other, and shifting them apart would undo that. The move is the
+ * LATER of the head gap's and the flag's (P4c).
  */
 export function placeDots(notes: EngravedNote[]): void {
   for (const note of notes) {
     const dots = dotsOn(note)
     if (!dots.length) continue
-    // A REST has no flag to clear, and its gaps are its own table's (P4b).
-    const shift = dotShift(!note.isRest() && note.hasFlag() && note.getStemDirection() === STEM_UP, gapsOf(note))
+    const shift = Math.max(dotShift(false, gapsOf(note)), flagPushPx(note))
     if (shift <= 0) continue
     for (const dot of dots) dot.setXShift(dot.getXShift() + shift)
   }

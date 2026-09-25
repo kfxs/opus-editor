@@ -37,6 +37,8 @@ import { beamRoleAt, isBeamableDuration } from '@/utils/beaming'
 import { getMeterInfo } from '@/utils/meter'
 import { staffLineForSpelling, type StaffClefs } from '@/utils/clefUtils'
 import { C_MAJOR, type StaffKeys } from '@/utils/keySignature'
+import { flagPushedFirstDot } from './dotFlag'
+import { noteDotXs } from './noteDotXs'
 import { INK, INK_HEIGHT, STEM_REACH, accidentalExtent, accidentalHeight, dotExtent, pairPadding, restBand, restDotExtent, restExtent } from './spacingPadding'
 import { edgeKind, mergedReach, type InkBox } from './kerning'
 import type { Column } from './spacing'
@@ -126,6 +128,21 @@ const needsLedger = (pitch: NotePitch, clef: Clef): boolean => {
  * ⚠️ **And `clef` is why this function reads where a note SITS**, which used to be forbidden in the
  * width path — see {@link measureColumns} for why that rule expired.
  */
+/**
+ * ⭐ How much further out a stem-up FLAGGED note's dots stand than an unflagged note's — the armed
+ * `layout/dotFlag` row (docs/plans/multiple-dots-plan.md P4c), asked with this chord's own geometry: the top
+ * head's dot (lifted half a space off a line) against the flag hanging from the stem's tip, which reaches at
+ * least the middle line (the stem box below). 🚨 Until P4c the pushed dot stood ≈0.8 sp outside the room.
+ */
+function flagDotPush(slot: ChordRest, ys: number[], upFlag: boolean): number {
+  if (!upFlag || !slot.dots || ys.length === 0) return 0
+  const top = Math.min(...ys)
+  const tipY = Math.min(2, Math.max(...ys) - STEM_REACH)
+  const geometry = { dotY: Number.isInteger(top) ? -0.5 : 0, stemLength: top - tipY }
+  const pushed = flagPushedFirstDot(slot.duration, geometry)
+  return pushed === null ? 0 : Math.max(0, pushed - noteDotXs({ duration: slot.duration, dots: 1 }, false)[0])
+}
+
 function slotInk(slot: ChordRest, signs: Map<string, string | null>, clef: Clef, multiVoice: boolean, flagged: boolean, size: number): ColumnInk {
   const staff = slot.staffId
   if (slot.type !== 'chord') {
@@ -161,10 +178,10 @@ function slotInk(slot: ChordRest, signs: Map<string, string | null>, clef: Clef,
   //    count the shared stem twice the moment the ink row takes the font's 1.18.
   const heads = hasSecond ? INK.secondDisplacement + INK.notehead : INK.notehead
   const overhang = INK.ledgerRight - INK.notehead
-  const dots = dotExtent(slot.dots ?? 0)
+  const lineOf = (pitch: NotePitch) => staffLineForSpelling(pitch.step, pitch.octave, clef)
+  const dots = dotExtent(slot.dots ?? 0) + flagDotPush(slot, pitches.map(p => yOfLine(lineOf(p))), flagged && stemUp(slot, clef, multiVoice))
 
   const boxes: RawInk = []
-  const lineOf = (pitch: NotePitch) => staffLineForSpelling(pitch.step, pitch.octave, clef)
 
   for (const pitch of pitches) {
     const y = yOfLine(lineOf(pitch))

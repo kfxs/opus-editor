@@ -36,6 +36,16 @@
  *   __dots.restGap('verovio')     // 0.30 / 0.35 — its short-rest rule
  *   __dots.restGap('vexflow')     // 0.20 / 0.10 — what a rest drew until 2026-09-25
  *   __dots.restReset()
+ *
+ *   // ⭐ Dots and a stem-up FLAG — when they are pushed past it, and how far (P4c, `layout/dotFlag`):
+ *   __dots.flag('gould')       // ✅ ARMED — only when the tail meets the dot; 0.30 past the flag
+ *   __dots.flag('ross')        // always; 0.20
+ *   __dots.flag('gerouLusk')   // always; 0.03 (their dot lines up with the flag's bulge)
+ *   __dots.flag('lilypond')    // when level; 0.45
+ *   __dots.flag('musescore')   // when level; 0
+ *   __dots.flag('verovio')     // when level; 0.09
+ *   __dots.flag('vexflow')     // every flagged stem-up note, the flag's width — what we drew until 2026-09-25
+ *   __dots.flagReset()
  * ```
  *
  * ⚠️ **Look at a DOUBLE-dotted note**, not a single one: five of the eight rows differ only in the
@@ -47,6 +57,9 @@
  * with his choice as the citation and both files go.
  */
 import { dbg } from '@/utils/debug'
+import {
+  DOT_FLAG_RULES, dotFlagSettings, resetDotFlagRule, setDotFlagRule, type DotFlagRuleName,
+} from '@/engine/layout/dotFlag'
 import {
   REST_DOT_GAP_RULES, armedRestDotGap, resetRestDotGapRule, restDotGapSettings, setRestDotGapRule,
   type RestDotGapRuleName,
@@ -62,6 +75,9 @@ export interface DotGapConsole {
   /** A REST's two gaps — their own table (P4b). */
   restGap(rule: RestDotGapRuleName): { rule: RestDotGapRuleName; head: number; dot: number }
   restReset(): { rule: RestDotGapRuleName; head: number; dot: number }
+  /** Dots and a stem-up FLAG (P4c). */
+  flag(rule: DotFlagRuleName): DotFlagRuleName
+  flagReset(): DotFlagRuleName
   dump(): void
 }
 
@@ -86,7 +102,25 @@ export function dotGapConsole(render: () => void): DotGapConsole {
     dbg(`[dots] rest armed:${restDotGapSettings().rule} — rest→dot ${head} sp, dot→dot ${dot} sp`)
   }
 
+  const FLAG_NAMES = Object.keys(DOT_FLAG_RULES) as DotFlagRuleName[]
+  const flagReport = () => dbg(`[dots] flag armed:${dotFlagSettings().rule} — ${DOT_FLAG_RULES[dotFlagSettings().rule].source}`)
+
   return {
+    flag: (rule) => {
+      if (!setDotFlagRule(rule)) {
+        dbg(`[dots] ⛔ no such flag row: ${rule} — try ${FLAG_NAMES.map(n => `'${n}'`).join(', ')}`)
+        return dotFlagSettings().rule
+      }
+      render()
+      flagReport()
+      return dotFlagSettings().rule
+    },
+    flagReset: () => {
+      resetDotFlagRule()
+      render()
+      flagReport()
+      return dotFlagSettings().rule
+    },
     restGap: (rule) => {
       if (!setRestDotGapRule(rule)) {
         dbg(`[dots] ⛔ no such rest row: ${rule} — try ${REST_NAMES.map(n => `'${n}'`).join(', ')}`)
@@ -127,6 +161,13 @@ export function dotGapConsole(render: () => void): DotGapConsole {
         dbg(`${mark} ${name.padEnd(12)} ${head.toFixed(2).padStart(9)} ${dot.toFixed(2).padStart(8)}   ${source}`)
       }
       dbg('  ⚠️ Look at a DOUBLE-dotted note — five rows differ only in the second column.')
+      dbg(`[dots] FLAG rows (armed: ${dotFlagSettings().rule}) — __dots.flag(…):`)
+      for (const name of FLAG_NAMES) {
+        const row = DOT_FLAG_RULES[name]
+        const mark = name === dotFlagSettings().rule ? '✅' : '  '
+        const what = 'vexflow' in row ? 'always, the flag’s width' : `${row.when}, ${row.clear.toFixed(2)} past the flag`
+        dbg(`${mark} ${name.padEnd(12)} ${what.padEnd(28)} ${row.source}`)
+      }
       dbg(`[dots] REST rows (armed: ${restDotGapSettings().rule}) — __dots.restGap(…):`)
       for (const name of REST_NAMES) {
         const row = REST_DOT_GAP_RULES[name]

@@ -16,7 +16,10 @@
  * }
  * ```
  *
- * ## ⚠️ `forceFlagRight`, and why it is transcribed rather than reasoned about
+ * ## ⚠️ `forceFlagRight` — ⛔ RETIRED for the dot (2026-09-25, docs/plans/multiple-dots-plan.md P4c)
+ *
+ * The dot now asks with `ignoreFlag`, and the flag's push is a preset row (`layout/dotFlag`); its `vexflow`
+ * row adds the flag's width exactly as `forceFlagRight` did. What follows is the history.
  *
  * A dot asks the note for its modifier point with that flag set; an accidental does not. It is what
  * pushes a dot clear of a stem-up flag, and it is the source of the *"a beamed eighth gets the flag
@@ -142,7 +145,9 @@ export class EngravedDot extends EngravedModifier implements InkSurfaceAware {
     // ⚠️ Tablature is VexFlow's path and unreachable in this repo (see the header) — refused, never guessed.
     if (note.getCategory() === 'TabNote') throw new Error('EngravedDot: a dot on a TabNote is not transcribed.')
 
-    const start = note.getModifierStartXY(this.position, this.checkIndex(), { forceFlagRight: true })
+    // ⭐ With NO flag in the way (P4c): whether a stem-up flag pushes the dot, and how far, is the armed
+    //    `layout/dotFlag` row — `rendering/format/dotPlacement.placeDots` applies it as this dot's x-shift.
+    const start = note.getModifierStartXY(this.position, this.checkIndex(), { ignoreFlag: true })
     // ⚠️ THE WRITE-BACK: `this.x`/`this.y` are what anything asking this dot where it landed reads.
     this.x = start.x
     this.y = dotBaselineY(start.y, this.dotShiftY, requireNoteFrame(note).spacePx)

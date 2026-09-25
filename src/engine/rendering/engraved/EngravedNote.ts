@@ -1662,7 +1662,7 @@ export class EngravedNote {
    * itself by that throw, is a plain `StaveNote` that keeps it).
    */
   getModifierStartXY(
-    position: number, index: number, options: { forceFlagRight?: boolean } = {},
+    position: number, index: number, options: { forceFlagRight?: boolean; ignoreFlag?: boolean } = {},
   ): { x: number; y: number } {
     const ruler = noteRuler(this)
     const headY = ruler.headYs[index]
@@ -1671,7 +1671,9 @@ export class EngravedNote {
       glyphWidth: ruler.glyphWidth,
       xShift: this.xInputs().xShift,
       stemDirection: ruler.stemDirection,
-      hasFlag: ruler.hasFlag,
+      // ⭐ `ignoreFlag` — the DOT's question since P4c: where does a right modifier start with no flag in the
+      //    way? Whether the flag pushes it, and how far, is `layout/dotFlag`'s row, applied by `placeDots`.
+      hasFlag: options.ignoreFlag ? false : ruler.hasFlag,
       flagWidth: () => this.flag.getWidth(),
       hasStem: ruler.hasStem,
       stemX: () => ruler.stemX,
@@ -1682,6 +1684,12 @@ export class EngravedNote {
       spacePx: requireNoteFrame(this).spacePx,
       markAnchor: this.markAnchor,
     }, !!options.forceFlagRight)
+  }
+
+  /** The drawn flag's WIDTH in px (0 with no flag) — what VexFlow's `forceFlagRight` added to a dot's start,
+   *  the `vexflow` row of `layout/dotFlag`. */
+  getFlagWidthPx(): number {
+    return this.hasFlag() ? this.flag.getWidth() : 0
   }
 
   drawFlag(): void {

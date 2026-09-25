@@ -64,12 +64,19 @@ test('a double-dotted REST: 0.4 sp from the rest, 0.25 sp between dots (`restDot
   expect(gap(dots[1], next), 'the next glyph clears the dots').toBeGreaterThan(0.3)
 })
 
-test('NOW — a stem-up FLAGGED eighth: its dot stands past the flag, ≈0.35 sp off it (R2)', async ({ score }) => {
+test('a stem-up FLAGGED eighth ON A LINE: its dot is level with the flag, so it clears it by 0.3 sp (`dotFlag` `gould`, P4c — VexFlow 0.35)', async ({ score }) => {
   const d = await draw(score, `e.addNoteAtBeat({ step: 'G', octave: 4, duration: '8', dots: 1, measure: 1, beat: f(0, 1) }); e.addNoteAtBeat({ step: 'G', octave: 4, duration: 'q', measure: 1, beat: f(1, 1) })`)
   const flag = first(d, 'flag')
   const [dot] = dotsOf(d)
   expect(dot.x, 'right of the flag').toBeGreaterThan(flag.x + flag.w)
-  expect(gap(flag, dot)).toBeCloseTo(0.35, 1)
+  expect(gap(flag, dot), 'Gould p. 55, her eighth measured').toBeCloseTo(0.3, 1)
+})
+
+test('a stem-up FLAGGED eighth IN A SPACE: its dot sits BELOW the flag, so `gould` does not push it (P4c)', async ({ score }) => {
+  // A4: the dot stays in the head's own space, under the flag's tail — Gould p. 55 moves it only *"should
+  // the end of a tail coincide with the position of the dot"*. VexFlow pushed it past the flag regardless.
+  const d = await draw(score, `e.addNoteAtBeat({ step: 'A', octave: 4, duration: '8', dots: 1, measure: 1, beat: f(0, 1) }); e.addNoteAtBeat({ step: 'A', octave: 4, duration: 'q', measure: 1, beat: f(1, 1) })`)
+  expect(gap(first(d, 'notehead'), dotsOf(d)[0]), 'the head gap, as an unflagged note').toBeCloseTo(0.5, 1)
 })
 
 test('NOW — a BEAMED dotted eighth is NOT pushed: 0.5 sp off its head, like an unflagged note (R2)', async ({ score }) => {
