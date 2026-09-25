@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { INK, minColumnGap, accidentalExtent, dotExtent, pairPadding } from './spacingPadding'
+import { INK, minColumnGap, accidentalExtent, dotExtent, pairPadding, restDotExtent, restExtent } from './spacingPadding'
+import { resetRestDotGapRule, setRestDotGapRule } from './restDotGap'
 import { DOT_GAP_RULES, resetDotGapRule, setDotGapRule, type DotGapRuleName } from './dotGap'
 import { noteDotXs } from './noteDotXs'
 
@@ -76,6 +77,19 @@ describe('the measured extents', () => {
     }
     resetDotGapRule()
     expect(dotExtent(2), 'the armed `gould`: 0.24 sp tighter than `house`').toBeCloseTo(2.76, 6)
+  })
+})
+
+describe('⭐ a REST’s dots take room (multiple-dots-plan P4b)', () => {
+  it('past the glyph: the rest row’s head gap, each dot its width, the dot gap between', () => {
+    expect(restDotExtent('h', 0)).toBe(restExtent('h'))
+    expect(restDotExtent('h', 2)).toBeCloseTo(restExtent('h') + 0.4 + 2 * INK.dotWidth + 0.25, 6)
+  })
+
+  it('follows the armed REST row — `vexflow` is the old 0.2 / 0.1', () => {
+    setRestDotGapRule('vexflow')
+    expect(restDotExtent('h', 2)).toBeCloseTo(restExtent('h') + 0.2 + 2 * INK.dotWidth + 0.1, 6)
+    resetRestDotGapRule()
   })
 })
 

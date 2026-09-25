@@ -10,16 +10,17 @@ import {
 } from './dotPlacement'
 import { attachEngravedDots, dotsOn } from '../engraved/EngravedDot'
 import { armedDotGap, resetDotGapRule, setDotGapRule } from '@/engine/layout/dotGap'
+import { armedRestDotGap, resetRestDotGapRule, setRestDotGapRule } from '@/engine/layout/restDotGap'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 
 /** What the armed row asks for, in pixels — recomputed per assertion, ⛔ never captured. */
 const headPx = () => armedDotGap().head * STAFF_SPACE_PX
 const dotPx = () => armedDotGap().dot * STAFF_SPACE_PX
 
-afterEach(() => resetDotGapRule())
+afterEach(() => { resetDotGapRule(); resetRestDotGapRule() })
 
 describe('the gap a dot stands off its notehead', () => {
-  it('is half a staff space — the armed `house` row', () => {
+  it('is half a staff space — the armed row’s head gap (`gould`, as `house` before it)', () => {
     expect(armedDotGap().head).toBe(0.5)
     expect(headPx()).toBe(5)
   })
@@ -90,5 +91,35 @@ describe('⭐⭐ the armed ROW is what both numbers come from', () => {
     setDotGapRule('verovio')
     resetDotGapRule()
     expect(armedDotGap().head).toBe(0.5)
+  })
+})
+
+describe('⭐ a REST reads its OWN table (docs/plans/multiple-dots-plan.md P4b)', () => {
+  const dottedRest = (dots: number) => {
+    const rest = new EngravedNote({ keys: ['b/4'], duration: 'hr' })
+    for (let i = 0; i < dots; i++) attachEngravedDots(rest)
+    return rest
+  }
+
+  it('its dots buy the REST row’s dot→dot room, ⛔ not the note’s', () => {
+    const rest = dottedRest(2)
+    const before = dotsOn(rest).map(d => d.getWidth())
+    reserveDotRoom(rest)
+    const extra = armedRestDotGap().dot * STAFF_SPACE_PX - VEXFLOW_DOT_SPACING
+    expect(dotsOn(rest).map((d, i) => d.getWidth() - before[i])).toEqual([extra, extra])
+    expect(extra, '`gould` 0.25 against the note’s 0.26').not.toBe(dotReservationPx())
+  })
+
+  it('its shift off the glyph is the REST row’s head gap', () => {
+    expect(dotShift(false, armedRestDotGap())).toBeCloseTo(armedRestDotGap().head * STAFF_SPACE_PX - VEXFLOW_DOT_BASE_GAP, 10)
+  })
+
+  it('`vexflow` reproduces what a rest drew until P4b — nothing bought, nothing moved', () => {
+    setRestDotGapRule('vexflow')
+    const rest = dottedRest(2)
+    const before = dotsOn(rest).map(d => d.getWidth())
+    reserveDotRoom(rest)
+    expect(dotsOn(rest).map(d => d.getWidth())).toEqual(before)
+    expect(dotShift(false, armedRestDotGap())).toBe(0)
   })
 })

@@ -37,7 +37,7 @@ import { beamRoleAt, isBeamableDuration } from '@/utils/beaming'
 import { getMeterInfo } from '@/utils/meter'
 import { staffLineForSpelling, type StaffClefs } from '@/utils/clefUtils'
 import { C_MAJOR, type StaffKeys } from '@/utils/keySignature'
-import { INK, INK_HEIGHT, STEM_REACH, accidentalExtent, accidentalHeight, dotExtent, pairPadding, restBand, restExtent } from './spacingPadding'
+import { INK, INK_HEIGHT, STEM_REACH, accidentalExtent, accidentalHeight, dotExtent, pairPadding, restBand, restDotExtent, restExtent } from './spacingPadding'
 import { edgeKind, mergedReach, type InkBox } from './kerning'
 import type { Column } from './spacing'
 import { graceGroupScale, graceStemSpaces, hostLeftReach } from './graceRoom'
@@ -136,6 +136,9 @@ function slotInk(slot: ChordRest, signs: Map<string, string | null>, clef: Clef,
     const band = restBand(slot.duration)
     // ⭐ A CUE rest's own ink at its size (cue-size-plan P3) — ⛔ not its graces', which keep theirs (P4).
     const own: RawInk = [{ left: 0, right: restExtent(slot.duration), ...band, kind: 'rest', staff }]
+    // ⭐ …and its DOTS (multiple-dots-plan P4b) — a box past the glyph, on the rest's own band (the safe
+    //    side: a rest's dot rides beside its top hook or breast, inside that band).
+    if (slot.dots) own.push({ left: restExtent(slot.duration), right: restDotExtent(slot.duration, slot.dots), ...band, kind: 'dot', staff })
     const k = slotScale(slot)
     if (k !== 1) shrinkCueInk(own, k, undefined)
     // ⭐ A grace before a REST (D7 reversed) is the rest's left ink, as a note's is.

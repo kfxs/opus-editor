@@ -179,6 +179,8 @@ export function createStaveNotesFromSlots(
       for (let d = 0; d < (slot.dots || 0); d++) {
         attachEngravedDots(staveNote)
       }
+      // ⭐ A rest's dots buy their room as a note's do, from the REST's table (multiple-dots-plan P4b).
+      if (slot.dots) reserveDotRoom(staveNote)
       // Multi-voice: lift V1 rests / drop V2 rests so the two streams don't collide.
       if (shift) staveNote.setKeyLine(0, staveNote.getLineForRest() + shift)
       staveNotes.push(staveNote)

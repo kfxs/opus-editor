@@ -42,6 +42,7 @@ import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { restStaffLine } from './restPlacement'
 import { armedAccidentalGap } from './accidentalGap'
 import { DOT_GAP_RULES, armedDotGap } from './dotGap'
+import { armedRestDotGap } from './restDotGap'
 import {
   accidentalGlyph,
   differenceFromDefault,
@@ -366,6 +367,20 @@ const REST_WIDTH: Record<NoteDuration, number> = {
 /** How wide a rest of this duration is, in staff spaces. */
 export function restExtent(duration: NoteDuration): number {
   return shifted(REST_WIDTH[duration] ?? REST_WIDTH.q, () => glyphBox(restGlyph(duration)).right)
+}
+
+/**
+ * ⭐ How far right of a REST's anchor its augmentation dots reach, in staff spaces — its glyph, then the
+ * rest's own two gaps (`layout/restDotGap`, docs/plans/multiple-dots-plan.md P4b), each dot its width.
+ *
+ * 🚨 Until 2026-09-25 a rest's dots had NO room at all: its ink box was the glyph alone, and VexFlow's
+ * 0.2 / 0.1 sp placement hid in the padding after it. The same promise as {@link dotExtent}: ONE row feeds
+ * the room and the ink. The dot→dot gap never under VexFlow's 1 px, as the drawing.
+ */
+export function restDotExtent(duration: NoteDuration, dots: number): number {
+  if (dots <= 0) return restExtent(duration)
+  const { head, dot } = armedRestDotGap()
+  return restExtent(duration) + head + INK.dotWidth * dots + Math.max(0.1, dot) * (dots - 1)
 }
 
 /**

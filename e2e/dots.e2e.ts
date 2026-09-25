@@ -51,14 +51,17 @@ test('a triple-dotted note: 0.5 sp from the head, 0.26 sp between dots (`dotGap`
   expect(new Set(dots.map(g => g.y)).size, 'every dot at one height').toBe(1)
 })
 
-test('NOW — a double-dotted REST keeps VexFlow’s gaps: 0.2 sp from the rest, 0.1 sp between dots (R4)', async ({ score }) => {
+test('a double-dotted REST: 0.4 sp from the rest, 0.25 sp between dots (`restDotGap` `gould`, P4b — VexFlow drew 0.2 / 0.1)', async ({ score }) => {
   const d = await draw(score, `const n = e.addNoteAtBeat({ step: 'A', octave: 4, duration: 'h', dots: 2, measure: 1, beat: f(0, 1) }); e.convertToRest(n.id)`)
   const [rest] = d.glyphs
   const dots = dotsOf(d)
   expect(rest.code, 'a half rest').toBe('e4e4')
   expect(dots).toHaveLength(2)
-  expect(gap(rest, dots[0])).toBeCloseTo(0.2, 1)
-  expect(gap(dots[0], dots[1])).toBeCloseTo(0.1, 1)
+  expect(gap(rest, dots[0]), 'Gould pp. 38 + 162').toBeCloseTo(0.4, 1)
+  expect(gap(dots[0], dots[1])).toBeCloseTo(0.25, 1)
+  // ⭐ …and the room is bought: what follows the rest stands clear of its last dot.
+  const next = d.glyphs.find(g => g.x > dots[1].x && g.cls !== 'dot')!
+  expect(gap(dots[1], next), 'the next glyph clears the dots').toBeGreaterThan(0.3)
 })
 
 test('NOW — a stem-up FLAGGED eighth: its dot stands past the flag, ≈0.35 sp off it (R2)', async ({ score }) => {

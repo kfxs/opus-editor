@@ -55,14 +55,15 @@
  *  - {@link placeDots} runs after `formatter.format`, and moves the ink. It has to be after:
  *    `Dot.format` assigns each dot's `xShift` from scratch.
  *
- * ⛔ **Not rests.** A dotted rest keeps VexFlow's placement: the dot follows a glyph of a quite
- * different shape, and the convention gives it a *smaller* distance than a note's (MuseScore keeps
- * `dotRestDistance` below `dotNoteDistance`). He reported notes; this changes notes.
+ * ⭐ **Rests too, since 2026-09-25** (docs/plans/multiple-dots-plan.md P4b): a rest reads its OWN table,
+ * `layout/restDotGap` (`gould` armed), through the same two steps. Until then it kept VexFlow's placement —
+ * a scope choice of `642c82f` that cited MuseScore's `dotRestDistance`, which MuseScore 4 reads nowhere.
  */
 import type { EngravedNote } from '../engraved/EngravedNote'
 import { dotsOn } from '../engraved/EngravedDot'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { armedDotGap } from '@/engine/layout/dotGap'
+import { armedRestDotGap } from '@/engine/layout/restDotGap'
 import { MODIFIER_RIGHT_GAP_PX, VEXFLOW_DOT_SPACING } from '@/engine/engrave/inheritedDefaults'
 
 /** A stem pointing up — VexFlow's `Stem.UP`. */
@@ -77,8 +78,13 @@ const STEM_UP = 1
  * would then report a change the drawing had never seen — the same trap the spacing law and the
  * header ladder each carry a warning about.
  */
-function dotGapSpaces(): number {
-  return armedDotGap().head
+function dotGapSpaces(gaps: { head: number } = armedDotGap()): number {
+  return gaps.head
+}
+
+/** The two gaps a note's dots take — a REST's from its own table (`layout/restDotGap`, P4b). */
+function gapsOf(note: EngravedNote): { head: number; dot: number } {
+  return note.isRest() ? armedRestDotGap() : armedDotGap()
 }
 
 /** …in pixels. Pinned to the score's staff space rather than read per stave, so the room reserved on
@@ -87,14 +93,14 @@ function dotGapSpaces(): number {
  *  ⭐ A staff can be drawn SMALL and this needs no change: the ink is drawn inside that staff's own
  *  `<g transform="scale(k)">`, so it shrinks with everything else. ⛔ Multiplying by the staff's size
  *  here would scale it twice (docs/plans/staff-size-plan.md §1). */
-function dotGapPx(): number {
-  return dotGapSpaces() * STAFF_SPACE_PX
+function dotGapPx(gaps: { head: number } = armedDotGap()): number {
+  return dotGapSpaces(gaps) * STAFF_SPACE_PX
 }
 
 /** The DOT→DOT gap in pixels — ⚠️ a different number from {@link dotGapPx} in five of the eight
  *  sourced rows, and the whole reason the table has two columns. */
-function dotToDotPx(): number {
-  return armedDotGap().dot * STAFF_SPACE_PX
+function dotToDotPx(gaps: { dot: number } = armedDotGap()): number {
+  return gaps.dot * STAFF_SPACE_PX
 }
 
 /** `Dot.format`'s own dot-to-dot gap — re-exported from `engrave/inheritedDefaults`, where it lives. */
@@ -109,8 +115,8 @@ export { VEXFLOW_DOT_SPACING }
  * ⭐ It reads the `dot` column and {@link dotShift} reads the `head` one — which used to be the same
  * number and is not in five of the eight rows (`layout/dotGap`).
  */
-export function dotReservationPx(): number {
-  return Math.max(0, dotToDotPx() - VEXFLOW_DOT_SPACING)
+export function dotReservationPx(gaps: { dot: number } = armedDotGap()): number {
+  return Math.max(0, dotToDotPx(gaps) - VEXFLOW_DOT_SPACING)
 }
 
 /**
@@ -119,7 +125,7 @@ export function dotReservationPx(): number {
  * trap `ledgerAccidentalClearance` documents for accidentals).
  */
 export function reserveDotRoom(note: EngravedNote): void {
-  const extra = dotReservationPx()
+  const extra = dotReservationPx(gapsOf(note))
   for (const dot of dotsOn(note)) dot.setWidth(dot.getWidth() + extra)
 }
 
@@ -141,8 +147,8 @@ export const VEXFLOW_DOT_BASE_GAP = MODIFIER_RIGHT_GAP_PX
  * it too and its dot stands ~7px out with no flag to clear. Wider than the rule wants, narrower
  * than a fault — and pulling it in would move ink he did not report.
  */
-export function dotShift(clearsFlag: boolean): number {
-  return clearsFlag ? 0 : Math.max(0, dotGapPx() - VEXFLOW_DOT_BASE_GAP)
+export function dotShift(clearsFlag: boolean, gaps: { head: number } = armedDotGap()): number {
+  return clearsFlag ? 0 : Math.max(0, dotGapPx(gaps) - VEXFLOW_DOT_BASE_GAP)
 }
 
 /**
@@ -151,10 +157,10 @@ export function dotShift(clearsFlag: boolean): number {
  */
 export function placeDots(notes: EngravedNote[]): void {
   for (const note of notes) {
-    if (note.isRest()) continue
     const dots = dotsOn(note)
     if (!dots.length) continue
-    const shift = dotShift(note.hasFlag() && note.getStemDirection() === STEM_UP)
+    // A REST has no flag to clear, and its gaps are its own table's (P4b).
+    const shift = dotShift(!note.isRest() && note.hasFlag() && note.getStemDirection() === STEM_UP, gapsOf(note))
     if (shift <= 0) continue
     for (const dot of dots) dot.setXShift(dot.getXShift() + shift)
   }
