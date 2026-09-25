@@ -312,25 +312,25 @@ describe('slurCommands.createSlur — endpoint resolution, through the facade', 
 
     expect(engine.slur.flipSlur('nope')).toBe(false) // unknown id
   })
-  it('flipTuplet toggles auto ↔ flipped as one undo step', () => {
+  it('tuplet.flip toggles auto ↔ flipped as one undo step', () => {
     const tuplet = engine.createTupletAtBeat(1, 0, '8', { step: 'E', alter: 0, octave: 4 }, 3, 2, 0)!.tuplet
     const find = () => engine.getScore().measures[0].tuplets!.find(t => t.id === tuplet.id)!
     expect(find().placement).toBeUndefined() // auto
 
     // First flip from auto pins an explicit side.
-    expect(engine.flipTuplet(tuplet.id)).toBe(true)
+    expect(engine.tuplet.flip(tuplet.id)).toBe(true)
     const after = find().placement
     expect(after === 'above' || after === 'below').toBe(true)
 
     // Second flip round-trips back to auto (Sibelius-style x).
-    engine.flipTuplet(tuplet.id)
+    engine.tuplet.flip(tuplet.id)
     expect(find().placement).toBeUndefined()
 
     // Undo reverts the reset (one step) → back to the explicit side.
     expect(engine.undo()).toBe(true)
     expect(find().placement).toBe(after)
 
-    expect(engine.flipTuplet('nope')).toBe(false) // unknown id
+    expect(engine.tuplet.flip('nope')).toBe(false) // unknown id
   })
   // (JSON round-trip of slurs is covered in ScoreModel.test.ts — the engine's
   //  loadJSON triggers a full render, which the renderer stub here can't satisfy.)

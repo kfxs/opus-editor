@@ -15,6 +15,7 @@ import { createDurationSelection } from './durationSelection'
 import { createFanEditSelection } from './fanEditSelection'
 import { createTrillEditSelection } from './trillEditSelection'
 import { createBarlineEditSelection } from './barlineEditSelection'
+import { createTupletEditSelection } from './tupletEditSelection'
 import { createScoreTextSelection } from './scoreTextSelection'
 import { createHairpinEditSelection } from './hairpinEditSelection'
 import { createFanSelection } from './fanSelection'
@@ -106,6 +107,8 @@ interface EditorBus {
   trillEdit: ReturnType<typeof createTrillEditSelection>
   /** ⭐ The Properties barline chooser — the sign at one LINE, `:||:` included. */
   barlineEdit: ReturnType<typeof createBarlineEditSelection>
+  /** The Properties tuplet bracket chooser → `TupletEditController`. */
+  tupletEdit: ReturnType<typeof createTupletEditSelection>
   /** 🚧 The Add Title / Add Composer dialog — one field's new text. Command-only, and SCAFFOLDING
    *  (`engine/rendering/ScoreHeaderPass`). */
   scoreText: ReturnType<typeof createScoreTextSelection>
@@ -190,6 +193,7 @@ export function createEditorBus(): EditorBus {
     fanEdit: createFanEditSelection(),
     trillEdit: createTrillEditSelection(),
     barlineEdit: createBarlineEditSelection(),
+    tupletEdit: createTupletEditSelection(),
     scoreText: createScoreTextSelection(),
     hairpinEdit: createHairpinEditSelection(),
     fan: createFanSelection(),
@@ -236,6 +240,7 @@ export type { ArmedFanStamp, FanStampContext } from './fanStampSelection'
 export type { FanEditRequest } from './fanEditSelection'
 export type { TrillEditRequest } from './trillEditSelection'
 export type { BarlineEditRequest } from './barlineEditSelection'
+export type { TupletEditRequest } from './tupletEditSelection'
 export type { ScoreTextRequest } from './scoreTextSelection'
 export type { HairpinEditRequest } from './hairpinEditSelection'
 export type { NoteOffsetRequest } from './noteOffsetSelection'

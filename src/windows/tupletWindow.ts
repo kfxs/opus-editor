@@ -31,9 +31,9 @@ import { Button, Checkbox, GlyphSelect, Label, NumberInput, RadioGroup } from '.
  * group is created, and the renderer engraves them (`ScoreTuplet`). Every radio opens on the rule it
  * would have followed anyway, so a dialog you left alone engraves what a `Ctrl+`N tuplet engraves.
  *
- * ⚠️ It can only DRESS A TUPLET IT IS CREATING. There is no way to restyle one already in the score:
- * the window arms, and a tuplet under the selection is not offered. That is the open item — the shape
- * to copy is the Time Signature window's, which applies to a boxed bar and otherwise arms.
+ * ⚠️ It can only DRESS A TUPLET IT IS CREATING: the window arms, and a tuplet under the selection is not
+ * offered. ⭐ Restyling one that already stands is the PROPERTIES panel's (`properties/panels/tuplet`, his
+ * ask 2026-09-25) — the same three choices, through `bus.tupletEdit`.
  *
  * Two departures from the screenshot, both on purpose:
  *   • The advisory line is muted grey, not Sibelius's blue: that blue on our dark glass is a contrast

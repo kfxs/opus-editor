@@ -84,7 +84,7 @@ const FLIP_ELEMENT: {
   // comes FROM, not by an id of its own — a tie is a relation between two notes.
   tie: (engine, el) => engine.tie.flipTie(el.fromNoteId),
   // A tuplet flips its bracket/number side (above ↔ below).
-  tuplet: (engine, el) => engine.flipTuplet(el.id),
+  tuplet: (engine, el) => engine.tuplet.flip(el.id),
 }
 
 /**

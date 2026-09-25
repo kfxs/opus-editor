@@ -43,6 +43,7 @@ import { applyTiePairs, planTieSelection, toggleTie } from './models/tieOps'
 import type { CommandContext } from './commands/commandContext'
 import { ottavaCommands } from './commands/ottavaCommands'
 import { dynamicCommands } from './commands/dynamicCommands'
+import { tupletCommands } from './commands/tupletCommands'
 import { hairpinCommands } from './commands/hairpinCommands'
 import { pedalCommands } from './commands/pedalCommands'
 import { slurCommands } from './commands/slurCommands'
@@ -1168,6 +1169,8 @@ export class MusicEngine {
 
   /** Every edit the editor can make to a dynamic or expression word. */
   readonly dynamic = dynamicCommands(this.commandContext())
+
+  readonly tuplet = tupletCommands(this.commandContext())
 
   /**
    * The `staffId` string to stamp for a 0-based staff index, following the write
@@ -2429,28 +2432,6 @@ export class MusicEngine {
     return true
   }
 
-  /** Flip a tuplet's bracket/number with a Sibelius-style `x` toggle: auto ↔ flipped. When
-   *  the tuplet already carries an explicit `placement`, clear it back to the context-aware
-   *  auto default (voice/stem rule); otherwise set an explicit side opposite to whatever was
-   *  last *drawn* (read from the registry), so the first press always visibly flips. Two
-   *  presses round-trip to auto. Saves one undo step. @returns true if it flipped. */
-  flipTuplet(id: string): boolean {
-    const tuplet = this.scoreModel.getTuplet(id)
-    if (!tuplet) return false
-    if (tuplet.placement !== undefined) {
-      // Overridden → return to the auto (voice/stem-derived) default.
-      this.scoreModel.setTupletPlacement(id, undefined)
-      this.mutate('Reset tuplet to auto')
-      return true
-    }
-    // Auto → pin the opposite of the last-drawn side. Guarded so a stubbed/headless
-    // renderer just falls back to "above" (LOCATION_TOP = 1).
-    const el = this.renderer.getElementRegistry?.()?.getTupletById?.(id)
-    const currentDir = el?.tupletGeometry?.location ?? 1
-    this.scoreModel.setTupletPlacement(id, currentDir === 1 ? 'below' : 'above')
-    this.mutate('Flip tuplet')
-    return true
-  }
 
   // ⭐ A tie's COMMANDS — `flipTie`, the vertical nudge and its reset — are `engine/commands/tieCommands`.
   readonly tie = tieCommands(this.commandContext())

@@ -36,7 +36,7 @@ import { readFileSync } from 'node:fs'
 // ⚠️ MusicEngine 494 / ScoreModel 928 were RAISED once (grace notes P1, 2026-09-22) — the reason is in
 // docs/plans/code-shape-plan-2026-09-19.md, *After the plan*.
 const HUBS = [
-  { file: 'src/engine/MusicEngine.ts', kinds: 494, lines: null },
+  { file: 'src/engine/MusicEngine.ts', kinds: 486, lines: null },
   { file: 'src/engine/models/ScoreModel.ts', kinds: 915, lines: null },
   { file: 'src/engine/rendering/ScoreRenderer.ts', kinds: 803, lines: null },
   { file: 'src/interactions/controllers/MouseController.ts', kinds: 258, lines: 1035 },

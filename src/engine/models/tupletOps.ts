@@ -8,7 +8,7 @@
  * Nothing is injected any more: `deleteTuplet`'s rest fill is `restFillOps`, and the filler rests
  * of `refillTupletRemainder` are `slotPlacementOps.addRestSlot` (both were `ScoreModel` callbacks).
  */
-import type { Score, Measure, Note, NoteParams, Tuplet, TupletFormat, NoteDuration, Fraction } from '@/types/music'
+import type { Score, Measure, Note, NoteParams, Tuplet, TupletFormat, NoteDuration, Fraction, TupletBracket, TupletBracketEnd, TupletNumberStyle } from '@/types/music'
 import {
   tupletSpan,
   tupletScale,
@@ -137,6 +137,34 @@ export function setTupletPlacement(
   if (!tuplet) return false
   if (placement === undefined) delete tuplet.placement
   else tuplet.placement = placement
+  return true
+}
+
+/**
+ * ⭐ One edit to a tuplet's FORMAT — how the group is DRAWN (`TupletFormat`): what the mark prints, whether it
+ * gets a bracket, where the bracket ends. Each field absent = untouched; each is stored the way `createTuplet`
+ * stores it — the RULE's value (`auto`) absent, so a tuplet nobody argued with carries no look at all.
+ * ⚠️ `numberStyle` has no `auto` of its own in the model (absent IS auto), so the edit says `'auto'` to clear it.
+ */
+export interface TupletFormatEdit {
+  numberStyle?: TupletNumberStyle | 'auto'
+  bracket?: TupletBracket
+  bracketEnd?: TupletBracketEnd
+}
+
+/** Apply a {@link TupletFormatEdit}. Returns true if the tuplet was found. */
+export function setTupletFormat(score: Score, tupletId: string, edit: TupletFormatEdit): boolean {
+  const tuplet = getTuplet(score, tupletId)
+  if (!tuplet) return false
+  if (edit.numberStyle !== undefined) {
+    if (edit.numberStyle === 'auto') delete tuplet.numberStyle
+    else tuplet.numberStyle = edit.numberStyle
+  }
+  if (edit.bracket !== undefined) {
+    if (edit.bracket === 'auto') delete tuplet.bracket
+    else tuplet.bracket = edit.bracket
+  }
+  if (edit.bracketEnd !== undefined) tuplet.bracketEnd = edit.bracketEnd
   return true
 }
 

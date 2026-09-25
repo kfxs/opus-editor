@@ -25,6 +25,7 @@ import { SpanMarkGeometryController } from './interactions/propertyControllers/S
 import { FanEditController } from './interactions/propertyControllers/FanEditController'
 import { TrillEditController } from './interactions/propertyControllers/TrillEditController'
 import { BarlineEditController } from './interactions/propertyControllers/BarlineEditController'
+import { TupletEditController } from './interactions/propertyControllers/TupletEditController'
 import { CautionaryKeyGapController } from './interactions/propertyControllers/CautionaryKeyGapController'
 import { ScoreTextController } from './interactions/propertyControllers/ScoreTextController'
 import { openScoreTextWindow } from './windows/scoreTextWindow'
@@ -635,6 +636,7 @@ export function createEditorApp(host: HTMLElement): EditorApp {
   // rather than an element id — which is what makes the back-to-back `:||:` reachable at all
   // (docs/plans/barline-types-plan.md §8 P6).
   const barlineEdit = new BarlineEditController(getEngine, () => renderer.renderScore())
+  const tupletEdit = new TupletEditController(getEngine, () => renderer.renderScore())
   // ⭐ The cautionary key signature's trailing gap, from the Properties panel (his ask, 2026-08-28).
   const cautionaryKeyGap = new CautionaryKeyGapController(getEngine, () => renderer.renderScore())
   // …and the 🚧 Add Title / Add Composer dialog, on the same boundary. ⛔ Scaffolding.
@@ -1031,6 +1033,7 @@ export function createEditorApp(host: HTMLElement): EditorApp {
       hairpinEdit.destroy()
       scoreTextEdit.destroy()
       barlineEdit.destroy()
+      tupletEdit.destroy()
       cautionaryKeyGap.destroy()
       slurGeometry.destroy()
       hairpinGeometry.destroy()
