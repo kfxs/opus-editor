@@ -125,6 +125,12 @@ export type ElementType =
   | 'beam'
   | 'staff'
   | 'tie'
+  /**
+   * A GLISSANDO stroke (docs/plans/glissando-plan.md P4). ⚠️ ONE ENTRY PER DRAWN PIECE — a line across a
+   * system break registers twice, each carrying the same glissando `id`. `points` are the stroke's two
+   * ends, walked by `interactions/elements/glissando.ts`.
+   */
+  | 'glissando'
   | 'slur'
   | 'slur-handle'
   | 'slur-endpoint'

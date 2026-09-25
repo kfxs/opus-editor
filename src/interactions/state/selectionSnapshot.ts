@@ -280,6 +280,16 @@ export function selectedElements(state: EditorState, engine: MusicEngine | null)
     case 'tie':
       out.push({ kind: 'tie', data: { fromNoteId: element.fromNoteId, from: engine.getNote(element.fromNoteId) } })
       break
+    case 'glissandoLine': {
+      // The object, and the head it goes to NOW — derived every time (G4), so ⛔ never in `data`.
+      const glissando = engine.glissando.byId(element.id) ?? undefined
+      out.push({
+        kind: 'glissandoLine',
+        data: { glissando, anchor: glissando ? engine.getNote(glissando.noteId) : undefined },
+        derived: { targetNoteId: engine.glissando.targetOf(element.id) },
+      })
+      break
+    }
 
     case 'tuplet':
       // The OBJECT, like every other kind above — this used to report `{ id }` alone, so the one

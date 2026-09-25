@@ -132,6 +132,9 @@ export function anchorOfElement(engine: PasteAnchorEngine, element: SelectedElem
       return noteAnchor(engine, score.trills?.find(t => t.id === element.id)?.startNoteId)
     case 'tie':
       return noteAnchor(engine, element.fromNoteId)
+    // A glissando resolves through the note it hangs off, like the tie.
+    case 'glissandoLine':
+      return noteAnchor(engine, score.glissandi?.find(g => g.id === element.id)?.noteId)
     // The six sub-elements of a note ARE that note, positionally.
     case 'articulation':
     case 'accidental':

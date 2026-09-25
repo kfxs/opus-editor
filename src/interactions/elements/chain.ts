@@ -14,13 +14,13 @@
  * ⚠️ **It is TWO structures, because the two axes genuinely have two shapes.** The chain is
  * *ordered and partial*; the paint is *unordered and total*:
  *
- *  - {@link ELEMENT_HIT_ORDER} — 20 entries. ORDER IS THE CONTENT: an array position is the answer
+ *  - {@link ELEMENT_HIT_ORDER} — 21 entries. ORDER IS THE CONTENT: an array position is the answer
  *    to "who gets a press two glyphs both cover?", and the comments in it are the most valuable
  *    thing that used to be in `handleMouseDown`. `tuplet` and `measureRange` are NOT here: they are
  *    set by the pre-steps that run before the selection is cleared (a tuplet bracket press, a
  *    Ctrl+Shift box), which are gestures rather than kinds. `slur` appears here once, as an arc
  *    press; its endpoint HANDLES are a pre-step drag, also outside.
- *  - {@link ELEMENT_SPECS} — 22 entries, total over the union, so a twenty-third kind fails to BUILD
+ *  - {@link ELEMENT_SPECS} — 24 entries, total over the union, so a twenty-fifth kind fails to BUILD
  *    until it says how it paints. That is the guarantee `assertNeverElement` gives, from a table.
  *
  * ⚠️ Delete (`shortcutWiring`) and the Properties report (`selectionSnapshot`) deliberately stay as
@@ -52,6 +52,7 @@ import { KEY_SIGNATURE_ELEMENT } from './keySignature'
 import { TEMPO_ELEMENT } from './tempo'
 import { DYNAMIC_ELEMENT } from './dynamic'
 import { TIE_ELEMENT } from './tie'
+import { GLISSANDO_ELEMENT } from './glissando'
 import { SLUR_ELEMENT } from './slur'
 import { HAIRPIN_ELEMENT } from './hairpin'
 import { TRILL_ELEMENT } from './trill'
@@ -244,6 +245,10 @@ export const ELEMENT_HIT_ORDER: ReadonlyArray<ClickableElementSpec> = [
   TEMPO_ELEMENT,
   DYNAMIC_ELEMENT,
   TIE_ELEMENT,
+  // ⭐ The GLISSANDO line with the other lines drawn from one head to another: a thin straight stroke
+  //   hit-tested on its own ink, so where it crosses a slur's arc the nearer ink decides — it is here,
+  //   before the slur, because it is the thinner target (docs/plans/glissando-plan.md P4).
+  GLISSANDO_ELEMENT,
   SLUR_ELEMENT,
   // The hairpin immediately after the slur: both are spanners hit-tested by proximity to their own
   // ink, and where they overlap (a slur below the staff over a wedge) the ARC wins — it is the
@@ -327,6 +332,7 @@ export const ELEMENT_SPECS: Record<SelectedElement['kind'], ElementKindSpec> = {
   tempo: TEMPO_ELEMENT,
   dynamic: DYNAMIC_ELEMENT,
   tie: TIE_ELEMENT,
+  glissandoLine: GLISSANDO_ELEMENT,
   slur: SLUR_ELEMENT,
   hairpin: HAIRPIN_ELEMENT,
   trill: TRILL_ELEMENT,

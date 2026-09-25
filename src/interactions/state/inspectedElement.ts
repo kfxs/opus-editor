@@ -8,7 +8,7 @@
  * objects, for something that wants to show it. Two names because they are two things.
  */
 import type {
-  Dynamic, EngravingOverride, Hairpin, Measure, Note, Ottava, Pedal, Slur, TempoMark, Trill, Tuplet,
+  Dynamic, EngravingOverride, Glissando, Hairpin, Measure, Note, Ottava, Pedal, Slur, TempoMark, Trill, Tuplet,
 } from '../../types/music'
 import type { BarlineSignKind } from '@/engine/models/boundarySign'
 import type { ScoreTextField } from '@/engine/models/scoreTextOps'
@@ -94,6 +94,8 @@ export type InspectedElement =
   | Report<'stem', OnNote>
   | Report<'tremolo', OnNote>
   | Report<'tie', { fromNoteId: string; from: Note | undefined }>
+  /** ⭐ A GLISSANDO: the model object, and the head it goes to right now (derived — G4), or null. */
+  | Report<'glissandoLine', { glissando: Glissando | undefined; anchor: Note | undefined }, { targetNoteId: string | null }>
   | Report<'tuplet', Located<Tuplet>>
   | Report<'clef', {
     measure: number; beat: number; staff: number

@@ -777,6 +777,13 @@ export type SelectedElement =
    */
   | { kind: 'headEnclosure'; noteId: string }
   /**
+   * ⭐ A GLISSANDO's line (docs/plans/glissando-plan.md P4), by its id. Delete removes it; the notes stay.
+   * ⚠️ Named `glissandoLine`, ⛔ not `glissando`: `lint:hubs` reads every kind name as a word, and
+   * `MusicEngine`'s facade already says `glissando` (`engine.glissando`, the commands) — the
+   * `headEnclosure` precedent.
+   */
+  | { kind: 'glissandoLine'; id: string }
+  /**
    * A slot's STEM — the anchor note id the stem registers against. A chord has ONE stem, anchored
    * on its lowest pitch, exactly as its dots and articulations are, so "the stem of one head of a
    * chord" has no representation.

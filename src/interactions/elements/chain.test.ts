@@ -17,11 +17,11 @@ import { MARK_KINDS } from '../clipboard/enclosedMarks'
 const ALL_KINDS: SelectedElement['kind'][] = [
   'clef', 'timeSignature', 'keySignature', 'tempo', 'dynamic', 'tie', 'slur', 'hairpin', 'trill',
   'ottava', 'pedal', 'accidental', 'articulation', 'dot', 'tremolo', 'stem', 'barline', 'repeatStart',
-  'tuplet', 'measureRange', 'scoreText', 'staffGroup', 'headEnclosure',
+  'tuplet', 'measureRange', 'scoreText', 'staffGroup', 'headEnclosure', 'glissandoLine',
 ]
 
 describe('ELEMENT_SPECS — total over the union', () => {
-  it('answers for all twenty-three kinds, and nothing else', () => {
+  it('answers for all twenty-four kinds, and nothing else', () => {
     expect(Object.keys(ELEMENT_SPECS).sort()).toEqual([...ALL_KINDS].sort())
   })
 
@@ -102,7 +102,9 @@ describe('ELEMENT_HIT_ORDER — the priority chain', () => {
       // ⭐ The pedal follows the ottava, and its position is nearly free: the pedal is drawn BELOW
       // the staff and an 8va above it, so only an 8vb can contend — where the inner mark wins, as
       // everywhere in this run. What matters more is that it claims only its two GLYPH boxes.
-      'tie', 'slur', 'hairpin', 'trill', 'ottava', 'pedal', 'accidental',
+      // ⭐ The GLISSANDO line sits between the tie and the slur: a thin straight stroke hit on its own ink,
+      // the thinner target where it crosses an arc (docs/plans/glissando-plan.md P4).
+      'tie', 'glissandoLine', 'slur', 'hairpin', 'trill', 'ottava', 'pedal', 'accidental',
       // ⭐ A head's BRACKETS after its accidental (`(` stands outside the sign) and before the dot.
       'headEnclosure',
       'articulation',

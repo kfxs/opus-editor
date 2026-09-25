@@ -512,6 +512,15 @@ export function wireShortcuts(
             renderer.renderScore()
             return
           }
+          case 'glissandoLine': {
+            // Removes the line — its note stays, and becomes the selection to keep editing (the dot's shape).
+            const noteId = eng.glissando.byId(element.id)?.noteId
+            eng.glissando.remove(element.id)
+            state.selectedElement = null
+            if (noteId) selection.selectNote(noteId)
+            renderer.renderScore()
+            return
+          }
           case 'headEnclosure': {
             // Takes the head's brackets OFF — the note stays, and stays selected to keep editing,
             // like the dot above (parenthesised-note-plan N10).

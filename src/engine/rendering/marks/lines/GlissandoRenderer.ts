@@ -129,6 +129,17 @@ function drawStrokes(
       ctx.moveTo(stroke.x1, stroke.y1)
       ctx.lineTo(stroke.x2, stroke.y2)
       ctx.stroke()
+      // ⭐ P4 — each piece is clickable: its two ends, walked by `interactions/elements/glissando`. In the
+      //   staff's own space, like the tie's (the registry is scaled with it — `inStaffSpace`).
+      pass.elementRegistry.add({
+        type: 'glissando',
+        id,
+        bbox: {
+          x: Math.min(stroke.x1, stroke.x2), y: Math.min(stroke.y1, stroke.y2),
+          width: Math.abs(stroke.x2 - stroke.x1), height: Math.abs(stroke.y2 - stroke.y1),
+        },
+        points: [{ x: stroke.x1, y: stroke.y1 }, { x: stroke.x2, y: stroke.y2 }],
+      })
     }
     ctx.restore()
   })

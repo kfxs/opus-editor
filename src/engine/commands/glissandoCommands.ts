@@ -6,7 +6,7 @@
  * ⛔ No `mutate` on a refusal: an edit that changed nothing leaves no undo entry.
  */
 import {
-  addGlissando, getGlissandoById, glissandoOn, removeGlissando, setGlissandoDirection, setGlissandoEnd, setGlissandoSide,
+  addGlissando, getGlissandoById, glissandoOn, glissandoTarget, removeGlissando, setGlissandoDirection, setGlissandoEnd, setGlissandoSide,
 } from '../models/glissandoOps'
 import type { CommandContext } from './commandContext'
 
@@ -64,5 +64,11 @@ export function glissandoCommands(ctx: CommandContext) {
 
     /** Find one by id. */
     byId: (id: string) => getGlissandoById(score(), id),
+
+    /** Where it goes RIGHT NOW (derived — G4): the target head's id, or null for a free end. */
+    targetOf: (id: string): string | null => {
+      const g = getGlissandoById(score(), id)
+      return g ? glissandoTarget(score(), g) : null
+    },
   }
 }
