@@ -84,6 +84,17 @@ export class EngravedDot extends EngravedModifier implements InkSurfaceAware {
   /** A width written over the measured one — see the header. Cleared by {@link setNote}. */
   private widthOverride: number | null = null
 
+  /** ⭐ DROPPED by a colliding chord's rule (`layout/chordDots`, P4e): not drawn, and no hit box. */
+  private dropped = false
+
+  setDropped(dropped: boolean): void {
+    this.dropped = dropped
+  }
+
+  isDropped(): boolean {
+    return this.dropped
+  }
+
   constructor() {
     super()
     this.position = MODIFIER_POSITION.RIGHT
@@ -141,6 +152,7 @@ export class EngravedDot extends EngravedModifier implements InkSurfaceAware {
     const context = this.checkContext()
     const note = this.checkAttachedNote() as EngravedNote
     this.setRendered()
+    if (this.dropped) return
 
     // ⚠️ Tablature is VexFlow's path and unreachable in this repo (see the header) — refused, never guessed.
     if (note.getCategory() === 'TabNote') throw new Error('EngravedDot: a dot on a TabNote is not transcribed.')

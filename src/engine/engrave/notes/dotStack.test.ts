@@ -43,7 +43,7 @@ describe('stackDots', () => {
   })
 
   it('no dots, no room', () => {
-    expect(stackDots([])).toEqual({ placed: [], width: 0 })
+    expect(stackDots([])).toEqual({ placed: [], width: 0, dropped: [] })
   })
 })
 
@@ -74,5 +74,31 @@ describe('stackDots — the TWO-PART rule (docs/plans/multiple-dots-plan.md P4d,
     expect(placed[0].shiftY, 'lifted — the overlap exception').toBe(-0.5)
     const verovio = stackDots([downG4, upE4], { twoParts: true, upStemLines: [1], downStemBelow: true, overlapLifts: false })
     expect(verovio.placed[0].shiftY, '`verovio` has no exception').toBe(0.5)
+  })
+})
+
+describe('stackDots — a chord whose dots COLLIDE (docs/plans/multiple-dots-plan.md P4e, `layout/chordDots`)', () => {
+  // C5 D5 E5 F5 in treble: lines 3.5, 4, 4.5, 5 — VexFlow's walk puts D5's dot in C5's space.
+  const cluster = [5, 4.5, 4, 3.5].map(line => dot(line, { noteKey: 'chord' }))
+  const spaces = (placed: { shiftY: number }[]) => placed.map((p, i) => cluster[i].line - p.shiftY)
+
+  it('`keep` (VexFlow’s, the default): two dots in ONE space — what we drew', () => {
+    expect(spaces(stackDots(cluster).placed)).toEqual([5.5, 4.5, 3.5, 3.5])
+  })
+
+  it('⭐ `centre` (Gould): a space each, centred on the chord', () => {
+    const { placed, dropped } = stackDots(cluster, undefined, 'centre')
+    expect(spaces(placed)).toEqual([5.5, 4.5, 3.5, 2.5])
+    expect(dropped.every(d => !d)).toBe(true)
+  })
+
+  it('`merge` (Verovio): the lower dot in a taken space is DROPPED', () => {
+    const { dropped } = stackDots(cluster, undefined, 'merge')
+    expect(dropped).toEqual([false, false, false, true])
+  })
+
+  it('⛔ a chord with NO collision is left exactly as the walk placed it (a triad)', () => {
+    const triad = [3, 2, 1].map(line => dot(line, { noteKey: 't' }))
+    expect(stackDots(triad, undefined, 'centre').placed).toEqual(stackDots(triad).placed)
   })
 })

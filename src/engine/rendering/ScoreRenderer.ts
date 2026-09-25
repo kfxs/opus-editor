@@ -12,6 +12,7 @@ import { armedStandoffPx, placeAccidentals } from './format/accidentalPlacement'
 import { EngravedNote, drawNoteInkThrough } from './engraved/EngravedNote'
 import { accidentalHitBox } from './painter/drawnHitBox'
 import { accidentalsOn } from './engraved/EngravedAccidental'
+import { EngravedDot } from './engraved/EngravedDot'
 import { hasArticulation } from './engraved/EngravedArticulation'
 import { drawLedgerLines } from '@/engine/engrave/notes/ledgerLines'
 import { placeDots } from './format/dotPlacement'
@@ -785,6 +786,7 @@ export class ScoreRenderer {
     try {
       for (const modifier of staveNote.getModifiers()) {
         if (modifier.getCategory() !== 'Dot') continue
+        if (modifier instanceof EngravedDot && modifier.isDropped()) continue // a colliding chord's surplus (P4e)
         const box = modifier.getBoundingBox()
         if (!box) continue
         this.elementRegistry.add({

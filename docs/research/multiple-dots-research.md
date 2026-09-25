@@ -1,6 +1,6 @@
 # Double and triple dots — and the single dot, re-checked: the research
 
-> **2026-09-25.** Three agents, for `docs/plans/multiple-dots-plan.md`: **Part A** the DURATION rule (a web
+> **2026-09-25.** Three agents (and a fourth for Part D, the collision algorithms), for `docs/plans/multiple-dots-plan.md`: **Part A** the DURATION rule (a web
 > check) · **Part B** the LITERATURE (Gould, Ross, Stone, Gerou & Lusk on disk — read on 450-dpi scans, the
 > plates MEASURED; SMuFL and the fonts' metadata) · **Part C** the ENGINES (Verovio, MuseScore, LilyPond —
 > source READ, not rendered: none is installed). §0 is the synthesis. The parts are the agents' reports,
@@ -81,6 +81,25 @@ clearer"* is **not in the book**. Ross, Stone, G&L: nothing on double-dotted res
 G&L p. 22: *"Multiple dots should be used only in situations where they will be easily understood."* Ross
 p. 171 marks `h.. 8` INCORRECT against `h.` tied to `8` + `8`. Triple dots: *"very uncommon"* — Wikipedia
 only; no treatise sentence (Wagner, Bruckner brass).
+
+### 0.7 A chord whose dots COLLIDE — the engines' algorithms (Part D, 2026-09-25)
+
+Read from source for P4e, ⛔ not yet ported (his call: *"is good to have it on the docs (not necessarily to
+implement it now)"*). ⚠️ The worked examples come from Python TRANSCRIPTIONS of the cited code, ⛔ not a running
+engine.
+
+| chord | Gould pp. 55–56 | LilyPond | MuseScore | ours (`gould`, P4e) |
+|---|---|---|---|---|
+| F4 G4 A4 B4 | 0.5 / 1.5 / 2.5 / 3.5 (her figure) | same | 1.5 1.5 2.5 3.5 — a COLLISION | 3.5 / 2.5 / 1.5 / 0.5 |
+| C5 D5 E5 F5 | 2.5 … 5.5 (her rule) | same | 3.5 3.5 4.5 5.5 — a collision | 5.5 / 4.5 / 3.5 / 2.5 |
+| E4 … E5 (8 heads) | the spaces it covers (her rule) | 6 dots, 0.5 … 5.5 (`chord-dots-limit` 3) | 8 dots in 5 spaces | 4 dots, 1.5 … 4.5 |
+
+- **LilyPond** agrees with Gould on every cluster's SHAPE (a cost-minimising chain shift, up-biased), and trims
+  tall clusters by `chord-dots-limit` (3 ⇒ one space beyond the chord each end; 1 would be nearer Gould).
+- **MuseScore 4** (as transcribed) lets two dots share a space whenever a line note has a second on BOTH sides —
+  the collision our `vexflow` row draws too — and never drops a dot.
+- ⚠️ Gould's own tall-cluster figure (p. 56) is a chord from the bottom line to ABOVE the top line with FIVE
+  dots — the five spaces it covers; E4–E5 above is her RULE applied, ⛔ not her drawing.
 
 ### 0.6 Corrections to earlier docs
 
@@ -446,3 +465,254 @@ A beamed note never gets the flag push in any of the three.
    engines align them (LilyPond always). Not tested in a browser — inferred from the code.
 9. Vertical: VexFlow's rule (ours) has no voice-parity rule — a line note's dot goes UP unless a second or a
    taken space flips it; the engines send voice 2's dots DOWN.
+
+---
+
+## Part D — a chord whose dots collide: LilyPond and MuseScore, from source
+
+Sources (read-only clones): `~/dev/engine-sources/lilypond` @ `beedbfa` (2026-08-03),
+`~/dev/engine-sources/MuseScore` @ `929d1e9` (2026-08-18).
+Neither engine binary is installed here, so the worked examples were produced by
+**transcribing the source into two small Python scripts and running those**
+(`ly.py`, `ms.py` in this scratchpad). They are faithful transcriptions of the code
+paths cited, restricted to one voice / one staff / no unisons / 5-line staff — but they
+are NOT engine output. Everything labelled *(read)* is read from source;
+*(inferred)* is my reasoning.
+
+Unit convention in results: bottom line = 1, a space = x.5 (treble E4 = 1, F4 = 1.5, …, F5 = 5).
+
+---------------------------------------------------------------------------------------
+### 1. LilyPond
+
+#### 1.1 Coordinates (read)
+- Staff position `p`: integer half-spaces, middle line = 0, lines at −4,−2,0,2,4
+  (`Staff_symbol::on_line`, lily/staff-symbol.cc:372–396; includes ledger lines, allow_ledger
+  defaults true, lily/include/staff-symbol.hh:40). Convert: `u = 3 + p/2`.
+- A note's dot starts at its head's rounded position; `staff-position` adds 0 for notes (only
+  rests get an offset) — `dots::calc-staff-position`, scm/output-lib.scm:652–664;
+  dot-column.cc:210–216.
+- Each dot's preferred direction `dir_` = the `Dots.direction` property (dot-column.cc:203–205):
+  unset (CENTER) in a single voice; `\voiceOne`/odd voices set UP, `\voiceTwo` DOWN
+  (Dots is in `direction-polyphonic-grobs`, scm/music-functions.scm:655–672, 704–712);
+  `\dotsUp/\dotsDown` also set it (ly/property-init.ly:365–367).
+- ONE `DotColumn` collects all dots of the column (both voices), and all its dots share
+  one x (dot-column.cc:229–232).
+
+#### 1.2 Algorithm — `Dot_column::calc_positioning_done` (lily/dot-column.cc:42–234)
+```
+0. Resolve note collisions first (may kill dots when merging heads)      :51–52
+   (note-collision.cc:259–312: merged unison heads keep one set of dots).
+1. dots := all Dots grobs in the column, sorted by staff position ASCENDING
+   (pure_position_less, :150; staff-symbol-referencer.cc:213–217).
+2. CHORD-DOTS-LIMIT (default 3, scm/define-grobs.scm:1262)                :152–180
+   for each stem whose first head carries a dot:
+     span      := top head pos − bottom head pos      (Stem::head_positions, stem.cc:103–112)
+     room      := floor((span + 2 + limit) / 2)       (size_t integer division, :169–171)
+     total     := number of this stem's dots
+     first     := 0
+     while total > room:
+        if (total − room) is EVEN: kill dots[first]; first++        (lowest remaining)
+        else:                      kill dots[first + total − 1]     (highest remaining)
+        total--
+   => alternately trims top and bottom so the survivors are centred on the chord;
+      the LAST removal (excess 1) always takes the TOP one.
+   Doc (scm/define-grob-properties.scm:203–205): the column is limited to
+   "the height of the chord plus chord-dots-limit staff-positions".
+3. cfg := empty map  position -> DotPosition{pos_ = wanted position, dir_}.
+4. for each surviving dot d in ascending order:                           :195–224
+     p := head position of d
+     remove_collision(p)          -- if p already occupied, shove the occupant(s) away
+     cfg[p] := d
+     if p is on a line (incl. ledger):   -- (kievan style excepted)
+        remove_collision(p)       -- shove d itself (and its neighbours) off the line
+5. write each dot's final position; x := column x_offset + padding (one dot width,
+   output-lib.scm:692). x_offset = max over the dots' rows of the right edge of the
+   "head skyline" (heads ±1.1 pos, stems, flags) at that row  (dot-configuration.cc:130–137,
+   dot-column.cc:76–141).
+```
+
+`remove_collision(p)` (lily/dot-configuration.cc:108–122):
+```
+if p not in cfg: return
+up   := shifted(p, +1);  down := shifted(p, −1)
+cfg  := (badness(up) < badness(down)) ? up : down        -- a TIE goes DOWN
+```
+
+`shifted(k, d)` (dot-configuration.cc:62–102) — builds a new map:
+```
+iterate cfg entries in order: ASCENDING if d = UP, DESCENDING if d = DOWN
+offset := 0
+for entry at key p:
+   if p == k:
+       p' := p + d   if p is on a line         (line -> adjacent space)
+             p + 2d  otherwise                 (space -> next space)
+       offset := 2d                            (NB: 2d even when k moved only 1)
+       new[p'] := entry
+   else:
+       if new has no key p: offset := 0        (chain broken: nothing was pushed onto p)
+       new[p + offset] := entry                (else carried along by 2d — the chain)
+```
+So the dot at k moves, and every dot that the move lands on is pushed a whole space
+further, in a chain, in direction d.
+
+`badness()` (dot-configuration.cc:26–44), summed over every dot:
+```
+delta  := final − wanted
+cost   := 2·delta²
+mv     := sign(delta)          (0 if not moved)
+if dir_ ≠ CENTER and mv ≠ dir_:  cost += 2
+else if mv ≠ UP:                 cost += 1      (an unmoved or down-moved dot costs 1)
+```
+i.e. quadratic displacement, plus a +1 bias against DOWN relative to UP (for CENTER dots)
+— a single line note's dot therefore goes UP (up costs 2, down costs 3).
+
+Tie-break: equal badness → DOWN (`b_up < b_down ? up : down`).
+Dots removed: only by step 2 (and by note-collision merging). No other dropping.
+
+#### 1.3 Worked examples (transcribed script `ly.py`; single voice, dir CENTER)
+| chord | limit trims | dot spaces (u) |
+|---|---|---|
+| (1) F4 G4 A4 B4 | room 4, none | **0.5, 1.5, 2.5, 3.5** |
+| (2) C5 D5 E5 F5 | room 4, none | **2.5, 3.5, 4.5, 5.5** |
+| (3) E4…E5 (8 heads) | span 7, room 6 → kill E4's dot, then E5's | **0.5, 1.5, 2.5, 3.5, 4.5, 5.5** (6 dots) |
+| E4…F5 (9 heads, the prompt's other wording) | span 8, room 6 → kill F5, E4, E5 | 0.5 … 5.5 (6 dots) |
+
+Trace of (1), positions in half-spaces (F4=−3 … B4=0):
+insert −3 → {−3}. Insert −2 (G4, line): no collision; then line-lift: up {−3,−1} b=3 vs down
+{−5,−3} b=12 → UP. Insert A4 at −1: occupied; up {−3,1} b=19 vs down {−5,−3} b=12 → DOWN
+(the G4 dot and the F4 dot are both pushed down a space), A4 takes −1 → {−5,−3,−1}.
+Insert B4 at 0 (line): lift, up {…,1} b=15 vs down b=64 → UP. Final {−5,−3,−1,1}.
+Note that the ASSIGNMENT of dots to heads is scrambled by the chain (only the SET of
+positions matters to the drawing).
+
+Other small cases (script): A4 B4 → 2.5,3.5; B4 C5 → 2.5,3.5; C5 E5 → 3.5,4.5; G4 B4 → 2.5,3.5;
+with Dots.direction UP or DOWN the three test chords come out the same; a lone B4 goes to
+3.5 (UP/CENTER) or 2.5 (DOWN).
+
+#### 1.4 vs Gould (pp. 55–56 as relayed)
+- Each dot its own space: **agrees** — the map cannot hold two dots at one key (by
+  construction; whether an overwrite in `shifted` can ever drop an entry I could not
+  exclude from reading — UNKNOWN, never observed in the three examples).
+- (1) F4–B4 = 3.5/2.5/1.5/0.5: **exact match**. (2) by analogy **matches** *(inferred: I
+  apply Gould's F4–B4 shape shifted up two spaces — she was not read for C5–F5)*.
+- Tall clusters: **agrees in kind, disagrees in count.** LilyPond keeps
+  `floor((span+2+3)/2)` dots — for E4–E5, 6 dots reaching 0.5 and 5.5, i.e. one space beyond
+  the chord at each end. Gould (as relayed): only the spaces the chord covers, 5 dots.
+  Setting `chord-dots-limit = 1` gives room = floor((7+3)/2) = 5 for E4–E5 *(inferred
+  arithmetic)*. ⚠ E4–E5 covers only four interior spaces (1.5, 2.5, 3.5, 4.5), so "5 dots"
+  must include one space outside the chord's ink or refer to a different chord — the caller
+  should re-check the Gould example's exact pitches.
+
+---------------------------------------------------------------------------------------
+### 2. MuseScore
+
+#### 2.1 Coordinates (read)
+- `Note::line()`: integer half-spaces, **0 = top line, increasing DOWNWARD**; even = on a
+  line (`!(line & 1)`, chordlayout.cpp:2485). Treble: F5=0, E5=1, … E4=8. Convert:
+  `u = 5 − line/2`. A dot's `dotMove` −1 = up half a space, +1 = down
+  (`setDotRelativeLine`: `y = dotMove/2` spaces, chordlayout.cpp:2560–2610).
+- `Chord::notes()` is kept sorted by pitch ascending → bottom note first
+  (dom/chord.cpp:630–654). In single voice `notes` = the chord's notes in that order
+  (chordlayout.cpp:1795–1807; only sorted when >1 voice).
+
+#### 2.2 Algorithm — `layoutChords3` (chordlayout.cpp:2680–2752) + `placeDots` (:2462–2558) + `getNoteListForDots` (:2845–2941)
+
+Step A — per-note preferred side (chordlayout.cpp:2696–2749), notes visited TOP → BOTTOM:
+```
+for i = n−1 down to 0:
+   dp := note.userDotPosition                    (user override wins)
+   if chord has dots and dp == AUTO and n > 1 and note visible and dots not hidden:
+      above := notes[i+1] (ignored if invisible / dots hidden / no dots / other voice not combined)
+      below := notes[i−1] (same filter)
+      intervalAbove := line − above.line   (1000 if none)
+      intervalBelow := below.line − line   (1000 if none)
+      if note on a LINE:
+         if intervalAbove == 1 and intervalBelow ≠ 1:  dp := DOWN   (second above only)
+         elif intervalBelow == 1 and intervalAbove ≠ 1: dp := UP    (second below only)
+         elif a unison: dp := AUTO (handled later)
+         -- a line note with a second BOTH sides stays AUTO
+      else (space): only the unison case is handled (:2730–2741)
+   if dp == AUTO: dp := (voice odd) ? DOWN : UP
+   note.dotPosition := dp
+```
+
+Step B — `getNoteListForDots` (single voice, no cross-staff; :2887–2903):
+```
+anchoredDots := [] ; topDownNotes := [] ; bottomUpNotes := []
+for note in chord.notes (bottom → top):
+   if note on a SPACE:
+       offset := 0
+       if anchoredDots.last == note.line:        (a unison in a space)
+           adjustDown := voice odd and stem down
+           offset := ±2 (away from the previous anchor; see :2893–2897)
+       anchoredDots.push(note.line + offset)      -- space dots are FIXED first
+   else:
+       topDownNotes.push(note)
+sort topDownNotes by line ascending  (top first);  bottomUpNotes by line descending (:2937–2940)
+```
+Multi-voice (:2904–2935): space notes of every voice anchor at their own line; line notes of
+a stem-down ODD voice (or staff-moved up) go to `bottomUpNotes`, all others to `topDownNotes`.
+
+Step C — `placeDots`, for each note in `notes` (bottom → top in single voice) (:2484–2557):
+```
+if note on a SPACE: dot stays in its own space (dotMove 0)       (:2542–2556, unison aside)
+else (LINE):
+   -- pass 1 over bottomUpNotes (empty in single voice), mirror of pass 2 (:2487–2510)
+   -- pass 2 re-simulates the line notes from the TOP DOWN until it reaches this note:
+   alreadyAdded := {}
+   for other in topDownNotes:
+       dotMove := (other.dotPosition == DOWN) ? +1 : −1
+       loc     := other.line + dotMove
+       added   := loc in alreadyAdded
+       if not added and loc in anchoredDots:           dotMove := −dotMove   -- flip ONCE
+       elif added and alreadyAdded[loc] ≠ other:      dotMove := −dotMove
+       if other == note:
+           set note's dots at dotMove; anchoredDots.push(note.line + dotMove); stop
+       if not added: alreadyAdded[other.line + dotMove] := other
+```
+Key properties *(read)*: a dot is only ever offered two places, the space above or below its
+own head; after one flip **the flipped location is not re-checked**, so two dots can land in
+the same space. Space notes are anchored before any line note. There is no cost function
+and no chain shifting.
+
+Step D — x: every note's dots share the chord's `dotPosX` (max right edge of the heads,
+:2772–2835; `setDotX` :2612–2672 aligns up/down-stem voices when they conflict).
+
+Dropping: **none for clusters.** `setDotRelativeLine` gives every note `chord.dots()` NoteDots
+(:2589–2604). Dots are hidden only for a shared unison head between voices (:2067–2087),
+a slash chord's invisible note (:3187–3189), or invisible notes (drawn not, tdraw.cpp:2414).
+
+#### 2.3 Worked examples (transcribed script `ms.py`; voice 1, stem up)
+| chord | Step A (line notes) | anchored spaces | dot spaces (u) |
+|---|---|---|---|
+| (1) F4 G4 A4 B4 | G4 AUTO→UP, B4 UP | 1.5, 2.5 | F4 1.5, **G4 1.5**, A4 2.5, B4 3.5 → 3 spaces, **G4 collides with F4** |
+| (2) C5 D5 E5 F5 | D5 AUTO→UP, F5 UP | 3.5, 4.5 | C5 3.5, **D5 3.5**, E5 4.5, F5 5.5 → **D5 collides with C5** |
+| (3) E4…E5 | E4 DOWN, G4/B4/D5 AUTO→UP | 1.5, 2.5, 3.5, 4.5 | E4 0.5, F4 1.5, G4 1.5, A4 2.5, B4 2.5, C5 3.5, D5 3.5, E5 4.5 → 8 dots in 5 spaces, **3 collided pairs** |
+
+Trace of (1): anchored = [F4→1.5, A4→2.5]. G4 (line): top-down re-sim — B4 wants 3.5, free,
+recorded; G4 wants 2.5 (UP), anchored by A4 → flip DOWN to 1.5 → **already F4's**, not re-checked.
+B4: wants 3.5, free → 3.5.
+Small cases that work: A4 B4 → 2.5/3.5; B4 C5 → 2.5/3.5; G4 A4 B4 → 1.5/2.5/3.5;
+E4 F4 G4 → 0.5/1.5/2.5. The failure needs a line note with a space-note second on BOTH sides.
+
+⚠ This collision result is *(read + transcribed)*, not observed in a running MuseScore. If
+the caller wants certainty, a MuseScore 4 build rendering `<f' g' a' b'>4.` settles it.
+
+#### 2.4 vs Gould
+- Each dot its own space: **disagrees** for (1)(2)(3) — duplicate spaces.
+- Centering on the chord / F4–B4 = 0.5–3.5: **disagrees** (1.5, 1.5, 2.5, 3.5; no dot at 0.5).
+- Tall clusters: **disagrees** — no limit; all 8 dots drawn (overprinted into 5 spaces). It
+  does happen to use only spaces within ½ space of the chord.
+
+---------------------------------------------------------------------------------------
+### 3. Summary table (dot spaces, u)
+| chord | Gould (relayed) | LilyPond | MuseScore |
+|---|---|---|---|
+| F4 G4 A4 B4 | 0.5 1.5 2.5 3.5 | 0.5 1.5 2.5 3.5 | 1.5 1.5 2.5 3.5 (collision) |
+| C5 D5 E5 F5 | 2.5 3.5 4.5 5.5 *(inferred from her F4–B4)* | 2.5 3.5 4.5 5.5 | 3.5 3.5 4.5 5.5 (collision) |
+| E4 … E5 | 5 dots (relayed; ⚠ only 4 spaces inside the chord) | 6 dots, 0.5 … 5.5 | 8 dots in 0.5 … 4.5, 3 collisions |
+
+Transcription notes for TypeScript: LilyPond's is the one worth porting — a sorted map of
+integer positions, insert bottom-up, a two-candidate (chain-shift up / down) choice by
+quadratic cost with an up-bias, and the `chord-dots-limit` trim done before placement.
+The limit is a ROW (default 3; 1 is closer to Gould's count — inferred).

@@ -29,6 +29,8 @@
  *   note's start. VexFlow's `Dot.format` reads it only for tablature, which this editor does not draw.
  */
 
+import { centredChordSpaces, type ChordDotCollision } from '@/engine/layout/chordDots'
+
 /** One dot, as the rule needs it. */
 export interface ColumnDot {
   /** The staff line of the head it belongs to (VexFlow's units: a space is a half). */
@@ -74,9 +76,12 @@ export const UNISON_DOT_SPACING_PX = 1
  * ⭐ Every dot of one column — `placed[i]` answers `dots[i]` — and how much room they take to the
  * right (the column's `rightShift` grows by `width`).
  */
-export function stackDots(dots: readonly ColumnDot[], parts?: TwoPartDots): { placed: PlacedDot[]; width: number } {
+export function stackDots(
+  dots: readonly ColumnDot[], parts?: TwoPartDots, collisions: ChordDotCollision = 'keep',
+): { placed: PlacedDot[]; width: number; dropped: boolean[] } {
   const placed: PlacedDot[] = dots.map(d => ({ xShift: 0, shiftY: d.shiftY }))
-  if (dots.length === 0) return { placed, width: 0 }
+  const dropped = dots.map(() => false)
+  if (dots.length === 0) return { placed, width: 0, dropped }
 
   const startOf = new Map<string, number>()
   for (const dot of dots) {
@@ -122,5 +127,46 @@ export function stackDots(dots: readonly ColumnDot[], parts?: TwoPartDots): { pl
     lastNote = noteKey
     lastIsRest = isRest
   }
-  return { placed, width }
+  if (collisions !== 'keep') resolveCollisions(dots, placed, dropped, collisions)
+  return { placed, width, dropped }
+}
+
+/**
+ * ⭐ A CHORD whose dots COLLIDE — two of its heads' dots in one space (P4e, `layout/chordDots`). Per note, after
+ * the walk: ⛔ a chord with no collision is left exactly as VexFlow placed it. `centre` re-seats every head's
+ * dots on Gould's centred run (dropping the surplus); `merge` drops a head's dots when a higher head already
+ * holds that space (Verovio). A head's second and third dots follow its first.
+ */
+function resolveCollisions(
+  dots: readonly ColumnDot[], placed: PlacedDot[], dropped: boolean[], collisions: ChordDotCollision,
+): void {
+  const byNote = new Map<string, number[]>()
+  dots.forEach((dot, i) => {
+    if (dot.isRest) return
+    byNote.set(dot.noteKey, [...(byNote.get(dot.noteKey) ?? []), i])
+  })
+  for (const members of byNote.values()) {
+    // The note's heads, top first, each with the space its dots took.
+    const lines = [...new Set(members.map(i => dots[i].line))].sort((a, b) => b - a)
+    const spaceOf = (line: number) => line - placed[members.find(i => dots[i].line === line)!].shiftY
+    const spaces = lines.map(spaceOf)
+    if (new Set(spaces).size === spaces.length) continue
+    const seat = (line: number, space: number | null) => {
+      for (const i of members) {
+        if (dots[i].line !== line) continue
+        if (space === null) dropped[i] = true
+        else placed[i].shiftY = line - space
+      }
+    }
+    if (collisions === 'merge') {
+      const taken = new Set<number>()
+      lines.forEach((line, k) => {
+        if (taken.has(spaces[k])) seat(line, null)
+        taken.add(spaces[k])
+      })
+    } else {
+      const seats = centredChordSpaces(lines)
+      lines.forEach((line, k) => seat(line, k < seats.length ? seats[k] : null))
+    }
+  }
 }

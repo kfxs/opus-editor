@@ -108,14 +108,21 @@ test('TWO VOICES CROSSED: the stem-down head ABOVE the stem-up one keeps the spa
   expect(dotsOf(d).some(g => Math.abs(g.y - (top.y - SP / 2)) < 0.5), 'G4’s dot in the space above its line').toBe(true)
 })
 
-test('NOW — a CLUSTER keeps every dot, and two land in ONE space (R5)', async ({ score }) => {
-  // C5 D5 E5 F5 — seconds all the way up. 🚨 D5's dot drops into C5's space: two dots drawn on top of
-  //    each other, which reads as one. Gould p. 55: *"Each dot should always have a stave-space to itself"*.
+test('a CLUSTER C5–F5: a space for every dot, centred on the chord (`chordDots` `gould`, P4e — VexFlow drew two in one space)', async ({ score }) => {
+  // Gould p. 55: *"Each dot should always have a stave-space to itself"*; p. 56: *"Centre the dots on the chord"*.
   const d = await draw(score, `e.addNoteAtBeat({ step: 'C', octave: 5, duration: 'q', dots: 1, measure: 1, beat: f(0, 1) }); for (const s of ['D', 'E', 'F']) e.addChordNote({ step: s, octave: 5, duration: 'q', dots: 1, measure: 1, beat: f(0, 1) })`)
   const dots = dotsOf(d)
   expect(dots, 'one dot per head — none dropped').toHaveLength(4)
   expect(new Set(dots.map(g => g.x)).size, 'one column').toBe(1)
-  expect(dots.map(g => g.y).sort((a, b) => a - b), 'two share a space').toEqual([55, 65, 75, 75])
+  // Staff top line at y 60 (F5); C5 is 75. Spaces 5.5 / 4.5 / 3.5 / 2.5 → y 55, 65, 75, 85.
+  expect(dots.map(g => g.y).sort((a, b) => a - b), 'four spaces, one each').toEqual([55, 65, 75, 85])
+})
+
+test('a TALL cluster E4–E5: only the spaces the chord covers carry a dot — the rest are dropped (Gould p. 56’s rule, P4e)', async ({ score }) => {
+  const d = await draw(score, `e.addNoteAtBeat({ step: 'E', octave: 4, duration: 'q', dots: 1, measure: 1, beat: f(0, 1) }); for (const [s, o] of [['F', 4], ['G', 4], ['A', 4], ['B', 4], ['C', 5], ['D', 5], ['E', 5]]) e.addChordNote({ step: s, octave: o, duration: 'q', dots: 1, measure: 1, beat: f(0, 1) })`)
+  const dots = dotsOf(d)
+  expect(dots, 'eight heads, four dots — the four spaces it covers').toHaveLength(4)
+  expect(new Set(dots.map(g => g.y)).size, 'each in its own space').toBe(4)
 })
 
 test('NOW — a dotted note TIED: the tie starts under the head, and the dot sits inside its arc (R7)', async ({ score }) => {

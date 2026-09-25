@@ -32,6 +32,7 @@ import { EngravedArticulation } from '../engraved/EngravedArticulation'
 import { staffLineY } from '@/engine/engrave/staff/staffFrame'
 import { EngravedAccidental } from '../engraved/EngravedAccidental'
 import { armedDotVoice } from '@/engine/layout/dotVoice'
+import { armedChordDots } from '@/engine/layout/chordDots'
 /** `Stem.DOWN` — VexFlow's -1. */
 const STEM_DOWN_DIR = -1
 import { EngravedDot } from '../engraved/EngravedDot'
@@ -288,7 +289,7 @@ export class ColumnModifiers {
       downStemBelow: rule.downStemBelow,
       overlapLifts: rule.overlapLifts,
     }
-    const { placed, width } = stackDots(ours.map(dot => {
+    const { placed, width, dropped } = stackDots(ours.map(dot => {
       const note = dot.getNote()
       if (!(note instanceof EngravedNote)) throw new Error('ColumnModifiers: a dot on a note that is not an EngravedNote')
       return {
@@ -301,8 +302,9 @@ export class ColumnModifiers {
         shiftY: dot.getShiftY(),
         stemDown: !note.isRest() && note.getStemDirection() === STEM_DOWN_DIR,
       }
-    }), parts)
+    }), parts, armedChordDots().collisions)
     ours.forEach((dot, i) => {
+      dot.setDropped(dropped[i])
       dot.setShiftY(placed[i].shiftY)
       dot.setXShift(placed[i].xShift)
     })

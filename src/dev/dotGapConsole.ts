@@ -52,6 +52,12 @@
  *   __dots.voice('verovio')    // below, no exception
  *   __dots.voice('vexflow')    // always up — what we drew until 2026-09-25
  *   __dots.voiceReset()
+ *
+ *   // ⭐ A CHORD whose dots collide — a cluster of seconds (P4e, `layout/chordDots`):
+ *   __dots.chord('gould')      // ✅ ARMED — a space each, centred; surplus dropped (pp. 55–56)
+ *   __dots.chord('verovio')    // coincident dots merge into one
+ *   __dots.chord('vexflow')    // two dots in one space — what we drew until 2026-09-25
+ *   __dots.chordReset()
  * ```
  *
  * ⚠️ **Look at a DOUBLE-dotted note**, not a single one: five of the eight rows differ only in the
@@ -63,6 +69,9 @@
  * with his choice as the citation and both files go.
  */
 import { dbg } from '@/utils/debug'
+import {
+  CHORD_DOT_RULES, chordDotSettings, resetChordDotRule, setChordDotRule, type ChordDotRuleName,
+} from '@/engine/layout/chordDots'
 import {
   DOT_VOICE_RULES, dotVoiceSettings, resetDotVoiceRule, setDotVoiceRule, type DotVoiceRuleName,
 } from '@/engine/layout/dotVoice'
@@ -90,6 +99,9 @@ export interface DotGapConsole {
   /** Two voices: which way a stem-down line note's dot goes (P4d). */
   voice(rule: DotVoiceRuleName): DotVoiceRuleName
   voiceReset(): DotVoiceRuleName
+  /** A chord whose dots collide (P4e). */
+  chord(rule: ChordDotRuleName): ChordDotRuleName
+  chordReset(): ChordDotRuleName
   dump(): void
 }
 
@@ -120,7 +132,25 @@ export function dotGapConsole(render: () => void): DotGapConsole {
   const VOICE_NAMES = Object.keys(DOT_VOICE_RULES) as DotVoiceRuleName[]
   const voiceReport = () => dbg(`[dots] voice armed:${dotVoiceSettings().rule} — ${DOT_VOICE_RULES[dotVoiceSettings().rule].source}`)
 
+  const CHORD_NAMES = Object.keys(CHORD_DOT_RULES) as ChordDotRuleName[]
+  const chordReport = () => dbg(`[dots] chord armed:${chordDotSettings().rule} — ${CHORD_DOT_RULES[chordDotSettings().rule].source}`)
+
   return {
+    chord: (rule) => {
+      if (!setChordDotRule(rule)) {
+        dbg(`[dots] ⛔ no such chord row: ${rule} — try ${CHORD_NAMES.map(n => `'${n}'`).join(', ')}`)
+        return chordDotSettings().rule
+      }
+      render()
+      chordReport()
+      return chordDotSettings().rule
+    },
+    chordReset: () => {
+      resetChordDotRule()
+      render()
+      chordReport()
+      return chordDotSettings().rule
+    },
     voice: (rule) => {
       if (!setDotVoiceRule(rule)) {
         dbg(`[dots] ⛔ no such voice row: ${rule} — try ${VOICE_NAMES.map(n => `'${n}'`).join(', ')}`)
@@ -197,6 +227,10 @@ export function dotGapConsole(render: () => void): DotGapConsole {
         const mark = name === dotFlagSettings().rule ? '✅' : '  '
         const what = 'vexflow' in row ? 'always, the flag’s width' : `${row.when}, ${row.clear.toFixed(2)} past the flag`
         dbg(`${mark} ${name.padEnd(12)} ${what.padEnd(28)} ${row.source}`)
+      }
+      dbg(`[dots] CHORD rows (armed: ${chordDotSettings().rule}) — __dots.chord(…):`)
+      for (const name of CHORD_NAMES) {
+        dbg(`${name === chordDotSettings().rule ? '✅' : '  '} ${name.padEnd(12)} ${CHORD_DOT_RULES[name].source}`)
       }
       dbg(`[dots] VOICE rows (armed: ${dotVoiceSettings().rule}) — __dots.voice(…):`)
       for (const name of VOICE_NAMES) {
