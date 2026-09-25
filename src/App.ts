@@ -76,6 +76,7 @@ import { windows } from './windows'
 import { menus, menuActions, buildMenuBarTitles, openMenuAtViewport } from './menus'
 import { mountMenuBar } from './menus/menuBar'
 import { A4_NORMAL } from './engine/layout/surface'
+import { enableGlyphOutlines } from './engine/fonts/glyphOutline'
 
 /**
  * The editor application. No framework: it builds its own DOM, wires the controllers, and owns the
@@ -277,6 +278,11 @@ export function createEditorApp(host: HTMLElement): EditorApp {
       viewport.scrollTo(0, viewport.model.getScroll().y)
     }
   })
+
+  // ⭐ The music faces' REAL glyph outlines, read from the font files at runtime (`engine/fonts/glyphOutline`):
+  //   what a glissando measures an accidental's ink against. Async — the render that arrives before a face
+  //   uses the box, and this asks for the one that uses the ink.
+  enableGlyphOutlines(() => renderer.renderScore())
 
   // ViewportModel ⇄ DOM scroll wiring — the only DOM-aware viewport piece.
   const viewport = createViewportHost(

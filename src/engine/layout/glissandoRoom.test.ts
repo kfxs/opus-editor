@@ -5,7 +5,7 @@ import { describe, it, expect, afterEach } from 'vitest'
 import { ScoreModel } from '@/engine/models/ScoreModel'
 import { addGlissando } from '@/engine/models/glissandoOps'
 import { glissandoRoomIn, glissandoMinLengthSettings, resetGlissandoMinLengthRule, setGlissandoMinLengthRule } from './glissandoRoom'
-import { GLISSANDO_END_RULES } from '@/engine/engrave/marks/glissandoLine'
+import { armedGlissandoEndRule } from '@/engine/engrave/marks/glissandoLine'
 import { fracCreate as frac } from '@/utils/fraction'
 
 afterEach(() => resetGlissandoMinLengthRule())
@@ -27,10 +27,10 @@ describe('glissandoRoomIn', () => {
     addGlissando(model.getScore(), c.id)
     const [room, ...rest] = glissandoRoomIn(model.getScore(), model.getMeasure(1)!)
     expect(rest).toHaveLength(0)
-    const gould = GLISSANDO_END_RULES.gould
+    const armed = armedGlissandoEndRule()
     expect(room).toEqual({
       from: frac(0, 1), to: frac(1, 1),
-      startGap: gould.startGap, endGap: gould.endGap, accidentalGap: gould.accidentalGap, length: 1.2,
+      startGap: armed.startGap, endGap: armed.endGap, accidentalGap: armed.accidentalGap, length: 1.2,
     })
   })
 

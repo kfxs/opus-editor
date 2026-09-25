@@ -54,7 +54,7 @@
 | start gap (source head's right edge → line start) | **0.2–0.5 sp**, and it clears a ledger line (p. 141 (a) right: starts where the ledger ends) | p. 141, p. 142 |
 | end gap (line end → target head's left edge) | **0.2–0.5 sp** | p. 141, p. 142 |
 | vertical anchor | NOT head centre to head centre: start is 0–0.5 sp from the source centre *toward the target*, end 0–0.25 sp from the target centre *toward the source*. p. 141 (a) left: line slope 0.72 vs centre-to-centre 0.59 — the line is steeper than the centres' join | p. 141 |
-| before an accidental | stops **≈ 0.7 sp** short of the sharp/flat (read), or is re-angled to meet the accidental's left side | p. 141 |
+| before an accidental | ⭐ **MEASURED 2026-09-25** (600 dpi, sp 26.5 px): the stop-short figure's line ends **0.79 sp** left of the ♯ (≈0.9 sp to its lower-left corner) and is still AIMED AT THE HEAD — extended, it meets the F♯'s centre; the re-angle figure runs right up to the ♯'s lower-left corner (gap ≈0). (Was *≈0.7, read*.) | p. 141 |
 | system break | end-of-system piece stops **0.5 sp** before the barline; new-system piece starts **≈1 sp** after the clef and stops 0.5 sp before the head, **1.3 sp** long. ⭐ **Each piece spans the WHOLE interval** (A4→C5: both pieces run from A-height to C-height, rise 0.96 and 0.85 sp) — so the two pieces have different slopes | p. 142, measured |
 | text gap | rotated `gliss.` sits ≈ **0.3–0.4 sp** above the line, roughly centred on its length | p. 141 (a) |
 

@@ -7,8 +7,9 @@
  * Drawn through `pass.context`, so the SCENE records it: its geometry is a unit test
  * (`ScoreRenderer.recordScene`).
  *
- * ⏳ **Not yet:** a target on the next SYSTEM (P2 — skipped today), a free end when there is no target
- * (P3 — nothing drawn), selection (P4).
+ * ⭐ A target on the next SYSTEM draws TWO pieces (P2, `glissandoLine.glissandoPieces` — Gould's
+ * whole-interval pieces armed). ⏳ Not yet: a free end when there is no target (P3 — nothing drawn),
+ * selection (P4), a piece whose other system is culled (skipped: its note is not drawn to ask).
  */
 import type { NotePitch, Score } from '@/types/music'
 import type { RenderPass } from '../../RenderPass'
@@ -17,7 +18,10 @@ import { findSlot } from '@/engine/models/slotLookup'
 import { staffIndexOfId } from '@/engine/models/staffContent'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { spellingToMidi } from '@/utils/pitchSpelling'
-import { glissandoStroke, glissandoThicknessSpaces, type GlissandoFrom, type GlissandoTo } from '@/engine/engrave/marks/glissandoLine'
+import {
+  glissandoPieces, glissandoStroke, glissandoThicknessSpaces, type GlissandoFrom, type GlissandoStroke, type GlissandoTo,
+} from '@/engine/engrave/marks/glissandoLine'
+import { lineEndBarlineX, lineHeaderInkX } from '../../staff/systemEdges'
 import { LEDGER_OVERHANG_PX } from '@/engine/engrave/inheritedDefaults'
 import { staffBottomLineY, type StaffFrame } from '@/engine/engrave/staff/staffFrame'
 import { drawGroupOf } from '../../painter/svgDrawGroup'
@@ -27,8 +31,11 @@ import { noteRuler } from '../../engraved/noteRuler'
 import { dotsOn } from '../../engraved/EngravedDot'
 import { accidentalsOn } from '../../engraved/EngravedAccidental'
 import type { EngravedNote } from '../../engraved/EngravedNote'
+import { glyphBox, glyphNameOf, type GlyphName } from '@/engine/fonts/fontMetrics'
+import { glyphOutline } from '@/engine/fonts/glyphOutline'
+import { glyphInkShape } from '@/engine/engrave/glyphInkShape'
 
-/** Every glissando whose far end is on the SAME system. */
+/** Every glissando with a note to go to — on its own system, or across a break in two pieces (P2). */
 export function renderGlissandi(pass: RenderPass, score: Score): void {
   const ctx = pass.context
   if (!ctx) return
@@ -43,25 +50,45 @@ export function renderGlissandi(pass: RenderPass, score: Score): void {
     if (fromSlot?.type !== 'chord' || toSlot?.type !== 'chord') continue
     const fromLine = pass.measureLayoutInfo.get(fromSlot.chord.measure)?.lineNumber ?? 0
     const toLine = pass.measureLayoutInfo.get(toSlot.chord.measure)?.lineNumber ?? 0
-    if (fromLine !== toLine) continue // ⏳ P2: the system break
 
-    const frame = noteFrame(from.staveNote)
-    if (!frame) continue
-    const space = frame.spacePx
-    const source = leaving(from.staveNote, from.noteIndex, frame)
-    const target = arriving(to.staveNote, to.noteIndex, noteFrame(to.staveNote) ?? frame)
+    const fromFrame = noteFrame(from.staveNote)
+    const toFrame = noteFrame(to.staveNote)
+    if (!fromFrame || !toFrame) continue
+    const space = fromFrame.spacePx
+    const source = leaving(from.staveNote, from.noteIndex, fromFrame)
+    const target = arriving(to.staveNote, to.noteIndex, toFrame)
     if (!source || !target) continue
-    const stroke = glissandoStroke(source, target, space, direction(fromSlot.pitch, toSlot.pitch))
-    if (!stroke) continue
+    const rising = direction(fromSlot.pitch, toSlot.pitch)
+    const staffIndex = staffIndexOfId(score, fromSlot.chord.staffId)
+
+    let strokes: Array<GlissandoStroke | null>
+    if (fromLine === toLine) {
+      strokes = [glissandoStroke(source, target, space, rising)]
+    } else {
+      // ⭐ ACROSS A BREAK (P2): the system edges are page distances — into the staff's own space, once
+      //   (the tie's conversion, `TieRenderer`).
+      const scale = pass.staffScale(staffIndex)
+      const barlineX = lineEndBarlineX(pass, fromLine)
+      const headerInkX = lineHeaderInkX(pass, toLine)
+      if (barlineX === undefined || headerInkX === undefined) continue
+      strokes = glissandoPieces(source, target, {
+        fromTopY: fromFrame.topLineY, toTopY: toFrame.topLineY,
+        barlineX: barlineX / scale, headerInkX: headerInkX / scale,
+      }, space, rising)
+    }
+    if (!strokes.some(Boolean)) continue
 
     const group = drawGroupOf(ctx.openGroup?.('glissando', `glissando-${glissando.id}`))
-    inStaffSpace(pass, staffIndexOfId(score, fromSlot.chord.staffId), group, () => {
+    inStaffSpace(pass, staffIndex, group, () => {
       ctx.save()
       ctx.setLineWidth(glissandoThicknessSpaces() * space)
-      ctx.beginPath()
-      ctx.moveTo(stroke.x1, stroke.y1)
-      ctx.lineTo(stroke.x2, stroke.y2)
-      ctx.stroke()
+      for (const stroke of strokes) {
+        if (!stroke) continue
+        ctx.beginPath()
+        ctx.moveTo(stroke.x1, stroke.y1)
+        ctx.lineTo(stroke.x2, stroke.y2)
+        ctx.stroke()
+      }
       ctx.restore()
     })
     ctx.closeGroup?.()
@@ -94,7 +121,7 @@ function leaving(note: EngravedNote, index: number, frame: StaffFrame): Glissand
     const box = dot.getBoundingBox()
     right = Math.max(right, box.x + box.w)
   }
-  return { y, inkRightX: right }
+  return { y, inkRightX: right, centreX: (ruler.headLeftX + ruler.headRightX) / 2 }
 }
 
 /** The target note as the line arrives: its head's height, its left ink, and its accidental. */
@@ -104,7 +131,38 @@ function arriving(note: EngravedNote, index: number, frame: StaffFrame): Glissan
   if (y === undefined || isNaN(y)) return null
   let left = ruler.headLeftX
   if (onLedger(y, frame)) left -= ledgerOverhang(frame)
+  const centreX = (ruler.headLeftX + ruler.headRightX) / 2
   const accidental = accidentalsOn(note).find(a => a.getIndex() === index)
-  return accidental ? { y, inkLeftX: left, accidentalLeftX: accidental.getBoundingBox().x } : { y, inkLeftX: left }
+  if (!accidental) return { y, inkLeftX: left, centreX }
+  // ⭐ The sign's OWN ink, computed from its stamp (`drawnInk`, P6b's ruler — ⛔ not asked of a
+  //   `getBoundingBox()`). Null before it drew: then only its left edge.
+  const ink = accidental.drawnInk()
+  if (!ink) return { y, inkLeftX: left, centreX, accidentalLeftX: accidental.getBoundingBox().x }
+  // ⭐ …and its SHAPE: that box less the corners the font says are empty (`engrave/glyphInkShape`), and
+  //   ⭐⭐ its REAL OUTLINE once the face has loaded (`fonts/glyphOutline`), placed where the box stands.
+  const name = glyphNameOf(accidental.getText())
+  const outline = name ? placedOutline(name, ink) : null
+  return {
+    y, inkLeftX: left, centreX,
+    accidentalLeftX: ink.x, accidentalTopY: ink.y, accidentalBottomY: ink.y + ink.height,
+    ...(name && { accidentalInk: glyphInkShape(name, ink) }),
+    ...(outline && { accidentalOutline: outline }),
+  }
 }
 
+/**
+ * The glyph's real outline (`fonts/glyphOutline`, staff spaces, y UP) placed on the page where its drawn
+ * ink box stands: the box fixes the scale (its height is the glyph's `up + down`) and the origin.
+ */
+function placedOutline(
+  name: GlyphName,
+  ink: { x: number; y: number; width: number; height: number },
+): Array<Array<readonly [number, number]>> | null {
+  const contours = glyphOutline(name)
+  const g = glyphBox(name)
+  if (!contours || !(g.up + g.down > 0)) return null
+  const sp = ink.height / (g.up + g.down)
+  const originX = ink.x - g.left * sp
+  const baselineY = ink.y + g.up * sp
+  return contours.map(c => c.map(([x, y]) => [originX + x * sp, baselineY - y * sp] as const))
+}

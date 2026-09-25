@@ -393,6 +393,22 @@ question by **creating a real note** (end note or grace) at the free end.
 
 ---
 
+## §5b ⚠️ CORRECTION, 2026-09-25 — the ANGLE, re-read from source (his ask: *"double check all angles"*)
+
+- **MuseScore does NOT re-angle before an accidental.** `tlayout.cpp` (~4990–5070) lays the line through the two
+  heads' positions at their centre heights, then shortens each end by an x offset and cuts `y` IN PROPORTION
+  (`startOffset.ry() = ipos2().y() × startOffset.x() / ipos2().x()`, the same for the end) — the line is shortened
+  ALONG ITSELF and keeps the centres' angle. The accidental is only in the x offset (`leftMostEdgeAtHeight` over
+  the half of the head the line approaches). §1 above read it as a re-angle; that was wrong.
+- **Verovio** (`view_control.cpp` ~2170–2215): the angle is `atan2` of the two heads' positions; before an
+  accidental `x2` moves to 0.25 sp (`0.5 × unit`) left of its content and `y2 = note2.y − dist·tan(angle)` — ON the
+  line; then it steps forward ½ sp at a time while the end still clears the sign's bottom (rising) / top (falling).
+- **LilyPond** (`line-spanner.cc` ~160–230 + `Glissando` bound-details): X from the left head's RIGHT edge to the
+  right head's LEFT edge (`attach-dir`), Y the head's centre (`extent … center`); `end-on-accidental #t` moves the
+  end X to the accidental's left edge at the SAME Y — the one engine that re-angles. `padding` 0.5 along the line.
+- ⇒ rows in `engrave/marks/glissandoLine.GLISSANDO_END_RULES`: `aim: 'centres'` + `truncate` (MuseScore),
+  `centres` + `slide` (Verovio), `edges` + `reangle` (LilyPond); Gould's plates `edges` + her leans + `truncate`.
+
 ## §6 What the plan should take from this
 
 1. **Model the note→note gliss as a spanner on NOTES (per note, not per chord)**, with the end

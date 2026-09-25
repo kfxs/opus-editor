@@ -1,6 +1,6 @@
 # The glissando — one line for gliss, portamento, bend and the slide into a note: the plan
 
-> **Status (2026-09-25): P0 committed; P1 + P1b (minimum length, squeeze) built (not committed) — the `gliss` dev button, `engrave/marks/glissandoLine` (Gould armed, `__gliss`), `GlissandoRenderer` via `noteLinePasses`.** His brief: a tool that behaves like Sibelius 6's bend
+> **Status (2026-09-25): P0, P1 + P1b committed; P2 (system break) + the accidental fix built (not committed) — the `gliss` dev button, `engrave/marks/glissandoLine` (Gould armed, `__gliss`), `GlissandoRenderer` via `noteLinePasses`.** His brief: a tool that behaves like Sibelius 6's bend
 > line, but richer — ONE line that can be a gliss or a bend, with no text by default and a Properties
 > switch that shows it later. The research is three files, read before touching this:
 > `docs/research/glissando-books-research.md` (Gould · Ross · Stone · Gerou & Lusk, plates measured),
@@ -117,7 +117,7 @@ neighbour) — ⛔ never a raised ceiling.
 |---|---|---|
 | **P0** ✅ built | the type + `glissandoOps` (add / remove / `glissandoTarget` incl. chord pairing, a rest ⇒ null, across a barline) + specs. Re-bar (both sites) re-finds the anchor; delete / convert-to-rest / clear / note→bracketed / removed measure prune it (`pruneGlissandi`; `removeMeasure` now calls ONE `danglingAnchors.repairDanglingAnchors`). ⚠️ NOT in P0: **paste carrying a glissando** (the clipboard's `attachedMarks` / `clip.ts` rows — P0b, before P1 if he wants copies to keep it); **a JSON load check** — no note-anchored mark has one today (slurs and trills neither), so it is not invented here; an anchor lost to an edit that is none of the above (e.g. typing over it) is skipped by the renderer, the trill's belt | nothing (green specs) |
 | **P1** ✅ built | `glissandoLine` + `GlissandoRenderer` for note → note ON ONE SYSTEM; straight, Gould's gaps and bias (G12), thickness (G13), a target accidental; chords per head (G9). The dev button (`gliss`) | select a note, press `gliss`: a line to the next note; type into an empty next slot and it connects |
-| **P2** | the SYSTEM BREAK (G7): two pieces, header-clearing start on the new system, G7a's rows | a gliss whose target opens the next system |
+| **P2** ✅ built | the SYSTEM BREAK (G7): two pieces, header-clearing start on the new system, G7a's rows | a gliss whose target opens the next system |
 | **P3** | the free end: next slot a rest ⇒ a free end (G11's default vector). `side: 'before'`, `end: 'none'`, `direction` — reachable from the dev console / JSON until Properties exists | a gliss before a rest; a fall; a scoop |
 | **P4** | selection + Delete + highlight (`interactions/elements/glissando`) | click the line, Delete |
 | **later** | ⛔ a decision list, ⛔ not a queue: Properties (side · end · direction · text on/content · style wavy · text along/level) · end-handle drag + offsets (the slur's `SlurEndpointOffsetOverride` shape) · playback (G14) · pinned target / other staff (G6) · arrow cap (Gould p. 143/340) · curved contour (Gould p. 146, 358) · jazz (G15) · the bracketed finishing pitch (G16) · text repeated on a continuation piece (Dorico repeats it; the trill's `continuationLabel` shape) · minimum length as a spacing request (MuseScore 1.2 / 2.0 sp) · MusicXML mapping (engines §6.8) | — |
@@ -134,6 +134,28 @@ neighbour) — ⛔ never a raised ceiling.
 - And when a squeeze DOES go below it: `glissandoLine.GLISSANDO_SQUEEZE_RULES` — `shrinkGaps` armed (⚠️ OURS, no
   source: the gaps give way until the line keeps half the room), `vanish` = P1's behaviour, kept as a row.
 - Checked in Chromium: the A5 → D♯4 line now draws, ≈1.3 sp long; the four probe lines run 1.3–1.9 sp.
+
+⚠️ **Found 2026-09-25 (his report, a C4 → G♯4 line):** the Gould row stopped short of the ♯ but ended at the
+HEAD's height — her two options mixed. ✅ Fixed as a row field, `GlissandoEndRule.accidental`: `truncate` (hers,
+the line still aimed at the head and cut short — Verovio's too) vs `reangle` (MuseScore, LilyPond). Then, on his
+*"isn't the line too short?"*: her plate MEASURED (p. 141, 600 dpi) — the stop is **0.79 sp**, not the 0.7 read by
+eye; so the gap is hers, and the short line is the tight eighths + MuseScore's 1.2 sp minimum (her plate's line
+is ≈3.9 sp). ⏳ His call whether the minimum or the gap moves.
+✅ **His call the same day: a `house` row, ARMED** — *"for the default I like gould angle but the empty space
+should be shorter"*: Gould's row with the stop before an accidental at 0.3 sp (her head gap), ⚠️ a first guess;
+`__gliss.accidentalGap(n)` is the knob for his eye. And on *"double check all angles"*, every engine re-read from
+SOURCE (`glissando-engines-research.md` §5b): MuseScore and Verovio AIM THROUGH THE HEAD CENTRES and cut back along
+the line (MuseScore truncates — our first row wrongly re-angled; Verovio slides forward under the sign); LilyPond
+runs edge to edge and re-angles to the accidental. New row fields `aim` + `accidental: truncate | reangle | slide | clear`.
+Then *"the line empty space is inconsistent"* (C4 → E♯4 / G♯4 / C♯5): `truncate` measures its gap ACROSS THE PAGE, so a
+steep line — still low where it stops — showed more space. ✅ `house` now uses `clear` (OURS): the line, still aimed at
+the head, runs until it comes within the gap of the sign's BOX — the same space at every angle (checked in Chromium).
+Then *"use ink, not bbox"* / *"no, you should not bake"*: measured on Bravura's REAL sharp, its left side is a COMB (two
+crossbar tips, empty space between and under them) and each angle meets a different tooth; a box — even less the
+font's cut-outs — cannot see it (box-only would still vary by ≈0.3 sp). ✅ `fonts/glyphOutline` reads the music face's
+real outline from the font file at runtime (opentype.js, async, loaded once; the app re-renders when it arrives; ⛔ no
+bake), and `clear` stops the line 0.3 sp before the point where, carried on, it would touch that ink. Chromium: 0.30 sp
+ahead of the line at 11°, 30° and 49°.
 
 ⚠️ P3 may move before P2 if he wants the free end sooner — neither depends on the other.
 

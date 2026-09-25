@@ -35,6 +35,7 @@ import { exportScorePdf } from '@/engine/export/pdfExport'
 import { censusColumns, type BarSpacing } from '@/dev/spacingCensus'
 import { INK, INK_HEIGHT, accidentalExtent, accidentalHeight, dotExtent } from '@/engine/layout/spacingPadding'
 import { fracCreate } from '@/utils/fraction'
+import { enableGlyphOutlines } from '@/engine/fonts/glyphOutline'
 
 /** Re-exported so a spec can name what `columnGaps()` hands back. */
 export type { BarSpacing, CensusColumn } from '@/dev/spacingCensus'
@@ -104,6 +105,8 @@ export interface Harness {
   /** Wait for the score's fonts WITHOUT rendering — `engine/rendering/painter/musicFontReady`, the gate every
    *  engraving path takes. A spec that draws before `render()` must await this first. */
   fontReady(): Promise<void>
+  /** How many music faces' real OUTLINES have arrived (`engine/fonts/glyphOutline`) — wait on it for the ink. */
+  outlinesLoaded(): number
   /** Re-engrave. Awaits the font before the first one, so nothing measures fallback metrics. */
   render(): Promise<void>
   /** Every glyph matching `selector` (default: all of them), left to right. */
@@ -242,6 +245,10 @@ const host = document.getElementById('score')
 if (!host) throw new Error('#score not found — harness.html must provide the render target')
 
 const engine = new MusicEngine({ container: host, height: 400 }) // width: the engine's own surface
+// ⭐ The music faces' real glyph outlines, as the app loads them (`engine/fonts/glyphOutline`); a face arriving
+//   re-renders, and `outlinesLoaded` counts arrivals so a spec can wait for the ink.
+let outlinesLoaded = 0
+enableGlyphOutlines(() => { outlinesLoaded++; engine.renderScore() })
 
 function svg(): SVGSVGElement {
   const el = host!.querySelector('svg')
@@ -326,6 +333,7 @@ const harness: Harness = {
     return panel.id
   },
   fontReady: musicFontReady,
+  outlinesLoaded: () => outlinesLoaded,
 
   async render(): Promise<void> {
     // VexFlow ships Bravura/Academico as web fonts and every glyph is a `<text>`, so a render that

@@ -25,6 +25,7 @@ import { cueSizeGeneration } from './cueSize'
 import { graceSlashGeneration } from '@/engine/engrave/notes/graceGroup'
 import { glissandoGeneration } from '@/engine/engrave/marks/glissandoLine'
 import { glissandoMinLengthGeneration } from './glissandoRoom'
+import { glyphOutlineGeneration } from '@/engine/fonts/glyphOutline'
 import { musicFontGeneration } from '@/engine/fonts/musicFont'
 import { textFontGeneration } from '@/engine/fonts/textFont'
 
@@ -68,6 +69,9 @@ export function widthRowGenerations(): number[] {
     glissandoGeneration(),
     // …and its least LENGTH (P1b, `layout/glissandoRoom`) — ⭐ a WIDTH: it asks the spacing for room.
     glissandoMinLengthGeneration(),
+    // …and a music face's real OUTLINES arriving (`fonts/glyphOutline`, async) — ⚠️ NOT a width: here so the
+    // render they ask for is not skipped as unchanged.
+    glyphOutlineGeneration(),
     // The chosen MUSIC face — glyphs measured on the canvas are width inputs, and because the SHAPE
     // key embeds the fingerprint, this is also what re-engraves every bar in the new face.
     musicFontGeneration(),

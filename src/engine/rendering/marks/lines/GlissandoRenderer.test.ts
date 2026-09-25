@@ -62,16 +62,16 @@ describe('renderGlissandi', () => {
     expect(strokes(model)[0].width).toBeCloseTo(0.15 * STAFF_SPACE_PX)
   })
 
-  it('⭐ Gould\'s ends lean inward: her stroke rises LESS than the head-centre row\'s', () => {
+  it('⭐ the armed ends (house = Gould\'s angle) are STEEPER than MuseScore\'s head-centre aim', () => {
     const model = new ScoreModel()
     const c = note(model, 'C', 4, 0)
     note(model, 'C', 5, 1)
     addGlissando(model.getScore(), c.id)
-    const gould = strokes(model)[0]
+    const slope = (s: ReturnType<typeof strokes>[number]) => Math.abs((s.b.y - s.a.y) / (s.b.x - s.a.x))
+    const house = strokes(model)[0]
     setGlissandoEndRule('musescore')
     const centres = strokes(model)[0]
-    expect(gould.a.y - gould.b.y).toBeLessThan(centres.a.y - centres.b.y)
-    expect(centres.a.y - centres.b.y).toBeCloseTo(3.5 * STAFF_SPACE_PX) // an octave = 3½ spaces
+    expect(slope(house)).toBeGreaterThan(slope(centres))
   })
 
   it('⭐ nothing drawn while the next slot is a REST — and drawn once a note fills it', () => {
@@ -93,4 +93,28 @@ describe('renderGlissandi', () => {
     expect(drawn).toHaveLength(2)
     expect(drawn[0].a.y).not.toBeCloseTo(drawn[1].a.y)
   })
+
+  it('⭐ ACROSS A SYSTEM BREAK: ONE group, TWO strokes (P2)', () => {
+    // Enough bars to break: a whole note in each, a glissando on every one.
+    const model = new ScoreModel()
+    for (let m = 2; m <= 24; m++) model.addMeasure()
+    const heads = Array.from({ length: 24 }, (_, i) =>
+      model.addNote({ step: i % 2 ? 'C' : 'G', alter: 0, octave: 4, duration: 'w', measure: i + 1, beat: frac(0, 1) }))
+    for (const h of heads.slice(0, -1)) addGlissando(model.getScore(), h.id)
+
+    const renderer = makeRenderer()
+    const { scene } = renderer.recordScene(() => renderer.renderScore(model.getScore()))
+    const lines = renderer.getMeasureLayoutInfo()
+    const gl = sceneGroups(scene, 'glissando')
+    expect(gl).toHaveLength(23)
+    // Every glissando whose target opens the NEXT system draws two strokes; every other, one.
+    const breaks = heads.slice(0, -1).map((_, i) => lines.get(i + 1)!.lineNumber !== lines.get(i + 2)!.lineNumber)
+    expect(breaks.some(Boolean), 'the fixture must break a system').toBe(true)
+    const byAnchor = new Map(model.getScore().glissandi!.map(g => [`glissando-${g.id}`, g.noteId]))
+    for (const group of gl) {
+      const i = heads.findIndex(h => h.id === byAnchor.get(group.id!))
+      expect(scenePrimitives(group).filter(p => p.kind === 'path'), `bar ${i + 1}`).toHaveLength(breaks[i] ? 2 : 1)
+    }
+  })
 })
+
