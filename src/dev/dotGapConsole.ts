@@ -46,6 +46,12 @@
  *   __dots.flag('verovio')     // when level; 0.09
  *   __dots.flag('vexflow')     // every flagged stem-up note, the flag's width — what we drew until 2026-09-25
  *   __dots.flagReset()
+ *
+ *   // ⭐ TWO VOICES — which way a stem-down line note's dot goes (P4d, `layout/dotVoice`):
+ *   __dots.voice('gould')      // ✅ ARMED — below the lower part; crossed parts lift it (pp. 56 + 58)
+ *   __dots.voice('verovio')    // below, no exception
+ *   __dots.voice('vexflow')    // always up — what we drew until 2026-09-25
+ *   __dots.voiceReset()
  * ```
  *
  * ⚠️ **Look at a DOUBLE-dotted note**, not a single one: five of the eight rows differ only in the
@@ -57,6 +63,9 @@
  * with his choice as the citation and both files go.
  */
 import { dbg } from '@/utils/debug'
+import {
+  DOT_VOICE_RULES, dotVoiceSettings, resetDotVoiceRule, setDotVoiceRule, type DotVoiceRuleName,
+} from '@/engine/layout/dotVoice'
 import {
   DOT_FLAG_RULES, dotFlagSettings, resetDotFlagRule, setDotFlagRule, type DotFlagRuleName,
 } from '@/engine/layout/dotFlag'
@@ -78,6 +87,9 @@ export interface DotGapConsole {
   /** Dots and a stem-up FLAG (P4c). */
   flag(rule: DotFlagRuleName): DotFlagRuleName
   flagReset(): DotFlagRuleName
+  /** Two voices: which way a stem-down line note's dot goes (P4d). */
+  voice(rule: DotVoiceRuleName): DotVoiceRuleName
+  voiceReset(): DotVoiceRuleName
   dump(): void
 }
 
@@ -105,7 +117,25 @@ export function dotGapConsole(render: () => void): DotGapConsole {
   const FLAG_NAMES = Object.keys(DOT_FLAG_RULES) as DotFlagRuleName[]
   const flagReport = () => dbg(`[dots] flag armed:${dotFlagSettings().rule} — ${DOT_FLAG_RULES[dotFlagSettings().rule].source}`)
 
+  const VOICE_NAMES = Object.keys(DOT_VOICE_RULES) as DotVoiceRuleName[]
+  const voiceReport = () => dbg(`[dots] voice armed:${dotVoiceSettings().rule} — ${DOT_VOICE_RULES[dotVoiceSettings().rule].source}`)
+
   return {
+    voice: (rule) => {
+      if (!setDotVoiceRule(rule)) {
+        dbg(`[dots] ⛔ no such voice row: ${rule} — try ${VOICE_NAMES.map(n => `'${n}'`).join(', ')}`)
+        return dotVoiceSettings().rule
+      }
+      render()
+      voiceReport()
+      return dotVoiceSettings().rule
+    },
+    voiceReset: () => {
+      resetDotVoiceRule()
+      render()
+      voiceReport()
+      return dotVoiceSettings().rule
+    },
     flag: (rule) => {
       if (!setDotFlagRule(rule)) {
         dbg(`[dots] ⛔ no such flag row: ${rule} — try ${FLAG_NAMES.map(n => `'${n}'`).join(', ')}`)
@@ -167,6 +197,10 @@ export function dotGapConsole(render: () => void): DotGapConsole {
         const mark = name === dotFlagSettings().rule ? '✅' : '  '
         const what = 'vexflow' in row ? 'always, the flag’s width' : `${row.when}, ${row.clear.toFixed(2)} past the flag`
         dbg(`${mark} ${name.padEnd(12)} ${what.padEnd(28)} ${row.source}`)
+      }
+      dbg(`[dots] VOICE rows (armed: ${dotVoiceSettings().rule}) — __dots.voice(…):`)
+      for (const name of VOICE_NAMES) {
+        dbg(`${name === dotVoiceSettings().rule ? '✅' : '  '} ${name.padEnd(12)} ${DOT_VOICE_RULES[name].source}`)
       }
       dbg(`[dots] REST rows (armed: ${restDotGapSettings().rule}) — __dots.restGap(…):`)
       for (const name of REST_NAMES) {

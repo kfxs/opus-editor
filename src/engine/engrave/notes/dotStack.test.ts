@@ -46,3 +46,33 @@ describe('stackDots', () => {
     expect(stackDots([])).toEqual({ placed: [], width: 0 })
   })
 })
+
+describe('stackDots — the TWO-PART rule (docs/plans/multiple-dots-plan.md P4d, `layout/dotVoice`)', () => {
+  const GOULD = { downStemBelow: true, overlapLifts: true }
+  // Treble: G4 is line 2, E4 line 1 — the stem-up G4 above, the stem-down E4 below.
+  const upG4 = dot(2, { noteKey: 'up' })
+  const downE4 = dot(1, { noteKey: 'down', stemDown: true })
+
+  it('⭐ two parts: the stem-DOWN line note drops its dot BELOW; the stem-up one keeps the space above', () => {
+    const { placed } = stackDots([upG4, downE4], { twoParts: true, upStemLines: [2], ...GOULD })
+    expect(placed.map(p => p.shiftY)).toEqual([-0.5, 0.5])
+  })
+
+  it('no rule passed = VexFlow’s, which lifts both', () => {
+    expect(stackDots([upG4, downE4]).placed.map(p => p.shiftY)).toEqual([-0.5, -0.5])
+  })
+
+  it('⛔ one part only: a stem-down line note keeps the space above', () => {
+    const { placed } = stackDots([downE4], { twoParts: false, upStemLines: [], ...GOULD })
+    expect(placed[0].shiftY).toBe(-0.5)
+  })
+
+  it('⭐ Gould p. 58: CROSSED parts — the stem-down head at or above a stem-up head — keep the space above', () => {
+    const downG4 = dot(2, { noteKey: 'down', stemDown: true })
+    const upE4 = dot(1, { noteKey: 'up' })
+    const { placed } = stackDots([downG4, upE4], { twoParts: true, upStemLines: [1], ...GOULD })
+    expect(placed[0].shiftY, 'lifted — the overlap exception').toBe(-0.5)
+    const verovio = stackDots([downG4, upE4], { twoParts: true, upStemLines: [1], downStemBelow: true, overlapLifts: false })
+    expect(verovio.placed[0].shiftY, '`verovio` has no exception').toBe(0.5)
+  })
+})

@@ -86,16 +86,26 @@ test('NOW — a BEAMED dotted eighth is NOT pushed: 0.5 sp off its head, like an
   expect(gap(first(d, 'notehead'), dotsOf(d)[0])).toBeCloseTo(0.5, 1)
 })
 
-test('NOW — TWO VOICES on lines: both dots go UP, and at ONE x (R3)', async ({ score }) => {
-  // G4 (voice 1, stem up) and E4 (voice 2, stem DOWN), both on a line, both dotted.
+test('TWO VOICES on lines: the stem-DOWN voice drops its dot BELOW, both at ONE x (`dotVoice` `gould`, P4d — VexFlow: up)', async ({ score }) => {
+  // G4 (voice 1, stem up) and E4 (voice 2, stem DOWN), both on a line, both dotted. Gould p. 56: *"Drop the
+  // dot into the space below the lower part"*.
   const d = await draw(score, `e.addNoteAtBeat({ step: 'G', octave: 4, duration: 'q', dots: 1, measure: 1, beat: f(0, 1) }); e.addNoteAtBeat({ step: 'E', octave: 4, duration: 'q', dots: 1, measure: 1, beat: f(0, 1), voice: 1 })`)
   const heads = d.glyphs.filter(g => g.cls === 'notehead' && g.code === 'e0a4')
   const dots = dotsOf(d)
   expect(dots).toHaveLength(2)
-  const lower = heads.reduce((a, b) => (b.y > a.y ? b : a))
-  const lowerDot = dots.reduce((a, b) => (b.y > a.y ? b : a))
-  expect(lowerDot.y, '⛔ the stem-down voice’s dot rides in the space ABOVE its line (Gould: below)').toBeCloseTo(lower.y - SP / 2, 1)
-  expect(dots[0].x, 'the two voices’ dots already share one x here').toBeCloseTo(dots[1].x, 1)
+  const [upper, lower] = [heads.reduce((a, b) => (b.y < a.y ? b : a)), heads.reduce((a, b) => (b.y > a.y ? b : a))]
+  const [upperDot, lowerDot] = [dots.reduce((a, b) => (b.y < a.y ? b : a)), dots.reduce((a, b) => (b.y > a.y ? b : a))]
+  expect(upperDot.y, 'the stem-up voice keeps the space above').toBeCloseTo(upper.y - SP / 2, 1)
+  expect(lowerDot.y, 'the stem-down voice takes the space BELOW').toBeCloseTo(lower.y + SP / 2, 1)
+  expect(dots[0].x, 'one x — two voices’ heads stand together in this editor').toBeCloseTo(dots[1].x, 1)
+})
+
+test('TWO VOICES CROSSED: the stem-down head ABOVE the stem-up one keeps the space above (Gould p. 58, P4d)', async ({ score }) => {
+  // Voice 1 (stem up) E4, voice 2 (stem down) G4 — the parts overlap, so the lower part's dot is forced up.
+  const d = await draw(score, `e.addNoteAtBeat({ step: 'E', octave: 4, duration: 'q', dots: 1, measure: 1, beat: f(0, 1) }); e.addNoteAtBeat({ step: 'G', octave: 4, duration: 'q', dots: 1, measure: 1, beat: f(0, 1), voice: 1 })`)
+  const heads = d.glyphs.filter(g => g.cls === 'notehead' && g.code === 'e0a4')
+  const top = heads.reduce((a, b) => (b.y < a.y ? b : a))
+  expect(dotsOf(d).some(g => Math.abs(g.y - (top.y - SP / 2)) < 0.5), 'G4’s dot in the space above its line').toBe(true)
 })
 
 test('NOW — a CLUSTER keeps every dot, and two land in ONE space (R5)', async ({ score }) => {

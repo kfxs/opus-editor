@@ -31,6 +31,9 @@ import { fontSizeToPx } from '../painter/drawnFontSize'
 import { EngravedArticulation } from '../engraved/EngravedArticulation'
 import { staffLineY } from '@/engine/engrave/staff/staffFrame'
 import { EngravedAccidental } from '../engraved/EngravedAccidental'
+import { armedDotVoice } from '@/engine/layout/dotVoice'
+/** `Stem.DOWN` — VexFlow's -1. */
+const STEM_DOWN_DIR = -1
 import { EngravedDot } from '../engraved/EngravedDot'
 import { MODIFIER_POSITION } from '../engraved/EngravedModifier'
 import { EngravedNote, columnVoiceNoteOf } from '../engraved/EngravedNote'
@@ -275,6 +278,16 @@ export class ColumnModifiers {
       if (!(dot instanceof EngravedDot)) throw new Error('ColumnModifiers: a dot that is not an EngravedDot')
       return dot
     })
+    // ⭐ The two-part rule (P4d, `layout/dotVoice`): does this column hold BOTH stem directions?
+    const notes = (this.members.StaveNote ?? []).filter((n): n is EngravedNote => n instanceof EngravedNote && !n.isRest())
+    const upStemLines = notes.filter(n => n.getStemDirection() !== STEM_DOWN_DIR).flatMap(n => n.getKeyProps().map(k => k.line))
+    const rule = armedDotVoice()
+    const parts = {
+      twoParts: notes.some(n => n.getStemDirection() === STEM_DOWN_DIR) && upStemLines.length > 0,
+      upStemLines,
+      downStemBelow: rule.downStemBelow,
+      overlapLifts: rule.overlapLifts,
+    }
     const { placed, width } = stackDots(ours.map(dot => {
       const note = dot.getNote()
       if (!(note instanceof EngravedNote)) throw new Error('ColumnModifiers: a dot on a note that is not an EngravedNote')
@@ -286,8 +299,9 @@ export class ColumnModifiers {
         firstDotPx: note.getRightDisplacedHeadPx(),
         width: dot.getWidth(),
         shiftY: dot.getShiftY(),
+        stemDown: !note.isRest() && note.getStemDirection() === STEM_DOWN_DIR,
       }
-    }))
+    }), parts)
     ours.forEach((dot, i) => {
       dot.setShiftY(placed[i].shiftY)
       dot.setXShift(placed[i].xShift)

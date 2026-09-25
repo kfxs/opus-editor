@@ -14,6 +14,7 @@ import { barlineMeterGapGeneration } from './barlineMeterGap'
 import { dotGapGeneration } from './dotGap'
 import { restDotGapGeneration } from './restDotGap'
 import { dotFlagGeneration } from './dotFlag'
+import { dotVoiceGeneration } from './dotVoice'
 import { accidentalGapGeneration } from './accidentalGap'
 import { graceSizeGeneration } from './graceRoom'
 import { bracketedGeneration } from './bracketedRoom'
@@ -37,6 +38,9 @@ export function widthRowGenerations(): number[] {
     restDotGapGeneration(),
     // …and whether a stem-up FLAG pushes them (2026-09-25, `layout/dotFlag`): a pushed dot is further out.
     dotFlagGeneration(),
+    // …and which way a two-part line note's dot goes (`layout/dotVoice`) — ⚠️ NOT a width: here for the
+    //    SHAPE key, like the slash below, so a re-arm re-engraves the bars it changes.
+    dotVoiceGeneration(),
     // The ACCIDENTAL gap: `accidentalExtent` prices a sign's room from it.
     accidentalGapGeneration(),
     // The GRACE size (2026-09-22): a grace's room is its heads at that size (`layout/graceRoom`).

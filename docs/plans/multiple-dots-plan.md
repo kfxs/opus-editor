@@ -1,6 +1,6 @@
 # Double and triple dots — the plan
 
-> **Status (2026-09-25): P0 BUILT (`87df716`) · P1 BUILT (`998ddac`) · P2 BUILT (`2619c9e`) · P3 BUILT (`6676556`) · P4a BUILT (`dab58f5`) · P4b BUILT (`49808ed`) · P4c BUILT; ALL DECISIONS TAKEN (D1–D7, R1–R7); P4 is PLAN.** The research is IN —
+> **Status (2026-09-25): P0 BUILT (`87df716`) · P1 BUILT (`998ddac`) · P2 BUILT (`2619c9e`) · P3 BUILT (`6676556`) · P4a BUILT (`dab58f5`) · P4b BUILT (`49808ed`) · P4c BUILT (`7317dda`) · P4d BUILT (3a); ALL DECISIONS TAKEN (D1–D7, R1–R7); P4 is PLAN.** The research is IN —
 > `docs/research/multiple-dots-research.md` (the literature, the engines, the duration rule). ⛔ A number
 > never blocks a phase (`CLAUDE.md`).
 >
@@ -181,7 +181,7 @@ changes in the rows:
 | P4a ✅ | note gaps — arm `gould` (0.5 / 0.26) in the EXISTING `dotGap` | R1 | only 2+ dots. 🚨 Found on the way: the ROOM (`spacingPadding.dotExtent`) never followed the armed row — only `house` had ever been armed — so a double dot drew 0.24 sp inside its room; it follows the row now (a spec over every row). And P2's ghost parked 70 px off (an em box read as the dot) — fixed, with a triple-dot case in `e2e/ghosts.e2e.ts` |
 | P4b ✅ | a rest's gaps — new table `layout/restDotGap`, `__dots.restGap(…)` | R4 | every dotted rest: 0.2 / 0.1 → 0.4 / 0.25. 🚨 Found on the way: a rest's dots had NO room in the spacing model (its box was the glyph alone) — `spacingPadding.restDotExtent` now gives them one, from the same row |
 | P4c ✅ | dots and a flag — new table `layout/dotFlag`, `__dots.flag(…)`; the dot's start asks with `ignoreFlag` and `placeDots` applies the row (`vexflow` = the old flag-width push) | R2 | stem-up FLAGGED dotted notes (a beamed one was never pushed — P3): a dot in a SPACE below the tail is no longer pushed; a level one clears the flag by 0.30. Graces follow (taken as level). 🚨 Found on the way: the spacing model reserved the UNPUSHED dot, ≈0.8 sp short — `measureColumns.flagDotPush` now reads the same row. G&L measured for their row: always, 0.00–0.05 |
-| P4d | two voices — up/down, and one x | R3 | dotted notes in two voices |
+| P4d ✅ (3a) | two voices — up/down: `layout/dotVoice`, `__dots.voice(…)`; the rule is an argument to `dotStack.stackDots` (VexFlow's own, unchanged without it) | R3 | a stem-down line note in a two-part column drops its dot BELOW; crossed parts lift it back (Gould p. 58). ⏸️ **3b (one x) NOT built**: two voices' heads always stand at ONE x in this editor (the multi-voice pass clears the head shift — measured), so their dots already share a column and every 3b row would draw the same. ⏸️ **No `byVoice` row**: a dot knows its note's stem, not its voice (differs from `verovio` only for a hand-flipped stem) |
 | P4e | a tall chord's dots — centre, drop the far | R5 | clusters |
 | P4f | the dot's size | R6 | every dot (≈+20% in Bravura) |
 | P4g | a dot and a tie | R7 | dotted tied notes |

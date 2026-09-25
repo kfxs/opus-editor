@@ -43,6 +43,20 @@ export interface ColumnDot {
   width: number
   /** The dot's vertical shift before this rule, in staff spaces — ⚠️ a rest's is ADDED to. */
   shiftY: number
+  /** Its note's stem points DOWN — what a two-part column's rule reads (P4d). Absent = up. */
+  stemDown?: boolean
+}
+
+/**
+ * ⭐ The TWO-PART rule (docs/plans/multiple-dots-plan.md P4d, `layout/dotVoice`), passed in by the caller —
+ * ⛔ not VexFlow's, which has none. `twoParts`: the column holds notes with BOTH stem directions, dotted or
+ * not. `upStemLines`: the lines of its stem-up heads, for the overlap test.
+ */
+export interface TwoPartDots {
+  twoParts: boolean
+  upStemLines: readonly number[]
+  downStemBelow: boolean
+  overlapLifts: boolean
 }
 
 /** Where a dot ended up. */
@@ -60,7 +74,7 @@ export const UNISON_DOT_SPACING_PX = 1
  * ⭐ Every dot of one column — `placed[i]` answers `dots[i]` — and how much room they take to the
  * right (the column's `rightShift` grows by `width`).
  */
-export function stackDots(dots: readonly ColumnDot[]): { placed: PlacedDot[]; width: number } {
+export function stackDots(dots: readonly ColumnDot[], parts?: TwoPartDots): { placed: PlacedDot[]; width: number } {
   const placed: PlacedDot[] = dots.map(d => ({ xShift: 0, shiftY: d.shiftY }))
   if (dots.length === 0) return { placed, width: 0 }
 
@@ -86,7 +100,13 @@ export function stackDots(dots: readonly ColumnDot[]): { placed: PlacedDot[]; wi
         halfShiftY = 0
       } else {
         halfShiftY = 0.5
-        if (lastNote !== null && !lastIsRest && lastLine !== null && lastLine - line === 0.5) {
+        // ⭐ Two parts: a stem-DOWN line note drops its dot below (Gould p. 56) — unless the parts overlap,
+        //    its head at or above a stem-up head, which lifts it back (p. 58). Ahead of VexFlow's two tests,
+        //    which only ever drop a dot, so they cannot undo it.
+        const overlaps = !!parts?.overlapLifts && parts.upStemLines.some(up => line >= up)
+        if (parts?.downStemBelow && parts.twoParts && dots[i].stemDown && !overlaps) {
+          halfShiftY = -0.5
+        } else if (lastNote !== null && !lastIsRest && lastLine !== null && lastLine - line === 0.5) {
           halfShiftY = -0.5
         } else if (line + halfShiftY === prevDottedSpace) {
           halfShiftY = -0.5
