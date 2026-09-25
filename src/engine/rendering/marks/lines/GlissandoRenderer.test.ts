@@ -74,13 +74,28 @@ describe('renderGlissandi', () => {
     expect(slope(house)).toBeGreaterThan(slope(centres))
   })
 
-  it('⭐ nothing drawn while the next slot is a REST — and drawn once a note fills it', () => {
+  it('⭐ a REST next: a FREE end (P3), falling — and once a note fills the slot, the line goes to it', () => {
     const model = new ScoreModel()
     const c = note(model, 'C', 4, 0)
     addGlissando(model.getScore(), c.id)
-    expect(strokes(model)).toHaveLength(0)
+    const free = strokes(model)
+    expect(free).toHaveLength(1)
+    expect(free[0].b.y).toBeGreaterThan(free[0].a.y) // a fall
     note(model, 'E', 4, 1)
-    expect(strokes(model)).toHaveLength(1)
+    const joined = strokes(model)
+    expect(joined).toHaveLength(1)
+    expect(joined[0].b.y).toBeLessThan(joined[0].a.y) // up to the E4
+  })
+
+  it('P3: a line INTO the note (`side: before`) ends at the note, coming from its left', () => {
+    const model = new ScoreModel()
+    note(model, 'C', 4, 0)
+    const e = note(model, 'E', 4, 1)
+    const g = addGlissando(model.getScore(), e.id)!
+    g.side = 'before'
+    const [s] = strokes(model)
+    expect(s.b.x).toBeGreaterThan(s.a.x)
+    expect(s.a.y).toBeGreaterThan(s.b.y) // rising into it: a scoop
   })
 
   it('a chord: one stroke per head', () => {

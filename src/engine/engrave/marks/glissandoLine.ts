@@ -115,10 +115,11 @@ export const GLISSANDO_END_RULES = {
   },
   /** ✅ ARMED — his call, 2026-09-25: *"make houseBase default"*. His idea: `house`'s START, fixed (*"the starting point should be fixed"*); the END aimed at the target
    *  head's CENTRE and stopped the gap before its real ink — a steep line meets the head's base, a shallow
-   *  one its side. Accidentals as `house`. */
+   *  one its side. Accidentals as `house`, ⭐ plus the NEAR-MISS guard (his go, 2026-09-25: a line brushing under a
+   *  ♭'s bowl is the stem's and the ledger's fault again). */
   houseBase: {
     startGap: 0.2, endGap: 0.3, accidentalGap: 0.3, accidental: 'clear', aim: 'edges', gapMeasure: 'x',
-    startBias: 0.25, endBias: 0.25, sameLineTilt: 0, headInk: true, lineClearance: 0.225,
+    startBias: 0.25, endBias: 0.25, sameLineTilt: 0, headInk: true, lineClearance: 0.225, nearMiss: true,
     source: 'his: house\'s start; the end aimed at the target head\'s centre, stopped off its ink (side or base)',
   },
   /** Her plate p. 141 (a), measured at 600 dpi: start ≈0.2 sp after the head (after the ledger when there
@@ -878,4 +879,90 @@ export function glissandoPieces(
     ? { x1: cutSecond - dx, y1: yAt(cutSecond) - dy, x2: whole.x2 - dx, y2: whole.y2 - dy }
     : null
   return [first, second]
+}
+
+// ==================== A free end (P3) ====================
+
+/**
+ * ⭐ **HOW FAR A FREE END REACHES** — a line into nothing (a fall, a doit, a bend) or out of nothing (a scoop, a
+ * lift, a plop). Its DIRECTION is the model's (`Glissando.direction` — meaning); how far it is drawn is these
+ * rows' (presentation). Staff spaces: `across` the page, `rise` up or down (plan G11).
+ */
+export interface GlissandoFreeEndRule {
+  across: number
+  rise: number
+  /** The clear space kept between the free tip and whatever stands next (the note or rest after an
+   *  `after` line, before a `before` one) — asked of the spacing, so a free line never reads as reaching it. */
+  clearance: number
+  source: string
+}
+
+export const GLISSANDO_FREE_END_RULES = {
+  /** ✅ ARMED. ⭐ MEASURED 2026-09-25, Gould p. 411 (c), 600 dpi (sp = 26.8 px): a line from a B♭ into empty
+   *  space runs 3.9 sp across and rises 1.5; one toward a rest 3.7 × 1.2 — taken as 3.8 × 1.3. */
+  gould: { across: 3.8, rise: 1.3, clearance: 0.6, source: 'Gould p. 411 (c), two free lines measured; the one toward a rest stops 0.6 sp before it' },
+  /** `ChordLine`'s default: 1.2 sp across × 1 sp (`tlayout.cpp` ~1660–1683). Clearance: Gould's (MuseScore's
+   *  chord line is not spaced for at all). */
+  musescore: { across: 1.2, rise: 1.0, clearance: 0.6, source: 'MuseScore ChordLine default (engines research §4)' },
+  /** Ross p. 210 SHORT gliss: ≈1.1 sp of rise at ≈55–60° ⇒ ≈0.7 across (read, not measured). */
+  rossShort: { across: 0.7, rise: 1.1, clearance: 0.6, source: 'Ross p. 210, SHORT (read)' },
+  /** Ross p. 210 LONG gliss: ≈3.2 sp of rise at the same angle ⇒ ≈2.0 across (read, not measured). */
+  rossLong: { across: 2.0, rise: 3.2, clearance: 0.6, source: 'Ross p. 210, LONG (read)' },
+} as const satisfies Record<string, GlissandoFreeEndRule>
+
+export type GlissandoFreeEndRuleName = keyof typeof GLISSANDO_FREE_END_RULES
+export const ACTIVE_GLISSANDO_FREE_END_RULE: GlissandoFreeEndRuleName = 'gould'
+const freeState: { rule: GlissandoFreeEndRuleName } = { rule: ACTIVE_GLISSANDO_FREE_END_RULE }
+
+export function armedGlissandoFreeEnd(): GlissandoFreeEndRule {
+  return GLISSANDO_FREE_END_RULES[freeState.rule]
+}
+
+export function glissandoFreeEndSettings(): { rule: GlissandoFreeEndRuleName } {
+  return { ...freeState }
+}
+
+export function setGlissandoFreeEndRule(rule: GlissandoFreeEndRuleName): boolean {
+  if (!(rule in GLISSANDO_FREE_END_RULES)) return false
+  freeState.rule = rule
+  state.generation++
+  return true
+}
+
+export function resetGlissandoFreeEndRule(): void {
+  freeState.rule = ACTIVE_GLISSANDO_FREE_END_RULE
+  state.generation++
+}
+
+/**
+ * ⭐ A line with ONE free end, drawn by {@link glissandoStroke} itself against a VIRTUAL partner — a bare point
+ * with no ink — so every rule the armed row keeps at its real end (the head, its accidental, its stem, its
+ * ledgers, the staff lines) still holds there:
+ *
+ * - `'after'` — the line LEAVES `note` and runs to a point `across` to the right and `rise` up or down;
+ * - `'before'` — it comes FROM a point `across` to the left and `rise` below (rising into the note) or above.
+ *
+ * `note` is the anchor as a source (`after`) or as a target (`before`); `limitX` clamps an `after` end short of
+ * the system's barline.
+ */
+export function glissandoFreeStroke(
+  side: 'after' | 'before',
+  note: GlissandoFrom & GlissandoTo,
+  direction: 'up' | 'down',
+  space: number,
+  free: GlissandoFreeEndRule = armedGlissandoFreeEnd(),
+  limitX = Infinity,
+): GlissandoStroke | null {
+  const across = free.across * space
+  // y grows DOWN: a rising line ends higher (after) or starts lower (before).
+  const dy = free.rise * space * (direction === 'up' ? -1 : 1)
+  const rule = armedGlissandoEndRule()
+  if (side === 'after') {
+    const x = Math.min(note.inkRightX + rule.startGap * space + across, limitX)
+    const point = { y: note.y + dy, inkLeftX: x, centreX: x }
+    return glissandoStroke(note, point, space, direction === 'up' ? 1 : -1, { ...rule, endGap: 0, endBias: 0 })
+  }
+  const x = (note.accidentalLeftX ?? note.inkLeftX) - rule.endGap * space - across
+  const point = { y: note.y - dy, inkRightX: x, centreX: x }
+  return glissandoStroke(point, note, space, direction === 'up' ? 1 : -1, { ...rule, startGap: 0, startBias: 0 })
 }

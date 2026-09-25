@@ -277,6 +277,20 @@ export interface ClipTrill {
 }
 
 /**
+ * A GLISSANDO whose ANCHOR note is inside the clip window, re-anchored on paste (his call, 2026-09-25:
+ * *"of course yes"*). ⭐ It travels with its NOTE, as a tie does — ⛔ not on the mark selection: a glissando
+ * belongs to its head. Its far end is derived, so only the anchor is addressed (the slur's terms).
+ */
+export interface ClipGlissando {
+  staff: number; voice: number; offset: Fraction; pitch: ClipSlurPitch
+  side?: 'before'
+  end?: 'none'
+  direction?: 'up' | 'down'
+  /** Whatever it carries in the overrides compartment — see {@link ClipDynamic.engraving}. */
+  engraving?: EngravingOverride[]
+}
+
+/**
  * A run of musical material, detached from where it came from and where it is going.
  * See the module comment for why the target is not in here.
  */
@@ -297,6 +311,8 @@ export interface Clip {
   slurs?: ClipSlur[]
   /** Trills whose SIGN is inside the clip window, re-anchored on paste. Absent/empty = none. */
   trills?: ClipTrill[]
+  /** Glissandi whose ANCHOR note is inside the clip window, re-anchored on paste. Absent/empty = none. */
+  glissandi?: ClipGlissando[]
   /** Hairpins whose START is in the clip window, re-anchored on paste. Absent/empty = none. */
   hairpins?: ClipHairpin[]
   /** Octave lines whose START is in the clip window, re-anchored on paste. Absent/empty = none. */

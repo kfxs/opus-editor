@@ -5,7 +5,9 @@
  *
  * ⛔ No `mutate` on a refusal: an edit that changed nothing leaves no undo entry.
  */
-import { addGlissando, getGlissandoById, glissandoOn, removeGlissando } from '../models/glissandoOps'
+import {
+  addGlissando, getGlissandoById, glissandoOn, removeGlissando, setGlissandoDirection, setGlissandoEnd, setGlissandoSide,
+} from '../models/glissandoOps'
 import type { CommandContext } from './commandContext'
 
 export type GlissandoCommands = ReturnType<typeof glissandoCommands>
@@ -33,6 +35,28 @@ export function glissandoCommands(ctx: CommandContext) {
       if (!removeGlissando(score(), id)) return false
       ctx.mutate('Remove glissando')
       return true
+    },
+
+    /** ⭐ P3 — the SIDE of each of these glissandi (G3): `before` = into its note from nothing. ONE undo entry;
+     *  none when nothing changed. @returns how many changed. */
+    setSide(ids: readonly string[], side: 'before' | 'after'): number {
+      const changed = ids.filter(id => setGlissandoSide(score(), id, side)).length
+      if (changed) ctx.mutate(side === 'before' ? 'Glissando into the note' : 'Glissando out of the note')
+      return changed
+    },
+
+    /** ⭐ P3 — a free end on purpose (`none`) or back to the next note (`next`) (G5). ONE undo entry. */
+    setEnd(ids: readonly string[], end: 'none' | 'next'): number {
+      const changed = ids.filter(id => setGlissandoEnd(score(), id, end)).length
+      if (changed) ctx.mutate(end === 'none' ? 'Glissando to nothing' : 'Glissando to the next note')
+      return changed
+    },
+
+    /** ⭐ P3 — a free end's direction (G11). ONE undo entry. */
+    setDirection(ids: readonly string[], direction: 'up' | 'down'): number {
+      const changed = ids.filter(id => setGlissandoDirection(score(), id, direction)).length
+      if (changed) ctx.mutate(direction === 'up' ? 'Glissando up' : 'Glissando down')
+      return changed
     },
 
     /** The glissando on this head, if any. */

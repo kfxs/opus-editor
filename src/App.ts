@@ -77,6 +77,7 @@ import { menus, menuActions, buildMenuBarTitles, openMenuAtViewport } from './me
 import { mountMenuBar } from './menus/menuBar'
 import { A4_NORMAL } from './engine/layout/surface'
 import { enableGlyphOutlines } from './engine/fonts/glyphOutline'
+import { selectedNoteIds } from './interactions/state/selection'
 
 /**
  * The editor application. No framework: it builds its own DOM, wires the controllers, and owns the
@@ -969,7 +970,11 @@ export function createEditorApp(host: HTMLElement): EditorApp {
     w.__cue = cueConsole(() => renderer.renderScore())
     // ⚠️ EXPERIMENT, HIS (2026-09-25) — the GLISSANDO's rows: Gould armed, the engines beside her
     // (engine/engrave/marks/glissandoLine).
-    w.__gliss = glissandoConsole(() => renderer.renderScore())
+    w.__gliss = glissandoConsole({
+      render: () => renderer.renderScore(),
+      getEngine: () => engine,
+      selectedNoteIds: () => selectedNoteIds(state.selectedItems.values()),
+    })
     // 🔧 P0 of the BRACKETED grace (docs/plans/bracketed-grace-plan.md) — the model, poked by hand
     // before anything draws it (src/dev/bracketedConsole.ts).
     w.__bracketed = bracketedConsole({ getEngine: () => engine, selectedNoteId: () => state.selectedNoteId, render: () => renderer.renderScore() })

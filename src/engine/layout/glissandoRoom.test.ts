@@ -41,16 +41,34 @@ describe('glissandoRoomIn', () => {
     expect(glissandoRoomIn(model.getScore(), model.getMeasure(2)!)).toEqual([])
   })
 
-  it('no target (a rest next) asks nothing; the `none` row asks nothing at all', () => {
+  it('the `none` row asks nothing at all — not even a free end', () => {
     const { model, c, last } = score()
     const model2 = new ScoreModel()
     const lone = model2.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
     addGlissando(model2.getScore(), lone.id)
-    expect(glissandoRoomIn(model2.getScore(), model2.getMeasure(1)!)).toEqual([])
-
     addGlissando(model.getScore(), c.id)
     addGlissando(model.getScore(), last.id)
     setGlissandoMinLengthRule('none')
     expect(glissandoRoomIn(model.getScore(), model.getMeasure(1)!)).toEqual([])
+    expect(glissandoRoomIn(model2.getScore(), model2.getMeasure(1)!)).toEqual([])
+  })
+})
+
+describe('P3 — a free end asks for its own room', () => {
+  it('after: from its note to the next column, the free row\'s length and clearance', () => {
+    const model = new ScoreModel()
+    const c = model.addNote({ step: 'C', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })
+    addGlissando(model.getScore(), c.id) // a rest follows
+    const [room] = glissandoRoomIn(model.getScore(), model.getMeasure(1)!)
+    expect(room).toMatchObject({ from: frac(0, 1), to: frac(1, 1), length: 3.8, endGap: 0.6 })
+  })
+
+  it('before: from the previous column to its note', () => {
+    const model = new ScoreModel()
+    const e = model.addNote({ step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
+    const g = addGlissando(model.getScore(), e.id)!
+    g.side = 'before'
+    const [room] = glissandoRoomIn(model.getScore(), model.getMeasure(1)!)
+    expect(room).toMatchObject({ from: frac(0, 1), to: frac(1, 1), length: 3.8, startGap: 0.6 })
   })
 })

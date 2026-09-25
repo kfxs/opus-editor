@@ -8,18 +8,18 @@
  * (`ScoreRenderer.recordScene`).
  *
  * ⭐ A target on the next SYSTEM draws TWO pieces (P2, `glissandoLine.glissandoPieces` — Gould's
- * whole-interval pieces armed). ⏳ Not yet: a free end when there is no target (P3 — nothing drawn),
- * selection (P4), a piece whose other system is culled (skipped: its note is not drawn to ask).
+ * whole-interval pieces armed); a FREE end (P3) draws into or out of nothing ({@link renderFreeEnd}).
+ * ⏳ Not yet: selection (P4); a piece whose other system is culled (skipped: its note is not drawn to ask).
  */
-import type { NotePitch, Score } from '@/types/music'
+import type { Glissando, NotePitch, Score } from '@/types/music'
 import type { RenderPass } from '../../RenderPass'
-import { getGlissandi, glissandoTarget } from '@/engine/models/glissandoOps'
+import { getGlissandi, glissandoDirection, glissandoTarget } from '@/engine/models/glissandoOps'
 import { findSlot } from '@/engine/models/slotLookup'
 import { staffIndexOfId } from '@/engine/models/staffContent'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { spellingToMidi } from '@/utils/pitchSpelling'
 import {
-  glissandoPieces, glissandoStroke, glissandoThicknessSpaces, type GlissandoFrom, type GlissandoStroke, type GlissandoTo, type Ledger,
+  armedGlissandoBreakRule, glissandoFreeStroke, glissandoPieces, glissandoStroke, glissandoThicknessSpaces, type GlissandoFrom, type GlissandoStroke, type GlissandoTo, type Ledger,
 } from '@/engine/engrave/marks/glissandoLine'
 import { lineEndBarlineX, lineHeaderInkX } from '../../staff/systemEdges'
 import { LEDGER_OVERHANG_PX } from '@/engine/engrave/inheritedDefaults'
@@ -41,7 +41,10 @@ export function renderGlissandi(pass: RenderPass, score: Score): void {
   if (!ctx) return
   for (const glissando of getGlissandi(score)) {
     const targetId = glissandoTarget(score, glissando)
-    if (!targetId) continue // ⏳ P3: the free end
+    if (!targetId) {
+      renderFreeEnd(pass, score, glissando)
+      continue
+    }
     const from = pass.staveNoteMap.get(glissando.noteId)
     const to = pass.staveNoteMap.get(targetId)
     if (!from || !to) continue // not drawn (culled, or the anchor dangles)
@@ -77,22 +80,59 @@ export function renderGlissandi(pass: RenderPass, score: Score): void {
       }, space, rising)
     }
     if (!strokes.some(Boolean)) continue
-
-    const group = drawGroupOf(ctx.openGroup?.('glissando', `glissando-${glissando.id}`))
-    inStaffSpace(pass, staffIndex, group, () => {
-      ctx.save()
-      ctx.setLineWidth(glissandoThicknessSpaces() * space)
-      for (const stroke of strokes) {
-        if (!stroke) continue
-        ctx.beginPath()
-        ctx.moveTo(stroke.x1, stroke.y1)
-        ctx.lineTo(stroke.x2, stroke.y2)
-        ctx.stroke()
-      }
-      ctx.restore()
-    })
-    ctx.closeGroup?.()
+    drawStrokes(pass, ctx, staffIndex, glissando.id, strokes, space)
   }
+}
+
+/**
+ * ⭐ P3 — a glissando with a FREE end: a line INTO its note from nothing (`side: 'before'` — a scoop, a lift, a
+ * plop) or OUT of it into nothing (no note to go to, or `end: 'none'` — a fall, a doit, a bend). Drawn by
+ * `glissandoLine.glissandoFreeStroke` against a virtual point, so the note's side keeps every rule the armed row
+ * keeps; its size is the free-end row's (`GLISSANDO_FREE_END_RULES`), its direction the model's.
+ */
+function renderFreeEnd(pass: RenderPass, score: Score, glissando: Glissando): void {
+  const ctx = pass.context
+  const at = pass.staveNoteMap.get(glissando.noteId)
+  const slot = findSlot(score, glissando.noteId)
+  if (!ctx || !at || slot?.type !== 'chord') return
+  const frame = noteFrame(at.staveNote)
+  if (!frame) return
+  const leave = leaving(at.staveNote, at.noteIndex, frame)
+  const arrive = arriving(at.staveNote, at.noteIndex, frame)
+  if (!leave || !arrive) return
+  const staffIndex = staffIndexOfId(score, slot.chord.staffId)
+  const side = glissando.side === 'before' ? 'before' : 'after'
+  // An `after` end stops short of the system's closing barline — P2's own gap there.
+  const line = pass.measureLayoutInfo.get(slot.chord.measure)?.lineNumber ?? 0
+  const barline = lineEndBarlineX(pass, line)
+  const limitX = barline === undefined ? Infinity : barline / pass.staffScale(staffIndex) - armedGlissandoBreakRule().beforeBarline * frame.spacePx
+  const stroke = glissandoFreeStroke(side, { ...leave, ...arrive }, glissandoDirection(glissando), frame.spacePx, undefined, limitX)
+  if (stroke) drawStrokes(pass, ctx, staffIndex, glissando.id, [stroke], frame.spacePx)
+}
+
+/** One glissando's group: its strokes, at the armed weight, in its staff's own space. */
+function drawStrokes(
+  pass: RenderPass,
+  ctx: NonNullable<RenderPass['context']>,
+  staffIndex: number,
+  id: string,
+  strokes: ReadonlyArray<GlissandoStroke | null>,
+  space: number,
+): void {
+  const group = drawGroupOf(ctx.openGroup?.('glissando', `glissando-${id}`))
+  inStaffSpace(pass, staffIndex, group, () => {
+    ctx.save()
+    ctx.setLineWidth(glissandoThicknessSpaces() * space)
+    for (const stroke of strokes) {
+      if (!stroke) continue
+      ctx.beginPath()
+      ctx.moveTo(stroke.x1, stroke.y1)
+      ctx.lineTo(stroke.x2, stroke.y2)
+      ctx.stroke()
+    }
+    ctx.restore()
+  })
+  ctx.closeGroup?.()
 }
 
 /** +1 when the target sounds higher, −1 lower, 0 the same. */

@@ -13,6 +13,7 @@ import { staffMeasureView, staffIdAtIndex, staffIndexOfId } from '../../engine/m
 import { laneOfSlot, pairIsValid } from '../../utils/tremoloPair'
 import { staffOf, voiceOf } from '../../utils/lanes'
 import { slotLength } from '../../utils/durations'
+import { glissandiInWindow } from './glissandoClip'
 
 /**
  * ⭐⭐ **Everything a mark carries in the overrides compartment**, cloned for the clip — its hand
@@ -702,6 +703,8 @@ export function buildClipboardFromSelection(
   const ottavas = ottavasInWindow(score, topStaff, staves[staves.length - 1], spanStart, spanEnd, wanted)
   const pedals = pedalsInWindow(score, topStaff, staves[staves.length - 1], spanStart, spanEnd, wanted)
   const tempos = temposInWindow(score, spanStart, spanEnd, wanted)
+  // Glissandi travel with their ANCHOR note, ⛔ not on the mark selection (`./glissandoClip`).
+  const glissandi = glissandiInWindow(score, topStaff, staves[staves.length - 1], spanStart, spanEnd)
   // Authored spaces in the window travel too (client #10) — no staff re-basing, since a space
   // has no staff.
   const spaces = leadingSpacesInWindow(score, spanStart, spanEnd)
@@ -727,6 +730,7 @@ export function buildClipboardFromSelection(
     ...(ottavas.length ? { ottavas } : {}),
     ...(pedals.length ? { pedals } : {}),
     ...(tempos.length ? { tempos } : {}),
+    ...(glissandi.length ? { glissandi } : {}),
   }
 }
 

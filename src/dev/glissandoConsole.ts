@@ -22,14 +22,23 @@
  *   __gliss.squeeze('vanish')      // P1's behaviour — no room for the gaps, no line
  *   __gliss.breaks('gould')        // ✅ ARMED — across a system break each piece spans the WHOLE interval
  *   __gliss.breaks('musescore')    // one line, one slope, cut at the break (MuseScore, LilyPond)
+ *   __gliss.freeEnd('gould')       // ✅ ARMED — a free end 3.8 sp across × 1.3 sp (p. 411 (c)); 'musescore' / 'rossShort' / 'rossLong'
+ *
+ *   // ⭐ P3, until the Properties window has it — on the glissandi of the SELECTED notes (one undo step each):
+ *   __gliss.side('before')         // a line INTO the note from nothing (scoop, lift, plop) · 'after' back
+ *   __gliss.target('none')         // a free end even with a note next (fall, doit) · 'next' back
+ *   __gliss.direction('up')        // which way the free end goes · 'down'
  *   __gliss.reset()
  * ```
  *
  * ⚠️ Scaffolding: `dev/` may be deleted whole; `App.ts` wires it. The `dev/dotGapConsole` contract.
  */
 import { dbg } from '@/utils/debug'
+import type { MusicEngine } from '@/engine/MusicEngine'
 import {
   glissandoAccidentalGapOverride, setGlissandoAccidentalGap, armedGlissandoEndRule,
+  GLISSANDO_FREE_END_RULES, glissandoFreeEndSettings, resetGlissandoFreeEndRule, setGlissandoFreeEndRule,
+  type GlissandoFreeEndRuleName,
   GLISSANDO_BREAK_RULES, GLISSANDO_END_RULES, GLISSANDO_SQUEEZE_RULES, glissandoBreakSettings, resetGlissandoBreakRule, setGlissandoBreakRule,
   type GlissandoBreakRuleName, GLISSANDO_THICKNESS_RULES, glissandoSettings, glissandoThicknessSpaces,
   resetGlissandoRules, setGlissandoEndRule, setGlissandoSqueezeRule, setGlissandoThicknessRule,
@@ -40,7 +49,18 @@ import {
   type GlissandoMinLengthRuleName,
 } from '@/engine/layout/glissandoRoom'
 
+/** What the console needs from the app: a render, and the selected notes' glissandi to act on. */
+export interface GlissandoConsoleDeps {
+  render: () => void
+  getEngine: () => MusicEngine | null
+  selectedNoteIds: () => string[]
+}
+
 export interface GlissandoConsole {
+  freeEnd(rule: GlissandoFreeEndRuleName): GlissandoFreeEndRuleName
+  side(side: 'before' | 'after'): number
+  target(end: 'none' | 'next'): number
+  direction(direction: 'up' | 'down'): number
   end(rule: GlissandoEndRuleName): GlissandoEndRuleName
   accidentalGap(spaces: number | null): number
   thickness(rule: GlissandoThicknessRuleName): GlissandoThicknessRuleName
@@ -57,7 +77,26 @@ const MIN_LENGTH_NAMES = Object.keys(GLISSANDO_MIN_LENGTH_RULES) as GlissandoMin
 const SQUEEZE_NAMES = Object.keys(GLISSANDO_SQUEEZE_RULES) as GlissandoSqueezeRuleName[]
 const BREAK_NAMES = Object.keys(GLISSANDO_BREAK_RULES) as GlissandoBreakRuleName[]
 
-export function glissandoConsole(render: () => void): GlissandoConsole {
+export function glissandoConsole(deps: GlissandoConsoleDeps): GlissandoConsole {
+  const { render } = deps
+  /** The glissandi on the selected heads. */
+  const selected = (): string[] => {
+    const engine = deps.getEngine()
+    if (!engine) return []
+    return deps.selectedNoteIds().map(id => engine.glissando.on(id)?.id).filter((id): id is string => !!id)
+  }
+  const act = (label: string, run: (engine: MusicEngine, ids: string[]) => number): number => {
+    const engine = deps.getEngine()
+    const ids = selected()
+    if (!engine || !ids.length) {
+      dbg(`[gliss] ${label}: select a note that carries a glissando first`)
+      return 0
+    }
+    const changed = run(engine, ids)
+    if (changed) render()
+    dbg(`[gliss] ${label}: ${changed} of ${ids.length} changed`)
+    return changed
+  }
   const report = () => {
     const { end, thickness, squeeze } = glissandoSettings()
     dbg(`[gliss] armed: ends ${end}, thickness ${thickness} (${glissandoThicknessSpaces().toFixed(3)} sp), minLength ${glissandoMinLengthSettings().rule}, before an accidental ${armedGlissandoEndRule().accidentalGap} sp${glissandoAccidentalGapOverride() === null ? '' : ' (knob)'}, squeeze ${squeeze}, breaks ${glissandoBreakSettings().rule}. __gliss.dump() for the table`)
@@ -117,7 +156,20 @@ export function glissandoConsole(render: () => void): GlissandoConsole {
       report()
       return glissandoBreakSettings().rule
     },
+    freeEnd: (rule) => {
+      if (!setGlissandoFreeEndRule(rule)) {
+        dbg(`[gliss] ⛔ no such freeEnd row: ${rule} — try ${Object.keys(GLISSANDO_FREE_END_RULES).map(n => `'${n}'`).join(', ')}`)
+        return glissandoFreeEndSettings().rule
+      }
+      render()
+      report()
+      return glissandoFreeEndSettings().rule
+    },
+    side: (side) => act(`side ${side}`, (engine, ids) => engine.glissando.setSide(ids, side)),
+    target: (end) => act(`target ${end}`, (engine, ids) => engine.glissando.setEnd(ids, end)),
+    direction: (direction) => act(`direction ${direction}`, (engine, ids) => engine.glissando.setDirection(ids, direction)),
     reset: () => {
+      resetGlissandoFreeEndRule()
       resetGlissandoRules()
       resetGlissandoBreakRule()
       resetGlissandoMinLengthRule()

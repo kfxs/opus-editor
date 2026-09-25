@@ -19,7 +19,7 @@ import { restShiftOverrideOf, restHiddenOf, restPositionKey, noteOffsetOverrideO
 import { slotLength, writtenLength } from '@/utils/durations'
 import { getMeterInfo } from '@/utils/meter'
 import { flattenRegion, relayEvents, type RebarPiece, type RebarEvent, type BarPlan } from '@/utils/rebar'
-import type { Clip, ClipSlur, ClipSlurPitch, ClipTrill, ClipTarget } from '@/utils/clip'
+import type { Clip, ClipGlissando, ClipSlur, ClipSlurPitch, ClipTrill, ClipTarget } from '@/utils/clip'
 import { type Fraction, fracCreate, fracAdd, fracSub, fracCompare, fracEq, fracLt, fracGte } from '@/utils/fraction'
 import { measureCapacityFrac } from '@/utils/measureCapacity'
 import { staffIndexOfId, matchesStaff, staffIdAtIndex, staffIdForParams, keyStaffId, staffMeasureView } from './staffContent'
@@ -28,7 +28,9 @@ import { fillGapsWithRests, pushRestSlot } from './restFillOps'
 import { repairDanglingTies } from './tieOps'
 import { addSlur, repairDanglingSlurs } from './slurOps'
 import { addTrill, repairDanglingTrills } from './trillOps'
-import { captureGlissandi, restoreGlissandi } from './glissandoOps'
+import {
+  addGlissando, captureGlissandi, restoreGlissandi, setGlissandoDirection, setGlissandoEnd, setGlissandoSide,
+} from './glissandoOps'
 import { addMeasure, insertMeasureAfter } from './measureOps'
 import { collapseEmptyVoices } from './voiceOps'
 import { findSlot } from './slotLookup'
@@ -494,6 +496,7 @@ function pasteEventsBody(
   restoreClipSlurs(score, regionNumbers, clipSlurs, targetStaff, targetVoice, singleVoice, pasteStart, staffCount)
   // …and the clip's own trills, on the same staff-aware lookup (docs/plans/trill-plan.md §2.3).
   restoreClipTrills(score, regionNumbers, clipTrills, targetStaff, targetVoice, singleVoice, pasteStart, staffCount)
+  restoreClipGlissandi(score, regionNumbers, clip.glissandi ?? [], { targetStaff, targetVoice, singleVoice, pasteStart, staffCount })
   restoreBeatAnchors(score, regionNumbers, survivingAnchors)
   // Re-anchor the clip's own dynamics on top (Phase 2): re-base each clip-relative offset by the
   // paste start, map the RELATIVE staff onto an absolute one (clamped — drop overflow lanes), and
@@ -1572,6 +1575,26 @@ function restoreClipTrills(
     // ⭐ …and whatever the sign carried travels with it, re-stamped under the id it has now — the
     // same seam every other mark rides ({@link stampOverrides}).
     if (trill) stampOverrides(score, trill.id, ct.engraving)
+  }
+}
+
+/**
+ * Put the clip's glissandi back on the pasted notes — each re-found by its anchor (staff / voice / offset /
+ * pitch, staff-aware), with its side, end, direction and hand work. One whose anchor can't be re-found is
+ * skipped. Its far end is derived wherever it lands (docs/plans/glissando-plan.md G4).
+ */
+function restoreClipGlissandi(score: Score, regionNumbers: number[], clipGlissandi: ClipGlissando[], landing: ClipLanding): void {
+  if (clipGlissandi.length === 0) return
+  const resolve = clipEndResolver(score, regionNumbers, landing)
+  for (const cg of clipGlissandi) {
+    const noteId = resolve(cg.staff, cg.voice, cg.offset, cg.pitch)
+    if (!noteId) continue
+    const g = addGlissando(score, noteId)
+    if (!g) continue
+    if (cg.side) setGlissandoSide(score, g.id, cg.side)
+    if (cg.end) setGlissandoEnd(score, g.id, cg.end)
+    if (cg.direction) setGlissandoDirection(score, g.id, cg.direction)
+    stampOverrides(score, g.id, cg.engraving)
   }
 }
 
