@@ -229,3 +229,49 @@ describe('drawScoreOnSpine — BEAMS (docs/plans/bent-staff-plan.md §6)', () =>
   })
 })
 
+
+describe('drawScoreOnSpine — TUPLETS (docs/plans/bent-staff-plan.md port map #8)', () => {
+  const tupletGroups = (blocks: SceneGroup[]) => blocks.flatMap(block => sceneGroups(block, 'tuplet'))
+  /** A bracket is two legs and a line — `fillRect`s; a beamed group's mark has none. */
+  const rects = (group: SceneGroup) => scenePrimitives(group).filter(p => p.kind === 'rect').length
+
+  it('⭐ a triplet of QUARTERS is ONE block — its three slots formatted together — with its mark inside', () => {
+    const m = model(1)
+    const tuplet = m.createTuplet(1, { num: 0, den: 1 }, 'q', 3, 2)!
+    for (let i = 0; i < 3; i++) m.addNote({ step: 'G', octave: 4, duration: 'q', measure: 1, beat: { num: 2 * i, den: 3 }, tupletId: tuplet.id, staff: 0 })
+    const blocks = blocksOf(m)
+    // the header's two, the tuplet's ONE, the rests that fill the bar (its 2 beats → one half rest), the last barline
+    expect(blocks).toHaveLength(HEADER_BLOCKS + 1 + (slotCount(m) - 3) + 1)
+    const marks = tupletGroups(blocks)
+    expect(marks, 'one tuplet mark, inside a block').toHaveLength(1)
+    expect(rects(marks[0]), 'unbeamed ⇒ BRACKETED: legs and a line').toBeGreaterThan(0)
+  })
+
+  it('⭐ a beamed triplet of EIGHTHS: one block, the beam AND the mark inside — and NO bracket (the beam shows the group)', () => {
+    const m = model(1)
+    const tuplet = m.createTuplet(1, { num: 0, den: 1 }, '8', 3, 2)!
+    for (let i = 0; i < 3; i++) m.addNote({ step: 'C', octave: 5, duration: '8', measure: 1, beat: { num: i, den: 3 }, tupletId: tuplet.id, staff: 0 })
+    const blocks = blocksOf(m)
+    const marks = tupletGroups(blocks)
+    expect(marks).toHaveLength(1)
+    expect(rects(marks[0]), 'beamed ⇒ no bracket, only the figure').toBe(0)
+    const withMark = blocks.find(b => sceneGroups(b, 'tuplet').length)!
+    expect(sceneGroups(withMark, SPINE_NOTE_CLASS), 'the three notes are in that block').toHaveLength(3)
+  })
+
+  it('the mark is drawn in the BLOCK’s frame, straight — not inside any note’s turned group', () => {
+    const m = model(1)
+    const tuplet = m.createTuplet(1, { num: 0, den: 1 }, '8', 3, 2)!
+    for (let i = 0; i < 3; i++) m.addNote({ step: 'C', octave: 5, duration: '8', measure: 1, beat: { num: i, den: 3 }, tupletId: tuplet.id, staff: 0 })
+    const blocks = blocksOf(m)
+    for (const noteGroup of blocks.flatMap(b => sceneGroups(b, SPINE_NOTE_CLASS))) {
+      expect(sceneGroups(noteGroup, 'tuplet')).toHaveLength(0)
+    }
+  })
+
+  it('a bar with no tuplet draws no mark — the page’s picture, unchanged', () => {
+    const m = model(1)
+    addQuarter(m, 1, 0)
+    expect(tupletGroups(blocksOf(m))).toHaveLength(0)
+  })
+})

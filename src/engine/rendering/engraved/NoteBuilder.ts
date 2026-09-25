@@ -3,6 +3,7 @@ import { slotScale } from '@/engine/layout/cueSize'
 import { EngravedAccidental } from './EngravedAccidental'
 import { EngravedArticulation } from './EngravedArticulation'
 import { attachEngravedDots } from './EngravedDot'
+import { noteRuler } from './noteRuler'
 import { CenteredTremolo } from './CenteredTremolo'
 import { attachModifier, MODIFIER_POSITION } from './EngravedModifier'
 import { reserveDotRoom } from '../format/dotPlacement'
@@ -413,6 +414,31 @@ export const TUPLET_LOCATION_BELOW = -1
  * @param singleVoiceFallback - Stem-derived location to use when single-voice
  * @returns TUPLET_LOCATION_ABOVE (1) or TUPLET_LOCATION_BELOW (-1)
  */
+/**
+ * ⭐ The single-voice DEFAULT side of a tuplet's mark — opposite the group's stems: more stems up ⇒ below,
+ * otherwise (down, none, or a tie) above. A whole note or a rest counts as a down-stem here, as it always
+ * has. Moved out of `ScoreRenderer.calculateTupletLocation` (2026-09-25) so the spine asks the same rule.
+ */
+export function stemMajorityTupletLocation(notes: EngravedNote[]): number {
+  if (notes.length === 0) return TUPLET_LOCATION_ABOVE
+  let stemsUp = 0
+  let stemsDown = 0
+  for (const note of notes) {
+    try {
+      if (note.getStem()) {
+        const direction = noteRuler(note).stemDirection
+        if (direction === 1) stemsUp++
+        else if (direction === -1) stemsDown++
+      } else {
+        stemsDown++
+      }
+    } catch (_e) {
+      stemsDown++
+    }
+  }
+  return stemsUp > stemsDown ? TUPLET_LOCATION_BELOW : TUPLET_LOCATION_ABOVE
+}
+
 export function resolveTupletLocation(
   placement: 'above' | 'below' | undefined,
   multiVoice: boolean,

@@ -15,10 +15,13 @@
  *   the clef its bar OPENS with (⛔ not yet a clef change in the MIDDLE of a bar).
  * - Every boundary carries the score's own SIGN (`models/boundarySign`): plain, final, either repeat,
  *   the back-to-back `:||:`, wings — painted by the page's `paintBarlineSign` in a block.
- * - Beamed groups are one block each (`./spineStaff.drawBeamedBlock`); WHERE a column stands is the
- *   page's spacing asked for one justified line (`./spineSpacing`).
- * - ⛔ No ties, slurs, tuplet marks, dynamics or hairpins — the port map is
- *   `docs/plans/bent-staff-plan.md` §5.
+ * - ⭐ A GROUP is one block (`./spineStaff.drawGroupBlock`): the notes a beam joins, the notes a TUPLET
+ *   joins, and any run those two overlap into — one block, its beams and its tuplet marks drawn inside
+ *   (port map #5, #8). The tuplet is the page's own `ScoreTuplet`, built by the page's rules: its side
+ *   (`resolveTupletLocation`), its bracket (`tupletBracketed` — none where a beam already shows the
+ *   group), its mark (`tupletMarkRuns`, meter-aware) and where its bracket ends (`tupletBracketEnd`).
+ *   WHERE a column stands is the page's spacing asked for one justified line (`./spineSpacing`).
+ * - ⛔ No ties, slurs, dynamics or hairpins — the port map is `docs/plans/bent-staff-plan.md` §5.
  */
 import type { DrawContext } from '@/engine/paint/DrawContext'
 import type { Spine } from '@/engine/engrave/staff/staffSpine'
@@ -27,25 +30,43 @@ import { HEADER_TO_REPEAT, barlineSignExtent } from '@/engine/layout/barlineSign
 import { signAtBoundary } from '@/engine/models/boundarySign'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { keyStaffId, staffMeasureView } from '@/engine/models/staffContent'
-import type { Score } from '@/types/music'
+import type { ChordRest, Measure, Score } from '@/types/music'
 import { resolveStaffClefs } from '@/utils/clefUtils'
 import { fracToNumber } from '@/utils/fraction'
 import { resolveStaffKeys } from '@/utils/keySignature'
 import { voiceOf } from '@/utils/lanes'
 import { getMeterInfo } from '@/utils/meter'
-import { createStaveNotesFromSlots } from '../engraved/NoteBuilder'
+import { createStaveNotesFromSlots, resolveTupletLocation, stemMajorityTupletLocation } from '../engraved/NoteBuilder'
+import { ScoreTuplet } from '../engraved/ScoreTuplet'
+import { tupletBracketEnd, tupletBracketed, tupletMarkRuns } from '@/utils/musicUtils'
 import { boundaryWinged } from '../staff/BarlineRenderer'
 import { buildBeams } from '../beams/beamGroups'
 import type { EngravedNote } from '../engraved/EngravedNote'
 import { deepestInkPx, spaceBarsOnSpine } from './spineSpacing'
 import { drawSpineBarHeader, spineBarHeader } from './spineHeader'
-import { drawBeamedBlock, drawNoteBlock, drawSpineBarline, drawSpineStaffLines } from './spineStaff'
+import { drawGroupBlock, drawNoteBlock, drawSpineBarline, drawSpineStaffLines, type GroupBlockInk } from './spineStaff'
 
 /**
  * ⭐ On a CLOSED spine the music stops this far short of where it began, so the LAST barline stands
  * clear in front of the clef — ⛔ not on top of it, which is where `s = length` is. A changeable default.
  */
 const CLOSED_SEAM_PX = 16
+
+/** ⭐ The page's `BRACKET_END_GAP` (`ScoreRenderer`, a `beforeNext` bracket stops this short of the next note), px
+ *  along the spine. ⚠️ A copy of a private literal; the page's is the source. */
+const BRACKET_END_GAP_PX = 6
+
+/**
+ * ⭐ The GROUPS a voice's notes fall into — the notes each beam joins and the notes each tuplet joins, merged
+ * wherever they overlap (a beamed triplet is one group; a beam across two tuplets, one group with two marks).
+ * Returns each note's group index; a note in no group is a group of its own.
+ */
+function groupNotes(count: number, joins: readonly (readonly number[])[]): number[] {
+  const parent = Array.from({ length: count }, (_, i) => i)
+  const find = (i: number): number => (parent[i] === i ? i : (parent[i] = find(parent[i])))
+  for (const join of joins) for (const i of join.slice(1)) parent[find(join[0])] = find(i)
+  return parent.map((_, i) => find(i))
+}
 
 /** Draw `score`'s first staff along the whole of `spine`. */
 export function drawScoreOnSpine(ctx: DrawContext, score: Score, spine: Spine): void {
@@ -92,12 +113,26 @@ export function drawScoreOnSpine(ctx: DrawContext, score: Score, spine: Spine): 
       //    ⚠️ A group holding a FAN gets no `Beam` there (the page draws it by hand): its notes stay
       //    lone blocks here until fans are ported (plan §5 row 10).
       const { beams } = buildBeams(notes, slots, getMeterInfo(measure.timeSignature), () => clef, forcedStem)
-      const beamed = new Set<EngravedNote>()
-      for (const beam of beams) {
-        for (const note of beam.notes) beamed.add(note)
-        drawBeamedBlock(ctx, spine, beam.notes, beam, beam.notes.map(note => at[notes.indexOf(note)]))
-      }
-      notes.forEach((note, n) => { if (!beamed.has(note)) drawNoteBlock(ctx, spine, note, at[n]) })
+      // ⭐ The TUPLETS (port map #8) — the page's own, built by the page's rules, AFTER the beams (the
+      //    bracket asks whether a beam already shows the group; `hasBeam()` only answers once one exists).
+      const tuplets = tupletsOf(measure, slots, notes, voice, voices.length > 1, at, bar.end)
+      const groups = groupNotes(notes.length, [
+        ...beams.map(beam => beam.notes.map(note => notes.indexOf(note))),
+        ...tuplets.map(t => t.tuplet.getNotes().map(note => notes.indexOf(note))),
+      ])
+      const drawn = new Set<number>()
+      notes.forEach((note, n) => {
+        const members = notes.map((_, i) => i).filter(i => groups[i] === groups[n])
+        if (members.length === 1) { drawNoteBlock(ctx, spine, note, at[n]); return }
+        if (drawn.has(groups[n])) return
+        drawn.add(groups[n])
+        const inBlock = (ids: readonly EngravedNote[]) => ids.every(id => members.includes(notes.indexOf(id)))
+        const ink: GroupBlockInk = {
+          beams: beams.filter(beam => inBlock(beam.notes)),
+          tuplets: tuplets.filter(t => inBlock(t.tuplet.getNotes())),
+        }
+        drawGroupBlock(ctx, spine, members.map(i => notes[i]), members.map(i => at[i]), ink)
+      })
     }
     // ⭐ WHICH sign a boundary carries is the SCORE's answer (`models/boundarySign`) — final, either
     //    repeat, the back-to-back `:||:` from the two bars that meet there — as on the page.
@@ -115,3 +150,35 @@ export function drawScoreOnSpine(ctx: DrawContext, score: Score, spine: Spine): 
     if (kind) drawSpineBarline(ctx, spine, bar.end, kind, boundaryWinged(measure, nextDisplaced ? undefined : next))
   })
 }
+
+/**
+ * ⭐ One voice's tuplets as the page builds them (`ScoreRenderer.buildScoreTuplets` + its pre-draw pass), for
+ * the spine: the notes of each `tupletId` (two or more), the mark's SIDE, its BRACKET, its MARK, and where
+ * the bracket ENDS along the spine — the next column's `s` (`division`), a gap before it (`beforeNext`), the
+ * bar's end when nothing follows, or the last note (`lastNote`, undefined).
+ */
+function tupletsOf(
+  measure: Measure, slots: readonly ChordRest[], notes: readonly EngravedNote[], voice: number, multiVoice: boolean,
+  at: readonly number[], barEnd: number,
+): { tuplet: ScoreTuplet; endS?: number }[] {
+  const out: { tuplet: ScoreTuplet; endS?: number }[] = []
+  for (const data of measure.tuplets ?? []) {
+    const idx = slots.map((slot, i) => (slot.tupletId === data.id ? i : -1)).filter(i => i >= 0)
+    if (idx.length < 2) continue
+    const members = idx.map(i => notes[i])
+    const location = resolveTupletLocation(data.placement, multiVoice, voice, stemMajorityTupletLocation(members))
+    const tuplet = new ScoreTuplet(members, { numNotes: data.numNotes, notesOccupied: data.notesOccupied, location })
+    const bracketed = tupletBracketed(data, members.every(note => note.hasBeam()))
+    tuplet.options.bracketed = bracketed
+    tuplet.setMarkRuns(tupletMarkRuns(data, data.numberStyle, { meter: measure.timeSignature, beat: data.startBeat }))
+    let endS: number | undefined
+    const mode = tupletBracketEnd(data)
+    if (bracketed && mode !== 'lastNote') {
+      const next = idx[idx.length - 1] + 1
+      endS = next < slots.length ? at[next] - (mode === 'beforeNext' ? BRACKET_END_GAP_PX : 0) : barEnd - BRACKET_END_GAP_PX
+    }
+    out.push({ tuplet, endS })
+  }
+  return out
+}
+

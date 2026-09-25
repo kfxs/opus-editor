@@ -28,6 +28,7 @@ import type { Clef, NoteDuration, PitchAlter, PitchStep } from '@/types/music'
 import { middleLineDiatonicPos } from '@/utils/clefUtils'
 import { spellingDiatonicPos, spellingToNoteKey } from '@/utils/pitchSpelling'
 import { EngravedBeam, drawBeamInkThrough } from '../engraved/EngravedBeam'
+import type { ScoreTuplet } from '../engraved/ScoreTuplet'
 import { EngravedNote, drawNoteInkThrough } from '../engraved/EngravedNote'
 import { EngravedStave } from '../engraved/EngravedStave'
 import { noteRuler } from '../engraved/noteRuler'
@@ -92,8 +93,16 @@ export function drawNoteBlock(ctx: DrawContext, spine: Spine, engraved: Engraved
 /** How far into its block stave a beamed group's first column stands — room for an accidental in front. */
 const BLOCK_LEAD_IN_PX = 40
 
+/** What a GROUP block draws over its notes besides the notes themselves — every beam and tuplet mark that
+ *  lies wholly inside it. A tuplet's `endS` is where its bracket ENDS along the spine when the format says
+ *  `division` / `beforeNext` (the next column, or the bar's end); absent = at the last note, as the page's. */
+export interface GroupBlockInk {
+  beams: readonly EngravedBeam[]
+  tuplets: readonly { tuplet: ScoreTuplet; endS?: number }[]
+}
+
 /**
- * ⭐⭐ **A BEAMED GROUP IS ONE RIGID BLOCK** (`docs/plans/bent-staff-plan.md` §6): its notes are formatted
+ * ⭐⭐ **A GROUP IS ONE RIGID BLOCK** (`docs/plans/bent-staff-plan.md` §6, and #8 of its port map): its notes are formatted
  * TOGETHER on one straight stave, each column set to its distance along the path from the group's
  * first note; the page's own `EngravedBeam` — slope, stem lengths, secondary and fractional beams —
  * is drawn inside; and the block is placed by ONE affine at the group's MIDDLE (a wide block placed by
@@ -110,8 +119,8 @@ const BLOCK_LEAD_IN_PX = 40
  * `notes[i]` stands at `ss[i]` along the spine; `beam` was built over exactly these notes
  * (`beams/beamGroups.buildBeams`), BEFORE this runs, so no note reserves room for a flag.
  */
-export function drawBeamedBlock(
-  ctx: DrawContext, spine: Spine, notes: readonly EngravedNote[], beam: EngravedBeam, ss: readonly number[],
+export function drawGroupBlock(
+  ctx: DrawContext, spine: Spine, notes: readonly EngravedNote[], ss: readonly number[], ink: GroupBlockInk,
 ): void {
   if (notes.length === 0) return
   const middle = (ss[0] + ss[ss.length - 1]) / 2
@@ -150,7 +159,9 @@ export function drawBeamedBlock(
   // ⭐ Each note's OWN ink — heads, accidentals, dots, articulations, ledger lines — in a group of its
   //    own, turned below to the path's LOCAL angle. A beamed note draws no stem (the beam draws them
   //    all, `EngravedBeam.drawStems`), so what `note.draw()` paints is exactly what must turn, and the
-  //    stems and the beam stay in the block's frame: parallel, and straight.
+  //    stems and the beam stay in the block's frame: parallel, and straight. ⭐ An UNBEAMED note of the
+  //    group (a triplet of quarters) draws its own stem and flag — and they turn WITH it, exactly as a lone
+  //    block's do.
   const noteGroups: (ReturnType<typeof drawGroupOf>)[] = []
   try {
     drawNoteInkThrough([...notes], ctx)
@@ -162,8 +173,16 @@ export function drawBeamedBlock(
         ctx.closeGroup()
       }
     }
-    drawBeamInkThrough([beam], ctx)
-    beam.setContext(ctx).draw()
+    drawBeamInkThrough([...ink.beams], ctx)
+    for (const beam of ink.beams) beam.setContext(ctx).draw()
+    // ⭐ The TUPLET's number and bracket (port map #8) — the page's own `ScoreTuplet`, drawn in the block's
+    //    frame like the beam: the bracket STRAIGHT, outside whatever reaches furthest (its own rule,
+    //    `engrave/marks/tupletPlacement`, asked of the notes as formatted here). Where the bracket ENDS is
+    //    the format's answer turned into this block's x: the next column's place along the path.
+    for (const { tuplet, endS } of ink.tuplets) {
+      tuplet.bracketEndX = endS === undefined ? undefined : BLOCK_LEAD_IN_PX + (toBlockSpace(spine, middle, endS).x - local[0].x)
+      tuplet.draw(ctx)
+    }
   } finally {
     ctx.closeGroup()
   }

@@ -85,8 +85,7 @@ import {
   ARTICULATION_RENDER_ORDER,
   resolveTupletLocation,
   innerFlipTupletYOffset,
-  type TupletNoteStem,
-} from './engraved/NoteBuilder'
+  type TupletNoteStem, stemMajorityTupletLocation } from './engraved/NoteBuilder'
 import { calculateMeasureWidths } from '@/engine/layout/MeasureLayout'
 import { MeasureWidthCache } from '@/engine/layout/MeasureWidthCache'
 import { clefResolverFor, keyResolverFor, measureColumns, measureLeadIn, type StaffSizeResolver } from '@/engine/layout/measureColumns'
@@ -1263,54 +1262,6 @@ export class ScoreRenderer {
   }
 
   /**
-   * Calculate the optimal location (above or below) for a tuplet bracket
-   * Based on the stem direction of the notes in the tuplet
-   * @param staveNotes - The VexFlow StaveNotes in the tuplet
-   * @param clef - The clef type for pitch reference
-   * @returns VexFlow.Tuplet.LOCATION_TOP (1) or VexFlow.Tuplet.LOCATION_BOTTOM (-1)
-   */
-  private calculateTupletLocation(staveNotes: EngravedNote[], _clef: Clef): number {
-    // VexFlow constants: LOCATION_TOP = 1, LOCATION_BOTTOM = -1
-    const LOCATION_TOP = 1
-    const LOCATION_BOTTOM = -1
-
-    if (staveNotes.length === 0) return LOCATION_TOP
-
-    // Check if all notes have stems down (then bracket goes above)
-    // or if all notes have stems up (then bracket goes below)
-    // Mixed directions: use majority or default to above
-    let stemsUp = 0
-    let stemsDown = 0
-
-    for (const note of staveNotes) {
-      try {
-        const stem = note.getStem()
-        if (stem) {
-          // getStemDirection returns 1 for up, -1 for down
-          const direction = noteRuler(note).stemDirection
-          if (direction === 1) stemsUp++
-          else if (direction === -1) stemsDown++
-        } else {
-          // No stem (whole note or rest) - use default
-          stemsDown++
-        }
-      } catch (_e) {
-        // getStem may fail for rests
-        stemsDown++
-      }
-    }
-
-    // Bracket goes opposite to stem direction:
-    // - Stems up → bracket below
-    // - Stems down → bracket above
-    if (stemsUp > stemsDown) {
-      return LOCATION_BOTTOM
-    } else {
-      return LOCATION_TOP
-    }
-  }
-
-  /**
    * Render a single measure
    * @param measure - Measure to render
    * @param x - X position on canvas
@@ -1953,7 +1904,7 @@ export class ScoreRenderer {
 
       // Tuplets must be created BEFORE adding notes to voice — VexFlow adjusts tick
       // values. A tuplet belongs to one voice, so grouping by tupletId is voice-safe.
-      const { scoreTuplets, tupletStaveNoteMap } = this.buildScoreTuplets(sortedSlots, staveNotes, measure, clef, multiVoice)
+      const { scoreTuplets, tupletStaveNoteMap } = this.buildScoreTuplets(sortedSlots, staveNotes, measure, multiVoice)
 
       const meter = getMeterInfo(measure.timeSignature)
       const capacity = measureCapacityFrac(measure)
@@ -2743,7 +2694,6 @@ export class ScoreRenderer {
     sortedSlots: ChordRest[],
     staveNotes: EngravedNote[],
     measure: Measure,
-    clef: Clef,
     multiVoice: boolean,
   ): { scoreTuplets: ScoreTuplet[]; tupletStaveNoteMap: Map<string, { staveNotes: EngravedNote[]; tuplet: Tuplet; voice: number }> } {
     const tupletStaveNoteMap = new Map<string, { staveNotes: EngravedNote[]; tuplet: Tuplet; voice: number }>()
@@ -2776,7 +2726,7 @@ export class ScoreRenderer {
             tupletData.placement,
             multiVoice,
             voice,
-            this.calculateTupletLocation(tupletStaveNotes, clef)
+            stemMajorityTupletLocation(tupletStaveNotes)
           )
           // `bracketed` is NOT decided here: the rule asks whether the group is beamed, and the beams
           // do not exist yet at construction time (a note's `hasBeam()` is false until its Beam is
