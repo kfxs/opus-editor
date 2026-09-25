@@ -133,3 +133,14 @@ test('NOW — a dotted note TIED: the tie starts under the head, and the dot sit
   expect(parseFloat(start[1]), 'the tie starts LEFT of the dot — Gould p. 63, not after it').toBeLessThan(dot.x)
   expect(parseFloat(start[2]), 'and below it, bowing away from the stem').toBeGreaterThan(dot.y)
 })
+
+test('a STEM-DOWN dotted note on a line, tied: the tie bows UP over its lifted dot and clears it (`dotTie` `gould`, P4g)', async ({ score }) => {
+  // D5: the dot rises into the space above; the tie, away from the stem, arcs over it — Gould p. 63, *"Curve
+  // the tie sufficiently to avoid obscuring the dot"*. Measured 2026-09-25: ≈0.31 sp to spare.
+  const d = await draw(score, `const a = e.addNoteAtBeat({ step: 'D', octave: 5, duration: 'q', dots: 1, measure: 1, beat: f(0, 1) }); e.addNoteAtBeat({ step: 'D', octave: 5, duration: '8', measure: 1, beat: f(3, 2) }); e.toggleTie(a.id)`)
+  const [dot] = dotsOf(d)
+  const n = [...d.ties[0].matchAll(/-?[\d.]+/g)].map(m => parseFloat(m[0]))
+  expect(n[0], 'the tie starts LEFT of the dot').toBeLessThan(dot.x)
+  expect(n[3], 'and its arc rises ABOVE the dot').toBeLessThan(dot.y - SP / 4)
+})
+

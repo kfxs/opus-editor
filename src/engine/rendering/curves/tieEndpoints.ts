@@ -44,6 +44,13 @@ export interface TieHead {
    * A.4). Absent = a bare head.
    */
   bracketX?: number
+  /**
+   * ⭐ The right edge of the note's LAST augmentation dot, px, and the white a tie leaves after it — set only
+   * when the armed `layout/dotTie` row starts a tie AFTER the dots (P4g, Gerou & Lusk). Absent = the tie
+   * springs from inside the head, the dot within its arc (Gould p. 63).
+   */
+  dotsRightX?: number
+  dotsClearancePx?: number
   /** ⭐ The head's size — 1, or a CUE note's (cue-size-plan P5): the tie keeps its 0.20 sp from the SMALL head's
    *  edge ({@link tieEndpointY}). Absent = 1. */
   headScale?: number
@@ -59,8 +66,9 @@ export function tieEndpointX(head: TieHead, end: 'from' | 'to', spacePx = STAFF_
   const centre = (head.leftX + head.rightX) / 2
   const clearance = TIE_BRACKET_CLEARANCE_SP * spacePx
   // ⭐ …or, for a PARENTHESISED head, just outside its bracket.
+  const pastDots = head.dotsRightX === undefined ? -Infinity : head.dotsRightX + (head.dotsClearancePx ?? 0)
   return end === 'from'
-    ? Math.max(centre + CURVE_PX.tieEndpointInset, head.bracketX === undefined ? -Infinity : head.bracketX + clearance)
+    ? Math.max(centre + CURVE_PX.tieEndpointInset, head.bracketX === undefined ? -Infinity : head.bracketX + clearance, pastDots)
     : Math.min(centre - CURVE_PX.tieEndpointInset, head.bracketX === undefined ? Infinity : head.bracketX - clearance)
 }
 

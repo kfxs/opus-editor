@@ -23,6 +23,8 @@ import { CURVE_PX } from './curveStyle'
 import { tieSide } from './tieDirection'
 import { tieEndpointX, tieEndpointY, type TieHead } from './tieEndpoints'
 import { chordEnclosure } from '@/engine/layout/headEnclosure'
+import { armedDotTie } from '@/engine/layout/dotTie'
+import { dotsOn } from '../engraved/EngravedDot'
 import { tieArcGrowth } from './tieStaffLineClearance'
 import { lineLeftCurveX, lineRightEdgeX } from '../staff/systemEdges'
 import { staffIndexOfId } from '@/engine/models/staffContent'
@@ -185,6 +187,16 @@ export function renderTies(pass: RenderPass, score: Score): void {
             if (pitch.enclosure) {
               const layout = chordEnclosure(score, slot, effectiveClefAt(score, fromMeasure, slot.beat, slot.staffId), stemOf(noteRuler(fromInfo.staveNote)))
               if (layout) fromHead.bracketX = fromHead.leftX + layout.right * fromSpace
+            }
+            // ⭐ A DOTTED note under a row that starts the tie AFTER its dots (`layout/dotTie`, P4g — Gerou &
+            //   Lusk): the tie leaves past the last dot's drawn ink, like a bracket's.
+            const afterDots = armedDotTie().afterDots
+            if (afterDots !== null && slot.dots) {
+              const dotRights = dotsOn(fromInfo.staveNote).filter(d => !d.isDropped()).map(d => { const b = d.getBoundingBox(); return b.x + b.w })
+              if (dotRights.length) {
+                fromHead.dotsRightX = Math.max(...dotRights)
+                fromHead.dotsClearancePx = afterDots * fromSpace
+              }
             }
             const toPitch = toChord?.notes.find(p => p.id === pitch.tiedTo)
             if (toChord && toPitch?.enclosure) {

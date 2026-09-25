@@ -60,3 +60,19 @@ describe('tieEndpointY — a CUE head (cue-size-plan P5): 0.20 sp from the SMALL
     expect(tieEndpointY(50, -1, 0.75)).toBeCloseTo(50 - (0.5 * 0.75 + 0.2) * STAFF_SPACE_PX, 10)
   })
 })
+
+describe('tieEndpointX — a DOTTED head whose tie starts AFTER its dots (`layout/dotTie` `gerouLusk`, P4g)', () => {
+  const head: TieHead = { leftX: 100, rightX: 112, headY: 50 }
+
+  it('with no dots edge (Gould, the default) the tie springs from inside the head, as any tie', () => {
+    expect(tieEndpointX(head, 'from')).toBe(106 + CURVE_PX.tieEndpointInset)
+  })
+
+  it('⭐ past the last dot’s ink by the row’s white', () => {
+    expect(tieEndpointX({ ...head, dotsRightX: 130, dotsClearancePx: 3 }, 'from')).toBe(133)
+  })
+
+  it('the dots only ever push the START — a tie’s end is not a dotted note’s business', () => {
+    expect(tieEndpointX({ ...head, dotsRightX: 130, dotsClearancePx: 3 }, 'to')).toBe(tieEndpointX(head, 'to'))
+  })
+})

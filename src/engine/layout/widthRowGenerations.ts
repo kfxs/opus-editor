@@ -17,6 +17,7 @@ import { dotFlagGeneration } from './dotFlag'
 import { dotVoiceGeneration } from './dotVoice'
 import { chordDotGeneration } from './chordDots'
 import { dotSizeGeneration } from './dotSize'
+import { dotTieGeneration } from './dotTie'
 import { accidentalGapGeneration } from './accidentalGap'
 import { graceSizeGeneration } from './graceRoom'
 import { bracketedGeneration } from './bracketedRoom'
@@ -47,6 +48,8 @@ export function widthRowGenerations(): number[] {
     chordDotGeneration(),
     // The dot's SIZE (2026-09-25, `layout/dotSize`): a bigger dot is a wider dotted note.
     dotSizeGeneration(),
+    // …and whether a dotted note's TIE starts after its dots (`layout/dotTie`) — the SHAPE key, ⛔ not a width.
+    dotTieGeneration(),
     // The ACCIDENTAL gap: `accidentalExtent` prices a sign's room from it.
     accidentalGapGeneration(),
     // The GRACE size (2026-09-22): a grace's room is its heads at that size (`layout/graceRoom`).

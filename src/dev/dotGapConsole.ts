@@ -65,6 +65,11 @@
  *   __dots.size('ross')        // ⅓ sp, stated
  *   __dots.size('gerouLusk')   // ≈0.3 sp, drawn
  *   __dots.sizeReset()
+ *
+ *   // ⭐ A dotted note TIED — the tie before or after the dot (P4g, `layout/dotTie`):
+ *   __dots.tie('gould')        // ✅ ARMED — the dot within the tie (p. 63); what we draw
+ *   __dots.tie('gerouLusk')    // the tie after the dot (p. 22) — their white UNKNOWN, read as 0
+ *   __dots.tieReset()
  * ```
  *
  * ⚠️ **Look at a DOUBLE-dotted note**, not a single one: five of the eight rows differ only in the
@@ -76,6 +81,9 @@
  * with his choice as the citation and both files go.
  */
 import { dbg } from '@/utils/debug'
+import {
+  DOT_TIE_RULES, dotTieSettings, resetDotTieRule, setDotTieRule, type DotTieRuleName,
+} from '@/engine/layout/dotTie'
 import {
   DOT_SIZE_RULES, dotSizeSettings, resetDotSizeRule, setDotSizeRule, type DotSizeRuleName,
 } from '@/engine/layout/dotSize'
@@ -115,6 +123,9 @@ export interface DotGapConsole {
   /** The dot's size (P4f). */
   size(rule: DotSizeRuleName): DotSizeRuleName
   sizeReset(): DotSizeRuleName
+  /** A dotted note tied (P4g). */
+  tie(rule: DotTieRuleName): DotTieRuleName
+  tieReset(): DotTieRuleName
   dump(): void
 }
 
@@ -151,7 +162,25 @@ export function dotGapConsole(render: () => void): DotGapConsole {
   const SIZE_NAMES = Object.keys(DOT_SIZE_RULES) as DotSizeRuleName[]
   const sizeReport = () => dbg(`[dots] size armed:${dotSizeSettings().rule} — ${DOT_SIZE_RULES[dotSizeSettings().rule].source}`)
 
+  const TIE_NAMES = Object.keys(DOT_TIE_RULES) as DotTieRuleName[]
+  const tieReport = () => dbg(`[dots] tie armed:${dotTieSettings().rule} — ${DOT_TIE_RULES[dotTieSettings().rule].source}`)
+
   return {
+    tie: (rule) => {
+      if (!setDotTieRule(rule)) {
+        dbg(`[dots] ⛔ no such tie row: ${rule} — try ${TIE_NAMES.map(n => `'${n}'`).join(', ')}`)
+        return dotTieSettings().rule
+      }
+      render()
+      tieReport()
+      return dotTieSettings().rule
+    },
+    tieReset: () => {
+      resetDotTieRule()
+      render()
+      tieReport()
+      return dotTieSettings().rule
+    },
     size: (rule) => {
       if (!setDotSizeRule(rule)) {
         dbg(`[dots] ⛔ no such size row: ${rule} — try ${SIZE_NAMES.map(n => `'${n}'`).join(', ')}`)
@@ -258,6 +287,10 @@ export function dotGapConsole(render: () => void): DotGapConsole {
         const mark = name === dotFlagSettings().rule ? '✅' : '  '
         const what = 'vexflow' in row ? 'always, the flag’s width' : `${row.when}, ${row.clear.toFixed(2)} past the flag`
         dbg(`${mark} ${name.padEnd(12)} ${what.padEnd(28)} ${row.source}`)
+      }
+      dbg(`[dots] TIE rows (armed: ${dotTieSettings().rule}) — __dots.tie(…):`)
+      for (const name of TIE_NAMES) {
+        dbg(`${name === dotTieSettings().rule ? '✅' : '  '} ${name.padEnd(12)} ${DOT_TIE_RULES[name].source}`)
       }
       dbg(`[dots] SIZE rows (armed: ${dotSizeSettings().rule}) — __dots.size(…):`)
       for (const name of SIZE_NAMES) {

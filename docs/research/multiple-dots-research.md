@@ -67,7 +67,10 @@ dot→dot is the widest of every source. Only LilyPond's shape (equal gaps) matc
 6. **The dot's size** — Bravura 0.40; Gould draws 0.49 and asks *"often twice"* a staccato (Bravura: 1.2×);
    Ross states ⅓; G&L draws ≈0.3. The books disagree — a font question.
 7. **Dot and tie** — the books split: Gould p. 63 the dot INSIDE the tie; G&L p. 22 the tie after the dot;
-   Ross p. 139 either. Ours not checked.
+   Ross p. 139 either. ✅ Checked 2026-09-25 (P3, P4g): ours IS Gould's — the tie springs inside the head and
+   clears the dot (a stem-down D5 by ≈0.31 sp). ⚠️ G&L's white after the dot is UNKNOWN: both their figures
+   (pp. 22 and 144, *"Begin the tie to the right of an augmentation dot"*) draw NO dot — only two tied whole
+   notes and an arrow; the tie starts ≈0.9 head-heights past the head.
 
 ### 0.4 Rests with two or three dots (Gould p. 162)
 

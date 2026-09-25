@@ -1,6 +1,6 @@
 # Double and triple dots — the plan
 
-> **Status (2026-09-25): P0 BUILT (`87df716`) · P1 BUILT (`998ddac`) · P2 BUILT (`2619c9e`) · P3 BUILT (`6676556`) · P4a BUILT (`dab58f5`) · P4b BUILT (`49808ed`) · P4c BUILT (`7317dda`) · P4d BUILT (3a, `d1eea16`) · P4e BUILT (`6ca9855`) · P4f BUILT; ALL DECISIONS TAKEN (D1–D7, R1–R7); P4 is PLAN.** The research is IN —
+> **Status (2026-09-25): P0 BUILT (`87df716`) · P1 BUILT (`998ddac`) · P2 BUILT (`2619c9e`) · P3 BUILT (`6676556`) · P4a BUILT (`dab58f5`) · P4b BUILT (`49808ed`) · P4c BUILT (`7317dda`) · P4d BUILT (3a, `d1eea16`) · P4e BUILT (`6ca9855`) · P4f BUILT (`8102b92`) · P4g BUILT; ALL DECISIONS TAKEN (D1–D7, R1–R7); ✅ EVERY PHASE BUILT — what is left is §3 Later.** The research is IN —
 > `docs/research/multiple-dots-research.md` (the literature, the engines, the duration rule). ⛔ A number
 > never blocks a phase (`CLAUDE.md`).
 >
@@ -184,7 +184,7 @@ changes in the rows:
 | P4d ✅ (3a) | two voices — up/down: `layout/dotVoice`, `__dots.voice(…)`; the rule is an argument to `dotStack.stackDots` (VexFlow's own, unchanged without it) | R3 | a stem-down line note in a two-part column drops its dot BELOW; crossed parts lift it back (Gould p. 58). ⏸️ **3b (one x) NOT built**: two voices' heads always stand at ONE x in this editor (the multi-voice pass clears the head shift — measured), so their dots already share a column and every 3b row would draw the same. ⏸️ **No `byVoice` row**: a dot knows its note's stem, not its voice (differs from `verovio` only for a hand-flipped stem) |
 | P4e ✅ | a colliding chord's dots — `layout/chordDots`, `__dots.chord(…)`: `gould` (a space each, centred; surplus DROPPED — `EngravedDot.setDropped`, no ink, no hit box), `verovio` (merge), `vexflow` (two in one space — what we drew) | R5 | only a chord whose dots COLLIDE (a cluster of seconds); every other chord unchanged. Rule read off Gould's p. 56 FIGURES. ⏸️ LilyPond + MuseScore rows: their algorithms are in `docs/research/multiple-dots-research.md` Part D, ⛔ not ported (his call) |
 | P4f ✅ | the dot's size — `layout/dotSize`, `__dots.size(…)`: `gould` 0.49, `font` (what we drew), `ross` ⅓, `gerouLusk` 0.3. ONE scale feeds the stamp (`EngravedDot`, `drawGraceDots`) and the room (`spacingPadding.INK.dotWidth`, `noteDotXs`, `graceRoom`, `dotFlag`) | R6 | every dot, ≈+22% in Bravura. The specs that compare our ink table against the FONT now read the `font` row, and say so |
-| P4g | a dot and a tie | R7 | dotted tied notes |
+| P4g ✅ | a dot and a tie — `layout/dotTie`, `__dots.tie(…)`: `gould` (the dot within the tie — WHAT WE ALREADY DRAW, measured: a stem-down D5's tie clears its lifted dot by ≈0.31 sp) and `gerouLusk` (the tie after the last dot, through the bracket's door in `tieEndpoints`) | R7 | nothing by default. ⚠️ G&L's white after the dot is UNKNOWN: their figures (pp. 22, 144) draw NO dot — read as 0. ⏸️ Ross allows either, no row. ⏸️ A CHORD's ties between its dots (Gould p. 64) not probed |
 
 Each step: the module + its rows (a SOURCE on every row) · its `__dots` command · its spec · the P3 scene
 test updated for the new default, the `now` row still reproducing the old drawing · his eye.
@@ -196,3 +196,8 @@ test updated for the new default, the `now` row still reproducing the old drawin
 - The Keypad's "double dot" / "triple dot" keys wired (today pictures).
 - Tuplets whose unit is double-dotted (`baseDots` 2).
 - A quadruple dot on the palette (the model will already allow it, D1).
+- R3 3b (two voices' dots at ONE x) and a `byVoice` row — wait for voices that can stand apart, and for a dot
+  that knows its voice (P4d). ⚠️ Found on the way: a SECOND between two voices draws OVERLAPPING heads today.
+- A CHORD's ties between its dots (Gould p. 64: *"Ties may start … in between the duration dots, as long as they
+  will fit … Otherwise inner ties should start after the dots"*) — not probed (P4g).
+- Gerou & Lusk's white after a dot before a tie — UNKNOWN (their figures draw no dot); the row reads 0.
