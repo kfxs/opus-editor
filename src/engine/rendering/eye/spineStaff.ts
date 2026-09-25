@@ -40,7 +40,7 @@ import { drawGroupOf } from '../painter/svgDrawGroup'
 import type { BarlineSignKind } from '@/engine/layout/barlineSign'
 import { ledgerLineStyle } from '@/engine/layout/layoutConfig'
 import { paintBarlineSign } from '../staff/BarlineRenderer'
-import { standOn, staveFrame } from '../staff/staveFrame'
+import { standOn, staveFrame, staveOf } from '../staff/staveFrame'
 import type { StaveSign } from '../staff/staveSign'
 
 /** One note to stand on a spine — a pitch, a length, and where along the spine its head is. */
@@ -51,6 +51,21 @@ export interface SpineNote {
   duration: NoteDuration
   /** Distance along the spine of the notehead's centre. */
   s: number
+}
+
+/**
+ * ⭐ Where a drawn note stands ON THE PATH — what a curve (port map #13) asks: its head's centre is at `s`
+ * along the spine, and a point of its own stave's px `(x, y)` is at `s + (x − headCentreX)` along and
+ * `y − topLineY` across (+ down). Handed back by {@link drawNoteBlock} and {@link drawGroupBlock}.
+ */
+export interface SpineNotePlace {
+  note: EngravedNote
+  /** Distance along the spine of the head's centre. */
+  s: number
+  /** The head's centre x in the note's own stave px. */
+  headCentreX: number
+  /** The note's own stave's top line, px. */
+  topLineY: number
 }
 
 /** The class of a placed block's group — what a scene reader (and the spec) finds them by. */
@@ -69,7 +84,7 @@ const BLOCK_FORMAT_WIDTH = 150
  * spine at `s`. The note may be the score's own (`engraved/NoteBuilder`) — chord, rest, accidentals,
  * dots and all: the block is whatever the note draws.
  */
-export function drawNoteBlock(ctx: DrawContext, spine: Spine, engraved: EngravedNote, s: number): void {
+export function drawNoteBlock(ctx: DrawContext, spine: Spine, engraved: EngravedNote, s: number): SpineNotePlace {
   const stave = new EngravedStave(0, 0, BLOCK_STAVE_WIDTH).setOpeningBarline('none').setClosingBarline('none')
   stave.setDefaultLedgerLineStyle(ledgerLineStyle())
   formatLoneNote(engraved, stave, { numerator: 1, denominator: 4 }, BLOCK_FORMAT_WIDTH)
@@ -83,10 +98,12 @@ export function drawNoteBlock(ctx: DrawContext, spine: Spine, engraved: Engraved
   }
   const ruler = noteRuler(engraved)
   const headCentreX = (ruler.headLeftX + ruler.headRightX) / 2
+  const topLineY = staveFrame(stave).topLineY
   group?.setPlacement(compose(
-    translation(-headCentreX, -staveFrame(stave).topLineY),
+    translation(-headCentreX, -topLineY),
     placementAt(spine, s),
   ))
+  return { note: engraved, s, headCentreX, topLineY }
 }
 
 /** Draw ONE pitch as a rigid block on `spine` — {@link drawNoteBlock} for a caller with no score. */
@@ -121,8 +138,8 @@ export interface GroupBlockInk {
  */
 export function drawGroupBlock(
   ctx: DrawContext, spine: Spine, notes: readonly EngravedNote[], ss: readonly number[], ink: GroupBlockInk,
-): void {
-  if (notes.length === 0) return
+): SpineNotePlace[] {
+  if (notes.length === 0) return []
   const middle = (ss[0] + ss[ss.length - 1]) / 2
   // ⭐ Option (b): WHERE the path puts each note, seen from the block — the block's frame is the
   //    path's tangent at the group's middle, so on a straight spine every `y` is 0 and every `x` the
@@ -213,6 +230,12 @@ export function drawGroupBlock(
     translation(-middleX, -staveFrame(new EngravedStave(0, 0, BLOCK_STAVE_WIDTH)).topLineY),
     placementAt(spine, middle),
   ))
+  // ⭐ Each head was put ON the path at its own depth (option b), so its place is exact: `ss[i]` along,
+  //    its OWN stave's top line across.
+  return notes.map((note, i) => {
+    const ruler = noteRuler(note)
+    return { note, s: ss[i], headCentreX: (ruler.headLeftX + ruler.headRightX) / 2, topLineY: staveFrame(staveOf(note)).topLineY }
+  })
 }
 
 /**

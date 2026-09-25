@@ -451,7 +451,7 @@ export function slurEndpointOffsetPx(
  * staves of different sizes (`project_small_staff_spacing`) and a staff-space is not the same number of
  * pixels on both.
  */
-function slurOffsetPx(
+export function slurOffsetPx(
   offset: { x?: number; y?: number } | undefined,
   frame: StaffFrame | undefined,
 ): { x: number; y: number } {

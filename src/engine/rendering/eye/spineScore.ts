@@ -21,7 +21,9 @@
  *   (`resolveTupletLocation`), its bracket (`tupletBracketed` — none where a beam already shows the
  *   group), its mark (`tupletMarkRuns`, meter-aware) and where its bracket ends (`tupletBracketEnd`).
  *   WHERE a column stands is the page's spacing asked for one justified line (`./spineSpacing`).
- * - ⛔ No ties, slurs, dynamics or hairpins — the port map is `docs/plans/bent-staff-plan.md` §5.
+ * - ⭐ TIES and SLURS (port map #13, `./spineCurves`): re-solved in the path's plane with the page's rules,
+ *   their ink bent through `pointAt` (`engrave/curves/curveOnPath`) — the auto arch, no obstacles yet.
+ * - ⛔ No dynamics or hairpins — the port map is `docs/plans/bent-staff-plan.md` §5.
  */
 import type { DrawContext } from '@/engine/paint/DrawContext'
 import type { Spine } from '@/engine/engrave/staff/staffSpine'
@@ -44,7 +46,8 @@ import { buildBeams } from '../beams/beamGroups'
 import type { EngravedNote } from '../engraved/EngravedNote'
 import { deepestInkPx, spaceBarsOnSpine } from './spineSpacing'
 import { drawSpineBarHeader, spineBarHeader } from './spineHeader'
-import { drawGroupBlock, drawNoteBlock, drawSpineBarline, drawSpineStaffLines, type GroupBlockInk } from './spineStaff'
+import { drawGroupBlock, drawNoteBlock, drawSpineBarline, drawSpineStaffLines, type GroupBlockInk, type SpineNotePlace } from './spineStaff'
+import { drawSpineCurves, type SpinePitchPlace } from './spineCurves'
 
 /**
  * ⭐ On a CLOSED spine the music stops this far short of where it began, so the LAST barline stands
@@ -90,6 +93,15 @@ export function drawScoreOnSpine(ctx: DrawContext, score: Score, spine: Spine): 
   //    spine sizes it from `naturalSpineLength`, so the stretch stays small.
   // ⭐ …spaced on the arc where the DEEPEST ink stands — a loop's inside is shorter than its spine.
   const bars = spaceBarsOnSpine(score, musicStart, musicEnd, true, innerLengthRatio(spine, deepestInkPx(score)))
+  // ⭐ Where every PITCH landed on the path — what the curves (`./spineCurves`) are drawn between.
+  const pitches = new Map<string, SpinePitchPlace>()
+  const remember = (places: readonly SpineNotePlace[], slots: readonly ChordRest[], measureNumber: number) => {
+    places.forEach((place, i) => {
+      const slot = slots[i]
+      if (slot?.type !== 'chord') return
+      slot.notes.forEach((pitch, headIndex) => pitches.set(pitch.id, { place, headIndex, measureNumber }))
+    })
+  }
   score.measures.forEach((measure, i) => {
     const bar = bars[i]
     // The clef, key signature and meter this bar draws — the staff's head, or a CHANGE (`./spineHeader`).
@@ -121,9 +133,10 @@ export function drawScoreOnSpine(ctx: DrawContext, score: Score, spine: Spine): 
         ...tuplets.map(t => t.tuplet.getNotes().map(note => notes.indexOf(note))),
       ])
       const drawn = new Set<number>()
+      const places: SpineNotePlace[] = []
       notes.forEach((note, n) => {
         const members = notes.map((_, i) => i).filter(i => groups[i] === groups[n])
-        if (members.length === 1) { drawNoteBlock(ctx, spine, note, at[n]); return }
+        if (members.length === 1) { places[n] = drawNoteBlock(ctx, spine, note, at[n]); return }
         if (drawn.has(groups[n])) return
         drawn.add(groups[n])
         const inBlock = (ids: readonly EngravedNote[]) => ids.every(id => members.includes(notes.indexOf(id)))
@@ -131,8 +144,9 @@ export function drawScoreOnSpine(ctx: DrawContext, score: Score, spine: Spine): 
           beams: beams.filter(beam => inBlock(beam.notes)),
           tuplets: tuplets.filter(t => inBlock(t.tuplet.getNotes())),
         }
-        drawGroupBlock(ctx, spine, members.map(i => notes[i]), members.map(i => at[i]), ink)
+        drawGroupBlock(ctx, spine, members.map(i => notes[i]), members.map(i => at[i]), ink).forEach((place, k) => { places[members[k]] = place })
       })
+      remember(places, slots, measure.number)
     }
     // ⭐ WHICH sign a boundary carries is the SCORE's answer (`models/boundarySign`) — final, either
     //    repeat, the back-to-back `:||:` from the two bars that meet there — as on the page.
@@ -149,6 +163,8 @@ export function drawScoreOnSpine(ctx: DrawContext, score: Score, spine: Spine): 
     const kind = signAtBoundary(measure, nextDisplaced ? { ...next, repeatStart: undefined } : next)
     if (kind) drawSpineBarline(ctx, spine, bar.end, kind, boundaryWinged(measure, nextDisplaced ? undefined : next))
   })
+  // ⭐ The curves last, over every placed note — as the page draws its ties and slurs after the bars.
+  drawSpineCurves(ctx, spine, score, pitches)
 }
 
 /**
