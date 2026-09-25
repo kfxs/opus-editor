@@ -29,6 +29,7 @@ import { stampSpanMarkAtClick } from '../stamps/spanMarkStamp'
 import { stampHairpinAtClick } from '../stamps/hairpinStamp'
 import { stampArticulationAtClick } from '../stamps/articulationStamp'
 import { stampTremoloAtClick } from '../stamps/tremoloStamp'
+import { stampDotAtClick } from '../stamps/dotStamp'
 import { stampEnclosureAtClick } from '../stamps/enclosureStamp'
 import { stampBarlineAtClick } from '../stamps/barlineStamp'
 import { stampKeySignatureAtClick } from '../stamps/keySignatureStamp'
@@ -1333,7 +1334,7 @@ export class MouseController {
     if (stampArticulationAtClick(this.state, engine, registry, x, y, () => this.render.renderScore())) return
     if (this.stampAccidentalAtClick(engine, registry, x, y)) return
     if (this.stampTieAtClick(engine, registry, x, y)) return
-    if (this.stampDotAtClick(engine, registry, x, y)) return
+    if (stampDotAtClick(this.state, engine, registry, x, y, () => this.render.renderScore())) return
     if (stampTremoloAtClick(this.state, engine, registry, x, y, () => this.render.renderScore())) return
     if (stampEnclosureAtClick(this.state, engine, registry, x, y, () => this.render.renderScore())) return
     if (this.stampRestAtClick(engine, x, y)) return
@@ -1576,41 +1577,6 @@ export class MouseController {
     // siblings (one click = one undo) and is what marks the model dirty for the repaint.
     engine.runBatch('Add tie', () => engine.toggleTie(noteId))
     dbg(`✓ Tie stamped | from note ${noteId}`)
-    this.render.renderScore()
-    return true
-  }
-
-  /**
-   * Dot stamp tool: a click DOTS the note clicked. Mirrors its siblings — same note-body hit-test,
-   * one `runBatch` = one undo, IDEMPOTENT (an already-dotted note is a no-op, since a stamp only
-   * ever adds; removal is Delete or the Keypad with the dots selected).
-   *
-   * The one stamp that ALSO applies to RESTS: a rest takes a dot exactly as a note does, so there is
-   * no `isRest` guard here. Dotting can be REFUSED (multiple-dots-plan D4): a REST or tuplet member
-   * that no longer fits, or more dots than the value takes, writes nothing; a NOTE past the barline
-   * crosses it tied. The model does not throw, so report what actually happened instead of assuming.
-   */
-  private stampDotAtClick(engine: MusicEngine, registry: ElementRegistry, x: number, y: number): boolean {
-    if (!armedTool(this.state, 'dot')) return false
-
-    const el = registry.findClosestNoteOrRest(x, y)
-    if (!el?.id || !registry.hitsNoteOrRestBody(el, x, y)) {
-      dbg(`· Dot stamp: click not on a note or rest — no change`)
-      return true
-    }
-    const noteId = el.id
-    const note = engine.getNote(noteId)
-    if (!note) {
-      dbg(`· Dot stamp: non-note — no change`)
-      return true
-    }
-    if (note.dots) {
-      dbg(`· Dot stamp: ${noteId} already has ${note.dots} dot(s) — no change`)
-      return true
-    }
-    engine.runBatch('Add dot', () => engine.updateNote(noteId, { dots: 1 }))
-    if (engine.getNote(noteId)?.dots) dbg(`✓ Dot stamped | on ${note.isRest ? 'rest' : 'note'} ${noteId}`)
-    else dbg(`· Dot stamp: no room to dot ${noteId} — the bar cannot hold the longer value`)
     this.render.renderScore()
     return true
   }

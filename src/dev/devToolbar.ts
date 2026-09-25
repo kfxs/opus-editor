@@ -8,6 +8,7 @@ import { graceToolLit, pressGraceTool } from '../interactions/stamps/graceTool'
 import { bracketedToolLit, pressBracketedTool } from '../interactions/stamps/bracketedGraceTool'
 import { enclosureLit, pressEnclosure } from '../interactions/stamps/enclosureTool'
 import { cueLit, pressCue } from '../interactions/stamps/cueTool'
+import { dotsLit, pressDots } from '../interactions/stamps/dotCountTool'
 import { DEV_SOUNDS } from '../engine/audio/WebAudioFontInstrument'
 import { bus } from '../bus'
 import { buildMusicFontPicker } from './musicFontPicker'
@@ -260,6 +261,15 @@ export function mountDevToolbar(host: HTMLElement, deps: DevToolbarDeps): DevToo
     () => cueLit(state, getEngine()),
     () => pressCue(palette.spanToolHost()))
   row.appendChild(parenBox)
+
+  // --- DOUBLE and TRIPLE dots (docs/plans/multiple-dots-plan.md P2) — a TEMPORARY door: each is the Keypad dot
+  //     key with another count (`interactions/stamps/dotCountTool`); the Keypad's own keys are the real one. ---
+  const dotsBox = group('Dots:')
+  toggle(dotsBox, GRACE_BTN, '..', 'Double dot — the dot key with two: switches the selection, arms the stamp or the next note',
+    () => dotsLit(state, getEngine(), 2), () => pressDots(palette.dotKeyHost(), 2))
+  toggle(dotsBox, GRACE_BTN, '...', 'Triple dot — the dot key with three: switches the selection, arms the stamp or the next note',
+    () => dotsLit(state, getEngine(), 3), () => pressDots(palette.dotKeyHost(), 3))
+  row.appendChild(dotsBox)
 
   // --- Beam ---
   // REMOVED: the beam palette (auto/single/begin/continue/end + subdivide + beam-rest) was a DEV tool,

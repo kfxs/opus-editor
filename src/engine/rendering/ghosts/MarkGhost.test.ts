@@ -52,8 +52,10 @@ describe('MarkGhost', () => {
   it('draws the armed accidental, dot and tremolo, each in its own swept group', () => {
     engine.renderScoreWithToolGhost({ x: 200, y: 100 }, { kind: 'accidental', accidental: 'b' })
     expect(codes('accidental')).toEqual(['e260']) // accidentalFlat
-    engine.renderScoreWithToolGhost({ x: 200, y: 100 }, { kind: 'dot' })
+    engine.renderScoreWithToolGhost({ x: 200, y: 100 }, { kind: 'dot', count: 1 })
     expect(codes('dot')).toEqual(['e1e7']) // augmentationDot
+    engine.renderScoreWithToolGhost({ x: 200, y: 100 }, { kind: 'dot', count: 3 })
+    expect(codes('dot')).toEqual(['e1e7', 'e1e7', 'e1e7']) // the armed COUNT (multiple-dots-plan D5)
     engine.renderScoreWithToolGhost({ x: 200, y: 100 }, { kind: 'tremolo', mark: 3 })
     expect(codes('tremolo')).toEqual(['e220', 'e220', 'e220']) // tremolo1, three strokes
   })

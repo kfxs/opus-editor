@@ -130,8 +130,9 @@ export type MarkingTool =
   | { kind: 'headEnclosure'; shape: HeadEnclosure }
   /** VALUELESS — a note ties to the next slot or it does not. */
   | { kind: 'tie' }
-  /** VALUELESS — the UI's dot is on or off. The one stamp that also applies to RESTS. */
-  | { kind: 'dot' }
+  /** The COUNT a click writes — 1, 2 or 3 (docs/plans/multiple-dots-plan.md D5). The one stamp that also
+   *  applies to RESTS. */
+  | { kind: 'dot'; count: number }
   /** VALUELESS, but not for the others' reason: a rest is nothing WITHOUT a length, so rather than
    *  carry its own it READS the armed one (`selectedDuration` + `selectedDots`) — the very fields the
    *  duration and dot keys already set. One source of truth: a `{ duration }` here would be a second

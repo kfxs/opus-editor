@@ -15,6 +15,7 @@ import { dbg } from '@/utils/debug'
 import { GRACE_SIDES, graceGroupOf, graceKey } from '@/utils/graceNotes'
 import { chordStoredPitches } from '@/utils/fannedBeam'
 import { spellingToMidi } from '@/utils/pitchSpelling'
+import { maxDots } from '@/utils/durations'
 import { findSlot, type FoundSlot } from './slotLookup'
 import { clearEngravingOverride, moveNoteOffsetKey } from './overrideOps'
 
@@ -215,6 +216,9 @@ export function setGraceWritten(score: Score, pitchId: string, written: Partial<
   const found = findSlot(score, pitchId, { graceNotes: true })
   if (!found?.grace) return false
   const note = found.grace.note
+  // ⭐ A grace is a note: the same dot limit (multiple-dots-plan D7, D1) — a value whose last dot would be
+  //    worth less than the shortest duration is REFUSED WHOLE, ⛔ neither trimmed nor half-written.
+  if ((written.dots ?? note.dots ?? 0) > maxDots(written.duration ?? note.duration)) return false
   let changed = false
   if (written.duration !== undefined && note.duration !== written.duration) {
     note.duration = written.duration

@@ -1,6 +1,6 @@
 # Double and triple dots — the plan
 
-> **Status (2026-09-25): P0 BUILT (`87df716`) · P1 BUILT; ALL DECISIONS TAKEN (D1–D7, R1–R7); P2–P4 are PLAN.** The research is IN —
+> **Status (2026-09-25): P0 BUILT (`87df716`) · P1 BUILT (`998ddac`) · P2 BUILT; ALL DECISIONS TAKEN (D1–D7, R1–R7); P3–P4 are PLAN.** The research is IN —
 > `docs/research/multiple-dots-research.md` (the literature, the engines, the duration rule). ⛔ A number
 > never blocks a phase (`CLAUDE.md`).
 >
@@ -137,7 +137,13 @@ pattern). Each table is its own module in `engine/layout/` or `engine/engrave/no
   is refused whole; a NOTE still crosses the barline tied (D4) — ⛔ without changing what a DURATION change does.
 - ⚠️ Side effect, by the rule: a DOTTED 32nd is now refused (its dot is a 64th, which nothing can close).
 
-### P2 — the counts in the editor (D5, D6, D7)
+### P2 — the counts in the editor (D5, D6, D7) ✅
+
+⭐ Built as planned, plus: an armed dot STAMP promotes its count on a duration press only if the pressed value
+can take it (`stampPromotion`); an ARMED count the armed length cannot take is refused (`...` on a 16th).
+`lint:hubs` ceilings lowered (MouseController 1057 → 1035 lines, PaletteController 424 → 422 kinds).
+⚠️ A selected DOTS element still lights the Keypad's `.` whatever its count (`dotHighlight` has no engine).
+
 
 - **Module** `interactions/stamps/dotCountTool.ts`: the Keypad dot key's branches with a COUNT n.
   `PaletteController.toggleDot` becomes the n = 1 call (the logic LEAVES the hub). The radio: a press

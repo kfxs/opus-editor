@@ -552,7 +552,7 @@ export const GHOST_DRAWERS: {
   accidental: (ctx, _svg, x, y, g) => drawAccidentalGhost(ctx, x, y, g.accidental),
   tremolo: (ctx, _svg, x, y, g) => drawTremoloGhost(ctx, x, y, g.mark),
   tie: (ctx, _svg, x, y) => drawTieGhost(ctx, x, y),
-  dot: (ctx, _svg, x, y) => drawDotGhost(ctx, x, y),
+  dot: (ctx, _svg, x, y, g) => drawDotGhost(ctx, x, y, g.count),
   headEnclosure: (ctx, _svg, x, y, g) => drawEnclosureGhost(ctx, x, y, g.shape),
   rest: (ctx, svg, x, y, g) => drawRestGhost(ctx, svg, x, y, g.duration, g.dots, g.color),
   fan: (ctx, svg, x, y, g) => drawFanGhost(ctx, svg, x, y, g.duration, g.dots),

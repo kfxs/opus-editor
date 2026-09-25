@@ -4,6 +4,9 @@
  * feature adds a MODULE"*). Pure over the state: the press disarms whatever was armed, and the
  * stamps with an entry-mode home carry their value over first.
  */
+import type { NoteDuration } from '@/types/music'
+import { maxDots } from '@/utils/durations'
+import { dbg } from '@/utils/debug'
 import type { EditorState } from './EditorState'
 
 /**
@@ -15,7 +18,7 @@ import type { EditorState } from './EditorState'
  * Every kind is listed rather than defaulted, so a NINTH tool cannot be added without deciding
  * here whether it has an entry-mode home — the compiler asks.
  */
-export function promoteStampToNoteEntry(state: EditorState): number {
+export function promoteStampToNoteEntry(state: EditorState, duration: NoteDuration): number {
   const armed = state.selectedMarkingTool
   state.selectedMarkingTool = null // whatever it was, a duration press disarms it
   switch (armed?.kind) {
@@ -28,7 +31,14 @@ export function promoteStampToNoteEntry(state: EditorState): number {
       state.selectedAccidental = armed.sign
       return 0
     case 'dot':
-      return 1 // the ONLY promotion that carries dots; a plain press must still clear a stale one
+      // The ONLY promotion that carries dots — the stamp's COUNT (a plain press must still clear a stale
+      // one). ⭐ Only a count the pressed value can TAKE (`maxDots`, multiple-dots-plan D1): an armed
+      // `...` then a 16th arms no dots, rather than a note no bar could close.
+      if (armed.count > maxDots(duration)) {
+        dbg(`[Dot] the armed ${'.'.repeat(armed.count)} does not carry to a ${duration} — it takes at most ${maxDots(duration)}`)
+        return 0
+      }
+      return armed.count
     case 'rest':
       // UNREACHABLE: setDuration returns before this for any tool that uses the armed length —
       // a duration press retunes the armed rest rather than ending it. Listed because the switch

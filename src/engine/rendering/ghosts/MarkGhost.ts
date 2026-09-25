@@ -109,18 +109,21 @@ export function drawTremoloGhost(ctx: DrawContext, cursorX: number, cursorY: num
 }
 
 /**
- * ONE augmentation dot. Parked RIGHT of the pointer and a little up — the dot is ~3 px and the arrow
- * would cover it, and it lands right of the head.
+ * The armed COUNT of augmentation dots, as a note carries them — each an `EngravedDot` on the lone note,
+ * so the column spaces them as the page does. The FIRST dot is parked RIGHT of the pointer and a little
+ * up — a dot is ~3 px and the arrow would cover it, and it lands right of the head.
  */
-export function drawDotGhost(ctx: DrawContext, cursorX: number, cursorY: number): boolean {
+export function drawDotGhost(ctx: DrawContext, cursorX: number, cursorY: number, count = 1): boolean {
   try {
-    const dot = new EngravedDot()
-    loneQuarter(cursorY, note => attachModifier(note, dot, 0))
+    const dots = Array.from({ length: Math.max(1, count) }, () => new EngravedDot())
+    loneQuarter(cursorY, note => dots.forEach(dot => attachModifier(note, dot, 0)))
     const GAP_X = 10
     const LIFT_Y = 4
-    // Ours since S12c — it draws on our surface itself, with no cast.
-    return drawSignGhost(ctx, 'ghost-dot', cursorX, cursorY, () => { dot.setInkSurface(ctx); dot.setContext(ctx).draw() },
-      (box, x, y) => ({ dx: x + GAP_X - (box.x + box.width / 2), dy: y - LIFT_Y - (box.y + box.height / 2) }))
+    // Ours since S12c — it draws on our surface itself, with no cast. The first dot's centre is the
+    // box's left edge plus half its HEIGHT (a dot is round), however many follow it.
+    return drawSignGhost(ctx, 'ghost-dot', cursorX, cursorY,
+      () => dots.forEach(dot => { dot.setInkSurface(ctx); dot.setContext(ctx).draw() }),
+      (box, x, y) => ({ dx: x + GAP_X - (box.x + box.height / 2), dy: y - LIFT_Y - (box.y + box.height / 2) }))
   } catch (_e) {
     return false
   }

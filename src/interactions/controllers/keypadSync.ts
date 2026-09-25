@@ -304,10 +304,13 @@ export function dotHighlight(state: EditorState): 'dot' | null {
   // EXCEPT under a tool that uses the armed length: the armed REST is dotted or it is not, and the
   // key is what says which — so it reports `selectedDots`, exactly as in note entry.
   const armed = state.selectedMarkingTool
-  if (armedToolUsesLength(state)) return state.selectedDots < 1 ? null : 'dot'
-  if (armed) return armed.kind === 'dot' ? 'dot' : null
+  //
+  // ⭐ The key is the ONE-dot key of a radio (multiple-dots-plan D6): it lights for exactly one dot, and
+  //    two or three light the dev shell's `..` / `...` instead (`stamps/dotCountTool.dotsLit`).
+  if (armedToolUsesLength(state)) return state.selectedDots === 1 ? 'dot' : null
+  if (armed) return armed.kind === 'dot' && armed.count === 1 ? 'dot' : null
   if (selectedOf(state, 'dot')) return 'dot'
-  return noNoteInSelection(state) || state.selectedDots < 1 ? null : 'dot'
+  return noNoteInSelection(state) || state.selectedDots !== 1 ? null : 'dot'
 }
 
 /**

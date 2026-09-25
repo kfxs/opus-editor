@@ -68,7 +68,8 @@ export type ToolGhost =
   | { kind: 'tremolo'; mark: TremoloMark }
   /** VALUELESS — the mark itself; WHICH note it lands on is resolved at click time. */
   | { kind: 'tie' }
-  | { kind: 'dot' }
+  /** The armed COUNT's dots, as a note would carry them. */
+  | { kind: 'dot'; count: number }
   /** ⭐ A PARENTHESISED head's pair — the SHAPE the click will put on a head (parenthesised-note-plan P4b). */
   | { kind: 'headEnclosure'; shape: HeadEnclosure }
   /**

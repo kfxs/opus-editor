@@ -263,7 +263,7 @@ describe('fanHighlight — the armed fan STAMP lights its key (his rule, 2026-09
     const state = createEditorState()
     state.selectedMarkingTool = { kind: 'fan', attacks: 6, unit: 'h', dots: 0, direction: 'rit' }
     expect(fanHighlight(state, null)).toBe('rit')
-    state.selectedMarkingTool = { kind: 'dot' }
+    state.selectedMarkingTool = { kind: 'dot', count: 1 }
     expect(fanHighlight(state, null)).toBeNull()
   })
 })

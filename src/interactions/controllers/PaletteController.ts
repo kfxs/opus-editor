@@ -19,6 +19,7 @@ import { dynamicTextFromTool } from '../../utils/dynamics'
 import { selectedNoteIds, selectedArticulationNoteIds, multipleNotesSelected } from '../state/selection'
 import { pressSpanTool, SPAN_TOOL_PRESSES, type SpanToolHost } from '../stamps/spanToolPress'
 import { writeSelectionValue } from './selectionWrittenValue'
+import { pressDots, type DotKeyHost } from '../stamps/dotCountTool'
 import { featherSelectedNote, featherContext } from '../stamps/fanStamp'
 import { applyBarlineSign, barlineTargetFromSelection, type BarlineSign } from '../stamps/barlineStamp'
 import { applyKeySignature, keyTargetFromSelection } from '../stamps/keySignatureStamp'
@@ -379,7 +380,7 @@ export class PaletteController {
     // A duration press means "enter notes", so whatever marking tool was armed gives way — after
     // any value it holds is carried into note entry. ONE call does both (and is the only clear):
     // this used to be four separate resets which between them still forgot the tempo tool.
-    this.state.selectedDots = promoteStampToNoteEntry(this.state)
+    this.state.selectedDots = promoteStampToNoteEntry(this.state, duration)
     this.state.selectedDuration = duration
     this.state.armedTuplet = null
     const engine = this.getEngine()
@@ -1290,91 +1291,23 @@ export class PaletteController {
   }
 
   /**
-   * One dot-key press, routed by context — the same split as the other stamps:
-   *  0. The dot STAMP is already armed → disarm it (a re-press toggles the tool off).
-   *  1. A slot's DOTS are selected in the score → REMOVE them (the only edit the key can mean: the
-   *     dot is on or off, so there is no "change it to a different dot"). Routed ahead of the arm
-   *     branch — clicking a dot clears the note selection, so (3) would otherwise read as "nothing
-   *     selected" and arm the stamp. Switch-off leaves NOTHING selected, like the accidental's.
-   *  2. Selection mode with a note selected → dot it (pre-existing behaviour).
-   *  3. Selection mode with NOTHING selected → arm the dot STAMP. This replaces the old "flip to
-   *     entry mode with the dot armed", which drew a ghost NOTE and forced a duration choice; that
-   *     flow is now reached by pressing a duration after (see {@link promoteDotStampToNoteEntry}).
-   *  4. Entry mode → arm/disarm the dot for the NEXT note entered.
+   * One press of the dot key — the ONE-dot case of `stamps/dotCountTool.pressDots`, which holds the
+   * branches (docs/plans/multiple-dots-plan.md P2): `..` and `...` are the same press with 2 and 3.
    */
   toggleDot(): void {
-    const engine = this.getEngine()
-
-    const armed = this.state.selectedMarkingTool
-
-    // (0a) A tool that uses the armed length is live → the dot belongs to IT: the armed rest becomes
-    // dotted (or stops being), and the tool stays armed. Before the switch below, which would
-    // otherwise trade a dotted-rest gesture for the dot stamp.
-    if (armedToolUsesLength(this.state)) {
-      this.state.selectedDots = this.state.selectedDots ? 0 : 1
-      const pos = this.getLastMousePosition()
-      if (pos) this.renderArmedGhost(pos)
-      return
-    }
-
-    // (0) The dot stamp is live → the key toggles it off, back to selection mode.
-    if (armed?.kind === 'dot') {
-      this.disarmMarkingTool()
-      return
-    }
-
-    // A DIFFERENT marking tool is armed → switch to this one. ONE check (see setAccidental).
-    if (armed) {
-      this.armDotTool()
-      return
-    }
-
-    // (1) The dots are selected in the score → the press removes them.
-    const selectedDot = selectedOf(this.state, 'dot')
-    if (selectedDot && engine) {
-      const noteId = selectedDot.noteId
-      dbg(`[Dot] removing selected dot(s) | noteId:${noteId}`)
-      engine.runBatch('Remove dot', () => engine.updateNote(noteId, { dots: 0 }))
-      this.state.selectedElement = null
-      this.state.selectedDots = 0
-      this.selectNote(null)
-      this.renderScore()
-      return
-    }
-
-    // (3) Selection mode with nothing note-like selected → arm the stamp instead of flipping to
-    // note entry. This rule is {@link selectionHoldsNotes}, which was written out here first; the
-    // accidental and articulation keys now read it too, so there is one answer to "does a press
-    // stamp?". (The dot needs no rest branch of its own: a rest TAKES a dot, so it applies above.)
-    if (this.state.selectedTool === 'selection' && !this.selectionHoldsNotes()) {
-      this.armDotTool()
-      return
-    }
-
-    const newValue = this.state.selectedDots >= 1 ? 0 : 1
-    this.state.selectedDots = newValue
-    if (this.state.selectedNoteId && engine && this.state.selectedTool === 'selection') {
-      const before = engine.getNote(this.state.selectedNoteId)
-      writeSelectionValue(engine, this.state, { dots: newValue })
-      if (before && !before.isRest) {
-        const pitch = formatPitch(before)
-        const oldDur = `${before.duration}${'.'.repeat(before.dots ?? 0)}`
-        const newDur = `${before.duration}${'.'.repeat(newValue)}`
-        dbg(`[Duration] ${pitch} | ${oldDur} → ${newDur}`)
-      }
-      this.renderScore()
-    } else if (this.state.selectedTool === 'entry') {
-      // (4) Entry mode: the dot is armed for the next note; refresh the ghost note to show it.
-      // There is no "selection mode" arm left here — branch (3) above claims that case for the
-      // stamp, which is what used to flip to entry mode and draw a ghost note.
-      const pos = this.getLastMousePosition()
-      if (pos) this.renderArmedGhost(pos)
-    }
+    pressDots(this.dotKeyHost(), 1)
   }
 
-  /** Arm the dot stamp tool. */
-  private armDotTool(): void {
-    this.armMarkingTool({ kind: 'dot' })
+  /** What a dot press needs of the palette: the span tools' host, the ghost repaint, the note select. */
+  dotKeyHost(): DotKeyHost {
+    return {
+      ...this.spanToolHost(),
+      repaintGhost: () => {
+        const pos = this.getLastMousePosition()
+        if (pos) this.renderArmedGhost(pos)
+      },
+      selectNote: id => this.selectNote(id),
+    }
   }
 
   /**

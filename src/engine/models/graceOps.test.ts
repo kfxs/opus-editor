@@ -377,6 +377,18 @@ describe('graceOps.setGraceWritten — a grace\'s written value (plan §3)', () 
     expect(JSON.stringify(model.getMeasure(1)!.slots.map(s => [s.type, s.duration, fracToNumber(s.beat)]))).toBe(slotsBefore)
   })
 
+  it('⭐ a grace takes 1–3 dots as a note does — and the same LIMIT refuses more, writing nothing (multiple-dots-plan D7)', () => {
+    const model = new ScoreModel()
+    const host = model.addNote({ step: 'E', octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const grace = graceOps.addGrace(model.getScore(), host.id, 'before', { step: 'D', alter: 0, octave: 5 }, 'appoggiatura', { duration: '8' })!
+    expect(graceOps.setGraceWritten(model.getScore(), grace.pitches[0].id, { dots: 2 })).toBe(true)
+    expect(grace.dots).toBe(2)
+    expect(graceOps.setGraceWritten(model.getScore(), grace.pitches[0].id, { dots: 3 })).toBe(false) // an eighth takes two
+    expect(grace.dots).toBe(2)
+    expect(graceOps.setGraceWritten(model.getScore(), grace.pitches[0].id, { duration: '16' })).toBe(false) // 16.. — refused whole
+    expect(grace).toMatchObject({ duration: '8', dots: 2 })
+  })
+
   it('answers false for a slot\'s own note — it is not a grace', () => {
     const model = new ScoreModel()
     const host = model.addNote({ step: 'E', octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })

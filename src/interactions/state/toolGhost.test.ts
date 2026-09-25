@@ -31,7 +31,7 @@ describe('toolGhost — the armed tool becomes what the engine draws', () => {
 
   it('the valueless stamps carry nothing but their kind', () => {
     expect(toolGhost({ kind: 'tie' }, ARMED)).toEqual({ kind: 'tie' })
-    expect(toolGhost({ kind: 'dot' }, ARMED)).toEqual({ kind: 'dot' })
+    expect(toolGhost({ kind: 'dot', count: 1 }, ARMED)).toEqual({ kind: 'dot', count: 1 })
     // The `tr` joined them on 2026-08-17 — a stamped trill is ONE note's, so there is no length to
     // carry, and no `continuation` either: the parenthesised `(tr)` is a fact about a trill that
     // already exists on an earlier system.
@@ -84,7 +84,7 @@ describe('toolGhost — the armed tool becomes what the engine draws', () => {
     expect(toolGhost({ kind: 'rest' }, { ...ARMED, color: V1 }))
       .toMatchObject({ color: V1 })
     for (const tool of [
-      { kind: 'clef', clef: 'bass' }, { kind: 'dot' }, { kind: 'tie' }, { kind: 'pedal' },
+      { kind: 'clef', clef: 'bass' }, { kind: 'dot', count: 1 }, { kind: 'tie' }, { kind: 'pedal' },
       { kind: 'fan', attacks: 4, unit: '16', dots: 0, direction: 'accel' },
     ] as MarkingTool[]) {
       expect(toolGhost(tool, ARMED), `${tool.kind} takes no voice colour`).not.toHaveProperty('color')
@@ -138,7 +138,7 @@ describe('toolGhost — the armed tool becomes what the engine draws', () => {
       { kind: 'accidental', sign: 'b' },
       { kind: 'tremolo', tremolo: 2 },
       { kind: 'tie' },
-      { kind: 'dot' },
+      { kind: 'dot', count: 1 },
       { kind: 'rest' },
       { kind: 'fan', attacks: 4, unit: '16', dots: 0, direction: 'accel' },
       { kind: 'trill' },
@@ -160,7 +160,7 @@ describe('GHOST_CAUSE — the census labels', () => {
       { kind: 'clef', clef: 'treble' }, { kind: 'timeSignature', timeSignature: { numerator: 4, denominator: 4 } },
       { kind: 'dynamic', dynamic: 'p' }, { kind: 'tempo', tempo: { text: 'Largo' } },
       { kind: 'articulation', types: ['accent'] }, { kind: 'accidental', sign: 'b' },
-      { kind: 'tremolo', tremolo: 2 }, { kind: 'tie' }, { kind: 'dot' }, { kind: 'rest' },
+      { kind: 'tremolo', tremolo: 2 }, { kind: 'tie' }, { kind: 'dot', count: 1 }, { kind: 'rest' },
       { kind: 'trill' }, { kind: 'ottava', shift: 1 }, { kind: 'pedal' },
     ] as MarkingTool[]) {
       const ghost = toolGhost(tool, ARMED)!

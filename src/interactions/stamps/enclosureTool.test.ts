@@ -68,7 +68,7 @@ describe('pressEnclosure', () => {
   })
 
   it('another tool armed → this stamp replaces it', () => {
-    state.selectedMarkingTool = { kind: 'dot' }
+    state.selectedMarkingTool = { kind: 'dot', count: 1 }
     state.selectedTool = 'entry'
     pressEnclosure(host)
     expect(state.selectedMarkingTool).toEqual({ kind: 'headEnclosure', shape: 'round' })

@@ -80,7 +80,7 @@ export function toolGhost(tool: MarkingTool, armed: ArmedRestFields): ToolGhost 
     // The two valueless stamps carry nothing to preview: their ghost is the mark itself, and WHICH
     // note it lands on is resolved at click time.
     case 'tie': return { kind: 'tie' }
-    case 'dot': return { kind: 'dot' }
+    case 'dot': return { kind: 'dot', count: tool.count }
     // ⭐ The armed PAIR — the shape the click will put on a head (P4b); valueless otherwise, like the dot.
     case 'headEnclosure': return { kind: 'headEnclosure', shape: tool.shape }
     // ⭐ The `tr` joins those two — valueless for their reason (a stamped trill is ONE note's), and
