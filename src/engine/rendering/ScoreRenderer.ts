@@ -52,11 +52,10 @@ import { resolveStaffKeys, type StaffKeys } from '@/utils/keySignature'
 import { headerKeyAt } from '@/engine/layout/keySignatureLayout'
 import { pairPadding } from '@/engine/layout/spacingPadding'
 import { glyphBox } from '@/engine/fonts/fontMetrics'
-import { tupletBracketed, tupletBracketEnd, tupletMarkRuns } from '@/utils/musicUtils'
 import { measureCapacityFrac } from '@/utils/measureCapacity'
 import { getMeterInfo } from '@/utils/meter'
 import { planCrossBarBeams, laneKey, type CrossBarBeamPlan, type CrossBarJoin, type CrossBarFanJoin, type CrossBarSide, type LaneBeamPlan } from './beams/CrossBarBeams'
-import { ElementRegistry, offsetStaffGeometry, type TupletGeometry, type ClefSegment, type ElementInfo, type StaffGeometry } from '@/engine/ElementRegistry'
+import { ElementRegistry, offsetStaffGeometry, type ClefSegment, type ElementInfo, type StaffGeometry } from '@/engine/ElementRegistry'
 import { measureShapeKey } from './MeasureRedrawKey'
 import { spellingToMidi } from '@/utils/pitchSpelling'
 import type { FanMemberAnchor, RenderPass } from './RenderPass'
@@ -84,8 +83,7 @@ import {
   makeClefResolver,
   ARTICULATION_RENDER_ORDER,
   resolveTupletLocation,
-  innerFlipTupletYOffset,
-  type TupletNoteStem, stemMajorityTupletLocation } from './engraved/NoteBuilder'
+  stemMajorityTupletLocation } from './engraved/NoteBuilder'
 import { calculateMeasureWidths } from '@/engine/layout/MeasureLayout'
 import { MeasureWidthCache } from '@/engine/layout/MeasureWidthCache'
 import { clefResolverFor, keyResolverFor, measureColumns, measureLeadIn, type StaffSizeResolver } from '@/engine/layout/measureColumns'
@@ -125,6 +123,7 @@ import { applyHiddenTreatment, hiddenTreatment, HIDDEN_ELEMENT_COLOR, type Rende
 import { barFrame, noteFrame, staveBox, staveFrame, standOn } from './staff/staveFrame'
 import { noteLineY, staffLineY } from '@/engine/engrave/staff/staffFrame'
 import { noteRuler } from './engraved/noteRuler'
+import { drawAndRegisterTuplets } from './marks/tupletPass'
 import { signRun } from './staff/signRun'
 
 /**
@@ -2134,7 +2133,8 @@ export class ScoreRenderer {
         // The voices' notes and the stave travel with it because the bracket's END is a fact about
         // what comes AFTER the group: where the next note in the same voice was formatted, or the end
         // of the bar when nothing follows. A tuplet cannot see either.
-        this.drawAndRegisterTuplets(
+        drawAndRegisterTuplets(
+          { context: this.context!, registry: this.elementRegistry, tupletObjectMap: this.tupletObjectMap, score: pass.score },
           scoreTuplets, tupletStaveNoteMap, measure, multiVoice,
           new Map(groups.map(g => [g.voice, g.staveNotes])), stave,
         )
@@ -2911,159 +2911,6 @@ export class ScoreRenderer {
         })
       }
     } catch (_e) { /* getBoundingBox may fail */ }
-  }
-
-  private drawAndRegisterTuplets(
-    scoreTuplets: ScoreTuplet[],
-    tupletStaveNoteMap: Map<string, { staveNotes: EngravedNote[]; tuplet: Tuplet; voice: number }>,
-    measure: Measure,
-    multiVoice: boolean,
-    /** Every voice's notes, in engraved order — for finding what follows a tuplet. */
-    voiceNotes: Map<number, EngravedNote[]>,
-    stave: EngravedStave,
-  ): void {
-    /**
-     * Where the bracket's right end goes, or undefined to leave it at the last notehead.
-     *
-     * `division` — the default — ends the bracket where the group's TIME ends, which on a formatted
-     * stave is where the next note was placed: the formatter has already turned "the end of this
-     * duration" into an x, and reading it back is more honest than re-deriving it from beats. Nothing
-     * following in this voice means the group runs to the end of the bar, so the bracket does too.
-     *
-     * `beforeNext` stops a little short of that note, which is the same line with a gap in it.
-     */
-    const BRACKET_END_GAP = 6
-    const bracketEndX = (tupletData: Tuplet, voice: number, lastNote: EngravedNote): number | undefined => {
-      const mode = tupletBracketEnd(tupletData)
-      if (mode === 'lastNote') return undefined
-      const lane = voiceNotes.get(voice) ?? []
-      const next = lane[lane.indexOf(lastNote) + 1]
-      if (!next) return barFrame(stave).noteEndX - BRACKET_END_GAP
-      return mode === 'division' ? noteRuler(next).originX : noteRuler(next).originX - BRACKET_END_GAP
-    }
-
-    for (const scoreTuplet of scoreTuplets) {
-      try {
-        const tupletNotes = scoreTuplet.getNotes() as EngravedNote[]
-        if (tupletNotes.length === 0) continue
-
-        for (const [tupletId, { staveNotes: tStaveNotes, tuplet: tupletData, voice }] of tupletStaveNoteMap) {
-          if (!tStaveNotes.includes(tupletNotes[0])) continue
-
-          const vt = scoreTuplet
-          const notes = vt.getNotes()
-          const firstNote = notes?.[0]
-          const lastNote = notes?.[notes.length - 1]
-          if (!firstNote || !lastNote) break
-
-          const location = (vt.options?.location ?? 1) as 1 | -1
-
-          // THE FORMAT, applied — the first two of its three fields (bracketEnd still to come).
-          //
-          // Both answers come from the model via a resolver, never from the field: a tuplet that
-          // stores no format is the ordinary case, and "absent" is an instruction (engrave by the
-          // rules), not a gap. `Ctrl+3` and the dialog therefore arrive at the same code.
-          //
-          // The bracket's rule needs the beams, which is why this is here and not at construction:
-          // `hasBeam()` only answers once the Beam objects exist. VexFlow's own default happens to be
-          // the same rule; we state it ourselves so the model's `always`/`never` can override it and
-          // so the rule lives in one place we own.
-          const beamed = notes.every(n => n.hasBeam?.() ?? false)
-          const bracketed = tupletBracketed(tupletData, beamed)
-          vt.options.bracketed = bracketed
-
-          // The MARK is ours, not VexFlow's: it can print a bare number or a ratio, but not "ratio +
-          // note" and not nothing at all, and its automatic choice is a heuristic we replaced
-          // (autoNumberStyle). Same string the GHOST draws — one function, so a preview cannot
-          // promise a mark the page will not print.
-          // The bar's meter and the group's start go WITH the mark: with no stored style the rule is
-          // "a bare number when the meter already says what it is in the time of", so the same
-          // tuplet prints `2` in 6/8 and `2:3` in 4/4 — and the ghost, asking the same function with
-          // the hovered bar, showed exactly that before the click.
-          scoreTuplet.setMarkRuns(
-            tupletMarkRuns(tupletData, tupletData.numberStyle, {
-              meter: measure.timeSignature,
-              beat: tupletData.startBeat,
-            }),
-          )
-
-          // …and where the bracket stops. Only meaningful with a bracket, but set either way: an
-          // unbracketed tuplet's width still centres the number, and a number that drifted when the
-          // bracket was switched off would be a second rule nobody asked for.
-          scoreTuplet.bracketEndX = bracketed ? bracketEndX(tupletData, voice, lastNote) : undefined
-
-          // A bracket flipped to the INNER side (toward the other voice) would be shoved
-          // to the far edge of the system by VexFlow's staff-edge clamp; nudge it back
-          // next to its own notes via yOffset. Must be set BEFORE draw(), which reads it.
-          const stems: TupletNoteStem[] = notes.map(n => {
-            const ext = (n.getStemExtents?.() ?? { topY: 0, baseY: 0 }) as { topY: number; baseY: number }
-            return { stemUp: n.getStemDirection?.() === 1, topY: ext.topY, baseY: ext.baseY }
-          })
-          const flipOffset = innerFlipTupletYOffset(
-            stems, location, voice, multiVoice, scoreTuplet.getYPosition()
-          )
-          if (flipOffset !== 0) vt.options.yOffset = (vt.options.yOffset ?? 0) + flipOffset
-
-          scoreTuplet.draw(this.context!)
-
-          // Use VexFlow's OWN post-draw geometry so the registered hit-box matches the
-          // drawn bracket exactly. VexFlow draws the horizontal bracket line at
-          // getYPosition(), the legs hanging toward the notes (length location*10), and
-          // the number on the outer side. Our previous stem-extent estimate (fixed
-          // gap/height) drifted off the real bracket — badly in multi-voice / flipped
-          // tuplets, where VexFlow anchors a top bracket above the whole system.
-          const bracketPadding = 5
-          const xStart = bracketed ? noteRuler(firstNote).tieLeftX - bracketPadding : noteRuler(firstNote).stemX
-          // The END is read back off the tuplet, not recomputed from the last note: with a
-          // `division` or `beforeNext` bracket the line runs PAST that note, and a hit-box measured
-          // from the notehead would stop where the ink does not. `width` is what draw() just used.
-          const xEnd = xStart + scoreTuplet.width
-          const tupletWidth = xEnd - xStart
-
-          const bracketLineY = scoreTuplet.getYPosition() // the horizontal bracket line
-          const bracketLegLength = 10
-          const numberHeight = scoreTuplet.markHeight()
-          // The number sits on the outer side of the line, the legs hang inward. Cover
-          // both (plus a little padding) so a click anywhere on the visible bracket or
-          // its number registers.
-          const vPad = 6
-          const bboxY = location === 1
-            ? bracketLineY - numberHeight - vPad
-            : bracketLineY - bracketLegLength - vPad
-          const bboxHeight = numberHeight + bracketLegLength + 2 * vPad
-
-          const tupletGeometry: TupletGeometry = {
-            x: xStart,
-            y: bracketLineY,
-            width: tupletWidth,
-            bracketed,
-            location,
-            bracketLegLength,
-            bracketThickness: 1,
-            bracketPadding,
-            notationCenterX: xStart + tupletWidth / 2,
-            textYOffset: vt.options?.textYOffset ?? 0,
-            yOffset: vt.options?.yOffset ?? 0,
-          }
-
-          this.elementRegistry.add({
-            type: 'tuplet',
-            tupletId,
-            measure: measure.number,
-            startBeat: fracToNumber(tupletData.startBeat),
-            numNotes: tupletData.numNotes,
-            bbox: { x: xStart, y: bboxY, width: tupletWidth, height: bboxHeight },
-            tupletGeometry,
-          })
-          // Keep the VexFlow Tuplet so its own SVG group can be recolored for selection
-          // (avoids a document-wide scan that bleeds into neighbouring systems).
-          this.tupletObjectMap.set(tupletId, scoreTuplet)
-          break
-        }
-      } catch (_e) {
-        // Drawing or getBoundingBox may fail
-      }
-    }
   }
 
   private registerSlotElements(

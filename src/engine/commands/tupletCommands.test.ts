@@ -3,6 +3,7 @@ import { tupletCommands } from './tupletCommands'
 import { fakeCommandContext } from './fakeCommandContext'
 import { fracCreate as frac } from '@/utils/fraction'
 import type { ElementInfo } from '../ElementRegistry'
+import { tupletOffsetOverrideOf } from '../models/engravingOverrides'
 
 /**
  * Subject: `./tupletCommands` — what the commands add over `models/tupletOps`: ONE undo entry per edit,
@@ -46,5 +47,37 @@ describe('tupletCommands', () => {
     expect(find().placement, 'headless: taken as above ⇒ flipped below').toBe('below')
     expect(ctx.log).toEqual(['mutate:Flip tuplet', 'mutate:Reset tuplet to auto', 'mutate:Flip tuplet'])
     expect(cmds.flip('nope')).toBe(false)
+  })
+})
+
+describe('tupletCommands — the hand’s vertical offset (his ask, 2026-09-25)', () => {
+  const setup = () => {
+    const ctx = fakeCommandContext()
+    const tuplet = ctx.score.createTuplet(1, frac(0, 1), '8', 3, 2)!
+    const offset = () => tupletOffsetOverrideOf(ctx.score.getScore(), tuplet.id)
+    return { ctx, cmds: tupletCommands(ctx), id: tuplet.id, offset }
+  }
+
+  it('⭐ nudges ACCUMULATE, screen-signed; a net 0 clears the entry; one entry per press', () => {
+    const { ctx, cmds, id, offset } = setup()
+    expect(cmds.nudgeOffset(id, -0.25)).toBe(true)
+    expect(cmds.nudgeOffset(id, -0.25)).toBe(true)
+    expect(offset()?.y).toBe(-0.5)
+    expect(cmds.nudgeOffset(id, 0.5)).toBe(true)
+    expect(offset(), 'back to 0 = absent').toBeUndefined()
+    expect(ctx.log).toEqual(['mutate:Nudge tuplet', 'mutate:Nudge tuplet', 'mutate:Nudge tuplet'])
+  })
+
+  it('reset takes it back and DECLINES when there was nothing; the page limit refuses without writing', () => {
+    const { ctx, cmds, id, offset } = setup()
+    expect(cmds.resetOffset(id)).toBe(false)
+    cmds.nudgeOffset(id, 1)
+    expect(cmds.resetOffset(id)).toBe(true)
+    expect(offset()).toBeUndefined()
+    ctx.allow.page = false
+    expect(cmds.nudgeOffset(id, 1)).toBe(false)
+    expect(offset()).toBeUndefined()
+    expect(cmds.nudgeOffset(id, 0), 'a zero press is nothing').toBe(false)
+    expect(cmds.nudgeOffset('nope', 1)).toBe(false)
   })
 })

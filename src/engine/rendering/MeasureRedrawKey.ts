@@ -270,6 +270,10 @@ export function measureShapeKey(
     // is id-keyed, so nothing else in this key moves when it changes, and `TempoLayout`'s
     // `setTempoMarkOffset` only runs when the bar re-engraves. Guarded by a test broken on purpose.
     view.tempos?.map(t => score.engravingOverrides?.[t.id] ?? null) ?? null,
+    // ⚠️ …and a TUPLET's hand-nudged vertical OFFSET (2026-09-25), the same trap one more time: keyed by
+    // the tuplet's uuid, which nothing above sees, and `view.tuplets` is unchanged by a nudge. His report
+    // within the hour: *"i dont see any change in the drawing"* — the model at −7, the bar never re-engraved.
+    view.tuplets?.map(t => score.engravingOverrides?.[t.id] ?? null) ?? null,
     // A hairpin is drawn and weightless, exactly like a dynamic — and this covers only the bar the
     // wedge STARTS in, which is all a per-measure key can cover. The bar holding the far end is
     // pulled in by `ScoreRenderer.spanAnchors` instead: a span's other end is not a fact about

@@ -43,6 +43,25 @@ describe('the tuplet format rows', () => {
     select.dispatchEvent(new Event('change'))
   }
 
+  it('⭐ …and an OFFSET box: the hand’s vertical nudge, shown from the override and published absolute', () => {
+    bus.inspection.set([{
+      kind: 'tuplet',
+      data: { id: 'T1', startBeat: { num: 0, den: 1 }, baseDuration: '8', numNotes: 3, notesOccupied: 2 },
+      overrides: [{ kind: 'tupletOffset', elementId: 'T1', y: -0.75 }],
+    } as unknown as InspectedElement])
+    const offsets: { tupletId: string; y: number }[] = []
+    const off = bus.tupletOffset.onSet(req => offsets.push(req))
+    const box = host.querySelector<HTMLInputElement>('input[type=number]')!
+    expect(box.value).toBe('-0.75')
+    // ⭐ FIRST in the panel (his call): the box stands above the three selects.
+    const rows = [...host.querySelectorAll('input[type=number], select')]
+    expect(rows[0]).toBe(box)
+    box.value = '1.25'
+    box.dispatchEvent(new Event('change'))
+    expect(offsets).toEqual([{ tupletId: 'T1', y: 1.25 }])
+    off()
+  })
+
   it('⭐ offers THREE choices — the number, the bracket, the bracket end — and shows the stored ones', () => {
     const [number, bracket, end] = show({ bracket: 'never', bracketEnd: 'division' })
     expect(number.value, 'no style stored = auto').toBe('auto')

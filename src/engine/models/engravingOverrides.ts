@@ -1,4 +1,4 @@
-import type { Score, EngravingOverride, CurveShapeOverride, SegmentCurveShapeOverride, SlurEndpointOffsetOverride, SlurOffsetOverride, SegmentEndpointOffsetOverride, HairpinEndpointOffsetOverride, HairpinApertureOverride, OttavaOffsetOverride, PedalOffsetOverride, TrillOffsetOverride, RestShiftOverride, StaffSpacingOverride, DynamicOffsetOverride, NoteOffsetOverride, ClefOffsetOverride, LeadingSpaceOverride, BarlineSpaceOverride, BarWidthOverride, CurveControlPointDeltas, Fraction, TempoOffsetOverride, CautionaryKeyGapOverride, TieOffsetOverride } from '@/types/music'
+import type { Score, EngravingOverride, CurveShapeOverride, SegmentCurveShapeOverride, SlurEndpointOffsetOverride, SlurOffsetOverride, SegmentEndpointOffsetOverride, HairpinEndpointOffsetOverride, HairpinApertureOverride, OttavaOffsetOverride, PedalOffsetOverride, TrillOffsetOverride, RestShiftOverride, StaffSpacingOverride, DynamicOffsetOverride, NoteOffsetOverride, ClefOffsetOverride, LeadingSpaceOverride, BarlineSpaceOverride, BarWidthOverride, CurveControlPointDeltas, Fraction, TempoOffsetOverride, CautionaryKeyGapOverride, TieOffsetOverride, TupletOffsetOverride } from '@/types/music'
 import { fracCreate } from '@/utils/fraction'
 import { STAFF_SPACE_PX } from './staffSize'
 
@@ -501,6 +501,11 @@ export function dynamicOffsetOverrideOf(score: Score, dynamicId: string): Dynami
  * reader above's twin in every respect: `{x,y}` in **staff-spaces**, added at render to the row the
  * ladder gave the mark (`rendering/marks/tempo/tempoLinePass`), element-id-keyed, absent = no offset.
  */
+/** The tuplet's hand-nudged vertical offset, if any — `y` in staff-spaces, + down, keyed by the tuplet's id. */
+export function tupletOffsetOverrideOf(score: Score, tupletId: string): TupletOffsetOverride | undefined {
+  return engravingOverrideOf(score, tupletId, 'tupletOffset') as TupletOffsetOverride | undefined
+}
+
 export function tempoOffsetOverrideOf(score: Score, tempoId: string): TempoOffsetOverride | undefined {
   return engravingOverrideOf(score, tempoId, 'tempoOffset') as TempoOffsetOverride | undefined
 }

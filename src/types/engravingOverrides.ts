@@ -530,6 +530,19 @@ export interface DynamicOffsetOverride extends EngravingOverride {
  * does. ⛔ Which is why it is stored here and not as a y in the model: it is an adjustment to an
  * engraved position, not a position.
  */
+/**
+ * ⭐ The tuplet's hand-nudged VERTICAL offset (his ask, 2026-09-25): ↑/↓ on a selected tuplet, `Ctrl+↑/↓`
+ * coarse, `Ctrl+Backspace` resets, a Properties box. Keyed by the tuplet's id. Vertical only — the bracket
+ * spans its notes horizontally and has no x of its own to nudge.
+ * `y` in staff-spaces, **SCREEN-signed (+ DOWN)** — the compartment's majority convention (the dynamic's,
+ * the pedal's, the slur's), ⛔ not the tempo's OUTWARD: a bracket may stand above OR below its group, so
+ * "away from the staff" would flip meaning with the side, where "down" never does.
+ */
+export interface TupletOffsetOverride extends EngravingOverride {
+  kind: 'tupletOffset'
+  y: number
+}
+
 export interface TempoOffsetOverride extends EngravingOverride {
   kind: 'tempoOffset'
   /** Horizontal offset in staff-spaces, relative to the anchor. +right. */

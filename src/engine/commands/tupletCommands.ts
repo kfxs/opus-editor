@@ -7,6 +7,8 @@
  */
 import { dbg } from '@/utils/debug'
 import { getTuplet, setTupletFormat, setTupletPlacement, type TupletFormatEdit } from '../models/tupletOps'
+import { tupletOffsetOverrideOf } from '../models/engravingOverrides'
+import { nudgeTupletOffset, resetMarkOffset } from '../models/overrideOps'
 import type { CommandContext } from './commandContext'
 
 export type TupletCommands = ReturnType<typeof tupletCommands>
@@ -33,6 +35,30 @@ export function tupletCommands(ctx: CommandContext) {
       ctx.mutate(`Tuplet ${changes.join(', ')}`)
       dbg(`✓ Tuplet ${changes.join(', ')} | ${id}`)
       return true
+    },
+
+    /**
+     * ⭐ Nudge the bracket and its number VERTICALLY by `dy` staff-spaces, SCREEN-signed (+ down) — ↑/↓ on a
+     * selected tuplet (his ask, 2026-09-25). One undo entry per press. ⚠️ The page limit is asked, and
+     * ANSWERS "allow" today: it finds the drawn ink by `id`, and a tuplet is filed under `tupletId` — noted,
+     * ⛔ not worked around here (the limit's own seam is the place).
+     */
+    nudgeOffset(id: string, dy: number): boolean {
+      if (dy === 0) return false
+      const score = ctx.model().getScore()
+      if (!getTuplet(score, id)) return false
+      if (!ctx.limits.nudgeStaysOnPage('tuplet', id, 0, dy)) return false
+      nudgeTupletOffset(score, id, dy)
+      ctx.mutate('Nudge tuplet')
+      dbg(`[Tuplet] nudge ${id} by ${dy} → offset y ${tupletOffsetOverrideOf(score, id)?.y ?? 0} staff-space(s)`)
+      return true
+    },
+
+    /** `Ctrl+Backspace`: the engraver's own place back. DECLINES (false) when nothing was nudged. */
+    resetOffset(id: string): boolean {
+      const ok = resetMarkOffset(ctx.model().getScore(), id, 'tupletOffset')
+      if (ok) ctx.mutate('Reset tuplet nudge')
+      return ok
     },
 
     /**

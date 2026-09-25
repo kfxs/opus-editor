@@ -375,3 +375,31 @@ An adjacent one went with it: when that clamp dropped the dots, the chord-member
 - `src/windows/tupletWindow.ts` — the window: the sentence, the Format box, OK arms
 - `src/engine/NoteEntryCoordinator.test.ts` — "dotted tuplet unit"
 - `src/utils/musicUtils.test.ts` — the mark rules and the entry ratio; `ScoreModel.test.ts` — the format is stored
+
+## 13. Restyling a tuplet that STANDS, and its vertical nudge (SHIPPED 2026-09-25)
+
+His asks, the same afternoon: *"the user should be able to select for the brackets: auto, show, hide"* ·
+*"the other formats that we have for the tuplet in the tuplet palette should be able to reconfigure
+manually by the user in the properties"* · *"add vertical offset to the tuplet bracket with arrow up
+down, also ctrl up down and ctrl backspace for clear and also add it to properties"*.
+
+- **Properties** (`windows/properties/panels/tuplet`): an **offset y** box FIRST (his call), then the
+  window's *Format* box for a selected tuplet — number (auto · number · ratio · entry ratio · ratio + note ·
+  none), bracket (auto · show · hide), bracket end (last note · full duration · before next). Dumb publisher through
+  `bus.tupletEdit` (partial, one field per control) and `bus.tupletOffset` (absolute); the controllers
+  `TupletEditController` / `TupletOffsetController` apply. `auto` is stored ABSENT; a re-pick writes nothing.
+- **Keys** (`interactions/elements/tupletKeys`, the tuplet row's `keys` column): ↑/↓ fine, `Ctrl+↑/↓`
+  coarse, `Ctrl+Backspace` resets; ←/→ decline (a bracket has no x of its own).
+- **The override** `TupletOffsetOverride { y }` — staff spaces, SCREEN-signed (+ down), keyed by the tuplet's
+  id; applied in the renderer's tuplet pass beside the inner-flip nudge, so bracket, number and hit box move
+  together. ⚠️ The page limit answers "allow" for a tuplet today: it finds ink by `id`, and a tuplet is
+  filed under `tupletId` — noted at the command, not worked around. 🚨 And the offset is in the bar's SHAPE
+  KEY (`MeasureRedrawKey`, its own line): keyed by the tuplet's uuid, nothing else in the key saw it, so the
+  first build nudged the model to −7 while the bar replayed its drawn group — his report *"i dont see any
+  change in the drawing"*; guarded by `MeasureRedrawKey.tupletOffset.test.ts`.
+- **Shape**: `engine/commands/tupletCommands` (`setFormat` · `nudgeOffset` · `resetOffset` · `flip` — the `x`
+  flip moved here from the facade), `models/tupletOps.setTupletFormat`, `overrideOps.nudgeTupletOffset`, and
+  the renderer's whole tuplet pass extracted to `rendering/marks/tupletPass` (`ScoreRenderer` 821 → 742 kind
+  mentions over the day). 🚨 The moved flip first looked the drawn tuplet up by `id` (his report: *"x is not
+  working"*) — the registry files it by `tupletId`.
+

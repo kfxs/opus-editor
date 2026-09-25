@@ -26,12 +26,12 @@
 import type {
   Score, EngravingOverride, RestShiftOverride, RestHiddenOverride, LeadingSpaceOverride,
   BarlineSpaceOverride, BarWidthOverride, DynamicOffsetOverride, NoteOffsetOverride,
-  StaffSpacingOverride, FanMemberChord, TempoOffsetOverride, ClefOffsetOverride, Fraction } from '@/types/music'
+  StaffSpacingOverride, FanMemberChord, TempoOffsetOverride, ClefOffsetOverride, Fraction, TupletOffsetOverride } from '@/types/music'
 import { dbg } from '@/utils/debug'
 import { fracLt, fracLte } from '@/utils/fraction'
 import {
   restShiftOverrideOf, restHiddenOf, dynamicOffsetOverrideOf, noteOffsetOverrideOf,
-  staffSpacingOverrideOf, BAR_STRETCH_MIN, BAR_STRETCH_MAX, tempoOffsetOverrideOf,
+  staffSpacingOverrideOf, BAR_STRETCH_MIN, BAR_STRETCH_MAX, tempoOffsetOverrideOf, tupletOffsetOverrideOf,
   clefOffsetOverrideOf, parseRestPositionKey } from './engravingOverrides'
 
 /**
@@ -291,13 +291,27 @@ export function nudgeTempoOffset(score: Score, tempoId: string, dx: number, dy: 
 }
 
 /**
+ * Nudge a tuplet's hand vertical offset by `dy` staff-spaces (+ down), ACCUMULATING; a net 0 clears the
+ * entry, so absent = the engraver's own place. {@link nudgeTempoOffset}'s shape on one axis.
+ */
+export function nudgeTupletOffset(score: Score, tupletId: string, dy: number): boolean {
+  const y = (tupletOffsetOverrideOf(score, tupletId)?.y ?? 0) + dy
+  if (y === 0) clearEngravingOverride(score, tupletId, 'tupletOffset')
+  else {
+    const next: TupletOffsetOverride = { kind: 'tupletOffset', y }
+    setEngravingOverride(score, tupletId, next)
+  }
+  return true
+}
+
+/**
  * ⭐ `Ctrl+Backspace` on a selected mark: drop its hand nudge and let the engraver have it back.
  *
  * ⚠️ **Returns false when there was nothing to reset**, which is the whole contract — the key has
  * several tenants (the note's spacing, the bar's width), so a branch that answered true for "no
  * change" would swallow the press for everything behind it.
  */
-export function resetMarkOffset(score: Score, id: string, kind: 'dynamicOffset' | 'tempoOffset'): boolean {
+export function resetMarkOffset(score: Score, id: string, kind: 'dynamicOffset' | 'tempoOffset' | 'tupletOffset'): boolean {
   return clearEngravingOverride(score, id, kind)
 }
 

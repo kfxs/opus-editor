@@ -11,10 +11,13 @@ import type { ElementKindSpec } from './chain'
 import type { HighlightContext } from './highlightContext'
 import { voiceFillColor } from '@/utils/voiceColors'
 import { selectedOf } from '../state/EditorState'
+import { TUPLET_KEYS } from './tupletKeys'
 
 export const TUPLET_ELEMENT: ElementKindSpec = {
   kind: 'tuplet',
   highlight: paintSelectedTuplet,
+  // ⭐ ↑/↓ nudge the bracket vertically, `Ctrl+Backspace` resets (`./tupletKeys`, 2026-09-25).
+  keys: TUPLET_KEYS,
 }
 
 export function paintSelectedTuplet(ctx: HighlightContext): void {
