@@ -49,6 +49,7 @@ test('a triple-dotted note: 0.5 sp from the head, 0.26 sp between dots (`dotGap`
   expect(gap(dots[0], dots[1]), 'her plate, p. 54').toBeCloseTo(0.26, 1)
   expect(gap(dots[1], dots[2]), 'the third steps exactly like the second').toBeCloseTo(0.26, 1)
   expect(new Set(dots.map(g => g.y)).size, 'every dot at one height').toBe(1)
+  expect(dots[0].w / SP, 'the dot’s size: Gould’s 0.49 sp (`dotSize`, P4f — Bravura’s own is 0.40)').toBeCloseTo(0.49, 1)
 })
 
 test('a double-dotted REST: 0.4 sp from the rest, 0.25 sp between dots (`restDotGap` `gould`, P4b — VexFlow drew 0.2 / 0.1)', async ({ score }) => {

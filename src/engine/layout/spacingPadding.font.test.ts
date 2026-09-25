@@ -1,4 +1,5 @@
-import { afterEach, describe, it, expect } from 'vitest'
+import { afterAll, afterEach, beforeAll, describe, it, expect } from 'vitest'
+import { resetDotSizeRule, setDotSizeRule } from './dotSize'
 import { DEFAULT_MUSIC_FONT, setActiveMusicFont } from '@/engine/fonts/musicFont'
 import { INK, INK_HEIGHT, accidentalExtent, accidentalHeight, minColumnGap, pairPadding, restBand, restExtent } from './spacingPadding'
 import {
@@ -107,6 +108,12 @@ const OVERRIDES = {
       + 'clear, and a hairline that two inks merely touch reads as one line through both.',
   },
 } as const
+
+// ⚠️ This file is the ink table AGAINST THE FONT, so it reads the dot at the font's own size — the `font` row
+//    of `layout/dotSize`. The armed `gould` size (0.49 sp) is a declared house choice, pinned in
+//    `spacingPadding.test.ts` and `dotSize.test.ts` (multiple-dots-plan P4f).
+beforeAll(() => setDotSizeRule('font'))
+afterAll(() => resetDotSizeRule())
 
 describe('⭐ the ink table, against Bravura itself', () => {
   it('a DOT is exact, in both directions — the row that needed no argument', () => {

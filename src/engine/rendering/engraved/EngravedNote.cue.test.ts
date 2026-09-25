@@ -13,6 +13,7 @@ import { ScoreRenderer } from '../ScoreRenderer'
 import { sceneGroups, type Scene, type SceneGroup, type SceneNode } from '@/engine/scene/Scene'
 import { setCue } from '../../models/cueOps'
 import { resetCueSize, setCueLedger, setCueSize } from '@/engine/layout/cueSize'
+import { dotSizeScale } from '@/engine/layout/dotSize'
 import { STEM_LENGTH_PX } from '@/engine/engrave/inheritedDefaults'
 import { fracCreate as frac } from '@/utils/fraction'
 
@@ -88,7 +89,9 @@ describe('EngravedNote — a CUE note draws at its size', () => {
 
   it('⛔ a full-size note is exactly what it was', () => {
     const [full] = parts(render())
-    expect(full).toMatchObject({ head: 30, accidental: 30, dot: 30, flag: 30 })
+    // The DOT is drawn at the armed dot SIZE (`layout/dotSize`, P4f) — the others at the face's own.
+    expect(full).toMatchObject({ head: 30, accidental: 30, flag: 30 })
+    expect(full.dot).toBeCloseTo(30 * dotSizeScale(), 6)
   })
 })
 
@@ -132,8 +135,8 @@ describe('EngravedNote — a CUE REST (P3)', () => {
 
   it('⭐ its dot is its size', () => {
     const [full, cue] = restGlyphs()
-    expect(full.dot).toBe(30)
-    expect(cue.dot).toBeCloseTo(22.5, 6)
+    expect(full.dot).toBeCloseTo(30 * dotSizeScale(), 6)
+    expect(cue.dot).toBeCloseTo(22.5 * dotSizeScale(), 6)
   })
 
   it('⭐ a cue WHOLE-BAR rest too', () => {

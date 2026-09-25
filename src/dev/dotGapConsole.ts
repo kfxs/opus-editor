@@ -58,6 +58,13 @@
  *   __dots.chord('verovio')    // coincident dots merge into one
  *   __dots.chord('vexflow')    // two dots in one space — what we drew until 2026-09-25
  *   __dots.chordReset()
+ *
+ *   // ⭐ The dot's SIZE (P4f, `layout/dotSize`):
+ *   __dots.size('gould')       // ✅ ARMED — 0.49 sp, her plates
+ *   __dots.size('font')        // the face's own glyph (Bravura 0.40) — what we drew until 2026-09-25
+ *   __dots.size('ross')        // ⅓ sp, stated
+ *   __dots.size('gerouLusk')   // ≈0.3 sp, drawn
+ *   __dots.sizeReset()
  * ```
  *
  * ⚠️ **Look at a DOUBLE-dotted note**, not a single one: five of the eight rows differ only in the
@@ -69,6 +76,9 @@
  * with his choice as the citation and both files go.
  */
 import { dbg } from '@/utils/debug'
+import {
+  DOT_SIZE_RULES, dotSizeSettings, resetDotSizeRule, setDotSizeRule, type DotSizeRuleName,
+} from '@/engine/layout/dotSize'
 import {
   CHORD_DOT_RULES, chordDotSettings, resetChordDotRule, setChordDotRule, type ChordDotRuleName,
 } from '@/engine/layout/chordDots'
@@ -102,6 +112,9 @@ export interface DotGapConsole {
   /** A chord whose dots collide (P4e). */
   chord(rule: ChordDotRuleName): ChordDotRuleName
   chordReset(): ChordDotRuleName
+  /** The dot's size (P4f). */
+  size(rule: DotSizeRuleName): DotSizeRuleName
+  sizeReset(): DotSizeRuleName
   dump(): void
 }
 
@@ -135,7 +148,25 @@ export function dotGapConsole(render: () => void): DotGapConsole {
   const CHORD_NAMES = Object.keys(CHORD_DOT_RULES) as ChordDotRuleName[]
   const chordReport = () => dbg(`[dots] chord armed:${chordDotSettings().rule} — ${CHORD_DOT_RULES[chordDotSettings().rule].source}`)
 
+  const SIZE_NAMES = Object.keys(DOT_SIZE_RULES) as DotSizeRuleName[]
+  const sizeReport = () => dbg(`[dots] size armed:${dotSizeSettings().rule} — ${DOT_SIZE_RULES[dotSizeSettings().rule].source}`)
+
   return {
+    size: (rule) => {
+      if (!setDotSizeRule(rule)) {
+        dbg(`[dots] ⛔ no such size row: ${rule} — try ${SIZE_NAMES.map(n => `'${n}'`).join(', ')}`)
+        return dotSizeSettings().rule
+      }
+      render()
+      sizeReport()
+      return dotSizeSettings().rule
+    },
+    sizeReset: () => {
+      resetDotSizeRule()
+      render()
+      sizeReport()
+      return dotSizeSettings().rule
+    },
     chord: (rule) => {
       if (!setChordDotRule(rule)) {
         dbg(`[dots] ⛔ no such chord row: ${rule} — try ${CHORD_NAMES.map(n => `'${n}'`).join(', ')}`)
@@ -227,6 +258,11 @@ export function dotGapConsole(render: () => void): DotGapConsole {
         const mark = name === dotFlagSettings().rule ? '✅' : '  '
         const what = 'vexflow' in row ? 'always, the flag’s width' : `${row.when}, ${row.clear.toFixed(2)} past the flag`
         dbg(`${mark} ${name.padEnd(12)} ${what.padEnd(28)} ${row.source}`)
+      }
+      dbg(`[dots] SIZE rows (armed: ${dotSizeSettings().rule}) — __dots.size(…):`)
+      for (const name of SIZE_NAMES) {
+        const { size, source } = DOT_SIZE_RULES[name]
+        dbg(`${name === dotSizeSettings().rule ? '✅' : '  '} ${name.padEnd(12)} ${(size === null ? 'the face’s' : size.toFixed(2)).padEnd(11)} ${source}`)
       }
       dbg(`[dots] CHORD rows (armed: ${chordDotSettings().rule}) — __dots.chord(…):`)
       for (const name of CHORD_NAMES) {

@@ -31,6 +31,7 @@ import type { NoteDuration } from '@/types/music'
 import { flagDropFromTip, flagGlyph, flagInkRight, glyphBox, noteheadInk } from '@/engine/fonts/fontMetrics'
 import { MODIFIER_RIGHT_GAP_PX } from '@/engine/engrave/inheritedDefaults'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
+import { dotInkRadius } from './dotSize'
 
 /** WHEN the dots are pushed: every flagged note, or only when a dot is level with the flag. */
 export type DotFlagWhen = 'always' | 'level'
@@ -97,8 +98,8 @@ export function resetDotFlagRule(): void {
   state.generation++
 }
 
-/** The dot's radius, sp — Bravura's `augmentationDot` is 0.4 across. */
-const dotRadius = () => glyphBox('augmentationDot').up
+/** The dot's radius, sp — the armed size's (`layout/dotSize`). */
+const dotRadius = () => dotInkRadius()
 
 /**
  * Where the flag's ink and the dot stand vertically, in staff spaces from the flagged (inner) head's centre,

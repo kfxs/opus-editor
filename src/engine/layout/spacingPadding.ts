@@ -43,6 +43,7 @@ import { restStaffLine } from './restPlacement'
 import { armedAccidentalGap } from './accidentalGap'
 import { DOT_GAP_RULES, armedDotGap } from './dotGap'
 import { armedRestDotGap } from './restDotGap'
+import { armedDotSize } from './dotSize'
 import {
   accidentalGlyph,
   differenceFromDefault,
@@ -132,10 +133,10 @@ export const INK = {
   get ledgerRight(): number { return shifted(1.5, () => headInk() + ledgerExtension()) },
   /** Where the first augmentation dot lands, past the notehead's anchor. */
   get firstDot(): number { return shifted(1.7, headInk) },
-  /** …and each dot after it. */
-  get dotStep(): number { return shifted(0.9, dotInk) },
-  /** The dot glyph's own width. */
-  get dotWidth(): number { return shifted(0.4, dotInk) },
+  /** …and each dot after it: a dot's width and `house`'s 0.5 (the measured 0.9 with Bravura's 0.4 dot). */
+  get dotStep(): number { return this.dotWidth + 0.5 },
+  /** The dot glyph's own width — the armed SIZE row's (`layout/dotSize`, P4f), or the face's measured one. */
+  get dotWidth(): number { return armedDotSize() ?? shifted(0.4, dotInk) },
   /**
    * The extra separation the measured total showed between the nearest accidental column and the
    * notehead — ⚠️ **⛔ NOT the white gap the page draws.** That gap is **0.30 sp** and it is already
@@ -205,7 +206,7 @@ export const INK_HEIGHT = {
     return shifted(0.6, () => Math.max(glyphBox('noteheadBlack').up, glyphBox('noteheadBlack').down))
   },
   /** An augmentation dot. */
-  get dot(): number { return shifted(0.2, () => glyphBox('augmentationDot').up) },
+  get dot(): number { const size = armedDotSize(); return size === null ? shifted(0.2, () => glyphBox('augmentationDot').up) : size / 2 },
   /** A ledger line: a hairline, but its BAND spans head→staff rather than the head alone. */
   get ledger(): number { return shifted(0.15, () => engravingDefault('legerLineThickness') / 2) },
   /**

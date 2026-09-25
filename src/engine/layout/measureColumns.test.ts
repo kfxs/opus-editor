@@ -283,7 +283,8 @@ describe('the INK half (P3) — what an event draws buys its own minimum', () =>
     const model = new ScoreModel()
     model.addNote({ step: 'B', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1), dots: 1 } as NoteParams)
     const columns = columnsOf(model)
-    expect(columns[0].extent.right, 'past the head, to the far side of the dot').toBeCloseTo(2.1, 6)
+    // 2.1 with the font's own 0.40 dot; the armed SIZE (`layout/dotSize`, Gould's 0.49) is that much wider.
+    expect(columns[0].extent.right, 'past the head, to the far side of the dot').toBeCloseTo(2.1 + INK.dotWidth - 0.4, 6)
     expect(columns[0].padding, 'and a dot asks for more room after it than a head does').toBe(0.5)
   })
 

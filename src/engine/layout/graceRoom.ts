@@ -21,10 +21,10 @@ import { spellingDiatonicPos } from '@/utils/pitchSpelling'
 import { staffLineForSpelling } from '@/utils/clefUtils'
 import { INK, accidentalExtent } from './spacingPadding'
 import { durationFlags } from '@/utils/durations'
-import { glyphBox } from '@/engine/fonts/fontMetrics'
 import { graceBeamRuns } from '@/engine/engrave/notes/graceBeam'
 import { enclosureLayout, type EnclosureLayout } from './headEnclosure'
 import { noteDotXs } from './noteDotXs'
+import { dotInkWidth } from './dotSize'
 
 /** One row: its value and where it came from. */
 export interface GraceRow {
@@ -241,7 +241,7 @@ export function graceDotXs(note: Pick<GraceNote, 'duration' | 'dots'>, beamed = 
 /** How far right of its anchor a grace's dots reach, own staff spaces — 0 with none. */
 function graceDotReach(note: GraceNote, beamed: boolean, down: boolean): number {
   const xs = graceDotXs(note, beamed, down)
-  return xs.length ? xs[xs.length - 1] + glyphBox('augmentationDot').right : 0
+  return xs.length ? xs[xs.length - 1] + dotInkWidth() : 0
 }
 
 /**

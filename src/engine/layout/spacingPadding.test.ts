@@ -3,6 +3,7 @@ import { INK, minColumnGap, accidentalExtent, dotExtent, pairPadding, restDotExt
 import { resetRestDotGapRule, setRestDotGapRule } from './restDotGap'
 import { DOT_GAP_RULES, resetDotGapRule, setDotGapRule, type DotGapRuleName } from './dotGap'
 import { noteDotXs } from './noteDotXs'
+import { resetDotSizeRule, setDotSizeRule } from './dotSize'
 
 /**
  * The ink half's table (docs/plans/spacing-model-plan.md P3).
@@ -60,11 +61,21 @@ describe('the measured extents', () => {
     expect(dotExtent(-1)).toBe(0)
   })
 
-  it('dots land where they measured under `house`: one at 2.1 past the head, two at 3.0', () => {
+  it('dots land where they measured under `house` and the font’s own dot: one at 2.1 past the head, two at 3.0', () => {
     setDotGapRule('house')
+    setDotSizeRule('font')
     expect(dotExtent(1)).toBeCloseTo(2.1, 6)
     expect(dotExtent(2)).toBeCloseTo(3.0, 6)
     resetDotGapRule()
+    resetDotSizeRule()
+  })
+
+  it('⭐ the armed dot SIZE is the room’s dot width too (multiple-dots-plan P4f): Gould’s 0.49', () => {
+    expect(INK.dotWidth).toBe(0.49)
+    setDotSizeRule('font')
+    const font = dotExtent(1)
+    resetDotSizeRule()
+    expect(dotExtent(1) - font, 'one dot 0.09 sp wider than Bravura’s').toBeCloseTo(0.09, 6)
   })
 
   it('⭐⭐ the ROOM follows the armed dot row exactly as the DRAWING does (multiple-dots-plan P4a)', () => {
@@ -76,7 +87,9 @@ describe('the measured extents', () => {
       expect(dotExtent(3) - dotExtent(2), `${rule}: and the third's`).toBeCloseTo(xs[2] - xs[1], 6)
     }
     resetDotGapRule()
-    expect(dotExtent(2), 'the armed `gould`: 0.24 sp tighter than `house`').toBeCloseTo(2.76, 6)
+    setDotSizeRule('font')
+    expect(dotExtent(2), 'the armed `gould` gaps: 0.24 sp tighter than `house` (the font’s dot)').toBeCloseTo(2.76, 6)
+    resetDotSizeRule()
   })
 })
 

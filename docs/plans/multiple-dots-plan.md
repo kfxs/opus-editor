@@ -1,6 +1,6 @@
 # Double and triple dots — the plan
 
-> **Status (2026-09-25): P0 BUILT (`87df716`) · P1 BUILT (`998ddac`) · P2 BUILT (`2619c9e`) · P3 BUILT (`6676556`) · P4a BUILT (`dab58f5`) · P4b BUILT (`49808ed`) · P4c BUILT (`7317dda`) · P4d BUILT (3a, `d1eea16`) · P4e BUILT; ALL DECISIONS TAKEN (D1–D7, R1–R7); P4 is PLAN.** The research is IN —
+> **Status (2026-09-25): P0 BUILT (`87df716`) · P1 BUILT (`998ddac`) · P2 BUILT (`2619c9e`) · P3 BUILT (`6676556`) · P4a BUILT (`dab58f5`) · P4b BUILT (`49808ed`) · P4c BUILT (`7317dda`) · P4d BUILT (3a, `d1eea16`) · P4e BUILT (`6ca9855`) · P4f BUILT; ALL DECISIONS TAKEN (D1–D7, R1–R7); P4 is PLAN.** The research is IN —
 > `docs/research/multiple-dots-research.md` (the literature, the engines, the duration rule). ⛔ A number
 > never blocks a phase (`CLAUDE.md`).
 >
@@ -183,7 +183,7 @@ changes in the rows:
 | P4c ✅ | dots and a flag — new table `layout/dotFlag`, `__dots.flag(…)`; the dot's start asks with `ignoreFlag` and `placeDots` applies the row (`vexflow` = the old flag-width push) | R2 | stem-up FLAGGED dotted notes (a beamed one was never pushed — P3): a dot in a SPACE below the tail is no longer pushed; a level one clears the flag by 0.30. Graces follow (taken as level). 🚨 Found on the way: the spacing model reserved the UNPUSHED dot, ≈0.8 sp short — `measureColumns.flagDotPush` now reads the same row. G&L measured for their row: always, 0.00–0.05 |
 | P4d ✅ (3a) | two voices — up/down: `layout/dotVoice`, `__dots.voice(…)`; the rule is an argument to `dotStack.stackDots` (VexFlow's own, unchanged without it) | R3 | a stem-down line note in a two-part column drops its dot BELOW; crossed parts lift it back (Gould p. 58). ⏸️ **3b (one x) NOT built**: two voices' heads always stand at ONE x in this editor (the multi-voice pass clears the head shift — measured), so their dots already share a column and every 3b row would draw the same. ⏸️ **No `byVoice` row**: a dot knows its note's stem, not its voice (differs from `verovio` only for a hand-flipped stem) |
 | P4e ✅ | a colliding chord's dots — `layout/chordDots`, `__dots.chord(…)`: `gould` (a space each, centred; surplus DROPPED — `EngravedDot.setDropped`, no ink, no hit box), `verovio` (merge), `vexflow` (two in one space — what we drew) | R5 | only a chord whose dots COLLIDE (a cluster of seconds); every other chord unchanged. Rule read off Gould's p. 56 FIGURES. ⏸️ LilyPond + MuseScore rows: their algorithms are in `docs/research/multiple-dots-research.md` Part D, ⛔ not ported (his call) |
-| P4f | the dot's size | R6 | every dot (≈+20% in Bravura) |
+| P4f ✅ | the dot's size — `layout/dotSize`, `__dots.size(…)`: `gould` 0.49, `font` (what we drew), `ross` ⅓, `gerouLusk` 0.3. ONE scale feeds the stamp (`EngravedDot`, `drawGraceDots`) and the room (`spacingPadding.INK.dotWidth`, `noteDotXs`, `graceRoom`, `dotFlag`) | R6 | every dot, ≈+22% in Bravura. The specs that compare our ink table against the FONT now read the `font` row, and say so |
 | P4g | a dot and a tie | R7 | dotted tied notes |
 
 Each step: the module + its rows (a SOURCE on every row) · its `__dots` command · its spec · the P3 scene

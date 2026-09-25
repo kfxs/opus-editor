@@ -13,8 +13,9 @@
  */
 import type { NoteDuration } from '@/types/music'
 import { armedDotGap } from './dotGap'
-import { glyphBox, noteheadInk } from '@/engine/fonts/fontMetrics'
+import { noteheadInk } from '@/engine/fonts/fontMetrics'
 import { flagPushedFirstDot, type DotFlagGeometry } from './dotFlag'
+import { dotInkWidth } from './dotSize'
 import { MODIFIER_RIGHT_GAP_PX, VEXFLOW_DOT_SPACING } from '@/engine/engrave/inheritedDefaults'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 
@@ -33,6 +34,6 @@ export function noteDotXs(
   const unflagged = noteheadInk(note.duration) + base + Math.max(0, armedDotGap().head - base)
   const pushed = upFlag ? flagPushedFirstDot(note.duration, geometry) : null
   const first = pushed === null ? unflagged : Math.max(unflagged, pushed)
-  const step = glyphBox('augmentationDot').right + Math.max(px(VEXFLOW_DOT_SPACING), armedDotGap().dot)
+  const step = dotInkWidth() + Math.max(px(VEXFLOW_DOT_SPACING), armedDotGap().dot)
   return Array.from({ length: Math.max(0, note.dots ?? 0) }, (_, i) => first + i * step)
 }

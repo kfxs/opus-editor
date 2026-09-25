@@ -285,8 +285,11 @@ test('⭐⭐ the INK TABLE still matches the drawing — the anti-drift gate', a
     await h.render()
     const head = h.noteheads()[0].x
     const dots = h.glyphs('g.notehead text').filter(g => g.code === 'e1e7').map(g => (g.x - head) / space())
+    // The DRAWN dot's own width — the armed SIZE row's (`layout/dotSize`), ⛔ not Bravura's 0.4.
+    const dotText = [...document.querySelectorAll<SVGTextElement>('g.dot text')][0]
+    const dotW = dotText ? dotText.getComputedTextLength() / space() : 0
 
-    return { table: { notehead: table.notehead, one: table.sharps(1), two: table.sharps(2), dot1: table.dots(1), dot2: table.dots(2) }, notehead, one, two, dots }
+    return { table: { notehead: table.notehead, one: table.sharps(1), two: table.sharps(2), dot1: table.dots(1), dot2: table.dots(2) }, notehead, one, two, dots, dotW }
   })
 
   console.log('[census] ink table vs drawing:', JSON.stringify(drawn))
@@ -294,8 +297,8 @@ test('⭐⭐ the INK TABLE still matches the drawing — the anti-drift gate', a
   expect(drawn.one, 'one sharp reaches this far left').toBeCloseTo(drawn.table.one, 1)
   expect(drawn.two, 'two sharps a third apart stack into two columns').toBeCloseTo(drawn.table.two, 1)
   // The table counts to the FAR side of the last dot; the drawing anchors each dot at its near side.
-  expect(drawn.dots[0] + 0.4, 'the first dot').toBeCloseTo(drawn.table.dot1, 1)
-  expect(drawn.dots[1] + 0.4, 'and the second').toBeCloseTo(drawn.table.dot2, 1)
+  expect(drawn.dots[0] + drawn.dotW, 'the first dot').toBeCloseTo(drawn.table.dot1, 1)
+  expect(drawn.dots[1] + drawn.dotW, 'and the second').toBeCloseTo(drawn.table.dot2, 1)
 })
 
 test('a bar with a FAN: its members are columns, and the run-out after it closed up', async ({ score }) => {

@@ -1,3 +1,4 @@
+import { dotInkWidth } from './dotSize'
 import { flagPushedFirstDot, resetDotFlagRule, setDotFlagRule } from './dotFlag'
 import { describe, it, expect, afterEach } from 'vitest'
 import type { GraceGroup, Measure, NotePitch } from '@/types/music'
@@ -123,12 +124,12 @@ describe('graceLayout — a DOTTED grace: the NORMAL note\'s dot rule, at the gr
   })
   it('each further dot: one dot + the armed dot→dot gap', () => {
     const [a, b] = graceDotXs({ duration: 'q', dots: 2 })
-    expect(b - a).toBeCloseTo(glyphBox('augmentationDot').right + armedDotGap().dot, 9)
+    expect(b - a).toBeCloseTo(dotInkWidth() + armedDotGap().dot, 9)
   })
   it('its dot stands between it and the host: the gap is measured to the DOT, so the head moves left', () => {
     const plain = graceLayout({ notes: [{ pitches: [p('g', 'D')], duration: 'q' }] }, none, 'treble', 0)
     const dotted = graceLayout({ notes: [{ pitches: [p('g', 'D')], duration: 'q', dots: 1 }] }, none, 'treble', 0)
-    const reach = graceDotXs({ duration: 'q', dots: 1 })[0] + glyphBox('augmentationDot').right
+    const reach = graceDotXs({ duration: 'q', dots: 1 })[0] + dotInkWidth()
     expect(dotted.places[0].rightInk).toBeCloseTo(reach * graceScale(), 9)
     expect(dotted.places[0].headX).toBeLessThan(plain.places[0].headX)
   })

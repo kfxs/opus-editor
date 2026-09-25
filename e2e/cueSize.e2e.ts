@@ -40,7 +40,9 @@ test('⭐ a cue note’s head, sign, dot and flag are drawn at ¾, and its stem 
     //   WHOLE px (measured 2026-09-24: head 12 → 9, sign 10 → 8, dot 4 → 3, flag 11 → 8), so a width is
     //   ¾ to within a pixel; the HEIGHT (the em) is exact (160 → 120).
     expect(Math.abs(cue[part]!.w - full[part]!.w * 0.75), `${part} width`).toBeLessThanOrEqual(1)
-    expect(cue[part]!.h / full[part]!.h, `${part} height`).toBeCloseTo(0.75, 3)
+    // ⚠️ The DOT is drawn at the armed dot SIZE (`layout/dotSize`, 36.75 pt with Gould's 0.49 in Bravura), a
+    //    FRACTIONAL font size whose em box the browser rounds to a whole px — ¾ to within that pixel.
+    expect(cue[part]!.h / full[part]!.h, `${part} height`).toBeCloseTo(0.75, part === 'dot' ? 2 : 3)
   }
   // ⭐ The stem stands at the head's right edge (stem up) — the SMALL head's, one stem width in.
   const headRight = (b: typeof full) => b.head!.x + b.head!.w

@@ -58,6 +58,7 @@ import { dotBaselineY, drawAugmentationDot } from '@/engine/engrave/notes/augmen
 import type { InkSurfaceAware } from '../painter/inkSurface'
 import { requireNoteFrame } from '../staff/staveFrame'
 import { measureGlyphMetrics } from '../painter/glyphPainter'
+import { dotSizeScale } from '@/engine/layout/dotSize'
 import { EngravedModifier, MODIFIER_POSITION, attachModifier, type ModifierMetrics } from './EngravedModifier'
 
 /** SMuFL `augmentationDot` — VexFlow's `Glyphs.augmentationDot`. */
@@ -139,7 +140,7 @@ export class EngravedDot extends EngravedModifier implements InkSurfaceAware {
   }
 
   private measured() {
-    return measureGlyphMetrics(NOTE_FACE_TAG, AUGMENTATION_DOT, MUSIC_FONT_SIZE_PT * NOTE_GLYPH_SCALE * this.noteScale())
+    return measureGlyphMetrics(NOTE_FACE_TAG, AUGMENTATION_DOT, MUSIC_FONT_SIZE_PT * NOTE_GLYPH_SCALE * this.noteScale() * dotSizeScale())
   }
 
   protected inkMetrics(): ModifierMetrics {
@@ -168,7 +169,8 @@ export class EngravedDot extends EngravedModifier implements InkSurfaceAware {
       glyph: AUGMENTATION_DOT,
       x: this.x + this.getXShift(),
       y: this.y + this.yShift,
-      font: musicGlyphFont(this.noteScale()),
+      // ⭐ At the armed SIZE (`layout/dotSize`, P4f) — the same scale its width was measured at.
+      font: musicGlyphFont(this.noteScale() * dotSizeScale()),
       // ⭐ The sign's own id, so its GROUP can be matched back to the hit box the registry
       //   files for it — P6b's seam (`docs/plans/own-engraving-engine.md` §5 P6).
       id: this.getAttribute('id')!,
