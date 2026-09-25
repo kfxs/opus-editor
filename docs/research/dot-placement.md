@@ -24,6 +24,12 @@ were the ones that looked right to him.
 
 ## The rule
 
+> 🚨 **STALE on three points — CORRECTED 2026-09-25** (`docs/research/multiple-dots-research.md` §0.6; `src/engine/layout/dotGap.ts`
+> had already fixed the first two): Gould's half space is the notehead→dot gap, ⛔ not dot→dot (she gives
+> no dot→dot number); MuseScore does ⛔ not draw the two gaps equal (0.5 / 0.25); and its
+> `dotRestDistance` is read NOWHERE in MuseScore 4 — every engine, and Gould's own plates, give a rest's
+> dots the NOTE's spacing.
+
 ⭐ **Half a staff space, edge to edge — and the same gap twice.** Gould gives half a space between
 the dots of a double-dotted note, measured from the dot's *edge* rather than its centre; and the
 standing engraving principle is that *the notehead-to-first-dot distance equals the dot-to-dot
@@ -68,7 +74,9 @@ The cost is real and worth stating: a bar grows ~4px per dot.
 
 - **Rests.** A dotted rest keeps VexFlow's placement (ours now, transcribed) — the dot follows a glyph of a different shape,
   and the convention gives it a *smaller* distance than a note's (MuseScore keeps `dotRestDistance`
-  below `dotNoteDistance`). He reported notes.
+  below `dotNoteDistance`). He reported notes. 🚨 **2026-09-25: that reason does not survive** — the
+  setting is dead code in MuseScore 4, and Gould pp. 38 + 162 draw a rest's dots at the note's spacing
+  (`docs/research/multiple-dots-research.md` §0.3 #3). Now a decision in `docs/plans/multiple-dots-plan.md` (R4).
 - **Beamed eighths.** VexFlow's rule (ours since S5a, `engrave/notes/modifierStart`) applies its flag shift by DURATION, so a beamed eighth gets it too and
   its dot stands ~7px out with no flag to clear. The rule only ever *opens* a gap, never closes one,
   so those are untouched — wider than the rule wants, narrower than a fault, and pulling them in

@@ -21,6 +21,11 @@
 > side**, so a measured WHITE gap reads ~2 px (≈0.07 sp at 600 dpi) *smaller* than it is and a
 > measured glyph ~2 px larger — the same bias `reference/README.md` records for the browser ink
 > reader. Raw figures are reported below; where the bias matters it is said so.
+>
+> 🚨 **CORRECTED 2026-09-25** (`docs/research/multiple-dots-research.md` §0.6): re-measured threshold-free (darkness-weighted
+> centroids for the pitch, the darkness integral for the diameter), the bias does **not** reproduce —
+> Gould's RAW gaps (0.37 head→dot, 0.26 dot→dot) ARE the gaps, and her dot is **0.49 sp**, not ≈0.41.
+> ⛔ Do not add the ≈0.07 sp to any figure below.
 
 ---
 
@@ -96,7 +101,7 @@ for chords*). Dots: **pp. 54–56** (*Dotted notes*), plus **p. 38** (*Dotted re
 | **B3, MEASURED** | ⭐⭐ p. 54's plate, 1 sp = 27.0 px. **Double-dotted chord**: head 1679–1715, dots 1726–1738 and 1746–1758 → head→dot **0.37 sp**, dot→dot **0.26 sp**, dot pitch **0.74 sp**. **Triple-dotted crotchet**: head 2066–2102, dots at 2113, 2133, 2153 → head→dot **0.37 sp**, dot→dot **0.26 / 0.26 sp**, pitch **0.74 sp** uniform. ⭐⭐ **Her two gaps are NOT equal**: the dots crowd closer to each other (0.26) than the first dot does to the head (0.37) |
 | **B4 a dot on a REST** | ⭐⭐ p. 38, *Dotted rests*: *"**The dot remains in the same position relative to the rest, regardless of the rest's position on the stave**"* — drawn with crotchet and quaver rests at five different stave positions, the dot's offset identical in all. ⇒ a rest's dot does **not** take the note's lift-into-the-space rule. ⛔ No horizontal number. (Her pp. 57–60 material on dotted rests is about which ones may be *used*, not where the dot goes) |
 | **B5 the dot's SIZE** | ⛔ **No absolute number.** p. 54: *"Most traditional engraving uses a duration dot that is **larger than a staccato dot — often twice the size**"* |
-| **B5, MEASURED** | Her duration dot is **0.48 sp wide × 0.44–0.48 sp tall** raw at 600 dpi; less the anti-alias bias, ≈**0.41 sp** |
+| **B5, MEASURED** | Her duration dot is **0.48 sp wide × 0.44–0.48 sp tall** raw at 600 dpi; less the anti-alias bias, ≈**0.41 sp** · 🚨 **2026-09-25: 0.49 sp** threshold-free — the bias does not reproduce (`docs/research/multiple-dots-research.md` §0.6) |
 
 ### 2.2 ⭐⭐ ROSS, *The Art of Music Engraving and Processing*
 
