@@ -382,5 +382,29 @@ export interface Trill {
   extension?: 'none'
 }
 
+/**
+ * A GLISSANDO — one line for gliss, portamento, bend and the slide into a note
+ * (docs/plans/glissando-plan.md). Top-level (`score.glissandi`) beside {@link Trill}, for the trill's
+ * reason: it is anchored to a NOTE and crosses barlines and systems freely.
+ *
+ * ⭐ **ONE anchor, always, and the far end is DERIVED** (plan G2 + G4). The line goes to the NEXT note
+ * of the anchor's lane, found every time it is asked (`glissandoOps.glissandoTarget`) — so a slot that
+ * is a rest today and a note tomorrow connects without anything being re-written, and a re-bar has no
+ * end id to repair. A pinned target (another staff, skipping notes) is a later field (G6).
+ *
+ * ⛔ **No `voice`, no `staffId`.** With one anchor they are the anchor's, always; a stored copy could
+ * only go stale. A {@link Trill} carries `voice` because its TWO ends may disagree.
+ *
+ * ⛔ No y, no angle, no gap, no thickness: how the line LOOKS is the engraving rules' (named, sourced
+ * tables — Gould armed, plan §0.1) or a hand-nudge in the engraving-overrides compartment keyed by this id.
+ */
+export interface Glissando {
+  /** Unique identifier. ⚠️ Stable across a re-bar (the anchor is re-found in place, as a trill's). */
+  id: string
+  /** The anchor: a chord's head (a {@link NotePitch} id). ⛔ Never a rest, a fanned member or a grace —
+   *  `glissandoOps.addGlissando` refuses them. */
+  noteId: string
+}
+
 /** How a continuation system labels a resumed trill — see {@link Trill.continuationLabel}. */
 export type TrillContinuationLabel = NonNullable<Trill['continuationLabel']>

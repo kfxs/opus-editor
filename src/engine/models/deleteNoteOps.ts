@@ -23,6 +23,7 @@ import type { Fraction, Measure, Note, NoteParams, NotePitch, Score, Tuplet } fr
 import { fracEq } from '@/utils/fraction'
 import { staffOf, voiceOf } from '@/utils/lanes'
 import { reanchorSlurs } from './slurOps'
+import { pruneGlissandi } from './glissandoOps'
 import { isGraceNote, removeGrace } from './graceOps'
 import { isBracketedGrace, removeBracketed } from './bracketedGraceOps'
 
@@ -157,5 +158,7 @@ export function deleteNoteWithRepair(model: DeleteNoteModel, noteId: string): bo
   // If that deletion emptied a secondary voice (no notes left, only rests), drop it
   // so the bar reverts to a single voice (Sibelius-style collapse).
   model.collapseEmptyVoices(note.measure)
+  // A glissando anchored on the deleted head goes with it (its far end is derived — nothing else is owed).
+  pruneGlissandi(model.getScore())
   return true
 }

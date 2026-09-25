@@ -60,6 +60,7 @@ const KNOWN_SCORE_KEYS = Object.keys({
   staffGroups: true,
   slurs: true,
   trills: true,
+  glissandi: true,
   engravingOverrides: true,
   playback: true,
 } satisfies Record<keyof Score, true>)

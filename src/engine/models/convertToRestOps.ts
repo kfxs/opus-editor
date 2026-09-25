@@ -26,6 +26,7 @@ import { chordNotesAt } from './deleteNoteOps'
 import { findSlot } from './slotLookup'
 import { fmtSlot } from './slotPlacementOps'
 import { reanchorSlurs } from './slurOps'
+import { pruneGlissandi } from './glissandoOps'
 
 /** What silencing a slot needs of the score — `ScoreModel` answers all of it. */
 export interface ConvertToRestModel {
@@ -75,6 +76,8 @@ export function convertSlotToRest(model: ConvertToRestModel, noteId: string): st
   // after a delete (Sibelius-style).
   model.collapseEmptyVoices(note.measure)
 
+  // ⛔ A glissando never stands on a rest — silencing its anchor takes it (docs/plans/glissando-plan.md).
+  pruneGlissandi(model.getScore())
   return rest.id
 }
 

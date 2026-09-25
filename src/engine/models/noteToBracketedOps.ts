@@ -33,6 +33,7 @@ import type { BracketedGrace, Chord, GraceGroup, GraceNote, NotePitch, Score } f
 import type { GraceForm } from './graceOps'
 import { bracketedKey } from '@/utils/bracketedGraces'
 import { reanchorSlurs } from './slurOps'
+import { pruneGlissandi } from './glissandoOps'
 import { dbg } from '@/utils/debug'
 import { findSlot } from './slotLookup'
 import { clearEngravingOverride } from './overrideOps'
@@ -68,6 +69,8 @@ export function convertNoteToBracketed(score: Score, noteId: string): NoteToBrac
   if (!rest) return null
   rest.bracketedBefore = [...(rest.bracketedBefore ?? []), bracketed]
   dbg(`[noteToBracketed] ${pitches.map(p => `${p.step}${p.octave}`).join('+')} ${bracketed.duration} → a bracketed grace before the rest that took its place`)
+  // The heads keep their ids but are no longer a chord's — a glissando on one goes.
+  pruneGlissandi(score)
   return { restId: rest.id, bracketedId: pitches[0].id }
 }
 

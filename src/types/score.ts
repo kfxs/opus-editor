@@ -8,7 +8,7 @@ import type { Fraction } from './duration'
 import type { Tuplet } from './tuplet'
 import type { ChordRest } from './notes'
 import type { ClefChange, KeyChange, TimeSignature, BarlineStatement, RepeatStart, RepeatEnd } from './signs'
-import type { Dynamic, Hairpin, Ottava, Pedal, TempoMark, Slur, Trill } from './marks'
+import type { Dynamic, Hairpin, Ottava, Pedal, TempoMark, Slur, Trill, Glissando } from './marks'
 import type { EngravingOverrides } from './engravingOverrides'
 
 /**
@@ -291,6 +291,12 @@ export interface Score {
    * docs/plans/trill-plan.md; ops in `engine/models/trillOps`.
    */
   trills?: Trill[]
+  /**
+   * Glissandi — one line for gliss, portamento, bend and the slide into a note. Top-level for
+   * {@link Trill}'s reason (anchored to a note, crossing barlines and systems). Optional/absent = none.
+   * See {@link Glissando} and docs/plans/glissando-plan.md; ops in `engine/models/glissandoOps`.
+   */
+  glissandi?: Glissando[]
   /**
    * Authored engraving overrides — hand-positioning that is NOT musical content: an
    * id-keyed compartment of staff-space, anchor-relative geometry. A sub-tree of

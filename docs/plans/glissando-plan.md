@@ -1,6 +1,6 @@
 # The glissando — one line for gliss, portamento, bend and the slide into a note: the plan
 
-> **Status (2026-09-25): PLAN committed; P0 in progress.** His brief: a tool that behaves like Sibelius 6's bend
+> **Status (2026-09-25): P0 built (not committed) — `engine/models/glissandoOps` + hooks; P1 next.** His brief: a tool that behaves like Sibelius 6's bend
 > line, but richer — ONE line that can be a gliss or a bend, with no text by default and a Properties
 > switch that shows it later. The research is three files, read before touching this:
 > `docs/research/glissando-books-research.md` (Gould · Ross · Stone · Gerou & Lusk, plates measured),
@@ -42,6 +42,25 @@
 
 ---
 
+## 0.1 Every number is a NAMED-RULE table — Gould armed, the others beside her
+
+⭐ His words, 2026-09-25: *"gould is our preset default (but we need other values like in the other
+projects)"*. So each engraving rule is a table of NAMED, SOURCED rows in the shape of
+`layout/dotGap.DOT_GAP_RULES` + `ACTIVE_DOT_GAP_RULE` — ⛔ never one constant. `gould` is ARMED; the
+others are there to switch to from a dev console (`__gliss`, as `__dots` arms the dot tables), and
+become the preset menu later.
+
+| table | `gould` (ARMED) | the other rows |
+|---|---|---|
+| `GLISSANDO_END_RULES` — where the line meets a head (G12) | gap 0.2–0.5 sp after / before the heads, each end biased toward the other note up to 0.5 sp, past ledger + dots; stop ≈0.7 sp before a target accidental | `musescore` head centre, 0.25 sp off the chord ink, same-line ±0.25 sp tilt · `lilypond` head centre, 0.5 sp along the line · `verovio` head centre, 0.5 sp along the line |
+| `GLISSANDO_THICKNESS_RULES` (G13) | a staff line's weight (measured 0.11–0.12 sp) | `musescore` 0.15 · `verovio` 0.15 · `lilypond` ≈0.10 |
+| `GLISSANDO_BREAK_RULES` — the pieces' slope (G7a) | `wholeInterval`: each piece spans the whole interval | `musescore` / `lilypond` `continuous`: one slope cut in two · `verovio` `halfAngle` |
+| `GLISSANDO_FREE_END_RULES` (G11, P3) | ⚠️ Gould gives no size — her row is the nearest measured plate, or ⏳ Ross's `short` until one is measured | `musescore` 1.2 × 1 sp, ⅓ sp off the head · `rossShort` ≈1–1.5 sp · `rossLong` ≈3 sp |
+| later: text (size, raise, drop-when-short), wavy (glyph, rounding), minimum length | from the research's rows when the phase arrives | |
+
+Exact numbers are taken from the research files' measured values when the row is written; a range
+above (0.2–0.5) is written as the plate's measured value, with the range in the row's `source`.
+
 ## 1. The model: `types/marks.ts`
 
 ```ts
@@ -60,13 +79,14 @@ export interface Glissando {
   end?: 'none'
   /** A free end's direction (G11); absent = down. Read only when the end is free. */
   direction?: 'up'
-  /** Voice; kept in step by `voiceOps` as a trill's is. */
-  voice?: 0 | 1 | 2 | 3
 }
 // Score: glissandi?: Glissando[]
 ```
 
-- **P1 needs only `id`, `noteId`, `voice`.** `side`, `end`, `direction` arrive with the phase that
+- ⭐ **No `voice`, no `staffId`.** With ONE anchor they are the anchor's, always — a stored copy could
+  only go stale (a trill and a slur carry `voice` because their TWO ends may disagree; `voiceOps` has
+  to resync it). The lane is asked of the anchor's slot.
+- **P0 needs only `id`, `noteId`.** `side`, `end`, `direction` arrive with the phase that
   first reads them (P3) — ⛔ no field the renderer ignores.
 - **Absent, never `undefined`-valued** (the `laneFingerprint` rule).
 - **JSON**: reported, never repaired — an anchor that names no head, `end` with `side: 'before'`.
@@ -77,7 +97,7 @@ export interface Glissando {
 |---|---|
 | `engine/models/glissandoOps.ts` | add / remove / get; refuses a rest and a duplicate on the same head; `glissandoTarget(score, g)` — ⭐ THE ONE answer to *"where does it go?"*: the next slot of the lane (across barlines), a rest ⇒ null, a chord ⇒ the paired head (G9). ⚠️ A pure score question, ⛔ not the renderer's |
 | `engine/models/rebarOps.ts` | capture/restore the ANCHOR only, on the trill's terms (`captureTrills`' shape). The end needs nothing — it is derived (G4) |
-| `deleteNoteOps` / `convertToRestOps` / `voiceOps` | a deleted or silenced anchor takes its glissando with it; a moved voice carries `voice` |
+| `deleteNoteOps` / `convertToRestOps` / `clearOps` / the grace↔note conversions / `removeMeasure` | ⭐ `pruneGlissandi(score)` — ONE sweep: a glissando whose anchor is no longer a live head goes (with its overrides). Called at the end of each op that can remove a head, as `repairDanglingTrills` is after a rebar. ⚠️ A trill is NOT pruned when its note is deleted today (the renderer skips it and the JSON keeps it) — recorded, not fixed here |
 | `interactions/clipboard/attachedMarks.ts` | a copied anchor carries its glissando (the trill's row) |
 | `engine/commands/glissandoCommands.ts` | the ops call + ONE `mutate('Glissando')`. Facade: one line, `engine.glissando` |
 | `engine/engrave/marks/glissandoLine.ts` | ⭐ pure geometry: two head boxes (+ the target's accidental) → the two end points (G12 rows), the thickness row, the system-break pieces (G7a rows). jsdom-testable arithmetic |
@@ -95,7 +115,7 @@ neighbour) — ⛔ never a raised ceiling.
 
 | phase | what | he sees |
 |---|---|---|
-| **P0** | the type + `glissandoOps` (add / remove / `glissandoTarget` incl. chord pairing, a rest ⇒ null, across a barline) + specs. Rebar / delete / voice / paste hooks. JSON report | nothing (green specs) |
+| **P0** ✅ built | the type + `glissandoOps` (add / remove / `glissandoTarget` incl. chord pairing, a rest ⇒ null, across a barline) + specs. Re-bar (both sites) re-finds the anchor; delete / convert-to-rest / clear / note→bracketed / removed measure prune it (`pruneGlissandi`; `removeMeasure` now calls ONE `danglingAnchors.repairDanglingAnchors`). ⚠️ NOT in P0: **paste carrying a glissando** (the clipboard's `attachedMarks` / `clip.ts` rows — P0b, before P1 if he wants copies to keep it); **a JSON load check** — no note-anchored mark has one today (slurs and trills neither), so it is not invented here; an anchor lost to an edit that is none of the above (e.g. typing over it) is skipped by the renderer, the trill's belt | nothing (green specs) |
 | **P1** | `glissandoLine` + `GlissandoRenderer` for note → note ON ONE SYSTEM; straight, Gould's gaps and bias (G12), thickness (G13), a target accidental; chords per head (G9). The dev button (`gliss`) | select a note, press `gliss`: a line to the next note; type into an empty next slot and it connects |
 | **P2** | the SYSTEM BREAK (G7): two pieces, header-clearing start on the new system, G7a's rows | a gliss whose target opens the next system |
 | **P3** | the free end: next slot a rest ⇒ a free end (G11's default vector). `side: 'before'`, `end: 'none'`, `direction` — reachable from the dev console / JSON until Properties exists | a gliss before a rest; a fall; a scoop |

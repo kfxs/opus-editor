@@ -41,7 +41,7 @@ import { fillGapsWithRests, pushRestSlot } from './restFillOps'
 import { convertRestToChord } from './restToChordOps'
 import { addRestSlot, computeActualDurationForSlot, evictRestsOverlappingChord, fmtSlot, replaceRestsWithChord } from './slotPlacementOps'
 import * as slurOps from './slurOps'
-import { repairDanglingTies } from './tieOps'
+import { repairDanglingAnchors } from './danglingAnchors'
 import * as trillOps from './trillOps'
 import type { TrillAuxiliary } from '@/utils/trillPitch'
 import * as dynamicOps from './dynamicOps'
@@ -348,9 +348,7 @@ export class ScoreModel {
     // The removed measure's notes are gone, so any tie/slur that referenced them (or
     // crossed its boundary) now points at a missing id — sever/prune them so tie &
     // slur editing/rendering can't hit a hole. (Same sweeps rebar uses.)
-    repairDanglingTies(this.score)
-    slurOps.repairDanglingSlurs(this.score)
-    trillOps.repairDanglingTrills(this.score)
+    repairDanglingAnchors(this.score)
     return true
   }
 

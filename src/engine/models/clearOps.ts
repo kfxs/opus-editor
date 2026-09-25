@@ -45,6 +45,7 @@ import { keyStaffId, staffIndexOfId } from './staffContent'
 import * as overrideOps from './overrideOps'
 import { fillGapsWithRests } from './restFillOps'
 import { reanchorSlurs } from './slurOps'
+import { pruneGlissandi } from './glissandoOps'
 import { collapseEmptyVoices } from './voiceOps'
 
 /**
@@ -185,6 +186,8 @@ export function clearNoteRange(score: Score, noteIds: readonly string[], deps: C
   // A secondary voice left holding only rests collapses, exactly as after a single delete.
   for (const measureNumber of touched) collapseEmptyVoices(score, measureNumber)
 
+  // A cleared head takes its glissando: a glissando never stands on a rest.
+  pruneGlissandi(score)
   return targets.length + inPlace.length
 }
 

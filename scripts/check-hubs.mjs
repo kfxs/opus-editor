@@ -37,7 +37,7 @@ import { readFileSync } from 'node:fs'
 // docs/plans/code-shape-plan-2026-09-19.md, *After the plan*.
 const HUBS = [
   { file: 'src/engine/MusicEngine.ts', kinds: 486, lines: null },
-  { file: 'src/engine/models/ScoreModel.ts', kinds: 915, lines: null },
+  { file: 'src/engine/models/ScoreModel.ts', kinds: 909, lines: null },
   { file: 'src/engine/rendering/ScoreRenderer.ts', kinds: 741, lines: null },
   { file: 'src/interactions/controllers/MouseController.ts', kinds: 258, lines: 1035 },
   { file: 'src/interactions/controllers/PaletteController.ts', kinds: 422, lines: null },

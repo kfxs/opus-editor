@@ -28,6 +28,7 @@ import { fillGapsWithRests, pushRestSlot } from './restFillOps'
 import { repairDanglingTies } from './tieOps'
 import { addSlur, repairDanglingSlurs } from './slurOps'
 import { addTrill, repairDanglingTrills } from './trillOps'
+import { captureGlissandi, restoreGlissandi } from './glissandoOps'
 import { addMeasure, insertMeasureAfter } from './measureOps'
 import { collapseEmptyVoices } from './voiceOps'
 import { findSlot } from './slotLookup'
@@ -171,6 +172,8 @@ export function rebarRegion(score: Score, fromMeasure: number, ts: TimeSignature
 
   // …and trills, on exactly the same terms and for exactly the same reason (docs/plans/trill-plan.md §2.1).
   const trillState = captureTrills(score, regionMeasures)
+  // …and glissandi — only their ANCHOR: the far end is derived (docs/plans/glissando-plan.md G4).
+  const glissState = captureRegionGlissandi(score, regionMeasures)
 
   // Capture beat-anchored annotations (clef changes + dynamics) by their ABSOLUTE
   // offset from the region start, using the OLD capacities — before the meter is
@@ -266,6 +269,7 @@ export function rebarRegion(score: Score, fromMeasure: number, ts: TimeSignature
   repairDanglingSlurs(score)
   restoreTrills(score, regionNumbers, trillState)
   repairDanglingTrills(score)
+  restoreGlissandi(score, glissState, capturedEndResolver(score, regionNumbers))
 
   // Re-anchor the captured clef changes / dynamics into the new bar layout,
   // mapping each absolute offset to the (measure, beat) it now lands on.
@@ -349,6 +353,7 @@ function pasteEventsBody(
   const boundary = captureBoundaryTies(score, regionMeasures)
   const slurState = captureSlurs(score, regionMeasures)
   const trillState = captureTrills(score, regionMeasures)
+  const glissState = captureRegionGlissandi(score, regionMeasures)
   const anchors = captureBeatAnchors(score, regionMeasures)
   // Preserve the destination's own rest shifts across the rebar (those outside the paste
   // window survive; ones whose rest the paste overwrites are dropped). The clip's shifts
@@ -483,6 +488,7 @@ function pasteEventsBody(
   repairDanglingSlurs(score)
   restoreTrills(score, regionNumbers, trillState)
   repairDanglingTrills(score)
+  restoreGlissandi(score, glissState, capturedEndResolver(score, regionNumbers))
   // Re-anchor the clip's own slurs onto the freshly-pasted notes (Phase 3), mapping rel→abs
   // staff (drop overflow) + re-voicing single-voice clips — the slur analogue of clip dynamics.
   restoreClipSlurs(score, regionNumbers, clipSlurs, targetStaff, targetVoice, singleVoice, pasteStart, staffCount)
@@ -1446,6 +1452,16 @@ function restoreSlurs(score: Score, regionNumbers: number[], captured: CapturedS
     c.slur.startNoteId = newStart
     c.slur.endNoteId = newEnd
   }
+}
+
+// ==================== Capture: glissandi ====================
+
+/** The region's glissando anchors, on the slur's key (onset offset + pitch + voice) — the ops module
+ *  owns the rule, this only hands it the region's key. */
+function captureRegionGlissandi(score: Score, regionMeasures: Measure[]) {
+  if (!score.glissandi?.length) return []
+  const inRegion = regionAnchorsById(regionMeasures)
+  return captureGlissandi(score, id => inRegion.get(id))
 }
 
 // ==================== Capture / restore: trills ====================
