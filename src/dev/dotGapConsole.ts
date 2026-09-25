@@ -55,6 +55,8 @@
  *
  *   // ⭐ A CHORD whose dots collide — a cluster of seconds (P4e, `layout/chordDots`):
  *   __dots.chord('gould')      // ✅ ARMED — a space each, centred; surplus dropped (pp. 55–56)
+ *   __dots.chord('lilypond')   // its chain shift + chord-dots-limit 3 — ported from source, on EVERY chord
+ *   __dots.chord('musescore')  // its one-flip walk — two dots CAN share a space; ported, on EVERY chord
  *   __dots.chord('verovio')    // coincident dots merge into one
  *   __dots.chord('vexflow')    // two dots in one space — what we drew until 2026-09-25
  *   __dots.chordReset()

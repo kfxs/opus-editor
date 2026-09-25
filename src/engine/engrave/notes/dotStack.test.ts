@@ -97,6 +97,11 @@ describe('stackDots — a chord whose dots COLLIDE (docs/plans/multiple-dots-pla
     expect(dropped).toEqual([false, false, false, true])
   })
 
+  it('`lilypond` / `musescore`: the ported engines seat the cluster their way', () => {
+    expect(spaces(stackDots(cluster, undefined, 'lilypond').placed)).toEqual([5.5, 4.5, 3.5, 2.5])
+    expect(spaces(stackDots(cluster, undefined, 'musescore').placed), 'one flip, never re-checked').toEqual([5.5, 4.5, 3.5, 3.5])
+  })
+
   it('⛔ a chord with NO collision is left exactly as the walk placed it (a triad)', () => {
     const triad = [3, 2, 1].map(line => dot(line, { noteKey: 't' }))
     expect(stackDots(triad, undefined, 'centre').placed).toEqual(stackDots(triad).placed)

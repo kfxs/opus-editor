@@ -29,7 +29,7 @@
  *   note's start. VexFlow's `Dot.format` reads it only for tablature, which this editor does not draw.
  */
 
-import { centredChordSpaces, type ChordDotCollision } from '@/engine/layout/chordDots'
+import { centredChordSpaces, lilypondChordSpaces, musescoreChordSpaces, type ChordDotCollision } from '@/engine/layout/chordDots'
 
 /** One dot, as the rule needs it. */
 export interface ColumnDot {
@@ -150,7 +150,9 @@ function resolveCollisions(
     const lines = [...new Set(members.map(i => dots[i].line))].sort((a, b) => b - a)
     const spaceOf = (line: number) => line - placed[members.find(i => dots[i].line === line)!].shiftY
     const spaces = lines.map(spaceOf)
-    if (new Set(spaces).size === spaces.length) continue
+    // ⭐ The ENGINES' rules run on EVERY chord (as they do); `centre` and `merge` only on a colliding one.
+    const engine = collisions === 'lilypond' || collisions === 'musescore'
+    if (!engine && new Set(spaces).size === spaces.length) continue
     const seat = (line: number, space: number | null) => {
       for (const i of members) {
         if (dots[i].line !== line) continue
@@ -164,6 +166,9 @@ function resolveCollisions(
         if (taken.has(spaces[k])) seat(line, null)
         taken.add(spaces[k])
       })
+    } else if (engine) {
+      const seats = collisions === 'lilypond' ? lilypondChordSpaces(lines) : musescoreChordSpaces(lines)
+      lines.forEach((line, k) => seat(line, seats[k]))
     } else {
       const seats = centredChordSpaces(lines)
       lines.forEach((line, k) => seat(line, k < seats.length ? seats[k] : null))

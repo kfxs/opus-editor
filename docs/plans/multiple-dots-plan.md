@@ -1,6 +1,6 @@
 # Double and triple dots — the plan
 
-> **Status (2026-09-25): P0 BUILT (`87df716`) · P1 BUILT (`998ddac`) · P2 BUILT (`2619c9e`) · P3 BUILT (`6676556`) · P4a BUILT (`dab58f5`) · P4b BUILT (`49808ed`) · P4c BUILT (`7317dda`) · P4d BUILT (3a, `d1eea16`) · P4e BUILT (`6ca9855`) · P4f BUILT (`8102b92`) · P4g BUILT; ALL DECISIONS TAKEN (D1–D7, R1–R7); ✅ EVERY PHASE BUILT — what is left is §3 Later.** The research is IN —
+> **Status (2026-09-25): P0 BUILT (`87df716`) · P1 BUILT (`998ddac`) · P2 BUILT (`2619c9e`) · P3 BUILT (`6676556`) · P4a BUILT (`dab58f5`) · P4b BUILT (`49808ed`) · P4c BUILT (`7317dda`) · P4d BUILT (3a, `d1eea16`) · P4e BUILT (`6ca9855`) · P4f BUILT (`8102b92`) · P4g BUILT (`91bb16d`) · LilyPond + MuseScore chord rules PORTED; ALL DECISIONS TAKEN (D1–D7, R1–R7); ✅ EVERY PHASE BUILT — what is left is §4 Later.** The research is IN —
 > `docs/research/multiple-dots-research.md` (the literature, the engines, the duration rule). ⛔ A number
 > never blocks a phase (`CLAUDE.md`).
 >
@@ -100,7 +100,7 @@ not ≈0.41; `docs/research/dot-placement.md` still credits the equal gaps to Go
 |---|---|---|---|---|
 | **D1** | **how many dots the model allows** | ✅ 2026-09-25, his call (*"a sounds good for me, but probably in the editor we will not have a tool for more that 3 dots, however having the model with no limits seems like a good idea like lilypond and musicxml does"*) | **no cap in the model** (LilyPond, MusicXML); a duration takes n dots iff its **last dot's value ≥ the shortest duration** (derived from `DURATION_INFO`). The editor's tools offer **1–3** | MEI and MuseScore stop at 4. Today: ×2 on an 8th or longer, ×3 on a quarter or longer — ⛔ written as the rule, never as that list |
 | **D2** | **the rest-fill grid** | ✅ 2026-09-25, his rule (*"we will have more durations, so we can do the implementation thinking that we will have shorter durations in the future"*) | derived from the shortest duration, not the literal 32nd | the same rule, so a 64th arriving later needs no second edit |
-| **D3** | **the automatic choices stay single-dotted** | ✅ 2026-09-25, his call (*"a"* — *"your recommendation i mean"*) | `LENGTHS_DESC` (`fitRestDuration`, `splitBeatsIntoDurations`) and `restFill`'s `CANDIDATES` keep 0 or 1 dot; double and triple dots appear only when the USER writes them | `durations.ts` already says why: guessing `h..` for someone is a bigger claim than `h.`. Gould p. 162 ALLOWS a double-dotted rest (at a beat's start, within a beat) — reviewing the rest fill against pp. 160–164 is a separate job (§3 Later, ⛔ not a queue) |
+| **D3** | **the automatic choices stay single-dotted** | ✅ 2026-09-25, his call (*"a"* — *"your recommendation i mean"*) | `LENGTHS_DESC` (`fitRestDuration`, `splitBeatsIntoDurations`) and `restFill`'s `CANDIDATES` keep 0 or 1 dot; double and triple dots appear only when the USER writes them | `durations.ts` already says why: guessing `h..` for someone is a bigger claim than `h.`. Gould p. 162 ALLOWS a double-dotted rest (at a beat's start, within a beat) — reviewing the rest fill against pp. 160–164 is a separate job (§4 Later, ⛔ not a queue) |
 | **D4** | **a dot count that does not fit** | ✅ 2026-09-25, his call (*"a"*, then — once the first framing was found WRONG — *"a"* again, to the corrected one) | a **NOTE** dotted past the barline CROSSES it tied (unchanged: a dot lengthens like any lengthening, `splitChordWithTie`) · a **REST** dotted past the barline, and a **TUPLET member** dotted past what its group has left, are **REFUSED WHOLE** (they used to be clipped to an UNDOTTED value — the dots silently dropped) · more dots than the value takes (D1) → refused whole, whatever the slot. Only a DOT edit (dots raised, duration untouched) is refused; a DURATION change keeps today's clamp | 🚨 first asked as if today REFUSED everywhere — it did not: a note already tied across. The user's value is correct: never silently rewritten |
 | **D5** | **the palette's behaviour** | ✅ 2026-09-25, his call (*"is a dev shell temporary button it should behave like the keypad dot button, but for double and for triple"*) | `..` / `...` = **the Keypad dot key (`PaletteController.toggleDot`) with a COUNT n**, branch for branch: (0a) a length-using tool armed (the rest stamp) → its armed dots become n, or 0 if already n · (0) the dot stamp armed with n → disarm (armed with another count → re-arm with n) · another marking tool armed → arm the dot stamp with n · (1) a slot's DOTS selected → already n ⇒ remove them; else ⇒ set n · (3) selection mode, nothing note-like selected → arm the dot STAMP with n · (2) a note selected → n, or 0 if it already has n · (4) note entry → arm n for the next note, or 0 if already n. **The stamp's click**: a note or rest that already has n → no change (today's `dots` stamp rule); otherwise → n. Lit: the count armed / selected. ⚠️ a temporary DEV button — the Keypad keys are the real door, later | one behaviour, three counts: the Keypad key IS the n = 1 case |
 | **D6** | **the `.` key (and the Keypad dot key)** | ✅ 2026-09-25, his call (*"it is imposible to have 3 and 2 or 1 and 2 at the same time so the dots switch if any"*) | the counts are a RADIO: `.` / `..` / `...` each SWITCH the note to their count, and only a press of the count it ALREADY has turns the dots off. So `.` on a double-dotted note → **1**, ⛔ not 0. The `.` key is simply D5 with n = 1 | ⚠️ a CHANGE to today's key: `toggleDot` reads `selectedDots >= 1 ? 0 : 1`, which undots a double-dotted note. The dot key's other branches are unchanged |
@@ -189,15 +189,34 @@ changes in the rows:
 Each step: the module + its rows (a SOURCE on every row) · its `__dots` command · its spec · the P3 scene
 test updated for the new default, the `now` row still reproducing the old drawing · his eye.
 
-## 3. Later
+## 3. The instrument — every table, one console
 
-- PORT LilyPond's chord-dot collision rule (its `chord-dots-limit` a row) and MuseScore's as `layout/chordDots` rows — the pseudocode is `docs/research/multiple-dots-research.md` Part D.
+All seven tables are armed from `__dots` (`src/dev/dotGapConsole.ts`, wired in `App.ts`); `__dots.dump()` prints
+every row of every table with its source. The default of each is `gould`; the row named for what we drew
+before 2026-09-25 is kept in each, so the change is one call away.
+
+| table (module) | command | rows (✅ = armed) | what we drew before |
+|---|---|---|---|
+| a note's two gaps (`layout/dotGap`) | `__dots.gap(…)` / `.reset()` | ✅ gould · house · gouldDrawn · ross · lilypond · musescore · verovio · vexflow | `house` |
+| a rest's two gaps (`layout/restDotGap`) | `__dots.restGap(…)` / `.restReset()` | ✅ gould · followNotes · lilypond · musescore · verovio · vexflow | `vexflow` |
+| dots and a stem-up flag (`layout/dotFlag`) | `__dots.flag(…)` / `.flagReset()` | ✅ gould · ross · gerouLusk · lilypond · musescore · verovio · vexflow | `vexflow` |
+| two voices (`layout/dotVoice`) | `__dots.voice(…)` / `.voiceReset()` | ✅ gould · verovio · vexflow | `vexflow` |
+| a chord's dots (`layout/chordDots`) | `__dots.chord(…)` / `.chordReset()` | ✅ gould · lilypond · musescore · verovio · vexflow | `vexflow` |
+| the dot's size (`layout/dotSize`) | `__dots.size(…)` / `.sizeReset()` | ✅ gould · font · ross · gerouLusk | `font` |
+| a dotted note tied (`layout/dotTie`) | `__dots.tie(…)` / `.tieReset()` | ✅ gould · gerouLusk | = `gould` |
+
+⚠️ SCAFFOLDING like every console: the settings live in the ENGINE, `dev/` only arms them. When the ONE
+HOUSE-STYLE OBJECT arrives (`docs/plans/own-engraving-engine.md` §0.5), these seven tables are its rows.
+
+## 4. Later
+
+- ✅ DONE 2026-09-25 — LilyPond's and MuseScore's chord-dot rules PORTED as `layout/chordDots` rows (`__dots.chord('lilypond' | 'musescore')`), both on every chord. ⏸️ LilyPond's `chord-dots-limit` is its default 3, not yet a row of its own; neither port is checked against a RUNNING engine (none installed).
 - A review of the REST FILL against Gould pp. 160–164 (the longest dotted rest *"one value smaller than the beat"*; double-dotted rests at a beat's start) — D3.
 - The Keypad's "double dot" / "triple dot" keys wired (today pictures).
 - Tuplets whose unit is double-dotted (`baseDots` 2).
 - A quadruple dot on the palette (the model will already allow it, D1).
 - R3 3b (two voices' dots at ONE x) and a `byVoice` row — wait for voices that can stand apart, and for a dot
-  that knows its voice (P4d). ⚠️ Found on the way: a SECOND between two voices draws OVERLAPPING heads today.
+  that knows its voice (P4d). ⚠️ A SECOND between two voices draws OVERLAPPING heads today — already his decision #4 in `docs/plans/own-engraving-engine.md` §0.5 (the map's §9.4 #4); 3b follows it.
 - A CHORD's ties between its dots (Gould p. 64: *"Ties may start … in between the duration dots, as long as they
   will fit … Otherwise inner ties should start after the dots"*) — not probed (P4g).
 - Gerou & Lusk's white after a dot before a tie — UNKNOWN (their figures draw no dot); the row reads 0.

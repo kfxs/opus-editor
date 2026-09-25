@@ -87,8 +87,9 @@ only; no treatise sentence (Wagner, Bruckner brass).
 
 ### 0.7 A chord whose dots COLLIDE — the engines' algorithms (Part D, 2026-09-25)
 
-Read from source for P4e, ⛔ not yet ported (his call: *"is good to have it on the docs (not necessarily to
-implement it now)"*). ⚠️ The worked examples come from Python TRANSCRIPTIONS of the cited code, ⛔ not a running
+Read from source for P4e; ✅ PORTED the same day as `layout/chordDots` rows `lilypond` + `musescore`
+(`lilypondChordSpaces`, `musescoreChordSpaces`), pinned to the examples below — ⚠️ which come from the same
+pseudocode, so the pin proves the TS matches the transcription, ⛔ not a running engine. ⚠️ The worked examples come from Python TRANSCRIPTIONS of the cited code, ⛔ not a running
 engine.
 
 | chord | Gould pp. 55–56 | LilyPond | MuseScore | ours (`gould`, P4e) |
