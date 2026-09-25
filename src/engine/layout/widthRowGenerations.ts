@@ -23,6 +23,8 @@ import { graceSizeGeneration } from './graceRoom'
 import { bracketedGeneration } from './bracketedRoom'
 import { cueSizeGeneration } from './cueSize'
 import { graceSlashGeneration } from '@/engine/engrave/notes/graceGroup'
+import { glissandoGeneration } from '@/engine/engrave/marks/glissandoLine'
+import { glissandoMinLengthGeneration } from './glissandoRoom'
 import { musicFontGeneration } from '@/engine/fonts/musicFont'
 import { textFontGeneration } from '@/engine/fonts/textFont'
 
@@ -61,6 +63,11 @@ export function widthRowGenerations(): number[] {
     // …and the no-flag SLASH (2026-09-22) — ⚠️ NOT a width: in this list because the fingerprint is
     // also the SHAPE key, and a re-armed slash must re-engrave the bars that draw one.
     graceSlashGeneration(),
+    // The GLISSANDO's rows (2026-09-25, `engrave/marks/glissandoLine`) — ⚠️ NOT a width: here so a re-armed
+    // row is a stale render (the `dotTie` precedent); the line is drawn after the notes, every render.
+    glissandoGeneration(),
+    // …and its least LENGTH (P1b, `layout/glissandoRoom`) — ⭐ a WIDTH: it asks the spacing for room.
+    glissandoMinLengthGeneration(),
     // The chosen MUSIC face — glyphs measured on the canvas are width inputs, and because the SHAPE
     // key embeds the fingerprint, this is also what re-engraves every bar in the new face.
     musicFontGeneration(),

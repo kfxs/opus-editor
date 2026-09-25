@@ -60,6 +60,8 @@ import { measureShapeKey } from './MeasureRedrawKey'
 import { spellingToMidi } from '@/utils/pitchSpelling'
 import type { FanMemberAnchor, RenderPass } from './RenderPass'
 import { renderTies } from './curves/TieRenderer'
+import { renderNoteLines } from './marks/lines/noteLinePasses'
+import { noteLineRoom } from '@/engine/layout/noteLineRoom'
 import { renderSlurs } from './curves/SlurRenderer'
 import { renderHairpins } from './marks/dynamics/HairpinRenderer'
 import { planTrillBands, renderTrills } from './marks/lines/TrillRenderer'
@@ -1388,7 +1390,7 @@ export class ScoreRenderer {
       const system = {
         // ⭐ Each staff's ink at its OWN size — the spine stays global (docs/plans/staff-size-plan.md §6a).
         //   The width path builds the same resolver, so the room reserved is the room asked for.
-        columns: measureColumns(measure, clefFor, sizeFor, keyFor),
+        columns: measureColumns(measure, clefFor, sizeFor, keyFor, noteLineRoom(score, measure)),
         leadIn,
         headerExtent: Math.max(0, ...headers.map(h => h.extent)),
         // ⭐ Decision D: the gap before the first note depends on what ENDS the header — 2½ after a
@@ -3905,6 +3907,7 @@ export class ScoreRenderer {
 
     const tCurves = probeNow() // ⏱ §12.7
     renderTies(pass, score)
+    renderNoteLines(pass, score)
     before.slur = entryState()
     inkAt('slur')
     renderSlurs(pass, score)

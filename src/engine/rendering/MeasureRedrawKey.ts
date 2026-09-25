@@ -4,6 +4,7 @@ import { laneFingerprint } from '@/engine/layout/MeasureWidthCache'
 import { crossStaffKey, type CrossStaffNeighbour } from './renderTypes'
 import { GRACE_SIDES, graceGroupOf } from '@/utils/graceNotes'
 import { bracketedListsOf } from '@/utils/bracketedGraces'
+import { noteLineRoom } from '@/engine/layout/noteLineRoom'
 
 /**
  * **The shape key** (docs/history/render-performance-plan.md §7a) — "does this measure still *look* the
@@ -196,6 +197,9 @@ export function measureShapeKey(
 
     // ── content that takes width (P2's key, reused wholesale — never re-derived) ──
     laneFingerprint(view),
+    // …and what the lines between its noteheads ASK of its spacing (`layout/noteLineRoom`): stored on the
+    //   SCORE, not the bar, so no field of `view` can say it — a glissando added moves this bar's notes.
+    noteLineRoom(score, view),
 
     // ⚠️ THE GOVERNING CLEF, and it must be here even though it is NOT in the width key.
     //

@@ -53,6 +53,7 @@ import { tieCommands } from './commands/tieCommands'
 import { graceCommands } from './commands/graceCommands'
 import { bracketedCommands } from './commands/bracketedCommands'
 import { enclosureCommands } from './commands/enclosureCommands'
+import { glissandoCommands } from './commands/glissandoCommands'
 import { cueCommands } from './commands/cueCommands'
 import { enclosureProblems } from './models/enclosureOps'
 import { cueProblems } from './models/cueOps'
@@ -2441,6 +2442,8 @@ export class MusicEngine {
   readonly bracketed = bracketedCommands(this.commandContext())
   /** ⭐ PARENTHESISED notes' commands — `engine/commands/enclosureCommands` (docs/plans/parenthesised-note-plan.md). */
   readonly enclosure = enclosureCommands(this.commandContext())
+  /** ⭐ GLISSANDO commands — `engine/commands/glissandoCommands` (docs/plans/glissando-plan.md). */
+  readonly glissando = glissandoCommands(this.commandContext())
   /** ⭐ CUE-SIZE notes' commands — `engine/commands/cueCommands` (docs/plans/cue-size-plan.md). */
   readonly cue = cueCommands(this.commandContext())
 

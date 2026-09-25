@@ -61,6 +61,7 @@ import { headerGapConsole } from './dev/headerGapConsole'
 import { dotGapConsole } from './dev/dotGapConsole'
 import { graceConsole } from './dev/graceConsole'
 import { cueConsole } from './dev/cueConsole'
+import { glissandoConsole } from './dev/glissandoConsole'
 import { bracketedConsole } from './dev/bracketedConsole'
 import { accidentalGapConsole } from './dev/accidentalGapConsole'
 import { spacingConsole } from './dev/spacingConsole'
@@ -960,6 +961,9 @@ export function createEditorApp(host: HTMLElement): EditorApp {
     // ⚠️ EXPERIMENT, HIS (2026-09-24) — the CUE note's size and its ledger weight (engine/layout/cueSize).
     //   Armed rows = his calls (gouldRoss ¾, gould ledgers).
     w.__cue = cueConsole(() => renderer.renderScore())
+    // ⚠️ EXPERIMENT, HIS (2026-09-25) — the GLISSANDO's rows: Gould armed, the engines beside her
+    // (engine/engrave/marks/glissandoLine).
+    w.__gliss = glissandoConsole(() => renderer.renderScore())
     // 🔧 P0 of the BRACKETED grace (docs/plans/bracketed-grace-plan.md) — the model, poked by hand
     // before anything draws it (src/dev/bracketedConsole.ts).
     w.__bracketed = bracketedConsole({ getEngine: () => engine, selectedNoteId: () => state.selectedNoteId, render: () => renderer.renderScore() })

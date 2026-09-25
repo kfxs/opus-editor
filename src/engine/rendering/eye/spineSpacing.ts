@@ -34,6 +34,7 @@ import { HEADER_TO_REPEAT, repeatStartRoom } from '@/engine/layout/barlineSign'
 import { headerToNoteGap } from '@/engine/layout/headerInk'
 import { INK } from '@/engine/layout/spacingPadding'
 import { clefResolverFor, keyResolverFor, measureColumns, measureLeadIn } from '@/engine/layout/measureColumns'
+import { noteLineRoom } from '@/engine/layout/noteLineRoom'
 import { naturalWidth, spaceColumns, type Column } from '@/engine/layout/spacing'
 import type { Fraction } from '@/utils/fraction'
 import { fracCompare } from '@/utils/fraction'
@@ -68,7 +69,7 @@ function ask(score: Score, measure: Measure, index: number): AskedBar {
   const keys = new Map([[firstStaffId, staffKeys]])
   const clefFor = clefResolverFor(measure, clefs, firstStaffId)
   const keyFor = keyResolverFor(measure, keys, firstStaffId)
-  const columns = measureColumns(measure, clefFor, () => 1, keyFor)
+  const columns = measureColumns(measure, clefFor, () => 1, keyFor, noteLineRoom(score, measure))
   const lead = measureLeadIn(measure, clefFor, () => 1, keyFor)
   // ⭐ A bar that draws a HEADER (`./spineHeader` — the staff's head, or a clef / key / meter change)
   //    owes the header's own spine, then the page's header→note gap in place of the barline's

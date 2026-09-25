@@ -321,6 +321,14 @@ export interface Column {
    */
   rod: number
   /**
+   * ⭐ **A SOFT ROD** — room a line drawn between two noteheads ASKS for (`layout/noteLineRoom`): the gaps
+   * from this column over the next `span` should together come to at least `length` staff spaces,
+   * x to x. ⭐ It raises their SPRINGS — the natural length, and each gap's share of any squeeze — and
+   * ⛔ never their floor, so a squeezed bar can still go below it (his rule, 2026-09-25: the minimum
+   * *"should not avoid the user to make it shorter"*). Absent for almost every column.
+   */
+  softRods?: ReadonlyArray<{ span: number; length: number }>
+  /**
    * ⭐ **A CLOSED-UP cue** (cue-size-plan C8): what the SPRING after this column is multiplied by — the armed
    * `layout/cueSize.cueSpacingScale` when every note and rest starting here is cue, absent (= 1) otherwise.
    * Only the elastic part: the ink floor is already the small ink's, and authored space is never squeezed.
@@ -349,6 +357,28 @@ interface Gap {
 }
 
 function gapsBetween(columns: Column[], rule: SpacingRule): Gap[] {
+  return withSoftRods(columns, springGaps(columns, rule))
+}
+
+/**
+ * Stretch the springs a {@link Column.softRods} request covers, in proportion, until they come to its
+ * length. ⛔ The floors are untouched — that is what makes the request SOFT.
+ */
+function withSoftRods(columns: Column[], gaps: Gap[]): Gap[] {
+  columns.forEach((column, i) => {
+    for (const { span, length } of column.softRods ?? []) {
+      const covered = gaps.slice(i, i + span)
+      const have = covered.reduce((sum, gap) => sum + gap.spring, 0)
+      if (covered.length === 0 || have >= length) continue
+      covered.forEach(gap => {
+        gap.spring = have > 0 ? gap.spring * (length / have) : length / covered.length
+      })
+    }
+  })
+  return gaps
+}
+
+function springGaps(columns: Column[], rule: SpacingRule): Gap[] {
   return columns.slice(0, -1).map((column, i) => {
     const next = columns[i + 1]
     return {

@@ -1,6 +1,6 @@
 # The glissando — one line for gliss, portamento, bend and the slide into a note: the plan
 
-> **Status (2026-09-25): P0 built (not committed) — `engine/models/glissandoOps` + hooks; P1 next.** His brief: a tool that behaves like Sibelius 6's bend
+> **Status (2026-09-25): P0 committed; P1 + P1b (minimum length, squeeze) built (not committed) — the `gliss` dev button, `engrave/marks/glissandoLine` (Gould armed, `__gliss`), `GlissandoRenderer` via `noteLinePasses`.** His brief: a tool that behaves like Sibelius 6's bend
 > line, but richer — ONE line that can be a gliss or a bend, with no text by default and a Properties
 > switch that shows it later. The research is three files, read before touching this:
 > `docs/research/glissando-books-research.md` (Gould · Ross · Stone · Gerou & Lusk, plates measured),
@@ -116,11 +116,24 @@ neighbour) — ⛔ never a raised ceiling.
 | phase | what | he sees |
 |---|---|---|
 | **P0** ✅ built | the type + `glissandoOps` (add / remove / `glissandoTarget` incl. chord pairing, a rest ⇒ null, across a barline) + specs. Re-bar (both sites) re-finds the anchor; delete / convert-to-rest / clear / note→bracketed / removed measure prune it (`pruneGlissandi`; `removeMeasure` now calls ONE `danglingAnchors.repairDanglingAnchors`). ⚠️ NOT in P0: **paste carrying a glissando** (the clipboard's `attachedMarks` / `clip.ts` rows — P0b, before P1 if he wants copies to keep it); **a JSON load check** — no note-anchored mark has one today (slurs and trills neither), so it is not invented here; an anchor lost to an edit that is none of the above (e.g. typing over it) is skipped by the renderer, the trill's belt | nothing (green specs) |
-| **P1** | `glissandoLine` + `GlissandoRenderer` for note → note ON ONE SYSTEM; straight, Gould's gaps and bias (G12), thickness (G13), a target accidental; chords per head (G9). The dev button (`gliss`) | select a note, press `gliss`: a line to the next note; type into an empty next slot and it connects |
+| **P1** ✅ built | `glissandoLine` + `GlissandoRenderer` for note → note ON ONE SYSTEM; straight, Gould's gaps and bias (G12), thickness (G13), a target accidental; chords per head (G9). The dev button (`gliss`) | select a note, press `gliss`: a line to the next note; type into an empty next slot and it connects |
 | **P2** | the SYSTEM BREAK (G7): two pieces, header-clearing start on the new system, G7a's rows | a gliss whose target opens the next system |
 | **P3** | the free end: next slot a rest ⇒ a free end (G11's default vector). `side: 'before'`, `end: 'none'`, `direction` — reachable from the dev console / JSON until Properties exists | a gliss before a rest; a fall; a scoop |
 | **P4** | selection + Delete + highlight (`interactions/elements/glissando`) | click the line, Delete |
 | **later** | ⛔ a decision list, ⛔ not a queue: Properties (side · end · direction · text on/content · style wavy · text along/level) · end-handle drag + offsets (the slur's `SlurEndpointOffsetOverride` shape) · playback (G14) · pinned target / other staff (G6) · arrow cap (Gould p. 143/340) · curved contour (Gould p. 146, 358) · jazz (G15) · the bracketed finishing pitch (G16) · text repeated on a continuation piece (Dorico repeats it; the trill's `continuationLabel` shape) · minimum length as a spacing request (MuseScore 1.2 / 2.0 sp) · MusicXML mapping (engines §6.8) | — |
+
+⚠️ **Found in P1 (Chromium, 2026-09-25):** at quarter spacing A5 → D♯4 had ≈2 sp between the heads, and Gould's
+0.7 sp before the ♯ left no line — nothing was drawn. ✅ **His call, the same day, built as P1b:**
+- Gould p. 141's line above/below the notes with a `gliss.` is ⛔ a **USER choice** (Properties, later), *"not the
+  normal behaviour of the engine"*.
+- ✅ **MuseScore's minimum length is the default** — `layout/glissandoRoom.GLISSANDO_MIN_LENGTH_RULES`, `musescore`
+  armed (1.2 sp straight / 2.0 wavy), ⭐ **`none` kept as a row** (*"also current behaviour in preset to compare
+  later"*). ⭐ It is a **SOFT** request (`layout/noteLineRoom` → `spacing.Column.softRods`): it raises the natural
+  springs of the gaps the line crosses and ⛔ never the floor — *"the minimum distance should not avoid the user
+  to make it shorter"*. A target in the next bar asks for start + length up to this bar's barline.
+- And when a squeeze DOES go below it: `glissandoLine.GLISSANDO_SQUEEZE_RULES` — `shrinkGaps` armed (⚠️ OURS, no
+  source: the gaps give way until the line keeps half the room), `vanish` = P1's behaviour, kept as a row.
+- Checked in Chromium: the A5 → D♯4 line now draws, ≈1.3 sp long; the four probe lines run 1.3–1.9 sp.
 
 ⚠️ P3 may move before P2 if he wants the free end sooner — neither depends on the other.
 

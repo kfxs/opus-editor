@@ -10,6 +10,7 @@ import { resolveSurface, SKETCH_CANVAS, type SurfaceMetrics } from '@/engine/lay
 import type { MeasureWidthCache } from './MeasureWidthCache'
 import { resolveStaffSize, STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { clefResolverFor, keyResolverFor, measureColumns, measureLeadIn, type StaffSizeResolver } from '@/engine/layout/measureColumns'
+import { noteLineRoom, type LineRoom } from './noteLineRoom'
 import { barlineSignExtent, ownEndSignKind, repeatStartRoom } from '@/engine/layout/barlineSign'
 import { cautionaryExtent, headerExtent, headerToNoteGap, inlineClefExtent } from '@/engine/layout/headerInk'
 import { cautionaryKeyAt, cautionaryKeyRoom } from '@/engine/layout/cautionaryKey'
@@ -78,6 +79,8 @@ function noteSpaceForMeasure(
   keysByStaff: Map<string | undefined, StaffKeys>,
   firstStaffId: string | undefined,
   sizeFor: StaffSizeResolver,
+  /** The SOFT requests of the lines between this bar's noteheads (`./noteLineRoom`). */
+  lineRoom: readonly LineRoom[],
 ): { natural: number; floor: number } {
   // TEMPORARY probe — the §9 question (see {@link RenderProbe.layoutSub}). ⭐ The bucket is called
   // `columns`, after what it times. It was called `format` while VexFlow's `Formatter` was in this
@@ -90,7 +93,7 @@ function noteSpaceForMeasure(
   //   room reserved is the room the signs take.
   const columns = measureColumns(
     measure, clefResolverFor(measure, clefsByStaff, firstStaffId), sizeFor,
-    keyResolverFor(measure, keysByStaff, firstStaffId),
+    keyResolverFor(measure, keysByStaff, firstStaffId), lineRoom,
   )
   // ⚠️ Staff spaces out, pixels in: the rule is written in the unit Gould's table is, and the
   // casting-off works in px.
@@ -191,7 +194,7 @@ function calculateMinimumMeasureWidth(
   //   exceed the width it is a floor on and make the bar incompressible. (That is exactly what the
   //   old pair did the other way round — it counted SLOTS in both, so a two-voice bar's floor
   //   matched its slot-built width.)
-  const { natural: noteSpace, floor: spacingFloor } = noteSpaceForMeasure(measure, clefsByStaff, keysByStaff, staffIds[0], sizeFor)
+  const { natural: noteSpace, floor: spacingFloor } = noteSpaceForMeasure(measure, clefsByStaff, keysByStaff, staffIds[0], sizeFor, noteLineRoom(score, measure))
 
   let widestOverhead = 0
   for (const staffId of staffIds) {

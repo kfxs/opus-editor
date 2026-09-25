@@ -45,6 +45,7 @@ import type { Column } from './spacing'
 import { graceGroupScale, graceStemSpaces, hostLeftReach } from './graceRoom'
 import { BRACKETED_ROWS, beforeSideLayout, bracketedAfterLayout, hostRightReach } from './bracketedRoom'
 import { enclosureLayout } from './headEnclosure'
+import type { LineRoom } from './noteLineRoom'
 
 /** Canonical key for an exact beat — `fracCreate` reduces, so equal beats stringify equally. */
 const beatKey = (beat: Fraction): string => `${beat.num}/${beat.den}`
@@ -662,6 +663,8 @@ export function measureColumns(
   clefFor: ClefResolver = () => 'treble',
   sizeFor: StaffSizeResolver = () => 1,
   keyFor: KeyResolver = () => C_MAJOR,
+  /** ⭐ The SOFT requests of the lines drawn between this bar's noteheads (`./noteLineRoom`). */
+  lineRoom: readonly LineRoom[] = [],
 ): Column[] {
   const capacity = measureCapacityFrac(measure)
   const beats = new Map<string, Fraction>()
@@ -738,6 +741,7 @@ export function measureColumns(
   //   fall on rationals nobody else shares, so the ramp's width is imposed as a minimum over the span
   //   its own time covers, and the solve floors those gaps accordingly.
   const rods = fanSpanRods(measure, positions, sizeFor)
+  const softRods = lineSoftRods(lineRoom, positions, inks)
 
   return positions.map((beat, i) => ({
     beat,
@@ -748,7 +752,36 @@ export function measureColumns(
     ink: inks[i],
     authored: 0,
     rod: rods[i] ?? 0,
+    ...(softRods[i] && { softRods: softRods[i] }),
     // ⭐ C8 — a column of nothing but cue notes and rests closes up (Gould p. 569), by the armed row.
     ...(allCue.get(beatKey(beat)) && cueSpacingScale() !== 1 && { springScale: cueSpacingScale() }),
   }))
+}
+
+/**
+ * ⭐ Each line's request as a SOFT rod on the column it leaves (`Column.softRods`): the gaps up to its
+ * target's column — or up to the BARLINE when the target is in a later bar — should come to the source's
+ * own reach, the line's gaps and length, and the target's reach. The gap before the target is the
+ * accidental's when an accidental is what the target column's ink starts with.
+ */
+function lineSoftRods(
+  rooms: readonly LineRoom[],
+  positions: readonly Fraction[],
+  inks: readonly ColumnInk[],
+): Array<Array<{ span: number; length: number }> | undefined> {
+  const out: Array<Array<{ span: number; length: number }> | undefined> = []
+  const indexOf = (beat: Fraction): number => positions.findIndex(p => fracCompare(p, beat) === 0)
+  for (const room of rooms) {
+    const i = indexOf(room.from)
+    const j = room.to === null ? positions.length - 1 : indexOf(room.to)
+    if (i < 0 || j <= i) continue
+    const from = mergedReach(inks[i]).right
+    const length = room.to === null
+      ? from + room.startGap + room.length
+      : from + room.startGap + room.length
+        + (edgeKind(inks[j], 'left') === 'accidental' ? room.accidentalGap : room.endGap)
+        + mergedReach(inks[j]).left
+    ;(out[i] ??= []).push({ span: j - i, length })
+  }
+  return out
 }

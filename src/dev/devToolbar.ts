@@ -8,6 +8,7 @@ import { graceToolLit, pressGraceTool } from '../interactions/stamps/graceTool'
 import { bracketedToolLit, pressBracketedTool } from '../interactions/stamps/bracketedGraceTool'
 import { enclosureLit, pressEnclosure } from '../interactions/stamps/enclosureTool'
 import { cueLit, pressCue } from '../interactions/stamps/cueTool'
+import { glissandoLit, pressGlissando } from '../interactions/stamps/glissandoTool'
 import { dotsLit, pressDots } from '../interactions/stamps/dotCountTool'
 import { DEV_SOUNDS } from '../engine/audio/WebAudioFontInstrument'
 import { bus } from '../bus'
@@ -260,6 +261,12 @@ export function mountDevToolbar(host: HTMLElement, deps: DevToolbarDeps): DevToo
     'Cue size: toggles the selected notes (all cue ⇒ back to full size)',
     () => cueLit(state, getEngine()),
     () => pressCue(palette.spanToolHost()))
+  // --- GLISSANDO (docs/plans/glissando-plan.md P1): the selected notes each start one, to the next note
+  //     of their lane (`interactions/stamps/glissandoTool`). ---
+  toggle(parenBox, GRACE_BTN, 'gliss',
+    'Glissando: a line from each selected note to the next note of its voice',
+    () => glissandoLit(state, getEngine()),
+    () => pressGlissando(palette.spanToolHost()))
   row.appendChild(parenBox)
 
   // --- DOUBLE and TRIPLE dots (docs/plans/multiple-dots-plan.md P2) — a TEMPORARY door: each is the Keypad dot
