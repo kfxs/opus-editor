@@ -12,6 +12,7 @@ import { ScoreModel } from './ScoreModel'
 import type { Note } from '@/types/music'
 import { fracCreate as frac, fracToNumber } from '@/utils/fraction'
 import { changeNote, findLargestFittingDuration } from './durationChangeOps'
+import { durationToFraction } from '@/utils/durations'
 
 describe('changeNote', () => {
   let model: ScoreModel
@@ -176,6 +177,66 @@ describe('changeNote', () => {
       model.repairAllMeasureGaps()
     })
   })
+  describe('more DOTS than the value can take (docs/plans/multiple-dots-plan.md D1 + D4)', () => {
+    it('a triple-dotted quarter is written — three dots is a quarter\'s limit', () => {
+      const note = add('C', 0)
+      const { note: updated, commit } = changeNote(model, note.id, { dots: 3 })
+      expect(commit).not.toBeNull()
+      expect(updated.dots).toBe(3)
+      expect(stream()[0]).toBe('nq...@0')
+      // the 32nd left over closes on the grid: the bar still sums to four beats
+      const total = model.getNotesInMeasure(1).filter(n => (n.voice ?? 0) === 0)
+        .reduce((sum, n) => sum + fracToNumber(durationToFraction(n.duration, n.dots ?? 0)), 0)
+      expect(total).toBe(4)
+    })
+
+    it('a triple-dotted EIGHTH is refused WHOLE — nothing written, no commit, the bar untouched', () => {
+      const note = add('C', 0, '8')
+      const before = stream()
+      const { note: after, commit } = changeNote(model, note.id, { dots: 3 })
+      expect(commit).toBeNull()
+      expect(after.dots ?? 0).toBe(0)
+      expect(stream()).toEqual(before)
+    })
+
+    it('a NOTE dotted past the barline still CROSSES it tied — a dot lengthens like any lengthening', () => {
+      const note = add('E', 3)
+      const { commit } = changeNote(model, note.id, { dots: 1 })
+      expect(commit).toBe('Update note duration')
+      const m1 = model.getNote(note.id)!
+      expect(m1.duration).toBe('q')
+      expect(model.getNote(m1.tiedTo!)).toMatchObject({ duration: '8', measure: 2 })
+    })
+
+    it('a REST dotted past the barline is REFUSED WHOLE — ⛔ not clipped to an undotted rest', () => {
+      add('C', 0); add('C', 1); add('C', 2)
+      const rest = model.getNotesInMeasure(1).find(n => n.isRest && fracToNumber(n.beat) === 3)!
+      const { commit } = changeNote(model, rest.id, { dots: 2 })
+      expect(commit).toBeNull()
+      expect(stream()).toEqual(['nq@0', 'nq@1', 'nq@2', 'rq@3'])
+    })
+
+    it('a TUPLET member dotted past what its group has left is REFUSED WHOLE', () => {
+      const tuplet = model.createTuplet(1, frac(0, 1), '8', 3, 2)!
+      // three eighths sounding a third each: the last starts at 2/3, with 1/3 of the group left
+      for (const k of [0, 1, 2]) {
+        model.addNote({ step: 'C', alter: 0, octave: 4, duration: '8', measure: 1, beat: frac(k, 3), tupletId: tuplet.id })
+      }
+      const last = model.getNotesInMeasure(1).find(n => n.tupletId === tuplet.id && fracToNumber(n.beat) > 0.6)!
+      const { note, commit } = changeNote(model, last.id, { dots: 1 })
+      expect(commit).toBeNull()
+      expect(note.dots ?? 0).toBe(0)
+    })
+
+    it('a DURATION change that leaves the kept dots over the limit is refused too', () => {
+      const note = add('C', 0, '8', { dots: 2 })
+      const before = stream()
+      const { commit } = changeNote(model, note.id, { duration: '16' })
+      expect(commit).toBeNull()
+      expect(stream()).toEqual(before)
+    })
+  })
+
 })
 
 describe('findLargestFittingDuration', () => {

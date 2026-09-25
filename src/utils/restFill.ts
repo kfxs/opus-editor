@@ -32,12 +32,13 @@ import {
   type Fraction,
   fracCreate,
   fracAdd,
+  fracDiv,
   fracEq,
   fracLt,
   fracGt,
   fracToNumber,
 } from '@/utils/fraction'
-import { DURATIONS_DESC, durationToFraction, slotLength } from '@/utils/durations'
+import { DURATIONS_DESC, SHORTEST_LENGTH, durationToFraction, slotLength } from '@/utils/durations'
 import { type MeterInfo, STRENGTH } from '@/utils/meter'
 
 /** One position-anchored note/rest shape: position, base duration, dot count. */
@@ -61,9 +62,10 @@ interface RestCandidate {
 }
 
 /**
- * Every usable rest shape (0 or 1 dots), longest first. Dotted 32nds are
- * excluded: 3/16 of a quarter does not land on the 32nd grid, so it can never
- * tile a grid-aligned gap cleanly.
+ * Every usable rest shape (0 or 1 dots), longest first. A shape that does not land on the grid of
+ * the SHORTEST value ({@link SHORTEST_LENGTH}) is excluded — today a dotted 32nd, whose dot is a 64th —
+ * since it can never tile a grid-aligned gap cleanly. The grid is derived, ⛔ not a literal 32nd: a
+ * shorter duration moves it (docs/plans/multiple-dots-plan.md D2).
  */
 const CANDIDATES: RestCandidate[] = buildCandidates()
 
@@ -73,8 +75,8 @@ function buildCandidates(): RestCandidate[] {
     for (const dots of [0, 1]) {
       const len = durationToFraction(duration, dots)
       const lenNum = fracToNumber(len)
-      // Keep only shapes that sit on the 32nd grid (1/8-quarter multiples).
-      if (Number.isInteger(lenNum * 8)) {
+      // Keep only shapes that sit on the shortest value's grid (a whole number of them).
+      if (fracDiv(len, SHORTEST_LENGTH).den === 1) {
         list.push({ duration, dots, len, lenNum })
       }
     }
@@ -141,7 +143,7 @@ export function decomposeSpan(start: Fraction, end: Fraction, meter: MeterInfo):
       }
     }
 
-    if (!chosen) break // gap finer than a 32nd (only from malformed input)
+    if (!chosen) break // gap finer than the shortest value (only from malformed input)
 
     result.push({ beat: current, duration: chosen.duration, dots: chosen.dots })
     current = chosenEnd

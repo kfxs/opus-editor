@@ -24,7 +24,7 @@
  */
 
 import type { NoteDuration } from '@/types/music'
-import { type Fraction, fracCreate, fracLte, fracMul } from '@/utils/fraction'
+import { type Fraction, fracCreate, fracDiv, fracLt, fracLte, fracMul } from '@/utils/fraction'
 
 /** The three parallel facts about a single (undotted) note duration. */
 interface DurationInfo {
@@ -113,6 +113,43 @@ function dotMultiplier(dots: number): Fraction {
   if (dots <= 0) return fracCreate(1, 1)
   const den = 2 ** dots
   return fracCreate(2 * den - 1, den)
+}
+
+/**
+ * The SHORTEST value the model can write — the last of {@link DURATIONS_DESC}, in exact beats. It is
+ * the grid every written length sits on: a rest fill can only close a gap that is a whole number of
+ * these (`utils/restFill`).
+ *
+ * DERIVED, never named: a `'64'` added to {@link DURATION_INFO} moves it, and with it every limit
+ * below (his rule, 2026-09-25: *"we will have shorter durations in the future"*).
+ */
+export const SHORTEST_LENGTH: Fraction = DURATION_INFO[DURATIONS_DESC[DURATIONS_DESC.length - 1]].fraction
+
+/**
+ * The most dots `value` may take so its LAST dot is still worth at least `shortest` — each dot adds
+ * half of the one before, so the nth dot is worth `value / 2ⁿ`. A dot worth less than the shortest
+ * value would leave a remainder no written note or rest can close.
+ *
+ * The pure half of {@link maxDots}, taking the shortest value as an argument so a spec can ask what a
+ * shorter duration would allow without adding one to the union.
+ */
+export function maxDotsWithin(value: Fraction, shortest: Fraction): number {
+  let dots = 0
+  let lastDot = value
+  for (;;) {
+    lastDot = fracDiv(lastDot, fracCreate(2, 1))
+    if (fracLt(lastDot, shortest)) return dots
+    dots++
+  }
+}
+
+/**
+ * The most dots a `duration` may carry (docs/plans/multiple-dots-plan.md D1): its last dot worth at
+ * least {@link SHORTEST_LENGTH}. ⛔ No cap of its own — MusicXML and LilyPond set none; the editor's
+ * tools offer 1–3. With today's durations: a 32nd none, a 16th one, an eighth two, a quarter three.
+ */
+export function maxDots(duration: NoteDuration): number {
+  return maxDotsWithin(DURATION_INFO[duration].fraction, SHORTEST_LENGTH)
 }
 
 /**

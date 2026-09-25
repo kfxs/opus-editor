@@ -9,6 +9,9 @@ import {
   beatsToDuration,
   splitBeatsIntoDurations,
   getDotMultiplier,
+  maxDots,
+  maxDotsWithin,
+  SHORTEST_LENGTH,
   fitRestDuration,
   splitBeatsIntoLengths,
   durationFlags,
@@ -406,5 +409,38 @@ describe('splitBeatsIntoDurations stays undotted (rests)', () => {
 
   it('still sums to the span', () => {
     expect(splitBeatsIntoDurations(3.5)).toEqual(['h', 'q', '8'])
+  })
+})
+
+// ---------------------------------------------------------------------------
+// maxDots — the most dots a duration may take (docs/plans/multiple-dots-plan.md D1)
+// ---------------------------------------------------------------------------
+
+describe('maxDots', () => {
+  it('the shortest value is the last of DURATIONS_DESC', () => {
+    expect(SHORTEST_LENGTH).toEqual(DURATION_INFO[DURATIONS_DESC[DURATIONS_DESC.length - 1]].fraction)
+  })
+
+  it('a dot may not be worth less than the shortest value — today: 32nd none, 16th one, eighth two, quarter three', () => {
+    expect(maxDots('32')).toBe(0)
+    expect(maxDots('16')).toBe(1)
+    expect(maxDots('8')).toBe(2)
+    expect(maxDots('q')).toBe(3)
+    expect(maxDots('h')).toBe(4)
+    expect(maxDots('w')).toBe(5)
+  })
+
+  it('every allowed count lands on the shortest value\'s grid', () => {
+    for (const d of DURATIONS_DESC) {
+      const steps = fracToNumber(durationToFraction(d, maxDots(d))) / fracToNumber(SHORTEST_LENGTH)
+      expect(Number.isInteger(steps)).toBe(true)
+    }
+  })
+
+  it('⭐ a SHORTER duration raises the limit with no other change (durations will grow)', () => {
+    const sixtyFourth = frac(1, 16)
+    expect(maxDotsWithin(DURATION_INFO['16'].fraction, sixtyFourth)).toBe(2)
+    expect(maxDotsWithin(DURATION_INFO['8'].fraction, sixtyFourth)).toBe(3)
+    expect(maxDotsWithin(DURATION_INFO['32'].fraction, sixtyFourth)).toBe(1)
   })
 })

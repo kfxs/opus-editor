@@ -19,7 +19,7 @@
  */
 import type { Note, NoteDuration, NoteParams, Tuplet } from '@/types/music'
 import { dbg } from '@/utils/debug'
-import { durationToFraction } from '@/utils/durations'
+import { durationToFraction, maxDots } from '@/utils/durations'
 import type { Fraction } from '@/utils/fraction'
 import { fracAdd, fracDiv, fracGt, fracLt, fracMul, fracSub, fracToNumber } from '@/utils/fraction'
 import { staffOf, voiceOf } from '@/utils/lanes'
@@ -57,6 +57,8 @@ interface NoteUpdateCtx {
   newBeats: number
   newDuration: NoteDuration
   newDots: number
+  /** A DOT edit that adds dots (the duration untouched) — a clamp may not trim what was asked for. */
+  dotsRaised: boolean
   beatDifference: number
 }
 
@@ -76,6 +78,15 @@ function changeNoteBody(model: DurationChangeModel, noteId: string, updates: Par
   // Handle dots: if dots is explicitly set in updates (even to 0), use it; otherwise keep old
   const newDots = updates.dots !== undefined ? updates.dots : oldDots
 
+  // ⭐ More dots than the value can take — a last dot worth less than the shortest value, which no
+  //    note or rest could close (`maxDots`, docs/plans/multiple-dots-plan.md D1) — is REFUSED WHOLE:
+  //    nothing written. ⛔ Never trimmed to the most that fit: the user's value is correct, or it is
+  //    not written at all (D4).
+  if (newDots > maxDots(newDuration)) {
+    dbg(`✗ [Edit] ${newDuration}${'.'.repeat(newDots)} refused — a ${newDuration} takes at most ${maxDots(newDuration)} dot(s)`)
+    return { note: existingNote, commit: null }
+  }
+
   // Edits act on ONE voice's stream. Scope the measure view + chord lookup to the
   // edited note's voice so a duration change never deletes or fills another voice's
   // notes/rests (voices are independent streams that each sum to the bar length).
@@ -88,6 +99,10 @@ function changeNoteBody(model: DurationChangeModel, noteId: string, updates: Par
 
   const target = existingNote.isRest ? 'REST' : `${existingNote.step}${existingNote.octave}`
   dbg(`[Edit] v${editVoice} ${target} m${existingNote.measure} b${fracToNumber(existingNote.beat).toFixed(3)} | dur ${oldDuration}${oldDots ? '.'.repeat(oldDots) : ''}→${newDuration}${newDots ? '.'.repeat(newDots) : ''}${isChord ? ` (chord of ${chordNotes.length})` : ''} | scoped to ${measureNotes.length} same-voice slot(s)`, updates)
+
+  // A DOT edit — the dots raised and the duration left alone, what the dot key and stamp send. A
+  // DURATION change keeps today's clamp (plan D4: only the dot edit stops being trimmed).
+  const dotsRaised = updates.duration === undefined && updates.dots !== undefined && newDots > oldDots
 
   // Check for measure overflow (considering dots)
   const measure = model.getMeasure(existingNote.measure)
@@ -121,6 +136,14 @@ function changeNoteBody(model: DurationChangeModel, noteId: string, updates: Par
         return { note: model.getNote(noteId)!, commit: 'Update note duration' }
       }
 
+      // ⭐ A rest DOTTED past the barline is REFUSED WHOLE (docs/plans/multiple-dots-plan.md D4, his
+      //    call): the clip below would drop the dots the user just asked for. A NOTE instead crosses
+      //    the barline tied (above) — a dot lengthens it like any other lengthening.
+      if (dotsRaised) {
+        dbg(`✗ [Edit] REST ${newDuration}${'.'.repeat(newDots)} refused — it does not fit the ${availableBeats.toFixed(3)} beat(s) left`)
+        return { note: existingNote, commit: null }
+      }
+
       // Non-tuplet rest overflow: clip to fit within the measure
       const fittingDuration = findLargestFittingDuration(availableBeats)
       if (fittingDuration) {
@@ -141,7 +164,7 @@ function changeNoteBody(model: DurationChangeModel, noteId: string, updates: Par
 
   const ctx: NoteUpdateCtx = {
     noteId, updates, existingNote, measureNotes,
-    chordNotes, isChord, oldBeats, newBeats, newDuration, newDots, beatDifference,
+    chordNotes, isChord, oldBeats, newBeats, newDuration, newDots, dotsRaised, beatDifference,
   }
 
   // Tuplet notes have special duration constraints and filler rest logic
@@ -173,6 +196,12 @@ function changeTupletNote(model: DurationChangeModel, ctx: NoteUpdateCtx, tuplet
 
   // Clamp new duration if it exceeds remaining tuplet space
   if (fracGt(fracMul(durationToFraction(newDuration, newDots), ratio), remaining)) {
+    // ⭐ Dots that do not fit what the group has left are REFUSED WHOLE (multiple-dots-plan D4) —
+    //    ⛔ never trimmed away by the clamp below.
+    if (ctx.dotsRaised) {
+      dbg(`✗ [Edit] tuplet member ${newDuration}${'.'.repeat(newDots)} refused — past what the group has left`)
+      return { note: existingNote, commit: null }
+    }
     const fittingDuration = findLargestFittingDuration(fracToNumber(fracDiv(remaining, ratio)))
     if (fittingDuration) {
       newDuration = fittingDuration

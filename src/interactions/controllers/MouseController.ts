@@ -1586,9 +1586,9 @@ export class MouseController {
    * ever adds; removal is Delete or the Keypad with the dots selected).
    *
    * The one stamp that ALSO applies to RESTS: a rest takes a dot exactly as a note does, so there is
-   * no `isRest` guard here. Dotting can still be REFUSED when it does not fit (a dotted rest needs
-   * 3 beats where 2 remain, and the bar reflows around what does fit) — the model coerces `dots`
-   * back to 0 rather than throwing, so report what actually happened instead of assuming.
+   * no `isRest` guard here. Dotting can be REFUSED (multiple-dots-plan D4): a REST or tuplet member
+   * that no longer fits, or more dots than the value takes, writes nothing; a NOTE past the barline
+   * crosses it tied. The model does not throw, so report what actually happened instead of assuming.
    */
   private stampDotAtClick(engine: MusicEngine, registry: ElementRegistry, x: number, y: number): boolean {
     if (!armedTool(this.state, 'dot')) return false
