@@ -1,6 +1,6 @@
 # Double and triple dots — the plan
 
-> **Status (2026-09-25): P0 BUILT (`87df716`) · P1 BUILT (`998ddac`) · P2 BUILT (`2619c9e`) · P3 BUILT; ALL DECISIONS TAKEN (D1–D7, R1–R7); P4 is PLAN.** The research is IN —
+> **Status (2026-09-25): P0 BUILT (`87df716`) · P1 BUILT (`998ddac`) · P2 BUILT (`2619c9e`) · P3 BUILT (`6676556`) · P4a BUILT; ALL DECISIONS TAKEN (D1–D7, R1–R7); P4 is PLAN.** The research is IN —
 > `docs/research/multiple-dots-research.md` (the literature, the engines, the duration rule). ⛔ A number
 > never blocks a phase (`CLAUDE.md`).
 >
@@ -178,7 +178,7 @@ changes in the rows:
 
 | step | table | decision | moves |
 |---|---|---|---|
-| P4a | note gaps — arm `gould` (0.5 / 0.26) in the EXISTING `dotGap` | R1 | only 2+ dots |
+| P4a ✅ | note gaps — arm `gould` (0.5 / 0.26) in the EXISTING `dotGap` | R1 | only 2+ dots. 🚨 Found on the way: the ROOM (`spacingPadding.dotExtent`) never followed the armed row — only `house` had ever been armed — so a double dot drew 0.24 sp inside its room; it follows the row now (a spec over every row). And P2's ghost parked 70 px off (an em box read as the dot) — fixed, with a triple-dot case in `e2e/ghosts.e2e.ts` |
 | P4b | a rest's gaps — new table | R4 | every dotted rest |
 | P4c | dots and a flag — new table (+ a beamed note never pushed) | R2 | stem-up flagged + beamed dotted notes |
 | P4d | two voices — up/down, and one x | R3 | dotted notes in two voices |

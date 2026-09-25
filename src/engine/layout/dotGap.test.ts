@@ -52,9 +52,9 @@ describe('the rows', () => {
 })
 
 describe('arming', () => {
-  it('✅ ships `house` — the number his report put on the page, ⛔ unmoved by building the table', () => {
-    expect(ACTIVE_DOT_GAP_RULE).toBe('house')
-    expect(armedDotGap()).toMatchObject({ head: 0.5, dot: 0.5 })
+  it('✅ ships `gould` — his 0.5 off the head (her sentence), her plate between the dots (plan R1)', () => {
+    expect(ACTIVE_DOT_GAP_RULE).toBe('gould')
+    expect(armedDotGap()).toMatchObject({ head: 0.5, dot: 0.26 })
   })
 
   it('⭐ arming swaps both numbers and bumps the generation', () => {

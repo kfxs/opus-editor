@@ -175,7 +175,7 @@ test('an accidental below the staff clears its own ledger lines', async ({ score
  * gives BETWEEN two dots, and the two are meant to be equal — so a double-dotted note is the case
  * that proves the rule rather than just the number.
  */
-test('a dot stands half a space off the notehead, and the next dot half a space off that', async ({ score }) => {
+test('a dot stands half a space off the notehead, and the next dot 0.26 sp off that (`dotGap` `gould`)', async ({ score }) => {
   const measured = await score.evaluate(async () => {
     const h = window.__h
     h.engine.addNoteAtBeat({ step: 'G', octave: 4, duration: 'q', dots: 1, measure: 1, beat: h.frac(0, 1) })
@@ -207,10 +207,11 @@ test('a dot stands half a space off the notehead, and the next dot half a space 
   const ledger = measured.ledgers[0]
   expect(ledger.x2, 'the ledger ends before the dot begins').toBeLessThan(measured.dots[1].x)
 
-  // The double-dotted note: the same gap twice, edge to edge.
+  // The double-dotted note: half a space off the head, then the dots closer — Gould's plate (p. 54),
+  // armed 2026-09-25 (docs/plans/multiple-dots-plan.md P4a). Until then the same 5 px twice (`house`).
   const [first, second] = measured.dots.slice(2)
   expect(gap(first.x, measured.heads[2].x)).toBeCloseTo(5, 1)
-  expect(second.x - (first.x + measured.dotWidth), 'dot to dot is the notehead gap again').toBeCloseTo(5, 1)
+  expect(second.x - (first.x + measured.dotWidth), 'dot to dot: her plate’s 0.26 sp').toBeCloseTo(2.6, 0)
 
   // And the vertical convention is untouched: a note ON a line puts its dot in the SPACE ABOVE,
   // half a staff space up. (G4 is the second line of the treble staff.)

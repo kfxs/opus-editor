@@ -12,15 +12,15 @@
  * - the four engines split four ways: LilyPond 0.45/0.45 · MuseScore 0.50/0.25 · Verovio 0.30/0.35 ·
  *   VexFlow 0.20/0.10.
  *
- * ⭐ **We sit at 0.50/0.50** — MuseScore's first gap and Ross's second — which is the top of the
- * engines' range for the first and above all four for the second. ⛔ Nothing about that is wrong;
- * it is a house style, and this is the instrument for revisiting it.
+ * ⭐ **We sit at 0.50/0.26 — `gould`** (docs/plans/multiple-dots-plan.md R1): her sentence for the head,
+ * her plate for the dots. Until 2026-09-25 it was `house`, 0.50/0.50 — above every source for the second
+ * gap. A house style either way, and this is the instrument for revisiting it.
  *
  * ```js
  *   __dots.dump()               // every row, side by side, with sources
- *   __dots.gap('house')         // ✅ ARMED — 0.50 / 0.50, what his report put on the page
+ *   __dots.gap('house')         // 0.50 / 0.50 — what we drew until 2026-09-25
  *   __dots.gap('gouldDrawn')    // 0.40 / 0.26 — her plate: the dots crowd closer than the first
- *   __dots.gap('gould')         // 0.50 / 0.26 — her SENTENCE for the head, her plate for the rest
+ *   __dots.gap('gould')         // ✅ ARMED — 0.50 / 0.26: her SENTENCE for the head, her plate for the rest
  *   __dots.gap('ross')          // 0.38 / 0.44 — his plates: the two gaps about equal
  *   __dots.gap('lilypond')      // 0.45 / 0.45 — one callback answers both
  *   __dots.gap('musescore')     // 0.50 / 0.25

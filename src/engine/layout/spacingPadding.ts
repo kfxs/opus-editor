@@ -41,6 +41,7 @@ import type { NoteDuration } from '@/types/music'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { restStaffLine } from './restPlacement'
 import { armedAccidentalGap } from './accidentalGap'
+import { DOT_GAP_RULES, armedDotGap } from './dotGap'
 import {
   accidentalGlyph,
   differenceFromDefault,
@@ -403,10 +404,24 @@ export function accidentalExtent(signs: { position: number; sign: string }[]): n
   return INK.accidentalToHead + armedDelta + columns.reduce((total, column) => total + column.width, 0)
 }
 
-/** How far right of the notehead column `dots` augmentation dots reach, in staff spaces. */
+/**
+ * How far right of the notehead column `dots` augmentation dots reach, in staff spaces.
+ *
+ * ⭐⭐ **ONE number for the room AND the ink** (`layout/dotGap`'s promise): the measured `INK` steps are
+ * the `house` row's drawing, so what the ARMED row adds is its DIFFERENCE from `house`, applied once to the
+ * first dot and once per step — the drawing (`layout/noteDotXs`) reads the same row. Under `house` both
+ * terms are 0. 🚨 Until 2026-09-25 they were not here at all, and nothing noticed: `house` was the only
+ * row ever armed. Arming `gould` (docs/plans/multiple-dots-plan.md P4a) put a double dot's drawing 0.24 sp
+ * inside the room it had reserved, and the browser's anti-drift gate (`e2e/spacing.e2e.ts`) caught it.
+ * The dot→dot gap never under VexFlow's 1 px, as the drawing (`noteDotXs`).
+ */
 export function dotExtent(dots: number): number {
   if (dots <= 0) return 0
-  return INK.firstDot + INK.dotStep * (dots - 1) + INK.dotWidth
+  const house = DOT_GAP_RULES.house
+  const armed = armedDotGap()
+  const headDelta = armed.head - house.head
+  const dotDelta = Math.max(0.1, armed.dot) - house.dot
+  return INK.firstDot + headDelta + (INK.dotStep + dotDelta) * (dots - 1) + INK.dotWidth
 }
 
 /**

@@ -54,17 +54,22 @@ export interface DotGapRule {
  */
 export const DOT_GAP_RULES = {
   /**
-   * ✅ **What we draw, and what he chose** — half a space for both, in answer to his report that the
-   * dot sat too close (`rendering/format/dotPlacement`, 2026-08).
+   * **What we drew until 2026-09-25** — half a space for both. The HEAD gap was his (his report that the
+   * dot sat too close, `rendering/format/dotPlacement`, 2026-08); the DOT gap was never his — the session
+   * that answered the report derived it (*"the same gap twice"*, `642c82f`), crediting Gould wrongly.
    *
    * ⭐ Now that the survey is in, it can be said precisely what this row IS: **MuseScore's first gap
    * and Ross's second**, which is also Gerou & Lusk's *"spacing equal to that of the first dot"*.
    * ⛔ What it is not is "Gould's", which is what the code used to claim.
    */
-  house: { head: 0.5, dot: 0.5, source: 'ours since 2026-08 — his report; = MuseScore head + Ross dot' },
+  house: { head: 0.5, dot: 0.5, source: 'ours 2026-08 → 2026-09-25 — his report (head); = MuseScore head + Ross dot' },
   /**
    * **Gould's sentence**, p. 54: *"Place the dot close to its notehead so that it can be spotted
    * immediately — usually a half stave-space's distance."*
+   *
+   * ✅ **ARMED since 2026-09-25** — his rule for every preset (*"if we have not making explicit the
+   * decision before the default should be gould"*, docs/plans/multiple-dots-plan.md R1): the head gap
+   * stays his 0.5, which IS her sentence; the dot gap, never his, takes her plate.
    *
    * ⚠️ **A MIXED row, deliberately.** She states no dot-to-dot number anywhere — only *"close
    * together and evenly spaced"* — so the second column is her own PLATE (0.26). ⛔ The alternative
@@ -107,18 +112,13 @@ export const DOT_GAP_RULES = {
 export type DotGapRuleName = keyof typeof DOT_GAP_RULES
 
 /**
- * ✅ **WHAT IS ARMED — `house`, which is the number already on his page.**
+ * ✅ **WHAT IS ARMED — `gould`** (2026-09-25, docs/plans/multiple-dots-plan.md R1, P4a): 0.5 / 0.26.
  *
- * ⛔ **Building the table did not change the drawing**, and that is deliberate: the survey supports
- * what we draw (Gould's sentence for the first gap; Ross and G&L for the second), so a migration
- * from constant to table has no business moving ink on its way past
- * (`project_engraving_defaults_are_a_house_style` — a default, not a law).
- *
- * ⏭️ The one row worth his eye is **`gouldDrawn`**: it is the only source that crowds the dots of a
- * double dot closer together than the first dot sits to the head, and whether that reads better is
- * a question no book answers for us.
+ * ⭐ A SINGLE dot does not move — the head gap is the 0.5 he asked for in 2026-08 and her sentence says.
+ * Only a double or triple dot does: its dots now crowd as her plate draws them (0.26), ⛔ no longer the
+ * 0.5 a session derived. `house` stays a row, so the old spacing is one console call away.
  */
-export const ACTIVE_DOT_GAP_RULE: DotGapRuleName = 'house'
+export const ACTIVE_DOT_GAP_RULE: DotGapRuleName = 'gould'
 
 const state: { rule: DotGapRuleName; generation: number } = {
   rule: ACTIVE_DOT_GAP_RULE, generation: 0,

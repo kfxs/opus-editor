@@ -120,15 +120,20 @@ test('the ACCIDENTAL, DOT and ARTICULATION ghosts each park clear of the pointer
     const at = { x: 200, y: 100 }
     h.engine.renderScoreWithToolGhost(at, { kind: 'accidental', accidental: '#' })
     const accidental = { groups: h.ghosts(), glyphs: h.placed('.ghost-accidental text') }
-    h.engine.renderScoreWithToolGhost(at, { kind: 'dot' })
+    h.engine.renderScoreWithToolGhost(at, { kind: 'dot', count: 1 })
     const dot = { groups: h.ghosts(), glyphs: h.placed('.ghost-dot text') }
+    // ⭐ The armed COUNT (docs/plans/multiple-dots-plan.md P2): three dots, the first parked where one is.
+    h.engine.renderScoreWithToolGhost(at, { kind: 'dot', count: 3 })
+    const tripleDot = { groups: h.ghosts(), glyphs: h.placed('.ghost-dot text') }
     h.engine.renderScoreWithToolGhost(at, { kind: 'articulation', types: ['accent'] })
     const articulation = { groups: h.ghosts(), glyphs: h.placed('.ghost-articulation text') }
-    return { accidental, dot, articulation }
+    return { accidental, dot, tripleDot, articulation }
   })
 
   expect(drawn.accidental.groups).toEqual(['ghost-accidental'])
   expect(drawn.dot.groups).toEqual(['ghost-dot'])
+  expect(drawn.tripleDot.glyphs, 'three dots, left to right').toHaveLength(3)
+  expect(drawn.tripleDot.glyphs[0].x, 'the first dot parks where a single one does').toBeCloseTo(drawn.dot.glyphs[0].x, 0)
   expect(drawn.articulation.groups).toEqual(['ghost-articulation'])
 
   for (const [name, ghost] of Object.entries(drawn)) {

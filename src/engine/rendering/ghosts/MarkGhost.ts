@@ -119,11 +119,13 @@ export function drawDotGhost(ctx: DrawContext, cursorX: number, cursorY: number,
     loneQuarter(cursorY, note => dots.forEach(dot => attachModifier(note, dot, 0)))
     const GAP_X = 10
     const LIFT_Y = 4
-    // Ours since S12c — it draws on our surface itself, with no cast. The first dot's centre is the
-    // box's left edge plus half its HEIGHT (a dot is round), however many follow it.
+    // Ours since S12c — it draws on our surface itself, with no cast. The FIRST dot parks where one dot
+    // always did: one dot's share of the box's width, halved — exactly the old centre for a single dot.
+    // 🚨 ⛔ Not the box's HEIGHT: a `<text>` box is the font's em box, far taller than the dot (P2 used it,
+    //    and the ghost parked 70 px off the pointer — `e2e/ghosts.e2e.ts` caught it).
     return drawSignGhost(ctx, 'ghost-dot', cursorX, cursorY,
       () => dots.forEach(dot => { dot.setInkSurface(ctx); dot.setContext(ctx).draw() }),
-      (box, x, y) => ({ dx: x + GAP_X - (box.x + box.height / 2), dy: y - LIFT_Y - (box.y + box.height / 2) }))
+      (box, x, y) => ({ dx: x + GAP_X - (box.x + box.width / dots.length / 2), dy: y - LIFT_Y - (box.y + box.height / 2) }))
   } catch (_e) {
     return false
   }

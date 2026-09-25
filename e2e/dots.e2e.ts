@@ -41,13 +41,13 @@ const first = (d: Drawn, cls: string) => d.glyphs.find(g => g.cls === cls)!
 /** White from `a`'s right edge to `b`'s left, in staff spaces. */
 const gap = (a: { x: number; w: number }, b: { x: number }) => (b.x - (a.x + a.w)) / SP
 
-test('NOW — a triple-dotted note: 0.5 sp from the head, 0.5 sp between dots (`dotGap` `house`)', async ({ score }) => {
+test('a triple-dotted note: 0.5 sp from the head, 0.26 sp between dots (`dotGap` `gould`, P4a — `house` drew 0.5)', async ({ score }) => {
   const d = await draw(score, `e.addNoteAtBeat({ step: 'A', octave: 4, duration: 'q', dots: 3, measure: 1, beat: f(0, 1) })`)
   const dots = dotsOf(d)
   expect(dots).toHaveLength(3)
   expect(gap(first(d, 'notehead'), dots[0])).toBeCloseTo(0.5, 1)
-  expect(gap(dots[0], dots[1])).toBeCloseTo(0.5, 1)
-  expect(gap(dots[1], dots[2]), 'the third steps exactly like the second').toBeCloseTo(0.5, 1)
+  expect(gap(dots[0], dots[1]), 'her plate, p. 54').toBeCloseTo(0.26, 1)
+  expect(gap(dots[1], dots[2]), 'the third steps exactly like the second').toBeCloseTo(0.26, 1)
   expect(new Set(dots.map(g => g.y)).size, 'every dot at one height').toBe(1)
 })
 

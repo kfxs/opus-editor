@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { INK, minColumnGap, accidentalExtent, dotExtent, pairPadding } from './spacingPadding'
+import { DOT_GAP_RULES, resetDotGapRule, setDotGapRule, type DotGapRuleName } from './dotGap'
+import { noteDotXs } from './noteDotXs'
 
 /**
  * The ink half's table (docs/plans/spacing-model-plan.md P3).
@@ -57,9 +59,23 @@ describe('the measured extents', () => {
     expect(dotExtent(-1)).toBe(0)
   })
 
-  it('dots land where they measured: one at 2.1 past the head, two at 3.0', () => {
+  it('dots land where they measured under `house`: one at 2.1 past the head, two at 3.0', () => {
+    setDotGapRule('house')
     expect(dotExtent(1)).toBeCloseTo(2.1, 6)
     expect(dotExtent(2)).toBeCloseTo(3.0, 6)
+    resetDotGapRule()
+  })
+
+  it('⭐⭐ the ROOM follows the armed dot row exactly as the DRAWING does (multiple-dots-plan P4a)', () => {
+    // 🚨 It did not until 2026-09-25: arming `gould` drew a double dot 0.24 sp inside its reserved room.
+    for (const rule of Object.keys(DOT_GAP_RULES) as DotGapRuleName[]) {
+      setDotGapRule(rule)
+      const xs = noteDotXs({ duration: 'q', dots: 3 }, false)
+      expect(dotExtent(2) - dotExtent(1), `${rule}: the room's step is the drawing's`).toBeCloseTo(xs[1] - xs[0], 6)
+      expect(dotExtent(3) - dotExtent(2), `${rule}: and the third's`).toBeCloseTo(xs[2] - xs[1], 6)
+    }
+    resetDotGapRule()
+    expect(dotExtent(2), 'the armed `gould`: 0.24 sp tighter than `house`').toBeCloseTo(2.76, 6)
   })
 })
 
