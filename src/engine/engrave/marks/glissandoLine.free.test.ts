@@ -4,7 +4,8 @@
  */
 import { describe, it, expect, afterEach } from 'vitest'
 import {
-  GLISSANDO_FREE_END_RULES, armedGlissandoFreeEnd, glissandoFreeStroke, resetGlissandoFreeEndRule, setGlissandoFreeEndRule,
+  GLISSANDO_FREE_END_RULES, armedGlissandoFreeEnd, glissandoFreeStroke, glissandoTextPlacement, resetGlissandoFreeEndRule,
+  setGlissandoFreeEndRule,
 } from './glissandoLine'
 
 const SP = 10
@@ -52,5 +53,22 @@ describe('glissandoFreeStroke', () => {
     const ms = glissandoFreeStroke('after', note, 'down', SP)!
     expect(ms.x2 - ms.x1).toBeLessThan(gould.x2 - gould.x1)
     expect(GLISSANDO_FREE_END_RULES.musescore.across).toBe(1.2)
+  })
+})
+
+describe('glissandoTextPlacement — the word along the line, only where it fits', () => {
+  it('⭐ a line long enough: centred on it, raised 0.35 sp (Gould), turned to the line\'s angle', () => {
+    const stroke = { x1: 0, y1: 0, x2: 100, y2: 0 }
+    const at = glissandoTextPlacement(stroke, 30, SP)!
+    expect(at.x).toBeCloseTo(35)
+    expect(at.y).toBeCloseTo(-3.5)
+    expect(at.angle).toBe(0)
+    const falling = glissandoTextPlacement({ x1: 0, y1: 0, x2: 60, y2: 60 }, 30, SP)!
+    expect(falling.angle).toBeCloseTo(Math.PI / 4)
+  })
+
+  it('⭐ ⛔ too short for the word and its margins: no word at all (his rule)', () => {
+    expect(glissandoTextPlacement({ x1: 0, y1: 0, x2: 34, y2: 0 }, 30, SP)).toBeNull()
+    expect(glissandoTextPlacement({ x1: 0, y1: 0, x2: 35, y2: 0 }, 30, SP)).not.toBeNull()
   })
 })

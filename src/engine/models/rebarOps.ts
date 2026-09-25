@@ -30,6 +30,7 @@ import { addSlur, repairDanglingSlurs } from './slurOps'
 import { addTrill, repairDanglingTrills } from './trillOps'
 import {
   addGlissando, captureGlissandi, restoreGlissandi, setGlissandoDirection, setGlissandoEnd, setGlissandoSide,
+  setGlissandoText,
 } from './glissandoOps'
 import { addMeasure, insertMeasureAfter } from './measureOps'
 import { collapseEmptyVoices } from './voiceOps'
@@ -1594,6 +1595,7 @@ function restoreClipGlissandi(score: Score, regionNumbers: number[], clipGlissan
     if (cg.side) setGlissandoSide(score, g.id, cg.side)
     if (cg.end) setGlissandoEnd(score, g.id, cg.end)
     if (cg.direction) setGlissandoDirection(score, g.id, cg.direction)
+    if (cg.text) setGlissandoText(score, g.id, cg.text)
     stampOverrides(score, g.id, cg.engraving)
   }
 }

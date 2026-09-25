@@ -24,7 +24,7 @@ export function glissandiInWindow(
   if (!glissandi?.length) return []
   const wanted = new Set(glissandi.map(g => g.noteId))
   const starts = measureStarts(score.measures)
-  const at = new Map<string, Omit<ClipGlissando, 'side' | 'end' | 'direction' | 'engraving'>>()
+  const at = new Map<string, Omit<ClipGlissando, 'side' | 'end' | 'direction' | 'text' | 'engraving'>>()
   for (const m of [...score.measures].sort((a, b) => a.number - b.number)) {
     const mStart = starts.get(m.number)
     if (!mStart) continue
@@ -49,6 +49,7 @@ export function glissandiInWindow(
       ...(g.side && { side: g.side }),
       ...(g.end && { end: g.end }),
       ...(g.direction && { direction: g.direction }),
+      ...(g.text && { text: g.text }),
       ...(held?.length && { engraving: held.map(o => ({ ...o })) }),
     })
   }

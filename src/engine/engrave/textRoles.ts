@@ -42,6 +42,7 @@ export type TextRole =
   | 'expression'
   | 'dynamicLetters'
   | 'lineParenthesis'
+  | 'glissandoText'
 
 export interface TextRoleRow {
   /** Which document-level face sets it: the score's WORDS, or the MUSIC font. */
@@ -126,6 +127,13 @@ export const TEXT_ROLES: Record<TextRole, TextRoleRow> = {
    * glyph size, his eye alone (`trillStyle`, `ottavaStyle`) — 13.52 pt = 1.80 sp today.
    */
   lineParenthesis: { face: 'words', style: 'italic', size: 'ofItsSign' },
+  /**
+   * A glissando's word (`gliss.`, `port.`) set along its line — **italic** (MuseScore's `glissando` text style;
+   * Gould p. 141 draws it italic), **1.61 sp** = MuseScore's 8 pt at its default space
+   * (`docs/research/score-text-roles-research.md`). ⚠️ No book states a size: the engine's row until one is
+   * measured (docs/plans/glissando-plan.md).
+   */
+  glissandoText: { face: 'words', style: 'italic', size: 1.61 },
 }
 
 /** The roles whose size the table states outright — everything but an `'ofItsSign'` row. */

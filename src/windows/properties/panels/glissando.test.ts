@@ -63,4 +63,14 @@ describe('the glissando rows', () => {
     side.dispatchEvent(new Event('change'))
     expect(published).toEqual([{ glissandoId: 'G1', direction: 'up' }, { glissandoId: 'G1', side: 'before' }])
   })
+
+  it('⭐ the TEXT field: empty = none; a typed word is published on change', () => {
+    show({}, 'N2')
+    const input = host.querySelector('input[type="text"]') as HTMLInputElement
+    expect(input.value).toBe('')
+    expect(input.placeholder).toBe('none')
+    input.value = 'port.'
+    input.dispatchEvent(new Event('change'))
+    expect(published).toEqual([{ glissandoId: 'G1', text: 'port.' }])
+  })
 })

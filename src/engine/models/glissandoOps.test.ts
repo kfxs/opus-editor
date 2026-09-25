@@ -9,7 +9,7 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import { ScoreModel } from './ScoreModel'
 import {
   addGlissando, getGlissandi, getGlissandoById, glissandoDirection, glissandoOn, glissandoTarget, pruneGlissandi, removeGlissando,
-  setGlissandoDirection, setGlissandoEnd, setGlissandoSide,
+  setGlissandoDirection, setGlissandoEnd, setGlissandoSide, setGlissandoText,
 } from './glissandoOps'
 import { deleteNoteWithRepair } from './deleteNoteOps'
 import { convertSlotToRest } from './convertToRestOps'
@@ -220,5 +220,18 @@ describe('P3 — the free ends: side, end, direction', () => {
     expect('direction' in g).toBe(false)
     setGlissandoSide(model.getScore(), g.id, 'before')
     expect(glissandoDirection(g)).toBe('up')
+  })
+})
+
+describe('the word along the line', () => {
+  it('set, trimmed; blank or null DELETES it; a re-set of the same is no change', () => {
+    const model = new ScoreModel()
+    const c = at(model, 'C', 4, 1, 0)
+    const g = addGlissando(model.getScore(), c.id)!
+    expect(setGlissandoText(model.getScore(), g.id, '  gliss. ')).toBe(true)
+    expect(g.text).toBe('gliss.')
+    expect(setGlissandoText(model.getScore(), g.id, 'gliss.')).toBe(false)
+    expect(setGlissandoText(model.getScore(), g.id, '   ')).toBe(true)
+    expect('text' in g).toBe(false)
   })
 })

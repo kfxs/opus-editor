@@ -64,4 +64,9 @@ function paintGlissandoGroup(ctx: HighlightContext, id: string, color: string): 
     ctx.setAttr(path, 'stroke', color)
     ctx.setStyleProp(path as SVGElement, 'stroke', color)
   })
+  // …and the word along it, when there is one.
+  group.querySelectorAll('text').forEach(word => {
+    ctx.setAttr(word, 'fill', color)
+    ctx.setStyleProp(word as SVGElement, 'fill', color)
+  })
 }

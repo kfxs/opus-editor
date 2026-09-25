@@ -163,6 +163,20 @@ export function setGlissandoDirection(score: Score, id: string, direction: 'up' 
   return true
 }
 
+/**
+ * ⭐ The word along the line. Blank (or null) DELETES the field — absent is the only spelling of "no word".
+ * @returns false when there is no such glissando or nothing changed.
+ */
+export function setGlissandoText(score: Score, id: string, text: string | null): boolean {
+  const glissando = getGlissandoById(score, id)
+  if (!glissando) return false
+  const next = text?.trim() || undefined
+  if (glissando.text === next) return false
+  if (next) glissando.text = next
+  else delete glissando.text
+  return true
+}
+
 /** A free end's direction, resolved: the stored one, or the side's usual (after falls, before rises). */
 export function glissandoDirection(glissando: Glissando): 'up' | 'down' {
   return glissando.direction ?? usualDirection(glissando)

@@ -14,12 +14,15 @@
 import type { Glissando, NotePitch, Score } from '@/types/music'
 import type { RenderPass } from '../../RenderPass'
 import { getGlissandi, glissandoDirection, glissandoTarget } from '@/engine/models/glissandoOps'
+import { textRoleFamily, textRoleSizePt, textRoleSlant, textRoleWeight } from '@/engine/engrave/textRoles'
+import { drawTextRun, measureTextMetrics } from '../../painter/glyphPainter'
+import { rotationAbout } from '@/engine/paint/Affine'
 import { findSlot } from '@/engine/models/slotLookup'
 import { staffIndexOfId } from '@/engine/models/staffContent'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { spellingToMidi } from '@/utils/pitchSpelling'
 import {
-  armedGlissandoBreakRule, glissandoFreeStroke, glissandoPieces, glissandoStroke, glissandoThicknessSpaces, type GlissandoFrom, type GlissandoStroke, type GlissandoTo, type Ledger,
+  armedGlissandoBreakRule, glissandoFreeStroke, glissandoPieces, glissandoTextPlacement, glissandoStroke, glissandoThicknessSpaces, type GlissandoFrom, type GlissandoStroke, type GlissandoTo, type Ledger,
 } from '@/engine/engrave/marks/glissandoLine'
 import { lineEndBarlineX, lineHeaderInkX } from '../../staff/systemEdges'
 import { LEDGER_OVERHANG_PX } from '@/engine/engrave/inheritedDefaults'
@@ -80,7 +83,7 @@ export function renderGlissandi(pass: RenderPass, score: Score): void {
       }, space, rising)
     }
     if (!strokes.some(Boolean)) continue
-    drawStrokes(pass, ctx, staffIndex, glissando.id, strokes, space)
+    drawStrokes(pass, ctx, staffIndex, glissando.id, strokes, space, glissando.text)
   }
 }
 
@@ -107,7 +110,7 @@ function renderFreeEnd(pass: RenderPass, score: Score, glissando: Glissando): vo
   const barline = lineEndBarlineX(pass, line)
   const limitX = barline === undefined ? Infinity : barline / pass.staffScale(staffIndex) - armedGlissandoBreakRule().beforeBarline * frame.spacePx
   const stroke = glissandoFreeStroke(side, { ...leave, ...arrive }, glissandoDirection(glissando), frame.spacePx, undefined, limitX)
-  if (stroke) drawStrokes(pass, ctx, staffIndex, glissando.id, [stroke], frame.spacePx)
+  if (stroke) drawStrokes(pass, ctx, staffIndex, glissando.id, [stroke], frame.spacePx, glissando.text)
 }
 
 /** One glissando's group: its strokes, at the armed weight, in its staff's own space. */
@@ -118,9 +121,11 @@ function drawStrokes(
   id: string,
   strokes: ReadonlyArray<GlissandoStroke | null>,
   space: number,
+  text?: string,
 ): void {
   const group = drawGroupOf(ctx.openGroup?.('glissando', `glissando-${id}`))
   inStaffSpace(pass, staffIndex, group, () => {
+    if (text) drawWord(ctx, text, strokes, space)
     ctx.save()
     ctx.setLineWidth(glissandoThicknessSpaces() * space)
     for (const stroke of strokes) {
@@ -144,6 +149,34 @@ function drawStrokes(
     ctx.restore()
   })
   ctx.closeGroup?.()
+}
+
+/**
+ * ⭐ The WORD along the line (`Glissando.text`) — italic, the `glissandoText` role, centred on the FIRST piece long
+ * enough to hold it and ⛔ on none when no piece is (his rule: only with enough space). Its own group, rotated
+ * about the line's midpoint (`glissandoLine.glissandoTextPlacement`).
+ */
+function drawWord(
+  ctx: NonNullable<RenderPass['context']>,
+  text: string,
+  strokes: ReadonlyArray<GlissandoStroke | null>,
+  space: number,
+): void {
+  const sizePt = textRoleSizePt('glissandoText') * (space / STAFF_SPACE_PX)
+  const font = { family: textRoleFamily('glissandoText'), sizePt, weight: textRoleWeight('glissandoText'), style: textRoleSlant('glissandoText') }
+  // ⚠️ `measureTextMetrics` reads `size` (points), ⛔ not `sizePt` — handed the draw's own shape it silently
+  //   measures at the tag's DEFAULT size (the music glyphs', ≈3× too wide: no line was ever long enough).
+  const width = measureTextMetrics('Glissando.text', text, { family: font.family, size: sizePt, weight: font.weight, style: font.style }).width
+  for (const stroke of strokes) {
+    if (!stroke) continue
+    const at = glissandoTextPlacement(stroke, width, space)
+    if (!at) continue
+    const word = drawGroupOf(ctx.openGroup?.('glissando-text'))
+    word?.setPlacement(rotationAbout(at.angle, at.cx, at.cy))
+    drawTextRun(ctx, 'Glissando.text', text, at.x, at.y, font)
+    ctx.closeGroup?.()
+    return
+  }
 }
 
 /** +1 when the target sounds higher, −1 lower, 0 the same. */

@@ -966,3 +966,81 @@ export function glissandoFreeStroke(
   const point = { y: note.y - dy, inkRightX: x, centreX: x }
   return glissandoStroke(point, note, space, direction === 'up' ? 1 : -1, { ...rule, startGap: 0, startBias: 0 })
 }
+
+// ==================== The word along the line ====================
+
+/**
+ * ⭐ **WHERE THE WORD STANDS** (`gliss.`, `port.`) — along the line, centred on it, above it; and ⭐ ONLY when the
+ * line is long enough to hold it (his rule, 2026-09-25: *"we show gliss. text only if we have enough space"* —
+ * MuseScore drops it the same way). Staff spaces.
+ */
+export interface GlissandoTextRule {
+  /** How far above the line its baseline stands (perpendicular to the line). */
+  raise: number
+  /** Clear line kept either side of the word — the line must be at least the word's width + 2 × this. */
+  margin: number
+  source: string
+}
+
+export const GLISSANDO_TEXT_RULES = {
+  /** ✅ ARMED. Her rotated `gliss.` on p. 141 (a) sits ≈0.3–0.4 sp above the line (books research §0.3): 0.35.
+   *  ⚠️ The margin is OURS (no source): a quarter space of line showing at each end of the word. */
+  gould: { raise: 0.35, margin: 0.25, source: 'Gould p. 141 (a), 0.3–0.4 sp read; margin ours' },
+  /** MuseScore: 0.1 sp above a straight line (`glissando.cpp`), the word dropped when it does not fit. */
+  musescore: { raise: 0.1, margin: 0.25, source: 'MuseScore glissando text offset (engines research §1); margin ours' },
+} as const satisfies Record<string, GlissandoTextRule>
+
+export type GlissandoTextRuleName = keyof typeof GLISSANDO_TEXT_RULES
+export const ACTIVE_GLISSANDO_TEXT_RULE: GlissandoTextRuleName = 'gould'
+const textState: { rule: GlissandoTextRuleName } = { rule: ACTIVE_GLISSANDO_TEXT_RULE }
+
+export function armedGlissandoTextRule(): GlissandoTextRule {
+  return GLISSANDO_TEXT_RULES[textState.rule]
+}
+
+export function glissandoTextSettings(): { rule: GlissandoTextRuleName } {
+  return { ...textState }
+}
+
+export function setGlissandoTextRule(rule: GlissandoTextRuleName): boolean {
+  if (!(rule in GLISSANDO_TEXT_RULES)) return false
+  textState.rule = rule
+  state.generation++
+  return true
+}
+
+export function resetGlissandoTextRule(): void {
+  textState.rule = ACTIVE_GLISSANDO_TEXT_RULE
+  state.generation++
+}
+
+/** Where a word of `width` px stands on a stroke: the rotation, and its left end on its own baseline. */
+export interface GlissandoTextPlacement {
+  /** The line's angle, radians — positive turns clockwise (y DOWN), as the page's `rotate`. */
+  angle: number
+  /** The line's midpoint — the point the rotation is about. */
+  cx: number
+  cy: number
+  /** In the ROTATED frame: the word's left end and its baseline. */
+  x: number
+  y: number
+}
+
+/**
+ * ⭐ The word's place on `stroke`, or null when the line is too short to hold it (then no word is drawn). The
+ * rotated frame is the line's: the word runs along it, centred, `raise` above it.
+ */
+export function glissandoTextPlacement(
+  stroke: GlissandoStroke,
+  width: number,
+  space: number,
+  rule: GlissandoTextRule = armedGlissandoTextRule(),
+): GlissandoTextPlacement | null {
+  const dx = stroke.x2 - stroke.x1
+  const dy = stroke.y2 - stroke.y1
+  const length = Math.hypot(dx, dy)
+  if (!(width > 0) || length < width + 2 * rule.margin * space) return null
+  const cx = (stroke.x1 + stroke.x2) / 2
+  const cy = (stroke.y1 + stroke.y2) / 2
+  return { angle: Math.atan2(dy, dx), cx, cy, x: cx - width / 2, y: cy - rule.raise * space }
+}

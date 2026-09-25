@@ -13,6 +13,8 @@ export interface GlissandoEditRequest {
   side?: 'before' | 'after'
   end?: 'none' | 'next'
   direction?: 'up' | 'down'
+  /** The word along the line; `''` = none. */
+  text?: string
 }
 
 /** GlissandoEditController handles it — the one place that holds the engine. */

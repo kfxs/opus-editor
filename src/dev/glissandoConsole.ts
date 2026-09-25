@@ -22,6 +22,7 @@
  *   __gliss.squeeze('vanish')      // P1's behaviour — no room for the gaps, no line
  *   __gliss.breaks('gould')        // ✅ ARMED — across a system break each piece spans the WHOLE interval
  *   __gliss.breaks('musescore')    // one line, one slope, cut at the break (MuseScore, LilyPond)
+ *   __gliss.textPlace('gould')     // ✅ ARMED — the word 0.35 sp above the line, dropped unless it fits · 'musescore' 0.1
  *   __gliss.freeEnd('gould')       // ✅ ARMED — a free end 3.8 sp across × 1.3 sp (p. 411 (c)); 'musescore' / 'rossShort' / 'rossLong'
  *
  *   // ⭐ P3, until the Properties window has it — on the glissandi of the SELECTED notes (one undo step each):
@@ -38,6 +39,7 @@ import type { MusicEngine } from '@/engine/MusicEngine'
 import {
   glissandoAccidentalGapOverride, setGlissandoAccidentalGap, armedGlissandoEndRule,
   GLISSANDO_FREE_END_RULES, glissandoFreeEndSettings, resetGlissandoFreeEndRule, setGlissandoFreeEndRule,
+  GLISSANDO_TEXT_RULES, glissandoTextSettings, resetGlissandoTextRule, setGlissandoTextRule, type GlissandoTextRuleName,
   type GlissandoFreeEndRuleName,
   GLISSANDO_BREAK_RULES, GLISSANDO_END_RULES, GLISSANDO_SQUEEZE_RULES, glissandoBreakSettings, resetGlissandoBreakRule, setGlissandoBreakRule,
   type GlissandoBreakRuleName, GLISSANDO_THICKNESS_RULES, glissandoSettings, glissandoThicknessSpaces,
@@ -58,6 +60,7 @@ export interface GlissandoConsoleDeps {
 
 export interface GlissandoConsole {
   freeEnd(rule: GlissandoFreeEndRuleName): GlissandoFreeEndRuleName
+  textPlace(rule: GlissandoTextRuleName): GlissandoTextRuleName
   side(side: 'before' | 'after'): number
   target(end: 'none' | 'next'): number
   direction(direction: 'up' | 'down'): number
@@ -165,11 +168,21 @@ export function glissandoConsole(deps: GlissandoConsoleDeps): GlissandoConsole {
       report()
       return glissandoFreeEndSettings().rule
     },
+    textPlace: (rule) => {
+      if (!setGlissandoTextRule(rule)) {
+        dbg(`[gliss] ⛔ no such textPlace row: ${rule} — try ${Object.keys(GLISSANDO_TEXT_RULES).map(n => `'${n}'`).join(', ')}`)
+        return glissandoTextSettings().rule
+      }
+      render()
+      report()
+      return glissandoTextSettings().rule
+    },
     side: (side) => act(`side ${side}`, (engine, ids) => engine.glissando.setSide(ids, side)),
     target: (end) => act(`target ${end}`, (engine, ids) => engine.glissando.setEnd(ids, end)),
     direction: (direction) => act(`direction ${direction}`, (engine, ids) => engine.glissando.setDirection(ids, direction)),
     reset: () => {
       resetGlissandoFreeEndRule()
+      resetGlissandoTextRule()
       resetGlissandoRules()
       resetGlissandoBreakRule()
       resetGlissandoMinLengthRule()

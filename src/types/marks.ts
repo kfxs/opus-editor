@@ -424,6 +424,12 @@ export interface Glissando {
    * Read only when an end is free.
    */
   direction?: 'up' | 'down'
+  /**
+   * ⭐ The WORD set along the line — `gliss.`, `port.`, or anything the user types (plan G1, G8). ABSENT = no
+   * word: his brief (*"the initial idea is that it has not text but in the properties window we can check the
+   * text on"*). Drawn only when the line is long enough to hold it (his rule, 2026-09-25).
+   */
+  text?: string
 }
 
 /** How a continuation system labels a resumed trill — see {@link Trill.continuationLabel}. */

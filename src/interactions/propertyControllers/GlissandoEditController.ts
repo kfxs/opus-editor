@@ -20,7 +20,7 @@ export class GlissandoEditController {
     this.unsubscribe = bus.glissandoEdit.onSet((req) => this.apply(req))
   }
 
-  private apply({ glissandoId, side, end, direction }: GlissandoEditRequest): void {
+  private apply({ glissandoId, side, end, direction, text }: GlissandoEditRequest): void {
     const engine = this.getEngine()
     if (!engine) return
     const ids = [glissandoId]
@@ -28,9 +28,10 @@ export class GlissandoEditController {
     if (side) changed += engine.glissando.setSide(ids, side)
     if (end) changed += engine.glissando.setEnd(ids, end)
     if (direction) changed += engine.glissando.setDirection(ids, direction)
+    if (text !== undefined) changed += engine.glissando.setText(ids, text)
     // ⛔ A re-pick of the value it has writes nothing — the commands say so (no entry, no repaint).
     if (!changed) {
-      dbg(`· Glissando unchanged | ${JSON.stringify({ side, end, direction })} on ${glissandoId}`)
+      dbg(`· Glissando unchanged | ${JSON.stringify({ side, end, direction, text })} on ${glissandoId}`)
       return
     }
     this.renderScore()

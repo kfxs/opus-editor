@@ -7,6 +7,7 @@
  */
 import {
   addGlissando, getGlissandoById, glissandoOn, glissandoTarget, mayAnchorGlissando, removeGlissando, setGlissandoDirection, setGlissandoEnd, setGlissandoSide,
+  setGlissandoText,
 } from '../models/glissandoOps'
 import type { CommandContext } from './commandContext'
 
@@ -75,6 +76,13 @@ export function glissandoCommands(ctx: CommandContext) {
     setDirection(ids: readonly string[], direction: 'up' | 'down'): number {
       const changed = ids.filter(id => setGlissandoDirection(score(), id, direction)).length
       if (changed) ctx.mutate(direction === 'up' ? 'Glissando up' : 'Glissando down')
+      return changed
+    },
+
+    /** ⭐ The word along the line (`gliss.`, `port.`, …); blank = none. ONE undo entry. */
+    setText(ids: readonly string[], text: string | null): number {
+      const changed = ids.filter(id => setGlissandoText(score(), id, text)).length
+      if (changed) ctx.mutate(text?.trim() ? 'Glissando text' : 'Remove glissando text')
       return changed
     },
 

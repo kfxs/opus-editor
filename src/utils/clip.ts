@@ -286,6 +286,7 @@ export interface ClipGlissando {
   side?: 'before'
   end?: 'none'
   direction?: 'up' | 'down'
+  text?: string
   /** Whatever it carries in the overrides compartment — see {@link ClipDynamic.engraving}. */
   engraving?: EngravingOverride[]
 }
