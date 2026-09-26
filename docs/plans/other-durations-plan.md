@@ -1,6 +1,6 @@
 # Other durations — 64th, 128th, 256th, 512th, breve, longa — the plan
 
-> **Status (2026-09-26): PLANNED — nothing built.** Decisions a, b (convention), d taken (§1). The
+> **Status (2026-09-26): P0 BUILT (glyphs measured).** Decisions a, b (convention), d taken (§1). The
 > research: `docs/research/durations-standards.md` (MusicXML · MEI · SMuFL · MIDI · Sibelius · Finale ·
 > Dorico), `docs/research/durations-literature.md` (Gould · Ross · Stone · Gerou & Lusk) and
 > `docs/research/durations-engines.md` (MuseScore · Verovio · LilyPond, source read) are all IN. ⛔ A number never

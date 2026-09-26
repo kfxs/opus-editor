@@ -1,7 +1,7 @@
 /**
  * ⛔⛔ **GENERATED — DO NOT EDIT.** `node scripts/generate-font-metrics.mjs`
  *
- * Leipzig's table for the 86 glyphs the editor draws — the SAME shape as
+ * Leipzig's table for the 107 glyphs the editor draws — the SAME shape as
  * `bravuraMetrics.ts`, total over the same `GlyphName` union, read by `fontMetrics` when the face is
  * the active one (`fonts/musicFont`, `docs/plans/music-font-switch-plan.md` Phase B).
  *
@@ -39,16 +39,23 @@ export const FALLBACK_DEFAULTS: readonly string[] = ['thinThickBarlineSeparation
 export const GLYPH_BOXES: Record<GlyphName, GlyphBox> = {
   // noteheads
   noteheadDoubleWhole: { left: 0, right: 2.18, up: 0.68, down: 0.68, advance: 2.18 },
+  noteheadDoubleWholeSquare: { left: 0, right: 1.392, up: 0.68, down: 0.68, advance: 1.392 },
   noteheadWhole: { left: 0, right: 1.62, up: 0.532, down: 0.532, advance: 1.62 },
   noteheadHalf: { left: 0, right: 1.256, up: 0.552, down: 0.528, advance: 1.256 },
   noteheadBlack: { left: 0, right: 1.256, up: 0.532, down: 0.532, advance: 1.256 },
   // rests
+  restLonga: { left: 0, right: 0.5, up: 1, down: 1, advance: 0.5 },
+  restDoubleWhole: { left: 0, right: 0.5, up: 1, down: 0, advance: 0.5 },
   restWhole: { left: 0, right: 1.2, up: 0, down: 0.5, advance: 1.2 },
   restHalf: { left: 0, right: 1.2, up: 0.5, down: 0, advance: 1.2 },
   restQuarter: { left: 0, right: 1.22, up: 1.488, down: 1.552, advance: 1.216 },
   rest8th: { left: 0, right: 1.104, up: 0.732, down: 1, advance: 1.108 },
   rest16th: { left: -0.004, right: 1.3, up: 0.696, down: 1.968, advance: 1.296 },
   rest32nd: { left: -0.004, right: 1.596, up: 1.652, down: 1.94, advance: 1.616 },
+  rest64th: { left: -0.008, right: 1.92, up: 1.652, down: 2.872, advance: 1.92 },
+  rest128th: { left: -0.028, right: 2.316, up: 2.708, down: 2.936, advance: 2.312 },
+  rest256th: { left: 0.004, right: 2.564, up: 2.708, down: 3.82, advance: 2.568 },
+  rest512th: { left: 0.004, right: 2.88, up: 3.652, down: 3.82, advance: 2.88 },
   // accidentals
   accidentalSharp: { left: 0, right: 0.788, up: 1.42, down: 1.356, advance: 0.788 },
   accidentalFlat: { left: 0, right: 0.792, up: 1.876, down: 0.7, advance: 0.8 },
@@ -62,6 +69,14 @@ export const GLYPH_BOXES: Record<GlyphName, GlyphBox> = {
   flag16thDown: { left: 0, right: 1.104, up: 3.044, down: 0, advance: 1.096 },
   flag32ndUp: { left: 0, right: 1.104, up: 0.76, down: 3.116, advance: 1.096 },
   flag32ndDown: { left: 0, right: 1.104, up: 3.04, down: 0.76, advance: 1.096 },
+  flag64thUp: { left: 0, right: 1.104, up: 1.52, down: 3.116, advance: 1.096 },
+  flag64thDown: { left: 0, right: 1.104, up: 3.04, down: 1.52, advance: 1.096 },
+  flag128thUp: { left: 0, right: 1.104, up: 2.28, down: 3.116, advance: 1.096 },
+  flag128thDown: { left: 0, right: 1.104, up: 3.036, down: 2.28, advance: 1.096 },
+  flag256thUp: { left: 0, right: 1.104, up: 3.04, down: 3.116, advance: 1.096 },
+  flag256thDown: { left: 0, right: 1.104, up: 3.032, down: 3.04, advance: 1.096 },
+  flag512thUp: { left: 0, right: 1.108, up: 3.8, down: 3.116, advance: 1.096 },
+  flag512thDown: { left: 0, right: 1.108, up: 3.116, down: 3.8, advance: 1.096 },
   // dots
   augmentationDot: { left: 0, right: 0.516, up: 0.264, down: 0.26, advance: 0.74 },
   repeatDot: { left: 0, right: 0.4, up: 0.2, down: 0.2, advance: 0.4 },
@@ -132,12 +147,18 @@ export const GLYPH_BOXES: Record<GlyphName, GlyphBox> = {
   braceFlat: { left: 0, right: 0.224, up: 4, down: -0.004, advance: 0.228 }, // ← Bravura
   bracket: { left: 0, right: 1.876, up: 5.284, down: 1.272, advance: 2.232 }, // ← Bravura
   // metronome
+  metNoteDoubleWhole: { left: 0, right: 2.18, up: 0.68, down: 0.68, advance: 2.18 },
+  metNoteDoubleWholeSquare: { left: 0, right: 1.392, up: 0.68, down: 0.68, advance: 1.392 },
   metNoteWhole: { left: -0.008, right: 1.656, up: 0.48, down: 0.488, advance: 1.668 },
   metNoteHalfUp: { left: -0.008, right: 1.232, up: 2.672, down: 0.52, advance: 1.24 },
   metNoteQuarterUp: { left: -0.008, right: 1.208, up: 2.672, down: 0.504, advance: 1.208 },
   metNote8thUp: { left: -0.008, right: 2, up: 2.688, down: 0.488, advance: 2.008 },
   metNote16thUp: { left: -0.008, right: 2.056, up: 2.688, down: 0.488, advance: 2.064 },
   metNote32ndUp: { left: -0.008, right: 2.04, up: 3.28, down: 0.488, advance: 2.048 },
+  metNote64thUp: { left: -0.008, right: 2.04, up: 4, down: 0.488, advance: 2.048 },
+  metNote128thUp: { left: -0.008, right: 2.04, up: 4.68, down: 0.488, advance: 2.032 },
+  metNote256thUp: { left: -0.008, right: 2.048, up: 5.272, down: 0.488, advance: 2.068 },
+  metNote512thUp: { left: -0.008, right: 2.056, up: 5.916, down: 0.488, advance: 2.064 },
   metAugmentationDot: { left: 0, right: 0.388, up: 0.196, down: 0.196, advance: 0.388 },
 }
 

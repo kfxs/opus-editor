@@ -45,10 +45,18 @@ const OUT = 'src/engine/fonts/bravuraMetrics.ts'
  */
 const GLYPHS = {
   // The note itself — P3's subject, and the head whose width every column gap is measured from.
-  noteheads: ['noteheadDoubleWhole', 'noteheadWhole', 'noteheadHalf', 'noteheadBlack'],
+  // ⭐ The breve's two cuts — round (two lines each side) and SQUARE — are both drawn: which one is a
+  //   house-style row (`docs/plans/other-durations-plan.md` §2.2). The LONGA has no notehead of its own
+  //   in SMuFL: it is a breve head + a stem we draw (§2.3).
+  noteheads: ['noteheadDoubleWhole', 'noteheadDoubleWholeSquare', 'noteheadWhole', 'noteheadHalf', 'noteheadBlack'],
 
-  // ⚠️ Six, matching `NoteDuration` exactly. A rest we cannot write is a rest we must not measure.
-  rests: ['restWhole', 'restHalf', 'restQuarter', 'rest8th', 'rest16th', 'rest32nd'],
+  // ⚠️ One per `NoteDuration`, exactly. A rest we cannot write is a rest we must not measure.
+  //   The longa, breve and 64th … 512th rows are `docs/plans/other-durations-plan.md` P0 — measured
+  //   ahead of the model (P1) that writes them.
+  rests: [
+    'restLonga', 'restDoubleWhole', 'restWhole', 'restHalf', 'restQuarter', 'rest8th', 'rest16th', 'rest32nd',
+    'rest64th', 'rest128th', 'rest256th', 'rest512th',
+  ],
 
   // The five signs `ACCIDENTAL_WIDTH` and `accidentalHeight` are keyed by.
   accidentals: [
@@ -61,7 +69,13 @@ const GLYPHS = {
 
   // ⭐ Up and down are DIFFERENT GLYPHS with different widths (1.056 against 1.224), which is why a
   //   down-flag adds nothing to a column and an up-flag adds a whole space.
-  flags: ['flag8thUp', 'flag8thDown', 'flag16thUp', 'flag16thDown', 'flag32ndUp', 'flag32ndDown'],
+  //   One pair per flag count, 1 (an eighth) to 7 (a 512th) — the font's own cut for each, ⛔ never
+  //   stacked eighth flags (`docs/plans/other-durations-plan.md` §2.1).
+  flags: [
+    'flag8thUp', 'flag8thDown', 'flag16thUp', 'flag16thDown', 'flag32ndUp', 'flag32ndDown',
+    'flag64thUp', 'flag64thDown', 'flag128thUp', 'flag128thDown', 'flag256thUp', 'flag256thDown',
+    'flag512thUp', 'flag512thDown',
+  ],
 
   // The augmentation dot — `INK.dotWidth` and `INK_HEIGHT.dot`, both already exact (plan §2).
   // ⭐ And the REPEAT dot, which is a different glyph that happens to be the same size: both engines
@@ -143,7 +157,9 @@ const GLYPHS = {
   // stood on its words' baseline: a music face cuts the notehead CENTRED on the baseline, a text cut
   // stands it ON it (`rendering/marks/tempo/tempoStyle.tempoSymbolRaisePx`).
   metronome: [
+    'metNoteDoubleWhole', 'metNoteDoubleWholeSquare',
     'metNoteWhole', 'metNoteHalfUp', 'metNoteQuarterUp', 'metNote8thUp', 'metNote16thUp', 'metNote32ndUp',
+    'metNote64thUp', 'metNote128thUp', 'metNote256thUp', 'metNote512thUp',
     'metAugmentationDot',
   ],
 }

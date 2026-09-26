@@ -63,7 +63,8 @@ describe('fontMetrics reads the ACTIVE face', () => {
 
     setActiveMusicFont('sebastian')
     expect(glyphBox('gClef')).toBe(sebastian.GLYPH_BOXES.gClef)
-    expect(fallbackGlyphs()).toEqual(['bracket'])
+    // Sebastian cuts no metronome note shorter than a 32nd — the four borrowed from Bravura, declared.
+    expect(fallbackGlyphs()).toEqual(['bracket', 'metNote64thUp', 'metNote128thUp', 'metNote256thUp', 'metNote512thUp'])
   })
 
   it('…and back on Bravura every answer is Bravura’s again', () => {

@@ -1,7 +1,7 @@
 /**
  * ⛔⛔ **GENERATED — DO NOT EDIT.** `node scripts/generate-font-metrics.mjs`
  *
- * 86 of Bravura's 3434 glyphs: the ones the editor draws
+ * 107 of Bravura's 3434 glyphs: the ones the editor draws
  * (`docs/plans/font-metrics-plan.md` F1). Hand-editing a number here would recreate by hand the very
  * drift the file exists to end — change the glyph list in the script and re-run.
  *
@@ -23,7 +23,7 @@ import type { GlyphBox } from './fontMetrics'
  * 1.481. The generator cross-checks every box against that metadata, and this is what
  * that check found on the run that wrote this file:
  *
- * 🚨 **1 of 86 DISAGREE** — the rest are identical to within 0.001 spaces:
+ * 🚨 **1 of 107 DISAGREE** — the rest are identical to within 0.001 spaces:
  *   · brace — off by 0.051 spaces
  *
  * ⚠️ The numbers below are the **OTF's**, because that is the file we draw with. Where a glyph
@@ -44,15 +44,22 @@ export const BRAVURA = {
  */
 export type GlyphName =
   | 'noteheadDoubleWhole'
+  | 'noteheadDoubleWholeSquare'
   | 'noteheadWhole'
   | 'noteheadHalf'
   | 'noteheadBlack'
+  | 'restLonga'
+  | 'restDoubleWhole'
   | 'restWhole'
   | 'restHalf'
   | 'restQuarter'
   | 'rest8th'
   | 'rest16th'
   | 'rest32nd'
+  | 'rest64th'
+  | 'rest128th'
+  | 'rest256th'
+  | 'rest512th'
   | 'accidentalSharp'
   | 'accidentalFlat'
   | 'accidentalNatural'
@@ -64,6 +71,14 @@ export type GlyphName =
   | 'flag16thDown'
   | 'flag32ndUp'
   | 'flag32ndDown'
+  | 'flag64thUp'
+  | 'flag64thDown'
+  | 'flag128thUp'
+  | 'flag128thDown'
+  | 'flag256thUp'
+  | 'flag256thDown'
+  | 'flag512thUp'
+  | 'flag512thDown'
   | 'augmentationDot'
   | 'repeatDot'
   | 'graceNoteSlashStemUp'
@@ -122,28 +137,41 @@ export type GlyphName =
   | 'braceLarger'
   | 'braceFlat'
   | 'bracket'
+  | 'metNoteDoubleWhole'
+  | 'metNoteDoubleWholeSquare'
   | 'metNoteWhole'
   | 'metNoteHalfUp'
   | 'metNoteQuarterUp'
   | 'metNote8thUp'
   | 'metNote16thUp'
   | 'metNote32ndUp'
+  | 'metNote64thUp'
+  | 'metNote128thUp'
+  | 'metNote256thUp'
+  | 'metNote512thUp'
   | 'metAugmentationDot'
 
 /** The ink each glyph draws, in staff spaces from its own origin. See {@link GlyphBox}. */
 export const GLYPH_BOXES: Record<GlyphName, GlyphBox> = {
   // noteheads
   noteheadDoubleWhole: { left: 0, right: 2.396, up: 0.62, down: 0.62, advance: 2.396 },
+  noteheadDoubleWholeSquare: { left: 0, right: 1.664, up: 0.792, down: 0.76, advance: 1.664 },
   noteheadWhole: { left: 0, right: 1.688, up: 0.5, down: 0.5, advance: 1.688 },
   noteheadHalf: { left: 0, right: 1.18, up: 0.5, down: 0.5, advance: 1.18 },
   noteheadBlack: { left: 0, right: 1.18, up: 0.5, down: 0.5, advance: 1.18 },
   // rests
+  restLonga: { left: 0, right: 0.5, up: 1, down: 0.996, advance: 0.5 },
+  restDoubleWhole: { left: 0, right: 0.5, up: 1, down: 0, advance: 0.504 },
   restWhole: { left: 0, right: 1.128, up: 0.036, down: 0.54, advance: 1.132 },
   restHalf: { left: 0, right: 1.128, up: 0.568, down: 0.008, advance: 1.132 },
   restQuarter: { left: -0.004, right: 1.08, up: 1.492, down: 1.5, advance: 1.08 },
   rest8th: { left: 0, right: 0.988, up: 0.696, down: 1.004, advance: 1 },
   rest16th: { left: 0, right: 1.28, up: 0.716, down: 2, advance: 1.28 },
   rest32nd: { left: 0, right: 1.452, up: 1.704, down: 2, advance: 1.452 },
+  rest64th: { left: 0, right: 1.692, up: 1.72, down: 3.012, advance: 1.696 },
+  rest128th: { left: 0, right: 1.94, up: 2.756, down: 3, advance: 1.94 },
+  rest256th: { left: 0, right: 2.164, up: 2.784, down: 4, advance: 2.164 },
+  rest512th: { left: 0, right: 2.416, up: 3.776, down: 4, advance: 2.416 },
   // accidentals
   accidentalSharp: { left: 0, right: 0.996, up: 1.4, down: 1.392, advance: 0.996 },
   accidentalFlat: { left: 0, right: 0.904, up: 1.756, down: 0.7, advance: 0.904 },
@@ -157,6 +185,14 @@ export const GLYPH_BOXES: Record<GlyphName, GlyphBox> = {
   flag16thDown: { left: 0, right: 1.164, up: 3.248, down: 0.036, advance: 1.168 },
   flag32ndUp: { left: 0, right: 1.044, up: 0.596, down: 3.248, advance: 1.048 },
   flag32ndDown: { left: 0, right: 1.092, up: 3.248, down: 0.688, advance: 1.096 },
+  flag64thUp: { left: 0, right: 1.044, up: 1.388, down: 3.248, advance: 1.048 },
+  flag64thDown: { left: 0, right: 1.092, up: 3.248, down: 1.504, advance: 1.1 },
+  flag128thUp: { left: 0, right: 1.044, up: 2.132, down: 3.248, advance: 1.036 },
+  flag128thDown: { left: 0, right: 1.092, up: 3.248, down: 2.32, advance: 1.1 },
+  flag256thUp: { left: 0, right: 1.056, up: 2.816, down: 3.248, advance: 1.072 },
+  flag256thDown: { left: 0, right: 1.196, up: 3.252, down: 3.004, advance: 1.204 },
+  flag512thUp: { left: 0, right: 1.06, up: 3.564, down: 3.248, advance: 1.072 },
+  flag512thDown: { left: 0, right: 1.2, up: 3.248, down: 3.756, advance: 1.204 },
   // dots
   augmentationDot: { left: 0, right: 0.4, up: 0.2, down: 0.2, advance: 0.4 },
   repeatDot: { left: 0, right: 0.4, up: 0.2, down: 0.2, advance: 0.4 },
@@ -227,12 +263,18 @@ export const GLYPH_BOXES: Record<GlyphName, GlyphBox> = {
   braceFlat: { left: 0, right: 0.224, up: 4, down: -0.004, advance: 0.228 },
   bracket: { left: 0, right: 1.876, up: 5.284, down: 1.272, advance: 2.232 },
   // metronome
+  metNoteDoubleWhole: { left: 0, right: 2.62, up: 0.68, down: 0.672, advance: 2.62 },
+  metNoteDoubleWholeSquare: { left: 0, right: 1.664, up: 0.792, down: 0.76, advance: 2.132 },
   metNoteWhole: { left: 0, right: 1.836, up: 0.592, down: 0.5, advance: 1.836 },
   metNoteHalfUp: { left: 0, right: 1.364, up: 2.752, down: 0.564, advance: 1.364 },
   metNoteQuarterUp: { left: 0, right: 1.328, up: 2.752, down: 0.564, advance: 1.328 },
   metNote8thUp: { left: 0, right: 2.132, up: 2.784, down: 0.564, advance: 2.136 },
   metNote16thUp: { left: 0, right: 2.084, up: 2.8, down: 0.564, advance: 2.088 },
   metNote32ndUp: { left: 0, right: 2.152, up: 3.692, down: 0.564, advance: 2.152 },
+  metNote64thUp: { left: 0, right: 2.148, up: 4.392, down: 0.564, advance: 2.148 },
+  metNote128thUp: { left: 0, right: 2.148, up: 5.072, down: 0.564, advance: 2.148 },
+  metNote256thUp: { left: 0, right: 2.16, up: 5.696, down: 0.564, advance: 2.164 },
+  metNote512thUp: { left: 0, right: 2.168, up: 6.356, down: 0.564, advance: 2.168 },
   metAugmentationDot: { left: 0, right: 0.4, up: 0.2, down: 0.2, advance: 0.4 },
 }
 
@@ -248,16 +290,23 @@ export const GLYPH_BOXES: Record<GlyphName, GlyphBox> = {
 export const GLYPH_CODEPOINTS: Record<GlyphName, number> = {
   // noteheads
   noteheadDoubleWhole: 57504,
+  noteheadDoubleWholeSquare: 57505,
   noteheadWhole: 57506,
   noteheadHalf: 57507,
   noteheadBlack: 57508,
   // rests
+  restLonga: 58593,
+  restDoubleWhole: 58594,
   restWhole: 58595,
   restHalf: 58596,
   restQuarter: 58597,
   rest8th: 58598,
   rest16th: 58599,
   rest32nd: 58600,
+  rest64th: 58601,
+  rest128th: 58602,
+  rest256th: 58603,
+  rest512th: 58604,
   // accidentals
   accidentalSharp: 57954,
   accidentalFlat: 57952,
@@ -271,6 +320,14 @@ export const GLYPH_CODEPOINTS: Record<GlyphName, number> = {
   flag16thDown: 57923,
   flag32ndUp: 57924,
   flag32ndDown: 57925,
+  flag64thUp: 57926,
+  flag64thDown: 57927,
+  flag128thUp: 57928,
+  flag128thDown: 57929,
+  flag256thUp: 57930,
+  flag256thDown: 57931,
+  flag512thUp: 57932,
+  flag512thDown: 57933,
   // dots
   augmentationDot: 57831,
   repeatDot: 57412,
@@ -341,12 +398,18 @@ export const GLYPH_CODEPOINTS: Record<GlyphName, number> = {
   braceFlat: 62467,
   bracket: 57346,
   // metronome
+  metNoteDoubleWhole: 60576,
+  metNoteDoubleWholeSquare: 60577,
   metNoteWhole: 60578,
   metNoteHalfUp: 60579,
   metNoteQuarterUp: 60581,
   metNote8thUp: 60583,
   metNote16thUp: 60585,
   metNote32ndUp: 60587,
+  metNote64thUp: 60589,
+  metNote128thUp: 60591,
+  metNote256thUp: 60593,
+  metNote512thUp: 60595,
   metAugmentationDot: 60599,
 }
 
@@ -359,6 +422,7 @@ export const GLYPH_CODEPOINTS: Record<GlyphName, number> = {
  */
 export const GLYPH_ANCHORS: Partial<Record<GlyphName, Record<string, readonly [number, number]>>> = {
   noteheadDoubleWhole: { noteheadOrigin: [0.36, 0], stemDownNW: [0.36, 0.004], stemUpSE: [2.036, 0.004] },
+  noteheadDoubleWholeSquare: { stemDownNW: [0, -0.248], stemUpSE: [1.664, 0.252] },
   noteheadWhole: { cutOutNW: [0.172, 0.332], cutOutSE: [1.532, -0.364] },
   noteheadHalf: { cutOutNW: [0.204, 0.296], cutOutSE: [0.98, -0.3], splitStemDownNE: [0.956, -0.3], splitStemDownNW: [0.128, -0.428], splitStemUpSE: [1.108, 0.372], splitStemUpSW: [0.328, 0.38], stemDownNW: [0, -0.168], stemUpSE: [1.18, 0.168] },
   noteheadBlack: { cutOutNW: [0.208, 0.3], cutOutSE: [0.94, -0.296], splitStemDownNE: [0.968, -0.248], splitStemDownNW: [0.12, -0.416], splitStemUpSE: [1.092, 0.392], splitStemUpSW: [0.312, 0.356], stemDownNW: [0, -0.168], stemUpSE: [1.18, 0.168] },
@@ -372,6 +436,14 @@ export const GLYPH_ANCHORS: Partial<Record<GlyphName, Record<string, readonly [n
   flag16thDown: { stemDownSW: [0, 0.128] },
   flag32ndUp: { stemUpNW: [0, 0.376] },
   flag32ndDown: { stemDownSW: [0, -0.448] },
+  flag64thUp: { stemUpNW: [0, 1.172] },
+  flag64thDown: { stemDownSW: [0, -1.244] },
+  flag128thUp: { stemUpNW: [0, 1.9] },
+  flag128thDown: { stemDownSW: [0, -2.076] },
+  flag256thUp: { stemUpNW: [0, 2.592] },
+  flag256thDown: { stemDownSW: [0, -2.812] },
+  flag512thUp: { stemUpNW: [0, 3.324] },
+  flag512thDown: { stemDownSW: [0, -3.608] },
   dynamicPiano: { opticalCenter: [1.22, 0] },
   dynamicMezzo: { opticalCenter: [0.872, 0] },
   dynamicForte: { opticalCenter: [1.256, 0] },
@@ -379,6 +451,7 @@ export const GLYPH_ANCHORS: Partial<Record<GlyphName, Record<string, readonly [n
   dynamicSforzando: { opticalCenter: [0.444, 0] },
   dynamicZ: { opticalCenter: [0.5, 0] },
   dynamicNiente: { opticalCenter: [0.616, 0] },
+  metNoteDoubleWhole: { noteheadOrigin: [0.396, 0] },
 }
 
 /**
