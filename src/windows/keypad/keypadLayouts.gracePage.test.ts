@@ -10,8 +10,8 @@ import { bus } from '@/bus'
  * ⛔ What is worth pinning here is WHICH keys act: the page was drawn as a PICTURE, and a key is wired only
  * as a decision. ⭐ The first three were (his ask, 2026-09-23: *"wire the grace page of the keypad the same
  * way is wired the dev shell grace pallete"*) — `/` appoggiatura, `*` acciaccatura, `-` bracketed grace; the
- * other twelve are still `momentary`, carry no model value, and do nothing. A key wired by accident fails
- * the test that lists the three.
+ * rest followed key by key, the six durations last (2026-09-26). Each wiring is pinned by the test that
+ * lists it.
  *
  * ⚠️ No geometry: jsdom has no fonts, so a glyph's size and place are not assertable here (the bake
  * step proves those in a browser, picture against picture).
@@ -89,27 +89,21 @@ describe('the Keypad Grace page', () => {
     expect(pressed).toEqual(['cue'])
   })
 
-  it('⛔ …and the other six are still a PICTURE: `momentary`, no model value', () => {
-    const own = page().cells.filter(c => c.key !== 'NumLock' && c.key !== '+' && c.select !== 'grace')
-    expect(own).toHaveLength(6)
-    for (const cell of own) {
-      expect(cell.select, `${cell.action} (key ${cell.key})`).toBe('momentary')
-      expect(cell.duration ?? cell.accidental ?? cell.articulation ?? cell.beam ?? cell.tremolo ?? cell.fan ?? cell.grace).toBeUndefined()
-    }
+  it('⭐ its six DURATION keys are wired — the dev toolbar\'s `Other:` — page one\'s own kind, pressing `bus.duration`', () => {
+    const keys = ['7', '8', '9', '4', '5', '6']
+    expect(keys.map(k => [cellFor(k).action, cellFor(k).select, cellFor(k).duration])).toEqual([
+      ['512th', 'duration', '512'], ['breve', 'duration', 'breve'], ['longa', 'duration', 'longa'],
+      ['64th', 'duration', '64'], ['128th', 'duration', '128'], ['256th', 'duration', '256'],
+    ])
+    const pressed: string[] = []
+    const stop = bus.duration.onPress(d => pressed.push(d))
+    for (const k of keys) pressKeypadCell(cellFor(k))
+    stop()
+    expect(pressed).toEqual(['512', 'breve', 'longa', '64', '128', '256'])
   })
 
-  it('⛔ …so pressing one writes to NO seam — it only logs', () => {
-    const press = vi.spyOn(bus.duration, 'press')
-    const accidental = vi.spyOn(bus.accidental, 'press')
-    const dot = vi.spyOn(bus.dot, 'press')
-    const rest = vi.spyOn(bus.rest, 'press')
-    const grace = vi.spyOn(bus.grace, 'press')
-    for (const cell of page().cells.filter(c => c.select === 'momentary')) pressKeypadCell(cell)
-    expect(press).not.toHaveBeenCalled()
-    expect(accidental).not.toHaveBeenCalled()
-    expect(dot).not.toHaveBeenCalled()
-    expect(rest).not.toHaveBeenCalled()
-    expect(grace).not.toHaveBeenCalled()
+  it('⭐ …so EVERY key on the page acts — no `momentary` picture is left', () => {
+    expect(page().cells.filter(c => c.select === 'momentary')).toEqual([])
   })
 
   it('draws Sibelius\'s own keys, each on the numpad key Sibelius puts it on — under OUR names', () => {

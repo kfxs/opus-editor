@@ -363,8 +363,8 @@ const GRACE_ICON = {
  * ⭐ WIRED KEY BY KEY, each as a decision (his asks, 2026-09-23 and 2026-09-26): `/` `*` `-` `1` `2` `3` `Enter`
  * `0` `.` press `bus.grace` and do exactly what the dev toolbar's button of the same name does
  * (`interactions/controllers/keypadGraceWiring`). The other six — the four short durations, the breve and
- * the longa — are still `momentary`: they light nothing and do nothing; a click just logs its `action`
- * ({@link KeypadWidget} does the logging). The drawing came first and the behaviour follows, key by key.
+ * the longa — are DURATION keys (2026-09-26), exactly page one's kind: they arm the value and light while it
+ * is armed, the same as the dev toolbar's `Other:` buttons. Every key on the page now acts.
  *
  * ⚠️ The `action` names say what the key IS, ⛔ not what one repertoire calls it. Sibelius names two
  * of them for a single USE — its `-` is the guitar "pre-bend note" and its `.` the guitar "slide"
@@ -373,15 +373,15 @@ const GRACE_ICON = {
  * slide. A name taken from one use would have to be renamed the first time the other arrives, so
  * they are `bracketed grace` and `gliss` here.
  *
- * ⚠️ The rest are read off the DRAWING — what the key LOOKS like, not a decided behaviour. The four
- * short notes in particular are a ladder of flag counts.
  * OWN keys only — the arrow and `+` come from {@link withControls}.
  */
 const pageGrace: CellSpec[] = [
   // ⭐ WIRED (his ask, 2026-09-23) — the dev toolbar's three grace buttons, the same functions behind them.
   ['appoggiatura', g(GRACE.plain, GRACE_SIZE, 9), 'grace', 'appoggiatura'], ['acciaccatura', g(GRACE.slashed, GRACE_SIZE, 9), 'grace', 'acciaccatura'], ['bracketed grace', GRACE_ICON.bracketedNote, 'grace', 'bracketed'],
-  ['512th', g(NOTE_SHORT.fiveHundredTwelfth, SHORT_SIZE, 15.6), 'momentary'], ['breve', g(BREVE, BREVE_SIZE, 3), 'momentary'], ['longa', GRACE_ICON.longa, 'momentary'],
-  ['64th', g(NOTE_SHORT.sixtyFourth, SHORT_SIZE, 12.4), 'momentary'], ['128th', g(NOTE_SHORT.hundredTwentyEighth, SHORT_SIZE, 13.5), 'momentary'], ['256th', g(NOTE_SHORT.twoHundredFiftySixth, SHORT_SIZE, 14.5), 'momentary'],
+  // ⭐ WIRED (his ask, 2026-09-26) — the dev toolbar's `Other:` durations, the same door as page one's duration keys:
+  //    a press is `bus.duration` → `palette.setDuration`, the light is the armed duration (docs/plans/other-durations-plan.md).
+  ['512th', g(NOTE_SHORT.fiveHundredTwelfth, SHORT_SIZE, 15.6), 'duration', '512'], ['breve', g(BREVE, BREVE_SIZE, 3), 'duration', 'breve'], ['longa', GRACE_ICON.longa, 'duration', 'longa'],
+  ['64th', g(NOTE_SHORT.sixtyFourth, SHORT_SIZE, 12.4), 'duration', '64'], ['128th', g(NOTE_SHORT.hundredTwentyEighth, SHORT_SIZE, 13.5), 'duration', '128'], ['256th', g(NOTE_SHORT.twoHundredFiftySixth, SHORT_SIZE, 14.5), 'duration', '256'],
   // ⭐ WIRED (his ask, 2026-09-26) — the dev toolbar's `paren.`, the same function behind it.
   // ⭐ …and `2` / `3` / `Enter` (his asks, 2026-09-26) — the dev toolbar's `..` / `...` / `cue`, the same functions
   //    behind them.

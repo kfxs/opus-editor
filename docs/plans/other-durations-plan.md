@@ -235,7 +235,8 @@ from the font metrics.
 
 ## 4. Later (his call — ⛔ not a queue)
 
-- Wire the Keypad Grace page's six keys to the panel's function.
+- ✅ DONE (his ask, 2026-09-26): the Keypad Grace page's six keys (`7 8 9 4 5 6` — 512th, breve, longa, 64th,
+  128th, 256th) are `'duration'` cells, page one's own kind — the same door as the `Other:` buttons.
 - A real UI for the bar-rest style (and the breve head, the longa's stem) — a house-style window.
 - Beam pitch spread with 4+ beams inside the staff (Gould p. 18).
 - Tuplet / feathered-beam windows' unit lists (`tupletWindow`, `featherWindow`).
