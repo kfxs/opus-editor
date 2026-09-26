@@ -62,6 +62,7 @@ import { headerGapConsole } from './dev/headerGapConsole'
 import { dotGapConsole } from './dev/dotGapConsole'
 import { graceConsole } from './dev/graceConsole'
 import { cueConsole } from './dev/cueConsole'
+import { durationsConsole } from './dev/durationsConsole'
 import { glissandoConsole } from './dev/glissandoConsole'
 import { bracketedConsole } from './dev/bracketedConsole'
 import { accidentalGapConsole } from './dev/accidentalGapConsole'
@@ -970,6 +971,9 @@ export function createEditorApp(host: HTMLElement): EditorApp {
     // ⚠️ EXPERIMENT, HIS (2026-09-24) — the CUE note's size and its ledger weight (engine/layout/cueSize).
     //   Armed rows = his calls (gouldRoss ¾, gould ledgers).
     w.__cue = cueConsole(() => renderer.renderScore())
+    // The long values' house style (docs/plans/other-durations-plan.md P4): the breve's and longa's heads,
+    // the longa's stem side, the bar rest's glyph — his defaults armed, every other source a row.
+    w.__durations = durationsConsole(() => renderer.renderScore())
     // ⚠️ EXPERIMENT, HIS (2026-09-25) — the GLISSANDO's rows: Gould armed, the engines beside her
     // (engine/engrave/marks/glissandoLine).
     w.__gliss = glissandoConsole({
@@ -1015,6 +1019,7 @@ export function createEditorApp(host: HTMLElement): EditorApp {
     dbg("[accidentals] accidental→notehead gap: __accidentals.gap('house'|'musescore'|'lilypond'|'ross') / .dump() / .reset()")
     dbg("[dots] augmentation-dot gaps: __dots.gap('house'|'gould'|'gouldDrawn'|'ross'|'lilypond'|'musescore'|'verovio'|'vexflow') / .dump() / .reset() — ⚠️ look at a DOUBLE dot · a REST's: __dots.restGap('gould'|'followNotes'|'lilypond'|'musescore'|'verovio'|'vexflow') / .restReset() · past a FLAG: __dots.flag('gould'|'ross'|'gerouLusk'|'lilypond'|'musescore'|'verovio'|'vexflow') / .flagReset() · two VOICES: __dots.voice('gould'|'verovio'|'vexflow') / .voiceReset() · a colliding CHORD: __dots.chord('gould'|'lilypond'|'musescore'|'verovio'|'vexflow') / .chordReset() · SIZE: __dots.size('gould'|'font'|'ross'|'gerouLusk') / .sizeReset() · a TIE: __dots.tie('gould'|'gerouLusk') / .tieReset()")
     dbg("[grace] grace-note size: __grace.size('house'|'dorico'|'gould'|'musescore'|'lilypond'|…|0.62) / .dump() / .reset() · no-flag slash: __grace.slash({ length, angle, crossBelowTip }) / .resetSlash() · beamed slash: __grace.beamSlash('bravura'|'musescore'|'lilypond'|'none') / .beamSlash({ glyphLeft, glyphDown }) / .resetBeamSlash()")
+    dbg("[durations] long values: __durations.breveHead('round'|'square') / .longaHead('round'|'square') / .longaStem('right'|'normal') / .barRest('convention'|'whole'|'lilypond') / .reset()")
     dbg("[cue] cue-note size: __cue.size('gouldRoss'|'gouldDrawn'|'musescore'|'gerouLusk'|'lilypond'|0.7) / .ledger('gould'|'full') / .graceSize('multiply'|'graceWins'|'musescore'|'sibelius'|'lilypond'|0.5) / .brackets('gould'|'shrink') / .spacing('gould'|'dorico'|'none') / .dump() / .reset()")
     dbg('[spine] a bent staff, LIVE from the open score: __spine.circle({ notes: 8 }) loads fourths · .show({ radius, size, zoom }) bends what is open — size = the MUSIC\'s (1 = the page\'s staff) on the same circle, zoom = the CANVAS\'s · .straight({ size, zoom }) / .clear() — in the panel: drag a CORNER to resize the canvas · RIGHT-drag pans the drawing · CTRL+wheel zooms it (the preview only)')
     dbg("[spacing] law experiment: __spacing.law('lilypond'|'gould'|'musescore'|'verovio'|'finale'|'dorico'|'even'|'proportional') / .dump() / .reset()")

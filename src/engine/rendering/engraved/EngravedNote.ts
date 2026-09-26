@@ -55,6 +55,7 @@ import type { TickColumn } from '../format/columnFormat'
 import type { ColumnModifiers } from '../format/modifierColumns'
 import { EngravedFlag } from './EngravedFlag'
 import { parseNoteDuration } from '@/engine/engrave/notes/noteDuration'
+import { longaStemSide } from '@/engine/layout/longaStem'
 import { flagGlyph } from '@/engine/fonts/fontMetrics'
 import { GLYPH_CODEPOINTS } from '@/engine/fonts/bravuraMetrics'
 import type { EngravedStave } from './EngravedStave'
@@ -1566,6 +1567,7 @@ export class EngravedNote {
       glyphWidth: ruler.glyphWidth,
       stemDirection: ruler.stemDirection,
       isRestType: this.noteType === 'r',
+      stemOnRight: this.noteType !== 'r' && noteDurationOf(this.duration) === 'longa' && longaStemSide() === 'right',
     }
   }
 

@@ -37,6 +37,9 @@ import { INK, INK_HEIGHT, accidentalExtent, accidentalHeight, dotExtent } from '
 import { fracCreate } from '@/utils/fraction'
 import { enableGlyphOutlines } from '@/engine/fonts/glyphOutline'
 import { setGlissandoEndRule, type GlissandoEndRuleName } from '@/engine/engrave/marks/glissandoLine'
+import { resetLongHeads, setLongHead, type LongHeadShape } from '@/engine/fonts/longHeads'
+import { resetLongaStemSide, setLongaStemSide, type LongaStemSide } from '@/engine/layout/longaStem'
+import { resetBarRestStyle, setBarRestStyle, type BarRestStyle } from '@/engine/layout/barRestStyle'
 
 /** Re-exported so a spec can name what `columnGaps()` hands back. */
 export type { BarSpacing, CensusColumn } from '@/dev/spacingCensus'
@@ -110,6 +113,8 @@ export interface Harness {
   outlinesLoaded(): number
   /** Arm a glissando END row (`engine/engrave/marks/glissandoLine`) — false for an unknown name. */
   glissandoEnd(rule: string): boolean
+  /** The long values' house-style rows (docs/plans/other-durations-plan.md P4); `{}` resets all three. */
+  longValues(rows: { breveHead?: string; longaHead?: string; longaStem?: string; barRest?: string }): void
   /** Re-engrave. Awaits the font before the first one, so nothing measures fallback metrics. */
   render(): Promise<void>
   /** Every glyph matching `selector` (default: all of them), left to right. */
@@ -338,6 +343,13 @@ const harness: Harness = {
   fontReady: musicFontReady,
   outlinesLoaded: () => outlinesLoaded,
   glissandoEnd: (rule: string) => setGlissandoEndRule(rule as GlissandoEndRuleName),
+  longValues(rows) {
+    resetLongHeads(); resetLongaStemSide(); resetBarRestStyle()
+    if (rows.breveHead) setLongHead('breve', rows.breveHead as LongHeadShape)
+    if (rows.longaHead) setLongHead('longa', rows.longaHead as LongHeadShape)
+    if (rows.longaStem) setLongaStemSide(rows.longaStem as LongaStemSide)
+    if (rows.barRest) setBarRestStyle(rows.barRest as BarRestStyle)
+  },
 
   async render(): Promise<void> {
     // VexFlow ships Bravura/Academico as web fonts and every glyph is a `<text>`, so a render that

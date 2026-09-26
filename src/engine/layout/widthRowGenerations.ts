@@ -28,9 +28,18 @@ import { glissandoMinLengthGeneration } from './glissandoRoom'
 import { glyphOutlineGeneration } from '@/engine/fonts/glyphOutline'
 import { musicFontGeneration } from '@/engine/fonts/musicFont'
 import { textFontGeneration } from '@/engine/fonts/textFont'
+import { longHeadGeneration } from '@/engine/fonts/longHeads'
+import { longaStemGeneration } from './longaStem'
+import { barRestGeneration } from './barRestStyle'
 
 export function widthRowGenerations(): number[] {
   return [
+    // The breve's and longa's HEAD shape, the longa's stem SIDE, and the bar rest's glyph
+    // (docs/plans/other-durations-plan.md P4): a square head and a breve rest are other widths; the stem side
+    // is the SHAPE key's.
+    longHeadGeneration(),
+    longaStemGeneration(),
+    barRestGeneration(),
     // The armed SPACING law — his experiment, 2026-09-01.
     spacingGeneration(),
     // The armed header-gap row (2026-09-02): closing the gap before an accidental makes a bar narrower.

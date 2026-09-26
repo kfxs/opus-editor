@@ -1,6 +1,6 @@
 # Other durations — 64th, 128th, 256th, 512th, breve, longa — the plan
 
-> **Status (2026-09-26): P0 BUILT (glyphs measured) · P1 BUILT (the model) · P2 BUILT (the panel) · P3 BUILT (the short values drawn).** Decisions a, b (convention), d taken (§1). The
+> **Status (2026-09-26): P0 BUILT (glyphs measured) · P1 BUILT (the model) · P2 BUILT (the panel) · P3 BUILT (the short values drawn) · P4 BUILT (the breve and longa drawn).** Decisions a, b (convention), d taken (§1). The
 > research: `docs/research/durations-standards.md` (MusicXML · MEI · SMuFL · MIDI · Sibelius · Finale ·
 > Dorico), `docs/research/durations-literature.md` (Gould · Ross · Stone · Gerou & Lusk) and
 > `docs/research/durations-engines.md` (MuseScore · Verovio · LilyPond, source read) are all IN. ⛔ A number never
@@ -180,6 +180,14 @@ from the font metrics.
   second `'w'` assumed anywhere; a dev console `__barRest.style(…)`;
   the longa's stem (§2.3); `lineAttached` rest row; the stem question in `measureColumns`. E2e: head ink,
   rest in its space. **His UI check.**
+  ✅ **Built as (P4):** three rows, each with a console setter `__durations.…` — `fonts/longHeads` (breve
+  ROUND, longa SQUARE by default), `layout/longaStem` (`'right'` default | `'normal'`), `layout/barRestStyle`
+  (`'convention'` default | `'whole'` | `'lilypond'`) — all in `widthRowGenerations`. The bar rest's glyph is
+  ONE answer, `restVoicePlacement.restDrawnDuration`, asked by `NoteBuilder`, the placement and
+  `measureColumns`. `restPlacement.restHangsOnLine` (a half and longer) replaced three `'w' || 'h'`s.
+  Measured in Chromium (`e2e/longValues.e2e.ts`): a longa's stem 3.5 sp, on the right edge (0.04 sp) by
+  default and the left (0.07 sp) under `'normal'`; the 4/2 bar rest's ink exactly fills the space
+  between the middle and fourth lines.
   ⚠️ **+ the two-voice collision rule** (`engrave/notes/voiceStack.ts`, ported from VexFlow): when one of
   two colliding notes has no stem, it moves the one whose duration CODE sorts first AS TEXT. With the
   old values only a whole note was stemless, and every code sorts before `'w'`, so the whole note always

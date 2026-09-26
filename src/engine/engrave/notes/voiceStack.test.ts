@@ -49,13 +49,28 @@ describe('stackVoices — two voices', () => {
       .toEqual([{ kind: 'stem', note: 1, direction: -1 }])
   })
 
-  it('⚠️ stemless heads: "the shorter" is a STRING comparison of the duration codes', () => {
+  it('⭐ stemless heads: the SHORTER note steps aside — by LENGTH, ⛔ no longer the codes as strings', () => {
     const stemless = { hasStem: false }
-    // 'q' < '8' is false as strings, so the LOWER note moves; swap the codes and the upper does.
+    // A quarter is longer than an eighth, so the LOWER (the eighth) moves; swap them and the upper does.
     expect(stackVoices([at(3, { ...stemless, duration: 'q' }), at(3, { ...stemless, duration: '8' })], true).steps)
       .toEqual([{ kind: 'xShift', note: 1, px: SIDE_STEP }])
     expect(stackVoices([at(3, { ...stemless, duration: '8' }), at(3, { ...stemless, duration: 'q' })], true).steps)
       .toEqual([{ kind: 'xShift', note: 0, px: SIDE_STEP }])
+  })
+
+  it('⭐ a BREVE stays and the shorter note moves — as a whole note always did (other-durations P4)', () => {
+    // As strings, the breve's '1/2' sorts before 'q' and 'w', so the BREVE would have moved.
+    const breve = { hasStem: false, duration: '1/2' }
+    expect(stackVoices([at(3, breve), at(3, { duration: 'q' })], true).steps)
+      .toEqual([{ kind: 'xShift', note: 1, px: SIDE_STEP }])
+    expect(stackVoices([at(3, { duration: 'q' }), at(3, breve)], true).steps)
+      .toEqual([{ kind: 'xShift', note: 0, px: SIDE_STEP }])
+    // …and the whole note's answers are unchanged: the other note moves, two wholes move the lower.
+    const whole = { hasStem: false, duration: 'w' }
+    expect(stackVoices([at(3, whole), at(3, { duration: 'h' })], true).steps)
+      .toEqual([{ kind: 'xShift', note: 1, px: SIDE_STEP }])
+    expect(stackVoices([at(3, whole), at(3, whole)], true).steps)
+      .toEqual([{ kind: 'xShift', note: 1, px: SIDE_STEP }])
   })
 
   it('⚠️ an upper voice stemmed down over a lower stemmed up becomes notes 1 and 0 — whichever drew', () => {

@@ -29,6 +29,7 @@ import { sweepIntoGhostGroup } from './ghostCursor'
 import { noteRuler } from '../engraved/noteRuler'
 import { staveFrame, standOn } from '../staff/staveFrame'
 import { noteLineY } from '@/engine/engrave/staff/staffFrame'
+import { restHangsOnLine } from '@/engine/layout/restPlacement'
 
 /** The class `clearGhosts` sweeps this ghost by — bare, as `notation.css` styles it. */
 export const REST_GHOST_GROUP_CLASS = 'ghost-rest-group'
@@ -62,10 +63,10 @@ export function drawRestGhost(
       drawNoteInkThrough([rest], ctx)
       rest.setContext(ctx).draw()
 
-      // The attach line, for the two rests that have one — drawn with the glyph so it travels with
+      // The attach line, for the rests that have one (a half and longer) — drawn with the glyph so it travels with
       // it under the transform below.
       const line = restSupportingLedgerLine(duration, false, rest.getLineForRest())
-      if (line !== null || duration === 'w' || duration === 'h') {
+      if (line !== null || restHangsOnLine(duration)) {
         const ruler = noteRuler(rest)
         const PAD = 3 // px the line overhangs the glyph on each side — reads as a staff line, not a strike-through
         const y = noteLineY(staveFrame(stave), rest.getLineForRest())

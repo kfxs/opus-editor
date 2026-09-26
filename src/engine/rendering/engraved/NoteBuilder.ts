@@ -11,12 +11,13 @@ import type { Measure, NoteDuration, Clef, ArticulationType, Chord, ChordRest, F
 import type { KeyCrossing } from '@/engine/engrave/notes/keyLines'
 import { fracCompare, fracLte } from '@/utils/fraction'
 import { middleLineDiatonicPos } from '@/utils/clefUtils'
-import { doubleDuration, noteDurationToken, slotLength } from '@/utils/durations'
+import { DURATION_INFO, doubleDuration, noteDurationToken, slotLength } from '@/utils/durations'
+import { restDrawnDuration } from '@/engine/layout/restVoicePlacement'
 import { pairRoleAt } from '@/utils/tremoloPair'
 import { displayedAccidentals } from '@/utils/accidentalState'
 import { C_MAJOR } from '@/utils/keySignature'
 import { spellingToMidi, spellingToNoteKey, spellingDiatonicPos } from '@/utils/pitchSpelling'
-import { restStaffLine } from '@/engine/layout/restPlacement'
+import { restHangsOnLine, restStaffLine } from '@/engine/layout/restPlacement'
 
 /**
  * Note/measure building helpers shared by the renderer and the measure-width math.
@@ -103,7 +104,7 @@ export function restSupportingLedgerLine(
   isMeasureRest: boolean,
   restLine: number,
 ): number | null {
-  const lineAttached = isMeasureRest || duration === 'w' || duration === 'h'
+  const lineAttached = isMeasureRest || restHangsOnLine(duration)
   if (!lineAttached) return null
   return restLine >= 6 || restLine <= 0 ? restLine : null
 }
@@ -162,15 +163,17 @@ export function createStaveNotesFromSlots(
       const restScale = slotScale(slot)
       const sized = restScale !== 1 ? { glyphScale: restScale } : {}
       if (slot.isMeasureRest) {
-        // Whole-bar (measure) rest: a centred whole rest, drawn the same way at
-        // any bar length. Its voice runs in SOFT mode (`utils/restFill.pickVoiceMode`) so
+        // Whole-bar (measure) rest: a centred rest, drawn the same way at any bar length. Its voice runs in SOFT mode (`utils/restFill.pickVoiceMode`) so
         // the whole rest's fixed tick value never clashes with the bar capacity.
         //
         // ⭐ Placed by the same rule as any other whole rest ({@link restKey}) — the FOURTH line.
         //   All three reference engines place a measure rest exactly where they place a duration
         //   whole rest, and two of them do not even distinguish the cases: MuseScore's `V_MEASURE`
         //   falls through to `V_WHOLE`, and its `isWholeRest()` answers true for both.
-        const measureRest = new EngravedNote({ keys: [restKey('w')], duration: 'wr', alignCenter: true, ...sized })
+        // ⭐ …drawn from the glyph the BAR-REST STYLE gives this bar (`restDrawnDuration` — a breve rest
+        //   from 8 quarters by default, other-durations-plan P4): the one answer the placement and the ink ask.
+        const drawn = restDrawnDuration(slot)
+        const measureRest = new EngravedNote({ keys: [restKey(drawn)], duration: `${DURATION_INFO[drawn].token}r`, alignCenter: true, ...sized })
         if (shift) measureRest.setKeyLine(0, measureRest.getLineForRest() + shift)
         staveNotes.push(measureRest)
         continue

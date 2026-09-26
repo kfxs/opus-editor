@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { restStaffLine } from './restPlacement'
+import { restHangsOnLine, restStaffLine } from './restPlacement'
 import type { NoteDuration } from '@/types/music'
 
 /**
@@ -44,5 +44,17 @@ describe('which line a rest is drawn on', () => {
     // A fallback that guessed the whole rest's line would put a strange duration a space off the
     // staff's centre — wrong, and wrong in the direction nobody would look at.
     expect(restStaffLine('64' as NoteDuration)).toBe(2)
+  })
+})
+
+describe('which rests hang from or sit on a line (other-durations P4)', () => {
+  it('⭐ a half rest and longer — the half, the whole, the breve, the longa; ⛔ a quarter and shorter track content', () => {
+    for (const d of ['longa', 'breve', 'w', 'h'] as NoteDuration[]) expect(restHangsOnLine(d), d).toBe(true)
+    for (const d of ['q', '8', '32', '512'] as NoteDuration[]) expect(restHangsOnLine(d), d).toBe(false)
+  })
+
+  it('the breve and longa rests stand on the MIDDLE line (all four books, all three engines)', () => {
+    expect(restStaffLine('breve')).toBe(2)
+    expect(restStaffLine('longa')).toBe(2)
   })
 })

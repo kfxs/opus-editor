@@ -52,10 +52,11 @@
  */
 
 import type { ChordRest, Clef, Fraction, NoteDuration, Rest } from '@/types/music'
-import { restStaffLine } from './restPlacement'
+import { restHangsOnLine, restStaffLine } from './restPlacement'
+import { barRestDuration } from './barRestStyle'
 import { INK_HEIGHT, restBand } from './spacingPadding'
 import { staffLineForSpelling } from '@/utils/clefUtils'
-import { slotLength } from '@/utils/durations'
+import { DURATION_INFO, slotLength } from '@/utils/durations'
 import { voiceOf } from '@/utils/lanes'
 import { fracAdd, fracLt } from '@/utils/fraction'
 
@@ -87,9 +88,10 @@ const noteheadHalf = (): number => INK_HEIGHT.notehead
  */
 const EPS = 1e-9
 
-/** ⚠️ The two durations that attach to a fixed outer staff line instead of tracking content (§3.1). */
+/** ⚠️ The durations that attach to a fixed outer staff line instead of tracking content (§3.1) —
+ *  a half rest and longer (`restPlacement.restHangsOnLine`). */
 function attachesToOuterLine(duration: NoteDuration): boolean {
-  return duration === 'w' || duration === 'h'
+  return restHangsOnLine(duration)
 }
 
 /** The least a rest has to say about itself to be placed. Satisfied by a `Rest` slot AND a flat `Note`. */
@@ -103,12 +105,15 @@ export interface RestPlacement {
 }
 
 /**
- * The duration a rest is DRAWN as. ⚠️ A measure rest is drawn from the whole rest's glyph and line
- * whatever it stores (`NoteBuilder`'s `restKey('w')`), so it must be *placed* as one too — and both
- * the derived line and the neutral it is measured against have to agree about which it is.
+ * The duration a rest is DRAWN as. ⚠️ A measure rest stores the nominal `'w'`, and is drawn from the glyph
+ * the BAR-REST STYLE gives its bar's length (`layout/barRestStyle` — a whole rest, or a breve rest from
+ * 8 quarters by default: docs/plans/other-durations-plan.md P4). ⭐ THE one answer: the drawing
+ * (`NoteBuilder`), the placement here and the ink (`measureColumns`) all ask it, so the derived line and
+ * the neutral it is measured against agree about which glyph it is. A measure rest's `actualDuration` is
+ * its bar's length; absent, the bar is the whole note it stores.
  */
 export function restDrawnDuration(rest: RestPlacement): NoteDuration {
-  return rest.isMeasureRest ? 'w' : rest.duration
+  return rest.isMeasureRest ? barRestDuration(rest.actualDuration ?? DURATION_INFO.w.fraction) : rest.duration
 }
 
 /**

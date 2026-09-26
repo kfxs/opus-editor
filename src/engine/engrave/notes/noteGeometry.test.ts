@@ -23,6 +23,12 @@ describe('noteGeometry — a note’s x’s', () => {
     expect(stemX(note({ stemDirection: -1 }))).toBe(104 + stemThicknessPx() / 2)
   })
 
+  it('⭐ a stem DOWN that stands on the RIGHT (a longa, other-durations P4) is at the right edge, half a stroke inside', () => {
+    expect(stemX(note({ stemDirection: -1, stemOnRight: true }))).toBe(116 - stemThicknessPx() / 2)
+    expect(stemX(note({ stemDirection: 1, stemOnRight: true })), 'an up stem is on the right anyway')
+      .toBe(116 - stemThicknessPx() / 2)
+  })
+
   it('a note with no direction takes the right edge and no half-stroke', () => {
     expect(stemX(note({ stemDirection: 0 }))).toBe(116)
   })

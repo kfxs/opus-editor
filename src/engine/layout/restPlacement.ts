@@ -68,6 +68,7 @@
  */
 
 import type { NoteDuration } from '@/types/music'
+import { DURATION_INFO } from '@/utils/durations'
 
 /**
  * ⭐⭐ **This table gives each rest an ANCHOR, not a bounding box — and that is the right seam.**
@@ -118,6 +119,17 @@ const REST_LINE: Record<NoteDuration, number> = {
  * has to come from here, or the model measures one place while the picture uses another — which is
  * the defect this module was extracted to end, not merely to record.
  */
+/**
+ * ⭐ Whether a rest of this duration HANGS FROM or SITS ON a line — a half rest or longer: the whole rest
+ * hangs, the half sits, the breve fills the space above its line, the longa spans two spaces from one
+ * (docs/plans/other-durations-plan.md P4). Such a rest moves a whole line at a time in two voices and wants
+ * its line drawn when it stands outside the staff; a shorter rest tracks content. DERIVED from the table
+ * (a half's length or more), ⛔ never a list — three sites spelled it `'w' || 'h'`.
+ */
+export function restHangsOnLine(duration: NoteDuration): boolean {
+  return DURATION_INFO[duration].beats >= DURATION_INFO.h.beats
+}
+
 export function restStaffLine(duration: NoteDuration): number {
   return REST_LINE[duration] ?? MIDDLE_LINE
 }

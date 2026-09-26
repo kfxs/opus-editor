@@ -46,6 +46,9 @@ import { graceGroupScale, graceStemSpaces, hostLeftReach } from './graceRoom'
 import { BRACKETED_ROWS, beforeSideLayout, bracketedAfterLayout, hostRightReach } from './bracketedRoom'
 import { enclosureLayout } from './headEnclosure'
 import type { LineRoom } from './noteLineRoom'
+import { restDrawnDuration } from './restVoicePlacement'
+import { barRestDuration } from './barRestStyle'
+import { NOTE_DURATION_ROWS } from '@/engine/engrave/inheritedDefaults'
 
 /** Canonical key for an exact beat — `fracCreate` reduces, so equal beats stringify equally. */
 const beatKey = (beat: Fraction): string => `${beat.num}/${beat.den}`
@@ -151,9 +154,11 @@ function slotInk(slot: ChordRest, signs: Map<string, string | null>, clef: Clef,
     //   be the WHOLE STAFF — the honest answer while the extents were unknown, and a maximally
     //   conservative one. ⚠️ Nothing kerns against a rest yet (`MAY_KERN` has no rest row), so this
     //   moves no width; it makes the question askable.
-    const band = restBand(slot.duration)
+    // ⭐ A bar rest is measured as the glyph it is DRAWN with (`restDrawnDuration`, other-durations-plan P4).
+    const drawn = restDrawnDuration(slot)
+    const band = restBand(drawn)
     // ⭐ A CUE rest's own ink at its size (cue-size-plan P3) — ⛔ not its graces', which keep theirs (P4).
-    const own: RawInk = [{ left: 0, right: restExtent(slot.duration), ...band, kind: 'rest', staff }]
+    const own: RawInk = [{ left: 0, right: restExtent(drawn), ...band, kind: 'rest', staff }]
     // ⭐ …and its DOTS (multiple-dots-plan P4b) — a box past the glyph, on the rest's own band (the safe
     //    side: a rest's dot rides beside its top hook or breast, inside that band).
     if (slot.dots) own.push({ left: restExtent(slot.duration), right: restDotExtent(slot.duration, slot.dots), ...band, kind: 'dot', staff })
@@ -225,11 +230,11 @@ function slotInk(slot: ChordRest, signs: Map<string, string | null>, clef: Clef,
   }
 
   // ⭐ THE STEM — no width of its own (it stands at the notehead's right edge), and the piece that
-  //   decides most kerning questions. ⛔ A WHOLE note has none, and a BEAMED note's stem runs to a beam
-  //   whose height is not a width-time fact, so that one is treated as reaching the far side of the
-  //   staff: decline the kern rather than draw ink through ink.
+  //   decides most kerning questions. ⛔ A whole note and a breve have none (the duration's row — a LONGA
+  //   has one), and a BEAMED note's stem runs to a beam whose height is not a width-time fact, so that
+  //   one is treated as reaching the far side of the staff: decline the kern rather than draw ink through ink.
   let stemFromY: number | undefined
-  if (slot.duration !== 'w' && pitches.length > 0) {
+  if (NOTE_DURATION_ROWS[slot.duration].stem && pitches.length > 0) {
     const lines = pitches.map(lineOf)
     const up = stemUp(slot, clef, multiVoice)
     const fromY = yOfLine(up ? Math.max(...lines) : Math.min(...lines))
@@ -528,7 +533,7 @@ function openingInk(
     (earliest, slot) => (earliest === null || fracCompare(slot.beat, earliest) < 0 ? slot.beat : earliest),
     null,
   )
-  if (first === null) return [MEASURE_REST_INK()]
+  if (first === null) return [MEASURE_REST_INK(measure)]
 
   const signs = displayedSigns(measure, keyFor)
   const multiVoice = hasSeveralVoices(measure)
@@ -543,10 +548,11 @@ function openingInk(
 
 /** The one rest an untouched bar draws, as ink — a band over the whole staff, since nothing kerns
  *  against a rest and its drawn position is not a width-time fact. */
-const MEASURE_REST_INK = (): InkBox =>
+const MEASURE_REST_INK = (measure: Measure): InkBox =>
   // Size 1: this is the bar NOBODY has written into, so there is no staff whose size to ask. The
   // moment a bar holds slots, every box goes through `sized` with its own staff's.
-  ({ left: 0, right: restExtent('w'), top: 0, bottom: 4, kind: 'rest', staff: undefined, size: 1 })
+  // ⭐ Its width is the glyph the BAR-REST STYLE draws for this bar's length (other-durations-plan P4).
+  ({ left: 0, right: restExtent(barRestDuration(getMeterInfo(measure.timeSignature).barQuarters)), top: 0, bottom: 4, kind: 'rest', staff: undefined, size: 1 })
 
 /**
  * ⭐ **Which slots DRAW A FLAG** — by slot id, resolved the way the drawing resolves it: per LANE
@@ -699,7 +705,7 @@ export function measureColumns(
 
   // A bar holding nothing still draws a measure rest, and it starts at the beginning.
   if (beats.size === 0) {
-    add(fracCreate(0, 1), [MEASURE_REST_INK()])
+    add(fracCreate(0, 1), [MEASURE_REST_INK(measure)])
   }
 
   const positions = [...beats.values()].sort(fracCompare)

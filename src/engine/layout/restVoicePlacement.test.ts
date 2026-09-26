@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { restDrawnDuration, restLineForVoice, restLineInStaff, restNeutralLine, restVoiceContext } from './restVoicePlacement'
 import { restStaffLine } from './restPlacement'
+import { resetBarRestStyle, setBarRestStyle } from './barRestStyle'
 import { fracCreate } from '@/utils/fraction'
 import type { Chord, ChordRest, Fraction, NoteDuration, NotePitch, PitchStep } from '@/types/music'
 
@@ -367,5 +368,24 @@ describe('⭐⭐ the prelude’s bar — the regression his 67 placements are th
     const displacement = line - restNeutralLine('16')
     const hisFit = Math.round((7 - 3) + 2) // E4 is 4 spaces above the middle line
     expect(Math.abs(displacement - hisFit)).toBeLessThanOrEqual(1)
+  })
+})
+
+describe('a BAR rest is drawn as the bar-rest style says (other-durations P4)', () => {
+  const barRest = (quarters: number) => ({ beat: fracCreate(0, 1), duration: 'w' as NoteDuration, isMeasureRest: true,
+    ...(quarters === 4 ? {} : { actualDuration: fracCreate(quarters, 1) }) })
+
+  it('⭐ a whole rest in 4/4 (the field is absent there) and 3/2; a BREVE rest in 4/2 and 4/1', () => {
+    expect(restDrawnDuration(barRest(4))).toBe('w')
+    expect(restDrawnDuration(barRest(6))).toBe('w')
+    expect(restDrawnDuration(barRest(8))).toBe('breve')
+    expect(restDrawnDuration(barRest(16))).toBe('breve')
+  })
+
+  it('follows a re-arm — and a plain rest is its own duration whatever the style', () => {
+    setBarRestStyle('whole')
+    expect(restDrawnDuration(barRest(8))).toBe('w')
+    resetBarRestStyle()
+    expect(restDrawnDuration({ beat: fracCreate(0, 1), duration: 'breve' })).toBe('breve')
   })
 })

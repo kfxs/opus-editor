@@ -47,6 +47,7 @@ import * as sebastian from './sebastianMetrics'
 import { DEFAULT_MUSIC_FONT, activeMusicFont, type MusicFontId } from './musicFont'
 import type { NoteDuration } from '@/types/music'
 import { durationFlags } from '@/utils/durations'
+import { longHeadGlyph } from './longHeads'
 
 export { BRAVURA }
 
@@ -237,9 +238,28 @@ export function engravingDefault(name: EngravingDefault): number {
 
 /** The notehead a duration is written with. ⚠️ Anything shorter than a half is the same black head. */
 export function noteheadGlyph(duration: NoteDuration): GlyphName {
-  if (duration === 'w') return 'noteheadWhole'
-  if (duration === 'h') return 'noteheadHalf'
-  return 'noteheadBlack'
+  const row = NOTEHEAD_GLYPHS[duration]
+  return typeof row === 'function' ? row() : row
+}
+
+/**
+ * One row per `NoteDuration` — TOTAL, so a new duration cannot be drawn until its head is chosen
+ * (docs/plans/other-durations-plan.md P4; a breve fell through to the black head before). The breve's and
+ * longa's heads are a house-style row (`./longHeads`), asked at draw time.
+ */
+const NOTEHEAD_GLYPHS: Record<NoteDuration, GlyphName | (() => GlyphName)> = {
+  longa: () => longHeadGlyph('longa'),
+  breve: () => longHeadGlyph('breve'),
+  w: 'noteheadWhole',
+  h: 'noteheadHalf',
+  q: 'noteheadBlack',
+  '8': 'noteheadBlack',
+  '16': 'noteheadBlack',
+  '32': 'noteheadBlack',
+  '64': 'noteheadBlack',
+  '128': 'noteheadBlack',
+  '256': 'noteheadBlack',
+  '512': 'noteheadBlack',
 }
 
 /** The rest glyph of a duration — one per `NoteDuration`, which is why the map is total. */

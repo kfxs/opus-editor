@@ -42,6 +42,11 @@ export interface NoteXInputs {
   stemDirection: number
   /** Whether the note is a REST by its type — VexFlow's `noteType === 'r'`, which is what its stem x asks. */
   isRestType: boolean
+  /**
+   * ⭐ A DOWN stem that still stands on the head's RIGHT — a longa under the `'right'` stem-side row
+   * (`layout/longaStem`, docs/plans/other-durations-plan.md P4). Absent = the normal rule: left when down.
+   */
+  stemOnRight?: boolean
 }
 
 /** Where the heads begin. */
@@ -89,8 +94,11 @@ export function tieLeftX(note: NoteXInputs, leftRoom: number): number {
 /** Where the stem stands — see the table in the header. */
 export function stemX(note: NoteXInputs): number {
   if (note.isRestType) return glyphCentreX(note)
-  const edge = note.stemDirection === STEM_DOWN
-    ? note.originX + note.xShift
-    : note.originX + note.xShift + note.glyphWidth
-  return edge + (note.stemDirection ? stemThicknessPx() / (2 * -note.stemDirection) : 0)
+  const onRight = note.stemDirection !== STEM_DOWN || note.stemOnRight === true
+  const edge = onRight
+    ? note.originX + note.xShift + note.glyphWidth
+    : note.originX + note.xShift
+  // Half a stroke INSIDE the edge it stands on: left of a right edge, right of a left one.
+  if (!note.stemDirection) return edge
+  return edge + (onRight ? -1 : 1) * stemThicknessPx() / 2
 }

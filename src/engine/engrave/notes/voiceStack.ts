@@ -30,7 +30,11 @@
  * ⛔ Which of these the editor WANTS is not decided here — this is VexFlow's rule, kept as it drew.
  *
  * ⚠️ Transcribed with its quirks intact, because tidying any of them moves ink:
- * - the "which is shorter" test compares the two DURATION CODES as strings (`'8' < 'q'`);
+ * - (⭐ no longer: the "which is shorter" test compared the two DURATION CODES as strings (`'8' < 'q'`).
+ *   With a whole note the only stemless note, every code sorted before `'w'` and the answer was right;
+ *   the breve's `'1/2'` and longa's `'1/4'` sort FIRST and would have moved the LONGER note. It compares
+ *   the notes' LENGTHS now — the same answer for every pair the old values could make, so no ink moved:
+ *   docs/plans/other-durations-plan.md P4);
  * - with two voices where the upper stems down and the lower up, the pair becomes notes 1 and 0 —
  *   whichever two were drawn;
  * - the rest's reach is its glyph's ascent/descent in whole staff spaces, rounded UP; a note's is its
@@ -39,6 +43,10 @@
  */
 import { STAVE_LINE_DISTANCE_PX } from '@/engine/engrave/inheritedDefaults'
 import { midLine } from './midLine'
+import { parseNoteDuration } from './noteDuration'
+
+/** A duration code's length in ticks — the token parser's own table. */
+const lengthOf = (duration: string): number => parseNoteDuration(duration)?.ticks ?? 0
 
 /** One note of the column, as the rule needs it — in VexFlow's line units (a space is a half). */
 export interface ColumnVoiceNote {
@@ -60,7 +68,7 @@ export interface ColumnVoiceNote {
   drawn: boolean
   hasStem: boolean
   hasBeam: boolean
-  /** VexFlow's duration code — ⚠️ compared as a STRING. */
+  /** The duration part of the note's token (`'q'`, `'8'`, `'1/2'` …) — compared by the LENGTH it names. */
   duration: string
   /** The glyph code of the lowest / highest key's head. */
   bottomHeadCode: string | undefined
@@ -208,8 +216,8 @@ export function stackVoices(
           }
         } else if (lineDiff < 1) {
           xShift = voiceXShift + VOICE_SIDE_STEP_PAD_PX
-          // ⚠️ A STRING comparison of the duration codes, as VexFlow wrote it.
-          setXShift(u.duration < l.duration ? upper : lower, xShift)
+          // The SHORTER note steps aside; equal lengths move the lower, as VexFlow's `<` did.
+          setXShift(lengthOf(u.duration) < lengthOf(l.duration) ? upper : lower, xShift)
         } else if (u.hasStem) {
           setStem(upper, -upper.stemDirection)
         } else if (l.hasStem) {
