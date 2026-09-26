@@ -1,6 +1,6 @@
 # Other durations — 64th, 128th, 256th, 512th, breve, longa — the plan
 
-> **Status (2026-09-26): P0 BUILT (glyphs measured) · P1 BUILT (the model) · P2 BUILT (the panel) · P3 BUILT (the short values drawn) · P4 BUILT (the breve and longa drawn).** Decisions a, b (convention), d taken (§1). The
+> **Status (2026-09-26): P0 BUILT (glyphs measured) · P1 BUILT (the model) · P2 BUILT (the panel) · P3 BUILT (the short values drawn) · P4 BUILT (the breve and longa drawn) · entry across barlines FIXED (§3b) · P5 BUILT (the surfaces around).** Decisions a, b (convention), d taken (§1). The
 > research: `docs/research/durations-standards.md` (MusicXML · MEI · SMuFL · MIDI · Sibelius · Finale ·
 > Dorico), `docs/research/durations-literature.md` (Gould · Ross · Stone · Gerou & Lusk) and
 > `docs/research/durations-engines.md` (MuseScore · Verovio · LilyPond, source read) are all IN. ⛔ A number never
@@ -199,6 +199,12 @@ from the font metrics.
   (a list of the bound ones, `lint:tables` is fine with an ORDER list); `durationChangeOps`' literal list;
   the Properties note panel's duration display; playback of a 512th at a fast tempo (a note of a few ms —
   check the scheduler takes it).
+  ✅ **Built as (P5):** tempo text reads back every unit it can print — the printed aliases ARE `UNIT_GLYPH`
+  (the breve and the 64th … 512th joined; ⛔ never the longa), plus typed `breve`, `64` … `512`. Playback
+  needed nothing: a 512th sounds its exact 1/128 beat (≈ 4 ms at ♩ = 120), a tied longa one 16-beat note —
+  pinned in `playbackSchedule.test.ts`; every beat tolerance in the code is ≤ 0.001 beat, finer than a 512th.
+  Nothing to do in Properties (it shows no duration) nor in import (it checks none). ⏭️ His call: whether
+  the tempo MENU offers the new units (it offers six, on Ctrl+Num 1–6).
 - **P6 — sweep.** `grep` for any remaining literal duration list; `audit:tests`; docs (`CLAUDE.md`'s
   "Duration values" line, ARCHITECTURE glossary).
 

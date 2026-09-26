@@ -85,12 +85,19 @@ export const MET_AUGMENTATION_DOT = '\uECB7'
 
 /**
  * Everything accepted AS a unit — printed glyph or typed shorthand. Longest-first matters for the
- * alternation: '16' must be tried before '1', and the multi-code-unit glyphs (𝅗𝅥 is a surrogate
- * pair) before the single ones.
+ * alternation: '16' must be tried before '1', '128' before its '8', and the multi-code-unit glyphs (𝅗𝅥 is
+ * a surrogate pair) before the single ones.
+ *
+ * ⭐ The PRINTED half is {@link UNIT_GLYPH} itself, longest first — every unit a mark can print, it can read
+ * back (docs/plans/other-durations-plan.md P5: the breve and the 64th … 512th joined). ⛔ Never the longa,
+ * which nothing prints. The TYPED shorthands are this list's own.
  */
 const UNIT_ALIASES: ReadonlyArray<readonly [string, NoteDuration]> = [
-  ['𝅝', 'w'], ['𝅗𝅥', 'h'], ['♩', 'q'], ['♪', '8'], ['𝅘𝅥𝅯', '16'], ['𝅘𝅥𝅰', '32'],
-  ['whole', 'w'], ['half', 'h'], ['quarter', 'q'], ['eighth', '8'],
+  ...(Object.keys(UNIT_GLYPH) as NoteDuration[])
+    .flatMap(d => { const g = UNIT_GLYPH[d]; return g === null ? [] : [[g, d] as const] })
+    .sort(([a], [b]) => b.length - a.length),
+  ['breve', 'breve'], ['whole', 'w'], ['half', 'h'], ['quarter', 'q'], ['eighth', '8'],
+  ['512', '512'], ['256', '256'], ['128', '128'], ['64', '64'],
   ['16', '16'], ['32', '32'], ['8', '8'], ['w', 'w'], ['h', 'h'], ['q', 'q'], ['e', '8'],
 ]
 

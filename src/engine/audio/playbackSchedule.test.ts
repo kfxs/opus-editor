@@ -518,3 +518,36 @@ describe('collectScheduledNotes — TWO-NOTE tremolo (the pair alternates)', () 
     expect(got.filter(e => pitchToMidi(e.pitch) === E4)).toHaveLength(1)
   })
 })
+
+describe('collectScheduledNotes — the longest and shortest values (other-durations P5)', () => {
+  it('⭐ a 512th sounds 1/128 of a beat — exact, a few milliseconds, never zero or negative', () => {
+    const model = new ScoreModel('P')
+    model.addNote({ step: 'C', octave: 4, duration: '512', measure: 1, beat: frac(0, 1) })
+    model.addNote({ step: 'E', octave: 4, duration: '512', measure: 1, beat: frac(1, 128) })
+    const events = collectScheduledNotes(model.getScore()).sort((a, b) => a.startBeats - b.startBeats)
+    expect(events.map(e => e.durationBeats)).toEqual([1 / 128, 1 / 128])
+    expect(events[1].startBeats, 'the second starts where the first ends').toBe(1 / 128)
+    const map = buildTempoMap(model.getScore())
+    const seconds = beatsToSeconds(map, events[0].durationBeats) - beatsToSeconds(map, 0)
+    expect(seconds, 'at the default tempo, milliseconds').toBeGreaterThan(0)
+    expect(seconds).toBeLessThan(0.01)
+  })
+
+  it('⭐ a longa tied across four 4/4 bars sounds as ONE 16-beat note', () => {
+    const model = new ScoreModel('P')
+    for (let i = 0; i < 3; i++) model.addMeasure()
+    const ids = [1, 2, 3, 4].map(m => model.addNote({ step: 'C', octave: 4, duration: 'w', measure: m, beat: frac(0, 1) }).id)
+    for (let i = 0; i < 3; i++) tie(model.getScore(), ids[i], ids[i + 1])
+    const events = collectScheduledNotes(model.getScore()).filter(e => pitchToMidi(e.pitch) === C4)
+    expect(events).toHaveLength(1)
+    expect(events[0].durationBeats).toBe(16)
+  })
+
+  it('a breve in 4/2 sounds 8 beats', () => {
+    const model = new ScoreModel('P')
+    model.setTimeSignature(1, { numerator: 4, denominator: 2 })
+    model.addNote({ step: 'C', octave: 4, duration: 'breve', measure: 1, beat: frac(0, 1) })
+    const events = collectScheduledNotes(model.getScore()).filter(e => pitchToMidi(e.pitch) === C4)
+    expect(events.map(e => e.durationBeats)).toEqual([8])
+  })
+})

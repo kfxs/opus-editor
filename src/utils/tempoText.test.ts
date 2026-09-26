@@ -118,3 +118,23 @@ describe('tempoFieldsFromTool — the one place the palette becomes a mark', () 
       .not.toHaveProperty('showMetronome')
   })
 })
+
+describe('parseTempoText — the breve and the 64th … 512th as units (other-durations P5)', () => {
+  it('⭐ reads each back from what it PRINTS — every printable unit round-trips', () => {
+    for (const unit of ['breve', '64', '128', '256', '512'] as const) {
+      const printed = composeTempoText({ unit, bpm: 40, showMetronome: true })
+      expect(parseTempoText(printed), unit).toMatchObject({ ok: true, unit, bpm: 40 })
+    }
+  })
+
+  it('takes the typed shorthands — `breve = 40`, `64 = 60`, `128=30` — and prints the glyph', () => {
+    expect(parseTempoText('breve = 40')).toMatchObject({ text: '\u{1D15C} = 40', unit: 'breve', bpm: 40 })
+    expect(parseTempoText('64 = 60')).toMatchObject({ unit: '64', bpm: 60 })
+    expect(parseTempoText('128=30')).toMatchObject({ unit: '128', bpm: 30 })
+    expect(parseTempoText('q = 128'), 'a 128 AFTER the = is still a speed').toMatchObject({ unit: 'q', bpm: 128 })
+  })
+
+  it('⛔ the LONGA is no unit — nothing prints one, so `longa = 30` states no speed', () => {
+    expect(parseTempoText('longa = 30')).not.toMatchObject({ unit: 'longa' })
+  })
+})
