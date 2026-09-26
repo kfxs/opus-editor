@@ -1,6 +1,6 @@
 # Other durations — 64th, 128th, 256th, 512th, breve, longa — the plan
 
-> **Status (2026-09-26): P0 BUILT (glyphs measured) · P1 BUILT (the model) · P2 BUILT (the panel) · P3 BUILT (the short values drawn) · P4 BUILT (the breve and longa drawn) · entry across barlines FIXED (§3b) · P5 BUILT (the surfaces around).** Decisions a, b (convention), d taken (§1). The
+> **Status (2026-09-26): P0 BUILT (glyphs measured) · P1 BUILT (the model) · P2 BUILT (the panel) · P3 BUILT (the short values drawn) · P4 BUILT (the breve and longa drawn) · entry across barlines FIXED (§3b) · P5 BUILT (the surfaces around) · P6 BUILT (sweep) — ✅ EVERY PHASE BUILT; what is left is §4 Later.** Decisions a, b (convention), d taken (§1). The
 > research: `docs/research/durations-standards.md` (MusicXML · MEI · SMuFL · MIDI · Sibelius · Finale ·
 > Dorico), `docs/research/durations-literature.md` (Gould · Ross · Stone · Gerou & Lusk) and
 > `docs/research/durations-engines.md` (MuseScore · Verovio · LilyPond, source read) are all IN. ⛔ A number never
@@ -227,6 +227,12 @@ from the font metrics.
   it; a beat 1 in a 1-beat bar is not a beat). Left over, ⛔ not fixed: `addNoteAtBeat` called with a beat
   PAST the bar's end evicts before it refuses, so it trips the undo invariant — an API misuse no click makes.
 
+  ✅ **Built as (P6):** the sweep found ONE list left — `utils/tremoloPair.pairAcceptsJoined` offers the JOINED
+  two-note tremolo only when the drawn value `=== 'h'`. Its stated rule is "an open head with a stem", which a
+  pair of breves drawn as LONGAS also meets — so making it a rule would PERMIT something new: recorded
+  below, ⛔ not changed. `audit:tests` lists none of this plan's modules. ARCHITECTURE's glossary says
+  where a measure rest's glyph comes from.
+
 ## 4. Later (his call — ⛔ not a queue)
 
 - Wire the Keypad Grace page's six keys to the panel's function.
@@ -234,4 +240,8 @@ from the font metrics.
 - Beam pitch spread with 4+ beams inside the staff (Gould p. 18).
 - Tuplet / feathered-beam windows' unit lists (`tupletWindow`, `featherWindow`).
 - 1024th, maxima — one row each.
+- The JOINED two-note tremolo on a pair of breves (drawn as longas: open head, stem) — `tremoloPair.pairAcceptsJoined`
+  is `=== 'h'` today; its own rule would allow it.
+- The tempo MENU offering the breve and the 64th … 512th as metronome units (six today, Ctrl+Num 1–6).
+- Unbeamed stem lengths for 64th+ (ours 4.4 → 6.6 sp, LilyPond 5 → 8, Gould 4.8 at a 64th) as a preset row.
 - MusicXML / MIDI export: `long` is MusicXML's longa; a 512th needs PPQ divisible by 128 (480 is not).
