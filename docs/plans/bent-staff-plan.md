@@ -141,7 +141,7 @@ start to port it there."* Read from the source (`eye/spineScore.ts`, `eye/spineS
 | 14 | **SPACING** — `layout/spacing` (the spring law, the ink table) | ROOM | ✅ `eye/spineSpacing` (§7) | run the page's casting-off for ONE endless system and read its column x's as `s`. ⚠️ On a CLOSED path the total length is FIXED by the radius — justification on a circle is its own question (B7) |
 | 15 | hairpins · ottava · pedal · trill lines | SPAN | ⛔ | offsets of the path between two `s`, like the staff lines (the *Bike Ride* plate's hairpin follows the rim, §1) |
 | 16 | dynamics · tempo marks · expression words | PIECES on a LANE (an offset from the path) | ✅ `eye/spineMarks` (2026-09-26, his pick). ⛔ Nothing re-decided: the dynamics line is the page's whole `planDynamicsLines` over the spine's own columns (one system, line 0); the tempo row is `clearanceBaseline` + `TEMPO_LINE` over its beat → bar end, merged with what the dynamics claimed above (`bandOver` — the LADDER); a dynamic hangs off `anchorSlotIndex`'s slot, a level CENTRED on its ink, prose anchored, a shared beat a ROW (`layoutCoLocatedDynamics`); a tempo mark by Gould p. 183 (meter's left edge on a downbeat that prints one, else the first element, else the bar's music start); both hands' nudges (`dynamicOffset` +down, `tempoOffset` +UP). ⭐ HIS ASK: *"the text should not be rect but follow the spine"* — a WORD is one piece per LETTER, each turned where it stands; a dynamic GLYPH (`p`, `mf`) and the tempo's ♩ stay rigid pieces; *"probably for tempo too"* — so tempo text follows as well. Pieces are laid out along the LANE's own arc (`s = s0 + x / innerLengthRatio(depth)`), so letters keep normal spacing at any depth (placed along `s` unmapped, `p dolce` slid together inside the loop). 🚨 Found on the way: `glyphPainter.measureTextMetrics` silently DROPPED a `TextRunFont`'s `sizePt` (the letters came out far apart) — new `measureTextRun`, the measuring twin of `drawTextRun`; the page's callers all passed `size` and were never affected. ⚠️ Faithful to the page, and worth his eye: a tempo mark's scope runs to its bar's END inclusive, so a `pp` above the NEXT downbeat pushes a `rit.` up (the page does the same). ⏸️ Hairpins (#15); registration (B3) | — |
-| 17 | clicking / selecting / dragging | — | ⛔ the panel cannot be clicked into | B3: `ElementRegistry.withSpace(affine)`; the inverse is `spine.locate` (built) |
+| 17 | clicking / selecting + SPINE PROPERTIES | — | ⛔ the panel cannot be clicked into | ⭐ **§9** (his direction, 2026-09-26): CLICK + SELECT (a SHARED selection), then a SPINE PROPERTIES window of its own |
 | 18 | the shape in the score JSON | — | ⛔ his call: not yet | B7 |
 | 19 | PDF export · playback cursor | — | ⛔ | after B2 (they read the page's geometry) |
 | 20 | ⭐ **`__spine.svg()` / `__spine.pdf()` — export the PANEL** (his ask, 2026-09-25) | — | ⛔ | the panel is a real vector `<svg>` (paths + music-font `<text>` glyphs placed by affines), so the page's own pipeline applies from step 2: `engine/export/outlineText` (glyphs → outlines, font-free) then svg2pdf + jsPDF (`engine/export/pdfExport`), the panel's SVG as the input. ⚠️ VERIFY first that a ROTATED `<text>` glyph outlines in place — the outliner asks `getStartPositionOfChar` and must honour the group's rotation and scale. Independent of B (#19 reads the PAGE's geometry; this reads the panel's) |
@@ -152,6 +152,7 @@ start to port it there."* Read from the source (`eye/spineScore.ts`, `eye/spineS
 | 25 | **DOUBLE + TRIPLE dots** | BLOCK | ✅ seen 2026-09-26 — the note's own modifiers | — |
 | 26 | **GLISSANDO** | SPAN (a line between two heads) | ⛔ seen missing 2026-09-26 | with #15: solve in `(s, d)`, the SIDE chooses (#13's pattern); its italic word follows the path as #16's text does |
 | 27 | **TUPLET hand offset** (`tupletOffset`) | — | ✅ (2026-09-26, his pick) — the page's two vertical nudges, the inner flip and the HAND's, are now ONE function in `marks/tupletPass` (`tupletYOffsetPx`); the spine asks it just before each tuplet draws in its block (`GroupBlockInk.tuplets[].beforeDraw`), once the notes are formatted there. ⭐ The inner-flip nudge arrived with it — the spine had never applied it either | — |
+| 28 | **DRAGGING an element on the spine** | — | ⛔ — ⭐ ITS OWN TOPIC (his word, 2026-09-26: *"the drag is a topic different than click selection and spine properties"*) | LATER, after §9. A drag on a curve must ask "which way is ALONG and which way is ACROSS here" at every point; every drag we have (`interactions/drags/*`) assumes a straight line. ⚠️ Not the PANEL's own drag (moving the window, §9.3 D) |
 
 **Suggested order** (⛔ a suggestion — his pick): **5 beams** → 7 barline types → 6 header changes →
 14 spacing → 11 voices as columns → 8 tuplets → 13 ties/slurs → 16 marks on lanes → 15 line spans →
@@ -260,3 +261,77 @@ His second score: low notes with accidentals, in beamed groups, colliding round 
    the note groups; a straight spine turns nothing. Looked at in Chromium, before and after, on his
    worst case (low sixteenths with accidentals, beamed in fours).
    ⏭️ Left: a TUPLET's bracket and a slur are not notes and do not turn (port map #8, #13).
+
+## 9. Clicking, selecting and SPINE PROPERTIES — the plan (his direction, 2026-09-26; ⛔ NOT BUILT)
+
+⚠️ **Dragging an element is NOT part of this section** — his word, the same day: *"the drag is a topic
+different than click selection and spine properties for the object"*. It is port map row 28, its own topic.
+
+His words: *"since the space is curve, i think dragging should be done later, but clicking and selecting first,
+i also think we need something like spine properties so if we select an element we can change for example
+space (similar to space in the score) or offset, but since spine has a different geometry is good to have it
+separated"*. Written down on his ask (*"we dont have to do it now, just write these ideas in the plan"*) — a
+plan, ⛔ not a queue: each step waits for his word.
+
+### 9.1 What is DECIDED
+
+1. **Order: CLICK + SELECT → SPINE PROPERTIES.** A click needs only the inverse of the placement — what is under
+   this point — which the spine already has. ⛔ DRAGGING an element is a separate topic (row 28): a drag on a
+   curve needs "which way is along and which way is across HERE", and every drag we have assumes a straight
+   line (`interactions/drags/*`).
+2. **⭐ ONE SHARED SELECTION** (his answer to question A, 2026-09-26: *"share selection"*). A click in the spine
+   panel selects the SAME element in the editor — `EditorState.selectedNoteId` / `selectedItems` /
+   `selectedElement`, the editor's own union, ⛔ no second selection. So: the element highlights in BOTH views;
+   the normal Properties window shows its PAGE properties and the Spine Properties window its SPINE ones; the
+   keyboard commands (Delete, a duration key, the arrows' non-drag keys) act on a spine click as on a page one.
+   The rejected option: a spine-only selection the editor never sees — cleaner to isolate, but the music could
+   not be edited from the spine.
+3. **⭐ SPINE PROPERTIES are SEPARATE from the page's** (his instinct, agreed): the spine's geometry is different,
+   so its adjustments live in their OWN compartment, keyed by element id like the page's engraving overrides,
+   and ⛔ never change the page. Two reasons: (a) the AXES differ — on a path the natural nudge is ALONG it and
+   OUTWARD/INWARD, not page x/y (on a circle "up" means something else at every point); (b) the two views can
+   want different things — a note may need more room on the circle's short inner rim and none on the page.
+
+### 9.2 The shape proposed (⚠️ not yet agreed in detail)
+
+- **The hit test lives in PATH coordinates, beside the page's registry — ⛔ not in it.** Everything on the
+  spine is placed by `s` (along) and `d` (across), and the inverse is already built (`staffSpine.locate`:
+  a point → `(s, d)`). So each drawn element registers a box in `(s, d)` — a note's head column and its
+  stem's reach, a mark's lane box, a slur's sampled band — and a click is `locate` → the box that holds it,
+  with the page's `ELEMENT_HIT_ORDER` deciding who wins where two overlap. ⭐ This does NOT need plan B's
+  `ElementRegistry.withSpace(affine)` (§4.3): the page's registry is untouched, the spine has a small one of
+  its own. ⚠️ A rigid block's box in `(s, d)` is only approximate for a TALL block on a tight circle (it is
+  turned as a whole); measure how far off before refining.
+- **What is selectable, in order:** notes and rests (the first step), then the marks (dynamics, tempo), the
+  curves (slurs, ties), tuplets, barlines.
+- **The highlight in the panel:** the page's selection colour (`reference_color_selection_rule`) on the
+  element's own group — the blocks and pieces already carry classes and ids.
+- **The Spine Properties window:** a `windows/` module (builds its own elements, subscribes to state — the
+  project's UI rule), shown when the selection is something the spine drew. First two knobs, both ROWS
+  (`CLAUDE.md`: an engraving number is a default, never a constant):
+  - **offset** — ALONG the path and OUTWARD from it, in staff spaces;
+  - **space** — room BEFORE the element along the path, the spine's twin of the page's space; a row in
+    `eye/spineSpacing`, which is 1-D along `s` (§7), so the path only maps it.
+
+### 9.3 What is still OPEN — his calls, one at a time
+
+- **B. Layering.** The spine ALREADY applies the page's hand nudges (dynamic, tempo, slur, tie and tuplet
+  offsets — #13, #16, #27). Is a spine adjustment (i) a deviation ON TOP of that — what the spine derived,
+  page nudges included — or (ii) does the spine IGNORE the page's nudges once spine properties exist?
+  Suggested: (i), because it keeps today's behaviour and the spine value stays a small correction.
+- **C. Where spine adjustments are STORED.** In the score JSON (then the shape itself belongs there too — #18,
+  which he said is *"not yet"*) or only for the session (lost on reload). Decides whether this waits for #18.
+- **D. The panel's own drag.** Today a press ANYWHERE on the panel drags the panel (`dev/spineConsole.makeDraggable`)
+  — a click-to-select needs that moved to a handle (a title bar) first.
+
+### 9.4 Facts found while planning (so the build does not rediscover them)
+
+- The panel is `dev/spineConsole.ts` — scaffolding wired by `App.ts` (`__spine`); it redraws by POLLING the
+  model's JSON every 300 ms (`POLL_MS`) and on a font switch. A click handler and the hit registry are rebuilt
+  on each redraw.
+- The picture may be inside ONE `scaling(zoom · size)` group — a click must be divided by that factor before
+  `locate` (the music is drawn in its own units, §3b).
+- ⚠️ `lint:boundary`: `engine/` may not import `interactions/` or `dev/`. So the `(s, d)` hit registry is
+  ENGINE (`rendering/eye/`, pure), and the part that writes the selection lives on the editor's side of the
+  line — ⚠️ `dev/` today, and when the panel stops being scaffolding, a real `windows/`/`interactions/` home.
+
