@@ -600,7 +600,7 @@ export function createEditorApp(host: HTMLElement): EditorApp {
   // still here, which is why neither needed touching to lose it.
   const stopKeypadSync = wireKeypadSync(state, palette, onStateChange, getEngine)
   // ⭐ …and the Keypad's GRACE keys, wired the dev toolbar's way (`interactions/controllers/keypadGraceWiring`).
-  const stopKeypadGrace = wireKeypadGrace(state, () => palette.spanToolHost(), getEngine, onStateChange)
+  const stopKeypadGrace = wireKeypadGrace(state, () => palette.dotKeyHost(), getEngine, onStateChange)
   const stopSelectionInspection = wireSelectionInspection(state, getEngine, onStateChange)
   // The playback sound: `bus.sound` ⇄ the engine. Two surfaces choose it (the dev picker, Play ▸
   // Score Sound) and neither talks to the engine — this is the one place that does.

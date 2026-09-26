@@ -43,9 +43,55 @@ describe('the Keypad Grace page', () => {
     expect(pressed).toEqual(['appoggiatura', 'acciaccatura', 'bracketed'])
   })
 
-  it('⛔ …and the other twelve are still a PICTURE: `momentary`, no model value', () => {
+  it('⭐ its `1` is wired too — the dev toolbar\'s `paren.` — and presses `bus.grace`', () => {
+    expect([cellFor('1').select, cellFor('1').grace]).toEqual(['grace', 'parenthesised'])
+    const pressed: string[] = []
+    const stop = bus.grace.onPress(k => pressed.push(k))
+    pressKeypadCell(cellFor('1'))
+    stop()
+    expect(pressed).toEqual(['parenthesised'])
+  })
+
+  it('⭐ its `2` / `3` are wired too — the dev toolbar\'s `..` / `...` — and press `bus.grace`', () => {
+    expect(['2', '3'].map(k => [cellFor(k).select, cellFor(k).grace]))
+      .toEqual([['grace', 'doubleDot'], ['grace', 'tripleDot']])
+    const pressed: string[] = []
+    const stop = bus.grace.onPress(k => pressed.push(k))
+    for (const k of ['2', '3']) pressKeypadCell(cellFor(k))
+    stop()
+    expect(pressed).toEqual(['doubleDot', 'tripleDot'])
+  })
+
+  it('⭐ its `0` is wired too — the dev toolbar\'s `full bar` — and presses `bus.grace`', () => {
+    expect([cellFor('0').select, cellFor('0').grace]).toEqual(['grace', 'barRest'])
+    const pressed: string[] = []
+    const stop = bus.grace.onPress(k => pressed.push(k))
+    pressKeypadCell(cellFor('0'))
+    stop()
+    expect(pressed).toEqual(['barRest'])
+  })
+
+  it('⭐ its `.` is wired too — the dev toolbar\'s `gliss` — and presses `bus.grace`', () => {
+    expect([cellFor('.').select, cellFor('.').grace]).toEqual(['grace', 'gliss'])
+    const pressed: string[] = []
+    const stop = bus.grace.onPress(k => pressed.push(k))
+    pressKeypadCell(cellFor('.'))
+    stop()
+    expect(pressed).toEqual(['gliss'])
+  })
+
+  it('⭐ its `Enter` is wired too — the dev toolbar\'s `cue` — and presses `bus.grace`', () => {
+    expect([cellFor('Enter').select, cellFor('Enter').grace]).toEqual(['grace', 'cue'])
+    const pressed: string[] = []
+    const stop = bus.grace.onPress(k => pressed.push(k))
+    pressKeypadCell(cellFor('Enter'))
+    stop()
+    expect(pressed).toEqual(['cue'])
+  })
+
+  it('⛔ …and the other six are still a PICTURE: `momentary`, no model value', () => {
     const own = page().cells.filter(c => c.key !== 'NumLock' && c.key !== '+' && c.select !== 'grace')
-    expect(own).toHaveLength(12)
+    expect(own).toHaveLength(6)
     for (const cell of own) {
       expect(cell.select, `${cell.action} (key ${cell.key})`).toBe('momentary')
       expect(cell.duration ?? cell.accidental ?? cell.articulation ?? cell.beam ?? cell.tremolo ?? cell.fan ?? cell.grace).toBeUndefined()

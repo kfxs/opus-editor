@@ -121,7 +121,7 @@ export interface KeypadCell {
   tremolo?: TremoloMark
   /** The direction a `fan` cell presses — the feathered beam opens right (`accel`) or left (`rit`). */
   fan?: 'accel' | 'rit'
-  /** ⭐ The grace a `grace` cell presses — the Grace page's `/`, `*` and `-` (`bus/graceSelection`). */
+  /** ⭐ The grace a `grace` cell presses — the Grace page's `/`, `*`, `-`, `1`, `2`, `3`, `Enter`, `0` and `.` (`bus/graceSelection`). */
   grace?: GraceKey
 }
 
@@ -360,9 +360,11 @@ const GRACE_ICON = {
  * durations page one has no room for (the four short ones, the breve and the longa), the extra dots
  * and the brackets.
  *
- * ⛔ NOTHING IS WIRED. Every key is `momentary` — it lights nothing and does nothing; a click just
- * logs its `action` ({@link KeypadWidget} does the logging), which is how page two started too. The
- * drawing comes first and the behaviour follows, key by key, once we know what each one means.
+ * ⭐ WIRED KEY BY KEY, each as a decision (his asks, 2026-09-23 and 2026-09-26): `/` `*` `-` `1` `2` `3` `Enter`
+ * `0` `.` press `bus.grace` and do exactly what the dev toolbar's button of the same name does
+ * (`interactions/controllers/keypadGraceWiring`). The other six — the four short durations, the breve and
+ * the longa — are still `momentary`: they light nothing and do nothing; a click just logs its `action`
+ * ({@link KeypadWidget} does the logging). The drawing came first and the behaviour follows, key by key.
  *
  * ⚠️ The `action` names say what the key IS, ⛔ not what one repertoire calls it. Sibelius names two
  * of them for a single USE — its `-` is the guitar "pre-bend note" and its `.` the guitar "slide"
@@ -380,8 +382,12 @@ const pageGrace: CellSpec[] = [
   ['appoggiatura', g(GRACE.plain, GRACE_SIZE, 9), 'grace', 'appoggiatura'], ['acciaccatura', g(GRACE.slashed, GRACE_SIZE, 9), 'grace', 'acciaccatura'], ['bracketed grace', GRACE_ICON.bracketedNote, 'grace', 'bracketed'],
   ['512th', g(NOTE_SHORT.fiveHundredTwelfth, SHORT_SIZE, 15.6), 'momentary'], ['breve', g(BREVE, BREVE_SIZE, 3), 'momentary'], ['longa', GRACE_ICON.longa, 'momentary'],
   ['64th', g(NOTE_SHORT.sixtyFourth, SHORT_SIZE, 12.4), 'momentary'], ['128th', g(NOTE_SHORT.hundredTwentyEighth, SHORT_SIZE, 13.5), 'momentary'], ['256th', g(NOTE_SHORT.twoHundredFiftySixth, SHORT_SIZE, 14.5), 'momentary'],
-  ['parenthesised note', g(PARENS, PARENTHESISED_NOTE_SIZE), 'momentary'], ['double dot', GRACE_ICON.doubleDot, 'momentary'], ['triple dot', GRACE_ICON.tripleDot, 'momentary'], ['cue size', GRACE_ICON.cueSize, 'momentary'],
-  ['bar rest', g(REST_BAR, 46, 1), 'momentary'], ['gliss', g(GRACE.slash, 34, 8), 'momentary'],
+  // ⭐ WIRED (his ask, 2026-09-26) — the dev toolbar's `paren.`, the same function behind it.
+  // ⭐ …and `2` / `3` / `Enter` (his asks, 2026-09-26) — the dev toolbar's `..` / `...` / `cue`, the same functions
+  //    behind them.
+  ['parenthesised note', g(PARENS, PARENTHESISED_NOTE_SIZE), 'grace', 'parenthesised'], ['double dot', GRACE_ICON.doubleDot, 'grace', 'doubleDot'], ['triple dot', GRACE_ICON.tripleDot, 'grace', 'tripleDot'], ['cue size', GRACE_ICON.cueSize, 'grace', 'cue'],
+  // ⭐ WIRED (his ask, 2026-09-26) — the dev toolbar's `full bar` and `gliss`, the same functions behind them.
+  ['bar rest', g(REST_BAR, 46, 1), 'grace', 'barRest'], ['gliss', g(GRACE.slash, 34, 8), 'grace', 'gliss'],
 ]
 
 /** A single-note tremolo: a down-stem quarter wearing N stem strokes. Sibelius: "1 tremolo" … "5
