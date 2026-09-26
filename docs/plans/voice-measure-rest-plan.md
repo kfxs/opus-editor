@@ -1,6 +1,6 @@
 # A full-bar rest for any voice — the plan
 
-> **Status (2026-09-26): P0 + P1 + P2 built and committed — `engine/models/barRestOps` + `engine/commands/silentBarCommands` (`engine.silentBar`), the `Rest.stamped` flag, R5 in the collapse, the dev-shell button that follows the selection, copy/paste carrying it. ⛔ No ghost (his call). Left: the P3 browser check.** His brief: the empty bar's automatic full-bar rest
+> **Status (2026-09-26): P0 + P1 + P2 built and committed — `engine/models/barRestOps` + `engine/commands/silentBarCommands` (`engine.silentBar`), the `Rest.stamped` flag, R5 in the collapse, the dev-shell button that follows the selection, copy/paste carrying it. ⛔ No ghost (his call). P3's browser check: `e2e/barRest.e2e.ts`.** His brief: the empty bar's automatic full-bar rest
 > in voice 1 is right and ⛔ stays exactly as it is. On top of it, the user can say explicitly *"this
 > voice is silent for this whole bar"* — typically voice 2 while voice 1 plays. A new dev-shell
 > button arms a full-bar-rest stamp for the ACTIVE voice (voice 1 included); a click on a bar puts
@@ -167,9 +167,13 @@ rests-only paste spec fails.
 - ⛔ **No ghost** — his call, 2026-09-26: *"for the full bar rest the blue cursor is enough we dont need
   the ghost"*. The blue place-cursor (`scoreCursorClass`) is the tool's indicator, and `toolGhost`
   answers null for good. (The stamp is one click, and the selection press is the main door.)
-- ⏳ Browser check (Chromium, `e2e/`): v1 notes + v2 stamped rest; v1 empty + v2 stamped (two whole
-  rests, V1 above, V2 below); a stamped v3 / v4 lane; a line-opening bar with a header. Expected:
-  no drawing change needed — if one is, it is reported to him, ⛔ not guessed.
+- ✅ Browser check — `e2e/barRest.e2e.ts` (4 cases, his eye agreed first): v2 stamped under a v1 whole
+  note (below it, centred); v1 empty + v2 stamped (two whole rests in ONE column, V1 lifted above where
+  it hung alone, V2 below the middle line); his lane order (a v3 stamp above the v1 note, a v4 stamp
+  below); a line-opening bar (the stamped rest in the automatic one's column, after the header).
+  Break test: with the measure rest's voice shift off in `NoteBuilder`, the three placement cases fail;
+  the line-opening case (an x) rightly does not. ⚠️ The harness cannot tell which voice drew a rest,
+  so each case pairs the stamp with something whose place is known.
 
 ---
 
