@@ -25,7 +25,10 @@
  *   __spine.clear()
  * ```
  *
- * Drag the panel anywhere with the mouse.
+ * Drag the panel anywhere with the mouse. ⭐ Drag a CORNER to make the canvas bigger or smaller — the drawing keeps its
+ * size and its place (⛔ not a zoom, ⛔ not re-centred; `clear()` forgets the canvas you chose). ⭐ RIGHT-drag pans the
+ * drawing inside the canvas — to see what falls outside it. ⭐ CTRL + WHEEL zooms the drawing about the pointer — the preview
+ * only, ⛔ never the score (the event stops at the panel).
  * ⭐ **`size` and `zoom` are two different measures** (his report, 2026-09-25: *"the size is like a zoom … what
  * I want is a staff size, a different measure from the radius"*). `zoom` scales the CANVAS — circle, music,
  * margins, everything. `size` scales the MUSIC ONLY: the circle keeps its radius — the one you gave, or the
@@ -55,7 +58,7 @@ import { circleSpine, straightSpine } from '@/engine/engrave/staff/staffSpine'
 import { drawScoreOnSpine } from '@/engine/rendering/eye/spineScore'
 import { SvgPainter } from '@/engine/rendering/painter/SvgPainter'
 import { drawGroupOf } from '@/engine/rendering/painter/svgDrawGroup'
-import { scaling } from '@/engine/paint/Affine'
+import { compose, scaling, translation } from '@/engine/paint/Affine'
 
 const STEPS: PitchStep[] = ['C', 'D', 'E', 'F', 'G', 'A', 'B']
 
@@ -146,17 +149,33 @@ const FRESH: Shape = { kind: 'circle', size: 1, zoom: 1 }
 
 export function spineConsole(deps: SpineConsoleDeps): SpineConsole {
   let panel: HTMLElement | null = null
+  /** Where the drawing goes, INSIDE the panel — the corner handles live beside it, so a redraw keeps them. */
+  let host: HTMLElement | null = null
   let timer: ReturnType<typeof setInterval> | undefined
   let drawn = ''
   /** ⭐ What the last call armed — the next call builds on it; only `clear()` forgets. */
   let shape: Shape = FRESH
+  /**
+   * ⭐ The CANVAS's own size, once a corner has been dragged (his ask, 2026-09-26: *"enlarge the spine preview by
+   * dragging the corners … making the canvas big but the size of the drawing remains"*) — ⛔ not a zoom: the
+   * music keeps its size, and ⛔ is not re-centred (his word): it stays where it was on screen — `x`/`y` is how
+   * far a left or top corner has pushed the canvas out past it. Absent: the canvas the music asks for. Kept
+   * across calls like the sizes; only `clear()` forgets.
+   */
+  let canvas: { width: number; height: number; x: number; y: number } | undefined
 
-  const clear = () => {
+  /** Take the panel down, keeping what is armed. */
+  const teardown = () => {
     clearInterval(timer)
     panel?.remove()
     panel = null
+    host = null
     drawn = ''
+  }
+  const clear = () => {
+    teardown()
     shape = FRESH
+    canvas = undefined
   }
 
   /**
@@ -193,24 +212,29 @@ export function spineConsole(deps: SpineConsoleDeps): SpineConsole {
 
   const draw = (shape: Shape) => {
     const score = deps.getScore()
-    if (!panel || !score) return
+    if (!host || !score) return
     const { spine, width, height } = layOut(score, shape)
-    panel.replaceChildren()
-    const painter = new SvgPainter(panel)
+    host.replaceChildren()
+    const painter = new SvgPainter(host)
     const { zoom } = shape
-    painter.resize(width * zoom, height * zoom)
+    // ⭐ The canvas the corners chose, or the one the music asks for; the drawing at its size, where it was.
+    const natural = { width: width * zoom, height: height * zoom }
+    const view = canvas ?? natural
+    painter.resize(view.width, view.height)
+    const offsetX = canvas?.x ?? 0
+    const offsetY = canvas?.y ?? 0
     // ⭐ The music at its SIZE, the canvas at its ZOOM: one group placed by `scaling(zoom · size)` (the page's
     //    small staff, §4.1) — at 1 · 1 the picture is byte-identical to what it was, wrapper and all.
-    // ⚠️ Skipped only when BOTH are 1 — `zoom: 2, size: 0.5` composes to scale(1) and still needs its group:
-    //    the radius was divided by `size` for it.
+    // ⚠️ Skipped only when BOTH are 1 and the canvas is the music's own — `zoom: 2, size: 0.5` composes to
+    //    scale(1) and still needs its group: the radius was divided by `size` for it.
     const k = zoom * shape.size
-    if (zoom === 1 && shape.size === 1) {
+    if (zoom === 1 && shape.size === 1 && offsetX === 0 && offsetY === 0) {
       drawScoreOnSpine(painter, score, spine)
       return
     }
     const group = drawGroupOf(painter.openGroup('spine-size', 'spine-size'))
     try {
-      group?.setPlacement(scaling(k))
+      group?.setPlacement(compose(scaling(k), translation(offsetX, offsetY)))
       drawScoreOnSpine(painter, score, spine)
     } finally {
       painter.closeGroup()
@@ -220,11 +244,14 @@ export function spineConsole(deps: SpineConsoleDeps): SpineConsole {
   /** ⭐ The panel follows the pointer from wherever it was pressed — so it can be put where it shows. */
   const makeDraggable = (el: HTMLElement) => {
     el.style.cursor = 'move'
+    // The right button pans the drawing (below) — the browser's own menu would take it otherwise.
+    el.addEventListener('contextmenu', e => e.preventDefault())
     el.addEventListener('pointerdown', down => {
+      if (down.button === 2) { panDrawing(el, down); return }
       const box = el.getBoundingClientRect()
       const dx = down.clientX - box.left
       const dy = down.clientY - box.top
-      el.setPointerCapture(down.pointerId)
+      el.setPointerCapture?.(down.pointerId)
       const move = (e: PointerEvent) => {
         Object.assign(el.style, { left: `${e.clientX - dx}px`, top: `${e.clientY - dy}px`, right: 'auto', bottom: 'auto' })
       }
@@ -240,13 +267,149 @@ export function spineConsole(deps: SpineConsoleDeps): SpineConsole {
     })
   }
 
+  /**
+   * ⭐ RIGHT-DRAG PANS THE DRAWING inside the canvas (his ask, 2026-09-26: *"so i can visualize if it is outside of
+   * the preview area"*) — the panel stays where it is; only the drawing's offset in the canvas moves, the
+   * same `x`/`y` a corner pushes, kept until `clear()`. The canvas keeps its size (the music's own, until a
+   * corner is dragged).
+   */
+  const panDrawing = (el: HTMLElement, down: PointerEvent) => {
+    down.preventDefault()
+    const svg = host?.querySelector('svg')
+    const start = canvas ?? {
+      width: Number(svg?.getAttribute('width') ?? 0),
+      height: Number(svg?.getAttribute('height') ?? 0),
+      x: 0,
+      y: 0,
+    }
+    el.setPointerCapture?.(down.pointerId)
+    let frame = 0
+    const move = (e: PointerEvent) => {
+      canvas = { ...start, x: start.x + e.clientX - down.clientX, y: start.y + e.clientY - down.clientY }
+      if (typeof requestAnimationFrame !== 'function') { draw(shape); return }
+      cancelAnimationFrame(frame)
+      frame = requestAnimationFrame(() => draw(shape))
+    }
+    const up = () => {
+      el.removeEventListener('pointermove', move)
+      el.removeEventListener('pointerup', up)
+      el.removeEventListener('pointercancel', up)
+    }
+    el.addEventListener('pointermove', move)
+    el.addEventListener('pointerup', up)
+    el.addEventListener('pointercancel', up)
+  }
+
+  /**
+   * ⭐ CTRL + WHEEL ZOOMS THE DRAWING, about the pointer (his ask, 2026-09-26) — the same `zoom` `show({ zoom })`
+   * arms, and the canvas keeps its size: the point under the pointer stays where it is. ⛔ The page never sees
+   * a wheel over the panel: the page's zoom and wheel gestures listen on `window` (`App.handleZoomWheel`), and
+   * the event stops HERE — so Ctrl + wheel over the score still zooms the score, and over the preview only the
+   * preview. A plain wheel keeps the browser's own scrolling.
+   */
+  const MIN_ZOOM = 0.1
+  const MAX_ZOOM = 10
+  const ZOOM_PER_WHEEL_PX = 0.0015
+  const zoomAtPointer = (e: WheelEvent) => {
+    const svg = host?.querySelector('svg')
+    if (!svg) return
+    const rect = svg.getBoundingClientRect()
+    // The canvas is pinned where it is — a zoom must not grow the preview.
+    const start = canvas ?? { width: Number(svg.getAttribute('width') ?? 0), height: Number(svg.getAttribute('height') ?? 0), x: 0, y: 0 }
+    const zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, shape.zoom * Math.exp(-e.deltaY * ZOOM_PER_WHEEL_PX)))
+    if (zoom === shape.zoom) return
+    // The drawing is `k · p + offset` on the canvas: keep the point under the pointer where it is.
+    const k = shape.zoom * shape.size
+    const kNext = zoom * shape.size
+    const cx = e.clientX - rect.left
+    const cy = e.clientY - rect.top
+    canvas = { ...start, x: cx - (kNext / k) * (cx - start.x), y: cy - (kNext / k) * (cy - start.y) }
+    shape = { ...shape, zoom }
+    draw(shape)
+  }
+
+  /** Where the panel is on screen — left/top from now on, so a corner can move it while it resizes. */
+  const pinToCorner = (el: HTMLElement) => {
+    const box = el.getBoundingClientRect()
+    Object.assign(el.style, { left: `${box.left}px`, top: `${box.top}px`, right: 'auto', bottom: 'auto' })
+    return box
+  }
+
+  /**
+   * ⭐ A handle on each CORNER — invisible, a grab area with its resize cursor (his word: no grey squares) —
+   * dragging it resizes the CANVAS (`canvas`): the corner follows the pointer, the opposite one stays put, and
+   * the drawing keeps its size AND its place on screen. ⛔ The press never reaches the panel's own drag
+   * (`makeDraggable`), which would move the whole panel instead.
+   */
+  const MIN_CANVAS = 120
+  const addCornerHandles = (el: HTMLElement) => {
+    const corners = [
+      { key: 'nw', left: true, top: true, cursor: 'nwse-resize' },
+      { key: 'ne', left: false, top: true, cursor: 'nesw-resize' },
+      { key: 'sw', left: true, top: false, cursor: 'nesw-resize' },
+      { key: 'se', left: false, top: false, cursor: 'nwse-resize' },
+    ]
+    for (const corner of corners) {
+      const handle = document.createElement('div')
+      handle.className = `spine-demo-corner spine-demo-corner-${corner.key}`
+      Object.assign(handle.style, {
+        position: 'absolute', width: '12px', height: '12px', zIndex: '1', cursor: corner.cursor,
+        [corner.left ? 'left' : 'right']: '-1px', [corner.top ? 'top' : 'bottom']: '-1px',
+      })
+      handle.addEventListener('pointerdown', down => {
+        down.stopPropagation()
+        down.preventDefault()
+        const box = pinToCorner(el)
+        const svg = host?.querySelector('svg')
+        const start = {
+          width: canvas?.width ?? Number(svg?.getAttribute('width') ?? box.width),
+          height: canvas?.height ?? Number(svg?.getAttribute('height') ?? box.height),
+          x: canvas?.x ?? 0,
+          y: canvas?.y ?? 0,
+        }
+        handle.setPointerCapture?.(down.pointerId)
+        let frame = 0
+        const move = (e: PointerEvent) => {
+          const dx = e.clientX - down.clientX
+          const dy = e.clientY - down.clientY
+          const width = Math.max(MIN_CANVAS, start.width + (corner.left ? -dx : dx))
+          const height = Math.max(MIN_CANVAS, start.height + (corner.top ? -dy : dy))
+          // The OPPOSITE corner stays where it was: a left or top handle moves the panel by what it grew.
+          if (corner.left) el.style.left = `${box.left + start.width - width}px`
+          if (corner.top) el.style.top = `${box.top + start.height - height}px`
+          // A left or top corner grows the canvas on THAT side: the drawing is pushed in by the same amount, so
+          // on screen it stays where it was (⛔ never re-centred).
+          canvas = {
+            width, height,
+            x: corner.left ? start.x + (width - start.width) : start.x,
+            y: corner.top ? start.y + (height - start.height) : start.y,
+          }
+          // One redraw per frame while dragging; at once where there are no frames (a test's jsdom).
+          if (typeof requestAnimationFrame !== 'function') { draw(shape); return }
+          cancelAnimationFrame(frame)
+          frame = requestAnimationFrame(() => draw(shape))
+        }
+        const up = () => {
+          handle.removeEventListener('pointermove', move)
+          handle.removeEventListener('pointerup', up)
+          handle.removeEventListener('pointercancel', up)
+        }
+        handle.addEventListener('pointermove', move)
+        handle.addEventListener('pointerup', up)
+        handle.addEventListener('pointercancel', up)
+      })
+      el.appendChild(handle)
+    }
+  }
+
   const report = () => {
     const radius = shape.radius ?? 'auto'
-    dbg(`[spine] armed: ${shape.kind} · radius ${radius} · size ${shape.size} · zoom ${shape.zoom} — each call keeps what the last set; __spine.clear() forgets`)
+    const view = canvas ? ` · canvas ${Math.round(canvas.width)}×${Math.round(canvas.height)} (dragged corners)` : ''
+    dbg(`[spine] armed: ${shape.kind} · radius ${radius} · size ${shape.size} · zoom ${shape.zoom}${view} — each call keeps what the last set; __spine.clear() forgets`)
   }
 
   const open = (next: Shape) => {
-    clear()
+    teardown()
     shape = next
     panel = document.createElement('div')
     panel.className = 'spine-demo-panel'
@@ -255,7 +418,16 @@ export function spineConsole(deps: SpineConsoleDeps): SpineConsole {
       border: '1px solid #999', boxShadow: '0 4px 16px rgba(0,0,0,.25)', touchAction: 'none',
     })
     document.body.appendChild(panel)
+    host = document.createElement('div')
+    panel.appendChild(host)
     makeDraggable(panel)
+    addCornerHandles(panel)
+    panel.addEventListener('wheel', e => {
+      e.stopPropagation() // ⛔ never the page's: its zoom and wheel gestures listen on `window`
+      if (!e.ctrlKey) return
+      e.preventDefault() // …nor the browser's own page zoom
+      zoomAtPointer(e)
+    }, { passive: false })
     // ⭐ Redrawn when the MODEL changed, asked the way the JSON panel asks: compare its text.
     // ⚠️ …AND when a FACE changed (`fonts/musicFont`, `fonts/textFont`): a font switch redraws the
     //    picture without touching the model, so the JSON alone left the circle in the old face

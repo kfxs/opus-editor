@@ -90,6 +90,17 @@ Every number (radius, spacing along the path) is a changeable row, never a block
   forgets my previous size"*): every call keeps what the last one set — radius (through a `straight()` and
   a new `circle()` score too), size, zoom; `radius: 'auto'` returns to the fitted circle; a refused value keeps
   the armed one; only `clear()` forgets. `__spine.dump()` says what is armed.
+- ⭐ **The panel's own controls** (his asks, 2026-09-26) — ⚠️ the PREVIEW only, ⛔ never the score:
+  - drag a **CORNER** — the CANVAS grows or shrinks; the drawing keeps its size AND its place on screen (a left or
+    top corner pushes it in by what that side grew) — ⛔ not a zoom, ⛔ never re-centred, and the handles are
+    invisible grab areas (his word: no grey squares);
+  - **RIGHT-drag** pans the drawing inside the canvas, to see what falls outside it (the browser's menu is off
+    over the panel; left-drag still moves the panel);
+  - **CTRL + WHEEL** zooms the drawing about the pointer, the canvas pinned — the same `zoom` `show({ zoom })`
+    arms. The wheel STOPS at the panel: the page's zoom and wheel gestures listen on `window`
+    (`App.handleZoomWheel`), so the score never sees it; a plain wheel keeps the browser's scrolling.
+  All three are remembered like the sizes; `clear()` forgets them. `dev/spineConsole.test.ts` (jsdom — the
+  browser suite's page does not load the dev console).
 - ⭐ A CLOSED spine has a SEAM: the music stops short of `s = length`, so the last barline stands in
   front of the clef, ⛔ not on it (his report — the first build skipped that barline).
 - ⚠️ **Named placeholders**: first staff only · spacing is TIME-proportional, ⛔ not `layout/spacing`
