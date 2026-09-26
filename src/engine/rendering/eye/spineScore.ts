@@ -23,6 +23,8 @@
  *   WHERE a column stands is the page's spacing asked for one justified line (`./spineSpacing`).
  * - ⭐ TIES and SLURS (port map #13, `./spineCurves`): re-solved in the path's plane with the page's rules,
  *   their ink bent through `pointAt` (`engrave/curves/curveOnPath`) — the auto arch, no obstacles yet.
+ * - ⭐ GRACES, bracketed graces and a parenthesised head's BRACKETS (port map #21–#23): the page's `GracePass`,
+ *   one note at a time, inside that note's block.
  * - ⭐ DYNAMICS, expression words and TEMPO marks (port map #16, `./spineMarks`): the page's lines, asked
  *   with the spine's columns; each mark a rigid block on its lane. ⛔ No hairpins yet (#15).
  */
@@ -41,6 +43,10 @@ import { voiceOf } from '@/utils/lanes'
 import { getMeterInfo } from '@/utils/meter'
 import { createStaveNotesFromSlots, resolveTupletLocation, stemMajorityTupletLocation } from '../engraved/NoteBuilder'
 import { ScoreTuplet } from '../engraved/ScoreTuplet'
+import { drawGraceNotes } from '../GracePass'
+import { gracePitchesOf } from '@/utils/graceNotes'
+import type { GracePassContext } from '../RenderPass'
+import { ElementRegistry } from '@/engine/ElementRegistry'
 import { tupletYOffsetPx } from '../marks/tupletPass'
 import { restShiftResolver } from '../engraved/restShift'
 import { BarVoice } from '../format/barVoice'
@@ -115,6 +121,11 @@ export function drawScoreOnSpine(ctx: DrawContext, score: Score, spine: Spine): 
     })
   }
   const markBars: SpineMarkBar[] = []
+  // What the page's grace passes use of a render — this surface, and a registry and maps of the spine's own
+  // (⚠️ thrown away: the panel is not clicked into yet, §9).
+  const gracePass: GracePassContext = {
+    context: ctx, score, elementRegistry: new ElementRegistry(), fanMemberGroupMap: new Map(), fanMemberAnchorMap: new Map(),
+  }
   score.measures.forEach((measure, i) => {
     const bar = bars[i]
     // The clef, key signature and meter this bar draws — the staff's head, or a CHANGE (`./spineHeader`).
@@ -169,6 +180,11 @@ export function drawScoreOnSpine(ctx: DrawContext, score: Score, spine: Spine): 
     }
     // ── 3. DRAW — each group one block, each lone note one block.
     for (const { slots, notes, at, beams, tuplets } of voiceInk) {
+      // ⭐ A note's GRACES, BRACKETED graces and PARENTHESIS brackets (port map #21–#23): the page's own pass
+      //    (`GracePass.drawGraceNotes`), asked for THIS note, drawn inside its block — read against the whole
+      //    lane, so a grace's sign knows the bar's earlier notes.
+      const withNote = (note: EngravedNote) =>
+        drawGraceNotes(gracePass, slots, notes, measure.number, 0, () => clef, keys.get(measure.number), i => notes[i] === note)
       const groups = groupNotes(notes.length, [
         ...beams.map(beam => beam.notes.map(note => notes.indexOf(note))),
         ...tuplets.map(t => t.tuplet.getNotes().map(note => notes.indexOf(note))),
@@ -177,7 +193,7 @@ export function drawScoreOnSpine(ctx: DrawContext, score: Score, spine: Spine): 
       const places: SpineNotePlace[] = []
       notes.forEach((note, n) => {
         const members = notes.map((_, i) => i).filter(i => groups[i] === groups[n])
-        if (members.length === 1) { places[n] = drawNoteBlock(ctx, spine, note, at[n]); return }
+        if (members.length === 1) { places[n] = drawNoteBlock(ctx, spine, note, at[n], withNote); return }
         if (drawn.has(groups[n])) return
         drawn.add(groups[n])
         const inBlock = (ids: readonly EngravedNote[]) => ids.every(id => members.includes(notes.indexOf(id)))
@@ -185,9 +201,20 @@ export function drawScoreOnSpine(ctx: DrawContext, score: Score, spine: Spine): 
           beams: beams.filter(beam => inBlock(beam.notes)),
           tuplets: tuplets.filter(t => inBlock(t.tuplet.getNotes())),
         }
-        drawGroupBlock(ctx, spine, members.map(i => notes[i]), members.map(i => at[i]), ink).forEach((place, k) => { places[members[k]] = place })
+        drawGroupBlock(ctx, spine, members.map(i => notes[i]), members.map(i => at[i]), ink, withNote).forEach((place, k) => { places[members[k]] = place })
       })
       remember(places, slots, measure.number)
+      // ⭐ …and every GRACE head the blocks drew (port map #21): the host's place on the path, with the
+      //    grace's own anchor (`GracePass` recorded it, in the host's stave px) — so a slur can start or end
+      //    on a grace, as on the page (his report, 2026-09-26: *"i dont see the slur in the graces"*).
+      slots.forEach((slot, i) => {
+        const place = places[i]
+        if (!place) return
+        for (const pitch of gracePitchesOf(slot)) {
+          const anchor = gracePass.fanMemberAnchorMap.get(pitch.id)
+          if (anchor) pitches.set(pitch.id, { place, headIndex: 0, measureNumber: measure.number, anchor })
+        }
+      })
     }
     // ⭐ WHICH sign a boundary carries is the SCORE's answer (`models/boundarySign`) — final, either
     //    repeat, the back-to-back `:||:` from the two bars that meet there — as on the page.

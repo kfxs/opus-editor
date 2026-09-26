@@ -47,6 +47,7 @@ import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { noteRuler } from '../engraved/noteRuler'
 import { staveFrame, staveOf } from '../staff/staveFrame'
 import type { SpineNotePlace } from './spineStaff'
+import type { FanMemberAnchor } from '../RenderPass'
 
 /** A cubic's apex is 0.75 of its controls' height — `TieRenderer`'s own constant. */
 const APEX_OF_BOW = 0.75
@@ -60,6 +61,12 @@ export interface SpinePitchPlace {
   headIndex: number
   /** The bar it stands in, for the tie's direction rule. */
   measureNumber: number
+  /**
+   * ⭐ A head drawn OUTSIDE its slot's note — a GRACE (port map #21): its own geometry, in the host note's
+   * stave px (the page's `FanMemberAnchor`, recorded by `GracePass`), which a slur springs from instead of
+   * the host's. `place` is then the HOST's, which is what maps those px onto the path.
+   */
+  anchor?: FanMemberAnchor
 }
 
 /** A note's stave px → the path's plane. */
@@ -134,6 +141,15 @@ export function drawSpineCurves(ctx: DrawContext, spine: Spine, score: Score, pi
     const to = pitches.get(slur.endNoteId)
     if (!from || !to) continue
     const attachment = (p: SpinePitchPlace) => {
+      // ⭐ A grace's own head and stem tip — the page's `resolveSlurEnd`, which asks the anchor FIRST.
+      if (p.anchor) {
+        return {
+          headYs: [p.anchor.headY],
+          stemTipY: p.anchor.tipY,
+          stemDirection: p.anchor.stemDirection,
+          headHalfWidth: (p.anchor.rightX - p.anchor.leftX) / 2,
+        }
+      }
       const ruler = noteRuler(p.place.note)
       return {
         headYs: ruler.headYs,
@@ -166,8 +182,9 @@ export function drawSpineCurves(ctx: DrawContext, spine: Spine, score: Score, pi
     const whole = slurOffsetOverrideOf(score, slur.id)
     const wholeFrom = slurOffsetPx(whole, fromFrame)
     const wholeTo = slurOffsetPx(whole, toFrame)
-    const p0 = toPath(from.place)(from.place.headCentreX + ends.from.dx + off.startX, ends.from.y + off.startY + lift * direction)
-    const p1 = toPath(to.place)(to.place.headCentreX + ends.to.dx + off.endX, ends.to.y + off.endY + lift * direction)
+    const centreX = (p: SpinePitchPlace) => (p.anchor ? (p.anchor.leftX + p.anchor.rightX) / 2 : p.place.headCentreX)
+    const p0 = toPath(from.place)(centreX(from) + ends.from.dx + off.startX, ends.from.y + off.startY + lift * direction)
+    const p1 = toPath(to.place)(centreX(to) + ends.to.dx + off.endX, ends.to.y + off.endY + lift * direction)
     p1.x = forward(spine, p0.x, p1.x)
     const autoP0 = { x: p0.x - off.startX, y: p0.y - off.startY }
     const autoP1 = { x: p1.x - off.endX, y: p1.y - off.endY }

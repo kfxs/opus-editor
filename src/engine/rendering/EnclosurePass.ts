@@ -14,7 +14,7 @@ import { bracketScale, slotScale } from '@/engine/layout/cueSize'
 import type { ChordRest, Clef, Fraction, KeySignature } from '@/types/music'
 import type { DrawContext } from '@/engine/paint/DrawContext'
 import type { GlyphFont } from '@/engine/engrave/glyph'
-import type { RenderPass } from './RenderPass'
+import type { GracePassContext } from './RenderPass'
 import type { EngravedNote } from './engraved/EngravedNote'
 import { maybeStaveOf, staveFrame } from './staff/staveFrame'
 import { noteLineY } from '@/engine/engrave/staff/staffFrame'
@@ -46,7 +46,7 @@ export function enclosurePairId(pitchId: string): string {
  * lane's, index for index (the grace and fan passes' contract).
  */
 export function drawEnclosures(
-  pass: RenderPass,
+  pass: GracePassContext,
   slots: ChordRest[],
   staveNotes: EngravedNote[],
   measureNumber: number,
@@ -54,6 +54,8 @@ export function drawEnclosures(
   clefForBeat: (beat: Fraction) => Clef,
   /** The key governing this lane's bar — the drawn signs (which the brackets clear) are read against it. */
   key: KeySignature = C_MAJOR,
+  /** Which of the lane's notes to draw for — every one when absent (`./GracePass.drawGraceNotes` says why). */
+  only?: (index: number) => boolean,
 ): void {
   if (!slots.some(s => s.type === 'chord' && s.notes.some(p => p.enclosure))) return
   const signs = displayedAccidentals(slots, key)
@@ -61,6 +63,7 @@ export function drawEnclosures(
   for (let i = 0; i < slots.length && i < staveNotes.length; i++) {
     const slot = slots[i]
     if (slot.type !== 'chord') continue
+    if (only && !only(i)) continue
     const stemDown = staveNotes[i].getStemDirection() === -1
     const layout = enclosureLayout({ notes: slot.notes, duration: slot.duration, dots: slot.dots, enclosureSpan: slot.enclosureSpan, cue: slot.cue, stemDown, upFlag: !stemDown && staveNotes[i].hasFlag() }, id => signs.get(id), clefForBeat(slot.beat))
     // ⭐ A cue head's brackets at the armed C11 row's size — `gould` full, `shrink` the head's (`layout/cueSize`).
@@ -127,7 +130,7 @@ export function stampEnclosure(
  * @param spacePx one of the brackets' staff spaces, in those px (a grace's is its scale's).
  */
 export function registerEnclosure(
-  pass: RenderPass, layout: EnclosureLayout, x: (sp: number) => number, y: (line: number) => number,
+  pass: GracePassContext, layout: EnclosureLayout, x: (sp: number) => number, y: (line: number) => number,
   spacePx: number, measureNumber: number, staffIndex: number,
 ): void {
   for (const pair of layout.pairs) {

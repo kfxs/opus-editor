@@ -197,3 +197,10 @@ export interface RenderPass {
    */
   staffScale: (staffIndex: number) => number
 }
+
+/**
+ * ⭐ What the GRACE passes use of a render (`./GracePass`, `./BracketedGracePass`, `./EnclosurePass`) — the
+ * five fields, so a caller that is not the page's render (the bent staff, `eye/spineScore`) can hand them its
+ * own surface and a registry of its own. A `RenderPass` is one.
+ */
+export type GracePassContext = Pick<RenderPass, 'context' | 'elementRegistry' | 'score' | 'fanMemberGroupMap' | 'fanMemberAnchorMap'>

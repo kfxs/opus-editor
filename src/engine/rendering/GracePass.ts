@@ -23,7 +23,7 @@
  */
 import type { ChordRest, Clef, Fraction, GraceGroup, GraceNote, KeySignature, NoteDuration } from '@/types/music'
 import type { DrawContext } from '@/engine/paint/DrawContext'
-import type { RenderPass } from './RenderPass'
+import type { GracePassContext } from './RenderPass'
 import type { EngravedNote } from './engraved/EngravedNote'
 import type { EngravedStave } from './engraved/EngravedStave'
 import { EngravedAccidental } from './engraved/EngravedAccidental'
@@ -77,7 +77,7 @@ export const GRACE_LEDGER_OVERHANG = 3
  * for index (the fan pass's contract).
  */
 export function drawGraceNotes(
-  pass: RenderPass,
+  pass: GracePassContext,
   slots: ChordRest[],
   staveNotes: EngravedNote[],
   measureNumber: number,
@@ -85,18 +85,23 @@ export function drawGraceNotes(
   clefForBeat: (beat: Fraction) => Clef,
   /** The key governing this lane's bar — the graces' signs are decided with the notes' (one walk). */
   key: KeySignature = C_MAJOR,
+  /**
+   * Which of the lane's notes to draw for — every one when absent (the page). The bent staff draws each
+   * note in a block of its own, so it asks for one at a time; the SIGNS are still read over the whole lane.
+   */
+  only?: (index: number) => boolean,
 ): void {
   // ⭐ The brackets of the lane's PARENTHESISED heads (`./EnclosurePass`) — drawn from here, the lane's
   //    one pass over the notes just drawn, so the renderer's loop stays one call wide.
-  drawEnclosures(pass, slots, staveNotes, measureNumber, staffIndex, clefForBeat, key)
+  drawEnclosures(pass, slots, staveNotes, measureNumber, staffIndex, clefForBeat, key, only)
   // ⭐ The chord's BRACKETED graces first — the rest of its before side (`./BracketedGracePass`).
-  drawBracketedGraces(pass, slots, staveNotes, measureNumber, staffIndex, clefForBeat, key)
+  drawBracketedGraces(pass, slots, staveNotes, measureNumber, staffIndex, clefForBeat, key, only)
   if (!slots.some(s => s.graceBefore)) return
   const signs = displayedAccidentals(slots, key)
   const signOf: SignOf = id => signs.get(id)
   for (let i = 0; i < slots.length && i < staveNotes.length; i++) {
     const slot = slots[i]
-    if (!slot.graceBefore) continue
+    if (!slot.graceBefore || (only && !only(i))) continue
     const stave = maybeStaveOf(staveNotes[i])
     if (!stave) continue
     // ⭐ At the group's OWN size — a group of cue graces is the cue-grace size (cue-size-plan C4): every
@@ -108,7 +113,7 @@ export function drawGraceNotes(
 }
 
 function drawGraceGroup(
-  pass: RenderPass,
+  pass: GracePassContext,
   /** A chord — or a REST (D7 reversed), whose notes are none. */
   host: ChordRest,
   group: GraceGroup,
@@ -402,7 +407,7 @@ export function drawGraceStem(ctx: DrawContext, ink: GraceStemInk): void {
  * Registered like a fan member's mark, keyed on the grace's first pitch, so it can be clicked.
  */
 function drawGraceArticulations(
-  pass: RenderPass,
+  pass: GracePassContext,
   a: {
     note: GraceNote; stave: EngravedStave; clef: Clef
     /** The head's left edge and the head glyph's FULL-size width, staff px. */

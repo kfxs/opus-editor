@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { circleSpine, straightSpine } from '@/engine/engrave/staff/staffSpine'
 import { ScoreModel } from '@/engine/models/ScoreModel'
 import { toggleTie } from '@/engine/models/tieOps'
+import { addGrace } from '@/engine/models/graceOps'
 import { setEngravingOverride } from '@/engine/models/overrideOps'
 import type { CurveShapeOverride, SlurEndpointOffsetOverride, SlurOffsetOverride, TieOffsetOverride } from '@/types/music'
 import { SceneRecorder } from '@/engine/scene/SceneRecorder'
@@ -222,5 +223,18 @@ describe('drawScoreOnSpine — a slur in a MULTI-VOICE bar takes its VOICE\'s si
   it('⭐ voice 2\'s slur, left on AUTO, is drawn BELOW — exactly as the same slur forced below', () => {
     expect(ink(twoVoices())).toEqual(ink(twoVoices('below')))
     expect(ink(twoVoices())).not.toEqual(ink(twoVoices('above')))
+  })
+})
+
+describe('drawScoreOnSpine — a slur from a GRACE (port map #21; his report, 2026-09-26)', () => {
+  it('⭐ a slur that starts on a grace is drawn — the grace\'s own head is its end, as on the page', () => {
+    const m = fourBars()
+    const host = m.addNote({ step: 'F', octave: 4, duration: 'q', measure: 1, beat: { num: 1, den: 1 } })
+    m.addNote({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: { num: 0, den: 1 } })
+    const grace = addGrace(m.getScore(), host.id, 'before', { step: 'D', alter: 0, octave: 5 }, 'appoggiatura', { duration: '8' })!
+    m.addSlur({ startNoteId: grace.pitches[0].id, endNoteId: host.id })
+    const curves = curvesOf(m)
+    expect(curves).toHaveLength(1)
+    expect(curves[0].id).toBe(`slur-${m.getScore().slurs![0].id}`)
   })
 })

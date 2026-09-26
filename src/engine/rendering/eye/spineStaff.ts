@@ -68,6 +68,13 @@ export interface SpineNotePlace {
   topLineY: number
 }
 
+/**
+ * ⭐ Ink a NOTE carries that its own `draw()` does not paint — its graces, a bracketed grace, a parenthesised
+ * head's brackets (port map #21–#23, the page's `GracePass`) — drawn right after the note, in the note's own
+ * frame, so it is part of the note's block and turns with it.
+ */
+export type WithNote = (note: EngravedNote) => void
+
 /** The class of a placed block's group — what a scene reader (and the spec) finds them by. */
 export const SPINE_BLOCK_CLASS = 'spine-block'
 
@@ -84,7 +91,11 @@ const BLOCK_FORMAT_WIDTH = 150
  * spine at `s`. The note may be the score's own (`engraved/NoteBuilder`) — chord, rest, accidentals,
  * dots and all: the block is whatever the note draws.
  */
-export function drawNoteBlock(ctx: DrawContext, spine: Spine, engraved: EngravedNote, s: number): SpineNotePlace {
+export function drawNoteBlock(
+  ctx: DrawContext, spine: Spine, engraved: EngravedNote, s: number,
+  /** Ink that belongs to the note and stands IN its block — its graces, its brackets (port map #21–#23). */
+  withNote?: WithNote,
+): SpineNotePlace {
   const stave = new EngravedStave(0, 0, BLOCK_STAVE_WIDTH).setOpeningBarline('none').setClosingBarline('none')
   stave.setDefaultLedgerLineStyle(ledgerLineStyle())
   // ⭐ The page's lone-note format (`ghosts/loneNote`) — unless the bar already gave this note its COLUMN
@@ -101,6 +112,7 @@ export function drawNoteBlock(ctx: DrawContext, spine: Spine, engraved: Engraved
   try {
     drawNoteInkThrough([engraved], ctx)
     engraved.setContext(ctx).draw()
+    withNote?.(engraved)
   } finally {
     ctx.closeGroup()
   }
@@ -151,6 +163,7 @@ export interface GroupBlockInk {
  */
 export function drawGroupBlock(
   ctx: DrawContext, spine: Spine, notes: readonly EngravedNote[], ss: readonly number[], ink: GroupBlockInk,
+  withNote?: WithNote,
 ): SpineNotePlace[] {
   if (notes.length === 0) return []
   const middle = (ss[0] + ss[ss.length - 1]) / 2
@@ -200,6 +213,8 @@ export function drawGroupBlock(
       noteGroups.push(drawGroupOf(ctx.openGroup(SPINE_NOTE_CLASS)))
       try {
         note.setContext(ctx).draw()
+        // Inside the note's OWN group, so its graces and brackets turn with it (the local tilt below).
+        withNote?.(note)
       } finally {
         ctx.closeGroup()
       }

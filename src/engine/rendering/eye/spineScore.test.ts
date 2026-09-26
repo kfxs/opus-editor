@@ -9,6 +9,11 @@ import { setEngravingOverride } from '@/engine/models/overrideOps'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { SPINE_BLOCK_CLASS, SPINE_NOTE_CLASS } from './spineStaff'
 import { drawScoreOnSpine } from './spineScore'
+import { addGrace } from '@/engine/models/graceOps'
+import { addBracketed } from '@/engine/models/bracketedGraceOps'
+import { GRACE_GROUP } from '../GracePass'
+import { BRACKETED_GROUP } from '../BracketedGracePass'
+import { ENCLOSURE_GROUP } from '../EnclosurePass'
 
 /**
  * ⭐ What stands on the spine is READ FROM THE MODEL — so these drive a real `ScoreModel` and count
@@ -322,5 +327,42 @@ describe('drawScoreOnSpine — VOICES (docs/plans/bent-staff-plan.md #11)', () =
     expect(alone.length).toBeGreaterThan(0)
     expect(shared.length).toBe(alone.length)
     expect(shared[0]).toBeLessThan(alone[0])
+  })
+})
+
+describe('drawScoreOnSpine — GRACES, BRACKETED graces, PARENTHESIS brackets (port map #21–#23)', () => {
+  /** Four bars of quarters; the second note of bar 1 carries the ornament `add` puts on it. */
+  const withOrnament = (add: (m: ScoreModel, hostId: string) => void) => {
+    const m = model(4)
+    const notes = [0, 1, 2, 3].map(b => m.addNote({ step: 'D', octave: 5, duration: 'q', measure: 1, beat: { num: b, den: 1 } }))
+    add(m, notes[1].id)
+    const recorder = new SceneRecorder()
+    drawScoreOnSpine(recorder, m.getScore(), circleSpine(400, 400, 250))
+    return recorder.scene
+  }
+  /** The block (placed group) each group of class `cls` is drawn inside. */
+  const blocksHolding = (scene: ReturnType<typeof withOrnament>, cls: string) =>
+    sceneGroups(scene, SPINE_BLOCK_CLASS).filter(block => sceneGroups(block, cls).length > 0)
+
+  it('⭐ a grace is drawn INSIDE its host note\'s block — the page\'s own `GracePass`, turning with the note', () => {
+    const scene = withOrnament((m, host) => { addGrace(m.getScore(), host, 'before', { step: 'E', alter: 0, octave: 5 }, 'acciaccatura', { duration: '8' }) })
+    expect(sceneGroups(scene, GRACE_GROUP)).toHaveLength(1)
+    expect(blocksHolding(scene, GRACE_GROUP)).toHaveLength(1)
+  })
+
+  it('⭐ a bracketed grace, and a parenthesised head\'s brackets, are drawn in their note\'s block too', () => {
+    const bracketed = withOrnament((m, host) => { addBracketed(m.getScore(), host, 'before', { step: 'E', alter: 0, octave: 5 }) })
+    expect(blocksHolding(bracketed, BRACKETED_GROUP)).toHaveLength(1)
+    const enclosed = withOrnament((m, host) => {
+      const pitch = m.getScore().measures[0].slots.find(s => s.type === 'chord' && s.id !== undefined && s.notes.some(p => p.id === host))
+      if (pitch?.type === 'chord') pitch.notes[0].enclosure = 'round'
+    })
+    expect(blocksHolding(enclosed, ENCLOSURE_GROUP)).toHaveLength(1)
+  })
+
+  it('a score with no ornaments draws none', () => {
+    const scene = withOrnament(() => {})
+    expect(sceneGroups(scene, GRACE_GROUP)).toHaveLength(0)
+    expect(sceneGroups(scene, ENCLOSURE_GROUP)).toHaveLength(0)
   })
 })

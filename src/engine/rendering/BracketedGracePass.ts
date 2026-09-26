@@ -14,7 +14,7 @@
  * all through the lookups' `{ bracketed: true }` opt-in (`models/slotLookup`).
  */
 import type { ChordRest, Clef, Fraction, KeySignature } from '@/types/music'
-import type { RenderPass } from './RenderPass'
+import type { GracePassContext } from './RenderPass'
 import type { EngravedNote } from './engraved/EngravedNote'
 import type { EngravedStave } from './engraved/EngravedStave'
 import { EngravedAccidental } from './engraved/EngravedAccidental'
@@ -47,7 +47,7 @@ const LEDGER_OVERHANG = 3
  * the lane's, index for index (the fan and grace passes' contract).
  */
 export function drawBracketedGraces(
-  pass: RenderPass,
+  pass: GracePassContext,
   slots: ChordRest[],
   staveNotes: EngravedNote[],
   measureNumber: number,
@@ -55,6 +55,8 @@ export function drawBracketedGraces(
   clefForBeat: (beat: Fraction) => Clef,
   /** The key governing this lane's bar — a bracketed sign is read against it and the bar (B6). */
   key: KeySignature = C_MAJOR,
+  /** Which of the lane's notes to draw for — every one when absent (`./GracePass.drawGraceNotes` says why). */
+  only?: (index: number) => boolean,
 ): void {
   const after = (s: ChordRest) => s.type === 'chord' && !!s.bracketedAfter?.length
   if (!slots.some(s => after(s) || s.bracketedBefore?.length || s.graceBefore?.notes.some(g => g.bracketedBefore?.length))) return
@@ -65,6 +67,7 @@ export function drawBracketedGraces(
     // A chord's — or a REST's (B10 reversed: entered first, on an empty bar) — its graces' (P3), and
     // those AFTER a chord (P5).
     if (!after(slot) && !slot.bracketedBefore?.length && !slot.graceBefore?.notes.some(g => g.bracketedBefore?.length)) continue
+    if (only && !only(i)) continue
     const stave = maybeStaveOf(staveNotes[i])
     if (!stave) continue
     const clef = clefForBeat(slot.beat)
@@ -88,7 +91,7 @@ export function drawBracketedGraces(
 }
 
 function drawOne(
-  pass: RenderPass, place: BracketedPlace, hostX: number, stave: EngravedStave, measureNumber: number, staffIndex: number,
+  pass: GracePassContext, place: BracketedPlace, hostX: number, stave: EngravedStave, measureNumber: number, staffIndex: number,
 ): void {
   const ctx = pass.context
   const frame: StaffFrame = staveFrame(stave)
