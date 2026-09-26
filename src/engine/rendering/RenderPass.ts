@@ -204,3 +204,10 @@ export interface RenderPass {
  * own surface and a registry of its own. A `RenderPass` is one.
  */
 export type GracePassContext = Pick<RenderPass, 'context' | 'elementRegistry' | 'score' | 'fanMemberGroupMap' | 'fanMemberAnchorMap'>
+
+/**
+ * ⭐ What the FAN pass's in-bar route uses of a render (`beams/FanPass.drawFannedBeams`) — the grace passes'
+ * five, and the bar's solved COLUMNS (where a fan's members spread). A `RenderPass` is one; the bent staff
+ * (`eye/spineScore`) hands its own.
+ */
+export type FanPassContext = GracePassContext & Pick<RenderPass, 'solvedColumns'>

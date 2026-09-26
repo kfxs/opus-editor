@@ -73,7 +73,23 @@ export interface SpineNotePlace {
  * head's brackets (port map #21–#23, the page's `GracePass`) — drawn right after the note, in the note's own
  * frame, so it is part of the note's block and turns with it.
  */
-export type WithNote = (note: EngravedNote) => void
+export type WithNote = (note: EngravedNote, frame: BlockFrame) => void
+
+/** Where a point ALONG the spine stands in a block's own frame (its notes' stave px). */
+export interface BlockFrame {
+  /** Its x. */
+  xAt(s: number): number
+  /**
+   * ⭐ The block point that stands `depth` below the path's TOP line at `s` — ALONG the path's own normal there,
+   * not the block's vertical: ink deep below the lines, set straight down in the block, would swing forward by
+   * `depth × sin(turn)` (§8, cause 2 — the beamed heads' lesson, again for a fan's members). `depth` is measured
+   * on the stave the point's note stands on.
+   */
+  pointAt(s: number, depth: number): { x: number; y: number }
+  /** How far the path has TURNED there from the block's own direction, radians — what a note's ink standing
+   *  there turns by (the local tilt). */
+  turnAt(s: number): number
+}
 
 /** The class of a placed block's group — what a scene reader (and the spec) finds them by. */
 export const SPINE_BLOCK_CLASS = 'spine-block'
@@ -112,7 +128,20 @@ export function drawNoteBlock(
   try {
     drawNoteInkThrough([engraved], ctx)
     engraved.setContext(ctx).draw()
-    withNote?.(engraved)
+    // The block turns about the head's centre at `s`: a point `s2` along the path stands at that centre plus
+    // its distance along the block's tangent.
+    withNote?.(engraved, {
+      xAt: s2 => {
+        const r = noteRuler(engraved)
+        return (r.headLeftX + r.headRightX) / 2 + toBlockSpace(spine, s, s2).x
+      },
+      pointAt: (s2, depth) => {
+        const r = noteRuler(engraved)
+        const p = toBlockSpace(spine, s, s2, depth)
+        return { x: (r.headLeftX + r.headRightX) / 2 + p.x, y: staveFrame(stave).topLineY + p.y }
+      },
+      turnAt: s2 => spine.at(s2).angle - spine.at(s).angle,
+    })
   } finally {
     ctx.closeGroup()
   }
@@ -135,6 +164,14 @@ const BLOCK_LEAD_IN_PX = 40
  *  `division` / `beforeNext` (the next column, or the bar's end); absent = at the last note, as the page's. */
 export interface GroupBlockInk {
   beams: readonly EngravedBeam[]
+  /** Ink spanning several of the block's notes that the page draws after its beams — a FAN (port map #29),
+   *  handed the block's own along-the-path → x mapper. */
+  extra?: (frame: BlockFrame) => void
+  /**
+   * Notes whose own ink must NOT turn with the path (the local tilt below): a FAN's owner draws its own stem,
+   * and that stem has to meet the fan's STRAIGHT ramp in the block's frame, as a beamed note's does.
+   */
+  upright?: ReadonlySet<EngravedNote>
   tuplets: readonly {
     tuplet: ScoreTuplet
     endS?: number
@@ -199,6 +236,27 @@ export function drawGroupBlock(
     standOn(note, stave)
   })
 
+  /**
+   * A point along the path → its x in this block's frame (the notes' stave px): measured from the FIRST
+   * note's head CENTRE, which is where `local[0]` stands — ⚠️ not from `BLOCK_LEAD_IN_PX`, which is the
+   * first TICK column's x: the stave's note start and the head's half width lie between the two, and a
+   * mapper built on the lead-in ended every span short by them (a fan's room, a tuplet bracket's end —
+   * seen 2026-09-26: a joined fan's room 71 px on the spine, 93 on the page). Asked after the format.
+   */
+  const xAt = (s2: number): number => {
+    const first = noteRuler(notes[0])
+    return (first.headLeftX + first.headRightX) / 2 + (toBlockSpace(spine, middle, s2).x - local[0].x)
+  }
+  const blockTopLineY = staveFrame(new EngravedStave(0, 0, BLOCK_STAVE_WIDTH)).topLineY
+  const frame: BlockFrame = {
+    xAt,
+    pointAt: (s2, depth) => {
+      const first = noteRuler(notes[0])
+      const p = toBlockSpace(spine, middle, s2, depth)
+      return { x: (first.headLeftX + first.headRightX) / 2 + (p.x - local[0].x), y: blockTopLineY + p.y }
+    },
+    turnAt: s2 => spine.at(s2).angle - spine.at(middle).angle,
+  }
   const group = drawGroupOf(ctx.openGroup(SPINE_BLOCK_CLASS))
   // ⭐ Each note's OWN ink — heads, accidentals, dots, articulations, ledger lines — in a group of its
   //    own, turned below to the path's LOCAL angle. A beamed note draws no stem (the beam draws them
@@ -214,7 +272,7 @@ export function drawGroupBlock(
       try {
         note.setContext(ctx).draw()
         // Inside the note's OWN group, so its graces and brackets turn with it (the local tilt below).
-        withNote?.(note)
+        withNote?.(note, frame)
       } finally {
         ctx.closeGroup()
       }
@@ -225,8 +283,9 @@ export function drawGroupBlock(
     //    frame like the beam: the bracket STRAIGHT, outside whatever reaches furthest (its own rule,
     //    `engrave/marks/tupletPlacement`, asked of the notes as formatted here). Where the bracket ENDS is
     //    the format's answer turned into this block's x: the next column's place along the path.
+    ink.extra?.(frame)
     for (const { tuplet, endS, beforeDraw } of ink.tuplets) {
-      tuplet.bracketEndX = endS === undefined ? undefined : BLOCK_LEAD_IN_PX + (toBlockSpace(spine, middle, endS).x - local[0].x)
+      tuplet.bracketEndX = endS === undefined ? undefined : xAt(endS)
       beforeDraw?.()
       tuplet.draw(ctx)
     }
@@ -245,7 +304,7 @@ export function drawGroupBlock(
   const blockAngle = spine.at(middle).angle
   notes.forEach((note, i) => {
     const tilt = spine.at(ss[i]).angle - blockAngle
-    if (tilt === 0) return
+    if (tilt === 0 || ink.upright?.has(note)) return
     const ruler = noteRuler(note)
     if (ruler.headYs.length === 0) return
     const cx = (ruler.headLeftX + ruler.headRightX) / 2

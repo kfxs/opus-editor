@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { apply } from '@/engine/paint/Affine'
+import { apply, isTranslation } from '@/engine/paint/Affine'
 import { circleSpine, straightSpine } from '@/engine/engrave/staff/staffSpine'
 import { ScoreModel } from '@/engine/models/ScoreModel'
 import { SceneRecorder } from '@/engine/scene/SceneRecorder'
@@ -364,5 +364,66 @@ describe('drawScoreOnSpine — GRACES, BRACKETED graces, PARENTHESIS brackets (p
     const scene = withOrnament(() => {})
     expect(sceneGroups(scene, GRACE_GROUP)).toHaveLength(0)
     expect(sceneGroups(scene, ENCLOSURE_GROUP)).toHaveLength(0)
+  })
+})
+
+describe('drawScoreOnSpine — FANNED BEAMS (port map #29)', () => {
+  const FAN = 'fan'
+  const FAN_HEAD = 'fanhead'
+  const FAN_DROP = 'fandrop'
+  const draw = (m: ScoreModel, spine = circleSpine(400, 400, 250)) => {
+    const recorder = new SceneRecorder()
+    drawScoreOnSpine(recorder, m.getScore(), spine)
+    return recorder.scene
+  }
+  /** A lone accel fan of 5 on a half note, then two quarters, in four bars. */
+  const loneFan = () => {
+    const m = model(4)
+    const owner = m.addNote({ step: 'G', octave: 4, duration: 'h', measure: 1, beat: { num: 0, den: 1 } })
+    m.addNote({ step: 'C', octave: 5, duration: 'q', measure: 1, beat: { num: 2, den: 1 } })
+    m.addNote({ step: 'D', octave: 5, duration: 'q', measure: 1, beat: { num: 3, den: 1 } })
+    m.setFan(owner.id, { direction: 'accel', count: 5, beams: 3 })
+    return m
+  }
+  /** Four sixteenths JOINED to a fan on beat 2 (`beam: 'continue'` — fan.e2e's fixture). */
+  const joinedFan = () => {
+    const m = model(4)
+    for (const k of [0, 1, 2, 3]) m.addNote({ step: 'C', octave: 5, duration: '16', measure: 1, beat: { num: k, den: 4 } })
+    const owner = m.addNote({ step: 'C', octave: 5, duration: 'q', measure: 1, beat: { num: 1, den: 1 } })
+    m.setFan(owner.id, { direction: 'accel', count: 6, beams: 3 })
+    m.updateNote(owner.id, { beam: 'continue' })
+    return m
+  }
+
+  it('⭐ a LONE fan is drawn — the page\'s own `FanPass`, inside its owner\'s block, with its members', () => {
+    const scene = draw(loneFan())
+    const blocks = sceneGroups(scene, SPINE_BLOCK_CLASS).filter(b => sceneGroups(b, FAN).length)
+    expect(blocks).toHaveLength(1)
+    expect(sceneGroups(blocks[0], FAN_HEAD), 'members 1…4 — member 0 is the note itself').toHaveLength(4)
+  })
+
+  it('⭐ a fan JOINED to a group is ONE block with it — the prefix\'s notes inside, and the fan', () => {
+    const scene = draw(joinedFan())
+    const blocks = sceneGroups(scene, SPINE_BLOCK_CLASS).filter(b => sceneGroups(b, FAN).length)
+    expect(blocks).toHaveLength(1)
+    expect(sceneGroups(blocks[0], SPINE_NOTE_CLASS), 'the four sixteenths and the owner').toHaveLength(5)
+  })
+
+  it('⭐ on a CIRCLE the members ride the path (lowered); on a STRAIGHT spine nothing is', () => {
+    expect(sceneGroups(draw(loneFan()), FAN_DROP).length).toBeGreaterThan(0)
+    expect(sceneGroups(draw(loneFan(), straightSpine(0, 200, 1600)), FAN_DROP)).toHaveLength(0)
+  })
+
+  it('⭐ on a CIRCLE each member TURNS with the path, like a note (his report); on a STRAIGHT spine none does', () => {
+    expect(sceneGroups(draw(loneFan()), 'fantilt').length).toBeGreaterThan(0)
+    expect(sceneGroups(draw(loneFan(), straightSpine(0, 200, 1600)), 'fantilt')).toHaveLength(0)
+  })
+
+  it('⭐ a joined fan\'s OWNER stays upright in its block — its stem must meet the straight ramp', () => {
+    const scene = draw(joinedFan())
+    const block = sceneGroups(scene, SPINE_BLOCK_CLASS).find(b => sceneGroups(b, FAN).length)!
+    const noteGroups = sceneGroups(block, SPINE_NOTE_CLASS)
+    const owner = noteGroups[noteGroups.length - 1]
+    expect(isTranslation(owner.placement) || (owner.placement.a === 1 && owner.placement.b === 0)).toBe(true)
   })
 })

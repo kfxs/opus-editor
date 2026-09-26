@@ -9,7 +9,10 @@
  *
  * ## ⚠️ What this reads, and what it does not — yet
  *
- * - The FIRST staff only, every voice of it (two voices take the page's up/down stems).
+ * - The FIRST staff only, every voice of it (two voices take the page's up/down stems). ⭐ A bar is BUILT whole
+ *   first; with more than one voice the page's column pass runs over all of them together (the voice rule, dots
+ *   and accidentals stacked across a beat) and the page's re-assert follows (`format/voiceIntent`); a
+ *   multi-voice rest stands where the page puts it (`engraved/restShift`) — port map #11.
  * - The header is the PAGE's, per bar (`./spineHeader`): clef · key signature · meter at the staff's
  *   head, and the small clef / key change / new meter wherever one changes. A bar's notes stand on
  *   the clef its bar OPENS with (⛔ not yet a clef change in the MIDDLE of a bar).
@@ -24,7 +27,12 @@
  * - ⭐ TIES and SLURS (port map #13, `./spineCurves`): re-solved in the path's plane with the page's rules,
  *   their ink bent through `pointAt` (`engrave/curves/curveOnPath`) — the auto arch, no obstacles yet.
  * - ⭐ GRACES, bracketed graces and a parenthesised head's BRACKETS (port map #21–#23): the page's `GracePass`,
- *   one note at a time, inside that note's block.
+ *   one note at a time, inside that note's block. A slur can start or end on a grace (its recorded anchor).
+ * - ⭐ FANNED BEAMS (port map #29): the page's `FanPass`, inside the block — a lone fan in its note's, a fan
+ *   JOINED to a group in that group's. Solved in distance ALONG the path, each member then moved to the path's
+ *   own point at its own depth and turned there, like a note. ⛔ Not yet: a fan across a barline.
+ * - ⚠️ KNOWN ISSUE (plan §6.1): a long group's END stems lean against the lines by `≈ L / 2R` — his proposed
+ *   fix (stems take a share of the local turn) is recorded, not built.
  * - ⭐ DYNAMICS, expression words and TEMPO marks (port map #16, `./spineMarks`): the page's lines, asked
  *   with the spine's columns; each mark a rigid block on its lane. ⛔ No hairpins yet (#15).
  */
@@ -43,9 +51,13 @@ import { voiceOf } from '@/utils/lanes'
 import { getMeterInfo } from '@/utils/meter'
 import { createStaveNotesFromSlots, resolveTupletLocation, stemMajorityTupletLocation } from '../engraved/NoteBuilder'
 import { ScoreTuplet } from '../engraved/ScoreTuplet'
+import { staveFrame, staveOf } from '../staff/staveFrame'
+import { noteRuler } from '../engraved/noteRuler'
 import { drawGraceNotes } from '../GracePass'
 import { gracePitchesOf } from '@/utils/graceNotes'
-import type { GracePassContext } from '../RenderPass'
+import type { FanPassContext } from '../RenderPass'
+import { applyFanStemStretch, drawFannedBeams, type FanJoin } from '../beams/FanPass'
+import { INK } from '@/engine/layout/spacingPadding'
 import { ElementRegistry } from '@/engine/ElementRegistry'
 import { tupletYOffsetPx } from '../marks/tupletPass'
 import { restShiftResolver } from '../engraved/restShift'
@@ -60,7 +72,7 @@ import type { EngravedNote } from '../engraved/EngravedNote'
 import { deepestInkPx, spaceBarsOnSpine } from './spineSpacing'
 import { drawSpineBarHeader, spineBarHeader, spineHeaderMeterAt } from './spineHeader'
 import { drawSpineMarks, type SpineMarkBar } from './spineMarks'
-import { drawGroupBlock, drawNoteBlock, drawSpineBarline, drawSpineStaffLines, type GroupBlockInk, type SpineNotePlace } from './spineStaff'
+import { type BlockFrame, type WithNote, drawGroupBlock, drawNoteBlock, drawSpineBarline, drawSpineStaffLines, type GroupBlockInk, type SpineNotePlace } from './spineStaff'
 import { drawSpineCurves, type SpinePitchPlace } from './spineCurves'
 
 /**
@@ -121,10 +133,12 @@ export function drawScoreOnSpine(ctx: DrawContext, score: Score, spine: Spine): 
     })
   }
   const markBars: SpineMarkBar[] = []
-  // What the page's grace passes use of a render — this surface, and a registry and maps of the spine's own
-  // (⚠️ thrown away: the panel is not clicked into yet, §9).
-  const gracePass: GracePassContext = {
+  // What the page's grace and fan passes use of a render — this surface, a registry and maps of the spine's
+  // own (⚠️ thrown away: the panel is not clicked into yet, §9), and each bar's columns AS THE SPINE SPACED
+  // THEM (filled per bar below — where a fan's members spread).
+  const pagePass: FanPassContext = {
     context: ctx, score, elementRegistry: new ElementRegistry(), fanMemberGroupMap: new Map(), fanMemberAnchorMap: new Map(),
+    solvedColumns: new Map(),
   }
   score.measures.forEach((measure, i) => {
     const bar = bars[i]
@@ -158,15 +172,15 @@ export function drawScoreOnSpine(ctx: DrawContext, score: Score, spine: Spine): 
       })
       // ⭐ WHICH notes beam together is the PAGE's answer (`beams/beamGroups`) — asked BEFORE any
       //    note is formatted, so a beamed note reserves no room for a flag it will not draw.
-      //    ⚠️ A group holding a FAN gets no `Beam` there (the page draws it by hand): its notes stay
-      //    lone blocks here until fans are ported (plan §5 row 10).
-      const { beams } = buildBeams(notes, slots, getMeterInfo(measure.timeSignature), () => clef, forcedStem)
+      //    ⭐ A group holding a FAN gets no `Beam` there (the page draws it by hand, `FanPass`): its notes
+      //    and fans come back as a `fanJoins` entry, drawn as ONE block below (port map #29).
+      const { beams, fanJoins } = buildBeams(notes, slots, getMeterInfo(measure.timeSignature), () => clef, forcedStem)
       // A beam gives its group ONE stem direction — the re-assert must keep what the BEAM decided.
       for (const note of notes) if (intent.stemDir.has(note) && note.hasBeam()) intent.stemDir.set(note, note.getStemDirection())
       // ⭐ The TUPLETS (port map #8) — the page's own, built by the page's rules, AFTER the beams (the
       //    bracket asks whether a beam already shows the group; `hasBeam()` only answers once one exists).
       const tuplets = tupletsOf(measure, slots, notes, voice, multiVoice, at, bar.end, score)
-      return { slots, notes, at, beams, tuplets }
+      return { slots, notes, at, beams, tuplets, fanJoins, forcedStem }
     })
     // ── 2. ⭐ THE SHARED COLUMN (port map #11): with more than one voice, the page's column pass runs over
     //    EVERY voice of the bar together — the voice rule, then the dots and accidentals stacked across
@@ -178,16 +192,67 @@ export function drawScoreOnSpine(ctx: DrawContext, score: Score, spine: Spine): 
       formatColumns(barVoices, SHARED_COLUMN_FORMAT_PX)
       reassertVoiceIntent(built.flatMap(b => b.notes), intent)
     }
+    // ⭐ The bar's columns as the SPINE spaced them — in staff spaces from its first column, the page's
+    //    `SpacedColumns` — for a fan's members (`FanPass`, `fanRampRoomSpaces`). The columns hold the members'.
+    const firstColumn = bar.columns[0] ? bar.columnAt(bar.columns[0].beat) : 0
+    pagePass.solvedColumns.set(measure.number, {
+      columns: [...bar.columns],
+      xs: bar.columns.map(column => (bar.columnAt(column.beat) - firstColumn) / STAFF_SPACE_PX),
+    })
     // ── 3. DRAW — each group one block, each lone note one block.
-    for (const { slots, notes, at, beams, tuplets } of voiceInk) {
+    for (const { slots, notes, at, beams, tuplets, fanJoins, forcedStem } of voiceInk) {
+      // A fan's stem holds its beam levels — the page's own stretch, post-format, pre-draw (`FanPass`).
+      applyFanStemStretch(slots, notes)
+      /** Where the room of the fan at `n` ends along the path: the NEXT note's head (its left), else the barline. */
+      const nextHeadS = (n: number) => (n + 1 < at.length ? at[n + 1] - (INK.notehead / 2) * STAFF_SPACE_PX : bar.end)
+      /**
+       * ⭐ The page's `FanPass` for the fans `only` names, in a block whose frame is `frame`: the room ends at the
+       * next head along the path, and each MEMBER rides the path — lowered by how far the path runs below the
+       * owner's under it (the beams' option (b), §6: heads on the path, stems parallel, the ramp straight).
+       */
+      const drawFans = (joins: FanJoin[], only: (i: number) => boolean, frame: BlockFrame) =>
+        drawFannedBeams(pagePass, slots, notes, measure.number, 0, () => clef, joins, [], forcedStem, 1, keys.get(measure.number), {
+          only,
+          // ⭐ The fan is solved in DISTANCE ALONG THE PATH from its owner — its room ends that far on — and each
+          //    member is then moved to where the path truly is (`memberPlace`): on a circle a point s along the
+          //    arc stands only R·sin(s/R) along the tangent, so a ramp left on the tangent overshoots, the last
+          //    member onto the next note (seen 2026-09-26, his rit fan).
+          nextHeadX: i => frame.xAt(at[i]) + (nextHeadS(i) - at[i]),
+          memberPlace: i => {
+            const owner = at[i]
+            const ruler = noteRuler(notes[i])
+            const halfHead = (ruler.headRightX - ruler.headLeftX) / 2
+            const ownerCentreX = frame.xAt(owner)
+            const ownerTopLineY = staveFrame(staveOf(notes[i])).topLineY
+            return (x, y) => {
+              // The head's CENTRE, that far along the path from the owner's, at its own depth below the lines.
+              const s = owner + (x + halfHead - ownerCentreX)
+              const target = frame.pointAt(s, y - ownerTopLineY)
+              return { dx: target.x - (x + halfHead), dy: target.y - y }
+            }
+          },
+          // ⭐ …and TURNS with the path there, as any note's head does on the spine (his report, 2026-09-26:
+          //    *"the noteheads are not following the circle path, they should behave like normal notes"*).
+          memberTilt: i => {
+            const owner = at[i]
+            const ownerX = frame.xAt(owner)
+            return x => frame.turnAt(owner + (x - ownerX))
+          },
+        })
       // ⭐ A note's GRACES, BRACKETED graces and PARENTHESIS brackets (port map #21–#23): the page's own pass
       //    (`GracePass.drawGraceNotes`), asked for THIS note, drawn inside its block — read against the whole
       //    lane, so a grace's sign knows the bar's earlier notes.
-      const withNote = (note: EngravedNote) =>
-        drawGraceNotes(gracePass, slots, notes, measure.number, 0, () => clef, keys.get(measure.number), i => notes[i] === note)
+      //    ⭐ …and a LONE fan (port map #29), in its note's block too.
+      const withNote: WithNote = (note, frame) => {
+        const n = notes.indexOf(note)
+        drawGraceNotes(pagePass, slots, notes, measure.number, 0, () => clef, keys.get(measure.number), i => i === n)
+        if (!fanJoins.some(join => join.fans.includes(n))) drawFans([], i => i === n, frame)
+      }
       const groups = groupNotes(notes.length, [
         ...beams.map(beam => beam.notes.map(note => notes.indexOf(note))),
         ...tuplets.map(t => t.tuplet.getNotes().map(note => notes.indexOf(note))),
+        // ⭐ A fan JOINED to the group on its left: the group and its fans are ONE block (the page's one beam).
+        ...fanJoins.map(join => [...join.prefix, ...join.fans]),
       ])
       const drawn = new Set<number>()
       const places: SpineNotePlace[] = []
@@ -197,9 +262,14 @@ export function drawScoreOnSpine(ctx: DrawContext, score: Score, spine: Spine): 
         if (drawn.has(groups[n])) return
         drawn.add(groups[n])
         const inBlock = (ids: readonly EngravedNote[]) => ids.every(id => members.includes(notes.indexOf(id)))
+        const joins = fanJoins.filter(join => join.fans.every(i => members.includes(i)))
         const ink: GroupBlockInk = {
           beams: beams.filter(beam => inBlock(beam.notes)),
           tuplets: tuplets.filter(t => inBlock(t.tuplet.getNotes())),
+          ...(joins.length ? {
+            extra: (frame: BlockFrame) => drawFans(joins, i => joins.some(join => join.fans.includes(i)), frame),
+            upright: new Set(joins.flatMap(join => join.fans.map(i => notes[i]))),
+          } : {}),
         }
         drawGroupBlock(ctx, spine, members.map(i => notes[i]), members.map(i => at[i]), ink, withNote).forEach((place, k) => { places[members[k]] = place })
       })
@@ -211,7 +281,7 @@ export function drawScoreOnSpine(ctx: DrawContext, score: Score, spine: Spine): 
         const place = places[i]
         if (!place) return
         for (const pitch of gracePitchesOf(slot)) {
-          const anchor = gracePass.fanMemberAnchorMap.get(pitch.id)
+          const anchor = pagePass.fanMemberAnchorMap.get(pitch.id)
           if (anchor) pitches.set(pitch.id, { place, headIndex: 0, measureNumber: measure.number, anchor })
         }
       })

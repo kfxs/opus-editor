@@ -45,13 +45,15 @@ import { ledgerLineRuns, drawLedgerLines } from '@/engine/engrave/notes/ledgerLi
 import { drawStem } from '@/engine/engrave/notes/stem'
 import { drawNoteHead } from '@/engine/engrave/notes/noteheads'
 import { openMemberGroup } from '../memberGroup'
+import { drawGroupOf } from '../painter/svgDrawGroup'
+import { rotationAbout, translation } from '@/engine/paint/Affine'
 import { EngravedAccidental } from '../engraved/EngravedAccidental'
 import { stampGlyph } from '@/engine/engrave/glyph'
 import { accidentalFont, noteFont } from '@/engine/engrave/inheritedFonts'
 import { stemOf, EngravedNote } from '../engraved/EngravedNote'
 import type { CrossBarFanJoin } from './CrossBarBeams'
 import type { ElementRegistry } from '@/engine/ElementRegistry'
-import type { RenderPass } from '../RenderPass'
+import type { FanPassContext, RenderPass } from '../RenderPass'
 import { fracAdd } from '@/utils/fraction'
 import { fanMemberBeats } from '@/utils/fannedBeam'
 import { fanRampRoomSpaces } from '@/engine/layout/fanRampRoom'
@@ -113,6 +115,17 @@ interface FanSlotDrawing {
   stored: FanMemberChord[]
   prefixNotes: EngravedNote[]
   options: FanGeometryOptions
+  /**
+   * Where each MEMBER truly stands when the fan is laid along a BENT path — the bent staff's (`eye/spineScore`,
+   * the beams' option (b)): given where the ramp put its head (`x` — its left, a distance ALONG the path — and
+   * `y`, the middle of its heads on the owner's stave), how far the head moves across (`dx`) and down (`dy`) to
+   * stand on the path's own point AT ITS OWN DEPTH. Absent on the page: every member where the ramp put it.
+   */
+  memberPlace?: (x: number, y: number) => { dx: number; dy: number }
+  /** How far a MEMBER's head turns, by its x, radians — the bent staff's again: its head, sign and ledger
+   *  lines turn with the path where it stands, as any note's do there; its stem stays parallel, so it still
+   *  meets the straight ramp (a beamed note's rule on the spine). Absent on the page. */
+  memberTilt?: (x: number) => number
 }
 
 /**
@@ -295,7 +308,7 @@ function fanMemberOffsetsPx(score: Score, slot: Chord, stave: EngravedStave): nu
  * tick. A fan in a busy bar is the case to look at by eye.
  */
 export function drawFannedBeams(
-  pass: RenderPass,
+  pass: FanPassContext,
   slots: ChordRest[],
   staveNotes: EngravedNote[],
   measureNumber: number,
@@ -318,6 +331,19 @@ export function drawFannedBeams(
   /** The KEY SIGNATURE governing this lane's bar — the members' signs are decided against the same
    *  one the `StaveNote`s were, so the two cannot drift. */
   key: KeySignature = C_MAJOR,
+  /**
+   * For a caller that is not the page's bar (the bent staff, `eye/spineScore`): `only` — which fans to draw
+   * (the signs still read over the whole lane); `nextHeadX` — where a fan's room ends, in its note's stave
+   * px, when the next note was NOT formatted in the same frame. Absent: every fan, the next `StaveNote`'s head.
+   */
+  scope: {
+    only?: (index: number) => boolean
+    nextHeadX?: (index: number) => number
+    /** Where a member truly stands on a bent path, by x — see {@link FanSlotDrawing.memberPlace}. */
+    memberPlace?: (index: number) => ((x: number, y: number) => { dx: number; dy: number }) | undefined
+    /** A member's turn, by x — see {@link FanSlotDrawing.memberTilt}. */
+    memberTilt?: (index: number) => ((x: number) => number) | undefined
+  } = {},
 ): void {
   // Which sign each pitch of this lane displays — the SAME map NoteBuilder gave the StaveNotes, so
   // a member's accidental obeys one rule with the notes around it, including holding for the rest
@@ -329,6 +355,7 @@ export function drawFannedBeams(
   const drawings: FanSlotDrawing[] = []
   for (let i = 0; i < slots.length && i < staveNotes.length; i++) {
     if (crossingFans.includes(i)) continue
+    if (scope.only && !scope.only(i)) continue
     const join = fanJoins.find(j => j.fans.includes(i))
     const drawing = fanSlotDrawing({
       index: i,
@@ -346,11 +373,12 @@ export function drawFannedBeams(
       // Where this slot's room ends: the next note's ink in this lane, or the note area's end. The
       // next slot is the honest boundary — it is what the formatter itself spaced against.
       nextNote: staveNotes[i + 1],
+      nextHeadX: scope.nextHeadX?.(i),
       measureNumber,
       staffIndex,
       joined: !!join,
     })
-    if (drawing) drawings.push(drawing)
+    if (drawing) drawings.push({ ...drawing, memberPlace: scope.memberPlace?.(i), memberTilt: scope.memberTilt?.(i) })
   }
   drawFanGroups(pass, drawings, fanJoins)
 }
@@ -434,7 +462,7 @@ export function drawCrossBarFanBeams(pass: RenderPass, joins: CrossBarFanJoin[])
  * ⚠️ `closeGroup()` lives
  * in a `finally` — an unbalanced pair swallows the rest of the render.
  */
-function drawFanGroups(pass: RenderPass, drawings: FanSlotDrawing[], fanJoins: FanJoin[]): void {
+function drawFanGroups(pass: FanPassContext, drawings: FanSlotDrawing[], fanJoins: FanJoin[]): void {
   reconcileFanJoinLines(drawings, fanJoins)
 
   const geometries = new Map<number, FanGeometry>()
@@ -445,7 +473,27 @@ function drawFanGroups(pass: RenderPass, drawings: FanSlotDrawing[], fanJoins: F
     //   `NoteBuilder`; the members, their signs, ledgers, marks and the beam are this pass's — all at `size`.
     //   ⚠️ Not `k`: that is the member loop's index below.
     const size = slotScale(slot)
-    const geometry = fannedBeamGeometry(options)
+    // ⭐ A member that rides a bent path (`memberPlace`) is moved to the path's own point — across by the
+    //   member OFFSET the geometry already takes (it moves a head without touching the span), down by lowering
+    //   its head — BEFORE the ramp is solved again, so its stem still reaches the straight beam. Solved once
+    //   for the members' x's (distances along the path), then again where they truly stand. Its TURN is asked
+    //   at the same x. The page passes none: one solve, exactly as before.
+    const firstSolve = fannedBeamGeometry(options)
+    const places = drawing.memberPlace
+      ? firstSolve.stems.map((stem, k) => {
+        const ys = options.memberHeadYs[k] ?? []
+        return k === 0 || !ys.length ? { dx: 0, dy: 0 } : drawing.memberPlace!(stem.headX, (Math.min(...ys) + Math.max(...ys)) / 2)
+      })
+      : undefined
+    const tilts = drawing.memberTilt ? firstSolve.stems.map((stem, k) => (k === 0 ? 0 : drawing.memberTilt!(stem.headX))) : undefined
+    const drops = places?.map(p => p.dy)
+    const geometry = places
+      ? fannedBeamGeometry({
+          ...options,
+          memberHeadYs: options.memberHeadYs.map((ys, k) => ys.map(y => y + (places[k]?.dy ?? 0))),
+          memberOffsets: places.map((p, k) => (options.memberOffsets?.[k] ?? 0) + p.dx),
+        })
+      : firstSolve
     geometries.set(i, geometry)
 
     // ⭐ P2 — THE GAP TO THE FAN BEHIND IT. SUBDIVIDED: the primary crosses and the secondary levels
@@ -513,6 +561,11 @@ function drawFanGroups(pass: RenderPass, drawings: FanSlotDrawing[], fanJoins: F
         // ⚠️ The highlight and the incremental redraw read this group back as a DOM node
         // (`fanMemberGroupMap`) — the counted `svgNode` escape, like the hairpin's and the slur's.
         const memberGroup = openMemberGroup(ctx, FAN_HEAD_GROUP, `${FAN_HEAD_GROUP}-${slot.id}-${k}`)
+        // ⭐ A member lowered onto a bent path (`memberPlace`): its ink, drawn from the owner's stave, moves down
+        //   as one — and the stem, which the geometry already solved from the lowered head, is drawn back up by
+        //   the same amount inside it. Never on the page (`drop` is 0 there and no group is opened).
+        const drop = drops?.[k] ?? 0
+        if (drop !== 0) drawGroupOf(ctx.openGroup('fandrop'))?.setPlacement(translation(0, drop))
         try {
           const memberHeads = heads[k] ?? []
           const glyphWidth = note.getGlyphWidth()
@@ -538,6 +591,15 @@ function drawFanGroups(pass: RenderPass, drawings: FanSlotDrawing[], fanJoins: F
           // they had their own pitches — a bug then, the ordinary case now. Once per MEMBER, not
           // once per head: a ledger line is a fact about the level, and it has to reach across
           // every head standing on it.
+          // ⭐ …and TURNED with the path where it stands (`memberTilt`), about its heads' centre — its head, signs
+          //   and ledger lines; the stem, drawn after this group closes, stays parallel. Page: no tilt, no group.
+          const tilt = tilts?.[k] ?? 0
+          if (tilt !== 0) {
+            const ys = memberHeads.map(mh => noteLineY(staveFrame(stave), mh.line))
+            const cy = ys.length ? (Math.min(...ys) + Math.max(...ys)) / 2 : 0
+            drawGroupOf(ctx.openGroup('fantilt'))?.setPlacement(rotationAbout(tilt, member.headX + glyphWidth / 2, cy))
+          }
+          try {
           drawFanLedgerLines(
             ctx, stave,
             memberHeads.map((mh, h) => ({ line: mh.line, x: headXs[h] })),
@@ -578,7 +640,7 @@ function drawFanGroups(pass: RenderPass, drawings: FanSlotDrawing[], fanJoins: F
                 staveNote: note,
                 leftX: headXs[h],
                 rightX: headXs[h] + glyphWidth,
-                headY: y,
+                headY: y + drop,
                 tipY: member.tipY,
                 stemDirection,
               })
@@ -599,7 +661,10 @@ function drawFanGroups(pass: RenderPass, drawings: FanSlotDrawing[], fanJoins: F
           // ⭐ P3c — the same ink as every other stem on the page (`engrave/notes/stem`), where
           //   these four lines used to be written out here and once more above. ⛔ No group: a
           //   member's stem shares its member's, which the highlight recolours.
-          drawStem(ctx, { x: member.stemX, fromY: member.baseY, toY: member.tipY }, stemThicknessPx())
+          } finally {
+            if (tilt !== 0) ctx.closeGroup()
+          }
+          drawStem(ctx, { x: member.stemX, fromY: member.baseY - drop, toY: member.tipY - drop }, stemThicknessPx())
           // The slot's articulation, on THIS head. The mark belongs to the gesture and playback
           // already spends it across the whole group, so drawing it once on member 0 made the
           // picture disagree with the sound — see `fanArticulations`. Inside the member's group,
@@ -640,6 +705,7 @@ function drawFanGroups(pass: RenderPass, drawings: FanSlotDrawing[], fanJoins: F
             }
           }
         } finally {
+          if (drop !== 0) ctx.closeGroup()
           ctx.closeGroup()
         }
       }
@@ -698,6 +764,8 @@ function fanSlotDrawing(input: {
   prefixNotes: EngravedNote[]
   /** The next note in the fan's OWN bar — where its room ends. Absent ⇒ the note area's end. */
   nextNote: EngravedNote | undefined
+  /** Where the room ends when the caller knows it better than `nextNote` (the bent staff), stave px. */
+  nextHeadX?: number
   measureNumber: number
   staffIndex: number
   /** This fan is on a joined beam, so its line is flat even where it has no prefix (a chain). */
@@ -798,7 +866,7 @@ function fanSlotDrawing(input: {
       // exactly as it was, the extra width piling up between the group and what follows (his report,
       // 2026-07-30). A fan spreads with its bar like anything else; what it must not do is spread
       // into room the solve gave to somebody else, and THAT is what this clamp still says.
-      spanEndX: (nextNote ? nextNote.getNoteHeadBeginX() : barFrame(stave).noteEndX)
+      spanEndX: (input.nextHeadX ?? (nextNote ? nextNote.getNoteHeadBeginX() : barFrame(stave).noteEndX))
         - fanTrailingSpacePx(score, measureNumber, slot),
       stemOffset: note.getStemX() - headX,
       // MEASURED from the notehead itself, like the two-note tremolo's flag clearance: heads a
@@ -1055,4 +1123,33 @@ function drawFanLedgerLines(
     // The stave's own ledger style, so these are the same ink as every other ledger on the page.
     weight !== 1 && style.lineWidth !== undefined ? { ...style, lineWidth: style.lineWidth * weight } : style,
   )
+}
+
+/**
+ * A FANNED slot's stem has to hold the beam LEVELS — the lines that fan inward from the primary
+ * one toward the noteheads — so it grows by exactly the room they take
+ * ({@link fanStemExtension}, VexFlow's own `beamWidth × 1.5` step, counted).
+ *
+ * The same window and the same mechanism as `ScoreRenderer.applyTremoloStemStretch`: post-format,
+ * post-stem-re-assert, pre-draw, bumping the `Stem`'s own extension rather than `setStemLength`
+ * (which would double-count the note's octave-distance term). Moved here from `ScoreRenderer` (2026-09-26)
+ * so the bent staff (`eye/spineScore`) asks the same rule.
+ *
+ * ⚠️ **It WRITES, it never READS.** Pre-draw the note's own geometry is not settled — measured
+ * here, `getNoteHeadBeginX()` answers 0 and the stem extents put the tip 110px above where it
+ * lands — so everything that has to *measure* waits for {@link drawFannedBeams}, after the draw.
+ * The one number this pass needs (the levels' room) comes from the mark, not from the page.
+ *
+ * A one-beam fan asks for nothing and is left exactly where it was — the rule the tremolo stretch
+ * follows too: nothing moves unless it has to.
+ */
+export function applyFanStemStretch(sortedSlots: readonly ChordRest[], staveNotes: readonly EngravedNote[]): void {
+  for (let i = 0; i < sortedSlots.length && i < staveNotes.length; i++) {
+    const slot = sortedSlots[i]
+    if (slot.type !== 'chord' || !slot.fan) continue
+    const stem = staveNotes[i].getStem()
+    if (!stem) continue
+    const extra = fanStemExtension(slot.fan.beams, crossSystemBeamWidth(), slot.fan.spread)
+    if (extra > 0) stem.setExtension(stem.getExtension() + extra)
+  }
 }

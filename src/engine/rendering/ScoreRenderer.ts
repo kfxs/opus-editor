@@ -3,8 +3,7 @@ import { ScoreTuplet } from './engraved/ScoreTuplet'
 import { tremoloOn, TREMOLO_FLAG_STEM_STRETCH, TREMOLO_STROKE_CLEARANCE, usableStemSpan } from './engraved/CenteredTremolo'
 import { twoNoteTremoloStrokes } from './engraved/TwoNoteTremolo'
 import { TREMOLO_PAIR_GROUP, pairDrawing, pairIsJoined, pairRoleAt, pairStrokesDrawn } from '@/utils/tremoloPair'
-import { fanStemExtension } from './beams/FannedBeam'
-import { drawFannedBeams, drawCrossBarFanBeams } from './beams/FanPass'
+import { applyFanStemStretch, drawFannedBeams, drawCrossBarFanBeams } from './beams/FanPass'
 import { PLACEHOLDER_BEAM, buildBeams } from './beams/beamGroups'
 import { clearLedgersForAccidentals } from './format/ledgerAccidentalClearance'
 import { dodgeDestinationAccidentals } from './format/crossStaffAccidentals'
@@ -443,7 +442,7 @@ export class ScoreRenderer {
   private fanMemberGroupMap: Map<string, { group: SVGGElement; noteIndex: number }> = new Map()
   /**
    * Each FANNED MEMBER pitch id → where its head was drawn, so a SLUR can anchor to one. Filled by
-   * {@link drawFannedBeams} from the geometry it just spent; see {@link FanMemberAnchor}. Cleared,
+   * `drawFannedBeams` from the geometry it just spent; see {@link FanMemberAnchor}. Cleared,
    * captured and restored with the group map — the same three sites.
    */
   private fanMemberAnchorMap: Map<string, FanMemberAnchor> = new Map()
@@ -867,33 +866,7 @@ export class ScoreRenderer {
     }
   }
 
-  /**
-   * A FANNED slot's stem has to hold the beam LEVELS — the lines that fan inward from the primary
-   * one toward the noteheads — so it grows by exactly the room they take
-   * ({@link fanStemExtension}, VexFlow's own `beamWidth × 1.5` step, counted).
-   *
-   * The same window and the same mechanism as {@link applyTremoloStemStretch}: post-format,
-   * post-stem-re-assert, pre-draw, bumping the `Stem`'s own extension rather than `setStemLength`
-   * (which would double-count the note's octave-distance term).
-   *
-   * ⚠️ **It WRITES, it never READS.** Pre-draw the note's own geometry is not settled — measured
-   * here, `getNoteHeadBeginX()` answers 0 and the stem extents put the tip 110px above where it
-   * lands — so everything that has to *measure* waits for {@link drawFannedBeams}, after the draw.
-   * The one number this pass needs (the levels' room) comes from the mark, not from the page.
-   *
-   * A one-beam fan asks for nothing and is left exactly where it was — the rule the tremolo stretch
-   * follows too: nothing moves unless it has to.
-   */
-  private applyFanStemStretch(sortedSlots: ChordRest[], staveNotes: EngravedNote[]): void {
-    for (let i = 0; i < sortedSlots.length && i < staveNotes.length; i++) {
-      const slot = sortedSlots[i]
-      if (slot.type !== 'chord' || !slot.fan) continue
-      const stem = staveNotes[i].getStem()
-      if (!stem) continue
-      const extra = fanStemExtension(slot.fan.beams, crossSystemBeamWidth(), slot.fan.spread)
-      if (extra > 0) stem.setExtension(stem.getExtension() + extra)
-    }
-  }
+
 
   /**
    * ⛔ **A TWO-NOTE TREMOLO DOES NOT STRETCH ITS STEMS.** There was a pass here — Gould's rule 2,
@@ -2030,7 +2003,7 @@ export class ScoreRenderer {
         // where that pass used to be, above `buildTwoNoteTremoloBeams`.)
         // A FANNED slot's stem holds the beam levels, so it grows here — a WRITE, pre-draw; every
         // measurement the fan needs waits for `drawFannedBeams`, below.
-        this.applyFanStemStretch(sortedSlots, staveNotes)
+        applyFanStemStretch(sortedSlots, staveNotes)
         // Hand-nudged INLINE CLEF offsets (his ask, 2026-08-28) — the note offsets' twin, in the same
         // post-format / pre-draw window and for the same reason: the column is already reserved, so a
         // nudged clef moves its own ink and nothing else's. Before the draw so the glyph REPORTS the
