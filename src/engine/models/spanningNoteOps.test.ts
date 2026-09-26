@@ -307,3 +307,82 @@ describe('splitChordWithTie — a chord crosses the barline together', () => {
   })
 })
 
+
+/**
+ * ⭐ MORE THAN ONE BARLINE (docs/plans/other-durations-plan.md §3b, 2026-09-26). The whole overflow used to go
+ * into the NEXT bar however long it was: a whole note from beat 1 of 2/4 wrote a dotted half into a 2-beat
+ * bar, and a longa in 4/4 a dotted breve. Each following bar now takes what its OWN capacity holds.
+ */
+describe('placeSpanningNote — across several barlines, bar by bar', () => {
+  /** One voice's notes (not rests) in a bar, as `C:q~@0` — pitch, duration + dots, tie, beat. */
+  const chain = (model: ScoreModel, measure: number) => model.getNotesInMeasure(measure).filter(n => !n.isRest)
+    .map(n => `${n.step}:${n.duration}${'.'.repeat(n.dots ?? 0)}${n.tiedTo ? '~' : ''}@${fracToNumber(n.beat)}`)
+
+  function score(bars: number, ts?: { numerator: number; denominator: number }): ScoreModel {
+    const model = new ScoreModel('Test')
+    if (ts) model.setTimeSignature(1, ts)
+    for (let i = 1; i < bars; i++) model.addMeasure()
+    return model
+  }
+
+  it('⭐ a LONGA entered at beat 0 of 4/4 is four tied wholes, one per bar', () => {
+    const model = score(4)
+    addSplitNoteWithTie(model, { step: 'C', alter: 0, octave: 5, duration: 'longa', measure: 1, beat: frac(0, 1) }, 12)
+    expect([1, 2, 3, 4].map(m => chain(model, m))).toEqual([['C:w~@0'], ['C:w~@0'], ['C:w~@0'], ['C:w@0']])
+  })
+
+  it('⭐ a WHOLE entered at beat 1 of 2/4 is a quarter, a half and a quarter — ⛔ never a dotted half in a 2-beat bar', () => {
+    const model = score(3, { numerator: 2, denominator: 4 })
+    addSplitNoteWithTie(model, { step: 'C', alter: 0, octave: 5, duration: 'w', measure: 1, beat: frac(1, 1) }, 3)
+    expect([1, 2, 3].map(m => chain(model, m))).toEqual([['C:q~@1'], ['C:h~@0'], ['C:q@0']])
+  })
+
+  it('creates every bar the chain needs', () => {
+    const model = new ScoreModel('Test')
+    addSplitNoteWithTie(model, { step: 'C', alter: 0, octave: 5, duration: 'longa', measure: 1, beat: frac(0, 1) }, 12)
+    expect(model.getScore().measures).toHaveLength(4)
+  })
+
+  it('⭐ each bar takes ITS OWN capacity — a 4/4 bar, then a 2/4 bar, then the rest', () => {
+    const model = score(4)
+    model.setTimeSignature(2, { numerator: 2, denominator: 4 }, { extent: 'measure' })
+    addSplitNoteWithTie(model, { step: 'C', alter: 0, octave: 5, duration: 'breve', measure: 1, beat: frac(2, 1) }, 6)
+    // 2 beats left in bar 1, bar 2 holds 2, bar 3 (4/4 again) the last 4.
+    expect([1, 2, 3].map(m => chain(model, m))).toEqual([['C:h~@2'], ['C:h~@0'], ['C:w@0']])
+  })
+
+  it('⭐ what the chain covers in a MIDDLE bar is cleared too — its own voice only', () => {
+    const model = score(3)
+    model.addNote({ step: 'D', alter: 0, octave: 4, duration: 'h', measure: 2, beat: frac(0, 1) })
+    model.addNote({ step: 'F', alter: 0, octave: 4, duration: 'h', measure: 2, beat: frac(2, 1) })
+    model.addNote({ step: 'A', alter: 0, octave: 3, duration: 'w', measure: 2, beat: frac(0, 1), voice: 1 })
+    addSplitNoteWithTie(model, { step: 'C', alter: 0, octave: 5, duration: 'breve', measure: 1, beat: frac(2, 1) }, 6)
+    expect(chain(model, 2).filter(s => !s.startsWith('A'))).toEqual(['C:w~@0'])
+    expect(chain(model, 2), 'the other voice stands').toContain('A:w@0')
+    expect(chain(model, 3)).toEqual(['C:h@0'])
+  })
+
+  it('⭐ a DURATION CHANGE to a longa crosses every barline it reaches (the reused head)', () => {
+    const model = score(4)
+    const note = model.addNote({ step: 'E', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })
+    splitExistingNoteWithTie(model, note, 'longa', 12)
+    expect([1, 2, 3, 4].map(m => chain(model, m))).toEqual([['E:w~@0'], ['E:w~@0'], ['E:w~@0'], ['E:w@0']])
+    expect(model.getNote(note.id)?.duration, 'the head is the edited note').toBe('w')
+  })
+
+  it('⭐ a CHORD crosses three bars together — every head keeps every continuation', () => {
+    const model = score(3)
+    const c = model.addNote({ step: 'C', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(2, 1) })
+    const e = model.addNote({ step: 'E', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(2, 1) })
+    splitChordWithTie(model, [c, e], 'breve', 6)
+    for (const m of [2, 3]) {
+      expect(chain(model, m).map(s => s[0]).sort(), `bar ${m} holds both heads`).toEqual(['C', 'E'])
+    }
+  })
+
+  it('one barline is exactly as before — a half left, a half over', () => {
+    const model = score(2)
+    addSplitNoteWithTie(model, { step: 'C', alter: 0, octave: 5, duration: 'w', measure: 1, beat: frac(2, 1) }, 2)
+    expect([1, 2].map(m => chain(model, m))).toEqual([['C:h~@2'], ['C:h@0']])
+  })
+})

@@ -1,6 +1,9 @@
 /**
  * ⭐ **A NOTE THAT SPANS A BARLINE** — a length that does not fit its bar is written as a TIED
- * CHAIN: the pieces that fit in the start bar, then the pieces that continue in the next. Score
+ * CHAIN: the pieces that fit in the start bar, then, BAR BY BAR, the pieces each following bar can hold
+ * — as many barlines as the length crosses (a longa in 4/4 is four tied wholes). ⚠️ Until 2026-09-26 the
+ * whole overflow went into the NEXT bar however long it was, overfilling it (docs/plans/other-durations-plan.md
+ * §3b). Score
  * logic, moved out of `NoteEntryCoordinator` (docs/plans/code-shape-plan-2026-09-19.md, Phase 4.2): the
  * coordinator keeps pixel resolution, collision and the commit.
  *
@@ -23,9 +26,13 @@ import { fracAdd, fracEq, fracFromInt, fracToNumber } from '@/utils/fraction'
 import { staffOf, voiceOf } from '@/utils/lanes'
 import { beatToFrac, durationToBeats } from '@/utils/musicUtils'
 import { attachGraceAfter, detachGraceAfterOfChain } from './graceOps'
+import { measureCapacityQuarters } from '@/utils/measureCapacity'
 
 /** Safety cap on the addMeasure() loop that extends the score to reach a target measure. */
 const MAX_MEASURE_CREATE_ATTEMPTS = 20
+
+/** Float dust under which an overflow is spent — the split already works in float beats. */
+const BEAT_EPSILON = 0.001
 
 /** What a spanning note needs of the score — `ScoreModel` answers all of it. */
 export interface SpanningNoteModel {
@@ -41,8 +48,9 @@ export interface SpanningNoteModel {
 }
 
 /**
- * Place a note that spans across one barline by splitting it into a tied chain:
- * `currentMeasureDurations` in the start measure, `nextMeasureDurations` in the next.
+ * Place a note that spans one or more barlines by splitting it into a tied chain:
+ * `currentMeasureDurations` in the start measure, then each following bar's share — as much as that
+ * bar's own capacity holds (a pickup, a meter change), the last one the remainder.
  * The single primitive behind both note-entry and duration-change overflow.
  *
  * The ONLY difference between those two callers is the chain head: pass
@@ -69,19 +77,23 @@ export function placeSpanningNote(model: SpanningNoteModel, p: {
   cue?: NoteParams['cue']
 }): Note | null {
   const beatsInCurrentMeasure = p.totalBeats - p.overflowAmount
-  const beatsInNextMeasure = p.overflowAmount
-
   const currentMeasureDurations = splitBeatsIntoLengths(beatsInCurrentMeasure)
-  const nextMeasureDurations = splitBeatsIntoLengths(beatsInNextMeasure)
 
-  if (currentMeasureDurations.length === 0 || nextMeasureDurations.length === 0) {
-    console.warn('Could not split spanning note into valid durations')
-    return null
+  // ⭐ The overflow, bar by bar: each following bar takes what its OWN capacity holds.
+  const continuation: { measure: number; beats: number; durations: ReturnType<typeof splitBeatsIntoLengths> }[] = []
+  let remaining = p.overflowAmount
+  for (let measure = p.startMeasure + 1; remaining > BEAT_EPSILON; measure++) {
+    if (!ensureMeasureExists(model, measure)) {
+      console.warn('Could not create a following measure for tie split')
+      return null
+    }
+    const beats = Math.min(remaining, measureCapacityQuarters(model.getMeasure(measure)!))
+    continuation.push({ measure, beats, durations: splitBeatsIntoLengths(beats) })
+    remaining -= beats
   }
 
-  const nextMeasureNumber = p.startMeasure + 1
-  if (!ensureMeasureExists(model, nextMeasureNumber)) {
-    console.warn('Could not create next measure for tie split')
+  if (currentMeasureDurations.length === 0 || continuation.length === 0 || continuation.some(c => c.durations.length === 0)) {
+    console.warn('Could not split spanning note into valid durations')
     return null
   }
 
@@ -108,7 +120,7 @@ export function placeSpanningNote(model: SpanningNoteModel, p: {
   // HERE — before the erosion can delete it — and hung on the new last piece below.
   const graceAfter = p.existingHeadId ? detachGraceAfterOfChain(model.getScore(), p.existingHeadId) : undefined
 
-  erodeOverflowZone(model, nextMeasureNumber, beatsInNextMeasure, voiceOf(p), staffOf(p), ownContinuation)
+  for (const bar of continuation) erodeOverflowZone(model, bar.measure, bar.beats, voiceOf(p), staffOf(p), ownContinuation)
 
   // ⭐ The head's BRACKETS reach every piece, as its tremolo does (parenthesised-note-plan P4b): the entered
   //    ones, or a re-split head's own — read before the head is retitled.
@@ -160,24 +172,26 @@ export function placeSpanningNote(model: SpanningNoteModel, p: {
     currentBeat = fracAdd(currentBeat, durationToFraction(duration, dots))
   }
 
-  // Tied continuation pieces in the next measure
-  let nextBeat = fracFromInt(0)
-  for (const { duration, dots } of nextMeasureDurations) {
-    const note = model.addNote({ ...pitch, duration, dots, measure: nextMeasureNumber, beat: nextBeat })
-    if (tremolo) model.setTremolo(note.id, tremolo)
-    if (previousNoteId) {
-      model.updateNote(previousNoteId, { tiedTo: note.id })
-      model.updateNote(note.id, { tiedFrom: previousNoteId })
+  // Tied continuation pieces, bar by bar
+  for (const bar of continuation) {
+    let nextBeat = fracFromInt(0)
+    for (const { duration, dots } of bar.durations) {
+      const note = model.addNote({ ...pitch, duration, dots, measure: bar.measure, beat: nextBeat })
+      if (tremolo) model.setTremolo(note.id, tremolo)
+      if (previousNoteId) {
+        model.updateNote(previousNoteId, { tiedTo: note.id })
+        model.updateNote(note.id, { tiedFrom: previousNoteId })
+      }
+      previousNoteId = note.id
+      nextBeat = fracAdd(nextBeat, durationToFraction(duration, dots))
     }
-    previousNoteId = note.id
-    nextBeat = fracAdd(nextBeat, durationToFraction(duration, dots))
   }
 
   if (graceAfter && previousNoteId) attachGraceAfter(model.getScore(), previousNoteId, graceAfter)
 
   dbg('Placed spanning note with tie:', {
     head: p.existingHeadId ?? firstNote?.id, currentDurations: currentMeasureDurations,
-    nextMeasure: nextMeasureNumber, nextDurations: nextMeasureDurations,
+    continuation: continuation.map(c => ({ measure: c.measure, durations: c.durations })),
   })
   return firstNote
 }

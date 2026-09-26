@@ -209,12 +209,17 @@ from the font metrics.
   FIXED in P2 — derived from `SHORTEST_LENGTH`; the 16× more boundaries made every fill 7–10× slower,
   so `getMeterInfo` is memoised (frozen) and `restFill` asks an index — now FASTER than before P1.
   All 23 000 fills of the probe on the 32nd grid are unchanged.
-- **P2 — ⚠️ NOTE ENTRY across MORE THAN ONE barline is wrong, and was before P1** (probed with the old
-  values): a whole note entered at beat 0 of 2/4 is CLIPPED to a half (no tie); one entered at beat 1
-  of 2/4 writes its tail as a dotted half in the next 2-beat bar (overfull) instead of splitting again;
-  a half in 1/4 is refused and trips the undo invariant. The breve and longa make it common (a breve
-  at beat 0 of 4/4 → a whole; a longa across two 4/2 bars puts its last quarter at beat 8 of the
-  second). ⛔ Not fixed here — his call, its own commit (`NoteEntryCoordinator` / `spanningNoteOps`).
+- **P2 — ⚠️ NOTE ENTRY across MORE THAN ONE barline was wrong, and was before P1.** ✅ FIXED after P4 (his
+  call, 2026-09-26), in `models/spanningNoteOps.placeSpanningNote` — the one primitive behind entry AND a
+  duration change. It put the WHOLE overflow into the NEXT bar however long it was: a whole note from beat 1
+  of 2/4 wrote a dotted half into a 2-beat bar, a longa in 4/4 a dotted breve. It now walks bar by bar, each
+  bar taking what its OWN capacity holds (a meter change, a pickup), clearing what the chain covers in its
+  voice in every bar, the chain tied throughout — a longa in 4/4 is four tied wholes. One barline: exactly
+  as before. Specs in `spanningNoteOps.test.ts` (7 fail on the old code).
+  ⚠️ **Corrected diagnosis:** the P2 probe also reported a breve at beat 0 of 4/4 "clipped to a whole" and a
+  half in 1/4 "refused" — both were the PROBE's doing (a second entry inside the first one's tail overwrote
+  it; a beat 1 in a 1-beat bar is not a beat). Left over, ⛔ not fixed: `addNoteAtBeat` called with a beat
+  PAST the bar's end evicts before it refuses, so it trips the undo invariant — an API misuse no click makes.
 
 ## 4. Later (his call — ⛔ not a queue)
 
