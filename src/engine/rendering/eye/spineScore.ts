@@ -41,6 +41,11 @@ import { voiceOf } from '@/utils/lanes'
 import { getMeterInfo } from '@/utils/meter'
 import { createStaveNotesFromSlots, resolveTupletLocation, stemMajorityTupletLocation } from '../engraved/NoteBuilder'
 import { ScoreTuplet } from '../engraved/ScoreTuplet'
+import { restShiftResolver } from '../engraved/restShift'
+import { BarVoice } from '../format/barVoice'
+import { formatColumns } from '../format/columnFormat'
+import { attachModifierColumns } from '../format/modifierColumns'
+import { captureVoiceIntent, reassertVoiceIntent } from '../format/voiceIntent'
 import { tupletBracketEnd, tupletBracketed, tupletMarkRuns } from '@/utils/musicUtils'
 import { boundaryWinged } from '../staff/BarlineRenderer'
 import { buildBeams } from '../beams/beamGroups'
@@ -56,6 +61,10 @@ import { drawSpineCurves, type SpinePitchPlace } from './spineCurves'
  * clear in front of the clef — ⛔ not on top of it, which is where `s = length` is. A changeable default.
  */
 const CLOSED_SEAM_PX = 16
+
+/** The width the shared column pass formats a bar into — only its MODIFIER answers survive (the blocks
+ *  set every column's x themselves), so the number is a stand-in, not a choice. */
+const SHARED_COLUMN_FORMAT_PX = 400
 
 /** ⭐ The page's `BRACKET_END_GAP` (`ScoreRenderer`, a `beforeNext` bracket stops this short of the next note), px
  *  along the spine. ⚠️ A copy of a private literal; the page's is the source. */
@@ -114,12 +123,23 @@ export function drawScoreOnSpine(ctx: DrawContext, score: Score, spine: Spine): 
     markBars.push({ view: lane, tempos: measure.tempos ?? [], bar, meterAt: header && spineHeaderMeterAt(bar.start, header) })
     const clef = clefs.get(measure.number) ?? 'treble'
     const voices = [...new Set(lane.slots.map(voiceOf))].sort()
-    for (const voice of voices) {
+    // ⭐ Where a rest stands in a multi-voice bar — the page's answer (`engraved/restShift`: derived from
+    //    every voice of the staff, plus the hand's nudge). ⚠️ The bar's OPENING clef, as its notes read.
+    const restShift = restShiftResolver(score, measure.id, lane.slots, () => clef, voices.length > 1)
+    // ── 1. BUILD every voice — notes, beams, tuplets — before any of them is formatted or drawn.
+    const multiVoice = voices.length > 1
+    const built = voices.map(voice => {
       const slots = lane.slots
         .filter(slot => voiceOf(slot) === voice)
         .sort((a, b) => fracToNumber(a.beat) - fracToNumber(b.beat))
-      const forcedStem = voices.length > 1 ? (voice % 2 === 0 ? 1 : -1) : undefined
-      const notes = createStaveNotesFromSlots(slots, clef, forcedStem, 0, keys.get(measure.number))
+      const forcedStem = multiVoice ? (voice % 2 === 0 ? 1 : -1) : undefined
+      const notes = createStaveNotesFromSlots(slots, clef, forcedStem, restShift, keys.get(measure.number))
+      return { voice, slots, forcedStem, notes }
+    })
+    // What the voice model says each note is, kept across the voice rule (`format/voiceIntent`) — captured
+    // where the page captures it: after the notes, before the beams and tuplets.
+    const intent = captureVoiceIntent(built.flatMap(b => b.notes), multiVoice)
+    const voiceInk = built.map(({ voice, slots, forcedStem, notes }) => {
       const at = slots.map(slot => {
         // A whole-bar rest stands in the MIDDLE of its bar, as on the page.
         return slot.type === 'rest' && slot.isMeasureRest ? (bar.start + bar.end) / 2 : bar.columnAt(slot.beat)
@@ -129,9 +149,25 @@ export function drawScoreOnSpine(ctx: DrawContext, score: Score, spine: Spine): 
       //    ⚠️ A group holding a FAN gets no `Beam` there (the page draws it by hand): its notes stay
       //    lone blocks here until fans are ported (plan §5 row 10).
       const { beams } = buildBeams(notes, slots, getMeterInfo(measure.timeSignature), () => clef, forcedStem)
+      // A beam gives its group ONE stem direction — the re-assert must keep what the BEAM decided.
+      for (const note of notes) if (intent.stemDir.has(note) && note.hasBeam()) intent.stemDir.set(note, note.getStemDirection())
       // ⭐ The TUPLETS (port map #8) — the page's own, built by the page's rules, AFTER the beams (the
       //    bracket asks whether a beam already shows the group; `hasBeam()` only answers once one exists).
-      const tuplets = tupletsOf(measure, slots, notes, voice, voices.length > 1, at, bar.end)
+      const tuplets = tupletsOf(measure, slots, notes, voice, multiVoice, at, bar.end)
+      return { slots, notes, at, beams, tuplets }
+    })
+    // ── 2. ⭐ THE SHARED COLUMN (port map #11): with more than one voice, the page's column pass runs over
+    //    EVERY voice of the bar together — the voice rule, then the dots and accidentals stacked across
+    //    the voices of one beat — and the page's re-assert follows. The blocks below then keep that
+    //    answer (they do not re-attach a note that already has its column).
+    if (multiVoice) {
+      const barVoices = built.map(b => new BarVoice(measure.timeSignature, 'soft').addAll(b.notes))
+      attachModifierColumns(barVoices)
+      formatColumns(barVoices, SHARED_COLUMN_FORMAT_PX)
+      reassertVoiceIntent(built.flatMap(b => b.notes), intent)
+    }
+    // ── 3. DRAW — each group one block, each lone note one block.
+    for (const { slots, notes, at, beams, tuplets } of voiceInk) {
       const groups = groupNotes(notes.length, [
         ...beams.map(beam => beam.notes.map(note => notes.indexOf(note))),
         ...tuplets.map(t => t.tuplet.getNotes().map(note => notes.indexOf(note))),

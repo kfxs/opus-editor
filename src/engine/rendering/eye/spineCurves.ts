@@ -13,7 +13,7 @@
  * INSIDE it is the page's cubic between its two anchors, the circle forgotten (a rigid unit, like the
  * tuplet's bracket) — because inside, the lines bend away from the notes and a curve riding them is inverted.
  * ⛔ Nothing re-decided: which way a tie bows is `tieDirection.tieSide`, a slur's side
- * `slurDirection.slurSideFromStems` (or its `placement`).
+ * `slurDirection.slurVoiceSide` in a multi-voice bar, else `slurSideFromStems` over every covered note (or its `placement`).
  *
  * ## What is NOT here — yet
  *
@@ -39,7 +39,7 @@ import { CURVE_PX } from '../curves/curveStyle'
 import { tieSide } from '../curves/tieDirection'
 import { tieEndpointX, tieEndpointY } from '../curves/tieEndpoints'
 import { tieArcGrowth } from '../curves/tieStaffLineClearance'
-import { slurSideFromStems } from '../curves/slurDirection'
+import { coveredChordIds, slurSideFromStems, slurVoiceSide } from '../curves/slurDirection'
 import { slurAttachments } from '../curves/slurStemEndpoint'
 import { resolveCps, slurEndpointOffsetPx, slurOffsetPx } from '../curves/SlurRenderer'
 import { curveShapeOverrideOf, endpointOffsetOverrideOf, slurOffsetOverrideOf, tieOffsetOverrideOf } from '@/engine/models/engravingOverrides'
@@ -144,7 +144,16 @@ export function drawSpineCurves(ctx: DrawContext, spine: Spine, score: Score, pi
     }
     const a = attachment(from)
     const b = attachment(to)
-    const direction = slur.placement === 'above' ? -1 : slur.placement === 'below' ? 1 : slurSideFromStems([a.stemDirection, b.stemDirection])
+    // ⭐ The page's side (`curves/SlurRenderer`): the hand's placement, else the VOICE's side in a multi-voice
+    //    bar (`slurVoiceSide` — his report, 2026-09-26: a voice-2 slur stood above, in voice 1), else the
+    //    stems of EVERY note it covers, as drawn.
+    const covered = coveredChordIds(score, slur.startNoteId, slur.endNoteId)
+      .map(id => pitches.get(id))
+      .filter((p): p is SpinePitchPlace => p !== undefined)
+      .map(p => noteRuler(p.place.note).stemDirection)
+      .filter((d): d is number => d !== undefined)
+    const direction = slur.placement === 'above' ? -1 : slur.placement === 'below' ? 1
+      : slurVoiceSide(score, slur, from.measureNumber) ?? slurSideFromStems(covered.length ? covered : [a.stemDirection])
     const lift = CURVE_PX.slurLift
     const ends = slurAttachments(a, b, direction, lift)
     // ⭐ The hand's THREE overrides, in the PAGE's order (`curves/SlurRenderer`, single arc): the per-END

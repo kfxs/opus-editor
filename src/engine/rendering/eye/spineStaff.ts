@@ -87,7 +87,15 @@ const BLOCK_FORMAT_WIDTH = 150
 export function drawNoteBlock(ctx: DrawContext, spine: Spine, engraved: EngravedNote, s: number): SpineNotePlace {
   const stave = new EngravedStave(0, 0, BLOCK_STAVE_WIDTH).setOpeningBarline('none').setClosingBarline('none')
   stave.setDefaultLedgerLineStyle(ledgerLineStyle())
-  formatLoneNote(engraved, stave, { numerator: 1, denominator: 4 }, BLOCK_FORMAT_WIDTH)
+  // ⭐ The page's lone-note format (`ghosts/loneNote`) — unless the bar already gave this note its COLUMN
+  //    (`./spineScore`'s shared pass over every voice, port map #11): then only its x is formatted here,
+  //    and the accidentals and dots the column stacked across the voices are kept.
+  if (engraved.getModifierContext()) {
+    formatColumns([new BarVoice({ numerator: 1, denominator: 4 }, 'soft').add(engraved)], BLOCK_FORMAT_WIDTH)
+    standOn(engraved, stave)
+  } else {
+    formatLoneNote(engraved, stave, { numerator: 1, denominator: 4 }, BLOCK_FORMAT_WIDTH)
+  }
 
   const group = drawGroupOf(ctx.openGroup(SPINE_BLOCK_CLASS))
   try {
@@ -158,7 +166,8 @@ export function drawGroupBlock(
 
   const voice = new BarVoice({ numerator: 1, denominator: 4 }, 'soft')
   for (const note of notes) voice.add(note)
-  attachModifierColumns([voice])
+  // Kept when the bar already gave these notes their column (see `drawNoteBlock`).
+  if (!notes.every(note => note.getModifierContext())) attachModifierColumns([voice])
   const columns = formatColumns([voice], span + BLOCK_FORMAT_WIDTH)
   // ⭐ The model's x's, post-format — the same last word `format/spacingPass` has on the page.
   columns.list.forEach((tick, i) => columns.map[tick].setX(BLOCK_LEAD_IN_PX + (local[i].x - local[0].x)))

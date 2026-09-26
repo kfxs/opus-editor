@@ -17,17 +17,18 @@
  * and until now the answer depended on which END of the slur you happened to start from, which is
  * not a property a slur should have.
  *
- * ⛔ **Not the voice rule.** A multi-voice bar puts the upper voice's slurs above and the lower
- * voice's below regardless of stems (Gould), and that decision outranks this one — it stays in
- * `SlurRenderer`, where the same branch already handles it. This module answers only the
- * single-voice question.
+ * ⭐ **And the voice rule, which outranks it** ({@link slurVoiceSide}): a multi-voice bar puts the upper
+ * voice's slurs above and the lower voice's below regardless of stems (Gould). Here since 2026-09-26 —
+ * it lived inside `SlurRenderer`, so the bent staff (`eye/spineCurves`) never asked it and drew a voice-2
+ * slur above, into voice 1 (his report).
  *
  * ⚠️ **Resolved stem directions, never the model's.** Beaming forces the stems of a whole group, so
  * a note's natural direction and its drawn one differ; LilyPond reads `Note_column::dir` and
  * MuseScore `Chord::up()`, both post-layout. The caller passes what VexFlow actually drew.
  */
-import type { Score, ChordRest } from '@/types/music'
+import type { Score, ChordRest, Slur } from '@/types/music'
 import { voiceOf } from '@/utils/lanes'
+import { gracePitchesOf } from '@/utils/graceNotes'
 import { fracCompare } from '@/utils/fraction'
 
 /** Which side of the notes the arc sits on: **−1 above**, **+1 below** — `SlurRenderer`'s sign. */
@@ -63,6 +64,33 @@ export function slurSideFromStems(stems: readonly number[]): SlurSide {
   const stemmed = stems.filter(d => d === 1 || d === -1)
   if (stemmed.length === 0) return -1
   return stemmed.some(d => d === -1) ? -1 : 1
+}
+
+/**
+ * ⭐ **THE VOICE RULE — the side a slur takes in a MULTI-VOICE bar, whatever its stems** (Gould): the upper
+ * voice's (V1, V3) above, the lower's (V2, V4) below, so two voices' slurs spread apart instead of
+ * colliding. Mirrors the tie / stem / articulation / tuplet-bracket rule. `undefined` when the bar the
+ * slur STARTS in holds one voice — then {@link slurSideFromStems} answers.
+ *
+ * The slur's voice is its start slot's (a chord holding the start pitch — in its notes, a fanned member,
+ * or a grace), else the slur's own `voice`.
+ */
+export function slurVoiceSide(score: Score, slur: Slur, fromMeasure: number): SlurSide | undefined {
+  const measure = score.measures.find(m => m.number === fromMeasure)
+  if (!measure || new Set(measure.slots.map(s => voiceOf(s))).size <= 1) return undefined
+  const voice = slurStartSlot(score, slur, fromMeasure)?.voice ?? voiceOf(slur)
+  return voice % 2 === 0 ? -1 : 1
+}
+
+/** The chord a slur starts on, in bar `fromMeasure` — its start pitch among the chord's notes, a fanned
+ *  member's pitches, or its graces. */
+export function slurStartSlot(score: Score, slur: Slur, fromMeasure: number): ChordRest | undefined {
+  return score.measures.find(m => m.number === fromMeasure)?.slots.find(
+    s => s.type === 'chord' && (
+      s.notes.some(p => p.id === slur.startNoteId)
+      || (s.fan?.members ?? []).some(mm => mm.pitches.some(p => p.id === slur.startNoteId))
+      || gracePitchesOf(s).some(p => p.id === slur.startNoteId)),
+  )
 }
 
 /** A slot's position in the score, for ordering a span that crosses barlines. */

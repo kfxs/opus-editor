@@ -105,7 +105,7 @@ import { renderProbe, type RenderLayoutPart } from '@/engine/RenderProbe' // P0 
 import {
   previewMarkFamily, type PassEntry, type MarkPreviewKind, type RenderSnapshot,
 } from './marks/markPreviewPass'
-import { restShiftOverrideOf, restHiddenOf, restPositionKey, resolveStaffSpacingAbove, measureLeadingSpaces, measureUserSpacePx, noteOffsetOverrideOf } from '@/engine/models/engravingOverrides'
+import { restHiddenOf, restPositionKey, resolveStaffSpacingAbove, measureLeadingSpaces, measureUserSpacePx, noteOffsetOverrideOf } from '@/engine/models/engravingOverrides'
 import { STAFF_SPACE_PX, resolveStaffSize } from '@/engine/models/staffSize'
 import { staffSpacesToPixels } from './staff/staffSpace'
 import { attachCrossStaffNeighbours, crossedHeadStaff, crossingResolver } from './crossStaff'
@@ -120,7 +120,8 @@ import { drawSketchHeader, sketchHeaderRoomPx } from './ScoreHeaderPass'
 import type { Rect } from '@/engine/ViewportModel'
 import { dbg } from '@/utils/debug'
 import { voiceOf } from '@/utils/lanes'
-import { restDrawnDuration, restLineInStaff, restNeutralLine } from '@/engine/layout/restVoicePlacement'
+import { restShiftResolver } from './engraved/restShift'
+import { captureVoiceIntent, reassertVoiceIntent } from './format/voiceIntent'
 import { applyHiddenTreatment, hiddenTreatment, HIDDEN_ELEMENT_COLOR, type RenderAudience } from './hiddenElements'
 import { barFrame, noteFrame, staveBox, staveFrame, standOn } from './staff/staveFrame'
 import { noteLineY, staffLineY } from '@/engine/engrave/staff/staffFrame'
@@ -1839,57 +1840,22 @@ export class ScoreRenderer {
       const voiceIds = [...new Set(sortedAll.map(s => voiceOf(s)))].sort((a, b) => a - b)
       const multiVoice = voiceIds.length > 1
 
-      // ⭐⭐ WHERE A MULTI-VOICE REST SITS — DERIVED from what else is in the staff, and the whole
-      // rule lives in `engine/layout/restVoicePlacement.ts` with its sources. This is the one line
-      // that asks it. It replaces a fixed four-lane ladder (`REST_LANE × REST_LINE_STEP`) that could
-      // express the SIGN and nothing else, and that cost 67 hand-placed `restShift` overrides in the
-      // prelude example. Single voice: 0 — Gould p. 34's centred rest, untouched.
+      // ⭐⭐ WHERE A MULTI-VOICE REST SITS — DERIVED from what else is in the staff
+      // (`layout/restVoicePlacement`), plus the hand's `restShift` on top: `engraved/restShift`, which
+      // the bent staff asks too. `measure` here is THIS STAFF'S LANE (`placement.view`), so `sortedAll`
+      // already holds every voice of this staff and nothing else — the context the rule needs.
       // (docs/plans/multi-voice-rest-position-plan.md §4.1.)
-      //
-      // ⭐ `measure` here is THIS STAFF'S LANE (`placement.view`, a `staffMeasureView` copy), so
-      // `sortedAll` already holds every voice of this staff and nothing else — which is exactly the
-      // context the rule needs, and the reason it needs no cross-staff lookup.
-      const derivedRestShift = (slot: ChordRest): number => {
-        if (!multiVoice || slot.type !== 'rest') return 0
-        return restLineInStaff(sortedAll, slot, clefForBeat(slot.beat))
-          - restNeutralLine(restDrawnDuration(slot))
-      }
-      // Our intended rest line / stem direction / horizontal shift per StaveNote, captured
-      // BEFORE formatting. The multi-voice rule (`engrave/notes/voiceStack` — VexFlow's
-      // StaveNote.format, transcribed, run by `format()`) rewrites all three for same-tick
-      // multi-voice collisions — it nudges rests apart (can lift V1's centred rest off the
-      // middle line), REASSIGNS stem directions (a 3rd voice forced up gets flipped down, and
-      // the user's `x` override with it), and X-SHIFTS a colliding notehead sideways (a voice
-      // pushed right of the others). None is right for our voice model — we want the voices
-      // stacked and under our control — so we re-assert all three after format.
-      const intendedRestLine = new Map<EngravedNote, number>()
-      const intendedStemDir = new Map<EngravedNote, number>()
-      const intendedXShift = new Map<EngravedNote, number>()
+      const restShiftFor = restShiftResolver(pass.score, measure.id, sortedAll, clefForBeat, multiVoice)
+      // Our intended rest line / stem direction / horizontal shift per StaveNote, captured BEFORE
+      // formatting and put back after it (`format/voiceIntent` says what the voice rule rewrites, and
+      // why only after it has run).
       const groups = voiceIds.map(v => {
         const slots = sortedAll.filter(s => voiceOf(s) === v)
         const stemUp = v % 2 === 0
         const forcedStem = multiVoice ? (stemUp ? 1 : -1) : undefined
-        // notesOnly: one StaveNote per slot (used for beams, tuplets, registration). The resolver
-        // adds each rest's manual vertical shift (if any) on top of the DERIVED position — the
-        // override stays a deviation from where the rule puts the rest, exactly as LilyPond's
-        // explicit `staff-position` overrides its own collision result.
-        const restShiftFor = (slot: ChordRest): number =>
-          derivedRestShift(slot) + (restShiftOverrideOf(pass.score, restPositionKey(measure.id, voiceOf(slot), slot.beat, slot.staffId))?.steps ?? 0)
+        // notesOnly: one StaveNote per slot (used for beams, tuplets, registration).
         const staveNotes = createStaveNotesFromSlots(slots, clefForBeat, forcedStem, restShiftFor, key,
           crossingResolver(placement.crossStaff, placement.scale))
-        for (const sn of staveNotes) {
-          // Non-measure rests only: measure (whole-bar) rests are centred separately and
-          // reset() would disturb that. Their lane line is what draw must honour.
-          if (sn.isRest()) {
-            if (!sn.isCenterAligned()) intendedRestLine.set(sn, sn.getKeyLine(0))
-          } else if (multiVoice) {
-            // The stem we set from voice parity or the `x` override — VexFlow must not flip it.
-            intendedStemDir.set(sn, sn.getStemDirection())
-          }
-          // Keep every voice at the shared X (no auto sideways offset). Measure rests carry
-          // their centring in a separate centerXShift, so restoring xShift here is harmless.
-          if (multiVoice) intendedXShift.set(sn, sn.getXShift())
-        }
         return { voice: v, slots, staveNotes, forcedStem }
       })
 
@@ -1897,6 +1863,7 @@ export class ScoreRenderer {
       // already key on voice / tupletId internally — dynamics, tuplets, registration.
       const sortedSlots = groups.flatMap(g => g.slots)
       const staveNotes = groups.flatMap(g => g.staveNotes)
+      const intent = captureVoiceIntent(staveNotes, multiVoice)
 
       // Attach dynamics as Annotation modifiers BEFORE formatting so they reserve
       // vertical space and stack with articulations. Co-located marks (stacked at
@@ -1947,7 +1914,7 @@ export class ScoreRenderer {
         // ⚠️ A BEAM GROUP HAS ONE STEM DIRECTION — so the multi-voice re-assert below must be told
         // what the beam decided, not what the note was built with.
         //
-        // `intendedStemDir` was captured before the beams existed, from each note's own override or
+        // `intent.stemDir` was captured before the beams existed, from each note's own override or
         // the voice's forced side. A beam then gives its whole group ONE direction (an `x` flip on
         // any member flips the beam, which is the only thing a beam can mean). Leave the map stale
         // and the re-assert drags the other members back — and `setStemDirection` CLEARS `note.beam`
@@ -1963,8 +1930,8 @@ export class ScoreRenderer {
           ...(lane?.fanned ?? []).flatMap(owners => owners.slots.map(i => g.staveNotes[i])),
         ])
         for (const staveNote of g.staveNotes) {
-          if (intendedStemDir.has(staveNote) && (staveNote.hasBeam() || joinedFanOwners.has(staveNote))) {
-            intendedStemDir.set(staveNote, staveNote.getStemDirection())
+          if (intent.stemDir.has(staveNote) && (staveNote.hasBeam() || joinedFanOwners.has(staveNote))) {
+            intent.stemDir.set(staveNote, staveNote.getStemDirection())
           }
         }
         return { voice, beams, clefNoteByBeat, fanJoins }
@@ -2045,20 +2012,7 @@ export class ScoreRenderer {
         // captured lane line, restore each note's captured stem, and clear the auto X-shift.
         // setKeyLine/setStemDirection refresh the note (reset() rebuilds the notehead); the
         // corrections all land at draw time.
-        if (multiVoice) {
-          for (const sn of staveNotes) {
-            if (sn.isRest()) {
-              sn.renderOptions.draw = true
-              const line = intendedRestLine.get(sn)
-              if (line !== undefined && sn.getKeyLine(0) !== line) sn.setKeyLine(0, line)
-            } else {
-              const dir = intendedStemDir.get(sn)
-              if (dir !== undefined && sn.getStemDirection() !== dir) sn.setStemDirection(dir)
-            }
-            const xShift = intendedXShift.get(sn)
-            if (xShift !== undefined && sn.getXShift() !== xShift) sn.setXShift(xShift)
-          }
-        }
+        if (multiVoice) reassertVoiceIntent(staveNotes, intent)
 
         // Hand-nudged note offsets (client #12 — docs/plans/note-offset-plan.md), AFTER the multi-voice
         // re-assert above: that loop restores each note's xShift to its captured pre-format value,

@@ -22,7 +22,7 @@ import { CURVE_PX } from './curveStyle'
 import { articulationEdge, endpointLiftOverMark } from './slurArticulationEndpoint'
 import { curveShapeOverrideOf, segmentCurveShapeOverrideOf, reconcileSegmentShape, endpointOffsetOverrideOf, slurOffsetOverrideOf, segmentEndpointOffsetOverrideOf, reconcileSegmentEndpointOffset } from '@/engine/models/engravingOverrides'
 import { staffSpacesToPixels } from '../staff/staffSpace'
-import { coveredChordIds, slurSideFromStems } from './slurDirection'
+import { coveredChordIds, slurSideFromStems, slurStartSlot, slurVoiceSide } from './slurDirection'
 import { slurAttachments, type SlurAttachment } from './slurStemEndpoint'
 import { encompassCeiling } from './slurEncompass'
 import { tiltWithThePitches } from './slurMelodicTilt'
@@ -37,7 +37,6 @@ import { brokenSlurOpenRise } from './brokenSlurTilt'
 import { spellingDiatonicPos } from '@/utils/pitchSpelling'
 import { lineLeftCurveX } from '../staff/systemEdges'
 import { planSpanSegments } from '../marks/spanSegments'
-import { voiceOf } from '@/utils/lanes'
 import { gracePitchesOf } from '@/utils/graceNotes'
 import { noteFrame } from '../staff/staveFrame'
 import { staffBottomLineY, staffLineY, type StaffFrame } from '@/engine/engrave/staff/staffFrame'
@@ -549,17 +548,6 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
     //    ⭐ Read across EVERY note the slur covers (`./slurDirection`), not just its first —
     //    LilyPond, MuseScore and Verovio all scan, and a one-note sample makes the answer
     //    depend on which end you started from.
-    const fromMeasureData = score.measures.find(m => m.number === fromMeasure)
-    const startSlot = fromMeasureData?.slots.find(
-      s => s.type === 'chord' && (
-        s.notes.some(p => p.id === slur.startNoteId)
-        || (s.fan?.members ?? []).some(mm => mm.pitches.some(p => p.id === slur.startNoteId))
-        || gracePitchesOf(s).some(p => p.id === slur.startNoteId)),
-    )
-    const slurVoice = startSlot?.voice ?? voiceOf(slur)
-    const multiVoice = fromMeasureData
-      ? new Set(fromMeasureData.slots.map(s => voiceOf(s))).size > 1
-      : false
     // The stems as DRAWN, over the whole span: a beam forces its group's direction, so the model's
     // answer and VexFlow's differ. A covered chord that was not rendered contributes nothing.
     const coveredIds = coveredChordIds(score, slur.startNoteId, slur.endNoteId)
@@ -577,9 +565,8 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
       .filter((e): e is SlurEnd =>
         e !== undefined && e.staveNote !== fromEnd.staveNote && e.staveNote !== toEnd.staveNote)
       .map(e => e.attach)
-    const autoDir = multiVoice
-      ? (slurVoice % 2 === 0 ? -1 : 1)
-      : slurSideFromStems(coveredStems.length ? coveredStems : [fromEnd.attach.stemDirection])
+    const autoDir = slurVoiceSide(score, slur, fromMeasure)
+      ?? slurSideFromStems(coveredStems.length ? coveredStems : [fromEnd.attach.stemDirection])
     const direction = slur.placement === 'below' ? 1
       : slur.placement === 'above' ? -1
       : autoDir
@@ -625,7 +612,7 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
       // One SVG group per slur (both partials live inside it) so the selection
       // highlight can recolor exactly this slur without a bbox path-scan.
       const group = drawGroupOf(pass.context.openGroup?.('slur', `slur-${slur.id}`))
-      const slurStaffIndex = staffIndexOfId(score, startSlot?.staffId)
+      const slurStaffIndex = staffIndexOfId(score, slurStartSlot(score, slur, fromMeasure)?.staffId)
 
       // A slur is built from its two notes' own coordinates, which live in their staff's scaled
       // space — so it is drawn there too (docs/plans/staff-size-plan.md §4.3). That covers its ARC, its

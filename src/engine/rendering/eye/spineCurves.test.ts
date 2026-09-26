@@ -206,3 +206,21 @@ describe('⭐ the HAND’s edits reach the spine (his ask, 2026-09-25: "the slur
     expect(meanRadius(before) - meanRadius(after)).toBeCloseTo(STAFF_SPACE_PX, 0)
   })
 })
+
+describe('drawScoreOnSpine — a slur in a MULTI-VOICE bar takes its VOICE\'s side (his report, 2026-09-26)', () => {
+  /** Voice 1 high quarters; voice 2 four low eighths-then-quarters, slurred over its first two notes. */
+  const twoVoices = (placement?: 'above' | 'below') => {
+    const m = fourBars()
+    for (let b = 0; b < 4; b++) m.addNote({ step: 'D', octave: 5, duration: 'q', measure: 1, beat: { num: b, den: 1 } })
+    const a = m.addNote({ step: 'E', octave: 4, duration: 'q', measure: 1, beat: { num: 0, den: 1 }, voice: 1 })
+    const b = m.addNote({ step: 'G', octave: 4, duration: 'q', measure: 1, beat: { num: 1, den: 1 }, voice: 1 })
+    m.addSlur({ startNoteId: a.id, endNoteId: b.id, voice: 1, ...(placement ? { placement } : {}) })
+    return m
+  }
+  const ink = (m: ScoreModel) => inkPoints(curvesOf(m, straightSpine(0, 200, 1600))[0])
+
+  it('⭐ voice 2\'s slur, left on AUTO, is drawn BELOW — exactly as the same slur forced below', () => {
+    expect(ink(twoVoices())).toEqual(ink(twoVoices('below')))
+    expect(ink(twoVoices())).not.toEqual(ink(twoVoices('above')))
+  })
+})

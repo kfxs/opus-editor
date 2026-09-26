@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest'
+import { apply } from '@/engine/paint/Affine'
 import { circleSpine, straightSpine } from '@/engine/engrave/staff/staffSpine'
 import { ScoreModel } from '@/engine/models/ScoreModel'
 import { SceneRecorder } from '@/engine/scene/SceneRecorder'
@@ -273,5 +274,37 @@ describe('drawScoreOnSpine — TUPLETS (docs/plans/bent-staff-plan.md port map #
     const m = model(1)
     addQuarter(m, 1, 0)
     expect(tupletGroups(blocksOf(m))).toHaveLength(0)
+  })
+})
+
+describe('drawScoreOnSpine — VOICES (docs/plans/bent-staff-plan.md #11)', () => {
+  const QUARTER_REST = ''
+  /** Every quarter rest's page y on a straight spine, left to right. */
+  const quarterRestYs = (m: ScoreModel): number[] => {
+    const recorder = new SceneRecorder()
+    drawScoreOnSpine(recorder, m.getScore(), straightSpine(0, 200, 1600))
+    const ys: { x: number; y: number }[] = []
+    for (const block of sceneGroups(recorder.scene, SPINE_BLOCK_CLASS)) {
+      for (const p of scenePrimitives(block)) {
+        if (p.kind === 'text' && p.text === QUARTER_REST) ys.push(apply(block.placement, p.x, p.y))
+      }
+    }
+    return ys.sort((a, b) => a.x - b.x).map(p => p.y)
+  }
+  const barWithUpperNote = (): ScoreModel => {
+    const m = new ScoreModel('voices')
+    for (let i = 1; i < 4; i++) m.addMeasure()
+    m.addNote({ step: 'D', octave: 5, duration: 'q', measure: 1, beat: { num: 0, den: 1 } })
+    return m
+  }
+
+  it('⭐ a multi-voice bar puts its rests where the PAGE does (`engraved/restShift`) — the upper voice\'s rest steps UP', () => {
+    const alone = quarterRestYs(barWithUpperNote())
+    const twoVoices = barWithUpperNote()
+    twoVoices.addNote({ step: 'G', octave: 4, duration: 'w', measure: 1, beat: { num: 0, den: 1 }, voice: 1 })
+    const shared = quarterRestYs(twoVoices)
+    expect(alone.length).toBeGreaterThan(0)
+    expect(shared.length).toBe(alone.length)
+    expect(shared[0]).toBeLessThan(alone[0])
   })
 })
