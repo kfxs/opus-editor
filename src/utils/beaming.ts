@@ -22,10 +22,11 @@ import type { BeamMode, ChordRest, NoteDuration } from '@/types/music'
 import { type Fraction, fracCreate, fracAdd, fracLt, fracSub, fracToNumber } from '@/utils/fraction'
 import type { MeterInfo } from '@/utils/meter'
 import { pairDrawing, pairIsJoined, pairRoleAt } from '@/utils/tremoloPair'
+import { durationFlags } from '@/utils/durations'
 
-/** A duration is beamable iff it is an eighth note or shorter. */
+/** A duration is beamable iff it carries a flag — an eighth note or shorter (`durationFlags`). */
 export function isBeamableDuration(duration: NoteDuration): boolean {
-  return duration === '8' || duration === '16' || duration === '32'
+  return durationFlags(duration) > 0
 }
 
 /**

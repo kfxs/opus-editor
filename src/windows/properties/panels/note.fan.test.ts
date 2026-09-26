@@ -113,7 +113,7 @@ describe('the fan row', () => {
   })
 
   it('no fan, no row — this changes a fan, it never makes one', () => {
-    bus.inspection.set([{ kind: 'note', data: { id: 'note-1', step: 'C' } } as unknown as InspectedElement])
+    bus.inspection.set([{ kind: 'note', data: { id: 'note-1', step: 'C', duration: 'q' } } as unknown as InspectedElement])
     // The offset input is always there; the fan's five are not.
     expect(host.querySelectorAll('input[type=number]')).toHaveLength(1)
   })

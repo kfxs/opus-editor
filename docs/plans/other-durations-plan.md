@@ -1,6 +1,6 @@
 # Other durations — 64th, 128th, 256th, 512th, breve, longa — the plan
 
-> **Status (2026-09-26): P0 BUILT (glyphs measured) · P1 BUILT (the model) · P2 BUILT (the panel).** Decisions a, b (convention), d taken (§1). The
+> **Status (2026-09-26): P0 BUILT (glyphs measured) · P1 BUILT (the model) · P2 BUILT (the panel) · P3 BUILT (the short values drawn).** Decisions a, b (convention), d taken (§1). The
 > research: `docs/research/durations-standards.md` (MusicXML · MEI · SMuFL · MIDI · Sibelius · Finale ·
 > Dorico), `docs/research/durations-literature.md` (Gould · Ross · Stone · Gerou & Lusk) and
 > `docs/research/durations-engines.md` (MuseScore · Verovio · LilyPond, source read) are all IN. ⛔ A number never
@@ -160,12 +160,32 @@ from the font metrics.
   fractional beam, `VALID_BEAM_DURATIONS`, `slotBoundary`, `graceBeam`); stem extension rows (§2.1); rests.
   Scene specs (jsdom-safe: counts — beams per note, flag glyph name); an e2e for stem length + rest
   position. **His UI check.**
+  ✅ **Measured in Chromium (P3, `e2e/shortValues.e2e.ts`)** — today's defaults, from the font's own
+  flag heights (unbeamed) and the P1 rows (beamed):
+
+  | | unbeamed stem | beamed stem (≈) | rest foot below the staff |
+  |---|---|---|---|
+  | 32nd | 3.6 sp | — | 0.0 sp |
+  | 64th | 4.4 | 4.5 | 1.0 (Gould ≈ 0.9) |
+  | 128th | 5.1 | 5.0 | 1.0 |
+  | 256th | 5.8 | 5.7 | 2.0 |
+  | 512th | 6.6 | 6.7 | 2.0 |
+
+  The innermost beam stands 1.24 sp above the head at every count. Beamed: LilyPond ≈ 4.1 → 6.7,
+  MuseScore 4.25 → 6.5 — ours sits between. Unbeamed: shorter than LilyPond's 5 / 6 / 7 / 8 and
+  Gould's 4.8 for a 64th — a ROW for the house-style menu, ⛔ not changed here.
 - **P4 — the breve and the longa drawn.** `NOTEHEAD_GLYPHS` row table; the breve head as a style row;
   the BAR REST's glyph from the bar's length + `BAR_REST_STYLE` (§1 c) — ONE function asked by the drawing
   (`NoteBuilder`'s measure rest), the placement (`restVoicePlacement`) and the ink rows alike, ⛔ never a
   second `'w'` assumed anywhere; a dev console `__barRest.style(…)`;
   the longa's stem (§2.3); `lineAttached` rest row; the stem question in `measureColumns`. E2e: head ink,
   rest in its space. **His UI check.**
+  ⚠️ **+ the two-voice collision rule** (`engrave/notes/voiceStack.ts`, ported from VexFlow): when one of
+  two colliding notes has no stem, it moves the one whose duration CODE sorts first AS TEXT. With the
+  old values only a whole note was stemless, and every code sorts before `'w'`, so the whole note always
+  stayed — correct. The breve's `'1/2'` and longa's `'1/4'` sort FIRST, so a breve (or a longa against
+  a whole) would be the one moved. Fix: compare the notes' LENGTHS (the shorter moves; equal → the lower,
+  as now) — identical to today for every pair the old values could make, so no existing ink moves.
 - **P5 — the surfaces around.** Tempo / metronome units (`UNIT_GLYPH`, `MET_NOTE_GLYPH`, the aliases) —
   ⚠️ `NOTE_KEYPAD` is Ctrl+Num 1–6 and has no key for the new values: it stops being a total `Record`
   (a list of the bound ones, `lint:tables` is fine with an ORDER list); `durationChangeOps`' literal list;

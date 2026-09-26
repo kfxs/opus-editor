@@ -147,7 +147,7 @@ describe('the slur handle rows', () => {
   })
 
   it('no slur, no rows — this edits a slur, it never makes one', () => {
-    bus.inspection.set([{ kind: 'note', data: { id: 'note-1', step: 'C' } } as unknown as InspectedElement])
+    bus.inspection.set([{ kind: 'note', data: { id: 'note-1', step: 'C', duration: 'q' } } as unknown as InspectedElement])
     // The note-offset input is always there; the slur's eight are not.
     expect(host.querySelectorAll('input[type=number]')).toHaveLength(1)
   })

@@ -46,6 +46,7 @@ import * as leipzig from './leipzigMetrics'
 import * as sebastian from './sebastianMetrics'
 import { DEFAULT_MUSIC_FONT, activeMusicFont, type MusicFontId } from './musicFont'
 import type { NoteDuration } from '@/types/music'
+import { durationFlags } from '@/utils/durations'
 
 export { BRAVURA }
 
@@ -300,11 +301,25 @@ export function accidentalGlyph(sign: string): GlyphName | null {
  * Returns null for a duration that has no flag, which is a real question and not an error.
  */
 export function flagGlyph(duration: NoteDuration, stemUp: boolean): GlyphName | null {
-  if (duration === '8') return stemUp ? 'flag8thUp' : 'flag8thDown'
-  if (duration === '16') return stemUp ? 'flag16thUp' : 'flag16thDown'
-  if (duration === '32') return stemUp ? 'flag32ndUp' : 'flag32ndDown'
-  return null
+  const pair = FLAG_GLYPHS[durationFlags(duration)]
+  return pair ? pair[stemUp ? 0 : 1] : null
 }
+
+/**
+ * The font's own flag for each FLAG COUNT (`utils/durations.durationFlags`) — up, down. ⭐ Keyed by what
+ * the note HAS, ⛔ not by a list of durations: a 1024th is one more row here (docs/plans/other-durations-plan.md
+ * P3). Index 0 is "no flag". ⛔ Never stacked eighth flags: SMuFL cuts each count as its own glyph.
+ */
+const FLAG_GLYPHS: readonly (readonly [GlyphName, GlyphName] | null)[] = [
+  null,
+  ['flag8thUp', 'flag8thDown'],
+  ['flag16thUp', 'flag16thDown'],
+  ['flag32ndUp', 'flag32ndDown'],
+  ['flag64thUp', 'flag64thDown'],
+  ['flag128thUp', 'flag128thDown'],
+  ['flag256thUp', 'flag256thDown'],
+  ['flag512thUp', 'flag512thDown'],
+]
 
 /** The clef glyphs, by our `Clef` names — C clef for both alto and tenor, at different heights. */
 export const CLEF_GLYPHS = {

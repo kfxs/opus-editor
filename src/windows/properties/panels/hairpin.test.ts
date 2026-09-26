@@ -148,7 +148,7 @@ describe('the hairpin end rows', () => {
   })
 
   it('no hairpin, no rows', () => {
-    bus.inspection.set([{ kind: 'note', data: { id: 'n1', step: 'C' } } as unknown as InspectedElement])
+    bus.inspection.set([{ kind: 'note', data: { id: 'n1', step: 'C', duration: 'q' } } as unknown as InspectedElement])
     expect(host.querySelectorAll('input[type=number]')).toHaveLength(1) // the note offset's
   })
 })

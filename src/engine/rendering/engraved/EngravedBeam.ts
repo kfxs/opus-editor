@@ -47,6 +47,7 @@ import { noteLineY } from '@/engine/engrave/staff/staffFrame'
 import { requireNoteFrame } from '../staff/staveFrame'
 import { armedBeamSlopeRule } from '../beams/beamSlopeExperiment'
 import { crossSystemBeamWidth } from '../beams/beamInk'
+import { DURATIONS_DESC, durationFlags } from '@/utils/durations'
 
 /**
  * The context VexFlow's own stems still draw on — named through the note's own `setContext`, so this
@@ -61,12 +62,18 @@ const BEAM_LEFT = 'L'
 const BEAM_RIGHT = 'R'
 
 /**
- * The beam levels, in order — VexFlow's `validBeamDurations`, kept verbatim. Index IS the level, and
- * each name is the note value a note must be SHORTER than to carry that line
- * (`engrave/beams/beamLineSpans`): `'4'` is the PRIMARY beam, `'8'` the first secondary, and so on.
- * ⚠️ `'32'` and `'64'` would need 64ths and 128ths, which this editor does not write, so they draw nothing.
+ * The beam levels, in order — VexFlow's `validBeamDurations` in shape. Index IS the level, and each name
+ * is the note value a note must be SHORTER than to carry that line (`engrave/beams/beamLineSpans`): `'4'`
+ * is the PRIMARY beam, `'8'` the first secondary, and so on.
+ *
+ * ⭐ DERIVED: one level per flag the shortest value carries (`durationFlags`) — a 512th's seven, `'4'` to
+ * `'256'` (docs/plans/other-durations-plan.md P3). VexFlow's list stopped at `'64'`, five levels, so a
+ * 256th's sixth and seventh beams would have gone undrawn.
  */
-const VALID_BEAM_DURATIONS = ['4', '8', '16', '32', '64']
+const VALID_BEAM_DURATIONS: readonly string[] = Array.from(
+  { length: Math.max(...DURATIONS_DESC.map(durationFlags)) },
+  (_, level) => String(4 * 2 ** level),
+)
 
 /**
  * ⭐ VexFlow ends a beam quad ONE PIXEL past the x it computed the slope at

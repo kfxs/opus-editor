@@ -4,6 +4,7 @@ import { MAX_FAN_BEAMS, MAX_FAN_COUNT, MAX_FAN_SPREAD, fanRampRange, fanSpread }
 import type { FanMark, FractionalBeamSide, Note, NoteOffsetOverride } from '@/types/music'
 import { BISHOP, commitOnFirstStep } from '../rows'
 import { live, overrideOf, type PanelRows } from './panel'
+import { durationFlags } from '@/utils/durations'
 
 /**
  * A NOTE, a REST, a GRACE or a BRACKETED grace — the panel's FIRST real control (client #12 — docs/plans/note-offset-plan.md
@@ -365,7 +366,7 @@ function buildFractionalBeamSideSelect(
 /** ⚠️ Necessary, ⛔ not sufficient — see the call site: only a value that can BE a fraction of a
  *  coarser beam may carry a stub at all, but whether one is drawn depends on the beam group. */
 function canCarryFractionalBeam(note: Note): boolean {
-  return !note.isRest && (note.duration === '16' || note.duration === '32')
+  return !note.isRest && durationFlags(note.duration) >= 2 // a 16th or shorter
 }
 
 /** The note/rest's current horizontal offset in staff-spaces (0 when none), read from the element's

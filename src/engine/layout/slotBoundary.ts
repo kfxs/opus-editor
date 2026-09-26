@@ -27,8 +27,10 @@ import { headCentreX } from '@/engine/ElementRegistry'
 import { noteheadInk } from '@/engine/fonts/fontMetrics'
 import type { NoteDuration } from '@/types/music'
 import { staffOf } from '@/utils/lanes'
+import { DURATION_INFO } from '@/utils/durations'
 
-const DURATIONS: readonly string[] = ['w', 'h', 'q', '8', '16', '32'] satisfies readonly NoteDuration[]
+/** Every duration the model writes — the table's own keys, ⛔ never a list of today's values. */
+const DURATIONS: readonly string[] = Object.keys(DURATION_INFO)
 
 /** One note's head, left edge — or its union box's when the parts to measure it are missing. */
 function noteHeadLeftX(registry: ElementRegistry, el: ElementInfo): number {

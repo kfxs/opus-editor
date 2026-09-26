@@ -33,6 +33,7 @@ import { computeCrossBarBeamGroups, secondaryBreakIndices, type BeamBar } from '
 import { fracCompare } from '@/utils/fraction'
 import { getMeterInfo } from '@/utils/meter'
 import { voiceOf } from '@/utils/lanes'
+import { durationFlags } from '@/utils/durations'
 
 /** One bar of one staff, as the planner needs to see it. */
 export interface CrossBarBar {
@@ -220,10 +221,11 @@ function lookupIdOf(slot: ChordRest): string {
   return slot.type === 'chord' ? slot.notes[0]?.id ?? slot.id : slot.id
 }
 
-/** How many beam lines a note carries: 𝅘𝅥𝅮=1, 𝅘𝅥𝅯=2, 𝅘𝅥𝅰=3. Dots do not change it, rests never reach here. */
+/** How many beam lines a note carries — its flag count (`durationFlags`): an eighth 1 … a 512th 7. Dots do not
+ *  change it; a rest (and anything unflagged, which never reaches here) counts as the primary beam alone. */
 function beamCountOf(slot: ChordRest): number {
   if (slot.type !== 'chord') return 1
-  return slot.duration === '32' ? 3 : slot.duration === '16' ? 2 : 1
+  return Math.max(1, durationFlags(slot.duration))
 }
 
 /**

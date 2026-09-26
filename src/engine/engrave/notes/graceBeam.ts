@@ -14,6 +14,8 @@
  */
 import type { BeamMode, NoteDuration } from '@/types/music'
 import { NOTE_DURATION_ROWS } from '../inheritedDefaults'
+import { durationToFraction } from '@/utils/durations'
+import { fracToNumber } from '@/utils/fraction'
 import { beamRiseCap, type BeamSlopeRuleName } from '../beams/beamSlope'
 import { beamLineYAt, fitBeamSlope } from '../beams/beamSlopeFit'
 import { beamedStemExtension } from '../beams/beamedStems'
@@ -110,9 +112,9 @@ export function isBeamedGrace(notes: readonly { duration: NoteDuration }[], inde
 
 /** A grace's written ticks — what decides whether it carries a level (`beamLineSpans`). */
 function writtenTicks(duration: NoteDuration, dots = 0): number {
-  const base = duration === 'w' ? TICKS_PER_WHOLE : duration === 'h' ? TICKS_PER_WHOLE / 2
-    : duration === 'q' ? TICKS_PER_WHOLE / 4 : TICKS_PER_WHOLE / Number(duration)
-  return base * (2 - 1 / 2 ** dots)
+  // The table's exact quarters, a quarter being a quarter of a whole's ticks — ⛔ not a parse of the
+  // duration's NAME, which a breve (`'breve'`) does not have a number in.
+  return fracToNumber(durationToFraction(duration, dots)) * (TICKS_PER_WHOLE / 4)
 }
 
 /** ⭐ One run's beam — see the module header. The run must be two or more graces, in order. */
