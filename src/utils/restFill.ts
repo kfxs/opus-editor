@@ -118,12 +118,12 @@ export function fillRests(start: Fraction, end: Fraction, meter: MeterInfo): Res
 export function decomposeSpan(start: Fraction, end: Fraction, meter: MeterInfo): DurationSegment[] {
   if (!fracLt(start, end)) return []
 
-  const strengthOf = makeStrengthLookup(meter)
+  const strengths = strengthIndex(meter)
   const result: DurationSegment[] = []
 
   let current = start
   while (fracLt(current, end)) {
-    const startStrength = strengthOf(current)
+    const startStrength = strengths.at(current)
     let chosen: RestCandidate | null = null
     let chosenEnd: Fraction = current
 
@@ -133,10 +133,10 @@ export function decomposeSpan(start: Fraction, end: Fraction, meter: MeterInfo):
 
       const endStrength = fracEq(candEnd, meter.barQuarters)
         ? STRENGTH.bar // the next downbeat is maximally strong
-        : strengthOf(candEnd)
+        : strengths.at(candEnd)
       const limit = Math.min(startStrength, endStrength)
 
-      if (maxInteriorStrength(meter, current, candEnd) <= limit) {
+      if (strengths.maxInside(current, candEnd) <= limit) {
         chosen = cand
         chosenEnd = candEnd
         break // CANDIDATES is longest-first, so the first fit is the longest
@@ -179,18 +179,67 @@ export function pickVoiceMode(slots: ChordRest[], barQuarters: Fraction): 'soft'
 
 const WEAKEST = Number.NEGATIVE_INFINITY
 
-/** O(1) strength at an exact position; off-grid positions are weakest. */
-function makeStrengthLookup(meter: MeterInfo): (at: Fraction) => number {
-  const byPos = new Map<string, number>()
-  for (const b of meter.boundaries) byPos.set(`${b.at.num}/${b.at.den}`, b.strength)
-  return (at: Fraction) => byPos.get(`${at.num}/${at.den}`) ?? WEAKEST
+/**
+ * The meter's boundaries as an INDEX over the shortest value's grid (`SHORTEST_LENGTH`, a 512th): a
+ * strength per grid point, plus a sparse table so "the strongest boundary strictly inside (p, q)" is
+ * two lookups instead of a walk over every boundary. ⭐ Built once per meter — `getMeterInfo` hands
+ * back the same frozen object for the same meter, so the WeakMap hits (docs/plans/other-durations-plan.md
+ * P2: a hierarchy down to the 512th is 512 boundaries in 4/4 and 2048 in 4/1, and the walk made every
+ * fill 7–10× slower).
+ */
+interface StrengthIndex {
+  /** Strength at an exact position; off-grid positions are weakest. */
+  at(at: Fraction): number
+  /** Strongest boundary strictly inside `(p, q)`, or -Infinity if none. */
+  maxInside(p: Fraction, q: Fraction): number
 }
 
-/** Strongest boundary strictly inside `(p, q)`, or -Infinity if none. */
-function maxInteriorStrength(meter: MeterInfo, p: Fraction, q: Fraction): number {
-  let max = WEAKEST
+const STRENGTH_INDEX = new WeakMap<MeterInfo, StrengthIndex>()
+
+function strengthIndex(meter: MeterInfo): StrengthIndex {
+  const known = STRENGTH_INDEX.get(meter)
+  if (known) return known
+  const index = buildStrengthIndex(meter)
+  STRENGTH_INDEX.set(meter, index)
+  return index
+}
+
+/** `x` in grid steps, as an exact rational `num / den` of integers. */
+function gridSteps(x: Fraction): { num: number; den: number } {
+  const steps = fracDiv(x, SHORTEST_LENGTH)
+  return { num: steps.num, den: steps.den }
+}
+
+function buildStrengthIndex(meter: MeterInfo): StrengthIndex {
+  const barSteps = gridSteps(meter.barQuarters)
+  const n = Math.ceil(barSteps.num / barSteps.den)
+  const strengths = new Array<number>(n).fill(WEAKEST)
   for (const b of meter.boundaries) {
-    if (fracLt(p, b.at) && fracLt(b.at, q) && b.strength > max) max = b.strength
+    const t = gridSteps(b.at)
+    if (t.den === 1 && t.num >= 0 && t.num < n) strengths[t.num] = Math.max(strengths[t.num], b.strength)
   }
-  return max
+  // Sparse table: level k holds the max over [i, i + 2^k).
+  const levels: number[][] = [strengths]
+  for (let k = 1; 1 << k <= n; k++) {
+    const prev = levels[k - 1]
+    const half = 1 << (k - 1)
+    const row = new Array<number>(n - (1 << k) + 1)
+    for (let i = 0; i < row.length; i++) row[i] = Math.max(prev[i], prev[i + half])
+    levels.push(row)
+  }
+  return {
+    at(at) {
+      const t = gridSteps(at)
+      return t.den === 1 && t.num >= 0 && t.num < n ? strengths[t.num] : WEAKEST
+    },
+    maxInside(p, q) {
+      const ps = gridSteps(p)
+      const qs = gridSteps(q)
+      const lo = Math.max(0, Math.floor(ps.num / ps.den) + 1)
+      const hi = Math.min(n - 1, Math.ceil(qs.num / qs.den) - 1)
+      if (lo > hi) return WEAKEST
+      const k = Math.floor(Math.log2(hi - lo + 1))
+      return Math.max(levels[k][lo], levels[k][hi - (1 << k) + 1])
+    },
+  }
 }

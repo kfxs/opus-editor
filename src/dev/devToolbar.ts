@@ -15,6 +15,7 @@ import { DEV_SOUNDS } from '../engine/audio/WebAudioFontInstrument'
 import { bus } from '../bus'
 import { buildMusicFontPicker } from './musicFontPicker'
 import { buildTextFontPicker } from './textFontPicker'
+import { buildOtherDurationsPanel } from './otherDurationsPanel'
 import { exportScorePdfFile } from '../interactions/io/scoreFileIo'
 import { isSelectedStaffSmall, toggleSelectedStaffSize } from '../interactions/controllers/staffSizeToggle'
 
@@ -227,6 +228,9 @@ export function mountDevToolbar(host: HTMLElement, deps: DevToolbarDeps): DevToo
       () => durationHighlight(state) === d, () => palette.setDuration(d))
   }
   row.appendChild(durBox)
+  // --- Other durations (docs/plans/other-durations-plan.md P2) — its own module, the same door. ---
+  const otherDurations = buildOtherDurationsPanel({ state, onStateChange, setDuration: d => palette.setDuration(d) })
+  row.appendChild(otherDurations.element)
 
   // --- Grace notes (docs/plans/grace-notes-plan.md §3) — a press ARMS the stamp; a click on a note
   //     hangs a grace on it at the click's pitch, drawn as the lit duration. `after` is P5's. ---
@@ -533,6 +537,7 @@ export function mountDevToolbar(host: HTMLElement, deps: DevToolbarDeps): DevToo
       stopSound()
       stopRepeats()
       stopModel?.()
+      otherDurations.destroy()
       row.remove()
     },
   }

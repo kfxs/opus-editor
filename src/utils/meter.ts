@@ -25,6 +25,7 @@
  */
 
 import type { TimeSignature, Measure, Score } from '@/types/music'
+import { SHORTEST_LENGTH } from '@/utils/durations'
 import {
   type Fraction,
   fracCreate,
@@ -73,8 +74,13 @@ export const STRENGTH = {
   group: 4,
 } as const
 
-/** Smallest representable note = 32nd = 1/8 quarter. */
-const SMALLEST = fracCreate(1, 8)
+/**
+ * The finest division the metric hierarchy records — the SHORTEST value the model writes
+ * (`utils/durations.SHORTEST_LENGTH`, today a 512th). ⛔ Never a literal: while it was a 32nd, a rest
+ * fill below the 32nd saw no beat boundaries at all and wrote dotted 64th rests where 4/4 writes plain
+ * ones (docs/plans/other-durations-plan.md P2).
+ */
+const SMALLEST = SHORTEST_LENGTH
 
 /** Denominators we can represent: dyadic and no finer than a 32nd note. */
 const VALID_DENOMINATORS = [1, 2, 4, 8, 16, 32]
@@ -136,6 +142,31 @@ export function isValidTimeSignature(ts: TimeSignature): boolean {
  * @throws if the meter is non-dyadic or the grouping is invalid.
  */
 export function getMeterInfo(ts: TimeSignature, grouping: number[] | undefined = ts.grouping): MeterInfo {
+  // ⭐ Memoised: the answer is pure in (numerator, denominator, grouping), and since the hierarchy runs
+  // down to the shortest value (a 512th — 512 boundaries in 4/4, 2048 in 4/1) building it is no longer
+  // free (docs/plans/other-durations-plan.md P2). FROZEN, so a caller that tried to edit the shared
+  // answer throws instead of corrupting every later bar of that meter.
+  const key = `${ts.numerator}/${ts.denominator}|${grouping?.join('+') ?? ''}`
+  const known = METER_INFO_CACHE.get(key)
+  if (known) return known
+  const info = buildMeterInfo(ts, grouping)
+  METER_INFO_CACHE.set(key, info)
+  return info
+}
+
+const METER_INFO_CACHE = new Map<string, MeterInfo>()
+
+function freezeMeterInfo(info: MeterInfo): MeterInfo {
+  for (const g of info.groups) Object.freeze(g)
+  for (const b of info.boundaries) { Object.freeze(b.at); Object.freeze(b) }
+  Object.freeze(info.groups)
+  Object.freeze(info.boundaries)
+  Object.freeze(info.barQuarters)
+  Object.freeze(info.beatUnit)
+  return Object.freeze(info)
+}
+
+function buildMeterInfo(ts: TimeSignature, grouping: number[] | undefined): MeterInfo {
   if (!isDyadicMeter(ts)) {
     throw new Error(
       `Unsupported time signature ${ts.numerator}/${ts.denominator}: ` +
@@ -163,7 +194,7 @@ export function getMeterInfo(ts: TimeSignature, grouping: number[] | undefined =
 
   const boundaries = buildBoundaries(groupUnits, unitQ, barQuarters)
 
-  return { numerator, denominator, barQuarters, isCompound, beatUnit, groups, boundaries }
+  return freezeMeterInfo({ numerator, denominator, barQuarters, isCompound, beatUnit, groups, boundaries })
 }
 
 // ---------------------------------------------------------------------------
@@ -300,7 +331,7 @@ function subdivideTime(
   strength: number,
   record: (at: Fraction, strength: number) => void,
 ): void {
-  if (fracLte(len, SMALLEST)) return // atomic — cannot split a 32nd
+  if (fracLte(len, SMALLEST)) return // atomic — cannot split the shortest value
   const half = fracMul(len, fracCreate(1, 2))
   const mid = fracAdd(start, half)
   record(mid, strength)

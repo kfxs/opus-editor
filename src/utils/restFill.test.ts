@@ -227,6 +227,13 @@ describe('restFill — fillRests', () => {
 describe('restFill — the long and short values (other-durations P1)', () => {
   const shapes = (rests: { duration: string; dots: number }[]) => rests.map(r => `${r.duration}${'.'.repeat(r.dots)}`)
 
+  it('⭐ after a 128th, plain rests up to the beat — the same shape as after a 32nd, ⛔ never a dotted 64th', () => {
+    const meter = getMeterInfo(ts(4, 4))
+    expect(shapes(fillRests(F(1, 32), F(1), meter))).toEqual(['128', '64', '32', '16', '8'])
+    expect(shapes(fillRests(F(1, 128), F(1, 8), meter))).toEqual(['512', '256', '128', '64'])
+    expect(shapes(fillRests(F(1, 8), F(1), meter))).toEqual(['32', '16', '8']) // as it always was
+  })
+
   it('an empty LONG bar is still the one measure rest (4/2, 8/4, 4/1, 6/2)', () => {
     for (const [n, d] of [[4, 2], [8, 4], [4, 1], [6, 2]] as const) {
       const meter = getMeterInfo(ts(n, d))

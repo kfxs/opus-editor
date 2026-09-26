@@ -1,6 +1,6 @@
 # Other durations — 64th, 128th, 256th, 512th, breve, longa — the plan
 
-> **Status (2026-09-26): P0 BUILT (glyphs measured) · P1 BUILT (the model).** Decisions a, b (convention), d taken (§1). The
+> **Status (2026-09-26): P0 BUILT (glyphs measured) · P1 BUILT (the model) · P2 BUILT (the panel).** Decisions a, b (convention), d taken (§1). The
 > research: `docs/research/durations-standards.md` (MusicXML · MEI · SMuFL · MIDI · Sibelius · Finale ·
 > Dorico), `docs/research/durations-literature.md` (Gould · Ross · Stone · Gerou & Lusk) and
 > `docs/research/durations-engines.md` (MuseScore · Verovio · LilyPond, source read) are all IN. ⛔ A number never
@@ -173,6 +173,20 @@ from the font metrics.
   check the scheduler takes it).
 - **P6 — sweep.** `grep` for any remaining literal duration list; `audit:tests`; docs (`CLAUDE.md`'s
   "Duration values" line, ARCHITECTURE glossary).
+
+## 3b. Found while building (reported — ⛔ not fixed inside a phase)
+
+- **P2 — the METER stopped at the 32nd** (`utils/meter.ts`, a literal `SMALLEST`): a rest fill below it
+  saw no beat boundaries and wrote a dotted 64th rest after a 128th, where 4/4 writes plain ones.
+  FIXED in P2 — derived from `SHORTEST_LENGTH`; the 16× more boundaries made every fill 7–10× slower,
+  so `getMeterInfo` is memoised (frozen) and `restFill` asks an index — now FASTER than before P1.
+  All 23 000 fills of the probe on the 32nd grid are unchanged.
+- **P2 — ⚠️ NOTE ENTRY across MORE THAN ONE barline is wrong, and was before P1** (probed with the old
+  values): a whole note entered at beat 0 of 2/4 is CLIPPED to a half (no tie); one entered at beat 1
+  of 2/4 writes its tail as a dotted half in the next 2-beat bar (overfull) instead of splitting again;
+  a half in 1/4 is refused and trips the undo invariant. The breve and longa make it common (a breve
+  at beat 0 of 4/4 → a whole; a longa across two 4/2 bars puts its last quarter at beat 8 of the
+  second). ⛔ Not fixed here — his call, its own commit (`NoteEntryCoordinator` / `spanningNoteOps`).
 
 ## 4. Later (his call — ⛔ not a queue)
 

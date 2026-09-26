@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { getMeterInfo, isDyadicMeter, isValidGrouping, isValidTimeSignature, sameTimeSignature, timeSignatureKey, STRENGTH, type MeterInfo } from './meter'
 import { fracToNumber, fracCreate, fracEq } from './fraction'
+import { SHORTEST_LENGTH } from './durations'
 import type { TimeSignature } from '@/types/music'
 
 // --- helpers ---------------------------------------------------------------
@@ -189,14 +190,23 @@ describe('meter — getMeterInfo', () => {
       }
     })
 
-    it('does not subdivide below a 32nd note', () => {
-      // Every boundary sits on the 32nd grid (1/8 quarter); the gap between
-      // adjacent boundaries is never finer than that.
+    it('subdivides down to the SHORTEST value the model writes, and no further (a 512th today)', () => {
+      // Derived from `SHORTEST_LENGTH`, ⛔ not a literal: at a 32nd, a fill below it saw no boundaries
+      // and wrote dotted 64th rests (docs/plans/other-durations-plan.md P2).
       const info = getMeterInfo(ts(4, 4))
       const positions = info.boundaries.map((b) => fracToNumber(b.at))
+      const shortest = fracToNumber(SHORTEST_LENGTH)
       for (let i = 1; i < positions.length; i++) {
-        expect(positions[i] - positions[i - 1]).toBeGreaterThanOrEqual(1 / 8 - 1e-9)
+        expect(positions[i] - positions[i - 1]).toBeGreaterThanOrEqual(shortest - 1e-12)
       }
+      expect(positions).toContain(shortest) // …and it does reach it
+    })
+
+    it('⭐ is memoised and FROZEN — the same meter answers with the same object, which nobody may edit', () => {
+      const a = getMeterInfo(ts(4, 4))
+      expect(getMeterInfo(ts(4, 4))).toBe(a)
+      expect(getMeterInfo(ts(7, 8), [3, 2, 2])).not.toBe(getMeterInfo(ts(7, 8), [2, 2, 3]))
+      expect(Object.isFrozen(a) && Object.isFrozen(a.boundaries) && Object.isFrozen(a.boundaries[0])).toBe(true)
     })
   })
 
