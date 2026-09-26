@@ -53,7 +53,7 @@ describe('pressDots', () => {
   })
 
   it('a count the note cannot take is refused, and the keys light what was WRITTEN', () => {
-    const n = engine.addNoteAtBeat({ step: 'C', octave: 5, duration: '8', measure: 1, beat: frac(0, 1) })!
+    const n = engine.addNoteAtBeat({ step: 'C', octave: 5, duration: '128', measure: 1, beat: frac(0, 1) })! // takes two at most
     select(n.id)
     pressDots(host, 3)
     expect(engine.getNote(n.id)?.dots ?? 0).toBe(0)
@@ -102,9 +102,9 @@ describe('pressDots', () => {
     expect(state.selectedDots).toBe(0)
   })
 
-  it('NOTE ENTRY: a count the armed length cannot take is refused (`...` on a 16th)', () => {
+  it('NOTE ENTRY: a count the armed length cannot take is refused (`...` on a 128th)', () => {
     state.selectedTool = 'entry'
-    state.selectedDuration = '16'
+    state.selectedDuration = '128'
     pressDots(host, 3)
     expect(state.selectedDots).toBe(0)
     pressDots(host, 1)

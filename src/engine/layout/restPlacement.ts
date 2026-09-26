@@ -58,8 +58,13 @@
  * ⭐⭐ **A whole-BAR rest is not a special case here.** All three engines place it exactly where they
  * place a duration whole rest, and MuseScore does not even distinguish them (`V_MEASURE` falls
  * through to `V_WHOLE`). ⚠️ They *do* special-case a bar of a **breve or longer**, which draws a
- * double-whole rest on the middle line instead — we have no breve, so that row is not here. It is the
- * row to add if one ever arrives.
+ * double-whole rest on the middle line instead — the bar rest's STYLE row, `BAR_REST_STYLE`
+ * (docs/plans/other-durations-plan.md §1 c, P4); this table only says where each glyph stands.
+ *
+ * ⭐ **The breve and longa rests stand on the MIDDLE line** (docs/plans/other-durations-plan.md P1) — all
+ * four books and all three engines agree: the breve rest fills the space ABOVE it (its glyph's origin is
+ * its foot: Bravura `restDoubleWhole` up 1, down 0), the longa rest is centred on it (up 1, down 1).
+ * The 64th … 512th stand on it too, like every flagged rest (LilyPond `rest.cc`, as above).
  */
 
 import type { NoteDuration } from '@/types/music'
@@ -92,12 +97,18 @@ const FOURTH_LINE = 1
 
 /** Which line each rest is drawn on. See the header for where these two numbers come from. */
 const REST_LINE: Record<NoteDuration, number> = {
+  longa: MIDDLE_LINE,
+  breve: MIDDLE_LINE,
   w: FOURTH_LINE,
   h: MIDDLE_LINE,
   q: MIDDLE_LINE,
   '8': MIDDLE_LINE,
   '16': MIDDLE_LINE,
   '32': MIDDLE_LINE,
+  '64': MIDDLE_LINE,
+  '128': MIDDLE_LINE,
+  '256': MIDDLE_LINE,
+  '512': MIDDLE_LINE,
 }
 
 /**

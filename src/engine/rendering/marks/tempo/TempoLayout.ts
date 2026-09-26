@@ -49,11 +49,16 @@ import { signRun } from '../../staff/signRun'
  * standardized codepoints; they do not move.
  */
 const METRONOME_DOT = MET_AUGMENTATION_DOT
-/** The printed character (`\u2669`) \u2192 its metronome glyph, re-keyed from {@link MET_NOTE_GLYPH}. The six
+/** The printed character (`\u2669`) \u2192 its metronome glyph, re-keyed from {@link MET_NOTE_GLYPH}. The
  *  codepoints were written out twice, here and there; a mark and a tuplet that name the same note
- *  value must name it with the same glyph, so there is one table and this is a view of it. */
+ *  value must name it with the same glyph, so there is one table and this is a view of it. A unit with
+ *  no printed character or no glyph (the longa) is simply not in the view. */
 const NOTE_GLYPH: Record<string, string> = Object.fromEntries(
-  (Object.keys(MET_NOTE_GLYPH) as NoteDuration[]).map(d => [UNIT_GLYPH[d], MET_NOTE_GLYPH[d]]),
+  (Object.keys(MET_NOTE_GLYPH) as NoteDuration[]).flatMap(d => {
+    const printed = UNIT_GLYPH[d]
+    const glyph = MET_NOTE_GLYPH[d]
+    return printed !== null && glyph !== null ? [[printed, glyph]] : []
+  }),
 )
 
 /** A piece of the mark's string: a stretch of words, or one music glyph. */

@@ -3,7 +3,7 @@ import type { NoteDuration } from '../../types/music'
 import type { EditableTextSource, TextEditInsert, TextEditInsertion } from './TextEditController'
 import type { MenuItem } from '../../menus/MenuItem'
 import { buildTempoMenu, GLYPH, NOTE_KEYPAD } from '../../menus/tempoMenu'
-import { parseTempoText, UNIT_GLYPH } from '../../utils/tempoText'
+import { parseTempoText, unitGlyph } from '../../utils/tempoText'
 import { MIN_BPM, MAX_BPM } from '../../utils/tempoMap'
 
 /** Minimal escape for the fixed characters the shortcuts insert (a note glyph, '.', an arrow). None
@@ -198,7 +198,7 @@ export class TempoTextSource implements EditableTextSource {
    */
   getInsertions(): TextEditInsertion[] {
     const notes = (Object.entries(NOTE_KEYPAD) as [NoteDuration, number][]).map(
-      ([d, n]): TextEditInsertion => ({ code: `Numpad${n}`, ctrl: true, html: escapeHtml(UNIT_GLYPH[d]) }),
+      ([d, n]): TextEditInsertion => ({ code: `Numpad${n}`, ctrl: true, html: escapeHtml(unitGlyph(d)) }),
     )
     return [
       ...notes,

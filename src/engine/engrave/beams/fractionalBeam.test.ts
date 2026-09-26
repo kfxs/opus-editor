@@ -39,7 +39,7 @@ describe('the division a note is a fraction of', () => {
   })
 
   it('is null for a value with nothing coarser to be a fraction of', () => {
-    expect(fractionalBeamDivision('w')).toBeNull()
+    expect(fractionalBeamDivision('longa')).toBeNull()
   })
 })
 

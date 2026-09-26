@@ -26,6 +26,7 @@
  */
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { engravingDefault, ratioToDefault } from '@/engine/fonts/fontMetrics'
+import type { NoteDuration } from '@/types/music'
 
 /** A stem's stroke — 0.15 staff spaces. Taken from `Tables.STEM_WIDTH` = 1.5 (`tables.js:595`). */
 export const STEM_THICKNESS_SPACES = 0.15
@@ -118,14 +119,26 @@ export const TREMOLO_STROKE_STEP_PX = 7
  * note reads (S12j-d2): whether it has a STEM (⚠️ a rest's row says yes too — `isRest` overrules it),
  * whether it has a FLAG, how many BEAMS it takes, and how far a beamed stem is extended (`stemBeamExtension`,
  * px). ⚠️ A quarter, half and whole have NO beam count (VexFlow's field is absent, read as `undefined`).
+ *
+ * ⭐ docs/plans/other-durations-plan.md P1: the BREVE has no stem (VexFlow's `'1/2'` row); the LONGA HAS
+ * one — the stem is what tells a longa from a breve, and it follows the normal stem rule (his call, §2.3).
+ * The 64th and 128th are VexFlow's own rows; the 256th and 512th continue its step, +7.5 px (¾ space)
+ * per beam — the same per-flag figure MuseScore takes from Bravura (`docs/research/durations-engines.md`).
+ * ⚠️ PROVISIONAL: how a stem grows past three beams is P3's row, default Sibelius's where known.
  */
-export const NOTE_DURATION_ROWS: Readonly<Record<'w' | 'h' | 'q' | '8' | '16' | '32', { stem: boolean; flag: boolean; beamCount?: number; stemBeamExtension?: number }>> = {
+export const NOTE_DURATION_ROWS: Readonly<Record<NoteDuration, { stem: boolean; flag: boolean; beamCount?: number; stemBeamExtension?: number }>> = {
+  longa: { stem: true, flag: false },
+  breve: { stem: false, flag: false },
   w: { stem: false, flag: false },
   h: { stem: true, flag: false },
   q: { stem: true, flag: false },
   '8': { stem: true, flag: true, beamCount: 1, stemBeamExtension: 0 },
   '16': { stem: true, flag: true, beamCount: 2, stemBeamExtension: 0 },
   '32': { stem: true, flag: true, beamCount: 3, stemBeamExtension: 7.5 },
+  '64': { stem: true, flag: true, beamCount: 4, stemBeamExtension: 15 },
+  '128': { stem: true, flag: true, beamCount: 5, stemBeamExtension: 22.5 },
+  '256': { stem: true, flag: true, beamCount: 6, stemBeamExtension: 30 },
+  '512': { stem: true, flag: true, beamCount: 7, stemBeamExtension: 37.5 },
 }
 
 /** The room a note keeps above/below per text line — `Note.renderOptions.annotationSpacing` = 5 (`note.js:154`). */

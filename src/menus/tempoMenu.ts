@@ -1,6 +1,6 @@
 import type { MenuItem } from './MenuItem'
 import type { NoteDuration } from '../types/music'
-import { UNIT_GLYPH } from '../utils/tempoText'
+import { unitGlyph } from '../utils/tempoText'
 
 /**
  * The tempo editor's WORD MENU — the sibling of {@link buildExpressionMenu}, right-click (or the
@@ -67,12 +67,16 @@ const WORDS: readonly string[] = [
  * ({@link TempoTextSource.getInsertions}, matching `Numpad N`), so the two can never drift. It must
  * be the NUMERIC KEYPAD, not the top row: plain `Ctrl+1…6` is the browser's own tab-switch, which a
  * page cannot suppress. Shortest → longest: fusa (32nd) on 1 up to redonda (whole) on 6.
+ *
+ * ⚠️ PARTIAL on purpose: a key for the values the menu offers ({@link DURATIONS}), not for every
+ * `NoteDuration` — there are six keypad numbers bound here and twelve durations
+ * (docs/plans/other-durations-plan.md P5 decides whether the new ones get keys).
  */
-export const NOTE_KEYPAD: Record<NoteDuration, number> = {
+export const NOTE_KEYPAD: Partial<Record<NoteDuration, number>> = {
   '32': 1, '16': 2, '8': 3, q: 4, h: 5, w: 6,
 }
-const NOTE_SHORTCUT: Record<NoteDuration, string> =
-  Object.fromEntries(Object.entries(NOTE_KEYPAD).map(([d, n]) => [d, `Ctrl+Num ${n}`])) as Record<NoteDuration, string>
+const NOTE_SHORTCUT: Partial<Record<NoteDuration, string>> =
+  Object.fromEntries(Object.entries(NOTE_KEYPAD).map(([d, n]) => [d, `Ctrl+Num ${n}`]))
 
 /**
  * The Bravura SMuFL glyphs the palette places, by name → codepoint, taken straight from the notation
@@ -113,7 +117,7 @@ const ARROWS: ReadonlyArray<{ arrow: string; shortcut: string }> = [
  * those arrows in the engraved mark — is future work (docs/plans/metric-modulation-plan.md).
  */
 const MODULATION_LABEL = `${GLYPH.arrowLeft}\u2002${NOTE_GLYPH['q']}\u2002=\u2002${NOTE_GLYPH['8']}\u2002${GLYPH.arrowRight}`
-const MODULATION_TEXT = `${GLYPH.arrowLeft} ${UNIT_GLYPH.q} = ${UNIT_GLYPH['8']} ${GLYPH.arrowRight}`
+const MODULATION_TEXT = `${GLYPH.arrowLeft} ${unitGlyph('q')} = ${unitGlyph('8')} ${GLYPH.arrowRight}`
 
 /**
  * How the menu puts something into the editor at the caret. One door: everything a tempo row places
@@ -143,7 +147,7 @@ export function buildTempoMenu(insert: TempoMenuInsert): MenuItem[] {
   const word = (label: string): MenuItem => ({ label, labelFont: 'bold', onSelect: () => insert.text(label) })
   // A metronome note value: the specimen on the label, the Unicode note char in the string.
   const note = (d: NoteDuration): MenuItem =>
-    ({ label: NOTE_GLYPH[d], labelFont: 'note', shortcut: NOTE_SHORTCUT[d], onSelect: () => insert.text(UNIT_GLYPH[d]) })
+    ({ label: NOTE_GLYPH[d], labelFont: 'note', shortcut: NOTE_SHORTCUT[d], onSelect: () => insert.text(unitGlyph(d)) })
   // A SMuFL glyph (a double-whole, a beamed group, the tie, an arrow…) in the notation font, verbatim.
   const music = (glyph: string, shortcut?: string): MenuItem =>
     ({ label: glyph, labelFont: 'note', shortcut, onSelect: () => insert.text(glyph) })

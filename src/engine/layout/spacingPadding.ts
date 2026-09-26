@@ -243,12 +243,20 @@ export const INK_HEIGHT = {
  * of the line. One number for *"a rest is this tall"* would be wrong for both.
  */
 const REST_HEIGHT: Record<NoteDuration, { up: number; down: number }> = {
+  // ⭐ The six rows below the 32nd and above the whole (docs/plans/other-durations-plan.md P1) are Bravura's
+  //   measured boxes (`fonts/bravuraMetrics`), the same source the older rows agree with to the digit.
+  longa: { up: 1, down: 0.996 },
+  breve: { up: 1, down: 0 },
   w: { up: 0.036, down: 0.54 },
   h: { up: 0.568, down: 0.008 },
   q: { up: 1.492, down: 1.5 },
   '8': { up: 0.696, down: 1.004 },
   '16': { up: 0.716, down: 2.0 },
   '32': { up: 1.704, down: 2.0 },
+  '64': { up: 1.72, down: 3.012 },
+  '128': { up: 2.756, down: 3.0 },
+  '256': { up: 2.784, down: 4.0 },
+  '512': { up: 3.776, down: 4.0 },
 }
 
 /**
@@ -357,12 +365,20 @@ const ACCIDENTAL_SHARE_INTERVAL = 6
  * them — and a per-glyph side-bearing correction is not something we can verify.
  */
 const REST_WIDTH: Record<NoteDuration, number> = {
+  // ⭐ The new rows (docs/plans/other-durations-plan.md P1) follow the old rows' own habit: Bravura's box
+  //   width rounded UP to the next tenth (a whole's 1.128 → 1.2, a 32nd's 1.452 → 1.5).
+  longa: 0.6,
+  breve: 0.6,
   w: 1.2,
   h: 1.2,
   q: 1.1,
   '8': 1.0,
   '16': 1.3,
   '32': 1.5,
+  '64': 1.7,
+  '128': 2.0,
+  '256': 2.2,
+  '512': 2.5,
 }
 
 /** How wide a rest of this duration is, in staff spaces. */

@@ -180,13 +180,22 @@ export function headGlyph(duration: NoteDuration, isRest: boolean): string {
   return String.fromCodePoint(GLYPH_CODEPOINTS[isRest ? restGlyph(duration) : noteheadGlyph(duration)])
 }
 
-/** ⚠️ The note's duration as OUR word for it — VexFlow's token is the same string, checked, not assumed. */
+/**
+ * ⚠️ The note's duration as OUR word for it, from the token's duration part — found through
+ * `DURATION_INFO`'s own `token` column, ⛔ never assumed equal: they are the same string up to the 512th,
+ * but the breve's and longa's tokens are `'1/2'` and `'1/4'` (`utils/durations`).
+ */
 export function noteDurationOf(token: string): NoteDuration {
-  if (!(token in DURATION_INFO)) {
+  const duration = TOKEN_TO_DURATION.get(token)
+  if (duration === undefined) {
     throw new Error(`[keyLines] not a duration this editor writes: "${token}"`)
   }
-  return token as NoteDuration
+  return duration
 }
+
+const TOKEN_TO_DURATION: ReadonlyMap<string, NoteDuration> = new Map(
+  (Object.keys(DURATION_INFO) as NoteDuration[]).map(d => [DURATION_INFO[d].token, d]),
+)
 
 /**
  * ⭐ Every key of one chord, resolved — the whole of what a note's constructor asks of the note table.

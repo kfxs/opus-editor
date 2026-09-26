@@ -218,3 +218,47 @@ describe('restFill — fillRests', () => {
     })
   })
 })
+
+/**
+ * ⭐ docs/plans/other-durations-plan.md P1 — the breve, the longa and the 64th … 512th joined the table.
+ * Decision (d): a fill may write a breve or longa wherever the span can carry one, and never otherwise;
+ * decision (c): an empty bar is still the one nominal-`'w'` measure rest, in every meter.
+ */
+describe('restFill — the long and short values (other-durations P1)', () => {
+  const shapes = (rests: { duration: string; dots: number }[]) => rests.map(r => `${r.duration}${'.'.repeat(r.dots)}`)
+
+  it('an empty LONG bar is still the one measure rest (4/2, 8/4, 4/1, 6/2)', () => {
+    for (const [n, d] of [[4, 2], [8, 4], [4, 1], [6, 2]] as const) {
+      const meter = getMeterInfo(ts(n, d))
+      const rests = fillRests(F(0), meter.barQuarters, meter)
+      expect(rests, `${n}/${d}`).toEqual([{ beat: F(0), duration: 'w', dots: 0, isMeasureRest: true }])
+    }
+  })
+
+  it('a breve-long silence inside a longer bar is ONE breve rest (half of 4/1, either half)', () => {
+    const meter = getMeterInfo(ts(4, 1))
+    expect(shapes(fillRests(F(0), F(8), meter))).toEqual(['breve'])
+    expect(shapes(fillRests(F(8), F(16), meter))).toEqual(['breve'])
+  })
+
+  it('a full 4/2 bar split for NOTES is one breve (the span carries it)', () => {
+    expect(shapes(decomposeSpan(F(0), F(8), getMeterInfo(ts(4, 2))))).toEqual(['breve'])
+    expect(shapes(decomposeSpan(F(0), F(16), getMeterInfo(ts(4, 1))))).toEqual(['longa'])
+  })
+
+  it('⛔ a bar shorter than a breve never sees a breve or a longa, nor a rest finer than its 32nd grid', () => {
+    // Every span on the 32nd grid, in every common meter — the finer 512th grid must not reach in.
+    for (const [n, d] of [[4, 4], [3, 4], [2, 4], [6, 8], [7, 8], [9, 8], [12, 8], [2, 2], [3, 2], [5, 4]] as const) {
+      const meter = getMeterInfo(ts(n, d))
+      const steps = Math.round(fracToNumber(meter.barQuarters) * 8)
+      for (let a = 0; a < steps; a++) {
+        for (let b = a + 1; b <= steps; b++) {
+          for (const r of fillRests(F(a, 8), F(b, 8), meter)) {
+            expect(['longa', 'breve', '64', '128', '256', '512'], `${n}/${d} [${a}/8, ${b}/8)`).not.toContain(r.duration)
+            expect(r.duration === '32' && r.dots > 0, `${n}/${d} [${a}/8, ${b}/8) dotted 32nd`).toBe(false)
+          }
+        }
+      }
+    }
+  })
+})

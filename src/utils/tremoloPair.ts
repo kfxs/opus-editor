@@ -41,8 +41,9 @@ type PairRole = 'first' | 'second'
  *    a plain eighth are not the same value, and one note in a tuplet with its partner outside it is
  *    not a pair;
  *  - the two are in different measures (P1 scope), voices or staves;
- *  - the value cannot double (`'w'` is the top of `NoteDuration`, so two whole notes have no
- *    notation — {@link doubleDuration} returns null and that IS the refusal);
+ *  - the value cannot double (the longa is the top of `NoteDuration`, so two longas have no
+ *    notation — {@link doubleDuration} returns null and that IS the refusal; two whole notes are
+ *    written as two breves);
  *  - either slot is already in a pair — this one as a SECOND note, or the next one as a FIRST. A
  *    chain (A–B, B–C) is not a longer tremolo, it is B belonging to two marks at once, which has no
  *    reading and no drawing. Note that this makes a chain drop from BOTH ends rather than pick a

@@ -17,12 +17,16 @@ import { TICK_RESOLUTION } from '@/engine/layout/tickCount'
 /** VexFlow's `durationAliases` — the letters a token may use for a duration. */
 const DURATION_ALIASES: Readonly<Record<string, string>> = { w: '1', h: '2', q: '4', b: '256' }
 
-/** VexFlow's `durations` table — a duration's length in ticks at `TICK_RESOLUTION` per whole note. */
+/**
+ * VexFlow's `durations` table — a duration's length in ticks at `TICK_RESOLUTION` per whole note.
+ * ⭐ + `'1/4'` (the longa) and `'512'` — ours, `docs/plans/other-durations-plan.md` P1: VexFlow's table
+ * stopped at the breve and the 256th. A 512th is 32 ticks, so its dots stay whole down to the fifth.
+ */
 const DURATION_TICKS: Readonly<Record<string, number>> = {
-  '1/2': TICK_RESOLUTION * 2,
+  '1/4': TICK_RESOLUTION * 4, '1/2': TICK_RESOLUTION * 2,
   '1': TICK_RESOLUTION, '2': TICK_RESOLUTION / 2, '4': TICK_RESOLUTION / 4, '8': TICK_RESOLUTION / 8,
   '16': TICK_RESOLUTION / 16, '32': TICK_RESOLUTION / 32, '64': TICK_RESOLUTION / 64,
-  '128': TICK_RESOLUTION / 128, '256': TICK_RESOLUTION / 256,
+  '128': TICK_RESOLUTION / 128, '256': TICK_RESOLUTION / 256, '512': TICK_RESOLUTION / 512,
 }
 
 /** A parsed token — `Note.parseNoteStruct`'s answer, the fields a note keeps. */

@@ -2,17 +2,18 @@
  * Single source of truth for everything keyed by a {@link NoteDuration}.
  *
  * A note duration has three parallel representations in this codebase:
- *   - **beats**     — floating-point quarter-note beats, for VexFlow pixel math
- *                     and Tone.js scheduling (do NOT compare these with ===).
+ *   - **beats**     — floating-point quarter-note beats, for pixel math and
+ *                     playback scheduling (do NOT compare these with ===).
  *   - **fraction**  — exact rational beats, the canonical internal unit.
- *   - **vex**       — the VexFlow duration token used when drawing.
+ *   - **token**     — the duration token our notehead drawing parses
+ *                     (`engrave/notes/noteDuration`, a port of VexFlow's parser).
  *
  * These used to live in three different files (fraction.ts, musicUtils.ts,
  * ScoreRenderer.ts) and could silently drift. They are now derived from the
  * one {@link DURATION_INFO} table below.
  *
  * IMPORTANT — extending the duration set (adding '64', '128', a breve, …):
- *   1. add the member to the `NoteDuration` union in `types/music.ts`;
+ *   1. add the member to the `NoteDuration` union in `types/duration.ts`;
  *   2. fix the resulting compile error here (the table is a non-`Partial`
  *      `Record<NoteDuration, …>`, so a missing entry will NOT type-check).
  *   Every other duration map in the app reads from this table, so step 2 is the
@@ -28,11 +29,11 @@ import { type Fraction, fracCreate, fracDiv, fracLt, fracLte, fracMul } from '@/
 
 /** The three parallel facts about a single (undotted) note duration. */
 interface DurationInfo {
-  /** Quarter-note beats as a float (VexFlow / Tone.js / pixel math). */
+  /** Quarter-note beats as a float (pixel math, playback scheduling). */
   beats: number
   /** Quarter-note beats as an exact rational — the canonical internal unit. */
   fraction: Fraction
-  /** The note's duration token (before any dot suffix) — VexFlow's format, which `EngravedNote` reads. */
+  /** The note's duration token (before any dot suffix) — the format `EngravedNote` parses (`engrave/notes/noteDuration`). */
   token: string
 }
 
@@ -40,20 +41,37 @@ interface DurationInfo {
  * The one table. Exhaustive over `NoteDuration` (no `Partial`, no fallback) so
  * that adding a member to the union without filling it in is a compile error.
  *
- *   'w'  → 4    quarter beats   (whole note)
- *   'h'  → 2                    (half note)
- *   'q'  → 1                    (quarter note)
- *   '8'  → 1/2                  (eighth note)
- *   '16' → 1/4                  (sixteenth note)
- *   '32' → 1/8                  (thirty-second note)
+ *   'longa' → 16  quarter beats  (longa, quadruple whole)
+ *   'breve' → 8                  (breve, double whole)
+ *   'w'     → 4                  (whole note)
+ *   'h'     → 2                  (half note)
+ *   'q'     → 1                  (quarter note)
+ *   '8'     → 1/2                (eighth note)
+ *   '16'    → 1/4                (sixteenth note)
+ *   '32'    → 1/8                (thirty-second note)
+ *   '64'    → 1/16               (sixty-fourth note)
+ *   '128'   → 1/32               (hundred-twenty-eighth note)
+ *   '256'   → 1/64               (two-hundred-fifty-sixth note)
+ *   '512'   → 1/128              (five-hundred-twelfth note)
+ *
+ * ⚠️ The breve's and longa's TOKENS are `'1/2'` and `'1/4'` — the whole note's fraction, the only spelling
+ * `engrave/notes/noteDuration` parses for a value longer than a whole (a token's duration is a number or
+ * ONE letter, and `'b'` is already the parser's alias for a 256th). `keyLines.noteDurationOf` maps a token
+ * back to its duration through this table, so the two can never disagree.
  */
 export const DURATION_INFO: Record<NoteDuration, DurationInfo> = {
+  longa: { beats: 16, fraction: { num: 16, den: 1 }, token: '1/4' },
+  breve: { beats: 8, fraction: { num: 8, den: 1 }, token: '1/2' },
   w: { beats: 4, fraction: { num: 4, den: 1 }, token: 'w' },
   h: { beats: 2, fraction: { num: 2, den: 1 }, token: 'h' },
   q: { beats: 1, fraction: { num: 1, den: 1 }, token: 'q' },
   '8': { beats: 0.5, fraction: { num: 1, den: 2 }, token: '8' },
   '16': { beats: 0.25, fraction: { num: 1, den: 4 }, token: '16' },
   '32': { beats: 0.125, fraction: { num: 1, den: 8 }, token: '32' },
+  '64': { beats: 0.0625, fraction: { num: 1, den: 16 }, token: '64' },
+  '128': { beats: 0.03125, fraction: { num: 1, den: 32 }, token: '128' },
+  '256': { beats: 0.015625, fraction: { num: 1, den: 64 }, token: '256' },
+  '512': { beats: 0.0078125, fraction: { num: 1, den: 128 }, token: '512' },
 }
 
 /**
@@ -91,11 +109,11 @@ export function durationFlags(duration: NoteDuration): number {
  *
  * The two-note tremolo's drawing rule: both noteheads of a pair are written at the full value of the
  * whole tremolo, so the written pair reads twice as long as it sounds (docs/plans/two-note-tremolo-plan.md
- * §0). A `'w'` has no double, which is exactly why a pair of whole notes is refused — the null is the
- * refusal, not an error.
+ * §0). The longa has no double, which is exactly why a pair of longas is refused — the null is the
+ * refusal, not an error. (A pair of whole notes is two breves.)
  *
- * DERIVED from {@link DURATION_INFO} rather than tabulated, like {@link DURATIONS_DESC}: adding a
- * `'64'` to the union gives `'64' → '32'` for free. Every value is an exact power of two, so `===`
+ * DERIVED from {@link DURATION_INFO} rather than tabulated, like {@link DURATIONS_DESC}: the `'64'` and
+ * the breve got `'64' → '32'` and `'w' → 'breve'` for free. Every value is an exact power of two, so `===`
  * on the doubled beats is exact — no epsilon to tune.
  */
 export function doubleDuration(duration: NoteDuration): NoteDuration | null {

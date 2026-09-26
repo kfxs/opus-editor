@@ -354,7 +354,10 @@ Score: { id, title, composer?, measures[], staves?, staffGroups?, slurs?,
 > `Note` above for the public note API. See `src/types/music.ts` for the full,
 > authoritative definitions.
 
-**Duration values**: `'w'` (whole), `'h'` (half), `'q'` (quarter), `'8'`, `'16'`, `'32'`
+**Duration values**: `'longa'`, `'breve'`, `'w'` (whole), `'h'` (half), `'q'` (quarter), `'8'`, `'16'`, `'32'`,
+`'64'`, `'128'`, `'256'`, `'512'` — `DURATION_INFO` (`utils/durations.ts`) is the source of truth; a rule
+asks what a note HAS (`durationFlags`, `NOTE_DURATION_ROWS`), ⛔ never a list of these
+(docs/plans/other-durations-plan.md).
 
 **Clef types**: `'treble'`, `'bass'`, `'alto'`, `'tenor'`
 

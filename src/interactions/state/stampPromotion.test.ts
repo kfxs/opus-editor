@@ -24,7 +24,7 @@ describe('promoteStampToNoteEntry — a duration press ends the armed tool', () 
     state.selectedMarkingTool = { kind: 'dot', count: 3 }
     expect(promoteStampToNoteEntry(state, 'q')).toBe(3)
     state.selectedMarkingTool = { kind: 'dot', count: 3 }
-    expect(promoteStampToNoteEntry(state, '8')).toBe(0) // an eighth takes two at most
+    expect(promoteStampToNoteEntry(state, '128')).toBe(0) // a 128th takes two at most
     expect(state.selectedMarkingTool).toBeNull()
   })
 

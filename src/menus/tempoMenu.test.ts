@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
-import { buildTempoMenu } from './tempoMenu'
-import { UNIT_GLYPH } from '../utils/tempoText'
+import { buildTempoMenu, NOTE_KEYPAD } from './tempoMenu'
+import type { NoteDuration } from '../types/music'
+import { unitGlyph } from '../utils/tempoText'
 import { isColumnBreak, isSeparator, type MenuItem } from './MenuItem'
 
 type Leaf = Extract<MenuItem, { onSelect: () => void }>
@@ -25,7 +26,8 @@ describe('buildTempoMenu', () => {
     const calls = text.mock.calls
     return calls.length ? calls[calls.length - 1][0] : undefined
   }
-  const noteChars = new Set(Object.values(UNIT_GLYPH))
+  // The values the menu OFFERS — the keypad-bound ones (`NOTE_KEYPAD`), not every unit a mark can print.
+  const noteChars = new Set<string>((Object.keys(NOTE_KEYPAD) as NoteDuration[]).map(unitGlyph))
 
   it('lays the palette out in TWO columns with two dividers', () => {
     const { menu } = build()
@@ -59,7 +61,7 @@ describe('buildTempoMenu', () => {
     const { menu, text } = build()
     // The note-value LABEL is the SMuFL specimen, never the Unicode ♩ — so this is a real split.
     const noteStyle = leaves(menu).filter(i => i.labelFont === 'note')
-    expect(noteStyle.some(i => i.label === UNIT_GLYPH.q)).toBe(false)
+    expect(noteStyle.some(i => i.label === unitGlyph('q'))).toBe(false)
     const dropped = new Set(leaves(menu).map(i => insertOf(text, i)))
     for (const g of noteChars) expect(dropped.has(g), g).toBe(true)
   })
@@ -68,23 +70,23 @@ describe('buildTempoMenu', () => {
     const { menu, text } = build()
     const ladder = leaves(menu).map(i => insertOf(text, i)).filter((s): s is string => noteChars.has(s!))
     expect(ladder).toEqual([
-      UNIT_GLYPH['32'], UNIT_GLYPH['16'], UNIT_GLYPH['8'], UNIT_GLYPH.q, UNIT_GLYPH.h, UNIT_GLYPH.w,
+      unitGlyph('32'), unitGlyph('16'), unitGlyph('8'), unitGlyph('q'), unitGlyph('h'), unitGlyph('w'),
     ])
   })
 
   it('labels the ladder with NUMERIC-KEYPAD shortcuts: fusa = Ctrl+Num 1, redonda = Ctrl+Num 6', () => {
     const { menu, text } = build()
     const byInsert = (glyph: string) => leaves(menu).find(i => insertOf(text, i) === glyph)
-    expect(byInsert(UNIT_GLYPH['32'])?.shortcut).toBe('Ctrl+Num 1') // fusa (32nd), top of the ladder
-    expect(byInsert(UNIT_GLYPH.w)?.shortcut).toBe('Ctrl+Num 6')     // redonda (whole), bottom
+    expect(byInsert(unitGlyph('32'))?.shortcut).toBe('Ctrl+Num 1') // fusa (32nd), top of the ladder
+    expect(byInsert(unitGlyph('w'))?.shortcut).toBe('Ctrl+Num 6')     // redonda (whole), bottom
   })
 
   it('inserts the metric-modulation equation with its ♩/♪ notes intact', () => {
     const { menu, text } = build()
     // The equation's label shows Bravura; what it DROPS keeps the parseable ♩ = ♪ so the mark engraves.
-    const eq = leaves(menu).map(i => insertOf(text, i)).find(s => s?.includes(' = ') && s.includes(UNIT_GLYPH.q))
+    const eq = leaves(menu).map(i => insertOf(text, i)).find(s => s?.includes(' = ') && s.includes(unitGlyph('q')))
     expect(eq, 'equation row').toBeDefined()
-    expect(eq).toContain(UNIT_GLYPH.q)
-    expect(eq).toContain(UNIT_GLYPH['8'])
+    expect(eq).toContain(unitGlyph('q'))
+    expect(eq).toContain(unitGlyph('8'))
   })
 })

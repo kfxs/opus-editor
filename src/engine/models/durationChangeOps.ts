@@ -19,7 +19,7 @@
  */
 import type { Note, NoteDuration, NoteParams, Tuplet } from '@/types/music'
 import { dbg } from '@/utils/debug'
-import { durationToFraction, maxDots } from '@/utils/durations'
+import { DURATION_INFO, DURATIONS_DESC, durationToFraction, maxDots } from '@/utils/durations'
 import type { Fraction } from '@/utils/fraction'
 import { fracAdd, fracDiv, fracGt, fracLt, fracMul, fracSub, fracToNumber } from '@/utils/fraction'
 import { staffOf, voiceOf } from '@/utils/lanes'
@@ -335,21 +335,10 @@ function changePlainNote(model: DurationChangeModel, ctx: NoteUpdateCtx): NoteCh
   return { note, commit: 'Update note' }
 }
 
-/** Find the largest standard note duration that fits within available beats. */
+/**
+ * Find the largest undotted duration that fits within available beats — any value in the table,
+ * longa to 512th ({@link DURATIONS_DESC}), ⛔ never a list of its own (docs/plans/other-durations-plan.md P1).
+ */
 export function findLargestFittingDuration(availableBeats: number): NoteParams['duration'] | null {
-  const durations: { duration: NoteParams['duration']; beats: number }[] = [
-    { duration: 'w', beats: 4 },
-    { duration: 'h', beats: 2 },
-    { duration: 'q', beats: 1 },
-    { duration: '8', beats: 0.5 },
-    { duration: '16', beats: 0.25 },
-    { duration: '32', beats: 0.125 },
-  ]
-
-  for (const { duration, beats } of durations) {
-    if (beats <= availableBeats + BEAT_EPSILON) {
-      return duration
-    }
-  }
-  return null
+  return DURATIONS_DESC.find(d => DURATION_INFO[d].beats <= availableBeats + BEAT_EPSILON) ?? null
 }

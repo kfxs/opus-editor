@@ -52,7 +52,7 @@ describe('stampDotAtClick', () => {
   })
 
   it('more dots than the value takes is REFUSED — nothing written (D1)', () => {
-    noteId = engine.addNoteAtBeat({ step: 'E', octave: 5, duration: '8', measure: 1, beat: frac(2, 1) })!.id
+    noteId = engine.addNoteAtBeat({ step: 'E', octave: 5, duration: '128', measure: 1, beat: frac(2, 1) })!.id // two at most
     expect(stamp(3)).toBe(true)
     expect(engine.getNote(noteId)?.dots ?? 0).toBe(0)
   })

@@ -56,10 +56,11 @@ describe('pairIsValid — a pair is two notes of the same value, side by side', 
     expect(pairIsValid([chord(0), chord(1, 'q', { measure: 2 })], 0)).toBe(false)
   })
 
-  it('refuses two WHOLE notes — the value cannot double', () => {
-    expect(pairIsValid([chord(0, 'w'), chord(4, 'w')], 0)).toBe(false)
-    // …and everything below the top does double.
-    for (const d of ['h', 'q', '8', '16', '32'] as NoteDuration[]) {
+  it('refuses two LONGAS — the value cannot double (the top of the table)', () => {
+    expect(pairIsValid([chord(0, 'longa'), chord(16, 'longa')], 0)).toBe(false)
+    // …and everything below the top does double — a pair of WHOLE notes too, written as two breves
+    // since the breve joined the table (docs/plans/other-durations-plan.md P1).
+    for (const d of ['breve', 'w', 'h', 'q', '8', '16', '32', '64'] as NoteDuration[]) {
       expect(pairIsValid([chord(0, d), chord(1, d)], 0)).toBe(true)
     }
   })

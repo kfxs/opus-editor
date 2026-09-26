@@ -405,9 +405,11 @@ function autoNumberStyle(t: TupletShape, printedM: number, ctx?: TupletMarkConte
 /** SMuFL `tupletColon` — the separator between a mark's two figures, in the music font's own cut. */
 const TUPLET_COLON = '\uE88A'
 
-/** A note VALUE beside a figure, in the metronome cut with its augmentation dots. */
-function markNoteGlyph(duration: NoteDuration, dots = 0): string {
-  return MET_NOTE_GLYPH[duration] + MET_AUGMENTATION_DOT.repeat(dots)
+/** A note VALUE beside a figure, in the metronome cut with its augmentation dots — `null` for a value
+ *  SMuFL cuts no metronome note for (the longa), so the caller drops the note rather than print nothing. */
+function markNoteGlyph(duration: NoteDuration, dots = 0): string | null {
+  const glyph = MET_NOTE_GLYPH[duration]
+  return glyph === null ? null : glyph + MET_AUGMENTATION_DOT.repeat(dots)
 }
 
 /**
@@ -457,12 +459,18 @@ export function tupletMarkRuns(
     // `5 ♬ : 1 ♩` — air between a figure and its note value, and around the colon, which here has a
     // GLYPH on its left rather than a digit. A colon set tight against a notehead reads as part of
     // the glyph; between two bare figures (`5:4`) it does not, and gets none.
+    const actualNote = markNoteGlyph(t.baseDuration, t.baseDots ?? 0)
+    const normalNote = markNoteGlyph(normalDuration, normalDots)
+    // A value with no metronome glyph (a longa) cannot be named: the two figures alone.
+    if (actualNote === null || normalNote === null) {
+      return [{ text: `${digits(t.numNotes)}${TUPLET_COLON}${digits(normalCount)}` }]
+    }
     return [
       { text: digits(t.numNotes) },
-      { text: markNoteGlyph(t.baseDuration, t.baseDots ?? 0), glyph: true, space: true },
+      { text: actualNote, glyph: true, space: true },
       { text: TUPLET_COLON, space: true },
       { text: digits(normalCount), space: true },
-      { text: markNoteGlyph(normalDuration, normalDots), glyph: true, space: true },
+      { text: normalNote, glyph: true, space: true },
     ]
   }
   const ratio = `${digits(printed.numNotes)}${TUPLET_COLON}${digits(printed.notesOccupied)}`
@@ -476,9 +484,11 @@ export function tupletMarkRuns(
   if (resolved === 'ratioNote') {
     // `3:2 ♪` — the same rule: a figure and the note value it counts are two things, so they get air
     // between them. The colon sits between two figures here and stays tight.
+    const note = markNoteGlyph(printed.value, printed.dots)
+    if (note === null) return [{ text: ratio }]
     return [
       { text: ratio },
-      { text: markNoteGlyph(printed.value, printed.dots), glyph: true, space: true },
+      { text: note, glyph: true, space: true },
     ]
   }
   return [{ text: ratio }]

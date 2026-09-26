@@ -21,7 +21,7 @@ describe('changeNote', () => {
     model.addMeasure()
   })
 
-  const add = (step: 'C' | 'E' | 'G' | 'A', beat: number, duration: 'q' | 'h' | '8' = 'q', over: Partial<Note> = {}) =>
+  const add = (step: 'C' | 'E' | 'G' | 'A', beat: number, duration: 'q' | 'h' | '8' | '128' = 'q', over: Partial<Note> = {}) =>
     model.addNote({ step, alter: 0, octave: 4, duration, measure: 1, beat: frac(beat, 1), ...over })
   /** A voice's stream in bar 1 as `nq@0 rh@2 …` — n/r, duration (+dots), beat. */
   const stream = (voice = 0, measure = 1) =>
@@ -178,7 +178,7 @@ describe('changeNote', () => {
     })
   })
   describe('more DOTS than the value can take (docs/plans/multiple-dots-plan.md D1 + D4)', () => {
-    it('a triple-dotted quarter is written — three dots is a quarter\'s limit', () => {
+    it('a triple-dotted quarter is written — well within a quarter\'s limit (seven, with a 512th the shortest)', () => {
       const note = add('C', 0)
       const { note: updated, commit } = changeNote(model, note.id, { dots: 3 })
       expect(commit).not.toBeNull()
@@ -190,8 +190,8 @@ describe('changeNote', () => {
       expect(total).toBe(4)
     })
 
-    it('a triple-dotted EIGHTH is refused WHOLE — nothing written, no commit, the bar untouched', () => {
-      const note = add('C', 0, '8')
+    it('a triple-dotted 128th is refused WHOLE — nothing written, no commit, the bar untouched', () => {
+      const note = add('C', 0, '128') // two dots at most: a third would be worth a 1024th
       const before = stream()
       const { note: after, commit } = changeNote(model, note.id, { dots: 3 })
       expect(commit).toBeNull()
@@ -229,9 +229,9 @@ describe('changeNote', () => {
     })
 
     it('a DURATION change that leaves the kept dots over the limit is refused too', () => {
-      const note = add('C', 0, '8', { dots: 2 })
+      const note = add('C', 0, '128', { dots: 2 })
       const before = stream()
-      const { commit } = changeNote(model, note.id, { duration: '16' })
+      const { commit } = changeNote(model, note.id, { duration: '256' }) // a 256th takes one
       expect(commit).toBeNull()
       expect(stream()).toEqual(before)
     })
@@ -243,6 +243,8 @@ describe('findLargestFittingDuration', () => {
   it('the largest plain value that fits, or null', () => {
     expect(findLargestFittingDuration(3)).toBe('h')
     expect(findLargestFittingDuration(1)).toBe('q')
-    expect(findLargestFittingDuration(0.1)).toBeNull()
+    expect(findLargestFittingDuration(8)).toBe('breve') // a 4/2 bar's worth
+    expect(findLargestFittingDuration(0.1)).toBe('64')
+    expect(findLargestFittingDuration(0.005)).toBeNull() // less than a 512th (1/128)
   })
 })

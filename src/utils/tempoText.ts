@@ -25,9 +25,32 @@
 import type { NoteDuration, TempoMark } from '@/types/music'
 import { MIN_BPM, MAX_BPM } from './tempoMap'
 
-/** How each unit is PRINTED. The renderer engraves these as real music glyphs (TempoLayout). */
-export const UNIT_GLYPH: Record<NoteDuration, string> = {
+/**
+ * How each unit is PRINTED. The renderer engraves these as real music glyphs (TempoLayout).
+ *
+ * ⭐ The Unicode note character where Unicode has one (𝅜 … 𝅘𝅥𝅲, down to the 128th). The 256th and 512th
+ * have none, so they print as SMuFL's own metronome glyph, which the renderer then maps to itself.
+ * ⚠️ The LONGA is `null`: neither Unicode nor SMuFL cuts a longa for running text — a tempo mark cannot
+ * say one (docs/plans/other-durations-plan.md P1). Read it through {@link unitGlyph}.
+ */
+export const UNIT_GLYPH: Record<NoteDuration, string | null> = {
+  longa: null,
+  breve: '\u{1D15C}', // MUSICAL SYMBOL BREVE
   w: '𝅝', h: '𝅗𝅥', q: '♩', '8': '♪', '16': '𝅘𝅥𝅯', '32': '𝅘𝅥𝅰',
+  '64': '\u{1D163}',  // MUSICAL SYMBOL SIXTY-FOURTH NOTE
+  '128': '\u{1D164}', // MUSICAL SYMBOL ONE HUNDRED TWENTY-EIGHTH NOTE
+  '256': '\uECB1',    // metNote256thUp — no Unicode character
+  '512': '\uECB3',    // metNote512thUp — no Unicode character
+}
+
+/**
+ * The printed unit of a metronome mark — ⚠️ throws for a unit no tempo text can spell (today the longa),
+ * rather than printing `null` into a score. Nothing the editor arms or parses yields one.
+ */
+export function unitGlyph(unit: NoteDuration): string {
+  const glyph = UNIT_GLYPH[unit]
+  if (glyph === null) throw new Error(`[tempoText] no printed metronome unit for "${unit}"`)
+  return glyph
 }
 
 /**
@@ -38,16 +61,23 @@ export const UNIT_GLYPH: Record<NoteDuration, string> = {
  * `metNote…` family (U+ECA0–ECB7) is the text-sized cut, and it is what every mark that says a note
  * value in RUNNING TEXT uses — a metronome mark, and a tuplet's "ratio + note".
  *
- * ⚠️ Codepoints written out: VexFlow's `Glyphs` table is CJS-only and `undefined` in the browser.
- * These are SMuFL standard and do not move.
+ * ⚠️ The LONGA is `null` — SMuFL has no `metNote` longa (the family runs from the double whole to the
+ * 1024th). ⭐ The breve is the ROUND cut, `metNoteDoubleWhole`; the square one is a style row for later.
+ * Codepoints written out: these are SMuFL standard and do not move.
  */
-export const MET_NOTE_GLYPH: Record<NoteDuration, string> = {
+export const MET_NOTE_GLYPH: Record<NoteDuration, string | null> = {
+  longa: null,
+  breve: '\uECA0', // metNoteDoubleWhole
   w: '\uECA2',   // metNoteWhole
   h: '\uECA3',   // metNoteHalfUp
   q: '\uECA5',   // metNoteQuarterUp
   '8': '\uECA7',  // metNote8thUp
   '16': '\uECA9', // metNote16thUp
   '32': '\uECAB', // metNote32ndUp
+  '64': '\uECAD',  // metNote64thUp
+  '128': '\uECAF', // metNote128thUp
+  '256': '\uECB1', // metNote256thUp
+  '512': '\uECB3', // metNote512thUp
 }
 
 /** The dot that goes with them — metAugmentationDot, not an ASCII full stop. */
@@ -131,7 +161,7 @@ export function parseTempoText(input: string, prev?: TempoMark): ParsedTempo {
   const unit = UNIT_ALIASES.find(([a]) => a.toLowerCase() === alias.toLowerCase())?.[1] ?? 'q'
 
   // Print what was typed — but with the unit as a real glyph, so 'q = 120' engraves as '♩ = 120'.
-  const printed = `${UNIT_GLYPH[unit]}${'.'.repeat(dots.length)} = ${bpm}`
+  const printed = `${unitGlyph(unit)}${'.'.repeat(dots.length)} = ${bpm}`
   return {
     ok: true,
     text: text.slice(0, match.index) + printed + text.slice(match.index + whole.length),
@@ -161,7 +191,7 @@ export function composeTempoText(tool: TempoToolFields): string {
   const showsMetronome = tool.showMetronome === true && tool.bpm !== undefined
   if (!showsMetronome) return tool.text ?? ''
 
-  const met = `${UNIT_GLYPH[tool.unit ?? 'q']}${'.'.repeat(tool.dots ?? 0)} = ${tool.bpm}`
+  const met = `${unitGlyph(tool.unit ?? 'q')}${'.'.repeat(tool.dots ?? 0)} = ${tool.bpm}`
   return tool.text ? `${tool.text} (${met})` : met
 }
 

@@ -25,7 +25,7 @@ function frac(num: number, den: number) {
   return fracCreate(num, den)
 }
 
-const ALL_DURATIONS: NoteDuration[] = ['w', 'h', 'q', '8', '16', '32']
+const ALL_DURATIONS: NoteDuration[] = ['longa', 'breve', 'w', 'h', 'q', '8', '16', '32', '64', '128', '256', '512']
 
 // ---------------------------------------------------------------------------
 // Table integrity — the whole point of centralization
@@ -53,13 +53,13 @@ describe('DURATION_INFO table', () => {
 
 describe('DURATIONS_DESC', () => {
   it('is ordered largest → smallest', () => {
-    expect(DURATIONS_DESC).toEqual(['w', 'h', 'q', '8', '16', '32'])
+    expect(DURATIONS_DESC).toEqual(['longa', 'breve', 'w', 'h', 'q', '8', '16', '32', '64', '128', '256', '512'])
   })
 })
 
 describe('durationFlags', () => {
   it('counts flags/beams: nothing at a quarter or longer, then one per halving', () => {
-    expect(DURATIONS_DESC.map(durationFlags)).toEqual([0, 0, 0, 1, 2, 3])
+    expect(DURATIONS_DESC.map(durationFlags)).toEqual([0, 0, 0, 0, 0, 1, 2, 3, 4, 5, 6, 7])
   })
 
   it('is exact — derived from the table, so no rounding to guard', () => {
@@ -354,7 +354,7 @@ describe('fitRestDuration', () => {
 
   it('returns null when nothing fits at all', () => {
     expect(fitRestDuration('q', 0, q(0))).toBeNull()
-    expect(fitRestDuration('q', 0, q(1, 64))).toBeNull() // shorter than the shortest rest
+    expect(fitRestDuration('q', 0, q(1, 256))).toBeNull() // shorter than the shortest rest (a 512th = 1/128)
   })
 })
 
@@ -366,6 +366,13 @@ describe('fitRestDuration', () => {
 describe('splitBeatsIntoLengths', () => {
   const show = (beats: number) =>
     splitBeatsIntoLengths(beats).map(l => `${l.duration}${'.'.repeat(l.dots)}`)
+
+  it('⭐ a note of a breve or longer is written as ONE breve / longa (other-durations P1, decision d)', () => {
+    expect(show(8)).toEqual(['breve'])
+    expect(show(12)).toEqual(['breve.'])
+    expect(show(16)).toEqual(['longa'])
+    expect(show(7)).toEqual(['w.', 'q']) // shorter than a breve: as before
+  })
 
   it('spans 3 beats with ONE dotted half (reported: it gave h + q)', () => {
     expect(show(3)).toEqual(['h.'])
@@ -421,13 +428,16 @@ describe('maxDots', () => {
     expect(SHORTEST_LENGTH).toEqual(DURATION_INFO[DURATIONS_DESC[DURATIONS_DESC.length - 1]].fraction)
   })
 
-  it('a dot may not be worth less than the shortest value — today: 32nd none, 16th one, eighth two, quarter three', () => {
-    expect(maxDots('32')).toBe(0)
-    expect(maxDots('16')).toBe(1)
-    expect(maxDots('8')).toBe(2)
-    expect(maxDots('q')).toBe(3)
-    expect(maxDots('h')).toBe(4)
-    expect(maxDots('w')).toBe(5)
+  it('a dot may not be worth less than the shortest value — today (a 512th): 512th none, 256th one, 128th two, 64th three', () => {
+    expect(maxDots('512')).toBe(0)
+    expect(maxDots('256')).toBe(1)
+    expect(maxDots('128')).toBe(2)
+    expect(maxDots('64')).toBe(3)
+    expect(maxDots('32')).toBe(4)
+    expect(maxDots('8')).toBe(6)
+    expect(maxDots('q')).toBe(7)
+    expect(maxDots('breve')).toBe(10)
+    expect(maxDots('longa')).toBe(11)
   })
 
   it('every allowed count lands on the shortest value\'s grid', () => {

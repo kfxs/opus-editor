@@ -9,4 +9,4 @@ export type { Fraction }
 /**
  * Note duration types supported by the editor
  */
-export type NoteDuration = 'w' | 'h' | 'q' | '8' | '16' | '32'
+export type NoteDuration = 'longa' | 'breve' | 'w' | 'h' | 'q' | '8' | '16' | '32' | '64' | '128' | '256' | '512'

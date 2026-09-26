@@ -54,8 +54,11 @@ describe('keyStaffLine', () => {
     expect(() => keyStaffLine('c/4/D2', 'treble')).toThrow(/not a key/)
     expect(() => keyStaffLine('r/4', 'treble')).toThrow(/not a key/)
     expect(() => keyRows(['c/4'], 'percussion', 'q', false)).toThrow(/not a clef/)
-    expect(() => noteDurationOf('64')).toThrow(/not a duration/)
+    expect(() => noteDurationOf('1024')).toThrow(/not a duration/)
     expect(noteDurationOf('16')).toBe('16')
+    // ⭐ the breve's and longa's tokens are the whole note's fraction, mapped back through the table
+    expect(noteDurationOf('1/2')).toBe('breve')
+    expect(noteDurationOf('1/4')).toBe('longa')
   })
 })
 

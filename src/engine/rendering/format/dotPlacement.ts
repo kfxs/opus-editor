@@ -65,7 +65,7 @@ import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { armedDotGap } from '@/engine/layout/dotGap'
 import { armedRestDotGap } from '@/engine/layout/restDotGap'
 import { armedDotFlag, flagPushedFirstDot } from '@/engine/layout/dotFlag'
-import type { NoteDuration } from '@/types/music'
+import { noteDurationOf } from '@/engine/engrave/notes/keyLines'
 import { MODIFIER_RIGHT_GAP_PX, VEXFLOW_DOT_SPACING } from '@/engine/engrave/inheritedDefaults'
 
 /** A stem pointing up — VexFlow's `Stem.UP`. */
@@ -175,7 +175,7 @@ export function flagPushPx(note: EngravedNote): number {
     dotY: dot ? dot.getShiftY() : 0,
     stemLength: note.getStemLength() / STAFF_SPACE_PX - (Math.max(...lines) - Math.min(...lines)),
   }
-  const pushed = flagPushedFirstDot(note.getDuration() as NoteDuration, geometry)
+  const pushed = flagPushedFirstDot(noteDurationOf(note.getDuration()), geometry)
   if (pushed === null) return 0
   return pushed * STAFF_SPACE_PX - (note.getGlyphWidth() + VEXFLOW_DOT_BASE_GAP)
 }

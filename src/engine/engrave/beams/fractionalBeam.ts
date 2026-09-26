@@ -79,7 +79,7 @@ export interface FractionalBeamPlace {
  * ignored. A semiquaver is a fraction of a quaver; a demisemiquaver of a semiquaver.
  *
  * Returns `null` for a duration that cannot carry a fractional beam at all (nothing is coarser than
- * a whole note to be a fraction of).
+ * a longa, the top of the table, to be a fraction of). Only a flagged note ever asks.
  */
 export function fractionalBeamDivision(duration: NoteDuration): Fraction | null {
   const coarser = doubleDuration(duration)

@@ -243,12 +243,18 @@ export function noteheadGlyph(duration: NoteDuration): GlyphName {
 
 /** The rest glyph of a duration — one per `NoteDuration`, which is why the map is total. */
 const REST_GLYPHS: Record<NoteDuration, GlyphName> = {
+  longa: 'restLonga',
+  breve: 'restDoubleWhole',
   w: 'restWhole',
   h: 'restHalf',
   q: 'restQuarter',
   '8': 'rest8th',
   '16': 'rest16th',
   '32': 'rest32nd',
+  '64': 'rest64th',
+  '128': 'rest128th',
+  '256': 'rest256th',
+  '512': 'rest512th',
 }
 
 export function restGlyph(duration: NoteDuration): GlyphName {
