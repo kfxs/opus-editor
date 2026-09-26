@@ -55,6 +55,7 @@ import { bracketedCommands } from './commands/bracketedCommands'
 import { enclosureCommands } from './commands/enclosureCommands'
 import { glissandoCommands } from './commands/glissandoCommands'
 import { cueCommands } from './commands/cueCommands'
+import { silentBarCommands } from './commands/silentBarCommands'
 import { enclosureProblems } from './models/enclosureOps'
 import { cueProblems } from './models/cueOps'
 import { spellingToMidi, accidentalToAlter } from '@/utils/pitchSpelling'
@@ -2446,6 +2447,8 @@ export class MusicEngine {
   readonly glissando = glissandoCommands(this.commandContext())
   /** ⭐ CUE-SIZE notes' commands — `engine/commands/cueCommands` (docs/plans/cue-size-plan.md). */
   readonly cue = cueCommands(this.commandContext())
+  /** ⭐ The STAMPED full-bar rest's commands — `engine/commands/silentBarCommands` (docs/plans/voice-measure-rest-plan.md). */
+  readonly silentBar = silentBarCommands(this.commandContext())
 
   /** All phrasing slurs (live array; empty if none). */
   getSlurs(): Slur[] {

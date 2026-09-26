@@ -396,6 +396,8 @@ export interface Note {
   /** True for a whole-bar measure rest (its `duration` is the nominal `'w'`, not
    *  a real chosen value). Mirrors {@link Rest.isMeasureRest} on the flat view. */
   isMeasureRest?: boolean
+  /** A full-bar rest the user STAMPED — mirrors {@link Rest.stamped}. */
+  stamped?: true
   /** Stem direction override (default: 'auto' - calculated from pitch and clef) */
   stemDirection?: StemDirection
   /** ID of the note this note is tied TO (forward tie) */
@@ -786,6 +788,13 @@ export interface Rest {
    * stored `duration` is `'w'` and `actualDuration` carries the true bar length.
    */
   isMeasureRest?: boolean
+  /**
+   * ⭐ The USER stamped this full-bar rest (docs/plans/voice-measure-rest-plan.md R5): *"this voice is
+   * silent for the whole bar"*, a statement — so it keeps its voice alive in the bar, where an automatic
+   * fill never does (`voiceOps.collapseEmptyVoices`). Only with {@link isMeasureRest}. ⛔ No fill,
+   * refill or repair ever sets it; it goes when the rest itself is replaced.
+   */
+  stamped?: true
   /**
    * Beam OVER this rest instead of breaking the beam at it — the "beamed rest" convention:
    * `𝅘𝅥𝅮 𝄾 𝅘𝅥𝅮 𝅘𝅥𝅮` in one beat gets a single beam with the rest floating under it. Absent = the default,

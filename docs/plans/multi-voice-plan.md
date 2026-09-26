@@ -134,6 +134,8 @@ Verified: `build:check` + 699 tests + `lint:boundary` all green. Not committed.
 - **Collapse rule** ✅ — new `ScoreModel.collapseEmptyVoices(measure)` drops any secondary voice (model
   voice ≠ 0) that has no chords left (only rests), reverting the bar to one stream; voice 0 never collapses.
   Called from `MusicEngine.deleteNote` after the delete-handling chain.
+  ⭐ 2026-09-26: a full-bar rest the user STAMPED (`Rest.stamped`) counts as content — that voice stays
+  (`docs/plans/voice-measure-rest-plan.md` R5).
 
 Verified: `build:check` + `lint:boundary` green; **702 tests** (699 + 3 new multi-voice cases in
 `MusicEngine.test.ts`: voice-2 entry doesn't clobber voice 1; delete-last-voice-2 collapses;

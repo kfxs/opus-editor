@@ -4,7 +4,7 @@ import type { Clip, ClipLane, ClipDynamic, ClipHairpin, ClipOttava, ClipPedal, C
 import type { EngravingOverride } from '../../types/music'
 import { flattenRegion } from '../../utils/rebar'
 import { fracCreate, fracAdd, fracSub, fracCompare, fracGte, fracLt, fracToNumber } from '../../utils/fraction'
-import { getMeasureNotes } from '../../utils/musicUtils'
+import { getMeasureNotes, measureSelectableNotes } from '../../utils/musicUtils'
 import { measureCapacityFrac } from '../../utils/measureCapacity'
 import { formatPitch } from '../../utils/pitchSpelling'
 import { restShiftOverrideOf, restHiddenOf, restPositionKey, noteOffsetOverrideOf, measureLeadingSpaces } from '../../engine/models/engravingOverrides'
@@ -14,6 +14,7 @@ import { laneOfSlot, pairIsValid } from '../../utils/tremoloPair'
 import { staffOf, voiceOf } from '../../utils/lanes'
 import { slotLength } from '../../utils/durations'
 import { glissandiInWindow } from './glissandoClip'
+import { stampedSilenceInWindow } from '../../engine/models/barRestOps'
 
 /**
  * ⭐⭐ **Everything a mark carries in the overrides compartment**, cloned for the clip — its hand
@@ -666,6 +667,7 @@ export function buildClipboardFromSelection(
       const restHidden = restHiddenInWindow(score, staff, v, spanStart, spanEnd)
       const noteOffsets = noteOffsetsInWindow(score, staff, v, spanStart, spanEnd)
       const tremoloPairs = tremoloPairsInWindow(score, staff, v, spanStart, spanEnd)
+      const stampedSilence = stampedSilenceInWindow(score, staff, v, spanStart, spanEnd)
       lanes.push({
         staff: staff - topStaff,
         voice: v,
@@ -679,6 +681,7 @@ export function buildClipboardFromSelection(
         ...(restHidden.length ? { restHidden } : {}),
         ...(noteOffsets.length ? { noteOffsets } : {}),
         ...(tremoloPairs.length ? { tremoloPairs } : {}),
+        ...(stampedSilence.length ? { stampedSilence } : {}),
       })
     }
   }
@@ -758,25 +761,40 @@ export function earliestSelectedPosition(score: Score, noteIds: string[]): ClipT
 }
 
 /**
- * ⭐ The slot ids a paste window now holds on its destination lane — what a paste SELECTS when it
- * created no notes (a clip of pure silence: `pasteEvents` reports the chords it made, and silence
- * makes none). ⚠️ Not a general "what did the paste write": for a clip with notes the created ids
- * are the honest answer, and this would also sweep up the rest-fill after them.
+ * ⭐ **Everything a paste wrote** — every note and rest (fanned members included, the bar selection's
+ * rule: `measureSelectableNotes`) inside the paste window, on EVERY lane the clip landed in. What a
+ * paste SELECTS: his report, 2026-09-26 — *"everything that was paste after the paste should be
+ * selected"*. It used to select only the chords `pasteEvents` created (a rest the clip carried, or a
+ * second voice of silence, was left out), and fell back to ONE lane's rests for a clip of pure silence.
+ *
+ * The lanes are mapped as the paste maps them (`rebarOps.pasteEvents`): relative staff → `target.staff
+ * + lane.staff` (lanes past the last staff dropped), and a SINGLE-voice clip re-voiced into
+ * `target.voice`. The window runs from the target for `clip.spanBeats`, across barlines.
  */
-export function windowSlotIds(score: Score, target: ClipTarget, spanBeats: Fraction): string[] {
-  const staff = target.staff ?? 0
+export function windowSlotIds(score: Score, target: ClipTarget, clip: Pick<Clip, 'lanes' | 'spanBeats'>): string[] {
+  const staffCount = Math.max(1, score.staves?.length ?? 1)
+  const singleVoice = new Set(clip.lanes.map(l => l.voice)).size === 1
+  const lanes = new Set<string>()
+  for (const lane of clip.lanes) {
+    const staff = (target.staff ?? 0) + lane.staff
+    if (staff < 0 || staff >= staffCount) continue
+    lanes.add(`${staff}|${singleVoice ? target.voice : lane.voice}`)
+  }
+  // A clip with no lane at all (never built by the clipboard, but a clip is data) — the target's own.
+  if (!lanes.size) lanes.add(`${target.staff ?? 0}|${target.voice}`)
+
   const ordered = [...score.measures].sort((a, b) => a.number - b.number)
   const from = ordered.findIndex(m => m.number === target.measure)
   if (from === -1) return []
   const out: string[] = []
-  let remaining = spanBeats
+  let remaining = clip.spanBeats
   let start = target.beat
   for (let i = from; i < ordered.length && fracCompare(remaining, fracCreate(0, 1)) > 0; i++) {
     const m = ordered[i]
     const capacity = measureCapacityFrac(m)
     const end = fracAdd(start, remaining)
-    for (const n of getMeasureNotes(m, score)) {
-      if (staffOf(n) !== staff || voiceOf(n) !== target.voice) continue
+    for (const n of measureSelectableNotes(m, score)) {
+      if (!lanes.has(`${staffOf(n)}|${voiceOf(n)}`)) continue
       if (fracLt(n.beat, start) || fracGte(n.beat, end)) continue
       out.push(n.id)
     }

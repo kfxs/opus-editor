@@ -40,7 +40,8 @@ function getMeasure(score: Score, measureNumber: number): Measure | undefined {
 
 /**
  * Drop any secondary voice (model voice ≠ 0) in a measure that has no notes left
- * — only rests — so the bar reverts to a single stream. Voice 0 is the primary
+ * — only rests — so the bar reverts to a single stream. ⭐ A full-bar rest the user
+ * STAMPED (`Rest.stamped`) counts as content: that voice stays. Voice 0 is the primary
  * stream and is never collapsed (an empty bar stays one voice of rests). Called
  * after deletions; a no-op for single-voice bars.
  */
@@ -55,8 +56,10 @@ export function collapseEmptyVoices(score: Score, measureNumber: number): void {
   }
 
   for (const voice of secondaryVoices) {
-    const hasNote = measure.slots.some(s => voiceOf(s) === voice && s.type === 'chord')
-    if (!hasNote) {
+    // ⭐ A full-bar rest the USER stamped is a statement too — *"this voice is silent here"* — so it
+    //   keeps the voice (voice-measure-rest-plan R5). An automatic fill never carries the flag.
+    const kept = measure.slots.some(s => voiceOf(s) === voice && (s.type === 'chord' || s.stamped))
+    if (!kept) {
       measure.slots = measure.slots.filter(s => voiceOf(s) !== voice)
     }
   }

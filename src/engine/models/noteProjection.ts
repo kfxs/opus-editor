@@ -62,6 +62,7 @@ export function restToFlatNote(rest: Rest, staffIndex = 0): Note {
     beat: rest.beat,
     isRest: true,
     isMeasureRest: rest.isMeasureRest,
+    ...(rest.stamped && { stamped: true as const }),
     dots: rest.dots,
     tupletId: rest.tupletId,
     actualDuration: rest.actualDuration,
@@ -108,6 +109,7 @@ export function projectBracketedNote(note: Note, pitch: NotePitch, bracketed: Br
   else delete note.forceAccidental
   delete note.isRest
   delete note.isMeasureRest
+  delete note.stamped
   note.duration = bracketed.duration
   // ⭐ Its OWN size, never its host's (cue-size-plan C4).
   if (bracketed.cue) note.cue = true
@@ -128,6 +130,7 @@ export function projectGraceNote(note: Note, pitch: NotePitch, grace: GraceNote)
   else delete note.enclosure
   delete note.isRest
   delete note.isMeasureRest
+  delete note.stamped
   note.duration = grace.duration
   // ⭐ Its OWN size, never its host's (cue-size-plan C4).
   if (grace.cue) note.cue = true

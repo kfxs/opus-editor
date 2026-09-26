@@ -14,7 +14,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { ScoreModel } from './ScoreModel'
 import type { ChordRest } from '@/types/music'
-import { moveSelectionToVoice } from './voiceOps'
+import { collapseEmptyVoices, moveSelectionToVoice } from './voiceOps'
 import { toggleTie } from './tieOps'
 import { fracCreate as frac, fracCompare, fracToNumber } from '@/utils/fraction'
 
@@ -439,5 +439,27 @@ describe('moveSelectionToVoice — a selection moved as ONE gesture (Phase 3)', 
     moveSelectionToVoice(model, [a.id], 1)
     expect(model.getNote(a.id)!.tiedTo).toBeUndefined()
     expect(model.getNote(b.id)!.tiedFrom).toBeUndefined()
+  })
+})
+
+describe('collapseEmptyVoices — a STAMPED full-bar rest keeps its voice (voice-measure-rest-plan R5)', () => {
+  let model: ScoreModel
+  beforeEach(() => { model = new ScoreModel('CV'); model.addMeasure() })
+  const v2 = () => model.getMeasure(1)!.slots.filter(s => (s.voice ?? 0) === 1)
+
+  it('an AUTOMATIC full-bar rest in voice 2 still collapses — as today', () => {
+    const n = model.addNote({ step: 'D', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1), voice: 1 })
+    const m = model.getMeasure(1)!
+    m.slots = m.slots.filter(s => !(s.type === 'chord' && s.notes.some(p => p.id === n.id)) && (s.voice ?? 0) !== 1)
+    m.slots.push({ id: 'auto', type: 'rest', beat: frac(0, 1), duration: 'w', measure: 1, voice: 1, isMeasureRest: true, actualDuration: frac(4, 1) })
+    collapseEmptyVoices(model.getScore(), 1)
+    expect(v2()).toHaveLength(0)
+  })
+
+  it('a STAMPED one stays', () => {
+    const m = model.getMeasure(1)!
+    m.slots.push({ id: 'st', type: 'rest', beat: frac(0, 1), duration: 'w', measure: 1, voice: 1, isMeasureRest: true, stamped: true, actualDuration: frac(4, 1) })
+    collapseEmptyVoices(model.getScore(), 1)
+    expect(v2().map(s => s.id)).toEqual(['st'])
   })
 })

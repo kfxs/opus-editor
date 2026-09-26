@@ -288,6 +288,17 @@ export type MarkingTool =
    * engraver puts it. Three buttons that arm identically are exactly the `8va`/`8vb` case.
    */
   | { kind: 'barline'; sign: BarlineSign }
+  /**
+   * ⭐ The STAMPED full-bar rest (docs/plans/voice-measure-rest-plan.md P2, `interactions/stamps/barRestStamp.ts`)
+   * — a click on a bar says *"this voice is silent for the whole bar"*, in the ACTIVE voice
+   * ({@link EditorState.activeVoice}), voice 1 included. VALUELESS: the voice is read at the click,
+   * so switching voice while it is armed just changes which lane the next click writes.
+   *
+   * ⛔ No LENGTH — a full-bar rest has the BAR's (`false` in {@link MARKING_TOOL_USES_ARMED_LENGTH}).
+   * ⚠️ Named `barRest`, not `measureRest`: `lint:hubs` reads a kind as a word sequence, and
+   * `measureRest` would match every `isMeasureRest`.
+   */
+  | { kind: 'barRest' }
 
 /**
  * The length the editor starts from, and returns to. A quarter, undotted — the value
@@ -346,6 +357,7 @@ export const MARKING_TOOL_USES_ARMED_LENGTH: Record<MarkingTool['kind'], boolean
   tremolo: false,     // marks a note that already has its length, like the accidental stamp
   headEnclosure: false, // a mark on a head that ALREADY has its length and pitch (P4b)
   barline: false,     // ⭐ a BOUNDARY between bars — it has no length of its own and reads nobody's
+  barRest: false,     // ⭐ a full-bar rest has the BAR's length, never the armed one
 }
 
 /**
@@ -442,6 +454,7 @@ export const MARKING_TOOL_ENTERS_PITCH: Record<MarkingTool['kind'], boolean> = {
   tremolo: false,
   headEnclosure: false, // a mark on a head that ALREADY has its length and pitch (P4b)
   barline: false,
+  barRest: false,       // a rest has no pitch
 }
 
 /** The articulations armed for the next note entered — or the next GRACE stamped (the note-entry
@@ -936,7 +949,9 @@ export function scoreCursorClass(state: EditorState): 'cursor-none' | 'cursor-pl
   // ⚠️ The BARLINE stamp was listed here for one afternoon on 2026-08-26 and does NOT belong: it
   // draws its sign at the pointer (`engine/rendering/ghosts/BarlineGhost.ts`), and a tool that ghosts must
   // not also take the place-cursor — see the note about the ladder family just above.
-  if (kind === 'dynamicEntry' || kind === 'tempoEntry' || kind === 'slur' || kind === 'hairpin' || kind === 'glissandoLine') {
+  // ⭐ `barRest` for good: the blue cursor IS its indicator — his call, 2026-09-26: *"for the full bar rest the
+  //   blue cursor is enough we dont need the ghost"* (docs/plans/voice-measure-rest-plan.md P3).
+  if (kind === 'dynamicEntry' || kind === 'tempoEntry' || kind === 'slur' || kind === 'hairpin' || kind === 'glissandoLine' || kind === 'barRest') {
     return 'cursor-place'
   }
   return 'cursor-default'

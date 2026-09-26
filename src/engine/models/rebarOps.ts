@@ -36,6 +36,7 @@ import { addMeasure, insertMeasureAfter } from './measureOps'
 import { collapseEmptyVoices } from './voiceOps'
 import { findSlot } from './slotLookup'
 import { keepCueSilence } from './cueOps'
+import { captureStampedSilence, restoreStampedSilence } from './barRestOps'
 import { keepLegalCrossings } from './crossStaffOps'
 import { clearEngravingOverride, setEngravingOverride } from './overrideOps'
 import { cloneFanFresh, chordStoredPitches, fanMemberBeats } from '@/utils/fannedBeam'
@@ -198,6 +199,9 @@ export function rebarRegion(score: Score, fromMeasure: number, ts: TimeSignature
   // reason as the offsets above: the relay cannot carry the relation, so anything not snapshotted
   // here is silently un-paired by the rebuild.
   const tremoloPairs = captureTremoloPairs(regionMeasures)
+  // ⭐ …and the full-bar rests the USER stamped: a lane of rests is collapsed by the rebuild, so the
+  // silence is kept by the TIME it covered (docs/plans/voice-measure-rest-plan.md P1).
+  const stampedSilence = captureStampedSilence(regionMeasures)
 
   // Rebar runs one lane per (STAFF, voice): each staff is an independent stream on the
   // shared bar spine, exactly like each voice. Flattening the whole measure per-voice
@@ -258,6 +262,8 @@ export function rebarRegion(score: Score, fromMeasure: number, ts: TimeSignature
 
   // Materialise every (staff, voice) lane additively (clear-once → per-lane fill → collapse).
   materializeRegion(score, regionNumbers, lanes)
+  // BEFORE the rest shifts are restored below: they need the stamped rest standing to land on.
+  restoreStampedSilence(score, regionNumbers.map(n => getMeasure(score, n)).filter((m): m is Measure => !!m), stampedSilence)
 
   // Re-barring regenerated the region's slot ids, so a tie that crossed the
   // region boundary now points at a deleted id. Re-attach it to the rebar'd
@@ -370,6 +376,9 @@ function pasteEventsBody(
   // reason as the offsets above: the relay cannot carry the relation, so anything not snapshotted
   // here is silently un-paired by the rebuild.
   const tremoloPairs = captureTremoloPairs(regionMeasures)
+  // The destination's STAMPED full-bar rests — kept outside the paste window, replaced inside it on
+  // the lanes the paste writes (docs/plans/voice-measure-rest-plan.md P1).
+  const stampedSilence = captureStampedSilence(regionMeasures)
 
   const staffIndices = (score.staves ?? []).length > 0
     ? (score.staves ?? []).map((_, i) => i)
@@ -485,6 +494,24 @@ function pasteEventsBody(
   }
 
   const created = materializeRegion(score, regionNumbers, lanes)
+  restoreStampedSilence(
+    score, regionNumbers.map(n => getMeasure(score, n)).filter((m): m is Measure => !!m), stampedSilence,
+    { from: pasteStart, to: pasteEnd, wrote: (staffId, voice) => !!destByStaff.get(staffIndexOfId(score, staffId))?.has(voice) },
+  )
+  // …and the CLIP's own stamped silences, re-based by the paste start onto the lane each landed in
+  // (relative → absolute staff, a single-voice clip re-voiced) — the mapping the rest shifts use below.
+  restoreStampedSilence(
+    score, regionNumbers.map(n => getMeasure(score, n)).filter((m): m is Measure => !!m),
+    clipLanes.flatMap(({ staff, voice, stampedSilence }) => {
+      const absStaff = targetStaff + staff
+      if (absStaff < 0 || absStaff >= staffCount) return []
+      const staffId = keyStaffId(score, absStaff)
+      const destVoice = singleVoice ? targetVoice : voice
+      return (stampedSilence ?? []).map(s => ({
+        staffId, voice: destVoice, from: fracAdd(pasteStart, s.from), to: fracAdd(pasteStart, s.to),
+      }))
+    }),
+  )
   restoreBoundaryTies(score, targetMeasure, regionNumbers[regionNumbers.length - 1], boundary)
   repairDanglingTies(score)
   restoreSlurs(score, regionNumbers, slurState)

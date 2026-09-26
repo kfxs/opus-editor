@@ -139,6 +139,11 @@ export const SLOT_FIELD_TRAVEL = {
    *  drops it — which is also when the beaming context it describes has changed". The statement is
    *  about this rest's NEIGHBOURS, and after a re-lay they may not be the same notes. */
   beamOver: 'dropped',
+  /** ⭐ A STAMPED full-bar rest is a statement about a BAR, and the relay knows no bars — it re-lays
+   *  events, and silence is not one. So it is captured by the TIME it covered and restored onto every
+   *  new bar lying wholly inside it (`barRestOps.captureStampedSilence` / `restoreStampedSilence`,
+   *  docs/plans/voice-measure-rest-plan.md P1); a paste's window replaces it on the lanes it writes. */
+  stamped: 'sideChannel',
 } satisfies Record<SlotField, SlotFieldTravel>
 
 /** The fields a round trip must preserve verbatim — what `slotFieldTravel.test.ts` checks. */

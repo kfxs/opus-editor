@@ -26,7 +26,7 @@ downstream reads its answer instead of restating the rule.
 | `SelectionController.selectNotes` (and the box paths) | puts the marks in `selectedItems` |
 | `RenderController.applyHighlights` | one SET pass per kind paints them |
 | Delete (`shortcutWiring`) | removes them with the notes, in the same batch |
-| `ClipboardController.placeAt` | the paste selects what it wrote — it calls the same `selectNotes` |
+| `ClipboardController.placeAt` | the paste selects what it wrote — it calls the same `selectNotes`, with ⭐ EVERY note and rest of the pasted window on every lane the clip landed in (`clipboard.windowSlotIds`; before 2026-09-26 only the chords it created, so a pasted rest or a second voice stayed unhighlighted) |
 
 **The rule (amended 2026-08-19):** a mark belongs to where it **BEGINS**. A dynamic is taken on its
 point, a slur on its two endpoints, a trill on its SIGN alone (its wavy extension may run out of the

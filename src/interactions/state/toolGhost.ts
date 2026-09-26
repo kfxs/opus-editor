@@ -138,6 +138,9 @@ export function toolGhost(tool: MarkingTool, armed: ArmedRestFields): ToolGhost 
     //   picks the note it leaves; where it goes is the music's (the next note), so a line at the pointer would
     //   preview a direction and a length nothing has chosen. The blue cursor (scoreCursorClass) says it is armed.
     case 'glissandoLine': return null
+    // ⭐ The STAMPED full-bar rest: no ghost, the blue cursor (scoreCursorClass) — his call, 2026-09-26: *"the
+    //   blue cursor is enough we dont need the ghost"* (docs/plans/voice-measure-rest-plan.md P3).
+    case 'barRest': return null
     // ⭐ The BARLINE stamp DOES ghost — his call, 2026-08-26, the day it shipped without one:
     // *"where is the ghost? … we need ghosts for every case using the glyph"*. It arrived in the
     // `null` arm above on the argument that a barline stands on a BOUNDARY and never at the pointer,

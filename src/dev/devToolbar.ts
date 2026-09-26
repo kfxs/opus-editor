@@ -10,6 +10,7 @@ import { enclosureLit, pressEnclosure } from '../interactions/stamps/enclosureTo
 import { cueLit, pressCue } from '../interactions/stamps/cueTool'
 import { glissandoLit, pressGlissando } from '../interactions/stamps/glissandoTool'
 import { dotsLit, pressDots } from '../interactions/stamps/dotCountTool'
+import { barRestLit, pressBarRest } from '../interactions/stamps/barRestTool'
 import { DEV_SOUNDS } from '../engine/audio/WebAudioFontInstrument'
 import { bus } from '../bus'
 import { buildMusicFontPicker } from './musicFontPicker'
@@ -277,6 +278,15 @@ export function mountDevToolbar(host: HTMLElement, deps: DevToolbarDeps): DevToo
   toggle(dotsBox, GRACE_BTN, '...', 'Triple dot — the dot key with three: switches the selection, arms the stamp or the next note',
     () => dotsLit(state, getEngine(), 3), () => pressDots(palette.dotKeyHost(), 3))
   row.appendChild(dotsBox)
+
+  // --- FULL-BAR REST for any voice (docs/plans/voice-measure-rest-plan.md P2) — a press ARMS the stamp; a
+  //     click on a bar makes the ACTIVE voice (the Keypad's voice row) silent there for the whole bar
+  //     (`interactions/stamps/barRestTool`). ---
+  const restBox = group('Rest:')
+  toggle(restBox, GRACE_BTN, 'full bar',
+    'Full-bar rest: arms the stamp — a click on a bar puts a full-bar rest in the ACTIVE voice (it replaces that voice there)',
+    () => barRestLit(state, getEngine()), () => pressBarRest(palette.spanToolHost()))
+  row.appendChild(restBox)
 
   // --- Beam ---
   // REMOVED: the beam palette (auto/single/begin/continue/end + subdivide + beam-rest) was a DEV tool,

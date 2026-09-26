@@ -55,6 +55,7 @@ import * as beamOps from './beamOps'
 import * as markOps from './markOps'
 import * as fanCollapse from './fanCollapse'
 import * as voiceOps from './voiceOps'
+import { refitStampedRests } from './barRestOps'
 import * as staffSizeOps from './staffSize'
 import * as barlineJoinOps from './barlineJoin'
 import { isValidStaffSize } from './staffSize'
@@ -1826,7 +1827,10 @@ export class ScoreModel {
    * preserved (over-full → SOFT render); under-full bars gain trailing rests.
    */
   private reconcileMeasureRests(measure: Measure): void {
-    measure.slots = measure.slots.filter((s) => s.type !== 'rest' || !!s.tupletId)
+    // ⭐ A STAMPED full-bar rest is a statement, not a fill: it stays, at the bar's new length
+    //   (docs/plans/voice-measure-rest-plan.md P1).
+    measure.slots = measure.slots.filter((s) => s.type !== 'rest' || !!s.tupletId || !!s.stamped)
+    refitStampedRests(measure)
     fillGapsWithRests(this.score, measure)
   }
 

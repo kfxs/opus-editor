@@ -82,6 +82,7 @@ export function promoteStampToNoteEntry(state: EditorState, duration: NoteDurati
     case 'tempoEntry':   // places a tempo mark — nothing to promote to (like `tempo`)
     case 'barline':      // a BOUNDARY between bars — not a property of a note, and it has no length
     case 'group':        // a sign beside the STAVES — not a note property, and no length to carry
+    case 'barRest':      // a full-bar rest has the BAR's length — nothing to carry into note entry
     case undefined:      // nothing was armed: a plain duration press, which clears a stale dot
       // Dropping a stale accidental here is deliberate: an INTENTIONAL one arms the stamp (and so
       // lands in the 'accidental' case above), meaning one that survives to here can only be left

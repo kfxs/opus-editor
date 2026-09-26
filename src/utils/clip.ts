@@ -55,6 +55,13 @@ export interface ClipLane {
    */
   restHidden?: Array<{ offset: Fraction }>
   /**
+   * ⭐ STAMPED full-bar rests inside the clip window — each the span of its bar, relative to the clip
+   * start (same basis as {@link events}). Carried separately for {@link restShifts}' reason: silence
+   * is not an event. Restored onto every pasted bar lying wholly inside a span
+   * (`barRestOps.restoreStampedSilence`; docs/plans/voice-measure-rest-plan.md). Absent/empty = none.
+   */
+  stampedSilence?: Array<{ from: Fraction; to: Fraction }>
+  /**
    * Note horizontal offsets (client #12) inside the clip window, offsets relative to the clip
    * start (same basis as {@link events}). Carried separately because the override is
    * SLOT-keyed and nothing in `events` (which holds no ids) can drag it along — a copied passage

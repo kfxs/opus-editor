@@ -53,7 +53,7 @@ import { armMarkGroupDrag } from '../drags/markGroup'
 const DEFAULT_TEMPO_TEXT = 'Tempo'
 import { beatToFrac } from '../../utils/musicUtils'
 import { passageOf, passageNoteIds, spansStaves } from '../state/measurePassage'
-import { stampGroupAtClick } from '../stamps/groupStamp'
+import { stampStaffAtClick } from '../stamps/staffClickStamps'
 import { measureCapacityQuarters } from '../../utils/measureCapacity'
 import { accidentalToAlter, formatPitch } from '../../utils/pitchSpelling'
 
@@ -1321,9 +1321,10 @@ export class MouseController {
     // The event travels because `Ctrl`/`Cmd` NARROWS the drop to the staff under the pointer, which
     // is MuseScore's polarity and all four apps' default (plan §5.1).
     if (stampKeySignatureAtClick(this.state, engine, y, measureNum, event, () => this.render.renderScore())) return
-    // ⭐ The GROUPING SIGN's armed click — his third case, and the only one that reaches the score
-    //   through a click rather than through a selection (`interactions/stamps/groupStamp`).
-    if (stampGroupAtClick(this.state, engine, y, measureNum, () => this.render.renderScore())) return
+    // ⭐ The stamps whose click names a STAFF in a bar — the GROUPING SIGN (his third case, the only one that
+    //   reaches the score through a click rather than a selection) and the FULL-BAR REST, as ONE table
+    //   (`interactions/stamps/staffClickStamps`): each answers only for its own armed tool.
+    if (stampStaffAtClick(this.state, engine, y, measureNum, () => this.render.renderScore())) return
     if (this.placeDynamicAtClick(engine, x, y, measureNum)) return
     if (this.placeDynamicEntryAtClick(engine, x, y, measureNum)) return
     if (this.placeTempoAtClick(engine, x, measureNum)) return
