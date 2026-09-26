@@ -123,7 +123,12 @@ const BLOCK_LEAD_IN_PX = 40
  *  `division` / `beforeNext` (the next column, or the bar's end); absent = at the last note, as the page's. */
 export interface GroupBlockInk {
   beams: readonly EngravedBeam[]
-  tuplets: readonly { tuplet: ScoreTuplet; endS?: number }[]
+  tuplets: readonly {
+    tuplet: ScoreTuplet
+    endS?: number
+    /** Run just before the tuplet draws, once its notes are formatted here — its vertical nudges. */
+    beforeDraw?: () => void
+  }[]
 }
 
 /**
@@ -205,8 +210,9 @@ export function drawGroupBlock(
     //    frame like the beam: the bracket STRAIGHT, outside whatever reaches furthest (its own rule,
     //    `engrave/marks/tupletPlacement`, asked of the notes as formatted here). Where the bracket ENDS is
     //    the format's answer turned into this block's x: the next column's place along the path.
-    for (const { tuplet, endS } of ink.tuplets) {
+    for (const { tuplet, endS, beforeDraw } of ink.tuplets) {
       tuplet.bracketEndX = endS === undefined ? undefined : BLOCK_LEAD_IN_PX + (toBlockSpace(spine, middle, endS).x - local[0].x)
+      beforeDraw?.()
       tuplet.draw(ctx)
     }
   } finally {

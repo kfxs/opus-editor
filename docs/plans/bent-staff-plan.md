@@ -151,7 +151,7 @@ start to port it there."* Read from the source (`eye/spineScore.ts`, `eye/spineS
 | 24 | **CUE-size notes** | BLOCK | ✅ seen 2026-09-26 — the size comes from `NoteBuilder`, so it arrived with the notes | — (⚠️ cue FANS ride row 10) |
 | 25 | **DOUBLE + TRIPLE dots** | BLOCK | ✅ seen 2026-09-26 — the note's own modifiers | — |
 | 26 | **GLISSANDO** | SPAN (a line between two heads) | ⛔ seen missing 2026-09-26 | with #15: solve in `(s, d)`, the SIDE chooses (#13's pattern); its italic word follows the path as #16's text does |
-| 27 | **TUPLET hand offset** (`tupletOffset`) | — | ⛔ the spine builds its tuplets itself (`spineScore.tupletsOf`) and does not read it | the page's `marks/tupletPass` applies it — ask that, don't copy it |
+| 27 | **TUPLET hand offset** (`tupletOffset`) | — | ✅ (2026-09-26, his pick) — the page's two vertical nudges, the inner flip and the HAND's, are now ONE function in `marks/tupletPass` (`tupletYOffsetPx`); the spine asks it just before each tuplet draws in its block (`GroupBlockInk.tuplets[].beforeDraw`), once the notes are formatted there. ⭐ The inner-flip nudge arrived with it — the spine had never applied it either | — |
 
 **Suggested order** (⛔ a suggestion — his pick): **5 beams** → 7 barline types → 6 header changes →
 14 spacing → 11 voices as columns → 8 tuplets → 13 ties/slurs → 16 marks on lanes → 15 line spans →

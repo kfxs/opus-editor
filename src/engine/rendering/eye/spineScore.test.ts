@@ -4,7 +4,9 @@ import { circleSpine, straightSpine } from '@/engine/engrave/staff/staffSpine'
 import { ScoreModel } from '@/engine/models/ScoreModel'
 import { SceneRecorder } from '@/engine/scene/SceneRecorder'
 import { sceneGroups, scenePrimitives, type SceneGroup } from '@/engine/scene/Scene'
-import type { PitchStep } from '@/types/music'
+import type { PitchStep, TupletOffsetOverride } from '@/types/music'
+import { setEngravingOverride } from '@/engine/models/overrideOps'
+import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { SPINE_BLOCK_CLASS, SPINE_NOTE_CLASS } from './spineStaff'
 import { drawScoreOnSpine } from './spineScore'
 
@@ -268,6 +270,20 @@ describe('drawScoreOnSpine — TUPLETS (docs/plans/bent-staff-plan.md port map #
     for (const noteGroup of blocks.flatMap(b => sceneGroups(b, SPINE_NOTE_CLASS))) {
       expect(sceneGroups(noteGroup, 'tuplet')).toHaveLength(0)
     }
+  })
+
+  it('⭐ the HAND\'s vertical nudge reaches the spine (port map #27): +2 staff spaces moves the bracket 2 spaces DOWN', () => {
+    const bracketYs = (y: number) => {
+      const m = model(1)
+      const tuplet = m.createTuplet(1, { num: 0, den: 1 }, 'q', 3, 2)!
+      for (let i = 0; i < 3; i++) m.addNote({ step: 'G', octave: 4, duration: 'q', measure: 1, beat: { num: 2 * i, den: 3 }, tupletId: tuplet.id, staff: 0 })
+      if (y !== 0) setEngravingOverride(m.getScore(), tuplet.id, { kind: 'tupletOffset', y } as TupletOffsetOverride)
+      return scenePrimitives(tupletGroups(blocksOf(m))[0]).flatMap(p => (p.kind === 'rect' ? [p.y] : []))
+    }
+    const plain = bracketYs(0)
+    const nudged = bracketYs(2)
+    expect(plain.length).toBeGreaterThan(0)
+    nudged.forEach((y, i) => expect(y - plain[i]).toBeCloseTo(2 * STAFF_SPACE_PX, 6))
   })
 
   it('a bar with no tuplet draws no mark — the page’s picture, unchanged', () => {

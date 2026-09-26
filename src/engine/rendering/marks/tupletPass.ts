@@ -28,6 +28,29 @@ export interface TupletPassContext {
   score: Score
 }
 
+/**
+ * ⭐ **HOW FAR A TUPLET'S MARK MOVES OFF WHERE ITS OWN RULE PUTS IT**, px (+ down) — to be added to its
+ * `options.yOffset` BEFORE `draw()`, which reads it. Asked by this pass and by the bent staff
+ * (`eye/spineScore`, port map #27), so the two cannot disagree. Two parts:
+ * 1. **The inner flip** — a bracket flipped to the INNER side (toward the other voice) would be shoved to
+ *    the far edge of the system by the staff-edge clamp; nudge it back next to its own notes.
+ * 2. **The HAND's** vertical nudge (`TupletOffsetOverride`, staff spaces, + is DOWN — his ask, 2026-09-25:
+ *    ↑/↓ on a selected tuplet, `Ctrl+Backspace` resets, a Properties box) — so the bracket, its number and
+ *    the registered hit box all move together.
+ * ⚠️ Asks the tuplet's notes for their stems and the tuplet for its y: call it once they are FORMATTED.
+ */
+export function tupletYOffsetPx(
+  score: Score, tupletId: string, scoreTuplet: ScoreTuplet, location: 1 | -1, voice: number, multiVoice: boolean,
+): number {
+  const stems: TupletNoteStem[] = (scoreTuplet.getNotes() as EngravedNote[]).map(n => {
+    const ext = (n.getStemExtents?.() ?? { topY: 0, baseY: 0 }) as { topY: number; baseY: number }
+    return { stemUp: n.getStemDirection?.() === 1, topY: ext.topY, baseY: ext.baseY }
+  })
+  const flip = innerFlipTupletYOffset(stems, location, voice, multiVoice, scoreTuplet.getYPosition())
+  const hand = tupletOffsetOverrideOf(score, tupletId)?.y ?? 0
+  return flip + hand * STAFF_SPACE_PX
+}
+
 export function drawAndRegisterTuplets(
 ctx: TupletPassContext,
   scoreTuplets: ScoreTuplet[],
@@ -108,23 +131,10 @@ ctx: TupletPassContext,
         // bracket was switched off would be a second rule nobody asked for.
         scoreTuplet.bracketEndX = bracketed ? bracketEndX(tupletData, voice, lastNote) : undefined
 
-        // A bracket flipped to the INNER side (toward the other voice) would be shoved
-        // to the far edge of the system by VexFlow's staff-edge clamp; nudge it back
-        // next to its own notes via yOffset. Must be set BEFORE draw(), which reads it.
-        const stems: TupletNoteStem[] = notes.map(n => {
-          const ext = (n.getStemExtents?.() ?? { topY: 0, baseY: 0 }) as { topY: number; baseY: number }
-          return { stemUp: n.getStemDirection?.() === 1, topY: ext.topY, baseY: ext.baseY }
-        })
-        const flipOffset = innerFlipTupletYOffset(
-          stems, location, voice, multiVoice, scoreTuplet.getYPosition()
-        )
-        if (flipOffset !== 0) vt.options.yOffset = (vt.options.yOffset ?? 0) + flipOffset
-    // ⭐ The HAND's vertical nudge (`TupletOffsetOverride`, staff spaces, + is DOWN — his ask, 2026-09-25:
-    //    ↑/↓ on a selected tuplet, `Ctrl+Backspace` resets, a Properties box). Added to the engraver's
-    //    own y the way the inner-flip nudge is, BEFORE draw(), which reads it — so the bracket, its
-    //    number and the registered hit box all move together.
-    const hand = tupletOffsetOverrideOf(ctx.score, tupletId)?.y ?? 0
-    if (hand !== 0) vt.options.yOffset = (vt.options.yOffset ?? 0) + hand * STAFF_SPACE_PX
+        // The engraver's own vertical nudges — the inner flip and the HAND's (`tupletYOffsetPx`) — added to
+        // its y BEFORE draw(), which reads it.
+        const nudge = tupletYOffsetPx(ctx.score, tupletId, scoreTuplet, location, voice, multiVoice)
+        if (nudge !== 0) vt.options.yOffset = (vt.options.yOffset ?? 0) + nudge
 
         scoreTuplet.draw(ctx.context)
 

@@ -41,6 +41,7 @@ import { voiceOf } from '@/utils/lanes'
 import { getMeterInfo } from '@/utils/meter'
 import { createStaveNotesFromSlots, resolveTupletLocation, stemMajorityTupletLocation } from '../engraved/NoteBuilder'
 import { ScoreTuplet } from '../engraved/ScoreTuplet'
+import { tupletYOffsetPx } from '../marks/tupletPass'
 import { restShiftResolver } from '../engraved/restShift'
 import { BarVoice } from '../format/barVoice'
 import { formatColumns } from '../format/columnFormat'
@@ -153,7 +154,7 @@ export function drawScoreOnSpine(ctx: DrawContext, score: Score, spine: Spine): 
       for (const note of notes) if (intent.stemDir.has(note) && note.hasBeam()) intent.stemDir.set(note, note.getStemDirection())
       // ⭐ The TUPLETS (port map #8) — the page's own, built by the page's rules, AFTER the beams (the
       //    bracket asks whether a beam already shows the group; `hasBeam()` only answers once one exists).
-      const tuplets = tupletsOf(measure, slots, notes, voice, multiVoice, at, bar.end)
+      const tuplets = tupletsOf(measure, slots, notes, voice, multiVoice, at, bar.end, score)
       return { slots, notes, at, beams, tuplets }
     })
     // ── 2. ⭐ THE SHARED COLUMN (port map #11): with more than one voice, the page's column pass runs over
@@ -213,13 +214,14 @@ export function drawScoreOnSpine(ctx: DrawContext, score: Score, spine: Spine): 
  * ⭐ One voice's tuplets as the page builds them (`ScoreRenderer.buildScoreTuplets` + its pre-draw pass), for
  * the spine: the notes of each `tupletId` (two or more), the mark's SIDE, its BRACKET, its MARK, and where
  * the bracket ENDS along the spine — the next column's `s` (`division`), a gap before it (`beforeNext`), the
- * bar's end when nothing follows, or the last note (`lastNote`, undefined).
+ * bar's end when nothing follows, or the last note (`lastNote`, undefined) — and its vertical nudges, to run
+ * just before it draws.
  */
 function tupletsOf(
   measure: Measure, slots: readonly ChordRest[], notes: readonly EngravedNote[], voice: number, multiVoice: boolean,
-  at: readonly number[], barEnd: number,
-): { tuplet: ScoreTuplet; endS?: number }[] {
-  const out: { tuplet: ScoreTuplet; endS?: number }[] = []
+  at: readonly number[], barEnd: number, score: Score,
+): { tuplet: ScoreTuplet; endS?: number; beforeDraw: () => void }[] {
+  const out: { tuplet: ScoreTuplet; endS?: number; beforeDraw: () => void }[] = []
   for (const data of measure.tuplets ?? []) {
     const idx = slots.map((slot, i) => (slot.tupletId === data.id ? i : -1)).filter(i => i >= 0)
     if (idx.length < 2) continue
@@ -235,7 +237,13 @@ function tupletsOf(
       const next = idx[idx.length - 1] + 1
       endS = next < slots.length ? at[next] - (mode === 'beforeNext' ? BRACKET_END_GAP_PX : 0) : barEnd - BRACKET_END_GAP_PX
     }
-    out.push({ tuplet, endS })
+    // ⭐ The page's vertical nudges — the inner flip and the HAND's offset (`marks/tupletPass.tupletYOffsetPx`,
+    //    port map #27) — asked once the block has formatted the notes, just before the draw.
+    const beforeDraw = () => {
+      const nudge = tupletYOffsetPx(score, data.id, tuplet, (tuplet.options.location ?? 1) as 1 | -1, voice, multiVoice)
+      if (nudge !== 0) tuplet.options.yOffset = (tuplet.options.yOffset ?? 0) + nudge
+    }
+    out.push({ tuplet, endS, beforeDraw })
   }
   return out
 }
