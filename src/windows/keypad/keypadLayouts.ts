@@ -364,7 +364,7 @@ const GRACE_ICON = {
  * `0` `.` press `bus.grace` and do exactly what the dev toolbar's button of the same name does
  * (`interactions/controllers/keypadGraceWiring`). The other six — the four short durations, the breve and
  * the longa — are DURATION keys (2026-09-26), exactly page one's kind: they arm the value and light while it
- * is armed, the same as the dev toolbar's `Other:` buttons. Every key on the page now acts.
+ * is armed — their only door since the dev toolbar's `Other:` group was removed. Every key on the page now acts.
  *
  * ⚠️ The `action` names say what the key IS, ⛔ not what one repertoire calls it. Sibelius names two
  * of them for a single USE — its `-` is the guitar "pre-bend note" and its `.` the guitar "slide"
@@ -376,17 +376,17 @@ const GRACE_ICON = {
  * OWN keys only — the arrow and `+` come from {@link withControls}.
  */
 const pageGrace: CellSpec[] = [
-  // ⭐ WIRED (his ask, 2026-09-23) — the dev toolbar's three grace buttons, the same functions behind them.
+  // ⭐ WIRED (his ask, 2026-09-23) — the dev toolbar's three grace buttons (since removed), the same functions behind them.
   ['appoggiatura', g(GRACE.plain, GRACE_SIZE, 9), 'grace', 'appoggiatura'], ['acciaccatura', g(GRACE.slashed, GRACE_SIZE, 9), 'grace', 'acciaccatura'], ['bracketed grace', GRACE_ICON.bracketedNote, 'grace', 'bracketed'],
-  // ⭐ WIRED (his ask, 2026-09-26) — the dev toolbar's `Other:` durations, the same door as page one's duration keys:
+  // ⭐ WIRED (his ask, 2026-09-26) — the six other durations, the same door as page one's duration keys:
   //    a press is `bus.duration` → `palette.setDuration`, the light is the armed duration (docs/plans/other-durations-plan.md).
   ['512th', g(NOTE_SHORT.fiveHundredTwelfth, SHORT_SIZE, 15.6), 'duration', '512'], ['breve', g(BREVE, BREVE_SIZE, 3), 'duration', 'breve'], ['longa', GRACE_ICON.longa, 'duration', 'longa'],
   ['64th', g(NOTE_SHORT.sixtyFourth, SHORT_SIZE, 12.4), 'duration', '64'], ['128th', g(NOTE_SHORT.hundredTwentyEighth, SHORT_SIZE, 13.5), 'duration', '128'], ['256th', g(NOTE_SHORT.twoHundredFiftySixth, SHORT_SIZE, 14.5), 'duration', '256'],
-  // ⭐ WIRED (his ask, 2026-09-26) — the dev toolbar's `paren.`, the same function behind it.
-  // ⭐ …and `2` / `3` / `Enter` (his asks, 2026-09-26) — the dev toolbar's `..` / `...` / `cue`, the same functions
+  // ⭐ WIRED (his ask, 2026-09-26) — the dev toolbar's `paren.` (since removed), the same function behind it.
+  // ⭐ …and `2` / `3` / `Enter` (his asks, 2026-09-26) — the dev toolbar's `..` / `...` / `cue` (all since removed), the same functions
   //    behind them.
   ['parenthesised note', g(PARENS, PARENTHESISED_NOTE_SIZE), 'grace', 'parenthesised'], ['double dot', GRACE_ICON.doubleDot, 'grace', 'doubleDot'], ['triple dot', GRACE_ICON.tripleDot, 'grace', 'tripleDot'], ['cue size', GRACE_ICON.cueSize, 'grace', 'cue'],
-  // ⭐ WIRED (his ask, 2026-09-26) — the dev toolbar's `full bar` and `gliss`, the same functions behind them.
+  // ⭐ WIRED (his ask, 2026-09-26) — the dev toolbar's `full bar` and `gliss` (both since removed), the same functions behind them.
   ['bar rest', g(REST_BAR, 46, 1), 'grace', 'barRest'], ['gliss', g(GRACE.slash, 34, 8), 'grace', 'gliss'],
 ]
 

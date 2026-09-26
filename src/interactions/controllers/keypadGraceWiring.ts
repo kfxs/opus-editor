@@ -18,9 +18,10 @@ import { enclosureLit, pressEnclosure } from '../stamps/enclosureTool'
  * selection — and pushes the lights back from the SAME lit rules (`graceToolLit` / `bracketedToolLit`).
  * ⭐ The page's `1` (the parenthesised note) joined them on 2026-09-26, his ask: *"wire … the 1 the same way it
  * is wired the parenthesis in the dev shell palette"* — `pressEnclosure` / `enclosureLit`, the `paren.` button's —
- * and `2` / `3` the same day: `pressDots` / `dotsLit` with 2 and 3, the `..` / `...` buttons'. That is why the
+ * and `2` / `3` the same day: `pressDots` / `dotsLit` with 2 and 3, the `..` / `...` buttons' (the dev toolbar's, since removed — these keys are the
+ * only door now). That is why the
  * host is the DOT key's (`palette.dotKeyHost()`, a span-tool host plus the ghost repaint and the note select).
- * ⭐ And `0` — the full-bar rest, the toolbar's `full bar` (`pressBarRest` / `barRestLit`) — and `.`, the
+ * ⭐ And `0` — the full-bar rest, the toolbar's `full bar` until it was removed (`pressBarRest` / `barRestLit`) — and `.`, the
  * glissando, the toolbar's `gliss` (`pressGlissando` / `glissandoLit`) — and `Enter`, cue size, the toolbar's
  * `cue` (`pressCue` / `cueLit`): his asks, the same day.
  *

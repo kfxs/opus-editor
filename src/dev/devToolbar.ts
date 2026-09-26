@@ -4,18 +4,10 @@ import type { PaletteController } from '../interactions/controllers/PaletteContr
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { NoteDuration } from '../types/music'
 import { durationHighlight } from '../interactions/controllers/keypadSync'
-import { graceToolLit, pressGraceTool } from '../interactions/stamps/graceTool'
-import { bracketedToolLit, pressBracketedTool } from '../interactions/stamps/bracketedGraceTool'
-import { enclosureLit, pressEnclosure } from '../interactions/stamps/enclosureTool'
-import { cueLit, pressCue } from '../interactions/stamps/cueTool'
-import { glissandoLit, pressGlissando } from '../interactions/stamps/glissandoTool'
-import { dotsLit, pressDots } from '../interactions/stamps/dotCountTool'
-import { barRestLit, pressBarRest } from '../interactions/stamps/barRestTool'
 import { DEV_SOUNDS } from '../engine/audio/WebAudioFontInstrument'
 import { bus } from '../bus'
 import { buildMusicFontPicker } from './musicFontPicker'
 import { buildTextFontPicker } from './textFontPicker'
-import { buildOtherDurationsPanel } from './otherDurationsPanel'
 import { exportScorePdfFile } from '../interactions/io/scoreFileIo'
 import { isSelectedStaffSmall, toggleSelectedStaffSize } from '../interactions/controllers/staffSizeToggle'
 
@@ -228,69 +220,28 @@ export function mountDevToolbar(host: HTMLElement, deps: DevToolbarDeps): DevToo
       () => durationHighlight(state) === d, () => palette.setDuration(d))
   }
   row.appendChild(durBox)
-  // --- Other durations (docs/plans/other-durations-plan.md P2) — its own module, the same door. ---
-  const otherDurations = buildOtherDurationsPanel({ state, onStateChange, setDuration: d => palette.setDuration(d) })
-  row.appendChild(otherDurations.element)
+  // REMOVED (his call, 2026-09-26): the `Other:` group — longa, breve, 64th … 512th. It went the way the
+  // Beam row and the tremolo palette went, and leaves nothing homeless: the Keypad's Grace page (`7 8 9 / 4 5 6`)
+  // presses the same `palette.setDuration` and lights by the same `durationHighlight`
+  // (docs/plans/other-durations-plan.md P2).
 
-  // --- Grace notes (docs/plans/grace-notes-plan.md §3) — a press ARMS the stamp; a click on a note
-  //     hangs a grace on it at the click's pitch, drawn as the lit duration. `after` is P5's. ---
-  const graceBox = group('Grace:')
-  const GRACE_BTN = 'px-2 py-1 rounded text-sm'
-  toggle(graceBox, GRACE_BTN, 'acciacc.', 'Acciaccatura (slashed) — click a note to add one before it',
-    () => graceToolLit(state, 'acciaccatura', 'before', getEngine()),
-    () => pressGraceTool(palette.spanToolHost(), 'acciaccatura', 'before'))
-  toggle(graceBox, GRACE_BTN, 'appogg.', 'Appoggiatura — click a note to add one before it',
-    () => graceToolLit(state, 'appoggiatura', 'before', getEngine()),
-    () => pressGraceTool(palette.spanToolHost(), 'appoggiatura', 'before'))
-  // ⭐ BRACKETED GRACE (docs/plans/bracketed-grace-plan.md P2) — a press ARMS the stamp; a click on a
-  //    note puts a black head in brackets before it, at the click's pitch. A stemless, flagless head in
-  //    round brackets — Sibelius's "pre-bend", and the same form a trill uses to say which note to trill
-  //    to (named for what it IS, the Keypad's rule).
-  toggle(graceBox, GRACE_BTN, 'bracket.', 'Bracketed grace (stemless, in brackets) — click a note to add one before it',
-    () => bracketedToolLit(state, 'before', getEngine()),
-    () => pressBracketedTool(palette.spanToolHost(), 'before'))
-  toggle(graceBox, GRACE_BTN, 'after', 'Grace AFTER a note (Nachschlag) — not built yet (plan P5)',
-    () => false, () => {}, ON, () => false)
-  row.appendChild(graceBox)
+  // REMOVED (his call, 2026-09-26): the `Grace:` group — `acciacc.`, `appogg.`, `bracket.` and a disabled `after`
+  // placeholder (grace AFTER a note is grace-notes-plan P5, not built). The Keypad Grace page's `*`, `/` and `-` are
+  // the same doors: `pressGraceTool(…, form, 'before')` / `pressBracketedTool(…, 'before')`, each taking the span-tool
+  // host `palette.dotKeyHost()` extends, lit by the same `graceToolLit` / `bracketedToolLit` (`keypadGraceWiring`).
 
-  // --- PARENTHESISED note (docs/plans/parenthesised-note-plan.md P1, P4b) — the context decides: selected
-  //     notes toggle, nothing selected arms the STAMP, note entry arms the brackets for the next notes
-  //     (`interactions/stamps/enclosureTool`). ---
-  const parenBox = group('Note:')
-  toggle(parenBox, GRACE_BTN, 'paren.',
-    'Brackets: toggles the selected notes; with nothing selected ARMS the stamp; in note entry, the next notes are born in brackets',
-    () => enclosureLit(state, getEngine()),
-    () => pressEnclosure(palette.spanToolHost()))
-  // --- CUE size (docs/plans/cue-size-plan.md P1): the selected notes drawn small (`interactions/stamps/cueTool`). ---
-  toggle(parenBox, GRACE_BTN, 'cue',
-    'Cue size: toggles the selected notes (all cue ⇒ back to full size)',
-    () => cueLit(state, getEngine()),
-    () => pressCue(palette.spanToolHost()))
-  // --- GLISSANDO (docs/plans/glissando-plan.md P1): the selected notes each start one, to the next note
-  //     of their lane (`interactions/stamps/glissandoTool`). ---
-  toggle(parenBox, GRACE_BTN, 'gliss',
-    'Glissando: a line from each selected note to the next note of its voice',
-    () => glissandoLit(state, getEngine()),
-    () => pressGlissando(palette.spanToolHost()))
-  row.appendChild(parenBox)
+  // REMOVED (his call, 2026-09-26): the `Note:` group — `paren.`, `cue`, `gliss` (parenthesised-note-plan P1,
+  // cue-size-plan P1, glissando-plan P1). The Keypad Grace page's `1`, `Enter` and `.` are the same doors:
+  // `pressEnclosure` / `pressCue` / `pressGlissando`, each taking the span-tool host `palette.dotKeyHost()`
+  // extends, lit by the same `enclosureLit` / `cueLit` / `glissandoLit` (`interactions/controllers/keypadGraceWiring`).
 
-  // --- DOUBLE and TRIPLE dots (docs/plans/multiple-dots-plan.md P2) — a TEMPORARY door: each is the Keypad dot
-  //     key with another count (`interactions/stamps/dotCountTool`); the Keypad's own keys are the real one. ---
-  const dotsBox = group('Dots:')
-  toggle(dotsBox, GRACE_BTN, '..', 'Double dot — the dot key with two: switches the selection, arms the stamp or the next note',
-    () => dotsLit(state, getEngine(), 2), () => pressDots(palette.dotKeyHost(), 2))
-  toggle(dotsBox, GRACE_BTN, '...', 'Triple dot — the dot key with three: switches the selection, arms the stamp or the next note',
-    () => dotsLit(state, getEngine(), 3), () => pressDots(palette.dotKeyHost(), 3))
-  row.appendChild(dotsBox)
+  // REMOVED (his call, 2026-09-26): the `Dots:` group — `..` and `...`, a TEMPORARY door from the start
+  // (docs/plans/multiple-dots-plan.md P2). The Keypad Grace page's `2` / `3` are the real one: the same
+  // `pressDots(palette.dotKeyHost(), 2|3)`, lit by the same `dotsLit` (`interactions/controllers/keypadGraceWiring`).
 
-  // --- FULL-BAR REST for any voice (docs/plans/voice-measure-rest-plan.md P2) — a press ARMS the stamp; a
-  //     click on a bar makes the ACTIVE voice (the Keypad's voice row) silent there for the whole bar
-  //     (`interactions/stamps/barRestTool`). ---
-  const restBox = group('Rest:')
-  toggle(restBox, GRACE_BTN, 'full bar',
-    'Full-bar rest: arms the stamp — a click on a bar puts a full-bar rest in the ACTIVE voice (it replaces that voice there)',
-    () => barRestLit(state, getEngine()), () => pressBarRest(palette.spanToolHost()))
-  row.appendChild(restBox)
+  // REMOVED (his call, 2026-09-26): the `Rest:` group's `full bar` (docs/plans/voice-measure-rest-plan.md P2). The
+  // Keypad Grace page's `0` is the same door: `pressBarRest` with `palette.dotKeyHost()` — the span-tool host plus
+  // two fields `pressBarRest` never reads — lit by the same `barRestLit` (`interactions/controllers/keypadGraceWiring`).
 
   // --- Beam ---
   // REMOVED: the beam palette (auto/single/begin/continue/end + subdivide + beam-rest) was a DEV tool,
@@ -537,7 +488,6 @@ export function mountDevToolbar(host: HTMLElement, deps: DevToolbarDeps): DevToo
       stopSound()
       stopRepeats()
       stopModel?.()
-      otherDurations.destroy()
       row.remove()
     },
   }

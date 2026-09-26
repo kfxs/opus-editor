@@ -1,14 +1,13 @@
 /**
- * ⭐ **The GLISSANDO button's PRESS and its LIGHT** (docs/plans/glissando-plan.md P1) — what the dev
- * toolbar's `gliss` does, in its own module (`CLAUDE.md`: a new feature adds a MODULE).
+ * ⭐ **The GLISSANDO key's PRESS and its LIGHT** (docs/plans/glissando-plan.md P1) — what the Keypad Grace
+ * page's `.` does (the dev toolbar's `gliss` did, until it was removed 2026-09-26), in its own module (`CLAUDE.md`: a new feature adds a MODULE).
  *
  * His rule, 2026-09-25: *"i select a note, i click the gliss button so it defines the beginning
  * anchor"*. So a press puts one glissando on EACH selected head (a chord: one line per head, G9); where
  * it goes is not asked here — it is derived, every render, from the next note of the lane (G4).
  * ⭐ And a press where every selected head already has one takes them OFF — the brackets' toggle (his ask).
  *
- * ⭐ Nothing selected ARMS the stamp (the blue cursor — `./glissandoStamp`); pressed again, it disarms. The
- * Keypad Grace page's `.` (`gliss`) stays a picture until he says otherwise.
+ * ⭐ Nothing selected ARMS the stamp (the blue cursor — `./glissandoStamp`); pressed again, it disarms.
  */
 import { dbg } from '@/utils/debug'
 import type { MusicEngine } from '@/engine/MusicEngine'

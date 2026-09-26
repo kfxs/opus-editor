@@ -1,6 +1,6 @@
 # The glissando — one line for gliss, portamento, bend and the slide into a note: the plan
 
-> **Status (2026-09-25): P0, P1, P1b, P2 committed; the ENDS rework (`houseBase`, armed — §0.2) committed; P3 (free ends), copy/paste, the near-miss guard committed; P4 (select + Delete) committed; Properties (side · goes to · direction) built (not committed).** The `gliss` dev button, `engrave/marks/glissandoLine` (named rows, `__gliss`), `GlissandoRenderer` via `noteLinePasses`, the real glyph outlines via `fonts/glyphOutline`. His brief: a tool that behaves like Sibelius 6's bend
+> **Status (2026-09-25): P0, P1, P1b, P2 committed; the ENDS rework (`houseBase`, armed — §0.2) committed; P3 (free ends), copy/paste, the near-miss guard committed; P4 (select + Delete) committed; Properties (side · goes to · direction) built (not committed).** The `gliss` dev button, `engrave/marks/glissandoLine` (named rows, `__gliss`), `GlissandoRenderer` via `noteLinePasses`, the real glyph outlines via `fonts/glyphOutline`. His brief: a tool that behaves like Sibelius 6's bend ⛔ The dev toolbar's `gliss` button was REMOVED 2026-09-26 (his call): the Keypad Grace page's `.` presses the same `pressGlissando`.
 > line, but richer — ONE line that can be a gliss or a bend, with no text by default and a Properties
 > switch that shows it later. The research is three files, read before touching this:
 > `docs/research/glissando-books-research.md` (Gould · Ross · Stone · Gerou & Lusk, plates measured),

@@ -3,7 +3,8 @@
 > **Status (2026-09-24): P0–P6 ALL BUILT AND COMMITTED** — P0 `c289873` · P1 `3d9dbe8` · P2 `b2c0da7` · P3 `d83f8fb` · P4 `e36e769` · P5 `0b9457b` · P6 (this commit). ⏭️ Open: the §3 *Later* list. Armed-cue ENTRY and the cue STAMP built after the phases (see §3). Cue FANS built after P6 (see §3). His calls are in (§4). The research is `docs/research/cue-size-research.md`
 > (all three chapters are in; §0 is the synthesis). ⛔ A number never blocks a phase (`CLAUDE.md`).
 >
-> ⚠️ **The UI is the dev shell's** (`src/dev/devToolbar.ts`): one `cue` button, like `paren.`.
+> ⚠️ **The UI was the dev shell's** (`src/dev/devToolbar.ts`): one `cue` button, like `paren.` — ⛔ REMOVED 2026-09-26
+> (his call); the Keypad Grace page's `Enter` presses the same `pressCue`.
 >
 > ⚠️ **Not a small staff** (`docs/plans/staff-size-plan.md`). There, the whole staff is drawn in a
 > `scale(k)` group. Here the staff is full size and ONE chord in it is small. That chord keeps its place

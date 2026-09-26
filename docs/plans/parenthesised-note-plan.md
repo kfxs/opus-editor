@@ -1,7 +1,7 @@
 # The parenthesised note — a head in brackets, still a real note: the plan
 
 > **Status (2026-09-23): P0–P5 committed** — P5 checked by him on the page (*"working"*). Left: the later list in §3. The `paren.` button (dev
-> toolbar, `Note:` group) toggles brackets on the selected notes; `layout/headEnclosure` places them and
+> toolbar, `Note:` group — ⛔ REMOVED 2026-09-26, his call; the Keypad Grace page's `1` is the same door) toggles brackets on the selected notes; `layout/headEnclosure` places them and
 > reserves their room; `rendering/EnclosurePass` stamps them (called from `GracePass.drawGraceNotes`, the
 > lane's one pass over the drawn notes — a call in `ScoreRenderer` itself counts a `clef` word against
 > `lint:hubs`). The research is `docs/research/parenthesised-note-research.md` (§0 = the synthesis).

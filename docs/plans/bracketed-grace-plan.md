@@ -17,7 +17,8 @@
 > feature"*. So each phase builds the least that can be tried, and stops for his UI check.
 >
 > ⚠️ **The UI is the dev shell's** (`src/dev/devToolbar.ts`, next to `acciacc.` / `appogg.`), as for
-> the graces. The Keypad key stays unwired until he says otherwise.
+> the graces. ⛔ **UPDATE 2026-09-26:** the Keypad Grace page's `-` was wired (2026-09-23) and the toolbar's
+> `bracket.` then REMOVED (his call) — the key presses the same `pressBracketedTool`.
 
 ---
 

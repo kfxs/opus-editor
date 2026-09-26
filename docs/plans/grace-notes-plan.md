@@ -10,6 +10,8 @@
 > ⚠️ **THE UI IS THE DEV SHELL'S** — `src/dev/devToolbar.ts`, three buttons in a row, the way the
 > two-note tremolo shipped (`docs/plans/two-note-tremolo-plan.md` §0). The real interface is undecided;
 > nothing here reaches the Keypad, the menus or the Properties window, and nothing here needs them.
+> ⛔ **UPDATE 2026-09-26:** those buttons are REMOVED (his call) — the Keypad Grace page's `*` / `/` press the same
+> `pressGraceTool`; the `after` button was a disabled placeholder (P5, not built).
 >
 > ⭐ **Why now, and why it is worth more than the feature.** A grace note is the first notation we
 > build whose attacks take NO metric time — after the fan, whose attacks share a slot's time. Together

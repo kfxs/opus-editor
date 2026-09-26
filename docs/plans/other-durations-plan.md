@@ -152,7 +152,8 @@ from the font metrics.
   fit (d); **4/4, 3/4, 6/8, 7/8 fills UNCHANGED** (a before/after table); an empty bar is still the
   nominal-`'w'` measure rest in every meter (c). ⚠️ The finer grid (512th) makes a dotted 32nd rest a fill
   candidate — pinned by the unchanged-fills spec.
-- **P2 — the panel.** `dev/otherDurationsPanel.ts` — a group `Other:` of six buttons, each
+- **P2 — the panel.** (⛔ REMOVED 2026-09-26, his call, once the Keypad Grace page's six keys were wired — they
+  are the same door.) `dev/otherDurationsPanel.ts` — a group `Other:` of six buttons, each
   `palette.setDuration(d)`, lit by `durationHighlight(state) === d` (the Duration group's exact recipe),
   mounted from `devToolbar` by ONE line (⛔ not a slice: `lint:hubs`). From here he can ENTER each value;
   what is drawn is P3/P4's.

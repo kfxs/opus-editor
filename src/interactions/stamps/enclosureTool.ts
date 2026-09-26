@@ -1,6 +1,7 @@
 /**
  * ⭐ **The PARENTHESISED-note button's PRESS and its LIGHT** (`docs/plans/parenthesised-note-plan.md` P1,
- * P4b) — what the dev toolbar's `paren.` does, in its own module (`CLAUDE.md`: a new feature adds a
+ * P4b) — what the Keypad Grace page's `1` does (the dev toolbar's `paren.` did, until it was removed
+ * 2026-09-26), in its own module (`CLAUDE.md`: a new feature adds a
  * MODULE). The CONTEXT decides what a press means — the tremolo's routing (`PaletteController.
  * pressTremoloRouted`), his rules of 2026-09-23:
  *

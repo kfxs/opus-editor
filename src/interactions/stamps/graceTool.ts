@@ -1,6 +1,6 @@
 /**
- * ⭐ **The GRACE tool's PRESS and its LIGHT** (`docs/plans/grace-notes-plan.md` §3) — what the dev
- * toolbar's `acciacc.` / `appogg.` buttons do, in its own module (`CLAUDE.md`: a new feature adds a
+ * ⭐ **The GRACE tool's PRESS and its LIGHT** (`docs/plans/grace-notes-plan.md` §3) — what the Keypad Grace
+ * page's `*` / `/` do (the dev toolbar's `acciacc.` / `appogg.` did, until removed 2026-09-26), in its own module (`CLAUDE.md`: a new feature adds a
  * MODULE; the palette lends it its arm/disarm, {@link SpanToolHost}).
  *
  * ⭐ D6 (decided 2026-09-22): a press ARMS the stamp. ⏳ What a press does to a SELECTED note is open —

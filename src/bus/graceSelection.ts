@@ -7,9 +7,9 @@ import { PaletteToggleSet } from './paletteToggleSet'
  * (`interactions/controllers/keypadGraceWiring`); the lights come back from their own lit rules — a SET,
  * because a selection holding a grace and a bracketed grace lights both.
  *
- * ⭐ …and its `1` (the parenthesised note), wired the dev toolbar's `paren.` way (his ask, 2026-09-26) — the
+ * ⭐ …and its `1` (the parenthesised note), wired the dev toolbar's `paren.` way (his ask, 2026-09-26; the toolbar's `Note:` group since removed) — the
  * same seam, so the page's wired keys are one family — and its `2` / `3` (double / triple dot), the
- * toolbar's `..` / `...` (his ask, the same day) — its `0`, the full-bar rest (the toolbar's `full bar`) — and
+ * toolbar's `..` / `...`, since removed (his ask, the same day) — its `0`, the full-bar rest (the toolbar's `full bar`, since removed) — and
  * its `.`, the glissando (the toolbar's `gliss`) — and its `Enter`, cue size (the toolbar's `cue`).
  */
 export type GraceKey = 'appoggiatura' | 'acciaccatura' | 'bracketed' | 'parenthesised' | 'doubleDot' | 'tripleDot' | 'barRest' | 'gliss' | 'cue'

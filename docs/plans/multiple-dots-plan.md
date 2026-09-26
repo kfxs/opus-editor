@@ -4,7 +4,8 @@
 > `docs/research/multiple-dots-research.md` (the literature, the engines, the duration rule). ⛔ A number
 > never blocks a phase (`CLAUDE.md`).
 >
-> ⚠️ **The UI is the dev shell's** (`src/dev/devToolbar.ts`): a `Dots:` group, like `Note:`'s `cue`. The
+> ⚠️ **The UI was the dev shell's** (`src/dev/devToolbar.ts`): a `Dots:` group, like `Note:`'s `cue` — ⛔ REMOVED
+> 2026-09-26 (his call) once the Keypad Grace page's `2` / `3` were wired to the same `pressDots`. The
 > Keypad already DRAWS "double dot" / "triple dot" keys on a page (`windows/keypad/keypadLayouts.ts`,
 > `momentary` pictures); wiring them is a later step, his call.
 >

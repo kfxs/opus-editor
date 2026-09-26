@@ -89,7 +89,7 @@ describe('the Keypad Grace page', () => {
     expect(pressed).toEqual(['cue'])
   })
 
-  it('⭐ its six DURATION keys are wired — the dev toolbar\'s `Other:` — page one\'s own kind, pressing `bus.duration`', () => {
+  it('⭐ its six DURATION keys are wired — page one\'s own kind, pressing `bus.duration`', () => {
     const keys = ['7', '8', '9', '4', '5', '6']
     expect(keys.map(k => [cellFor(k).action, cellFor(k).select, cellFor(k).duration])).toEqual([
       ['512th', 'duration', '512'], ['breve', 'duration', 'breve'], ['longa', 'duration', 'longa'],

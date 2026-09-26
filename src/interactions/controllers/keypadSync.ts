@@ -306,7 +306,7 @@ export function dotHighlight(state: EditorState): 'dot' | null {
   const armed = state.selectedMarkingTool
   //
   // ⭐ The key is the ONE-dot key of a radio (multiple-dots-plan D6): it lights for exactly one dot, and
-  //    two or three light the dev shell's `..` / `...` instead (`stamps/dotCountTool.dotsLit`).
+  //    two or three light the Keypad Grace page's `2` / `3` instead (`stamps/dotCountTool.dotsLit`).
   if (armedToolUsesLength(state)) return state.selectedDots === 1 ? 'dot' : null
   if (armed) return armed.kind === 'dot' && armed.count === 1 ? 'dot' : null
   if (selectedOf(state, 'dot')) return 'dot'

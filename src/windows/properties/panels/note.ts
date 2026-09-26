@@ -17,7 +17,7 @@ export const noteRows: PanelRows<'note' | 'rest' | 'grace' | 'bracketed'> = (ele
   const id = note.id
   const rows = [buildOffsetInput(id, currentNoteOffset(element))]
   // ⭐ CUE size (cue-size-plan P5, his ask 2026-09-24) — every kind here can be cue: a note (its chord), a rest,
-  //    a grace, a bracketed grace. The same toggle the toolbar's `cue` makes.
+  //    a grace, a bracketed grace. The same toggle the Keypad's cue key makes.
   rows.push(buildCueCheckbox(id, note.cue === true))
   // ⭐ P6 — a BRACKETED grace's side: before or after its target (his proposal; default before).
   if (element.kind === 'bracketed' && element.derived) rows.push(buildBracketedSideSelect(id, element.derived))

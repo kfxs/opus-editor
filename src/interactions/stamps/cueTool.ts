@@ -1,6 +1,6 @@
 /**
- * ⭐ **The CUE-size button's PRESS and its LIGHT** (`docs/plans/cue-size-plan.md` P1) — what the dev
- * toolbar's `cue` does, in its own module (`CLAUDE.md`: a new feature adds a MODULE).
+ * ⭐ **The CUE-size key's PRESS and its LIGHT** (`docs/plans/cue-size-plan.md` P1) — what the Keypad Grace
+ * page's `Enter` does (the dev toolbar's `cue` did, until it was removed 2026-09-26), in its own module (`CLAUDE.md`: a new feature adds a MODULE).
  *
  * - NOTES selected (notes, rests and graces alike) → toggle theirs: any full-size ⇒ all cue; all cue ⇒ all
  *   full (`engine/models/cueOps.toggleCue`). One undo entry.

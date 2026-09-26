@@ -144,7 +144,8 @@ rests-only paste spec fails.
 - ⚠️ The engine namespace is **`engine.silentBar`** (`commands/silentBarCommands`), renamed from
   `engine.barRest`: once `barRest` became a tool kind, the facade's `readonly barRest` line counted as a
   kind mention and pushed `MusicEngine` over its ceiling (489/486). ⛔ Renamed, not raised.
-- `devToolbar`: a **Rest:** group with one button, `full bar`.
+- `devToolbar`: a **Rest:** group with one button, `full bar`. ⛔ REMOVED 2026-09-26 (his call) — the Keypad
+  Grace page's `0` presses the same `pressBarRest`.
 - Specs: `barRestTool`, `barRestStamp`, `staffClickStamps`.
 
 **After his first test (2026-09-26), the press follows the selection, as every button of the strip does:**

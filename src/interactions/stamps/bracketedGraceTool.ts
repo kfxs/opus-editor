@@ -1,6 +1,6 @@
 /**
  * ⭐ **The BRACKETED grace tool's PRESS and its LIGHT** (`docs/plans/bracketed-grace-plan.md` P2) — what
- * the dev toolbar's `bracket.` button does, in its own module (the palette lends it its arm/disarm,
+ * the Keypad Grace page's `-` does (the dev toolbar's `bracket.` did, until removed 2026-09-26), in its own module (the palette lends it its arm/disarm,
  * {@link SpanToolHost}), as `./graceTool` is the grace buttons'.
  *
  * ⭐ In SELECTION mode with NOTES selected, a press arms nothing: each note BECOMES a bracketed grace before

@@ -88,7 +88,7 @@ export function pressKeypadCell(cell: KeypadCell): void {
       break
     case 'grace':
       // ⭐ The Grace page's `/`, `*`, `-`, `1`, `2`, `3`, `Enter`, `0` and `.` — PRESS the value; `interactions/controllers/keypadGraceWiring`
-      //    routes it to the SAME functions the dev toolbar's grace buttons call (arm the stamp, or act on the
+      //    routes it to the SAME functions the dev toolbar's grace buttons called (removed 2026-09-26) (arm the stamp, or act on the
       //    selection), and lights the keys back from their own lit rules.
       if (cell.grace) bus.grace.press(cell.grace)
       break
