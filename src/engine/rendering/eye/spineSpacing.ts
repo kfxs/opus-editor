@@ -51,6 +51,10 @@ export interface SpineBar {
   end: number
   /** `s` of the column at `beat` — a notehead's CENTRE, which is what a block is placed by. */
   columnAt(beat: Fraction): number
+  /** Where the bar's music begins — its first column's anchor (the page's `noteStartX`). */
+  musicStart: number
+  /** The bar's COLUMNS as the page measures them — the ink the outside-staff lines clear (`./spineMarks`). */
+  columns: readonly Column[]
 }
 
 interface AskedBar {
@@ -130,7 +134,10 @@ export function spaceBarsOnSpine(
     // Lay the bars out in the INNER arc's own distances, from 0 — then every `s` goes back out.
     const inner = spaceBarsOnSpine(score, 0, (to - from) * innerRatio, justify)
     const out = (s: number): number => from + s / innerRatio
-    return inner.map(bar => ({ start: out(bar.start), end: out(bar.end), columnAt: beat => out(bar.columnAt(beat)) }))
+    return inner.map(bar => ({
+      start: out(bar.start), end: out(bar.end), columnAt: beat => out(bar.columnAt(beat)),
+      musicStart: out(bar.musicStart), columns: bar.columns,
+    }))
   }
   const asked = score.measures.map((measure, index) => ask(score, measure, index))
   const leadIns = asked.reduce((total, bar) => total + bar.leadIn, 0)
@@ -152,6 +159,8 @@ export function spaceBarsOnSpine(
         const index = bar.columns.findIndex(column => fracCompare(column.beat, beat) === 0)
         return first + (index >= 0 ? xs[index] : 0) + headHalf
       },
+      musicStart: first,
+      columns: bar.columns,
     }
     start = end
     return room

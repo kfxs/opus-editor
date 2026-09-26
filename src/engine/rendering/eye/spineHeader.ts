@@ -125,3 +125,15 @@ export function drawSpineBarHeader(ctx: DrawContext, spine: Spine, s: number, he
   }
   return at
 }
+
+/**
+ * Where along the spine the header's METER begins, when it draws one — the edge a downbeat tempo mark
+ * aligns with (Gould p. 183, `marks/tempo/TempoLayout.anchorX` rule 1). Undefined without a meter.
+ */
+export function spineHeaderMeterAt(s: number, header: SpineHeader): number | undefined {
+  if (!header.meter) return undefined
+  let at = s
+  const parts = spineHeaderParts(header)
+  parts.forEach((part, i) => { if (i < parts.length - 1) at += part.gap + part.width })
+  return at + parts[parts.length - 1].gap
+}

@@ -23,7 +23,8 @@
  *   WHERE a column stands is the page's spacing asked for one justified line (`./spineSpacing`).
  * - ⭐ TIES and SLURS (port map #13, `./spineCurves`): re-solved in the path's plane with the page's rules,
  *   their ink bent through `pointAt` (`engrave/curves/curveOnPath`) — the auto arch, no obstacles yet.
- * - ⛔ No dynamics or hairpins — the port map is `docs/plans/bent-staff-plan.md` §5.
+ * - ⭐ DYNAMICS, expression words and TEMPO marks (port map #16, `./spineMarks`): the page's lines, asked
+ *   with the spine's columns; each mark a rigid block on its lane. ⛔ No hairpins yet (#15).
  */
 import type { DrawContext } from '@/engine/paint/DrawContext'
 import type { Spine } from '@/engine/engrave/staff/staffSpine'
@@ -45,7 +46,8 @@ import { boundaryWinged } from '../staff/BarlineRenderer'
 import { buildBeams } from '../beams/beamGroups'
 import type { EngravedNote } from '../engraved/EngravedNote'
 import { deepestInkPx, spaceBarsOnSpine } from './spineSpacing'
-import { drawSpineBarHeader, spineBarHeader } from './spineHeader'
+import { drawSpineBarHeader, spineBarHeader, spineHeaderMeterAt } from './spineHeader'
+import { drawSpineMarks, type SpineMarkBar } from './spineMarks'
 import { drawGroupBlock, drawNoteBlock, drawSpineBarline, drawSpineStaffLines, type GroupBlockInk, type SpineNotePlace } from './spineStaff'
 import { drawSpineCurves, type SpinePitchPlace } from './spineCurves'
 
@@ -102,12 +104,14 @@ export function drawScoreOnSpine(ctx: DrawContext, score: Score, spine: Spine): 
       slot.notes.forEach((pitch, headIndex) => pitches.set(pitch.id, { place, headIndex, measureNumber }))
     })
   }
+  const markBars: SpineMarkBar[] = []
   score.measures.forEach((measure, i) => {
     const bar = bars[i]
     // The clef, key signature and meter this bar draws — the staff's head, or a CHANGE (`./spineHeader`).
     const header = spineBarHeader(score, staffClefs, staffKeys, i)
     const headerEnd = header ? drawSpineBarHeader(ctx, spine, bar.start, header) : bar.start
     const lane = staffMeasureView(measure, staffId, score)
+    markBars.push({ view: lane, tempos: measure.tempos ?? [], bar, meterAt: header && spineHeaderMeterAt(bar.start, header) })
     const clef = clefs.get(measure.number) ?? 'treble'
     const voices = [...new Set(lane.slots.map(voiceOf))].sort()
     for (const voice of voices) {
@@ -165,6 +169,8 @@ export function drawScoreOnSpine(ctx: DrawContext, score: Score, spine: Spine): 
   })
   // ⭐ The curves last, over every placed note — as the page draws its ties and slurs after the bars.
   drawSpineCurves(ctx, spine, score, pitches)
+  // ⭐ And the marks on their lanes — dynamics, expression words, tempo (`./spineMarks`, port map #16).
+  drawSpineMarks(ctx, spine, score, markBars)
 }
 
 /**

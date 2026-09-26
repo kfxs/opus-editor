@@ -23,7 +23,7 @@
 import type { EngravedNote } from '../../engraved/EngravedNote'
 import type { EngravedStave } from '../../engraved/EngravedStave'
 import type { DrawContext } from '@/engine/paint/DrawContext'
-import { drawGlyph, drawTextRun } from '../../painter/glyphPainter'
+import { drawGlyph, drawTextRun, measureGlyph, measureTextRun, type TextRunFont } from '../../painter/glyphPainter'
 import type { ChordRest, Fraction, Measure, NoteDuration, TempoMark } from '@/types/music'
 import { fracCompare, fracToNumber } from '@/utils/fraction'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
@@ -138,6 +138,22 @@ export function drawTempoText(ctx: DrawContext, text: string, x: number, y: numb
       ? drawGlyph(ctx, 'TempoLayout.glyph', run.glyph, x, y - tempoSymbolRaisePx(), tempoGlyphSizePt())
       : drawTextRun(ctx, 'TempoLayout.text', keepSpaces(run.text!), x, y, tempoTextFont())
   }
+}
+
+/** One run of a tempo mark as {@link drawTempoText} draws it — a GLYPH (its face, size and the raise
+ *  that stands the note on the words' baseline) or WORDS (their face) — and how far it advances. */
+export type TempoTextRun =
+  | { glyph: string; tag: string; sizePt: number; raise: number; advance: number }
+  | { text: string; tag: string; font: TextRunFont; advance: number; glyph?: undefined }
+
+/**
+ * {@link drawTempoText}'s runs, measured and not drawn — for a caller that places them itself (the bent
+ * staff, `eye/spineMarks`). ⚠️ Advances are 0 in jsdom, like every glyph measurement.
+ */
+export function tempoTextRuns(text: string): TempoTextRun[] {
+  return splitRuns(text).map(run => run.glyph
+    ? { glyph: run.glyph, tag: 'TempoLayout.glyph', sizePt: tempoGlyphSizePt(), raise: tempoSymbolRaisePx(), advance: measureGlyph('TempoLayout.glyph', run.glyph, tempoGlyphSizePt()) }
+    : { text: keepSpaces(run.text!), tag: 'TempoLayout.text', font: tempoTextFont(), advance: measureTextRun('TempoLayout.text', keepSpaces(run.text!), tempoTextFont()).width })
 }
 
 /**

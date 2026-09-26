@@ -247,9 +247,31 @@ export function measureGlyphMetrics(tag: string, glyph: string, sizePt: number):
  * laid over it (`Element.setFont(object)`), then measured. For the text annotation (S12g), which sets
  * its whole face rather than a size. ⚠️ All 0 in jsdom.
  */
-export function measureTextMetrics(tag: string, text: string, font: TextRunFont | { family: string; size: number | string; weight?: string; style?: string }): GlyphMetrics {
+export function measureTextMetrics(tag: string, text: string, font: { family: string; size: number | string; weight?: string; style?: string }): GlyphMetrics {
   try {
     const m = new GlyphRun(tag, text).setFontObject(font).metrics()
+    return {
+      width: m.width || 0,
+      ascent: m.actualBoundingBoxAscent || 0,
+      descent: m.actualBoundingBoxDescent || 0,
+      left: m.actualBoundingBoxLeft || 0,
+      right: m.actualBoundingBoxRight || 0,
+    }
+  } catch {
+    return { width: 0, ascent: 0, descent: 0, left: 0, right: 0 }
+  }
+}
+
+/**
+ * ⭐ **WHAT A RUN OF TEXT WOULD MEASURE, drawn by {@link drawTextRun}** — the SAME font resolution
+ * (`setFontFields`), so a caller laying runs out before it draws them cannot drift from what it paints.
+ * 🚨 Not {@link measureTextMetrics}: that lays an object over the tag's face and reads `size`, so a
+ * `TextRunFont`'s `sizePt` was silently dropped there and the tag's default size measured (seen
+ * 2026-09-26 — letters laid out far apart on the bent staff). ⚠️ All 0 in jsdom.
+ */
+export function measureTextRun(tag: string, text: string, font: TextRunFont): GlyphMetrics {
+  try {
+    const m = new GlyphRun(tag, text).setFontFields(font.family, font.sizePt, font.weight ?? 'normal', font.style ?? 'normal').metrics()
     return {
       width: m.width || 0,
       ascent: m.actualBoundingBoxAscent || 0,
