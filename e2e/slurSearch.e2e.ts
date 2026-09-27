@@ -393,6 +393,45 @@ test('⭐ P8 row G — `ties: on` keeps the slur clear of a tie under it', async
   expect(out.on!).toBeGreaterThanOrEqual(out.off!)
 })
 
+/**
+ * ⭐ P8 row G — a slur NESTED under another: C5 … G5 over a small D5 → E5 slur (the P4 gallery's case, where the
+ * outer came down onto the inner). `nested: 'on'` (LilyPond) must keep the outer clear of the inner's ink.
+ */
+test('⭐ P8 row G — `nested: on` keeps the outer slur clear of the one inside it', async ({ score }) => {
+  const out = await score.evaluate(async () => {
+    const h = window.__h
+    await h.fontReady()
+    h.slurSolver('lilypond')
+    const e = h.engine
+    e.addMeasure()
+    const n = (step: string, octave: number, m: number, b: number) =>
+      e.addNoteAtBeat({ step: step as never, octave, duration: 'q', measure: m, beat: h.frac(b, 1) })!.id
+    const ids = [n('C', 5, 1, 0), n('D', 5, 1, 1), n('E', 5, 1, 2), n('F', 5, 1, 3), n('G', 5, 2, 0)]
+    // ⚠️ The OUTER first in the score, so drawing innermost-first is the renderer's doing, not the order given.
+    e.getScore().slurs = [
+      { id: 'outer', startNoteId: ids[0], endNoteId: ids[4], voice: 0 },
+      { id: 'inner', startNoteId: ids[1], endNoteId: ids[2], voice: 0 },
+    ]
+    const gap = async (nested: string) => {
+      h.slurRule('nested', nested)
+      await h.render()
+      const inner = h.curveSamples('#slur-inner path', 60)
+      const outer = h.curveSamples('#slur-outer path', 200)
+      const sp = (h.staves()[0].bottom - h.staves()[0].top) / 4
+      let min = Infinity
+      for (const t of inner) {
+        const o = outer.reduce((best, q) => (Math.abs(q.x - t.x) < Math.abs(best.x - t.x) ? q : best))
+        min = Math.min(min, (t.y - o.y) / sp)
+      }
+      return +min.toFixed(2)
+    }
+    return { off: await gap('off'), on: await gap('on') }
+  })
+  console.log('[row G nested]', JSON.stringify(out))
+  expect(out.on).toBeGreaterThan(0.3)
+  expect(out.on).toBeGreaterThan(out.off)
+})
+
 test('⭐ the search is DETERMINISTIC — a saved and reloaded score draws the same slur, to the byte', async ({ score }) => {
   const out = await score.evaluate(async () => {
     const h = window.__h

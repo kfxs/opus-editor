@@ -191,3 +191,20 @@ describe('⭐ row G — ties under the slur (`ties`)', () => {
     expect(s.avoid).toContainEqual({ x: 2, y: 1.1 })
   })
 })
+
+describe('⭐ row G — slurs nested under this one (`nested`)', () => {
+  // A small slur over E5 → A4, arching to about 2.9.
+  const inner = { curve: [{ x: 3.9, y: 2.5 }, { x: 4.5, y: 3.1 }, { x: 7, y: 2.5 }, { x: 7.6, y: 1.5 }] as const, sharesLeft: false, sharesRight: false }
+
+  it('`off` (the default): a nested slur handed over is not read', () => {
+    const s = buildSearchState({ ...hisSlur(false), nested: [inner] }, D)
+    expect(s.avoid).toHaveLength(3)
+  })
+
+  it('⭐ `on` (LilyPond): its middle, 0.8 sp further out, is an avoid-point; its curve is scored', () => {
+    const s = buildSearchState({ ...hisSlur(false), nested: [inner] }, D, { ...LILYPOND_SLUR_RULES, nested: 'on' })
+    expect(s.avoid).toHaveLength(4)
+    // Only its MIDDLE is checked — it shares neither end.
+    expect(s.extraInfos).toHaveLength(1)
+  })
+})

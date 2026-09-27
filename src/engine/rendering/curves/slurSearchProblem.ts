@@ -28,7 +28,7 @@ import { noteInkBox } from '../engraved/noteInkBox'
 import { noteRuler } from '../engraved/noteRuler'
 import { noteFrame } from '../staff/staveFrame'
 import { STEM_THICKNESS_SPACES } from '@/engine/engrave/inheritedDefaults'
-import { EMPTY, type Interval, type Offset } from '@/engine/engrave/curves/slurSearch/bezier'
+import { EMPTY, type Bezier, type Interval, type Offset } from '@/engine/engrave/curves/slurSearch/bezier'
 import type { SearchColumn, SearchObject, SearchStem, SlurSearchInput } from '@/engine/engrave/curves/slurSearch/searchState'
 
 type Point = { x: number; y: number }
@@ -168,6 +168,30 @@ function tiesUnder(
   return ties.length ? { ties } : {}
 }
 
+/**
+ * Row G — the slurs NESTED under this one: a drawn slur lying wholly within this slur's span (LilyPond's slur
+ * engraver hands an outer slur the slurs that start and end while it runs). Its cubic in LilyPond's space.
+ */
+function slursUnder(
+  drawnSlurs: readonly { cubic: readonly [Point, Point, Point, Point]; sharesLeft: boolean; sharesRight: boolean }[],
+  notes: readonly EngravedNote[], frame: SearchFrame, brokenPx: readonly [number | undefined, number | undefined],
+): { nested?: NonNullable<SlurSearchInput['nested']> } {
+  if (!drawnSlurs.length || !notes.length) return {}
+  // A hair of slack: an inner slur sharing an end note starts where this one does.
+  const slack = frame.spacePx
+  const from = (brokenPx[0] ?? noteRuler(notes[0]).headLeftX) - slack
+  const to = (brokenPx[1] ?? noteRuler(notes[notes.length - 1]).headRightX) + slack
+  const nested = drawnSlurs.flatMap(s => {
+    const xs = [s.cubic[0].x, s.cubic[3].x]
+    if (Math.min(...xs) < from || Math.max(...xs) > to) return []
+    return [{
+      curve: s.cubic.map(p => toSearch(frame, p)) as unknown as Bezier,
+      sharesLeft: s.sharesLeft, sharesRight: s.sharesRight,
+    }]
+  })
+  return nested.length ? { nested } : {}
+}
+
 /** A note's accidentals, dots and articulations, as the search's objects. */
 function objectsOn(note: EngravedNote, frame: SearchFrame): SearchObject[] {
   const out: SearchObject[] = []
@@ -203,6 +227,8 @@ export function slurSearchProblem(
   openRisePx: readonly [number | undefined, number | undefined] = [undefined, undefined],
   /** Row G: the ties DRAWN on this slur's staff and system (`RenderPass.drawnCurves`, kind `'tie'`). */
   drawnTies: readonly { points: readonly Point[] }[] = [],
+  /** Row G: the slurs already DRAWN on this staff and system, with whether each shares this slur's end notes. */
+  drawnSlurs: readonly { cubic: readonly [Point, Point, Point, Point]; sharesLeft: boolean; sharesRight: boolean }[] = [],
 ): SlurSearchProblem | null {
   // Each end on a note needs its note; a piece with no column at all (a system the slur only passes over,
   // holding none of its lane's notes) has nothing to state.
@@ -243,6 +269,7 @@ export function slurSearchProblem(
       endHeadY: [(first[0] + first[1]) / 2, (last[0] + last[1]) / 2],
       ...(broken ? { brokenX: [edge(brokenPx[0]), edge(brokenPx[1])] as const } : {}),
       ...tiesUnder(drawnTies, notes, frame, brokenPx),
+      ...slursUnder(drawnSlurs, notes, frame, brokenPx),
       ...(openRisePx.some(r => r !== undefined)
         ? { openRise: openRisePx.map(r => (r === undefined ? undefined : r / frame.spacePx)) as [number | undefined, number | undefined] }
         : {}),

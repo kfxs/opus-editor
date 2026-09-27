@@ -68,6 +68,10 @@ export interface DrawnCurve {
   /** Which family drew it — a slur asks for the TIES under it (`rendering/curves/slurSearchProblem`, P8 row G).
    *  Absent reads as unknown, and is never taken for either. */
   kind?: 'tie' | 'slur'
+  /** A slur's own cubic (its ends and control points) and its two notes — so a slur drawn OVER it can take it
+   *  as a nested slur (P8 row G). Absent on a tie. */
+  cubic?: readonly [{ x: number; y: number }, { x: number; y: number }, { x: number; y: number }, { x: number; y: number }]
+  noteIds?: readonly [string, string]
 }
 
 /** Which curves to ask about, and over what stretch of drawn x. */

@@ -262,6 +262,12 @@ rule).
     search the ties on the slur's staff and system whose RIGHT end falls within the slur (LilyPond
     END-acknowledges ties); under `'on'` each is an `inside` object (the arch clears it, 50 within 0.3 sp) and its
     ends are forbidden attachments. Chromium, a slur over a tie: closest approach 0.11 → **0.46** sp.
+  - ✅ **Row G, NESTED SLURS, BUILT 2026-09-27** — `SlurSearchRules.nested: 'off' | 'on'`,
+    `__slur.rule('nested', 'on')`. A drawn slur files its CUBIC and its two notes on `drawnCurves`; under
+    `'on'` the renderer draws slurs innermost first (by `slurNestDepths`; ⛔ `'off'` keeps the score's order),
+    and the adapter hands each slur the drawn slurs lying inside its span, with whether they share its end
+    notes → LilyPond's `nestedSlurs` (the middle + 0.8 sp raises the arch; the curve is scored). Chromium, C5 …
+    G5 over D5 → E5: closest approach 0.29 → **0.65** sp.
 
 ## 5. What this does NOT change
 

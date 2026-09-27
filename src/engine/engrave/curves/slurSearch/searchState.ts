@@ -104,6 +104,9 @@ export interface SlurSearchInput {
   /** Row G: the ties that END while the slur runs — each as its drawn extent and its two ends. Read only
    *  under `ties: 'on'` (LilyPond's behaviour). */
   ties?: readonly { x: Interval; y: Interval; ends: readonly [Offset, Offset] }[]
+  /** Row G: the slurs drawn under this one (the renderer's), read only under `nested: 'on'` — merged into
+   *  {@link nestedSlurs}. */
+  nested?: readonly SearchNestedSlur[]
   /** The staff: its middle line's y, and its lines' positions in half-spaces from it (5 lines: −4…4). */
   staff: { middleY: number; linePositions: readonly number[] }
   /** The two end notes' heads' y (`slur_head_->relative_coordinate`) — the music's own rise. ⚠️ Ignored for
@@ -439,6 +442,8 @@ export function buildSearchState(
       tieEnds: [...input.tieEnds, ...ties.flatMap(t => t.ends)],
     }
   }
+  // Row G — slurs nested under this one: their middle raises the arch, their curve is scored.
+  if (rules.nested === 'on' && input.nested?.length) input = { ...input, nestedSlurs: [...input.nestedSlurs, ...input.nested] }
   const extraInfos = extraEncompassInfos(input, details, thickness, rules)
 
   // An `inside` object near an end widens that end's range past it.

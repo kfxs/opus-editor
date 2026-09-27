@@ -16,7 +16,7 @@ import type { RenderPass } from '../RenderPass'
 import { drawGroupOf, svgNode } from '../painter/svgDrawGroup'
 import { staffIndexOfId } from '@/engine/models/staffContent'
 import { inStaffSpace } from '../staff/staffScaleGroup'
-import { curveArcPoints } from '@/engine/engrave/curves/curveInk'
+import { curveArcPoints, curveControlPoints } from '@/engine/engrave/curves/curveInk'
 import { drawCurveArc } from './curveArc'
 import { CURVE_PX } from './curveStyle'
 import { articulationEdge, endpointLiftOverMark } from './slurArticulationEndpoint'
@@ -28,6 +28,7 @@ import { encompassCeiling } from './slurEncompass'
 import { tiltWithThePitches } from './slurMelodicTilt'
 import { slurArchCps } from './slurHouseSolver'
 import { solveSlur, solveSlurPiece } from './slurSolvers'
+import { slurRules } from './slurRules'
 import { slurSearchProblem } from './slurSearchProblem'
 import { limitSlurSlant } from './slurSlantLimit'
 import type { SlurObstacle } from './slurObstacles'
@@ -468,7 +469,13 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
   // Nesting level per slur → extra bow height so concentric slurs don't collide.
   const nestDepths = slurNestDepths(score)
 
-  for (const slur of score.slurs) {
+  // ⭐ Row G `nested: 'on'` — an inner slur must be DRAWN before the slur over it, so the outer one can take its
+  //   curve (LilyPond's `encompass-objects`). Innermost first, by nesting depth; ⛔ under `'off'` the order is
+  //   the score's, as it always was.
+  const slurs = slurRules().nested === 'on'
+    ? [...score.slurs].sort((a, b) => (nestDepths.get(a.id) ?? 0) - (nestDepths.get(b.id) ?? 0))
+    : score.slurs
+  for (const slur of slurs) {
     const fromEnd = resolveSlurEnd(pass, slur.startNoteId)
     const toEnd = resolveSlurEnd(pass, slur.endNoteId)
     if (!fromEnd || !toEnd) continue
@@ -598,8 +605,27 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
         /** Row G: the ties this render drew on this slur's staff and system (they are drawn before the slurs). */
         const tiesOn = (line: number) =>
           pass.drawnCurves.filter(c => c.kind === 'tie' && c.staff === slurStaffIndex && c.line === line)
-        const fileCurve = (points: { x: number; y: number }[], line: number) =>
-          pass.drawnCurves.push({ staff: slurStaffIndex, line, points, kind: 'slur' })
+        const fileCurve = (
+          p0: { x: number; y: number }, p1: { x: number; y: number },
+          cps: [{ x: number; y: number }, { x: number; y: number }], line: number,
+        ) => {
+          const { c0, c1 } = curveControlPoints({ p0, p1, cps, direction })
+          pass.drawnCurves.push({
+            staff: slurStaffIndex, line, points: autoArc(p0, p1, cps, direction), kind: 'slur',
+            cubic: [{ ...p0 }, c0, c1, { ...p1 }], noteIds: [slur.startNoteId, slur.endNoteId],
+          })
+        }
+        /** Row G: the slurs this render already drew on this staff and system — the candidates to be NESTED under
+         *  this one (the adapter keeps those inside its span) — and whether each shares this slur's end notes. */
+        const slursOn = (line: number) => pass.drawnCurves.flatMap(c => {
+          if (c.kind !== 'slur' || !c.cubic || !c.noteIds || c.staff !== slurStaffIndex || c.line !== line) return []
+          const noteOf = (id: string) => pass.staveNoteMap.get(id)?.staveNote
+          return [{
+            cubic: c.cubic,
+            sharesLeft: noteOf(c.noteIds[0]) === fromEnd.staveNote,
+            sharesRight: noteOf(c.noteIds[1]) === toEnd.staveNote,
+          }]
+        })
         /** The drawn cubic, sampled at the ends the engraver chose. See {@link fileCurve}. */
         const autoArc = (
           p0: { x: number; y: number },
@@ -698,7 +724,7 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
                 pass.fanMemberAnchorMap.has(slur.startNoteId) || pass.fanMemberAnchorMap.has(slur.endNoteId)
                   ? null
                   : slurSearchProblem([fromNote, ...interiorNotes, toNote], direction, undefined, undefined,
-                    tiesOn(fromLine)),
+                    tiesOn(fromLine), slursOn(fromLine)),
             })
             p0.x += solved.p0.x - autoP0.x; p0.y += solved.p0.y - autoP0.y
             p1.x += solved.p1.x - autoP1.x; p1.y += solved.p1.y - autoP1.y
@@ -715,7 +741,7 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
           p1.x += wholeTo.x; p1.y += wholeTo.y
           // ⭐ Filed from `autoP0`/`autoP1` — the ends before BOTH hand moves, which this branch
           // already had in hand for the arch solve.
-          fileCurve(autoArc(autoP0, autoP1, cps, direction), fromLine)
+          fileCurve(autoP0, autoP1, cps, fromLine)
           const arc = drawCurveArc(pass, p0, p1, cps, direction, CURVE_PX.thickness)
           // Store the on-screen control points + endpoint geometry so a selected slur can
           // show draggable handles (Phase 7), plus the stave's staff-space size so a handle
@@ -836,7 +862,9 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
             if (override) return resolveCps(override, frame, p0, p1, direction, nestLift)
             const solved = solveSlurPiece({
               p0: { ...p0 }, p1: { ...p1 }, direction, nestLift, hands, obstacles: () => [],
-              searchProblem: () => (notes ? slurSearchProblem(notes, direction, brokenPx, openRisePx, tiesOn(line)) : null),
+              searchProblem: () => (notes
+                ? slurSearchProblem(notes, direction, brokenPx, openRisePx, tiesOn(line), slursOn(line))
+                : null),
             })
             p0.x = solved.p0.x; p0.y = solved.p0.y
             p1.x = solved.p1.x; p1.y = solved.p1.y
@@ -863,7 +891,7 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
               // ⭐ Filed before the translation: this fragment carries the START end's own nudge,
               // and the whole-curve offset is still to come. Its open right end keeps `o` — that
               // one re-arched (see {@link fileCurve}).
-              fileCurve(autoArc({ x: p0.x - off.startX, y: p0.y - off.startY }, p1, cps, direction), fromLine)
+              fileCurve({ x: p0.x - off.startX, y: p0.y - off.startY }, p1, cps, fromLine)
               // ⭐ The whole-curve offset, after this fragment's own resolve — the same-line branch's
               // rule (see `slurOffsetPx`), and it matters MORE here: this fragment's open end is
               // margin-bound and its rise is measured off `startY`, so translating before the solve
@@ -894,7 +922,7 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
               const cps = solvePiece(segShape.end, frame, p0, p1, [o, { x: off.endX, y: off.endY }],
                 fannedEnd ? null : [...interiorOn(toLine), toNote], [seg.leftX, undefined], [rise, undefined], toLine)
               // ⭐ The mirror of BEGIN: the true END's nudge comes off, the open left end's stays.
-              fileCurve(autoArc(p0, { x: p1.x - off.endX, y: p1.y - off.endY }, cps, direction), toLine)
+              fileCurve(p0, { x: p1.x - off.endX, y: p1.y - off.endY }, cps, toLine)
               p0.x += wholeTo.x; p0.y += wholeTo.y
               p1.x += wholeTo.x; p1.y += wholeTo.y
               registerSeg(
@@ -924,7 +952,7 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
                 interiorOn(seg.line), [seg.leftX, seg.rightX], undefined, seg.line)
               // ⭐ A MIDDLE has no true end at all, so only the whole-curve offset below is the
               // hand's — and it is filed before that lands.
-              fileCurve(autoArc(p0, p1, cps, direction), seg.line)
+              fileCurve(p0, p1, cps, seg.line)
               // ⚠️ A MIDDLE is anchored to nothing but its system's margins, and it takes the offset
               // all the same: the user moved the CURVE, and a fragment of it left behind would break
               // the line the eye follows across the break.

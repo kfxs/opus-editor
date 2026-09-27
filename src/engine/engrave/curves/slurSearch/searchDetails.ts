@@ -176,6 +176,14 @@ export interface SlurSearchRules {
    * within `slur-tie-extrema-min-distance` 0.2 sp costs 2). `'off'` — what the search drew before: no ties.
    */
   ties: 'off' | 'on'
+  /**
+   * **Row G — slurs nested under this one** (P7's second item). ⭐ `'on'` is LilyPond: an inner slur is one of the
+   * outer's `encompass-objects` — its middle, `free-slur-distance` 0.8 sp further out, raises the arch
+   * (`generate_avoid_offsets`), and its curve is scored (at its ends only where it shares the outer's note,
+   * `get_extra_encompass_infos`). ⚠️ The inner slur must be DRAWN first: the renderer draws innermost first
+   * under `'on'`. `'off'` — what the search drew before: nested slurs may touch.
+   */
+  nested: 'off' | 'on'
 }
 
 export const LILYPOND_SLUR_RULES: SlurSearchRules = {
@@ -185,6 +193,7 @@ export const LILYPOND_SLUR_RULES: SlurSearchRules = {
   openEnd: 'lilypond',
   accidental: 'lilypond',
   ties: 'off',
+  nested: 'off',
 }
 
 /** Each row's choices, for the console and a spec — ⚠️ a new row adds its line here. */
@@ -195,4 +204,5 @@ export const SLUR_RULE_CHOICES: { readonly [K in keyof SlurSearchRules]: readonl
   openEnd: ['lilypond', 'house'],
   accidental: ['lilypond', 'clear'],
   ties: ['off', 'on'],
+  nested: ['off', 'on'],
 }
