@@ -11225,9 +11225,13 @@
       "384d6c81-ebcf-49a7-aef3-758f3b62cdbe": [
         {
           "kind": "hairpinEndpointOffset",
+          "start": {
+            "x": 0,
+            "y": -0.5
+          },
           "end": {
             "x": -7,
-            "y": 0
+            "y": -0.5
           }
         }
       ],
@@ -11829,6 +11833,19 @@
         {
           "kind": "staffSpacing",
           "above": 2.194940185546875
+        }
+      ],
+      "d27e070e-118d-4f87-9459-ded25fbfb88c": [
+        {
+          "kind": "hairpinEndpointOffset",
+          "start": {
+            "x": 0,
+            "y": -0.5
+          },
+          "end": {
+            "x": 0,
+            "y": -0.5
+          }
         }
       ]
     },
