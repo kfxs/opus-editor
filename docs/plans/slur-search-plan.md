@@ -237,6 +237,10 @@ rule).
     `houseStemClearance` (0.35, a detail row) past the head's edge only when it is alongside a stem on the
     slur's INNER side (an up stem at the start, a down stem at the end) — no stem-centre regime, no short/steep
     fallback, no tilt shift, so an end cannot jump with spacing. Default `'lilypond'`.
+  - ✅ **Row C BUILT 2026-09-27** — `SlurSearchRules.tilt: 'lilypond' | 'house'`, `__slur.rule('tilt', 'house')`.
+    `'house'` (Gould p. 111): over OPPOSITE end stems, `score_slopes`' allowance is half the music's rise + 0.2
+    instead of the whole — the same 50-a-space demerit pulls the slur down; agreeing stems keep LilyPond's.
+    Chromium: rising step 0.65 → **0.15** sp (house 0.25), rising tenth 4.35 → **2.35** (house 2.25).
 
 ## 5. What this does NOT change
 

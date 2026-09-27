@@ -261,6 +261,42 @@ test('⭐ P8 row B — `endX: house` keeps the end over its head\'s centre', asy
   expect(out.lily - out.headCentre).toBeGreaterThan(0.1 * out.sp)
 })
 
+/**
+ * ⭐ P8 row C — how much the slur tilts with the melody: `e2e/slur.e2e.ts`'s tilt cases (opposite stems, one
+ * note per bar) under `lilypond`, with `tilt` LilyPond's (the whole rise + 0.2) vs `house` (Gould p. 111: half).
+ */
+test('⭐ P8 row C — `tilt: house` holds a rise over opposite stems to about half the interval', async ({ score }) => {
+  const out = await score.evaluate(async () => {
+    const h = window.__h
+    await h.fontReady()
+    h.slurSolver('lilypond')
+    const e = h.engine
+    const rise = async (a: [string, number], b: [string, number], tilt: string) => {
+      e.loadJSON(JSON.stringify({ id: 's', title: '', measures: [{ id: 'm1', number: 1, slots: [], timeSignature: { numerator: 4, denominator: 4 }, tuplets: [], timeSignatureChange: true }] }))
+      e.addMeasure()
+      const x = e.addNoteAtBeat({ step: a[0] as never, octave: a[1], duration: 'q', measure: 1, beat: h.frac(0, 1) })!
+      const y = e.addNoteAtBeat({ step: b[0] as never, octave: b[1], duration: 'q', measure: 2, beat: h.frac(0, 1) })!
+      e.slur.createSlur([x.id, y.id])
+      h.slurRule('tilt', tilt)
+      await h.render()
+      const d = document.querySelector('g.slur path[fill="none"]')?.getAttribute('d') ?? ''
+      const p = [...d.matchAll(/(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)/g)].map(m => ({ x: +m[1], y: +m[2] }))
+      const sp = (h.staves()[0].bottom - h.staves()[0].top) / 4
+      return +((p[0].y - p[3].y) / sp).toFixed(2)
+    }
+    return {
+      step: { lilypond: await rise(['A', 4], ['B', 4], 'lilypond'), house: await rise(['A', 4], ['B', 4], 'house') },
+      tenth: { lilypond: await rise(['C', 4], ['E', 5], 'lilypond'), house: await rise(['C', 4], ['E', 5], 'house') },
+    }
+  })
+  console.log('[row C]', JSON.stringify(out))
+  // The tenth is 4.5 sp: `house` at most half + LilyPond's own 0.2 slack; LilyPond's own rule rises further.
+  expect(out.tenth.house).toBeLessThanOrEqual(2.25 + 0.2 + 0.05)
+  expect(out.tenth.lilypond).toBeGreaterThan(out.tenth.house)
+  // Both still rise WITH the melody.
+  expect(out.step.house).toBeGreaterThan(0)
+})
+
 test('⭐ the search is DETERMINISTIC — a saved and reloaded score draws the same slur, to the byte', async ({ score }) => {
   const out = await score.evaluate(async () => {
     const h = window.__h

@@ -86,3 +86,27 @@ describe('⭐ row A — an unbeamed end on the STEM side (P8; his D → G, both 
     expect(searchSlur(dToG(), D, { ...LILYPOND_SLUR_RULES, stemSideEnd: 'stem' })!.index).toBe(brute.index)
   })
 })
+
+describe('⭐ row C — how much the slur tilts with the melody (P8)', () => {
+  // A4 (stem up) → B4 (stem down): OPPOSITE stems, the slur above — Gould p. 111's own case; and C4 → E5.
+  const pair = (from: [number, 1 | -1], to: [number, 1 | -1]): SlurSearchInput => ({
+    ...hisSlur(false), columns: [column(0, from[0], from[1]), column(4, to[0], to[1])],
+    endHeadY: [from[0] / 2, to[0] / 2],
+  })
+  const rise = (input: SlurSearchInput, tilt: 'lilypond' | 'house') => {
+    const r = searchSlur(input, D, { ...LILYPOND_SLUR_RULES, tilt })!
+    return r.curve[3].y - r.curve[0].y
+  }
+
+  it('⭐ `house`: over opposite stems the rise is held to about HALF the interval — `lilypond` lets it follow', () => {
+    // C4 (−6) → E5 (3): 4.5 sp apart.
+    const tenth = pair([-6, 1], [3, -1])
+    expect(rise(tenth, 'house')).toBeLessThanOrEqual(4.5 / 2 + 0.2 + 1e-9)
+    expect(rise(tenth, 'lilypond')).toBeGreaterThan(rise(tenth, 'house'))
+  })
+
+  it('stems that AGREE keep LilyPond\'s allowance — Gould\'s rule is for opposite stems only', () => {
+    const agree = pair([-4, 1], [-1, 1])
+    expect(rise(agree, 'house')).toBe(rise(agree, 'lilypond'))
+  })
+})

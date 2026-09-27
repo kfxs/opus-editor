@@ -141,15 +141,26 @@ export interface SlurSearchRules {
    *   slur's INNER side — an up stem at the start, a down stem at the end.
    */
   endX: 'lilypond' | 'house'
+  /**
+   * **Row C — how much the slur tilts with the melody.**
+   * - `'lilypond'` — the slur may rise as much as the music does, + 0.2 sp (`score_slopes`: past that,
+   *   `steeper-slope-factor` 50 a space).
+   * - `'house'` — Gould p. 111, our `rendering/curves/slurStemEndpoint`: when the two END stems point opposite
+   *   ways, the slur tilts at HALF the melodic interval — the same demerit, measured from half the music's
+   *   rise. ⭐ Stems that agree keep LilyPond's allowance (Gould's rule is for opposite stems only).
+   */
+  tilt: 'lilypond' | 'house'
 }
 
 export const LILYPOND_SLUR_RULES: SlurSearchRules = {
   stemSideEnd: 'head',
   endX: 'lilypond',
+  tilt: 'lilypond',
 }
 
 /** Each row's choices, for the console and a spec — ⚠️ a new row adds its line here. */
 export const SLUR_RULE_CHOICES: { readonly [K in keyof SlurSearchRules]: readonly SlurSearchRules[K][] } = {
   stemSideEnd: ['head', 'stem'],
   endX: ['lilypond', 'house'],
+  tilt: ['lilypond', 'house'],
 }

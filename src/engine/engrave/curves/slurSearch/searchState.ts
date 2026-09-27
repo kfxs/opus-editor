@@ -143,6 +143,8 @@ export interface BoundInfo {
 export interface SlurSearchState {
   dir: number
   details: SlurSearchDetails
+  /** The compromise's rows in force (P8). */
+  rules: SlurSearchRules
   /** [LEFT, RIGHT]. */
   bounds: readonly [BoundInfo, BoundInfo]
   baseAttachments: readonly [Offset, Offset]
@@ -450,7 +452,7 @@ export function buildSearchState(
     return { x: base[i].x, y: moveAwayFromStaffline(at(stemExtent.y, dir) + dir * 0.5, input.staff, dir) }
   }) as [Offset, Offset]
   return {
-    dir, details, bounds, baseAttachments: base, edgeTargets, encompassInfos, extraInfos,
+    dir, details, rules, bounds, baseAttachments: base, edgeTargets, encompassInfos, extraInfos,
     avoid: avoidOffsets(input, details, encompassInfos, bounds),
     tieEnds: input.tieEnds, staff: input.staff,
     musicalDy, isBroken,

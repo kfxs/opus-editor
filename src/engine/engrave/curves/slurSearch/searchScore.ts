@@ -56,8 +56,10 @@ export function scoreSlopes(state: SlurSearchState, c: SlurCandidate): void {
   const slurDy = slurDz.y
   const overMax = Math.max(Math.abs(slurDy / slurDz.x) - details.maxSlope, 0) * details.maxSlopeFactor
   let demerit = overMax
-  // 0.2: account for the staff line offset.
-  let maxDy = Math.abs(dy) + 0.2
+  // 0.2: account for the staff line offset. ⭐ Row C `'house'`: over OPPOSITE end stems, half the music's rise.
+  const [ls, rs] = [state.bounds[LEFT].stem, state.bounds[RIGHT].stem]
+  const opposed = state.rules.tilt === 'house' && !!ls && !!rs && ls.dir !== rs.dir
+  let maxDy = (opposed ? Math.abs(dy) / 2 : Math.abs(dy)) + 0.2
   if (state.edgeHasBeams) maxDy += 1
   if (!state.isBroken) demerit += details.steeperSlopeFactor * Math.max(Math.abs(slurDy) - maxDy, 0)
   // ⚠️ LilyPond adds the max-slope term TWICE (`slur-configuration.cc`); transcribed as written.

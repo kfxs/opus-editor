@@ -2,13 +2,13 @@
 import { describe, it, expect } from 'vitest'
 import { avoidStaffLine, fitFactor, generateCurve, slurHeight, slurIndentHeight } from './searchCurve'
 import { type Bezier, curvePoint, otherCoordinate } from './bezier'
-import { LILYPOND_SLUR_DETAILS } from './searchDetails'
+import { LILYPOND_SLUR_DETAILS, LILYPOND_SLUR_RULES } from './searchDetails'
 import type { SlurSearchState } from './searchState'
 
 const STAFF = { middleY: 0, linePositions: [-4, -2, 0, 2, 4] }
 const HEAD = { x: [0, 1.18] as const, y: [-0.5, 0.5] as const }
 const state = (avoid: SlurSearchState['avoid'] = [], dir = 1): SlurSearchState => ({
-  dir, details: LILYPOND_SLUR_DETAILS, baseAttachments: [] as never, edgeTargets: [] as never,
+  dir, details: LILYPOND_SLUR_DETAILS, rules: LILYPOND_SLUR_RULES, baseAttachments: [] as never, edgeTargets: [] as never,
   // Both ends on a note of this staff — `avoid_staff_line` runs only then.
   bounds: [{ slurHead: HEAD }, { slurHead: HEAD }],
   encompassInfos: [], extraInfos: [], avoid, tieEnds: [], staff: STAFF, musicalDy: 0, isBroken: false, edgeHasBeams: false,
