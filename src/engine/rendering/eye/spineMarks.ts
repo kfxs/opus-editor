@@ -50,11 +50,13 @@ import { anchorSlotIndex } from '../marks/dynamics/DynamicsLayout'
 import { dynamicMarkAnchorShift } from '../marks/dynamics/dynamicMarkAnchor'
 import { planDynamicsLines } from '../marks/dynamics/dynamicsLinePlan'
 import { markInk } from '../marks/dynamics/dynamicsLinePass'
+import { dynamicInkReachSpaces } from '../marks/dynamics/dynamicMarkInk'
 import { dynamicGlyphSizePt, dynamicTextSizePt, expressionTextFamily } from '../marks/dynamics/dynamicStyle'
 import { tempoTextRuns } from '../marks/tempo/TempoLayout'
 import { TEMPO_LINE, tempoMarkInk } from '../marks/tempo/tempoStyle'
 import { drawGroupOf } from '../painter/svgDrawGroup'
 import type { SpineBar } from './spineSpacing'
+import { type SpineMarkInk, drawSpineHairpins } from './spineHairpins'
 import { staffIdsOf } from './spineStaves'
 
 /** The class of a mark's block — what a scene reader (and the spec) finds them by. */
@@ -218,6 +220,7 @@ export function drawSpineMarks(
   // Every staff of the system, so a column's ink is read on the staff it belongs to (`staffInkBand`).
   const staffIds = staffIdsOf(score)
   const occupied: OccupiedSpan[] = []
+  const drawnMarks: SpineMarkInk[] = []
 
   // ── DYNAMICS — the page's plan, the spine being ONE system ──
   const plan = planDynamicsLines(
@@ -254,17 +257,31 @@ export function drawSpineMarks(
         let y = baseline * STAFF_SPACE_PX
         const off = dynamicOffsetOverrideOf(score, dyn.id)
         if (off) { x += off.x * STAFF_SPACE_PX; y += off.y * STAFF_SPACE_PX }
-        return [{ runs, ink, x, y }]
+        return [{ dyn, runs, ink, x, y }]
       })
       if (placed.length === 0) continue
+      const s0 = slotS(bar, slot)
       ctx.openGroup(SPINE_MARK_CLASS, `dynamic-${row.map(dyn => dyn.id).join('+')}`)
       try {
-        for (const { runs, x, y } of placed) drawRunsAlongLane(ctx, spine, slotS(bar, slot), x, y, runs)
+        for (const { runs, x, y } of placed) drawRunsAlongLane(ctx, spine, s0, x, y, runs)
       } finally {
         ctx.closeGroup()
       }
+      // ⭐ …and where each one's ink landed, along the path and across it — what a hairpin is broken for.
+      for (const { dyn, ink, x, y } of placed) {
+        const ratio = innerLengthRatio(spine, y)
+        const reach = dynamicInkReachSpaces(dynamicLabel(dyn)) ?? markInk()
+        drawnMarks.push({
+          sLeft: s0 + (x + ink.left) / ratio,
+          sRight: s0 + (x + ink.right) / ratio,
+          band: { top: y - reach.above * STAFF_SPACE_PX, bottom: y + reach.below * STAFF_SPACE_PX },
+        })
+      }
     }
   }
+
+  // ── HAIRPINS — on the same line, their arms following the path (`./spineHairpins`, port map #15) ──
+  drawSpineHairpins(ctx, spine, score, bars, staffIndex, plan, drawnMarks)
 
   // ── TEMPO — the row above, clearing the music and what the dynamics claimed there ──
   if (staffIndex !== 0) return

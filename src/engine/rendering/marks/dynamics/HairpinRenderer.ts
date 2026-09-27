@@ -88,7 +88,7 @@ interface HairpinPlacement {
  * ⛔ Not a new constant, and deliberately: any number invented here would be a second opinion about
  * how big a dynamic is, which is exactly how the hit-box and the line would drift apart.
  */
-function axisOffsetSpaces(): number {
+export function hairpinAxisOffsetSpaces(): number {
   // A mark's ink runs from `baseline − above` to `baseline + below`, so its middle is half the
   // difference — negative for a dynamic glyph, which sits mostly above its baseline.
   return (markInk().below - markInk().above) / 2
@@ -584,7 +584,7 @@ function drawWedge(
     const open = fragmentOpening(piece.role, hairpin.type)
     const startNudge = piece === pieces[0] ? nudge.startY : 0
     const endNudge = piece === pieces[pieces.length - 1] ? nudge.endY : 0
-    const centre = staffLineY(staveFrame(stave), 0) + px(baseline + axisOffsetSpaces(), stave)
+    const centre = staffLineY(staveFrame(stave), 0) + px(baseline + hairpinAxisOffsetSpaces(), stave)
       + px(rampAt(shape.startY, shape.endY, t), stave)
       + rampAt(startNudge, endNudge, t)
     const half = px(shape.aperture * rampAt(open.start, open.end, t), stave) / 2
@@ -635,7 +635,7 @@ function drawWedge(
     //   see. `dynamicsLinePlan` levels the whole render's marks before either pass draws.
     const baseline = plan.get(hairpinLineKey(hairpin.id, piece.line))
     if (baseline === undefined) continue
-    const axis = staffLineY(staveFrame(stave), 0) + px(baseline + axisOffsetSpaces(), stave)
+    const axis = staffLineY(staveFrame(stave), 0) + px(baseline + hairpinAxisOffsetSpaces(), stave)
 
     // The two arms, mirrored about the axis. The slant is TWO endpoint deltas (`hairpinShape`), so
     // each end's y is the axis plus its own — never one angle about a pivot.
