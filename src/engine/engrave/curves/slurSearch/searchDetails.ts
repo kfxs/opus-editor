@@ -1,0 +1,110 @@
+/**
+ * ⭐ **EVERY NUMBER LilyPond's slur search runs on — ONE table of rows** (docs/plans/slur-search-plan.md P2).
+ * CLAUDE.md's rule: a number is one house style's DEFAULT, never a constant — these are LilyPond's, and
+ * his eye may tune them (plan §6: *"The search's own taste … They are rows"*). No book gives any of them
+ * (`docs/research/slur-tie-research.md` §8.4).
+ *
+ * Lengths are in STAFF SPACES. Sources, LilyPond 2.27.3: `scm/layout-slur.scm` (`default-slur-details`),
+ * `scm/define-grobs.scm:3172-3184` (the `Slur` grob), `scm/paper.scm` `calc-line-thickness`.
+ */
+export interface SlurSearchDetails {
+  // ── `default-slur-details` (scm/layout-slur.scm) ─────────────────────────────────────────────
+  /** How far each end may move outward from its base attachment, in staff spaces (in half-space steps). */
+  regionSize: number
+  /** A notehead the curve passes THROUGH. */
+  headEncompassPenalty: number
+  /** A stem the curve passes through (÷5 at a left end going up, or a right end going down). */
+  stemEncompassPenalty: number
+  /** Per staff space an end moved from its base attachment. */
+  edgeAttractionFactor: number
+  /** Scales the edge demerit by `exp(dir·side·slope·this)` — the uphill end is cheaper to move. */
+  edgeSlopeExponent: number
+  /** A slur sloping against the music's direction. */
+  sameSlopePenalty: number
+  /** Per staff space of rise beyond the music's own. */
+  steeperSlopeFactor: number
+  /** A sloped slur over music that does not move. */
+  nonHorizontalPenalty: number
+  /** Slopes steeper than this are demerited… */
+  maxSlope: number
+  /** …by this, per unit of slope beyond it. */
+  maxSlopeFactor: number
+  /** Any extra object the curve comes near (articulations, fingerings, nested slurs). */
+  extraObjectCollisionPenalty: number
+  /** …and an ACCIDENTAL, which is cheaper — his flat, `docs/plans/slur-search-plan.md` §1. */
+  accidentalCollision: number
+  /** The gap a nested slur keeps inside an outer one. */
+  freeSlurDistance: number
+  /** The gap the curve keeps above a covered head (below it, the demerit grows as 1/distance). */
+  freeHeadDistance: number
+  /** Declared by LilyPond but read by nothing in 2.27.3 — kept so the table is the whole list. */
+  extraEncompassCollisionDistance: number
+  /** Inside this distance an extra object starts to cost — `peak_around`'s threshold. */
+  extraEncompassFreeDistance: number
+  /** The gap between the curve's turning point and a staff line it is INSIDE of… */
+  gapToStafflineInside: number
+  /** …and OUTSIDE of. */
+  gapToStafflineOutside: number
+  /** Added to the closest head distance in the variance demerit, so a tight curve is not infinitely bad. */
+  absoluteClosenessMeasure: number
+  /** An avoid-point closer than this to either end does not raise the arch (the edge discount). */
+  closeToEdgeLength: number
+  /** Caps the variance demerit's ratio (average ÷ closest head distance)… */
+  headSlurDistanceMaxRatio: number
+  /** …and scales it. */
+  headSlurDistanceFactor: number
+  /** How far past an `inside` object's reach the end's range is extended. */
+  encompassObjectRangeOvershoot: number
+  /** An end this close to a tie's end… */
+  slurTieExtremaMinDistance: number
+  /** …costs this. */
+  slurTieExtremaMinDistancePenalty: number
+  // ── the `Slur` grob (scm/define-grobs.scm) ─────────────────────────────────────────────────
+  /** `height-limit` — the arch's asymptotic height (`bezier-bow.cc` `slur_height`). */
+  heightLimit: number
+  /** `ratio` — the arch's height per unit of width, for short slurs. */
+  ratio: number
+  /** `minimum-length` — shorter than this, an end moves off the stem onto the head. */
+  minimumLength: number
+  /** `thickness`, in LINE THICKNESSES. */
+  thickness: number
+  /** `eccentricity` — shifts both controls along the chord (unset ⇒ 0). */
+  eccentricity: number
+  // ── the layout ───────────────────────────────────────────────────────────────────────────
+  /** `line-thickness` at the default 20 pt staff (`calc-line-thickness`: 0.5 pt of a 5 pt space). */
+  lineThickness: number
+}
+
+export const LILYPOND_SLUR_DETAILS: SlurSearchDetails = {
+  regionSize: 4,
+  headEncompassPenalty: 1000,
+  stemEncompassPenalty: 30,
+  edgeAttractionFactor: 4,
+  edgeSlopeExponent: 1.7,
+  sameSlopePenalty: 20,
+  steeperSlopeFactor: 50,
+  nonHorizontalPenalty: 15,
+  maxSlope: 1.1,
+  maxSlopeFactor: 10,
+  extraObjectCollisionPenalty: 50,
+  accidentalCollision: 3,
+  freeSlurDistance: 0.8,
+  freeHeadDistance: 0.3,
+  extraEncompassCollisionDistance: 0.8,
+  extraEncompassFreeDistance: 0.3,
+  gapToStafflineInside: 0.2,
+  gapToStafflineOutside: 0.1,
+  absoluteClosenessMeasure: 0.3,
+  closeToEdgeLength: 2.5,
+  headSlurDistanceMaxRatio: 3,
+  headSlurDistanceFactor: 10,
+  encompassObjectRangeOvershoot: 0.5,
+  slurTieExtremaMinDistance: 0.2,
+  slurTieExtremaMinDistancePenalty: 2,
+  heightLimit: 2.0,
+  ratio: 0.25,
+  minimumLength: 1.5,
+  thickness: 1.2,
+  eccentricity: 0,
+  lineThickness: 0.1,
+}

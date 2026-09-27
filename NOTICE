@@ -36,6 +36,31 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 
 --------------------------------------------------------------------------------
+LilyPond 2.27.3 — https://lilypond.org — GNU General Public License v3 or later
+--------------------------------------------------------------------------------
+
+The slur search (src/engine/engrave/curves/slurSearch) is transcribed from LilyPond's slur
+formatter: lily/slur-scoring.cc, lily/slur-configuration.cc, lily/bezier-bow.cc and the
+Bezier / polynomial / interval arithmetic of lily/bezier.cc and flower/, with the defaults of
+scm/layout-slur.scm and scm/define-grobs.scm (docs/plans/slur-search-plan.md). Each ported
+function carries a comment naming the LilyPond function it transcribes. GPLv3 section 13 permits
+combining it with this AGPLv3 project.
+
+LilyPond, the GNU music typesetter.
+
+Copyright (C) 1993--2026 Han-Wen Nienhuys <hanwen@xs4all.nl>
+Copyright (C) 1998--2026 Jan Nieuwenhuizen <janneke@gnu.org>
+and the LilyPond contributors.
+
+LilyPond is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
+
+LilyPond is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even
+the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General
+Public License for more details.
+
+--------------------------------------------------------------------------------
 Music fonts — SIL Open Font License 1.1
 --------------------------------------------------------------------------------
 

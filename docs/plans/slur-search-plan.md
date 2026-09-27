@@ -99,6 +99,21 @@ rule).
   (bow + fit + `max_h`), the four scorers, the lazy queue. Every parameter a ROW in one table
   (`SLUR_SEARCH_DETAILS`, LilyPond's defaults, each citing `layout-slur.scm`) — CLAUDE.md's rule: a
   number is a default, never a constant. + the `NOTICE` section.
+  - ✅ **BUILT 2026-09-27** — `engrave/curves/slurSearch/`: `bezier` (LilyPond's Interval/Offset/Bezier + the
+    polynomial roots, in Cardano's ORDER — `get_other_coordinate` takes the first) · `searchDetails`
+    (`LILYPOND_SLUR_DETAILS`, all 25 details + the grob's height-limit/ratio/minimum-length/thickness +
+    line-thickness 0.1) · `searchState` (`fill`, unbroken) · `searchCurve` · `searchScore` · `slurSearch`
+    (the lazy queue; ties broken by INDEX). In LilyPond's space — staff spaces, **y UP**, dir +1 above.
+    46 specs; ⭐ the lazy queue equals brute force on 5 cases. Pure compute 0.21–0.27 ms/slur (Node).
+  - 🔎 **Found while porting, for P3:** LilyPond hands a slur only `avoid-slur: inside` objects (+ ties) —
+    `around`/`outside` ones (most ARTICULATIONS) are not obstacles: the OBJECT is moved outside the slur
+    (`Slur::auxiliary_acknowledge_extra_object`, `outside_slur_callback`). So P3 must say which of ours
+    are `inside` (accidentals, dots, ties, tuplet numbers, header signs) and leave the rest to their own
+    passes — ⛔ not feed every articulation to the search.
+  - 🔎 **His one-staff E♭ on a hand-measured fixture:** the search keeps the base ends and GRAZES the flat by
+    0.26 sp (house: 1.12 into it; his hand: clears by 0.20). LilyPond's own weights: a collision with an
+    accidental costs 3, moving the near end the ~1.5 sp that would clear the ascender costs more. ⚠️ A
+    fixture, not his page — P4's pictures decide; `accidentalCollision` is a row if his eye disagrees.
 - **P3 — wired, single-system slurs** behind `__slur.solver('lilypond')`: the renderer builds the state
   from what it already knows (heads, stems, `slurObstaclesOf`'s objects, the stave lines), the search
   answers the endpoints + control points, then the hand's offsets as today. Broken (multi-system) slurs
