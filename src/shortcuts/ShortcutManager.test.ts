@@ -49,3 +49,23 @@ describe('ShortcutManager decline mechanism', () => {
     expect(e.defaultPrevented).toBe(false)
   })
 })
+
+describe('ShortcutManager — a keydown with NO key (his console, 2026-09-27)', () => {
+  let manager: ShortcutManager
+  beforeEach(() => { manager = new ShortcutManager(); manager.enable() })
+  afterEach(() => manager.disable())
+
+  it('is ignored, ⛔ never a throw — Chrome dispatches one from autofill', () => {
+    // ⚠️ A listener's throw never reaches `dispatchEvent`'s caller — it is REPORTED, as the window's `error`.
+    const errors: unknown[] = []
+    const onError = (e: ErrorEvent) => { errors.push(e.error); e.preventDefault() }
+    window.addEventListener('error', onError)
+    try {
+      // A plain Event named keydown, as autofill dispatches it: no `key`, no `code`.
+      document.dispatchEvent(new Event('keydown', { bubbles: true }))
+    } finally {
+      window.removeEventListener('error', onError)
+    }
+    expect(errors).toEqual([])
+  })
+})

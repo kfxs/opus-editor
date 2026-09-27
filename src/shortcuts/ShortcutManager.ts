@@ -116,6 +116,9 @@ export class ShortcutManager {
    * Handle keydown events
    */
   private handleKeyDown(event: KeyboardEvent): void {
+    // ⚠️ A `keydown` with NO key names no shortcut — Chrome fires them (autofill and password managers dispatch
+    //    one), and `event.key.length` below threw on it (his console, 2026-09-27).
+    if (typeof event.key !== 'string') return
     // Check if we're in an input field
     const target = event.target as HTMLElement
     const isInInput = target.tagName === 'INPUT' ||
