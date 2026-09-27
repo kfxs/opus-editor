@@ -74,6 +74,7 @@ import { SPINE_BARLINE_ATTR, drawSpineBarlineGaps, drawSpineSystemStart, spineBo
 import { drawSpineMarks, type SpineMarkBar } from './spineMarks'
 import { type BlockFrame, type WithNote, drawGroupBlock, drawNoteBlock, drawSpineBarline, drawSpineStaffLines, type GroupBlockInk, type SpineNotePlace } from './spineStaff'
 import { drawSpineCurves, type SpinePitchPlace } from './spineCurves'
+import { drawSpineGlissandi } from './spineGlissandi'
 
 /** ⭐ The attribute a note's group carries: the ids the editor selects it by, space-separated (plan §9). */
 export const SPINE_IDS_ATTR = 'data-spine-ids'
@@ -350,6 +351,8 @@ function drawStaffOnSpine(
   // ⭐ The curves last, over every placed note — as the page draws its ties and slurs after the bars.
   //    ⚠️ A curve between two STAVES has an end on each path and is drawn by neither — not yet.
   drawSpineCurves(ctx, spine, score, pitches)
+  // ⭐ …and the glissandi, the same way — from the heads the blocks placed (`./spineGlissandi`, port map #26).
+  drawSpineGlissandi(ctx, spine, score, pitches, n => bars[score.measures.findIndex(m => m.number === n)]?.end)
   // ⭐ And the marks on their lanes — dynamics, expression words, tempo (`./spineMarks`, port map #16).
   drawSpineMarks(ctx, spine, score, markBars, staff.index)
 }

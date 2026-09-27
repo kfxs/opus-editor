@@ -156,17 +156,26 @@ function drawStrokes(
  * enough to hold it and ⛔ on none when no piece is (his rule: only with enough space). Its own group, rotated
  * about the line's midpoint (`glissandoLine.glissandoTextPlacement`).
  */
+/**
+ * The glissando's WORD as the page sets it — its face at the text role's size for a staff of `space` px, and its
+ * width. ⭐ Exported for the bent staff (`eye/spineGlissandi`), so one word is set one way.
+ */
+export function glissandoWord(text: string, space: number) {
+  const sizePt = textRoleSizePt('glissandoText') * (space / STAFF_SPACE_PX)
+  const font = { family: textRoleFamily('glissandoText'), sizePt, weight: textRoleWeight('glissandoText'), style: textRoleSlant('glissandoText') }
+  // ⚠️ `measureTextMetrics` reads `size` (points), ⛔ not `sizePt` — handed the draw's own shape it silently
+  //   measures at the tag's DEFAULT size (the music glyphs', ≈3× too wide: no line was ever long enough).
+  const width = measureTextMetrics('Glissando.text', text, { family: font.family, size: sizePt, weight: font.weight, style: font.style }).width
+  return { font, width }
+}
+
 function drawWord(
   ctx: NonNullable<RenderPass['context']>,
   text: string,
   strokes: ReadonlyArray<GlissandoStroke | null>,
   space: number,
 ): void {
-  const sizePt = textRoleSizePt('glissandoText') * (space / STAFF_SPACE_PX)
-  const font = { family: textRoleFamily('glissandoText'), sizePt, weight: textRoleWeight('glissandoText'), style: textRoleSlant('glissandoText') }
-  // ⚠️ `measureTextMetrics` reads `size` (points), ⛔ not `sizePt` — handed the draw's own shape it silently
-  //   measures at the tag's DEFAULT size (the music glyphs', ≈3× too wide: no line was ever long enough).
-  const width = measureTextMetrics('Glissando.text', text, { family: font.family, size: sizePt, weight: font.weight, style: font.style }).width
+  const { font, width } = glissandoWord(text, space)
   for (const stroke of strokes) {
     if (!stroke) continue
     const at = glissandoTextPlacement(stroke, width, space)
@@ -180,7 +189,7 @@ function drawWord(
 }
 
 /** +1 when the target sounds higher, −1 lower, 0 the same. */
-function direction(a: NotePitch, b: NotePitch): -1 | 0 | 1 {
+export function direction(a: NotePitch, b: NotePitch): -1 | 0 | 1 {
   return Math.sign(spellingToMidi(b.step, b.alter, b.octave) - spellingToMidi(a.step, a.alter, a.octave)) as -1 | 0 | 1
 }
 
@@ -194,7 +203,7 @@ function onLedger(y: number, frame: StaffFrame): boolean {
 const ledgerOverhang = (frame: StaffFrame): number => LEDGER_OVERHANG_PX * (frame.spacePx / STAFF_SPACE_PX)
 
 /** The source note as the line leaves it: its head's height, and the rightmost ink to clear. */
-function leaving(note: EngravedNote, index: number, frame: StaffFrame): GlissandoFrom | null {
+export function leaving(note: EngravedNote, index: number, frame: StaffFrame): GlissandoFrom | null {
   const ruler = noteRuler(note)
   const y = ruler.headYs[index]
   if (y === undefined || isNaN(y)) return null
@@ -217,7 +226,7 @@ function leaving(note: EngravedNote, index: number, frame: StaffFrame): Glissand
 }
 
 /** The target note as the line arrives: its head's height, its left ink, and its accidental. */
-function arriving(note: EngravedNote, index: number, frame: StaffFrame): GlissandoTo | null {
+export function arriving(note: EngravedNote, index: number, frame: StaffFrame): GlissandoTo | null {
   const ruler = noteRuler(note)
   const y = ruler.headYs[index]
   if (y === undefined || isNaN(y)) return null
