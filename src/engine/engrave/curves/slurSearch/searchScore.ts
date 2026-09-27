@@ -59,11 +59,11 @@ export function scoreSlopes(state: SlurSearchState, c: SlurCandidate): void {
   // 0.2: account for the staff line offset.
   let maxDy = Math.abs(dy) + 0.2
   if (state.edgeHasBeams) maxDy += 1
-  demerit += details.steeperSlopeFactor * Math.max(Math.abs(slurDy) - maxDy, 0)
+  if (!state.isBroken) demerit += details.steeperSlopeFactor * Math.max(Math.abs(slurDy) - maxDy, 0)
   // ⚠️ LilyPond adds the max-slope term TWICE (`slur-configuration.cc`); transcribed as written.
   demerit += overMax
-  if (Math.abs(dy) < 0.01 && Math.abs(slurDy) > 0.01) demerit += details.nonHorizontalPenalty
-  if (sign(dy) && sign(slurDy) && sign(slurDy) !== sign(dy)) {
+  if (Math.abs(dy) < 0.01 && Math.abs(slurDy) > 0.01 && !state.isBroken) demerit += details.nonHorizontalPenalty
+  if (sign(dy) && !state.isBroken && sign(slurDy) && sign(slurDy) !== sign(dy)) {
     demerit += state.edgeHasBeams ? details.sameSlopePenalty / 10 : details.sameSlopePenalty
   }
   addScore(c, demerit, 'slope')

@@ -9,8 +9,13 @@
  * ⛔ nothing here knows a pixel, a stave or a DOM.
  *
  * ⛔ **What the adapter already reduced**: a grob here is a plain record of the extents LilyPond would have
- * asked of it. ⏭️ A BROKEN slur's bounds (a line break at an end — `breakable_bound_extent` and the
- * no-column branch of `get_base_attachments`) are P6's, and not here.
+ * asked of it.
+ *
+ * ⭐ **A BROKEN slur** (P6) is searched one system's PIECE at a time, as LilyPond does: an end at a line break
+ * has no note — it is the system's edge ({@link SlurSearchInput.brokenX}), its height taken from the nearest
+ * column on this system (the no-column branch of `get_base_attachments`), and a broken piece does not follow
+ * the music's rise (`musical_dy_` is 0 and three slope demerits are off). ⚠️ The edge x is the ADAPTER's
+ * answer to `breakable_bound_extent`: LilyPond unites the inside objects standing in the break's column.
  */
 import {
   type Bezier, type Interval, type Offset,
@@ -97,8 +102,15 @@ export interface SlurSearchInput {
   tieEnds: readonly Offset[]
   /** The staff: its middle line's y, and its lines' positions in half-spaces from it (5 lines: −4…4). */
   staff: { middleY: number; linePositions: readonly number[] }
-  /** The two end notes' heads' y (`slur_head_->relative_coordinate`) — the music's own rise. */
+  /** The two end notes' heads' y (`slur_head_->relative_coordinate`) — the music's own rise. ⚠️ Ignored for
+   *  a broken piece, whose rise is 0. */
   endHeadY: readonly [number, number]
+  /**
+   * ⭐ A PIECE of a broken slur: the x of each end that is a LINE BREAK rather than a note (LEFT, RIGHT) —
+   * undefined for an end on a note. `columns` are then this system's columns only, and a broken side's
+   * nearest column is NOT a bound: the curve must get over it.
+   */
+  brokenX?: readonly [number | undefined, number | undefined]
 }
 
 /** `Extra_collision_info`. */
@@ -123,7 +135,8 @@ export interface BoundInfo {
   /** The bound's stem extent — with its FLAG — or a point at the stem when it draws nothing. */
   stemExtent?: { x: Interval; y: Interval }
   slurHead?: { x: Interval; y: Interval }
-  column: SearchColumn
+  /** The bound's note column — ⚠️ none at a LINE BREAK. */
+  column?: SearchColumn
 }
 
 /** The state every candidate is scored against. */
@@ -140,6 +153,8 @@ export interface SlurSearchState {
   tieEnds: readonly Offset[]
   staff: SlurSearchInput['staff']
   musicalDy: number
+  /** `is_broken_` — one end or both is a line break. */
+  isBroken: boolean
   edgeHasBeams: boolean
   /** `thickness_` — the slur's own thickness in staff spaces. */
   thickness: number
@@ -205,12 +220,14 @@ export function moveAwayFromStaffline(y: number, staff: SlurSearchInput['staff']
   return y
 }
 
-/** `get_base_attachments` — the unbroken case. */
+/** `get_base_attachments` — each end on a note first, then each end at a line break. */
 function baseAttachments(
   bounds: readonly [BoundInfo, BoundInfo], dir: number, staff: SlurSearchInput['staff'], sameBeam: boolean,
+  columns: readonly SearchColumn[], brokenX: SlurSearchInput['brokenX'],
 ): [Offset, Offset] {
-  return [LEFT, RIGHT].map(i => {
+  const base = [LEFT, RIGHT].map(i => {
     const { stem, slurHead: head, column } = bounds[i]
+    if (!column) return { x: 0, y: 0 }
     let y = 0
     if (stem && !stem.invisible && stem.dir === dir && beamsInward(stem, i) && stem.beam
       && (!stem.beam.containsSlur || sameBeam)) {
@@ -225,6 +242,19 @@ function baseAttachments(
     if (!Number.isFinite(y)) y = center(column.y)
     return { x: Number.isFinite(x) ? x : 0, y: Number.isFinite(y) ? y : 0 }
   }) as [Offset, Offset]
+  // The no-column branch: the edge's x, and the height of this system's column nearest the break — or, when
+  // that column IS the other end's note, the other end's own height.
+  for (const i of [LEFT, RIGHT]) {
+    if (bounds[i].column) continue
+    const col = i === LEFT ? columns[0] : columns[columns.length - 1]
+    let y: number
+    if (bounds[1 - i].column !== col) y = at(col.y, dir) + dir * 0.5
+    else y = base[1 - i].y
+    y = moveAwayFromStaffline(y, staff, dir)
+    const x = brokenX?.[i] ?? 0
+    base[i] = { x: Number.isFinite(x) ? x : 0, y: Number.isFinite(y) ? y : 0 }
+  }
+  return base
 }
 
 /** `get_y_attachment_range` — how far out each end may go. */
@@ -232,8 +262,9 @@ function yAttachmentRange(
   bounds: readonly [BoundInfo, BoundInfo], base: readonly [Offset, Offset], dir: number, details: SlurSearchDetails,
 ): [number, number] {
   return [LEFT, RIGHT].map(i => {
-    const nc = bounds[i].column.y
-    if (isEmpty(nc)) return base[i].y + details.regionSize * dir
+    // A line break has no note column: the full region, outward from its base.
+    const nc = bounds[i].column?.y
+    if (!nc || isEmpty(nc)) return base[i].y + details.regionSize * dir
     return dir * Math.max(
       Math.max(dir * (base[i].y + details.regionSize * dir), dir * (dir + at(nc, dir))),
       dir * base[1 - i].y,
@@ -280,11 +311,13 @@ function extraEncompassInfos(input: SlurSearchInput, details: SlurSearchDetails,
 /** `generate_avoid_offsets` — the points the ARCH is raised over. */
 function avoidOffsets(
   input: SlurSearchInput, details: SlurSearchDetails, infos: readonly EncompassInfo[],
+  bounds: readonly [BoundInfo, BoundInfo],
 ): Offset[] {
   const dir = input.dir
   const avoid: Offset[] = []
-  // Every column but the two the slur is attached to.
-  for (let i = 1; i < infos.length - 1; i++) {
+  // Every column but those the slur is attached to — ⚠️ at a line break the nearest column is not one.
+  for (let i = 0; i < infos.length; i++) {
+    if (input.columns[i] === bounds[LEFT].column || input.columns[i] === bounds[RIGHT].column) continue
     const inf = infos[i]
     const y = dir * Math.max(dir * inf.head, dir * inf.stem)
     avoid.push({ x: inf.x, y: y + dir * details.freeHeadDistance })
@@ -348,14 +381,19 @@ function enumerateAttachments(
   return out
 }
 
-/** `Slur_score_state::fill` — the unbroken slur. */
+/** `Slur_score_state::fill` — a whole slur, or one system's piece of a broken one. */
 export function buildSearchState(input: SlurSearchInput, details: SlurSearchDetails): SlurSearchState {
   const { dir, columns } = input
-  const bounds: [BoundInfo, BoundInfo] = [boundInfo(columns[0]), boundInfo(columns[columns.length - 1])]
+  const broken = input.brokenX ?? [undefined, undefined]
+  const bounds: [BoundInfo, BoundInfo] = [
+    broken[LEFT] === undefined ? boundInfo(columns[0]) : {},
+    broken[RIGHT] === undefined ? boundInfo(columns[columns.length - 1]) : {},
+  ]
+  const isBroken = broken[LEFT] !== undefined || broken[RIGHT] !== undefined
   const thickness = details.thickness * details.lineThickness
   const [ls, rs] = [bounds[LEFT].stem, bounds[RIGHT].stem]
   const sameBeam = !!(ls && rs && ls.beam && rs.beam && ls.beam.id === rs.beam.id)
-  const base = baseAttachments(bounds, dir, input.staff, sameBeam)
+  const base = baseAttachments(bounds, dir, input.staff, sameBeam, columns, input.brokenX)
   const endYs = yAttachmentRange(bounds, base, dir, details)
   const extraInfos = extraEncompassInfos(input, details, thickness)
 
@@ -383,11 +421,13 @@ export function buildSearchState(input: SlurSearchInput, details: SlurSearchDeta
   if (bounds.some(b => !b.slurHead)) {
     musicalDy = (bounds[RIGHT].slurHead ? input.endHeadY[RIGHT] : 0) - (bounds[LEFT].slurHead ? input.endHeadY[LEFT] : 0)
   }
+  // A broken piece does not follow the music's rise.
+  if (isBroken) musicalDy = 0
   return {
     dir, details, bounds, baseAttachments: base, encompassInfos, extraInfos,
-    avoid: avoidOffsets(input, details, encompassInfos),
+    avoid: avoidOffsets(input, details, encompassInfos, bounds),
     tieEnds: input.tieEnds, staff: input.staff,
-    musicalDy,
+    musicalDy, isBroken,
     edgeHasBeams: !!(ls?.beam || rs?.beam),
     thickness, lineThickness: details.lineThickness,
     attachments: enumerateAttachments(bounds, base, ranged, dir, details),

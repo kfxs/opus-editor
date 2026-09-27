@@ -3,7 +3,7 @@
  * P1). ⚠️ What it DRAWS is pinned in the browser (`e2e/slurSearch.e2e.ts`); these hold the row's contract.
  */
 import { describe, it, expect, vi } from 'vitest'
-import { slurArchCps, solveHouseSlur } from './slurHouseSolver'
+import { slurArchCps, solveHouseSlur, solveHouseSlurPiece } from './slurHouseSolver'
 import { slurArchFit, type SlurObstacle } from './slurObstacles'
 import { archLean, slurArchHeightFor } from './slurArchHeight'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
@@ -40,5 +40,17 @@ describe('solveHouseSlur', () => {
     const obstacles = vi.fn(() => [tall])
     solveHouseSlur({ p0, p1, direction: ABOVE, nestLift: 0, obstacles, searchProblem: () => null })
     expect(obstacles).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('solveHouseSlurPiece — one system\'s piece of a broken slur', () => {
+  it('⭐ keeps the ends it is given and bows the PLAIN arch — no obstacle fit, as the pieces always had', () => {
+    const obstacles = vi.fn(() => [tall])
+    const solved = solveHouseSlurPiece({
+      p0, p1, direction: ABOVE, nestLift: 2, obstacles, searchProblem: () => null,
+      hands: [{ x: 9, y: 9 }, { x: 9, y: 9 }],
+    })
+    expect(solved).toEqual({ p0, p1, cps: slurArchCps(p0, p1, ABOVE, 2, 1) })
+    expect(obstacles).not.toHaveBeenCalled()
   })
 })

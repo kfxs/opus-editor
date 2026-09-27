@@ -58,6 +58,8 @@ export function fitFactor(
 
 /** `avoid_staff_line` — a turning point that grazes a staff line is moved off it. */
 export function avoidStaffLine(state: SlurSearchState, bez: Bezier): Bezier {
+  // ⚠️ Only when both ends stand on a staff — a line break has none (LilyPond's own TODO: the broken case).
+  if (!state.bounds[0]?.slurHead || !state.bounds[1]?.slurHead) return bez
   const ts = solveDerivative(bez, { x: 1, y: 0 })
   if (ts.length === 0) return bez
   const t = ts[0]

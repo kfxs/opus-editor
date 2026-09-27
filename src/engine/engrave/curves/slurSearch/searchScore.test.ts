@@ -50,6 +50,13 @@ describe('scoreSlopes', () => {
     expect(tilted.score).toBe(D.nonHorizontalPenalty)
   })
 
+  it('⭐ …but a broken piece pays neither — its rise is its own', () => {
+    const s = buildSearchState({ ...hisSlur(false), columns: hisSlur(false).columns.slice(0, 2), brokenX: [undefined, 6] }, D)
+    const tilted = candidate(s, [{ x: 0.5, y: 1 }, { x: 6, y: 2.5 }])
+    scoreSlopes(s, tilted)
+    expect(tilted.score).toBe(0)
+  })
+
   it('…and one sloped AGAINST the music pays `same-slope-penalty` on top', () => {
     const s = buildSearchState(hisSlur(false), D) // the music rises 2.5
     const against = candidate(s, [{ x: 0.5, y: 2 }, { x: 11.5, y: 1.5 }])

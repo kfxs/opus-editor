@@ -10,7 +10,7 @@
 import { archLean, slurArchHeightFor } from './slurArchHeight'
 import { slurIndentFraction } from './slurShapeExperiment'
 import { slurArchFit } from './slurObstacles'
-import type { SlurSolveInput, SlurSolution } from './slurSolvers'
+import type { SlurPieceInput, SlurSolveInput, SlurSolution } from './slurSolvers'
 
 /**
  * Compute the cubic `cps` (control-point deltas for `engrave/curves/curveInk`) that bow the
@@ -77,4 +77,11 @@ export function solveHouseSlur(input: SlurSolveInput): SlurSolution {
   const archLeanPx = archLean(p1.y - p0.y, direction, archH)
   const fit = slurArchFit(p0, p1, archH + archLeanPx, archH - archLeanPx, direction, input.obstacles())
   return { p0, p1, cps: slurArchCps(p0, p1, direction, nestLift, fit) }
+}
+
+/** The `house` row for one system's PIECE of a broken slur: the ends as given (the open end's lean,
+ *  `./brokenSlurTilt`, and the hand's nudges are already in them) and the plain arch — no obstacle fit. */
+export function solveHouseSlurPiece(input: SlurPieceInput): SlurSolution {
+  const { p0, p1, direction, nestLift } = input
+  return { p0, p1, cps: slurArchCps(p0, p1, direction, nestLift, 1) }
 }

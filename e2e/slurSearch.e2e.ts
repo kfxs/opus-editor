@@ -145,6 +145,58 @@ test.describe('⭐ his three examples under the `lilypond` preset (logged for P4
   }
 })
 
+/**
+ * ⭐ P6 — a BROKEN slur under `lilypond`: each system's piece searched on its own, with its line-break end.
+ * Asserted: one piece per system, each a finite curve ABOVE its staff (the notes are high, stems down).
+ * The shapes are LOGGED for his eye.
+ */
+test.describe('⭐ P6 — a slur broken across systems, under `lilypond`', () => {
+  for (const [name, systems] of [['two pieces', 2], ['three pieces — a middle one', 3]] as const) {
+    test(name, async ({ score }) => {
+      const out = await score.evaluate(async (systems: number) => {
+        const h = window.__h
+        await h.fontReady()
+        h.slurSolver('lilypond')
+        const ids: string[] = []
+        for (let m = 1; m <= 60; m++) {
+          if (m > 1) h.engine.addMeasure()
+          ids.push(h.engine.addNoteAtBeat({ step: m % 2 ? 'D' : 'F', octave: 5, duration: 'w', measure: m, beat: h.frac(0, 1) })!.id)
+        }
+        await h.render()
+        // The first bar of each system — measures on one system share their stave's top y.
+        const tops = h.staves().filter(st => st.staff === 0).map(st => st.top)
+        const starts = [0]
+        for (let i = 1; i < tops.length; i++) if (Math.abs(tops[i] - tops[i - 1]) > 1) starts.push(i)
+        if (starts.length < systems + 1) return null
+        // From the last bar of system 1 to the first bar of system `systems`.
+        h.engine.slur.createSlur([ids[starts[1] - 1], ids[starts[systems - 1]]])
+        await h.render()
+        const sp = (tops.length ? h.staves()[0].bottom - h.staves()[0].top : 40) / 4
+        // ⚠️ One piece is TWO paths — its outline (`fill="none"`) and its fill; count the outlines.
+        const pieces = [...document.querySelectorAll('g.slur path[fill="none"]')].map(p => p.getAttribute('d') ?? '').map(d =>
+          [...d.matchAll(/(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)/g)].map(m => ({ x: +m[1], y: +m[2] })))
+        const systemTops = starts.slice(0, systems).map(i => tops[i])
+        return pieces.map(p => {
+          const top = systemTops.reduce((a, t) => (Math.abs(t - p[0].y) < Math.abs(a - p[0].y) ? t : a))
+          return {
+            finite: p.every(q => Number.isFinite(q.x) && Number.isFinite(q.y)),
+            aboveStaff: Math.min(...p.map(q => q.y)) < top,
+            riseSp: +((p[0].y - p[3].y) / sp).toFixed(2),
+            lengthSp: +((p[3].x - p[0].x) / sp).toFixed(2),
+          }
+        })
+      }, systems)
+      expect(out, 'the fixture breaks into enough systems').not.toBeNull()
+      console.log(`[lilypond P6] ${name}`, JSON.stringify(out))
+      expect(out!).toHaveLength(systems)
+      for (const piece of out!) {
+        expect(piece.finite).toBe(true)
+        expect(piece.aboveStaff).toBe(true)
+      }
+    })
+  }
+})
+
 test('⭐ the search is DETERMINISTIC — a saved and reloaded score draws the same slur, to the byte', async ({ score }) => {
   const out = await score.evaluate(async () => {
     const h = window.__h

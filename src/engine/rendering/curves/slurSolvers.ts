@@ -15,15 +15,16 @@
  * ⛔ **A hand-edited shape never asks a solver** (a `curveShape` override opts out), and the hand's
  * endpoint and whole-curve offsets are applied AFTER it, in `SlurRenderer` — the shape is solved from
  * the engraver's ends, as it always was.
- * ⚠️ **Single-system slurs only**: a broken slur's fragments are still `house`'s (P6).
+ * ⭐ A BROKEN slur is solved one system's PIECE at a time ({@link solveSlurPiece}, P6), under its OWN preset
+ * ({@link setBrokenSlurSolver} — `house` by default, his call).
  *
  * ⛔ `engine/` may not import `dev/`, so the setting lives HERE and `dev/slurShapeConsole` writes it
  * (`__slur.solver(…)`) — the same shape as `./slurShapeExperiment`. ⭐ {@link slurViewGeneration} is in
  * the render's VIEW key: a preset is a picture change with no model change, and without it the switch
  * would draw nothing (`isRenderStale()` would answer "no").
  */
-import { solveHouseSlur } from './slurHouseSolver'
-import { solveLilypondSlur } from './slurLilypondSolver'
+import { solveHouseSlur, solveHouseSlurPiece } from './slurHouseSolver'
+import { solveLilypondSlur, solveLilypondSlurPiece } from './slurLilypondSolver'
 import { slurShapeGeneration } from './slurShapeExperiment'
 import type { SlurObstacle } from './slurObstacles'
 import type { SlurSearchProblem } from './slurSearchProblem'
@@ -47,6 +48,15 @@ export interface SlurSolveInput {
   searchProblem: () => SlurSearchProblem | null
 }
 
+/**
+ * One system's PIECE of a broken slur (P6). `p0`/`p1` are `house`'s ends — the open end leaned toward the
+ * music across the break, and the hand's moves already in them; `hands` are those moves on their own, so a
+ * solver that picks its own ends can add them back.
+ */
+export interface SlurPieceInput extends SlurSolveInput {
+  hands: readonly [Point, Point]
+}
+
 /** What a solver answers: the ends it drew from (`p0`/`p1` may move) and the cubic's control deltas. */
 export interface SlurSolution {
   p0: Point
@@ -56,23 +66,50 @@ export interface SlurSolution {
 
 export type SlurSolverName = 'house' | 'lilypond'
 
-export const SLUR_SOLVERS: Record<SlurSolverName, (input: SlurSolveInput) => SlurSolution> = {
-  house: solveHouseSlur,
-  lilypond: solveLilypondSlur,
+/** A preset: how it shapes a whole slur, and one system's piece of a broken one. */
+export interface SlurSolverRow {
+  whole: (input: SlurSolveInput) => SlurSolution
+  piece: (input: SlurPieceInput) => SlurSolution
+}
+
+export const SLUR_SOLVERS: Record<SlurSolverName, SlurSolverRow> = {
+  house: { whole: solveHouseSlur, piece: solveHouseSlurPiece },
+  lilypond: { whole: solveLilypondSlur, piece: solveLilypondSlurPiece },
 }
 
 export const DEFAULT_SLUR_SOLVER: SlurSolverName = 'lilypond'
 
-const state = { solver: DEFAULT_SLUR_SOLVER as SlurSolverName, generation: 0 }
+/**
+ * ⭐ A BROKEN slur's pieces have their OWN preset — his ask, 2026-09-27, on seeing `lilypond` get the
+ * Gymnopédie's broken slurs wrong: *"we should be able to have broken slur preset different that slur preset
+ * so we can select"*. `house` by default for that reason; `__slur.brokenSolver('lilypond')` arms the search.
+ */
+export const DEFAULT_BROKEN_SLUR_SOLVER: SlurSolverName = 'house'
 
-/** The armed solver's name. */
+const state = {
+  solver: DEFAULT_SLUR_SOLVER as SlurSolverName,
+  brokenSolver: DEFAULT_BROKEN_SLUR_SOLVER as SlurSolverName,
+  generation: 0,
+}
+
+/** The armed solver's name — for a slur on one system. */
 export function slurSolverName(): SlurSolverName {
   return state.solver
 }
 
+/** The armed solver's name for the pieces of a BROKEN slur. */
+export function brokenSlurSolverName(): SlurSolverName {
+  return state.brokenSolver
+}
+
 /** Solve one slur with the armed preset. */
 export function solveSlur(input: SlurSolveInput): SlurSolution {
-  return SLUR_SOLVERS[state.solver](input)
+  return SLUR_SOLVERS[state.solver].whole(input)
+}
+
+/** Solve one system's piece of a broken slur with the preset armed FOR BROKEN SLURS. */
+export function solveSlurPiece(input: SlurPieceInput): SlurSolution {
+  return SLUR_SOLVERS[state.brokenSolver].piece(input)
 }
 
 /** Arm a preset. ⛔ An unknown name is refused, not ignored — a typo that looked like it worked would
@@ -80,6 +117,14 @@ export function solveSlur(input: SlurSolveInput): SlurSolution {
 export function setSlurSolver(name: string): boolean {
   if (!Object.prototype.hasOwnProperty.call(SLUR_SOLVERS, name)) return false
   state.solver = name as SlurSolverName
+  state.generation++
+  return true
+}
+
+/** Arm a preset for the pieces of a BROKEN slur — refused the same way. */
+export function setBrokenSlurSolver(name: string): boolean {
+  if (!Object.prototype.hasOwnProperty.call(SLUR_SOLVERS, name)) return false
+  state.brokenSolver = name as SlurSolverName
   state.generation++
   return true
 }

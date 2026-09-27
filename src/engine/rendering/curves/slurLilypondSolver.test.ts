@@ -1,7 +1,7 @@
 /** The `lilypond` preset's row (`./slurLilypondSolver`) — docs/plans/slur-search-plan.md P3. */
 import { describe, it, expect } from 'vitest'
-import { cachedSlurSearch, solveLilypondSlur } from './slurLilypondSolver'
-import { solveHouseSlur } from './slurHouseSolver'
+import { cachedSlurSearch, solveLilypondSlur, solveLilypondSlurPiece } from './slurLilypondSolver'
+import { solveHouseSlur, solveHouseSlurPiece } from './slurHouseSolver'
 import { fromSearch, type SlurSearchProblem } from './slurSearchProblem'
 import { searchSlur } from '@/engine/engrave/curves/slurSearch/slurSearch'
 import { hisSlur } from '@/engine/engrave/curves/slurSearch/searchFixture'
@@ -50,5 +50,25 @@ describe('cachedSlurSearch', () => {
     const b = cachedSlurSearch(hisSlur(true, 5.1))
     expect(b).not.toBe(a)
     expect(b).toEqual(searchSlur(hisSlur(true, 5.1)))
+  })
+})
+
+describe('solveLilypondSlurPiece — one system\'s piece of a broken slur (P6)', () => {
+  const piece = (): SlurSearchProblem => ({
+    input: { ...hisSlur(false), columns: hisSlur(false).columns.slice(0, 2), brokenX: [undefined, 6] }, frame,
+  })
+  const hands = [{ x: 3, y: -4 }, { x: -2, y: 5 }] as const
+
+  it('⭐ the search\'s ends, with the HAND\'s moves added back — its arch rides with them', () => {
+    const whole = solveLilypondSlur({ ...base, searchProblem: piece })
+    const solved = solveLilypondSlurPiece({ ...base, hands, searchProblem: piece })
+    expect(solved.p0).toEqual({ x: whole.p0.x + 3, y: whole.p0.y - 4 })
+    expect(solved.p1).toEqual({ x: whole.p1.x - 2, y: whole.p1.y + 5 })
+    expect(solved.cps).toEqual(whole.cps)
+  })
+
+  it('⛔ a piece that cannot be stated is `house`\'s', () => {
+    const input = { ...base, hands, searchProblem: () => null }
+    expect(solveLilypondSlurPiece(input)).toEqual(solveHouseSlurPiece(input))
   })
 })

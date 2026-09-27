@@ -388,6 +388,10 @@ test('⭐⭐ a slur broken by a system break leans toward its own music (§12 Ph
   // with no pitch input at all — the only one of the three engines with no opinion.
   const half = async (endOctave: number) => score.evaluate(async (endOctave: number) => {
     const h = window.__h
+    // ⭐ The LEAN across the break is `house`'s rule (`rendering/curves/brokenSlurTilt`) — pinned under that
+    //   preset. `lilypond` (the default since 2026-09-27) never reads the next system, so its open end does
+    //   not lean at all (docs/plans/slur-search-plan.md P6).
+    h.slurSolver('house')
     const ids: string[] = []
     for (let m = 1; m <= 40; m++) {
       if (m > 1) h.engine.addMeasure()

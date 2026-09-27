@@ -11,6 +11,8 @@
  * accent is handed over as an `around` object — the search's own branch for it, which keeps the curve
  * clear of it either way. That is OURS, not LilyPond's, and marked so in {@link ARTICULATION_AVOID}.
  *
+ * ⭐ A BROKEN slur is stated one system's PIECE at a time ({@link slurSearchProblem}'s `brokenPx`, P6).
+ *
  * ⏭️ **Not yet handed over** (named, not forgotten): a tie's ends (`tieEnds`), tuplet numbers, and a slur
  * NESTED under this one — the `house` nest lift does not apply under this preset, so two nested slurs may
  * touch until P4 reads them. A column's FLAG is not united into its stem's extent.
@@ -26,7 +28,7 @@ import { noteInkBox } from '../engraved/noteInkBox'
 import { noteRuler } from '../engraved/noteRuler'
 import { noteFrame } from '../staff/staveFrame'
 import { STEM_THICKNESS_SPACES } from '@/engine/engrave/inheritedDefaults'
-import type { Interval, Offset } from '@/engine/engrave/curves/slurSearch/bezier'
+import { EMPTY, type Interval, type Offset } from '@/engine/engrave/curves/slurSearch/bezier'
 import type { SearchColumn, SearchObject, SearchStem, SlurSearchInput } from '@/engine/engrave/curves/slurSearch/searchState'
 
 type Point = { x: number; y: number }
@@ -99,7 +101,17 @@ function columnOf(
   const headC = (frame.middleY - headPx) / sp
   const slurHead = { x: headX, y: [headC - 0.5, headC + 0.5] as Interval }
   const column: SearchColumn = { x, y, refX: headX[0], firstHeadX: headX, slurHead }
-  if (!ruler.hasStem) return column
+  // ⭐ A stemless note (a whole note) still HAS a stem in LilyPond — invisible, its extent empty — and that
+  //   matters: `get_encompass_info` reads it at the head's CENTRE and `score_edges` asks its direction. With
+  //   no stem at all it would be read as a REST, at the column's reference x (audit, 2026-09-27).
+  if (!ruler.hasStem) {
+    const headC0 = (frame.middleY - headPx) / sp
+    column.stem = {
+      dir: ruler.stemDirection > 0 ? 1 : -1, x: EMPTY, y: EMPTY, invisible: true,
+      refX: (headX[0] + headX[1]) / 2, refY: headC0, beamsLeft: false, beamsRight: false,
+    }
+    return column
+  }
   const stemX = (ruler.stemX - frame.originX) / sp
   const tip = (frame.middleY - ruler.stemTipY) / sp
   const base = (frame.middleY - ruler.stemBaseY) / sp
@@ -154,10 +166,18 @@ function objectsOn(note: EngravedNote, frame: SearchFrame): SearchObject[] {
 
 /**
  * State the slur. `notes` are its drawn columns in order, the ends first and last; `direction` is ours
- * (−1 above, +1 below).
+ * (−1 above, +1 below). ⭐ For one system's PIECE of a broken slur (P6), `brokenPx` gives the x of each end
+ * that is a line break — `notes` are then this system's columns only, and a broken side's nearest column is
+ * not an end.
  */
-export function slurSearchProblem(notes: readonly EngravedNote[], direction: number): SlurSearchProblem | null {
-  if (notes.length < 2) return null
+export function slurSearchProblem(
+  notes: readonly EngravedNote[], direction: number,
+  brokenPx: readonly [number | undefined, number | undefined] = [undefined, undefined],
+): SlurSearchProblem | null {
+  // Each end on a note needs its note; a piece with no column at all (a system the slur only passes over,
+  // holding none of its lane's notes) has nothing to state.
+  const onNotes = brokenPx.filter(x => x === undefined).length
+  if (notes.length < onNotes || notes.length === 0) return null
   const staff = noteFrame(notes[0])
   if (!staff || staff.lineCount < 1) return null
   const lines = staff.lineCount
@@ -175,6 +195,8 @@ export function slurSearchProblem(notes: readonly EngravedNote[], direction: num
     columns.push(column)
   }
   const first = columns[0].slurHead!.y, last = columns[columns.length - 1].slurHead!.y
+  const edge = (x: number | undefined) => (x === undefined ? undefined : (x - frame.originX) / frame.spacePx)
+  const broken = brokenPx.some(x => x !== undefined)
   return {
     frame,
     input: {
@@ -189,6 +211,7 @@ export function slurSearchProblem(notes: readonly EngravedNote[], direction: num
         linePositions: Array.from({ length: lines }, (_, i) => (lines - 1) - 2 * i),
       },
       endHeadY: [(first[0] + first[1]) / 2, (last[0] + last[1]) / 2],
+      ...(broken ? { brokenX: [edge(brokenPx[0]), edge(brokenPx[1])] as const } : {}),
     },
   }
 }

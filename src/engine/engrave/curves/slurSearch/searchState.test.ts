@@ -92,3 +92,37 @@ describe('encompassInfo', () => {
     expect(encompassInfo(column(9, 2, -1), 1)).toEqual({ x: 9.59, head: 1.5, stem: 1.5 })
   })
 })
+
+describe('⭐ a PIECE of a broken slur (P6) — `get_base_attachments`\' no-column branch', () => {
+  // The start of his slur on one system — B4, E5 — broken at x 6 before A4 D5 G5 on the next.
+  const begin = () => ({ ...hisSlur(false), columns: hisSlur(false).columns.slice(0, 2), brokenX: [undefined, 6] as const })
+
+  it('the open end stands at the break, half a space beyond the nearest column on this system', () => {
+    const s = buildSearchState(begin(), D)
+    expect(s.isBroken).toBe(true)
+    // E5's column (stem down): its top is its head's, 2.0; + ½.
+    expect(s.baseAttachments[1]).toEqual({ x: 6, y: 2.5 })
+  })
+
+  it('…or at the other end\'s own height, when that column IS the other end\'s note', () => {
+    const s = buildSearchState({ ...begin(), columns: begin().columns.slice(0, 1) }, D)
+    expect(s.baseAttachments[1].y).toBe(s.baseAttachments[0].y)
+  })
+
+  it('⭐ the column nearest the break is NOT a bound — the curve has to get over it', () => {
+    const s = buildSearchState(begin(), D)
+    expect(s.avoid[0].x).toBeCloseTo(3.3 + 0.59, 12)
+  })
+
+  it('⭐ a broken piece does not follow the music\'s rise', () => {
+    expect(buildSearchState(begin(), D).musicalDy).toBe(0)
+  })
+
+  it('the END piece mirrors it; a MIDDLE piece has two open ends', () => {
+    const end = buildSearchState({ ...hisSlur(false), columns: hisSlur(false).columns.slice(2), brokenX: [-1, undefined] }, D)
+    expect(end.baseAttachments[0].x).toBe(-1)
+    const middle = buildSearchState({ ...hisSlur(false), columns: hisSlur(false).columns.slice(1, 4), brokenX: [0, 12] }, D)
+    expect([middle.baseAttachments[0].x, middle.baseAttachments[1].x]).toEqual([0, 12])
+    expect(middle.avoid).toHaveLength(3)
+  })
+})

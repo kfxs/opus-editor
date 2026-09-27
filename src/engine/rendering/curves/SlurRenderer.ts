@@ -27,7 +27,7 @@ import { slurAttachments, type SlurAttachment } from './slurStemEndpoint'
 import { encompassCeiling } from './slurEncompass'
 import { tiltWithThePitches } from './slurMelodicTilt'
 import { slurArchCps } from './slurHouseSolver'
-import { solveSlur } from './slurSolvers'
+import { solveSlur, solveSlurPiece } from './slurSolvers'
 import { slurSearchProblem } from './slurSearchProblem'
 import { limitSlurSlant } from './slurSlantLimit'
 import type { SlurObstacle } from './slurObstacles'
@@ -504,10 +504,11 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
     // off its own note (LilyPond excludes them by the same test).
     // ⚠️ Identified by the STAVE NOTE, not by id: a covered id and an anchor id can be two pitches
     // of the same chord, and that column is the anchor's — one drawn note, one obstacle or none.
-    const interior = coveredIds
-      .map(id => resolveSlurEnd(pass, id))
-      .filter((e): e is SlurEnd =>
-        e !== undefined && e.staveNote !== fromEnd.staveNote && e.staveNote !== toEnd.staveNote)
+    const interiorById = coveredIds.flatMap(id => {
+      const e = resolveSlurEnd(pass, id)
+      return e && e.staveNote !== fromEnd.staveNote && e.staveNote !== toEnd.staveNote ? [{ id, end: e }] : []
+    })
+    const interior = interiorById.map(x => x.end)
     const interiorInk = interior.map(e => e.attach)
     const interiorNotes = interior.map(e => e.staveNote)
     const autoDir = slurVoiceSide(score, slur, fromMeasure)
@@ -812,6 +813,30 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
             const clearance = outer === undefined ? 0 : (outer - startY) * direction + LIFT
             return brokenSlurOpenRise(steps ?? 0, half, direction, lengthPx, clearance)
           }
+          // ⭐ EACH SYSTEM'S PIECE IS SOLVED BY THE ARMED PRESET (P6, docs/plans/slur-search-plan.md): `house`
+          //   keeps the ends worked out below (the open end's lean, the hand's moves) and bows the plain arch;
+          //   `lilypond` searches the piece with its line-break ends and adds the hand's moves back
+          //   (`hands`). ⛔ A hand-edited piece shape opts out, as it always has.
+          const lineOfId = (id: string) => pass.measureLayoutInfo.get(measureOfNoteId(score, id) ?? -1)?.lineNumber ?? 0
+          const interiorOn = (line: number) => interiorById.filter(x => lineOfId(x.id) === line).map(x => x.end.staveNote)
+          const solvePiece = (
+            override: CurveControlPointDeltas | undefined, frame: StaffFrame | undefined,
+            p0: { x: number; y: number }, p1: { x: number; y: number },
+            hands: readonly [{ x: number; y: number }, { x: number; y: number }],
+            notes: EngravedNote[] | null, brokenPx: readonly [number | undefined, number | undefined],
+          ): [{ x: number; y: number }, { x: number; y: number }] => {
+            if (override) return resolveCps(override, frame, p0, p1, direction, nestLift)
+            const solved = solveSlurPiece({
+              p0: { ...p0 }, p1: { ...p1 }, direction, nestLift, hands, obstacles: () => [],
+              searchProblem: () => (notes ? slurSearchProblem(notes, direction, brokenPx) : null),
+            })
+            p0.x = solved.p0.x; p0.y = solved.p0.y
+            p1.x = solved.p1.x; p1.y = solved.p1.y
+            return solved.cps
+          }
+          // ⛔ A fanned member at an end has no note to ask — that piece is `house`'s.
+          const fannedStart = pass.fanMemberAnchorMap.has(slur.startNoteId)
+          const fannedEnd = pass.fanMemberAnchorMap.has(slur.endNoteId)
           let middleOrdinal = 0
           for (const seg of planSpanSegments(pass, fromLine, toLine, firstX, lastX, pass.staffScale(slurStaffIndex), lineLeftCurveX)) {
             if (seg.type === 'begin') {
@@ -827,7 +852,8 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
               // Open RIGHT end nudge (the true start p0 carries `endpointOffset` instead).
               const o = segmentEndpointOffsetPx(segEndOff.begin, frame)
               p1.x += o.x; p1.y += o.y
-              const cps = resolveCps(segShape.begin, frame, p0, p1, direction, nestLift)
+              const cps = solvePiece(segShape.begin, frame, p0, p1, [{ x: off.startX, y: off.startY }, o],
+                fannedStart ? null : [fromNote, ...interiorOn(fromLine)], [undefined, seg.rightX])
               // ⭐ Filed before the translation: this fragment carries the START end's own nudge,
               // and the whole-curve offset is still to come. Its open right end keeps `o` — that
               // one re-arched (see {@link fileCurve}).
@@ -861,7 +887,8 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
               // Open LEFT end nudge (the true end p1 carries `endpointOffset` instead).
               const o = segmentEndpointOffsetPx(segEndOff.end, frame)
               p0.x += o.x; p0.y += o.y
-              const cps = resolveCps(segShape.end, frame, p0, p1, direction, nestLift)
+              const cps = solvePiece(segShape.end, frame, p0, p1, [o, { x: off.endX, y: off.endY }],
+                fannedEnd ? null : [...interiorOn(toLine), toNote], [seg.leftX, undefined])
               // ⭐ The mirror of BEGIN: the true END's nudge comes off, the open left end's stays.
               fileCurve(autoArc(p0, { x: p1.x - off.endX, y: p1.y - off.endY }, cps, direction), toLine)
               p0.x += wholeTo.x; p0.y += wholeTo.y
@@ -889,7 +916,8 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
               const or = segmentEndpointOffsetPx(mo?.right, frame)
               p0.x += ol.x; p0.y += ol.y
               p1.x += or.x; p1.y += or.y
-              const cps = resolveCps(segShape.middles[ordinal], frame, p0, p1, direction, nestLift)
+              const cps = solvePiece(segShape.middles[ordinal], frame, p0, p1, [ol, or],
+                interiorOn(seg.line), [seg.leftX, seg.rightX])
               // ⭐ A MIDDLE has no true end at all, so only the whole-curve offset below is the
               // hand's — and it is filed before that lands.
               fileCurve(autoArc(p0, p1, cps, direction), seg.line)

@@ -42,7 +42,7 @@ import { resetLongHeads, setLongHead, type LongHeadShape } from '@/engine/fonts/
 import { resetLongaStemSide, setLongaStemSide, type LongaStemSide } from '@/engine/layout/longaStem'
 import { resetBarRestStyle, setBarRestStyle, type BarRestStyle } from '@/engine/layout/barRestStyle'
 import { setRenderProbe, type RenderLayoutPart } from '@/engine/RenderProbe'
-import { setSlurSolver } from '@/engine/rendering/curves/slurSolvers'
+import { setBrokenSlurSolver, setSlurSolver } from '@/engine/rendering/curves/slurSolvers'
 
 /** Re-exported so a spec can name what `columnGaps()` hands back. */
 export type { BarSpacing, CensusColumn } from '@/dev/spacingCensus'
@@ -232,7 +232,8 @@ export interface Harness {
    * this machine's, so a spec LOGS it and asserts only that something was timed.
    */
   timePart(part: RenderLayoutPart, renders: number): Promise<number>
-  /** Arm a slur PRESET (`engine/rendering/curves/slurSolvers`) — `__slur.solver` without the console. */
+  /** Arm a slur PRESET (`engine/rendering/curves/slurSolvers`) for BOTH whole slurs and broken ones'
+   *  pieces — `__slur.solver` + `.brokenSolver` without the console. */
   slurSolver(name: string): boolean
   /** Every drawn SHEET, left to right — the page rectangles behind the music. */
   pages(): { x: number; y: number; width: number; height: number }[]
@@ -528,7 +529,7 @@ const harness: Harness = {
   exportPdf: () => exportScorePdf(engine.getScore(), engine.getSurface()),
 
   useLayout: (on: boolean) => engine.setSurface(on ? A4_NORMAL : SKETCH_CANVAS),
-  slurSolver: (name: string) => setSlurSolver(name),
+  slurSolver: (name: string) => setSlurSolver(name) && setBrokenSlurSolver(name),
   async timePart(part: RenderLayoutPart, renders: number): Promise<number> {
     await musicFontReady()
     let sum = 0

@@ -4,24 +4,36 @@
  */
 import { afterEach, describe, it, expect } from 'vitest'
 import {
-  DEFAULT_SLUR_SOLVER, SLUR_SOLVERS, setSlurSolver, slurSolverName, slurViewGeneration, solveSlur,
+  DEFAULT_BROKEN_SLUR_SOLVER, DEFAULT_SLUR_SOLVER, SLUR_SOLVERS, brokenSlurSolverName, setBrokenSlurSolver,
+  setSlurSolver, slurSolverName, slurViewGeneration, solveSlur,
 } from './slurSolvers'
 import { solveHouseSlur } from './slurHouseSolver'
 import { resetSlurShape, setSlurHeightLaw } from './slurShapeExperiment'
 
-afterEach(() => { setSlurSolver(DEFAULT_SLUR_SOLVER); resetSlurShape() })
+afterEach(() => { setSlurSolver(DEFAULT_SLUR_SOLVER); setBrokenSlurSolver(DEFAULT_BROKEN_SLUR_SOLVER); resetSlurShape() })
 
 describe('slurSolvers', () => {
   it('⭐ `lilypond` is the default since P5 — his word, 2026-09-27; `house` stays selectable', () => {
     expect(DEFAULT_SLUR_SOLVER).toBe('lilypond')
     expect(slurSolverName()).toBe('lilypond')
-    expect(SLUR_SOLVERS.house).toBe(solveHouseSlur)
+    expect(SLUR_SOLVERS.house.whole).toBe(solveHouseSlur)
   })
 
   it('solves with the armed row', () => {
     setSlurSolver('house')
     const input = { p0: { x: 0, y: 0 }, p1: { x: 200, y: 0 }, direction: -1, nestLift: 0, obstacles: () => [], searchProblem: () => null }
     expect(solveSlur(input)).toEqual(solveHouseSlur(input))
+  })
+
+  it('⭐ a BROKEN slur\'s pieces have their own preset — `house` by default, armed apart (his ask)', () => {
+    expect(brokenSlurSolverName()).toBe('house')
+    expect(setBrokenSlurSolver('lilypond')).toBe(true)
+    expect(brokenSlurSolverName()).toBe('lilypond')
+    expect(slurSolverName()).toBe('lilypond')
+    expect(setBrokenSlurSolver('hosue')).toBe(false)
+    const before = slurViewGeneration()
+    setBrokenSlurSolver('house')
+    expect(slurViewGeneration()).toBeGreaterThan(before)
   })
 
   it('⭐ arms `house`', () => {

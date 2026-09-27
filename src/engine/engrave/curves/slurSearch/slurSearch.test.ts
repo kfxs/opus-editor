@@ -21,6 +21,9 @@ const CASES: Array<[string, SlurSearchInput]> = [
   ['his slur, E♭', hisSlur(true)],
   ['his slur, E♭, the bar widened', hisSlur(true, 5.1)],
   ['a high note under a low slur', { ...hisSlur(false), columns: [column(0, 0, -1), column(5.5, 7, -1), column(11, 0, -1)], endHeadY: [0, 0] }],
+  ['a broken piece — the begin', { ...hisSlur(true), columns: hisSlur(true).columns.slice(0, 2), brokenX: [undefined, 6] }],
+  ['a broken piece — the end', { ...hisSlur(false), columns: hisSlur(false).columns.slice(2), brokenX: [5, undefined] }],
+  ['a broken piece — a middle', { ...hisSlur(false), columns: hisSlur(false).columns.slice(1, 4), brokenX: [2, 10] }],
   ['below the notes', { ...hisSlur(false), dir: -1, columns: [column(0, -4, 1), column(4, -7, 1), column(8, -3, 1)], endHeadY: [-2, -1.5] }],
 ]
 

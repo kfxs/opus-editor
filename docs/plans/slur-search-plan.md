@@ -158,6 +158,32 @@ rule).
     passes under the new default (350). `__slur.solver('house')` brings the old picture back.
 - **P6 — broken slurs** under the search (LilyPond scores each system's piece; ours are `planSpanSegments`
   fragments). Then the bent staff (`eye/spineCurves`) can ask it too.
+  - ✅ **BUILT 2026-09-27.** Each preset row has a `piece` solver beside `whole`; the pure search takes
+    `brokenX` (the no-column branch of `get_base_attachments`, the full region at a break, `musical_dy_` 0 and
+    the three slope demerits off, no staff-line nudge). The hand's moves (`hands`) are added back to the ends
+    the search picks. ⭐ **HIS ASK:** a broken slur has its OWN preset — `__slur.brokenSolver(…)`, default
+    **`house`** (he saw `lilypond` get the Gymnopédie's broken slurs wrong). Found: `lilypond` does not lean an
+    open end toward the next system's pitch (Gould p. 112 is house's `brokenSlurTilt`; its spec arms `house`).
+    Also fixed in the adapter audit: a stemless note is handed over with an INVISIBLE stem, as LilyPond has one
+    (it was read as a rest, half a head to the left).
+  - 🔎 **For the COMPROMISE (his screenshots, 2026-09-27):** (a) D5 → G5 dotted half, both stems up, slur above:
+    `lilypond` ends at the HEADS (each space an end moves costs 4, ÷5 with a stem pointing its way, and
+    nothing between the notes forces it up) where house goes to the stem (Gould p. 111). (b) the same kind of
+    end lands BESIDE THE STEM on one system and OVER THE HEAD on another — `enumerate_attachments` moves an end
+    beside the stem only while its y is within ¼ sp of the stem, so a small height difference is a sideways
+    jump. ⏳ The source audit is checking both against LilyPond itself.
+- **P7 — hand the search what the adapter still leaves out** (`curves/slurSearchProblem`; the pure search
+  already handles each — only the READING is missing). ⭐ Ties first: his Gymnopédie slurs cross tied notes.
+  1. **Ties** — each drawn tie under the slur as an `inside` OBJECT (the arch clears it; 50 within 0.3 sp),
+     and its two ends as `tieEnds` (a slur end within 0.2 sp of one costs 2 — `score_extra_encompass`).
+     Read from the ties this render already drew (they are drawn before the slurs).
+  2. **Nested slurs** — an inner slur's drawn curve as a `nestedSlurs` entry (its middle raises the outer arch
+     by `free-slur-distance` 0.8; its shared ends are scored). ⚠️ Needs the inner slur drawn FIRST.
+  3. **Tuplet numbers** — `inside` objects (LilyPond's `TupletNumber` is `avoid-slur: inside`).
+  4. **A note's FLAG** — united into its end stem's extent (`Bound_info.stem_extent_`).
+  5. **What the source audit (2026-09-27) finds** — each divergence from LilyPond fixed or recorded here.
+  Each item checked on his cases under `__slur.solver('lilypond')` / `.brokenSolver('lilypond')`; ⛔ no
+  weight is tuned here — that is the compromise, his call.
 
 ## 5. What this does NOT change
 
