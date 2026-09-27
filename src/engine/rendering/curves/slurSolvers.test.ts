@@ -19,12 +19,17 @@ describe('slurSolvers', () => {
   })
 
   it('solves with the armed row', () => {
-    const input = { p0: { x: 0, y: 0 }, p1: { x: 200, y: 0 }, direction: -1, nestLift: 0, obstacles: () => [] }
+    const input = { p0: { x: 0, y: 0 }, p1: { x: 200, y: 0 }, direction: -1, nestLift: 0, obstacles: () => [], searchProblem: () => null }
     expect(solveSlur(input)).toEqual(solveHouseSlur(input))
   })
 
-  it('⛔ refuses a name with no row — `lilypond` is not built yet, and a typo must not look armed', () => {
-    for (const name of ['lilypond', 'toString', 'hosue']) {
+  it('⭐ arms `lilypond`', () => {
+    expect(setSlurSolver('lilypond')).toBe(true)
+    expect(slurSolverName()).toBe('lilypond')
+  })
+
+  it('⛔ refuses a name with no row — a typo must not look armed', () => {
+    for (const name of ['toString', 'hosue']) {
       expect(setSlurSolver(name)).toBe(false)
       expect(slurSolverName()).toBe('house')
     }

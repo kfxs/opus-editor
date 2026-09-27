@@ -118,6 +118,14 @@ rule).
   from what it already knows (heads, stems, `slurObstaclesOf`'s objects, the stave lines), the search
   answers the endpoints + control points, then the hand's offsets as today. Broken (multi-system) slurs
   stay `house` in this phase — named in the code.
+  - ✅ **BUILT 2026-09-27** — `curves/slurSearchProblem` (the adapter: drawn heads/stems/beams → columns;
+    accidentals, dots and articulations → objects, by `ARTICULATION_AVOID`: staccato + tenuto `inside`,
+    ⚠️ accent `around` — OURS, LilyPond moves an accent instead) + `curves/slurLilypondSolver` (the row; the
+    winning cubic back as our ends + cps; ⛔ never nothing — `house` when the slur cannot be stated: a
+    fanned member at an end). ⏭️ Not handed over yet: tie ends, tuplet numbers, NESTED slurs (no nest lift
+    under this preset), a column's flag. Measured (Chromium, `e2e/slurSearch.e2e.ts`): 1 staff ♭ arch 2.53 /
+    grazes −0.17 (house −1.12) · 2 staves ♭ arch **1.87** (house 3.74) / −0.02. Cost 0.50 ms/slur (50-slur
+    page) · 0.78 (Gymnopédie) vs house 0.21 / 0.69. ⭐ Deterministic: save → load draws the same `d`.
 - **P4 — measure, both ways.** Time: under ~0.5 ms per slur on P0's pages, else add a per-slur cache
   keyed by its inputs before going further. Shape: his three examples + the whole slur e2e suite under
   both presets, side by side — the differences REPORTED, ⛔ not "fixed" toward the old pictures.

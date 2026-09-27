@@ -28,6 +28,7 @@ import { encompassCeiling } from './slurEncompass'
 import { tiltWithThePitches } from './slurMelodicTilt'
 import { slurArchCps } from './slurHouseSolver'
 import { solveSlur } from './slurSolvers'
+import { slurSearchProblem } from './slurSearchProblem'
 import { limitSlurSlant } from './slurSlantLimit'
 import type { SlurObstacle } from './slurObstacles'
 import { accidentalAvoidPoint } from './slurAccidentalPoint'
@@ -503,11 +504,12 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
     // off its own note (LilyPond excludes them by the same test).
     // ⚠️ Identified by the STAVE NOTE, not by id: a covered id and an anchor id can be two pitches
     // of the same chord, and that column is the anchor's — one drawn note, one obstacle or none.
-    const interiorInk = coveredIds
+    const interior = coveredIds
       .map(id => resolveSlurEnd(pass, id))
       .filter((e): e is SlurEnd =>
         e !== undefined && e.staveNote !== fromEnd.staveNote && e.staveNote !== toEnd.staveNote)
-      .map(e => e.attach)
+    const interiorInk = interior.map(e => e.attach)
+    const interiorNotes = interior.map(e => e.staveNote)
     const autoDir = slurVoiceSide(score, slur, fromMeasure)
       ?? slurSideFromStems(coveredStems.length ? coveredStems : [fromEnd.attach.stemDirection])
     const direction = slur.placement === 'below' ? 1
@@ -686,6 +688,12 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
             const solved = solveSlur({
               p0: autoP0, p1: autoP1, direction, nestLift,
               obstacles: () => slurObstaclesOf(pass, score, slur, direction),
+              // ⭐ The drawn columns in order, the ends first and last — ⛔ none for a fanned member at an
+              //   end, whose head is drawn by hand and has no note to ask.
+              searchProblem: () =>
+                pass.fanMemberAnchorMap.has(slur.startNoteId) || pass.fanMemberAnchorMap.has(slur.endNoteId)
+                  ? null
+                  : slurSearchProblem([fromNote, ...interiorNotes, toNote], direction),
             })
             p0.x += solved.p0.x - autoP0.x; p0.y += solved.p0.y - autoP0.y
             p1.x += solved.p1.x - autoP1.x; p1.y += solved.p1.y - autoP1.y

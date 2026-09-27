@@ -8,7 +8,7 @@
  * | row | what it is |
  * |---|---|
  * | `house` | today's pipeline — `./slurHouseSolver`. ⭐ The default until his word at P5. |
- * | ⏭️ `lilypond` | LilyPond's search (P2/P3) — ⛔ not built yet, so `setSlurSolver` refuses it. |
+ * | `lilypond` | LilyPond's search — `./slurLilypondSolver` (P3). ⏭️ The default at P5, his word. |
  *
  * ⛔ **A hand-edited shape never asks a solver** (a `curveShape` override opts out), and the hand's
  * endpoint and whole-curve offsets are applied AFTER it, in `SlurRenderer` — the shape is solved from
@@ -21,8 +21,10 @@
  * would draw nothing (`isRenderStale()` would answer "no").
  */
 import { solveHouseSlur } from './slurHouseSolver'
+import { solveLilypondSlur } from './slurLilypondSolver'
 import { slurShapeGeneration } from './slurShapeExperiment'
 import type { SlurObstacle } from './slurObstacles'
+import type { SlurSearchProblem } from './slurSearchProblem'
 
 type Point = { x: number; y: number }
 
@@ -38,6 +40,9 @@ export interface SlurSolveInput {
   nestLift: number
   /** What the slur covers, measured only if the solver asks (`SlurRenderer.slurObstaclesOf`). */
   obstacles: () => SlurObstacle[]
+  /** The whole slur as LilyPond's problem (`./slurSearchProblem`), built only if the solver asks; null
+   *  when it cannot be stated. */
+  searchProblem: () => SlurSearchProblem | null
 }
 
 /** What a solver answers: the ends it drew from (`p0`/`p1` may move) and the cubic's control deltas. */
@@ -47,10 +52,11 @@ export interface SlurSolution {
   cps: [Point, Point]
 }
 
-export type SlurSolverName = 'house'
+export type SlurSolverName = 'house' | 'lilypond'
 
 export const SLUR_SOLVERS: Record<SlurSolverName, (input: SlurSolveInput) => SlurSolution> = {
   house: solveHouseSlur,
+  lilypond: solveLilypondSlur,
 }
 
 export const DEFAULT_SLUR_SOLVER: SlurSolverName = 'house'

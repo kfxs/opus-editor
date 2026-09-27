@@ -1,0 +1,194 @@
+/**
+ * ⭐⭐ **A DRAWN SLUR, STATED AS LILYPOND'S PROBLEM** — the adapter between the renderer and the pure search
+ * (`engrave/curves/slurSearch`, docs/plans/slur-search-plan.md P3). It reads what the page already drew —
+ * the notes' heads, stems and beams, their accidentals, dots and articulations, the staff — and hands the
+ * search plain extents in LilyPond's space (staff spaces, y UP, the middle line at 0); {@link fromSearch}
+ * turns the answer back into the pixels the slur is drawn in.
+ *
+ * ⭐ **Only what LilyPond would hand it.** LilyPond's slur engraver gives a slur the objects marked
+ * `avoid-slur: inside` — accidentals, dots, staccato, tenuto — and MOVES the `around` ones (an accent)
+ * outside the slur instead (`Slur::auxiliary_acknowledge_extra_object`). ⚠️ We move no articulation, so an
+ * accent is handed over as an `around` object — the search's own branch for it, which keeps the curve
+ * clear of it either way. That is OURS, not LilyPond's, and marked so in {@link ARTICULATION_AVOID}.
+ *
+ * ⏭️ **Not yet handed over** (named, not forgotten): a tie's ends (`tieEnds`), tuplet numbers, and a slur
+ * NESTED under this one — the `house` nest lift does not apply under this preset, so two nested slurs may
+ * touch until P4 reads them. A column's FLAG is not united into its stem's extent.
+ *
+ * @returns null when the slur cannot be stated — a fanned member or an undrawn note at an end, or no staff.
+ *   The solver then answers with `house` (`./slurLilypondSolver`).
+ */
+import type { EngravedNote } from '../engraved/EngravedNote'
+import { EngravedBeam } from '../engraved/EngravedBeam'
+import { accidentalsOn } from '../engraved/EngravedAccidental'
+import { dotsOn } from '../engraved/EngravedDot'
+import { noteInkBox } from '../engraved/noteInkBox'
+import { noteRuler } from '../engraved/noteRuler'
+import { noteFrame } from '../staff/staveFrame'
+import { STEM_THICKNESS_SPACES } from '@/engine/engrave/inheritedDefaults'
+import type { Interval, Offset } from '@/engine/engrave/curves/slurSearch/bezier'
+import type { SearchColumn, SearchObject, SearchStem, SlurSearchInput } from '@/engine/engrave/curves/slurSearch/searchState'
+
+type Point = { x: number; y: number }
+
+/** Where LilyPond's space sits on the page: its origin and its unit. */
+export interface SearchFrame {
+  originX: number
+  /** The middle line's y, in px — LilyPond's 0. */
+  middleY: number
+  spacePx: number
+}
+
+export interface SlurSearchProblem {
+  input: SlurSearchInput
+  frame: SearchFrame
+}
+
+/**
+ * ⭐ Each of OUR articulation codes, as LilyPond marks it (`scm/script.scm`, `avoid-slur`): staccato and
+ * tenuto are `inside`, the accent `around`. ⚠️ A row per code — a new mark must say which it is.
+ */
+export const ARTICULATION_AVOID: Readonly<Record<string, 'inside' | 'around'>> = {
+  'a.': 'inside',
+  'a-': 'inside',
+  // ⚠️ LilyPond MOVES an accent outside the slur; we do not, so the curve keeps clear of it instead.
+  'a>': 'around',
+}
+
+/** Our accidental codes → LilyPond's alterations; a double sharp has no row there and is checked at its middle. */
+const ALTERATION: Readonly<Record<string, SearchObject['alteration']>> = {
+  b: 'flat', bb: 'doubleFlat', '#': 'sharp', n: 'natural',
+}
+
+/** The categories that are OBJECTS to the search, not part of the note column's own extent. */
+const NOT_THE_COLUMN: ReadonlySet<string> = new Set(['Accidental', 'Articulation', 'Dot', 'Annotation'])
+
+/** A px box → LilyPond extents. */
+function toExtents(frame: SearchFrame, box: { x: number; y: number; width: number; height: number }): { x: Interval; y: Interval } {
+  const { originX, middleY, spacePx } = frame
+  return {
+    x: [(box.x - originX) / spacePx, (box.x + box.width - originX) / spacePx],
+    y: [(middleY - (box.y + box.height)) / spacePx, (middleY - box.y) / spacePx],
+  }
+}
+
+/** A px point → LilyPond's space. */
+export function toSearch(frame: SearchFrame, p: Point): Offset {
+  return { x: (p.x - frame.originX) / frame.spacePx, y: (frame.middleY - p.y) / frame.spacePx }
+}
+
+/** LilyPond's space → a px point. */
+export function fromSearch(frame: SearchFrame, p: Offset): Point {
+  return { x: frame.originX + p.x * frame.spacePx, y: frame.middleY - p.y * frame.spacePx }
+}
+
+/** One drawn note as a LilyPond note column. `slurUp` picks the head on the slur's side. */
+function columnOf(
+  note: EngravedNote, frame: SearchFrame, slurUp: boolean, slurEnds: readonly [EngravedNote, EngravedNote],
+): SearchColumn | null {
+  const ruler = noteRuler(note)
+  const box = noteInkBox(note, NOT_THE_COLUMN)
+  if (!box) return null
+  const { x, y } = toExtents(frame, box)
+  const ys = ruler.headYs
+  if (!ys.length) return null
+  const sp = frame.spacePx
+  const headX: Interval = [(ruler.headLeftX - frame.originX) / sp, (ruler.headRightX - frame.originX) / sp]
+  // The head on the slur's side — the HIGHEST when above (the smallest px y), and one space tall.
+  const headPx = slurUp ? Math.min(...ys) : Math.max(...ys)
+  const headC = (frame.middleY - headPx) / sp
+  const slurHead = { x: headX, y: [headC - 0.5, headC + 0.5] as Interval }
+  const column: SearchColumn = { x, y, refX: headX[0], firstHeadX: headX, slurHead }
+  if (!ruler.hasStem) return column
+  const stemX = (ruler.stemX - frame.originX) / sp
+  const tip = (frame.middleY - ruler.stemTipY) / sp
+  const base = (frame.middleY - ruler.stemBaseY) / sp
+  const stem: SearchStem = {
+    dir: ruler.stemDirection > 0 ? 1 : -1,
+    x: [stemX - STEM_THICKNESS_SPACES / 2, stemX + STEM_THICKNESS_SPACES / 2],
+    y: [Math.min(tip, base), Math.max(tip, base)],
+    invisible: false, refX: stemX, refY: base, beamsLeft: false, beamsRight: false,
+  }
+  const beam = note.getBeam()
+  if (beam instanceof EngravedBeam) {
+    const i = beam.notes.indexOf(note)
+    const first = beam.notes[0], last = beam.notes[beam.notes.length - 1]
+    const startX = noteRuler(slurEnds[0]).headLeftX
+    const endX = noteRuler(slurEnds[1]).headLeftX
+    const bFirst = noteRuler(first).headLeftX, bLast = noteRuler(last).headLeftX
+    stem.beamsLeft = i > 0
+    stem.beamsRight = i >= 0 && i < beam.notes.length - 1
+    stem.beam = {
+      // A beam is named by its first note — each note's id is its own.
+      id: first.getAttribute('id') ?? '',
+      thickness: beam.beamWidth / sp,
+      // `spanner_less (slur, beam)`: the beam reaches at least as far both ways, and further one way.
+      containsSlur: bFirst <= startX && bLast >= endX && (bFirst !== startX || bLast !== endX),
+    }
+  }
+  column.stem = stem
+  return column
+}
+
+/** A note's accidentals, dots and articulations, as the search's objects. */
+function objectsOn(note: EngravedNote, frame: SearchFrame): SearchObject[] {
+  const out: SearchObject[] = []
+  for (const acc of accidentalsOn(note)) {
+    const ink = acc.drawnInk()
+    if (!ink) continue
+    out.push({ ...toExtents(frame, ink), avoid: 'inside', sign: 'accidental', alteration: ALTERATION[acc.type] })
+  }
+  for (const dot of dotsOn(note)) {
+    const b = dot.getBoundingBox()
+    out.push({ ...toExtents(frame, { x: b.x, y: b.y, width: b.w, height: b.h }), avoid: 'inside', sign: 'dots' })
+  }
+  for (const m of note.getModifiers() as Array<{ getCategory?(): string; type?: string; getBoundingBox?(): { x: number; y: number; w: number; h: number } }>) {
+    if (m.getCategory?.() !== 'Articulation' || !m.type || !m.getBoundingBox) continue
+    const avoid = ARTICULATION_AVOID[m.type]
+    if (!avoid) continue
+    const b = m.getBoundingBox()
+    out.push({ ...toExtents(frame, { x: b.x, y: b.y, width: b.w, height: b.h }), avoid })
+  }
+  return out.filter(o => [o.x[0], o.x[1], o.y[0], o.y[1]].every(Number.isFinite))
+}
+
+/**
+ * State the slur. `notes` are its drawn columns in order, the ends first and last; `direction` is ours
+ * (−1 above, +1 below).
+ */
+export function slurSearchProblem(notes: readonly EngravedNote[], direction: number): SlurSearchProblem | null {
+  if (notes.length < 2) return null
+  const staff = noteFrame(notes[0])
+  if (!staff || staff.lineCount < 1) return null
+  const lines = staff.lineCount
+  const frame: SearchFrame = {
+    originX: noteRuler(notes[0]).headLeftX,
+    middleY: staff.topLineY + ((lines - 1) / 2) * staff.spacePx,
+    spacePx: staff.spacePx,
+  }
+  const slurUp = direction < 0
+  const ends = [notes[0], notes[notes.length - 1]] as const
+  const columns: SearchColumn[] = []
+  for (const note of notes) {
+    const column = columnOf(note, frame, slurUp, ends)
+    if (!column) return null
+    columns.push(column)
+  }
+  const first = columns[0].slurHead!.y, last = columns[columns.length - 1].slurHead!.y
+  return {
+    frame,
+    input: {
+      dir: slurUp ? 1 : -1,
+      columns,
+      objects: notes.flatMap(n => objectsOn(n, frame)),
+      nestedSlurs: [],
+      tieEnds: [],
+      staff: {
+        middleY: 0,
+        // LilyPond's line positions, in half-spaces from the middle: 5 lines are −4 … 4.
+        linePositions: Array.from({ length: lines }, (_, i) => (lines - 1) - 2 * i),
+      },
+      endHeadY: [(first[0] + first[1]) / 2, (last[0] + last[1]) / 2],
+    },
+  }
+}

@@ -18,7 +18,7 @@ import { test, expect } from './fixtures'
  *    the CPU and it doubles (measured 2026-09-27: 0.20 → 0.42 ms), which reads as a regression that is not.
  */
 
-type Case = { flat: boolean; staff2: boolean; hand?: 'A' | 'B' }
+type Case = { flat: boolean; staff2: boolean; hand?: 'A' | 'B'; solver?: string }
 
 /** One of his cases, drawn and measured — every length in staff spaces. */
 async function measureCase(score: import('@playwright/test').Page, opts: Case) {
@@ -26,6 +26,7 @@ async function measureCase(score: import('@playwright/test').Page, opts: Case) {
     const h = window.__h
     // 🚨 FIRST — a render that beats the font measures the flat 0 wide and places it by the wrong note.
     await h.fontReady()
+    if (opts.solver && !h.slurSolver(opts.solver)) throw new Error(`no slur solver ${opts.solver}`)
     const e = h.engine
     e.loadJSON(JSON.stringify({
       id: 's', title: '',
@@ -121,13 +122,59 @@ test.describe('⭐ his three examples — today\'s slur, pinned (the `house` bas
 })
 
 /**
+ * ⭐ P3 — the SAME examples under `__slur.solver('lilypond')`. ⚠️ P4 is where the pictures are judged, side by
+ * side with `house` (plan §4): these LOG what the search drew and assert only what must hold of any answer —
+ * a finite curve that arches ABOVE, as the notes ask.
+ */
+test.describe('⭐ his three examples under the `lilypond` preset (logged for P4)', () => {
+  for (const c of [
+    { name: '1 staff ♮', flat: false, staff2: false },
+    { name: '1 staff ♭', flat: true, staff2: false },
+    { name: '2 staves ♮', flat: false, staff2: true },
+    { name: '2 staves ♭', flat: true, staff2: true },
+  ]) {
+    test(c.name, async ({ score }) => {
+      const m = await measureCase(score, { flat: c.flat, staff2: c.staff2, solver: 'lilypond' })
+      console.log(`[lilypond] ${c.name}`, JSON.stringify(m))
+      expect(Number.isFinite(m.archAtMiddle)).toBe(true)
+      expect(m.archAtMiddle).toBeGreaterThan(0)
+      expect(m.peakAboveStaff).toBeGreaterThan(0)
+    })
+  }
+})
+
+test('⭐ the search is DETERMINISTIC — a saved and reloaded score draws the same slur, to the byte', async ({ score }) => {
+  const out = await score.evaluate(async () => {
+    const h = window.__h
+    await h.fontReady()
+    h.slurSolver('lilypond')
+    const e = h.engine
+    const q = (step: string, octave: number, measure: number, beat: number, alter = 0) =>
+      e.addNoteAtBeat({ step: step as never, alter: alter as never, octave, duration: 'q', measure, beat: h.frac(beat, 1) })
+    e.addMeasure()
+    const b = q('B', 4, 1, 2)!
+    q('E', 5, 1, 3, -1); q('A', 4, 2, 0); q('D', 5, 2, 1)
+    const g = q('G', 5, 2, 2)!
+    e.slur.createSlur([b.id, g.id])
+    await h.render()
+    const before = h.paths('g.slur path')
+    e.loadJSON(e.exportJSON())
+    await h.render()
+    return { before, after: h.paths('g.slur path') }
+  })
+  expect(out.before.length).toBeGreaterThan(0)
+  expect(out.after).toEqual(out.before)
+})
+
+/**
  * ⏱ What today's slurs cost, per slur: the census's `curves` part (ties + slurs) with the slurs, minus
  * the same score without them, over the slurs actually drawn (the cull window may skip some).
  */
-async function slurCost(score: import('@playwright/test').Page, json: string) {
-  return score.evaluate(async (json: string) => {
+async function slurCost(score: import('@playwright/test').Page, json: string, solver = 'house') {
+  return score.evaluate(async ({ json, solver }) => {
     const h = window.__h
     await h.fontReady()
+    h.slurSolver(solver)
     const RENDERS = 21
     const withSlurs = JSON.parse(json)
     h.engine.loadJSON(JSON.stringify({ ...withSlurs, slurs: [] }))
@@ -137,15 +184,17 @@ async function slurCost(score: import('@playwright/test').Page, json: string) {
     const drawn = document.querySelectorAll('g.slur').length
     return { slurs: withSlurs.slurs?.length ?? 0, drawn, curvesMs: withMs, withoutMs: without,
       perSlurMs: drawn ? (withMs - without) / drawn : NaN }
-  }, json)
+  }, { json, solver })
 }
 
 test('⏱ the stopwatch — his heaviest real score, the 1ère Gymnopédie', async ({ score }) => {
   const file = await score.evaluate(async () => (await fetch('/opus-editor/examples/gymnopedie.json')).json())
-  const cost = await slurCost(score, JSON.stringify(file.score))
-  console.log('[slur cost] gymnopédie', JSON.stringify(cost))
-  expect(cost.drawn).toBeGreaterThan(0)
-  expect(cost.curvesMs).toBeGreaterThan(0)
+  for (const solver of ['house', 'lilypond']) {
+    const cost = await slurCost(score, JSON.stringify(file.score), solver)
+    console.log(`[slur cost] gymnopédie ${solver}`, JSON.stringify(cost))
+    expect(cost.drawn).toBeGreaterThan(0)
+    expect(cost.curvesMs).toBeGreaterThan(0)
+  }
 })
 
 test('⏱ the stopwatch — a synthetic page of 50 slurs', async ({ score }) => {
@@ -169,8 +218,10 @@ test('⏱ the stopwatch — a synthetic page of 50 slurs', async ({ score }) => 
     }
     return JSON.stringify({ ...e.getScore(), slurs })
   })
-  const cost = await slurCost(score, json)
-  console.log('[slur cost] 50 slurs', JSON.stringify(cost))
-  expect(cost.drawn).toBeGreaterThan(0)
-  expect(cost.curvesMs).toBeGreaterThan(0)
+  for (const solver of ['house', 'lilypond']) {
+    const cost = await slurCost(score, json, solver)
+    console.log(`[slur cost] 50 slurs ${solver}`, JSON.stringify(cost))
+    expect(cost.drawn).toBeGreaterThan(0)
+    expect(cost.curvesMs).toBeGreaterThan(0)
+  }
 })

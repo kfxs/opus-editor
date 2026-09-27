@@ -17,13 +17,13 @@ const tall: SlurObstacle = { x: 9 * SP, y: -6 * SP, width: 2 * SP, height: 6 * S
 
 describe('solveHouseSlur', () => {
   it('⭐ never moves the ends it is given — the endpoint rules already ran', () => {
-    const solved = solveHouseSlur({ p0, p1, direction: ABOVE, nestLift: 0, obstacles: () => [] })
+    const solved = solveHouseSlur({ p0, p1, direction: ABOVE, nestLift: 0, obstacles: () => [], searchProblem: () => null })
     expect(solved.p0).toBe(p0)
     expect(solved.p1).toBe(p1)
   })
 
   it('with nothing under it, draws the plain arch', () => {
-    const solved = solveHouseSlur({ p0, p1, direction: ABOVE, nestLift: 3, obstacles: () => [] })
+    const solved = solveHouseSlur({ p0, p1, direction: ABOVE, nestLift: 3, obstacles: () => [], searchProblem: () => null })
     expect(solved.cps).toEqual(slurArchCps(p0, p1, ABOVE, 3, 1))
   })
 
@@ -32,13 +32,13 @@ describe('solveHouseSlur', () => {
     const lean = archLean(p1.y - p0.y, ABOVE, H)
     const fit = slurArchFit(p0, p1, H + lean, H - lean, ABOVE, [tall])
     expect(fit).toBeGreaterThan(1)
-    const solved = solveHouseSlur({ p0, p1, direction: ABOVE, nestLift: 0, obstacles: () => [tall] })
+    const solved = solveHouseSlur({ p0, p1, direction: ABOVE, nestLift: 0, obstacles: () => [tall], searchProblem: () => null })
     expect(solved.cps).toEqual(slurArchCps(p0, p1, ABOVE, 0, fit))
   })
 
   it('measures what the slur covers once', () => {
     const obstacles = vi.fn(() => [tall])
-    solveHouseSlur({ p0, p1, direction: ABOVE, nestLift: 0, obstacles })
+    solveHouseSlur({ p0, p1, direction: ABOVE, nestLift: 0, obstacles, searchProblem: () => null })
     expect(obstacles).toHaveBeenCalledTimes(1)
   })
 })
