@@ -80,6 +80,8 @@ export interface SearchObject {
    *  tall left end). ⚠️ Only for a plain accidental: a styled, parenthesised or cautionary-restore one
    *  is checked at its middle (`get_extra_encompass_infos`). */
   alteration?: 'flat' | 'doubleFlat' | 'sharp' | 'natural'
+  /** An ACCENT, and whether its note is one of the slur's END notes — row `midAccent` reads both. */
+  accent?: { onEnd: boolean }
 }
 
 /** A slur nested under this one (`encompass-objects` that are slurs). */
@@ -109,6 +111,8 @@ export interface SlurSearchInput {
   nested?: readonly SearchNestedSlur[]
   /** Row G: the tuplet numbers over this slur's notes, as their extents — read only under `tupletNumbers: 'on'`. */
   tupletNumbers?: readonly { x: Interval; y: Interval }[]
+  /** Row G: the clef / key / meter changes standing inside the slur — read only under `headerSigns: 'on'`. */
+  headerSigns?: readonly { x: Interval; y: Interval }[]
   /** The staff: its middle line's y, and its lines' positions in half-spaces from it (5 lines: −4…4). */
   staff: { middleY: number; linePositions: readonly number[] }
   /** The two end notes' heads' y (`slur_head_->relative_coordinate`) — the music's own rise. ⚠️ Ignored for
@@ -448,6 +452,17 @@ export function buildSearchState(
   // Row G — a tuplet number is an `inside` object (LilyPond's `TupletNumber`).
   if (rules.tupletNumbers === 'on' && input.tupletNumbers?.length) {
     input = { ...input, objects: [...input.objects, ...input.tupletNumbers.map(t => ({ ...t, avoid: 'inside' as const }))] }
+  }
+  // Row midAccent — T1 (docs/plans/articulation-plan.md): an accent on a MIDDLE note is inside the slur.
+  if (rules.midAccent === 'inside' && input.objects.some(o => o.accent && !o.accent.onEnd)) {
+    input = { ...input, objects: input.objects.map(o => (o.accent && !o.accent.onEnd ? { ...o, avoid: 'inside' as const } : o)) }
+  }
+  // Row G — a clef, key or meter change is an `inside` object, but never widens an end's range.
+  if (rules.headerSigns === 'on' && input.headerSigns?.length) {
+    input = {
+      ...input,
+      objects: [...input.objects, ...input.headerSigns.map(t => ({ ...t, avoid: 'inside' as const, sign: 'headerSign' as const }))],
+    }
   }
   // Row G — slurs nested under this one: their middle raises the arch, their curve is scored.
   if (rules.nested === 'on' && input.nested?.length) input = { ...input, nestedSlurs: [...input.nestedSlurs, ...input.nested] }

@@ -602,6 +602,14 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
         // that one is applied *before* `resolveCps` on purpose, so it re-arches rather than
         // translating, and there is no engraver's arc left underneath it to file. It also sits at a
         // system margin, where no lane is competing.
+        /** Row G: the clef / key / meter signs this render drew on this slur's staff and system (registry boxes).
+         *  ⚠️ The registry's boxes are in SVG space — the staff's own only at full size, so a SMALL staff's slur
+         *  asks for none (named, not guessed). */
+        const signsOn = (line: number) => pass.staffScale(slurStaffIndex) !== 1 ? [] : (['clef', 'keySignature', 'timeSignature'] as const)
+          .flatMap(type => pass.elementRegistry.getByType(type))
+          .filter(el => (el.staff ?? 0) === slurStaffIndex && el.measure !== undefined
+            && (pass.measureLayoutInfo.get(el.measure)?.lineNumber ?? 0) === line)
+          .map(el => el.bbox)
         /** Row G: every tuplet mark this render drew, with its notes — the adapter keeps those over this slur. */
         const tupletMarks = () => [...pass.tupletObjectMap.values()].flatMap(t => {
           const m = t.markBox()
@@ -729,7 +737,7 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
                 pass.fanMemberAnchorMap.has(slur.startNoteId) || pass.fanMemberAnchorMap.has(slur.endNoteId)
                   ? null
                   : slurSearchProblem([fromNote, ...interiorNotes, toNote], direction, undefined, undefined,
-                    tiesOn(fromLine), slursOn(fromLine), tupletMarks()),
+                    tiesOn(fromLine), slursOn(fromLine), tupletMarks(), signsOn(fromLine)),
             })
             p0.x += solved.p0.x - autoP0.x; p0.y += solved.p0.y - autoP0.y
             p1.x += solved.p1.x - autoP1.x; p1.y += solved.p1.y - autoP1.y
@@ -868,7 +876,7 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
             const solved = solveSlurPiece({
               p0: { ...p0 }, p1: { ...p1 }, direction, nestLift, hands, obstacles: () => [],
               searchProblem: () => (notes
-                ? slurSearchProblem(notes, direction, brokenPx, openRisePx, tiesOn(line), slursOn(line), tupletMarks())
+                ? slurSearchProblem(notes, direction, brokenPx, openRisePx, tiesOn(line), slursOn(line), tupletMarks(), signsOn(line))
                 : null),
             })
             p0.x = solved.p0.x; p0.y = solved.p0.y

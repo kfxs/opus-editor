@@ -498,6 +498,78 @@ test('⭐ P8 row G — `tupletNumbers: on` keeps the slur above a triplet\'s num
   expect(out.on!).toBeGreaterThan(1)
 })
 
+/**
+ * ⭐ P8 row G — a METER CHANGE inside the slur: G4 → A4 across a 3/4, the slur forced above with its ends inside
+ * the staff, so its arch meets the meter's digits. `headerSigns: 'on'` (LilyPond) arches over them.
+ */
+test('⭐ P8 row G — `headerSigns: on` arches the slur over a meter change inside it', async ({ score }) => {
+  const out = await score.evaluate(async () => {
+    const h = window.__h
+    await h.fontReady()
+    h.slurSolver('lilypond')
+    const e = h.engine
+    e.addMeasure()
+    const a = e.addNoteAtBeat({ step: 'G', octave: 4, duration: 'q', measure: 1, beat: h.frac(3, 1) })!
+    e.setTimeSignature(2, { numerator: 3, denominator: 4 })
+    const b = e.addNoteAtBeat({ step: 'A', octave: 4, duration: 'q', measure: 2, beat: h.frac(0, 1) })!
+    e.getScore().slurs = [{ id: 'sl', startNoteId: a.id, endNoteId: b.id, voice: 0, placement: 'above' }]
+    const gap = async (rule: string) => {
+      h.slurRule('headerSigns', rule)
+      await h.render()
+      const meter = e.getElementRegistry().getByType('timeSignature').find(el => el.measure === 2)
+      const slur = h.curveSamples('g.slur path', 200)
+      if (!meter || !slur.length) return null
+      const cx = meter.bbox.x + meter.bbox.width / 2
+      const over = slur.reduce((best, q) => (Math.abs(q.x - cx) < Math.abs(best.x - cx) ? q : best))
+      const sp = (h.staves()[0].bottom - h.staves()[0].top) / 4
+      // How far above the meter's TOP the slur passes (negative = through it).
+      return +((meter.bbox.y - over.y) / sp).toFixed(2)
+    }
+    return { off: await gap('off'), on: await gap('on') }
+  })
+  console.log('[row G header signs]', JSON.stringify(out))
+  expect(out.on, 'the fixture draws a meter change and a slur').not.toBeNull()
+  expect(out.on!).toBeGreaterThan(out.off!)
+  expect(out.on!).toBeGreaterThanOrEqual(0)
+})
+
+/**
+ * ⭐ `midAccent` — his T1 rule: A4 C5 [accented note] E5 under a slur, the middle note swept high (C6 → E7), where
+ * LilyPond's `around` let the slur slip UNDER the accent (measured 2026-09-27). The default `'inside'` must keep the
+ * slur over the accent's top at every pitch.
+ */
+test('⭐ `midAccent: inside` (default) keeps the slur OVER a high middle note\'s accent', async ({ score }) => {
+  const out = await score.evaluate(async () => {
+    const h = window.__h
+    await h.fontReady()
+    h.slurSolver('lilypond')
+    const e = h.engine
+    const rows: Record<string, Record<string, boolean>> = {}
+    for (const choice of ['lilypond', 'inside']) {
+      h.slurRule('midAccent', choice)
+      rows[choice] = {}
+      for (const [step, octave] of [['C', 6], ['F', 6], ['B', 6], ['E', 7]] as const) {
+        e.loadJSON(JSON.stringify({ id: 's', title: '', measures: [{ id: 'm1', number: 1, slots: [], timeSignature: { numerator: 4, denominator: 4 }, tuplets: [], timeSignatureChange: true }] }))
+        const n = (st: string, oc: number, b: number) => e.addNoteAtBeat({ step: st as never, octave: oc, duration: 'q', measure: 1, beat: h.frac(b, 1) })!.id
+        const a = n('A', 4, 0); n('C', 5, 1); const mid = n(step, octave, 2); const z = n('E', 5, 3)
+        e.toggleArticulation(mid, 'accent')
+        e.slur.createSlur([a, z])
+        await h.render()
+        const sp = (h.staves()[0].bottom - h.staves()[0].top) / 4
+        const g = h.placed('text').find(t => t.code === 'e4a0')!
+        const accTop = g.y - 0.72 * sp
+        const near = h.curveSamples('g.slur path', 300).filter(q => Math.abs(q.x - (g.x + 0.68 * sp)) < 0.3 * sp).map(q => q.y)
+        rows[choice][`${step}${octave}`] = Math.max(...near) < accTop
+      }
+    }
+    return rows
+  })
+  console.log('[midAccent] slur over the accent?', JSON.stringify(out))
+  for (const over of Object.values(out.inside)) expect(over).toBe(true)
+  // …where LilyPond's own `around` let it slip under at least one of these pitches.
+  expect(Object.values(out.lilypond).some(over => !over)).toBe(true)
+})
+
 test('⭐ the search is DETERMINISTIC — a saved and reloaded score draws the same slur, to the byte', async ({ score }) => {
   const out = await score.evaluate(async () => {
     const h = window.__h

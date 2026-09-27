@@ -278,6 +278,19 @@ rule).
     `'on'` it is an `inside` object. Chromium, a slur over an eighth triplet: `'off'` ran THROUGH the '3' (0.46 sp
     below its baseline) → **1.81 sp above** it. ⚠️ A reused bar that the render shifted keeps its old drawn box —
     the same caveat the notes under a slur already have.
+  - ✅ **Row G, CLEF / KEY / METER CHANGES, BUILT 2026-09-27** — `SlurSearchRules.headerSigns: 'off' | 'on'`,
+    `__slur.rule('headerSigns', 'on')`. The renderer hands the adapter the registry boxes of the clef, key and
+    meter signs on the slur's staff and system; those standing INSIDE the slur's span (the system's own opening
+    signs fall left of a break edge) go to the search as `inside` objects marked `headerSign` — scored and raising
+    the arch, ⛔ never widening an end's range (`fill`'s exclusion). Chromium, G4 → A4 across a 3/4, slur above:
+    through the digits by 0.54 → **clears by 0.46** sp. ⚠️ A SMALL staff's slur asks for none (the registry's
+    boxes are in SVG space — named, not guessed).
+  - ⛔ **Row G, FINGERINGS / TEXT — dropped, with the reason:** LilyPond's `Fingering` and `TextScript` are
+    `avoid-slur: around` — it MOVES them outside the slur, they are never the slur's obstacles (the audit listed
+    them wrongly). The editor has no fingerings; text marks are placed by the outside-staff ladder, which already
+    reads the drawn slurs. Moving a mark for a slur is the articulation plan's L2, not a slur row.
+  - ✅ **`midAccent` BUILT 2026-09-27 — his T1 rule for a MIDDLE accent**, default `'inside'` (not LilyPond's
+    `'lilypond'`); see `docs/plans/articulation-plan.md` T1 for the sweep that found it.
 
 ## 5. What this does NOT change
 

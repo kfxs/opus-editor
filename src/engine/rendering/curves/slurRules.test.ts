@@ -6,9 +6,10 @@ import { LILYPOND_SLUR_RULES } from '@/engine/engrave/curves/slurSearch/searchDe
 afterEach(() => resetSlurRules())
 
 describe('slurRules', () => {
-  it('⭐ every row starts at LilyPond\'s choice — what draws today', () => {
+  it('⭐ every row starts at its default — LilyPond\'s choice, except `midAccent` (his T1 rule)', () => {
     expect(slurRules()).toEqual(LILYPOND_SLUR_RULES)
     expect(slurRules().stemSideEnd).toBe('head')
+    expect(slurRules().midAccent).toBe('inside')
   })
 
   it('arms a row, and the view key moves', () => {

@@ -241,3 +241,41 @@ describe('⭐ row G — a TUPLET NUMBER over the slur\'s notes (`tupletNumbers`)
     expect(s.avoid).toContainEqual({ x: 4.3, y: 4 })
   })
 })
+
+describe('⭐ row G — a clef, key or meter change inside the slur (`headerSigns`)', () => {
+  // A sign standing high in the middle of his slur.
+  const sign = { x: [5, 6] as const, y: [0, 6] as const }
+
+  it('`off` (the default): not read', () => {
+    expect(buildSearchState({ ...hisSlur(false), headerSigns: [sign] }, D).extraInfos).toHaveLength(0)
+  })
+
+  it('⭐ `on` (LilyPond): scored and an avoid-point — ⛔ but it never widens an end\'s range', () => {
+    const plain = buildSearchState(hisSlur(false), D)
+    const s = buildSearchState({ ...hisSlur(false), headerSigns: [sign] }, D, { ...LILYPOND_SLUR_RULES, headerSigns: 'on' })
+    expect(s.extraInfos).toHaveLength(1)
+    expect(s.extraInfos[0].headerSign).toBe(true)
+    expect(s.avoid).toContainEqual({ x: 5.5, y: 6 })
+    // The same candidate ends as with no sign at all: `fill`'s `additional_ys` skips header signs.
+    expect(s.attachments).toEqual(plain.attachments)
+  })
+})
+
+describe('⭐ `midAccent` — his T1 rule for an accent on a MIDDLE note', () => {
+  const accent = (onEnd: boolean) => ({ x: [4, 5] as const, y: [5, 5.7] as const, avoid: 'around' as const, accent: { onEnd } })
+
+  it('⭐ `inside` (the default): a middle note\'s accent is an `inside` object — an avoid-point for the arch', () => {
+    const s = buildSearchState({ ...hisSlur(false), objects: [accent(false)] }, D)
+    expect(s.extraInfos[0].avoid).toBe('inside')
+    expect(s.avoid).toContainEqual({ x: 4.5, y: 5.7 })
+  })
+
+  it('an END note\'s accent is left `around` — T1 puts it outside, which moves the mark (L2)', () => {
+    expect(buildSearchState({ ...hisSlur(false), objects: [accent(true)] }, D).extraInfos[0].avoid).toBe('around')
+  })
+
+  it('`lilypond`: `around`, as LilyPond hands it over', () => {
+    const s = buildSearchState({ ...hisSlur(false), objects: [accent(false)] }, D, { ...LILYPOND_SLUR_RULES, midAccent: 'lilypond' })
+    expect(s.extraInfos[0].avoid).toBe('around')
+  })
+})

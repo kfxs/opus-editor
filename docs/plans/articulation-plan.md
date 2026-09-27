@@ -33,8 +33,12 @@ with file:line). This file holds what HE has taken from it: one rule decided, an
 
   ⭐ The fix: hand an accent on a MIDDLE note to the slur search as `inside` (an end note's accent stays as it
   is until L2 moves it). `house` already clears middle marks from above (a note's box includes its marks).
-  ⛔ A slur-plan switch was offered and declined, his call: *"it is part of the articulation and t1 plan so it
-  must go in that doc"* — do it with T1.
+  ✅ **BUILT 2026-09-27** (his *"i think this is also a good idea"*, after first filing it here): the slur-search
+  row `midAccent: 'inside' | 'lilypond'`, **default `'inside'`** (`engrave/curves/slurSearch/searchDetails`,
+  `__slur.rule('midAccent', 'lilypond')` for LilyPond's). The adapter marks each accent with whether its note is
+  an END; a middle one goes to the search as `inside`. Chromium: C6 / F6 / B6 / E7 middle notes — `'lilypond'`
+  under the accent at all four, `'inside'` over it at all four. ⏭️ T1's OTHER half — an END accent OUTSIDE —
+  still needs the mark to move (L2).
 
 ## LATER — to go back to (his word, 2026-09-27: *"we also have to go back to this later"*)
 

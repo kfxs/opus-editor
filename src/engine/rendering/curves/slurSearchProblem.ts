@@ -210,8 +210,27 @@ function marksOver(
   return marks.length ? { tupletNumbers: marks } : {}
 }
 
+/**
+ * Row G — the clef / key / meter changes standing INSIDE the slur: a sign whose middle lies between the slur's
+ * first head (or its line-break edge) and its last. ⭐ A system's own opening signs stand left of the break edge,
+ * so they drop out by position.
+ */
+function signsWithin(
+  signBoxes: readonly { x: number; y: number; width: number; height: number }[], notes: readonly EngravedNote[],
+  frame: SearchFrame, brokenPx: readonly [number | undefined, number | undefined],
+): { headerSigns?: NonNullable<SlurSearchInput['headerSigns']> } {
+  if (!signBoxes.length || !notes.length) return {}
+  const from = brokenPx[0] ?? noteRuler(notes[0]).headRightX
+  const to = brokenPx[1] ?? noteRuler(notes[notes.length - 1]).headLeftX
+  const signs = signBoxes
+    .filter(b => b.x + b.width / 2 > from && b.x + b.width / 2 < to)
+    .map(b => toExtents(frame, b))
+    .filter(e => [e.x[0], e.x[1], e.y[0], e.y[1]].every(Number.isFinite))
+  return signs.length ? { headerSigns: signs } : {}
+}
+
 /** A note's accidentals, dots and articulations, as the search's objects. */
-function objectsOn(note: EngravedNote, frame: SearchFrame): SearchObject[] {
+function objectsOn(note: EngravedNote, frame: SearchFrame, onEnd: boolean): SearchObject[] {
   const out: SearchObject[] = []
   for (const acc of accidentalsOn(note)) {
     const ink = acc.drawnInk()
@@ -227,7 +246,10 @@ function objectsOn(note: EngravedNote, frame: SearchFrame): SearchObject[] {
     const avoid = ARTICULATION_AVOID[m.type]
     if (!avoid) continue
     const b = m.getBoundingBox()
-    out.push({ ...toExtents(frame, { x: b.x, y: b.y, width: b.w, height: b.h }), avoid })
+    out.push({
+      ...toExtents(frame, { x: b.x, y: b.y, width: b.w, height: b.h }), avoid,
+      ...(m.type === 'a>' ? { accent: { onEnd } } : {}),
+    })
   }
   return out.filter(o => [o.x[0], o.x[1], o.y[0], o.y[1]].every(Number.isFinite))
 }
@@ -249,6 +271,8 @@ export function slurSearchProblem(
   drawnSlurs: readonly { cubic: readonly [Point, Point, Point, Point]; sharesLeft: boolean; sharesRight: boolean }[] = [],
   /** Row G: every drawn tuplet MARK with its notes (`ScoreTuplet.markBox`) — kept when it is over this slur's notes. */
   tupletMarks: readonly { box: { x: number; y: number; width: number; height: number }; notes: readonly EngravedNote[] }[] = [],
+  /** Row G: the clef / key / meter signs DRAWN on this staff and system (their registry boxes). */
+  signBoxes: readonly { x: number; y: number; width: number; height: number }[] = [],
 ): SlurSearchProblem | null {
   // Each end on a note needs its note; a piece with no column at all (a system the slur only passes over,
   // holding none of its lane's notes) has nothing to state.
@@ -278,7 +302,9 @@ export function slurSearchProblem(
     input: {
       dir: slurUp ? 1 : -1,
       columns,
-      objects: notes.flatMap(n => objectsOn(n, frame)),
+      // An END note is a bound — ⚠️ not the column nearest a line break, which is a middle one to T1.
+      objects: notes.flatMap((n, i) => objectsOn(n, frame,
+        (i === 0 && brokenPx[0] === undefined) || (i === notes.length - 1 && brokenPx[1] === undefined))),
       nestedSlurs: [],
       tieEnds: [],
       staff: {
@@ -291,6 +317,7 @@ export function slurSearchProblem(
       ...tiesUnder(drawnTies, notes, frame, brokenPx),
       ...slursUnder(drawnSlurs, notes, frame, brokenPx),
       ...marksOver(tupletMarks, notes, frame),
+      ...signsWithin(signBoxes, notes, frame, brokenPx),
       ...(openRisePx.some(r => r !== undefined)
         ? { openRise: openRisePx.map(r => (r === undefined ? undefined : r / frame.spacePx)) as [number | undefined, number | undefined] }
         : {}),

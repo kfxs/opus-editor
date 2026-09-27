@@ -118,7 +118,7 @@ export const LILYPOND_SLUR_DETAILS: SlurSearchDetails = {
  * ⭐⭐ **THE COMPROMISE'S ROWS — a CHOICE per case** (docs/plans/slur-search-plan.md P8, his word 2026-09-27:
  * *"so we should have a preset for every case"*). Where {@link SlurSearchDetails} are LilyPond's numbers, these
  * are the places he compared LilyPond with our `house` and may want either. ⭐ Every default is LilyPond's —
- * what the search draws today; ⛔ a row changes nothing until he arms it.
+ * what the search drew — ⚠️ except `midAccent`, whose default is HIS decided rule (T1).
  */
 export interface SlurSearchRules {
   /**
@@ -197,6 +197,21 @@ export interface SlurSearchRules {
    * 0.3 sp. `'off'` — what the search drew before.
    */
   tupletNumbers: 'off' | 'on'
+  /**
+   * **Row G — a clef, key or meter CHANGE inside the slur.** ⭐ `'on'` is LilyPond: `Clef`, `KeySignature` and
+   * `TimeSignature` are `avoid-slur: inside` — scored, and an avoid-point for the arch, but ⛔ never allowed to
+   * widen an end's range (`fill`'s exclusion, `slur-scoring.cc:302-308`). `'off'` — what the search drew before.
+   */
+  headerSigns: 'off' | 'on'
+  /**
+   * **An accent on a MIDDLE note** — his T1 rule (docs/plans/articulation-plan.md; Gould pp. 121–122, Ross p. 130,
+   * Stone pp. 42–43, Gerou & Lusk p. 128): inside the slur, the slur passing OVER it.
+   * - `'inside'` — ⭐ the DEFAULT, his decided rule: handed to the search as `inside`, so it is cleared from above.
+   * - `'lilypond'` — `around` (the curve only keeps clear of it): measured 2026-09-27, a slur over a high middle
+   *   note (C6 – E7) slipped UNDER its accent, between note and accent.
+   * ⚠️ An END note's accent is untouched here — T1 puts it OUTSIDE the slur, which moves the mark (L2).
+   */
+  midAccent: 'lilypond' | 'inside'
 }
 
 export const LILYPOND_SLUR_RULES: SlurSearchRules = {
@@ -209,6 +224,8 @@ export const LILYPOND_SLUR_RULES: SlurSearchRules = {
   nested: 'off',
   flags: 'off',
   tupletNumbers: 'off',
+  headerSigns: 'off',
+  midAccent: 'inside',
 }
 
 /** Each row's choices, for the console and a spec — ⚠️ a new row adds its line here. */
@@ -222,4 +239,6 @@ export const SLUR_RULE_CHOICES: { readonly [K in keyof SlurSearchRules]: readonl
   nested: ['off', 'on'],
   flags: ['off', 'on'],
   tupletNumbers: ['off', 'on'],
+  headerSigns: ['off', 'on'],
+  midAccent: ['inside', 'lilypond'],
 }
