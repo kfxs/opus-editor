@@ -111,6 +111,12 @@ export interface SlurSearchInput {
    * nearest column is NOT a bound: the curve must get over it.
    */
   brokenX?: readonly [number | undefined, number | undefined]
+  /**
+   * Row D: `house`'s LEAN of each open end (Gould p. 112, `rendering/curves/brokenSlurTilt`) — how far outward
+   * from the note end, in staff spaces, the open end would stand to point at the music across the break.
+   * Read only under `openEnd: 'house'`.
+   */
+  openRise?: readonly [number | undefined, number | undefined]
 }
 
 /** `Extra_collision_info`. */
@@ -448,6 +454,11 @@ export function buildSearchState(
   // Row A — an end on a visible stem pointing the slur's way is drawn toward the stem END under 'stem'.
   const edgeTargets = [LEFT, RIGHT].map(i => {
     const { stem, stemExtent } = bounds[i]
+    // Row D — an OPEN end is drawn toward `house`'s lean, measured outward from the note end's own base.
+    const rise = input.openRise?.[i]
+    if (rules.openEnd === 'house' && !bounds[i].column && rise !== undefined && bounds[1 - i].column) {
+      return { x: base[i].x, y: base[1 - i].y + dir * rise }
+    }
     if (rules.stemSideEnd !== 'stem' || !stem || !stemExtent || stem.invisible || stem.dir !== dir) return base[i]
     return { x: base[i].x, y: moveAwayFromStaffline(at(stemExtent.y, dir) + dir * 0.5, input.staff, dir) }
   }) as [Offset, Offset]

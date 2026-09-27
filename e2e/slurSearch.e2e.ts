@@ -297,6 +297,43 @@ test('⭐ P8 row C — `tilt: house` holds a rise over opposite stems to about h
   expect(out.step.house).toBeGreaterThan(0)
 })
 
+/**
+ * ⭐ P8 row D — a broken slur's OPEN end: `e2e/slur.e2e.ts`'s "leans toward its own music" case with broken
+ * slurs under `lilypond`. `openEnd: 'lilypond'` is level whatever follows the break; `'house'` leans (Gould p. 112).
+ */
+test('⭐ P8 row D — `openEnd: house` leans the open end toward the music across the break', async ({ score }) => {
+  const rise = async (endOctave: number, openEnd: string) => score.evaluate(async ({ endOctave, openEnd }) => {
+    const h = window.__h
+    await h.fontReady()
+    h.slurSolver('lilypond')
+    h.slurRule('openEnd', openEnd)
+    const e = h.engine
+    e.loadJSON(JSON.stringify({ id: 's', title: '', measures: [{ id: 'm1', number: 1, slots: [], timeSignature: { numerator: 4, denominator: 4 }, tuplets: [], timeSignatureChange: true }] }))
+    const ids: string[] = []
+    for (let m = 1; m <= 40; m++) {
+      if (m > 1) e.addMeasure()
+      ids.push(e.addNoteAtBeat({ step: 'C', octave: 5, duration: 'w', measure: m, beat: h.frac(0, 1) })!.id)
+    }
+    await h.render()
+    const tops = h.staves().map(st => st.top)
+    let broken = -1
+    for (let i = 1; i < tops.length; i++) if (Math.abs(tops[i] - tops[i - 1]) > 1) { broken = i; break }
+    e.updateNote(ids[broken], { step: 'C', octave: endOctave })
+    e.slur.createSlur([ids[broken - 1], ids[broken]])
+    await h.render()
+    const parsed = [...document.querySelectorAll('g.slur path[fill="none"]')]
+      .map(p => [...(p.getAttribute('d') ?? '').matchAll(/(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)/g)].map(m => ({ x: +m[1], y: +m[2] })))
+    const begin = parsed.reduce((best, p) => (p[0].y < best[0].y ? p : best), parsed[0])
+    const sp = (h.staves()[0].bottom - h.staves()[0].top) / 4
+    return (begin[0].y - begin[3].y) / sp
+  }, { endOctave, openEnd })
+  const level = [await rise(6, 'lilypond'), await rise(4, 'lilypond')]
+  const leaning = [await rise(6, 'house'), await rise(4, 'house')]
+  console.log('[row D]', JSON.stringify({ level, leaning }))
+  expect(level[0]).toBe(level[1])
+  expect(leaning[0]).toBeGreaterThan(leaning[1])
+})
+
 test('⭐ the search is DETERMINISTIC — a saved and reloaded score draws the same slur, to the byte', async ({ score }) => {
   const out = await score.evaluate(async () => {
     const h = window.__h

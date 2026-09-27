@@ -110,3 +110,21 @@ describe('⭐ row C — how much the slur tilts with the melody (P8)', () => {
     expect(rise(agree, 'house')).toBe(rise(agree, 'lilypond'))
   })
 })
+
+describe('⭐ row D — a broken slur\'s OPEN end (P8)', () => {
+  // The begin piece of his slur: B4 on this system, broken at x 6; `house`'s lean says 2 sp outward.
+  const begin = (rise: number): SlurSearchInput => ({
+    ...hisSlur(false), columns: [column(0, 0, -1)], brokenX: [undefined, 6], openRise: [undefined, rise],
+  })
+  const openY = (rise: number, openEnd: 'lilypond' | 'house') =>
+    searchSlur(begin(rise), D, { ...LILYPOND_SLUR_RULES, openEnd })!.ends[1].y
+
+  it('`lilypond`: level — the lean is not read', () => {
+    expect(openY(2, 'lilypond')).toBe(openY(1, 'lilypond'))
+  })
+
+  it('⭐ `house`: the open end follows the lean — a bigger lean stands it further out', () => {
+    expect(openY(2, 'house')).toBeGreaterThan(openY(1, 'house'))
+    expect(openY(2, 'house')).toBeGreaterThan(openY(2, 'lilypond'))
+  })
+})

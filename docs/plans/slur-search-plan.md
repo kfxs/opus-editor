@@ -241,6 +241,12 @@ rule).
     `'house'` (Gould p. 111): over OPPOSITE end stems, `score_slopes`' allowance is half the music's rise + 0.2
     instead of the whole — the same 50-a-space demerit pulls the slur down; agreeing stems keep LilyPond's.
     Chromium: rising step 0.65 → **0.15** sp (house 0.25), rising tenth 4.35 → **2.35** (house 2.25).
+  - ✅ **Row D BUILT 2026-09-27** — `SlurSearchRules.openEnd: 'lilypond' | 'house'`, `__slur.rule('openEnd', 'house')`
+    (acts when broken slurs run the search: `__slur.brokenSolver('lilypond')`). The renderer hands the search
+    `house`'s lean of each open end (`brokenSlurTilt`, via `openRise`); under `'house'` the open end is ATTRACTED
+    there (`edgeTargets`), outward from the note end's base. Chromium (whole notes, the break between):
+    `'lilypond'` rises 0 whether the music goes up or down; `'house'` **2.0 / 0.5** sp (the house preset: 2.0 /
+    1.0 — the search's other demerits settle the low one lower). A middle piece has no note end — unchanged.
 
 ## 5. What this does NOT change
 

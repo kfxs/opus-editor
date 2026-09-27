@@ -150,12 +150,22 @@ export interface SlurSearchRules {
    *   rise. ⭐ Stems that agree keep LilyPond's allowance (Gould's rule is for opposite stems only).
    */
   tilt: 'lilypond' | 'house'
+  /**
+   * **Row D — a BROKEN slur's open end.**
+   * - `'lilypond'` — level: LilyPond's piece never reads the next system (`get_base_attachments`' no-column
+   *   branch — the nearest column's height, or the other end's).
+   * - `'house'` — Gould p. 112, our `rendering/curves/brokenSlurTilt`: the open end is drawn toward a LEAN
+   *   pointing at the music across the break (1.0–2.0 sp outward from the note end). ⚠️ Only for a piece with
+   *   a note end — a MIDDLE piece has none, and stays LilyPond's.
+   */
+  openEnd: 'lilypond' | 'house'
 }
 
 export const LILYPOND_SLUR_RULES: SlurSearchRules = {
   stemSideEnd: 'head',
   endX: 'lilypond',
   tilt: 'lilypond',
+  openEnd: 'lilypond',
 }
 
 /** Each row's choices, for the console and a spec — ⚠️ a new row adds its line here. */
@@ -163,4 +173,5 @@ export const SLUR_RULE_CHOICES: { readonly [K in keyof SlurSearchRules]: readonl
   stemSideEnd: ['head', 'stem'],
   endX: ['lilypond', 'house'],
   tilt: ['lilypond', 'house'],
+  openEnd: ['lilypond', 'house'],
 }

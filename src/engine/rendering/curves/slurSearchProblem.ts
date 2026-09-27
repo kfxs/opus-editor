@@ -173,6 +173,8 @@ function objectsOn(note: EngravedNote, frame: SearchFrame): SearchObject[] {
 export function slurSearchProblem(
   notes: readonly EngravedNote[], direction: number,
   brokenPx: readonly [number | undefined, number | undefined] = [undefined, undefined],
+  /** `house`'s lean of each open end, px outward from the note end (`./brokenSlurTilt`) — for row D. */
+  openRisePx: readonly [number | undefined, number | undefined] = [undefined, undefined],
 ): SlurSearchProblem | null {
   // Each end on a note needs its note; a piece with no column at all (a system the slur only passes over,
   // holding none of its lane's notes) has nothing to state.
@@ -212,6 +214,9 @@ export function slurSearchProblem(
       },
       endHeadY: [(first[0] + first[1]) / 2, (last[0] + last[1]) / 2],
       ...(broken ? { brokenX: [edge(brokenPx[0]), edge(brokenPx[1])] as const } : {}),
+      ...(openRisePx.some(r => r !== undefined)
+        ? { openRise: openRisePx.map(r => (r === undefined ? undefined : r / frame.spacePx)) as [number | undefined, number | undefined] }
+        : {}),
     },
   }
 }

@@ -824,11 +824,13 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
             p0: { x: number; y: number }, p1: { x: number; y: number },
             hands: readonly [{ x: number; y: number }, { x: number; y: number }],
             notes: EngravedNote[] | null, brokenPx: readonly [number | undefined, number | undefined],
+            /** `house`'s lean of each OPEN end (`./brokenSlurTilt`), px outward from the note end — row D. */
+            openRisePx: readonly [number | undefined, number | undefined] = [undefined, undefined],
           ): [{ x: number; y: number }, { x: number; y: number }] => {
             if (override) return resolveCps(override, frame, p0, p1, direction, nestLift)
             const solved = solveSlurPiece({
               p0: { ...p0 }, p1: { ...p1 }, direction, nestLift, hands, obstacles: () => [],
-              searchProblem: () => (notes ? slurSearchProblem(notes, direction, brokenPx) : null),
+              searchProblem: () => (notes ? slurSearchProblem(notes, direction, brokenPx, openRisePx) : null),
             })
             p0.x = solved.p0.x; p0.y = solved.p0.y
             p1.x = solved.p1.x; p1.y = solved.p1.y
@@ -845,15 +847,13 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
               const startY = fromY + liftFrom * direction
               const frame = noteFrame(fromNote)
               const p0 = { x: seg.firstX, y: startY }
-              const p1 = {
-                x: seg.rightX,
-                y: startY + openRise('begin', seg.rightX - seg.firstX, startY, frame) * direction,
-              }
+              const rise = openRise('begin', seg.rightX - seg.firstX, startY, frame)
+              const p1 = { x: seg.rightX, y: startY + rise * direction }
               // Open RIGHT end nudge (the true start p0 carries `endpointOffset` instead).
               const o = segmentEndpointOffsetPx(segEndOff.begin, frame)
               p1.x += o.x; p1.y += o.y
               const cps = solvePiece(segShape.begin, frame, p0, p1, [{ x: off.startX, y: off.startY }, o],
-                fannedStart ? null : [fromNote, ...interiorOn(fromLine)], [undefined, seg.rightX])
+                fannedStart ? null : [fromNote, ...interiorOn(fromLine)], [undefined, seg.rightX], [undefined, rise])
               // ⭐ Filed before the translation: this fragment carries the START end's own nudge,
               // and the whole-curve offset is still to come. Its open right end keeps `o` — that
               // one re-arched (see {@link fileCurve}).
@@ -879,16 +879,14 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
               // EXCLUDES Clef, KeySignature and TimeSignature from the code that lifts a slur's
               // endpoint (`slur-scoring.cc:302–308`), while still letting them score against the
               // curve. Raising a slur to clear the clef is the wrong fix, and I shipped it once.
-              const p0 = {
-                x: seg.leftX,
-                y: endY + openRise('end', seg.lastX - seg.leftX, endY, frame) * direction,
-              }
+              const rise = openRise('end', seg.lastX - seg.leftX, endY, frame)
+              const p0 = { x: seg.leftX, y: endY + rise * direction }
               const p1 = { x: seg.lastX, y: endY }
               // Open LEFT end nudge (the true end p1 carries `endpointOffset` instead).
               const o = segmentEndpointOffsetPx(segEndOff.end, frame)
               p0.x += o.x; p0.y += o.y
               const cps = solvePiece(segShape.end, frame, p0, p1, [o, { x: off.endX, y: off.endY }],
-                fannedEnd ? null : [...interiorOn(toLine), toNote], [seg.leftX, undefined])
+                fannedEnd ? null : [...interiorOn(toLine), toNote], [seg.leftX, undefined], [rise, undefined])
               // ⭐ The mirror of BEGIN: the true END's nudge comes off, the open left end's stays.
               fileCurve(autoArc(p0, { x: p1.x - off.endX, y: p1.y - off.endY }, cps, direction), toLine)
               p0.x += wholeTo.x; p0.y += wholeTo.y
