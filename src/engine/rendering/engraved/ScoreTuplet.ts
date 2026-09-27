@@ -154,6 +154,8 @@ export class ScoreTuplet {
   bracketEndX?: number
 
   private readonly notes: EngravedNote[]
+  /** The MARK's box as last drawn — px, y down; null before a draw or with no mark (see {@link markBox}). */
+  private drawnMark: { x: number; y: number; width: number; height: number } | null = null
   private readonly id = `tuplet${++nextTupletId}`
   /** The group `draw()` opened — what the selection highlight recolours. */
   private group: DrawGroup | null = null
@@ -351,6 +353,8 @@ export class ScoreTuplet {
     const baseline =
       yPos + this.markHeight() / 2 + (location === LOCATION_TOP ? -1 : 1) * textYOffset
     drawTupletMark(ctx, mark, notationStartX, baseline)
+    const h = this.markHeight()
+    this.drawnMark = textWidth > 0 ? { x: notationStartX, y: baseline - h, width: textWidth, height: h } : null
 
     // ⚠️ VexFlow's pointer rect is `Element.getBoundingBox()` of the TUPLET itself — which never has an
     // x, a y, a shift or a text: so it stands at the origin, `width` wide, and as tall as an EMPTY
@@ -359,6 +363,15 @@ export class ScoreTuplet {
     const emptyAscent = measureGlyphAscent('Tuplet', '', MUSIC_FONT_SIZE_PT)
     ctx.pointerRect(0, -emptyAscent, this.width, measureGlyphHeight('Tuplet', '', MUSIC_FONT_SIZE_PT))
     ctx.closeGroup()
+  }
+
+  /**
+   * ⭐ Where the MARK (the number, or ratio) was drawn, and the notes it is over — what a slur over the tuplet
+   * must clear (LilyPond's `TupletNumber` is `avoid-slur: inside`; the slur search's row G). ⚠️ The box stands
+   * on the mark's BASELINE with the figures' height — the text's own box, not its ink.
+   */
+  markBox(): { box: { x: number; y: number; width: number; height: number }; notes: readonly EngravedNote[] } | null {
+    return this.drawnMark ? { box: this.drawnMark, notes: this.notes } : null
   }
 
   /** The figures' height at {@link TUPLET_FONT_SIZE} — what sets the mark's baseline. */

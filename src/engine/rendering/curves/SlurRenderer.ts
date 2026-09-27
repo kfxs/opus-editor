@@ -602,6 +602,11 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
         // that one is applied *before* `resolveCps` on purpose, so it re-arches rather than
         // translating, and there is no engraver's arc left underneath it to file. It also sits at a
         // system margin, where no lane is competing.
+        /** Row G: every tuplet mark this render drew, with its notes — the adapter keeps those over this slur. */
+        const tupletMarks = () => [...pass.tupletObjectMap.values()].flatMap(t => {
+          const m = t.markBox()
+          return m ? [m] : []
+        })
         /** Row G: the ties this render drew on this slur's staff and system (they are drawn before the slurs). */
         const tiesOn = (line: number) =>
           pass.drawnCurves.filter(c => c.kind === 'tie' && c.staff === slurStaffIndex && c.line === line)
@@ -724,7 +729,7 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
                 pass.fanMemberAnchorMap.has(slur.startNoteId) || pass.fanMemberAnchorMap.has(slur.endNoteId)
                   ? null
                   : slurSearchProblem([fromNote, ...interiorNotes, toNote], direction, undefined, undefined,
-                    tiesOn(fromLine), slursOn(fromLine)),
+                    tiesOn(fromLine), slursOn(fromLine), tupletMarks()),
             })
             p0.x += solved.p0.x - autoP0.x; p0.y += solved.p0.y - autoP0.y
             p1.x += solved.p1.x - autoP1.x; p1.y += solved.p1.y - autoP1.y
@@ -863,7 +868,7 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
             const solved = solveSlurPiece({
               p0: { ...p0 }, p1: { ...p1 }, direction, nestLift, hands, obstacles: () => [],
               searchProblem: () => (notes
-                ? slurSearchProblem(notes, direction, brokenPx, openRisePx, tiesOn(line), slursOn(line))
+                ? slurSearchProblem(notes, direction, brokenPx, openRisePx, tiesOn(line), slursOn(line), tupletMarks())
                 : null),
             })
             p0.x = solved.p0.x; p0.y = solved.p0.y

@@ -21,6 +21,21 @@ with file:line). This file holds what HE has taken from it: one rule decided, an
   ⚠️ The rule needs the ACCENT to be placed outside the slur at an end — which is moving a mark (L2), not
   only choosing what the slur clears. Plan it with L2 in view.
 
+  **T1 has a SLUR-SIDE half that needs no mark to move — measured 2026-09-27, his test.** An accent on a
+  MIDDLE note must be inside the slur (the slur passes OVER it). Under the `lilypond` slur preset (the default)
+  it is not guaranteed: `slurSearchProblem.ts` `ARTICULATION_AVOID` hands the accent over as `around`, which
+  only keeps the curve clear of it, so the slur may slip BETWEEN the note and its accent. Chromium sweep —
+  A4 C5 [accented note] E5, slur above, the middle note G3 → E7:
+  - G3 – A4: the accent sits below the note (notehead side), the slur above — opposite sides, fine;
+  - B4 – B5: the slur passes OVER the accent ✓;
+  - **C6 – E7: the slur passes UNDER the accent, between note and accent ✗** (the higher the note, the dearer
+    arching over its accent, and `around` lets the curve take the cheaper way under).
+
+  ⭐ The fix: hand an accent on a MIDDLE note to the slur search as `inside` (an end note's accent stays as it
+  is until L2 moves it). `house` already clears middle marks from above (a note's box includes its marks).
+  ⛔ A slur-plan switch was offered and declined, his call: *"it is part of the articulation and t1 plan so it
+  must go in that doc"* — do it with T1.
+
 ## LATER — to go back to (his word, 2026-09-27: *"we also have to go back to this later"*)
 
 **Numbers (staff spaces)**, from the research — a menu of sourced defaults, ⛔ not decided:

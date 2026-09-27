@@ -107,6 +107,8 @@ export interface SlurSearchInput {
   /** Row G: the slurs drawn under this one (the renderer's), read only under `nested: 'on'` — merged into
    *  {@link nestedSlurs}. */
   nested?: readonly SearchNestedSlur[]
+  /** Row G: the tuplet numbers over this slur's notes, as their extents — read only under `tupletNumbers: 'on'`. */
+  tupletNumbers?: readonly { x: Interval; y: Interval }[]
   /** The staff: its middle line's y, and its lines' positions in half-spaces from it (5 lines: −4…4). */
   staff: { middleY: number; linePositions: readonly number[] }
   /** The two end notes' heads' y (`slur_head_->relative_coordinate`) — the music's own rise. ⚠️ Ignored for
@@ -442,6 +444,10 @@ export function buildSearchState(
       objects: [...input.objects, ...ties.map(t => ({ x: t.x, y: t.y, avoid: 'inside' as const }))],
       tieEnds: [...input.tieEnds, ...ties.flatMap(t => t.ends)],
     }
+  }
+  // Row G — a tuplet number is an `inside` object (LilyPond's `TupletNumber`).
+  if (rules.tupletNumbers === 'on' && input.tupletNumbers?.length) {
+    input = { ...input, objects: [...input.objects, ...input.tupletNumbers.map(t => ({ ...t, avoid: 'inside' as const }))] }
   }
   // Row G — slurs nested under this one: their middle raises the arch, their curve is scored.
   if (rules.nested === 'on' && input.nested?.length) input = { ...input, nestedSlurs: [...input.nestedSlurs, ...input.nested] }

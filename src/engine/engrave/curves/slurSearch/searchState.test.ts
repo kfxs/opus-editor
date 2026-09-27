@@ -226,3 +226,18 @@ describe('⭐ row G — an end note\'s FLAG (`flags`)', () => {
     expect(s.attachments[0][0].x).toBeCloseTo(2.1 + 0.3, 12)
   })
 })
+
+describe('⭐ row G — a TUPLET NUMBER over the slur\'s notes (`tupletNumbers`)', () => {
+  const three = { x: [4, 4.6] as const, y: [3, 4] as const }
+
+  it('`off` (the default): not read', () => {
+    expect(buildSearchState({ ...hisSlur(false), tupletNumbers: [three] }, D).extraInfos).toHaveLength(0)
+  })
+
+  it('⭐ `on` (LilyPond): an `inside` object — scored at 50, and its top an avoid-point', () => {
+    const s = buildSearchState({ ...hisSlur(false), tupletNumbers: [three] }, D, { ...LILYPOND_SLUR_RULES, tupletNumbers: 'on' })
+    expect(s.extraInfos).toHaveLength(1)
+    expect(s.extraInfos[0].penalty).toBe(D.extraObjectCollisionPenalty)
+    expect(s.avoid).toContainEqual({ x: 4.3, y: 4 })
+  })
+})

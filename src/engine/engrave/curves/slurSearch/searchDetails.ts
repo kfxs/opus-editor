@@ -191,6 +191,12 @@ export interface SlurSearchRules {
    * far in on a flagged stem-up note (the source audit).
    */
   flags: 'off' | 'on'
+  /**
+   * **Row G — a TUPLET NUMBER over the slur's notes** (P7's third item). ⭐ `'on'` is LilyPond: `TupletNumber` is
+   * `avoid-slur: inside` (`define-grobs.scm`), so it is an encompass object — the arch clears it, 50 within
+   * 0.3 sp. `'off'` — what the search drew before.
+   */
+  tupletNumbers: 'off' | 'on'
 }
 
 export const LILYPOND_SLUR_RULES: SlurSearchRules = {
@@ -202,6 +208,7 @@ export const LILYPOND_SLUR_RULES: SlurSearchRules = {
   ties: 'off',
   nested: 'off',
   flags: 'off',
+  tupletNumbers: 'off',
 }
 
 /** Each row's choices, for the console and a spec — ⚠️ a new row adds its line here. */
@@ -214,4 +221,5 @@ export const SLUR_RULE_CHOICES: { readonly [K in keyof SlurSearchRules]: readonl
   ties: ['off', 'on'],
   nested: ['off', 'on'],
   flags: ['off', 'on'],
+  tupletNumbers: ['off', 'on'],
 }

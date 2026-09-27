@@ -197,6 +197,19 @@ function slursUnder(
   return nested.length ? { nested } : {}
 }
 
+/** Row G — a tuplet's MARK over any of this slur's notes (LilyPond's `TupletNumber`, `avoid-slur: inside`). */
+function marksOver(
+  tupletMarks: readonly { box: { x: number; y: number; width: number; height: number }; notes: readonly EngravedNote[] }[],
+  notes: readonly EngravedNote[], frame: SearchFrame,
+): { tupletNumbers?: NonNullable<SlurSearchInput['tupletNumbers']> } {
+  const mine = new Set(notes)
+  const marks = tupletMarks
+    .filter(m => m.notes.some(n => mine.has(n)))
+    .map(m => toExtents(frame, m.box))
+    .filter(e => [e.x[0], e.x[1], e.y[0], e.y[1]].every(Number.isFinite))
+  return marks.length ? { tupletNumbers: marks } : {}
+}
+
 /** A note's accidentals, dots and articulations, as the search's objects. */
 function objectsOn(note: EngravedNote, frame: SearchFrame): SearchObject[] {
   const out: SearchObject[] = []
@@ -234,6 +247,8 @@ export function slurSearchProblem(
   drawnTies: readonly { points: readonly Point[] }[] = [],
   /** Row G: the slurs already DRAWN on this staff and system, with whether each shares this slur's end notes. */
   drawnSlurs: readonly { cubic: readonly [Point, Point, Point, Point]; sharesLeft: boolean; sharesRight: boolean }[] = [],
+  /** Row G: every drawn tuplet MARK with its notes (`ScoreTuplet.markBox`) — kept when it is over this slur's notes. */
+  tupletMarks: readonly { box: { x: number; y: number; width: number; height: number }; notes: readonly EngravedNote[] }[] = [],
 ): SlurSearchProblem | null {
   // Each end on a note needs its note; a piece with no column at all (a system the slur only passes over,
   // holding none of its lane's notes) has nothing to state.
@@ -275,6 +290,7 @@ export function slurSearchProblem(
       ...(broken ? { brokenX: [edge(brokenPx[0]), edge(brokenPx[1])] as const } : {}),
       ...tiesUnder(drawnTies, notes, frame, brokenPx),
       ...slursUnder(drawnSlurs, notes, frame, brokenPx),
+      ...marksOver(tupletMarks, notes, frame),
       ...(openRisePx.some(r => r !== undefined)
         ? { openRise: openRisePx.map(r => (r === undefined ? undefined : r / frame.spacePx)) as [number | undefined, number | undefined] }
         : {}),

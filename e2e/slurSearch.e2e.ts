@@ -462,6 +462,42 @@ test('⭐ P8 row G — `flags: on` starts the slur past the flag', async ({ scor
   expect(out.on - out.off).toBeGreaterThan(0.5 * out.sp)
 })
 
+/**
+ * ⭐ P8 row G — a TUPLET NUMBER under the slur: a slur ABOVE over an eighth triplet whose '3' stands above it.
+ * `tupletNumbers: 'on'` (LilyPond) keeps the curve above the number.
+ */
+test('⭐ P8 row G — `tupletNumbers: on` keeps the slur above a triplet\'s number', async ({ score }) => {
+  const out = await score.evaluate(async () => {
+    const h = window.__h
+    await h.fontReady()
+    h.slurSolver('lilypond')
+    const e = h.engine
+    const a = e.addNoteAtBeat({ step: 'G', octave: 4, duration: 'q', measure: 1, beat: h.frac(0, 1) })!
+    const t = e.createTupletAtBeat(1, 1, '8', { step: 'C', alter: 0, octave: 5 })!
+    e.addNoteAtBeat({ step: 'D', octave: 5, duration: '8', measure: 1, beat: h.frac(4, 3), tupletId: t.tuplet.id, actualDuration: h.frac(1, 3) } as never)
+    e.addNoteAtBeat({ step: 'E', octave: 5, duration: '8', measure: 1, beat: h.frac(5, 3), tupletId: t.tuplet.id, actualDuration: h.frac(1, 3) } as never)
+    const b = e.addNoteAtBeat({ step: 'F', octave: 5, duration: 'q', measure: 1, beat: h.frac(2, 1) })!
+    e.getScore().slurs = [{ id: 'sl', startNoteId: a.id, endNoteId: b.id, voice: 0, placement: 'above' }]
+    const sp = () => (h.staves()[0].bottom - h.staves()[0].top) / 4
+    const at = async (rule: string) => {
+      h.slurRule('tupletNumbers', rule)
+      await h.render()
+      const digit = h.placed('g.tuplet text')[0]
+      const slur = h.curveSamples('g.slur path', 200)
+      if (!digit || !slur.length) return null
+      const over = slur.reduce((best, q) => (Math.abs(q.x - digit.x) < Math.abs(best.x - digit.x) ? q : best))
+      // How far the slur passes above the number's BASELINE, in staff spaces.
+      return +((digit.y - over.y) / sp()).toFixed(2)
+    }
+    return { off: await at('off'), on: await at('on') }
+  })
+  console.log('[row G tuplet numbers]', JSON.stringify(out))
+  expect(out.on, 'the fixture draws a number and a slur').not.toBeNull()
+  expect(out.on!).toBeGreaterThanOrEqual(out.off!)
+  // A tuplet digit stands about a space tall: the slur must pass above that.
+  expect(out.on!).toBeGreaterThan(1)
+})
+
 test('⭐ the search is DETERMINISTIC — a saved and reloaded score draws the same slur, to the byte', async ({ score }) => {
   const out = await score.evaluate(async () => {
     const h = window.__h

@@ -272,6 +272,12 @@ rule).
     adapter hands each flagged note its flag (`getFlagWidthPx`, right of the stem, along it); under `'on'` it is
     united into the end's stem extent (LilyPond's `Bound_info`). Chromium, a flagged stem-up eighth starting a
     slur above: the start moves **1.02 sp** right, past the flag (the audit's "~1 sp").
+  - ✅ **Row G, TUPLET NUMBERS, BUILT 2026-09-27** — `SlurSearchRules.tupletNumbers: 'off' | 'on'`,
+    `__slur.rule('tupletNumbers', 'on')`. `ScoreTuplet` now keeps the MARK's box it drew (`markBox()`, the text's
+    box on its baseline) with its notes; the adapter hands the search each mark over the slur's notes, and under
+    `'on'` it is an `inside` object. Chromium, a slur over an eighth triplet: `'off'` ran THROUGH the '3' (0.46 sp
+    below its baseline) → **1.81 sp above** it. ⚠️ A reused bar that the render shifted keeps its old drawn box —
+    the same caveat the notes under a slur already have.
 
 ## 5. What this does NOT change
 
