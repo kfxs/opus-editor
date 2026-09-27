@@ -465,6 +465,32 @@ export function spineConsole(deps: SpineConsoleDeps): SpineConsole {
    * (`makeDraggable`), which would move the whole panel instead.
    */
   const MIN_CANVAS = 120
+  /**
+   * ⭐ A little × at the top right that CLOSES the panel (his ask, 2026-09-27) — beside the corner's resize handle,
+   * ⛔ not on it. Closing keeps what is armed (size, zoom, radius, the canvas), so `__spine.show()` brings it back
+   * as it was; only `clear()` forgets.
+   */
+  const addCloseButton = (el: HTMLElement) => {
+    const button = document.createElement('div')
+    button.className = 'spine-demo-close'
+    button.textContent = '×'
+    button.title = 'Close — __spine.show() reopens it'
+    Object.assign(button.style, {
+      position: 'absolute', top: '2px', right: '16px', width: '16px', height: '16px', zIndex: '2',
+      font: '16px/16px sans-serif', textAlign: 'center', color: '#666', cursor: 'pointer', userSelect: 'none',
+    })
+    button.addEventListener('pointerenter', () => { button.style.color = '#000' })
+    button.addEventListener('pointerleave', () => { button.style.color = '#666' })
+    // ⛔ Never the panel's own press: that would start a drag (or, unmoved, a click that selects).
+    button.addEventListener('pointerdown', e => { e.stopPropagation(); e.preventDefault() })
+    button.addEventListener('click', e => {
+      e.stopPropagation()
+      teardown()
+      dbg('[spine] closed — __spine.show() reopens it as it was; __spine.clear() forgets the settings too')
+    })
+    el.appendChild(button)
+  }
+
   const addCornerHandles = (el: HTMLElement) => {
     const corners = [
       { key: 'nw', left: true, top: true, cursor: 'nwse-resize' },
@@ -545,6 +571,7 @@ export function spineConsole(deps: SpineConsoleDeps): SpineConsole {
     panel.appendChild(host)
     makeDraggable(panel)
     addCornerHandles(panel)
+    addCloseButton(panel)
     panel.addEventListener('wheel', e => {
       e.stopPropagation() // ⛔ never the page's: its zoom and wheel gestures listen on `window`
       if (!e.ctrlKey) return

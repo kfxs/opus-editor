@@ -375,3 +375,24 @@ describe('⭐ the CURSOR — the pointer over the music, the move cursor elsewhe
     expect(hover(top.x, top.y + r), 'the centre of the circle').toBe('move')
   })
 })
+
+describe('⭐ the CLOSE button (his ask, 2026-09-27)', () => {
+  it('a click on the × takes the panel down; show() brings it back with what was armed', () => {
+    const c = openConsole().console
+    c.show({ zoom: 2 })
+    panel().querySelector<HTMLElement>('.spine-demo-close')!.click()
+    expect(document.querySelector('.spine-demo-panel')).toBeNull()
+    c.show()
+    expect(sizeGroup()?.getAttribute('transform'), 'the zoom it had').toMatch(/scale\(2/)
+  })
+
+  it('a press on the × does not start a panel drag or select anything', () => {
+    const c = openConsole().console
+    c.show()
+    selectInEditor('something')
+    const button = panel().querySelector('.spine-demo-close')!
+    button.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0 }))
+    panel().dispatchEvent(new PointerEvent('pointerup', { bubbles: true, button: 0 }))
+    expect([...selected]).toEqual(['something'])
+  })
+})
