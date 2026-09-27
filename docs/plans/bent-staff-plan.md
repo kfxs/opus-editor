@@ -168,7 +168,7 @@ start to port it there."* Read from the source (`eye/spineScore.ts`, `eye/spineS
 
 **Suggested order** (⛔ a suggestion — his pick): **5 beams** → 7 barline types → 6 header changes →
 14 spacing → 11 voices as columns → 8 tuplets → 13 ties/slurs → 16 marks on lanes → 15 line spans →
-12 staves → B (17–19). ✅ 5 · 6 · 7 · 8 · 13 · 14 done by 2026-09-25, 11 · 16 · 21–23 · 27 on 2026-09-26 — ⭐ #13 set the pattern #15 and #16 reuse: solve in `(s, d)`,
+12 staves → B (17–19). ✅ 5 · 6 · 7 · 8 · 13 · 14 done by 2026-09-25, 11 · 16 · 21–23 · 27 on 2026-09-26, 12 · 15 on 2026-09-27 (⭐ #15 kept #13's `(s, d)` solve, but a LINE follows the path on BOTH sides — it has no bow to invert) — ⭐ #13 set the pattern #15 and #16 reuse: solve in `(s, d)`,
 then the SIDE chooses — bent along the path outside the loop, a rigid unit inside. Blocks first because they reuse the page's classes; ROOM (#14) early because
 every block's `s` comes from it; SPANS last because each is a re-solve, not a placement.
 
