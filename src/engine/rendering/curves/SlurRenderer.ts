@@ -5,8 +5,8 @@
  *
  * Same-line spans draw a single cubic arc; cross-system spans draw two half-arcs.
  * Arc drawing routes through the shared {@link drawCurveArc} primitive (also used by
- * ties). Nesting and the auto arch shape live here; WHICH SIDE the slur sits on is
- * `./slurDirection` and WHERE IT ATTACHES at each end is `./slurStemEndpoint`.
+ * ties). Nesting lives here; the auto arch SHAPE is the armed preset's (`./slurSolvers`), WHICH SIDE
+ * the slur sits on is `./slurDirection` and WHERE IT ATTACHES at each end is `./slurStemEndpoint`.
  */
 import type { EngravedNote } from '../engraved/EngravedNote'
 import type { Score, CurveControlPointDeltas, SlurEndpointOffsetOverride } from '@/types/music'
@@ -26,10 +26,10 @@ import { coveredChordIds, slurSideFromStems, slurStartSlot, slurVoiceSide } from
 import { slurAttachments, type SlurAttachment } from './slurStemEndpoint'
 import { encompassCeiling } from './slurEncompass'
 import { tiltWithThePitches } from './slurMelodicTilt'
-import { archLean, slurArchHeightFor } from './slurArchHeight'
-import { slurIndentFraction } from './slurShapeExperiment'
+import { slurArchCps } from './slurHouseSolver'
+import { solveSlur } from './slurSolvers'
 import { limitSlurSlant } from './slurSlantLimit'
-import { slurArchFit, type SlurObstacle } from './slurObstacles'
+import type { SlurObstacle } from './slurObstacles'
 import { accidentalAvoidPoint } from './slurAccidentalPoint'
 import { accidentalsOn } from '../engraved/EngravedAccidental'
 import { noteInkBox } from '../engraved/noteInkBox'
@@ -329,63 +329,6 @@ function representativeFrameOnLine(
     }
   }
   return undefined
-}
-
-/**
- * Compute the cubic `cps` (control-point deltas for `engrave/curves/curveInk`) that bow the
- * arc by `SLUR_BOW` **vertically above the line between its endpoints** — the two control
- * points stay horizontally centered (no sideways shift) and lift straight up, *following*
- * the chord's slope. This is the engraving default (MuseScore: "slight contour asymmetry,
- * avoid forced tilt"):
- *  - flat / unison → symmetric `[{0,BOW},{0,BOW}]` (perfectly even);
- *  - small interval / close notes → full height, gentle lean, no sideways skew;
- *  - wide leap → clean arch parallel to the contour, no hook and no lopsided air-gap.
- *
- * An earlier *perpendicular* offset shifted the control points sideways by `∝ dy/len`,
- * which blew up for closely-spaced steps (seconds went flat-and-skewed) — hence the
- * vertical-above-chord-line formula here.
- *
- * `curveControlPoints` places each control point at `(endpointX ± dx/4, endpointY + cp.y·dir)`;
- * we target the chord line at 25%/75% lifted by `BOW`, then invert to recover the deltas.
- */
-function slurArchCps(
-  p0: { x: number; y: number },
-  p1: { x: number; y: number },
-  direction: number,
-  extraHeight = 0,
-  /** ⭐ How much taller the obstacles under it make the whole arch — `./slurObstacles.slurArchFit`. */
-  fit = 1,
-): [{ x: number; y: number }, { x: number; y: number }] {
-  const dy = p1.y - p0.y
-  // HOW TALL is `./slurArchHeight` — a law, not a constant, and the one number in the family with no
-  // published source (docs/plans/slur-plan.md §12 Phase 2). `extraHeight` lifts an outer slur clear of the
-  // slur(s) nested inside it (Phase 8).
-  //
-  // ⏭️ A short, steeply tilted slur should be rounder than this law asks (Verovio's minimum control
-  // angle) — measured, costed and NOT built: see the tail of `./slurSlantLimit` for why it is a
-  // shape decision rather than an import.
-  const H = slurArchHeightFor(p0, p1, extraHeight)
-  // ⭐ The two obstacle lifts are per-CONTROL (`./slurObstacles`) — the whole point of solving them
-  // separately is that they may differ, so they are added here rather than folded into `H`.
-  // ⭐⭐ …and the LEAN is bounded by the arch it leans (`./slurArchHeight.archLean`, his report of
-  // 2026-08-31: unbounded, it put one control through the chord line and drew a bent stick).
-  const lean = archLean(dy, direction, H)
-  // ⚠️ EXPERIMENT, HIS (2026-08-31): the INDENT — how far in from each end the controls sit — is
-  //    VexFlow's own `span/4` unless the console says otherwise (`./slurShapeExperiment`; both
-  //    engines vary it with length and we never have). `cps.x` is an ADDITIVE delta on top of that
-  //    `span/4` in `curveControlPoints`, the one owner of both, so the difference is what goes
-  //    in — and 0.25 puts a 0 there, which is what shipped.
-  const indent = (slurIndentFraction() - 0.25) * (p1.x - p0.x)
-  // ⭐⭐ **THE OBSTACLE FACTOR SCALES BOTH CONTROLS BY THE SAME NUMBER** — LilyPond's, and the
-  //    property is the point: multiplying a pair by one scalar cannot change their RATIO, so the
-  //    arch keeps its shape and only its size answers the music under it (`./slurObstacles`).
-  //    ⛔ Never two separate lifts — that is what bent his slur (`docs/research/slur-tie-research.md` §8.1).
-  return [
-    { x: indent, y: (H + lean) * fit },
-    // ⚠️ `0 - indent`, ⛔ not `-indent`: the default puts a NEGATIVE ZERO there, and `toEqual`
-    //    tells the two apart — a spec failing on the sign of nothing.
-    { x: 0 - indent, y: (H - lean) * fit },
-  ]
 }
 
 /**
@@ -730,16 +673,26 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
           // engraver would have put the ends — and the hand's nudge moves the drawn ink afterwards.
           // The shape a slur has is the shape it keeps, which is the same sentence the whole-curve
           // move already obeys.
-          const autoP0 = { x: p0.x - off.startX, y: p0.y - off.startY }
-          const autoP1 = { x: p1.x - off.endX, y: p1.y - off.endY }
-          // ⭐⭐ ONE FACTOR over the whole arch (`./slurObstacles`), ⛔ never two control lifts.
-          const archH = slurArchHeightFor(autoP0, autoP1, nestLift)
-          const archLeanPx = archLean(autoP1.y - autoP0.y, direction, archH)
-          const clearance = shapeOverride
-            ? 1
-            : slurArchFit(autoP0, autoP1, archH + archLeanPx, archH - archLeanPx,
-              direction, slurObstaclesOf(pass, score, slur, direction))
-          const cps = resolveCps(shapeOverride, frame, autoP0, autoP1, direction, nestLift, clearance)
+          let autoP0 = { x: p0.x - off.startX, y: p0.y - off.startY }
+          let autoP1 = { x: p1.x - off.endX, y: p1.y - off.endY }
+          // ⭐⭐ THE ARMED PRESET SOLVES IT (`./slurSolvers`) — ⛔ never for a hand-edited shape, which is
+          // the user's. A solver may move the ENDS too (LilyPond's search does), so they are carried
+          // back onto the drawn `p0`/`p1` as a DELTA — ⚠️ a delta, so `house`, which moves nothing,
+          // adds an exact zero and not a round-trip through `off`.
+          let cps: [{ x: number; y: number }, { x: number; y: number }]
+          if (shapeOverride) {
+            cps = resolveCps(shapeOverride, frame, autoP0, autoP1, direction, nestLift)
+          } else {
+            const solved = solveSlur({
+              p0: autoP0, p1: autoP1, direction, nestLift,
+              obstacles: () => slurObstaclesOf(pass, score, slur, direction),
+            })
+            p0.x += solved.p0.x - autoP0.x; p0.y += solved.p0.y - autoP0.y
+            p1.x += solved.p1.x - autoP1.x; p1.y += solved.p1.y - autoP1.y
+            autoP0 = solved.p0
+            autoP1 = solved.p1
+            cps = solved.cps
+          }
           // ⭐⭐ THE RIGID MOVE, and this line's POSITION is the whole of it: the shape (arch, tilt,
           // obstacle lift, or the hand-edited cps) is already decided, and the cps are endpoint-
           // relative, so translating both endpoints now moves the drawn curve and changes nothing

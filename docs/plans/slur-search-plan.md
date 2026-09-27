@@ -88,6 +88,11 @@ rule).
     0.20 ms/slur**. This machine's numbers — logged by the spec, not asserted.
 - **P1 — the seam. ⛔ No pixel moves.** `SLUR_SOLVERS` table with `house` = today's code moved behind
   the row; `__slur.solver`; the default stays `house`. P0's net must pass byte-for-byte.
+  - ✅ **BUILT 2026-09-27**: `curves/slurSolvers` (the table, the armed row, `slurViewGeneration` in the
+    view key — the preset and the shape experiment as ONE number, so the hub gained nothing) +
+    `curves/slurHouseSolver` (`slurArchCps` + the fit, moved from `SlurRenderer` unchanged). A solver gets
+    the ENGRAVER's ends and may move them; `SlurRenderer` carries a moved end back as a DELTA, so `house`
+    adds an exact 0. P0's net + `slur`/`slurAfterMove`/`trill` e2e pass; stopwatch unchanged (0.21 / 0.62).
 - **P2 — the search, pure** (`engrave/curves/slurSearch/` — ⛔ no DOM, no renderer; unit-tested in
   jsdom on plain numbers): the state (base attachments, encompass points per head/stem, extra objects —
   accidentals as today's POINT, articulations by their avoid type), `enumerate`, `generateCurve`

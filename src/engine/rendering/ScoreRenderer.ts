@@ -71,7 +71,7 @@ import { hairpinSpan } from '@/engine/models/hairpinOps'
 import { ottavaSpan } from '@/engine/models/ottavaOps'
 import { pedalSpan } from '@/engine/models/pedalOps'
 import { beamGroupStemDirection } from '@/engine/models/stemOps'
-import { slurShapeGeneration } from './curves/slurShapeExperiment'
+import { slurViewGeneration } from './curves/slurSolvers'
 import { beamSlopeGeneration } from './beams/beamSlopeExperiment'
 import { widthRowGenerations } from '@/engine/layout/widthRowGenerations'
 import { attachDynamicsToSlots, layoutCoLocatedDynamics, applyDynamicOffsets, registerDynamics, applyMixedDynamicRuns } from './marks/dynamics/DynamicsLayout'
@@ -550,11 +550,12 @@ export class ScoreRenderer {
       //
       // ⚠️ Rounded, or a sub-pixel reflow re-engraves for a difference nobody can see.
       this.suppressedDynamicInkWidth === null ? null : Math.round(this.suppressedDynamicInkWidth),
-      // ⚠️ EXPERIMENT, HIS (2026-08-31) — the armed slur-shape law (`./slurShapeExperiment`). A law
-      //    is a PICTURE change with no model change, so without it here `isRenderStale()` answers
-      //    "no" and the console call draws nothing (`reference_only_a_stale_render_runs`). ⛔ Not the
-      //    layout key: a slur takes no width, so the casting-off cannot depend on it.
-      slurShapeGeneration(),
+      // ⭐ The armed slur PRESET (`./curves/slurSolvers`) and his shape experiment's law
+      //    (`./slurShapeExperiment`), as one number. Both are PICTURE changes with no model change, so
+      //    without it here `isRenderStale()` answers "no" and the console call draws nothing
+      //    (`reference_only_a_stale_render_runs`). ⛔ Not the layout key: a slur takes no width, so the
+      //    casting-off cannot depend on it.
+      slurViewGeneration(),
       // ⚠️ EXPERIMENT, HIS (2026-09-01) — the armed beam-slope rule (`./beamSlopeExperiment`), here
       //    for the same reason and with the same warning as the line above it.
       beamSlopeGeneration(),

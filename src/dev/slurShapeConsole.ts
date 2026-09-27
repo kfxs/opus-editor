@@ -9,6 +9,8 @@
  *   __slur.indent(0.167)     // how far in the controls sit, as a fraction of the span (0.25 = ours)
  *   __slur.reset()           // back to what shipped
  *   __slur.dump()            // what is armed, and the three laws' heights side by side
+ *   __slur.solver('house')   // ⭐ the PRESET that solves the shape (`engine/rendering/curves/slurSolvers`) —
+ *                            //    not part of the experiment: it stays when this knob goes
  * ```
  *
  * ## ⭐ Why a knob and not a patch
@@ -30,6 +32,7 @@ import {
   type SlurHeightLaw,
 } from '@/engine/rendering/curves/slurShapeExperiment'
 import { lilypondArchHeightSpaces } from '@/engine/rendering/curves/slurArchHeight'
+import { SLUR_SOLVERS, setSlurSolver, slurSolverName } from '@/engine/rendering/curves/slurSolvers'
 
 /** The spans worth comparing, in staff spaces: two eighths, a beat, a bar, a long phrase. */
 const SPANS = [2.4, 4, 10.8, 18, 25.2]
@@ -37,6 +40,7 @@ const SPANS = [2.4, 4, 10.8, 18, 25.2]
 export interface SlurShapeConsole {
   law(law: SlurHeightLaw): void
   indent(fraction: number): void
+  solver(name: string): void
   reset(): void
   dump(): void
 }
@@ -44,7 +48,7 @@ export interface SlurShapeConsole {
 export function slurShapeConsole(render: () => void): SlurShapeConsole {
   const report = () => {
     const { law, indent } = slurShapeSettings()
-    dbg(`[slur] law:${law} indent:${indent} — __slur.dump() for the table`)
+    dbg(`[slur] solver:${slurSolverName()} law:${law} indent:${indent} — __slur.dump() for the table`)
   }
   return {
     law: (law) => {
@@ -65,10 +69,18 @@ export function slurShapeConsole(render: () => void): SlurShapeConsole {
       render()
       report()
     },
+    solver: (name) => {
+      if (!setSlurSolver(name)) {
+        dbg(`[slur] ⛔ no such solver: ${name} — try ${Object.keys(SLUR_SOLVERS).map(n => `'${n}'`).join(', ')}`)
+        return
+      }
+      render()
+      report()
+    },
     reset: () => { resetSlurShape(); render(); report() },
     dump: () => {
       const { law, indent } = slurShapeSettings()
-      dbg(`[slur] ARMED law:${law} indent:${indent}`)
+      dbg(`[slur] ARMED solver:${slurSolverName()} law:${law} indent:${indent}`)
       // ⭐ The APEX, not the control height — a cubic's apex is 0.75 × the control in all four
       //   engines, which is what makes this table comparable with the published one.
       dbg('[slur] span(sp) | apex: lilypond  verovio  musescore')

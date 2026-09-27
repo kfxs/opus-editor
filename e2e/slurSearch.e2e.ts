@@ -14,6 +14,8 @@ import { test, expect } from './fixtures'
  * 2. **The stopwatch.** What a slur costs today, per slur, from the render census's `curves` part: the
  *    number P4's search is judged against (under ~0.5 ms a slur). LOGGED, not asserted — it is this
  *    machine's.
+ *    ⚠️ Read it from a run of THIS FILE ALONE (`-g stopwatch`): beside other spec files the workers share
+ *    the CPU and it doubles (measured 2026-09-27: 0.20 → 0.42 ms), which reads as a regression that is not.
  */
 
 type Case = { flat: boolean; staff2: boolean; hand?: 'A' | 'B' }
