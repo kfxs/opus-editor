@@ -300,3 +300,25 @@ describe('⭐ `endHead` — the end head\'s own extent', () => {
     expect(s.baseAttachments[0].y).toBeCloseTo(0.62 + 0.5, 12)
   })
 })
+
+describe('⭐ `rests` — a rest at the slur\'s end', () => {
+  // The END is a quarter rest: its glyph 1.08 wide, from −1.5 to +1.49 around the middle line, at x 11.
+  const input = () => {
+    const rest = { ...column(11, 0, -1), restExtent: { x: [11, 12.08] as const, y: [-1.5, 1.49] as const } }
+    return { ...hisSlur(false), columns: [...hisSlur(false).columns.slice(0, 4), rest], endHeadY: [0, 0] as const }
+  }
+
+  it('`asNote` (the default): a one-space "head" — the base attachment sits inside the rest', () => {
+    expect(buildSearchState(input(), D).baseAttachments[1].y).toBeLessThan(1.49)
+  })
+
+  it('⭐ `lilypond`: the rest glyph is the head — the base clears its top, over its centre, with no stem', () => {
+    const s = buildSearchState(input(), D, { ...LILYPOND_SLUR_RULES, rests: 'lilypond' })
+    // 1.99 lands on the TOP LINE (2.0), so LilyPond moves it 0.15 off (`move_away_from_staffline`).
+    expect(s.baseAttachments[1].y).toBeCloseTo(1.49 + 0.5 + 0.15, 12)
+    // With no first head, LilyPond centres on the note COLUMN's extent (`bound->extent (X).center ()`) — here the
+    // fixture's column, 11 … 12.18; the adapter hands the rest glyph's own box as that column.
+    expect(s.baseAttachments[1].x).toBeCloseTo(11.59, 12)
+    expect(s.bounds[1].stem).toBeUndefined()
+  })
+})

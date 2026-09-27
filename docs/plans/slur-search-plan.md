@@ -297,6 +297,11 @@ rule).
     displaced head is on the STEM side, where an end goes beside the stem; it moves an end only when that end falls
     back to the displaced head's centre (a short or steep slur). Caught while proving the branch fired: a head's
     `getAbsoluteX()` counts its displacement TWICE (2.25 sp vs the drawn 1.12) — the box's x is used.
+  - ✅ **`rests` BUILT 2026-09-27 — P7 item 9:** `'asNote' | 'lilypond'`, default `'asNote'`. Measured with a slur
+    ending on a quarter rest: handed over as a note, the base attachment sits INSIDE the rest (a one-space "head",
+    where Bravura's quarter rest reaches 1.49 sp) and the end stands 0.37 sp left of the rest's centre; the search
+    happened to raise it clear. `'lilypond'` reads LilyPond's rest column — no stem, the rest glyph as the end's head:
+    the end over the rest's centre (0.01 sp), clear of its top by 0.61.
 
 ## 5. What this does NOT change
 

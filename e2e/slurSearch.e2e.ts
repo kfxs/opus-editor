@@ -605,6 +605,38 @@ test('⭐ `endHead: own` reads the end chord\'s own head, not its whole span', a
   expect(Number.isFinite(out.dx) && Number.isFinite(out.dy)).toBe(true)
 })
 
+/**
+ * ⭐ `rests` — a slur ENDING on a quarter rest, above: `'lilypond'` reads the rest glyph as the end's head, so the end
+ * stands over the rest's centre, clear of its top (Bravura's quarter rest reaches 1.49 sp above its origin).
+ */
+test('⭐ `rests: lilypond` ends a slur over a rest\'s centre, clear of its top', async ({ score }) => {
+  const out = await score.evaluate(async () => {
+    const h = window.__h
+    await h.fontReady()
+    h.slurSolver('lilypond')
+    const e = h.engine
+    const a = e.addNoteAtBeat({ step: 'D', octave: 5, duration: 'q', measure: 1, beat: h.frac(0, 1) })!
+    e.addNoteAtBeat({ step: 'F', octave: 5, duration: 'q', measure: 1, beat: h.frac(1, 1) })
+    e.addNoteAtBeat({ step: 'E', octave: 5, duration: 'q', measure: 1, beat: h.frac(3, 1) })
+    const sc = e.getScore()
+    const rest = sc.measures[0].slots.find(s => s.type === 'rest' && s.beat.num / s.beat.den === 2)!
+    sc.slurs = [{ id: 'sl', startNoteId: a.id, endNoteId: rest.id, voice: 0, placement: 'above' }]
+    const end = async (rule: string) => {
+      h.slurRule('rests', rule)
+      await h.render()
+      const sp = (h.staves()[0].bottom - h.staves()[0].top) / 4
+      const d = document.querySelector('g.slur path[fill="none"]')?.getAttribute('d') ?? ''
+      const p = [...d.matchAll(/(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)/g)].map(m => ({ x: +m[1], y: +m[2] }))
+      const r = h.rests().find(g => g.code === 'e4e5')!
+      return { overTopSp: +((r.y - 1.49 * sp - p[3].y) / sp).toFixed(2), fromCentreSp: +((p[3].x - (r.x + 0.54 * sp)) / sp).toFixed(2) }
+    }
+    return { asNote: await end('asNote'), lilypond: await end('lilypond') }
+  })
+  console.log('[rests]', JSON.stringify(out))
+  expect(out.lilypond.overTopSp).toBeGreaterThan(0)
+  expect(Math.abs(out.lilypond.fromCentreSp)).toBeLessThan(0.2)
+})
+
 test('⭐ the search is DETERMINISTIC — a saved and reloaded score draws the same slur, to the byte', async ({ score }) => {
   const out = await score.evaluate(async () => {
     const h = window.__h

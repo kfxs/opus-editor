@@ -119,8 +119,8 @@ export const LILYPOND_SLUR_DETAILS: SlurSearchDetails = {
  * *"so we should have a preset for every case"*). Where {@link SlurSearchDetails} are LilyPond's numbers, these
  * are the places he compared LilyPond with our `house` and may want either. ⭐ Every default is what the search
  * drew BEFORE the row existed — so a row changes nothing until he arms it — ⚠️ except `midAccent`, whose default is
- * HIS decided rule (T1). (So the P7 rows — `ties`, `nested`, `flags`, `tupletNumbers`, `headerSigns`, `endHead` —
- * default to OFF, and LilyPond's own behaviour is their other choice.)
+ * HIS decided rule (T1). (So the P7 rows — `ties`, `nested`, `flags`, `tupletNumbers`, `headerSigns`, `endHead`,
+ * `rests` — default to OFF, and LilyPond's own behaviour is their other choice.)
  */
 export interface SlurSearchRules {
   /**
@@ -223,6 +223,15 @@ export interface SlurSearchRules {
    *   to a head width), and in y by the glyph's real height.
    */
   endHead: 'chord' | 'own'
+  /**
+   * **A REST at a slur's end** (P7, the source audit's 6th item).
+   * - `'asNote'` — what the search drew before: the rest handed over like a note — a one-space "head" around its
+   *   centre, and an invisible stem. ⚠️ Measured: the base attachment then sits INSIDE a quarter rest (Bravura's
+   *   reaches 1.49 sp, the "head" 0.5), and the end stands near the rest's left edge.
+   * - `'lilypond'` — LilyPond's rest column: no stem, the rest glyph's whole extent as the end's head, the end over
+   *   its centre (`get_base_attachments` with no `first_head`).
+   */
+  rests: 'asNote' | 'lilypond'
 }
 
 export const LILYPOND_SLUR_RULES: SlurSearchRules = {
@@ -238,6 +247,7 @@ export const LILYPOND_SLUR_RULES: SlurSearchRules = {
   headerSigns: 'off',
   midAccent: 'inside',
   endHead: 'chord',
+  rests: 'asNote',
 }
 
 /** Each row's choices, for the console and a spec — ⚠️ a new row adds its line here. */
@@ -254,4 +264,5 @@ export const SLUR_RULE_CHOICES: { readonly [K in keyof SlurSearchRules]: readonl
   headerSigns: ['off', 'on'],
   midAccent: ['inside', 'lilypond'],
   endHead: ['chord', 'own'],
+  rests: ['asNote', 'lilypond'],
 }

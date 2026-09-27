@@ -69,6 +69,9 @@ export interface SearchColumn {
    *  of {@link slurHead} / {@link firstHeadX}, which the adapter states as the chord's head span. */
   ownSlurHead?: { x: Interval; y: Interval }
   ownFirstHeadX?: Interval
+  /** Row `rests: 'lilypond'`: this column is a REST — its glyph's whole extent. LilyPond's rest column has no stem
+   *  and no head: the rest itself is the end's `slur_head` (`Note_column::get_rest`). */
+  restExtent?: { x: Interval; y: Interval }
 }
 
 /** An object the slur avoids — LilyPond's `encompass-objects` that are not slurs or ties. */
@@ -432,6 +435,15 @@ function enumerateAttachments(
 export function buildSearchState(
   input: SlurSearchInput, details: SlurSearchDetails, rules: SlurSearchRules = LILYPOND_SLUR_RULES,
 ): SlurSearchState {
+  // Row `rests: 'lilypond'` — a rest column as LilyPond reads it: no stem, the rest glyph as its "head".
+  if (rules.rests === 'lilypond' && input.columns.some(c => c.restExtent)) {
+    input = {
+      ...input,
+      columns: input.columns.map(c => (c.restExtent
+        ? { ...c, stem: undefined, slurHead: c.restExtent, firstHeadX: undefined, refX: c.restExtent.x[0] }
+        : c)),
+    }
+  }
   // Row `endHead: 'own'` — each head as its own glyph, not the chord's span.
   if (rules.endHead === 'own') {
     input = {

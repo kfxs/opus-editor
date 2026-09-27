@@ -100,7 +100,11 @@ function columnOf(
   const headPx = slurUp ? Math.min(...ys) : Math.max(...ys)
   const headC = (frame.middleY - headPx) / sp
   const slurHead = { x: headX, y: [headC - 0.5, headC + 0.5] as Interval }
-  const column: SearchColumn = { x, y, refX: headX[0], firstHeadX: headX, slurHead, ...ownHeads(note, frame, slurUp) }
+  const column: SearchColumn = {
+    x, y, refX: headX[0], firstHeadX: headX, slurHead, ...ownHeads(note, frame, slurUp),
+    // Row `rests`: a rest as LilyPond reads its column — the rest glyph's whole extent (the column's box).
+    ...(note.isRest() ? { restExtent: { x, y } } : {}),
+  }
   // ⭐ A stemless note (a whole note) still HAS a stem in LilyPond — invisible, its extent empty — and that
   //   matters: `get_encompass_info` reads it at the head's CENTRE and `score_edges` asks its direction. With
   //   no stem at all it would be read as a REST, at the column's reference x (audit, 2026-09-27).
