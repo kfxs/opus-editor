@@ -70,10 +70,16 @@ import type { EngravedNote } from '../engraved/EngravedNote'
 import { type SpineBar, deepestInkPx, spaceBarsOnSpine, spineStaffLanes } from './spineSpacing'
 import { type SpineHeader, drawSpineBarHeader, spineHeaderColumns, spineHeaderMeterAt, spineSystemHeaders } from './spineHeader'
 import { type SpineStaff, barOnStaff, spineStaves } from './spineStaves'
-import { drawSpineBarlineGaps, drawSpineSystemStart, spineBoundaries, spineSystemStartDraws, spineSystemStartRoomPx } from './spineSystem'
+import { SPINE_BARLINE_ATTR, drawSpineBarlineGaps, drawSpineSystemStart, spineBoundaries, spineSystemStartDraws, spineSystemStartRoomPx } from './spineSystem'
 import { drawSpineMarks, type SpineMarkBar } from './spineMarks'
 import { type BlockFrame, type WithNote, drawGroupBlock, drawNoteBlock, drawSpineBarline, drawSpineStaffLines, type GroupBlockInk, type SpineNotePlace } from './spineStaff'
 import { drawSpineCurves, type SpinePitchPlace } from './spineCurves'
+
+/** ⭐ The attribute a note's group carries: the ids the editor selects it by, space-separated (plan §9). */
+export const SPINE_IDS_ATTR = 'data-spine-ids'
+
+/** …and its voice — a selected note wears its voice's colour, as on the page. */
+export const SPINE_VOICE_ATTR = 'data-spine-voice'
 
 /**
  * ⭐ On a CLOSED spine the music stops this far short of where it began, so the LAST barline stands
@@ -145,7 +151,10 @@ export function drawScoreOnSpine(ctx: DrawContext, score: Score, spine: Spine): 
   //    the clefs, keys and meters of a system stand on one radius. One staff: nothing stretches.
   for (const staff of staves) {
     drawStaffOnSpine(ctx, score, staff, lanes[staff.index], bars.map(bar => barOnStaff(bar, staff.ratio)), headers, staff.ratio / innermost)
-    for (const { s, kind, wings } of boundaries) drawSpineBarline(ctx, staff.spine, s * staff.ratio, kind, wings)
+    for (const { s, kind, wings, endsMeasure } of boundaries) {
+      const group = drawSpineBarline(ctx, staff.spine, s * staff.ratio, kind, wings)
+      if (endsMeasure !== null) group?.tag(SPINE_BARLINE_ATTR, String(endsMeasure))
+    }
   }
   // ⭐ …and what JOINS them: the barline through a joined gap, the system's start signs (`./spineSystem`).
   drawSpineBarlineGaps(ctx, score, staves, boundaries)
@@ -287,8 +296,15 @@ function drawStaffOnSpine(
       //    (`GracePass.drawGraceNotes`), asked for THIS note, drawn inside its block — read against the whole
       //    lane, so a grace's sign knows the bar's earlier notes.
       //    ⭐ …and a LONE fan (port map #29), in its note's block too.
-      const withNote: WithNote = (note, frame) => {
+      const withNote: WithNote = (note, frame, group) => {
         const n = notes.indexOf(note)
+        // ⭐ What a click in the panel selects (plan §9): the ids the editor selects this slot by — each head's
+        //    pitch id for a chord, the slot's own for a rest — and its voice, whose colour a selection wears.
+        const slot = slots[n]
+        if (slot) {
+          group?.tag(SPINE_IDS_ATTR, (slot.type === 'chord' ? slot.notes.map(pitch => pitch.id) : [slot.id]).join(' '))
+          group?.tag(SPINE_VOICE_ATTR, String(voiceOf(slot)))
+        }
         drawGraceNotes(pagePass, slots, notes, measure.number, 0, () => clef, keys.get(measure.number), i => i === n)
         if (!fanJoins.some(join => join.fans.includes(n))) drawFans([], i => i === n, frame)
       }

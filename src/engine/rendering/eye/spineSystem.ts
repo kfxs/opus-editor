@@ -40,7 +40,16 @@ export interface SpineBoundary {
   s: number
   kind: BarlineSignKind
   wings: boolean
+  /**
+   * ⭐ The bar this line ENDS — what a click selects (the editor's `{ kind: 'barline', measure }`), or null when
+   * the sign stands at no boundary (a `|:` at the system's start, or displaced past a header — the page's rule,
+   * `staff/barlineGap.BarlineGap.endsMeasure`).
+   */
+  endsMeasure: number | null
 }
+
+/** ⭐ The attribute a barline's blocks carry: the bar the line ENDS — what a click in the panel selects (plan §9). */
+export const SPINE_BARLINE_ATTR = 'data-spine-barline'
 
 /**
  * ⭐ Every sign the system's boundaries carry, in the reference path's `s`.
@@ -61,12 +70,12 @@ export function spineBoundaries(
     const systemHeader = headers[i].some(Boolean)
     if (measure.repeatStart !== undefined && (i === 0 || systemHeader)) {
       const after = spineHeaderColumns(headers[i]).width + (HEADER_TO_REPEAT + barlineSignExtent('repeatStart').left) * STAFF_SPACE_PX
-      out.push({ s: systemHeader ? bar.start + after / innermost : bar.start, kind: 'repeatStart', wings: boundaryWinged(undefined, measure) })
+      out.push({ s: systemHeader ? bar.start + after / innermost : bar.start, kind: 'repeatStart', wings: boundaryWinged(undefined, measure), endsMeasure: null })
     }
     const next = score.measures[i + 1]
     const nextDisplaced = next?.repeatStart !== undefined && (headers[i + 1]?.some(Boolean) ?? false)
     const kind = signAtBoundary(measure, nextDisplaced ? { ...next, repeatStart: undefined } : next)
-    if (kind) out.push({ s: bar.end, kind, wings: boundaryWinged(measure, nextDisplaced ? undefined : next) })
+    if (kind) out.push({ s: bar.end, kind, wings: boundaryWinged(measure, nextDisplaced ? undefined : next), endsMeasure: measure.number })
   })
   return out
 }
@@ -87,9 +96,10 @@ export function drawSpineBarlineGaps(
     const top = extent.bottomY
     const bottom = below.top - staff.top + extent.topY
     if (!(bottom > top)) return
-    for (const { s, kind } of boundaries) {
+    for (const { s, kind, endsMeasure } of boundaries) {
       if (kind === 'invisible') continue
       const group = drawGroupOf(ctx.openGroup(SPINE_BLOCK_CLASS))
+      if (endsMeasure !== null) group?.tag(SPINE_BARLINE_ATTR, String(endsMeasure))
       try {
         for (const stroke of barlineSignParts(kind).strokes) {
           ctx.fillRect(stroke.x * STAFF_SPACE_PX, top, stroke.width * STAFF_SPACE_PX, bottom - top)

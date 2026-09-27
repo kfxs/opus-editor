@@ -995,6 +995,23 @@ export function createEditorApp(host: HTMLElement): EditorApp {
         engine.loadJSON(json)
         renderer.renderScore()
       },
+      // ⭐ The spine SHARES the editor's selection (docs/plans/bent-staff-plan.md §9.1): a click in the panel
+      //    selects as a click on the page does, and the panel wears whatever the editor has selected.
+      // …then the page's render, which is what paints its highlight (the page's own click does the same).
+      // A barline is picked as the page's own barline press picks it (`MouseController`'s `pick`): the note
+      // selection cleared, the ONE selected element set.
+      select: pick => {
+        selection.selectNote(pick?.kind === 'note' ? pick.id : null)
+        if (pick?.kind === 'barline') state.selectedElement = { kind: 'barline', measure: pick.measure }
+        renderer.renderScore()
+      },
+      selected: () => ({
+        ids: new Set([...state.selectedItems.keys(), ...(state.selectedNoteId ? [state.selectedNoteId] : [])]),
+        barline: state.selectedElement?.kind === 'barline' ? state.selectedElement.measure : null,
+      }),
+      onSelectionChange: fn => onStateChange(key => {
+        if (key === 'selectedItems' || key === 'selectedNoteId' || key === 'selectedElement') fn()
+      }),
     })
     // ⏱ 2026-08-30 — **THE LOG ITSELF IS A COST, and it has to be switchable to be measured.**
     //   His report: a held arrow key *"freezes somehow"*, *"sometime ok sometime not"*. The console

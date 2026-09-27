@@ -18,6 +18,7 @@
  * its notehead's centre stands along it.
  */
 import type { DrawContext } from '@/engine/paint/DrawContext'
+import type { DrawGroup } from '@/engine/paint/DrawGroup'
 import { compose, rotationAbout, translation } from '@/engine/paint/Affine'
 import type { Spine } from '@/engine/engrave/staff/staffSpine'
 import { placementAt, pointAt } from '@/engine/engrave/staff/staffSpine'
@@ -71,9 +72,10 @@ export interface SpineNotePlace {
 /**
  * ⭐ Ink a NOTE carries that its own `draw()` does not paint — its graces, a bracketed grace, a parenthesised
  * head's brackets (port map #21–#23, the page's `GracePass`) — drawn right after the note, in the note's own
- * frame, so it is part of the note's block and turns with it.
+ * frame, so it is part of the note's block and turns with it. `group` is the note's OWN group (the block, for a
+ * lone note) — what the caller tags so a click in the panel finds the note (plan §9).
  */
-export type WithNote = (note: EngravedNote, frame: BlockFrame) => void
+export type WithNote = (note: EngravedNote, frame: BlockFrame, group?: DrawGroup | null) => void
 
 /** Where a point ALONG the spine stands in a block's own frame (its notes' stave px). */
 export interface BlockFrame {
@@ -96,6 +98,9 @@ export const SPINE_BLOCK_CLASS = 'spine-block'
 
 /** The class of one note's own ink INSIDE a beamed block — the group the local tilt turns. */
 export const SPINE_NOTE_CLASS = 'spine-note'
+
+/** How far either side of a barline its click target reaches, staff spaces. A changeable default. */
+const BARLINE_HIT_PAD_SPACES = 0.5
 
 /** The stand-in stave a lone note is formatted on. Only the block's SHAPE survives the placement. */
 const BLOCK_STAVE_WIDTH = 200
@@ -141,7 +146,7 @@ export function drawNoteBlock(
         return { x: (r.headLeftX + r.headRightX) / 2 + p.x, y: staveFrame(stave).topLineY + p.y }
       },
       turnAt: s2 => spine.at(s2).angle - spine.at(s).angle,
-    })
+    }, group)
   } finally {
     ctx.closeGroup()
   }
@@ -272,7 +277,7 @@ export function drawGroupBlock(
       try {
         note.setContext(ctx).draw()
         // Inside the note's OWN group, so its graces and brackets turn with it (the local tilt below).
-        withNote?.(note, frame)
+        withNote?.(note, frame, noteGroups[noteGroups.length - 1])
       } finally {
         ctx.closeGroup()
       }
@@ -396,8 +401,8 @@ export function drawSpineSign(ctx: DrawContext, spine: Spine, sign: StaveSign, s
  */
 export function drawSpineBarline(
   ctx: DrawContext, spine: Spine, s: number, kind: BarlineSignKind = 'plain', wings = false,
-): void {
-  if (kind === 'invisible') return
+): DrawGroup | null {
+  if (kind === 'invisible') return null
   const frame = blockFrame()
   const group = drawGroupOf(ctx.openGroup(SPINE_BLOCK_CLASS))
   try {
@@ -409,10 +414,15 @@ export function drawSpineBarline(
       numLines: frame.lineCount,
       yForLine: line => staffLineY(frame, line),
     }, group, wings)
+    // ⭐ A line a pixel and a half wide cannot be clicked — an invisible target over its ink, as the page pads its
+    //    own (`interactions/elements/barline`), so a click in the panel finds the boundary (plan §9).
+    const pad = BARLINE_HIT_PAD_SPACES * frame.spacePx
+    ctx.pointerRect(-pad, staffLineY(frame, 0), 2 * pad, staffLineY(frame, frame.lineCount - 1) - staffLineY(frame, 0))
   } finally {
     ctx.closeGroup()
   }
   group?.setPlacement(placementAt(spine, s))
+  return group ?? null
 }
 
 /** The five lines along all of `spine` — or the run `from`…`to` along it. */

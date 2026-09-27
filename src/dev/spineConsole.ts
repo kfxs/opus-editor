@@ -55,8 +55,12 @@ import { dbg } from '@/utils/debug'
 import type { PitchStep, Score } from '@/types/music'
 import { ScoreModel } from '@/engine/models/ScoreModel'
 import type { Spine } from '@/engine/engrave/staff/staffSpine'
+import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { circleSpine, straightSpine } from '@/engine/engrave/staff/staffSpine'
-import { drawScoreOnSpine } from '@/engine/rendering/eye/spineScore'
+import { SPINE_IDS_ATTR, SPINE_VOICE_ATTR, drawScoreOnSpine } from '@/engine/rendering/eye/spineScore'
+import { voiceFillColor } from '@/utils/voiceColors'
+import { ELEMENT_SELECTION_FILL } from '@/utils/selectionColors'
+import { SPINE_BARLINE_ATTR } from '@/engine/rendering/eye/spineSystem'
 import { SvgPainter } from '@/engine/rendering/painter/SvgPainter'
 import { drawGroupOf } from '@/engine/rendering/painter/svgDrawGroup'
 import { compose, scaling, translation } from '@/engine/paint/Affine'
@@ -79,6 +83,12 @@ const AUTO_MIN_RADIUS = 160
 /** How often the panel asks whether the score changed — the JSON panel's own way of keeping up. */
 const POLL_MS = 300
 
+/** How far a press may travel and still be a CLICK rather than the start of a panel drag, px. */
+const CLICK_SLOP_PX = 4
+
+/** How far past the staves and their ink the MUSIC's band reaches, for the cursor — staff spaces. A changeable default. */
+const MUSIC_REACH_SPACES = 3
+
 /** A real score of `count` quarter notes in 4/4, each a (diatonic) fourth above the last. */
 function fourthsScore(count: number): string {
   const model = new ScoreModel(`circle of ${count} fourths`)
@@ -100,12 +110,24 @@ function fourthsScore(count: number): string {
   return model.toJSON()
 }
 
+/** What a click in the panel can pick: a note or rest (by the id the editor selects it by), or a barline (the bar it ENDS). */
+export type SpinePick = { kind: 'note'; id: string } | { kind: 'barline'; measure: number }
+
 export interface SpineConsoleDeps {
   getScore(): Score | null
   /** The model as text — what the panel compares to know the score changed. */
   exportJSON(): string
   /** Replace the open score and re-render the score canvas. */
   load(json: string): void
+  /**
+   * ⭐ Select ONE note (a pitch id, or a rest's slot id) or ONE barline in the EDITOR — or clear with `null`: the spine shares
+   * the editor's selection (docs/plans/bent-staff-plan.md §9.1, *"share selection"*), ⛔ no second one.
+   */
+  select(pick: SpinePick | null): void
+  /** What the editor has selected right now: its notes' ids, and the barline (the bar it ENDS), if one is. */
+  selected(): { ids: ReadonlySet<string>; barline: number | null }
+  /** Called when the editor's selection changes; answers an unsubscribe. */
+  onSelectionChange(fn: () => void): () => void
 }
 
 /** The two sizes: the MUSIC's (1 = the page's staff space, a ratio like a staff's own `size`) and the CANVAS's. */
@@ -165,9 +187,34 @@ export function spineConsole(deps: SpineConsoleDeps): SpineConsole {
    */
   let canvas: { width: number; height: number; x: number; y: number } | undefined
 
+  /** Stops following the editor's selection — set while the panel is up. */
+  let unfollowSelection: (() => void) | null = null
+
+  /** The last drawing's path and placement — what the CURSOR asks where the music is. */
+  let drawnMusic: { spine: Spine; k: number; x: number; y: number; deepest: number } | null = null
+
+  /**
+   * ⭐ Is this point (client px) inside the MUSIC — the band the staves and their ink occupy along the path, a
+   * RING round a circle? His ask, 2026-09-27: the pointer there (a click selects), the move cursor elsewhere.
+   * Asked of the spine itself (`locate`): the canvas is `music × k + offset`, so a point is un-placed first.
+   */
+  const overMusic = (clientX: number, clientY: number): boolean => {
+    const svg = host?.querySelector('svg')
+    if (!svg || !drawnMusic) return false
+    const box = svg.getBoundingClientRect()
+    const { spine, k, x, y, deepest } = drawnMusic
+    const at = spine.locate((clientX - box.left - x) / k, (clientY - box.top - y) / k)
+    if (!at) return false
+    const reach = MUSIC_REACH_SPACES * STAFF_SPACE_PX
+    const along = spine.closed || (at.s >= -reach && at.s <= spine.length + reach)
+    return along && at.offset >= -reach && at.offset <= deepest + reach
+  }
+
   /** Take the panel down, keeping what is armed. */
   const teardown = () => {
     clearInterval(timer)
+    unfollowSelection?.()
+    unfollowSelection = null
     panel?.remove()
     panel = null
     host = null
@@ -213,10 +260,17 @@ export function spineConsole(deps: SpineConsoleDeps): SpineConsole {
     return { spine: circleSpine(canvasSize / (2 * k), canvasSize / (2 * k), radius), width: canvasSize, height: canvasSize }
   }
 
+  /** Draw the picture, then wear the editor's selection on it. */
   const draw = (shape: Shape) => {
+    drawPicture(shape)
+    paintSelection()
+  }
+
+  const drawPicture = (shape: Shape) => {
     const score = deps.getScore()
     if (!host || !score) return
     const { spine, width, height } = layOut(score, shape)
+    drawnMusic = { spine, k: shape.zoom * shape.size, x: canvas?.x ?? 0, y: canvas?.y ?? 0, deepest: deepestInkPx(score) }
     host.replaceChildren()
     const painter = new SvgPainter(host)
     const { zoom } = shape
@@ -244,9 +298,69 @@ export function spineConsole(deps: SpineConsoleDeps): SpineConsole {
     }
   }
 
+  /**
+   * ⭐ A CLICK in the panel selects the note under it in the EDITOR (plan §9): the drawing tags each note's group
+   * with the ids the editor selects it by (`eye/spineScore.SPINE_IDS_ATTR`) — the first one is taken (a chord's
+   * first head, as a plain click on the page selects one note) — and each barline's blocks with the bar the line
+   * ENDS (`eye/spineSystem.SPINE_BARLINE_ATTR`), the editor's barline. A click on nothing clears, as a tap does.
+   */
+  const clickAt = (target: EventTarget | null) => {
+    const hit = target instanceof Element ? target.closest(`[${SPINE_IDS_ATTR}], [${SPINE_BARLINE_ATTR}]`) : null
+    const id = hit?.getAttribute(SPINE_IDS_ATTR)?.split(' ')[0]
+    const measure = hit?.getAttribute(SPINE_BARLINE_ATTR)
+    deps.select(id ? { kind: 'note', id } : measure ? { kind: 'barline', measure: Number(measure) } : null)
+  }
+
+  /**
+   * ⭐ The selection's HIGHLIGHT in the panel — each selected note's ink in its VOICE's colour (`utils/voiceColors`,
+   * the page's rule). Painted on the drawn nodes after every draw and whenever the selection changes; ⛔ the
+   * drawing itself never knows (the engine may not read the editor).
+   */
+  const paintSelection = () => {
+    if (!host) return
+    const { ids: selected, barline } = deps.selected()
+    for (const group of host.querySelectorAll<SVGGElement>(`[${SPINE_IDS_ATTR}]`)) {
+      const ids = group.getAttribute(SPINE_IDS_ATTR)?.split(' ') ?? []
+      const colour = voiceFillColor(Number(group.getAttribute(SPINE_VOICE_ATTR) ?? 0))
+      wear(group, ids.some(id => selected.has(id)) ? colour : null)
+    }
+    // ⭐ A barline wears the page's ELEMENT selection colour (`interactions/elements/barlineInk`), on every staff and
+    //    in every joined gap — the page's highlight lights the whole system's line.
+    for (const group of host.querySelectorAll<SVGGElement>(`[${SPINE_BARLINE_ATTR}]`)) {
+      wear(group, Number(group.getAttribute(SPINE_BARLINE_ATTR)) === barline ? ELEMENT_SELECTION_FILL : null)
+    }
+  }
+
+  /** Paint a group's ink in `colour` — or give it back what it had, when `colour` is null. */
+  const wear = (group: SVGGElement, colour: string | null) => {
+    for (const node of group.querySelectorAll<SVGElement>('path, rect, text')) {
+      if (colour) {
+        if (node.dataset.spineInk === undefined) node.dataset.spineInk = `${node.getAttribute('fill') ?? ''}|${node.getAttribute('stroke') ?? ''}`
+        // ⚠️ What the node is PAINTED with, inherited or its own — a stem is a stroke whose colour comes from its
+        //    group, so its own attribute alone left it black (seen 2026-09-27). A glyph (`text`) is only filled.
+        const style = getComputedStyle(node)
+        const fill = node.getAttribute('fill') ?? style.fill
+        const stroke = node.getAttribute('stroke') ?? style.stroke
+        if (fill !== 'none') node.setAttribute('fill', colour)
+        if (node.tagName !== 'text' && stroke && stroke !== 'none') node.setAttribute('stroke', colour)
+      } else if (node.dataset.spineInk !== undefined) {
+        const [fill, stroke] = node.dataset.spineInk.split('|')
+        if (fill) node.setAttribute('fill', fill); else node.removeAttribute('fill')
+        if (stroke) node.setAttribute('stroke', stroke); else node.removeAttribute('stroke')
+        delete node.dataset.spineInk
+      }
+    }
+  }
+
   /** ⭐ The panel follows the pointer from wherever it was pressed — so it can be put where it shows. */
   const makeDraggable = (el: HTMLElement) => {
     el.style.cursor = 'move'
+    // ⭐ The POINTER over the music (a click there selects), the MOVE cursor everywhere else — his ask, 2026-09-27.
+    //    Not while a button is held: a drag keeps the cursor it started with.
+    el.addEventListener('pointermove', e => {
+      if (e.buttons !== 0 || e.target !== el && !host?.contains(e.target as Node)) return
+      el.style.cursor = overMusic(e.clientX, e.clientY) ? 'pointer' : 'move'
+    })
     // The right button pans the drawing (below) — the browser's own menu would take it otherwise.
     el.addEventListener('contextmenu', e => e.preventDefault())
     el.addEventListener('pointerdown', down => {
@@ -255,13 +369,19 @@ export function spineConsole(deps: SpineConsoleDeps): SpineConsole {
       const dx = down.clientX - box.left
       const dy = down.clientY - box.top
       el.setPointerCapture?.(down.pointerId)
+      // ⭐ A press that does not MOVE is a CLICK — it selects what is under it (plan §9, question D answered the
+      //    simplest way: no handle; the panel still drags the moment the pointer travels).
+      let moved = false
       const move = (e: PointerEvent) => {
+        if (!moved && Math.hypot(e.clientX - down.clientX, e.clientY - down.clientY) < CLICK_SLOP_PX) return
+        moved = true
         Object.assign(el.style, { left: `${e.clientX - dx}px`, top: `${e.clientY - dy}px`, right: 'auto', bottom: 'auto' })
       }
-      const up = () => {
+      const up = (e: PointerEvent) => {
         el.removeEventListener('pointermove', move)
         el.removeEventListener('pointerup', up)
         el.removeEventListener('pointercancel', up)
+        if (!moved && e.type === 'pointerup') clickAt(down.target)
       }
       el.addEventListener('pointermove', move)
       el.addEventListener('pointerup', up)
@@ -443,6 +563,8 @@ export function spineConsole(deps: SpineConsoleDeps): SpineConsole {
     }
     refresh()
     timer = setInterval(refresh, POLL_MS)
+    // ⭐ The editor's selection, worn in the panel the moment it changes — a click on the PAGE lights the spine too.
+    unfollowSelection = deps.onSelectionChange(paintSelection)
     dbg('[spine] the panel follows the open score — edit the score and watch it; drag it with the mouse; __spine.clear() removes it')
     report()
   }

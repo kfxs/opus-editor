@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 import { describe, it, expect, afterEach } from 'vitest'
 import { ScoreModel } from '@/engine/models/ScoreModel'
-import { spineConsole, type SpineConsole } from './spineConsole'
+import { ELEMENT_SELECTION_FILL } from '@/utils/selectionColors'
+import { spineConsole, type SpineConsole, type SpinePick } from './spineConsole'
 
 /**
  * Subject: `./spineConsole` — the panel's SIZE knob (his ask, 2026-09-25: *"we are not controlling the staff
@@ -11,15 +12,35 @@ import { spineConsole, type SpineConsole } from './spineConsole'
 let console_: SpineConsole | null = null
 afterEach(() => { console_?.clear(); console_ = null })
 
+/** The editor's selection, as the panel sees it — a stand-in for `EditorState`'s. */
+let selected = new Set<string>()
+let selectedBarline: number | null = null
+let selectionListeners: (() => void)[] = []
+const selectInEditor = (pick: SpinePick | string | null) => {
+  const p: SpinePick | null = typeof pick === 'string' ? { kind: 'note', id: pick } : pick
+  selected = new Set(p?.kind === 'note' ? [p.id] : [])
+  selectedBarline = p?.kind === 'barline' ? p.measure : null
+  for (const fn of selectionListeners) fn()
+}
+
 function openConsole() {
   const model = new ScoreModel('spine')
   model.addNote({ step: 'C', octave: 5, duration: 'q', measure: 1, beat: { num: 0, den: 1 } })
+  selected = new Set()
+  selectedBarline = null
+  selectionListeners = []
   console_ = spineConsole({
     getScore: () => model.getScore(),
     exportJSON: () => model.toJSON(),
     load: () => { /* only `circle()` loads; these specs use `show` / `straight` on the model above */ },
+    select: selectInEditor,
+    selected: () => ({ ids: selected, barline: selectedBarline }),
+    onSelectionChange: fn => {
+      selectionListeners.push(fn)
+      return () => { selectionListeners = selectionListeners.filter(f => f !== fn) }
+    },
   })
-  return console_
+  return { console: console_, model }
 }
 const panel = () => document.querySelector<HTMLElement>('.spine-demo-panel')!
 const svg = () => panel().querySelector('svg')!
@@ -36,12 +57,12 @@ const MARGIN = 90
 
 describe('__spine — `size` is the MUSIC’s, `zoom` the CANVAS’s (his report, 2026-09-25: a size is not a zoom)', () => {
   it('at 1 · 1 (the default) there is NO wrapper: the drawing is byte-identical to what it was', () => {
-    openConsole().show()
+    openConsole().console.show()
     expect(sizeGroup()).toBeNull()
   })
 
   it('⭐ ZOOM: the whole picture in one group placed by scale(z), the panel z× — circle and all', () => {
-    const c = openConsole()
+    const c = openConsole().console
     c.show()
     const full = parseFloat(svg().getAttribute('width')!)
     const auto = drawnRadius()
@@ -52,7 +73,7 @@ describe('__spine — `size` is the MUSIC’s, `zoom` the CANVAS’s (his report
   })
 
   it('⭐ SIZE: the music at k on the SAME circle — the radius sized from the music does NOT follow it', () => {
-    const c = openConsole()
+    const c = openConsole().console
     c.show()
     const auto = drawnRadius() // canvas px at 1 · 1
     c.show({ size: 0.5 })
@@ -62,13 +83,13 @@ describe('__spine — `size` is the MUSIC’s, `zoom` the CANVAS’s (his report
   })
 
   it('⭐ a radius HE gives is in canvas px whatever the size — divided by k inside the group', () => {
-    openConsole().show({ radius: 200, size: 0.5 })
+    openConsole().console.show({ radius: 200, size: 0.5 })
     expect(drawnRadius(), 'in the group’s units, 400 — on screen 200').toBeCloseTo(400, 3)
     expect(parseFloat(svg().getAttribute('width')!)).toBeCloseTo(2 * (200 + MARGIN * 0.5), 6)
   })
 
   it('size and zoom compose: one group, scale(zoom · size); the panel follows the zoom alone', () => {
-    const c = openConsole()
+    const c = openConsole().console
     c.show({ radius: 200, size: 0.5 })
     const unzoomed = parseFloat(svg().getAttribute('width')!)
     c.show({ radius: 200, size: 0.5, zoom: 2 })
@@ -81,19 +102,19 @@ describe('__spine — `size` is the MUSIC’s, `zoom` the CANVAS’s (his report
   })
 
   it('⛔ a factor that is not a positive number is refused — the armed one kept (1 when fresh)', () => {
-    openConsole().show({ size: 0, zoom: Number.NaN })
+    openConsole().console.show({ size: 0, zoom: Number.NaN })
     expect(sizeGroup()).toBeNull()
   })
 
   it('the straight control takes both too', () => {
-    openConsole().straight({ size: 0.75 })
+    openConsole().console.straight({ size: 0.75 })
     expect(sizeGroup()?.getAttribute('transform')).toMatch(/scale\(0\.75/)
   })
 })
 
 describe('⭐ __spine REMEMBERS — each call keeps what the last one set (his report, 2026-09-25)', () => {
   it('a size, then a zoom: both are armed', () => {
-    const c = openConsole()
+    const c = openConsole().console
     c.show({ size: 0.5 })
     c.show({ zoom: 2 })
     expect(c.dump()).toMatchObject({ kind: 'circle', size: 0.5, zoom: 2 })
@@ -102,7 +123,7 @@ describe('⭐ __spine REMEMBERS — each call keeps what the last one set (his r
   })
 
   it('a radius survives a size change, a straight() in between, and a new circle() score', () => {
-    const c = openConsole()
+    const c = openConsole().console
     c.show({ radius: 200 })
     c.show({ size: 0.5 })
     expect(drawnRadius(), '200 / 0.5 in the group’s units').toBeCloseTo(400, 3)
@@ -114,7 +135,7 @@ describe('⭐ __spine REMEMBERS — each call keeps what the last one set (his r
   })
 
   it("`radius: 'auto'` goes back to the circle the music asks for; clear() forgets everything", () => {
-    const c = openConsole()
+    const c = openConsole().console
     c.show()
     const auto = drawnRadius()
     c.show({ radius: 200 })
@@ -127,7 +148,7 @@ describe('⭐ __spine REMEMBERS — each call keeps what the last one set (his r
   })
 
   it('⛔ a refused factor keeps the LAST value rather than resetting it', () => {
-    const c = openConsole()
+    const c = openConsole().console
     c.show({ size: 0.5 })
     c.show({ size: -1, zoom: Number.NaN })
     expect(c.dump()).toMatchObject({ size: 0.5, zoom: 1 })
@@ -146,7 +167,7 @@ describe('__spine — drag a CORNER: the canvas grows, the drawing keeps its siz
   const size = () => ({ width: parseFloat(svg().getAttribute('width')!), height: parseFloat(svg().getAttribute('height')!) })
 
   it('four corner handles, and a redraw keeps them', async () => {
-    const c = openConsole()
+    const c = openConsole().console
     c.show()
     expect(panel().querySelectorAll('.spine-demo-corner')).toHaveLength(4)
     c.show({ zoom: 2 })
@@ -154,7 +175,7 @@ describe('__spine — drag a CORNER: the canvas grows, the drawing keeps its siz
   })
 
   it('⭐ the SE corner grows the CANVAS; the music keeps its size AND its place — ⛔ not a zoom, ⛔ not re-centred', async () => {
-    const c = openConsole()
+    const c = openConsole().console
     c.show()
     const before = size()
     const radius = drawnRadius()
@@ -167,7 +188,7 @@ describe('__spine — drag a CORNER: the canvas grows, the drawing keeps its siz
   })
 
   it('the NW corner grows it the other way and MOVES the panel by what it grew', async () => {
-    const c = openConsole()
+    const c = openConsole().console
     c.show()
     const before = size()
     const left = parseFloat(getComputedStyle(panel()).left) || 0
@@ -180,12 +201,12 @@ describe('__spine — drag a CORNER: the canvas grows, the drawing keeps its siz
   })
 
   it('⛔ the corner handles are invisible — a grab area, no grey square (his word)', () => {
-    openConsole().show()
+    openConsole().console.show()
     for (const handle of panel().querySelectorAll<HTMLElement>('.spine-demo-corner')) expect(handle.style.background).toBe('')
   })
 
   it('the chosen canvas survives a show(); clear() forgets it', async () => {
-    const c = openConsole()
+    const c = openConsole().console
     c.show()
     const before = size()
     drag(corner('se'), 150, 150)
@@ -208,7 +229,7 @@ describe('__spine — RIGHT-drag pans the drawing inside the canvas (his ask, 20
   const frame = () => new Promise(resolve => setTimeout(resolve, 50))
 
   it('⭐ the drawing moves by the drag; the canvas keeps its size and the panel its place', async () => {
-    const c = openConsole()
+    const c = openConsole().console
     c.show()
     const width = svg().getAttribute('width')
     const left = panel().style.left
@@ -220,7 +241,7 @@ describe('__spine — RIGHT-drag pans the drawing inside the canvas (his ask, 20
   })
 
   it('the LEFT button still moves the panel, not the drawing', async () => {
-    const c = openConsole()
+    const c = openConsole().console
     c.show()
     press(0, 30, 20)
     await frame()
@@ -228,7 +249,7 @@ describe('__spine — RIGHT-drag pans the drawing inside the canvas (his ask, 20
   })
 
   it('the panel suppresses the browser\'s menu, so the right button is free', () => {
-    openConsole().show()
+    openConsole().console.show()
     const e = new MouseEvent('contextmenu', { bubbles: true, cancelable: true })
     panel().dispatchEvent(e)
     expect(e.defaultPrevented).toBe(true)
@@ -243,7 +264,7 @@ describe('__spine — CTRL + WHEEL zooms the PREVIEW, never the page (his ask, 2
   }
 
   it('⭐ Ctrl + wheel up zooms IN — the drawing grows, the canvas keeps its size', () => {
-    const c = openConsole()
+    const c = openConsole().console
     c.show()
     const width = svg().getAttribute('width')
     const e = wheel(true, -200)
@@ -254,14 +275,14 @@ describe('__spine — CTRL + WHEEL zooms the PREVIEW, never the page (his ask, 2
   })
 
   it('⭐ the point under the pointer stays put: zooming at the canvas\'s corner leaves no offset', () => {
-    const c = openConsole()
+    const c = openConsole().console
     c.show()
     wheel(true, -200) // at (0, 0) — the canvas's own top-left in jsdom
     expect(sizeGroup()?.getAttribute('transform')).not.toMatch(/translate\((?!0,? ?0\))/)
   })
 
   it('⛔ the PAGE never sees a wheel over the preview — Ctrl or not', () => {
-    const c = openConsole()
+    const c = openConsole().console
     c.show()
     let seen = 0
     const listener = () => { seen++ }
@@ -276,10 +297,81 @@ describe('__spine — CTRL + WHEEL zooms the PREVIEW, never the page (his ask, 2
   })
 
   it('a PLAIN wheel is not a zoom — the browser keeps its scrolling', () => {
-    const c = openConsole()
+    const c = openConsole().console
     c.show()
     const e = wheel(false, -200)
     expect(e.defaultPrevented).toBe(false)
     expect(c.dump().zoom).toBe(1)
+  })
+})
+
+describe('⭐ CLICKING a note in the panel — the EDITOR\'s selection, worn in the panel (plan §9)', () => {
+  /** A press and a release at the same place on `target` — a click, not a drag. */
+  const click = (target: Element) => {
+    target.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0, clientX: 10, clientY: 10 }))
+    panel().dispatchEvent(new PointerEvent('pointerup', { bubbles: true, button: 0, clientX: 10, clientY: 10 }))
+  }
+  const noteGroup = (id: string) => svg().querySelector(`[data-spine-ids~="${id}"]`)!
+
+  it('a click on a note selects it in the editor — by the id the editor selects it by', () => {
+    const { console: c, model } = openConsole()
+    c.show()
+    const slot = model.getScore().measures[0].slots[0]
+    const id = slot.type === 'chord' ? slot.notes[0].id : slot.id
+    click(noteGroup(id).querySelector('text') ?? noteGroup(id))
+    expect([...selected]).toEqual([id])
+  })
+
+  it('⭐ a click on a BARLINE selects that boundary — the bar it ENDS — and it wears the element colour', () => {
+    const { console: c } = openConsole()
+    c.show()
+    const line = svg().querySelector('[data-spine-barline="1"]')!
+    click(line.querySelector('rect') ?? line)
+    expect(selectedBarline).toBe(1)
+    expect(selected.size).toBe(0)
+    expect(line.querySelector('rect')?.getAttribute('fill')).toBe(ELEMENT_SELECTION_FILL)
+  })
+
+  it('a click on nothing clears the selection, as a tap on the page does', () => {
+    const { console: c } = openConsole()
+    c.show()
+    selectInEditor('something')
+    click(svg())
+    expect(selected.size).toBe(0)
+  })
+
+  it('⭐ the selection is WORN: the note\'s ink takes its voice colour, and gives it back when deselected', () => {
+    const { console: c, model } = openConsole()
+    c.show()
+    const slot = model.getScore().measures[0].slots[0]
+    const id = slot.type === 'chord' ? slot.notes[0].id : slot.id
+    const ink = () => [...noteGroup(id).querySelectorAll('text, path')].map(n => n.getAttribute('fill'))
+    const before = ink()
+    selectInEditor(id)
+    // voice 1's colour on every FILLED piece (a stroked-only path keeps `fill: none`)
+    expect(ink().filter(fill => fill !== 'none'), JSON.stringify(ink())).toEqual(ink().filter(fill => fill !== 'none').map(() => '#3B82F6'))
+    expect(ink().some(fill => fill === '#3B82F6')).toBe(true)
+    selectInEditor(null)
+    expect(ink()).toEqual(before)
+  })
+})
+
+describe('⭐ the CURSOR — the pointer over the music, the move cursor elsewhere (his ask, 2026-09-27)', () => {
+  /** The first staff line starts at twelve o'clock: `M cx (cy − r)` — its start point, in canvas px (jsdom boxes are 0). */
+  const topOfCircle = () => {
+    const m = /^M(-?[\d.]+) (-?[\d.]+)/.exec(svg().querySelector('path')!.getAttribute('d')!)!
+    return { x: parseFloat(m[1]), y: parseFloat(m[2]) }
+  }
+  const hover = (x: number, y: number) => {
+    svg().dispatchEvent(new PointerEvent('pointermove', { bubbles: true, clientX: x, clientY: y }))
+    return panel().style.cursor
+  }
+
+  it('inside the staff band → pointer; the circle\'s empty middle → move', () => {
+    openConsole().console.show()
+    const top = topOfCircle()
+    expect(hover(top.x, top.y + 20), 'two spaces inside the top line').toBe('pointer')
+    const r = top.x - top.y
+    expect(hover(top.x, top.y + r), 'the centre of the circle').toBe('move')
   })
 })

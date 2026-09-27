@@ -40,6 +40,9 @@ const blocksOf = (m: ScoreModel, spine = circleSpine(400, 400, 250)) => {
   return sceneGroups(recorder.scene, SPINE_BLOCK_CLASS)
 }
 
+/** A block's INK — ⛔ not its click targets (`pointerRect`, the barline's since plan §9's clicking). */
+const inkOf = (group: SceneGroup) => scenePrimitives(group).filter(p => p.kind !== 'pointerRect')
+
 const slotCount = (m: ScoreModel) => m.getScore().measures.reduce((n, bar) => n + bar.slots.length, 0)
 
 describe('drawScoreOnSpine', () => {
@@ -75,8 +78,8 @@ describe('drawScoreOnSpine', () => {
     /** The rects (strokes) and texts (repeat dots, wings) of each block past the header and slots. */
     const signsOf = (m: ScoreModel, spine = straightSpine(0, 0, 900)) =>
       blocksOf(m, spine)
-        .filter(block => scenePrimitives(block).every(p => p.kind === 'rect' || p.kind === 'text'))
-        .filter(block => scenePrimitives(block).some(p => p.kind === 'rect'))
+        .filter(block => inkOf(block).every(p => p.kind === 'rect' || p.kind === 'text'))
+        .filter(block => inkOf(block).some(p => p.kind === 'rect'))
         .map(block => ({
           s: block.placement.e,
           strokes: scenePrimitives(block).filter(p => p.kind === 'rect').length,
@@ -437,7 +440,7 @@ describe('⭐⭐ more than one STAFF (port map #12) — the same path, further i
   /** Blocks whose ink is strokes only — the plain barlines — as (radius, angle) of their placed origin. */
   const barlinesOf = (m: ScoreModel) =>
     blocksOf(m, circleSpine(CENTRE, CENTRE, RADIUS))
-      .filter(block => scenePrimitives(block).length > 0 && scenePrimitives(block).every(p => p.kind === 'rect'))
+      .filter(block => inkOf(block).length > 0 && inkOf(block).every(p => p.kind === 'rect'))
       .map(block => ({
         radius: Math.hypot(block.placement.e - CENTRE, block.placement.f - CENTRE),
         angle: Math.atan2(block.placement.f - CENTRE, block.placement.e - CENTRE),
