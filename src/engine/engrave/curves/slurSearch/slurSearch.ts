@@ -19,7 +19,7 @@ import type { Bezier, Offset } from './bezier'
 import { buildSearchState, type SlurSearchInput, type SlurSearchState } from './searchState'
 import { generateCurve } from './searchCurve'
 import { SCORERS, type SlurCandidate } from './searchScore'
-import { LILYPOND_SLUR_DETAILS, type SlurSearchDetails } from './searchDetails'
+import { LILYPOND_SLUR_DETAILS, LILYPOND_SLUR_RULES, type SlurSearchDetails, type SlurSearchRules } from './searchDetails'
 
 export interface SlurSearchResult {
   /** The winning pair of ends. */
@@ -98,9 +98,10 @@ export function scoreFully(state: SlurSearchState, c: SlurCandidate): SlurCandid
 /** ⭐ The search. `null` when there is nothing to choose from (no candidate pair of ends). */
 export function searchSlur(
   input: SlurSearchInput, details: SlurSearchDetails = LILYPOND_SLUR_DETAILS,
+  rules: SlurSearchRules = LILYPOND_SLUR_RULES,
 ): SlurSearchResult | null {
   if (input.columns.length === 0) return null
-  const state = buildSearchState(input, details)
+  const state = buildSearchState(input, details, rules)
   const candidates = searchCandidates(state)
   if (candidates.length === 0) return null
   const queue = new CandidateQueue()

@@ -26,6 +26,7 @@
 import { solveHouseSlur, solveHouseSlurPiece } from './slurHouseSolver'
 import { solveLilypondSlur, solveLilypondSlurPiece } from './slurLilypondSolver'
 import { slurShapeGeneration } from './slurShapeExperiment'
+import { slurRulesGeneration } from './slurRules'
 import type { SlurObstacle } from './slurObstacles'
 import type { SlurSearchProblem } from './slurSearchProblem'
 
@@ -130,9 +131,9 @@ export function setBrokenSlurSolver(name: string): boolean {
 }
 
 /**
- * ⚠️ In the renderer's VIEW key (see the header) — for the preset AND the shape experiment's knobs, as one
- * number: both only ever grow, so their sum changes whenever either does.
+ * ⚠️ In the renderer's VIEW key (see the header) — for the presets, the shape experiment's knobs and the
+ * compromise's rows (`./slurRules`), as one number: all only ever grow, so the sum changes whenever any does.
  */
 export function slurViewGeneration(): number {
-  return state.generation + slurShapeGeneration()
+  return state.generation + slurShapeGeneration() + slurRulesGeneration()
 }

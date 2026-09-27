@@ -1056,7 +1056,7 @@ export function createEditorApp(host: HTMLElement): EditorApp {
     dbg('[spacing] column census: __spacing.dump() — drawn gaps in staff spaces')
     dbg('[barlines] pixel-grid census: __barlines.dump() — are they landing on whole pixels?')
     dbg('[groups] __groups.bracket() / .brace() / .subBracket() / .none() / .dump() — needs 2+ staves')
-    dbg("[slur] shape experiment: __slur.law('musescore'|'verovio'|'lilypond') / .indent(0.167) / .dump() / .reset() · preset: __slur.solver('house') / .brokenSolver('lilypond')")
+    dbg("[slur] shape experiment: __slur.law('musescore'|'verovio'|'lilypond') / .indent(0.167) / .dump() / .reset() · preset: __slur.solver('house') / .brokenSolver('lilypond') · rows: __slur.rule()")
     dbg("[beams] slope experiment: __beams.rule('vexflow'|'musescore'|'interval'|'lilypond'|'verovio') / .dump() / .reset()")
     dbg("[header] accidental gap: __header.rule('musescore'|'gouldDrawn'|'gould'|'lilypond'|'none') / .dump() / .reset()")
     dbg("[header] CLEF→METER gap: __header.clefMeter('stone'|'books'|'rossCompass'|'lilypond') / .dumpClefMeter() / .resetClefMeter()")

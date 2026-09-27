@@ -197,6 +197,38 @@ test.describe('⭐ P6 — a slur broken across systems, under `lilypond`', () =>
   }
 })
 
+/**
+ * ⭐ P8 row A — an unbeamed end on the STEM side: his D → G (both stems up, the slur above). Under `lilypond`
+ * the rule `stemSideEnd` picks head (LilyPond) or stem end (Gould p. 111); measured against the drawn stems.
+ */
+test('⭐ P8 row A — `stemSideEnd` moves the ends from the heads to the stem ends', async ({ score }) => {
+  const out = await score.evaluate(async () => {
+    const h = window.__h
+    await h.fontReady()
+    h.slurSolver('lilypond')
+    const e = h.engine
+    // Two low-ish notes: both stems UP; the slur forced ABOVE, onto the stem side.
+    const a = e.addNoteAtBeat({ step: 'E', octave: 4, duration: 'q', measure: 1, beat: h.frac(0, 1) })!
+    const b = e.addNoteAtBeat({ step: 'A', octave: 4, duration: 'q', measure: 1, beat: h.frac(2, 1) })!
+    e.getScore().slurs = [{ id: 'sl', startNoteId: a.id, endNoteId: b.id, voice: 0, placement: 'above' }]
+    const ends = async (choice: string) => {
+      h.slurRule('stemSideEnd', choice)
+      await h.render()
+      const d = document.querySelector('g.slur path[fill="none"]')?.getAttribute('d') ?? ''
+      const p = [...d.matchAll(/(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)/g)].map(m => ({ x: +m[1], y: +m[2] }))
+      return [p[0].y, p[3].y]
+    }
+    const head = await ends('head')
+    const stem = await ends('stem')
+    // The LOWER of the two stem tips (the larger y) — both ends are compared with it.
+    const tipY = Math.max(...h.stems().map(st => Math.min(st.y1, st.y2)))
+    return { head, stem, tipY }
+  })
+  // `head`: both ends below the (lower) stem tip — at the heads. `stem`: both above it — past the tips.
+  expect(Math.max(...out.head)).toBeGreaterThan(out.tipY)
+  expect(Math.max(...out.stem)).toBeLessThan(out.tipY)
+})
+
 test('⭐ the search is DETERMINISTIC — a saved and reloaded score draws the same slur, to the byte', async ({ score }) => {
   const out = await score.evaluate(async () => {
     const h = window.__h

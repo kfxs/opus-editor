@@ -22,7 +22,7 @@ import {
   at, center, contains, curvePoint, isEmpty, length, linearInterpolate, minmax, normalize, roundHalfwayUp,
   sub, direction as unit, widen, intersect,
 } from './bezier'
-import type { SlurSearchDetails } from './searchDetails'
+import { LILYPOND_SLUR_RULES, type SlurSearchDetails, type SlurSearchRules } from './searchDetails'
 
 /** A stem, as `Bound_info` / `get_encompass_info` read it. */
 export interface SearchStem {
@@ -146,6 +146,9 @@ export interface SlurSearchState {
   /** [LEFT, RIGHT]. */
   bounds: readonly [BoundInfo, BoundInfo]
   baseAttachments: readonly [Offset, Offset]
+  /** Where each end is ATTRACTED to — `score_edges` measures from here. LilyPond's: the base attachment;
+   *  row A (`stemSideEnd: 'stem'`) moves it to the stem end. */
+  edgeTargets: readonly [Offset, Offset]
   encompassInfos: EncompassInfo[]
   extraInfos: ExtraCollision[]
   /** The avoid-points the ARCH is raised over (`generate_avoid_offsets`). */
@@ -382,7 +385,9 @@ function enumerateAttachments(
 }
 
 /** `Slur_score_state::fill` — a whole slur, or one system's piece of a broken one. */
-export function buildSearchState(input: SlurSearchInput, details: SlurSearchDetails): SlurSearchState {
+export function buildSearchState(
+  input: SlurSearchInput, details: SlurSearchDetails, rules: SlurSearchRules = LILYPOND_SLUR_RULES,
+): SlurSearchState {
   const { dir, columns } = input
   const broken = input.brokenX ?? [undefined, undefined]
   const bounds: [BoundInfo, BoundInfo] = [
@@ -423,8 +428,14 @@ export function buildSearchState(input: SlurSearchInput, details: SlurSearchDeta
   }
   // A broken piece does not follow the music's rise.
   if (isBroken) musicalDy = 0
+  // Row A — an end on a visible stem pointing the slur's way is drawn toward the stem END under 'stem'.
+  const edgeTargets = [LEFT, RIGHT].map(i => {
+    const { stem, stemExtent } = bounds[i]
+    if (rules.stemSideEnd !== 'stem' || !stem || !stemExtent || stem.invisible || stem.dir !== dir) return base[i]
+    return { x: base[i].x, y: moveAwayFromStaffline(at(stemExtent.y, dir) + dir * 0.5, input.staff, dir) }
+  }) as [Offset, Offset]
   return {
-    dir, details, bounds, baseAttachments: base, encompassInfos, extraInfos,
+    dir, details, bounds, baseAttachments: base, edgeTargets, encompassInfos, extraInfos,
     avoid: avoidOffsets(input, details, encompassInfos, bounds),
     tieEnds: input.tieEnds, staff: input.staff,
     musicalDy, isBroken,

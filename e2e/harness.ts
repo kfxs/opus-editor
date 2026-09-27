@@ -43,6 +43,7 @@ import { resetLongaStemSide, setLongaStemSide, type LongaStemSide } from '@/engi
 import { resetBarRestStyle, setBarRestStyle, type BarRestStyle } from '@/engine/layout/barRestStyle'
 import { setRenderProbe, type RenderLayoutPart } from '@/engine/RenderProbe'
 import { setBrokenSlurSolver, setSlurSolver } from '@/engine/rendering/curves/slurSolvers'
+import { setSlurRule } from '@/engine/rendering/curves/slurRules'
 
 /** Re-exported so a spec can name what `columnGaps()` hands back. */
 export type { BarSpacing, CensusColumn } from '@/dev/spacingCensus'
@@ -235,6 +236,8 @@ export interface Harness {
   /** Arm a slur PRESET (`engine/rendering/curves/slurSolvers`) for BOTH whole slurs and broken ones'
    *  pieces — `__slur.solver` + `.brokenSolver` without the console. */
   slurSolver(name: string): boolean
+  /** Arm one row of the slur compromise (`engine/rendering/curves/slurRules`, P8). */
+  slurRule(row: string, choice: string): boolean
   /** Every drawn SHEET, left to right — the page rectangles behind the music. */
   pages(): { x: number; y: number; width: number; height: number }[]
   /** The `<svg>`'s own size, which is what the viewport's scrollers are built from. */
@@ -530,6 +533,7 @@ const harness: Harness = {
 
   useLayout: (on: boolean) => engine.setSurface(on ? A4_NORMAL : SKETCH_CANVAS),
   slurSolver: (name: string) => setSlurSolver(name) && setBrokenSlurSolver(name),
+  slurRule: (row: string, choice: string) => setSlurRule(row, choice),
   async timePart(part: RenderLayoutPart, renders: number): Promise<number> {
     await musicFontReady()
     let sum = 0

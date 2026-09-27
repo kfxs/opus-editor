@@ -12,6 +12,7 @@
  *   __slur.solver('house')   // ⭐ the PRESET that solves the shape (`engine/rendering/curves/slurSolvers`) —
  *                            //    not part of the experiment: it stays when this knob goes
  *   __slur.brokenSolver('lilypond') // …and the one for a BROKEN slur's pieces (`house` by default)
+ *   __slur.rule('stemSideEnd', 'stem') // ⭐ one ROW of the compromise (P8); `__slur.rule()` lists them
  * ```
  *
  * ## ⭐ Why a knob and not a patch
@@ -36,6 +37,8 @@ import { lilypondArchHeightSpaces } from '@/engine/rendering/curves/slurArchHeig
 import {
   SLUR_SOLVERS, brokenSlurSolverName, setBrokenSlurSolver, setSlurSolver, slurSolverName,
 } from '@/engine/rendering/curves/slurSolvers'
+import { resetSlurRules, setSlurRule, slurRules } from '@/engine/rendering/curves/slurRules'
+import { SLUR_RULE_CHOICES } from '@/engine/engrave/curves/slurSearch/searchDetails'
 
 /** The spans worth comparing, in staff spaces: two eighths, a beat, a bar, a long phrase. */
 const SPANS = [2.4, 4, 10.8, 18, 25.2]
@@ -45,6 +48,9 @@ export interface SlurShapeConsole {
   indent(fraction: number): void
   solver(name: string): void
   brokenSolver(name: string): void
+  /** Arm one row of the compromise (P8) — `__slur.rule('stemSideEnd', 'stem')`; no arguments lists them. */
+  rule(row?: string, choice?: string): void
+  resetRules(): void
   reset(): void
   dump(): void
 }
@@ -89,6 +95,18 @@ export function slurShapeConsole(render: () => void): SlurShapeConsole {
       render()
       report()
     },
+    rule: (row, choice) => {
+      const list = () => Object.entries(SLUR_RULE_CHOICES)
+        .map(([r, cs]) => `${r}: ${(slurRules() as unknown as Record<string, string>)[r]} (${cs.join(' | ')})`).join(' · ')
+      if (row === undefined) { dbg(`[slur] rules — ${list()}`); return }
+      if (!setSlurRule(row, choice ?? '')) {
+        dbg(`[slur] ⛔ no such rule or choice: ${row} ${choice} — ${list()}`)
+        return
+      }
+      render()
+      dbg(`[slur] rules — ${list()}`)
+    },
+    resetRules: () => { resetSlurRules(); render(); dbg('[slur] rules back to LilyPond\'s') },
     reset: () => { resetSlurShape(); render(); report() },
     dump: () => {
       const { law, indent } = slurShapeSettings()

@@ -126,3 +126,18 @@ describe('⭐ a PIECE of a broken slur (P6) — `get_base_attachments`\' no-colu
     expect(middle.avoid).toHaveLength(3)
   })
 })
+
+describe('⭐ row A — where an end is attracted to (`edgeTargets`)', () => {
+  const input = () => ({ ...hisSlur(false), columns: [column(0, 2, 1), column(4, 5, -1)], endHeadY: [1, 2.5] as const })
+
+  it('`head` (LilyPond): the base attachments', () => {
+    const s = buildSearchState(input(), D)
+    expect(s.edgeTargets).toEqual(s.baseAttachments)
+  })
+
+  it('`stem`: ½ sp past the tip of a stem pointing the slur\'s way — a stem pointing away keeps its head', () => {
+    const s = buildSearchState(input(), D, { stemSideEnd: 'stem' })
+    expect(s.edgeTargets[0].y).toBeCloseTo(1 + 3.5 + 0.5, 12)
+    expect(s.edgeTargets[1]).toEqual(s.baseAttachments[1])
+  })
+})

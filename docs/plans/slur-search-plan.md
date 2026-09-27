@@ -182,8 +182,56 @@ rule).
   3. **Tuplet numbers** — `inside` objects (LilyPond's `TupletNumber` is `avoid-slur: inside`).
   4. **A note's FLAG** — united into its end stem's extent (`Bound_info.stem_extent_`).
   5. **What the source audit (2026-09-27) finds** — each divergence from LilyPond fixed or recorded here.
-  Each item checked on his cases under `__slur.solver('lilypond')` / `.brokenSolver('lilypond')`; ⛔ no
-  weight is tuned here — that is the compromise, his call.
+  ⭐ **AS A NEW PRESET, `lilypondFull`** (his word, 2026-09-27: *"as new presets in every case so we dont lose
+  what we have now"*) — selectable for both `__slur.solver` and `__slur.brokenSolver`; ⛔ `lilypond` keeps
+  drawing exactly what it draws now. ⛔ No weight is tuned here — that is the compromise, his call.
+
+  **The source audit (2026-09-27, read-only, against LilyPond 2.27.3):** ✅ the PURE port
+  (`engrave/curves/slurSearch/`) matches line by line — no semantic divergence. ⭐ Both of his dislikes are
+  LilyPond's OWN behaviour, traced through its code: (a) two unbeamed stems-up notes, slur above → the ends
+  stay at the HEADS (the stem tip is used only when a beam leaves it inward, `slur-scoring.cc:549-554`; the
+  head candidate scores 0, the stem-tip one ~5.0 in edge demerits); (b) the end lands beside the STEM on one
+  system and over the HEAD on another — `enumerate_attachments`' four x regimes (`:742-791`: within the stem
+  ±¼ sp → the stem's edge ∓0.3; above the tip → the stem's centre; span < 1.5 or slope > 1.1 → head centres;
+  else the tilt shift), so spacing flips an end between them. ⇒ P7 will NOT change either; they are the
+  COMPROMISE's. Every real gap is in the ADAPTER — so P7's list, from the audit:
+  6. **The FLAG** (= item 4) — without it a slur from a flagged stem-up note starts ~1 sp too far LEFT
+     (`:751` attaches past the flag's right edge).
+  7. **Also not handed over:** fingerings, text, and a clef / key / meter change inside the slur (LilyPond's
+     `inside` objects; `headerSign` is never set).
+  8. **The end head's own x** — ours is the chord's head span; LilyPond uses the extremal head's extent and
+     `first_head` — off by up to a head width on a chord with a displaced second. And its y is ±½ sp, not the
+     glyph's extent.
+  9. **Rests** — a rest column is handed over like a note; LilyPond reads a rest column with no stem. Check.
+  10. **The ink** — LilyPond CENTRES the slur's ink on the solved curve (`lookup.cc:403-415`); ours bows the
+      fill outward from it, ~0.06 sp further from the notes. Low impact.
+
+- **P8 — a SWITCH PER CASE: the compromise, one row at a time** (his word, 2026-09-27: *"so we should have a
+  preset for every case"*). Each behaviour he has compared becomes its own row with its own `__slur` switch,
+  so the compromise is a choice per row, not a whole preset. The two presets stay as shortcuts. ⭐ Each row's
+  DEFAULT is what draws today; ⛔ no row changes a picture until he arms it. P7's items become rows (G) instead
+  of a separate `lilypondFull` preset.
+
+  | row | case | `house` does | `lilypond` does |
+  |---|---|---|---|
+  | **A** | an unbeamed end on the STEM side (his D → G) | the stem end (Gould p. 111) | stays at the head (`slur-scoring.cc:549-554`) |
+  | **B** | where that end stands in x | one rule | four regimes (`:742-791`) — can jump stem ↔ head |
+  | **C** | how much the slur tilts with the melody | half the interval (Gould p. 111) | the whole (music's rise + 0.2) |
+  | **D** | a broken slur's OPEN end | leans toward the next pitch (Gould p. 112) | level |
+  | **E** | an accidental near an end | one arch factor | a different pair of ends |
+  | **F** | articulations at the ends | clears every mark on the end note | per `avoid-slur` (+ his T1 rule) |
+  | **G** | ties, nested slurs, tuplet numbers, flags, fingerings/text, header signs | not avoided | P7's list — on / off |
+
+  ⚠️ A row is a choice INSIDE the search (`engrave/curves/slurSearch`, `SlurSearchRules`) — ⭐ it acts wherever
+  the search runs (the `lilypond` preset, whole and broken). `house` is the fixed reference its `house` column
+  describes; ⏭️ making `house` read the rows too is a later question.
+
+  - ✅ **Row A BUILT 2026-09-27** — `SlurSearchRules.stemSideEnd: 'head' | 'stem'` (`searchDetails`), armed by
+    `__slur.rule('stemSideEnd', 'stem')` (`curves/slurRules`; `__slur.rule()` lists the rows). `'stem'` moves
+    where an end is ATTRACTED (`edgeTargets`, read by `score_edges`) to ½ sp past the tip of a stem pointing the
+    slur's way; ⭐ the candidates are unchanged, so the other demerits can still pull an end down its stem.
+    His D → G draws to the stem ends under `'stem'`, to the heads under `'head'` (the default). The cache key
+    carries the rows. ⚠️ A cue/grace note's stem is read as drawn.
 
 ## 5. What this does NOT change
 

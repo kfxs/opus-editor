@@ -75,7 +75,8 @@ export function scoreEdges(state: SlurSearchState, c: SlurCandidate): void {
   const slope = dz.y / dz.x
   for (const i of [LEFT, RIGHT]) {
     const d = side(i)
-    const dy = Math.abs(c.ends[i].y - state.baseAttachments[i].y)
+    // From where the end is attracted to — the base attachment, unless row A says the stem end.
+    const dy = Math.abs(c.ends[i].y - state.edgeTargets[i].y)
     let demerit = state.details.edgeAttractionFactor * dy
     const stem = state.bounds[i].stem
     if (stem && stem.dir === state.dir && !beamsInward(state, i)) demerit /= 5

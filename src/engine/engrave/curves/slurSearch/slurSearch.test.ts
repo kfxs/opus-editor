@@ -59,3 +59,29 @@ describe('searchSlur', () => {
     expect(r.card).toEqual([`extra=${D.accidentalCollision.toFixed(2)}`])
   })
 })
+
+describe('⭐ row A — an unbeamed end on the STEM side (P8; his D → G, both stems up, slur above)', () => {
+  const dToG = (): SlurSearchInput => ({
+    ...hisSlur(false), columns: [column(0, 2, 1), column(4, 5, 1)], endHeadY: [1, 2.5],
+  })
+
+  it('`head` (LilyPond, the default): the ends stay at the heads — the base attachments, at no cost', () => {
+    const r = searchSlur(dToG())!
+    expect(r.index).toBe(0)
+    expect(r.score).toBe(0)
+  })
+
+  it('⭐ `stem` (Gould p. 111): the ends go to the STEM ends — ½ sp past each tip', () => {
+    const r = searchSlur(dToG(), D, { stemSideEnd: 'stem' })!
+    // D5's stem runs 1 → 4.5, G5's 2.5 → 6: each end at the enumeration step nearest ½ sp past its tip.
+    expect(r.ends[0].y).toBeGreaterThanOrEqual(4.5)
+    expect(r.ends[1].y).toBeGreaterThanOrEqual(6)
+  })
+
+  it('…and the lazy queue still answers what scoring every candidate would', () => {
+    const state = buildSearchState(dToG(), D, { stemSideEnd: 'stem' })
+    const all = searchCandidates(state).map(c => scoreFully(state, c))
+    const brute = all.reduce((a, b) => (b.score < a.score ? b : a))
+    expect(searchSlur(dToG(), D, { stemSideEnd: 'stem' })!.index).toBe(brute.index)
+  })
+})

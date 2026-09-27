@@ -108,3 +108,30 @@ export const LILYPOND_SLUR_DETAILS: SlurSearchDetails = {
   eccentricity: 0,
   lineThickness: 0.1,
 }
+
+/**
+ * ⭐⭐ **THE COMPROMISE'S ROWS — a CHOICE per case** (docs/plans/slur-search-plan.md P8, his word 2026-09-27:
+ * *"so we should have a preset for every case"*). Where {@link SlurSearchDetails} are LilyPond's numbers, these
+ * are the places he compared LilyPond with our `house` and may want either. ⭐ Every default is LilyPond's —
+ * what the search draws today; ⛔ a row changes nothing until he arms it.
+ */
+export interface SlurSearchRules {
+  /**
+   * **Row A — an unbeamed end on the STEM side** (a stem pointing the slur's way).
+   * - `'head'` — LilyPond: the end is drawn toward its HEAD (`get_base_attachments` takes the stem tip only
+   *   when a beam leaves it inward, `slur-scoring.cc:549-554`).
+   * - `'stem'` — Gould p. 111 (our `house`): drawn toward the STEM END — the edge demerit measures from ½ sp
+   *   past the tip instead. ⭐ The search keeps its whole range, so the other demerits can still pull the end
+   *   down the stem (opposite stems, Gould's own exception).
+   */
+  stemSideEnd: 'head' | 'stem'
+}
+
+export const LILYPOND_SLUR_RULES: SlurSearchRules = {
+  stemSideEnd: 'head',
+}
+
+/** Each row's choices, for the console and a spec — ⚠️ a new row adds its line here. */
+export const SLUR_RULE_CHOICES: { readonly [K in keyof SlurSearchRules]: readonly SlurSearchRules[K][] } = {
+  stemSideEnd: ['head', 'stem'],
+}
