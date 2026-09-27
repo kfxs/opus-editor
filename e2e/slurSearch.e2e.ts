@@ -7,8 +7,8 @@ import { test, expect } from './fixtures'
  * 1. **The net.** His three examples of 2026-09-27 — B4 E(♭)5 | A4 D5 G5, slurred B4 → G5, one staff and
  *    then with eighths on a second — measured on drawn ink exactly as the plan's §1 table was, and
  *    pinned to 0.01 sp. They are TODAY's pipeline — the `house` preset once P1 names it — so P1 (the seam,
- *    "no pixel moves") must pass them unchanged. ⚠️ At P5 `lilypond` becomes the default: arm `house`
- *    here then, ⛔ never re-pin these numbers to the new pictures.
+ *    "no pixel moves") must pass them unchanged. ⭐ Since P5 `lilypond` is the default, so these arm
+ *    `house` themselves — ⛔ never re-pin these numbers to the new pictures.
  *    ⭐ His two HAND shapes (the `curveShape` + `endpointOffset` overrides he drew) are pinned too — they
  *    are the target: each clears the flat by 0.20 sp, raises the near end and leans the arch toward it.
  * 2. **The stopwatch.** What a slur costs today, per slur, from the render census's `curves` part: the
@@ -26,7 +26,9 @@ async function measureCase(score: import('@playwright/test').Page, opts: Case) {
     const h = window.__h
     // 🚨 FIRST — a render that beats the font measures the flat 0 wide and places it by the wrong note.
     await h.fontReady()
-    if (opts.solver && !h.slurSolver(opts.solver)) throw new Error(`no slur solver ${opts.solver}`)
+    // ⭐ Since P5 the default is `lilypond`: the baseline arms `house` itself, and its numbers stay pinned.
+    const solver = opts.solver ?? 'house'
+    if (!h.slurSolver(solver)) throw new Error(`no slur solver ${solver}`)
     const e = h.engine
     e.loadJSON(JSON.stringify({
       id: 's', title: '',

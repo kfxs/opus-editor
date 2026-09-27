@@ -3,12 +3,14 @@
  *
  * A solver is handed the ends the engraver chose and what the slur covers, and answers the ends it
  * draws from and the cubic's control points. Only the ARMED row runs, so a preset's cost is its own:
- * `house` costs what slurs always cost (P0's stopwatch, `e2e/slurSearch.e2e.ts`).
+ * `house` costs what slurs always cost (P0's stopwatch, `e2e/slurSearch.e2e.ts`). ⭐ A preset is a VIEW setting,
+ * never stored in the score: an existing score re-shapes under the default (plan §7 B).
  *
  * | row | what it is |
  * |---|---|
- * | `house` | today's pipeline — `./slurHouseSolver`. ⭐ The default until his word at P5. |
- * | `lilypond` | LilyPond's search — `./slurLilypondSolver` (P3). ⏭️ The default at P5, his word. |
+ * | `house` | the pipeline we had — `./slurHouseSolver`. Still selectable. |
+ * | `lilypond` | LilyPond's search — `./slurLilypondSolver` (P3). ⭐ THE DEFAULT since P5 (2026-09-27), his
+ * |  | word — *"for a while to check more examples"*; a compromise of the two is his, later. |
  *
  * ⛔ **A hand-edited shape never asks a solver** (a `curveShape` override opts out), and the hand's
  * endpoint and whole-curve offsets are applied AFTER it, in `SlurRenderer` — the shape is solved from
@@ -59,7 +61,7 @@ export const SLUR_SOLVERS: Record<SlurSolverName, (input: SlurSolveInput) => Slu
   lilypond: solveLilypondSlur,
 }
 
-export const DEFAULT_SLUR_SOLVER: SlurSolverName = 'house'
+export const DEFAULT_SLUR_SOLVER: SlurSolverName = 'lilypond'
 
 const state = { solver: DEFAULT_SLUR_SOLVER as SlurSolverName, generation: 0 }
 

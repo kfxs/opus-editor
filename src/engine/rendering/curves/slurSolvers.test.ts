@@ -12,26 +12,27 @@ import { resetSlurShape, setSlurHeightLaw } from './slurShapeExperiment'
 afterEach(() => { setSlurSolver(DEFAULT_SLUR_SOLVER); resetSlurShape() })
 
 describe('slurSolvers', () => {
-  it('⭐ `house` is the default — today\'s picture until his word at P5', () => {
-    expect(DEFAULT_SLUR_SOLVER).toBe('house')
-    expect(slurSolverName()).toBe('house')
+  it('⭐ `lilypond` is the default since P5 — his word, 2026-09-27; `house` stays selectable', () => {
+    expect(DEFAULT_SLUR_SOLVER).toBe('lilypond')
+    expect(slurSolverName()).toBe('lilypond')
     expect(SLUR_SOLVERS.house).toBe(solveHouseSlur)
   })
 
   it('solves with the armed row', () => {
+    setSlurSolver('house')
     const input = { p0: { x: 0, y: 0 }, p1: { x: 200, y: 0 }, direction: -1, nestLift: 0, obstacles: () => [], searchProblem: () => null }
     expect(solveSlur(input)).toEqual(solveHouseSlur(input))
   })
 
-  it('⭐ arms `lilypond`', () => {
-    expect(setSlurSolver('lilypond')).toBe(true)
-    expect(slurSolverName()).toBe('lilypond')
+  it('⭐ arms `house`', () => {
+    expect(setSlurSolver('house')).toBe(true)
+    expect(slurSolverName()).toBe('house')
   })
 
   it('⛔ refuses a name with no row — a typo must not look armed', () => {
     for (const name of ['toString', 'hosue']) {
       expect(setSlurSolver(name)).toBe(false)
-      expect(slurSolverName()).toBe('house')
+      expect(slurSolverName()).toBe('lilypond')
     }
   })
 

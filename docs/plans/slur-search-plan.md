@@ -153,6 +153,9 @@ rule).
     becomes the default **for a while**, to see it on more of his examples. ⏭️ The COMPROMISE is open, his
     call; ⛔ neither preset is to be tuned toward the other until he says what he liked in each.
 - **P5 — the default** (his word at P4): `lilypond` becomes the default; `house` stays selectable.
+  - ✅ **DONE 2026-09-27** — `DEFAULT_SLUR_SOLVER = 'lilypond'`, *"for a while to check more examples"*. The
+    `house` baseline (P0) and the tilt specs in `e2e/slur.e2e.ts` arm `house` themselves; the whole e2e net
+    passes under the new default (350). `__slur.solver('house')` brings the old picture back.
 - **P6 — broken slurs** under the search (LilyPond scores each system's piece; ours are `planSpanSegments`
   fragments). Then the bent staff (`eye/spineCurves`) can ask it too.
 
@@ -177,4 +180,7 @@ controls, the JSON. ⛔ Nothing here re-decides an endpoint rule he has already 
 
 - ✅ **A. DECIDED (2026-09-27):** the height-law row keeps its name `'lilypond'` — it is LilyPond's formula.
 - **B.** At P5, should an EXISTING score's slurs re-shape under the new default, or should a score keep
-  the preset it was made with? (Suggested: re-shape — a preset is a view setting, not stored.)
+  the preset it was made with? ✅ Re-shape, as built — a preset is a view setting, not stored; his *"make
+  lilypond default for a while"* (2026-09-27).
+- ⏭️ **Articulations at a slur's ENDS** — his rule (staccato/tenuto inside, an accent outside at the ends) is
+  a TODO in `docs/plans/articulation-plan.md` T1; it touches both presets.

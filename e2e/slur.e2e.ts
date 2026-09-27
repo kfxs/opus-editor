@@ -111,6 +111,9 @@ async function slurTilt(
 ) {
   return score.evaluate(async (notes: Array<{ step: string; octave: number; duration?: string }>) => {
     const h = window.__h
+    // ⭐ THE TILT is `house`'s rule (Gould p. 111) — pinned under that preset. `lilypond`, the default since
+    //   2026-09-27, tilts with the whole interval instead (docs/plans/slur-search-plan.md P4's table).
+    h.slurSolver('house')
     const ids = notes.map((n, i) => {
       if (i > 0) h.engine.addMeasure()
       return h.engine.addNoteAtBeat({
