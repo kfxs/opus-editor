@@ -82,6 +82,10 @@ rule).
     pinned from §1 — the `house` baseline.
   - Per-slur solve time from the render census (`__census`), on his heaviest real score (the 1ère
     Gymnopédie) and a synthetic page of 50 slurs: today's cost, the number P4 is judged against.
+  - ✅ **BUILT 2026-09-27** (`e2e/slurSearch.e2e.ts`, `__h.timePart`): all six §1 rows reproduce to
+    0.01 sp and are pinned. Today's cost (median of 21 renders, `curves` part with − without slurs, over
+    the slurs drawn): **Gymnopédie 0.60 ms/slur** (10 slurs, long, two staves) · **50-slur page
+    0.20 ms/slur**. This machine's numbers — logged by the spec, not asserted.
 - **P1 — the seam. ⛔ No pixel moves.** `SLUR_SOLVERS` table with `house` = today's code moved behind
   the row; `__slur.solver`; the default stays `house`. P0's net must pass byte-for-byte.
 - **P2 — the search, pure** (`engrave/curves/slurSearch/` — ⛔ no DOM, no renderer; unit-tested in

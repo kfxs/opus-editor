@@ -41,6 +41,7 @@ import { setGlissandoEndRule, type GlissandoEndRuleName } from '@/engine/engrave
 import { resetLongHeads, setLongHead, type LongHeadShape } from '@/engine/fonts/longHeads'
 import { resetLongaStemSide, setLongaStemSide, type LongaStemSide } from '@/engine/layout/longaStem'
 import { resetBarRestStyle, setBarRestStyle, type BarRestStyle } from '@/engine/layout/barRestStyle'
+import { setRenderProbe, type RenderLayoutPart } from '@/engine/RenderProbe'
 
 /** Re-exported so a spec can name what `columnGaps()` hands back. */
 export type { BarSpacing, CensusColumn } from '@/dev/spacingCensus'
@@ -223,6 +224,13 @@ export interface Harness {
   exportPdf(): Promise<void>
   /** Draw on A4 pages instead of the sketching canvas (docs/plans/layout-plan.md P1). */
   useLayout(on: boolean): void
+  /**
+   * ⏱ The render's `part` (a {@link RenderLayoutPart} — `'curves'` is ties + slurs), in ms, as the
+   * MEDIAN of `renders` full renders — the render census's own seam (`engine/RenderProbe.ts`),
+   * installed for the call and taken down after. A stopwatch, not a geometry reader: the number is
+   * this machine's, so a spec LOGS it and asserts only that something was timed.
+   */
+  timePart(part: RenderLayoutPart, renders: number): Promise<number>
   /** Every drawn SHEET, left to right — the page rectangles behind the music. */
   pages(): { x: number; y: number; width: number; height: number }[]
   /** The `<svg>`'s own size, which is what the viewport's scrollers are built from. */
@@ -517,6 +525,25 @@ const harness: Harness = {
   exportPdf: () => exportScorePdf(engine.getScore(), engine.getSurface()),
 
   useLayout: (on: boolean) => engine.setSurface(on ? A4_NORMAL : SKETCH_CANVAS),
+  async timePart(part: RenderLayoutPart, renders: number): Promise<number> {
+    await musicFontReady()
+    let sum = 0
+    const samples: number[] = []
+    setRenderProbe({
+      recording: true,
+      setCause() {}, beginLayout() {}, endLayout() {}, measuresRedrawn() {},
+      beginRender() { sum = 0 },
+      endRender() { samples.push(sum) },
+      layoutSub(p, ms) { if (p === part) sum += ms },
+    })
+    try {
+      for (let i = 0; i < renders; i++) engine.renderScore()
+    } finally {
+      setRenderProbe(null)
+    }
+    samples.sort((a, b) => a - b)
+    return samples[Math.floor(samples.length / 2)]
+  },
 
   pages: () =>
     all<SVGRectElement>('rect.score-page-sheet')
