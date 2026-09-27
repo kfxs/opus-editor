@@ -2,6 +2,8 @@ import { describe, it, expect } from 'vitest'
 import { circleSpine, straightSpine } from '@/engine/engrave/staff/staffSpine'
 import { staffStridePx } from '@/engine/layout/staffStride'
 import { ScoreModel } from '@/engine/models/ScoreModel'
+import { setStaffSpacing } from '@/engine/models/overrideOps'
+import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { fracFromInt } from '@/utils/fraction'
 import { barOnStaff, spineStaffTops, spineStaves } from './spineStaves'
 import type { SpineBar } from './spineSpacing'
@@ -21,6 +23,15 @@ describe('spineStaffTops — the page\'s own vertical arithmetic', () => {
 
   it('⭐ a second staff stands one staff STRIDE further down — its lines plus the staff gap', () => {
     expect([...spineStaffTops(twoStaves().getScore()).values()]).toEqual([0, staffStridePx(1)])
+  })
+})
+
+describe('⭐ the hand\'s STAFF SPACING reaches the spine (his ask, 2026-09-27)', () => {
+  it('a space-above on the second staff moves it that many spaces further down', () => {
+    const m = twoStaves()
+    const lower = m.getScore().staves![1].id
+    setStaffSpacing(m.getScore(), lower, 2)
+    expect([...spineStaffTops(m.getScore()).values()]).toEqual([0, staffStridePx(1) + 2 * STAFF_SPACE_PX])
   })
 })
 

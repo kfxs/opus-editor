@@ -11,13 +11,12 @@
  * (`./spineSpacing`). A staff whose own path is `ratio` as long stands each column at `s × ratio` — so
  * the same beat on every staff lies on one radius, as it lies on one vertical on the page.
  *
- * ⚠️ Placeholders, named: every staff is drawn FULL SIZE (a small staff's `size` is not read yet), and a
- * staff-spacing override is not read (the spine is one system of its own — its adjustments will be
- * the spine's, plan §9).
+ * ⚠️ Placeholder, named: every staff is drawn FULL SIZE (a small staff's `size` is not read yet).
  */
 import type { Spine } from '@/engine/engrave/staff/staffSpine'
 import { innerLengthRatio, parallelSpine } from '@/engine/engrave/staff/staffSpine'
-import { systemStaffTops } from '@/engine/layout/staffStride'
+import { spacingAbovePx, systemStaffTops } from '@/engine/layout/staffStride'
+import { resolveStaffSpacingAbove } from '@/engine/models/engravingOverrides'
 import { firstStaffId, getStaves } from '@/engine/models/staffContent'
 import type { Score } from '@/types/music'
 import type { SpineBar } from './spineSpacing'
@@ -36,10 +35,17 @@ export interface SpineStaff {
   ratio: number
 }
 
-/** Every staff's top below the TOP staff's top line, px, keyed by id — the page's own vertical arithmetic. */
+/**
+ * Every staff's top below the TOP staff's top line, px, keyed by id — the page's own vertical arithmetic,
+ * with the hand's STAFF SPACING (his ask, 2026-09-27: *"what about distance between staffs?"*): the
+ * space-above each staff carries, resolved as the page resolves its FIRST system's — the spine is one
+ * system, and it opens at bar 1. The top staff's own space-above moves nothing: there is no staff above it.
+ */
 export function spineStaffTops(score: Score): Map<string | undefined, number> {
   const ids = staffIdsOf(score)
-  const { topPx } = systemStaffTops(ids.map(() => 1), [])
+  const opener = score.measures[0]?.id
+  const above = ids.map((id, i) => (i > 0 && id ? spacingAbovePx(resolveStaffSpacingAbove(score, id, opener), 1) : 0))
+  const { topPx } = systemStaffTops(ids.map(() => 1), above)
   return new Map(ids.map((id, i) => [id, topPx[i]]))
 }
 
