@@ -184,6 +184,13 @@ export interface SlurSearchRules {
    * under `'on'`. `'off'` — what the search drew before: nested slurs may touch.
    */
   nested: 'off' | 'on'
+  /**
+   * **Row G — an end note's FLAG** (P7's fourth item). ⭐ `'on'` is LilyPond: the flag is united into the end's stem
+   * extent (`Bound_info.stem_extent_`, `slur-scoring.cc:191-192`), so an end beside a flagged stem stands past
+   * the FLAG (`stem_extent[X][-d] − d·0.3`). `'off'` — what the search drew before: the stem alone, ~1 sp too
+   * far in on a flagged stem-up note (the source audit).
+   */
+  flags: 'off' | 'on'
 }
 
 export const LILYPOND_SLUR_RULES: SlurSearchRules = {
@@ -194,6 +201,7 @@ export const LILYPOND_SLUR_RULES: SlurSearchRules = {
   accidental: 'lilypond',
   ties: 'off',
   nested: 'off',
+  flags: 'off',
 }
 
 /** Each row's choices, for the console and a spec — ⚠️ a new row adds its line here. */
@@ -205,4 +213,5 @@ export const SLUR_RULE_CHOICES: { readonly [K in keyof SlurSearchRules]: readonl
   accidental: ['lilypond', 'clear'],
   ties: ['off', 'on'],
   nested: ['off', 'on'],
+  flags: ['off', 'on'],
 }

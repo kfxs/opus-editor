@@ -432,6 +432,36 @@ test('⭐ P8 row G — `nested: on` keeps the outer slur clear of the one inside
   expect(out.on).toBeGreaterThan(out.off)
 })
 
+/**
+ * ⭐ P8 row G — an end note's FLAG: a flagged eighth (stem up) starting a slur ABOVE. `flags: 'on'` (LilyPond)
+ * starts the slur past the flag; `'off'` beside the stem alone.
+ */
+test('⭐ P8 row G — `flags: on` starts the slur past the flag', async ({ score }) => {
+  const out = await score.evaluate(async () => {
+    const h = window.__h
+    await h.fontReady()
+    h.slurSolver('lilypond')
+    const e = h.engine
+    e.addMeasure()
+    const a = e.addNoteAtBeat({ step: 'E', octave: 4, duration: '8', measure: 1, beat: h.frac(0, 1) })!
+    const b = e.addNoteAtBeat({ step: 'A', octave: 4, duration: 'q', measure: 2, beat: h.frac(0, 1) })!
+    e.getScore().slurs = [{ id: 'sl', startNoteId: a.id, endNoteId: b.id, voice: 0, placement: 'above' }]
+    const startX = async (flags: string) => {
+      h.slurRule('flags', flags)
+      await h.render()
+      const d = document.querySelector('g.slur path[fill="none"]')?.getAttribute('d') ?? ''
+      return +(d.match(/-?\d+(?:\.\d+)?/)?.[0] ?? NaN)
+    }
+    const off = await startX('off')
+    const on = await startX('on')
+    const sp = (h.staves()[0].bottom - h.staves()[0].top) / 4
+    return { off, on, sp }
+  })
+  console.log('[row G flags]', JSON.stringify({ shiftSp: +((out.on - out.off) / out.sp).toFixed(2) }))
+  // Past the flag: about a flag's width further right.
+  expect(out.on - out.off).toBeGreaterThan(0.5 * out.sp)
+})
+
 test('⭐ the search is DETERMINISTIC — a saved and reloaded score draws the same slur, to the byte', async ({ score }) => {
   const out = await score.evaluate(async () => {
     const h = window.__h

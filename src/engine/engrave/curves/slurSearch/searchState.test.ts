@@ -208,3 +208,21 @@ describe('⭐ row G — slurs nested under this one (`nested`)', () => {
     expect(s.extraInfos).toHaveLength(1)
   })
 })
+
+describe('⭐ row G — an end note\'s FLAG (`flags`)', () => {
+  // A flagged START with its stem up, the slur above: the end goes beside the stem — past what?
+  const input = () => {
+    const first = column(0, 2, 1)
+    first.stem = { ...first.stem!, flag: { x: [1.06, 2.1], y: first.stem!.y } }
+    return { ...hisSlur(false), columns: [first, column(5, 5, 1)], endHeadY: [1, 2.5] as const }
+  }
+
+  it('`off` (the default): past the stem alone', () => {
+    expect(buildSearchState(input(), D).attachments[0][0].x).toBeCloseTo(1.18 + 0.3, 12)
+  })
+
+  it('⭐ `on` (LilyPond): past the FLAG', () => {
+    const s = buildSearchState(input(), D, { ...LILYPOND_SLUR_RULES, flags: 'on' })
+    expect(s.attachments[0][0].x).toBeCloseTo(2.1 + 0.3, 12)
+  })
+})

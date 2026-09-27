@@ -211,12 +211,13 @@ export function encompassInfo(col: SearchColumn, dir: number): EncompassInfo {
 }
 
 /** `get_bound_info` for one end. */
-function boundInfo(col: SearchColumn): BoundInfo {
+function boundInfo(col: SearchColumn, withFlag: boolean): BoundInfo {
   const stem = col.stem
   if (!stem) return { column: col, slurHead: col.slurHead }
   const extent = (axis: 'x' | 'y'): Interval => {
     let s = stem[axis]
-    if (stem.flag) s = [Math.min(s[0], stem.flag[axis][0]), Math.max(s[1], stem.flag[axis][1])]
+    // Row G `flags: 'on'` (LilyPond) — the flag is part of the bound's stem.
+    if (withFlag && stem.flag) s = [Math.min(s[0], stem.flag[axis][0]), Math.max(s[1], stem.flag[axis][1])]
     if (isEmpty(s)) {
       const ref = axis === 'x' ? stem.refX : stem.refY
       return [ref, ref]
@@ -424,8 +425,8 @@ export function buildSearchState(
   const { dir, columns } = input
   const broken = input.brokenX ?? [undefined, undefined]
   const bounds: [BoundInfo, BoundInfo] = [
-    broken[LEFT] === undefined ? boundInfo(columns[0]) : {},
-    broken[RIGHT] === undefined ? boundInfo(columns[columns.length - 1]) : {},
+    broken[LEFT] === undefined ? boundInfo(columns[0], rules.flags === 'on') : {},
+    broken[RIGHT] === undefined ? boundInfo(columns[columns.length - 1], rules.flags === 'on') : {},
   ]
   const isBroken = broken[LEFT] !== undefined || broken[RIGHT] !== undefined
   const thickness = details.thickness * details.lineThickness

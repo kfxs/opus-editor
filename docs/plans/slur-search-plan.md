@@ -268,6 +268,10 @@ rule).
     and the adapter hands each slur the drawn slurs lying inside its span, with whether they share its end
     notes → LilyPond's `nestedSlurs` (the middle + 0.8 sp raises the arch; the curve is scored). Chromium, C5 …
     G5 over D5 → E5: closest approach 0.29 → **0.65** sp.
+  - ✅ **Row G, FLAGS, BUILT 2026-09-27** — `SlurSearchRules.flags: 'off' | 'on'`, `__slur.rule('flags', 'on')`. The
+    adapter hands each flagged note its flag (`getFlagWidthPx`, right of the stem, along it); under `'on'` it is
+    united into the end's stem extent (LilyPond's `Bound_info`). Chromium, a flagged stem-up eighth starting a
+    slur above: the start moves **1.02 sp** right, past the flag (the audit's "~1 sp").
 
 ## 5. What this does NOT change
 

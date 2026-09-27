@@ -121,6 +121,11 @@ function columnOf(
     y: [Math.min(tip, base), Math.max(tip, base)],
     invisible: false, refX: stemX, refY: base, beamsLeft: false, beamsRight: false,
   }
+  // The FLAG, as LilyPond's `Note_column::get_flag` — beside the stem, over its length (row G reads it).
+  const flagW = note.getFlagWidthPx()
+  if (flagW > 0) {
+    stem.flag = { x: [stem.x[0], stemX + flagW / sp], y: stem.y }
+  }
   const beam = note.getBeam()
   if (beam instanceof EngravedBeam) {
     const i = beam.notes.indexOf(note)
