@@ -98,8 +98,12 @@ export interface SlurSearchInput {
   columns: readonly SearchColumn[]
   objects: readonly SearchObject[]
   nestedSlurs: readonly SearchNestedSlur[]
-  /** The ends of ties among the encompass objects — a slur end ON one is demerited. */
+  /** The ends of ties among the encompass objects — a slur end ON one is demerited. ⚠️ Read as given; the
+   *  ties the RENDERER hands over go in {@link ties} instead, read only when row G says so. */
   tieEnds: readonly Offset[]
+  /** Row G: the ties that END while the slur runs — each as its drawn extent and its two ends. Read only
+   *  under `ties: 'on'` (LilyPond's behaviour). */
+  ties?: readonly { x: Interval; y: Interval; ends: readonly [Offset, Offset] }[]
   /** The staff: its middle line's y, and its lines' positions in half-spaces from it (5 lines: −4…4). */
   staff: { middleY: number; linePositions: readonly number[] }
   /** The two end notes' heads' y (`slur_head_->relative_coordinate`) — the music's own rise. ⚠️ Ignored for
@@ -426,6 +430,15 @@ export function buildSearchState(
   const sameBeam = !!(ls && rs && ls.beam && rs.beam && ls.beam.id === rs.beam.id)
   const base = baseAttachments(bounds, dir, input.staff, sameBeam, columns, input.brokenX)
   const endYs = yAttachmentRange(bounds, base, dir, details)
+  // Row G — a tie is an `inside` object, and its ends are forbidden attachments (LilyPond's own treatment).
+  const ties = rules.ties === 'on' ? (input.ties ?? []) : []
+  if (ties.length) {
+    input = {
+      ...input,
+      objects: [...input.objects, ...ties.map(t => ({ x: t.x, y: t.y, avoid: 'inside' as const }))],
+      tieEnds: [...input.tieEnds, ...ties.flatMap(t => t.ends)],
+    }
+  }
   const extraInfos = extraEncompassInfos(input, details, thickness, rules)
 
   // An `inside` object near an end widens that end's range past it.

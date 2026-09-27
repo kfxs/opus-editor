@@ -173,3 +173,21 @@ describe('⭐ row E — an accidental under the slur (`accidental`)', () => {
     expect(clear.extraInfos[0].penalty).toBe(D.extraObjectCollisionPenalty)
   })
 })
+
+describe('⭐ row G — ties under the slur (`ties`)', () => {
+  const tie = { x: [1, 3] as const, y: [0.6, 1.1] as const, ends: [{ x: 1, y: 0.7 }, { x: 3, y: 0.7 }] as const }
+
+  it('`off` (the default): a tie handed over is not read', () => {
+    const s = buildSearchState({ ...hisSlur(false), ties: [tie] }, D)
+    expect(s.extraInfos).toHaveLength(0)
+    expect(s.tieEnds).toHaveLength(0)
+  })
+
+  it('⭐ `on` (LilyPond): an `inside` object the arch clears, and its two ends forbidden attachments', () => {
+    const s = buildSearchState({ ...hisSlur(false), ties: [tie] }, D, { ...LILYPOND_SLUR_RULES, ties: 'on' })
+    expect(s.extraInfos).toHaveLength(1)
+    expect(s.extraInfos[0].penalty).toBe(D.extraObjectCollisionPenalty)
+    expect(s.tieEnds).toEqual(tie.ends)
+    expect(s.avoid).toContainEqual({ x: 2, y: 1.1 })
+  })
+})

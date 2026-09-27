@@ -232,7 +232,7 @@ export function renderTies(pass: RenderPass, score: Score): void {
                 // two collisions rather than the exotic one.
                 // ⚠️ In the staff's own space — these are the drawn numbers, not the registry's
                 // scaled copies (`engine/layout/curveObstacleBand.ts`).
-                pass.drawnCurves.push({ staff: staffIndex, line, points: arc.points })
+                pass.drawnCurves.push({ staff: staffIndex, line, points: arc.points, kind: 'tie' })
                 pass.elementRegistry.add({
                   type: 'tie',
                   fromNoteId: note.id,

@@ -65,6 +65,9 @@ export interface DrawnCurve {
   line: number
   /** The sampled cubic, in that staff's own space. `rendering/curves/curveArc.ts` supplies it. */
   points: readonly { x: number; y: number }[]
+  /** Which family drew it — a slur asks for the TIES under it (`rendering/curves/slurSearchProblem`, P8 row G).
+   *  Absent reads as unknown, and is never taken for either. */
+  kind?: 'tie' | 'slur'
 }
 
 /** Which curves to ask about, and over what stretch of drawn x. */

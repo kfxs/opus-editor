@@ -257,6 +257,11 @@ rule).
   - ⏭️ **Row F SKIPPED — his call, 2026-09-27:** *"we skip articulation, we will do the articulation plan that is
     correct"*. Articulations at a slur's ends belong to `docs/plans/articulation-plan.md` (T1 + L2: the marks
     themselves move), ⛔ not to a slur row.
+  - ✅ **Row G, TIES, BUILT 2026-09-27** — `SlurSearchRules.ties: 'off' | 'on'`, `__slur.rule('ties', 'on')`. Each
+    drawn curve on `RenderPass.drawnCurves` now carries its `kind` (`'tie'` / `'slur'`); the adapter hands the
+    search the ties on the slur's staff and system whose RIGHT end falls within the slur (LilyPond
+    END-acknowledges ties); under `'on'` each is an `inside` object (the arch clears it, 50 within 0.3 sp) and its
+    ends are forbidden attachments. Chromium, a slur over a tie: closest approach 0.11 → **0.46** sp.
 
 ## 5. What this does NOT change
 

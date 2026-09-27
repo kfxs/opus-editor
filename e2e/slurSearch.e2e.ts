@@ -351,6 +351,48 @@ test.describe('⭐ P8 row E — `accidental: clear` clears his flat', () => {
   }
 })
 
+/**
+ * ⭐ P8 row G — ties under the slur: a slur ABOVE over two tied notes that sit high enough for the tie to curve
+ * up under it. `ties: 'on'` (LilyPond) must keep the slur clear of the tie's drawn ink.
+ */
+test('⭐ P8 row G — `ties: on` keeps the slur clear of a tie under it', async ({ score }) => {
+  const out = await score.evaluate(async () => {
+    const h = window.__h
+    await h.fontReady()
+    h.slurSolver('lilypond')
+    const e = h.engine
+    e.addMeasure()
+    // G5 (stem down) tied to G5, then A5: the tie curves ABOVE (away from the down stems), under the slur.
+    const a = e.addNoteAtBeat({ step: 'E', octave: 5, duration: 'q', measure: 1, beat: h.frac(0, 1) })!
+    const b = e.addNoteAtBeat({ step: 'G', octave: 5, duration: 'q', measure: 1, beat: h.frac(1, 1) })!
+    const c = e.addNoteAtBeat({ step: 'G', octave: 5, duration: 'q', measure: 1, beat: h.frac(2, 1) })!
+    const d = e.addNoteAtBeat({ step: 'F', octave: 5, duration: 'q', measure: 1, beat: h.frac(3, 1) })!
+    e.updateNote(b.id, { tiedTo: c.id } as never)
+    e.updateNote(c.id, { tiedFrom: b.id } as never)
+    e.getScore().slurs = [{ id: 'sl', startNoteId: a.id, endNoteId: d.id, voice: 0, placement: 'above' }]
+    const gap = async (ties: string) => {
+      h.slurRule('ties', ties)
+      await h.render()
+      const tie = h.curveSamples('g.tie path', 60)
+      const slur = h.curveSamples('g.slur path', 200)
+      if (!tie.length) return null
+      // The slur's y just above each tie sample's x — the smallest vertical room between them.
+      const sp = (h.staves()[0].bottom - h.staves()[0].top) / 4
+      let min = Infinity
+      for (const t of tie) {
+        const s0 = slur.reduce((best, q) => (Math.abs(q.x - t.x) < Math.abs(best.x - t.x) ? q : best))
+        min = Math.min(min, (t.y - s0.y) / sp)
+      }
+      return +min.toFixed(2)
+    }
+    return { off: await gap('off'), on: await gap('on') }
+  })
+  console.log('[row G ties]', JSON.stringify(out))
+  expect(out.on, 'the fixture draws a tie').not.toBeNull()
+  expect(out.on!).toBeGreaterThan(0)
+  expect(out.on!).toBeGreaterThanOrEqual(out.off!)
+})
+
 test('⭐ the search is DETERMINISTIC — a saved and reloaded score draws the same slur, to the byte', async ({ score }) => {
   const out = await score.evaluate(async () => {
     const h = window.__h

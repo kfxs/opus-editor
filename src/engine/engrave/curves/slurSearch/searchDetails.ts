@@ -169,6 +169,13 @@ export interface SlurSearchRules {
    *   which the search's `fit_factor` already is, and which drew the giant arch he rejected.)
    */
   accidental: 'lilypond' | 'clear'
+  /**
+   * **Row G — ties under the slur** (P7's first item). ⭐ `'on'` is LilyPond: a tie ending while the slur runs is
+   * one of its `encompass-objects` (`slur-engraver.cc` END-acknowledges ties): an `inside` object the curve
+   * must stay outside of (penalty 50 within 0.3 sp), and its two ends are FORBIDDEN attachments (a slur end
+   * within `slur-tie-extrema-min-distance` 0.2 sp costs 2). `'off'` — what the search drew before: no ties.
+   */
+  ties: 'off' | 'on'
 }
 
 export const LILYPOND_SLUR_RULES: SlurSearchRules = {
@@ -177,6 +184,7 @@ export const LILYPOND_SLUR_RULES: SlurSearchRules = {
   tilt: 'lilypond',
   openEnd: 'lilypond',
   accidental: 'lilypond',
+  ties: 'off',
 }
 
 /** Each row's choices, for the console and a spec — ⚠️ a new row adds its line here. */
@@ -186,4 +194,5 @@ export const SLUR_RULE_CHOICES: { readonly [K in keyof SlurSearchRules]: readonl
   tilt: ['lilypond', 'house'],
   openEnd: ['lilypond', 'house'],
   accidental: ['lilypond', 'clear'],
+  ties: ['off', 'on'],
 }

@@ -595,8 +595,11 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
         // that one is applied *before* `resolveCps` on purpose, so it re-arches rather than
         // translating, and there is no engraver's arc left underneath it to file. It also sits at a
         // system margin, where no lane is competing.
+        /** Row G: the ties this render drew on this slur's staff and system (they are drawn before the slurs). */
+        const tiesOn = (line: number) =>
+          pass.drawnCurves.filter(c => c.kind === 'tie' && c.staff === slurStaffIndex && c.line === line)
         const fileCurve = (points: { x: number; y: number }[], line: number) =>
-          pass.drawnCurves.push({ staff: slurStaffIndex, line, points })
+          pass.drawnCurves.push({ staff: slurStaffIndex, line, points, kind: 'slur' })
         /** The drawn cubic, sampled at the ends the engraver chose. See {@link fileCurve}. */
         const autoArc = (
           p0: { x: number; y: number },
@@ -694,7 +697,8 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
               searchProblem: () =>
                 pass.fanMemberAnchorMap.has(slur.startNoteId) || pass.fanMemberAnchorMap.has(slur.endNoteId)
                   ? null
-                  : slurSearchProblem([fromNote, ...interiorNotes, toNote], direction),
+                  : slurSearchProblem([fromNote, ...interiorNotes, toNote], direction, undefined, undefined,
+                    tiesOn(fromLine)),
             })
             p0.x += solved.p0.x - autoP0.x; p0.y += solved.p0.y - autoP0.y
             p1.x += solved.p1.x - autoP1.x; p1.y += solved.p1.y - autoP1.y
@@ -826,11 +830,13 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
             notes: EngravedNote[] | null, brokenPx: readonly [number | undefined, number | undefined],
             /** `house`'s lean of each OPEN end (`./brokenSlurTilt`), px outward from the note end — row D. */
             openRisePx: readonly [number | undefined, number | undefined] = [undefined, undefined],
+            /** The system this piece is on — whose ties it asks for (row G). */
+            line = fromLine,
           ): [{ x: number; y: number }, { x: number; y: number }] => {
             if (override) return resolveCps(override, frame, p0, p1, direction, nestLift)
             const solved = solveSlurPiece({
               p0: { ...p0 }, p1: { ...p1 }, direction, nestLift, hands, obstacles: () => [],
-              searchProblem: () => (notes ? slurSearchProblem(notes, direction, brokenPx, openRisePx) : null),
+              searchProblem: () => (notes ? slurSearchProblem(notes, direction, brokenPx, openRisePx, tiesOn(line)) : null),
             })
             p0.x = solved.p0.x; p0.y = solved.p0.y
             p1.x = solved.p1.x; p1.y = solved.p1.y
@@ -886,7 +892,7 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
               const o = segmentEndpointOffsetPx(segEndOff.end, frame)
               p0.x += o.x; p0.y += o.y
               const cps = solvePiece(segShape.end, frame, p0, p1, [o, { x: off.endX, y: off.endY }],
-                fannedEnd ? null : [...interiorOn(toLine), toNote], [seg.leftX, undefined], [rise, undefined])
+                fannedEnd ? null : [...interiorOn(toLine), toNote], [seg.leftX, undefined], [rise, undefined], toLine)
               // ⭐ The mirror of BEGIN: the true END's nudge comes off, the open left end's stays.
               fileCurve(autoArc(p0, { x: p1.x - off.endX, y: p1.y - off.endY }, cps, direction), toLine)
               p0.x += wholeTo.x; p0.y += wholeTo.y
@@ -915,7 +921,7 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
               p0.x += ol.x; p0.y += ol.y
               p1.x += or.x; p1.y += or.y
               const cps = solvePiece(segShape.middles[ordinal], frame, p0, p1, [ol, or],
-                interiorOn(seg.line), [seg.leftX, seg.rightX])
+                interiorOn(seg.line), [seg.leftX, seg.rightX], undefined, seg.line)
               // ⭐ A MIDDLE has no true end at all, so only the whole-curve offset below is the
               // hand's — and it is filed before that lands.
               fileCurve(autoArc(p0, p1, cps, direction), seg.line)

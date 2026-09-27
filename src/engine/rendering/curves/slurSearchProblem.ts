@@ -142,6 +142,32 @@ function columnOf(
   return column
 }
 
+/**
+ * Row G — the ties that END while the slur runs (LilyPond END-acknowledges a tie, so one ending on the slur's
+ * first note counts and one starting on its last does not): a tie whose right end falls between the slur's
+ * first head (or its line-break edge) and its last. Each as its drawn extent and its two ends.
+ */
+function tiesUnder(
+  drawnTies: readonly { points: readonly Point[] }[], notes: readonly EngravedNote[], frame: SearchFrame,
+  brokenPx: readonly [number | undefined, number | undefined],
+): { ties?: NonNullable<SlurSearchInput['ties']> } {
+  if (!drawnTies.length || !notes.length) return {}
+  const from = brokenPx[0] ?? noteRuler(notes[0]).headLeftX
+  const to = brokenPx[1] ?? noteRuler(notes[notes.length - 1]).headRightX
+  const ties = drawnTies.flatMap(t => {
+    if (t.points.length < 2) return []
+    const xs = t.points.map(p => p.x), ys = t.points.map(p => p.y)
+    const endX = Math.max(...xs)
+    if (endX < from || endX > to) return []
+    const box = toExtents(frame, {
+      x: Math.min(...xs), y: Math.min(...ys), width: endX - Math.min(...xs), height: Math.max(...ys) - Math.min(...ys),
+    })
+    const first = t.points[0], last = t.points[t.points.length - 1]
+    return [{ ...box, ends: [toSearch(frame, first), toSearch(frame, last)] as const }]
+  })
+  return ties.length ? { ties } : {}
+}
+
 /** A note's accidentals, dots and articulations, as the search's objects. */
 function objectsOn(note: EngravedNote, frame: SearchFrame): SearchObject[] {
   const out: SearchObject[] = []
@@ -175,6 +201,8 @@ export function slurSearchProblem(
   brokenPx: readonly [number | undefined, number | undefined] = [undefined, undefined],
   /** `house`'s lean of each open end, px outward from the note end (`./brokenSlurTilt`) — for row D. */
   openRisePx: readonly [number | undefined, number | undefined] = [undefined, undefined],
+  /** Row G: the ties DRAWN on this slur's staff and system (`RenderPass.drawnCurves`, kind `'tie'`). */
+  drawnTies: readonly { points: readonly Point[] }[] = [],
 ): SlurSearchProblem | null {
   // Each end on a note needs its note; a piece with no column at all (a system the slur only passes over,
   // holding none of its lane's notes) has nothing to state.
@@ -214,6 +242,7 @@ export function slurSearchProblem(
       },
       endHeadY: [(first[0] + first[1]) / 2, (last[0] + last[1]) / 2],
       ...(broken ? { brokenX: [edge(brokenPx[0]), edge(brokenPx[1])] as const } : {}),
+      ...tiesUnder(drawnTies, notes, frame, brokenPx),
       ...(openRisePx.some(r => r !== undefined)
         ? { openRise: openRisePx.map(r => (r === undefined ? undefined : r / frame.spacePx)) as [number | undefined, number | undefined] }
         : {}),
