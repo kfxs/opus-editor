@@ -6,7 +6,7 @@
 import { describe, it, expect } from 'vitest'
 import { scoreFully, searchCandidates, searchSlur } from './slurSearch'
 import { buildSearchState, type SlurSearchInput } from './searchState'
-import { LILYPOND_SLUR_DETAILS as D } from './searchDetails'
+import { LILYPOND_SLUR_DETAILS as D, LILYPOND_SLUR_RULES } from './searchDetails'
 import { column, hisSlur } from './searchFixture'
 
 /** The winner by brute force: every candidate fully scored, cheapest first, the lower index on a tie. */
@@ -24,6 +24,7 @@ const CASES: Array<[string, SlurSearchInput]> = [
   ['a broken piece — the begin', { ...hisSlur(true), columns: hisSlur(true).columns.slice(0, 2), brokenX: [undefined, 6] }],
   ['a broken piece — the end', { ...hisSlur(false), columns: hisSlur(false).columns.slice(2), brokenX: [5, undefined] }],
   ['a broken piece — a middle', { ...hisSlur(false), columns: hisSlur(false).columns.slice(1, 4), brokenX: [2, 10] }],
+  ['row B `house`, his D → G', { ...hisSlur(false), columns: [column(0, 2, 1), column(4, 5, 1)], endHeadY: [1, 2.5] }],
   ['below the notes', { ...hisSlur(false), dir: -1, columns: [column(0, -4, 1), column(4, -7, 1), column(8, -3, 1)], endHeadY: [-2, -1.5] }],
 ]
 
@@ -72,16 +73,16 @@ describe('⭐ row A — an unbeamed end on the STEM side (P8; his D → G, both 
   })
 
   it('⭐ `stem` (Gould p. 111): the ends go to the STEM ends — ½ sp past each tip', () => {
-    const r = searchSlur(dToG(), D, { stemSideEnd: 'stem' })!
+    const r = searchSlur(dToG(), D, { ...LILYPOND_SLUR_RULES, stemSideEnd: 'stem' })!
     // D5's stem runs 1 → 4.5, G5's 2.5 → 6: each end at the enumeration step nearest ½ sp past its tip.
     expect(r.ends[0].y).toBeGreaterThanOrEqual(4.5)
     expect(r.ends[1].y).toBeGreaterThanOrEqual(6)
   })
 
   it('…and the lazy queue still answers what scoring every candidate would', () => {
-    const state = buildSearchState(dToG(), D, { stemSideEnd: 'stem' })
+    const state = buildSearchState(dToG(), D, { ...LILYPOND_SLUR_RULES, stemSideEnd: 'stem' })
     const all = searchCandidates(state).map(c => scoreFully(state, c))
     const brute = all.reduce((a, b) => (b.score < a.score ? b : a))
-    expect(searchSlur(dToG(), D, { stemSideEnd: 'stem' })!.index).toBe(brute.index)
+    expect(searchSlur(dToG(), D, { ...LILYPOND_SLUR_RULES, stemSideEnd: 'stem' })!.index).toBe(brute.index)
   })
 })

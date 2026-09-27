@@ -229,6 +229,38 @@ test('⭐ P8 row A — `stemSideEnd` moves the ends from the heads to the stem e
   expect(Math.max(...out.stem)).toBeLessThan(out.tipY)
 })
 
+/**
+ * ⭐ P8 row B — where an end stands in x. His D → G again (both stems up, slur above): LilyPond puts the END
+ * beside its stem's left edge, over the head's right half; `house` keeps it at the head's centre.
+ */
+test('⭐ P8 row B — `endX: house` keeps the end over its head\'s centre', async ({ score }) => {
+  const out = await score.evaluate(async () => {
+    const h = window.__h
+    await h.fontReady()
+    h.slurSolver('lilypond')
+    const e = h.engine
+    const a = e.addNoteAtBeat({ step: 'E', octave: 4, duration: 'q', measure: 1, beat: h.frac(0, 1) })!
+    const b = e.addNoteAtBeat({ step: 'A', octave: 4, duration: 'q', measure: 1, beat: h.frac(2, 1) })!
+    e.getScore().slurs = [{ id: 'sl', startNoteId: a.id, endNoteId: b.id, voice: 0, placement: 'above' }]
+    const endX = async (choice: string) => {
+      h.slurRule('endX', choice)
+      await h.render()
+      const d = document.querySelector('g.slur path[fill="none"]')?.getAttribute('d') ?? ''
+      const p = [...d.matchAll(/(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)/g)].map(m => ({ x: +m[1], y: +m[2] }))
+      return p[3].x
+    }
+    const lily = await endX('lilypond')
+    const house = await endX('house')
+    // The END note's head: the rightmost notehead; a head glyph is ~1.18 sp wide from its x.
+    const head = h.noteheads().sort((p, q) => q.x - p.x)[0]
+    const sp = (h.staves()[0].bottom - h.staves()[0].top) / 4
+    return { lily, house, headCentre: head.x + 0.59 * sp, sp }
+  })
+  expect(Math.abs(out.house - out.headCentre)).toBeLessThan(0.15 * out.sp)
+  // LilyPond's end stands right of the head's centre — beside the stem.
+  expect(out.lily - out.headCentre).toBeGreaterThan(0.1 * out.sp)
+})
+
 test('⭐ the search is DETERMINISTIC — a saved and reloaded score draws the same slur, to the byte', async ({ score }) => {
   const out = await score.evaluate(async () => {
     const h = window.__h

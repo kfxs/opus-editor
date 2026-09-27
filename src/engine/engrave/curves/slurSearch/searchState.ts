@@ -339,13 +339,28 @@ function avoidOffsets(
 /** `enumerate_attachments` — every (left, right) pair of ends, in half-space steps. */
 function enumerateAttachments(
   bounds: readonly [BoundInfo, BoundInfo], base: readonly [Offset, Offset], endYs: readonly [number, number],
-  dir: number, details: SlurSearchDetails,
+  dir: number, details: SlurSearchDetails, rules: SlurSearchRules,
 ): Array<readonly [Offset, Offset]> {
   const out: Array<readonly [Offset, Offset]> = []
   const os: [Offset, Offset] = [{ ...base[LEFT] }, { ...base[RIGHT] }]
   while (dir * os[LEFT].y <= dir * endYs[LEFT]) {
     os[RIGHT] = { ...base[RIGHT] }
     while (dir * os[RIGHT].y <= dir * endYs[RIGHT]) {
+      // Row B `'house'` — the head's centre, past the stem only when it stands on the slur's inner side.
+      if (rules.endX === 'house') {
+        for (const i of [LEFT, RIGHT]) {
+          os[i].x = base[i].x
+          const { stem, stemExtent, slurHead: head } = bounds[i]
+          if (!head || !stem || !stemExtent || stem.invisible || stem.dir !== dir) continue
+          if (!contains(widen(stemExtent.y, 0.25), os[i].y)) continue
+          // A stem stands right of an up-stemmed head: the START's inner side. Left of a down-stemmed one: the END's.
+          const inner = i === LEFT ? stem.dir > 0 : stem.dir < 0
+          if (inner) os[i].x = i === LEFT ? head.x[1] + details.houseStemClearance : head.x[0] - details.houseStemClearance
+        }
+        out.push([{ ...os[LEFT] }, { ...os[RIGHT] }])
+        os[RIGHT].y += dir / 2
+        continue
+      }
       const attachToStem = [false, false]
       for (const i of [LEFT, RIGHT]) {
         const d = side(i)
@@ -441,7 +456,7 @@ export function buildSearchState(
     musicalDy, isBroken,
     edgeHasBeams: !!(ls?.beam || rs?.beam),
     thickness, lineThickness: details.lineThickness,
-    attachments: enumerateAttachments(bounds, base, ranged, dir, details),
+    attachments: enumerateAttachments(bounds, base, ranged, dir, details, rules),
   }
 }
 

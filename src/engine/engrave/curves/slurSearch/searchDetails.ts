@@ -73,6 +73,10 @@ export interface SlurSearchDetails {
   // ── the layout ───────────────────────────────────────────────────────────────────────────
   /** `line-thickness` at the default 20 pt staff (`calc-line-thickness`: 0.5 pt of a 5 pt space). */
   lineThickness: number
+  // ── OURS, read only by a `house` choice of a row ({@link SlurSearchRules}) ─────────────────────────────
+  /** Row B `'house'`: how far past the head's edge an end beside the stem steps — `house`'s own number
+   *  (`rendering/curves/curveStyle` `slurStemDodge`, MuseScore's 0.35). */
+  houseStemClearance: number
 }
 
 export const LILYPOND_SLUR_DETAILS: SlurSearchDetails = {
@@ -107,6 +111,7 @@ export const LILYPOND_SLUR_DETAILS: SlurSearchDetails = {
   thickness: 1.2,
   eccentricity: 0,
   lineThickness: 0.1,
+  houseStemClearance: 0.35,
 }
 
 /**
@@ -125,13 +130,26 @@ export interface SlurSearchRules {
    *   down the stem (opposite stems, Gould's own exception).
    */
   stemSideEnd: 'head' | 'stem'
+  /**
+   * **Row B — where an end stands in x.**
+   * - `'lilypond'` — LilyPond's four regimes (`enumerate_attachments`, `slur-scoring.cc:742-791`): beside the
+   *   stem's far edge (∓0.3) while the end is alongside a stem pointing the slur's way — on EITHER side of
+   *   the head; the stem's centre above its tip; the head centres for a short or steep slur; else the head
+   *   centre shifted with the tilt. ⚠️ Spacing can flip an end between them (his screenshot).
+   * - `'house'` — ours (`rendering/curves/slurStemEndpoint.stemDodge`): the head's CENTRE, and past the stem
+   *   (`houseStemClearance` beyond the head's edge) only when the end is alongside a stem that stands on the
+   *   slur's INNER side — an up stem at the start, a down stem at the end.
+   */
+  endX: 'lilypond' | 'house'
 }
 
 export const LILYPOND_SLUR_RULES: SlurSearchRules = {
   stemSideEnd: 'head',
+  endX: 'lilypond',
 }
 
 /** Each row's choices, for the console and a spec — ⚠️ a new row adds its line here. */
 export const SLUR_RULE_CHOICES: { readonly [K in keyof SlurSearchRules]: readonly SlurSearchRules[K][] } = {
   stemSideEnd: ['head', 'stem'],
+  endX: ['lilypond', 'house'],
 }

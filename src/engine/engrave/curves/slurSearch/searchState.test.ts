@@ -1,7 +1,7 @@
 /** One slur's problem as LilyPond states it (`./searchState`) — LilyPond's space: staff spaces, y up. */
 import { describe, it, expect } from 'vitest'
 import { buildSearchState, encompassInfo, moveAwayFromStaffline } from './searchState'
-import { LILYPOND_SLUR_DETAILS as D } from './searchDetails'
+import { LILYPOND_SLUR_DETAILS as D, LILYPOND_SLUR_RULES } from './searchDetails'
 import { column, flat, hisSlur, STAFF } from './searchFixture'
 
 describe('moveAwayFromStaffline', () => {
@@ -136,8 +136,32 @@ describe('⭐ row A — where an end is attracted to (`edgeTargets`)', () => {
   })
 
   it('`stem`: ½ sp past the tip of a stem pointing the slur\'s way — a stem pointing away keeps its head', () => {
-    const s = buildSearchState(input(), D, { stemSideEnd: 'stem' })
+    const s = buildSearchState(input(), D, { ...LILYPOND_SLUR_RULES, stemSideEnd: 'stem' })
     expect(s.edgeTargets[0].y).toBeCloseTo(1 + 3.5 + 0.5, 12)
     expect(s.edgeTargets[1]).toEqual(s.baseAttachments[1])
+  })
+})
+
+describe('⭐ row B — where an end stands in x (`endX`)', () => {
+  // Both stems UP, the slur above: the START's stem stands on its inner (right) side, the END's on its outer.
+  const input = () => ({ ...hisSlur(false), columns: [column(0, 2, 1), column(4, 5, 1)], endHeadY: [1, 2.5] as const })
+  const house = { ...LILYPOND_SLUR_RULES, endX: 'house' as const }
+
+  it('`lilypond`: an end alongside a stem goes beside it — at the END too, over its head (the outer side)', () => {
+    const [l, r] = buildSearchState(input(), D).attachments[0]
+    expect(l.x).toBeCloseTo(1.18 + 0.3, 12)          // right of the start's stem
+    expect(r.x).toBeCloseTo(4 + 1.18 - 0.12 - 0.3, 12) // left of the end's stem — over the head's right half
+  })
+
+  it('⭐ `house`: the head centre, past the stem only on the slur\'s INNER side', () => {
+    const [l, r] = buildSearchState(input(), D, house).attachments[0]
+    expect(l.x).toBeCloseTo(1.18 + D.houseStemClearance, 12) // the start steps past its (inner) stem
+    expect(r.x).toBeCloseTo(4 + 0.59, 12)                    // the end stays at its head's centre
+  })
+
+  it('`house`: the same x at every candidate height alongside the stem — no jump with spacing or tilt', () => {
+    const xs = new Set(buildSearchState(input(), D, house).attachments
+      .filter(([, r]) => r.y <= 6).map(([, r]) => r.x.toFixed(9)))
+    expect(xs.size).toBe(1)
   })
 })
