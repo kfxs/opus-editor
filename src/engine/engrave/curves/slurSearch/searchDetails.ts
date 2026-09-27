@@ -159,6 +159,16 @@ export interface SlurSearchRules {
    *   a note end — a MIDDLE piece has none, and stays LilyPond's.
    */
   openEnd: 'lilypond' | 'house'
+  /**
+   * **Row E — an accidental under the slur.**
+   * - `'lilypond'` — it costs `accidental-collision` 3, so a graze is often the cheaper answer (his one-staff E♭:
+   *   0.17 sp into the flat).
+   * - `'clear'` — it costs `extra-object-collision-penalty` 50, as any other object does — so the search moves
+   *   the END or leans the arch to clear it, what his two hand shapes did (both cleared the flat by 0.20 sp).
+   *   ⭐ LilyPond's own number, not a new one. (⛔ Not `house`'s answer — one arch factor over the whole curve —
+   *   which the search's `fit_factor` already is, and which drew the giant arch he rejected.)
+   */
+  accidental: 'lilypond' | 'clear'
 }
 
 export const LILYPOND_SLUR_RULES: SlurSearchRules = {
@@ -166,6 +176,7 @@ export const LILYPOND_SLUR_RULES: SlurSearchRules = {
   endX: 'lilypond',
   tilt: 'lilypond',
   openEnd: 'lilypond',
+  accidental: 'lilypond',
 }
 
 /** Each row's choices, for the console and a spec — ⚠️ a new row adds its line here. */
@@ -174,4 +185,5 @@ export const SLUR_RULE_CHOICES: { readonly [K in keyof SlurSearchRules]: readonl
   endX: ['lilypond', 'house'],
   tilt: ['lilypond', 'house'],
   openEnd: ['lilypond', 'house'],
+  accidental: ['lilypond', 'clear'],
 }

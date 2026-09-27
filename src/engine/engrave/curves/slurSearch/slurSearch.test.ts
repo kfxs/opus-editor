@@ -128,3 +128,11 @@ describe('⭐ row D — a broken slur\'s OPEN end (P8)', () => {
     expect(openY(2, 'house')).toBeGreaterThan(openY(2, 'lilypond'))
   })
 })
+
+describe('⭐ row E — `accidental: clear` (P8)', () => {
+  it('his one-staff E♭ on the fixture: `lilypond` accepts the graze, `clear` pays nothing for the flat', () => {
+    expect(searchSlur(hisSlur(true))!.card.join()).toMatch(/extra=3\.00/)
+    const clear = searchSlur(hisSlur(true), D, { ...LILYPOND_SLUR_RULES, accidental: 'clear' })!
+    expect(clear.card.join()).not.toMatch(/extra=/)
+  })
+})

@@ -284,7 +284,9 @@ function yAttachmentRange(
 }
 
 /** `get_extra_encompass_infos`. */
-function extraEncompassInfos(input: SlurSearchInput, details: SlurSearchDetails, thickness: number): ExtraCollision[] {
+function extraEncompassInfos(
+  input: SlurSearchInput, details: SlurSearchDetails, thickness: number, rules: SlurSearchRules,
+): ExtraCollision[] {
   const infos: ExtraCollision[] = []
   for (const nested of input.nestedSlurs) {
     for (let k = 0; k < 3; k++) {
@@ -306,7 +308,8 @@ function extraEncompassInfos(input: SlurSearchInput, details: SlurSearchDetails,
     let idx = 0
     let penalty = details.extraObjectCollisionPenalty
     if (o.sign === 'accidental') {
-      penalty = details.accidentalCollision
+      // Row E — `'clear'` prices an accidental like any other object.
+      penalty = rules.accidental === 'clear' ? details.extraObjectCollisionPenalty : details.accidentalCollision
       if (o.alteration === 'flat' || o.alteration === 'doubleFlat') idx = -1
       else if (o.alteration === 'sharp') idx = 0.5 * input.dir
       else if (o.alteration === 'natural') idx = -input.dir
@@ -423,7 +426,7 @@ export function buildSearchState(
   const sameBeam = !!(ls && rs && ls.beam && rs.beam && ls.beam.id === rs.beam.id)
   const base = baseAttachments(bounds, dir, input.staff, sameBeam, columns, input.brokenX)
   const endYs = yAttachmentRange(bounds, base, dir, details)
-  const extraInfos = extraEncompassInfos(input, details, thickness)
+  const extraInfos = extraEncompassInfos(input, details, thickness, rules)
 
   // An `inside` object near an end widens that end's range past it.
   const additional = [0, 0]

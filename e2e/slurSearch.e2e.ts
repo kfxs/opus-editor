@@ -18,7 +18,7 @@ import { test, expect } from './fixtures'
  *    the CPU and it doubles (measured 2026-09-27: 0.20 → 0.42 ms), which reads as a regression that is not.
  */
 
-type Case = { flat: boolean; staff2: boolean; hand?: 'A' | 'B'; solver?: string }
+type Case = { flat: boolean; staff2: boolean; hand?: 'A' | 'B'; solver?: string; rules?: Record<string, string> }
 
 /** One of his cases, drawn and measured — every length in staff spaces. */
 async function measureCase(score: import('@playwright/test').Page, opts: Case) {
@@ -29,6 +29,9 @@ async function measureCase(score: import('@playwright/test').Page, opts: Case) {
     // ⭐ Since P5 the default is `lilypond`: the baseline arms `house` itself, and its numbers stay pinned.
     const solver = opts.solver ?? 'house'
     if (!h.slurSolver(solver)) throw new Error(`no slur solver ${solver}`)
+    for (const [row, choice] of Object.entries(opts.rules ?? {})) {
+      if (!h.slurRule(row, choice)) throw new Error(`no slur rule ${row} ${choice}`)
+    }
     const e = h.engine
     e.loadJSON(JSON.stringify({
       id: 's', title: '',
@@ -332,6 +335,20 @@ test('⭐ P8 row D — `openEnd: house` leans the open end toward the music acro
   console.log('[row D]', JSON.stringify({ level, leaning }))
   expect(level[0]).toBe(level[1])
   expect(leaning[0]).toBeGreaterThan(leaning[1])
+})
+
+/**
+ * ⭐ P8 row E — an accidental under the slur: his E♭ examples under `lilypond`, the accidental priced at
+ * LilyPond's 3 (it may graze) or at 50 like any object (`'clear'` — what his hand shapes did).
+ */
+test.describe('⭐ P8 row E — `accidental: clear` clears his flat', () => {
+  for (const staff2 of [false, true]) {
+    test(staff2 ? 'two staves' : 'one staff', async ({ score }) => {
+      const m = await measureCase(score, { flat: true, staff2, solver: 'lilypond', rules: { accidental: 'clear' } })
+      console.log(`[row E] ${staff2 ? '2 staves' : '1 staff'}`, JSON.stringify(m))
+      expect(m.clearsFlat!).toBeGreaterThanOrEqual(0)
+    })
+  }
 })
 
 test('⭐ the search is DETERMINISTIC — a saved and reloaded score draws the same slur, to the byte', async ({ score }) => {

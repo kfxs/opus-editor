@@ -247,6 +247,16 @@ rule).
     there (`edgeTargets`), outward from the note end's base. Chromium (whole notes, the break between):
     `'lilypond'` rises 0 whether the music goes up or down; `'house'` **2.0 / 0.5** sp (the house preset: 2.0 /
     1.0 — the search's other demerits settle the low one lower). A middle piece has no note end — unchanged.
+  - ✅ **Row E BUILT 2026-09-27 — REFRAMED:** `SlurSearchRules.accidental: 'lilypond' | 'clear'`,
+    `__slur.rule('accidental', 'clear')`. ⚠️ Not `house`'s answer (one arch factor — the search's `fit_factor`
+    already is that, and it drew the giant arch he rejected). The real difference from his hand shapes is the
+    PRICE: LilyPond charges an accidental 3, so a graze is cheaper than moving an end; `'clear'` charges it
+    `extra-object-collision-penalty` 50 like any object. Chromium, his E♭: 1 staff −0.17 → **+0.60** sp (arch
+    2.53 → 1.19), 2 staves −0.02 → **+0.52** (arch 1.87 → 1.23); his hand shapes +0.20 / arch 2.24 · 2.05.
+    ⚠️ On one staff the near end rises more than his hand did (0.75) — for his eye.
+  - ⏭️ **Row F SKIPPED — his call, 2026-09-27:** *"we skip articulation, we will do the articulation plan that is
+    correct"*. Articulations at a slur's ends belong to `docs/plans/articulation-plan.md` (T1 + L2: the marks
+    themselves move), ⛔ not to a slur row.
 
 ## 5. What this does NOT change
 

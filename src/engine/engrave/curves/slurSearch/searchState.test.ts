@@ -165,3 +165,11 @@ describe('⭐ row B — where an end stands in x (`endX`)', () => {
     expect(xs.size).toBe(1)
   })
 })
+
+describe('⭐ row E — an accidental under the slur (`accidental`)', () => {
+  it('`lilypond`: `accidental-collision` 3; `clear`: `extra-object-collision-penalty` 50, like any object', () => {
+    expect(buildSearchState(hisSlur(true), D).extraInfos[0].penalty).toBe(D.accidentalCollision)
+    const clear = buildSearchState(hisSlur(true), D, { ...LILYPOND_SLUR_RULES, accidental: 'clear' })
+    expect(clear.extraInfos[0].penalty).toBe(D.extraObjectCollisionPenalty)
+  })
+})
