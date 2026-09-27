@@ -91,15 +91,35 @@ export function curveControlPoints(arc: CurveArc): { c0: CurvePoint; c1: CurvePo
  *   the ink at the belly measures `0.75 × gap + outline` (Verovio's coefficient, see
  *   `rendering/curves/curveArc.curveFillGap`).
  */
-export function drawCurveArcInk(ctx: DrawContext, arc: CurveArc, fillGap: number): void {
+export function drawCurveArcInk(
+  ctx: DrawContext, arc: CurveArc, fillGap: number,
+  /**
+   * ⭐ `true`: the curve is the ink's MIDDLE, as LilyPond draws a slur (`Lookup::slur`, `lily/lookup.cc:403-415`):
+   * both middle controls move half the gap to either side, PERPENDICULAR to the chord, and the ink is the band
+   * between. `false` (the default, every tie and `house`'s slurs): the curve is the ink's INNER edge, and the
+   * return pass bows out from it.
+   */
+  centred = false,
+): void {
   const { p0, p1, direction } = arc
   const { c0, c1 } = curveControlPoints(arc)
-  const bowed = fillGap * direction
 
   ctx.beginPath()
   ctx.moveTo(p0.x, p0.y)
-  ctx.bezierCurveTo(c0.x, c0.y, c1.x, c1.y, p1.x, p1.y)
-  ctx.bezierCurveTo(c1.x, c1.y + bowed, c0.x, c0.y + bowed, p0.x, p0.y)
+  if (centred) {
+    // The chord's normal, turned to the slur's own side (y grows down: `direction` −1 = above).
+    const dx = p1.x - p0.x, dy = p1.y - p0.y
+    const len = Math.hypot(dx, dy) || 1
+    let nx = -dy / len, ny = dx / len
+    if (ny * direction < 0) { nx = -nx; ny = -ny }
+    const hx = (nx * fillGap) / 2, hy = (ny * fillGap) / 2
+    ctx.bezierCurveTo(c0.x - hx, c0.y - hy, c1.x - hx, c1.y - hy, p1.x, p1.y)
+    ctx.bezierCurveTo(c1.x + hx, c1.y + hy, c0.x + hx, c0.y + hy, p0.x, p0.y)
+  } else {
+    const bowed = fillGap * direction
+    ctx.bezierCurveTo(c0.x, c0.y, c1.x, c1.y, p1.x, p1.y)
+    ctx.bezierCurveTo(c1.x, c1.y + bowed, c0.x, c0.y + bowed, p0.x, p0.y)
+  }
   ctx.stroke()
   ctx.closePath()
   ctx.fill()

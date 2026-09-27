@@ -63,6 +63,9 @@ export interface SlurSolution {
   p0: Point
   p1: Point
   cps: [Point, Point]
+  /** The SEARCH drew this curve (not `house`, and not the `lilypond` row's fallback to it) — the ink row
+   *  (`ink: 'centre'`) applies to these only. */
+  searched?: boolean
 }
 
 export type SlurSolverName = 'house' | 'lilypond'

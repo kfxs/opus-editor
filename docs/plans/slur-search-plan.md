@@ -5,6 +5,24 @@ preset we have now has lilypond name we should rename cause is not really lilypo
 measurements below, and *"in your opinion lilypond solution can be done in real time?"* (answer: yes,
 to be PROVED by P0's benchmark, not argued).
 
+## ⭐ STATE (end of 2026-09-27)
+
+- ✅ **P0 – P8 done, P7 complete.** Two presets — `house` (the old pipeline) and `lilypond` (LilyPond's search,
+  ported whole and audited line by line against 2.27.3 — faithful). ⭐ `lilypond` is the DEFAULT for slurs on one
+  system ("for a while", his word); a BROKEN slur has its own preset, `house` by default
+  (`__slur.brokenSolver`).
+- ⭐ **A switch per case** (P8, `__slur.rule(row, choice)`, `__slur.rule()` lists them) — each acts inside the
+  search and defaults to what it drew before the row existed, ⚠️ except `midAccent` (his T1 rule, `'inside'`):
+  `stemSideEnd` · `endX` · `tilt` · `openEnd` · `accidental` · `ties` · `nested` · `flags` · `tupletNumbers` ·
+  `headerSigns` · `midAccent` · `endHead` · `rests` · `ink`. Row F (articulations at the ends) → the articulation
+  plan (T1 + L2).
+- ⏭️ **His calls, next:** the COMPROMISE — pick a choice per row on his music, then make them the defaults or a
+  third preset; look again at broken slurs under `lilypond` on the Gymnopédie (what he saw was never diagnosed);
+  the bent staff (`eye/spineCurves`) asking the search. ⛔ No weight is tuned toward either preset until he says.
+- ⚠️ Known limits (each named below): a SMALL staff's slur reads no header signs; a reused bar that the render
+  shifted keeps its old drawn boxes; a cross-staff slur is stated off its first note's staff; a broken piece's
+  open-end x is ours, not `breakable_bound_extent`.
+
 ## 1. Why — what was measured (Chromium, his three examples, 2026-09-27)
 
 Slur B4 → G5 over `B4 E(♭)5 | A4 D5 G5`, one staff and then with eighths on a second staff:
@@ -302,6 +320,11 @@ rule).
     where Bravura's quarter rest reaches 1.49 sp) and the end stands 0.37 sp left of the rest's centre; the search
     happened to raise it clear. `'lilypond'` reads LilyPond's rest column — no stem, the rest glyph as the end's head:
     the end over the rest's centre (0.01 sp), clear of its top by 0.61.
+  - ✅ **`ink` BUILT 2026-09-27 — P7 item 10, the last of the audit's:** `'edge' | 'centre'`, default `'edge'`.
+    `'centre'` draws an arc the SEARCH solved (a `searched` solution — ⛔ not `house`'s, nor the `lilypond` row's
+    fallback to it) as LilyPond's `Lookup::slur` does: both middle controls ±½ the band, perpendicular to the chord,
+    so the solved curve is the ink's MIDDLE. `curveInk.drawCurveArcInk` gains a `centred` flag, ⛔ which ties never
+    pass. Chromium: the inner edge comes **0.059 sp** closer to the notes (the audit's ~0.06; band 0.153 sp).
 
 ## 5. What this does NOT change
 

@@ -120,7 +120,7 @@ export const LILYPOND_SLUR_DETAILS: SlurSearchDetails = {
  * are the places he compared LilyPond with our `house` and may want either. ⭐ Every default is what the search
  * drew BEFORE the row existed — so a row changes nothing until he arms it — ⚠️ except `midAccent`, whose default is
  * HIS decided rule (T1). (So the P7 rows — `ties`, `nested`, `flags`, `tupletNumbers`, `headerSigns`, `endHead`,
- * `rests` — default to OFF, and LilyPond's own behaviour is their other choice.)
+ * `rests`, `ink` — default to OFF, and LilyPond's own behaviour is their other choice.)
  */
 export interface SlurSearchRules {
   /**
@@ -232,6 +232,14 @@ export interface SlurSearchRules {
    *   its centre (`get_base_attachments` with no `first_head`).
    */
   rests: 'asNote' | 'lilypond'
+  /**
+   * **The INK around the solved curve** (P7, the source audit's 7th item) — read by the RENDERER, for arcs the
+   * search solved.
+   * - `'edge'` — what we drew before: the solved curve is the ink's INNER edge, the band bowing outward (~0.06 sp
+   *   further from the notes than LilyPond).
+   * - `'centre'` — LilyPond (`Lookup::slur`): the solved curve is the ink's MIDDLE.
+   */
+  ink: 'edge' | 'centre'
 }
 
 export const LILYPOND_SLUR_RULES: SlurSearchRules = {
@@ -248,6 +256,7 @@ export const LILYPOND_SLUR_RULES: SlurSearchRules = {
   midAccent: 'inside',
   endHead: 'chord',
   rests: 'asNote',
+  ink: 'edge',
 }
 
 /** Each row's choices, for the console and a spec — ⚠️ a new row adds its line here. */
@@ -265,4 +274,5 @@ export const SLUR_RULE_CHOICES: { readonly [K in keyof SlurSearchRules]: readonl
   midAccent: ['inside', 'lilypond'],
   endHead: ['chord', 'own'],
   rests: ['asNote', 'lilypond'],
+  ink: ['edge', 'centre'],
 }

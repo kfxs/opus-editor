@@ -21,9 +21,9 @@ const FLAT: CurveArc = {
   direction: 1,
 }
 
-function record(arc: CurveArc, fillGap = 4): SceneRecorder {
+function record(arc: CurveArc, fillGap = 4, centred = false): SceneRecorder {
   const r = new SceneRecorder()
-  drawCurveArcInk(r as DrawContext, arc, fillGap)
+  drawCurveArcInk(r as DrawContext, arc, fillGap, centred)
   return r
 }
 
@@ -89,6 +89,32 @@ describe('the drawn arc', () => {
     if (out.op !== 'bezierCurveTo' || back.op !== 'bezierCurveTo') throw new Error('not cubics')
     expect(back.cp1y - out.cp2y).toBe(-4)
   })
+})
+
+describe('⭐ the CENTRED arc — LilyPond\'s slur (`Lookup::slur`), the slur search\'s `ink: \'centre\'`', () => {
+  const passes = (arc: CurveArc) => {
+    const [outline] = scenePrimitives(record(arc, 4, true).scene)
+    if (outline.kind !== 'path') throw new Error('not a path')
+    const [, out, back] = outline.ops
+    if (out.op !== 'bezierCurveTo' || back.op !== 'bezierCurveTo') throw new Error('not cubics')
+    return { out, back }
+  }
+
+  it('⭐ straddles the curve — half the gap INSIDE, half OUTSIDE; the ends stay put', () => {
+    const { c0, c1 } = curveControlPoints(FLAT)
+    const { out, back } = passes(FLAT)
+    expect([out.cp1y, out.cp2y]).toEqual([c0.y - 2, c1.y - 2])
+    expect([back.cp1y, back.cp2y]).toEqual([c1.y + 2, c0.y + 2])
+    expect({ x: out.x, y: out.y }).toEqual(FLAT.p1)
+  })
+
+  it('moves PERPENDICULAR to the chord — a sloping slur\'s controls shift in x too', () => {
+    const { out } = passes({ ...FLAT, p1: { x: 100, y: 150 } })
+    const { c0 } = curveControlPoints({ ...FLAT, p1: { x: 100, y: 150 } })
+    expect(out.cp1x).not.toBe(c0.x)
+    expect(Math.hypot(out.cp1x - c0.x, out.cp1y - c0.y)).toBeCloseTo(2, 12)
+  })
+
 })
 
 describe('the sampled arc', () => {

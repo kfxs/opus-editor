@@ -55,12 +55,14 @@ export function drawCurveArc(
   cps: CurveArc['cps'],
   direction: number,
   thickness: number,
+  /** Draw the curve as the ink's MIDDLE (LilyPond's slur) — see `drawCurveArcInk`. Ties never pass it. */
+  centred = false,
 ): { bbox: { x: number; y: number; width: number; height: number }; points: CurvePoint[]; c0: CurvePoint; c1: CurvePoint } {
   const arc: CurveArc = { p0, p1, cps, direction }
   pass.context.save()
   pass.context.setLineWidth(curveOutline())
   // The nominal the caller asked for, turned into the gap the two passes want (see above).
-  drawCurveArcInk(pass.context, arc, curveFillGap(thickness))
+  drawCurveArcInk(pass.context, arc, curveFillGap(thickness), centred)
   pass.context.restore()
 
   const { points, c0, c1 } = curveArcPoints(arc)

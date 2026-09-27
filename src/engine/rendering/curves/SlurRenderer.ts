@@ -725,6 +725,8 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
           // back onto the drawn `p0`/`p1` as a DELTA — ⚠️ a delta, so `house`, which moves nothing,
           // adds an exact zero and not a round-trip through `off`.
           let cps: [{ x: number; y: number }, { x: number; y: number }]
+          // ⭐ Row `ink: 'centre'` — an arc the SEARCH solved is drawn as the ink's middle (LilyPond's slur).
+          let centred = false
           if (shapeOverride) {
             cps = resolveCps(shapeOverride, frame, autoP0, autoP1, direction, nestLift)
           } else {
@@ -744,6 +746,7 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
             autoP0 = solved.p0
             autoP1 = solved.p1
             cps = solved.cps
+            centred = !!solved.searched && slurRules().ink === 'centre'
           }
           // ⭐⭐ THE RIGID MOVE, and this line's POSITION is the whole of it: the shape (arch, tilt,
           // obstacle lift, or the hand-edited cps) is already decided, and the cps are endpoint-
@@ -755,7 +758,7 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
           // ⭐ Filed from `autoP0`/`autoP1` — the ends before BOTH hand moves, which this branch
           // already had in hand for the arch solve.
           fileCurve(autoP0, autoP1, cps, fromLine)
-          const arc = drawCurveArc(pass, p0, p1, cps, direction, CURVE_PX.thickness)
+          const arc = drawCurveArc(pass, p0, p1, cps, direction, CURVE_PX.thickness, centred)
           // Store the on-screen control points + endpoint geometry so a selected slur can
           // show draggable handles (Phase 7), plus the stave's staff-space size so a handle
           // drag can convert the new pixel shape back to staff-spaces for storage. Same-line
@@ -862,6 +865,8 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
           //   (`hands`). ⛔ A hand-edited piece shape opts out, as it always has.
           const lineOfId = (id: string) => pass.measureLayoutInfo.get(measureOfNoteId(score, id) ?? -1)?.lineNumber ?? 0
           const interiorOn = (line: number) => interiorById.filter(x => lineOfId(x.id) === line).map(x => x.end.staveNote)
+          /** Row `ink: 'centre'` for the piece {@link solvePiece} just solved. */
+          let pieceCentred = false
           const solvePiece = (
             override: CurveControlPointDeltas | undefined, frame: StaffFrame | undefined,
             p0: { x: number; y: number }, p1: { x: number; y: number },
@@ -872,6 +877,7 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
             /** The system this piece is on — whose ties it asks for (row G). */
             line = fromLine,
           ): [{ x: number; y: number }, { x: number; y: number }] => {
+            pieceCentred = false
             if (override) return resolveCps(override, frame, p0, p1, direction, nestLift)
             const solved = solveSlurPiece({
               p0: { ...p0 }, p1: { ...p1 }, direction, nestLift, hands, obstacles: () => [],
@@ -881,6 +887,7 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
             })
             p0.x = solved.p0.x; p0.y = solved.p0.y
             p1.x = solved.p1.x; p1.y = solved.p1.y
+            pieceCentred = !!solved.searched && slurRules().ink === 'centre'
             return solved.cps
           }
           // ⛔ A fanned member at an end has no note to ask — that piece is `house`'s.
@@ -912,7 +919,7 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
               p0.x += wholeFrom.x; p0.y += wholeFrom.y
               p1.x += wholeFrom.x; p1.y += wholeFrom.y
               registerSeg(
-                drawCurveArc(pass, p0, p1, cps, direction, CURVE_PX.thickness),
+                drawCurveArc(pass, p0, p1, cps, direction, CURVE_PX.thickness, pieceCentred),
                 'end', { p0, p1, direction }, frame, 'begin',
               )
             } else if (seg.type === 'end') {
@@ -939,7 +946,7 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
               p0.x += wholeTo.x; p0.y += wholeTo.y
               p1.x += wholeTo.x; p1.y += wholeTo.y
               registerSeg(
-                drawCurveArc(pass, p0, p1, cps, direction, CURVE_PX.thickness),
+                drawCurveArc(pass, p0, p1, cps, direction, CURVE_PX.thickness, pieceCentred),
                 'start', { p0, p1, direction }, frame, 'end',
               )
             } else if (seg.type === 'middle') {
@@ -973,7 +980,7 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
               p0.x += wholeMid.x; p0.y += wholeMid.y
               p1.x += wholeMid.x; p1.y += wholeMid.y
               registerSeg(
-                drawCurveArc(pass, p0, p1, cps, direction, CURVE_PX.thickness),
+                drawCurveArc(pass, p0, p1, cps, direction, CURVE_PX.thickness, pieceCentred),
                 'middle', { p0, p1, direction }, frame, 'middle', ordinal,
               )
             }

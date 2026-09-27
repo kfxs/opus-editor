@@ -274,6 +274,9 @@ src/
                           #   + `notes/stemLength` (S6e — ⭐ HOW FAR A STEM RUNS: its tip, its base, the
                           #   signed stroke; 3½ sp is `STEM_LENGTH_PX`, the ONE inherited row the research
                           #   CONFIRMS; ⛔ not how much EXTENSION the note asks for — that reads a flag)
+                          #   + `curves/slurSearch/` (⭐ LilyPond's SLUR SEARCH, ported whole and audited — pure, in
+                          #   LilyPond's space; the presets + P8 switches are `rendering/curves/slurSolvers` / `slurRules`,
+                          #   docs/plans/slur-search-plan.md)
                           #   + `marks/tupletPlacement` (S8a — ⭐ how far OUT a tuplet's mark stands:
                           #   outside everything on one side, pushed by whichever note reaches FURTHEST;
                           #   ⛔ a max over the group, never a sum. Airs are a named table, ⚠️ Gould

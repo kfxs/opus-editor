@@ -64,6 +64,7 @@ export function solveLilypondSlurPiece(input: SlurPieceInput): SlurSolution {
     p0: { x: solved.p0.x + h0.x, y: solved.p0.y + h0.y },
     p1: { x: solved.p1.x + h1.x, y: solved.p1.y + h1.y },
     cps: solved.cps,
+    searched: true,
   }
 }
 
@@ -75,7 +76,7 @@ function asOurs(problem: SlurSearchProblem, found: SlurSearchResult, direction: 
   const quarter = (p1.x - p0.x) / 4
   const d = direction
   return {
-    p0, p1,
+    p0, p1, searched: true,
     cps: [
       { x: c0.x - p0.x - quarter, y: (c0.y - p0.y) * d },
       { x: c1.x - p1.x + quarter, y: (c1.y - p1.y) * d },

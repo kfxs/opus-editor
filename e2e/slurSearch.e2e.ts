@@ -637,6 +637,39 @@ test('⭐ `rests: lilypond` ends a slur over a rest\'s centre, clear of its top'
   expect(Math.abs(out.lilypond.fromCentreSp)).toBeLessThan(0.2)
 })
 
+/**
+ * ⭐ `ink` — the band around the solved curve: `'edge'` bows the ink outward from it, `'centre'` (LilyPond) straddles
+ * it. With the curve the same, the centred ink's INNER edge stands about half the band closer to the notes.
+ */
+test('⭐ `ink: centre` straddles the solved curve — its inner edge comes half the band closer', async ({ score }) => {
+  const out = await score.evaluate(async () => {
+    const h = window.__h
+    await h.fontReady()
+    h.slurSolver('lilypond')
+    const e = h.engine
+    const a = e.addNoteAtBeat({ step: 'C', octave: 5, duration: 'h', measure: 1, beat: h.frac(0, 1) })!
+    const b = e.addNoteAtBeat({ step: 'E', octave: 5, duration: 'h', measure: 1, beat: h.frac(2, 1) })!
+    e.slur.createSlur([a.id, b.id])
+    const innerAtMiddle = async (ink: string) => {
+      h.slurRule('ink', ink)
+      await h.render()
+      const pts = h.curveSamples('g.slur path[fill="none"]', 400)
+      const xs = pts.map(p => p.x)
+      const mid = (Math.min(...xs) + Math.max(...xs)) / 2
+      const ys = pts.filter(p => Math.abs(p.x - mid) < 1).map(p => p.y)
+      return { inner: Math.max(...ys), outer: Math.min(...ys) }
+    }
+    const sp = () => (h.staves()[0].bottom - h.staves()[0].top) / 4
+    const edge = await innerAtMiddle('edge')
+    const centre = await innerAtMiddle('centre')
+    return { dInnerSp: +((centre.inner - edge.inner) / sp()).toFixed(3), band: +((edge.inner - edge.outer) / sp()).toFixed(3) }
+  })
+  console.log('[ink]', JSON.stringify(out))
+  // Above the notes: the inner edge is the LOWER one; centred, it drops by about half the band.
+  expect(out.dInnerSp).toBeGreaterThan(0)
+  expect(out.dInnerSp).toBeLessThan(out.band)
+})
+
 test('⭐ the search is DETERMINISTIC — a saved and reloaded score draws the same slur, to the byte', async ({ score }) => {
   const out = await score.evaluate(async () => {
     const h = window.__h
