@@ -130,6 +130,28 @@ rule).
   keyed by its inputs before going further. Shape: his three examples + the whole slur e2e suite under
   both presets, side by side — the differences REPORTED, ⛔ not "fixed" toward the old pictures.
   → **his eye.**
+  - ✅ **MEASURED 2026-09-27.** ⏱ Time: uncached 0.50 ms/slur (50-slur page) · 0.78 (Gymnopédie) > 0.5 ⇒ the
+    cache was added (`slurLilypondSolver.cachedSlurSearch`, keyed by the whole stated problem + the details
+    table): **0.29 · 0.65**, level with house's 0.21 · 0.63. A miss (a slur whose notes moved) still pays the
+    uncached cost. ⭐ `PW_SLUR_SOLVER=lilypond npm run test:e2e` runs the net under the preset.
+    Shape — under `lilypond`, 122 of 127 slur/ladder/trill/tie/ottava/fan/cue/staff-size specs pass; the 5
+    that differ are `house`'s ENDPOINT rules, which this preset does not run:
+
+    | `e2e/slur.e2e.ts` case | house | lilypond | why |
+    |---|---|---|---|
+    | rising step A4→B4 | +0.25 sp | +0.65 | Gould p. 111's half-interval tilt is house's |
+    | falling step B4→A4 | −0.25 | −0.65 | same |
+    | rising tenth C4→E5 | +2.25 | **+4.35** | LilyPond allows the music's own rise (+0.2) |
+    | two whole notes, a sixth | 2.5 | 2.35 | LilyPond's 0.15 sp nudge off a staff line |
+    | two whole notes, a second | 0.5 | 0.35 | same |
+
+    Pictures (12 cases side by side): ⭐ the WIDE arch (G4→G6 over two bars) — house's giant arch, lilypond a
+    long low one that clears; his 2-staff E♭ much flatter; ⚠️ NESTED slurs touch (no nest lift yet — §6);
+    ⚠️ the curve runs close to an accent and to a staccato at an end. → **his eye.**
+  - ⭐ **HIS VERDICT (2026-09-27):** *"good to have lilypond, I'm not convinced yet, for somethings i like more
+    house for other i like more lilypond we should try to find a compromise in the future"* — and `lilypond`
+    becomes the default **for a while**, to see it on more of his examples. ⏭️ The COMPROMISE is open, his
+    call; ⛔ neither preset is to be tuned toward the other until he says what he liked in each.
 - **P5 — the default** (his word at P4): `lilypond` becomes the default; `house` stays selectable.
 - **P6 — broken slurs** under the search (LilyPond scores each system's piece; ours are `planSpanSegments`
   fragments). Then the bent staff (`eye/spineCurves`) can ask it too.

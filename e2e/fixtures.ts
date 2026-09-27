@@ -17,6 +17,13 @@ export const test = base.extend<{ score: Page }>({
     // `/opus-editor/` is vite.config.ts's `base`, which the dev server honours as a path prefix.
     await page.goto('/opus-editor/e2e/harness.html')
     await page.waitForFunction(() => !!window.__h)
+    // ⭐ `PW_SLUR_SOLVER=lilypond npm run test:e2e` runs the whole net under another slur PRESET
+    //   (docs/plans/slur-search-plan.md P4) — what fails is a difference to REPORT, ⛔ not to fix.
+    const solver = process.env.PW_SLUR_SOLVER
+    if (solver) {
+      const armed = await page.evaluate(name => window.__h.slurSolver(name), solver)
+      if (!armed) throw new Error(`PW_SLUR_SOLVER: no slur solver named ${solver}`)
+    }
 
     await use(page)
 

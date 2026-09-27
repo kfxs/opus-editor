@@ -1,6 +1,6 @@
 /** The `lilypond` preset's row (`./slurLilypondSolver`) — docs/plans/slur-search-plan.md P3. */
 import { describe, it, expect } from 'vitest'
-import { solveLilypondSlur } from './slurLilypondSolver'
+import { cachedSlurSearch, solveLilypondSlur } from './slurLilypondSolver'
 import { solveHouseSlur } from './slurHouseSolver'
 import { fromSearch, type SlurSearchProblem } from './slurSearchProblem'
 import { searchSlur } from '@/engine/engrave/curves/slurSearch/slurSearch'
@@ -35,5 +35,20 @@ describe('solveLilypondSlur', () => {
     const a = solveLilypondSlur({ ...base, searchProblem: () => problem })
     const b = solveLilypondSlur({ ...base, p0: { x: 0, y: 0 }, searchProblem: () => problem })
     expect(b).toEqual(a)
+  })
+})
+
+describe('cachedSlurSearch', () => {
+  it('⭐ the very same problem is answered from the cache — the same object, not a re-search', () => {
+    const a = cachedSlurSearch(hisSlur(true))
+    expect(cachedSlurSearch(hisSlur(true))).toBe(a)
+    expect(a).toEqual(searchSlur(hisSlur(true)))
+  })
+
+  it('⛔ a problem that differs in anything is searched again', () => {
+    const a = cachedSlurSearch(hisSlur(true))
+    const b = cachedSlurSearch(hisSlur(true, 5.1))
+    expect(b).not.toBe(a)
+    expect(b).toEqual(searchSlur(hisSlur(true, 5.1)))
   })
 })
