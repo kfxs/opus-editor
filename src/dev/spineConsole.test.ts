@@ -144,7 +144,7 @@ describe('⭐ __spine REMEMBERS — each call keeps what the last one set (his r
     c.show({ size: 0.5, zoom: 2, radius: 150 })
     c.clear()
     c.show()
-    expect(c.dump()).toEqual({ kind: 'circle', radius: 'auto', size: 1, zoom: 1 })
+    expect(c.dump()).toEqual({ kind: 'circle', radius: 'auto', size: 1, zoom: 1, opacity: 0.8 })
   })
 
   it('⛔ a refused factor keeps the LAST value rather than resetting it', () => {
@@ -394,5 +394,19 @@ describe('⭐ the CLOSE button (his ask, 2026-09-27)', () => {
     button.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0 }))
     panel().dispatchEvent(new PointerEvent('pointerup', { bubbles: true, button: 0 }))
     expect([...selected]).toEqual(['something'])
+  })
+})
+
+describe('⭐ OPACITY — the panel\'s background, from the console (his ask, 2026-09-27)', () => {
+  it('0.8 by default; show({ opacity }) sets it and later calls keep it; a bad value is refused', () => {
+    const c = openConsole().console
+    c.show()
+    expect(panel().style.background).toContain('0.8')
+    c.show({ opacity: 0.5 })
+    expect(panel().style.background).toContain('0.5')
+    c.show()
+    expect(c.dump().opacity).toBe(0.5)
+    c.show({ opacity: 2 })
+    expect(c.dump().opacity, 'refused — the armed one kept').toBe(0.5)
   })
 })

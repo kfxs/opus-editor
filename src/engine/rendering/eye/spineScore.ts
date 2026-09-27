@@ -76,6 +76,17 @@ import { type BlockFrame, type WithNote, drawGroupBlock, drawNoteBlock, drawSpin
 import { drawSpineCurves, type SpinePitchPlace } from './spineCurves'
 import { drawSpineGlissandi } from './spineGlissandi'
 
+/**
+ * ⭐ WHERE the drawing put each thing a click can select — filled by {@link drawScoreOnSpine} when handed one: a
+ * note's pitch ids and a rest's slot id, and each barline under {@link spineBarlineKey}. `s` is along the
+ * STAFF's own path (`spine`, which a reader asks for the point and the angle there). Read-only information —
+ * the dev panel's window shows it (plan §9); nothing is adjusted through it.
+ */
+export type SpinePlacedReport = Map<string, { staff: number; s: number; spine: Spine }>
+
+/** The key a barline is filed under in a {@link SpinePlacedReport} — the bar it ENDS. */
+export const spineBarlineKey = (measure: number): string => `barline:${measure}`
+
 /** ⭐ The attribute a note's group carries: the ids the editor selects it by, space-separated (plan §9). */
 export const SPINE_IDS_ATTR = 'data-spine-ids'
 
@@ -112,7 +123,7 @@ function groupNotes(count: number, joins: readonly (readonly number[])[]): numbe
  * Draw every staff of `score` along `spine` — the top staff ON it, each staff below on the same path that
  * much further down (`./spineStaves`, port map #12).
  */
-export function drawScoreOnSpine(ctx: DrawContext, score: Score, spine: Spine): void {
+export function drawScoreOnSpine(ctx: DrawContext, score: Score, spine: Spine, placed?: SpinePlacedReport): void {
   const staves = spineStaves(score, spine)
   if (!score.measures[0]) {
     for (const staff of staves) drawSpineStaffLines(ctx, staff.spine)
@@ -151,10 +162,12 @@ export function drawScoreOnSpine(ctx: DrawContext, score: Score, spine: Spine): 
   //    spacing left it room — and each staff further out stretches it by how much longer its path is, so
   //    the clefs, keys and meters of a system stand on one radius. One staff: nothing stretches.
   for (const staff of staves) {
-    drawStaffOnSpine(ctx, score, staff, lanes[staff.index], bars.map(bar => barOnStaff(bar, staff.ratio)), headers, staff.ratio / innermost)
+    drawStaffOnSpine(ctx, score, staff, lanes[staff.index], bars.map(bar => barOnStaff(bar, staff.ratio)), headers, staff.ratio / innermost, placed)
     for (const { s, kind, wings, endsMeasure } of boundaries) {
       const group = drawSpineBarline(ctx, staff.spine, s * staff.ratio, kind, wings)
       if (endsMeasure !== null) group?.tag(SPINE_BARLINE_ATTR, String(endsMeasure))
+      // The TOP staff's place stands for the line — the same boundary is on one radius on every staff.
+      if (endsMeasure !== null && staff.index === 0) placed?.set(spineBarlineKey(endsMeasure), { staff: 0, s: s * staff.ratio, spine: staff.spine })
     }
   }
   // ⭐ …and what JOINS them: the barline through a joined gap, the system's start signs (`./spineSystem`).
@@ -170,6 +183,7 @@ export function drawScoreOnSpine(ctx: DrawContext, score: Score, spine: Spine): 
 function drawStaffOnSpine(
   ctx: DrawContext, score: Score, staff: SpineStaff, lane: { clefs: StaffClefs; keys: StaffKeys },
   bars: readonly SpineBar[], systemHeaders: readonly (SpineHeader | undefined)[][], headerScale: number,
+  placed?: SpinePlacedReport,
 ): void {
   const spine = staff.spine
   const staffId = staff.id
@@ -335,6 +349,14 @@ function drawStaffOnSpine(
         drawGroupBlock(ctx, spine, members.map(i => notes[i]), members.map(i => at[i]), ink, withNote).forEach((place, k) => { places[members[k]] = place })
       })
       remember(places, slots, measure.number)
+      // …and where each slot stands, for whoever asks (`SpinePlacedReport` — the dev panel's read-only window).
+      slots.forEach((slot, i) => {
+        const place = places[i]
+        if (!place) return
+        for (const id of slot.type === 'chord' ? slot.notes.map(pitch => pitch.id) : [slot.id]) {
+          placed?.set(id, { staff: staff.index, s: place.s, spine })
+        }
+      })
       // ⭐ …and every GRACE head the blocks drew (port map #21): the host's place on the path, with the
       //    grace's own anchor (`GracePass` recorded it, in the host's stave px) — so a slur can start or end
       //    on a grace, as on the page (his report, 2026-09-26: *"i dont see the slur in the graces"*).

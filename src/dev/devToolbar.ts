@@ -59,6 +59,8 @@ interface DevToolbarDeps {
    *  highlights). Only the staff-size button needs it; every other control here goes through the
    *  palette, which repaints itself. */
   renderScore: () => void
+  /** 🔧 Open / close the read-only Spine Properties window (`./spinePropertiesWindow`). */
+  toggleSpineProperties: () => void
 }
 
 interface DevToolbarHandle {
@@ -456,6 +458,15 @@ export function mountDevToolbar(host: HTMLElement, deps: DevToolbarDeps): DevToo
   const repeatsHighlight = () => { repeats.checked = bus.playRepeats.get() !== false }
   repeatsHighlight()
   const stopRepeats = bus.playRepeats.onHighlight(repeatsHighlight)
+
+  // 🔧 SPINE PROPERTIES — toggles the read-only window that reports the selected element on the bent staff
+  //    (`./spinePropertiesWindow`, docs/plans/bent-staff-plan.md §9). His ask, 2026-09-27.
+  const spineProps = el('button',
+    'flex items-center gap-1 ml-2 px-2 py-1 rounded border border-dashed border-amber-500/70 '
+    + 'text-amber-300 text-xs hover:bg-amber-500/10', '🔧 Spine props')
+  spineProps.title = 'Open or close the Spine Properties window — what is selected, and where it stands on the spine (read-only)'
+  spineProps.addEventListener('click', () => deps.toggleSpineProperties())
+  row.appendChild(spineProps)
 
   host.appendChild(row)
 

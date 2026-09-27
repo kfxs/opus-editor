@@ -523,3 +523,17 @@ describe('⭐⭐ more than one STAFF (port map #12) — the same path, further i
     expect(blocksOf(m).length).toBeGreaterThan(before)
   })
 })
+
+describe('⭐ the PLACED report — where the drawing put what a click can select (plan §9, read-only)', () => {
+  it('files every note\'s pitch id and every barline, each along ITS staff\'s path', () => {
+    const m = model(2)
+    addQuarter(m, 1, 0)
+    const report = new Map()
+    drawScoreOnSpine(new SceneRecorder(), m.getScore(), circleSpine(400, 400, 250), report)
+    const slot = m.getScore().measures[0].slots[0]
+    const id = slot.type === 'chord' ? slot.notes[0].id : slot.id
+    expect(report.get(id)?.staff).toBe(0)
+    expect(report.get('barline:1')?.s).toBeGreaterThan(report.get(id)!.s)
+    expect(report.has('barline:2')).toBe(true)
+  })
+})

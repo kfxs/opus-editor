@@ -57,7 +57,7 @@ import { ScoreModel } from '@/engine/models/ScoreModel'
 import type { Spine } from '@/engine/engrave/staff/staffSpine'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { circleSpine, straightSpine } from '@/engine/engrave/staff/staffSpine'
-import { SPINE_IDS_ATTR, SPINE_VOICE_ATTR, drawScoreOnSpine } from '@/engine/rendering/eye/spineScore'
+import { SPINE_IDS_ATTR, SPINE_VOICE_ATTR, type SpinePlacedReport, drawScoreOnSpine } from '@/engine/rendering/eye/spineScore'
 import { voiceFillColor } from '@/utils/voiceColors'
 import { ELEMENT_SELECTION_FILL } from '@/utils/selectionColors'
 import { SPINE_BARLINE_ATTR } from '@/engine/rendering/eye/spineSystem'
@@ -82,6 +82,10 @@ const AUTO_MIN_RADIUS = 160
 
 /** How often the panel asks whether the score changed — the JSON panel's own way of keeping up. */
 const POLL_MS = 300
+
+/** How solid the panel's white background is, 0–1, until `show({ opacity })` says otherwise — see-through enough to
+ *  show what it covers. A changeable default. */
+const PANEL_OPACITY = 0.8
 
 /** How far a press may travel and still be a CLICK rather than the start of a panel drag, px. */
 const CLICK_SLOP_PX = 4
@@ -131,7 +135,12 @@ export interface SpineConsoleDeps {
 }
 
 /** The two sizes: the MUSIC's (1 = the page's staff space, a ratio like a staff's own `size`) and the CANVAS's. */
-export interface SpineSizes { size?: number; zoom?: number }
+export interface SpineSizes {
+  size?: number
+  zoom?: number
+  /** How solid the panel's white background is, 0–1 (his ask, 2026-09-27: set from the console). The music stays solid. */
+  opacity?: number
+}
 /** A radius in canvas px — or `'auto'`, the circle the music asks for at the page's size. */
 export type SpineRadius = number | 'auto'
 
@@ -140,13 +149,20 @@ export interface SpineConsole {
   show(options?: { radius?: SpineRadius } & SpineSizes): void
   straight(options?: SpineSizes): void
   /** What is armed — the shape, its radius (or `'auto'`), size and zoom. */
-  dump(): { kind: 'circle' | 'straight'; radius: SpineRadius; size: number; zoom: number }
+  dump(): { kind: 'circle' | 'straight'; radius: SpineRadius; size: number; zoom: number; opacity: number }
   clear(): void
+  /**
+   * Where the LAST drawing put each selectable thing (`eye/spineScore.SpinePlacedReport`) — empty while the panel
+   * is down. Read by the Spine Properties window (`./spinePropertiesWindow`).
+   */
+  placed(): SpinePlacedReport
+  /** Called after every redraw of the panel, and when it closes; answers an unsubscribe. */
+  onRedraw(fn: () => void): () => void
 }
 
 /** What is armed. `radius` is remembered through a `straight()` too (which ignores it), so a `show()` after it
  *  gets the circle back as it was. */
-type Shape = { kind: 'circle' | 'straight'; radius?: number; size: number; zoom: number }
+type Shape = { kind: 'circle' | 'straight'; radius?: number; size: number; zoom: number; opacity: number }
 
 /** ⛔ A factor that is not a positive number is REFUSED — the armed one KEPT: `scale(0)` would draw nothing and
  *  `scale(NaN)` a broken transform — a knob that looked like it worked would be the worst instrument. */
@@ -165,10 +181,19 @@ function mergedShape(last: Shape, kind: Shape['kind'], options: { radius?: Spine
     radius: options.radius === undefined ? last.radius : options.radius === 'auto' ? undefined : options.radius,
     size: factorOf('size', options.size, last.size),
     zoom: factorOf('zoom', options.zoom, last.zoom),
+    opacity: opacityOf(options.opacity, last.opacity),
   }
 }
 
-const FRESH: Shape = { kind: 'circle', size: 1, zoom: 1 }
+/** ⛔ An opacity outside 0–1 (or not a number) is REFUSED — the armed one kept, as a bad factor is. */
+function opacityOf(value: number | undefined, last: number): number {
+  if (value === undefined) return last
+  if (typeof value === 'number' && value >= 0 && value <= 1) return value
+  dbg(`[spine] ⛔ opacity ${value} refused — a number from 0 (clear) to 1 (solid); kept ${last}`)
+  return last
+}
+
+const FRESH: Shape = { kind: 'circle', size: 1, zoom: 1, opacity: PANEL_OPACITY }
 
 export function spineConsole(deps: SpineConsoleDeps): SpineConsole {
   let panel: HTMLElement | null = null
@@ -186,6 +211,10 @@ export function spineConsole(deps: SpineConsoleDeps): SpineConsole {
    * across calls like the sizes; only `clear()` forgets.
    */
   let canvas: { width: number; height: number; x: number; y: number } | undefined
+
+  /** Where the last drawing put each selectable thing — see {@link SpineConsole.placed}. */
+  let lastPlaced: SpinePlacedReport = new Map()
+  let redrawListeners: (() => void)[] = []
 
   /** Stops following the editor's selection — set while the panel is up. */
   let unfollowSelection: (() => void) | null = null
@@ -212,6 +241,8 @@ export function spineConsole(deps: SpineConsoleDeps): SpineConsole {
 
   /** Take the panel down, keeping what is armed. */
   const teardown = () => {
+    lastPlaced = new Map()
+    for (const fn of redrawListeners) fn()
     clearInterval(timer)
     unfollowSelection?.()
     unfollowSelection = null
@@ -260,10 +291,11 @@ export function spineConsole(deps: SpineConsoleDeps): SpineConsole {
     return { spine: circleSpine(canvasSize / (2 * k), canvasSize / (2 * k), radius), width: canvasSize, height: canvasSize }
   }
 
-  /** Draw the picture, then wear the editor's selection on it. */
+  /** Draw the picture, then wear the editor's selection on it — and tell whoever reads the drawing. */
   const draw = (shape: Shape) => {
     drawPicture(shape)
     paintSelection()
+    for (const fn of redrawListeners) fn()
   }
 
   const drawPicture = (shape: Shape) => {
@@ -285,14 +317,15 @@ export function spineConsole(deps: SpineConsoleDeps): SpineConsole {
     // ⚠️ Skipped only when BOTH are 1 and the canvas is the music's own — `zoom: 2, size: 0.5` composes to
     //    scale(1) and still needs its group: the radius was divided by `size` for it.
     const k = zoom * shape.size
+    lastPlaced = new Map()
     if (zoom === 1 && shape.size === 1 && offsetX === 0 && offsetY === 0) {
-      drawScoreOnSpine(painter, score, spine)
+      drawScoreOnSpine(painter, score, spine, lastPlaced)
       return
     }
     const group = drawGroupOf(painter.openGroup('spine-size', 'spine-size'))
     try {
       group?.setPlacement(compose(scaling(k), translation(offsetX, offsetY)))
-      drawScoreOnSpine(painter, score, spine)
+      drawScoreOnSpine(painter, score, spine, lastPlaced)
     } finally {
       painter.closeGroup()
     }
@@ -554,7 +587,7 @@ export function spineConsole(deps: SpineConsoleDeps): SpineConsole {
   const report = () => {
     const radius = shape.radius ?? 'auto'
     const view = canvas ? ` · canvas ${Math.round(canvas.width)}×${Math.round(canvas.height)} (dragged corners)` : ''
-    dbg(`[spine] armed: ${shape.kind} · radius ${radius} · size ${shape.size} · zoom ${shape.zoom}${view} — each call keeps what the last set; __spine.clear() forgets`)
+    dbg(`[spine] armed: ${shape.kind} · radius ${radius} · size ${shape.size} · zoom ${shape.zoom} · opacity ${shape.opacity}${view} — each call keeps what the last set; __spine.clear() forgets`)
   }
 
   const open = (next: Shape) => {
@@ -563,7 +596,8 @@ export function spineConsole(deps: SpineConsoleDeps): SpineConsole {
     panel = document.createElement('div')
     panel.className = 'spine-demo-panel'
     Object.assign(panel.style, {
-      position: 'fixed', right: '16px', bottom: '16px', zIndex: '9999', background: 'white',
+      // ⭐ A little see-through (his ask, 2026-09-27) — the BACKGROUND only: the music on it stays solid.
+      position: 'fixed', right: '16px', bottom: '16px', zIndex: '9999', background: `rgba(255, 255, 255, ${next.opacity})`,
       border: '1px solid #999', boxShadow: '0 4px 16px rgba(0,0,0,.25)', touchAction: 'none',
     })
     document.body.appendChild(panel)
@@ -607,8 +641,13 @@ export function spineConsole(deps: SpineConsoleDeps): SpineConsole {
     straight: (options = {}) => open(mergedShape(shape, 'straight', options)),
     dump: () => {
       report()
-      return { kind: shape.kind, radius: shape.radius ?? 'auto', size: shape.size, zoom: shape.zoom }
+      return { kind: shape.kind, radius: shape.radius ?? 'auto', size: shape.size, zoom: shape.zoom, opacity: shape.opacity }
     },
     clear,
+    placed: () => lastPlaced,
+    onRedraw: fn => {
+      redrawListeners.push(fn)
+      return () => { redrawListeners = redrawListeners.filter(f => f !== fn) }
+    },
   }
 }

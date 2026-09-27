@@ -58,6 +58,7 @@ import { groupSignConsole } from './dev/groupSignConsole'
 import { slurShapeConsole } from './dev/slurShapeConsole'
 import { beamSlopeConsole } from './dev/beamSlopeConsole'
 import { spineConsole } from './dev/spineConsole'
+import { spinePropertiesWindow, type SpineProperties } from './dev/spinePropertiesWindow'
 import { headerGapConsole } from './dev/headerGapConsole'
 import { dotGapConsole } from './dev/dotGapConsole'
 import { graceConsole } from './dev/graceConsole'
@@ -713,12 +714,23 @@ export function createEditorApp(host: HTMLElement): EditorApp {
   mouse.setup()
   window.addEventListener('wheel', handleZoomWheel, { passive: false })
 
+  /** 🔧 The notes the editor has selected, the ANCHOR first — for the spine panel's highlight and its window. */
+  const spineSelectedNotes = (): string[] => [...new Set([
+    ...(state.selectedNoteId ? [state.selectedNoteId] : []),
+    ...selectedNoteIds(state.selectedItems.values()),
+  ])]
+
+  /** 🔧 The read-only Spine Properties window (`dev/spinePropertiesWindow`) — built with the spine panel below. */
+  let spineProperties: SpineProperties | null = null
+
   // Empty in a built site — `destroy()` iterates it either way, so there is nothing to special-case.
   const devShell = IS_DEV
     ? [
         mountDevToolbar(toolbarHost, {
           state, palette, getEngine, onStateChange, togglePlayback,
           renderScore: () => renderer.renderScore(),
+          // The window is built with the spine panel, further down — reached through the variable.
+          toggleSpineProperties: () => spineProperties?.toggle(),
         }),
         mountLiveBoundaryMark(liveMarkHost),
         mountScoreJsonPanel(jsonHost, {
@@ -986,7 +998,7 @@ export function createEditorApp(host: HTMLElement): EditorApp {
     w.__bracketed = bracketedConsole({ getEngine: () => engine, selectedNoteId: () => state.selectedNoteId, render: () => renderer.renderScore() })
     // ⭐ 2026-09-21 — a BENT STAFF's machinery, in its own draggable panel, drawn LIVE from the open
     // score: a staff is a path, a note a rigid block placed on it (docs/plans/bent-staff-plan.md A; src/dev/spineConsole.ts).
-    w.__spine = spineConsole({
+    const spine = spineConsole({
       getScore: () => engine?.getScore() ?? null,
       exportJSON: () => engine?.exportJSON() ?? '',
       load: json => {
@@ -1006,12 +1018,27 @@ export function createEditorApp(host: HTMLElement): EditorApp {
         renderer.renderScore()
       },
       selected: () => ({
-        ids: new Set([...state.selectedItems.keys(), ...(state.selectedNoteId ? [state.selectedNoteId] : [])]),
+        ids: new Set(spineSelectedNotes()),
         barline: state.selectedElement?.kind === 'barline' ? state.selectedElement.measure : null,
       }),
       onSelectionChange: fn => onStateChange(key => {
         if (key === 'selectedItems' || key === 'selectedNoteId' || key === 'selectedElement') fn()
       }),
+    })
+    w.__spine = spine
+    // 🔧 …and the window that REPORTS what is selected there (read-only — plan §9, his word 2026-09-27).
+    spineProperties = spinePropertiesWindow({
+      windows,
+      getScore: () => engine?.getScore() ?? null,
+      selected: () => ({
+        ids: spineSelectedNotes(),
+        barline: state.selectedElement?.kind === 'barline' ? state.selectedElement.measure : null,
+      }),
+      onSelectionChange: fn => onStateChange(key => {
+        if (key === 'selectedItems' || key === 'selectedNoteId' || key === 'selectedElement') fn()
+      }),
+      placed: () => spine.placed(),
+      onRedraw: fn => spine.onRedraw(fn),
     })
     // ⏱ 2026-08-30 — **THE LOG ITSELF IS A COST, and it has to be switchable to be measured.**
     //   His report: a held arrow key *"freezes somehow"*, *"sometime ok sometime not"*. The console
@@ -1038,7 +1065,7 @@ export function createEditorApp(host: HTMLElement): EditorApp {
     dbg("[grace] grace-note size: __grace.size('house'|'dorico'|'gould'|'musescore'|'lilypond'|…|0.62) / .dump() / .reset() · no-flag slash: __grace.slash({ length, angle, crossBelowTip }) / .resetSlash() · beamed slash: __grace.beamSlash('bravura'|'musescore'|'lilypond'|'none') / .beamSlash({ glyphLeft, glyphDown }) / .resetBeamSlash()")
     dbg("[durations] long values: __durations.breveHead('round'|'square') / .longaHead('round'|'square') / .longaStem('right'|'normal') / .barRest('convention'|'whole'|'lilypond') / .reset()")
     dbg("[cue] cue-note size: __cue.size('gouldRoss'|'gouldDrawn'|'musescore'|'gerouLusk'|'lilypond'|0.7) / .ledger('gould'|'full') / .graceSize('multiply'|'graceWins'|'musescore'|'sibelius'|'lilypond'|0.5) / .brackets('gould'|'shrink') / .spacing('gould'|'dorico'|'none') / .dump() / .reset()")
-    dbg('[spine] a bent staff, LIVE from the open score: __spine.circle({ notes: 8 }) loads fourths · .show({ radius, size, zoom }) bends what is open — size = the MUSIC\'s (1 = the page\'s staff) on the same circle, zoom = the CANVAS\'s · .straight({ size, zoom }) / .clear() — in the panel: drag a CORNER to resize the canvas · RIGHT-drag pans the drawing · CTRL+wheel zooms it (the preview only)')
+    dbg('[spine] a bent staff, LIVE from the open score: __spine.circle({ notes: 8 }) loads fourths · .show({ radius, size, zoom, opacity }) bends what is open — size = the MUSIC\'s (1 = the page\'s staff) on the same circle, zoom = the CANVAS\'s, opacity = the panel background\'s (0–1) · .straight({ size, zoom }) / .clear() — in the panel: drag a CORNER to resize the canvas · RIGHT-drag pans the drawing · CTRL+wheel zooms it (the preview only)')
     dbg("[spacing] law experiment: __spacing.law('lilypond'|'gould'|'musescore'|'verovio'|'finale'|'dorico'|'even'|'proportional') / .dump() / .reset()")
   }
 
