@@ -99,7 +99,7 @@ type OttavaBandPlacement =
   Pick<OttavaPlacement, 'view' | 'measureNumber' | 'staffIndex' | 'line' | 'system'>
 
 /** Where a fragment's height is filed — one bracket, one entry per SYSTEM it crosses. */
-function ottavaBandKey(ottavaId: string, line: number): string {
+export function ottavaBandKey(ottavaId: string, line: number): string {
   return `${ottavaId}@${line}`
 }
 
@@ -222,7 +222,7 @@ function spanX(
  * system must not push the first system's numeral up for no visible reason.
  */
 function baselineFor(
-  pass: RenderPass,
+  pass: Pick<RenderPass, 'occupiedBands'>,
   here: readonly OttavaBandPlacement[],
   span: OttavaSpan,
   staffId: string | undefined,
@@ -310,7 +310,8 @@ function cutIntoPieces(
  * same way for a wedge, harmlessly: a consumer filters to one line first.
  */
 export function planOttavaBands(
-  pass: RenderPass,
+  /** ⭐ Only the ladder's claims are read and written — narrowed so the bent staff (`eye/spineOttavas`) asks it too. */
+  pass: Pick<RenderPass, 'occupiedBands'>,
   score: Score,
   placements: readonly OttavaBandPlacement[],
   staffIds: readonly (string | undefined)[],

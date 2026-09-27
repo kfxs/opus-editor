@@ -193,7 +193,7 @@ function spanX(
  * ⚠️ **Both passes ask this, and that is the point.** {@link planTrillBands} needs the pieces to know
  * which stretch of drawn x to look for a slur over; {@link drawTrill} needs them to draw. Computing
  * them in each would be two answers to *where is this trill*, and the pair would drift the first time
- * one of them learned about a new inset — the same argument {@link barSlice} makes for the beats.
+ * one of them learned about a new inset — the same argument {@link trillBarSlice} makes for the beats.
  *
  * Deterministic between the two calls: it reads `staveNoteMap` and `measureBounds`, both filled by
  * the measure loop and untouched by anything between the two passes.
@@ -331,7 +331,7 @@ function baselineFor(
 ): number {
   let band: InkBand | null = null
   for (const p of covered) {
-    const { from, to } = barSlice(p, span, voice)
+    const { from, to } = trillBarSlice(p, span, voice)
     band = mergeInkBands(band, staffInkBand(columnsBetween(p.system.columns, from, to), staffId, firstStaffId))
   }
   return clearanceBaseline(
@@ -383,7 +383,7 @@ function curveBandUnder(
  * Shared by {@link baselineFor} (which asks what ink is in there) and the ladder claim (which asks
  * what beats the fragment took), so the two cannot come to disagree about the trill's own extent.
  */
-function barSlice(
+export function trillBarSlice(
   p: Pick<TrillPlacement, 'view' | 'measureNumber'>,
   span: TrillSpan,
   voice: number,
@@ -402,7 +402,7 @@ function barSlice(
  * (`engine/layout/outsideStaffBand.ts`) — `null` when the fragment covers no bar this render drew.
  *
  * The fragment's musical extent is the trill's span clipped to the bars it landed on: the first
- * bar's {@link barSlice} start to the last bar's end. ⭐ That is the SAME slice {@link baselineFor}
+ * bar's {@link trillBarSlice} start to the last bar's end. ⭐ That is the SAME slice {@link baselineFor}
  * measured the ink over, so what the trill CLEARED and what it CLAIMS are one stretch of music and
  * cannot drift apart.
  *
@@ -431,8 +431,8 @@ export function trillFragmentClaim(
     line,
     staffId,
     side,
-    from: fracAdd(firstStart, barSlice(first, span, voice).from),
-    to: fracAdd(lastStart, barSlice(last, span, voice).to),
+    from: fracAdd(firstStart, trillBarSlice(first, span, voice).from),
+    to: fracAdd(lastStart, trillBarSlice(last, span, voice).to),
     band: markBand(baseline, TRILL_MARK_INK),
   }
 }

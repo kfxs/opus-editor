@@ -23,7 +23,8 @@
  */
 import type { DrawContext } from '@/engine/paint/DrawContext'
 import type { Spine } from '@/engine/engrave/staff/staffSpine'
-import { innerLengthRatio, pointAt } from '@/engine/engrave/staff/staffSpine'
+import { innerLengthRatio } from '@/engine/engrave/staff/staffSpine'
+import { strokeSpineRun } from '@/engine/engrave/staff/spineLines'
 import { hairpinLineSpaces } from '@/engine/layout/thinLineWeight'
 import { hairpinApertureOverrideOf, hairpinEndpointOffsetOverrideOf } from '@/engine/models/engravingOverrides'
 import { hairpinSpan } from '@/engine/models/hairpinOps'
@@ -42,9 +43,6 @@ import type { SpineBar } from './spineSpacing'
 
 /** The class every wedge's group carries — what a spec finds them by. */
 export const SPINE_HAIRPIN_CLASS = 'spine-hairpin'
-
-/** How far along `s` one straight step of an arm runs. A changeable default — smaller is smoother. */
-const ARM_STEP_PX = 4
 
 /** A dynamic as the spine drew it: where its ink runs along the path, and across it (px below the top line). */
 export interface SpineMarkInk {
@@ -126,7 +124,7 @@ export function drawSpineHairpins(
         ctx.setLineWidth(hairpinLineSpaces() * STAFF_SPACE_PX)
         for (const segment of segments) {
           for (const sign of [-1, 1]) {
-            strokeArm(ctx, spine, segment.x0, segment.x1, s => {
+            strokeSpineRun(ctx, spine, segment.x0, segment.x1, s => {
               const { centre, half } = at((s - startS) / (endS - startS))
               return centre + sign * half
             })
@@ -152,17 +150,4 @@ function slotLeftS({ view, bar }: SpineHairpinBar, beat: Fraction): number | und
 /** `s` of a slot's head centre — a whole-bar rest stands in the MIDDLE of its bar, as on the page. */
 function slotCentreS(bar: SpineBar, slot: ChordRest): number {
   return slot.type === 'rest' && slot.isMeasureRest ? (bar.start + bar.end) / 2 : bar.columnAt(slot.beat)
-}
-
-/** Stroke one arm from `from` to `to` along the path, `depthAt(s)` px below it — straight steps through the path's points. */
-function strokeArm(ctx: DrawContext, spine: Spine, from: number, to: number, depthAt: (s: number) => number): void {
-  const steps = Math.max(1, Math.ceil((to - from) / ARM_STEP_PX))
-  ctx.beginPath()
-  for (let i = 0; i <= steps; i++) {
-    const s = from + ((to - from) * i) / steps
-    const p = pointAt(spine, s, depthAt(s))
-    if (i === 0) ctx.moveTo(p.x, p.y)
-    else ctx.lineTo(p.x, p.y)
-  }
-  ctx.stroke()
 }

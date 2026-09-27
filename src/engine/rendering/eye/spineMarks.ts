@@ -57,6 +57,9 @@ import { TEMPO_LINE, tempoMarkInk } from '../marks/tempo/tempoStyle'
 import { drawGroupOf } from '../painter/svgDrawGroup'
 import type { SpineBar } from './spineSpacing'
 import { type SpineMarkInk, drawSpineHairpins } from './spineHairpins'
+import { drawSpineOttavas, planSpineOttavas } from './spineOttavas'
+import { drawSpinePedals } from './spinePedals'
+import { drawSpineTrills, planSpineTrills } from './spineTrills'
 import { staffIdsOf } from './spineStaves'
 
 /** The class of a mark's block — what a scene reader (and the spec) finds them by. */
@@ -222,6 +225,11 @@ export function drawSpineMarks(
   const occupied: OccupiedSpan[] = []
   const drawnMarks: SpineMarkInk[] = []
 
+  // ── The LADDER's inner rungs first, in its order — the trills, then the octave lines, whose claims the
+  //    dynamics then clear (Gould p. 101) ──
+  const trills = planSpineTrills(score, bars, staffIds, staffIndex, occupied)
+  const ottavas = planSpineOttavas(score, bars, staffIds, staffIndex, occupied)
+
   // ── DYNAMICS — the page's plan, the spine being ONE system ──
   const plan = planDynamicsLines(
     score,
@@ -282,6 +290,11 @@ export function drawSpineMarks(
 
   // ── HAIRPINS — on the same line, their arms following the path (`./spineHairpins`, port map #15) ──
   drawSpineHairpins(ctx, spine, score, bars, staffIndex, plan, drawnMarks)
+  // ── TRILLS and OCTAVE LINES — where their rungs put them (`./spineTrills`, `./spineOttavas`, port map #15) ──
+  drawSpineTrills(ctx, spine, score, bars, trills)
+  drawSpineOttavas(ctx, spine, score, bars, staffIds, staffIndex, ottavas)
+  // ── PEDAL — the outermost rung below, clearing everything above (`./spinePedals`, port map #15) ──
+  drawSpinePedals(ctx, spine, score, bars, staffIds, staffIndex, occupied)
 
   // ── TEMPO — the row above, clearing the music and what the dynamics claimed there ──
   if (staffIndex !== 0) return

@@ -62,3 +62,25 @@ export function drawSpineLines(
     strokeSpineParallel(ctx, spine, staffLineMidY(staffLineY(frame, line), thickness), from, to)
   }
 }
+
+/** How far along `s` one straight step of {@link strokeSpineRun} runs. A changeable default — smaller is smoother. */
+const RUN_STEP_PX = 4
+
+/**
+ * ⭐ Stroke a run ALONG the spine from `from` to `to`, `depthAt(s)` below it — a depth that may change as it
+ * goes (a hairpin's arm, an octave line). Straight steps through the path's own points, so on a curve the
+ * run follows it; whatever line dash the context carries runs along it.
+ */
+export function strokeSpineRun(
+  ctx: DrawContext, spine: Spine, from: number, to: number, depthAt: (s: number) => number,
+): void {
+  const steps = Math.max(1, Math.ceil(Math.abs(to - from) / RUN_STEP_PX))
+  ctx.beginPath()
+  for (let i = 0; i <= steps; i++) {
+    const s = from + ((to - from) * i) / steps
+    const p = pointAt(spine, s, depthAt(s))
+    if (i === 0) ctx.moveTo(p.x, p.y)
+    else ctx.lineTo(p.x, p.y)
+  }
+  ctx.stroke()
+}
