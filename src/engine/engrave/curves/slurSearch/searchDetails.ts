@@ -117,8 +117,10 @@ export const LILYPOND_SLUR_DETAILS: SlurSearchDetails = {
 /**
  * ⭐⭐ **THE COMPROMISE'S ROWS — a CHOICE per case** (docs/plans/slur-search-plan.md P8, his word 2026-09-27:
  * *"so we should have a preset for every case"*). Where {@link SlurSearchDetails} are LilyPond's numbers, these
- * are the places he compared LilyPond with our `house` and may want either. ⭐ Every default is LilyPond's —
- * what the search drew — ⚠️ except `midAccent`, whose default is HIS decided rule (T1).
+ * are the places he compared LilyPond with our `house` and may want either. ⭐ Every default is what the search
+ * drew BEFORE the row existed — so a row changes nothing until he arms it — ⚠️ except `midAccent`, whose default is
+ * HIS decided rule (T1). (So the P7 rows — `ties`, `nested`, `flags`, `tupletNumbers`, `headerSigns`, `endHead` —
+ * default to OFF, and LilyPond's own behaviour is their other choice.)
  */
 export interface SlurSearchRules {
   /**
@@ -212,6 +214,15 @@ export interface SlurSearchRules {
    * ⚠️ An END note's accent is untouched here — T1 puts it OUTSIDE the slur, which moves the mark (L2).
    */
   midAccent: 'lilypond' | 'inside'
+  /**
+   * **The end head's EXTENT** (P7, the source audit's 5th item).
+   * - `'chord'` — what the search drew before: the chord's whole head span for x, and ±½ sp around the head's
+   *   centre for y.
+   * - `'own'` — LilyPond: the slur-side head's OWN glyph box (`Stem::extremal_heads`, `slur-scoring.cc:205,223`)
+   *   and the first head's x (`Note_column::first_head`, `:561`). Differs on a chord with a displaced second (up
+   *   to a head width), and in y by the glyph's real height.
+   */
+  endHead: 'chord' | 'own'
 }
 
 export const LILYPOND_SLUR_RULES: SlurSearchRules = {
@@ -226,6 +237,7 @@ export const LILYPOND_SLUR_RULES: SlurSearchRules = {
   tupletNumbers: 'off',
   headerSigns: 'off',
   midAccent: 'inside',
+  endHead: 'chord',
 }
 
 /** Each row's choices, for the console and a spec — ⚠️ a new row adds its line here. */
@@ -241,4 +253,5 @@ export const SLUR_RULE_CHOICES: { readonly [K in keyof SlurSearchRules]: readonl
   tupletNumbers: ['off', 'on'],
   headerSigns: ['off', 'on'],
   midAccent: ['inside', 'lilypond'],
+  endHead: ['chord', 'own'],
 }

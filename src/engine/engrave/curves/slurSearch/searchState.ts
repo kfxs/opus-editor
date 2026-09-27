@@ -65,6 +65,10 @@ export interface SearchColumn {
    *  for a stemless column), else the column's rest: its x and y extent. */
   slurHead?: { x: Interval; y: Interval }
   stem?: SearchStem
+  /** Row `endHead: 'own'` (LilyPond): the slur-side head's OWN glyph box, and the first head's own x — in place
+   *  of {@link slurHead} / {@link firstHeadX}, which the adapter states as the chord's head span. */
+  ownSlurHead?: { x: Interval; y: Interval }
+  ownFirstHeadX?: Interval
 }
 
 /** An object the slur avoids — LilyPond's `encompass-objects` that are not slurs or ties. */
@@ -428,6 +432,15 @@ function enumerateAttachments(
 export function buildSearchState(
   input: SlurSearchInput, details: SlurSearchDetails, rules: SlurSearchRules = LILYPOND_SLUR_RULES,
 ): SlurSearchState {
+  // Row `endHead: 'own'` — each head as its own glyph, not the chord's span.
+  if (rules.endHead === 'own') {
+    input = {
+      ...input,
+      columns: input.columns.map(c => ({
+        ...c, slurHead: c.ownSlurHead ?? c.slurHead, firstHeadX: c.ownFirstHeadX ?? c.firstHeadX,
+      })),
+    }
+  }
   const { dir, columns } = input
   const broken = input.brokenX ?? [undefined, undefined]
   const bounds: [BoundInfo, BoundInfo] = [

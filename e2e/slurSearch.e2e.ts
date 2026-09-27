@@ -570,6 +570,41 @@ test('⭐ `midAccent: inside` (default) keeps the slur OVER a high middle note\'
   expect(Object.values(out.lilypond).some(over => !over)).toBe(true)
 })
 
+/**
+ * ⭐ `endHead` — a slur ending on a chord with a displaced SECOND (G5 + A5, the slur below): `'own'` (LilyPond)
+ * reads the bottom head's own glyph, `'chord'` the chord's whole span. Logged; asserted only that both draw.
+ */
+test('⭐ `endHead: own` reads the end chord\'s own head, not its whole span', async ({ score }) => {
+  const out = await score.evaluate(async () => {
+    const h = window.__h
+    await h.fontReady()
+    h.slurSolver('lilypond')
+    const e = h.engine
+    const a = e.addNoteAtBeat({ step: 'C', octave: 5, duration: 'h', measure: 1, beat: h.frac(0, 1) })!
+    const b = e.addNoteAtBeat({ step: 'G', octave: 5, duration: 'h', measure: 1, beat: h.frac(2, 1) })!
+    e.addChordNote({ step: 'A', octave: 5, duration: 'h', measure: 1, beat: h.frac(2, 1) } as never)
+    // ⚠️ BELOW, the heads' side: the chord's stem points up, so a slur ABOVE ends beside the stem and never reads
+    //   a head's extent at all.
+    e.getScore().slurs = [{ id: 'sl', startNoteId: a.id, endNoteId: b.id, voice: 0, placement: 'below' }]
+    const end = async (rule: string) => {
+      h.slurRule('endHead', rule)
+      await h.render()
+      const d = document.querySelector('g.slur path[fill="none"]')?.getAttribute('d') ?? ''
+      const p = [...d.matchAll(/(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)/g)].map(m => ({ x: +m[1], y: +m[2] }))
+      return p[3]
+    }
+    const chord = await end('chord')
+    const own = await end('own')
+    const sp = (h.staves()[0].bottom - h.staves()[0].top) / 4
+    return { dx: +((own.x - chord.x) / sp).toFixed(2), dy: +((own.y - chord.y) / sp).toFixed(2) }
+  })
+  console.log('[endHead] own − chord, sp', JSON.stringify(out))
+  // ⚠️ Measured: the same here — the slur below reads the UNDISPLACED lower head, and the ruler's span is already
+  //   the main column. The row only moves an end that falls back to a DISPLACED head's centre (a short or steep slur
+  //   on the stem side); asserted here that both choices draw.
+  expect(Number.isFinite(out.dx) && Number.isFinite(out.dy)).toBe(true)
+})
+
 test('⭐ the search is DETERMINISTIC — a saved and reloaded score draws the same slur, to the byte', async ({ score }) => {
   const out = await score.evaluate(async () => {
     const h = window.__h

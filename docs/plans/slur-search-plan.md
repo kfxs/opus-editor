@@ -291,6 +291,12 @@ rule).
     reads the drawn slurs. Moving a mark for a slur is the articulation plan's L2, not a slur row.
   - ✅ **`midAccent` BUILT 2026-09-27 — his T1 rule for a MIDDLE accent**, default `'inside'` (not LilyPond's
     `'lilypond'`); see `docs/plans/articulation-plan.md` T1 for the sweep that found it.
+  - ✅ **`endHead` BUILT 2026-09-27 — P7 item 8, the end head's own extent:** `'chord' | 'own'`, default `'chord'`.
+    `'own'` hands the search the slur-side head's own glyph box and the first head's x. ⚠️ **Measured: it rarely
+    changes a picture** — the ruler's head span is already the MAIN column, a head glyph is ±½ sp tall, and a
+    displaced head is on the STEM side, where an end goes beside the stem; it moves an end only when that end falls
+    back to the displaced head's centre (a short or steep slur). Caught while proving the branch fired: a head's
+    `getAbsoluteX()` counts its displacement TWICE (2.25 sp vs the drawn 1.12) — the box's x is used.
 
 ## 5. What this does NOT change
 

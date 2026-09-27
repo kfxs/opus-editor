@@ -100,7 +100,7 @@ function columnOf(
   const headPx = slurUp ? Math.min(...ys) : Math.max(...ys)
   const headC = (frame.middleY - headPx) / sp
   const slurHead = { x: headX, y: [headC - 0.5, headC + 0.5] as Interval }
-  const column: SearchColumn = { x, y, refX: headX[0], firstHeadX: headX, slurHead }
+  const column: SearchColumn = { x, y, refX: headX[0], firstHeadX: headX, slurHead, ...ownHeads(note, frame, slurUp) }
   // ⭐ A stemless note (a whole note) still HAS a stem in LilyPond — invisible, its extent empty — and that
   //   matters: `get_encompass_info` reads it at the head's CENTRE and `score_edges` asks its direction. With
   //   no stem at all it would be read as a REST, at the column's reference x (audit, 2026-09-27).
@@ -227,6 +227,41 @@ function signsWithin(
     .map(b => toExtents(frame, b))
     .filter(e => [e.x[0], e.x[1], e.y[0], e.y[1]].every(Number.isFinite))
   return signs.length ? { headerSigns: signs } : {}
+}
+
+/**
+ * Row `endHead`: the heads' OWN boxes, as LilyPond reads them — the slur-side head's glyph (`Stem::extremal_heads`,
+ * displacement included) and the column's first head's x (`Note_column::first_head` — our first key, the lowest).
+ * ⚠️ Measured 2026-09-27: it differs from the chord span only for a DISPLACED slur-side head (a second, the slur on
+ * the stem side), and the search reads that head's x only where an end falls back to the head centre (a short or
+ * steep slur) — the ruler's span is the main column already, and a head glyph is ±½ sp tall. So the row rarely
+ * changes a picture.
+ */
+function ownHeads(note: EngravedNote, frame: SearchFrame, slurUp: boolean): Pick<SearchColumn, 'ownSlurHead' | 'ownFirstHeadX'> {
+  const heads = note.noteHeads
+  if (!heads.length) return {}
+  // ⚠️ A head's own x / y are in the frame the note was DRAWN in, which may be placed elsewhere on the page — so
+  //   only their DIFFERENCES are read (a head's offset from the leftmost one; its glyph around its own centre),
+  //   and the page position comes from the ruler, as every other column fact does.
+  const ruler = noteRuler(note)
+  // ⚠️ The box's x, ⛔ not `getAbsoluteX()`: a displaced head's x already carries its displacement, and
+  //   `getAbsoluteX` adds it AGAIN (it answers where the head meets the stem — measured: 2.25 sp, drawn 1.12).
+  const minX = Math.min(...heads.map(h => h.getBoundingBox().x))
+  const ys = ruler.headYs
+  const slurY = slurUp ? Math.min(...ys) : Math.max(...ys)
+  const boxOf = (h: (typeof heads)[number], centreY: number) => {
+    const b = h.getBoundingBox()
+    return toExtents(frame, {
+      x: ruler.headLeftX + (b.x - minX), y: centreY + (b.y - h.getY()), width: b.w, height: b.h,
+    })
+  }
+  const outer = heads.reduce((a, h) => (slurUp ? (h.getY() < a.getY() ? h : a) : (h.getY() > a.getY() ? h : a)))
+  const own = boxOf(outer, slurY)
+  const first = boxOf(heads[0], slurY)
+  const finite = (i: Interval) => Number.isFinite(i[0]) && Number.isFinite(i[1]) && i[1] > i[0]
+  // ⚠️ An unmeasured glyph (no font) has no box — then there is nothing to hand over, and the chord's stands.
+  if (!finite(own.x) || !finite(own.y) || !finite(first.x)) return {}
+  return { ownSlurHead: own, ownFirstHeadX: first.x }
 }
 
 /** A note's accidentals, dots and articulations, as the search's objects. */

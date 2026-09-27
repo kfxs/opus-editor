@@ -279,3 +279,24 @@ describe('⭐ `midAccent` — his T1 rule for an accent on a MIDDLE note', () =>
     expect(s.extraInfos[0].avoid).toBe('around')
   })
 })
+
+describe('⭐ `endHead` — the end head\'s own extent', () => {
+  // The first column's slur-side head is DISPLACED right of the chord's span start, and taller than ±½.
+  const input = () => {
+    const first = column(0, 0, -1)
+    return {
+      ...hisSlur(false),
+      columns: [{ ...first, ownSlurHead: { x: [1.1, 2.3] as const, y: [-0.55, 0.62] as const }, ownFirstHeadX: [0, 1.18] as const }, ...hisSlur(false).columns.slice(1)],
+    }
+  }
+
+  it('`chord` (the default): the chord\'s span — the base x is its centre', () => {
+    expect(buildSearchState(input(), D).baseAttachments[0].x).toBeCloseTo(0.59, 12)
+  })
+
+  it('⭐ `own` (LilyPond): the base sits on the slur-side head\'s OWN glyph top, x from the first head', () => {
+    const s = buildSearchState(input(), D, { ...LILYPOND_SLUR_RULES, endHead: 'own' })
+    expect(s.baseAttachments[0].x).toBeCloseTo(0.59, 12)
+    expect(s.baseAttachments[0].y).toBeCloseTo(0.62 + 0.5, 12)
+  })
+})
