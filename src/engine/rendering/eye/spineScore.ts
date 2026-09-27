@@ -39,14 +39,13 @@
 import type { DrawContext } from '@/engine/paint/DrawContext'
 import type { Spine } from '@/engine/engrave/staff/staffSpine'
 import { innerLengthRatio } from '@/engine/engrave/staff/staffSpine'
-import { HEADER_TO_REPEAT, barlineSignExtent } from '@/engine/layout/barlineSign'
-import { signAtBoundary } from '@/engine/models/boundarySign'
+import { barlineSignExtent } from '@/engine/layout/barlineSign'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
-import { keyStaffId, staffMeasureView } from '@/engine/models/staffContent'
+import { staffMeasureView } from '@/engine/models/staffContent'
 import type { ChordRest, Measure, Score } from '@/types/music'
-import { resolveStaffClefs } from '@/utils/clefUtils'
+import type { StaffClefs } from '@/utils/clefUtils'
 import { fracToNumber } from '@/utils/fraction'
-import { resolveStaffKeys } from '@/utils/keySignature'
+import type { StaffKeys } from '@/utils/keySignature'
 import { voiceOf } from '@/utils/lanes'
 import { getMeterInfo } from '@/utils/meter'
 import { createStaveNotesFromSlots, resolveTupletLocation, stemMajorityTupletLocation } from '../engraved/NoteBuilder'
@@ -66,11 +65,12 @@ import { formatColumns } from '../format/columnFormat'
 import { attachModifierColumns } from '../format/modifierColumns'
 import { captureVoiceIntent, reassertVoiceIntent } from '../format/voiceIntent'
 import { tupletBracketEnd, tupletBracketed, tupletMarkRuns } from '@/utils/musicUtils'
-import { boundaryWinged } from '../staff/BarlineRenderer'
 import { buildBeams } from '../beams/beamGroups'
 import type { EngravedNote } from '../engraved/EngravedNote'
-import { deepestInkPx, spaceBarsOnSpine } from './spineSpacing'
-import { drawSpineBarHeader, spineBarHeader, spineHeaderMeterAt } from './spineHeader'
+import { type SpineBar, deepestInkPx, spaceBarsOnSpine, spineStaffLanes } from './spineSpacing'
+import { type SpineHeader, drawSpineBarHeader, spineHeaderColumns, spineHeaderMeterAt, spineSystemHeaders } from './spineHeader'
+import { type SpineStaff, barOnStaff, spineStaves } from './spineStaves'
+import { drawSpineBarlineGaps, drawSpineSystemStart, spineBoundaries, spineSystemStartDraws, spineSystemStartRoomPx } from './spineSystem'
 import { drawSpineMarks, type SpineMarkBar } from './spineMarks'
 import { type BlockFrame, type WithNote, drawGroupBlock, drawNoteBlock, drawSpineBarline, drawSpineStaffLines, type GroupBlockInk, type SpineNotePlace } from './spineStaff'
 import { drawSpineCurves, type SpinePitchPlace } from './spineCurves'
@@ -101,28 +101,70 @@ function groupNotes(count: number, joins: readonly (readonly number[])[]): numbe
   return parent.map((_, i) => find(i))
 }
 
-/** Draw `score`'s first staff along the whole of `spine`. */
+/**
+ * Draw every staff of `score` along `spine` — the top staff ON it, each staff below on the same path that
+ * much further down (`./spineStaves`, port map #12).
+ */
 export function drawScoreOnSpine(ctx: DrawContext, score: Score, spine: Spine): void {
-  drawSpineStaffLines(ctx, spine)
-  const first = score.measures[0]
-  if (!first) return
-
-  const staffId = keyStaffId(score, 0)
-  const staffClefs = resolveStaffClefs(score, staffId)
-  const staffKeys = resolveStaffKeys(score, staffId)
-  const clefs = staffClefs.opening
-  const keys = staffKeys.opening
+  const staves = spineStaves(score, spine)
+  if (!score.measures[0]) {
+    for (const staff of staves) drawSpineStaffLines(ctx, staff.spine)
+    return
+  }
 
   // ⭐ The staff's HEAD is bar 1's own header (`./spineHeader`), so the music starts where the spine
   //    does: the header's room is in bar 1's lead-in, as a change's is in its own bar's.
   const musicStart = 0
-  const musicEnd = spine.length - (spine.closed ? CLOSED_SEAM_PX : 0)
+  // ⭐ On a closed path the loop's end meets the system's START signs (`./spineSystem`) — the music stops
+  //    clear of them on the INNERMOST staff, where the seam is shortest.
+  const innermost = staves[staves.length - 1].ratio
+  const musicEnd = spine.length - (spine.closed ? (CLOSED_SEAM_PX + spineSystemStartRoomPx(score)) / innermost : 0)
   // ⭐ WHERE each column stands is the PAGE's spacing, asked for one endless line (`./spineSpacing`):
   //    the spine is ONE JUSTIFIED SYSTEM — a circle's length is fixed by its radius, and an open
   //    spine's last barline closes its staff lines, as a line's does on the page. Whoever makes the
   //    spine sizes it from `naturalSpineLength`, so the stretch stays small.
-  // ⭐ …spaced on the arc where the DEEPEST ink stands — a loop's inside is shorter than its spine.
+  // ⭐ …spaced on the arc where the DEEPEST ink stands — a loop's inside is shorter than its spine —
+  //    over EVERY staff: the columns are the system's, and each staff maps them onto its own path.
   const bars = spaceBarsOnSpine(score, musicStart, musicEnd, true, innerLengthRatio(spine, deepestInkPx(score)))
+  const lanes = spineStaffLanes(score)
+  const headers = score.measures.map((_, i) => spineSystemHeaders(score, lanes, i))
+  // ⭐ Every staff's barlines stand on the system's boundaries — one list, at one angle on every staff.
+  const boundaries = spineBoundaries(score, bars, headers, innermost)
+  // ⭐ On a CLOSED path whose start carries signs (the systemic line, a brace, a bracket — `./spineSystem`),
+  //    a staff's lines END at its last barline, as a line's do on the page, and the seam back to the signs
+  //    is left empty (his report, 2026-09-27: *"between the last line and the staff connector there is also
+  //    pentagram… that part should be with no staff"*). With nothing there the loop stays CLOSED (his word
+  //    the same hour). An open path already ends where its music does.
+  const last = boundaries[boundaries.length - 1]
+  const linesEnd = spine.closed && last && spineSystemStartDraws(score, staves)
+    ? last.s + barlineSignExtent(last.kind).right * STAFF_SPACE_PX
+    : spine.length
+  for (const staff of staves) drawSpineStaffLines(ctx, staff.spine, 0, linesEnd * staff.ratio)
+  // ⭐ The header is laid out at its own widths on the INNERMOST staff — the shortest path, where the
+  //    spacing left it room — and each staff further out stretches it by how much longer its path is, so
+  //    the clefs, keys and meters of a system stand on one radius. One staff: nothing stretches.
+  for (const staff of staves) {
+    drawStaffOnSpine(ctx, score, staff, lanes[staff.index], bars.map(bar => barOnStaff(bar, staff.ratio)), headers, staff.ratio / innermost)
+    for (const { s, kind, wings } of boundaries) drawSpineBarline(ctx, staff.spine, s * staff.ratio, kind, wings)
+  }
+  // ⭐ …and what JOINS them: the barline through a joined gap, the system's start signs (`./spineSystem`).
+  drawSpineBarlineGaps(ctx, score, staves, boundaries)
+  drawSpineSystemStart(ctx, score, staves)
+}
+
+/**
+ * One staff of the system along its own path: its bars (already mapped onto that path), its headers (lined
+ * up with the other staves' — `headerScale` stretches the lined-up distances onto this path), its barlines,
+ * its curves and its marks.
+ */
+function drawStaffOnSpine(
+  ctx: DrawContext, score: Score, staff: SpineStaff, lane: { clefs: StaffClefs; keys: StaffKeys },
+  bars: readonly SpineBar[], systemHeaders: readonly (SpineHeader | undefined)[][], headerScale: number,
+): void {
+  const spine = staff.spine
+  const staffId = staff.id
+  const clefs = lane.clefs.opening
+  const keys = lane.keys.opening
   // ⭐ Where every PITCH landed on the path — what the curves (`./spineCurves`) are drawn between.
   const pitches = new Map<string, SpinePitchPlace>()
   const remember = (places: readonly SpineNotePlace[], slots: readonly ChordRest[], measureNumber: number) => {
@@ -142,11 +184,13 @@ export function drawScoreOnSpine(ctx: DrawContext, score: Score, spine: Spine): 
   }
   score.measures.forEach((measure, i) => {
     const bar = bars[i]
-    // The clef, key signature and meter this bar draws — the staff's head, or a CHANGE (`./spineHeader`).
-    const header = spineBarHeader(score, staffClefs, staffKeys, i)
-    const headerEnd = header ? drawSpineBarHeader(ctx, spine, bar.start, header) : bar.start
+    // The clef, key signature and meter this bar draws — the staff's head, or a CHANGE (`./spineHeader`) —
+    // lined up with the system's other staves.
+    const header = systemHeaders[i][staff.index]
+    const columns = spineHeaderColumns(systemHeaders[i])
+    if (header) drawSpineBarHeader(ctx, spine, bar.start, header, columns, headerScale)
     const lane = staffMeasureView(measure, staffId, score)
-    markBars.push({ view: lane, tempos: measure.tempos ?? [], bar, meterAt: header && spineHeaderMeterAt(bar.start, header) })
+    markBars.push({ view: lane, tempos: measure.tempos ?? [], bar, meterAt: header && spineHeaderMeterAt(bar.start, header, columns, headerScale) })
     const clef = clefs.get(measure.number) ?? 'treble'
     const voices = [...new Set(lane.slots.map(voiceOf))].sort()
     // ⭐ Where a rest stands in a multi-voice bar — the page's answer (`engraved/restShift`: derived from
@@ -286,25 +330,12 @@ export function drawScoreOnSpine(ctx: DrawContext, score: Score, spine: Spine): 
         }
       })
     }
-    // ⭐ WHICH sign a boundary carries is the SCORE's answer (`models/boundarySign`) — final, either
-    //    repeat, the back-to-back `:||:` from the two bars that meet there — as on the page.
-    // ⚠️ The spine is ONE system, so the only opening edge is bar 1's: a `|:` there stands at the
-    //    bar's own start (its room is in the lead-in, `./spineSpacing`).
-    // ⭐ A `|:` on a bar that draws a HEADER stands AFTER it (Gould p. 234, the page's
-    //    `displacedRepeatX`), and the boundary behind it keeps the sign the bar before it ends with.
-    if (measure.repeatStart !== undefined && (i === 0 || header)) {
-      const at = header ? headerEnd + (HEADER_TO_REPEAT + barlineSignExtent('repeatStart').left) * STAFF_SPACE_PX : bar.start
-      drawSpineBarline(ctx, spine, at, 'repeatStart', boundaryWinged(undefined, measure))
-    }
-    const next = score.measures[i + 1]
-    const nextDisplaced = next?.repeatStart !== undefined && spineBarHeader(score, staffClefs, staffKeys, i + 1) !== undefined
-    const kind = signAtBoundary(measure, nextDisplaced ? { ...next, repeatStart: undefined } : next)
-    if (kind) drawSpineBarline(ctx, spine, bar.end, kind, boundaryWinged(measure, nextDisplaced ? undefined : next))
   })
   // ⭐ The curves last, over every placed note — as the page draws its ties and slurs after the bars.
+  //    ⚠️ A curve between two STAVES has an end on each path and is drawn by neither — not yet.
   drawSpineCurves(ctx, spine, score, pitches)
   // ⭐ And the marks on their lanes — dynamics, expression words, tempo (`./spineMarks`, port map #16).
-  drawSpineMarks(ctx, spine, score, markBars)
+  drawSpineMarks(ctx, spine, score, markBars, staff.index)
 }
 
 /**

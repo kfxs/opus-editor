@@ -40,7 +40,6 @@ import { clearanceBaseline, columnsBetween, mergeInkBands, staffInkBand } from '
 import { bandOver, measureStartOffsets, type OccupiedSpan } from '@/engine/layout/outsideStaffBand'
 import { dynamicOffsetOverrideOf, tempoOffsetOverrideOf } from '@/engine/models/engravingOverrides'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
-import { firstStaffId } from '@/engine/models/staffContent'
 import type { ChordRest, Dynamic, Measure, Score, TempoMark } from '@/types/music'
 import { composeDynamicGlyphs, dynamicLabel, splitDynamicRuns } from '@/utils/dynamics'
 import { fracAdd, fracCompare } from '@/utils/fraction'
@@ -56,6 +55,7 @@ import { tempoTextRuns } from '../marks/tempo/TempoLayout'
 import { TEMPO_LINE, tempoMarkInk } from '../marks/tempo/tempoStyle'
 import { drawGroupOf } from '../painter/svgDrawGroup'
 import type { SpineBar } from './spineSpacing'
+import { staffIdsOf } from './spineStaves'
 
 /** The class of a mark's block — what a scene reader (and the spec) finds them by. */
 export const SPINE_MARK_CLASS = 'spine-mark'
@@ -66,7 +66,7 @@ const CO_LOCATED_GAP_PX = 6
 
 /** One bar as the spine drew it — what the marks are placed from. */
 export interface SpineMarkBar {
-  /** The first staff's LANE of the bar (`staffMeasureView`): its slots and dynamics are that staff's. */
+  /** The staff's LANE of the bar (`staffMeasureView`): its slots and dynamics are that staff's. */
   view: Measure
   /** The bar's own tempo marks — a tempo mark governs the clock, so it is not a lane's. */
   tempos: readonly TempoMark[]
@@ -208,17 +208,21 @@ function slotS(bar: SpineBar, slot: ChordRest): number {
 }
 
 /**
- * ⭐ Draw every dynamic and expression word of the first staff, and every tempo mark, of the bars the spine
- * drew. Call AFTER the notes: the line reads the columns, not the drawn ink, but the order is the page's.
+ * ⭐ Draw every dynamic and expression word of staff `staffIndex` — and, on the TOP staff only, every tempo
+ * mark, as the page prints them over the system — of the bars the spine drew, on that staff's own path.
+ * Call AFTER the notes: the line reads the columns, not the drawn ink, but the order is the page's.
  */
-export function drawSpineMarks(ctx: DrawContext, spine: Spine, score: Score, bars: readonly SpineMarkBar[]): void {
-  const staffIds = [firstStaffId(score)]
+export function drawSpineMarks(
+  ctx: DrawContext, spine: Spine, score: Score, bars: readonly SpineMarkBar[], staffIndex = 0,
+): void {
+  // Every staff of the system, so a column's ink is read on the staff it belongs to (`staffInkBand`).
+  const staffIds = staffIdsOf(score)
   const occupied: OccupiedSpan[] = []
 
   // ── DYNAMICS — the page's plan, the spine being ONE system ──
   const plan = planDynamicsLines(
     score,
-    bars.map(b => ({ view: b.view, measureNumber: b.view.number, staffIndex: 0, line: 0, system: { columns: [...b.bar.columns] } })),
+    bars.map(b => ({ view: b.view, measureNumber: b.view.number, staffIndex, line: 0, system: { columns: [...b.bar.columns] } })),
     staffIds, markInk(), occupied,
   )
   for (const { view, bar } of bars) {
@@ -263,6 +267,7 @@ export function drawSpineMarks(ctx: DrawContext, spine: Spine, score: Score, bar
   }
 
   // ── TEMPO — the row above, clearing the music and what the dynamics claimed there ──
+  if (staffIndex !== 0) return
   const starts = measureStartOffsets(score)
   for (const { view, tempos, bar, meterAt } of bars) {
     const measureStart = starts.get(view.number)

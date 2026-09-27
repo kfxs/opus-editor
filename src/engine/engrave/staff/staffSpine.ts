@@ -127,6 +127,32 @@ export function innerLengthRatio(spine: Spine, depth: number): number {
   return Math.max(0.25, (spine.length - 2 * Math.PI * depth) / spine.length)
 }
 
+/**
+ * ⭐ **THE SAME PATH, `depth` further down — a spine of its own** (port map #12: a second staff of a
+ * system is the first one's path at another offset). Its `s` is distance along ITSELF, so every reader
+ * that takes a spine takes this one unchanged: `s` on it is the parent's `s × ratio`, which keeps a
+ * point at the same ANGLE round a loop — the same beat on two staves stands on one radius.
+ *
+ * ⚠️ The ratio is {@link innerLengthRatio}'s, so it shares that note: exact on a circle and a straight
+ * line, an even-curvature approximation on anything else.
+ */
+export function parallelSpine(spine: Spine, depth: number): Spine {
+  if (depth === 0) return spine
+  const ratio = innerLengthRatio(spine, depth)
+  return {
+    length: spine.length * ratio,
+    closed: spine.closed,
+    at: s => {
+      const p = pointAt(spine, s / ratio, depth)
+      return { x: p.x, y: p.y, angle: spine.at(s / ratio).angle }
+    },
+    locate: (px, py) => {
+      const at = spine.locate(px, py)
+      return at && { s: at.s * ratio, offset: at.offset - depth }
+    },
+  }
+}
+
 export function placementAt(spine: Spine, s: number): Affine {
   const { x, y, angle } = spine.at(s)
   return compose(rotation(angle), translation(x, y))

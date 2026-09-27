@@ -415,9 +415,9 @@ export function drawSpineBarline(
   group?.setPlacement(placementAt(spine, s))
 }
 
-/** The five lines along all of `spine`. */
-export function drawSpineStaffLines(ctx: DrawContext, spine: Spine): void {
-  drawSpineLines(ctx, spine, blockFrame(), staveLineWidthPx())
+/** The five lines along all of `spine` — or the run `from`…`to` along it. */
+export function drawSpineStaffLines(ctx: DrawContext, spine: Spine, from = 0, to = spine.length): void {
+  drawSpineLines(ctx, spine, blockFrame(), staveLineWidthPx(), from, to)
 }
 
 /** A whole staff on `spine`: its lines along all of it, then each note as its own placed block. */

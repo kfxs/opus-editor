@@ -7,6 +7,9 @@ import { sceneGroups, scenePrimitives, type SceneGroup } from '@/engine/scene/Sc
 import type { PitchStep, TupletOffsetOverride } from '@/types/music'
 import { setEngravingOverride } from '@/engine/models/overrideOps'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
+import { staffStridePx } from '@/engine/layout/staffStride'
+import { setBarlineJoinBelow } from '@/engine/models/barlineJoin'
+import { applyGroupSymbol } from '@/engine/models/staffGroupOps'
 import { SPINE_BLOCK_CLASS, SPINE_NOTE_CLASS } from './spineStaff'
 import { drawScoreOnSpine } from './spineScore'
 import { addGrace } from '@/engine/models/graceOps'
@@ -425,5 +428,95 @@ describe('drawScoreOnSpine — FANNED BEAMS (port map #29)', () => {
     const noteGroups = sceneGroups(block, SPINE_NOTE_CLASS)
     const owner = noteGroups[noteGroups.length - 1]
     expect(isTranslation(owner.placement) || (owner.placement.a === 1 && owner.placement.b === 0)).toBe(true)
+  })
+})
+
+describe('⭐⭐ more than one STAFF (port map #12) — the same path, further in', () => {
+  const CENTRE = 400
+  const RADIUS = 250
+  /** Blocks whose ink is strokes only — the plain barlines — as (radius, angle) of their placed origin. */
+  const barlinesOf = (m: ScoreModel) =>
+    blocksOf(m, circleSpine(CENTRE, CENTRE, RADIUS))
+      .filter(block => scenePrimitives(block).length > 0 && scenePrimitives(block).every(p => p.kind === 'rect'))
+      .map(block => ({
+        radius: Math.hypot(block.placement.e - CENTRE, block.placement.f - CENTRE),
+        angle: Math.atan2(block.placement.f - CENTRE, block.placement.e - CENTRE),
+      }))
+
+  /** s = 0 — twelve o'clock, where the system's START signs stand. */
+  const START_ANGLE = -Math.PI / 2
+  const atStart = (line: { angle: number }) => Math.abs(line.angle - START_ANGLE) < 1e-6
+
+  it('⭐ each staff draws its own bars — the second on the INNER ring, one staff stride in', () => {
+    const m = model(3)
+    m.addStaffBelow(0)
+    const lines = barlinesOf(m).filter(line => !atStart(line))
+    const outer = lines.filter(line => Math.abs(line.radius - RADIUS) < 1e-6)
+    const inner = lines.filter(line => Math.abs(line.radius - (RADIUS - staffStridePx(1))) < 1e-6)
+    expect(outer).toHaveLength(3)
+    expect(inner).toHaveLength(3)
+    // ⭐ …and a boundary stands on ONE radius on both staves: the columns are the system's.
+    outer.forEach((line, i) => expect(inner[i].angle).toBeCloseTo(line.angle, 9))
+  })
+
+  /** A brace over the two staves — through the model, as the palette's does. */
+  const brace = (m: ScoreModel) => applyGroupSymbol(m.getScore(), m.getScore().staves!.map(staff => staff.id), 'brace')
+
+  /** The strokes (rects) of the blocks standing at s = 0 — the systemic line, when it is drawn. */
+  const startStrokes = (m: ScoreModel) =>
+    blocksOf(m, circleSpine(CENTRE, CENTRE, RADIUS))
+      .filter(block => atStart({ angle: Math.atan2(block.placement.f - CENTRE, block.placement.e - CENTRE) }))
+      .flatMap(block => scenePrimitives(block).filter(p => p.kind === 'rect'))
+
+  it('⭐ the SYSTEMIC line stands at s = 0 only with a BRACE or BRACKET — his rule for the spine', () => {
+    const one = model(2)
+    expect(startStrokes(one)).toHaveLength(0)
+    const two = model(2)
+    two.addStaffBelow(0)
+    expect(startStrokes(two), 'two staves, nothing at the start: no line').toHaveLength(0)
+    setBarlineJoinBelow(two.getScore(), two.getScore().staves![0].id, true)
+    expect(startStrokes(two), 'joined barlines bring no line').toHaveLength(0)
+    brace(two)
+    expect(startStrokes(two), 'a brace brings it').toHaveLength(1)
+  })
+
+  it('⭐ a JOINED gap draws the barline through it, at every boundary; unjoined, none', () => {
+    const m = model(3)
+    m.addStaffBelow(0)
+    const count = () => barlinesOf(m).filter(line => !atStart(line)).length
+    const apart = count()
+    setBarlineJoinBelow(m.getScore(), m.getScore().staves![0].id, true)
+    expect(count() - apart).toBe(3)
+  })
+
+  /** Does every staff line END where it began — the loop closed? (The lines are the scene's stroked paths.) */
+  const linesClosed = (m: ScoreModel) => {
+    const recorder = new SceneRecorder()
+    drawScoreOnSpine(recorder, m.getScore(), circleSpine(CENTRE, CENTRE, RADIUS))
+    const lines = scenePrimitives(recorder.scene).filter(p => p.kind === 'path' && p.painted === 'stroke')
+    return lines.map(line => {
+      const ops = line.kind === 'path' ? line.ops : []
+      const first = ops[0] as { x: number; y: number }
+      const last = ops[ops.length - 1] as { x: number; y: number }
+      return Math.hypot(first.x - last.x, first.y - last.y) < 1e-6
+    })
+  }
+
+  it('⭐ the loop stays CLOSED — joined barlines too — and only a brace or bracket opens a seam (his words, 2026-09-27)', () => {
+    const m = model(2)
+    m.addStaffBelow(0)
+    expect(linesClosed(m)).toEqual(Array(10).fill(true))
+    setBarlineJoinBelow(m.getScore(), m.getScore().staves![0].id, true)
+    expect(linesClosed(m), 'joined barlines: still closed').toEqual(Array(10).fill(true))
+    brace(m)
+    expect(linesClosed(m), 'a brace: open').toEqual(Array(10).fill(false))
+  })
+
+  it('a lower staff\'s notes are its own — a note entered on staff 2 draws on the inner ring', () => {
+    const m = model(1)
+    m.addStaffBelow(0)
+    const before = blocksOf(m).length
+    m.addNote({ step: 'C', octave: 3, duration: 'q', measure: 1, beat: { num: 0, den: 1 }, staff: 1 })
+    expect(blocksOf(m).length).toBeGreaterThan(before)
   })
 })

@@ -48,6 +48,7 @@
  * point, and `App.ts` wires it.
  */
 import { deepestInkPx, naturalSpineLength } from '../engine/rendering/eye/spineSpacing'
+import { spineStaffTops } from '../engine/rendering/eye/spineStaves'
 import { musicFontGeneration } from '../engine/fonts/musicFont'
 import { textFontGeneration } from '../engine/fonts/textFont'
 import { dbg } from '@/utils/debug'
@@ -194,7 +195,9 @@ export function spineConsole(deps: SpineConsoleDeps): SpineConsole {
     if (shape.kind === 'straight') {
       // A straight spine the length the music asks at the page's size — in canvas px, so `size` fills it.
       const canvasLength = length
-      return { spine: straightSpine(MARGIN_PX, MARGIN_PX, canvasLength / k), width: canvasLength + 2 * MARGIN_PX * k, height: (2 * MARGIN_PX + 40) * k }
+      // …and as tall as the system: the lowest staff's top, then its own staff (port map #12).
+      const lowestTop = Math.max(...spineStaffTops(score).values())
+      return { spine: straightSpine(MARGIN_PX, MARGIN_PX, canvasLength / k), width: canvasLength + 2 * MARGIN_PX * k, height: (2 * MARGIN_PX + 40 + lowestTop) * k }
     }
     // ⭐ `length` is what the music asks where its DEEPEST ink stands — the inner arc — so the spine
     //    itself is that much further out (`eye/spineSpacing.deepestInkPx`).

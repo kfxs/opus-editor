@@ -9,7 +9,7 @@ import { sceneGroups } from '@/engine/scene/Scene'
 import type { KeySignature } from '@/types/music'
 import { resolveStaffClefs } from '@/utils/clefUtils'
 import { resolveStaffKeys } from '@/utils/keySignature'
-import { drawSpineBarHeader, spineBarHeader, spineHeaderWidth } from './spineHeader'
+import { type SpineHeader, drawSpineBarHeader, spineBarHeader, spineHeaderColumns, spineHeaderWidth } from './spineHeader'
 import { SPINE_BLOCK_CLASS } from './spineStaff'
 
 /**
@@ -87,5 +87,27 @@ describe('drawSpineBarHeader — every sign is a rigid block, and the room is th
     const p = apply(blocks[0].placement, 30, 40)
     expect(Math.hypot(p.x - o.x, p.y - o.y)).toBeCloseTo(50, 9)
     expect(isTranslation(blocks[0].placement)).toBe(false)
+  })
+})
+
+describe('⭐ spineHeaderColumns — a SYSTEM\'s headers, lined up across its staves (port map #12)', () => {
+  const FOUR_FOUR = { numerator: 4, denominator: 4 }
+  const withKey: SpineHeader = { readingClef: 'treble', clef: { clef: 'treble', small: false }, key: D_MAJOR, meter: FOUR_FOUR }
+  const withoutKey: SpineHeader = { readingClef: 'bass', clef: { clef: 'bass', small: false }, meter: FOUR_FOUR }
+
+  it('one staff: its own walk, unchanged', () => {
+    expect(spineHeaderColumns([withKey]).width).toBeCloseTo(spineHeaderWidth(withKey), 9)
+  })
+
+  it('⭐ the meters of two staves start TOGETHER, after the widest key signature', () => {
+    const columns = spineHeaderColumns([withKey, withoutKey])
+    const alone = spineHeaderColumns([withKey])
+    expect(columns.startOf.meter).toBeCloseTo(alone.startOf.meter!, 9)
+    expect(columns.startOf.meter!).toBeGreaterThan(spineHeaderColumns([withoutKey]).startOf.meter! + keySignatureExtent(D_MAJOR) * STAFF_SPACE_PX - 1e-9)
+    expect(columns.width).toBeCloseTo(alone.width, 9)
+  })
+
+  it('a staff that draws no header takes no column', () => {
+    expect(spineHeaderColumns([undefined, withoutKey])).toEqual(spineHeaderColumns([withoutKey]))
   })
 })

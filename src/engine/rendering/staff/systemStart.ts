@@ -40,6 +40,7 @@
  * scale — the same rule, and the same reason, as `./barlineGap`.
  */
 import type { EngravedStave } from '../engraved/EngravedStave'
+import type { DrawContext } from '@/engine/paint/DrawContext'
 import { drawGlyph } from '../painter/glyphPainter'
 import { compose, scaling, translation } from '@/engine/paint/Affine'
 import { drawGroupOf } from '../painter/svgDrawGroup'
@@ -234,19 +235,29 @@ function drawBracket(
 ): void {
   const ctx = pass.context
   if (!ctx) return
-  // ⭐⭐ The rod runs PAST each outer staff line before its tip is stamped on the end — see
-  //   {@link BRACKET_ROD_PROJECTION_SPACES}. ⛔ Not scaled: the projection is the SYSTEM's, like
-  //   everything else here, and one sign may span two staves of different sizes.
-  const project = BRACKET_ROD_PROJECTION_SPACES * STAFF_SPACE_PX
-  const topY = spanTopY(top) - project
-  const bottomY = spanBottomY(bottom) + project
   // ⛔ NOT scaled by either staff: `leftSpaces` came from `systemStartColumn`, which reserved the
   //   room in the SYSTEM's spaces for `drawSystemConnector`'s reason — a sign that spans two staves
   //   of different sizes has no staff whose scale it could take.
   const leftX = at.x - sign.leftSpaces * STAFF_SPACE_PX
+  paintBracket(ctx, sign, leftX, spanTopY(top), spanBottomY(bottom), `bracket-${sign.group.group.id}-m${at.measureNumber}`)
+}
 
+/**
+ * ⭐ The bracket's INK, from its left edge and the span it joins (the outer staves' ink edges) — what
+ * {@link drawBracket} paints on the page, and the bent staff paints in a block
+ * (`eye/spineSystem`, port map #12 of `docs/plans/bent-staff-plan.md`).
+ */
+export function paintBracket(
+  ctx: DrawContext, sign: PlacedSystemStartSign, leftX: number, spanTop: number, spanBottom: number, id: string,
+): void {
+  // ⭐⭐ The rod runs PAST each outer staff line before its tip is stamped on the end — see
+  //   {@link BRACKET_ROD_PROJECTION_SPACES}. ⛔ Not scaled: the projection is the SYSTEM's, like
+  //   everything else here, and one sign may span two staves of different sizes.
+  const project = BRACKET_ROD_PROJECTION_SPACES * STAFF_SPACE_PX
+  const topY = spanTop - project
+  const bottomY = spanBottom + project
   // ⭐ Its OWN group, ⛔ deliberately not the connector's `stavebarline` — see {@link SYSTEM_SIGN_GROUP}.
-  ctx.openGroup(SYSTEM_SIGN_GROUP, `bracket-${sign.group.group.id}-m${at.measureNumber}`)
+  ctx.openGroup(SYSTEM_SIGN_GROUP, id)
   try {
     ctx.fillRect(leftX, topY, sign.depthSpaces * STAFF_SPACE_PX, bottomY - topY)
     // The serifs spring from the rod's own top and bottom and hook RIGHT, over the systemic barline:
@@ -295,14 +306,19 @@ function drawSubBracket(
 ): void {
   const ctx = pass.context
   if (!ctx) return
-  const topY = spanTopY(top)
-  const bottomY = spanBottomY(bottom)
   const leftX = at.x - sign.leftSpaces * STAFF_SPACE_PX
+  paintSubBracket(ctx, sign, leftX, spanTopY(top), spanBottomY(bottom), `subbracket-${sign.group.group.id}-m${at.measureNumber}`)
+}
+
+/** The sub-bracket's INK — {@link paintBracket}'s twin. */
+export function paintSubBracket(
+  ctx: DrawContext, sign: PlacedSystemStartSign, leftX: number, topY: number, bottomY: number, id: string,
+): void {
   const stroke = SUB_BRACKET_STROKE_SPACES * STAFF_SPACE_PX
   const arm = ENGRAVING_DEFAULTS.staffLineThickness * STAFF_SPACE_PX
   const width = sign.depthSpaces * STAFF_SPACE_PX
 
-  ctx.openGroup(SYSTEM_SIGN_GROUP, `subbracket-${sign.group.group.id}-m${at.measureNumber}`)
+  ctx.openGroup(SYSTEM_SIGN_GROUP, id)
   try {
     // The vertical, and the two arms reaching RIGHT toward the staves — Verovio's three rectangles.
     ctx.fillRect(leftX, topY - arm / 2, stroke, (bottomY - topY) + arm)
@@ -357,18 +373,23 @@ function drawBrace(
   if (!ctx) return
   // ⭐ FLUSH: the brace's ink runs exactly line to line, so ⛔ no projection term here — unlike the
   //   bracket, whose rod passes the line before its wing caps it.
-  const topY = spanTopY(top)
-  const bottomY = spanBottomY(bottom)
+  const leftX = at.x - sign.leftSpaces * STAFF_SPACE_PX
+  paintBrace(ctx, sign, leftX, spanTopY(top), spanBottomY(bottom), `brace-${sign.group.group.id}-m${at.measureNumber}`)
+}
+
+/** The brace's INK — {@link paintBracket}'s twin. */
+export function paintBrace(
+  ctx: DrawContext, sign: PlacedSystemStartSign, leftX: number, topY: number, bottomY: number, id: string,
+): void {
   const box = glyphBox('braceLarge')
 
   // The glyph's ink, at the natural size {@link stampGlyph} draws it: `right - left` wide and `up`
   // tall, in staff spaces. The two scales are what take that to the depth and span we want.
   const sx = sign.depthSpaces / (box.right - box.left)
   const sy = (bottomY - topY) / (box.up * STAFF_SPACE_PX)
-  const leftX = at.x - sign.leftSpaces * STAFF_SPACE_PX
 
   const group = drawGroupOf(
-    ctx.openGroup?.(SYSTEM_SIGN_GROUP, `brace-${sign.group.group.id}-m${at.measureNumber}`))
+    ctx.openGroup?.(SYSTEM_SIGN_GROUP, id))
   try {
     // ⭐ The glyph is stamped at the ORIGIN and the group carries everything: the origin sits at the
     //   ink's BOTTOM-left (`down: 0`, so the ink rises from the baseline), which is the bottom of the
@@ -450,7 +471,7 @@ const BRACKET_SERIF = { top: '\uE003', bottom: '\uE004' } as const
  * belong to the system.
  */
 function stampGlyph(
-  ctx: RenderPass['context'], glyph: string, x: number, y: number, scale = 1,
+  ctx: DrawContext, glyph: string, x: number, y: number, scale = 1,
 ): void {
   drawGlyph(ctx, 'systemStart.sign', glyph, x, y, 3 * STAFF_SPACE_PX * scale)
 }
@@ -520,9 +541,14 @@ function drawSystemConnector(
   // whole device pixels. ⛔ A future left-edge sign whose
   // WEIGHT is engraved (the bracket's rod, at Bravura's 0.5 spaces) must not be put here without
   // deciding that it wants to be pixel-snapped too — docs/plans/braces-brackets-plan.md P3.
+  paintSystemConnector(ctx, top.x, topY, bottomY)
+}
+
+/** The systemic barline's INK, from `topY` to `bottomY` at `x` — {@link paintBracket}'s twin. */
+export function paintSystemConnector(ctx: DrawContext, x: number, topY: number, bottomY: number): void {
   ctx.openGroup('stavebarline')
   try {
-    ctx.fillRect(top.x, topY, thinBarlinePx(), bottomY - topY)
+    ctx.fillRect(x, topY, thinBarlinePx(), bottomY - topY)
   } finally {
     ctx.closeGroup()
   }

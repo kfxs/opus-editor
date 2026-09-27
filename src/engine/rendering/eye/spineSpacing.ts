@@ -29,7 +29,6 @@
  * ⛔ No DOM.
  */
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
-import { keyStaffId } from '@/engine/models/staffContent'
 import { HEADER_TO_REPEAT, repeatStartRoom } from '@/engine/layout/barlineSign'
 import { headerToNoteGap } from '@/engine/layout/headerInk'
 import { INK } from '@/engine/layout/spacingPadding'
@@ -38,10 +37,11 @@ import { noteLineRoom } from '@/engine/layout/noteLineRoom'
 import { naturalWidth, spaceColumns, type Column } from '@/engine/layout/spacing'
 import type { Fraction } from '@/utils/fraction'
 import { fracCompare } from '@/utils/fraction'
-import { resolveStaffClefs } from '@/utils/clefUtils'
-import { resolveStaffKeys } from '@/utils/keySignature'
+import { resolveStaffClefs, type StaffClefs } from '@/utils/clefUtils'
+import { resolveStaffKeys, type StaffKeys } from '@/utils/keySignature'
 import type { Measure, Score } from '@/types/music'
-import { spineBarHeader, spineHeaderWidth } from './spineHeader'
+import { type SpineHeader, spineHeaderColumns, spineSystemHeaders } from './spineHeader'
+import { spineStaffTops, staffIdsOf } from './spineStaves'
 
 /** One bar's room along the spine, in px of `s`. */
 export interface SpineBar {
@@ -66,11 +66,12 @@ interface AskedBar {
 }
 
 function ask(score: Score, measure: Measure, index: number): AskedBar {
-  const firstStaffId = keyStaffId(score, 0)
-  const staffClefs = resolveStaffClefs(score, firstStaffId)
-  const staffKeys = resolveStaffKeys(score, firstStaffId)
-  const clefs = new Map([[firstStaffId, staffClefs]])
-  const keys = new Map([[firstStaffId, staffKeys]])
+  // ⭐ EVERY staff's clefs and keys (port map #12): a column holds every staff at its beat, so its ink is
+  //    measured on each staff's own clef and key — the page's resolvers, built the page's way.
+  const staves = spineStaffLanes(score)
+  const firstStaffId = staves[0].id
+  const clefs = new Map(staves.map(staff => [staff.id, staff.clefs]))
+  const keys = new Map(staves.map(staff => [staff.id, staff.keys]))
   const clefFor = clefResolverFor(measure, clefs, firstStaffId)
   const keyFor = keyResolverFor(measure, keys, firstStaffId)
   const columns = measureColumns(measure, clefFor, () => 1, keyFor, noteLineRoom(score, measure))
@@ -80,16 +81,25 @@ function ask(score: Score, measure: Measure, index: number): AskedBar {
   //    padding (`MeasureLayout`'s swap). A `|:` stands between the two: after the header by
   //    `HEADER_TO_REPEAT` (Gould p. 234 — the repeat goes AFTER a new clef, key or meter), else on
   //    the boundary. The END sign's reach is already in the columns.
-  const header = spineBarHeader(score, staffClefs, staffKeys, index)
+  //    ⭐ With several staves the header is the SYSTEM's — every staff's signs lined up
+  //    (`spineHeaderColumns`) — and the gap after it the largest any staff's last sign asks.
+  const headers = spineSystemHeaders(score, staves, index)
+  const drawn = headers.filter((header): header is SpineHeader => header !== undefined)
   const opensRepeat = measure.repeatStart !== undefined
-  const before = header
-    ? spineHeaderWidth(header) / STAFF_SPACE_PX + (opensRepeat ? HEADER_TO_REPEAT : 0) + headerToNoteGap(header, lead.accidentals)
+  const before = drawn.length > 0
+    ? spineHeaderColumns(headers).width / STAFF_SPACE_PX + (opensRepeat ? HEADER_TO_REPEAT : 0)
+      + Math.max(...drawn.map(header => headerToNoteGap(header, lead.accidentals)))
     : lead.padding
   return {
     columns,
     leadIn: (before + lead.extent + repeatStartRoom(measure)) * STAFF_SPACE_PX,
     natural: naturalWidth(columns) * STAFF_SPACE_PX,
   }
+}
+
+/** Each staff of the system with its clef and key walks — what a bar's columns and headers are read on. */
+export function spineStaffLanes(score: Score): { id: string | undefined; clefs: StaffClefs; keys: StaffKeys }[] {
+  return staffIdsOf(score).map(id => ({ id, clefs: resolveStaffClefs(score, id), keys: resolveStaffKeys(score, id) }))
 }
 
 /** How long a spine the score's bars ask for, in px — what an open spine takes and a circle is sized from. */
@@ -106,13 +116,16 @@ export function naturalSpineLength(score: Score): number {
  */
 export function deepestInkPx(score: Score): number {
   const STAFF_DEPTH_SPACES = 4
-  let deepest = STAFF_DEPTH_SPACES
+  // ⭐ Each box is measured on its OWN staff (`Column` ink carries it); a lower staff's stands that much
+  //    further down (`./spineStaves`). A box with no staff is the first staff's.
+  const tops = spineStaffTops(score)
+  let deepest = Math.max(...tops.values()) + STAFF_DEPTH_SPACES * STAFF_SPACE_PX
   score.measures.forEach((measure, index) => {
     for (const column of ask(score, measure, index).columns) {
-      for (const box of column.ink) deepest = Math.max(deepest, box.bottom)
+      for (const box of column.ink) deepest = Math.max(deepest, (tops.get(box.staff) ?? 0) + box.bottom * STAFF_SPACE_PX)
     }
   })
-  return deepest * STAFF_SPACE_PX
+  return deepest
 }
 
 /**

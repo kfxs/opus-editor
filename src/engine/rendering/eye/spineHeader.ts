@@ -73,8 +73,13 @@ export function spineBarHeader(
   return header.clef || header.key || header.meter ? header : undefined
 }
 
+/** The three kinds of header sign, in printed order. */
+type SpineHeaderPartKind = 'clef' | 'key' | 'meter'
+const PART_ORDER: readonly SpineHeaderPartKind[] = ['clef', 'key', 'meter']
+
 /** One sign of a header: the clear spine before it, how much spine it takes, and how it is drawn at `s`. */
 interface SpineHeaderPart {
+  kind: SpineHeaderPartKind
   gap: number
   width: number
   draw(ctx: DrawContext, spine: Spine, s: number): void
@@ -83,15 +88,16 @@ interface SpineHeaderPart {
 /** The header's signs in printed order — clef, key signature, meter — each with the gap BEFORE it, in px. */
 export function spineHeaderParts(header: SpineHeader): SpineHeaderPart[] {
   const parts: SpineHeaderPart[] = []
-  const signPart = (sign: EngravedClef | EngravedTimeSignature): SpineHeaderPart => {
+  const signPart = (kind: SpineHeaderPartKind, sign: EngravedClef | EngravedTimeSignature): SpineHeaderPart => {
     const { padding, width } = sign.walkInput()
-    return { gap: padding, width, draw: (ctx, spine, s) => { drawSpineSign(ctx, spine, sign, s) } }
+    return { kind, gap: padding, width, draw: (ctx, spine, s) => { drawSpineSign(ctx, spine, sign, s) } }
   }
-  if (header.clef) parts.push(signPart(new EngravedClef(header.clef.clef, header.clef.small ? 'small' : 'default')))
+  if (header.clef) parts.push(signPart('clef', new EngravedClef(header.clef.clef, header.clef.small ? 'small' : 'default')))
   if (header.key) {
     const key = header.key
     const width = keySignatureExtent(key) * STAFF_SPACE_PX
     parts.push({
+      kind: 'key',
       // After a clef, or — a change with no clef before it — after the barline: the row's own two gaps.
       gap: (header.clef ? CLEF_TO_KEY_INK : BARLINE_TO_KEY_INK) * STAFF_SPACE_PX,
       width,
@@ -107,7 +113,7 @@ export function spineHeaderParts(header: SpineHeader): SpineHeaderPart[] {
       },
     })
   }
-  if (header.meter) parts.push(signPart(new EngravedTimeSignature(header.meter)))
+  if (header.meter) parts.push(signPart('meter', new EngravedTimeSignature(header.meter)))
   return parts
 }
 
@@ -116,24 +122,64 @@ export function spineHeaderWidth(header: SpineHeader): number {
   return spineHeaderParts(header).reduce((total, part) => total + part.gap + part.width, 0)
 }
 
-/** Draw the header from `s` on, and answer where along the spine it ends. */
-export function drawSpineBarHeader(ctx: DrawContext, spine: Spine, s: number, header: SpineHeader): number {
-  let at = s
-  for (const part of spineHeaderParts(header)) {
-    part.draw(ctx, spine, at + part.gap)
-    at += part.gap + part.width
+/**
+ * ⭐ **A SYSTEM's header — every staff's signs LINED UP** (port map #12): the clefs start together, the key
+ * signatures start together after the widest clef, the meters after the widest key signature — so the
+ * same kind of sign stands at one place on every staff, as it does down a page's system. Each column's
+ * gap is the largest any staff asks there. With one staff this is that staff's own walk, unchanged.
+ */
+export interface SpineHeaderColumns {
+  /** The whole header's length along the path, px. */
+  width: number
+  /** Where each kind of sign BEGINS, px from the bar's start — absent when no staff draws one. */
+  startOf: Partial<Record<SpineHeaderPartKind, number>>
+}
+
+/** Line up `headers` (one per staff, undefined for a staff that draws none here). */
+export function spineHeaderColumns(headers: readonly (SpineHeader | undefined)[]): SpineHeaderColumns {
+  const parts = headers.map(header => (header ? spineHeaderParts(header) : []))
+  const startOf: SpineHeaderColumns['startOf'] = {}
+  let at = 0
+  for (const kind of PART_ORDER) {
+    const column = parts.flatMap(list => list.filter(part => part.kind === kind))
+    if (column.length === 0) continue
+    const start = at + Math.max(...column.map(part => part.gap))
+    startOf[kind] = start
+    at = start + Math.max(...column.map(part => part.width))
   }
-  return at
+  return { width: at, startOf }
+}
+
+/** Every staff's header for bar `index` — what {@link spineHeaderColumns} lines up. */
+export function spineSystemHeaders(
+  score: Score, staves: readonly { clefs: StaffClefs; keys: StaffKeys }[], index: number,
+): (SpineHeader | undefined)[] {
+  return staves.map(staff => spineBarHeader(score, staff.clefs, staff.keys, index))
+}
+
+/**
+ * Draw the header from `s` on, and answer where along the spine it ends. `columns` lines it up with the
+ * system's other staves (its own walk when absent); `scale` stretches those distances for a staff whose
+ * path is longer than the one they were laid out on, so each sign's MIDDLE keeps its angle round a loop.
+ */
+export function drawSpineBarHeader(
+  ctx: DrawContext, spine: Spine, s: number, header: SpineHeader,
+  columns: SpineHeaderColumns = spineHeaderColumns([header]), scale = 1,
+): number {
+  for (const part of spineHeaderParts(header)) {
+    const start = columns.startOf[part.kind] ?? 0
+    part.draw(ctx, spine, s + (start + part.width / 2) * scale - part.width / 2)
+  }
+  return s + columns.width * scale
 }
 
 /**
  * Where along the spine the header's METER begins, when it draws one — the edge a downbeat tempo mark
  * aligns with (Gould p. 183, `marks/tempo/TempoLayout.anchorX` rule 1). Undefined without a meter.
  */
-export function spineHeaderMeterAt(s: number, header: SpineHeader): number | undefined {
-  if (!header.meter) return undefined
-  let at = s
-  const parts = spineHeaderParts(header)
-  parts.forEach((part, i) => { if (i < parts.length - 1) at += part.gap + part.width })
-  return at + parts[parts.length - 1].gap
+export function spineHeaderMeterAt(
+  s: number, header: SpineHeader, columns: SpineHeaderColumns = spineHeaderColumns([header]), scale = 1,
+): number | undefined {
+  const start = header.meter ? columns.startOf.meter : undefined
+  return start === undefined ? undefined : s + start * scale
 }

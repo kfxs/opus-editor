@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { apply, isTranslation } from '@/engine/paint/Affine'
-import { circleSpine, innerLengthRatio, placementAt, pointAt, straightSpine } from './staffSpine'
+import { circleSpine, innerLengthRatio, parallelSpine, placementAt, pointAt, straightSpine } from './staffSpine'
 
 /**
  * ⭐ Pure arithmetic — a bent staff's whole contract runs in jsdom (`docs/plans/bent-staff-plan.md` A2).
@@ -111,3 +111,39 @@ describe('innerLengthRatio — a loop’s inside is shorter than its spine', () 
   })
 })
 
+
+describe('⭐ parallelSpine — a lower staff is the same path, further down, measured along ITSELF', () => {
+  it('a straight spine: every point is `depth` straight down, and `s` is unchanged', () => {
+    const spine = straightSpine(100, 50, 400)
+    const lower = parallelSpine(spine, 105)
+    expect(lower.length).toBe(400)
+    close(lower.at(30), 130, 155)
+    expect(lower.at(30).angle).toBe(0)
+  })
+
+  it('⭐ a circle: the inner ring, `2π·depth` shorter, the SAME beat on the same radius', () => {
+    const spine = circleSpine(0, 0, 300)
+    const lower = parallelSpine(spine, 100)
+    expect(lower.length).toBeCloseTo(2 * Math.PI * 200, 9)
+    const ratio = innerLengthRatio(spine, 100)
+    const s = 500
+    const outer = spine.at(s)
+    const inner = lower.at(s * ratio)
+    expect(Math.hypot(inner.x, inner.y)).toBeCloseTo(200, 9)
+    expect(Math.atan2(inner.y, inner.x)).toBeCloseTo(Math.atan2(outer.y, outer.x), 9)
+    expect(inner.angle).toBeCloseTo(outer.angle, 9)
+  })
+
+  it('locate is its own inverse — a point on the inner ring, found on it', () => {
+    const lower = parallelSpine(circleSpine(0, 0, 300), 100)
+    const p = pointAt(lower, 400, 20)
+    const at = lower.locate(p.x, p.y)!
+    expect(at.s).toBeCloseTo(400, 9)
+    expect(at.offset).toBeCloseTo(20, 9)
+  })
+
+  it('depth 0 is the spine itself', () => {
+    const spine = circleSpine(0, 0, 300)
+    expect(parallelSpine(spine, 0)).toBe(spine)
+  })
+})

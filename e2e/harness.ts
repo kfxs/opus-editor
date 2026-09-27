@@ -29,6 +29,7 @@ import { TEXT_FONTS, setActiveTextFont, type TextFontId } from '@/engine/fonts/t
 import { circleSpine, straightSpine } from '@/engine/engrave/staff/staffSpine'
 import { drawScoreOnSpine } from '@/engine/rendering/eye/spineScore'
 import { deepestInkPx, naturalSpineLength } from '@/engine/rendering/eye/spineSpacing'
+import { spineStaffTops } from '@/engine/rendering/eye/spineStaves'
 import { SvgPainter } from '@/engine/rendering/painter/SvgPainter'
 import { A4_NORMAL, SKETCH_CANVAS } from '@/engine/layout/surface'
 import { exportScorePdf } from '@/engine/export/pdfExport'
@@ -335,7 +336,7 @@ const harness: Harness = {
     document.body.appendChild(panel)
     const size = radius > 0 ? 2 * (radius + 80) : 900
     const painter = new SvgPainter(panel)
-    painter.resize(size, radius > 0 ? size : 200)
+    painter.resize(size, radius > 0 ? size : 200 + Math.max(...spineStaffTops(engine.getScore()).values()))
     const spine = radius > 0 ? circleSpine(size / 2, size / 2, radius) : straightSpine(40, 80, 800)
     drawScoreOnSpine(painter, engine.getScore(), spine)
     return panel.id
