@@ -28,6 +28,7 @@ import { BarlineEditController } from './interactions/propertyControllers/Barlin
 import { TupletEditController } from './interactions/propertyControllers/TupletEditController'
 import { GlissandoEditController } from './interactions/propertyControllers/GlissandoEditController'
 import { TupletOffsetController } from './interactions/propertyControllers/TupletOffsetController'
+import { BeamOffsetController } from './interactions/propertyControllers/BeamOffsetController'
 import { CautionaryKeyGapController } from './interactions/propertyControllers/CautionaryKeyGapController'
 import { ScoreTextController } from './interactions/propertyControllers/ScoreTextController'
 import { openScoreTextWindow } from './windows/scoreTextWindow'
@@ -652,6 +653,8 @@ export function createEditorApp(host: HTMLElement): EditorApp {
   const tupletEdit = new TupletEditController(getEngine, () => renderer.renderScore())
   const glissandoEdit = new GlissandoEditController(getEngine, () => renderer.renderScore())
   const tupletOffset = new TupletOffsetController(getEngine, () => renderer.renderScore())
+  // ⭐ The Properties BEAM boxes — the whole beam and each end (his ask, 2026-09-28).
+  const beamOffset = new BeamOffsetController(getEngine, () => renderer.renderScore())
   // ⭐ The cautionary key signature's trailing gap, from the Properties panel (his ask, 2026-08-28).
   const cautionaryKeyGap = new CautionaryKeyGapController(getEngine, () => renderer.renderScore())
   // …and the 🚧 Add Title / Add Composer dialog, on the same boundary. ⛔ Scaffolding.
@@ -1120,6 +1123,7 @@ export function createEditorApp(host: HTMLElement): EditorApp {
       tupletEdit.destroy()
       glissandoEdit.destroy()
       tupletOffset.destroy()
+      beamOffset.destroy()
       cautionaryKeyGap.destroy()
       slurGeometry.destroy()
       hairpinGeometry.destroy()

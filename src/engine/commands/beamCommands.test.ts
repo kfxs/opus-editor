@@ -106,3 +106,16 @@ describe('beamCommands — the whole beam dragged (his ask, 2026-09-28)', () => 
     expect(ctx.log).toEqual(['dirty', 'dirty', 'previewed:Move beam'])
   })
 })
+
+describe('beamCommands — the Properties boxes, in AWAY terms (his ask, 2026-09-28)', () => {
+  it('shiftBeam moves both ends, shiftBeamEnd one — each its own undo entry', () => {
+    const ctx = fakeCommandContext()
+    const anchor = ctx.score.addNote({ step: 'C', alter: 0, octave: 5, duration: '8', measure: 1, beat: frac(0, 1) }).id
+    const beam = beamCommands(ctx)
+    expect(beam.shiftBeam(anchor, 1)).toBe(true)
+    expect(beam.shiftBeamEnd(anchor, 'end', -0.5)).toBe(true)
+    expect(beam.offsetOf(anchor)).toEqual({ start: 1, end: 0.5 })
+    expect(ctx.log).toEqual(['mutate:Move beam', 'mutate:Angle beam'])
+    expect(beam.shiftBeam(anchor, 0)).toBe(false)
+  })
+})

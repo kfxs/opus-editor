@@ -6,7 +6,7 @@
  * ⚠️ A beam is addressed by the pitch a selected beam is anchored on — its group's first note (`beamGroup`).
  */
 import { type BeamEnd, beamOffsetOf, nudgeBeamOffset, resetBeamOffset, setBeamEndOffset, setBeamOffset } from '../models/beamOffsetOps'
-import { beamEndDragFloor, beamGroupStems, beamNudgeKeepsStems, beamStandsAbove } from '../layout/beamStemFloor'
+import { beamBodyDragFloor, beamEndDragFloor, beamGroupStems, beamStandsAbove } from '../layout/beamStemFloor'
 import type { CommandContext } from './commandContext'
 
 export type BeamCommands = ReturnType<typeof beamCommands>
@@ -16,53 +16,69 @@ export function beamCommands(ctx: CommandContext) {
   const drawn = (anchorNoteId: string) =>
     (ctx.registry().getByType?.('beamGroup') ?? []).filter(el => el.noteId === anchorNoteId)
 
+  /** Which side the beam stands on, from what was drawn — true (above its stems) when nothing is. */
+  const standsAbove = (anchorNoteId: string) => {
+    const lines = drawn(anchorNoteId)
+    return beamStandsAbove(lines, beamGroupStems(lines, ctx.registry().getByType?.('stem') ?? []))
+  }
+  /** A SCREEN step (+ down) as a step AWAY from the heads — screen-up is away for a beam above its stems. */
+  const awayOf = (anchorNoteId: string, dy: number) => (standsAbove(anchorNoteId) ? -dy : dy)
+
+  /**
+   * ⭐ THE ONE STEP every beam edit takes — `dAway` staff spaces away from the heads, for ONE end (`which`) or the
+   * whole beam. Refused, with nothing written, when the beam would leave its staff's band for a neighbour's room (the
+   * tie's limit, on the drawn lines) or when a stem would go under its floor (`layout/beamStemFloor` — the shortest
+   * stem for the whole beam, the tightest weighted stem for one end — read off the stems as drawn now).
+   */
+  const step = (anchorNoteId: string, which: BeamEnd | undefined, dAway: number, description: string): boolean => {
+    if (dAway === 0) return false
+    const lines = drawn(anchorNoteId)
+    const stems = ctx.registry().getByType?.('stem') ?? []
+    const dy = beamStandsAbove(lines, beamGroupStems(lines, stems)) ? -dAway : dAway
+    const home = ctx.model().getNote(anchorNoteId)
+    if (lines.length && home && !ctx.limits.nudgeStaysInBand(lines.map(l => l.bbox), home.measure, home.staff ?? 0, dy)) {
+      return false
+    }
+    const spacePx = lines.length ? ctx.registry().getStaffGeometry?.(lines[0].measure ?? 0, lines[0].staff ?? 0)?.lineSpacing : undefined
+    if (spacePx) {
+      const floor = which ? beamEndDragFloor(lines, stems, spacePx, which) : beamBodyDragFloor(lines, stems, spacePx)
+      if (dAway < floor - 1e-9) return false
+    }
+    const score = ctx.model().getScore()
+    const wrote = which
+      ? setBeamEndOffset(score, anchorNoteId, which, beamOffsetOf(score, anchorNoteId)[which] + dAway)
+      : nudgeBeamOffset(score, anchorNoteId, dAway)
+    if (!wrote) return false
+    ctx.mutate(description)
+    return true
+  }
+
   return {
     /**
      * Move the beam up or down by `dy` SCREEN staff spaces (+ is down) — the arrows on a selected beam (his ask,
-     * 2026-09-28). Its stems follow it. Refused, with nothing written, when the beam would leave its staff's band
-     * for a neighbour's room — the tie's limit, judged on the beam's drawn lines (`limits.nudgeStaysInBand`) — or
-     * when it would push the group's shortest stem under its floor (`layout/beamStemFloor`: seen in Chromium, the
-     * first cut let the beam go THROUGH the noteheads).
+     * 2026-09-28). Its stems follow it. Stored RELATIVE to the stems (+ = away from the heads), so a flip keeps its
+     * meaning (his report). Refused past the band limit or the stem floor — see `step`.
      */
     nudgeBeam(anchorNoteId: string, dy: number): boolean {
-      if (dy === 0) return false
-      const lines = drawn(anchorNoteId)
-      const home = ctx.model().getNote(anchorNoteId)
-      if (lines.length && home && !ctx.limits.nudgeStaysInBand(lines.map(l => l.bbox), home.measure, home.staff ?? 0, dy)) {
-        return false
-      }
-      const stems = ctx.registry().getByType?.('stem') ?? []
-      const spacePx = lines.length ? ctx.registry().getStaffGeometry?.(lines[0].measure ?? 0, lines[0].staff ?? 0)?.lineSpacing : undefined
-      if (spacePx && !beamNudgeKeepsStems(lines, stems, spacePx, dy)) return false
-      // ⭐ Stored RELATIVE to the stems (+ = away from the heads), so a flip keeps its meaning (his report): screen-up
-      //    is "away" for a beam standing above its stems, "toward" for one below them.
-      const dAway = beamStandsAbove(lines, beamGroupStems(lines, stems)) ? -dy : dy
-      if (!nudgeBeamOffset(ctx.model().getScore(), anchorNoteId, dAway)) return false
-      ctx.mutate('Nudge beam')
-      return true
+      return dy !== 0 && step(anchorNoteId, undefined, awayOf(anchorNoteId, dy), 'Nudge beam')
     },
 
     /**
      * Move ONE END by `dy` SCREEN staff spaces (+ is down) — the arrows on a picked square (his ask, 2026-09-28: the
-     * square reacted to a drag but not to the arrows). The other end stays, so the ANGLE changes. Refused, with
-     * nothing written, past the band limit or when a stem would go under its floor — the drag's floor
-     * (`layout/beamStemFloor.beamEndDragFloor`), read off the stems as drawn now.
+     * square reacted to a drag but not to the arrows). The other end stays, so the ANGLE changes.
      */
     nudgeBeamEnd(anchorNoteId: string, which: BeamEnd, dy: number): boolean {
-      if (dy === 0) return false
-      const lines = drawn(anchorNoteId)
-      const home = ctx.model().getNote(anchorNoteId)
-      if (lines.length && home && !ctx.limits.nudgeStaysInBand(lines.map(l => l.bbox), home.measure, home.staff ?? 0, dy)) {
-        return false
-      }
-      const stems = ctx.registry().getByType?.('stem') ?? []
-      const dAway = beamStandsAbove(lines, beamGroupStems(lines, stems)) ? -dy : dy
-      const spacePx = lines.length ? ctx.registry().getStaffGeometry?.(lines[0].measure ?? 0, lines[0].staff ?? 0)?.lineSpacing : undefined
-      if (spacePx && dAway < beamEndDragFloor(lines, stems, spacePx, which) - 1e-9) return false
-      const now = beamOffsetOf(ctx.model().getScore(), anchorNoteId)[which]
-      if (!setBeamEndOffset(ctx.model().getScore(), anchorNoteId, which, now + dAway)) return false
-      ctx.mutate('Angle beam')
-      return true
+      return dy !== 0 && step(anchorNoteId, which, awayOf(anchorNoteId, dy), 'Angle beam')
+    },
+
+    /** Move the whole beam `dAway` staff spaces AWAY from the heads — the Properties box (his ask, 2026-09-28). */
+    shiftBeam(anchorNoteId: string, dAway: number): boolean {
+      return step(anchorNoteId, undefined, dAway, 'Move beam')
+    },
+
+    /** Move ONE end `dAway` staff spaces AWAY from the heads — the Properties box for that end (the angle). */
+    shiftBeamEnd(anchorNoteId: string, which: BeamEnd, dAway: number): boolean {
+      return step(anchorNoteId, which, dAway, 'Angle beam')
     },
 
     /** Where each end stands now, staff spaces AWAY from the heads — what a square's drag starts from. */

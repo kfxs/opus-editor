@@ -18,6 +18,7 @@ import { createBarlineEditSelection } from './barlineEditSelection'
 import { createTupletEditSelection } from './tupletEditSelection'
 import { createGlissandoEditSelection } from './glissandoEditSelection'
 import { createTupletOffsetSelection } from './tupletOffsetSelection'
+import { createBeamOffsetSelection } from './beamOffsetSelection'
 import { createScoreTextSelection } from './scoreTextSelection'
 import { createHairpinEditSelection } from './hairpinEditSelection'
 import { createFanSelection } from './fanSelection'
@@ -115,6 +116,8 @@ interface EditorBus {
   glissandoEdit: ReturnType<typeof createGlissandoEditSelection>
   /** The Properties tuplet offset box → `TupletOffsetController`. */
   tupletOffset: ReturnType<typeof createTupletOffsetSelection>
+  /** The Properties beam boxes — the whole beam, or one end → `BeamOffsetController`. */
+  beamOffset: ReturnType<typeof createBeamOffsetSelection>
   /** 🚧 The Add Title / Add Composer dialog — one field's new text. Command-only, and SCAFFOLDING
    *  (`engine/rendering/ScoreHeaderPass`). */
   scoreText: ReturnType<typeof createScoreTextSelection>
@@ -202,6 +205,7 @@ export function createEditorBus(): EditorBus {
     tupletEdit: createTupletEditSelection(),
     glissandoEdit: createGlissandoEditSelection(),
     tupletOffset: createTupletOffsetSelection(),
+    beamOffset: createBeamOffsetSelection(),
     scoreText: createScoreTextSelection(),
     hairpinEdit: createHairpinEditSelection(),
     fan: createFanSelection(),
@@ -251,6 +255,7 @@ export type { BarlineEditRequest } from './barlineEditSelection'
 export type { TupletEditRequest } from './tupletEditSelection'
 export type { GlissandoEditRequest } from './glissandoEditSelection'
 export type { TupletOffsetRequest } from './tupletOffsetSelection'
+export type { BeamOffsetRequest } from './beamOffsetSelection'
 export type { ScoreTextRequest } from './scoreTextSelection'
 export type { HairpinEditRequest } from './hairpinEditSelection'
 export type { NoteOffsetRequest } from './noteOffsetSelection'
