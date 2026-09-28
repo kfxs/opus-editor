@@ -158,4 +158,19 @@ describe('selectedElements — engraving overrides', () => {
     state.selectedNoteId = 'n1'
     expect(selectedElements(state, engineWith({ id: 'n1', measure: 1 }, {}))[0].overrides).toBeUndefined()
   })
+
+  it('⭐ reports a user SYMBOL as the model holds it, with the codepoint its glyph draws', () => {
+    const mark = { id: 'g1', glyph: 'pictGlsp', beat: frac(0, 1) }
+    const engine = {
+      ...engineStub(),
+      getScore: () => ({ measures: [{ number: 1, slots: [], glyphMarks: [mark] }] }),
+    } as unknown as MusicEngine
+    const state = createEditorState()
+    state.selectedElement = { kind: 'glyphMark', id: 'g1' }
+    expect(selectedElements(state, engine)).toEqual([
+      { kind: 'glyphMark', data: mark, overrides: undefined, derived: { codepoint: 'U+E6A0' } },
+    ])
+    state.selectedElement = { kind: 'glyphMark', id: 'gone' }
+    expect(selectedElements(state, engine)[0]).toMatchObject({ data: { id: 'gone', missing: true }, derived: { codepoint: null } })
+  })
 })

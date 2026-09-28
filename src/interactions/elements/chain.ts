@@ -50,6 +50,7 @@ import { STAFF_GROUP_ELEMENT } from './staffGroup'
 import { TIME_SIGNATURE_ELEMENT } from './timeSignature'
 import { KEY_SIGNATURE_ELEMENT } from './keySignature'
 import { TEMPO_ELEMENT } from './tempo'
+import { GLYPH_MARK_ELEMENT } from './glyphMark'
 import { DYNAMIC_ELEMENT } from './dynamic'
 import { TIE_ELEMENT } from './tie'
 import { GLISSANDO_ELEMENT } from './glissando'
@@ -245,6 +246,10 @@ export const ELEMENT_HIT_ORDER: ReadonlyArray<ClickableElementSpec> = [
   CLEF_ELEMENT,
   TIME_SIGNATURE_ELEMENT,
   TEMPO_ELEMENT,
+  // ⭐ A user SYMBOL right after the tempo mark: both stand outside the staff and are hit on their own
+  //   boxes, which the ladder keeps apart (the tempo clears the symbols). Before the dynamic, which it
+  //   can only meet below the staff, where the symbol is the rarer and the tighter box.
+  GLYPH_MARK_ELEMENT,
   DYNAMIC_ELEMENT,
   TIE_ELEMENT,
   // ⭐ The GLISSANDO line with the other lines drawn from one head to another: a thin straight stroke
@@ -339,6 +344,7 @@ export const ELEMENT_SPECS: Record<SelectedElement['kind'], ElementKindSpec> = {
   timeSignature: TIME_SIGNATURE_ELEMENT,
   keySignature: KEY_SIGNATURE_ELEMENT,
   tempo: TEMPO_ELEMENT,
+  glyphMark: GLYPH_MARK_ELEMENT,
   dynamic: DYNAMIC_ELEMENT,
   tie: TIE_ELEMENT,
   glissandoLine: GLISSANDO_ELEMENT,

@@ -1376,6 +1376,16 @@ home, and `ScoreModel.getBeamRole` was at its ceiling. Rather than grow it, its 
 `engine/models/beamRoleOps.beamRoleOf` — the grace branch with it — and the hub keeps a one-line delegation:
 `ScoreModel` 916 → **915**.*
 
+*⭐ **…and a second RAISE, for a new kind's WIRING (2026-09-28, symbols P3, his call).** P1/P2 of
+`docs/plans/symbol-plan.md` put every line of the feature in modules (`glyphMarkOps`, `glyphMarkCommands`,
+`rendering/marks/glyphMarks/*`) and left the hubs a hand-off each; P3's `{ kind: 'glyphMark' }` then made
+the hand-offs count. `MusicEngine` 486 → **489** (the `readonly glyphMark = glyphMarkCommands(…)` line and its
+import — the `engine.tie` / `engine.grace` shape). `ScoreRenderer` 713 → **717** (two imports and two calls:
+`drawGlyphMarks` in the measure loop beside `drawTempoMarks`, and `placeGlyphMarksOnLine` in the ladder —
+⛔ that one cannot leave: the ORDER of the ladder's calls IS the ladder). No logic entered either hub. ⛔ Not
+licence for the next feature either; `selectionSnapshot` stayed at 3 by reading the mark inside its excepted
+switch.*
+
 ---
 
 ## 4. Not worth doing

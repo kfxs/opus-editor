@@ -7,6 +7,7 @@ import { ScoreModel } from './ScoreModel'
 import {
   addGlyphMark,
   addGlyphMarkToEvent,
+  flipGlyphMarkPlacement,
   removeGlyphMark,
   getGlyphMarkById,
   glyphMarkMeasure,
@@ -96,5 +97,14 @@ describe('glyphMarkOps', () => {
     it('refuses an id that names no event', () => {
       expect(addGlyphMarkToEvent(score, 'nope', 'pictGlsp')).toBeNull()
     })
+  })
+
+  it('flips a mark to the other side and back — back to ABOVE deletes the field, one spelling per side', () => {
+    const g = addGlyphMark(score, 1, { glyph: 'fermataAbove', beat: frac(0, 1) })!
+    expect(flipGlyphMarkPlacement(score, g.id)).toBe(true)
+    expect(g.placement).toBe('below')
+    expect(flipGlyphMarkPlacement(score, g.id)).toBe(true)
+    expect('placement' in g).toBe(false)
+    expect(flipGlyphMarkPlacement(score, 'nope')).toBe(false)
   })
 })

@@ -244,6 +244,12 @@ export type ElementType =
   | 'dynamic'
   | 'tempo'
   /**
+   * ⭐ A user SYMBOL — a SMuFL glyph anchored to an event (docs/plans/symbol-plan.md P3), by its own `id`.
+   * Its box is computed from the glyph TABLE (`fonts/smuflGlyphs`), ⛔ never measured off the page — so
+   * it exists in jsdom too — and it is moved by the symbol's line pass with the ink it describes.
+   */
+  | 'glyphMark'
+  /**
    * 🚧 One line of the SKETCHED HEADER at the top of the first page — the title or the composer,
    * its own drawn ink, registered by `rendering/ScoreHeaderPass` (read its ⛔ note first). WHICH of
    * them is {@link ElementInfo.scoreTextField}.

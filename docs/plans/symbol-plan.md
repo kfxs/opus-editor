@@ -173,6 +173,15 @@ Each phase stops for his UI check.
   today the button is OFF for more than one.
 - **P3 — select, delete, keys.** The new kind in the union, its element module, highlight, Delete,
   `x` flips above/below, the Properties report (glyph name + codepoint).
+  ✅ **BUILT 2026-09-28** (uncommitted until the hub question below is his): `{ kind: 'glyphMark', id }`
+  in `SelectedElement`; `interactions/elements/glyphMark` (hit on the registry box, after the tempo in
+  `ELEMENT_HIT_ORDER`; its `highlight` recolours its own `<g>` — ⚠️ not an `ink` row, which is for the
+  kinds a passage BOX holds, and a box does not take symbols yet); the box is registered from the glyph
+  TABLE (`'glyphMark'` in `ElementRegistry`) and moved by the line pass by the CHANGE of its lift (a
+  reused bar is not lifted twice); `x` flips (`flipSelection` row → `engine.glyphMark.flip`); Delete →
+  `engine.glyphMark.remove`; the Properties report carries the mark + `derived.codepoint`; a paste
+  while one is selected anchors at its beat. ⚠️ `lint:hubs`: making `glyphMark` a kind counts its wiring
+  in `MusicEngine` (+3) and `ScoreRenderer` (+4) — see the summary to him.
 - **P4 — drag + offset.** A `<name>Offset` override in `engravingOverrides`, id-keyed and in staff
   spaces, like `dynamicOffset`; Reset.
 - **P5 — copy/paste.** A `Clip` carries symbols the way it carries dynamics (only those fully inside

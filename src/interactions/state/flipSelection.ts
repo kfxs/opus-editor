@@ -32,7 +32,7 @@ import type { EditorState, SelectedElement } from './EditorState'
 import { selectedArticulationNoteIds, selectedNoteIds } from './selection'
 
 /** The kinds `x` answers for — every other member of {@link SelectedElement} has no two sides. */
-type FlippableKind = 'slur' | 'hairpin' | 'dynamic' | 'trill' | 'ottava' | 'tie' | 'tuplet' | 'beamGroup'
+type FlippableKind = 'slur' | 'hairpin' | 'dynamic' | 'trill' | 'ottava' | 'tie' | 'tuplet' | 'beamGroup' | 'glyphMark'
 
 /**
  * ONE ROW PER FLIPPABLE ELEMENT. A new kind that can be turned around adds a row here and nothing
@@ -90,6 +90,8 @@ const FLIP_ELEMENT: {
   //   offset is stored RELATIVE to the stems (`BeamOffsetOverride`), so a pushed or tilted beam keeps its shape. The
   //   anchor keeps its id, so the beam stays selected through the flip.
   beamGroup: (engine, el) => { engine.flipStemDirection(el.noteId) },
+  // ⭐ A user SYMBOL flips SIDE — above the staff ↔ below it (docs/plans/symbol-plan.md P3).
+  glyphMark: (engine, el) => { engine.glyphMark.flip(el.id) },
 }
 
 /**

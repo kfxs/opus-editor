@@ -661,6 +661,12 @@ export function wireShortcuts(
             state.selectedElement = null
             renderer.renderScore()
             return
+          case 'glyphMark':
+            // A user symbol: it means nothing, so nothing else changes (docs/plans/symbol-plan.md P3).
+            eng.glyphMark.remove(element.id)
+            state.selectedElement = null
+            renderer.renderScore()
+            return
           case 'barline':
             // ⭐⭐ **BACK TO A PLAIN LINE** — his, 2026-08-26: *"delete key should remove special
             // barline and turn it into a normal barline"*. `barlineOps.clearBarline` drops the SIGN

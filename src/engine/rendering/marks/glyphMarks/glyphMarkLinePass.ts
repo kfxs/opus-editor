@@ -3,7 +3,7 @@
  * origin `./glyphMarkLayout` drew it at onto its row, stacking a note's several symbols outward
  * (docs/plans/symbol-plan.md P1, §4 (e) and (i)). `rendering/marks/tempo/tempoLinePass`'s twin, and a
  * TRANSLATE for that pass's reason: a symbol's row is a fact about its SYSTEM, so it runs over every
- * measure, drawn or reused, and the write is idempotent (the transform is SET, never added to).
+ * measure, drawn or reused, and the write is idempotent (the transform is SET, and the box moves by the change).
  *
  * ## Its rung — the order of the calls in `ScoreRenderer` IS the ladder
  *
@@ -38,6 +38,13 @@ import { staffSpacesToPixels } from '../../staff/staffSpace'
 import { GLYPH_MARK_LINE, GLYPH_MARK_STACK_GAP, glyphMarkInk } from './glyphMarkStyle'
 import { glyphMarkOriginLine } from './glyphMarkLayout'
 
+/**
+ * The lift the pass last wrote on a symbol, local px — kept ON the element so a reused bar (whose group
+ * and registry box both still carry the old lift) is moved by the CHANGE, never twice (the tempo mark's
+ * `data-tempo-line`, and for its reason).
+ */
+const LINE_ATTR = 'data-glyph-mark-line'
+
 /** What the pass needs of a `MeasurePlacement` — declared structurally, as the tempo pass does. */
 interface GlyphMarkLinePlacement {
   view: Measure
@@ -47,6 +54,8 @@ interface GlyphMarkLinePlacement {
   line: number
   system: { columns: Column[] }
   stave: EngravedStave
+  /** This staff's drawn scale — the registry box is moved in the staff's own space. */
+  scale: number
 }
 
 /** One note's symbols on one side — nearest the staff first, which is the order they were added. */
@@ -107,7 +116,10 @@ export function placeGlyphMarksOnLine(
         const el = svg.querySelector(`[id="${mark.id}"]`)
         if (el) {
           const dy = staffSpacesToPixels(baselines[i] - glyphMarkOriginLine(mark), frame)
+          const was = Number(el.getAttribute(LINE_ATTR)) || 0
+          el.setAttribute(LINE_ATTR, `${dy}`)
           el.setAttribute('transform', `translate(0, ${dy})`)
+          pass.elementRegistry.withScale(placement.scale, () => pass.elementRegistry.shiftById(mark.id, 0, dy - was))
         }
         pass.occupiedBands.push({
           line: placement.line, staffId, side: stack.side, from: at, to: at, band: markBand(baselines[i], ink),

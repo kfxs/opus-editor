@@ -8,7 +8,7 @@
  * objects, for something that wants to show it. Two names because they are two things.
  */
 import type {
-  Dynamic, EngravingOverride, Glissando, Hairpin, Measure, Note, Ottava, Pedal, Slur, TempoMark, Trill, Tuplet,
+  Dynamic, EngravingOverride, Glissando, GlyphMark, Hairpin, Measure, Note, Ottava, Pedal, Slur, TempoMark, Trill, Tuplet,
 } from '../../types/music'
 import type { BarlineSignKind } from '@/engine/models/boundarySign'
 import type { ScoreTextField } from '@/engine/models/scoreTextOps'
@@ -78,6 +78,9 @@ export type InspectedElement =
   | Report<'bracketed', Located<Note>, { side: 'before' | 'after'; canBeAfter: boolean }>
   | Report<'dynamic', Located<Dynamic>>
   | Report<'tempo', Located<TempoMark>>
+  /** ⭐ A user SYMBOL — `derived.codepoint` is the glyph's, spelled as the spec does (`U+E6A0`); null for a
+   *  name the engine's glyph table does not know (docs/plans/symbol-plan.md P3). */
+  | Report<'glyphMark', Located<GlyphMark>, { codepoint: string | null }>
   | Report<'slur', Located<Slur>, {
     arc: { cps: [{ x: number; y: number }, { x: number; y: number }] | null; segment: string | null; armed: 0 | 1 | null }
   }>

@@ -5,7 +5,7 @@
  *
  * ⛔ No `mutate` on a refusal: an edit that changed nothing leaves no undo entry.
  */
-import { addGlyphMarkToEvent } from '../models/glyphMarkOps'
+import { addGlyphMarkToEvent, flipGlyphMarkPlacement, removeGlyphMark } from '../models/glyphMarkOps'
 import { smuflGlyph } from '../fonts/smuflGlyphs'
 import type { GlyphMark } from '@/types/music'
 import type { CommandContext } from './commandContext'
@@ -31,6 +31,20 @@ export function glyphMarkCommands(ctx: CommandContext) {
       const mark = addGlyphMarkToEvent(score(), noteId, glyph)
       if (mark) ctx.mutate('Add symbol')
       return mark
+    },
+
+    /** Delete a symbol (and any override keyed by it). ONE undo entry. @returns false when there was none. */
+    remove(id: string): boolean {
+      const removed = removeGlyphMark(score(), id)
+      if (removed) ctx.mutate('Delete symbol')
+      return removed
+    },
+
+    /** Move a symbol to the other side of the staff. ONE undo entry. @returns false when there was none. */
+    flip(id: string): boolean {
+      const flipped = flipGlyphMarkPlacement(score(), id)
+      if (flipped) ctx.mutate('Flip symbol')
+      return flipped
     },
   }
 }

@@ -93,6 +93,19 @@ export function removeGlyphMark(score: Score, id: string): boolean {
   return false
 }
 
+/**
+ * Flip a symbol to the other side of the staff — above ↔ below (the `x` key, plan P3). Absent means
+ * ABOVE, so flipping back DELETES the field rather than writing `'above'`: one spelling per side.
+ * @returns false when there is no such mark.
+ */
+export function flipGlyphMarkPlacement(score: Score, id: string): boolean {
+  const mark = getGlyphMarkById(score, id)
+  if (!mark) return false
+  if (mark.placement === 'below') delete mark.placement
+  else mark.placement = 'below'
+  return true
+}
+
 /** Find a glyph mark anywhere in the score by id (live reference), or null. */
 export function getGlyphMarkById(score: Score, id: string): GlyphMark | null {
   for (const measure of score.measures) {

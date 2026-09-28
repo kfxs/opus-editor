@@ -683,6 +683,9 @@ export type SelectedElement =
   /** An on-score tempo mark, selected for removal/edit. Distinct from the armed
    *  `{ kind: 'tempo' }` marking tool. */
   | { kind: 'tempo'; id: string }
+  /** ⭐ A user SYMBOL — a SMuFL glyph anchored to an event (docs/plans/symbol-plan.md P3), by its own id:
+   *  several may share one note, so the note cannot name it. */
+  | { kind: 'glyphMark'; id: string }
   | { kind: 'tuplet'; id: string }
   /**
    * An on-score slur, plus WHICH of its handles (if any) the arrows nudge.

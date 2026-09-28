@@ -122,6 +122,7 @@ export function anchorOfElement(engine: PasteAnchorEngine, element: SelectedElem
     case 'hairpin':
     case 'ottava':
     case 'pedal':
+    case 'glyphMark':
       return markAnchor(score, element.id)
     case 'tuplet':
       return tupletAnchor(score, element.id)
@@ -214,6 +215,7 @@ function markAnchor(score: Score, id: string): PasteAnchor | null {
       ...(measure.hairpins ?? []),
       ...(measure.ottavas ?? []),
       ...(measure.pedals ?? []),
+      ...(measure.glyphMarks ?? []),
     ]
     const mark = marks.find(m => m.id === id)
     if (mark) {

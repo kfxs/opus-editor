@@ -2045,7 +2045,7 @@ export class ScoreRenderer {
         drawTempoMarks(pass, measure, stave, staffIndex, sortedSlots, staveNotes, placement.scale)
         // The user's symbols — on EVERY staff (a symbol belongs to its note, not to the clock), at an
         // origin their line pass moves them from (docs/plans/symbol-plan.md P1).
-        drawGlyphMarks(pass, measure, stave, sortedSlots, staveNotes)
+        drawGlyphMarks(pass, measure, stave, sortedSlots, staveNotes, staffIndex)
         for (const b of built) this.registerBeams(b.beams, measure)
         // …and each beam's LINES as its clickable ink, anchored on its first note (`./beams/beamHitInk`).
         registerBeamHitInk(this.elementRegistry, built.flatMap(b => b.beams), sortedSlots, staveNotes, measure.number, staffIndex)

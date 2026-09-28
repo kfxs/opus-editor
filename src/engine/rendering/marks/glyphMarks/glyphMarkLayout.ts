@@ -15,7 +15,7 @@
 import type { EngravedNote } from '../../engraved/EngravedNote'
 import type { EngravedStave } from '../../engraved/EngravedStave'
 import type { ChordRest, GlyphMark, Measure } from '@/types/music'
-import { fracCompare } from '@/utils/fraction'
+import { fracCompare, fracToNumber } from '@/utils/fraction'
 import { smuflGlyph } from '@/engine/fonts/smuflGlyphs'
 import { staffLineY } from '@/engine/engrave/staff/staffFrame'
 import type { RenderPass } from '../../RenderPass'
@@ -65,6 +65,7 @@ function headCentreX(mark: GlyphMark, slots: readonly ChordRest[], notes: readon
  * @param view this staff's lane of the measure (`staffMeasureView`), so `glyphMarks` is already this
  *   staff's alone.
  * @param slots / notes the lane's slots and their drawn notes, index for index.
+ * @param staffIndex which staff this lane is — what the registry files the symbol's box under.
  */
 export function drawGlyphMarks(
   pass: RenderPass,
@@ -72,6 +73,7 @@ export function drawGlyphMarks(
   stave: EngravedStave,
   slots: readonly ChordRest[],
   notes: readonly EngravedNote[],
+  staffIndex: number,
 ): void {
   if (!view.glyphMarks?.length) return
   const frame = staveFrame(stave)
@@ -87,5 +89,22 @@ export function drawGlyphMarks(
     } finally {
       ctx.closeGroup() // never leave the group open — everything after would nest inside it
     }
+    // ⭐ Its box, for the press and the highlight (P3) — the glyph's INK from the table, placed where it
+    //   was just stamped: data, so it is the same box in jsdom as in the browser, and ⛔ never the
+    //   `<text>`'s em box, which is taller than any glyph in it. The line pass moves it with the ink.
+    const sp = frame.spacePx
+    pass.elementRegistry.add({
+      type: 'glyphMark',
+      id: mark.id,
+      measure: view.number,
+      staff: staffIndex,
+      beat: fracToNumber(mark.beat),
+      bbox: {
+        x: x - glyph.box.left * sp,
+        y: y - glyph.box.up * sp,
+        width: (glyph.box.left + glyph.box.right) * sp,
+        height: (glyph.box.up + glyph.box.down) * sp,
+      },
+    })
   }
 }

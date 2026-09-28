@@ -1,4 +1,5 @@
 import { beamOffsetSlotOf } from '@/engine/models/beamOffsetOps'
+import { smuflGlyph } from '@/engine/fonts/smuflGlyphs'
 import type { EditorState } from './EditorState'
 import { assertNeverElement } from './EditorState'
 import type { MusicEngine } from '../../engine/MusicEngine'
@@ -132,6 +133,21 @@ export function selectedElements(state: EditorState, engine: MusicEngine | null)
         overrides: overridesAt(score, element.id),
       })
       break
+    case 'glyphMark': {
+      // ⭐ A user symbol: the mark as the model holds it, plus the one fact it does not store — which
+      //   codepoint its name draws (docs/plans/symbol-plan.md P3).
+      // Read in place rather than through `glyphMarkOps`: an import here is a kind mention OUTSIDE this
+      // switch, which `lint:hubs` counts — the switch itself is the one place a kind may be named.
+      const mark = score.measures.flatMap(m => m.glyphMarks ?? []).find(g => g.id === element.id) ?? null
+      const char = mark ? smuflGlyph(mark.glyph)?.char : undefined
+      out.push({
+        kind: 'glyphMark',
+        data: mark ?? { id: element.id, missing: true },
+        overrides: overridesAt(score, element.id),
+        derived: { codepoint: char ? `U+${char.codePointAt(0)!.toString(16).toUpperCase()}` : null },
+      })
+      break
+    }
     case 'slur': {
       // ⭐ The ARC's authored shape, resolved to the ONE address the panel's inputs write to (his
       // ask, 2026-08-17). A slur's shape lives under two different override kinds — `curveShape` for

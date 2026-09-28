@@ -22,7 +22,7 @@ function renderWith(add: (model: ScoreModel) => void) {
   const renderer = new ScoreRenderer(container)
   renderer.initialize(1200, 800)
   renderer.renderScore(model.getScore())
-  return { container }
+  return { container, renderer }
 }
 
 /** The `translate(0, dy)` the line pass wrote — 0 when it wrote none. */
@@ -67,6 +67,21 @@ describe('the rung — the tempo mark clears a symbol', () => {
       return liftOf(container, id)
     }
     expect(tempoLift(true)).toBeLessThan(tempoLift(false))
+  })
+})
+
+describe('the registry box — the press target moves with the lift', () => {
+  it('files the glyph INK from the table and lifts it by the same amount as the drawing, on every render', () => {
+    let id = ''
+    const { container, renderer } = renderWith(m => { id = addGlyphMark(m.getScore(), 1, { glyph: 'fermataAbove', beat: frac(0, 1) })!.id })
+    const box = () => renderer.getElementRegistry().getById(id)!.bbox
+    const glyph = smuflGlyph('fermataAbove')!.box
+    expect(box().height).toBeCloseTo((glyph.up + glyph.down) * 10)
+    expect(box().width).toBeCloseTo((glyph.left + glyph.right) * 10)
+    const lift = liftOf(container, id)
+    // The glyph was stamped with its baseline on the top line; its ink's top is `up` above that, lifted.
+    const topLine = renderer.getElementRegistry().getStaffGeometry(1, 0)!.lineYPositions[0]
+    expect(box().y).toBeCloseTo(topLine - glyph.up * 10 + lift)
   })
 })
 

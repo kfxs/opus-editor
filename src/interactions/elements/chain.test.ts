@@ -18,10 +18,11 @@ const ALL_KINDS: SelectedElement['kind'][] = [
   'clef', 'timeSignature', 'keySignature', 'tempo', 'dynamic', 'tie', 'slur', 'hairpin', 'trill',
   'ottava', 'pedal', 'accidental', 'articulation', 'dot', 'tremolo', 'stem', 'barline', 'repeatStart',
   'tuplet', 'measureRange', 'scoreText', 'staffGroup', 'headEnclosure', 'glissandoLine', 'noteFlag', 'beamGroup',
+  'glyphMark',
 ]
 
 describe('ELEMENT_SPECS — total over the union', () => {
-  it('answers for all twenty-six kinds, and nothing else', () => {
+  it('answers for all twenty-seven kinds, and nothing else', () => {
     expect(Object.keys(ELEMENT_SPECS).sort()).toEqual([...ALL_KINDS].sort())
   })
 
@@ -92,7 +93,8 @@ describe('ELEMENT_HIT_ORDER — the priority chain', () => {
       // 2026-08-28: every press on the sharps was answering `timeSignature`.
       'keySignature', 'clef', 'timeSignature',
       // Then the marks above and below the staff, each guarded against stealing a note press.
-      'tempo', 'dynamic',
+      // ⭐ …the user's SYMBOL right after the tempo: both outside the staff, on boxes the ladder keeps apart.
+      'tempo', 'glyphMark', 'dynamic',
       // Then the curves, then the sub-elements hanging off a notehead.
       // The hairpin sits with the slur: both are spanners hit by proximity to their own ink, and
       // where they overlap the thinner, closer-to-the-notes ARC wins.

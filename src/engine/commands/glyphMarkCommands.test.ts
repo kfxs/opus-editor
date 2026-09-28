@@ -36,6 +36,16 @@ describe('glyphMarkCommands', () => {
     expect(ctx.score.getScore().measures[0].glyphMarks).toBeUndefined()
   })
 
+  it('remove / flip: one undo entry each, and ⛔ none for an id that names no symbol', () => {
+    const { ctx, cmds, n } = setup()
+    const g = cmds.add(n.id, 'fermataAbove')!
+    expect(cmds.flip(g.id)).toBe(true)
+    expect(cmds.remove(g.id)).toBe(true)
+    expect(cmds.remove(g.id)).toBe(false)
+    expect(cmds.flip(g.id)).toBe(false)
+    expect(ctx.log).toEqual(['mutate:Add symbol', 'mutate:Flip symbol', 'mutate:Delete symbol'])
+  })
+
   it('through the facade (`engine.glyphMark`): undo takes it back, redo returns it', () => {
     const engine = makeEngine()
     const n = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: fracCreate(0, 1) })!
