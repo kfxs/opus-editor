@@ -145,6 +145,21 @@ Each phase stops for his UI check.
 - **P1 — drawing.** Above the staff at its beat, centred (f), stacked (e), no spacing, at the rung of
   (i). Geometry by SCENE test (`ScoreRenderer.recordScene`) where it reaches; the glyph's own extent in
   the browser suite. A cue event's symbol: ⏭️ same size as the others until he says.
+  ✅ **BUILT 2026-09-28**, in two halves:
+  - **P1a — every glyph as data**, his call **(j) = 1**: a SECOND generated table beside the editor's own
+    (`scripts/generate-smufl-glyph-table.mjs` → `engine/fonts/smuflGlyphTable.ts`, 2,899 of the 2,932
+    names — 4 not in the OTF, 29 drawing no ink, listed in its header), read only through
+    `engine/fonts/smuflGlyphs.smuflGlyph(name)` → char, box, `centerX` (optical centre on 30 glyphs,
+    else half the advance). ⚠️ Bravura's numbers whatever the active face — written down there.
+  - **P1b — the drawing**, the tempo mark's arrangement: `rendering/marks/glyphMarks/glyphMarkLayout`
+    stamps each symbol in its bar, centred on its head, at the staff's near line; `glyphMarkLinePass`
+    then lifts it onto its row (`layout/glyphMarkStack` — the first clears the music + the families
+    already placed, each next stands outward in added order) and FILES a claim the tempo pass clears.
+    Rung per (i), wired after `renderOttavas`. Rows in `glyphMarkStyle`: line = LilyPond `TextScript`
+    (padding 0.3, staff-padding 0.5), stack gap = MuseScore `articulationMinDistance` 0.4.
+  ⚠️ First cut: a symbol clears ITS column only — a wide glyph can overhang a neighbour's ink unseen
+  (the tempo pass's same limitation). ⏭️ In `ScoreRenderer` the two calls name the kind; when P3 makes
+  `glyphMark` a `kind`, `lint:hubs` will count them.
 - **P2 — the button.** *Add symbol* live when the selection is exactly one note or rest; a click adds
   the glyph to that event with one undo step; a second click adds a second symbol. ⏭️ With SEVERAL
   notes selected — one symbol on each, or disabled? His call at P2.

@@ -78,6 +78,8 @@ import { attachDynamicsToSlots, layoutCoLocatedDynamics, applyDynamicOffsets, re
 import { placeDynamicsOnLine, markInk } from './marks/dynamics/dynamicsLinePass'
 import { drawTempoMarks } from './marks/tempo/TempoLayout'
 import { placeTempoMarksOnLine } from './marks/tempo/tempoLinePass'
+import { drawGlyphMarks } from './marks/glyphMarks/glyphMarkLayout'
+import { placeGlyphMarksOnLine } from './marks/glyphMarks/glyphMarkLinePass'
 import {
   createStaveNotesFromSlots,
   restSupportingLedgerLine,
@@ -2041,6 +2043,9 @@ export class ScoreRenderer {
         // staff). Must come after the voices are drawn — a mark anchors to a note's
         // absolute X, which does not exist before formatting.
         drawTempoMarks(pass, measure, stave, staffIndex, sortedSlots, staveNotes, placement.scale)
+        // The user's symbols — on EVERY staff (a symbol belongs to its note, not to the clock), at an
+        // origin their line pass moves them from (docs/plans/symbol-plan.md P1).
+        drawGlyphMarks(pass, measure, stave, sortedSlots, staveNotes)
         for (const b of built) this.registerBeams(b.beams, measure)
         // …and each beam's LINES as its clickable ink, anchored on its first note (`./beams/beamHitInk`).
         registerBeamHitInk(this.elementRegistry, built.flatMap(b => b.beams), sortedSlots, staveNotes, measure.number, staffIndex)
@@ -3869,6 +3874,12 @@ export class ScoreRenderer {
     // (docs/plans/ottava-plan.md P3). ⛔ Move this call and you change the order; there is no table.
     inkAt('ottava')
     renderOttavas(pass, score, placements, staffList.map(staff => staff.id), ottavaBands)
+
+    // ⭐ …then the user's SYMBOLS, and this position IS their rung: outside the trill, the dynamics and
+    // the octave line, inside the tempo — LilyPond's `TextScript` (450), the grob a free `\markup` on a
+    // note is (docs/plans/symbol-plan.md §4 (i)). It reads what those filed and files its own, which the
+    // tempo pass below then clears. ⛔ Move this call and you change the order; there is no table.
+    placeGlyphMarksOnLine(pass, placements, staffList.map(staff => staff.id))
 
     // ⭐⭐ …then the SUSTAIN PEDALS, and this position IS their rung — the LAST of the below-staff
     // families. A pedal line goes below the bottom staff and outside EVERYTHING (Dorico, *Positions
