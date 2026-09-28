@@ -8,9 +8,11 @@
  * thing on any radius. Only the MUSIC's room is scaled (`eye/spineSpacing`'s `natural`); the lead-in — a
  * barline's clearance, a header — is rigid, as on the page. Inside the bar the page's springs share it.
  *
- * On a justified spine (a circle) growth is a TRANSFER: the bars share a fixed length in proportion to
- * what they ask, so a stretched bar takes its extra from the others. The console's `radius: 'auto'` sizes
- * the circle from what the stretched music asks (`naturalSpineLength`), so there the circle grows instead.
+ * On a justified spine (a circle) growth is a TRANSFER: a stretched bar takes its extra from the others.
+ * ⭐ A bar with a stretch is HELD (his report, 2026-09-28): it keeps stretch × its unstretched share, and only
+ * the bars NOBODY stretched give or take — shrinking bar 2 never re-grows bar 1 (`eye/spineSpacing`
+ * `justifiedWidths`). ×1 (or reset) removes the row, so the bar is free again. The console's `radius: 'auto'`
+ * sizes the circle from what the stretched music asks (`naturalSpineLength`), so there the circle grows too.
  *
  * ⚠️ **Kept for the SESSION only** — keyed by measure id, held by the panel; ⛔ not in the score JSON (his
  * word: where spine adjustments are stored is not decided — plan §9.3 C).

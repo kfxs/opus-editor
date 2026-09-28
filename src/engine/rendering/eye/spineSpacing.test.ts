@@ -27,10 +27,39 @@ describe('spaceBarsOnSpine', () => {
     const plain = spaceBarsOnSpine(score, 0, room, true)
     const stretched = spaceBarsOnSpine(score, 0, room, true, 1, { barStretch: new Map([[score.measures[1].id, 2]]) })
     expect(stretched[2].end).toBeCloseTo(room, 6)
-    // Three equal bars, one asking ×2: its share of the music's room goes from 1/3 to 2/4.
-    expect(width(stretched[1]) / width(plain[1])).toBeCloseTo(1.5, 6)
-    expect(width(stretched[0])).toBeLessThan(width(plain[0]))
-    expect(width(stretched[2])).toBeLessThan(width(plain[2]))
+    // Three equal bars, one asking ×2: it gets twice its unstretched share; the other two give it.
+    expect(width(stretched[1]) / width(plain[1])).toBeCloseTo(2, 6)
+    expect(width(stretched[0]) / width(plain[0])).toBeCloseTo(0.5, 6)
+    expect(width(stretched[2]) / width(plain[2])).toBeCloseTo(0.5, 6)
+  })
+
+  it('⭐ his report, 2026-09-28: a bar the hand already stretched is HELD — shrinking ANOTHER bar does not change it', () => {
+    const m = model(3)
+    for (let bar = 1; bar <= 3; bar++) for (let i = 0; i < 4; i++) add(m, bar, i, 1, 'q')
+    const score = m.getScore()
+    const room = naturalSpineLength(score) * 1.2
+    const width = (b: { musicStart: number; end: number }) => b.end - b.musicStart
+    const [id1, id2] = score.measures.map(measure => measure.id)
+    const one = spaceBarsOnSpine(score, 0, room, true, 1, { barStretch: new Map([[id1, 0.5]]) })
+    const both = spaceBarsOnSpine(score, 0, room, true, 1, { barStretch: new Map([[id1, 0.5], [id2, 0.5]]) })
+    expect(width(both[0])).toBeCloseTo(width(one[0]), 6)
+    // Only the untouched bar takes what bar 2 gave; the room is still filled.
+    expect(width(both[2])).toBeGreaterThan(width(one[2]))
+    expect(both[2].end).toBeCloseTo(room, 6)
+  })
+
+  it('every bar held: what nobody asked for stays EMPTY at the end — the hand\'s values are not rewritten', () => {
+    const m = model(2)
+    for (let bar = 1; bar <= 2; bar++) for (let i = 0; i < 4; i++) add(m, bar, i, 1, 'q')
+    const score = m.getScore()
+    const room = naturalSpineLength(score) * 1.2
+    const width = (b: { musicStart: number; end: number }) => b.end - b.musicStart
+    const [id1, id2] = score.measures.map(measure => measure.id)
+    const plain = spaceBarsOnSpine(score, 0, room, true)
+    const held = spaceBarsOnSpine(score, 0, room, true, 1, { barStretch: new Map([[id1, 0.5], [id2, 0.5]]) })
+    expect(width(held[0]) / width(plain[0])).toBeCloseTo(0.5, 6)
+    expect(width(held[1]) / width(plain[1])).toBeCloseTo(0.5, 6)
+    expect(held[1].end).toBeLessThan(room)
   })
 
   it('a stretch scales the MUSIC\'s room only — the natural length grows by what the bar\'s music asks, the lead-in stays', () => {

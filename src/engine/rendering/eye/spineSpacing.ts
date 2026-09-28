@@ -65,8 +65,12 @@ interface AskedBar {
   columns: Column[]
   /** px from the bar's start to its first column's anchor. */
   leadIn: number
-  /** px the columns ask for, first column to barline, unjustified. */
+  /** px the columns ask for, first column to barline, unjustified — with the bar's STRETCH. */
   natural: number
+  /** The same, as engraved — without the stretch. */
+  plain: number
+  /** ⭐ The hand set this bar's stretch — its room is HELD while the others share what is left. */
+  held: boolean
 }
 
 function ask(score: Score, measure: Measure, index: number, adjust?: SpineAdjustments): AskedBar {
@@ -97,11 +101,14 @@ function ask(score: Score, measure: Measure, index: number, adjust?: SpineAdjust
   // ⭐ A column's SPACE (`./spineColumnSpace`) goes into its reserved gap — the first column's into the lead-in,
   //    which may give up to its own clearance (`before`) and no more.
   const { columns, leadIn: spaceBeforeFirst } = withSpineSpace(measure, engraved, adjust?.columnSpace, before)
+  const plain = naturalWidth(columns) * STAFF_SPACE_PX
   return {
     columns,
     leadIn: (before + spaceBeforeFirst + lead.extent + repeatStartRoom(measure)) * STAFF_SPACE_PX,
     // ⭐ A bar's STRETCH (`./spineBarStretch`) scales what its MUSIC asks — never the lead-in, which is rigid.
-    natural: naturalWidth(columns) * STAFF_SPACE_PX * spineStretchOf(adjust?.barStretch, measure.id),
+    natural: plain * spineStretchOf(adjust?.barStretch, measure.id),
+    plain,
+    held: adjust?.barStretch?.has(measure.id) ?? false,
   }
 }
 
@@ -161,15 +168,12 @@ export function spaceBarsOnSpine(
     }))
   }
   const asked = score.measures.map((measure, index) => ask(score, measure, index, adjust))
-  const leadIns = asked.reduce((total, bar) => total + bar.leadIn, 0)
-  const naturals = asked.reduce((total, bar) => total + bar.natural, 0)
-  // ⭐ The lead-ins are RIGID (a barline's clearance is not a spring); the music shares what is left.
-  const stretch = justify && naturals > 0 ? Math.max(0, to - from - leadIns) / naturals : 1
+  const widths = justify ? justifiedWidths(asked, to - from) : asked.map(bar => bar.natural)
   const headHalf = (INK.notehead / 2) * STAFF_SPACE_PX
 
   let start = from
-  return asked.map(bar => {
-    const width = bar.natural * stretch
+  return asked.map((bar, index) => {
+    const width = widths[index]
     const xs = spaceColumns(bar.columns, width / STAFF_SPACE_PX).map(x => x * STAFF_SPACE_PX)
     const first = start + bar.leadIn
     const end = first + width
@@ -186,4 +190,33 @@ export function spaceBarsOnSpine(
     start = end
     return room
   })
+}
+
+/**
+ * Each bar's MUSIC room when the bars fill `room`. ⭐ The lead-ins are RIGID (a barline's clearance is not a
+ * spring); the music shares what is left.
+ *
+ * ⭐⭐ **A bar the hand stretched is HELD** (his report, 2026-09-28: bar 1 shrunk, then bar 2 shrunk — and bar 1
+ * grew back, taking what bar 2 gave; *"we should not change a bar that was already changed by the user"*).
+ * A held bar gets its stretch × the share an UNSTRETCHED score would give it — the same room whatever is done
+ * to any other bar — and only the bars nobody touched give or take the difference. With none left to take it,
+ * the room left over stays EMPTY staff at the end (⛔ the hand's values are not rewritten to fill it).
+ * ⚠️ Only when the held bars ask for MORE than the room is everything shared in proportion, as before — the
+ * music must fit.
+ */
+function justifiedWidths(asked: readonly AskedBar[], room: number): number[] {
+  const music = Math.max(0, room - asked.reduce((total, bar) => total + bar.leadIn, 0))
+  const plains = asked.reduce((total, bar) => total + bar.plain, 0)
+  const proportional = (): number[] => {
+    const naturals = asked.reduce((total, bar) => total + bar.natural, 0)
+    return asked.map(bar => (naturals > 0 ? bar.natural * music / naturals : bar.natural))
+  }
+  if (plains <= 0) return proportional()
+  // The share of the room one unit of plain music gets when nothing is stretched.
+  const unit = music / plains
+  const heldRoom = asked.reduce((total, bar) => total + (bar.held ? bar.natural * unit : 0), 0)
+  if (heldRoom > music) return proportional()
+  const free = asked.reduce((total, bar) => total + (bar.held ? 0 : bar.natural), 0)
+  const freeUnit = free > 0 ? (music - heldRoom) / free : 0
+  return asked.map(bar => bar.natural * (bar.held ? unit : freeUnit))
 }
