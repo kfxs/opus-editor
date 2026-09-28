@@ -5,6 +5,7 @@ import { ScoreModel } from '@/engine/models/ScoreModel'
 import { SceneRecorder } from '@/engine/scene/SceneRecorder'
 import { drawScoreOnSpine, type SpinePlacedReport } from '@/engine/rendering/eye/spineScore'
 import { describe, SpinePropertiesWidget } from './spinePropertiesWindow'
+import type { SpineSign } from '@/engine/rendering/eye/spineSignSpace'
 
 /** Subject: `./spinePropertiesWindow` — what the read-only window REPORTS for the selection (plan §9). */
 
@@ -26,7 +27,7 @@ const report = (r: ReturnType<typeof describe>) => {
 describeSpec('Spine Properties — the report, as JSON like the Properties window (his ask, 2026-09-28)', () => {
   it('a NOTE: what it is (pitch, length, bar, beat, voice, staff) and where it stands on the spine', () => {
     const { m, placed, id } = setUp()
-    const r = report(describe({ getScore: () => m.getScore(), selected: () => ({ ids: [id], barline: null }), placed: () => placed }))
+    const r = report(describe({ getScore: () => m.getScore(), selected: () => ({ ids: [id], barline: null, sign: null }), placed: () => placed }))
     expect(r.kind).toBe('note')
     expect(r.data).toMatchObject({ pitch: ['E♭5'], duration: 'q', quarters: 1, bar: 1, beat: 3, voice: 1, staff: 1 })
     expect(r.spine).toMatchObject({ staff: 1 })
@@ -37,7 +38,7 @@ describeSpec('Spine Properties — the report, as JSON like the Properties windo
   it('a BARLINE: the bar it ends, its place on the spine, and its stretch', () => {
     const { m, placed } = setUp()
     const r = report(describe({
-      getScore: () => m.getScore(), selected: () => ({ ids: [], barline: 1 }), placed: () => placed, stretch: { of: () => 1.5 },
+      getScore: () => m.getScore(), selected: () => ({ ids: [], barline: 1, sign: null }), placed: () => placed, stretch: { of: () => 1.5 },
     }))
     expect(r.kind).toBe('barline')
     expect(r.barline).toBe(1)
@@ -47,9 +48,9 @@ describeSpec('Spine Properties — the report, as JSON like the Properties windo
 
   it('nothing selected — says so; the panel closed — says how to open it', () => {
     const { m, id } = setUp()
-    expect(describe({ getScore: () => m.getScore(), selected: () => ({ ids: [], barline: null }), placed: () => new Map() }))
+    expect(describe({ getScore: () => m.getScore(), selected: () => ({ ids: [], barline: null, sign: null }), placed: () => new Map() }))
       .toMatch(/^Nothing selected/)
-    const closed = report(describe({ getScore: () => m.getScore(), selected: () => ({ ids: [id], barline: null }), placed: () => new Map() }))
+    const closed = report(describe({ getScore: () => m.getScore(), selected: () => ({ ids: [id], barline: null, sign: null }), placed: () => new Map() }))
     expect(closed.spine).toMatch(/__spine\.show\(\)/)
   })
 
@@ -62,12 +63,13 @@ describeSpec('Spine Properties — the report, as JSON like the Properties windo
     const deps = {
       windows: undefined as never,
       getScore: () => m.getScore(),
-      selected: () => ({ ids: barline === null ? [id] : [], barline }),
+      selected: () => ({ ids: barline === null ? [id] : [], barline, sign: null }),
       onSelectionChange: () => () => {},
       placed: () => placed,
       onRedraw: () => () => {},
       stretch: { of: () => value, set: (measure: number, v: number) => { calls.push([measure, v]); value = v } },
       space: { of: () => 0, set: (noteId: string, v: number) => { spaceCalls.push([noteId, v]) } },
+      signSpace: { of: () => 0, set: () => {} },
     }
     const host = document.createElement('div')
     new SpinePropertiesWidget(deps).mount(host)
@@ -96,5 +98,39 @@ describeSpec('Spine Properties — the report, as JSON like the Properties windo
     expect(spaceCalls[0]).toEqual([id, 1.25])
     noteHost.querySelector<HTMLButtonElement>('.spine-properties-space button')!.click()
     expect(spaceCalls[1]).toEqual([id, 0])
+  })
+
+  it('⭐ a header CLEF and METER (his ask, 2026-09-28): what each is, where the spine drew it, and its SPACE knob on top', () => {
+    const { m, placed } = setUp()
+    const calls: [string, number][] = []
+    let sign: SpineSign | null = { kind: 'clef', measure: 1, staff: 0 }
+    const deps = {
+      windows: undefined as never,
+      getScore: () => m.getScore(),
+      selected: () => ({ ids: [], barline: null, sign }),
+      onSelectionChange: () => () => {},
+      placed: () => placed,
+      onRedraw: () => () => {},
+      stretch: { of: () => 1, set: () => {} },
+      space: { of: () => 0, set: () => {} },
+      signSpace: { of: () => 0.5, set: (s: SpineSign, v: number) => { calls.push([s.kind, v]) } },
+    }
+    const clef = report(describe(deps))
+    expect(clef.kind).toBe('clef')
+    expect(clef.data).toEqual({ clef: 'treble', bar: 1, staff: 1 })
+    expect(clef.spine).toMatchObject({ staff: 1, spaceSp: 0.5 })
+    const host = document.createElement('div')
+    new SpinePropertiesWidget(deps).mount(host)
+    expect(host.querySelector('.spine-properties')!.children[1].classList.contains('spine-properties-sign-space')).toBe(true)
+    const input = host.querySelector<HTMLInputElement>('.spine-properties-sign-space input')!
+    input.value = '2'
+    input.dispatchEvent(new Event('change'))
+    expect(calls[0]).toEqual(['clef', 2])
+
+    sign = { kind: 'timeSignature', measure: 1 }
+    const meter = report(describe(deps))
+    expect(meter.kind).toBe('time signature')
+    expect(meter.data).toEqual({ timeSignature: '4/4', bar: 1 })
+    expect(typeof (meter.spine as Record<string, unknown>).alongPathSp).toBe('number')
   })
 })

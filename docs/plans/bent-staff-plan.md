@@ -417,6 +417,19 @@ elements selected, for the moment we dont really know what goes in the propertie
 - Knobs travel as ONE bundle, `eye/spineAdjustments` (`barStretch` + `columnSpace`) — a new knob is a field there.
 - ⛔ NOT STORED — the panel keeps it for the session, like the stretch.
 
+### 9.3f ✅ BUILT 2026-09-28 — picking and MOVING a header CLEF or METER (his ask: *"select independently too the clef and the time signature and be able to move it too"*)
+
+- Each drawn clef and meter is TAGGED (`eye/spineSignSpace.SPINE_SIGN_ATTR`, `clef:<bar>:<staff>` /
+  `timeSignature:<bar>` — the ENGINE's words, `SpineSign`) and carries an invisible hit rectangle (a glyph alone was
+  not hit — seen in Chromium). A click selects the editor's own `{ kind: 'clef', measure, beat: 0, staff }` /
+  `{ kind: 'timeSignature', measure }` (translated in `App.ts`); the sign wears the element colour; a clef or meter
+  picked on the PAGE lights on the spine too.
+- Spine Properties: the kind, **space (sp)** at the top, JSON (`clef`/`timeSignature`, bar, staff) and `on the spine`.
+- ⭐ SPACE = room BEFORE the sign in the header's lined-up COLUMNS (`spineHeaderColumns(headers, shift)`): it MOVES
+  the sign and everything after (key, meter, music, a `|:` after the header) — every staff's clef at that bar
+  together, so the system stays lined up. Keyed `<measure id>:clef|meter`. Tighter stops when the gap reaches 0.
+- ⛔ NOT STORED — session only, like the other knobs (`eye/spineAdjustments.signSpace`).
+
 ### 9.4 Facts found while planning (so the build does not rediscover them)
 
 - The panel is `dev/spineConsole.ts` — scaffolding wired by `App.ts` (`__spine`); it redraws by POLLING the

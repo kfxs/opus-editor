@@ -31,6 +31,8 @@ import { boundaryWinged } from '../staff/BarlineRenderer'
 import { staffBarlineExtent } from '../staff/barlineInk'
 import { paintBrace, paintBracket, paintSubBracket, paintSystemConnector } from '../staff/systemStart'
 import { type SpineHeader, spineHeaderColumns } from './spineHeader'
+import type { SpineAdjustments } from './spineAdjustments'
+import { spineSignShift } from './spineSignSpace'
 import type { SpineBar } from './spineSpacing'
 import { SPINE_BLOCK_CLASS, blockFrame } from './spineStaff'
 import type { SpineStaff } from './spineStaves'
@@ -63,13 +65,14 @@ export const SPINE_BARLINE_ATTR = 'data-spine-barline'
  */
 export function spineBoundaries(
   score: Score, bars: readonly SpineBar[], headers: readonly (SpineHeader | undefined)[][], innermost: number,
+  adjust?: SpineAdjustments,
 ): SpineBoundary[] {
   const out: SpineBoundary[] = []
   score.measures.forEach((measure, i) => {
     const bar = bars[i]
     const systemHeader = headers[i].some(Boolean)
     if (measure.repeatStart !== undefined && (i === 0 || systemHeader)) {
-      const after = spineHeaderColumns(headers[i]).width + (HEADER_TO_REPEAT + barlineSignExtent('repeatStart').left) * STAFF_SPACE_PX
+      const after = spineHeaderColumns(headers[i], spineSignShift(adjust?.signSpace, measure.id, STAFF_SPACE_PX)).width + (HEADER_TO_REPEAT + barlineSignExtent('repeatStart').left) * STAFF_SPACE_PX
       out.push({ s: systemHeader ? bar.start + after / innermost : bar.start, kind: 'repeatStart', wings: boundaryWinged(undefined, measure), endsMeasure: null })
     }
     const next = score.measures[i + 1]

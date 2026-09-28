@@ -42,6 +42,7 @@ import { EngravedClef } from '../engraved/EngravedClef'
 import { EngravedTimeSignature } from '../engraved/EngravedTimeSignature'
 import { drawGroupOf } from '../painter/svgDrawGroup'
 import { drawKeySignatureRow } from '../staff/KeySignaturePass'
+import { SPINE_SIGN_ATTR, type SpineSign, spineSignTag } from './spineSignSpace'
 import { SPINE_BLOCK_CLASS, blockFrame, drawSpineSign } from './spineStaff'
 
 /** A bar's header on a spine: the layout's own {@link Header}, plus the clef its key signature is read on. */
@@ -90,7 +91,8 @@ export function spineHeaderParts(header: SpineHeader): SpineHeaderPart[] {
   const parts: SpineHeaderPart[] = []
   const signPart = (kind: SpineHeaderPartKind, sign: EngravedClef | EngravedTimeSignature): SpineHeaderPart => {
     const { padding, width } = sign.walkInput()
-    return { kind, gap: padding, width, draw: (ctx, spine, s) => { drawSpineSign(ctx, spine, sign, s) } }
+    // A clef and a meter can be PICKED in the panel (`./spineSignSpace`): each block carries its click target.
+    return { kind, gap: padding, width, draw: (ctx, spine, s) => { drawSpineSign(ctx, spine, sign, s, true) } }
   }
   if (header.clef) parts.push(signPart('clef', new EngravedClef(header.clef.clef, header.clef.small ? 'small' : 'default')))
   if (header.key) {
@@ -135,15 +137,20 @@ export interface SpineHeaderColumns {
   startOf: Partial<Record<SpineHeaderPartKind, number>>
 }
 
-/** Line up `headers` (one per staff, undefined for a staff that draws none here). */
-export function spineHeaderColumns(headers: readonly (SpineHeader | undefined)[]): SpineHeaderColumns {
+/**
+ * Line up `headers` (one per staff, undefined for a staff that draws none here). `shift` widens the gap BEFORE
+ * a column, px — the hand's space on the spine (`./spineSignSpace`); a gap never goes below 0.
+ */
+export function spineHeaderColumns(
+  headers: readonly (SpineHeader | undefined)[], shift: Partial<Record<SpineHeaderPartKind, number>> = {},
+): SpineHeaderColumns {
   const parts = headers.map(header => (header ? spineHeaderParts(header) : []))
   const startOf: SpineHeaderColumns['startOf'] = {}
   let at = 0
   for (const kind of PART_ORDER) {
     const column = parts.flatMap(list => list.filter(part => part.kind === kind))
     if (column.length === 0) continue
-    const start = at + Math.max(...column.map(part => part.gap))
+    const start = at + Math.max(0, Math.max(...column.map(part => part.gap)) + (shift[kind] ?? 0))
     startOf[kind] = start
     at = start + Math.max(...column.map(part => part.width))
   }
@@ -165,10 +172,21 @@ export function spineSystemHeaders(
 export function drawSpineBarHeader(
   ctx: DrawContext, spine: Spine, s: number, header: SpineHeader,
   columns: SpineHeaderColumns = spineHeaderColumns([header]), scale = 1,
+  /** The bar and staff this header is drawn for — each clef and meter is TAGGED with them (`./spineSignSpace`). */
+  at?: { measure: number; staff: number },
 ): number {
   for (const part of spineHeaderParts(header)) {
     const start = columns.startOf[part.kind] ?? 0
-    part.draw(ctx, spine, s + (start + part.width / 2) * scale - part.width / 2)
+    const sign: SpineSign | undefined = !at ? undefined
+      : part.kind === 'clef' ? { kind: 'clef', measure: at.measure, staff: at.staff }
+        : part.kind === 'meter' ? { kind: 'timeSignature', measure: at.measure } : undefined
+    const group = sign ? drawGroupOf(ctx.openGroup('spine-sign')) : undefined
+    try {
+      part.draw(ctx, spine, s + (start + part.width / 2) * scale - part.width / 2)
+    } finally {
+      if (sign) ctx.closeGroup()
+    }
+    if (sign) group?.tag(SPINE_SIGN_ATTR, spineSignTag(sign))
   }
   return s + columns.width * scale
 }

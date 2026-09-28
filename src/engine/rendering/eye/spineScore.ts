@@ -68,6 +68,7 @@ import { tupletBracketEnd, tupletBracketed, tupletMarkRuns } from '@/utils/music
 import { buildBeams } from '../beams/beamGroups'
 import type { EngravedNote } from '../engraved/EngravedNote'
 import type { SpineAdjustments } from './spineAdjustments'
+import { spineSignShift, spineSignTag } from './spineSignSpace'
 import { type SpineBar, deepestInkPx, spaceBarsOnSpine, spineStaffLanes } from './spineSpacing'
 import { type SpineHeader, drawSpineBarHeader, spineHeaderColumns, spineHeaderMeterAt, spineSystemHeaders } from './spineHeader'
 import { type SpineStaff, barOnStaff, spineStaves } from './spineStaves'
@@ -151,7 +152,7 @@ export function drawScoreOnSpine(
   const lanes = spineStaffLanes(score)
   const headers = score.measures.map((_, i) => spineSystemHeaders(score, lanes, i))
   // ⭐ Every staff's barlines stand on the system's boundaries — one list, at one angle on every staff.
-  const boundaries = spineBoundaries(score, bars, headers, innermost)
+  const boundaries = spineBoundaries(score, bars, headers, innermost, adjust)
   // ⭐ On a CLOSED path whose start carries signs (the systemic line, a brace, a bracket — `./spineSystem`),
   //    a staff's lines END at its last barline, as a line's do on the page, and the seam back to the signs
   //    is left empty (his report, 2026-09-27: *"between the last line and the staff connector there is also
@@ -166,7 +167,7 @@ export function drawScoreOnSpine(
   //    spacing left it room — and each staff further out stretches it by how much longer its path is, so
   //    the clefs, keys and meters of a system stand on one radius. One staff: nothing stretches.
   for (const staff of staves) {
-    drawStaffOnSpine(ctx, score, staff, lanes[staff.index], bars.map(bar => barOnStaff(bar, staff.ratio)), headers, staff.ratio / innermost, placed)
+    drawStaffOnSpine(ctx, score, staff, lanes[staff.index], bars.map(bar => barOnStaff(bar, staff.ratio)), headers, staff.ratio / innermost, placed, adjust)
     for (const { s, kind, wings, endsMeasure } of boundaries) {
       const group = drawSpineBarline(ctx, staff.spine, s * staff.ratio, kind, wings)
       if (endsMeasure !== null) group?.tag(SPINE_BARLINE_ATTR, String(endsMeasure))
@@ -187,7 +188,7 @@ export function drawScoreOnSpine(
 function drawStaffOnSpine(
   ctx: DrawContext, score: Score, staff: SpineStaff, lane: { clefs: StaffClefs; keys: StaffKeys },
   bars: readonly SpineBar[], systemHeaders: readonly (SpineHeader | undefined)[][], headerScale: number,
-  placed?: SpinePlacedReport,
+  placed?: SpinePlacedReport, adjust?: SpineAdjustments,
 ): void {
   const spine = staff.spine
   const staffId = staff.id
@@ -215,8 +216,16 @@ function drawStaffOnSpine(
     // The clef, key signature and meter this bar draws — the staff's head, or a CHANGE (`./spineHeader`) —
     // lined up with the system's other staves.
     const header = systemHeaders[i][staff.index]
-    const columns = spineHeaderColumns(systemHeaders[i])
-    if (header) drawSpineBarHeader(ctx, spine, bar.start, header, columns, headerScale)
+    const columns = spineHeaderColumns(systemHeaders[i], spineSignShift(adjust?.signSpace, measure.id, STAFF_SPACE_PX))
+    if (header) drawSpineBarHeader(ctx, spine, bar.start, header, columns, headerScale, { measure: measure.number, staff: staff.index })
+    // ⭐ Where each clef and meter BEGINS — what Spine Properties reports for a picked sign (`./spineSignSpace`).
+    if (header?.clef && columns.startOf.clef !== undefined) {
+      placed?.set(spineSignTag({ kind: 'clef', measure: measure.number, staff: staff.index }), { staff: staff.index, s: bar.start + columns.startOf.clef * headerScale, spine })
+    }
+    // (A meter is one pick for the whole system — the TOP staff's place stands for it, as a barline's does.)
+    if (header?.meter && columns.startOf.meter !== undefined && !placed?.has(spineSignTag({ kind: 'timeSignature', measure: measure.number }))) {
+      placed?.set(spineSignTag({ kind: 'timeSignature', measure: measure.number }), { staff: staff.index, s: bar.start + columns.startOf.meter * headerScale, spine })
+    }
     const lane = staffMeasureView(measure, staffId, score)
     markBars.push({ view: lane, tempos: measure.tempos ?? [], bar, meterAt: header && spineHeaderMeterAt(bar.start, header, columns, headerScale) })
     const clef = clefs.get(measure.number) ?? 'treble'

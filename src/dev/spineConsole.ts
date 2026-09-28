@@ -54,6 +54,7 @@
 import { deepestInkPx, naturalSpineLength } from '../engine/rendering/eye/spineSpacing'
 import { clampSpineStretch, measureIdOfNumber, spineStretchOf } from '@/engine/rendering/eye/spineBarStretch'
 import { spineColumnKeyOf } from '@/engine/rendering/eye/spineColumnSpace'
+import { SPINE_SIGN_ATTR, type SpineSign, sameSpineSign, spineSignFromTag, spineSignSpaceKey } from '@/engine/rendering/eye/spineSignSpace'
 import type { SpineAdjustments } from '@/engine/rendering/eye/spineAdjustments'
 import { spineStaffTops } from '../engine/rendering/eye/spineStaves'
 import { musicFontGeneration } from '../engine/fonts/musicFont'
@@ -121,8 +122,11 @@ function fourthsScore(count: number): string {
   return model.toJSON()
 }
 
-/** What a click in the panel can pick: a note or rest (by the id the editor selects it by), or a barline (the bar it ENDS). */
-export type SpinePick = { kind: 'note'; id: string } | { kind: 'barline'; measure: number }
+/**
+ * What a click in the panel can pick: a note or rest (by the id the editor selects it by), a barline (the bar it ENDS),
+ * or a header CLEF or METER (`eye/spineSignSpace.SpineSign`, his ask 2026-09-28).
+ */
+export type SpinePick = { kind: 'note'; id: string } | { kind: 'barline'; measure: number } | SpineSign
 
 export interface SpineConsoleDeps {
   getScore(): Score | null
@@ -135,8 +139,8 @@ export interface SpineConsoleDeps {
    * the editor's selection (docs/plans/bent-staff-plan.md §9.1, *"share selection"*), ⛔ no second one.
    */
   select(pick: SpinePick | null): void
-  /** What the editor has selected right now: its notes' ids, and the barline (the bar it ENDS), if one is. */
-  selected(): { ids: ReadonlySet<string>; barline: number | null }
+  /** What the editor has selected right now: its notes' ids, the barline (the bar it ENDS), and a header clef or meter. */
+  selected(): { ids: ReadonlySet<string>; barline: number | null; sign: SpineSign | null }
   /** Called when the editor's selection changes; answers an unsubscribe. */
   onSelectionChange(fn: () => void): () => void
 }
@@ -169,6 +173,10 @@ export interface SpineConsole {
   stretchOf(measure: number): number
   /** Set that bar's stretch for the SESSION and redraw; ×1 removes the row. A value that is not a number is refused. */
   setStretch(measure: number, value: number): void
+  /** The space before a header clef or meter on the spine (`eye/spineSignSpace`), in staff spaces. */
+  signSpaceOf(sign: SpineSign): number
+  /** Set it for the SESSION and redraw; 0 removes the row. A value that is not a number is refused. */
+  setSignSpace(sign: SpineSign, value: number): void
   /** The space before the column a note or rest (by the id the editor selects it by) stands in, in staff spaces. */
   spaceOf(id: string): number
   /** Set that column's space for the SESSION and redraw; 0 removes the row. A value that is not a number is refused. */
@@ -233,7 +241,9 @@ export function spineConsole(deps: SpineConsoleDeps): SpineConsole {
   let stretches = new Map<string, number>()
   /** ⭐ Each column's space on the spine, by the page's column key — the SESSION's; only `clear()` forgets. */
   let spaces = new Map<string, number>()
-  const adjustments = (): SpineAdjustments => ({ barStretch: stretches, columnSpace: spaces })
+  /** ⭐ Each header clef's / meter's space on the spine — the SESSION's; only `clear()` forgets. */
+  let signSpaces = new Map<string, number>()
+  const adjustments = (): SpineAdjustments => ({ barStretch: stretches, columnSpace: spaces, signSpace: signSpaces })
   let redrawListeners: (() => void)[] = []
 
   /** Stops following the editor's selection — set while the panel is up. */
@@ -277,6 +287,7 @@ export function spineConsole(deps: SpineConsoleDeps): SpineConsole {
     canvas = undefined
     stretches = new Map()
     spaces = new Map()
+    signSpaces = new Map()
   }
 
   /**
@@ -360,10 +371,12 @@ export function spineConsole(deps: SpineConsoleDeps): SpineConsole {
    * ENDS (`eye/spineSystem.SPINE_BARLINE_ATTR`), the editor's barline. A click on nothing clears, as a tap does.
    */
   const clickAt = (target: EventTarget | null) => {
-    const hit = target instanceof Element ? target.closest(`[${SPINE_IDS_ATTR}], [${SPINE_BARLINE_ATTR}]`) : null
+    const hit = target instanceof Element ? target.closest(`[${SPINE_IDS_ATTR}], [${SPINE_BARLINE_ATTR}], [${SPINE_SIGN_ATTR}]`) : null
     const id = hit?.getAttribute(SPINE_IDS_ATTR)?.split(' ')[0]
     const measure = hit?.getAttribute(SPINE_BARLINE_ATTR)
-    deps.select(id ? { kind: 'note', id } : measure ? { kind: 'barline', measure: Number(measure) } : null)
+    // ⭐ A header CLEF or METER (his ask, 2026-09-28) — tagged by the drawing (`eye/spineSignSpace`).
+    const sign = spineSignFromTag(hit?.getAttribute(SPINE_SIGN_ATTR))
+    deps.select(id ? { kind: 'note', id } : measure ? { kind: 'barline', measure: Number(measure) } : sign ?? null)
   }
 
   /**
@@ -373,7 +386,7 @@ export function spineConsole(deps: SpineConsoleDeps): SpineConsole {
    */
   const paintSelection = () => {
     if (!host) return
-    const { ids: selected, barline } = deps.selected()
+    const { ids: selected, barline, sign } = deps.selected()
     for (const group of host.querySelectorAll<SVGGElement>(`[${SPINE_IDS_ATTR}]`)) {
       const ids = group.getAttribute(SPINE_IDS_ATTR)?.split(' ') ?? []
       const colour = voiceFillColor(Number(group.getAttribute(SPINE_VOICE_ATTR) ?? 0))
@@ -383,6 +396,10 @@ export function spineConsole(deps: SpineConsoleDeps): SpineConsole {
     //    in every joined gap — the page's highlight lights the whole system's line.
     for (const group of host.querySelectorAll<SVGGElement>(`[${SPINE_BARLINE_ATTR}]`)) {
       wear(group, Number(group.getAttribute(SPINE_BARLINE_ATTR)) === barline ? ELEMENT_SELECTION_FILL : null)
+    }
+    // …and so does a picked clef or meter (a meter on every staff: it is one pick for the system).
+    for (const group of host.querySelectorAll<SVGGElement>(`[${SPINE_SIGN_ATTR}]`)) {
+      wear(group, sameSpineSign(spineSignFromTag(group.getAttribute(SPINE_SIGN_ATTR)), sign) ? ELEMENT_SELECTION_FILL : null)
     }
   }
 
@@ -685,6 +702,25 @@ export function spineConsole(deps: SpineConsoleDeps): SpineConsole {
       else next.set(id, stretch)
       stretches = next
       dbg(`[spine] bar ${measure} stretch ×${stretch} (this session only)`)
+      if (host) draw(shape)
+    },
+    signSpaceOf: sign => {
+      const score = deps.getScore()
+      const key = score && spineSignSpaceKey(score, sign)
+      return key ? signSpaces.get(key) ?? 0 : 0
+    },
+    setSignSpace: (sign, value) => {
+      const score = deps.getScore()
+      const key = score && spineSignSpaceKey(score, sign)
+      if (!key || !Number.isFinite(value)) {
+        dbg(`[spine] ⛔ space ${value} for the ${sign.kind} of bar ${sign.measure} refused`)
+        return
+      }
+      const next = new Map(signSpaces)
+      if (value === 0) next.delete(key)
+      else next.set(key, value)
+      signSpaces = next
+      dbg(`[spine] ${sign.kind} of bar ${sign.measure} space ${value} sp (this session only)`)
       if (host) draw(shape)
     },
     spaceOf: id => {

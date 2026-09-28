@@ -59,6 +59,7 @@ import { slurShapeConsole } from './dev/slurShapeConsole'
 import { beamSlopeConsole } from './dev/beamSlopeConsole'
 import { spineConsole } from './dev/spineConsole'
 import { spinePropertiesWindow, type SpineProperties } from './dev/spinePropertiesWindow'
+import type { SpineSign } from './engine/rendering/eye/spineSignSpace'
 import { headerGapConsole } from './dev/headerGapConsole'
 import { dotGapConsole } from './dev/dotGapConsole'
 import { graceConsole } from './dev/graceConsole'
@@ -715,6 +716,13 @@ export function createEditorApp(host: HTMLElement): EditorApp {
   window.addEventListener('wheel', handleZoomWheel, { passive: false })
 
   /** 🔧 The notes the editor has selected, the ANCHOR first — for the spine panel's highlight and its window. */
+  /** The editor's selected clef (a bar's OPENING one — the only clef the spine draws) or meter, as the spine names it. */
+  const spineSelectedSign = (): SpineSign | null => {
+    const element = state.selectedElement
+    if (element?.kind === 'clef' && element.beat === 0) return { kind: 'clef', measure: element.measure, staff: element.staff }
+    if (element?.kind === 'timeSignature') return { kind: 'timeSignature', measure: element.measure }
+    return null
+  }
   const spineSelectedNotes = (): string[] => [...new Set([
     ...(state.selectedNoteId ? [state.selectedNoteId] : []),
     ...selectedNoteIds(state.selectedItems.values()),
@@ -1015,11 +1023,15 @@ export function createEditorApp(host: HTMLElement): EditorApp {
       select: pick => {
         selection.selectNote(pick?.kind === 'note' ? pick.id : null)
         if (pick?.kind === 'barline') state.selectedElement = { kind: 'barline', measure: pick.measure }
+        // ⭐ A header clef — the bar's OPENING clef, beat 0 — or its meter, in the editor's own words (his ask, 2026-09-28).
+        if (pick?.kind === 'clef') state.selectedElement = { kind: 'clef', measure: pick.measure, beat: 0, staff: pick.staff }
+        if (pick?.kind === 'timeSignature') state.selectedElement = { kind: 'timeSignature', measure: pick.measure }
         renderer.renderScore()
       },
       selected: () => ({
         ids: new Set(spineSelectedNotes()),
         barline: state.selectedElement?.kind === 'barline' ? state.selectedElement.measure : null,
+        sign: spineSelectedSign(),
       }),
       onSelectionChange: fn => onStateChange(key => {
         if (key === 'selectedItems' || key === 'selectedNoteId' || key === 'selectedElement') fn()
@@ -1033,6 +1045,7 @@ export function createEditorApp(host: HTMLElement): EditorApp {
       selected: () => ({
         ids: spineSelectedNotes(),
         barline: state.selectedElement?.kind === 'barline' ? state.selectedElement.measure : null,
+        sign: spineSelectedSign(),
       }),
       onSelectionChange: fn => onStateChange(key => {
         if (key === 'selectedItems' || key === 'selectedNoteId' || key === 'selectedElement') fn()
@@ -1041,6 +1054,7 @@ export function createEditorApp(host: HTMLElement): EditorApp {
       onRedraw: fn => spine.onRedraw(fn),
       stretch: { of: measure => spine.stretchOf(measure), set: (measure, value) => spine.setStretch(measure, value) },
       space: { of: id => spine.spaceOf(id), set: (id, value) => spine.setSpace(id, value) },
+      signSpace: { of: sign => spine.signSpaceOf(sign), set: (sign, value) => spine.setSignSpace(sign, value) },
     })
     // ⏱ 2026-08-30 — **THE LOG ITSELF IS A COST, and it has to be switchable to be measured.**
     //   His report: a held arrow key *"freezes somehow"*, *"sometime ok sometime not"*. The console

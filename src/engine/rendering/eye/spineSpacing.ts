@@ -43,6 +43,7 @@ import type { Measure, Score } from '@/types/music'
 import type { SpineAdjustments } from './spineAdjustments'
 import { spineStretchOf } from './spineBarStretch'
 import { withSpineSpace } from './spineColumnSpace'
+import { spineSignShift } from './spineSignSpace'
 import { type SpineHeader, spineHeaderColumns, spineSystemHeaders } from './spineHeader'
 import { spineStaffTops, staffIdsOf } from './spineStaves'
 
@@ -90,7 +91,7 @@ function ask(score: Score, measure: Measure, index: number, adjust?: SpineAdjust
   const drawn = headers.filter((header): header is SpineHeader => header !== undefined)
   const opensRepeat = measure.repeatStart !== undefined
   const before = drawn.length > 0
-    ? spineHeaderColumns(headers).width / STAFF_SPACE_PX + (opensRepeat ? HEADER_TO_REPEAT : 0)
+    ? spineHeaderColumns(headers, spineSignShift(adjust?.signSpace, measure.id, STAFF_SPACE_PX)).width / STAFF_SPACE_PX + (opensRepeat ? HEADER_TO_REPEAT : 0)
       + Math.max(...drawn.map(header => headerToNoteGap(header, lead.accidentals)))
     : lead.padding
   // ⭐ A column's SPACE (`./spineColumnSpace`) goes into its reserved gap — the first column's into the lead-in,

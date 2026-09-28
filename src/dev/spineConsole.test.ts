@@ -34,7 +34,7 @@ function openConsole() {
     exportJSON: () => model.toJSON(),
     load: () => { /* only `circle()` loads; these specs use `show` / `straight` on the model above */ },
     select: selectInEditor,
-    selected: () => ({ ids: selected, barline: selectedBarline }),
+    selected: () => ({ ids: selected, barline: selectedBarline, sign: null }),
     onSelectionChange: fn => {
       selectionListeners.push(fn)
       return () => { selectionListeners = selectionListeners.filter(f => f !== fn) }

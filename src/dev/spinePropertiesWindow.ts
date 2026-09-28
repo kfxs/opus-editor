@@ -26,6 +26,9 @@ import type { Widget } from '@/windows/content/Widget'
 import { findSlot } from '@/engine/models/slotLookup'
 import { SPINE_STRETCH_MAX, SPINE_STRETCH_MIN, SPINE_STRETCH_STEP } from '@/engine/rendering/eye/spineBarStretch'
 import { SPINE_SPACE_MAX, SPINE_SPACE_MIN, SPINE_SPACE_STEP } from '@/engine/rendering/eye/spineColumnSpace'
+import { type SpineSign, spineSignTag } from '@/engine/rendering/eye/spineSignSpace'
+import { staffIdsOf } from '@/engine/rendering/eye/spineStaves'
+import { resolveStaffClefs } from '@/utils/clefUtils'
 import { AMBER, PHOSPHOR, buildNumberRow } from '@/windows/properties/rows'
 import { staffIndexOfId } from '@/engine/models/staffContent'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
@@ -39,7 +42,7 @@ export interface SpinePropertiesDeps {
   windows: WindowLayer
   getScore(): Score | null
   /** What the editor has selected — its notes' ids (the anchor first) and the barline, if one is. */
-  selected(): { ids: readonly string[]; barline: number | null }
+  selected(): { ids: readonly string[]; barline: number | null; sign: SpineSign | null }
   onSelectionChange(fn: () => void): () => void
   /** The spine panel's last drawing, and its redraws (`./spineConsole`). */
   placed(): SpinePlacedReport
@@ -48,6 +51,8 @@ export interface SpinePropertiesDeps {
   stretch: { of(measure: number): number; set(measure: number, value: number): void }
   /** The space before a note's COLUMN on the spine, in staff spaces — read and set for the SESSION (`./spineConsole`). */
   space: { of(id: string): number; set(id: string, value: number): void }
+  /** The space before a header CLEF or METER on the spine, in staff spaces — read and set for the SESSION. */
+  signSpace: { of(sign: SpineSign): number; set(sign: SpineSign, value: number): void }
 }
 
 export interface SpineProperties {
@@ -128,6 +133,7 @@ export class SpinePropertiesWidget implements Widget {
     el.appendChild(label(report.kind, true))
     if (report.barline !== undefined) el.appendChild(stretchControl(report.barline, this.deps.stretch))
     if (report.column !== undefined) el.appendChild(spaceControl(report.column, this.deps.space))
+    if (report.sign !== undefined) el.appendChild(signSpaceControl(report.sign, this.deps.signSpace))
     el.appendChild(text(JSON.stringify(report.data, null, 2)))
     el.appendChild(label('on the spine', false))
     el.appendChild(text(typeof report.spine === 'string' ? report.spine : JSON.stringify(report.spine, null, 2)))
@@ -156,6 +162,8 @@ export interface SpineReport {
   barline?: number
   /** The id of a selected note or rest — its COLUMN's space is what the control sets. */
   column?: string
+  /** A picked header clef or meter — its space is what the control sets. */
+  sign?: SpineSign
   data: Record<string, unknown>
   spine: Record<string, unknown> | string
 }
@@ -163,10 +171,14 @@ export interface SpineReport {
 /** ⭐ What the window reports — exported for its spec. */
 export function describe(
   deps: Pick<SpinePropertiesDeps, 'getScore' | 'selected' | 'placed'>
-    & { stretch?: Pick<SpinePropertiesDeps['stretch'], 'of'>; space?: Pick<SpinePropertiesDeps['space'], 'of'> },
+    & {
+      stretch?: Pick<SpinePropertiesDeps['stretch'], 'of'>
+      space?: Pick<SpinePropertiesDeps['space'], 'of'>
+      signSpace?: Pick<SpinePropertiesDeps['signSpace'], 'of'>
+    },
 ): SpineReport | string {
   const score = deps.getScore()
-  const { ids, barline } = deps.selected()
+  const { ids, barline, sign } = deps.selected()
   const placed = deps.placed()
   if (!score) return 'No score'
   const onSpine = (key: string, extra: Record<string, unknown> = {}): SpineReport['spine'] => {
@@ -181,6 +193,21 @@ export function describe(
     }
   }
 
+  // ⭐ A header CLEF or METER (his ask, 2026-09-28): what it is, and where the spine drew it — with its space.
+  if (sign) {
+    const measure = score.measures.find(m => m.number === sign.measure)
+    const space = deps.signSpace?.of(sign)
+    const spine = onSpine(spineSignTag(sign), space === undefined ? {} : { spaceSp: space })
+    if (sign.kind === 'clef') {
+      const staffId = staffIdsOf(score)[sign.staff]
+      const clef = resolveStaffClefs(score, staffId).opening.get(sign.measure)
+      return { kind: 'clef', sign, data: { clef: clef ?? null, bar: sign.measure, staff: sign.staff + 1 }, spine }
+    }
+    const meter = measure?.timeSignature
+    return {
+      kind: 'time signature', sign, data: { timeSignature: meter ? `${meter.numerator}/${meter.denominator}` : null, bar: sign.measure }, spine,
+    }
+  }
   if (barline !== null) {
     const stretch = deps.stretch?.of(barline)
     return {
@@ -240,6 +267,20 @@ function spaceControl(id: string, space: SpinePropertiesDeps['space']): HTMLElem
       + 'Moves every note after it in the bar. This session only; the page is not changed.',
   )
   return dressControl(row, 'spine-properties-space')
+}
+
+/**
+ * ⭐ A header SIGN's knob: the space before the clef or meter along the spine (`eye/spineSignSpace`) — it MOVES the
+ * sign and everything after it, ⛔ not an offset. Every staff's clef (or the system's meters) at that bar moves together.
+ */
+function signSpaceControl(sign: SpineSign, space: SpinePropertiesDeps['signSpace']): HTMLElement {
+  const row = buildNumberRow(
+    'space (sp)', space.of(sign), SPINE_SPACE_STEP, SPINE_SPACE_MIN, SPINE_SPACE_MAX,
+    value => space.set(sign, value ?? 0),
+    `Room before this ${sign.kind === 'clef' ? 'clef' : 'time signature'} on the spine, in staff spaces — + wider, − tighter `
+      + '(never into what stands before it). Moves everything after it. This session only; the page is not changed.',
+  )
+  return dressControl(row, 'spine-properties-sign-space')
 }
 
 /** The Properties row, in {@link CONTROL_COLOUR} and at the top of the window. */

@@ -378,10 +378,17 @@ export const blockFrame = () => ({ ...staveFrame(new EngravedStave(0, 0, BLOCK_S
  * it upright at its own origin, and the group is placed so the sign runs from `s` along the spine.
  * Answers how far along the spine it reaches, so the next block knows where it may start.
  */
-export function drawSpineSign(ctx: DrawContext, spine: Spine, sign: StaveSign, s: number): number {
+export function drawSpineSign(ctx: DrawContext, spine: Spine, sign: StaveSign, s: number, hitTarget = false): number {
   const group = drawGroupOf(ctx.openGroup(SPINE_BLOCK_CLASS))
+  const frame = blockFrame()
   try {
-    sign.drawSign(ctx, blockFrame(), ctx)
+    sign.drawSign(ctx, frame, ctx)
+    // ⭐ A sign the panel lets you PICK (a header clef or meter, `./spineSignSpace`) carries an invisible target
+    //    over its width and the staff's height — a glyph alone is not reliably hit (seen 2026-09-28, as the
+    //    barline's was the day before).
+    if (hitTarget) {
+      ctx.pointerRect(0, staffLineY(frame, 0), sign.walkInput().width, staffLineY(frame, frame.lineCount - 1) - staffLineY(frame, 0))
+    }
   } finally {
     ctx.closeGroup()
   }
