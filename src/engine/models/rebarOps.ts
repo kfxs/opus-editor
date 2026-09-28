@@ -343,6 +343,7 @@ function pasteEventsBody(
   const clipOttavas = clip.ottavas ?? []
   const clipPedals = clip.pedals ?? []
   const clipTempos = clip.tempos ?? []
+  const clipGlyphMarks = clip.glyphMarks ?? []
   const clipSpaces = clip.spaces ?? []
   const ordered = [...score.measures].sort((a, b) => a.number - b.number)
   const fromIdx = ordered.findIndex((m) => m.number === targetMeasure)
@@ -421,8 +422,10 @@ function pasteEventsBody(
   // destination octave line starting inside the paste window on a destination STAFF is replaced by
   // the clip's, whichever voices the paste actually landed in. Anything narrower would let a paste
   // into voice 2 leave a stale 8va governing the notes it just overwrote.
+  // ⭐ The user's SYMBOLS take the dynamics' (staff, voice) rule: a symbol belongs to an event, and a
+  // destination event the paste overwrote takes its symbols with it — the clip brings its own.
   const survivingAnchors = anchors.filter((a) => {
-    if (a.kind !== 'dynamic' && a.kind !== 'hairpin' && a.kind !== 'ottava' && a.kind !== 'pedal') return true
+    if (a.kind !== 'dynamic' && a.kind !== 'hairpin' && a.kind !== 'ottava' && a.kind !== 'pedal' && a.kind !== 'glyphMark') return true
     const inWindow = fracGte(a.absBeat, pasteStart) && fracLt(a.absBeat, pasteEnd)
     if (!inWindow) return true
     if (a.kind === 'ottava') return !destByStaff.has(staffIndexOfId(score, a.ottava.staffId))
@@ -431,7 +434,7 @@ function pasteEventsBody(
     // whichever voices the paste landed in. Anything narrower would leave a stale `Ped.` HOLDING —
     // sustaining, audibly — notes the paste has just overwritten.
     if (a.kind === 'pedal') return !destByStaff.has(staffIndexOfId(score, a.pedal.staffId))
-    const lane = a.kind === 'dynamic' ? a.dyn : a.hairpin
+    const lane = a.kind === 'dynamic' ? a.dyn : a.kind === 'glyphMark' ? a.mark : a.hairpin
     const dv = destByStaff.get(staffIndexOfId(score, lane.staffId))
     return !dv || !dv.has(voiceOf(lane))
   })
@@ -633,6 +636,27 @@ function pasteEventsBody(
     clipAnchors.push({
       kind: 'tempo', absBeat: fracAdd(pasteStart, ct.offset), mark,
       ...(ct.engraving?.length ? { overrides: ct.engraving } : {}),
+    })
+  }
+  // …and the user's symbols (docs/plans/symbol-plan.md P5): the dynamics' road, with ONE difference —
+  // a symbol belongs to an EVENT in a stream, so a single-voice clip re-voices it into the target
+  // voice exactly as it re-voices the notes it stood on.
+  for (const cg of clipGlyphMarks) {
+    const absStaff = targetStaff + cg.staff
+    if (absStaff < 0 || absStaff >= staffCount) continue // overflow — already warned for its lane
+    const staffId = staffIdAtIndex(score, absStaff)
+    const voice = (singleVoice ? targetVoice : cg.voice) as 0 | 1 | 2 | 3
+    const mark: GlyphMark = {
+      id: uuidv4(),
+      glyph: cg.glyph,
+      beat: fracCreate(0, 1), // restoreBeatAnchors overwrites this from absBeat
+      ...(voice ? { voice } : {}),
+      ...(cg.placement !== undefined ? { placement: cg.placement } : {}),
+      ...(staffId !== undefined ? { staffId } : {}),
+    }
+    clipAnchors.push({
+      kind: 'glyphMark', absBeat: fracAdd(pasteStart, cg.offset), mark,
+      ...(cg.engraving?.length ? { overrides: cg.engraving } : {}),
     })
   }
   restoreBeatAnchors(score, regionNumbers, clipAnchors)

@@ -299,6 +299,24 @@ export interface ClipGlissando {
 }
 
 /**
+ * ⭐ A user SYMBOL riding with its event (docs/plans/symbol-plan.md P5) — the glissando's arrangement: it
+ * travels because the note or rest it stands on was COPIED, ⛔ not through the mark selection. `staff`
+ * is RELATIVE (0 = topmost copied staff) and `offset` is from the clip start, as {@link ClipDynamic}'s.
+ */
+export interface ClipGlyphMark {
+  staff: number
+  /** The voice of its EVENT (0-based) — ⚠️ re-voiced by a single-voice paste as the notes are, because
+   *  a symbol belongs to an event IN a stream (unlike a dynamic's scope, which travels verbatim). */
+  voice: number
+  offset: Fraction
+  /** The SMuFL canonical name. */
+  glyph: string
+  placement?: 'above' | 'below'
+  /** Whatever it carries in the overrides compartment — see {@link ClipDynamic.engraving}. */
+  engraving?: EngravingOverride[]
+}
+
+/**
  * A run of musical material, detached from where it came from and where it is going.
  * See the module comment for why the target is not in here.
  */
@@ -321,6 +339,8 @@ export interface Clip {
   trills?: ClipTrill[]
   /** Glissandi whose ANCHOR note is inside the clip window, re-anchored on paste. Absent/empty = none. */
   glissandi?: ClipGlissando[]
+  /** The user's symbols on the copied events, re-anchored on paste. Absent/empty = none. */
+  glyphMarks?: ClipGlyphMark[]
   /** Hairpins whose START is in the clip window, re-anchored on paste. Absent/empty = none. */
   hairpins?: ClipHairpin[]
   /** Octave lines whose START is in the clip window, re-anchored on paste. Absent/empty = none. */

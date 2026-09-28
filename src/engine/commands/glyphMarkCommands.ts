@@ -5,7 +5,7 @@
  *
  * ⛔ No `mutate` on a refusal: an edit that changed nothing leaves no undo entry.
  */
-import { addGlyphMarkToEvent, flipGlyphMarkPlacement, removeGlyphMark } from '../models/glyphMarkOps'
+import { addGlyphMark, addGlyphMarkToEvent, flipGlyphMarkPlacement, removeGlyphMark } from '../models/glyphMarkOps'
 import { smuflGlyph } from '../fonts/smuflGlyphs'
 import type { GlyphMark } from '@/types/music'
 import type { CommandContext } from './commandContext'
@@ -31,6 +31,17 @@ export function glyphMarkCommands(ctx: CommandContext) {
       const mark = addGlyphMarkToEvent(score(), noteId, glyph)
       if (mark) ctx.mutate('Add symbol')
       return mark
+    },
+
+    /**
+     * Add a symbol at an ADDRESS rather than on a named event — the element paste's door, whose anchor is a
+     * place (`clipboard/pasteAnchor`). ONE undo entry. @returns the mark, or null when refused.
+     */
+    addAt(measure: number, mark: Omit<GlyphMark, 'id'>): GlyphMark | null {
+      if (smuflGlyph(mark.glyph) === null) return null
+      const created = addGlyphMark(score(), measure, mark)
+      if (created) ctx.mutate('Paste symbol')
+      return created
     },
 
     /** Delete a symbol (and any override keyed by it). ONE undo entry. @returns false when there was none. */

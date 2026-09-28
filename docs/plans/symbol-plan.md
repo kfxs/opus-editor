@@ -187,6 +187,15 @@ Each phase stops for his UI check.
 - **P5 — copy/paste.** A `Clip` carries symbols the way it carries dynamics (only those fully inside
   the window). ⏭️ MusicXML export as `<direction><direction-type><symbol>` when a MusicXML exporter
   exists — there is none today.
+  ✅ **BUILT 2026-09-28, AHEAD OF P4** (his report: copy/paste did "weird stuffs" — it was simply unbuilt).
+  ⭐ **A symbol travels with its EVENT, ⛔ not through the mark selection** — the glissando's arrangement
+  (`clipboard/glissandoClip`), not the dynamic's: `clipboard/glyphMarkClip` takes the symbols whose note
+  or rest was COPIED (`Clip.glyphMarks`); the paste re-anchors them on the dynamics' road, re-voiced by a
+  single-voice clip like the notes, and a destination symbol on an overwritten (staff, voice) lane inside
+  the window goes with its event. Ctrl+C / Ctrl+V on one symbol: `elementClipboard`'s `glyphMark` arm →
+  `engine.glyphMark.addAt` (glyph + side travel; voice and staff come from what it lands on).
+  ⏭️ Being a PASSAGE-BOX member (highlighted in a box, deleted with it, dragged with the group) needs a
+  `markGroup` row, i.e. P4's offset — it comes with P4.
 
 ## 7. Later — not a queue
 

@@ -13,6 +13,7 @@ import { staffMeasureView, staffIdAtIndex, staffIndexOfId } from '../../engine/m
 import { laneOfSlot, pairIsValid } from '../../utils/tremoloPair'
 import { staffOf, voiceOf } from '../../utils/lanes'
 import { slotLength } from '../../utils/durations'
+import { glyphMarksOnCopiedEvents } from './glyphMarkClip'
 import { glissandiInWindow } from './glissandoClip'
 import { stampedSilenceInWindow } from '../../engine/models/barRestOps'
 
@@ -708,6 +709,8 @@ export function buildClipboardFromSelection(
   const tempos = temposInWindow(score, spanStart, spanEnd, wanted)
   // Glissandi travel with their ANCHOR note, ⛔ not on the mark selection (`./glissandoClip`).
   const glissandi = glissandiInWindow(score, topStaff, staves[staves.length - 1], spanStart, spanEnd)
+  // …and the user's symbols, likewise with their EVENT — the copied note or rest (`./glyphMarkClip`).
+  const glyphMarks = glyphMarksOnCopiedEvents(score, idSet, topStaff, spanStart)
   // Authored spaces in the window travel too (client #10) — no staff re-basing, since a space
   // has no staff.
   const spaces = leadingSpacesInWindow(score, spanStart, spanEnd)
@@ -734,6 +737,7 @@ export function buildClipboardFromSelection(
     ...(pedals.length ? { pedals } : {}),
     ...(tempos.length ? { tempos } : {}),
     ...(glissandi.length ? { glissandi } : {}),
+    ...(glyphMarks.length ? { glyphMarks } : {}),
   }
 }
 
@@ -818,5 +822,6 @@ export function clipboardSummary(p: ClipboardPayload): string {
   const silence = total === 0 ? ` — SILENCE (${fracToNumber(p.spanBeats)}b of rest)` : ''
   const dyn = p.dynamics.length ? `, ${p.dynamics.length} dynamic(s)` : ''
   const slr = p.slurs.length ? `, ${p.slurs.length} slur(s)` : ''
-  return `${total} event(s)${silence} across ${p.lanes.length} lane(s) / ${p.spanStaves} staff(s)${dyn}${slr}, span ${fracToNumber(p.spanBeats)}b — ${perLane.join(' | ')}`
+  const sym = p.glyphMarks?.length ? `, ${p.glyphMarks.length} symbol(s)` : ''
+  return `${total} event(s)${silence} across ${p.lanes.length} lane(s) / ${p.spanStaves} staff(s)${dyn}${slr}${sym}, span ${fracToNumber(p.spanBeats)}b — ${perLane.join(' | ')}`
 }

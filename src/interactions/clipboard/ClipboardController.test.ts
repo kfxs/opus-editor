@@ -158,3 +158,56 @@ describe('ClipboardController — copying one element', () => {
     expect(engine.getScore().measures[1].slots.filter(s => s.type === 'chord')).toHaveLength(0)
   })
 })
+
+describe('ClipboardController — the user\'s SYMBOLS (docs/plans/symbol-plan.md P5)', () => {
+  let engine: MusicEngine
+  let state: EditorState
+  let clipboard: ClipboardController
+
+  const symbols = () => engine.getScore().measures.flatMap(m =>
+    (m.glyphMarks ?? []).map(g => `${m.number}@${fracToNumber(g.beat)}:${g.glyph}`))
+
+  beforeEach(() => {
+    engine = new MusicEngine({ container: {} as unknown as HTMLElement, width: 800, height: 400 })
+    engine.addMeasure()
+    engine.addMeasure()
+    state = createEditorState()
+    const selection = { selectNote: vi.fn(), selectNotes: vi.fn() } as unknown as SelectionController
+    const render = { renderScore: vi.fn() } as unknown as RenderController
+    clipboard = new ClipboardController(() => engine, state, selection, render)
+  })
+
+  it('⭐ his case: a coda on a REST travels with a copied bar of rests, and lands on the pasted bar', () => {
+    const rest = engine.getScore().measures[0].slots[0]
+    expect(engine.glyphMark.add(rest.id, 'coda')).not.toBeNull()
+    state.selectedItems = new Map([[`note:${rest.id}`, { kind: 'note', id: rest.id }]])
+    clipboard.copy()
+    clipboard.pasteAt(3, frac(0, 1), 0)
+    expect(symbols()).toEqual(['1@0:coda', '3@0:coda'])
+  })
+
+  it('a paste over an event with a symbol replaces it with the clip\'s — the overwritten event takes its own', () => {
+    const [m1, m2] = engine.getScore().measures
+    engine.glyphMark.add(m1.slots[0].id, 'coda')
+    engine.glyphMark.add(m2.slots[0].id, 'segno')
+    state.selectedItems = new Map([[`note:${m1.slots[0].id}`, { kind: 'note', id: m1.slots[0].id }]])
+    clipboard.copy()
+    clipboard.pasteAt(2, frac(0, 1), 0)
+    expect(symbols()).toEqual(['1@0:coda', '2@0:coda'])
+  })
+
+  it('⭐ Ctrl+C on a selected symbol, Ctrl+V on a note: the same glyph and side, on that note\'s event', () => {
+    const n = engine.addNoteAtBeat({ step: 'E', octave: 4, duration: 'q', measure: 2, beat: frac(1, 1) })!
+    const g = engine.glyphMark.add(engine.getScore().measures[0].slots[0].id, 'fermataAbove')!
+    engine.glyphMark.flip(g.id)
+    state.selectedElement = { kind: 'glyphMark', id: g.id }
+    clipboard.copy()
+    state.selectedElement = null
+    state.selectedItems = new Map([[`note:${n.id}`, { kind: 'note', id: n.id }]])
+    clipboard.paste()
+    const pasted = engine.getScore().measures[1].glyphMarks!
+    expect(pasted.map(p => [fracToNumber(p.beat), p.glyph, p.placement])).toEqual([[1, 'fermataAbove', 'below']])
+    expect(state.selectedElement).toEqual({ kind: 'glyphMark', id: pasted[0].id })
+  })
+})
+

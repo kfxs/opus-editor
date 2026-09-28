@@ -33,6 +33,7 @@ import type { HairpinCommands } from '@/engine/commands/hairpinCommands'
 import type { TrillCommands } from '@/engine/commands/trillCommands'
 import type { OttavaCommands } from '@/engine/commands/ottavaCommands'
 import type { PedalCommands } from '@/engine/commands/pedalCommands'
+import type { GlyphMarkCommands } from '@/engine/commands/glyphMarkCommands'
 import type { Fraction, NoteDuration, Ottava, TempoMark, TrillContinuationLabel } from '../../types/music'
 import type { SelectedElement } from '../state/EditorState'
 import type { PasteAnchor } from './pasteAnchor'
@@ -176,16 +177,28 @@ interface TrillElementClip {
   extension?: 'none'
 }
 
+/**
+ * ⭐ A copied user SYMBOL (docs/plans/symbol-plan.md P5): its glyph and its side. ⛔ No voice and no staff —
+ * a symbol belongs to an EVENT, so the paste takes them from what it lands on (the anchor), and ⛔ no
+ * offset, which was authored against other music.
+ */
+interface GlyphMarkElementClip {
+  kind: 'glyphMark'
+  glyph: string
+  placement?: 'above' | 'below'
+}
+
 /** One copied on-score element. Grows an arm per kind that learns to travel. */
 export type ElementClip =
   | DynamicElementClip | TempoElementClip | HairpinElementClip | SlurElementClip
-  | TrillElementClip | OttavaElementClip | PedalElementClip
+  | TrillElementClip | OttavaElementClip | PedalElementClip | GlyphMarkElementClip
 
 /** What the element clipboard needs off the engine — a Pick, so a spec needs no renderer. */
 type ElementClipEngine = Pick<MusicEngine, 'getDynamicById' | 'staffIdForIndex' | 'getTempoMarkById' | 'getScore' | 'runBatch' | 'getHairpinById' | 'getSlurById' | 'slurSpanOf' | 'getTrillById' | 'trillSpanBeats' | 'getOttavaById' | 'getPedalById'> & { tempo: Pick<TempoCommands, 'addTempoMark' | 'removeTempoMark'> } & { dynamic: Pick<DynamicCommands, 'addDynamic'> } & { slur: Pick<SlurCommands, 'createSlurOverSpan'> } & { hairpin: Pick<HairpinCommands, 'addHairpin'> } & {
   trill: Pick<TrillCommands, 'createTrillOverSpan'>
   ottava: Pick<OttavaCommands, 'addOttava'>
   pedal: Pick<PedalCommands, 'addPedalOverSpan'>
+  glyphMark: Pick<GlyphMarkCommands, 'addAt'>
 }
 
 /** The clip for the currently selected element, or null when that kind cannot travel (yet). */
@@ -232,6 +245,11 @@ export function copyElement(engine: ElementClipEngine, element: SelectedElement 
       ...(trill.continuationLabel !== undefined ? { continuationLabel: trill.continuationLabel } : {}),
       ...(trill.extension !== undefined ? { extension: trill.extension } : {}),
     }
+  }
+  if (element?.kind === 'glyphMark') {
+    const mark = engine.getScore().measures.flatMap(m => m.glyphMarks ?? []).find(g => g.id === element.id)
+    if (!mark) return null
+    return { kind: 'glyphMark', glyph: mark.glyph, ...(mark.placement !== undefined ? { placement: mark.placement } : {}) }
   }
   if (element?.kind === 'tempo') {
     const mark = engine.getTempoMarkById(element.id)
@@ -380,6 +398,19 @@ export function pasteElement(engine: ElementClipEngine, clip: ElementClip, ancho
       })
       return created ? { kind: 'tempo', id: (created as TempoMark).id } : null
     }
+    case 'glyphMark': {
+      // ⭐ Onto the EVENT the anchor names — its measure, beat, staff and voice: a symbol takes them from
+      // what it lands on, not from where it was copied (plan §3).
+      const staffId = engine.staffIdForIndex(anchor.staff ?? 0)
+      const created = engine.glyphMark.addAt(anchor.measure, {
+        glyph: clip.glyph,
+        beat: anchor.beat,
+        ...(anchor.voice ? { voice: anchor.voice as 0 | 1 | 2 | 3 } : {}),
+        ...(clip.placement !== undefined ? { placement: clip.placement } : {}),
+        ...(staffId ? { staffId } : {}),
+      })
+      return created ? { kind: 'glyphMark', id: created.id } : null
+    }
     default:
       throw new Error(`Unhandled element clip: ${JSON.stringify(clip)}`)
   }
@@ -403,6 +434,7 @@ export function elementClipSummary(clip: ElementClip): string {
     const name = { 1: '8va', '-1': '8ba', 2: '15ma', '-2': '15mb', 3: '22ma', '-3': '22mb' }
     return `${name[clip.shift]} over ${fracToNumber(clip.length)} beats`
   }
+  if (clip.kind === 'glyphMark') return `symbol ${clip.glyph}${clip.placement ? ` (${clip.placement})` : ''}`
   const how = clip.kind === 'dynamic' ? ` (${clip.placement})` : ''
   return `${clip.kind} "${clip.text ?? ''}"${how}`
 }
