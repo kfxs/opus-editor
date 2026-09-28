@@ -39,6 +39,9 @@
  * is drawn inside ONE group placed by `scaling(zoom · size)`, so every rule runs in the music's own units
  * and nothing is re-derived; a radius in canvas px is `radius / size` inside the group.
  *
+ * ⭐ **A bar's STRETCH** (`eye/spineBarStretch`, his ask 2026-09-28) is set from the Spine Properties window on a
+ * selected barline, and kept HERE for the session (⛔ not in the JSON — undecided, plan §9.3 C); `clear()` forgets it.
+ *
  * ⚠️ **Its OWN panel and painter, ⛔ not the score canvas**: the real canvas knows nothing of spines yet
  * (plan B), so the panel cannot be clicked into. ⚠️ `circle()` REPLACES the open score, like
  * `__perf.load`. The shape is a view of this console, ⛔ not saved in the JSON.
@@ -48,6 +51,7 @@
  * point, and `App.ts` wires it.
  */
 import { deepestInkPx, naturalSpineLength } from '../engine/rendering/eye/spineSpacing'
+import { clampSpineStretch, measureIdOfNumber, spineStretchOf } from '@/engine/rendering/eye/spineBarStretch'
 import { spineStaffTops } from '../engine/rendering/eye/spineStaves'
 import { musicFontGeneration } from '../engine/fonts/musicFont'
 import { textFontGeneration } from '../engine/fonts/textFont'
@@ -158,6 +162,10 @@ export interface SpineConsole {
   placed(): SpinePlacedReport
   /** Called after every redraw of the panel, and when it closes; answers an unsubscribe. */
   onRedraw(fn: () => void): () => void
+  /** The stretch of the bar numbered `measure` on the spine (`eye/spineBarStretch`) — ×1 when none was set. */
+  stretchOf(measure: number): number
+  /** Set that bar's stretch for the SESSION and redraw; ×1 removes the row. A value that is not a number is refused. */
+  setStretch(measure: number, value: number): void
 }
 
 /** What is armed. `radius` is remembered through a `straight()` too (which ignores it), so a `show()` after it
@@ -214,6 +222,8 @@ export function spineConsole(deps: SpineConsoleDeps): SpineConsole {
 
   /** Where the last drawing put each selectable thing — see {@link SpineConsole.placed}. */
   let lastPlaced: SpinePlacedReport = new Map()
+  /** ⭐ Each bar's stretch on the spine, by measure id — the SESSION's (⛔ not stored); only `clear()` forgets. */
+  let stretches = new Map<string, number>()
   let redrawListeners: (() => void)[] = []
 
   /** Stops following the editor's selection — set while the panel is up. */
@@ -255,6 +265,7 @@ export function spineConsole(deps: SpineConsoleDeps): SpineConsole {
     teardown()
     shape = FRESH
     canvas = undefined
+    stretches = new Map()
   }
 
   /**
@@ -269,7 +280,7 @@ export function spineConsole(deps: SpineConsoleDeps): SpineConsole {
   const layOut = (score: Score, shape: Shape): { spine: Spine; width: number; height: number } => {
     const k = shape.size
     // ⭐ The header's room is IN that length: each bar's lead-in carries the signs it draws (`eye/spineHeader`).
-    const length = naturalSpineLength(score) * AUTO_BREATHING
+    const length = naturalSpineLength(score, stretches) * AUTO_BREATHING
     if (shape.kind === 'straight') {
       // A straight spine the length the music asks at the page's size — in canvas px, so `size` fills it.
       const canvasLength = length
@@ -319,13 +330,13 @@ export function spineConsole(deps: SpineConsoleDeps): SpineConsole {
     const k = zoom * shape.size
     lastPlaced = new Map()
     if (zoom === 1 && shape.size === 1 && offsetX === 0 && offsetY === 0) {
-      drawScoreOnSpine(painter, score, spine, lastPlaced)
+      drawScoreOnSpine(painter, score, spine, lastPlaced, stretches)
       return
     }
     const group = drawGroupOf(painter.openGroup('spine-size', 'spine-size'))
     try {
       group?.setPlacement(compose(scaling(k), translation(offsetX, offsetY)))
-      drawScoreOnSpine(painter, score, spine, lastPlaced)
+      drawScoreOnSpine(painter, score, spine, lastPlaced, stretches)
     } finally {
       painter.closeGroup()
     }
@@ -645,6 +656,26 @@ export function spineConsole(deps: SpineConsoleDeps): SpineConsole {
     },
     clear,
     placed: () => lastPlaced,
+    stretchOf: measure => {
+      const score = deps.getScore()
+      const id = score && measureIdOfNumber(score, measure)
+      return id ? spineStretchOf(stretches, id) : 1
+    },
+    setStretch: (measure, value) => {
+      const score = deps.getScore()
+      const id = score && measureIdOfNumber(score, measure)
+      const stretch = clampSpineStretch(value)
+      if (!id || stretch === null) {
+        dbg(`[spine] ⛔ stretch ${value} for bar ${measure} refused`)
+        return
+      }
+      const next = new Map(stretches)
+      if (stretch === 1) next.delete(id)
+      else next.set(id, stretch)
+      stretches = next
+      dbg(`[spine] bar ${measure} stretch ×${stretch} (this session only)`)
+      if (host) draw(shape)
+    },
     onRedraw: fn => {
       redrawListeners.push(fn)
       return () => { redrawListeners = redrawListeners.filter(f => f !== fn) }

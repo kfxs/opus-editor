@@ -1039,6 +1039,7 @@ export function createEditorApp(host: HTMLElement): EditorApp {
       }),
       placed: () => spine.placed(),
       onRedraw: fn => spine.onRedraw(fn),
+      stretch: { of: measure => spine.stretchOf(measure), set: (measure, value) => spine.setStretch(measure, value) },
     })
     // ⏱ 2026-08-30 — **THE LOG ITSELF IS A COST, and it has to be switchable to be measured.**
     //   His report: a held arrow key *"freezes somehow"*, *"sometime ok sometime not"*. The console

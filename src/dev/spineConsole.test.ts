@@ -410,3 +410,30 @@ describe('⭐ OPACITY — the panel\'s background, from the console (his ask, 20
     expect(c.dump().opacity, 'refused — the armed one kept').toBe(0.5)
   })
 })
+
+describe('⭐ a bar\'s STRETCH — kept by the panel for the SESSION (his ask, 2026-09-28)', () => {
+  it('set on a bar, read back, redrawn; ×1 removes it; a bad value is refused; clear() forgets', () => {
+    const { console: c, model } = openConsole()
+    // Enough music that the circle is past its smallest radius, so a stretch can show in it.
+    for (let bar = 2; bar <= 6; bar++) {
+      model.addMeasure()
+      for (let i = 0; i < 4; i++) model.addNote({ step: 'C', octave: 5, duration: 'q', measure: bar, beat: { num: i, den: 1 } })
+    }
+    c.show()
+    let redraws = 0
+    c.onRedraw(() => { redraws++ })
+    const auto = drawnRadius()
+    c.setStretch(2, 3)
+    expect(c.stretchOf(2)).toBe(3)
+    expect(c.stretchOf(1)).toBe(1)
+    expect(redraws).toBeGreaterThan(0)
+    expect(drawnRadius(), "`radius: 'auto'` — the circle grows with what the stretched music asks").toBeGreaterThan(auto)
+    c.setStretch(2, NaN)
+    expect(c.stretchOf(2)).toBe(3)
+    c.setStretch(2, 1)
+    expect(c.stretchOf(2)).toBe(1)
+    c.setStretch(2, 2)
+    c.clear()
+    expect(c.stretchOf(2)).toBe(1)
+  })
+})

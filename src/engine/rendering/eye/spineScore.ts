@@ -67,6 +67,7 @@ import { captureVoiceIntent, reassertVoiceIntent } from '../format/voiceIntent'
 import { tupletBracketEnd, tupletBracketed, tupletMarkRuns } from '@/utils/musicUtils'
 import { buildBeams } from '../beams/beamGroups'
 import type { EngravedNote } from '../engraved/EngravedNote'
+import type { SpineBarStretches } from './spineBarStretch'
 import { type SpineBar, deepestInkPx, spaceBarsOnSpine, spineStaffLanes } from './spineSpacing'
 import { type SpineHeader, drawSpineBarHeader, spineHeaderColumns, spineHeaderMeterAt, spineSystemHeaders } from './spineHeader'
 import { type SpineStaff, barOnStaff, spineStaves } from './spineStaves'
@@ -123,7 +124,9 @@ function groupNotes(count: number, joins: readonly (readonly number[])[]): numbe
  * Draw every staff of `score` along `spine` — the top staff ON it, each staff below on the same path that
  * much further down (`./spineStaves`, port map #12).
  */
-export function drawScoreOnSpine(ctx: DrawContext, score: Score, spine: Spine, placed?: SpinePlacedReport): void {
+export function drawScoreOnSpine(
+  ctx: DrawContext, score: Score, spine: Spine, placed?: SpinePlacedReport, stretches?: SpineBarStretches,
+): void {
   const staves = spineStaves(score, spine)
   if (!score.measures[0]) {
     for (const staff of staves) drawSpineStaffLines(ctx, staff.spine)
@@ -143,7 +146,8 @@ export function drawScoreOnSpine(ctx: DrawContext, score: Score, spine: Spine, p
   //    spine sizes it from `naturalSpineLength`, so the stretch stays small.
   // ⭐ …spaced on the arc where the DEEPEST ink stands — a loop's inside is shorter than its spine —
   //    over EVERY staff: the columns are the system's, and each staff maps them onto its own path.
-  const bars = spaceBarsOnSpine(score, musicStart, musicEnd, true, innerLengthRatio(spine, deepestInkPx(score)))
+  // ⭐ …each bar taking its STRETCH of what it asks (`./spineBarStretch` — the session's, from Spine Properties).
+  const bars = spaceBarsOnSpine(score, musicStart, musicEnd, true, innerLengthRatio(spine, deepestInkPx(score)), stretches)
   const lanes = spineStaffLanes(score)
   const headers = score.measures.map((_, i) => spineSystemHeaders(score, lanes, i))
   // ⭐ Every staff's barlines stand on the system's boundaries — one list, at one angle on every staff.

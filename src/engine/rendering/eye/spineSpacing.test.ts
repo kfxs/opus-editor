@@ -17,6 +17,32 @@ const add = (m: ScoreModel, measure: number, num: number, den: number, duration:
 const beat = (num: number, den = 1) => ({ num, den })
 
 describe('spaceBarsOnSpine', () => {
+  it('⭐ a bar\'s STRETCH (his ask, 2026-09-28): on a justified spine the stretched bar takes more of the SAME room — the others give', () => {
+    const m = model(3)
+    for (let bar = 1; bar <= 3; bar++) for (let i = 0; i < 4; i++) add(m, bar, i, 1, 'q')
+    const score = m.getScore()
+    const room = naturalSpineLength(score) * 1.2
+    // The MUSIC's room — the lead-ins are rigid.
+    const width = (b: { musicStart: number; end: number }) => b.end - b.musicStart
+    const plain = spaceBarsOnSpine(score, 0, room, true)
+    const stretched = spaceBarsOnSpine(score, 0, room, true, 1, new Map([[score.measures[1].id, 2]]))
+    expect(stretched[2].end).toBeCloseTo(room, 6)
+    // Three equal bars, one asking ×2: its share of the music's room goes from 1/3 to 2/4.
+    expect(width(stretched[1]) / width(plain[1])).toBeCloseTo(1.5, 6)
+    expect(width(stretched[0])).toBeLessThan(width(plain[0]))
+    expect(width(stretched[2])).toBeLessThan(width(plain[2]))
+  })
+
+  it('a stretch scales the MUSIC\'s room only — the natural length grows by what the bar\'s music asks, the lead-in stays', () => {
+    const m = model(2)
+    add(m, 1, 0, 1, 'q'); add(m, 2, 0, 1, 'q')
+    const score = m.getScore()
+    const [, bar] = spaceBarsOnSpine(score, 0, 0, false)
+    const music = bar.end - bar.musicStart
+    const longer = naturalSpineLength(score, new Map([[score.measures[1].id, 1.5]])) - naturalSpineLength(score)
+    expect(longer).toBeCloseTo(music * 0.5, 6)
+  })
+
   it('⭐ his report, 2026-09-21: four sixteenths are NOT piled up — each clears a notehead, and a quarter still earns more', () => {
     const m = model(1)
     for (let i = 0; i < 4; i++) add(m, 1, i, 4, '16')

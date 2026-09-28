@@ -391,6 +391,18 @@ elements selected, for the moment we dont really know what goes in the propertie
 - ⚠️ Found on the way: `EditorState.selectedItems` is keyed `note:<id>` — read the ids through
   `state/selection.selectedNoteIds`, ⛔ never its keys (the panel's highlight lit only the anchor of a multi-selection).
 
+### 9.3d ✅ BUILT 2026-09-28 — a BARLINE's STRETCH in Spine Properties (his ask: *"change the size of the particular measure this bar is ending in the spine"*)
+
+- Select a barline (panel or page) → Spine Properties shows **stretch ×** for the bar it ENDS, at the TOP: the
+  Properties window's own `buildNumberRow` (arrows step 0.1, `reset` = ×1), in a brighter violet (his asks: my first
+  − / + / ↺ squares were unreadable; the row's own violet too dark on the glass). ⭐ The whole window now reads as
+  the Properties window does: the KIND in amber, its control, its JSON in green monospace, then `on the spine` JSON. A RATIO of what the bar's MUSIC asks (`eye/spineBarStretch`) — the spine's twin of the page's
+  `barWidth` stretch; the lead-in (barline clearance, header) stays rigid. ⛔ The page never sees it.
+- On a justified circle the stretched bar's extra comes from the others (a transfer). With `radius: 'auto'` the
+  circle is sized from the stretched `naturalSpineLength`, so there it GROWS instead.
+- ⛔ **NOT STORED** — C is still open (his word again, 2026-09-28: *"we are not storing now … this decision is not
+  made"*): the panel (`dev/spineConsole`) keeps the stretches by measure id for the session; `clear()` forgets them.
+
 ### 9.4 Facts found while planning (so the build does not rediscover them)
 
 - The panel is `dev/spineConsole.ts` — scaffolding wired by `App.ts` (`__spine`); it redraws by POLLING the
