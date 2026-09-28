@@ -27,6 +27,7 @@ export type DragKind =
   | 'dynamic' | 'tempo'
   | 'markEnd' | 'hairpinBody' | 'ottavaBody' | 'pedalBody' | 'trillBody'
   | 'markGroup'
+  | 'beamEnd' | 'beamBody'
 
 export interface Gesture {
   kind: DragKind

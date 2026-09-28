@@ -33,6 +33,9 @@ export type ElementType =
    *  (`interactions/elements/staffGroupHandles`). Registered by the HIGHLIGHT, like the barline
    *  join's square, because it exists only while something is selected. */
   | 'staff-group-handle'
+  /** ⭐ One of the two SQUARES of a selected BEAM — grab it to tilt the beam (`interactions/elements/beamGroup`, his
+   *  ask 2026-09-28). Registered by the HIGHLIGHT; `noteId` = the beam's anchor, `endpoint` = which end. */
+  | 'beam-group-handle'
   | 'note'
   /**
    * A note's STEM, as its own ink rect — registered per stemmed slot (a chord has one stem, and

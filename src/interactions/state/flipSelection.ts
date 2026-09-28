@@ -32,7 +32,7 @@ import type { EditorState, SelectedElement } from './EditorState'
 import { selectedArticulationNoteIds, selectedNoteIds } from './selection'
 
 /** The kinds `x` answers for — every other member of {@link SelectedElement} has no two sides. */
-type FlippableKind = 'slur' | 'hairpin' | 'dynamic' | 'trill' | 'ottava' | 'tie' | 'tuplet'
+type FlippableKind = 'slur' | 'hairpin' | 'dynamic' | 'trill' | 'ottava' | 'tie' | 'tuplet' | 'beamGroup'
 
 /**
  * ONE ROW PER FLIPPABLE ELEMENT. A new kind that can be turned around adds a row here and nothing
@@ -85,6 +85,11 @@ const FLIP_ELEMENT: {
   tie: (engine, el) => engine.tie.flipTie(el.fromNoteId),
   // A tuplet flips its bracket/number side (above ↔ below).
   tuplet: (engine, el) => engine.tuplet.flip(el.id),
+  // ⭐ A BEAM flips its GROUP's stems — exactly what `x` does on a note of the group (his ask, 2026-09-28: *"the same
+  //   rule that if a note of the group is selected"*): the stems turn and the beam goes to the other side. Its hand
+  //   offset is stored RELATIVE to the stems (`BeamOffsetOverride`), so a pushed or tilted beam keeps its shape. The
+  //   anchor keeps its id, so the beam stays selected through the flip.
+  beamGroup: (engine, el) => { engine.flipStemDirection(el.noteId) },
 }
 
 /**

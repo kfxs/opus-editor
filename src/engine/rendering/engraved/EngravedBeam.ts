@@ -108,8 +108,9 @@ export class EngravedBeam {
 
   /** How far the line was moved off the first stem's tip to clear an inner stem — VexFlow's `yShift`. */
   lift = 0
-  /** The hand's nudge, px AWAY from the noteheads (+ = longer stems) — set before formatting (`beams/beamOffset`). */
-  handAwayPx = 0
+  /** The hand's nudge at each END, px AWAY from the noteheads (+ = longer stems) — set before formatting
+   *  (`beams/beamOffset`). */
+  handAway = { startPx: 0, endPx: 0 }
 
   /**
    * ⭐ CROSS-STAFF (docs/plans/cross-staff-plan.md Phase 4): the staff LINE this beam stands on,
@@ -203,10 +204,11 @@ export class EngravedBeam {
   postFormat(): void {
     if (this.postFormatted) return
     this.calculateSlope()
-    // ⭐ The HAND's nudge (`beams/beamOffset`) moves the solved line as a whole — the slope kept — AWAY from the
-    //    heads (+ = longer stems, so a flip keeps its meaning): up for stems up, down for stems down. The stems are
-    //    then lengthened or shortened to meet it, exactly as they meet the engraver's line.
-    this.lift -= this.stemDirection * this.handAwayPx
+    // ⭐ The HAND's nudge (`beams/beamOffset`) moves the solved line AWAY from the heads at each END (+ = longer
+    //    stems, so a flip keeps its meaning): up for stems up, down for stems down. Both ends equal = the line moved
+    //    whole; different = its ANGLE changed (a square dragged). The stems are then lengthened or shortened to meet
+    //    it, exactly as they meet the engraver's line.
+    this.applyHandAway()
     this.applyStemExtensions()
     this.postFormatted = true
   }
@@ -253,6 +255,19 @@ export class EngravedBeam {
     const { slope, lift } = fitBeamSlope({ stemDirection, notes, range })
     this.slope = slope
     this.lift = lift
+  }
+
+  /**
+   * The hand's two ends as the line's own terms: the FIRST stem's end moves the lift, the difference over the run
+   * between the first and last stems tilts the slope. Screen y = −stemDirection × away.
+   */
+  private applyHandAway(): void {
+    const { startPx, endPx } = this.handAway
+    if (startPx === 0 && endPx === 0) return
+    const stems = this.stems()
+    const run = stems[stems.length - 1].stemX - stems[0].stemX
+    this.lift -= this.stemDirection * startPx
+    if (run > 0) this.slope -= (this.stemDirection * (endPx - startPx)) / run
   }
 
   /**

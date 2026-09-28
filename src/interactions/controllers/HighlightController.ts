@@ -3,7 +3,7 @@ import type { EditorState } from '../state/EditorState'
 import { activeVoiceToModel } from '../state/EditorState'
 import { keyboardCaretAt } from './keyboardCaret'
 import { voiceFillColor } from '../../utils/voiceColors'
-import type { HighlightContext } from '../elements/highlightContext'
+import { HIGHLIGHT_OWNED_TYPES, type HighlightContext } from '../elements/highlightContext'
 
 /**
  * Applies SVG highlight classes/colors after each render.
@@ -101,16 +101,7 @@ export class HighlightController {
     // Slur handles register their own hit-boxes after the render, and a skipped render no
     // longer clears the registry for them — so the highlight pass removes its own entries.
     const registry = this.getEngine()?.getElementRegistry()
-    registry?.removeByType('slur-handle')
-    registry?.removeByType('slur-endpoint')
-    registry?.removeByType('slur-segment-endpoint')
-    registry?.removeByType('hairpin-endpoint')
-    registry?.removeByType('ottava-endpoint')
-    registry?.removeByType('pedal-endpoint')
-    registry?.removeByType('pedal-tether')
-    registry?.removeByType('trill-endpoint')
-    registry?.removeByType('barline-join')
-    registry?.removeByType('staff-group-handle')
+    for (const type of HIGHLIGHT_OWNED_TYPES) registry?.removeByType(type)
   }
 
   /** A full redraw already threw the old SVG away, so the log's targets are detached nodes:

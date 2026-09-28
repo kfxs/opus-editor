@@ -745,8 +745,13 @@ export interface TieOffsetOverride extends EngravingOverride {
  */
 export interface BeamOffsetOverride extends EngravingOverride {
   kind: 'beamOffset'
-  /** Staff spaces away from the noteheads — + = longer stems. */
-  away: number
+  /**
+   * Staff spaces away from the noteheads at the beam's FIRST and LAST stem — + = longer stems. Equal = the whole
+   * beam moved (the arrows add to both); different = its ANGLE changed (a square at one end dragged — his ask the
+   * same day: *"squares at the edge of the beam… so I can control the angle"*). The line between runs straight.
+   */
+  start: number
+  end: number
 }
 
 export type EngravingOverrides = Record<string, EngravingOverride[]>

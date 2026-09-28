@@ -10,10 +10,23 @@
  * ENGRAVED node survives the clear; a node you append yourself is never removed.
  *
  * ⚠️ A registry entry a painter adds is NOT on that log: `clearHighlights` removes those by TYPE, so
- * a new highlight-owned entry type joins its list.
+ * a new highlight-owned entry type joins {@link HIGHLIGHT_OWNED_TYPES}.
  */
 import type { MusicEngine } from '@/engine/MusicEngine'
-import type { ElementRegistry } from '@/engine/ElementRegistry'
+import type { ElementRegistry, ElementType } from '@/engine/ElementRegistry'
+
+/**
+ * ⭐ **EVERY REGISTRY TYPE A HIGHLIGHT REGISTERS** — the squares and handles that exist only while something is
+ * selected. `HighlightController.clearHighlights` removes each of these, because a skipped render no longer clears the
+ * registry for them. ⭐ A table, so a new handle type is a ROW here (the beam's squares, 2026-09-28, were the first
+ * added this way — the list used to be ten `removeByType` lines in the controller).
+ */
+export const HIGHLIGHT_OWNED_TYPES: readonly ElementType[] = [
+  'slur-handle', 'slur-endpoint', 'slur-segment-endpoint',
+  'hairpin-endpoint', 'ottava-endpoint', 'pedal-endpoint', 'pedal-tether', 'trill-endpoint',
+  'barline-join', 'staff-group-handle',
+  'beam-group-handle',
+]
 import type { EditorState } from '../state/EditorState'
 
 export interface HighlightContext {

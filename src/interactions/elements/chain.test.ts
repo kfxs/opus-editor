@@ -62,7 +62,8 @@ describe('ELEMENT_SPECS — the `keys` column', () => {
     // Every kind that answers the arrows re-anchors too: two chords, two categories, one selection.
     expect(having('reanchor')).toEqual(['clef', 'dynamic', 'hairpin', 'ottava', 'pedal', 'slur', 'tempo', 'trill'])
     // ⛔ A point mark has no handles: only the spans and the slur do.
-    expect(having('cycle')).toEqual(['hairpin', 'ottava', 'pedal', 'slur', 'trill'])
+    // ⭐ The BEAM joined 2026-09-28 (his ask): Tab walks its two end squares.
+    expect(having('cycle')).toEqual(['beamGroup', 'hairpin', 'ottava', 'pedal', 'slur', 'trill'])
   })
 
   it('every row that answers has BOTH verbs — a nudge with no reset leaves ink nobody can put back', () => {

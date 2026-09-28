@@ -150,4 +150,16 @@ describe('flipSelection — the `x` key', () => {
     expect(flipSelection(state, engine)).toBe(true)
     expect(engine.getNote(noteIds[0])!.stemDirection).not.toBe(before)
   })
+
+  it('⭐ a selected BEAM flips its group\'s stems — what `x` does on a note of it (his ask, 2026-09-28)', () => {
+    const eighths = [0, 1].map(i =>
+      engine.addNoteAtBeat({ step: 'C', octave: 4, duration: '8', measure: 1, beat: frac(4 + i, 2) })!.id)
+    state.selectedElement = { kind: 'beamGroup', noteId: eighths[0] }
+    const before = eighths.map(id => engine.getNote(id)!.stemDirection)
+    expect(flipSelection(state, engine)).toBe(true)
+    const after = eighths.map(id => engine.getNote(id)!.stemDirection)
+    expect(after[0]).not.toBe(before[0])
+    // …and every note of the group turns together, as a note's `x` turns its group.
+    expect(after[1]).toBe(after[0])
+  })
 })

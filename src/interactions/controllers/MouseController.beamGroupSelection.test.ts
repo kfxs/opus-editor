@@ -55,6 +55,8 @@ describe('beam selection', () => {
       spacingColumnOf: () => null,
       noteSpacingRoom: () => null,
       getMeasureRect: () => null,
+      // A press on the beam also ARMS its whole-beam drag (2026-09-28), which starts from the current offset.
+      beam: { offsetOf: () => ({ start: 0, end: 0 }), previewBeamOffset: vi.fn(() => true), commitBeamDrag: vi.fn() },
     }
     selection = { selectNote: vi.fn() }
     mc = new MouseController(

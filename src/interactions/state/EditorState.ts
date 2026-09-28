@@ -827,7 +827,13 @@ export type SelectedElement =
    * ask, 2026-09-28). Selection ONLY, for now: nothing acts on a selected beam yet, and Delete declines.
    * ⚠️ Named `beamGroup`, not `beam`: `lint:hubs` counts a kind's name as a WORD, and "beam" is everywhere.
    */
-  | { kind: 'beamGroup'; noteId: string }
+  | {
+    kind: 'beamGroup'
+    noteId: string
+    /** ⭐ One END of the beam PICKED by its square (his ask, 2026-09-28): the arrows then move that end only (the
+     *  angle), and its square wears the armed look. Absent = the whole beam (a press on the beam itself). */
+    endpoint?: 'start' | 'end'
+  }
   /**
    * A slot's TREMOLO mark — the anchor note id, like the stem it rides. A slot carries ONE tremolo
    * (`setTremolo` replaces, never stacks), so there is one mark to select however many strokes it

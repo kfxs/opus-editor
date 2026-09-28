@@ -14,6 +14,10 @@ import { selectedOf } from '../state/EditorState'
 import { voiceFillColor } from '@/utils/voiceColors'
 import type { ElementInfo, ElementRegistry } from '@/engine/ElementRegistry'
 import { BEAM_GROUP_KEYS } from './beamGroupKeys'
+import { handleHitBox, paintHandleSquare } from './handleSquare'
+import { beginBeamEndDrag } from '../drags/beamEnd'
+import { beginBeamBodyDrag } from '../drags/beamBody'
+import { beamGroupStems, beamStandsAbove } from '@/engine/layout/beamStemFloor'
 
 /** How far past its ink a beam line still takes a press, px — a beam is half a space thick. A changeable default. */
 const BEAM_CLICK_PAD = 2
@@ -24,16 +28,34 @@ export const BEAM_GROUP_ELEMENT: ClickableElementSpec = {
    * Select a BEAM. THE NOTE COMES FIRST, as for every sub-element: a press the notehead owns stays the note's.
    * Then containment in one of the beam's LINES (its slanted band, padded a little) — never its box.
    */
-  hit({ registry, x, y, closestElement }, deps) {
+  hit({ event, registry, x, y, closestElement }, deps) {
+    // ⭐ A press on a SQUARE of the selected beam PICKS that end (the arrows then move it — the angle) and arms its
+    //    drag (his asks, 2026-09-28) — first, because a handle you can SEE wins the press. The squares are registered
+    //    only while the beam is selected (by its highlight, below), so finding one IS "this beam is selected".
+    const square = beamHandleAt(registry, x, y)
+    if (square?.noteId && square.endpoint) {
+      const { noteId, endpoint } = square
+      return deps.pick(
+        { kind: 'beamGroup', noteId, endpoint },
+        () => deps.arm(door => beginBeamEndDrag(door.host, noteId, endpoint, y), event),
+      )
+    }
     if (closestElement && registry.hitsNoteOrRestBody(closestElement, x, y)) return false
     const noteId = beamGroupAt(registry, x, y)
     if (!noteId) return false
     dbg(`✓ Beam selected | anchor noteId:${noteId}`)
-    // The shared tail clears the whole note selection, so only the beam shows selected — as the stem.
-    return deps.pick({ kind: 'beamGroup', noteId })
+    // The shared tail clears the whole note selection, so only the beam shows selected — as the stem. A press on the
+    // beam itself picks NO end: the arrows move the whole beam — and so does a DRAG from it (his ask, 2026-09-28).
+    return deps.pick(
+      { kind: 'beamGroup', noteId },
+      () => deps.arm(door => beginBeamBodyDrag(door.host, noteId, y), event),
+    )
   },
 
-  highlight: paintSelectedBeamGroup,
+  highlight: ctx => {
+    paintSelectedBeamGroup(ctx)
+    paintBeamHandles(ctx)
+  },
   // ↑/↓ push the beam, `Ctrl` coarser; `Ctrl+Backspace` puts it back (his ask, 2026-09-28).
   keys: BEAM_GROUP_KEYS,
 }
@@ -82,4 +104,61 @@ export function paintSelectedBeamGroup(ctx: HighlightContext): void {
     ctx.setStyleProp(svgEl, 'fill', color)
     ctx.addClass(svgEl, 'selected-beam')
   }
+}
+
+/**
+ * ⭐ How far a square's CENTRE stands off the beam's outer edge, px — the 10 the hairpin's, the pedal's, the barline
+ * join's and the grouping sign's squares use: one family, one distance. His ask, 2026-09-28: on the line's middle the
+ * square covered the beam.
+ */
+export const BEAM_HANDLE_GAP_PX = 10
+
+/**
+ * ⭐ **THE TWO SQUARES OF A SELECTED BEAM** — one at each end of its PRIMARY line, standing {@link BEAM_HANDLE_GAP_PX}
+ * off its OUTER edge (away from the heads — the primary line is the outermost, so the square clears every line).
+ * Grab one and drag, or pick it and use the arrows: that end moves, the other stays — the ANGLE changes
+ * (`../drags/beamEnd`). Each is registered as a `'beam-group-handle'` with the beam's anchor and which end it is.
+ *
+ * @param above whether the beam stands above its stems (stems up) — its outer edge is then the TOP one.
+ */
+export function beamHandles(
+  lines: readonly ElementInfo[], above = true,
+): { endpoint: 'start' | 'end'; x: number; y: number }[] {
+  const primary = lines[0]?.points
+  if (!primary || primary.length !== 4) return []
+  const [start, end, endFar, startFar] = primary
+  const outer = (a: number, b: number) => (above ? Math.min(a, b) - BEAM_HANDLE_GAP_PX : Math.max(a, b) + BEAM_HANDLE_GAP_PX)
+  return [
+    { endpoint: 'start', x: start.x, y: outer(start.y, startFar.y) },
+    { endpoint: 'end', x: end.x, y: outer(end.y, endFar.y) },
+  ]
+}
+
+/** Paint the selected beam's two squares — the PICKED one armed (larger, darker, a thicker ring: the slur's look). */
+export function paintBeamHandles(ctx: HighlightContext): void {
+  const selected = selectedOf(ctx.state, 'beamGroup')
+  if (!selected) return
+  const { noteId } = selected
+  const registry = ctx.engine.getElementRegistry()
+  const lines = registry.getByType('beamGroup').filter(el => el.noteId === noteId)
+  const above = beamStandsAbove(lines, beamGroupStems(lines, registry.getByType('stem')))
+  for (const handle of beamHandles(lines, above)) {
+    paintHandleSquare(ctx, handle, {
+      className: `beam-group-handle beam-group-handle--${handle.endpoint}`,
+      cursor: 'ns-resize',
+      armed: selected.endpoint === handle.endpoint,
+    })
+    ctx.registry.add({
+      type: 'beam-group-handle', noteId, endpoint: handle.endpoint,
+      measure: lines[0].measure, staff: lines[0].staff, bbox: handleHitBox(handle),
+    })
+  }
+}
+
+/** The square of a selected beam under (x, y), or null. */
+export function beamHandleAt(registry: ElementRegistry, x: number, y: number): ElementInfo | null {
+  return registry.getByType('beam-group-handle').find(el => {
+    const b = el.bbox
+    return x >= b.x && x <= b.x + b.width && y >= b.y && y <= b.y + b.height
+  }) ?? null
 }

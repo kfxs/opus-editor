@@ -91,3 +91,33 @@ test('⭐ pushed one space AWAY: the line moves a space, every stem a space long
   const longest = Math.max(...flipped.stems)
   expect(longest).toBeGreaterThan(Math.max(...before.stems) + space * 0.5)
 })
+
+/**
+ * ⭐ **ONE END MOVED TILTS THE BEAM** (his ask, 2026-09-28: squares at the beam's ends to control its angle) — the
+ * other end's stem keeps its length, the moved end's changes by the offset, the stems between in proportion.
+ */
+test('⭐ one END moved a space AWAY: its stem a space longer, the other end\'s untouched, the middle in between', async ({ score }) => {
+  const stems = () => score.evaluate(() =>
+    [...document.querySelector('svg g.beam')!.querySelectorAll('g.stem')].map(s => (s as SVGGraphicsElement).getBBox().height))
+  const anchor = await score.evaluate(async () => {
+    const h = window.__h
+    const ids: string[] = []
+    for (let i = 0; i < 4; i++) ids.push(h.engine.addNoteAtBeat({ step: 'G', octave: 4, duration: '16', measure: 1, beat: h.frac(i, 4) } as never)!.id)
+    await h.render()
+    return ids[0]
+  })
+  const before = await stems()
+  const space = await score.evaluate(async (anchor) => {
+    const h = window.__h
+    h.engine.beam.previewBeamEnd(anchor, 'end', 1)
+    h.engine.beam.commitBeamEndDrag()
+    await h.render()
+    return h.engine.getElementRegistry().getStaffGeometry(1, 0)!.lineSpacing
+  }, anchor)
+  const after = await stems()
+  const grew = after.map((len, i) => len - before[i])
+  expect(grew[0]).toBeCloseTo(0, 0)
+  expect(grew[grew.length - 1]).toBeCloseTo(space, 0)
+  expect(grew[1]).toBeGreaterThan(0)
+  expect(grew[1]).toBeLessThan(grew[grew.length - 1])
+})

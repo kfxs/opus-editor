@@ -15,14 +15,15 @@ import type { ChordRest, Score } from '@/types/music'
 import type { EngravedBeam } from '../engraved/EngravedBeam'
 import type { EngravedNote } from '../engraved/EngravedNote'
 
-/** Tell each of `beams` its hand offset — AWAY from its noteheads, px (+ = longer stems; the beam turns it into a y). `slots` / `notes` are the lane's parallel arrays (slot `i` drew note `i`). */
+/** Tell each of `beams` its hand offset at each END — AWAY from its noteheads, px (+ = longer stems; the beam turns the
+ *  two into a lift and a slope). `slots` / `notes` are the lane's parallel arrays (slot `i` drew note `i`). */
 export function applyBeamOffsets(
   score: Score, beams: readonly EngravedBeam[], slots: readonly ChordRest[], notes: readonly EngravedNote[],
 ): void {
   if (!score.engravingOverrides) return
   for (const beam of beams) {
     const first = beam.notes.map(note => slots[notes.indexOf(note)]).find(slot => slot?.type === 'chord')
-    const away = first ? beamOffsetOverrideOf(score, first.id)?.away : undefined
-    beam.handAwayPx = away ? away * STAFF_SPACE_PX : 0
+    const offset = first ? beamOffsetOverrideOf(score, first.id) : undefined
+    beam.handAway = { startPx: (offset?.start ?? 0) * STAFF_SPACE_PX, endPx: (offset?.end ?? 0) * STAFF_SPACE_PX }
   }
 }
