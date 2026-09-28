@@ -272,6 +272,10 @@ export function selectedElements(state: EditorState, engine: MusicEngine | null)
       // not an object in the model — the locator plus the note it belongs to is the whole truth.
       out.push({ kind: 'stem', data: { noteId: element.noteId, note: engine.getNote(element.noteId) } })
       break
+    case 'noteFlag':
+      // The stem's shape: the flag is what the slot's DURATION draws, not an object in the model.
+      out.push({ kind: 'noteFlag', data: { noteId: element.noteId, note: engine.getNote(element.noteId) } })
+      break
     case 'tremolo':
       // The MARK is a field on the slot (`tremolo`), so the note carries the whole truth — reported
       // like the dot above, locator plus note.

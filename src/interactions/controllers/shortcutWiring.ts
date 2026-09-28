@@ -689,8 +689,9 @@ export function wireShortcuts(
             state.selectedElement = null
             renderer.renderScore()
             return
+          case 'noteFlag':
           case 'stem':
-            // Nothing to delete. A stem is a property every non-rest note has; removing it is not a
+            // Nothing to delete (the flag likewise: it is what a flagged duration looks like). A stem is a property every non-rest note has; removing it is not a
             // thing you can do to a note. It is selectable so it can be nudged/dragged, and Delete
             // declines rather than falling through to something else's meaning.
             return

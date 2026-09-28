@@ -150,7 +150,8 @@ that by design. It is generalised now, not weakened.
   flag is not a kind in the `selectedElement` union, and no anchor or highlight map holds one. It
   draws inside the note's own `stavenote` group, so the selection recolour keeps working
   untouched — the same free ride P3a got. (⚠️ 2026-09-28: the note's highlight now fills its OWN
-  `g.flag` — `interactions/elements/notePaint`, his report — found through that same group.)
+  `g.flag` — `interactions/elements/notePaint`, his report — found through that same group; and the flag
+  is a selectable kind of its own, `noteFlag`, its box filed by `rendering/stemInk`.)
 - 🚨🚨 **It is `own-engraving-engine.md` §3's BUG CLASS, sitting in the open.** VexFlow places the
   flag vertically with `this.flag.getTextMetrics().actualBoundingBoxDescent` — a **runtime
   `measureText` on a canvas**. That is the identical mechanism that put every whole rest ~9.7 px

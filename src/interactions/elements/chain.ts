@@ -64,6 +64,7 @@ import { DOT_ELEMENT } from './dot'
 import { HEAD_ENCLOSURE_ELEMENT } from './enclosure'
 import { TREMOLO_ELEMENT } from './tremolo'
 import { STEM_ELEMENT } from './stem'
+import { NOTE_FLAG_ELEMENT } from './noteFlag'
 import { BARLINE_ELEMENT } from './barline'
 import { REPEAT_START_ELEMENT } from './repeatStart'
 import { TUPLET_ELEMENT } from './tuplet'
@@ -290,6 +291,10 @@ export const ELEMENT_HIT_ORDER: ReadonlyArray<ClickableElementSpec> = [
   // The tremolo goes immediately before it: the mark is drawn on the stem, so it wins inside its
   // own ink and the stem keeps the rest of its length.
   TREMOLO_ELEMENT,
+  // ⭐ The FLAG likewise (his ask, 2026-09-28): it hangs ALONGSIDE the stem from its tip, so the two rects
+  // overlap — the flag wins on its hook, and stands down on the stem's own line, so the stem stays
+  // pickable along its whole (short, on a flagged note) length (`./noteFlag`).
+  NOTE_FLAG_ELEMENT,
   STEM_ELEMENT,
   // ⭐⭐ **THE OPEN REPEAT BEFORE THE BARLINE — A PRESS RESOLVES TO THE SIGN IT LANDED ON.**
   //
@@ -344,6 +349,7 @@ export const ELEMENT_SPECS: Record<SelectedElement['kind'], ElementKindSpec> = {
   headEnclosure: HEAD_ENCLOSURE_ELEMENT,
   tremolo: TREMOLO_ELEMENT,
   stem: STEM_ELEMENT,
+  noteFlag: NOTE_FLAG_ELEMENT,
   barline: BARLINE_ELEMENT,
   repeatStart: REPEAT_START_ELEMENT,
   tuplet: TUPLET_ELEMENT,

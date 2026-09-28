@@ -814,6 +814,14 @@ export type SelectedElement =
    */
   | { kind: 'stem'; noteId: string }
   /**
+   * A slot's FLAG — the hook on an unbeamed 8th, 16th… — by the anchor note id, like the stem it hangs from
+   * (his ask, 2026-09-28: the stem and the accidentals were selectable, the flag was not). A chord has ONE flag.
+   * Selection ONLY, as the stem: nothing acts on a selected flag yet, and Delete declines — the flag is what a
+   * flagged duration looks like, not an object to remove. ⚠️ Named `noteFlag`, not `flag`: `lint:hubs` counts
+   * a kind's name as a WORD, and "flag" is an everyday word in the renderer (`hasFlag`, `shouldDrawFlag`).
+   */
+  | { kind: 'noteFlag'; noteId: string }
+  /**
    * A slot's TREMOLO mark — the anchor note id, like the stem it rides. A slot carries ONE tremolo
    * (`setTremolo` replaces, never stacks), so there is one mark to select however many strokes it
    * draws. Its mutual exclusion with the stem used to be a comment on two fields; it is now the

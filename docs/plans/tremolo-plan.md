@@ -147,7 +147,7 @@ That required the stem to become a **fact** rather than a guess. A note register
 head + stem + beam on purpose (`tight-bbox-plan.md` §4a), so from outside "which side is the stem on,
 how far does it reach" is only *inferable* — and inference gets the beamed and multi-voice cases
 wrong. VexFlow knows exactly (since the 2026-09-19 removal, `EngravedNote` does), so it is now written down: `'stem'` is an `ElementType`, registered by
-`ScoreRenderer.registerStem` from `getStemX()` + `getStemExtents()`.
+`ScoreRenderer.registerStem` from `getStemX()` + `getStemExtents()` (⚠️ since 2026-09-28 `engine/rendering/stemInk.registerStemInk`, which files the flag too).
 
 - **One per slot**, anchored on the chord's lowest pitch — the convention its articulations and dots
   already use. A chord has one stem.
@@ -784,9 +784,10 @@ copy went when the row did: with the tremolo buttons gone, every syncer left in 
   `setTremolo(id, null)` from a different seam; both are wiring, not design.
 - **Anything on a selected STEM.** Delete does nothing to one — there is no such edit — and a
   stem-length drag is the gesture that rect was really registered for.
-- **The flag.** Not its own selectable element (still a possible future kind) — ⚠️ but since 2026-09-28 it LIGHTS
-  with its selected note (`interactions/elements/notePaint`, his report: the flag stayed black), as the
-  accidentals, dots and ties do while being selectable themselves; a grace note's flag inside the host stays dark.
+- **The flag.** ✅ Its own selectable element since 2026-09-28 (his ask) — `noteFlag` (`interactions/elements/noteFlag`,
+  its box filed by `engine/rendering/stemInk`), asked just before the stem: it takes its HOOK, and stands down on
+  the stem's own line so a flagged note's short stem stays pickable. It also LIGHTS with its selected note
+  (`notePaint`), as the accidentals, dots and ties do; a grace note's flag inside the host stays dark.
 
 ## 10. What a tremolo-palette press does — ✅ DONE (P8, P9)
 

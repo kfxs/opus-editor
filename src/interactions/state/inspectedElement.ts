@@ -92,6 +92,7 @@ export type InspectedElement =
   | Report<'dot', OnNote>
   | Report<'headEnclosure', OnNote>
   | Report<'stem', OnNote>
+  | Report<'noteFlag', OnNote>
   | Report<'tremolo', OnNote>
   | Report<'tie', { fromNoteId: string; from: Note | undefined }>
   /** ⭐ A GLISSANDO: the model object, and the head it goes to right now (derived — G4), or null. */

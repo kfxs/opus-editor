@@ -59,6 +59,14 @@ export type ElementType =
    * ⚠️ Carries {@link ElementInfo.noteId}, NOT `id` — same reason as `'stem'`.
    */
   | 'tremolo'
+  /**
+   * A note's FLAG — the hook on an unbeamed 8th, 16th… as its own ink rect, one per slot, anchored like the
+   * stem it hangs from (`rendering/stemInk`; his ask, 2026-09-28). The flag's own drawn box, so it overlaps the
+   * stem's padded rect only at the tip, where the flag wins.
+   *
+   * ⚠️ Carries {@link ElementInfo.noteId}, NOT `id` — same reason as `'stem'`.
+   */
+  | 'noteFlag'
   | 'rest'
   | 'clef'
   | 'timeSignature'

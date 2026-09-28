@@ -125,6 +125,7 @@ import { applyHiddenTreatment, hiddenTreatment, HIDDEN_ELEMENT_COLOR, type Rende
 import { barFrame, noteFrame, staveBox, staveFrame, standOn } from './staff/staveFrame'
 import { noteLineY, staffLineY } from '@/engine/engrave/staff/staffFrame'
 import { noteRuler } from './engraved/noteRuler'
+import { registerStemInk } from './stemInk'
 import { drawAndRegisterTuplets } from './marks/tupletPass'
 import { signRun } from './staff/signRun'
 
@@ -1075,59 +1076,8 @@ export class ScoreRenderer {
   }
 
   /**
-   * Register the STEM of `staveNote` as its own ink rect, anchored on `anchorNoteId`.
-   *
-   * WHY IT IS ITS OWN ELEMENT. The note registers a box that spans head + stem + beam on purpose
-   * (docs/history/tight-bbox-plan.md §4a keeps that "semantic" box), which means the stem's own geometry —
-   * which side of the head it is on, how far it reaches — is not readable from outside: only
-   * guessable. VexFlow knows it exactly, so the answer is written down here rather than inferred at
-   * hit-test time. First caller is the tremolo stamp (the strokes ride the stem, so that is where
-   * the pointer goes — {@link ElementRegistry.findStemAt}); stem-length drag and stem selection
-   * want the same rect.
-   *
-   * ONE per slot, on the chord's lowest pitch — a chord has one stem, exactly as it has one set of
-   * dots and one set of articulations.
-   *
-   * `getStemX()` is the x the stem is DRAWN at (head's right edge for stem-up, left for stem-down,
-   * and it already includes the note-offset `xShift`), and `getStemExtents()` gives tip → notehead
-   * end. Called after the beams are drawn (see the draw order in `drawMeasureContent`), so a beamed
-   * stem's extension is already applied and the rect is the real length, not the default one.
-   *
-   * A stemless note registers nothing: `hasStem()` is false for a whole note, and a stem you cannot
-   * see is not a thing to click.
-   */
-  private registerStem(
-    staveNote: EngravedNote,
-    anchorNoteId: string,
-    measureNumber: number,
-    staffIndex: number,
-    beat: number,
-  ): void {
-    try {
-      const stemRuler = noteRuler(staveNote)
-      if (!stemRuler.hasStem) return
-      const x = stemRuler.stemX
-      const topY = stemRuler.stemTipY
-      const baseY = stemRuler.stemBaseY
-      const y = Math.min(topY, baseY)
-      const height = Math.abs(baseY - topY)
-      if (!Number.isFinite(x) || !Number.isFinite(y) || height <= 0) return
-      this.elementRegistry.add({
-        type: 'stem',
-        noteId: anchorNoteId,
-        measure: measureNumber,
-        staff: staffIndex,
-        beat,
-        // The drawn line is STEM_THICKNESS_PX wide, centred on x. Clicking it is padded by the registry
-        // (STEM_CLICK_PAD) rather than here, so what is stored stays the ink and not a target.
-        bbox: { x: x - stemThicknessPx() / 2, y, width: stemThicknessPx(), height },
-      })
-    } catch (_e) { /* stem geometry may not be available pre-draw */ }
-  }
-
-  /**
    * Register the TREMOLO mark of `staveNote` as its own ink rect, anchored on `anchorNoteId` — the
-   * companion to {@link registerStem}, and one per slot for the same reason (a slot carries one
+   * companion to `./stemInk.registerStemInk`, and one per slot for the same reason (a slot carries one
    * tremolo, as it carries one stem).
    *
    * The rect comes from the modifier's own {@link CenteredTremolo.inkRect}, recorded while it drew:
@@ -2972,7 +2922,7 @@ export class ScoreRenderer {
               // The STEM as its own ink rect — chord-level, so anchored on the lowest pitch like the
               // articulations and dots above. The TREMOLO rides that stem and is anchored the same.
               if (keyIndex === 0) {
-                this.registerStem(staveNote, pitch.id, measure.number, staffIndex, fracToNumber(slot.beat))
+                registerStemInk(this.elementRegistry, staveNote, pitch.id, measure.number, staffIndex, fracToNumber(slot.beat))
                 if (slot.tremolo) {
                   this.registerTremolo(staveNote, pitch.id, measure.number, staffIndex, fracToNumber(slot.beat))
                 }

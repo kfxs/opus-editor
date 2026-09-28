@@ -135,12 +135,13 @@ export function anchorOfElement(engine: PasteAnchorEngine, element: SelectedElem
     // A glissando resolves through the note it hangs off, like the tie.
     case 'glissandoLine':
       return noteAnchor(engine, score.glissandi?.find(g => g.id === element.id)?.noteId)
-    // The six sub-elements of a note ARE that note, positionally.
+    // The seven sub-elements of a note ARE that note, positionally.
     case 'articulation':
     case 'accidental':
     case 'dot':
     case 'headEnclosure':
     case 'stem':
+    case 'noteFlag':
     case 'tremolo':
       return noteAnchor(engine, element.noteId)
     // 🚧 The sketched HEADER names no point in the music — it is not IN the music (it heads the
