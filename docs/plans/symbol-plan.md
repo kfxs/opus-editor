@@ -138,7 +138,7 @@ Each phase stops for his UI check.
   rebuild paths had to know the new array, or it would silently misbehave: **rebar** captures and
   restores it (the dynamics' rule — no dedupe, stack order kept, overrides re-stamped), the **per-staff
   view** (`staffContent`) filters it, and a **prepended staff** leaves it on its own staff
-  (`solidifyFirstStaffGlyphMarks`). The render-role table asked too: `'shape'` (drawn, weightless),
+  (`staffContent.solidifyFirstStaffContent`). The render-role table asked too: `'shape'` (drawn, weightless),
   in the shape key with its id-keyed override — revisit if P1 draws outside the measure groups.
   ⚠️ A PASTE onto a region keeps the destination's marks at their beats (the dynamics' overwrite
   rule is not applied) — P5 decides.

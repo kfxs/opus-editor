@@ -207,6 +207,41 @@ export function staffMeasureView(measure: Measure, staffId: string | undefined, 
 }
 
 /**
+ * Stamp the current first staff's explicit id onto EVERY piece of content that relies on the
+ * absent-`staffId` = staff-0 convention, across all measures. Called right before a PREPEND changes
+ * which staff is index 0 (`ScoreModel.addStaff`), so the existing music stays on its (now second)
+ * staff instead of being read as the freshly inserted, empty top staff's. A degenerate score with no
+ * staves is skipped.
+ *
+ * ⚠️ **EVERY per-staff array must be named here** — {@link staffMeasureView}'s trap, the other way
+ * round: an array this pass misses keeps its absent id and so MOVES to the new top staff, silently.
+ * Hairpins, ottavas and pedals were missing until 2026-09-28 (the pass then lived on `ScoreModel`,
+ * a hub away from the view that names the same list).
+ *
+ * ⛔ **Not the barline statements** (`barline` / `repeatStart` / `repeatEnd`): on those an absent
+ * `staffId` means the whole SYSTEM, not staff 0 (docs/plans/barline-types-plan.md §3.1), so stamping
+ * one would narrow it to a single staff.
+ */
+export function solidifyFirstStaffContent(score: Score): void {
+  const firstId = firstStaffId(score)
+  if (firstId === undefined) return
+  const stamp = (item: { staffId?: string }): void => { if (item.staffId === undefined) item.staffId = firstId }
+  for (const m of score.measures) {
+    m.slots.forEach(stamp)
+    m.clefs?.forEach(stamp)
+    // ⚠️ The KEY too (missing until 2026-08-28): per-staff exactly as `clefs` is, so a prepended
+    //    staff would otherwise inherit the first staff's signatures (docs/plans/key-signature-plan.md §1.2).
+    m.keys?.forEach(stamp)
+    m.dynamics?.forEach(stamp)
+    m.glyphMarks?.forEach(stamp)
+    m.hairpins?.forEach(stamp)
+    m.ottavas?.forEach(stamp)
+    m.pedals?.forEach(stamp)
+    m.tuplets?.forEach(stamp)
+  }
+}
+
+/**
  * Resolve a 0-based staff index (from `NoteParams.staff`) to the `staffId` to stamp on a new slot.
  * Mirrors the voice convention: the FIRST staff (index 0 / undefined) stamps NO `staffId` (absent =
  * staff 0, keeps single-staff output byte-identical); any later staff stamps its real id.

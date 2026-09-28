@@ -65,12 +65,11 @@ import type { BarlineSignKind } from './boundarySign'
 import { isBarlineStyle, isValidRepeatTimes } from './barlineOps'
 import { flatNoteOf, flatRestOf, projectBracketedNote, projectGraceNote } from './noteProjection'
 import { attackOf, findSlot, offsetTargetOf, writeAttackMarks, projectAttackMarks, type FoundSlot } from './slotLookup'
-import { staffIndexOfId, matchesStaff, staffIdForParams, firstStaffId } from './staffContent'
+import { staffIndexOfId, matchesStaff, staffIdForParams, solidifyFirstStaffContent } from './staffContent'
 import * as tupletOps from './tupletOps'
 import * as scoreTextOps from './scoreTextOps'
 import type { ScoreTextField } from './scoreTextOps'
 import { measureDynamics, resolveActiveLevel } from '@/utils/dynamics'
-import { solidifyFirstStaffGlyphMarks } from './glyphMarkOps'
 import { tempoMarks, effectiveTempoAt, MIN_BPM, MAX_BPM } from '@/utils/tempoMap'
 import { v4 as uuidv4 } from 'uuid'
 import { voiceOf } from '@/utils/lanes'
@@ -214,7 +213,7 @@ export class ScoreModel {
     const staves = [...(this.score.staves ?? [])]
     const ref = Math.max(0, Math.min(refStaffIndex, staves.length - 1))
     const insertAt = position === 'above' ? ref : ref + 1
-    if (insertAt === 0) this.solidifyFirstStaffContent()
+    if (insertAt === 0) solidifyFirstStaffContent(this.score)
 
     const refStaffId = staves[ref]?.id
     const newStaff: StaffInfo = { id: uuidv4() }
@@ -239,30 +238,6 @@ export class ScoreModel {
   /** Add a staff immediately BELOW the staff at `refStaffIndex`. @returns the new staff's id. */
   addStaffBelow(refStaffIndex: number): string {
     return this.addStaff(refStaffIndex, 'below')
-  }
-
-  /**
-   * Stamp the current first staff's explicit id onto every piece of content that currently
-   * relies on the absent-`staffId` = staff-0 convention (slots, clefs, dynamics, tuplets,
-   * across all measures). Called right before a prepend changes which staff is index 0, so
-   * the existing music stays anchored to its (now non-first) staff instead of being read as
-   * belonging to the newly inserted top staff. A no-op degenerate score (no staves) is skipped.
-   */
-  private solidifyFirstStaffContent(): void {
-    const firstId = firstStaffId(this.score)
-    if (firstId === undefined) return
-    for (const m of this.score.measures) {
-      for (const slot of m.slots) if (slot.staffId === undefined) slot.staffId = firstId
-      for (const clef of m.clefs ?? []) if (clef.staffId === undefined) clef.staffId = firstId
-      // ⚠️ The KEY too, and it was missing until 2026-08-28: `Measure.keys` is per-staff exactly as
-      //    `clefs` is, so without this a PREPENDED staff would silently inherit the outgoing first
-      //    staff's signatures and leave that staff in C major — the very re-pointing this pass exists
-      //    to prevent (docs/plans/key-signature-plan.md §1.2).
-      for (const key of m.keys ?? []) if (key.staffId === undefined) key.staffId = firstId
-      for (const dyn of m.dynamics ?? []) if (dyn.staffId === undefined) dyn.staffId = firstId
-      for (const tup of m.tuplets ?? []) if (tup.staffId === undefined) tup.staffId = firstId
-    }
-    solidifyFirstStaffGlyphMarks(this.score, firstId)
   }
 
   /**

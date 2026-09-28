@@ -1737,4 +1737,24 @@ describe('ScoreModel.addStaff (multi-staff Phase 4)', () => {
     const topPitched = model.getNotesInMeasure(1).filter(n => (n.staff ?? 0) === 0 && !n.isRest)
     expect(topPitched).toHaveLength(0)
   })
+
+  it('addStaffAbove(0) keeps EVERY per-staff mark on its (now 2nd) staff — hairpins, ottavas and pedals included', () => {
+    // Stored with an ABSENT staffId (= staff 0), like the note above. Until 2026-09-28 the prepend
+    // solidified slots, clefs, keys, dynamics and tuplets but not these three, so they jumped to the
+    // new, empty top staff.
+    const score = model.getScore()
+    const m = score.measures[0]
+    m.hairpins = [{ id: 'h', type: 'cresc', beat: frac(0, 1), length: frac(2, 1) }]
+    m.ottavas = [{ id: 'o', beat: frac(0, 1), length: frac(2, 1), shift: 1 }]
+    m.pedals = [{ id: 'p', beat: frac(0, 1), length: frac(2, 1) }]
+    m.dynamics = [{ id: 'd', beat: frac(0, 1), text: 'p' }]
+    m.glyphMarks = [{ id: 'g', glyph: 'pictGlsp', beat: frac(0, 1) }]
+    const originalStaffId = score.staves![0].id
+
+    model.addStaffAbove(0)
+
+    for (const mark of [...m.hairpins, ...m.ottavas, ...m.pedals, ...m.dynamics!, ...m.glyphMarks]) {
+      expect(mark.staffId, mark.id).toBe(originalStaffId)
+    }
+  })
 })

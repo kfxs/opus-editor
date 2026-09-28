@@ -12,7 +12,6 @@ import {
   measureGlyphMarks,
 } from './glyphMarkOps'
 import { setEngravingOverride } from './overrideOps'
-import { staffGlyphMarks, firstStaffId } from './staffContent'
 import { fracCreate as frac } from '@/utils/fraction'
 import type { EngravingOverride, Score } from '@/types/music'
 
@@ -69,14 +68,5 @@ describe('glyphMarkOps', () => {
     expect(loaded.measures[0].glyphMarks).toEqual([a, b])
     expect(loaded.measures[1].glyphMarks).toBeUndefined()
     expect(model.toJSON()).not.toMatch(/"glyphMarks": \[\]/)
-  })
-
-  it('stays on its staff when a staff is PREPENDED above it', () => {
-    const g = addGlyphMark(score, 1, { glyph: 'pictGlsp', beat: frac(0, 1) })! // absent = staff 0
-    const original = firstStaffId(score)
-    model.addStaffAbove(0)
-    const m = score.measures[0]
-    expect(staffGlyphMarks(m, original, score).map(x => x.id)).toEqual([g.id])
-    expect(staffGlyphMarks(m, firstStaffId(score), score)).toEqual([])
   })
 })

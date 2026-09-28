@@ -9,6 +9,7 @@ import {
   staffIdAtIndex,
   firstStaffId,
   matchesStaff,
+  solidifyFirstStaffContent,
   DEFAULT_STAFF_INDEX,
 } from './staffContent'
 import { measureOpeningClef, measureEndingClef } from '@/utils/clefUtils'
@@ -273,5 +274,22 @@ describe('ScoreModel staff-axis scaffolding (N=1)', () => {
     for (const note of model.getAllNotes()) {
       expect(note.staff).toBeUndefined()
     }
+  })
+})
+
+describe('solidifyFirstStaffContent — the prepend pass names EVERY per-staff array', () => {
+  it('stamps the first staff onto everything whose absent staffId means staff 0, and nothing else', () => {
+    const score = twoStaffScore()
+    const m = score.measures[0]
+    m.glyphMarks = [{ id: 'g', glyph: 'pictGlsp', beat: frac(0, 1) }]
+    m.ottavas = [{ id: 'o', beat: frac(0, 1), length: frac(2, 1), shift: 1 }]
+    m.barline = { style: 'final' } // absent staffId = the whole SYSTEM — must stay absent
+    solidifyFirstStaffContent(score)
+    const arrays: Array<Array<{ id: string; staffId?: string }> | undefined> =
+      [m.slots, m.clefs, m.keys, m.dynamics, m.glyphMarks, m.hairpins, m.ottavas, m.pedals, m.tuplets]
+    for (const item of arrays.flatMap(a => a ?? [])) expect(item.staffId, item.id).toBeDefined()
+    expect(m.hairpins!.find(h => h.id === 'h0')!.staffId).toBe(S0)
+    expect(m.hairpins!.find(h => h.id === 'h1')!.staffId).toBe(S1) // an explicit id is left alone
+    expect(m.barline.staffId).toBeUndefined()
   })
 })

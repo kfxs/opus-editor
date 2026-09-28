@@ -83,14 +83,3 @@ export function glyphMarkMeasure(score: Score, id: string): Measure | null {
   }
   return null
 }
-
-/**
- * Stamp `firstId` onto every glyph mark that relies on the absent-`staffId` = staff-0 convention —
- * this family's part of `ScoreModel`'s pass that runs right before a PREPENDED staff changes which
- * staff is index 0, so the marks stay on their staff instead of being read as the new top staff's.
- */
-export function solidifyFirstStaffGlyphMarks(score: Score, firstId: string): void {
-  for (const measure of score.measures) {
-    for (const mark of measure.glyphMarks ?? []) if (mark.staffId === undefined) mark.staffId = firstId
-  }
-}
