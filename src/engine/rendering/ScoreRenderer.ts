@@ -126,6 +126,7 @@ import { barFrame, noteFrame, staveBox, staveFrame, standOn } from './staff/stav
 import { noteLineY, staffLineY } from '@/engine/engrave/staff/staffFrame'
 import { noteRuler } from './engraved/noteRuler'
 import { registerStemInk } from './stemInk'
+import { registerBeamHitInk } from './beams/beamHitInk'
 import { drawAndRegisterTuplets } from './marks/tupletPass'
 import { signRun } from './staff/signRun'
 
@@ -2038,6 +2039,8 @@ export class ScoreRenderer {
         // absolute X, which does not exist before formatting.
         drawTempoMarks(pass, measure, stave, staffIndex, sortedSlots, staveNotes, placement.scale)
         for (const b of built) this.registerBeams(b.beams, measure)
+        // …and each beam's LINES as its clickable ink, anchored on its first note (`./beams/beamHitInk`).
+        registerBeamHitInk(this.elementRegistry, built.flatMap(b => b.beams), sortedSlots, staveNotes, measure.number, staffIndex)
 
         // Mid-measure clefs are carried by the primary voice only.
         const primaryClefNotes = built[0]?.clefNoteByBeat ?? []

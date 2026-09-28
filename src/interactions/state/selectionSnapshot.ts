@@ -276,6 +276,11 @@ export function selectedElements(state: EditorState, engine: MusicEngine | null)
       // The stem's shape: the flag is what the slot's DURATION draws, not an object in the model.
       out.push({ kind: 'noteFlag', data: { noteId: element.noteId, note: engine.getNote(element.noteId) } })
       break
+    case 'beamGroup':
+      // A beam is DERIVED (the meter's grouping and the notes' `beam` marks), not an object in the model — it is
+      // reported by the note it starts on.
+      out.push({ kind: 'beamGroup', data: { noteId: element.noteId, note: engine.getNote(element.noteId) } })
+      break
     case 'tremolo':
       // The MARK is a field on the slot (`tremolo`), so the note carries the whole truth — reported
       // like the dot above, locator plus note.

@@ -131,6 +131,13 @@ export type ElementType =
    */
   | 'repeatStart'
   | 'beam'
+  /**
+   * ⭐ A BEAM as a selectable thing — ONE entry per LINE it draws, `points` its slanted band (four corners), `noteId`
+   * the group's first NOTE (its anchor — the highlight finds the drawn `g.beam` through that note's stem)
+   * (`rendering/beams/beamHitInk`; his ask 2026-09-28).
+   * ⛔ Not `'beam'`, whose zero-size box is kept on purpose (vexflow-removal-map §9.4 #2).
+   */
+  | 'beamGroup'
   | 'staff'
   | 'tie'
   /**

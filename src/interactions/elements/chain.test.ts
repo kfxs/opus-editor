@@ -17,11 +17,11 @@ import { MARK_KINDS } from '../clipboard/enclosedMarks'
 const ALL_KINDS: SelectedElement['kind'][] = [
   'clef', 'timeSignature', 'keySignature', 'tempo', 'dynamic', 'tie', 'slur', 'hairpin', 'trill',
   'ottava', 'pedal', 'accidental', 'articulation', 'dot', 'tremolo', 'stem', 'barline', 'repeatStart',
-  'tuplet', 'measureRange', 'scoreText', 'staffGroup', 'headEnclosure', 'glissandoLine', 'noteFlag',
+  'tuplet', 'measureRange', 'scoreText', 'staffGroup', 'headEnclosure', 'glissandoLine', 'noteFlag', 'beamGroup',
 ]
 
 describe('ELEMENT_SPECS — total over the union', () => {
-  it('answers for all twenty-five kinds, and nothing else', () => {
+  it('answers for all twenty-six kinds, and nothing else', () => {
     expect(Object.keys(ELEMENT_SPECS).sort()).toEqual([...ALL_KINDS].sort())
   })
 
@@ -111,7 +111,7 @@ describe('ELEMENT_HIT_ORDER — the priority chain', () => {
       // Dots after the other sub-elements: they sit right beside the head.
       'dot',
       // The tremolo immediately before the stem it is drawn ON, so it wins only inside its own ink.
-      'tremolo', 'noteFlag', 'stem',
+      'tremolo', 'noteFlag', 'beamGroup', 'stem',
       // ⭐⭐ The OPEN REPEAT before the barline: a press resolves to the SIGN it landed on. A lone
       // `|:` REPLACES the previous bar's plain line, so a press on it must not answer "barline" on
       // one stroke and "repeat" on the next (his report, 2026-08-26). Its box is its own ink right of

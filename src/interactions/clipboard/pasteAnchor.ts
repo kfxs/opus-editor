@@ -142,6 +142,7 @@ export function anchorOfElement(engine: PasteAnchorEngine, element: SelectedElem
     case 'headEnclosure':
     case 'stem':
     case 'noteFlag':
+    case 'beamGroup':
     case 'tremolo':
       return noteAnchor(engine, element.noteId)
     // 🚧 The sketched HEADER names no point in the music — it is not IN the music (it heads the

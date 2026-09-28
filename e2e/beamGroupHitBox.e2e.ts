@@ -1,0 +1,54 @@
+import { test, expect } from './fixtures'
+
+/**
+ * ⭐ **A BEAM'S CLICKABLE INK, CHECKED AGAINST THE PAGE** (his ask, 2026-09-28: a beam selectable on its own).
+ *
+ * `engine/rendering/beams/beamHitInk` files each drawn beam LINE as a `'beamGroup'` band. The band must be the
+ * line that was FILLED — each `g.beam > path` is one quad — so a press lands on what the eye sees. A path's
+ * `getBBox()` is its geometry (unlike a `<text>`'s line box), so here the two can be compared closely.
+ */
+async function beamed(score: import('@playwright/test').Page, duration: '8' | '16', octave: number) {
+  return score.evaluate(async ({ duration, octave }) => {
+    const h = window.__h
+    const per = duration === '8' ? 2 : 4
+    const ids: string[] = []
+    for (let i = 0; i < per; i++) {
+      ids.push(h.engine.addNoteAtBeat({ step: 'G', octave, duration, measure: 1, beat: h.frac(i, per) } as never)!.id)
+    }
+    await h.render()
+    const entries = h.engine.getElementRegistry().getByType('beamGroup')
+    const drawn = [...document.querySelectorAll<SVGPathElement>('svg g.beam > path')].map(p => {
+      const b = p.getBBox()
+      return { x: b.x, y: b.y, width: b.width, height: b.height }
+    })
+    return { ids, entries: entries.map(e => ({ noteId: e.noteId, bbox: e.bbox })), drawn }
+  }, { duration, octave })
+}
+
+for (const [label, octave] of [['stem UP', 4], ['stem DOWN', 5]] as const) {
+  test(`⭐ ${label}: one band per drawn line, each ON its line, anchored on the first note`, async ({ score }) => {
+    const { ids, entries, drawn } = await beamed(score, '16', octave)
+    expect(drawn.length, 'sixteenths: a primary and a secondary line').toBe(2)
+    expect(entries).toHaveLength(drawn.length)
+    for (const entry of entries) expect(entry.noteId).toBe(ids[0])
+    for (const line of drawn) {
+      const match = entries.find(e => Math.abs(e.bbox.y - line.y) < 1.5)
+      expect(match, `a band for the line at y=${line.y}`).toBeDefined()
+      expect(Math.abs(match!.bbox.x - line.x)).toBeLessThan(1.5)
+      expect(Math.abs(match!.bbox.width - line.width)).toBeLessThan(1.5)
+      expect(Math.abs(match!.bbox.height - line.height)).toBeLessThan(1.5)
+    }
+    // 🚨 The break-test: bands of nothing would match nothing above.
+    expect(entries[0].bbox.width).toBeGreaterThan(10)
+  })
+}
+
+test('an unbeamed eighth files no beam band', async ({ score }) => {
+  const count = await score.evaluate(async () => {
+    const h = window.__h
+    h.engine.addNoteAtBeat({ step: 'G', octave: 4, duration: '8', measure: 1, beat: h.frac(0, 1) } as never)
+    await h.render()
+    return h.engine.getElementRegistry().getByType('beamGroup').length
+  })
+  expect(count).toBe(0)
+})

@@ -65,6 +65,7 @@ import { HEAD_ENCLOSURE_ELEMENT } from './enclosure'
 import { TREMOLO_ELEMENT } from './tremolo'
 import { STEM_ELEMENT } from './stem'
 import { NOTE_FLAG_ELEMENT } from './noteFlag'
+import { BEAM_GROUP_ELEMENT } from './beamGroup'
 import { BARLINE_ELEMENT } from './barline'
 import { REPEAT_START_ELEMENT } from './repeatStart'
 import { TUPLET_ELEMENT } from './tuplet'
@@ -295,6 +296,9 @@ export const ELEMENT_HIT_ORDER: ReadonlyArray<ClickableElementSpec> = [
   // overlap — the flag wins on its hook, and stands down on the stem's own line, so the stem stays
   // pickable along its whole (short, on a flagged note) length (`./noteFlag`).
   NOTE_FLAG_ELEMENT,
+  // ⭐ The BEAM before the stem (his ask, 2026-09-28): the stems END in it, so where the two meet the press is
+  // on the beam's ink; its hit is the slanted band of each line, so the stem keeps its whole length below.
+  BEAM_GROUP_ELEMENT,
   STEM_ELEMENT,
   // ⭐⭐ **THE OPEN REPEAT BEFORE THE BARLINE — A PRESS RESOLVES TO THE SIGN IT LANDED ON.**
   //
@@ -350,6 +354,7 @@ export const ELEMENT_SPECS: Record<SelectedElement['kind'], ElementKindSpec> = {
   tremolo: TREMOLO_ELEMENT,
   stem: STEM_ELEMENT,
   noteFlag: NOTE_FLAG_ELEMENT,
+  beamGroup: BEAM_GROUP_ELEMENT,
   barline: BARLINE_ELEMENT,
   repeatStart: REPEAT_START_ELEMENT,
   tuplet: TUPLET_ELEMENT,

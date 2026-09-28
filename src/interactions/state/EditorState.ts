@@ -822,6 +822,13 @@ export type SelectedElement =
    */
   | { kind: 'noteFlag'; noteId: string }
   /**
+   * A BEAM — the whole beam of a beamed group, every line of it — by its ANCHOR, the group's first NOTE (a
+   * chord's lowest pitch; a beamed rest is passed over): the id that names the same beam from one render to the next (his
+   * ask, 2026-09-28). Selection ONLY, for now: nothing acts on a selected beam yet, and Delete declines.
+   * ⚠️ Named `beamGroup`, not `beam`: `lint:hubs` counts a kind's name as a WORD, and "beam" is everywhere.
+   */
+  | { kind: 'beamGroup'; noteId: string }
+  /**
    * A slot's TREMOLO mark — the anchor note id, like the stem it rides. A slot carries ONE tremolo
    * (`setTremolo` replaces, never stacks), so there is one mark to select however many strokes it
    * draws. Its mutual exclusion with the stem used to be a comment on two fields; it is now the

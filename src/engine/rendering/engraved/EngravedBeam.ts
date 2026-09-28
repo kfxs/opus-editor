@@ -382,6 +382,15 @@ export class EngravedBeam {
     }
   }
 
+  /**
+   * ⭐ Every line this beam DRAWS, and its signed thickness — what `beams/beamHitInk` files as the beam's
+   * clickable ink (his ask, 2026-09-28: a beam selectable on its own). The same lines {@link draw} fills.
+   */
+  drawnLines(): { lines: readonly BeamLineInk[]; thickness: number } {
+    if (!this.postFormatted) this.postFormat()
+    return { lines: this.beamLineInk(), thickness: this.beamThickness() }
+  }
+
   /** ⚠️ SIGNED by the stem direction — a stem-down beam stacks upward, and the sign carries it. */
   private beamThickness(): number {
     return this.beamWidth * this.stemDirection
