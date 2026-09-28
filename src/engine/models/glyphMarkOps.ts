@@ -13,10 +13,11 @@
  * ⚠️ Re-anchoring across a re-bar is NOT here — that is `rebarOps`, which owns every beat-anchored
  * thing that has to survive the barlines moving (`captureBeatAnchors`). The same split as `pedalOps`.
  */
-import type { Score, GlyphMark, Measure } from '@/types/music'
+import type { Score, GlyphMark, GlyphMarkOffsetOverride, Measure } from '@/types/music'
 import { v4 as uuidv4 } from 'uuid'
 import { fracCompare } from '@/utils/fraction'
-import { clearEngravingOverride } from './overrideOps'
+import { clearEngravingOverride, setEngravingOverride } from './overrideOps'
+import { engravingOverrideOf } from './engravingOverrides'
 
 /** A measure's glyph marks (the live array; empty if none), sorted by beat, added-order within one. */
 export function measureGlyphMarks(measure: Measure): GlyphMark[] {
@@ -121,4 +122,29 @@ export function glyphMarkMeasure(score: Score, id: string): Measure | null {
     if (measure.glyphMarks?.some(g => g.id === id)) return measure
   }
   return null
+}
+
+/** A symbol's hand offset in staff spaces (`x` +right, `y` +down), or undefined when it has none. */
+export function glyphMarkOffsetOf(score: Score, id: string): GlyphMarkOffsetOverride | undefined {
+  return engravingOverrideOf(score, id, 'glyphMarkOffset') as GlyphMarkOffsetOverride | undefined
+}
+
+/**
+ * Set a symbol's hand offset to exactly (`x`, `y`) staff spaces; (0, 0) CLEARS it — absent is the only
+ * spelling of "where the ladder put it". @returns false when there is no such symbol.
+ */
+export function setGlyphMarkOffset(score: Score, id: string, x: number, y: number): boolean {
+  if (!getGlyphMarkById(score, id)) return false
+  if (x === 0 && y === 0) clearEngravingOverride(score, id, 'glyphMarkOffset')
+  else {
+    const next: GlyphMarkOffsetOverride = { kind: 'glyphMarkOffset', x, y }
+    setEngravingOverride(score, id, next)
+  }
+  return true
+}
+
+/** Add (`dx`, `dy`) staff spaces to a symbol's hand offset — the arrows' and a drag's write. */
+export function nudgeGlyphMarkOffset(score: Score, id: string, dx: number, dy: number): boolean {
+  const now = glyphMarkOffsetOf(score, id)
+  return setGlyphMarkOffset(score, id, (now?.x ?? 0) + dx, (now?.y ?? 0) + dy)
 }

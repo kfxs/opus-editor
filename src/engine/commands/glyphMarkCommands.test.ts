@@ -46,6 +46,39 @@ describe('glyphMarkCommands', () => {
     expect(ctx.log).toEqual(['mutate:Add symbol', 'mutate:Flip symbol', 'mutate:Delete symbol'])
   })
 
+  it('nudge / setOffset / reset: one entry each; reset DECLINES when never moved', () => {
+    const { ctx, cmds, n } = setup()
+    const g = cmds.add(n.id, 'fermataAbove')!
+    expect(cmds.reset(g.id)).toBe(false)
+    expect(cmds.nudge(g.id, 0.25, -0.5)).toBe(true)
+    expect(cmds.offsetOf(g.id)).toEqual({ x: 0.25, y: -0.5 })
+    expect(cmds.setOffset(g.id, 0.25, -0.5)).toBe(false) // the same value is no edit
+    expect(cmds.setOffset(g.id, 1, 1)).toBe(true)
+    expect(cmds.reset(g.id)).toBe(true)
+    expect(cmds.offsetOf(g.id)).toEqual({ x: 0, y: 0 })
+    expect(ctx.log).toEqual(['mutate:Add symbol', 'mutate:Move symbol', 'mutate:Move symbol', 'mutate:Reset symbol position'])
+  })
+
+  it('⛔ a nudge that would take the ink off the page is refused — no write, no entry', () => {
+    const { ctx, cmds, n } = setup()
+    const g = cmds.add(n.id, 'fermataAbove')!
+    ctx.allow.page = false
+    expect(cmds.nudge(g.id, 50, 0)).toBe(false)
+    expect(cmds.offsetOf(g.id)).toEqual({ x: 0, y: 0 })
+    expect(ctx.undoEntries()).toBe(1)
+  })
+
+  it('a drag: frames write with NO undo entry, the drop records ONE', () => {
+    const { ctx, cmds, n } = setup()
+    const g = cmds.add(n.id, 'fermataAbove')!
+    expect(cmds.previewOffset(g.id, 0.5, 0)).toBe(true)
+    expect(cmds.previewOffset(g.id, 1, 0.5)).toBe(true)
+    expect(ctx.undoEntries()).toBe(1) // the add
+    cmds.commitDrag()
+    expect(ctx.undoEntries()).toBe(2)
+    expect(cmds.offsetOf(g.id)).toEqual({ x: 1, y: 0.5 })
+  })
+
   it('through the facade (`engine.glyphMark`): undo takes it back, redo returns it', () => {
     const engine = makeEngine()
     const n = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: fracCreate(0, 1) })!

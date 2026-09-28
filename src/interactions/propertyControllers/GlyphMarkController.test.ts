@@ -10,7 +10,7 @@ import type { MusicEngine } from '../../engine/MusicEngine'
 describe('GlyphMarkController', () => {
   let controller: GlyphMarkController
   let render: ReturnType<typeof vi.fn<() => void>>
-  const glyphMark = { add: vi.fn(() => ({ id: 'g1' }) as unknown) }
+  const glyphMark = { add: vi.fn(() => ({ id: 'g1' }) as unknown), setOffset: vi.fn(() => true) }
 
   beforeEach(() => {
     vi.clearAllMocks()
@@ -30,4 +30,14 @@ describe('GlyphMarkController', () => {
     bus.glyphMarkAdd.set({ noteId: 'n1', glyph: 'controlBeginBeam' })
     expect(render).not.toHaveBeenCalled()
   })
+
+  it('⭐ the Properties offset (P4): an absolute offset through setOffset; a refused one repaints nothing', () => {
+    bus.glyphMarkOffset.set({ id: 'g1', x: 1, y: -0.5 })
+    expect(glyphMark.setOffset).toHaveBeenCalledWith('g1', 1, -0.5)
+    expect(render).toHaveBeenCalledTimes(1)
+    glyphMark.setOffset.mockReturnValueOnce(false)
+    bus.glyphMarkOffset.set({ id: 'g1', x: 99, y: 0 })
+    expect(render).toHaveBeenCalledTimes(1)
+  })
 })
+

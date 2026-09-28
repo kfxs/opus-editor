@@ -29,8 +29,10 @@ import type { HairpinCommands } from '@/engine/commands/hairpinCommands'
 import type { TrillCommands } from '@/engine/commands/trillCommands'
 import type { OttavaCommands } from '@/engine/commands/ottavaCommands'
 import type { PedalCommands } from '@/engine/commands/pedalCommands'
+import type { GlyphMarkCommands } from '@/engine/commands/glyphMarkCommands'
 import type { SelectionItem } from '../state/selection'
 import { dynamicsInBox, slursInBox } from '../../utils/beatMap'
+import { glyphMarksOnEvents } from './glyphMarkClip'
 import { getMeasureNotes } from '../../utils/musicUtils'
 import { measureCapacityFrac } from '../../utils/measureCapacity'
 import { slotLength } from '../../utils/durations'
@@ -165,16 +167,20 @@ export function marksInBox(score: Score, noteIds: string[]): SelectionItem[] {
     if (fracGte(at.abs, window.start) && fracLt(at.abs, window.end)) items.push({ kind: 'trill', id: trill.id })
   }
 
+  // ⭐ The user's SYMBOLS come with their EVENT — the copy's own rule (`./glyphMarkClip`), so the box lights
+  //   exactly the symbols a copy of it would carry (docs/plans/symbol-plan.md P4).
+  for (const { mark } of glyphMarksOnEvents(score, new Set(noteIds))) items.push({ kind: 'glyphMark', id: mark.id })
+
   return items
 }
 
-/** The seven kinds a box can drag along — every non-note thing `selectedItems` may hold by id. */
-export type MarkKind = 'dynamic' | 'slur' | 'hairpin' | 'trill' | 'ottava' | 'pedal' | 'tempo'
+/** The eight kinds a box can drag along — every non-note thing `selectedItems` may hold by id. */
+export type MarkKind = 'dynamic' | 'slur' | 'hairpin' | 'trill' | 'ottava' | 'pedal' | 'tempo' | 'glyphMark'
 
 /** {@link MarkKind} as a runtime set — the ONE list, so the press chain, the group toggle and the
  *  element-into-set absorb cannot drift on which kinds a selection may hold. */
 export const MARK_KINDS: ReadonlySet<string> = new Set<string>(
-  ['dynamic', 'slur', 'hairpin', 'trill', 'ottava', 'pedal', 'tempo'] satisfies MarkKind[],
+  ['dynamic', 'slur', 'hairpin', 'trill', 'ottava', 'pedal', 'tempo', 'glyphMark'] satisfies MarkKind[],
 )
 
 /** Is this one of the kinds `selectedItems` can hold by id? */
@@ -187,7 +193,7 @@ export function markItems(items: Iterable<SelectionItem>): { kind: MarkKind; id:
   const out: { kind: MarkKind; id: string }[] = []
   for (const item of items) {
     switch (item.kind) {
-      case 'dynamic': case 'slur': case 'hairpin': case 'trill': case 'ottava': case 'pedal': case 'tempo':
+      case 'dynamic': case 'slur': case 'hairpin': case 'trill': case 'ottava': case 'pedal': case 'tempo': case 'glyphMark':
         out.push({ kind: item.kind, id: item.id })
         break
       default:
@@ -202,6 +208,7 @@ type MarkRemover = { tempo: Pick<TempoCommands, 'removeTempoMark'> } & { dynamic
   trill: Pick<TrillCommands, 'removeTrill'>
   ottava: Pick<OttavaCommands, 'removeOttava'>
   pedal: Pick<PedalCommands, 'removePedal'>
+  glyphMark: Pick<GlyphMarkCommands, 'remove'>
 }
 
 /**
@@ -220,6 +227,7 @@ export function removeMarks(engine: MarkRemover, marks: { kind: MarkKind; id: st
       case 'ottava': engine.ottava.removeOttava(mark.id); break
       case 'pedal': engine.pedal.removePedal(mark.id); break
       case 'tempo': engine.tempo.removeTempoMark(mark.id); break
+      case 'glyphMark': engine.glyphMark.remove(mark.id); break
     }
   }
 }

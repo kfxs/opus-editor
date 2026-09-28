@@ -27,7 +27,7 @@ describe('GLYPH_MARK_ELEMENT.hit', () => {
   it('selects the symbol a press lands on — its ink, a few pixels padded — by its own id', () => {
     const { hit, pick } = press(110, 25)
     expect(hit).toBe(true)
-    expect(pick).toHaveBeenCalledWith({ kind: 'glyphMark', id: 'g1' })
+    expect(pick).toHaveBeenCalledWith({ kind: 'glyphMark', id: 'g1' }, expect.any(Function)) // …arming its drag
     expect(press(132, 34).hit).toBe(true) // inside the pad
   })
 
@@ -38,8 +38,8 @@ describe('GLYPH_MARK_ELEMENT.hit', () => {
   })
 })
 
-describe('GLYPH_MARK_ELEMENT.highlight', () => {
-  it('fills the selected symbol’s own glyph, and clears back exactly', () => {
+describe('GLYPH_MARK_ELEMENT.ink', () => {
+  it('fills the named symbol’s own glyph, and clears back exactly', () => {
     const canvas = document.createElement('div')
     const svg = document.createElementNS(NS, 'svg')
     canvas.appendChild(svg)
@@ -58,7 +58,7 @@ describe('GLYPH_MARK_ELEMENT.highlight', () => {
     state.selectedElement = { kind: 'glyphMark', id: 'g1' }
     const hc = new HighlightController(() => engine, () => canvas, state)
 
-    GLYPH_MARK_ELEMENT.highlight(hc.context()!)
+    GLYPH_MARK_ELEMENT.ink!(hc.context()!, 'g1')
     expect(glyph.getAttribute('fill')).toBe(ELEMENT_SELECTION_FILL)
     expect(other.getAttribute('fill')).toBeNull()
     hc.clearHighlights()

@@ -32,6 +32,8 @@ export type SelectionItem =
   /** ⭐ The TEMPO mark (2026-08-19). The one SYSTEM-level member of the group: it has no staff and
    *  no voice, so a box takes it on its position alone. */
   | { kind: 'tempo'; id: string }
+  /** ⭐ A user SYMBOL (docs/plans/symbol-plan.md P4) — in a box when the event it stands on is. */
+  | { kind: 'glyphMark'; id: string }
   | { kind: 'articulation'; noteId: string; type: string }
   | { kind: 'accidental'; noteId: string; type: string }
   | { kind: 'clef'; measure: number; beat: number }
@@ -54,6 +56,7 @@ export function itemKey(item: SelectionItem): string {
     case 'ottava':
     case 'pedal':
     case 'tempo':
+    case 'glyphMark':
       return `${item.kind}:${item.id}`
     case 'tie':
       return `tie:${item.fromNoteId}`

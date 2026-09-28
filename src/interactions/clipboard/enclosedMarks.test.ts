@@ -37,6 +37,13 @@ describe('marksInBox', () => {
     expect(marksInBox(engine.getScore(), bar1)).toEqual([{ kind: 'dynamic', id }])
   })
 
+  it('⭐ takes a user SYMBOL when the event it stands on is in the box — the copy\'s own rule', () => {
+    const inside = engine.glyphMark.add(bar1[1], 'fermataAbove')!.id
+    engine.glyphMark.add(bar2[0], 'pictGlsp') // its event is not boxed
+    expect(marksInBox(engine.getScore(), bar1)).toEqual([{ kind: 'glyphMark', id: inside }])
+    expect(buildClipboardFromSelection(engine.getScore(), bar1)!.glyphMarks!.map(g => g.glyph)).toEqual(['fermataAbove'])
+  })
+
   it('⭐ takes a HAIRPIN that starts and ends inside the box', () => {
     const id = engine.hairpin.addHairpin(1, { type: 'cresc', beat: frac(0, 1), length: frac(4, 1), voice: 0 })!.id
     expect(marksInBox(engine.getScore(), bar1)).toEqual([{ kind: 'hairpin', id }])

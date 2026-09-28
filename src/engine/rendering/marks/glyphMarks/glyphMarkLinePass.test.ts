@@ -6,7 +6,7 @@
 import { describe, it, expect } from 'vitest'
 import { ScoreModel } from '../../../models/ScoreModel'
 import { ScoreRenderer } from '../../ScoreRenderer'
-import { addGlyphMark } from '../../../models/glyphMarkOps'
+import { addGlyphMark, setGlyphMarkOffset } from '../../../models/glyphMarkOps'
 import { smuflGlyph } from '@/engine/fonts/smuflGlyphs'
 import { fracCreate as frac } from '@/utils/fraction'
 import { GLYPH_MARK_STACK_GAP } from './glyphMarkStyle'
@@ -82,6 +82,42 @@ describe('the registry box — the press target moves with the lift', () => {
     // The glyph was stamped with its baseline on the top line; its ink's top is `up` above that, lifted.
     const topLine = renderer.getElementRegistry().getStaffGeometry(1, 0)!.lineYPositions[0]
     expect(box().y).toBeCloseTo(topLine - glyph.up * 10 + lift)
+  })
+})
+
+describe('the attachment guide — from the symbol\'s ink to its note', () => {
+  it('starts at the bottom of the ink (it moved up with the symbol) and ends on the head, straight down', () => {
+    let id = ''
+    const { renderer } = renderWith(m => { id = addGlyphMark(m.getScore(), 1, { glyph: 'fermataAbove', beat: frac(0, 1) })!.id })
+    const entry = renderer.getElementRegistry().getById(id)!
+    const [guide] = entry.guides!
+    expect(guide.from.y).toBeCloseTo(entry.bbox.y + entry.bbox.height) // the ink's bottom, lifted with it
+    expect(guide.to.x).toBeCloseTo(guide.from.x)
+    expect(guide.to.y).toBeGreaterThan(guide.from.y) // the C5 head is below the symbol
+  })
+})
+
+describe('the hand offset (P4) rides on the row', () => {
+  it('moves the drawing AND the press box by the offset, and the stack neighbour not at all', () => {
+    const build = (offset: boolean) => {
+      const ids = { a: '', b: '' }
+      const out = renderWith(m => {
+        const s = m.getScore()
+        ids.a = addGlyphMark(s, 1, { glyph: 'fermataAbove', beat: frac(0, 1) })!.id
+        ids.b = addGlyphMark(s, 1, { glyph: 'pictGlsp', beat: frac(0, 1) })!.id
+        if (offset) setGlyphMarkOffset(s, ids.a, 1.5, -0.5)
+      })
+      const t = (id: string) => out.container.querySelector(`[id="${id}"]`)!.getAttribute('transform')!
+      const move = (id: string) => /translate\((.+), (.+)\)/.exec(t(id))!.slice(1).map(Number)
+      return { a: move(ids.a), b: move(ids.b), box: out.renderer.getElementRegistry().getById(ids.a)!.bbox }
+    }
+    const plain = build(false)
+    const nudged = build(true)
+    expect(nudged.a[0] - plain.a[0]).toBeCloseTo(15)
+    expect(nudged.a[1] - plain.a[1]).toBeCloseTo(-5)
+    expect(nudged.b).toEqual(plain.b) // the neighbour stays on its own row
+    expect(nudged.box.x - plain.box.x).toBeCloseTo(15)
+    expect(nudged.box.y - plain.box.y).toBeCloseTo(-5)
   })
 })
 

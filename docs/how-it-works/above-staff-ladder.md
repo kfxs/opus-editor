@@ -106,6 +106,7 @@ yet.** We have no such pair today.
 | dynamics / hairpins, above | `dynamicsLine.ts` (real) | **baseline** | **yes** | 250 |
 | future: 8va bracket | — | skyline | no | 400 |
 | future: technique text (Alt+T) | — | **baseline** (Finale's "expressions") | **yes** | 450 |
+| user SYMBOLS (a SMuFL glyph on a note) | `rendering/marks/glyphMarks/glyphMarkLinePass` (2026-09-28) — after the ottava, before the tempo | skyline over its own column, stacked outward in added order | no | 450 (`TextScript`) |
 | tempo marks | fixed rung, `stave.getYForTopText(1)` (`TempoLayout.ts:245`) | system-level, outermost | yes, across systems | 1300 |
 | future: rehearsal marks | — | system-level, outermost | yes, across staves | 1500 |
 | future: lyrics | — | **baseline** (below) | **yes** | — |

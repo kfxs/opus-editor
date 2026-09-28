@@ -44,18 +44,26 @@ function slotIndexFor(mark: GlyphMark, slots: readonly ChordRest[]): number {
   return slots.findIndex(s => fracCompare(s.beat, mark.beat) > 0)
 }
 
-/** The x of the centre of the head this symbol stands over, in the stave's own coordinates. */
-function headCentreX(mark: GlyphMark, slots: readonly ChordRest[], notes: readonly EngravedNote[], stave: EngravedStave): number {
+/**
+ * The point of the head this symbol stands over, in the stave's own coordinates: `x` its centre, `y` the
+ * head NEAREST the symbol (a chord's top head for a symbol above, its bottom one below) — or null when
+ * the note gives none, and the symbol then draws no guide (⛔ a guide is never a guess).
+ */
+function headPoint(
+  mark: GlyphMark, slots: readonly ChordRest[], notes: readonly EngravedNote[], stave: EngravedStave,
+): { x: number; y: number | null } {
   const i = slotIndexFor(mark, slots)
   if (i !== -1 && notes[i]) {
     try {
       const ruler = noteRuler(notes[i])
-      return ruler.originX + ruler.glyphWidth / 2
+      const ys = ruler.headYs
+      const y = ys.length ? (mark.placement === 'below' ? Math.max(...ys) : Math.min(...ys)) : null
+      return { x: ruler.originX + ruler.glyphWidth / 2, y }
     } catch {
       // not formatted — fall through to the bar's opening
     }
   }
-  return barFrame(stave).noteStartX
+  return { x: barFrame(stave).noteStartX, y: null }
 }
 
 /**
@@ -81,7 +89,8 @@ export function drawGlyphMarks(
   for (const mark of view.glyphMarks) {
     const glyph = smuflGlyph(mark.glyph)
     if (!glyph) continue // an unknown name draws nothing — ⛔ never a stand-in glyph
-    const x = headCentreX(mark, slots, notes, stave) - glyph.centerX * frame.spacePx
+    const head = headPoint(mark, slots, notes, stave)
+    const x = head.x - glyph.centerX * frame.spacePx
     const y = staffLineY(frame, glyphMarkOriginLine(mark))
     ctx.openGroup('glyphMark', mark.id)
     try {
@@ -105,6 +114,16 @@ export function drawGlyphMarks(
         width: (glyph.box.left + glyph.box.right) * sp,
         height: (glyph.box.up + glyph.box.down) * sp,
       },
+      // ⭐ THE ATTACHMENT GUIDE (his ask, 2026-09-28) — the dotted line a selected dynamic and tempo mark
+      //   already show (`interactions/elements/anchorGuideLine`). `from` is the symbol's INK nearest its note
+      //   — the bottom of the ink for a symbol above, the top below — at its centre; `to` is the head it
+      //   belongs to. The line pass moves `from` with the symbol and leaves `to` on the note.
+      ...(head.y !== null ? {
+        guides: [{
+          from: { x: head.x, y: mark.placement === 'below' ? y - glyph.box.up * sp : y + glyph.box.down * sp },
+          to: { x: head.x, y: head.y },
+        }],
+      } : {}),
     })
   }
 }

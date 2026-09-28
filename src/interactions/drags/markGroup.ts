@@ -61,6 +61,14 @@ const GROUP_MOVE: { [K in MarkKind]: {
     frame: (e, id, dx, dy) => e.trill.previewTrillOffset(id, dx, SPAN_MARK_TOOLS.trill.verticalSign(e, id) * dy),
     commit: e => SPAN_MARK_TOOLS.trill.commitWhole(e),
   },
+  // ⭐ A user SYMBOL — its preview is ABSOLUTE, so the frame's step is added to where it stands now.
+  glyphMark: {
+    frame: (e, id, dx, dy) => {
+      const now = e.glyphMark.offsetOf(id)
+      return e.glyphMark.previewOffset(id, now.x + dx, now.y + dy)
+    },
+    commit: e => e.glyphMark.commitDrag(),
+  },
 }
 
 /** The group a plain press may drag: two or more marks, and ⛔ no note among the selection — a boxed
@@ -118,7 +126,9 @@ export function beginMarkGroupDrag(
       changed = true
       // A frame draws its own families and nothing else. `previewMarks` redraws a FAMILY, so one
       // call per kind is enough however many members it has.
-      for (const kind of families) host.render.previewMarks(kind as MarkPreviewKind, group.find(m => m.kind === kind)!.id)
+      // ⚠️ A symbol has no preview family (`markPreviewPass`), so a group holding one renders in full.
+      if (families.includes('glyphMark')) host.render.renderScore()
+      else for (const kind of families) host.render.previewMarks(kind as MarkPreviewKind, group.find(m => m.kind === kind)!.id)
     },
 
     end() {

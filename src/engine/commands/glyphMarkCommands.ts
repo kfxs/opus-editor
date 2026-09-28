@@ -5,7 +5,10 @@
  *
  * ⛔ No `mutate` on a refusal: an edit that changed nothing leaves no undo entry.
  */
-import { addGlyphMark, addGlyphMarkToEvent, flipGlyphMarkPlacement, removeGlyphMark } from '../models/glyphMarkOps'
+import {
+  addGlyphMark, addGlyphMarkToEvent, flipGlyphMarkPlacement, glyphMarkOffsetOf, nudgeGlyphMarkOffset, removeGlyphMark,
+  setGlyphMarkOffset,
+} from '../models/glyphMarkOps'
 import { smuflGlyph } from '../fonts/smuflGlyphs'
 import type { GlyphMark } from '@/types/music'
 import type { CommandContext } from './commandContext'
@@ -49,6 +52,55 @@ export function glyphMarkCommands(ctx: CommandContext) {
       const removed = removeGlyphMark(score(), id)
       if (removed) ctx.mutate('Delete symbol')
       return removed
+    },
+
+    /** A symbol's hand offset in staff spaces (`x` +right, `y` +down) — (0, 0) when it has none. */
+    offsetOf(id: string): { x: number; y: number } {
+      const o = glyphMarkOffsetOf(score(), id)
+      return { x: o?.x ?? 0, y: o?.y ?? 0 }
+    },
+
+    /**
+     * The arrows (P4): move a symbol's ink by (`dx`, `dy`) staff spaces, screen-signed. ONE undo entry.
+     * ⛔ Refused — no write, no entry — when the move would take its drawn ink off the page.
+     */
+    nudge(id: string, dx: number, dy: number): boolean {
+      if (!ctx.limits.nudgeStaysOnPage('glyphMark', id, dx, dy)) return false
+      if (!nudgeGlyphMarkOffset(score(), id, dx, dy)) return false
+      ctx.mutate('Move symbol')
+      return true
+    },
+
+    /** The Properties boxes: set the offset to exactly (`x`, `y`). ONE undo entry; the same page limit. */
+    setOffset(id: string, x: number, y: number): boolean {
+      const now = glyphMarkOffsetOf(score(), id)
+      const dx = x - (now?.x ?? 0)
+      const dy = y - (now?.y ?? 0)
+      if (dx === 0 && dy === 0) return false
+      if (!ctx.limits.nudgeStaysOnPage('glyphMark', id, dx, dy)) return false
+      if (!setGlyphMarkOffset(score(), id, x, y)) return false
+      ctx.mutate('Move symbol')
+      return true
+    },
+
+    /** `Ctrl+Backspace`: back to where the ladder put it. DECLINES (false, no entry) when it was never moved. */
+    reset(id: string): boolean {
+      if (!glyphMarkOffsetOf(score(), id)) return false
+      setGlyphMarkOffset(score(), id, 0, 0)
+      ctx.mutate('Reset symbol position')
+      return true
+    },
+
+    /** One drag frame: the offset set to (`x`, `y`) with NO undo entry — the drop's {@link commitDrag} records it. */
+    previewOffset(id: string, x: number, y: number): boolean {
+      if (!setGlyphMarkOffset(score(), id, x, y)) return false
+      ctx.markDirty()
+      return true
+    },
+
+    /** The drop of a drag the screen already shows: ONE undo entry. */
+    commitDrag(): void {
+      ctx.commitPreviewed('Move symbol')
     },
 
     /** Move a symbol to the other side of the staff. ONE undo entry. @returns false when there was none. */

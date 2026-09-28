@@ -184,6 +184,17 @@ Each phase stops for his UI check.
   in `MusicEngine` (+3) and `ScoreRenderer` (+4) — see the summary to him.
 - **P4 — drag + offset.** A `<name>Offset` override in `engravingOverrides`, id-keyed and in staff
   spaces, like `dynamicOffset`; Reset.
+  ✅ **BUILT 2026-09-28**: `GlyphMarkOffsetOverride` (`glyphMarkOffset`, staff spaces, `y` +down) with
+  its ops in `glyphMarkOps` (⛔ not `overrideOps`); `engine.glyphMark.nudge / setOffset / reset /
+  previewOffset / commitDrag` (the page limit on the arrows and the boxes); the line pass adds it ON the
+  row — the stack is laid from rows alone, so a nudge never moves a neighbour — and moves the box and the
+  guide's `from` end by the change. Arrows: `elements/glyphMarkKeys` (⛔ no reanchor — a symbol belongs to
+  its event). Drag: `drags/glyphMark`. Properties: `panels/glyphMark` → `bus.glyphMarkOffset` →
+  `GlyphMarkController`. ⚠️ A key press and a drag frame render IN FULL (the beam's arrangement — no preview
+  family yet). ⭐ And P5's leftover: a symbol is now a PASSAGE-BOX member (`enclosedMarks`: in when its
+  event is — the copy's own rule, `glyphMarkClip.glyphMarksOnEvents`), lit by its `ink` row, deleted with
+  the box, moved by a group drag (a full render per frame when the group holds one). ⭐ His ask mid-phase:
+  the dotted ATTACHMENT GUIDE from the symbol's nearest ink to its head (`paintAnchorGuideLine`).
 - **P5 — copy/paste.** A `Clip` carries symbols the way it carries dynamics (only those fully inside
   the window). ⏭️ MusicXML export as `<direction><direction-type><symbol>` when a MusicXML exporter
   exists — there is none today.
@@ -196,6 +207,16 @@ Each phase stops for his UI check.
   `engine.glyphMark.addAt` (glyph + side travel; voice and staff come from what it lands on).
   ⏭️ Being a PASSAGE-BOX member (highlighted in a box, deleted with it, dragged with the group) needs a
   `markGroup` row, i.e. P4's offset — it comes with P4.
+
+## 6b. TODO — decided (his word, 2026-09-28: *"the tables we can do it in the future, lets mark it as TODO"*)
+
+- [ ] **T1. A glyph table PER MUSIC FACE.** A symbol is DRAWN in the active face (`categoryFont` →
+  `musicFontStack()`, Bravura behind it for a glyph the face lacks), but PLACED — its box, centre and
+  stack — from `engine/fonts/smuflGlyphTable`, which is Bravura's numbers only. So in Leipzig or Sebastian
+  a symbol can sit a little off its note or stack a little loose/tight. The fix: run
+  `scripts/generate-smufl-glyph-table.mjs` for each face's OTF + metadata (`scripts/vendor/Leipzig.json`,
+  `Sebastian.json`), a glyph the face lacks falling back to Bravura's row whole (the `fontMetrics` rule),
+  and have `smuflGlyphs.smuflGlyph` read the ACTIVE face's table, as `fontMetrics` does.
 
 ## 7. Later — not a queue
 

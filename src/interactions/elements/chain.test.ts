@@ -54,7 +54,8 @@ describe('ELEMENT_SPECS — the `keys` column', () => {
     const answering = Object.values(ELEMENT_SPECS).filter(spec => spec.keys).map(spec => spec.kind).sort()
     // ⭐ The TUPLET joined 2026-09-25 (his ask): ↑/↓ nudge its bracket; like the tie it has no lane to re-anchor on.
     // ⭐ The BEAM joined 2026-09-28 (his ask): ↑/↓ push it; like the tie it has no lane to re-anchor on.
-    expect(answering).toEqual(['beamGroup', 'clef', 'dynamic', 'hairpin', 'ottava', 'pedal', 'slur', 'tempo', 'tie', 'trill', 'tuplet'])
+    // ⭐ The user's SYMBOL joined 2026-09-28 (symbol plan P4): the arrows nudge it; ⛔ no reanchor — it belongs to its event.
+    expect(answering).toEqual(['beamGroup', 'clef', 'dynamic', 'glyphMark', 'hairpin', 'ottava', 'pedal', 'slur', 'tempo', 'tie', 'trill', 'tuplet'])
   })
 
   it('⭐ …these MOVE THROUGH THE MUSIC on `Ctrl+Shift+←/→`, and these have handles for `Tab` to walk', () => {

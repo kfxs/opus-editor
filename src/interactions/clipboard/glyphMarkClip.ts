@@ -4,11 +4,31 @@
  * because it was picked into the mark selection. It belongs to its event the way an articulation does,
  * so a copied passage carries the symbols of the events it carries — and only those.
  */
-import type { EngravingOverride, Fraction, Score } from '@/types/music'
+import type { EngravingOverride, Fraction, GlyphMark, Measure, Score } from '@/types/music'
 import type { ClipGlyphMark } from '@/utils/clip'
 import { measureStartOffsets as measureStarts } from '@/utils/measureCapacity'
 import { fracAdd, fracCompare, fracSub } from '@/utils/fraction'
 import { matchesStaff, staffIndexOfId } from '@/engine/models/staffContent'
+
+/**
+ * ⭐ THE ONE RULE for "does this symbol come with these notes?" — its EVENT (the slot at its beat, voice and
+ * staff) holds one of `ids` (chord pitch ids, rest slot ids). The copy asks it ({@link glyphMarksOnCopiedEvents})
+ * and so does the passage box (`./enclosedMarks.marksInBox`): the highlight promises exactly what the copy takes.
+ */
+export function glyphMarksOnEvents(score: Score, ids: ReadonlySet<string>): { measure: Measure; mark: GlyphMark }[] {
+  const out: { measure: Measure; mark: GlyphMark }[] = []
+  for (const m of [...score.measures].sort((a, b) => a.number - b.number)) {
+    for (const g of m.glyphMarks ?? []) {
+      const voice = g.voice ?? 0
+      const event = m.slots.find(s =>
+        fracCompare(s.beat, g.beat) === 0 && (s.voice ?? 0) === voice && matchesStaff(s.staffId, g.staffId, score))
+      if (!event) continue
+      const eventIds = event.type === 'rest' ? [event.id] : event.notes.map(n => n.id)
+      if (eventIds.some(id => ids.has(id))) out.push({ measure: m, mark: g })
+    }
+  }
+  return out
+}
 
 /**
  * Every symbol whose event holds a copied note or rest (`copied` — chord pitch ids and rest slot ids),
@@ -22,27 +42,18 @@ export function glyphMarksOnCopiedEvents(
 ): ClipGlyphMark[] {
   const starts = measureStarts(score.measures)
   const out: ClipGlyphMark[] = []
-  for (const m of [...score.measures].sort((a, b) => a.number - b.number)) {
-    if (!m.glyphMarks?.length) continue
-    const mStart = starts.get(m.number)
+  for (const { measure, mark: g } of glyphMarksOnEvents(score, copied)) {
+    const mStart = starts.get(measure.number)
     if (!mStart) continue
-    for (const g of m.glyphMarks) {
-      const voice = g.voice ?? 0
-      const event = m.slots.find(s =>
-        fracCompare(s.beat, g.beat) === 0 && (s.voice ?? 0) === voice && matchesStaff(s.staffId, g.staffId, score))
-      if (!event) continue
-      const ids = event.type === 'rest' ? [event.id] : event.notes.map(n => n.id)
-      if (!ids.some(id => copied.has(id))) continue
-      const held: EngravingOverride[] | undefined = score.engravingOverrides?.[g.id]
-      out.push({
-        staff: staffIndexOfId(score, g.staffId) - topStaff,
-        voice,
-        offset: fracSub(fracAdd(mStart, g.beat), spanStart),
-        glyph: g.glyph,
-        ...(g.placement !== undefined ? { placement: g.placement } : {}),
-        ...(held?.length ? { engraving: held.map(o => ({ ...o })) } : {}),
-      })
-    }
+    const held: EngravingOverride[] | undefined = score.engravingOverrides?.[g.id]
+    out.push({
+      staff: staffIndexOfId(score, g.staffId) - topStaff,
+      voice: g.voice ?? 0,
+      offset: fracSub(fracAdd(mStart, g.beat), spanStart),
+      glyph: g.glyph,
+      ...(g.placement !== undefined ? { placement: g.placement } : {}),
+      ...(held?.length ? { engraving: held.map(o => ({ ...o })) } : {}),
+    })
   }
   return out
 }

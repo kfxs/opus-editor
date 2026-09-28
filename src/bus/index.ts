@@ -19,6 +19,7 @@ import { createTupletEditSelection } from './tupletEditSelection'
 import { createGlissandoEditSelection } from './glissandoEditSelection'
 import { createTupletOffsetSelection } from './tupletOffsetSelection'
 import { createGlyphMarkAddSelection } from './glyphMarkAddSelection'
+import { createGlyphMarkOffsetSelection } from './glyphMarkOffsetSelection'
 import { createBeamOffsetSelection } from './beamOffsetSelection'
 import { createScoreTextSelection } from './scoreTextSelection'
 import { createHairpinEditSelection } from './hairpinEditSelection'
@@ -121,6 +122,8 @@ interface EditorBus {
   beamOffset: ReturnType<typeof createBeamOffsetSelection>
   /** The Symbols window's Add symbol button — a glyph onto the selected event → `GlyphMarkController`. */
   glyphMarkAdd: ReturnType<typeof createGlyphMarkAddSelection>
+  /** The Properties offset boxes of a selected symbol → `GlyphMarkController`. */
+  glyphMarkOffset: ReturnType<typeof createGlyphMarkOffsetSelection>
   /** 🚧 The Add Title / Add Composer dialog — one field's new text. Command-only, and SCAFFOLDING
    *  (`engine/rendering/ScoreHeaderPass`). */
   scoreText: ReturnType<typeof createScoreTextSelection>
@@ -210,6 +213,7 @@ export function createEditorBus(): EditorBus {
     tupletOffset: createTupletOffsetSelection(),
     beamOffset: createBeamOffsetSelection(),
     glyphMarkAdd: createGlyphMarkAddSelection(),
+    glyphMarkOffset: createGlyphMarkOffsetSelection(),
     scoreText: createScoreTextSelection(),
     hairpinEdit: createHairpinEditSelection(),
     fan: createFanSelection(),
@@ -261,6 +265,7 @@ export type { GlissandoEditRequest } from './glissandoEditSelection'
 export type { TupletOffsetRequest } from './tupletOffsetSelection'
 export type { BeamOffsetRequest } from './beamOffsetSelection'
 export type { GlyphMarkAddRequest } from './glyphMarkAddSelection'
+export type { GlyphMarkOffsetRequest } from './glyphMarkOffsetSelection'
 export type { ScoreTextRequest } from './scoreTextSelection'
 export type { HairpinEditRequest } from './hairpinEditSelection'
 export type { NoteOffsetRequest } from './noteOffsetSelection'

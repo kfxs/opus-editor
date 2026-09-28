@@ -28,6 +28,7 @@ export type DragKind =
   | 'markEnd' | 'hairpinBody' | 'ottavaBody' | 'pedalBody' | 'trillBody'
   | 'markGroup'
   | 'beamEnd' | 'beamBody'
+  | 'glyphMark'
 
 export interface Gesture {
   kind: DragKind

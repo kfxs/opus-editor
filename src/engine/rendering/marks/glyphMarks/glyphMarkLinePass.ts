@@ -31,6 +31,7 @@ import { columnsUnder, mergeInkBands, staffInkBand, type MarkInk, type StaffSide
 import { bandOver, markBand, measureStartOffsets } from '@/engine/layout/outsideStaffBand'
 import { glyphMarkStackBaselines } from '@/engine/layout/glyphMarkStack'
 import { staffGlyphMarks } from '@/engine/models/staffContent'
+import { glyphMarkOffsetOf } from '@/engine/models/glyphMarkOps'
 import { fracAdd, fracCompare } from '@/utils/fraction'
 import type { RenderPass } from '../../RenderPass'
 import { staveFrame } from '../../staff/staveFrame'
@@ -39,11 +40,11 @@ import { GLYPH_MARK_LINE, GLYPH_MARK_STACK_GAP, glyphMarkInk } from './glyphMark
 import { glyphMarkOriginLine } from './glyphMarkLayout'
 
 /**
- * The lift the pass last wrote on a symbol, local px — kept ON the element so a reused bar (whose group
- * and registry box both still carry the old lift) is moved by the CHANGE, never twice (the tempo mark's
- * `data-tempo-line`, and for its reason).
+ * The move the pass last wrote on a symbol — `"dx,dy"` in local px, its row's lift plus its hand offset —
+ * kept ON the element so a reused bar (whose group and registry box both still carry the old move) is
+ * moved by the CHANGE, never twice (the tempo mark's `data-tempo-line`, and for its reason).
  */
-const LINE_ATTR = 'data-glyph-mark-line'
+const MOVE_ATTR = 'data-glyph-mark-move'
 
 /** What the pass needs of a `MeasurePlacement` — declared structurally, as the tempo pass does. */
 interface GlyphMarkLinePlacement {
@@ -112,17 +113,24 @@ export function placeGlyphMarksOnLine(
         mergeInkBands(music, taken), stack.side, inks, GLYPH_MARK_LINE, GLYPH_MARK_STACK_GAP)
 
       stack.marks.forEach(({ mark, ink }, i) => {
+        // ⭐ The hand offset (P4) rides ON the row, in staff spaces: the stack is laid out from the rows
+        //   alone, so nudging one symbol never moves its neighbours.
+        const offset = glyphMarkOffsetOf(pass.score, mark.id)
+        const ox = offset?.x ?? 0
+        const oy = offset?.y ?? 0
         // Scoped to THIS render's root — ids repeat across a torn-down SVG.
         const el = svg.querySelector(`[id="${mark.id}"]`)
         if (el) {
-          const dy = staffSpacesToPixels(baselines[i] - glyphMarkOriginLine(mark), frame)
-          const was = Number(el.getAttribute(LINE_ATTR)) || 0
-          el.setAttribute(LINE_ATTR, `${dy}`)
-          el.setAttribute('transform', `translate(0, ${dy})`)
-          pass.elementRegistry.withScale(placement.scale, () => pass.elementRegistry.shiftById(mark.id, 0, dy - was))
+          const dx = staffSpacesToPixels(ox, frame)
+          const dy = staffSpacesToPixels(baselines[i] + oy - glyphMarkOriginLine(mark), frame)
+          const [wasX, wasY] = (el.getAttribute(MOVE_ATTR) ?? '0,0').split(',').map(n => Number(n) || 0)
+          el.setAttribute(MOVE_ATTR, `${dx},${dy}`)
+          el.setAttribute('transform', `translate(${dx}, ${dy})`)
+          pass.elementRegistry.withScale(placement.scale, () => pass.elementRegistry.shiftById(mark.id, dx - wasX, dy - wasY))
         }
+        // What it TAKES is where it ends up — its row plus its vertical nudge.
         pass.occupiedBands.push({
-          line: placement.line, staffId, side: stack.side, from: at, to: at, band: markBand(baselines[i], ink),
+          line: placement.line, staffId, side: stack.side, from: at, to: at, band: markBand(baselines[i] + oy, ink),
         })
       })
     }

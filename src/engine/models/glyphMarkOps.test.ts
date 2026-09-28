@@ -8,6 +8,9 @@ import {
   addGlyphMark,
   addGlyphMarkToEvent,
   flipGlyphMarkPlacement,
+  glyphMarkOffsetOf,
+  nudgeGlyphMarkOffset,
+  setGlyphMarkOffset,
   removeGlyphMark,
   getGlyphMarkById,
   glyphMarkMeasure,
@@ -107,4 +110,16 @@ describe('glyphMarkOps', () => {
     expect('placement' in g).toBe(false)
     expect(flipGlyphMarkPlacement(score, 'nope')).toBe(false)
   })
+
+  it('the hand offset: nudges accumulate, (0, 0) clears it, and a missing mark is refused', () => {
+    const g = addGlyphMark(score, 1, { glyph: 'fermataAbove', beat: frac(0, 1) })!
+    expect(nudgeGlyphMarkOffset(score, g.id, 0.5, -0.25)).toBe(true)
+    expect(nudgeGlyphMarkOffset(score, g.id, 0.5, 0)).toBe(true)
+    expect(glyphMarkOffsetOf(score, g.id)).toEqual({ kind: 'glyphMarkOffset', x: 1, y: -0.25 })
+    expect(setGlyphMarkOffset(score, g.id, 0, 0)).toBe(true)
+    expect(glyphMarkOffsetOf(score, g.id)).toBeUndefined()
+    expect(score.engravingOverrides?.[g.id]).toBeUndefined()
+    expect(setGlyphMarkOffset(score, 'nope', 1, 1)).toBe(false)
+  })
 })
+

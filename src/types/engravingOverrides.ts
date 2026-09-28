@@ -520,6 +520,18 @@ export interface DynamicOffsetOverride extends EngravingOverride {
 }
 
 /**
+ * ⭐ A user SYMBOL's hand offset (docs/plans/symbol-plan.md P4) — the arrows, a drag, the Properties boxes.
+ * {@link DynamicOffsetOverride}'s shape: staff-spaces, `x` +right, `y` **+down (screen)**, keyed by the
+ * symbol's id. ⭐ Measured FROM the row the ladder gave it (`rendering/marks/glyphMarks/glyphMarkLinePass`),
+ * so a nudged symbol still moves when the music under it does — an adjustment, never a position.
+ */
+export interface GlyphMarkOffsetOverride extends EngravingOverride {
+  kind: 'glyphMarkOffset'
+  x: number
+  y: number
+}
+
+/**
  * Client #13: the same free positional nudge for a **TEMPO MARK** (his ask, 2026-08-19) — the
  * ←→↑↓ / Ctrl+arrow fine-positioning, in **staff-spaces**, anchor-relative, `x` +right and `y`
  * +down (screen). {@link DynamicOffsetOverride}'s twin, element-id-keyed the same way.
