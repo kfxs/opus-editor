@@ -25,7 +25,7 @@ describe('spaceBarsOnSpine', () => {
     // The MUSIC's room — the lead-ins are rigid.
     const width = (b: { musicStart: number; end: number }) => b.end - b.musicStart
     const plain = spaceBarsOnSpine(score, 0, room, true)
-    const stretched = spaceBarsOnSpine(score, 0, room, true, 1, new Map([[score.measures[1].id, 2]]))
+    const stretched = spaceBarsOnSpine(score, 0, room, true, 1, { barStretch: new Map([[score.measures[1].id, 2]]) })
     expect(stretched[2].end).toBeCloseTo(room, 6)
     // Three equal bars, one asking ×2: its share of the music's room goes from 1/3 to 2/4.
     expect(width(stretched[1]) / width(plain[1])).toBeCloseTo(1.5, 6)
@@ -39,7 +39,7 @@ describe('spaceBarsOnSpine', () => {
     const score = m.getScore()
     const [, bar] = spaceBarsOnSpine(score, 0, 0, false)
     const music = bar.end - bar.musicStart
-    const longer = naturalSpineLength(score, new Map([[score.measures[1].id, 1.5]])) - naturalSpineLength(score)
+    const longer = naturalSpineLength(score, { barStretch: new Map([[score.measures[1].id, 1.5]]) }) - naturalSpineLength(score)
     expect(longer).toBeCloseTo(music * 0.5, 6)
   })
 

@@ -437,3 +437,21 @@ describe('⭐ a bar\'s STRETCH — kept by the panel for the SESSION (his ask, 2
     expect(c.stretchOf(2)).toBe(1)
   })
 })
+
+describe('⭐ a note\'s SPACE — kept by the panel for the SESSION (his ask, 2026-09-28)', () => {
+  it('set on a note, read back by any note in the SAME column; 0 removes it; clear() forgets', () => {
+    const { console: c, model } = openConsole()
+    c.show()
+    const slot = model.getScore().measures[0].slots[0]
+    const id = slot.type === 'chord' ? slot.notes[0].id : slot.id
+    c.setSpace(id, 1.5)
+    expect(c.spaceOf(id)).toBe(1.5)
+    c.setSpace(id, NaN)
+    expect(c.spaceOf(id)).toBe(1.5)
+    c.setSpace(id, 0)
+    expect(c.spaceOf(id)).toBe(0)
+    c.setSpace(id, 2)
+    c.clear()
+    expect(c.spaceOf(id)).toBe(0)
+  })
+})

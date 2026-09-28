@@ -58,6 +58,7 @@ describeSpec('Spine Properties — the report, as JSON like the Properties windo
     let barline: number | null = 1
     let value = 1
     const calls: [number, number][] = []
+    const spaceCalls: [string, number][] = []
     const deps = {
       windows: undefined as never,
       getScore: () => m.getScore(),
@@ -66,6 +67,7 @@ describeSpec('Spine Properties — the report, as JSON like the Properties windo
       placed: () => placed,
       onRedraw: () => () => {},
       stretch: { of: () => value, set: (measure: number, v: number) => { calls.push([measure, v]); value = v } },
+      space: { of: () => 0, set: (noteId: string, v: number) => { spaceCalls.push([noteId, v]) } },
     }
     const host = document.createElement('div')
     new SpinePropertiesWidget(deps).mount(host)
@@ -85,5 +87,14 @@ describeSpec('Spine Properties — the report, as JSON like the Properties windo
     const noteHost = document.createElement('div')
     new SpinePropertiesWidget(deps).mount(noteHost)
     expect(noteHost.querySelector('.spine-properties-stretch')).toBeNull()
+    // ⭐ …a NOTE gets its SPACE instead (his ask, 2026-09-28) — at the top too; reset = 0.
+    expect(noteHost.querySelector('.spine-properties')!.children[1].classList.contains('spine-properties-space')).toBe(true)
+    const space = noteHost.querySelector<HTMLInputElement>('.spine-properties-space input')!
+    expect(space.value).toBe('0')
+    space.value = '1.25'
+    space.dispatchEvent(new Event('change'))
+    expect(spaceCalls[0]).toEqual([id, 1.25])
+    noteHost.querySelector<HTMLButtonElement>('.spine-properties-space button')!.click()
+    expect(spaceCalls[1]).toEqual([id, 0])
   })
 })

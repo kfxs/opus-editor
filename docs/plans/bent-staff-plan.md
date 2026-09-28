@@ -403,6 +403,20 @@ elements selected, for the moment we dont really know what goes in the propertie
 - ⛔ **NOT STORED** — C is still open (his word again, 2026-09-28: *"we are not storing now … this decision is not
   made"*): the panel (`dev/spineConsole`) keeps the stretches by measure id for the session; `clear()` forgets them.
 
+### 9.3e ✅ BUILT 2026-09-28 — a NOTE's SPACE (his ask: *"move it also (not offset) so we can have the control of the space between … the elements separately"*)
+
+- Select a note or rest → Spine Properties shows **space (sp)** at the top: room BEFORE the COLUMN it stands in
+  (`eye/spineColumnSpace`), keyed by the page's own `spacingPositionKey` (bar id + beat — every voice and staff at
+  that beat moves together, as the page's `leadingSpace`). + wider, − tighter; step 0.25; `reset` = 0.
+- ⭐ It MOVES the column, ⛔ not an offset: it goes into the column's `authored` gap (the spring model's reserved
+  part), so every later column in the bar follows; before a bar's FIRST column it goes into the lead-in.
+  ⛔ Tighter shortens the gap's SPRING (the column before's `springScale`), so the solve's own floor stops it at
+  the ink in the DRAWN gap (the first column: no closer than the barline's clearance). 🚨 His report the same day:
+  the first cut subtracted a limit measured AT REST — on the stretched circle the picture stopped with the notes
+  still apart. The value he typed is kept; past the ink the drawing is held.
+- Knobs travel as ONE bundle, `eye/spineAdjustments` (`barStretch` + `columnSpace`) — a new knob is a field there.
+- ⛔ NOT STORED — the panel keeps it for the session, like the stretch.
+
 ### 9.4 Facts found while planning (so the build does not rediscover them)
 
 - The panel is `dev/spineConsole.ts` — scaffolding wired by `App.ts` (`__spine`); it redraws by POLLING the

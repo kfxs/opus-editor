@@ -40,7 +40,9 @@ import { fracCompare } from '@/utils/fraction'
 import { resolveStaffClefs, type StaffClefs } from '@/utils/clefUtils'
 import { resolveStaffKeys, type StaffKeys } from '@/utils/keySignature'
 import type { Measure, Score } from '@/types/music'
-import { type SpineBarStretches, spineStretchOf } from './spineBarStretch'
+import type { SpineAdjustments } from './spineAdjustments'
+import { spineStretchOf } from './spineBarStretch'
+import { withSpineSpace } from './spineColumnSpace'
 import { type SpineHeader, spineHeaderColumns, spineSystemHeaders } from './spineHeader'
 import { spineStaffTops, staffIdsOf } from './spineStaves'
 
@@ -66,7 +68,7 @@ interface AskedBar {
   natural: number
 }
 
-function ask(score: Score, measure: Measure, index: number, stretches?: SpineBarStretches): AskedBar {
+function ask(score: Score, measure: Measure, index: number, adjust?: SpineAdjustments): AskedBar {
   // ⭐ EVERY staff's clefs and keys (port map #12): a column holds every staff at its beat, so its ink is
   //    measured on each staff's own clef and key — the page's resolvers, built the page's way.
   const staves = spineStaffLanes(score)
@@ -75,7 +77,7 @@ function ask(score: Score, measure: Measure, index: number, stretches?: SpineBar
   const keys = new Map(staves.map(staff => [staff.id, staff.keys]))
   const clefFor = clefResolverFor(measure, clefs, firstStaffId)
   const keyFor = keyResolverFor(measure, keys, firstStaffId)
-  const columns = measureColumns(measure, clefFor, () => 1, keyFor, noteLineRoom(score, measure))
+  const engraved = measureColumns(measure, clefFor, () => 1, keyFor, noteLineRoom(score, measure))
   const lead = measureLeadIn(measure, clefFor, () => 1, keyFor)
   // ⭐ A bar that draws a HEADER (`./spineHeader` — the staff's head, or a clef / key / meter change)
   //    owes the header's own spine, then the page's header→note gap in place of the barline's
@@ -91,11 +93,14 @@ function ask(score: Score, measure: Measure, index: number, stretches?: SpineBar
     ? spineHeaderColumns(headers).width / STAFF_SPACE_PX + (opensRepeat ? HEADER_TO_REPEAT : 0)
       + Math.max(...drawn.map(header => headerToNoteGap(header, lead.accidentals)))
     : lead.padding
+  // ⭐ A column's SPACE (`./spineColumnSpace`) goes into its reserved gap — the first column's into the lead-in,
+  //    which may give up to its own clearance (`before`) and no more.
+  const { columns, leadIn: spaceBeforeFirst } = withSpineSpace(measure, engraved, adjust?.columnSpace, before)
   return {
     columns,
-    leadIn: (before + lead.extent + repeatStartRoom(measure)) * STAFF_SPACE_PX,
+    leadIn: (before + spaceBeforeFirst + lead.extent + repeatStartRoom(measure)) * STAFF_SPACE_PX,
     // ⭐ A bar's STRETCH (`./spineBarStretch`) scales what its MUSIC asks — never the lead-in, which is rigid.
-    natural: naturalWidth(columns) * STAFF_SPACE_PX * spineStretchOf(stretches, measure.id),
+    natural: naturalWidth(columns) * STAFF_SPACE_PX * spineStretchOf(adjust?.barStretch, measure.id),
   }
 }
 
@@ -105,9 +110,9 @@ export function spineStaffLanes(score: Score): { id: string | undefined; clefs: 
 }
 
 /** How long a spine the score's bars ask for, in px — what an open spine takes and a circle is sized from. */
-export function naturalSpineLength(score: Score, stretches?: SpineBarStretches): number {
+export function naturalSpineLength(score: Score, adjust?: SpineAdjustments): number {
   return score.measures.reduce((total, measure, index) => {
-    const bar = ask(score, measure, index, stretches)
+    const bar = ask(score, measure, index, adjust)
     return total + bar.leadIn + bar.natural
   }, 0)
 }
@@ -143,18 +148,18 @@ export function deepestInkPx(score: Score): number {
  * circle is. 1 on a straight spine: nothing changes.
  */
 export function spaceBarsOnSpine(
-  score: Score, from: number, to: number, justify: boolean, innerRatio: number = 1, stretches?: SpineBarStretches,
+  score: Score, from: number, to: number, justify: boolean, innerRatio: number = 1, adjust?: SpineAdjustments,
 ): SpineBar[] {
   if (innerRatio !== 1) {
     // Lay the bars out in the INNER arc's own distances, from 0 — then every `s` goes back out.
-    const inner = spaceBarsOnSpine(score, 0, (to - from) * innerRatio, justify, 1, stretches)
+    const inner = spaceBarsOnSpine(score, 0, (to - from) * innerRatio, justify, 1, adjust)
     const out = (s: number): number => from + s / innerRatio
     return inner.map(bar => ({
       start: out(bar.start), end: out(bar.end), columnAt: beat => out(bar.columnAt(beat)),
       musicStart: out(bar.musicStart), columns: bar.columns,
     }))
   }
-  const asked = score.measures.map((measure, index) => ask(score, measure, index, stretches))
+  const asked = score.measures.map((measure, index) => ask(score, measure, index, adjust))
   const leadIns = asked.reduce((total, bar) => total + bar.leadIn, 0)
   const naturals = asked.reduce((total, bar) => total + bar.natural, 0)
   // ⭐ The lead-ins are RIGID (a barline's clearance is not a spring); the music shares what is left.

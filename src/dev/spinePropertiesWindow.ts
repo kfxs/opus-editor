@@ -10,7 +10,9 @@
  * - **where it stands on the spine**, read from the panel's LAST drawing (`eye/spineScore.SpinePlacedReport`):
  *   its distance along its staff's path, and how far the path has turned there.
  *
- * ⭐ **One knob: a BARLINE's STRETCH** (his ask, 2026-09-28) — the bar the selected barline ENDS takes ×n the room
+ * ⭐ **A NOTE's SPACE** (the same day) — room before the COLUMN it stands in, which moves it and what follows
+ * (`eye/spineColumnSpace`) — ⛔ not an offset.
+ * ⭐ **A BARLINE's STRETCH** (his ask, 2026-09-28) — the bar the selected barline ENDS takes ×n the room
  * its music asks for on the spine (`eye/spineBarStretch`), in the Properties window's own number row. ⛔ Only the spine; ⛔ never the page.
  *
  * ⛔ **Nothing is stored** — the stretch lives in the panel for the session (where spine adjustments would be kept,
@@ -23,6 +25,7 @@ import type { WindowLayer } from '@/windows/WindowLayer'
 import type { Widget } from '@/windows/content/Widget'
 import { findSlot } from '@/engine/models/slotLookup'
 import { SPINE_STRETCH_MAX, SPINE_STRETCH_MIN, SPINE_STRETCH_STEP } from '@/engine/rendering/eye/spineBarStretch'
+import { SPINE_SPACE_MAX, SPINE_SPACE_MIN, SPINE_SPACE_STEP } from '@/engine/rendering/eye/spineColumnSpace'
 import { AMBER, PHOSPHOR, buildNumberRow } from '@/windows/properties/rows'
 import { staffIndexOfId } from '@/engine/models/staffContent'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
@@ -43,6 +46,8 @@ export interface SpinePropertiesDeps {
   onRedraw(fn: () => void): () => void
   /** A bar's stretch on the spine — read and set for the SESSION (`./spineConsole`). */
   stretch: { of(measure: number): number; set(measure: number, value: number): void }
+  /** The space before a note's COLUMN on the spine, in staff spaces — read and set for the SESSION (`./spineConsole`). */
+  space: { of(id: string): number; set(id: string, value: number): void }
 }
 
 export interface SpineProperties {
@@ -122,6 +127,7 @@ export class SpinePropertiesWidget implements Widget {
     }
     el.appendChild(label(report.kind, true))
     if (report.barline !== undefined) el.appendChild(stretchControl(report.barline, this.deps.stretch))
+    if (report.column !== undefined) el.appendChild(spaceControl(report.column, this.deps.space))
     el.appendChild(text(JSON.stringify(report.data, null, 2)))
     el.appendChild(label('on the spine', false))
     el.appendChild(text(typeof report.spine === 'string' ? report.spine : JSON.stringify(report.spine, null, 2)))
@@ -148,13 +154,16 @@ export interface SpineReport {
   kind: string
   /** The bar a selected barline ENDS — the one its stretch acts on. */
   barline?: number
+  /** The id of a selected note or rest — its COLUMN's space is what the control sets. */
+  column?: string
   data: Record<string, unknown>
   spine: Record<string, unknown> | string
 }
 
 /** ⭐ What the window reports — exported for its spec. */
 export function describe(
-  deps: Pick<SpinePropertiesDeps, 'getScore' | 'selected' | 'placed'> & { stretch?: Pick<SpinePropertiesDeps['stretch'], 'of'> },
+  deps: Pick<SpinePropertiesDeps, 'getScore' | 'selected' | 'placed'>
+    & { stretch?: Pick<SpinePropertiesDeps['stretch'], 'of'>; space?: Pick<SpinePropertiesDeps['space'], 'of'> },
 ): SpineReport | string {
   const score = deps.getScore()
   const { ids, barline } = deps.selected()
@@ -198,7 +207,8 @@ export function describe(
   })
   if (ids.length > 1) data.selected = `${ids.length} — showing the first`
   const kind = found.type === 'chord' ? (found.chord.notes.length > 1 ? 'chord' : 'note') : 'rest'
-  return { kind, data, spine: onSpine(id) }
+  const space = deps.space?.of(id)
+  return { kind, column: id, data, spine: onSpine(id, space === undefined ? {} : { spaceSp: space }) }
 }
 
 const round = (n: number): number => Math.round(n * 100) / 100
@@ -215,7 +225,26 @@ function stretchControl(measure: number, stretch: SpinePropertiesDeps['stretch']
     value => stretch.set(measure, value ?? 1),
     `How much room bar ${measure} takes on the spine — ×1 is as engraved. This session only; the page is not changed.`,
   )
-  row.classList.add('spine-properties-stretch')
+  return dressControl(row, 'spine-properties-stretch')
+}
+
+/**
+ * ⭐ A NOTE's knob: the space before the COLUMN it stands in, along the spine (`eye/spineColumnSpace`) — it MOVES
+ * the column and everything after it in the bar, ⛔ not an offset of the ink. The same row as the stretch.
+ */
+function spaceControl(id: string, space: SpinePropertiesDeps['space']): HTMLElement {
+  const row = buildNumberRow(
+    'space (sp)', space.of(id), SPINE_SPACE_STEP, SPINE_SPACE_MIN, SPINE_SPACE_MAX,
+    value => space.set(id, value ?? 0),
+    'Room before this note\'s column on the spine, in staff spaces — + wider, − tighter (never into the ink). '
+      + 'Moves every note after it in the bar. This session only; the page is not changed.',
+  )
+  return dressControl(row, 'spine-properties-space')
+}
+
+/** The Properties row, in {@link CONTROL_COLOUR} and at the top of the window. */
+function dressControl(row: HTMLElement, className: string): HTMLElement {
+  row.classList.add(className)
   row.style.margin = '0 0 6px'
   for (const el of [row, ...row.querySelectorAll<HTMLElement>('input, button')]) {
     el.style.color = CONTROL_COLOUR
