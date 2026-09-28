@@ -1,5 +1,6 @@
 import type { Widget } from '../content/Widget'
 import { CHROME } from '../../utils/chromeColors'
+import { AddSymbolButton } from './addSymbolButton'
 import { CopyChips } from './copyChips'
 import { GlyphGrid } from './glyphGrid'
 import { glyphSvgMarkup } from './glyphSvg'
@@ -62,6 +63,13 @@ export class SymbolsWidget implements Widget {
   private total = 0
   private smufl: Smufl | null = null
   private readonly chips = new CopyChips()
+  /** ⭐ The one control that touches the score (docs/plans/symbol-plan.md P2). */
+  private readonly addButton: AddSymbolButton
+
+  /** @param onSymbolAdded runs after *Add symbol* is pressed — the window's own close. */
+  constructor(onSymbolAdded: () => void = () => {}) {
+    this.addButton = new AddSymbolButton(onSymbolAdded)
+  }
   private specimen: HTMLElement | null = null
   private detail: HTMLElement | null = null
   private column: HTMLElement | null = null
@@ -118,6 +126,7 @@ export class SymbolsWidget implements Widget {
     this.typingTimer = null
     this.grid?.destroy()
     this.chips.destroy()
+    this.addButton.destroy()
     this.grid = null
     this.list = null
     this.specimen = null
@@ -288,7 +297,13 @@ export class SymbolsWidget implements Widget {
     const chips = document.createElement('div')
     this.chips.mount(chips)
 
+    // Add symbol sits UNDER the specimen and above the facts: it acts on the glyph shown right there.
+    const add = document.createElement('div')
+    add.style.flex = 'none'
+    this.addButton.mount(add)
+
     column.appendChild(specimen)
+    column.appendChild(add)
     column.appendChild(detail)
     column.appendChild(chips)
 
@@ -307,6 +322,7 @@ export class SymbolsWidget implements Widget {
     this.specimen.innerHTML = glyph ? glyphSvgMarkup(glyph.char, { box: 56, size: 34 }) : ''
     detail.replaceChildren()
     this.chips.setGlyph(glyph ?? null)
+    this.addButton.setGlyph(glyph?.name ?? null)
 
     if (!glyph) {
       detail.appendChild(this.line('Click a glyph for its name, its codepoint and the strings to copy.', CHROME.inkMuted))

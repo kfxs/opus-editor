@@ -51,6 +51,7 @@ import { tempoCommands } from './commands/tempoCommands'
 import { trillCommands } from './commands/trillCommands'
 import { tieCommands } from './commands/tieCommands'
 import { beamCommands } from './commands/beamCommands'
+import { glyphMarkCommands } from './commands/glyphMarkCommands'
 import { graceCommands } from './commands/graceCommands'
 import { bracketedCommands } from './commands/bracketedCommands'
 import { enclosureCommands } from './commands/enclosureCommands'
@@ -2440,6 +2441,8 @@ export class MusicEngine {
   readonly tie = tieCommands(this.commandContext())
   // ⭐ A beam's commands — the vertical nudge and its reset — are `engine/commands/beamCommands`.
   readonly beam = beamCommands(this.commandContext())
+  // ⭐ The user's symbols — `engine/commands/glyphMarkCommands` (docs/plans/symbol-plan.md P2).
+  readonly glyphMark = glyphMarkCommands(this.commandContext())
   /** ⭐ GRACE NOTES' commands — `engine/commands/graceCommands`. */
   readonly grace = graceCommands(this.commandContext())
   /** ⭐ BRACKETED graces' commands — `engine/commands/bracketedCommands` (docs/plans/bracketed-grace-plan.md). */

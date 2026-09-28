@@ -5,7 +5,8 @@ import { SymbolsWidget } from './SymbolsWidget'
 /**
  * The Symbols window — every SMuFL glyph, browsable, on `Z` (Sibelius's own key).
  *
- * It is a REFERENCE and it puts nothing on the score (docs/plans/symbols-window-plan.md). Two audiences
+ * It is a REFERENCE (docs/plans/symbols-window-plan.md) with ONE control that touches the score — *Add symbol*,
+ * which anchors the picked glyph to the selected note or rest (docs/plans/symbol-plan.md P2). Two audiences
  * share it: a musician looking up a sign, and us looking up the codepoint behind one — the
  * `'' // metAugmentationDot` literals scattered through `tempoMenu.ts` and `TempoLayout.ts`
  * were each verified by eye against a website, which is the job this window takes over once its
@@ -38,7 +39,8 @@ export function openSymbolsWindow(windows: WindowLayer): Window {
     // a chart you have to squint at. (The Keypad's glass is for a panel that sits ON the music.)
     center: true,
     resizable: true,
-    content: new SymbolsWidget(),
+    // ⭐ Closes itself once a symbol is added (his call, 2026-09-28) — the job it was opened for is done.
+    content: new SymbolsWidget(() => { if (isOpen(windows)) toggleSymbolsWindow(windows) }),
     onCancel: () => toggleSymbolsWindow(windows),
   })
   return symbols

@@ -8,6 +8,9 @@ category beside each block — not MuseScore's one-range-at-a-time dialog. The o
 contribute one part each and nothing more: MuseScore the search box, the spec tables the per-glyph
 detail.
 
+> ⚠️ **Superseded 2026-09-28 by `docs/plans/symbol-plan.md`**: the window now has ONE control that touches
+> the score, *Add symbol* (P2). The paragraph below stays as this plan's own record.
+
 **It does NOT put anything on the score.** Not in this plan, not behind a flag. It is a *reference*:
 you look a glyph up, you read its name and codepoint, you copy that string out. Insertion is a
 different feature with a different model (a symbol attached to a note or a system, engraved and

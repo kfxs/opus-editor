@@ -163,6 +163,14 @@ Each phase stops for his UI check.
 - **P2 — the button.** *Add symbol* live when the selection is exactly one note or rest; a click adds
   the glyph to that event with one undo step; a second click adds a second symbol. ⏭️ With SEVERAL
   notes selected — one symbol on each, or disabled? His call at P2.
+  ✅ **BUILT 2026-09-28**: `glyphMarkOps.addGlyphMarkToEvent` (any chord head names the chord; a rest by
+  its slot id; ⛔ a grace / fan member / bracketed grace refused) → `engine/commands/glyphMarkCommands`
+  (`engine.glyphMark.add` — refuses a glyph with no row in the table, ONE undo entry "Add symbol") →
+  `bus.glyphMarkAdd` → `propertyControllers/GlyphMarkController` → the button, its own module
+  `windows/symbols/addSymbolButton` (live for a drawable picked glyph + exactly ONE note or rest in
+  `bus.inspection`; its tooltip says why when it is not). ⭐ A press CLOSES the window (his call, 2026-09-28) — a
+  second symbol is a second `z`. ⏭️ The several-notes question is still open:
+  today the button is OFF for more than one.
 - **P3 — select, delete, keys.** The new kind in the union, its element module, highlight, Delete,
   `x` flips above/below, the Properties report (glyph name + codepoint).
 - **P4 — drag + offset.** A `<name>Offset` override in `engravingOverrides`, id-keyed and in staff

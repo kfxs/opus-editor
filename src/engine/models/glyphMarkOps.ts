@@ -47,6 +47,32 @@ export function addGlyphMark(score: Score, measureNumber: number, mark: Omit<Gly
 }
 
 /**
+ * ⭐ **Add a glyph mark to the EVENT a selected note or rest belongs to** — what the Symbols window's
+ * *Add symbol* does (docs/plans/symbol-plan.md P2). `noteId` is a chord's pitch id (any head of it: a
+ * symbol is the chord's, plan §2) or a rest's slot id; the mark takes that slot's address — its measure,
+ * beat, staff and voice — and is added like any other ({@link addGlyphMark}: never a replacement).
+ *
+ * Returns null when the id names no chord pitch or rest of a measure — ⛔ a grace note, a fanned
+ * member or a bracketed grace is not an event on the staff's beat grid, so it is refused rather than
+ * silently filed at its main note's beat.
+ */
+export function addGlyphMarkToEvent(score: Score, noteId: string, glyph: string): GlyphMark | null {
+  for (const measure of score.measures) {
+    const slot = measure.slots.find(s =>
+      s.type === 'rest' ? s.id === noteId : s.notes.some(n => n.id === noteId))
+    if (!slot) continue
+    return addGlyphMark(score, measure.number, {
+      glyph,
+      beat: slot.beat,
+      // Absent = voice 0 / the first staff — the write convention every slot already follows.
+      ...(slot.voice ? { voice: slot.voice } : {}),
+      ...(slot.staffId !== undefined ? { staffId: slot.staffId } : {}),
+    })
+  }
+  return null
+}
+
+/**
  * Remove a glyph mark by id, deleting the array when it empties (an absent list and an empty one
  * must not both be reachable, or the JSON has two spellings of "none").
  *
