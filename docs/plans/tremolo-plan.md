@@ -784,7 +784,9 @@ copy went when the row did: with the tremolo buttons gone, every syncer left in 
   `setTremolo(id, null)` from a different seam; both are wiring, not design.
 - **Anything on a selected STEM.** Delete does nothing to one — there is no such edit — and a
   stem-length drag is the gesture that rect was really registered for.
-- **The flag.** Still reserved as its own future element (`highlightNote` says so out loud).
+- **The flag.** Not its own selectable element (still a possible future kind) — ⚠️ but since 2026-09-28 it LIGHTS
+  with its selected note (`interactions/elements/notePaint`, his report: the flag stayed black), as the
+  accidentals, dots and ties do while being selectable themselves; a grace note's flag inside the host stays dark.
 
 ## 10. What a tremolo-palette press does — ✅ DONE (P8, P9)
 

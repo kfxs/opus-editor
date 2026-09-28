@@ -249,3 +249,60 @@ describe('the fanned-member highlight', () => {
     }
   })
 })
+
+describe('⭐ a selected note lights its FLAG (his report, 2026-09-28)', () => {
+  const NS = 'http://www.w3.org/2000/svg'
+  /** `<g class="flag">` → one glyph, inside `parent`. */
+  function flagIn(parent: Element): SVGTextElement {
+    const flag = document.createElementNS(NS, 'g')
+    flag.setAttribute('class', 'flag')
+    const glyph = document.createElementNS(NS, 'text')
+    flag.appendChild(glyph)
+    parent.appendChild(flag)
+    return glyph
+  }
+
+  function flagHarness() {
+    const canvas = document.createElement('div')
+    const svg = document.createElementNS(NS, 'svg')
+    canvas.appendChild(svg)
+    const group = noteGroup(svg, '#000000')
+    group.setAttribute('class', 'stavenote')
+    const flag = flagIn(group)
+    // A grace note drawn INSIDE the host's group is a `stavenote` of its own — its flag is not the host's.
+    const grace = document.createElementNS(NS, 'g')
+    grace.setAttribute('class', 'stavenote')
+    group.appendChild(grace)
+    const graceFlag = flagIn(grace)
+
+    const engine = {
+      getElementRegistry: () => new ElementRegistry(),
+      getViewMode: () => 'wrapped' as ViewMode,
+      getNote: () => ({ voice: 0 }),
+      getElementById: () => ({ type: 'note' }),
+      getStaveNoteSVGGroup: () => ({ group, noteIndex: 0, stem: null }),
+      getFanMemberSVGGroup: () => null,
+      enclosure: { ownerOf: (id: string) => id },
+      getTieSVGGroup: () => undefined,
+    } as unknown as MusicEngine
+    const state = createEditorState()
+    state.selectedItems.set('N1', { kind: 'note', id: 'N1' })
+    return { hc: new HighlightController(() => engine, () => canvas, state), flag, graceFlag }
+  }
+
+  it('fills the note\'s own flag in the selection colour — never a grace note\'s inside it', () => {
+    const { hc, flag, graceFlag } = flagHarness()
+    paintSelectedNotes(hc.context()!)
+    expect(flag.getAttribute('fill')).toBe('#3B82F6')
+    expect(flag.getAttribute('stroke')).toBeNull() // a glyph is FILLED, never stroked
+    expect(graceFlag.getAttribute('fill')).toBeNull()
+  })
+
+  it('clearHighlights gives the flag back exactly', () => {
+    const { hc, flag } = flagHarness()
+    paintSelectedNotes(hc.context()!)
+    hc.clearHighlights()
+    expect(flag.getAttribute('fill')).toBeNull()
+    expect(flag.style.fill).toBe('')
+  })
+})

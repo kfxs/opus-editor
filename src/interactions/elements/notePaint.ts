@@ -113,17 +113,23 @@ export function paintNote(
     return
   }
 
-  // Rule: color what belongs solely to this note — its notehead and stem — and never
+  // Rule: color what belongs solely to this note — its notehead, stem and flag — and never
   // shared structure (the beam bar, staff lines, barlines).
-  //
-  // The flag (the hook on an unbeamed 8th/16th) is intentionally NOT highlighted: it
-  // is reserved to become its own selectable element later, like accidentals and ties.
-  // Do not add it here without revisiting that decision.
 
   // Stem: resolved by identity, so it works whether the note drew its own stem
   // (unbeamed) or the beam drew it (beamed). A chord's single stem is shared by its
   // noteheads, which is correct — it is still this note's stem.
   if (stem) stem.querySelectorAll('path, line').forEach(colorStroke)
+
+  // ⭐ The FLAG (the hook on an unbeamed 8th/16th…) lights with its stem — his report, 2026-09-28: a selected
+  //    note with a flag left the flag black. It was once held back "to become its own selectable element
+  //    later, like accidentals and ties", but those light with their note too (below), so the flag follows
+  //    them. A glyph, so FILLED. ⚠️ Only THIS note's: a grace note is a `stavenote` of its own, and its flag
+  //    must not light with the host it may be drawn inside.
+  group.querySelectorAll('g.flag').forEach(flag => {
+    if (flag.parentElement?.closest('g.stavenote') !== group) return
+    flag.querySelectorAll('text, path').forEach(colorFill)
+  })
 
   // Notehead: noteheads draw in key order (low→high), matching the stored noteIndex,
   // so in a chord we color exactly the selected head. Color only its first glyph (the
