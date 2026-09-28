@@ -54,29 +54,35 @@ export function withSpineSpace(
 ): { columns: Column[]; leadIn: number } {
   if (!spaces || spaces.size === 0) return { columns, leadIn: 0 }
   let leadIn = 0
-  /** Column index → staff spaces to take out of the spring AFTER it. */
-  const shorten = new Map<number, number>()
-  const out = columns.map((column, i) => {
+  let out = columns
+  columns.forEach((column, i) => {
     const space = spaces.get(spacingPositionKey(measure.id, column.beat)) ?? 0
-    if (space === 0) return column
-    if (i === 0) {
-      leadIn = Math.max(-leadRoomSp, space)
-      return column
-    }
-    if (space > 0) return { ...column, authored: column.authored + space }
-    // ⭐ TIGHTER takes it out of the gap's SPRING — the column BEFORE owns it (`Column.springScale`) — so the
-    //    solve's own floor holds the ink apart, in the DRAWN gap: on a justified circle every spring is
-    //    stretched, and the note keeps moving until its ink actually meets the one before (his report,
-    //    2026-09-28: the first cut took it off a fixed amount measured AT REST — the picture stopped with
-    //    the notes still well apart). Past a spring of 0 there is nothing left to take.
-    shorten.set(i - 1, -space)
-    return column
+    if (space === 0) return
+    if (i === 0) leadIn = Math.max(-leadRoomSp, space)
+    else out = withSpaceBefore(out, i, space)
   })
-  for (const [i, by] of shorten) {
-    const before = out[i]
-    const spring = followingSpace(before.duration) * (before.springScale ?? 1)
-    if (spring <= 0) continue
-    out[i] = { ...before, springScale: (before.springScale ?? 1) * Math.max(0, 1 - by / spring) }
-  }
   return { columns: out, leadIn }
+}
+
+/**
+ * The columns with `space` staff spaces reserved in the gap BEFORE column `i` (`i` ≥ 1) — + into its `authored`
+ * gap, − out of the SPRING the column before owns. Shared with the barline's space (`./spineBarlineSpace`).
+ */
+export function withSpaceBefore(columns: Column[], i: number, space: number): Column[] {
+  if (space === 0 || i < 1 || i >= columns.length) return columns
+  const out = [...columns]
+  if (space > 0) {
+    out[i] = { ...out[i], authored: out[i].authored + space }
+    return out
+  }
+  // ⭐ TIGHTER takes it out of the gap's SPRING — the column BEFORE owns it (`Column.springScale`) — so the
+  //    solve's own floor holds the ink apart, in the DRAWN gap: on a justified circle every spring is
+  //    stretched, and the note keeps moving until its ink actually meets the one before (his report,
+  //    2026-09-28: the first cut took it off a fixed amount measured AT REST — the picture stopped with
+  //    the notes still well apart). Past a spring of 0 there is nothing left to take.
+  const before = out[i - 1]
+  const spring = followingSpace(before.duration) * (before.springScale ?? 1)
+  if (spring <= 0) return out
+  out[i - 1] = { ...before, springScale: (before.springScale ?? 1) * Math.max(0, 1 + space / spring) }
+  return out
 }

@@ -173,6 +173,10 @@ export interface SpineConsole {
   stretchOf(measure: number): number
   /** Set that bar's stretch for the SESSION and redraw; ×1 removes the row. A value that is not a number is refused. */
   setStretch(measure: number, value: number): void
+  /** The space between the last note of the bar numbered `measure` and its barline (`eye/spineBarlineSpace`), in staff spaces. */
+  barlineSpaceOf(measure: number): number
+  /** Set it for the SESSION and redraw; 0 removes the row. A value that is not a number is refused. */
+  setBarlineSpace(measure: number, value: number): void
   /** The space before a header clef or meter on the spine (`eye/spineSignSpace`), in staff spaces. */
   signSpaceOf(sign: SpineSign): number
   /** Set it for the SESSION and redraw; 0 removes the row. A value that is not a number is refused. */
@@ -243,7 +247,11 @@ export function spineConsole(deps: SpineConsoleDeps): SpineConsole {
   let spaces = new Map<string, number>()
   /** ⭐ Each header clef's / meter's space on the spine — the SESSION's; only `clear()` forgets. */
   let signSpaces = new Map<string, number>()
-  const adjustments = (): SpineAdjustments => ({ barStretch: stretches, columnSpace: spaces, signSpace: signSpaces })
+  /** ⭐ Each bar's space before its barline on the spine, by measure id — the SESSION's; only `clear()` forgets. */
+  let barlineSpaces = new Map<string, number>()
+  const adjustments = (): SpineAdjustments => ({
+    barStretch: stretches, columnSpace: spaces, signSpace: signSpaces, barlineSpace: barlineSpaces,
+  })
   let redrawListeners: (() => void)[] = []
 
   /** Stops following the editor's selection — set while the panel is up. */
@@ -288,6 +296,7 @@ export function spineConsole(deps: SpineConsoleDeps): SpineConsole {
     stretches = new Map()
     spaces = new Map()
     signSpaces = new Map()
+    barlineSpaces = new Map()
   }
 
   /**
@@ -702,6 +711,25 @@ export function spineConsole(deps: SpineConsoleDeps): SpineConsole {
       else next.set(id, stretch)
       stretches = next
       dbg(`[spine] bar ${measure} stretch ×${stretch} (this session only)`)
+      if (host) draw(shape)
+    },
+    barlineSpaceOf: measure => {
+      const score = deps.getScore()
+      const id = score && measureIdOfNumber(score, measure)
+      return id ? barlineSpaces.get(id) ?? 0 : 0
+    },
+    setBarlineSpace: (measure, value) => {
+      const score = deps.getScore()
+      const id = score && measureIdOfNumber(score, measure)
+      if (!id || !Number.isFinite(value)) {
+        dbg(`[spine] ⛔ barline space ${value} for bar ${measure} refused`)
+        return
+      }
+      const next = new Map(barlineSpaces)
+      if (value === 0) next.delete(id)
+      else next.set(id, value)
+      barlineSpaces = next
+      dbg(`[spine] bar ${measure} barline space ${value} sp (this session only)`)
       if (host) draw(shape)
     },
     signSpaceOf: sign => {

@@ -14,6 +14,7 @@
  * (`eye/spineColumnSpace`) — ⛔ not an offset.
  * ⭐ **A BARLINE's STRETCH** (his ask, 2026-09-28) — the bar the selected barline ENDS takes ×n the room
  * its music asks for on the spine (`eye/spineBarStretch`), in the Properties window's own number row. ⛔ Only the spine; ⛔ never the page.
+ * ⭐ …and its SPACE BEFORE — between the bar's last note and the barline (`eye/spineBarlineSpace`), the same day.
  *
  * ⛔ **Nothing is stored** — the stretch lives in the panel for the session (where spine adjustments would be kept,
  * plan §9.3 C, is undecided). Everything else here only reports. Toggled from the dev shell (`🔧 Spine props`).
@@ -49,6 +50,8 @@ export interface SpinePropertiesDeps {
   onRedraw(fn: () => void): () => void
   /** A bar's stretch on the spine — read and set for the SESSION (`./spineConsole`). */
   stretch: { of(measure: number): number; set(measure: number, value: number): void }
+  /** The space between a bar's last note and its barline on the spine, in staff spaces — read and set for the SESSION. */
+  barlineSpace: { of(measure: number): number; set(measure: number, value: number): void }
   /** The space before a note's COLUMN on the spine, in staff spaces — read and set for the SESSION (`./spineConsole`). */
   space: { of(id: string): number; set(id: string, value: number): void }
   /** The space before a header CLEF or METER on the spine, in staff spaces — read and set for the SESSION. */
@@ -131,7 +134,10 @@ export class SpinePropertiesWidget implements Widget {
       return
     }
     el.appendChild(label(report.kind, true))
-    if (report.barline !== undefined) el.appendChild(stretchControl(report.barline, this.deps.stretch))
+    if (report.barline !== undefined) {
+      el.appendChild(stretchControl(report.barline, this.deps.stretch))
+      el.appendChild(barlineSpaceControl(report.barline, this.deps.barlineSpace))
+    }
     if (report.column !== undefined) el.appendChild(spaceControl(report.column, this.deps.space))
     if (report.sign !== undefined) el.appendChild(signSpaceControl(report.sign, this.deps.signSpace))
     el.appendChild(text(JSON.stringify(report.data, null, 2)))
@@ -175,6 +181,7 @@ export function describe(
       stretch?: Pick<SpinePropertiesDeps['stretch'], 'of'>
       space?: Pick<SpinePropertiesDeps['space'], 'of'>
       signSpace?: Pick<SpinePropertiesDeps['signSpace'], 'of'>
+      barlineSpace?: Pick<SpinePropertiesDeps['barlineSpace'], 'of'>
     },
 ): SpineReport | string {
   const score = deps.getScore()
@@ -210,11 +217,14 @@ export function describe(
   }
   if (barline !== null) {
     const stretch = deps.stretch?.of(barline)
+    const space = deps.barlineSpace?.of(barline)
     return {
       kind: 'barline',
       barline,
       data: { endsBar: barline },
-      spine: onSpine(spineBarlineKey(barline), stretch === undefined ? {} : { stretch }),
+      spine: onSpine(spineBarlineKey(barline), {
+        ...(stretch === undefined ? {} : { stretch }), ...(space === undefined ? {} : { spaceBeforeSp: space }),
+      }),
     }
   }
   const id = ids[0]
@@ -253,6 +263,20 @@ function stretchControl(measure: number, stretch: SpinePropertiesDeps['stretch']
     `How much room bar ${measure} takes on the spine — ×1 is as engraved. This session only; the page is not changed.`,
   )
   return dressControl(row, 'spine-properties-stretch')
+}
+
+/**
+ * ⭐ The BARLINE's second knob: the space between the bar's LAST note and the barline (`eye/spineBarlineSpace`) — it
+ * MOVES the barline and the bars after it, ⛔ not an offset. The same row as the note's space.
+ */
+function barlineSpaceControl(measure: number, space: SpinePropertiesDeps['barlineSpace']): HTMLElement {
+  const row = buildNumberRow(
+    'space before (sp)', space.of(measure), SPINE_SPACE_STEP, SPINE_SPACE_MIN, SPINE_SPACE_MAX,
+    value => space.set(measure, value ?? 0),
+    `Room between bar ${measure}'s last note and its barline on the spine, in staff spaces — + wider, − tighter `
+      + '(never into the ink). This session only; the page is not changed.',
+  )
+  return dressControl(row, 'spine-properties-barline-space')
 }
 
 /**

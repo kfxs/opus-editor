@@ -152,7 +152,7 @@ start to port it there."* Read from the source (`eye/spineScore.ts`, `eye/spineS
 | 14 | **SPACING** — `layout/spacing` (the spring law, the ink table) | ROOM | ✅ `eye/spineSpacing` (§7) | run the page's casting-off for ONE endless system and read its column x's as `s`. ⚠️ On a CLOSED path the total length is FIXED by the radius — justification on a circle is its own question (B7) |
 | 15 | hairpins · ottava · pedal · trill lines | SPAN | ◐ (2026-09-27, his pick) — ✅ HAIRPINS: `eye/spineHairpins`, the page's rules asked in `(s, depth)` — span from the start slot's left edge to the end slot's (or the bar's end), `HAIRPIN.END_INSET`, the hand's reshape, the dynamics-line plan's baseline + the page's axis offset (`hairpinAxisOffsetSpaces`, exported), `resolveHairpinShape` sized along the lane, and Gould p. 107's break for an interim dynamic via the page's own `breakWedgeAtGaps` over the dynamics `./spineMarks` placed (only where the inks clash). ⭐ The arms FOLLOW the path on both sides (a wedge has no bow to invert — at a depth it is a parallel arc, like a staff line). ✅ OTTAVA · PEDAL · TRILL (2026-09-27): `eye/spineOttavas` · `eye/spinePedals` · `eye/spineTrills`, each the page's rules in `(s, depth)`, on the page's LADDER in its order — trill (innermost) → ottava → dynamics → pedal, the claims filed on one `occupied` so each clears the ones inside it (the page's `planOttavaBands` narrowed to the claims; `bracketBaseline` / `pedalFragmentClaim` / `trillFragmentClaim` / `trillBarSlice` reused). Signs are rigid pieces placed by their middle (`eye/spinePieces`); the octave line's dashes run ALONG the path (`spineLines.strokeSpineRun`, shared with the hairpin arms) with its hook square to it; the trill's wiggle is the page's glyph run, each glyph turned where it stands. Measured in Chromium: the pedal's depth on a straight spine = the page's to the pixel. ⏭️ LEFT: the trill does not yet clear SLURS (the page's `curveObstacleBand` — the spine records no curve obstacles); any span across a closed seam; a pedal release wrapped to the next system (n/a on one system) | offsets of the path between two `s`, like the staff lines (the *Bike Ride* plate's hairpin follows the rim, §1) |
 | 16 | dynamics · tempo marks · expression words | PIECES on a LANE (an offset from the path) | ✅ `eye/spineMarks` (2026-09-26, his pick). ⛔ Nothing re-decided: the dynamics line is the page's whole `planDynamicsLines` over the spine's own columns (one system, line 0); the tempo row is `clearanceBaseline` + `TEMPO_LINE` over its beat → bar end, merged with what the dynamics claimed above (`bandOver` — the LADDER); a dynamic hangs off `anchorSlotIndex`'s slot, a level CENTRED on its ink, prose anchored, a shared beat a ROW (`layoutCoLocatedDynamics`); a tempo mark by Gould p. 183 (meter's left edge on a downbeat that prints one, else the first element, else the bar's music start); both hands' nudges (`dynamicOffset` +down, `tempoOffset` +UP). ⭐ HIS ASK: *"the text should not be rect but follow the spine"* — a WORD is one piece per LETTER, each turned where it stands; a dynamic GLYPH (`p`, `mf`) and the tempo's ♩ stay rigid pieces; *"probably for tempo too"* — so tempo text follows as well. Pieces are laid out along the LANE's own arc (`s = s0 + x / innerLengthRatio(depth)`), so letters keep normal spacing at any depth (placed along `s` unmapped, `p dolce` slid together inside the loop). 🚨 Found on the way: `glyphPainter.measureTextMetrics` silently DROPPED a `TextRunFont`'s `sizePt` (the letters came out far apart) — new `measureTextRun`, the measuring twin of `drawTextRun`; the page's callers all passed `size` and were never affected. ⚠️ Faithful to the page, and worth his eye: a tempo mark's scope runs to its bar's END inclusive, so a `pp` above the NEXT downbeat pushes a `rit.` up (the page does the same). ⏸️ Hairpins (#15); registration (B3) | — |
-| 17 | clicking / selecting + SPINE PROPERTIES | — | ◐ (2026-09-27, his ask: *"just clicking and highlight part, for the moment"*) — ✅ a click on a NOTE, a REST or a BARLINE selects it in the EDITOR (§9.1's shared selection) and both views highlight it; ⭐ the pointer over the music, the move cursor elsewhere (§9.3b). ✅ a READ-ONLY Spine Properties window (§9.3c). ⛔ Nothing else yet: marks, curves, clefs; anything adjustable | ⭐ **§9** (his direction, 2026-09-26): CLICK + SELECT (a SHARED selection), then a SPINE PROPERTIES window of its own |
+| 17 | clicking / selecting + SPINE PROPERTIES | — | ◐ (2026-09-27, his ask: *"just clicking and highlight part, for the moment"*) — ✅ a click on a NOTE, a REST or a BARLINE selects it in the EDITOR (§9.1's shared selection) and both views highlight it; ⭐ the pointer over the music, the move cursor elsewhere (§9.3b). ✅ a Spine Properties window (§9.3c), then its KNOBS (2026-09-28, session only): a barline's STRETCH — a stretched bar is HELD (§9.3d) — and SPACE BEFORE (§9.3g), a note's SPACE (§9.3e), a header clef's / meter's pick + SPACE (§9.3f). ⛔ Not yet: marks, curves, beams, key signatures, mid-bar clefs | ⭐ **§9** (his direction, 2026-09-26): CLICK + SELECT (a SHARED selection), then a SPINE PROPERTIES window of its own |
 | 18 | the shape in the score JSON | — | ⛔ his call: not yet | B7 |
 | 19 | PDF export · playback cursor | — | ⛔ | after B2 (they read the page's geometry) |
 | 20 | ⭐ **`__spine.svg()` / `__spine.pdf()` — export the PANEL** (his ask, 2026-09-25) | — | ⛔ | the panel is a real vector `<svg>` (paths + music-font `<text>` glyphs placed by affines), so the page's own pipeline applies from step 2: `engine/export/outlineText` (glyphs → outlines, font-free) then svg2pdf + jsPDF (`engine/export/pdfExport`), the panel's SVG as the input. ⚠️ VERIFY first that a ROTATED `<text>` glyph outlines in place — the outliner asks `getStartPositionOfChar` and must honour the group's rotation and scale. Independent of B (#19 reads the PAGE's geometry; this reads the panel's) |
@@ -289,7 +289,7 @@ His second score: low notes with accidentals, in beamed groups, colliding round 
    worst case (low sixteenths with accidentals, beamed in fours).
    ⏭️ Left: a TUPLET's bracket and a slur are not notes and do not turn (port map #8, #13).
 
-## 9. Clicking, selecting and SPINE PROPERTIES — the plan (his direction, 2026-09-26; ⛔ NOT BUILT)
+## 9. Clicking, selecting and SPINE PROPERTIES — the plan (his direction, 2026-09-26; ◐ BUILT in steps §9.3b–g)
 
 ⚠️ **Dragging an element is NOT part of this section** — his word, the same day: *"the drag is a topic
 different than click selection and spine properties for the object"*. It is port map row 28, its own topic.
@@ -348,8 +348,8 @@ plan, ⛔ not a queue: each step waits for his word.
   Suggested: (i), because it keeps today's behaviour and the spine value stays a small correction.
 - **C. Where spine adjustments are STORED.** In the score JSON (then the shape itself belongs there too — #18,
   which he said is *"not yet"*) or only for the session (lost on reload). Decides whether this waits for #18.
-- **D. The panel's own drag.** Today a press ANYWHERE on the panel drags the panel (`dev/spineConsole.makeDraggable`)
-  — a click-to-select needs that moved to a handle (a title bar) first.
+  ⭐ Until he decides (his word, 2026-09-28): every spine knob is SESSION-only — ⛔ don't ask again.
+- **D. The panel's own drag.** ✅ ANSWERED 2026-09-27 (§9.3b): a press without movement is a CLICK; no handle needed.
 
 ### 9.3b ✅ BUILT 2026-09-27 — clicking and the highlight only (his word: *"for the moment i dont want to go more far"*)
 
@@ -435,6 +435,15 @@ elements selected, for the moment we dont really know what goes in the propertie
   the sign and everything after (key, meter, music, a `|:` after the header) — every staff's clef at that bar
   together, so the system stays lined up. Keyed `<measure id>:clef|meter`. Tighter stops when the gap reaches 0.
 - ⛔ NOT STORED — session only, like the other knobs (`eye/spineAdjustments.signSpace`).
+
+### 9.3g ✅ BUILT 2026-09-28 — a BARLINE's SPACE BEFORE (his ask: *"when i mark a barline i want also be able to change the space between the last note of the measure and the barline"*)
+
+- Select a barline → Spine Properties shows, under **stretch ×**, **space before (sp)**: the same number row as a
+  note's space (step 0.25, reset = 0). `eye/spineBarlineSpace` — the barline is the bar's LAST column
+  (`layout/measureColumns`), so it is a note's space asked of that column (`spineColumnSpace.withSpaceBefore`,
+  now shared): + reserved before the barline, − out of the last note's spring, ⛔ never into the ink. It MOVES the
+  barline and the bars after it; the bar's notes stay. Keyed by the bar's id (the bar the barline ENDS).
+- ⛔ Only the spine — the page's twin is `engravingOverrides.barlineSpaceKey`. ⛔ NOT STORED — session only (C).
 
 ### 9.4 Facts found while planning (so the build does not rediscover them)
 

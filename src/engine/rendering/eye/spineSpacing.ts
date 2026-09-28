@@ -42,6 +42,7 @@ import { resolveStaffKeys, type StaffKeys } from '@/utils/keySignature'
 import type { Measure, Score } from '@/types/music'
 import type { SpineAdjustments } from './spineAdjustments'
 import { spineStretchOf } from './spineBarStretch'
+import { withBarlineSpace } from './spineBarlineSpace'
 import { withSpineSpace } from './spineColumnSpace'
 import { spineSignShift } from './spineSignSpace'
 import { type SpineHeader, spineHeaderColumns, spineSystemHeaders } from './spineHeader'
@@ -100,7 +101,10 @@ function ask(score: Score, measure: Measure, index: number, adjust?: SpineAdjust
     : lead.padding
   // ⭐ A column's SPACE (`./spineColumnSpace`) goes into its reserved gap — the first column's into the lead-in,
   //    which may give up to its own clearance (`before`) and no more.
-  const { columns, leadIn: spaceBeforeFirst } = withSpineSpace(measure, engraved, adjust?.columnSpace, before)
+  const spaced = withSpineSpace(measure, engraved, adjust?.columnSpace, before)
+  // ⭐ …and the BARLINE's (`./spineBarlineSpace`) — the bar's last column, the gap after its last note.
+  const columns = withBarlineSpace(measure, spaced.columns, adjust?.barlineSpace)
+  const spaceBeforeFirst = spaced.leadIn
   const plain = naturalWidth(columns) * STAFF_SPACE_PX
   return {
     columns,

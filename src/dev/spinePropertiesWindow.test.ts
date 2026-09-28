@@ -60,6 +60,7 @@ describeSpec('Spine Properties — the report, as JSON like the Properties windo
     let value = 1
     const calls: [number, number][] = []
     const spaceCalls: [string, number][] = []
+    const barlineSpaceCalls: [number, number][] = []
     const deps = {
       windows: undefined as never,
       getScore: () => m.getScore(),
@@ -70,6 +71,7 @@ describeSpec('Spine Properties — the report, as JSON like the Properties windo
       stretch: { of: () => value, set: (measure: number, v: number) => { calls.push([measure, v]); value = v } },
       space: { of: () => 0, set: (noteId: string, v: number) => { spaceCalls.push([noteId, v]) } },
       signSpace: { of: () => 0, set: () => {} },
+      barlineSpace: { of: () => 0, set: (measure: number, v: number) => { barlineSpaceCalls.push([measure, v]) } },
     }
     const host = document.createElement('div')
     new SpinePropertiesWidget(deps).mount(host)
@@ -84,11 +86,21 @@ describeSpec('Spine Properties — the report, as JSON like the Properties windo
     expect(reset.textContent).toBe('reset')
     reset.click()
     expect(calls[1]).toEqual([1, 1])
+    // ⭐ …and, under it, the space between the bar's last note and the barline (his ask, 2026-09-28); reset = 0.
+    expect(host.querySelector('.spine-properties')!.children[2].classList.contains('spine-properties-barline-space')).toBe(true)
+    const before = host.querySelector<HTMLInputElement>('.spine-properties-barline-space input')!
+    expect(before.value).toBe('0')
+    before.value = '0.75'
+    before.dispatchEvent(new Event('change'))
+    expect(barlineSpaceCalls[0]).toEqual([1, 0.75])
+    host.querySelector<HTMLButtonElement>('.spine-properties-barline-space button')!.click()
+    expect(barlineSpaceCalls[1]).toEqual([1, 0])
 
     barline = null
     const noteHost = document.createElement('div')
     new SpinePropertiesWidget(deps).mount(noteHost)
     expect(noteHost.querySelector('.spine-properties-stretch')).toBeNull()
+    expect(noteHost.querySelector('.spine-properties-barline-space')).toBeNull()
     // ⭐ …a NOTE gets its SPACE instead (his ask, 2026-09-28) — at the top too; reset = 0.
     expect(noteHost.querySelector('.spine-properties')!.children[1].classList.contains('spine-properties-space')).toBe(true)
     const space = noteHost.querySelector<HTMLInputElement>('.spine-properties-space input')!
@@ -114,6 +126,7 @@ describeSpec('Spine Properties — the report, as JSON like the Properties windo
       stretch: { of: () => 1, set: () => {} },
       space: { of: () => 0, set: () => {} },
       signSpace: { of: () => 0.5, set: (s: SpineSign, v: number) => { calls.push([s.kind, v]) } },
+      barlineSpace: { of: () => 0, set: () => {} },
     }
     const clef = report(describe(deps))
     expect(clef.kind).toBe('clef')

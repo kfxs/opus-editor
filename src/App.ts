@@ -1056,6 +1056,7 @@ export function createEditorApp(host: HTMLElement): EditorApp {
       placed: () => spine.placed(),
       onRedraw: fn => spine.onRedraw(fn),
       stretch: { of: measure => spine.stretchOf(measure), set: (measure, value) => spine.setStretch(measure, value) },
+      barlineSpace: { of: measure => spine.barlineSpaceOf(measure), set: (measure, value) => spine.setBarlineSpace(measure, value) },
       space: { of: id => spine.spaceOf(id), set: (id, value) => spine.setSpace(id, value) },
       signSpace: { of: sign => spine.signSpaceOf(sign), set: (sign, value) => spine.setSignSpace(sign, value) },
     })

@@ -1,11 +1,12 @@
 /**
  * ⭐ **WHAT THE HAND HAS ADJUSTED ON THE SPINE** — the Spine Properties knobs, as ONE bundle the spacing and the
  * drawing take (`docs/plans/bent-staff-plan.md` §9): a bar's stretch (`./spineBarStretch`), a column's space
- * (`./spineColumnSpace`) and a header sign's space (`./spineSignSpace`). A new knob is a new field here and a module of its own, ⛔ not a new parameter.
+ * (`./spineColumnSpace`), a header sign's space (`./spineSignSpace`) and a barline's space (`./spineBarlineSpace`). A new knob is a new field here and a module of its own, ⛔ not a new parameter.
  *
  * ⚠️ The SESSION's — held by the panel, ⛔ not in the score (plan §9.3 C, undecided). ⛔ No DOM.
  */
 import type { SpineBarStretches } from './spineBarStretch'
+import type { SpineBarlineSpaces } from './spineBarlineSpace'
 import type { SpineColumnSpaces } from './spineColumnSpace'
 import type { SpineSignSpaces } from './spineSignSpace'
 
@@ -14,4 +15,6 @@ export interface SpineAdjustments {
   columnSpace?: SpineColumnSpaces
   /** A header clef's or meter's space (`./spineSignSpace`). */
   signSpace?: SpineSignSpaces
+  /** The space between a bar's last note and its barline (`./spineBarlineSpace`). */
+  barlineSpace?: SpineBarlineSpaces
 }
