@@ -50,6 +50,7 @@ import { slurCommands } from './commands/slurCommands'
 import { tempoCommands } from './commands/tempoCommands'
 import { trillCommands } from './commands/trillCommands'
 import { tieCommands } from './commands/tieCommands'
+import { beamCommands } from './commands/beamCommands'
 import { graceCommands } from './commands/graceCommands'
 import { bracketedCommands } from './commands/bracketedCommands'
 import { enclosureCommands } from './commands/enclosureCommands'
@@ -2437,6 +2438,8 @@ export class MusicEngine {
 
   // ⭐ A tie's COMMANDS — `flipTie`, the vertical nudge and its reset — are `engine/commands/tieCommands`.
   readonly tie = tieCommands(this.commandContext())
+  // ⭐ A beam's commands — the vertical nudge and its reset — are `engine/commands/beamCommands`.
+  readonly beam = beamCommands(this.commandContext())
   /** ⭐ GRACE NOTES' commands — `engine/commands/graceCommands`. */
   readonly grace = graceCommands(this.commandContext())
   /** ⭐ BRACKETED graces' commands — `engine/commands/bracketedCommands` (docs/plans/bracketed-grace-plan.md). */

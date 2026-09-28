@@ -1,4 +1,4 @@
-import type { Score, EngravingOverride, CurveShapeOverride, SegmentCurveShapeOverride, SlurEndpointOffsetOverride, SlurOffsetOverride, SegmentEndpointOffsetOverride, HairpinEndpointOffsetOverride, HairpinApertureOverride, OttavaOffsetOverride, PedalOffsetOverride, TrillOffsetOverride, RestShiftOverride, StaffSpacingOverride, DynamicOffsetOverride, NoteOffsetOverride, ClefOffsetOverride, LeadingSpaceOverride, BarlineSpaceOverride, BarWidthOverride, CurveControlPointDeltas, Fraction, TempoOffsetOverride, CautionaryKeyGapOverride, TieOffsetOverride, TupletOffsetOverride } from '@/types/music'
+import type { Score, EngravingOverride, CurveShapeOverride, SegmentCurveShapeOverride, SlurEndpointOffsetOverride, SlurOffsetOverride, SegmentEndpointOffsetOverride, HairpinEndpointOffsetOverride, HairpinApertureOverride, OttavaOffsetOverride, PedalOffsetOverride, TrillOffsetOverride, RestShiftOverride, StaffSpacingOverride, DynamicOffsetOverride, NoteOffsetOverride, ClefOffsetOverride, LeadingSpaceOverride, BarlineSpaceOverride, BarWidthOverride, CurveControlPointDeltas, Fraction, TempoOffsetOverride, CautionaryKeyGapOverride, TieOffsetOverride, TupletOffsetOverride, BeamOffsetOverride } from '@/types/music'
 import { fracCreate } from '@/utils/fraction'
 import { STAFF_SPACE_PX } from './staffSize'
 
@@ -573,6 +573,11 @@ export function resolveStaffSpacingAbove(score: Score, staffId: string, openingM
     if (ps !== undefined) return ps
   }
   return staffSpacingAbove(score, staffId)
+}
+
+/** A beam's vertical hand nudge, keyed by the SLOT its group's first note stands in — see {@link BeamOffsetOverride}. */
+export function beamOffsetOverrideOf(score: Score, slotId: string): BeamOffsetOverride | undefined {
+  return engravingOverrideOf(score, slotId, 'beamOffset') as BeamOffsetOverride | undefined
 }
 
 /** A tie's vertical hand nudge, keyed by the pitch it comes FROM — see {@link TieOffsetOverride}. */

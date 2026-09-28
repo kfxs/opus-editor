@@ -108,6 +108,8 @@ export class EngravedBeam {
 
   /** How far the line was moved off the first stem's tip to clear an inner stem — VexFlow's `yShift`. */
   lift = 0
+  /** The hand's nudge, px AWAY from the noteheads (+ = longer stems) — set before formatting (`beams/beamOffset`). */
+  handAwayPx = 0
 
   /**
    * ⭐ CROSS-STAFF (docs/plans/cross-staff-plan.md Phase 4): the staff LINE this beam stands on,
@@ -201,6 +203,10 @@ export class EngravedBeam {
   postFormat(): void {
     if (this.postFormatted) return
     this.calculateSlope()
+    // ⭐ The HAND's nudge (`beams/beamOffset`) moves the solved line as a whole — the slope kept — AWAY from the
+    //    heads (+ = longer stems, so a flip keeps its meaning): up for stems up, down for stems down. The stems are
+    //    then lengthened or shortened to meet it, exactly as they meet the engraver's line.
+    this.lift -= this.stemDirection * this.handAwayPx
     this.applyStemExtensions()
     this.postFormatted = true
   }

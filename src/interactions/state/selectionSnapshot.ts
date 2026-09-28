@@ -1,3 +1,4 @@
+import { beamOffsetSlotOf } from '@/engine/models/beamOffsetOps'
 import type { EditorState } from './EditorState'
 import { assertNeverElement } from './EditorState'
 import type { MusicEngine } from '../../engine/MusicEngine'
@@ -279,7 +280,12 @@ export function selectedElements(state: EditorState, engine: MusicEngine | null)
     case 'beamGroup':
       // A beam is DERIVED (the meter's grouping and the notes' `beam` marks), not an object in the model — it is
       // reported by the note it starts on.
-      out.push({ kind: 'beamGroup', data: { noteId: element.noteId, note: engine.getNote(element.noteId) } })
+      // Its hand NUDGE is filed under its first note's slot (`models/beamOffsetOps`) — shown under `overrides`.
+      out.push({
+        kind: 'beamGroup',
+        data: { noteId: element.noteId, note: engine.getNote(element.noteId) },
+        overrides: overridesAt(score, beamOffsetSlotOf(score, element.noteId)),
+      })
       break
     case 'tremolo':
       // The MARK is a field on the slot (`tremolo`), so the note carries the whole truth — reported

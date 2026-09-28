@@ -127,6 +127,7 @@ import { noteLineY, staffLineY } from '@/engine/engrave/staff/staffFrame'
 import { noteRuler } from './engraved/noteRuler'
 import { registerStemInk } from './stemInk'
 import { registerBeamHitInk } from './beams/beamHitInk'
+import { applyBeamOffsets } from './beams/beamOffset'
 import { drawAndRegisterTuplets } from './marks/tupletPass'
 import { signRun } from './staff/signRun'
 
@@ -1828,6 +1829,8 @@ export class ScoreRenderer {
         // it one (`pairRoleAt` breaks the group in the pure grouper), so without this the pair draws
         // with flags. Built here, with the others, because it must exist BEFORE the format pass.
         beams.push(...this.buildTwoNoteTremoloBeams(g.slots, g.staveNotes))
+        // ⭐ The hand's vertical nudge on each beam (`./beams/beamOffset`) — before anything formats it.
+        applyBeamOffsets(pass.score, beams, g.slots, g.staveNotes)
         if (lane?.crossing.length) this.applyCrossBarPlaceholders(g.staveNotes, lane.crossing)
         // ⚠️ A crossing FAN group's owners take the direction and NOTHING ELSE — no placeholder, or
         // `StaveNote.draw` would skip the very stem the joined line is anchored to (P3, and P1's

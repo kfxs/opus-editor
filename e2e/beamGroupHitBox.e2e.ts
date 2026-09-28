@@ -52,3 +52,42 @@ test('an unbeamed eighth files no beam band', async ({ score }) => {
   })
   expect(count).toBe(0)
 })
+
+/**
+ * ⭐ **THE HAND'S NUDGE MOVES THE BEAM AND ITS STEMS FOLLOW** (his ask, 2026-09-28) — and it is RELATIVE to the
+ * stems (his report the same day): pushed "longer", a group keeps its longer stems when it is flipped.
+ */
+test('⭐ pushed one space AWAY: the line moves a space, every stem a space longer — and a FLIP keeps them longer', async ({ score }) => {
+  const read = () => score.evaluate(() => {
+    const g = document.querySelector('svg g.beam')!
+    const line = (g.querySelector(':scope > path') as SVGGraphicsElement).getBBox()
+    return { lineY: line.y, stems: [...g.querySelectorAll('g.stem')].map(s => (s as SVGGraphicsElement).getBBox().height) }
+  })
+  const anchor = await score.evaluate(async () => {
+    const h = window.__h
+    const ids: string[] = []
+    for (let i = 0; i < 4; i++) ids.push(h.engine.addNoteAtBeat({ step: 'G', octave: 4, duration: '16', measure: 1, beat: h.frac(i, 4) } as never)!.id)
+    await h.render()
+    return ids[0]
+  })
+  const before = await read()
+  const space = await score.evaluate(async (anchor) => {
+    const h = window.__h
+    if (!h.engine.beam.nudgeBeam(anchor, -1)) throw new Error('refused')
+    await h.render()
+    return h.engine.getElementRegistry().getStaffGeometry(1, 0)!.lineSpacing
+  }, anchor)
+  const after = await read()
+  expect(before.lineY - after.lineY).toBeCloseTo(space, 0)
+  after.stems.forEach((len, i) => expect(len - before.stems[i]).toBeCloseTo(space, 0))
+
+  await score.evaluate(async (anchor) => {
+    const h = window.__h
+    h.engine.flipStemDirection(anchor)
+    await h.render()
+  }, anchor)
+  const flipped = await read()
+  // Stems down now — and still a space LONGER than the engraver's own (the stored offset is relative).
+  const longest = Math.max(...flipped.stems)
+  expect(longest).toBeGreaterThan(Math.max(...before.stems) + space * 0.5)
+})

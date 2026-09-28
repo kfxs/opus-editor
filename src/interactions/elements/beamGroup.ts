@@ -1,7 +1,7 @@
 /**
  * A BEAM — the whole beam of a beamed group, every line of it (his ask, 2026-09-28: *"if I have a beamed group I
- * cannot select a beam like individual element, I should be able to do this"*). Selection only, as the stem and
- * the flag: nothing acts on a selected beam yet, and Delete declines.
+ * cannot select a beam like individual element, I should be able to do this"*). ↑/↓ push it up or down (`Ctrl`
+ * coarser — `./beamGroupKeys`, the same day); Delete declines.
  *
  * Its ink is filed by `engine/rendering/beams/beamHitInk` — one `'beamGroup'` entry per drawn LINE, its slanted
  * band as `points`, anchored on the group's first NOTE — so a press is tested against the beam's own ink, and
@@ -13,6 +13,7 @@ import type { HighlightContext } from './highlightContext'
 import { selectedOf } from '../state/EditorState'
 import { voiceFillColor } from '@/utils/voiceColors'
 import type { ElementInfo, ElementRegistry } from '@/engine/ElementRegistry'
+import { BEAM_GROUP_KEYS } from './beamGroupKeys'
 
 /** How far past its ink a beam line still takes a press, px — a beam is half a space thick. A changeable default. */
 const BEAM_CLICK_PAD = 2
@@ -33,6 +34,8 @@ export const BEAM_GROUP_ELEMENT: ClickableElementSpec = {
   },
 
   highlight: paintSelectedBeamGroup,
+  // ↑/↓ push the beam, `Ctrl` coarser; `Ctrl+Backspace` puts it back (his ask, 2026-09-28).
+  keys: BEAM_GROUP_KEYS,
 }
 
 /**

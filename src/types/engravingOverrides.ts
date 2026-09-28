@@ -727,4 +727,26 @@ export interface TieOffsetOverride extends EngravingOverride {
   y: number
 }
 
+/**
+ * A BEAM's hand nudge — the arrows on a selected beam (his ask, 2026-09-28), in **staff spaces AWAY FROM THE
+ * NOTEHEADS: + = longer stems, − = shorter**. The whole beam moves as one — every line of it, at the slope the
+ * engraver solved — and every stem of the group is lengthened or shortened to meet it (`rendering/beams/beamOffset`).
+ *
+ * ⭐ RELATIVE to the stems, ⛔ not screen-signed (his report the same day: flip a pushed beam and it *"looks odd … the
+ * offset absolute and not relative"* — "up" on stems-up became "into the heads" on stems-down). So a flip keeps its
+ * meaning: longer stems stay longer. The ARROWS are still screen-up/down; the command translates by the side the
+ * beam stands on.
+ *
+ * Keyed by the SLOT id of the group's first NOTE — the chord a selected beam is anchored on (`beamGroup`). ⭐ A slot
+ * id, not a pitch id, so the bar's redraw key already carries it (`MeasureRedrawKey` reads every override filed
+ * under a slot id) and moving the beam re-engraves its bar. Absent = where the engraver put it; a net 0 deletes the
+ * entry. ⚠️ If the grouping changes so that a different note begins the beam, the offset stays with its old slot —
+ * the cost every id-keyed client pays.
+ */
+export interface BeamOffsetOverride extends EngravingOverride {
+  kind: 'beamOffset'
+  /** Staff spaces away from the noteheads — + = longer stems. */
+  away: number
+}
+
 export type EngravingOverrides = Record<string, EngravingOverride[]>

@@ -52,7 +52,8 @@ describe('ELEMENT_SPECS — the `keys` column', () => {
     // LABELLED STATEMENT: `tsc` accepts it (the lint does not — `no-unused-labels`).
     const answering = Object.values(ELEMENT_SPECS).filter(spec => spec.keys).map(spec => spec.kind).sort()
     // ⭐ The TUPLET joined 2026-09-25 (his ask): ↑/↓ nudge its bracket; like the tie it has no lane to re-anchor on.
-    expect(answering).toEqual(['clef', 'dynamic', 'hairpin', 'ottava', 'pedal', 'slur', 'tempo', 'tie', 'trill', 'tuplet'])
+    // ⭐ The BEAM joined 2026-09-28 (his ask): ↑/↓ push it; like the tie it has no lane to re-anchor on.
+    expect(answering).toEqual(['beamGroup', 'clef', 'dynamic', 'hairpin', 'ottava', 'pedal', 'slur', 'tempo', 'tie', 'trill', 'tuplet'])
   })
 
   it('⭐ …these MOVE THROUGH THE MUSIC on `Ctrl+Shift+←/→`, and these have handles for `Tab` to walk', () => {
