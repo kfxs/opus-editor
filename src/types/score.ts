@@ -8,7 +8,7 @@ import type { Fraction } from './duration'
 import type { Tuplet } from './tuplet'
 import type { ChordRest } from './notes'
 import type { ClefChange, KeyChange, TimeSignature, BarlineStatement, RepeatStart, RepeatEnd } from './signs'
-import type { Dynamic, Hairpin, Ottava, Pedal, TempoMark, Slur, Trill, Glissando } from './marks'
+import type { Dynamic, GlyphMark, Hairpin, Ottava, Pedal, TempoMark, Slur, Trill, Glissando } from './marks'
 import type { EngravingOverrides } from './engravingOverrides'
 
 /**
@@ -79,6 +79,13 @@ export interface Measure {
    * Resolution helpers live in utils/dynamics (resolveActiveLevel).
    */
   dynamics?: Dynamic[]
+  /**
+   * ⭐ Glyph marks — the user's SYMBOLS — in this measure, sorted ascending by beat; among marks at
+   * one beat the stored order is the order they were added, which is their stack (the sort is
+   * stable). Any number may share an address. Optional/absent = none, and an emptied list is
+   * DELETED, never left `[]`. Ops in `engine/models/glyphMarkOps`; docs/plans/symbol-plan.md.
+   */
+  glyphMarks?: GlyphMark[]
   /**
    * Tempo marks within this measure, sorted ascending by beat (mirrors the `clefs`
    * convention — at most ONE mark per beat, last wins). SYSTEM-level, so there is no

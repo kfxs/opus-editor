@@ -133,6 +133,15 @@ Each phase stops for his UI check.
 
 - **P0 — model + ops, no UI.** The type, `Measure.symbols`, add / remove / list order, JSON round-trip
   (an absent list stays absent — no empty arrays written). Specs only.
+  ✅ **BUILT 2026-09-28** under the PROPOSED name of (h): `GlyphMark` (`types/marks.ts`),
+  `Measure.glyphMarks`, `engine/models/glyphMarkOps.ts`. Beyond the list above, the model's own
+  rebuild paths had to know the new array, or it would silently misbehave: **rebar** captures and
+  restores it (the dynamics' rule — no dedupe, stack order kept, overrides re-stamped), the **per-staff
+  view** (`staffContent`) filters it, and a **prepended staff** leaves it on its own staff
+  (`solidifyFirstStaffGlyphMarks`). The render-role table asked too: `'shape'` (drawn, weightless),
+  in the shape key with its id-keyed override — revisit if P1 draws outside the measure groups.
+  ⚠️ A PASTE onto a region keeps the destination's marks at their beats (the dynamics' overwrite
+  rule is not applied) — P5 decides.
 - **P1 — drawing.** Above the staff at its beat, centred (f), stacked (e), no spacing, at the rung of
   (i). Geometry by SCENE test (`ScoreRenderer.recordScene`) where it reaches; the glyph's own extent in
   the browser suite. A cue event's symbol: ⏭️ same size as the others until he says.

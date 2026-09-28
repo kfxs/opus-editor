@@ -57,6 +57,36 @@ export interface Dynamic {
 }
 
 /**
+ * ⭐ **A GLYPH MARK — a SMuFL glyph anchored to an event, meaning nothing** (docs/plans/symbol-plan.md).
+ * The UI calls it a *symbol*; the survey calls it *the escape hatch* — *"a mark whose MEANING I do not
+ * model, identified by its SMuFL glyph name and anchored to this position"*
+ * (docs/research/20c-notation-survey.md §11).
+ *
+ * ⛔ **No meaning.** It never plays, transposes, or changes its note. A mark we DO understand (a
+ * fermata, a harmonic) is a typed mark with its own model, not one of these.
+ *
+ * ⭐ **Anchored like a {@link Dynamic}**: measure-owned, at a `beat` on a staff, for a `voice` — the
+ * event at that address, chord or rest, not one notehead. So a rest refilled under it, or a note
+ * deleted from under it, leaves it standing at its beat (plan §3).
+ *
+ * Several may share one address — as many as the user wants. Among them the stored order is the
+ * order they were added, and that order is the stack (plan §4 (e)).
+ */
+export interface GlyphMark {
+  id: string
+  /** The SMuFL CANONICAL name (`'pictGlsp'`) — ⛔ never a codepoint, which a font may move. */
+  glyph: string
+  /** Beat position within the measure (on a slot boundary, like a dynamic's). */
+  beat: Fraction
+  /** The voice of the event it was added to; absent = voice 0. */
+  voice?: 0 | 1 | 2 | 3
+  /** Which side of the staff; absent = ABOVE (plan §2 — the opposite of a dynamic's default). */
+  placement?: 'above' | 'below'
+  /** Staff this mark belongs to (a {@link StaffInfo} id); absent = staff 0. */
+  staffId?: string
+}
+
+/**
  * A HAIRPIN — the crescendo (open) or diminuendo (close) wedge. A member of the dynamics
  * family: it lives on the same line as the letters and the expression words, and it rides the
  * measure spine exactly as a {@link Dynamic} does. See docs/plans/dynamics-line-and-hairpins-plan.md.

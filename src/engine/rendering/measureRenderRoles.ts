@@ -114,6 +114,12 @@ export const MEASURE_RENDER_ROLE: Record<keyof Measure, MeasureRenderRole> = {
   /** Drawn, weightless (and system-level, not per-staff). */
   tempos: 'shape',
 
+  /** The user's symbols — drawn, weightless: a glyph mark takes NO horizontal room (his call,
+   *  docs/plans/symbol-plan.md §2), so never the width key. 'shape' is the include-it answer while its
+   *  drawing (P1) is unbuilt; if that pass lands OUTSIDE the measure groups, this becomes 'ignored'
+   *  with the ottava row's reasons. */
+  glyphMarks: 'shape',
+
   /** Drawn, weightless — the `dynamics` row above, as its comment invites. A wedge takes no
    *  horizontal space (this file's own example of one that does not), so it must never reach the
    *  width key; but it IS a picture change, so the bar it starts in re-engraves when it changes.

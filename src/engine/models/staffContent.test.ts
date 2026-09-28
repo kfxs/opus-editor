@@ -12,7 +12,7 @@ import {
   DEFAULT_STAFF_INDEX,
 } from './staffContent'
 import { measureOpeningClef, measureEndingClef } from '@/utils/clefUtils'
-import type { Score, Measure, Chord, Rest, ClefChange, Dynamic, Hairpin, KeyChange, Pedal, Tuplet } from '@/types/music'
+import type { Score, Measure, Chord, Rest, ClefChange, Dynamic, GlyphMark, Hairpin, KeyChange, Pedal, Tuplet } from '@/types/music'
 import { fifthsOf, keyFromFifths } from '@/utils/keySignature'
 import { fracCreate as frac } from '@/utils/fraction'
 
@@ -58,6 +58,10 @@ function twoStaffScore(): Score {
     { id: 'pd0', beat: frac(0, 1), length: frac(4, 1) }, // → staff 0
     { id: 'pd1', beat: frac(0, 1), length: frac(4, 1), staffId: S1 },
   ]
+  const glyphMarks: GlyphMark[] = [
+    { id: 'g0', glyph: 'pictGlsp', beat: frac(0, 1) }, // → staff 0
+    { id: 'g1', glyph: 'pictXyl', beat: frac(0, 1), staffId: S1 },
+  ]
   const tuplets: Tuplet[] = [
     { id: 't0', startBeat: frac(0, 1), baseDuration: 'q', numNotes: 3, notesOccupied: 2 }, // → staff 0
     { id: 't1', startBeat: frac(0, 1), baseDuration: 'q', numNotes: 3, notesOccupied: 2, staffId: S1 },
@@ -77,6 +81,7 @@ function twoStaffScore(): Score {
     dynamics,
     hairpins,
     pedals,
+    glyphMarks,
     tuplets,
   }
   return {
@@ -109,6 +114,8 @@ describe('staffContent primitive (N>1 partitioning)', () => {
     expect(bottom.hairpins.map((h) => h.id)).toEqual(['h1'])
     expect(top.pedals.map((p) => p.id)).toEqual(['pd0'])
     expect(bottom.pedals.map((p) => p.id)).toEqual(['pd1'])
+    expect(top.glyphMarks.map((g) => g.id)).toEqual(['g0'])
+    expect(bottom.glyphMarks.map((g) => g.id)).toEqual(['g1'])
     expect(top.tuplets.map((t) => t.id)).toEqual(['t0'])
     expect(bottom.tuplets.map((t) => t.id)).toEqual(['t1'])
   })
@@ -168,6 +175,9 @@ describe('staffMeasureView (per-staff Measure narrowing — the render seam)', (
     // staff AND — once P1 lands — sustain a staff nobody put a foot on.
     expect((bottom.pedals ?? []).map((p) => p.id)).toEqual(['pd1'])
     expect((top.pedals ?? []).map((p) => p.id)).toEqual(['pd0'])
+    // …and a symbol, which riding the spread would draw above EVERY staff.
+    expect((bottom.glyphMarks ?? []).map((g) => g.id)).toEqual(['g1'])
+    expect((top.glyphMarks ?? []).map((g) => g.id)).toEqual(['g0'])
     expect(bottom.tuplets.map((t) => t.id)).toEqual(['t1'])
   })
 

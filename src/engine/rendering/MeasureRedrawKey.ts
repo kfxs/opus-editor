@@ -243,6 +243,10 @@ export function measureShapeKey(
     // never re-runs and the mark sits still while the model moves. WIDTH≠PICTURE, silently. See
     // docs/plans/dynamic-offset-plan.md.
     view.dynamics?.map(d => score.engravingOverrides?.[d.id] ?? null) ?? null,
+    // The user's glyph marks (symbols) — the dynamic's two lines again, for its two reasons: drawn but
+    // weightless, and a hand offset (P4) keyed by the mark's own id (docs/plans/symbol-plan.md).
+    view.glyphMarks ?? null,
+    view.glyphMarks?.map(g => score.engravingOverrides?.[g.id] ?? null) ?? null,
     // ⚠️ A note's hand-nudged horizontal OFFSET (client #12) is **slot-id-keyed** (by the slot's
     // uuid), the same trap as the dynamic offset above: `overridesFor` matches only the
     // position-keyed `{measureId}:…` overrides, never a bare slot id, and the slots themselves are

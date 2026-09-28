@@ -70,6 +70,7 @@ import * as tupletOps from './tupletOps'
 import * as scoreTextOps from './scoreTextOps'
 import type { ScoreTextField } from './scoreTextOps'
 import { measureDynamics, resolveActiveLevel } from '@/utils/dynamics'
+import { solidifyFirstStaffGlyphMarks } from './glyphMarkOps'
 import { tempoMarks, effectiveTempoAt, MIN_BPM, MAX_BPM } from '@/utils/tempoMap'
 import { v4 as uuidv4 } from 'uuid'
 import { voiceOf } from '@/utils/lanes'
@@ -261,6 +262,7 @@ export class ScoreModel {
       for (const dyn of m.dynamics ?? []) if (dyn.staffId === undefined) dyn.staffId = firstId
       for (const tup of m.tuplets ?? []) if (tup.staffId === undefined) tup.staffId = firstId
     }
+    solidifyFirstStaffGlyphMarks(this.score, firstId)
   }
 
   /**

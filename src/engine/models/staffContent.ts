@@ -21,6 +21,7 @@ import type {
   ChordRest,
   ClefChange,
   Dynamic,
+  GlyphMark,
   KeyChange,
   Hairpin,
   Ottava,
@@ -92,6 +93,7 @@ interface StaffContentView {
   clefs: ClefChange[]
   keys: KeyChange[]
   dynamics: Dynamic[]
+  glyphMarks: GlyphMark[]
   hairpins: Hairpin[]
   ottavas: Ottava[]
   pedals: Pedal[]
@@ -117,6 +119,12 @@ export function staffKeys(measure: Measure, staffId: string | undefined, score: 
 /** One staff's dynamics within a measure. */
 export function staffDynamics(measure: Measure, staffId: string | undefined, score: Score): Dynamic[] {
   return (measure.dynamics ?? []).filter((d) => matchesStaff(d.staffId, staffId, score))
+}
+
+/** One staff's glyph marks (the user's symbols) within a measure, in stored order — which among
+ *  marks at one beat is the order they were added (`glyphMarkOps`). */
+export function staffGlyphMarks(measure: Measure, staffId: string | undefined, score: Score): GlyphMark[] {
+  return (measure.glyphMarks ?? []).filter((g) => matchesStaff(g.staffId, staffId, score))
 }
 
 /** One staff's tuplets within a measure. */
@@ -158,6 +166,7 @@ export function staffContent(measure: Measure, staffId: string | undefined, scor
     clefs: staffClefs(measure, staffId, score),
     keys: staffKeys(measure, staffId, score),
     dynamics: staffDynamics(measure, staffId, score),
+    glyphMarks: staffGlyphMarks(measure, staffId, score),
     hairpins: staffHairpins(measure, staffId, score),
     ottavas: staffOttavas(measure, staffId, score),
     pedals: staffPedals(measure, staffId, score),
@@ -192,8 +201,8 @@ export function staffMeasureView(measure: Measure, staffId: string | undefined, 
   // system" — this is where the filter goes, and it will be a filter on the SCOPE, not on the field.
   return {
     ...measure,
-    slots: c.slots, clefs: c.clefs, keys: c.keys, dynamics: c.dynamics, hairpins: c.hairpins,
-    ottavas: c.ottavas, pedals: c.pedals, tuplets: c.tuplets,
+    slots: c.slots, clefs: c.clefs, keys: c.keys, dynamics: c.dynamics, glyphMarks: c.glyphMarks,
+    hairpins: c.hairpins, ottavas: c.ottavas, pedals: c.pedals, tuplets: c.tuplets,
   }
 }
 

@@ -16,7 +16,9 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import { levelToGlyphString, dynamicLevelOf } from '@/utils/dynamics'
 import { tempoOffsetOverrideOf } from './engravingOverrides'
 import { ScoreModel } from './ScoreModel'
-import type { TempoMark, Fraction } from '@/types/music'
+import type { TempoMark, Fraction, EngravingOverride } from '@/types/music'
+import { addGlyphMark } from './glyphMarkOps'
+import { setEngravingOverride } from './overrideOps'
 import { fracCreate as frac, fracToNumber } from '@/utils/fraction'
 import { buildTempoMap } from '@/utils/tempoMap'
 
@@ -512,5 +514,41 @@ describe('rebar preserves beat-anchored annotations (pedals)', () => {
     expect(only(2)).toHaveLength(1)
     expect(fracToNumber(only(2)[0].beat)).toBe(1)   // clip offset 1 + paste start 0
     expect(fracToNumber(only(2)[0].length)).toBe(2) // an amount of music — copied through
+  })
+})
+
+/**
+ * The user's SYMBOLS (glyph marks) ride the same seam — `clearMeasureForRebar` deletes their array, so
+ * a mark missing from the capture is gone rather than stale (docs/plans/symbol-plan.md P0).
+ */
+describe('rebar preserves beat-anchored annotations (glyph marks)', () => {
+  let model: ScoreModel
+  beforeEach(() => {
+    model = new ScoreModel() // measure 1, 4/4 by default
+    model.addMeasure()
+    model.addMeasure()
+  })
+
+  it('keeps a stack in place, in the order added, when its beat still fits the new bar', () => {
+    const score = model.getScore()
+    addGlyphMark(score, 2, { glyph: 'pictGlsp', beat: frac(2, 1) })
+    addGlyphMark(score, 2, { glyph: 'pictXyl', beat: frac(2, 1), placement: 'below' })
+    model.setTimeSignature(2, { numerator: 3, denominator: 4 })
+    const marks = model.getMeasure(2)!.glyphMarks!
+    expect(marks.map(g => g.glyph)).toEqual(['pictGlsp', 'pictXyl'])
+    expect(marks.map(g => fracToNumber(g.beat))).toEqual([2, 2])
+    expect(marks[1].placement).toBe('below')
+  })
+
+  it('moves a mark to the next bar when its beat overflows, carrying its override to the new id', () => {
+    const score = model.getScore()
+    const g = addGlyphMark(score, 1, { glyph: 'pictGlsp', beat: frac(3, 1) })!
+    setEngravingOverride(score, g.id, { kind: 'test' } as EngravingOverride)
+    model.setTimeSignature(1, { numerator: 3, denominator: 4 })
+    expect(model.getMeasure(1)!.glyphMarks).toBeUndefined()
+    const [moved] = model.getMeasure(2)!.glyphMarks!
+    expect(fracToNumber(moved.beat)).toBe(0)
+    expect(score.engravingOverrides?.[moved.id]).toEqual([{ kind: 'test' }])
+    expect(score.engravingOverrides?.[g.id]).toBeUndefined()
   })
 })

@@ -12,7 +12,7 @@
  * motion out of ScoreModel; the rebar / paste / time-signature test suites are the net.
  */
 import type {
-  Score, Measure, Note, Chord, ChordRest, NotePitch, TimeSignature, Clef, Dynamic, TempoMark, Hairpin, Ottava, Pedal,
+  Score, Measure, Note, Chord, ChordRest, NotePitch, TimeSignature, Clef, Dynamic, TempoMark, Hairpin, Ottava, Pedal, GlyphMark,
   Slur, Trill, EngravingOverride, RestShiftOverride, RestHiddenOverride,
   LeadingSpaceOverride, NoteOffsetOverride } from '@/types/music'
 import { restShiftOverrideOf, restHiddenOf, restPositionKey, noteOffsetOverrideOf, spacingPositionKey, measureLeadingSpaces } from './engravingOverrides'
@@ -66,6 +66,9 @@ type CapturedAnchor =
   // …and for the sustain pedal, which takes the ottava's road entire: start-only capture, the clef's
   // collision rule on the way back, no voice (docs/plans/pedal-plan.md §8).
   | { kind: 'pedal'; absBeat: Fraction; pedal: Pedal; overrides?: EngravingOverride[] }
+  // …and the user's glyph marks (symbols), which take the DYNAMIC's road: stacking allowed, so no
+  // dedupe on the way back (docs/plans/symbol-plan.md §3).
+  | { kind: 'glyphMark'; absBeat: Fraction; mark: GlyphMark; overrides?: EngravingOverride[] }
 
 /**
  * A rest's manual vertical shift snapshotted before a rebar/paste, keyed by its absolute
@@ -831,6 +834,12 @@ function captureBeatAnchors(score: Score, regionMeasures: Measure[]): CapturedAn
     for (const p of m.pedals ?? []) {
       out.push({ kind: 'pedal', absBeat: fracAdd(base, p.beat), pedal: p, ...takeOverrides(score, p.id) })
     }
+    // Glyph marks (the user's symbols) — beat-anchored, so on this seam or gone: clearMeasureForRebar
+    // deletes their array. Captured in stored order, so marks sharing a beat come back in the order
+    // they were added — which is their stack.
+    for (const g of m.glyphMarks ?? []) {
+      out.push({ kind: 'glyphMark', absBeat: fracAdd(base, g.beat), mark: g, ...takeOverrides(score, g.id) })
+    }
   })
   return out
 }
@@ -954,6 +963,14 @@ function restoreBeatAnchors(score: Score, regionNumbers: number[], anchors: Capt
       m.pedals.push({ ...a.pedal, id: pedalId, beat })
       m.pedals.sort((x, y) => fracCompare(x.beat, y.beat))
       stampOverrides(score, pedalId, a.overrides)
+    } else if (a.kind === 'glyphMark') {
+      // Glyph marks take the DYNAMICS rule: any number may share an address, so no dedupe. Pushed in
+      // capture order and re-sorted stably, so marks sharing a beat keep their stack order.
+      if (!m.glyphMarks) m.glyphMarks = []
+      const markId = uuidv4()
+      m.glyphMarks.push({ ...a.mark, id: markId, beat })
+      m.glyphMarks.sort((x, y) => fracCompare(x.beat, y.beat))
+      stampOverrides(score, markId, a.overrides)
     } else {
       // Dynamics may stack at one (beat, voice) — keep them all (no dedupe).
       if (!m.dynamics) m.dynamics = []
@@ -1690,6 +1707,7 @@ function clearMeasureForRebar(measure: Measure): void {
   delete measure.hairpins
   delete measure.ottavas // …and the octave lines, for that same load-bearing reason
   delete measure.pedals // …and the sustain pedals, likewise (docs/plans/pedal-plan.md §8)
+  delete measure.glyphMarks // …and the user's symbols, likewise (docs/plans/symbol-plan.md §3)
 }
 
 /**
