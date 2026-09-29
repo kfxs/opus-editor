@@ -31,14 +31,15 @@ const labelsOf = (rows: MenuItem[]) => rows.flatMap(r => ('label' in r && typeof
 describe('Insert ▸ Barline', () => {
   it("⭐ is Sibelius's own order: the punctuating signs, a rule, then how the ordinary line is drawn", () => {
     expect(labelsOf(barlineRows())).toEqual([
-      'Start Repeat', 'End Repeat', 'Final', 'Invisible', 'Normal',
+      // Double right after End Repeat — his placement, 2026-09-29.
+      'Start Repeat', 'End Repeat', 'Double', 'Final', 'Invisible', 'Normal',
     ])
   })
 
   it('…with the separator between the two groups, which is what makes them groups', () => {
     const rows = barlineRows()
     const rule = rows.findIndex(r => 'separator' in r)
-    expect(rule, 'after Final').toBe(3)
+    expect(rule, 'after Final').toBe(4)
   })
 
   it('🚨 EVERY sign the palette can place has a row — a table and a menu that stop agreeing', () => {

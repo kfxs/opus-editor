@@ -152,6 +152,12 @@ export const BARLINE_SIGNS: Record<BarlineSign, BarlineSignSpec> = {
     label: 'invisible barline',
     place: (engine, boundary) => engine.setBoundarySign(boundary.endsMeasure, 'invisible'),
   },
+  /** The thin double `‖` — a STYLE, so it overrides like `final` (docs/plans/double-barline-plan.md). */
+  double: {
+    side: 'right',
+    label: 'double barline',
+    place: (engine, boundary) => engine.setBoundarySign(boundary.endsMeasure, 'double'),
+  },
   final: {
     side: 'right',
     label: 'final barline',

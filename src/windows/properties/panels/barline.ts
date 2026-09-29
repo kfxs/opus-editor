@@ -76,8 +76,11 @@ function buildBarlineSignSelect(endsMeasure: number | null, current: BarlineSign
     ['plain', 'none  |'],
     // ⭐ Between `none` and the signs, because that is what it is: an ordinary line, not engraved.
     ['invisible', 'invisible  ¦'],
-    ['final', 'final  ‖'],
+    // `‖` is the thin double's shape; the final is thin + THICK.
+    ['final', 'final  |▌'],
     ['repeatEnd', 'end repeat  :|'],
+    // ⭐ Right after end repeat — his placement, 2026-09-29 (docs/plans/double-barline-plan.md P3).
+    ['double', 'double  ‖'],
     ['repeatStart', 'open repeat  |:'],
     ['repeatBoth', 'end + open  :||:'],
   ]

@@ -78,6 +78,8 @@ export interface InsertMenuActions {
 const BARLINE_ROWS: ReadonlyArray<{ sign: PlacedBarlineSign; label: string } | { separator: true }> = [
   { sign: 'repeatStart', label: 'Start Repeat' },
   { sign: 'repeatEnd', label: 'End Repeat' },
+  // ⭐ Right after End Repeat — his placement, 2026-09-29 (docs/plans/double-barline-plan.md P3).
+  { sign: 'double', label: 'Double' },
   { sign: 'final', label: 'Final' },
   { separator: true },
   { sign: 'invisible', label: 'Invisible' },

@@ -66,6 +66,7 @@ const SIGN_GLYPHS: Record<PlacedBarlineSign, string> = {
   // colour rule here would say "this preview is hidden" rather than "this is what you are placing".
   invisible: '\uE030',    // barlineSingle again — see above
   final: '\uE032',        // barlineFinal — thin + thick
+  double: '\uE031',       // barlineDouble — thin + thin (its gap is the font's, not the armed row's)
   repeatStart: '\uE040',  // repeatLeft  — |:
   repeatEnd: '\uE041',    // repeatRight — :|
 }

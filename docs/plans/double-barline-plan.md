@@ -2,7 +2,8 @@
 
 > His ask, 2026-09-29: *"the single double barline, we dont have it but we need it"* — and, on the
 > numbers: *"make the numbers as presets and gould is default"*. Scope, his: *"we dont need any new
-> session [section], just drawing the barline and it should be in the barline menu after normal"* —
+> session [section], just drawing the barline and it should be in the barline menu after normal"*, then
+> *"correction: double should go after end repeat"* —
 > ⭐ a DRAWN sign, nothing more: no section meaning, no rule that places it for you.
 
 The family's fourth member. `docs/plans/barline-types-plan.md` §0.1 priced it in advance — *one union
@@ -52,10 +53,9 @@ reserves a plain line's room and the new left stroke hits the last note). The ex
 halves, highlight, hinting and the join all read the parts, so they follow. A SCENE test: two strokes,
 the armed gap between them, the right one where the plain line was.
 
-**P3 — the UI.** ⭐ **Right after Normal** in every barline list (his placement): the barline stamp's
+**P3 — the UI.** ⭐ **Right after End Repeat** in every barline list (his placement, corrected from "after Normal"): the barline stamp's
 row table + its ghost (`interactions/stamps/barlineStamp`, `PlacedBarlineSign`), the Insert menu's
-Barline rows (`menus/insertMenu.ts` — Normal is last there today, so Double follows it), the Properties
-chooser (`windows/properties/panels/barline.ts`, after `none |`). Select / delete / the `plain` eraser
+Barline rows (`menus/insertMenu.ts`), the Properties chooser (`windows/properties/panels/barline.ts`). Select / delete / the `plain` eraser
 need nothing new. ⚠️ The chooser labels `final` as `‖` today — that glyph is the thin double's; `final`
 becomes `final  |▌` (or similar) in the same step, else two rows read alike.
 

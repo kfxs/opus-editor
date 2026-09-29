@@ -119,7 +119,7 @@ export type { BarlineSignKind }
  * final and end repeat."* Stamping it says *"this bar's barlines are ordinary"*, which is the only
  * member of this union that clears rather than writes (`interactions/stamps/barlineStamp`).
  */
-export type PlacedBarlineSign = Extract<BarlineSignKind, 'plain' | 'invisible' | 'final' | 'repeatStart' | 'repeatEnd'>
+export type PlacedBarlineSign = Extract<BarlineSignKind, 'plain' | 'invisible' | 'final' | 'double' | 'repeatStart' | 'repeatEnd'>
 
 /**
  * ⭐⭐ **WHICH STATEMENT A PIECE OF INK BELONGS TO** — the answer to *"I clicked the left dots of a
