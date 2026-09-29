@@ -6,6 +6,7 @@ import type { MusicEngine } from '../../engine/MusicEngine'
 import type { ViewMode } from '@/engine/layout/layoutConfig'
 import type { EditorState, DynamicTool, TempoTool, MarkingTool } from '../state/EditorState'
 import { applyMarkVoiceScope } from '../stamps/markVoiceScope'
+import { pressTupletOnNote } from '../stamps/tupletOnNote'
 import { activeVoiceToModel, armedTool, armedToolEntersPitch, armedToolUsesLength, selectedOf, DEFAULT_DURATION, DEFAULT_DOTS, DEFAULT_BEAM } from '../state/EditorState'
 import { durationHighlight, beamHighlight, beamRoleHighlight, secondaryBreakHighlight, beamOverHighlight, tremoloHighlight, tremoloPairHighlight, fanHighlight } from './keypadSync'
 import { fracToNumber } from '../../utils/fraction'
@@ -1337,16 +1338,10 @@ export class PaletteController {
      *  {@link armTupletPreset}, the only caller that sets it. */
     deriveM?: boolean,
   ): void {
-    const engine = this.getEngine()
-    if (this.state.selectedNoteId && engine && this.state.selectedTool === 'selection') {
-      const note = engine.getNote(this.state.selectedNoteId)
-      if (!note) return
-      if (note.tupletId) {
-        engine.deleteTuplet(note.tupletId)
-      } else {
-        const result = engine.applyTupletToNote(this.state.selectedNoteId, numNotes, notesOccupied)
-        if (result) this.selectNote(result.note.id)
-      }
+    // A note selected, or the cursor note in entry mode, takes the ratio itself (`../stamps/tupletOnNote`).
+    const onNote = pressTupletOnNote(this.getEngine(), this.state, numNotes, notesOccupied, !normalDuration && !format)
+    if (onNote.handled) {
+      if (onNote.select) this.selectNote(onNote.select)
       this.renderScore()
       return
     }
