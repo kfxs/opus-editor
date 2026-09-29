@@ -11,6 +11,7 @@ import { spacingGeneration } from './spacing'
 import { headerGapGeneration } from './headerAccidentalLadder'
 import { clefMeterGapGeneration } from './clefMeterGap'
 import { barlineMeterGapGeneration } from './barlineMeterGap'
+import { doubleBarlineGapGeneration } from './doubleBarlineGap'
 import { dotGapGeneration } from './dotGap'
 import { restDotGapGeneration } from './restDotGap'
 import { dotFlagGeneration } from './dotFlag'
@@ -47,6 +48,8 @@ export function widthRowGenerations(): number[] {
     // The clef→meter and barline→meter rows: every header narrower or wider.
     clefMeterGapGeneration(),
     barlineMeterGapGeneration(),
+    // The thin double barline's gap (docs/plans/double-barline-plan.md): the sign's room before its line.
+    doubleBarlineGapGeneration(),
     // The DOT gap (2026-09-14): bought per dot (`rendering/format/dotPlacement.reserveDotRoom`).
     dotGapGeneration(),
     // …and a REST's (2026-09-25, `layout/restDotGap`): the same purchase, from the rest's own table.

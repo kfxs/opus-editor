@@ -73,6 +73,7 @@ import { accidentalGapConsole } from './dev/accidentalGapConsole'
 import { spacingConsole } from './dev/spacingConsole'
 import { dumpSpacingCensus, spacingBars } from './dev/spacingCensus' // P0 instrument — temporary
 import { dumpBarlineCensus, barlineBoxes } from './dev/barlineCensus' // barline census — temporary
+import { doubleBarlineConsole } from './dev/doubleBarlineConsole'
 import { setRenderProbe } from './engine/RenderProbe'
 import { createInkBoxOverlay } from './dev/inkBoxOverlay'
 import { mountDevToolbar } from './dev/devToolbar'
@@ -957,6 +958,8 @@ export function createEditorApp(host: HTMLElement): EditorApp {
       rehint: () => { engine?.hintBarlines(true); dumpBarlineCensus(document.querySelector('.score-container') ?? document) },
       // Which barlines can be CLICKED, which can be SEEN, and which will refuse a width drag.
       boxes: () => engine && barlineBoxes(engine, document.querySelector('.score-container') ?? document),
+      // The thin double barline's GAP rows, Gould default (docs/plans/double-barline-plan.md).
+      ...doubleBarlineConsole(() => renderer.renderScore()),
     }
     // WHICH CALL SITE pays the forced style+layout flush — the question the region census
     // structurally cannot answer, because a wall-clock region reports where the bill LANDED
@@ -1077,7 +1080,7 @@ export function createEditorApp(host: HTMLElement): EditorApp {
     dbg('[flush] forced-layout census: __flush.enable() … __flush.dump() — WHO pays the reflow')
     dbg('[bbox] hit-box visualizer: __bbox.show() / __bbox.show(\'rest\') / __bbox.hide()')
     dbg('[spacing] column census: __spacing.dump() — drawn gaps in staff spaces')
-    dbg('[barlines] pixel-grid census: __barlines.dump() — are they landing on whole pixels?')
+    dbg("[barlines] pixel-grid census: __barlines.dump() — are they landing on whole pixels? · thin DOUBLE gap: __barlines.double('gould'|'prose'|'gerouLusk'|'finalBar'|'lilypond'|'musescore'|'verovio'|'bravuraGlyph') / .doubleDump() / .doubleReset()")
     dbg('[groups] __groups.bracket() / .brace() / .subBracket() / .none() / .dump() — needs 2+ staves')
     dbg("[slur] shape experiment: __slur.law('musescore'|'verovio'|'lilypond') / .indent(0.167) / .dump() / .reset() · preset: __slur.solver('house') / .brokenSolver('lilypond') · rows: __slur.rule()")
     dbg("[beams] slope experiment: __beams.rule('vexflow'|'musescore'|'interval'|'lilypond'|'verovio') / .dump() / .reset()")
