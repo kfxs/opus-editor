@@ -22,6 +22,8 @@ import { staffOf, voiceOf } from '@/utils/lanes'
 import { measureCapacityFrac } from '@/utils/measureCapacity'
 import { beatToFrac, splitBeatsIntoDurations, tupletScale, tupletSpan, tupletWrittenDuration } from '@/utils/musicUtils'
 import { keepCueSilence } from './cueOps'
+import { findSlot } from './slotLookup'
+import { replaceRestsWithChord } from './slotPlacementOps'
 
 /** What tuplet entry needs of the score — `ScoreModel` answers all of it. */
 export interface TupletEntryModel {
@@ -90,6 +92,12 @@ export function applyTupletToNote(
     return null
   }
 
+  // The CHORD the note stands in, taken before createTuplet removes it: it goes back into the group
+  // as it IS — its ids, its ties, every head, its marks. Re-adding it from the flat note kept only
+  // one pitch under a new id, so a tie INTO it pointed at nothing and was not drawn (reported).
+  const found = findSlot(model.getScore(), noteId)
+  const chord = found?.type === 'chord' ? found.chord : undefined
+
   // createTuplet removes overlapping slots (same voice + staff only); places no initial rests
   const tuplet = model.createTuplet(note.measure, note.beat, note.duration, numNotes, notesOccupied, voice, staff, note.dots ?? 0)
   const actualDuration = tupletWrittenDuration(shape, note.duration, note.dots ?? 0)
@@ -111,6 +119,12 @@ export function applyTupletToNote(
       ...(staff ? { staff } : {}),
     })
     model.refillTupletRemainder(note.measure, tuplet, voice)
+  } else if (chord) {
+    chord.tupletId = tuplet.id
+    chord.actualDuration = actualDuration
+    replaceRestsWithChord(model.getScore(), model.getMeasure(note.measure)!, chord)
+    model.refillTupletRemainder(note.measure, tuplet, voice)
+    resultNote = model.getNote(noteId)!
   } else {
     // Place the original note as the first tuplet note, then fill remainder
     resultNote = model.addNote({
@@ -182,12 +196,13 @@ format?: TupletFormat,
 
   const voiceParam = voice ? { voice: voice as 0 | 1 | 2 | 3 } : {}
   const staffParam = staff ? { staff } : {}
-  // Save any existing same-voice, same-staff note at the start position before createTuplet deletes it
+  // The CHORD already standing at the start, taken before createTuplet removes it: it goes back into
+  // the group as it IS — its ids, its ties, every head, its marks — and the new pitch joins it. It
+  // used to be re-added from one flat pitch under a new id, so a tie INTO it pointed at nothing.
   const existingNoteAtStart = model.getNotesInMeasure(measureNumber)
     .find(n => !n.isRest && !n.tupletId && voiceOf(n) === voice && staffOf(n) === staff && Math.abs(fracToNumber(n.beat) - beat) < 0.001)
-  const existingNoteData = existingNoteAtStart
-    ? { step: existingNoteAtStart.step, alter: existingNoteAtStart.alter, octave: existingNoteAtStart.octave }
-    : null
+  const found = existingNoteAtStart && findSlot(model.getScore(), existingNoteAtStart.id)
+  const existingChord = found?.type === 'chord' ? found.chord : undefined
 
   // Create the tuplet (removes overlapping same-voice + same-staff slots, places no initial rests)
   const beatFrac = beatToFrac(beat)
@@ -196,24 +211,14 @@ format?: TupletFormat,
 
   let firstNote: Note
 
-  if (existingNoteData) {
-    // Re-add the pre-existing note as chord member, then add new note
-    model.addNote({
-      step: existingNoteData.step,
-      alter: existingNoteData.alter,
-      octave: existingNoteData.octave,
-      duration,
-      // The unit's dots ride on every note written in it — a dotted-quarter triplet is three
-      // DOTTED quarters, and a bare `duration` here would draw three plain ones over a span
-      // that is a third too long.
-      ...(dots ? { dots } : {}),
-      measure: measureNumber,
-      beat: beatFrac,
-      tupletId: tuplet.id,
-      actualDuration,
-      ...voiceParam,
-      ...staffParam,
-    })
+  if (existingChord) {
+    // The existing chord takes the group's unit — its value, its dots — and joins the group
+    existingChord.duration = duration
+    existingChord.dots = dots || undefined
+    existingChord.tupletId = tuplet.id
+    existingChord.actualDuration = actualDuration
+    replaceRestsWithChord(model.getScore(), model.getMeasure(measureNumber)!, existingChord)
+    // …then the new pitch joins it (addNote at a chord's beat adds a head to that chord)
     firstNote = model.addNote({
       step: spelling.step,
       alter: spelling.alter,

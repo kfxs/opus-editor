@@ -81,7 +81,29 @@ describe('buildTupletWithFirstNote', () => {
     const built = buildTupletWithFirstNote(model, 1, 0, '8', C5, 3, 2)!
     const heads = model.getNotesInTuplet(built.tuplet.id).filter(n => !n.isRest).map(n => n.step).sort()
     expect(heads).toEqual(['A', 'C'])
-    expect(model.getNote(was.id)).toBeFalsy() // re-added: the old head's id is gone
+    expect(model.getNote(was.id)).toMatchObject({ tupletId: built.tuplet.id }) // the SAME head, now in the group
+  })
+
+  it('a tie INTO the note already standing there survives', () => {
+    const D4 = { step: 'D', alter: 0, octave: 4 } as const
+    const first = model.addNote({ ...D4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const second = model.addNote({ ...D4, duration: '8', measure: 1, beat: frac(1, 1) })
+    model.updateNote(first.id, { tiedTo: second.id })
+    model.updateNote(second.id, { tiedFrom: first.id })
+
+    const built = buildTupletWithFirstNote(model, 1, 1, '8', C5, 3, 2)!
+    expect(model.getNote(second.id)).toMatchObject({ tupletId: built.tuplet.id, tiedFrom: first.id })
+    expect(model.getNote(first.id)!.tiedTo).toBe(second.id)
+    const heads = model.getNotesInTuplet(built.tuplet.id).filter(n => !n.isRest).map(n => n.step).sort()
+    expect(heads).toEqual(['C', 'D'])
+    model.repairAllMeasureGaps() // the bar is exactly full
+  })
+
+  it('the note already standing there takes the group\'s unit', () => {
+    const was = model.addNote({ step: 'A', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const built = buildTupletWithFirstNote(model, 1, 0, '8', C5, 3, 2)!
+    expect(model.getNote(was.id)).toMatchObject({ duration: '8', tupletId: built.tuplet.id })
+    model.repairAllMeasureGaps()
   })
 
   it('null — and nothing written — when it overlaps a same-voice tuplet or does not fit', () => {
@@ -164,5 +186,34 @@ describe('entering INTO a tuplet', () => {
     expect(landing.tupletId).toBeUndefined()
     expect(landing.beat).toEqual(tuplet.startBeat)
     expect(model.getMeasure(1)!.tuplets ?? []).toHaveLength(0)
+  })
+})
+
+describe('applyTupletToNote keeps the NOTE it was pressed on', () => {
+  let model: ScoreModel
+  beforeEach(() => { model = new ScoreModel('T') })
+
+  it('a tie INTO the note survives — the note keeps its id and its tiedFrom (reported)', () => {
+    // Reported: D4 q tied to D4 at beat 1, that one shortened to an eighth, then made a triplet.
+    // The note was re-added under a new id, the tie's tiedTo pointed at nothing and was not drawn.
+    const D4 = { step: 'D', alter: 0, octave: 4 } as const
+    const first = model.addNote({ ...D4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const second = model.addNote({ ...D4, duration: '8', measure: 1, beat: frac(1, 1) })
+    model.updateNote(first.id, { tiedTo: second.id })
+    model.updateNote(second.id, { tiedFrom: first.id })
+
+    const result = applyTupletToNote(model, second.id, 3, 2)!
+    expect(result.note.id).toBe(second.id)
+    expect(model.getNote(second.id)).toMatchObject({ tupletId: result.tuplet.id, tiedFrom: first.id })
+    expect(model.getNote(first.id)!.tiedTo).toBe(second.id)
+    model.repairAllMeasureGaps() // the bar is exactly full
+  })
+
+  it('every head of a CHORD stays in it', () => {
+    const low = model.addNote({ step: 'C', alter: 0, octave: 4, duration: '8', measure: 1, beat: frac(0, 1) })
+    model.addNote({ step: 'E', alter: 0, octave: 4, duration: '8', measure: 1, beat: frac(0, 1) }) // same beat: joins the chord
+    const result = applyTupletToNote(model, low.id, 3, 2)!
+    const heads = model.getNotesInTuplet(result.tuplet.id).filter(n => !n.isRest).map(n => n.step).sort()
+    expect(heads).toEqual(['C', 'E'])
   })
 })

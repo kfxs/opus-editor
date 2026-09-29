@@ -127,7 +127,7 @@ No bracket in the preview: a tuplet's bracket spans notes that do not exist unti
 
 ---
 
-## 4. Two bugs this surfaced
+## 4. Bugs this surfaced
 
 1. **The keyboard could write a tuplet past the barline.** `tupletFitsBar` guarded the mouse path
    and the apply path, but `createTupletAtBeat` → `buildTupletWithFirstNote` never checked. 3:2 of
@@ -138,6 +138,14 @@ No bracket in the preview: a tuplet's bracket spans notes that do not exist unti
    amount of time, spelled as one-and-a-third slots plus two thirds. Dotted-unit tuplets now fill in
    their own unit, one rest per empty slot. Undotted tuplets keep the splitter (merging two empty
    eighth slots into one quarter rest is what a copyist does anyway).
+3. **Making a tuplet out of a note dropped the tie into it** (reported 2026-09-29). Both builders
+   (`tupletEntryOps`) cleared the beat with `createTuplet` and then re-added the note from its flat
+   pitch: a NEW id, one pitch only, no `tiedTo`/`tiedFrom`, no articulations. The note before it kept
+   `tiedTo` naming an id that no longer existed, so the tie was stored but not drawn. `applyTupletToNote`
+   (a selected note made a tuplet) and `buildTupletWithFirstNote` (a tuplet started where a note already
+   stands) now take the CHORD before `createTuplet` and put that same chord back into the group — ids,
+   ties, every head, marks. The second one also sets its value to the group's unit, as before, and the
+   new pitch joins it.
 
 ---
 
