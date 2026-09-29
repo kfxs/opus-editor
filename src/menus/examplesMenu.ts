@@ -40,6 +40,8 @@ export const EXAMPLES: ExampleScore[] = [
   { id: 'prelude-bwv846', label: 'Bach - Prelude in C, BWV 846', file: 'prelude-bwv846.json' },
   // Cross-staff notation: the left hand's chords are split across the two staves on one stem.
   { id: 'gymnopedie', label: 'Satie - 1ère Gymnopédie', file: 'gymnopedie.json' },
+  // One staff: meter and key changes, tuplets, dynamics and hairpins on a solo line.
+  { id: 'syrinx', label: 'Debussy - Syrinx', file: 'syrinx.json' },
 ]
 
 /** What the menu ASKS THE APP FOR: the load itself. The menu never fetches and never engraves. */

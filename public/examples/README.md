@@ -32,6 +32,7 @@ confirmation, as Import does. ⛔ Never a second loader.
 |---|---|---|
 | `prelude-bwv846.json` | Bach — Prelude in C, BWV 846 | two staves, a repeating figure, hand-placed rests |
 | `gymnopedie.json` | Satie — 1ère Gymnopédie | **cross-staff** chords (one stem across two staves), long slurs, ties, hairpins |
+| `syrinx.json` | Debussy — Syrinx | one staff: meter and key changes, tuplets, dynamics, hairpins |
 
 An example is there to SHOW something — a fanned beam, a four-voice bar, an ottava spanning a system
 break. Keep each one short and about one thing; a demo shelf is not a library.
