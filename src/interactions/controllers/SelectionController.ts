@@ -5,7 +5,7 @@ import type { MusicEngine } from '../../engine/MusicEngine'
 import type { Rect } from '../../engine/ViewportModel'
 import type { EditorState } from '../state/EditorState'
 import { modelVoiceToActive, selectedOf } from '../state/EditorState'
-import { buildVoiceNavBeatMap, notesInBox, expandTieChains } from '../../utils/beatMap'
+import { buildVoiceNavBeatMap, notesInBox } from '../../utils/beatMap'
 import { locateStop, withGraceStops } from '../walks/graceStops'
 import { isMarkKind, marksInBox, type MarkKind } from '../clipboard/enclosedMarks'
 import { fracEq, fracCompare, fracToNumber } from '../../utils/fraction'
@@ -315,13 +315,12 @@ export class SelectionController {
       return
     }
 
-    // Bounding box over the current selection + the new target. Ties (= duration) are
-    // respected: a box edge landing mid-tie grabs the whole held note.
+    // Bounding box over the current selection + the new target — and ⛔ NOTHING the user did not
+    // span. A box edge landing mid-tie used to grab the whole held note (2026-06-12); his rule since
+    // 2026-09-29: *"the selection should be what the user does, the engine should not change the
+    // user selection"* — so a tied partner outside the box stays out, and so do the marks under it.
     const currentIds = selectedNoteIds(this.state.selectedItems.values())
-    const boxIds = expandTieChains(
-      engine.getScore(),
-      notesInBox(engine.getScore(), currentIds, targetId),
-    )
+    const boxIds = notesInBox(engine.getScore(), currentIds, targetId)
 
     this.state.selectedItems.clear()
     for (const id of boxIds) {

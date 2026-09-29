@@ -5,7 +5,6 @@ import type { Rect } from '../../engine/ViewportModel'
 import { createEditorState, selectedOf, type EditorState } from '../state/EditorState'
 import { SelectionController } from './SelectionController'
 import { itemKey } from '../state/selection'
-import { expandTieChains } from '../../utils/beatMap'
 import { fracCreate as frac, fracEq } from '@/utils/fraction'
 import { getMeasureNotes, measureFanMemberNotes } from '@/utils/musicUtils'
 import { DEFAULT_FAN_COUNT, DEFAULT_FAN_BEAMS } from '@/utils/fannedBeam'
@@ -200,9 +199,7 @@ describe('SelectionController — Shift range select', () => {
    * (it just puts an id in a set), but the range path went through a beat map built from
    * `getMeasureNotes`, which deliberately omits members — so an anchored member resolved to no
    * endpoint at all and the empty-endpoint fallback CLEARED the selection. Pinned here as well as in
-   * `beatMap.selection.test.ts` because the unit being right is not the same as the gesture working:
-   * `expandTieChains` sits in between and would drop a member id if it ever stopped passing
-   * unknown ids through.
+   * `beatMap.selection.test.ts` because the unit being right is not the same as the gesture working.
    */
   it('extends a range onto a FANNED MEMBER instead of emptying the selection', () => {
     engine.setFan(n0, { direction: 'accel', count: DEFAULT_FAN_COUNT, beams: DEFAULT_FAN_BEAMS })
@@ -248,7 +245,7 @@ describe('SelectionController — Shift range select', () => {
   })
 })
 
-describe('Shift range + ties (multi-selection only)', () => {
+describe('Shift range + ties — every gesture is literal', () => {
   let engine: MusicEngine
   let state: EditorState
   let selection: SelectionController
@@ -270,16 +267,14 @@ describe('Shift range + ties (multi-selection only)', () => {
     engine.toggleTie(c1) // c1 —tie→ c2
   })
 
-  it('expandTieChains pulls in the whole tie chain from any member', () => {
-    expect(new Set(expandTieChains(engine.getScore(), [c1]))).toEqual(new Set([c1, c2]))
-    expect(new Set(expandTieChains(engine.getScore(), [c2]))).toEqual(new Set([c1, c2]))
-    expect(expandTieChains(engine.getScore(), [d])).toEqual([d]) // untied note unchanged
-  })
-
-  it('Shift-range grabs the whole held note even if it ends mid-tie', () => {
+  it('Shift-range is LITERAL — a box edge on a tied note does NOT pull in its partner', () => {
+    // His rule, 2026-09-29: *"the selection should be what the user does"*.
     selection.selectNote(c1)          // pivot = c1
     selection.extendSelectionTo(c1)   // range is just beat 0 …
-    expect(selectedIds()).toEqual(new Set([noteKey(c1), noteKey(c2)])) // … but c2 joins (same held note)
+    expect(selectedIds()).toEqual(new Set([noteKey(c1)])) // … and c2 stays out
+    selection.selectNote(d)
+    selection.extendSelectionTo(c2)   // range = beats 1..2
+    expect(selectedIds()).toEqual(new Set([noteKey(c2), noteKey(d)])) // c1 stays out
   })
 
   it('Ctrl-click stays literal — it does NOT pull in the tied partner', () => {
