@@ -120,6 +120,10 @@ export class DynamicTextSource implements EditableTextSource {
      *  exists so the mark renders a real box to position the overlay against. Undefined ⇒
      *  seed from the model's own text (the double-click-an-existing-mark case). */
     private seedText?: string,
+    /** Called after a commit that KEEPS the mark (non-empty text), in place of {@link render}: it
+     *  SELECTS the mark and repaints, so leaving the editor lands on the expression just typed, not
+     *  on the note it was typed at (his report, 2026-09-29). */
+    private select?: (element: { kind: 'dynamic'; id: string }) => void,
   ) {
     this.screenRect = this.computeScreenRect()
     this.baselineY = this.measureBaseline()
@@ -291,7 +295,8 @@ export class DynamicTextSource implements EditableTextSource {
     // `Ctrl+Z` after a first entry left the placeholder `Text` behind); an existing mark's is an edit.
     if (this.isNew) this.engine.dynamic.commitTypedDynamic(this.targetId, trimmed)
     else this.engine.dynamic.updateDynamic(this.targetId, { text: trimmed })
-    this.render()
+    if (this.select) this.select({ kind: 'dynamic', id: this.targetId })
+    else this.render()
   }
 
   /** Escape: a freshly placed (still-blank) mark leaves nothing behind — not even an undo entry;

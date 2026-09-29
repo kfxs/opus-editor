@@ -360,7 +360,7 @@ export class MouseController {
     const engine = this.getEngine()
     const textEdit = this.getTextEdit()
     if (!engine || !textEdit) return
-    const source = new DynamicTextSource(
+    textEdit.open(new DynamicTextSource(
       dynamicId,
       isNew,
       engine,
@@ -368,8 +368,10 @@ export class MouseController {
       () => this.render.renderScore(),
       this.getZoom,
       seedText,
-    )
-    textEdit.open(source)
+      // ⭐ Leaving the editor selects the EXPRESSION, not the note Ctrl+E was pressed on (his report,
+      // 2026-09-29) — the same `pick` a click on the mark runs.
+      (element) => this.elementDeps.pick(element),
+    ))
   }
 
   /**

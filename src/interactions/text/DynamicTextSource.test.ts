@@ -113,6 +113,16 @@ describe('DynamicTextSource', () => {
     expect(fresh.dynamic.removeDynamic).not.toHaveBeenCalled()
   })
 
+  it('⭐ a commit that keeps the mark is SELECTED (`select`, which repaints); an empty one does not (his report, 2026-09-29)', () => {
+    const kept = vi.fn()
+    new DynamicTextSource('d1', true, makeEngine(textDynamic('Text')) as unknown as MusicEngine, () => null, render, undefined, '', kept).commit(' dolce ')
+    expect(kept).toHaveBeenCalledWith({ kind: 'dynamic', id: 'd1' })
+
+    const dropped = vi.fn()
+    new DynamicTextSource('d1', true, makeEngine(textDynamic('Text')) as unknown as MusicEngine, () => null, render, undefined, '', dropped).commit('  ')
+    expect(dropped).not.toHaveBeenCalled()
+  })
+
   it('cancel discards a NEW mark but leaves an existing one untouched', () => {
     const newEngine = makeEngine(textDynamic(''))
     new DynamicTextSource('d1', true, newEngine as unknown as MusicEngine, () => null, render).cancel()

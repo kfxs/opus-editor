@@ -157,6 +157,10 @@ hit-testable bbox — an empty mark may register no bbox, which silently breaks 
 
 ### 5.3 Commit / cancel
 As in §4.3. Commit re-renders via the render callback (the engine path does *not* redraw on its own).
+⭐ A dynamic's commit that KEEPS the mark SELECTS it instead (his report, 2026-09-29): the source's
+`select` callback is `MouseController`'s `pick`, which assigns `selectedElement` and repaints — so after
+Ctrl+E the expression is selected, not the note it was typed at. An empty commit selects nothing.
+(Tempo's source does not do this yet.)
 
 ### 5.4 The commit-click guard (don't plant a stray mark)
 Click-away-to-commit fires a canvas `click` after the overlay closes. Two defenses, both implemented:
