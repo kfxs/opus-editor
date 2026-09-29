@@ -3103,7 +3103,8 @@ export class MusicEngine {
    * system. Called after every render path (score, ghost note/clef/time-sig/dynamic previews).
    */
   private syncCoordinateMapperBounds(): void {
-    this.coordinateMapper.setMeasureBounds(this.renderer.getAllMeasureBounds())
+    const registry = this.renderer.getElementRegistry()
+    this.coordinateMapper.setMeasureBounds(this.renderer.getAllMeasureBounds(), m => registry.lineBand(m))
     this.coordinateMapper.updateConfig({
       numStaves: Math.max(getStaves(this.scoreModel.getScore()).length, 1),
     })

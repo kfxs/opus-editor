@@ -1120,6 +1120,24 @@ export class ElementRegistry {
     return best
   }
 
+  /**
+   * ⭐ **A bar's staff-LINE band** — its topmost staff's top line to its bottommost staff's bottom line,
+   * across every staff of the system — or null before the bar is drawn. What `CoordinateMapper` asks when
+   * a click falls inside two systems' bands (a system pulled up close to the one above it): the nearer
+   * LINES win, {@link staffIndexAtY}'s rule one level up. Read from the staff geometries, which the reuse
+   * path keeps current (a staff-spacing drag moves them without re-engraving).
+   */
+  lineBand(measure: number): { top: number; bottom: number } | null {
+    let top = Infinity
+    let bottom = -Infinity
+    for (const g of this.staffGeometries.values()) {
+      if (g.measure !== measure || !g.lineYPositions.length) continue
+      top = Math.min(top, g.lineYPositions[0])
+      bottom = Math.max(bottom, g.lineYPositions[g.lineYPositions.length - 1])
+    }
+    return top <= bottom ? { top, bottom } : null
+  }
+
   staffIndexAtY(measure: number, y: number): number {
     let best = 0
     let bestDist = Infinity

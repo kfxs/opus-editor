@@ -37,6 +37,9 @@ export class CoordinateMapper {
   private config: CoordinateMapperConfig
   /** Actual measure bounds from VexFlow (after rendering) */
   private measureBounds: Map<number, MeasureBounds> = new Map()
+  /** Each bar's staff-LINE band (`ElementRegistry.lineBand`) — the tie-break when two systems' bands
+   *  both hold a click. Absent (a bare mapper, a spec) = the first hit, as before. */
+  private lineBand?: (measure: number) => { top: number; bottom: number } | null
 
   constructor(config: Partial<CoordinateMapperConfig> = {}) {
     this.config = {
@@ -63,10 +66,14 @@ export class CoordinateMapper {
    * Update measure bounds from VexFlow's actual rendered positions
    * This should be called after each render
    */
-  setMeasureBounds(bounds: Map<number, MeasureBounds>): void {
+  setMeasureBounds(
+    bounds: Map<number, MeasureBounds>,
+    lineBand?: (measure: number) => { top: number; bottom: number } | null,
+  ): void {
     // Copy the map to avoid sharing reference with ScoreRenderer
     // (otherwise clear() in renderer would also clear our bounds)
     this.measureBounds = new Map(bounds)
+    this.lineBand = lineBand
   }
 
   /**
@@ -159,6 +166,13 @@ export class CoordinateMapper {
     const uniformHeight = this.systemHeight()
     if (this.measureBounds.size > 0) {
       // Find which measure contains the click coordinates (real per-system height).
+      // 🚨 Two systems' bands can OVERLAP: a band runs from the stave's headroom down a whole system
+      //    height, so a system pulled up close to the one above it (a `staffSpacing` override) sits
+      //    inside the upper band. The first hit then won — a grace clicked in the ledger space just
+      //    above the LOWER staff landed on the upper system, pitched off ITS lines (E1; his Syrinx
+      //    report, 2026-09-29). ⭐ So every hit is collected, and the one whose staff LINES are
+      //    nearest wins — `ElementRegistry.staffIndexAtY`'s rule, between systems.
+      const hits: number[] = []
       for (const [measureNumber, bounds] of this.measureBounds.entries()) {
         const h = bounds.systemHeight ?? uniformHeight
         if (
@@ -167,8 +181,17 @@ export class CoordinateMapper {
           coords.y >= bounds.measureY &&
           coords.y < bounds.measureY + h
         ) {
-          return measureNumber
+          hits.push(measureNumber)
         }
+      }
+      if (hits.length === 1 || (hits.length > 1 && !this.lineBand)) return hits[0]
+      if (hits.length > 1) {
+        const distance = (m: number): number => {
+          const band = this.lineBand!(m)
+          if (!band) return Infinity
+          return coords.y < band.top ? band.top - coords.y : coords.y > band.bottom ? coords.y - band.bottom : 0
+        }
+        return hits.reduce((best, m) => (distance(m) < distance(best) ? m : best))
       }
 
       // No exact hit: pick the measure whose real vertical band is nearest to the click, tie-

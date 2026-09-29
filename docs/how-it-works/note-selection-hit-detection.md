@@ -167,3 +167,20 @@ box (`HighlightController.applySelectionHighlight`) — inherently leaky.
 - `src/engine/ElementRegistry.ts` — `findClosestNoteOrRest`, `pixelYToPitch`,
   `pitchToPixelY`, registered `bbox` per element.
 - `src/interactions/controllers/HighlightController.ts` — `applySelectionHighlight` (global scan).
+
+## Overlapping system bands — ENTRY and stamps (2026-09-29)
+
+Selection no longer trusts `pixelToMeasure` (above), but ENTRY and every stamp still do: a click in
+empty space has no drawn element to identify it, so its bar and its pitch come from the bands.
+
+🚨 **Two systems' bands can overlap.** A band runs from the stave's `measureY` (its headroom above
+the top line) down a whole `systemHeight`, so a system pulled up close to the one above it — a
+`staffSpacing` override — sits inside the upper system's band. The first hit won: in his Syrinx
+score a grace clicked in the ledger space just above the LOWER staff was hung on the UPPER system's
+note and pitched off ITS lines (E1).
+
+⭐ **In an overlap the nearer staff LINES win** — `ElementRegistry.staffIndexAtY`'s rule for staves,
+one level up. `ElementRegistry.lineBand(measure)` answers a bar's top line → bottom line across its
+staves (read from the staff geometries, which the reuse path keeps current), and
+`CoordinateMapper.pixelToMeasure` asks it only when more than one band holds the click; a single hit
+resolves exactly as before. Pinned in `CoordinateMapper.test.ts` ("two systems' bands OVERLAP").

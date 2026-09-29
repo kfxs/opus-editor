@@ -228,4 +228,35 @@ describe('CoordinateMapper', () => {
       expect(config.startY).toBe(40)
     })
   })
+
+  /**
+   * 🚨 His Syrinx report, 2026-09-29: a system pulled up close to the one above it sits inside the
+   * upper system's band, and the FIRST hit won — a grace clicked just above the lower staff landed on
+   * the upper system, pitched off its lines (E1). ⭐ In an overlap the nearer staff LINES win.
+   */
+  describe('pixelToMeasure — two systems\' bands OVERLAP', () => {
+    const bounds = new Map([
+      // system 2: its stave at 600, a band reaching 790 — past the next system's stave top (750)
+      [9, { measureX: 300, measureY: 600, measureWidth: 400, noteStartX: 320, noteEndX: 690, systemHeight: 190 }],
+      // system 3, pulled up: its stave at 750, lines 790–830
+      [12, { measureX: 300, measureY: 750, measureWidth: 300, noteStartX: 320, noteEndX: 590, systemHeight: 190 }],
+    ])
+    const lines: Record<number, { top: number; bottom: number }> = { 9: { top: 640, bottom: 680 }, 12: { top: 790, bottom: 830 } }
+
+    it('a click just above the LOWER staff belongs to the lower system', () => {
+      mapper.setMeasureBounds(bounds, m => lines[m] ?? null)
+      expect(mapper.pixelToMeasure({ x: 450, y: 785 })).toBe(12)
+    })
+
+    it('…and one nearer the upper staff\'s lines to the upper system', () => {
+      mapper.setMeasureBounds(bounds, m => lines[m] ?? null)
+      expect(mapper.pixelToMeasure({ x: 450, y: 700 })).toBe(9)  // only its band
+      expect(mapper.pixelToMeasure({ x: 450, y: 755 })).toBe(12) // both bands: 35 from 790, 75 from 680
+    })
+
+    it('without a line band, the first hit — as before', () => {
+      mapper.setMeasureBounds(bounds)
+      expect(mapper.pixelToMeasure({ x: 450, y: 785 })).toBe(9)
+    })
+  })
 })

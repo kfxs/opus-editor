@@ -492,3 +492,21 @@ describe('ElementRegistry.staffGeometryAt — the staff under a pointer (the gra
     expect(registry.staffGeometryAt(900, 120)).toBeNull()
   })
 })
+
+describe('lineBand — a bar\'s staff-LINE band, across its staves', () => {
+  const geometry = (measure: number, staff: number, top: number): StaffGeometry => ({
+    measure, staff, lineYPositions: [top, top + 10, top + 20, top + 30, top + 40],
+    lineSpacing: 10, noteStartX: 50, noteEndX: 450, clef: 'treble',
+  })
+
+  it('runs from the top staff\'s top line to the bottom staff\'s bottom line', () => {
+    const registry = new ElementRegistry()
+    registry.setStaffGeometry(geometry(3, 0, 100))
+    registry.setStaffGeometry(geometry(3, 1, 200))
+    expect(registry.lineBand(3)).toEqual({ top: 100, bottom: 240 })
+  })
+
+  it('is null for a bar that was not drawn', () => {
+    expect(new ElementRegistry().lineBand(3)).toBeNull()
+  })
+})
