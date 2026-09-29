@@ -92,7 +92,7 @@ describe('resizing a hairpin from the keyboard', () => {
     const wiring = wireShortcuts(
       state,
       () => engine,
-      { selectNote: vi.fn(), deselectAll: vi.fn(), adjustPitch: vi.fn(), navigateNext: vi.fn() } as never,
+      { selectNote: vi.fn(), deselectAll: vi.fn(), adjustPitch: vi.fn(), navigateNext: vi.fn(), extendSelectionStep: vi.fn() } as never,
       { clearArmedArticulations: vi.fn() } as never,
       {} as never,
       { renderScore: vi.fn(), previewMarks: vi.fn() } as never,
@@ -194,8 +194,8 @@ describe('resizing a hairpin from the keyboard', () => {
   it('⛔ nor does it answer the HORIZONTAL Shift pair, which it rode for an hour and lost', () => {
     // Shift+←/→ was tried and rejected in the hand; it is the barline gap's again.
     armed('end')
-    run('barlineGapWiden')
-    run('barlineGapTighten')
+    run('shiftArrowRight')
+    run('shiftArrowLeft')
     expect(mouth).not.toHaveBeenCalled()
   })
 

@@ -43,7 +43,7 @@ const HUBS = [
   { file: 'src/interactions/controllers/MouseController.ts', kinds: 254, lines: 1029 },
   { file: 'src/interactions/controllers/PaletteController.ts', kinds: 420, lines: null },
   { file: 'src/interactions/controllers/HighlightController.ts', kinds: 0, lines: 90 },
-  { file: 'src/interactions/controllers/shortcutWiring.ts', kinds: 59, lines: 387, except: ['deleteSelected'] },
+  { file: 'src/interactions/controllers/shortcutWiring.ts', kinds: 57, lines: 387, except: ['deleteSelected'] },
   { file: 'src/windows/properties/PropertiesWidget.ts', kinds: 0, lines: 73 },
   { file: 'src/interactions/state/selectionSnapshot.ts', kinds: 3, lines: null, except: ['selectedElements'] },
 ]

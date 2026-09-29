@@ -7,8 +7,9 @@ import type { EditorState } from '../state/EditorState'
 import { modelVoiceToActive, selectedOf } from '../state/EditorState'
 import { buildVoiceNavBeatMap, notesInBox } from '../../utils/beatMap'
 import { locateStop, withGraceStops } from '../walks/graceStops'
+import { rangeStep } from '../walks/rangeStep'
 import { isMarkKind, marksInBox, type MarkKind } from '../clipboard/enclosedMarks'
-import { fracEq, fracCompare, fracToNumber } from '../../utils/fraction'
+import { fracCreate, fracEq, fracCompare, fracToNumber } from '../../utils/fraction'
 import { getMeasureNotes, measureAccidentalNotes } from '../../utils/musicUtils'
 import { spellingToMidi, spellingDiatonicPos } from '../../utils/pitchSpelling'
 import { restShiftOverrideOf, restPositionKey } from '../../engine/models/engravingOverrides'
@@ -429,7 +430,76 @@ export class SelectionController {
    */
   navigateSelection(direction: number): void {
     const engine = this.getEngine()
-    if (this.state.selectedTool !== 'selection' || !this.state.selectedNoteId || !engine) return
+    const at = this.navLane()
+    if (!engine || !at) return
+    const { lane, allFlat, currentIndex } = at
+
+    const newIndex = currentIndex + direction
+    if (newIndex < 0 || newIndex >= lane.stops.length) {
+      this.selectNote(null)
+      this.renderScore()
+      return
+    }
+
+    const dest = lane.stops[newIndex]
+    const destNote = allFlat.find(n => n.id === dest.id) ?? engine.getNote(dest.id)
+    const destDesc = destNote
+      ? (destNote.isRest ? `rest m${dest.measureNumber} beat:${dest.beat.num / dest.beat.den}` : `${destNote.step}${destNote.alter !== 0 ? (destNote.alter! > 0 ? '#' : 'b') : ''}${destNote.octave} m${dest.measureNumber} beat:${dest.beat.num / dest.beat.den}`)
+      : `id:${dest.id}`
+    dbg(`[Nav] ${direction > 0 ? '→' : '←'} → ${destDesc} (tool:${this.state.selectedTool})`)
+    this.selectNote(dest.id)
+    this.renderScore()
+    this.scrollSelectedNoteIntoView()
+  }
+
+  /**
+   * Shift+←/→ — grow or shrink the note selection by one stop, text-editor style
+   * (`../walks/rangeStep`): the head (`selectedNoteId`) walks, the far end stays, and everything
+   * between them is selected — whole chords and interior rests, the same box a Shift-click makes
+   * (`notesInBox`). Off either end of the lane it does nothing. @returns false when there is no
+   * note selection to extend, so the key is free.
+   */
+  extendSelectionStep(direction: 1 | -1): boolean {
+    const engine = this.getEngine()
+    const at = this.navLane()
+    if (!engine || !at) return false
+    const { score, lane, currentIndex } = at
+
+    const selected = selectedNoteIds(this.state.selectedItems.values()).map(id => {
+      // A grace is found by its id alone, so a note the flat API does not know still gets a lookup.
+      const n = engine.getNote(id)
+      return locateStop(score, lane, id, n ? { measure: n.measure, beat: n.beat } : { measure: -1, beat: fracCreate(0, 1) })
+    })
+    const step = rangeStep(selected, currentIndex, direction, lane.stops.length)
+    if (!step) return true
+
+    const anchorId = lane.stops[step.anchor].id
+    const headId = lane.stops[step.head].id
+    const boxIds = notesInBox(score, [anchorId], headId)
+    this.state.selectedItems.clear()
+    for (const id of boxIds) {
+      const item: SelectionItem = { kind: 'note', id }
+      this.state.selectedItems.set(itemKey(item), item)
+    }
+    for (const item of marksInBox(score, boxIds)) this.state.selectedItems.set(itemKey(item), item)
+    this.state.selectionBase = Array.from(this.state.selectedItems.values())
+    this.state.selectionPivotId = anchorId
+    this.state.selectedNoteId = headId
+    this.clearElementSelection()
+    this.syncPaletteToNote(headId)
+    dbg(`[Nav] Shift+${direction > 0 ? '→' : '←'} range: ${boxIds.length} note(s), head stop ${step.head}, anchor stop ${step.anchor}`)
+    this.renderScore()
+    this.scrollSelectedNoteIntoView()
+    return true
+  }
+
+  /**
+   * The lane the arrows walk from the selected note, and where that note stands on it — or null
+   * when there is no note selection (or the selection tool is not armed).
+   */
+  private navLane() {
+    const engine = this.getEngine()
+    if (this.state.selectedTool !== 'selection' || !this.state.selectedNoteId || !engine) return null
 
     const score = engine.getScore()
     // Arrow nav stays within the selected note's own voice (independent streams), but
@@ -452,31 +522,15 @@ export class SelectionController {
     const currentNote = allFlat.find(n => n.id === this.state.selectedNoteId)
       ?? (selectedPos && allFlat.find(n =>
         n.measureNumber === selectedPos.measure && fracEq(n.beat, selectedPos.beat)))
-    if (!currentNote) return
+    if (!currentNote) return null
     // ⭐ The GRACES are stops too, each beside its main note (`walks/graceStops`) — his report,
     //    2026-09-22: the arrows walked past a grace, and from a grace skipped its own note.
     // …and the BRACKETED graces, where they are drawn (his report, 2026-09-23).
     const lane = withGraceStops(score, beats, { bracketed: true })
     const currentIndex = locateStop(score, lane, this.state.selectedNoteId,
       { measure: currentNote.measureNumber, beat: currentNote.beat })
-    if (currentIndex === -1) return
-
-    const newIndex = currentIndex + direction
-    if (newIndex < 0 || newIndex >= lane.stops.length) {
-      this.selectNote(null)
-      this.renderScore()
-      return
-    }
-
-    const dest = lane.stops[newIndex]
-    const destNote = allFlat.find(n => n.id === dest.id) ?? engine.getNote(dest.id)
-    const destDesc = destNote
-      ? (destNote.isRest ? `rest m${dest.measureNumber} beat:${dest.beat.num / dest.beat.den}` : `${destNote.step}${destNote.alter !== 0 ? (destNote.alter! > 0 ? '#' : 'b') : ''}${destNote.octave} m${dest.measureNumber} beat:${dest.beat.num / dest.beat.den}`)
-      : `id:${dest.id}`
-    dbg(`[Nav] ${direction > 0 ? '→' : '←'} → ${destDesc} (tool:${this.state.selectedTool})`)
-    this.selectNote(dest.id)
-    this.renderScore()
-    this.scrollSelectedNoteIntoView()
+    if (currentIndex === -1) return null
+    return { score, lane, allFlat, currentIndex }
   }
 
   /**

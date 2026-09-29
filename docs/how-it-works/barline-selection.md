@@ -175,6 +175,9 @@ They are three different quantities and they use three different keys, coarse to
 | **Barline gap** | `Shift+←/→` | the line alone — the music keeps its spacing (`Shift+Backspace` resets) |
 | — | `←/→` | nothing; walks to the previous/next barline |
 
+`Shift+←/→` is shared: with NOTES selected instead of a barline it extends the note range one stop
+(`how-it-works/passage-selection-marks.md`). The barline answers first; a decline falls through.
+
 ⭐ **The barline gap** (2026-07-31) is the space between the bar's last element and the line that
 ends it — *"like placing a rod between the last element and the barline"*, on top of the engraver's
 own `space-to-barline` default of 1.0 staff space. A quarter-space a press.

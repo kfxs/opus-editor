@@ -286,13 +286,16 @@ export const SHORTCUTS: Record<string, ShortcutDefinition> = {
   // this editor's "fine spacing" chord, vertical between staves and horizontal at the barline. The
   // easy key (Ctrl+←/→) is the bar's WIDTH, which is the other, coarser thing you do to a barline —
   // it re-spaces the bar's whole music, where this moves nothing but the line.
+  //
+  // ⭐ With NOTES selected instead, Shift+←/→ extends the selection one note at a time, text-editor
+  // style (his ask, 2026-09-29; `interactions/walks/rangeStep`). Disjoint from the barline branch.
   'Shift+ArrowLeft': {
-    action: 'barlineGapTighten',
-    description: 'Tighten the gap before the selected barline (fine)',
+    action: 'shiftArrowLeft',
+    description: 'Extend the note selection left, or tighten the gap before the selected barline (fine)',
   },
   'Shift+ArrowRight': {
-    action: 'barlineGapWiden',
-    description: 'Widen the gap before the selected barline (fine)',
+    action: 'shiftArrowRight',
+    description: 'Extend the note selection right, or widen the gap before the selected barline (fine)',
   },
   'Shift+Backspace': {
     action: 'resetBarlineGap',

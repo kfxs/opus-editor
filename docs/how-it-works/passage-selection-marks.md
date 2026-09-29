@@ -176,6 +176,26 @@ and — since they overlap — unclickable. Handles are for editing ONE mark.
 
 ---
 
+## ⭐ Shift+←/→ grows the range one note at a time (2026-09-29)
+
+His ask: *"if i go to the right of the first note we add … at the end, if we go back pull notes, if i
+pass the selected note [going left] then we add from the beginning"* — a text editor's Shift+arrow.
+
+- The range has a **fixed end** and a **moving end** (the head — `selectedNoteId`, what the plain
+  arrows walk from). Each press moves the head one stop along the same lane `←/→` walks (its voice,
+  its staff, graces included); the selection is the box between the two ends — the SAME box a
+  Shift-click makes (`notesInBox` + `marksInBox`), so whole chords, interior rests and covered marks
+  come with it.
+- ⭐ **The fixed end is not stored** — it is the end of the current selection FARTHEST from the head.
+  On one note both ends are the head, so the first press picks the side; that is also how a range
+  shrunk back onto its first note carries on growing the other way. After a Shift-click box, the
+  clicked note is the head and the box's far end stays.
+- Off either end of the score it does nothing (the plain arrow CLEARS there — a range does not).
+- Where: the rule is `interactions/walks/rangeStep.ts` (pure, indices), applied by
+  `SelectionController.extendSelectionStep`. ⚠️ The key is SHARED: `shiftArrowLeft/Right` give a
+  selected BARLINE its gap first (`how-it-works/barline-selection.md`), and only a decline reaches the
+  notes — the two selections are disjoint.
+
 ## ⭐⭐ A PASSAGE IS A RECTANGLE — bars × STAVES (2026-08-29)
 
 🚨 **His report, with the console log**, on a two-staff score: click a bar on staff 0, then

@@ -837,9 +837,11 @@ export function wireShortcuts(
     //   selected measure box. Disjoint selections, so it is one more branch and no reordering.
     staffSpacingFineUp: () => nudgeArmedMouth(MOUTH_STEP_SS) || nudgeStaffSpacingIfBoxSelected(-STAFF_SPACING_FINE_SS),
     staffSpacingFineDown: () => nudgeArmedMouth(-MOUTH_STEP_SS) || nudgeStaffSpacingIfBoxSelected(STAFF_SPACING_FINE_SS),
-    // Shift+←/→ = the barline gap, the fine horizontal partner of Shift+↑/↓ above.
-    barlineGapTighten: () => { nudgeSelectedBarlineGap(-BARLINE_GAP_STEP_SS) },
-    barlineGapWiden: () => { nudgeSelectedBarlineGap(BARLINE_GAP_STEP_SS) },
+    // Shift+←/→ = the barline gap on a selected barline (the fine horizontal partner of Shift+↑/↓
+    // above), else ⭐ GROW / SHRINK the note selection one stop (`walks/rangeStep`) — disjoint
+    // selections, so one more branch.
+    shiftArrowLeft: () => { if (!nudgeSelectedBarlineGap(-BARLINE_GAP_STEP_SS)) selection.extendSelectionStep(-1) },
+    shiftArrowRight: () => { if (!nudgeSelectedBarlineGap(BARLINE_GAP_STEP_SS)) selection.extendSelectionStep(1) },
     resetBarlineGap: () => resetArmedMouth() || resetSelectedBarlineGap(),
     voiceNavUp: () => selection.navigateVoice(1),
     voiceNavDown: () => selection.navigateVoice(-1),
