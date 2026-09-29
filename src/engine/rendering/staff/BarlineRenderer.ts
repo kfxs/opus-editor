@@ -61,7 +61,7 @@
  * the stave's begin bar is turned off and this pass draws it.
  */
 import type { EngravedStave } from '../engraved/EngravedStave'
-import { SIGN_UNIT_ATTR, staffBarlineExtent } from './barlineInk'
+import { SIGN_UNIT_ATTR, staffBarlineExtent, tagBarlineHinting } from './barlineInk'
 import { drawGlyph } from '../painter/glyphPainter'
 import type { DrawGroup } from '@/engine/paint/DrawGroup'
 import { drawGroupOf, svgNode } from '../painter/svgDrawGroup'
@@ -381,14 +381,15 @@ function drawSign(
     ctx.closeGroup()
   }
 
-  // ⭐⭐ **A COMPOSITE SIGN IS HINTED AS A WHOLE OR NOT AT ALL — and today, not at all.**
+  // ⭐⭐ **A COMPOSITE SIGN IS HINTED AS A WHOLE OR NOT AT ALL** — the thin double `‖` as a whole
+  // (`tagBarlineHinting`: two thin strokes are exactly the ink that smears), the rest not at all:
   // `hintBarlines` rounds a thin line's ink onto the device-pixel grid so that every barline on the
   // page resolves identically. Applied to one stroke of a two-stroke sign it would do the opposite:
   // the thin line would move by up to half a device pixel while the thick one stayed put, so the
   // sign's own white gap — the 0.32 spaces that IS the final barline — would come out a different
   // width in every bar that has one. ⛔ So the sign opts out, exactly as VexFlow's 3 px thick line
   // always has. It is 0.5 spaces of ink; it does not vanish for want of alignment.
-  if (group && kind !== 'plain' && kind !== 'invisible') group.tag('data-no-hint', '1')
+  tagBarlineHinting(group, kind)
   // ⭐ …and a PLAIN line on a small staff tells the hinting pass the unit it was drawn in: its width
   //    is no longer `THIN_BARLINE_PX` in its own space, which is how that pass knows a thin line.
   if (group && placement.scale !== 1) group.tag(SIGN_UNIT_ATTR, String(1 / placement.scale))

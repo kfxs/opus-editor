@@ -3,6 +3,8 @@ import { STAFF_SPACE_PX } from '../../models/staffSize'
 import { thinLineSpaces } from '@/engine/layout/thinLineWeight'
 import { staveLineWidthPx } from '@/engine/engrave/staff/staffLines'
 import { barlineExtent, type BarlineExtent } from '@/engine/engrave/staff/barlineExtent'
+import type { BarlineSignKind } from '@/engine/layout/barlineSign'
+import type { DrawGroup } from '@/engine/paint/DrawGroup'
 
 /**
  * **How thick a barline is inked** — the one engraving rule VexFlow gives no seam for.
@@ -93,9 +95,32 @@ export function staffBarlineExtent(frame: StaffFrame): BarlineExtent {
  * sized — a question `layout/barlineSign` now owns outright.
  */
 
+/**
+ * ⭐⭐ **HOW A DRAWN SIGN IS HINTED** — tagged on its group by the two passes that draw a boundary's
+ * strokes (`./BarlineRenderer` on the staff, `./barlineGap` between staves), which must make the SAME
+ * choice or one stroke lands on two sub-pixel phases and the join reads as a step.
+ *
+ *  - a PLAIN (or invisible) line: untagged — hinted stroke by stroke, the rule below.
+ *  - the thin DOUBLE `‖`: `data-hint-whole` — two THIN strokes, which is exactly the ink that smears
+ *    (and that Firefox snaps stroke by stroke on its own, so the gap came out 1 px in one bar and 3 in
+ *    the next — his report, 2026-09-29, *"in firefox … the double bar don't look coherent"*). So it is
+ *    hinted AS ONE: see {@link hintWhole}.
+ *  - every other composite (final, repeats): `data-no-hint` — their thick stroke is 0.5 spaces and does
+ *    not vanish for want of alignment. ⚠️ They could take `hintWhole` too; not asked for.
+ */
+export function tagBarlineHinting(group: DrawGroup | null, kind: BarlineSignKind): void {
+  if (!group || kind === 'plain' || kind === 'invisible') return
+  if (kind === 'double') group.tag('data-hint-whole', '1')
+  else group.tag('data-no-hint', '1')
+}
+
 /** Where a barline was asked to be, before hinting moved its ink. Latched on the first hint, and
  *  every later hint is computed from it — so re-hinting can never drift. (`data-baseline-x`.) */
 const BASE_X = 'baselineX'
+
+/** The width a stroke of a WHOLE-hinted sign was drawn at, latched like {@link BASE_X}
+ *  (`data-baseline-width`). A plain line needs none: it is known to be the thin line. */
+const BASE_WIDTH = 'baselineWidth'
 
 /** The scale the score's barlines were last hinted at, stamped on the `<svg>` (`data-hinted-at`).
  *  The pass's own gate — see {@link hintBarlines}. */
@@ -160,6 +185,7 @@ export function hintBarlines(
   svg.dataset[HINTED_AT] = String(k0)
 
   const rects = [...svg.querySelectorAll<SVGRectElement>('g.stavebarline rect')]
+  const wholes = [...svg.querySelectorAll<SVGGElement>('g.stavebarline[data-hint-whole]')]
 
   // ⚠️ READ EVERYTHING FIRST. `getScreenCTM` is a layout read and the writes below invalidate
   // layout, so interleaving them would force one reflow PER BARLINE.
@@ -172,7 +198,8 @@ export function hintBarlines(
     // barline would come out a different width in every bar carrying one. Their strokes are 0.5
     // spaces of ink and do not vanish for want of alignment, which is the whole reason this pass
     // exists for the 0.16-space line.
-    if ((rect.parentElement as HTMLElement | null)?.dataset?.noHint) continue
+    const hint = (rect.parentElement as HTMLElement | null)?.dataset
+    if (hint?.noHint || hint?.hintWhole) continue
     let base = rect.dataset[BASE_X]
     if (base === undefined) {
       // First sight of this rect: only a thin barline is hinted — the system connector and the
@@ -206,8 +233,50 @@ export function hintBarlines(
     })
   }
 
+  for (const group of wholes) plans.push(...hintWhole(group, dpr))
+
   for (const p of plans) {
     p.rect.setAttribute('x', String(p.x))
     p.rect.setAttribute('width', String(p.width))
   }
+}
+
+/**
+ * ⭐ **A SIGN OF THIN STROKES, HINTED AS ONE** — the plan for one `data-hint-whole` group; reads only.
+ *
+ * The RIGHTMOST stroke is the divider, and it is hinted exactly as a plain line is — so a `‖` and the
+ * plain lines beside it stand on the same pixel column. Each stroke to its left then takes a whole
+ * number of device pixels of WIDTH and of GAP, both floored at one and counted leftward from the
+ * divider. ⇒ at any one scale the sign has ONE shape in every bar, its gap can never close, and there
+ * is no fractional edge left for a browser to snap on its own.
+ */
+function hintWhole(group: SVGGElement, dpr: number): { rect: SVGRectElement; x: number; width: number }[] {
+  const strokes = [...group.querySelectorAll<SVGRectElement>(':scope > rect')].map(rect => {
+    if (rect.dataset[BASE_X] === undefined) {
+      rect.dataset[BASE_X] = rect.getAttribute('x') ?? '0'
+      rect.dataset[BASE_WIDTH] = rect.getAttribute('width') ?? '0'
+    }
+    return { rect, x: parseFloat(rect.dataset[BASE_X]!), width: parseFloat(rect.dataset[BASE_WIDTH]!) }
+  }).sort((a, b) => a.x - b.x)
+  if (strokes.length === 0) return []
+  // One group, one matrix: every stroke of the sign is in the same space.
+  const ctm = strokes[0].rect.getScreenCTM()
+  if (!ctm) return []
+  const k = ctm.a * dpr
+  if (!(k > 0) || !Number.isFinite(k)) return []
+  const toX = (leftDev: number) => (leftDev / dpr - ctm.e) / ctm.a
+
+  const plans: { rect: SVGRectElement; x: number; width: number }[] = []
+  let right = strokes[strokes.length - 1]
+  let leftDev = Math.round((ctm.a * right.x + ctm.e) * dpr)
+  plans.push({ rect: right.rect, x: toX(leftDev), width: Math.max(1, Math.round(right.width * k)) / k })
+  for (let i = strokes.length - 2; i >= 0; i--) {
+    const s = strokes[i]
+    const widthDev = Math.max(1, Math.round(s.width * k))
+    const gapDev = Math.max(1, Math.round((right.x - (s.x + s.width)) * k))
+    leftDev -= gapDev + widthDev
+    plans.push({ rect: s.rect, x: toX(leftDev), width: widthDev / k })
+    right = s
+  }
+  return plans
 }

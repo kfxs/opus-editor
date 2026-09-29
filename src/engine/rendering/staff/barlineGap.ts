@@ -32,7 +32,7 @@ import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { dbg } from '@/utils/debug'
 import { drawGroupOf, svgNode } from '../painter/svgDrawGroup'
 import type { BarlinePlacement } from './BarlineRenderer'
-import { staffBarlineExtent } from './barlineInk'
+import { staffBarlineExtent, tagBarlineHinting } from './barlineInk'
 import { applyHiddenTreatment, type RenderAudience } from '../hiddenElements'
 import type { RenderPass } from '../RenderPass'
 import { placedStaffFrame } from './staveFrame'
@@ -167,12 +167,12 @@ export function drawBarlineGap(pass: RenderPass, score: Score, gap: BarlineGap):
   }
 
   // ⭐⭐ **HINTED EXACTLY AS THE SIGN ABOVE IT IS, or the join is not one line.** `hintBarlines`
-  // rounds a thin line onto the device-pixel grid; a composite sign opts out (`data-no-hint`)
-  // because aligning one stroke of two would change its own white gap. The gap segment must make
-  // the SAME choice as the staff strokes it continues — hinted for a plain line, opted out for a
-  // composite one — or the two pieces of one stroke land on different sub-pixel phases and the join
+  // rounds a thin line onto the device-pixel grid; a composite sign is hinted as a whole or opts
+  // out (`tagBarlineHinting`), because aligning one stroke of two would change its own white gap.
+  // The gap segment must make the SAME choice as the staff strokes it continues — one call, the
+  // same kind — or the two pieces of one stroke land on different sub-pixel phases and the join
   // reads as a step exactly where the eye is looking.
-  if (group && kind !== 'plain' && kind !== 'invisible') group.tag('data-no-hint', '1')
+  tagBarlineHinting(group, kind)
 
   // ⭐ An invisible line is invisible in the gap too: TINTED for the editor, REMOVED for print
   // (`./hiddenElements`). Without this the one thing hiding is for would fail between the staves.

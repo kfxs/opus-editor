@@ -121,4 +121,64 @@ describe('hintBarlines', () => {
     hintBarlines(svg, { dpr: 1, force: true })
     expect(rect.getAttribute('x'), 'forced, it re-hints from the asked position').not.toBe('999')
   })
+
+  describe('a thin double ‖ — hinted as ONE sign', () => {
+    const GAP = 3 // Gould's 0.30 spaces
+    /** One `data-hint-whole` group per boundary: the left stroke, the gap, the divider at `x`. */
+    function doublesAt(scale: number, xs: number[]): SVGSVGElement {
+      const svg = document.createElementNS(NS, 'svg')
+      for (const x of xs) {
+        const group = measureGroup([{ x: x - GAP - thinBarlinePx(), width: thinBarlinePx() }, { x, width: thinBarlinePx() }])
+        group.querySelector('g')!.setAttribute('data-hint-whole', '1')
+        svg.appendChild(group)
+      }
+      const ctm = { a: scale, b: 0, c: 0, d: scale, e: 0, f: 0 } as DOMMatrix
+      for (const el of [svg, ...svg.querySelectorAll('rect')]) {
+        (el as unknown as { getScreenCTM: () => DOMMatrix }).getScreenCTM = () => ctm
+      }
+      return svg
+    }
+    /** Per sign: [left stroke's width, gap, divider's width], in device px. */
+    const shapes = (svg: Element, scale: number) =>
+      [...svg.querySelectorAll('g.stavebarline')].map(g => {
+        const [l, r] = ink(g, scale)
+        return [l.width, +(r.left - l.left - l.width).toFixed(6), r.width]
+      })
+
+    it('has ONE shape in every bar, at whole device pixels — nothing left for a browser to snap', () => {
+      for (const scale of [0.35, 0.7, 0.85, 1.3]) {
+        const svg = doublesAt(scale, [20, 167.1, 268.71, 370.32, 573.55])
+        hintBarlines(svg, { dpr: 1 })
+        const all = shapes(svg, scale)
+        expect(new Set(all.map(s => s.join())).size, `scale ${scale}`).toBe(1)
+        for (const bar of ink(svg, scale)) {
+          expect(bar.left).toBe(Math.round(bar.left))
+          expect(bar.width).toBe(Math.round(bar.width))
+        }
+      }
+    })
+
+    it('never closes its gap nor loses a stroke, however far out', () => {
+      const svg = doublesAt(0.1, [20, 167.1, 268.71])
+      hintBarlines(svg, { dpr: 1 })
+      for (const s of shapes(svg, 0.1)) expect(s).toEqual([1, 1, 1])
+    })
+
+    it('its divider lands where a plain line at the same x would', () => {
+      const plain = scoreAt(0.7, [167.1])
+      const double = doublesAt(0.7, [167.1])
+      hintBarlines(plain, { dpr: 1 })
+      hintBarlines(double, { dpr: 1 })
+      expect(ink(double, 0.7)[1]).toEqual(ink(plain, 0.7)[0])
+    })
+
+    it('re-hinting computes from the drawn sign, never from the last hint', () => {
+      const svg = doublesAt(0.7, [167.1, 268.71])
+      hintBarlines(svg, { dpr: 1 })
+      const once = [...svg.querySelectorAll('rect')].map(r => [r.getAttribute('x'), r.getAttribute('width')])
+      hintBarlines(svg, { dpr: 2 })
+      hintBarlines(svg, { dpr: 1 })
+      expect([...svg.querySelectorAll('rect')].map(r => [r.getAttribute('x'), r.getAttribute('width')])).toEqual(once)
+    })
+  })
 })
