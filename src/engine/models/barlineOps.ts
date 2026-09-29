@@ -45,6 +45,9 @@ const BARLINE_STYLES = {
   /** ⭐ The line is there and divides the bars; it is simply not engraved — tinted for the editor,
    *  omitted in print (`engine/rendering/hiddenElements`). ⛔ Not "no barline": see {@link BarlineStyle}. */
   invisible: true,
+  /** The thin double `‖` — two plain lines, a drawn sign and nothing more
+   *  (docs/plans/double-barline-plan.md). */
+  double: true,
 } satisfies Record<BarlineStyle, true>
 
 /** Find a measure by its number (mirrors `ScoreModel.getMeasure`). */
@@ -230,7 +233,7 @@ export function setBoundarySign(score: Score, endsMeasure: number | null, sign: 
 
   // ⭐ Three independent writes, OR-ed rather than short-circuited: every one of them must run, and
   // the answer is "did anything move". Each is already a no-op when it is asked for what is there.
-  const style = setBarlineStyle(score, endsMeasure, sign === 'final' || sign === 'invisible' ? sign : undefined)
+  const style = setBarlineStyle(score, endsMeasure, sign === 'final' || sign === 'invisible' || sign === 'double' ? sign : undefined)
   const closes = setRepeatEnd(score, endsMeasure, sign === 'repeatEnd' || sign === 'repeatBoth')
   const opened = begins ? setRepeatStart(score, endsMeasure + 1, opens) : false
   return style || closes || opened

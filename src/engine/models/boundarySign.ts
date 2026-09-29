@@ -9,7 +9,7 @@
 import type { Measure } from '@/types/music'
 
 /**
- * **What sign divides a boundary.** ⭐ Note what is NOT here: `none`, `double`, `heavy`, `dashed` —
+ * **What sign divides a boundary.** ⭐ Note what is NOT here: `none`, `heavy`, `dashed` —
  * the family's other members are one case each in this file the day they are asked for, and a value
  * with no drawing behind it would be a lie the compiler cannot catch (plan §0).
  *
@@ -17,7 +17,7 @@ import type { Measure } from '@/types/music'
  * facts, bar *N*'s `repeatEnd` plus bar *N+1*'s `repeatStart` (§3.2, §4.3). MEI had to invent
  * `rptboth` because one stored slot could not hold two statements; we combine at the pen instead.
  */
-export type BarlineSignKind = 'plain' | 'invisible' | 'final' | 'repeatEnd' | 'repeatStart' | 'repeatBoth'
+export type BarlineSignKind = 'plain' | 'invisible' | 'final' | 'double' | 'repeatEnd' | 'repeatStart' | 'repeatBoth'
 
 /**
  * **The sign at one boundary**, from the two bars that meet there. Either may be absent: `ends` is
@@ -55,6 +55,9 @@ export function signAtBoundary(ends: Measure | undefined, begins: Measure | unde
   if (opens) return 'repeatStart'
   if (closes) return 'repeatEnd'
   if (ends?.barline?.style === 'final') return 'final'
+  // The thin double ranks with `final`, below the repeats: a repeat standing on the same line is what
+  // gets drawn (the placing ops drop the style anyway — `barlineOps.addRepeat`).
+  if (ends?.barline?.style === 'double') return 'double'
   // A bar ends here, and nothing was said about it: the plain single line every boundary draws.
   // ⛔ Nothing when no bar ends here — a system's opening edge is the stave's own begin bar.
   return ends ? 'plain' : null
@@ -70,6 +73,7 @@ const HAS_THICK_LINE: Record<BarlineSignKind, boolean> = {
   plain: false,
   invisible: false,
   final: true,
+  double: false,
   repeatEnd: true,
   repeatStart: true,
   repeatBoth: true,

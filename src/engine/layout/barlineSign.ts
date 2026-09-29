@@ -44,6 +44,7 @@ import type { Measure } from '@/types/music'
 import type { BarlineSignKind } from '@/engine/models/boundarySign'
 import { engravingDefault, glyphBox } from '@/engine/fonts/fontMetrics'
 import { thinLineSpaces } from './thinLineWeight'
+import { armedDoubleBarlineGap } from './doubleBarlineGap'
 
 /**
  * The thin stroke — **0.16 spaces**, the weight every thin structural line in this score shares
@@ -263,6 +264,16 @@ export function barlineSignParts(kind: BarlineSignKind): BarlineSignParts {
       return parts([thin, thick], [], 1)
     }
 
+    case 'double': {
+      // ⭐ The THIN double `‖` (docs/plans/double-barline-plan.md §2): the RIGHT line stands exactly where
+      // the plain line does — the divider, so stamping `‖` never moves the music after it — and the new
+      // ink is the LEFT line, the armed white before it (`doubleBarlineGap`, Gould's plate by default).
+      // Both lines are the plain barline's own stroke: *"of ordinary barline thickness"* (Gould p. 39).
+      const divider: SignStroke = { x: 0, width: THIN, half: 'shared' }
+      const left: SignStroke = { x: -(armedDoubleBarlineGap() + THIN), width: THIN, half: 'end' }
+      return parts([left, divider], [], 1)
+    }
+
     case 'repeatEnd': {
       const thick: SignStroke = { x: -THICK, width: THICK, half: 'shared' }
       const thin: SignStroke = { x: -(THICK + SEPARATION + THIN), width: THIN, half: 'end' }
@@ -363,9 +374,12 @@ export function signHasHalf(kind: BarlineSignKind, half: SignHalf): boolean {
 
 /** Does the sign have a thick line — READ OFF THE PARTS. `models/boundarySign.wingsAllowed` is the
  *  same answer stated by the core as a table (it may not read font metrics), and
- *  `barlineSign.test.ts` holds the two together. */
+ *  `barlineSign.test.ts` holds the two together.
+ *  ⚠️ Asked of the STROKES' widths, ⛔ not of the halves: the thin double `‖` has an `end` half (its
+ *  left line) and no thick line, so "has a half" stopped meaning "has a thick line" the day it came. */
 export function hasThickLine(kind: BarlineSignKind): boolean {
-  return signHasHalf(kind, 'end') || signHasHalf(kind, 'start')
+  const thin = thinSpaces()
+  return barlineSignParts(kind).strokes.some(s => s.width > thin)
 }
 
 /**
@@ -443,6 +457,7 @@ export function barlineSignExtent(kind: BarlineSignKind): { left: number; right:
 export function ownEndSignKind(measure: Measure): BarlineSignKind {
   if (measure.repeatEnd !== undefined) return 'repeatEnd'
   if (measure.barline?.style === 'final') return 'final'
+  if (measure.barline?.style === 'double') return 'double'
   // ⭐ `invisible` deliberately falls through to `plain`'s room, which is the same room: hiding a
   // line must not re-space the music around it. It is not even reachable as a distinct answer here
   // — the two kinds share their parts — and is left unwritten rather than spelled out as a case

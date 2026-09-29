@@ -47,7 +47,7 @@ changes a WIDTH — `reference_render_width_key_vs_shape_key`). Console: `__barl
 at the same line subsumes it) and below `invisible`; `HAS_THICK_LINE.double = false`;
 `barlineOps.setBoundarySign` accepts it. JSON is additive (absent = plain, as now). Specs.
 
-**P2 — the drawing.** One case in `barlineSignParts`; `ownEndSignKind` answers `double` (else the bar
+**P2 — the drawing.** ⚠️ Built WITH P1 (2026-09-29): the kind union is total over `barlineSignParts`, so the model's member cannot compile without its drawing case. Also: `hasThickLine` now reads the strokes' WIDTHS, ⛔ not the halves — the double has an `end` half and no thick line, and would otherwise have sprouted wings. One case in `barlineSignParts`; `ownEndSignKind` answers `double` (else the bar
 reserves a plain line's room and the new left stroke hits the last note). The extent, hit box,
 halves, highlight, hinting and the join all read the parts, so they follow. A SCENE test: two strokes,
 the armed gap between them, the right one where the plain line was.

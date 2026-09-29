@@ -142,10 +142,13 @@ export interface TimeSignature {
  * `<repeat direction="backward"/>`), and MEI, which merged them harder, had to invent `rptboth` for
  * "end repeat then start repeat" because one slot could not hold two statements.
  *
- * ⭐ **Two members, and they are different KINDS of statement about the same line** — which is what
- * makes them both styles rather than one style and one flag:
+ * ⭐ **Three members, and they are different KINDS of statement about the same line** — which is what
+ * makes them styles rather than one style and some flags:
  *
  *  - **`final`** — thin + thick, the end of a movement (Gould p. 39).
+ *  - **`double`** — the THIN double `‖`, two plain lines (docs/plans/double-barline-plan.md). His ask,
+ *    2026-09-29: *"just drawing the barline"* — ⛔ it carries no section meaning and nothing places it
+ *    for you. The white between its lines is a preset row (`engine/layout/doubleBarlineGap`).
  *  - **`invisible`** — the line is still there and still divides the bars; it is simply not
  *    engraved. 🚨 His ask, 2026-08-26: *"probably we should add also Invisible, and what we do on
  *    screen we use the same colour of hidden we are using for rest, and not printing it on PDF
@@ -159,11 +162,11 @@ export interface TimeSignature {
  * "none" reads as *"there is no barline here"*, which is the misreading the paragraph above exists
  * to prevent.
  *
- * The family's remaining members (`double`, `heavy`, `dashed`, `dotted`, `tick`, `short`) each cost
+ * The family's remaining members (`heavy`, `dashed`, `dotted`, `tick`, `short`) each cost
  * one member here plus one drawing case; ⛔ none is added until it is asked for (plan §0) — a value
  * with no drawing behind it is a lie the compiler cannot catch.
  */
-export type BarlineStyle = 'final' | 'invisible'
+export type BarlineStyle = 'final' | 'invisible' | 'double'
 
 /**
  * **A barline statement: the line that ENDS this measure.**

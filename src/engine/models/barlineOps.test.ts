@@ -144,7 +144,8 @@ describe('barlineOps — the repeat count', () => {
 
   it('isBarlineStyle knows exactly the styles the drawing has a case for', () => {
     expect(isBarlineStyle('final')).toBe(true)
-    expect(isBarlineStyle('double')).toBe(false) // not shipped — plan §0
+    expect(isBarlineStyle('double')).toBe(true) // the thin double — docs/plans/double-barline-plan.md
+    expect(isBarlineStyle('heavy')).toBe(false) // not shipped — plan §0
     expect(isBarlineStyle(undefined)).toBe(false)
   })
 })

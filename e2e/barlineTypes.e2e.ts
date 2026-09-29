@@ -63,6 +63,49 @@ test('⭐⭐ a final barline is thin + THICK, and the THICK line ends exactly on
   expect(dots, 'a final bar has no dots').toHaveLength(0)
 })
 
+test('⭐⭐ a THIN double is two plain lines: the right one where the plain line was, the gap before it Gould\'s', async ({ score }) => {
+  // docs/plans/double-barline-plan.md §2. ⚠️ Hinting snaps each stroke to whole pixels, so the gap is
+  // held to a pixel, not to the tenth.
+  const { rects, staves, dots } = await drawn(score, 4, `h.engine.setBarlineStyle(2, 'double')`)
+  const boundary = staves.find(s => s.measure === 2)!.x2
+
+  const ink = at(rects, boundary)
+  expect(ink, 'two strokes, and only two').toHaveLength(2)
+  const [left, right] = ink
+  expect(right.x, 'the RIGHT line stands where the plain line does — its left edge on the boundary').toBeCloseTo(boundary, 0)
+  expect(Math.abs(right.width - left.width), 'both at the plain line\'s weight').toBeLessThanOrEqual(1)
+  const gap = right.x - (left.x + left.width)
+  expect(gap, 'Gould\'s plate: ≈0.30 of a space of white').toBeGreaterThanOrEqual(0.30 * SPACE - 1)
+  expect(gap).toBeLessThanOrEqual(0.30 * SPACE + 1)
+  expect(dots, 'no dots').toHaveLength(0)
+})
+
+test('🚨 the thin double claims ROOM — in a PACKED bar the last note keeps the same white before its ink', async ({ score }) => {
+  // The bar reserves the sign's reach (`ownEndSignKind` → `barlineSignExtent`, an ink column in
+  // `measureColumns`). ⚠️ It is a MINIMUM: a roomy bar simply has the white to spare — the final bar's
+  // ink eats into it the same way — so only a PACKED bar shows it. There the bar must widen by the
+  // double's extra reach instead of the line landing closer to the last note (without the room: 21.3
+  // → 16.7 px, measured 2026-09-29).
+  const out = await score.evaluate(async () => {
+    const h = window.__h
+    while (h.engine.getScore().measures.length < 3) h.engine.addMeasure()
+    for (let b = 0; b < 32; b++) {
+      h.engine.addNoteAtBeat({ step: 'B', alter: 0, octave: 4, duration: '32', measure: 1, beat: h.frac(b, 8) })
+    }
+    const white = async () => {
+      await h.render()
+      const lastHead = Math.max(...h.noteheads().map(g => g.x))
+      const boundary = h.staves().find(s => s.measure === 1)!.x2
+      const firstInk = Math.min(...h.barlines().filter(r => r.x > boundary - 20 && r.x < boundary + 5).map(r => r.x))
+      return firstInk - lastHead
+    }
+    const plain = await white()
+    h.engine.setBarlineStyle(1, 'double')
+    return { plain, double: await white() }
+  })
+  expect(Math.abs(out.double - out.plain), `white before the ink: plain ${out.plain} vs double ${out.double}`).toBeLessThanOrEqual(1)
+})
+
 test('every other boundary keeps the plain single line it always had', async ({ score }) => {
   const { rects, staves } = await drawn(score, 5, `h.engine.setBarlineStyle(3, 'final')`)
 

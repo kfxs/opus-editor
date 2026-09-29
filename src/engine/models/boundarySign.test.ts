@@ -25,6 +25,15 @@ describe('signAtBoundary — ⭐⭐ a boundary carries ONE sign', () => {
     expect(signAtBoundary(bar({ barline: { style: 'final' } }), bar())).toBe('final')
   })
 
+  it('the thin double, when that is what the bar stores', () => {
+    expect(signAtBoundary(bar({ barline: { style: 'double' } }), bar())).toBe('double')
+  })
+
+  it('⭐ a repeat on the same line outranks the thin double, as it does the final', () => {
+    expect(signAtBoundary(bar({ barline: { style: 'double' }, repeatEnd: {} }), bar())).toBe('repeatEnd')
+    expect(signAtBoundary(bar({ barline: { style: 'double' } }), bar({ repeatStart: {} }))).toBe('repeatStart')
+  })
+
   it('an end repeat belongs to the bar that CLOSES it', () => {
     expect(signAtBoundary(bar({ repeatEnd: {} }), bar())).toBe('repeatEnd')
   })
@@ -66,5 +75,6 @@ describe('wingsAllowed — ⭐⭐ only a sign with a THICK line can carry wings'
   it('⛔ …and not a bare line, which has nothing to flare', () => {
     expect(wingsAllowed('plain')).toBe(false)
     expect(wingsAllowed('invisible')).toBe(false)
+    expect(wingsAllowed('double')).toBe(false) // two thin lines — nothing thick to flare
   })
 })

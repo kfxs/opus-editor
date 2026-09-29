@@ -8,6 +8,7 @@
 import { describe, it, expect } from 'vitest'
 import { barlineSignParts, barlineSignExtent, dotLines, hasThickLine, ownEndSignKind, repeatStartRoom, signHasHalf, signWings } from './barlineSign'
 import { wingsAllowed } from '@/engine/models/boundarySign'
+import { resetDoubleBarlineGapRule, setDoubleBarlineGapRule } from './doubleBarlineGap'
 import type { Measure } from '@/types/music'
 
 /** A bar carrying only the barline statements under test — nothing else here reads a measure. */
@@ -38,6 +39,28 @@ describe('barlineSignParts — the reading order IS the layout', () => {
     expect(parts.strokes[parts.divider]).toBe(thick)
     expect(parts.extent.right).toBe(0)                          // ⛔ nothing past the staff lines' end
     expect(parts.extent.left).toBeCloseTo(THIN + SEPARATION + THICK, 10)
+  })
+
+  it('⭐⭐ the THIN double: the right line IS the plain line, the left one stands the armed gap before it', () => {
+    // docs/plans/double-barline-plan.md §2 — stamping `‖` must not move the music AFTER the line.
+    const parts = barlineSignParts('double')
+    const [left, right] = parts.strokes
+    expect(right).toEqual(barlineSignParts('plain').strokes[0])
+    expect(parts.strokes[parts.divider]).toBe(right)
+    expect(left.width).toBe(THIN)                               // *"of ordinary barline thickness"*
+    expect(right.x - (left.x + left.width)).toBeCloseTo(0.30, 10) // Gould's plate, the default row
+    expect(left.half).toBe('end')
+    expect(parts.extent).toEqual({ left: 0.30 + THIN, right: THIN })
+  })
+
+  it('⭐ …its gap is the ARMED row', () => {
+    setDoubleBarlineGapRule('verovio')
+    try {
+      const [left, right] = barlineSignParts('double').strokes
+      expect(right.x - (left.x + left.width)).toBeCloseTo(0.40, 10)
+    } finally {
+      resetDoubleBarlineGapRule()
+    }
   })
 
   it('⭐ …and its total is Gould\'s measured ≈1.00, not the font\'s 1.06', () => {
@@ -87,7 +110,7 @@ describe('barlineSignParts — the reading order IS the layout', () => {
     // The rule `SignHalf` states, checked as geometry rather than as a table of kinds: the stroke ON
     // the boundary is `shared`, everything left of it is the ending bar's, everything right of it the
     // opening bar's. This is what lets a `:||:` light the half that was clicked.
-    for (const kind of ['plain', 'final', 'repeatEnd', 'repeatStart', 'repeatBoth'] as const) {
+    for (const kind of ['plain', 'final', 'double', 'repeatEnd', 'repeatStart', 'repeatBoth'] as const) {
       const parts = barlineSignParts(kind)
       expect(parts.strokes[parts.divider].half, `${kind}'s divider`).toBe('shared')
       for (const [i, stroke] of parts.strokes.entries()) {
@@ -106,7 +129,7 @@ describe('barlineSignParts — the reading order IS the layout', () => {
     // divider, which is why the highlight paints `half` PLUS `shared` rather than `half` alone.
     expect(signHasHalf('repeatStart', 'start')).toBe(true)
     expect(signHasHalf('repeatBoth', 'start')).toBe(true)
-    for (const kind of ['plain', 'final', 'repeatEnd'] as const) {
+    for (const kind of ['plain', 'final', 'double', 'repeatEnd'] as const) {
       expect(signHasHalf(kind, 'start'), kind).toBe(false)
     }
     expect(signHasHalf('plain', 'end')).toBe(false)
@@ -114,7 +137,7 @@ describe('barlineSignParts — the reading order IS the layout', () => {
   })
 
   it('every sign\'s extent is derived from its own parts, so ink and reserved room cannot drift', () => {
-    for (const kind of ['plain', 'final', 'repeatEnd', 'repeatStart', 'repeatBoth'] as const) {
+    for (const kind of ['plain', 'final', 'double', 'repeatEnd', 'repeatStart', 'repeatBoth'] as const) {
       const parts = barlineSignParts(kind)
       const inkLeft = Math.max(0, ...parts.strokes.map(s => -s.x), ...parts.dots.map(d => -d.x))
       const inkRight = Math.max(0, ...parts.strokes.map(s => s.x + s.width), ...parts.dots.map(d => d.x + d.width))
@@ -154,6 +177,9 @@ describe('the width terms — ⭐ what the bar RESERVES for its own sign (P3, §
   it('ownEndSignKind reads THIS bar and never a neighbour', () => {
     expect(ownEndSignKind(bar())).toBe('plain')
     expect(ownEndSignKind(bar({ barline: { style: 'final' } }))).toBe('final')
+    // 🚨 The thin double's LEFT line is new ink inside the bar — without its own answer here the bar
+    //    would reserve a plain line's room and that line would land on the last note.
+    expect(ownEndSignKind(bar({ barline: { style: 'double' } }))).toBe('double')
     expect(ownEndSignKind(bar({ repeatEnd: {} }))).toBe('repeatEnd')
     // ⭐ A bar that merely OPENS a repeat ends with a plain line — the two statements are owned by
     // different bars, which is what makes the reserved room a local question at all.
@@ -188,7 +214,7 @@ describe('wings — ⭐⭐ only a sign with a THICK line can carry them', () => 
   it('⭐ the core\'s table and the drawn parts agree about which signs have a THICK line', () => {
     // `models/boundarySign.wingsAllowed` may not read font metrics, so it states the answer as a
     // table; `hasThickLine` reads it off the parts. This is what keeps the two from drifting.
-    for (const kind of ['plain', 'invisible', 'final', 'repeatEnd', 'repeatStart', 'repeatBoth'] as const) {
+    for (const kind of ['plain', 'invisible', 'final', 'double', 'repeatEnd', 'repeatStart', 'repeatBoth'] as const) {
       expect(wingsAllowed(kind), kind).toBe(hasThickLine(kind))
     }
   })
@@ -241,5 +267,7 @@ describe('wings — ⭐⭐ only a sign with a THICK line can carry them', () => 
   it('⛔ a sign that cannot be winged has no tips to place', () => {
     expect(signWings('plain')).toEqual([])
     expect(signWings('invisible')).toEqual([])
+    // 🚨 The thin double has an `end` half but NO thick line — a leftover `winged` must not sprout tips.
+    expect(signWings('double')).toEqual([])
   })
 })
