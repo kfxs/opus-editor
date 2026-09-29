@@ -109,10 +109,19 @@ describe('applyTupletToNote', () => {
     expect(fracToNumber(first.beat)).toBe(0)
   })
 
-  it('a REST gives an empty group — its filler rest is what comes back', () => {
+  it('a REST keeps its own value as the group\'s first member', () => {
     const rest = model.addNote({ duration: 'q', measure: 1, beat: frac(0, 1), isRest: true })
     const { tuplet, note } = applyTupletToNote(model, rest.id)!
-    expect(note).toMatchObject({ isRest: true, tupletId: tuplet.id })
+    expect(note).toMatchObject({ isRest: true, tupletId: tuplet.id, duration: 'q' })
+  })
+
+  it('a SIXTEENTH rest stays a sixteenth — the refill does not merge it into an eighth (reported)', () => {
+    const rest = model.addNote({ duration: '16', measure: 1, beat: frac(0, 1), isRest: true })
+    const { tuplet, note } = applyTupletToNote(model, rest.id)!
+    expect(note).toMatchObject({ isRest: true, duration: '16' })
+    const members = model.getNotesInTuplet(tuplet.id).sort((a, b) => fracToNumber(a.beat) - fracToNumber(b.beat))
+    expect(members[0]).toMatchObject({ id: note.id, duration: '16' })
+    expect(fracToNumber(members[0].actualDuration!)).toBeCloseTo(1 / 6)
   })
 
   it('null for a note already in a tuplet, or an id that names nothing', () => {

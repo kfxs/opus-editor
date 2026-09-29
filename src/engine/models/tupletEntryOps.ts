@@ -96,11 +96,21 @@ export function applyTupletToNote(
 
   let resultNote: Note
   if (note.isRest) {
-    // Tuplet starts empty — refill will place the full-span filler rest
+    // The selected rest keeps its OWN value as the group's first member, as a note does. Leaving the
+    // group empty let the refill merge its first slots — a sixteenth rest made a sixteenth triplet
+    // whose first rest came back as an EIGHTH (reported).
+    resultNote = model.addNote({
+      duration: note.duration,
+      ...(note.dots ? { dots: note.dots } : {}),
+      measure: note.measure,
+      beat: tuplet.startBeat,
+      isRest: true,
+      tupletId: tuplet.id,
+      actualDuration,
+      ...(voice ? { voice: voice as 0 | 1 | 2 | 3 } : {}),
+      ...(staff ? { staff } : {}),
+    })
     model.refillTupletRemainder(note.measure, tuplet, voice)
-    const rests = model.getNotesInTuplet(tuplet.id)
-    resultNote = rests[0]
-    if (!resultNote) return null
   } else {
     // Place the original note as the first tuplet note, then fill remainder
     resultNote = model.addNote({
