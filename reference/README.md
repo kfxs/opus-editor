@@ -1140,7 +1140,7 @@ checked for Gould pp. 197–200, Ross pp. 159–160, Stone pp. 26–29 — each 
 |---|---|---|
 | ⭐ the default side | **Gould p. 197** · **Stone p. 26** · **G&L p. 156** | the STEM side (a beamed group's numeral at the BEAM) — *"This keeps the space on the notehead side clear for articulation and slurs"* (Gould) |
 | the dissent | **Ross pp. 159–160** | *"engravers differ"*; *"many engravers put the 3 above the staff, regardless"* |
-| moved to the notehead side | **Gould p. 199** · **Stone p. 27** · **G&L p. 157** | add a BRACKET (⛔ not done automatically — his call, 2026-09-29) |
+| moved to the notehead side | **Gould p. 199** · **Stone p. 27** · **G&L p. 157** | add a BRACKET — ✅ done on the bracket's `auto` (his rule, 2026-09-29) |
 | mixed stems | **Gould p. 198** · **Stone p. 27** | Gould leans ABOVE; Stone *"the majority of stems"* |
 | two voices on a staff | **Gould p. 199** · **Stone p. 29** · **G&L p. 157** | each at its own stem side |
 | vocal | **Gould pp. 198, 437** · **Stone pp. 42–43** | all above |

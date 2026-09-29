@@ -11,9 +11,10 @@ What it changed and decided, for the record:
   `NoteBuilder.stemMajorityTupletLocation`) — his rule, stated before this research; ⭐ the research
   backs it on all three fronts.
 - `Tuplet.placement?: 'above' | 'below'` (absolute, absent = auto) is **kept** — §B.
-- ⛔ **No automatic bracket when a flip moves the number to the notehead side**, although three books
-  ask for one (§A3). His call, 2026-09-29: *"is not a real problem since the user can decide to put the
-  bracket himself"* — the Format box's bracket `always` is that decision.
+- ⭐ **A number on the NOTEHEAD side gets a bracket on `auto`, beamed or not** (§A3 — Gould p. 199,
+  Stone p. 27, G&L p. 157). His rule, later on 2026-09-29, reversing his first call (*"not a real
+  problem since the user can decide"*): the rule runs only on `auto`, so the user's `always` / `never`
+  still decide — `utils/musicUtils.tupletBracketed` + `NoteBuilder.tupletOnNoteheadSide`.
 
 ⛔ Distances (how far OUT the mark stands, its air, the bracket's legs) are not this document:
 `docs/research/tremolo-tuplet-research.md` and `src/engine/engrave/marks/tupletPlacement.ts`.
@@ -84,7 +85,7 @@ counting stems, `tupletlayout.cpp:215-217`; Verovio's attribute wins before coun
 | two voices | each voice at its own stem side | ✅ Gould, Stone, G&L |
 | stored model | `placement?: 'above' \| 'below'`, absent = auto | ✅ = MusicXML / MEI / MNX / MuseScore / Dorico |
 | flip `x` | pins the opposite of the drawn side; a second press clears to auto | ≈ Dorico (`F` + property off); friendlier than MuseScore (never back to auto) |
-| bracket on the notehead side | the bracket rule asks only "beamed?" | ⚠️ three books want one — ⛔ **his call: the user sets it** |
+| bracket on the notehead side | on `auto`: bracketed when unbeamed OR on the notehead side (opposite the stem majority; an even split has none) | ✅ Gould p. 199, Stone p. 27, G&L p. 157 — `always` / `never` stay the user's |
 
 ## D. Open — his call, ⛔ not a queue
 

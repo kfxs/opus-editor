@@ -87,9 +87,10 @@ export interface Tuplet extends TupletShape, TupletFormat {
   /** Beat position where the tuplet starts (exact rational) */
   startBeat: Fraction
   /**
-   * Explicit bracket/number placement override. When undefined the side is
-   * auto-derived from stem direction (bracket opposite the stems); setting this
-   * forces the side, e.g. via the `x` flip. 'above' = LOCATION_TOP, 'below' = LOCATION_BOTTOM.
+   * Explicit bracket/number placement override — ABSOLUTE, as MusicXML / MEI / MNX store it
+   * (docs/research/tuplet-side-research.md). When undefined the side is auto-derived: the STEM side,
+   * counted after the beams (`rendering/marks/tupletPass`); in a bar with voices, each voice's own
+   * side. Setting this forces the side, e.g. via the `x` flip. 'above' = LOCATION_TOP, 'below' = LOCATION_BOTTOM.
    */
   placement?: 'above' | 'below'
   /** Staff this tuplet belongs to (a {@link StaffInfo} id); absent = staff 0. See

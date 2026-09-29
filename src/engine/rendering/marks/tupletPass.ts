@@ -14,7 +14,7 @@ import { tupletOffsetOverrideOf } from '@/engine/models/engravingOverrides'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import type { EngravedNote } from '../engraved/EngravedNote'
 import type { EngravedStave } from '../engraved/EngravedStave'
-import { innerFlipTupletYOffset, resolveTupletLocation, stemMajorityTupletLocation, type TupletNoteStem } from '../engraved/NoteBuilder'
+import { innerFlipTupletYOffset, resolveTupletLocation, stemMajorityTupletLocation, tupletOnNoteheadSide, type TupletNoteStem } from '../engraved/NoteBuilder'
 import type { ScoreTuplet } from '../engraved/ScoreTuplet'
 import { barFrame } from '../staff/staveFrame'
 import { noteRuler } from '../engraved/noteRuler'
@@ -122,7 +122,7 @@ ctx: TupletPassContext,
         // the same rule; we state it ourselves so the model's `always`/`never` can override it and
         // so the rule lives in one place we own.
         const beamed = notes.every(n => n.hasBeam?.() ?? false)
-        const bracketed = tupletBracketed(tupletData, beamed)
+        const bracketed = tupletBracketed(tupletData, beamed, tupletOnNoteheadSide(notes as EngravedNote[], location))
         vt.options.bracketed = bracketed
 
         // The MARK is ours, not VexFlow's: it can print a bare number or a ratio, but not "ratio +

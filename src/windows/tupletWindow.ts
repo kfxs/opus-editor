@@ -89,7 +89,7 @@ const NUMBER_STYLES: { value: TupletNumberStyle; label: string }[] = [
   { value: 'none', label: 'None' },
 ]
 
-/** What the tuplet's BRACKET does. Sibelius's right column — auto = drawn only when unbeamed. */
+/** What the tuplet's BRACKET does. Sibelius's right column — auto = drawn when unbeamed, or when the mark is on the notehead side. */
 const BRACKETS: { value: TupletBracket; label: string }[] = [
   { value: 'auto', label: 'Auto-bracket' },
   { value: 'always', label: 'Bracket' },

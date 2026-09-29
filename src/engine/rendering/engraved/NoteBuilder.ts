@@ -425,19 +425,36 @@ export const TUPLET_LOCATION_BELOW = -1
  * counted. Moved out of `ScoreRenderer.calculateTupletLocation` (2026-09-25) so the spine asks the same rule.
  */
 export function stemMajorityTupletLocation(notes: EngravedNote[]): number {
-  let stemsUp = 0
-  let stemsDown = 0
+  const { up, down } = stemVotes(notes)
+  return down > up ? TUPLET_LOCATION_BELOW : TUPLET_LOCATION_ABOVE
+}
+
+/**
+ * ⭐ **Is the mark on the NOTEHEAD side?** — `location` opposite the group's stem MAJORITY. With an even
+ * split (or no stems) there is no notehead side, so the answer is false. Asked after the beams, like the
+ * side itself: a beam turns every stem one way. What `tupletBracketed` asks for its `auto` row.
+ */
+export function tupletOnNoteheadSide(notes: EngravedNote[], location: number): boolean {
+  const { up, down } = stemVotes(notes)
+  if (up === down) return false
+  return location !== (down > up ? TUPLET_LOCATION_BELOW : TUPLET_LOCATION_ABOVE)
+}
+
+/** The group's stems, counted: a rest or a stemless note has no vote. */
+function stemVotes(notes: EngravedNote[]): { up: number; down: number } {
+  let up = 0
+  let down = 0
   for (const note of notes) {
     try {
       if (note.isRest() || !note.hasStem() || !note.getStem()) continue
       const direction = noteRuler(note).stemDirection
-      if (direction === 1) stemsUp++
-      else if (direction === -1) stemsDown++
+      if (direction === 1) up++
+      else if (direction === -1) down++
     } catch (_e) {
       // a note that cannot say where its stem goes has no vote
     }
   }
-  return stemsDown > stemsUp ? TUPLET_LOCATION_BELOW : TUPLET_LOCATION_ABOVE
+  return { up, down }
 }
 
 export function resolveTupletLocation(

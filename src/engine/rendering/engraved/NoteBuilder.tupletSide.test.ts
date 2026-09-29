@@ -3,7 +3,7 @@
  * stems-up triplet had its number under the heads). Stand-in notes carry only what the rule asks.
  */
 import { describe, it, expect } from 'vitest'
-import { stemMajorityTupletLocation, TUPLET_LOCATION_ABOVE, TUPLET_LOCATION_BELOW } from './NoteBuilder'
+import { stemMajorityTupletLocation, tupletOnNoteheadSide, TUPLET_LOCATION_ABOVE, TUPLET_LOCATION_BELOW } from './NoteBuilder'
 
 type Notes = Parameters<typeof stemMajorityTupletLocation>[0]
 const stem = (dir: 1 | -1) => ({ isRest: () => false, hasStem: () => true, getStem: () => ({}), getStemDirection: () => dir })
@@ -29,5 +29,24 @@ describe('stemMajorityTupletLocation — the STEM side', () => {
     expect(side(stem(1), rest(), rest())).toBe(TUPLET_LOCATION_ABOVE)
     expect(side(whole(), whole(), whole())).toBe(TUPLET_LOCATION_ABOVE)
     expect(side(rest(), stem(-1), rest())).toBe(TUPLET_LOCATION_BELOW)
+  })
+})
+
+describe('tupletOnNoteheadSide — the mark opposite the stem majority', () => {
+  const on = (location: number, ...notes: object[]) => tupletOnNoteheadSide(notes as unknown as Notes, location)
+
+  it('stems up with the mark below, or stems down with it above, is the notehead side', () => {
+    expect(on(TUPLET_LOCATION_BELOW, stem(1), stem(1), stem(1))).toBe(true)
+    expect(on(TUPLET_LOCATION_ABOVE, stem(-1), stem(-1))).toBe(true)
+  })
+
+  it('on the stem side it is not', () => {
+    expect(on(TUPLET_LOCATION_ABOVE, stem(1), stem(1))).toBe(false)
+    expect(on(TUPLET_LOCATION_BELOW, stem(-1), rest())).toBe(false)
+  })
+
+  it('an even split, or no stems at all, has no notehead side', () => {
+    expect(on(TUPLET_LOCATION_BELOW, stem(1), stem(-1))).toBe(false)
+    expect(on(TUPLET_LOCATION_ABOVE, rest(), whole())).toBe(false)
   })
 })

@@ -32,3 +32,35 @@ test('🚨 a beam that turns the stems DOWN puts the number BELOW — the side i
     expect(y, `triplet ${i + 1}'s number is BELOW the staff's middle — the beam's side`).toBeGreaterThan(out.middle)
   }
 })
+
+/**
+ * ⭐ **A number on the NOTEHEAD side gets a bracket, beamed or not** — Gould p. 199, Stone p. 27, Gerou & Lusk
+ * p. 157 (his rule, 2026-09-29). Only on `auto`: the user's `never` keeps it bare.
+ */
+test('⭐ a beamed triplet flipped to the NOTEHEAD side is bracketed on auto — and `never` still wins', async ({ score }) => {
+  const out = await score.evaluate(async () => {
+    const h = window.__h
+    const e = h.engine
+    // E4 F4 G4 eighths — beamed, stems UP: the stem side is ABOVE.
+    const t = e.createTupletAtBeat(1, 0, '8', { step: 'E', alter: 0, octave: 4 })!
+    const id = t.tuplet.id
+    e.addNoteAtBeat({ step: 'F', alter: 0, octave: 4, duration: '8', measure: 1, beat: h.frac(1, 3), tupletId: id, actualDuration: h.frac(1, 3) } as never)
+    e.addNoteAtBeat({ step: 'G', alter: 0, octave: 4, duration: '8', measure: 1, beat: h.frac(2, 3), tupletId: id, actualDuration: h.frac(1, 3) } as never)
+    const reg = (e as unknown as { renderer: { getElementRegistry(): { getByType(t: string): { tupletId?: string; tupletGeometry?: { location: number; bracketed: boolean } }[] } } }).renderer.getElementRegistry()
+    const drawn = async () => {
+      await h.render()
+      const g = reg.getByType('tuplet').find(el => el.tupletId === id)?.tupletGeometry
+      return { location: g?.location, bracketed: g?.bracketed }
+    }
+    const data = e.getScore().measures[0].tuplets!.find(x => x.id === id)!
+    const auto = await drawn()
+    data.placement = 'below'
+    const flipped = await drawn()
+    data.bracket = 'never'
+    const never = await drawn()
+    return { auto, flipped, never }
+  })
+  expect(out.auto, 'stem side, beamed: no bracket').toEqual({ location: 1, bracketed: false })
+  expect(out.flipped, 'notehead side: bracketed').toEqual({ location: -1, bracketed: true })
+  expect(out.never, 'the user said never').toEqual({ location: -1, bracketed: false })
+})

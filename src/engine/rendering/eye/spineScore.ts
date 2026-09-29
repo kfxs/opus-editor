@@ -48,7 +48,7 @@ import { fracToNumber } from '@/utils/fraction'
 import type { StaffKeys } from '@/utils/keySignature'
 import { voiceOf } from '@/utils/lanes'
 import { getMeterInfo } from '@/utils/meter'
-import { createStaveNotesFromSlots, resolveTupletLocation, stemMajorityTupletLocation } from '../engraved/NoteBuilder'
+import { createStaveNotesFromSlots, resolveTupletLocation, stemMajorityTupletLocation, tupletOnNoteheadSide } from '../engraved/NoteBuilder'
 import { ScoreTuplet } from '../engraved/ScoreTuplet'
 import { staveFrame, staveOf } from '../staff/staveFrame'
 import { noteRuler } from '../engraved/noteRuler'
@@ -410,7 +410,7 @@ function tupletsOf(
     const members = idx.map(i => notes[i])
     const location = resolveTupletLocation(data.placement, multiVoice, voice, stemMajorityTupletLocation(members))
     const tuplet = new ScoreTuplet(members, { numNotes: data.numNotes, notesOccupied: data.notesOccupied, location })
-    const bracketed = tupletBracketed(data, members.every(note => note.hasBeam()))
+    const bracketed = tupletBracketed(data, members.every(note => note.hasBeam()), tupletOnNoteheadSide(members, location))
     tuplet.options.bracketed = bracketed
     tuplet.setMarkRuns(tupletMarkRuns(data, data.numberStyle, { meter: measure.timeSignature, beat: data.startBeat }))
     let endS: number | undefined

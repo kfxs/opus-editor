@@ -51,7 +51,7 @@ const NUMBER_STYLES: Array<[TupletNumberStyle | 'auto', string]> = [
   ['none', 'none'],
 ]
 const BRACKETS: Array<[TupletBracket, string]> = [
-  ['auto', 'auto — only when unbeamed'],
+  ['auto', 'auto — unbeamed, or on the notehead side'],
   ['always', 'show'],
   ['never', 'hide'],
 ]

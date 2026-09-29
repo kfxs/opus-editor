@@ -213,9 +213,17 @@ describe('musicUtils', () => {
       expect(tupletBracketed({ bracket: 'auto' }, true)).toBe(false)
     })
 
+    it('⭐ …and brackets a BEAMED group whose mark is on the NOTEHEAD side (Gould p. 199, Stone p. 27, G&L p. 157)', () => {
+      expect(tupletBracketed({}, true, true)).toBe(true)
+      expect(tupletBracketed({ bracket: 'auto' }, true, true)).toBe(true)
+      expect(tupletBracketed({}, true, false)).toBe(false)
+    })
+
     it('obeys an explicit choice whatever the beam does', () => {
       expect(tupletBracketed({ bracket: 'always' }, true)).toBe(true)
       expect(tupletBracketed({ bracket: 'never' }, false)).toBe(false)
+      // …and whatever the side: the user's `never` keeps a flipped number bare
+      expect(tupletBracketed({ bracket: 'never' }, true, true)).toBe(false)
     })
   })
 

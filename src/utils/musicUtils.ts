@@ -149,17 +149,20 @@ export function tupletBracketEnd(t: TupletFormat): TupletBracketEnd {
 
 /**
  * Does this group get a bracket? Its own choice, or — for `auto` and for absent — the rule: **no
- * bracket when a beam already shows the group**, one when it does not.
+ * bracket when a beam already shows the group**, one when it does not — ⭐ **and one whenever the mark
+ * stands on the NOTEHEAD side**, beamed or not (his rule, 2026-09-29, from the books: Gould p. 199,
+ * Stone p. 27, Gerou & Lusk p. 157 — away from its beam a bare number would read as the beam's;
+ * docs/research/tuplet-side-research.md). `always` / `never` are the user's and win over both.
  *
  * The beam and the bracket say the same thing (these notes are one group), so drawing both is saying
  * it twice; the bracket exists for the groups a beam cannot cover — quarters and longer, or a group
  * broken across beams. Which is why `beamed` is asked for rather than derived here: only the renderer
  * knows whether the beam actually happened, and it knows it AFTER the beams are built.
  */
-export function tupletBracketed(t: TupletFormat, beamed: boolean): boolean {
+export function tupletBracketed(t: TupletFormat, beamed: boolean, onNoteheadSide = false): boolean {
   if (t.bracket === 'always') return true
   if (t.bracket === 'never') return false
-  return !beamed
+  return !beamed || onNoteheadSide
 }
 
 /**

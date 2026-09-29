@@ -232,7 +232,7 @@ The window's *Format* box is stored on the tuplet as `TupletFormat` (`types/musi
 | field | values | absent means |
 |---|---|---|
 | `numberStyle` | `number` · `ratio` · `ratioNote` · `entryRatio` · `none` | the rule in `autoNumberStyle` |
-| `bracket` | `auto` · `always` · `never` | the rule in `tupletBracketed` |
+| `bracket` | `auto` · `always` · `never` | the rule in `tupletBracketed`: on `auto`, bracketed when unbeamed OR when the mark is on the notehead side (2026-09-29, docs/research/tuplet-side-research.md) |
 | `bracketEnd` | `lastNote` · `division` · `beforeNext` | `DEFAULT_TUPLET_BRACKET_END` (`lastNote`) |
 
 **Absent means the RULE, not a gap.** That is what makes `Ctrl+3` a complete answer rather than a
