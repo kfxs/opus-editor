@@ -40,7 +40,7 @@ import { captureStampedSilence, restoreStampedSilence } from './barRestOps'
 import { keepLegalCrossings } from './crossStaffOps'
 import { clearEngravingOverride, setEngravingOverride } from './overrideOps'
 import { cloneFanFresh, chordStoredPitches, fanMemberBeats } from '@/utils/fannedBeam'
-import { cloneGraceFresh, gracePitchesOf } from '@/utils/graceNotes'
+import { GRACE_SIDES, cloneGraceFresh, graceGroupOf, gracePitchesOf } from '@/utils/graceNotes'
 import { bracketedPitchesOf, cloneBracketedFresh } from '@/utils/bracketedGraces'
 import { v4 as uuidv4 } from 'uuid'
 import { voiceOf } from '@/utils/lanes'
@@ -108,7 +108,7 @@ type SlurPitch = { step: NotePitch['step']; alter: NotePitch['alter']; octave: n
  * rebar'd note); an endpoint OUTSIDE the region keeps its id verbatim (not regenerated).
  */
 type CapturedSlurEnd =
-  | { offset: Fraction; pitch: SlurPitch; voice: number; externalId?: undefined }
+  | { offset: Fraction; pitch: SlurPitch; voice: number; grace?: string; externalId?: undefined }
   | { externalId: string; offset?: undefined; pitch?: undefined; voice?: undefined }
 
 /**
@@ -1373,7 +1373,7 @@ function linkTieById(score: Score, fromId: string, toId: string): void {
 
 /** A region note as a span's end is re-found by: WHEN it starts (absolute, from the region's
  *  start), WHAT it is, and its voice. */
-type RegionAnchor = { offset: Fraction; pitch: SlurPitch; voice: number }
+type RegionAnchor = { offset: Fraction; pitch: SlurPitch; voice: number; grace?: string }
 
 /**
  * Region pitch id → its anchor, measured with the measures' CURRENT (pre-rebar) capacities — what
@@ -1392,7 +1392,37 @@ function regionAnchorsById(regionMeasures: Measure[]): Map<string, RegionAnchor>
       }
     }
   })
+  forEachRegionGracePitch(regionMeasures, (p, s, offset, grace) => {
+    inRegion.set(p.id, { offset, pitch: { step: p.step, alter: p.alter, octave: p.octave }, voice: voiceOf(s), grace })
+  })
   return inRegion
+}
+
+/**
+ * Every GRACE pitch of the region, with the anchor its host is re-found by. A re-bar mints the
+ * graces fresh ids (`cloneGraceFresh`), so a slur on one must be re-found like a head's — by its
+ * HOST's onset + voice, plus WHICH grace (`grace`: side + index in the group) and its pitch.
+ *
+ * ⚠️ A group AFTER rides the LAST piece of a split host (`utils/rebar`), so it is keyed by the
+ * host's END, which a split does not move; a group BEFORE rides the first piece, keyed by its start.
+ */
+function forEachRegionGracePitch(
+  measures: Measure[],
+  visit: (pitch: NotePitch, slot: ChordRest, offset: Fraction, grace: string) => void,
+): void {
+  forEachRegionMeasure(measures, (m, base) => {
+    for (const s of m.slots) {
+      for (const side of GRACE_SIDES) {
+        const group = graceGroupOf(s, side)
+        if (!group) continue
+        const start = fracAdd(base, s.beat)
+        const offset = side === 'before' ? start : fracAdd(start, slotLength(s))
+        group.notes.forEach((note, k) => {
+          for (const p of note.pitches) visit(p, s, offset, `${side}${k}`)
+        })
+      }
+    }
+  })
 }
 
 /** Every chord pitch of the NEW region with its absolute onset offset. A number with no measure
@@ -1423,9 +1453,14 @@ function capturedEndResolver(score: Score, regionNumbers: number[]): (end: Captu
     const key = slurAnchorKey(offset, { step: p.step, alter: p.alter, octave: p.octave }, voiceOf(s))
     if (!lookup.has(key)) lookup.set(key, p.id)
   })
+  const measures = regionNumbers.map(num => getMeasure(score, num)).filter((m): m is Measure => !!m)
+  forEachRegionGracePitch(measures, (p, s, offset, grace) => {
+    const key = slurAnchorKey(offset, { step: p.step, alter: p.alter, octave: p.octave }, voiceOf(s), grace)
+    if (!lookup.has(key)) lookup.set(key, p.id)
+  })
   return end => end.externalId !== undefined
     ? end.externalId
-    : lookup.get(slurAnchorKey(end.offset, end.pitch, end.voice))
+    : lookup.get(slurAnchorKey(end.offset, end.pitch, end.voice, end.grace))
 }
 
 /** Where a paste is landing — what turns a clip's RELATIVE address into a note of the score. */
@@ -1492,9 +1527,11 @@ function captureSlurs(score: Score, regionMeasures: Measure[]): CapturedSlur[] {
   return captured
 }
 
-/** Canonical lookup key for a slur anchor: absolute onset offset + exact pitch + voice. */
-function slurAnchorKey(offset: Fraction, pitch: SlurPitch, voice: number): string {
-  return `${offset.num}/${offset.den}|${pitch.step}/${pitch.alter}/${pitch.octave}|v${voice}`
+/** Canonical lookup key for a slur anchor: absolute onset offset + exact pitch + voice (+ which
+ *  grace, for a grace anchor — see {@link forEachRegionGracePitch}). */
+function slurAnchorKey(offset: Fraction, pitch: SlurPitch, voice: number, grace?: string): string {
+  const key = `${offset.num}/${offset.den}|${pitch.step}/${pitch.alter}/${pitch.octave}|v${voice}`
+  return grace === undefined ? key : `${key}|g${grace}`
 }
 
 /**

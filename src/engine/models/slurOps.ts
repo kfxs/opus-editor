@@ -31,6 +31,7 @@ import { voiceOf } from '@/utils/lanes'
 import { onSameStaff } from '@/utils/dynamicScope'
 import { v4 as uuidv4 } from 'uuid'
 import { chordStoredPitches } from '@/utils/fannedBeam'
+import { gracePitchesOf } from '@/utils/graceNotes'
 import { engravingOverrideOf } from './engravingOverrides'
 import { setEngravingOverride, clearEngravingOverride } from './overrideOps'
 
@@ -592,6 +593,10 @@ export function repairDanglingSlurs(score: Score): void {
         // this defensive pass runs.
         for (const p of chordStoredPitches(s)) ids.add(p.id)
       } else ids.add(s.id)
+      // ⭐ …and the GRACES (a rest may carry them too): a grace is a head a slur can start or end on.
+      // Left out, every grace-anchored slur in the score was dropped by the next re-bar, paste or
+      // measure delete ANYWHERE — the sweep is score-wide.
+      for (const p of gracePitchesOf(s)) ids.add(p.id)
     }
   }
   for (let i = slurs.length - 1; i >= 0; i--) {

@@ -14,6 +14,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { ScoreModel } from './ScoreModel'
 import { repairDanglingSlurs, setSlurOffset } from './slurOps'
+import { addGrace } from './graceOps'
 import { fracCreate as fracOf } from '@/utils/fraction'
 import { curveShapeOverrideOf, endpointOffsetOverrideOf, slurOffsetOverrideOf, segmentCurveShapeOverrideOf, segmentEndpointOffsetOverrideOf } from './engravingOverrides'
 import type { CurveControlPointDeltas } from '@/types/music'
@@ -420,5 +421,16 @@ describe('repairDanglingSlurs — the belt behind a re-bar\'s slur restore', () 
     repairDanglingSlurs(model.getScore())
 
     expect(model.getSlurs()).toHaveLength(1)
+  })
+
+  it('⭐ a GRACE is an anchor — a slur from a grace to its main note survives the sweep', () => {
+    const model = new ScoreModel()
+    const host = model.addNote({ step: 'E', alter: 0, octave: 5, duration: 'q', measure: 1, beat: fracOf(0, 1) })
+    const grace = addGrace(model.getScore(), host.id, 'before', { step: 'F', alter: 0, octave: 5 }, 'acciaccatura', { duration: '8' })!
+    const slur = model.addSlur({ startNoteId: grace.pitches[0].id, endNoteId: host.id })
+
+    repairDanglingSlurs(model.getScore())
+
+    expect(model.getSlurs().map(s => s.id)).toEqual([slur.id])
   })
 })

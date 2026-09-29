@@ -438,6 +438,15 @@ selectable in this plan; the press toggles it (§3.2).
   reused bar lost the rest's graces' highlight group and slur anchor) and the slur's bar lookup
   (`SlurRenderer.measureOfNoteId`: its slur had no measure and was skipped). Both now read
   `gracePitchesOf(slot)`, which knows a rest. ⛔ Never `s.type === 'chord' && gracePitchesOf(s)`.
+  🚨 **A slur on a grace SURVIVES the sweeps** (his report, 2026-09-29 — *"it lost the slur of the grace
+  from times to times… i dont know what triggers it"*): `slurOps.repairDanglingSlurs` collected chord heads
+  and fan members but no graces, and it is SCORE-WIDE — so every re-bar (a meter change), paste or measure
+  delete, ANYWHERE, dropped every grace-anchored slur in the score. It now reads `gracePitchesOf(slot)`. And
+  a re-bar mints graces fresh ids (`cloneGraceFresh`), so `rebarOps`' slur capture/restore re-finds a grace
+  anchor too (`forEachRegionGracePitch`): its HOST's onset + voice, WHICH grace (`side` + index) and its
+  pitch — a group AFTER keyed by the host's END, since it rides the last piece of a split.
+  ⏭️ Not yet: a slur on a grace inside a COPIED clip (the clip's slurs record heads only), and bracketed
+  graces as slur anchors.
   ⏳ **OPEN (his call): the DOT's gap on a grace** — proportional (MuseScore · Verovio · LilyPond; what is
   built, `graceDotXs`) or full-size (the books' dotted CUE notes — no book draws a dotted grace;
   research §0 Part F). One number either way; the proportional default stands until he picks.

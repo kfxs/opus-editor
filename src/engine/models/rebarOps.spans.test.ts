@@ -14,6 +14,7 @@
  */
 import { describe, it, expect, beforeEach } from 'vitest'
 import { ScoreModel } from './ScoreModel'
+import { addGrace } from './graceOps'
 import type { NoteParams } from '@/types/music'
 import { fracCreate as frac, fracToNumber } from '@/utils/fraction'
 
@@ -237,5 +238,52 @@ describe('rebar voice-scopes ties and slurs (P2)', () => {
     expect(end.voice).toBe(1)
     expect(start.step).toBe('C')
     expect(end.step).toBe('D')
+  })
+})
+
+describe('rebar preserves a slur on a GRACE (fresh grace ids are re-found)', () => {
+  const graceSlurFixture = (side: 'before' | 'after') => {
+    const model = new ScoreModel() // 4/4
+    model.addMeasure()
+    const a = model.addNote({ step: 'C', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(2, 1) })
+    const b = model.addNote({ step: 'D', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(3, 1) })
+    const host = side === 'before' ? b : a
+    const grace = addGrace(model.getScore(), host.id, side, { step: 'G', alter: -1, octave: 5 }, 'acciaccatura', { duration: '8' })!
+    const gid = grace.pitches[0].id
+    const slur = side === 'before'
+      ? model.addSlur({ startNoteId: gid, endNoteId: b.id, voice: 0 })
+      : model.addSlur({ startNoteId: a.id, endNoteId: gid, voice: 0 })
+    return { model, slur, gid }
+  }
+
+  const gracePitchIds = (model: ScoreModel): Set<string> => {
+    const ids = new Set<string>()
+    for (const m of model.getScore().measures) for (const s of m.slots) {
+      for (const g of [s.type === 'chord' ? s.graceAfter : undefined, s.graceBefore]) {
+        for (const n of g?.notes ?? []) for (const p of n.pitches) ids.add(p.id)
+      }
+    }
+    return ids
+  }
+
+  for (const side of ['before', 'after'] as const) {
+    it(`a grace ${side.toUpperCase()} keeps its slur across a time-signature change over its bar`, () => {
+      const { model, slur, gid } = graceSlurFixture(side)
+
+      model.setTimeSignature(1, { numerator: 3, denominator: 4 })
+
+      const slurs = model.getSlurs()
+      expect(slurs.map(s => s.id)).toEqual([slur.id])
+      const graceEnd = side === 'before' ? slurs[0].startNoteId : slurs[0].endNoteId
+      expect(graceEnd).not.toBe(gid) // the re-bar minted a fresh id…
+      expect(gracePitchIds(model).has(graceEnd)).toBe(true) // …and the slur follows it
+    })
+  }
+
+  it('a grace slur survives a re-bar that does not touch its bar (the sweep is score-wide)', () => {
+    const { model, slur } = graceSlurFixture('before')
+    model.addMeasure()
+    model.setTimeSignature(3, { numerator: 3, denominator: 4 })
+    expect(model.getSlurs().map(s => s.id)).toEqual([slur.id])
   })
 })
