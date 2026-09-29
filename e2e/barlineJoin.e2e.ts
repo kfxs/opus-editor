@@ -116,6 +116,39 @@ test('⭐⭐ a REPEAT’s dots stay per staff — only the strokes cross the gap
   expect(gapDots, '⛔ and NONE of its dots — they are drawn on each staff, by the font').toBe(0)
 })
 
+test('⭐⭐ a THIN DOUBLE crosses the gap as TWO strokes, each continuous with its staff’s', async ({ score }) => {
+  // docs/plans/double-barline-plan.md P4 — the join reads the sign's parts, so it needs no case of its own.
+  await joinedGrandStaff(score)
+  await score.evaluate(async () => {
+    window.__h.engine.setBarlineStyle(1, 'double')
+    await window.__h.render()
+  })
+  const { gap, gapDots, upperSign, lowerSign } = await drawn(score)
+  expect(upperSign.length, 'each staff draws the two lines').toBe(2)
+  expect(lowerSign.length).toBe(2)
+  expect(gap.length, 'both lines cross the gap').toBe(2)
+  expect(gapDots).toBe(0)
+  const byX = <T extends { x: number }>(a: T[]) => [...a].sort((p, q) => p.x - q.x)
+  const [g, up, low] = [byX(gap), byX(upperSign), byX(lowerSign)]
+  for (const i of [0, 1]) {
+    expectContinuous(g[i], up[i], low[i], `the double's ${i === 0 ? 'left' : 'right'} line`)
+    expect(g[i].x, 'collinear with the staves’ own stroke').toBeCloseTo(up[i].x, 0)
+  }
+})
+
+test('⛔ …and UNJOINED, a thin double draws nothing in the gap — two lines on each staff', async ({ score }) => {
+  await score.evaluate(async () => {
+    const h = window.__h
+    h.engine.addStaffBelow(0)
+    h.engine.setBarlineStyle(1, 'double')
+    await h.render()
+  })
+  const { gap, upperSign, lowerSign } = await drawn(score)
+  expect(gap.length, 'nothing is joined by default').toBe(0)
+  expect(upperSign.length).toBe(2)
+  expect(lowerSign.length).toBe(2)
+})
+
 test('⭐ a SMALL staff’s join is not distorted — the gap is drawn in SCORE space', async ({ score }) => {
   await joinedGrandStaff(score)
   const before = await drawn(score)

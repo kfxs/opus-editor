@@ -36,7 +36,7 @@ The RIGHT line stands exactly where the plain line stands today (`x: 0`, the div
 left line is the new ink, `x: −(gap + thin)`, half `end`. ⇒ Stamping `‖` never moves the music AFTER
 the line, only claims room before it — the `final` bar's arrangement. No thick line ⇒ no wings.
 
-## 3. Phases
+## 3. Phases — ✅ P0–P4 built 2026-09-29
 
 **P0 — the preset row.** `engine/layout/doubleBarlineGap.ts`: `DOUBLE_BARLINE_GAP_RULES` (the table
 above), armed `gould`, set/reset/settings, and its generation in `layout/widthRowGenerations` (it

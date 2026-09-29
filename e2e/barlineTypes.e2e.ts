@@ -106,6 +106,32 @@ test('🚨 the thin double claims ROOM — in a PACKED bar the last note keeps t
   expect(Math.abs(out.double - out.plain), `white before the ink: plain ${out.plain} vs double ${out.double}`).toBeLessThanOrEqual(1)
 })
 
+test('⭐ a thin double on a SYSTEM’S LAST bar ends that system; the next opens with its own single line', async ({ score }) => {
+  const out = await score.evaluate(async () => {
+    const h = window.__h
+    while (h.engine.getScore().measures.length < 24) h.engine.addMeasure()
+    await h.render()
+    // The last bar of the first system: the first bar whose successor sits on another row.
+    const top = (m: number) => h.staves().find(s => s.measure === m)!.top
+    let last = 1
+    while (last < 23 && Math.abs(top(last + 1) - top(last)) < 1) last++
+    h.engine.setBarlineStyle(last, 'double')
+    await h.render()
+    const end = h.staves().find(s => s.measure === last)!
+    const next = h.staves().find(s => s.measure === last + 1)!
+    const row = (st: typeof end) => h.barlines().filter(r => Math.abs(r.y - st.top) < 2)
+    return {
+      last, wrapped: Math.abs(next.top - end.top) > 1,
+      endInk: row(end).filter(r => r.x > end.x2 - 2 * 10 && r.x < end.x2 + 2 * 10).map(r => r.x - end.x2),
+      nextOpening: row(next).filter(r => Math.abs(r.x - next.x1) < 1).length,
+    }
+  })
+  expect(out.wrapped, `bar ${out.last} closes its system`).toBe(true)
+  expect(out.endInk, 'two strokes at the system’s end').toHaveLength(2)
+  expect(Math.max(...out.endInk), 'the right one where the plain line stands').toBeCloseTo(0, 0)
+  expect(out.nextOpening, 'the next system opens with its own single line').toBe(1)
+})
+
 test('every other boundary keeps the plain single line it always had', async ({ score }) => {
   const { rects, staves } = await drawn(score, 5, `h.engine.setBarlineStyle(3, 'final')`)
 
