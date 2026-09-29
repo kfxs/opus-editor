@@ -41,6 +41,7 @@ import { slotLength } from '@/utils/durations'
 import { voiceOf } from '@/utils/lanes'
 import { findSlot } from './slotLookup'
 import { isBracketedGrace } from './bracketedGraceOps'
+import { isGraceNote } from './graceOps'
 import { keyStaffId, staffIndexOfId } from './staffContent'
 import * as overrideOps from './overrideOps'
 import { fillGapsWithRests } from './restFillOps'
@@ -101,6 +102,10 @@ export function clearNoteRange(score: Score, noteIds: readonly string[], deps: C
     // ⭐ A BRACKETED grace leaves no hole — it takes no time — so it is deleted IN PLACE, as itself
     //    (`deleteNoteOps`; bracketed-grace-plan P2b).
     if (isBracketedGrace(score, id)) { inPlace.push(id); continue }
+    // ⭐ …and a GRACE NOTE for the same reason (`deleteNoteOps` → `graceOps.removeGrace`). ⚠️ `findSlot`
+    //    below does not see one without its opt-in, so it used to fall through `if (!found) continue`
+    //    and Delete did nothing at all (his report, 2026-09-29).
+    if (isGraceNote(score, id)) { inPlace.push(id); continue }
     const found = findSlot(score, id, { fanMembers: true })
     if (!found) continue
     if (found.type === 'chord' && found.member) { inPlace.push(id); continue }

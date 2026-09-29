@@ -112,6 +112,9 @@ grace: { side, index, note } }`; `attackOf` returns the `GraceNote`. `isFanMembe
 
 **Delete** (`shortcutWiring` → `deleteNoteOps`): a grace pitch deletes as a grace — one branch beside
 the fan member's in `deleteNoteWithRepair`, and no bar repair, because nothing rhythmic left the bar.
+⚠️ The Delete KEY goes through `clearOps.clearNoteRange` first, which must route a grace to that
+in-place delete (`isGraceNote`) — its `findSlot` has no grace opt-in, so until 2026-09-29 it skipped
+the id and Delete did nothing (`clearOps.grace.test.ts`).
 
 **Undo**: a whole-score snapshot, so free — one `mutate(description)` per op.
 
