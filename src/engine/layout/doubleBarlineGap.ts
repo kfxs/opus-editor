@@ -11,7 +11,9 @@
  * 0.45–0.55 left edge to left edge, a white of ≈0.30 — and every engine draws what she DREW. ⭐ Her
  * drawing beats her sentence, so `gould` is the plate and the sentence is the `prose` row.
  *
- * 📄 Measurements: `reference/README.md`, the barline-family Q&A (2026-08-26).
+ * 📄 Measurements: `reference/README.md`, the barline-family Q&A (2026-08-26), and every row re-checked
+ * by `docs/research/barline-thickness-research.md` (2026-09-29, §6.4) — which corrected `gerouLusk` and
+ * `bravuraGlyph`, split `prose` into its three readings and added the last four rows.
  */
 
 /** One rule: the clear white between the two lines, in staff spaces — INK to INK. */
@@ -27,12 +29,17 @@ export const DOUBLE_BARLINE_GAP_RULES = {
    *  edge, a white of ≈0.30 (measured at 450 dpi). The same white she puts between a final bar's lines. */
   gould: { gap: 0.30, source: 'Gould pp. 238–239, five engraved thin doubles, measured' },
   /** What Gould (p. 39) and Ross (p. 152) SAY — *"about ¾ stave-space apart"* — read as line CENTRE to
-   *  centre (0.75 − one 0.16 stroke). ⚠️ Neither says centres or white; read as white it is 0.75, wider
-   *  still, and no plate of either draws it. */
+   *  centre (0.75 − one 0.16 stroke). ⚠️ Neither says which edges; this is one of THREE readings, and no
+   *  source says which is meant (research §6.4) — the other two are the next two rows. */
   prose: { gap: 0.59, source: 'Gould p. 39 + Ross p. 152 "about ¾ space apart", as centre to centre' },
-  /** Gerou & Lusk's p. 29 plate: 0.38 sp left edge to left edge (400 dpi), less our 0.16 stroke — their
-   *  stroke width was not measured, so ≈. */
-  gerouLusk: { gap: 0.22, source: 'Gerou & Lusk p. 29 plate, 0.38 left to left, less a 0.16 stroke' },
+  /** The same sentence read as the WHITE between the lines. No plate of either draws it. */
+  proseWhite: { gap: 0.75, source: 'Gould p. 39 + Ross p. 152 "about ¾ space apart", as the white' },
+  /** The same sentence read as OUTER edge to outer edge (0.75 − two 0.16 strokes) — the reading Ross's own
+   *  p. 152 plate fits (research §3.4). */
+  proseOuter: { gap: 0.43, source: 'Gould p. 39 + Ross p. 152 "about ¾ space apart", as outer edges (fits Ross\'s plate)' },
+  /** What Gerou & Lusk DRAW: four thin doubles (pp. 26, 28 twice, 29), white 0.35–0.37 sp measured.
+   *  ⚠️ Corrected 2026-09-29 from 0.22 — the 0.38 left-to-left it was built on did not reproduce. */
+  gerouLusk: { gap: 0.36, source: 'Gerou & Lusk pp. 26, 28, 29 — four thin doubles, white 0.35–0.37 measured' },
   /** What we would draw with no table — `barlineSign`'s SEPARATION, the white between a final bar's thin
    *  and thick lines today. */
   finalBar: { gap: 0.32, source: "our final barline's thin↔thick white (barlineSign SEPARATION)" },
@@ -42,8 +49,19 @@ export const DOUBLE_BARLINE_GAP_RULES = {
   musescore: { gap: 0.37, source: 'MuseScore doubleBarDistance 0.37sp' },
   /** Verovio's `barlineSeparation` — SMuFL / Bravura `engravingDefaults.barlineSeparation`. */
   verovio: { gap: 0.40, source: 'Verovio barlineSeparation = SMuFL engravingDefaults 0.40' },
-  /** Bravura's precomposed `barlineDouble` (U+E031): 0.576 wide, two 0.144 strokes ⇒ 0.288 of white. */
-  bravuraGlyph: { gap: 0.288, source: 'Bravura barlineDouble glyph 0.576 wide, two 0.144 strokes' },
+  /** Bravura's precomposed `barlineDouble` (U+E031) in the Bravura we vendor (1.481): 0.72 wide = 0.16 +
+   *  0.40 + 0.16. ⚠️ Corrected 2026-09-29 from 0.288, which was Bravura 1.392's glyph — the glyph now
+   *  agrees with the font's own `barlineSeparation` (= the `verovio` row). */
+  bravuraGlyph: { gap: 0.40, source: 'Bravura 1.481 barlineDouble glyph 0.72 wide, two 0.16 strokes' },
+  /** Sebastian's `engravingDefaults.barlineSeparation` — our own second music face. */
+  sebastian: { gap: 0.50, source: 'Sebastian 1.35 engravingDefaults barlineSeparation 0.50' },
+  /** Finale's Maestro default `doubleBarlineSpace`. ⚠️ Whether Finale measures it as the white or another
+   *  way is UNKNOWN (research §4.5). */
+  finale: { gap: 0.60, source: 'Finale Maestro default doubleBarlineSpace (what it measures: UNKNOWN)' },
+  /** Dorico's manual: *"half a space apart by default"*. ⚠️ White or centres UNKNOWN (research §4.6). */
+  dorico: { gap: 0.50, source: 'Dorico 2 manual, Barlines: "half a space apart" (white or centres UNKNOWN)' },
+  /** VexFlow 5's thin double — 2 px at 10 px a space (`stavebarline.js:153–154`), the code we replaced. */
+  vexflow: { gap: 0.20, source: 'VexFlow 5.0.0 stavebarline.js, 2 px at 10 px/sp' },
 } as const satisfies Record<string, DoubleBarlineGapRule>
 
 export type DoubleBarlineGapRuleName = keyof typeof DOUBLE_BARLINE_GAP_RULES

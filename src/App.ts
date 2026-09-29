@@ -1080,7 +1080,7 @@ export function createEditorApp(host: HTMLElement): EditorApp {
     dbg('[flush] forced-layout census: __flush.enable() … __flush.dump() — WHO pays the reflow')
     dbg('[bbox] hit-box visualizer: __bbox.show() / __bbox.show(\'rest\') / __bbox.hide()')
     dbg('[spacing] column census: __spacing.dump() — drawn gaps in staff spaces')
-    dbg("[barlines] pixel-grid census: __barlines.dump() — are they landing on whole pixels? · thin DOUBLE gap: __barlines.double('gould'|'prose'|'gerouLusk'|'finalBar'|'lilypond'|'musescore'|'verovio'|'bravuraGlyph') / .doubleDump() / .doubleReset()")
+    dbg("[barlines] pixel-grid census: __barlines.dump() — are they landing on whole pixels? · thin DOUBLE gap: __barlines.double('gould'|'prose'|'proseWhite'|'proseOuter'|'gerouLusk'|'finalBar'|'lilypond'|'musescore'|'verovio'|'bravuraGlyph'|'sebastian'|'finale'|'dorico'|'vexflow') / .doubleDump() / .doubleReset()")
     dbg('[groups] __groups.bracket() / .brace() / .subBracket() / .none() / .dump() — needs 2+ staves')
     dbg("[slur] shape experiment: __slur.law('musescore'|'verovio'|'lilypond') / .indent(0.167) / .dump() / .reset() · preset: __slur.solver('house') / .brokenSolver('lilypond') · rows: __slur.rule()")
     dbg("[beams] slope experiment: __beams.rule('vexflow'|'musescore'|'interval'|'lilypond'|'verovio') / .dump() / .reset()")

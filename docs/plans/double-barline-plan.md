@@ -21,12 +21,18 @@ knob would let a double's lines disagree with the plain line beside them, which 
 |---|---|---|
 | ✅ **`gould`** — DEFAULT | **0.30** | Gould pp. 238–239: five engraved thin doubles, MEASURED 0.45–0.55 left edge to left edge (`reference/README.md`, barline-family Q&A). ⭐ Her drawing beats her sentence — the fourth time in this library |
 | `prose` | 0.59 | Gould p. 39 *"about ¾ stave-space apart"* and Ross p. 152 *"approximately three-quarters of a space apart"* — ⚠️ read as line CENTRE to centre (0.75 − 0.16). Neither says which; the other reading (0.75 of white) is wider still, and no plate of either draws it |
-| `gerouLusk` | ≈0.22 | G&L p. 29 plate: 0.38 left edge to left edge, measured (− our 0.16 stroke — their stroke width was not measured) |
+| `proseWhite` | 0.75 | the same sentence read as the WHITE (added 2026-09-29, `docs/research/barline-thickness-research.md` §6.4) |
+| `proseOuter` | 0.43 | the same sentence read as OUTER edge to outer edge — the reading Ross's own plate fits (added 2026-09-29, research §6.4) |
+| `gerouLusk` | 0.36 | G&L pp. 26, 28 (×2), 29: four thin doubles, white 0.35–0.37 measured. ⚠️ Corrected 2026-09-29 from ≈0.22 — the 0.38 left-to-left it was built on did not reproduce (research §3.4) |
 | `finalBar` | 0.32 | our `barlineSign.SEPARATION` — the white between a final bar's thin and thick lines today. What we would draw with no table |
 | `lilypond` | 0.30 | `BarLine.kern` (`scm/define-grobs.scm`) |
 | `musescore` | 0.37 | `doubleBarDistance` (`style/styledef.cpp`) |
 | `verovio` | 0.40 | `barlineSeparation` = SMuFL / Bravura `engravingDefaults` |
-| `bravuraGlyph` | 0.288 | Bravura's precomposed `barlineDouble` glyph (0.576 wide) |
+| `bravuraGlyph` | 0.40 | Bravura's precomposed `barlineDouble` glyph in the 1.481 we vendor (0.72 wide). ⚠️ Corrected 2026-09-29 from 0.288, Bravura 1.392's glyph (research §4.4) |
+| `sebastian` | 0.50 | Sebastian `engravingDefaults.barlineSeparation` (added 2026-09-29) |
+| `finale` | 0.60 | Finale Maestro default `doubleBarlineSpace` — ⚠️ what it measures UNKNOWN (added 2026-09-29) |
+| `dorico` | 0.50 | Dorico manual *"half a space apart"* — ⚠️ white or centres UNKNOWN (added 2026-09-29) |
+| `vexflow` | 0.20 | VexFlow 5 `stavebarline.js`, 2 px (added 2026-09-29) |
 
 ⛔ A row is a SOURCE, never an invention. Total width at the default: 0.16 + 0.30 + 0.16 = **0.62 sp**.
 
