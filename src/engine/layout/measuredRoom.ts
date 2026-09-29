@@ -26,8 +26,8 @@ import type { ElementRegistry } from '@/engine/ElementRegistry'
 import { fracToNumber } from '@/utils/fraction'
 import { staffOf } from '@/utils/lanes'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
-import { INK, minColumnGap, pairPadding, restExtent } from './spacingPadding'
-import { barlineSignExtent, ownEndSignKind } from './barlineSign'
+import { INK, minColumnGap, pairPadding, restExtent, FIRST_COLUMN_HAND_CLEARANCE } from './spacingPadding'
+import { barlineSignExtent, ownEndSignKind, BARLINE_BOX_STRADDLE_PX } from './barlineSign'
 
 /**
  * How much further LEFT this column may still be pulled before it closes on its left neighbour,
@@ -58,7 +58,10 @@ export function measuredShrinkRoom(registry: ElementRegistry, measureNumber: num
   const target = fracToNumber(beat)
   const EPSILON = 1e-9
 
-  const byStaff = new Map<number, { beat: number; x: number }[]>()
+  // `x` is the column's leftmost HEAD — what a neighbouring head closes on. `inkLeft` also counts
+  // what hangs LEFT of the head (an accidental, a parenthesis), which is what the bar's note-start
+  // edge closes on: that edge is not a head, so it is floored against differently (below).
+  const byStaff = new Map<number, { beat: number; x: number; inkLeft: number }[]>()
   for (const el of registry.getByMeasure(measureNumber)) {
     if ((el.type !== 'note' && el.type !== 'rest') || el.beat === undefined) continue
     const staff = staffOf(el)
@@ -66,9 +69,14 @@ export function measuredShrinkRoom(registry: ElementRegistry, measureNumber: num
     const x = el.headX ?? el.bbox.x
     // Voices and chord tones share a column: keep its LEFTMOST ink, which is the column's edge.
     const seen = list.find(c => Math.abs(c.beat - el.beat!) < EPSILON)
-    if (seen) seen.x = Math.min(seen.x, x)
-    else list.push({ beat: el.beat, x })
+    if (seen) { seen.x = Math.min(seen.x, x); seen.inkLeft = Math.min(seen.inkLeft, x) }
+    else list.push({ beat: el.beat, x, inkLeft: x })
     byStaff.set(staff, list)
+  }
+  for (const el of registry.getByMeasure(measureNumber)) {
+    if ((el.type !== 'accidental' && el.type !== 'headEnclosure') || el.beat === undefined) continue
+    const column = byStaff.get(staffOf(el))?.find(c => Math.abs(c.beat - el.beat!) < EPSILON)
+    if (column) column.inkLeft = Math.min(column.inkLeft, el.bbox.x)
   }
 
   let room: number | null = null
@@ -77,18 +85,60 @@ export function measuredShrinkRoom(registry: ElementRegistry, measureNumber: num
     const at = columns.findIndex(c => c.beat >= target - EPSILON)
     if (at < 0) continue // nothing at or after the anchor on this staff — it has no say
     const geometry = registry.getStaffGeometry(measureNumber, staff)
-    // The left neighbour, or — for the bar's first column — where notes may start at all.
-    const leftX = at > 0 ? columns[at - 1].x : geometry?.noteStartX
-    if (leftX === undefined) continue
     const staffSpacePx = geometry?.lineSpacing ?? STAFF_SPACE_PX
-    // ⭐ The floor is the MODEL's own — a notehead plus note↔note padding, {@link MIN_COLUMN_GAP} —
-    //   and it is in STAFF SPACES, so a staff drawn small floors at its own smaller number. It used
-    //   to be `MIN_NOTE_SPACING`, an absolute pixel count that was the same on every staff whatever
-    //   its size, and 1.8 spaces where the ink needs 1.43 (docs/plans/spacing-model-plan.md P3).
-    const slack = (columns[at].x - leftX) / staffSpacePx - minColumnGap()
+    let slack: number
+    if (at > 0) {
+      // ⭐ The floor is the MODEL's own — a notehead plus note↔note padding, {@link MIN_COLUMN_GAP} —
+      //   and it is in STAFF SPACES, so a staff drawn small floors at its own smaller number. It used
+      //   to be `MIN_NOTE_SPACING`, an absolute pixel count that was the same on every staff whatever
+      //   its size, and 1.8 spaces where the ink needs 1.43 (docs/plans/spacing-model-plan.md P3).
+      slack = (columns[at].x - columns[at - 1].x) / staffSpacePx - minColumnGap()
+    } else {
+      // ⭐ The bar's FIRST column closes on what stands BEFORE it — the header's ink or the barline —
+      //   and that is NOT a notehead. 🚨 It used to be floored as though one stood at the note-start
+      //   (`− minColumnGap()`), while the drawn gap there is ≈0.6 sp: the slack was always negative
+      //   and no bar's first note could be moved left at all (his report, 2026-09-29). Its leftmost
+      //   INK, accidental included, may come {@link FIRST_COLUMN_HAND_CLEARANCE} from that wall.
+      const wall = leftWallX(registry, measureNumber, staff, columns[at].inkLeft) ?? geometry?.noteStartX
+      if (wall === undefined) continue
+      slack = (columns[at].inkLeft - wall) / staffSpacePx - FIRST_COLUMN_HAND_CLEARANCE
+    }
     room = room === null ? Math.max(0, slack) : Math.min(room, Math.max(0, slack))
   }
   return room
+}
+
+/**
+ * The right edge of whatever stands before a bar's first column on this staff — the header's signs
+ * drawn in this bar (clef, key signature, meter), or the barline that opened it — in the registry's
+ * x, among the ink starting left of `columnX`. `undefined` when the registry holds none (the caller then falls back to the note-start edge).
+ *
+ * ⚠️ These are the registry's boxes: the key signature's and the meter's are INK, the clef's is a
+ * hit width (slightly wide — the clef is rarely the wall, a key or a meter follows it), and the
+ * barline's STRADDLES its line by {@link BARLINE_BOX_STRADDLE_PX}, which is taken back off. The
+ * previous bar's barline only counts on the same SYSTEM — at a system start it is the far end of the
+ * line above.
+ */
+function leftWallX(registry: ElementRegistry, measureNumber: number, staff: number, columnX: number): number | undefined {
+  let wall: number | undefined
+  const push = (x: number) => { wall = wall === undefined ? x : Math.max(wall, x) }
+  for (const el of registry.getByMeasure(measureNumber)) {
+    // 🚨 Only what stands LEFT of the column: a CAUTIONARY sign at the end of the line above is
+    //    filed under this bar too, and taken as the wall it froze a system-start note in place.
+    if (staffOf(el) !== staff || el.bbox.x >= columnX) continue
+    if (el.type === 'clef' && el.beat !== undefined && el.beat > 0) continue // an inline change stands INSIDE the bar
+    if (el.type === 'clef' || el.type === 'keySignature' || el.type === 'timeSignature' || el.type === 'repeatStart') {
+      push(el.bbox.x + el.bbox.width)
+    }
+  }
+  const here = registry.getStaffGeometry(measureNumber, staff)
+  const before = registry.getStaffGeometry(measureNumber - 1, staff)
+  if (here && before && before.lineYPositions[0] === here.lineYPositions[0]) {
+    for (const el of registry.getByMeasure(measureNumber - 1)) {
+      if (el.type === 'barline' && staffOf(el) === staff) push(el.bbox.x + el.bbox.width - BARLINE_BOX_STRADDLE_PX)
+    }
+  }
+  return wall
 }
 
 /**

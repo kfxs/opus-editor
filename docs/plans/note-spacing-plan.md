@@ -221,6 +221,16 @@ column positions back out of the `ElementRegistry`, takes the **minimum gap acro
 column is system-wide, so a collision on any one staff is too far for all of them), and asks each
 staff for its own first column at or after the anchor beat — the same "tick, not slot" rule §4 uses.
 
+⭐ **A bar's FIRST column is floored differently — 2026-09-29, his report** (*"i want to move it more
+and it stops"*). Its left neighbour is not a notehead, so it is not floored at `minColumnGap()`: its
+leftmost INK (accidental and parenthesis included) may come `FIRST_COLUMN_HAND_CLEARANCE` (½ sp,
+`layout/spacingPadding` — a default, Gould p. 43's tightest lead-in) from the WALL before it — the
+header's signs drawn in that bar (clef / key / meter / `|:`) or the previous barline on the same
+system (`measuredRoom.leftWallX`). 🚨 Until then it was floored as though a head stood at
+`noteStartX`, where the drawn gap is ≈0.6 sp: the room was always 0 and no bar's first note moved
+left at all. 🚨 Only a sign starting LEFT of the column counts — a CAUTIONARY key at the end of the
+line above is filed under the new line's first bar, and taken as the wall it froze that note.
+
 ⚠️ **A stale render cannot answer, and this is a live trap, not a technicality.** The gap on screen
 already includes the space stored at that column, so the room and the stored value must come from
 the same moment. Measure a fresh value against an old picture and the floor slides down one step per

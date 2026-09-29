@@ -70,6 +70,24 @@ describe('MusicEngine.nudgeNoteSpacing', () => {
     expect(Number.isFinite(settled)).toBe(true)
   })
 
+  it('the bar\'s FIRST column can be pulled left too — past the note-start, up to the header', () => {
+    // 🚨 2026-09-29: it was floored as though a head stood at the note-start, so its room was always
+    // 0 and the first note of every bar refused to move left.
+    fourQuarters()
+    const beat = fracCreate(0, 1)
+    const registry = engine.getElementRegistry()
+    const noteStartX = registry.getStaffGeometry(1, 0)!.noteStartX
+    let last = 0
+    for (let i = 0; i < 200; i++) last = press(beat, -STEP)!
+    expect(last).toBeLessThan(0)
+    expect(press(beat, -STEP)).toBe(last)
+    const head = registry.getByMeasure(1).find(e => e.type === 'note' && e.beat === 0)!
+    expect(head.headX!).toBeLessThan(noteStartX)
+    const wall = Math.max(...registry.getByMeasure(1)
+      .filter(e => e.type === 'clef' || e.type === 'timeSignature').map(e => e.bbox.x + e.bbox.width))
+    expect(head.headX!).toBeGreaterThan(wall)
+  })
+
   it('the floor is re-measured, so widening then tightening returns to where it started', () => {
     fourQuarters()
     const beat = fracCreate(2, 1)

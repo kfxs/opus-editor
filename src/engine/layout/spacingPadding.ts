@@ -526,6 +526,19 @@ export function pairPadding(left: InkKind, right: InkKind): number {
 }
 
 /**
+ * ⭐ **How close a HAND may pull a bar's first column to what stands before it** — the header's ink
+ * (clef, key signature, meter) or the barline — in staff spaces. The FLOOR of a user's leftward
+ * nudge/drag (`measuredRoom.measuredShrinkRoom`), ⛔ not the engraver's own lead-in, which stays
+ * `pairPadding('barline', …)` / `HEADER_TO_NOTE`.
+ *
+ * ⚠️ A DEFAULT, unresearched as a hand-limit: ½ space is the tightest lead-in Gould allows on p. 43
+ * (see the grace row in {@link pairPadding}). Before 2026-09-29 the floor was the stave's note-start
+ * edge, which left ≈0.9 sp of travel after a header — his report: *"i want to move it more and it
+ * stops"*.
+ */
+export const FIRST_COLUMN_HAND_CLEARANCE = 0.5
+
+/**
  * ⭐ **The tightest two ordinary noteheads may come**, in staff spaces — the model's own answer to
  * the question `MIN_NOTE_SPACING` was invented for, and the number the drag gestures floor at.
  *
