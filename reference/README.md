@@ -1129,3 +1129,19 @@ with it, and what stays full? Asked before the feature was planned. 📄 The who
 | brackets round a small head | **Gould pp. 139, 378, 497** (measured) | ≈2 sp (full size) on pp. 139 and 378; ≈1.69 sp (≈0.85) on p. 497 |
 | "cue-sized" that is NOT a cue | **Gould pp. 185, 208, 348, 449–450, 469, 471, 497, 552** · **G&L pp. 55, 76–77, 104** | ossias, alternative rhythms, hummed notes, enharmonic helpers, reductions, harmonics' sounding note: *"Not all notes that are cue size are used as a cue"* (G&L p. 55) |
 | ⛔ UNKNOWN | all four | a GRACE inside a cue (Gould's whole chapter, pp. 566–578, was searched) · the thickness of ties and slurs on cue notes · an "editorial note" size · Read, Chlapík, Wanske, Powell, Vienna, Hal Leonard (none on disk) |
+
+### What was asked of it on 2026-09-29 (the TUPLET's SIDE), and what came back
+
+Which side of the notes a tuplet's number and bracket go on. Full write-up, with the engines and the
+formats beside the books: `docs/research/tuplet-side-research.md`. All four treatises reached; plates
+checked for Gould pp. 197–200, Ross pp. 159–160, Stone pp. 26–29 — each draws what its prose says.
+
+| question | source | answer |
+|---|---|---|
+| ⭐ the default side | **Gould p. 197** · **Stone p. 26** · **G&L p. 156** | the STEM side (a beamed group's numeral at the BEAM) — *"This keeps the space on the notehead side clear for articulation and slurs"* (Gould) |
+| the dissent | **Ross pp. 159–160** | *"engravers differ"*; *"many engravers put the 3 above the staff, regardless"* |
+| moved to the notehead side | **Gould p. 199** · **Stone p. 27** · **G&L p. 157** | add a BRACKET (⛔ not done automatically — his call, 2026-09-29) |
+| mixed stems | **Gould p. 198** · **Stone p. 27** | Gould leans ABOVE; Stone *"the majority of stems"* |
+| two voices on a staff | **Gould p. 199** · **Stone p. 29** · **G&L p. 157** | each at its own stem side |
+| vocal | **Gould pp. 198, 437** · **Stone pp. 42–43** | all above |
+| ⛔ UNKNOWN | all four | the side of a group of only RESTS |
