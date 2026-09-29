@@ -14,7 +14,7 @@ import { tupletOffsetOverrideOf } from '@/engine/models/engravingOverrides'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import type { EngravedNote } from '../engraved/EngravedNote'
 import type { EngravedStave } from '../engraved/EngravedStave'
-import { innerFlipTupletYOffset, type TupletNoteStem } from '../engraved/NoteBuilder'
+import { innerFlipTupletYOffset, resolveTupletLocation, stemMajorityTupletLocation, type TupletNoteStem } from '../engraved/NoteBuilder'
 import type { ScoreTuplet } from '../engraved/ScoreTuplet'
 import { barFrame } from '../staff/staveFrame'
 import { noteRuler } from '../engraved/noteRuler'
@@ -79,6 +79,20 @@ ctx: TupletPassContext,
     const next = lane[lane.indexOf(lastNote) + 1]
     if (!next) return barFrame(stave).noteEndX - BRACKET_END_GAP
     return mode === 'division' ? noteRuler(next).originX : noteRuler(next).originX - BRACKET_END_GAP
+  }
+
+  // ⭐ THE SIDE, decided again NOW that the beams exist — the bracket's reason (below). At construction
+  //    every note still points its OWN stem; a beam then turns them all one way. 🚨 His report,
+  //    2026-09-29 (Syrinx bar 5): rest + A♭4 (up) + C♭5 (down) counted as a tie → ABOVE, while the beam
+  //    had turned every stem DOWN — the number sat on the notehead side. A stored placement and the
+  //    voices' rule do not depend on beams; only the stem count is asked again. ⚠️ ALL sides first,
+  //    then any draw: a tuplet's draw counts the tuplets nested on ITS side (`getNestedTupletCount`).
+  for (const scoreTuplet of scoreTuplets) {
+    const notes = scoreTuplet.getNotes() as EngravedNote[]
+    const entry = [...tupletStaveNoteMap.values()].find(e => notes.length > 0 && e.staveNotes.includes(notes[0]))
+    if (!entry) continue
+    scoreTuplet.options.location =
+      resolveTupletLocation(entry.tuplet.placement, multiVoice, entry.voice, stemMajorityTupletLocation(notes))
   }
 
   for (const scoreTuplet of scoreTuplets) {
