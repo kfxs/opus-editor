@@ -478,6 +478,8 @@ test('⭐ P8 row G — `tupletNumbers: on` keeps the slur above a triplet\'s num
     e.addNoteAtBeat({ step: 'E', octave: 5, duration: '8', measure: 1, beat: h.frac(5, 3), tupletId: t.tuplet.id, actualDuration: h.frac(1, 3) } as never)
     const b = e.addNoteAtBeat({ step: 'F', octave: 5, duration: 'q', measure: 1, beat: h.frac(2, 1) })!
     e.getScore().slurs = [{ id: 'sl', startNoteId: a.id, endNoteId: b.id, voice: 0, placement: 'above' }]
+    // Pinned ABOVE: its stems point down, and the default side is the stem side (2026-09-29).
+    e.getScore().measures[0].tuplets!.find(x => x.id === t.tuplet.id)!.placement = 'above'
     const sp = () => (h.staves()[0].bottom - h.staves()[0].top) / 4
     const at = async (rule: string) => {
       h.slurRule('tupletNumbers', rule)

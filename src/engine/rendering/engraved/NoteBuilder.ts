@@ -418,28 +418,26 @@ export const TUPLET_LOCATION_BELOW = -1
  * @returns TUPLET_LOCATION_ABOVE (1) or TUPLET_LOCATION_BELOW (-1)
  */
 /**
- * ⭐ The single-voice DEFAULT side of a tuplet's mark — opposite the group's stems: more stems up ⇒ below,
- * otherwise (down, none, or a tie) above. A whole note or a rest counts as a down-stem here, as it always
- * has. Moved out of `ScoreRenderer.calculateTupletLocation` (2026-09-25) so the spine asks the same rule.
+ * ⭐ The single-voice DEFAULT side of a tuplet's mark — the number AND its bracket — on the STEM side of the
+ * group: more stems down ⇒ below, otherwise (up, none, or a tie) above. His rule, 2026-09-29: *"the number
+ * should go (and the bracket too if there are bracket) in the stem side"* — it was opposite the stems, so a
+ * stems-up triplet put its number under the heads. A whole note or a rest has no stem side and is not
+ * counted. Moved out of `ScoreRenderer.calculateTupletLocation` (2026-09-25) so the spine asks the same rule.
  */
 export function stemMajorityTupletLocation(notes: EngravedNote[]): number {
-  if (notes.length === 0) return TUPLET_LOCATION_ABOVE
   let stemsUp = 0
   let stemsDown = 0
   for (const note of notes) {
     try {
-      if (note.getStem()) {
-        const direction = noteRuler(note).stemDirection
-        if (direction === 1) stemsUp++
-        else if (direction === -1) stemsDown++
-      } else {
-        stemsDown++
-      }
+      if (note.isRest() || !note.hasStem() || !note.getStem()) continue
+      const direction = noteRuler(note).stemDirection
+      if (direction === 1) stemsUp++
+      else if (direction === -1) stemsDown++
     } catch (_e) {
-      stemsDown++
+      // a note that cannot say where its stem goes has no vote
     }
   }
-  return stemsUp > stemsDown ? TUPLET_LOCATION_BELOW : TUPLET_LOCATION_ABOVE
+  return stemsDown > stemsUp ? TUPLET_LOCATION_BELOW : TUPLET_LOCATION_ABOVE
 }
 
 export function resolveTupletLocation(
