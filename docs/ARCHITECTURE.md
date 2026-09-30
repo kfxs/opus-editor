@@ -767,6 +767,7 @@ Vocabulary that is otherwise tribal knowledge.
 
 | Term | Meaning |
 |---|---|
+| **fragment** | ⚠️ Three meanings in these docs — say which. (1) The **content**: what the TS type `Score` holds, as against the engraved *score* that wraps it (`docs/plans/instruments-plan.md` §1). (2) An **open-form** unit (`docs/research/20c-notation-survey.md` §5.3). (3) A **rigid** group of ink placed by one affine (`docs/plans/own-engraving-engine.md` §7.5.5) — and a span's per-system piece. ⏭️ `docs/plans/fragments-and-calligram-model.md` (a discussion, nothing built) uses (1) and adds two working words: a **use** (a fragment appearing in a score) and a **figure** (a calligram: uses drawn on paths). |
 | **slot** | A time position within a measure that holds one musical event. A slot's `type` is `note`, `rest`, or `chord`. `Measure.slots[]` is the internal storage; the public API flattens these to `Note`s. |
 | **`Chord` / `NotePitch` / `Rest` / `ChordRest`** | The **internal** rich data model in `ScoreModel`. A `ChordRest` is a slot; a `Chord` holds multiple `NotePitch`es at one beat; a `Rest` is silence. Every slot carries its voice and staff (`utils/lanes` — absent means the first one). |
 | **flat `Note`** | The **public projection** of the internal model (`toFlatNote` / `restToFlatNote`). The UI and JSON see flat `Note`s (`{ id, step, alter, octave, duration, measure, beat, … }`), never the internal `Chord`/`NotePitch`. Deliberate two-model design — don't collapse it. |

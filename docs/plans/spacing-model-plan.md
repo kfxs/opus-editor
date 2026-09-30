@@ -926,6 +926,10 @@ those get believed. ⏭️ A real row means a third `law` shape carrying the voi
 
 ⛔ **Nothing to build now. This is recorded so it is not re-discovered.**
 
+⏭️ **A first client has a name (2026-09-30, a discussion):** two paths of a calligram that sound together
+cannot share a column — they differ in length and direction — so each is spaced on its own
+(`docs/plans/fragments-and-calligram-model.md` §7).
+
 **What it means.** Today a beat is a **COLUMN shared by every staff**: one x per (measure, beat)
 across the whole system, which is what makes a chord read as simultaneous down the page
 (`layout/measureColumns`, and `reference_drawmeasurecontent_measure_is_the_lane` — *a beat = ONE x

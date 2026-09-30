@@ -49,6 +49,16 @@ This file provides guidance to Claude Code when working with this repository.
   phase. Before calling a number "open", grep the feature's own module — it may already be decided.
   See `docs/plans/own-engraving-engine.md` §0.3 rule 13.
 
+- **⭐ Before a new field joins `Score`, `Measure` or `StaffInfo` — or a new kind joins
+  `engravingOverrides` — ask: *is it the MUSIC, or is it THIS APPEARANCE of the music?*** The type
+  `Score` is a FRAGMENT: one music that may one day be used twice in a document, straight in one
+  place and on a path in another (`docs/plans/fragments-and-calligram-model.md` §5, §9b — a
+  discussion, nothing built). A note, a sign, a mark, a hand nudge on one of them is the MUSIC and
+  goes in as always — ordinary features are not affected. ⛔ What exists only because of WHERE the
+  music was laid out is the APPEARANCE — a line or page break, a page, a title or text frame, a
+  path, anything keyed by "the system this bar opened" — and it does not join the fragment without
+  his word: stop and ask.
+
 ## Project Overview
 
 A music score editor with its own engraving engine (first built on VexFlow, which was removed —

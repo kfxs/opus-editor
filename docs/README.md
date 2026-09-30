@@ -26,6 +26,7 @@ file that exists — so a doc can be renamed or moved with its paths rewritten, 
 - [mark-drag-and-reanchor](plans/mark-drag-and-reanchor.md) — OPEN — dragging a mark, and what re-anchors it
 - [braces-brackets-plan](plans/braces-brackets-plan.md) — DRAFT — braces and brackets
 - [bent-staff-plan](plans/bent-staff-plan.md) — a staff is a PATH — the console's circle draws the open score with the page's spacing and beams; §5 is the PORT MAP (19 rows), a suggestion ⛔ not a queue
+- [fragments-and-calligram-model](plans/fragments-and-calligram-model.md) — a DISCUSSION, nothing built — what a score IS: a pool of fragments, scores made of USES, a calligram as a FIGURE of uses on paths
 - [instruments-plan](plans/instruments-plan.md) — the lane→instrument map — P1a built, P1b / P2 open
 - [score-header-sketch](plans/score-header-sketch.md) — 🚧 a SKETCH, to be thrown away — read before touching `ScoreHeaderPass`
 - [json-io-plan](plans/json-io-plan.md) — a sketch, on purpose — import / export reports, never repairs

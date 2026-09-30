@@ -2195,6 +2195,10 @@ today leaves none.
   *"Where do document-wide ENGRAVING settings live?"*, whose stated resolution is a document-level
   compartment beside content. ⛔ **Nothing to decide now** — the entry exists to hold the question
   open, and this is a third stakeholder for it, recorded in that file.
+  ⚠️ **2026-09-30: the staff × range key is under discussion** — a calligram is several paths, each
+  with its own music, so the path may belong to a USE of a fragment inside a figure instead
+  (`docs/plans/fragments-and-calligram-model.md`). 🚨 That file's *fragment* is the CONTENT
+  (`instruments-plan.md` §1); §7.5.5's *rigid fragment* below is a beamed group — two different words.
 - **Contemporary notation needs none of this and is not blocked by it.** `docs/research/20c-notation-survey.md`
   §7 is staff-and-clef departures, and Belle makes the same point without meaning to: its staff line
   **count** is per-staff state (`"Lines"`, and `<= 0` draws none), which is all a 1-line percussion

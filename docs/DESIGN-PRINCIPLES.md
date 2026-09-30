@@ -227,6 +227,13 @@ be made *consciously* before more code piles onto it.
   ⚠️ The door that would actually shut is not in this file — it is the RENDERER assuming a straight
   staff (§7.5.2 of that plan), which is why the four items there are the ones with a deadline.
 
+  ⚠️ **2026-09-30 — the KEY named above (staff × range) is under discussion, ⛔ not re-decided.** A
+  calligram is several paths, each with its own music, and it can exist before that music does — so
+  in `docs/plans/fragments-and-calligram-model.md` a path belongs to a **USE of a fragment** inside a
+  **figure**, and the score is the ordered uses. That file also names the principle-1 and principle-5
+  readers a second fragment in one document would meet (the two boundary cases below:
+  `createEditorApp`, and the singletons).
+
 - **~~`Slur.cps` stores geometry in the model (re: principle 3).~~ RESOLVED (Phase 1,
   engraving-overrides plan).** The hand-edited slur shape no longer lives on `Slur`.
   Authored geometry now goes in a dedicated **engraving-overrides compartment**
@@ -297,7 +304,9 @@ be made *consciously* before more code piles onto it.
   "make an empty one". Small now; it grows every time something else assumes the editor's score is
   the score. **Decide when a second thing holds a score** — a test harness loading fixtures, a second
   editor, whatever it turns out to be — not before; but do not add code that deepens the assumption
-  meanwhile.
+  meanwhile. ⏭️ A candidate for that second thing now has a name (2026-09-30, a discussion, ⛔ nothing
+  built): a document holding a POOL of fragments, several of them drawn and edited on one page —
+  `docs/plans/fragments-and-calligram-model.md` §9.
 
 - **7 module-level singletons make "exactly one editor" an assumption (re: principles 1 and 5).**
   Not score state — palette and chrome state — so they slip past principle 1's letter while making

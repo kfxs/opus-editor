@@ -136,6 +136,9 @@ header's room is a vertical question, and this sketch answers it with two consta
   mark: its own row in `ELEMENT_SPECS`, its own overrides, its own anchor guide. MuseScore models it
   exactly that way (a `VBox` holding `Text` elements). ⛔ **A third string does not arrive by adding
   a third row to `scoreTextOps`** — it is the signal that the sketch has outlived itself.
+  ⏭️ And WHICH object the frame belongs to is discussed in
+  `docs/plans/fragments-and-calligram-model.md` (2026-09-30): the title is the SCORE's, ⛔ not the
+  fragment's — and a text frame is one more item in the score's order, beside a use and a figure.
 - **Nothing here is LAID OUT.** The pass measures nothing before drawing: it anchors one line per
   field and trusts it to fit, so a title longer than the page runs off it. Real text WRAPS, and
   wrapping needs the font measured — browser-only work, so the real one is a measured pass rather

@@ -929,6 +929,12 @@ it?" It is: does Principle 3 get an exception, or does a graphic score become a 
 TYPE that our editor opens rather than a `Score` it can hold?** That question is worth having
 already answered on the day it is asked, and this file exists mainly to have asked it early.
 
+> ⏭️ **2026-09-30 — the "new document kind" of the open-form row has a first sketch**, arrived at from
+> eye music rather than from open form: a document as a pool of fragments, a score as ordered USES of
+> them, a calligram as a FIGURE (`docs/plans/fragments-and-calligram-model.md`). Open form there is a
+> score whose order is left unstated — named, ⛔ not designed. The graphic-score question above is
+> still unanswered; that file only gives "ink that is not an event" a place to live (the figure).
+
 ⚠️ Note the survey does *not* recommend an answer. Compare `feedback_dont_dissolve_the_container`:
 naming what a "free" generalisation would destroy is the point, and what a spatial `beat` would
 destroy is the Fraction/float invariant in `ARCHITECTURE.md` — which is load-bearing for rebar,

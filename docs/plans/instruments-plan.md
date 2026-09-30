@@ -36,6 +36,12 @@ playback map. Build the sound layer first; instruments land on top.
 
 > **The score wraps the fragment. The fragment never knows a score exists.**
 
+> ⚠️ **2026-09-30 — one thing in this vocabulary is under discussion: the wrapper holds ONE fragment.**
+> His conception since: a score may be `fragment1 + fragment2 + calligram1 + fragment3 + … + fragment1`
+> — several USES of fragments, the same one twice if he likes. Everything else here stands (one content
+> type; the fragment never knows; a part is another wrapper).
+> `docs/plans/fragments-and-calligram-model.md`.
+
 So the content having *no* pages is correct, not an omission (Principle 3: the model holds
 neither pixels nor layout), and the default title of a fresh model is **"Fragment 1"**, not
 "Untitled Score" — because a score is the *output*, not the thing you are sketching in.
