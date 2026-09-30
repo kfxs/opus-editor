@@ -20,10 +20,11 @@ describe('the Keypad Grace page', () => {
   const page = () => keypadPage('grace')
   const cellFor = (key: string) => page().cells.find(c => c.key === key)!
 
-  it('is the SECOND page — the `+` ring runs note entry → Grace → Beams/Tremolos', () => {
+  it('is the SECOND page — the `+` ring runs note entry → Grace → Beams/Tremolos → Accidentals', () => {
     expect(nextKeypadPageId('noteEntry')).toBe('grace')
     expect(nextKeypadPageId('grace')).toBe('beamsTremolos')
-    expect(nextKeypadPageId('beamsTremolos')).toBe('noteEntry')
+    expect(nextKeypadPageId('beamsTremolos')).toBe('accidentals')
+    expect(nextKeypadPageId('accidentals')).toBe('noteEntry')
     expect(page().name).toBe('Grace')
   })
 

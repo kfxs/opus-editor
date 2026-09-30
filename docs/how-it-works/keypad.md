@@ -8,17 +8,22 @@ That sentence is the whole design. Everything below follows from taking it liter
 
 ## Pages
 
-The pad is multi-page (Sibelius has several layouts). Today there are three:
+The pad is multi-page (Sibelius has several layouts). Today there are four:
 
 | id | name | what's on it |
 |---|---|---|
 | `noteEntry` | Note entry | durations, accidentals, articulations, tie, rest, dot |
 | `grace` | Grace | Sibelius's second layout. ⭐⭐ **EVERY key wired** (2026-09-23 … 2026-09-26), and since 2026-09-26 the Keypad is their ONLY door — the dev toolbar's duplicate groups (`Grace:`, `Note:`, `Dots:`, `Rest:`, `Other:`) were removed, his call, each being the same press + light as its key. A press goes through `bus.grace` (or `bus.duration`) to `interactions/controllers/keypadGraceWiring`, handed `palette.dotKeyHost()`: `/` `*` `-` — appoggiatura, acciaccatura, bracketed grace (`pressGraceTool` / `pressBracketedTool`, lit by `graceToolLit` / `bracketedToolLit`: arm the stamp, or act on the selection). `1` — the parenthesised note (`pressEnclosure` / `enclosureLit`: selected notes toggle, nothing selected arms the stamp, note entry arms them for the next notes). `2` / `3` — double and triple dot (`pressDots` / `dotsLit` with 2 and 3; the counts are a radio). `0` — the full-bar rest (`pressBarRest` / `barRestLit`). `.` — the glissando (`pressGlissando` / `glissandoLit`). `Enter` — cue size (`pressCue` / `cueLit`). `7 8 9` / `4 5 6` — the 512th, breve, longa, 64th, 128th, 256th (2026-09-26, docs/plans/other-durations-plan.md): `'duration'` cells, page one's own kind — `bus.duration` → `palette.setDuration`, lit by the armed duration. No `momentary` key is left |
 | `beamsTremolos` | Beams/Tremolos | **fully wired** — the beam cluster (`/ * - 7 8 9`), the tremolos (`1`–`6`, `Enter`) and the feathered beams (`0`, `.`) |
+| `accidentals` | Accidentals | Sibelius's SIXTH layout, drawn 2026-09-30 (`docs/research/sibelius-keypad.md` §3c). `7 8 9` — natural / sharp / flat — are page one's three `accidental` cells again, so they press and light exactly as there. ⛔ **The other twelve are a PICTURE**: `/` `*` the double sharp and double flat, `4` `1` the natural-sharp and natural-flat, `5` `6` `2` `3` the quarter-tone signs, `Enter` the accidental's own parentheses, `0` and `.` the two struck-out keys, `-` empty as in Sibelius — all `momentary`: a click logs the key's `action` and stops. The struck-out pictures are baked stacks; their cross is two bare stems turned each way (`cross()` in `keypadLayouts.ts` says why they are slid) |
 
 ⭐ **What Sibelius's own panel does — key by key, quoted from its Reference — is
 `docs/research/sibelius-keypad.md`.** Read it before deciding what one of our keys should DO: the
 Grace page is a picture of Sibelius's second layout, and only its three grace keys, its `1` (the parenthesised note) its `2` / `3` (double / triple dot) its `0` (the full-bar rest) its `.` (the glissando) and its `Enter` (cue size) are wired yet.
+The Accidentals page is its sixth layout — §3c there has every key's name and behaviour, quoted, the
+three things Sibelius does that are NOT obvious from the picture (`4` / `1` are not free accidentals:
+they only cancel a double; `Enter` on a note showing no accidental makes the implied one appear,
+bracketed; quarter-tones are drawn and transposed but do not sound), and its ⛔ UNKNOWN list.
 
 `+` turns the page, from the panel or the pad. Every page carries the same two controls in fixed
 spots — the select arrow (top-left) and the page-turn `+` — injected by `withControls`, so a new

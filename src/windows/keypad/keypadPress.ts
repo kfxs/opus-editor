@@ -93,9 +93,10 @@ export function pressKeypadCell(cell: KeypadCell): void {
       if (cell.grace) bus.grace.press(cell.grace)
       break
     case 'momentary':
-      // A blank, unassigned key — the Grace page's own six left after its nine wired keys. It does
+      // A key that is only a PICTURE so far — twelve of the Accidentals page's fifteen. It does
       // NOTHING, which is the right nothing: a numpad key over an unwired cell must not fall through to
-      // some other page's meaning, and an unwired key shows no light.
+      // some other page's meaning, and an unwired key shows no light. (A CLICK still logs the key's
+      // name — that is the panel's own log, `KeypadWidget.press`.)
       break
     case 'mode':
       // The arrow ACTIVATES selection mode. Its light follows the editor, not this click, so there

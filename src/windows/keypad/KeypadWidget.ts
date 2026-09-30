@@ -257,7 +257,7 @@ export class KeypadWidget implements Widget {
     if (cell.select === 'page') return
 
     this.paint()
-    // Wired keys report their light; an unwired `momentary` cell (a blank Grace key) always reads ` off`.
+    // Wired keys report their light; an unwired `momentary` cell (a key that is only a picture yet) always reads ` off`.
     const state = this.isLit(cell) ? ' on' : ' off'
     dbg(`[keypad] ${cell.action}${state} — key ${cell.key}, voice ${this.voice != null ? VOICES[this.voice] : 'none'}`)
   }
@@ -267,7 +267,7 @@ export class KeypadWidget implements Widget {
    * By kind: the tool mode (the arrow), the armed duration/accidental/dot, the tie, the rest, the active
    * articulations (a set), and the Beams/Tremolos page's beam cluster (the beam MODE set, the subdivide, the beam-rest).
    * EVERY light on the panel comes from an editor store — the widget holds none of its own, so it cannot
-   * show you a state the score does not have. An unwired `momentary` cell (a blank Grace key) stays dark.
+   * show you a state the score does not have. An unwired `momentary` cell (a key that is only a picture yet) stays dark.
    */
   private isLit(cell: KeypadCell): boolean {
     if (cell.select === 'mode') return bus.mode.get() === 'selection'
@@ -287,7 +287,7 @@ export class KeypadWidget implements Widget {
     // The feathered beams are a radio like the tremolo counts — a note carries ONE fan.
     if (cell.select === 'fan') return !!cell.fan && cell.fan === bus.fan.get()
     if (cell.select === 'grace') return !!cell.grace && bus.grace.isActive(cell.grace)
-    // An unwired key (the Grace page's blank keys) shows no light.
+    // An unwired key (most of the Accidentals page, today) shows no light.
     if (cell.select === 'momentary') return false
     return cell.select === 'rest' && bus.rest.get() === 'rest'
   }

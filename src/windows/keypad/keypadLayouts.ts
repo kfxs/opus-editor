@@ -217,11 +217,52 @@ const GRACE_SIZE = 34
 const SHORT_SIZE = 19
 /** A breve is wide and low; at page one's size it would be a pebble. */
 const BREVE_SIZE = 36
+/**
+ * The ACCIDENTALS page's own signs — everything past page one's natural, sharp and flat: the two
+ * DOUBLES, the two signs that take a double back to a single (a natural standing before the sharp or
+ * the flat), the four QUARTER-TONE signs in the shapes Sibelius's keys draw (Stein's half and
+ * one-and-a-half sharps, his reversed flat, Zimmermann's reversed-flat-and-flat), and the
+ * accidental's OWN parentheses — ⚠️ not {@link PARENS}, which is the pair a NOTEHEAD stands in.
+ */
+const ACC_MORE = {
+  doubleSharp: '\uE263', doubleFlat: '\uE264',
+  naturalFlat: '\uE267', naturalSharp: '\uE268',
+  quarterFlat: '\uE280', threeQuarterFlat: '\uE281', quarterSharp: '\uE282', threeQuarterSharp: '\uE283',
+  parenLeft: '\uE26A', parenRight: '\uE26B',
+}
+
 /** The brackets, drawn tall enough to read as brackets. */
 const PARENS_SIZE = 50
 /** The PARENTHESISED NOTE key draws the same pair with nothing inside, so it carries the picture alone
  *  and is drawn a size up from the pair that frames the pre-bend's notehead. */
 const PARENTHESISED_NOTE_SIZE = 58
+/** The ACCIDENTAL's parentheses, alone on the tall `Enter` key — a size up from the signs they would
+ *  stand around, since here they carry the picture by themselves. */
+const ACC_PARENS_SIZE = 46
+/** The double sharp is a small sign by design; on a key it is drawn a size up from the other accidentals. */
+const DOUBLE_SHARP_SIZE = 38
+
+/**
+ * The CROSS a struck-out key is crossed with — two bare stems, turned one each way, so the X is a
+ * hairline and the sign under it still reads (a font X is as heavy as the sign it crosses).
+ *
+ * ⚠️ A layer turns about the BOX's centre, and a stem hangs from its FOOT there — turned alone, the
+ * two make a V. So each is slid back by half its own length along its new direction (`dx`/`dy`
+ * below, from the angle and the stem's 3½ spaces at this size), which is what puts their MIDDLES on
+ * the centre.
+ */
+const CROSS_SIZE = 30
+const CROSS_TURN = 52
+/** The cross, its strokes meeting `drop` below the box's centre (and `shift` right of it). */
+const cross = (drop = 0, shift = 0): GlyphSpec[] => {
+  const half = (3.5 * CROSS_SIZE / 4) / 2
+  const turn = (CROSS_TURN * Math.PI) / 180
+  // Whole tenths: these numbers are the recipe's KEY (`bakeRecipeKey`), and float noise in a key is noise for ever.
+  const tenth = (v: number) => Math.round(v * 10) / 10
+  const dx = half * Math.sin(turn)
+  const dy = tenth(half * Math.cos(turn) + drop)
+  return [g(STEM, CROSS_SIZE, dy, tenth(shift - dx), CROSS_TURN), g(STEM, CROSS_SIZE, dy, tenth(shift + dx), -CROSS_TURN)]
+}
 
 /** The numpad keys, in the reading order the cells must follow. Three of them are merged keys. */
 export const KEYS = [
@@ -356,6 +397,20 @@ const GRACE_ICON = {
 } as const
 
 /**
+ * The two STRUCK-OUT pictures of the Accidentals page — an accidental under a cross, a stack like
+ * the tremolos (each piece slid into place by `dx`/`dy` against 26) and baked the same way.
+ */
+/** How far below the box's centre a struck flat's belly sits — its own `dy` of 3, and a touch more. */
+const STRUCK_BELLY_DROP = 3.5
+const ACCIDENTAL_ICON = {
+  /** A flat, crossed out — the strokes meet on its BELLY (his eye, 2026-09-30), which sits where the
+   *  flat's own drop puts it. */
+  struckAccidental: tremolo([g(ACC.flat, 28, 3), ...cross(STRUCK_BELLY_DROP, 0.5)]),
+  /** A flat in the accidental's own parentheses, crossed out the same way. */
+  struckParenthesised: tremolo([g(ACC_MORE.parenLeft, 28, 1, -9), g(ACC.flat, 26, 3), g(ACC_MORE.parenRight, 28, 1, 9), ...cross(STRUCK_BELLY_DROP, 0.5)]),
+} as const
+
+/**
  * `grace` — Sibelius 6's SECOND keypad layout ("more notes"), as a picture: the grace notes, the
  * durations page one has no room for (the four short ones, the breve and the longa), the extra dots
  * and the brackets.
@@ -452,7 +507,7 @@ export const KEYPAD_BAKE_RECIPES: Record<string, GlyphSpec[]> = Object.fromEntri
   // ⭐ EVERY page's stacked drawings, not just the tremolos — a recipe left out of this table is a
   // recipe `npm run bake:keypad` never sees, and it would draw from the browser's own text layout
   // for ever (which a zoom re-rounds).
-  Object.entries({ ...TREMOLO, ...GRACE_ICON }).flatMap(([name, icon]) => ('bake' in icon ? [[name, icon.bake]] : [])),
+  Object.entries({ ...TREMOLO, ...GRACE_ICON, ...ACCIDENTAL_ICON }).flatMap(([name, icon]) => ('bake' in icon ? [[name, icon.bake]] : [])),
 )
 
 // ⭐ THE WHOLE PAGE IS WIRED. The beam cluster (numpad `/ * - 7 8 9`) and
@@ -482,6 +537,39 @@ const pageBeamsTremolos: CellSpec[] = [
   // the lit one takes it off, the other turns it round. `pressFan` owns both rules already.
   ['feathered accel', TREMOLO.featheredAccel, 'fan', 'accel'],
   ['feathered rit', TREMOLO.featheredRit, 'fan', 'rit'],
+]
+
+/** A key Sibelius leaves EMPTY — it is still a key (the numpad has one there), it just has no picture. */
+const BLANK: Icon = g('')
+
+/**
+ * `accidentals` — Sibelius 6's SIXTH keypad layout, as a picture: the doubles, natural / sharp / flat
+ * where page one has them (`7 8 9`), the natural-sharp and natural-flat, the four quarter-tone signs,
+ * the accidental's parentheses and the two struck-out keys — `0` takes the accidentals off the
+ * selection, `.` hides an automatic cautionary one. `-` is EMPTY in Sibelius and empty here.
+ *
+ * ⚠️ `Enter` is Sibelius's "bracket accidental"; ours is `parenthesised accidental`, the word the
+ * parenthesised NOTE already uses — "bracketed" here means the staff bracket and the bracketed grace.
+ *
+ * ⭐ `7 8 9` ARE WIRED (his ask, 2026-09-30: *"we already have this in the first page so we can wire it
+ * the same"*) — they are page one's natural / sharp / flat cells again: `bus.accidental` → the same
+ * palette method, lit by the same armed accidental, so the two pages cannot disagree.
+ *
+ * ⛔ **The other twelve are NOT** (his ask, the same day: *"still is not wired to anything, on clicking
+ * just console log"*): each is `momentary` — a click logs its `action` (`KeypadWidget.press`) and
+ * stops, and the key never lights. A key is wired as a decision, key by key, the way the Grace page
+ * was. What each does in Sibelius is `docs/research/sibelius-keypad.md` §3c.
+ *
+ * OWN keys only — the arrow and `+` come from {@link withControls}.
+ */
+const pageAccidentals: CellSpec[] = [
+  ['double sharp', g(ACC_MORE.doubleSharp, DOUBLE_SHARP_SIZE), 'momentary'], ['double flat', g(ACC_MORE.doubleFlat, ACC_SIZE, 3), 'momentary'], ['blank', BLANK, 'momentary'],
+  // ⭐ WIRED (his ask, 2026-09-30) — page one's three accidental keys, cell for cell: the same press, the same light.
+  ['natural', g(ACC.natural, ACC_SIZE), 'accidental', 'n'], ['sharp', g(ACC.sharp, ACC_SIZE), 'accidental', '#'], ['flat', g(ACC.flat, ACC_SIZE, 3), 'accidental', 'b'],
+  ['natural sharp', g(ACC_MORE.naturalSharp, ACC_SIZE), 'momentary'], ['quarter-tone sharp', g(ACC_MORE.quarterSharp, ACC_SIZE), 'momentary'], ['quarter-tone flat', g(ACC_MORE.quarterFlat, ACC_SIZE, 3), 'momentary'],
+  ['natural flat', g(ACC_MORE.naturalFlat, ACC_SIZE, 1.5), 'momentary'], ['three-quarter-tone sharp', g(ACC_MORE.threeQuarterSharp, ACC_SIZE), 'momentary'], ['three-quarter-tone flat', g(ACC_MORE.threeQuarterFlat, ACC_SIZE, 3), 'momentary'],
+  ['parenthesised accidental', { glyphs: [g(ACC_MORE.parenLeft, ACC_PARENS_SIZE), g(ACC_MORE.parenRight, ACC_PARENS_SIZE)] }, 'momentary'],
+  ['remove accidentals', ACCIDENTAL_ICON.struckAccidental, 'momentary'], ['suppress cautionary accidental', ACCIDENTAL_ICON.struckParenthesised, 'momentary'],
 ]
 
 const toCells = (page: CellSpec[]): KeypadCell[] =>
@@ -514,6 +602,7 @@ const PAGES = [
   { id: 'noteEntry', name: 'Note entry', own: pageNoteEntry },
   { id: 'grace', name: 'Grace', own: pageGrace },
   { id: 'beamsTremolos', name: 'Beams/Tremolos', own: pageBeamsTremolos },
+  { id: 'accidentals', name: 'Accidentals', own: pageAccidentals },
 ] as const
 
 /** The id union, DERIVED from the list above — so adding a page widens it for free, and no caller can

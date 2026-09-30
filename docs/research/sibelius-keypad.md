@@ -1,4 +1,4 @@
-# Sibelius 6's KEYPAD — what the panel is, and what every key of the second layout does
+# Sibelius 6's KEYPAD — what the panel is, and what every key of the second and sixth layouts does
 
 > **FINDINGS, not a plan.** This records what Sibelius 6 *does*, because our Keypad is a picture of
 > that panel (`src/windows/keypad/`, and `docs/how-it-works/keypad.md` for ours). ⛔ Nothing here is a
@@ -13,8 +13,9 @@
 > report is UNKNOWN, never a plausible rule with no source behind it).
 
 Researched 2026-09-23 while drawing the Grace page, by reading the book itself. §3 (the second
-layout) is where the depth is — that is the page we were drawing; §5 says plainly which layouts have
-NOT been researched, so nobody reads silence as coverage.
+layout) is where the depth is — that is the page we were drawing; §3c (the sixth, accidentals) was
+added 2026-09-30 the same way; §5 says plainly which layouts have NOT been researched, so nobody
+reads silence as coverage.
 
 ## 0. The source, and the route that works
 
@@ -143,6 +144,131 @@ grow to take an accidental inside.
 - ⚠️ **Not the same as F12's parentheses button**, which brackets the **accidental alone**
   (p. 77, §2.1 Accidentals). F8-`1` brackets the note and takes the accidental with it.
 
+## 3c. The sixth layout ("Accidentals", F12) — the 17 keys
+
+Researched 2026-09-30 while drawing our `accidentals` page. ⚠️ **A different copy of the book than
+§0's**: the 6.1 Reference (31 August 2009),
+`https://hub.sibelius.com/download/documentation/pdfs/sibelius610-reference-en.pdf` — so its page
+numbers are NOT the ones quoted elsewhere in this file (§2.1 Accidentals is pp. 75–79 there). ⚠️ And
+the quotes below were taken from the EXTRACTED text, not from rendered pages — §0's warning applies
+(an arrow glyph extracts as a digit). The two that name a key — *"the 0 key"* and *"shortcut ."* —
+are backed by the button pictures printed beside them (rendered: the wide key, and the crossed
+bracketed key) and by the ManuScript command list; the rest name no key.
+
+Its figure (p. 16) matches the Sibelius 6 screenshot we drew from, cell for cell.
+
+| key | Sibelius's name | picture | what it does | confidence |
+|---|---|---|---|---|
+| NumLock | mouse-pointer button | arrow | clears the selection — every layout (§2) | ✅ |
+| `/` | **Double sharp** | 𝄪 | *"Obtain these from the sixth Keypad layout just like normal accidentals."* | ✅ text · 🔶 the key (by position + ManuScript's `keypad_/`) |
+| `*` | **Double flat** | 𝄫 | the same | ✅ · 🔶 key |
+| `-` | — | EMPTY | nothing, and nothing can be put there — Spreadbury: *"Nor can you add any symbols to the blank spots on the final Keypad layout."* | ✅ (forum) |
+| `7` `8` `9` | **Natural · Sharp · Flat** | ♮ ♯ ♭ | the first layout's three keys again | ✅ *"choose an accidental from the first or sixth Keypad layout"* · 🔶 that they are the SAME command (ManuScript has one `natural` / `sharp` / `flat`) |
+| `+` ◀◀ / ▶ | first layout / next layout | | every layout (§2) | ✅ |
+| `4` | **Natural sharp** | ♮♯ | ⚠️ NOT a free accidental — see "The two cancelling signs" below | ✅ name (third-party diagram) · behaviour below |
+| `1` | **Natural flat** | ♮♭ | the same, for a double flat | as `4` |
+| `5` | **Quarter sharp** | sharp with ONE upright | an accidental like any other; transposes and respells | ✅ |
+| `6` | **Quarter flat** | reversed flat | the same | ✅ |
+| `2` | **Three quarter sharp** | sharp with THREE uprights | the same | ✅ |
+| `3` | **Three quarter flat** | reversed flat + flat | the same | ✅ |
+| `Enter` | **Bracket accidental** ("the parentheses button") | `( )` | round brackets on the ACCIDENTAL of the selected note(s) — see below | ✅ |
+| `0` (wide) | **Remove accidentals** | an accidental, crossed out | *"Removing lots of accidentals: Select the notes in question, then, from the sixth Keypad layout (shortcut F12), choose the 0 key on the numeric keypad or the corresponding button shown on the right."* | ✅ |
+| `.` | **Suppress cautionary accidental** | a bracketed accidental, crossed out | *"You can hide an automatic cautionary accidental by selecting the note on which the cautionary accidental appears, and choosing the Suppress cautionary accidental button (shortcut .) on the sixth Keypad layout"* | ✅ |
+
+🔶 The key for `1`–`6` and the top row is read off the POSITION in the figure; the Reference names
+the key only for `0`, `.`, `7 8 9` and the navigation. Names in bold are from a third-party labelled
+diagram and the later ManuScript command list — ⛔ Sibelius 6's own tooltips are UNKNOWN; its
+Reference names only "Suppress cautionary accidental" and "the parentheses button".
+
+### How an accidental key behaves (both layouts)
+
+- ✅ **On a selection**: *"Select the note(s) in question, then choose an accidental from the first or
+  sixth Keypad layout."* A whole chord: *"double-click one of the notes in the chord and then choose
+  an accidental."*
+- ✅ **The same key again takes it off**: *"Select the note(s) in question, then choose the accidental
+  from the Keypad again, to switch it off."*
+- ✅ **Nothing selected arms the NEXT note**: *"you can give it an accidental at the same time by
+  choosing one from the first or sixth Keypad layout (shortcuts F7/F12) before putting the note into
+  the score."*
+- ✅ **One-shot** — the one exception to "sticky" (§2): an armed accidental serves one note.
+- ✅ **The light reports the selection**, and a sign that lives on another layout lights that layout's
+  TAB (§1).
+- 🔶 **One accidental per note** — never said in words. ManuScript gives a note ONE `Accidental`
+  value (2, 1, 0, −1, −2 and the four halves ±0.5, ±1.5), and keeps the brackets / the hiding apart
+  from it, as an `AccidentalStyle` (normal · hidden · cautionary · bracketed).
+- ⛔ UNKNOWN: whether pressing a DIFFERENT accidental replaces the one there in one press; what
+  pitch a note takes when its accidental is switched off or removed by `0` (one secondhand hint: it
+  falls back to the key signature); a MIXED selection (the Reference's rule — the key lights only for
+  what all share, and a press gives it to all — is stated for the accent).
+
+### The two cancelling signs (`4`, `1`)
+
+- ✅ *"The symbols ♮♭ and ♮♯ are occasionally used instead of ♭ and ♯ when canceling a double-flat
+  or sharp earlier in the bar."*
+- ✅ Spreadbury (help-centre thread): *"You can't change the function of the natural-sharp and
+  natural-flat symbols, I'm afraid, so they'll only appear in the situations in which they will
+  currently appear"* — a user in the same thread reports they *"seem to only function on a note that
+  is preceded by a note with the appropriate double sharp or double flat."*
+- ⛔ UNKNOWN: what the key does with no double accidental before the note (greyed? nothing? a plain
+  sharp/flat?).
+
+### The parentheses button (`Enter`)
+
+- ✅ *"To manually add parentheses to an accidental on a selected note (or group of notes), choose the
+  parentheses button from the sixth Keypad layout (shortcut F12)."* Round only — square brackets are
+  not on the Keypad.
+- ✅ **On a note that shows none, the implied accidental APPEARS, bracketed** (Avid KB): *"just select
+  the note and choose the ( ) button … Sibelius will fill in the implied accidental for you."*
+- ✅ **A toggle** (Scoring Notes, on a passage): *"this will bracket all of the accidentals… Select the
+  key again, and the brackets will disappear, except for the ones that should be there (if any)
+  according to your Engraving Rules."*
+- ⚠️ Not F8's round bracket (§3b), which brackets the NOTE and takes the accidental inside.
+- ⛔ UNKNOWN: whether it — or `.`, or `0` — arms anything when nothing is selected.
+
+### Quarter-tones: drawn, transposed, respelled — and silent
+
+- ✅ *"Quarter-tones transpose automatically … What's more, Sibelius will respell quarter-tones."*
+- ✅ They do not SOUND on their own: *"A plug-in to make quarter-tones play back called Quarter-tone
+  Playback is included with Sibelius"* — it writes hidden MIDI pitch bends, and *"only one pitch bend
+  command is possible at a time per instrument, so that different notes in a chord cannot be retuned
+  by different amounts."* Until it is run (Robert Puff): *"A natural and a quarter-sharp sound the
+  same pitch"* — likewise sharp / three-quarter sharp, flat / quarter flat, double flat /
+  three-quarter flat.
+- ✅ The signs are slots, not shapes: *"The first nine symbols on the Accidentals row of the Create ▸
+  Symbol dialog correspond to the symbols on the sixth Keypad layout … the Keypad will still show
+  the original symbol but will input your new one."*
+
+### Later versions
+
+✅ The layout is the same picture in the 2018.6 Reference (Sibelius | Ultimate) and the text is
+unchanged in 2022.3, where `.` is "Suppress auto cautionary accidental". In the mid-tier products
+the four quarter-tone keys are blank. 🔶 "Unchanged in 7" is inferred — no Sibelius 7 Reference was read.
+
+### Sources for this section
+
+- Sibelius 6 Reference 6.1 (URL above): §1.1 Note input, §1.2 Keypad, §2.1 Accidentals, §5.17
+  Properties, the Quarter-tone Playback plug-in, §8.17 Edit Symbols
+- ManuScript Language Guide 2022.3 — `https://resources.avid.com/SupportFiles/Sibelius/2022.3/ManuScript_Language_Guide.pdf`
+  (command ids, the `Accidental` and `AccidentalStyle` constants)
+- "Sibelius Keypad Layers", Dan Bishop (a labelled diagram, secondhand) — `https://gcsetime.com/wp-content/uploads/2021/09/Sibelius-Keypad-Layers.pdf`
+- Sibelius help centre, "Sib. 6.1: customizing accidentals on keypad layout 6" (Spreadbury's reply) — `http://www.sibelius.com/cgi-bin/helpcenter/chat/chat.pl?com=thread&start=475497&groupid=3&guest=1`
+- Avid KB, "How to input Cautionary accidentals in Sibelius" — `https://kb.avid.com/pkb/articles/en_US/how_to/en359699`
+- Scoring Notes, "Reset accidentals in Sibelius" — `https://www.scoringnotes.com/tips/reset-accidentals-in-sibelius/`
+- Robert Puff, "Sibelius Quick Tip: Quarter-tone playback" — `https://ofnote.nycmusicservices.com/sibelius-quick-tip-quarter-tone-playback/`
+- ⛔ DEAD on the day: three Sibelius forum threads on bracket / courtesy accidentals (t=3155, t=3618,
+  t=72269) answered 403 and have no Wayback copy — unread, not "silent".
+
+### What OUR page draws
+
+Bravura, as §6: `/` E263 · `*` E264 · `7 8 9` E261 E262 E260 · `4` `accidentalNaturalSharp` E268 ·
+`1` `accidentalNaturalFlat` E267 · `5` `accidentalQuarterToneSharpStein` E282 · `6`
+`accidentalQuarterToneFlatStein` E280 · `2` `accidentalThreeQuarterTonesSharpStein` E283 · `3`
+`accidentalThreeQuarterTonesFlatZimmermann` E281 · `Enter` `accidentalParensLeft/Right` E26A E26B ·
+`0` a flat under a cross · `.` a flat in those parentheses under the same cross (the cross is two
+bare stems, E210, turned each way — a stack, baked). ⚠️ `Enter` is `parenthesised accidental` on our
+pad, not "bracket accidental" — the §6 reason. ⭐ `7 8 9` are wired as page one's three keys; ⛔ the
+other twelve are a picture and only log (`docs/how-it-works/keypad.md`).
+
 ## 4. The two `0` keys — a rest vs a BAR REST
 
 ✅ p. 17 sums both up: *"The **0** key is appropriately used for 'non-things' — either rests or for
@@ -191,10 +317,10 @@ articulations, ties/dots, grace/cue, tremolos/beams, jazz — does not include e
 both are described as acting NOW (*"hit 0 … to input a rest"*); and they make different objects on
 different layouts.
 
-## 5. The other five layouts — ⛔ NOT RESEARCHED
+## 5. The other layouts — ⛔ NOT RESEARCHED, but for the sixth
 
-Only the second layout was read key by key, because that is the page we were drawing. What this
-research touched of the others, and nothing more:
+Only the second and the sixth layouts were read key by key, because those are the pages we were
+drawing. What this research touched of the others, and nothing more:
 
 | layout | what we know |
 |---|---|
@@ -202,7 +328,7 @@ research touched of the others, and nothing more:
 | **F9** third, Beams/Tremolos | ⛔ not researched here. Ours (`beamsTremolos`) was built earlier and IS wired — `docs/how-it-works/keypad.md`. |
 | **F10** fourth, articulations | ⛔ not researched. |
 | **F11** fifth, jazz articulations | ✅ ONE fact: **arpeggios and repeat bars live here**, not on F8 (p. 17). |
-| **F12** sixth, accidentals | ✅ ONE fact: its parentheses button brackets **the accidental alone** (p. 77) — ⚠️ not the same key as F8's round bracket, which brackets the note and takes the accidental inside (§3b). ✅ Also, with F7, the one layout whose accidentals are NOT sticky (p. 9). |
+| **F12** sixth, accidentals | ✅ **researched 2026-09-30 — §3c**, key by key. |
 
 ⛔ Do not read the gaps as "the layouts are simple" — they are gaps. The route in §0 is cheap to
 re-walk.
