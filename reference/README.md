@@ -988,6 +988,18 @@ Notengraphikers* (no digital copy is known to exist), and Boosey & Hawkes' house
 of these would have answered a question, the honest report is **UNKNOWN** — never "the books are
 silent".
 
+⏭️ **Wanted for CONTEMPORARY music, not needed yet** (his note, 2026-09-30: *"in the future we will
+need more literature for contemporary music"*) — ⛔ not to be hunted until he asks:
+
+- **Erhard Karkoschka, *Notation in New Music*** (1966; English tr. Koenig, 1972) — per-composer sign
+  tables. Reached so far only as Google Books snippets (pp. 2–3, 25, 27; id `O4MYAQAAIAAJ`); the
+  archive.org copy is lending-only.
+- **Villa-Rojo** — named by him as *"a good reference"*. ⚠️ Taken to be Jesús Villa Rojo, *Notación y
+  grafía musical en el siglo XX* — the title is from memory, NOT verified, and nothing of it has been
+  looked for.
+- **Gardner Read, *20th-Century Microtonal Notation*** (1990) — the survey of the field; snippets only
+  (the 2026-09-30 section below).
+
 ❌ **MOLA's Guidelines for Music Preparation genuinely say nothing** about slurs, ties or hairpins —
 verified by extracting the whole PDF twice. Stop checking it.
 
@@ -1145,3 +1157,69 @@ checked for Gould pp. 197–200, Ross pp. 159–160, Stone pp. 26–29 — each 
 | two voices on a staff | **Gould p. 199** · **Stone p. 29** · **G&L p. 157** | each at its own stem side |
 | vocal | **Gould pp. 198, 437** · **Stone pp. 42–43** | all above |
 | ⛔ UNKNOWN | all four | the side of a group of only RESTS |
+
+### What was asked of it on 2026-09-30 (MICROTONAL ACCIDENTALS), and what came back
+
+Which signs the manuals recommend beyond ♮ ♯ ♭ 𝄪 𝄫, what cancels one, how long it holds, and whether
+the literature itself separates the SIGN from its SOUND. Full write-up:
+`docs/research/alteration-signs-books-research.md` (the conclusions and his decisions:
+`docs/research/alteration-signs-research.md`). Gould and Stone were read from the SCANS on disk;
+everything else from snippets or openly hosted PDFs. ⚠️ The pass was stopped early at his request.
+
+| question | source | answer |
+|---|---|---|
+| ⭐ is there a standard? | **Gould p. 94** · **Stone pp. 68–70** · Read 1969 p. 146 | none — *"Symbols for any other pitches require a written definition"* (Gould); the score must explain its signs (Gould p. 504, Stone p. 70) |
+| the recommended quarter-tone sign | **Gould pp. 94–96** · **Stone p. 67** · Karkoschka p. 25 | an ARROW ATTACHED to ♭ ♮ ♯ — it *"modifies the given accidental by a ¼-tone in the direction of the arrow"* (Gould p. 96) |
+| the "fixed symbols" (Sibelius's four keys) | **Gould p. 96** (table drawn) · **Stone pp. 68–69** | one-upright sharp (¼), three-upright sharp (¾), reversed flat (¼), reversed flat + flat (¾); Gould: *"recommended that all four … are used"*; Stone accepts no ¾ flat |
+| ⭐ what cancels a microtone | **Gould p. 98** | *"If using conventional accidental practice, an ordinary accidental must cancel a microtone"* — drawn: without a sign the next notes STAY altered, so it holds for the bar |
+| a bare arrow | **Gould p. 95** | allowed, ⛔ but not after a conventional accidental on that pitch in the bar (a "but not" example is drawn) |
+| ♮♯ / ♮♭ after a double | **Gould p. 81** · **Stone p. 54** · **G&L p. 4** | the natural *"is redundant"* — traditional vs contemporary practice, both drawn; all three take the modern side |
+| how long an accidental holds | **Gould pp. 86–87** · **Stone pp. 55–56** | a per-score CONVENTION: through the bar / every pitch / only the note it precedes (+ a modified form); state it in the preface |
+| several accidentals on one note | **G&L p. 4** | *"Do not use multiple accidentals on one note"* — the conventional premise every composite system (HEJI, Johnston, Sims, mixed Sagittal) breaks |
+| other microtones: where the sign goes | **Gould p. 96** vs **Stone p. 70** | 🚨 they CONTRADICT: Gould — in front of the note, ⛔ not above; Stone — numerals with arrows ABOVE the note (the Ghent line) |
+| sign ≠ sound, in the literature's own words | Sagittal paper pp. 3, 23 · Farhat p. 26 · Signell p. 38 · Marcus pp. 22, 26–27 | yes, from independent directions — quoted in the write-up §5 |
+| ⛔ UNKNOWN | — | microtonal signs in KEY SIGNATURES (Gould silent — pp. 91–94 checked; Stone, Read not reached) · any NUMBER for a microtonal accidental's gap, width or chord column (no book read gives one) · Read 1990's inventories and what Ghent recommended for specified quarter-tones · Hába, Wyschnegradsky, Tartini, Couper, Johnston originals · Grisey / Haas prefaces · Chlapík |
+
+**Kept from that pass** (gitignored, each openly hosted at the URL given):
+
+| file | what it is | where it came from |
+|---|---|---|
+| `microtonal/sagittal-secor-keenan.pdf` / `.txt` | Secor & Keenan, *Sagittal: A Microtonal Notation System* (Xenharmonikôn 18; PDF © 2006, 2021), 26 pp. — a sign's size depends on the DECLARED tuning (pp. 15, 23); the two flavours, one sign per note or sign + ♯/♭ | `https://www.sagittal.org/sagittal.pdf` (⚠️ curl gets 403; a browser-like fetch works) |
+| `microtonal/heji-notation-2004.pdf` / `.txt` | Sabat & von Schweinitz, *The Extended Helmholtz-Ellis JI Pitch Notation*, 2004 (rev. 2018) — composable per-prime accidentals, cents beside the sign | `https://masa.plainsound.org/pdfs/notation.pdf` (the old `www.plainsound.org/pdfs/…` paths 404) |
+| `microtonal/heji-legend-2020.pdf` / `.txt` | Sabat & Nicholson, the 2020 HEJI legend, 4 pp. — ⚠️ REDEFINES some 2004 signs (the 17-limit schisma), so a HEJI score depends on which legend it follows | `https://www.diva-portal.org/smash/get/diva2:1869939/FULLTEXT03.pdf` |
+| `microtonal/unicode-L2-23-276-quarter-tone-accidentals.pdf` / `.txt` | the 2023 Unicode proposal — Stein–Zimmermann as today's common quarter-tone standard; arrows now used for eighth- or twelfth-tones. ⚠️ Its *"an arrow … has no assumed meaning"* sentence is a FORUM POST it quotes, not its own statement | `https://www.unicode.org/L2/L2023/23276-quarter-tone-accidentals.pdf` |
+| `microtonal/unicode-L2-24-090-musical-chars.pdf` / `.txt` | the 2024 proposal — Hába and Wyschnegradsky facsimiles; one character proposed for the AEU bakiye flat AND the Arabic quarter-flat | `https://www.unicode.org/L2/L2024/24090-musical-chars.pdf` |
+| `microtonal/heji-informal-introduction-sabat-2009.pdf` / `.txt` | Sabat, the 2009 informal introduction to HEJI, 4 pp. | `masa.plainsound.org/pdfs/` (the legend) |
+| `microtonal/mola-guidelines-for-music-preparation.pdf` / `.txt` | MOLA, *Guidelines for Music Preparation*, 16 pp. — ⛔ checked and EMPTY on microtones; the word *accidental* occurs once | MOLA's own site (⚠️ the exact URL was not recorded) |
+| `microtonal/bancquart-agon-andreatta-microtonal-composition.pdf` | Bancquart, Agon & Andreatta, *Microtonal Composition* (an OpenMusic chapter, 8 pp.) — ⚠️ fetched in passing, NOT read and NOT used in the write-up; its URL was not recorded | UNKNOWN — cite by title only |
+| `microtonal/u24090p-05.png`, `-06.png` | rendered pp. 5–6 of L2/24-090 (the AEU and Arabic accidental tables) | from the PDF above |
+| `microtonal/page-scans/gould/*.png` | **Gould's pages on accidentals and microtones, rendered from the PDF** — file numbers are PDF pages (= printed + 20): 98–101, 103, 105–107 (pp. 78–87), **114–118 (pp. 94–98, *Microtones*)**, 267 (p. 247), 524 (p. 504) | the PDF on disk |
+| `microtonal/page-scans/stone/*.png` | **Stone's pages, rendered** — the PDF is 2-up (PDF n = printed 2n−22 / 2n−21): 37–39 (pp. 52–57, *Accidentals*), **44–47 (pp. 66–73, *Microtones*)**, 65 (pp. 108–109) | the PDF on disk |
+| `microtonal/page-scans/gerou-lusk/p-04.png` | Gerou & Lusk p. 4 — *"ONE ACCIDENTAL PER NOTE"* | the PDF on disk |
+| `microtonal/web/` | the web pages the write-up quotes, as fetched 2026-09-30 (`.html` + extracted `.txt`): Kyle Gann on Johnston's notation (`gann_bj`) · the Xenharmonic wiki's HEJI, Johnston, Sagittal and ups-and-downs pages from the Wayback Machine (`wb_xen_*`) · Ezra Sims' font page (`sims_font`) · Wild on Vicentino and Cannon-Brown on Carrillo, both *Music Theory Online* (`wild_vicentino`, `carrillo_mto`) · 13 SMuFL accidental range pages (`smufl_*`) · ⭐ **the stitched archive.org snippets of Read 1990 and the Google Books snippets of Read 1969 and Karkoschka** (`read1990_ext1–3.txt`, `kark_read69.txt`) — slow to obtain, so worth not losing | URLs in `docs/research/alteration-signs-books-research.md` §6 |
+| `microtonal/standards/` | what the STANDARDS pass downloaded and parsed (`docs/research/alteration-signs-industry-research.md`): the MusicXML 4.0 XSD and the 4.1 development schema · the MEI v5.1 ODD modules and Guidelines chapters (`mei/`) · SMuFL 1.4 `ranges` / `classes` / `glyphnames` (`smufl14/`) · the MNX schema and the issue threads (`mnx/`, `gh/`) · the MIDI Tuning spec and the MIDI 2.0 UMP spec (`midituning.pdf`, `ump.pdf`) · the AnaMark `.tun` doc, Scala's help, Ableton's ASCL spec · the Dorico tonality-system help pages (`dorico/`) and the Finale key-format pages (`finale/`) | the source index at the end of that doc |
+| `sibelius/sibelius-6.1-reference.pdf` / `sibelius-6.1-reference-fulltext.txt` | **Sibelius 6 Reference, 6.1 (31 August 2009)** — the Keypad's six layouts (§1.2), Accidentals (§2.1). ⚠️ The extracted text turns arrow glyphs into the digits 0–3; render a page before trusting a key number. What it answered: `docs/research/sibelius-keypad.md` | `https://hub.sibelius.com/download/documentation/pdfs/sibelius610-reference-en.pdf` |
+| `sibelius/sibelius-2018.6-reference.pdf`, `sibelius-2022.3-reference.pdf` | the later References — the Accidentals layout is the same picture; `.` is later called "Suppress auto cautionary accidental" | `https://resources.avid.com/SupportFiles/Sibelius/2018.6/Sibelius_Reference_2018.6.pdf` · `…/Sibelius/2022.3/Sibelius_Reference.pdf` |
+| `sibelius/manuscript-language-guide-2022.3.pdf` | Sibelius's ManuScript guide — the command ids of the Keypad keys, the `Accidental` values (incl. ±0.5, ±1.5) and the separate `AccidentalStyle` (normal · hidden · cautionary · bracketed) | `https://resources.avid.com/SupportFiles/Sibelius/2022.3/ManuScript_Language_Guide.pdf` |
+| `sibelius/sibelius-keypad-layers-bishop.pdf` | "Sibelius Keypad Layers", Dan Bishop — a third-party diagram naming every key of every layout (secondhand) | `https://gcsetime.com/wp-content/uploads/2021/09/Sibelius-Keypad-Layers.pdf` |
+
+**Routes that worked, and that were not known here before:**
+
+- ⭐ **archive.org full-text SEARCH answers for lending-only books**, where download and search-inside
+  do not: `https://archive.org/services/search/beta/page_production/?service_backend=fts&user_query=%22<phrase>%22%20AND%20identifier%3A<id>&page_type=search_results&hits_per_page=5&page=1`
+  → `response.body.hits.hits[].highlight.text[]`, up to five ~100-character snippets. No page
+  numbers; slow (10–30 s). Querying the last four words of a snippet returns the next one, which
+  rebuilds whole sentences. Worked for `20thcenturymicro0000read`, `musicnotationman0000read`,
+  `notationinnewmus0000kark`.
+- ⭐ **Google Books search-within gives PAGE NUMBERS even for no-preview volumes** (sometimes with an
+  empty snippet), so the two routes join: text from archive.org, page from Google Books. IDs: Read
+  1990 `3okYAQAAIAAJ` · Read 1969 `NWUJAQAAMAAJ` · Karkoschka `O4MYAQAAIAAJ` · Farhat `NiMhWnYDuQMC`
+  · Signell `JHMHAQAAMAAJ` · Marcus 2007 `wzAJAQAAMAAJ` · Partch `WRCEympsgLEC`. The old feed
+  `https://www.google.com/books/feeds/volumes?q=…` still answers and is how the IDs were found.
+- **Where the pages are on disk**: Gould's *Microtones* is printed pp. 94–98 (PDF 114–118),
+  *Accidental systems* pp. 86–87, *Cancelling accidentals* p. 81, the preface checklist p. 504.
+  Stone's *Microtones* is printed pp. 67–71 (PDF 44 right half – 46), his *Accidentals* pp. 53–56
+  (PDF 37 right – 39 left).
+- ⛔ Dead or blocked that day: the Xenharmonic wiki live (403; its Wayback `id_` copies work) ·
+  `music.arts.uci.edu` PDFs on Haas (404) · `www.smufl.formats.music` (does not resolve —
+  `smufl.formats.music/latest/tables/<range>.html` does).

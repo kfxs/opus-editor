@@ -24,6 +24,9 @@ The Accidentals page is its sixth layout — §3c there has every key's name and
 three things Sibelius does that are NOT obvious from the picture (`4` / `1` are not free accidentals:
 they only cancel a double; `Enter` on a note showing no accidental makes the implied one appear,
 bracketed; quarter-tones are drawn and transposed but do not sound), and its ⛔ UNKNOWN list.
+⏭️ **How its twelve unwired keys get built is `docs/plans/alteration-signs-plan.md`** — the model
+first (a note stores a LIST of signs, not a number), then the keys one at a time; each sign key
+becomes a SLOT holding a sign, so a future accidental palette is one more door onto the same table.
 
 `+` turns the page, from the panel or the pad. Every page carries the same two controls in fixed
 spots — the select arrow (top-left) and the page-turn `+` — injected by `withControls`, so a new

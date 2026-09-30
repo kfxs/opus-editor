@@ -179,15 +179,28 @@ Johnston's "7" **lowers**, it does not raise ✅ (SMuFL: `accidentalJohnstonSeve
 
 ⛔ **So semantics may NEVER be keyed off the glyph.** Tartini's half-sharp (1756) means 50 ¢ in
 Stein–Zimmermann and 27.3 ¢ in HEJI. Stein's reversed flat means 50 ¢ in one and 33/32 ≈ 53.3 ¢ in
-the other. ✅ Worse, the **arrow modifiers have no fixed value at all** — Unicode L2/23-276 states
-it outright: *"In every case, an arrow requires explanation in the performing directions, so it has
-**no assumed meaning** other than 'some kind of alteration in this or that direction.'"* ✅
+the other. ✅ Worse, the **arrow modifiers have no fixed value at all** — a practitioner quoted in
+Unicode L2/23-276 puts it outright: *"In every case, an arrow requires explanation in the performing
+directions, so it has **no assumed meaning** other than 'some kind of alteration in this or that
+direction.'"* ✅ (⚠️ corrected 2026-09-30: this is a FORUM POST the proposal quotes — a Steinberg
+forum user, cited there as *Anon. 2020* — ⛔ not the proposal authors' own statement, as this line
+used to say. Gould p. 97 says the same thing in a manual's voice: *"The pitch modification of the
+arrow must always be defined."* — `docs/research/alteration-signs-books-research.md` §1.4.)
 
 **A naming fact worth recording because it is universally misremembered:** the "Zimmermann" of
 *Stein–Zimmermann* is **Bernd Alois Zimmermann the composer** (1918–1970), who used the reversed
 flats — not the publisher. Richard Stein (1882–1942) contributed the half-sharps in his *Zwei
 Konzertstücke* Op. 26; both were anticipated by **Tartini in 1756**. ✅ SMuFL itself glosses the
 range as *"Stein-Zimmermann (also known as Tartini-Couper)"* ✅.
+
+> ⚠️ **Two corrections, 2026-09-30** (`docs/research/alteration-signs-books-research.md` §0):
+> (1) the SMuFL gloss above was **NOT FOUND** on re-reading — SMuFL 1.4's `ranges.json` describes the
+> range as *"Stein-Zimmermann accidentals (24-EDO)"* and the range's own page says no more; treat the
+> "also known as Tartini-Couper" wording as UNVERIFIED. (2) **The Tartini attribution is itself
+> contested**: Stone p. 68 says the sharps were *"first proposed in 1756 by Giuseppe Tartini"*; Read
+> 1990 says *"proposed in 1754"*; Secor & Keenan (the Sagittal paper, p. 2) say multiple vertical
+> strokes are *"frequently – and mistakenly! – attributed to Giuseppe Tartini, but) first used by
+> Richard Stein"*.
 
 **Sagittal is the only system designed as a superset** — its accidentals are *"prime-number commatic
 alterations to tones in a Pythagorean series"* usable to notate *"both rational intervals … and
@@ -255,6 +268,9 @@ The corollaries, each forced by a source above:
 - ⚠️ **Not verified:** Johnston's ratios for primes 17/19 (computable, not read printed) and **nothing
   published at all for 23/29/31**; a contradiction between SMuFL and Secor–Keenan over whether the
   Sims arrow pair is 1° or 2° of 72-EDO. Do not encode those from this document.
+  (⚠️ 2026-09-30: the last of these is NOT a contradiction. The Sagittal paper, p. 22, names it
+  itself — *"the virtually identical Sagittal 5-comma symbol pair (for 1º72) and the Sims symbol pair
+  for 2º72"*: two SYSTEMS using look-alike arrows for different step counts, not two accounts of Sims.)
 
 ---
 

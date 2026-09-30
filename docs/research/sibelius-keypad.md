@@ -155,6 +155,10 @@ the quotes below were taken from the EXTRACTED text, not from rendered pages —
 are backed by the button pictures printed beside them (rendered: the wide key, and the crossed
 bracketed key) and by the ManuScript command list; the rest name no key.
 
+✅ **That copy is on disk** since the same day: `reference/sibelius/sibelius-6.1-reference.pdf` with
+its extracted text, the 2018.6 and 2022.3 References, the ManuScript guide and the labelled diagram
+(`reference/README.md`, the 2026-09-30 section).
+
 Its figure (p. 16) matches the Sibelius 6 screenshot we drew from, cell for cell.
 
 | key | Sibelius's name | picture | what it does | confidence |

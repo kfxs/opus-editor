@@ -64,5 +64,9 @@ instance of one rule this codebase keeps choosing:
 ⏭️ One nuance kept open: a score may still *reference* the tuning it was conceived in — the way it
 references an instrument — without the ratios living in it.
 
+⏭️ **2026-09-30 — researched across three engines and the standards, and the first decisions taken**:
+`docs/research/alteration-signs-research.md`. A note will carry a LIST of signs in place of the
+number; ⛔ nothing is built yet.
+
 Related: `docs/plans/key-signature-plan.md` — *`fifths` is the shorthand, never the storage*; the same
 disease, collapsing notation into a number that cannot express what notation can.
