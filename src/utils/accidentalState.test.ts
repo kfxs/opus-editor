@@ -60,6 +60,17 @@ describe('displayedAccidentals', () => {
     id, type: 'chord', beat: frac(beat, 1), duration: 'q', measure: 1, notes, ...(fan ? { fan } : {}),
   })
 
+  // ⭐ alteration-signs K3 — Sibelius: on a note that shows none, the implied accidental APPEARS, bracketed.
+  it('⭐ a BRACKETED accidental shows its sign even while it is in force — the implied one appears', () => {
+    const signs = displayedAccidentals([
+      chord('s1', [pitch('a', 'F', 1)], 0),
+      chord('s2', [pitch('b', 'F', 1, { accidentalEnclosure: 'round' })], 1),
+      chord('s3', [pitch('c', 'G', 0, { accidentalEnclosure: 'round' })], 2),
+    ], C_MAJOR)
+    expect(signs.get('b')).toBe('sharp')
+    expect(signs.get('c')).toBe('natural') // a bracketed natural where nothing needed one
+  })
+
   it('shows an alteration once and suppresses it while it is in force', () => {
     const signs = displayedAccidentals([
       chord('s1', [pitch('a', 'F', 1)], 0),

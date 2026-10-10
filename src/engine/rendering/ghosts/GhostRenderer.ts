@@ -249,10 +249,11 @@ export function drawNoteGhost(
     }
 
     if (ghostNote.alteration) {
-      attachModifier(staveNote, new EngravedAccidental(drawnSignOf(ghostNote.alteration)), 0)
-    } else if (ghostNote.forceAccidental) {
-      // Armed natural: no alteration has no sign of its own, so draw the ♮ explicitly.
-      attachModifier(staveNote, new EngravedAccidental('natural'), 0)
+      attachModifier(staveNote, new EngravedAccidental(drawnSignOf(ghostNote.alteration), ghostNote.signEnclosure), 0)
+    } else if (ghostNote.forceAccidental || ghostNote.signEnclosure) {
+      // Armed natural: no alteration has no sign of its own, so draw the ♮ explicitly. ⭐ Armed BRACKETS
+      // with no sign armed show a bracketed natural too (alteration-signs K3, his rule).
+      attachModifier(staveNote, new EngravedAccidental('natural', ghostNote.signEnclosure), 0)
     }
 
     // The armed entry tremolo, through the SAME modifier the engraved mark uses — so the ghost

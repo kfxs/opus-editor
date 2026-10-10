@@ -140,7 +140,7 @@ export function enclosureLayout(chord: EnclosedChord, signOf: (pitchId: string) 
   const ledgered = lines.some(onLedger)
   const signs = chord.notes.flatMap(p => {
     const sign = signOf(p.id)
-    return sign ? [{ position: spellingDiatonicPos(p.step, p.octave), sign }] : []
+    return sign ? [{ position: spellingDiatonicPos(p.step, p.octave), sign, enclosed: p.accidentalEnclosure !== undefined }] : []
   })
   const positions = chord.notes.map(p => spellingDiatonicPos(p.step, p.octave)).sort((a, b) => a - b)
   const hasSecond = positions.some((position, i) => i > 0 && position - positions[i - 1] === 1)

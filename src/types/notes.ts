@@ -389,6 +389,8 @@ export interface Note {
   forceAccidental?: boolean
   /** The head's brackets (`NotePitch.enclosure`); absent = none. */
   enclosure?: HeadEnclosure
+  /** The brackets round its accidental (`NotePitch.accidentalEnclosure`); absent = none. */
+  accidentalEnclosure?: AccidentalEnclosure
   /** Drawn at cue size — its SLOT's (or grace's) `cue`; absent = full size. */
   cue?: true
   /** Whether this note is a rest */
@@ -540,6 +542,16 @@ export interface NotePitch {
    * already in brackets, and the op refuses it.
    */
   enclosure?: HeadEnclosure
+  /**
+   * ⭐ **The brackets round this pitch's ACCIDENTAL** — the Keypad Accidentals page's `Enter`
+   * (docs/plans/alteration-signs-plan.md K3). **ABSENT = none**, its only spelling (the width-cache key
+   * stringifies the slot). Write it through `engine/models/accidentalEnclosureOps`.
+   *
+   * ⭐ It also SHOWS the sign: a pitch whose accidental the bar's rule would hide draws it, bracketed
+   * (Sibelius). ⛔ It moves nothing but the drawing — not the pitch, not the running-accidental rule.
+   * ⚠️ Main chord heads only in this build: ⛔ not a grace's, a fan member's or a bracketed grace's.
+   */
+  accidentalEnclosure?: AccidentalEnclosure
 }
 
 /**
@@ -547,6 +559,10 @@ export interface NotePitch {
  * a new shape is a new member plus one row in the drawing's table.
  */
 export type HeadEnclosure = 'round'
+
+/** The brackets an ACCIDENTAL can be drawn in (alteration-signs K3) — round today; `'square'` (SMuFL's
+ *  `accidentalBracketLeft/Right`, the editorial sign) would be the next member. */
+export type AccidentalEnclosure = 'round'
 
 /**
  * ONE PITCH ON ITS WAY INTO A MEASURE — the payload `ScoreModel.insertPitch` takes.
@@ -573,6 +589,8 @@ export interface PitchInsert {
   displayStaffId?: string
   /** `NotePitch.enclosure`, verbatim — the head's brackets travel with it. */
   enclosure?: HeadEnclosure
+  /** `NotePitch.accidentalEnclosure`, verbatim — its accidental's brackets travel with it. */
+  accidentalEnclosure?: AccidentalEnclosure
   duration: NoteDuration
   dots?: number
   beat: Fraction
@@ -849,6 +867,10 @@ export interface NoteParams {
   /** The BRACKETS the new head is entered in — note entry armed with them (parenthesised-note-plan
    *  P4b). A property of the HEAD (`NotePitch.enclosure`), unlike the slot marks below. */
   enclosure?: HeadEnclosure
+  /** ⭐ The BRACKETS the new pitch's ACCIDENTAL is entered in — note entry armed with them (alteration-signs
+   *  K3, his ask). Applied by `NoteEntryCoordinator` through `models/accidentalEnclosureOps` (⛔ not by
+   *  `ScoreModel.addNote`), so it lands in the SAME undo entry as the note. */
+  signEnclosure?: AccidentalEnclosure
   /** ⭐ Entered at CUE size — note entry armed with it (cue-size-plan, his rule: *"for note entry what is important
    *  is what is armed on the pallette"*). A property of the SLOT (`Chord.cue` / `Rest.cue`): a pitch entered into
    *  an existing chord with cue armed makes that chord cue, as an armed tremolo marks it. Absent = not armed

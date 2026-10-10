@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import type { DrawnSignId } from '@/types/music'
-import { INK, minColumnGap, accidentalExtent, dotExtent, pairPadding, restDotExtent, restExtent } from './spacingPadding'
+import { INK, minColumnGap, accidentalExtent, accidentalEnclosureWidth, dotExtent, pairPadding, restDotExtent, restExtent } from './spacingPadding'
 import { resetRestDotGapRule, setRestDotGapRule } from './restDotGap'
 import { DOT_GAP_RULES, resetDotGapRule, setDotGapRule, type DotGapRuleName } from './dotGap'
 import { noteDotXs } from './noteDotXs'
@@ -54,6 +54,14 @@ describe('the measured extents', () => {
       { position: 0, sign: 'sharp' }, { position: 2, sign: 'sharp' }, { position: 7, sign: 'sharp' },
     ])
     expect(spread).toBeCloseTo(2.7, 6)
+  })
+
+  it('⭐ a BRACKETED accidental reaches further by both brackets and the armed white (K3) — the row the ink reads', () => {
+    const bare = accidentalExtent([{ position: 0, sign: 'sharp' }])
+    const bracketed = accidentalExtent([{ position: 0, sign: 'sharp', enclosed: true }])
+    // Bravura's E26A + E26B advances (0.564 each) and LilyPond's 0 white, armed (his call).
+    expect(accidentalEnclosureWidth()).toBeCloseTo(1.128, 6)
+    expect(bracketed - bare).toBeCloseTo(accidentalEnclosureWidth(), 6)
   })
 
   it('nothing drawn reaches nowhere', () => {

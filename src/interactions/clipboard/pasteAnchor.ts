@@ -141,6 +141,7 @@ export function anchorOfElement(engine: PasteAnchorEngine, element: SelectedElem
     case 'accidental':
     case 'dot':
     case 'headEnclosure':
+    case 'accidentalEnclosure':
     case 'stem':
     case 'noteFlag':
     case 'beamGroup':

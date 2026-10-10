@@ -6,6 +6,7 @@ import { createBracketedSideSelection } from './bracketedSideSelection'
 import { createEnclosureSpanSelection } from './enclosureSpanSelection'
 import { createCueSizeSelection } from './cueSizeSelection'
 import { createGraceSelection } from './graceSelection'
+import { createAccidentalKeySelection } from './accidentalKeySelection'
 import { createBeamOverSelection } from './beamOverSelection'
 import { createBeamSelection } from './beamSelection'
 import { createClefSelection } from './clefSelection'
@@ -96,6 +97,8 @@ interface EditorBus {
   cueSize: ReturnType<typeof createCueSizeSelection>
   /** ⭐ The Keypad's Grace-page keys — appoggiatura, acciaccatura, bracketed grace (`./graceSelection`). */
   grace: ReturnType<typeof createGraceSelection>
+  /** ⭐ The Keypad Accidentals page's non-slot keys — `Enter`, the accidental's parentheses (`./accidentalKeySelection`). */
+  accidentalKeys: ReturnType<typeof createAccidentalKeySelection>
   /** The beam MODE keys — a set, because authored beam and engraved role can differ. */
   beam: ReturnType<typeof createBeamSelection>
   /** The beam-over-a-rest flag. */
@@ -200,6 +203,7 @@ export function createEditorBus(): EditorBus {
     enclosureSpan: createEnclosureSpanSelection(),
     cueSize: createCueSizeSelection(),
     grace: createGraceSelection(),
+    accidentalKeys: createAccidentalKeySelection(),
     beam: createBeamSelection(),
     beamOver: createBeamOverSelection(),
     clef: createClefSelection(),
@@ -284,3 +288,4 @@ export type { BracketedSideRequest } from './bracketedSideSelection'
 export type { EnclosureSpanRequest } from './enclosureSpanSelection'
 export type { CueSizeRequest } from './cueSizeSelection'
 export type { GraceKey } from './graceSelection'
+export type { AccidentalKey } from './accidentalKeySelection'

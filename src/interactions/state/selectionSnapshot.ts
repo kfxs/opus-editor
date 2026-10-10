@@ -284,6 +284,10 @@ export function selectedElements(state: EditorState, engine: MusicEngine | null)
       // The dot's shape: the brackets are a PROPERTY of the head (`enclosure` on its pitch).
       out.push({ kind: 'headEnclosure', data: { noteId: element.noteId, note: engine.getNote(element.noteId) } })
       break
+    case 'accidentalEnclosure':
+      // …and an accidental's brackets, a property of its pitch likewise (`accidentalEnclosure`, K3).
+      out.push({ kind: 'accidentalEnclosure', data: { noteId: element.noteId, note: engine.getNote(element.noteId) } })
+      break
     case 'stem':
       // Same shape as the dot: a stem is a PROPERTY of the slot (its direction lives on the note),
       // not an object in the model — the locator plus the note it belongs to is the whole truth.

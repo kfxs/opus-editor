@@ -9,7 +9,7 @@ import type { ViewMode } from '@/engine/layout/layoutConfig'
 import type { BarlineSign } from '../stamps/barlineStamp'
 import type { ScoreTextField } from '@/engine/models/scoreTextOps'
 import type { GraceForm } from '@/engine/models/graceOps'
-import type { GraceSide, HeadEnclosure } from '@/types/music'
+import type { AccidentalEnclosure, GraceSide, HeadEnclosure } from '@/types/music'
 import type { BracketedSide } from '@/utils/bracketedGraces'
 
 /** A value armed on the dynamics palette: an interpreted level, or the custom-text tool. */
@@ -800,6 +800,12 @@ export type SelectedElement =
    */
   | { kind: 'headEnclosure'; noteId: string }
   /**
+   * ⭐ A BRACKETED accidental's brackets — both, one pair (alteration-signs K3, his ask 2026-10-10: *"i should be
+   * also able to select the parenthesis individual so i can delete it"*). Named by the pitch id: the brackets
+   * are `NotePitch.accidentalEnclosure`. Delete takes them off; the note stays.
+   */
+  | { kind: 'accidentalEnclosure'; noteId: string }
+  /**
    * ⭐ A GLISSANDO's line (docs/plans/glissando-plan.md P4), by its id. Delete removes it; the notes stay.
    * ⚠️ Named `glissandoLine`, ⛔ not `glissando`: `lint:hubs` reads every kind name as a word, and
    * `MusicEngine`'s facade already says `glissando` (`engine.glissando`, the commands) — the
@@ -1057,6 +1063,12 @@ export interface EditorState {
    */
   selectedEnclosure: HeadEnclosure | null
   /**
+   * ⭐ The brackets note entry puts round the new note's ACCIDENTAL (null = none) — the Accidentals page's
+   * `Enter` in note entry (alteration-signs K3, his ask). The {@link selectedEnclosure} twin: it persists,
+   * Escape clears it. The note shows its sign in them — the armed one, or the implied one (a natural).
+   */
+  selectedSignEnclosure: AccidentalEnclosure | null
+  /**
    * ⭐ CUE armed for NOTE ENTRY (cue-size-plan, his rule: *"for note entry what is important is what is armed on the
    * pallette"*) — every note and rest entered is born cue-sized. The brackets' twin: a note-entry value, toggled by
    * the `cue` button in entry mode (`interactions/stamps/cueTool`), cleared with the armed marks (Escape).
@@ -1219,6 +1231,7 @@ export function createEditorState(): EditorState {
     selectedElement: null,
     selectedTremolo: null,
     selectedEnclosure: null,
+    selectedSignEnclosure: null,
     selectedCue: false,
     selectedDuration: DEFAULT_DURATION,
     selectedAccidental: null,

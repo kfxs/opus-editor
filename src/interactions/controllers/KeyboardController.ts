@@ -385,6 +385,8 @@ export class KeyboardController {
         ...(this.state.selectedTremolo !== null && { tremolo: this.state.selectedTremolo }),
         // …and the armed entry BRACKETS (parenthesised-note-plan P4b).
         ...(this.state.selectedEnclosure !== null && { enclosure: this.state.selectedEnclosure }),
+        // …and the armed brackets round its SIGN (alteration-signs K3).
+        ...(this.state.selectedSignEnclosure !== null && { signEnclosure: this.state.selectedSignEnclosure }),
         // …and entry CUE (cue-size-plan).
         ...(this.state.selectedCue && { cue: true as const }),
         ...(this.state.selectedAccidental === 'natural' && { forceAccidental: true }),

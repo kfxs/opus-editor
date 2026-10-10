@@ -63,6 +63,7 @@ import { ACCIDENTAL_ELEMENT } from './accidental'
 import { ARTICULATION_ELEMENT } from './articulation'
 import { DOT_ELEMENT } from './dot'
 import { HEAD_ENCLOSURE_ELEMENT } from './enclosure'
+import { ACCIDENTAL_ENCLOSURE_ELEMENT } from './accidentalEnclosure'
 import { TREMOLO_ELEMENT } from './tremolo'
 import { STEM_ELEMENT } from './stem'
 import { NOTE_FLAG_ELEMENT } from './noteFlag'
@@ -281,6 +282,9 @@ export const ELEMENT_HIT_ORDER: ReadonlyArray<ClickableElementSpec> = [
   // ⚠️ What DOES matter is that it is hit-tested on its two glyph boxes and nothing between them, so
   // it claims far less area than its neighbours here (`./pedal`).
   PEDAL_ELEMENT,
+  // ⭐ A bracketed accidental's BRACKETS before the accidental (alteration-signs K3): the accidental's box is the
+  //   whole run, brackets included, so asked second it would swallow them. Each bracket's box is its own ink.
+  ACCIDENTAL_ENCLOSURE_ELEMENT,
   ACCIDENTAL_ELEMENT,
   // ⭐ A head's BRACKETS after its accidental — `(` stands outside the sign, never on it — and before
   //   the dot, which a `)` can stand next to. Its handler stands down for a press nearer the head.
@@ -357,6 +361,7 @@ export const ELEMENT_SPECS: Record<SelectedElement['kind'], ElementKindSpec> = {
   articulation: ARTICULATION_ELEMENT,
   dot: DOT_ELEMENT,
   headEnclosure: HEAD_ENCLOSURE_ELEMENT,
+  accidentalEnclosure: ACCIDENTAL_ENCLOSURE_ELEMENT,
   tremolo: TREMOLO_ELEMENT,
   stem: STEM_ELEMENT,
   noteFlag: NOTE_FLAG_ELEMENT,

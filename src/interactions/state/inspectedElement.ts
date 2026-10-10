@@ -95,6 +95,7 @@ export type InspectedElement =
   | Report<'accidental', OnNote & { type: DrawnSignId | null }>
   | Report<'dot', OnNote>
   | Report<'headEnclosure', OnNote>
+  | Report<'accidentalEnclosure', OnNote>
   | Report<'stem', OnNote>
   | Report<'noteFlag', OnNote>
   | Report<'beamGroup', OnNote>

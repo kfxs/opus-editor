@@ -1644,7 +1644,7 @@ export class MouseController {
             this.state.selectedBeam !== 'auto' ? this.state.selectedBeam : undefined,
             activeVoiceToModel(this.state.activeVoice),
             this.state.selectedTremolo ?? undefined,
-            this.state.selectedEnclosure ?? undefined, this.state.selectedCue || undefined,
+            this.state.selectedEnclosure ?? undefined, this.state.selectedCue || undefined, this.state.selectedSignEnclosure ?? undefined,
           )
 
           if (note) {
@@ -1713,7 +1713,7 @@ export class MouseController {
           // beside it, so the entered note is BORN with the mark (one undo entry, and the
           // cross-barline split carries it to every piece).
           this.state.selectedTremolo ?? undefined,
-          this.state.selectedEnclosure ?? undefined, this.state.selectedCue || undefined,
+          this.state.selectedEnclosure ?? undefined, this.state.selectedCue || undefined, this.state.selectedSignEnclosure ?? undefined,
         )
 
         if (note) {

@@ -1,4 +1,5 @@
 import type { EngravedAnnotation } from './engraved/EngravedAnnotation'
+import { registerSignBoxes } from './signBracketBoxes'
 import { ScoreTuplet } from './engraved/ScoreTuplet'
 import { tremoloOn, TREMOLO_FLAG_STEM_STRETCH, TREMOLO_STROKE_CLEARANCE, usableStemSpan } from './engraved/CenteredTremolo'
 import { twoNoteTremoloStrokes } from './engraved/TwoNoteTremolo'
@@ -9,7 +10,6 @@ import { clearLedgersForAccidentals } from './format/ledgerAccidentalClearance'
 import { dodgeDestinationAccidentals } from './format/crossStaffAccidentals'
 import { armedStandoffPx, placeAccidentals } from './format/accidentalPlacement'
 import { EngravedNote, drawNoteInkThrough } from './engraved/EngravedNote'
-import { accidentalHitBox } from './painter/drawnHitBox'
 import { accidentalsOn } from './engraved/EngravedAccidental'
 import { EngravedDot } from './engraved/EngravedDot'
 import { hasArticulation } from './engraved/EngravedArticulation'
@@ -2954,20 +2954,11 @@ export class ScoreRenderer {
                   for (const accidental of accidentalsOn(staveNote)) {
                     {
                       if (accidental.getIndex() === keyIndex) {
-                        const accBox = accidentalHitBox(accidental)
-                        if (accBox) {
-                          const accStr = drawnSignOf(pitch.alteration)
-                          this.elementRegistry.add({
-                            type: 'accidental',
-                            noteId: pitch.id,
-                            measure: measure.number,
-                            staff: staffIndex,
-                            beat: fracToNumber(slot.beat),
-                            staffPosition: staffPosition(pitch),
-                            accidentalType: accStr,
-                            bbox: accBox,
-                          })
-                        }
+                        // ⭐ The sign's box — and a bracketed sign's two brackets, each selectable alone (K3).
+                        registerSignBoxes(this.elementRegistry, accidental, drawnSignOf(pitch.alteration), {
+                          noteId: pitch.id, measure: measure.number, staff: staffIndex,
+                          beat: fracToNumber(slot.beat), staffPosition: staffPosition(pitch),
+                        })
                         break
                       }
                     }

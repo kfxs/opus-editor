@@ -37,3 +37,12 @@ describe('EngravedAccidental', () => {
     expect(sign.getXShift()).toBe(2)
   })
 })
+
+describe('EngravedAccidental — in BRACKETS (alteration-signs K3)', () => {
+  it('⭐ carries the font’s own accidental brackets, E26A / E26B; a bare sign carries none', () => {
+    const bracketed = new EngravedAccidental('sharp', 'round')
+    expect([bracketed.enclosure?.left, bracketed.enclosure?.right].map(g => g!.codePointAt(0)!.toString(16))).toEqual(['e26a', 'e26b'])
+    expect(new EngravedAccidental('sharp').enclosure).toBeNull()
+    expect(bracketed.getText()).toBe(new EngravedAccidental('sharp').getText()) // the SIGN is unchanged
+  })
+})

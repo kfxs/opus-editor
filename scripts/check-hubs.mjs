@@ -39,7 +39,7 @@ import { readFileSync } from 'node:fs'
 const HUBS = [
   { file: 'src/engine/MusicEngine.ts', kinds: 486, lines: null },
   { file: 'src/engine/models/ScoreModel.ts', kinds: 903, lines: null },
-  { file: 'src/engine/rendering/ScoreRenderer.ts', kinds: 717, lines: null },
+  { file: 'src/engine/rendering/ScoreRenderer.ts', kinds: 713, lines: null },
   { file: 'src/interactions/controllers/MouseController.ts', kinds: 252, lines: 1029 },
   { file: 'src/interactions/controllers/PaletteController.ts', kinds: 418, lines: null },
   { file: 'src/interactions/controllers/HighlightController.ts', kinds: 0, lines: 90 },

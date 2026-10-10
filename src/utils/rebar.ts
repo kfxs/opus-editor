@@ -37,6 +37,7 @@ import type {
   PitchStep,
   Alteration,
   HeadEnclosure,
+  AccidentalEnclosure,
   StemDirection,
   ArticulationType,
   TremoloMark,
@@ -84,6 +85,8 @@ export interface RebarPitch {
   displayStaffId?: string
   /** `NotePitch.enclosure`, verbatim — the head's brackets travel with it. */
   enclosure?: HeadEnclosure
+  /** `NotePitch.accidentalEnclosure`, verbatim — its accidental's brackets travel with it. */
+  accidentalEnclosure?: AccidentalEnclosure
 }
 
 /** Opaque payload preserved verbatim for an atomic (tuplet) event. */
@@ -391,6 +394,7 @@ export function flattenRegion(
           forceAccidental: p.forceAccidental,
           ...(p.displayStaffId !== undefined ? { displayStaffId: p.displayStaffId } : {}),
           ...(p.enclosure && { enclosure: p.enclosure }),
+          ...(p.accidentalEnclosure && { accidentalEnclosure: p.accidentalEnclosure }),
         })),
         stemDirection: slot.stemDirection,
         articulations: slot.articulations,
@@ -500,7 +504,7 @@ function pitchesEqual(a: RebarPitch[], b: RebarPitch[]): boolean {
   // ⭐ The head's BRACKETS are part of the match: a merged chain is re-laid with ONE set of pitches, so
   //    `(C)` tied to `C` merged would come back with brackets on every piece, or on none. Gould brackets
   //    the RESTATED note of a tie (p. 610) — the pieces differ, and stay two events.
-  const key = (p: RebarPitch) => `${p.octave}/${p.step}/${alterationCode(p.alteration)}/${p.enclosure ?? ''}`
+  const key = (p: RebarPitch) => `${p.octave}/${p.step}/${alterationCode(p.alteration)}/${p.enclosure ?? ''}/${p.accidentalEnclosure ?? ''}`
   const as = a.map(key).sort()
   const bs = b.map(key).sort()
   return as.every((k, i) => k === bs[i])

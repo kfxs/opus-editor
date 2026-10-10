@@ -1,4 +1,5 @@
 import { dbg } from '@/utils/debug'
+import { setAccidentalEnclosure } from './models/accidentalEnclosureOps'
 import { ScoreModel } from './models/ScoreModel'
 import { CoordinateMapper } from './rendering/CoordinateMapper'
 import { CollisionDetector } from './models/CollisionDetector'
@@ -105,6 +106,7 @@ export class NoteEntryCoordinator {
       dbg(`[Entry] KeyboardEntry | v${entryVoice} ${formatPitch(params)} dur:${params.duration} measure:${params.measure} beat:${fracToNumber(finalBeatFrac).toFixed(3)} → overflow ${overflow.overflowAmount.toFixed(3)}b — splitting with tie`)
       const splitNote = addSplitNoteWithTie(this.getScoreModel(), finalParams, overflow.overflowAmount)
       if (splitNote) {
+        this.bracketEnteredSign(splitNote, params.signEnclosure)
         this.onCommit('Keyboard enter note')
       }
       return splitNote
@@ -117,8 +119,18 @@ export class NoteEntryCoordinator {
       this.getScoreModel().refillTupletRemainder(params.measure, tupletAtBeat, voiceOf(params))
     }
 
+    this.bracketEnteredSign(note, params.signEnclosure)
     this.onCommit('Keyboard enter note')
     return note
+  }
+
+  /**
+   * ⭐ The armed entry brackets round the new pitch's ACCIDENTAL (alteration-signs K3) — written before the
+   * entry's ONE commit, so note and brackets are one undo step. The sign then shows, bracketed: the armed
+   * one, or the implied one (`displayedAccidentals` reads the field as a request to show it).
+   */
+  private bracketEnteredSign(note: Note | null, shape: NoteParams['signEnclosure']): void {
+    if (note && shape) setAccidentalEnclosure(this.getScoreModel().getScore(), [note.id], shape)
   }
 
   // ==================== Public: Mouse Entry ====================
@@ -218,6 +230,8 @@ export class NoteEntryCoordinator {
     enclosure?: NoteParams['enclosure'],
     /** ⭐ CUE armed for entry — the note is born cue-sized (cue-size-plan, his rule). */
     cue?: NoteParams['cue'],
+    /** ⭐ The armed entry brackets round the ACCIDENTAL (alteration-signs K3). */
+    signEnclosure?: NoteParams['signEnclosure'],
   ): Note | null {
     const registry = this.elementRegistry
     const entryVoice = voice ?? 0
@@ -334,6 +348,7 @@ export class NoteEntryCoordinator {
       ...(tremolo !== undefined && { tremolo }),
       ...(enclosure && { enclosure }),
       ...(cue && { cue }),
+      ...(signEnclosure && { signEnclosure }),
       ...(beam && beam !== 'auto' && { beam }),
       ...(entryVoice && { voice: entryVoice }),
       ...(entryStaff && { staff: entryStaff }),
@@ -390,6 +405,7 @@ export class NoteEntryCoordinator {
       })
 
       // Save undo state for the complete add operation
+      this.bracketEnteredSign(note, signEnclosure)
       this.onCommit(`Add ${formatPitch(spelling)}`)
     }
 
@@ -457,6 +473,7 @@ export class NoteEntryCoordinator {
 
     const splitNote = addSplitNoteWithTie(this.getScoreModel(), noteParams, overflowAmount)
     if (splitNote) {
+      this.bracketEnteredSign(splitNote, noteParams.signEnclosure)
       this.onCommit(`Add ${formatPitch(spelling)}`)
     }
     return splitNote

@@ -239,6 +239,9 @@ export type ElementType =
   /** ⭐ One bracket of a PARENTHESISED head — `noteId` is the head's pitch id; each of `(` and `)` its
    *  own box (`rendering/EnclosurePass`, `GracePass`). */
   | 'headEnclosure'
+  /** ⭐ One bracket of a BRACKETED accidental — `noteId` is its pitch id; `(` and `)` each their own box
+   *  (`rendering/signBracketBoxes`, alteration-signs K3). */
+  | 'accidentalEnclosure'
   | 'tuplet'
   | 'articulation'
   | 'dynamic'

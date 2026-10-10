@@ -18,11 +18,11 @@ const ALL_KINDS: SelectedElement['kind'][] = [
   'clef', 'timeSignature', 'keySignature', 'tempo', 'dynamic', 'tie', 'slur', 'hairpin', 'trill',
   'ottava', 'pedal', 'accidental', 'articulation', 'dot', 'tremolo', 'stem', 'barline', 'repeatStart',
   'tuplet', 'measureRange', 'scoreText', 'staffGroup', 'headEnclosure', 'glissandoLine', 'noteFlag', 'beamGroup',
-  'glyphMark',
+  'glyphMark', 'accidentalEnclosure',
 ]
 
 describe('ELEMENT_SPECS — total over the union', () => {
-  it('answers for all twenty-seven kinds, and nothing else', () => {
+  it('answers for all twenty-eight kinds, and nothing else', () => {
     expect(Object.keys(ELEMENT_SPECS).sort()).toEqual([...ALL_KINDS].sort())
   })
 
@@ -109,7 +109,9 @@ describe('ELEMENT_HIT_ORDER — the priority chain', () => {
       // everywhere in this run. What matters more is that it claims only its two GLYPH boxes.
       // ⭐ The GLISSANDO line sits between the tie and the slur: a thin straight stroke hit on its own ink,
       // the thinner target where it crosses an arc (docs/plans/glissando-plan.md P4).
-      'tie', 'glissandoLine', 'slur', 'hairpin', 'trill', 'ottava', 'pedal', 'accidental',
+      'tie', 'glissandoLine', 'slur', 'hairpin', 'trill', 'ottava', 'pedal',
+      // ⭐ A bracketed accidental's BRACKETS before the accidental, whose box is the whole run (K3).
+      'accidentalEnclosure', 'accidental',
       // ⭐ A head's BRACKETS after its accidental (`(` stands outside the sign) and before the dot.
       'headEnclosure',
       'articulation',

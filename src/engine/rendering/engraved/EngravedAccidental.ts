@@ -64,8 +64,11 @@ import type { EngravedNote } from './EngravedNote'
 import type { DrawContext } from '@/engine/paint/DrawContext'
 import { MUSIC_FONT_SIZE_PT, accidentalFont } from '@/engine/engrave/inheritedFonts'
 import { accidentalOriginX, drawAccidental, type AccidentalInk } from '@/engine/engrave/notes/accidental'
+import { stampGlyph } from '@/engine/engrave/glyph'
 import { accidentalGlyph } from '@/engine/fonts/fontMetrics'
-import type { DrawnSignId } from '@/types/music'
+import type { AccidentalEnclosure, DrawnSignId } from '@/types/music'
+import { ACCIDENTAL_ENCLOSURE_GLYPHS, accidentalEnclosureGap } from '@/engine/layout/accidentalEnclosureGap'
+import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { GLYPH_CODEPOINTS } from '@/engine/fonts/bravuraMetrics'
 import type { SceneBox } from '@/engine/scene/sceneBox'
 import type { InkSurfaceAware } from '../painter/inkSurface'
@@ -97,11 +100,27 @@ export class EngravedAccidental extends EngravedModifier implements InkSurfaceAw
   /** @see EngravedAccidental.drawnInk */
   private ink: SceneBox | null = null
 
-  constructor(type: DrawnSignId) {
+  /** @see EngravedAccidental.drawnBracketInk */
+  private bracketInk: SceneBox[] = []
+
+  /**
+   * ⭐ Its BRACKETS (alteration-signs K3) — the font's `accidentalParensLeft/Right` at the sign's own size,
+   * with `layout/accidentalEnclosureGap`'s white each side: the SAME row the room is priced with
+   * (`spacingPadding.accidentalEnclosureWidth`). Null = a bare sign.
+   */
+  readonly enclosure: { left: string; right: string } | null
+
+  constructor(type: DrawnSignId, enclosure?: AccidentalEnclosure) {
     super()
     const name = accidentalGlyph(type)
     this.type = type
     this.glyph = String.fromCodePoint(GLYPH_CODEPOINTS[name])
+    this.enclosure = enclosure
+      ? {
+          left: String.fromCodePoint(GLYPH_CODEPOINTS[ACCIDENTAL_ENCLOSURE_GLYPHS.left]),
+          right: String.fromCodePoint(GLYPH_CODEPOINTS[ACCIDENTAL_ENCLOSURE_GLYPHS.right]),
+        }
+      : null
     this.position = MODIFIER_POSITION.LEFT
   }
 
@@ -121,9 +140,25 @@ export class EngravedAccidental extends EngravedModifier implements InkSurfaceAw
     return this.glyph
   }
 
-  /** How much room it takes — the glyph's advance at the sign's size. */
+  /** How much room it takes — the glyph's advance at the sign's size, and its brackets' when it has them. */
   getWidth(): number {
-    return this.measured().width
+    const run = this.run()
+    return run ? run.width : this.measured().width
+  }
+
+  /**
+   * A bracketed sign's RUN, left to right from 0 — `(`, the white, the sign, the white, `)` — or null for a
+   * bare sign. ⭐ One place for the arithmetic, read by the width and the draw alike.
+   */
+  private run(): { sign: number; right: number; width: number } | null {
+    if (!this.enclosure) return null
+    const size = MUSIC_FONT_SIZE_PT * this.noteScale()
+    const left = measureGlyphMetrics(SIGN_TAG, this.enclosure.left, size).width
+    const right = measureGlyphMetrics(SIGN_TAG, this.enclosure.right, size).width
+    const gap = accidentalEnclosureGap() * STAFF_SPACE_PX * this.noteScale()
+    const sign = left + gap
+    const rightAt = sign + this.measured().width + gap
+    return { sign, right: rightAt, width: rightAt + right }
   }
 
   /** Move it by `px` on top of the shift it has — the note offset's nudge (`ScoreRenderer`). */
@@ -156,6 +191,15 @@ export class EngravedAccidental extends EngravedModifier implements InkSurfaceAw
     return this.ink
   }
 
+  /**
+   * ⭐ Each BRACKET's own ink, `(` then `)` (alteration-signs K3) — filed as its own hit box so a press can
+   * select the brackets alone (his ask: *"i should be also able to select the parenthesis individual so i
+   * can delete it"*). Empty for a bare sign, or before it has drawn.
+   */
+  drawnBracketInk(): SceneBox[] {
+    return this.bracketInk
+  }
+
   /** ⭐ **OURS** — the glyph, through our own primitives, at VexFlow's own point. */
   draw(): void {
     const context = this.checkContext()
@@ -163,20 +207,30 @@ export class EngravedAccidental extends EngravedModifier implements InkSurfaceAw
     this.setRendered()
 
     this.ink = null
+    this.bracketInk = []
 
     const start = note.getModifierStartXY(this.position, this.checkIndex())
     this.x = accidentalOriginX(start.x, this.getWidth())
     this.y = start.y
 
+    const origin = this.x + this.xShift
+    const run = this.run()
     const ink: AccidentalInk = {
       glyph: this.glyph,
-      x: this.x + this.xShift,
+      x: origin + (run?.sign ?? 0),
+      ...(run && this.enclosure && {
+        brackets: [{ glyph: this.enclosure.left, x: origin }, { glyph: this.enclosure.right, x: origin + run.right }],
+      }),
       y: this.y + this.yShift,
       font: accidentalFont(this.glyph, this.noteScale()),
       id: this.getAttribute('id')!,
     }
     drawAccidental(this.inkSurface ?? context, ink)
     this.ink = drawnInkBoxOf(ctx => drawAccidental(ctx, ink))
+    for (const bracket of ink.brackets ?? []) {
+      const box = drawnInkBoxOf(ctx => stampGlyph(ctx, bracket.glyph, bracket.x, ink.y, ink.font))
+      if (box) this.bracketInk.push(box)
+    }
   }
 }
 

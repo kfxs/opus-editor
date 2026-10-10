@@ -53,13 +53,27 @@ export function paintNoteAccidentals(ctx: HighlightContext, noteId: string, grou
       const elX = elBBox.x + elBBox.width / 2
       const elY = elBBox.y + elBBox.height / 2
       if (Math.abs(elX - centerX) < 1.0 && Math.abs(elY - centerY) < bbox.height / 2 + 1.0) {
-        const el = svgEl as SVGElement
-        ctx.setAttr(el, 'fill', color)
-        ctx.setStyleProp(el, 'fill', color)
-        ctx.addClass(el, 'selected-note')
+        for (const el of signRun(svgEl)) {
+          ctx.setAttr(el, 'fill', color)
+          ctx.setStyleProp(el, 'fill', color)
+          ctx.addClass(el, 'selected-note')
+        }
       }
     }
   }
+}
+
+/**
+ * ⭐ The glyphs that light with a matched sign: the sign AND its BRACKETS (alteration-signs K3, his ask —
+ * *"when selected the accidental or the note, if it has parenthesis, should be selected too"*). The
+ * brackets are stamped in the sign's own `g.accidental` group (`engrave/notes/accidental.drawAccidental`),
+ * beside it, so the centre match above finds the sign only; its group gives the rest.
+ */
+function signRun(sign: Element): SVGElement[] {
+  const group = sign.parentElement
+  return group?.classList.contains('accidental')
+    ? [...group.querySelectorAll('text')] as SVGElement[]
+    : [sign as SVGElement]
 }
 
 export function paintSelectedAccidental(ctx: HighlightContext): void {
@@ -96,10 +110,11 @@ export function paintSelectedAccidental(ctx: HighlightContext): void {
       // when stacked voices put a sharp and flat in the same column.
       if (Math.abs(centerX_el - centerX_bbox) < 1.0 &&
           Math.abs(centerY_el - centerY_bbox) < bbox.height / 2 + 1.0) {
-        const el = svgEl as SVGElement
-        ctx.setAttr(el, 'fill', ACCIDENTAL_COLOR)
-        ctx.setStyleProp(el, 'fill', ACCIDENTAL_COLOR)
-        ctx.addClass(el, 'selected-accidental')
+        for (const el of signRun(svgEl)) {
+          ctx.setAttr(el, 'fill', ACCIDENTAL_COLOR)
+          ctx.setStyleProp(el, 'fill', ACCIDENTAL_COLOR)
+          ctx.addClass(el, 'selected-accidental')
+        }
       }
     }
   }

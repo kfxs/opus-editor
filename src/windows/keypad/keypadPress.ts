@@ -95,6 +95,11 @@ export function pressKeypadCell(cell: KeypadCell): void {
       //    selection), and lights the keys back from their own lit rules.
       if (cell.grace) bus.grace.press(cell.grace)
       break
+    case 'accidentalKey':
+      // ⭐ The Accidentals page's `Enter` — the accidental's parentheses (alteration-signs K3). PRESS the key;
+      // `interactions/controllers/keypadAccidentalWiring` routes it and lights it back.
+      if (cell.accidentalKey) bus.accidentalKeys.press(cell.accidentalKey)
+      break
     case 'removeAccidentals':
       // The Accidentals page's `0` (alteration-signs K2): PRESS null — the palette's REMOVE, the same
       // `setAccidental` a sign key reaches. Every selected note reverts to the bar's and key's answer;
@@ -102,7 +107,7 @@ export function pressKeypadCell(cell: KeypadCell): void {
       bus.accidental.press(null)
       break
     case 'momentary':
-      // A key that is only a PICTURE so far — nine of the Accidentals page's fifteen. It does
+      // A key that is only a PICTURE so far — eight of the Accidentals page's fifteen. It does
       // NOTHING, which is the right nothing: a numpad key over an unwired cell must not fall through to
       // some other page's meaning, and an unwired key shows no light. (A CLICK still logs the key's
       // name — that is the panel's own log, `KeypadWidget.press`.)

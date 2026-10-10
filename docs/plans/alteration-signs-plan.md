@@ -178,6 +178,20 @@ bracket, sign, bracket — which is also what K5 and any future list of signs ne
 shows no accidental the implied one appears, in brackets (Sibelius). All three fonts have the glyphs.
 The space between bracket and sign is a changeable row, researched as a follow-up — ⛔ not a blocker.
 
+✅ **Built 2026-10-10.** `NotePitch.accidentalEnclosure: 'round'` (absent = none; `models/accidentalEnclosureOps`,
+`commands/signEnclosureCommands` = `engine.signEnclosure`). `displayedAccidentals` reads it as a request to SHOW
+the sign, so a note with none shows its implied one in brackets; the second press hides it again (default 2).
+Drawn as a RUN by `EngravedAccidental` — E26A, the sign, E26B, at the sign's size — and priced by the same
+numbers in `spacingPadding.accidentalExtent` (`enclosed`); the white is `layout/accidentalEnclosureGap`, ⭐ **his
+call: LILYPOND's 0 is armed** (Gould 0.2 and MuseScore 0.175 are rows; VexFlow's ⅔-size run is a ⏳ SIZE row not
+built). `Enter`: selected notes / a selected sign toggle, the selected BRACKETS come off, nothing selected does
+nothing; ⭐ in NOTE ENTRY it arms them (`selectedSignEnclosure`) — the entered note is born with them in the same
+undo entry, and the GHOST shows them (the armed sign, or a bracketed natural with none armed — his rule). ⭐ The
+brackets are a selectable kind, `accidentalEnclosure` (his ask): each bracket has its own hit box
+(`rendering/signBracketBoxes`), Delete takes them off; selecting the note or the sign lights them too. ⚠️ Main
+chord heads only — not graces, fan members, bracketed graces; a head in brackets AND a bracketed accidental
+draws both pairs (MuseScore skips the accidental's).
+
 **K4 — `5` `6` `2` `3` the quarter-tones.** Four rows in the sign table, four ink rows, and four
 more slots holding them. ✅ They are Gould's own table of "fixed symbols" (p. 96, *"recommended that
 all four … are used"*), and in the bar they behave as a sharp does — Gould p. 98: *"an ordinary

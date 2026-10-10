@@ -521,6 +521,16 @@ export function wireShortcuts(
             renderer.renderScore()
             return
           }
+          case 'accidentalEnclosure': {
+            // Takes the accidental's brackets OFF (alteration-signs K3) — the note stays, and stays selected
+            // to keep editing, like the head's brackets below. A sign the brackets alone were showing goes too.
+            const noteId = element.noteId
+            eng.signEnclosure.set([noteId], null)
+            state.selectedElement = null
+            selection.selectNote(noteId)
+            renderer.renderScore()
+            return
+          }
           case 'headEnclosure': {
             // Takes the head's brackets OFF — the note stays, and stays selected to keep editing,
             // like the dot above (parenthesised-note-plan N10).

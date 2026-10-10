@@ -108,6 +108,7 @@ export function moveNoteToVoice(score: Score, pitchId: string, targetVoice: numb
     tieDirection: pitch.tieDirection,
     displayStaffId: pitch.displayStaffId,
     ...(pitch.enclosure && { enclosure: pitch.enclosure }),
+    ...(pitch.accidentalEnclosure && { accidentalEnclosure: pitch.accidentalEnclosure }),
     duration: chord.duration,
     dots: chord.dots,
     beat: chord.beat,
@@ -320,6 +321,7 @@ function moveTupletNoteToVoice(score: Score, measure: Measure, chord: Chord, pit
     tieDirection: pitch.tieDirection,
     displayStaffId: pitch.displayStaffId,
     ...(pitch.enclosure && { enclosure: pitch.enclosure }),
+    ...(pitch.accidentalEnclosure && { accidentalEnclosure: pitch.accidentalEnclosure }),
   }
 
   // Capture the target voice's existing notes in the span BEFORE createTuplet

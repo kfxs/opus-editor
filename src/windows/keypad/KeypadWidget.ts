@@ -104,6 +104,7 @@ export class KeypadWidget implements Widget {
   private unsubscribeTremoloPair: (() => void) | null = null
   private unsubscribeFan: (() => void) | null = null
   private unsubscribeGrace: (() => void) | null = null
+  private unsubscribeAccidentalKeys: (() => void) | null = null
   private unsubscribeBeamOver: (() => void) | null = null
 
   mount(host: HTMLElement): void {
@@ -165,6 +166,7 @@ export class KeypadWidget implements Widget {
     // ⭐ The Grace page's keys light from the SCORE too (a selected grace lights its form) — their own
     //    subscription, the rule this panel learned from the mark cluster.
     this.unsubscribeGrace = bus.grace.onHighlight(() => this.paint())
+    this.unsubscribeAccidentalKeys = bus.accidentalKeys.onHighlight(() => this.paint())
 
     this.paint()
   }
@@ -199,6 +201,8 @@ export class KeypadWidget implements Widget {
     this.unsubscribeFan = null
     this.unsubscribeGrace?.()
     this.unsubscribeGrace = null
+    this.unsubscribeAccidentalKeys?.()
+    this.unsubscribeAccidentalKeys = null
     this.unsubscribeBeam?.()
     this.unsubscribeBeam = null
     this.unsubscribeSubdivide?.()
@@ -294,6 +298,7 @@ export class KeypadWidget implements Widget {
     // The feathered beams are a radio like the tremolo counts — a note carries ONE fan.
     if (cell.select === 'fan') return !!cell.fan && cell.fan === bus.fan.get()
     if (cell.select === 'grace') return !!cell.grace && bus.grace.isActive(cell.grace)
+    if (cell.select === 'accidentalKey') return !!cell.accidentalKey && bus.accidentalKeys.isActive(cell.accidentalKey)
     // An unwired key (most of the Accidentals page, today) shows no light — nor does `0`: a removal is not a state.
     if (cell.select === 'momentary' || cell.select === 'removeAccidentals') return false
     return cell.select === 'rest' && bus.rest.get() === 'rest'

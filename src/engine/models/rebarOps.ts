@@ -1821,6 +1821,7 @@ function materializeVoiceBar(
         if (p.forceAccidental) np.forceAccidental = true
         if (p.displayStaffId !== undefined) np.displayStaffId = p.displayStaffId
         if (p.enclosure) np.enclosure = p.enclosure
+        if (p.accidentalEnclosure) np.accidentalEnclosure = p.accidentalEnclosure
         return np
       }),
     }

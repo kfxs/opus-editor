@@ -171,8 +171,8 @@ function slotInk(slot: ChordRest, signs: Map<string, DrawnSignId | null>, clef: 
 
   const pitches: NotePitch[] = slot.notes ?? []
   const drawn = pitches
-    .map(pitch => ({ position: spellingDiatonicPos(pitch.step, pitch.octave), sign: signs.get(pitch.id) }))
-    .filter((entry): entry is { position: number; sign: DrawnSignId } => typeof entry.sign === 'string')
+    .map(pitch => ({ position: spellingDiatonicPos(pitch.step, pitch.octave), sign: signs.get(pitch.id), enclosed: pitch.accidentalEnclosure !== undefined }))
+    .filter((entry): entry is { position: number; sign: DrawnSignId; enclosed: boolean } => typeof entry.sign === 'string')
   const accidental = accidentalExtent(drawn)
 
   // A SECOND in the chord displaces one head a full notehead to the side — Gould's rule, and the

@@ -33,7 +33,7 @@
  */
 import type {
   Clef, TimeSignature, KeySignature, TempoMark, Dynamic, ArticulationType, TremoloMark, NoteDuration, Ottava,
-  PitchStep, Alteration, TupletMarkRun, HeadEnclosure,
+  PitchStep, Alteration, TupletMarkRun, HeadEnclosure, AccidentalEnclosure,
   Accidental as ScoreAccidental,
 } from '@/types/music'
 import type { PlacedBarlineSign } from '@/engine/layout/barlineSign'
@@ -171,6 +171,9 @@ export interface GhostNote {
   enclosure?: HeadEnclosure
   /** ⭐ CUE armed for entry — the ghost is drawn at the cue size, so the preview is the note that lands. */
   cue?: true
+  /** ⭐ The armed entry brackets round the SIGN (alteration-signs K3, his ask: *"this should be visible in the
+   *  ghost note"*) — the ghost's sign in brackets; with no sign of its own, a bracketed NATURAL. */
+  signEnclosure?: AccidentalEnclosure
   /** Show a natural (♮) even though there is no `alteration` — the preview for an armed natural accidental,
    *  which otherwise has no glyph (no alteration draws nothing). Sharp/flat carry their own sign via `alteration`. */
   forceAccidental?: boolean

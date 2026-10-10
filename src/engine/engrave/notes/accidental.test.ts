@@ -49,3 +49,19 @@ describe('drawAccidental', () => {
     expect(group.kind === 'group' && scenePrimitives(group)).toHaveLength(1)
   })
 })
+
+describe('drawAccidental — a BRACKETED sign (alteration-signs K3)', () => {
+  it('⭐ stamps both brackets at their own x, on the sign’s baseline and face, INSIDE the sign’s group', () => {
+    const r = new SceneRecorder()
+    const font = { family: 'Bravura', size: 30 }
+    drawAccidental(r, {
+      glyph: '', x: 10, y: 40, font, id: 'acc1',
+      brackets: [{ glyph: '', x: 4 }, { glyph: '', x: 20 }],
+    })
+    const [group] = r.scene.children
+    const stamps = group.kind === 'group' ? scenePrimitives(group) : []
+    expect(stamps.map(p => p.kind === 'text' && [p.text, p.x, p.y, p.font])).toEqual([
+      ['', 10, 40, font], ['', 4, 40, font], ['', 20, 40, font],
+    ])
+  })
+})

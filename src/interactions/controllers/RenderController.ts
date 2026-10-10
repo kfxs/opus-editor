@@ -240,6 +240,8 @@ export class RenderController {
       // ⭐ The armed entry BRACKETS ride on the ghost note too — "this click enters a note in brackets".
       this.state.selectedEnclosure ?? undefined,
       this.state.selectedCue || undefined,
+      // ⭐ …and the armed brackets round the SIGN (alteration-signs K3).
+      this.state.selectedSignEnclosure ?? undefined,
     )
     return ghostRendered
   }

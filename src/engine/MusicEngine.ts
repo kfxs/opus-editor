@@ -55,6 +55,8 @@ import { glyphMarkCommands } from './commands/glyphMarkCommands'
 import { graceCommands } from './commands/graceCommands'
 import { bracketedCommands } from './commands/bracketedCommands'
 import { enclosureCommands } from './commands/enclosureCommands'
+import { signEnclosureCommands } from './commands/signEnclosureCommands'
+import { signEnclosureProblems } from './models/accidentalEnclosureOps'
 import { glissandoCommands } from './commands/glissandoCommands'
 import { cueCommands } from './commands/cueCommands'
 import { silentBarCommands } from './commands/silentBarCommands'
@@ -1453,8 +1455,10 @@ export class MusicEngine {
     enclosure?: NoteParams['enclosure'],
     /** CUE armed for entry (cue-size-plan). */
     cue?: NoteParams['cue'],
+    /** The armed entry brackets round the SIGN (alteration-signs K3). */
+    signEnclosure?: NoteParams['signEnclosure'],
   ): Note | null {
-    return this.noteEntryCoordinator.addNoteAtPosition(coords, duration, accidental, dots, articulations, beam, voice, tremolo, enclosure, cue)
+    return this.noteEntryCoordinator.addNoteAtPosition(coords, duration, accidental, dots, articulations, beam, voice, tremolo, enclosure, cue, signEnclosure)
   }
 
 
@@ -2450,6 +2454,8 @@ export class MusicEngine {
   readonly bracketed = bracketedCommands(this.commandContext())
   /** ⭐ PARENTHESISED notes' commands — `engine/commands/enclosureCommands` (docs/plans/parenthesised-note-plan.md). */
   readonly enclosure = enclosureCommands(this.commandContext())
+  /** ⭐ BRACKETED ACCIDENTALS' commands — `engine/commands/signEnclosureCommands` (alteration-signs-plan K3). */
+  readonly signEnclosure = signEnclosureCommands(this.commandContext())
   /** ⭐ GLISSANDO commands — `engine/commands/glissandoCommands` (docs/plans/glissando-plan.md). */
   readonly glissando = glissandoCommands(this.commandContext())
   /** ⭐ CUE-SIZE notes' commands — `engine/commands/cueCommands` (docs/plans/cue-size-plan.md). */
@@ -3194,6 +3200,8 @@ export class MusicEngine {
     enclosure?: NoteParams['enclosure'],
     /** CUE armed for entry — the ghost is drawn at the cue size, as the note will land (cue-size-plan). */
     cue?: NoteParams['cue'],
+    /** The armed entry brackets round the SIGN (alteration-signs K3) — drawn on the ghost as the note will land. */
+    signEnclosure?: NoteParams['signEnclosure'],
   ): boolean {
     // Resolve the HOVERED measure first (the same order addNoteAtPosition uses), so the
     // beat-quantization fallback in getPositionFromPixels uses THAT measure's capacity — a
@@ -3281,6 +3289,7 @@ export class MusicEngine {
       ...(tremolo !== undefined && { tremolo }),
       ...(enclosure && { enclosure }),
       ...(cue && { cue }),
+      ...(signEnclosure && { signEnclosure }),
       // An armed natural carries no alteration (no glyph of its own) — flag it so the ghost still shows the ♮.
       ...(accidental === 'natural' && { forceAccidental: true }),
       ...(tupletLabel && { tupletLabel }),
@@ -3503,6 +3512,7 @@ export class MusicEngine {
     for (const problem of graceOps.graceProblems(loaded.getScore())) console.warn(`[score-file] ${problem}`)
     for (const problem of bracketedProblems(loaded.getScore())) console.warn(`[score-file] ${problem}`)
     for (const problem of enclosureProblems(loaded.getScore())) console.warn(`[score-file] ${problem}`)
+    for (const problem of signEnclosureProblems(loaded.getScore())) console.warn(`[score-file] ${problem}`)
     for (const problem of cueProblems(loaded.getScore())) console.warn(`[score-file] ${problem}`)
     this.scoreModel = loaded
     this.playbackEngine.setScore(this.scoreModel.getScore())

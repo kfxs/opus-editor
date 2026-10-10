@@ -35,6 +35,9 @@ export interface AccidentalInk {
   font: GlyphFont
   /** The drawn sign's own id, so the group it opens can be found again — see {@link drawAccidental}. */
   id?: string
+  /** ⭐ A BRACKETED accidental's two brackets (alteration-signs K3), each at its own x, same baseline and
+   *  font — stamped in the sign's group, so the sign and its brackets select and box as ONE. */
+  brackets?: { glyph: string; x: number }[]
 }
 
 /**
@@ -77,6 +80,7 @@ export function drawAccidental(ctx: DrawContext, ink: AccidentalInk): void {
   ctx.openGroup('accidental', ink.id)
   try {
     stampGlyph(ctx, ink.glyph, ink.x, ink.y, ink.font)
+    for (const bracket of ink.brackets ?? []) stampGlyph(ctx, bracket.glyph, bracket.x, ink.y, ink.font)
   } finally {
     // ⚠️ In a `finally`, like every other `openGroup` in this engine: an unbalanced pair swallows
     // the rest of the page's ink into a group that never closes.

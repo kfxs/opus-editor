@@ -144,10 +144,13 @@ export function displayedAccidentals(slots: ChordRest[], key: KeySignature): Map
     }
     const dPos = spellingDiatonicPos(p.step, p.octave)
     const governing = alterationInForce(active, key, p.step, p.octave)
+    // ⭐ A BRACKETED accidental asks for its sign as `forceAccidental` does (alteration-signs K3, Sibelius:
+    //    on a note that shows none, the implied one appears in the brackets).
+    const force = p.forceAccidental || p.accidentalEnclosure !== undefined
     if (p.alteration) {
       // Altered pitch — show the sign unless the same alteration is already in force (from the bar
       // OR from the signature), and unless it was explicitly asked for (Gould p. 81).
-      if (!p.forceAccidental && sameAlteration(governing, p.alteration)) {
+      if (!force && sameAlteration(governing, p.alteration)) {
         signs.set(p.id, null)
       } else {
         signs.set(p.id, drawnSignOf(p.alteration))
@@ -156,7 +159,7 @@ export function displayedAccidentals(slots: ChordRest[], key: KeySignature): Map
     } else if (governing) {
       signs.set(p.id, 'natural') // cancel what is in force here — an earlier accidental, or the key
       if (write) active.set(dPos, undefined)
-    } else if (p.forceAccidental) {
+    } else if (force) {
       signs.set(p.id, 'natural') // a courtesy natural, asked for explicitly
       if (write) active.set(dPos, undefined)
     } else {

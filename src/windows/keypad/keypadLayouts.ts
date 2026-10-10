@@ -47,7 +47,7 @@ import type { ArticulationType, BeamMode, DrawnSignId, NoteDuration, TremoloMark
 import { accidentalGlyph } from '@/engine/fonts/fontMetrics'
 import { GLYPH_CODEPOINTS } from '@/engine/fonts/bravuraMetrics'
 import { keypadSignSlots } from './keypadSignSlots'
-import type { GraceKey } from '@/bus'
+import type { AccidentalKey, GraceKey } from '@/bus'
 
 /** One music-font glyph, its `size`, `dx` and `dy` all quoted against a 26px reference (see {@link g}).
  *  `rotate` turns it CLOCKWISE by that many degrees, about the box's centre — where the glyph is
@@ -103,7 +103,7 @@ export type Icon =
  *   like `momentary`, but it re-lays the grid rather than acting on a note. On every page, so you
  *   can always turn back.
  */
-export type Select = 'duration' | 'accidental' | 'articulation' | 'dot' | 'tie' | 'rest' | 'beam' | 'subdivide' | 'beamOver' | 'tremolo' | 'tremoloPair' | 'fan' | 'grace' | 'removeAccidentals' | 'momentary' | 'mode' | 'page'
+export type Select = 'duration' | 'accidental' | 'articulation' | 'dot' | 'tie' | 'rest' | 'beam' | 'subdivide' | 'beamOver' | 'tremolo' | 'tremoloPair' | 'fan' | 'grace' | 'accidentalKey' | 'removeAccidentals' | 'momentary' | 'mode' | 'page'
 
 export interface KeypadCell {
   /** The numpad key this cell mirrors. It is the cell's identity, and its tooltip. */
@@ -126,6 +126,8 @@ export interface KeypadCell {
   fan?: 'accel' | 'rit'
   /** ⭐ The grace a `grace` cell presses — the Grace page's `/`, `*`, `-`, `1`, `2`, `3`, `Enter`, `0` and `.` (`bus/graceSelection`). */
   grace?: GraceKey
+  /** ⭐ The Accidentals page's non-slot key an `accidentalKey` cell presses — `Enter`, the accidental's parentheses (`bus/accidentalKeySelection`, K3). */
+  accidentalKey?: AccidentalKey
 }
 
 /**
@@ -283,7 +285,7 @@ export const VOICES = ['1', '2', '3', '4', 'All']
  *  model value it carries (the 4th slot: a NoteDuration on a duration key, an Accidental on an
  *  accidental key, an ArticulationType on an articulation key; absent otherwise). `toCells` files it
  *  under the field `select` calls for. */
-type CellSpec = [string, Icon, Select, (NoteDuration | ArticulationType | BeamMode | TremoloMark | 'accel' | 'rit' | GraceKey)?]
+type CellSpec = [string, Icon, Select, (NoteDuration | ArticulationType | BeamMode | TremoloMark | 'accel' | 'rit' | GraceKey | AccidentalKey)?]
 
 /** The two controls every page carries, in their fixed spots — the select arrow (top-left) and the
  *  page-turn `+`. A page never lists these itself; {@link withControls} injects them, so a new page
@@ -565,9 +567,10 @@ const BLANK: Icon = g('')
  * the same"*) — they are page one's natural / sharp / flat SLOTS again (`./keypadSignSlots`: a slot is
  * its key), so the two pages cannot disagree. ⭐ `/` `*` are wired since K1 — two more slots, the doubles.
  * ⭐ `0` is wired since K2 — it presses REMOVE (`null`) on `bus.accidental`: each selected note goes back
- * to what the bar and the key say. It never lights.
+ * to what the bar and the key say. It never lights. ⭐ `Enter` since K3 — the accidental's parentheses, on
+ * `bus.accidentalKeys` (`interactions/stamps/accidentalEnclosureTool`); lit when every selected sign wears them.
  *
- * ⛔ **The other nine are NOT** (his ask, the same day: *"still is not wired to anything, on clicking
+ * ⛔ **The other eight are NOT** (his ask, the same day: *"still is not wired to anything, on clicking
  * just console log"*): each is `momentary` — a click logs its `action` (`KeypadWidget.press`) and
  * stops, and the key never lights. A key is wired as a decision, key by key, the way the Grace page
  * was. What each does in Sibelius is `docs/research/sibelius-keypad.md` §3c.
@@ -580,7 +583,7 @@ const pageAccidentals: CellSpec[] = [
   SIGN_SLOT, SIGN_SLOT, SIGN_SLOT,
   ['natural sharp', g(ACC_MORE.naturalSharp, ACC_SIZE), 'momentary'], ['quarter-tone sharp', g(ACC_MORE.quarterSharp, ACC_SIZE), 'momentary'], ['quarter-tone flat', g(ACC_MORE.quarterFlat, ACC_SIZE, 3), 'momentary'],
   ['natural flat', g(ACC_MORE.naturalFlat, ACC_SIZE, 1.5), 'momentary'], ['three-quarter-tone sharp', g(ACC_MORE.threeQuarterSharp, ACC_SIZE), 'momentary'], ['three-quarter-tone flat', g(ACC_MORE.threeQuarterFlat, ACC_SIZE, 3), 'momentary'],
-  ['parenthesised accidental', { glyphs: [g(ACC_MORE.parenLeft, ACC_PARENS_SIZE), g(ACC_MORE.parenRight, ACC_PARENS_SIZE)] }, 'momentary'],
+  ['parenthesised accidental', { glyphs: [g(ACC_MORE.parenLeft, ACC_PARENS_SIZE), g(ACC_MORE.parenRight, ACC_PARENS_SIZE)] }, 'accidentalKey', 'parenthesised'],
   ['remove accidentals', ACCIDENTAL_ICON.struckAccidental, 'removeAccidentals'], ['suppress cautionary accidental', ACCIDENTAL_ICON.struckParenthesised, 'momentary'],
 ]
 
@@ -630,6 +633,7 @@ const toCells = (page: CellSpec[]): KeypadCell[] =>
     tremolo: select === 'tremolo' ? (value as TremoloMark) : undefined,
     fan: select === 'fan' ? (value as 'accel' | 'rit') : undefined,
     grace: select === 'grace' ? (value as GraceKey) : undefined,
+    accidentalKey: select === 'accidentalKey' ? (value as AccidentalKey) : undefined,
   }))
 
 /**

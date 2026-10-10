@@ -42,6 +42,7 @@ import type { NoteDuration } from '@/types/music'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { restStaffLine } from './restPlacement'
 import { armedAccidentalGap } from './accidentalGap'
+import { ACCIDENTAL_ENCLOSURE_GLYPHS, accidentalEnclosureGap } from './accidentalEnclosureGap'
 import { DOT_GAP_RULES, armedDotGap } from './dotGap'
 import { armedRestDotGap } from './restDotGap'
 import { armedDotSize } from './dotSize'
@@ -349,9 +350,19 @@ const ACCIDENTAL_WIDTH: Partial<Record<DrawnSignId, number>> = {
  * the tradition agree here and the number is not ours to choose.
  */
 /** One sign's column — Bravura's measured row, moved by how much WIDER this face's sign is. */
-function accidentalColumnWidth(sign: DrawnSignId): number {
+function accidentalColumnWidth(sign: DrawnSignId, enclosed = false): number {
   const glyph = accidentalGlyph(sign)
-  return shifted(ACCIDENTAL_WIDTH[sign] ?? ACCIDENTAL_WIDTH.sharp!, () => glyphBox(glyph).left + glyphBox(glyph).right)
+  const own = shifted(ACCIDENTAL_WIDTH[sign] ?? ACCIDENTAL_WIDTH.sharp!, () => glyphBox(glyph).left + glyphBox(glyph).right)
+  return enclosed ? own + accidentalEnclosureWidth() : own
+}
+
+/**
+ * ⭐ What a BRACKETED accidental adds to its sign (alteration-signs K3): both brackets' advances and the
+ * armed white each side (`./accidentalEnclosureGap` — the SAME row `EngravedAccidental` draws with).
+ */
+export function accidentalEnclosureWidth(): number {
+  return glyphBox(ACCIDENTAL_ENCLOSURE_GLYPHS.left).advance + glyphBox(ACCIDENTAL_ENCLOSURE_GLYPHS.right).advance
+    + 2 * accidentalEnclosureGap()
 }
 
 const ACCIDENTAL_SHARE_INTERVAL = 6
@@ -409,7 +420,8 @@ export function restDotExtent(duration: NoteDuration, dots: number): number {
 /**
  * How far left of the notehead column a chord's accidentals reach, in staff spaces.
  *
- * `signs` is one entry per sounding pitch that DRAWS a sign, as `[diatonicPosition, sign]` — the
+ * `signs` is one entry per sounding pitch that DRAWS a sign, as `[diatonicPosition, sign]` (and
+ * `enclosed` when its accidental is bracketed — alteration-signs K3) — the
  * position being `spellingDiatonicPos`, so "a seventh apart" is a difference of 6. Pitches whose
  * sign is suppressed by the running-accidental rule are simply not in the list, which is why the
  * caller resolves them through `displayedAccidentals` rather than looking at `alteration`.
@@ -417,13 +429,13 @@ export function restDotExtent(duration: NoteDuration, dots: number): number {
  * The stacking is VexFlow's own, greedily: take the pitches from the top down, and put each into the
  * first column whose last occupant it clears.
  */
-export function accidentalExtent(signs: { position: number; sign: DrawnSignId }[]): number {
+export function accidentalExtent(signs: { position: number; sign: DrawnSignId; enclosed?: boolean }[]): number {
   if (signs.length === 0) return 0
   const sorted = [...signs].sort((a, b) => b.position - a.position)
   /** Per column: the lowest position placed in it so far, and its widest sign. */
   const columns: { lowest: number; width: number }[] = []
-  for (const { position, sign } of sorted) {
-    const width = accidentalColumnWidth(sign)
+  for (const { position, sign, enclosed } of sorted) {
+    const width = accidentalColumnWidth(sign, enclosed)
     const room = columns.find(column => column.lowest - position >= ACCIDENTAL_SHARE_INTERVAL)
     if (room) {
       room.lowest = position
