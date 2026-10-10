@@ -103,7 +103,7 @@ export type Icon =
  *   like `momentary`, but it re-lays the grid rather than acting on a note. On every page, so you
  *   can always turn back.
  */
-export type Select = 'duration' | 'accidental' | 'articulation' | 'dot' | 'tie' | 'rest' | 'beam' | 'subdivide' | 'beamOver' | 'tremolo' | 'tremoloPair' | 'fan' | 'grace' | 'momentary' | 'mode' | 'page'
+export type Select = 'duration' | 'accidental' | 'articulation' | 'dot' | 'tie' | 'rest' | 'beam' | 'subdivide' | 'beamOver' | 'tremolo' | 'tremoloPair' | 'fan' | 'grace' | 'removeAccidentals' | 'momentary' | 'mode' | 'page'
 
 export interface KeypadCell {
   /** The numpad key this cell mirrors. It is the cell's identity, and its tooltip. */
@@ -564,8 +564,10 @@ const BLANK: Icon = g('')
  * ⭐ `7 8 9` ARE WIRED (his ask, 2026-09-30: *"we already have this in the first page so we can wire it
  * the same"*) — they are page one's natural / sharp / flat SLOTS again (`./keypadSignSlots`: a slot is
  * its key), so the two pages cannot disagree. ⭐ `/` `*` are wired since K1 — two more slots, the doubles.
+ * ⭐ `0` is wired since K2 — it presses REMOVE (`null`) on `bus.accidental`: each selected note goes back
+ * to what the bar and the key say. It never lights.
  *
- * ⛔ **The other ten are NOT** (his ask, the same day: *"still is not wired to anything, on clicking
+ * ⛔ **The other nine are NOT** (his ask, the same day: *"still is not wired to anything, on clicking
  * just console log"*): each is `momentary` — a click logs its `action` (`KeypadWidget.press`) and
  * stops, and the key never lights. A key is wired as a decision, key by key, the way the Grace page
  * was. What each does in Sibelius is `docs/research/sibelius-keypad.md` §3c.
@@ -579,7 +581,7 @@ const pageAccidentals: CellSpec[] = [
   ['natural sharp', g(ACC_MORE.naturalSharp, ACC_SIZE), 'momentary'], ['quarter-tone sharp', g(ACC_MORE.quarterSharp, ACC_SIZE), 'momentary'], ['quarter-tone flat', g(ACC_MORE.quarterFlat, ACC_SIZE, 3), 'momentary'],
   ['natural flat', g(ACC_MORE.naturalFlat, ACC_SIZE, 1.5), 'momentary'], ['three-quarter-tone sharp', g(ACC_MORE.threeQuarterSharp, ACC_SIZE), 'momentary'], ['three-quarter-tone flat', g(ACC_MORE.threeQuarterFlat, ACC_SIZE, 3), 'momentary'],
   ['parenthesised accidental', { glyphs: [g(ACC_MORE.parenLeft, ACC_PARENS_SIZE), g(ACC_MORE.parenRight, ACC_PARENS_SIZE)] }, 'momentary'],
-  ['remove accidentals', ACCIDENTAL_ICON.struckAccidental, 'momentary'], ['suppress cautionary accidental', ACCIDENTAL_ICON.struckParenthesised, 'momentary'],
+  ['remove accidentals', ACCIDENTAL_ICON.struckAccidental, 'removeAccidentals'], ['suppress cautionary accidental', ACCIDENTAL_ICON.struckParenthesised, 'momentary'],
 ]
 
 /**

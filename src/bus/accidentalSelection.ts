@@ -7,5 +7,9 @@ import { PaletteSelection } from './paletteSelection'
  * `PaletteController.setAccidental` still owns the work — including the TOGGLE (re-pressing the armed
  * accidental takes it off), which is exactly why the press channel must always fire. App.ts mirrors
  * the accidental-to-highlight in, and routes a Keypad press out through setAccidental.
+ *
+ * ⭐ A press of `null` is the palette's REMOVE (the Accidentals page's `0`, alteration-signs K2): it
+ * goes to the same `setAccidental`, which already reads null as "take the accidentals off the
+ * selection". The highlight never holds it — nothing lights a removal.
  */
-export const createAccidentalSelection = () => new PaletteSelection<Accidental>()
+export const createAccidentalSelection = () => new PaletteSelection<Accidental | null>()

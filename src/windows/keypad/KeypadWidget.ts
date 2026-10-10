@@ -294,8 +294,8 @@ export class KeypadWidget implements Widget {
     // The feathered beams are a radio like the tremolo counts — a note carries ONE fan.
     if (cell.select === 'fan') return !!cell.fan && cell.fan === bus.fan.get()
     if (cell.select === 'grace') return !!cell.grace && bus.grace.isActive(cell.grace)
-    // An unwired key (most of the Accidentals page, today) shows no light.
-    if (cell.select === 'momentary') return false
+    // An unwired key (most of the Accidentals page, today) shows no light — nor does `0`: a removal is not a state.
+    if (cell.select === 'momentary' || cell.select === 'removeAccidentals') return false
     return cell.select === 'rest' && bus.rest.get() === 'rest'
   }
 

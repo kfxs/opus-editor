@@ -10,7 +10,7 @@ import { bus } from '@/bus'
  *
  * ⛔ What is worth pinning here is WHICH keys act. ⭐ `7 8 9` do — they are page one's natural / sharp /
  * flat SLOTS again (his ask, 2026-09-30: *"we already have this in the first page so we can wire it the
- * same"*), and ⭐ `/ *` since K1 — the doubles, two more slots. The other ten are a PICTURE (*"still is not wired to anything, on clicking just console
+ * same"*), ⭐ `/ *` since K1 — the doubles, two more slots — and ⭐ `0` since K2, the REMOVE. The other nine are a PICTURE (*"still is not wired to anything, on clicking just console
  * log"*): a key is wired as a decision, one at a time — the Grace page's spec is the model — and the
  * test that lists the `momentary` keys is the one that changes when one is.
  *
@@ -55,7 +55,7 @@ describe('the Keypad Accidentals page', () => {
       ['accidental', 'natural'], ['accidental', 'sharp'], ['accidental', 'flat'],
     ])
     expect(slots('accidentals', ['7', '8', '9'])).toEqual(slots('noteEntry', ['7', '8', '9']))
-    const pressed: string[] = []
+    const pressed: Array<string | null> = []
     const stop = bus.accidental.onPress(a => pressed.push(a))
     for (const k of ['/', '*', '7', '8', '9']) pressKeypadCell(cellFor(k))
     stop()
@@ -66,7 +66,7 @@ describe('the Keypad Accidentals page', () => {
     keypadSignSlots.set('/', 'flat')
     expect(cellIcon(cellFor('/'))).toEqual(signIcon('flat'))
     expect(cellAction(cellFor('/'))).toBe('flat')
-    const pressed: string[] = []
+    const pressed: Array<string | null> = []
     const stop = bus.accidental.onPress(a => pressed.push(a))
     pressKeypadCell(cellFor('/'))
     stop()
@@ -80,11 +80,20 @@ describe('the Keypad Accidentals page', () => {
     expect(() => keypadSignSlots.set('5', 'sharp')).toThrow(/not a sign slot/)
   })
 
-  it('⛔ …and the other TEN are not — each is `momentary`, and a press reaches no seam', () => {
+  it('⭐ `0` presses REMOVE — `null` on `bus.accidental`, the palette\'s own "take it off" (K2)', () => {
+    expect(cellFor('0').select).toBe('removeAccidentals')
+    const pressed: Array<string | null> = []
+    const stop = bus.accidental.onPress(a => pressed.push(a))
+    pressKeypadCell(cellFor('0'))
+    stop()
+    expect(pressed).toEqual([null])
+  })
+
+  it('⛔ …and the other NINE are not — each is `momentary`, and a press reaches no seam', () => {
     const unwired = own().filter(c => c.select === 'momentary')
-    expect(unwired.map(c => c.key)).toEqual(['-', '4', '5', '6', '1', '2', '3', 'Enter', '0', '.'])
-    expect(own().length).toBe(unwired.length + 5)
-    const pressed: string[] = []
+    expect(unwired.map(c => c.key)).toEqual(['-', '4', '5', '6', '1', '2', '3', 'Enter', '.'])
+    expect(own().length).toBe(unwired.length + 6)
+    const pressed: Array<string | null> = []
     const stop = bus.accidental.onPress(a => pressed.push(a))
     for (const cell of unwired) pressKeypadCell(cell)
     stop()

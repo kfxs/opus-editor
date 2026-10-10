@@ -755,6 +755,31 @@ describe('PaletteController — accidental stamp tool', () => {
     expect(state.selectedTool).toBe('selection')
   })
 
+  // ⭐ The Keypad's `0` (alteration-signs K2) presses null — the palette's REMOVE.
+  it('a null REMOVE reverts every selected note to the bar\'s answer, as one edit', () => {
+    state.selectedTool = 'selection'
+    state.selectedNoteId = 'n1'
+    state.selectedItems.set('note:n1', { kind: 'note', id: 'n1' })
+    state.selectedItems.set('note:n2', { kind: 'note', id: 'n2' })
+    notes['n1'] = { id: 'n1' }
+    notes['n2'] = { id: 'n2' }
+    const engine = palette['getEngine']()!
+    palette.setAccidental(null)
+    expect(engine.updateNote).toHaveBeenCalledWith('n1', { alteration: undefined, forceAccidental: undefined })
+    expect(engine.updateNote).toHaveBeenCalledWith('n2', { alteration: undefined, forceAccidental: undefined })
+    expect(setNoteAccidental).not.toHaveBeenCalled()
+    expect(armedTool(state, 'accidental')).toBeNull()
+  })
+
+  it('⛔ a null REMOVE with nothing selected does nothing — it arms no stamp', () => {
+    state.selectedTool = 'selection'
+    const engine = palette['getEngine']()!
+    palette.setAccidental(null)
+    expect(engine.updateNote).not.toHaveBeenCalled()
+    expect(armedTool(state, 'accidental')).toBeNull()
+    expect(state.selectedTool).toBe('selection')
+  })
+
   it('re-pressing the armed accidental disarms back to selection', () => {
     state.selectedTool = 'selection'
     palette.setAccidental('flat')

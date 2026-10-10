@@ -167,6 +167,11 @@ is its own too (a double no longer reads ♯). ⚠️ The slot store is a module
 **K2 — `0` remove accidentals.** Runs the command that already exists (the palette's *remove
 accidental*, across the selection): each note goes back to what the bar and the key say. No light.
 
+✅ **Built 2026-10-10.** `0` is its own cell kind (`removeAccidentals`) that presses `null` on
+`bus.accidental` — the palette's existing REMOVE (`setAccidental(null)`), so no new command. With
+nothing selected it does nothing (default 3 below); a selected accidental glyph is removed and the
+selection cleared, as a re-press of its sign does; in note entry it clears the armed accidental.
+
 **K3 — `Enter` the accidental's parentheses.** A new display property on the pitch
 (`accidentalEnclosure: 'round'`, a shape like the notehead's). The accidental is drawn as a RUN —
 bracket, sign, bracket — which is also what K5 and any future list of signs need. On a note that
@@ -198,7 +203,7 @@ it has nothing to act on. `-` is empty in Sibelius too.
    never rebuilds a glyph name from an id. We still never invent names for the 488 signs that exist.
 2. **K3's second press** takes the brackets off and, if the first press had made a hidden accidental
    appear, hides it again — so the key is a clean toggle. What Sibelius does there is UNKNOWN.
-3. **`Enter`, `0`, `4`, `1` do nothing with no note selected.** Whether Sibelius arms them is UNKNOWN.
+3. **`Enter`, `0`, `4`, `1` do nothing with no note selected** (`0` built so, K2). Whether Sibelius arms them is UNKNOWN.
 
 ## 6. Not in this plan
 
