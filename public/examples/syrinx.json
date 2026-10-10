@@ -4042,7 +4042,7 @@
                 "id": "42e2a73b-3134-4bd0-8fe5-6745528d99b8",
                 "step": "B",
                 "alteration": [
-                  "flat"
+                  "doubleFlat"
                 ],
                 "octave": 4
               }
@@ -4076,14 +4076,6 @@
           }
         ],
         "glyphMarks": [
-          {
-            "glyph": "accidentalDoubleFlat",
-            "beat": {
-              "num": 5,
-              "den": 2
-            },
-            "id": "8ac6fbac-d62d-42ae-b332-32378bf6474f"
-          },
           {
             "glyph": "timeSigComma",
             "beat": {
@@ -4476,7 +4468,7 @@
                 "id": "31ead6ff-094c-4546-87cf-fcbef76731eb",
                 "step": "B",
                 "alteration": [
-                  "flat"
+                  "doubleFlat"
                 ],
                 "octave": 4
               }
@@ -4527,15 +4519,6 @@
           }
         ],
         "glyphMarks": [
-          {
-            "id": "d3f97f01-3aef-4d5b-b46e-26b41ea7bafb",
-            "glyph": "accidentalDoubleFlat",
-            "beat": {
-              "num": 5,
-              "den": 2
-            },
-            "staffId": "71f9451a-e681-45c5-98a5-c6f6730960e4"
-          },
           {
             "id": "12e3c201-0dc7-4815-9d62-dd770b5e81ca",
             "glyph": "timeSigComma",
@@ -5401,7 +5384,7 @@
                 "id": "d5037f75-33cc-4feb-a74b-3d55d03151f4",
                 "step": "E",
                 "alteration": [
-                  "flat"
+                  "doubleFlat"
                 ],
                 "octave": 5
               }
@@ -5842,14 +5825,6 @@
               "den": 1
             },
             "id": "0d173978-0f31-4387-a767-259170c30df6"
-          },
-          {
-            "glyph": "accidentalDoubleFlat",
-            "beat": {
-              "num": 1,
-              "den": 2
-            },
-            "id": "0d6d5e33-a841-4378-b361-9a6a8924e553"
           }
         ]
       },
@@ -6618,7 +6593,7 @@
                 "id": "8a358543-3da7-41bc-aeb1-b9a53c198500",
                 "step": "E",
                 "alteration": [
-                  "flat"
+                  "doubleFlat"
                 ],
                 "octave": 6
               }
@@ -6696,17 +6671,7 @@
           "numerator": 3,
           "denominator": 4
         },
-        "tuplets": [],
-        "glyphMarks": [
-          {
-            "glyph": "accidentalDoubleFlat",
-            "beat": {
-              "num": 3,
-              "den": 2
-            },
-            "id": "282cddf7-a9c9-4b5f-999e-66e7e8e36f39"
-          }
-        ]
+        "tuplets": []
       },
       {
         "id": "22f9f1d4-b42a-48be-8b25-8f900125a69d",
@@ -8857,19 +8822,6 @@
           "space": -1.25
         }
       ],
-      "fe3db048-6adc-4f38-a4c6-28d08264f3e5:space:b5/2": [
-        {
-          "kind": "leadingSpace",
-          "space": 1.25
-        }
-      ],
-      "8ac6fbac-d62d-42ae-b332-32378bf6474f": [
-        {
-          "kind": "glyphMarkOffset",
-          "x": -1.75,
-          "y": 3.25
-        }
-      ],
       "d827e443-0822-43b6-b208-9dd0dc44d40f": [
         {
           "kind": "noteOffset",
@@ -8887,7 +8839,7 @@
         {
           "kind": "glyphMarkOffset",
           "x": 2.25,
-          "y": 2
+          "y": -1
         }
       ],
       "97ec8286-c43d-40a7-9bba-0425227e7008": [
@@ -9023,24 +8975,11 @@
           }
         }
       ],
-      "d3f97f01-3aef-4d5b-b46e-26b41ea7bafb": [
-        {
-          "kind": "glyphMarkOffset",
-          "x": -1.75,
-          "y": 3.25
-        }
-      ],
       "12e3c201-0dc7-4815-9d62-dd770b5e81ca": [
         {
           "kind": "glyphMarkOffset",
           "x": 2.25,
-          "y": 2
-        }
-      ],
-      "07c84332-ed5e-4308-9950-44d6a7cd22f9:space:b5/2": [
-        {
-          "kind": "leadingSpace",
-          "space": 1.25
+          "y": -1
         }
       ],
       "a3d91633-bdea-4742-aac0-737c8c1194d8:space:b2/3": [
@@ -9131,19 +9070,6 @@
           "y": -0.75
         }
       ],
-      "8b72ddb3-afa9-430e-8c76-12556f0f1559:space:b1/2": [
-        {
-          "kind": "leadingSpace",
-          "space": 1.75
-        }
-      ],
-      "0d6d5e33-a841-4378-b361-9a6a8924e553": [
-        {
-          "kind": "glyphMarkOffset",
-          "x": -1.75,
-          "y": 1.75
-        }
-      ],
       "d1977064-0ba9-4fc1-8ddc-f5572e6c68db:barlinespace": [
         {
           "kind": "barlineSpace",
@@ -9168,7 +9094,7 @@
         {
           "kind": "glyphMarkOffset",
           "x": 1,
-          "y": -0.75
+          "y": -1
         }
       ],
       "78effdad-9111-46ba-bf39-0147fa791cc4": [
@@ -9301,25 +9227,6 @@
           "kind": "tempoOffset",
           "x": 0,
           "y": 1
-        }
-      ],
-      "07ee56fb-8f37-451f-904d-a22340dcaad8:space:b3/2": [
-        {
-          "kind": "leadingSpace",
-          "space": 1
-        }
-      ],
-      "12da73f8-82a1-425d-9a94-f5fa9e3d6478": [
-        {
-          "kind": "noteOffset",
-          "x": -1.5
-        }
-      ],
-      "282cddf7-a9c9-4b5f-999e-66e7e8e36f39": [
-        {
-          "kind": "glyphMarkOffset",
-          "x": -1.75,
-          "y": 4
         }
       ],
       "07ee56fb-8f37-451f-904d-a22340dcaad8:space:b7/4": [
@@ -9532,6 +9439,18 @@
           "kind": "tempoOffset",
           "x": 0,
           "y": 0.5
+        }
+      ],
+      "12da73f8-82a1-425d-9a94-f5fa9e3d6478": [
+        {
+          "kind": "noteOffset",
+          "x": 0.25
+        }
+      ],
+      "07ee56fb-8f37-451f-904d-a22340dcaad8:space:b3/2": [
+        {
+          "kind": "leadingSpace",
+          "space": -0.75
         }
       ]
     },
