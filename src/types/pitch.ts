@@ -19,6 +19,9 @@ export type AlterationSignId =
   | 'doubleFlat' | 'flat' | 'sharp' | 'doubleSharp'
   // ⭐ The four quarter-tones (alteration-signs K4) — Gould p. 96's "fixed symbols", Sibelius's `5 6 2 3`.
   | 'threeQuarterTonesFlatZimmermann' | 'quarterToneFlatStein' | 'quarterToneSharpStein' | 'threeQuarterTonesSharpStein'
+  // ⭐ Gould's ARROW quarter-tones (K7, his Keypad keys `-` `4` `1` `0` `.`): a plain sign raised / lowered a quarter.
+  | 'quarterToneSharpNaturalArrowUp' | 'threeQuarterTonesSharpArrowUp' | 'quarterToneSharpArrowDown'
+  | 'quarterToneFlatArrowUp' | 'threeQuarterTonesFlatArrowDown'
 
 /**
  * ⭐⭐ **WHAT ALTERS A LETTER — an ordered LIST of signs, left to right as drawn** (decision A,

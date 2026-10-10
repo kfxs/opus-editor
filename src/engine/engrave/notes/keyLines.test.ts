@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest'
+import { ALTERATION_SIGNS } from '@/utils/alterationSigns'
 import { geoLine, keyRows, keyStaffLine, secondApartFlags, headGlyph, noteDurationOf } from './keyLines'
 import { staffLineForSpelling } from '@/utils/clefUtils'
 import { GLYPH_CODEPOINTS } from '@/engine/fonts/bravuraMetrics'
@@ -116,6 +117,13 @@ describe('keyRows', () => {
     const rows = keyRows(['ad/3', 'cdb/4', 'e+/4', 'f++/4'], 'treble', 'q', false)
     expect(rows.map(r => r.key)).toEqual(['AD', 'CDB', 'E+', 'F++'])
     expect(rows.map(r => r.line)).toEqual(keyRows(['a/3', 'c/4', 'e/4', 'f/4'], 'treble', 'q', false).map(r => r.line))
+  })
+
+  it('⭐ reads EVERY code of the sign table (K7 — the parser is built from it), the arrows included', () => {
+    for (const sign of ALTERATION_SIGNS) {
+      expect(() => keyRows([`a${sign.code}/4`], 'treble', 'q', false), sign.id).not.toThrow()
+    }
+    expect(keyRows(['bb^/4', 'b#v/4'], 'treble', 'q', false).map(r => r.key)).toEqual(['BB^', 'B#V'])
   })
 
   it('marks a second on both rows and gives every head one glyph', () => {

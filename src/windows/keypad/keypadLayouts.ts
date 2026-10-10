@@ -103,7 +103,7 @@ export type Icon =
  *   like `momentary`, but it re-lays the grid rather than acting on a note. On every page, so you
  *   can always turn back.
  */
-export type Select = 'duration' | 'accidental' | 'articulation' | 'dot' | 'tie' | 'rest' | 'beam' | 'subdivide' | 'beamOver' | 'tremolo' | 'tremoloPair' | 'fan' | 'grace' | 'accidentalKey' | 'removeAccidentals' | 'momentary' | 'mode' | 'page'
+export type Select = 'duration' | 'accidental' | 'articulation' | 'dot' | 'tie' | 'rest' | 'beam' | 'subdivide' | 'beamOver' | 'tremolo' | 'tremoloPair' | 'fan' | 'grace' | 'accidentalKey' | 'momentary' | 'mode' | 'page'
 
 export interface KeypadCell {
   /** The numpad key this cell mirrors. It is the cell's identity, and its tooltip. */
@@ -551,44 +551,36 @@ const pageBeamsTremolos: CellSpec[] = [
   ['feathered rit', TREMOLO.featheredRit, 'fan', 'rit'],
 ]
 
-/** A key Sibelius leaves EMPTY — it is still a key (the numpad has one there), it just has no picture. */
-const BLANK: Icon = g('')
-
 /**
- * `accidentals` — Sibelius 6's SIXTH keypad layout, as a picture: the doubles, natural / sharp / flat
- * where page one has them (`7 8 9`), the natural-sharp and natural-flat, the four quarter-tone signs,
- * the accidental's parentheses and the two struck-out keys — `0` takes the accidentals off the
- * selection, `.` hides an automatic cautionary one. `-` is EMPTY in Sibelius and empty here.
+ * `accidentals` — the Keypad's ACCIDENTALS page, from Sibelius 6's sixth layout (`docs/research/sibelius-keypad.md`
+ * §3c) and then HIS (2026-10-10, K7): ⭐ **every key but `Enter` is a SIGN SLOT** (`./keypadSignSlots` — one table,
+ * a slot is its key, its picture its sign's own glyph):
+ *
+ *     /  𝄪            *  𝄫            -  ♮↑ (E272)
+ *     7  ♮   8  ♯   9  ♭
+ *     4  ♯↑ (E274)    5  ¼♯   6  ¼♭
+ *     1  ♯↓ (E275)    2  ¾♯   3  ¾♭
+ *     0  ♭↑ (E270)    .  ♭↓ (E271)     Enter  the accidental's parentheses
+ *
+ * ⭐ His words: *"we are not changing the accidental palette … we are adding new accidentals … but we have no
+ * enough room in the keypad so we replace some keys (in the future we can have a wider accidental palette plus
+ * the keypad)"*. So the signs a key LOST stay signs — ♮♯ / ♮♭ (K5) are still in the table and still arm through
+ * `bus.accidental`, the REMOVE (K2) is still the palette's `setAccidental(null)` — they only have no key on this
+ * page. Giving one back is a row in `DEFAULT_SIGN_SLOTS` (or `__keypad.slot('4', 'naturalSharp')` for a session).
  *
  * ⚠️ `Enter` is Sibelius's "bracket accidental"; ours is `parenthesised accidental`, the word the
- * parenthesised NOTE already uses — "bracketed" here means the staff bracket and the bracketed grace.
- *
- * ⭐ `7 8 9` ARE WIRED (his ask, 2026-09-30: *"we already have this in the first page so we can wire it
- * the same"*) — they are page one's natural / sharp / flat SLOTS again (`./keypadSignSlots`: a slot is
- * its key), so the two pages cannot disagree. ⭐ `/` `*` are wired since K1 — two more slots, the doubles.
- * ⭐ `0` is wired since K2 — it presses REMOVE (`null`) on `bus.accidental`: each selected note goes back
- * to what the bar and the key say. It never lights. ⭐ `Enter` since K3 — the accidental's parentheses, on
- * `bus.accidentalKeys` (`interactions/stamps/accidentalEnclosureTool`); lit when every selected sign wears them.
- *
- * ⭐ `5 6 2 3` since K4 — the quarter-tones, four more SLOTS — and `4 1` since K5, ♮♯ and ♮♭.
- *
- * ⛔ **The other two are NOT** (his ask, the same day: *"still is not wired to anything, on clicking
- * just console log"*): each is `momentary` — a click logs its `action` (`KeypadWidget.press`) and
- * stops, and the key never lights. A key is wired as a decision, key by key, the way the Grace page
- * was. What each does in Sibelius is `docs/research/sibelius-keypad.md` §3c.
+ * parenthesised NOTE already uses — "bracketed" here means the staff bracket and the bracketed grace
+ * (`bus.accidentalKeys`, `interactions/stamps/accidentalEnclosureTool`, K3).
  *
  * OWN keys only — the arrow and `+` come from {@link withControls}.
  */
 const pageAccidentals: CellSpec[] = [
-  // ⭐ K1 — `/` `*` are SIGN SLOTS (the doubles by default), and `7 8 9` the SAME slots as page one's.
-  SIGN_SLOT, SIGN_SLOT, ['blank', BLANK, 'momentary'],
   SIGN_SLOT, SIGN_SLOT, SIGN_SLOT,
-  // ⭐ K4 — `5 6` and `2 3` are SIGN SLOTS too: the quarter-tones (`keypadSignSlots`).
-  // ⭐ K5 — `4` `1` too: ♮♯ and ♮♭.
+  SIGN_SLOT, SIGN_SLOT, SIGN_SLOT,
   SIGN_SLOT, SIGN_SLOT, SIGN_SLOT,
   SIGN_SLOT, SIGN_SLOT, SIGN_SLOT,
   ['parenthesised accidental', { glyphs: [g(ACC_MORE.parenLeft, ACC_PARENS_SIZE), g(ACC_MORE.parenRight, ACC_PARENS_SIZE)] }, 'accidentalKey', 'parenthesised'],
-  ['remove accidentals', ACCIDENTAL_ICON.struckAccidental, 'removeAccidentals'], ['suppress cautionary accidental', ACCIDENTAL_ICON.struckParenthesised, 'momentary'],
+  SIGN_SLOT, SIGN_SLOT,
 ]
 
 /**
@@ -603,6 +595,9 @@ const SIGN_ICON: Partial<Record<DrawnSignId, { size?: number; dy?: number }>> = 
   threeQuarterTonesFlatZimmermann: { dy: 3 },
   // The picture page two drew ♮♭ with before K5.
   naturalFlat: { dy: 1.5 },
+  // ⭐ K7 — the flat-bodied arrows sit as the flat does.
+  quarterToneFlatArrowUp: { dy: 3 },
+  threeQuarterTonesFlatArrowDown: { dy: 3 },
   doubleSharp: { size: DOUBLE_SHARP_SIZE },
 }
 
@@ -636,6 +631,12 @@ const SIGN_NAME: Partial<Record<DrawnSignId, string>> = {
   quarterToneFlatStein: 'quarter-tone flat',
   threeQuarterTonesSharpStein: 'three-quarter-tone sharp',
   threeQuarterTonesFlatZimmermann: 'three-quarter-tone flat',
+  // ⭐ K7 — Gould's arrows, named by what they DO.
+  quarterToneSharpNaturalArrowUp: 'natural, quarter-tone up',
+  threeQuarterTonesSharpArrowUp: 'sharp, quarter-tone up',
+  quarterToneSharpArrowDown: 'sharp, quarter-tone down',
+  quarterToneFlatArrowUp: 'flat, quarter-tone up',
+  threeQuarterTonesFlatArrowDown: 'flat, quarter-tone down',
 }
 
 const toCells = (page: CellSpec[]): KeypadCell[] =>

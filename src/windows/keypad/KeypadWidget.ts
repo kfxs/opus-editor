@@ -300,7 +300,7 @@ export class KeypadWidget implements Widget {
     if (cell.select === 'grace') return !!cell.grace && bus.grace.isActive(cell.grace)
     if (cell.select === 'accidentalKey') return !!cell.accidentalKey && bus.accidentalKeys.isActive(cell.accidentalKey)
     // An unwired key (most of the Accidentals page, today) shows no light — nor does `0`: a removal is not a state.
-    if (cell.select === 'momentary' || cell.select === 'removeAccidentals') return false
+    if (cell.select === 'momentary') return false
     return cell.select === 'rest' && bus.rest.get() === 'rest'
   }
 

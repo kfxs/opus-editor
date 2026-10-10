@@ -1,7 +1,7 @@
 /**
  * ⛔⛔ **GENERATED — DO NOT EDIT.** `node scripts/generate-font-metrics.mjs`
  *
- * Leipzig's table for the 113 glyphs the editor draws — the SAME shape as
+ * Leipzig's table for the 118 glyphs the editor draws — the SAME shape as
  * `bravuraMetrics.ts`, total over the same `GlyphName` union, read by `fontMetrics` when the face is
  * the active one (`fonts/musicFont`, `docs/plans/music-font-switch-plan.md` Phase B).
  *
@@ -68,6 +68,11 @@ export const GLYPH_BOXES: Record<GlyphName, GlyphBox> = {
   accidentalThreeQuarterTonesFlatZimmermann: { left: 0, right: 1.664, up: 1.876, down: 0.7, advance: 1.664 },
   accidentalNaturalSharp: { left: 0, right: 1.508, up: 1.42, down: 1.404, advance: 1.508 },
   accidentalNaturalFlat: { left: 0, right: 1.512, up: 1.876, down: 1.404, advance: 1.512 },
+  accidentalQuarterToneSharpNaturalArrowUp: { left: 0.18, right: 0.708, up: 2.02, down: 1.508, advance: 0.712 },
+  accidentalThreeQuarterTonesSharpArrowUp: { left: 0, right: 0.872, up: 2.06, down: 1.356, advance: 0.788 },
+  accidentalQuarterToneSharpArrowDown: { left: 0, right: 0.872, up: 1.42, down: 2.06, advance: 0.788 },
+  accidentalQuarterToneFlatArrowUp: { left: 0.172, right: 0.88, up: 2.408, down: 0.736, advance: 0.884 },
+  accidentalThreeQuarterTonesFlatArrowDown: { left: 0.168, right: 0.88, up: 1.876, down: 1.5, advance: 0.872 },
   // flags
   flag8thUp: { left: 0, right: 1.104, up: 0, down: 2.776, advance: 1.108 },
   flag8thDown: { left: 0, right: 1.104, up: 2.776, down: 0, advance: 1.108 },
@@ -182,6 +187,11 @@ export const GLYPH_ANCHORS: Partial<Record<GlyphName, Record<string, readonly [n
   accidentalThreeQuarterTonesFlatZimmermann: { cutOutNE: [0.972, 0.588], cutOutNW: [0.7, 0.584], cutOutSE: [1.336, -0.308], cutOutSW: [0.344, -0.32] },
   accidentalNaturalSharp: { cutOutNE: [1.348, 0.84], cutOutSE: [1.348, -0.648], cutOutSW: [0.544, -0.772] },
   accidentalNaturalFlat: { cutOutNE: [0.816, 0.556], cutOutSE: [1.168, -0.32], cutOutSW: [0.54, -0.78] },
+  accidentalQuarterToneSharpNaturalArrowUp: { cutOutNE: [0.468, 0.784], cutOutSW: [0.632, -0.828] },
+  accidentalThreeQuarterTonesSharpArrowUp: { cutOutNW: [0.16, 0.644], cutOutSE: [0.624, -0.64], cutOutSW: [0.16, -0.82] },
+  accidentalQuarterToneSharpArrowDown: { cutOutNE: [0.624, 0.844], cutOutNW: [0.16, 0.644], cutOutSW: [0.16, -0.82] },
+  accidentalQuarterToneFlatArrowUp: { cutOutNE: [0.564, 0.572], cutOutSE: [0.504, -0.364] },
+  accidentalThreeQuarterTonesFlatArrowDown: { cutOutNE: [0.184, 0.564], cutOutSE: [0.52, -0.344] },
 }
 
 export const ENGRAVING_DEFAULTS = {

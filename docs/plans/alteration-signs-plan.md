@@ -250,6 +250,20 @@ them, MuseScore's form), so no gap number was needed; room rows from Bravura's b
 **K6 — quarter-tones heard (low priority, decision D).** The tuning answers half steps and the
 instrument detunes. WebAudioFont's player should take it — read in its source, ⛔ not yet heard.
 
+
+**K7 — his Keypad: Gould's ARROW quarter-tones on `-` `4` `1` `0` `.`** (his ask, 2026-10-10: *"we are not
+changing the accidental palette … we are adding new accidentals … but we have no enough room in the keypad so we
+replace some keys (in the future we can have a wider accidental palette plus the keypad)"*). ✅ **Built 2026-10-10.**
+Five rows in the sign table — `quarterToneSharpNaturalArrowUp` (E272, `-`), `threeQuarterTonesSharpArrowUp` (E274,
+`4`), `quarterToneSharpArrowDown` (E275, `1`), `quarterToneFlatArrowUp` (E270, `0`), `threeQuarterTonesFlatArrowDown`
+(E271, `.`) — on the ranks of the Stein signs they stand for, five tuning rows (nearest key until K6), five ink rows,
+the glyphs in the generated font tables (all three faces draw them). The five keys are SLOTS: the Accidentals page
+is now thirteen slots and `Enter`. ⭐ What lost a key kept its command: ♮♯ / ♮♭ (K5) are still signs, the REMOVE
+(K2) is still `setAccidental(null)` — a future wider palette, or `__keypad.slot('4', 'naturalSharp')`, gives one a key
+again. ⭐ And `engrave/notes/keyLines` now builds its key-string parser FROM the sign table, so a new sign's code can
+never be refused there again (K4's crash). ⏭️ *"maybe in the future we make this configurable"* — the slots are
+already one table (`keypadSignSlots`); configurable = a UI over it + saving it, ⛔ not built.
+
 **Not wired:** `.` (suppress cautionary accidental) — we draw no automatic cautionary accidentals, so
 it has nothing to act on. `-` is empty in Sibelius too.
 

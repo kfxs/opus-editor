@@ -39,6 +39,7 @@
  *   treble pitch, deliberately (see that function). VexFlow's own `key === 'R'` fallback therefore
  *   never runs here, and a key it would fire on is refused loudly below rather than placed silently.
  */
+import { ALTERATION_SIGNS } from '@/utils/alterationSigns'
 import type { Clef, NoteDuration, PitchStep } from '@/types/music'
 import { staffLineForSpelling } from '@/utils/clefUtils'
 import { DURATION_INFO } from '@/utils/durations'
@@ -105,10 +106,15 @@ function chromaticValue(step: PitchStep, alter: number): number {
   return value < 0 ? value + 12 : value
 }
 
-// ⭐ K4 — VexFlow's quarter-tone codes (`d` `db` `+` `++`, the sign table's `code` column), at the semitone
-//    they PLAY as until K6 (rounded toward the letter, `engine/audio/equalTemperament`). Only the unread
-//    tablature `intValue` sees the number; the drawing never does (its sign is the table's glyph).
-const ALTER_OF: Record<string, number> = { '': 0, n: 0, '#': 1, '##': 2, b: -1, bb: -2, d: 0, db: -1, '+': 0, '++': 1 }
+// ⭐ READ OFF THE SIGN TABLE (K7): every sign's `code`, so a sign the table gains can never be refused here again
+//    (K4's quarter flat was — `"ad/3"`, his crash). The number is the sign's RANK halved toward the letter — the
+//    semitone it PLAYS as until K6 — which reproduces VexFlow's own `# ## b bb` values exactly. Only the unread
+//    tablature `intValue` sees it; the drawing never does (its sign is the table's glyph).
+const ALTER_OF: Record<string, number> = {
+  '': 0,
+  n: 0,
+  ...Object.fromEntries(ALTERATION_SIGNS.map(sign => [sign.code, Math.trunc(sign.rank / 2)])),
+}
 
 /**
  * A VexFlow key string: a letter, an optional accidental, a slash, an octave.
@@ -118,7 +124,9 @@ const ALTER_OF: Record<string, number> = { '': 0, n: 0, '#': 1, '##': 2, b: -1, 
  * override) is not matched: this editor never writes one, and a silent fallback would draw the
  * wrong head.
  */
-const KEY = /^([a-gA-G])(##|#|bb|db|b|d|\+\+|\+|n)?\/(-?\d+)$/
+const KEY = new RegExp(`^([a-gA-G])(${
+  Object.keys(ALTER_OF).filter(Boolean).sort((a, b) => b.length - a.length).map(c => c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')
+})?\\/(-?\\d+)$`)
 
 /** The one parse, so the step, the alter and the octave are read off a key string in one place. */
 function parseKey(key: string): { step: PitchStep; alter: number; octave: number; name: string } {

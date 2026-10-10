@@ -35,6 +35,12 @@ const SIGN_SEMITONES: Record<AlterationSignId, number> = {
   quarterToneFlatStein: 0,
   threeQuarterTonesSharpStein: 1,
   threeQuarterTonesFlatZimmermann: -1,
+  // ⭐ K7 — the arrow quarter-tones, by the same rounding toward the letter.
+  quarterToneSharpNaturalArrowUp: 0,
+  quarterToneSharpArrowDown: 0,
+  threeQuarterTonesSharpArrowUp: 1,
+  quarterToneFlatArrowUp: 0,
+  threeQuarterTonesFlatArrowDown: -1,
 }
 
 /** How many semitones an alteration moves its letter, in equal temperament. */

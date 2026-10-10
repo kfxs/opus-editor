@@ -6,6 +6,9 @@ describe('the sign table', () => {
     expect(ALTERATION_SIGNS.map(s => [s.id, s.rank])).toEqual([
       ['doubleFlat', -4], ['threeQuarterTonesFlatZimmermann', -3], ['flat', -2], ['quarterToneFlatStein', -1],
       ['quarterToneSharpStein', 1], ['sharp', 2], ['threeQuarterTonesSharpStein', 3], ['doubleSharp', 4],
+      // ⭐ K7 — Gould's arrows, on the ranks of the Stein signs they stand for (ties allowed: a rank is an order).
+      ['threeQuarterTonesFlatArrowDown', -3], ['quarterToneFlatArrowUp', -1], ['quarterToneSharpNaturalArrowUp', 1],
+      ['quarterToneSharpArrowDown', 1], ['threeQuarterTonesSharpArrowUp', 3],
     ])
   })
 

@@ -328,6 +328,8 @@ const CONTROL_COLOUR = '#c9a7ff'
 const SIGN_CHAR: Record<AlterationSignId, string> = {
   doubleFlat: '𝄫', flat: '♭', sharp: '♯', doubleSharp: '𝄪',
   quarterToneSharpStein: '¼♯', quarterToneFlatStein: '¼♭', threeQuarterTonesSharpStein: '¾♯', threeQuarterTonesFlatZimmermann: '¾♭',
+  quarterToneSharpNaturalArrowUp: '♮↑', threeQuarterTonesSharpArrowUp: '♯↑', quarterToneSharpArrowDown: '♯↓',
+  quarterToneFlatArrowUp: '♭↑', threeQuarterTonesFlatArrowDown: '♭↓',
 }
 
 function spell(step: string, alteration: Alteration | undefined, octave: number): string {

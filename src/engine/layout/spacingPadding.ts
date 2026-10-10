@@ -303,6 +303,12 @@ const ACCIDENTAL_HEIGHT: Partial<Record<DrawnSignId, { up: number; down: number 
   // ⭐ K5 — ♮♯ / ♮♭, the fonts' precomposed pairs, from Bravura's boxes rounded up to the tenth.
   naturalSharp: { up: 1.4, down: 1.4 },
   naturalFlat: { up: 1.8, down: 1.4 },
+  // ⭐ K7 — the arrow quarter-tones, from Bravura's boxes rounded up to the tenth (an arrow reaches far).
+  quarterToneSharpNaturalArrowUp: { up: 2.2, down: 1.4 },
+  threeQuarterTonesSharpArrowUp: { up: 2.2, down: 1.4 },
+  quarterToneSharpArrowDown: { up: 1.4, down: 2.2 },
+  quarterToneFlatArrowUp: { up: 2.4, down: 0.8 },
+  threeQuarterTonesFlatArrowDown: { up: 1.8, down: 1.7 },
 }
 
 /** The vertical reach of one accidental sign, defaulting to a sharp's. */
@@ -358,6 +364,12 @@ const ACCIDENTAL_WIDTH: Partial<Record<DrawnSignId, number>> = {
   // ⭐ K5 — ♮♯ / ♮♭: Bravura's ink (1.924 / 1.836) plus the same ~0.30 sp.
   naturalSharp: 2.2,
   naturalFlat: 2.1,
+  // ⭐ K7 — the arrow quarter-tones: Bravura's ink plus the ~0.30 sp, to the tenth.
+  quarterToneSharpNaturalArrowUp: 1.2,
+  threeQuarterTonesSharpArrowUp: 1.4,
+  quarterToneSharpArrowDown: 1.3,
+  quarterToneFlatArrowUp: 1.3,
+  threeQuarterTonesFlatArrowDown: 1.3,
 }
 
 /**

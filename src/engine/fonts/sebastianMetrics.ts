@@ -1,7 +1,7 @@
 /**
  * ⛔⛔ **GENERATED — DO NOT EDIT.** `node scripts/generate-font-metrics.mjs`
  *
- * Sebastian's table for the 113 glyphs the editor draws — the SAME shape as
+ * Sebastian's table for the 118 glyphs the editor draws — the SAME shape as
  * `bravuraMetrics.ts`, total over the same `GlyphName` union, read by `fontMetrics` when the face is
  * the active one (`fonts/musicFont`, `docs/plans/music-font-switch-plan.md` Phase B).
  *
@@ -71,6 +71,11 @@ export const GLYPH_BOXES: Record<GlyphName, GlyphBox> = {
   accidentalThreeQuarterTonesFlatZimmermann: { left: 0, right: 1.544, up: 1.82, down: 0.652, advance: 1.544 },
   accidentalNaturalSharp: { left: 0, right: 1.924, up: 1.36, down: 1.36, advance: 1.924 },
   accidentalNaturalFlat: { left: 0, right: 1.792, up: 1.82, down: 1.36, advance: 1.792 },
+  accidentalQuarterToneSharpNaturalArrowUp: { left: 0, right: 1.036, up: 1.796, down: 1.516, advance: 1.036 },
+  accidentalThreeQuarterTonesSharpArrowUp: { left: 0, right: 1.08, up: 2.312, down: 1.472, advance: 1.08 },
+  accidentalQuarterToneSharpArrowDown: { left: 0, right: 1.08, up: 1.472, down: 2.312, advance: 1.08 },
+  accidentalQuarterToneFlatArrowUp: { left: 0, right: 1.144, up: 2.3, down: 0.66, advance: 1.144 },
+  accidentalThreeQuarterTonesFlatArrowDown: { left: 0.004, right: 1.176, up: 1.82, down: 1.332, advance: 1.176 },
   // flags
   flag8thUp: { left: 0, right: 1.168, up: 0, down: 3.272, advance: 1.168 },
   flag8thDown: { left: 0, right: 1.168, up: 2.952, down: 0, advance: 1.168 },

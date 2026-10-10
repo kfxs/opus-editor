@@ -30,9 +30,13 @@ export const DEFAULT_SIGN_SLOTS: Readonly<Record<string, DrawnSignId>> = {
   '6': 'quarterToneFlatStein',
   '2': 'threeQuarterTonesSharpStein',
   '3': 'threeQuarterTonesFlatZimmermann',
-  // ⭐ K5 — ♮♯ on `4`, ♮♭ on `1` (Sibelius's places): signs like any other (his rule), drawn with their natural.
-  '4': 'naturalSharp',
-  '1': 'naturalFlat',
+  // ⭐ K7 — his layout (2026-10-10): Gould's ARROW quarter-tones take `-` `4` `1` `0` `.`. ♮♯ / ♮♭ (K5, Sibelius's
+  //    `4` `1`) and the REMOVE (K2, `0`) keep their commands and lose only their keys — no room on a numpad.
+  '-': 'quarterToneSharpNaturalArrowUp',
+  '4': 'threeQuarterTonesSharpArrowUp',
+  '1': 'quarterToneSharpArrowDown',
+  '0': 'quarterToneFlatArrowUp',
+  '.': 'threeQuarterTonesFlatArrowDown',
 }
 
 let slots: Record<string, DrawnSignId> = { ...DEFAULT_SIGN_SLOTS }

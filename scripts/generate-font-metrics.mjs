@@ -73,6 +73,12 @@ const GLYPHS = {
     // ⭐ ♮♯ / ♮♭ (alteration-signs K5) — the fonts' own precomposed pair, as MuseScore draws them.
     'accidentalNaturalSharp',
     'accidentalNaturalFlat',
+    // ⭐ K7 — Gould's ARROW quarter-tones, his Keypad keys `-` `4` `1` `0` `.` (2026-10-10).
+    'accidentalQuarterToneSharpNaturalArrowUp',
+    'accidentalThreeQuarterTonesSharpArrowUp',
+    'accidentalQuarterToneSharpArrowDown',
+    'accidentalQuarterToneFlatArrowUp',
+    'accidentalThreeQuarterTonesFlatArrowDown',
   ],
 
   // ⭐ Up and down are DIFFERENT GLYPHS with different widths (1.056 against 1.224), which is why a

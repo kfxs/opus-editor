@@ -47,6 +47,13 @@ export const ALTERATION_SIGNS: readonly AlterationSign[] = [
   { id: 'sharp', glyph: 'accidentalSharp', rank: 2, code: '#' },
   { id: 'threeQuarterTonesSharpStein', glyph: 'accidentalThreeQuarterTonesSharpStein', rank: 3, code: '++' },
   { id: 'doubleSharp', glyph: 'accidentalDoubleSharp', rank: 4, code: '##' },
+  // ⭐ K7 — Gould's ARROW quarter-tones (his Keypad, 2026-10-10): the same odd ranks as Stein's signs they stand
+  //    for (a rank is an ORDER, ties allowed). Codes: the plain sign's + `^` / `v` — a LABEL only.
+  { id: 'threeQuarterTonesFlatArrowDown', glyph: 'accidentalThreeQuarterTonesFlatArrowDown', rank: -3, code: 'bv' },
+  { id: 'quarterToneFlatArrowUp', glyph: 'accidentalQuarterToneFlatArrowUp', rank: -1, code: 'b^' },
+  { id: 'quarterToneSharpNaturalArrowUp', glyph: 'accidentalQuarterToneSharpNaturalArrowUp', rank: 1, code: 'n^' },
+  { id: 'quarterToneSharpArrowDown', glyph: 'accidentalQuarterToneSharpArrowDown', rank: 1, code: '#v' },
+  { id: 'threeQuarterTonesSharpArrowUp', glyph: 'accidentalThreeQuarterTonesSharpArrowUp', rank: 3, code: '#^' },
 ]
 
 /**
