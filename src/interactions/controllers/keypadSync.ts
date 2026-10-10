@@ -5,7 +5,7 @@ import { armedToolEntersPitch, armedToolUsesLength, selectedOf } from '../state/
 import type { BeamRole } from '../../utils/beaming'
 import type { PaletteController } from './PaletteController'
 import { bus } from '@/bus'
-import { accidentalTypeToKey } from '../../utils/pitchSpelling'
+import { keyOfDrawnSign } from '../../utils/alterationSigns'
 import { multipleNotesSelected } from '../state/selection'
 import { selectedMarkScope } from '../stamps/markVoiceScope'
 import { armedLineTool, pressLineTool } from '../stamps/lineTools'
@@ -358,7 +358,7 @@ export function wireKeypadSync(
     const selectedAccidentalGlyph = selectedOf(state, 'accidental')
     bus.accidental.setHighlight(
       armed?.kind === 'accidental' ? armed.sign
-      : selectedAccidentalGlyph ? accidentalTypeToKey(selectedAccidentalGlyph.type)
+      : selectedAccidentalGlyph ? keyOfDrawnSign(selectedAccidentalGlyph.type)
       // A tool that places a pitch of its own (the grace stamp) carries the note-entry accidental.
       : armed ? (armedToolEntersPitch(state) ? state.selectedAccidental : null)
       : noNoteInSelection(state) ? null

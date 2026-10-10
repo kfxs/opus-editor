@@ -28,8 +28,8 @@ describe('graceLayout — right to left from the host', () => {
 
   it('⭐ …and clears the host’s ACCIDENTAL, not its bare head', () => {
     const host = [p('h', 'E', 5, 1)]
-    const hostReach = hostLeftReach(host, id => (id === 'h' ? '#' : null), 'treble')
-    expect(hostReach).toBeCloseTo(accidentalExtent([{ position: 0, sign: '#' }]), 9)
+    const hostReach = hostLeftReach(host, id => (id === 'h' ? 'sharp' : null), 'treble')
+    expect(hostReach).toBeCloseTo(accidentalExtent([{ position: 0, sign: 'sharp' }]), 9)
     const bare = graceLayout(group([p('g', 'D')]), none, 'treble', 0)
     const signed = graceLayout(group([p('g', 'D')]), none, 'treble', hostReach)
     expect(signed.places[0].headX).toBeCloseTo(bare.places[0].headX - hostReach, 9)
@@ -37,8 +37,8 @@ describe('graceLayout — right to left from the host', () => {
 
   it('a grace’s own accidental widens the reach, scaled with the grace', () => {
     const plain = graceLayout(group([p('g', 'D')]), none, 'treble', 0).reach
-    const sharp = graceLayout(group([p('g', 'D', 5, 1)]), () => '#', 'treble', 0).reach
-    expect(sharp - plain).toBeCloseTo(accidentalExtent([{ position: 0, sign: '#' }]) * graceScale(), 9)
+    const sharp = graceLayout(group([p('g', 'D', 5, 1)]), () => 'sharp', 'treble', 0).reach
+    expect(sharp - plain).toBeCloseTo(accidentalExtent([{ position: 0, sign: 'sharp' }]) * graceScale(), 9)
   })
 
   it('two graces keep their order, `between` apart edge to edge', () => {

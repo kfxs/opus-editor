@@ -46,7 +46,7 @@ describe('nearestSlotBoundaryBeat', () => {
     // x = 63: A's head edge is ≈18.9 away; B's head edge ≈41.1 — but B's sharp starts at 80, 17 away.
     expect(nearestSlotBoundaryBeat(registry, 63, 1), 'head-only edges would pick beat 0').toBe(0)
     registry.add({
-      type: 'accidental', noteId: 'b', measure: 1, staff: 0, beat: 1, staffPosition: 32 /* G4 */, accidentalType: '#',
+      type: 'accidental', noteId: 'b', measure: 1, staff: 0, beat: 1, staffPosition: 32 /* G4 */, accidentalType: 'sharp',
       bbox: { x: 80, y: 45, width: 10, height: 28 },
     })
     expect(nearestSlotBoundaryBeat(registry, 63, 1)).toBe(1)

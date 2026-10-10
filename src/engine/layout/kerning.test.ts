@@ -25,7 +25,7 @@ const box = (kind: InkBox['kind'], y: number, reach: { left?: number; right?: nu
 
 /** A bare notehead at line `y`, and a sharpened note whose sign reaches its measured 1.40 spaces. */
 const head = (y: number, staff?: string) => box('note', y, { right: INK.notehead, staff })
-const sharp = (y: number, staff?: string) => box('accidental', y, { left: accidentalExtent([{ position: 0, sign: '#' }]), height: 1.4, staff })
+const sharp = (y: number, staff?: string) => box('accidental', y, { left: accidentalExtent([{ position: 0, sign: 'sharp' }]), height: 1.4, staff })
 
 describe('inkFloor — the floor is a max over box PAIRS', () => {
   it('⭐ with nothing vertically clear it is EXACTLY the old merged expression', () => {
@@ -33,7 +33,7 @@ describe('inkFloor — the floor is a max over box PAIRS', () => {
     // reach the same answer the horizontal-only model did — `right + padding + left`.
     const a = [head(2)]
     const b = [sharp(2), head(2)]
-    const expected = INK.notehead + pairPadding('note', 'accidental') + accidentalExtent([{ position: 0, sign: '#' }])
+    const expected = INK.notehead + pairPadding('note', 'accidental') + accidentalExtent([{ position: 0, sign: 'sharp' }])
     expect(inkFloor(a, b)).toBeCloseTo(expected, 10)
   })
 
@@ -106,7 +106,7 @@ describe('mergedReach / edgeKind — the projection the rest of the model still 
   it('⭐ projects the boxes back to the reach the horizontal-only model computed', () => {
     const boxes = [sharp(2), head(2), box('dot', 2, { right: 2.1 })]
     expect(mergedReach(boxes)).toEqual({
-      left: accidentalExtent([{ position: 0, sign: '#' }]),
+      left: accidentalExtent([{ position: 0, sign: 'sharp' }]),
       right: 2.1,
     })
   })

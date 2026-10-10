@@ -1,4 +1,5 @@
 import type { Accidental, NoteDuration, BeamMode, Clef, TimeSignature, KeySignature, DynamicLevel, ArticulationType, Fraction, TupletFormat, TremoloMark } from '../../types/music'
+import type { DrawnSignId } from '@/types/music'
 import type { StaffGroup } from '@/types/music'
 import { deriveTupletM } from '../../utils/musicUtils'
 import type { SelectionItem } from './selection'
@@ -781,7 +782,7 @@ export type SelectedElement =
    */
   | { kind: 'articulation'; noteId: string; type: string | null }
   /** An accidental glyph, named by its note plus which sign was drawn. */
-  | { kind: 'accidental'; noteId: string; type: string | null }
+  | { kind: 'accidental'; noteId: string; type: DrawnSignId | null }
   /**
    * A slot's augmentation DOTS. ONE id for ALL of them: `dots` is a single value on the
    * `Chord`/`Rest` (it modifies the duration), even though VexFlow draws one dot per notehead per

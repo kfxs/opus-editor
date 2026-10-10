@@ -10,6 +10,7 @@
  * ⭐ That is also why the accidental's own registry spec used to say *"these assert the ANCHOR, ⛔ not
  * geometry"*.
  */
+import type { DrawnSignId } from '@/types/music'
 import { describe, it, expect } from 'vitest'
 import { SvgPainter } from './SvgPainter'
 import { EngravedAccidental } from '../engraved/EngravedAccidental'
@@ -25,7 +26,7 @@ import { standOn } from '../staff/staveFrame'
  * One drawn accidental, on a lone note formatted and drawn by the score's own pipeline — ⚠️ it must
  * have DRAWN: the draw is where the sign learns where it stands.
  */
-function drawnSign(sign: string): EngravedAccidental {
+function drawnSign(sign: DrawnSignId): EngravedAccidental {
   const div = document.createElement('div')
   document.body.appendChild(div)
   const ctx = new SvgPainter(div).resize(500, 200)
@@ -45,21 +46,21 @@ const SPACE_PX = 10
 
 describe('the accidental’s hit box', () => {
   it('⭐⭐ is the GLYPH’S OWN OUTLINE — ⛔ not the font’s line box, and ⛔ not 0×0', () => {
-    const box = accidentalHitBox(drawnSign('#'))!
+    const box = accidentalHitBox(drawnSign('sharp'))!
     // Bravura's `accidentalSharp`: 0.996 wide, 1.4 up and 1.392 down from its baseline.
     expect(box.width).toBeCloseTo(0.996 * SPACE_PX, 6)
     expect(box.height).toBeCloseTo((1.4 + 1.392) * SPACE_PX, 6)
   })
 
   it('🚨 the break-test — VexFlow’s ruler answers 0×0 for the very same sign', () => {
-    const accidental = drawnSign('#')
+    const accidental = drawnSign('sharp')
     const ruler = accidental.getBoundingBox()!
     expect([ruler.w, ruler.h], 'no font, no measurement').toEqual([0, 0])
     expect(accidentalHitBox(accidental)!.height).toBeGreaterThan(0)
   })
 
   it('⭐ hangs off the BASELINE the glyph was stamped on, ⛔ not off a top or a centre', () => {
-    const accidental = drawnSign('#')
+    const accidental = drawnSign('sharp')
     const box = accidentalHitBox(accidental)!
     // ⚠️ VexFlow's degenerate box is being used as a PROBE for the stamp point, and it can be:
     // `getBoundingBox()` is `(x + xShift, y + yShift − ascent, width, height)`, and in jsdom every
@@ -70,15 +71,15 @@ describe('the accidental’s hit box', () => {
   })
 
   it('⭐⭐ reads the SIGN that was drawn — a flat is a different shape from a sharp', () => {
-    const sharp = accidentalHitBox(drawnSign('#'))!
-    const flat = accidentalHitBox(drawnSign('b'))!
+    const sharp = accidentalHitBox(drawnSign('sharp'))!
+    const flat = accidentalHitBox(drawnSign('flat'))!
     // A flat's bowl sits almost entirely ABOVE its baseline (up 1.756, down 0.7); a sharp straddles.
     expect(flat.height).toBeCloseTo((1.756 + 0.7) * SPACE_PX, 6)
     expect(flat.height, 'and the two are genuinely different').not.toBeCloseTo(sharp.height, 3)
   })
 
   it('⭐ every sign this editor can draw HAS a box — so a null answer means a NEW glyph', () => {
-    for (const sign of ['#', 'b', 'n', '##', 'bb']) {
+    for (const sign of ['sharp', 'flat', 'natural', 'doubleSharp', 'doubleFlat'] as const) {
       const accidental = drawnSign(sign)
       expect(accidental.drawnInk(), sign).not.toBeNull()
       expect(glyphNameOf(accidental.getText()), `${sign} is in the font table`).not.toBeNull()
@@ -86,20 +87,20 @@ describe('the accidental’s hit box', () => {
   })
 
   it('🚨 a sign that has not DRAWN falls back to its line box — and a sign with no glyph is refused', () => {
-    const undrawn = new EngravedAccidental('#')
+    const undrawn = new EngravedAccidental('sharp')
     expect(undrawn.drawnInk()).toBeNull()
     const box = accidentalHitBox(undrawn)!
     const line = undrawn.getBoundingBox()
     expect([box.x, box.y, box.width, box.height]).toEqual([line.x, line.y, line.w, line.h])
     // ⛔ A cautionary or unknown sign never gets that far (S12e) — refused at construction.
-    expect(() => new EngravedAccidental('{')).toThrow()
+    expect(() => new EngravedAccidental('{' as never)).toThrow()
   })
 
   it('⭐ the box is the FONT’s, so it does not depend on a page having measured anything', () => {
     // ⚠️ The one number here that still comes from a runtime measurement is the sign's PLACE:
     // `accidentalOriginX` sets it back by `getWidth()`, which is 0 in jsdom. The SIZE is the font's.
     const ink = glyphBox('accidentalSharp')
-    const box = accidentalHitBox(drawnSign('#'))!
+    const box = accidentalHitBox(drawnSign('sharp'))!
     expect(box.width).toBeCloseTo((ink.left + ink.right) * SPACE_PX, 6)
   })
 })

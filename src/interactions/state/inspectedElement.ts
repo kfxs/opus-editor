@@ -7,6 +7,7 @@
  * .selectedElement`, the locator union). This is the REPORT: the same selection resolved to its
  * objects, for something that wants to show it. Two names because they are two things.
  */
+import type { DrawnSignId } from '@/types/music'
 import type {
   Dynamic, EngravingOverride, Glissando, GlyphMark, Hairpin, Measure, Note, Ottava, Pedal, Slur, TempoMark, Trill, Tuplet,
 } from '../../types/music'
@@ -91,7 +92,7 @@ export type InspectedElement =
     mouth: (EffectiveValue & { min: number; max: number }) | null
   }>
   | Report<'articulation', OnNote & { type: string | null }>
-  | Report<'accidental', OnNote & { type: string | null }>
+  | Report<'accidental', OnNote & { type: DrawnSignId | null }>
   | Report<'dot', OnNote>
   | Report<'headEnclosure', OnNote>
   | Report<'stem', OnNote>

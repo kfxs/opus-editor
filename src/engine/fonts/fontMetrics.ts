@@ -34,6 +34,8 @@
  * against the stave it is drawing on, exactly as `thinLineWeight.ts` does it.
  */
 
+import type { DrawnSignId } from '@/types/music'
+import { drawnSign } from '@/utils/alterationSigns'
 import {
   BRAVURA,
   ENGRAVING_DEFAULTS,
@@ -283,21 +285,6 @@ export function restGlyph(duration: NoteDuration): GlyphName {
 }
 
 /**
- * The accidental glyph of a VexFlow sign string.
- *
- * ⚠️ Keyed by the sign as `spacingPadding.ts` keys its tables (`'#'`, `'b'`, `'n'`, `'##'`, `'bb'`),
- * so the two agree by construction. ⭐ Returns **null** for a sign we do not measure rather than
- * defaulting to a sharp: a table may choose to fall back, but this must not choose for it.
- */
-const ACCIDENTAL_GLYPHS: Record<string, GlyphName> = {
-  '#': 'accidentalSharp',
-  'b': 'accidentalFlat',
-  'n': 'accidentalNatural',
-  '##': 'accidentalDoubleSharp',
-  'bb': 'accidentalDoubleFlat',
-}
-
-/**
  * The clef's own glyph — so a caller that needs where a clef's INK ends can ask the font instead of
  * VexFlow's modifier box.
  *
@@ -309,8 +296,13 @@ export function clefGlyph(clef: 'treble' | 'bass' | 'alto' | 'tenor'): GlyphName
   return clef === 'treble' ? 'gClef' : clef === 'bass' ? 'fClef' : 'cClef'
 }
 
-export function accidentalGlyph(sign: string): GlyphName | null {
-  return ACCIDENTAL_GLYPHS[sign] ?? null
+/**
+ * ⭐ The glyph a DRAWN sign stamps — its ROW's, in the sign table (`utils/alterationSigns`): a sign the
+ * table gains is drawn with no edit here. ⚠️ The row's name is a SMuFL name the core cannot type
+ * (it may not import the fonts — lint:boundary); `fontMetrics.test` holds every row to a glyph we have.
+ */
+export function accidentalGlyph(sign: DrawnSignId): GlyphName {
+  return drawnSign(sign).glyph as GlyphName
 }
 
 /**

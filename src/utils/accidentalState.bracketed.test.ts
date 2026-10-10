@@ -20,7 +20,7 @@ describe('displayedAccidentals — bracketed pitches', () => {
       chord('a', 0, [p('fs', 'F', 1)]),
       chord('b', 1, [p('g', 'G')], { bracketedBefore: [{ pitches: [p('bf', 'F')], duration: 'q' }] }),
     ], C_MAJOR)
-    expect(signs.get('bf')).toBe('n')
+    expect(signs.get('bf')).toBe('natural')
   })
 
   it('⭐⛔ it WRITES nothing: after a bracketed B♭, the bar\'s next B♭ still shows its flat', () => {
@@ -28,8 +28,8 @@ describe('displayedAccidentals — bracketed pitches', () => {
       chord('a', 0, [p('g', 'G')], { bracketedBefore: [{ pitches: [p('bb', 'B', -1)], duration: 'q' }] }),
       chord('b', 1, [p('main', 'B', -1)]),
     ], C_MAJOR)
-    expect(signs.get('bb')).toBe('b')
-    expect(signs.get('main')).toBe('b')
+    expect(signs.get('bb')).toBe('flat')
+    expect(signs.get('main')).toBe('flat')
   })
 
   it('…and it writes nothing AFTER its note either — the trill note\'s side', () => {
@@ -37,8 +37,8 @@ describe('displayedAccidentals — bracketed pitches', () => {
       chord('a', 0, [p('c', 'C')], { bracketedAfter: [{ pitches: [p('after', 'D', 1)], duration: 'q' }] }),
       chord('b', 1, [p('d', 'D', 1)]),
     ], C_MAJOR)
-    expect(signs.get('after')).toBe('#')
-    expect(signs.get('d')).toBe('#')
+    expect(signs.get('after')).toBe('sharp')
+    expect(signs.get('d')).toBe('sharp')
   })
 
   it('a bracketed grace bent into a GRACE is read before that grace', () => {
@@ -49,6 +49,6 @@ describe('displayedAccidentals — bracketed pitches', () => {
     ], C_MAJOR)
     // Read BEFORE the grace's E♭ is in force: a plain E in C major shows nothing.
     expect(signs.get('bg')).toBeNull()
-    expect(signs.get('g')).toBe('b')
+    expect(signs.get('g')).toBe('flat')
   })
 })

@@ -88,12 +88,3 @@ export function withArmedAlteration<T extends { step: PitchStep; octave: number 
 ): T & { alteration?: Alteration } {
   return { ...spelling, ...alterationField(armedAlteration(armed)) }
 }
-
-/**
- * Map a rendered accidental glyph code (as stored on a registered `accidental` element: '#', 'b',
- * 'n', '##', 'bb') to the keypad's single-accidental key, or null when there is no matching key —
- * the double accidentals have no ♯♯/♭♭ key on the numpad palette.
- */
-export function accidentalTypeToKey(type: string | null | undefined): Accidental | null {
-  return type === '#' || type === 'b' || type === 'n' ? type : null
-}

@@ -43,11 +43,11 @@ describe('bracketedLayout', () => {
 
   it('⭐ B8: a sign stands INSIDE — the left bracket clears the accidental by `parenToAccidental`', () => {
     setBracketForm('notehead')
-    const { places } = bracketedLayout([one(pitch('b', 'B', 4, -1))], () => 'b', 'treble', 0)
+    const { places } = bracketedLayout([one(pitch('b', 'B', 4, -1))], () => 'flat', 'treble', 0)
     const head = places[0].heads[0]
     const L = glyphBox(BRACKET_FORMS.notehead.left)
     const k = bracketedScale()
-    expect(head.sign).toBe('b')
+    expect(head.sign).toBe('flat')
     expect(head.accidentalX!).toBeLessThan(places[0].headX)
     expect(head.accidentalX! - (head.leftParenX + L.right * k)).toBeCloseTo(BRACKETED_ROWS.parenToAccidental.value, 9)
   })

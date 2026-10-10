@@ -14,6 +14,7 @@
  *  - {@link drawCrossBarFanBeams} — the fans whose beam LEAVES its bar, drawn outside every one.
  * Both build {@link FanSlotDrawing}s and hand them to {@link drawFanGroups}.
  */
+import type { DrawnSignId } from '@/types/music'
 import { cueSpacingScale, ledgerWeightScale, slotScale } from '@/engine/layout/cueSize'
 import type { EngravedStave } from '../engraved/EngravedStave'
 import { EngravedHead } from '../engraved/EngravedHead'
@@ -110,7 +111,7 @@ interface FanSlotDrawing {
   baseY: number
   stemDirection: number
   /** Per member, per notehead: the pitch, its staff line and the sign it displays (null for none). */
-  heads: { pitch: NotePitch; line: number; sign: string | null }[][]
+  heads: { pitch: NotePitch; line: number; sign: DrawnSignId | null }[][]
   /** The mark's stored MEMBERS — `stored[k - 1]` is member k, member 0 being the note itself. */
   stored: FanMemberChord[]
   prefixNotes: EngravedNote[]
@@ -156,7 +157,7 @@ const FAN_ACCIDENTAL_GAP = 2
  */
 const accidentalWidths = new Map<string, number>()
 
-function accidentalWidth(sign: string): number {
+function accidentalWidth(sign: DrawnSignId): number {
   const hit = accidentalWidths.get(sign)
   if (hit !== undefined) return hit
   // ⭐ S12k: measured by our sign, in the face and size VexFlow's `Accidental` measured it (S12e).
@@ -174,12 +175,12 @@ function accidentalWidth(sign: string): number {
  * and through `accidentalRoom`, the group's own span — pay for the room. One expression, spent by
  * both the drawing and the reservation, so the two cannot disagree about how wide a member is.
  */
-function fanAccidentalItems(heads: { line: number; sign: string | null }[], k = 1): ChordAccidentalItem[] {
+function fanAccidentalItems(heads: { line: number; sign: DrawnSignId | null }[], k = 1): ChordAccidentalItem[] {
   const lines = heads.map(h => h.line)
   // ⭐ `k` — a CUE fan's size (cue-size-plan, cue fans): its signs, their gap and the ledger trim, all at it.
   return heads.filter(h => h.sign).map(h => ({
     line: h.line,
-    width: accidentalWidth(h.sign as string) * k
+    width: accidentalWidth(h.sign!) * k
       + ledgerAccidentalClearance(h.line, lines, LEDGER_OVERHANG_BESIDE_ACCIDENTAL * k, FAN_ACCIDENTAL_GAP * k),
   }))
 }
@@ -189,7 +190,7 @@ function fanAccidentalItems(heads: { line: number; sign: string | null }[], k = 
  * stands beside them, the ordinary one otherwise — the same trade a real note makes
  * (`clearLedgersForAccidentals`), so the two pictures match on a page that has both.
  */
-function fanLedgerOverhang(heads: { line: number; sign: string | null }[], k = 1): number {
+function fanLedgerOverhang(heads: { line: number; sign: DrawnSignId | null }[], k = 1): number {
   const lines = heads.map(h => h.line)
   return (heads.some(h => h.sign && accidentalMeetsLedger(h.line, lines))
     ? LEDGER_OVERHANG_BESIDE_ACCIDENTAL
@@ -759,7 +760,7 @@ function fanSlotDrawing(input: {
   /** The clef this member's pitches are read against — its own bar's. */
   clef: Clef
   /** `displayedAccidentals` for this member's own bar: which pitch ids show a sign. */
-  signs: Map<string, string | null>
+  signs: Map<string, DrawnSignId | null>
   /** The group this fan is joined to on its left; empty for anything but a chain's first fan. */
   prefixNotes: EngravedNote[]
   /** The next note in the fan's OWN bar — where its room ends. Absent ⇒ the note area's end. */

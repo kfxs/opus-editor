@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest'
+import { ALTERATION_SIGNS } from '@/utils/alterationSigns'
 import {
   BRAVURA,
   CLEF_GLYPHS,
@@ -15,7 +16,7 @@ import {
   restGlyph,
   secondDisplacement,
 } from './fontMetrics'
-import { GLYPH_BOXES } from './bravuraMetrics'
+import { GLYPH_BOXES, GLYPH_CODEPOINTS } from './bravuraMetrics'
 import type { NoteDuration } from '@/types/music'
 
 /**
@@ -119,13 +120,14 @@ describe('the vocabulary — our words to the font\'s names', () => {
     expect(noteheadGlyph('32')).toBe('noteheadBlack')
   })
 
-  it('has the five accidental signs `spacingPadding` is keyed by, and NULL for anything else', () => {
-    for (const sign of ['#', 'b', 'n', '##', 'bb']) {
-      expect(accidentalGlyph(sign), sign).not.toBeNull()
+  it('⭐ every DRAWN sign is a glyph the font has — the sign table\'s rows, the natural included', () => {
+    // The row's glyph is a SMuFL NAME the core cannot type (lint:boundary), so this is where a row
+    // naming a glyph we do not have would be caught.
+    for (const sign of [...ALTERATION_SIGNS.map(s => s.id), 'natural'] as const) {
+      expect(GLYPH_CODEPOINTS[accidentalGlyph(sign)], sign).toBeDefined()
     }
-    // ⛔ Not a sharp. A guessing fallback gets believed; a null makes the caller decide in the open.
-    expect(accidentalGlyph('###')).toBeNull()
-    expect(accidentalGlyph('')).toBeNull()
+    expect(accidentalGlyph('natural')).toBe('accidentalNatural')
+    expect(accidentalGlyph('doubleFlat')).toBe('accidentalDoubleFlat')
   })
 
   it('flags exist for the flagged durations and NOT for the others', () => {

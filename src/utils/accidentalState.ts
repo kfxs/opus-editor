@@ -29,11 +29,11 @@
  * `SelectionController.computeDisplayedAccidental` ("displayed sign") both build on this;
  * `NoteBuilder`'s render pass implements the same rule incrementally as it lays out slots.
  */
-import type { Alteration, ChordRest, Fraction, KeySignature, NotePitch, PitchStep } from '@/types/music'
+import type { Alteration, ChordRest, DrawnSignId, Fraction, KeySignature, NotePitch, PitchStep } from '@/types/music'
 import { fracLt, fracCompare } from './fraction'
 import { keyAlterationOf } from './keySignature'
 import { spellingDiatonicPos } from './pitchSpelling'
-import { alterationCode, sameAlteration } from './alterationSigns'
+import { drawnSignOf, sameAlteration } from './alterationSigns'
 
 /** The minimal note shape the running-accidental walk reads. */
 export interface AccidentalNote {
@@ -116,7 +116,7 @@ export function alterationInForceAt(
  * time — which is also why the default fan (every member the note you typed) shows exactly one sign:
  * the members repeat an alteration that is already active.
  *
- * Returns `pitchId → VexFlow accidental string`, or `null` where the sign is suppressed. Ids that
+ * Returns `pitchId → the DRAWN sign` (a sign id, or `'natural'`), or `null` where the sign is suppressed. Ids that
  * are absent were never asked about (a rest, another lane).
  *
  * Scope is the CALLER's, as everywhere else in this file: pass one lane's slots, in beat order —
@@ -129,8 +129,8 @@ export function alterationInForceAt(
  * and nothing writes one; the day something does, this parameter becomes a resolver, exactly as
  * `clefForBeat` already is.
  */
-export function displayedAccidentals(slots: ChordRest[], key: KeySignature): Map<string, string | null> {
-  const signs = new Map<string, string | null>()
+export function displayedAccidentals(slots: ChordRest[], key: KeySignature): Map<string, DrawnSignId | null> {
+  const signs = new Map<string, DrawnSignId | null>()
   // Key = spellingDiatonicPos(step, octave); value = the alteration in force there. A position
   // absent from the map falls back to the KEY SIGNATURE — never pre-filled from it, see the header.
   const active = new Map<number, Alteration | undefined>()
@@ -150,14 +150,14 @@ export function displayedAccidentals(slots: ChordRest[], key: KeySignature): Map
       if (!p.forceAccidental && sameAlteration(governing, p.alteration)) {
         signs.set(p.id, null)
       } else {
-        signs.set(p.id, alterationCode(p.alteration))
+        signs.set(p.id, drawnSignOf(p.alteration))
       }
       if (write) active.set(dPos, p.alteration)
     } else if (governing) {
-      signs.set(p.id, 'n') // cancel what is in force here — an earlier accidental, or the key
+      signs.set(p.id, 'natural') // cancel what is in force here — an earlier accidental, or the key
       if (write) active.set(dPos, undefined)
     } else if (p.forceAccidental) {
-      signs.set(p.id, 'n') // a courtesy natural, asked for explicitly
+      signs.set(p.id, 'natural') // a courtesy natural, asked for explicitly
       if (write) active.set(dPos, undefined)
     } else {
       signs.set(p.id, null)

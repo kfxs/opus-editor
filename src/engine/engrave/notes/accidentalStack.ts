@@ -31,6 +31,7 @@
  * - a line's `line` is the note's staff line when its note has no stave, and a rounded y (which runs
  *   the other way up) when it has one — see {@link StackedAccidental.line}.
  */
+import type { DrawnSignId } from '@/types/music'
 import {
   ACCIDENTAL_LEFT_PADDING_PX, ACCIDENTAL_NOTEHEAD_PADDING_PX, ACCIDENTAL_SPACING_PX,
 } from '@/engine/engrave/inheritedDefaults'
@@ -43,8 +44,8 @@ export interface StackedAccidental {
    * the adapter decides which, as `Accidental.format` did.
    */
   line: number
-  /** VexFlow's accidental code: `'#'`, `'b'`, `'n'`, `'##'`, `'bb'`… */
-  type: string
+  /** The DRAWN sign — a sign id, or `'natural'` (VexFlow keyed it by its code, `'#'` / `'bb'` …). */
+  type: DrawnSignId
   /** The sign's own width, px. */
   width: number
   /** Room its note's left-displaced heads need past the note's own x shift, px (may be ≤ 0). */
@@ -128,8 +129,8 @@ export function stackAccidentals(
     } else {
       current = prior
     }
-    if (type !== 'b' && type !== 'bb') current.flatLine = false
-    if (type !== '##') current.dblSharpLine = false
+    if (type !== 'flat' && type !== 'doubleFlat') current.flatLine = false
+    if (type !== 'doubleSharp') current.dblSharpLine = false
     current.numAcc++
     current.width += width + ACCIDENTAL_SPACING_PX
     maxExtra = Math.max(displacedRoom, maxExtra)

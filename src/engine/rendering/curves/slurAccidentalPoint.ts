@@ -40,32 +40,33 @@
  * (their y grows up), ours is −1. Every table below is written in OUR convention, converted once,
  * here — ⛔ not transcribed and left to bite a reader.
  */
+import type { DrawnSignId } from '@/types/music'
 import type { NoteInkRect } from '../engraved/noteInkBox'
 
 /**
  * ⭐ **Where along its own width an accidental is met**, as a fraction: **−1 the left edge, 0 the
  * centre, +1 the right** (LilyPond's `linear_combination`).
  *
- * @param sign VexFlow's accidental string — `#`, `b`, `n`, `##`, `bb`.
+ * @param sign the DRAWN sign — a sign id, or `'natural'`.
  * @param direction −1 for a slur above, +1 for below.
  * @returns null for a sign this rule does not cover, so the caller can fall back rather than invent.
  */
-export function accidentalAvoidFraction(sign: string, direction: number): number | null {
+export function accidentalAvoidFraction(sign: DrawnSignId, direction: number): number | null {
   switch (sign) {
     // ⭐ A flat's bulk is LOW and LEFT, so the curve meets its ascender. Both flats, either way up.
-    case 'b':
-    case 'bb':
+    case 'flat':
+    case 'doubleFlat':
       return -1
     // ⭐ Nearly symmetric: met half-way into the half the curve is coming from.
-    case '#':
+    case 'sharp':
       return -0.5 * direction
     // ⭐ The two ends are diagonal, so which side is tall depends on the side the slur is on.
-    case 'n':
+    case 'natural':
       return direction
     // ⛔ **NOT in LilyPond's table.** A double sharp is a compact cross with no tall corner, so the
     //    centre is the honest reading — but it is OURS, and it is marked as such rather than passed
     //    off as ported.
-    case '##':
+    case 'doubleSharp':
       return 0
     default:
       return null
@@ -82,7 +83,7 @@ export function accidentalAvoidFraction(sign: string, direction: number): number
  */
 export function accidentalAvoidPoint(
   ink: NoteInkRect,
-  sign: string,
+  sign: DrawnSignId,
   direction: number,
 ): NoteInkRect | null {
   const fraction = accidentalAvoidFraction(sign, direction)

@@ -9,7 +9,7 @@
  * - Position lookup: "Where is note with ID 'abc123' on screen?"
  */
 
-import type { PitchSpelling } from '@/types/music'
+import type { DrawnSignId, PitchSpelling } from '@/types/music'
 import type { ScoreTextField } from '@/engine/models/scoreTextOps'
 import { dbg } from '@/utils/debug'
 import { staffOf } from '@/utils/lanes'
@@ -587,8 +587,8 @@ export interface ElementInfo {
    *  with `segmentRole` + `segmentOrdinal` + `slurSpanCount` it forms the nudge address. */
   segmentSide?: 'left' | 'right'
   // Accidental-specific properties
-  /** Type of accidental: '#', 'b', 'n', '##', 'bb' (for accidentals) */
-  accidentalType?: string
+  /** The DRAWN sign (for accidentals) — a sign id, or `'natural'` */
+  accidentalType?: DrawnSignId
   /** ID of the note this accidental belongs to (for accidentals) — and, for a 'dot', the ANCHOR the
    *  slot's dots hang off (see ScoreRenderer.registerDots): EVERY dot glyph of one chord/rest
    *  shares it, because `dots` is one value on the slot.

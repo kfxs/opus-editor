@@ -22,7 +22,7 @@ const BASS = 'B'
 function note(keys: string[], clef: string, signed: number[], crossings?: ({ clef: 'treble'; lift: number } | undefined)[]) {
   const n = new EngravedNote({ keys, duration: 'h', clef, autoStem: false, crossings })
   for (const index of signed) {
-    const sign = new EngravedAccidental('n')
+    const sign = new EngravedAccidental('natural')
     vi.spyOn(sign, 'getWidth').mockReturnValue(SIGN_WIDTH)
     attachModifier(n, sign, index)
     sign.setXShift(3)

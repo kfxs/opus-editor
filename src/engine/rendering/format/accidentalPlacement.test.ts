@@ -16,7 +16,7 @@ afterEach(() => resetAccidentalGapRule())
 
 const sharpNote = () => {
   const note = new EngravedNote({ keys: ['c/4'], duration: 'q' })
-  attachModifier(note, new EngravedAccidental('#'), 0)
+  attachModifier(note, new EngravedAccidental('sharp'), 0)
   return note
 }
 const shiftOf = (note: EngravedNote) =>
@@ -52,8 +52,8 @@ describe('the armed shift', () => {
   it('⭐⭐ every sign of a chord moves by the SAME amount — a column, ⛔ not a rake', () => {
     setAccidentalGapRule('ross')
     const chord = new EngravedNote({ keys: ['c/4', 'e/4', 'g/4'], duration: 'q' })
-    attachModifier(chord, new EngravedAccidental('#'), 0)
-    attachModifier(chord, new EngravedAccidental('b'), 2)
+    attachModifier(chord, new EngravedAccidental('sharp'), 0)
+    attachModifier(chord, new EngravedAccidental('flat'), 2)
     placeAccidentals([chord])
     const shifts = accidentalsOn(chord).map(a => a.getXShift())
     expect(new Set(shifts).size, 'one shift for the column').toBe(1)

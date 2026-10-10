@@ -94,6 +94,17 @@ from VexFlow (`'#' 'b' 'n' '##' 'bb'`) in its glyph table, its column packer, it
 slur's accidental point and the hit box. They become sign ids and ROWS (glyph, ink extents), so a
 sign the table gains can be drawn without touching those files again.
 ✔ No pixel moves: browser suite + the examples comparison, as M2.
+✅ **Built 2026-10-10.** The drawing's vocabulary is `DrawnSignId` = a sign id or `'natural'` — the
+natural is `NATURAL_SIGN`, a row the page draws and ⛔ a pitch never stores (the type keeps it out of
+`Alteration`). `displayedAccidentals`, `EngravedAccidental`, the stack rule, the ink rows
+(`spacingPadding`, ⚠️ a sign with no row takes the SHARP's numbers, as an unknown code always did),
+the slur's accidental point, the hit box's `accidentalType` and the selected accidental all speak it;
+the glyph is the ROW's (`fontMetrics.accidentalGlyph` reads the table — its spec holds every row to a
+glyph the font has). The Keypad's `'#' 'b' 'n'` stay the armed KEY's vocabulary, translated where a
+ghost draws one (`drawnSignOfKey`) and where a sign lights a key (`keyOfDrawnSign`). ✔ The three
+examples drawn before and after: byte-identical. ⚠️ Left as they are: the note KEY strings (`'c#/4'`)
+still carry the label code — nothing draws from it (only `KeyRow.key`'s name and an unread tablature
+`intValue`); a sign without a code would simply leave it out.
 
 ## 4. Part 2 — the keys
 

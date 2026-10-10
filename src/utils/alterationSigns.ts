@@ -20,17 +20,17 @@
  * hands back `undefined` for "unaltered", and {@link alterationField} spreads nothing for it.
  */
 
-import type { Accidental, Alteration, AlterationSignId } from '@/types/music'
+import type { Accidental, Alteration, AlterationSignId, DrawnSignId } from '@/types/music'
 
-export type { Alteration, AlterationSignId }
+export type { Alteration, AlterationSignId, DrawnSignId }
 
-export interface AlterationSign {
-  readonly id: AlterationSignId
+export interface AlterationSign<Id extends DrawnSignId = AlterationSignId> {
+  readonly id: Id
   /** The SMuFL glyph the sign is drawn with. */
   readonly glyph: string
   /** ⭐ Its place in the fixed order of signs (decision B) — ⛔ never a sound. */
   readonly rank: number
-  /** The string the drawing still names it by (VexFlow's, inherited) — goes with M3. */
+  /** Its text in a pitch LABEL and a note key string (`C#4`, `'c#/4'` — VexFlow's spelling, kept). */
   readonly code: string
 }
 
@@ -42,12 +42,33 @@ export const ALTERATION_SIGNS: readonly AlterationSign[] = [
   { id: 'doubleSharp', glyph: 'accidentalDoubleSharp', rank: 4, code: '##' },
 ]
 
-const BY_ID = new Map(ALTERATION_SIGNS.map(sign => [sign.id, sign]))
+/**
+ * ⭐ The NATURAL's row — a sign the page DRAWS (a cancellation, a courtesy) and ⛔ a pitch never
+ * stores. It sits outside {@link ALTERATION_SIGNS} on purpose: that table is what a pitch may carry.
+ */
+export const NATURAL_SIGN: AlterationSign<'natural'> = { id: 'natural', glyph: 'accidentalNatural', rank: 0, code: 'n' }
+
+const BY_ID = new Map<DrawnSignId, AlterationSign<DrawnSignId>>(
+  [...ALTERATION_SIGNS, NATURAL_SIGN].map(sign => [sign.id, sign]))
 const BY_CODE = new Map(ALTERATION_SIGNS.map(sign => [sign.code, sign]))
 
 /** The row of a sign. */
 export function alterationSign(id: AlterationSignId): AlterationSign {
+  return BY_ID.get(id) as AlterationSign
+}
+
+/** The row of a DRAWN sign — the natural included. */
+export function drawnSign(id: DrawnSignId): AlterationSign<DrawnSignId> {
   return BY_ID.get(id)!
+}
+
+/**
+ * ⭐ The sign an alteration DRAWS — its sign, or the natural for none (asked only where a sign IS drawn).
+ * ⚠️ One glyph per pitch today: a list of several (Helmholtz-Ellis) draws its FIRST until the drawing
+ * learns to stack them — no stored list holds more than one yet.
+ */
+export function drawnSignOf(alteration: Alteration | undefined): DrawnSignId {
+  return alteration?.[0] ?? 'natural'
 }
 
 /**
@@ -105,6 +126,19 @@ export function armedAlteration(acc: Accidental | null | undefined): Alteration 
   return undefined
 }
 
+/** The sign an armed Keypad key DRAWS — ♮ included (an armed natural is drawn, never stored). */
+export function drawnSignOfKey(acc: Accidental): DrawnSignId {
+  return acc === '#' ? 'sharp' : acc === 'b' ? 'flat' : 'natural'
+}
+
+/**
+ * The Keypad key a DRAWN sign lights — ♯, ♭, ♮ — or null where the Keypad has no key for it
+ * (the doubles, today).
+ */
+export function keyOfDrawnSign(sign: DrawnSignId | null | undefined): Accidental | null {
+  return sign === 'sharp' ? '#' : sign === 'flat' ? 'b' : sign === 'natural' ? 'n' : null
+}
+
 /**
  * The Keypad key that shows an alteration: ♯ for sharp-like, ♭ for flat-like, none when unaltered.
  * Double signs fall back to the single key (the Keypad has no ♯♯/♭♭ key yet).
@@ -115,15 +149,15 @@ export function accidentalOfAlteration(alteration: Alteration | undefined): Acci
 }
 
 // ---------------------------------------------------------------------------
-// The drawing's inherited strings ('#', 'b', '##', 'bb') — M3 retires them
+// The label strings ('#', 'b', '##', 'bb') — a pitch LABEL and a note key string, ⛔ not the drawing
 // ---------------------------------------------------------------------------
 
-/** The string the drawing names an alteration by: `''`, `'#'`, `'##'`, `'b'`, `'bb'`. */
+/** An alteration's label text: `''`, `'#'`, `'##'`, `'b'`, `'bb'` (`C#4`, `'c#/4'`). */
 export function alterationCode(alteration: Alteration | undefined): string {
   return (alteration ?? []).map(id => alterationSign(id).code).join('')
 }
 
-/** ⚠️ The way back from a drawing string ('#', 'bb', …) — `'n'` / `''` are unaltered. */
+/** ⚠️ The way back from a label string ('#', 'bb', …) — `'n'` / `''` are unaltered. */
 export function alterationOfCode(code: string | undefined): Alteration | undefined {
   const sign = code ? BY_CODE.get(code) : undefined
   return sign ? oneSign(sign.id) : undefined

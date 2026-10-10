@@ -29,6 +29,13 @@ export type AlterationSignId = 'doubleFlat' | 'flat' | 'sharp' | 'doubleSharp'
 export type Alteration = readonly AlterationSignId[]
 
 /**
+ * ⭐ **A sign as the DRAWING speaks it** — any stored sign, or the NATURAL, which a pitch never stores
+ * (the bar's rule draws it to cancel) but the page draws all the same. ⛔ Never a field of a pitch: the
+ * type keeps the natural out of {@link Alteration} at compile time (alteration-signs-plan M3).
+ */
+export type DrawnSignId = AlterationSignId | 'natural'
+
+/**
  * Pitch spelling: step + alteration + scientific octave — what is WRITTEN.
  *   C#4 = { step: 'C', alteration: ['sharp'], octave: 4 }
  *   Db4 = { step: 'D', alteration: ['flat'],  octave: 4 }

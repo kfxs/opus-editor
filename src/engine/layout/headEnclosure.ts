@@ -15,6 +15,7 @@
  * ⛔ Every number is one house style's DEFAULT, a changeable row (`CLAUDE.md`). They are Gould's, MEASURED
  * off her full-size drawings (research B.3); no book states one.
  */
+import type { DrawnSignId } from '@/types/music'
 import { bracketScale, cueScale } from './cueSize'
 import type { Chord, Clef, HeadEnclosure, NoteDuration, NotePitch, Score } from '@/types/music'
 import { spellingDiatonicPos } from '@/utils/pitchSpelling'
@@ -124,7 +125,7 @@ const onLedger = (line: number): boolean => line <= 0 || line >= 6
  * A SECOND displaces one head across the stem: to the RIGHT for a stem up, to the LEFT for a stem down —
  * and on the left, the accidentals stand beyond the displaced head too, so every left candidate moves.
  */
-export function enclosureLayout(chord: EnclosedChord, signOf: (pitchId: string) => string | null | undefined, clef: Clef): EnclosureLayout | null {
+export function enclosureLayout(chord: EnclosedChord, signOf: (pitchId: string) => DrawnSignId | null | undefined, clef: Clef): EnclosureLayout | null {
   const enclosed = chord.notes.filter(p => p.enclosure)
   if (!enclosed.length) return null
   // ⭐ C11 — `s` sizes what belongs to the HEAD (its ink), `b` the BRACKETS (their glyphs and their white).
@@ -139,7 +140,7 @@ export function enclosureLayout(chord: EnclosedChord, signOf: (pitchId: string) 
   const ledgered = lines.some(onLedger)
   const signs = chord.notes.flatMap(p => {
     const sign = signOf(p.id)
-    return typeof sign === 'string' ? [{ position: spellingDiatonicPos(p.step, p.octave), sign }] : []
+    return sign ? [{ position: spellingDiatonicPos(p.step, p.octave), sign }] : []
   })
   const positions = chord.notes.map(p => spellingDiatonicPos(p.step, p.octave)).sort((a, b) => a - b)
   const hasSecond = positions.some((position, i) => i > 0 && position - positions[i - 1] === 1)

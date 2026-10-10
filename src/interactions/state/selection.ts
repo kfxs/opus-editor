@@ -16,6 +16,7 @@
  * `EditorState.selectedElement`, its own discriminated union; migrating one here means
  * giving it a real multi-selection, which none of them has yet.
  */
+import type { DrawnSignId } from '@/types/music'
 export type SelectionItem =
   | { kind: 'note'; id: string } // notes and rests
   | { kind: 'dynamic'; id: string }
@@ -35,7 +36,7 @@ export type SelectionItem =
   /** ⭐ A user SYMBOL (docs/plans/symbol-plan.md P4) — in a box when the event it stands on is. */
   | { kind: 'glyphMark'; id: string }
   | { kind: 'articulation'; noteId: string; type: string }
-  | { kind: 'accidental'; noteId: string; type: string }
+  | { kind: 'accidental'; noteId: string; type: DrawnSignId }
   | { kind: 'clef'; measure: number; beat: number }
   | { kind: 'timeSignature'; measure: number }
   /** The line that ENDS this measure — a boundary, not an object (see `SelectedElement`'s `barline`). */

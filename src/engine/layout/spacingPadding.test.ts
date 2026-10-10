@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest'
+import type { DrawnSignId } from '@/types/music'
 import { INK, minColumnGap, accidentalExtent, dotExtent, pairPadding, restDotExtent, restExtent } from './spacingPadding'
 import { resetRestDotGapRule, setRestDotGapRule } from './restDotGap'
 import { DOT_GAP_RULES, resetDotGapRule, setDotGapRule, type DotGapRuleName } from './dotGap'
@@ -19,17 +20,17 @@ describe('the measured extents', () => {
   })
 
   it('one accidental reaches as far as it measured: sharp 1.4, flat 1.3, natural 1.1', () => {
-    const at = (sign: string) => accidentalExtent([{ position: 0, sign }])
-    expect(at('#')).toBeCloseTo(1.4, 6)
-    expect(at('b')).toBeCloseTo(1.3, 6)
-    expect(at('n')).toBeCloseTo(1.1, 6)
-    expect(at('##')).toBeCloseTo(1.4, 6)
-    expect(at('bb')).toBeCloseTo(2.1, 6)
+    const at = (sign: DrawnSignId) => accidentalExtent([{ position: 0, sign }])
+    expect(at('sharp')).toBeCloseTo(1.4, 6)
+    expect(at('flat')).toBeCloseTo(1.3, 6)
+    expect(at('natural')).toBeCloseTo(1.1, 6)
+    expect(at('doubleSharp')).toBeCloseTo(1.4, 6)
+    expect(at('doubleFlat')).toBeCloseTo(2.1, 6)
   })
 
   it('and each further COLUMN adds its own width: two sharps 2.7, three 4.0', () => {
     const thirds = (n: number) =>
-      accidentalExtent(Array.from({ length: n }, (_, i) => ({ position: i * 2, sign: '#' })))
+      accidentalExtent(Array.from({ length: n }, (_, i) => ({ position: i * 2, sign: 'sharp' })))
     expect(thirds(2)).toBeCloseTo(2.7, 6)
     expect(thirds(3)).toBeCloseTo(4.0, 6)
   })
@@ -38,7 +39,7 @@ describe('the measured extents', () => {
     // Measured one interval at a time: a third, fourth, fifth and sixth all stack; a seventh and
     // anything wider come out at one x. It is also the engraver's own rule.
     const pair = (interval: number) =>
-      accidentalExtent([{ position: 0, sign: '#' }, { position: interval - 1, sign: '#' }])
+      accidentalExtent([{ position: 0, sign: 'sharp' }, { position: interval - 1, sign: 'sharp' }])
     for (const sixthOrCloser of [3, 4, 5, 6]) {
       expect(pair(sixthOrCloser), `an interval of ${sixthOrCloser} stacks`).toBeCloseTo(2.7, 6)
     }
@@ -50,7 +51,7 @@ describe('the measured extents', () => {
   it('three accidentals need only two columns when the outer pair can share', () => {
     // C4 / E4 / C5 — the C's are an octave apart and share; the E stacks against both.
     const spread = accidentalExtent([
-      { position: 0, sign: '#' }, { position: 2, sign: '#' }, { position: 7, sign: '#' },
+      { position: 0, sign: 'sharp' }, { position: 2, sign: 'sharp' }, { position: 7, sign: 'sharp' },
     ])
     expect(spread).toBeCloseTo(2.7, 6)
   })

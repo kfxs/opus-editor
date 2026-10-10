@@ -15,6 +15,7 @@
  * ⛔ Every number here is one house style's DEFAULT, a changeable row (`CLAUDE.md`); the research
  * behind each is `docs/research/grace-notes-research.md` §0.4.
  */
+import type { DrawnSignId } from '@/types/music'
 import { graceCueScale } from './cueSize'
 import type { Clef, GraceGroup, GraceNote, NotePitch } from '@/types/music'
 import { spellingDiatonicPos } from '@/utils/pitchSpelling'
@@ -174,7 +175,7 @@ export function graceStemSpaces(lines: readonly number[] = [], down = false): nu
 }
 
 /** The drawn sign of each grace pitch — `displayedAccidentals`' answer; absent/null = none drawn. */
-export type SignOf = (pitchId: string) => string | null | undefined
+export type SignOf = (pitchId: string) => DrawnSignId | null | undefined
 
 /** Is this pitch on a ledger line? The same bound `measureColumns` states (line ≤ 0 or ≥ 6). */
 function onLedger(pitch: NotePitch, clef: Clef): boolean {
@@ -183,8 +184,8 @@ function onLedger(pitch: NotePitch, clef: Clef): boolean {
 }
 
 /** The signs a set of pitches draws, in the shape `accidentalExtent` reads. */
-function drawnSigns(pitches: readonly NotePitch[], signOf: SignOf): { position: number; sign: string }[] {
-  const out: { position: number; sign: string }[] = []
+function drawnSigns(pitches: readonly NotePitch[], signOf: SignOf): { position: number; sign: DrawnSignId }[] {
+  const out: { position: number; sign: DrawnSignId }[] = []
   for (const p of pitches) {
     const sign = signOf(p.id)
     if (typeof sign === 'string') out.push({ position: spellingDiatonicPos(p.step, p.octave), sign })

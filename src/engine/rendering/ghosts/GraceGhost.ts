@@ -7,6 +7,7 @@
  * cannot drift from what the click adds. Drawn in the grace's own px about the origin, then placed by
  * ONE transform: `translate` to the pointer, `scale(k)`, as the page's `scaling(k)` group does.
  */
+import { drawnSignOfKey } from '@/utils/alterationSigns'
 import type { DrawContext } from '@/engine/paint/DrawContext'
 import type { Accidental, ArticulationType, NoteDuration } from '@/types/music'
 import { EngravedArticulation } from '../engraved/EngravedArticulation'
@@ -92,8 +93,9 @@ export function drawGraceGhost(
       }
       drawNoteHead(ctx, { glyph: headGlyph(duration, false), x: 0, y: 0, font: noteFont() })
       if (accidental) {
-        const glyph = new EngravedAccidental(accidental).getText()
-        const reach = accidentalExtent([{ position: 0, sign: accidental }]) * STAFF_SPACE_PX
+        const sign = drawnSignOfKey(accidental)
+        const glyph = new EngravedAccidental(sign).getText()
+        const reach = accidentalExtent([{ position: 0, sign }]) * STAFF_SPACE_PX
         stampGlyph(ctx, glyph, -reach, 0, accidentalFont(glyph))
       }
       // On a staff the dot knows its line; floating free, it stands level with the head.

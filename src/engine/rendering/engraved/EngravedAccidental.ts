@@ -65,6 +65,7 @@ import type { DrawContext } from '@/engine/paint/DrawContext'
 import { MUSIC_FONT_SIZE_PT, accidentalFont } from '@/engine/engrave/inheritedFonts'
 import { accidentalOriginX, drawAccidental, type AccidentalInk } from '@/engine/engrave/notes/accidental'
 import { accidentalGlyph } from '@/engine/fonts/fontMetrics'
+import type { DrawnSignId } from '@/types/music'
 import { GLYPH_CODEPOINTS } from '@/engine/fonts/bravuraMetrics'
 import type { SceneBox } from '@/engine/scene/sceneBox'
 import type { InkSurfaceAware } from '../painter/inkSurface'
@@ -80,8 +81,8 @@ export class EngravedAccidental extends EngravedModifier implements InkSurfaceAw
     return 'Accidental'
   }
 
-  /** The sign as written — `'#'`, `'##'`, `'b'`, `'bb'`, `'n'`. */
-  readonly type: string
+  /** The sign as drawn — a sign id, or `'natural'`. */
+  readonly type: DrawnSignId
 
   /** Its SMuFL glyph. */
   private readonly glyph: string
@@ -96,10 +97,9 @@ export class EngravedAccidental extends EngravedModifier implements InkSurfaceAw
   /** @see EngravedAccidental.drawnInk */
   private ink: SceneBox | null = null
 
-  constructor(type: string) {
+  constructor(type: DrawnSignId) {
     super()
     const name = accidentalGlyph(type)
-    if (!name) throw new Error(`EngravedAccidental: no glyph for the sign "${type}" — only # ## b bb n are written here.`)
     this.type = type
     this.glyph = String.fromCodePoint(GLYPH_CODEPOINTS[name])
     this.position = MODIFIER_POSITION.LEFT

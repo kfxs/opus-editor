@@ -16,7 +16,7 @@
  */
 import type { Alteration, Clef, KeyAlteration, KeySignature, PitchStep } from '@/types/music'
 import { accidentalGlyph, glyphBox } from '@/engine/fonts/fontMetrics'
-import { alterationCode, alterationSide } from '@/utils/alterationSigns'
+import { alterationSide, drawnSignOf } from '@/utils/alterationSigns'
 import { staffLineForSpelling } from '@/utils/clefUtils'
 import { keysEqual, type StaffKeys } from '@/utils/keySignature'
 
@@ -132,21 +132,21 @@ export const METER_PART_LEFT_AIR = 0.6
 /**
  * ⭐⭐ **THE GLYPH ONE SIGN OF A SIGNATURE IS DRAWN WITH — and NO alteration is a NATURAL here.**
  *
- * 🚨 **`alterationCode(undefined)` is the empty string, and that is correct where it lives:** in a pitch LABEL
+ * 🚨 **`alterationCode(undefined)` (a LABEL) is the empty string, and that is correct where it lives:** in a pitch LABEL
  * a natural is the absence of a sign (`E4`, not `En4`). In a SIGNATURE a natural is a drawn glyph —
  * it is the whole of a cancellation — so this function cannot be a pass-through.
  *
  * ⚠️ It cost the first build of P6 a silent nothing: every cancelling natural resolved to `null` and
  * was skipped by both the extent (0 advance) and the pass (`if (!glyph) return`), so a change to C
  * major drew no signs and reserved no room, with no error anywhere. ⛔ Do not "simplify" this back to
- * `accidentalGlyph(alterationCode(alteration))`.
+ * a lookup that answers nothing for no alteration — `drawnSignOf` answers the NATURAL.
  *
  * ⭐ Exported so the DRAWING asks the same question: `KeySignaturePass` and `KeySignatureGhost` both
  * read it, which is this file's standing rule — the glyph that is drawn and the advance the room was
  * computed from are the same glyph by construction.
  */
 export function signGlyph(alteration: Alteration | undefined): ReturnType<typeof accidentalGlyph> {
-  return alteration ? accidentalGlyph(alterationCode(alteration)) : 'accidentalNatural'
+  return accidentalGlyph(drawnSignOf(alteration))
 }
 
 /**

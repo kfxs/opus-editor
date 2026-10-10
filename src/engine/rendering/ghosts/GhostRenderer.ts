@@ -40,7 +40,7 @@ import { getMeterInfo } from '@/utils/meter'
 import { fillRests, type RestSlot } from '@/utils/restFill'
 import { measureEndingClef, effectiveClefAt, middleLineDiatonicPos, resolveStaffClefs } from '@/utils/clefUtils'
 import { spellingToNoteKey, spellingDiatonicPos } from '@/utils/pitchSpelling'
-import { alterationCode } from '@/utils/alterationSigns'
+import { drawnSignOf } from '@/utils/alterationSigns'
 import { staffOf } from '@/utils/lanes'
 import { resolveStaffSize } from '@/engine/models/staffSize'
 import { staffMeasureView, staffIdAtIndex } from '@/engine/models/staffContent'
@@ -249,11 +249,10 @@ export function drawNoteGhost(
     }
 
     if (ghostNote.alteration) {
-      const sign = alterationCode(ghostNote.alteration)
-      attachModifier(staveNote, new EngravedAccidental(sign), 0)
+      attachModifier(staveNote, new EngravedAccidental(drawnSignOf(ghostNote.alteration)), 0)
     } else if (ghostNote.forceAccidental) {
       // Armed natural: no alteration has no sign of its own, so draw the ♮ explicitly.
-      attachModifier(staveNote, new EngravedAccidental('n'), 0)
+      attachModifier(staveNote, new EngravedAccidental('natural'), 0)
     }
 
     // The armed entry tremolo, through the SAME modifier the engraved mark uses — so the ghost
@@ -331,7 +330,7 @@ export function drawNoteGhost(
         notes: [{ id: 'ghost', step: ghostNote.step, alteration: ghostNote.alteration, octave: ghostNote.octave, enclosure: ghostNote.enclosure }],
         duration: ghostNote.duration, dots: ghostNote.dots, stemDown: stemDirection === -1,
         upFlag: stemDirection === 1 && staveNote.hasFlag(),
-      }, () => (ghostNote.alteration ? alterationCode(ghostNote.alteration) : ghostNote.forceAccidental ? 'n' : null), clef)
+      }, () => (ghostNote.alteration ? drawnSignOf(ghostNote.alteration) : ghostNote.forceAccidental ? 'natural' : null), clef)
       if (layout) {
         const frame = staveFrame(tempStave)
         const hostX = staveNote.getNoteHeadBeginX()

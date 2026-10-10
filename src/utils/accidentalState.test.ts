@@ -65,7 +65,7 @@ describe('displayedAccidentals', () => {
       chord('s1', [pitch('a', 'F', 1)], 0),
       chord('s2', [pitch('b', 'F', 1)], 1),
     ], C_MAJOR)
-    expect(signs.get('a')).toBe('#')
+    expect(signs.get('a')).toBe('sharp')
     expect(signs.get('b')).toBeNull()
   })
 
@@ -74,7 +74,7 @@ describe('displayedAccidentals', () => {
       chord('s1', [pitch('a', 'F', 1)], 0),
       chord('s2', [pitch('b', 'F', 0)], 1),
     ], C_MAJOR)
-    expect(signs.get('b')).toBe('n')
+    expect(signs.get('b')).toBe('natural')
   })
 
   it('never re-states one on a tied continuation', () => {
@@ -88,7 +88,7 @@ describe('displayedAccidentals', () => {
       members: [{ pitches: [pitch('m1', 'G', 1)] }, { pitches: [pitch('m2', 'G', 1)] }],
     }
     const signs = displayedAccidentals([chord('s1', [pitch('a', 'C', 0)], 0, fan)], C_MAJOR)
-    expect(signs.get('m1')).toBe('#') // the first G♯ of the bar shows its sign
+    expect(signs.get('m1')).toBe('sharp') // the first G♯ of the bar shows its sign
     expect(signs.get('m2')).toBeNull() // the second is already in force
   })
 
@@ -102,7 +102,7 @@ describe('displayedAccidentals', () => {
       chord('s1', [pitch('a', 'C', 0)], 0, fan),
       chord('s2', [pitch('b', 'G', 0)], 1),
     ], C_MAJOR)
-    expect(signs.get('b')).toBe('n')
+    expect(signs.get('b')).toBe('natural')
   })
 
   it('the DEFAULT fan (every member the note you typed) shows exactly one sign', () => {
@@ -111,7 +111,7 @@ describe('displayedAccidentals', () => {
       members: [{ pitches: [pitch('m1', 'F', 1)] }, { pitches: [pitch('m2', 'F', 1)] }],
     }
     const signs = displayedAccidentals([chord('s1', [pitch('a', 'F', 1)], 0, fan)], C_MAJOR)
-    expect([signs.get('a'), signs.get('m1'), signs.get('m2')]).toEqual(['#', null, null])
+    expect([signs.get('a'), signs.get('m1'), signs.get('m2')]).toEqual(['sharp', null, null])
   })
 
   it('⭐ a GRACE before is walked BEFORE its chord, a grace after AFTER it — its sign holds on (MuseScore\'s order)', () => {
@@ -121,9 +121,9 @@ describe('displayedAccidentals', () => {
       graceAfter: { notes: [{ pitches: [pitch('g2', 'F', 0)], duration: '16' }] },
     }
     const signs = displayedAccidentals([graced, chord('s2', [pitch('b', 'F', 0)], 1)], C_MAJOR)
-    expect(signs.get('g1'), 'the grace states the sharp').toBe('#')
+    expect(signs.get('g1'), 'the grace states the sharp').toBe('sharp')
     expect(signs.get('a'), '…so the main note does not repeat it').toBeNull()
-    expect(signs.get('g2'), 'the grace after cancels it').toBe('n')
+    expect(signs.get('g2'), 'the grace after cancels it').toBe('natural')
     expect(signs.get('b'), '…and the natural holds on').toBeNull()
   })
 
@@ -143,7 +143,7 @@ describe('displayedAccidentals', () => {
 
     it('⭐ …and an F♮ in G major DRAWS a natural it would not draw in C major', () => {
       const slots = [chord('s1', [pitch('a', 'F', 0)], 0)]
-      expect(displayedAccidentals(slots, G_MAJOR).get('a')).toBe('n')
+      expect(displayedAccidentals(slots, G_MAJOR).get('a')).toBe('natural')
       expect(displayedAccidentals(slots, C_MAJOR).get('a')).toBeNull()
     })
 
@@ -154,7 +154,7 @@ describe('displayedAccidentals', () => {
 
     it('a letter the key is silent about is untouched — G in G major still shows its own sharp', () => {
       const signs = displayedAccidentals([chord('s1', [pitch('a', 'G', 1)], 0)], G_MAJOR)
-      expect(signs.get('a')).toBe('#')
+      expect(signs.get('a')).toBe('sharp')
     })
 
     it('🚨 an explicit natural earlier in the bar BEATS the key at that position', () => {
@@ -164,7 +164,7 @@ describe('displayedAccidentals', () => {
         chord('s1', [pitch('a', 'F', 0)], 0),
         chord('s2', [pitch('b', 'F', 0)], 1),
       ], G_MAJOR)
-      expect([signs.get('a'), signs.get('b')]).toEqual(['n', null])
+      expect([signs.get('a'), signs.get('b')]).toEqual(['natural', null])
     })
 
     it('a sharp written after that natural shows its sign again', () => {
@@ -172,7 +172,7 @@ describe('displayedAccidentals', () => {
         chord('s1', [pitch('a', 'F', 0)], 0),
         chord('s2', [pitch('b', 'F', 1)], 1),
       ], G_MAJOR)
-      expect(signs.get('b')).toBe('#')
+      expect(signs.get('b')).toBe('sharp')
     })
 
     it('🚨🚨 a COURTESY survives the key agreeing with it — Gould p. 81', () => {
@@ -182,7 +182,7 @@ describe('displayedAccidentals', () => {
       const signs = displayedAccidentals(
         [chord('s1', [pitch('a', 'B', -1, { forceAccidental: true })], 0)], E_FLAT,
       )
-      expect(signs.get('a')).toBe('b')
+      expect(signs.get('a')).toBe('flat')
     })
 
     it('an OPEN key alters nothing — its list is empty, like C major’s', () => {

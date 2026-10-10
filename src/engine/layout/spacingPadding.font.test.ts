@@ -132,10 +132,8 @@ describe('⭐ the ink table, against Bravura itself', () => {
     // ⚠️ So this is deliberately NOT `toBeCloseTo`. Pinning these to the font would be pinning the
     //    wrong side of a one-sided claim, and would fail the day someone rounds one out further for
     //    a reason.
-    for (const sign of ['#', 'b', 'n', '##', 'bb']) {
-      const glyph = accidentalGlyph(sign)
-      expect(glyph, `${sign} has a glyph`).not.toBeNull()
-      const box = glyphBox(glyph!)
+    for (const sign of (['sharp', 'flat', 'natural', 'doubleSharp', 'doubleFlat'] as const)) {
+      const box = glyphBox(accidentalGlyph(sign))
       const ours = accidentalHeight(sign)
       expect(ours.up, `${sign} up clears the ink`).toBeGreaterThanOrEqual(box.up - EXACT)
       expect(ours.down, `${sign} down clears the ink`).toBeGreaterThanOrEqual(box.down - EXACT)
@@ -158,11 +156,11 @@ describe('⭐ the ink table, against Bravura itself', () => {
     // (a natural at 0.33, a double flat at 0.36) become VISIBLE instead of baked in.
     //
     // ⏭️ HIS EYE (§3.6 #3): whether to keep the five numbers or flatten them to one 0.31.
-    const paddings = ['#', 'b', 'n', '##', 'bb'].map(sign => {
+    const paddings = (['sharp', 'flat', 'natural', 'doubleSharp', 'doubleFlat'] as const).map(sign => {
       // One sign at position 0 is one column, plus the gap to the head — so the column width is the
       // extent less that gap.
       const column = accidentalExtent([{ position: 0, sign }]) - INK.accidentalToHead
-      return { sign, padding: column - glyphBox(accidentalGlyph(sign)!).right }
+      return { sign, padding: column - glyphBox(accidentalGlyph(sign)).right }
     })
 
     for (const { sign, padding } of paddings) {
@@ -303,7 +301,7 @@ describe('🚧 the table follows the ACTIVE music face by its DIFFERENCE from Br
     expect(INK.firstDot).toBeCloseTo(1.7 + shift, 10)
     expect(minColumnGap()).toBeCloseTo(1.13 + shift + pairPadding('note', 'note'), 10)
     expect(restExtent('q')).not.toBe(1.1)
-    expect(accidentalHeight('b').up).not.toBe(1.8)
+    expect(accidentalHeight('flat').up).not.toBe(1.8)
   })
 
   it('⛔ a JUDGEMENT row is one house style for every face', () => {

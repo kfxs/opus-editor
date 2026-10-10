@@ -57,7 +57,7 @@ import { planCrossBarBeams, laneKey, type CrossBarBeamPlan, type CrossBarJoin, t
 import { ElementRegistry, offsetStaffGeometry, type ClefSegment, type ElementInfo, type StaffGeometry } from '@/engine/ElementRegistry'
 import { measureShapeKey } from './MeasureRedrawKey'
 import { lowToHigh, staffPosition } from '@/utils/pitchOrder'
-import { alterationCode } from '@/utils/alterationSigns'
+import { drawnSignOf } from '@/utils/alterationSigns'
 import type { FanMemberAnchor, RenderPass } from './RenderPass'
 import { renderTies } from './curves/TieRenderer'
 import { renderNoteLines } from './marks/lines/noteLinePasses'
@@ -2956,7 +2956,7 @@ export class ScoreRenderer {
                       if (accidental.getIndex() === keyIndex) {
                         const accBox = accidentalHitBox(accidental)
                         if (accBox) {
-                          const accStr = alterationCode(pitch.alteration) || 'n'
+                          const accStr = drawnSignOf(pitch.alteration)
                           this.elementRegistry.add({
                             type: 'accidental',
                             noteId: pitch.id,

@@ -37,6 +37,7 @@
  * (plan §0). The kinds are a closed union, so the compiler names every table that needs the row.
  */
 
+import type { DrawnSignId } from '@/types/music'
 import type { NoteDuration } from '@/types/music'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { restStaffLine } from './restPlacement'
@@ -281,19 +282,24 @@ export function restBand(duration: NoteDuration): { top: number; bottom: number 
   return { top: line - height.up, bottom: line + height.down }
 }
 
-/** How far an accidental's ink reaches above and below the line of the note it belongs to. */
-const ACCIDENTAL_HEIGHT: Record<string, { up: number; down: number }> = {
-  '#': { up: 1.4, down: 1.4 },
-  'b': { up: 1.8, down: 0.8 },
-  'n': { up: 1.4, down: 1.4 },
-  '##': { up: 0.6, down: 0.5 },
-  'bb': { up: 1.8, down: 0.7 },
+/**
+ * How far an accidental's ink reaches above and below the line of the note it belongs to — a ROW per
+ * DRAWN sign (alteration-signs M3). ⚠️ A sign with no row takes the SHARP's numbers (as an unknown
+ * code always did) — a sign the table gains is spaced, roughly, with no edit here; its own row is a
+ * measurement to add, not a blocker.
+ */
+const ACCIDENTAL_HEIGHT: Partial<Record<DrawnSignId, { up: number; down: number }>> = {
+  sharp: { up: 1.4, down: 1.4 },
+  flat: { up: 1.8, down: 0.8 },
+  natural: { up: 1.4, down: 1.4 },
+  doubleSharp: { up: 0.6, down: 0.5 },
+  doubleFlat: { up: 1.8, down: 0.7 },
 }
 
 /** The vertical reach of one accidental sign, defaulting to a sharp's. */
-export function accidentalHeight(sign: string): { up: number; down: number } {
-  const literal = ACCIDENTAL_HEIGHT[sign] ?? ACCIDENTAL_HEIGHT['#']
-  const glyph = accidentalGlyph(sign) ?? 'accidentalSharp'
+export function accidentalHeight(sign: DrawnSignId): { up: number; down: number } {
+  const literal = ACCIDENTAL_HEIGHT[sign] ?? ACCIDENTAL_HEIGHT.sharp!
+  const glyph = accidentalGlyph(sign)
   return {
     up: shifted(literal.up, () => glyphBox(glyph).up),
     down: shifted(literal.down, () => glyphBox(glyph).down),
@@ -317,7 +323,7 @@ export function accidentalHeight(sign: string): { up: number; down: number } {
 export const STEM_REACH = 3.5
 
 /**
- * One accidental COLUMN's width, in staff spaces, by the VexFlow sign string.
+ * One accidental COLUMN's width, in staff spaces, a ROW per DRAWN sign (no row = the sharp's).
  *
  * Derived from the measured total: a single sharp puts its ink 1.40 spaces left of the head, which
  * is this width plus {@link INK.accidentalToHead}. Two sharps measured 2.70 and three 4.00 — one
@@ -328,12 +334,12 @@ export const STEM_REACH = 3.5
  *  rather than imported from `rendering/`: `layout/` may not reach into the renderer. */
 const VEXFLOW_ACCIDENTAL_GAP = 0.3
 
-const ACCIDENTAL_WIDTH: Record<string, number> = {
-  '#': 1.3,
-  'b': 1.2,
-  'n': 1.0,
-  '##': 1.3,
-  'bb': 2.0,
+const ACCIDENTAL_WIDTH: Partial<Record<DrawnSignId, number>> = {
+  sharp: 1.3,
+  flat: 1.2,
+  natural: 1.0,
+  doubleSharp: 1.3,
+  doubleFlat: 2.0,
 }
 
 /**
@@ -343,9 +349,9 @@ const ACCIDENTAL_WIDTH: Record<string, number> = {
  * the tradition agree here and the number is not ours to choose.
  */
 /** One sign's column — Bravura's measured row, moved by how much WIDER this face's sign is. */
-function accidentalColumnWidth(sign: string): number {
-  const glyph = accidentalGlyph(sign) ?? 'accidentalSharp'
-  return shifted(ACCIDENTAL_WIDTH[sign] ?? ACCIDENTAL_WIDTH['#'], () => glyphBox(glyph).left + glyphBox(glyph).right)
+function accidentalColumnWidth(sign: DrawnSignId): number {
+  const glyph = accidentalGlyph(sign)
+  return shifted(ACCIDENTAL_WIDTH[sign] ?? ACCIDENTAL_WIDTH.sharp!, () => glyphBox(glyph).left + glyphBox(glyph).right)
 }
 
 const ACCIDENTAL_SHARE_INTERVAL = 6
@@ -411,7 +417,7 @@ export function restDotExtent(duration: NoteDuration, dots: number): number {
  * The stacking is VexFlow's own, greedily: take the pitches from the top down, and put each into the
  * first column whose last occupant it clears.
  */
-export function accidentalExtent(signs: { position: number; sign: string }[]): number {
+export function accidentalExtent(signs: { position: number; sign: DrawnSignId }[]): number {
   if (signs.length === 0) return 0
   const sorted = [...signs].sort((a, b) => b.position - a.position)
   /** Per column: the lowest position placed in it so far, and its widest sign. */

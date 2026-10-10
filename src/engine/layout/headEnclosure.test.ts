@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest'
+import type { DrawnSignId } from '@/types/music'
 import { ENCLOSURE_GLYPHS, ENCLOSURE_ROWS, chordEnclosure, enclosureLayout } from './headEnclosure'
 import { ScoreModel } from '@/engine/models/ScoreModel'
 import { setEnclosure } from '@/engine/models/enclosureOps'
@@ -43,9 +44,9 @@ describe('enclosureLayout', () => {
   })
 
   it('⭐ the ACCIDENTAL is inside: `(` stands past it by the accidental row', () => {
-    const signs = { a: '#' } as Record<string, string>
+    const signs = { a: 'sharp' } as Record<string, DrawnSignId>
     const layout = enclosureLayout({ notes: [pitch('a', 'B', 4)] }, id => signs[id], 'treble')!
-    const reach = accidentalExtent([{ position: 0, sign: '#' }])
+    const reach = accidentalExtent([{ position: 0, sign: 'sharp' }])
     expect(layout.pairs[0].leftParenX + L.right).toBeCloseTo(-(reach + ENCLOSURE_ROWS.accidental.value), 9)
   })
 

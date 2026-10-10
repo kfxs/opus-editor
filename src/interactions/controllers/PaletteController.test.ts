@@ -1859,7 +1859,7 @@ describe('PaletteController — editing a selected accidental glyph', () => {
     )
     // A standalone sharp glyph on note "n1" is selected in the score.
     state.selectedTool = 'selection'
-    state.selectedElement = { kind: 'accidental', noteId: 'n1', type: '#' }
+    state.selectedElement = { kind: 'accidental', noteId: 'n1', type: 'sharp' }
   })
 
   it('pressing the SAME accidental removes it (reverts to prevailing) and clears the selection', () => {
@@ -1882,7 +1882,7 @@ describe('PaletteController — editing a selected accidental glyph', () => {
     palette.setAccidental('b')
     expect(setNoteAccidental).toHaveBeenCalledWith('n1', 'b')
     expect(selectedOf(state, 'accidental')?.noteId).toBe('n1') // still selected
-    expect(selectedOf(state, 'accidental')?.type).toBe('b')    // now the flat
+    expect(selectedOf(state, 'accidental')?.type).toBe('flat') // now the flat
     expect(updateNote).not.toHaveBeenCalled()
   })
 

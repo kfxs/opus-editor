@@ -37,9 +37,9 @@ describe('the rows', () => {
 
 describe('the room it buys', () => {
   it('⭐⭐ the RESERVATION follows the armed row — one number for the room and the ink', () => {
-    const atHouse = accidentalExtent([{ position: 0, sign: '#' }])
+    const atHouse = accidentalExtent([{ position: 0, sign: 'sharp' }])
     setAccidentalGapRule('ross')
-    const atRoss = accidentalExtent([{ position: 0, sign: '#' }])
+    const atRoss = accidentalExtent([{ position: 0, sign: 'sharp' }])
     // ⭐ Ross's 0.54 is 0.24 sp looser than VexFlow's 0.30, and the bar buys exactly that.
     expect(atRoss - atHouse).toBeCloseTo(ACCIDENTAL_GAP_RULES.ross.gap - ACCIDENTAL_GAP_RULES.house.gap, 10)
   })
@@ -47,16 +47,16 @@ describe('the room it buys', () => {
   it('⭐ the armed `house` row buys what the measured table always did — ⛔ the table moved nothing', () => {
     // 🚨 The assertion that would have caught the misreading this table was built on: "closing" a
     // mismatch that was not one moved this number by 0.2 sp, and eight specs said so.
-    expect(accidentalExtent([{ position: 0, sign: '#' }])).toBeCloseTo(1.4, 10)
-    expect(accidentalExtent([{ position: 0, sign: 'b' }])).toBeCloseTo(1.3, 10)
+    expect(accidentalExtent([{ position: 0, sign: 'sharp' }])).toBeCloseTo(1.4, 10)
+    expect(accidentalExtent([{ position: 0, sign: 'flat' }])).toBeCloseTo(1.3, 10)
   })
 
   it('⭐ a SECOND column is not a second gap — the armed row is added once', () => {
-    const one = accidentalExtent([{ position: 0, sign: '#' }])
-    const two = accidentalExtent([{ position: 0, sign: '#' }, { position: 4, sign: '#' }])
+    const one = accidentalExtent([{ position: 0, sign: 'sharp' }])
+    const two = accidentalExtent([{ position: 0, sign: 'sharp' }, { position: 4, sign: 'sharp' }])
     setAccidentalGapRule('ross')
-    const oneRoss = accidentalExtent([{ position: 0, sign: '#' }])
-    const twoRoss = accidentalExtent([{ position: 0, sign: '#' }, { position: 4, sign: '#' }])
+    const oneRoss = accidentalExtent([{ position: 0, sign: 'sharp' }])
+    const twoRoss = accidentalExtent([{ position: 0, sign: 'sharp' }, { position: 4, sign: 'sharp' }])
     expect(twoRoss - two).toBeCloseTo(oneRoss - one, 10)
   })
 })

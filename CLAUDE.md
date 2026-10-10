@@ -350,6 +350,9 @@ and never a lone natural (the natural is what the bar's rule DRAWS). Write it wi
 `setAlteration`, compare with `sameAlteration`; an update sets it when the KEY is present
 (`'alteration' in updates`), so a change to a natural passes `alteration: undefined`. Rests leave the
 pitch fields undefined. What a sign SOUNDS like is `engine/audio/equalTemperament`'s table alone.
+⭐ The DRAWING speaks `DrawnSignId` — a sign id or `'natural'` (`NATURAL_SIGN`, a row a pitch never
+stores): `displayedAccidentals` answers it, the glyph is its ROW's, the ink rows are keyed by it.
+⛔ `'#'`/`'b'`/`'n'` are only the Keypad's armed KEY (`Accidental`) and a label's text.
 ⭐ Which pitch is HIGHER is asked of `utils/pitchOrder` (the staff's order — line, then the sign's rank
 in `utils/alterationSigns`); ⛔ never by converting to MIDI, which only playback (`engine/audio/`) needs.
 A typed letter's octave is the nearest LINE in staff steps (`pitchOrder.octaveNearest` / `octaveAbove`).

@@ -469,7 +469,7 @@ const harness: Harness = {
   ink: () => ({
     notehead: INK.notehead,
     sharps: (n: number) =>
-      accidentalExtent(Array.from({ length: n }, (_, i) => ({ position: i * 2, sign: '#' }))),
+      accidentalExtent(Array.from({ length: n }, (_, i) => ({ position: i * 2, sign: 'sharp' as const }))),
     dots: dotExtent,
     height: { notehead: INK_HEIGHT.notehead, dot: INK_HEIGHT.dot },
     accidentalHeight,

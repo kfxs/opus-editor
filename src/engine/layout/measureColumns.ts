@@ -24,6 +24,7 @@
  * with real rest slots, so every drawn column is already in `measure.slots`. The one exception is a
  * bar holding no slots at all, which draws a single measure rest — one column, at beat 0.
  */
+import type { DrawnSignId } from '@/types/music'
 import { cueSpacingScale, slotScale } from './cueSize'
 import type { Measure, Fraction, Chord, ChordRest, NotePitch, Clef, KeySignature } from '@/types/music'
 import { fracCompare, fracCreate, fracIsZero, fracSub } from '@/utils/fraction'
@@ -147,7 +148,7 @@ function flagDotPush(slot: ChordRest, ys: number[], upFlag: boolean): number {
   return pushed === null ? 0 : Math.max(0, pushed - noteDotXs({ duration: slot.duration, dots: 1 }, false)[0])
 }
 
-function slotInk(slot: ChordRest, signs: Map<string, string | null>, clef: Clef, multiVoice: boolean, flagged: boolean, size: number): ColumnInk {
+function slotInk(slot: ChordRest, signs: Map<string, DrawnSignId | null>, clef: Clef, multiVoice: boolean, flagged: boolean, size: number): ColumnInk {
   const staff = slot.staffId
   if (slot.type !== 'chord') {
     // ⭐ A rest's band is its own, at last (`restBand`, docs/plans/font-metrics-plan.md §3.4). It used to
@@ -171,7 +172,7 @@ function slotInk(slot: ChordRest, signs: Map<string, string | null>, clef: Clef,
   const pitches: NotePitch[] = slot.notes ?? []
   const drawn = pitches
     .map(pitch => ({ position: spellingDiatonicPos(pitch.step, pitch.octave), sign: signs.get(pitch.id) }))
-    .filter((entry): entry is { position: number; sign: string } => typeof entry.sign === 'string')
+    .filter((entry): entry is { position: number; sign: DrawnSignId } => typeof entry.sign === 'string')
   const accidental = accidentalExtent(drawn)
 
   // A SECOND in the chord displaces one head a full notehead to the side — Gould's rule, and the
@@ -323,7 +324,7 @@ function shrinkCueInk(boxes: RawInk, k: number, stemFromY: number | undefined): 
  * RIGHT ink — one box from the first bracket to the last, placed by `layout/bracketedRoom`'s
  * `bracketedAfterLayout`, the same call the drawing places them with.
  */
-function bracketedAfterInk(slot: Chord, signs: Map<string, string | null>, clef: Clef, staff: string | undefined, upFlag: boolean): RawInk {
+function bracketedAfterInk(slot: Chord, signs: Map<string, DrawnSignId | null>, clef: Clef, staff: string | undefined, upFlag: boolean): RawInk {
   if (!slot.bracketedAfter?.length) return []
   const layout = bracketedAfterLayout(slot.bracketedAfter, id => signs.get(id), clef, hostRightReach(slot, clef, upFlag))
   const ys = layout.places.flatMap(place => place.heads.map(h => yOfLine(h.line)))
@@ -349,7 +350,7 @@ function bracketedAfterInk(slot: Chord, signs: Map<string, string | null>, clef:
  * (`layout/bracketedRoom.beforeSideLayout` — the one answer the drawing reads too): ONE box for the
  * whole before side, its band the brackets' too.
  */
-function graceInk(slot: ChordRest, host: NotePitch[], signs: Map<string, string | null>, clef: Clef, staff: string | undefined): RawInk {
+function graceInk(slot: ChordRest, host: NotePitch[], signs: Map<string, DrawnSignId | null>, clef: Clef, staff: string | undefined): RawInk {
   const bracketedList = slot.bracketedBefore
   const graces = slot.graceBefore
   if (!graces && !bracketedList?.length) return []
@@ -606,8 +607,8 @@ function hasSeveralVoices(measure: Measure): boolean {
  * suppresses accidentals and mints naturals, and the ink of each is priced into the column below.
  * ⛔ So the clef's width-independence proof (`clefWidthIndependence.test.ts`) does NOT transfer.
  */
-function displayedSigns(measure: Measure, keyFor: KeyResolver): Map<string, string | null> {
-  const signs = new Map<string, string | null>()
+function displayedSigns(measure: Measure, keyFor: KeyResolver): Map<string, DrawnSignId | null> {
+  const signs = new Map<string, DrawnSignId | null>()
   for (const lane of lanesOf(measure).values()) {
     const ordered = [...lane].sort((a, b) => fracCompare(a.beat, b.beat))
     // The lane's own staff — every slot in it shares one, by construction (`lanesOf`).

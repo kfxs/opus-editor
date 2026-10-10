@@ -67,8 +67,8 @@ describe('accidental registration', () => {
   it('⭐ the SIGN registered is the pitch’s own — a natural for the natural, a sharp for the sharp', () => {
     const { g4, c5 } = hisChord()
     const signOf = (id: string) => accidentals().find(a => a.noteId === id)?.accidentalType
-    expect(signOf(g4.id)).toBe('n')
-    expect(signOf(c5.id)).toBe('#')
+    expect(signOf(g4.id)).toBe('natural')
+    expect(signOf(c5.id)).toBe('sharp')
   })
 
   // 🚨 The break-test: every assertion above would pass on a registry that registered NOTHING.

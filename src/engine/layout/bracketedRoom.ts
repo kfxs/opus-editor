@@ -11,6 +11,7 @@
  * ⛔ Every number is one house style's DEFAULT, a changeable row (`CLAUDE.md`). The research is
  * `docs/research/grace-notes-research.md` §0.9 and §G.4 (Gould's two drawings, measured).
  */
+import type { DrawnSignId } from '@/types/music'
 import { graceCueScale } from './cueSize'
 import type { BracketedGrace, Chord, ChordRest, Clef, GraceNote, NotePitch } from '@/types/music'
 import { spellingDiatonicPos } from '@/utils/pitchSpelling'
@@ -146,7 +147,7 @@ export interface BracketedHead {
   /** Its staff line (`staffLineForSpelling`). */
   line: number
   /** The sign it draws (`displayedAccidentals`, read-only for a bracketed pitch — B6), or null. */
-  sign: string | null
+  sign: DrawnSignId | null
   /** The accidental's left edge — where its glyph is stamped. */
   accidentalX: number | null
   leftParenX: number
