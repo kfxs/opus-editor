@@ -12,7 +12,7 @@
  *    2026-10-10) — the ghost wears them: the armed sign bracketed, or a bracketed natural with none armed;
  * 5. ⛔ nothing selected in selection mode → nothing (plan §5 default 3). No stamp.
  *
- * ⚠️ Main chord heads only (`engine/models/accidentalEnclosureOps`): a grace's id is skipped by the op.
+ * ⭐ Graces and fan members too (K3b, `engine/models/accidentalEnclosureOps`); ⚠️ a bracketed grace's id is skipped by the op.
  */
 import { dbg } from '@/utils/debug'
 import type { MusicEngine } from '@/engine/MusicEngine'

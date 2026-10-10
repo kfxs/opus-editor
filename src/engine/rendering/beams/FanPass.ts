@@ -14,6 +14,8 @@
  *  - {@link drawCrossBarFanBeams} — the fans whose beam LEAVES its bar, drawn outside every one.
  * Both build {@link FanSlotDrawing}s and hand them to {@link drawFanGroups}.
  */
+import { ACCIDENTAL_ENCLOSURE_GLYPHS } from '@/engine/layout/accidentalEnclosureGap'
+import { glyphBox } from '@/engine/fonts/fontMetrics'
 import type { DrawnSignId } from '@/types/music'
 import { cueSpacingScale, ledgerWeightScale, slotScale } from '@/engine/layout/cueSize'
 import type { EngravedStave } from '../engraved/EngravedStave'
@@ -157,12 +159,14 @@ const FAN_ACCIDENTAL_GAP = 2
  */
 const accidentalWidths = new Map<string, number>()
 
-function accidentalWidth(sign: DrawnSignId): number {
-  const hit = accidentalWidths.get(sign)
+function accidentalWidth(sign: DrawnSignId, enclosed = false): number {
+  const cacheKey = enclosed ? `${sign}()` : sign
+  const hit = accidentalWidths.get(cacheKey)
   if (hit !== undefined) return hit
-  // ⭐ S12k: measured by our sign, in the face and size VexFlow's `Accidental` measured it (S12e).
-  const width = new EngravedAccidental(sign).getWidth() || 0
-  accidentalWidths.set(sign, width)
+  // ⭐ S12k: measured by our sign, in the face and size VexFlow's `Accidental` measured it (S12e) — ⭐ K3b: in its
+  //   BRACKETS when the member's pitch asks, the run it draws.
+  const width = new EngravedAccidental(sign, enclosed ? 'round' : undefined).getWidth() || 0
+  accidentalWidths.set(cacheKey, width)
   return width
 }
 
@@ -175,12 +179,12 @@ function accidentalWidth(sign: DrawnSignId): number {
  * and through `accidentalRoom`, the group's own span — pay for the room. One expression, spent by
  * both the drawing and the reservation, so the two cannot disagree about how wide a member is.
  */
-function fanAccidentalItems(heads: { line: number; sign: DrawnSignId | null }[], k = 1): ChordAccidentalItem[] {
+function fanAccidentalItems(heads: { line: number; sign: DrawnSignId | null; pitch?: NotePitch }[], k = 1): ChordAccidentalItem[] {
   const lines = heads.map(h => h.line)
   // ⭐ `k` — a CUE fan's size (cue-size-plan, cue fans): its signs, their gap and the ledger trim, all at it.
   return heads.filter(h => h.sign).map(h => ({
     line: h.line,
-    width: accidentalWidth(h.sign!) * k
+    width: accidentalWidth(h.sign!, h.pitch?.accidentalEnclosure !== undefined) * k
       + ledgerAccidentalClearance(h.line, lines, LEDGER_OVERHANG_BESIDE_ACCIDENTAL * k, FAN_ACCIDENTAL_GAP * k),
   }))
 }
@@ -655,8 +659,28 @@ function drawFanGroups(pass: FanPassContext, drawings: FanSlotDrawing[], fanJoin
               // zig-zag; `chordAccidentalColumns`). One x for all of them printed two signs on top
               // of each other the moment a member became a real chord.
               // ⭐ S12k: stamped bare, as `Element.renderText` stamped VexFlow's `Accidental` — no group.
-              const glyph = new EngravedAccidental(sign).getText()
-              stampGlyph(ctx, glyph, accidentals.xs[signedHeads.indexOf(h)], y, accidentalFont(glyph, size))
+              const bracketed = new EngravedAccidental(sign, pitch.accidentalEnclosure)
+              const glyph = bracketed.getText()
+              const x = accidentals.xs[signedHeads.indexOf(h)]
+              const run = bracketed.runOffsets()
+              stampGlyph(ctx, glyph, x + (run?.sign ?? 0) * size, y, accidentalFont(glyph, size))
+              if (run && bracketed.enclosure) {
+                // ⭐ K3b — the member's `(` and `)`, each filed as its own hit box so it selects alone.
+                for (const [name, at, text] of [
+                  [ACCIDENTAL_ENCLOSURE_GLYPHS.left, 0, bracketed.enclosure.left],
+                  [ACCIDENTAL_ENCLOSURE_GLYPHS.right, run.right, bracketed.enclosure.right],
+                ] as const) {
+                  const bx = x + at * size
+                  stampGlyph(ctx, text, bx, y, accidentalFont(glyph, size))
+                  const box = glyphBox(name)
+                  const sp = STAFF_SPACE_PX * size
+                  pass.elementRegistry.add({
+                    type: 'accidentalEnclosure', noteId: pitch.id, measure: measureNumber, staff: staffIndex,
+                    beat: fracToNumber(slot.beat), staffPosition: staffPosition(pitch),
+                    bbox: { x: bx, y: y - box.up * sp, width: box.advance * sp, height: (box.up + box.down) * sp },
+                  })
+                }
+              }
             }
           }
           // ⭐ P3c — the same ink as every other stem on the page (`engrave/notes/stem`), where

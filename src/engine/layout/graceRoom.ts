@@ -184,11 +184,12 @@ function onLedger(pitch: NotePitch, clef: Clef): boolean {
 }
 
 /** The signs a set of pitches draws, in the shape `accidentalExtent` reads. */
-function drawnSigns(pitches: readonly NotePitch[], signOf: SignOf): { position: number; sign: DrawnSignId }[] {
-  const out: { position: number; sign: DrawnSignId }[] = []
+function drawnSigns(pitches: readonly NotePitch[], signOf: SignOf): { position: number; sign: DrawnSignId; enclosed: boolean }[] {
+  const out: { position: number; sign: DrawnSignId; enclosed: boolean }[] = []
   for (const p of pitches) {
     const sign = signOf(p.id)
-    if (typeof sign === 'string') out.push({ position: spellingDiatonicPos(p.step, p.octave), sign })
+    // ⭐ K3b — a grace's BRACKETED sign is priced as the run it draws (`GracePass`).
+    if (typeof sign === 'string') out.push({ position: spellingDiatonicPos(p.step, p.octave), sign, enclosed: p.accidentalEnclosure !== undefined })
   }
   return out
 }

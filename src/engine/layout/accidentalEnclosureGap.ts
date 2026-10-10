@@ -12,6 +12,7 @@
  * ⚠️ No live switch yet: a console arm would have to join the layout key and the width-cache
  * fingerprint, as `accidentalGapGeneration` does. Changing the armed row is an edit here.
  */
+import { glyphBox, type GlyphName } from '@/engine/fonts/fontMetrics'
 
 /** One rule: the white between a bracket's ink box and the sign's, each side, in staff spaces. */
 export interface AccidentalEnclosureGapRule {
@@ -43,3 +44,14 @@ export function accidentalEnclosureGap(): number {
 
 /** The two bracket glyphs, by SMuFL name — one pair today (`AccidentalEnclosure` is `'round'`). */
 export const ACCIDENTAL_ENCLOSURE_GLYPHS = { left: 'accidentalParensLeft', right: 'accidentalParensRight' } as const
+
+/**
+ * ⭐ Where a BRACKETED sign's three glyphs stand, in staff spaces from the run's LEFT edge (K3b) — `(` at 0, the
+ * sign at {@link signAt}, `)` at {@link rightAt} — from the font table's advances and the armed white: the SAME
+ * numbers `spacingPadding.accidentalEnclosureWidth` prices the room with. Read by the passes that stamp a sign by
+ * hand (a grace's, a fan member's), which have no `EngravedAccidental` to ask.
+ */
+export function accidentalRunOffsets(signGlyph: GlyphName): { signAt: number; rightAt: number } {
+  const signAt = glyphBox(ACCIDENTAL_ENCLOSURE_GLYPHS.left).advance + accidentalEnclosureGap()
+  return { signAt, rightAt: signAt + glyphBox(signGlyph).advance + accidentalEnclosureGap() }
+}

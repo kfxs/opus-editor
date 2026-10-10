@@ -21,6 +21,7 @@
  * anchor, and a grace stands left of its principal. Its group joins `fanMemberGroupMap` — the map of
  * pitches drawn outside their `StaveNote` — which is what the selection highlight reads.
  */
+import { ACCIDENTAL_ENCLOSURE_GLYPHS, accidentalRunOffsets } from '@/engine/layout/accidentalEnclosureGap'
 import type { ChordRest, Clef, Fraction, GraceGroup, GraceNote, KeySignature, NoteDuration } from '@/types/music'
 import type { DrawContext } from '@/engine/paint/DrawContext'
 import type { GracePassContext } from './RenderPass'
@@ -48,7 +49,7 @@ import { BEAM_END_OVERSHOOT } from './engraved/EngravedBeam'
 import { stampGlyph } from '@/engine/engrave/glyph'
 import { accidentalFont, musicGlyphFont, noteFont } from '@/engine/engrave/inheritedFonts'
 import { NOTE_DURATION_ROWS, stemThicknessPx } from '@/engine/engrave/inheritedDefaults'
-import { flagGlyph, glyphBox, noteheadInk } from '@/engine/fonts/fontMetrics'
+import { accidentalGlyph, flagGlyph, glyphBox, noteheadInk } from '@/engine/fonts/fontMetrics'
 import { GLYPH_CODEPOINTS } from '@/engine/fonts/bravuraMetrics'
 import { accidentalExtent } from '@/engine/layout/spacingPadding'
 import { dotSizeScale } from '@/engine/layout/dotSize'
@@ -203,9 +204,28 @@ function drawGraceGroup(
           const sign = signOf(pitch.id)
           if (typeof sign === 'string') {
             // One column: the sign's own extent left of the head (`layout/graceRoom` reserved the same).
-            const reach = accidentalExtent([{ position: spellingDiatonicPos(pitch.step, pitch.octave), sign }]) * space
+            const enclosed = pitch.accidentalEnclosure !== undefined
+            const reach = accidentalExtent([{ position: spellingDiatonicPos(pitch.step, pitch.octave), sign, enclosed }]) * space
             const glyph = new EngravedAccidental(sign).getText()
-            stampGlyph(ctx, glyph, local(headLeft) - reach, local(ys[h]), accidentalFont(glyph))
+            const origin = local(headLeft) - reach
+            if (!enclosed) stampGlyph(ctx, glyph, origin, local(ys[h]), accidentalFont(glyph))
+            else {
+              // ⭐ K3b — `(` sign `)`, at the room's own offsets (`layout/accidentalEnclosureGap`), and each bracket
+              //    filed as its own hit box (staff px: × k) so it selects alone.
+              const { signAt, rightAt } = accidentalRunOffsets(accidentalGlyph(sign))
+              stampGlyph(ctx, glyph, origin + signAt * space, local(ys[h]), accidentalFont(glyph))
+              for (const [name, at] of [[ACCIDENTAL_ENCLOSURE_GLYPHS.left, 0], [ACCIDENTAL_ENCLOSURE_GLYPHS.right, rightAt]] as const) {
+                const bracket = String.fromCodePoint(GLYPH_CODEPOINTS[name])
+                const x = origin + at * space
+                stampGlyph(ctx, bracket, x, local(ys[h]), accidentalFont(glyph))
+                const box = glyphBox(name)
+                pass.elementRegistry.add({
+                  type: 'accidentalEnclosure', noteId: pitch.id, measure: measureNumber, staff: staffIndex,
+                  staffPosition: staffPosition(pitch),
+                  bbox: { x: x * k, y: ys[h] - box.up * space * k, width: box.advance * space * k, height: (box.up + box.down) * space * k },
+                })
+              }
+            }
           }
           // ⭐ Registered in STAFF px (the measure's own `withScale` takes it to the page) — and with
           //    no `beat`, see the header.

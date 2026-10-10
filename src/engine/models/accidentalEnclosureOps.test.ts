@@ -38,20 +38,13 @@ describe('accidentalEnclosureOps', () => {
     expect(ops.accidentalEnclosureOf(score(), c.id)).toBeUndefined()
   })
 
-  it('⛔ a GRACE pitch is not a main head — skipped, and the toggle has nothing to vote', () => {
-    const host = add('C', 0)
-    const grace = graceOps.addGrace(score(), host.id, 'before', { step: 'D', octave: 4 }, 'appoggiatura', { duration: '8' })!
-    expect(ops.setAccidentalEnclosure(score(), [grace.pitches[0].id], 'round')).toBe(0)
-    expect(ops.toggleAccidentalEnclosure(score(), [grace.pitches[0].id])).toBeUndefined()
-  })
-
-  it('reports, never repairs: an unknown shape, and brackets on a grace', () => {
+  it('reports, never repairs: an unknown shape (⭐ brackets on a grace are no longer a problem — K3b)', () => {
     const n = add('C', 0)
     const grace = graceOps.addGrace(score(), n.id, 'before', { step: 'D', octave: 4 }, 'appoggiatura', { duration: '8' })!
     ;(pitchOf(n.id) as { accidentalEnclosure?: string }).accidentalEnclosure = 'square'
     ;(grace.pitches[0] as { accidentalEnclosure?: string }).accidentalEnclosure = 'round'
     const problems = ops.signEnclosureProblems(score())
-    expect(problems).toHaveLength(2)
+    expect(problems).toHaveLength(1)
     expect(pitchOf(n.id).accidentalEnclosure).toBe('square') // untouched
   })
 
@@ -90,5 +83,18 @@ describe('accidentalEnclosureOps', () => {
       const back = ScoreModel.fromJSON(model.toJSON())
       expect(ops.accidentalEnclosureOf(back.getScore(), n.id)).toBe('round')
     })
+  })
+})
+
+describe('accidentalEnclosureOps — K3b: graces and fan members', () => {
+  it('⭐ a GRACE pitch takes them, and the flat note projects them', () => {
+    const model = new ScoreModel()
+    const host = model.addNote({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const grace = graceOps.addGrace(model.getScore(), host.id, 'before', { step: 'D', octave: 4 }, 'appoggiatura', { duration: '8' })!
+    const id = grace.pitches[0].id
+    expect(ops.setAccidentalEnclosure(model.getScore(), [id], 'round')).toBe(1)
+    expect(ops.accidentalEnclosureOf(model.getScore(), id)).toBe('round')
+    expect(model.getNote(id)!.accidentalEnclosure).toBe('round')
+    expect(ops.signEnclosureProblems(model.getScore())).toEqual([])
   })
 })

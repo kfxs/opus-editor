@@ -40,7 +40,9 @@ export function paintSelectedAccidentalEnclosure(ctx: HighlightContext): void {
   if (!noteId) return
   const color = voiceFillColor(ctx.engine.getNote(noteId)?.voice ?? 0)
   const boxes = ctx.engine.getElementRegistry().getByType('accidentalEnclosure').filter(el => el.noteId === noteId)
-  const texts = ctx.svg.querySelectorAll('g.accidental text')
+  // ⚠️ Every `<text>`, ⛔ not `g.accidental text`: a grace's and a fan member's signs are stamped loose in their
+  //    member group (K3b), and the box match on both axes is what picks the two brackets out.
+  const texts = ctx.svg.querySelectorAll('text')
   for (const { bbox } of boxes) {
     const cx = bbox.x + bbox.width / 2
     const cy = bbox.y + bbox.height / 2

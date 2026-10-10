@@ -241,6 +241,7 @@ function copyMember(member: FanMemberChord): FanMemberChord {
       const np: NotePitch = { id: uuidv4(), step: p.step, alteration: p.alteration, octave: p.octave }
       if (p.forceAccidental) np.forceAccidental = true
       if (p.enclosure) np.enclosure = p.enclosure
+      if (p.accidentalEnclosure) np.accidentalEnclosure = p.accidentalEnclosure
       return np
     }),
   }

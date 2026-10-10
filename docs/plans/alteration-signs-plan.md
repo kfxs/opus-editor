@@ -205,6 +205,16 @@ Each surface also files the two bracket boxes (`rendering/signBracketBoxes`) so 
 shows them. ⚠️ And the head-in-parentheses case: a parenthesised head (`enclosure`) with a bracketed accidental
 draws both pairs today — MuseScore skips the accidental's (`parentNoteHasParentheses`); his call.
 
+✅ **Built 2026-10-10 — graces and fan members.** The op finds a grace's and a fan member's pitch
+(`findSlot` with `graceNotes` / `fanMembers`); the field travels in `cloneGraceFresh` / a member's copy and
+projects onto a grace's flat note. `GracePass` stamps the run at `layout/accidentalEnclosureGap.accidentalRunOffsets`
+(the table numbers the room uses; `graceRoom.drawnSigns` prices it); `FanPass` measures and stamps it through
+`EngravedAccidental` (`runOffsets`) and packs it by its real width. Both file each bracket as an
+`accidentalEnclosure` box, so it selects alone; a selected grace / member lights its brackets with the rest of its ink.
+⏳ **Still open — his calls:** (A) a bracketed grace's accidental (brackets in brackets / skip / refuse); (B) a
+parenthesised head with a bracketed accidental (both pairs today). ⏳ Not built: arming them for a GRACE stamp's
+entry, and the grace ghost.
+
 **K4 — `5` `6` `2` `3` the quarter-tones.** Four rows in the sign table, four ink rows, and four
 more slots holding them. ✅ They are Gould's own table of "fixed symbols" (p. 96, *"recommended that
 all four … are used"*), and in the bar they behave as a sharp does — Gould p. 98: *"an ordinary

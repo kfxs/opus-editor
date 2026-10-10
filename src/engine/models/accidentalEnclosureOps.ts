@@ -9,9 +9,9 @@
  * brackets — that half is the drawing's (`utils/accidentalState.displayedAccidentals` reads the field
  * as a request to show the sign), ⛔ nothing here writes `forceAccidental`.
  *
- * ⚠️ MAIN CHORD heads only in this build: `findSlot` is asked for nothing else, so a grace's, a fan
- * member's or a bracketed grace's pitch is simply not found — the refusal is the lookup's, as in
- * `./enclosureOps`.
+ * ⭐ K3b (his ask: *"if is not planned should be planned"*): a GRACE's pitch and a fan MEMBER's take them too —
+ * `findSlot` is asked for both. ⚠️ A BRACKETED grace's pitch is not found (its brackets-in-brackets is an open
+ * question in the plan), so it is refused by the lookup, as in `./enclosureOps`.
  *
  * ⛔ Absent is the only spelling of "none": taking the brackets off DELETES the field.
  */
@@ -22,10 +22,11 @@ import { findSlot } from './slotLookup'
 /** Every shape this build draws (the JSON check reads it). */
 export const ACCIDENTAL_ENCLOSURES: readonly AccidentalEnclosure[] = ['round']
 
-/** The main-chord head this id names, or undefined (a rest, a grace's or a fan member's pitch, an unknown id). */
+/** The head this id names — a chord's, a grace's (on a note or a rest), a fan member's — or undefined (a rest, a
+ *  bracketed grace's pitch, an unknown id). */
 function headOf(score: Score, pitchId: string): NotePitch | undefined {
-  const found = findSlot(score, pitchId)
-  return found?.type === 'chord' && !found.grace && !found.member && !found.bracketed ? found.pitch : undefined
+  const found = findSlot(score, pitchId, { graceNotes: true, fanMembers: true })
+  return found?.pitch && !found.bracketed ? found.pitch : undefined
 }
 
 /** The brackets this pitch's accidental wears; undefined for none, or for an id that names no head. */
@@ -71,19 +72,16 @@ export function signEnclosureProblems(score: Score): string[] {
   const problems: string[] = []
   for (const measure of score.measures) {
     for (const slot of measure.slots) {
-      if (slot.type !== 'chord') continue
-      for (const p of slot.notes) {
+      const heads = [
+        ...(slot.type === 'chord' ? slot.notes : []),
+        ...(slot.type === 'chord' ? (slot.fan?.members ?? []).flatMap(m => m.pitches) : []),
+        ...(slot.graceBefore?.notes ?? []).flatMap(g => g.pitches),
+        ...(slot.type === 'chord' ? (slot.graceAfter?.notes ?? []).flatMap(g => g.pitches) : []),
+      ]
+      for (const p of heads) {
         if (p.accidentalEnclosure !== undefined && !ACCIDENTAL_ENCLOSURES.includes(p.accidentalEnclosure)) {
           problems.push(`bar ${measure.number}: pitch "${p.id}" has an unknown accidental enclosure "${String(p.accidentalEnclosure)}"`)
         }
-      }
-      const others = [
-        ...(slot.fan?.members ?? []).flatMap(m => m.pitches),
-        ...(slot.graceBefore?.notes ?? []).flatMap(g => g.pitches),
-        ...(slot.graceAfter?.notes ?? []).flatMap(g => g.pitches),
-      ]
-      for (const p of others) {
-        if (p.accidentalEnclosure !== undefined) problems.push(`bar ${measure.number}: pitch "${p.id}" brackets its accidental — only a main chord's are drawn so`)
       }
     }
   }

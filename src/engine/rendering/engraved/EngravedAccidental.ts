@@ -146,6 +146,13 @@ export class EngravedAccidental extends EngravedModifier implements InkSurfaceAw
     return run ? run.width : this.measured().width
   }
 
+  /** ⭐ K3b — where a bracketed sign's glyph and `)` stand from the run's left edge, in px at FULL size, for a
+   *  pass that stamps by hand (a fan member's); null for a bare sign. The same arithmetic {@link draw} uses. */
+  runOffsets(): { sign: number; right: number } | null {
+    const run = this.run()
+    return run ? { sign: run.sign, right: run.right } : null
+  }
+
   /**
    * A bracketed sign's RUN, left to right from 0 — `(`, the white, the sign, the white, `)` — or null for a
    * bare sign. ⭐ One place for the arithmetic, read by the width and the draw alike.

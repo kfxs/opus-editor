@@ -132,7 +132,8 @@ export function projectGraceNote(note: Note, pitch: NotePitch, grace: GraceNote)
   else delete note.forceAccidental
   if (pitch.enclosure) note.enclosure = pitch.enclosure
   else delete note.enclosure
-  delete note.accidentalEnclosure // ⛔ a grace's accidental takes no brackets yet (K3: main heads only)
+  if (pitch.accidentalEnclosure) note.accidentalEnclosure = pitch.accidentalEnclosure // ⭐ K3b — a grace's sign may wear them
+  else delete note.accidentalEnclosure
   delete note.naturalBefore // …nor a natural before it (K5)
   delete note.isRest
   delete note.isMeasureRest

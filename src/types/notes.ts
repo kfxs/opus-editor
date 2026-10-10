@@ -551,7 +551,7 @@ export interface NotePitch {
    *
    * ⭐ It also SHOWS the sign: a pitch whose accidental the bar's rule would hide draws it, bracketed
    * (Sibelius). ⛔ It moves nothing but the drawing — not the pitch, not the running-accidental rule.
-   * ⚠️ Main chord heads only in this build: ⛔ not a grace's, a fan member's or a bracketed grace's.
+   * ⭐ A chord's head, a GRACE's and a fan MEMBER's (K3b); ⚠️ ⛔ not a bracketed grace's yet (an open question).
    */
   accidentalEnclosure?: AccidentalEnclosure
   /**
