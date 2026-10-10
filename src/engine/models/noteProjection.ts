@@ -33,6 +33,7 @@ export function toFlatNote(chord: Chord, pitch: NotePitch, staffIndex = 0): Note
     forceAccidental: pitch.forceAccidental,
     ...(pitch.enclosure && { enclosure: pitch.enclosure }),
     ...(pitch.accidentalEnclosure && { accidentalEnclosure: pitch.accidentalEnclosure }),
+    ...(pitch.naturalBefore && { naturalBefore: true as const }),
     ...(chord.cue && { cue: true as const }),
     stemDirection: chord.stemDirection,
     beam: chord.beam,
@@ -117,7 +118,7 @@ export function projectBracketedNote(note: Note, pitch: NotePitch, bracketed: Br
   // ⭐ Its OWN size, never its host's (cue-size-plan C4).
   if (bracketed.cue) note.cue = true
   else delete note.cue
-  for (const k of ['dots', 'fan', 'beam', 'secondaryBreak', 'fractionalBeamSide', 'tremolo', 'tremoloPair', 'tremoloPairStyle', 'actualDuration', 'articulationStemAlign', 'stemDirection', 'articulations', 'articulationPlacement', 'tiedTo', 'tiedFrom', 'enclosure', 'accidentalEnclosure'] as const) delete note[k]
+  for (const k of ['dots', 'fan', 'beam', 'secondaryBreak', 'fractionalBeamSide', 'tremolo', 'tremoloPair', 'tremoloPairStyle', 'actualDuration', 'articulationStemAlign', 'stemDirection', 'articulations', 'articulationPlacement', 'tiedTo', 'tiedFrom', 'enclosure', 'accidentalEnclosure', 'naturalBefore'] as const) delete note[k]
   return note
 }
 
@@ -132,6 +133,7 @@ export function projectGraceNote(note: Note, pitch: NotePitch, grace: GraceNote)
   if (pitch.enclosure) note.enclosure = pitch.enclosure
   else delete note.enclosure
   delete note.accidentalEnclosure // ⛔ a grace's accidental takes no brackets yet (K3: main heads only)
+  delete note.naturalBefore // …nor a natural before it (K5)
   delete note.isRest
   delete note.isMeasureRest
   delete note.stamped

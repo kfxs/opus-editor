@@ -1,7 +1,7 @@
 /**
  * ⛔⛔ **GENERATED — DO NOT EDIT.** `node scripts/generate-font-metrics.mjs`
  *
- * 111 of Bravura's 3434 glyphs: the ones the editor draws
+ * 113 of Bravura's 3434 glyphs: the ones the editor draws
  * (`docs/plans/font-metrics-plan.md` F1). Hand-editing a number here would recreate by hand the very
  * drift the file exists to end — change the glyph list in the script and re-run.
  *
@@ -23,7 +23,7 @@ import type { GlyphBox } from './fontMetrics'
  * 1.481. The generator cross-checks every box against that metadata, and this is what
  * that check found on the run that wrote this file:
  *
- * 🚨 **1 of 111 DISAGREE** — the rest are identical to within 0.001 spaces:
+ * 🚨 **1 of 113 DISAGREE** — the rest are identical to within 0.001 spaces:
  *   · brace — off by 0.051 spaces
  *
  * ⚠️ The numbers below are the **OTF's**, because that is the file we draw with. Where a glyph
@@ -69,6 +69,8 @@ export type GlyphName =
   | 'accidentalQuarterToneFlatStein'
   | 'accidentalThreeQuarterTonesSharpStein'
   | 'accidentalThreeQuarterTonesFlatZimmermann'
+  | 'accidentalNaturalSharp'
+  | 'accidentalNaturalFlat'
   | 'flag8thUp'
   | 'flag8thDown'
   | 'flag16thUp'
@@ -186,6 +188,8 @@ export const GLYPH_BOXES: Record<GlyphName, GlyphBox> = {
   accidentalQuarterToneFlatStein: { left: -0.004, right: 0.908, up: 1.756, down: 0.7, advance: 0.908 },
   accidentalThreeQuarterTonesSharpStein: { left: -0.012, right: 1.268, up: 1.476, down: 1.388, advance: 1.268 },
   accidentalThreeQuarterTonesFlatZimmermann: { left: -0.004, right: 1.864, up: 1.756, down: 0.7, advance: 1.864 },
+  accidentalNaturalSharp: { left: 0, right: 1.924, up: 1.4, down: 1.392, advance: 1.92 },
+  accidentalNaturalFlat: { left: 0, right: 1.836, up: 1.756, down: 1.34, advance: 1.836 },
   // flags
   flag8thUp: { left: 0, right: 1.056, up: 0.036, down: 3.241, advance: 1.056 },
   flag8thDown: { left: 0, right: 1.224, up: 3.232, down: 0.056, advance: 1.224 },
@@ -325,6 +329,8 @@ export const GLYPH_CODEPOINTS: Record<GlyphName, number> = {
   accidentalQuarterToneFlatStein: 57984,
   accidentalThreeQuarterTonesSharpStein: 57987,
   accidentalThreeQuarterTonesFlatZimmermann: 57985,
+  accidentalNaturalSharp: 57960,
+  accidentalNaturalFlat: 57959,
   // flags
   flag8thUp: 57920,
   flag8thDown: 57921,
@@ -446,6 +452,8 @@ export const GLYPH_ANCHORS: Partial<Record<GlyphName, Record<string, readonly [n
   accidentalQuarterToneFlatStein: { cutOutNW: [0.628, 0.676], cutOutSW: [0.336, -0.428] },
   accidentalThreeQuarterTonesSharpStein: { cutOutNE: [1.128, 1], cutOutNW: [0.144, 0.604], cutOutSE: [1.128, -0.5], cutOutSW: [0.144, -0.896] },
   accidentalThreeQuarterTonesFlatZimmermann: { cutOutNE: [1.22, 0.668], cutOutNW: [0.636, 0.668] },
+  accidentalNaturalSharp: { cutOutNE: [1.784, 0.9], cutOutSE: [1.784, -0.608], cutOutSW: [0.452, -0.836] },
+  accidentalNaturalFlat: { cutOutNE: [1.18, 0.648], cutOutSE: [0.748, -0.828], cutOutSW: [0.436, -0.828] },
   flag8thUp: { graceNoteSlashNE: [1.284, -0.796], graceNoteSlashSW: [-0.644, -2.456], stemUpNW: [0, -0.04] },
   flag8thDown: { graceNoteSlashNW: [-0.596, 2.168], graceNoteSlashSE: [1.328, 0.628], stemDownSW: [0, 0.132] },
   flag16thUp: { stemUpNW: [0, -0.088] },

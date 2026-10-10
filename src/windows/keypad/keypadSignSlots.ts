@@ -30,6 +30,9 @@ export const DEFAULT_SIGN_SLOTS: Readonly<Record<string, DrawnSignId>> = {
   '6': 'quarterToneFlatStein',
   '2': 'threeQuarterTonesSharpStein',
   '3': 'threeQuarterTonesFlatZimmermann',
+  // ⭐ K5 — ♮♯ on `4`, ♮♭ on `1` (Sibelius's places): signs like any other (his rule), drawn with their natural.
+  '4': 'naturalSharp',
+  '1': 'naturalFlat',
 }
 
 let slots: Record<string, DrawnSignId> = { ...DEFAULT_SIGN_SLOTS }

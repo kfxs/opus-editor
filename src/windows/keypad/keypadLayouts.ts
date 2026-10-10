@@ -570,9 +570,9 @@ const BLANK: Icon = g('')
  * to what the bar and the key say. It never lights. ⭐ `Enter` since K3 — the accidental's parentheses, on
  * `bus.accidentalKeys` (`interactions/stamps/accidentalEnclosureTool`); lit when every selected sign wears them.
  *
- * ⭐ `5 6 2 3` since K4 — the quarter-tones, four more SLOTS.
+ * ⭐ `5 6 2 3` since K4 — the quarter-tones, four more SLOTS — and `4 1` since K5, ♮♯ and ♮♭.
  *
- * ⛔ **The other four are NOT** (his ask, the same day: *"still is not wired to anything, on clicking
+ * ⛔ **The other two are NOT** (his ask, the same day: *"still is not wired to anything, on clicking
  * just console log"*): each is `momentary` — a click logs its `action` (`KeypadWidget.press`) and
  * stops, and the key never lights. A key is wired as a decision, key by key, the way the Grace page
  * was. What each does in Sibelius is `docs/research/sibelius-keypad.md` §3c.
@@ -584,8 +584,9 @@ const pageAccidentals: CellSpec[] = [
   SIGN_SLOT, SIGN_SLOT, ['blank', BLANK, 'momentary'],
   SIGN_SLOT, SIGN_SLOT, SIGN_SLOT,
   // ⭐ K4 — `5 6` and `2 3` are SIGN SLOTS too: the quarter-tones (`keypadSignSlots`).
-  ['natural sharp', g(ACC_MORE.naturalSharp, ACC_SIZE), 'momentary'], SIGN_SLOT, SIGN_SLOT,
-  ['natural flat', g(ACC_MORE.naturalFlat, ACC_SIZE, 1.5), 'momentary'], SIGN_SLOT, SIGN_SLOT,
+  // ⭐ K5 — `4` `1` too: ♮♯ and ♮♭.
+  SIGN_SLOT, SIGN_SLOT, SIGN_SLOT,
+  SIGN_SLOT, SIGN_SLOT, SIGN_SLOT,
   ['parenthesised accidental', { glyphs: [g(ACC_MORE.parenLeft, ACC_PARENS_SIZE), g(ACC_MORE.parenRight, ACC_PARENS_SIZE)] }, 'accidentalKey', 'parenthesised'],
   ['remove accidentals', ACCIDENTAL_ICON.struckAccidental, 'removeAccidentals'], ['suppress cautionary accidental', ACCIDENTAL_ICON.struckParenthesised, 'momentary'],
 ]
@@ -600,6 +601,8 @@ const SIGN_ICON: Partial<Record<DrawnSignId, { size?: number; dy?: number }>> = 
   // The flat-shaped quarter-tones sit as the flat does (the picture page two drew them with, K4).
   quarterToneFlatStein: { dy: 3 },
   threeQuarterTonesFlatZimmermann: { dy: 3 },
+  // The picture page two drew ♮♭ with before K5.
+  naturalFlat: { dy: 1.5 },
   doubleSharp: { size: DOUBLE_SHARP_SIZE },
 }
 

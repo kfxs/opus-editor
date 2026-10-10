@@ -350,8 +350,8 @@ and never a lone natural (the natural is what the bar's rule DRAWS). Write it wi
 `setAlteration`, compare with `sameAlteration`; an update sets it when the KEY is present
 (`'alteration' in updates`), so a change to a natural passes `alteration: undefined`. Rests leave the
 pitch fields undefined. What a sign SOUNDS like is `engine/audio/equalTemperament`'s table alone.
-⭐ The DRAWING speaks `DrawnSignId` — a sign id or `'natural'` (`NATURAL_SIGN`, a row a pitch never
-stores): `displayedAccidentals` answers it, the glyph is its ROW's, the ink rows are keyed by it.
+⭐ The DRAWING speaks `DrawnSignId` — a sign id, `'natural'` (`NATURAL_SIGN`, a row a pitch never
+stores) or ♮♯ / ♮♭ (`NATURAL_BEFORE_SIGNS`, K5 — the pitch stores the plain sign + `naturalBefore`): `displayedAccidentals` answers it, the glyph is its ROW's, the ink rows are keyed by it.
 ⭐ The EDITOR's accidental (`Accidental` — armed, toggled, lit, the accidental tool) IS a `DrawnSignId`
 since K1; a Keypad sign key is a SLOT holding one (`windows/keypad/keypadSignSlots`, a slot is its key;
 `__keypad.slot('/', 'flat')` reassigns it). ⛔ `'#'`/`'b'`/`'n'` survive only as a label's text.

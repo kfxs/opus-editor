@@ -391,6 +391,8 @@ export interface Note {
   enclosure?: HeadEnclosure
   /** The brackets round its accidental (`NotePitch.accidentalEnclosure`); absent = none. */
   accidentalEnclosure?: AccidentalEnclosure
+  /** A natural drawn before its sign (`NotePitch.naturalBefore`, K5); absent = no. */
+  naturalBefore?: true
   /** Drawn at cue size — its SLOT's (or grace's) `cue`; absent = full size. */
   cue?: true
   /** Whether this note is a rest */
@@ -552,6 +554,14 @@ export interface NotePitch {
    * ⚠️ Main chord heads only in this build: ⛔ not a grace's, a fan member's or a bracketed grace's.
    */
   accidentalEnclosure?: AccidentalEnclosure
+  /**
+   * ⭐ **♮♯ / ♮♭ — a natural drawn BEFORE the sign** (docs/plans/alteration-signs-plan.md K5, decision C: follow
+   * Sibelius). The pitch stays a plain sharp or flat; the natural in front is a DRAWING choice, and it is drawn
+   * only while the note CANCELS a double earlier in the bar (`utils/accidentalState` decides, per lane) —
+   * anywhere else the field draws nothing. **ABSENT = no**, its only spelling. Write it through
+   * `engine/models/naturalBeforeOps`. ⚠️ Main chord heads only, like {@link accidentalEnclosure}.
+   */
+  naturalBefore?: true
 }
 
 /**
@@ -591,6 +601,8 @@ export interface PitchInsert {
   enclosure?: HeadEnclosure
   /** `NotePitch.accidentalEnclosure`, verbatim — its accidental's brackets travel with it. */
   accidentalEnclosure?: AccidentalEnclosure
+  /** `NotePitch.naturalBefore`, verbatim (K5). */
+  naturalBefore?: true
   duration: NoteDuration
   dots?: number
   beat: Fraction
@@ -864,6 +876,8 @@ export interface NoteParams {
   measure: number
   beat: Fraction
   forceAccidental?: boolean
+  /** ⭐ ♮♯ / ♮♭ — a natural drawn before the sign (`NotePitch.naturalBefore`, K5); `undefined` in an update takes it off. */
+  naturalBefore?: true
   /** The BRACKETS the new head is entered in — note entry armed with them (parenthesised-note-plan
    *  P4b). A property of the HEAD (`NotePitch.enclosure`), unlike the slot marks below. */
   enclosure?: HeadEnclosure

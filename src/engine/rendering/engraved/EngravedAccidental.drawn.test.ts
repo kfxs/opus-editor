@@ -36,6 +36,21 @@ describe('EngravedAccidental — drawn', () => {
     expect(drawnAccidentals(ids)).toEqual(ALTERATION_SIGNS.map(s => [char(s.glyph)]))
   })
 
+  it('⭐ ♮♯ / ♮♭ — a sharp / flat carrying `naturalBefore` — stamp the font\'s own precomposed pair (K5)', () => {
+    const model = new ScoreModel()
+    model.addMeasure()
+    const a = model.addNote({ step: 'A', alteration: ['sharp'], octave: 4, duration: 'w', measure: 1, beat: frac(0, 1), naturalBefore: true })
+    const b = model.addNote({ step: 'A', alteration: ['flat'], octave: 4, duration: 'w', measure: 2, beat: frac(0, 1), naturalBefore: true })
+    expect([a, b].every(Boolean)).toBe(true)
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+    const renderer = new ScoreRenderer(container)
+    renderer.initialize(1600, 800)
+    const { scene } = renderer.recordScene(() => renderer.renderScore(model.getScore()))
+    const drawn = sceneGroups(scene, 'accidental').map(g => scenePrimitives(g).flatMap(p => (p.kind === 'text' ? [p.text] : [])))
+    expect(drawn).toEqual([[char('accidentalNaturalSharp')], [char('accidentalNaturalFlat')]])
+  })
+
   it('⭐ a BRACKETED sign stamps the sign, then E26A and E26B, in its one group (K3)', () => {
     expect(drawnAccidentals(['quarterToneFlatStein'], true)).toEqual([
       [char('accidentalQuarterToneFlatStein'), char('accidentalParensLeft'), char('accidentalParensRight')],

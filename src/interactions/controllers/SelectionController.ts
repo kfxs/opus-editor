@@ -44,7 +44,7 @@ export class SelectionController {
    */
   private computeDisplayedAccidental(note: Note, measure: Measure, score: Score): Accidental | null {
     if (note.isRest || note.tiedFrom) return null
-    if (note.forceAccidental && note.alteration) return accidentalOfAlteration(note.alteration)!
+    if (note.forceAccidental && note.alteration) return accidentalOfAlteration(note.alteration, note.naturalBefore)!
 
     // The fanned members count here as well — the sign this reports must be the one the renderer
     // engraves, and that walk sees them (docs/plans/fanned-beam-pitches-plan.md §2).
@@ -53,7 +53,7 @@ export class SelectionController {
       keyAt(score, note.measure, keyStaffId(score, note.staff)), note.step!, note.octave!,
     )
     if (note.alteration) {
-      return sameAlteration(governing, note.alteration) ? null : accidentalOfAlteration(note.alteration)!
+      return sameAlteration(governing, note.alteration) ? null : accidentalOfAlteration(note.alteration, note.naturalBefore)!
     } else {
       if (governing) return 'natural'
       if (note.forceAccidental) return 'natural'

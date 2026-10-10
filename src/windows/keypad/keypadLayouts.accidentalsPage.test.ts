@@ -10,7 +10,7 @@ import { bus } from '@/bus'
  *
  * ⛔ What is worth pinning here is WHICH keys act. ⭐ `7 8 9` do — they are page one's natural / sharp /
  * flat SLOTS again (his ask, 2026-09-30: *"we already have this in the first page so we can wire it the
- * same"*), ⭐ `/ *` since K1 — the doubles, two more slots — ⭐ `0` since K2, the REMOVE — ⭐ `Enter` since K3, the accidental's parentheses — and ⭐ `5 6 2 3` since K4, the quarter-tones. The other four are a PICTURE (*"still is not wired to anything, on clicking just console
+ * same"*), ⭐ `/ *` since K1 — the doubles, two more slots — ⭐ `0` since K2, the REMOVE — ⭐ `Enter` since K3, the accidental's parentheses — ⭐ `5 6 2 3` since K4, the quarter-tones — and ⭐ `4 1` since K5, ♮♯ / ♮♭. The other two are a PICTURE (*"still is not wired to anything, on clicking just console
  * log"*): a key is wired as a decision, one at a time — the Grace page's spec is the model — and the
  * test that lists the `momentary` keys is the one that changes when one is.
  *
@@ -110,10 +110,15 @@ describe('the Keypad Accidentals page', () => {
     expect(pressed).toEqual(keys.map(k => cellSign(cellFor(k))))
   })
 
-  it('⛔ …and the other FOUR are not — each is `momentary`, and a press reaches no seam', () => {
+  it('⭐ `4 1` are ♮♯ / ♮♭ SLOTS (K5) — accidentals like any other (his rule), pressed on `bus.accidental`', () => {
+    expect(['4', '1'].map(k => cellSign(cellFor(k)))).toEqual(['naturalSharp', 'naturalFlat'])
+    expect(['4', '1'].map(k => cellAction(cellFor(k)))).toEqual(['natural sharp', 'natural flat'])
+  })
+
+  it('⛔ …and the other TWO are not — each is `momentary`, and a press reaches no seam', () => {
     const unwired = own().filter(c => c.select === 'momentary')
-    expect(unwired.map(c => c.key)).toEqual(['-', '4', '1', '.'])
-    expect(own().length).toBe(unwired.length + 11)
+    expect(unwired.map(c => c.key)).toEqual(['-', '.'])
+    expect(own().length).toBe(unwired.length + 13)
     const pressed: Array<string | null> = []
     const stop = bus.accidental.onPress(a => pressed.push(a))
     for (const cell of unwired) pressKeypadCell(cell)

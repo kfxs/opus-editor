@@ -617,6 +617,7 @@ export function getMeasureNotes(measure: Measure, score?: Score): Note[] {
           forceAccidental: pitch.forceAccidental,
           ...(pitch.enclosure && { enclosure: pitch.enclosure }),
           ...(pitch.accidentalEnclosure && { accidentalEnclosure: pitch.accidentalEnclosure }),
+          ...(pitch.naturalBefore && { naturalBefore: true as const }),
           stemDirection: slot.stemDirection,
           tiedTo: pitch.tiedTo,
           tiedFrom: pitch.tiedFrom,

@@ -40,7 +40,7 @@ import { getMeterInfo } from '@/utils/meter'
 import { fillRests, type RestSlot } from '@/utils/restFill'
 import { measureEndingClef, effectiveClefAt, middleLineDiatonicPos, resolveStaffClefs } from '@/utils/clefUtils'
 import { spellingToNoteKey, spellingDiatonicPos } from '@/utils/pitchSpelling'
-import { drawnSignOf } from '@/utils/alterationSigns'
+import { drawnSignOf, drawnSignOfPitch } from '@/utils/alterationSigns'
 import { staffOf } from '@/utils/lanes'
 import { resolveStaffSize } from '@/engine/models/staffSize'
 import { staffMeasureView, staffIdAtIndex } from '@/engine/models/staffContent'
@@ -249,7 +249,7 @@ export function drawNoteGhost(
     }
 
     if (ghostNote.alteration) {
-      attachModifier(staveNote, new EngravedAccidental(drawnSignOf(ghostNote.alteration), ghostNote.signEnclosure), 0)
+      attachModifier(staveNote, new EngravedAccidental(drawnSignOfPitch(ghostNote), ghostNote.signEnclosure), 0)
     } else if (ghostNote.forceAccidental || ghostNote.signEnclosure) {
       // Armed natural: no alteration has no sign of its own, so draw the ♮ explicitly. ⭐ Armed BRACKETS
       // with no sign armed show a bracketed natural too (alteration-signs K3, his rule).

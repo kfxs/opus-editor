@@ -20,7 +20,7 @@
  * hands back `undefined` for "unaltered", and {@link alterationField} spreads nothing for it.
  */
 
-import type { Accidental, Alteration, AlterationSignId, DrawnSignId } from '@/types/music'
+import type { Accidental, Alteration, AlterationSignId, DrawnSignId, NaturalBeforeSignId } from '@/types/music'
 
 export type { Alteration, AlterationSignId, DrawnSignId }
 
@@ -55,8 +55,20 @@ export const ALTERATION_SIGNS: readonly AlterationSign[] = [
  */
 export const NATURAL_SIGN: AlterationSign<'natural'> = { id: 'natural', glyph: 'accidentalNatural', rank: 0, code: 'n' }
 
+/**
+ * ⭐ **♮♯ and ♮♭** (K5) — DRAWN signs the editor arms like any other, ⛔ never stored: each stands for its `stores`
+ * sign plus `NotePitch.naturalBefore` (decision C: the note IS a plain sharp / flat; the natural in front is how it
+ * is drawn). The glyph is the font's own precomposed pair. Rank = the stored sign's.
+ */
+export const NATURAL_BEFORE_SIGNS: readonly (AlterationSign<NaturalBeforeSignId> & { readonly stores: AlterationSignId })[] = [
+  { id: 'naturalSharp', glyph: 'accidentalNaturalSharp', rank: 2, code: 'n#', stores: 'sharp' },
+  { id: 'naturalFlat', glyph: 'accidentalNaturalFlat', rank: -2, code: 'nb', stores: 'flat' },
+]
+
 const BY_ID = new Map<DrawnSignId, AlterationSign<DrawnSignId>>(
-  [...ALTERATION_SIGNS, NATURAL_SIGN].map(sign => [sign.id, sign]))
+  [...ALTERATION_SIGNS, NATURAL_SIGN, ...NATURAL_BEFORE_SIGNS].map(sign => [sign.id, sign]))
+const STORES = new Map<DrawnSignId, AlterationSignId>(NATURAL_BEFORE_SIGNS.map(s => [s.id, s.stores]))
+const NATURAL_BEFORE_OF = new Map<AlterationSignId, NaturalBeforeSignId>(NATURAL_BEFORE_SIGNS.map(s => [s.stores, s.id]))
 const BY_CODE = new Map(ALTERATION_SIGNS.map(sign => [sign.code, sign]))
 
 /** The row of a sign. */
@@ -128,7 +140,58 @@ export function oneSign(id: AlterationSignId): Alteration {
  * ⚠️ ♮ is not a sign a pitch STORES — the natural is what the bar's rule draws to cancel.
  */
 export function armedAlteration(acc: Accidental | null | undefined): Alteration | undefined {
-  return acc && acc !== 'natural' ? oneSign(acc) : undefined
+  if (!acc || acc === 'natural') return undefined
+  return oneSign(STORES.get(acc) ?? (acc as AlterationSignId))
+}
+
+/** ⭐ Does the armed sign draw a NATURAL before it — ♮♯ / ♮♭ (K5)? Then the pitch carries `naturalBefore`. */
+export function armsNaturalBefore(acc: Accidental | null | undefined): boolean {
+  return !!acc && STORES.has(acc)
+}
+
+/** The `naturalBefore` an armed sign writes — `true` for ♮♯ / ♮♭, ⭐ `undefined` (= take it OFF) for any other. */
+export function naturalBeforeOfArmed(acc: Accidental | null | undefined): true | undefined {
+  return armsNaturalBefore(acc) ? true : undefined
+}
+
+/**
+ * ⭐ What an armed sign asks the entered note to SHOW beyond its alteration — the natural is drawn on purpose
+ * (`forceAccidental`), ♮♯ / ♮♭ carry `naturalBefore` (K5). Spread into an entry's params: ONE answer for every door.
+ */
+export function armedDisplay(acc: Accidental | null | undefined): { forceAccidental?: true; naturalBefore?: true } {
+  if (acc === 'natural') return { forceAccidental: true }
+  return armsNaturalBefore(acc) ? { naturalBefore: true } : {}
+}
+
+/**
+ * ⭐ Does a note SHOW the armed sign — the editor's toggle question (`MusicEngine.noteDisplaysAccidental`)? It
+ * carries the sign (♮♯ and ♯ store the same one: the ♮, `naturalBefore`, tells them apart — K5) AND the sign is on
+ * the page: forced, or not silently in force from the bar or the key (`prevailing`).
+ */
+export function showsArmedSign(
+  note: { alteration?: Alteration; naturalBefore?: true; forceAccidental?: boolean },
+  acc: Accidental,
+  prevailing: Alteration | undefined,
+): boolean {
+  const target = armedAlteration(acc)
+  if (!sameAlteration(note.alteration, target) || (note.naturalBefore === true) !== armsNaturalBefore(acc)) return false
+  return note.forceAccidental === true || !sameAlteration(prevailing, target)
+}
+
+/** Write `naturalBefore` onto a pitch in place — ⭐ DELETING it for "no", absent being its only spelling. */
+export function setNaturalBeforeField(pitch: { naturalBefore?: true }, on: true | undefined | boolean): void {
+  if (on) pitch.naturalBefore = true
+  else delete pitch.naturalBefore
+}
+
+/**
+ * ⭐ The sign a pitch DRAWS, its ♮ included: its alteration's sign, or ♮♯ / ♮♭ when it carries `naturalBefore` and
+ * its sign has such a row (a plain sharp / flat). ⛔ Asked only where a sign IS drawn.
+ */
+export function drawnSignOfPitch(pitch: { alteration?: Alteration; naturalBefore?: true }): DrawnSignId {
+  const sign = drawnSignOf(pitch.alteration)
+  if (!pitch.naturalBefore || pitch.alteration?.length !== 1) return sign
+  return NATURAL_BEFORE_OF.get(pitch.alteration[0]) ?? sign
 }
 
 /** Is the armed sign the NATURAL — the one that is drawn on purpose (`forceAccidental`), never stored? */
@@ -136,9 +199,11 @@ export function armsNatural(acc: Accidental | null | undefined): boolean {
   return acc === 'natural'
 }
 
-/** The sign an alteration lights on the Keypad — its own (a double lights the double's slot); none unaltered. */
-export function accidentalOfAlteration(alteration: Alteration | undefined): Accidental | undefined {
-  return alteration?.[0]
+/** The sign an alteration lights on the Keypad — its own (a double lights the double's slot); none unaltered. ⭐ With
+ *  `naturalBefore` (K5) a plain sharp / flat lights ♮♯ / ♮♭. */
+export function accidentalOfAlteration(alteration: Alteration | undefined, naturalBefore?: true): Accidental | undefined {
+  if (!alteration?.length) return undefined
+  return drawnSignOfPitch({ alteration, naturalBefore })
 }
 
 // ---------------------------------------------------------------------------

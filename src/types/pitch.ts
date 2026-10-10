@@ -32,7 +32,14 @@ export type Alteration = readonly AlterationSignId[]
  * (the bar's rule draws it to cancel) but the page draws all the same. ⛔ Never a field of a pitch: the
  * type keeps the natural out of {@link Alteration} at compile time (alteration-signs-plan M3).
  */
-export type DrawnSignId = AlterationSignId | 'natural'
+export type DrawnSignId = AlterationSignId | 'natural' | NaturalBeforeSignId
+
+/**
+ * ⭐ **♮♯ and ♮♭** (alteration-signs K5, decision C: follow Sibelius) — signs the page DRAWS and the editor arms
+ * like any other, ⛔ never stored: the pitch is a plain sharp / flat and carries `naturalBefore` (`NotePitch`).
+ * Drawn with the font's own precomposed glyph (E268 / E267).
+ */
+export type NaturalBeforeSignId = 'naturalSharp' | 'naturalFlat'
 
 /**
  * ⭐ **The accidental the EDITOR arms, toggles and lights** — a {@link DrawnSignId}: any sign of the

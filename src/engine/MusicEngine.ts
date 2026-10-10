@@ -63,7 +63,7 @@ import { silentBarCommands } from './commands/silentBarCommands'
 import { enclosureProblems } from './models/enclosureOps'
 import { cueProblems } from './models/cueOps'
 import { formatPitch, withArmedAlteration } from '@/utils/pitchSpelling'
-import { armedAlteration, sameAlteration } from '@/utils/alterationSigns'
+import { armedAlteration, armedDisplay, naturalBeforeOfArmed, sameAlteration, showsArmedSign } from '@/utils/alterationSigns'
 import { alterationInForceAt } from '@/utils/accidentalState'
 import type { BeamRole } from '@/utils/beaming'
 import { fifthsOf, keyAt } from '@/utils/keySignature'
@@ -2533,11 +2533,12 @@ export class MusicEngine {
     if (!note || note.isRest) return null
     if (accidental === 'natural') {
       const wouldAutoShow = this.getPrevailingAlteration(noteId) !== undefined
-      return this.updateNote(noteId, { alteration: undefined, forceAccidental: wouldAutoShow ? undefined : true })
+      return this.updateNote(noteId, { alteration: undefined, forceAccidental: wouldAutoShow ? undefined : true, naturalBefore: undefined })
     }
     const alteration = armedAlteration(accidental)
     const forceAccidental = sameAlteration(note.alteration, alteration) ? true : undefined
-    return this.updateNote(noteId, { alteration, forceAccidental })
+    // ⭐ ♮♯ / ♮♭ write `naturalBefore` (K5); every other sign takes it OFF — a ♯ pressed on a ♮♯ is a plain ♯.
+    return this.updateNote(noteId, { alteration, forceAccidental, naturalBefore: naturalBeforeOfArmed(accidental) })
   }
 
   /**
@@ -2565,9 +2566,7 @@ export class MusicEngine {
   noteDisplaysAccidental(noteId: string, accidental: Accidental): boolean {
     const note = this.scoreModel.getNote(noteId)
     if (!note || note.isRest) return false
-    const target = armedAlteration(accidental)
-    if (!sameAlteration(note.alteration, target)) return false
-    return note.forceAccidental === true || !sameAlteration(this.getPrevailingAlteration(noteId), target)
+    return showsArmedSign(note, accidental, this.getPrevailingAlteration(noteId))
   }
 
   /**
@@ -3291,7 +3290,7 @@ export class MusicEngine {
       ...(cue && { cue }),
       ...(signEnclosure && { signEnclosure }),
       // An armed natural carries no alteration (no glyph of its own) — flag it so the ghost still shows the ♮.
-      ...(accidental === 'natural' && { forceAccidental: true }),
+      ...armedDisplay(accidental), // ♮ forced, or ♮♯ / ♮♭ (K5)
       ...(tupletLabel && { tupletLabel }),
       ...(ghostColor && { fillColor: ghostColor.fill, strokeColor: ghostColor.stroke }),
     }

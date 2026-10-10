@@ -226,6 +226,17 @@ slip past again.
 or flat and a natural is drawn in front, composed from the score's own font. Offered only on a note
 that cancels a double earlier in the bar (decision C); anywhere else the key does nothing.
 
+✅ **Built 2026-10-10 — and NOT as written above.** ⭐ His rule (that day): `4` and `1` *"should behave like normal
+accidental"* — the user's choice, ⛔ no "only where it cancels a double" (the engine makes no musical choice here).
+So ♮♯ / ♮♭ are two more DRAWN signs (`NaturalBeforeSignId`, rows `NATURAL_BEFORE_SIGNS` in `utils/alterationSigns`),
+armed, toggled, lit and ghosted through the SAME command as ♯ and ♭ (`setNoteAccidental`, `armedDisplay` at every
+entry door, `showsArmedSign` for the toggle), slots `4` `1`. The pitch stores the plain sign and
+`NotePitch.naturalBefore` (decision C stands: a drawing choice, ⛔ never a sign of its own); any other sign pressed
+takes the natural off, and so does Remove. The bar's rule is untouched — `displayedAccidentals` only answers ♮♯ / ♮♭
+where it would have answered ♯ / ♭. Drawn with the FONT's precomposed pair (E268 / E267 — all three faces draw
+them, MuseScore's form), so no gap number was needed; room rows from Bravura's boxes + 0.30 sp. ⚠️ Main notes only
+(not graces / fan members — K3b's surfaces).
+
 **K6 — quarter-tones heard (low priority, decision D).** The tuning answers half steps and the
 instrument detunes. WebAudioFont's player should take it — read in its source, ⛔ not yet heard.
 

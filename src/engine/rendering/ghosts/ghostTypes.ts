@@ -177,6 +177,8 @@ export interface GhostNote {
   /** Show a natural (♮) even though there is no `alteration` — the preview for an armed natural accidental,
    *  which otherwise has no glyph (no alteration draws nothing). Sharp/flat carry their own sign via `alteration`. */
   forceAccidental?: boolean
+  /** ⭐ ♮♯ / ♮♭ armed (K5) — the ghost's sign drawn with its natural before it, as the note will land. */
+  naturalBefore?: true
   /**
    * The armed tuplet's mark, drawn above the ghost — the preview for "this click starts a tuplet".
    * Absent = no tuplet armed, and the ghost is an ordinary note.

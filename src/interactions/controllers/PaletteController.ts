@@ -506,7 +506,7 @@ export class PaletteController {
     if (accidental === null || accidental === current) {
       // Remove: revert to the prevailing alteration so the glyph disappears in every case.
       engine.runBatch('Remove accidental', () =>
-        engine.updateNote(noteId, { alteration: engine.getPrevailingAlteration(noteId), forceAccidental: undefined }))
+        engine.updateNote(noteId, { alteration: engine.getPrevailingAlteration(noteId), forceAccidental: undefined, naturalBefore: undefined }))
       this.state.selectedElement = null
       this.selectNote(null) // switch-off leaves nothing selected (clears the note anchor too)
       this.renderScore()
@@ -540,7 +540,7 @@ export class PaletteController {
     if (ids.length === 0) return false
 
     const revert = (id: string) =>
-      engine.updateNote(id, { alteration: engine.getPrevailingAlteration(id), forceAccidental: undefined })
+      engine.updateNote(id, { alteration: engine.getPrevailingAlteration(id), forceAccidental: undefined, naturalBefore: undefined })
 
     if (accidental === null) {
       engine.runBatch('Remove accidental', () => { for (const id of ids) revert(id) })

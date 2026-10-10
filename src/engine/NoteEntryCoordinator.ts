@@ -15,7 +15,7 @@ import type { Note, NoteParams, Tuplet, TupletFormat, NoteDuration, Articulation
 import type { PixelCoordinates } from './rendering/renderTypes'
 import { formatPitch } from '@/utils/pitchSpelling'
 import { samePitch } from '@/utils/pitchOrder'
-import { alterationField } from '@/utils/alterationSigns'
+import { alterationField, armedDisplay } from '@/utils/alterationSigns'
 import { entryAlteration } from './models/entryAlteration'
 import { changeNote } from './models/durationChangeOps'
 import { applyTupletToNote, buildTupletWithFirstNote, clampToTupletRemainder, landInTuplet, tupletFitsBar } from './models/tupletEntryOps'
@@ -341,7 +341,8 @@ export class NoteEntryCoordinator {
       measure: measureNumber,
       beat: finalBeat,
       // User explicitly armed ♮ in the palette → force the natural sign to display
-      ...(accidental === 'natural' && { forceAccidental: true }),
+      // User explicitly armed ♮ → force it to display; ♮♯ / ♮♭ → the natural drawn before the sign (K5)
+      ...armedDisplay(accidental),
       ...(dots && { dots }),
       ...(tupletId && { tupletId }),
       ...(articulations?.length && { articulations }),

@@ -1,7 +1,7 @@
 /**
  * ⛔⛔ **GENERATED — DO NOT EDIT.** `node scripts/generate-font-metrics.mjs`
  *
- * Leipzig's table for the 111 glyphs the editor draws — the SAME shape as
+ * Leipzig's table for the 113 glyphs the editor draws — the SAME shape as
  * `bravuraMetrics.ts`, total over the same `GlyphName` union, read by `fontMetrics` when the face is
  * the active one (`fonts/musicFont`, `docs/plans/music-font-switch-plan.md` Phase B).
  *
@@ -66,6 +66,8 @@ export const GLYPH_BOXES: Record<GlyphName, GlyphBox> = {
   accidentalQuarterToneFlatStein: { left: 0, right: 0.792, up: 1.876, down: 0.7, advance: 0.792 },
   accidentalThreeQuarterTonesSharpStein: { left: 0, right: 1.212, up: 1.42, down: 1.492, advance: 1.212 },
   accidentalThreeQuarterTonesFlatZimmermann: { left: 0, right: 1.664, up: 1.876, down: 0.7, advance: 1.664 },
+  accidentalNaturalSharp: { left: 0, right: 1.508, up: 1.42, down: 1.404, advance: 1.508 },
+  accidentalNaturalFlat: { left: 0, right: 1.512, up: 1.876, down: 1.404, advance: 1.512 },
   // flags
   flag8thUp: { left: 0, right: 1.104, up: 0, down: 2.776, advance: 1.108 },
   flag8thDown: { left: 0, right: 1.104, up: 2.776, down: 0, advance: 1.108 },
@@ -178,6 +180,8 @@ export const GLYPH_ANCHORS: Partial<Record<GlyphName, Record<string, readonly [n
   accidentalQuarterToneFlatStein: { cutOutNW: [0.7, 0.584], cutOutSW: [0.368, -0.332] },
   accidentalThreeQuarterTonesSharpStein: { cutOutNE: [1.052, 0.816], cutOutNW: [0.156, 0.516], cutOutSE: [1.052, -0.64], cutOutSW: [0.156, -0.948] },
   accidentalThreeQuarterTonesFlatZimmermann: { cutOutNE: [0.972, 0.588], cutOutNW: [0.7, 0.584], cutOutSE: [1.336, -0.308], cutOutSW: [0.344, -0.32] },
+  accidentalNaturalSharp: { cutOutNE: [1.348, 0.84], cutOutSE: [1.348, -0.648], cutOutSW: [0.544, -0.772] },
+  accidentalNaturalFlat: { cutOutNE: [0.816, 0.556], cutOutSE: [1.168, -0.32], cutOutSW: [0.54, -0.78] },
 }
 
 export const ENGRAVING_DEFAULTS = {

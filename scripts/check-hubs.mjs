@@ -37,7 +37,7 @@ import { readFileSync } from 'node:fs'
 // docs/plans/code-shape-plan-2026-09-19.md, *After the plan*. ⚠️ MusicEngine 489 / ScoreRenderer 717 RAISED again
 // (symbols P3, 2026-09-28) — the wiring of a new kind, same section.
 const HUBS = [
-  { file: 'src/engine/MusicEngine.ts', kinds: 486, lines: null },
+  { file: 'src/engine/MusicEngine.ts', kinds: 485, lines: null },
   { file: 'src/engine/models/ScoreModel.ts', kinds: 903, lines: null },
   { file: 'src/engine/rendering/ScoreRenderer.ts', kinds: 713, lines: null },
   { file: 'src/interactions/controllers/MouseController.ts', kinds: 252, lines: 1029 },

@@ -33,7 +33,7 @@ import type { Alteration, ChordRest, DrawnSignId, Fraction, KeySignature, NotePi
 import { fracLt, fracCompare } from './fraction'
 import { keyAlterationOf } from './keySignature'
 import { spellingDiatonicPos } from './pitchSpelling'
-import { drawnSignOf, sameAlteration } from './alterationSigns'
+import { drawnSignOfPitch, sameAlteration } from './alterationSigns'
 
 /** The minimal note shape the running-accidental walk reads. */
 export interface AccidentalNote {
@@ -153,7 +153,7 @@ export function displayedAccidentals(slots: ChordRest[], key: KeySignature): Map
       if (!force && sameAlteration(governing, p.alteration)) {
         signs.set(p.id, null)
       } else {
-        signs.set(p.id, drawnSignOf(p.alteration))
+        signs.set(p.id, drawnSignOfPitch(p)) // ⭐ ♮♯ / ♮♭ where the pitch carries `naturalBefore` (K5)
       }
       if (write) active.set(dPos, p.alteration)
     } else if (governing) {

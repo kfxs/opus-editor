@@ -16,7 +16,7 @@ import { type BeamRole } from '@/utils/beaming'
 import { beamRoleOf } from './beamRoleOps'
 import { fanMemberPitches, fanMemberBeats } from '@/utils/fannedBeam'
 import { formatPitch } from '@/utils/pitchSpelling'
-import { alterationField, setAlteration } from '@/utils/alterationSigns'
+import { alterationField, setAlteration , setNaturalBeforeField } from '@/utils/alterationSigns'
 import type { Clip, ClipTarget } from '@/utils/clip'
 import {
   type Fraction,
@@ -2039,6 +2039,7 @@ export class ScoreModel {
         tiedTo: params.tiedTo,
         tiedFrom: params.tiedFrom,
         ...(params.enclosure && { enclosure: params.enclosure }),
+        ...(params.naturalBefore && { naturalBefore: true as const }),
       }
       if (params.articulations !== undefined) existingChord.articulations = params.articulations
       // Same rule as the articulations above, and for the same reason: both are properties of the
@@ -2074,6 +2075,7 @@ export class ScoreModel {
       tiedTo: params.tiedTo,
       tiedFrom: params.tiedFrom,
       ...(params.enclosure && { enclosure: params.enclosure }),
+      ...(params.naturalBefore && { naturalBefore: true as const }),
     }
 
     const chord: Chord = {
@@ -2437,6 +2439,7 @@ export class ScoreModel {
     if ('alteration' in updates) setAlteration(pitch, updates.alteration)
     if (updates.octave !== undefined) pitch.octave = updates.octave
     if ('forceAccidental' in updates) pitch.forceAccidental = updates.forceAccidental
+    if ('naturalBefore' in updates) setNaturalBeforeField(pitch, updates.naturalBefore)
     if (updates.tiedTo !== undefined) pitch.tiedTo = updates.tiedTo
     if (updates.tiedFrom !== undefined) pitch.tiedFrom = updates.tiedFrom
     writeAttackMarks(chord, updates)

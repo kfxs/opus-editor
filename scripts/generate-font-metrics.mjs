@@ -70,6 +70,9 @@ const GLYPHS = {
     'accidentalQuarterToneFlatStein',
     'accidentalThreeQuarterTonesSharpStein',
     'accidentalThreeQuarterTonesFlatZimmermann',
+    // ⭐ ♮♯ / ♮♭ (alteration-signs K5) — the fonts' own precomposed pair, as MuseScore draws them.
+    'accidentalNaturalSharp',
+    'accidentalNaturalFlat',
   ],
 
   // ⭐ Up and down are DIFFERENT GLYPHS with different widths (1.056 against 1.224), which is why a

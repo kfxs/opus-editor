@@ -1822,6 +1822,7 @@ function materializeVoiceBar(
         if (p.displayStaffId !== undefined) np.displayStaffId = p.displayStaffId
         if (p.enclosure) np.enclosure = p.enclosure
         if (p.accidentalEnclosure) np.accidentalEnclosure = p.accidentalEnclosure
+        if (p.naturalBefore) np.naturalBefore = true
         return np
       }),
     }

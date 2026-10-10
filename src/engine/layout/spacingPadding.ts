@@ -300,6 +300,9 @@ const ACCIDENTAL_HEIGHT: Partial<Record<DrawnSignId, { up: number; down: number 
   quarterToneFlatStein: { up: 1.8, down: 0.7 },
   threeQuarterTonesSharpStein: { up: 1.5, down: 1.4 },
   threeQuarterTonesFlatZimmermann: { up: 1.8, down: 0.7 },
+  // ⭐ K5 — ♮♯ / ♮♭, the fonts' precomposed pairs, from Bravura's boxes rounded up to the tenth.
+  naturalSharp: { up: 1.4, down: 1.4 },
+  naturalFlat: { up: 1.8, down: 1.4 },
 }
 
 /** The vertical reach of one accidental sign, defaulting to a sharp's. */
@@ -352,6 +355,9 @@ const ACCIDENTAL_WIDTH: Partial<Record<DrawnSignId, number>> = {
   quarterToneFlatStein: 1.2,
   threeQuarterTonesSharpStein: 1.6,
   threeQuarterTonesFlatZimmermann: 2.2,
+  // ⭐ K5 — ♮♯ / ♮♭: Bravura's ink (1.924 / 1.836) plus the same ~0.30 sp.
+  naturalSharp: 2.2,
+  naturalFlat: 2.1,
 }
 
 /**

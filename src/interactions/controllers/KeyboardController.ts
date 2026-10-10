@@ -10,7 +10,7 @@ import { getMeasureNotes } from '../../utils/musicUtils'
 import { measureCapacityFrac } from '../../utils/measureCapacity'
 import { fracToNumber, fracEq, fracFromInt, fracSub } from '../../utils/fraction'
 import { formatPitch } from '../../utils/pitchSpelling'
-import { alterationCode, armedAlteration } from '../../utils/alterationSigns'
+import { alterationCode, armedAlteration, armedDisplay } from '../../utils/alterationSigns'
 import { octaveAbove, octaveNearest, staffPosition } from '../../utils/pitchOrder'
 import { entryAlteration } from '../../engine/models/entryAlteration'
 import { fitRestDuration } from '../../utils/durations'
@@ -87,7 +87,7 @@ export class KeyboardController {
       octave,
       isRest: false,
       ...measureRestDuration,
-      ...(this.state.selectedAccidental === 'natural' && { forceAccidental: true }),
+      ...armedDisplay(this.state.selectedAccidental),
     })
 
     dbg(`✓ KeyboardEntry (edit-in-place) | ${formatPitch({ step, alteration, octave })} dur:${updatedNote.duration} measure:${updatedNote.measure} beat:${fracToNumber(updatedNote.beat).toFixed(3)}`)
@@ -389,7 +389,7 @@ export class KeyboardController {
         ...(this.state.selectedSignEnclosure !== null && { signEnclosure: this.state.selectedSignEnclosure }),
         // …and entry CUE (cue-size-plan).
         ...(this.state.selectedCue && { cue: true as const }),
-        ...(this.state.selectedAccidental === 'natural' && { forceAccidental: true }),
+        ...armedDisplay(this.state.selectedAccidental),
         ...(existingTuplet && { tupletId: existingTuplet.id }),
         ...(this.state.selectedBeam !== 'auto' && { beam: this.state.selectedBeam }),
         ...(entryVoice && { voice: entryVoice }),
@@ -512,6 +512,7 @@ export class KeyboardController {
         ...(noteStaff && { staff: noteStaff }),
         // ⭐ Entry CUE armed ⇒ the chord is cue (its slot's; cue-size-plan — entry takes what is armed).
         ...(this.state.selectedCue && { cue: true as const }),
+        ...armedDisplay(this.state.selectedAccidental),
       })
     if (!newNote) return
     // Clear the armed accidental after the note, same as enterNoteAtCursorPosition — a chord note is

@@ -1,8 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import {
-  ALTERATION_SIGNS, accidentalOfAlteration, armsNatural, alterationCode, alterationField, armedAlteration, alterationOfCode,
-  alterationRank, alterationSide, alterationSign, sameAlteration, setAlteration,
-} from './alterationSigns'
+import { ALTERATION_SIGNS, accidentalOfAlteration, armsNatural, alterationCode, alterationField, armedAlteration, alterationOfCode, alterationRank, alterationSide, alterationSign, sameAlteration, setAlteration, armedDisplay, drawnSignOfPitch, showsArmedSign } from './alterationSigns'
 
 describe('the sign table', () => {
   it('ranks the stored signs in the decided order (decision B) — the quarter-tones on the ODD ranks (K4)', () => {
@@ -104,5 +101,27 @@ describe('the drawing\'s inherited strings (M3 retires them)', () => {
     expect(alterationOfCode('b')).toEqual(['flat'])
     expect(alterationOfCode('n')).toBeUndefined()
     expect(alterationOfCode('')).toBeUndefined()
+  })
+})
+
+describe('♮♯ / ♮♭ — drawn signs the editor arms, never stored (K5)', () => {
+  it('⭐ arm the plain sign plus the natural; any other sign takes the natural off', () => {
+    expect([armedAlteration('naturalSharp'), armedDisplay('naturalSharp')]).toEqual([['sharp'], { naturalBefore: true }])
+    expect([armedAlteration('naturalFlat'), armedDisplay('naturalFlat')]).toEqual([['flat'], { naturalBefore: true }])
+    expect(armedDisplay('natural')).toEqual({ forceAccidental: true })
+    expect(armedDisplay('sharp')).toEqual({})
+  })
+
+  it('⭐ a pitch carrying `naturalBefore` DRAWS ♮♯ / ♮♭, and lights that key', () => {
+    expect(drawnSignOfPitch({ alteration: ['sharp'], naturalBefore: true })).toBe('naturalSharp')
+    expect(drawnSignOfPitch({ alteration: ['flat'], naturalBefore: true })).toBe('naturalFlat')
+    expect(drawnSignOfPitch({ alteration: ['sharp'] })).toBe('sharp')
+    expect(accidentalOfAlteration(['sharp'], true)).toBe('naturalSharp')
+  })
+
+  it('⭐ ♯ and ♮♯ are told apart by the natural alone', () => {
+    const note = { alteration: ['sharp'] as const, naturalBefore: true as const }
+    expect(showsArmedSign(note, 'naturalSharp', undefined)).toBe(true)
+    expect(showsArmedSign(note, 'sharp', undefined)).toBe(false)
   })
 })
