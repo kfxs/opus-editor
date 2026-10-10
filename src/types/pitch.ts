@@ -15,7 +15,10 @@ export type PitchStep = 'C' | 'D' | 'E' | 'F' | 'G' | 'A' | 'B'
  * ⭐ A SIGN a pitch may carry — the SMuFL glyph name without its `accidental` / `acc` prefix. One row
  * each in `utils/alterationSigns` (its glyph, its rank); a new sign is a row there and a name here.
  */
-export type AlterationSignId = 'doubleFlat' | 'flat' | 'sharp' | 'doubleSharp'
+export type AlterationSignId =
+  | 'doubleFlat' | 'flat' | 'sharp' | 'doubleSharp'
+  // ⭐ The four quarter-tones (alteration-signs K4) — Gould p. 96's "fixed symbols", Sibelius's `5 6 2 3`.
+  | 'threeQuarterTonesFlatZimmermann' | 'quarterToneFlatStein' | 'quarterToneSharpStein' | 'threeQuarterTonesSharpStein'
 
 /**
  * ⭐⭐ **WHAT ALTERS A LETTER — an ordered LIST of signs, left to right as drawn** (decision A,

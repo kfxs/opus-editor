@@ -570,7 +570,9 @@ const BLANK: Icon = g('')
  * to what the bar and the key say. It never lights. ⭐ `Enter` since K3 — the accidental's parentheses, on
  * `bus.accidentalKeys` (`interactions/stamps/accidentalEnclosureTool`); lit when every selected sign wears them.
  *
- * ⛔ **The other eight are NOT** (his ask, the same day: *"still is not wired to anything, on clicking
+ * ⭐ `5 6 2 3` since K4 — the quarter-tones, four more SLOTS.
+ *
+ * ⛔ **The other four are NOT** (his ask, the same day: *"still is not wired to anything, on clicking
  * just console log"*): each is `momentary` — a click logs its `action` (`KeypadWidget.press`) and
  * stops, and the key never lights. A key is wired as a decision, key by key, the way the Grace page
  * was. What each does in Sibelius is `docs/research/sibelius-keypad.md` §3c.
@@ -581,8 +583,9 @@ const pageAccidentals: CellSpec[] = [
   // ⭐ K1 — `/` `*` are SIGN SLOTS (the doubles by default), and `7 8 9` the SAME slots as page one's.
   SIGN_SLOT, SIGN_SLOT, ['blank', BLANK, 'momentary'],
   SIGN_SLOT, SIGN_SLOT, SIGN_SLOT,
-  ['natural sharp', g(ACC_MORE.naturalSharp, ACC_SIZE), 'momentary'], ['quarter-tone sharp', g(ACC_MORE.quarterSharp, ACC_SIZE), 'momentary'], ['quarter-tone flat', g(ACC_MORE.quarterFlat, ACC_SIZE, 3), 'momentary'],
-  ['natural flat', g(ACC_MORE.naturalFlat, ACC_SIZE, 1.5), 'momentary'], ['three-quarter-tone sharp', g(ACC_MORE.threeQuarterSharp, ACC_SIZE), 'momentary'], ['three-quarter-tone flat', g(ACC_MORE.threeQuarterFlat, ACC_SIZE, 3), 'momentary'],
+  // ⭐ K4 — `5 6` and `2 3` are SIGN SLOTS too: the quarter-tones (`keypadSignSlots`).
+  ['natural sharp', g(ACC_MORE.naturalSharp, ACC_SIZE), 'momentary'], SIGN_SLOT, SIGN_SLOT,
+  ['natural flat', g(ACC_MORE.naturalFlat, ACC_SIZE, 1.5), 'momentary'], SIGN_SLOT, SIGN_SLOT,
   ['parenthesised accidental', { glyphs: [g(ACC_MORE.parenLeft, ACC_PARENS_SIZE), g(ACC_MORE.parenRight, ACC_PARENS_SIZE)] }, 'accidentalKey', 'parenthesised'],
   ['remove accidentals', ACCIDENTAL_ICON.struckAccidental, 'removeAccidentals'], ['suppress cautionary accidental', ACCIDENTAL_ICON.struckParenthesised, 'momentary'],
 ]
@@ -594,6 +597,9 @@ const pageAccidentals: CellSpec[] = [
 const SIGN_ICON: Partial<Record<DrawnSignId, { size?: number; dy?: number }>> = {
   flat: { dy: 3 },
   doubleFlat: { dy: 3 },
+  // The flat-shaped quarter-tones sit as the flat does (the picture page two drew them with, K4).
+  quarterToneFlatStein: { dy: 3 },
+  threeQuarterTonesFlatZimmermann: { dy: 3 },
   doubleSharp: { size: DOUBLE_SHARP_SIZE },
 }
 
@@ -617,7 +623,16 @@ export function cellIcon(cell: KeypadCell): Icon {
 /** A cell's name NOW (tooltip, log) — a slot is named by its sign: `'double sharp'`, `'natural'`. */
 export function cellAction(cell: KeypadCell): string {
   const sign = cellSign(cell)
-  return sign ? sign.replace(/[A-Z]/g, c => ` ${c.toLowerCase()}`) : cell.action
+  return sign ? (SIGN_NAME[sign] ?? sign.replace(/[A-Z]/g, c => ` ${c.toLowerCase()}`)) : cell.action
+}
+
+/** A sign's name where its id (a SMuFL name, the glyph's DESIGNER in it) reads badly as a tooltip — K4's
+ *  four: Sibelius's own names for its `5 6 2 3`. Any other sign is its id, spaced. */
+const SIGN_NAME: Partial<Record<DrawnSignId, string>> = {
+  quarterToneSharpStein: 'quarter-tone sharp',
+  quarterToneFlatStein: 'quarter-tone flat',
+  threeQuarterTonesSharpStein: 'three-quarter-tone sharp',
+  threeQuarterTonesFlatZimmermann: 'three-quarter-tone flat',
 }
 
 const toCells = (page: CellSpec[]): KeypadCell[] =>

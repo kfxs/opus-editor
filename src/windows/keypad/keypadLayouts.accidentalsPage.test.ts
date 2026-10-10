@@ -10,7 +10,7 @@ import { bus } from '@/bus'
  *
  * ⛔ What is worth pinning here is WHICH keys act. ⭐ `7 8 9` do — they are page one's natural / sharp /
  * flat SLOTS again (his ask, 2026-09-30: *"we already have this in the first page so we can wire it the
- * same"*), ⭐ `/ *` since K1 — the doubles, two more slots — ⭐ `0` since K2, the REMOVE — and ⭐ `Enter` since K3, the accidental's parentheses. The other eight are a PICTURE (*"still is not wired to anything, on clicking just console
+ * same"*), ⭐ `/ *` since K1 — the doubles, two more slots — ⭐ `0` since K2, the REMOVE — ⭐ `Enter` since K3, the accidental's parentheses — and ⭐ `5 6 2 3` since K4, the quarter-tones. The other four are a PICTURE (*"still is not wired to anything, on clicking just console
  * log"*): a key is wired as a decision, one at a time — the Grace page's spec is the model — and the
  * test that lists the `momentary` keys is the one that changes when one is.
  *
@@ -77,7 +77,7 @@ describe('the Keypad Accidentals page', () => {
   })
 
   it('⛔ only a key that IS a slot can be given a sign — a typo invents nothing', () => {
-    expect(() => keypadSignSlots.set('5', 'sharp')).toThrow(/not a sign slot/)
+    expect(() => keypadSignSlots.set('-', 'sharp')).toThrow(/not a sign slot/)
   })
 
   it('⭐ `0` presses REMOVE — `null` on `bus.accidental`, the palette\'s own "take it off" (K2)', () => {
@@ -98,10 +98,22 @@ describe('the Keypad Accidentals page', () => {
     expect(pressed).toEqual(['parenthesised'])
   })
 
-  it('⛔ …and the other EIGHT are not — each is `momentary`, and a press reaches no seam', () => {
+  it('⭐ `5 6 2 3` are the QUARTER-TONE slots (K4) — they press their signs on `bus.accidental`', () => {
+    const keys = ['5', '6', '2', '3']
+    expect(keys.map(k => cellSign(cellFor(k)))).toEqual([
+      'quarterToneSharpStein', 'quarterToneFlatStein', 'threeQuarterTonesSharpStein', 'threeQuarterTonesFlatZimmermann',
+    ])
+    const pressed: Array<string | null> = []
+    const stop = bus.accidental.onPress(a => pressed.push(a))
+    for (const k of keys) pressKeypadCell(cellFor(k))
+    stop()
+    expect(pressed).toEqual(keys.map(k => cellSign(cellFor(k))))
+  })
+
+  it('⛔ …and the other FOUR are not — each is `momentary`, and a press reaches no seam', () => {
     const unwired = own().filter(c => c.select === 'momentary')
-    expect(unwired.map(c => c.key)).toEqual(['-', '4', '5', '6', '1', '2', '3', '.'])
-    expect(own().length).toBe(unwired.length + 7)
+    expect(unwired.map(c => c.key)).toEqual(['-', '4', '1', '.'])
+    expect(own().length).toBe(unwired.length + 11)
     const pressed: Array<string | null> = []
     const stop = bus.accidental.onPress(a => pressed.push(a))
     for (const cell of unwired) pressKeypadCell(cell)

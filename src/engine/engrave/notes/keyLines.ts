@@ -105,7 +105,10 @@ function chromaticValue(step: PitchStep, alter: number): number {
   return value < 0 ? value + 12 : value
 }
 
-const ALTER_OF: Record<string, number> = { '': 0, n: 0, '#': 1, '##': 2, b: -1, bb: -2 }
+// ⭐ K4 — VexFlow's quarter-tone codes (`d` `db` `+` `++`, the sign table's `code` column), at the semitone
+//    they PLAY as until K6 (rounded toward the letter, `engine/audio/equalTemperament`). Only the unread
+//    tablature `intValue` sees the number; the drawing never does (its sign is the table's glyph).
+const ALTER_OF: Record<string, number> = { '': 0, n: 0, '#': 1, '##': 2, b: -1, bb: -2, d: 0, db: -1, '+': 0, '++': 1 }
 
 /**
  * A VexFlow key string: a letter, an optional accidental, a slash, an octave.
@@ -115,7 +118,7 @@ const ALTER_OF: Record<string, number> = { '': 0, n: 0, '#': 1, '##': 2, b: -1, 
  * override) is not matched: this editor never writes one, and a silent fallback would draw the
  * wrong head.
  */
-const KEY = /^([a-gA-G])(##|#|bb|b|n)?\/(-?\d+)$/
+const KEY = /^([a-gA-G])(##|#|bb|db|b|d|\+\+|\+|n)?\/(-?\d+)$/
 
 /** The one parse, so the step, the alter and the octave are read off a key string in one place. */
 function parseKey(key: string): { step: PitchStep; alter: number; octave: number; name: string } {

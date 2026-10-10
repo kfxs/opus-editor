@@ -5,9 +5,10 @@ import {
 } from './alterationSigns'
 
 describe('the sign table', () => {
-  it('ranks the four stored signs in the decided order (decision B)', () => {
+  it('ranks the stored signs in the decided order (decision B) — the quarter-tones on the ODD ranks (K4)', () => {
     expect(ALTERATION_SIGNS.map(s => [s.id, s.rank])).toEqual([
-      ['doubleFlat', -4], ['flat', -2], ['sharp', 2], ['doubleSharp', 4],
+      ['doubleFlat', -4], ['threeQuarterTonesFlatZimmermann', -3], ['flat', -2], ['quarterToneFlatStein', -1],
+      ['quarterToneSharpStein', 1], ['sharp', 2], ['threeQuarterTonesSharpStein', 3], ['doubleSharp', 4],
     ])
   })
 

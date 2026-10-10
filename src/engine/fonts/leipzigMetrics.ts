@@ -1,7 +1,7 @@
 /**
  * ⛔⛔ **GENERATED — DO NOT EDIT.** `node scripts/generate-font-metrics.mjs`
  *
- * Leipzig's table for the 107 glyphs the editor draws — the SAME shape as
+ * Leipzig's table for the 111 glyphs the editor draws — the SAME shape as
  * `bravuraMetrics.ts`, total over the same `GlyphName` union, read by `fontMetrics` when the face is
  * the active one (`fonts/musicFont`, `docs/plans/music-font-switch-plan.md` Phase B).
  *
@@ -62,6 +62,10 @@ export const GLYPH_BOXES: Record<GlyphName, GlyphBox> = {
   accidentalNatural: { left: 0, right: 0.628, up: 1.404, down: 1.404, advance: 0.628 },
   accidentalDoubleSharp: { left: 0, right: 1.028, up: 0.48, down: 0.48, advance: 1.032 },
   accidentalDoubleFlat: { left: 0, right: 1.552, up: 1.876, down: 0.7, advance: 1.552 },
+  accidentalQuarterToneSharpStein: { left: 0, right: 0.424, up: 1.312, down: 1.356, advance: 0.424 },
+  accidentalQuarterToneFlatStein: { left: 0, right: 0.792, up: 1.876, down: 0.7, advance: 0.792 },
+  accidentalThreeQuarterTonesSharpStein: { left: 0, right: 1.212, up: 1.42, down: 1.492, advance: 1.212 },
+  accidentalThreeQuarterTonesFlatZimmermann: { left: 0, right: 1.664, up: 1.876, down: 0.7, advance: 1.664 },
   // flags
   flag8thUp: { left: 0, right: 1.104, up: 0, down: 2.776, advance: 1.108 },
   flag8thDown: { left: 0, right: 1.104, up: 2.776, down: 0, advance: 1.108 },
@@ -170,6 +174,10 @@ export const GLYPH_ANCHORS: Partial<Record<GlyphName, Record<string, readonly [n
   accidentalFlat: { cutOutNE: [0.096, 0.564], cutOutSE: [0.432, -0.344] },
   accidentalNatural: { cutOutNE: [0.08, 0.736], cutOutSW: [0.548, -0.76] },
   accidentalDoubleFlat: { cutOutNE: [0.856, 0.56], cutOutSE: [1.232, -0.3] },
+  accidentalQuarterToneSharpStein: { cutOutNE: [0.252, 0.72], cutOutNW: [0.16, 0.652], cutOutSE: [0.256, -0.748], cutOutSW: [0.16, -0.812] },
+  accidentalQuarterToneFlatStein: { cutOutNW: [0.7, 0.584], cutOutSW: [0.368, -0.332] },
+  accidentalThreeQuarterTonesSharpStein: { cutOutNE: [1.052, 0.816], cutOutNW: [0.156, 0.516], cutOutSE: [1.052, -0.64], cutOutSW: [0.156, -0.948] },
+  accidentalThreeQuarterTonesFlatZimmermann: { cutOutNE: [0.972, 0.588], cutOutNW: [0.7, 0.584], cutOutSE: [1.336, -0.308], cutOutSW: [0.344, -0.32] },
 }
 
 export const ENGRAVING_DEFAULTS = {

@@ -325,7 +325,10 @@ function dressControl(row: HTMLElement, className: string): HTMLElement {
  */
 const CONTROL_COLOUR = '#c9a7ff'
 
-const SIGN_CHAR: Record<AlterationSignId, string> = { doubleFlat: '𝄫', flat: '♭', sharp: '♯', doubleSharp: '𝄪' }
+const SIGN_CHAR: Record<AlterationSignId, string> = {
+  doubleFlat: '𝄫', flat: '♭', sharp: '♯', doubleSharp: '𝄪',
+  quarterToneSharpStein: '¼♯', quarterToneFlatStein: '¼♭', threeQuarterTonesSharpStein: '¾♯', threeQuarterTonesFlatZimmermann: '¾♭',
+}
 
 function spell(step: string, alteration: Alteration | undefined, octave: number): string {
   return `${step}${(alteration ?? []).map(id => SIGN_CHAR[id]).join('')}${octave}`

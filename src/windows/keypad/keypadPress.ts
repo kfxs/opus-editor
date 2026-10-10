@@ -107,7 +107,7 @@ export function pressKeypadCell(cell: KeypadCell): void {
       bus.accidental.press(null)
       break
     case 'momentary':
-      // A key that is only a PICTURE so far — eight of the Accidentals page's fifteen. It does
+      // A key that is only a PICTURE so far — four of the Accidentals page's fifteen. It does
       // NOTHING, which is the right nothing: a numpad key over an unwired cell must not fall through to
       // some other page's meaning, and an unwired key shows no light. (A CLICK still logs the key's
       // name — that is the panel's own log, `KeypadWidget.press`.)

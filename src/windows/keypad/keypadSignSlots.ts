@@ -24,6 +24,12 @@ export const DEFAULT_SIGN_SLOTS: Readonly<Record<string, DrawnSignId>> = {
   '7': 'natural',
   '8': 'sharp',
   '9': 'flat',
+  // ⭐ K4 — the quarter-tones, where Sibelius puts them: `5` quarter sharp, `6` quarter flat,
+  //    `2` three-quarter sharp, `3` three-quarter flat.
+  '5': 'quarterToneSharpStein',
+  '6': 'quarterToneFlatStein',
+  '2': 'threeQuarterTonesSharpStein',
+  '3': 'threeQuarterTonesFlatZimmermann',
 }
 
 let slots: Record<string, DrawnSignId> = { ...DEFAULT_SIGN_SLOTS }

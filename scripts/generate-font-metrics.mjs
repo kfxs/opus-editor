@@ -65,6 +65,11 @@ const GLYPHS = {
     'accidentalNatural',
     'accidentalDoubleSharp',
     'accidentalDoubleFlat',
+    // ⭐ The four quarter-tone signs (alteration-signs K4) — Gould p. 96's table, Sibelius's `5 6 2 3`.
+    'accidentalQuarterToneSharpStein',
+    'accidentalQuarterToneFlatStein',
+    'accidentalThreeQuarterTonesSharpStein',
+    'accidentalThreeQuarterTonesFlatZimmermann',
   ],
 
   // ⭐ Up and down are DIFFERENT GLYPHS with different widths (1.056 against 1.224), which is why a

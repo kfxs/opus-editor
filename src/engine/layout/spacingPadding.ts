@@ -295,6 +295,11 @@ const ACCIDENTAL_HEIGHT: Partial<Record<DrawnSignId, { up: number; down: number 
   natural: { up: 1.4, down: 1.4 },
   doubleSharp: { up: 0.6, down: 0.5 },
   doubleFlat: { up: 1.8, down: 0.7 },
+  // ⭐ K4 — the quarter-tones, from Bravura's own boxes rounded up to the tenth (⛔ no book gives a number).
+  quarterToneSharpStein: { up: 1.3, down: 1.5 },
+  quarterToneFlatStein: { up: 1.8, down: 0.7 },
+  threeQuarterTonesSharpStein: { up: 1.5, down: 1.4 },
+  threeQuarterTonesFlatZimmermann: { up: 1.8, down: 0.7 },
 }
 
 /** The vertical reach of one accidental sign, defaulting to a sharp's. */
@@ -341,6 +346,12 @@ const ACCIDENTAL_WIDTH: Partial<Record<DrawnSignId, number>> = {
   natural: 1.0,
   doubleSharp: 1.3,
   doubleFlat: 2.0,
+  // ⭐ K4 — no measurement yet (⛔ no book gives one): the glyph's Bravura ink plus the ~0.30 sp of VexFlow white
+  //    every measured row above carries (a sharp is 0.996 + 0.30), to the nearest tenth.
+  quarterToneSharpStein: 1.0,
+  quarterToneFlatStein: 1.2,
+  threeQuarterTonesSharpStein: 1.6,
+  threeQuarterTonesFlatZimmermann: 2.2,
 }
 
 /**

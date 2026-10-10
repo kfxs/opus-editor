@@ -192,12 +192,35 @@ brackets are a selectable kind, `accidentalEnclosure` (his ask): each bracket ha
 chord heads only — not graces, fan members, bracketed graces; a head in brackets AND a bracketed accidental
 draws both pairs (MuseScore skips the accidental's).
 
+**K3b — bracketed accidentals beyond the main notes** (his ask, 2026-10-10: *"if is not planned should be
+planned"*). K3 brackets a MAIN chord's accidentals only. The same field, the same op and the same `Enter` reach:
+- **grace notes** — their accidentals are drawn by `GracePass` (a sign string, not an `EngravedAccidental`) and
+  priced by `layout/graceRoom`: both learn the run, at the grace's size; the op's lookup asks `graceNotes: true`;
+- **fan members** — `FanPass` draws and packs its members' signs (`chordAccidentalColumns`, `FanPass.ts:164`
+  measures a sign's width): the run joins both; the lookup asks `fanMembers: true`;
+- **bracketed graces** — drawn by `BracketedGracePass`, priced by `layout/bracketedRoom`, which already puts
+  the grace in E26A/E26B: ⚠️ a bracketed accidental INSIDE a bracketed grace is brackets in brackets — what to
+  draw there is UNKNOWN (no book on disk shows it), a question for him before it is built.
+Each surface also files the two bracket boxes (`rendering/signBracketBoxes`) so they select alone, and its ghost
+shows them. ⚠️ And the head-in-parentheses case: a parenthesised head (`enclosure`) with a bracketed accidental
+draws both pairs today — MuseScore skips the accidental's (`parentNoteHasParentheses`); his call.
+
 **K4 — `5` `6` `2` `3` the quarter-tones.** Four rows in the sign table, four ink rows, and four
 more slots holding them. ✅ They are Gould's own table of "fixed symbols" (p. 96, *"recommended that
 all four … are used"*), and in the bar they behave as a sharp does — Gould p. 98: *"an ordinary
 accidental must cancel a microtone"*, and without one the next notes stay altered. ⛔ No book gives a
 number for their gap or their chord column, so their ink rows start from the glyphs' own boxes. Drawn from Bravura when the score's font lacks them (decision E). Sound,
 for now, as Sibelius without its plug-in: the nearest normal note.
+
+✅ **Built 2026-10-10.** Four rows in `utils/alterationSigns` on the odd ranks — `threeQuarterTonesFlatZimmermann`
+−3, `quarterToneFlatStein` −1, `quarterToneSharpStein` +1, `threeQuarterTonesSharpStein` +3 (codes VexFlow's: `db`
+`d` `+` `++`) — four rows in `equalTemperament` (±½ → the letter, ±1½ → ±1: Sibelius without its plug-in), four
+ink rows in `spacingPadding` (Bravura's boxes + the 0.30 sp the measured rows carry), the four glyphs in the
+generated font tables (Leipzig and Sebastian DRAW all four — no Bravura borrowing needed). The Keypad's `5 6 2 3`
+are SLOTS holding them (`keypadSignSlots`), named by Sibelius's words. 🚨 Found on his first press: the note KEY
+string (`'ad/3'`) was refused by `engrave/notes/keyLines` — its parser now reads the four codes, and
+`EngravedAccidental.drawn.test.ts` draws every sign of the table through the real renderer so a new row cannot
+slip past again.
 
 **K5 — `4` `1` ♮♯ and ♮♭.** A second display property (`naturalBefore`): the note stays a plain sharp
 or flat and a natural is drawn in front, composed from the score's own font. Offered only on a note

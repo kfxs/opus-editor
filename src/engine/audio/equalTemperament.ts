@@ -28,6 +28,13 @@ const SIGN_SEMITONES: Record<AlterationSignId, number> = {
   flat: -1,
   sharp: 1,
   doubleSharp: 2,
+  // ⭐ K4 — a quarter-tone plays as a NORMAL key until K6 detunes it: Sibelius without its plug-in (Robert Puff,
+  //    docs/research/sibelius-keypad.md: *"A natural and a quarter-sharp sound the same pitch"* — likewise sharp /
+  //    three-quarter sharp, flat / quarter flat). ⚠️ Rounded TOWARD the letter: ±½ → 0, ±1½ → ±1.
+  quarterToneSharpStein: 0,
+  quarterToneFlatStein: 0,
+  threeQuarterTonesSharpStein: 1,
+  threeQuarterTonesFlatZimmermann: -1,
 }
 
 /** How many semitones an alteration moves its letter, in equal temperament. */

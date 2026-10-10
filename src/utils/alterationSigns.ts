@@ -37,8 +37,15 @@ export interface AlterationSign<Id extends DrawnSignId = AlterationSignId> {
 /** ⭐ THE TABLE. A new sign is a ROW here (+ a row in the tuning, when it should sound). */
 export const ALTERATION_SIGNS: readonly AlterationSign[] = [
   { id: 'doubleFlat', glyph: 'accidentalDoubleFlat', rank: -4, code: 'bb' },
+  // ⭐ K4 — the quarter-tones take the ODD ranks (decision B), between the signs they sit between. Gould p. 96
+  //    (*"recommended that all four … are used"*), Stein's and Zimmermann's glyphs as Sibelius draws them.
+  //    Codes: VexFlow's own (`db` `d` `+` `++`) — a LABEL only.
+  { id: 'threeQuarterTonesFlatZimmermann', glyph: 'accidentalThreeQuarterTonesFlatZimmermann', rank: -3, code: 'db' },
   { id: 'flat', glyph: 'accidentalFlat', rank: -2, code: 'b' },
+  { id: 'quarterToneFlatStein', glyph: 'accidentalQuarterToneFlatStein', rank: -1, code: 'd' },
+  { id: 'quarterToneSharpStein', glyph: 'accidentalQuarterToneSharpStein', rank: 1, code: '+' },
   { id: 'sharp', glyph: 'accidentalSharp', rank: 2, code: '#' },
+  { id: 'threeQuarterTonesSharpStein', glyph: 'accidentalThreeQuarterTonesSharpStein', rank: 3, code: '++' },
   { id: 'doubleSharp', glyph: 'accidentalDoubleSharp', rank: 4, code: '##' },
 ]
 

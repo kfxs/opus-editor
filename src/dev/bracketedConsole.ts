@@ -46,7 +46,7 @@ export interface BracketedConsole {
 
 /** `'Bb3'` → a spelling; `'Fn4'` forces the natural. Null for anything else. */
 function parseSpelling(text: string): (PitchSpelling & { forceAccidental?: boolean }) | null {
-  const m = /^([A-Ga-g])(##|#|bb|b|n)?(-?\d)$/.exec(text.trim())
+  const m = /^([A-Ga-g])(##|#|bb|db|b|d|\+\+|\+|n)?(-?\d)$/.exec(text.trim())
   if (!m) return null
   const spelling: PitchSpelling & { forceAccidental?: boolean } = {
     step: m[1].toUpperCase() as PitchSpelling['step'], ...alterationField(alterationOfCode(m[2])), octave: Number(m[3]),

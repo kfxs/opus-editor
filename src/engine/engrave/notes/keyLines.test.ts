@@ -112,6 +112,12 @@ describe('keyRows', () => {
       .toEqual(['C#', 'AB', 'DBB'])
   })
 
+  it('⭐ reads the QUARTER-TONE codes (K4) — his crash: "ad/3" was refused, and a bar with a quarter flat drew nothing', () => {
+    const rows = keyRows(['ad/3', 'cdb/4', 'e+/4', 'f++/4'], 'treble', 'q', false)
+    expect(rows.map(r => r.key)).toEqual(['AD', 'CDB', 'E+', 'F++'])
+    expect(rows.map(r => r.line)).toEqual(keyRows(['a/3', 'c/4', 'e/4', 'f/4'], 'treble', 'q', false).map(r => r.line))
+  })
+
   it('marks a second on both rows and gives every head one glyph', () => {
     const rows = keyRows(['c/4', 'd/4', 'a/4'], 'treble', 'h', false)
     expect(rows.map(r => r.displaced)).toEqual([true, true, false])
