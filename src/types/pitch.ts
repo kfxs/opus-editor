@@ -29,7 +29,7 @@ export type PitchAlter = -2 | -1 | 0 | 1 | 2
  *   Db4 = { step: 'D', alter: -1, octave: 4 }  — MIDI 61
  *
  * MIDI is always *derived* from this, never primary.
- * Use spellingToMidi() to compute the MIDI value.
+ * Which of two is higher: `utils/pitchOrder` (as WRITTEN). MIDI is playback's alone.
  */
 export interface PitchSpelling {
   step: PitchStep

@@ -2,7 +2,7 @@ import { dbg } from '@/utils/debug'
 import { ScoreModel } from './models/ScoreModel'
 import { CoordinateMapper } from './rendering/CoordinateMapper'
 import { CollisionDetector } from './models/CollisionDetector'
-import { durationToBeats, midiToNoteName, tupletSpan, tupletWrittenDuration, beatToFrac } from '@/utils/musicUtils'
+import { durationToBeats, tupletSpan, tupletWrittenDuration, beatToFrac } from '@/utils/musicUtils'
 import { measureCapacityQuarters, measureCapacityFrac } from '@/utils/measureCapacity'
 import {
   fracToNumber, fracEq, fracAdd, fracSub,
@@ -12,7 +12,7 @@ import { fitRestDuration, slotLength, writtenLength } from '@/utils/durations'
 import type { Fraction } from '@/utils/fraction'
 import type { Note, NoteParams, Tuplet, TupletFormat, NoteDuration, ArticulationType, Accidental, PitchSpelling } from '@/types/music'
 import type { PixelCoordinates } from './rendering/renderTypes'
-import { spellingToMidi, formatPitch } from '@/utils/pitchSpelling'
+import { formatPitch, spellingEnharmonic } from '@/utils/pitchSpelling'
 import { entryAlteration } from './models/entryAlteration'
 import { changeNote } from './models/durationChangeOps'
 import { applyTupletToNote, buildTupletWithFirstNote, clampToTupletRemainder, landInTuplet, tupletFitsBar } from './models/tupletEntryOps'
@@ -262,7 +262,6 @@ export class NoteEntryCoordinator {
       naturalSpelling.step, naturalSpelling.octave, accidental,
     )
     const spelling: PitchSpelling = { ...naturalSpelling, alter }
-    const pitchMidi = spellingToMidi(spelling.step, spelling.alter, spelling.octave)
 
     // When using coordinate calculation, we need to find if there's a rest at that beat
     // or if we'd be creating a new note position
@@ -278,7 +277,7 @@ export class NoteEntryCoordinator {
         const notesAtBeat = notesInMeasure.filter(n => !n.isRest && fracEq(n.beat, finalBeat))
         if (notesAtBeat.length > 0) {
           // There are notes at this beat - check for collision
-          const hasSamePitch = notesAtBeat.some(n => !n.isRest && spellingToMidi(n.step!, n.alter!, n.octave!) === pitchMidi)
+          const hasSamePitch = notesAtBeat.some(n => !n.isRest && spellingEnharmonic({ step: n.step!, alter: n.alter ?? 0, octave: n.octave! }, spelling))
           if (hasSamePitch) {
             console.warn('Same pitch collision at calculated beat')
             return null
@@ -351,17 +350,17 @@ export class NoteEntryCoordinator {
 
     // Delete anything the new note overwrites (range/same-pitch replacements, plus
     // tuplet items inside a multi-slot tuplet note's actual-time span).
-    applyEntryOverwrites(this.getScoreModel(), measureNumber, finalBeat, duration, dots, pitchMidi, tupletId, tupletAtBeat, entryVoice, entryStaff)
+    applyEntryOverwrites(this.getScoreModel(), measureNumber, finalBeat, duration, dots, spelling, tupletId, tupletAtBeat, entryVoice, entryStaff)
 
     // Handle overflow by splitting the note across the bar line with a tie.
     // SKIP for tuplet notes — tuplets have shorter actual durations, designed to fit their span.
     if (overflow.willOverflow && overflow.overflowAmount && !tupletId) {
-      return this.placeSplitNote(noteParams, overflow.overflowAmount, measureNumber, finalBeat, pitchMidi, duration, dots)
+      return this.placeSplitNote(noteParams, overflow.overflowAmount, measureNumber, finalBeat, spelling, duration, dots)
     }
 
     // For non-overflow cases, update existing chord notes (same beat + voice + staff) to match duration
     const existingChordNotes = this.getScoreModel().getNotesInMeasure(measureNumber)
-      .filter(n => !n.isRest && voiceOf(n) === entryVoice && staffOf(n) === entryStaff && fracEq(n.beat, finalBeat) && spellingToMidi(n.step!, n.alter!, n.octave!) !== pitchMidi)
+      .filter(n => !n.isRest && voiceOf(n) === entryVoice && staffOf(n) === entryStaff && fracEq(n.beat, finalBeat) && !spellingEnharmonic({ step: n.step!, alter: n.alter ?? 0, octave: n.octave! }, spelling))
     for (const chordNote of existingChordNotes) {
       if (chordNote.duration !== duration) {
         this.getScoreModel().updateNote(chordNote.id, { duration })
@@ -389,7 +388,7 @@ export class NoteEntryCoordinator {
       })
 
       // Save undo state for the complete add operation
-      this.onCommit(`Add ${midiToNoteName(pitchMidi)}`)
+      this.onCommit(`Add ${formatPitch(spelling)}`)
     }
 
     return note
@@ -442,21 +441,21 @@ export class NoteEntryCoordinator {
     overflowAmount: number,
     measureNumber: number,
     finalBeat: Fraction,
-    pitchMidi: number,
+    spelling: PitchSpelling,
     duration: NoteParams['duration'],
     dots: number | undefined,
   ): Note | null {
     const splitVoice = voiceOf(noteParams)
     const splitStaff = staffOf(noteParams)
     const existingChordNotes = this.getScoreModel().getNotesInMeasure(measureNumber)
-      .filter(n => !n.isRest && voiceOf(n) === splitVoice && staffOf(n) === splitStaff && fracEq(n.beat, finalBeat) && spellingToMidi(n.step!, n.alter!, n.octave!) !== pitchMidi && !n.tiedTo)
+      .filter(n => !n.isRest && voiceOf(n) === splitVoice && staffOf(n) === splitStaff && fracEq(n.beat, finalBeat) && !spellingEnharmonic({ step: n.step!, alter: n.alter ?? 0, octave: n.octave! }, spelling) && !n.tiedTo)
     // The slot crosses the barline as ONE chord: the heads already there, then the new one. Each
     // head's erosion of the next bar spares the others' continuations (`spanningNoteOps`).
     splitChordWithTie(this.getScoreModel(), existingChordNotes, duration, overflowAmount, dots)
 
     const splitNote = addSplitNoteWithTie(this.getScoreModel(), noteParams, overflowAmount)
     if (splitNote) {
-      this.onCommit(`Add ${midiToNoteName(pitchMidi)}`)
+      this.onCommit(`Add ${formatPitch(spelling)}`)
     }
     return splitNote
   }

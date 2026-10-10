@@ -436,8 +436,9 @@ export interface ElementInfo {
    *  else. ⛔ Not `id`: {@link getById} answers with the first entry holding one, and 'title' is not
    *  an element id (`engine/models/scoreTextOps`). */
   scoreTextField?: ScoreTextField
-  /** MIDI pitch (for notes) */
-  pitch?: number
+  /** ⭐ Where the head stands on the staff (for notes) — diatonic steps from C0, `utils/pitchOrder.staffPosition`.
+   *  ⛔ Not a MIDI number: that collapsed D♭ onto C's line. */
+  staffPosition?: number
   /** Pixel bounding box */
   bbox: BoundingBox
   /**
@@ -786,6 +787,10 @@ export function offsetStaffGeometry(geometry: StaffGeometry, dx: number, dy: num
 
 /** Diatonic step names in order C=0…B=6 */
 type DiatonicStep = 'C' | 'D' | 'E' | 'F' | 'G' | 'A' | 'B'
+const DIATONIC_STEPS: readonly DiatonicStep[] = ['C', 'D', 'E', 'F', 'G', 'A', 'B']
+/** The piano's range as staff positions: A0 and C8. */
+const A0_POSITION = 5
+const C8_POSITION = 56
 
 /**
  * Registry that tracks all rendered elements
@@ -1380,18 +1385,18 @@ export class ElementRegistry {
   // ==================== Pitch Calculation ====================
 
   /**
-   * Clef reference data: which pitch sits on which staff line
-   * Staff lines are numbered 0-4 from top to bottom
+   * Clef reference data: which STAFF POSITION (diatonic steps from C0 — `utils/pitchOrder`) sits on
+   * which staff line. Staff lines are numbered 0-4 from top to bottom.
    */
-  private static readonly CLEF_REFERENCES: Record<ClefType, { pitch: number; line: number }> = {
-    // Treble (G clef): G4 (67) on line 3 (second from bottom)
-    treble: { pitch: 67, line: 3 },
-    // Bass (F clef): F3 (53) on line 1 (second from top)
-    bass: { pitch: 53, line: 1 },
-    // Alto (C clef): C4 (60) on line 2 (middle)
-    alto: { pitch: 60, line: 2 },
-    // Tenor (C clef): C4 (60) on line 1 (second from top)
-    tenor: { pitch: 60, line: 1 },
+  private static readonly CLEF_REFERENCES: Record<ClefType, { position: number; line: number }> = {
+    // Treble (G clef): G4 on line 3 (second from bottom)
+    treble: { position: 32, line: 3 },
+    // Bass (F clef): F3 on line 1 (second from top)
+    bass: { position: 24, line: 1 },
+    // Alto (C clef): C4 on line 2 (middle)
+    alto: { position: 28, line: 2 },
+    // Tenor (C clef): C4 on line 1 (second from top)
+    tenor: { position: 28, line: 1 },
   }
 
   /**
@@ -1431,144 +1436,47 @@ export class ElementRegistry {
     // Which staff line the y is on — asked of the frame, the one owner of that inverse (rule 5)
     const staffLine = staffLineAtY(geometryFrame(geometry), y)
 
-    // Convert staff line to MIDI pitch using clef-aware calculation, then to spelling
-    const midi = this.staffLineToPitch(staffLine, clef)
-    // Degenerate geometry (e.g. zero line spacing) yields a non-finite MIDI, which
+    // Staff line → staff position, clef-aware (each half-line is one diatonic step)
+    const position = this.staffLineToPosition(staffLine, clef)
+    // Degenerate geometry (e.g. zero line spacing) yields a non-finite position, which
     // would produce an undefined step. Return null so callers fall back.
-    if (!Number.isFinite(midi)) return null
-    const clampedMidi = Math.max(21, Math.min(108, midi))
-
-    // midiToSpelling with no hint gives natural (sharp) spelling;
-    // since we only produce natural notes here, just compute step+octave from MIDI
-    const pc = clampedMidi % 12
-    const oct = Math.floor(clampedMidi / 12) - 1
-    const WHITE_KEY_PC_TO_STEP: Partial<Record<number, DiatonicStep>> = {
-      0: 'C', 2: 'D', 4: 'E', 5: 'F', 7: 'G', 9: 'A', 11: 'B',
-    }
-    const step = WHITE_KEY_PC_TO_STEP[pc]
-    if (step) {
-      return { step, alter: 0, octave: oct }
-    }
-    // Fell on a black key — snap to nearest white key below
-    const snappedPc = [0, 0, 2, 2, 4, 5, 5, 7, 7, 9, 9, 11][pc]
-    const snappedStep = WHITE_KEY_PC_TO_STEP[snappedPc]!
-    return { step: snappedStep, alter: 0, octave: oct }
+    if (!Number.isFinite(position)) return null
+    // A0 … C8, the piano's range
+    const clamped = Math.max(A0_POSITION, Math.min(C8_POSITION, position))
+    return { step: DIATONIC_STEPS[clamped % 7], alter: 0, octave: Math.floor(clamped / 7) }
   }
 
   /**
-   * Convert MIDI pitch to pixel Y coordinate using staff geometry
-   * @param pitch - MIDI pitch number
+   * Convert a STAFF POSITION (a note's `staffPosition`) to pixel Y coordinate using staff geometry
+   * @param position - Diatonic steps from C0 (`utils/pitchOrder.staffPosition`)
    * @param measure - Measure number to get staff geometry from
    * @param x - Optional pixel X, used to pick the clef region for mid-measure changes
    * @param staff - 0-based staff index (default first staff)
    * @returns Pixel Y coordinate, or null if geometry not available
    */
-  pitchToPixelY(pitch: number, measure: number, x?: number, staff: number = 0): number | null {
+  staffPositionToPixelY(position: number, measure: number, x?: number, staff: number = 0): number | null {
     const geometry = this.staffGeometries.get(this.geomKey(measure, staff))
     if (!geometry) return null
 
     const clef = this.clefAtX(geometry, x)
-    const staffLine = this.pitchToStaffLine(pitch, clef)
+    const ref = ElementRegistry.CLEF_REFERENCES[clef]
+    // 2 diatonic steps per line, higher position = lower line number
+    const staffLine = ref.line - (position - ref.position) / 2
 
     return staffLineY(geometryFrame(geometry), staffLine)
   }
 
   /**
-   * Get the diatonic pitch class (0-6 for C-B) from a MIDI pitch
-   */
-  private getDiatonicClass(pitch: number): number {
-    // MIDI pitch to pitch class (0-11), then to diatonic class (0-6)
-    const pitchClass = pitch % 12
-    // Map: C=0, D=1, E=2, F=3, G=4, A=5, B=6
-    // Chromatic to diatonic: 0->0, 1->0, 2->1, 3->1, 4->2, 5->3, 6->3, 7->4, 8->4, 9->5, 10->5, 11->6
-    const chromaticToDiatonic = [0, 0, 1, 1, 2, 3, 3, 4, 4, 5, 5, 6]
-    return chromaticToDiatonic[pitchClass]
-  }
-
-  /**
-   * Get the octave number from a MIDI pitch
-   */
-  private getOctave(pitch: number): number {
-    return Math.floor(pitch / 12) - 1
-  }
-
-  /**
-   * Calculate diatonic steps between two pitches
-   * Positive = pitch2 is higher, negative = pitch2 is lower
-   */
-  private getDiatonicDistance(pitch1: number, pitch2: number): number {
-    const octave1 = this.getOctave(pitch1)
-    const octave2 = this.getOctave(pitch2)
-    const class1 = this.getDiatonicClass(pitch1)
-    const class2 = this.getDiatonicClass(pitch2)
-
-    // Total diatonic steps = octave difference * 7 + class difference
-    return (octave2 - octave1) * 7 + (class2 - class1)
-  }
-
-  /**
-   * Convert staff line position to MIDI pitch (clef-aware)
-   * Each half-line is one diatonic step
+   * Convert staff line position to a staff position (clef-aware)
    * @param staffLine - Staff line position (0-4 for lines, 0.5, 1.5, etc. for spaces)
    * @param clef - The clef type
    */
-  private staffLineToPitch(staffLine: number, clef: ClefType): number {
+  private staffLineToPosition(staffLine: number, clef: ClefType): number {
     const ref = ElementRegistry.CLEF_REFERENCES[clef]
-
-    // Round to nearest half-line for diatonic snapping
+    // Round to nearest half-line for diatonic snapping;
+    // moving DOWN the staff (increasing line number) = LOWER pitch
     const roundedLine = Math.round(staffLine * 2) / 2
-
-    // Calculate diatonic steps from reference
-    // Moving DOWN the staff (increasing line number) = LOWER pitch
-    const diatonicStepsFromRef = (roundedLine - ref.line) * 2
-
-    // Convert diatonic steps to pitch
-    return this.addDiatonicSteps(ref.pitch, -diatonicStepsFromRef)
-  }
-
-  /**
-   * Convert MIDI pitch to staff line position (clef-aware)
-   * @param pitch - MIDI pitch number
-   * @param clef - The clef type
-   */
-  private pitchToStaffLine(pitch: number, clef: ClefType): number {
-    const ref = ElementRegistry.CLEF_REFERENCES[clef]
-
-    // Calculate diatonic distance from reference pitch
-    const diatonicSteps = this.getDiatonicDistance(ref.pitch, pitch)
-
-    // Convert to staff lines (2 diatonic steps per line, higher pitch = lower line number)
-    return ref.line - diatonicSteps / 2
-  }
-
-  /**
-   * Add diatonic steps to a pitch
-   * @param pitch - Starting MIDI pitch
-   * @param steps - Number of diatonic steps (positive = up, negative = down)
-   */
-  private addDiatonicSteps(pitch: number, steps: number): number {
-    // Diatonic intervals in semitones from each pitch class
-    // Starting from C: C->D=2, D->E=2, E->F=1, F->G=2, G->A=2, A->B=2, B->C=1
-    const intervals = [2, 2, 1, 2, 2, 2, 1] // intervals from C, D, E, F, G, A, B
-
-    let currentPitch = pitch
-    const direction = steps > 0 ? 1 : -1
-    const absSteps = Math.abs(steps)
-
-    for (let i = 0; i < absSteps; i++) {
-      const currentClass = this.getDiatonicClass(currentPitch)
-
-      if (direction > 0) {
-        // Moving up: add interval from current class
-        currentPitch += intervals[currentClass]
-      } else {
-        // Moving down: subtract interval to previous class
-        const prevClass = (currentClass + 6) % 7 // Previous diatonic class
-        currentPitch -= intervals[prevClass]
-      }
-    }
-
-    return currentPitch
+    return ref.position - (roundedLine - ref.line) * 2
   }
 
   // ==================== Nearby Element Finding ====================
@@ -1693,9 +1601,9 @@ export class ElementRegistry {
         // For chords, notes share the same bbox but have different pitches
         // Use pitch-based Y position for accurate selection
         let noteY: number
-        if (note.pitch !== undefined) {
+        if (note.staffPosition !== undefined) {
           // Calculate actual Y position from pitch using staff geometry (clef region at the note's X)
-          const pitchY = this.pitchToPixelY(note.pitch, measure, centerX, note.headStaff ?? note.staff)
+          const pitchY = this.staffPositionToPixelY(note.staffPosition, measure, centerX, note.headStaff ?? note.staff)
           noteY = pitchY !== null ? pitchY : note.bbox.y + note.bbox.height / 2
         } else {
           noteY = note.bbox.y + note.bbox.height / 2
@@ -1749,10 +1657,10 @@ export class ElementRegistry {
       if (xDist <= xTolerance) {
         let elementY: number
 
-        if (element.type === 'note' && element.pitch !== undefined && element.measure !== undefined) {
+        if (element.type === 'note' && element.staffPosition !== undefined && element.measure !== undefined) {
           // For notes (incl. chords), use the pitch-based Y position computed from the
           // note's OWN (measure, staff) geometry (clef region at the note's X).
-          const pitchY = this.pitchToPixelY(element.pitch, element.measure, centerX, element.headStaff ?? element.staff)
+          const pitchY = this.staffPositionToPixelY(element.staffPosition, element.measure, centerX, element.headStaff ?? element.staff)
           elementY = pitchY !== null ? pitchY : element.bbox.y + element.bbox.height / 2
         } else {
           // For rests (and notes without pitch), use bbox center
@@ -1782,8 +1690,8 @@ export class ElementRegistry {
   noteOrRestHitDistance(el: ElementInfo, x: number, y: number): number {
     const centerX = el.headX ?? el.bbox.x + el.bbox.width / 2
     let elementY: number
-    if (el.type === 'note' && el.pitch !== undefined && el.measure !== undefined) {
-      const pitchY = this.pitchToPixelY(el.pitch, el.measure, centerX, el.headStaff ?? el.staff)
+    if (el.type === 'note' && el.staffPosition !== undefined && el.measure !== undefined) {
+      const pitchY = this.staffPositionToPixelY(el.staffPosition, el.measure, centerX, el.headStaff ?? el.staff)
       elementY = pitchY !== null ? pitchY : el.bbox.y + el.bbox.height / 2
     } else {
       elementY = el.bbox.y + el.bbox.height / 2
@@ -1821,8 +1729,8 @@ export class ElementRegistry {
     // Prefer the true notehead-center X (excludes a left-hanging accidental that
     // would otherwise skew the bbox center and misplace the head hit-box).
     const centerX = el.headX ?? el.bbox.x + el.bbox.width / 2
-    if (el.type === 'note' && el.pitch !== undefined && el.measure !== undefined) {
-      const pitchY = this.pitchToPixelY(el.pitch, el.measure, centerX, el.headStaff ?? el.staff)
+    if (el.type === 'note' && el.staffPosition !== undefined && el.measure !== undefined) {
+      const pitchY = this.staffPositionToPixelY(el.staffPosition, el.measure, centerX, el.headStaff ?? el.staff)
       if (pitchY !== null) {
         const sp = this.getStaffGeometry(el.measure, el.headStaff ?? el.staff)?.lineSpacing ?? 10
         const halfW = sp * 1.1 // head ≈ 1.3 spaces wide + click margin

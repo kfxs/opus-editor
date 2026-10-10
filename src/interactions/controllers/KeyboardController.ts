@@ -9,15 +9,11 @@ import { continuingStamp, gracePitchesAt, typeGraceAtCaret } from '../stamps/gra
 import { getMeasureNotes } from '../../utils/musicUtils'
 import { measureCapacityFrac } from '../../utils/measureCapacity'
 import { fracToNumber, fracEq, fracFromInt, fracSub } from '../../utils/fraction'
-import { spellingToMidi, accidentalToAlter, formatPitch } from '../../utils/pitchSpelling'
+import { accidentalToAlter, formatPitch } from '../../utils/pitchSpelling'
+import { octaveAbove, octaveNearest, staffPosition } from '../../utils/pitchOrder'
 import { entryAlteration } from '../../engine/models/entryAlteration'
 import { fitRestDuration } from '../../utils/durations'
 import { staffOf, voiceOf } from '@/utils/lanes'
-
-/** Natural (no-accidental) semitone offsets for each step letter */
-const STEP_SEMITONES: Record<PitchStep, number> = {
-  C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11,
-}
 
 /** Letter → PitchStep mapping */
 const LETTER_TO_STEP: Record<string, PitchStep> = {
@@ -35,7 +31,8 @@ export class KeyboardController {
     private getPendingArticulations: () => ArticulationType[] | undefined,
     private renderScore: () => void,
     private setSelectedNote: (id: string | null) => void,
-    private getContextPitch: () => number,
+    /** The STAFF POSITION a typed letter is placed nearest to, when no note is under the caret. */
+    private getContextPosition: () => number,
     // Scroll the viewport so the just-entered/advanced note stays visible. Called AFTER
     // renderScore() so the note's fresh bbox is in the registry (mirrors navigateNote's
     // select→render→scroll order). Defaults to a no-op for headless/test construction.
@@ -62,11 +59,8 @@ export class KeyboardController {
     }
 
     // Selection mode: edit in place, then switch to keyboard mode
-    const reference = this.getContextPitch()
-    const naturalPitchClass = STEP_SEMITONES[step]
-    const k = Math.round((reference - naturalPitchClass) / 12)
-    const targetMidi = naturalPitchClass + 12 * k
-    const octave = Math.floor(targetMidi / 12) - 1
+    // ⭐ The NEAREST line, counted in staff steps — `utils/pitchOrder`.
+    const octave = octaveNearest(step, this.getContextPosition())
 
     // A measure rest's duration is the nominal 'w' (= "fill the bar"), not a real
     // chosen value, so converting it to a note must NOT inherit 'w' (a redonda
@@ -309,13 +303,11 @@ export class KeyboardController {
 
     // The octave is the nearest to the note the caret sits on — the GRACE's own pitch, after a grace.
     const reference = graceHost && cursorNote ? cursorNote : currentNote
-    const referenceMidi = (!reference.isRest && reference.step)
-      ? spellingToMidi(reference.step, reference.alter!, reference.octave!)
-      : this.getContextPitch()
-    const naturalPitchClass = STEP_SEMITONES[step]
-    const k = Math.round((referenceMidi - naturalPitchClass) / 12)
-    const targetMidi = naturalPitchClass + 12 * k
-    const octave = Math.floor(targetMidi / 12) - 1
+    // ⭐ …counted in STAFF STEPS, so the reference's own accidental plays no part (`utils/pitchOrder`).
+    const referencePosition = (!reference.isRest && reference.step)
+      ? staffPosition({ step: reference.step, octave: reference.octave! })
+      : this.getContextPosition()
+    const octave = octaveNearest(step, referencePosition)
     // ⭐ The armed accidental if there is one, else what is in force at the target — the bar's
     //   running accidental, else the KEY. A typed F in G major is an F♯ that draws no sign
     //   ({@link entryAlteration}); it used to be an F♮ wearing a natural (plan §3.1).
@@ -480,18 +472,16 @@ export class KeyboardController {
     const memberPitches = engine.fanMemberPitches(this.state.selectedNoteId)
     // ⭐ …and a GRACE is its own chord too: stack on ITS pitches, add to IT (a grace chord).
     const gracePitches = gracePitchesAt(engine, this.state.selectedNoteId)
-    const chordMidis = (gracePitches ?? memberPitches ?? (measure ? getMeasureNotes(measure, score) : [])
+    const chordPositions = (gracePitches ?? memberPitches ?? (measure ? getMeasureNotes(measure, score) : [])
       .filter(n => !n.isRest && fracEq(n.beat, note.beat) && voiceOf(n) === noteVoice && staffOf(n) === noteStaff))
-      .map(n => spellingToMidi(n.step!, n.alter!, n.octave!))
-    const baseMidi = chordMidis.length > 0
-      ? Math.max(...chordMidis)
-      : spellingToMidi(note.step!, note.alter!, note.octave!)
+      .map(n => staffPosition({ step: n.step!, octave: n.octave! }))
+    const top = chordPositions.length > 0
+      ? Math.max(...chordPositions)
+      : staffPosition({ step: note.step!, octave: note.octave! })
 
-    const naturalPitchClass = STEP_SEMITONES[step]
-    const k = Math.ceil((baseMidi - naturalPitchClass) / 12)
-    let targetMidi = naturalPitchClass + 12 * k
-    if (targetMidi === baseMidi) targetMidi += 12
-    const octave = Math.floor(targetMidi / 12) - 1
+    // ⭐ The next LINE strictly above the chord's top note, counted in staff steps (`utils/pitchOrder`):
+    //    Shift+D on a chord topped by D♭ lands on D an octave up, never on the D♭'s own line.
+    const octave = octaveAbove(step, top)
     // Same rule as plain entry — a chord note is still keyboard entry (see the note below on the
     // armed accidental), so the key must default it identically or a stacked F in G major alone
     // would come out natural.

@@ -20,7 +20,7 @@ import { rotationAbout } from '@/engine/paint/Affine'
 import { findSlot } from '@/engine/models/slotLookup'
 import { staffIndexOfId } from '@/engine/models/staffContent'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
-import { spellingToMidi } from '@/utils/pitchSpelling'
+import { pitchDirection } from '@/utils/pitchOrder'
 import {
   armedGlissandoBreakRule, glissandoFreeStroke, glissandoPieces, glissandoTextPlacement, glissandoStroke, glissandoThicknessSpaces, type GlissandoFrom, type GlissandoStroke, type GlissandoTo, type Ledger,
 } from '@/engine/engrave/marks/glissandoLine'
@@ -188,9 +188,9 @@ function drawWord(
   }
 }
 
-/** +1 when the target sounds higher, −1 lower, 0 the same. */
+/** +1 when the target is written higher, −1 lower, 0 the same — the way the line is DRAWN (`utils/pitchOrder`). */
 export function direction(a: NotePitch, b: NotePitch): -1 | 0 | 1 {
-  return Math.sign(spellingToMidi(b.step, b.alter, b.octave) - spellingToMidi(a.step, a.alter, a.octave)) as -1 | 0 | 1
+  return pitchDirection(a, b)
 }
 
 /** Does a head at `y` stand on or beyond the first ledger line? */

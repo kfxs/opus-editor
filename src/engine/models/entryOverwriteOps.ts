@@ -20,14 +20,14 @@
  *
  * Whether they should be one rule is a decision, not a tidy-up.
  */
-import type { Measure, Note, NoteParams, Tuplet } from '@/types/music'
+import type { Measure, Note, NoteParams, PitchSpelling, Tuplet } from '@/types/music'
 import { dbg } from '@/utils/debug'
 import { durationToFraction, writtenLength } from '@/utils/durations'
 import type { Fraction } from '@/utils/fraction'
 import { fracAdd, fracEq, fracGt, fracLt, fracToNumber } from '@/utils/fraction'
 import { staffOf, voiceOf } from '@/utils/lanes'
 import { tupletSlotDuration, tupletWrittenDuration } from '@/utils/musicUtils'
-import { formatPitch, spellingToMidi } from '@/utils/pitchSpelling'
+import { formatPitch, spellingEnharmonic } from '@/utils/pitchSpelling'
 
 /** What overwriting needs of the score — `ScoreModel` answers all of it. */
 export interface EntryOverwriteModel {
@@ -80,13 +80,13 @@ export function applyEntryOverwrites(
   finalBeat: Fraction,
   duration: NoteParams['duration'],
   dots: number | undefined,
-  pitchMidi: number,
+  spelling: PitchSpelling,
   tupletId: string | undefined,
   tupletAtBeat: Tuplet | undefined,
   voice: number = 0,
   staff: number = 0,
 ): void {
-  const notesToOverwrite = findNotesToOverwrite(model, measureNumber, finalBeat, duration, pitchMidi, tupletAtBeat, voice, staff)
+  const notesToOverwrite = findNotesToOverwrite(model, measureNumber, finalBeat, duration, spelling, tupletAtBeat, voice, staff)
   if (notesToOverwrite.length > 0) {
     dbg('Overwriting notes:', notesToOverwrite.map(n => {
       return `${formatPitch(n)}@beat:${fracToNumber(n.beat).toFixed(3)}`
@@ -126,7 +126,7 @@ export function findNotesToOverwrite(
   measureNumber: number,
   beat: Fraction,
   duration: NoteParams['duration'],
-  pitch: number,
+  pitch: PitchSpelling,
   tupletInfo?: Tuplet,
   voice: number = 0,
   staff: number = 0,
@@ -150,7 +150,7 @@ export function findNotesToOverwrite(
     // Notes within a tuplet should coexist and not overwrite each other based on range
     if (tupletInfo && existing.tupletId === tupletInfo.id) {
       // Only allow deletion if at the exact same beat AND same pitch (replacement)
-      if (fracEq(existing.beat, beat) && !existing.isRest && spellingToMidi(existing.step!, existing.alter!, existing.octave!) === pitch) {
+      if (fracEq(existing.beat, beat) && !existing.isRest && spellingEnharmonic({ step: existing.step!, alter: existing.alter ?? 0, octave: existing.octave! }, pitch)) {
         return true
       }
       return false  // Protect all other notes in the same tuplet
@@ -159,7 +159,7 @@ export function findNotesToOverwrite(
     // Notes at the same beat: only delete if same pitch (replacement); a different pitch
     // is a chord and is kept.
     if (fracEq(existing.beat, beat)) {
-      return !existing.isRest && spellingToMidi(existing.step!, existing.alter!, existing.octave!) === pitch
+      return !existing.isRest && spellingEnharmonic({ step: existing.step!, alter: existing.alter ?? 0, octave: existing.octave! }, pitch)
     }
 
     // Check if this note starts within the new note's time range

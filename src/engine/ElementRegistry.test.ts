@@ -43,12 +43,12 @@ describe('ElementRegistry selection hit-detection', () => {
     it('selects a high note drawn above its staff (its head is outside the staff band)', () => {
       // C6 (MIDI 84) in measure 1 renders at y=20 — above the top staff line (40).
       registry.add({
-        type: 'note', id: 'high', measure: 1, beat: 0, pitch: 84,
+        type: 'note', id: 'high', measure: 1, beat: 0, staffPosition: 42 /* C6 */,
         bbox: { x: 90, y: 20, width: 20, height: 60 },
       })
       // A note one system down sharing the same X column — must not win.
       registry.add({
-        type: 'note', id: 'lower-system', measure: 2, beat: 0, pitch: 67,
+        type: 'note', id: 'lower-system', measure: 2, beat: 0, staffPosition: 32 /* G4 */,
         bbox: { x: 90, y: 200, width: 20, height: 40 },
       })
 
@@ -59,8 +59,8 @@ describe('ElementRegistry selection hit-detection', () => {
     it('disambiguates chord notes (shared bbox) by pitch-derived Y', () => {
       // Two pitches in one slot share the same staveNote bbox.
       const sharedBbox = { x: 190, y: 50, width: 20, height: 40 }
-      registry.add({ type: 'note', id: 'E4', measure: 1, beat: 0, pitch: 64, bbox: sharedBbox }) // y≈80
-      registry.add({ type: 'note', id: 'C5', measure: 1, beat: 0, pitch: 72, bbox: sharedBbox }) // y≈55
+      registry.add({ type: 'note', id: 'E4', measure: 1, beat: 0, staffPosition: 30 /* E4 */, bbox: sharedBbox }) // y≈80
+      registry.add({ type: 'note', id: 'C5', measure: 1, beat: 0, staffPosition: 35 /* C5 */, bbox: sharedBbox }) // y≈55
 
       expect(registry.findClosestNoteOrRest(200, 80)?.id).toBe('E4')
       expect(registry.findClosestNoteOrRest(200, 55)?.id).toBe('C5')
@@ -68,7 +68,7 @@ describe('ElementRegistry selection hit-detection', () => {
 
     it('returns null when no element is within the X tolerance', () => {
       registry.add({
-        type: 'note', id: 'n', measure: 1, beat: 0, pitch: 67,
+        type: 'note', id: 'n', measure: 1, beat: 0, staffPosition: 32 /* G4 */,
         bbox: { x: 90, y: 60, width: 20, height: 40 },
       })
       expect(registry.findClosestNoteOrRest(300, 70)).toBeNull()
@@ -165,10 +165,10 @@ describe('ElementRegistry multi-staff geometry', () => {
       expect(bassPitch).toEqual({ step: 'B', alter: 0, octave: 2 })
     })
 
-    it('pitchToPixelY uses the requested staff geometry', () => {
+    it('staffPositionToPixelY uses the requested staff geometry', () => {
       // Treble G4 (67) → staff 0 line 3 = y70; bass F3 (53) → staff 1 line 1 = y200.
-      expect(registry.pitchToPixelY(67, 1, undefined, 0)).toBe(70)
-      expect(registry.pitchToPixelY(53, 1, undefined, 1)).toBe(200)
+      expect(registry.staffPositionToPixelY(32 /* G4 */, 1, undefined, 0)).toBe(70)
+      expect(registry.staffPositionToPixelY(24 /* F3 */, 1, undefined, 1)).toBe(200)
     })
   })
 
@@ -176,7 +176,7 @@ describe('ElementRegistry multi-staff geometry', () => {
     // A bass-clef note on staff 1: F3 (53) draws at staff-1 line 1 (y=200), NOT where
     // staff-0 treble geometry would put it. A click there must select it.
     registry.add({
-      type: 'note', id: 'bassF3', measure: 1, staff: 1, beat: 0, pitch: 53,
+      type: 'note', id: 'bassF3', measure: 1, staff: 1, beat: 0, staffPosition: 24 /* F3 */,
       bbox: { x: 90, y: 190, width: 20, height: 40 },
     })
     expect(registry.findClosestNoteOrRest(100, 200)?.id).toBe('bassF3')
@@ -241,7 +241,7 @@ describe('ElementRegistry §6a-ii glyph-height tripwire', () => {
 
   it('exempts region/semantic types (a note keeps a tall semantic head box)', () => {
     registry.add({
-      type: 'note', id: 'note-with-dyn', measure: 1, staff: 0, beat: 0, pitch: 67,
+      type: 'note', id: 'note-with-dyn', measure: 1, staff: 0, beat: 0, staffPosition: 32 /* G4 */,
       bbox: { x: 90, y: 20, width: 20, height: 120 }, // 12 staff-spaces, but 'note' is exempt
     })
     expect(fired()).toBe(false)
@@ -279,7 +279,7 @@ describe('ElementRegistry stem hit-detection', () => {
   /** A stem-up G4 at x=106: head on the line at y=70, tip at y=35. */
   const addStemUpNote = (id: string, headX: number) => {
     registry.add({
-      type: 'note', id, measure: 1, staff: 0, beat: 0, pitch: 67,
+      type: 'note', id, measure: 1, staff: 0, beat: 0, staffPosition: 32 /* G4 */,
       bbox: { x: headX - 10, y: 35, width: 20, height: 40 }, headX,
     })
     registry.add({
@@ -315,7 +315,7 @@ describe('ElementRegistry stem hit-detection', () => {
     addStemUpNote('n1', 100)
     // A high neighbour whose HEAD (y=20) is nearer to (107,40) than n1's head (y=70) is.
     registry.add({
-      type: 'note', id: 'high', measure: 1, staff: 0, beat: 1, pitch: 84,
+      type: 'note', id: 'high', measure: 1, staff: 0, beat: 1, staffPosition: 42 /* C6 */,
       bbox: { x: 110, y: 20, width: 20, height: 45 }, headX: 120,
     })
     expect(registry.findClosestNoteOrRest(107, 40)?.id).toBe('high') // nearest is the WRONG answer…
@@ -354,7 +354,7 @@ describe('ElementRegistry.staffRuns — the run’s own ink', () => {
     registry.setStaffGeometry(geometry(1, 1, 240))
     // A left-hand note whose box (stem included — a registered note carries the whole StaveNote's)
     // reaches 30 px above its own top line.
-    registry.add({ type: 'note', id: 'lh', measure: 1, staff: 1, beat: 0, pitch: 48,
+    registry.add({ type: 'note', id: 'lh', measure: 1, staff: 1, beat: 0, staffPosition: 21 /* C3 */,
       bbox: { x: 100, y: 210, width: 10, height: 60 } })
     const lower = registry.staffRuns().find(r => r.staff === 1)!
     expect(lower.inkTop, 'up into the white space').toBe(210)
@@ -374,7 +374,7 @@ describe('ElementRegistry.staffRuns — the run’s own ink', () => {
     const registry = new ElementRegistry()
     registry.setStaffGeometry(geometry(1, 0, 40))
     registry.setStaffGeometry(geometry(2, 0, 240))
-    registry.add({ type: 'note', id: 'n2', measure: 2, staff: 0, beat: 0, pitch: 72,
+    registry.add({ type: 'note', id: 'n2', measure: 2, staff: 0, beat: 0, staffPosition: 35 /* C5 */,
       bbox: { x: 100, y: 200, width: 10, height: 60 } })
     const [first, second] = registry.staffRuns()
     expect([first.inkTop, first.inkBottom], 'bar 1 drew no notes').toEqual([40, 80])

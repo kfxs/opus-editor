@@ -393,7 +393,7 @@ export function createEditorApp(host: HTMLElement): EditorApp {
     () => pendingArticulations(state),
     () => renderer.renderScore(),
     (id) => selection.moveCaretTo(id),
-    () => selection.getContextPitch(),
+    () => selection.getContextPosition(),
     () => selection.scrollSelectedNoteIntoView(),
   )
 

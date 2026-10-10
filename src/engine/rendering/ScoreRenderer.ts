@@ -56,7 +56,7 @@ import { getMeterInfo } from '@/utils/meter'
 import { planCrossBarBeams, laneKey, type CrossBarBeamPlan, type CrossBarJoin, type CrossBarFanJoin, type CrossBarSide, type LaneBeamPlan } from './beams/CrossBarBeams'
 import { ElementRegistry, offsetStaffGeometry, type ClefSegment, type ElementInfo, type StaffGeometry } from '@/engine/ElementRegistry'
 import { measureShapeKey } from './MeasureRedrawKey'
-import { spellingToMidi } from '@/utils/pitchSpelling'
+import { lowToHigh, staffPosition } from '@/utils/pitchOrder'
 import type { FanMemberAnchor, RenderPass } from './RenderPass'
 import { renderTies } from './curves/TieRenderer'
 import { renderNoteLines } from './marks/lines/noteLinePasses'
@@ -2850,10 +2850,8 @@ export class ScoreRenderer {
         try {
           const box = staveNote.getBoundingBox()
           if (box) {
-            // Sort pitches low→high by MIDI to match VexFlow's internal key ordering
-            const sortedPitches = [...slot.notes].sort(
-              (a, b) => spellingToMidi(a.step, a.alter, a.octave) - spellingToMidi(b.step, b.alter, b.octave)
-            )
+            // Sort pitches low→high by LINE, to match the note's own key order (`NoteBuilder`)
+            const sortedPitches = lowToHigh(slot.notes)
 
             // True notehead-center X (excludes accidentals/dots, unlike the full bbox
             // whose center skews left when an accidental hangs off the head). Used to
@@ -2875,15 +2873,13 @@ export class ScoreRenderer {
 
             for (let keyIndex = 0; keyIndex < sortedPitches.length; keyIndex++) {
               const pitch = sortedPitches[keyIndex]
-              const pitchMidi = spellingToMidi(pitch.step, pitch.alter, pitch.octave)
-
               this.elementRegistry.add({
                 type: 'note',
                 id: pitch.id,
                 measure: measure.number,
                 staff: staffIndex,
                 beat: fracToNumber(slot.beat),
-                pitch: pitchMidi,
+                staffPosition: staffPosition(pitch),
                 duration: slot.duration,
                 tupletId: slot.tupletId,
                 bbox: { x: box.x, y: box.y, width: box.w, height: box.h },
@@ -2967,7 +2963,7 @@ export class ScoreRenderer {
                             measure: measure.number,
                             staff: staffIndex,
                             beat: fracToNumber(slot.beat),
-                            pitch: pitchMidi,
+                            staffPosition: staffPosition(pitch),
                             accidentalType: accStr,
                             bbox: accBox,
                           })

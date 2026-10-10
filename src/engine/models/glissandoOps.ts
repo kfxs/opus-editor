@@ -13,14 +13,14 @@
  * module gives it the two halves ({@link captureGlissandi} / {@link restoreGlissandi}) so the
  * glissando's own rule — the anchor is re-found or the line goes — stays here.
  */
-import type { Chord, Glissando, NotePitch, Score } from '@/types/music'
+import type { Chord, Glissando, Score } from '@/types/music'
 import { v4 as uuidv4 } from 'uuid'
 import { findSlot } from './slotLookup'
 import { clearEngravingOverride } from './overrideOps'
 import { staffIndexOfId } from './staffContent'
 import { voiceOf } from '@/utils/lanes'
 import { fracLt } from '@/utils/fraction'
-import { spellingToMidi } from '@/utils/pitchSpelling'
+import { lowToHigh } from '@/utils/pitchOrder'
 import { dbg } from '@/utils/debug'
 
 /** All glissandi (the live array; empty if none). */
@@ -262,7 +262,3 @@ function nextLaneChord(score: Score, at: Anchor): Chord | null {
   return null
 }
 
-/** A chord's heads, lowest sounding first. */
-function lowToHigh(notes: readonly NotePitch[]): NotePitch[] {
-  return [...notes].sort((a, b) => spellingToMidi(a.step, a.alter, a.octave) - spellingToMidi(b.step, b.alter, b.octave))
-}

@@ -368,7 +368,7 @@ export type BeamMode = 'auto' | 'single' | 'begin' | 'continue' | 'end'
  *
  * Pitch is stored as step + alter + octave (PitchSpelling), NOT as a raw MIDI integer.
  * These fields are undefined for rests (isRest === true).
- * Use spellingToMidi(step!, alter!, octave!) to derive the MIDI value when needed.
+ * Which of two is higher: `utils/pitchOrder` (as WRITTEN). MIDI is playback's alone.
  */
 export interface Note {
   /** Unique identifier for the note */
@@ -485,7 +485,7 @@ export interface Note {
  * NOT as a raw MIDI integer. This makes enharmonic spelling explicit:
  *   C#4 = { step:'C', alter:1,  octave:4 }
  *   Db4 = { step:'D', alter:-1, octave:4 }
- * Use spellingToMidi() from pitchSpelling.ts to derive the MIDI value.
+ * Which of two is higher: `utils/pitchOrder` (as WRITTEN). MIDI is playback's alone.
  */
 export interface NotePitch {
   id: string

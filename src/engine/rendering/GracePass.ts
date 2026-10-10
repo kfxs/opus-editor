@@ -58,7 +58,8 @@ import { beforeSideLayout } from '@/engine/layout/bracketedRoom'
 import { drawBracketedGraces } from './BracketedGracePass'
 import { drawEnclosures, registerEnclosure, stampEnclosure } from './EnclosurePass'
 import { staffLineForSpelling } from '@/utils/clefUtils'
-import { spellingDiatonicPos, spellingToMidi, spellingToNoteKey } from '@/utils/pitchSpelling'
+import { spellingDiatonicPos, spellingToNoteKey } from '@/utils/pitchSpelling'
+import { staffPosition } from '@/utils/pitchOrder'
 import { C_MAJOR } from '@/utils/keySignature'
 import { noteOffsetOverrideOf } from '@/engine/models/engravingOverrides'
 
@@ -215,7 +216,7 @@ function drawGraceGroup(
             id: pitch.id,
             measure: measureNumber,
             staff: staffIndex,
-            pitch: spellingToMidi(pitch.step, pitch.alter, pitch.octave),
+            staffPosition: staffPosition(pitch),
             duration: note.duration,
             headX: x + headWidthPx / 2,
             bbox: { x, y: ys[h] - (space * k) / 2, width: headWidthPx, height: space * k },

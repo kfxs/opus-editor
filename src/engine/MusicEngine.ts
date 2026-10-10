@@ -32,7 +32,7 @@ import { PlaybackEngine, type PlaybackCallbacks } from './audio/PlaybackEngine'
 import { UndoRedoManager } from './UndoRedoManager'
 import { NoteEntryCoordinator, INVALID_NOTE_ENTRY_TYPES } from './NoteEntryCoordinator'
 import { getStaves, keyStaffId, staffIdAtIndex } from './models/staffContent'
-import { midiToNoteName, beatToFrac, measureAccidentalNotes, deriveTupletM, tupletMarkRuns } from '@/utils/musicUtils'
+import { beatToFrac, measureAccidentalNotes, deriveTupletM, tupletMarkRuns } from '@/utils/musicUtils'
 import { measureCapacityQuarters } from '@/utils/measureCapacity'
 import { fracToNumber } from '@/utils/fraction'
 import { quantizeBeat } from '@/utils/durations'
@@ -60,7 +60,7 @@ import { cueCommands } from './commands/cueCommands'
 import { silentBarCommands } from './commands/silentBarCommands'
 import { enclosureProblems } from './models/enclosureOps'
 import { cueProblems } from './models/cueOps'
-import { spellingToMidi, accidentalToAlter } from '@/utils/pitchSpelling'
+import { accidentalToAlter, formatPitch } from '@/utils/pitchSpelling'
 import { alterInForceAt } from '@/utils/accidentalState'
 import type { BeamRole } from '@/utils/beaming'
 import { fifthsOf, keyAt } from '@/utils/keySignature'
@@ -1402,7 +1402,7 @@ export class MusicEngine {
    */
   addChordNote(params: NoteParams): Note {
     const note = this.scoreModel.addNote(params)
-    const noteName = params.step ? midiToNoteName(spellingToMidi(params.step, params.alter ?? 0, params.octave!)) : 'rest'
+    const noteName = params.step ? formatPitch(params) : 'rest'
     this.mutate(`Add chord note ${noteName}`)
     return note
   }
@@ -1417,7 +1417,7 @@ export class MusicEngine {
   addFanMemberPitch(noteId: string, spelling: { step: PitchStep; alter: PitchAlter; octave: number }): Note | null {
     const note = this.scoreModel.addFanMemberPitch(noteId, spelling)
     if (!note) return null
-    this.mutate(`Add chord note ${midiToNoteName(spellingToMidi(spelling.step, spelling.alter, spelling.octave))}`)
+    this.mutate(`Add chord note ${formatPitch(spelling)}`)
     return note
   }
 
@@ -2603,7 +2603,7 @@ export class MusicEngine {
     if (!restId) return null
 
     const label = note?.step
-      ? `Convert ${midiToNoteName(spellingToMidi(note.step, note.alter ?? 0, note.octave!))} to rest`
+      ? `Convert ${formatPitch(note)} to rest`
       : 'Convert to rest'
     this.mutate(label)
     return this.scoreModel.getNote(restId) ?? null
@@ -2620,7 +2620,7 @@ export class MusicEngine {
     if (!note) return false
 
     const description = !note.isRest && note.step
-      ? `Delete ${midiToNoteName(spellingToMidi(note.step, note.alter ?? 0, note.octave!))}`
+      ? `Delete ${formatPitch(note)}`
       : 'Delete rest'
 
     // What a delete IS (a fanned member, a chord head, a single note, a rest) and the repair each

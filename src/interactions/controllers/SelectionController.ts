@@ -11,7 +11,8 @@ import { rangeStep } from '../walks/rangeStep'
 import { isMarkKind, marksInBox, type MarkKind } from '../clipboard/enclosedMarks'
 import { fracCreate, fracEq, fracCompare, fracToNumber } from '../../utils/fraction'
 import { getMeasureNotes, measureAccidentalNotes } from '../../utils/musicUtils'
-import { spellingToMidi, spellingDiatonicPos } from '../../utils/pitchSpelling'
+import { spellingDiatonicPos } from '../../utils/pitchSpelling'
+import { comparePitch, MIDDLE_C_POSITION, staffPosition } from '../../utils/pitchOrder'
 import { restShiftOverrideOf, restPositionKey } from '../../engine/models/engravingOverrides'
 import { keyStaffId, staffSlots } from '../../engine/models/staffContent'
 import { keyAt } from '../../utils/keySignature'
@@ -608,7 +609,7 @@ export class SelectionController {
     // silently does nothing (his report). Same rule as `Shift`+letter, which stacks onto the member.
     const chordNotes = (engine.fanMemberPitches(this.state.selectedNoteId) ?? getMeasureNotes(measure, score)
       .filter(n => !n.isRest && fracEq(n.beat, note.beat) && voiceOf(n) === noteVoice && staffOf(n) === noteStaff))
-      .sort((a, b) => spellingToMidi(a.step!, a.alter!, a.octave!) - spellingToMidi(b.step!, b.alter!, b.octave!))
+      .sort((a, b) => comparePitch({ step: a.step!, alter: a.alter, octave: a.octave! }, { step: b.step!, alter: b.alter, octave: b.octave! }))
 
     if (chordNotes.length <= 1) return
 
@@ -778,12 +779,13 @@ export class SelectionController {
   }
 
   /**
-   * Get a reference pitch (MIDI) from neighboring notes for octave context.
-   * Returns average of nearest prev/next non-rest notes, or 60 if none exist.
+   * The STAFF POSITION a typed letter is placed nearest to, from the neighbouring notes: the average of
+   * the nearest prev/next non-rest notes, or middle C if none exist. Counted in staff steps, like the
+   * letter it places (`utils/pitchOrder`).
    */
-  getContextPitch(): number {
+  getContextPosition(): number {
     const engine = this.getEngine()
-    if (!engine || !this.state.selectedNoteId) return 60
+    if (!engine || !this.state.selectedNoteId) return MIDDLE_C_POSITION
 
     const score = engine.getScore()
     // The octave reference must come from the SELECTED note's OWN voice — scanning all
@@ -803,24 +805,24 @@ export class SelectionController {
       )
 
     const currentIndex = allNotes.findIndex(n => n.id === this.state.selectedNoteId)
-    if (currentIndex === -1) return 60
+    if (currentIndex === -1) return MIDDLE_C_POSITION
 
-    let prevMidi: number | null = null
-    let nextMidi: number | null = null
+    let prev: number | null = null
+    let next: number | null = null
 
     for (let i = currentIndex - 1; i >= 0; i--) {
       const n = allNotes[i]
-      if (!n.isRest && n.step) { prevMidi = spellingToMidi(n.step, n.alter!, n.octave!); break }
+      if (!n.isRest && n.step) { prev = staffPosition({ step: n.step, octave: n.octave! }); break }
     }
     for (let i = currentIndex + 1; i < allNotes.length; i++) {
       const n = allNotes[i]
-      if (!n.isRest && n.step) { nextMidi = spellingToMidi(n.step, n.alter!, n.octave!); break }
+      if (!n.isRest && n.step) { next = staffPosition({ step: n.step, octave: n.octave! }); break }
     }
 
-    if (prevMidi !== null && nextMidi !== null) return Math.round((prevMidi + nextMidi) / 2)
-    if (prevMidi !== null) return prevMidi
-    if (nextMidi !== null) return nextMidi
-    return 60
+    if (prev !== null && next !== null) return Math.round((prev + next) / 2)
+    if (prev !== null) return prev
+    if (next !== null) return next
+    return MIDDLE_C_POSITION
   }
 
   /**

@@ -14,7 +14,7 @@ import type { BeamMode, Chord, GraceGroup, GraceNote, GraceSide, NoteDuration, N
 import { dbg } from '@/utils/debug'
 import { GRACE_SIDES, graceGroupOf, graceKey } from '@/utils/graceNotes'
 import { chordStoredPitches } from '@/utils/fannedBeam'
-import { spellingToMidi } from '@/utils/pitchSpelling'
+import { spellingEnharmonic } from '@/utils/pitchSpelling'
 import { maxDots } from '@/utils/durations'
 import { findSlot, type FoundSlot } from './slotLookup'
 import { clearEngravingOverride, moveNoteOffsetKey } from './overrideOps'
@@ -104,8 +104,7 @@ export function addGracePitch(
   const found = findSlot(score, gracePitchId, { graceNotes: true })
   if (!found?.grace) return null
   const note = found.grace.note
-  const midi = spellingToMidi(spelling.step, spelling.alter, spelling.octave)
-  if (note.pitches.some(p => spellingToMidi(p.step, p.alter, p.octave) === midi)) {
+  if (note.pitches.some(p => spellingEnharmonic(p, spelling))) {
     dbg(`[graceOps.addGracePitch] refused: the grace already sounds ${spelling.step}${spelling.octave}`)
     return null
   }

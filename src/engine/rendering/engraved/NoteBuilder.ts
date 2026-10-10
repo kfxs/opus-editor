@@ -16,7 +16,8 @@ import { restDrawnDuration } from '@/engine/layout/restVoicePlacement'
 import { pairRoleAt } from '@/utils/tremoloPair'
 import { displayedAccidentals } from '@/utils/accidentalState'
 import { C_MAJOR } from '@/utils/keySignature'
-import { spellingToMidi, spellingToNoteKey, spellingDiatonicPos } from '@/utils/pitchSpelling'
+import { spellingToNoteKey, spellingDiatonicPos } from '@/utils/pitchSpelling'
+import { lowToHigh } from '@/utils/pitchOrder'
 import { restHangsOnLine, restStaffLine } from '@/engine/layout/restPlacement'
 
 /**
@@ -191,10 +192,8 @@ export function createStaveNotesFromSlots(
       continue
     }
 
-    // Sort pitches low→high by MIDI value (VexFlow requires ascending key order for chords)
-    const sortedPitches = [...slot.notes].sort(
-      (a, b) => spellingToMidi(a.step, a.alter, a.octave) - spellingToMidi(b.step, b.alter, b.octave)
-    )
+    // Sort pitches low→high by LINE (`EngravedNote` takes its keys in ascending order) — `utils/pitchOrder`
+    const sortedPitches = lowToHigh(slot.notes)
     // Build VexFlow key strings directly from spelling — no MIDI lookup table needed
     const keys = sortedPitches.map(p => spellingToNoteKey(p.step, p.alter, p.octave))
 

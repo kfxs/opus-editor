@@ -320,6 +320,8 @@ src/
                     #   import from `@/types/music`; ⛔ a new type goes in its chapter, not the barrel
   utils/            # Pure helpers — fraction, meter, rebar, restFill,
                     #   beaming, clefUtils, pitchSpelling, dynamics, durations,
+                    #   alterationSigns (⭐ THE SIGN TABLE — id, SMuFL glyph, rank; a new sign is a ROW),
+                    #   pitchOrder (⭐ which pitch is higher, AS WRITTEN — line, then rank; ⛔ never MIDI),
                     #   lanes (voiceOf/staffOf — absent means the first one),
                     #   measureCapacity (how much fits in a bar)
 ```
@@ -340,8 +342,11 @@ declares the vocabulary and the editor translates into it — `engine/rendering/
 ## Core Types (src/types/music.ts)
 
 Pitch is stored as **spelling** (`step` + `alter` + `octave`, MusicXML/music21
-convention), **not** as a raw MIDI integer — use `spellingToMidi()` from
-`utils/pitchSpelling.ts` to derive MIDI. Rests leave the pitch fields undefined.
+convention), **not** as a raw MIDI integer. Rests leave the pitch fields undefined.
+⭐ Which pitch is HIGHER is asked of `utils/pitchOrder` (the staff's order — line, then the sign's rank
+in `utils/alterationSigns`); ⛔ never by converting to MIDI, which only playback (`engine/audio/`) needs.
+A typed letter's octave is the nearest LINE in staff steps (`pitchOrder.octaveNearest` / `octaveAbove`).
+🚧 The stored `alter` number becomes a LIST of signs (docs/plans/alteration-signs-plan.md — M0 built).
 `beat` is an exact `Fraction` (see the Fraction/float invariant in ARCHITECTURE.md).
 
 ```typescript

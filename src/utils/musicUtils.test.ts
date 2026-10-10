@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { alterInForceAt } from './accidentalState'
 import { fracToNumber } from './fraction'
 import type { FanMemberChord, NotePitch, PitchAlter, PitchStep, Score } from '@/types/music'
-import { durationToBeats, midiToNoteName, calculateTotalDuration, tupletMarkText, tupletMarkRuns, deriveTupletM, tupletBracketed, measureAccidentalNotes, measureFanMemberNotes, measureSelectableNotes } from './musicUtils'
+import { durationToBeats, calculateTotalDuration, tupletMarkText, tupletMarkRuns, deriveTupletM, tupletBracketed, measureAccidentalNotes, measureFanMemberNotes, measureSelectableNotes } from './musicUtils'
 import { buildBeatMap, buildVoiceNavBeatMap } from './beatMap'
 import { C_MAJOR } from './keySignature'
 import { fracCreate } from './fraction'
@@ -224,29 +224,6 @@ describe('musicUtils', () => {
       expect(tupletBracketed({ bracket: 'never' }, false)).toBe(false)
       // …and whatever the side: the user's `never` keeps a flipped number bare
       expect(tupletBracketed({ bracket: 'never' }, true, true)).toBe(false)
-    })
-  })
-
-  describe('midiToNoteName', () => {
-    it('should convert MIDI 60 to C4', () => {
-      expect(midiToNoteName(60)).toBe('C4')
-    })
-
-    it('should convert MIDI 69 to A4', () => {
-      expect(midiToNoteName(69)).toBe('A4')
-    })
-
-    it('should convert MIDI 21 to A0', () => {
-      expect(midiToNoteName(21)).toBe('A0')
-    })
-
-    it('should convert MIDI 108 to C8', () => {
-      expect(midiToNoteName(108)).toBe('C8')
-    })
-
-    it('should handle sharps correctly', () => {
-      expect(midiToNoteName(61)).toBe('C#4')
-      expect(midiToNoteName(66)).toBe('F#4')
     })
   })
 

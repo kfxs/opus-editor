@@ -27,16 +27,14 @@
  */
 import type { ElementRegistry } from '@/engine/ElementRegistry'
 import type { ChordRest } from '@/types/music'
-import { spellingToMidi } from '@/utils/pitchSpelling'
+import { lowToHigh } from '@/utils/pitchOrder'
 import type { EngravedBeam } from '../engraved/EngravedBeam'
 import type { EngravedNote } from '../engraved/EngravedNote'
 
 /** The id a chord is selected by as a beam's ANCHOR — its lowest pitch (the stem's anchor); a rest has none. */
 export function beamAnchorId(slot: ChordRest): string | undefined {
   if (slot.type !== 'chord') return undefined
-  const lowest = [...slot.notes].sort(
-    (a, b) => spellingToMidi(a.step, a.alter, a.octave) - spellingToMidi(b.step, b.alter, b.octave),
-  )[0]
+  const lowest = lowToHigh(slot.notes)[0]
   return lowest?.id
 }
 

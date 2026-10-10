@@ -15,7 +15,7 @@
 import { v4 as uuidv4 } from 'uuid'
 import type { BracketedGrace, ChordRest, NoteDuration, NotePitch, PitchSpelling, Score } from '@/types/music'
 import { dbg } from '@/utils/debug'
-import { spellingToMidi } from '@/utils/pitchSpelling'
+import { spellingEnharmonic } from '@/utils/pitchSpelling'
 import { chordStoredPitches } from '@/utils/fannedBeam'
 import { GRACE_SIDES, graceGroupOf } from '@/utils/graceNotes'
 import { BRACKETED_SIDES, bracketedKey, bracketedOf, type BracketedSide, type BracketedTarget } from '@/utils/bracketedGraces'
@@ -140,8 +140,7 @@ export function addBracketed(
 export function addBracketedPitch(score: Score, bracketedPitchId: string, spelling: BracketedSpelling): NotePitch | null {
   const found = findBracketed(score, bracketedPitchId)
   if (!found) return null
-  const midi = spellingToMidi(spelling.step, spelling.alter, spelling.octave)
-  if (found.bracketed.pitches.some(p => spellingToMidi(p.step, p.alter, p.octave) === midi)) {
+  if (found.bracketed.pitches.some(p => spellingEnharmonic(p, spelling))) {
     dbg(`[bracketedGraceOps.addBracketedPitch] refused: it already shows ${spelling.step}${spelling.octave}`)
     return null
   }

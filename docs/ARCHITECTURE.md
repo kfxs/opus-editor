@@ -172,7 +172,8 @@ A map of the codebase for humans. For *what to build next* and how each feature 
 │  utils/  pure functions: fraction, meter, rebar, restFill,    │  Pure
 │          beaming, fannedBeam, beatMap, clefUtils, durations,   │  helpers
 │          dynamics, lanes, musicUtils, pitchSpelling, slurs,    │
-│          artics                                                │
+│          artics, alterationSigns (the sign table),             │
+│          pitchOrder (which pitch is higher — as WRITTEN)       │
 │  types/  the shared interfaces — music.ts is the BARREL        │
 │  shortcuts/  declarative keybinding table + manager            │
 └─────────────────────────────────────────────────────────────┘

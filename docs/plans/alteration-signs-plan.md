@@ -54,6 +54,14 @@ layer, which is the only place left that needs it.
 will measure it in staff steps, and any case where the answer differs is listed for him first.
 ✔ Otherwise the same answers as before for every pitch we can store; unit suite + browser geometry
 suite unchanged.
+✅ **Built 2026-10-10.** His call: a typed letter's octave is the NEAREST LINE in staff steps
+(`pitchOrder.octaveNearest` — B4 then F is F4, never a tie), and Shift+letter the next line strictly
+above the chord's top (`octaveAbove` — Shift+D on D♭4 is D5). MuseScore does the same
+(`noteinput.cpp`, accidentals stripped); Sibelius's manuals do not say — UNKNOWN. Two bugs fell out:
+the hit-test filed a head as a MIDI number and put every black key on the line below (a D♭ was
+clicked on C's line) — the registry now holds `staffPosition`; and undo labels named D♭ "C#4".
+⚠️ The five *"same pitch?"* sites (M1's) still compare sound, through ONE function,
+`spellingEnharmonic` — so `spellingToMidi` leaves the core with M1, not M0.
 
 **M1 — C♯ and D♭ are two pitches (the bug, its own commit).** The *"is this pitch already here"*
 sites — mouse entry, grace pitches, bracketed graces, entry overwrite — ask `samePitch`, which
@@ -144,12 +152,12 @@ instrument detunes. WebAudioFont's player should take it — read in its source,
 **Not wired:** `.` (suppress cautionary accidental) — we draw no automatic cautionary accidentals, so
 it has nothing to act on. `-` is empty in Sibelius too.
 
-## 5. Three defaults I chose — say if you want otherwise
+## 5. Three defaults I chose — say if you want otherwise (1 decided)
 
-1. **A sign's name in the file is its SMuFL glyph name** (`accidentalSharp`,
-   `accidentalQuarterToneSharpStein`). It is the industry's own name for the sign as DRAWN, which is
-   what you decided a note stores, and it means we never invent names for the 488 signs that exist.
-   The cost is longer text in the JSON.
+1. ✅ **Decided 2026-10-10: a sign's id is its SMuFL glyph name WITHOUT the family prefix** —
+   `sharp`, `doubleFlat`, `quarterToneSharpStein` (`accidental…` and Sagittal's `acc…` dropped: the
+   field is already `alteration`). The full SMuFL name is the row's `glyph` column, so the drawing
+   never rebuilds a glyph name from an id. We still never invent names for the 488 signs that exist.
 2. **K3's second press** takes the brackets off and, if the first press had made a hidden accidental
    appear, hides it again — so the key is a clean toggle. What Sibelius does there is UNKNOWN.
 3. **`Enter`, `0`, `4`, `1` do nothing with no note selected.** Whether Sibelius arms them is UNKNOWN.

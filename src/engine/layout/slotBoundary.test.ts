@@ -21,7 +21,7 @@ const HALF_HEAD = (noteheadInk('q') * geometry.lineSpacing) / 2
 const WRONG_BOX = { x: 0, y: 40, width: 1, height: 1 }
 
 const note = (id: string, beat: number, headX: number): ElementInfo => ({
-  type: 'note', id, measure: 1, staff: 0, beat, pitch: 67, duration: 'q', headX, bbox: WRONG_BOX,
+  type: 'note', id, measure: 1, staff: 0, beat, staffPosition: 32 /* G4 */, duration: 'q', headX, bbox: WRONG_BOX,
 })
 
 describe('nearestSlotBoundaryBeat', () => {
@@ -46,7 +46,7 @@ describe('nearestSlotBoundaryBeat', () => {
     // x = 63: A's head edge is ≈18.9 away; B's head edge ≈41.1 — but B's sharp starts at 80, 17 away.
     expect(nearestSlotBoundaryBeat(registry, 63, 1), 'head-only edges would pick beat 0').toBe(0)
     registry.add({
-      type: 'accidental', noteId: 'b', measure: 1, staff: 0, beat: 1, pitch: 67, accidentalType: '#',
+      type: 'accidental', noteId: 'b', measure: 1, staff: 0, beat: 1, staffPosition: 32 /* G4 */, accidentalType: '#',
       bbox: { x: 80, y: 45, width: 10, height: 28 },
     })
     expect(nearestSlotBoundaryBeat(registry, 63, 1)).toBe(1)

@@ -21,7 +21,7 @@ import { EngravedAccidental } from './engraved/EngravedAccidental'
 import { maybeStaveOf, staveFrame } from './staff/staveFrame'
 import { openMemberGroup } from './memberGroup'
 import { noteOffsetOverrideOf } from '@/engine/models/engravingOverrides'
-import { spellingToMidi } from '@/utils/pitchSpelling'
+import { staffPosition } from '@/utils/pitchOrder'
 import { scaling } from '@/engine/paint/Affine'
 import { noteLineY, type StaffFrame } from '@/engine/engrave/staff/staffFrame'
 import { headGlyph } from '@/engine/engrave/notes/keyLines'
@@ -127,7 +127,7 @@ function drawOne(
         id: head.pitch.id,
         measure: measureNumber,
         staff: staffIndex,
-        pitch: spellingToMidi(head.pitch.step, head.pitch.alter, head.pitch.octave),
+        staffPosition: staffPosition(head.pitch),
         duration: place.bracketed.duration,
         headX: left + width / 2,
         bbox: { x: left, y: y - (space * k) / 2, width, height: space * k },

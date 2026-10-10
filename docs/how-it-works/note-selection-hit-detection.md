@@ -1,5 +1,9 @@
 # Note Selection Hit-Detection — Issue & Robust Fix Proposal
 
+> ⭐ **2026-10-10 (alteration-signs M0):** a head is registered with its `staffPosition` (its LINE,
+> `utils/pitchOrder`), no longer a MIDI `pitch`. The old field had the registry work the line back out of
+> a MIDI number, treating every black key as the white key below — a D♭ was hit-tested on C's line.
+
 **Status:** Phase 1 (selection) and Phase 2 (highlight bleed) both implemented 2026-06-01.
 **Date:** 2026-06-01
 
@@ -43,7 +47,7 @@ nearest pass. The real defect was simply the `el.measure === measure` filter.
 Implemented (commit pending):
 - `ElementRegistry.findClosestNoteOrRest(x, y, xTolerance=30)` — **measure param removed.**
   Scans all note/rest elements, computes each one's true rendered Y via clef-aware
-  `pitchToPixelY(el.pitch, el.measure, centerX)`, returns nearest within X tolerance.
+  `staffPositionToPixelY(el.staffPosition, el.measure, centerX)`, returns nearest within X tolerance.
   Other systems are excluded naturally (their pixel Y is a system-height away → large
   Euclidean distance). Chord heads (shared bbox) are disambiguated by pitch-Y, as before.
 - `ElementRegistry.getTupletAt(x, y)` — **measure param removed** (same latent bug:
@@ -108,7 +112,7 @@ Y lands in the band of the line *above* (or the inter-line gap). Then:
 3. Nearest match is far away → `distance < 30` fails → "too far from element."
 
 The highlight bleed is the same root issue one notch less severe: the highlight
-box is built from a **recomputed** pitch‑Y (`pitchToPixelY`) and a global SVG scan,
+box is built from a **recomputed** pitch‑Y (`staffPositionToPixelY`) and a global SVG scan,
 so a high note's box overlaps and recolors the line above.
 
 The deep problem: **selection of an existing element is driven by a *synthetic*
@@ -128,7 +132,7 @@ element. Never use `pixelToMeasure(y)` to choose the line for selection.
 3. **Fallback:** if the click is in whitespace (no containment), pick the nearest
    bbox by distance (X tolerance + Euclidean).
 4. **Chord disambiguation only:** when several noteheads stack at one X, use
-   `pitchToPixelY(pitch, element.measure, x)` to pick the closest head. This is the
+   `staffPositionToPixelY(staffPosition, element.measure, x)` to pick the closest head. This is the
    one place a computed Y genuinely helps.
 
 Implementation sketch:
@@ -165,7 +169,7 @@ box (`HighlightController.applySelectionHighlight`) — inherently leaky.
 - `src/interactions/controllers/MouseController.ts` — `handleMouseDown` selection path.
 - `src/engine/rendering/CoordinateMapper.ts` — `pixelToMeasure` (band-based).
 - `src/engine/ElementRegistry.ts` — `findClosestNoteOrRest`, `pixelYToPitch`,
-  `pitchToPixelY`, registered `bbox` per element.
+  `staffPositionToPixelY`, registered `bbox` per element.
 - `src/interactions/controllers/HighlightController.ts` — `applySelectionHighlight` (global scan).
 
 ## Overlapping system bands — ENTRY and stamps (2026-09-29)

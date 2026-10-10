@@ -13,7 +13,7 @@ import { ElementRegistry, headCentreX, type ElementInfo } from './ElementRegistr
 
 /** A note at beat 0 carrying a sharp: box 80..120 (centre 100), head centred at 110. */
 const sharpNote: ElementInfo = {
-  type: 'note', id: 'sharp', measure: 1, staff: 0, beat: 0, pitch: 67,
+  type: 'note', id: 'sharp', measure: 1, staff: 0, beat: 0, staffPosition: 32 /* G4 */,
   bbox: { x: 80, y: 40, width: 40, height: 30 },
   headX: 110,
 }

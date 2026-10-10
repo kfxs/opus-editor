@@ -22,7 +22,7 @@ import type { DrawContext } from '@/engine/paint/DrawContext'
 import { stemThicknessPx } from '@/engine/engrave/inheritedDefaults'
 import type { Score, Clef, Chord, ChordRest, FanMemberChord, Fraction, KeySignature, NotePitch } from '@/types/music'
 import { fracToNumber } from '@/utils/fraction'
-import { spellingToMidi } from '@/utils/pitchSpelling'
+import { staffPosition } from '@/utils/pitchOrder'
 import { staffLineForSpelling } from '@/utils/clefUtils'
 import { spellingToNoteKey } from '@/utils/pitchSpelling'
 import { displayedAccidentals } from '@/utils/accidentalState'
@@ -625,7 +625,7 @@ function drawFanGroups(pass: FanPassContext, drawings: FanSlotDrawing[], fanJoin
                 measure: measureNumber,
                 staff: staffIndex,
                 beat: fracToNumber(slot.beat),
-                pitch: spellingToMidi(pitch.step, pitch.alter, pitch.octave),
+                staffPosition: staffPosition(pitch),
                 duration: slot.duration,
                 // ⚠️ The head's OWN x, not the member's column — a head displaced across the stem
                 // is where the click has to land, or a second selects its neighbour.

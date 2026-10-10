@@ -18,10 +18,10 @@ import { fakeSvg } from '@/testing/fakeSvg'
 
 /** One note at (100, 100) in bar 1 beat 1 — the thing every test below grabs. */
 const NOTE_EL = {
-  type: 'note' as const, id: 'n1', measure: 1, staff: 0, beat: 1, pitch: 60,
+  type: 'note' as const, id: 'n1', measure: 1, staff: 0, beat: 1, staffPosition: 28 /* C4 */,
   bbox: { x: 96, y: 96, width: 8, height: 8 }, headX: 100,
 }
-const REST_EL = { ...NOTE_EL, type: 'rest' as const, id: 'r1', pitch: undefined }
+const REST_EL = { ...NOTE_EL, type: 'rest' as const, id: 'r1', staffPosition: undefined }
 
 /** A score the pitch branch can actually find the note in. ⚠️ It re-reads the model by id — through
  *  the ENGINE (`getNote`), not a `getMeasureNotes` walk, which is blind to a fanned member. */

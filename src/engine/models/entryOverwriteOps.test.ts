@@ -9,10 +9,9 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import { ScoreModel } from './ScoreModel'
 import type { Note } from '@/types/music'
 import { fracCreate as frac } from '@/utils/fraction'
-import { spellingToMidi } from '@/utils/pitchSpelling'
 import { applyEntryOverwrites, findNotesToOverwrite, overwriteOverlappedNotes } from './entryOverwriteOps'
 
-const C4 = spellingToMidi('C', 0, 4)
+const C4 = { step: 'C', alter: 0, octave: 4 } as const
 
 describe('entryOverwriteOps', () => {
   let model: ScoreModel
@@ -95,7 +94,7 @@ describe('entryOverwriteOps', () => {
   describe('⚠️ where the two rules part company — pinned, not endorsed', () => {
     it('an EARLIER note ringing into the new one: the keyboard takes it, the mouse leaves it', () => {
       const long = add('C', 0, 'h') // sounds over beats 0–2
-      expect(findNotesToOverwrite(model, 1, frac(1, 1), 'q', spellingToMidi('E', 0, 4))).toEqual([])
+      expect(findNotesToOverwrite(model, 1, frac(1, 1), 'q', { step: 'E', alter: 0, octave: 4 })).toEqual([])
       expect(sweep(1, 2).map(n => n.id)).toEqual([long.id])
     })
 

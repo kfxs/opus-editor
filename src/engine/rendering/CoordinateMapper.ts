@@ -1,6 +1,5 @@
 import type { PitchStep, PitchSpelling } from '@/types/music'
 import type { MeasureBounds, PixelCoordinates } from './renderTypes'
-import { spellingToMidi, midiToSpelling } from '@/utils/pitchSpelling'
 
 /** Treble-clef reference: F5 sits on staff line 0 (top line). diatonicPos = 5*7+3 = 38 */
 const TREBLE_TOP_DIATONIC_POS = 38
@@ -278,20 +277,14 @@ export class CoordinateMapper {
     // diatonicPos = TREBLE_TOP_DIATONIC_POS - roundedLine * 2
     const diatonicPos = TREBLE_TOP_DIATONIC_POS - roundedLine * 2
 
-    // Clamp to sensible range (C2 = pos 14, C8 = pos 56)
-    const clampedDiatonic = Math.max(7, Math.min(63, diatonicPos))
+    // Clamp to the playable range, C1 (pos 7) … C8 (pos 56)
+    const clampedDiatonic = Math.max(7, Math.min(56, diatonicPos))
 
     const octave = Math.floor(clampedDiatonic / 7)
     const stepIdx = ((Math.round(clampedDiatonic) % 7) + 7) % 7
     const STEPS: PitchStep[] = ['C', 'D', 'E', 'F', 'G', 'A', 'B']
 
-    // Final MIDI clamp to ensure we stay in playable range
-    const step = STEPS[stepIdx]
-    const midi = spellingToMidi(step, 0, octave)
-    if (midi < 24 || midi > 108) {
-      return midiToSpelling(Math.max(24, Math.min(108, midi)))
-    }
-    return { step, alter: 0, octave }
+    return { step: STEPS[stepIdx], alter: 0, octave }
   }
 
   /**

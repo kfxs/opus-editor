@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { MIDDLE_C_POSITION } from '@/utils/pitchOrder'
 import { MusicEngine } from '../../engine/MusicEngine'
 import { createEditorState, type EditorState } from '../state/EditorState'
 import { fracToNumber } from '@/utils/fraction'
@@ -51,7 +52,7 @@ describe('KeyboardController', () => {
 
   // Build a controller whose setSelectedNote also mirrors into state (the real app
   // routes through SelectionController, which keeps state.selectedNoteId in sync).
-  const makeController = (contextPitch = 60) => {
+  const makeController = (contextPosition = MIDDLE_C_POSITION) => {
     renderCount = 0
     return new KeyboardController(
       () => engine,
@@ -59,7 +60,7 @@ describe('KeyboardController', () => {
       () => undefined,               // pending articulations
       () => { renderCount++ },        // renderScore
       (id) => { state.selectedNoteId = id },  // setSelectedNote (cursor)
-      () => contextPitch,             // context pitch (C4 = 60)
+      () => contextPosition,          // context STAFF position (C4)
     )
   }
 
@@ -79,7 +80,7 @@ describe('KeyboardController', () => {
 
       const note = engine.getNote(id)!
       expect(note.step).toBe('D')        // same id, edited in place
-      expect(note.octave).toBe(4)        // nearest D to context pitch 60 → D4
+      expect(note.octave).toBe(4)        // nearest D to middle C → D4
       expect(note.isRest).toBe(false)
       expect(state.selectedTool).toBe('entry') // selection → keyboard entry mode
       expect(renderCount).toBe(1)
@@ -149,6 +150,28 @@ describe('KeyboardController', () => {
       expect(placed[0].step).toBe('D')
       expect(fracEq(placed[0].beat, frac(0, 1))).toBe(true)
       expect(state.selectedNoteId).toBe(placed[0].id) // cursor followed into measure 2
+    })
+
+    // ⭐ The octave is the NEAREST LINE, counted in staff steps (`utils/pitchOrder`) — his call,
+    //    2026-10-10; MuseScore's rule too. It used to be the nearest in semitones, rounding up.
+    it('B4 then F goes DOWN to F4 — three steps, not up a tritone', () => {
+      const b4 = engine.addNoteAtBeat({ step: 'B', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!.id
+      state.selectedTool = 'entry'
+      state.selectedNoteId = b4
+
+      kb.enterNoteByLetter('f')
+
+      expect(notesAtBeat(engine, 1)[0]).toMatchObject({ step: 'F', octave: 4 })
+    })
+
+    it('the caret note\'s accidental plays no part: F♯4 then C is C4', () => {
+      const fs4 = engine.addNoteAtBeat({ step: 'F', alter: 1, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!.id
+      state.selectedTool = 'entry'
+      state.selectedNoteId = fs4
+
+      kb.enterNoteByLetter('c')
+
+      expect(notesAtBeat(engine, 1)[0]).toMatchObject({ step: 'C', octave: 4 })
     })
   })
 
@@ -251,6 +274,16 @@ describe('KeyboardController', () => {
       expect(chord.filter(n => (n.voice ?? 0) === 1)).toHaveLength(2)
     })
 
+    it('never on the top note\'s own line: Shift+D on a D♭4 adds D5', () => {
+      const db4 = engine.addNoteAtBeat({ step: 'D', alter: -1, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!.id
+      state.selectedTool = 'selection'
+      state.selectedNoteId = db4
+
+      kb.addChordNoteByLetter('d')
+
+      expect(notesAtBeat(engine, 0).find(n => n.alter !== -1)).toMatchObject({ step: 'D', octave: 5 })
+    })
+
     it('falls back to edit-in-place when a rest is selected', () => {
       engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
       const rest = getMeasureNotes(measure1(engine)).find(n => n.isRest && fracEq(n.beat, frac(1, 1)))!
@@ -287,7 +320,7 @@ describe('KeyboardController.enterRestAtCursor (SPACE)', () => {
     kb = new KeyboardController(
       () => engine, state, () => undefined, () => {},
       (id) => selection.moveCaretTo(id),
-      () => 60,
+      () => MIDDLE_C_POSITION,
     )
   })
 
@@ -436,7 +469,7 @@ describe('KeyboardController — cursor after a tie-split entry', () => {
     kb = new KeyboardController(
       () => engine, state, () => undefined, () => {},
       (id) => selection.moveCaretTo(id),
-      () => 60,
+      () => MIDDLE_C_POSITION,
     )
   })
 
@@ -495,7 +528,7 @@ describe('KeyboardController — an armed accidental does not leak past its note
     kb = new KeyboardController(
       () => engine, state, () => undefined, () => {},
       (id) => selection.moveCaretTo(id),
-      () => 60,
+      () => MIDDLE_C_POSITION,
     )
   })
 

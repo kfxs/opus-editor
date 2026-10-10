@@ -38,18 +38,6 @@ import {
 export { durationToBeats, getDotMultiplier, beatsToDuration, splitBeatsIntoDurations }
 
 /**
- * Convert MIDI note number to note name with octave
- * @param midiNote - MIDI note number (0-127)
- * @returns Note name with octave (e.g., 'C4', 'A#3')
- */
-export function midiToNoteName(midiNote: number): string {
-  const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
-  const octave = Math.floor(midiNote / 12) - 1
-  const noteName = noteNames[midiNote % 12]
-  return `${noteName}${octave}`
-}
-
-/**
  * Calculate total duration of all notes in beats
  * @param notes - Array of note objects with duration and optional dots property
  * @returns Total duration in beats

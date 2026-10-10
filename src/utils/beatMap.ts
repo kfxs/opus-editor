@@ -1,7 +1,7 @@
 import type { BracketedGrace, Note, Score, Fraction } from '../types/music'
 import { fracCompare } from '../utils/fraction'
 import { getMeasureNotes, measureFanMemberNotes, measureSelectableNotes } from '../utils/musicUtils'
-import { spellingToMidi } from '../utils/pitchSpelling'
+import { comparePitch } from './pitchOrder'
 import { staffOf, voiceOf } from '../utils/lanes'
 import { GRACE_SIDES, graceGroupOf } from '../utils/graceNotes'
 import { bracketedOf } from '../utils/bracketedGraces'
@@ -89,7 +89,7 @@ function collapseToBeats(allFlat: FlatNote[]): FlatNote[] {
     const existing = beatMap.get(key)
     if (!existing) {
       beatMap.set(key, n)
-    } else if (!n.isRest && (existing.isRest || spellingToMidi(n.step!, n.alter!, n.octave!) < spellingToMidi(existing.step!, existing.alter!, existing.octave!))) {
+    } else if (!n.isRest && (existing.isRest || comparePitch({ step: n.step!, alter: n.alter, octave: n.octave! }, { step: existing.step!, alter: existing.alter, octave: existing.octave! }) < 0)) {
       // Prefer non-rest; among non-rests prefer the lowest pitch
       beatMap.set(key, n)
     }
