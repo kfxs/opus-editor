@@ -62,7 +62,7 @@ describe('PaletteController — hairpin keys', () => {
   })
 
   it('arming a hairpin clears any other marking tool (arming IS clearing)', () => {
-    palette.setAccidental('#')
+    palette.setAccidental('sharp')
     palette.createCrescendo()
     expect(armedType(state)).toBe('cresc')
     expect(state.selectedMarkingTool?.kind).toBe('hairpin')
@@ -70,7 +70,7 @@ describe('PaletteController — hairpin keys', () => {
 
   it('…and arming another tool clears the hairpin', () => {
     palette.createCrescendo()
-    palette.setAccidental('#')
+    palette.setAccidental('sharp')
     expect(armedType(state)).toBeNull()
   })
 

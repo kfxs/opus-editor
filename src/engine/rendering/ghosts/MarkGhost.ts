@@ -12,7 +12,6 @@
  * ⚠️ Only the ink's SHAPE survives the parking — the group is moved by its ink box — so where the lone
  * note stands is irrelevant: a stand-in stave at the pointer's y, 200 px wide, no barlines, as before.
  */
-import { drawnSignOfKey } from '@/utils/alterationSigns'
 import type { DrawContext } from '@/engine/paint/DrawContext'
 import type { Accidental as ScoreAccidental, ArticulationType, Dynamic, TremoloMark } from '@/types/music'
 import { EngravedNote } from '../engraved/EngravedNote'
@@ -85,7 +84,7 @@ export function drawArticulationGhost(ctx: DrawContext, cursorX: number, cursorY
  */
 export function drawAccidentalGhost(ctx: DrawContext, cursorX: number, cursorY: number, accidental: ScoreAccidental): boolean {
   try {
-    const sign = new EngravedAccidental(drawnSignOfKey(accidental)) // the armed KEY, as the sign it draws
+    const sign = new EngravedAccidental(accidental) // the armed sign, as drawn
     loneQuarter(cursorY, note => attachModifier(note, sign, 0))
     // Ours since S12e — it draws on our surface itself, with no cast.
     return drawSignGhost(ctx, 'ghost-accidental', cursorX, cursorY, () => { sign.setInkSurface(ctx); sign.setContext(ctx).draw() }, ghostCursorOffset)

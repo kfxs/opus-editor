@@ -30,7 +30,7 @@
 import type { Accidental, Alteration, PitchStep } from '@/types/music'
 import { alterationInForce, type BarAlterations } from './accidentalState'
 import { keyAlterationOf, type KeySignature } from './keySignature'
-import { alterationSide, sameAlteration } from './alterationSigns'
+import { drawnSignOf, sameAlteration } from './alterationSigns'
 
 /** The seven letters, in order — the diatonic ladder the auxiliary climbs one rung of. */
 const STEPS: readonly PitchStep[] = ['C', 'D', 'E', 'F', 'G', 'A', 'B']
@@ -84,13 +84,11 @@ export function trillAuxiliary(
 }
 
 /**
- * The sign for an alteration, as PRINTED above a trill. Unlike `accidentalOfAlteration`, no
- * alteration here is a **natural** rather than nothing: reaching this function at all means the auxiliary departs from
- * the key, and "departs from a key with a sharp in it, to zero" is exactly what a ♮ says.
+ * The sign for an alteration, as PRINTED above a trill — its own (a double prints the double). Unlike
+ * `accidentalOfAlteration`, no alteration here is a **natural** rather than nothing: reaching this
+ * function at all means the auxiliary departs from the key, and "departs from a key with a sharp in
+ * it, to zero" is exactly what a ♮ says.
  */
 function accidentalFor(alteration: Alteration | undefined): Accidental {
-  const side = alterationSide(alteration)
-  if (side > 0) return '#'
-  if (side < 0) return 'b'
-  return 'n'
+  return drawnSignOf(alteration)
 }

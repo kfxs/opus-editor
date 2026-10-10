@@ -50,7 +50,7 @@ describe('MarkGhost', () => {
   })
 
   it('draws the armed accidental, dot and tremolo, each in its own swept group', () => {
-    engine.renderScoreWithToolGhost({ x: 200, y: 100 }, { kind: 'accidental', accidental: 'b' })
+    engine.renderScoreWithToolGhost({ x: 200, y: 100 }, { kind: 'accidental', accidental: 'flat' })
     expect(codes('accidental')).toEqual(['e260']) // accidentalFlat
     engine.renderScoreWithToolGhost({ x: 200, y: 100 }, { kind: 'dot', count: 1 })
     expect(codes('dot')).toEqual(['e1e7']) // augmentationDot
@@ -61,7 +61,7 @@ describe('MarkGhost', () => {
   })
 
   it('paints the ghost blue at 0.7, and draws no note — only the mark', () => {
-    engine.renderScoreWithToolGhost({ x: 200, y: 100 }, { kind: 'accidental', accidental: '#' })
+    engine.renderScoreWithToolGhost({ x: 200, y: 100 }, { kind: 'accidental', accidental: 'sharp' })
     const group = ghost('accidental')
     expect(group.getAttribute('opacity')).toBe('0.7')
     // The sign is the ONLY ink — no head, no stem, no staff line of the lone note it hung on.

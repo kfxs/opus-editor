@@ -106,16 +106,16 @@ describe('stampGraceAtClick', () => {
 
   it('⭐ the ARMED accidental spells the grace, as in note entry', () => {
     state.selectedMarkingTool = { kind: 'grace', form: 'acciaccatura', side: 'before' }
-    state.selectedAccidental = '#'
+    state.selectedAccidental = 'sharp'
     stampGraceAtClick(state, engine, registry([at('note', hostId, 100)]), 85, 50, render)
     const chord = engine.getScore().measures[0].slots.find(s => s.type === 'chord')!
     expect(chord.type === 'chord' && chord.graceBefore?.notes[0].pitches[0]).toMatchObject({ step: 'D', alteration: ['sharp'] })
-    expect(state.selectedAccidental, 'it stays armed — a stamp is used in runs').toBe('#')
+    expect(state.selectedAccidental, 'it stays armed — a stamp is used in runs').toBe('sharp')
   })
 
   it('⭐ an armed NATURAL is forced, as in note entry — a ♮ in C major would otherwise never show (his report)', () => {
     state.selectedMarkingTool = { kind: 'grace', form: 'appoggiatura', side: 'before' }
-    state.selectedAccidental = 'n'
+    state.selectedAccidental = 'natural'
     stampGraceAtClick(state, engine, registry([at('note', hostId, 100)]), 85, 50, render)
     const chord = engine.getScore().measures[0].slots.find(s => s.type === 'chord')!
     expect(chord.type === 'chord' && chord.graceBefore?.notes[0].pitches[0]).toMatchObject({ step: 'D', forceAccidental: true })

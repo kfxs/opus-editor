@@ -5,10 +5,6 @@
  * One chapter of the score's types — import it through the barrel, `@/types/music`.
  */
 
-/**
- * Accidental types
- */
-export type Accidental = '#' | 'b' | 'n'
 
 /**
  * Diatonic step name (letter name of the note, independent of accidental)
@@ -34,6 +30,13 @@ export type Alteration = readonly AlterationSignId[]
  * type keeps the natural out of {@link Alteration} at compile time (alteration-signs-plan M3).
  */
 export type DrawnSignId = AlterationSignId | 'natural'
+
+/**
+ * ⭐ **The accidental the EDITOR arms, toggles and lights** — a {@link DrawnSignId}: any sign of the
+ * table, or the natural (alteration-signs-plan K1 widened it from the three Keypad keys `'#' 'b' 'n'`).
+ * A Keypad key is a SLOT holding one (`windows/keypad/keypadSignSlots`); ⛔ no logic names a sign.
+ */
+export type Accidental = DrawnSignId
 
 /**
  * Pitch spelling: step + alteration + scientific octave — what is WRITTEN.

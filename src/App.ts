@@ -70,6 +70,7 @@ import { durationsConsole } from './dev/durationsConsole'
 import { glissandoConsole } from './dev/glissandoConsole'
 import { bracketedConsole } from './dev/bracketedConsole'
 import { accidentalGapConsole } from './dev/accidentalGapConsole'
+import { keypadSlotConsole } from './dev/keypadSlotConsole'
 import { spacingConsole } from './dev/spacingConsole'
 import { dumpSpacingCensus, spacingBars } from './dev/spacingCensus' // P0 instrument — temporary
 import { dumpBarlineCensus, barlineBoxes } from './dev/barlineCensus' // barline census — temporary
@@ -997,6 +998,8 @@ export function createEditorApp(host: HTMLElement): EditorApp {
     // ⚠️ EXPERIMENT, HIS (2026-09-22) — the GRACE note's size, every row the research found
     // (engine/layout/graceRoom). Armed row = D5's 2/3, so building the knob moved nothing.
     w.__grace = graceConsole(() => renderer.renderScore())
+    // ⭐ The Keypad's SIGN SLOTS (alteration-signs K1) — reassign what a sign key holds, session-only.
+    w.__keypad = keypadSlotConsole()
     // ⚠️ EXPERIMENT, HIS (2026-09-24) — the CUE note's size and its ledger weight (engine/layout/cueSize).
     //   Armed rows = his calls (gouldRoss ¾, gould ledgers).
     w.__cue = cueConsole(() => renderer.renderScore())

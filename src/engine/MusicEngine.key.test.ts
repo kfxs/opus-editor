@@ -102,29 +102,29 @@ describe('MusicEngine key signatures', () => {
 
     it('🚨 an F♯ in D major does NOT display its sharp — the signature says it', () => {
       const { engine: e, id } = fSharpIn(2)
-      expect(e.noteDisplaysAccidental(id, '#')).toBe(false)
+      expect(e.noteDisplaysAccidental(id, 'sharp')).toBe(false)
     })
 
     it('…so stamping ♯ on it is NOT a no-op: it forces the sign', () => {
       const { engine: e, id } = fSharpIn(2)
-      expect(e.noteDisplaysAccidental(id, '#'), 'the stamp is allowed through').toBe(false)
-      e.setNoteAccidental(id, '#')
+      expect(e.noteDisplaysAccidental(id, 'sharp'), 'the stamp is allowed through').toBe(false)
+      e.setNoteAccidental(id, 'sharp')
       expect(e.getNote(id)!.forceAccidental, 'and THAT is what makes it visible').toBe(true)
       expect(e.getNote(id)!.alteration, 'the pitch is untouched').toEqual(['sharp'])
-      expect(e.noteDisplaysAccidental(id, '#'), 'it now displays, so the next press toggles it off').toBe(true)
+      expect(e.noteDisplaysAccidental(id, 'sharp'), 'it now displays, so the next press toggles it off').toBe(true)
     })
 
     it('in C major the same F♯ displays its sharp already, and the stamp stays idempotent', () => {
       const { engine: e, id } = fSharpIn(0)
-      expect(e.noteDisplaysAccidental(id, '#')).toBe(true)
+      expect(e.noteDisplaysAccidental(id, 'sharp')).toBe(true)
     })
 
     it('⛔ and the alteration still has to MATCH — an F♮ in D major displays no sharp', () => {
       const e = new MusicEngine({ container: {} as unknown as HTMLElement, width: 800, height: 400 })
       e.setKeyAt(1, D_MAJOR)
       const note = e.addNoteAtBeat({ step: 'F', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!
-      expect(e.noteDisplaysAccidental(note.id, '#')).toBe(false)
-      expect(e.noteDisplaysAccidental(note.id, 'n'), 'it draws a NATURAL, contradicting the key').toBe(true)
+      expect(e.noteDisplaysAccidental(note.id, 'sharp')).toBe(false)
+      expect(e.noteDisplaysAccidental(note.id, 'natural'), 'it draws a NATURAL, contradicting the key').toBe(true)
     })
 
     it('⭐ "remove accidental" reverts to what the KEY says, not to a bare natural', () => {

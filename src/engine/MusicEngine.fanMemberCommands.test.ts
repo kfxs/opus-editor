@@ -291,7 +291,7 @@ describe('a selected fanned member in the selection machinery', () => {
   })
 
   it('an accidental applied to it re-spells the MEMBER, not the note that was typed', () => {
-    engine.setNoteAccidental(memberId, '#')
+    engine.setNoteAccidental(memberId, 'sharp')
     const slot = engine.getScore().measures[0].slots.find(s => s.type === 'chord')!
     if (slot.type !== 'chord') throw new Error('expected a chord')
     expect(slot.fan!.members![0].pitches[0].alteration).toEqual(['sharp'])

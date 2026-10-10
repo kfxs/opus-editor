@@ -9,7 +9,6 @@
  * px about the origin, then placed by ONE transform (`translate` to the head, `scale(k)`), as
  * `GraceGhost` is; a FULL-size bracket (the armed `gould` form) is stamped at `1 / k` inside it.
  */
-import { drawnSignOfKey } from '@/utils/alterationSigns'
 import type { DrawContext } from '@/engine/paint/DrawContext'
 import type { NoteDuration, Accidental as ScoreAccidental } from '@/types/music'
 import { EngravedAccidental } from '../engraved/EngravedAccidental'
@@ -55,7 +54,7 @@ export function bracketedGhostHead(
 
 /** The page's layout of ONE bracketed head — the ledger and the pitch only move it vertically. */
 function ghostPlace(duration: NoteDuration, accidental: ScoreAccidental | null) {
-  return bracketedLayout([{ pitches: [{ id: 'ghost', step: 'C', octave: 5 }], duration }], () => (accidental ? drawnSignOfKey(accidental) : null), 'treble', 0).places[0]
+  return bracketedLayout([{ pitches: [{ id: 'ghost', step: 'C', octave: 5 }], duration }], () => accidental, 'treble', 0).places[0]
 }
 
 /**
@@ -97,7 +96,7 @@ export function drawBracketedGhost(
       }
       drawNoteHead(ctx, { glyph: headGlyph(duration, false), x: 0, y: 0, font: noteFont() })
       if (accidental && head.accidentalX !== null) {
-        const glyph = new EngravedAccidental(drawnSignOfKey(accidental)).getText()
+        const glyph = new EngravedAccidental(accidental).getText()
         stampGlyph(ctx, glyph, local(head.accidentalX - place.headX), 0, accidentalFont(glyph))
       }
       stampGlyph(ctx, String.fromCodePoint(GLYPH_CODEPOINTS[form.left]), local(head.leftParenX - place.headX), 0, parenFont)

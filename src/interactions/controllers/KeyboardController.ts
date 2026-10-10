@@ -87,7 +87,7 @@ export class KeyboardController {
       octave,
       isRest: false,
       ...measureRestDuration,
-      ...(this.state.selectedAccidental === 'n' && { forceAccidental: true }),
+      ...(this.state.selectedAccidental === 'natural' && { forceAccidental: true }),
     })
 
     dbg(`✓ KeyboardEntry (edit-in-place) | ${formatPitch({ step, alteration, octave })} dur:${updatedNote.duration} measure:${updatedNote.measure} beat:${fracToNumber(updatedNote.beat).toFixed(3)}`)
@@ -322,7 +322,7 @@ export class KeyboardController {
     if (armedTool(this.state, 'grace')) {
       const grace = typeGraceAtCaret(engine, this.state, this.state.selectedNoteId,
         { measure: targetMeasure, beat: targetBeat, voice: cursorVoice, staff: cursorStaff },
-        { step, alteration, octave, ...(this.state.selectedAccidental === 'n' && { forceAccidental: true }) })
+        { step, alteration, octave, ...(this.state.selectedAccidental === 'natural' && { forceAccidental: true }) })
       if (!grace) return
       this.state.selectedAccidental = null // one note's accidental, as for a typed note
       this.setSelectedNote(grace)
@@ -387,7 +387,7 @@ export class KeyboardController {
         ...(this.state.selectedEnclosure !== null && { enclosure: this.state.selectedEnclosure }),
         // …and entry CUE (cue-size-plan).
         ...(this.state.selectedCue && { cue: true as const }),
-        ...(this.state.selectedAccidental === 'n' && { forceAccidental: true }),
+        ...(this.state.selectedAccidental === 'natural' && { forceAccidental: true }),
         ...(existingTuplet && { tupletId: existingTuplet.id }),
         ...(this.state.selectedBeam !== 'auto' && { beam: this.state.selectedBeam }),
         ...(entryVoice && { voice: entryVoice }),
@@ -491,7 +491,7 @@ export class KeyboardController {
       step, octave, this.state.selectedAccidental,
     )
 
-    const spelledForce = this.state.selectedAccidental === 'n' ? { forceAccidental: true } : {}
+    const spelledForce = this.state.selectedAccidental === 'natural' ? { forceAccidental: true } : {}
     const newNote = gracePitches
       ? engine.grace.addGracePitch(this.state.selectedNoteId, { step, alteration, octave, ...spelledForce })
       : memberPitches

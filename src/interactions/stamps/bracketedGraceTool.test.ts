@@ -26,7 +26,7 @@ function host() {
 describe('pressBracketedTool', () => {
   it('a press ARMS the stamp and lights the button; ⭐ a stale accidental is cleared first', () => {
     const h = host()
-    h.state.selectedAccidental = '#'
+    h.state.selectedAccidental = 'sharp'
     pressBracketedTool(h, 'before')
     expect(h.state.selectedMarkingTool).toEqual({ kind: 'bracketedGrace', side: 'before' })
     expect(h.state.selectedAccidental).toBeNull()
@@ -57,9 +57,9 @@ describe('pressBracketedTool', () => {
   it('an accidental armed WITH the stamp is kept on a re-arm of another side — it is a choice made for it', () => {
     const h = host()
     pressBracketedTool(h, 'before')
-    h.state.selectedAccidental = 'b'
+    h.state.selectedAccidental = 'flat'
     pressBracketedTool(h, 'after')
-    expect(h.state.selectedAccidental).toBe('b')
+    expect(h.state.selectedAccidental).toBe('flat')
   })
 
   it('⭐ his rule: with NOTES selected, a press CONVERTS them — rests fill their slots; what was made is the selection', () => {

@@ -118,7 +118,7 @@ test('the ACCIDENTAL, DOT and ARTICULATION ghosts each park clear of the pointer
     await h.render()
 
     const at = { x: 200, y: 100 }
-    h.engine.renderScoreWithToolGhost(at, { kind: 'accidental', accidental: '#' })
+    h.engine.renderScoreWithToolGhost(at, { kind: 'accidental', accidental: 'sharp' })
     const accidental = { groups: h.ghosts(), glyphs: h.placed('.ghost-accidental text') }
     h.engine.renderScoreWithToolGhost(at, { kind: 'dot', count: 1 })
     const dot = { groups: h.ghosts(), glyphs: h.placed('.ghost-dot text') }

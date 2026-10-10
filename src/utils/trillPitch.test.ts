@@ -48,7 +48,7 @@ describe('trillAuxiliary — what sounds', () => {
     // An F♮ earlier in the bar cancels the key's F♯ at that position.
     const aux = trillAuxiliary({ step: 'E', octave: 4 }, dMajor, bar('F', 4, 0))
     expect(aux.alteration).toBeUndefined()
-    expect(aux.accidental).toBe('n') // …and says so, because it departs from the key
+    expect(aux.accidental).toBe('natural') // …and says so, because it departs from the key
   })
 
   it('is position-specific — an F♯ in another octave does not reach this trill', () => {
@@ -60,12 +60,12 @@ describe('trillAuxiliary — what sounds', () => {
 describe('trillAuxiliary — what is printed', () => {
   it('⭐⭐ THE CASE: in C major, an F♯ earlier in the bar makes a trill on E print a ♯', () => {
     expect(trillAuxiliary({ step: 'E', octave: 4 }, C_MAJOR, bar('F', 4, 1)))
-      .toEqual({ step: 'F', alteration: ['sharp'], octave: 4, accidental: '#' })
+      .toEqual({ step: 'F', alteration: ['sharp'], octave: 4, accidental: 'sharp' })
   })
 
   it('prints a FLAT the same way', () => {
     expect(trillAuxiliary({ step: 'C', octave: 4 }, C_MAJOR, bar('D', 4, -1)))
-      .toEqual({ step: 'D', alteration: ['flat'], octave: 4, accidental: 'b' })
+      .toEqual({ step: 'D', alteration: ['flat'], octave: 4, accidental: 'flat' })
   })
 
   it('prints NOTHING when the bar merely repeats what the key already said', () => {

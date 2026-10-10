@@ -63,7 +63,7 @@ describe('pressCue', () => {
   it('⭐ NOTHING selected, in selection → the CUE STAMP: note entry, a quarter, cue armed (his rule, 2026-09-24)', () => {
     state.selectedTool = 'selection'
     state.selectedDuration = 'h'
-    state.selectedAccidental = '#'
+    state.selectedAccidental = 'sharp'
     const a = note(0)
     pressCue(host)
     expect(state).toMatchObject({ selectedTool: 'entry', selectedDuration: CUE_STAMP_DURATION, selectedDots: 0, selectedCue: true, selectedAccidental: null })

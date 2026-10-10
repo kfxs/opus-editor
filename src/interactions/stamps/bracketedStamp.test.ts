@@ -66,10 +66,10 @@ describe('stampBracketedAtClick', () => {
 
   it('⭐ the ARMED accidental spells it — and an armed ♮ is FORCED', () => {
     state.selectedMarkingTool = { kind: 'bracketedGrace', side: 'before' }
-    state.selectedAccidental = 'b'
+    state.selectedAccidental = 'flat'
     stampBracketedAtClick(state, engine, registry([at('note', hostId, 100)]), aim(90), 50, render)
     expect(chord().bracketedBefore![0].pitches[0]).toMatchObject({ step: 'D', alteration: ['flat'] })
-    state.selectedAccidental = 'n'
+    state.selectedAccidental = 'natural'
     stampBracketedAtClick(state, engine, registry([at('note', hostId, 100)]), aim(90), 50, render)
     expect(chord().bracketedBefore![1].pitches[0]).toMatchObject({ forceAccidental: true })
   })

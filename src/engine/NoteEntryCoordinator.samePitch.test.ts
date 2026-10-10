@@ -23,7 +23,7 @@ describe('NoteEntryCoordinator — the same pitch is the same WRITTEN pitch', ()
   })
 
   /** Click on beat 0's head column, on the line of `step` 4, with an accidental armed. */
-  const clickOnLine = (step: 'C' | 'D', accidental: '#' | 'b') => {
+  const clickOnLine = (step: 'C' | 'D', accidental: 'sharp' | 'flat') => {
     engine.renderScore()
     const registry = engine.getElementRegistry()
     const head = registry.getByMeasure(1).find(e => e.type === 'note' && e.beat === 0)!
@@ -38,14 +38,14 @@ describe('NoteEntryCoordinator — the same pitch is the same WRITTEN pitch', ()
   it('⭐ a D♭ clicked beside a C♯ joins it — two pitches, one chord', () => {
     engine.addNoteAtBeat({ step: 'C', alteration: ['sharp'], octave: 4, duration: 'q', measure: 1, beat: fracCreate(0, 1) } as NoteParams)
 
-    expect(clickOnLine('D', 'b')).not.toBeNull()
+    expect(clickOnLine('D', 'flat')).not.toBeNull()
     expect(pitchesAtBeat0().sort()).toEqual(['Csharp4', 'Dflat4'])
   })
 
   it('⛔ the C♯ itself, clicked again, adds nothing', () => {
     engine.addNoteAtBeat({ step: 'C', alteration: ['sharp'], octave: 4, duration: 'q', measure: 1, beat: fracCreate(0, 1) } as NoteParams)
 
-    clickOnLine('C', '#')
+    clickOnLine('C', 'sharp')
     expect(pitchesAtBeat0()).toEqual(['Csharp4'])
   })
 })

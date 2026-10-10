@@ -43,7 +43,10 @@
  * metrics). To REWORK a drawing, swap its `tremolo(` for {@link rework}, which renders the SAME stack
  * LIVE as spans so `dx`/`dy` can be tuned by eye, then swap back to re-bake.
  */
-import type { Accidental, ArticulationType, BeamMode, NoteDuration, TremoloMark } from '../../types/music'
+import type { ArticulationType, BeamMode, DrawnSignId, NoteDuration, TremoloMark } from '../../types/music'
+import { accidentalGlyph } from '@/engine/fonts/fontMetrics'
+import { GLYPH_CODEPOINTS } from '@/engine/fonts/bravuraMetrics'
+import { keypadSignSlots } from './keypadSignSlots'
 import type { GraceKey } from '@/bus'
 
 /** One music-font glyph, its `size`, `dx` and `dy` all quoted against a 26px reference (see {@link g}).
@@ -109,12 +112,12 @@ export interface KeypadCell {
   action: string
   icon: Icon
   select: Select
-  /** The model value a wired key carries, so the widget maps NOTHING — a duration/accidental/
-   *  articulation key presses its own value into the matching store, and the store lights it back.
-   *  Exactly one is set, by `select` (a `duration` cell has {@link duration}, an `accidental` cell
-   *  has {@link accidental}, an `articulation` cell has {@link articulation}). */
+  /** The model value a wired key carries, so the widget maps NOTHING — a duration/articulation key
+   *  presses its own value into the matching store, and the store lights it back. Exactly one is set,
+   *  by `select` (a `duration` cell has {@link duration}, an `articulation` cell has {@link articulation}).
+   *  ⭐ An `accidental` cell carries NONE: it is a SLOT, and the sign it holds is
+   *  `keypadSignSlots.get(cell.key)` — read through {@link cellSign} (alteration-signs K1). */
   duration?: NoteDuration
-  accidental?: Accidental
   articulation?: ArticulationType
   beam?: BeamMode
   /** The tremolo mark a `tremolo` cell presses — 1–5 strokes or the Penderecki sign. */
@@ -280,7 +283,7 @@ export const VOICES = ['1', '2', '3', '4', 'All']
  *  model value it carries (the 4th slot: a NoteDuration on a duration key, an Accidental on an
  *  accidental key, an ArticulationType on an articulation key; absent otherwise). `toCells` files it
  *  under the field `select` calls for. */
-type CellSpec = [string, Icon, Select, (NoteDuration | Accidental | ArticulationType | BeamMode | TremoloMark | 'accel' | 'rit' | GraceKey)?]
+type CellSpec = [string, Icon, Select, (NoteDuration | ArticulationType | BeamMode | TremoloMark | 'accel' | 'rit' | GraceKey)?]
 
 /** The two controls every page carries, in their fixed spots — the select arrow (top-left) and the
  *  page-turn `+`. A page never lists these itself; {@link withControls} injects them, so a new page
@@ -318,9 +321,16 @@ const withControls = (own: CellSpec[]): CellSpec[] => {
  *  accidental and articulation keys carry their model value (`'q'`, `'#'`, `'accent'`, …); the tie,
  *  rest and dot keys are their own value, so they carry none. Its OWN keys only — the arrow and `+`
  *  come from {@link withControls}. */
+/**
+ * ⭐ A SIGN SLOT — the cell holds no sign of its own: its picture, its name, what it presses and when it
+ * lights are the sign its KEY's slot holds (`./keypadSignSlots`, read through {@link cellSign}). The
+ * icon and action here are placeholders nothing reads.
+ */
+const SIGN_SLOT: CellSpec = ['sign', g(''), 'accidental']
+
 const pageNoteEntry: CellSpec[] = [
   ['accent', g(ARTIC.accent, ARTIC_SIZE), 'articulation', 'accent'], ['staccato', g(ARTIC.staccato, ARTIC_SIZE), 'articulation', 'staccato'], ['tenuto', g(ARTIC.tenuto, ARTIC_SIZE), 'articulation', 'tenuto'],
-  ['natural', g(ACC.natural, ACC_SIZE), 'accidental', 'n'], ['sharp', g(ACC.sharp, ACC_SIZE), 'accidental', '#'], ['flat', g(ACC.flat, ACC_SIZE, 3), 'accidental', 'b'],
+  SIGN_SLOT, SIGN_SLOT, SIGN_SLOT,
   ['quarter', g(NOTE.quarter, undefined, STEM_DROP), 'duration', 'q'], ['half', g(NOTE.half, undefined, STEM_DROP), 'duration', 'h'], ['whole', g(NOTE.whole, undefined, STEM_DROP), 'duration', 'w'],
   ['thirtySecond', g(NOTE.thirtySecond, undefined, STEM_DROP), 'duration', '32'], ['sixteenth', g(NOTE.sixteenth, undefined, STEM_DROP), 'duration', '16'], ['eighth', g(NOTE.eighth, undefined, STEM_DROP), 'duration', '8'], ['tie', ICON.tie, 'tie'],
   ['rest', { glyphs: [g(REST_QUARTER), g(REST_EIGHTH, 34)] }, 'rest'], ['dot', g(NOTE.dot, 34), 'dot'],
@@ -552,10 +562,10 @@ const BLANK: Icon = g('')
  * parenthesised NOTE already uses — "bracketed" here means the staff bracket and the bracketed grace.
  *
  * ⭐ `7 8 9` ARE WIRED (his ask, 2026-09-30: *"we already have this in the first page so we can wire it
- * the same"*) — they are page one's natural / sharp / flat cells again: `bus.accidental` → the same
- * palette method, lit by the same armed accidental, so the two pages cannot disagree.
+ * the same"*) — they are page one's natural / sharp / flat SLOTS again (`./keypadSignSlots`: a slot is
+ * its key), so the two pages cannot disagree. ⭐ `/` `*` are wired since K1 — two more slots, the doubles.
  *
- * ⛔ **The other twelve are NOT** (his ask, the same day: *"still is not wired to anything, on clicking
+ * ⛔ **The other ten are NOT** (his ask, the same day: *"still is not wired to anything, on clicking
  * just console log"*): each is `momentary` — a click logs its `action` (`KeypadWidget.press`) and
  * stops, and the key never lights. A key is wired as a decision, key by key, the way the Grace page
  * was. What each does in Sibelius is `docs/research/sibelius-keypad.md` §3c.
@@ -563,14 +573,47 @@ const BLANK: Icon = g('')
  * OWN keys only — the arrow and `+` come from {@link withControls}.
  */
 const pageAccidentals: CellSpec[] = [
-  ['double sharp', g(ACC_MORE.doubleSharp, DOUBLE_SHARP_SIZE), 'momentary'], ['double flat', g(ACC_MORE.doubleFlat, ACC_SIZE, 3), 'momentary'], ['blank', BLANK, 'momentary'],
-  // ⭐ WIRED (his ask, 2026-09-30) — page one's three accidental keys, cell for cell: the same press, the same light.
-  ['natural', g(ACC.natural, ACC_SIZE), 'accidental', 'n'], ['sharp', g(ACC.sharp, ACC_SIZE), 'accidental', '#'], ['flat', g(ACC.flat, ACC_SIZE, 3), 'accidental', 'b'],
+  // ⭐ K1 — `/` `*` are SIGN SLOTS (the doubles by default), and `7 8 9` the SAME slots as page one's.
+  SIGN_SLOT, SIGN_SLOT, ['blank', BLANK, 'momentary'],
+  SIGN_SLOT, SIGN_SLOT, SIGN_SLOT,
   ['natural sharp', g(ACC_MORE.naturalSharp, ACC_SIZE), 'momentary'], ['quarter-tone sharp', g(ACC_MORE.quarterSharp, ACC_SIZE), 'momentary'], ['quarter-tone flat', g(ACC_MORE.quarterFlat, ACC_SIZE, 3), 'momentary'],
   ['natural flat', g(ACC_MORE.naturalFlat, ACC_SIZE, 1.5), 'momentary'], ['three-quarter-tone sharp', g(ACC_MORE.threeQuarterSharp, ACC_SIZE), 'momentary'], ['three-quarter-tone flat', g(ACC_MORE.threeQuarterFlat, ACC_SIZE, 3), 'momentary'],
   ['parenthesised accidental', { glyphs: [g(ACC_MORE.parenLeft, ACC_PARENS_SIZE), g(ACC_MORE.parenRight, ACC_PARENS_SIZE)] }, 'momentary'],
   ['remove accidentals', ACCIDENTAL_ICON.struckAccidental, 'momentary'], ['suppress cautionary accidental', ACCIDENTAL_ICON.struckParenthesised, 'momentary'],
 ]
+
+/**
+ * How a sign's glyph sits on a key — a row for a sign that needs one; any other takes {@link ACC_SIZE}.
+ * ⚠️ Presentation only: WHICH glyph is the sign's own row in the sign table (`accidentalGlyph`).
+ */
+const SIGN_ICON: Partial<Record<DrawnSignId, { size?: number; dy?: number }>> = {
+  flat: { dy: 3 },
+  doubleFlat: { dy: 3 },
+  doubleSharp: { size: DOUBLE_SHARP_SIZE },
+}
+
+/** ⭐ A sign's picture — drawn from its OWN glyph, so a slot given another sign shows the other sign (rule 2). */
+export function signIcon(sign: DrawnSignId): Icon {
+  const look = SIGN_ICON[sign] ?? {}
+  return g(String.fromCodePoint(GLYPH_CODEPOINTS[accidentalGlyph(sign)]), look.size ?? ACC_SIZE, look.dy)
+}
+
+/** The sign a cell holds — its key's SLOT; undefined for any cell that is not a sign slot. */
+export function cellSign(cell: KeypadCell): DrawnSignId | undefined {
+  return cell.select === 'accidental' ? keypadSignSlots.get(cell.key) : undefined
+}
+
+/** What a cell looks like NOW — a slot's picture is its sign's. */
+export function cellIcon(cell: KeypadCell): Icon {
+  const sign = cellSign(cell)
+  return sign ? signIcon(sign) : cell.icon
+}
+
+/** A cell's name NOW (tooltip, log) — a slot is named by its sign: `'double sharp'`, `'natural'`. */
+export function cellAction(cell: KeypadCell): string {
+  const sign = cellSign(cell)
+  return sign ? sign.replace(/[A-Z]/g, c => ` ${c.toLowerCase()}`) : cell.action
+}
 
 const toCells = (page: CellSpec[]): KeypadCell[] =>
   page.map(([action, icon, select, value], i) => ({
@@ -580,7 +623,6 @@ const toCells = (page: CellSpec[]): KeypadCell[] =>
     select,
     // The 4th slot is typed by `select`; file it under the field the widget reads for that kind.
     duration: select === 'duration' ? (value as NoteDuration) : undefined,
-    accidental: select === 'accidental' ? (value as Accidental) : undefined,
     articulation: select === 'articulation' ? (value as ArticulationType) : undefined,
     beam: select === 'beam' ? (value as BeamMode) : undefined,
     tremolo: select === 'tremolo' ? (value as TremoloMark) : undefined,

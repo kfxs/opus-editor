@@ -113,39 +113,25 @@ export function oneSign(id: AlterationSignId): Alteration {
 }
 
 // ---------------------------------------------------------------------------
-// The editor's three-key vocabulary ('#' / 'b' / 'n' — what the Keypad arms)
+// The armed sign (what a Keypad SLOT holds — K1: any sign of the table, or the natural)
 // ---------------------------------------------------------------------------
 
 /**
- * The armed {@link Accidental} as an alteration: ♯ → sharp, ♭ → flat; ♮ / nothing → unaltered.
+ * The armed {@link Accidental} as an alteration: a sign is itself; ♮ / nothing → unaltered.
  * ⚠️ ♮ is not a sign a pitch STORES — the natural is what the bar's rule draws to cancel.
  */
 export function armedAlteration(acc: Accidental | null | undefined): Alteration | undefined {
-  if (acc === '#') return oneSign('sharp')
-  if (acc === 'b') return oneSign('flat')
-  return undefined
+  return acc && acc !== 'natural' ? oneSign(acc) : undefined
 }
 
-/** The sign an armed Keypad key DRAWS — ♮ included (an armed natural is drawn, never stored). */
-export function drawnSignOfKey(acc: Accidental): DrawnSignId {
-  return acc === '#' ? 'sharp' : acc === 'b' ? 'flat' : 'natural'
+/** Is the armed sign the NATURAL — the one that is drawn on purpose (`forceAccidental`), never stored? */
+export function armsNatural(acc: Accidental | null | undefined): boolean {
+  return acc === 'natural'
 }
 
-/**
- * The Keypad key a DRAWN sign lights — ♯, ♭, ♮ — or null where the Keypad has no key for it
- * (the doubles, today).
- */
-export function keyOfDrawnSign(sign: DrawnSignId | null | undefined): Accidental | null {
-  return sign === 'sharp' ? '#' : sign === 'flat' ? 'b' : sign === 'natural' ? 'n' : null
-}
-
-/**
- * The Keypad key that shows an alteration: ♯ for sharp-like, ♭ for flat-like, none when unaltered.
- * Double signs fall back to the single key (the Keypad has no ♯♯/♭♭ key yet).
- */
+/** The sign an alteration lights on the Keypad — its own (a double lights the double's slot); none unaltered. */
 export function accidentalOfAlteration(alteration: Alteration | undefined): Accidental | undefined {
-  const side = alterationSide(alteration)
-  return side > 0 ? '#' : side < 0 ? 'b' : undefined
+  return alteration?.[0]
 }
 
 // ---------------------------------------------------------------------------

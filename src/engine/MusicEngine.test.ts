@@ -69,39 +69,39 @@ describe('MusicEngine.setNoteAccidental / noteDisplaysAccidental', () => {
 
   it('sets a sharp / flat (changes the pitch) and reports it displayed', () => {
     const note = addNote(engine, { step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
-    expect(engine.noteDisplaysAccidental(note.id, '#')).toBe(false)
+    expect(engine.noteDisplaysAccidental(note.id, 'sharp')).toBe(false)
 
-    engine.setNoteAccidental(note.id, '#')
+    engine.setNoteAccidental(note.id, 'sharp')
     expect(engine.getNote(note.id)!.alteration).toEqual(['sharp'])
-    expect(engine.noteDisplaysAccidental(note.id, '#')).toBe(true)
+    expect(engine.noteDisplaysAccidental(note.id, 'sharp')).toBe(true)
 
-    engine.setNoteAccidental(note.id, 'b')
+    engine.setNoteAccidental(note.id, 'flat')
     expect(engine.getNote(note.id)!.alteration).toEqual(['flat'])
-    expect(engine.noteDisplaysAccidental(note.id, 'b')).toBe(true)
-    expect(engine.noteDisplaysAccidental(note.id, '#')).toBe(false)
+    expect(engine.noteDisplaysAccidental(note.id, 'flat')).toBe(true)
+    expect(engine.noteDisplaysAccidental(note.id, 'sharp')).toBe(false)
   })
 
   it('a courtesy natural (nothing to cancel) is forced, so its sign shows', () => {
     const note = addNote(engine, { step: 'D', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
     // A plain natural note shows no sign — nothing to cancel and not forced.
-    expect(engine.noteDisplaysAccidental(note.id, 'n')).toBe(false)
+    expect(engine.noteDisplaysAccidental(note.id, 'natural')).toBe(false)
 
-    engine.setNoteAccidental(note.id, 'n')
+    engine.setNoteAccidental(note.id, 'natural')
     const updated = engine.getNote(note.id)!
     expect(updated.alteration).toBeUndefined()
     expect(updated.forceAccidental).toBe(true)
-    expect(engine.noteDisplaysAccidental(note.id, 'n')).toBe(true)
+    expect(engine.noteDisplaysAccidental(note.id, 'natural')).toBe(true)
   })
 
   it('a natural that cancels an earlier same-bar accidental shows without forcing', () => {
     addNote(engine, { step: 'F', alteration: ['sharp'], octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
     const second = addNote(engine, { step: 'F', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
     // Prevailing alteration at the 2nd F is a sharp (from the 1st), so its natural auto-shows — no force flag.
-    engine.setNoteAccidental(second.id, 'n')
+    engine.setNoteAccidental(second.id, 'natural')
     const updated = engine.getNote(second.id)!
     expect(updated.alteration).toBeUndefined()
     expect(updated.forceAccidental).toBeUndefined()
-    expect(engine.noteDisplaysAccidental(second.id, 'n')).toBe(true)
+    expect(engine.noteDisplaysAccidental(second.id, 'natural')).toBe(true)
   })
 
   it('is a no-op on a rest', () => {
@@ -109,8 +109,8 @@ describe('MusicEngine.setNoteAccidental / noteDisplaysAccidental', () => {
     const m2 = engine.getScore().measures.find(m => m.number === 2)!
     const restId = (m2.slots.find(s => s.type === 'rest') as { id: string }).id
     expect(engine.getNote(restId)!.isRest).toBe(true)
-    expect(engine.setNoteAccidental(restId, '#')).toBeNull()
-    expect(engine.noteDisplaysAccidental(restId, '#')).toBe(false)
+    expect(engine.setNoteAccidental(restId, 'sharp')).toBeNull()
+    expect(engine.noteDisplaysAccidental(restId, 'sharp')).toBe(false)
   })
 })
 

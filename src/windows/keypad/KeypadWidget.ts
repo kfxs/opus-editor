@@ -5,7 +5,8 @@ import { voiceFillColor } from '../../utils/voiceColors'
 import { INDICATOR_INK } from '../../utils/selectionColors'
 import { CHROME } from '../../utils/chromeColors'
 import { keypadPageSelection } from './keypadPageSelection'
-import { keypadPage, VOICES, type GlyphSpec, type Icon, type KeypadCell } from './keypadLayouts'
+import { cellAction, cellIcon, cellSign, keypadPage, VOICES, type GlyphSpec, type Icon, type KeypadCell } from './keypadLayouts'
+import { keypadSignSlots } from './keypadSignSlots'
 import { pressKeypadCell } from './keypadPress'
 import { bakeGlyphStack, bakedPathsSvg, bakeRecipeKey } from './tremoloBake'
 import { KEYPAD_BAKED_ICONS } from './keypadBakedIcons'
@@ -94,6 +95,7 @@ export class KeypadWidget implements Widget {
    *  for the duration or the voice, so a page turned from the numpad (with the panel open) re-lays
    *  this grid without the key press ever addressing the widget. */
   private unsubscribePage: (() => void) | null = null
+  private unsubscribeSlots: (() => void) | null = null
   /** The page-2 beam cluster: mode set, subdivide, beam-rest. */
   private unsubscribeBeam: (() => void) | null = null
   private unsubscribeSubdivide: (() => void) | null = null
@@ -146,6 +148,8 @@ export class KeypadWidget implements Widget {
     // `+`, which the app's shortcut wiring owns now (it must work with the panel shut, so it cannot
     // live here). Either way the seam changes and the panel follows.
     this.unsubscribePage = keypadPageSelection.subscribe(() => this.showPage())
+    // …and whenever a sign SLOT is given another sign (`__keypad.slot`): its picture is the sign's.
+    this.unsubscribeSlots = keypadSignSlots.subscribe(() => this.showPage())
     // Page 2's beam cluster tracks the editor like every other key — lit from the note under the
     // cursor / the armed mode, changed from anywhere (this pad, the numpad, the dev toolbar's Beam row).
     this.unsubscribeBeam = bus.beam.onHighlight(() => this.paint())
@@ -185,6 +189,8 @@ export class KeypadWidget implements Widget {
     this.unsubscribeVoice = null
     this.unsubscribePage?.()
     this.unsubscribePage = null
+    this.unsubscribeSlots?.()
+    this.unsubscribeSlots = null
     this.unsubscribeTremolo?.()
     this.unsubscribeTremolo = null
     this.unsubscribeTremoloPair?.()
@@ -219,8 +225,8 @@ export class KeypadWidget implements Widget {
       const button = this.baseButton()
       // Just the name — the numpad key it mirrors is not (yet) a wired shortcut, so quoting it in the
       // tooltip only promised a keystroke that does nothing.
-      button.title = cell.select === 'mode' ? 'Select' : cell.action
-      button.appendChild(renderIcon(cell.icon))
+      button.title = cell.select === 'mode' ? 'Select' : cellAction(cell)
+      button.appendChild(renderIcon(cellIcon(cell)))
       button.addEventListener('click', () => this.press(cell))
 
       if (cell.key === '+' || cell.key === 'Enter') button.style.gridRow = 'span 2'
@@ -259,7 +265,7 @@ export class KeypadWidget implements Widget {
     this.paint()
     // Wired keys report their light; an unwired `momentary` cell (a key that is only a picture yet) always reads ` off`.
     const state = this.isLit(cell) ? ' on' : ' off'
-    dbg(`[keypad] ${cell.action}${state} — key ${cell.key}, voice ${this.voice != null ? VOICES[this.voice] : 'none'}`)
+    dbg(`[keypad] ${cellAction(cell)}${state} — key ${cell.key}, voice ${this.voice != null ? VOICES[this.voice] : 'none'}`)
   }
 
   /**
@@ -272,7 +278,8 @@ export class KeypadWidget implements Widget {
   private isLit(cell: KeypadCell): boolean {
     if (cell.select === 'mode') return bus.mode.get() === 'selection'
     if (cell.select === 'duration') return cell.duration === bus.duration.get()
-    if (cell.select === 'accidental') return cell.accidental === bus.accidental.get()
+    // ⭐ A slot lights by SIGN ID (rule 4): the sign it holds is the one armed or shown.
+    if (cell.select === 'accidental') return !!cellSign(cell) && cellSign(cell) === bus.accidental.get()
     if (cell.select === 'articulation') return !!cell.articulation && bus.articulation.isActive(cell.articulation)
     if (cell.select === 'dot') return bus.dot.get() === 'dot'
     if (cell.select === 'tie') return bus.tie.get() === 'tie'

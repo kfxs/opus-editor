@@ -1,6 +1,6 @@
 import { bus } from '@/bus'
 import { keypadPageSelection } from './keypadPageSelection'
-import type { KeypadCell } from './keypadLayouts'
+import { cellSign, type KeypadCell } from './keypadLayouts'
 
 /**
  * What pressing a Keypad key DOES — the one answer, for both ways of pressing it: clicking the cell in
@@ -22,11 +22,14 @@ export function pressKeypadCell(cell: KeypadCell): void {
       // radio; the panel maps nothing. `duration` is always present on a duration cell (keypadLayouts).
       if (cell.duration) bus.duration.press(cell.duration)
       break
-    case 'accidental':
-      // Same, and the press channel is what lets ♯-then-♯ toggle OFF: setAccidental sees the armed
-      // value pressed again and clears it. A state-mirror would swallow the repeat as "no change".
-      if (cell.accidental) bus.accidental.press(cell.accidental)
+    case 'accidental': {
+      // A SIGN SLOT presses the sign it holds (`keypadSignSlots` — alteration-signs K1, rule 1: ONE
+      // command for any sign). The press channel is what lets ♯-then-♯ toggle OFF: setAccidental sees
+      // the armed value pressed again and clears it. A state-mirror would swallow the repeat as "no change".
+      const sign = cellSign(cell)
+      if (sign) bus.accidental.press(sign)
       break
+    }
     case 'articulation':
       // Independent toggles on a set-valued store. PRESS the value; App.ts routes it to the
       // palette's toggleX, which flips the score AND re-pushes the lit set — the store lights it

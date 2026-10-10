@@ -537,7 +537,7 @@ describe('KeyboardController — an armed accidental does not leak past its note
     state.selectedTool = 'entry'
     state.selectedNoteId = c.id
     state.selectedDuration = 'q'
-    state.selectedAccidental = '#'          // arm a sharp
+    state.selectedAccidental = 'sharp'          // arm a sharp
 
     kb.enterNoteAtCursorPosition('A')        // → A# at beat 1
 
@@ -552,13 +552,27 @@ describe('KeyboardController — an armed accidental does not leak past its note
     expect(state.selectedAccidental).toBeNull()
   })
 
+  it('⭐ K1: an armed DOUBLE SHARP spells the next note, for that note only — the sharp\'s rule', () => {
+    const c = engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!
+    state.selectedTool = 'entry'
+    state.selectedNoteId = c.id
+    state.selectedDuration = 'q'
+    state.selectedAccidental = 'doubleSharp'
+
+    kb.enterNoteAtCursorPosition('F')
+
+    const f = getMeasureNotes(measure1(engine)).find(n => !n.isRest && n.step === 'F')!
+    expect(f.alteration).toEqual(['doubleSharp'])
+    expect(state.selectedAccidental).toBeNull()
+  })
+
   it('chord entry (Shift+letter) clears the armed accidental too — same rule as plain entry', () => {
     // A chord note is still keyboard entry, so the accidental must behave identically: apply to this
     // note, then clear. Otherwise chord entry keeps the sharp while plain entry drops it — two rules.
     const c = engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!
     state.selectedTool = 'entry'
     state.selectedNoteId = c.id
-    state.selectedAccidental = '#'          // arm a sharp
+    state.selectedAccidental = 'sharp'          // arm a sharp
 
     kb.addChordNoteByLetter('e')            // stack E# onto the C
 

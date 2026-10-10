@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
-  ALTERATION_SIGNS, accidentalOfAlteration, alterationCode, alterationField, armedAlteration, alterationOfCode,
+  ALTERATION_SIGNS, accidentalOfAlteration, armsNatural, alterationCode, alterationField, armedAlteration, alterationOfCode,
   alterationRank, alterationSide, alterationSign, sameAlteration, setAlteration,
 } from './alterationSigns'
 
@@ -71,19 +71,20 @@ describe('⛔ never an empty list stored', () => {
   })
 })
 
-describe('the Keypad\'s three keys', () => {
-  it('♯ / ♭ arm a sign; ♮ and nothing arm none (the natural is DRAWN, never stored)', () => {
-    expect(armedAlteration('#')).toEqual(['sharp'])
-    expect(armedAlteration('b')).toEqual(['flat'])
-    expect(armedAlteration('n')).toBeUndefined()
+describe('the armed sign (K1 — any sign of the table, or the natural)', () => {
+  it('a sign arms itself; ♮ and nothing arm no alteration (the natural is DRAWN, never stored)', () => {
+    expect(armedAlteration('sharp')).toEqual(['sharp'])
+    expect(armedAlteration('doubleFlat')).toEqual(['doubleFlat'])
+    expect(armedAlteration('natural')).toBeUndefined()
     expect(armedAlteration(null)).toBeUndefined()
+    expect(armsNatural('natural')).toBe(true)
+    expect(armsNatural('sharp')).toBe(false)
   })
 
-  it('a key lights for its side — a double falls back to the single key', () => {
-    expect(accidentalOfAlteration(['sharp'])).toBe('#')
-    expect(accidentalOfAlteration(['doubleSharp'])).toBe('#')
-    expect(accidentalOfAlteration(['flat'])).toBe('b')
-    expect(accidentalOfAlteration(['doubleFlat'])).toBe('b')
+  it('⭐ an alteration lights its OWN sign — a double lights the double, no longer the single key', () => {
+    expect(accidentalOfAlteration(['sharp'])).toBe('sharp')
+    expect(accidentalOfAlteration(['doubleSharp'])).toBe('doubleSharp')
+    expect(accidentalOfAlteration(['doubleFlat'])).toBe('doubleFlat')
     expect(accidentalOfAlteration(undefined)).toBeUndefined()
   })
 })

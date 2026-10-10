@@ -20,7 +20,7 @@ describe('BracketedGhost', () => {
     engine.renderScore()
   })
 
-  const draw = (pointerX: number, accidental: 'b' | null = null) => {
+  const draw = (pointerX: number, accidental: 'flat' | null = null) => {
     engine.renderScoreWithToolGhost({ x: pointerX, y: 120 }, { kind: 'bracketedGrace', duration: 'q', accidental })
     return container.querySelector(`.${BRACKETED_GHOST_GROUP_CLASS}`)
   }
@@ -34,7 +34,7 @@ describe('BracketedGhost', () => {
   })
 
   it('⭐ draws the black head, the armed sign and the armed (gould) brackets, at the head\'s scale', () => {
-    const group = draw(300, 'b')!
+    const group = draw(300, 'flat')!
     expect(group.getAttribute('transform')).toContain(`scale(${bracketedScale()})`)
     const texts = [...group.querySelectorAll('text')].map(t => t.textContent)
     for (const name of ['noteheadBlack', 'accidentalFlat', 'accidentalParensLeft', 'accidentalParensRight'] as const) {

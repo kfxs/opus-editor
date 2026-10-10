@@ -196,7 +196,7 @@ describe('⭐⭐ trillOps.trillAuxiliaryOf — P1\'s done-when, end to end', () 
     model.addNote({ step: 'F', alteration: ['sharp'], octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
     const e = model.addNote({ step: 'E', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
     const trill = model.addTrill({ startNoteId: e.id })!
-    expect(model.trillAuxiliaryOf(trill.id)).toEqual({ step: 'F', alteration: ['sharp'], octave: 4, accidental: '#' })
+    expect(model.trillAuxiliaryOf(trill.id)).toEqual({ step: 'F', alteration: ['sharp'], octave: 4, accidental: 'sharp' })
   })
 
   it('reads accidentals from ANOTHER VOICE in the same bar — an accidental holds by position', () => {

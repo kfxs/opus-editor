@@ -14,7 +14,6 @@ import { navBeatMap } from '../../utils/beatMap'
 import { DEFAULT_FAN_BEAMS, DEFAULT_FAN_COUNT, fanIsJoined, fanJoinSubdivides } from '../../utils/fannedBeam'
 import { resolveTupletInTimeOf, type TupletResolution } from '../../utils/musicUtils'
 import { formatPitch } from '../../utils/pitchSpelling'
-import { drawnSignOfKey, keyOfDrawnSign } from '../../utils/alterationSigns'
 import { sameTimeSignature } from '../../utils/meter'
 import { tempoLabel } from '../../utils/tempoMap'
 import { dynamicTextFromTool } from '../../utils/dynamics'
@@ -503,7 +502,7 @@ export class PaletteController {
     const noteId = selected?.noteId
     if (!engine || !noteId) return
 
-    const current = keyOfDrawnSign(selected.type)
+    const current = selected.type
     if (accidental === null || accidental === current) {
       // Remove: revert to the prevailing alteration so the glyph disappears in every case.
       engine.runBatch('Remove accidental', () =>
@@ -514,7 +513,7 @@ export class PaletteController {
     } else {
       engine.runBatch(`Set ${accidental}`, () => engine.setNoteAccidental(noteId, accidental))
       // Keep the (now changed) accidental selected — REASSIGNED, never mutated in place.
-      this.state.selectedElement = { kind: 'accidental', noteId, type: drawnSignOfKey(accidental) }
+      this.state.selectedElement = { kind: 'accidental', noteId, type: accidental }
       this.renderScore()
     }
   }

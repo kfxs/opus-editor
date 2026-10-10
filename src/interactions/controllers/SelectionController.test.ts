@@ -756,3 +756,23 @@ describe('SelectionController — the palette reflects the selected note', () =>
     expect(state.selectedDots).toBe(0)
   })
 })
+
+/**
+ * ⭐ K1 (alteration-signs-plan §4, rule 4): the light goes by SIGN ID — a selected double lights its OWN
+ * key, where it used to fall back to the single ♯ / ♭ (the Keypad had no double key).
+ */
+describe('SelectionController — a selected note lights the sign it SHOWS', () => {
+  it('a double sharp lights the double sharp; a cancelled one the natural', () => {
+    const engine = makeEngine()
+    const state = createEditorState()
+    state.selectedTool = 'selection'
+    const selection = new SelectionController(() => engine, state, () => {}, () => {})
+    const first = engine.addNoteAtBeat({ step: 'F', octave: 4, alteration: ['doubleSharp'], duration: 'q', measure: 1, beat: frac(0, 1) })!.id
+    const second = engine.addNoteAtBeat({ step: 'F', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })!.id
+
+    selection.selectNote(first)
+    expect(state.selectedAccidental).toBe('doubleSharp')
+    selection.selectNote(second)
+    expect(state.selectedAccidental).toBe('natural')
+  })
+})

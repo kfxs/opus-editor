@@ -14,9 +14,9 @@ describe('promoteStampToNoteEntry — a duration press ends the armed tool', () 
     const state = createEditorState()
     state.selectedMarkingTool = { kind: 'dot', count: 1 }
     expect(promoteStampToNoteEntry(state, 'q')).toBe(1)
-    state.selectedMarkingTool = { kind: 'accidental', sign: '#' }
+    state.selectedMarkingTool = { kind: 'accidental', sign: 'sharp' }
     expect(promoteStampToNoteEntry(state, 'q')).toBe(0)
-    expect(state.selectedAccidental).toBe('#')
+    expect(state.selectedAccidental).toBe('sharp')
   })
 
   it('⭐ the dot stamp promotes its COUNT — only one the pressed value can take (multiple-dots-plan D1)', () => {

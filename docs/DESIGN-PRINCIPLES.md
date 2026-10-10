@@ -308,14 +308,14 @@ be made *consciously* before more code piles onto it.
   built): a document holding a POOL of fragments, several of them drawn and edited on one page —
   `docs/plans/fragments-and-calligram-model.md` §9.
 
-- **7 module-level singletons make "exactly one editor" an assumption (re: principles 1 and 5).**
+- **8 module-level singletons make "exactly one editor" an assumption (re: principles 1 and 5).**
   Not score state — palette and chrome state — so they slip past principle 1's letter while making
   the *editor* singular in the way principle 1 forbids for the *score*:
 
   ```
   bus/           bus                ← the whole Keypad/window noticeboard, ONE object
   windows/       windows            menus/  menus, menuActions
-  windows/keypad/keypadPageSelection
+  windows/keypad/keypadPageSelection, keypadSignSlots
   dev/           renderCensus, layoutFlushCensus   ← ⏳ TEMPORARY, see below
   ```
 
@@ -331,6 +331,11 @@ be made *consciously* before more code piles onto it.
   *thirteen*; it became **26**, and the list nearly doubling **was this entry's own argument firing**,
   since the argument below is that the sweep is contained *because the list is short*. A new
   singleton is a decision, not a detail.
+
+  ⭐ `keypadSignSlots` (2026-10-10, alteration-signs K1) is `keypadPageSelection`'s sibling, for its
+  reason: which sign each Keypad sign-key holds is the KEYPAD's vocabulary (a slot is its key), so it
+  cannot sit on the bus, and it must outlive the panel — the numpad presses a slot with the panel shut.
+  The plan asked for exactly this shape (docs/plans/alteration-signs-plan.md §4, rule 3).
 
   They are deliberate: the Keypad talks to the editor through the bus without either side knowing the
   other, and `windows`/`menus` exist so "add a window" never means "edit `App.ts`". For one editor

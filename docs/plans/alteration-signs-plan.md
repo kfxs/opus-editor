@@ -146,8 +146,23 @@ pitch. The accidental palette is its own window, fed by the sign table only.
 (armed tool, Keypad cells, the light) widens from `# b n` to the sign table's ids plus the natural.
 The page's sign keys — these two and `7 8 9` — become SLOTS (the four rules above): on a selection
 they toggle, with nothing selected they arm the next note, for one note. A selected double now
-lights its own key. 👁 His check includes reassigning one slot from the console, and hearing a
-double sharp and a double flat play two semitones from the plain note.
+lights its own key. ⭐ The armed value's DOORS take a sign too, in the same step — the note ghost and
+the click (`MusicEngine.renderScoreWithPreview` / `addNoteAtPosition`) and the accidental stamp's,
+grace's and bracketed grace's ghosts, which still take `'#' 'b' 'n'` after M3 — so the preview always
+shows what the click enters, and K4's quarter-tones arrive on a door that already takes any sign.
+👁 His check includes reassigning one slot from the console, seeing an armed double sharp on the
+ghost before the click, and hearing a double sharp and a double flat play two semitones from the
+plain note.
+✅ **Built 2026-10-10.** `Accidental` (the editor's armed / toggled / lit value, the accidental tool,
+`bus.accidental`, the doors `renderScoreWithPreview` / `addNoteAtPosition` and every ghost) IS a
+`DrawnSignId` — the three-key vocabulary is gone, so a double needed no line of its own (rule 1). The
+slots: `windows/keypad/keypadSignSlots`, ONE table `{ / * 7 8 9 }` → doubleSharp, doubleFlat, natural,
+sharp, flat (Sibelius's), named by KEY so page one's `7 8 9` and the Accidentals page's are the same
+slots; a slot's picture, name, press and light are its sign's (`keypadLayouts.cellSign/cellIcon/
+cellAction`, `signIcon` draws the sign's own glyph). `__keypad.slots() / slot(key, sign) / reset()`
+in the console, session-only. A selected double lights its own key; a trill's printed auxiliary sign
+is its own too (a double no longer reads ♯). ⚠️ The slot store is a module singleton beside
+`keypadPageSelection`, for its reason — recorded in DESIGN-PRINCIPLES (the count is 8).
 
 **K2 — `0` remove accidentals.** Runs the command that already exists (the palette's *remove
 accidental*, across the selection): each note goes back to what the bar and the key say. No light.

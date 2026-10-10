@@ -40,9 +40,9 @@ export class SelectionController {
    * Compute which accidental sign would actually be displayed for a note, given the
    * running accidental state of its measure up to that beat — and, where the bar is silent at that
    * position, ⭐ **the KEY SIGNATURE** (`accidentalState.alterationInForce`, the same rule the drawing
-   * reads). Returns null if no sign is shown, 'n' for a cautionary natural.
+   * reads). Returns null if no sign is shown, `'natural'` for a cautionary natural — and a double its own sign.
    */
-  private computeDisplayedAccidental(note: Note, measure: Measure, score: Score): Accidental | 'n' | null {
+  private computeDisplayedAccidental(note: Note, measure: Measure, score: Score): Accidental | null {
     if (note.isRest || note.tiedFrom) return null
     if (note.forceAccidental && note.alteration) return accidentalOfAlteration(note.alteration)!
 
@@ -55,8 +55,8 @@ export class SelectionController {
     if (note.alteration) {
       return sameAlteration(governing, note.alteration) ? null : accidentalOfAlteration(note.alteration)!
     } else {
-      if (governing) return 'n'
-      if (note.forceAccidental) return 'n'
+      if (governing) return 'natural'
+      if (note.forceAccidental) return 'natural'
       return null
     }
   }

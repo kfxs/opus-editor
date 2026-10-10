@@ -1,5 +1,6 @@
-import { describe, it, expect } from 'vitest'
-import { KEYS, keypadPage, nextKeypadPageId, KEYPAD_BAKE_RECIPES } from './keypadLayouts'
+import { describe, it, expect, afterEach } from 'vitest'
+import { cellAction, cellIcon, cellSign, KEYS, keypadPage, nextKeypadPageId, KEYPAD_BAKE_RECIPES, signIcon } from './keypadLayouts'
+import { keypadSignSlots } from './keypadSignSlots'
 import { pressKeypadCell } from './keypadPress'
 import { bus } from '@/bus'
 
@@ -8,8 +9,8 @@ import { bus } from '@/bus'
  * (`docs/research/sibelius-keypad.md` §3c says what each key means over there).
  *
  * ⛔ What is worth pinning here is WHICH keys act. ⭐ `7 8 9` do — they are page one's natural / sharp /
- * flat again (his ask, 2026-09-30: *"we already have this in the first page so we can wire it the
- * same"*). The other twelve are a PICTURE (*"still is not wired to anything, on clicking just console
+ * flat SLOTS again (his ask, 2026-09-30: *"we already have this in the first page so we can wire it the
+ * same"*), and ⭐ `/ *` since K1 — the doubles, two more slots. The other ten are a PICTURE (*"still is not wired to anything, on clicking just console
  * log"*): a key is wired as a decision, one at a time — the Grace page's spec is the model — and the
  * test that lists the `momentary` keys is the one that changes when one is.
  *
@@ -17,6 +18,7 @@ import { bus } from '@/bus'
  * step proves the stacked drawings in a browser, picture against picture).
  */
 describe('the Keypad Accidentals page', () => {
+  afterEach(() => keypadSignSlots.reset())
   const page = () => keypadPage('accidentals')
   const cellFor = (key: string) => page().cells.find(c => c.key === key)!
   const own = () => page().cells.filter(c => c.select !== 'mode' && c.select !== 'page')
@@ -42,25 +44,46 @@ describe('the Keypad Accidentals page', () => {
       ['Enter', 'parenthesised accidental'],
       ['0', 'remove accidentals'], ['.', 'suppress cautionary accidental'],
     ]
-    for (const [key, action] of drawn) expect(cellFor(key).action).toBe(action)
+    for (const [key, action] of drawn) expect(cellAction(cellFor(key))).toBe(action)
   })
 
-  it('⭐ its `7 8 9` are wired — page one\'s natural / sharp / flat, cell for cell — and press `bus.accidental`', () => {
-    const wired = (pageId: 'accidentals' | 'noteEntry') =>
-      ['7', '8', '9'].map(k => keypadPage(pageId).cells.find(c => c.key === k)!).map(c => [c.action, c.select, c.accidental])
-    expect(wired('accidentals')).toEqual([['natural', 'accidental', 'n'], ['sharp', 'accidental', '#'], ['flat', 'accidental', 'b']])
-    expect(wired('accidentals')).toEqual(wired('noteEntry'))
+  it('⭐ its `/ * 7 8 9` are SIGN SLOTS — page one\'s `7 8 9` the same slots — and press `bus.accidental`', () => {
+    const slots = (pageId: 'accidentals' | 'noteEntry', keys: string[]) =>
+      keys.map(k => keypadPage(pageId).cells.find(c => c.key === k)!).map(c => [c.select, cellSign(c)])
+    expect(slots('accidentals', ['/', '*', '7', '8', '9'])).toEqual([
+      ['accidental', 'doubleSharp'], ['accidental', 'doubleFlat'],
+      ['accidental', 'natural'], ['accidental', 'sharp'], ['accidental', 'flat'],
+    ])
+    expect(slots('accidentals', ['7', '8', '9'])).toEqual(slots('noteEntry', ['7', '8', '9']))
     const pressed: string[] = []
     const stop = bus.accidental.onPress(a => pressed.push(a))
-    for (const k of ['7', '8', '9']) pressKeypadCell(cellFor(k))
+    for (const k of ['/', '*', '7', '8', '9']) pressKeypadCell(cellFor(k))
     stop()
-    expect(pressed).toEqual(['n', '#', 'b'])
+    expect(pressed).toEqual(['doubleSharp', 'doubleFlat', 'natural', 'sharp', 'flat'])
   })
 
-  it('⛔ …and the other TWELVE are not — each is `momentary`, and a press reaches no seam', () => {
+  it('⭐ a slot given another sign SHOWS, NAMES and PRESSES the other sign — no code changed (rule 2)', () => {
+    keypadSignSlots.set('/', 'flat')
+    expect(cellIcon(cellFor('/'))).toEqual(signIcon('flat'))
+    expect(cellAction(cellFor('/'))).toBe('flat')
+    const pressed: string[] = []
+    const stop = bus.accidental.onPress(a => pressed.push(a))
+    pressKeypadCell(cellFor('/'))
+    stop()
+    expect(pressed).toEqual(['flat'])
+    // ⭐ A slot is its KEY: page one's `8` is the Accidentals page's `8`.
+    keypadSignSlots.set('8', 'doubleSharp')
+    expect(cellSign(keypadPage('noteEntry').cells.find(c => c.key === '8')!)).toBe('doubleSharp')
+  })
+
+  it('⛔ only a key that IS a slot can be given a sign — a typo invents nothing', () => {
+    expect(() => keypadSignSlots.set('5', 'sharp')).toThrow(/not a sign slot/)
+  })
+
+  it('⛔ …and the other TEN are not — each is `momentary`, and a press reaches no seam', () => {
     const unwired = own().filter(c => c.select === 'momentary')
-    expect(unwired.map(c => c.key)).toEqual(['/', '*', '-', '4', '5', '6', '1', '2', '3', 'Enter', '0', '.'])
-    expect(own().length).toBe(unwired.length + 3)
+    expect(unwired.map(c => c.key)).toEqual(['-', '4', '5', '6', '1', '2', '3', 'Enter', '0', '.'])
+    expect(own().length).toBe(unwired.length + 5)
     const pressed: string[] = []
     const stop = bus.accidental.onPress(a => pressed.push(a))
     for (const cell of unwired) pressKeypadCell(cell)

@@ -38,8 +38,8 @@ describe('entryAlteration', () => {
 
   it('⭐ the ARMED accidental overrides the key outright', () => {
     const m = model(1)
-    expect(entryAlteration(m.getScore(), { measure: 1, beat: frac(0, 1) }, 'F', 4, 'n')).toBeUndefined()
-    expect(entryAlteration(m.getScore(), { measure: 1, beat: frac(0, 1) }, 'F', 4, 'b')).toEqual(['flat'])
+    expect(entryAlteration(m.getScore(), { measure: 1, beat: frac(0, 1) }, 'F', 4, 'natural')).toBeUndefined()
+    expect(entryAlteration(m.getScore(), { measure: 1, beat: frac(0, 1) }, 'F', 4, 'flat')).toEqual(['flat'])
   })
 
   it('⭐ the BAR beats the key: an F♮ written earlier holds for the rest of it', () => {

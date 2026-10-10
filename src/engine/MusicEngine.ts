@@ -2525,7 +2525,7 @@ export class MusicEngine {
   setNoteAccidental(noteId: string, accidental: Accidental): Note | null {
     const note = this.scoreModel.getNote(noteId)
     if (!note || note.isRest) return null
-    if (accidental === 'n') {
+    if (accidental === 'natural') {
       const wouldAutoShow = this.getPrevailingAlteration(noteId) !== undefined
       return this.updateNote(noteId, { alteration: undefined, forceAccidental: wouldAutoShow ? undefined : true })
     }
@@ -3282,7 +3282,7 @@ export class MusicEngine {
       ...(enclosure && { enclosure }),
       ...(cue && { cue }),
       // An armed natural carries no alteration (no glyph of its own) — flag it so the ghost still shows the ♮.
-      ...(accidental === 'n' && { forceAccidental: true }),
+      ...(accidental === 'natural' && { forceAccidental: true }),
       ...(tupletLabel && { tupletLabel }),
       ...(ghostColor && { fillColor: ghostColor.fill, strokeColor: ghostColor.stroke }),
     }

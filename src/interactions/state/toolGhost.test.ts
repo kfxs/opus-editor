@@ -23,7 +23,7 @@ describe('toolGhost — the armed tool becomes what the engine draws', () => {
       .toEqual({ kind: 'timeSignature', timeSignature: { numerator: 3, denominator: 4 } })
     expect(toolGhost({ kind: 'articulation', types: ['accent', 'staccato'] }, ARMED))
       .toEqual({ kind: 'articulation', types: ['accent', 'staccato'] })
-    expect(toolGhost({ kind: 'accidental', sign: '#' }, ARMED)).toEqual({ kind: 'accidental', accidental: '#' })
+    expect(toolGhost({ kind: 'accidental', sign: 'sharp' }, ARMED)).toEqual({ kind: 'accidental', accidental: 'sharp' })
     expect(toolGhost({ kind: 'tremolo', tremolo: 3 }, ARMED)).toEqual({ kind: 'tremolo', mark: 3 })
     expect(toolGhost({ kind: 'tremolo', tremolo: 'penderecki' }, ARMED))
       .toEqual({ kind: 'tremolo', mark: 'penderecki' })
@@ -70,8 +70,8 @@ describe('toolGhost — the armed tool becomes what the engine draws', () => {
 
   it('⭐ the GRACE ghost takes the armed length AND the armed accidental (his report, 2026-09-22)', () => {
     const tool = { kind: 'grace', form: 'acciaccatura', side: 'before' } as const
-    expect(toolGhost(tool, { ...ARMED, accidental: '#', articulations: ['staccato'] }))
-      .toEqual({ kind: 'grace', duration: 'h', dots: 1, slash: true, accidental: '#', articulations: ['staccato'] })
+    expect(toolGhost(tool, { ...ARMED, accidental: 'sharp', articulations: ['staccato'] }))
+      .toEqual({ kind: 'grace', duration: 'h', dots: 1, slash: true, accidental: 'sharp', articulations: ['staccato'] })
     expect(toolGhost(tool, ARMED)).toMatchObject({ accidental: null, articulations: [] })
   })
 
@@ -135,7 +135,7 @@ describe('toolGhost — the armed tool becomes what the engine draws', () => {
       { kind: 'dynamic', dynamic: 'p' },
       { kind: 'tempo', tempo: { text: 'Largo' } },
       { kind: 'articulation', types: ['accent'] },
-      { kind: 'accidental', sign: 'b' },
+      { kind: 'accidental', sign: 'flat' },
       { kind: 'tremolo', tremolo: 2 },
       { kind: 'tie' },
       { kind: 'dot', count: 1 },
@@ -159,7 +159,7 @@ describe('GHOST_CAUSE — the census labels', () => {
     for (const tool of [
       { kind: 'clef', clef: 'treble' }, { kind: 'timeSignature', timeSignature: { numerator: 4, denominator: 4 } },
       { kind: 'dynamic', dynamic: 'p' }, { kind: 'tempo', tempo: { text: 'Largo' } },
-      { kind: 'articulation', types: ['accent'] }, { kind: 'accidental', sign: 'b' },
+      { kind: 'articulation', types: ['accent'] }, { kind: 'accidental', sign: 'flat' },
       { kind: 'tremolo', tremolo: 2 }, { kind: 'tie' }, { kind: 'dot', count: 1 }, { kind: 'rest' },
       { kind: 'trill' }, { kind: 'ottava', shift: 1 }, { kind: 'pedal' },
     ] as MarkingTool[]) {

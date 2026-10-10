@@ -461,7 +461,7 @@ describe('PaletteController — only ONE marking tool can be armed', () => {
     ['dynamic', () => palette.setDynamic('mf')],
     ['tempo', () => palette.setTempo({ text: 'Allegro' })],
     ['articulation', () => palette.toggleAccent()],
-    ['accidental', () => palette.setAccidental('#')],
+    ['accidental', () => palette.setAccidental('sharp')],
     ['tie', () => palette.toggleTie()],
     ['dot', () => palette.toggleDot()],
     ['rest', () => palette.pressRest()],
@@ -498,7 +498,7 @@ describe('PaletteController — only ONE marking tool can be armed', () => {
     // the Keypad still lit the duration, saying "a quarter note is about to be entered" while what
     // was really armed was a clef.
     state.selectedDuration = 'q'
-    state.selectedAccidental = '#'
+    state.selectedAccidental = 'sharp'
     state.selectedDots = 1
     state.accent = true // all stale from an earlier note-entry session
 
@@ -555,12 +555,12 @@ describe('PaletteController — disarmPositionalTools', () => {
 
   it('leaves note-entry settings (duration, accidental) untouched', () => {
     palette.setDuration('8')
-    palette.setAccidental('#')
+    palette.setAccidental('sharp')
     palette.setClef('alto')
     palette.disarmPositionalTools()
     expect(armedTool(state, 'clef')).toBeNull()
     expect(state.selectedDuration).toBe('8')
-    expect(state.selectedAccidental).toBe('#')
+    expect(state.selectedAccidental).toBe('sharp')
   })
 })
 
@@ -726,8 +726,8 @@ describe('PaletteController — accidental stamp tool', () => {
 
   it('arms the stamp (entry mode) when in selection mode with nothing selected', () => {
     state.selectedTool = 'selection'
-    palette.setAccidental('#')
-    expect(armedTool(state, 'accidental')?.sign).toBe('#')
+    palette.setAccidental('sharp')
+    expect(armedTool(state, 'accidental')?.sign).toBe('sharp')
     expect(state.selectedTool).toBe('entry')
     expect(setNoteAccidental).not.toHaveBeenCalled()
   })
@@ -738,8 +738,8 @@ describe('PaletteController — accidental stamp tool', () => {
     state.selectedTool = 'selection'
     state.selectedNoteId = 'cursor'
     notes['cursor'] = { id: 'cursor' }
-    palette.setAccidental('#')
-    expect(armedTool(state, 'accidental')?.sign).toBe('#')
+    palette.setAccidental('sharp')
+    expect(armedTool(state, 'accidental')?.sign).toBe('sharp')
     expect(state.selectedTool).toBe('entry')
     expect(setNoteAccidental).not.toHaveBeenCalled()
   })
@@ -749,54 +749,54 @@ describe('PaletteController — accidental stamp tool', () => {
     state.selectedNoteId = 'n1'
     state.selectedItems.set('note:n1', { kind: 'note', id: 'n1' })
     notes['n1'] = { id: 'n1' }
-    palette.setAccidental('#')
-    expect(setNoteAccidental).toHaveBeenCalledWith('n1', '#')
+    palette.setAccidental('sharp')
+    expect(setNoteAccidental).toHaveBeenCalledWith('n1', 'sharp')
     expect(armedTool(state, 'accidental')).toBeNull()
     expect(state.selectedTool).toBe('selection')
   })
 
   it('re-pressing the armed accidental disarms back to selection', () => {
     state.selectedTool = 'selection'
-    palette.setAccidental('b')
-    palette.setAccidental('b')
+    palette.setAccidental('flat')
+    palette.setAccidental('flat')
     expect(armedTool(state, 'accidental')).toBeNull()
     expect(state.selectedTool).toBe('selection')
   })
 
   it('pressing a different accidental swaps the armed one (no stacking)', () => {
     state.selectedTool = 'selection'
-    palette.setAccidental('#')
-    palette.setAccidental('n')
-    expect(armedTool(state, 'accidental')?.sign).toBe('n')
+    palette.setAccidental('sharp')
+    palette.setAccidental('natural')
+    expect(armedTool(state, 'accidental')?.sign).toBe('natural')
     expect(state.selectedTool).toBe('entry')
   })
 
   it('is mutually exclusive with the articulation stamp', () => {
     state.selectedTool = 'selection'
-    palette.setAccidental('#')
-    expect(armedTool(state, 'accidental')?.sign).toBe('#')
+    palette.setAccidental('sharp')
+    expect(armedTool(state, 'accidental')?.sign).toBe('sharp')
     palette.toggleAccent() // arming an articulation stamp switches tools
     expect(armedTool(state, 'accidental')).toBeNull()
     expect(armedTool(state, 'articulation')?.types).toEqual(['accent'])
 
-    palette.setAccidental('b') // and back
+    palette.setAccidental('flat') // and back
     expect(armedTool(state, 'articulation')).toBeNull()
-    expect(armedTool(state, 'accidental')?.sign).toBe('b')
+    expect(armedTool(state, 'accidental')?.sign).toBe('flat')
   })
 
   it('a duration press promotes the stamp into "accidental + duration" note entry', () => {
     state.selectedTool = 'selection'
-    palette.setAccidental('#')
+    palette.setAccidental('sharp')
     palette.setDuration('8')
     expect(armedTool(state, 'accidental')).toBeNull()
-    expect(state.selectedAccidental).toBe('#')
+    expect(state.selectedAccidental).toBe('sharp')
     expect(state.selectedDuration).toBe('8')
     expect(state.selectedTool).toBe('entry')
   })
 
   it('disarmPositionalTools clears the armed stamp', () => {
     state.selectedTool = 'selection'
-    palette.setAccidental('#')
+    palette.setAccidental('sharp')
     palette.disarmPositionalTools()
     expect(armedTool(state, 'accidental')).toBeNull()
   })
@@ -805,7 +805,7 @@ describe('PaletteController — accidental stamp tool', () => {
     // Simulate: entered a sharp note, then Esc'd to nothing selected — selectedAccidental lingers.
     state.selectedTool = 'selection'
     state.selectedNoteId = null
-    state.selectedAccidental = '#'
+    state.selectedAccidental = 'sharp'
     palette.setDuration('q')
     expect(state.selectedAccidental).toBeNull()
     expect(state.selectedTool).toBe('entry')
@@ -813,9 +813,9 @@ describe('PaletteController — accidental stamp tool', () => {
 
   it('still carries the accidental in the "sharp → duration" promote gesture', () => {
     state.selectedTool = 'selection'
-    palette.setAccidental('#') // arms the stamp, switches to entry mode
+    palette.setAccidental('sharp') // arms the stamp, switches to entry mode
     palette.setDuration('q')   // promotes into note entry (lands in the entry branch, not fresh)
-    expect(state.selectedAccidental).toBe('#')
+    expect(state.selectedAccidental).toBe('sharp')
     expect(state.selectedTool).toBe('entry')
   })
 })
@@ -1028,7 +1028,7 @@ describe('PaletteController — the rest stamp keeps the length keys live', () =
     // Armed accidental + articulations describe a NOTE. The Keypad darkens those keys under the rest
     // tool, but darkening only HID them: they stayed in the state and came back on the next note.
     state.selectedTool = 'selection'
-    state.selectedAccidental = '#'
+    state.selectedAccidental = 'sharp'
     state.accent = true
     state.staccato = true
     state.tenuto = true
@@ -1046,7 +1046,7 @@ describe('PaletteController — the rest stamp keeps the length keys live', () =
   it('keeps the LENGTH while clearing the extras — the duration is the one thing a rest has', () => {
     state.selectedTool = 'selection'
     palette.setDuration('h') // lights the key, so the length is inherited…
-    state.selectedAccidental = '#'
+    state.selectedAccidental = 'sharp'
     palette.pressRest()
     expect(state.selectedDuration).toBe('h') // …kept
     expect(state.selectedAccidental).toBeNull() // …while the sharp goes
@@ -1309,9 +1309,9 @@ describe('PaletteController — a selected REST arms for note entry, it does not
   it('does NOT arm the accidental stamp with a rest selected', () => {
     state.selectedTool = 'selection'
     select('note', 'rest1')
-    palette.setAccidental('#')
+    palette.setAccidental('sharp')
     expect(armedTool(state, 'accidental')).toBeNull()
-    expect(state.selectedAccidental).toBe('#')   // armed for the note the rest is about to become
+    expect(state.selectedAccidental).toBe('sharp')   // armed for the note the rest is about to become
     expect(state.selectedNoteId).toBe('rest1')   // …and the rest is still selected to become it
   })
 
@@ -1334,8 +1334,8 @@ describe('PaletteController — a selected REST arms for note entry, it does not
   it('toggles the armed accidental off on a re-press, rest still selected', () => {
     state.selectedTool = 'selection'
     select('note', 'rest1')
-    palette.setAccidental('#')
-    palette.setAccidental('#')
+    palette.setAccidental('sharp')
+    palette.setAccidental('sharp')
     expect(state.selectedAccidental).toBeNull()
     expect(armedTool(state, 'accidental')).toBeNull() // never becomes a stamp
   })
@@ -1343,8 +1343,8 @@ describe('PaletteController — a selected REST arms for note entry, it does not
   it('STILL arms the stamp when nothing is selected', () => {
     state.selectedTool = 'selection'
     select('note') // empty
-    palette.setAccidental('#')
-    expect(armedTool(state, 'accidental')?.sign).toBe('#')
+    palette.setAccidental('sharp')
+    expect(armedTool(state, 'accidental')?.sign).toBe('sharp')
   })
 
   it('STILL arms the stamp when a SLUR is selected — it is not a note or a rest', () => {
@@ -1352,8 +1352,8 @@ describe('PaletteController — a selected REST arms for note entry, it does not
     // clef, a measure box — a slur is just the one he named).
     state.selectedTool = 'selection'
     select('slur', 'slur1')
-    palette.setAccidental('#')
-    expect(armedTool(state, 'accidental')?.sign).toBe('#')
+    palette.setAccidental('sharp')
+    expect(armedTool(state, 'accidental')?.sign).toBe('sharp')
   })
 
   it('STILL arms the articulation stamp with a slur selected', () => {
@@ -1459,9 +1459,9 @@ describe('PaletteController — tie stamp tool', () => {
     palette.toggleTie()
     expect(armedTool(state, 'tie')).not.toBeNull()
 
-    palette.setAccidental('#') // arming an accidental stamp switches tools
+    palette.setAccidental('sharp') // arming an accidental stamp switches tools
     expect(armedTool(state, 'tie')).toBeNull()
-    expect(armedTool(state, 'accidental')?.sign).toBe('#')
+    expect(armedTool(state, 'accidental')?.sign).toBe('sharp')
 
     palette.toggleTie() // and back
     expect(armedTool(state, 'accidental')).toBeNull()
@@ -1553,7 +1553,7 @@ describe('PaletteController — arming a tool previews it immediately', () => {
 
   const arm: Array<[string, () => void]> = [
     ['duration', () => palette.setDuration('q')],
-    ['accidental stamp', () => palette.setAccidental('#')],
+    ['accidental stamp', () => palette.setAccidental('sharp')],
     ['articulation stamp', () => palette.toggleAccent()],
     ['tie stamp', () => palette.toggleTie()],
     ['dot stamp', () => palette.toggleDot()],
@@ -1567,10 +1567,10 @@ describe('PaletteController — arming a tool previews it immediately', () => {
   }
 
   it('swapping the armed accidental redraws the ghost with the NEW sign', () => {
-    palette.setAccidental('#') // arms the stamp
+    palette.setAccidental('sharp') // arms the stamp
     renderArmedGhost.mockClear()
-    palette.setAccidental('b') // ♯ → ♭ while armed: the ghost must change NOW, not on a mouse move
-    expect(armedTool(state, 'accidental')?.sign).toBe('b')
+    palette.setAccidental('flat') // ♯ → ♭ while armed: the ghost must change NOW, not on a mouse move
+    expect(armedTool(state, 'accidental')?.sign).toBe('flat')
     expect(renderArmedGhost).toHaveBeenCalledWith(POINTER)
   })
 
@@ -1585,9 +1585,9 @@ describe('PaletteController — arming a tool previews it immediately', () => {
   it('DISARMING draws no ghost — back in selection mode there is nothing to preview', () => {
     // The same branch handles swap and disarm, so previewing unconditionally would draw a ghost
     // NOTE over a selection-mode score (renderPreview does not check the mode itself).
-    palette.setAccidental('#')
+    palette.setAccidental('sharp')
     renderArmedGhost.mockClear()
-    palette.setAccidental('#') // re-press disarms
+    palette.setAccidental('sharp') // re-press disarms
     expect(armedTool(state, 'accidental')).toBeNull()
     expect(state.selectedTool).toBe('selection')
     expect(renderArmedGhost).not.toHaveBeenCalled()
@@ -1600,8 +1600,8 @@ describe('PaletteController — arming a tool previews it immediately', () => {
       () => null, // pointer unknown
       vi.fn(),
     )
-    p.setAccidental('#')
-    expect(armedTool(state, 'accidental')?.sign).toBe('#') // still armed…
+    p.setAccidental('sharp')
+    expect(armedTool(state, 'accidental')?.sign).toBe('sharp') // still armed…
     expect(renderArmedGhost).not.toHaveBeenCalled() // …but there is nowhere to draw it yet
   })
 })
@@ -1677,9 +1677,9 @@ describe('PaletteController — dot stamp tool', () => {
     palette.toggleDot()
     expect(armedTool(state, 'dot')).not.toBeNull()
 
-    palette.setAccidental('#')
+    palette.setAccidental('sharp')
     expect(armedTool(state, 'dot')).toBeNull()
-    expect(armedTool(state, 'accidental')?.sign).toBe('#')
+    expect(armedTool(state, 'accidental')?.sign).toBe('sharp')
 
     palette.toggleDot()
     expect(armedTool(state, 'accidental')).toBeNull()
@@ -1863,7 +1863,7 @@ describe('PaletteController — editing a selected accidental glyph', () => {
   })
 
   it('pressing the SAME accidental removes it (reverts to prevailing) and clears the selection', () => {
-    palette.setAccidental('#')
+    palette.setAccidental('sharp')
     expect(updateNote).toHaveBeenCalledWith('n1', { forceAccidental: undefined })
     expect(selectedOf(state, 'accidental')).toBeNull()
     // Switch-off leaves NOTHING selected (unlike the Del key, which keeps the note) — otherwise the
@@ -1879,15 +1879,15 @@ describe('PaletteController — editing a selected accidental glyph', () => {
   })
 
   it('pressing a DIFFERENT accidental changes it and keeps it selected', () => {
-    palette.setAccidental('b')
-    expect(setNoteAccidental).toHaveBeenCalledWith('n1', 'b')
+    palette.setAccidental('flat')
+    expect(setNoteAccidental).toHaveBeenCalledWith('n1', 'flat')
     expect(selectedOf(state, 'accidental')?.noteId).toBe('n1') // still selected
     expect(selectedOf(state, 'accidental')?.type).toBe('flat') // now the flat
     expect(updateNote).not.toHaveBeenCalled()
   })
 
   it('does not arm the stamp while an accidental is selected', () => {
-    palette.setAccidental('b')
+    palette.setAccidental('flat')
     expect(armedTool(state, 'accidental')).toBeNull()
     expect(state.selectedTool).toBe('selection')
   })
@@ -2036,18 +2036,18 @@ describe('PaletteController — an accidental under a tool that places a PITCH (
   })
 
   it('⭐ keeps the grace armed and arms the accidental for its next click', () => {
-    palette.setAccidental('#')
+    palette.setAccidental('sharp')
     expect(armedTool(state, 'grace')).toMatchObject({ form: 'appoggiatura', side: 'before' })
-    expect(state.selectedAccidental).toBe('#')
-    palette.setAccidental('#')
+    expect(state.selectedAccidental).toBe('sharp')
+    palette.setAccidental('sharp')
     expect(state.selectedAccidental, 'the same key again toggles it off').toBeNull()
     expect(armedTool(state, 'grace')).not.toBeNull()
   })
 
   it('⛔ under any other tool the press still SWAPS to the accidental stamp', () => {
     state.selectedMarkingTool = { kind: 'tie' }
-    palette.setAccidental('#')
-    expect(armedTool(state, 'accidental')?.sign).toBe('#')
+    palette.setAccidental('sharp')
+    expect(armedTool(state, 'accidental')?.sign).toBe('sharp')
   })
 
   it('⭐ an ARTICULATION press keeps the grace armed and arms the mark for its next click', () => {
@@ -2058,7 +2058,7 @@ describe('PaletteController — an accidental under a tool that places a PITCH (
   })
 
   it('disarming the grace takes its accidental with it', () => {
-    palette.setAccidental('b')
+    palette.setAccidental('flat')
     pressGraceTool(palette.spanToolHost(), 'appoggiatura', 'before')
     expect(armedTool(state, 'grace')).toBeNull()
     expect(state.selectedAccidental).toBeNull()

@@ -47,7 +47,7 @@ export function stampGraceAtClick(
   const alteration = entryAlteration(
     engine.getScore(), { measure: position.measure, beat: hostBeat, staff: position.staff }, step, octave, state.selectedAccidental,
   )
-  const spelling = { step, octave, alteration, ...(state.selectedAccidental === 'n' && { forceAccidental: true }) }
+  const spelling = { step, octave, alteration, ...(state.selectedAccidental === 'natural' && { forceAccidental: true }) }
   const written = { duration: state.selectedDuration, ...(state.selectedDots && { dots: state.selectedDots }) }
   // ⭐ In a grace's COLUMN: a grace CHORD — note entry's chord rule, the same pitch refused.
   if (target.chordWith) {

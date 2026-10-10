@@ -57,10 +57,10 @@ describe('pressEnclosure', () => {
 
   it('⭐ NOTE ENTRY → the next notes are born in brackets (and a re-press ends it); nothing else changes', () => {
     state.selectedTool = 'entry'
-    state.selectedAccidental = '#'
+    state.selectedAccidental = 'sharp'
     pressEnclosure(host)
     expect(state.selectedEnclosure).toBe('round')
-    expect(state.selectedAccidental).toBe('#') // "with parenthesis and other things armed"
+    expect(state.selectedAccidental).toBe('sharp') // "with parenthesis and other things armed"
     expect(state.selectedMarkingTool).toBeNull()
     expect(enclosureLit(state, engine)).toBe(true)
     pressEnclosure(host)
